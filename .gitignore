@@ -1,0 +1,26 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries, profiling data, test output
+*.test
+*.out
+cover.out
+
+# Dependency directories
+vendor/
+
+# xcaffold CLI outputs
+xcaffold
+.claude/
+scaffold.xcf
+scaffold.lock
+
+# IDE / OS specific ignoring
+.idea/
+.vscode/
+*.swp
+.DS_Store

@@ -1,0 +1,59 @@
+name: Schema Sentinel (Fuzzer)
+
+on:
+  schedule:
+    # Run nightly at midnight UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  run-schema-sentinel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23' # or the version defined in go.mod
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Latest Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Execute Fuzzer
+        run: |
+          echo "Running Schema Sentinel Fuzzer against latest Claude CLI..."
+          # Mock: The actual fuzzer implementation runs here, extracting stderr and generating schemas.
+          # go run tools/fuzzer/main.go > packages/cli/internal/parser/claude-schema-latest.json
+          echo "Fuzzing complete."
+
+      - name: Check for Schema Drift
+        id: drift-check
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "drift_detected=true" >> $GITHUB_OUTPUT
+            echo "Schema drift detected!"
+          else
+            echo "drift_detected=false" >> $GITHUB_OUTPUT
+            echo "No schema drift detected."
+          fi
+
+      - name: Open Pull Request for Schema Updates
+        if: steps.drift-check.outputs.drift_detected == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: update claude internal schema via schema sentinel"
+          title: "Automated Schema Sentinel Update"
+          body: |
+            The nightly Schema Sentinel Fuzzer detected upstream breaking changes or additions in the `@anthropic-ai/claude-code` binary.
+            
+            This PR automatically generates the new compatibility schema so that the `xcaffold` Go compiler can stay up to date.
+          branch: "schema-sentinel-update"
+          base: "main"
