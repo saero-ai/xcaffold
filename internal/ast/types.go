@@ -9,6 +9,7 @@ type XcaffoldConfig struct {
 	Rules   map[string]RuleConfig  `yaml:"rules,omitempty"`
 	Hooks   map[string]HookConfig  `yaml:"hooks,omitempty"`
 	MCP     map[string]MCPConfig   `yaml:"mcp,omitempty"`
+	Test    TestConfig             `yaml:"test,omitempty"`
 }
 
 // ProjectConfig holds project-level metadata.
@@ -30,6 +31,10 @@ type AgentConfig struct {
 	Mode         string   `yaml:"mode,omitempty"`
 	When         string   `yaml:"when,omitempty"`
 	MCP          []string `yaml:"mcp,omitempty"`
+
+	// Assertions are statements the LLM-as-a-Judge evaluates against the
+	// execution trace when running `xcaffold test --judge`.
+	Assertions []string `yaml:"assertions,omitempty"`
 
 	// Experimental: target-specific configuration overrides.
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
@@ -67,4 +72,15 @@ type MCPConfig struct {
 	Command string            `yaml:"command,omitempty"`
 	Args    []string          `yaml:"args,omitempty"`
 	Env     map[string]string `yaml:"env,omitempty"`
+}
+
+// TestConfig holds project-level configuration for `xcaffold test`.
+// All fields are optional and have sensible defaults.
+type TestConfig struct {
+	// ClaudePath is the path to the claude binary. Defaults to "claude" on $PATH.
+	ClaudePath string `yaml:"claude_path,omitempty"`
+
+	// JudgeModel is the Anthropic model used for LLM-as-a-Judge evaluation
+	// when running `xcaffold test --judge`. Defaults to claude-3-5-haiku-20241022.
+	JudgeModel string `yaml:"judge_model,omitempty"`
 }

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Draft capabilities to the `.xcf` YAML AST, including the `targets` block overrides for GitHub Copilot.
+- `xcaffold test` command — a transport-layer HTTP intercept proxy that simulates a Claude agent run without executing tool calls on the host OS.
+- `internal/proxy` package — loopback-only HTTP reverse proxy with Anthropic host validation and deterministic mock tool responses.
+- `internal/trace` package — JSONL execution trace recorder with per-tool call summaries.
+- `internal/judge` package — LLM-as-a-Judge evaluator using a configurable Anthropic model to grade trace results against user-defined `assertions`.
+- `assertions` field on `agents` in `scaffold.xcf` — declare behavioral constraints evaluated during `xcaffold test --judge`.
+- `test` block in `scaffold.xcf` — configure `claude_path` and `judge_model` at the project level.
 - Integration stub for `xcaffold test` (Local Intercept Proxy).
 - Static AST token analyzer pending native WASM bridging for the `@anthropic-ai/tokenizer` module.
 
