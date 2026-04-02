@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -195,7 +196,57 @@ func TestIntegration_JudgeMockAPIServer(t *testing.T) {
 	assert.Contains(t, report.PassedAssertions, "Only used Bash")
 }
 
-// rewriteTransport redirects all requests to the test server.
+// TestIntegration_JudgeSubscriptionFallback verifies that when ANTHROPIC_API_KEY
+// is not set, the judge switches to AuthModeSubscription and attempts to call
+// the claude CLI. This test requires the claude binary to be on $PATH.
+// It is skipped if claude is not available on $PATH.
+func TestIntegration_JudgeSubscriptionFallback(t *testing.T) {
+	// Ensure no API key is present for this test.
+	t.Setenv("ANTHROPIC_API_KEY", "")
+
+	// Verify claude is installed — skip if not available.
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		t.Skip("skipping: 'claude' binary not found on $PATH")
+	}
+	t.Logf("Found claude at: %s", claudePath)
+
+	// Verify the judge selects subscription mode with no key.
+	j := judge.New("", "", claudePath, nil)
+	assert.Equal(t, judge.AuthModeSubscription, j.AuthMode())
+	t.Log("✓ Auth mode correctly set to: subscription")
+
+	summary := trace.Summary{
+		TotalCalls:  1,
+		CallsByTool: map[string]int{"Bash": 1},
+		Events: []trace.ToolCallEvent{
+			{Timestamp: time.Now(), ToolName: "Bash", MockResponse: "[SIMULATED SUCCESS]"},
+		},
+	}
+
+	assertions := []string{
+		"The agent only used the Bash tool.",
+	}
+
+	report, err := j.Evaluate(summary, assertions)
+	if err != nil {
+		// A rate-limit or quota error from the subscription is expected —
+		// the important thing is that the CLI path was attempted, not the API.
+		t.Logf("Claude CLI returned error (expected if subscription is at limit): %v", err)
+		assert.NotContains(t, err.Error(), "api.anthropic.com",
+			"error must come from the CLI path, not the direct API")
+		return
+	}
+
+	// If claude responded successfully, validate the report.
+	t.Logf("Judge Report (via subscription):")
+	t.Logf("  Auth Mode:        %s", report.AuthMode)
+	t.Logf("  Confidence Score: %.0f%%", report.ConfidenceScore*100)
+	t.Logf("  Reasoning:        %s", report.Reasoning)
+
+	assert.Equal(t, judge.AuthModeSubscription, report.AuthMode)
+}
+
 type rewriteTransport struct {
 	target string
 }

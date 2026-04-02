@@ -75,6 +75,11 @@ func New(apiKey, model, claudePath string, httpClient *http.Client) *Judge {
 	}
 }
 
+// AuthMode returns the authentication mode this judge will use.
+func (j *Judge) AuthMode() AuthMode {
+	return j.authMode
+}
+
 // Evaluate runs the LLM-as-a-Judge against a trace summary and assertions.
 // It automatically uses direct API or the subscription CLI based on auth mode.
 // It returns an error if the evaluation fails; it never panics.
