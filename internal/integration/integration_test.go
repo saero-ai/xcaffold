@@ -152,14 +152,13 @@ func TestIntegration_JudgeWithAPIKey(t *testing.T) {
 
 	t.Logf("Judge Report:")
 	t.Logf("  Auth Mode:        %s", report.AuthMode)
-	t.Logf("  Confidence Score: %.0f%%", report.ConfidenceScore*100)
+	t.Logf("  Verdict:          %s", report.Verdict)
 	t.Logf("  Reasoning:        %s", report.Reasoning)
 	t.Logf("  Passed:           %v", report.PassedAssertions)
 	t.Logf("  Failed:           %v", report.FailedAssertions)
 
 	assert.Equal(t, judge.AuthModeAPIKey, report.AuthMode)
-	assert.GreaterOrEqual(t, report.ConfidenceScore, 0.0)
-	assert.LessOrEqual(t, report.ConfidenceScore, 1.0)
+	assert.NotEmpty(t, report.Verdict)
 	assert.NotEmpty(t, report.Reasoning)
 }
 
@@ -168,7 +167,7 @@ func TestIntegration_JudgeWithAPIKey(t *testing.T) {
 func TestIntegration_JudgeMockAPIServer(t *testing.T) {
 	mockResp := map[string]any{
 		"content": []map[string]any{
-			{"type": "text", "text": `{"confidence_score": 0.95, "passed_assertions": ["Only used Bash"], "failed_assertions": [], "reasoning": "Trace confirms only Bash was used."}`},
+			{"type": "text", "text": "### Check: Only used Bash\n**Result:** PASS\n```json\n{\"verdict\": \"PASS\", \"passed_assertions\": [\"Only used Bash\"], \"failed_assertions\": []}\n```"},
 		},
 	}
 	respBytes, _ := json.Marshal(mockResp)
@@ -191,7 +190,7 @@ func TestIntegration_JudgeMockAPIServer(t *testing.T) {
 
 	report, err := j.Evaluate(summary, []string{"Only used Bash"})
 	require.NoError(t, err)
-	assert.InDelta(t, 0.95, report.ConfidenceScore, 0.001)
+	assert.Equal(t, "PASS", report.Verdict)
 	assert.Equal(t, judge.AuthModeAPIKey, report.AuthMode)
 	assert.Contains(t, report.PassedAssertions, "Only used Bash")
 }
@@ -241,7 +240,7 @@ func TestIntegration_JudgeSubscriptionFallback(t *testing.T) {
 	// If claude responded successfully, validate the report.
 	t.Logf("Judge Report (via subscription):")
 	t.Logf("  Auth Mode:        %s", report.AuthMode)
-	t.Logf("  Confidence Score: %.0f%%", report.ConfidenceScore*100)
+	t.Logf("  Verdict:          %s", report.Verdict)
 	t.Logf("  Reasoning:        %s", report.Reasoning)
 
 	assert.Equal(t, judge.AuthModeSubscription, report.AuthMode)

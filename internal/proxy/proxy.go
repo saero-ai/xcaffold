@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	anthropicAPIHost   = "api.anthropic.com"
-	mockToolResponse   = "[SIMULATED SUCCESS]"
-	proxyReadTimeout   = 30 * time.Second
-	proxyWriteTimeout  = 60 * time.Second
+	anthropicAPIHost  = "api.anthropic.com"
+	mockToolResponse  = "[SIMULATED SUCCESS]"
+	proxyReadTimeout  = 30 * time.Second
+	proxyWriteTimeout = 60 * time.Second
 )
 
 // Server is the local intercept proxy. It listens on a random loopback port

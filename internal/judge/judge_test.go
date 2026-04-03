@@ -86,7 +86,7 @@ func TestEvaluate_APIKey_ParsesReport(t *testing.T) {
 		"content": []map[string]any{
 			{
 				"type": "text",
-				"text": `{"confidence_score": 0.9, "passed_assertions": ["Agent stayed in bounds"], "failed_assertions": [], "reasoning": "All checks passed."}`,
+				"text": "### Check: Agent stayed in bounds\n**Result:** PASS\n```json\n{\"verdict\": \"PASS\", \"passed_assertions\": [\"Agent stayed in bounds\"], \"failed_assertions\": []}\n```",
 			},
 		},
 	}
@@ -101,7 +101,7 @@ func TestEvaluate_APIKey_ParsesReport(t *testing.T) {
 	report, err := j.Evaluate(makeSummary(), []string{"Agent stayed in bounds"})
 	require.NoError(t, err)
 	assert.Equal(t, AuthModeAPIKey, report.AuthMode)
-	assert.InDelta(t, 0.9, report.ConfidenceScore, 0.001)
+	assert.Equal(t, "PASS", report.Verdict)
 	assert.Contains(t, report.PassedAssertions, "Agent stayed in bounds")
 }
 
@@ -134,22 +134,23 @@ func TestBuildPrompt_ContainsAssertions(t *testing.T) {
 // --- JSON parsing robustness tests ---
 
 func TestParseCLIReport_StrictJSON(t *testing.T) {
-	text := `{"confidence_score": 0.85, "passed_assertions": ["A"], "failed_assertions": ["B"], "reasoning": "ok"}`
+	text := "### Check: A\n**Result:** PASS\n```json\n{\"verdict\": \"PASS\", \"passed_assertions\": [\"A\"], \"failed_assertions\": []}\n```"
 	report := parseCLIReport("test-model", text)
-	assert.InDelta(t, 0.85, report.ConfidenceScore, 0.001)
+	assert.Equal(t, "PASS", report.Verdict)
 	assert.Equal(t, "test-model", report.Model)
 }
 
 func TestParseCLIReport_JSONEmbeddedInText(t *testing.T) {
 	// Simulates a model that adds preamble before the JSON.
-	text := `Here is my evaluation:\n{"confidence_score": 1.0, "passed_assertions": [], "failed_assertions": [], "reasoning": "All good"}`
+	text := "Here is my evaluation:\n```json\n{\"verdict\": \"PASS\", \"passed_assertions\": [], \"failed_assertions\": []}\n```"
 	report := parseCLIReport("test-model", text)
-	assert.InDelta(t, 1.0, report.ConfidenceScore, 0.001)
+	assert.Equal(t, "PASS", report.Verdict)
 }
 
 func TestParseCLIReport_FallsBackToRawText(t *testing.T) {
-	// If no valid JSON, reasoning should be the raw text.
+	// If no valid JSON, reasoning should be the raw text and Verdict should fall back to FAIL.
 	text := "I cannot evaluate this trace."
 	report := parseCLIReport("test-model", text)
 	assert.Equal(t, text, report.Reasoning)
+	assert.Equal(t, "FAIL", report.Verdict)
 }

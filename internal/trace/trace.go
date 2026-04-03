@@ -62,8 +62,8 @@ func (r *Recorder) Summary() Summary {
 
 // Summary is a structured summary of a completed simulation run.
 type Summary struct {
-	TotalCalls  int            `json:"total_calls"`
-	CallsByTool map[string]int `json:"calls_by_tool"`
+	TotalCalls  int             `json:"total_calls"`
+	CallsByTool map[string]int  `json:"calls_by_tool"`
 	Events      []ToolCallEvent `json:"events"`
 }
 
