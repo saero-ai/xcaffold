@@ -61,14 +61,7 @@ func init() {
 
 func runTest(cmd *cobra.Command, args []string) error {
 	// 1. Load and validate the project config.
-	xcfPath := filepath.Clean("scaffold.xcf")
-	f, err := os.Open(xcfPath)
-	if err != nil {
-		return fmt.Errorf("could not open %s: %w", xcfPath, err)
-	}
-	defer f.Close()
-
-	config, err := parser.Parse(f)
+	config, err := parser.ParseFile(xcfPath)
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
 	}

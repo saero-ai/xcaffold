@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/compiler"
@@ -48,6 +49,13 @@ func Generate(out *compiler.Output) *LockManifest {
 			Hash: fmt.Sprintf("sha256:%x", hash),
 		})
 	}
+
+	// Sort artifacts by path to ensure deterministic lock file output.
+	// Go map iteration order is non-deterministic, so without sorting,
+	// identical configs produce scaffold.lock files that differ on each run.
+	sort.Slice(manifest.Artifacts, func(i, j int) bool {
+		return manifest.Artifacts[i].Path < manifest.Artifacts[j].Path
+	})
 
 	return manifest
 }

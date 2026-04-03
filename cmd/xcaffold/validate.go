@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/spf13/cobra"
@@ -32,15 +30,7 @@ func init() {
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	xcfPath := filepath.Clean("scaffold.xcf")
-
-	f, err := os.Open(xcfPath)
-	if err != nil {
-		return fmt.Errorf("could not open %s: %w", xcfPath, err)
-	}
-	defer f.Close()
-
-	if _, err := parser.Parse(f); err != nil {
+	if _, err := parser.ParseFile(xcfPath); err != nil {
 		return fmt.Errorf("validation failed: %w", err)
 	}
 

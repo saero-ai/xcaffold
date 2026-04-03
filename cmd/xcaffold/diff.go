@@ -33,8 +33,6 @@ func init() {
 }
 
 func runDiff(cmd *cobra.Command, args []string) error {
-	lockPath := filepath.Clean("scaffold.lock")
-
 	manifest, err := state.Read(lockPath)
 	if err != nil {
 		return fmt.Errorf("could not read scaffold.lock: %w\n\nHint: run 'xcaffold apply' first", err)
@@ -42,7 +40,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 
 	driftCount := 0
 	for _, artifact := range manifest.Artifacts {
-		absPath := filepath.Clean(filepath.Join(".claude", artifact.Path))
+		absPath := filepath.Clean(filepath.Join(claudeDir, artifact.Path))
 
 		data, err := os.ReadFile(absPath)
 		if err != nil {
