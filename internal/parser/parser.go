@@ -33,9 +33,19 @@ func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
 
 // validate performs semantic validation on a parsed config.
 func validate(c *ast.XcaffoldConfig) error {
+	if c.Version == "" {
+		return fmt.Errorf("version is required (e.g. \"1.0\")")
+	}
+
 	name := strings.TrimSpace(c.Project.Name)
 	if name == "" {
 		return fmt.Errorf("project.name is required and must not be empty")
+	}
+
+	for id := range c.Agents {
+		if strings.ContainsAny(id, "/\\") || strings.Contains(id, "..") {
+			return fmt.Errorf("agent id contains invalid characters: %q", id)
+		}
 	}
 	return nil
 }

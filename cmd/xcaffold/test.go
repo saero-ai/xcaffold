@@ -179,7 +179,7 @@ func runJudge(summary trace.Summary, assertions []string, configModel, claudePat
 	}
 	fmt.Fprintf(&out, "──────────────────────────────────────────────────────\n")
 
-	io.Copy(os.Stdout, &out)
+	_, _ = io.Copy(os.Stdout, &out)
 	return nil
 }
 

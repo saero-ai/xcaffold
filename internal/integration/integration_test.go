@@ -175,7 +175,7 @@ func TestIntegration_JudgeMockAPIServer(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(respBytes)
+		_, _ = w.Write(respBytes)
 	}))
 	defer ts.Close()
 

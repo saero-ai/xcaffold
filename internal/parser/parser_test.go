@@ -62,3 +62,27 @@ func TestParse_EmptyReader(t *testing.T) {
 	_, err := Parse(strings.NewReader(""))
 	require.Error(t, err)
 }
+
+func TestParse_MissingVersion_Rejected(t *testing.T) {
+	missingVersionXCF := `
+project:
+  name: "test-project"
+`
+	_, err := Parse(strings.NewReader(missingVersionXCF))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "version is required")
+}
+
+func TestParse_PathTraversalAgentID_Rejected(t *testing.T) {
+	maliciousXCF := `
+version: "1.0"
+project:
+  name: "test-project"
+agents:
+  "../evil":
+    description: "Path traversal attempt"
+`
+	_, err := Parse(strings.NewReader(maliciousXCF))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "agent id contains invalid characters")
+}
