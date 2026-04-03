@@ -14,8 +14,8 @@ cover.out
 vendor/
 
 # xcaffold CLI outputs
-xcaffold
-.claude/
+/xcaffold
+/.claude/
 scaffold.xcf
 scaffold.lock
 
