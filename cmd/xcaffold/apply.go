@@ -48,7 +48,10 @@ func runApply(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("parse error: %w", err)
 	}
 
-	out, err := compiler.Compile(config)
+	// baseDir is the directory containing scaffold.xcf — used by the compiler
+	// to resolve instructions_file: and references: paths.
+	baseDir := filepath.Dir(xcfPath)
+	out, err := compiler.Compile(config, baseDir)
 	if err != nil {
 		return fmt.Errorf("compilation error: %w", err)
 	}
@@ -97,6 +100,9 @@ func runApply(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+			return fmt.Errorf("failed to create directory for %q: %w", absPath, err)
+		}
 		if err := os.WriteFile(absPath, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write %q: %w", absPath, err)
 		}

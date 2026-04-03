@@ -22,7 +22,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config)
+	out, err := Compile(config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -45,7 +45,7 @@ func TestCompile_MultipleAgents(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config)
+	out, err := Compile(config, "")
 	require.NoError(t, err)
 	assert.Len(t, out.Files, 2)
 	assert.Contains(t, out.Files, "agents/frontend.md")
@@ -64,7 +64,7 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config)
+	out, err := Compile(config, "")
 	require.NoError(t, err)
 	assert.Contains(t, out.Files["agents/readonly.md"], "tools_blocked: [Bash, Write]")
 }
@@ -73,7 +73,7 @@ func TestCompile_EmptyAgents(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: ast.ProjectConfig{Name: "empty-project"},
 	}
-	out, err := Compile(config)
+	out, err := Compile(config, "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
@@ -108,15 +108,15 @@ func TestCompile_FullSchema(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config)
+	out, err := Compile(config, "")
 	require.NoError(t, err)
 
 	// Agents
 	assert.Contains(t, out.Files, "agents/dev.md")
 
-	// Skills
-	skillContent, ok := out.Files["skills/git.md"]
-	require.True(t, ok, "expected skills/git.md to be compiled")
+	// Skills — now compiled as skills/<id>/SKILL.md directories (Bug 10)
+	skillContent, ok := out.Files["skills/git/SKILL.md"]
+	require.True(t, ok, "expected skills/git/SKILL.md to be compiled")
 	assert.Contains(t, skillContent, "description: Git workflows")
 	assert.Contains(t, skillContent, "Always use rebase.")
 
@@ -149,7 +149,7 @@ func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 			"../evil": {Description: "Malicious agent."},
 		},
 	}
-	out, err := Compile(config)
+	out, err := Compile(config, "")
 	require.NoError(t, err)
 	for path := range out.Files {
 		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")

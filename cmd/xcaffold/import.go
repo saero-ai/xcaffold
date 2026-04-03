@@ -22,10 +22,12 @@ existing projects.
 ┌───────────────────────────────────────────────────────────────────┐
 │                          IMPORT PHASE                             │
 └───────────────────────────────────────────────────────────────────┘
- • Scans .claude/agents/*.md into agent configurations
- • Scans .claude/skills/*.md into skill configurations
- • Reads .claude/settings.json context rules
- • Produces a new scaffold.xcf
+ • Scans .claude/agents/*.md   → extracts to agents/<id>.md
+ • Scans .claude/skills/*/SKILL.md → extracts to skills/<id>/SKILL.md
+ • Scans .claude/rules/*.md    → extracts to rules/<id>.md
+ • Reads .claude/settings.json for MCP and settings context
+ • Generates a scaffold.xcf with instructions_file: references
+   (no content is inlined — full fidelity is preserved)
 
 Usage:
   $ xcaffold import`,
@@ -38,10 +40,9 @@ func init() {
 }
 
 func runImport(cmd *cobra.Command, args []string) error {
-	// If a scaffold.xcf already exists, we should abort unless forced.
-	// For simplicity in this implementation, we just warn and abort.
+	// If a scaffold.xcf already exists, abort unless forced.
 	if _, err := os.Stat("scaffold.xcf"); err == nil {
-		return fmt.Errorf("scaffold.xcf already exists. Remove it first to import.")
+		return fmt.Errorf("scaffold.xcf already exists. Remove it first to import")
 	}
 
 	config := &ast.XcaffoldConfig{
@@ -57,104 +58,224 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	importCount := 0
+	var warnings []string
 
-	// 1. Import agents
+	// 1. Import agents — extract content to agents/<id>.md, reference via instructions_file
 	agentFiles, _ := filepath.Glob(filepath.Join(".claude", "agents", "*.md"))
 	for _, f := range agentFiles {
 		data, err := os.ReadFile(f)
 		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("skipping agent %s: %v", f, err))
 			continue
 		}
 		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		agent := ast.AgentConfig{
-			Instructions: strings.TrimSpace(string(data)),
-			Description:  "Imported agent",
+		if id == "" {
+			continue
 		}
-		config.Agents[id] = agent
+
+		// Write instruction content to agents/<id>.md (outside .claude/)
+		destPath := filepath.Join("agents", id+".md")
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("failed to create agents/ directory: %w", err)
+		}
+		if err := os.WriteFile(destPath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", destPath, err)
+		}
+
+		config.Agents[id] = ast.AgentConfig{
+			Description:      "Imported agent",
+			InstructionsFile: destPath,
+		}
 		importCount++
 	}
 
-	// 2. Import skills
-	skillFiles, _ := filepath.Glob(filepath.Join(".claude", "skills", "*.md"))
+	// 2. Import skills — Claude Code uses skills/<id>/SKILL.md directory structure
+	skillFiles, _ := filepath.Glob(filepath.Join(".claude", "skills", "*", "SKILL.md"))
 	for _, f := range skillFiles {
 		data, err := os.ReadFile(f)
 		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("skipping skill %s: %v", f, err))
 			continue
 		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		skill := ast.SkillConfig{
-			Instructions: strings.TrimSpace(string(data)),
-			Description:  "Imported skill",
+		// The skill ID is the name of the parent directory.
+		id := filepath.Base(filepath.Dir(f))
+		if id == "" || id == "." {
+			continue
 		}
-		config.Skills[id] = skill
+
+		// Write to skills/<id>/SKILL.md (outside .claude/)
+		destPath := filepath.Join("skills", id, "SKILL.md")
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("failed to create skills/%s/ directory: %w", id, err)
+		}
+		if err := os.WriteFile(destPath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", destPath, err)
+		}
+
+		// Copy reference files if a references/ subdirectory exists.
+		refSrc := filepath.Join(filepath.Dir(f), "references")
+		var refs []string
+		if refEntries, err := os.ReadDir(refSrc); err == nil {
+			for _, entry := range refEntries {
+				if entry.IsDir() {
+					continue
+				}
+				srcRef := filepath.Join(refSrc, entry.Name())
+				dstRef := filepath.Join("skills", id, "references", entry.Name())
+				if err := os.MkdirAll(filepath.Dir(dstRef), 0755); err != nil {
+					return fmt.Errorf("failed to create references dir: %w", err)
+				}
+				refData, err := os.ReadFile(srcRef)
+				if err != nil {
+					warnings = append(warnings, fmt.Sprintf("skipping reference %s: %v", srcRef, err))
+					continue
+				}
+				if err := os.WriteFile(dstRef, refData, 0644); err != nil {
+					return fmt.Errorf("failed to write reference %s: %w", dstRef, err)
+				}
+				refs = append(refs, dstRef)
+			}
+		}
+
+		config.Skills[id] = ast.SkillConfig{
+			Description:      "Imported skill",
+			InstructionsFile: destPath,
+			References:       refs,
+		}
 		importCount++
 	}
 
-	// 3. Attempt to read settings.json for rules/mcp
+	// 3. Import rules — extract to rules/<id>.md
+	ruleFiles, _ := filepath.Glob(filepath.Join(".claude", "rules", "*.md"))
+	for _, f := range ruleFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			warnings = append(warnings, fmt.Sprintf("skipping rule %s: %v", f, err))
+			continue
+		}
+		id := strings.TrimSuffix(filepath.Base(f), ".md")
+		if id == "" {
+			continue
+		}
+
+		destPath := filepath.Join("rules", id+".md")
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("failed to create rules/ directory: %w", err)
+		}
+		if err := os.WriteFile(destPath, data, 0644); err != nil {
+			return fmt.Errorf("failed to write %s: %w", destPath, err)
+		}
+
+		config.Rules[id] = ast.RuleConfig{
+			Description:      "Imported rule",
+			InstructionsFile: destPath,
+		}
+		importCount++
+	}
+
+	// 4. Parse settings.json for MCP servers and settings.
 	settingsPath := filepath.Join(".claude", "settings.json")
 	if data, err := os.ReadFile(settingsPath); err == nil {
-		var settings map[string]interface{}
-		if err := json.Unmarshal(data, &settings); err == nil {
-			// Extract custom prompt rules if they exist
-			if customRules, ok := settings["customRules"].([]interface{}); ok {
-				for i, r := range customRules {
-					ruleMap, ok := r.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					ruleID := fmt.Sprintf("imported-rule-%d", i+1)
-					rc := ast.RuleConfig{}
-					if instr, ok := ruleMap["rules"].(string); ok {
-						rc.Instructions = instr
-					}
-					if paths, ok := ruleMap["paths"].([]interface{}); ok {
-						for _, p := range paths {
-							if pathStr, ok := p.(string); ok {
-								rc.Paths = append(rc.Paths, pathStr)
-							}
-						}
-					}
-					config.Rules[ruleID] = rc
-					importCount++
-				}
-			}
-			// Extract MCP servers
-			if mcpServers, ok := settings["mcpServers"].(map[string]interface{}); ok {
-				for id, serverRaw := range mcpServers {
-					serverMap, ok := serverRaw.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					mc := ast.MCPConfig{}
-					if cmdStr, ok := serverMap["command"].(string); ok {
-						mc.Command = cmdStr
-					}
-					if argsRaw, ok := serverMap["args"].([]interface{}); ok {
-						for _, a := range argsRaw {
-							if argStr, ok := a.(string); ok {
-								mc.Args = append(mc.Args, argStr)
-							}
-						}
-					}
-					config.MCP[id] = mc
-					importCount++
-				}
-			}
+		if err := importSettings(data, config, &importCount, &warnings); err != nil {
+			warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
 		}
 	}
 
-	// Generate the YAML
+	// Generate scaffolding comment header + YAML
+	header := `# scaffold.xcf — generated by 'xcaffold import'
+# Edit this file and run 'xcaffold apply' to manage your agent team.
+# Each instructions_file: reference points to an external markdown file.
+# Tip: run 'xcaffold graph' to visualize your agent topology.
+
+`
 	out, err := yaml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("failed to encode scaffold.xcf: %w", err)
 	}
 
-	if err := os.WriteFile("scaffold.xcf", out, 0644); err != nil {
+	if err := os.WriteFile("scaffold.xcf", append([]byte(header), out...), 0644); err != nil {
 		return fmt.Errorf("failed to write scaffold.xcf: %w", err)
 	}
 
-	fmt.Printf("✓ Import complete. Created scaffold.xcf with %d imported resources.\n", importCount)
+	fmt.Printf("✓ Import complete. Created scaffold.xcf with %d resources.\n", importCount)
+	fmt.Println("  Instructions extracted to external files — full content preserved.")
 	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
+	if len(warnings) > 0 {
+		fmt.Println("\nWarnings:")
+		for _, w := range warnings {
+			fmt.Println(" ⚠", w)
+		}
+	}
+	return nil
+}
+
+// importSettings parses settings.json and populates MCP, rules, and settings.
+func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	// MCP servers
+	if mcpRaw, ok := raw["mcpServers"].(map[string]interface{}); ok {
+		for id, serverRaw := range mcpRaw {
+			serverMap, ok := serverRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			mc := ast.MCPConfig{}
+			if cmdStr, ok := serverMap["command"].(string); ok {
+				mc.Command = cmdStr
+			}
+			if argsRaw, ok := serverMap["args"].([]interface{}); ok {
+				for _, a := range argsRaw {
+					if argStr, ok := a.(string); ok {
+						mc.Args = append(mc.Args, argStr)
+					}
+				}
+			}
+			config.MCP[id] = mc
+			*count++
+		}
+	}
+
+	// Settings block — statusLine (object), enabledPlugins (map), effortLevel
+	settings := ast.SettingsConfig{}
+	changed := false
+
+	if slRaw, ok := raw["statusLine"].(map[string]interface{}); ok {
+		settings.StatusLine = &ast.StatusLineConfig{}
+		if t, ok := slRaw["type"].(string); ok {
+			settings.StatusLine.Type = t
+		}
+		if c, ok := slRaw["command"].(string); ok {
+			settings.StatusLine.Command = c
+		}
+		changed = true
+	}
+
+	if epRaw, ok := raw["enabledPlugins"].(map[string]interface{}); ok {
+		settings.EnabledPlugins = make(map[string]bool)
+		for k, v := range epRaw {
+			if b, ok := v.(bool); ok {
+				settings.EnabledPlugins[k] = b
+			}
+		}
+		changed = true
+	}
+
+	if el, ok := raw["effortLevel"].(string); ok {
+		settings.EffortLevel = el
+		changed = true
+	}
+	if atk, ok := raw["alwaysThinkingEnabled"].(bool); ok && atk {
+		settings.AlwaysThinkingEnabled = atk
+		changed = true
+	}
+
+	if changed {
+		config.Settings = settings
+	}
 
 	return nil
 }

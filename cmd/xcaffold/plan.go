@@ -64,6 +64,10 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Println("✓ Plan completed. No bloat detected.")
 	}
+	fmt.Println()
+	fmt.Println("  Note: estimates cover inline instructions/description only.")
+	fmt.Println("  Referenced skills and rules are loaded at runtime and may")
+	fmt.Println("  increase actual context window usage by 10-100×.")
 
 	// Write plan.json to disk as documented.
 	planData := map[string]any{

@@ -17,16 +17,68 @@ graph LR
   end
 
   subgraph Outputs
-    E[.claude/*.md]
-    F[scaffold.lock]
+    E[".claude/agents/*.md"]
+    F["scaffold.lock"]
+    G[".claude/skills/*/SKILL.md"]
+    H[".claude/rules/*.md"]
+    I[".claude/settings.json"]
+    J[".claude/hooks.json"]
   end
 
   A --> B
   B --> C
   C --> E
+  C --> G
+  C --> H
+  C --> I
+  C --> J
   C -->|Tracks SHA-256| D
   D --> F
 ```
+
+## AST Object Model
+
+All `.xcf` configurations parse into this AST. The canonical types live in `internal/ast/types.go`.
+
+```mermaid
+graph TD
+    ROOT["📋 XcaffoldConfig\n(version, extends)"]
+    ROOT --> PROJ["🟢 Project\n(name, description)"]
+    ROOT --> AGENTS["🤖 Agents\n(name, description, model, effort,\nmemory, maxTurns, tools, blocked_tools,\nskills, rules, mcp, assertions)"]
+    ROOT --> SKILLS["⚡ Skills\n(name, type, description, instructions,\ntools, allowed-tools, paths)"]
+    ROOT --> RULES["📐 Rules\n(description, paths, instructions)"]
+    ROOT --> HOOKS["🪝 Hooks\n(event, match, run)"]
+    ROOT --> MCP["🔌 MCP Servers\n(command, args, env)"]
+    ROOT --> SETTINGS["⚙️ Settings\n(env, statusLine, enabledPlugins,\nalwaysThinkingEnabled, effortLevel,\nskipDangerousModePermissionPrompt,\npermissions, mcpServers)"]
+    ROOT --> TEST["🧪 Test\n(claude_path, judge_model)"]
+    AGENTS -->|"skills: []"| SKILLS
+    AGENTS -->|"rules: []"| RULES
+    AGENTS -->|"mcp: []"| MCP
+```
+
+## Compilation Output Structure
+
+```
+.claude/
+├── agents/
+│   ├── developer.md         ← frontmatter (name, description, model, etc.) + body (instructions)
+│   └── cto.md
+├── skills/
+│   └── git-workflow/
+│       └── SKILL.md          ← frontmatter + body
+├── rules/
+│   └── code-review.md        ← frontmatter + body
+├── hooks.json                 ← JSON map of hook configs
+└── settings.json              ← merged MCP + Settings block
+```
+
+### settings.json Compilation
+
+The compiler merges two sources into `settings.json`:
+1. **`mcp:` top-level block** — convenience shorthand for MCP server declarations
+2. **`settings:` block** — full settings structure (env, statusLine, enabledPlugins, etc.)
+
+Merge rule: `settings.mcpServers` takes precedence over `mcp:` entries with the same key.
 
 ## Key Architectural Decisions
 
@@ -43,3 +95,13 @@ These inline architecture decisions record the reasoning behind strict implement
 ### 3. Proxy Boundary Defenses
 **Decision:** `xcaffold test` sandboxes agents by spawning a transport-layer HTTP proxy interceptor.
 **Why:** Simulating tool execution without an intercept limits visibility. The HTTP proxy strictly confines the agent network, asserts safe boundary defenses preventing actual local side-effects, and accurately aggregates execution into `trace.jsonl` data.
+
+### 4. Path Traversal Defense-in-Depth
+**Decision:** All resource IDs (agents, skills, rules, hooks, MCP) are validated at parse time for path traversal characters (`/`, `\`, `..`).
+**Why:** The compiler uses `filepath.Clean` on output paths, but defense-in-depth requires rejecting malicious IDs before they reach the compiler. Hook IDs are especially sensitive because they carry an arbitrary `run:` shell command.
+
+### 5. Skills as Directories
+**Decision:** Skills compile to `skills/<id>/SKILL.md` (directory structure), not `skills/<id>.md` (flat files).
+**Why:** Claude Code expects skills in directories. Real skills have `references/` subdirectories with supplementary documents. The directory structure allows future `references:` support.
+
+

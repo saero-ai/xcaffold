@@ -35,11 +35,13 @@ var rootCmd = &cobra.Command{
 	Long: `xcaffold is an open-source, deterministic agent configuration compiler engine for Claude Code.
 
 ┌───────────────────────────────────────────────────────────────────┐
-│                 THE 6-PHASE ORCHESTRATION ENGINE                  │
+│                 THE 8-PHASE ORCHESTRATION ENGINE                  │
 └───────────────────────────────────────────────────────────────────┘
  • Bootstrap   [xcaffold init]    Creates base project scaffolding
+ • Ingestion   [xcaffold import]  Migrates existing .claude/ states
  • Audit       [xcaffold analyze] Inspects repo & builds XCF config
  • Token Cost  [xcaffold plan]    Statically estimates token budget
+ • Topology    [xcaffold graph]   Visualizes agent network maps
  • Compilation [xcaffold apply]   Compiles XCF to .claude/ prompts
  • Drift Check [xcaffold diff]    Detects manual config tampering
  • Validation  [xcaffold test]    Runs an LLM-in-the-loop proxy
@@ -74,6 +76,8 @@ func resolveConfig(cmd *cobra.Command, args []string) error {
 	// Commands that don't need a config file skip resolution.
 	skipCommands := map[string]bool{
 		"review": true,
+		"init":   true,
+		"import": true,
 	}
 	if skipCommands[cmd.Name()] {
 		return nil

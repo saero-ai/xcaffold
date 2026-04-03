@@ -113,6 +113,16 @@ func mergeMap[K comparable, V any](base, child map[K]V) map[K]V {
 	return merged
 }
 
+// validateID checks a single resource ID for path-traversal characters.
+// This is a defence-in-depth measure applied at parse time; the compiler also
+// uses filepath.Clean, but we want to reject bad IDs as early as possible.
+func validateID(kind, id string) error {
+	if strings.ContainsAny(id, "/\\") || strings.Contains(id, "..") {
+		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
+	}
+	return nil
+}
+
 // validate performs semantic validation on a parsed config.
 func validate(c *ast.XcaffoldConfig) error {
 	if c.Version == "" {
@@ -127,10 +137,73 @@ func validate(c *ast.XcaffoldConfig) error {
 		}
 	}
 
+	// Validate all resource IDs for path-traversal characters (Bugs 2-4).
 	for id := range c.Agents {
-		if strings.ContainsAny(id, "/\\") || strings.Contains(id, "..") {
-			return fmt.Errorf("agent id contains invalid characters: %q", id)
+		if err := validateID("agent", id); err != nil {
+			return err
 		}
+	}
+	for id := range c.Skills {
+		if err := validateID("skill", id); err != nil {
+			return err
+		}
+	}
+	for id := range c.Rules {
+		if err := validateID("rule", id); err != nil {
+			return err
+		}
+	}
+	for id := range c.Hooks {
+		if err := validateID("hook", id); err != nil {
+			return err
+		}
+	}
+	for id := range c.MCP {
+		if err := validateID("mcp", id); err != nil {
+			return err
+		}
+	}
+
+	// Validate instructions_file: mutual exclusivity and path safety.
+	for id, agent := range c.Agents {
+		if agent.Instructions != "" && agent.InstructionsFile != "" {
+			return fmt.Errorf("agent %q: instructions and instructions_file are mutually exclusive; set one or the other", id)
+		}
+		if err := validateInstructionsFile("agent", id, agent.InstructionsFile); err != nil {
+			return err
+		}
+	}
+	for id, skill := range c.Skills {
+		if skill.Instructions != "" && skill.InstructionsFile != "" {
+			return fmt.Errorf("skill %q: instructions and instructions_file are mutually exclusive; set one or the other", id)
+		}
+		if err := validateInstructionsFile("skill", id, skill.InstructionsFile); err != nil {
+			return err
+		}
+	}
+	for id, rule := range c.Rules {
+		if rule.Instructions != "" && rule.InstructionsFile != "" {
+			return fmt.Errorf("rule %q: instructions and instructions_file are mutually exclusive; set one or the other", id)
+		}
+		if err := validateInstructionsFile("rule", id, rule.InstructionsFile); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateInstructionsFile checks that an instructions_file path is safe.
+// The path must be relative and must not contain path-traversal sequences.
+func validateInstructionsFile(kind, id, path string) error {
+	if path == "" {
+		return nil
+	}
+	if filepath.IsAbs(path) {
+		return fmt.Errorf("%s %q: instructions_file must be a relative path, got absolute path %q", kind, id, path)
+	}
+	if strings.ContainsAny(path, "\\") || strings.Contains(path, "..") {
+		return fmt.Errorf("%s %q: instructions_file contains invalid path characters: %q", kind, id, path)
 	}
 	return nil
 }
