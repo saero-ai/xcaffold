@@ -36,7 +36,7 @@ Generated Artifacts:
 }
 
 func init() {
-	analyzeCmd.Flags().StringVarP(&analyzeModel, "model", "m", "claude-3-5-sonnet-20241022", "The generative model to use")
+	analyzeCmd.Flags().StringVarP(&analyzeModel, "model", "m", "claude-3-7-sonnet-20250219", "The generative model to use")
 	rootCmd.AddCommand(analyzeCmd)
 }
 

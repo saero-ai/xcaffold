@@ -18,7 +18,7 @@ agents:
     description: "An expert developer."
     instructions: |
       You are a software developer.
-    model: "claude-3-5-sonnet-20241022"
+    model: "claude-3-7-sonnet-20250219"
     effort: "high"
     tools: [Bash, Read, Write]
 `
@@ -43,7 +43,7 @@ func TestParse_ValidConfig(t *testing.T) {
 
 	assert.Equal(t, "test-project", cfg.Project.Name)
 	assert.Contains(t, cfg.Agents, "developer")
-	assert.Equal(t, "claude-3-5-sonnet-20241022", cfg.Agents["developer"].Model)
+	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["developer"].Model)
 }
 
 func TestParse_MissingProjectName(t *testing.T) {

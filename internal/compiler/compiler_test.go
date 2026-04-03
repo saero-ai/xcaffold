@@ -15,7 +15,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 			"developer": {
 				Description:  "An expert developer.",
 				Instructions: "You are a software developer.\nWrite clean code.\n",
-				Model:        "claude-3-5-sonnet-20241022",
+				Model:        "claude-3-7-sonnet-20250219",
 				Effort:       "high",
 				Tools:        []string{"Bash", "Read", "Write"},
 			},
@@ -30,7 +30,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 	require.True(t, ok, "expected agents/developer.md to be compiled")
 
 	assert.Contains(t, content, "description: An expert developer.")
-	assert.Contains(t, content, "model: claude-3-5-sonnet-20241022")
+	assert.Contains(t, content, "model: claude-3-7-sonnet-20250219")
 	assert.Contains(t, content, "model_setting_effort: high")
 	assert.Contains(t, content, "tools: [Bash, Read, Write]")
 	assert.Contains(t, content, "You are a software developer.")

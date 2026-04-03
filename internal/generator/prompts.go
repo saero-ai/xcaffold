@@ -57,7 +57,7 @@ version: "1.0.0"
 agents:
   "agent_id_here":
     description: "Brief summary"
-    model: "claude-3-5-sonnet-latest"
+    model: "claude-3-7-sonnet-20250219"
     instructions: >
       1. Step one
       2. Step two

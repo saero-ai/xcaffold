@@ -62,7 +62,7 @@ project:
 agents:
   developer:
     description: "Expert React developer."
-    model: claude-3-5-sonnet-20241022
+    model: claude-3-7-sonnet-20250219
     tools: [Read, Write, Bash, Glob]
     blocked_tools: [WebFetch]
     skills: [git]
@@ -151,7 +151,7 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 
 | Flag | Default | Description |
 |---|---|---|
-| `--model`, `-m` | `claude-3-5-sonnet-20241022` | Generative model to use for analysis. |
+| `--model`, `-m` | `claude-3-7-sonnet-20250219` | Generative model to use for analysis. |
 | `[directory]` | `.` | Directory to scan. |
 
 ## Schema Reference

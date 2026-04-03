@@ -14,7 +14,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/auth"
 )
 
-const defaultGeneratorModel = "claude-3-5-sonnet-20241022" // Sonnet is preferred for generation speed and context
+const defaultGeneratorModel = "claude-3-7-sonnet-20250219" // Sonnet is preferred for generation speed and context
 
 type Generator struct {
 	apiKey     string

@@ -20,7 +20,7 @@ agents:
     instructions: |
       You are a software developer.
       Write clean, maintainable code.
-    model: "claude-3-5-sonnet-20241022"
+    model: "claude-3-7-sonnet-20250219"
     effort: "high"
     tools: [Bash, Read, Write, Edit, Glob, Grep]
 

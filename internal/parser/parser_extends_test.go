@@ -32,7 +32,7 @@ project:
 agents:
   coder:
     description: "Writes code."
-    model: "claude-3-5-sonnet-20241022"
+    model: "claude-3-7-sonnet-20250219"
 `)
 
 	cfg, err := ParseFile(path)
@@ -43,7 +43,7 @@ agents:
 	assert.Equal(t, "valid-project", cfg.Project.Name)
 	assert.Equal(t, "A simple project.", cfg.Project.Description)
 	require.Contains(t, cfg.Agents, "coder")
-	assert.Equal(t, "claude-3-5-sonnet-20241022", cfg.Agents["coder"].Model)
+	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["coder"].Model)
 }
 
 // ---------------------------------------------------------------------------
@@ -70,7 +70,7 @@ version: "1.0"
 agents:
   child-agent:
     description: "Child agent."
-    model: "claude-3-5-sonnet-20241022"
+    model: "claude-3-7-sonnet-20250219"
 `)
 
 	cfg, err := ParseFile(childPath)
@@ -87,7 +87,7 @@ agents:
 
 	// Child agent added
 	require.Contains(t, cfg.Agents, "child-agent", "child agent should be present")
-	assert.Equal(t, "claude-3-5-sonnet-20241022", cfg.Agents["child-agent"].Model)
+	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["child-agent"].Model)
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ project:
 agents:
   shared-agent:
     description: "Child version of agent."
-    model: "claude-3-5-sonnet-20241022"
+    model: "claude-3-7-sonnet-20250219"
 test:
   judge_model: "claude-3-opus-20240229"
 `)
@@ -136,7 +136,7 @@ test:
 	// Child agent overrides base agent (same key)
 	require.Contains(t, cfg.Agents, "shared-agent")
 	assert.Equal(t, "Child version of agent.", cfg.Agents["shared-agent"].Description)
-	assert.Equal(t, "claude-3-5-sonnet-20241022", cfg.Agents["shared-agent"].Model)
+	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["shared-agent"].Model)
 
 	// Test config: child overrides judge_model, base claude_path is inherited
 	assert.Equal(t, "/usr/local/bin/claude", cfg.Test.ClaudePath, "base claude_path should be inherited")

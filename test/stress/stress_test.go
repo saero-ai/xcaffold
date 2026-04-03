@@ -22,7 +22,7 @@ func TestStress_100Agents(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("version: \"1.0\"\nproject:\n  name: \"stress-test\"\nagents:\n")
 	for i := 0; i < 100; i++ {
-		fmt.Fprintf(&sb, "  agent-%03d:\n    description: \"Agent %d\"\n    instructions: \"Do task %d.\"\n    model: \"claude-3-5-sonnet-20241022\"\n    tools: [Read, Write, Bash]\n", i, i, i)
+		fmt.Fprintf(&sb, "  agent-%03d:\n    description: \"Agent %d\"\n    instructions: \"Do task %d.\"\n    model: \"claude-3-7-sonnet-20250219\"\n    tools: [Read, Write, Bash]\n", i, i, i)
 	}
 	config, err := parser.Parse(strings.NewReader(sb.String()))
 	require.NoError(t, err)
@@ -42,7 +42,7 @@ func TestStress_500Agents(t *testing.T) {
 	var sb strings.Builder
 	sb.WriteString("version: \"1.0\"\nproject:\n  name: \"stress-test\"\nagents:\n")
 	for i := 0; i < 500; i++ {
-		fmt.Fprintf(&sb, "  agent-%03d:\n    description: \"Agent %d\"\n    instructions: \"Do task %d with a longer instruction to simulate real-world usage. This paragraph is intentionally padded.\"\n    model: \"claude-3-5-sonnet-20241022\"\n    tools: [Read, Write, Bash, Glob, Grep, Edit]\n", i, i, i)
+		fmt.Fprintf(&sb, "  agent-%03d:\n    description: \"Agent %d\"\n    instructions: \"Do task %d with a longer instruction to simulate real-world usage. This paragraph is intentionally padded.\"\n    model: \"claude-3-7-sonnet-20250219\"\n    tools: [Read, Write, Bash, Glob, Grep, Edit]\n", i, i, i)
 	}
 	config, err := parser.Parse(strings.NewReader(sb.String()))
 	require.NoError(t, err)
