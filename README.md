@@ -1,9 +1,26 @@
 # xcaffold
 
-The enterprise fleet management layer for Anthropic Claude Code.
-`xcaffold` enforces one-way compilation for agent configuration compiler, translating declarative `.xcf` YAML configurations into deterministically generated, token-analyzed `.claude/` markdown files.
+The deterministic agent configuration compiler engine for Anthropic Claude Code.
+`xcaffold` manages agent configurations using a strict 6-phase lifecycle running locally, translating declarative `.xcf` YAML blueprints into production-ready `.claude/` markdown files.
 
-## Example Usage
+## The End-to-End Orchestration Lifecycle
+
+| Phase | Command | What it does |
+|---|---|---|
+| **Bootstrap** | `xcaffold init` | Creates the base project scaffolding. |
+| **Audit** | `xcaffold analyze` | Reverse-engineers project context & vets existing AI setups against best practices. Outputs `scaffold.xcf` & `audit.json`. |
+| **Token Costing** | `xcaffold plan` | Statically analyzes the `.xcf` without writing markdown. Outputs AST budget to `plan.json`. |
+| **Compilation** | `xcaffold apply` | Deterministically compiles the `.xcf` into `.claude/` markdown files and locks state. |
+| **Drift Check** | `xcaffold diff` | Checks manual edits made by humans to `.claude/*.md` against the lock file. |
+| **Validation** | `xcaffold test` | Runs the agent in a sandboxed proxy to verify agent boundaries. Outputs `trace.jsonl`. |
+
+### Universal Parsing
+Use `xcaffold review [file]` to read and format diagnostic output files natively in your terminal:
+- `xcaffold review` (Parses `scaffold.xcf` abstract syntax tree)
+- `xcaffold review audit.json` (Reads the generated compliance assessment)
+- `xcaffold review trace.jsonl` (Reads the local simulation trace logs)
+
+## Example .xcf Structure
 
 ```yaml
 version: "1.0"
@@ -26,20 +43,18 @@ test:
   judge_model: "claude-3-5-haiku-20241022"  # Used by xcaffold test --judge
 ```
 
-To install or compile this infrastructure locally:
+## Quick Start
 
 **Option 1: Install globally (Recommended)**
 ```bash
 $ go install github.com/saero-ai/xcaffold/cmd/xcaffold@latest
-# Now you can run the commands directly anywhere
-$ xcaffold init   # Bootstraps the initial scaffold.xcf file
-$ xcaffold plan   # Runs static token-bloat analysis
-$ xcaffold apply  # Compiles to .claude/ and writes scaffold.lock
-$ xcaffold diff   # Detects shadow AI edits made directly to markdown files
-$ xcaffold test   # Runs a sandboxed local simulation of a Claude agent
+# Now you can run the lifecycle commands directly anywhere
+$ xcaffold analyze
+$ xcaffold apply
+$ xcaffold test --judge
 ```
 
-**Option 2: Build and run the local executable**
+**Option 2: Build from source**
 ```bash
 $ go build -o xcaffold ./cmd/xcaffold/...
 $ ./xcaffold init

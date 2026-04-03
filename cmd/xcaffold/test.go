@@ -1,0 +1,208 @@
+package main
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+
+	"github.com/saero-ai/xcaffold/internal/judge"
+	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/proxy"
+	"github.com/saero-ai/xcaffold/internal/trace"
+	"github.com/spf13/cobra"
+)
+
+var (
+	testAgentFlag      string
+	testJudgeFlag      bool
+	testOutputFlag     string
+	testClaudePathFlag string
+	testJudgeModelFlag string
+)
+
+var testCmd = &cobra.Command{
+	Use:   "test",
+	Short: "Run a sandboxed local simulation of a Claude agent",
+	Long: `xcaffold test runs a local mocked simulation of your agent boundaries.
+
+┌───────────────────────────────────────────────────────────────────┐
+│                          VALIDATION PHASE                         │
+└───────────────────────────────────────────────────────────────────┘
+ • 🛡️ Spawns an HTTP intercept proxy binding your agent to an isolated sandbox
+ • 🔬 Translates assertions from your scaffold into LLM-as-a-judge directives
+ • 📝 Outputs a trace.jsonl detailing every tool call the agent attempted
+
+Prerequisites:
+  - The 'claude' binary must be available on $PATH (or set test.claude_path in scaffold.xcf).
+  - Set ANTHROPIC_API_KEY in your environment.
+
+Usage:
+  $ xcaffold test --agent backend-dev
+  $ xcaffold test --agent backend-dev --judge`,
+	Example: `  $ xcaffold test --agent backend-dev
+  $ xcaffold test --agent data-analyst --judge
+  $ xcaffold test -a frontend-dev --output custom_trace.jsonl`,
+	RunE: runTest,
+}
+
+func init() {
+	testCmd.Flags().StringVarP(&testAgentFlag, "agent", "a", "", "Agent ID to simulate (required)")
+	testCmd.Flags().BoolVar(&testJudgeFlag, "judge", false, "Run LLM-as-a-Judge evaluation after simulation")
+	testCmd.Flags().StringVarP(&testOutputFlag, "output", "o", "trace.jsonl", "Path to write the execution trace")
+	testCmd.Flags().StringVar(&testClaudePathFlag, "claude-path", "", "Path to claude binary (overrides scaffold.xcf test.claude_path)")
+	testCmd.Flags().StringVar(&testJudgeModelFlag, "judge-model", "", "Anthropic model for the judge (overrides scaffold.xcf test.judge_model)")
+
+	_ = testCmd.MarkFlagRequired("agent")
+	rootCmd.AddCommand(testCmd)
+}
+
+func runTest(cmd *cobra.Command, args []string) error {
+	// 1. Load and validate the project config.
+	xcfPath := filepath.Clean("scaffold.xcf")
+	f, err := os.Open(xcfPath)
+	if err != nil {
+		return fmt.Errorf("could not open %s: %w", xcfPath, err)
+	}
+	defer f.Close()
+
+	config, err := parser.Parse(f)
+	if err != nil {
+		return fmt.Errorf("parse error: %w", err)
+	}
+
+	agentConfig, ok := config.Agents[testAgentFlag]
+	if !ok {
+		return fmt.Errorf("agent %q not found in scaffold.xcf", testAgentFlag)
+	}
+
+	// 2. Resolve the claude binary path (flag > xcf > PATH).
+	claudePath := resolveClaudePath(config.Test.ClaudePath)
+
+	// 3. Set up trace file.
+	traceFile, err := os.Create(filepath.Clean(testOutputFlag))
+	if err != nil {
+		return fmt.Errorf("failed to create trace file %q: %w", testOutputFlag, err)
+	}
+	defer traceFile.Close()
+
+	recorder := trace.NewRecorder(traceFile)
+
+	// 4. Start the intercept proxy.
+	proxyServer, err := proxy.New(recorder)
+	if err != nil {
+		return fmt.Errorf("failed to start proxy: %w", err)
+	}
+	defer proxyServer.Close()
+
+	// Run proxy in background.
+	proxyErrCh := make(chan error, 1)
+	go func() { proxyErrCh <- proxyServer.Start() }()
+
+	fmt.Printf("✓ Intercept proxy started at %s\n", proxyServer.Addr())
+	fmt.Printf("  Trace output: %s\n\n", testOutputFlag)
+
+	// 5. Spawn the claude subprocess with HTTPS_PROXY set.
+	claudeCmd := exec.Command(claudePath, "--agent", testAgentFlag) //nolint:gosec
+	claudeCmd.Stdout = os.Stdout
+	claudeCmd.Stderr = os.Stderr
+	claudeCmd.Env = append(os.Environ(),
+		"HTTPS_PROXY="+proxyServer.ProxyURL(),
+		"HTTP_PROXY="+proxyServer.ProxyURL(),
+	)
+
+	fmt.Printf("▶ Running: %s --agent %s\n\n", claudePath, testAgentFlag)
+
+	if err := claudeCmd.Run(); err != nil {
+		// Non-zero exit from claude is surfaced as a warning, not a fatal error,
+		// so we can still print the trace summary and run the judge.
+		fmt.Fprintf(os.Stderr, "\nWarning: claude exited with error: %v\n", err)
+	}
+
+	proxyServer.Close()
+
+	// 6. Print trace summary.
+	summary := recorder.Summary()
+	summary.Print(os.Stdout)
+	fmt.Printf("  Trace written to: %s\n\n", testOutputFlag)
+
+	// 7. Optional: Run LLM-as-a-Judge.
+	if testJudgeFlag {
+		if err := runJudge(summary, agentConfig.Assertions, config.Test.JudgeModel, claudePath); err != nil {
+			return fmt.Errorf("judge evaluation failed: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// runJudge runs the LLM-as-a-Judge evaluation against the summary.
+// If ANTHROPIC_API_KEY is set it uses the direct API; otherwise it falls back
+// to the claude CLI subprocess using the user's subscription.
+func runJudge(summary trace.Summary, assertions []string, configModel, claudePath string) error {
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+
+	model := resolveJudgeModel(configModel)
+
+	fmt.Printf("── Judge Evaluation ──────────────────────────────────\n")
+	fmt.Printf("  Model: %s\n", model)
+	if apiKey != "" {
+		fmt.Printf("  Auth:  API key\n")
+	} else {
+		fmt.Printf("  Auth:  Claude Code subscription (claude CLI)\n")
+	}
+	fmt.Printf("  Assertions: %d\n\n", len(assertions))
+
+	j := judge.New(apiKey, model, claudePath, nil)
+	report, err := j.Evaluate(summary, assertions)
+	if err != nil {
+		return err
+	}
+
+	var out bytes.Buffer
+	fmt.Fprintf(&out, "  Verdict: %s\n", report.Verdict)
+	fmt.Fprintf(&out, "  Reasoning: %s\n", report.Reasoning)
+
+	if len(report.PassedAssertions) > 0 {
+		fmt.Fprintf(&out, "\n  ✓ Passed:\n")
+		for _, a := range report.PassedAssertions {
+			fmt.Fprintf(&out, "    - %s\n", a)
+		}
+	}
+	if len(report.FailedAssertions) > 0 {
+		fmt.Fprintf(&out, "\n  ✗ Failed:\n")
+		for _, a := range report.FailedAssertions {
+			fmt.Fprintf(&out, "    - %s\n", a)
+		}
+	}
+	fmt.Fprintf(&out, "──────────────────────────────────────────────────────\n")
+
+	io.Copy(os.Stdout, &out)
+	return nil
+}
+
+// resolveClaudePath returns the effective path to the claude binary.
+// Priority: CLI flag > scaffold.xcf test.claude_path > fallback to "claude".
+func resolveClaudePath(xcfPath string) string {
+	if testClaudePathFlag != "" {
+		return testClaudePathFlag
+	}
+	if xcfPath != "" {
+		return xcfPath
+	}
+	return "claude"
+}
+
+// resolveJudgeModel returns the effective judge model.
+// Priority: CLI flag > scaffold.xcf test.judge_model > default Haiku.
+func resolveJudgeModel(xcfModel string) string {
+	if testJudgeModelFlag != "" {
+		return testJudgeModelFlag
+	}
+	if xcfModel != "" {
+		return xcfModel
+	}
+	return "claude-haiku-4-5-20251001"
+}
