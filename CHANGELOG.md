@@ -6,19 +6,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Draft capabilities to the `.xcf` YAML AST, including the `targets` block overrides for GitHub Copilot.
-- `xcaffold test` command — a transport-layer HTTP intercept proxy that simulates a Claude agent run without executing tool calls on the host OS.
-- `internal/proxy` package — loopback-only HTTP reverse proxy with Anthropic host validation and deterministic mock tool responses.
-- `internal/trace` package — JSONL execution trace recorder with per-tool call summaries.
-- `internal/judge` package — LLM-as-a-Judge evaluator using a configurable Anthropic model to grade trace results against user-defined `assertions`.
-- `assertions` field on `agents` in `scaffold.xcf` — declare behavioral constraints evaluated during `xcaffold test --judge`.
-- `test` block in `scaffold.xcf` — configure `claude_path` and `judge_model` at the project level.
-- Integration stub for `xcaffold test` (Local Intercept Proxy).
-- Static AST token analyzer pending native WASM bridging for the `@anthropic-ai/tokenizer` module.
+- Full compiler surface: `xcaffold apply` now emits `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/hooks.json`, and `.claude/settings.json` (with MCP) in addition to agents.
+- `plan.json` file output — `xcaffold plan` now writes a structured JSON token budget report to disk in addition to stdout.
+- GoReleaser configuration — pre-built release binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64). Homebrew tap formula included.
+- `AGENTS.md` — universal agent instruction file following the [agents.txt](https://agentstext.com) convention.
+- `llms.txt` — AI discovery index at repository root.
+- `.github/copilot-instructions.md` — workspace-specific Copilot context.
+- `docs/architecture.md` — system architecture documentation with Mermaid diagrams.
+- Shared `internal/auth` package — eliminates `AuthMode` type duplication between `judge` and `generator` packages.
+
+### Changed
+- README rewritten with badge row, "Why xcaffold?" section, Homebrew install target, and expanded full-schema reference covering all compiler outputs.
+- `xcaffold analyze` now references `auth.AuthModeSubscription` from the shared auth package.
+- Token estimation explicitly documented as a `÷4` byte-count heuristic approximation with accuracy bounds.
+
+### Fixed
+- Compiler now emits all schema blocks. Previously, `skills`, `rules`, `hooks`, and `mcp` were silently discarded.
+- `trace.Recorder` data race — added `sync.Mutex` to protect concurrent writes from HTTP handler goroutines.
+- SSRF in `internal/proxy` — replaced `strings.HasSuffix` host check with strict equality, preventing `evil-api.anthropic.com` bypass.
+- `os.Exit(1)` in `diff.go` and `validate.go` replaced with `return fmt.Errorf(...)` to allow Cobra to handle exit codes and deferred cleanup.
+- CI `go-version` aligned to `1.24` to match `go.mod` declaration.
+
+### Removed
+- `wazero` WASM runtime — the `wasmBytecode` embed was always nil (no `//go:embed` directive), making the runtime initialization dead code. Removed from `go.mod` and `go.sum`.
+- `golang.org/x/sys` transitive dependency (was pulled in by `wazero`).
 
 ## [1.0.0-dev] - 2026-04-02
 ### Added
-- Complete rewrite of the CLI compiler replacing the deprecated TypeScript prototype with an enterprise Go binary.
+- Complete rewrite of the CLI compiler replacing the deprecated TypeScript prototype with a robust Go binary.
 - One-Way Compilation architecture targeting Anthropic Claude Code configurations natively.
 - Automatic creation and formatting of `.claude/agents/*.md` and `.claude/settings.json`.
 - `scaffold.lock` manifest generation tracking SHA-256 state blobs of output configurations.

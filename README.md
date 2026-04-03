@@ -1,26 +1,54 @@
 # xcaffold
 
-The deterministic agent configuration compiler engine for Anthropic Claude Code.
-`xcaffold` manages agent configurations using a strict 6-phase lifecycle running locally, translating declarative `.xcf` YAML blueprints into production-ready `.claude/` markdown files.
+[![CI](https://github.com/saero-ai/xcaffold/actions/workflows/ci.yml/badge.svg)](https://github.com/saero-ai/xcaffold/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/saero-ai/xcaffold)](https://goreportcard.com/report/github.com/saero-ai/xcaffold)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/dl/)
 
-## The End-to-End Orchestration Lifecycle
+**agent configuration for Anthropic Claude Code.** Declare your AI agents in a single `.xcf` YAML file. `xcaffold` compiles it deterministically into `.claude/` — with drift detection, token budgeting, and sandboxed simulation.
 
-| Phase | Command | What it does |
-|---|---|---|
-| **Bootstrap** | `xcaffold init` | Creates the base project scaffolding. |
-| **Audit** | `xcaffold analyze` | Reverse-engineers project context & vets existing AI setups against best practices. Outputs `scaffold.xcf` & `audit.json`. |
-| **Token Costing** | `xcaffold plan` | Statically analyzes the `.xcf` without writing markdown. Outputs AST budget to `plan.json`. |
-| **Compilation** | `xcaffold apply` | Deterministically compiles the `.xcf` into `.claude/` markdown files and locks state. |
-| **Drift Check** | `xcaffold diff` | Checks manual edits made by humans to `.claude/*.md` against the lock file. |
-| **Validation** | `xcaffold test` | Runs the agent in a sandboxed proxy to verify agent boundaries. Outputs `trace.jsonl`. |
+```
+scaffold.xcf  ──►  xcaffold apply  ──►  .claude/agents/*.md
+                                    ──►  .claude/skills/*.md
+                                    ──►  .claude/rules/*.md
+                                    ──►  .claude/settings.json
+                                    ──►  scaffold.lock
+```
 
-### Universal Parsing
-Use `xcaffold review [file]` to read and format diagnostic output files natively in your terminal:
-- `xcaffold review` (Parses `scaffold.xcf` abstract syntax tree)
-- `xcaffold review audit.json` (Reads the generated compliance assessment)
-- `xcaffold review trace.jsonl` (Reads the local simulation trace logs)
+## Why xcaffold?
 
-## Example .xcf Structure
+Most teams hand-edit `.claude/` markdown files. This means:
+- **No drift detection** — edits made outside the IDE go unnoticed.
+- **No token budgeting** — agents silently exceed context limits.
+- **No auditability** — no SHA manifest, no CI/CD integration.
+- **No testability** — agent behavior is never validated against declared assertions.
+
+`xcaffold` applies GitOps discipline to agent configuration. The `.xcf` file is the only source of truth. Generated `.claude/` files are compilation artifacts.
+
+## Installation
+
+**Homebrew (macOS/Linux)**
+```bash
+brew install saero-ai/tap/xcaffold
+```
+
+**Go install**
+```bash
+go install github.com/saero-ai/xcaffold/cmd/xcaffold@latest
+```
+
+**Binary releases**
+
+Pre-built binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows are available on the [Releases page](https://github.com/saero-ai/xcaffold/releases).
+
+**Build from source**
+```bash
+git clone https://github.com/saero-ai/xcaffold
+cd xcaffold
+make build
+```
+
+## Example Usage
 
 ```yaml
 version: "1.0"
@@ -32,72 +60,149 @@ agents:
     description: "Expert React developer."
     model: claude-3-5-sonnet-20241022
     tools: [Read, Write, Bash, Glob]
+    blocked_tools: [WebFetch]
+    skills: [git]
     instructions: |
       You are a frontend developer specializing in standard React.
+      Always run tests before marking a task complete.
     assertions:
       - "The agent must not write files outside the project directory."
       - "The agent must run tests before marking a task complete."
 
+skills:
+  git:
+    description: "Git commit conventions."
+    instructions: "Always use conventional commits (feat:, fix:, chore:)."
+
+rules:
+  typescript:
+    paths: ["src/**/*.ts"]
+    instructions: "Prefer type aliases over interfaces. No any."
+
+hooks:
+  pre-commit:
+    run: "make lint"
+
+mcp:
+  sqlite:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-sqlite", "data.db"]
+
 test:
-  claude_path: ""                           # Defaults to 'claude' on $PATH
-  judge_model: "claude-3-5-haiku-20241022"  # Used by xcaffold test --judge
+  judge_model: "claude-3-5-haiku-20241022"
 ```
 
-## Quick Start
+Then run the full lifecycle:
 
-**Option 1: Install globally (Recommended)**
 ```bash
-$ go install github.com/saero-ai/xcaffold/cmd/xcaffold@latest
-# Now you can run the lifecycle commands directly anywhere
-$ xcaffold analyze
-$ xcaffold apply
-$ xcaffold test --judge
+xcaffold plan    # Analyze token budgets — writes plan.json
+xcaffold apply   # Compile to .claude/ — writes scaffold.lock
+xcaffold diff    # Check for manual drift in .claude/
+xcaffold test --agent developer --judge  # Simulate + evaluate
 ```
 
-**Option 2: Build from source**
-```bash
-$ go build -o xcaffold ./cmd/xcaffold/...
-$ ./xcaffold init
-```
+## The Lifecycle
+
+| Phase | Command | Output |
+|---|---|---|
+| Bootstrap | `xcaffold init` | `scaffold.xcf` starter template |
+| Audit | `xcaffold analyze` | `scaffold.xcf` + `audit.json` |
+| Token Budget | `xcaffold plan` | stdout report + `plan.json` |
+| Compilation | `xcaffold apply` | `.claude/**` + `scaffold.lock` |
+| Drift Check | `xcaffold diff` | Exit 1 on drift |
+| Validation | `xcaffold test` | `trace.jsonl` + judge report |
 
 ## Argument Reference
 
-The following commands are supported:
+### `xcaffold apply`
 
-* `init` - Scaffolds a new `scaffold.xcf` base configuration in the current working directory.
-* `plan` - (Dry Run) Performs static token-bloat analysis on the Abstract Syntax Tree (AST) to evaluate budget compliance without writing files.
-* `apply` - Translates the configuration into Claude Code native structures (`.claude/agents/*.md`) and generates a cryptographic tracker manifest.
-* `diff` - Compares the `scaffold.lock` SHA-256 hashes against actual files on disk to flag manual configuration drift within the `.claude/` directory.
-* `test` - Runs a sandboxed local simulation of a Claude agent using a transport-layer HTTP intercept proxy. Tool calls are mocked and logged to a trace file. Accepts an optional `--judge` flag for LLM-as-a-Judge evaluation.
+| Argument | Default | Description |
+|---|---|---|
+| `[directory]` | `.` | Directory containing `scaffold.xcf`. |
 
-### `xcaffold test` Flags
+### `xcaffold plan`
+
+| Argument | Default | Description |
+|---|---|---|
+| `[file]` | `scaffold.xcf` | Path to the xcf file to analyze. |
+
+### `xcaffold test`
 
 | Flag | Default | Description |
 |---|---|---|
 | `--agent`, `-a` | _(required)_ | Agent ID from `scaffold.xcf` to simulate. |
 | `--judge` | `false` | Run LLM-as-a-Judge evaluation after simulation. |
 | `--output`, `-o` | `trace.jsonl` | Path to write the execution trace. |
-| `--claude-path` | `""` | Path to the `claude` binary. Overrides `test.claude_path` in `scaffold.xcf`. |
-| `--judge-model` | `""` | Anthropic model for the judge. Overrides `test.judge_model` in `scaffold.xcf`. |
+| `--claude-path` | `""` | Path to the `claude` binary. Overrides `test.claude_path`. |
+| `--judge-model` | `""` | Anthropic model for the judge. Overrides `test.judge_model`. |
+
+### `xcaffold analyze`
+
+| Flag | Default | Description |
+|---|---|---|
+| `--model`, `-m` | `claude-3-5-sonnet-20241022` | Generative model to use for analysis. |
+| `[directory]` | `.` | Directory to scan. |
+
+## Schema Reference
 
 The `scaffold.xcf` file supports the following top-level blocks:
 
-* `project` - (Required) Object. Defines project identity containing a `name` string.
-* `agents` - (Optional) Map. Defines Claude agents with `description`, `instructions`, `model`, `effort`, `tools`, `blocked_tools`, `skills`, `rules`, `mode`, and `assertions`.
-* `skills` - (Optional) Map. Defines prompt packages with `description`, `instructions`, `paths`, and `tools`.
-* `rules` - (Optional) Map. Defines path-gated formatting guidelines with `paths` and `instructions`.
-* `hooks` - (Optional) Map. Lifecycle events mapped to shell scripts (`event`, `match`, `run`).
-* `mcp` - (Optional) Map. Local MCP server contexts via `command`, `args`, and `env`.
-* `test` - (Optional) Object. Configures the local simulator with `claude_path` and `judge_model`.
+* `project` - (Required) Object. Project identity. Contains `name` (string).
+* `agents` - (Optional) Map. Claude agent personas. Each entry supports:
+  * `description` - (Optional) String. Shown in Claude Code agent picker.
+  * `instructions` - (Optional) String. The agent's system prompt.
+  * `model` - (Optional) String. Anthropic model ID.
+  * `effort` - (Optional) String. Thinking effort level (`low`, `medium`, `high`).
+  * `tools` - (Optional) List of strings. Allowed tools (e.g. `Read`, `Write`, `Bash`).
+  * `blocked_tools` - (Optional) List of strings. Explicitly denied tools.
+  * `skills` - (Optional) List of strings. Skill IDs to compose into this agent.
+  * `rules` - (Optional) List of strings. Rule IDs to apply to this agent.
+  * `mcp` - (Optional) List of strings. MCP server IDs available to this agent.
+  * `assertions` - (Optional) List of strings. Behavioral constraints evaluated by `xcaffold test --judge`.
+* `skills` - (Optional) Map. Reusable prompt packages. Each entry supports `description`, `instructions`, `paths`, `tools`.
+* `rules` - (Optional) Map. Path-gated formatting guidelines. Each entry supports `paths`, `instructions`.
+* `hooks` - (Optional) Map. Lifecycle event hooks. Each entry supports `event`, `match`, `run`.
+* `mcp` - (Optional) Map. Local MCP server declarations. Each entry supports `command`, `args`, `env`.
+* `test` - (Optional) Object. Simulator configuration. Supports `claude_path`, `judge_model`.
 
 ## Attributes Reference
 
-In addition to all arguments above, the following attributes are exported/generated on disk:
+In addition to all arguments above, the following artifacts are generated on disk:
 
-* `.claude/agents/*.md` - Native markdown persona definitions.
-* `scaffold.lock` - A SHA-256 state manifest tracking generated artifacts for drift detection.
-* `trace.jsonl` - Newline-delimited JSON execution trace, written by `xcaffold test`.
+* `.claude/agents/*.md` - Compiled agent persona definitions (Claude Code native format).
+* `.claude/skills/*.md` - Compiled skill prompt packages.
+* `.claude/rules/*.md` - Compiled path-gated rule definitions.
+* `.claude/hooks.json` - Compiled lifecycle hook configuration.
+* `.claude/settings.json` - Project-level settings including MCP server declarations.
+* `scaffold.lock` - SHA-256 state manifest. Used by `xcaffold diff` for drift detection.
+* `plan.json` - Token budget analysis report produced by `xcaffold plan`.
+* `audit.json` - LLM compliance assessment produced by `xcaffold analyze`.
+* `trace.jsonl` - Newline-delimited JSON execution trace produced by `xcaffold test`.
 
-## Import/Compatibility
+## Diagnostics
 
-`xcaffold` enforces **One-Way Compilation**. It does not currently support pulling down existing `.claude/` markdown files. It will overwrite any files in the `.claude/` directory that it manages. We strongly recommend adding `.claude/` to your `.gitignore` and only committing `scaffold.xcf` and `scaffold.lock`.
+Use `xcaffold review [file]` to read any diagnostic artifact in your terminal:
+
+```bash
+xcaffold review              # Parse scaffold.xcf AST
+xcaffold review audit.json   # Read compliance assessment
+xcaffold review trace.jsonl  # Read simulation trace
+```
+
+## Import / Compatibility
+
+`xcaffold` enforces **One-Way Compilation**. It does not import or parse existing `.claude/` markdown files. Running `xcaffold apply` will overwrite any managed files in `.claude/`.
+
+**Recommended `.gitignore` entries:**
+```
+.claude/
+plan.json
+audit.json
+trace.jsonl
+```
+
+Commit `scaffold.xcf` and `scaffold.lock`. CI validates the lock is not stale via `xcaffold diff`.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
