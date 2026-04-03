@@ -86,17 +86,23 @@ func (s *Server) Close() error {
 // decides whether to intercept (tool calls) or forward (everything else).
 func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	// Security: reject any request not targeting the Anthropic API.
-	if !strings.EqualFold(r.Host, anthropicAPIHost) &&
-		!strings.HasSuffix(r.URL.Host, anthropicAPIHost) {
+	// Use exact equality to prevent SSRF via suffix confusion (e.g. evil-api.anthropic.com).
+	targetHost := r.Host
+	if targetHost == "" {
+		targetHost = r.URL.Host
+	}
+	if !strings.EqualFold(targetHost, anthropicAPIHost) {
 		http.Error(w, "proxy: forbidden — only api.anthropic.com is allowed", http.StatusForbidden)
 		return
 	}
 
 	// Only inspect the messages endpoint for tool interception.
 	if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/v1/messages") {
+		// Limit to 10MB to prevent OOM DOS from massive requests
+		r.Body = http.MaxBytesReader(w, r.Body, 10*1024*1024)
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
-			http.Error(w, "proxy: failed to read request body", http.StatusBadGateway)
+			http.Error(w, "proxy: payload too large", http.StatusRequestEntityTooLarge)
 			return
 		}
 		r.Body = io.NopCloser(bytes.NewReader(body))

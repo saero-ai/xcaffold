@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 )
 
@@ -19,8 +20,9 @@ type ToolCallEvent struct {
 }
 
 // Recorder writes ToolCallEvents as newline-delimited JSON (JSONL) to a writer.
-// It is safe for sequential use within a single goroutine.
+// It is safe for concurrent use from multiple goroutines.
 type Recorder struct {
+	mu     sync.Mutex
 	w      io.Writer
 	events []ToolCallEvent
 }
@@ -31,8 +33,11 @@ func NewRecorder(w io.Writer) *Recorder {
 }
 
 // Record appends event to the in-memory log and writes it as a JSONL line.
-// It returns an error if serialisation or writing fails.
+// It is safe to call from multiple goroutines.
 func (r *Recorder) Record(event ToolCallEvent) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.events = append(r.events, event)
 
 	data, err := json.Marshal(event)
@@ -48,7 +53,11 @@ func (r *Recorder) Record(event ToolCallEvent) error {
 }
 
 // Summary returns a human-readable report of all recorded tool calls.
+// It is safe to call from multiple goroutines.
 func (r *Recorder) Summary() Summary {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	counts := make(map[string]int, len(r.events))
 	for _, e := range r.events {
 		counts[e.ToolName]++

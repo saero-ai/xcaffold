@@ -66,8 +66,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	if driftCount > 0 {
-		fmt.Printf("Drift detected in %d file(s). Run `xcaffold apply` to restore managed state.\n", driftCount)
-		os.Exit(1)
+		return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply' to restore managed state", driftCount)
 	}
 
 	fmt.Println("✓ No drift detected. All managed files are in sync.")

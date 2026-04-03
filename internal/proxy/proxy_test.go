@@ -102,3 +102,19 @@ func TestHandleToolUse_ResponseContainsMock(t *testing.T) {
 
 	assert.Contains(t, w.Body.String(), mockToolResponse)
 }
+
+func TestHandleRequest_EnforcesMemoryLimit(t *testing.T) {
+	srv, _ := newTestServer(t)
+
+	// Create a payload larger than the 10MB limit (e.g. 11MB)
+	largeBody := make([]byte, 11*1024*1024)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(largeBody))
+	req.Host = anthropicAPIHost
+	w := httptest.NewRecorder()
+
+	// Should not panic, but should return a StatusPayloadTooLarge or similar error
+	srv.handleRequest(w, req)
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+}
