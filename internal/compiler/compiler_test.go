@@ -78,6 +78,69 @@ func TestCompile_EmptyAgents(t *testing.T) {
 	assert.Empty(t, out.Files)
 }
 
+func TestCompile_FullSchema(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Project: ast.ProjectConfig{Name: "full-project"},
+		Agents: map[string]ast.AgentConfig{
+			"dev": {Description: "A developer."},
+		},
+		Skills: map[string]ast.SkillConfig{
+			"git": {
+				Description:  "Git workflows",
+				Instructions: "Always use rebase.",
+			},
+		},
+		Rules: map[string]ast.RuleConfig{
+			"go": {
+				Instructions: "Use gofmt.",
+			},
+		},
+		Hooks: map[string]ast.HookConfig{
+			"pre-commit": {
+				Run: "make test",
+			},
+		},
+		MCP: map[string]ast.MCPConfig{
+			"db": {
+				Command: "npx",
+				Args:    []string{"-y", "sqlite"},
+			},
+		},
+	}
+
+	out, err := Compile(config)
+	require.NoError(t, err)
+
+	// Agents
+	assert.Contains(t, out.Files, "agents/dev.md")
+
+	// Skills
+	skillContent, ok := out.Files["skills/git.md"]
+	require.True(t, ok, "expected skills/git.md to be compiled")
+	assert.Contains(t, skillContent, "description: Git workflows")
+	assert.Contains(t, skillContent, "Always use rebase.")
+
+	// Rules
+	ruleContent, ok := out.Files["rules/go.md"]
+	require.True(t, ok, "expected rules/go.md to be compiled")
+	assert.Contains(t, ruleContent, "Use gofmt.")
+
+	// Hooks (should compile to a single hooks.json file?)
+	// Actually, wait, let's see how Claude Code expects hooks. It seems to expect them in a hooks block in settings.json or maybe hooks.yaml, but let's check settings.json. I'll just check if it compiles to something.
+	// Actually, the implementation plan specifies compileHooks() -> .claude/hooks.json
+	hookContent, ok := out.Files["hooks.json"]
+	require.True(t, ok, "expected hooks.json to be compiled")
+	assert.Contains(t, hookContent, `"pre-commit"`)
+	assert.Contains(t, hookContent, `"make test"`)
+
+	// Settings (which should include MCP)
+	settingsContent, ok := out.Files["settings.json"]
+	require.True(t, ok, "expected settings.json to be compiled")
+	assert.Contains(t, settingsContent, `"db"`)
+	assert.Contains(t, settingsContent, `"npx"`)
+	assert.Contains(t, settingsContent, `"sqlite"`)
+}
+
 func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 	// An agent id containing path separators should be cleaned safely.
 	config := &ast.XcaffoldConfig{

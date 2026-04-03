@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -71,6 +72,22 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	} else {
 		fmt.Println("✓ Plan completed. No bloat detected.")
 	}
+
+	// Write plan.json to disk as documented.
+	planData := map[string]any{
+		"project": config.Project.Name,
+		"agents":  len(config.Agents),
+		"tokens":  report,
+		"bloat":   hasBloat,
+	}
+	planBytes, err := json.MarshalIndent(planData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal plan.json: %w", err)
+	}
+	if err := os.WriteFile("plan.json", planBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write plan.json: %w", err)
+	}
+	fmt.Println("  plan.json written.")
 
 	return nil
 }
