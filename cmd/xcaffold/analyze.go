@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/saero-ai/xcaffold/internal/analyzer"
+	"github.com/saero-ai/xcaffold/internal/auth"
 	"github.com/saero-ai/xcaffold/internal/generator"
 	"github.com/spf13/cobra"
 )
@@ -58,7 +59,7 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	gen := generator.New(apiKey, analyzeModel, "", nil)
 
 	authMsg := "Anthropic API Key"
-	if gen.AuthMode() == generator.AuthModeSubscription {
+	if gen.AuthMode() == auth.AuthModeSubscription {
 		authMsg = "Claude Code Subscription (fallback via claude CLI)"
 		cmd.Println("   Note: Generation may display the Claude CLI spinner briefly.")
 	}

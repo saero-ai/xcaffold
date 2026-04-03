@@ -33,7 +33,7 @@ func mockAnthropicServer(responseBody string, statusCode int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		io.WriteString(w, responseBody)
+		_, _ = io.WriteString(w, responseBody)
 	}))
 }
 
@@ -123,4 +123,11 @@ func TestBuildGeneratorPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "High-Quality, Adversarial check statements")
 	// Check that we assert the dual output format
 	assert.Contains(t, prompt, "audit_report")
+}
+
+func TestGenerate_RejectsCommandInjection(t *testing.T) {
+	g := New("", "", "rm", nil)
+	_, err := g.Generate(&analyzer.ProjectSignature{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "claudePath must point to exactly 'claude'")
 }

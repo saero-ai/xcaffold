@@ -7,31 +7,29 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
+	"github.com/saero-ai/xcaffold/internal/auth"
 	"github.com/saero-ai/xcaffold/internal/trace"
 )
 
 const defaultJudgeModel = "claude-haiku-4-5-20251001"
 
-// AuthMode describes how the judge authenticates with Anthropic.
-type AuthMode string
-
+// Re-export auth mode constants for callers that import only the judge package.
 const (
-	// AuthModeAPIKey uses a direct Anthropic API key (ANTHROPIC_API_KEY).
-	AuthModeAPIKey AuthMode = "api_key"
-	// AuthModeSubscription uses the local `claude` CLI subprocess (Claude Code subscription).
-	AuthModeSubscription AuthMode = "subscription"
+	AuthModeAPIKey       = auth.AuthModeAPIKey
+	AuthModeSubscription = auth.AuthModeSubscription
 )
 
 // Report is the structured output of a Judge evaluation.
 type Report struct {
-	Model            string   `json:"model"`
-	AuthMode         AuthMode `json:"auth_mode"`
-	Verdict          string   `json:"verdict"`
-	PassedAssertions []string `json:"passed_assertions"`
-	FailedAssertions []string `json:"failed_assertions"`
-	Reasoning        string   `json:"reasoning,omitempty"`
+	Model            string        `json:"model"`
+	AuthMode         auth.AuthMode `json:"auth_mode"`
+	Verdict          string        `json:"verdict"`
+	PassedAssertions []string      `json:"passed_assertions"`
+	FailedAssertions []string      `json:"failed_assertions"`
+	Reasoning        string        `json:"reasoning,omitempty"`
 }
 
 // Judge evaluates an execution trace against a set of user-defined assertions
@@ -40,7 +38,7 @@ type Judge struct {
 	apiKey     string
 	model      string
 	claudePath string
-	authMode   AuthMode
+	authMode   auth.AuthMode
 	httpClient *http.Client
 }
 
@@ -61,9 +59,9 @@ func New(apiKey, model, claudePath string, httpClient *http.Client) *Judge {
 		httpClient = http.DefaultClient
 	}
 
-	mode := AuthModeSubscription
+	mode := auth.AuthModeSubscription
 	if apiKey != "" {
-		mode = AuthModeAPIKey
+		mode = auth.AuthModeAPIKey
 	}
 
 	return &Judge{
@@ -76,7 +74,7 @@ func New(apiKey, model, claudePath string, httpClient *http.Client) *Judge {
 }
 
 // AuthMode returns the authentication mode this judge will use.
-func (j *Judge) AuthMode() AuthMode {
+func (j *Judge) AuthMode() auth.AuthMode {
 	return j.authMode
 }
 
@@ -151,6 +149,11 @@ func (j *Judge) evaluateViaAPI(prompt string) (*Report, error) {
 // evaluateViaCLI runs `claude -p "<prompt>"` as a subprocess using the user's
 // existing Claude Code subscription — no API key required.
 func (j *Judge) evaluateViaCLI(prompt string) (*Report, error) {
+	base := filepath.Base(j.claudePath)
+	if base != "claude" && base != "claude.cmd" {
+		return nil, fmt.Errorf("judge: claudePath must point to exactly 'claude' or 'claude.cmd' for security, got: %s", j.claudePath)
+	}
+
 	// Use `claude -p` (print mode) to get a single non-interactive response.
 	cmd := exec.Command(j.claudePath, "-p", prompt) //nolint:gosec
 	var stdout, stderr bytes.Buffer

@@ -28,7 +28,7 @@ func mockAnthropicServer(responseBody string, statusCode int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		io.WriteString(w, responseBody)
+		_, _ = io.WriteString(w, responseBody)
 	}))
 }
 
@@ -153,4 +153,13 @@ func TestParseCLIReport_FallsBackToRawText(t *testing.T) {
 	report := parseCLIReport("test-model", text)
 	assert.Equal(t, text, report.Reasoning)
 	assert.Equal(t, "FAIL", report.Verdict)
+}
+
+func TestEvaluate_RejectsCommandInjection(t *testing.T) {
+	// If a user supplies a dangerous claudePath, it should fail validation
+	// before attempting exec.Command
+	j := New("", "", "rm", nil)
+	_, err := j.Evaluate(makeSummary(), []string{"should not run"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "claudePath must point to exactly 'claude'")
 }

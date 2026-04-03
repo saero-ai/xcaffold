@@ -7,25 +7,20 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/analyzer"
+	"github.com/saero-ai/xcaffold/internal/auth"
 )
 
 const defaultGeneratorModel = "claude-3-5-sonnet-20241022" // Sonnet is preferred for generation speed and context
-
-type AuthMode string
-
-const (
-	AuthModeAPIKey       AuthMode = "api_key"
-	AuthModeSubscription AuthMode = "subscription"
-)
 
 type Generator struct {
 	apiKey     string
 	model      string
 	claudePath string
-	authMode   AuthMode
+	authMode   auth.AuthMode
 	httpClient *http.Client
 }
 
@@ -41,9 +36,9 @@ func New(apiKey, model, claudePath string, httpClient *http.Client) *Generator {
 		httpClient = http.DefaultClient
 	}
 
-	mode := AuthModeSubscription
+	mode := auth.AuthModeSubscription
 	if apiKey != "" {
-		mode = AuthModeAPIKey
+		mode = auth.AuthModeAPIKey
 	}
 
 	return &Generator{
@@ -56,7 +51,7 @@ func New(apiKey, model, claudePath string, httpClient *http.Client) *Generator {
 }
 
 // AuthMode returns the active authentication mode.
-func (g *Generator) AuthMode() AuthMode {
+func (g *Generator) AuthMode() auth.AuthMode {
 	return g.authMode
 }
 
@@ -70,9 +65,9 @@ func (g *Generator) Generate(sig *analyzer.ProjectSignature) (*GenerationResult,
 	prompt := buildGeneratorPrompt(sig)
 
 	switch g.authMode {
-	case AuthModeAPIKey:
+	case auth.AuthModeAPIKey:
 		return g.generateViaAPI(prompt)
-	case AuthModeSubscription:
+	case auth.AuthModeSubscription:
 		return g.generateViaCLI(prompt)
 	default:
 		return nil, fmt.Errorf("generator: unknown auth mode %q", g.authMode)
@@ -131,6 +126,11 @@ func (g *Generator) generateViaAPI(prompt string) (*GenerationResult, error) {
 }
 
 func (g *Generator) generateViaCLI(prompt string) (*GenerationResult, error) {
+	base := filepath.Base(g.claudePath)
+	if base != "claude" && base != "claude.cmd" {
+		return nil, fmt.Errorf("generator: claudePath must point to exactly 'claude' or 'claude.cmd' for security, got: %s", g.claudePath)
+	}
+
 	// Let the output stream directly to the terminal so the user sees the
 	// spinning Claude UI during the potentially long generation phase.
 	// We use standard input/output pipes to print cleanly.
