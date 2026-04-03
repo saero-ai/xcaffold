@@ -1,14 +1,18 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="xcaffold logo" height="150" />
+</p>
+
 # xcaffold
 
 [![CI](https://github.com/saero-ai/xcaffold/actions/workflows/ci.yml/badge.svg)](https://github.com/saero-ai/xcaffold/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/saero-ai/xcaffold)](https://goreportcard.com/report/github.com/saero-ai/xcaffold)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/dl/)
 
 **agent configuration for Anthropic Claude Code.** Declare your AI agents in a single `.xcf` YAML file. `xcaffold` compiles it deterministically into `.claude/` — with drift detection, token budgeting, and sandboxed simulation.
 
 ```
-scaffold.xcf  ──►  xcaffold apply  ──►  .claude/agents/*.md
+scaffold.xcf  ──►  xcaffold apply   ──►  .claude/agents/*.md
                                     ──►  .claude/skills/*.md
                                     ──►  .claude/rules/*.md
                                     ──►  .claude/settings.json
@@ -108,6 +112,7 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 | Bootstrap | `xcaffold init` | `scaffold.xcf` starter template |
 | Audit | `xcaffold analyze` | `scaffold.xcf` + `audit.json` |
 | Token Budget | `xcaffold plan` | stdout report + `plan.json` |
+| Topology | `xcaffold graph` | terminal art, mermaid, JSON, or DOT graph |
 | Compilation | `xcaffold apply` | `.claude/**` + `scaffold.lock` |
 | Drift Check | `xcaffold diff` | Exit 1 on drift |
 | Validation | `xcaffold test` | `trace.jsonl` + judge report |
@@ -119,6 +124,12 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 | Argument | Default | Description |
 |---|---|---|
 | `[directory]` | `.` | Directory containing `scaffold.xcf`. |
+
+### `xcaffold graph`
+
+| Flag | Default | Description |
+|---|---|---|
+| `--format` | `terminal` | Format of output (`terminal`, `mermaid`, `dot`, `json`). |
 
 ### `xcaffold plan`
 
@@ -150,7 +161,8 @@ The `scaffold.xcf` file supports the following top-level blocks:
 * `project` - (Required) Object. Project identity. Contains `name` (string).
 * `agents` - (Optional) Map. Claude agent personas. Each entry supports:
   * `description` - (Optional) String. Shown in Claude Code agent picker.
-  * `instructions` - (Optional) String. The agent's system prompt.
+  * `instructions` - (Optional) String. The agent's inline system prompt.
+  * `instructions_file` - (Optional) String. Path to external Markdown system prompt.
   * `model` - (Optional) String. Anthropic model ID.
   * `effort` - (Optional) String. Thinking effort level (`low`, `medium`, `high`).
   * `tools` - (Optional) List of strings. Allowed tools (e.g. `Read`, `Write`, `Bash`).
@@ -159,11 +171,12 @@ The `scaffold.xcf` file supports the following top-level blocks:
   * `rules` - (Optional) List of strings. Rule IDs to apply to this agent.
   * `mcp` - (Optional) List of strings. MCP server IDs available to this agent.
   * `assertions` - (Optional) List of strings. Behavioral constraints evaluated by `xcaffold test --judge`.
-* `skills` - (Optional) Map. Reusable prompt packages. Each entry supports `description`, `instructions`, `paths`, `tools`.
-* `rules` - (Optional) Map. Path-gated formatting guidelines. Each entry supports `paths`, `instructions`.
+* `skills` - (Optional) Map. Reusable prompt packages. Each entry supports `description`, `instructions`, `instructions_file`, `paths`, `tools`, `references`.
+* `rules` - (Optional) Map. Path-gated formatting guidelines. Each entry supports `paths`, `instructions`, `instructions_file`.
 * `hooks` - (Optional) Map. Lifecycle event hooks. Each entry supports `event`, `match`, `run`.
 * `mcp` - (Optional) Map. Local MCP server declarations. Each entry supports `command`, `args`, `env`.
 * `test` - (Optional) Object. Simulator configuration. Supports `claude_path`, `judge_model`.
+* `settings` - (Optional) Object. Full project environment configuration (env, statusLine, plugins).
 
 ## Attributes Reference
 

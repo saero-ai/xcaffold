@@ -16,7 +16,6 @@ vendor/
 # xcaffold CLI outputs
 /xcaffold
 /.claude/
-scaffold.xcf
 scaffold.lock
 
 # IDE / OS specific ignoring
