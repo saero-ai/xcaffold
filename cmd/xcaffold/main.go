@@ -5,7 +5,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
+)
+
+var (
+	version = "1.0.0-dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 // configFlag holds the value of the global --config flag.
@@ -49,6 +56,9 @@ Use 'xcaffold --help' for more information on available commands.`,
 }
 
 func init() {
+	state.XcaffoldVersion = version
+	rootCmd.Version = fmt.Sprintf("%s (commit: %s, date: %s)", version, commit, date)
+
 	rootCmd.PersistentFlags().StringVar(
 		&configFlag,
 		"config",

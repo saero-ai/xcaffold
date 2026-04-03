@@ -15,9 +15,15 @@ test:
 	@echo "=> Running tests..."
 	@go test -v ./...
 
+VERSION ?= 1.0.0-dev
+COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "none")
+DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)
+
 build:
 	@echo "=> Compiling standard binary..."
-	@go build -o xcaffold ./cmd/xcaffold/...
+	@go build -ldflags="$(LDFLAGS)" -o xcaffold ./cmd/xcaffold/...
 
 clean:
 	@echo "=> Cleaning up build artifacts..."

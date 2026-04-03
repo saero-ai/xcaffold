@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/analyzer"
 	"github.com/saero-ai/xcaffold/internal/parser"
@@ -75,10 +76,11 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal plan.json: %w", err)
 	}
-	if err := os.WriteFile("plan.json", planBytes, 0644); err != nil {
-		return fmt.Errorf("failed to write plan.json: %w", err)
+	planPath := filepath.Join(filepath.Dir(xcfPath), "plan.json")
+	if err := os.WriteFile(planPath, planBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", planPath, err)
 	}
-	fmt.Println("  plan.json written.")
+	fmt.Printf("  %s written.\n", planPath)
 
 	return nil
 }

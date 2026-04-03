@@ -1,6 +1,8 @@
 package analyzer
 
 import (
+	"unicode/utf8"
+
 	"github.com/saero-ai/xcaffold/internal/ast"
 )
 
@@ -28,8 +30,8 @@ func (a *Analyzer) AnalyzeTokens(config *ast.XcaffoldConfig) map[string]int {
 	report := make(map[string]int, len(config.Agents))
 	for id, agent := range config.Agents {
 		payload := agent.Instructions + " " + agent.Description
-		// ~4 bytes per token is a conservative BPE estimate for English text.
-		report[id] = len(payload) / 4
+		// ~4 printable characters per token is a conservative BPE estimate.
+		report[id] = utf8.RuneCountInString(payload) / 4
 	}
 	return report
 }

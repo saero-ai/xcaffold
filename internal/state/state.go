@@ -13,7 +13,9 @@ import (
 )
 
 const lockFileVersion = 1
-const xcaffoldVersion = "1.0.0-dev"
+
+var XcaffoldVersion = "1.0.0-dev"
+
 const claudeSchemaVersion = "alpha"
 
 // LockManifest is the schema for the scaffold.lock file.
@@ -37,7 +39,7 @@ func Generate(out *compiler.Output) *LockManifest {
 	manifest := &LockManifest{
 		Version:             lockFileVersion,
 		LastApplied:         time.Now().UTC().Format(time.RFC3339),
-		XcaffoldVersion:     xcaffoldVersion,
+		XcaffoldVersion:     XcaffoldVersion,
 		ClaudeSchemaVersion: claudeSchemaVersion,
 		Artifacts:           make([]Artifact, 0, len(out.Files)),
 	}

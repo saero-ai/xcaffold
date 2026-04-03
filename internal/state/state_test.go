@@ -19,7 +19,7 @@ func TestGenerate_ProducesCorrectArtifacts(t *testing.T) {
 	require.NotNil(t, manifest)
 
 	assert.Equal(t, lockFileVersion, manifest.Version)
-	assert.Equal(t, xcaffoldVersion, manifest.XcaffoldVersion)
+	assert.Equal(t, XcaffoldVersion, manifest.XcaffoldVersion)
 	assert.Len(t, manifest.Artifacts, 1)
 	assert.Equal(t, "agents/developer.md", manifest.Artifacts[0].Path)
 	assert.True(t, len(manifest.Artifacts[0].Hash) > 0)

@@ -53,6 +53,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("compilation error: %w", err)
 	}
 
+	for _, agent := range config.Agents {
+		if len(agent.Targets) > 0 {
+			fmt.Fprintln(os.Stderr, "Warning: 'targets' block is experimental and currently uncompiled.")
+			break
+		}
+	}
+
 	if applyDryRun {
 		fmt.Println("Dry-run preview (no files will be written):")
 		fmt.Println()
