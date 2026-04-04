@@ -1,5 +1,6 @@
 <p align="center">
   <img src="docs/assets/logo.svg" alt="xcaffold logo" height="150" />
+  <img src="docs/assets/xaff/xaff_animated.svg" alt="Xaff Mascot Animated" height="150" />
 </p>
 
 # xcaffold
@@ -36,14 +37,20 @@ Most teams hand-edit `.claude/` markdown files. This means:
 brew install saero-ai/tap/xcaffold
 ```
 
-**Go install**
+**Scoop (Windows)**
+```powershell
+scoop bucket add saero-ai https://github.com/saero-ai/scoop-bucket.git
+scoop install xcaffold
+```
+
+**Go install (All Platforms)**
 ```bash
 go install github.com/saero-ai/xcaffold/cmd/xcaffold@latest
 ```
 
 **Binary releases**
 
-Pre-built binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows are available on the [Releases page](https://github.com/saero-ai/xcaffold/releases).
+Pre-built binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64) are available on the [Releases page](https://github.com/saero-ai/xcaffold/releases). Windows binaries are packaged as `.zip` while Unix binaries are `.tar.gz`.
 
 **Build from source**
 ```bash
