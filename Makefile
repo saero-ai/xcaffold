@@ -1,4 +1,4 @@
-.PHONY: setup lint test build clean
+.PHONY: setup lint test build install clean
 
 setup:
 	@echo "=> Installing global dependencies & git hooks..."
@@ -24,6 +24,10 @@ LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DA
 build:
 	@echo "=> Compiling standard binary..."
 	@go build -ldflags="$(LDFLAGS)" -o xcaffold ./cmd/xcaffold/...
+
+install:
+	@echo "=> Installing global binary..."
+	@go install -ldflags="$(LDFLAGS)" ./cmd/xcaffold/...
 
 clean:
 	@echo "=> Cleaning up build artifacts..."
