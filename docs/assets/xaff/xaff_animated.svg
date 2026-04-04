@@ -1,0 +1,127 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 737 737" width="100%" height="100%">
+    <style>
+        .s0 { fill: #c6f301 } 
+        .s1 { fill: #070a06 } 
+    </style>
+    <g class="bouncing-character">
+        <animateTransform attributeName="transform" type="translate" values="0 0; 0 -27; 0 0" keyTimes="0;0.5;1" dur="1.2s" calcMode="discrete" repeatCount="indefinite" />
+
+        <!-- State: idle -->
+        <g opacity="1">
+          <animate attributeName="opacity" values="1;0;0" keyTimes="0;0.3;1" dur="8s" repeatCount="indefinite" calcMode="discrete" />
+          <g data-id="Xaff Idle">
+		<g data-id="Body">
+			<path data-id="Shape 2" class="s0" d="m593 229v243h-450v-243zm-408-41h365v41h-365zm46-37h273v37h-273zm-50 320h373v38h-373z"/>
+			<g data-id="Left Leg">
+				<path data-id="Shape 1" class="s0" d="m369 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/>
+			</g>
+			<g data-id="Right Leg">
+				<path data-id="Shape 1 copy" class="s0" d="m556 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/>
+			</g>
+		</g>
+		<g data-id="Left Eye">
+			<path  data-id="Shape 3" class="s1" d="m302 275v27h-27v-27zm-13 14h26v27h-26zm13 13h27l0.24 52.86-27.24 0.14zm27 13h14v27h-14zm-40 27h26v26h-26zm-14 13.08h27v27l-27-0.04z">
+  <animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path class="s1" d="m 225 300 h 54 v 27 h -54 z">
+  <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+
+		</g>
+		<g data-id="Right Eye">
+			<path data-id="Path 6" class="s2" d="m365 387v8h96v-16h-96z"/>
+		</g>
+	</g>
+        </g>
+
+        <!-- State: happy -->
+        <g opacity="0">
+          <animate attributeName="opacity" values="0;1;0;0" keyTimes="0;0.3;0.45;1" dur="8s" repeatCount="indefinite" calcMode="discrete" />
+          <path class="s0" d="m593 229v243h-450v-243zm-408-41h365v41h-365zm46-37h273v37h-273zm-50 320h373v38h-373z"/><path class="s0" d="m369 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/><path class="s0" d="m556 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/><path  class="s1" d="m252 275v27h-27v-27zm-13 14h26v27h-26zm13 13h27l0.2 52.9-27.2 0.1zm27 13h14v27h-14zm-40 27h26v26h-26zm-14 13.1h27v27l-27-0.1z">
+  <animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path class="s1" d="m 225 300 h 54 v 27 h -54 z">
+  <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path  class="s1" d="m481 275v27h27v-27zm13 14h-26v27h26zm-13 13h-27l-0.2 52.9 27.2 0.1zm-27 13h-14v27h14zm40 27h-26v26h26zm14 13.1h-27v27l27-0.1z">
+  <animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.88;0.90;0.92;1" dur="5.5s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path class="s1" d="m 465 300 h 54 v 27 h -54 z">
+  <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.88;0.90;0.92;1" dur="5.5s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path  class="s1" d="m405 412v19h-74v-19zm-89-24h17v28h-17zm87 0h17v29h-17zm-14 13h14v11h-14zm-56 0h14v11h-14z"></path>
+        </g>
+
+        <!-- State: surprised -->
+        <g opacity="0">
+          <animate attributeName="opacity" values="0;1;0;0" keyTimes="0;0.45;0.55;1" dur="8s" repeatCount="indefinite" calcMode="discrete" />
+          <path class="s0" d="m593 229v243h-450v-243zm-408-41h365v41h-365zm46-37h273v37h-273zm-50 320h373v38h-373z"/><path class="s0" d="m369 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/><path class="s0" d="m556 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/><path  class="s1" d="m252 275v27h-27v-27zm-13 14h26v27h-26zm13 13h27l0.2 52.9-27.2 0.1zm27 13h14v27h-14zm-40 27h26v26h-26zm-14 13.1h27v27l-27-0.1z">
+  <animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path class="s1" d="m 225 300 h 54 v 27 h -54 z">
+  <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path  class="s1" d="m481 275v27h27v-27zm13 14h-26v27h26zm-13 13h-27l-0.2 52.9 27.2 0.1zm-27 13h-14v27h14zm40 27h-26v26h26zm14 13.1h-27v27l27-0.1z">
+  <animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.88;0.90;0.92;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path class="s1" d="m 465 300 h 54 v 27 h -54 z">
+  <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.88;0.90;0.92;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path  class="s1" d="m405 387v19h-74v-19zm-89-24h17v28h-17zm87 0h17v29h-17zm-14 13h14v11h-14zm-56 0h14v11h-14zm72-56v-19h-74v19zm-89 24h17v-28h-17zm87 0h17v-29h-17zm-14-13v-11h14v11zm-56 0v-11h14v11zm-17 13h17v19h-17zm87 0h17v19h-17z"></path>
+        </g>
+
+        <!-- State: thinking -->
+        <g opacity="0">
+          <animate attributeName="opacity" values="0;1;0;0" keyTimes="0;0.55;0.7;1" dur="8s" repeatCount="indefinite" calcMode="discrete" />
+          <g data-id="Xaff Thinking">
+		<g data-id="Body">
+			<path data-id="Shape 2" class="s0" d="m593 229v243h-450v-243zm-408-41h365v41h-365zm46-37h273v37h-273zm-50 320h373v38h-373z"/>
+			<g data-id="Left Leg">
+				<path data-id="Shape 1" class="s0" d="m369 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/>
+			</g>
+			<g data-id="Right Leg">
+				<path data-id="Shape 1 copy" class="s0" d="m556 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/>
+			</g>
+		</g>
+		<g data-id="Left Eye">
+			<path  data-id="Shape 3" class="s1" d="m282 275v27h-27v-27zm-13 14h26v27h-26zm13 13h27l0.24 52.86-27.24 0.14zm27 13h14v27h-14zm-40 27h26v26h-26zm-14 13.08h27v27l-27-0.04z">
+  <animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path class="s1" d="m 225 300 h 54 v 27 h -54 z">
+  <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+
+		</g>
+		<g data-id="Right Eye">
+			<path data-id="Shape 5" fill-rule="evenodd" class="s2" d="m374 354v27h-27v-27z"/>
+			<path data-id="Shape 5 copy" fill-rule="evenodd" class="s2" d="m427 354v27h-27v-27z"/>
+			<path data-id="Shape 5 copy 2" fill-rule="evenodd" class="s2" d="m480 354v27h-27v-27z"/>
+		</g>
+	</g>
+        </g>
+
+        <!-- State: celebrating -->
+        <g opacity="0">
+          <animate attributeName="opacity" values="0;1;0;0" keyTimes="0;0.7;0.85;1" dur="8s" repeatCount="indefinite" calcMode="discrete" />
+          <path class="s0" d="m593 229v243h-450v-243zm-408-41h365v41h-365zm46-37h273v37h-273zm-50 320h373v38h-373z"/><path class="s0" d="m369 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/><path class="s0" d="m556 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/><path  class="s1" d="m252 275v27h-27v-27zm-13 14h26v27h-26zm13 13h27l0.2 52.9-27.2 0.1zm27 13h14v27h-14zm-40 27h26v26h-26zm-14 13.1h27v27l-27-0.1z">
+  <animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path class="s1" d="m 225 300 h 54 v 27 h -54 z">
+  <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.92;0.94;0.96;1" dur="4s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path  class="s1" d="m481 275v27h27v-27zm13 14h-26v27h26zm-13 13h-27l-0.2 52.9 27.2 0.1zm-27 13h-14v27h14zm40 27h-26v26h26zm14 13.1h-27v27l27-0.1z">
+  <animate attributeName="opacity" values="1;1;0;1;1" keyTimes="0;0.88;0.90;0.92;1" dur="5.5s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path class="s1" d="m 465 300 h 54 v 27 h -54 z">
+  <animate attributeName="opacity" values="0;0;1;0;0" keyTimes="0;0.88;0.90;0.92;1" dur="5.5s" repeatCount="indefinite" calcMode="discrete"/>
+</path>
+<path  class="s1" d="m375 303v94h-14v-94zm13 24v77h-13v-77zm-27 0v77h-13v-77zm-13 13v75h-13v-75zm53 0v75h-13v-75zm11 0v25h-11v-25zm-77 0v25h-11v-25zm-11 0v13h-12v-13zm100 0v13h-12v-13zm-26 48h14v39h-14zm-74 0h14v39h-14z"></path>
+        </g>
+
+        <!-- State: error -->
+        <g opacity="0">
+          <animate attributeName="opacity" values="0;1;1" keyTimes="0;0.85;1" dur="8s" repeatCount="indefinite" calcMode="discrete" />
+          <path class="s0" d="m593 229v243h-450v-243zm-408-41h365v41h-365zm46-37h273v37h-273zm-50 320h373v38h-373z"/><path class="s0" d="m369 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/><path class="s0" d="m556 471v38h-187v-38zm-150 38h109v38h-109zm36 38h35v38h-35z"/><path  class="s1" d="m252 275v27h-27v-27zm-13 14h26v27h-26zm13 13h27l0.2 52.9-27.2 0.1zm27 13h14v27h-14zm-40 27h26v26h-26zm-14 13.1h27v27l-27-0.1z"></path><path  class="s1" d="m481 275v27h27v-27zm13 14h-26v27h26zm-13 13h-27l-0.2 52.9 27.2 0.1zm-27 13h-14v27h14zm40 27h-26v26h26zm14 13.1h-27v27l27-0.1z"></path><path  fill-rule="evenodd" class="s1" d="m412.8 321.6v19.8h-9.8v10.6h-10v18h10v10.3h9.8v19.7l-19.8 0.1v-10.1h-10v-9.8l-9.9-0.1v-9.3h0.2v-19.8h-0.1v-0.1 0.1 19.7h-0.1v0.1h-3.6l-5.8 0.1v9.2l-10.4 0.1v9.6h-9.5v10.3l-19.8-0.1v-19.7h10.3v-9.6l9.5 0.2v-19.2h-9.5v-10.3h-10.3v-19.8h19.8v10.3h9.5v9.5h10.3v9.5l3.9 0.1 5.7-0.1v-9.5h9.8v-9.4h10v-10.4z"></path>
+        </g>
+    </g>
+</svg>
