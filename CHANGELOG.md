@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Full compiler surface: `xcaffold apply` now emits `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/hooks.json`, and `.claude/settings.json` (with MCP) in addition to agents.
+- `xcaffold graph` command with deep hierarchical topology visualization (segments global components, natively renders blocked/allowed tools, and separates inherited skills from rules automatically).
+- `instructions_file:` directive across agents, skills, and rules to allow sourcing prompts from external markdown files.
+- `references:` directive for skills to support copying supplementary context files (supports glob patterns).
 - `plan.json` file output — `xcaffold plan` now writes a structured JSON token budget report to disk in addition to stdout.
 - GoReleaser configuration — pre-built release binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64). Homebrew tap formula included.
 - `AGENTS.md` — universal agent instruction file following the [agents.txt](https://agentstext.com) convention.
@@ -14,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.github/copilot-instructions.md` — workspace-specific Copilot context.
 - `docs/architecture.md` — system architecture documentation with Mermaid diagrams.
 - Shared `internal/auth` package — eliminates `AuthMode` type duplication between `judge` and `generator` packages.
+- `make install` target added to `Makefile` with dynamic `LDFLAGS` injection for version propagation.
 
 ### Changed
 - README rewritten with badge row, "Why xcaffold?" section, Homebrew install target, and expanded full-schema reference covering all compiler outputs.
@@ -22,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Compiler now emits all schema blocks. Previously, `skills`, `rules`, `hooks`, and `mcp` were silently discarded.
+- `xcaffold import` completely refactored to be highly faithful, dynamically discovering and preserving external file structures.
+- Settings structure type limitations fixed: `statusLine` and `enabledPlugins` are now strictly typed structures instead of untyped maps.
 - `trace.Recorder` data race — added `sync.Mutex` to protect concurrent writes from HTTP handler goroutines.
 - SSRF in `internal/proxy` — replaced `strings.HasSuffix` host check with strict equality, preventing `evil-api.anthropic.com` bypass.
 - `os.Exit(1)` in `diff.go` and `validate.go` replaced with `return fmt.Errorf(...)` to allow Cobra to handle exit codes and deferred cleanup.
@@ -42,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for `tools`, `skills`, `blocked_tools`, `effort`, `model`, and `mcp` declarations within `scaffold.xcf`.
 
 ### Removed
-- Support for multi-provider prompt polyfilling (Copilot, Cursor) has been explicitly removed in V1 in favor of the strict Claude-only ecosystem.
+- Support for multi-provider prompt polyfilling has been explicitly removed in V1 in favor of the strict native ecosystem.
 - Support for Bi-Directional Compilation (Decompilation of `.claude/` files back to `.xcf`).
 
 ### Security
