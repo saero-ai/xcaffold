@@ -52,6 +52,12 @@ type AgentConfig struct {
 	When            string   `yaml:"when,omitempty"`
 	MCP             []string `yaml:"mcp,omitempty"`
 
+	// Hooks defines agent-scoped lifecycle hooks.
+	Hooks HookConfig `yaml:"hooks,omitempty"`
+
+	// MCPServers defines agent-scoped MCP server configurations.
+	MCPServers map[string]MCPConfig `yaml:"mcpServers,omitempty"`
+
 	// Assertions are statements the LLM-as-a-Judge evaluates against the
 	// execution trace when running `xcaffold test --judge`.
 	Assertions []string `yaml:"assertions,omitempty"`

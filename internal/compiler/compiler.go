@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"gopkg.in/yaml.v3"
 )
 
 // Output holds the in-memory result of a compilation pass.
@@ -207,6 +208,20 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 	}
 	if agent.InitialPrompt != "" {
 		fmt.Fprintf(&sb, "initialPrompt: %s\n", agent.InitialPrompt)
+	}
+	if len(agent.Hooks) > 0 {
+		hooksYAML, err := yaml.Marshal(map[string]ast.HookConfig{"hooks": agent.Hooks})
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal agent hooks: %w", err)
+		}
+		sb.WriteString(string(hooksYAML))
+	}
+	if len(agent.MCPServers) > 0 {
+		mcpYAML, err := yaml.Marshal(map[string]map[string]ast.MCPConfig{"mcpServers": agent.MCPServers})
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal agent mcpServers: %w", err)
+		}
+		sb.WriteString(string(mcpYAML))
 	}
 
 	sb.WriteString("---\n")

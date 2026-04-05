@@ -616,6 +616,45 @@ func TestCompile_Agent_NewFields_EmitCorrectly(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Feature: Agent-scoped hooks and mcpServers
+// ---------------------------------------------------------------------------
+
+func TestCompile_Agent_ScopedHooksAndMCP_EmitCorrectly(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"hooked": {
+				Description: "Agent with hooks and MCP",
+				Hooks: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo check"},
+							},
+						},
+					},
+				},
+				MCPServers: map[string]ast.MCPConfig{
+					"local-db": {
+						Command: "npx",
+						Args:    []string{"-y", "sqlite-mcp"},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/hooked.md"]
+	assert.Contains(t, content, "hooks:")
+	assert.Contains(t, content, "PreToolUse")
+	assert.Contains(t, content, "mcpServers:")
+	assert.Contains(t, content, "local-db")
+}
+
+// ---------------------------------------------------------------------------
 // Feature: OtelHeadersHelper, DisableAllHooks, Attribution settings
 // ---------------------------------------------------------------------------
 
