@@ -86,3 +86,66 @@ agents:
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "agent id contains invalid characters")
 }
+
+func TestParse_HookEvent_ValidEvent_Accepted(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+hooks:
+  PreToolUse:
+    - hooks:
+        - type: command
+          command: "echo ok"
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Len(t, config.Hooks["PreToolUse"], 1)
+}
+
+func TestParse_HookEvent_InvalidEvent_Rejected(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+hooks:
+  MadeUpEvent:
+    - hooks:
+        - type: command
+          command: "echo ok"
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err, "unknown hook event names must be rejected")
+	assert.Contains(t, err.Error(), "MadeUpEvent")
+}
+
+func TestParse_HookEvent_AllValidEvents_Accepted(t *testing.T) {
+	events := []string{
+		"PreToolUse", "PostToolUse", "PostToolUseFailure",
+		"PermissionRequest", "PermissionDenied",
+		"SessionStart", "SessionEnd", "UserPromptSubmit",
+		"Stop", "StopFailure", "SubagentStart", "SubagentStop",
+		"TeammateIdle", "TaskCreated", "TaskCompleted",
+		"PreCompact", "PostCompact", "InstructionsLoaded",
+		"ConfigChange", "CwdChanged", "FileChanged",
+		"WorktreeCreate", "WorktreeRemove",
+		"Elicitation", "ElicitationResult", "Notification",
+	}
+
+	for _, event := range events {
+		t.Run(event, func(t *testing.T) {
+			input := `
+version: "1.0"
+project:
+  name: "test"
+hooks:
+  ` + event + `:
+    - hooks:
+        - type: command
+          command: "echo ok"
+`
+			_, err := Parse(strings.NewReader(input))
+			require.NoError(t, err, "event %q should be accepted", event)
+		})
+	}
+}

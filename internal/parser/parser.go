@@ -123,6 +123,22 @@ func validateID(kind, id string) error {
 	return nil
 }
 
+// validHookEvents is the set of lifecycle events recognized by Claude Code.
+var validHookEvents = map[string]bool{
+	"PreToolUse": true, "PostToolUse": true, "PostToolUseFailure": true,
+	"PermissionRequest": true, "PermissionDenied": true,
+	"SessionStart": true, "SessionEnd": true,
+	"UserPromptSubmit": true, "Stop": true, "StopFailure": true,
+	"SubagentStart": true, "SubagentStop": true, "TeammateIdle": true,
+	"TaskCreated": true, "TaskCompleted": true,
+	"PreCompact": true, "PostCompact": true,
+	"InstructionsLoaded": true, "ConfigChange": true,
+	"CwdChanged": true, "FileChanged": true,
+	"WorktreeCreate": true, "WorktreeRemove": true,
+	"Elicitation": true, "ElicitationResult": true,
+	"Notification": true,
+}
+
 // validate performs semantic validation on a parsed config.
 func validate(c *ast.XcaffoldConfig) error {
 	if c.Version == "" {
@@ -158,6 +174,14 @@ func validate(c *ast.XcaffoldConfig) error {
 			return err
 		}
 	}
+
+	// Validate hook event names against the supported set.
+	for event := range c.Hooks {
+		if !validHookEvents[event] {
+			return fmt.Errorf("unknown hook event %q; see documentation for supported lifecycle events", event)
+		}
+	}
+
 	for id := range c.MCP {
 		if err := validateID("mcp", id); err != nil {
 			return err
