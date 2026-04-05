@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 )
@@ -36,21 +37,42 @@ agents:
 #   judge_model: "claude-haiku-4-5-20251001" # Model used for --judge evaluation.
 `
 
+// defaultGlobalXCFContent is the starter template written by `xcaffold init --scope global`.
+const defaultGlobalXCFContent = `version: "1.0"
+project:
+  name: "global"
+  description: "User-wide agent configuration."
+
+# Agents defined here are available across all projects.
+# Project-level scaffold.xcf can override these with 'extends: global'.
+agents:
+  developer:
+    description: "Default developer agent."
+    instructions: |
+      You are a software developer.
+      Write clean, maintainable code.
+    model: "claude-sonnet-4-6"
+    effort: "high"
+    tools: [Bash, Read, Write, Edit, Glob, Grep]
+`
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Bootstrap a new scaffold.xcf configuration",
 	Long: `xcaffold init bootstraps the environment.
 
-┌───────────────────────────────────────────────────────────────────┐
-│                          BOOTSTRAP PHASE                          │
-└───────────────────────────────────────────────────────────────────┘
- • Generates a blank scaffold.xcf configuration file in the current directory.
++-------------------------------------------------------------------+
+|                          BOOTSTRAP PHASE                          |
++-------------------------------------------------------------------+
+ • Generates a scaffold.xcf configuration file in the current directory.
+ • Use --scope global to create a user-wide global.xcf in ~/.claude/.
  • Provides the baseline schema for agent configuration engineering.
 
 Ready to get started? Run:
   $ xcaffold init`,
-	Example: "  $ xcaffold init",
-	RunE:    runInit,
+	Example: `  $ xcaffold init
+  $ xcaffold init --scope global`,
+	RunE: runInit,
 }
 
 func init() {
@@ -58,18 +80,43 @@ func init() {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	const filename = "scaffold.xcf"
+	if scopeFlag == "global" {
+		return initGlobal()
+	}
+	return initProject()
+}
 
+func initProject() error {
+	const filename = "scaffold.xcf"
 	if _, err := os.Stat(filename); err == nil {
 		return fmt.Errorf("%s already exists; delete it first if you want to re-initialize", filename)
 	}
-
 	if err := os.WriteFile(filename, []byte(defaultXCFContent), 0644); err != nil {
 		return fmt.Errorf("failed to create %s: %w", filename, err)
 	}
-
-	fmt.Printf("✓ Created %s\n", filename)
+	fmt.Printf("Created %s\n", filename)
 	fmt.Println("  Edit it to define your agents, then run `xcaffold apply`.")
-	fmt.Println("  Uncomment the `test:` block to configure the local simulator.")
+	return nil
+}
+
+func initGlobal() error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("could not determine home directory: %w", err)
+	}
+	dir := filepath.Join(home, ".claude")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create %s: %w", dir, err)
+	}
+	target := filepath.Join(dir, "global.xcf")
+	if _, err := os.Stat(target); err == nil {
+		return fmt.Errorf("%s already exists; delete it first if you want to re-initialize", target)
+	}
+	if err := os.WriteFile(target, []byte(defaultGlobalXCFContent), 0644); err != nil {
+		return fmt.Errorf("failed to create %s: %w", target, err)
+	}
+	fmt.Printf("Created %s\n", target)
+	fmt.Println("  Edit it to define your global agents, then run `xcaffold apply --scope global`.")
+	fmt.Println("  Projects can inherit with 'extends: global' in their scaffold.xcf.")
 	return nil
 }
