@@ -20,6 +20,11 @@ type XcaffoldConfig struct {
 type ProjectConfig struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
+	Version     string `yaml:"version,omitempty"`
+	Author      string `yaml:"author,omitempty"`
+	Homepage    string `yaml:"homepage,omitempty"`
+	Repository  string `yaml:"repository,omitempty"`
+	License     string `yaml:"license,omitempty"`
 }
 
 // AgentConfig defines a Claude agent persona.

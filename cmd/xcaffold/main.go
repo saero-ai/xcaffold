@@ -57,6 +57,7 @@ var rootCmd = &cobra.Command{
  • Compilation [xcaffold apply]   Compiles XCF to .claude/ prompts
  • Drift Check [xcaffold diff]    Detects manual config tampering
  • Validation  [xcaffold test]    Runs an LLM-in-the-loop proxy
+ • Export      [xcaffold export]  Packages output as a distributable plugin
 
 ┌───────────────────────────────────────────────────────────────────┐
 │                      DIAGNOSTICS & TELEMETRY                      │
