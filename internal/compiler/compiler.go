@@ -193,6 +193,21 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 	if len(agent.Rules) > 0 {
 		fmt.Fprintf(&sb, "rules: [%s]\n", strings.Join(agent.Rules, ", "))
 	}
+	if agent.PermissionMode != "" {
+		fmt.Fprintf(&sb, "permissionMode: %s\n", agent.PermissionMode)
+	}
+	if agent.Background != nil {
+		fmt.Fprintf(&sb, "background: %t\n", *agent.Background)
+	}
+	if agent.Isolation != "" {
+		fmt.Fprintf(&sb, "isolation: %s\n", agent.Isolation)
+	}
+	if agent.Color != "" {
+		fmt.Fprintf(&sb, "color: %s\n", agent.Color)
+	}
+	if agent.InitialPrompt != "" {
+		fmt.Fprintf(&sb, "initialPrompt: %s\n", agent.InitialPrompt)
+	}
 
 	sb.WriteString("---\n")
 

@@ -58,6 +58,21 @@ type AgentConfig struct {
 
 	// Experimental: target-specific configuration overrides.
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
+
+	// PermissionMode controls the agent's permission behavior.
+	PermissionMode string `yaml:"permissionMode,omitempty"`
+
+	// Background runs the agent in background mode.
+	Background *bool `yaml:"background,omitempty"`
+
+	// Isolation sets the agent's isolation mode (e.g. "worktree").
+	Isolation string `yaml:"isolation,omitempty"`
+
+	// Color sets the terminal color for agent output.
+	Color string `yaml:"color,omitempty"`
+
+	// InitialPrompt is the first message sent when the agent starts.
+	InitialPrompt string `yaml:"initialPrompt,omitempty"`
 }
 
 // TargetOverride specifies overrides for multi-provider targets.

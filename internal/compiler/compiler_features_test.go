@@ -385,3 +385,261 @@ func TestCompile_ConventionAutoDiscover_MissingFile_SilentEmpty(t *testing.T) {
 	// Should compile the frontmatter only, with empty body
 	assert.Contains(t, content, "description: CTO agent")
 }
+
+// ---------------------------------------------------------------------------
+// Feature: Sandbox configuration emits to settings.json
+// ---------------------------------------------------------------------------
+
+func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
+	trueVal := true
+	falseVal := false
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Sandbox: &ast.SandboxConfig{
+				Enabled:                  &trueVal,
+				AutoAllow:                &trueVal,
+				AllowUnsandboxedCommands: &falseVal,
+				ExcludedCommands:         []string{"docker *"},
+				Filesystem: &ast.SandboxFilesystem{
+					AllowWrite: []string{"~/.kube", "/tmp/build"},
+					DenyRead:   []string{"~/"},
+					AllowRead:  []string{"."},
+				},
+				Network: &ast.SandboxNetwork{
+					AllowedDomains: []string{"registry.npmjs.org", "github.com"},
+				},
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "settings.json must be generated")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	sandboxAny, has := parsed["sandbox"]
+	require.True(t, has, "sandbox must be present")
+	sandboxMap, ok := sandboxAny.(map[string]any)
+	require.True(t, ok, "sandbox must be an object")
+
+	assert.Equal(t, true, sandboxMap["enabled"])
+	assert.Equal(t, true, sandboxMap["autoAllow"])
+	assert.Equal(t, false, sandboxMap["allowUnsandboxedCommands"])
+
+	fsMap, ok := sandboxMap["filesystem"].(map[string]any)
+	require.True(t, ok, "filesystem must be an object")
+	allowWrite, ok := fsMap["allowWrite"].([]any)
+	require.True(t, ok, "allowWrite must be an array")
+	assert.Len(t, allowWrite, 2)
+
+	netMap, ok := sandboxMap["network"].(map[string]any)
+	require.True(t, ok, "network must be an object")
+	domains, ok := netMap["allowedDomains"].([]any)
+	require.True(t, ok, "allowedDomains must be an array")
+	assert.Len(t, domains, 2)
+}
+
+// ---------------------------------------------------------------------------
+// Feature: MCP HTTP transport support
+// ---------------------------------------------------------------------------
+
+func TestCompile_MCP_HTTPTransport_EmitsCorrectly(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		MCP: map[string]ast.MCPConfig{
+			"github": {
+				Type: "http",
+				URL:  "https://api.github.com/mcp",
+				Headers: map[string]string{
+					"Authorization": "Bearer ${GITHUB_TOKEN}",
+				},
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "settings.json must be generated")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	mcpServers, ok := parsed["mcpServers"].(map[string]any)
+	require.True(t, ok)
+
+	gh, ok := mcpServers["github"].(map[string]any)
+	require.True(t, ok)
+
+	assert.Equal(t, "http", gh["type"])
+	assert.Equal(t, "https://api.github.com/mcp", gh["url"])
+
+	headers, ok := gh["headers"].(map[string]any)
+	require.True(t, ok, "headers must be an object")
+	assert.Equal(t, "Bearer ${GITHUB_TOKEN}", headers["Authorization"])
+}
+
+// ---------------------------------------------------------------------------
+// Feature: Typed Permissions (allow/deny/ask)
+// ---------------------------------------------------------------------------
+
+func TestCompile_Settings_TypedPermissions_EmitsCorrectly(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Permissions: &ast.PermissionsConfig{
+				Allow: []string{"Bash(npm test *)", "Read(**/*.ts)"},
+				Deny:  []string{"Bash(rm -rf *)"},
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "settings.json must be generated")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	permsAny, has := parsed["permissions"]
+	require.True(t, has, "permissions must be present")
+	permsMap, ok := permsAny.(map[string]any)
+	require.True(t, ok, "permissions must be an object")
+
+	allowAny, ok := permsMap["allow"].([]any)
+	require.True(t, ok, "allow must be an array")
+	assert.Len(t, allowAny, 2)
+
+	denyAny, ok := permsMap["deny"].([]any)
+	require.True(t, ok, "deny must be an array")
+	assert.Len(t, denyAny, 1)
+
+	// "ask" should be omitted when empty
+	_, hasAsk := permsMap["ask"]
+	assert.False(t, hasAsk, "empty ask list should be omitted from JSON")
+}
+
+// ---------------------------------------------------------------------------
+// Feature: 3-level nested hooks JSON structure
+// ---------------------------------------------------------------------------
+
+func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{
+			"PostToolUse": []ast.HookMatcherGroup{
+				{
+					Matcher: "Write|Edit",
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "npx prettier --write $FILE", Timeout: 10000},
+					},
+				},
+			},
+			"Notification": []ast.HookMatcherGroup{
+				{
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo 'notification received'"},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw, ok := out.Files["hooks.json"]
+	require.True(t, ok, "hooks.json should exist in output")
+
+	// Must be valid JSON with {hooks: {event: [...]}} structure
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	hooksWrapper, ok := parsed["hooks"].(map[string]any)
+	require.True(t, ok, "top-level must have 'hooks' key")
+
+	// PostToolUse event
+	postToolUse, ok := hooksWrapper["PostToolUse"].([]any)
+	require.True(t, ok, "PostToolUse must be an array")
+	require.Len(t, postToolUse, 1)
+
+	matcherGroup, ok := postToolUse[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Write|Edit", matcherGroup["matcher"])
+
+	handlers, ok := matcherGroup["hooks"].([]any)
+	require.True(t, ok, "hooks must be an array")
+	handler, ok := handlers[0].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "command", handler["type"])
+	assert.Equal(t, "npx prettier --write $FILE", handler["command"])
+	assert.Equal(t, float64(10000), handler["timeout"])
+
+	// Notification event (no matcher)
+	notification, ok := hooksWrapper["Notification"].([]any)
+	require.True(t, ok, "Notification must be an array")
+	require.Len(t, notification, 1)
+}
+
+// ---------------------------------------------------------------------------
+// Feature: New agent frontmatter fields
+// ---------------------------------------------------------------------------
+
+func TestCompile_Agent_NewFields_EmitCorrectly(t *testing.T) {
+	bgTrue := true
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"secure": {
+				Description:    "Secure agent",
+				PermissionMode: "plan",
+				Background:     &bgTrue,
+				Isolation:      "worktree",
+				Color:          "blue",
+				InitialPrompt:  "Hello, how can I help?",
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/secure.md"]
+	assert.Contains(t, content, "permissionMode: plan")
+	assert.Contains(t, content, "background: true")
+	assert.Contains(t, content, "isolation: worktree")
+	assert.Contains(t, content, "color: blue")
+	assert.Contains(t, content, "initialPrompt: Hello, how can I help?")
+}
+
+// ---------------------------------------------------------------------------
+// Feature: OtelHeadersHelper, DisableAllHooks, Attribution settings
+// ---------------------------------------------------------------------------
+
+func TestCompile_Settings_NewFields_EmitCorrectly(t *testing.T) {
+	trueVal := true
+	falseVal := false
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			OtelHeadersHelper: "/bin/generate_headers.sh",
+			DisableAllHooks:   &falseVal,
+			Attribution:       &trueVal,
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "settings.json must be generated")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	assert.Equal(t, "/bin/generate_headers.sh", parsed["otelHeadersHelper"])
+	assert.Equal(t, false, parsed["disableAllHooks"])
+	assert.Equal(t, true, parsed["attribution"])
+}
