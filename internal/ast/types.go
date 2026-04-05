@@ -113,6 +113,33 @@ type SkillConfig struct {
 	// References is a list of supplementary file paths (relative to scaffold.xcf)
 	// to copy into skills/<id>/references/. Glob patterns are supported (e.g. "refs/*.md").
 	References []string `yaml:"references,omitempty"`
+
+	// DisableModelInvocation prevents the model from auto-triggering this skill.
+	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
+
+	// Context controls context isolation. Set to "fork" for subagent isolation.
+	Context string `yaml:"context,omitempty"`
+
+	// Agent specifies the agent type when context is "fork".
+	Agent string `yaml:"agent,omitempty"`
+
+	// UserInvocable controls visibility in the slash-command menu.
+	UserInvocable *bool `yaml:"user-invocable,omitempty"`
+
+	// Hooks defines skill-scoped lifecycle hooks.
+	Hooks HookConfig `yaml:"hooks,omitempty"`
+
+	// Model overrides the model used when this skill is active.
+	Model string `yaml:"model,omitempty"`
+
+	// Effort overrides the effort level when this skill is active.
+	Effort string `yaml:"effort,omitempty"`
+
+	// Shell specifies the shell type for dynamic command execution.
+	Shell string `yaml:"shell,omitempty"`
+
+	// ArgumentHint provides autocomplete hint text for skill arguments.
+	ArgumentHint string `yaml:"argument-hint,omitempty"`
 }
 
 // RuleConfig defines a path-gated formatting guideline.

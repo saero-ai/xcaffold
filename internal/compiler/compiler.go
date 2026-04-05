@@ -273,6 +273,37 @@ func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (str
 	if len(skill.Paths) > 0 {
 		fmt.Fprintf(&sb, "paths: [%s]\n", strings.Join(skill.Paths, ", "))
 	}
+	if skill.DisableModelInvocation != nil {
+		fmt.Fprintf(&sb, "disable-model-invocation: %t\n", *skill.DisableModelInvocation)
+	}
+	if skill.UserInvocable != nil {
+		fmt.Fprintf(&sb, "user-invocable: %t\n", *skill.UserInvocable)
+	}
+	if skill.Context != "" {
+		fmt.Fprintf(&sb, "context: %s\n", skill.Context)
+	}
+	if skill.Agent != "" {
+		fmt.Fprintf(&sb, "agent: %s\n", skill.Agent)
+	}
+	if skill.Model != "" {
+		fmt.Fprintf(&sb, "model: %s\n", skill.Model)
+	}
+	if skill.Effort != "" {
+		fmt.Fprintf(&sb, "effort: %s\n", skill.Effort)
+	}
+	if skill.Shell != "" {
+		fmt.Fprintf(&sb, "shell: %s\n", skill.Shell)
+	}
+	if skill.ArgumentHint != "" {
+		fmt.Fprintf(&sb, "argument-hint: %s\n", skill.ArgumentHint)
+	}
+	if len(skill.Hooks) > 0 {
+		hooksYAML, err := yaml.Marshal(map[string]ast.HookConfig{"hooks": skill.Hooks})
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal skill hooks: %w", err)
+		}
+		sb.WriteString(string(hooksYAML))
+	}
 	sb.WriteString("---\n")
 
 	if body != "" {

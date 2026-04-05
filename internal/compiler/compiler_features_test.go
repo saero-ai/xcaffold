@@ -655,6 +655,45 @@ func TestCompile_Agent_ScopedHooksAndMCP_EmitCorrectly(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Feature: New skill frontmatter fields
+// ---------------------------------------------------------------------------
+
+func TestCompile_Skill_NewFields_EmitCorrectly(t *testing.T) {
+	disableTrue := true
+	userInvTrue := true
+	config := &ast.XcaffoldConfig{
+		Skills: map[string]ast.SkillConfig{
+			"deploy": {
+				Name:                   "deploy",
+				Description:            "Deploy the app",
+				Instructions:           "Run deploy.",
+				DisableModelInvocation: &disableTrue,
+				Context:                "fork",
+				Agent:                  "Explore",
+				UserInvocable:          &userInvTrue,
+				Model:                  "claude-haiku-4-5-20251001",
+				Effort:                 "low",
+				Shell:                  "bash",
+				ArgumentHint:           "environment name",
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["skills/deploy/SKILL.md"]
+	assert.Contains(t, content, "disable-model-invocation: true")
+	assert.Contains(t, content, "context: fork")
+	assert.Contains(t, content, "agent: Explore")
+	assert.Contains(t, content, "user-invocable: true")
+	assert.Contains(t, content, "model: claude-haiku-4-5-20251001")
+	assert.Contains(t, content, "effort: low")
+	assert.Contains(t, content, "shell: bash")
+	assert.Contains(t, content, "argument-hint: environment name")
+}
+
+// ---------------------------------------------------------------------------
 // Feature: OtelHeadersHelper, DisableAllHooks, Attribution settings
 // ---------------------------------------------------------------------------
 
