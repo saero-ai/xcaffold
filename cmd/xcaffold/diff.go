@@ -23,7 +23,9 @@ var diffCmd = &cobra.Command{
  • Warns you if humans or external agents have mutated the system prompts
 
 Usage:
-  $ xcaffold diff`,
+  $ xcaffold diff
+  $ xcaffold diff --scope global
+  $ xcaffold diff --scope all`,
 	Example: "  $ xcaffold diff",
 	RunE:    runDiff,
 }
@@ -33,18 +35,48 @@ func init() {
 }
 
 func runDiff(cmd *cobra.Command, args []string) error {
-	manifest, err := state.Read(lockPath)
+	totalDrift := 0
+
+	if scopeFlag == "global" || scopeFlag == "all" {
+		drift, err := diffScope(globalClaudeDir, globalLockPath, "global")
+		if err != nil {
+			return err
+		}
+		totalDrift += drift
+	}
+	if scopeFlag == "project" || scopeFlag == "all" {
+		drift, err := diffScope(claudeDir, lockPath, "project")
+		if err != nil {
+			return err
+		}
+		totalDrift += drift
+	}
+
+	fmt.Println()
+	if totalDrift > 0 {
+		return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply' to restore managed state", totalDrift)
+	}
+	fmt.Println("No drift detected. All managed files are in sync.")
+	return nil
+}
+
+// diffScope reads the lock file at lockFile and compares each artifact's
+// recorded SHA-256 hash against the file on disk inside outputDir.
+// scopeName is used as a prefix in output lines when running --scope all
+// so the user can distinguish the two passes.
+func diffScope(outputDir, lockFile, scopeName string) (int, error) {
+	manifest, err := state.Read(lockFile)
 	if err != nil {
-		return fmt.Errorf("could not read scaffold.lock: %w\n\nHint: run 'xcaffold apply' first", err)
+		return 0, fmt.Errorf("[%s] could not read lock file: %w\n\nHint: run 'xcaffold apply --scope %s' first", scopeName, err, scopeName)
 	}
 
 	driftCount := 0
 	for _, artifact := range manifest.Artifacts {
-		absPath := filepath.Clean(filepath.Join(claudeDir, artifact.Path))
+		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
 
 		data, err := os.ReadFile(absPath)
 		if err != nil {
-			fmt.Printf("  ✗ MISSING  %s\n", absPath)
+			fmt.Printf("  [%s] MISSING  %s\n", scopeName, absPath)
 			driftCount++
 			continue
 		}
@@ -53,20 +85,14 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		actual := fmt.Sprintf("sha256:%x", actualHash)
 
 		if actual != artifact.Hash {
-			fmt.Printf("  ✗ DRIFTED  %s\n", absPath)
+			fmt.Printf("  [%s] DRIFTED  %s\n", scopeName, absPath)
 			fmt.Printf("    expected: %s\n", artifact.Hash)
 			fmt.Printf("    actual:   %s\n", actual)
 			driftCount++
 		} else {
-			fmt.Printf("  ✓ clean    %s\n", absPath)
+			fmt.Printf("  [%s] clean    %s\n", scopeName, absPath)
 		}
 	}
 
-	fmt.Println()
-	if driftCount > 0 {
-		return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply' to restore managed state", driftCount)
-	}
-
-	fmt.Println("✓ No drift detected. All managed files are in sync.")
-	return nil
+	return driftCount, nil
 }
