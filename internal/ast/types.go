@@ -12,8 +12,9 @@ type XcaffoldConfig struct {
 	MCP      map[string]MCPConfig   `yaml:"mcp,omitempty"`
 	Settings SettingsConfig         `yaml:"settings,omitempty"`
 	// Local holds settings compiled to .claude/settings.local.json (gitignored).
-	Local SettingsConfig `yaml:"local,omitempty"`
-	Test  TestConfig     `yaml:"test,omitempty"`
+	Local     SettingsConfig            `yaml:"local,omitempty"`
+	Workflows map[string]WorkflowConfig `yaml:"workflows,omitempty"`
+	Test      TestConfig                `yaml:"test,omitempty"`
 }
 
 // ProjectConfig holds project-level metadata.
@@ -90,8 +91,10 @@ type AgentConfig struct {
 
 // TargetOverride specifies overrides for multi-provider targets.
 type TargetOverride struct {
-	Hooks                map[string]string `yaml:"hooks,omitempty"`
-	InstructionsOverride string            `yaml:"instructions_override,omitempty"`
+	Hooks                    map[string]string `yaml:"hooks,omitempty"`
+	InstructionsOverride     string            `yaml:"instructions_override,omitempty"`
+	SuppressFidelityWarnings *bool             `yaml:"suppress_fidelity_warnings,omitempty"`
+	SkipSynthesis            *bool             `yaml:"skip_synthesis,omitempty"`
 }
 
 // SkillConfig defines a reusable prompt package.
@@ -348,4 +351,13 @@ type TestConfig struct {
 
 	// JudgeModel is the Anthropic model used for LLM-as-a-Judge evaluation.
 	JudgeModel string `yaml:"judge_model,omitempty"`
+}
+
+// WorkflowConfig defines a named, reusable workflow (Antigravity Workflow).
+// Each workflow maps to an entry under the `workflows:` key in scaffold.xcf.
+type WorkflowConfig struct {
+	Name             string `yaml:"name,omitempty"`
+	Description      string `yaml:"description,omitempty"`
+	Instructions     string `yaml:"instructions,omitempty"`
+	InstructionsFile string `yaml:"instructions_file,omitempty"`
 }
