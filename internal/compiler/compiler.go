@@ -80,6 +80,15 @@ func Compile(config *ast.XcaffoldConfig, baseDir string) (*Output, error) {
 		out.Files["settings.json"] = settingsJSON
 	}
 
+	// settings.local.json: compile the local: block (gitignored settings).
+	localJSON, err := compileSettingsJSON(nil, config.Local)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile local settings: %w", err)
+	}
+	if localJSON != "" {
+		out.Files["settings.local.json"] = localJSON
+	}
+
 	return out, nil
 }
 

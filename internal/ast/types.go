@@ -11,7 +11,9 @@ type XcaffoldConfig struct {
 	Hooks    HookConfig             `yaml:"hooks,omitempty"`
 	MCP      map[string]MCPConfig   `yaml:"mcp,omitempty"`
 	Settings SettingsConfig         `yaml:"settings,omitempty"`
-	Test     TestConfig             `yaml:"test,omitempty"`
+	// Local holds settings compiled to .claude/settings.local.json (gitignored).
+	Local SettingsConfig `yaml:"local,omitempty"`
+	Test  TestConfig     `yaml:"test,omitempty"`
 }
 
 // ProjectConfig holds project-level metadata.

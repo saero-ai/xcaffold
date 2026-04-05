@@ -901,3 +901,34 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 	assert.Equal(t, true, parsed["autoMemoryEnabled"])
 	assert.Equal(t, ".claude/memory", parsed["autoMemoryDirectory"])
 }
+
+// ---------------------------------------------------------------------------
+// Local Settings: local: block compiles to settings.local.json
+// ---------------------------------------------------------------------------
+
+// TestCompile_LocalSettings_EmitsSettingsLocalJSON verifies that a local: block
+// in the XcaffoldConfig compiles to settings.local.json.
+func TestCompile_LocalSettings_EmitsSettingsLocalJSON(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Local: ast.SettingsConfig{
+			Model: "claude-opus-4-6",
+			Env: map[string]string{
+				"ANTHROPIC_API_KEY": "sk-test-key",
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw, ok := out.Files["settings.local.json"]
+	require.True(t, ok, "settings.local.json must be generated")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	assert.Equal(t, "claude-opus-4-6", parsed["model"])
+	env, ok := parsed["env"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "sk-test-key", env["ANTHROPIC_API_KEY"])
+}
