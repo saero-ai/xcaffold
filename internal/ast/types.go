@@ -168,9 +168,19 @@ type HookMatcherGroup struct {
 
 // HookHandler defines a single executable hook action.
 type HookHandler struct {
-	Type    string `yaml:"type"              json:"type"`
-	Command string `yaml:"command"           json:"command"`
-	Timeout int    `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	Type           string            `yaml:"type"                       json:"type"`
+	Command        string            `yaml:"command,omitempty"          json:"command,omitempty"`
+	URL            string            `yaml:"url,omitempty"              json:"url,omitempty"`
+	Headers        map[string]string `yaml:"headers,omitempty"          json:"headers,omitempty"`
+	AllowedEnvVars []string          `yaml:"allowedEnvVars,omitempty"   json:"allowedEnvVars,omitempty"`
+	Prompt         string            `yaml:"prompt,omitempty"           json:"prompt,omitempty"`
+	Model          string            `yaml:"model,omitempty"            json:"model,omitempty"`
+	If             string            `yaml:"if,omitempty"               json:"if,omitempty"`
+	Timeout        *int              `yaml:"timeout,omitempty"          json:"timeout,omitempty"`
+	Async          *bool             `yaml:"async,omitempty"            json:"async,omitempty"`
+	Once           *bool             `yaml:"once,omitempty"             json:"once,omitempty"`
+	Shell          string            `yaml:"shell,omitempty"            json:"shell,omitempty"`
+	StatusMessage  string            `yaml:"statusMessage,omitempty"    json:"statusMessage,omitempty"`
 }
 
 // MCPConfig defines a local or remote MCP server context.

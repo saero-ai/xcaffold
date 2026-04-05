@@ -535,7 +535,7 @@ func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
 				{
 					Matcher: "Write|Edit",
 					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "npx prettier --write $FILE", Timeout: 10000},
+						{Type: "command", Command: "npx prettier --write $FILE", Timeout: intPtr(10000)},
 					},
 				},
 			},
@@ -720,4 +720,134 @@ func TestCompile_Settings_NewFields_EmitCorrectly(t *testing.T) {
 	assert.Equal(t, "/bin/generate_headers.sh", parsed["otelHeadersHelper"])
 	assert.Equal(t, false, parsed["disableAllHooks"])
 	assert.Equal(t, true, parsed["attribution"])
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+func intPtr(i int) *int { return &i }
+
+// ---------------------------------------------------------------------------
+// Feature: HookHandler — http, prompt, and full field coverage
+// ---------------------------------------------------------------------------
+
+func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{
+			"PreToolUse": []ast.HookMatcherGroup{
+				{
+					Matcher: "Bash",
+					Hooks: []ast.HookHandler{
+						{
+							Type: "http",
+							URL:  "https://hooks.internal/validate",
+							Headers: map[string]string{
+								"Authorization": "Bearer ${API_KEY}",
+							},
+							AllowedEnvVars: []string{"API_KEY"},
+							Timeout:        intPtr(30),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw := out.Files["hooks.json"]
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	hooks := parsed["hooks"].(map[string]any)
+	groups := hooks["PreToolUse"].([]any)
+	handler := groups[0].(map[string]any)["hooks"].([]any)[0].(map[string]any)
+
+	assert.Equal(t, "http", handler["type"])
+	assert.Equal(t, "https://hooks.internal/validate", handler["url"])
+	assert.NotNil(t, handler["headers"])
+	assert.NotNil(t, handler["allowedEnvVars"])
+	assert.Equal(t, float64(30), handler["timeout"])
+}
+
+func TestCompile_Hooks_PromptHandler_EmitsCorrectly(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{
+			"PreToolUse": []ast.HookMatcherGroup{
+				{
+					Matcher: "Edit",
+					Hooks: []ast.HookHandler{
+						{
+							Type:    "prompt",
+							Prompt:  "Verify this edit follows our coding standards",
+							Model:   "claude-haiku-4-5-20251001",
+							Timeout: intPtr(30),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw := out.Files["hooks.json"]
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	hooks := parsed["hooks"].(map[string]any)
+	groups := hooks["PreToolUse"].([]any)
+	handler := groups[0].(map[string]any)["hooks"].([]any)[0].(map[string]any)
+
+	assert.Equal(t, "prompt", handler["type"])
+	assert.Equal(t, "Verify this edit follows our coding standards", handler["prompt"])
+	assert.Equal(t, "claude-haiku-4-5-20251001", handler["model"])
+}
+
+func TestCompile_Hooks_AllHandlerFields_EmitCorrectly(t *testing.T) {
+	asyncTrue := true
+	onceTrue := true
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{
+			"SessionStart": []ast.HookMatcherGroup{
+				{
+					Hooks: []ast.HookHandler{
+						{
+							Type:          "command",
+							Command:       "./scripts/setup.sh",
+							Timeout:       intPtr(120),
+							Async:         &asyncTrue,
+							Once:          &onceTrue,
+							Shell:         "bash",
+							StatusMessage: "Running setup...",
+							If:            "Bash(./scripts/*)",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw := out.Files["hooks.json"]
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	hooks := parsed["hooks"].(map[string]any)
+	groups := hooks["SessionStart"].([]any)
+	handler := groups[0].(map[string]any)["hooks"].([]any)[0].(map[string]any)
+
+	assert.Equal(t, "command", handler["type"])
+	assert.Equal(t, "./scripts/setup.sh", handler["command"])
+	assert.Equal(t, float64(120), handler["timeout"])
+	assert.Equal(t, true, handler["async"])
+	assert.Equal(t, true, handler["once"])
+	assert.Equal(t, "bash", handler["shell"])
+	assert.Equal(t, "Running setup...", handler["statusMessage"])
+	assert.Equal(t, "Bash(./scripts/*)", handler["if"])
 }
