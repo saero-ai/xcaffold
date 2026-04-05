@@ -58,8 +58,23 @@ func parseFileRecursive(path string, visited map[string]bool) (*ast.XcaffoldConf
 		return config, nil
 	}
 
-	// Resolve the extends path relative to the current file's directory.
-	basePath := filepath.Join(filepath.Dir(absPath), config.Extends)
+	// Resolve the extends path: "global" maps to ~/.claude/global.xcf,
+	// absolute paths are used as-is, relative paths resolve from the
+	// current file's directory.
+	var basePath string
+	switch {
+	case config.Extends == "global":
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("could not resolve 'extends: global': %w", err)
+		}
+		basePath = filepath.Join(home, ".claude", "global.xcf")
+	case filepath.IsAbs(config.Extends):
+		basePath = config.Extends
+	default:
+		basePath = filepath.Join(filepath.Dir(absPath), config.Extends)
+	}
+
 	baseConfig, err := parseFileRecursive(basePath, visited)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load base config %q: %w", config.Extends, err)

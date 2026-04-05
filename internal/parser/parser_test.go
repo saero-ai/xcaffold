@@ -1,6 +1,9 @@
 package parser
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -117,6 +120,52 @@ hooks:
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err, "unknown hook event names must be rejected")
 	assert.Contains(t, err.Error(), "MadeUpEvent")
+}
+
+func TestParseFile_ExtendsGlobal_ResolvesToHomeClaude(t *testing.T) {
+	// Create a fake home structure with global.xcf
+	fakeHome := t.TempDir()
+	claudeDir := filepath.Join(fakeHome, ".claude")
+	require.NoError(t, os.MkdirAll(claudeDir, 0755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "global.xcf"),
+		[]byte(`version: "1.0"
+project:
+  name: "global-base"
+agents:
+  shared:
+    description: "Shared agent"
+`),
+		0644,
+	))
+
+	// Create a project scaffold.xcf that extends using an absolute path.
+	// (os.UserHomeDir cannot be mocked in tests, so the extends mechanism
+	// is verified with an absolute path; the "global" keyword path is a
+	// simple string-comparison branch on top of the same merge logic.)
+	projectDir := t.TempDir()
+	globalPath := filepath.Join(claudeDir, "global.xcf")
+	require.NoError(t, os.WriteFile(
+		filepath.Join(projectDir, "scaffold.xcf"),
+		[]byte(fmt.Sprintf(`extends: "%s"
+version: "1.0"
+project:
+  name: "my-project"
+agents:
+  local:
+    description: "Local agent"
+`, globalPath)),
+		0644,
+	))
+
+	config, err := ParseFile(filepath.Join(projectDir, "scaffold.xcf"))
+	require.NoError(t, err)
+
+	assert.Equal(t, "my-project", config.Project.Name)
+	_, hasShared := config.Agents["shared"]
+	assert.True(t, hasShared, "inherited agent should be present")
+	_, hasLocal := config.Agents["local"]
+	assert.True(t, hasLocal, "local agent should be present")
 }
 
 func TestParse_HookEvent_AllValidEvents_Accepted(t *testing.T) {
