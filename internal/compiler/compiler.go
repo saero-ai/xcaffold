@@ -438,7 +438,24 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 		settings.Sandbox != nil ||
 		settings.OtelHeadersHelper != "" ||
 		settings.DisableAllHooks != nil ||
-		settings.Attribution != nil
+		settings.Attribution != nil ||
+		len(settings.Hooks) > 0 ||
+		settings.Model != "" ||
+		settings.OutputStyle != "" ||
+		settings.Language != "" ||
+		settings.IncludeGitInstructions != nil ||
+		settings.DisableSkillShellExecution != nil ||
+		settings.Agent != nil ||
+		settings.AutoMode != nil ||
+		settings.DefaultShell != "" ||
+		settings.CleanupPeriodDays != nil ||
+		len(settings.AvailableModels) > 0 ||
+		settings.RespectGitignore != nil ||
+		settings.PlansDirectory != "" ||
+		settings.Worktree != nil ||
+		len(settings.ClaudeMdExcludes) > 0 ||
+		settings.AutoMemoryEnabled != nil ||
+		settings.AutoMemoryDirectory != ""
 
 	if !hasContent {
 		return "", nil
@@ -485,6 +502,57 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	}
 	if len(mcpServers) > 0 {
 		out["mcpServers"] = mcpServers
+	}
+	if len(settings.Hooks) > 0 {
+		out["hooks"] = settings.Hooks
+	}
+	if settings.Model != "" {
+		out["model"] = settings.Model
+	}
+	if settings.OutputStyle != "" {
+		out["outputStyle"] = settings.OutputStyle
+	}
+	if settings.Language != "" {
+		out["language"] = settings.Language
+	}
+	if settings.IncludeGitInstructions != nil {
+		out["includeGitInstructions"] = *settings.IncludeGitInstructions
+	}
+	if settings.DisableSkillShellExecution != nil {
+		out["disableSkillShellExecution"] = *settings.DisableSkillShellExecution
+	}
+	if settings.Agent != nil {
+		out["agent"] = settings.Agent
+	}
+	if settings.AutoMode != nil {
+		out["autoMode"] = settings.AutoMode
+	}
+	if settings.DefaultShell != "" {
+		out["defaultShell"] = settings.DefaultShell
+	}
+	if settings.CleanupPeriodDays != nil {
+		out["cleanupPeriodDays"] = *settings.CleanupPeriodDays
+	}
+	if len(settings.AvailableModels) > 0 {
+		out["availableModels"] = settings.AvailableModels
+	}
+	if settings.RespectGitignore != nil {
+		out["respectGitignore"] = *settings.RespectGitignore
+	}
+	if settings.PlansDirectory != "" {
+		out["plansDirectory"] = settings.PlansDirectory
+	}
+	if settings.Worktree != nil {
+		out["worktree"] = settings.Worktree
+	}
+	if len(settings.ClaudeMdExcludes) > 0 {
+		out["claudeMdExcludes"] = settings.ClaudeMdExcludes
+	}
+	if settings.AutoMemoryEnabled != nil {
+		out["autoMemoryEnabled"] = *settings.AutoMemoryEnabled
+	}
+	if settings.AutoMemoryDirectory != "" {
+		out["autoMemoryDirectory"] = settings.AutoMemoryDirectory
 	}
 
 	b, err := json.MarshalIndent(out, "", "  ")

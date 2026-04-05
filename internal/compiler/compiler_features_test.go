@@ -851,3 +851,53 @@ func TestCompile_Hooks_AllHandlerFields_EmitCorrectly(t *testing.T) {
 	assert.Equal(t, "Running setup...", handler["statusMessage"])
 	assert.Equal(t, "Bash(./scripts/*)", handler["if"])
 }
+
+// ---------------------------------------------------------------------------
+// Feature: settings.json — new fields
+// ---------------------------------------------------------------------------
+
+func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
+	trueVal := true
+	falseVal := false
+	cleanupDays := 30
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Model:                      "claude-sonnet-4-6",
+			OutputStyle:                "concise",
+			Language:                   "en",
+			IncludeGitInstructions:     &trueVal,
+			DisableSkillShellExecution: &falseVal,
+			DefaultShell:               "zsh",
+			CleanupPeriodDays:          &cleanupDays,
+			AvailableModels:            []string{"claude-sonnet-4-6", "claude-haiku-4-5-20251001"},
+			RespectGitignore:           &trueVal,
+			PlansDirectory:             "docs/plans",
+			ClaudeMdExcludes:           []string{"vendor/**"},
+			AutoMemoryEnabled:          &trueVal,
+			AutoMemoryDirectory:        ".claude/memory",
+		},
+	}
+
+	out, err := Compile(config, "")
+	require.NoError(t, err)
+
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "settings.json must be generated")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	assert.Equal(t, "claude-sonnet-4-6", parsed["model"])
+	assert.Equal(t, "concise", parsed["outputStyle"])
+	assert.Equal(t, "en", parsed["language"])
+	assert.Equal(t, true, parsed["includeGitInstructions"])
+	assert.Equal(t, false, parsed["disableSkillShellExecution"])
+	assert.Equal(t, "zsh", parsed["defaultShell"])
+	assert.Equal(t, float64(30), parsed["cleanupPeriodDays"])
+	assert.Len(t, parsed["availableModels"], 2)
+	assert.Equal(t, true, parsed["respectGitignore"])
+	assert.Equal(t, "docs/plans", parsed["plansDirectory"])
+	assert.Len(t, parsed["claudeMdExcludes"], 1)
+	assert.Equal(t, true, parsed["autoMemoryEnabled"])
+	assert.Equal(t, ".claude/memory", parsed["autoMemoryDirectory"])
+}

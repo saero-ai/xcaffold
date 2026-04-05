@@ -281,6 +281,57 @@ type SettingsConfig struct {
 	// MCPServers allows direct specification of MCP server configurations
 	// within the settings block. Merged with top-level mcp: (settings wins on conflict).
 	MCPServers map[string]MCPConfig `yaml:"mcpServers,omitempty" json:"mcpServers,omitempty"`
+
+	// Hooks defines settings-level lifecycle hooks.
+	Hooks HookConfig `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+
+	// Model sets the default model for all sessions.
+	Model string `yaml:"model,omitempty" json:"model,omitempty"`
+
+	// OutputStyle controls response style (e.g. "concise", "verbose").
+	OutputStyle string `yaml:"outputStyle,omitempty" json:"outputStyle,omitempty"`
+
+	// Language sets the response language.
+	Language string `yaml:"language,omitempty" json:"language,omitempty"`
+
+	// IncludeGitInstructions controls whether git context is included.
+	IncludeGitInstructions *bool `yaml:"includeGitInstructions,omitempty" json:"includeGitInstructions,omitempty"`
+
+	// DisableSkillShellExecution prevents dynamic shell commands in skills.
+	DisableSkillShellExecution *bool `yaml:"disableSkillShellExecution,omitempty" json:"disableSkillShellExecution,omitempty"`
+
+	// Agent holds agent-specific default configuration.
+	Agent any `yaml:"agent,omitempty" json:"agent,omitempty"`
+
+	// AutoMode defines rules for automatic permission granting.
+	AutoMode any `yaml:"autoMode,omitempty" json:"autoMode,omitempty"`
+
+	// DefaultShell sets the preferred shell.
+	DefaultShell string `yaml:"defaultShell,omitempty" json:"defaultShell,omitempty"`
+
+	// CleanupPeriodDays sets auto-cleanup interval for old sessions.
+	CleanupPeriodDays *int `yaml:"cleanupPeriodDays,omitempty" json:"cleanupPeriodDays,omitempty"`
+
+	// AvailableModels restricts which models can be selected.
+	AvailableModels []string `yaml:"availableModels,omitempty" json:"availableModels,omitempty"`
+
+	// RespectGitignore controls whether gitignored files are excluded.
+	RespectGitignore *bool `yaml:"respectGitignore,omitempty" json:"respectGitignore,omitempty"`
+
+	// PlansDirectory sets the directory for implementation plans.
+	PlansDirectory string `yaml:"plansDirectory,omitempty" json:"plansDirectory,omitempty"`
+
+	// Worktree holds worktree-specific configuration.
+	Worktree any `yaml:"worktree,omitempty" json:"worktree,omitempty"`
+
+	// ClaudeMdExcludes lists glob patterns of CLAUDE.md files to skip.
+	ClaudeMdExcludes []string `yaml:"claudeMdExcludes,omitempty" json:"claudeMdExcludes,omitempty"`
+
+	// AutoMemoryEnabled toggles automatic memory recording.
+	AutoMemoryEnabled *bool `yaml:"autoMemoryEnabled,omitempty" json:"autoMemoryEnabled,omitempty"`
+
+	// AutoMemoryDirectory sets a custom directory for auto memory storage.
+	AutoMemoryDirectory string `yaml:"autoMemoryDirectory,omitempty" json:"autoMemoryDirectory,omitempty"`
 }
 
 // TestConfig holds project-level configuration for `xcaffold test`.
