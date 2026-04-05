@@ -1,6 +1,6 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" alt="xcaffold logo" height="150" />
-  <img src="docs/assets/xaff/xaff_animated.svg" alt="Xaff Mascot Animated" height="150" />
+  <img src="assets/logo.svg" alt="xcaffold logo" height="150" />
+  <img src="assets/xaff.svg" alt="Xaff" height="150" />
 </p>
 
 # xcaffold
@@ -13,11 +13,9 @@
 **agent configuration for Anthropic Claude Code.** Declare your AI agents in a single `.xcf` YAML file. `xcaffold` compiles it deterministically into `.claude/` — with drift detection, token budgeting, and sandboxed simulation.
 
 ```
-scaffold.xcf  ──►  xcaffold apply   ──►  .claude/agents/*.md
-                                    ──►  .claude/skills/*.md
-                                    ──►  .claude/rules/*.md
-                                    ──►  .claude/settings.json
-                                    ──►  scaffold.lock
+                     ──► (claude) ──►  .claude/
+scaffold.xcf  ──►  xcaffold apply   ──► (cursor) ──►  .cursor/rules/
+                     ──► (gemini) ──►  .agents/
 ```
 
 ## Why xcaffold?
@@ -117,6 +115,8 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 | Phase | Command | Output |
 |---|---|---|
 | Bootstrap | `xcaffold init` | `scaffold.xcf` starter template |
+| Ingestion | `xcaffold import` | Migrated `.xcf` from existing `.claude/` |
+| Translation | `xcaffold translate` | Decomposed primitives from cross-platform workflows |
 | Audit | `xcaffold analyze` | `scaffold.xcf` + `audit.json` |
 | Token Budget | `xcaffold plan` | stdout report + `plan.json` |
 | Topology | `xcaffold graph` | terminal art, mermaid, JSON, or DOT graph |
@@ -124,12 +124,49 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 | Drift Check | `xcaffold diff` | Exit 1 on drift |
 | Validation | `xcaffold test` | `trace.jsonl` + judge report |
 
+## Scopes
+
+`--scope` is a global flag accepted by every xcaffold command.
+
+| Scope | Config File | Output Directory | Flag |
+|---|---|---|---|
+| Project (default) | `scaffold.xcf` | `.claude/` | `--scope project` |
+| Global | `global.xcf` | `~/.claude/` | `--scope global` |
+| Both | — | Both directories | `--scope all` |
+
+Run `xcaffold init --scope global` to create a `global.xcf` in `~/.claude/`. Project configs can inherit from it with `extends: global` in their `scaffold.xcf`.
+
+```bash
+xcaffold apply --scope global   # compile global.xcf → ~/.claude/
+xcaffold apply --scope all      # compile both scopes
+xcaffold diff  --scope all      # drift check across both scopes
+```
+
 ## Argument Reference
+
+### Global flags
+
+These flags are accepted by every xcaffold command.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--scope` | `project` | Compilation scope: `project`, `global`, or `all`. |
+| `--config` | `./scaffold.xcf` | Path to `scaffold.xcf`. Useful in monorepo sub-directories. |
 
 ### `xcaffold apply`
 
-| Argument | Default | Description |
+| Flag/Argument | Default | Description |
 |---|---|---|
+| `--target` | `claude` | Compilation target platform (`claude`, `cursor`, `gemini`). |
+
+### `xcaffold translate`
+
+| Flag/Argument | Default | Description |
+|---|---|---|
+| `--source` | *Required* | File or directory of workflow markdown files to translate (e.g. `Gemini` or `Cursor` docs). |
+| `--source-platform` | `gemini` | Expected intent format for static heuristics (`gemini`, `claude`, `cursor`). |
+| `--target` | `claude` | The AST namespace mapping context. |
+| `--plan` | `false` | Dry-run parsing; prints the generated primitive tree without modifying `scaffold.xcf`. |
 | `[directory]` | `.` | Directory containing `scaffold.xcf`. |
 
 ### `xcaffold graph`

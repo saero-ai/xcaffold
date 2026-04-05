@@ -55,11 +55,8 @@ All types are in `internal/ast/types.go`. Key fields:
 - Bugs 1-13 resolved — see `xcaffold/llms.txt` for full list
 
 ### Features in planning (check `FEATURES.md`)
-- `instructions_file:` support — P0
-- `references:` for skill files — P0
-- `xcaffold graph` command — P1
-- Settings type fixes (`statusLine` object, `enabledPlugins` map) — P1
-- Faithful `xcaffold import` — P1
+- `xcaffold translate` allows parsing target platform markdown files (Cursor, Gemini) into `scaffold.xcf`. **Never invoke `xcaffold translate` without parsing intent heuristics into `.xcf`** directly. Do not route outputs natively to `.claude/` or `.cursor/`.
+- Multi-target compiler renderer: applies native layout schemas per AI provider (`--target claude | cursor | gemini`).
 
 ## Test Pattern
 
