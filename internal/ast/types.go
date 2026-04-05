@@ -8,7 +8,7 @@ type XcaffoldConfig struct {
 	Agents   map[string]AgentConfig `yaml:"agents,omitempty"`
 	Skills   map[string]SkillConfig `yaml:"skills,omitempty"`
 	Rules    map[string]RuleConfig  `yaml:"rules,omitempty"`
-	Hooks    map[string]HookConfig  `yaml:"hooks,omitempty"`
+	Hooks    HookConfig             `yaml:"hooks,omitempty"`
 	MCP      map[string]MCPConfig   `yaml:"mcp,omitempty"`
 	Settings SettingsConfig         `yaml:"settings,omitempty"`
 	Test     TestConfig             `yaml:"test,omitempty"`
@@ -44,13 +44,13 @@ type AgentConfig struct {
 	// MaxTurns is the maximum number of conversation turns before auto-stop.
 	MaxTurns int `yaml:"maxTurns,omitempty"`
 
-	Tools        []string `yaml:"tools,omitempty"`
-	BlockedTools []string `yaml:"blocked_tools,omitempty"`
-	Skills       []string `yaml:"skills,omitempty"`
-	Rules        []string `yaml:"rules,omitempty"`
-	Mode         string   `yaml:"mode,omitempty"`
-	When         string   `yaml:"when,omitempty"`
-	MCP          []string `yaml:"mcp,omitempty"`
+	Tools           []string `yaml:"tools,omitempty"`
+	DisallowedTools []string `yaml:"disallowedTools,omitempty"`
+	Skills          []string `yaml:"skills,omitempty"`
+	Rules           []string `yaml:"rules,omitempty"`
+	Mode            string   `yaml:"mode,omitempty"`
+	When            string   `yaml:"when,omitempty"`
+	MCP             []string `yaml:"mcp,omitempty"`
 
 	// Assertions are statements the LLM-as-a-Judge evaluates against the
 	// execution trace when running `xcaffold test --judge`.
@@ -107,18 +107,35 @@ type RuleConfig struct {
 	InstructionsFile string `yaml:"instructions_file,omitempty"`
 }
 
-// HookConfig defines a lifecycle event hook.
-type HookConfig struct {
-	Event string `yaml:"event,omitempty" json:"event,omitempty"`
-	Match string `yaml:"match,omitempty" json:"match,omitempty"`
-	Run   string `yaml:"run,omitempty"   json:"run,omitempty"`
+// HookConfig maps lifecycle event names to their matcher groups.
+// Event names: PreToolUse, PostToolUse, Notification, Stop,
+// SubagentStop, InstructionsLoaded, PreCompact, SessionStart, ConfigChange.
+type HookConfig map[string][]HookMatcherGroup
+
+// HookMatcherGroup defines a matcher pattern and its associated hook handlers.
+type HookMatcherGroup struct {
+	Matcher string        `yaml:"matcher,omitempty" json:"matcher,omitempty"`
+	Hooks   []HookHandler `yaml:"hooks"             json:"hooks"`
 }
 
-// MCPConfig defines a local MCP server context.
+// HookHandler defines a single executable hook action.
+type HookHandler struct {
+	Type    string `yaml:"type"              json:"type"`
+	Command string `yaml:"command"           json:"command"`
+	Timeout int    `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+}
+
+// MCPConfig defines a local or remote MCP server context.
 type MCPConfig struct {
+	// Type is the transport type: "stdio" (default), "http", or "sse".
+	Type    string            `yaml:"type,omitempty"    json:"type,omitempty"`
 	Command string            `yaml:"command,omitempty" json:"command,omitempty"`
 	Args    []string          `yaml:"args,omitempty"    json:"args,omitempty"`
 	Env     map[string]string `yaml:"env,omitempty"     json:"env,omitempty"`
+	// URL is the endpoint for HTTP/SSE transports.
+	URL string `yaml:"url,omitempty"     json:"url,omitempty"`
+	// Headers are HTTP request headers (type=http|sse).
+	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 }
 
 // StatusLineConfig defines the statusLine setting for Claude Code.
@@ -126,6 +143,42 @@ type MCPConfig struct {
 type StatusLineConfig struct {
 	Type    string `yaml:"type,omitempty"    json:"type,omitempty"`
 	Command string `yaml:"command,omitempty" json:"command,omitempty"`
+}
+
+// PermissionsConfig defines strongly-typed permission rules.
+// Each field is a list of permission rule strings (e.g. "Bash(npm test *)").
+type PermissionsConfig struct {
+	Allow []string `yaml:"allow,omitempty" json:"allow,omitempty"`
+	Deny  []string `yaml:"deny,omitempty"  json:"deny,omitempty"`
+	Ask   []string `yaml:"ask,omitempty"   json:"ask,omitempty"`
+}
+
+// SandboxConfig configures OS-level process isolation for Bash commands.
+type SandboxConfig struct {
+	Enabled                  *bool              `yaml:"enabled,omitempty"                  json:"enabled,omitempty"`
+	AutoAllow                *bool              `yaml:"autoAllow,omitempty"                json:"autoAllow,omitempty"`
+	FailIfUnavailable        *bool              `yaml:"failIfUnavailable,omitempty"        json:"failIfUnavailable,omitempty"`
+	AllowUnsandboxedCommands *bool              `yaml:"allowUnsandboxedCommands,omitempty" json:"allowUnsandboxedCommands,omitempty"`
+	ExcludedCommands         []string           `yaml:"excludedCommands,omitempty"         json:"excludedCommands,omitempty"`
+	Filesystem               *SandboxFilesystem `yaml:"filesystem,omitempty"               json:"filesystem,omitempty"`
+	Network                  *SandboxNetwork    `yaml:"network,omitempty"                  json:"network,omitempty"`
+}
+
+// SandboxFilesystem configures filesystem isolation boundaries.
+type SandboxFilesystem struct {
+	AllowWrite []string `yaml:"allowWrite,omitempty" json:"allowWrite,omitempty"`
+	DenyWrite  []string `yaml:"denyWrite,omitempty"  json:"denyWrite,omitempty"`
+	AllowRead  []string `yaml:"allowRead,omitempty"  json:"allowRead,omitempty"`
+	DenyRead   []string `yaml:"denyRead,omitempty"   json:"denyRead,omitempty"`
+}
+
+// SandboxNetwork configures network isolation boundaries.
+type SandboxNetwork struct {
+	AllowedDomains          []string `yaml:"allowedDomains,omitempty"          json:"allowedDomains,omitempty"`
+	HTTPProxyPort           *int     `yaml:"httpProxyPort,omitempty"           json:"httpProxyPort,omitempty"`
+	SOCKSProxyPort          *int     `yaml:"socksProxyPort,omitempty"          json:"socksProxyPort,omitempty"`
+	AllowManagedDomainsOnly *bool    `yaml:"allowManagedDomainsOnly,omitempty" json:"allowManagedDomainsOnly,omitempty"`
+	AllowUnixSockets        *bool    `yaml:"allowUnixSockets,omitempty"        json:"allowUnixSockets,omitempty"`
 }
 
 // SettingsConfig represents the full Claude Code settings.json structure.
@@ -152,8 +205,20 @@ type SettingsConfig struct {
 	// SkipDangerousModePermissionPrompt suppresses the dangerous-mode consent dialog.
 	SkipDangerousModePermissionPrompt bool `yaml:"skipDangerousModePermissionPrompt,omitempty" json:"skipDangerousModePermissionPrompt,omitempty"`
 
-	// Permissions defines the MCP allow/deny permission rules.
-	Permissions map[string]interface{} `yaml:"permissions,omitempty" json:"permissions,omitempty"`
+	// Permissions defines the allow/deny/ask permission rules.
+	Permissions *PermissionsConfig `yaml:"permissions,omitempty" json:"permissions,omitempty"`
+
+	// Sandbox configures OS-level process isolation for Bash commands.
+	Sandbox *SandboxConfig `yaml:"sandbox,omitempty" json:"sandbox,omitempty"`
+
+	// OtelHeadersHelper is a script path to generate dynamic OpenTelemetry headers.
+	OtelHeadersHelper string `yaml:"otelHeadersHelper,omitempty" json:"otelHeadersHelper,omitempty"`
+
+	// DisableAllHooks prevents all hooks from executing.
+	DisableAllHooks *bool `yaml:"disableAllHooks,omitempty" json:"disableAllHooks,omitempty"`
+
+	// Attribution enables source attribution in generated output.
+	Attribution *bool `yaml:"attribution,omitempty" json:"attribution,omitempty"`
 
 	// MCPServers allows direct specification of MCP server configurations
 	// within the settings block. Merged with top-level mcp: (settings wins on conflict).

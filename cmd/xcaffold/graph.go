@@ -194,7 +194,7 @@ func buildGraph(config *ast.XcaffoldConfig) *graphData {
 			Label:        label,
 			Meta:         meta,
 			Tools:        agent.Tools,
-			BlockedTools: agent.BlockedTools,
+			BlockedTools: agent.DisallowedTools,
 		})
 
 		for _, skillID := range agent.Skills {

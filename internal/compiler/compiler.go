@@ -173,7 +173,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 		fmt.Fprintf(&sb, "model: %s\n", agent.Model)
 	}
 	if agent.Effort != "" {
-		fmt.Fprintf(&sb, "model_setting_effort: %s\n", agent.Effort)
+		fmt.Fprintf(&sb, "effort: %s\n", agent.Effort)
 	}
 	if agent.Memory != "" {
 		fmt.Fprintf(&sb, "memory: %s\n", agent.Memory)
@@ -184,8 +184,8 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 	if len(agent.Tools) > 0 {
 		fmt.Fprintf(&sb, "tools: [%s]\n", strings.Join(agent.Tools, ", "))
 	}
-	if len(agent.BlockedTools) > 0 {
-		fmt.Fprintf(&sb, "tools_blocked: [%s]\n", strings.Join(agent.BlockedTools, ", "))
+	if len(agent.DisallowedTools) > 0 {
+		fmt.Fprintf(&sb, "disallowedTools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
 	}
 	if len(agent.Skills) > 0 {
 		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
@@ -336,8 +336,11 @@ func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string
 	return sb.String(), nil
 }
 
-func compileHooksJSON(hooks map[string]ast.HookConfig) (string, error) {
-	b, err := json.MarshalIndent(hooks, "", "  ")
+func compileHooksJSON(hooks ast.HookConfig) (string, error) {
+	wrapper := map[string]ast.HookConfig{
+		"hooks": hooks,
+	}
+	b, err := json.MarshalIndent(wrapper, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -370,7 +373,11 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 		settings.AlwaysThinkingEnabled ||
 		settings.EffortLevel != "" ||
 		settings.SkipDangerousModePermissionPrompt ||
-		len(settings.Permissions) > 0
+		settings.Permissions != nil ||
+		settings.Sandbox != nil ||
+		settings.OtelHeadersHelper != "" ||
+		settings.DisableAllHooks != nil ||
+		settings.Attribution != nil
 
 	if !hasContent {
 		return "", nil
@@ -400,8 +407,20 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	if settings.SkipDangerousModePermissionPrompt {
 		out["skipDangerousModePermissionPrompt"] = true
 	}
-	if len(settings.Permissions) > 0 {
+	if settings.Permissions != nil {
 		out["permissions"] = settings.Permissions
+	}
+	if settings.Sandbox != nil {
+		out["sandbox"] = settings.Sandbox
+	}
+	if settings.OtelHeadersHelper != "" {
+		out["otelHeadersHelper"] = settings.OtelHeadersHelper
+	}
+	if settings.DisableAllHooks != nil {
+		out["disableAllHooks"] = *settings.DisableAllHooks
+	}
+	if settings.Attribution != nil {
+		out["attribution"] = *settings.Attribution
 	}
 	if len(mcpServers) > 0 {
 		out["mcpServers"] = mcpServers

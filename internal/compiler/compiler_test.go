@@ -31,7 +31,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 
 	assert.Contains(t, content, "description: An expert developer.")
 	assert.Contains(t, content, "model: claude-3-7-sonnet-20250219")
-	assert.Contains(t, content, "model_setting_effort: high")
+	assert.Contains(t, content, "effort: high")
 	assert.Contains(t, content, "tools: [Bash, Read, Write]")
 	assert.Contains(t, content, "You are a software developer.")
 }
@@ -57,16 +57,16 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 		Project: ast.ProjectConfig{Name: "secure-project"},
 		Agents: map[string]ast.AgentConfig{
 			"readonly": {
-				Description:  "Read-only agent.",
-				Tools:        []string{"Read", "Grep"},
-				BlockedTools: []string{"Bash", "Write"},
+				Description:     "Read-only agent.",
+				Tools:           []string{"Read", "Grep"},
+				DisallowedTools: []string{"Bash", "Write"},
 			},
 		},
 	}
 
 	out, err := Compile(config, "")
 	require.NoError(t, err)
-	assert.Contains(t, out.Files["agents/readonly.md"], "tools_blocked: [Bash, Write]")
+	assert.Contains(t, out.Files["agents/readonly.md"], "disallowedTools: [Bash, Write]")
 }
 
 func TestCompile_EmptyAgents(t *testing.T) {
@@ -95,9 +95,14 @@ func TestCompile_FullSchema(t *testing.T) {
 				Instructions: "Use gofmt.",
 			},
 		},
-		Hooks: map[string]ast.HookConfig{
-			"pre-commit": {
-				Run: "make test",
+		Hooks: ast.HookConfig{
+			"PreToolUse": []ast.HookMatcherGroup{
+				{
+					Matcher: "Bash",
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "make test"},
+					},
+				},
 			},
 		},
 		MCP: map[string]ast.MCPConfig{
@@ -125,13 +130,11 @@ func TestCompile_FullSchema(t *testing.T) {
 	require.True(t, ok, "expected rules/go.md to be compiled")
 	assert.Contains(t, ruleContent, "Use gofmt.")
 
-	// Hooks (should compile to a single hooks.json file?)
-	// Actually, wait, let's see how Claude Code expects hooks. It seems to expect them in a hooks block in settings.json or maybe hooks.yaml, but let's check settings.json. I'll just check if it compiles to something.
-	// Actually, the implementation plan specifies compileHooks() -> .claude/hooks.json
 	hookContent, ok := out.Files["hooks.json"]
 	require.True(t, ok, "expected hooks.json to be compiled")
-	assert.Contains(t, hookContent, `"pre-commit"`)
+	assert.Contains(t, hookContent, `"PreToolUse"`)
 	assert.Contains(t, hookContent, `"make test"`)
+	assert.Contains(t, hookContent, `"command"`)
 
 	// Settings (which should include MCP)
 	settingsContent, ok := out.Files["settings.json"]
