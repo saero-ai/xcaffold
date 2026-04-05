@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/compiler"
@@ -13,6 +14,19 @@ import (
 )
 
 const lockFileVersion = 1
+
+// LockFilePath returns the lock file path for a given target.
+// For "claude" or empty string (default), returns basePath unchanged for backward compatibility.
+// For other targets, inserts the target name before the extension:
+// e.g., "scaffold.lock" + "cursor" → "scaffold.cursor.lock"
+func LockFilePath(basePath string, target string) string {
+	if target == "" || target == "claude" {
+		return basePath
+	}
+	ext := filepath.Ext(basePath)
+	base := strings.TrimSuffix(basePath, ext)
+	return base + "." + target + ext
+}
 
 var XcaffoldVersion = "1.0.0-dev"
 

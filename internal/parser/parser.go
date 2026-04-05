@@ -101,6 +101,7 @@ func mergeConfig(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.Rules = mergeMap(base.Rules, child.Rules)
 	merged.Hooks = mergeMap(base.Hooks, child.Hooks)
 	merged.MCP = mergeMap(base.MCP, child.MCP)
+	merged.Workflows = mergeMap(base.Workflows, child.Workflows)
 
 	// Test config merge
 	merged.Test = base.Test
@@ -226,6 +227,21 @@ func validate(c *ast.XcaffoldConfig) error {
 		}
 		if err := validateInstructionsFile("rule", id, rule.InstructionsFile); err != nil {
 			return err
+		}
+	}
+
+	// Validate workflow IDs and mutual exclusivity.
+	for id, wf := range c.Workflows {
+		if err := validateID("workflow", id); err != nil {
+			return err
+		}
+		if wf.Instructions != "" && wf.InstructionsFile != "" {
+			return fmt.Errorf("workflow %q: instructions and instructions_file are mutually exclusive", id)
+		}
+		if wf.InstructionsFile != "" {
+			if err := validateInstructionsFile("workflow", id, wf.InstructionsFile); err != nil {
+				return err
+			}
 		}
 	}
 

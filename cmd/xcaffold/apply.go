@@ -15,6 +15,7 @@ import (
 )
 
 var applyDryRun bool
+var targetFlag string
 
 var applyCmd = &cobra.Command{
 	Use:   "apply",
@@ -39,6 +40,7 @@ Any manually edited files inside .claude/ will be overwritten.`,
 
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
+	applyCmd.Flags().StringVar(&targetFlag, "target", "", "compilation target platform (claude, cursor, gemini; default: claude)")
 	rootCmd.AddCommand(applyCmd)
 }
 
@@ -68,10 +70,13 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	// baseDir is the directory containing the xcf file — used by the compiler
 	// to resolve instructions_file: and references: paths.
 	baseDir := filepath.Dir(configPath)
-	out, err := compiler.Compile(config, baseDir)
+	out, err := compiler.Compile(config, baseDir, targetFlag)
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}
+
+	// Resolve the target-specific output directory instead of the hardcoded default
+	outputDir = filepath.Join(filepath.Dir(outputDir), compiler.OutputDir(targetFlag))
 
 	for _, agent := range config.Agents {
 		if len(agent.Targets) > 0 {
@@ -82,8 +87,8 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 
 	if applyDryRun {
 		fmt.Printf("[%s] Dry-run preview (no files will be written):\n\n", scopeName)
-	} else {
-		// Pre-create all required subdirectories.
+	} else if targetFlag == "" || targetFlag == "claude" {
+		// Pre-create baseline subdirectories exclusively for the Claude format contract.
 		for _, subdir := range []string{"agents", "skills", "rules"} {
 			if err := os.MkdirAll(filepath.Join(outputDir, subdir), 0755); err != nil {
 				return fmt.Errorf("[%s] failed to create output directory %q: %w", scopeName, subdir, err)
@@ -135,11 +140,12 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 
 	// Write the lock file.
 	manifest := state.Generate(out)
-	if err := state.Write(manifest, lockFile); err != nil {
-		return fmt.Errorf("[%s] failed to write scaffold.lock: %w", scopeName, err)
+	targetLockFile := state.LockFilePath(lockFile, targetFlag)
+	if err := state.Write(manifest, targetLockFile); err != nil {
+		return fmt.Errorf("[%s] failed to write %s: %w", scopeName, filepath.Base(targetLockFile), err)
 	}
 
-	fmt.Printf("\n[%s] ✓ Apply complete. scaffold.lock updated.\n", scopeName)
+	fmt.Printf("\n[%s] ✓ Apply complete. %s updated.\n", scopeName, filepath.Base(targetLockFile))
 	return nil
 }
 

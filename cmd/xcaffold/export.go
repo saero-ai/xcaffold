@@ -13,6 +13,7 @@ import (
 var (
 	exportFormat string
 	exportOutput string
+	exportTarget string
 )
 
 var exportCmd = &cobra.Command{
@@ -29,6 +30,7 @@ plugin directory that can be shared and distributed.
 func init() {
 	exportCmd.Flags().StringVar(&exportFormat, "format", "plugin", "Export format (currently only 'plugin')")
 	exportCmd.Flags().StringVar(&exportOutput, "output", "", "Output directory (required)")
+	exportCmd.Flags().StringVar(&exportTarget, "target", "", "Compilation target (claude, cursor, gemini; default: claude)")
 	_ = exportCmd.MarkFlagRequired("output")
 	rootCmd.AddCommand(exportCmd)
 }
@@ -44,7 +46,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	baseDir := filepath.Dir(xcfPath)
-	compiled, err := compiler.Compile(config, baseDir)
+	compiled, err := compiler.Compile(config, baseDir, exportTarget)
 	if err != nil {
 		return fmt.Errorf("compilation error: %w", err)
 	}

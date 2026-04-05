@@ -26,7 +26,7 @@ func TestExportPlugin_GeneratesManifest(t *testing.T) {
 		},
 	}
 
-	compiled, err := Compile(config, "")
+	compiled, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled)
@@ -56,7 +56,7 @@ func TestExportPlugin_SkipsSettingsJSON(t *testing.T) {
 		},
 	}
 
-	compiled, err := Compile(config, "")
+	compiled, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled)
@@ -76,7 +76,7 @@ func TestExportPlugin_RemapsHooks(t *testing.T) {
 		},
 	}
 
-	compiled, err := Compile(config, "")
+	compiled, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled)

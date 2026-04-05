@@ -17,7 +17,7 @@ func TestCompile_AgentMinimalFields(t *testing.T) {
 			"minimal": {},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/minimal.md"]
@@ -34,7 +34,7 @@ func TestCompile_AgentInstructionsTrailingNewlines(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/trimtest.md"]
@@ -58,7 +58,7 @@ func TestCompile_SkillWithAllFields(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["skills/deploy/SKILL.md"]
@@ -78,7 +78,7 @@ func TestCompile_SkillEmptyID(t *testing.T) {
 			},
 		},
 	}
-	_, err := Compile(config, "")
+	_, err := Compile(config, "", "")
 	require.Error(t, err, "whitespace-only skill ID should return an error")
 	assert.Contains(t, err.Error(), "skill")
 }
@@ -92,7 +92,7 @@ func TestCompile_RuleEmptyID(t *testing.T) {
 			},
 		},
 	}
-	_, err := Compile(config, "")
+	_, err := Compile(config, "", "")
 	require.Error(t, err, "empty rule ID should return an error")
 	assert.Contains(t, err.Error(), "rule")
 }
@@ -107,7 +107,7 @@ func TestCompile_RuleWithPaths(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["rules/formatting.md"]
@@ -116,18 +116,21 @@ func TestCompile_RuleWithPaths(t *testing.T) {
 	assert.Contains(t, content, "Always use gofmt.")
 }
 
-// TestCompile_HooksJSON — valid JSON output with hook key
+// TestCompile_HooksJSON — valid JSON output with 3-level nested structure
 func TestCompile_HooksJSON(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Hooks: map[string]ast.HookConfig{
-			"pre-commit": {
-				Event: "PreToolUse",
-				Match: "Bash",
-				Run:   "make lint",
+		Hooks: ast.HookConfig{
+			"PreToolUse": []ast.HookMatcherGroup{
+				{
+					Matcher: "Bash",
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "make lint"},
+					},
+				},
 			},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["hooks.json"]
@@ -135,8 +138,16 @@ func TestCompile_HooksJSON(t *testing.T) {
 
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed), "hooks.json must be valid JSON")
-	_, hasKey := parsed["pre-commit"]
-	assert.True(t, hasKey, "hooks.json should contain the 'pre-commit' key")
+
+	// Verify the {hooks: ...} envelope
+	hooksAny, hasHooks := parsed["hooks"]
+	assert.True(t, hasHooks, "hooks.json must contain the 'hooks' wrapper key")
+
+	hooksMap, ok := hooksAny.(map[string]any)
+	require.True(t, ok, "hooks value should be an object")
+
+	_, hasEvent := hooksMap["PreToolUse"]
+	assert.True(t, hasEvent, "hooks object should contain 'PreToolUse' event key")
 }
 
 // TestCompile_MCPSettingsJSON — valid JSON with "mcp" key, env map preserved
@@ -152,7 +163,7 @@ func TestCompile_MCPSettingsJSON(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -188,7 +199,7 @@ func TestCompile_NoHooksOrMCP_NoJSON(t *testing.T) {
 			"agent1": {Description: "An agent"},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	_, hasHooks := out.Files["hooks.json"]
@@ -207,7 +218,7 @@ func TestCompile_PathTraversalSkillID(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	// If compilation succeeds, the output key must not start with ".."
 	if err == nil {
 		for key := range out.Files {
@@ -229,7 +240,7 @@ func TestCompile_UnicodeInstructions(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/unicode-agent.md"]
@@ -241,7 +252,7 @@ func TestCompile_UnicodeInstructions(t *testing.T) {
 // TestCompile_EmptyConfig — zero agents/skills/rules/hooks/mcp → empty Files map
 func TestCompile_EmptyConfig(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	assert.Empty(t, out.Files, "empty config should produce an empty Files map")

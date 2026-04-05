@@ -6,31 +6,36 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
 )
 
+var diffTargetFlag string
+
 var diffCmd = &cobra.Command{
 	Use:   "diff",
-	Short: "Detect drift between scaffold.lock and .claude/ files on disk",
+	Short: "Detect drift between scaffold.lock and compilation targets on disk",
 	Long: `xcaffold diff flags manual tampering and shadow-edits in your workspace.
 
 ┌───────────────────────────────────────────────────────────────────┐
 │                          DRIFT CHECK PHASE                        │
 └───────────────────────────────────────────────────────────────────┘
- • Recomputes SHA-256 hashes for all '.claude/' files natively
- • Compares current file hashes against the scaffold.lock truth state
- • Warns you if humans or external agents have mutated the system prompts
+ • Recomputes SHA-256 hashes for all output files natively
+ • Compares current file hashes against the target lock file truth state
+ • Warns you if humans or external agents have mutated the generated files
 
 Usage:
   $ xcaffold diff
   $ xcaffold diff --scope global
-  $ xcaffold diff --scope all`,
-	Example: "  $ xcaffold diff",
+  $ xcaffold diff --target cursor
+  $ xcaffold diff --target gemini`,
+	Example: "  $ xcaffold diff --target cursor",
 	RunE:    runDiff,
 }
 
 func init() {
+	diffCmd.Flags().StringVar(&diffTargetFlag, "target", "", "compilation target platform (claude, cursor, gemini; default: claude)")
 	rootCmd.AddCommand(diffCmd)
 }
 
@@ -38,14 +43,18 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	totalDrift := 0
 
 	if scopeFlag == "global" || scopeFlag == "all" {
-		drift, err := diffScope(globalClaudeDir, globalLockPath, "global")
+		targetDir := filepath.Join(filepath.Dir(globalClaudeDir), compiler.OutputDir(diffTargetFlag))
+		targetLock := state.LockFilePath(globalLockPath, diffTargetFlag)
+		drift, err := diffScope(targetDir, targetLock, "global")
 		if err != nil {
 			return err
 		}
 		totalDrift += drift
 	}
 	if scopeFlag == "project" || scopeFlag == "all" {
-		drift, err := diffScope(claudeDir, lockPath, "project")
+		targetDir := filepath.Join(filepath.Dir(claudeDir), compiler.OutputDir(diffTargetFlag))
+		targetLock := state.LockFilePath(lockPath, diffTargetFlag)
+		drift, err := diffScope(targetDir, targetLock, "project")
 		if err != nil {
 			return err
 		}
@@ -54,7 +63,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	if totalDrift > 0 {
-		return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply' to restore managed state", totalDrift)
+		return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply --target %s' to restore managed state", totalDrift, diffTargetFlag)
 	}
 	fmt.Println("No drift detected. All managed files are in sync.")
 	return nil

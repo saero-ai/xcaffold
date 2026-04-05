@@ -22,7 +22,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -45,7 +45,7 @@ func TestCompile_MultipleAgents(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 	assert.Len(t, out.Files, 2)
 	assert.Contains(t, out.Files, "agents/frontend.md")
@@ -64,7 +64,7 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 	assert.Contains(t, out.Files["agents/readonly.md"], "disallowedTools: [Bash, Write]")
 }
@@ -73,7 +73,7 @@ func TestCompile_EmptyAgents(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: ast.ProjectConfig{Name: "empty-project"},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
@@ -113,7 +113,7 @@ func TestCompile_FullSchema(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	// Agents
@@ -144,6 +144,68 @@ func TestCompile_FullSchema(t *testing.T) {
 	assert.Contains(t, settingsContent, `"sqlite"`)
 }
 
+func TestCompile_CursorTarget_Supported(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Rules: map[string]ast.RuleConfig{
+			"test": {Description: "Test", Instructions: "Test rule."},
+		},
+	}
+	out, err := Compile(config, "", "cursor")
+	require.NoError(t, err)
+	assert.NotEmpty(t, out.Files)
+}
+
+func TestCompile_CursorTarget_RulesUseMdc(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Rules: map[string]ast.RuleConfig{
+			"style": {Description: "Style", Instructions: "Format code."},
+		},
+	}
+	out, err := Compile(config, "", "cursor")
+	require.NoError(t, err)
+	_, ok := out.Files["rules/style.mdc"]
+	assert.True(t, ok, "Cursor rules should use .mdc extension")
+}
+
+func TestCompile_GeminiTarget_Supported(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Rules: map[string]ast.RuleConfig{
+			"test": {Description: "Test", Instructions: "Test rule."},
+		},
+	}
+	out, err := Compile(config, "", "gemini")
+	require.NoError(t, err)
+	assert.NotEmpty(t, out.Files)
+}
+
+func TestCompile_GeminiTarget_RulesNoFrontmatter(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Rules: map[string]ast.RuleConfig{
+			"style": {Description: "Style", Instructions: "Format code."},
+		},
+	}
+	out, err := Compile(config, "", "gemini")
+	require.NoError(t, err)
+	content, ok := out.Files["rules/style.md"]
+	assert.True(t, ok)
+	assert.NotContains(t, content, "---")
+}
+
+func TestCompile_GeminiTarget_AgentsExcluded(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"reviewer": {Name: "Reviewer", Instructions: "Review."},
+		},
+		Rules: map[string]ast.RuleConfig{
+			"test": {Instructions: "Test."},
+		},
+	}
+	out, err := Compile(config, "", "gemini")
+	require.NoError(t, err)
+	// Only rule should appear, not agent
+	assert.Len(t, out.Files, 1)
+}
+
 func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 	// An agent id containing path separators should be cleaned safely.
 	config := &ast.XcaffoldConfig{
@@ -152,7 +214,7 @@ func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 			"../evil": {Description: "Malicious agent."},
 		},
 	}
-	out, err := Compile(config, "")
+	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 	for path := range out.Files {
 		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")

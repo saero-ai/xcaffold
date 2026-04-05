@@ -49,15 +49,16 @@ var rootCmd = &cobra.Command{
 ┌───────────────────────────────────────────────────────────────────┐
 │                 THE 8-PHASE ORCHESTRATION ENGINE                  │
 └───────────────────────────────────────────────────────────────────┘
- • Bootstrap   [xcaffold init]    Creates base project scaffolding
- • Ingestion   [xcaffold import]  Migrates existing .claude/ states
- • Audit       [xcaffold analyze] Inspects repo & builds XCF config
- • Token Cost  [xcaffold plan]    Statically estimates token budget
- • Topology    [xcaffold graph]   Visualizes agent network maps
- • Compilation [xcaffold apply]   Compiles XCF to .claude/ prompts
- • Drift Check [xcaffold diff]    Detects manual config tampering
- • Validation  [xcaffold test]    Runs an LLM-in-the-loop proxy
- • Export      [xcaffold export]  Packages output as a distributable plugin
+ • Bootstrap   [xcaffold init]      Creates base project scaffolding
+ • Ingestion   [xcaffold import]    Migrates existing .claude/ states
+ • Translation [xcaffold translate] Imports & decomposes cross-platform workflows
+ • Audit       [xcaffold analyze]   Inspects repo & builds XCF config
+ • Token Cost  [xcaffold plan]      Statically estimates token budget
+ • Topology    [xcaffold graph]     Visualizes agent network maps
+ • Compilation [xcaffold apply]     Compiles XCF to .claude/ prompts
+ • Drift Check [xcaffold diff]      Detects manual config tampering
+ • Validation  [xcaffold test]      Runs an LLM-in-the-loop proxy
+ • Export      [xcaffold export]    Packages output as a distributable plugin
 
 ┌───────────────────────────────────────────────────────────────────┐
 │                      DIAGNOSTICS & TELEMETRY                      │
@@ -80,6 +81,8 @@ Use 'xcaffold --help' for more information on available commands.`,
 func init() {
 	state.XcaffoldVersion = version
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, date: %s)", version, commit, date)
+
+	rootCmd.AddCommand(translateCmd)
 
 	rootCmd.PersistentFlags().StringVar(
 		&configFlag,
