@@ -38,13 +38,27 @@ func init() {
 }
 
 func runPlan(cmd *cobra.Command, args []string) error {
-	config, err := parser.ParseFile(xcfPath)
+	if scopeFlag == "global" || scopeFlag == "all" {
+		if err := planScope(globalXcfPath, "global"); err != nil {
+			return err
+		}
+	}
+	if scopeFlag == "project" || scopeFlag == "all" {
+		if err := planScope(xcfPath, "project"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func planScope(configPath, scopeName string) error {
+	config, err := parser.ParseFile(configPath)
 	if err != nil {
-		return fmt.Errorf("parse error: %w", err)
+		return fmt.Errorf("[%s] parse error: %w", scopeName, err)
 	}
 
-	fmt.Printf("Project: %s\n", config.Project.Name)
-	fmt.Printf("Agents:  %d\n\n", len(config.Agents))
+	fmt.Printf("[%s] Project: %s\n", scopeName, config.Project.Name)
+	fmt.Printf("[%s] Agents:  %d\n\n", scopeName, len(config.Agents))
 
 	a := analyzer.New()
 	report := a.AnalyzeTokens(config)
@@ -60,16 +74,16 @@ func runPlan(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	if hasBloat {
-		fmt.Println("Plan completed with warnings. Review the agents flagged above.")
+		fmt.Printf("[%s] Plan completed with warnings. Review the agents flagged above.\n", scopeName)
 	} else {
-		fmt.Println("✓ Plan completed. No bloat detected.")
+		fmt.Printf("[%s] ✓ Plan completed. No bloat detected.\n", scopeName)
 	}
 	fmt.Println()
 	fmt.Println("  Note: estimates cover inline instructions/description only.")
 	fmt.Println("  Referenced skills and rules are loaded at runtime and may")
 	fmt.Println("  increase actual context window usage by 10-100×.")
 
-	// Write plan.json to disk as documented.
+	// Write plan.json adjacent to the xcf file.
 	planData := map[string]any{
 		"project": config.Project.Name,
 		"agents":  len(config.Agents),
@@ -78,11 +92,11 @@ func runPlan(cmd *cobra.Command, args []string) error {
 	}
 	planBytes, err := json.MarshalIndent(planData, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal plan.json: %w", err)
+		return fmt.Errorf("[%s] failed to marshal plan.json: %w", scopeName, err)
 	}
-	planPath := filepath.Join(filepath.Dir(xcfPath), "plan.json")
+	planPath := filepath.Join(filepath.Dir(configPath), "plan.json")
 	if err := os.WriteFile(planPath, planBytes, 0644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", planPath, err)
+		return fmt.Errorf("[%s] failed to write %s: %w", scopeName, planPath, err)
 	}
 	fmt.Printf("  %s written.\n", planPath)
 

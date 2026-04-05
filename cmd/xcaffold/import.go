@@ -40,9 +40,28 @@ func init() {
 }
 
 func runImport(cmd *cobra.Command, args []string) error {
-	// If a scaffold.xcf already exists, abort unless forced.
-	if _, err := os.Stat("scaffold.xcf"); err == nil {
-		return fmt.Errorf("scaffold.xcf already exists. Remove it first to import")
+	if scopeFlag == "global" {
+		return importScope(globalClaudeDir, globalXcfPath, "global")
+	}
+	// project (default)
+	return importScope(".claude", "scaffold.xcf", "project")
+}
+
+// importScope scans a .claude/ directory at claudeDir and writes a xcf file to xcfDest.
+func importScope(claudeDir, xcfDest, scopeName string) error {
+	// If the target xcf already exists, abort.
+	if _, err := os.Stat(xcfDest); err == nil {
+		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcfDest)
+	}
+
+	// For global scope, extracted instruction files live inside ~/.claude/imported/
+	// so they remain co-located with the global config. For project scope they live
+	// in the working directory alongside scaffold.xcf (existing behaviour).
+	var extractBase string
+	if scopeName == "global" {
+		extractBase = filepath.Join(claudeDir, "imported")
+	} else {
+		extractBase = "."
 	}
 
 	config := &ast.XcaffoldConfig{
@@ -53,7 +72,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		Agents: make(map[string]ast.AgentConfig),
 		Skills: make(map[string]ast.SkillConfig),
 		Rules:  make(map[string]ast.RuleConfig),
-		Hooks:  make(map[string]ast.HookConfig),
+		Hooks:  make(ast.HookConfig),
 		MCP:    make(map[string]ast.MCPConfig),
 	}
 
@@ -61,7 +80,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 	var warnings []string
 
 	// 1. Import agents — extract content to agents/<id>.md, reference via instructions_file
-	agentFiles, _ := filepath.Glob(filepath.Join(".claude", "agents", "*.md"))
+	agentFiles, _ := filepath.Glob(filepath.Join(claudeDir, "agents", "*.md"))
 	for _, f := range agentFiles {
 		data, err := os.ReadFile(f)
 		if err != nil {
@@ -73,13 +92,12 @@ func runImport(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		// Write instruction content to agents/<id>.md (outside .claude/)
-		destPath := filepath.Join("agents", id+".md")
+		destPath := filepath.Join(extractBase, "agents", id+".md")
 		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return fmt.Errorf("failed to create agents/ directory: %w", err)
+			return fmt.Errorf("[%s] failed to create agents/ directory: %w", scopeName, err)
 		}
 		if err := os.WriteFile(destPath, data, 0644); err != nil {
-			return fmt.Errorf("failed to write %s: %w", destPath, err)
+			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
 		}
 
 		config.Agents[id] = ast.AgentConfig{
@@ -90,26 +108,24 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	// 2. Import skills — Claude Code uses skills/<id>/SKILL.md directory structure
-	skillFiles, _ := filepath.Glob(filepath.Join(".claude", "skills", "*", "SKILL.md"))
+	skillFiles, _ := filepath.Glob(filepath.Join(claudeDir, "skills", "*", "SKILL.md"))
 	for _, f := range skillFiles {
 		data, err := os.ReadFile(f)
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf("skipping skill %s: %v", f, err))
 			continue
 		}
-		// The skill ID is the name of the parent directory.
 		id := filepath.Base(filepath.Dir(f))
 		if id == "" || id == "." {
 			continue
 		}
 
-		// Write to skills/<id>/SKILL.md (outside .claude/)
-		destPath := filepath.Join("skills", id, "SKILL.md")
+		destPath := filepath.Join(extractBase, "skills", id, "SKILL.md")
 		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return fmt.Errorf("failed to create skills/%s/ directory: %w", id, err)
+			return fmt.Errorf("[%s] failed to create skills/%s/ directory: %w", scopeName, id, err)
 		}
 		if err := os.WriteFile(destPath, data, 0644); err != nil {
-			return fmt.Errorf("failed to write %s: %w", destPath, err)
+			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
 		}
 
 		// Copy reference files if a references/ subdirectory exists.
@@ -121,9 +137,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 					continue
 				}
 				srcRef := filepath.Join(refSrc, entry.Name())
-				dstRef := filepath.Join("skills", id, "references", entry.Name())
+				dstRef := filepath.Join(extractBase, "skills", id, "references", entry.Name())
 				if err := os.MkdirAll(filepath.Dir(dstRef), 0755); err != nil {
-					return fmt.Errorf("failed to create references dir: %w", err)
+					return fmt.Errorf("[%s] failed to create references dir: %w", scopeName, err)
 				}
 				refData, err := os.ReadFile(srcRef)
 				if err != nil {
@@ -131,7 +147,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 					continue
 				}
 				if err := os.WriteFile(dstRef, refData, 0644); err != nil {
-					return fmt.Errorf("failed to write reference %s: %w", dstRef, err)
+					return fmt.Errorf("[%s] failed to write reference %s: %w", scopeName, dstRef, err)
 				}
 				refs = append(refs, dstRef)
 			}
@@ -146,7 +162,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	// 3. Import rules — extract to rules/<id>.md
-	ruleFiles, _ := filepath.Glob(filepath.Join(".claude", "rules", "*.md"))
+	ruleFiles, _ := filepath.Glob(filepath.Join(claudeDir, "rules", "*.md"))
 	for _, f := range ruleFiles {
 		data, err := os.ReadFile(f)
 		if err != nil {
@@ -158,12 +174,12 @@ func runImport(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		destPath := filepath.Join("rules", id+".md")
+		destPath := filepath.Join(extractBase, "rules", id+".md")
 		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return fmt.Errorf("failed to create rules/ directory: %w", err)
+			return fmt.Errorf("[%s] failed to create rules/ directory: %w", scopeName, err)
 		}
 		if err := os.WriteFile(destPath, data, 0644); err != nil {
-			return fmt.Errorf("failed to write %s: %w", destPath, err)
+			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
 		}
 
 		config.Rules[id] = ast.RuleConfig{
@@ -174,14 +190,14 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	// 4. Parse settings.json for MCP servers and settings.
-	settingsPath := filepath.Join(".claude", "settings.json")
+	settingsPath := filepath.Join(claudeDir, "settings.json")
 	if data, err := os.ReadFile(settingsPath); err == nil {
 		if err := importSettings(data, config, &importCount, &warnings); err != nil {
 			warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
 		}
 	}
 
-	// Generate scaffolding comment header + YAML
+	// Generate scaffolding comment header + YAML.
 	header := `# scaffold.xcf — generated by 'xcaffold import'
 # Edit this file and run 'xcaffold apply' to manage your agent team.
 # Each instructions_file: reference points to an external markdown file.
@@ -190,14 +206,14 @@ func runImport(cmd *cobra.Command, args []string) error {
 `
 	out, err := yaml.Marshal(config)
 	if err != nil {
-		return fmt.Errorf("failed to encode scaffold.xcf: %w", err)
+		return fmt.Errorf("[%s] failed to encode xcf: %w", scopeName, err)
 	}
 
-	if err := os.WriteFile("scaffold.xcf", append([]byte(header), out...), 0644); err != nil {
-		return fmt.Errorf("failed to write scaffold.xcf: %w", err)
+	if err := os.WriteFile(xcfDest, append([]byte(header), out...), 0644); err != nil {
+		return fmt.Errorf("[%s] failed to write %s: %w", scopeName, xcfDest, err)
 	}
 
-	fmt.Printf("✓ Import complete. Created scaffold.xcf with %d resources.\n", importCount)
+	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcfDest, importCount)
 	fmt.Println("  Instructions extracted to external files — full content preserved.")
 	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
 	if len(warnings) > 0 {

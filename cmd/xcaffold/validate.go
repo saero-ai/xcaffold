@@ -30,10 +30,23 @@ func init() {
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	if _, err := parser.ParseFile(xcfPath); err != nil {
-		return fmt.Errorf("validation failed: %w", err)
+	if scopeFlag == "global" || scopeFlag == "all" {
+		if err := validateScope(globalXcfPath, "global"); err != nil {
+			return err
+		}
 	}
+	if scopeFlag == "project" || scopeFlag == "all" {
+		if err := validateScope(xcfPath, "project"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	fmt.Println("✓ scaffold.xcf is valid and perfectly structured.")
+func validateScope(configPath, scopeName string) error {
+	if _, err := parser.ParseFile(configPath); err != nil {
+		return fmt.Errorf("[%s] validation failed: %w", scopeName, err)
+	}
+	fmt.Printf("[%s] ✓ %s is valid and perfectly structured.\n", scopeName, configPath)
 	return nil
 }

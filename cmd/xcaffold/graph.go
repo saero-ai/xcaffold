@@ -71,13 +71,30 @@ type graphData struct {
 }
 
 func runGraph(cmd *cobra.Command, args []string) error {
-	path := xcfPath
+	// An explicit file argument bypasses scope resolution entirely.
 	if len(args) > 0 {
-		path = args[0]
+		return graphScope(args[0], "")
 	}
 
-	config, err := parser.ParseFile(path)
+	if scopeFlag == "global" || scopeFlag == "all" {
+		if err := graphScope(globalXcfPath, "global"); err != nil {
+			return err
+		}
+	}
+	if scopeFlag == "project" || scopeFlag == "all" {
+		if err := graphScope(xcfPath, "project"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func graphScope(configPath, scopeName string) error {
+	config, err := parser.ParseFile(configPath)
 	if err != nil {
+		if scopeName != "" {
+			return fmt.Errorf("[%s] parse error: %w", scopeName, err)
+		}
 		return fmt.Errorf("parse error: %w", err)
 	}
 
