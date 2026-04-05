@@ -262,13 +262,13 @@ type SettingsConfig struct {
 	EnabledPlugins map[string]bool `yaml:"enabledPlugins,omitempty" json:"enabledPlugins,omitempty"`
 
 	// AlwaysThinkingEnabled forces extended thinking mode on all requests.
-	AlwaysThinkingEnabled bool `yaml:"alwaysThinkingEnabled,omitempty" json:"alwaysThinkingEnabled,omitempty"`
+	AlwaysThinkingEnabled *bool `yaml:"alwaysThinkingEnabled,omitempty" json:"alwaysThinkingEnabled,omitempty"`
 
 	// EffortLevel is the default effort level (e.g. "high", "medium", "low").
 	EffortLevel string `yaml:"effortLevel,omitempty" json:"effortLevel,omitempty"`
 
 	// SkipDangerousModePermissionPrompt suppresses the dangerous-mode consent dialog.
-	SkipDangerousModePermissionPrompt bool `yaml:"skipDangerousModePermissionPrompt,omitempty" json:"skipDangerousModePermissionPrompt,omitempty"`
+	SkipDangerousModePermissionPrompt *bool `yaml:"skipDangerousModePermissionPrompt,omitempty" json:"skipDangerousModePermissionPrompt,omitempty"`
 
 	// Permissions defines the allow/deny/ask permission rules.
 	Permissions *PermissionsConfig `yaml:"permissions,omitempty" json:"permissions,omitempty"`

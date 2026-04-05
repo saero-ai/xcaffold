@@ -440,9 +440,9 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 		len(settings.Env) > 0 ||
 		settings.StatusLine != nil ||
 		len(settings.EnabledPlugins) > 0 ||
-		settings.AlwaysThinkingEnabled ||
+		settings.AlwaysThinkingEnabled != nil ||
 		settings.EffortLevel != "" ||
-		settings.SkipDangerousModePermissionPrompt ||
+		settings.SkipDangerousModePermissionPrompt != nil ||
 		settings.Permissions != nil ||
 		settings.Sandbox != nil ||
 		settings.OtelHeadersHelper != "" ||
@@ -485,14 +485,14 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	if len(settings.EnabledPlugins) > 0 {
 		out["enabledPlugins"] = settings.EnabledPlugins
 	}
-	if settings.AlwaysThinkingEnabled {
-		out["alwaysThinkingEnabled"] = true
+	if settings.AlwaysThinkingEnabled != nil {
+		out["alwaysThinkingEnabled"] = *settings.AlwaysThinkingEnabled
 	}
 	if settings.EffortLevel != "" {
 		out["effortLevel"] = settings.EffortLevel
 	}
-	if settings.SkipDangerousModePermissionPrompt {
-		out["skipDangerousModePermissionPrompt"] = true
+	if settings.SkipDangerousModePermissionPrompt != nil {
+		out["skipDangerousModePermissionPrompt"] = *settings.SkipDangerousModePermissionPrompt
 	}
 	if settings.Permissions != nil {
 		out["permissions"] = settings.Permissions

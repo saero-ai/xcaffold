@@ -284,8 +284,8 @@ func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warning
 		settings.EffortLevel = el
 		changed = true
 	}
-	if atk, ok := raw["alwaysThinkingEnabled"].(bool); ok && atk {
-		settings.AlwaysThinkingEnabled = atk
+	if atk, ok := raw["alwaysThinkingEnabled"].(bool); ok {
+		settings.AlwaysThinkingEnabled = &atk
 		changed = true
 	}
 

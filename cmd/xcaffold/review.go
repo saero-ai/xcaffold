@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/parser"
@@ -47,26 +48,70 @@ func runReview(cmd *cobra.Command, args []string) error {
 		file = args[0]
 	}
 
-	if file == "all" {
-		return reviewAll(cmd)
+	switch scopeFlag {
+	case "global":
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("could not determine home directory: %w", err)
+		}
+		dir := filepath.Join(home, ".claude")
+		if file == "all" {
+			return reviewAllInDir(cmd, dir)
+		}
+		return reviewFile(cmd, filepath.Join(dir, file))
+	case "all":
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("could not determine home directory: %w", err)
+		}
+		globalDir := filepath.Join(home, ".claude")
+		if file == "all" {
+			cmd.Println("-- project scope --")
+			if err := reviewAll(cmd); err != nil {
+				return err
+			}
+			cmd.Println("-- global scope --")
+			return reviewAllInDir(cmd, globalDir)
+		}
+		// Specific file: review in both project CWD and global dir.
+		cmd.Println("-- project scope --")
+		_ = reviewFile(cmd, file)
+		cmd.Println("-- global scope --")
+		return reviewFile(cmd, filepath.Join(globalDir, file))
+	default:
+		// "project" (default)
+		if file == "all" {
+			return reviewAll(cmd)
+		}
+		return reviewFile(cmd, file)
 	}
-
-	return reviewFile(cmd, file)
 }
 
 func reviewAll(cmd *cobra.Command) error {
+	return reviewAllInDir(cmd, "")
+}
+
+func reviewAllInDir(cmd *cobra.Command, dir string) error {
 	targets := []string{"scaffold.xcf", "audit.json", "plan.json", "trace.jsonl"}
 	found := false
 	for _, target := range targets {
-		if _, err := os.Stat(target); err == nil {
+		path := target
+		if dir != "" {
+			path = filepath.Join(dir, target)
+		}
+		if _, err := os.Stat(path); err == nil {
 			found = true
-			if err := reviewFile(cmd, target); err != nil {
-				cmd.Printf("⚠️ Error reviewing %s: %v\n", target, err)
+			if err := reviewFile(cmd, path); err != nil {
+				cmd.Printf("Warning: error reviewing %s: %v\n", path, err)
 			}
 		}
 	}
 	if !found {
-		cmd.Println("No diagnostic files found in the current directory.")
+		if dir != "" {
+			cmd.Printf("No diagnostic files found in %s.\n", dir)
+		} else {
+			cmd.Println("No diagnostic files found in the current directory.")
+		}
 	}
 	return nil
 }
