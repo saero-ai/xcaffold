@@ -136,7 +136,7 @@ agents:
   shared:
     description: "Shared agent"
 `),
-		0644,
+		0600,
 	))
 
 	// Create a project scaffold.xcf that extends using an absolute path.
@@ -155,7 +155,7 @@ agents:
   local:
     description: "Local agent"
 `, globalPath)),
-		0644,
+		0600,
 	))
 
 	config, err := ParseFile(filepath.Join(projectDir, "scaffold.xcf"))

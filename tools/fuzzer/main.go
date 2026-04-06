@@ -52,7 +52,7 @@ func main() {
 	}
 
 	fileTarget := "schema-claude-latest.json"
-	err = os.WriteFile(fileTarget, out, 0644)
+	err = os.WriteFile(fileTarget, out, 0600)
 	if err != nil {
 		log.Fatalf("Failed to write %s: %v", fileTarget, err)
 	}

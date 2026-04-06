@@ -18,7 +18,7 @@ project:
 func TestApplyScope_Project(t *testing.T) {
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0644))
+	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 	lock := filepath.Join(dir, "scaffold.lock")
@@ -49,7 +49,7 @@ func TestApplyScope_MissingXCF(t *testing.T) {
 func TestRunApply_ScopeProject(t *testing.T) {
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0644))
+	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	// Set package-level path vars used by runApply.
 	xcfPath = xcf
@@ -67,7 +67,7 @@ func TestRunApply_ScopeProject(t *testing.T) {
 func TestRunApply_ScopeGlobal(t *testing.T) {
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "global.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0644))
+	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	globalXcfPath = xcf
 	globalClaudeDir = filepath.Join(dir, ".claude")
@@ -85,10 +85,10 @@ func TestRunApply_ScopeAll(t *testing.T) {
 	dir := t.TempDir()
 
 	projXCF := filepath.Join(dir, "scaffold.xcf")
-	require.NoError(t, os.WriteFile(projXCF, []byte(minimalXCF), 0644))
+	require.NoError(t, os.WriteFile(projXCF, []byte(minimalXCF), 0600))
 
 	globalXCF := filepath.Join(dir, "global.xcf")
-	require.NoError(t, os.WriteFile(globalXCF, []byte(minimalXCF), 0644))
+	require.NoError(t, os.WriteFile(globalXCF, []byte(minimalXCF), 0600))
 
 	xcfPath = projXCF
 	claudeDir = filepath.Join(dir, "proj-claude")

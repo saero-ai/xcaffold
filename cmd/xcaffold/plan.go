@@ -95,7 +95,7 @@ func planScope(configPath, scopeName string) error {
 		return fmt.Errorf("[%s] failed to marshal plan.json: %w", scopeName, err)
 	}
 	planPath := filepath.Join(filepath.Dir(configPath), "plan.json")
-	if err := os.WriteFile(planPath, planBytes, 0644); err != nil {
+	if err := os.WriteFile(planPath, planBytes, 0600); err != nil {
 		return fmt.Errorf("[%s] failed to write %s: %w", scopeName, planPath, err)
 	}
 	fmt.Printf("  %s written.\n", planPath)

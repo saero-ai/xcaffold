@@ -124,7 +124,7 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
 			return fmt.Errorf("[%s] failed to create directory for %q: %w", scopeName, absPath, err)
 		}
-		if err := os.WriteFile(absPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(absPath, []byte(content), 0600); err != nil {
 			return fmt.Errorf("[%s] failed to write %q: %w", scopeName, absPath, err)
 		}
 		hash := sha256.Sum256([]byte(content))

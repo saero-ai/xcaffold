@@ -66,7 +66,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 		if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
 			return fmt.Errorf("failed to create directory for %q: %w", absPath, err)
 		}
-		if err := os.WriteFile(absPath, []byte(content), 0644); err != nil {
+		if err := os.WriteFile(absPath, []byte(content), 0600); err != nil {
 			return fmt.Errorf("failed to write %q: %w", absPath, err)
 		}
 		fmt.Printf("  wrote %s\n", absPath)

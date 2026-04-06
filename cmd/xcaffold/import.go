@@ -96,7 +96,7 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 			return fmt.Errorf("[%s] failed to create agents/ directory: %w", scopeName, err)
 		}
-		if err := os.WriteFile(destPath, data, 0644); err != nil {
+		if err := os.WriteFile(destPath, data, 0600); err != nil {
 			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
 		}
 
@@ -124,7 +124,7 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 			return fmt.Errorf("[%s] failed to create skills/%s/ directory: %w", scopeName, id, err)
 		}
-		if err := os.WriteFile(destPath, data, 0644); err != nil {
+		if err := os.WriteFile(destPath, data, 0600); err != nil {
 			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
 		}
 
@@ -146,7 +146,7 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 					warnings = append(warnings, fmt.Sprintf("skipping reference %s: %v", srcRef, err))
 					continue
 				}
-				if err := os.WriteFile(dstRef, refData, 0644); err != nil {
+				if err := os.WriteFile(dstRef, refData, 0600); err != nil {
 					return fmt.Errorf("[%s] failed to write reference %s: %w", scopeName, dstRef, err)
 				}
 				refs = append(refs, dstRef)
@@ -178,7 +178,7 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 			return fmt.Errorf("[%s] failed to create rules/ directory: %w", scopeName, err)
 		}
-		if err := os.WriteFile(destPath, data, 0644); err != nil {
+		if err := os.WriteFile(destPath, data, 0600); err != nil {
 			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
 		}
 
@@ -209,7 +209,7 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 		return fmt.Errorf("[%s] failed to encode xcf: %w", scopeName, err)
 	}
 
-	if err := os.WriteFile(xcfDest, append([]byte(header), out...), 0644); err != nil {
+	if err := os.WriteFile(xcfDest, append([]byte(header), out...), 0600); err != nil {
 		return fmt.Errorf("[%s] failed to write %s: %w", scopeName, xcfDest, err)
 	}
 

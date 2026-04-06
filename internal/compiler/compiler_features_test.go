@@ -21,7 +21,7 @@ func TestCompile_AgentInstructionsFile_ReadsExternalFile(t *testing.T) {
 	dir := t.TempDir()
 	instrPath := filepath.Join(dir, "agents", "cto.md")
 	require.NoError(t, os.MkdirAll(filepath.Dir(instrPath), 0755))
-	require.NoError(t, os.WriteFile(instrPath, []byte("You are the Chief Technology Officer.\nLead with clarity."), 0644))
+	require.NoError(t, os.WriteFile(instrPath, []byte("You are the Chief Technology Officer.\nLead with clarity."), 0600))
 
 	config := &ast.XcaffoldConfig{
 		Agents: map[string]ast.AgentConfig{
@@ -49,7 +49,7 @@ func TestCompile_AgentInstructionsFile_StripsFrontmatter(t *testing.T) {
 	instrPath := filepath.Join(dir, "agents", "dev.md")
 	require.NoError(t, os.MkdirAll(filepath.Dir(instrPath), 0755))
 	content := "---\nname: Developer\nmodel: claude-sonnet\n---\n\nWrite clean code.\nAlways test."
-	require.NoError(t, os.WriteFile(instrPath, []byte(content), 0644))
+	require.NoError(t, os.WriteFile(instrPath, []byte(content), 0600))
 
 	config := &ast.XcaffoldConfig{
 		Agents: map[string]ast.AgentConfig{
@@ -99,7 +99,7 @@ func TestCompile_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
 func TestCompile_InstructionsFile_InlinePriority(t *testing.T) {
 	dir := t.TempDir()
 	fPath := filepath.Join(dir, "file.md")
-	require.NoError(t, os.WriteFile(fPath, []byte("From file."), 0644))
+	require.NoError(t, os.WriteFile(fPath, []byte("From file."), 0600))
 
 	config := &ast.XcaffoldConfig{
 		Agents: map[string]ast.AgentConfig{
@@ -128,8 +128,8 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 	dir := t.TempDir()
 	refDir := filepath.Join(dir, "skills", "flutter-integration", "references")
 	require.NoError(t, os.MkdirAll(refDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(refDir, "advanced-patterns.md"), []byte("# Advanced Patterns"), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(refDir, "lottie-guide.md"), []byte("# Lottie Guide"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(refDir, "advanced-patterns.md"), []byte("# Advanced Patterns"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(refDir, "lottie-guide.md"), []byte("# Lottie Guide"), 0600))
 
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
@@ -165,7 +165,7 @@ func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 	refDir := filepath.Join(dir, "skills", "design", "refs")
 	require.NoError(t, os.MkdirAll(refDir, 0755))
 	for _, name := range []string{"colors.md", "typography.md", "layout.md"} {
-		require.NoError(t, os.WriteFile(filepath.Join(refDir, name), []byte("# "+name), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join(refDir, name), []byte("# "+name), 0600))
 	}
 
 	config := &ast.XcaffoldConfig{
@@ -324,7 +324,7 @@ func TestCompile_ConventionAutoDiscover_Agent(t *testing.T) {
 	require.NoError(t, os.WriteFile(
 		filepath.Join(dir, "agents", "cto.md"),
 		[]byte("You are the CTO. Lead with clarity."),
-		0644,
+		0600,
 	))
 
 	config := &ast.XcaffoldConfig{
@@ -349,7 +349,7 @@ func TestCompile_ConventionAutoDiscover_Skill(t *testing.T) {
 	require.NoError(t, os.WriteFile(
 		filepath.Join(dir, "skills", "git-workflow", "SKILL.md"),
 		[]byte("---\nname: Git Workflow\n---\n\nFollow the git workflow."),
-		0644,
+		0600,
 	))
 
 	config := &ast.XcaffoldConfig{

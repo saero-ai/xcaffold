@@ -84,7 +84,7 @@ func TestRead_CorruptYAML(t *testing.T) {
 	dir := t.TempDir()
 	badFile := filepath.Join(dir, "scaffold.lock")
 
-	err := os.WriteFile(badFile, []byte("{{{{not yaml}}}}"), 0644)
+	err := os.WriteFile(badFile, []byte("{{{{not yaml}}}}"), 0600)
 	require.NoError(t, err)
 
 	_, err = Read(badFile)
@@ -99,7 +99,7 @@ func TestRead_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	emptyFile := filepath.Join(dir, "scaffold.lock")
 
-	err := os.WriteFile(emptyFile, []byte(""), 0644)
+	err := os.WriteFile(emptyFile, []byte(""), 0600)
 	require.NoError(t, err)
 
 	manifest, err := Read(emptyFile)

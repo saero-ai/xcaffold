@@ -196,7 +196,7 @@ func TestXcfIntegration_FullRoundTrip_WorkflowToConfigToYAMLAndBack(t *testing.T
 		case "skill":
 			destPath := filepath.Join(baseDir, "skills", p.ID, "SKILL.md")
 			require.NoError(t, os.MkdirAll(filepath.Dir(destPath), 0755))
-			require.NoError(t, os.WriteFile(destPath, []byte(p.Body), 0644))
+			require.NoError(t, os.WriteFile(destPath, []byte(p.Body), 0600))
 			relPath := filepath.Join("skills", p.ID, "SKILL.md")
 			config.Skills[p.ID] = ast.SkillConfig{
 				Description:      fmt.Sprintf("Translated from workflow %s", p.ID),
@@ -206,7 +206,7 @@ func TestXcfIntegration_FullRoundTrip_WorkflowToConfigToYAMLAndBack(t *testing.T
 		case "rule":
 			destPath := filepath.Join(baseDir, "rules", p.ID+".md")
 			require.NoError(t, os.MkdirAll(filepath.Dir(destPath), 0755))
-			require.NoError(t, os.WriteFile(destPath, []byte(p.Body), 0644))
+			require.NoError(t, os.WriteFile(destPath, []byte(p.Body), 0600))
 			relPath := filepath.Join("rules", p.ID+".md")
 			config.Rules[p.ID] = ast.RuleConfig{
 				Description:      fmt.Sprintf("Constraints from workflow %s", p.ID),

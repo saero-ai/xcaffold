@@ -144,7 +144,7 @@ func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.Translati
 				if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 					return fmt.Errorf("failed to create skills/%s/ directory: %w", p.ID, err)
 				}
-				if err := os.WriteFile(destPath, []byte(p.Body), 0644); err != nil {
+				if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
 					return fmt.Errorf("failed to write %s: %w", destPath, err)
 				}
 				// Store path relative to baseDir for instructions_file portability.
@@ -160,7 +160,7 @@ func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.Translati
 				if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 					return fmt.Errorf("failed to create rules/ directory: %w", err)
 				}
-				if err := os.WriteFile(destPath, []byte(p.Body), 0644); err != nil {
+				if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
 					return fmt.Errorf("failed to write %s: %w", destPath, err)
 				}
 				relPath := filepath.Join("rules", p.ID+".md")
@@ -204,7 +204,7 @@ func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.Translati
 	if err != nil {
 		return fmt.Errorf("failed to encode scaffold.xcf: %w", err)
 	}
-	if err := os.WriteFile(xcfPath, append([]byte(header), out...), 0644); err != nil {
+	if err := os.WriteFile(xcfPath, append([]byte(header), out...), 0600); err != nil {
 		return fmt.Errorf("failed to write scaffold.xcf: %w", err)
 	}
 

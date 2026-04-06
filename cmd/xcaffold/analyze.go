@@ -72,12 +72,12 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 	}
 
 	outPath := "scaffold.xcf"
-	if err := os.WriteFile(outPath, []byte(res.YAMLConfig), 0644); err != nil {
+	if err := os.WriteFile(outPath, []byte(res.YAMLConfig), 0600); err != nil {
 		return fmt.Errorf("failed to write scaffold.xcf: %w", err)
 	}
 
 	auditPath := "audit.json"
-	if err := os.WriteFile(auditPath, []byte(res.AuditJSON), 0644); err != nil {
+	if err := os.WriteFile(auditPath, []byte(res.AuditJSON), 0600); err != nil {
 		return fmt.Errorf("failed to write audit.json: %w", err)
 	}
 

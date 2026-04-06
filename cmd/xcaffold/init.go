@@ -91,7 +91,7 @@ func initProject() error {
 	if _, err := os.Stat(filename); err == nil {
 		return fmt.Errorf("%s already exists; delete it first if you want to re-initialize", filename)
 	}
-	if err := os.WriteFile(filename, []byte(defaultXCFContent), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(defaultXCFContent), 0600); err != nil {
 		return fmt.Errorf("failed to create %s: %w", filename, err)
 	}
 	fmt.Printf("Created %s\n", filename)
@@ -112,7 +112,7 @@ func initGlobal() error {
 	if _, err := os.Stat(target); err == nil {
 		return fmt.Errorf("%s already exists; delete it first if you want to re-initialize", target)
 	}
-	if err := os.WriteFile(target, []byte(defaultGlobalXCFContent), 0644); err != nil {
+	if err := os.WriteFile(target, []byte(defaultGlobalXCFContent), 0600); err != nil {
 		return fmt.Errorf("failed to create %s: %w", target, err)
 	}
 	fmt.Printf("Created %s\n", target)
