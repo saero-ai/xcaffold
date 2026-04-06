@@ -174,3 +174,72 @@ func TestClaudeRenderer_Compile_SkillMinimal(t *testing.T) {
 	assert.Contains(t, content, "description: Test-driven development workflow.")
 	assert.Contains(t, content, "Write tests before implementation.")
 }
+
+// ─── Readonly tests (Issue #5 — Normalization Rule 7) ────────────────────────
+
+func TestClaudeRenderer_Compile_Agent_Readonly_EmitsToolsReadGrepGlob(t *testing.T) {
+	r := New()
+	ro := true
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"auditor": {
+				Name:         "Auditor",
+				Description:  "Read-only code auditor.",
+				Instructions: "Audit the code.",
+				Readonly:     &ro,
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/auditor.md"]
+	require.NotEmpty(t, content)
+
+	assert.Contains(t, content, "tools: [Read, Grep, Glob]", "readonly: true must synthesize to tools: [Read, Grep, Glob] on CC")
+	assert.NotContains(t, content, "readonly:", "readonly: key must not appear in CC output")
+}
+
+func TestClaudeRenderer_Compile_Agent_Readonly_ExplicitToolsTakePrecedence(t *testing.T) {
+	r := New()
+	ro := true
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"custom": {
+				Name:         "Custom",
+				Instructions: "Custom tools.",
+				Readonly:     &ro,
+				Tools:        []string{"Bash", "Read"},
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/custom.md"]
+	// Explicit tools must win over readonly synthesis
+	assert.Contains(t, content, "tools: [Bash, Read]")
+	assert.NotContains(t, content, "tools: [Read, Grep, Glob]", "explicit tools must take precedence over readonly synthesis")
+}
+
+func TestClaudeRenderer_Compile_Agent_ReadonlyFalse_NoToolsSynthesized(t *testing.T) {
+	r := New()
+	ro := false
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"writer": {
+				Name:         "Writer",
+				Instructions: "Write code.",
+				Readonly:     &ro,
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/writer.md"]
+	assert.NotContains(t, content, "tools:", "readonly: false must not synthesize tools")
+}

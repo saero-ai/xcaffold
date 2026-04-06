@@ -87,6 +87,9 @@ type AgentConfig struct {
 
 	// InitialPrompt is the first message sent when the agent starts.
 	InitialPrompt string `yaml:"initialPrompt,omitempty"`
+
+	// Readonly maps to cursor's readonly flag (Cursor target only).
+	Readonly *bool `yaml:"readonly,omitempty"`
 }
 
 // TargetOverride specifies overrides for multi-provider targets.
@@ -163,6 +166,9 @@ type RuleConfig struct {
 	// InstructionsFile is a path (relative to scaffold.xcf) to an external markdown
 	// file whose body is used as the rule body. Mutually exclusive with Instructions.
 	InstructionsFile string `yaml:"instructions_file,omitempty"`
+
+	// AlwaysApply applies the rule globally without path matching (Cursor target only).
+	AlwaysApply *bool `yaml:"alwaysApply,omitempty"`
 }
 
 // HookConfig maps lifecycle event names to their matcher groups.
@@ -204,6 +210,13 @@ type MCPConfig struct {
 	URL string `yaml:"url,omitempty"     json:"url,omitempty"`
 	// Headers are HTTP request headers (type=http|sse).
 	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
+
+	// Antigravity (global-only) specific extensions
+	Cwd              string            `yaml:"cwd,omitempty"              json:"cwd,omitempty"`
+	Disabled         *bool             `yaml:"disabled,omitempty"         json:"disabled,omitempty"`
+	DisabledTools    []string          `yaml:"disabledTools,omitempty"    json:"disabledTools,omitempty"`
+	AuthProviderType string            `yaml:"authProviderType,omitempty" json:"authProviderType,omitempty"`
+	OAuth            map[string]string `yaml:"oauth,omitempty"            json:"oauth,omitempty"`
 }
 
 // StatusLineConfig defines the statusLine setting for Claude Code.

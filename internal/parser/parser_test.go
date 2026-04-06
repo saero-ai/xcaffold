@@ -198,3 +198,40 @@ hooks:
 		})
 	}
 }
+
+func TestParse_MCP_PlatformSpecificFields(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+mcp:
+  local-server:
+    type: "stdio"
+    command: "node"
+    cwd: "/path/to/server"
+    oauth:
+      provider: "github"
+      scope: "repo"
+  remote-server:
+    type: "http"
+    url: "https://example.com/mcp"
+    disabled: true
+    disabledTools: ["dangerousTool"]
+    authProviderType: "custom"
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+
+	local, ok := config.MCP["local-server"]
+	require.True(t, ok)
+	assert.Equal(t, "/path/to/server", local.Cwd)
+	require.NotNil(t, local.OAuth)
+	assert.Equal(t, "github", local.OAuth["provider"])
+	assert.Equal(t, "repo", local.OAuth["scope"])
+
+	remote, ok := config.MCP["remote-server"]
+	require.True(t, ok)
+	assert.True(t, *remote.Disabled)
+	assert.Contains(t, remote.DisabledTools, "dangerousTool")
+	assert.Equal(t, "custom", remote.AuthProviderType)
+}

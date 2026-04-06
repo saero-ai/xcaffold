@@ -210,7 +210,12 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 	if agent.MaxTurns > 0 {
 		fmt.Fprintf(&sb, "maxTurns: %d\n", agent.MaxTurns)
 	}
-	if len(agent.Tools) > 0 {
+	// Normalization Rule 7: readonly → tools: [Read, Grep, Glob]
+	// When readonly is set and no explicit tools are specified, CC achieves
+	// read-only behavior by restricting the tool set.
+	if agent.Readonly != nil && *agent.Readonly && len(agent.Tools) == 0 {
+		sb.WriteString("tools: [Read, Grep, Glob]\n")
+	} else if len(agent.Tools) > 0 {
 		fmt.Fprintf(&sb, "tools: [%s]\n", strings.Join(agent.Tools, ", "))
 	}
 	if len(agent.DisallowedTools) > 0 {

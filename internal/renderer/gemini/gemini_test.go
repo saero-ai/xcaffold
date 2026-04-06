@@ -429,3 +429,131 @@ func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
+
+// ─── Workflow tests (Gap 6) ──────────────────────────────────────────────────
+
+func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
+	r := gemini.New()
+	config := &ast.XcaffoldConfig{
+		Workflows: map[string]ast.WorkflowConfig{
+			"commit-changes": {
+				Name:         "Commit Changes",
+				Description:  "How to commit changes",
+				Instructions: "1. Stage files\n2. Commit",
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	_, ok := out.Files["workflows/commit-changes.md"]
+	assert.True(t, ok, "expected workflows/commit-changes.md in output")
+}
+
+func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
+	r := gemini.New()
+	config := &ast.XcaffoldConfig{
+		Workflows: map[string]ast.WorkflowConfig{
+			"deploy": {
+				Description:  "Deploy to production",
+				Instructions: "Run deploy script.",
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["workflows/deploy.md"]
+	require.NotEmpty(t, content)
+
+	assert.True(t, strings.HasPrefix(content, "---\n"), "workflow must start with frontmatter")
+	assert.Contains(t, content, "description: Deploy to production")
+}
+
+func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
+	r := gemini.New()
+	config := &ast.XcaffoldConfig{
+		Workflows: map[string]ast.WorkflowConfig{
+			"build": {
+				Name:         "Build Project",
+				Instructions: "Run make build.",
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["workflows/build.md"]
+	assert.Contains(t, content, "description: Build Project", "name should fall back to description")
+}
+
+func TestCompile_Workflow_BodyPreserved(t *testing.T) {
+	r := gemini.New()
+	config := &ast.XcaffoldConfig{
+		Workflows: map[string]ast.WorkflowConfig{
+			"test": {
+				Description:  "Run tests",
+				Instructions: "1. Run unit tests\n2. Run integration tests\n3. Check coverage",
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["workflows/test.md"]
+	assert.Contains(t, content, "1. Run unit tests")
+	assert.Contains(t, content, "2. Run integration tests")
+	assert.Contains(t, content, "3. Check coverage")
+}
+
+func TestCompile_Workflow_EmptyWorkflowsNoOutput(t *testing.T) {
+	r := gemini.New()
+	config := &ast.XcaffoldConfig{
+		Workflows: map[string]ast.WorkflowConfig{},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	for path := range out.Files {
+		assert.False(t, strings.HasPrefix(path, "workflows/"), "empty workflows map must not produce output")
+	}
+}
+
+func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
+	r := gemini.New()
+	config := &ast.XcaffoldConfig{
+		Workflows: map[string]ast.WorkflowConfig{
+			"   ": {
+				Instructions: "Bad workflow.",
+			},
+		},
+	}
+
+	_, err := r.Compile(config, "")
+	assert.Error(t, err)
+}
+
+func TestCompile_Skill_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
+	r := gemini.New()
+	config := &ast.XcaffoldConfig{
+		Skills: map[string]ast.SkillConfig{
+			"quoted": {
+				Name:        `Skill with "quotes"`,
+				Description: `A "very specal" skill`,
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["skills/quoted/SKILL.md"]
+	assert.Contains(t, content, `name: "Skill with \"quotes\""`)
+	assert.Contains(t, content, `description: "A \"very specal\" skill"`)
+	assert.NotContains(t, content, `\\\"`, "Must not double-escape quotes")
+}

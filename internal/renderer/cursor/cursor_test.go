@@ -606,3 +606,285 @@ func TestCompile_MCP_EmptyMCPMap_NoMCPJsonEmitted(t *testing.T) {
 	_, ok := out.Files["mcp.json"]
 	assert.False(t, ok, "mcp.json must not be emitted when no MCP servers are defined")
 }
+
+// ─── Hook tests (Gap 1-3) ────────────────────────────────────────────────────
+
+func TestCompile_Hooks_ProducesHooksJson(t *testing.T) {
+	r := cursor.New()
+	timeout := 5000
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{
+			"PreToolUse": {
+				{
+					Matcher: "Bash",
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo lint", Timeout: &timeout},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	_, ok := out.Files["hooks.json"]
+	assert.True(t, ok, "hooks.json must be emitted when Hooks are defined")
+}
+
+func TestCompile_Hooks_EmptyHooksNoOutput(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	_, ok := out.Files["hooks.json"]
+	assert.False(t, ok, "hooks.json must not be emitted when Hooks map is empty")
+}
+
+func TestCompile_Hooks_EventNamesCamelCase(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{
+			"PreToolUse": {
+				{
+					Matcher: "Bash",
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo pre"},
+					},
+				},
+			},
+			"PostToolUse": {
+				{
+					Matcher: "Write",
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo post"},
+					},
+				},
+			},
+			"SessionStart": {
+				{
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo session"},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	raw := out.Files["hooks.json"]
+	require.NotEmpty(t, raw)
+
+	// PascalCase → camelCase
+	assert.Contains(t, raw, `"preToolUse"`, "PreToolUse must be converted to preToolUse")
+	assert.Contains(t, raw, `"postToolUse"`, "PostToolUse must be converted to postToolUse")
+	assert.Contains(t, raw, `"sessionStart"`, "SessionStart must be converted to sessionStart")
+
+	// Original PascalCase must NOT appear as JSON keys
+	assert.NotContains(t, raw, `"PreToolUse"`, "PascalCase key must not appear")
+	assert.NotContains(t, raw, `"PostToolUse"`, "PascalCase key must not appear")
+	assert.NotContains(t, raw, `"SessionStart"`, "PascalCase key must not appear")
+}
+
+func TestCompile_Hooks_FlatStructure_NoNestedHooksArray(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{
+			"PreToolUse": {
+				{
+					Matcher: "Bash",
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo lint"},
+						{Type: "command", Command: "echo test"},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	raw := out.Files["hooks.json"]
+	require.NotEmpty(t, raw)
+
+	// Parse and verify flat structure
+	var parsed map[string][]map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	handlers, ok := parsed["preToolUse"]
+	require.True(t, ok)
+	assert.Len(t, handlers, 2, "both handlers should be at top level, not nested")
+
+	// Each handler should have command and matcher inline, NOT a nested "hooks" array
+	for _, h := range handlers {
+		assert.NotContains(t, h, "hooks", "handler must not contain nested 'hooks' array")
+		assert.Equal(t, "Bash", h["matcher"], "matcher must be injected inline")
+		assert.Equal(t, "command", h["type"])
+	}
+}
+
+func TestCompile_Hooks_MatcherInjectedInline(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{
+			"PostToolUse": {
+				{
+					Matcher: "Edit",
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo edited"},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	var parsed map[string][]map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(out.Files["hooks.json"]), &parsed))
+
+	handlers := parsed["postToolUse"]
+	require.Len(t, handlers, 1)
+	assert.Equal(t, "Edit", handlers[0]["matcher"])
+}
+
+func TestCompile_Hooks_EmptyMatcher_NotInjected(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Hooks: ast.HookConfig{
+			"SessionStart": {
+				{
+					// No matcher — should not appear on handler
+					Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo hi"},
+					},
+				},
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	var parsed map[string][]map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(out.Files["hooks.json"]), &parsed))
+
+	handlers := parsed["sessionStart"]
+	require.Len(t, handlers, 1)
+	_, hasMatcher := handlers[0]["matcher"]
+	assert.False(t, hasMatcher, "empty matcher must not be injected as key")
+}
+
+// ─── AlwaysApply edge cases (Issue #4) ───────────────────────────────────────
+
+func TestCompile_Rule_AlwaysApplyExplicitFalse_EmitsFalse(t *testing.T) {
+	r := cursor.New()
+	f := false
+	config := &ast.XcaffoldConfig{
+		Rules: map[string]ast.RuleConfig{
+			"opt-out-rule": {
+				Description:  "Explicit opt-out",
+				Instructions: "Not always.",
+				AlwaysApply:  &f,
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/opt-out-rule.mdc"]
+	assert.Contains(t, content, "alwaysApply: false", "explicit false must be emitted")
+}
+
+func TestCompile_Rule_PathsWithAlwaysApplyTrue_BothEmitted(t *testing.T) {
+	r := cursor.New()
+	t2 := true
+	config := &ast.XcaffoldConfig{
+		Rules: map[string]ast.RuleConfig{
+			"combo-rule": {
+				Description:  "Has both",
+				Paths:        []string{"**/*.ts"},
+				Instructions: "Lint TypeScript.",
+				AlwaysApply:  &t2,
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/combo-rule.mdc"]
+	assert.Contains(t, content, "globs:", "paths must be emitted as globs")
+	assert.Contains(t, content, "alwaysApply: true", "alwaysApply must also be emitted")
+}
+
+// ─── Readonly tests (Issue #5) ───────────────────────────────────────────────
+
+func TestCompile_Agent_Readonly_EmitsReadonlyTrue(t *testing.T) {
+	r := cursor.New()
+	ro := true
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"ro-agent": {
+				Name:         "Readonly Agent",
+				Instructions: "Only read files.",
+				Readonly:     &ro,
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/ro-agent.md"]
+	assert.Contains(t, content, "readonly: true", "readonly: true must be emitted for Cursor")
+}
+
+func TestCompile_Agent_ReadonlyFalse_NotEmitted(t *testing.T) {
+	r := cursor.New()
+	ro := false
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"rw-agent": {
+				Name:         "ReadWrite Agent",
+				Instructions: "Full access.",
+				Readonly:     &ro,
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/rw-agent.md"]
+	assert.NotContains(t, content, "readonly:", "readonly false must not be emitted")
+}
+
+func TestCompile_Agent_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"quoted": {
+				Name:        `Agent with "quotes"`,
+				Description: `A "very specal" agent`,
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/quoted.md"]
+	assert.Contains(t, content, `name: "Agent with \"quotes\""`)
+	assert.Contains(t, content, `description: "A \"very specal\" agent"`)
+	assert.NotContains(t, content, `\\\"`, "Must not double-escape quotes")
+}

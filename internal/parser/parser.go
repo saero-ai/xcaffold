@@ -157,6 +157,22 @@ var validHookEvents = map[string]bool{
 
 // validate performs semantic validation on a parsed config.
 func validate(c *ast.XcaffoldConfig) error {
+	if err := validateBase(c); err != nil {
+		return err
+	}
+	if err := validateIDs(c); err != nil {
+		return err
+	}
+	if err := validateHookEvents(c.Hooks); err != nil {
+		return err
+	}
+	if err := validateInstructions(c); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateBase(c *ast.XcaffoldConfig) error {
 	if c.Version == "" {
 		return fmt.Errorf("version is required (e.g. \"1.0\")")
 	}
@@ -168,43 +184,50 @@ func validate(c *ast.XcaffoldConfig) error {
 			return fmt.Errorf("project.name is required and must not be empty unless extending another config")
 		}
 	}
+	return nil
+}
 
-	// Validate all resource IDs for path-traversal characters (Bugs 2-4).
-	for id := range c.Agents {
-		if err := validateID("agent", id); err != nil {
+func validateResourceIDs[T any](resources map[string]T, kind string) error {
+	for id := range resources {
+		if err := validateID(kind, id); err != nil {
 			return err
 		}
 	}
-	for id := range c.Skills {
-		if err := validateID("skill", id); err != nil {
-			return err
-		}
-	}
-	for id := range c.Rules {
-		if err := validateID("rule", id); err != nil {
-			return err
-		}
-	}
-	for id := range c.Hooks {
-		if err := validateID("hook", id); err != nil {
-			return err
-		}
-	}
+	return nil
+}
 
-	// Validate hook event names against the supported set.
-	for event := range c.Hooks {
+func validateIDs(c *ast.XcaffoldConfig) error {
+	if err := validateResourceIDs(c.Agents, "agent"); err != nil {
+		return err
+	}
+	if err := validateResourceIDs(c.Skills, "skill"); err != nil {
+		return err
+	}
+	if err := validateResourceIDs(c.Rules, "rule"); err != nil {
+		return err
+	}
+	if err := validateResourceIDs(c.Hooks, "hook"); err != nil {
+		return err
+	}
+	if err := validateResourceIDs(c.MCP, "mcp"); err != nil {
+		return err
+	}
+	if err := validateResourceIDs(c.Workflows, "workflow"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateHookEvents(hooks ast.HookConfig) error {
+	for event := range hooks {
 		if !validHookEvents[event] {
 			return fmt.Errorf("unknown hook event %q; see documentation for supported lifecycle events", event)
 		}
 	}
+	return nil
+}
 
-	for id := range c.MCP {
-		if err := validateID("mcp", id); err != nil {
-			return err
-		}
-	}
-
-	// Validate instructions_file: mutual exclusivity and path safety.
+func validateInstructions(c *ast.XcaffoldConfig) error {
 	for id, agent := range c.Agents {
 		if agent.Instructions != "" && agent.InstructionsFile != "" {
 			return fmt.Errorf("agent %q: instructions and instructions_file are mutually exclusive; set one or the other", id)
@@ -229,22 +252,14 @@ func validate(c *ast.XcaffoldConfig) error {
 			return err
 		}
 	}
-
-	// Validate workflow IDs and mutual exclusivity.
 	for id, wf := range c.Workflows {
-		if err := validateID("workflow", id); err != nil {
-			return err
-		}
 		if wf.Instructions != "" && wf.InstructionsFile != "" {
 			return fmt.Errorf("workflow %q: instructions and instructions_file are mutually exclusive", id)
 		}
-		if wf.InstructionsFile != "" {
-			if err := validateInstructionsFile("workflow", id, wf.InstructionsFile); err != nil {
-				return err
-			}
+		if err := validateInstructionsFile("workflow", id, wf.InstructionsFile); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
 

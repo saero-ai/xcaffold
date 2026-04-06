@@ -77,7 +77,25 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files[safePath] = md
 	}
 
-	// Agents, hooks, and MCP are silently skipped.
+	// Compile all workflows to workflows/<id>.md
+	for id, wf := range config.Workflows {
+		md, err := compileGeminiWorkflow(id, wf, baseDir)
+		if err != nil {
+			return nil, fmt.Errorf("gemini: failed to compile workflow %q: %w", id, err)
+		}
+		safePath := filepath.Clean(fmt.Sprintf("workflows/%s.md", id))
+		out.Files[safePath] = md
+	}
+
+	// Agents, hooks, and MCP are silently skipped structurally,
+	// but we surface validation warnings on MCP usage.
+	for _, srv := range config.MCP {
+		for k, v := range srv.Env {
+			if strings.Contains(v, "${") {
+				fmt.Fprintf(os.Stderr, "WARNING (gemini): interpolation pattern ${...} found in MCP env %q. Antigravity requires literal strings.\n", k)
+			}
+		}
+	}
 
 	return out, nil
 }
@@ -99,6 +117,8 @@ func compileGeminiRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 	}
 
 	var sb strings.Builder
+
+	body = stripFrontmatter(body)
 
 	// Prepend 12K warning comment before any other content if body is too long.
 	if len(body) > ruleCharLimit {
@@ -147,7 +167,39 @@ func compileGeminiSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 
 	if body != "" {
 		sb.WriteString("\n")
-		sb.WriteString(strings.TrimRight(body, "\n"))
+		// Strip any inner frontmatter the user might have accidentally provided inline
+		sb.WriteString(strings.TrimRight(stripFrontmatter(body), "\n"))
+		sb.WriteString("\n")
+	}
+
+	return sb.String(), nil
+}
+
+// compileGeminiWorkflow renders a single WorkflowConfig to a workflows/<id>.md file.
+func compileGeminiWorkflow(id string, wf ast.WorkflowConfig, baseDir string) (string, error) {
+	if strings.TrimSpace(id) == "" {
+		return "", fmt.Errorf("workflow id must not be empty")
+	}
+
+	body, err := resolveFile(wf.Instructions, wf.InstructionsFile, baseDir)
+	if err != nil {
+		return "", err
+	}
+
+	var sb strings.Builder
+
+	sb.WriteString("---\n")
+	if wf.Description != "" {
+		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(wf.Description))
+	} else if wf.Name != "" {
+		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(wf.Name))
+	}
+	sb.WriteString("---\n")
+
+	if body != "" {
+		sb.WriteString("\n")
+		// Strip any inner frontmatter
+		sb.WriteString(strings.TrimRight(stripFrontmatter(body), "\n"))
 		sb.WriteString("\n")
 	}
 
@@ -204,8 +256,7 @@ func stripFrontmatter(content string) string {
 func yamlScalar(s string) string {
 	needsQuote := strings.ContainsAny(s, ":#{}[]|>&*!,'\"\\%@`")
 	if needsQuote {
-		escaped := strings.ReplaceAll(s, `"`, `\"`)
-		return fmt.Sprintf("%q", escaped)
+		return fmt.Sprintf("%q", s)
 	}
 	return s
 }

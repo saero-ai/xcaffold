@@ -53,7 +53,8 @@ func init() {
 
 	if err := translateCmd.MarkFlagRequired("source"); err != nil {
 		// MarkFlagRequired only errors if the flag does not exist — unreachable.
-		panic(err)
+		fmt.Fprintf(os.Stderr, "fatal: failed to mark source flag required: %v\n", err)
+		os.Exit(1)
 	}
 }
 

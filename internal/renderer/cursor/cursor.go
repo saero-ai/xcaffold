@@ -94,7 +94,70 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files["mcp.json"] = mcpJSON
 	}
 
+	// Compile Hooks to hooks.json
+	if len(config.Hooks) > 0 {
+		hooksJSON, err := compileCursorHooks(config.Hooks)
+		if err != nil {
+			return nil, fmt.Errorf("cursor: failed to compile hooks: %w", err)
+		}
+		out.Files["hooks.json"] = hooksJSON
+	}
+
 	return out, nil
+}
+
+// toCamelCase lowercases the first character of a string (PreToolUse -> preToolUse)
+func toCamelCase(s string) string {
+	if s == "" {
+		return ""
+	}
+	return strings.ToLower(s[:1]) + s[1:]
+}
+
+// compileCursorHooks flattens Claude's 3-level HookConfig to Cursor's 2-level format.
+func compileCursorHooks(hooks ast.HookConfig) (string, error) {
+	// target map is: eventName -> array of flat hook handlers (with matcher added inline)
+	flatHooks := make(map[string][]map[string]interface{})
+
+	for eventName, groups := range hooks {
+		camelEvent := toCamelCase(eventName)
+		var eventHandlers []map[string]interface{}
+
+		for _, group := range groups {
+			for _, handler := range group.Hooks {
+				// Convert to generic map to inject the matcher field safely
+				b, err := json.Marshal(handler)
+				if err != nil {
+					return "", err
+				}
+				var flatHandler map[string]interface{}
+				if err := json.Unmarshal(b, &flatHandler); err != nil {
+					return "", err
+				}
+
+				if group.Matcher != "" {
+					flatHandler["matcher"] = group.Matcher
+				}
+
+				// Warn on interpolation syntax differences
+				if strings.Contains(string(b), "${") {
+					fmt.Fprintf(os.Stderr, "WARNING (cursor): interpolation pattern ${...} found in hook %q. Cursor requires ${env:NAME} syntax.\n", eventName)
+				}
+
+				eventHandlers = append(eventHandlers, flatHandler)
+			}
+		}
+
+		if len(eventHandlers) > 0 {
+			flatHooks[camelEvent] = eventHandlers
+		}
+	}
+
+	data, err := json.MarshalIndent(flatHooks, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("hook json marshal: %w", err)
+	}
+	return string(data), nil
 }
 
 // compileCursorRule renders a single RuleConfig to a Cursor .mdc file.
@@ -124,9 +187,16 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 	// Normalization: paths: → globs: (Normalization Rule 4)
 	if len(rule.Paths) > 0 {
 		fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
+		if rule.AlwaysApply != nil && *rule.AlwaysApply {
+			sb.WriteString("alwaysApply: true\n")
+		}
 	} else {
-		// No paths = always active → alwaysApply: true
-		sb.WriteString("alwaysApply: true\n")
+		// No paths = always active → alwaysApply: true, unless explicitly false
+		if rule.AlwaysApply != nil && !*rule.AlwaysApply {
+			sb.WriteString("alwaysApply: false\n")
+		} else {
+			sb.WriteString("alwaysApply: true\n")
+		}
 	}
 
 	sb.WriteString("---\n")
@@ -172,6 +242,9 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 	// Normalization Rule 6: background → is_background
 	if agent.Background != nil && *agent.Background {
 		sb.WriteString("is_background: true\n")
+	}
+	if agent.Readonly != nil && *agent.Readonly {
+		sb.WriteString("readonly: true\n")
 	}
 
 	sb.WriteString("---\n")
@@ -252,6 +325,21 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, error) {
 			ServerURL: srv.URL,
 			Headers:   srv.Headers,
 		}
+
+		if strings.Contains(srv.Command, "${") {
+			fmt.Fprintf(os.Stderr, "WARNING (cursor): interpolation pattern ${...} found in MCP command for %q. Cursor requires ${env:NAME} syntax.\n", id)
+		}
+		for _, arg := range srv.Args {
+			if strings.Contains(arg, "${") {
+				fmt.Fprintf(os.Stderr, "WARNING (cursor): interpolation pattern ${...} found in MCP args for %q. Cursor requires ${env:NAME} syntax.\n", id)
+				break // warn once per args array
+			}
+		}
+		for k, v := range srv.Env {
+			if strings.Contains(v, "${") {
+				fmt.Fprintf(os.Stderr, "WARNING (cursor): interpolation pattern ${...} found in MCP env %q. Cursor requires ${env:NAME} syntax.\n", k)
+			}
+		}
 	}
 
 	envelope := map[string]map[string]cursorMCPEntry{
@@ -315,8 +403,7 @@ func stripFrontmatter(content string) string {
 func yamlScalar(s string) string {
 	needsQuote := strings.ContainsAny(s, ":#{}[]|>&*!,'\"\\%@`")
 	if needsQuote {
-		escaped := strings.ReplaceAll(s, `"`, `\"`)
-		return fmt.Sprintf("%q", escaped)
+		return fmt.Sprintf("%q", s)
 	}
 	return s
 }
