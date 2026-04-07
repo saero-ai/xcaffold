@@ -1,11 +1,11 @@
-package gemini_test
+package antigravity_test
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
+	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,17 +13,17 @@ import (
 // ─── Target / OutputDir / Render ─────────────────────────────────────────────
 
 func TestRenderer_Target(t *testing.T) {
-	r := gemini.New()
-	assert.Equal(t, "gemini", r.Target())
+	r := antigravity.New()
+	assert.Equal(t, "antigravity", r.Target())
 }
 
 func TestRenderer_OutputDir(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	assert.Equal(t, ".agents", r.OutputDir())
 }
 
 func TestRenderer_Render_Identity(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	files := map[string]string{
 		"rules/my-rule.md": "content",
 	}
@@ -35,7 +35,7 @@ func TestRenderer_Render_Identity(t *testing.T) {
 // ─── Rule tests ───────────────────────────────────────────────────────────────
 
 func TestCompile_Rule_OutputPathIsMarkdown(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"my-rule": {
@@ -53,7 +53,7 @@ func TestCompile_Rule_OutputPathIsMarkdown(t *testing.T) {
 }
 
 func TestCompile_Rule_NoFrontmatterDelimiters(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"plain-rule": {
@@ -74,7 +74,7 @@ func TestCompile_Rule_NoFrontmatterDelimiters(t *testing.T) {
 }
 
 func TestCompile_Rule_DescriptionAsHeading(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"desc-rule": {
@@ -96,7 +96,7 @@ func TestCompile_Rule_DescriptionAsHeading(t *testing.T) {
 }
 
 func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"path-rule": {
@@ -120,7 +120,7 @@ func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
 }
 
 func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	body := "Always run tests before committing.\nUse table-driven tests."
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
@@ -139,7 +139,7 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 }
 
 func TestCompile_Rule_DescriptionHeadingPrecedesBody(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"order-rule": {
@@ -159,7 +159,7 @@ func TestCompile_Rule_DescriptionHeadingPrecedesBody(t *testing.T) {
 }
 
 func TestCompile_Rule_NoDescription_NoHeading(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"no-desc-rule": {
@@ -176,7 +176,7 @@ func TestCompile_Rule_NoDescription_NoHeading(t *testing.T) {
 }
 
 func TestCompile_Rule_12KCharacterLimitWarning(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	// Build a body longer than 12,000 characters
 	longBody := strings.Repeat("a", 12001)
 	config := &ast.XcaffoldConfig{
@@ -197,7 +197,7 @@ func TestCompile_Rule_12KCharacterLimitWarning(t *testing.T) {
 }
 
 func TestCompile_Rule_Under12K_NoWarning(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	body := strings.Repeat("b", 11999)
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
@@ -215,7 +215,7 @@ func TestCompile_Rule_Under12K_NoWarning(t *testing.T) {
 }
 
 func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"   ": {
@@ -231,7 +231,7 @@ func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 // ─── Skill tests ──────────────────────────────────────────────────────────────
 
 func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
 			"my-skill": {
@@ -250,7 +250,7 @@ func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 }
 
 func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
 			"fmt-skill": {
@@ -272,7 +272,7 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 }
 
 func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
 			"delim-skill": {
@@ -291,7 +291,7 @@ func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
 }
 
 func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	userInvocable := true
 	disabled := true
 	config := &ast.XcaffoldConfig{
@@ -336,7 +336,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 }
 
 func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
 			"body-skill": {
@@ -355,7 +355,7 @@ func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 }
 
 func TestCompile_Skill_EmptyID_ReturnsError(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
 			"   ": {
@@ -371,7 +371,7 @@ func TestCompile_Skill_EmptyID_ReturnsError(t *testing.T) {
 // ─── Silent-skip tests ────────────────────────────────────────────────────────
 
 func TestCompile_AgentsHooksAndMCP_AreNotEmitted(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Agents: map[string]ast.AgentConfig{
 			"my-agent": {
@@ -424,7 +424,7 @@ func TestCompile_AgentsHooksAndMCP_AreNotEmitted(t *testing.T) {
 }
 
 func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	out, err := r.Compile(&ast.XcaffoldConfig{}, "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
@@ -433,7 +433,7 @@ func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {
 // ─── Workflow tests (Gap 6) ──────────────────────────────────────────────────
 
 func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Workflows: map[string]ast.WorkflowConfig{
 			"commit-changes": {
@@ -452,7 +452,7 @@ func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
 }
 
 func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Workflows: map[string]ast.WorkflowConfig{
 			"deploy": {
@@ -473,7 +473,7 @@ func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
 }
 
 func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Workflows: map[string]ast.WorkflowConfig{
 			"build": {
@@ -491,7 +491,7 @@ func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
 }
 
 func TestCompile_Workflow_BodyPreserved(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Workflows: map[string]ast.WorkflowConfig{
 			"test": {
@@ -511,7 +511,7 @@ func TestCompile_Workflow_BodyPreserved(t *testing.T) {
 }
 
 func TestCompile_Workflow_EmptyWorkflowsNoOutput(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Workflows: map[string]ast.WorkflowConfig{},
 	}
@@ -525,7 +525,7 @@ func TestCompile_Workflow_EmptyWorkflowsNoOutput(t *testing.T) {
 }
 
 func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Workflows: map[string]ast.WorkflowConfig{
 			"   ": {
@@ -539,7 +539,7 @@ func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
 }
 
 func TestCompile_Skill_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
 			"quoted": {

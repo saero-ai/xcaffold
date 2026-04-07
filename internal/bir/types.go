@@ -41,7 +41,7 @@ type ProjectIR struct {
 type SemanticUnit struct {
 	ID             string
 	SourceKind     SourceKind
-	SourcePlatform string // "claude", "cursor", "gemini"
+	SourcePlatform string // "claude", "cursor", "antigravity"
 	SourcePath     string // file path for error messages
 	ResolvedBody   string
 	Intents        []FunctionalIntent

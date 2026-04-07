@@ -9,8 +9,8 @@ func TestParseStderrToSchema(t *testing.T) {
 	tests := []struct {
 		name           string
 		stderrInput    string
-		expectedKeys   []string
 		expectedBadKey string
+		expectedKeys   []string
 	}{
 		{
 			name:           "Valid Extraction Array Match",

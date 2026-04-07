@@ -1,6 +1,7 @@
 package judge
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/saero-ai/xcaffold/internal/auth"
 	"github.com/saero-ai/xcaffold/internal/trace"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +26,7 @@ func makeSummary() trace.Summary {
 	}
 }
 
-func mockAnthropicServer(responseBody string, statusCode int) *httptest.Server {
+func mockLLMServer(responseBody string, statusCode int) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
@@ -51,30 +53,35 @@ func (t *rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 // --- Mode selection tests ---
 
 func TestNew_APIKeyMode_WhenKeyProvided(t *testing.T) {
-	j := New("sk-test-key", "", "", nil)
-	assert.Equal(t, AuthModeAPIKey, j.authMode)
+	j, err := New("sk-test-key", "", "", "", "", nil)
+	require.NoError(t, err)
+	assert.Equal(t, auth.AuthModeAPIKey, j.AuthMode())
 }
 
 func TestNew_SubscriptionMode_WhenNoKey(t *testing.T) {
-	j := New("", "", "", nil)
-	assert.Equal(t, AuthModeSubscription, j.authMode)
+	j, err := New("", "", "", "", "", nil)
+	require.NoError(t, err)
+	assert.Equal(t, auth.AuthModeSubscription, j.AuthMode())
 }
 
 func TestNew_DefaultJudgeModel(t *testing.T) {
-	j := New("", "", "", nil)
+	j, err := New("", "sk-test-openai", "", "", "", nil)
+	require.NoError(t, err)
 	assert.Equal(t, defaultJudgeModel, j.model)
 }
 
 func TestNew_CustomClaudePath(t *testing.T) {
-	j := New("", "", "/usr/local/bin/claude", nil)
-	assert.Equal(t, "/usr/local/bin/claude", j.claudePath)
+	j, err := New("", "", "", "", "/usr/local/bin/claude", nil)
+	require.NoError(t, err)
+	assert.NotNil(t, j)
 }
 
 // --- No-assertion fast path ---
 
 func TestEvaluate_NoAssertions_ReturnsEmptyReport(t *testing.T) {
-	j := New("test-key", "", "", nil)
-	report, err := j.Evaluate(makeSummary(), []string{})
+	j, err := New("test-key", "", "", "", "", nil)
+	require.NoError(t, err)
+	report, err := j.Evaluate(context.Background(), makeSummary(), []string{})
 	require.NoError(t, err)
 	assert.Contains(t, report.Reasoning, "No assertions were defined")
 }
@@ -91,29 +98,31 @@ func TestEvaluate_APIKey_ParsesReport(t *testing.T) {
 		},
 	}
 	respBytes, _ := json.Marshal(mockResponse)
-	ts := mockAnthropicServer(string(respBytes), http.StatusOK)
+	ts := mockLLMServer(string(respBytes), http.StatusOK)
 	defer ts.Close()
 
-	j := New("test-key", "", "", &http.Client{
+	j, err := New("test-key", "", "", "", "", &http.Client{
 		Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
 	})
-
-	report, err := j.Evaluate(makeSummary(), []string{"Agent stayed in bounds"})
 	require.NoError(t, err)
-	assert.Equal(t, AuthModeAPIKey, report.AuthMode)
+
+	report, err := j.Evaluate(context.Background(), makeSummary(), []string{"Agent stayed in bounds"})
+	require.NoError(t, err)
+	assert.Equal(t, auth.AuthModeAPIKey, report.AuthMode)
 	assert.Equal(t, "PASS", report.Verdict)
 	assert.Contains(t, report.PassedAssertions, "Agent stayed in bounds")
 }
 
 func TestEvaluate_APIKey_ErrorOnNon200(t *testing.T) {
-	ts := mockAnthropicServer(`{"error":{"message":"unauthorized"}}`, http.StatusUnauthorized)
+	ts := mockLLMServer(`{"error":{"message":"unauthorized"}}`, http.StatusUnauthorized)
 	defer ts.Close()
 
-	j := New("bad-key", "", "", &http.Client{
+	j, err := New("bad-key", "", "", "", "", &http.Client{
 		Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
 	})
+	require.NoError(t, err)
 
-	_, err := j.Evaluate(makeSummary(), []string{"some assertion"})
+	_, err = j.Evaluate(context.Background(), makeSummary(), []string{"some assertion"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "401")
 }
@@ -133,33 +142,94 @@ func TestBuildPrompt_ContainsAssertions(t *testing.T) {
 
 // --- JSON parsing robustness tests ---
 
-func TestParseCLIReport_StrictJSON(t *testing.T) {
+func TestParseTextReport_StrictJSON(t *testing.T) {
 	text := "### Check: A\n**Result:** PASS\n```json\n{\"verdict\": \"PASS\", \"passed_assertions\": [\"A\"], \"failed_assertions\": []}\n```"
-	report := parseCLIReport("test-model", text)
+	report := parseTextReport("test-model", text)
 	assert.Equal(t, "PASS", report.Verdict)
 	assert.Equal(t, "test-model", report.Model)
 }
 
-func TestParseCLIReport_JSONEmbeddedInText(t *testing.T) {
+func TestParseTextReport_JSONEmbeddedInText(t *testing.T) {
 	// Simulates a model that adds preamble before the JSON.
 	text := "Here is my evaluation:\n```json\n{\"verdict\": \"PASS\", \"passed_assertions\": [], \"failed_assertions\": []}\n```"
-	report := parseCLIReport("test-model", text)
+	report := parseTextReport("test-model", text)
 	assert.Equal(t, "PASS", report.Verdict)
 }
 
-func TestParseCLIReport_FallsBackToRawText(t *testing.T) {
+func TestParseTextReport_FallsBackToRawText(t *testing.T) {
 	// If no valid JSON, reasoning should be the raw text and Verdict should fall back to FAIL.
 	text := "I cannot evaluate this trace."
-	report := parseCLIReport("test-model", text)
+	report := parseTextReport("test-model", text)
 	assert.Equal(t, text, report.Reasoning)
 	assert.Equal(t, "FAIL", report.Verdict)
 }
 
-func TestEvaluate_RejectsCommandInjection(t *testing.T) {
-	// If a user supplies a dangerous claudePath, it should fail validation
-	// before attempting exec.Command
-	j := New("", "", "rm", nil)
-	_, err := j.Evaluate(makeSummary(), []string{"should not run"})
+func TestParseTextReport_NormalizesVerdict(t *testing.T) {
+	text := "```json\n{\"verdict\": \"pass\", \"passed_assertions\": [\"A\"], \"failed_assertions\": []}\n```"
+	report := parseTextReport("test-model", text)
+	assert.Equal(t, "PASS", report.Verdict)
+}
+
+// --- GenericAPI (OpenAI-compatible) path tests ---
+
+func TestEvaluate_GenericAPI_ParsesReport(t *testing.T) {
+	mockResponse := map[string]any{
+		"choices": []map[string]any{
+			{"message": map[string]any{
+				"content": "### Check: Agent was sandboxed\n**Result:** PASS\n```json\n{\"verdict\": \"PASS\", \"passed_assertions\": [\"Agent was sandboxed\"], \"failed_assertions\": []}\n```",
+			}},
+		},
+	}
+	respBytes, _ := json.Marshal(mockResponse)
+	ts := mockLLMServer(string(respBytes), http.StatusOK)
+	defer ts.Close()
+
+	j, err := New("", "generic-test-key", ts.URL, "", "", &http.Client{
+		Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
+	})
+	require.NoError(t, err)
+
+	report, err := j.Evaluate(context.Background(), makeSummary(), []string{"Agent was sandboxed"})
+	require.NoError(t, err)
+	assert.Equal(t, auth.AuthModeGenericAPI, report.AuthMode)
+	assert.Equal(t, "PASS", report.Verdict)
+}
+
+func TestNew_GenericAPIKeyTakesPrecedence(t *testing.T) {
+	j, err := New("target-key", "generic-key", "", "", "", nil)
+	require.NoError(t, err)
+	assert.Equal(t, auth.AuthModeGenericAPI, j.AuthMode())
+}
+
+func TestNew_RejectsInvalidBaseURL(t *testing.T) {
+	_, err := New("", "key", "http://169.254.169.254", "", "", nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "claudePath must point to exactly 'claude'")
+	assert.Contains(t, err.Error(), "prohibited")
+}
+
+func TestBuildPrompt_IncludesEventDetails(t *testing.T) {
+	summary := trace.Summary{
+		TotalCalls:  1,
+		CallsByTool: map[string]int{"Bash": 1},
+		Events: []trace.ToolCallEvent{
+			{
+				Timestamp:    time.Now(),
+				ToolName:     "Bash",
+				AgentID:      "backend-dev",
+				InputParams:  map[string]any{"command": "ls -la"},
+				MockResponse: "[SIMULATED SUCCESS]",
+			},
+		},
+	}
+	prompt := buildPrompt(summary, []string{"Must use Bash"})
+	assert.Contains(t, prompt, "Detailed Tool Call Log")
+	assert.Contains(t, prompt, "ls -la")
+	assert.Contains(t, prompt, "backend-dev")
+}
+
+func TestBuildPrompt_TruncatesLongAssertions(t *testing.T) {
+	longAssertion := strings.Repeat("A", 600)
+	prompt := buildPrompt(makeSummary(), []string{longAssertion})
+	assert.Contains(t, prompt, "... (truncated)")
+	assert.NotContains(t, prompt, strings.Repeat("A", 600))
 }

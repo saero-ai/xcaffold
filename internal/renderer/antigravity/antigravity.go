@@ -1,4 +1,4 @@
-// Package gemini compiles an XcaffoldConfig AST into Gemini (Antigravity) output files.
+// Package antigravity compiles an XcaffoldConfig AST into Antigravity (Antigravity) output files.
 // Rules are written as plain Markdown files under rules/ — no YAML frontmatter.
 // Skills are written to skills/<id>/SKILL.md with minimal frontmatter (name + description only).
 //
@@ -7,7 +7,7 @@
 //   - Rules: paths/globs fields are dropped — AG handles activation via UI
 //   - Skills: only name and description emitted in frontmatter; all other fields dropped
 //   - Agents, hooks, and MCP are silently skipped — AG has no file format for them
-package gemini
+package antigravity
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 
 const ruleCharLimit = 12000
 
-// Renderer compiles an XcaffoldConfig AST into Gemini (Antigravity) output files.
+// Renderer compiles an XcaffoldConfig AST into Antigravity (Antigravity) output files.
 type Renderer struct{}
 
 // New returns a new Renderer instance.
@@ -31,7 +31,7 @@ func New() *Renderer {
 
 // Target returns the identifier for this renderer's target platform.
 func (r *Renderer) Target() string {
-	return "gemini"
+	return "antigravity"
 }
 
 // OutputDir returns the output directory prefix for this renderer.
@@ -45,7 +45,7 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 	return &output.Output{Files: files}
 }
 
-// Compile translates an XcaffoldConfig AST into its Gemini (Antigravity) output representation.
+// Compile translates an XcaffoldConfig AST into its Antigravity (Antigravity) output representation.
 // baseDir is the directory that contains the scaffold.xcf file; it is used to
 // resolve instructions_file: paths. Compile returns an error if any resource
 // fails to compile. It never panics.
@@ -59,9 +59,9 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 
 	// Compile all rules to rules/<id>.md
 	for id, rule := range config.Rules {
-		md, err := compileGeminiRule(id, rule, baseDir)
+		md, err := compileAntigravityRule(id, rule, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("gemini: failed to compile rule %q: %w", id, err)
+			return nil, fmt.Errorf("antigravity: failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
 		out.Files[safePath] = md
@@ -69,9 +69,9 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 
 	// Compile all skills to skills/<id>/SKILL.md
 	for id, skill := range config.Skills {
-		md, err := compileGeminiSkill(id, skill, baseDir)
+		md, err := compileAntigravitySkill(id, skill, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("gemini: failed to compile skill %q: %w", id, err)
+			return nil, fmt.Errorf("antigravity: failed to compile skill %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
@@ -79,9 +79,9 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 
 	// Compile all workflows to workflows/<id>.md
 	for id, wf := range config.Workflows {
-		md, err := compileGeminiWorkflow(id, wf, baseDir)
+		md, err := compileAntigravityWorkflow(id, wf, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("gemini: failed to compile workflow %q: %w", id, err)
+			return nil, fmt.Errorf("antigravity: failed to compile workflow %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("workflows/%s.md", id))
 		out.Files[safePath] = md
@@ -92,7 +92,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	for _, srv := range config.MCP {
 		for k, v := range srv.Env {
 			if strings.Contains(v, "${") {
-				fmt.Fprintf(os.Stderr, "WARNING (gemini): interpolation pattern ${...} found in MCP env %q. Antigravity requires literal strings.\n", k)
+				fmt.Fprintf(os.Stderr, "WARNING (antigravity): interpolation pattern ${...} found in MCP env %q. Antigravity requires literal strings.\n", k)
 			}
 		}
 	}
@@ -100,13 +100,13 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	return out, nil
 }
 
-// compileGeminiRule renders a single RuleConfig to a plain Markdown file.
+// compileAntigravityRule renders a single RuleConfig to a plain Markdown file.
 //
 // Antigravity rules have NO YAML frontmatter. Key normalizations:
 //   - Description becomes a # heading at the top of the file (not frontmatter)
 //   - paths/globs are dropped — AG handles activation via UI
 //   - Bodies exceeding 12,000 characters receive a leading warning HTML comment
-func compileGeminiRule(id string, rule ast.RuleConfig, baseDir string) (string, error) {
+func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("rule id must not be empty")
 	}
@@ -138,12 +138,12 @@ func compileGeminiRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 	return sb.String(), nil
 }
 
-// compileGeminiSkill renders a single SkillConfig to a skills/<id>/SKILL.md file.
+// compileAntigravitySkill renders a single SkillConfig to a skills/<id>/SKILL.md file.
 //
 // Antigravity skills support only name and description in frontmatter.
 // All other fields (tools, context, model, effort, disable-model-invocation, etc.)
 // are dropped — they have no AG equivalent.
-func compileGeminiSkill(id string, skill ast.SkillConfig, baseDir string) (string, error) {
+func compileAntigravitySkill(id string, skill ast.SkillConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("skill id must not be empty")
 	}
@@ -175,8 +175,8 @@ func compileGeminiSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 	return sb.String(), nil
 }
 
-// compileGeminiWorkflow renders a single WorkflowConfig to a workflows/<id>.md file.
-func compileGeminiWorkflow(id string, wf ast.WorkflowConfig, baseDir string) (string, error) {
+// compileAntigravityWorkflow renders a single WorkflowConfig to a workflows/<id>.md file.
+func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("workflow id must not be empty")
 	}

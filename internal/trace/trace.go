@@ -11,20 +11,20 @@ import (
 // ToolCallEvent records a single intercepted tool call during a simulation run.
 type ToolCallEvent struct {
 	Timestamp    time.Time         `json:"timestamp"`
+	InputParams  map[string]any    `json:"input_params"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
 	AgentID      string            `json:"agent_id"`
 	ToolName     string            `json:"tool_name"`
-	InputParams  map[string]any    `json:"input_params"`
 	MockResponse string            `json:"mock_response"`
 	DurationMs   int64             `json:"duration_ms"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
 }
 
 // Recorder writes ToolCallEvents as newline-delimited JSON (JSONL) to a writer.
 // It is safe for concurrent use from multiple goroutines.
 type Recorder struct {
-	mu     sync.Mutex
 	w      io.Writer
 	events []ToolCallEvent
+	mu     sync.Mutex
 }
 
 // NewRecorder returns a Recorder that writes events to w.
@@ -71,9 +71,9 @@ func (r *Recorder) Summary() Summary {
 
 // Summary is a structured summary of a completed simulation run.
 type Summary struct {
-	TotalCalls  int             `json:"total_calls"`
 	CallsByTool map[string]int  `json:"calls_by_tool"`
 	Events      []ToolCallEvent `json:"events"`
+	TotalCalls  int             `json:"total_calls"`
 }
 
 // Print writes a human-readable summary to w.

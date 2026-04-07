@@ -34,11 +34,11 @@ const claudeSchemaVersion = "alpha"
 
 // LockManifest is the schema for the scaffold.lock file.
 type LockManifest struct {
-	Version             int        `yaml:"version"`
 	LastApplied         string     `yaml:"last_applied"`
 	XcaffoldVersion     string     `yaml:"xcaffold_version"`
 	ClaudeSchemaVersion string     `yaml:"claude_schema_version"`
 	Artifacts           []Artifact `yaml:"artifacts"`
+	Version             int        `yaml:"version"`
 }
 
 // Artifact tracks a single generated file and its SHA-256 content hash.

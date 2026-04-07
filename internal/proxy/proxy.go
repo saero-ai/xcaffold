@@ -16,14 +16,20 @@ import (
 )
 
 const (
-	anthropicAPIHost  = "api.anthropic.com"
 	mockToolResponse  = "[SIMULATED SUCCESS]"
 	proxyReadTimeout  = 30 * time.Second
 	proxyWriteTimeout = 60 * time.Second
+	unknownIdentity   = "unknown"
 )
 
+var allowedHosts = map[string]bool{
+	"api.anthropic.com":                 true,
+	"generativelanguage.googleapis.com": true,
+	"api.cursor.sh":                     true,
+}
+
 // Server is the local intercept proxy. It listens on a random loopback port
-// and intercepts Anthropic API tool-use calls, recording them without
+// and intercepts AI provider tool-use calls, recording them without
 // forwarding the tool execution to the host OS.
 type Server struct {
 	listener net.Listener
@@ -85,19 +91,21 @@ func (s *Server) Close() error {
 // handleRequest is the central dispatcher. It validates the target host and
 // decides whether to intercept (tool calls) or forward (everything else).
 func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
-	// Security: reject any request not targeting the Anthropic API.
+	// Security: reject any request not targeting the allowed LLM APIs.
 	// Use exact equality to prevent SSRF via suffix confusion (e.g. evil-api.anthropic.com).
 	targetHost := r.Host
 	if targetHost == "" {
 		targetHost = r.URL.Host
 	}
-	if !strings.EqualFold(targetHost, anthropicAPIHost) {
-		http.Error(w, "proxy: forbidden — only api.anthropic.com is allowed", http.StatusForbidden)
+
+	targetHost = strings.ToLower(targetHost)
+	if !allowedHosts[targetHost] {
+		http.Error(w, "proxy: forbidden — host is not an allowed AI provider", http.StatusForbidden)
 		return
 	}
 
-	// Only inspect the messages endpoint for tool interception.
-	if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/v1/messages") {
+	// Only inspect known messaging endpoints for tool interception.
+	if r.Method == http.MethodPost && (strings.HasSuffix(r.URL.Path, "/v1/messages") || strings.Contains(r.URL.Path, "generateContent")) {
 		// Limit to 10MB to prevent OOM DOS from massive requests
 		r.Body = http.MaxBytesReader(w, r.Body, 10*1024*1024)
 		body, err := io.ReadAll(r.Body)
@@ -146,7 +154,7 @@ func (s *Server) handleToolUse(w http.ResponseWriter, r *http.Request, body []by
 	// Best-effort trace recording — do not fail the response on write errors.
 	_ = s.recorder.Record(event)
 
-	// Return a well-formed Anthropic API mock response.
+	// Return a well-formed mock response (Anthropic shaped fallback for now, generalize appropriately if needed).
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `{
@@ -160,14 +168,19 @@ func (s *Server) handleToolUse(w http.ResponseWriter, r *http.Request, body []by
 }`, mockToolResponse)
 }
 
-// forward passes the request transparently to the real Anthropic API.
+// forward passes the request transparently to the target LLM API.
 func (s *Server) forward(w http.ResponseWriter, r *http.Request) {
-	target, _ := url.Parse("https://" + anthropicAPIHost)
+	// Dynamically determine the host to proxy to
+	host := r.Host
+	if host == "" {
+		host = r.URL.Host
+	}
+	target, _ := url.Parse("https://" + host)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	proxy.Director = func(req *http.Request) {
 		req.URL.Scheme = "https"
-		req.URL.Host = anthropicAPIHost
-		req.Host = anthropicAPIHost
+		req.URL.Host = host
+		req.Host = host
 	}
 	proxy.ServeHTTP(w, r)
 }
@@ -182,7 +195,7 @@ func extractToolName(body []byte) string {
 		} `json:"content"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return "unknown"
+		return unknownIdentity
 	}
 	for _, block := range payload.Content {
 		if block.Type == "tool_use" && block.Name != "" {
@@ -197,8 +210,8 @@ func extractToolName(body []byte) string {
 func extractInputParams(body []byte) map[string]any {
 	var payload struct {
 		Content []struct {
-			Type  string         `json:"type"`
 			Input map[string]any `json:"input"`
+			Type  string         `json:"type"`
 		} `json:"content"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -218,5 +231,5 @@ func extractAgentID(r *http.Request) string {
 	if id := r.Header.Get("X-Xcaffold-Agent"); id != "" {
 		return id
 	}
-	return "unknown"
+	return unknownIdentity
 }

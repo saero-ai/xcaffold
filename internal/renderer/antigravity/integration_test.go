@@ -1,4 +1,4 @@
-package gemini_test
+package antigravity_test
 
 import (
 	"os"
@@ -7,15 +7,15 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
+	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestGeminiRenderer_FullConfig exercises rules, skills, and silently-skipped
+// TestAntigravityRenderer_FullConfig exercises rules, skills, and silently-skipped
 // resource types (agents, hooks, MCP) in a single compilation pass and verifies
 // all AG-specific normalizations are applied correctly.
-func TestGeminiRenderer_FullConfig(t *testing.T) {
+func TestAntigravityRenderer_FullConfig(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: ast.ProjectConfig{Name: "integration-test"},
 		Agents: map[string]ast.AgentConfig{
@@ -63,7 +63,7 @@ func TestGeminiRenderer_FullConfig(t *testing.T) {
 		},
 	}
 
-	r := gemini.New()
+	r := antigravity.New()
 	out, err := r.Compile(config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
@@ -120,14 +120,14 @@ func TestGeminiRenderer_FullConfig(t *testing.T) {
 	assert.Len(t, out.Files, 3, "expected exactly 3 output files (rules + skill only)")
 }
 
-// TestGeminiRenderer_Rule_InstructionsFile_ReadsFromDisk verifies that
+// TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk verifies that
 // instructions_file: paths are resolved correctly from baseDir.
-func TestGeminiRenderer_Rule_InstructionsFile_ReadsFromDisk(t *testing.T) {
+func TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk(t *testing.T) {
 	dir := t.TempDir()
 	body := "# Style\n\nAlways write clean code."
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule-body.md"), []byte(body), 0600))
 
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"from-file": {
@@ -146,14 +146,14 @@ func TestGeminiRenderer_Rule_InstructionsFile_ReadsFromDisk(t *testing.T) {
 	assert.Contains(t, content, "Always write clean code.")
 }
 
-// TestGeminiRenderer_Skill_InstructionsFile_ReadsFromDisk verifies that
+// TestAntigravityRenderer_Skill_InstructionsFile_ReadsFromDisk verifies that
 // skill bodies sourced from instructions_file: are resolved from baseDir.
-func TestGeminiRenderer_Skill_InstructionsFile_ReadsFromDisk(t *testing.T) {
+func TestAntigravityRenderer_Skill_InstructionsFile_ReadsFromDisk(t *testing.T) {
 	dir := t.TempDir()
 	body := "---\nname: Old Name\n---\n\nStep 1: read the code.\nStep 2: ship it."
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill-body.md"), []byte(body), 0600))
 
-	r := gemini.New()
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
 			"from-file": {
@@ -176,10 +176,10 @@ func TestGeminiRenderer_Skill_InstructionsFile_ReadsFromDisk(t *testing.T) {
 	assert.NotContains(t, content, "Old Name")
 }
 
-// TestGeminiRenderer_Rule_InstructionsFile_TraversalRejected verifies that
+// TestAntigravityRenderer_Rule_InstructionsFile_TraversalRejected verifies that
 // instructions_file: values that traverse above the project root are rejected.
-func TestGeminiRenderer_Rule_InstructionsFile_TraversalRejected(t *testing.T) {
-	r := gemini.New()
+func TestAntigravityRenderer_Rule_InstructionsFile_TraversalRejected(t *testing.T) {
+	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"bad-rule": {

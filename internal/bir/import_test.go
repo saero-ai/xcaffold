@@ -29,7 +29,7 @@ description: A test workflow
 3. Step three`
 
 	path := writeFixture(t, "my-workflow.md", content)
-	unit, err := bir.ImportWorkflow(path, "gemini")
+	unit, err := bir.ImportWorkflow(path, "antigravity")
 	require.NoError(t, err)
 	assert.NotContains(t, unit.ResolvedBody, "name: my-workflow")
 	assert.NotContains(t, unit.ResolvedBody, "---")
@@ -44,25 +44,25 @@ name: deploy
 2. Push`
 
 	path := writeFixture(t, "deploy-workflow.md", content)
-	unit, err := bir.ImportWorkflow(path, "gemini")
+	unit, err := bir.ImportWorkflow(path, "antigravity")
 	require.NoError(t, err)
 	assert.Equal(t, "deploy-workflow", unit.ID)
 }
 
-func TestImportWorkflow_SourcePlatformIsGemini(t *testing.T) {
+func TestImportWorkflow_SourcePlatformIsAntigravity(t *testing.T) {
 	content := "1. Step one\n2. Step two"
 	path := writeFixture(t, "simple.md", content)
 
-	unit, err := bir.ImportWorkflow(path, "gemini")
+	unit, err := bir.ImportWorkflow(path, "antigravity")
 	require.NoError(t, err)
-	assert.Equal(t, "gemini", unit.SourcePlatform)
+	assert.Equal(t, "antigravity", unit.SourcePlatform)
 }
 
 func TestImportWorkflow_SourceKindIsWorkflow(t *testing.T) {
 	content := "1. Step one\n2. Step two"
 	path := writeFixture(t, "simple.md", content)
 
-	unit, err := bir.ImportWorkflow(path, "gemini")
+	unit, err := bir.ImportWorkflow(path, "antigravity")
 	require.NoError(t, err)
 	assert.Equal(t, bir.SourceWorkflow, unit.SourceKind)
 }
@@ -75,7 +75,7 @@ name: build
 2. Run go test`
 
 	path := writeFixture(t, "build.md", content)
-	unit, err := bir.ImportWorkflow(path, "gemini")
+	unit, err := bir.ImportWorkflow(path, "antigravity")
 	require.NoError(t, err)
 	require.NotEmpty(t, unit.Intents)
 
@@ -94,7 +94,7 @@ func TestImportWorkflow_SimpleProcedure_OnlyProcedureIntent(t *testing.T) {
 3. Write output`
 
 	path := writeFixture(t, "simple-proc.md", content)
-	unit, err := bir.ImportWorkflow(path, "gemini")
+	unit, err := bir.ImportWorkflow(path, "antigravity")
 	require.NoError(t, err)
 	require.Len(t, unit.Intents, 1)
 	assert.Equal(t, bir.IntentProcedure, unit.Intents[0].Type)
@@ -104,14 +104,14 @@ func TestImportWorkflow_NoFrontmatter_BodyPreserved(t *testing.T) {
 	content := "1. First\n2. Second"
 	path := writeFixture(t, "no-fm.md", content)
 
-	unit, err := bir.ImportWorkflow(path, "gemini")
+	unit, err := bir.ImportWorkflow(path, "antigravity")
 	require.NoError(t, err)
 	assert.Contains(t, unit.ResolvedBody, "1. First")
 	assert.Contains(t, unit.ResolvedBody, "2. Second")
 }
 
 func TestImportWorkflow_MissingFile_ReturnsError(t *testing.T) {
-	_, err := bir.ImportWorkflow("/nonexistent/path/workflow.md", "gemini")
+	_, err := bir.ImportWorkflow("/nonexistent/path/workflow.md", "antigravity")
 	assert.Error(t, err)
 }
 
@@ -119,7 +119,7 @@ func TestImportWorkflow_SourcePathSet(t *testing.T) {
 	content := "1. Step one"
 	path := writeFixture(t, "check-path.md", content)
 
-	unit, err := bir.ImportWorkflow(path, "gemini")
+	unit, err := bir.ImportWorkflow(path, "antigravity")
 	require.NoError(t, err)
 	assert.Equal(t, path, unit.SourcePath)
 }
@@ -135,7 +135,7 @@ NEVER deploy without a review.
 3. Push to registry`
 
 	path := writeFixture(t, "secure-deploy.md", content)
-	unit, err := bir.ImportWorkflow(path, "gemini")
+	unit, err := bir.ImportWorkflow(path, "antigravity")
 	require.NoError(t, err)
 	assert.Len(t, unit.Intents, 2)
 

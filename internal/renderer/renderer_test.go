@@ -45,12 +45,12 @@ func TestRegistry_GetUnknownTarget(t *testing.T) {
 
 func TestRegistry_TargetsSorted(t *testing.T) {
 	reg := renderer.NewRegistry()
-	reg.Register(&mockRenderer{target: "gemini", outputDir: ".gemini"})
+	reg.Register(&mockRenderer{target: "antigravity", outputDir: ".antigravity"})
 	reg.Register(&mockRenderer{target: "claude", outputDir: ".claude"})
 	reg.Register(&mockRenderer{target: "cursor", outputDir: ".cursor"})
 
 	targets := reg.Targets()
-	assert.Equal(t, []string{"claude", "cursor", "gemini"}, targets)
+	assert.Equal(t, []string{"antigravity", "claude", "cursor"}, targets)
 }
 
 func TestRegistry_RenderPassthrough(t *testing.T) {

@@ -27,20 +27,6 @@ You NEVER push to production without a green CI run.
 ALWAYS check the rollback procedure before releasing.
 `
 
-// permissionWorkflow uses the turbo annotation so IntentAutomation is detected,
-// plus numbered steps for IntentProcedure — no constraint keywords.
-const permissionWorkflow = `---
-description: Turbo-enabled pipeline steps
----
-# Pipeline
-
-// turbo
-
-1. Build the image
-2. Push to registry
-3. Deploy to staging
-`
-
 // TestXcfIntegration_SkillPrimitive_ProducesInstructionsFileReference verifies
 // that a skill primitive from a pure-procedure workflow results in an ast.SkillConfig
 // with a non-empty InstructionsFile field and no inline Instructions.
@@ -175,7 +161,6 @@ func TestXcfIntegration_FullRoundTrip_WorkflowToConfigToYAMLAndBack(t *testing.T
 
 	// Build a minimal config to inject into.
 	config := &ast.XcaffoldConfig{
-		Version: "1",
 		Project: ast.ProjectConfig{
 			Name: "test-project",
 		},
@@ -269,7 +254,6 @@ func TestXcfIntegration_PlanMode_OriginalConfigUnchanged(t *testing.T) {
 
 	// Snapshot original config — no skills, no rules, no permissions.
 	original := &ast.XcaffoldConfig{
-		Version: "1",
 		Project: ast.ProjectConfig{Name: "unchanged"},
 	}
 	originalSkillCount := len(original.Skills)

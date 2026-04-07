@@ -1,58 +1,49 @@
 package generator
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/analyzer"
 	"github.com/saero-ai/xcaffold/internal/auth"
+	"github.com/saero-ai/xcaffold/internal/llmclient"
 )
 
 const defaultGeneratorModel = "claude-3-7-sonnet-20250219" // Sonnet is preferred for generation speed and context
 
 type Generator struct {
-	apiKey     string
-	model      string
-	claudePath string
-	authMode   auth.AuthMode
-	httpClient *http.Client
+	client *llmclient.Client
+	model  string
 }
 
-// New returns a Generator. Automatically selects AuthMode based on apiKey presence.
-func New(apiKey, model, claudePath string, httpClient *http.Client) *Generator {
+// New constructs a Generator backed by llmclient. Returns an error if the
+// configuration is invalid (e.g. SSRF-unsafe GenericAPIBase URL).
+func New(anthropicKey, genericAPIKey, apiBaseURL, model, cliPath string, httpClient *http.Client) (*Generator, error) {
 	if model == "" {
 		model = defaultGeneratorModel
 	}
-	if claudePath == "" {
-		claudePath = "claude"
+	client, err := llmclient.New(llmclient.Config{
+		AnthropicKey:   anthropicKey,
+		GenericAPIKey:  genericAPIKey,
+		GenericAPIBase: apiBaseURL,
+		Model:          model,
+		DefaultModel:   defaultGeneratorModel,
+		CLIPath:        cliPath,
+		MaxTokens:      4096,
+		HTTPClient:     httpClient,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generator: %w", err)
 	}
-	if httpClient == nil {
-		httpClient = http.DefaultClient
-	}
-
-	mode := auth.AuthModeSubscription
-	if apiKey != "" {
-		mode = auth.AuthModeAPIKey
-	}
-
-	return &Generator{
-		apiKey:     apiKey,
-		model:      model,
-		claudePath: claudePath,
-		authMode:   mode,
-		httpClient: httpClient,
-	}
+	return &Generator{client: client, model: model}, nil
 }
 
 // AuthMode returns the active authentication mode.
 func (g *Generator) AuthMode() auth.AuthMode {
-	return g.authMode
+	return g.client.AuthMode()
 }
 
 type GenerationResult struct {
@@ -60,98 +51,13 @@ type GenerationResult struct {
 	AuditJSON  string
 }
 
-// Generate generates the raw YAML scaffold file and audit report using the specified dual-auth mode.
-func (g *Generator) Generate(sig *analyzer.ProjectSignature) (*GenerationResult, error) {
+// Generate generates the raw YAML scaffold file and audit report using the configured auth mode.
+func (g *Generator) Generate(ctx context.Context, sig *analyzer.ProjectSignature) (*GenerationResult, error) {
 	prompt := buildGeneratorPrompt(sig)
-
-	switch g.authMode {
-	case auth.AuthModeAPIKey:
-		return g.generateViaAPI(prompt)
-	case auth.AuthModeSubscription:
-		return g.generateViaCLI(prompt)
-	default:
-		return nil, fmt.Errorf("generator: unknown auth mode %q", g.authMode)
-	}
-}
-
-func (g *Generator) generateViaAPI(prompt string) (*GenerationResult, error) {
-	reqBody, err := json.Marshal(map[string]any{
-		"model":      g.model,
-		"max_tokens": 4096,
-		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
-		},
-	})
+	text, err := g.client.Call(ctx, prompt)
 	if err != nil {
-		return nil, fmt.Errorf("generator: failed to build API request: %w", err)
+		return nil, err
 	}
-
-	req, err := http.NewRequest(http.MethodPost, "https://api.anthropic.com/v1/messages", bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("generator: failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", g.apiKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
-
-	resp, err := g.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("generator: API call failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("generator: failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("generator: API returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var apiResp struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"content"`
-	}
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		return nil, fmt.Errorf("generator: failed to parse API response: %w", err)
-	}
-	if len(apiResp.Content) == 0 {
-		return nil, fmt.Errorf("generator: empty content in API response")
-	}
-
-	return parseJSONOutput(apiResp.Content[0].Text)
-}
-
-func (g *Generator) generateViaCLI(prompt string) (*GenerationResult, error) {
-	base := filepath.Base(g.claudePath)
-	if base != "claude" && base != "claude.cmd" {
-		return nil, fmt.Errorf("generator: claudePath must point to exactly 'claude' or 'claude.cmd' for security, got: %s", g.claudePath)
-	}
-
-	// Let the output stream directly to the terminal so the user sees the
-	// spinning Claude UI during the potentially long generation phase.
-	// We use standard input/output pipes to print cleanly.
-	cmd := exec.Command(g.claudePath, "-p", prompt) //nolint:gosec
-
-	// Unlike the judge (which wants silence), generator might take 10+ seconds.
-	// However, using -p guarantees raw output. If we pipe it, we might get terminal artifacts.
-	// Let's capture stdout cleanly, and only pipe stderr which holds the progress spinner for `claude`.
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		stderrStr := strings.TrimSpace(stderr.String())
-		if stderrStr != "" {
-			return nil, fmt.Errorf("generator: claude CLI failed: %w — %s", err, stderrStr)
-		}
-		return nil, fmt.Errorf("generator: claude CLI failed: %w", err)
-	}
-
-	text := strings.TrimSpace(stdout.String())
 	return parseJSONOutput(text)
 }
 

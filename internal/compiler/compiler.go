@@ -5,9 +5,15 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
-	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
+)
+
+const (
+	TargetClaude      = "claude"
+	TargetCursor      = "cursor"
+	TargetAntigravity = "antigravity"
 )
 
 // Output is an alias for output.Output, preserved for backward compatibility.
@@ -15,25 +21,25 @@ import (
 type Output = output.Output
 
 // Compile translates an XcaffoldConfig AST into platform-native files.
-// target selects the output platform: "claude" (default), "cursor", "gemini".
+// target selects the output platform: "claude" (default), "cursor", "antigravity".
 // If target is empty, defaults to "claude" for backward compatibility.
 func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output, error) {
 	if target == "" {
-		target = "claude"
+		target = TargetClaude
 	}
 
 	switch target {
-	case "claude":
+	case TargetClaude:
 		r := claude.New()
 		return r.Compile(config, baseDir)
-	case "cursor":
+	case TargetCursor:
 		r := cursor.New()
 		return r.Compile(config, baseDir)
-	case "gemini":
-		r := gemini.New()
+	case TargetAntigravity:
+		r := antigravity.New()
 		return r.Compile(config, baseDir)
 	default:
-		return nil, fmt.Errorf("unsupported target %q: supported targets are \"claude\", \"cursor\", \"gemini\"", target)
+		return nil, fmt.Errorf("unsupported target %q: supported targets are \"claude\", \"cursor\", \"antigravity\"", target)
 	}
 }
 
@@ -41,15 +47,15 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output
 // (e.g. .claude, .cursor, .agents).
 func OutputDir(target string) string {
 	if target == "" {
-		target = "claude"
+		target = TargetClaude
 	}
 	switch target {
-	case "claude":
+	case TargetClaude:
 		return claude.New().OutputDir()
-	case "cursor":
+	case TargetCursor:
 		return cursor.New().OutputDir()
-	case "gemini":
-		return gemini.New().OutputDir()
+	case TargetAntigravity:
+		return antigravity.New().OutputDir()
 	default:
 		return ".claude"
 	}

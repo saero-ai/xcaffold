@@ -42,8 +42,10 @@ func TestSemanticUnit_HasIntentsField(t *testing.T) {
 		},
 	}
 	assert.Equal(t, "my-agent", unit.ID)
+	assert.Equal(t, bir.SourceAgent, unit.SourceKind)
 	assert.Equal(t, "claude", unit.SourcePlatform)
 	assert.Equal(t, "/path/to/file.md", unit.SourcePath)
+	assert.Equal(t, "some body", unit.ResolvedBody)
 	assert.Len(t, unit.Intents, 1)
 	assert.Equal(t, bir.IntentConstraint, unit.Intents[0].Type)
 }
@@ -53,5 +55,7 @@ func TestSemanticUnit_EmptyIntentsByDefault(t *testing.T) {
 		ID:         "empty",
 		SourceKind: bir.SourceRule,
 	}
+	assert.Equal(t, "empty", unit.ID)
+	assert.Equal(t, bir.SourceRule, unit.SourceKind)
 	assert.Nil(t, unit.Intents)
 }

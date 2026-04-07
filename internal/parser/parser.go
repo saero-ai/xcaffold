@@ -139,7 +139,7 @@ func validateID(kind, id string) error {
 	return nil
 }
 
-// validHookEvents is the set of lifecycle events recognized by Claude Code.
+// validHookEvents is the set of lifecycle events recognized by the target platform.
 var validHookEvents = map[string]bool{
 	"PreToolUse": true, "PostToolUse": true, "PostToolUseFailure": true,
 	"PermissionRequest": true, "PermissionDenied": true,
@@ -229,38 +229,33 @@ func validateHookEvents(hooks ast.HookConfig) error {
 
 func validateInstructions(c *ast.XcaffoldConfig) error {
 	for id, agent := range c.Agents {
-		if agent.Instructions != "" && agent.InstructionsFile != "" {
-			return fmt.Errorf("agent %q: instructions and instructions_file are mutually exclusive; set one or the other", id)
-		}
-		if err := validateInstructionsFile("agent", id, agent.InstructionsFile); err != nil {
+		if err := validateInstructionOrFile("agent", id, agent.Instructions, agent.InstructionsFile); err != nil {
 			return err
 		}
 	}
 	for id, skill := range c.Skills {
-		if skill.Instructions != "" && skill.InstructionsFile != "" {
-			return fmt.Errorf("skill %q: instructions and instructions_file are mutually exclusive; set one or the other", id)
-		}
-		if err := validateInstructionsFile("skill", id, skill.InstructionsFile); err != nil {
+		if err := validateInstructionOrFile("skill", id, skill.Instructions, skill.InstructionsFile); err != nil {
 			return err
 		}
 	}
 	for id, rule := range c.Rules {
-		if rule.Instructions != "" && rule.InstructionsFile != "" {
-			return fmt.Errorf("rule %q: instructions and instructions_file are mutually exclusive; set one or the other", id)
-		}
-		if err := validateInstructionsFile("rule", id, rule.InstructionsFile); err != nil {
+		if err := validateInstructionOrFile("rule", id, rule.Instructions, rule.InstructionsFile); err != nil {
 			return err
 		}
 	}
 	for id, wf := range c.Workflows {
-		if wf.Instructions != "" && wf.InstructionsFile != "" {
-			return fmt.Errorf("workflow %q: instructions and instructions_file are mutually exclusive", id)
-		}
-		if err := validateInstructionsFile("workflow", id, wf.InstructionsFile); err != nil {
+		if err := validateInstructionOrFile("workflow", id, wf.Instructions, wf.InstructionsFile); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func validateInstructionOrFile(kind, id, inst, file string) error {
+	if inst != "" && file != "" {
+		return fmt.Errorf("%s %q: instructions and instructions_file are mutually exclusive; set one or the other", kind, id)
+	}
+	return validateInstructionsFile(kind, id, file)
 }
 
 // validateInstructionsFile checks that an instructions_file path is safe.

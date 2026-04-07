@@ -10,9 +10,9 @@ import (
 
 // ProjectSignature is the highly compressed deterministic summary of the repository.
 type ProjectSignature struct {
-	Files               []string          `json:"files"`
 	DependencyManifests map[string]string `json:"dependency_manifests"`
 	ClaudeConfig        string            `json:"claude_config,omitempty"`
+	Files               []string          `json:"files"`
 }
 
 // targetManifests specifies the files we want to read fully to determine project context.

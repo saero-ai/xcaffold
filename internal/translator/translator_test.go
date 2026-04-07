@@ -111,7 +111,7 @@ func TestTranslate_RuleBody_ContainsConstraintLines(t *testing.T) {
 
 	var ruleBody string
 	for _, p := range result.Primitives {
-		if p.Kind == "rule" {
+		if p.Kind == kindRuleStr {
 			ruleBody = p.Body
 		}
 	}
@@ -147,7 +147,7 @@ func TestTranslate_RuleIDHasConstraintsSuffix(t *testing.T) {
 	result := translator.Translate(unit, "claude")
 
 	for _, p := range result.Primitives {
-		if p.Kind == "rule" {
+		if p.Kind == kindRuleStr {
 			assert.Equal(t, "commit-guide-constraints", p.ID)
 			return
 		}

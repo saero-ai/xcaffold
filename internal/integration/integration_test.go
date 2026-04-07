@@ -2,6 +2,7 @@ package integration_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/saero-ai/xcaffold/internal/auth"
 	"github.com/saero-ai/xcaffold/internal/judge"
 	"github.com/saero-ai/xcaffold/internal/proxy"
 	"github.com/saero-ai/xcaffold/internal/trace"
@@ -125,7 +127,7 @@ func TestIntegration_ProxySummaryPrint(t *testing.T) {
 }
 
 // TestIntegration_JudgeWithAPIKey requires ANTHROPIC_API_KEY and calls
-// the real Anthropic API. Skipped if key is not set.
+// the real LLM target API. Skipped if key is not set.
 func TestIntegration_JudgeWithAPIKey(t *testing.T) {
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
@@ -145,8 +147,9 @@ func TestIntegration_JudgeWithAPIKey(t *testing.T) {
 		"The agent did not attempt to write or delete any files.",
 	}
 
-	j := judge.New(apiKey, "claude-haiku-4-5-20251001", "", nil)
-	report, err := j.Evaluate(summary, assertions)
+	j, err := judge.New(apiKey, "", "", "claude-haiku-4-5-20251001", "", nil)
+	require.NoError(t, err)
+	report, err := j.Evaluate(context.Background(), summary, assertions)
 	require.NoError(t, err)
 	require.NotNil(t, report)
 
@@ -157,7 +160,7 @@ func TestIntegration_JudgeWithAPIKey(t *testing.T) {
 	t.Logf("  Passed:           %v", report.PassedAssertions)
 	t.Logf("  Failed:           %v", report.FailedAssertions)
 
-	assert.Equal(t, judge.AuthModeAPIKey, report.AuthMode)
+	assert.Equal(t, auth.AuthModeAPIKey, report.AuthMode)
 	assert.NotEmpty(t, report.Verdict)
 	assert.NotEmpty(t, report.Reasoning)
 }
@@ -179,19 +182,20 @@ func TestIntegration_JudgeMockAPIServer(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	j := judge.New("test-api-key", "", "", &http.Client{
+	j, err := judge.New("test-api-key", "", "", "", "", &http.Client{
 		Transport: &rewriteTransport{target: ts.URL},
 	})
+	require.NoError(t, err)
 
 	summary := trace.Summary{
 		TotalCalls:  1,
 		CallsByTool: map[string]int{"Bash": 1},
 	}
 
-	report, err := j.Evaluate(summary, []string{"Only used Bash"})
+	report, err := j.Evaluate(context.Background(), summary, []string{"Only used Bash"})
 	require.NoError(t, err)
 	assert.Equal(t, "PASS", report.Verdict)
-	assert.Equal(t, judge.AuthModeAPIKey, report.AuthMode)
+	assert.Equal(t, auth.AuthModeAPIKey, report.AuthMode)
 	assert.Contains(t, report.PassedAssertions, "Only used Bash")
 }
 
@@ -211,8 +215,9 @@ func TestIntegration_JudgeSubscriptionFallback(t *testing.T) {
 	t.Logf("Found claude at: %s", claudePath)
 
 	// Verify the judge selects subscription mode with no key.
-	j := judge.New("", "", claudePath, nil)
-	assert.Equal(t, judge.AuthModeSubscription, j.AuthMode())
+	j, err := judge.New("", "", "", "", claudePath, nil)
+	require.NoError(t, err)
+	assert.Equal(t, auth.AuthModeSubscription, j.AuthMode())
 	t.Log("✓ Auth mode correctly set to: subscription")
 
 	summary := trace.Summary{
@@ -227,7 +232,7 @@ func TestIntegration_JudgeSubscriptionFallback(t *testing.T) {
 		"The agent only used the Bash tool.",
 	}
 
-	report, err := j.Evaluate(summary, assertions)
+	report, err := j.Evaluate(context.Background(), summary, assertions)
 	if err != nil {
 		// A rate-limit or quota error from the subscription is expected —
 		// the important thing is that the CLI path was attempted, not the API.
@@ -243,7 +248,7 @@ func TestIntegration_JudgeSubscriptionFallback(t *testing.T) {
 	t.Logf("  Verdict:          %s", report.Verdict)
 	t.Logf("  Reasoning:        %s", report.Reasoning)
 
-	assert.Equal(t, judge.AuthModeSubscription, report.AuthMode)
+	assert.Equal(t, auth.AuthModeSubscription, report.AuthMode)
 }
 
 type rewriteTransport struct {

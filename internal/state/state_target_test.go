@@ -19,6 +19,6 @@ func TestLockFilePath_CursorTarget(t *testing.T) {
 	assert.Equal(t, "scaffold.cursor.lock", state.LockFilePath("scaffold.lock", "cursor"))
 }
 
-func TestLockFilePath_GeminiTarget(t *testing.T) {
-	assert.Equal(t, "scaffold.gemini.lock", state.LockFilePath("scaffold.lock", "gemini"))
+func TestLockFilePath_AntigravityTarget(t *testing.T) {
+	assert.Equal(t, "scaffold.antigravity.lock", state.LockFilePath("scaffold.lock", "antigravity"))
 }

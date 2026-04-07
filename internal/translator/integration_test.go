@@ -17,6 +17,11 @@ import (
 //   - numbered steps          → IntentProcedure  → skill
 //   - MUST / NEVER / MANDATORY → IntentConstraint  → rule
 //   - // turbo-all            → IntentAutomation  → permission
+const (
+	kindRuleStr       = "rule"
+	kindPermissionStr = "permission"
+)
+
 const commitChangesWorkflow = `---
 description: Committing changes to Git using Conventional Commits
 ---
@@ -100,8 +105,8 @@ func TestEndToEnd_CommitChanges_DecomposesIntoThreePrimitives(t *testing.T) {
 	idx := indexPrimitives(result.Primitives)
 
 	_, hasSkill := idx["skill"]
-	_, hasRule := idx["rule"]
-	_, hasPermission := idx["permission"]
+	_, hasRule := idx[kindRuleStr]
+	_, hasPermission := idx[kindPermissionStr]
 
 	assert.True(t, hasSkill, "skill primitive not produced")
 	assert.True(t, hasRule, "rule primitive not produced")
@@ -149,7 +154,7 @@ func TestEndToEnd_CommitChanges_RuleBodyContainsConstraintLines(t *testing.T) {
 	result := translator.Translate(unit, "claude")
 
 	idx := indexPrimitives(result.Primitives)
-	rule, ok := idx["rule"]
+	rule, ok := idx[kindRuleStr]
 	require.True(t, ok, "rule primitive not found")
 
 	assert.True(t, strings.Contains(rule.Body, "MUST"),
@@ -171,7 +176,7 @@ func TestEndToEnd_CommitChanges_PermissionBodyContainsTurboAnnotation(t *testing
 	result := translator.Translate(unit, "claude")
 
 	idx := indexPrimitives(result.Primitives)
-	perm, ok := idx["permission"]
+	perm, ok := idx[kindPermissionStr]
 	require.True(t, ok, "permission primitive not found")
 
 	assert.True(t, strings.Contains(perm.Body, "turbo"),
@@ -193,10 +198,10 @@ func TestEndToEnd_CommitChanges_IDConventions(t *testing.T) {
 		case "skill":
 			assert.Equal(t, "commit-changes", p.ID,
 				"skill ID should be the bare workflow filename stem")
-		case "rule":
+		case kindRuleStr:
 			assert.Equal(t, "commit-changes-constraints", p.ID,
 				"rule ID should carry -constraints suffix")
-		case "permission":
+		case kindPermissionStr:
 			assert.Equal(t, "commit-changes-permissions", p.ID,
 				"permission ID should carry -permissions suffix")
 		}
@@ -226,8 +231,8 @@ func TestEndToEnd_TDD_EmitsSkillOnly(t *testing.T) {
 
 	// Rule and permission must not be present.
 	idx := indexPrimitives(result.Primitives)
-	_, hasRule := idx["rule"]
-	_, hasPerm := idx["permission"]
+	_, hasRule := idx[kindRuleStr]
+	_, hasPerm := idx[kindPermissionStr]
 	assert.False(t, hasRule, "TDD workflow must not produce a rule primitive")
 	assert.False(t, hasPerm, "TDD workflow must not produce a permission primitive")
 }

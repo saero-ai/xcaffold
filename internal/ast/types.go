@@ -2,19 +2,18 @@ package ast
 
 // XcaffoldConfig is the root structure of a parsed .xcf YAML file.
 type XcaffoldConfig struct {
-	Extends  string                 `yaml:"extends,omitempty"`
-	Version  string                 `yaml:"version"`
-	Project  ProjectConfig          `yaml:"project"`
-	Agents   map[string]AgentConfig `yaml:"agents,omitempty"`
-	Skills   map[string]SkillConfig `yaml:"skills,omitempty"`
-	Rules    map[string]RuleConfig  `yaml:"rules,omitempty"`
-	Hooks    HookConfig             `yaml:"hooks,omitempty"`
-	MCP      map[string]MCPConfig   `yaml:"mcp,omitempty"`
-	Settings SettingsConfig         `yaml:"settings,omitempty"`
-	// Local holds settings compiled to .claude/settings.local.json (gitignored).
-	Local     SettingsConfig            `yaml:"local,omitempty"`
+	Version   string                    `yaml:"version"`
+	Project   ProjectConfig             `yaml:"project"`
+	Extends   string                    `yaml:"extends,omitempty"`
+	Agents    map[string]AgentConfig    `yaml:"agents,omitempty"`
+	Skills    map[string]SkillConfig    `yaml:"skills,omitempty"`
+	Rules     map[string]RuleConfig     `yaml:"rules,omitempty"`
+	Hooks     HookConfig                `yaml:"hooks,omitempty"`
+	MCP       map[string]MCPConfig      `yaml:"mcp,omitempty"`
 	Workflows map[string]WorkflowConfig `yaml:"workflows,omitempty"`
 	Test      TestConfig                `yaml:"test,omitempty"`
+	Settings  SettingsConfig            `yaml:"settings,omitempty"`
+	Local     SettingsConfig            `yaml:"local,omitempty"`
 }
 
 // ProjectConfig holds project-level metadata.
@@ -30,145 +29,70 @@ type ProjectConfig struct {
 
 // AgentConfig defines a Claude agent persona.
 type AgentConfig struct {
-	// Name is the display name shown in the Claude Code UI.
-	Name string `yaml:"name,omitempty"`
-
-	Description string `yaml:"description,omitempty"`
-
-	// Instructions is the inline system prompt. Mutually exclusive with InstructionsFile.
-	Instructions string `yaml:"instructions,omitempty"`
-
-	// InstructionsFile is a path (relative to scaffold.xcf) to an external markdown
-	// file whose body (after stripping frontmatter) is used as the system prompt.
-	// Mutually exclusive with Instructions.
-	InstructionsFile string `yaml:"instructions_file,omitempty"`
-
-	Model  string `yaml:"model,omitempty"`
-	Effort string `yaml:"effort,omitempty"`
-
-	// Memory controls the persistent memory scope (e.g. "project", "user").
-	Memory string `yaml:"memory,omitempty"`
-
-	// MaxTurns is the maximum number of conversation turns before auto-stop.
-	MaxTurns int `yaml:"maxTurns,omitempty"`
-
-	Tools           []string `yaml:"tools,omitempty"`
-	DisallowedTools []string `yaml:"disallowedTools,omitempty"`
-	Skills          []string `yaml:"skills,omitempty"`
-	Rules           []string `yaml:"rules,omitempty"`
-	Mode            string   `yaml:"mode,omitempty"`
-	When            string   `yaml:"when,omitempty"`
-	MCP             []string `yaml:"mcp,omitempty"`
-
-	// Hooks defines agent-scoped lifecycle hooks.
-	Hooks HookConfig `yaml:"hooks,omitempty"`
-
-	// MCPServers defines agent-scoped MCP server configurations.
-	MCPServers map[string]MCPConfig `yaml:"mcpServers,omitempty"`
-
-	// Assertions are statements the LLM-as-a-Judge evaluates against the
-	// execution trace when running `xcaffold test --judge`.
-	Assertions []string `yaml:"assertions,omitempty"`
-
-	// Experimental: target-specific configuration overrides.
-	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
-
-	// PermissionMode controls the agent's permission behavior.
-	PermissionMode string `yaml:"permissionMode,omitempty"`
-
-	// Background runs the agent in background mode.
-	Background *bool `yaml:"background,omitempty"`
-
-	// Isolation sets the agent's isolation mode (e.g. "worktree").
-	Isolation string `yaml:"isolation,omitempty"`
-
-	// Color sets the terminal color for agent output.
-	Color string `yaml:"color,omitempty"`
-
-	// InitialPrompt is the first message sent when the agent starts.
-	InitialPrompt string `yaml:"initialPrompt,omitempty"`
-
-	// Readonly maps to cursor's readonly flag (Cursor target only).
-	Readonly *bool `yaml:"readonly,omitempty"`
+	Hooks            HookConfig                `yaml:"hooks,omitempty"`
+	Readonly         *bool                     `yaml:"readonly,omitempty"`
+	Background       *bool                     `yaml:"background,omitempty"`
+	Targets          map[string]TargetOverride `yaml:"targets,omitempty"`
+	MCPServers       map[string]MCPConfig      `yaml:"mcpServers,omitempty"`
+	Memory           string                    `yaml:"memory,omitempty"`
+	InstructionsFile string                    `yaml:"instructions_file,omitempty"`
+	Description      string                    `yaml:"description,omitempty"`
+	InitialPrompt    string                    `yaml:"initialPrompt,omitempty"`
+	Color            string                    `yaml:"color,omitempty"`
+	Name             string                    `yaml:"name,omitempty"`
+	Isolation        string                    `yaml:"isolation,omitempty"`
+	Mode             string                    `yaml:"mode,omitempty"`
+	When             string                    `yaml:"when,omitempty"`
+	Instructions     string                    `yaml:"instructions,omitempty"`
+	Effort           string                    `yaml:"effort,omitempty"`
+	Model            string                    `yaml:"model,omitempty"`
+	PermissionMode   string                    `yaml:"permissionMode,omitempty"`
+	Skills           []string                  `yaml:"skills,omitempty"`
+	Assertions       []string                  `yaml:"assertions,omitempty"`
+	MCP              []string                  `yaml:"mcp,omitempty"`
+	Rules            []string                  `yaml:"rules,omitempty"`
+	DisallowedTools  []string                  `yaml:"disallowedTools,omitempty"`
+	Tools            []string                  `yaml:"tools,omitempty"`
+	MaxTurns         int                       `yaml:"maxTurns,omitempty"`
 }
 
 // TargetOverride specifies overrides for multi-provider targets.
 type TargetOverride struct {
 	Hooks                    map[string]string `yaml:"hooks,omitempty"`
-	InstructionsOverride     string            `yaml:"instructions_override,omitempty"`
 	SuppressFidelityWarnings *bool             `yaml:"suppress_fidelity_warnings,omitempty"`
 	SkipSynthesis            *bool             `yaml:"skip_synthesis,omitempty"`
+	InstructionsOverride     string            `yaml:"instructions_override,omitempty"`
 }
 
 // SkillConfig defines a reusable prompt package.
 type SkillConfig struct {
-	// Name is the display name in the skill's SKILL.md frontmatter.
-	Name string `yaml:"name,omitempty"`
-
-	// Type is the skill type (e.g. "reference").
-	Type string `yaml:"type,omitempty"`
-
-	Description string `yaml:"description,omitempty"`
-
-	// Instructions is the inline skill body. Mutually exclusive with InstructionsFile.
-	Instructions string `yaml:"instructions,omitempty"`
-
-	// InstructionsFile is a path (relative to scaffold.xcf) to an external markdown
-	// file whose body is used as the skill body. Mutually exclusive with Instructions.
-	InstructionsFile string `yaml:"instructions_file,omitempty"`
-
-	Paths []string `yaml:"paths,omitempty"`
-
-	// Tools and AllowedTools are alternative tool-specification formats.
-	Tools        []string `yaml:"tools,omitempty"`
-	AllowedTools []string `yaml:"allowed-tools,omitempty"`
-
-	// References is a list of supplementary file paths (relative to scaffold.xcf)
-	// to copy into skills/<id>/references/. Glob patterns are supported (e.g. "refs/*.md").
-	References []string `yaml:"references,omitempty"`
-
-	// DisableModelInvocation prevents the model from auto-triggering this skill.
-	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
-
-	// Context controls context isolation. Set to "fork" for subagent isolation.
-	Context string `yaml:"context,omitempty"`
-
-	// Agent specifies the agent type when context is "fork".
-	Agent string `yaml:"agent,omitempty"`
-
-	// UserInvocable controls visibility in the slash-command menu.
-	UserInvocable *bool `yaml:"user-invocable,omitempty"`
-
-	// Hooks defines skill-scoped lifecycle hooks.
-	Hooks HookConfig `yaml:"hooks,omitempty"`
-
-	// Model overrides the model used when this skill is active.
-	Model string `yaml:"model,omitempty"`
-
-	// Effort overrides the effort level when this skill is active.
-	Effort string `yaml:"effort,omitempty"`
-
-	// Shell specifies the shell type for dynamic command execution.
-	Shell string `yaml:"shell,omitempty"`
-
-	// ArgumentHint provides autocomplete hint text for skill arguments.
-	ArgumentHint string `yaml:"argument-hint,omitempty"`
+	DisableModelInvocation *bool      `yaml:"disable-model-invocation,omitempty"`
+	Hooks                  HookConfig `yaml:"hooks,omitempty"`
+	UserInvocable          *bool      `yaml:"user-invocable,omitempty"`
+	InstructionsFile       string     `yaml:"instructions_file,omitempty"`
+	Type                   string     `yaml:"type,omitempty"`
+	ArgumentHint           string     `yaml:"argument-hint,omitempty"`
+	Shell                  string     `yaml:"shell,omitempty"`
+	Effort                 string     `yaml:"effort,omitempty"`
+	Model                  string     `yaml:"model,omitempty"`
+	Instructions           string     `yaml:"instructions,omitempty"`
+	Context                string     `yaml:"context,omitempty"`
+	Agent                  string     `yaml:"agent,omitempty"`
+	Description            string     `yaml:"description,omitempty"`
+	Name                   string     `yaml:"name,omitempty"`
+	References             []string   `yaml:"references,omitempty"`
+	AllowedTools           []string   `yaml:"allowed-tools,omitempty"`
+	Tools                  []string   `yaml:"tools,omitempty"`
+	Paths                  []string   `yaml:"paths,omitempty"`
 }
 
 // RuleConfig defines a path-gated formatting guideline.
 type RuleConfig struct {
-	Description string   `yaml:"description,omitempty"`
-	Paths       []string `yaml:"paths,omitempty"`
-
-	// Instructions is the inline rule body. Mutually exclusive with InstructionsFile.
-	Instructions string `yaml:"instructions,omitempty"`
-
-	// InstructionsFile is a path (relative to scaffold.xcf) to an external markdown
-	// file whose body is used as the rule body. Mutually exclusive with Instructions.
-	InstructionsFile string `yaml:"instructions_file,omitempty"`
-
-	// AlwaysApply applies the rule globally without path matching (Cursor target only).
-	AlwaysApply *bool `yaml:"alwaysApply,omitempty"`
+	AlwaysApply      *bool    `yaml:"alwaysApply,omitempty"`
+	Description      string   `yaml:"description,omitempty"`
+	Instructions     string   `yaml:"instructions,omitempty"`
+	InstructionsFile string   `yaml:"instructions_file,omitempty"`
+	Paths            []string `yaml:"paths,omitempty"`
 }
 
 // HookConfig maps lifecycle event names to their matcher groups.
@@ -184,42 +108,37 @@ type HookMatcherGroup struct {
 
 // HookHandler defines a single executable hook action.
 type HookHandler struct {
-	Type           string            `yaml:"type"                       json:"type"`
+	Async          *bool             `yaml:"async,omitempty"            json:"async,omitempty"`
+	Headers        map[string]string `yaml:"headers,omitempty"          json:"headers,omitempty"`
+	Timeout        *int              `yaml:"timeout,omitempty"          json:"timeout,omitempty"`
+	Once           *bool             `yaml:"once,omitempty"             json:"once,omitempty"`
 	Command        string            `yaml:"command,omitempty"          json:"command,omitempty"`
 	URL            string            `yaml:"url,omitempty"              json:"url,omitempty"`
-	Headers        map[string]string `yaml:"headers,omitempty"          json:"headers,omitempty"`
-	AllowedEnvVars []string          `yaml:"allowedEnvVars,omitempty"   json:"allowedEnvVars,omitempty"`
 	Prompt         string            `yaml:"prompt,omitempty"           json:"prompt,omitempty"`
 	Model          string            `yaml:"model,omitempty"            json:"model,omitempty"`
 	If             string            `yaml:"if,omitempty"               json:"if,omitempty"`
-	Timeout        *int              `yaml:"timeout,omitempty"          json:"timeout,omitempty"`
-	Async          *bool             `yaml:"async,omitempty"            json:"async,omitempty"`
-	Once           *bool             `yaml:"once,omitempty"             json:"once,omitempty"`
+	Type           string            `yaml:"type"                       json:"type"`
 	Shell          string            `yaml:"shell,omitempty"            json:"shell,omitempty"`
 	StatusMessage  string            `yaml:"statusMessage,omitempty"    json:"statusMessage,omitempty"`
+	AllowedEnvVars []string          `yaml:"allowedEnvVars,omitempty"   json:"allowedEnvVars,omitempty"`
 }
 
 // MCPConfig defines a local or remote MCP server context.
 type MCPConfig struct {
-	// Type is the transport type: "stdio" (default), "http", or "sse".
-	Type    string            `yaml:"type,omitempty"    json:"type,omitempty"`
-	Command string            `yaml:"command,omitempty" json:"command,omitempty"`
-	Args    []string          `yaml:"args,omitempty"    json:"args,omitempty"`
-	Env     map[string]string `yaml:"env,omitempty"     json:"env,omitempty"`
-	// URL is the endpoint for HTTP/SSE transports.
-	URL string `yaml:"url,omitempty"     json:"url,omitempty"`
-	// Headers are HTTP request headers (type=http|sse).
-	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
-
-	// Antigravity (global-only) specific extensions
-	Cwd              string            `yaml:"cwd,omitempty"              json:"cwd,omitempty"`
+	Env              map[string]string `yaml:"env,omitempty"     json:"env,omitempty"`
+	Headers          map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 	Disabled         *bool             `yaml:"disabled,omitempty"         json:"disabled,omitempty"`
-	DisabledTools    []string          `yaml:"disabledTools,omitempty"    json:"disabledTools,omitempty"`
-	AuthProviderType string            `yaml:"authProviderType,omitempty" json:"authProviderType,omitempty"`
 	OAuth            map[string]string `yaml:"oauth,omitempty"            json:"oauth,omitempty"`
+	Type             string            `yaml:"type,omitempty"    json:"type,omitempty"`
+	Command          string            `yaml:"command,omitempty" json:"command,omitempty"`
+	URL              string            `yaml:"url,omitempty"     json:"url,omitempty"`
+	Cwd              string            `yaml:"cwd,omitempty"              json:"cwd,omitempty"`
+	AuthProviderType string            `yaml:"authProviderType,omitempty" json:"authProviderType,omitempty"`
+	Args             []string          `yaml:"args,omitempty"    json:"args,omitempty"`
+	DisabledTools    []string          `yaml:"disabledTools,omitempty"    json:"disabledTools,omitempty"`
 }
 
-// StatusLineConfig defines the statusLine setting for Claude Code.
+// StatusLineConfig defines the statusLine setting for the platform.
 // The original format is {"type": "command", "command": "<shell cmd>"}.
 type StatusLineConfig struct {
 	Type    string `yaml:"type,omitempty"    json:"type,omitempty"`
@@ -240,9 +159,9 @@ type SandboxConfig struct {
 	AutoAllow                *bool              `yaml:"autoAllow,omitempty"                json:"autoAllow,omitempty"`
 	FailIfUnavailable        *bool              `yaml:"failIfUnavailable,omitempty"        json:"failIfUnavailable,omitempty"`
 	AllowUnsandboxedCommands *bool              `yaml:"allowUnsandboxedCommands,omitempty" json:"allowUnsandboxedCommands,omitempty"`
-	ExcludedCommands         []string           `yaml:"excludedCommands,omitempty"         json:"excludedCommands,omitempty"`
 	Filesystem               *SandboxFilesystem `yaml:"filesystem,omitempty"               json:"filesystem,omitempty"`
 	Network                  *SandboxNetwork    `yaml:"network,omitempty"                  json:"network,omitempty"`
+	ExcludedCommands         []string           `yaml:"excludedCommands,omitempty"         json:"excludedCommands,omitempty"`
 }
 
 // SandboxFilesystem configures filesystem isolation boundaries.
@@ -255,114 +174,58 @@ type SandboxFilesystem struct {
 
 // SandboxNetwork configures network isolation boundaries.
 type SandboxNetwork struct {
-	AllowedDomains          []string `yaml:"allowedDomains,omitempty"          json:"allowedDomains,omitempty"`
 	HTTPProxyPort           *int     `yaml:"httpProxyPort,omitempty"           json:"httpProxyPort,omitempty"`
 	SOCKSProxyPort          *int     `yaml:"socksProxyPort,omitempty"          json:"socksProxyPort,omitempty"`
 	AllowManagedDomainsOnly *bool    `yaml:"allowManagedDomainsOnly,omitempty" json:"allowManagedDomainsOnly,omitempty"`
 	AllowUnixSockets        *bool    `yaml:"allowUnixSockets,omitempty"        json:"allowUnixSockets,omitempty"`
+	AllowedDomains          []string `yaml:"allowedDomains,omitempty"          json:"allowedDomains,omitempty"`
 }
 
-// SettingsConfig represents the full Claude Code settings.json structure.
+// SettingsConfig represents the full platform settings.json structure.
 // The mcp: block at the top level of XcaffoldConfig is a convenience shorthand
 // that gets merged into the mcpServers key during compilation. Fields defined
 // here take precedence over the shorthand for mcpServers if both are set.
 type SettingsConfig struct {
-	// Env specifies environment variables injected into Claude Code sessions.
-	Env map[string]string `yaml:"env,omitempty" json:"env,omitempty"`
-
-	// StatusLine is a custom status bar command shown in the Claude Code UI.
-	// Format: {type: "command", command: "bash script.sh"}
-	StatusLine *StatusLineConfig `yaml:"statusLine,omitempty" json:"statusLine,omitempty"`
-
-	// EnabledPlugins maps plugin IDs to enabled/disabled state.
-	EnabledPlugins map[string]bool `yaml:"enabledPlugins,omitempty" json:"enabledPlugins,omitempty"`
-
-	// AlwaysThinkingEnabled forces extended thinking mode on all requests.
-	AlwaysThinkingEnabled *bool `yaml:"alwaysThinkingEnabled,omitempty" json:"alwaysThinkingEnabled,omitempty"`
-
-	// EffortLevel is the default effort level (e.g. "high", "medium", "low").
-	EffortLevel string `yaml:"effortLevel,omitempty" json:"effortLevel,omitempty"`
-
-	// SkipDangerousModePermissionPrompt suppresses the dangerous-mode consent dialog.
-	SkipDangerousModePermissionPrompt *bool `yaml:"skipDangerousModePermissionPrompt,omitempty" json:"skipDangerousModePermissionPrompt,omitempty"`
-
-	// Permissions defines the allow/deny/ask permission rules.
-	Permissions *PermissionsConfig `yaml:"permissions,omitempty" json:"permissions,omitempty"`
-
-	// Sandbox configures OS-level process isolation for Bash commands.
-	Sandbox *SandboxConfig `yaml:"sandbox,omitempty" json:"sandbox,omitempty"`
-
-	// OtelHeadersHelper is a script path to generate dynamic OpenTelemetry headers.
-	OtelHeadersHelper string `yaml:"otelHeadersHelper,omitempty" json:"otelHeadersHelper,omitempty"`
-
-	// DisableAllHooks prevents all hooks from executing.
-	DisableAllHooks *bool `yaml:"disableAllHooks,omitempty" json:"disableAllHooks,omitempty"`
-
-	// Attribution enables source attribution in generated output.
-	Attribution *bool `yaml:"attribution,omitempty" json:"attribution,omitempty"`
-
-	// MCPServers allows direct specification of MCP server configurations
-	// within the settings block. Merged with top-level mcp: (settings wins on conflict).
-	MCPServers map[string]MCPConfig `yaml:"mcpServers,omitempty" json:"mcpServers,omitempty"`
-
-	// Hooks defines settings-level lifecycle hooks.
-	Hooks HookConfig `yaml:"hooks,omitempty" json:"hooks,omitempty"`
-
-	// Model sets the default model for all sessions.
-	Model string `yaml:"model,omitempty" json:"model,omitempty"`
-
-	// OutputStyle controls response style (e.g. "concise", "verbose").
-	OutputStyle string `yaml:"outputStyle,omitempty" json:"outputStyle,omitempty"`
-
-	// Language sets the response language.
-	Language string `yaml:"language,omitempty" json:"language,omitempty"`
-
-	// IncludeGitInstructions controls whether git context is included.
-	IncludeGitInstructions *bool `yaml:"includeGitInstructions,omitempty" json:"includeGitInstructions,omitempty"`
-
-	// DisableSkillShellExecution prevents dynamic shell commands in skills.
-	DisableSkillShellExecution *bool `yaml:"disableSkillShellExecution,omitempty" json:"disableSkillShellExecution,omitempty"`
-
-	// Agent holds agent-specific default configuration.
-	Agent any `yaml:"agent,omitempty" json:"agent,omitempty"`
-
-	// AutoMode defines rules for automatic permission granting.
-	AutoMode any `yaml:"autoMode,omitempty" json:"autoMode,omitempty"`
-
-	// DefaultShell sets the preferred shell.
-	DefaultShell string `yaml:"defaultShell,omitempty" json:"defaultShell,omitempty"`
-
-	// CleanupPeriodDays sets auto-cleanup interval for old sessions.
-	CleanupPeriodDays *int `yaml:"cleanupPeriodDays,omitempty" json:"cleanupPeriodDays,omitempty"`
-
-	// AvailableModels restricts which models can be selected.
-	AvailableModels []string `yaml:"availableModels,omitempty" json:"availableModels,omitempty"`
-
-	// RespectGitignore controls whether gitignored files are excluded.
-	RespectGitignore *bool `yaml:"respectGitignore,omitempty" json:"respectGitignore,omitempty"`
-
-	// PlansDirectory sets the directory for implementation plans.
-	PlansDirectory string `yaml:"plansDirectory,omitempty" json:"plansDirectory,omitempty"`
-
-	// Worktree holds worktree-specific configuration.
-	Worktree any `yaml:"worktree,omitempty" json:"worktree,omitempty"`
-
-	// ClaudeMdExcludes lists glob patterns of CLAUDE.md files to skip.
-	ClaudeMdExcludes []string `yaml:"claudeMdExcludes,omitempty" json:"claudeMdExcludes,omitempty"`
-
-	// AutoMemoryEnabled toggles automatic memory recording.
-	AutoMemoryEnabled *bool `yaml:"autoMemoryEnabled,omitempty" json:"autoMemoryEnabled,omitempty"`
-
-	// AutoMemoryDirectory sets a custom directory for auto memory storage.
-	AutoMemoryDirectory string `yaml:"autoMemoryDirectory,omitempty" json:"autoMemoryDirectory,omitempty"`
+	Agent                             any                  `yaml:"agent,omitempty" json:"agent,omitempty"`
+	Worktree                          any                  `yaml:"worktree,omitempty" json:"worktree,omitempty"`
+	AutoMode                          any                  `yaml:"autoMode,omitempty" json:"autoMode,omitempty"`
+	CleanupPeriodDays                 *int                 `yaml:"cleanupPeriodDays,omitempty" json:"cleanupPeriodDays,omitempty"`
+	IncludeGitInstructions            *bool                `yaml:"includeGitInstructions,omitempty" json:"includeGitInstructions,omitempty"`
+	SkipDangerousModePermissionPrompt *bool                `yaml:"skipDangerousModePermissionPrompt,omitempty" json:"skipDangerousModePermissionPrompt,omitempty"`
+	Permissions                       *PermissionsConfig   `yaml:"permissions,omitempty" json:"permissions,omitempty"`
+	Sandbox                           *SandboxConfig       `yaml:"sandbox,omitempty" json:"sandbox,omitempty"`
+	AutoMemoryEnabled                 *bool                `yaml:"autoMemoryEnabled,omitempty" json:"autoMemoryEnabled,omitempty"`
+	DisableAllHooks                   *bool                `yaml:"disableAllHooks,omitempty" json:"disableAllHooks,omitempty"`
+	Attribution                       *bool                `yaml:"attribution,omitempty" json:"attribution,omitempty"`
+	MCPServers                        map[string]MCPConfig `yaml:"mcpServers,omitempty" json:"mcpServers,omitempty"`
+	Hooks                             HookConfig           `yaml:"hooks,omitempty" json:"hooks,omitempty"`
+	StatusLine                        *StatusLineConfig    `yaml:"statusLine,omitempty" json:"statusLine,omitempty"`
+	RespectGitignore                  *bool                `yaml:"respectGitignore,omitempty" json:"respectGitignore,omitempty"`
+	Env                               map[string]string    `yaml:"env,omitempty" json:"env,omitempty"`
+	EnabledPlugins                    map[string]bool      `yaml:"enabledPlugins,omitempty" json:"enabledPlugins,omitempty"`
+	DisableSkillShellExecution        *bool                `yaml:"disableSkillShellExecution,omitempty" json:"disableSkillShellExecution,omitempty"`
+	AlwaysThinkingEnabled             *bool                `yaml:"alwaysThinkingEnabled,omitempty" json:"alwaysThinkingEnabled,omitempty"`
+	EffortLevel                       string               `yaml:"effortLevel,omitempty" json:"effortLevel,omitempty"`
+	DefaultShell                      string               `yaml:"defaultShell,omitempty" json:"defaultShell,omitempty"`
+	Language                          string               `yaml:"language,omitempty" json:"language,omitempty"`
+	OutputStyle                       string               `yaml:"outputStyle,omitempty" json:"outputStyle,omitempty"`
+	PlansDirectory                    string               `yaml:"plansDirectory,omitempty" json:"plansDirectory,omitempty"`
+	Model                             string               `yaml:"model,omitempty" json:"model,omitempty"`
+	OtelHeadersHelper                 string               `yaml:"otelHeadersHelper,omitempty" json:"otelHeadersHelper,omitempty"`
+	AutoMemoryDirectory               string               `yaml:"autoMemoryDirectory,omitempty" json:"autoMemoryDirectory,omitempty"`
+	AvailableModels                   []string             `yaml:"availableModels,omitempty" json:"availableModels,omitempty"`
+	ClaudeMdExcludes                  []string             `yaml:"claudeMdExcludes,omitempty" json:"claudeMdExcludes,omitempty"`
 }
 
 // TestConfig holds project-level configuration for `xcaffold test`.
 type TestConfig struct {
-	// ClaudePath is the path to the claude binary. Defaults to "claude" on $PATH.
+	// LLMClient is the path to the LLM CLI binary (e.g., claude, cursor). Defaults to "claude" on $PATH.
+	LLMClient string `yaml:"llm_client,omitempty"`
+
+	// ClaudePath is deprecated in favor of LLMClient but retained for backward compatibility.
 	ClaudePath string `yaml:"claude_path,omitempty"`
 
-	// JudgeModel is the Anthropic model used for LLM-as-a-Judge evaluation.
+	// JudgeModel is the generative model used for LLM-as-a-Judge evaluation.
 	JudgeModel string `yaml:"judge_model,omitempty"`
 }
 

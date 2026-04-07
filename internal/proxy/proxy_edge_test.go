@@ -18,6 +18,8 @@ import (
 // Host validation edge cases
 // ---------------------------------------------------------------------------
 
+const testAnthropicHost = "api.anthropic.com"
+
 // TestHandleRequest_SSRFSuffixConfusion verifies that a host like
 // "evil-api.anthropic.com" — which ends with ".anthropic.com" — is still
 // rejected (403) and does NOT slip through the EqualFold check.
@@ -77,7 +79,7 @@ func TestHandleRequest_GETToMessages(t *testing.T) {
 	srv, _ := newTestServer(t)
 
 	req := httptest.NewRequest(http.MethodGet, "http://api.anthropic.com/v1/messages", nil)
-	req.Host = anthropicAPIHost
+	req.Host = testAnthropicHost
 	w := httptest.NewRecorder()
 
 	srv.handleRequest(w, req)
@@ -175,7 +177,7 @@ func TestProxy_ConcurrentRequests(t *testing.T) {
 				t.Errorf("worker %d: failed to build request: %v", i, err2)
 				return
 			}
-			req.Host = anthropicAPIHost
+			req.Host = testAnthropicHost
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-Xcaffold-Agent", fmt.Sprintf("agent-%02d", i))
 

@@ -303,11 +303,11 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 // The type field is intentionally omitted — Cursor infers the transport
 // from the presence of command (stdio) or serverUrl (http/sse).
 type cursorMCPEntry struct {
-	Command   string            `json:"command,omitempty"`
-	Args      []string          `json:"args,omitempty"`
 	Env       map[string]string `json:"env,omitempty"`
-	ServerURL string            `json:"serverUrl,omitempty"` // Normalization: url → serverUrl
 	Headers   map[string]string `json:"headers,omitempty"`
+	Command   string            `json:"command,omitempty"`
+	ServerURL string            `json:"serverUrl,omitempty"`
+	Args      []string          `json:"args,omitempty"`
 }
 
 // compileCursorMCP renders all MCP server configs to a single mcp.json file.

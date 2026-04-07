@@ -1,176 +1,86 @@
 package judge
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/auth"
+	"github.com/saero-ai/xcaffold/internal/llmclient"
 	"github.com/saero-ai/xcaffold/internal/trace"
 )
 
 const defaultJudgeModel = "claude-haiku-4-5-20251001"
 
-// Re-export auth mode constants for callers that import only the judge package.
-const (
-	AuthModeAPIKey       = auth.AuthModeAPIKey
-	AuthModeSubscription = auth.AuthModeSubscription
-)
+const maxAssertionLen = 500
 
 // Report is the structured output of a Judge evaluation.
 type Report struct {
 	Model            string        `json:"model"`
 	AuthMode         auth.AuthMode `json:"auth_mode"`
 	Verdict          string        `json:"verdict"`
+	Reasoning        string        `json:"reasoning,omitempty"`
 	PassedAssertions []string      `json:"passed_assertions"`
 	FailedAssertions []string      `json:"failed_assertions"`
-	Reasoning        string        `json:"reasoning,omitempty"`
 }
 
 // Judge evaluates an execution trace against a set of user-defined assertions
 // using an LLM-as-a-Judge approach.
 type Judge struct {
-	apiKey     string
-	model      string
-	claudePath string
-	authMode   auth.AuthMode
-	httpClient *http.Client
+	client *llmclient.Client
+	model  string
 }
 
-// New returns a Judge. It automatically selects the auth mode:
-//   - If apiKey is non-empty → AuthModeAPIKey (direct API call)
-//   - Otherwise → AuthModeSubscription (claude CLI subprocess fallback)
-//
-// claudePath is the path to the claude binary; defaults to "claude".
-// httpClient is injectable for testing; pass nil to use http.DefaultClient.
-func New(apiKey, model, claudePath string, httpClient *http.Client) *Judge {
+// New returns a Judge or an error. It automatically selects the auth mode:
+//   - If genericAPIKey is present → AuthModeGenericAPI
+//   - If anthropicKey is present → AuthModeAPIKey
+//   - Otherwise → AuthModeSubscription (CLI fallback)
+func New(anthropicKey, genericAPIKey, apiBaseURL, model, cliPath string, httpClient *http.Client) (*Judge, error) {
 	if model == "" {
 		model = defaultJudgeModel
 	}
-	if claudePath == "" {
-		claudePath = "claude"
+	client, err := llmclient.New(llmclient.Config{
+		AnthropicKey:   anthropicKey,
+		GenericAPIKey:  genericAPIKey,
+		GenericAPIBase: apiBaseURL,
+		Model:          model,
+		DefaultModel:   defaultJudgeModel,
+		CLIPath:        cliPath,
+		MaxTokens:      2048,
+		HTTPClient:     httpClient,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("judge: %w", err)
 	}
-	if httpClient == nil {
-		httpClient = http.DefaultClient
-	}
-
-	mode := auth.AuthModeSubscription
-	if apiKey != "" {
-		mode = auth.AuthModeAPIKey
-	}
-
-	return &Judge{
-		apiKey:     apiKey,
-		model:      model,
-		claudePath: claudePath,
-		authMode:   mode,
-		httpClient: httpClient,
-	}
+	return &Judge{client: client, model: model}, nil
 }
 
 // AuthMode returns the authentication mode this judge will use.
 func (j *Judge) AuthMode() auth.AuthMode {
-	return j.authMode
+	return j.client.AuthMode()
 }
 
 // Evaluate runs the LLM-as-a-Judge against a trace summary and assertions.
-// It automatically uses direct API or the subscription CLI based on auth mode.
+// It propagates ctx cancellation to the underlying call.
 // It returns an error if the evaluation fails; it never panics.
-func (j *Judge) Evaluate(summary trace.Summary, assertions []string) (*Report, error) {
+func (j *Judge) Evaluate(ctx context.Context, summary trace.Summary, assertions []string) (*Report, error) {
 	if len(assertions) == 0 {
 		return &Report{
 			Model:     j.model,
-			AuthMode:  j.authMode,
+			AuthMode:  j.client.AuthMode(),
 			Reasoning: "No assertions were defined. Add assertions to your agent in scaffold.xcf.",
 		}, nil
 	}
 
 	prompt := buildPrompt(summary, assertions)
-
-	switch j.authMode {
-	case AuthModeAPIKey:
-		return j.evaluateViaAPI(prompt)
-	case AuthModeSubscription:
-		return j.evaluateViaCLI(prompt)
-	default:
-		return nil, fmt.Errorf("judge: unknown auth mode %q", j.authMode)
-	}
-}
-
-// evaluateViaAPI calls api.anthropic.com directly with an API key.
-func (j *Judge) evaluateViaAPI(prompt string) (*Report, error) {
-	reqBody, err := json.Marshal(map[string]any{
-		"model":      j.model,
-		"max_tokens": 1024,
-		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("judge: failed to build API request: %w", err)
-	}
-
-	req, err := http.NewRequest(http.MethodPost, "https://api.anthropic.com/v1/messages", bytes.NewReader(reqBody))
-	if err != nil {
-		return nil, fmt.Errorf("judge: failed to create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("x-api-key", j.apiKey)
-	req.Header.Set("anthropic-version", "2023-06-01")
-
-	resp, err := j.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("judge: API call failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("judge: failed to read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("judge: API returned status %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	report, err := parseAPIReport(j.model, respBody)
+	text, err := j.client.Call(ctx, prompt)
 	if err != nil {
 		return nil, err
 	}
-	report.AuthMode = AuthModeAPIKey
-	return report, nil
-}
-
-// evaluateViaCLI runs `claude -p "<prompt>"` as a subprocess using the user's
-// existing Claude Code subscription — no API key required.
-func (j *Judge) evaluateViaCLI(prompt string) (*Report, error) {
-	base := filepath.Base(j.claudePath)
-	if base != "claude" && base != "claude.cmd" {
-		return nil, fmt.Errorf("judge: claudePath must point to exactly 'claude' or 'claude.cmd' for security, got: %s", j.claudePath)
-	}
-
-	// Use `claude -p` (print mode) to get a single non-interactive response.
-	cmd := exec.Command(j.claudePath, "-p", prompt) //nolint:gosec
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		stderrStr := strings.TrimSpace(stderr.String())
-		if stderrStr != "" {
-			return nil, fmt.Errorf("judge: claude CLI failed: %w — %s", err, stderrStr)
-		}
-		return nil, fmt.Errorf("judge: claude CLI failed: %w", err)
-	}
-
-	text := strings.TrimSpace(stdout.String())
-	report := parseCLIReport(j.model, text)
-	report.AuthMode = AuthModeSubscription
+	report := parseTextReport(j.model, text)
+	report.AuthMode = j.client.AuthMode()
 	return report, nil
 }
 
@@ -186,9 +96,33 @@ func buildPrompt(summary trace.Summary, assertions []string) string {
 		fmt.Fprintf(&sb, "  - %s: %d call(s)\n", tool, count)
 	}
 
+	if len(summary.Events) > 0 {
+		sb.WriteString("\n## Detailed Tool Call Log\n")
+		for i, event := range summary.Events {
+			fmt.Fprintf(&sb, "### Call %d: %s\n", i+1, event.ToolName)
+			if event.AgentID != "" && event.AgentID != "unknown" {
+				fmt.Fprintf(&sb, "Agent: %s\n", event.AgentID)
+			}
+			if len(event.InputParams) > 0 {
+				paramsJSON, err := json.MarshalIndent(event.InputParams, "  ", "  ")
+				if err == nil {
+					paramStr := string(paramsJSON)
+					if len(paramStr) > 2048 {
+						paramStr = paramStr[:2048] + "\n  ... (truncated)"
+					}
+					fmt.Fprintf(&sb, "Parameters:\n  %s\n", paramStr)
+				}
+			}
+			fmt.Fprintf(&sb, "Mock Response: %s\n\n", event.MockResponse)
+		}
+	}
+
 	sb.WriteString("\n## Assertions to Evaluate\n")
 	for i, a := range assertions {
-		fmt.Fprintf(&sb, "%d. %s\n", i+1, a)
+		if len(a) > maxAssertionLen {
+			a = a[:maxAssertionLen] + "... (truncated)"
+		}
+		fmt.Fprintf(&sb, "%d. <assertion>%s</assertion>\n", i+1, a)
 	}
 
 	sb.WriteString("\n## Adversarial Verification Rules\n")
@@ -207,25 +141,8 @@ func buildPrompt(summary trace.Summary, assertions []string) string {
 	return sb.String()
 }
 
-// parseAPIReport extracts a Report from an Anthropic API response.
-func parseAPIReport(model string, body []byte) (*Report, error) {
-	var apiResp struct {
-		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
-		} `json:"content"`
-	}
-	if err := json.Unmarshal(body, &apiResp); err != nil {
-		return nil, fmt.Errorf("judge: failed to parse API response: %w", err)
-	}
-	if len(apiResp.Content) == 0 {
-		return nil, fmt.Errorf("judge: empty content in API response")
-	}
-	return parseCLIReport(model, apiResp.Content[0].Text), nil
-}
-
-// parseCLIReport parses a judge report from text containing both markdown reasoning and a JSON block.
-func parseCLIReport(model, text string) *Report {
+// parseTextReport parses a judge report from text containing both markdown reasoning and a JSON block.
+func parseTextReport(model, text string) *Report {
 	// Extract JSON object from the response text — the model may include
 	// preamble or trailing text around the JSON block.
 	start := strings.LastIndex(text, "```json")
@@ -259,6 +176,7 @@ func parseCLIReport(model, text string) *Report {
 		if err := json.Unmarshal([]byte(jsonStr), &report); err == nil {
 			report.Model = model
 			report.Reasoning = reasoning
+			report.Verdict = strings.ToUpper(report.Verdict)
 			return &report
 		}
 	}

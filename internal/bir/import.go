@@ -8,7 +8,7 @@ import (
 
 // ImportWorkflow reads a workflow markdown file, strips YAML frontmatter,
 // and returns a populated SemanticUnit with intents detected.
-// platform identifies the source platform (e.g. "gemini", "claude", "cursor").
+// platform identifies the source platform (e.g. "antigravity", "claude", "cursor").
 func ImportWorkflow(path string, platform string) (*SemanticUnit, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {

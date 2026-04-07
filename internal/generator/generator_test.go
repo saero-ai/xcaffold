@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -41,8 +42,8 @@ func TestParseJSONOutput(t *testing.T) {
 	tests := []struct {
 		name        string
 		input       string
-		expectError bool
 		checkConfig string
+		expectError bool
 	}{
 		{
 			name:        "No markdown block",
@@ -93,15 +94,16 @@ func TestGenerateViaAPI(t *testing.T) {
 	ts := mockAnthropicServer(string(respBytes), http.StatusOK)
 	defer ts.Close()
 
-	g := New("test-key", "", "", &http.Client{
+	g, err := New("test-key", "", "", "", "", &http.Client{
 		Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
 	})
+	require.NoError(t, err)
 
 	sig := &analyzer.ProjectSignature{
 		Files: []string{"package.json"},
 	}
 
-	res, err := g.Generate(sig)
+	res, err := g.Generate(context.Background(), sig)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	assert.Equal(t, "project: generated", res.YAMLConfig)
@@ -123,11 +125,4 @@ func TestBuildGeneratorPrompt(t *testing.T) {
 	assert.Contains(t, prompt, "High-Quality, Adversarial check statements")
 	// Check that we assert the dual output format
 	assert.Contains(t, prompt, "audit_report")
-}
-
-func TestGenerate_RejectsCommandInjection(t *testing.T) {
-	g := New("", "", "rm", nil)
-	_, err := g.Generate(&analyzer.ProjectSignature{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "claudePath must point to exactly 'claude'")
 }

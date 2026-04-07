@@ -77,7 +77,7 @@ func TestHandleToolUse_WritesTrace(t *testing.T) {
 
 	body := []byte(`{"content":[{"type":"tool_use","name":"Bash","input":{"command":"ls"}}]}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", io.NopCloser(bytes.NewReader(body)))
-	req.Host = anthropicAPIHost
+	req.Host = testAnthropicHost
 	w := httptest.NewRecorder()
 
 	srv.handleToolUse(w, req, body)
@@ -95,7 +95,7 @@ func TestHandleToolUse_ResponseContainsMock(t *testing.T) {
 
 	body := []byte(`{"content":[{"type":"tool_use","name":"Write","input":{}}]}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-	req.Host = anthropicAPIHost
+	req.Host = testAnthropicHost
 	w := httptest.NewRecorder()
 
 	srv.handleToolUse(w, req, body)
@@ -110,7 +110,7 @@ func TestHandleRequest_EnforcesMemoryLimit(t *testing.T) {
 	largeBody := make([]byte, 11*1024*1024)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(largeBody))
-	req.Host = anthropicAPIHost
+	req.Host = testAnthropicHost
 	w := httptest.NewRecorder()
 
 	// Should not panic, but should return a StatusPayloadTooLarge or similar error

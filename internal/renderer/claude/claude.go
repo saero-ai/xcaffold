@@ -177,89 +177,24 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 		return "", fmt.Errorf("agent id must not be empty")
 	}
 
-	body, err := resolveInstructions(
-		agent.Instructions,
-		agent.InstructionsFile,
-		fmt.Sprintf("agents/%s.md", id), // convention: agents/<id>.md
-		baseDir,
-	)
+	body, err := resolveInstructions(agent.Instructions, agent.InstructionsFile, fmt.Sprintf("agents/%s.md", id), baseDir)
 	if err != nil {
 		return "", err
 	}
 
 	var sb strings.Builder
-
-	// --- Frontmatter ---
 	sb.WriteString("---\n")
 
-	if agent.Name != "" {
-		fmt.Fprintf(&sb, "name: %s\n", agent.Name)
-	}
-	if agent.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", agent.Description)
-	}
-	if agent.Model != "" {
-		fmt.Fprintf(&sb, "model: %s\n", agent.Model)
-	}
-	if agent.Effort != "" {
-		fmt.Fprintf(&sb, "effort: %s\n", agent.Effort)
-	}
-	if agent.Memory != "" {
-		fmt.Fprintf(&sb, "memory: %s\n", agent.Memory)
-	}
-	if agent.MaxTurns > 0 {
-		fmt.Fprintf(&sb, "maxTurns: %d\n", agent.MaxTurns)
-	}
-	// Normalization Rule 7: readonly → tools: [Read, Grep, Glob]
-	// When readonly is set and no explicit tools are specified, CC achieves
-	// read-only behavior by restricting the tool set.
-	if agent.Readonly != nil && *agent.Readonly && len(agent.Tools) == 0 {
-		sb.WriteString("tools: [Read, Grep, Glob]\n")
-	} else if len(agent.Tools) > 0 {
-		fmt.Fprintf(&sb, "tools: [%s]\n", strings.Join(agent.Tools, ", "))
-	}
-	if len(agent.DisallowedTools) > 0 {
-		fmt.Fprintf(&sb, "disallowedTools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
-	}
-	if len(agent.Skills) > 0 {
-		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
-	}
-	if len(agent.Rules) > 0 {
-		fmt.Fprintf(&sb, "rules: [%s]\n", strings.Join(agent.Rules, ", "))
-	}
-	if agent.PermissionMode != "" {
-		fmt.Fprintf(&sb, "permissionMode: %s\n", agent.PermissionMode)
-	}
-	if agent.Background != nil {
-		fmt.Fprintf(&sb, "background: %t\n", *agent.Background)
-	}
-	if agent.Isolation != "" {
-		fmt.Fprintf(&sb, "isolation: %s\n", agent.Isolation)
-	}
-	if agent.Color != "" {
-		fmt.Fprintf(&sb, "color: %s\n", agent.Color)
-	}
-	if agent.InitialPrompt != "" {
-		fmt.Fprintf(&sb, "initialPrompt: %s\n", agent.InitialPrompt)
-	}
-	if len(agent.Hooks) > 0 {
-		hooksYAML, err := yaml.Marshal(map[string]ast.HookConfig{"hooks": agent.Hooks})
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal agent hooks: %w", err)
-		}
-		sb.WriteString(string(hooksYAML))
-	}
-	if len(agent.MCPServers) > 0 {
-		mcpYAML, err := yaml.Marshal(map[string]map[string]ast.MCPConfig{"mcpServers": agent.MCPServers})
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal agent mcpServers: %w", err)
-		}
-		sb.WriteString(string(mcpYAML))
+	appendAgentCoreMeta(&sb, agent)
+	appendAgentToolsMeta(&sb, agent)
+	appendAgentConfigMeta(&sb, agent)
+
+	if err := appendAgentYAMLMeta(&sb, agent); err != nil {
+		return "", err
 	}
 
 	sb.WriteString("---\n")
 
-	// --- Body ---
 	if body != "" {
 		sb.WriteString("\n")
 		sb.WriteString(strings.TrimRight(body, "\n"))
@@ -269,67 +204,98 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 	return sb.String(), nil
 }
 
+func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
+	if agent.Name != "" {
+		fmt.Fprintf(sb, "name: %s\n", agent.Name)
+	}
+	if agent.Description != "" {
+		fmt.Fprintf(sb, "description: %s\n", agent.Description)
+	}
+	if agent.Model != "" {
+		fmt.Fprintf(sb, "model: %s\n", agent.Model)
+	}
+	if agent.Effort != "" {
+		fmt.Fprintf(sb, "effort: %s\n", agent.Effort)
+	}
+	if agent.Memory != "" {
+		fmt.Fprintf(sb, "memory: %s\n", agent.Memory)
+	}
+	if agent.MaxTurns > 0 {
+		fmt.Fprintf(sb, "maxTurns: %d\n", agent.MaxTurns)
+	}
+}
+
+func appendAgentToolsMeta(sb *strings.Builder, agent ast.AgentConfig) {
+	if agent.Readonly != nil && *agent.Readonly && len(agent.Tools) == 0 {
+		sb.WriteString("tools: [Read, Grep, Glob]\n")
+	} else if len(agent.Tools) > 0 {
+		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(agent.Tools, ", "))
+	}
+	if len(agent.DisallowedTools) > 0 {
+		fmt.Fprintf(sb, "disallowedTools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
+	}
+	if len(agent.Skills) > 0 {
+		fmt.Fprintf(sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
+	}
+	if len(agent.Rules) > 0 {
+		fmt.Fprintf(sb, "rules: [%s]\n", strings.Join(agent.Rules, ", "))
+	}
+}
+
+func appendAgentConfigMeta(sb *strings.Builder, agent ast.AgentConfig) {
+	if agent.PermissionMode != "" {
+		fmt.Fprintf(sb, "permissionMode: %s\n", agent.PermissionMode)
+	}
+	if agent.Background != nil {
+		fmt.Fprintf(sb, "background: %t\n", *agent.Background)
+	}
+	if agent.Isolation != "" {
+		fmt.Fprintf(sb, "isolation: %s\n", agent.Isolation)
+	}
+	if agent.Color != "" {
+		fmt.Fprintf(sb, "color: %s\n", agent.Color)
+	}
+	if agent.InitialPrompt != "" {
+		fmt.Fprintf(sb, "initialPrompt: %s\n", agent.InitialPrompt)
+	}
+}
+
+func appendAgentYAMLMeta(sb *strings.Builder, agent ast.AgentConfig) error {
+	if len(agent.Hooks) > 0 {
+		hooksYAML, err := yaml.Marshal(map[string]ast.HookConfig{"hooks": agent.Hooks})
+		if err != nil {
+			return fmt.Errorf("failed to marshal agent hooks: %w", err)
+		}
+		sb.WriteString(string(hooksYAML))
+	}
+	if len(agent.MCPServers) > 0 {
+		mcpYAML, err := yaml.Marshal(map[string]map[string]ast.MCPConfig{"mcpServers": agent.MCPServers})
+		if err != nil {
+			return fmt.Errorf("failed to marshal agent mcpServers: %w", err)
+		}
+		sb.WriteString(string(mcpYAML))
+	}
+	return nil
+}
+
 // compileSkillMarkdown renders a single SkillConfig to its SKILL.md content.
 func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("skill id must not be empty")
 	}
 
-	body, err := resolveInstructions(
-		skill.Instructions,
-		skill.InstructionsFile,
-		fmt.Sprintf("skills/%s/SKILL.md", id), // convention: skills/<id>/SKILL.md
-		baseDir,
-	)
+	body, err := resolveInstructions(skill.Instructions, skill.InstructionsFile, fmt.Sprintf("skills/%s/SKILL.md", id), baseDir)
 	if err != nil {
 		return "", err
 	}
 
 	var sb strings.Builder
-
 	sb.WriteString("---\n")
-	if skill.Name != "" {
-		fmt.Fprintf(&sb, "name: %s\n", skill.Name)
-	}
-	if skill.Type != "" {
-		fmt.Fprintf(&sb, "type: %s\n", skill.Type)
-	}
-	if skill.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", skill.Description)
-	}
-	if len(skill.Tools) > 0 {
-		fmt.Fprintf(&sb, "tools: [%s]\n", strings.Join(skill.Tools, ", "))
-	}
-	if len(skill.AllowedTools) > 0 {
-		fmt.Fprintf(&sb, "allowed-tools: [%s]\n", strings.Join(skill.AllowedTools, ", "))
-	}
-	if len(skill.Paths) > 0 {
-		fmt.Fprintf(&sb, "paths: [%s]\n", strings.Join(skill.Paths, ", "))
-	}
-	if skill.DisableModelInvocation != nil {
-		fmt.Fprintf(&sb, "disable-model-invocation: %t\n", *skill.DisableModelInvocation)
-	}
-	if skill.UserInvocable != nil {
-		fmt.Fprintf(&sb, "user-invocable: %t\n", *skill.UserInvocable)
-	}
-	if skill.Context != "" {
-		fmt.Fprintf(&sb, "context: %s\n", skill.Context)
-	}
-	if skill.Agent != "" {
-		fmt.Fprintf(&sb, "agent: %s\n", skill.Agent)
-	}
-	if skill.Model != "" {
-		fmt.Fprintf(&sb, "model: %s\n", skill.Model)
-	}
-	if skill.Effort != "" {
-		fmt.Fprintf(&sb, "effort: %s\n", skill.Effort)
-	}
-	if skill.Shell != "" {
-		fmt.Fprintf(&sb, "shell: %s\n", skill.Shell)
-	}
-	if skill.ArgumentHint != "" {
-		fmt.Fprintf(&sb, "argument-hint: %s\n", skill.ArgumentHint)
-	}
+
+	appendSkillCoreMeta(&sb, skill)
+	appendSkillConfigMeta(&sb, skill)
+	appendSkillAgentMeta(&sb, skill)
+
 	if len(skill.Hooks) > 0 {
 		hooksYAML, err := yaml.Marshal(map[string]ast.HookConfig{"hooks": skill.Hooks})
 		if err != nil {
@@ -346,6 +312,57 @@ func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (str
 	}
 
 	return sb.String(), nil
+}
+
+func appendSkillCoreMeta(sb *strings.Builder, skill ast.SkillConfig) {
+	if skill.Name != "" {
+		fmt.Fprintf(sb, "name: %s\n", skill.Name)
+	}
+	if skill.Type != "" {
+		fmt.Fprintf(sb, "type: %s\n", skill.Type)
+	}
+	if skill.Description != "" {
+		fmt.Fprintf(sb, "description: %s\n", skill.Description)
+	}
+	if len(skill.Tools) > 0 {
+		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(skill.Tools, ", "))
+	}
+	if len(skill.AllowedTools) > 0 {
+		fmt.Fprintf(sb, "allowed-tools: [%s]\n", strings.Join(skill.AllowedTools, ", "))
+	}
+	if len(skill.Paths) > 0 {
+		fmt.Fprintf(sb, "paths: [%s]\n", strings.Join(skill.Paths, ", "))
+	}
+}
+
+func appendSkillConfigMeta(sb *strings.Builder, skill ast.SkillConfig) {
+	if skill.DisableModelInvocation != nil {
+		fmt.Fprintf(sb, "disable-model-invocation: %t\n", *skill.DisableModelInvocation)
+	}
+	if skill.UserInvocable != nil {
+		fmt.Fprintf(sb, "user-invocable: %t\n", *skill.UserInvocable)
+	}
+	if skill.Context != "" {
+		fmt.Fprintf(sb, "context: %s\n", skill.Context)
+	}
+	if skill.Shell != "" {
+		fmt.Fprintf(sb, "shell: %s\n", skill.Shell)
+	}
+	if skill.ArgumentHint != "" {
+		fmt.Fprintf(sb, "argument-hint: %s\n", skill.ArgumentHint)
+	}
+}
+
+func appendSkillAgentMeta(sb *strings.Builder, skill ast.SkillConfig) {
+	if skill.Agent != "" {
+		fmt.Fprintf(sb, "agent: %s\n", skill.Agent)
+	}
+	if skill.Model != "" {
+		fmt.Fprintf(sb, "model: %s\n", skill.Model)
+	}
+	if skill.Effort != "" {
+		fmt.Fprintf(sb, "effort: %s\n", skill.Effort)
+	}
 }
 
 // compileSkillReferences copies reference files into the skill's output directory.
@@ -450,56 +467,40 @@ func compileHooksJSON(hooks ast.HookConfig) (string, error) {
 //     meaningful content, to avoid writing a useless "{}".
 //   - The $schema key is always emitted first when there is content.
 func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.SettingsConfig) (string, error) {
-	// Build the mcpServers map: start with shorthand, then overlay settings.
+	out := map[string]any{
+		"$schema": "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json",
+	}
+
+	populateSettingsCore(out, settings)
+	populateSettingsFeatures(out, settings)
+	populateSettingsDev(out, settings)
+	populateSettingsAgent(out, settings)
+	populateSettingsSystem(out, settings)
+
 	mcpServers := make(map[string]ast.MCPConfig)
 	for k, v := range mcpShorthand {
 		mcpServers[k] = v
 	}
 	for k, v := range settings.MCPServers {
-		mcpServers[k] = v // settings block takes precedence
+		mcpServers[k] = v
+	}
+	if len(mcpServers) > 0 {
+		out["mcpServers"] = mcpServers
 	}
 
-	// Determine if there is any content to emit at all.
-	hasContent := len(mcpServers) > 0 ||
-		len(settings.Env) > 0 ||
-		settings.StatusLine != nil ||
-		len(settings.EnabledPlugins) > 0 ||
-		settings.AlwaysThinkingEnabled != nil ||
-		settings.EffortLevel != "" ||
-		settings.SkipDangerousModePermissionPrompt != nil ||
-		settings.Permissions != nil ||
-		settings.Sandbox != nil ||
-		settings.OtelHeadersHelper != "" ||
-		settings.DisableAllHooks != nil ||
-		settings.Attribution != nil ||
-		len(settings.Hooks) > 0 ||
-		settings.Model != "" ||
-		settings.OutputStyle != "" ||
-		settings.Language != "" ||
-		settings.IncludeGitInstructions != nil ||
-		settings.DisableSkillShellExecution != nil ||
-		settings.Agent != nil ||
-		settings.AutoMode != nil ||
-		settings.DefaultShell != "" ||
-		settings.CleanupPeriodDays != nil ||
-		len(settings.AvailableModels) > 0 ||
-		settings.RespectGitignore != nil ||
-		settings.PlansDirectory != "" ||
-		settings.Worktree != nil ||
-		len(settings.ClaudeMdExcludes) > 0 ||
-		settings.AutoMemoryEnabled != nil ||
-		settings.AutoMemoryDirectory != ""
-
-	if !hasContent {
+	// len(out) == 1 means only $schema is present
+	if len(out) <= 1 {
 		return "", nil
 	}
 
-	// Build the output map manually so we can control key ordering and omit
-	// zero-value booleans cleanly. $schema is always first.
-	out := map[string]any{
-		"$schema": "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json",
+	b, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return "", err
 	}
+	return string(b), nil
+}
 
+func populateSettingsCore(out map[string]any, settings ast.SettingsConfig) {
 	if len(settings.Env) > 0 {
 		out["env"] = settings.Env
 	}
@@ -509,6 +510,12 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	if len(settings.EnabledPlugins) > 0 {
 		out["enabledPlugins"] = settings.EnabledPlugins
 	}
+	if settings.Permissions != nil {
+		out["permissions"] = settings.Permissions
+	}
+}
+
+func populateSettingsFeatures(out map[string]any, settings ast.SettingsConfig) {
 	if settings.AlwaysThinkingEnabled != nil {
 		out["alwaysThinkingEnabled"] = *settings.AlwaysThinkingEnabled
 	}
@@ -518,12 +525,15 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	if settings.SkipDangerousModePermissionPrompt != nil {
 		out["skipDangerousModePermissionPrompt"] = *settings.SkipDangerousModePermissionPrompt
 	}
-	if settings.Permissions != nil {
-		out["permissions"] = settings.Permissions
-	}
 	if settings.Sandbox != nil {
 		out["sandbox"] = settings.Sandbox
 	}
+	if len(settings.Hooks) > 0 {
+		out["hooks"] = settings.Hooks
+	}
+}
+
+func populateSettingsDev(out map[string]any, settings ast.SettingsConfig) {
 	if settings.OtelHeadersHelper != "" {
 		out["otelHeadersHelper"] = settings.OtelHeadersHelper
 	}
@@ -533,26 +543,17 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	if settings.Attribution != nil {
 		out["attribution"] = *settings.Attribution
 	}
-	if len(mcpServers) > 0 {
-		out["mcpServers"] = mcpServers
-	}
-	if len(settings.Hooks) > 0 {
-		out["hooks"] = settings.Hooks
-	}
-	if settings.Model != "" {
-		out["model"] = settings.Model
-	}
 	if settings.OutputStyle != "" {
 		out["outputStyle"] = settings.OutputStyle
 	}
 	if settings.Language != "" {
 		out["language"] = settings.Language
 	}
-	if settings.IncludeGitInstructions != nil {
-		out["includeGitInstructions"] = *settings.IncludeGitInstructions
-	}
-	if settings.DisableSkillShellExecution != nil {
-		out["disableSkillShellExecution"] = *settings.DisableSkillShellExecution
+}
+
+func populateSettingsAgent(out map[string]any, settings ast.SettingsConfig) {
+	if settings.Model != "" {
+		out["model"] = settings.Model
 	}
 	if settings.Agent != nil {
 		out["agent"] = settings.Agent
@@ -560,14 +561,29 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	if settings.AutoMode != nil {
 		out["autoMode"] = settings.AutoMode
 	}
+	if len(settings.AvailableModels) > 0 {
+		out["availableModels"] = settings.AvailableModels
+	}
+	if settings.AutoMemoryEnabled != nil {
+		out["autoMemoryEnabled"] = *settings.AutoMemoryEnabled
+	}
+	if settings.AutoMemoryDirectory != "" {
+		out["autoMemoryDirectory"] = settings.AutoMemoryDirectory
+	}
+}
+
+func populateSettingsSystem(out map[string]any, settings ast.SettingsConfig) {
+	if settings.IncludeGitInstructions != nil {
+		out["includeGitInstructions"] = *settings.IncludeGitInstructions
+	}
+	if settings.DisableSkillShellExecution != nil {
+		out["disableSkillShellExecution"] = *settings.DisableSkillShellExecution
+	}
 	if settings.DefaultShell != "" {
 		out["defaultShell"] = settings.DefaultShell
 	}
 	if settings.CleanupPeriodDays != nil {
 		out["cleanupPeriodDays"] = *settings.CleanupPeriodDays
-	}
-	if len(settings.AvailableModels) > 0 {
-		out["availableModels"] = settings.AvailableModels
 	}
 	if settings.RespectGitignore != nil {
 		out["respectGitignore"] = *settings.RespectGitignore
@@ -581,16 +597,4 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	if len(settings.ClaudeMdExcludes) > 0 {
 		out["claudeMdExcludes"] = settings.ClaudeMdExcludes
 	}
-	if settings.AutoMemoryEnabled != nil {
-		out["autoMemoryEnabled"] = *settings.AutoMemoryEnabled
-	}
-	if settings.AutoMemoryDirectory != "" {
-		out["autoMemoryDirectory"] = settings.AutoMemoryDirectory
-	}
-
-	b, err := json.MarshalIndent(out, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
 }

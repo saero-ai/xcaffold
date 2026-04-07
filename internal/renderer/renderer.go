@@ -1,6 +1,6 @@
 // Package renderer defines the TargetRenderer interface and the Registry that
 // maps target names to their renderer implementations. This is the extension
-// point for adding new output targets (e.g. cursor, gemini) without modifying
+// point for adding new output targets (e.g. cursor, antigravity) without modifying
 // the compiler core.
 package renderer
 

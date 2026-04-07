@@ -167,31 +167,31 @@ func TestCompile_CursorTarget_RulesUseMdc(t *testing.T) {
 	assert.True(t, ok, "Cursor rules should use .mdc extension")
 }
 
-func TestCompile_GeminiTarget_Supported(t *testing.T) {
+func TestCompile_AntigravityTarget_Supported(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"test": {Description: "Test", Instructions: "Test rule."},
 		},
 	}
-	out, err := Compile(config, "", "gemini")
+	out, err := Compile(config, "", "antigravity")
 	require.NoError(t, err)
 	assert.NotEmpty(t, out.Files)
 }
 
-func TestCompile_GeminiTarget_RulesNoFrontmatter(t *testing.T) {
+func TestCompile_AntigravityTarget_RulesNoFrontmatter(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Rules: map[string]ast.RuleConfig{
 			"style": {Description: "Style", Instructions: "Format code."},
 		},
 	}
-	out, err := Compile(config, "", "gemini")
+	out, err := Compile(config, "", "antigravity")
 	require.NoError(t, err)
 	content, ok := out.Files["rules/style.md"]
 	assert.True(t, ok)
 	assert.NotContains(t, content, "---")
 }
 
-func TestCompile_GeminiTarget_AgentsExcluded(t *testing.T) {
+func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Agents: map[string]ast.AgentConfig{
 			"reviewer": {Name: "Reviewer", Instructions: "Review."},
@@ -200,7 +200,7 @@ func TestCompile_GeminiTarget_AgentsExcluded(t *testing.T) {
 			"test": {Instructions: "Test."},
 		},
 	}
-	out, err := Compile(config, "", "gemini")
+	out, err := Compile(config, "", "antigravity")
 	require.NoError(t, err)
 	// Only rule should appear, not agent
 	assert.Len(t, out.Files, 1)
