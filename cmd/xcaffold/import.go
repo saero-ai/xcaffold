@@ -11,6 +11,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/bir"
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/translator"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
@@ -201,6 +202,10 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcfDest, importCount)
 	fmt.Println("  Instructions referenced in-place — zero file duplication.")
 	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
+
+	cwd, _ := os.Getwd()
+	_ = registry.Register(cwd, config.Project.Name, nil)
+
 	if len(warnings) > 0 {
 		fmt.Println("\nWarnings:")
 		for _, w := range warnings {
@@ -300,7 +305,7 @@ func extractAgents(claudeDir, extractBase, scopeName string, config *ast.Xcaffol
 		}
 		// Reference the file directly where it lives
 		destPath := filepath.ToSlash(f) // Make sure to use reliable path separators
-		
+
 		agentCfg := ast.AgentConfig{Description: "Imported agent", InstructionsFile: destPath}
 		if fm, ok := extractFrontmatter(data); ok {
 			_ = yaml.Unmarshal(fm, &agentCfg)
@@ -327,7 +332,7 @@ func extractSkills(claudeDir, extractBase, scopeName string, config *ast.Xcaffol
 			continue
 		}
 		destPath := filepath.ToSlash(f)
-		
+
 		refs, err := extractSkillRefs(f, extractBase, scopeName, id, warnings)
 		if err != nil {
 			return err
@@ -736,6 +741,9 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 		xcfDest, importCount, len(dirs))
 	fmt.Println("  Instructions referenced in-place — zero file duplication.")
 	fmt.Println("  Run 'xcaffold apply' when ready to compile to your target platforms.")
+
+	cwd, _ := os.Getwd()
+	_ = registry.Register(cwd, config.Project.Name, nil)
 
 	if len(warnings) > 0 {
 		fmt.Println("\nWarnings:")

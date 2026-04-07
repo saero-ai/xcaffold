@@ -70,7 +70,7 @@ func TestRunApply_ScopeGlobal(t *testing.T) {
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	globalXcfPath = xcf
-	globalClaudeDir = filepath.Join(dir, ".claude")
+	globalXcfHome = filepath.Join(dir, ".claude")
 	globalLockPath = filepath.Join(dir, "scaffold.lock")
 	scopeFlag = "global"
 
@@ -95,7 +95,7 @@ func TestRunApply_ScopeAll(t *testing.T) {
 	lockPath = filepath.Join(dir, "proj-scaffold.lock")
 
 	globalXcfPath = globalXCF
-	globalClaudeDir = filepath.Join(dir, "global-claude")
+	globalXcfHome = filepath.Join(dir, "global-claude")
 	globalLockPath = filepath.Join(dir, "global-scaffold.lock")
 
 	scopeFlag = "all"

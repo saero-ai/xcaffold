@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/charmbracelet/huh"
 )
 
 // P is a prompt session bound to specific input/output streams.
@@ -17,6 +19,13 @@ import (
 type P struct {
 	in  *bufio.Reader
 	out io.Writer
+}
+
+// SelectOption represents a single item in a multi-select list.
+type SelectOption struct {
+	Label    string // Display label (e.g., ".claude — 12 agent(s)")
+	Value    string // Machine value (e.g., ".claude")
+	Selected bool   // Pre-selected by default?
 }
 
 // New creates a prompt session reading from r and writing to w.
@@ -76,6 +85,36 @@ func (p *P) Confirm(question string, defaultYes bool) (bool, error) {
 	}
 }
 
+// MultiSelect presents an interactive checkbox selector using arrow keys
+// and space/x to toggle. Returns the selected values. All options with
+// Selected=true are pre-checked.
+func (p *P) MultiSelect(title string, options []SelectOption) ([]string, error) {
+	var huhOpts []huh.Option[string]
+	for _, o := range options {
+		huhOpts = append(huhOpts, huh.NewOption(o.Label, o.Value))
+	}
+
+	// Pre-select defaults
+	var selected []string
+	for _, o := range options {
+		if o.Selected {
+			selected = append(selected, o.Value)
+		}
+	}
+
+	ms := huh.NewMultiSelect[string]().
+		Title(title).
+		Options(huhOpts...).
+		Value(&selected)
+
+	form := huh.NewForm(huh.NewGroup(ms))
+	if err := form.Run(); err != nil {
+		return nil, err
+	}
+
+	return selected, nil
+}
+
 // Ask is a package-level convenience that calls Ask on the default
 // (os.Stdin / os.Stdout) session.
 func Ask(question, defaultVal string) (string, error) {
@@ -86,4 +125,10 @@ func Ask(question, defaultVal string) (string, error) {
 // default session.
 func Confirm(question string, defaultYes bool) (bool, error) {
 	return defaultPrompt.Confirm(question, defaultYes)
+}
+
+// MultiSelect is a package-level convenience that calls MultiSelect
+// on the default (os.Stdin / os.Stdout) session.
+func MultiSelect(title string, options []SelectOption) ([]string, error) {
+	return defaultPrompt.MultiSelect(title, options)
 }

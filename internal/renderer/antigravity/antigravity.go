@@ -17,6 +17,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 )
 
 const ruleCharLimit = 12000
@@ -111,14 +112,14 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (str
 		return "", fmt.Errorf("rule id must not be empty")
 	}
 
-	body, err := resolveFile(rule.Instructions, rule.InstructionsFile, baseDir)
+	body, err := resolver.ResolveInstructions(rule.Instructions, rule.InstructionsFile, "", baseDir)
 	if err != nil {
 		return "", err
 	}
 
 	var sb strings.Builder
 
-	body = stripFrontmatter(body)
+	body = resolver.StripFrontmatter(body)
 
 	// Prepend 12K warning comment before any other content if body is too long.
 	if len(body) > ruleCharLimit {
@@ -148,7 +149,7 @@ func compileAntigravitySkill(id string, skill ast.SkillConfig, baseDir string) (
 		return "", fmt.Errorf("skill id must not be empty")
 	}
 
-	body, err := resolveFile(skill.Instructions, skill.InstructionsFile, baseDir)
+	body, err := resolver.ResolveInstructions(skill.Instructions, skill.InstructionsFile, "", baseDir)
 	if err != nil {
 		return "", err
 	}
@@ -168,7 +169,7 @@ func compileAntigravitySkill(id string, skill ast.SkillConfig, baseDir string) (
 	if body != "" {
 		sb.WriteString("\n")
 		// Strip any inner frontmatter the user might have accidentally provided inline
-		sb.WriteString(strings.TrimRight(stripFrontmatter(body), "\n"))
+		sb.WriteString(strings.TrimRight(resolver.StripFrontmatter(body), "\n"))
 		sb.WriteString("\n")
 	}
 
@@ -181,7 +182,7 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 		return "", fmt.Errorf("workflow id must not be empty")
 	}
 
-	body, err := resolveFile(wf.Instructions, wf.InstructionsFile, baseDir)
+	body, err := resolver.ResolveInstructions(wf.Instructions, wf.InstructionsFile, "", baseDir)
 	if err != nil {
 		return "", err
 	}
@@ -199,7 +200,7 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 	if body != "" {
 		sb.WriteString("\n")
 		// Strip any inner frontmatter
-		sb.WriteString(strings.TrimRight(stripFrontmatter(body), "\n"))
+		sb.WriteString(strings.TrimRight(resolver.StripFrontmatter(body), "\n"))
 		sb.WriteString("\n")
 	}
 
@@ -211,44 +212,9 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 // Priority (highest to lowest):
 //  1. inline    — the "instructions:" YAML field
 //  2. filePath  — the "instructions_file:" YAML field (read from disk, frontmatter stripped)
-func resolveFile(inline, filePath, baseDir string) (string, error) {
-	if inline != "" {
-		return inline, nil
-	}
-	if filePath != "" {
-		cleaned := filepath.Clean(filePath)
-		if strings.HasPrefix(cleaned, "..") {
-			return "", fmt.Errorf("instructions_file must be a relative path inside the project: %q traverses above the project root", filePath)
-		}
-		abs := filepath.Join(baseDir, cleaned)
-		data, err := os.ReadFile(abs)
-		if err != nil {
-			return "", fmt.Errorf("instructions_file %q: %w", filePath, err)
-		}
-		return stripFrontmatter(string(data)), nil
-	}
-	return "", nil
-}
 
 // stripFrontmatter removes YAML frontmatter delimited by "---" from the start
 // of a markdown file, returning only the body content with leading newlines trimmed.
-func stripFrontmatter(content string) string {
-	content = strings.ReplaceAll(content, "\r\n", "\n")
-	lines := strings.SplitN(content, "\n", -1)
-
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
-		return strings.TrimLeft(content, "\n")
-	}
-
-	for i := 1; i < len(lines); i++ {
-		if strings.TrimSpace(lines[i]) == "---" {
-			body := strings.Join(lines[i+1:], "\n")
-			return strings.TrimLeft(body, "\n")
-		}
-	}
-
-	return strings.TrimLeft(content, "\n")
-}
 
 // yamlScalar quotes a string value for safe inclusion in YAML if it contains
 // characters that would otherwise need quoting. For simple values it returns

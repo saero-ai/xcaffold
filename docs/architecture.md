@@ -6,6 +6,12 @@
 
 ```mermaid
 graph LR
+  subgraph Global Home ["~/.xcaffold/"]
+    R[projects.yaml]
+    GC[global.xcf]
+    CF[config.yaml]
+  end
+
   subgraph User Codebase
     A[scaffold.xcf]
   end
@@ -25,6 +31,8 @@ graph LR
     J["<target_dir>/hooks.json"]
   end
 
+  R -.->|registry lookup| A
+  GC -->|"--scope global"| B
   A --> B
   B --> C
   C --> E
@@ -104,4 +112,6 @@ These inline architecture decisions record the reasoning behind strict implement
 **Decision:** Skills compile to `skills/<id>/SKILL.md` (directory structure), not `skills/<id>.md` (flat files).
 **Why:** Target platforms (like Claude Code) expect skills in directories. Real skills have `references/` subdirectories with supplementary documents. The directory structure allows future `references:` support.
 
-
+### 6. Centralized Global Home (`~/.xcaffold/`)
+**Decision:** All xcaffold global state lives in `~/.xcaffold/`, not coupled to any single platform directory.
+**Why:** The previous `~/.claude/` location coupled xcaffold to one platform target. A neutral home directory allows cross-platform registry, user preferences, and future profile support without target bias.

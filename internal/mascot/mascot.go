@@ -143,7 +143,7 @@ func PrintBanner() {
 		fmt.Sprintf("          %s", "xcaffold init"),
 		fmt.Sprintf("          %s", "The deterministic agent configuration compiler."),
 		fmt.Sprintf("          %s", "──────────────────────────────────────────────────"),
-		fmt.Sprintf(""),
+		"",
 		fmt.Sprintf("          %s", "Welcome! Let's scaffold your agents."),
 	}
 

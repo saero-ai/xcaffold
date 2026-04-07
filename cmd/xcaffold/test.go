@@ -20,7 +20,7 @@ var (
 	testAgentFlag      string
 	testJudgeFlag      bool
 	testOutputFlag     string
-	testClaudePathFlag string
+	testCliPathFlag    string
 	testJudgeModelFlag string
 )
 
@@ -37,8 +37,9 @@ var testCmd = &cobra.Command{
  • 📝 Outputs a trace.jsonl detailing every tool call the agent attempted
 
 Prerequisites:
-  - The 'claude' binary must be available on $PATH (or set test.claude_path in scaffold.xcf).
-  - Set ANTHROPIC_API_KEY in your environment.
+  - The target CLI binary (e.g. 'claude', 'cursor', 'gemini') must be available on $PATH
+    (or set test.cli_path in scaffold.xcf).
+  - Set ANTHROPIC_API_KEY or XCAFFOLD_LLM_API_KEY in your environment for the judge.
 
 Usage:
   $ xcaffold test --agent backend-dev
@@ -53,7 +54,7 @@ func init() {
 	testCmd.Flags().StringVarP(&testAgentFlag, "agent", "a", "", "Agent ID to simulate (required)")
 	testCmd.Flags().BoolVar(&testJudgeFlag, "judge", false, "Run LLM-as-a-Judge evaluation after simulation")
 	testCmd.Flags().StringVarP(&testOutputFlag, "output", "o", "trace.jsonl", "Path to write the execution trace")
-	testCmd.Flags().StringVar(&testClaudePathFlag, "claude-path", "", "Path to claude binary (overrides scaffold.xcf test.claude_path)")
+	testCmd.Flags().StringVar(&testCliPathFlag, "cli-path", "", "Path to underlying CLI binary (overrides scaffold.xcf test.cli_path)")
 	testCmd.Flags().StringVar(&testJudgeModelFlag, "judge-model", "", "Anthropic model for the judge (overrides scaffold.xcf test.judge_model)")
 
 	_ = testCmd.MarkFlagRequired("agent")
@@ -72,8 +73,8 @@ func runTest(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("agent %q not found in scaffold.xcf", testAgentFlag)
 	}
 
-	// 2. Resolve the claude binary path (flag > xcf > PATH).
-	claudePath := resolveClaudePath(config.Test.ClaudePath)
+	// 2. Resolve the CLI binary path (flag > xcf > PATH).
+	cliPath := resolveCliPath(config.Test.CliPath, config.Test.ClaudePath)
 
 	// 3. Set up trace file.
 	traceFile, err := os.Create(filepath.Clean(testOutputFlag))
@@ -98,21 +99,21 @@ func runTest(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ Intercept proxy started at %s\n", proxyServer.Addr())
 	fmt.Printf("  Trace output: %s\n\n", testOutputFlag)
 
-	// 5. Spawn the claude subprocess with HTTPS_PROXY set.
-	claudeCmd := exec.Command(claudePath, "--agent", testAgentFlag) //nolint:gosec
-	claudeCmd.Stdout = os.Stdout
-	claudeCmd.Stderr = os.Stderr
-	claudeCmd.Env = append(os.Environ(),
+	// 5. Spawn the target CLI subprocess with HTTPS_PROXY set.
+	cliCmd := exec.Command(cliPath, "--agent", testAgentFlag) //nolint:gosec
+	cliCmd.Stdout = os.Stdout
+	cliCmd.Stderr = os.Stderr
+	cliCmd.Env = append(os.Environ(),
 		"HTTPS_PROXY="+proxyServer.ProxyURL(),
 		"HTTP_PROXY="+proxyServer.ProxyURL(),
 	)
 
-	fmt.Printf("▶ Running: %s --agent %s\n\n", claudePath, testAgentFlag)
+	fmt.Printf("▶ Running: %s --agent %s\n\n", cliPath, testAgentFlag)
 
-	if err := claudeCmd.Run(); err != nil {
-		// Non-zero exit from claude is surfaced as a warning, not a fatal error,
+	if err := cliCmd.Run(); err != nil {
+		// Non-zero exit from subprocess is surfaced as a warning, not a fatal error,
 		// so we can still print the trace summary and run the judge.
-		fmt.Fprintf(os.Stderr, "\nWarning: claude exited with error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "\nWarning: target CLI exited with error: %v\n", err)
 	}
 
 	proxyServer.Close()
@@ -124,7 +125,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// 7. Optional: Run LLM-as-a-Judge.
 	if testJudgeFlag {
-		if err := runJudge(summary, agentConfig.Assertions, config.Test.JudgeModel, claudePath); err != nil {
+		if err := runJudge(summary, agentConfig.Assertions, config.Test.JudgeModel, cliPath); err != nil {
 			return fmt.Errorf("judge evaluation failed: %w", err)
 		}
 	}
@@ -134,8 +135,8 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 // runJudge runs the LLM-as-a-Judge evaluation against the summary.
 // If ANTHROPIC_API_KEY is set it uses the direct API; otherwise it falls back
-// to the claude CLI subprocess using the user's subscription.
-func runJudge(summary trace.Summary, assertions []string, configModel, claudePath string) error {
+// to the underlying CLI subprocess using the user's subscription.
+func runJudge(summary trace.Summary, assertions []string, configModel, cliPath string) error {
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 	genericAPIKey := os.Getenv("XCAFFOLD_LLM_API_KEY")
 	genericAPIBase := os.Getenv("XCAFFOLD_LLM_BASE_URL")
@@ -153,7 +154,7 @@ func runJudge(summary trace.Summary, assertions []string, configModel, claudePat
 	}
 	fmt.Printf("  Assertions: %d\n\n", len(assertions))
 
-	j, err := judge.New(anthropicKey, genericAPIKey, genericAPIBase, model, claudePath, nil)
+	j, err := judge.New(anthropicKey, genericAPIKey, genericAPIBase, model, cliPath, nil)
 	if err != nil {
 		return err
 	}
@@ -184,14 +185,17 @@ func runJudge(summary trace.Summary, assertions []string, configModel, claudePat
 	return nil
 }
 
-// resolveClaudePath returns the effective path to the claude binary.
-// Priority: CLI flag > scaffold.xcf test.claude_path > fallback to "claude".
-func resolveClaudePath(xcfPath string) string {
-	if testClaudePathFlag != "" {
-		return testClaudePathFlag
+// resolveCliPath returns the effective path to the underlying CLI binary.
+// Priority: CLI flag > scaffold.xcf test.cli_path > default "claude".
+func resolveCliPath(cliPath, claudePath string) string {
+	if testCliPathFlag != "" {
+		return testCliPathFlag
 	}
-	if xcfPath != "" {
-		return xcfPath
+	if cliPath != "" {
+		return cliPath
+	}
+	if claudePath != "" {
+		return claudePath
 	}
 	return "claude"
 }

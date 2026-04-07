@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/spf13/cobra"
@@ -60,6 +61,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	if _, err := os.Stat(xcfFile); err == nil {
 		cmd.Println("  ✓ scaffold.xcf already exists. Nothing to do.")
 		cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold diff' to check for drift.")
+		tryAutoRegister(xcfFile)
 		return nil
 	}
 
@@ -79,6 +81,7 @@ func initProject(cmd *cobra.Command) error {
 	if _, err := os.Stat(xcfFile); err == nil {
 		cmd.Println("scaffold.xcf already exists. Nothing to do.")
 		cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold diff' to check for drift.")
+		tryAutoRegister(xcfFile)
 		return nil
 	}
 
@@ -91,6 +94,14 @@ func initProject(cmd *cobra.Command) error {
 
 	// ── Phase 3: Interactive wizard ─────────────────────────────────────────
 	return runWizard(cmd, xcfFile)
+}
+
+func tryAutoRegister(xcfFile string) {
+	config, err := parser.ParseFile(xcfFile)
+	if err == nil && config.Project.Name != "" {
+		cwd, _ := os.Getwd()
+		_ = registry.Register(cwd, config.Project.Name, nil)
+	}
 }
 
 // offerImportIfPlatformDirExists checks for existing platform directories (.claude/, .cursor/, .agents/).
@@ -459,46 +470,28 @@ func offerAnalyze(cmd *cobra.Command, target string) error {
 	return runAnalyze(cmd, nil)
 }
 
-// ── Global scope (unchanged behaviour) ────────────────────────────────────────
-
-// defaultGlobalXCFContent is the starter template for `xcaffold init --scope global`.
-const defaultGlobalXCFContent = `version: "1.0"
-project:
-  name: "global"
-  description: "User-wide agent configuration."
-
-# Agents defined here are available across all projects.
-# Project-level scaffold.xcf can inherit with 'extends: global'.
-agents:
-  developer:
-    description: "Default developer agent."
-    instructions: |
-      You are a software developer.
-      Write clean, maintainable code.
-    model: "claude-sonnet-4-6"
-    effort: "high"
-    tools: [Bash, Read, Write, Edit, Glob, Grep]
-`
+// ── Global scope ────────────────────────────────────────
 
 func initGlobal() error {
-	home, err := os.UserHomeDir()
+	home, err := registry.GlobalHome()
 	if err != nil {
-		return fmt.Errorf("could not determine home directory: %w", err)
+		return err
 	}
-	dir := filepath.Join(home, ".xcaffold")
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create %s: %w", dir, err)
+	target := filepath.Join(home, "global.xcf")
+
+	// Re-scan global platform dirs every time --scope global is explicit.
+	// This lets users refresh global.xcf after adding new agents to ~/.claude/ etc.
+	if err := registry.RebuildGlobalXCF(); err != nil {
+		return fmt.Errorf("failed to rebuild global.xcf: %w", err)
 	}
-	target := filepath.Join(dir, "global.xcf")
+
 	if _, err := os.Stat(target); err == nil {
-		return fmt.Errorf("%s already exists; delete it first if you want to re-initialize", target)
+		fmt.Printf("✓ %s rebuilt from global platform directories.\n", target)
+	} else {
+		fmt.Printf("✓ %s created.\n", target)
 	}
-	if err := os.WriteFile(target, []byte(defaultGlobalXCFContent), 0600); err != nil {
-		return fmt.Errorf("failed to create %s: %w", target, err)
-	}
-	fmt.Printf("Created %s\n", target)
 	fmt.Println("  Edit it to define your global agents, then run 'xcaffold apply --scope global'.")
 	fmt.Println("  Projects can inherit with 'extends: global' in their scaffold.xcf.")
-	fmt.Println("  Note: global.xcf is stored in ~/.xcaffold/ (the xcaffold home), but output goes to the target-specific directory.")
+	fmt.Printf("  Output: ~/.claude/ | ~/.cursor/ | ~/.agents/ (depending on --target)\n")
 	return nil
 }

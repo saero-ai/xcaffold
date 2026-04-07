@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
-	"strings"
 )
 
 var applyDryRun bool
+var applyCheckOnly bool
 var targetFlag string
 
 const (
@@ -26,7 +28,7 @@ const (
 var applyCmd = &cobra.Command{
 	Use:   "apply",
 	Short: "Compile scaffold.xcf into .claude/ agent files",
-	Long: `xcaffold apply deterministically compiles your YAML logic into native Claude Code markdown objects.
+	Long: `xcaffold apply deterministically compiles your YAML logic into native target outputs.
 
 ┌───────────────────────────────────────────────────────────────────┐
 │                          COMPILATION PHASE                        │
@@ -37,22 +39,45 @@ var applyCmd = &cobra.Command{
 
  • Strict one-way generation (YAML -> MD)
  • Generates a cryptographic SHA-256 state manifest (scaffold.lock)
- • Automatically purges orphaned agents from .claude/ directory
+ • Automatically purges orphaned target files
 
-Any manually edited files inside .claude/ will be overwritten.`,
-	Example: "  $ xcaffold apply",
-	RunE:    runApply,
+Any manually edited files inside the target directory will be overwritten.
+
+Validation:
+ Use the --check flag to validate your YAML syntax without compiling.`,
+	Example: `  $ xcaffold apply
+  $ xcaffold apply --check`,
+	RunE: runApply,
 }
 
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
-	applyCmd.Flags().StringVar(&targetFlag, "target", "", "compilation target platform (claude, cursor, antigravity; default: claude)")
+	applyCmd.Flags().BoolVar(&applyCheckOnly, "check", false, "Check configuration syntax without compiling")
+	applyCmd.Flags().StringVar(&targetFlag, "target", targetClaude, "compilation target platform (claude, cursor, antigravity; default: claude)")
 	rootCmd.AddCommand(applyCmd)
 }
 
+const targetClaude = "claude"
+
 func runApply(cmd *cobra.Command, args []string) error {
+	if applyCheckOnly {
+		if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
+			if _, err := parser.ParseFile(globalXcfPath); err != nil {
+				return fmt.Errorf("[global] parse error: %w", err)
+			}
+			fmt.Println("[global] ✓ Syntax is valid")
+		}
+		if scopeFlag == scopeProject || scopeFlag == scopeAll {
+			if _, err := parser.ParseFile(xcfPath); err != nil {
+				return fmt.Errorf("[project] parse error: %w", err)
+			}
+			fmt.Println("[project] ✓ Syntax is valid")
+		}
+		return nil
+	}
+
 	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
-		if err := applyScope(globalXcfPath, globalClaudeDir, globalLockPath, scopeGlobal); err != nil {
+		if err := applyScope(globalXcfPath, globalXcfHome, globalLockPath, scopeGlobal); err != nil {
 			return err
 		}
 	}
@@ -60,6 +85,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 		if err := applyScope(xcfPath, claudeDir, lockPath, scopeProject); err != nil {
 			return err
 		}
+		_ = registry.UpdateLastApplied(filepath.Dir(xcfPath))
 	}
 	return nil
 }
@@ -93,7 +119,7 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 
 	if applyDryRun {
 		fmt.Printf("[%s] Dry-run preview (no files will be written):\n\n", scopeName)
-	} else if targetFlag == "" || targetFlag == "claude" {
+	} else if targetFlag == "" || targetFlag == targetClaude {
 		// Pre-create baseline subdirectories exclusively for the Claude format contract.
 		for _, subdir := range []string{"agents", "skills", "rules"} {
 			if err := os.MkdirAll(filepath.Join(outputDir, subdir), 0755); err != nil {
@@ -126,6 +152,12 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	}
 
 	fmt.Printf("\n[%s] ✓ Apply complete. %s updated.\n", scopeName, filepath.Base(targetLockFile))
+
+	// Ensure the project is registered and the timestamp is updated.
+	cwd, _ := os.Getwd()
+	_ = registry.Register(cwd, config.Project.Name, nil)
+	_ = registry.UpdateLastApplied(cwd)
+
 	return nil
 }
 

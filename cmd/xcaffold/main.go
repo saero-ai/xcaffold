@@ -62,15 +62,17 @@ var rootCmd = &cobra.Command{
  ┌───────────────────────────────────────────────────────────────────┐
  │                            UTILITIES                              │
  └───────────────────────────────────────────────────────────────────┘
-  • Review      [xcaffold review]  Universally parses state files
+  • Review      [xcaffold review]    Universally parses state files
     ↳ Supports: scaffold.xcf, audit.json, plan.json, trace.jsonl
     ↳ Try: 'xcaffold review all'
+  • Registry    [xcaffold list]      Lists all managed projects
+  • Migration   [xcaffold migrate]   Upgrades legacy layouts
 
  ┌───────────────────────────────────────────────────────────────────┐
  │                           SCOPES                                  │
  └───────────────────────────────────────────────────────────────────┘
-  • Project  [default]         scaffold.xcf  -> .claude/ | .cursor/ | .agents/
-  • Global   [--scope global]  global.xcf    -> ~/.claude/ (source) | target dir (output)
+  • Project  [default]         scaffold.xcf           -> .claude/ | .cursor/ | .agents/
+  • Global   [--scope global]  ~/.xcaffold/global.xcf -> ~/.claude/ | ~/.cursor/ | ~/.agents/
   • Both     [--scope all]     Compiles both scopes
 
 Use 'xcaffold --help' for more information on available commands.`,
@@ -155,7 +157,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "list" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "list" || cmd.Name() == "migrate" {
 		return nil
 	}
 	var xcfAbs string
@@ -170,8 +172,9 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("could not determine working directory: %w", err)
 		}
-		
-		// Walk up to find scaffold.xcf
+
+		// Walk up to find scaffold.xcf (stops at $HOME)
+		home, _ := os.UserHomeDir()
 		curr := cwd
 		for {
 			candidate := filepath.Join(curr, "scaffold.xcf")
@@ -179,9 +182,13 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 				xcfAbs = candidate
 				break
 			}
+			if curr == home {
+				xcfAbs = filepath.Join(cwd, "scaffold.xcf") // fallback to allow error handling below
+				break
+			}
 			parent := filepath.Dir(curr)
 			if parent == curr {
-				xcfAbs = filepath.Join(cwd, "scaffold.xcf") // fallback to allow error handling below
+				xcfAbs = filepath.Join(cwd, "scaffold.xcf")
 				break
 			}
 			curr = parent

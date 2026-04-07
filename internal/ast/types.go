@@ -219,10 +219,10 @@ type SettingsConfig struct {
 
 // TestConfig holds project-level configuration for `xcaffold test`.
 type TestConfig struct {
-	// LLMClient is the path to the LLM CLI binary (e.g., claude, cursor). Defaults to "claude" on $PATH.
-	LLMClient string `yaml:"llm_client,omitempty"`
+	// CliPath is the path to the CLI binary (e.g., claude, cursor). Defaults to "claude" on $PATH.
+	CliPath string `yaml:"cli_path,omitempty"`
 
-	// ClaudePath is deprecated in favor of LLMClient but retained for backward compatibility.
+	// ClaudePath is deprecated in favor of CliPath but retained for backward compatibility.
 	ClaudePath string `yaml:"claude_path,omitempty"`
 
 	// JudgeModel is the generative model used for LLM-as-a-Judge evaluation.

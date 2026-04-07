@@ -6,13 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Centralized architecture overhaul (Phase 1): Introduced `~/.xcaffold/` as the global home registry for project tracking.
-- `xcaffold list` command: Displays all managed projects and their metadata from the central registry.
-- Cross-project querying: `xcaffold graph` now supports the `--project` flag to visualize targets from any location via registry lookup.
-- `xcaffold migrate` command: Auto-detects legacy flat-layout projects, upgrades them to reference-in-place configurations, and registers them.
-- Reference-in-place `import` model: `xcaffold import` generates metadata referencing existing instructions directly without duplicating files.
-- Walk-up configuration search allows running CLI commands from project subdirectories.
-	- Semantic Translation Engine: cross-platform agent capabilities decomposed via static intent heuristics, now accessible through `xcaffold import --source`.
+- Centralized architecture: `~/.xcaffold/` is the global home for user preferences, project registry, and global agent resources.
+- `global.xcf` magical bootstrapping: CLI automatically runs `EnsureGlobalHome()`, migrating your legacy `~/.claude/global.xcf` entirely seamlessly or safely initialises boilerplate without demanding explicit `--scope global` setup.
+- Provider SDK registry: Added extensible `platformProvider` interface and multi-platform scanner to deduplicate global discoveries across Claude, Antigravity, and Cursor.
+- Internal registry metadata files standardized to `.xcf` (`registry.xcf`, `settings.xcf`).
+- Fleet auto-registration: `xcaffold init`, `xcaffold import`, and `xcaffold apply` now automatically detect your scope and auto-register cloned projects into your global registry.
+- `xcaffold list` command displays all managed projects with path, targets, resource counts, and last-applied timestamp.
+- `xcaffold graph --project <name>` queries any registered project's topology from any location.
+- `xcaffold migrate` command detects legacy flat-layout projects, upgrades them to reference-in-place paths (including skills, rules, and references), and registers them in the central registry.
+- Reference-in-place import: `xcaffold import` generates `scaffold.xcf` entries pointing to existing instruction files without duplication.
+- Walk-up configuration search: CLI commands work from project subdirectories by walking up to find the nearest `scaffold.xcf` (bounded by `$HOME`).
+- Semantic Translation Engine: cross-platform agent capabilities decomposed via static intent heuristics, accessible through `xcaffold import --source`.
 - `xcaffold test` execution flag `--claude-path` renamed to `--cli-path` to support fallback binary resolution for `cursor` or other detected proxies.
 - `xcaffold apply` now supports the `--check` flag to perform fail-fast schema syntax validation without creating artifacts.
 - `xcaffold graph` now supports the `--tokens` flag, calculating abstract token weights from node AST depth, unifying prior `plan` analysis into the visualization topology.

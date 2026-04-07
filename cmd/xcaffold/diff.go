@@ -43,7 +43,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	totalDrift := 0
 
 	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
-		targetDir := filepath.Join(filepath.Dir(globalClaudeDir), compiler.OutputDir(diffTargetFlag))
+		targetDir := filepath.Join(filepath.Dir(globalXcfHome), compiler.OutputDir(diffTargetFlag))
 		targetLock := state.LockFilePath(globalLockPath, diffTargetFlag)
 		drift, err := diffScope(targetDir, targetLock, scopeGlobal)
 		if err != nil {

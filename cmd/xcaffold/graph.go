@@ -104,7 +104,7 @@ func runGraph(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		
+
 		projXcf := filepath.Join(p.Path, "scaffold.xcf")
 		g, err := parseGraphData(projXcf, fmt.Sprintf("project:%s", p.Name))
 		if err != nil {

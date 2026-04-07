@@ -9,6 +9,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"gopkg.in/yaml.v3"
 )
 
@@ -120,56 +121,9 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 //
 // The file is read relative to baseDir. Its frontmatter (--- blocks) is stripped
 // so that referencing an existing .md file with frontmatter works transparently.
-func resolveInstructions(inline, filePath, conventionPath, baseDir string) (string, error) {
-	if inline != "" {
-		return inline, nil
-	}
-	if filePath != "" {
-		// Security: path must not traverse above baseDir.
-		cleaned := filepath.Clean(filePath)
-		if strings.HasPrefix(cleaned, "..") {
-			return "", fmt.Errorf("instructions_file must be a relative path inside the project: %q traverses above the project root", filePath)
-		}
-		abs := filepath.Join(baseDir, cleaned)
-		data, err := os.ReadFile(abs)
-		if err != nil {
-			return "", fmt.Errorf("instructions_file %q: %w", filePath, err)
-		}
-		return stripFrontmatter(string(data)), nil
-	}
-	// Convention-over-configuration: try the standard auto-discovery path.
-	// Missing convention file is not an error — resource compiles with empty body.
-	if conventionPath != "" && baseDir != "" {
-		abs := filepath.Join(baseDir, conventionPath)
-		if data, err := os.ReadFile(abs); err == nil {
-			return stripFrontmatter(string(data)), nil
-		}
-	}
-	return "", nil
-}
 
 // stripFrontmatter removes YAML frontmatter delimited by "---" from the start
 // of a markdown file, returning only the body content with leading whitespace trimmed.
-func stripFrontmatter(content string) string {
-	// Normalise line endings.
-	content = strings.ReplaceAll(content, "\r\n", "\n")
-	lines := strings.SplitN(content, "\n", -1)
-
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
-		return strings.TrimLeft(content, "\n")
-	}
-
-	// Find the closing "---"
-	for i := 1; i < len(lines); i++ {
-		if strings.TrimSpace(lines[i]) == "---" {
-			body := strings.Join(lines[i+1:], "\n")
-			return strings.TrimLeft(body, "\n")
-		}
-	}
-
-	// No closing delimiter found — return as-is (no frontmatter detected).
-	return strings.TrimLeft(content, "\n")
-}
 
 // compileAgentMarkdown renders a single AgentConfig to Claude Code markdown.
 func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (string, error) {
@@ -177,7 +131,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 		return "", fmt.Errorf("agent id must not be empty")
 	}
 
-	body, err := resolveInstructions(agent.Instructions, agent.InstructionsFile, fmt.Sprintf("agents/%s.md", id), baseDir)
+	body, err := resolver.ResolveInstructions(agent.Instructions, agent.InstructionsFile, fmt.Sprintf("agents/%s.md", id), baseDir)
 	if err != nil {
 		return "", err
 	}
@@ -284,7 +238,7 @@ func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (str
 		return "", fmt.Errorf("skill id must not be empty")
 	}
 
-	body, err := resolveInstructions(skill.Instructions, skill.InstructionsFile, fmt.Sprintf("skills/%s/SKILL.md", id), baseDir)
+	body, err := resolver.ResolveInstructions(skill.Instructions, skill.InstructionsFile, fmt.Sprintf("skills/%s/SKILL.md", id), baseDir)
 	if err != nil {
 		return "", err
 	}
@@ -417,7 +371,7 @@ func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string
 		return "", fmt.Errorf("rule id must not be empty")
 	}
 
-	body, err := resolveInstructions(
+	body, err := resolver.ResolveInstructions(
 		rule.Instructions,
 		rule.InstructionsFile,
 		fmt.Sprintf("rules/%s.md", id), // convention: rules/<id>.md

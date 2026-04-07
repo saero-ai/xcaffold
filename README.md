@@ -180,7 +180,7 @@ These flags are accepted by every xcaffold command.
 
 ### `xcaffold list`
 
-No flags. Displays all registered projects from `~/.xcaffold/projects.yaml` with metadata (path, targets, resource counts, last applied timestamp).
+No flags. Displays all registered projects from `~/.xcaffold/registry.xcf` with metadata (path, targets, resource counts, last applied timestamp).
 
 ### `xcaffold migrate`
 
