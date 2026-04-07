@@ -10,23 +10,23 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/dl/)
 
-**agent configuration for Anthropic Claude Code.** Declare your AI agents in a single `.xcf` YAML file. `xcaffold` compiles it deterministically into `.claude/` — with drift detection, token budgeting, and sandboxed simulation.
+**deterministic agent configuration compiler for AI coding platforms.** Declare your AI agents in a single `.xcf` YAML file. `xcaffold` compiles it deterministically into native AI coding agent constraints (e.g., `.claude/`, `.cursor/rules/`, `.agents/`) — with drift detection, token budgeting, and sandboxed simulation.
 
 ```
-                     ──► (claude) ──►  .claude/
-scaffold.xcf  ──►  xcaffold apply   ──► (cursor) ──►  .cursor/rules/
-                     ──► (gemini) ──►  .agents/
+                     ──► (claude)       ──►  .claude/
+scaffold.xcf  ──►  xcaffold apply   ──► (cursor)       ──►  .cursor/rules/
+                     ──► (antigravity)  ──►  .agents/
 ```
 
 ## Why xcaffold?
 
-Most teams hand-edit `.claude/` markdown files. This means:
+Most teams hand-edit their AI agent configurations manually. This means:
 - **No drift detection** — edits made outside the IDE go unnoticed.
 - **No token budgeting** — agents silently exceed context limits.
 - **No auditability** — no SHA manifest, no CI/CD integration.
 - **No testability** — agent behavior is never validated against declared assertions.
 
-`xcaffold` applies GitOps discipline to agent configuration. The `.xcf` file is the only source of truth. Generated `.claude/` files are compilation artifacts.
+`xcaffold` applies GitOps discipline to agent configuration. The `.xcf` file is the only source of truth. Generated configurations are strict compilation artifacts.
 
 ## Installation
 
@@ -115,12 +115,12 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 | Phase | Command | Output |
 |---|---|---|
 | Bootstrap | `xcaffold init` | `scaffold.xcf` starter template |
-| Ingestion | `xcaffold import` | Migrated `.xcf` from existing `.claude/` |
+| Ingestion | `xcaffold import` | Migrated `.xcf` from existing `.claude/` (or target) |
 | Translation | `xcaffold translate` | Decomposed primitives from cross-platform workflows |
 | Audit | `xcaffold analyze` | `scaffold.xcf` + `audit.json` |
 | Token Budget | `xcaffold plan` | stdout report + `plan.json` |
 | Topology | `xcaffold graph` | terminal art, mermaid, JSON, or DOT graph |
-| Compilation | `xcaffold apply` | `.claude/**` + `scaffold.lock` |
+| Compilation | `xcaffold apply` | Target configuration + `scaffold.lock` |
 | Drift Check | `xcaffold diff` | Exit 1 on drift |
 | Validation | `xcaffold test` | `trace.jsonl` + judge report |
 
@@ -130,8 +130,8 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 
 | Scope | Config File | Output Directory | Flag |
 |---|---|---|---|
-| Project (default) | `scaffold.xcf` | `.claude/` | `--scope project` |
-| Global | `global.xcf` | `~/.claude/` | `--scope global` |
+| Project (default) | `scaffold.xcf` | Target directory (`.claude/`, etc.) | `--scope project` |
+| Global | `global.xcf` | `~/.claude/`, `~/.agents/`, etc. | `--scope global` |
 | Both | — | Both directories | `--scope all` |
 
 Run `xcaffold init --scope global` to create a `global.xcf` in `~/.claude/`. Project configs can inherit from it with `extends: global` in their `scaffold.xcf`.
@@ -157,14 +157,14 @@ These flags are accepted by every xcaffold command.
 
 | Flag/Argument | Default | Description |
 |---|---|---|
-| `--target` | `claude` | Compilation target platform (`claude`, `cursor`, `gemini`). |
+| `--target` | `claude` | Compilation target platform (`claude`, `cursor`, `antigravity`). |
 
 ### `xcaffold translate`
 
 | Flag/Argument | Default | Description |
 |---|---|---|
-| `--source` | *Required* | File or directory of workflow markdown files to translate (e.g. `Gemini` or `Cursor` docs). |
-| `--source-platform` | `gemini` | Expected intent format for static heuristics (`gemini`, `claude`, `cursor`). |
+| `--source` | *Required* | File or directory of workflow markdown files to translate (e.g. `Antigravity` or `Cursor` docs). |
+| `--source-platform` | `antigravity` | Expected intent format for static heuristics (`antigravity`, `claude`, `cursor`). |
 | `--target` | `claude` | The AST namespace mapping context. |
 | `--plan` | `false` | Dry-run parsing; prints the generated primitive tree without modifying `scaffold.xcf`. |
 | `[directory]` | `.` | Directory containing `scaffold.xcf`. |
@@ -224,7 +224,7 @@ The `scaffold.xcf` file supports the following top-level blocks:
 
 ## Attributes Reference
 
-In addition to all arguments above, the following artifacts are generated on disk:
+In addition to all arguments above, the following artifacts are generated on disk for the default Claude target:
 
 * `.claude/agents/*.md` - Compiled agent persona definitions (Claude Code native format).
 * `.claude/skills/*.md` - Compiled skill prompt packages.
@@ -248,11 +248,13 @@ xcaffold review trace.jsonl  # Read simulation trace
 
 ## Import / Compatibility
 
-`xcaffold` enforces **One-Way Compilation**. It does not import or parse existing `.claude/` markdown files. Running `xcaffold apply` will overwrite any managed files in `.claude/`.
+`xcaffold` enforces **One-Way Compilation**. It does not import or parse existing target markdown files automatically. Running `xcaffold apply` will overwrite any managed files in the output directory.
 
 **Recommended `.gitignore` entries:**
 ```
 .claude/
+.cursor/rules/
+.agents/
 plan.json
 audit.json
 trace.jsonl

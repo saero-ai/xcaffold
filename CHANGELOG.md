@@ -6,8 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Semantic Translation Engine: `xcaffold translate` command to import and decompose agent workflows from Claude, Cursor, and Gemini into native `.xcf` primitives via static intent heuristics.
-- Multi-target compilation support: CLI commands (`apply`, `diff`, `plan`) now support a `--target` flag (`claude`, `cursor`, `gemini`) to isolate platform outputs.
+- Semantic Translation Engine: `xcaffold translate` command to import and decompose agent workflows from Claude, Cursor, and Antigravity into native `.xcf` primitives via static intent heuristics.
+- Multi-target compilation support: CLI commands (`apply`, `diff`, `plan`) now support a `--target` flag (`claude`, `cursor`, `antigravity`) to isolate platform outputs.
 - `TargetRenderer` Registry: Pluggable compiler architecture delegating to platform-specific layout generation.
 - Full compiler surface: `xcaffold apply` now emits `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/hooks.json`, and `.claude/settings.json` (with MCP) in addition to agents.
 - `xcaffold graph` command with deep hierarchical topology visualization (segments global components, natively renders blocked/allowed tools, and separates inherited skills from rules automatically).

@@ -17,12 +17,12 @@ graph LR
   end
 
   subgraph Outputs
-    E[".claude/agents/*.md"]
+    E["<target_dir>/agents/*.md"]
     F["scaffold.lock"]
-    G[".claude/skills/*/SKILL.md"]
-    H[".claude/rules/*.md"]
-    I[".claude/settings.json"]
-    J[".claude/hooks.json"]
+    G["<target_dir>/skills/*/SKILL.md"]
+    H["<target_dir>/rules/*.md"]
+    I["<target_dir>/settings.json"]
+    J["<target_dir>/hooks.json"]
   end
 
   A --> B
@@ -59,7 +59,7 @@ graph TD
 ## Compilation Output Structure
 
 ```
-.claude/
+<target_dir>/
 ├── agents/
 │   ├── developer.md         ← frontmatter (name, description, model, etc.) + body (instructions)
 │   └── cto.md
@@ -85,8 +85,8 @@ Merge rule: `settings.mcpServers` takes precedence over `mcp:` entries with the 
 These inline architecture decisions record the reasoning behind strict implementation choices that shape the `xcaffold` engine.
 
 ### 1. One-Way Compilation
-**Decision:** We compile `.xcf` directly to `.claude/` and explicitly forbid bidirectional synchronization.
-**Why:** Allowing users to manually tweak `.claude/agents/*.md` and attempting to backport those changes into `.xcf` introduces catastrophic parsing drift and state synchronization conflicts. Developers MUST update their `scaffold.xcf` file directly. Any manual `.claude/` changes will be correctly flagged and overwritten during deployment.
+**Decision:** We compile `.xcf` directly to native platform configurations (e.g. `.claude/`, `.cursor/`, `.agents/`) and explicitly forbid bidirectional synchronization.
+**Why:** Allowing users to manually tweak target-specific configuration files and attempting to backport those changes into `.xcf` introduces catastrophic parsing drift and state synchronization conflicts. Developers MUST update their `scaffold.xcf` file directly. Any manual changes in the generation target directories will be correctly flagged and overwritten during deployment.
 
 ### 2. WASM Tokenizer (`wazero`)
 **Decision:** We embed Anthropic's `@anthropic-ai/tokenizer` via a JavaScript-compiled binary running within the `wazero` WebAssembly runtime inside Go.
@@ -102,6 +102,6 @@ These inline architecture decisions record the reasoning behind strict implement
 
 ### 5. Skills as Directories
 **Decision:** Skills compile to `skills/<id>/SKILL.md` (directory structure), not `skills/<id>.md` (flat files).
-**Why:** Claude Code expects skills in directories. Real skills have `references/` subdirectories with supplementary documents. The directory structure allows future `references:` support.
+**Why:** Target platforms (like Claude Code) expect skills in directories. Real skills have `references/` subdirectories with supplementary documents. The directory structure allows future `references:` support.
 
 
