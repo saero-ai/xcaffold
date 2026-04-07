@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -35,10 +36,10 @@ var scopeFlag string
 // globalXcfPath is the resolved path to global.xcf.
 var globalXcfPath string
 
-// globalClaudeDir is ~/.claude/ for global scope output.
-var globalClaudeDir string
+// globalXcfHome is where global.xcf lives ~/.xcaffold/ by convention.
+var globalXcfHome string
 
-// globalLockPath is ~/.claude/scaffold.lock.
+// globalLockPath is ~/.xcaffold/scaffold.lock.
 var globalLockPath string
 
 var rootCmd = &cobra.Command{
@@ -46,33 +47,31 @@ var rootCmd = &cobra.Command{
 	Short: "xcaffold — deterministic agent-as-code orchestration",
 	Long: `xcaffold is an open-source, deterministic agent configuration compiler engine for Claude Code.
 
-┌───────────────────────────────────────────────────────────────────┐
-│                 THE 8-PHASE ORCHESTRATION ENGINE                  │
-└───────────────────────────────────────────────────────────────────┘
- • Bootstrap   [xcaffold init]      Creates base project scaffolding
- • Ingestion   [xcaffold import]    Migrates existing .claude/ states
- • Translation [xcaffold translate] Imports & decomposes cross-platform workflows
- • Audit       [xcaffold analyze]   Inspects repo & builds XCF config
- • Token Cost  [xcaffold plan]      Statically estimates token budget
- • Topology    [xcaffold graph]     Visualizes agent network maps
- • Compilation [xcaffold apply]     Compiles XCF to .claude/ prompts
- • Drift Check [xcaffold diff]      Detects manual config tampering
- • Validation  [xcaffold test]      Runs an LLM-in-the-loop proxy
- • Export      [xcaffold export]    Packages output as a distributable plugin
+ ┌───────────────────────────────────────────────────────────────────┐
+ │                 THE 8-PHASE ORCHESTRATION ENGINE                  │
+ └───────────────────────────────────────────────────────────────────┘
+  • Bootstrap   [xcaffold init]      Creates base project scaffolding
+  • Ingestion   [xcaffold import]    Migrates dirs & translates via --source
+  • Audit       [xcaffold analyze]   Inspects repo & builds XCF config
+  • Topology    [xcaffold graph]     Visualizes maps (use --tokens to estimate cost)
+  • Compilation [xcaffold apply]     Compiles XCF (use --check to validate syntax)
+  • Drift Check [xcaffold diff]      Detects manual config tampering
+  • Validation  [xcaffold test]      Runs an LLM-in-the-loop proxy
+  • Export      [xcaffold export]    Packages output as a distributable plugin
 
-┌───────────────────────────────────────────────────────────────────┐
-│                      DIAGNOSTICS & TELEMETRY                      │
-└───────────────────────────────────────────────────────────────────┘
- • Review      [xcaffold review]  Universally parses state files
-   ↳ Supports: scaffold.xcf, audit.json, plan.json, trace.jsonl
-   ↳ Try: 'xcaffold review all'
+ ┌───────────────────────────────────────────────────────────────────┐
+ │                            UTILITIES                              │
+ └───────────────────────────────────────────────────────────────────┘
+  • Review      [xcaffold review]  Universally parses state files
+    ↳ Supports: scaffold.xcf, audit.json, plan.json, trace.jsonl
+    ↳ Try: 'xcaffold review all'
 
-┌───────────────────────────────────────────────────────────────────┐
-│                           SCOPES                                  │
-└───────────────────────────────────────────────────────────────────┘
- • Project  [default]         scaffold.xcf  -> .claude/
- • Global   [--scope global]  global.xcf    -> ~/.claude/
- • Both     [--scope all]     Compiles both scopes
+ ┌───────────────────────────────────────────────────────────────────┐
+ │                           SCOPES                                  │
+ └───────────────────────────────────────────────────────────────────┘
+  • Project  [default]         scaffold.xcf  -> .claude/ | .cursor/ | .agents/
+  • Global   [--scope global]  global.xcf    -> ~/.claude/ (source) | target dir (output)
+  • Both     [--scope all]     Compiles both scopes
 
 Use 'xcaffold --help' for more information on available commands.`,
 	PersistentPreRunE: resolveConfig,
@@ -81,8 +80,6 @@ Use 'xcaffold --help' for more information on available commands.`,
 func init() {
 	state.XcaffoldVersion = version
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, date: %s)", version, commit, date)
-
-	rootCmd.AddCommand(translateCmd)
 
 	rootCmd.PersistentFlags().StringVar(
 		&configFlag,
@@ -104,6 +101,10 @@ func init() {
 func resolveConfig(cmd *cobra.Command, args []string) error {
 	if cmd.Name() == "review" {
 		return nil
+	}
+
+	if err := registry.EnsureGlobalHome(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not initialize global home: %v\n", err)
 	}
 
 	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
@@ -129,8 +130,8 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("could not determine home directory: %w", err)
 	}
-	globalClaudeDir = filepath.Join(home, ".claude")
-	globalLockPath = filepath.Join(globalClaudeDir, "scaffold.lock")
+	globalXcfHome = filepath.Join(home, ".xcaffold")
+	globalLockPath = filepath.Join(globalXcfHome, "scaffold.lock")
 
 	if configFlag != "" && scopeFlag == scopeGlobal {
 		abs, err := filepath.Abs(configFlag)
@@ -139,7 +140,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 		}
 		globalXcfPath = abs
 	} else {
-		globalXcfPath = filepath.Join(globalClaudeDir, "global.xcf")
+		globalXcfPath = filepath.Join(globalXcfHome, "global.xcf")
 	}
 
 	if cmd.Name() != "init" && cmd.Name() != "import" {
@@ -154,7 +155,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "list" {
 		return nil
 	}
 	var xcfAbs string
@@ -169,7 +170,22 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("could not determine working directory: %w", err)
 		}
-		xcfAbs = filepath.Join(cwd, "scaffold.xcf")
+		
+		// Walk up to find scaffold.xcf
+		curr := cwd
+		for {
+			candidate := filepath.Join(curr, "scaffold.xcf")
+			if _, err := os.Stat(candidate); err == nil {
+				xcfAbs = candidate
+				break
+			}
+			parent := filepath.Dir(curr)
+			if parent == curr {
+				xcfAbs = filepath.Join(cwd, "scaffold.xcf") // fallback to allow error handling below
+				break
+			}
+			curr = parent
+		}
 	}
 
 	if _, err := os.Stat(xcfAbs); err != nil {

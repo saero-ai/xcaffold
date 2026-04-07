@@ -3,17 +3,24 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/saero-ai/xcaffold/internal/analyzer"
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/spf13/cobra"
 )
 
 var graphFormat string
 var graphAgent string
+var graphProject string
 var graphFull bool
+var graphTokens bool
+var graphScanOutput bool
 
 const (
 	kindAgent = "agent"
@@ -24,13 +31,14 @@ const (
 
 var graphCmd = &cobra.Command{
 	Use:   "graph [file]",
-	Short: "Visualize the agent topology of a scaffold.xcf file",
+	Short: "Visualize the agent topology of a scaffold.xcf file, and optionally analyze token complexity.",
 	Long: `xcaffold graph renders a visual map of your agent team and how it connects.
 
 ┌───────────────────────────────────────────────────────────────────┐
 │                         TOPOLOGY PHASE                            │
 └───────────────────────────────────────────────────────────────────┘
  • Shows all agents with their model, effort, tools, skills, rules, and MCP
+ • Add --tokens to perform static AST token cost estimation
  • Use --format mermaid for Mermaid markdown (embed in README or docs)
  • Use --format dot    for Graphviz DOT (pipe to dot -Tsvg for images)
  • Use --format json   for machine-readable output (used by the platform)
@@ -41,6 +49,7 @@ Formats:
   dot       Graphviz DOT language for rendering with graphviz.
   json      Machine-readable JSON graph for programmatic use.`,
 	Example: `  $ xcaffold graph
+  $ xcaffold graph --tokens
   $ xcaffold graph --format mermaid > topology.md
   $ xcaffold graph --format dot | dot -Tsvg > topology.svg
   $ xcaffold graph --format json | jq .`,
@@ -51,7 +60,10 @@ Formats:
 func init() {
 	graphCmd.Flags().StringVar(&graphFormat, "format", "terminal", "Output format: terminal, mermaid, dot, json")
 	graphCmd.Flags().StringVarP(&graphAgent, "agent", "a", "", "Target a specific agent (shows only its topology)")
+	graphCmd.Flags().StringVarP(&graphProject, "project", "p", "", "Target a specific managed project by registered name or path")
 	graphCmd.Flags().BoolVarP(&graphFull, "full", "f", false, "Show the fully expanded topology tree (always true if targeting an agent)")
+	graphCmd.Flags().BoolVarP(&graphTokens, "tokens", "t", false, "Analyze AST token counts")
+	graphCmd.Flags().BoolVar(&graphScanOutput, "scan-output", false, "Scan compiled output directories for undeclared artifacts")
 	rootCmd.AddCommand(graphCmd)
 }
 
@@ -74,34 +86,55 @@ type graphEdge struct {
 	Label string // "skill", "rule", "mcp"
 }
 
-// graphData is the full in-memory topology.
 type graphData struct {
-	Project    string
-	Scope      string
-	ConfigPath string
-	Nodes      []graphNode
-	Edges      []graphEdge
+	Project     string
+	Scope       string
+	ConfigPath  string
+	TokenReport *analyzer.TokenReport `json:"token_report,omitempty"`
+	DiskEntries []analyzer.TokenEntry `json:"disk_entries,omitempty"`
+	Nodes       []graphNode
+	Edges       []graphEdge
 }
 
 func runGraph(cmd *cobra.Command, args []string) error {
 	var scopes []*graphData
 
-	if len(args) > 0 {
+	if graphProject != "" {
+		p, err := registry.Resolve(graphProject)
+		if err != nil {
+			return err
+		}
+		
+		projXcf := filepath.Join(p.Path, "scaffold.xcf")
+		g, err := parseGraphData(projXcf, fmt.Sprintf("project:%s", p.Name))
+		if err != nil {
+			return err
+		}
+		scopes = append(scopes, g)
+
+		if scopeFlag == scopeAll {
+			gGlobal, err := parseGraphData(globalXcfPath, scopeGlobal)
+			if err != nil {
+				return err
+			}
+			scopes = append(scopes, gGlobal)
+		}
+	} else if len(args) > 0 {
 		g, err := parseGraphData(args[0], "")
 		if err != nil {
 			return err
 		}
 		scopes = append(scopes, g)
 	} else {
-		if scopeFlag == "global" || scopeFlag == "all" {
-			g, err := parseGraphData(globalXcfPath, "global")
+		if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
+			g, err := parseGraphData(globalXcfPath, scopeGlobal)
 			if err != nil {
 				return err
 			}
 			scopes = append(scopes, g)
 		}
-		if scopeFlag == "project" || scopeFlag == "all" {
-			g, err := parseGraphData(xcfPath, "project")
+		if scopeFlag == scopeProject || scopeFlag == scopeAll {
+			g, err := parseGraphData(xcfPath, scopeProject)
 			if err != nil {
 				return err
 			}
@@ -113,6 +146,11 @@ func runGraph(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no topology generated")
 	}
 
+	return printGraphOutput(scopes)
+}
+
+//nolint:gocyclo
+func printGraphOutput(scopes []*graphData) error {
 	switch strings.ToLower(graphFormat) {
 	case "terminal", "":
 		if graphFull || graphAgent != "" {
@@ -121,6 +159,14 @@ func runGraph(cmd *cobra.Command, args []string) error {
 			}
 		} else {
 			fmt.Print(renderTerminalSummary(scopes))
+		}
+
+		if graphTokens || graphScanOutput {
+			for _, g := range scopes {
+				if g.TokenReport != nil || len(g.DiskEntries) > 0 {
+					fmt.Print(renderTerminalTokens(g))
+				}
+			}
 		}
 	case "mermaid":
 		for _, g := range scopes {
@@ -142,6 +188,7 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+//nolint:gocyclo
 func parseGraphData(configPath, scopeName string) (*graphData, error) {
 	config, err := parser.ParseFile(configPath)
 	if err != nil {
@@ -187,6 +234,30 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 	g := buildGraph(config)
 	g.Scope = scopeName
 	g.ConfigPath = configPath
+
+	if graphTokens || graphScanOutput {
+		a := analyzer.New()
+		g.TokenReport = a.AnalyzeTokens(config, filepath.Dir(configPath))
+
+		if graphScanOutput {
+			declared := make(map[string]bool)
+			for _, e := range g.TokenReport.Entries {
+				declared[fmt.Sprintf("%s:%s", e.Kind, e.ID)] = true
+			}
+
+			baseDir := filepath.Dir(configPath)
+			targetDir := filepath.Join(baseDir, ".agents")
+			if _, err := os.Stat(targetDir); os.IsNotExist(err) {
+				targetDir = filepath.Join(baseDir, ".claude")
+			}
+
+			entries, err := a.ScanOutputDir(targetDir, declared)
+			if err == nil {
+				g.DiskEntries = entries
+			}
+		}
+	}
+
 	return g, nil
 }
 
@@ -390,7 +461,7 @@ func renderTerminalLibrary(g *graphData) string {
 	for _, n := range g.Nodes {
 		var lines []string
 		if n.Kind == kindSkill {
-			lines = append(lines, fmt.Sprintf("  ● skill: %s", n.Label))
+			lines = append(lines, fmt.Sprintf("  ● skill: %s%s", n.Label, getItemTokensStr(g, kindSkill, n.ID)))
 			if len(n.Tools) > 0 {
 				lines = append(lines, "      ├─(tools)─▶ "+strings.Join(n.Tools, ", "))
 			}
@@ -400,7 +471,7 @@ func renderTerminalLibrary(g *graphData) string {
 				lines[1] = strings.Replace(lines[1], "      ├─", "      └─", 1)
 			}
 		} else if n.Kind == kindRule {
-			lines = append(lines, fmt.Sprintf("  ● rule: %s", n.Label))
+			lines = append(lines, fmt.Sprintf("  ● rule: %s%s", n.Label, getItemTokensStr(g, kindRule, n.ID)))
 			if len(n.Paths) > 0 {
 				lines = append(lines, "      └─(paths)─▶ "+strings.Join(n.Paths, ", "))
 			}
@@ -452,7 +523,7 @@ func renderTerminalAgents(g *graphData) string {
 		if node.Kind != kindAgent {
 			continue
 		}
-		if agentStr := renderTerminalAgent(node, g.Edges); agentStr != "" {
+		if agentStr := renderTerminalAgent(node, g.Edges, g); agentStr != "" {
 			agentsBlocks = append(agentsBlocks, agentStr)
 		}
 	}
@@ -463,9 +534,9 @@ func renderTerminalAgents(g *graphData) string {
 	return ""
 }
 
-func renderTerminalAgent(node graphNode, edges []graphEdge) string {
+func renderTerminalAgent(node graphNode, edges []graphEdge, g *graphData) string {
 	metaStr := renderAgentMeta(node)
-	agentStr := fmt.Sprintf("  ● %s%s\n      │", node.Label, metaStr)
+	agentStr := fmt.Sprintf("  ● %s%s%s\n      │", node.Label, metaStr, getItemTokensStr(g, kindAgent, node.ID))
 	blocks := []string{}
 
 	if capBlock := renderAgentCapabilities(node); capBlock != "" {
@@ -511,6 +582,7 @@ func renderAgentMeta(node graphNode) string {
 	return ""
 }
 
+//nolint:gocyclo
 func renderAgentCapabilities(node graphNode) string {
 	if len(node.Tools) == 0 && len(node.BlockedTools) == 0 {
 		return ""
@@ -618,15 +690,18 @@ func extractAgentRelations(nodeID string, edges []graphEdge) ([]string, []string
 	return skillsList, rulesList
 }
 
+const treePrefixMid = "      │    ├─▶ "
+const treePrefixLast = "      │    └─▶ "
+
 func renderAgentSkills(skillsList []string) string {
 	if len(skillsList) == 0 {
 		return ""
 	}
 	lines := []string{}
 	for i, inf := range skillsList {
-		prefix := "      │    ├─▶ "
+		prefix := treePrefixMid
 		if i == len(skillsList)-1 {
-			prefix = "      │    └─▶ "
+			prefix = treePrefixLast
 		}
 		lines = append(lines, prefix+inf)
 	}
@@ -639,13 +714,13 @@ func renderAgentRules(rulesList []string) string {
 	}
 	lines := []string{}
 	for i, inf := range rulesList {
-		prefix := "      │    ├─▶ "
+		prefix := treePrefixMid
 		if i == len(rulesList)-1 {
-			prefix = "      │    └─▶ "
+			prefix = treePrefixLast
 		}
 		lines = append(lines, prefix+inf)
 	}
-	return "      ├─▶ [Rules]\n" + strings.Join(lines, "\n")
+	return "      └─▶ [Rules]\n" + strings.Join(lines, "\n")
 }
 
 func renderAgentServers(nodeID string, edges []graphEdge, blocks *[]string) string {
@@ -790,95 +865,170 @@ func renderTerminalSummary(scopes []*graphData) string {
 	var sb strings.Builder
 
 	for _, g := range scopes {
-		if g.Scope == "global" {
+		if g.Scope == scopeGlobal {
 			sb.WriteString("\n[ GLOBAL ]\n")
-		} else if g.Scope == "project" {
+		} else if g.Scope == scopeProject {
 			sb.WriteString("\n[ PROJECTS ]\n")
 		} else {
 			sb.WriteString(fmt.Sprintf("\n[ TARGET: %s ]\n", g.ConfigPath))
 		}
 
-		var agents, skills, rules, mcp, orphans int
-		for _, n := range g.Nodes {
-			switch n.Kind {
-			case kindAgent:
-				agents++
-			case kindSkill:
-				skills++
-			case kindRule:
-				rules++
-			case kindMCP:
-				mcp++
-			}
-		}
-
-		referenced := make(map[string]bool)
-		for _, e := range g.Edges {
-			referenced[e.To] = true
-		}
-		for _, n := range g.Nodes {
-			if n.Kind == kindSkill && !referenced[n.ID] {
-				orphans++
-			}
-		}
-
-		label := g.Project
-		if label == "" && g.Scope == "global" {
-			label = "Global Context"
-		} else if label == "" {
-			label = "Unnamed Context"
-		}
-		sb.WriteString(fmt.Sprintf("  ● %s (%s)\n", label, g.ConfigPath))
-
-		agentNodes := []graphNode{}
-		for _, n := range g.Nodes {
-			if n.Kind == kindAgent {
-				agentNodes = append(agentNodes, n)
-			}
-		}
-
-		type summaryLine struct {
-			Title string
-			Value int
-		}
-		var lines []summaryLine
-		if len(agentNodes) > 0 {
-			lines = append(lines, summaryLine{"Agents", len(agentNodes)})
-		}
-		if rules > 0 {
-			lines = append(lines, summaryLine{"Rules", rules})
-		}
-		if mcp > 0 {
-			lines = append(lines, summaryLine{"MCP Servers", mcp})
-		}
-		if orphans > 0 {
-			lines = append(lines, summaryLine{"Unreferenced Skills", orphans})
-		}
-
-		for idx, ln := range lines {
-			prefix := "      ├─▶ "
-			if idx == len(lines)-1 {
-				prefix = "      └─▶ "
-			}
-			sb.WriteString(fmt.Sprintf("%s%s: (%d)\n", prefix, ln.Title, ln.Value))
-
-			if ln.Title == "Agents" {
-				for i, n := range agentNodes {
-					aprefix := "      │    ├─▶ "
-					if i == len(agentNodes)-1 {
-						aprefix = "      │    └─▶ "
-					}
-					if idx == len(lines)-1 { // Agent line was the last one
-						aprefix = "           ├─▶ "
-						if i == len(agentNodes)-1 {
-							aprefix = "           └─▶ "
-						}
-					}
-					sb.WriteString(fmt.Sprintf("%s%s\n", aprefix, n.Label))
-				}
-			}
-		}
+		renderScopeSummary(&sb, g)
 	}
 
 	return sb.String() + "\n"
+}
+
+//nolint:gocyclo
+func renderScopeSummary(sb *strings.Builder, g *graphData) {
+	var agents, skills, rules, mcp, orphans int
+	for _, n := range g.Nodes {
+		switch n.Kind {
+		case kindAgent:
+			agents++
+		case kindSkill:
+			skills++
+		case kindRule:
+			rules++
+		case kindMCP:
+			mcp++
+		}
+	}
+
+	referenced := make(map[string]bool)
+	for _, e := range g.Edges {
+		referenced[e.To] = true
+	}
+	for _, n := range g.Nodes {
+		if n.Kind == kindSkill && !referenced[n.ID] {
+			orphans++
+		}
+	}
+
+	label := g.Project
+	if label == "" && g.Scope == scopeGlobal {
+		label = "Global Context"
+	} else if label == "" {
+		label = "Unnamed Context"
+	}
+	if g.TokenReport != nil {
+		sb.WriteString(fmt.Sprintf("  ● %s [~%d tokens]\n    (%s)\n", label, g.TokenReport.Total, g.ConfigPath))
+	} else {
+		sb.WriteString(fmt.Sprintf("  ● %s\n    (%s)\n", label, g.ConfigPath))
+	}
+
+	agentNodes := []graphNode{}
+	for _, n := range g.Nodes {
+		if n.Kind == kindAgent {
+			agentNodes = append(agentNodes, n)
+		}
+	}
+
+	type summaryLine struct {
+		Title string
+		Kind  string
+		Value int
+	}
+	var lines []summaryLine
+	if len(agentNodes) > 0 {
+		lines = append(lines, summaryLine{"Agents", kindAgent, len(agentNodes)})
+	}
+	if rules > 0 {
+		lines = append(lines, summaryLine{"Rules", kindRule, rules})
+	}
+	if mcp > 0 {
+		lines = append(lines, summaryLine{"MCP Servers", kindMCP, mcp})
+	}
+	if orphans > 0 {
+		lines = append(lines, summaryLine{"Unreferenced Skills", kindSkill, orphans})
+	}
+
+	for idx, ln := range lines {
+		prefix := "      ├─▶ "
+		if idx == len(lines)-1 {
+			prefix = "      └─▶ "
+		}
+		sb.WriteString(fmt.Sprintf("%s%s: (%d)%s\n", prefix, ln.Title, ln.Value, getKindTokensStr(g, ln.Kind)))
+
+		if ln.Title == "Agents" {
+			for i, n := range agentNodes {
+				aprefix := treePrefixMid
+				if i == len(agentNodes)-1 {
+					aprefix = treePrefixLast
+				}
+				if idx == len(lines)-1 { // Agent line was the last one
+					aprefix = "           ├─▶ "
+					if i == len(agentNodes)-1 {
+						aprefix = "           └─▶ "
+					}
+				}
+				sb.WriteString(fmt.Sprintf("%s%s%s\n", aprefix, n.Label, getItemTokensStr(g, kindAgent, n.ID)))
+			}
+		}
+	}
+}
+
+func renderTerminalTokens(g *graphData) string {
+	var sb strings.Builder
+	sb.WriteString("\n  [ TOKEN ESTIMATES ]\n")
+
+	if g.TokenReport != nil {
+		sb.WriteString(fmt.Sprintf("  ● Total Context Tokens: ~%d\n", g.TokenReport.Total))
+
+		// Top offenders from AST
+		var sorted []analyzer.TokenEntry
+		sorted = append(sorted, g.TokenReport.Entries...)
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].Tokens > sorted[j].Tokens
+		})
+
+		sb.WriteString("    Top 3 Modules:\n")
+		for i := 0; i < len(sorted) && i < 3; i++ {
+			sb.WriteString(fmt.Sprintf("      %d. [%s] %s (~%d tokens)\n", i+1, sorted[i].Kind, sorted[i].ID, sorted[i].Tokens))
+		}
+
+		for _, w := range g.TokenReport.Warnings {
+			sb.WriteString(fmt.Sprintf("    ⚠ Warning: %s\n", w))
+		}
+	}
+
+	if len(g.DiskEntries) > 0 {
+		diskTotal := 0
+		for _, e := range g.DiskEntries {
+			diskTotal += e.Tokens
+		}
+		sb.WriteString("\n  [ UNDECLARED FILES ]  (!)\n")
+		sb.WriteString(fmt.Sprintf("  ● Total Disk Tokens: ~%d\n", diskTotal))
+		for _, e := range g.DiskEntries {
+			sb.WriteString(fmt.Sprintf("      - [%s] %s (~%d tokens)\n", e.Kind, e.ID, e.Tokens))
+		}
+	}
+
+	return sb.String()
+}
+
+func getKindTokensStr(g *graphData, kind string) string {
+	if g.TokenReport != nil {
+		if toks := g.TokenReport.ByKind[kind]; toks > 0 {
+			return fmt.Sprintf(" [~%d tokens]", toks)
+		}
+	}
+	return ""
+}
+
+func getItemTokensStr(g *graphData, kind, id string) string {
+	if g.TokenReport != nil {
+		// id in graph often includes prefix like "agent:frontend-engineer", strip it for matcher
+		rawID := id
+		if idx := strings.Index(rawID, ":"); idx > 0 {
+			rawID = rawID[idx+1:]
+		}
+
+		for _, e := range g.TokenReport.Entries {
+			if e.Kind == kind && e.ID == rawID {
+				return fmt.Sprintf(" [~%d tokens]", e.Tokens)
+			}
+		}
+	}
+	return ""
 }

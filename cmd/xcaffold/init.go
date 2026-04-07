@@ -5,10 +5,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/prompt"
+	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/spf13/cobra"
 )
 
@@ -24,11 +26,11 @@ var initCmd = &cobra.Command{
 +-------------------------------------------------------------------+
 |                          BOOTSTRAP PHASE                          |
 +-------------------------------------------------------------------+
- • Detects existing .claude/ and offers to run 'xcaffold import'.
+ • Detects existing platform config (.claude/, .cursor/, .agents/) and offers to run 'xcaffold import'.
  • Guides you through an interactive wizard for new projects.
  • Infers project name from the current directory (like npm init).
  • Use --yes / -y to accept all defaults non-interactively (CI/CD).
- • Use --scope global to create a user-wide global.xcf in ~/.claude/.
+ • Use --scope global to create a user-wide global.xcf in ~/.claude/ (xcaffold home).
 
 Ready to get started? Run:
   $ xcaffold init`,
@@ -80,8 +82,8 @@ func initProject(cmd *cobra.Command) error {
 		return nil
 	}
 
-	// ── Phase 2: Detect existing .claude/ and offer import ─────────────────
-	if imported, err := offerImportIfClaudeExists(cmd); err != nil {
+	// ── Phase 2: Detect existing config and offer import ─────────────────
+	if imported, err := offerImportIfPlatformDirExists(cmd); err != nil {
 		return err
 	} else if imported {
 		return nil
@@ -91,46 +93,109 @@ func initProject(cmd *cobra.Command) error {
 	return runWizard(cmd, xcfFile)
 }
 
-// offerImportIfClaudeExists checks for an existing .claude/ directory.
-// If found, it summarises its contents and (in interactive mode) asks the
-// user whether to run xcaffold import. Returns true if import was performed.
-func offerImportIfClaudeExists(cmd *cobra.Command) (bool, error) {
-	info, err := detectClaudeDir(".")
-	if err != nil || !info.exists {
+// offerImportIfPlatformDirExists checks for existing platform directories (.claude/, .cursor/, .agents/).
+// If found, it enumerates all of them with an interactive checkbox selector so the user can
+// choose which directories to consolidate into a single scaffold.xcf. Returns true if import was performed.
+//
+//nolint:gocyclo
+func offerImportIfPlatformDirExists(cmd *cobra.Command) (bool, error) {
+	infos := detectAllPlatformDirs(".")
+	if len(infos) == 0 {
 		return false, nil
 	}
 
-	cmd.Printf("\n⚡ Detected existing .claude/ with %s.\n", info.summary())
-	cmd.Println("   Let's generate your scaffold.xcf using 'xcaffold import'.")
-
-	doImport := yesFlag // --yes auto-imports (non-destructive default)
-	if !yesFlag {
-		doImport, err = prompt.Confirm(" Import existing .claude/ now?", true)
-		if err != nil {
-			return false, fmt.Errorf("prompt error: %w", err)
-		}
+	// ── Display detection summary ──────────────────────────────────────
+	if len(infos) == 1 {
+		cmd.Printf("\n⚡ Detected existing agent configuration:\n\n")
+	} else {
+		cmd.Printf("\n⚡ Detected existing agent configurations:\n\n")
 	}
-
-	if doImport {
-		cmd.Println()
-		return true, runImport(cmd, nil)
+	for _, info := range infos {
+		cmd.Printf("     %s  — %s\n", info.dirName, info.summary())
 	}
-
-	cmd.Println("\n  ⚠  Skipping import. Continuing with fresh scaffold.xcf.")
-	cmd.Println("     Note: 'xcaffold apply' will overlay your existing .claude/ files.")
 	cmd.Println()
-	return false, nil
+
+	// ── Single directory: simple Y/n ───────────────────────────────────
+	if len(infos) == 1 {
+		info := infos[0]
+		cmd.Println("  xcaffold will import this into a single scaffold.xcf.")
+
+		doImport := yesFlag
+		if !yesFlag {
+			var err error
+			doImport, err = prompt.Confirm(fmt.Sprintf("Import %s into scaffold.xcf?", info.dirName), true)
+			if err != nil {
+				return false, fmt.Errorf("prompt error: %w", err)
+			}
+		}
+		if doImport {
+			cmd.Println()
+			return true, importScope(info.dirName, "scaffold.xcf", "project")
+		}
+
+		cmd.Println("\n  ⚠  Skipping import. Continuing with fresh scaffold.xcf.")
+		cmd.Println("     Note: 'xcaffold apply' will overlay your existing target files.")
+		cmd.Println()
+		return false, nil
+	}
+
+	// ── Multiple directories: interactive checkbox selector ─────────────
+	cmd.Println("  xcaffold consolidates multiple configs into one scaffold.xcf.")
+	cmd.Println("  This lets you compile to any target and switch providers seamlessly.")
+	cmd.Println()
+
+	if yesFlag {
+		// Non-interactive: import all
+		var dirs []string
+		for _, info := range infos {
+			dirs = append(dirs, info.dirName)
+		}
+		cmd.Println()
+		return true, mergeImportDirs(dirs, "scaffold.xcf")
+	}
+
+	// Build interactive options — all pre-selected
+	var options []prompt.SelectOption
+	for _, info := range infos {
+		options = append(options, prompt.SelectOption{
+			Label:    fmt.Sprintf("%s — %s", info.dirName, info.summary()),
+			Value:    info.dirName,
+			Selected: true,
+		})
+	}
+
+	selected, err := prompt.MultiSelect("Select directories to import", options)
+	if err != nil {
+		return false, fmt.Errorf("prompt error: %w", err)
+	}
+
+	if len(selected) == 0 {
+		cmd.Println("\n  ⚠  No directories selected. Continuing with fresh scaffold.xcf.")
+		cmd.Println("     Note: 'xcaffold apply' will overlay your existing target files.")
+		cmd.Println()
+		return false, nil
+	}
+
+	if len(selected) == 1 {
+		cmd.Println()
+		return true, importScope(selected[0], "scaffold.xcf", "project")
+	}
+
+	cmd.Println()
+	return true, mergeImportDirs(selected, "scaffold.xcf")
 }
 
-// claudeDirInfo holds summary counts of resources found in .claude/.
-type claudeDirInfo struct {
-	exists bool
-	agents int
-	skills int
-	rules  int
+// platformDirInfo holds summary counts of resources found in a platform dir.
+type platformDirInfo struct {
+	platform string
+	dirName  string
+	agents   int
+	skills   int
+	rules    int
+	exists   bool
 }
 
-func (c claudeDirInfo) summary() string {
+func (c platformDirInfo) summary() string {
 	parts := []string{}
 	if c.agents > 0 {
 		parts = append(parts, fmt.Sprintf("%d agent(s)", c.agents))
@@ -147,26 +212,48 @@ func (c claudeDirInfo) summary() string {
 	return strings.Join(parts, ", ")
 }
 
-// detectClaudeDir scans the .claude/ directory under dir and returns counts.
-func detectClaudeDir(dir string) (claudeDirInfo, error) {
-	claudePath := filepath.Join(dir, ".claude")
-	if _, err := os.Stat(claudePath); os.IsNotExist(err) {
-		return claudeDirInfo{}, nil
-	} else if err != nil {
-		return claudeDirInfo{}, err
+// detectAllPlatformDirs scans known platform directories under dir and returns all found, sorted by size.
+func detectAllPlatformDirs(dir string) []platformDirInfo {
+	platformDirs := []struct{ dir, platform string }{
+		{".claude", "claude"},
+		{".cursor", "cursor"},
+		{".agents", "antigravity"},
 	}
-	info := claudeDirInfo{exists: true}
 
-	if agents, _ := filepath.Glob(filepath.Join(claudePath, "agents", "*.md")); agents != nil {
-		info.agents = len(agents)
+	var results []platformDirInfo
+
+	for _, pt := range platformDirs {
+		targetPath := filepath.Join(dir, pt.dir)
+		if _, err := os.Stat(targetPath); err != nil {
+			continue
+		}
+
+		info := platformDirInfo{exists: true, platform: pt.platform, dirName: pt.dir}
+
+		if agents, _ := filepath.Glob(filepath.Join(targetPath, "agents", "*.md")); agents != nil {
+			info.agents += len(agents)
+		}
+		if skills, _ := filepath.Glob(filepath.Join(targetPath, "skills", "*", "SKILL.md")); skills != nil {
+			info.skills += len(skills)
+		}
+		if rulesMD, _ := filepath.Glob(filepath.Join(targetPath, "rules", "*.md")); rulesMD != nil {
+			info.rules += len(rulesMD)
+		}
+		if rulesMDC, _ := filepath.Glob(filepath.Join(targetPath, "rules", "*.mdc")); rulesMDC != nil {
+			info.rules += len(rulesMDC)
+		}
+
+		results = append(results, info)
 	}
-	if skills, _ := filepath.Glob(filepath.Join(claudePath, "skills", "*", "SKILL.md")); skills != nil {
-		info.skills = len(skills)
-	}
-	if rules, _ := filepath.Glob(filepath.Join(claudePath, "rules", "*.md")); rules != nil {
-		info.rules = len(rules)
-	}
-	return info, nil
+
+	// Sort by total items descending so the richest configuration is first
+	sort.Slice(results, func(i, j int) bool {
+		totalI := results[i].agents + results[i].skills + results[i].rules
+		totalJ := results[j].agents + results[j].skills + results[j].rules
+		return totalI > totalJ
+	})
+
+	return results
 }
 
 // runWizard runs the interactive new-project wizard and writes scaffold.xcf.
@@ -192,6 +279,10 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 
 	cmd.Printf("\n✓ Created scaffold.xcf\n")
 	cmd.Printf("  Project: %s | Target: %s\n", ans.name, ans.target)
+
+	if err := registry.Register(cwd, ans.name, []string{ans.target}); err != nil {
+		cmd.Printf("  ⚠ Failed to register project: %v\n", err)
+	}
 
 	if ans.wantAgent {
 		model, _ := resolveTargetMeta(ans.target)
@@ -239,7 +330,7 @@ func detectDefaultTarget() string {
 			return cli.target
 		}
 	}
-	return "claude" // safe fallback
+	return targetClaude // safe fallback
 }
 
 // resolveTargetMeta returns the suggested model and binary name for a target.
@@ -394,7 +485,7 @@ func initGlobal() error {
 	if err != nil {
 		return fmt.Errorf("could not determine home directory: %w", err)
 	}
-	dir := filepath.Join(home, ".claude")
+	dir := filepath.Join(home, ".xcaffold")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create %s: %w", dir, err)
 	}
@@ -408,5 +499,6 @@ func initGlobal() error {
 	fmt.Printf("Created %s\n", target)
 	fmt.Println("  Edit it to define your global agents, then run 'xcaffold apply --scope global'.")
 	fmt.Println("  Projects can inherit with 'extends: global' in their scaffold.xcf.")
+	fmt.Println("  Note: global.xcf is stored in ~/.xcaffold/ (the xcaffold home), but output goes to the target-specific directory.")
 	return nil
 }

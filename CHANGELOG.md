@@ -6,8 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
-- Semantic Translation Engine: `xcaffold translate` command to import and decompose agent workflows from Claude, Cursor, and Antigravity into native `.xcf` primitives via static intent heuristics.
-- Multi-target compilation support: CLI commands (`apply`, `diff`, `plan`) now support a `--target` flag (`claude`, `cursor`, `antigravity`) to isolate platform outputs.
+- Centralized architecture overhaul (Phase 1): Introduced `~/.xcaffold/` as the global home registry for project tracking.
+- `xcaffold list` command: Displays all managed projects and their metadata from the central registry.
+- Cross-project querying: `xcaffold graph` now supports the `--project` flag to visualize targets from any location via registry lookup.
+- `xcaffold migrate` command: Auto-detects legacy flat-layout projects, upgrades them to reference-in-place configurations, and registers them.
+- Reference-in-place `import` model: `xcaffold import` generates metadata referencing existing instructions directly without duplicating files.
+- Walk-up configuration search allows running CLI commands from project subdirectories.
+	- Semantic Translation Engine: cross-platform agent capabilities decomposed via static intent heuristics, now accessible through `xcaffold import --source`.
+- `xcaffold test` execution flag `--claude-path` renamed to `--cli-path` to support fallback binary resolution for `cursor` or other detected proxies.
+- `xcaffold apply` now supports the `--check` flag to perform fail-fast schema syntax validation without creating artifacts.
+- `xcaffold graph` now supports the `--tokens` flag, calculating abstract token weights from node AST depth, unifying prior `plan` analysis into the visualization topology.
+- Multi-target compilation support: CLI commands (`apply`, `import`) now support a `--target` flag (`claude`, `cursor`, `antigravity`) to isolate platform outputs.
 - `TargetRenderer` Registry: Pluggable compiler architecture delegating to platform-specific layout generation.
 - Full compiler surface: `xcaffold apply` now emits `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/hooks.json`, and `.claude/settings.json` (with MCP) in addition to agents.
 - `xcaffold graph` command with deep hierarchical topology visualization (segments global components, natively renders blocked/allowed tools, and separates inherited skills from rules automatically).
@@ -23,7 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make install` target added to `Makefile` with dynamic `LDFLAGS` injection for version propagation.
 
 ### Changed
-- README rewritten with badge row, "Why xcaffold?" section, Homebrew install target, and expanded full-schema reference covering all compiler outputs.
+- Command Consolidation: The `translate`, `plan`, and `validate` workflows were absorbed into their logical primary operations (`import`, `graph`, and `apply` respectively) to reduce the CLI verb surface.
+- Platform neutral scopes: the internal `globalClaudeDir` has been renamed to `globalXcfHome`, aligning `xcaffold init` multi-platform detection for native Claude, Cursor, and Antigravity defaults.
+- README rewritten with badge row, "Why xcaffold?" section, Homebrew install target, expanded schema documentation, and multi-platform output tables.
 - `xcaffold analyze` now references `auth.AuthModeSubscription` from the shared auth package.
 - Token estimation explicitly documented as a `÷4` byte-count heuristic approximation with accuracy bounds.
 
@@ -37,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI `go-version` aligned to `1.24` to match `go.mod` declaration.
 
 ### Removed
+- Top-level CLI commands `xcaffold translate`, `xcaffold plan`, and `xcaffold validate` were deprecated and removed entirely in favor of flag-driven behaviors on `import`, `graph`, and `apply`.
 - `wazero` WASM runtime — the `wasmBytecode` embed was always nil (no `//go:embed` directive), making the runtime initialization dead code. Removed from `go.mod` and `go.sum`.
 - `golang.org/x/sys` transitive dependency (was pulled in by `wazero`).
 
