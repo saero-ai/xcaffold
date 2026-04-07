@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -135,21 +136,28 @@ func runTest(cmd *cobra.Command, args []string) error {
 // If ANTHROPIC_API_KEY is set it uses the direct API; otherwise it falls back
 // to the claude CLI subprocess using the user's subscription.
 func runJudge(summary trace.Summary, assertions []string, configModel, claudePath string) error {
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
+	genericAPIKey := os.Getenv("XCAFFOLD_LLM_API_KEY")
+	genericAPIBase := os.Getenv("XCAFFOLD_LLM_BASE_URL")
 
 	model := resolveJudgeModel(configModel)
 
 	fmt.Printf("── Judge Evaluation ──────────────────────────────────\n")
 	fmt.Printf("  Model: %s\n", model)
-	if apiKey != "" {
-		fmt.Printf("  Auth:  API key\n")
+	if genericAPIKey != "" {
+		fmt.Printf("  Auth:  Platform-Agnostic LLM API\n")
+	} else if anthropicKey != "" {
+		fmt.Printf("  Auth:  Target Provider API Key\n")
 	} else {
-		fmt.Printf("  Auth:  Claude Code subscription (claude CLI)\n")
+		fmt.Printf("  Auth:  Platform Subscription (fallback via local CLI config)\n")
 	}
 	fmt.Printf("  Assertions: %d\n\n", len(assertions))
 
-	j := judge.New(apiKey, model, claudePath, nil)
-	report, err := j.Evaluate(summary, assertions)
+	j, err := judge.New(anthropicKey, genericAPIKey, genericAPIBase, model, claudePath, nil)
+	if err != nil {
+		return err
+	}
+	report, err := j.Evaluate(context.Background(), summary, assertions)
 	if err != nil {
 		return err
 	}

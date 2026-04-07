@@ -49,7 +49,7 @@ func init() {
 	translateCmd.Flags().StringVar(&translateSource, "source", "", "File or directory of workflow markdown files to translate (required)")
 	translateCmd.Flags().StringVar(&translateTarget, "target", "claude", "Target platform for output primitives")
 	translateCmd.Flags().BoolVar(&translatePlan, "plan", false, "Dry-run: print decomposition plan without writing files")
-	translateCmd.Flags().StringVar(&translateSourcePlatform, "source-platform", "gemini", "Source platform of input files (gemini, claude, cursor)")
+	translateCmd.Flags().StringVar(&translateSourcePlatform, "source-platform", "antigravity", "Source platform of input files (antigravity, claude, cursor)")
 
 	if err := translateCmd.MarkFlagRequired("source"); err != nil {
 		// MarkFlagRequired only errors if the flag does not exist — unreachable.
@@ -128,7 +128,6 @@ func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.Translati
 		config.Rules = make(map[string]ast.RuleConfig)
 	}
 
-	// Collect allow entries across all permission primitives, deduplicating.
 	seen := make(map[string]bool)
 	var allowEntries []string
 
@@ -137,68 +136,14 @@ func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.Translati
 			if strings.TrimSpace(p.Body) == "" {
 				continue
 			}
-
-			switch p.Kind {
-			case "skill":
-				destPath := filepath.Join(baseDir, "skills", p.ID, "SKILL.md")
-				if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-					return fmt.Errorf("failed to create skills/%s/ directory: %w", p.ID, err)
-				}
-				if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
-					return fmt.Errorf("failed to write %s: %w", destPath, err)
-				}
-				// Store path relative to baseDir for instructions_file portability.
-				relPath := filepath.Join("skills", p.ID, "SKILL.md")
-				config.Skills[p.ID] = ast.SkillConfig{
-					Description:      fmt.Sprintf("Translated from workflow %s", p.ID),
-					InstructionsFile: relPath,
-				}
-				fmt.Printf("  wrote %s\n", destPath)
-
-			case "rule":
-				destPath := filepath.Join(baseDir, "rules", p.ID+".md")
-				if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-					return fmt.Errorf("failed to create rules/ directory: %w", err)
-				}
-				if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
-					return fmt.Errorf("failed to write %s: %w", destPath, err)
-				}
-				relPath := filepath.Join("rules", p.ID+".md")
-				config.Rules[p.ID] = ast.RuleConfig{
-					Description:      fmt.Sprintf("Constraints from workflow %s", p.ID),
-					InstructionsFile: relPath,
-				}
-				fmt.Printf("  wrote %s\n", destPath)
-
-			case "permission":
-				for _, entry := range resolveAllowEntries(p.Body) {
-					if !seen[entry] {
-						seen[entry] = true
-						allowEntries = append(allowEntries, entry)
-					}
-				}
+			if err := injectPrimitive(&p, config, baseDir, &allowEntries, seen); err != nil {
+				return err
 			}
 		}
 	}
 
-	// Merge permission allow entries into config.Settings.Permissions.
-	if len(allowEntries) > 0 {
-		if config.Settings.Permissions == nil {
-			config.Settings.Permissions = &ast.PermissionsConfig{}
-		}
-		existing := make(map[string]bool, len(config.Settings.Permissions.Allow))
-		for _, e := range config.Settings.Permissions.Allow {
-			existing[e] = true
-		}
-		for _, entry := range allowEntries {
-			if !existing[entry] {
-				config.Settings.Permissions.Allow = append(config.Settings.Permissions.Allow, entry)
-			}
-		}
-		fmt.Printf("  merged %d permission allow entries into settings.permissions\n", len(allowEntries))
-	}
+	injectAllowEntries(config, allowEntries)
 
-	// Marshal config back to scaffold.xcf, following the import.go pattern exactly.
 	header := "# scaffold.xcf — updated by 'xcaffold translate'\n\n"
 	out, err := yaml.Marshal(config)
 	if err != nil {
@@ -210,6 +155,68 @@ func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.Translati
 
 	fmt.Printf("\nscaffold.xcf updated. Run 'xcaffold apply' to render to .claude/\n")
 	return nil
+}
+
+func injectPrimitive(p *translator.TargetPrimitive, config *ast.XcaffoldConfig, baseDir string, allowEntries *[]string, seen map[string]bool) error {
+	switch p.Kind {
+	case "skill":
+		destPath := filepath.Join(baseDir, "skills", p.ID, "SKILL.md")
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("failed to create skills/%s/ directory: %w", p.ID, err)
+		}
+		if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
+			return fmt.Errorf("failed to write %s: %w", destPath, err)
+		}
+		relPath := filepath.Join("skills", p.ID, "SKILL.md")
+		config.Skills[p.ID] = ast.SkillConfig{
+			Description:      fmt.Sprintf("Translated from workflow %s", p.ID),
+			InstructionsFile: relPath,
+		}
+		fmt.Printf("  wrote %s\n", destPath)
+
+	case "rule":
+		destPath := filepath.Join(baseDir, "rules", p.ID+".md")
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("failed to create rules/ directory: %w", err)
+		}
+		if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
+			return fmt.Errorf("failed to write %s: %w", destPath, err)
+		}
+		relPath := filepath.Join("rules", p.ID+".md")
+		config.Rules[p.ID] = ast.RuleConfig{
+			Description:      fmt.Sprintf("Constraints from workflow %s", p.ID),
+			InstructionsFile: relPath,
+		}
+		fmt.Printf("  wrote %s\n", destPath)
+
+	case "permission":
+		for _, entry := range resolveAllowEntries(p.Body) {
+			if !seen[entry] {
+				seen[entry] = true
+				*allowEntries = append(*allowEntries, entry)
+			}
+		}
+	}
+	return nil
+}
+
+func injectAllowEntries(config *ast.XcaffoldConfig, allowEntries []string) {
+	if len(allowEntries) == 0 {
+		return
+	}
+	if config.Settings.Permissions == nil {
+		config.Settings.Permissions = &ast.PermissionsConfig{}
+	}
+	existing := make(map[string]bool, len(config.Settings.Permissions.Allow))
+	for _, e := range config.Settings.Permissions.Allow {
+		existing[e] = true
+	}
+	for _, entry := range allowEntries {
+		if !existing[entry] {
+			config.Settings.Permissions.Allow = append(config.Settings.Permissions.Allow, entry)
+		}
+	}
+	fmt.Printf("  merged %d permission allow entries into settings.permissions\n", len(allowEntries))
 }
 
 // printTranslatePlan prints what would be injected without writing any files.

@@ -30,12 +30,12 @@ func init() {
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	if scopeFlag == "global" || scopeFlag == "all" {
+	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
 		if err := validateScope(globalXcfPath, "global"); err != nil {
 			return err
 		}
 	}
-	if scopeFlag == "project" || scopeFlag == "all" {
+	if scopeFlag == scopeProject || scopeFlag == scopeAll {
 		if err := validateScope(xcfPath, "project"); err != nil {
 			return err
 		}

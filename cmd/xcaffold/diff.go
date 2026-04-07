@@ -29,32 +29,32 @@ Usage:
   $ xcaffold diff
   $ xcaffold diff --scope global
   $ xcaffold diff --target cursor
-  $ xcaffold diff --target gemini`,
+  $ xcaffold diff --target antigravity`,
 	Example: "  $ xcaffold diff --target cursor",
 	RunE:    runDiff,
 }
 
 func init() {
-	diffCmd.Flags().StringVar(&diffTargetFlag, "target", "", "compilation target platform (claude, cursor, gemini; default: claude)")
+	diffCmd.Flags().StringVar(&diffTargetFlag, "target", "", "compilation target platform (claude, cursor, antigravity; default: claude)")
 	rootCmd.AddCommand(diffCmd)
 }
 
 func runDiff(cmd *cobra.Command, args []string) error {
 	totalDrift := 0
 
-	if scopeFlag == "global" || scopeFlag == "all" {
+	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
 		targetDir := filepath.Join(filepath.Dir(globalClaudeDir), compiler.OutputDir(diffTargetFlag))
 		targetLock := state.LockFilePath(globalLockPath, diffTargetFlag)
-		drift, err := diffScope(targetDir, targetLock, "global")
+		drift, err := diffScope(targetDir, targetLock, scopeGlobal)
 		if err != nil {
 			return err
 		}
 		totalDrift += drift
 	}
-	if scopeFlag == "project" || scopeFlag == "all" {
+	if scopeFlag == scopeProject || scopeFlag == scopeAll {
 		targetDir := filepath.Join(filepath.Dir(claudeDir), compiler.OutputDir(diffTargetFlag))
 		targetLock := state.LockFilePath(lockPath, diffTargetFlag)
-		drift, err := diffScope(targetDir, targetLock, "project")
+		drift, err := diffScope(targetDir, targetLock, scopeProject)
 		if err != nil {
 			return err
 		}

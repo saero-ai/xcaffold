@@ -55,17 +55,17 @@ func runReview(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("could not determine home directory: %w", err)
 		}
 		dir := filepath.Join(home, ".claude")
-		if file == "all" {
+		if file == scopeAll {
 			return reviewAllInDir(cmd, dir)
 		}
 		return reviewFile(cmd, filepath.Join(dir, file))
-	case "all":
+	case scopeAll:
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("could not determine home directory: %w", err)
 		}
 		globalDir := filepath.Join(home, ".claude")
-		if file == "all" {
+		if file == scopeAll {
 			cmd.Println("-- project scope --")
 			if err := reviewAll(cmd); err != nil {
 				return err
@@ -174,13 +174,13 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 func reviewJSON(cmd *cobra.Command, content []byte) error {
 	// Try parsing as audit.json
 	var audit struct {
-		Type   string `json:"type"`
-		Scores struct {
+		Type     string `json:"type"`
+		Feedback string `json:"feedback"`
+		Scores   struct {
 			Security         int `json:"security"`
 			PromptQuality    int `json:"prompt_quality"`
 			ToolRestrictions int `json:"tool_restrictions"`
 		} `json:"scores"`
-		Feedback string `json:"feedback"`
 	}
 
 	if err := json.Unmarshal(content, &audit); err == nil && audit.Type != "" {

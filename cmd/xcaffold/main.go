@@ -102,81 +102,86 @@ func init() {
 // It resolves the --config and --scope flags into a stable set of absolute paths
 // that all subcommands can use without re-implementing CWD logic.
 func resolveConfig(cmd *cobra.Command, args []string) error {
-	skipCommands := map[string]bool{
-		"review": true,
-	}
-	if skipCommands[cmd.Name()] {
+	if cmd.Name() == "review" {
 		return nil
 	}
 
-	// Resolve global scope paths when needed.
-	if scopeFlag == "global" || scopeFlag == "all" {
-		home, err := os.UserHomeDir()
+	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
+		if err := resolveGlobalConfig(cmd); err != nil {
+			return err
+		}
+		if scopeFlag == scopeGlobal {
+			return nil
+		}
+	}
+
+	if scopeFlag == scopeProject || scopeFlag == scopeAll {
+		if err := resolveProjectConfig(cmd); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func resolveGlobalConfig(cmd *cobra.Command) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("could not determine home directory: %w", err)
+	}
+	globalClaudeDir = filepath.Join(home, ".claude")
+	globalLockPath = filepath.Join(globalClaudeDir, "scaffold.lock")
+
+	if configFlag != "" && scopeFlag == scopeGlobal {
+		abs, err := filepath.Abs(configFlag)
 		if err != nil {
-			return fmt.Errorf("could not determine home directory: %w", err)
+			return fmt.Errorf("--config: could not resolve path %q: %w", configFlag, err)
 		}
-		globalClaudeDir = filepath.Join(home, ".claude")
-		globalLockPath = filepath.Join(globalClaudeDir, "scaffold.lock")
-
-		if configFlag != "" && scopeFlag == "global" {
-			abs, err := filepath.Abs(configFlag)
-			if err != nil {
-				return fmt.Errorf("--config: could not resolve path %q: %w", configFlag, err)
-			}
-			globalXcfPath = abs
-		} else {
-			globalXcfPath = filepath.Join(globalClaudeDir, "global.xcf")
-		}
-
-		// For init and import, skip the existence check.
-		if cmd.Name() != "init" && cmd.Name() != "import" {
-			if _, err := os.Stat(globalXcfPath); err != nil {
-				if os.IsNotExist(err) {
-					return fmt.Errorf("global.xcf not found at %q\n\nHint: run 'xcaffold init --scope global' to create one", globalXcfPath)
-				}
-				return fmt.Errorf("could not access %q: %w", globalXcfPath, err)
-			}
-		}
-
-		if scopeFlag == "global" {
-			return nil
-		}
+		globalXcfPath = abs
+	} else {
+		globalXcfPath = filepath.Join(globalClaudeDir, "global.xcf")
 	}
 
-	// Resolve project scope paths (existing logic).
-	if scopeFlag == "project" || scopeFlag == "all" {
-		if cmd.Name() == "init" || cmd.Name() == "import" {
-			return nil
-		}
-
-		var xcfAbs string
-		if configFlag != "" {
-			abs, err := filepath.Abs(configFlag)
-			if err != nil {
-				return fmt.Errorf("--config: could not resolve path %q: %w", configFlag, err)
-			}
-			xcfAbs = abs
-		} else {
-			cwd, err := os.Getwd()
-			if err != nil {
-				return fmt.Errorf("could not determine working directory: %w", err)
-			}
-			xcfAbs = filepath.Join(cwd, "scaffold.xcf")
-		}
-
-		if _, err := os.Stat(xcfAbs); err != nil {
+	if cmd.Name() != "init" && cmd.Name() != "import" {
+		if _, err := os.Stat(globalXcfPath); err != nil {
 			if os.IsNotExist(err) {
-				return fmt.Errorf("scaffold.xcf not found at %q\n\nHint: run 'xcaffold init' to create one, or use --config to specify a path", xcfAbs)
+				return fmt.Errorf("global.xcf not found at %q\n\nHint: run 'xcaffold init --scope global' to create one", globalXcfPath)
 			}
-			return fmt.Errorf("could not access %q: %w", xcfAbs, err)
+			return fmt.Errorf("could not access %q: %w", globalXcfPath, err)
 		}
+	}
+	return nil
+}
 
-		baseDir := filepath.Dir(xcfAbs)
-		xcfPath = xcfAbs
-		claudeDir = filepath.Join(baseDir, ".claude")
-		lockPath = filepath.Join(baseDir, "scaffold.lock")
+func resolveProjectConfig(cmd *cobra.Command) error {
+	if cmd.Name() == "init" || cmd.Name() == "import" {
+		return nil
+	}
+	var xcfAbs string
+	if configFlag != "" {
+		abs, err := filepath.Abs(configFlag)
+		if err != nil {
+			return fmt.Errorf("--config: could not resolve path %q: %w", configFlag, err)
+		}
+		xcfAbs = abs
+	} else {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("could not determine working directory: %w", err)
+		}
+		xcfAbs = filepath.Join(cwd, "scaffold.xcf")
 	}
 
+	if _, err := os.Stat(xcfAbs); err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("scaffold.xcf not found at %q\n\nHint: run 'xcaffold init' to create one, or use --config to specify a path", xcfAbs)
+		}
+		return fmt.Errorf("could not access %q: %w", xcfAbs, err)
+	}
+
+	xcfPath = xcfAbs
+	claudeDir = filepath.Join(filepath.Dir(xcfAbs), ".claude")
+	lockPath = filepath.Join(filepath.Dir(xcfAbs), "scaffold.lock")
 	return nil
 }
 

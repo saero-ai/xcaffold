@@ -17,6 +17,12 @@ import (
 var applyDryRun bool
 var targetFlag string
 
+const (
+	scopeAll     = "all"
+	scopeProject = "project"
+	scopeGlobal  = "global"
+)
+
 var applyCmd = &cobra.Command{
 	Use:   "apply",
 	Short: "Compile scaffold.xcf into .claude/ agent files",
@@ -40,18 +46,18 @@ Any manually edited files inside .claude/ will be overwritten.`,
 
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
-	applyCmd.Flags().StringVar(&targetFlag, "target", "", "compilation target platform (claude, cursor, gemini; default: claude)")
+	applyCmd.Flags().StringVar(&targetFlag, "target", "", "compilation target platform (claude, cursor, antigravity; default: claude)")
 	rootCmd.AddCommand(applyCmd)
 }
 
 func runApply(cmd *cobra.Command, args []string) error {
-	if scopeFlag == "global" || scopeFlag == "all" {
-		if err := applyScope(globalXcfPath, globalClaudeDir, globalLockPath, "global"); err != nil {
+	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
+		if err := applyScope(globalXcfPath, globalClaudeDir, globalLockPath, scopeGlobal); err != nil {
 			return err
 		}
 	}
-	if scopeFlag == "project" || scopeFlag == "all" {
-		if err := applyScope(xcfPath, claudeDir, lockPath, "project"); err != nil {
+	if scopeFlag == scopeProject || scopeFlag == scopeAll {
+		if err := applyScope(xcfPath, claudeDir, lockPath, scopeProject); err != nil {
 			return err
 		}
 	}
@@ -100,35 +106,9 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	hasChanges := false
 	for relPath, content := range out.Files {
 		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
-
-		if applyDryRun {
-			existingData, err := os.ReadFile(absPath)
-			existing := ""
-			if err == nil {
-				existing = string(existingData)
-			}
-			diff, _ := difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
-				A:        difflib.SplitLines(existing),
-				B:        difflib.SplitLines(content),
-				FromFile: absPath + " (current)",
-				ToFile:   absPath + " (compiled)",
-				Context:  3,
-			})
-			if diff != "" {
-				hasChanges = true
-				colorDiff(diff)
-			}
-			continue
+		if err := applyFile(absPath, content, scopeName, &hasChanges); err != nil {
+			return err
 		}
-
-		if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
-			return fmt.Errorf("[%s] failed to create directory for %q: %w", scopeName, absPath, err)
-		}
-		if err := os.WriteFile(absPath, []byte(content), 0600); err != nil {
-			return fmt.Errorf("[%s] failed to write %q: %w", scopeName, absPath, err)
-		}
-		hash := sha256.Sum256([]byte(content))
-		fmt.Printf("  [%s] ✓ wrote %s  (sha256:%x)\n", scopeName, absPath, hash)
 	}
 
 	if applyDryRun {
@@ -153,16 +133,54 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 func colorDiff(diff string) {
 	lines := strings.Split(diff, "\n")
 	for _, l := range lines {
-		if strings.HasPrefix(l, "+++") || strings.HasPrefix(l, "---") {
-			fmt.Printf("\033[1m%s\033[0m\n", l) // bold
-		} else if strings.HasPrefix(l, "@@") {
-			fmt.Printf("\033[36m%s\033[0m\n", l) // cyan
-		} else if strings.HasPrefix(l, "+") {
-			fmt.Printf("\033[32m%s\033[0m\n", l) // green
-		} else if strings.HasPrefix(l, "-") {
-			fmt.Printf("\033[31m%s\033[0m\n", l) // red
-		} else {
+		switch {
+		case strings.HasPrefix(l, "+"):
+			fmt.Println("\033[32m" + l + "\033[0m")
+		case strings.HasPrefix(l, "-"):
+			fmt.Println("\033[31m" + l + "\033[0m")
+		case strings.HasPrefix(l, "@"):
+			fmt.Println("\033[36m" + l + "\033[0m")
+		default:
 			fmt.Println(l)
 		}
 	}
+}
+
+func previewDiff(absPath, content string) bool {
+	existingData, err := os.ReadFile(absPath)
+	existing := ""
+	if err == nil {
+		existing = string(existingData)
+	}
+	diff, _ := difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
+		A:        difflib.SplitLines(existing),
+		B:        difflib.SplitLines(content),
+		FromFile: absPath + " (current)",
+		ToFile:   absPath + " (compiled)",
+		Context:  3,
+	})
+	if diff != "" {
+		colorDiff(diff)
+		return true
+	}
+	return false
+}
+
+func applyFile(absPath, content, scopeName string, hasChanges *bool) error {
+	if applyDryRun {
+		if previewDiff(absPath, content) {
+			*hasChanges = true
+		}
+		return nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
+		return fmt.Errorf("[%s] failed to create directory for %q: %w", scopeName, absPath, err)
+	}
+	if err := os.WriteFile(absPath, []byte(content), 0600); err != nil {
+		return fmt.Errorf("[%s] failed to write %q: %w", scopeName, absPath, err)
+	}
+	hash := sha256.Sum256([]byte(content))
+	fmt.Printf("  [%s] ✓ wrote %s  (sha256:%x)\n", scopeName, absPath, hash)
+	return nil
 }

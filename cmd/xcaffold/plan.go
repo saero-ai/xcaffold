@@ -38,12 +38,12 @@ func init() {
 }
 
 func runPlan(cmd *cobra.Command, args []string) error {
-	if scopeFlag == "global" || scopeFlag == "all" {
+	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
 		if err := planScope(globalXcfPath, "global"); err != nil {
 			return err
 		}
 	}
-	if scopeFlag == "project" || scopeFlag == "all" {
+	if scopeFlag == scopeProject || scopeFlag == scopeAll {
 		if err := planScope(xcfPath, "project"); err != nil {
 			return err
 		}

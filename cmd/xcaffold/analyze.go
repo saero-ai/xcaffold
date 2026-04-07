@@ -55,23 +55,33 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 
 	cmd.Printf("   Found %d core structure files and %d dependency manifests.\n", len(sig.Files), len(sig.DependencyManifests))
 
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
-	gen := generator.New(apiKey, analyzeModel, "", nil)
+	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
+	genericAPIKey := os.Getenv("XCAFFOLD_LLM_API_KEY")
+	genericAPIBase := os.Getenv("XCAFFOLD_LLM_BASE_URL")
 
-	authMsg := "Anthropic API Key"
-	if gen.AuthMode() == auth.AuthModeSubscription {
-		authMsg = "Claude Code Subscription (fallback via claude CLI)"
-		cmd.Println("   Note: Generation may display the Claude CLI spinner briefly.")
+	gen, err := generator.New(anthropicKey, genericAPIKey, genericAPIBase, analyzeModel, "", nil)
+	if err != nil {
+		return fmt.Errorf("failed to initialize generator: %w", err)
+	}
+
+	authMsg := "Generative LLM API Key"
+	if gen.AuthMode() == auth.AuthModeGenericAPI {
+		authMsg = "Platform-Agnostic LLM API"
+	} else if gen.AuthMode() == auth.AuthModeAPIKey {
+		authMsg = "Target Provider API Key"
+	} else if gen.AuthMode() == auth.AuthModeSubscription {
+		authMsg = "Platform Subscription (fallback via local CLI config)"
+		cmd.Println("   Note: Generation may display an external CLI spinner briefly.")
 	}
 
 	cmd.Printf("🧠 Generating scaffold.xcf using %s via %s...\n", analyzeModel, authMsg)
 
-	res, err := gen.Generate(sig)
+	res, err := gen.Generate(cmd.Context(), sig)
 	if err != nil {
 		return fmt.Errorf("generation failed: %w", err)
 	}
 
-	outPath := "scaffold.xcf"
+	outPath := "scaffold.xcf" // nolint:goconst
 	if err := os.WriteFile(outPath, []byte(res.YAMLConfig), 0600); err != nil {
 		return fmt.Errorf("failed to write scaffold.xcf: %w", err)
 	}

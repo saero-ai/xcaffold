@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -40,7 +41,7 @@ func init() {
 }
 
 func runImport(cmd *cobra.Command, args []string) error {
-	if scopeFlag == "global" {
+	if scopeFlag == scopeGlobal {
 		return importScope(globalClaudeDir, globalXcfPath, "global")
 	}
 	// project (default)
@@ -49,16 +50,12 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 // importScope scans a .claude/ directory at claudeDir and writes a xcf file to xcfDest.
 func importScope(claudeDir, xcfDest, scopeName string) error {
-	// If the target xcf already exists, abort.
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcfDest)
 	}
 
-	// For global scope, extracted instruction files live inside ~/.claude/imported/
-	// so they remain co-located with the global config. For project scope they live
-	// in the working directory alongside scaffold.xcf (existing behaviour).
 	var extractBase string
-	if scopeName == "global" {
+	if scopeName == scopeGlobal {
 		extractBase = filepath.Join(claudeDir, "imported")
 	} else {
 		extractBase = "."
@@ -66,127 +63,25 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
-		Project: ast.ProjectConfig{
-			Name: "imported-project",
-		},
-		Agents: make(map[string]ast.AgentConfig),
-		Skills: make(map[string]ast.SkillConfig),
-		Rules:  make(map[string]ast.RuleConfig),
-		Hooks:  make(ast.HookConfig),
-		MCP:    make(map[string]ast.MCPConfig),
+		Project: ast.ProjectConfig{Name: "imported-project"},
+		Agents:  make(map[string]ast.AgentConfig),
+		Skills:  make(map[string]ast.SkillConfig),
+		Rules:   make(map[string]ast.RuleConfig),
+		Hooks:   make(ast.HookConfig),
+		MCP:     make(map[string]ast.MCPConfig),
 	}
 
 	importCount := 0
 	var warnings []string
 
-	// 1. Import agents — extract content to agents/<id>.md, reference via instructions_file
-	agentFiles, _ := filepath.Glob(filepath.Join(claudeDir, "agents", "*.md"))
-	for _, f := range agentFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipping agent %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		if id == "" {
-			continue
-		}
-
-		destPath := filepath.Join(extractBase, "agents", id+".md")
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return fmt.Errorf("[%s] failed to create agents/ directory: %w", scopeName, err)
-		}
-		if err := os.WriteFile(destPath, data, 0600); err != nil {
-			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
-		}
-
-		config.Agents[id] = ast.AgentConfig{
-			Description:      "Imported agent",
-			InstructionsFile: destPath,
-		}
-		importCount++
+	if err := extractAgents(claudeDir, extractBase, scopeName, config, &importCount, &warnings); err != nil {
+		return err
 	}
-
-	// 2. Import skills — Claude Code uses skills/<id>/SKILL.md directory structure
-	skillFiles, _ := filepath.Glob(filepath.Join(claudeDir, "skills", "*", "SKILL.md"))
-	for _, f := range skillFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipping skill %s: %v", f, err))
-			continue
-		}
-		id := filepath.Base(filepath.Dir(f))
-		if id == "" || id == "." {
-			continue
-		}
-
-		destPath := filepath.Join(extractBase, "skills", id, "SKILL.md")
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return fmt.Errorf("[%s] failed to create skills/%s/ directory: %w", scopeName, id, err)
-		}
-		if err := os.WriteFile(destPath, data, 0600); err != nil {
-			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
-		}
-
-		// Copy reference files if a references/ subdirectory exists.
-		refSrc := filepath.Join(filepath.Dir(f), "references")
-		var refs []string
-		if refEntries, err := os.ReadDir(refSrc); err == nil {
-			for _, entry := range refEntries {
-				if entry.IsDir() {
-					continue
-				}
-				srcRef := filepath.Join(refSrc, entry.Name())
-				dstRef := filepath.Join(extractBase, "skills", id, "references", entry.Name())
-				if err := os.MkdirAll(filepath.Dir(dstRef), 0755); err != nil {
-					return fmt.Errorf("[%s] failed to create references dir: %w", scopeName, err)
-				}
-				refData, err := os.ReadFile(srcRef)
-				if err != nil {
-					warnings = append(warnings, fmt.Sprintf("skipping reference %s: %v", srcRef, err))
-					continue
-				}
-				if err := os.WriteFile(dstRef, refData, 0600); err != nil {
-					return fmt.Errorf("[%s] failed to write reference %s: %w", scopeName, dstRef, err)
-				}
-				refs = append(refs, dstRef)
-			}
-		}
-
-		config.Skills[id] = ast.SkillConfig{
-			Description:      "Imported skill",
-			InstructionsFile: destPath,
-			References:       refs,
-		}
-		importCount++
+	if err := extractSkills(claudeDir, extractBase, scopeName, config, &importCount, &warnings); err != nil {
+		return err
 	}
-
-	// 3. Import rules — extract to rules/<id>.md
-	ruleFiles, _ := filepath.Glob(filepath.Join(claudeDir, "rules", "*.md"))
-	for _, f := range ruleFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("skipping rule %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		if id == "" {
-			continue
-		}
-
-		destPath := filepath.Join(extractBase, "rules", id+".md")
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return fmt.Errorf("[%s] failed to create rules/ directory: %w", scopeName, err)
-		}
-		if err := os.WriteFile(destPath, data, 0600); err != nil {
-			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
-		}
-
-		config.Rules[id] = ast.RuleConfig{
-			Description:      "Imported rule",
-			InstructionsFile: destPath,
-		}
-		importCount++
+	if err := extractRules(claudeDir, extractBase, scopeName, config, &importCount, &warnings); err != nil {
+		return err
 	}
 
 	// 4. Parse settings.json for MCP servers and settings.
@@ -232,7 +127,13 @@ func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warning
 		return err
 	}
 
-	// MCP servers
+	importMCPServers(raw, config, count)
+	importStatusAndPlugins(raw, config)
+
+	return nil
+}
+
+func importMCPServers(raw map[string]interface{}, config *ast.XcaffoldConfig, count *int) {
 	if mcpRaw, ok := raw["mcpServers"].(map[string]interface{}); ok {
 		for id, serverRaw := range mcpRaw {
 			serverMap, ok := serverRaw.(map[string]interface{})
@@ -254,8 +155,9 @@ func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warning
 			*count++
 		}
 	}
+}
 
-	// Settings block — statusLine (object), enabledPlugins (map), effortLevel
+func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConfig) {
 	settings := ast.SettingsConfig{}
 	changed := false
 
@@ -292,6 +194,152 @@ func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warning
 	if changed {
 		config.Settings = settings
 	}
+}
 
+func extractAgents(claudeDir, extractBase, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	agentFiles, _ := filepath.Glob(filepath.Join(claudeDir, "agents", "*.md"))
+	for _, f := range agentFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping agent %s: %v", f, err))
+			continue
+		}
+		id := strings.TrimSuffix(filepath.Base(f), ".md")
+		if id == "" {
+			continue
+		}
+		destPath := filepath.Join(extractBase, "agents", id+".md")
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("[%s] failed to create agents/ directory: %w", scopeName, err)
+		}
+		if err := os.WriteFile(destPath, data, 0600); err != nil {
+			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
+		}
+
+		agentCfg := ast.AgentConfig{Description: "Imported agent", InstructionsFile: destPath}
+		if fm, ok := extractFrontmatter(data); ok {
+			_ = yaml.Unmarshal(fm, &agentCfg)
+			// Ensure instructions_file points to the new path regardless of frontmatter
+			agentCfg.InstructionsFile = destPath
+			agentCfg.Instructions = "" // Avoid conflicts
+		}
+
+		config.Agents[id] = agentCfg
+		*count++
+	}
 	return nil
+}
+
+func extractSkills(claudeDir, extractBase, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	skillFiles, _ := filepath.Glob(filepath.Join(claudeDir, "skills", "*", "SKILL.md"))
+	for _, f := range skillFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping skill %s: %v", f, err))
+			continue
+		}
+		id := filepath.Base(filepath.Dir(f))
+		if id == "" || id == "." {
+			continue
+		}
+		destPath := filepath.Join(extractBase, "skills", id, "SKILL.md")
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("[%s] failed to create skills/%s/ directory: %w", scopeName, id, err)
+		}
+		if err := os.WriteFile(destPath, data, 0600); err != nil {
+			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
+		}
+		refs, err := extractSkillRefs(f, extractBase, scopeName, id, warnings)
+		if err != nil {
+			return err
+		}
+
+		skillCfg := ast.SkillConfig{Description: "Imported skill", InstructionsFile: destPath, References: refs}
+		if fm, ok := extractFrontmatter(data); ok {
+			_ = yaml.Unmarshal(fm, &skillCfg)
+			skillCfg.InstructionsFile = destPath
+			skillCfg.Instructions = "" // Avoid conflicts
+			if len(refs) > 0 {
+				skillCfg.References = append(skillCfg.References, refs...) // merge
+			}
+		}
+
+		config.Skills[id] = skillCfg
+		*count++
+	}
+	return nil
+}
+
+func extractSkillRefs(skillFile, extractBase, scopeName, id string, warnings *[]string) ([]string, error) {
+	refSrc := filepath.Join(filepath.Dir(skillFile), "references")
+	var refs []string
+	if refEntries, err := os.ReadDir(refSrc); err == nil {
+		for _, entry := range refEntries {
+			if entry.IsDir() {
+				continue
+			}
+			srcRef := filepath.Join(refSrc, entry.Name())
+			dstRef := filepath.Join(extractBase, "skills", id, "references", entry.Name())
+			if err := os.MkdirAll(filepath.Dir(dstRef), 0755); err != nil {
+				return nil, fmt.Errorf("[%s] failed to create references dir: %w", scopeName, err)
+			}
+			refData, err := os.ReadFile(srcRef)
+			if err != nil {
+				*warnings = append(*warnings, fmt.Sprintf("skipping reference %s: %v", srcRef, err))
+				continue
+			}
+			if err := os.WriteFile(dstRef, refData, 0600); err != nil {
+				return nil, fmt.Errorf("[%s] failed to write reference %s: %w", scopeName, dstRef, err)
+			}
+			refs = append(refs, dstRef)
+		}
+	}
+	return refs, nil
+}
+
+func extractRules(claudeDir, extractBase, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	ruleFiles, _ := filepath.Glob(filepath.Join(claudeDir, "rules", "*.md"))
+	for _, f := range ruleFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping rule %s: %v", f, err))
+			continue
+		}
+		id := strings.TrimSuffix(filepath.Base(f), ".md")
+		if id == "" {
+			continue
+		}
+		destPath := filepath.Join(extractBase, "rules", id+".md")
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("[%s] failed to create rules/ directory: %w", scopeName, err)
+		}
+		if err := os.WriteFile(destPath, data, 0600); err != nil {
+			return fmt.Errorf("[%s] failed to write %s: %w", scopeName, destPath, err)
+		}
+
+		ruleCfg := ast.RuleConfig{Description: "Imported rule", InstructionsFile: destPath}
+		if fm, ok := extractFrontmatter(data); ok {
+			_ = yaml.Unmarshal(fm, &ruleCfg)
+			ruleCfg.InstructionsFile = destPath
+			ruleCfg.Instructions = "" // Avoid conflicts
+		}
+
+		config.Rules[id] = ruleCfg
+		*count++
+	}
+	return nil
+}
+
+// extractFrontmatter isolates the YAML section between `---` markers at the start of a markdown file.
+func extractFrontmatter(data []byte) ([]byte, bool) {
+	if !bytes.HasPrefix(data, []byte("---\n")) && !bytes.HasPrefix(data, []byte("---\r\n")) {
+		return nil, false
+	}
+	// The frontmatter must be closed by another '---'.
+	// data[4:] starts after the first '---' block.
+	idx := bytes.Index(data[4:], []byte("\n---"))
+	if idx == -1 {
+		return nil, false
+	}
+	return data[4 : 4+idx], true
 }
