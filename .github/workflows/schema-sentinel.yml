@@ -1,4 +1,4 @@
-name: Schema Sentinel (Fuzzer)
+name: Platform Schema Sentinel (Fuzzer)
 
 on:
   schedule:
@@ -16,21 +16,23 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23' # or the version defined in go.mod
+          go-version: '1.24'
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Install Latest Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Install Latest Target CLIs
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          # Install other Target CLIs here when available
 
       - name: Execute Fuzzer
         run: |
-          echo "Running Schema Sentinel Fuzzer against latest Claude CLI..."
+          echo "Running Schema Sentinel Fuzzer against Target CLIs..."
           # Mock: The actual fuzzer implementation runs here, extracting stderr and generating schemas.
-          # go run tools/fuzzer/main.go > packages/cli/internal/parser/claude-schema-latest.json
+          # go run tools/fuzzer/main.go > packages/cli/internal/parser/target-schema-latest.json
           echo "Fuzzing complete."
 
       - name: Check for Schema Drift
@@ -49,11 +51,12 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: update claude internal schema via schema sentinel"
+          commit-message: "chore: update target internal external schema via schema sentinel"
           title: "Automated Schema Sentinel Update"
           body: |
-            The nightly Schema Sentinel Fuzzer detected upstream breaking changes or additions in the `@anthropic-ai/claude-code` binary.
+            The nightly Schema Sentinel Fuzzer detected upstream breaking changes or additions in the target AI CLIs.
             
             This PR automatically generates the new compatibility schema so that the `xcaffold` Go compiler can stay up to date.
           branch: "schema-sentinel-update"
           base: "main"
+
