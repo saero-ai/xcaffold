@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GoReleaser configuration — pre-built release binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64). Homebrew tap formula included.
 - `AGENTS.md` — universal agent instruction file following the [agents.txt](https://agentstext.com) convention.
 - `llms.txt` — AI discovery index at repository root.
-- `.github/copilot-instructions.md` — workspace-specific Copilot context.
+- `.github/` — workspace-specific AI coding context files.
 - `docs/architecture.md` — system architecture documentation with Mermaid diagrams.
 - Shared `internal/auth` package — eliminates `AuthMode` type duplication between `judge` and `generator` packages.
 - `make install` target added to `Makefile` with dynamic `LDFLAGS` injection for version propagation.

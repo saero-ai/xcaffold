@@ -12,12 +12,16 @@ import (
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/registry"
+	"github.com/saero-ai/xcaffold/internal/templates"
 	"github.com/spf13/cobra"
 )
 
 // yesFlag is set by --yes / -y to skip all interactive prompts and
 // accept defaults (suitable for CI/CD pipelines).
 var yesFlag bool
+
+// templateFlag is set by --template to use a pre-built topology template.
+var templateFlag string
 
 var initCmd = &cobra.Command{
 	Use:   "init",
@@ -43,6 +47,7 @@ Ready to get started? Run:
 
 func init() {
 	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Accept all defaults non-interactively (CI/CD mode)")
+	initCmd.Flags().StringVar(&templateFlag, "template", "", "use a topology template (rest-api, cli-tool, frontend-app)")
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -282,7 +287,17 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 	}
 
 	// ── Build scaffold.xcf content ─────────────────────────────────────────
-	content := buildXCFContent(ans)
+	var content string
+	if templateFlag != "" {
+		model, _ := resolveTargetMeta(ans.target)
+		var err error
+		content, err = templates.Render(templateFlag, ans.name, model)
+		if err != nil {
+			return err
+		}
+	} else {
+		content = buildXCFContent(ans)
+	}
 
 	if err := os.WriteFile(xcfFile, []byte(content), 0600); err != nil {
 		return fmt.Errorf("failed to create %s: %w", xcfFile, err)
