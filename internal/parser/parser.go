@@ -169,6 +169,9 @@ func validate(c *ast.XcaffoldConfig) error {
 	if err := validateInstructions(c); err != nil {
 		return err
 	}
+	if err := validateCrossReferences(c); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -256,6 +259,34 @@ func validateInstructionOrFile(kind, id, inst, file string) error {
 		return fmt.Errorf("%s %q: instructions and instructions_file are mutually exclusive; set one or the other", kind, id)
 	}
 	return validateInstructionsFile(kind, id, file)
+}
+
+func validateCrossReferences(c *ast.XcaffoldConfig) error {
+	for agentID, agent := range c.Agents {
+		for _, skillID := range agent.Skills {
+			if _, ok := c.Skills[skillID]; !ok {
+				return fmt.Errorf("agent %q references undefined skill %q", agentID, skillID)
+			}
+		}
+		for _, ruleID := range agent.Rules {
+			if _, ok := c.Rules[ruleID]; !ok {
+				return fmt.Errorf("agent %q references undefined rule %q", agentID, ruleID)
+			}
+		}
+		for _, mcpID := range agent.MCP {
+			if _, ok := c.MCP[mcpID]; !ok {
+				return fmt.Errorf("agent %q references undefined mcp server %q", agentID, mcpID)
+			}
+		}
+	}
+	for skillID, skill := range c.Skills {
+		if skill.Agent != "" {
+			if _, ok := c.Agents[skill.Agent]; !ok {
+				return fmt.Errorf("skill %q references undefined agent %q", skillID, skill.Agent)
+			}
+		}
+	}
+	return nil
 }
 
 // validateInstructionsFile checks that an instructions_file path is safe.
