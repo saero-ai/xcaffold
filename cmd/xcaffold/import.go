@@ -174,12 +174,25 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	if err := extractRules(claudeDir, extractBase, scopeName, config, &importCount, &warnings); err != nil {
 		return err
 	}
+	if err := extractWorkflows(claudeDir, extractBase, scopeName, config, &importCount, &warnings); err != nil {
+		return err
+	}
 
 	// 4. Parse settings.json for MCP servers and settings.
 	settingsPath := filepath.Join(claudeDir, "settings.json")
 	if data, err := os.ReadFile(settingsPath); err == nil {
 		if err := importSettings(data, config, &importCount, &warnings); err != nil {
 			warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
+		}
+	}
+
+	// 5. Parse hooks.json
+	hooksPath := filepath.Join(claudeDir, "hooks.json")
+	if data, err := os.ReadFile(hooksPath); err == nil {
+		if err := json.Unmarshal(data, &config.Hooks); err != nil {
+			warnings = append(warnings, fmt.Sprintf("hooks.json failed to parse: %v", err))
+		} else {
+			importCount++
 		}
 	}
 
@@ -224,6 +237,16 @@ func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warning
 
 	importMCPServers(raw, config, count)
 	importStatusAndPlugins(raw, config)
+
+	// Import hooks if they exist in settings.json
+	if hooksRaw, ok := raw["hooks"]; ok {
+		hooksBytes, err := json.Marshal(hooksRaw)
+		if err == nil {
+			if err := json.Unmarshal(hooksBytes, &config.Hooks); err == nil {
+				*count++
+			}
+		}
+	}
 
 	return nil
 }
@@ -609,13 +632,14 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 
 	projectName := inferProjectName()
 	config := &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: ast.ProjectConfig{Name: projectName},
-		Agents:  make(map[string]ast.AgentConfig),
-		Skills:  make(map[string]ast.SkillConfig),
-		Rules:   make(map[string]ast.RuleConfig),
-		Hooks:   make(ast.HookConfig),
-		MCP:     make(map[string]ast.MCPConfig),
+		Version:   "1.0",
+		Project:   ast.ProjectConfig{Name: projectName},
+		Agents:    make(map[string]ast.AgentConfig),
+		Skills:    make(map[string]ast.SkillConfig),
+		Rules:     make(map[string]ast.RuleConfig),
+		Workflows: make(map[string]ast.WorkflowConfig),
+		Hooks:     make(ast.HookConfig),
+		MCP:       make(map[string]ast.MCPConfig),
 	}
 
 	importCount := 0
@@ -626,17 +650,19 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 	agentSources := make(map[string]string)
 	skillSources := make(map[string]string)
 	ruleSources := make(map[string]string)
+	workflowSources := make(map[string]string)
 
 	for _, dir := range dirs {
 		fmt.Printf("  Scanning %s ...\n", dir)
 
 		// Extract into a temporary config to compare before merging
 		tmpConfig := &ast.XcaffoldConfig{
-			Agents: make(map[string]ast.AgentConfig),
-			Skills: make(map[string]ast.SkillConfig),
-			Rules:  make(map[string]ast.RuleConfig),
-			Hooks:  make(ast.HookConfig),
-			MCP:    make(map[string]ast.MCPConfig),
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			Hooks:     make(ast.HookConfig),
+			MCP:       make(map[string]ast.MCPConfig),
 		}
 		tmpCount := 0
 
@@ -649,12 +675,25 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 		if err := extractRules(dir, extractBase, "project", tmpConfig, &tmpCount, &warnings); err != nil {
 			return err
 		}
+		if err := extractWorkflows(dir, extractBase, "project", tmpConfig, &tmpCount, &warnings); err != nil {
+			return err
+		}
 
 		// Parse settings from this dir
 		settingsPath := filepath.Join(dir, "settings.json")
 		if data, err := os.ReadFile(settingsPath); err == nil {
 			if err := importSettings(data, config, &importCount, &warnings); err != nil {
 				warnings = append(warnings, fmt.Sprintf("%s/settings.json partially imported: %v", dir, err))
+			}
+		}
+
+		// Parse hooks.json from this dir
+		hooksPath := filepath.Join(dir, "hooks.json")
+		if data, err := os.ReadFile(hooksPath); err == nil {
+			if err := json.Unmarshal(data, &config.Hooks); err != nil {
+				warnings = append(warnings, fmt.Sprintf("%s/hooks.json failed to parse: %v", dir, err))
+			} else {
+				importCount++
 			}
 		}
 
@@ -711,6 +750,25 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 			} else {
 				config.Rules[id] = rc
 				ruleSources[id] = dir
+				importCount++
+			}
+		}
+
+		// Merge workflows
+		for id, wc := range tmpConfig.Workflows {
+			if _, exists := config.Workflows[id]; exists {
+				newSize := fileSize(wc.InstructionsFile)
+				oldSize := fileSize(config.Workflows[id].InstructionsFile)
+				if newSize > oldSize {
+					config.Workflows[id] = wc
+					fmt.Printf("    ⚠ Duplicate workflow '%s' — keeping %s version (larger)\n", id, dir)
+					workflowSources[id] = dir
+				} else {
+					fmt.Printf("    ⚠ Duplicate workflow '%s' — keeping %s version (larger)\n", id, workflowSources[id])
+				}
+			} else {
+				config.Workflows[id] = wc
+				workflowSources[id] = dir
 				importCount++
 			}
 		}
@@ -774,4 +832,34 @@ func fileSize(path string) int64 {
 		return 0
 	}
 	return info.Size()
+}
+
+func extractWorkflows(claudeDir, extractBase, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	workflowFiles, _ := filepath.Glob(filepath.Join(claudeDir, "workflows", "*.md"))
+	for _, f := range workflowFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping workflow %s: %v", f, err))
+			continue
+		}
+		id := strings.TrimSuffix(filepath.Base(f), ".md")
+		if id == "" {
+			continue
+		}
+		destPath := filepath.ToSlash(f)
+
+		workflowCfg := ast.WorkflowConfig{Description: "Imported workflow", InstructionsFile: destPath}
+		if fm, ok := extractFrontmatter(data); ok {
+			_ = yaml.Unmarshal(fm, &workflowCfg)
+			workflowCfg.InstructionsFile = destPath
+			workflowCfg.Instructions = "" // Avoid conflicts
+		}
+
+		if config.Workflows == nil {
+			config.Workflows = make(map[string]ast.WorkflowConfig)
+		}
+		config.Workflows[id] = workflowCfg
+		*count++
+	}
+	return nil
 }

@@ -210,6 +210,8 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 }
 
 func main() {
+	rootCmd.SetOut(os.Stdout)
+	rootCmd.SetErr(os.Stderr)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

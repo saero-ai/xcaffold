@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/saero-ai/xcaffold/internal/compiler"
@@ -17,6 +18,9 @@ import (
 
 var applyDryRun bool
 var applyCheckOnly bool
+var applyForce bool
+var applyBackup bool
+var applyProjectFlag string
 var targetFlag string
 
 const (
@@ -53,6 +57,9 @@ Validation:
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
 	applyCmd.Flags().BoolVar(&applyCheckOnly, "check", false, "Check configuration syntax without compiling")
+	applyCmd.Flags().BoolVar(&applyForce, "force", false, "Overwrite customized local files and bypass drift safeguard")
+	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
+	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
 	applyCmd.Flags().StringVar(&targetFlag, "target", targetClaude, "compilation target platform (claude, cursor, antigravity; default: claude)")
 	rootCmd.AddCommand(applyCmd)
 }
@@ -60,15 +67,26 @@ func init() {
 const targetClaude = "claude"
 
 func runApply(cmd *cobra.Command, args []string) error {
+	if applyProjectFlag != "" {
+		proj, err := registry.Resolve(applyProjectFlag)
+		if err != nil {
+			return fmt.Errorf("project %q not found in registry: %w", applyProjectFlag, err)
+		}
+		globalXcfPath = filepath.Join(proj.Path, "scaffold.xcf")
+		xcfPath = globalXcfPath
+		claudeDir = filepath.Join(proj.Path, ".claude")
+		lockPath = filepath.Join(proj.Path, "scaffold.lock")
+	}
+
 	if applyCheckOnly {
 		if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
-			if _, err := parser.ParseFile(globalXcfPath); err != nil {
+			if _, err := parser.ParseDirectory(globalXcfHome); err != nil {
 				return fmt.Errorf("[global] parse error: %w", err)
 			}
 			fmt.Println("[global] ✓ Syntax is valid")
 		}
 		if scopeFlag == scopeProject || scopeFlag == scopeAll {
-			if _, err := parser.ParseFile(xcfPath); err != nil {
+			if _, err := parser.ParseDirectory(filepath.Dir(xcfPath)); err != nil {
 				return fmt.Errorf("[project] parse error: %w", err)
 			}
 			fmt.Println("[project] ✓ Syntax is valid")
@@ -94,14 +112,15 @@ func runApply(cmd *cobra.Command, args []string) error {
 // at lockFile. scopeName is used as a prefix in terminal output when running
 // --scope all so the user can distinguish the two compilation passes.
 func applyScope(configPath, outputDir, lockFile, scopeName string) error {
-	config, err := parser.ParseFile(configPath)
+	// baseDir is the directory containing the xcf file — used by the compiler
+	// to resolve instructions_file: and references: paths.
+	baseDir := filepath.Dir(configPath)
+
+	config, err := parser.ParseDirectory(baseDir)
 	if err != nil {
 		return fmt.Errorf("[%s] parse error: %w", scopeName, err)
 	}
 
-	// baseDir is the directory containing the xcf file — used by the compiler
-	// to resolve instructions_file: and references: paths.
-	baseDir := filepath.Dir(configPath)
 	out, err := compiler.Compile(config, baseDir, targetFlag)
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
@@ -109,6 +128,20 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 
 	// Resolve the target-specific output directory instead of the hardcoded default
 	outputDir = filepath.Join(filepath.Dir(outputDir), compiler.OutputDir(targetFlag))
+	targetLockFile := state.LockFilePath(lockFile, targetFlag)
+
+	if !applyDryRun && !applyForce {
+		drift, err := hasDrift(outputDir, targetLockFile)
+		if err == nil && drift {
+			return fmt.Errorf("[%s] drift detected! Target directory contains unrecorded changes. Use --force to overwrite", scopeName)
+		}
+	}
+
+	if applyBackup && !applyDryRun {
+		if err := performBackup(outputDir, targetFlag, config.Project.BackupDir, scopeName); err != nil {
+			return fmt.Errorf("[%s] backup failed: %w", scopeName, err)
+		}
+	}
 
 	for _, agent := range config.Agents {
 		if len(agent.Targets) > 0 {
@@ -146,7 +179,6 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 
 	// Write the lock file.
 	manifest := state.Generate(out)
-	targetLockFile := state.LockFilePath(lockFile, targetFlag)
 	if err := state.Write(manifest, targetLockFile); err != nil {
 		return fmt.Errorf("[%s] failed to write %s: %w", scopeName, filepath.Base(targetLockFile), err)
 	}
@@ -215,4 +247,75 @@ func applyFile(absPath, content, scopeName string, hasChanges *bool) error {
 	hash := sha256.Sum256([]byte(content))
 	fmt.Printf("  [%s] ✓ wrote %s  (sha256:%x)\n", scopeName, absPath, hash)
 	return nil
+}
+
+func hasDrift(outputDir, lockFile string) (bool, error) {
+	manifest, err := state.Read(lockFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil // no lock file means no drift (first run)
+		}
+		return false, err
+	}
+
+	for _, artifact := range manifest.Artifacts {
+		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
+		data, err := os.ReadFile(absPath)
+		if err != nil {
+			return true, nil // missing file is drift
+		}
+		actualHash := sha256.Sum256(data)
+		actual := fmt.Sprintf("sha256:%x", actualHash)
+		if actual != artifact.Hash {
+			return true, nil // content drift
+		}
+	}
+	return false, nil
+}
+
+func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
+	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
+		return nil // nothing to backup
+	}
+
+	timestamp := time.Now().Format("20060102_150405")
+	bakName := fmt.Sprintf(".%s_bak_%s", target, timestamp)
+	if target == "" {
+		bakName = fmt.Sprintf(".claude_bak_%s", timestamp)
+	}
+
+	var destDir string
+	if backupDirConfig != "" {
+		destDir = filepath.Join(backupDirConfig, bakName)
+	} else {
+		destDir = filepath.Join(filepath.Dir(outputDir), bakName)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(destDir), 0755); err != nil {
+		return err
+	}
+
+	fmt.Printf("[%s] Backing up %s -> %s\n", scopeName, outputDir, destDir)
+	return copyDir(outputDir, destDir)
+}
+
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		destPath := filepath.Join(dst, rel)
+		if info.IsDir() {
+			return os.MkdirAll(destPath, info.Mode())
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(destPath, data, info.Mode())
+	})
 }

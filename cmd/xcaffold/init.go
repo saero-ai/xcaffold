@@ -203,12 +203,13 @@ func offerImportIfPlatformDirExists(cmd *cobra.Command) (bool, error) {
 
 // platformDirInfo holds summary counts of resources found in a platform dir.
 type platformDirInfo struct {
-	platform string
-	dirName  string
-	agents   int
-	skills   int
-	rules    int
-	exists   bool
+	platform  string
+	dirName   string
+	agents    int
+	skills    int
+	rules     int
+	workflows int
+	exists    bool
 }
 
 func (c platformDirInfo) summary() string {
@@ -221,6 +222,9 @@ func (c platformDirInfo) summary() string {
 	}
 	if c.rules > 0 {
 		parts = append(parts, fmt.Sprintf("%d rule(s)", c.rules))
+	}
+	if c.workflows > 0 {
+		parts = append(parts, fmt.Sprintf("%d workflow(s)", c.workflows))
 	}
 	if len(parts) == 0 {
 		return "no recognized resources"
@@ -257,6 +261,9 @@ func detectAllPlatformDirs(dir string) []platformDirInfo {
 		}
 		if rulesMDC, _ := filepath.Glob(filepath.Join(targetPath, "rules", "*.mdc")); rulesMDC != nil {
 			info.rules += len(rulesMDC)
+		}
+		if workflows, _ := filepath.Glob(filepath.Join(targetPath, "workflows", "*.md")); workflows != nil {
+			info.workflows += len(workflows)
 		}
 
 		results = append(results, info)

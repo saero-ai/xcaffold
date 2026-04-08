@@ -26,8 +26,8 @@ func TestApplyScope_Project(t *testing.T) {
 	err := applyScope(xcf, claudeDirPath, lock, "project")
 	require.NoError(t, err)
 
-	// scaffold.lock must be written.
-	_, err = os.Stat(lock)
+	targetLock := filepath.Join(dir, "scaffold.claude.lock")
+	_, err = os.Stat(targetLock)
 	assert.NoError(t, err, "scaffold.lock should exist after applyScope")
 
 	// .claude/ subdirectories must exist.
@@ -60,7 +60,8 @@ func TestRunApply_ScopeProject(t *testing.T) {
 	err := runApply(nil, nil)
 	require.NoError(t, err)
 
-	_, err = os.Stat(lockPath)
+	targetLock := filepath.Join(dir, "scaffold.claude.lock")
+	_, err = os.Stat(targetLock)
 	assert.NoError(t, err, "scaffold.lock should be written for project scope")
 }
 
@@ -77,7 +78,8 @@ func TestRunApply_ScopeGlobal(t *testing.T) {
 	err := runApply(nil, nil)
 	require.NoError(t, err)
 
-	_, err = os.Stat(globalLockPath)
+	targetLock := filepath.Join(dir, "scaffold.claude.lock")
+	_, err = os.Stat(targetLock)
 	assert.NoError(t, err, "scaffold.lock should be written for global scope")
 }
 
@@ -103,9 +105,11 @@ func TestRunApply_ScopeAll(t *testing.T) {
 	err := runApply(nil, nil)
 	require.NoError(t, err)
 
-	_, err = os.Stat(lockPath)
+	targetProjLock := filepath.Join(dir, "proj-scaffold.claude.lock")
+	_, err = os.Stat(targetProjLock)
 	assert.NoError(t, err, "project scaffold.lock should be written")
 
-	_, err = os.Stat(globalLockPath)
+	targetGlobalLock := filepath.Join(dir, "global-scaffold.claude.lock")
+	_, err = os.Stat(targetGlobalLock)
 	assert.NoError(t, err, "global scaffold.lock should be written")
 }
