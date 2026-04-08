@@ -306,6 +306,22 @@ agents:
 	assert.Contains(t, err.Error(), "instructions_file")
 }
 
+// TestParse_InstructionsFile_CircularReference_Rejected verifies that a parsing
+// instructions_file pointing into a compiler output directory (.claude/, .cursor/, etc) is rejected.
+func TestParse_InstructionsFile_CircularReference_Rejected(t *testing.T) {
+	yaml := `
+version: "1.0"
+project:
+  name: "test-project"
+agents:
+  cto:
+    instructions_file: ".claude/agents/cto.md"
+`
+	_, err := Parse(strings.NewReader(yaml))
+	require.Error(t, err, "instructions_file referencing a compiler output dir must be rejected at parse time")
+	assert.Contains(t, err.Error(), "circular dependencies")
+}
+
 // TestParse_InstructionsFile_ValidRelativePath_Accepted verifies that a valid
 // relative instructions_file path parses successfully.
 func TestParse_InstructionsFile_ValidRelativePath_Accepted(t *testing.T) {

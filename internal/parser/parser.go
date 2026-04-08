@@ -761,5 +761,11 @@ func validateInstructionsFile(kind, id, path string) error {
 	if strings.ContainsAny(path, "\\") || strings.Contains(path, "..") {
 		return fmt.Errorf("%s %q: instructions_file contains invalid path characters: %q", kind, id, path)
 	}
+
+	// Prevent circular dependencies by blocking references to compiler output directories.
+	if strings.HasPrefix(path, ".claude/") || strings.HasPrefix(path, ".cursor/") || strings.HasPrefix(path, ".agents/") || strings.HasPrefix(path, ".antigravity/") {
+		return fmt.Errorf("%s %q: instructions_file cannot reference %q to avoid circular dependencies during compilation", kind, id, strings.Split(path, "/")[0])
+	}
+
 	return nil
 }
