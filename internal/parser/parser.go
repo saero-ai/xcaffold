@@ -39,6 +39,13 @@ func parsePartial(r io.Reader) (*ast.XcaffoldConfig, error) {
 	return config, nil
 }
 
+// FileConfig represents a parsed partial configuration along with its origin file path.
+// It is used internally to provide accurate error tracing when duplicate IDs are found.
+type FileConfig struct {
+	Path   string
+	Config *ast.XcaffoldConfig
+}
+
 // ParseDirectory recursively scans the given directory for all *.xcf files,
 // parses them, merges them strictly (erroring on duplicate IDs), and then
 // resolves 'extends:' chains.
@@ -68,13 +75,13 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 		return nil, fmt.Errorf("no *.xcf files found in directory %q", dir)
 	}
 
-	var partials []*ast.XcaffoldConfig
+	var partials []FileConfig
 	for _, f := range files {
 		cfg, err := parseFileExact(f)
 		if err != nil {
 			return nil, err
 		}
-		partials = append(partials, cfg)
+		partials = append(partials, FileConfig{Path: f, Config: cfg})
 	}
 
 	merged, err := mergeAllStrict(partials)
@@ -179,94 +186,96 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 
 // mergeAllStrict is used to merge files living in the same directory.
 // Duplicate maps (like Agents, Skills, etc.) cause errors.
-func mergeAllStrict(partials []*ast.XcaffoldConfig) (*ast.XcaffoldConfig, error) {
+func mergeAllStrict(partials []FileConfig) (*ast.XcaffoldConfig, error) {
 	if len(partials) == 0 {
 		return &ast.XcaffoldConfig{}, nil
 	}
 	merged := &ast.XcaffoldConfig{}
+	tracker := make(map[string]map[string]string)
 
 	for _, p := range partials {
 		var err error
-		if merged.Version != "" && p.Version != "" && merged.Version != p.Version {
-			return nil, fmt.Errorf("conflicting versions declared: %q vs %q", merged.Version, p.Version)
+		if merged.Version != "" && p.Config.Version != "" && merged.Version != p.Config.Version {
+			return nil, fmt.Errorf("conflicting versions declared: %q vs %q", merged.Version, p.Config.Version)
 		}
-		if p.Version != "" {
-			merged.Version = p.Version
+		if p.Config.Version != "" {
+			merged.Version = p.Config.Version
 		}
 
-		if p.Project.Name != "" {
-			if merged.Project.Name != "" && merged.Project.Name != p.Project.Name {
-				return nil, fmt.Errorf("multiple files declare project.name: %q vs %q", merged.Project.Name, p.Project.Name)
+		if p.Config.Project.Name != "" {
+			if merged.Project.Name != "" && merged.Project.Name != p.Config.Project.Name {
+				return nil, fmt.Errorf("multiple files declare project.name: %q vs %q", merged.Project.Name, p.Config.Project.Name)
 			}
-			merged.Project = p.Project
+			merged.Project = p.Config.Project
 		}
 
-		if p.Extends != "" {
-			if merged.Extends != "" && merged.Extends != p.Extends {
-				return nil, fmt.Errorf("multiple files declare extends: %q vs %q", merged.Extends, p.Extends)
+		if p.Config.Extends != "" {
+			if merged.Extends != "" && merged.Extends != p.Config.Extends {
+				return nil, fmt.Errorf("multiple files declare extends: %q vs %q", merged.Extends, p.Config.Extends)
 			}
-			merged.Extends = p.Extends
+			merged.Extends = p.Config.Extends
 		}
 
-		merged.Agents, err = mergeMapStrict(merged.Agents, p.Agents, "agent")
+		merged.Agents, err = mergeMapStrict(merged.Agents, p.Config.Agents, "agent", p.Path, tracker)
 		if err != nil {
 			return nil, err
 		}
 
-		merged.Skills, err = mergeMapStrict(merged.Skills, p.Skills, "skill")
+		merged.Skills, err = mergeMapStrict(merged.Skills, p.Config.Skills, "skill", p.Path, tracker)
 		if err != nil {
 			return nil, err
 		}
 
-		merged.Rules, err = mergeMapStrict(merged.Rules, p.Rules, "rule")
+		merged.Rules, err = mergeMapStrict(merged.Rules, p.Config.Rules, "rule", p.Path, tracker)
 		if err != nil {
 			return nil, err
 		}
 
-		merged.MCP, err = mergeMapStrict(merged.MCP, p.MCP, "mcp")
+		merged.MCP, err = mergeMapStrict(merged.MCP, p.Config.MCP, "mcp", p.Path, tracker)
 		if err != nil {
 			return nil, err
 		}
 
-		merged.Workflows, err = mergeMapStrict(merged.Workflows, p.Workflows, "workflow")
+		merged.Workflows, err = mergeMapStrict(merged.Workflows, p.Config.Workflows, "workflow", p.Path, tracker)
 		if err != nil {
 			return nil, err
 		}
 
 		// Hooks are additive (append handlers)
-		merged.Hooks = mergeHooksAdditive(merged.Hooks, p.Hooks)
+		merged.Hooks = mergeHooksAdditive(merged.Hooks, p.Config.Hooks)
 
 		// Overwrite test blocks (assuming only one file declares test config)
-		if p.Test.CliPath != "" || p.Test.ClaudePath != "" || p.Test.JudgeModel != "" {
-			merged.Test = p.Test
+		if p.Config.Test.CliPath != "" || p.Config.Test.ClaudePath != "" || p.Config.Test.JudgeModel != "" {
+			merged.Test = p.Config.Test
 		}
 
 		// Overwrite settings and local blocks (last file wins; ParseDirectory is
 		// designed for single-settings-file projects).
-		merged.Settings = p.Settings
-		merged.Local = p.Local
+		merged.Settings = p.Config.Settings
+		merged.Local = p.Config.Local
 	}
 	return merged, nil
 }
 
-func mergeMapStrict[K comparable, V any](base, child map[K]V, kind string) (map[K]V, error) {
+func mergeMapStrict[K comparable, V any](base, child map[K]V, kind, filePath string, tracker map[string]map[string]string) (map[K]V, error) {
 	if base == nil {
-		return child, nil
+		base = make(map[K]V)
 	}
 	if child == nil {
 		return base, nil
 	}
-	merged := make(map[K]V)
-	for k, v := range base {
-		merged[k] = v
+	if tracker[kind] == nil {
+		tracker[kind] = make(map[string]string)
 	}
 	for k, v := range child {
-		if _, exists := merged[k]; exists {
-			return nil, fmt.Errorf("duplicate %s ID detected across files: %v", kind, k)
+		strKey := fmt.Sprintf("%v", k)
+		if origin, exists := tracker[kind][strKey]; exists {
+			return nil, fmt.Errorf("duplicate %s ID %q found in %s and %s", kind, strKey, filepath.Base(origin), filepath.Base(filePath))
 		}
-		merged[k] = v
+		base[k] = v
+		tracker[kind][strKey] = filePath
 	}
-	return merged, nil
+	return base, nil
 }
 
 func mergeHooksAdditive(base, child ast.HookConfig) ast.HookConfig {

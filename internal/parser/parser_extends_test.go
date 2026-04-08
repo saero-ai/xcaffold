@@ -267,9 +267,12 @@ func TestMergeMapStrict_DisallowsDuplicates(t *testing.T) {
 	child := map[string]string{
 		"shared": "child-value",
 	}
-	_, err := mergeMapStrict(base, child, "agent")
+	tracker := make(map[string]map[string]string)
+	tracker["agent"] = map[string]string{"shared": "base.xcf"}
+
+	_, err := mergeMapStrict(base, child, "agent", "child.xcf", tracker)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate agent ID detected")
+	assert.Contains(t, err.Error(), "duplicate agent ID \"shared\" found in base.xcf and child.xcf")
 }
 
 func TestMergeMapStrict_AllowsDisjoint(t *testing.T) {
@@ -279,7 +282,8 @@ func TestMergeMapStrict_AllowsDisjoint(t *testing.T) {
 	child := map[string]string{
 		"child-only": "child-value",
 	}
-	result, err := mergeMapStrict(base, child, "agent")
+	tracker := make(map[string]map[string]string)
+	result, err := mergeMapStrict(base, child, "agent", "child.xcf", tracker)
 	require.NoError(t, err)
 	assert.Equal(t, "base-value", result["base-only"])
 	assert.Equal(t, "child-value", result["child-only"])
