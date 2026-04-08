@@ -24,14 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `xcaffold apply` safeguards: integrated drift-detection mechanism natively blocks overwrites to locally mutated unrecorded output files.
 - `xcaffold apply` overrides: included `--force` flag for drift circumvention and `--backup` flag utilizing localized timestamped clones.
 - `xcaffold apply` now supports the `--check` flag to perform fail-fast schema syntax validation without creating artifacts.
-- `xcaffold graph` now supports the `--tokens` flag, calculating abstract token weights from node AST depth, unifying prior `plan` analysis into the visualization topology.
 - Multi-target compilation support: CLI commands (`apply`, `import`) now support a `--target` flag (`claude`, `cursor`, `antigravity`) to isolate platform outputs.
 - `TargetRenderer` Registry: Pluggable compiler architecture delegating to platform-specific layout generation.
 - Full compiler surface: `xcaffold apply` now emits `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/hooks.json`, and `.claude/settings.json` (with MCP) in addition to agents.
 - `xcaffold graph` command with deep hierarchical topology visualization (segments global components, natively renders blocked/allowed tools, and separates inherited skills from rules automatically).
 - `instructions_file:` directive across agents, skills, and rules to allow sourcing prompts from external markdown files.
 - `references:` directive for skills to support copying supplementary context files (supports glob patterns).
-- `plan.json` file output — `xcaffold plan` now writes a structured JSON token budget report to disk in addition to stdout.
 - GoReleaser configuration — pre-built release binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64). Homebrew tap formula included.
 - `AGENTS.md` — universal agent instruction file following the [agents.txt](https://agentstext.com) convention.
 - `llms.txt` — AI discovery index at repository root.
@@ -46,8 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Platform neutral scopes: the internal `globalClaudeDir` has been renamed to `globalXcfHome`, aligning `xcaffold init` multi-platform detection for native Claude, Cursor, and Antigravity defaults.
 - README rewritten with badge row, "Why xcaffold?" section, Homebrew install target, expanded schema documentation, and multi-platform output tables.
 - `xcaffold analyze` now references `auth.AuthModeSubscription` from the shared auth package.
-- Token estimation explicitly documented as a `÷4` byte-count heuristic approximation with accuracy bounds.
-
 ### Fixed
 - Fixed unmapped `model` declarations failing string resolution in native `settings.json` renderer loops.
 - Compiler now emits all schema blocks. Previously, `skills`, `rules`, `hooks`, and `mcp` were silently discarded.
@@ -62,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Top-level CLI commands `xcaffold translate`, `xcaffold plan`, and `xcaffold validate` were deprecated and removed entirely in favor of flag-driven behaviors on `import`, `graph`, and `apply`.
 - `wazero` WASM runtime — the `wasmBytecode` embed was always nil (no `//go:embed` directive), making the runtime initialization dead code. Removed from `go.mod` and `go.sum`.
 - `golang.org/x/sys` transitive dependency (was pulled in by `wazero`).
+- Token estimation feature (`--tokens` flag on `xcaffold graph`) — cross-provider accuracy is not feasible with a single byte-count heuristic.
 
 ## [1.0.0-dev] - 2026-04-02
 ### Added
