@@ -120,7 +120,8 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 | Topology | `xcaffold graph` | terminal art, mermaid, JSON, or DOT graph (token estimates with `--tokens`) |
 | Compilation | `xcaffold apply` | Target configuration + `scaffold.lock` |
 | Drift Check | `xcaffold diff` | Exit 1 on drift |
-| Validation | `xcaffold test` | `trace.jsonl` + judge report |
+| Validation | `xcaffold validate` | Exit 1 on errors; structural warnings with `--structural` |
+| Simulation | `xcaffold test` | `trace.jsonl` + judge report |
 | Registry | `xcaffold list` | Registered project inventory |
 | Migration | `xcaffold migrate` | Upgraded layout + registry entry |
 
@@ -152,6 +153,12 @@ These flags are accepted by every xcaffold command.
 |---|---|---|
 | `--scope` | `project` | Compilation scope: `project`, `global`, or `all`. |
 | `--config` | `./scaffold.xcf` | Path to `scaffold.xcf`. Useful in monorepo sub-directories. |
+
+### `xcaffold validate`
+
+| Flag | Default | Description |
+|---|---|---|
+| `--structural` | `false` | Run structural invariant checks: orphan resources, agents missing instructions, Bash tool without PreToolUse hook. Warnings are informational and do not fail the exit code. |
 
 ### `xcaffold apply`
 

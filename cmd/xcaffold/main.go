@@ -62,6 +62,7 @@ var rootCmd = &cobra.Command{
  ┌───────────────────────────────────────────────────────────────────┐
  │                            UTILITIES                              │
  └───────────────────────────────────────────────────────────────────┘
+  • Validate    [xcaffold validate]  Checks syntax, cross-refs, and structural invariants
   • Review      [xcaffold review]    Universally parses state files
     ↳ Supports: scaffold.xcf, audit.json, plan.json, trace.jsonl
     ↳ Try: 'xcaffold review all'
