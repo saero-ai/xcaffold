@@ -206,6 +206,23 @@ func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
 	assert.Len(t, out.Files, 1)
 }
 
+func TestCompile_AgentsMD_Target(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Project: ast.ProjectConfig{Name: "agentsmd-test"},
+	}
+	tmpDir := t.TempDir()
+	out, err := Compile(config, tmpDir, "agentsmd")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+	_, ok := out.Files["AGENTS.md"]
+	assert.True(t, ok, "expected AGENTS.md in compiler output for agentsmd target")
+}
+
+func TestOutputDir_AgentsMD(t *testing.T) {
+	dir := OutputDir("agentsmd")
+	assert.Equal(t, ".", dir)
+}
+
 func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 	// An agent id containing path separators should be cleaned safely.
 	config := &ast.XcaffoldConfig{

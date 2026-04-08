@@ -16,6 +16,7 @@
                                     ──► (claude)       ──►  .claude/
 scaffold.xcf  ──►  xcaffold apply   ──► (cursor)       ──►  .cursor/rules/
                                     ──► (antigravity)  ──►  .agents/
+                                    ──► (agentsmd)     ──►  AGENTS.md
 ```
 
 ## Why xcaffold?
@@ -164,7 +165,7 @@ These flags are accepted by every xcaffold command.
 
 | Flag/Argument | Default | Description |
 |---|---|---|
-| `--target` | `claude` | Compilation target platform (`claude`, `cursor`, `antigravity`). |
+| `--target` | `claude` | Compilation target platform (`claude`, `cursor`, `antigravity`, `agentsmd`). |
 | `--check` | `false` | Validate your YAML syntax without compiling. |
 | `--force` | `false` | Overwrite customized local files and bypass drift safeguard natively preventing data wiping. |
 | `--backup` | `false` | Backup existing target directory before overwriting. Follows `BackupDir` metadata if provided. |
@@ -250,11 +251,11 @@ The `scaffold.xcf` file supports the following top-level blocks:
 
 In addition to all arguments above, the following artifacts are generated on disk depending on the compilation target:
 
-| Object | `claude` | `cursor` | `antigravity` |
-|---|---|---|---|
-| Agents | `.claude/agents/*.md` | `.cursor/rules/*.mdc` | `.agents/agents/*.yaml` |
-| Skills | `.claude/skills/*/SKILL.md` | `.cursor/rules/skills_*.mdc` | `.agents/skills/*/SKILL.md` |
-| Rules | `.claude/rules/*.md` | `.cursor/rules/*.mdc` | `.agents/rules/*.md` |
+| Object | `claude` | `cursor` | `antigravity` | `agentsmd` |
+|---|---|---|---|---|
+| Agents | `.claude/agents/*.md` | `.cursor/rules/*.mdc` | `.agents/agents/*.yaml` | `AGENTS.md` (root) |
+| Skills | `.claude/skills/*/SKILL.md` | `.cursor/rules/skills_*.mdc` | `.agents/skills/*/SKILL.md` | `AGENTS.md` (root) |
+| Rules | `.claude/rules/*.md` | `.cursor/rules/*.mdc` | `.agents/rules/*.md` | `AGENTS.md` (root) + `{dir}/AGENTS.md` (directory-scoped rules) |
 
 **Common output artifacts:**
 * `scaffold.lock` - SHA-256 state manifest. Used by `xcaffold diff` for drift detection.
