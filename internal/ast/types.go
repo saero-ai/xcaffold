@@ -25,6 +25,7 @@ type ProjectConfig struct {
 	Homepage    string `yaml:"homepage,omitempty"`
 	Repository  string `yaml:"repository,omitempty"`
 	License     string `yaml:"license,omitempty"`
+	BackupDir   string `yaml:"backup_dir,omitempty"`
 }
 
 // AgentConfig defines a Claude agent persona.

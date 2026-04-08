@@ -9,6 +9,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"gopkg.in/yaml.v3"
 )
@@ -166,7 +167,11 @@ func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
 		fmt.Fprintf(sb, "description: %s\n", agent.Description)
 	}
 	if agent.Model != "" {
-		fmt.Fprintf(sb, "model: %s\n", agent.Model)
+		if resolved, ok := renderer.ResolveModel(agent.Model, "claude"); ok && resolved != "" {
+			fmt.Fprintf(sb, "model: %s\n", resolved)
+		} else {
+			fmt.Fprintf(sb, "model: %s\n", agent.Model) // fallback if something fails
+		}
 	}
 	if agent.Effort != "" {
 		fmt.Fprintf(sb, "effort: %s\n", agent.Effort)
@@ -312,7 +317,11 @@ func appendSkillAgentMeta(sb *strings.Builder, skill ast.SkillConfig) {
 		fmt.Fprintf(sb, "agent: %s\n", skill.Agent)
 	}
 	if skill.Model != "" {
-		fmt.Fprintf(sb, "model: %s\n", skill.Model)
+		if resolved, ok := renderer.ResolveModel(skill.Model, "claude"); ok && resolved != "" {
+			fmt.Fprintf(sb, "model: %s\n", resolved)
+		} else {
+			fmt.Fprintf(sb, "model: %s\n", skill.Model) // fallback if something fails
+		}
 	}
 	if skill.Effort != "" {
 		fmt.Fprintf(sb, "effort: %s\n", skill.Effort)
@@ -507,7 +516,11 @@ func populateSettingsDev(out map[string]any, settings ast.SettingsConfig) {
 
 func populateSettingsAgent(out map[string]any, settings ast.SettingsConfig) {
 	if settings.Model != "" {
-		out["model"] = settings.Model
+		if resolved, ok := renderer.ResolveModel(settings.Model, "claude"); ok && resolved != "" {
+			out["model"] = resolved
+		} else {
+			out["model"] = settings.Model
+		}
 	}
 	if settings.Agent != nil {
 		out["agent"] = settings.Agent

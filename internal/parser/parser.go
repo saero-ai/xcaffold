@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,30 +13,148 @@ import (
 )
 
 // Parse reads a .xcf YAML configuration from the given reader and returns a
-// validated XcaffoldConfig. It does not resolve 'extends:' references.
+// validated XcaffoldConfig. It treats the configuration as a complete, standalone file.
 func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
+	config, err := parsePartial(r)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateMerged(config); err != nil {
+		return nil, fmt.Errorf("invalid .xcf configuration: %w", err)
+	}
+	return config, nil
+}
+
+func parsePartial(r io.Reader) (*ast.XcaffoldConfig, error) {
 	config := &ast.XcaffoldConfig{}
 	decoder := yaml.NewDecoder(r)
 	decoder.KnownFields(true)
 	if err := decoder.Decode(config); err != nil {
 		return nil, fmt.Errorf("failed to parse .xcf YAML: %w", err)
 	}
-	if err := validate(config); err != nil {
-		return nil, fmt.Errorf("invalid .xcf configuration: %w", err)
+	// Validate only things that are unconditionally true for partials
+	if err := validatePartial(config); err != nil {
+		return nil, fmt.Errorf("invalid .xcf configuration part: %w", err)
+	}
+	return config, nil
+}
+
+// ParseDirectory recursively scans the given directory for all *.xcf files,
+// parses them, merges them strictly (erroring on duplicate IDs), and then
+// resolves 'extends:' chains.
+func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
+	var files []string
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			name := d.Name()
+			if path != dir && (strings.HasPrefix(name, ".") || name == "node_modules") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(d.Name(), ".xcf") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan directory %q: %w", dir, err)
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no *.xcf files found in directory %q", dir)
+	}
+
+	var partials []*ast.XcaffoldConfig
+	for _, f := range files {
+		cfg, err := parseFileExact(f)
+		if err != nil {
+			return nil, err
+		}
+		partials = append(partials, cfg)
+	}
+
+	merged, err := mergeAllStrict(partials)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge config files in %q: %w", dir, err)
+	}
+
+	if merged.Extends != "" {
+		merged, err = resolveExtends(dir, merged)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := validateMerged(merged); err != nil {
+		return nil, fmt.Errorf("validation failed for project configuration: %w", err)
+	}
+
+	return merged, nil
+}
+
+func parseFileExact(path string) (*ast.XcaffoldConfig, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not open config %q: %w", path, err)
+	}
+	defer f.Close()
+
+	config, err := parsePartial(f)
+	if err != nil {
+		return nil, fmt.Errorf("error in %q: %w", path, err)
 	}
 	return config, nil
 }
 
 // ParseFile reads a .xcf YAML configuration from the given path, resolving
-// 'extends:' references recursively.
+// 'extends:' references recursively. Evaluated as a strict, single file entry point.
 func ParseFile(path string) (*ast.XcaffoldConfig, error) {
-	return parseFileRecursive(path, make(map[string]bool))
+	config, err := parseFileExact(path)
+	if err != nil {
+		return nil, err
+	}
+	if config.Extends != "" {
+		config, err = resolveExtends(filepath.Dir(path), config)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := validateMerged(config); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
+	return config, nil
 }
 
-func parseFileRecursive(path string, visited map[string]bool) (*ast.XcaffoldConfig, error) {
-	absPath, err := filepath.Abs(path)
+func resolveExtends(contextDir string, config *ast.XcaffoldConfig) (*ast.XcaffoldConfig, error) {
+	visited := make(map[string]bool)
+	return resolveExtendsRecursive(contextDir, config, visited)
+}
+
+func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visited map[string]bool) (*ast.XcaffoldConfig, error) {
+	if config.Extends == "" {
+		return config, nil
+	}
+
+	var basePath string
+	if config.Extends == "global" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, fmt.Errorf("could not resolve 'extends: global': %w", err)
+		}
+		basePath = filepath.Join(home, ".claude", "global.xcf")
+	} else if filepath.IsAbs(config.Extends) {
+		basePath = config.Extends
+	} else {
+		basePath = filepath.Join(contextDir, config.Extends)
+	}
+
+	absPath, err := filepath.Abs(basePath)
 	if err != nil {
-		return nil, fmt.Errorf("could not resolve path %q: %w", path, err)
+		return nil, fmt.Errorf("could not resolve extends path %q: %w", basePath, err)
 	}
 
 	if visited[absPath] {
@@ -43,49 +162,133 @@ func parseFileRecursive(path string, visited map[string]bool) (*ast.XcaffoldConf
 	}
 	visited[absPath] = true
 
-	f, err := os.Open(absPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not open config %q: %w", absPath, err)
-	}
-	defer f.Close()
-
-	config, err := Parse(f)
-	if err != nil {
-		return nil, fmt.Errorf("error in %q: %w", absPath, err)
-	}
-
-	if config.Extends == "" {
-		return config, nil
-	}
-
-	// Resolve the extends path: "global" maps to ~/.claude/global.xcf,
-	// absolute paths are used as-is, relative paths resolve from the
-	// current file's directory.
-	var basePath string
-	switch {
-	case config.Extends == "global":
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("could not resolve 'extends: global': %w", err)
-		}
-		basePath = filepath.Join(home, ".claude", "global.xcf")
-	case filepath.IsAbs(config.Extends):
-		basePath = config.Extends
-	default:
-		basePath = filepath.Join(filepath.Dir(absPath), config.Extends)
-	}
-
-	baseConfig, err := parseFileRecursive(basePath, visited)
+	parsed, err := parseFileExact(absPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load base config %q: %w", config.Extends, err)
 	}
 
-	return mergeConfig(baseConfig, config), nil
+	baseConfig, err := resolveExtendsRecursive(filepath.Dir(absPath), parsed, visited)
+	if err != nil {
+		return nil, err
+	}
+
+	return mergeConfigOverride(baseConfig, config), nil
 }
 
-func mergeConfig(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
+// Merge operations
+
+// mergeAllStrict is used to merge files living in the same directory.
+// Duplicate maps (like Agents, Skills, etc.) cause errors.
+func mergeAllStrict(partials []*ast.XcaffoldConfig) (*ast.XcaffoldConfig, error) {
+	if len(partials) == 0 {
+		return &ast.XcaffoldConfig{}, nil
+	}
+	merged := &ast.XcaffoldConfig{}
+
+	for _, p := range partials {
+		var err error
+		if merged.Version != "" && p.Version != "" && merged.Version != p.Version {
+			return nil, fmt.Errorf("conflicting versions declared: %q vs %q", merged.Version, p.Version)
+		}
+		if p.Version != "" {
+			merged.Version = p.Version
+		}
+
+		if p.Project.Name != "" {
+			if merged.Project.Name != "" && merged.Project.Name != p.Project.Name {
+				return nil, fmt.Errorf("multiple files declare project.name: %q vs %q", merged.Project.Name, p.Project.Name)
+			}
+			merged.Project = p.Project
+		}
+
+		if p.Extends != "" {
+			if merged.Extends != "" && merged.Extends != p.Extends {
+				return nil, fmt.Errorf("multiple files declare extends: %q vs %q", merged.Extends, p.Extends)
+			}
+			merged.Extends = p.Extends
+		}
+
+		merged.Agents, err = mergeMapStrict(merged.Agents, p.Agents, "agent")
+		if err != nil {
+			return nil, err
+		}
+
+		merged.Skills, err = mergeMapStrict(merged.Skills, p.Skills, "skill")
+		if err != nil {
+			return nil, err
+		}
+
+		merged.Rules, err = mergeMapStrict(merged.Rules, p.Rules, "rule")
+		if err != nil {
+			return nil, err
+		}
+
+		merged.MCP, err = mergeMapStrict(merged.MCP, p.MCP, "mcp")
+		if err != nil {
+			return nil, err
+		}
+
+		merged.Workflows, err = mergeMapStrict(merged.Workflows, p.Workflows, "workflow")
+		if err != nil {
+			return nil, err
+		}
+
+		// Hooks are additive (append handlers)
+		merged.Hooks = mergeHooksAdditive(merged.Hooks, p.Hooks)
+
+		// Overwrite test blocks (assuming only one file declares test config)
+		if p.Test.CliPath != "" || p.Test.ClaudePath != "" || p.Test.JudgeModel != "" {
+			merged.Test = p.Test
+		}
+	}
+	return merged, nil
+}
+
+func mergeMapStrict[K comparable, V any](base, child map[K]V, kind string) (map[K]V, error) {
+	if base == nil {
+		return child, nil
+	}
+	if child == nil {
+		return base, nil
+	}
+	merged := make(map[K]V)
+	for k, v := range base {
+		merged[k] = v
+	}
+	for k, v := range child {
+		if _, exists := merged[k]; exists {
+			return nil, fmt.Errorf("duplicate %s ID detected across files: %v", kind, k)
+		}
+		merged[k] = v
+	}
+	return merged, nil
+}
+
+func mergeHooksAdditive(base, child ast.HookConfig) ast.HookConfig {
+	if base == nil {
+		return child
+	}
+	if child == nil {
+		return base
+	}
+	merged := make(ast.HookConfig)
+	for k, v := range base {
+		merged[k] = v
+	}
+	for k, v := range child {
+		merged[k] = append(merged[k], v...)
+	}
+	return merged
+}
+
+// mergeConfigOverride is used for extends resolution where the child overrides the base entirely.
+func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged := &ast.XcaffoldConfig{
 		Version: child.Version, // child overrides version
+	}
+
+	if merged.Version == "" {
+		merged.Version = base.Version
 	}
 
 	merged.Project = base.Project
@@ -94,17 +297,21 @@ func mergeConfig(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	}
 	if child.Project.Description != "" {
 		merged.Project.Description = child.Project.Description
-	}
+	} // etc (other fields ignored for brevity as before)
 
-	merged.Agents = mergeMap(base.Agents, child.Agents)
-	merged.Skills = mergeMap(base.Skills, child.Skills)
-	merged.Rules = mergeMap(base.Rules, child.Rules)
-	merged.Hooks = mergeMap(base.Hooks, child.Hooks)
-	merged.MCP = mergeMap(base.MCP, child.MCP)
-	merged.Workflows = mergeMap(base.Workflows, child.Workflows)
+	merged.Extends = "" // after resolving, extends is empty
 
-	// Test config merge
+	merged.Agents = mergeMapOverride(base.Agents, child.Agents)
+	merged.Skills = mergeMapOverride(base.Skills, child.Skills)
+	merged.Rules = mergeMapOverride(base.Rules, child.Rules)
+	merged.MCP = mergeMapOverride(base.MCP, child.MCP)
+	merged.Workflows = mergeMapOverride(base.Workflows, child.Workflows)
+	merged.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
+
 	merged.Test = base.Test
+	if child.Test.CliPath != "" {
+		merged.Test.CliPath = child.Test.CliPath
+	}
 	if child.Test.ClaudePath != "" {
 		merged.Test.ClaudePath = child.Test.ClaudePath
 	}
@@ -115,7 +322,7 @@ func mergeConfig(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	return merged
 }
 
-func mergeMap[K comparable, V any](base, child map[K]V) map[K]V {
+func mergeMapOverride[K comparable, V any](base, child map[K]V) map[K]V {
 	if base == nil && child == nil {
 		return nil
 	}
@@ -129,9 +336,8 @@ func mergeMap[K comparable, V any](base, child map[K]V) map[K]V {
 	return merged
 }
 
-// validateID checks a single resource ID for path-traversal characters.
-// This is a defence-in-depth measure applied at parse time; the compiler also
-// uses filepath.Clean, but we want to reject bad IDs as early as possible.
+// Validations
+
 func validateID(kind, id string) error {
 	if strings.ContainsAny(id, "/\\") || strings.Contains(id, "..") {
 		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
@@ -139,7 +345,6 @@ func validateID(kind, id string) error {
 	return nil
 }
 
-// validHookEvents is the set of lifecycle events recognized by the target platform.
 var validHookEvents = map[string]bool{
 	"PreToolUse": true, "PostToolUse": true, "PostToolUseFailure": true,
 	"PermissionRequest": true, "PermissionDenied": true,
@@ -155,11 +360,7 @@ var validHookEvents = map[string]bool{
 	"Notification": true,
 }
 
-// validate performs semantic validation on a parsed config.
-func validate(c *ast.XcaffoldConfig) error {
-	if err := validateBase(c); err != nil {
-		return err
-	}
+func validatePartial(c *ast.XcaffoldConfig) error {
 	if err := validateIDs(c); err != nil {
 		return err
 	}
@@ -167,6 +368,13 @@ func validate(c *ast.XcaffoldConfig) error {
 		return err
 	}
 	if err := validateInstructions(c); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateMerged(c *ast.XcaffoldConfig) error {
+	if err := validateBase(c); err != nil {
 		return err
 	}
 	if err := validateCrossReferences(c); err != nil {
@@ -180,7 +388,6 @@ func validateBase(c *ast.XcaffoldConfig) error {
 		return fmt.Errorf("version is required (e.g. \"1.0\")")
 	}
 
-	// If the config extends another, the project name can be omitted and inherited.
 	if c.Extends == "" {
 		name := strings.TrimSpace(c.Project.Name)
 		if name == "" {
@@ -289,8 +496,6 @@ func validateCrossReferences(c *ast.XcaffoldConfig) error {
 	return nil
 }
 
-// validateInstructionsFile checks that an instructions_file path is safe.
-// The path must be relative and must not contain path-traversal sequences.
 func validateInstructionsFile(kind, id, path string) error {
 	if path == "" {
 		return nil

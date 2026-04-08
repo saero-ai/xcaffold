@@ -201,12 +201,12 @@ func TestParseFile_FileNotFound(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestMergeMap_NilBase — nil base + populated child → child values
+// TestMergeMapOverride_NilBase
 // ---------------------------------------------------------------------------
 
-func TestMergeMap_NilBase(t *testing.T) {
+func TestMergeMapOverride_NilBase(t *testing.T) {
 	child := map[string]string{"key1": "val1", "key2": "val2"}
-	result := mergeMap[string, string](nil, child)
+	result := mergeMapOverride(nil, child)
 
 	require.NotNil(t, result)
 	assert.Equal(t, "val1", result["key1"])
@@ -214,12 +214,12 @@ func TestMergeMap_NilBase(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestMergeMap_NilChild — populated base + nil child → base values
+// TestMergeMapOverride_NilChild
 // ---------------------------------------------------------------------------
 
-func TestMergeMap_NilChild(t *testing.T) {
+func TestMergeMapOverride_NilChild(t *testing.T) {
 	base := map[string]string{"key1": "base-val", "key2": "base-val2"}
-	result := mergeMap[string, string](base, nil)
+	result := mergeMapOverride(base, nil)
 
 	require.NotNil(t, result)
 	assert.Equal(t, "base-val", result["key1"])
@@ -227,19 +227,19 @@ func TestMergeMap_NilChild(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestMergeMap_BothNil — both nil → nil result
+// TestMergeMapOverride_BothNil
 // ---------------------------------------------------------------------------
 
-func TestMergeMap_BothNil(t *testing.T) {
-	result := mergeMap[string, string](nil, nil)
+func TestMergeMapOverride_BothNil(t *testing.T) {
+	result := mergeMapOverride[string, string](nil, nil)
 	assert.Nil(t, result)
 }
 
 // ---------------------------------------------------------------------------
-// TestMergeMap_ChildOverridesBase — overlapping keys, child wins
+// TestMergeMapOverride_ChildOverridesBase
 // ---------------------------------------------------------------------------
 
-func TestMergeMap_ChildOverridesBase(t *testing.T) {
+func TestMergeMapOverride_ChildOverridesBase(t *testing.T) {
 	base := map[string]string{
 		"shared":    "base-value",
 		"base-only": "from-base",
@@ -248,10 +248,39 @@ func TestMergeMap_ChildOverridesBase(t *testing.T) {
 		"shared":     "child-value",
 		"child-only": "from-child",
 	}
-	result := mergeMap[string, string](base, child)
+	result := mergeMapOverride(base, child)
 
 	require.NotNil(t, result)
 	assert.Equal(t, "child-value", result["shared"], "child should override base for shared key")
 	assert.Equal(t, "from-base", result["base-only"], "base-only key should be inherited")
 	assert.Equal(t, "from-child", result["child-only"], "child-only key should be present")
+}
+
+// ---------------------------------------------------------------------------
+// TestMergeMapStrict
+// ---------------------------------------------------------------------------
+
+func TestMergeMapStrict_DisallowsDuplicates(t *testing.T) {
+	base := map[string]string{
+		"shared": "base-value",
+	}
+	child := map[string]string{
+		"shared": "child-value",
+	}
+	_, err := mergeMapStrict(base, child, "agent")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate agent ID detected")
+}
+
+func TestMergeMapStrict_AllowsDisjoint(t *testing.T) {
+	base := map[string]string{
+		"base-only": "base-value",
+	}
+	child := map[string]string{
+		"child-only": "child-value",
+	}
+	result, err := mergeMapStrict(base, child, "agent")
+	require.NoError(t, err)
+	assert.Equal(t, "base-value", result["base-only"])
+	assert.Equal(t, "child-value", result["child-only"])
 }

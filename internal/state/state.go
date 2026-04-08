@@ -20,8 +20,8 @@ const lockFileVersion = 1
 // For other targets, inserts the target name before the extension:
 // e.g., "scaffold.lock" + "cursor" → "scaffold.cursor.lock"
 func LockFilePath(basePath string, target string) string {
-	if target == "" || target == "claude" {
-		return basePath
+	if target == "" {
+		target = "claude"
 	}
 	ext := filepath.Ext(basePath)
 	base := strings.TrimSuffix(basePath, ext)

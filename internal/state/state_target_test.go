@@ -8,11 +8,11 @@ import (
 )
 
 func TestLockFilePath_DefaultTarget(t *testing.T) {
-	assert.Equal(t, "scaffold.lock", state.LockFilePath("scaffold.lock", ""))
+	assert.Equal(t, "scaffold.claude.lock", state.LockFilePath("scaffold.lock", ""))
 }
 
 func TestLockFilePath_ClaudeTarget(t *testing.T) {
-	assert.Equal(t, "scaffold.lock", state.LockFilePath("scaffold.lock", "claude"))
+	assert.Equal(t, "scaffold.claude.lock", state.LockFilePath("scaffold.lock", "claude"))
 }
 
 func TestLockFilePath_CursorTarget(t *testing.T) {

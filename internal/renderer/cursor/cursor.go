@@ -19,6 +19,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 )
 
@@ -238,7 +239,9 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(agent.Description))
 	}
 	if agent.Model != "" {
-		fmt.Fprintf(&sb, "model: %s\n", yamlScalar(agent.Model))
+		if resolved, ok := renderer.ResolveModel(agent.Model, "cursor"); ok && resolved != "" {
+			fmt.Fprintf(&sb, "model: %s\n", yamlScalar(resolved))
+		}
 	}
 	// Normalization Rule 6: background → is_background
 	if agent.Background != nil && *agent.Background {
