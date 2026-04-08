@@ -2,6 +2,7 @@ package cursor_test
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -887,4 +888,174 @@ func TestCompile_Agent_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 	assert.Contains(t, content, `name: "Agent with \"quotes\""`)
 	assert.Contains(t, content, `description: "A \"very specal\" agent"`)
 	assert.NotContains(t, content, `\\\"`, "Must not double-escape quotes")
+}
+
+// ─── Security fidelity warning tests ─────────────────────────────────────────
+
+func TestCursorRenderer_PermissionsFidelityWarning_Settings(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Permissions: &ast.PermissionsConfig{
+				Allow: []string{"Read"},
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	assert.Contains(t, output, "WARNING (cursor):")
+	assert.Contains(t, output, "settings.permissions dropped")
+}
+
+func TestCursorRenderer_SandboxFidelityWarning_Settings(t *testing.T) {
+	r := cursor.New()
+	enabled := true
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Sandbox: &ast.SandboxConfig{
+				Enabled: &enabled,
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	assert.Contains(t, output, "WARNING (cursor):")
+	assert.Contains(t, output, "settings.sandbox dropped")
+}
+
+func TestCursorRenderer_PermissionModeFidelityWarning_Agent(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"dev": {
+				Instructions:   "Build things.",
+				PermissionMode: "plan",
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	assert.Contains(t, output, "WARNING (cursor):")
+	assert.Contains(t, output, "permissionMode")
+	assert.Contains(t, output, "dropped")
+}
+
+func TestCursorRenderer_DisallowedToolsFidelityWarning_Agent(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"dev": {
+				Instructions:    "Build things.",
+				DisallowedTools: []string{"Write"},
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	assert.Contains(t, output, "WARNING (cursor):")
+	assert.Contains(t, output, "disallowedTools dropped")
+}
+
+func TestCursorRenderer_IsolationFidelityWarning_Agent(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"dev": {
+				Instructions: "Build things.",
+				Isolation:    "container",
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	assert.Contains(t, output, "WARNING (cursor):")
+	assert.Contains(t, output, "isolation")
+	assert.Contains(t, output, "dropped")
+}
+
+func TestCursorRenderer_SuppressFidelityWarnings_SkipsAgentWarnings(t *testing.T) {
+	r := cursor.New()
+	suppress := true
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"dev": {
+				Instructions:   "Build things.",
+				PermissionMode: "plan",
+				Isolation:      "container",
+				Targets: map[string]ast.TargetOverride{
+					"cursor": {
+						SuppressFidelityWarnings: &suppress,
+					},
+				},
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	// Per-agent warnings must be suppressed
+	assert.NotContains(t, output, "permissionMode")
+	assert.NotContains(t, output, "isolation")
+}
+
+// captureStderr temporarily redirects os.Stderr to a buffer for testing.
+// Returns the buffer and a restore function that the caller must defer.
+func captureStderr(t *testing.T) (*strings.Builder, func()) {
+	t.Helper()
+	old := os.Stderr
+	r2, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	var buf strings.Builder
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		b := make([]byte, 4096)
+		for {
+			n, readErr := r2.Read(b)
+			if n > 0 {
+				buf.Write(b[:n])
+			}
+			if readErr != nil {
+				return
+			}
+		}
+	}()
+
+	return &buf, func() {
+		w.Close()
+		<-done
+		r2.Close()
+		os.Stderr = old
+	}
 }

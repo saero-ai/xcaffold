@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pmezard/go-difflib/difflib"
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
@@ -18,6 +19,7 @@ import (
 
 var applyDryRun bool
 var applyCheckOnly bool
+var applyCheckPermissions bool
 var applyForce bool
 var applyBackup bool
 var applyProjectFlag string
@@ -57,6 +59,7 @@ Validation:
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
 	applyCmd.Flags().BoolVar(&applyCheckOnly, "check", false, "Check configuration syntax without compiling")
+	applyCmd.Flags().BoolVar(&applyCheckPermissions, "check-permissions", false, "Report security field drops and permission contradictions, then exit")
 	applyCmd.Flags().BoolVar(&applyForce, "force", false, "Overwrite customized local files and bypass drift safeguard")
 	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
@@ -65,6 +68,10 @@ func init() {
 }
 
 const targetClaude = "claude"
+
+// currentSchemaVersion is the schema version this build of xcaffold targets.
+// Configs with older versions produce a warning prompting the user to migrate.
+const currentSchemaVersion = "1.1"
 
 func runApply(cmd *cobra.Command, args []string) error {
 	if applyProjectFlag != "" {
@@ -84,12 +91,42 @@ func runApply(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("[global] parse error: %w", err)
 			}
 			fmt.Println("[global] ✓ Syntax is valid")
+			printDiagnostics(parser.ValidateFile(globalXcfPath))
 		}
 		if scopeFlag == scopeProject || scopeFlag == scopeAll {
 			if _, err := parser.ParseDirectory(filepath.Dir(xcfPath)); err != nil {
 				return fmt.Errorf("[project] parse error: %w", err)
 			}
 			fmt.Println("[project] ✓ Syntax is valid")
+			printDiagnostics(parser.ValidateFile(xcfPath))
+		}
+		return nil
+	}
+
+	if applyCheckPermissions {
+		// Parse runs validatePermissions — any contradiction surfaces as a parse
+		// error before we reach this block. The structured report only shows target
+		// fidelity findings for configs that already pass parsing.
+		config, err := parser.ParseDirectory(filepath.Dir(xcfPath))
+		if err != nil {
+			return fmt.Errorf("parse error: %w", err)
+		}
+
+		errors, warnings := securityFieldReport(config, targetFlag)
+
+		for _, w := range warnings {
+			fmt.Printf("[WARNING] %s\n", w)
+		}
+		for _, e := range errors {
+			fmt.Printf("[ERROR]   %s\n", e)
+		}
+
+		if len(errors) == 0 && len(warnings) == 0 {
+			fmt.Printf("[INFO]    %s: all security fields are supported\n", targetFlag)
+		}
+
+		if len(errors) > 0 {
+			return fmt.Errorf("check-permissions: %d error(s) found", len(errors))
 		}
 		return nil
 	}
@@ -108,6 +145,17 @@ func runApply(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// printDiagnostics prints ValidateFile diagnostics to stderr. Warnings do not
+// change the exit code; this helper is informational only.
+func printDiagnostics(diags []parser.Diagnostic) {
+	if len(diags) == 0 {
+		return
+	}
+	for _, d := range diags {
+		fmt.Fprintf(os.Stderr, "  [%s] %s\n", d.Severity, d.Message)
+	}
+}
+
 // applyScope compiles a single xcf file into outputDir and writes the lock file
 // at lockFile. scopeName is used as a prefix in terminal output when running
 // --scope all so the user can distinguish the two compilation passes.
@@ -119,6 +167,10 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	config, err := parser.ParseDirectory(baseDir)
 	if err != nil {
 		return fmt.Errorf("[%s] parse error: %w", scopeName, err)
+	}
+
+	if config.Version != "" && config.Version < currentSchemaVersion {
+		fmt.Fprintf(os.Stderr, "WARNING: scaffold.xcf uses schema version %s; current schema is %s. Run \"xcaffold migrate\" to upgrade.\n", config.Version, currentSchemaVersion)
 	}
 
 	out, err := compiler.Compile(config, baseDir, targetFlag)
@@ -297,6 +349,55 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 
 	fmt.Printf("[%s] Backing up %s -> %s\n", scopeName, outputDir, destDir)
 	return copyDir(outputDir, destDir)
+}
+
+// securityFieldReport returns [ERROR] and [WARNING] findings for the given
+// target by inspecting which security fields in the config would be dropped.
+// It is read-only and never modifies any files.
+//
+// The claude target supports all security fields; cursor and antigravity drop
+// settings.Permissions, settings.Sandbox, and per-agent security fields.
+func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, warnings []string) {
+	switch target {
+	case "cursor", "antigravity":
+		label := target
+
+		if config.Settings.Permissions != nil {
+			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
+		}
+		if config.Settings.Sandbox != nil {
+			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
+		}
+
+		for id, agent := range config.Agents {
+			if agent.PermissionMode != "" {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q permissionMode %q will be dropped", label, id, agent.PermissionMode))
+			}
+			if len(agent.DisallowedTools) > 0 {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowedTools will be dropped — tool restrictions will NOT be enforced", label, id))
+			}
+			if agent.Isolation != "" {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", label, id, agent.Isolation))
+			}
+		}
+
+		// Agent vs deny conflicts (errors)
+		if config.Settings.Permissions != nil {
+			for agentID, agent := range config.Agents {
+				for _, tool := range agent.Tools {
+					for _, denyRule := range config.Settings.Permissions.Deny {
+						if denyRule == tool {
+							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
+						}
+					}
+				}
+			}
+		}
+
+	default:
+		// claude and other targets support all security fields — no findings
+	}
+	return errors, warnings
 }
 
 func copyDir(src, dst string) error {

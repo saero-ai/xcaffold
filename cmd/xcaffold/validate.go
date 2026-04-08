@@ -18,6 +18,8 @@ var validateCmd = &cobra.Command{
 
   - YAML syntax and known fields
   - Cross-reference integrity (agent -> skill/rule/MCP IDs exist)
+  - File existence (instructions_file and skill references resolve on disk)
+  - Plugin validation (enabledPlugins checked against known registry)
   - Structural invariants (with --structural flag)
 
 Exit code 0 means valid. Non-zero means errors found.`,
@@ -41,6 +43,21 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Fprintf(os.Stdout, "syntax and cross-references: ok\n")
+
+	diags := parser.ValidateFile(xcfPath)
+	hasErrors := false
+	if len(diags) > 0 {
+		fmt.Fprintf(os.Stdout, "\ndiagnostics:\n")
+		for _, d := range diags {
+			fmt.Fprintf(os.Stdout, "  [%s] %s\n", d.Severity, d.Message)
+			if d.Severity == "error" {
+				hasErrors = true
+			}
+		}
+	}
+	if hasErrors {
+		return fmt.Errorf("validation failed: one or more error diagnostics")
+	}
 
 	if validateStructural {
 		warnings := runStructuralChecks(cfg)

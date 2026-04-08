@@ -121,10 +121,10 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 | Topology | `xcaffold graph` | terminal art, mermaid, JSON, or DOT graph |
 | Compilation | `xcaffold apply` | Target configuration + `scaffold.lock` |
 | Drift Check | `xcaffold diff` | Exit 1 on drift |
-| Validation | `xcaffold validate` | Exit 1 on errors; structural warnings with `--structural` |
+| Validation | `xcaffold validate` | Exit 1 on errors; semantic checks (file refs, plugins) + structural warnings with `--structural` |
 | Simulation | `xcaffold test` | `trace.jsonl` + judge report |
 | Registry | `xcaffold list` | Registered project inventory |
-| Migration | `xcaffold migrate` | Upgraded layout + registry entry |
+| Migration | `xcaffold migrate` | Schema version upgrades + layout migration + registry entry |
 
 ## Scopes
 
@@ -156,6 +156,8 @@ These flags are accepted by every xcaffold command.
 | `--config` | `./scaffold.xcf` | Path to `scaffold.xcf`. Useful in monorepo sub-directories. |
 
 ### `xcaffold validate`
+
+Checks `scaffold.xcf` for correctness. Includes: YAML syntax, cross-reference integrity, file-existence checks (`instructions_file` and skill `references` paths), and plugin validation (`enabledPlugins` checked against the known plugin registry). Error-severity diagnostics exit non-zero; warnings are informational.
 
 | Flag | Default | Description |
 |---|---|---|
@@ -200,10 +202,13 @@ No flags. Displays all registered projects from `~/.xcaffold/registry.xcf` with 
 
 ### `xcaffold migrate`
 
-No flags. Interactive command that detects and migrates:
+No flags. Interactive command that detects and upgrades:
+- Schema version migrations (e.g., 1.0 → 1.1: `claude_path` → `cli_path` in the `test:` block)
 - Legacy global config from `~/.claude/global.xcf` to `~/.xcaffold/global.xcf`
 - Flat-layout `instructions_file` paths to reference-in-place paths
 - Unregistered projects into the central registry
+
+When a schema version migration is applied, the original `scaffold.xcf` is backed up to `scaffold.xcf.bak` before the file is overwritten.
 
 ### `xcaffold test`
 

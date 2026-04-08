@@ -1,6 +1,7 @@
 package antigravity_test
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -556,4 +557,131 @@ func TestCompile_Skill_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 	assert.Contains(t, content, `name: "Skill with \"quotes\""`)
 	assert.Contains(t, content, `description: "A \"very specal\" skill"`)
 	assert.NotContains(t, content, `\\\"`, "Must not double-escape quotes")
+}
+
+// ─── Security fidelity warning tests ─────────────────────────────────────────
+
+func TestAntigravityRenderer_PermissionsFidelityWarning_Settings(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Permissions: &ast.PermissionsConfig{
+				Allow: []string{"Read"},
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	assert.Contains(t, output, "WARNING (antigravity):")
+	assert.Contains(t, output, "settings.permissions dropped")
+}
+
+func TestAntigravityRenderer_SandboxFidelityWarning_Settings(t *testing.T) {
+	r := antigravity.New()
+	enabled := true
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Sandbox: &ast.SandboxConfig{
+				Enabled: &enabled,
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	assert.Contains(t, output, "WARNING (antigravity):")
+	assert.Contains(t, output, "settings.sandbox dropped")
+}
+
+func TestAntigravityRenderer_AgentSecurityFieldsFidelityWarning(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"dev": {
+				Instructions:    "Build things.",
+				PermissionMode:  "plan",
+				DisallowedTools: []string{"Write"},
+				Isolation:       "container",
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	assert.Contains(t, output, "WARNING (antigravity):")
+	assert.Contains(t, output, "security fields dropped")
+}
+
+func TestAntigravityRenderer_SuppressFidelityWarnings_SkipsAgentWarnings(t *testing.T) {
+	r := antigravity.New()
+	suppress := true
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"dev": {
+				Instructions:   "Build things.",
+				PermissionMode: "plan",
+				Isolation:      "container",
+				Targets: map[string]ast.TargetOverride{
+					"antigravity": {
+						SuppressFidelityWarnings: &suppress,
+					},
+				},
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	_, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	output := stderr.String()
+	// Per-agent warnings must be suppressed
+	assert.NotContains(t, output, "security fields dropped")
+}
+
+// captureStderr temporarily redirects os.Stderr to a buffer for testing.
+// Returns the buffer and a restore function.
+func captureStderr(t *testing.T) (*strings.Builder, func()) {
+	t.Helper()
+	old := os.Stderr
+	r2, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stderr = w
+
+	var buf strings.Builder
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		b := make([]byte, 4096)
+		for {
+			n, readErr := r2.Read(b)
+			if n > 0 {
+				buf.Write(b[:n])
+			}
+			if readErr != nil {
+				return
+			}
+		}
+	}()
+
+	return &buf, func() {
+		w.Close()
+		<-done
+		r2.Close()
+		os.Stderr = old
+	}
 }

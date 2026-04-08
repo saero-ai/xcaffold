@@ -240,6 +240,11 @@ func mergeAllStrict(partials []*ast.XcaffoldConfig) (*ast.XcaffoldConfig, error)
 		if p.Test.CliPath != "" || p.Test.ClaudePath != "" || p.Test.JudgeModel != "" {
 			merged.Test = p.Test
 		}
+
+		// Overwrite settings and local blocks (last file wins; ParseDirectory is
+		// designed for single-settings-file projects).
+		merged.Settings = p.Settings
+		merged.Local = p.Local
 	}
 	return merged, nil
 }
@@ -345,6 +350,15 @@ func validateID(kind, id string) error {
 	return nil
 }
 
+var knownTools = map[string]bool{
+	"Read": true, "Write": true, "Edit": true, "MultiEdit": true,
+	"Bash": true, "Glob": true, "Grep": true, "LS": true,
+	"WebFetch": true, "WebSearch": true,
+	"TodoRead": true, "TodoWrite": true,
+	"NotebookRead": true, "NotebookEdit": true,
+	"mcp": true,
+}
+
 var validHookEvents = map[string]bool{
 	"PreToolUse": true, "PostToolUse": true, "PostToolUseFailure": true,
 	"PermissionRequest": true, "PermissionDenied": true,
@@ -380,6 +394,110 @@ func validateMerged(c *ast.XcaffoldConfig) error {
 	if err := validateCrossReferences(c); err != nil {
 		return err
 	}
+	if err := validatePermissions(c); err != nil {
+		return err
+	}
+	return nil
+}
+
+// parsePermissionRule parses a permission rule string of the form "ToolName" or
+// "ToolName(pattern)". It applies strings.TrimSpace to both the tool name and
+// the pattern. Returns (toolName, pattern, nil) on success, or ("", "", err).
+func parsePermissionRule(rule string) (toolName, pattern string, err error) {
+	idx := strings.Index(rule, "(")
+	if idx == -1 {
+		// bare tool name
+		name := strings.TrimSpace(rule)
+		if name == "" {
+			return "", "", fmt.Errorf("permissions: empty rule string")
+		}
+		return name, "", nil
+	}
+	// has a pattern
+	name := strings.TrimSpace(rule[:idx])
+	rest := rule[idx+1:]
+	if !strings.HasSuffix(rest, ")") {
+		return "", "", fmt.Errorf("permissions: malformed rule %q — missing closing parenthesis", rule)
+	}
+	pat := strings.TrimSpace(rest[:len(rest)-1])
+	if pat == "" {
+		return "", "", fmt.Errorf("permissions: malformed rule %q — empty pattern", rule)
+	}
+	return name, pat, nil
+}
+
+// validatePermissions validates permission rule strings in settings.permissions
+// and checks for agent/settings contradictions.
+func validatePermissions(c *ast.XcaffoldConfig) error {
+	if c.Settings.Permissions == nil {
+		return nil
+	}
+	p := c.Settings.Permissions
+
+	allowSet := make(map[string]bool)
+	denySet := make(map[string]bool)
+	askSet := make(map[string]bool)
+
+	for _, rule := range p.Allow {
+		name, _, err := parsePermissionRule(rule)
+		if err != nil {
+			return fmt.Errorf("invalid .xcf configuration: %w", err)
+		}
+		if !knownTools[name] {
+			return fmt.Errorf("permissions: unknown tool %q in allow rule %q", name, rule)
+		}
+		allowSet[rule] = true
+	}
+	for _, rule := range p.Deny {
+		name, _, err := parsePermissionRule(rule)
+		if err != nil {
+			return fmt.Errorf("invalid .xcf configuration: %w", err)
+		}
+		if !knownTools[name] {
+			return fmt.Errorf("permissions: unknown tool %q in deny rule %q", name, rule)
+		}
+		denySet[rule] = true
+	}
+	for _, rule := range p.Ask {
+		name, _, err := parsePermissionRule(rule)
+		if err != nil {
+			return fmt.Errorf("invalid .xcf configuration: %w", err)
+		}
+		if !knownTools[name] {
+			return fmt.Errorf("permissions: unknown tool %q in ask rule %q", name, rule)
+		}
+		askSet[rule] = true
+	}
+
+	// Contradiction checks
+	for rule := range allowSet {
+		if denySet[rule] {
+			return fmt.Errorf("permissions: rule %q appears in both allow and deny", rule)
+		}
+		if askSet[rule] {
+			return fmt.Errorf("permissions: rule %q appears in both allow and ask", rule)
+		}
+	}
+
+	// Agent cross-reference checks
+	for agentID, agent := range c.Agents {
+		// disallowedTools vs settings.permissions.allow
+		for _, tool := range agent.DisallowedTools {
+			for rule := range allowSet {
+				ruleName, _, _ := parsePermissionRule(rule)
+				if ruleName == tool {
+					return fmt.Errorf("agent %q: tool %q is in disallowedTools but also in settings.permissions.allow", agentID, tool)
+				}
+			}
+		}
+		// agent.tools vs settings.permissions.deny (bare deny only)
+		for _, tool := range agent.Tools {
+			if denySet[tool] {
+				return fmt.Errorf("agent %q: tool %q is required by agent but is unconditionally denied in settings.permissions.deny", agentID, tool)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -494,6 +612,134 @@ func validateCrossReferences(c *ast.XcaffoldConfig) error {
 		}
 	}
 	return nil
+}
+
+// Diagnostic represents a single validation finding returned by ValidateFile.
+// Severity is either "error" or "warning". Errors cause non-zero exits in
+// xcaffold validate; warnings are informational only.
+type Diagnostic struct {
+	Severity string // "error" or "warning"
+	Message  string
+}
+
+// knownPlugins is the hardcoded registry of officially supported plugin IDs.
+// Plugin validation produces warnings only — custom plugins are not errors.
+var knownPlugins = map[string]bool{
+	"commit-commands":   true,
+	"security-guidance": true,
+	"code-review":       true,
+	"pr-review-toolkit": true,
+}
+
+// ValidateFile parses the .xcf file at path, runs file-existence checks and
+// plugin validation, and returns all diagnostics. ParseFile already runs
+// validateCrossReferences internally, so this function does not duplicate it.
+func ValidateFile(path string) []Diagnostic {
+	config, err := ParseFile(path)
+	if err != nil {
+		return []Diagnostic{{Severity: "error", Message: err.Error()}}
+	}
+	var diags []Diagnostic
+	diags = append(diags, validateFileRefs(config, filepath.Dir(path))...)
+	diags = append(diags, validatePlugins(config)...)
+	return diags
+}
+
+// validateFileRefs checks that instructions_file paths and skill references
+// exist on disk, and detects duplicate IDs across resource types.
+func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
+	var diags []Diagnostic
+
+	// Skill references: warning on missing files
+	for id, skill := range c.Skills {
+		for _, ref := range skill.References {
+			if ref == "" {
+				continue
+			}
+			abs := filepath.Join(baseDir, ref)
+			if _, err := os.Stat(abs); os.IsNotExist(err) {
+				diags = append(diags, Diagnostic{
+					Severity: "warning",
+					Message:  fmt.Sprintf("skill %q references file that does not exist: %q", id, ref),
+				})
+			}
+		}
+	}
+
+	// instructions_file existence: error on missing files
+	checkInstrFile := func(kind, id, instrFile string) {
+		if instrFile == "" {
+			return
+		}
+		abs := filepath.Join(baseDir, instrFile)
+		if _, err := os.Stat(abs); os.IsNotExist(err) {
+			diags = append(diags, Diagnostic{
+				Severity: "error",
+				Message:  fmt.Sprintf("%s %q instructions_file not found: %q", kind, id, instrFile),
+			})
+		}
+	}
+
+	for id, agent := range c.Agents {
+		checkInstrFile("agent", id, agent.InstructionsFile)
+	}
+	for id, skill := range c.Skills {
+		checkInstrFile("skill", id, skill.InstructionsFile)
+	}
+	for id, rule := range c.Rules {
+		checkInstrFile("rule", id, rule.InstructionsFile)
+	}
+	for id, wf := range c.Workflows {
+		checkInstrFile("workflow", id, wf.InstructionsFile)
+	}
+
+	// Duplicate ID check across resource types
+	type entry struct{ kind string }
+	seen := make(map[string][]string) // id -> []resourceType
+	for id := range c.Agents {
+		seen[id] = append(seen[id], "agent")
+	}
+	for id := range c.Skills {
+		seen[id] = append(seen[id], "skill")
+	}
+	for id := range c.Rules {
+		seen[id] = append(seen[id], "rule")
+	}
+	for id := range c.Workflows {
+		seen[id] = append(seen[id], "workflow")
+	}
+	for id, types := range seen {
+		if len(types) > 1 {
+			diags = append(diags, Diagnostic{
+				Severity: "warning",
+				Message:  fmt.Sprintf("ID %q is used in both %s and %s; this may cause confusion", id, types[0], types[1]),
+			})
+		}
+	}
+
+	return diags
+}
+
+// validatePlugins checks settings.enabledPlugins and local.enabledPlugins
+// against the knownPlugins registry. Unknown plugins produce warnings only.
+func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
+	var diags []Diagnostic
+	check := func(plugins map[string]bool, block string) {
+		for id := range plugins {
+			if !knownPlugins[id] {
+				diags = append(diags, Diagnostic{
+					Severity: "warning",
+					Message: fmt.Sprintf(
+						"%s.enabledPlugins: unknown plugin %q; known plugins: commit-commands, security-guidance, code-review, pr-review-toolkit",
+						block, id,
+					),
+				})
+			}
+		}
+	}
+	check(c.Settings.EnabledPlugins, "settings")
+	check(c.Local.EnabledPlugins, "local")
+	return diags
 }
 
 func validateInstructionsFile(kind, id, path string) error {

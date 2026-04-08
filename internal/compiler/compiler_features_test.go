@@ -907,6 +907,145 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestCompile_LocalSettings_EmitsSettingsLocalJSON verifies that a local: block
+// ---------------------------------------------------------------------------
+// Feature: Permission regression tests
+// ---------------------------------------------------------------------------
+
+func TestCompile_Permissions_DenyPropagatestoSettings(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Permissions: &ast.PermissionsConfig{
+				Deny: []string{"Write"},
+			},
+		},
+	}
+
+	out, err := Compile(config, "", "")
+	require.NoError(t, err)
+
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "settings.json must be generated")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	permsAny, has := parsed["permissions"]
+	require.True(t, has, "permissions key must be present")
+	permsMap, ok := permsAny.(map[string]any)
+	require.True(t, ok)
+
+	denyAny, ok := permsMap["deny"].([]any)
+	require.True(t, ok, "deny must be an array")
+	require.Len(t, denyAny, 1)
+	assert.Equal(t, "Write", denyAny[0])
+}
+
+func TestCompile_Permissions_SandboxPropagatestoSettings(t *testing.T) {
+	enabled := true
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Sandbox: &ast.SandboxConfig{
+				Enabled: &enabled,
+			},
+		},
+	}
+
+	out, err := Compile(config, "", "")
+	require.NoError(t, err)
+
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "settings.json must be generated")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	sandboxAny, has := parsed["sandbox"]
+	require.True(t, has, "sandbox key must be present")
+	sandboxMap, ok := sandboxAny.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, true, sandboxMap["enabled"])
+}
+
+func TestCompile_Permissions_CursorDropsPermissions(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Permissions: &ast.PermissionsConfig{
+				Allow: []string{"Read"},
+				Deny:  []string{"Bash"},
+			},
+		},
+	}
+
+	out, err := Compile(config, t.TempDir(), "cursor")
+	require.NoError(t, err)
+
+	// Cursor emits no settings.json — permissions must not appear in any output file
+	for path, content := range out.Files {
+		assert.NotContains(t, content, `"permissions"`, "cursor output file %q must not contain permissions key", path)
+	}
+	// Confirm no settings.json at all
+	_, hasSettings := out.Files["settings.json"]
+	assert.False(t, hasSettings, "cursor target must not emit settings.json")
+}
+
+func TestCompile_Permissions_CursorDropsSandbox(t *testing.T) {
+	enabled := true
+	config := &ast.XcaffoldConfig{
+		Settings: ast.SettingsConfig{
+			Sandbox: &ast.SandboxConfig{
+				Enabled: &enabled,
+			},
+		},
+	}
+
+	out, err := Compile(config, t.TempDir(), "cursor")
+	require.NoError(t, err)
+
+	_, hasSettings := out.Files["settings.json"]
+	assert.False(t, hasSettings, "cursor target must not emit settings.json")
+	for path, content := range out.Files {
+		assert.NotContains(t, content, `"sandbox"`, "cursor output file %q must not contain sandbox key", path)
+	}
+}
+
+func TestCompile_Permissions_DisallowedToolsInAgentFrontmatter(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"dev": {
+				Description:     "Developer agent",
+				Instructions:    "Build things.",
+				DisallowedTools: []string{"Bash", "Write"},
+			},
+		},
+	}
+
+	out, err := Compile(config, "", "")
+	require.NoError(t, err)
+
+	content, ok := out.Files["agents/dev.md"]
+	require.True(t, ok, "agents/dev.md must be generated")
+	assert.Contains(t, content, "disallowedTools:", "disallowedTools must appear in Claude agent frontmatter")
+}
+
+func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"dev": {
+				Description:     "Developer agent",
+				Instructions:    "Build things.",
+				DisallowedTools: []string{"Bash", "Write"},
+			},
+		},
+	}
+
+	out, err := Compile(config, t.TempDir(), "cursor")
+	require.NoError(t, err)
+
+	content, ok := out.Files["agents/dev.md"]
+	require.True(t, ok, "agents/dev.md must be generated for cursor target")
+	assert.NotContains(t, content, "disallowedTools:", "disallowedTools must not appear in Cursor agent output")
+}
+
 // in the XcaffoldConfig compiles to settings.local.json.
 func TestCompile_LocalSettings_EmitsSettingsLocalJSON(t *testing.T) {
 	config := &ast.XcaffoldConfig{

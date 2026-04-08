@@ -14,11 +14,97 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Migration defines a single schema-version upgrade step.
+type Migration struct {
+	FromVersion string
+	ToVersion   string
+	Description string
+	Apply       func(config *ast.XcaffoldConfig) error
+}
+
+// migrations is the ordered list of schema version upgrade steps.
+var migrations = []Migration{
+	{
+		FromVersion: "1.0",
+		ToVersion:   "1.1",
+		Description: "Normalize claude_path to cli_path in test block",
+		Apply:       migrateTo1_1,
+	},
+}
+
+// migrateTo1_1 copies ClaudePath into CliPath when CliPath is empty, then sets
+// version to "1.1". This is idempotent: if CliPath is already set, it is
+// preserved unchanged.
+func migrateTo1_1(config *ast.XcaffoldConfig) error {
+	if config.Test.ClaudePath != "" && config.Test.CliPath == "" {
+		config.Test.CliPath = config.Test.ClaudePath
+	}
+	config.Test.ClaudePath = ""
+	config.Version = "1.1"
+	return nil
+}
+
+// runSchemaVersionMigrations reads scaffold.xcf at configPath, applies all
+// applicable version migrations in order, and overwrites the file when any
+// migration ran. The original file is preserved as scaffold.xcf.bak.
+func runSchemaVersionMigrations(cmd *cobra.Command, configPath string) error {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("could not read %s: %w", configPath, err)
+	}
+
+	config, err := parser.ParseFile(configPath)
+	if err != nil {
+		return fmt.Errorf("could not parse %s: %w", configPath, err)
+	}
+
+	anyApplied := false
+	for _, m := range migrations {
+		if config.Version != m.FromVersion {
+			continue
+		}
+		if cmd != nil {
+			cmd.Printf("  Applying migration: %s\n", m.Description)
+		}
+		if err := m.Apply(config); err != nil {
+			return fmt.Errorf("migration %q failed: %w", m.Description, err)
+		}
+		anyApplied = true
+	}
+
+	if !anyApplied {
+		if cmd != nil {
+			cmd.Printf("Schema version is current (v%s).\n", config.Version)
+		}
+		return nil
+	}
+
+	// Back up original before overwriting
+	bakPath := configPath + ".bak"
+	if err := os.WriteFile(bakPath, data, 0600); err != nil {
+		return fmt.Errorf("could not write backup %s: %w", bakPath, err)
+	}
+
+	out, err := yaml.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("could not marshal updated config: %w", err)
+	}
+	if err := os.WriteFile(configPath, out, 0600); err != nil {
+		return fmt.Errorf("could not write %s: %w", configPath, err)
+	}
+
+	return nil
+}
+
 var migrateCmd = &cobra.Command{
 	Use:   "migrate",
 	Short: "Migrate legacy xcaffold layouts to the centralized architecture",
-	Long:  "Detects legacy flat layouts and ~/.claude/global.xcf, and updates them to the reference-in-place model and ~/.xcaffold/ registry architecture.",
-	RunE:  runMigrate,
+	Long: `Migrate upgrades scaffold.xcf file layouts and schema versions:
+
+  - Schema version migrations (e.g., 1.0 → 1.1: claude_path → cli_path)
+  - Global scope migration (~/.claude/ → ~/.xcaffold/)
+  - Project scope migration (flat paths → reference-in-place)`,
+	RunE: runMigrate,
 }
 
 func init() {
@@ -27,6 +113,14 @@ func init() {
 
 func runMigrate(cmd *cobra.Command, args []string) error {
 	migratedAnything := false
+
+	// 0. Schema version migrations (must run before scope migrations so field
+	//    transformations operate on the expected schema before path rewrites).
+	if _, err := os.Stat("scaffold.xcf"); err == nil {
+		if err := runSchemaVersionMigrations(cmd, "scaffold.xcf"); err != nil {
+			return err
+		}
+	}
 
 	// 1. Migrate Global Scope
 	if ok, err := migrateGlobalScope(cmd); err != nil {

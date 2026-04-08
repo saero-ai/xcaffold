@@ -105,6 +105,14 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files["hooks.json"] = hooksJSON
 	}
 
+	// Emit security fidelity warnings for dropped settings fields.
+	if config.Settings.Permissions != nil {
+		fmt.Fprintf(os.Stderr, "WARNING (cursor): settings.permissions dropped — Cursor has no permission enforcement. Declared allow/deny/ask rules will NOT apply.\n")
+	}
+	if config.Settings.Sandbox != nil {
+		fmt.Fprintf(os.Stderr, "WARNING (cursor): settings.sandbox dropped — Cursor has no sandbox model. Filesystem and network restrictions will NOT apply.\n")
+	}
+
 	return out, nil
 }
 
@@ -257,6 +265,23 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 		sb.WriteString("\n")
 		sb.WriteString(strings.TrimRight(body, "\n"))
 		sb.WriteString("\n")
+	}
+
+	// Emit per-agent security fidelity warnings unless suppressed.
+	suppress := false
+	if override, ok := agent.Targets["cursor"]; ok && override.SuppressFidelityWarnings != nil && *override.SuppressFidelityWarnings {
+		suppress = true
+	}
+	if !suppress {
+		if agent.PermissionMode != "" {
+			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q permissionMode %q dropped — Cursor has no permission mode equivalent.\n", id, agent.PermissionMode)
+		}
+		if len(agent.DisallowedTools) > 0 {
+			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q disallowedTools dropped — tool restrictions will NOT be enforced by Cursor.\n", id)
+		}
+		if agent.Isolation != "" {
+			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q isolation %q dropped — Cursor has no process isolation model.\n", id, agent.Isolation)
+		}
 	}
 
 	return sb.String(), nil

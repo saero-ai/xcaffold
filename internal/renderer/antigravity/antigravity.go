@@ -98,6 +98,25 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		}
 	}
 
+	// Emit security fidelity warnings for dropped settings fields.
+	if config.Settings.Permissions != nil {
+		fmt.Fprintf(os.Stderr, "WARNING (antigravity): settings.permissions dropped — Antigravity has no permission enforcement model.\n")
+	}
+	if config.Settings.Sandbox != nil {
+		fmt.Fprintf(os.Stderr, "WARNING (antigravity): settings.sandbox dropped — Antigravity has no sandbox model.\n")
+	}
+
+	// Emit per-agent security fidelity warnings.
+	for id, agent := range config.Agents {
+		suppress := false
+		if override, ok := agent.Targets["antigravity"]; ok && override.SuppressFidelityWarnings != nil && *override.SuppressFidelityWarnings {
+			suppress = true
+		}
+		if !suppress && (agent.PermissionMode != "" || len(agent.DisallowedTools) > 0 || agent.Isolation != "") {
+			fmt.Fprintf(os.Stderr, "WARNING (antigravity): agent %q security fields dropped (permissionMode, disallowedTools, isolation are not supported).\n", id)
+		}
+	}
+
 	return out, nil
 }
 

@@ -199,6 +199,129 @@ hooks:
 	}
 }
 
+func TestValidatePermissions_ValidRule_BareToolName(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+settings:
+  permissions:
+    allow: [Bash]
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+}
+
+func TestValidatePermissions_ValidRule_WithPattern(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+settings:
+  permissions:
+    allow: ["Bash(npm test *)"]
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+}
+
+func TestValidatePermissions_InvalidRule_UnknownTool(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+settings:
+  permissions:
+    deny: [SomeUnknownTool]
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "SomeUnknownTool")
+}
+
+func TestValidatePermissions_InvalidRule_MalformedPattern(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+settings:
+  permissions:
+    allow: ["Bash(unclosed"]
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+}
+
+func TestValidatePermissions_Contradiction_AllowAndDeny(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+settings:
+  permissions:
+    allow: [Bash]
+    deny: [Bash]
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "allow and deny")
+}
+
+func TestValidatePermissions_Contradiction_AllowAndAsk(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+settings:
+  permissions:
+    allow: [Read]
+    ask: [Read]
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "allow and ask")
+}
+
+func TestValidatePermissions_AgentDisallowedConflict(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+agents:
+  dev:
+    description: "Developer"
+    disallowedTools: [Write]
+settings:
+  permissions:
+    allow: [Write]
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dev")
+	assert.Contains(t, err.Error(), "Write")
+}
+
+func TestValidatePermissions_AgentToolsDenyConflict(t *testing.T) {
+	input := `
+version: "1.0"
+project:
+  name: "test"
+agents:
+  dev:
+    description: "Developer"
+    tools: [Bash]
+settings:
+  permissions:
+    deny: [Bash]
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "dev")
+	assert.Contains(t, err.Error(), "Bash")
+}
+
 func TestParse_MCP_PlatformSpecificFields(t *testing.T) {
 	input := `
 version: "1.0"
@@ -234,4 +357,207 @@ mcp:
 	assert.True(t, *remote.Disabled)
 	assert.Contains(t, remote.DisabledTools, "dangerousTool")
 	assert.Equal(t, "custom", remote.AuthProviderType)
+}
+
+// ── ValidateFile: file-ref and duplicate-ID tests ──────────────────────────
+
+func writeXCFFile(t *testing.T, dir, name, content string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(p, []byte(content), 0600))
+	return p
+}
+
+func TestValidateFileRefs_MissingSkillReference(t *testing.T) {
+	dir := t.TempDir()
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
+project:
+  name: "test"
+skills:
+  my-skill:
+    description: "A skill"
+    instructions: "do stuff"
+    references:
+      - nonexistent.md
+`)
+	diags := ValidateFile(xcf)
+	var found bool
+	for _, d := range diags {
+		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected a warning diagnostic about a missing reference file, got: %v", diags)
+}
+
+func TestValidateFileRefs_MissingInstructionsFile_Agent(t *testing.T) {
+	dir := t.TempDir()
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
+project:
+  name: "test"
+agents:
+  my-agent:
+    description: "An agent"
+    instructions_file: ghost.md
+`)
+	diags := ValidateFile(xcf)
+	var found bool
+	for _, d := range diags {
+		if d.Severity == "error" && strings.Contains(d.Message, "not found") {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected an error diagnostic about missing instructions_file, got: %v", diags)
+}
+
+func TestValidateFileRefs_PresentInstructionsFile(t *testing.T) {
+	dir := t.TempDir()
+	// Create the actual instructions file
+	instrFile := filepath.Join(dir, "real.md")
+	require.NoError(t, os.WriteFile(instrFile, []byte("# instructions"), 0600))
+
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
+project:
+  name: "test"
+agents:
+  my-agent:
+    description: "An agent"
+    instructions_file: real.md
+`)
+	diags := ValidateFile(xcf)
+	for _, d := range diags {
+		if strings.Contains(d.Message, "not found") || strings.Contains(d.Message, "does not exist") {
+			t.Errorf("unexpected file-existence diagnostic: %+v", d)
+		}
+	}
+}
+
+func TestValidateFileRefs_DuplicateID(t *testing.T) {
+	dir := t.TempDir()
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
+project:
+  name: "test"
+agents:
+  foo:
+    description: "An agent"
+    instructions: "do stuff"
+skills:
+  foo:
+    description: "A skill"
+    instructions: "do stuff"
+`)
+	diags := ValidateFile(xcf)
+	var found bool
+	for _, d := range diags {
+		if d.Severity == "warning" && strings.Contains(d.Message, "used in both") {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected a warning about duplicate ID across types, got: %v", diags)
+}
+
+func TestValidateFileRefs_UniqueIDs(t *testing.T) {
+	dir := t.TempDir()
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
+project:
+  name: "test"
+agents:
+  agent-one:
+    description: "An agent"
+    instructions: "do stuff"
+skills:
+  skill-one:
+    description: "A skill"
+    instructions: "do stuff"
+rules:
+  rule-one:
+    instructions: "a rule"
+`)
+	diags := ValidateFile(xcf)
+	for _, d := range diags {
+		if strings.Contains(d.Message, "used in both") {
+			t.Errorf("unexpected duplicate-ID diagnostic: %+v", d)
+		}
+	}
+}
+
+// ── ValidateFile: plugin validation tests ─────────────────────────────────
+
+func TestValidatePlugins_KnownPlugin(t *testing.T) {
+	dir := t.TempDir()
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
+project:
+  name: "test"
+settings:
+  enabledPlugins:
+    commit-commands: true
+`)
+	diags := ValidateFile(xcf)
+	for _, d := range diags {
+		if strings.Contains(d.Message, "unknown plugin") {
+			t.Errorf("unexpected unknown-plugin diagnostic for a known plugin: %+v", d)
+		}
+	}
+}
+
+func TestValidatePlugins_UnknownSettingsPlugin(t *testing.T) {
+	dir := t.TempDir()
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
+project:
+  name: "test"
+settings:
+  enabledPlugins:
+    my-custom-plugin: true
+`)
+	diags := ValidateFile(xcf)
+	var found bool
+	for _, d := range diags {
+		if d.Severity == "warning" && strings.Contains(d.Message, "unknown plugin") &&
+			strings.Contains(d.Message, "commit-commands") {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected a warning about unknown settings plugin, got: %v", diags)
+}
+
+func TestValidatePlugins_UnknownLocalPlugin(t *testing.T) {
+	dir := t.TempDir()
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
+project:
+  name: "test"
+local:
+  enabledPlugins:
+    mystery-plugin: true
+`)
+	diags := ValidateFile(xcf)
+	var found bool
+	for _, d := range diags {
+		if d.Severity == "warning" && strings.Contains(d.Message, "local") &&
+			strings.Contains(d.Message, "unknown plugin") {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected a warning about unknown local plugin, got: %v", diags)
+}
+
+func TestValidatePlugins_BothBlocksUnknown(t *testing.T) {
+	dir := t.TempDir()
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
+project:
+  name: "test"
+settings:
+  enabledPlugins:
+    alpha-plugin: true
+local:
+  enabledPlugins:
+    beta-plugin: true
+`)
+	diags := ValidateFile(xcf)
+	count := 0
+	for _, d := range diags {
+		if d.Severity == "warning" && strings.Contains(d.Message, "unknown plugin") {
+			count++
+		}
+	}
+	assert.Equal(t, 2, count, "expected 2 unknown-plugin warnings (one per block), got: %v", diags)
 }
