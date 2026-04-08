@@ -28,3 +28,14 @@ func ResolveModel(alias, target string) (string, bool) {
 	// If it wasn't an alias, assume the user provided a full literal string
 	return alias, true
 }
+
+// IsMappedModel returns true if the input alias was explicitly mapped for the given target.
+// This is used by renderers to determine if a model parameter was safely translated
+// or passed through as an unverified literal.
+func IsMappedModel(alias, target string) bool {
+	if mappings, ok := modelAliases[alias]; ok {
+		_, exists := mappings[target]
+		return exists
+	}
+	return false
+}

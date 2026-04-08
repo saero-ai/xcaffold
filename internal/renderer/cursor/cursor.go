@@ -246,9 +246,18 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 	if agent.Description != "" {
 		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(agent.Description))
 	}
+	// Determine if fidelity warnings are suppressed
+	suppress := false
+	if override, ok := agent.Targets["cursor"]; ok && override.SuppressFidelityWarnings != nil && *override.SuppressFidelityWarnings {
+		suppress = true
+	}
+
 	if agent.Model != "" {
 		if resolved, ok := renderer.ResolveModel(agent.Model, "cursor"); ok && resolved != "" {
 			fmt.Fprintf(&sb, "model: %s\n", yamlScalar(resolved))
+			if !suppress && !renderer.IsMappedModel(agent.Model, "cursor") {
+				fmt.Fprintf(os.Stderr, "WARNING (cursor): unmapped model %q literal passed through for agent %q. Cursor may not support this model natively.\n", agent.Model, id)
+			}
 		}
 	}
 	// Normalization Rule 6: background → is_background
@@ -267,11 +276,7 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 		sb.WriteString("\n")
 	}
 
-	// Emit per-agent security fidelity warnings unless suppressed.
-	suppress := false
-	if override, ok := agent.Targets["cursor"]; ok && override.SuppressFidelityWarnings != nil && *override.SuppressFidelityWarnings {
-		suppress = true
-	}
+	// Emit remaining per-agent security fidelity warnings unless suppressed.
 	if !suppress {
 		if agent.PermissionMode != "" {
 			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q permissionMode %q dropped — Cursor has no permission mode equivalent.\n", id, agent.PermissionMode)
