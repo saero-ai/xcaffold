@@ -61,27 +61,37 @@ func runValidate(cmd *cobra.Command, args []string) error {
 // runStructuralChecks performs non-fatal invariant checks on the config.
 func runStructuralChecks(cfg *ast.XcaffoldConfig) []string {
 	var warnings []string
+	warnings = append(warnings, checkOrphanSkills(cfg)...)
+	warnings = append(warnings, checkOrphanRules(cfg)...)
+	warnings = append(warnings, checkMissingInstructions(cfg)...)
+	warnings = append(warnings, checkBashWithoutHook(cfg)...)
+	return warnings
+}
 
-	// Orphan skills: defined but not referenced by any agent.
-	referencedSkills := make(map[string]bool)
+func checkOrphanSkills(cfg *ast.XcaffoldConfig) []string {
+	referenced := make(map[string]bool)
 	for _, agent := range cfg.Agents {
 		for _, s := range agent.Skills {
-			referencedSkills[s] = true
+			referenced[s] = true
 		}
 	}
+	var warnings []string
 	for skillID := range cfg.Skills {
-		if !referencedSkills[skillID] {
+		if !referenced[skillID] {
 			warnings = append(warnings, fmt.Sprintf("skill %q is defined but not referenced by any agent", skillID))
 		}
 	}
+	return warnings
+}
 
-	// Orphan rules: defined, not referenced, no paths, no alwaysApply.
-	referencedRules := make(map[string]bool)
+func checkOrphanRules(cfg *ast.XcaffoldConfig) []string {
+	referenced := make(map[string]bool)
 	for _, agent := range cfg.Agents {
 		for _, r := range agent.Rules {
-			referencedRules[r] = true
+			referenced[r] = true
 		}
 	}
+	var warnings []string
 	for ruleID, rule := range cfg.Rules {
 		if rule.AlwaysApply != nil && *rule.AlwaysApply {
 			continue
@@ -89,20 +99,26 @@ func runStructuralChecks(cfg *ast.XcaffoldConfig) []string {
 		if len(rule.Paths) > 0 {
 			continue
 		}
-		if !referencedRules[ruleID] {
+		if !referenced[ruleID] {
 			warnings = append(warnings, fmt.Sprintf("rule %q is defined but not referenced by any agent and has no paths or alwaysApply", ruleID))
 		}
 	}
+	return warnings
+}
 
-	// Agents without instructions.
+func checkMissingInstructions(cfg *ast.XcaffoldConfig) []string {
+	var warnings []string
 	for agentID, agent := range cfg.Agents {
 		if agent.Instructions == "" && agent.InstructionsFile == "" {
 			warnings = append(warnings, fmt.Sprintf("agent %q has no instructions or instructions_file", agentID))
 		}
 	}
+	return warnings
+}
 
-	// Agents with Bash tool but no PreToolUse hook (project-level or agent-level).
+func checkBashWithoutHook(cfg *ast.XcaffoldConfig) []string {
 	_, projectHasPreToolUse := cfg.Hooks["PreToolUse"]
+	var warnings []string
 	for agentID, agent := range cfg.Agents {
 		hasBash := false
 		for _, tool := range agent.Tools {
@@ -119,6 +135,5 @@ func runStructuralChecks(cfg *ast.XcaffoldConfig) []string {
 			warnings = append(warnings, fmt.Sprintf("agent %q has Bash tool but no PreToolUse hook for command validation", agentID))
 		}
 	}
-
 	return warnings
 }

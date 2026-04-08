@@ -7,10 +7,10 @@ import (
 
 // Template defines a topology template for xcaffold init.
 type Template struct {
+	render      func(projectName, model string) string
 	ID          string
 	Label       string
 	Description string
-	render      func(projectName, model string) string
 }
 
 var registry = []Template{
