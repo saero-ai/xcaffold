@@ -168,7 +168,7 @@ SandboxNetwork → { httpProxyPort, socksProxyPort, allowedDomains,
 | `output` | `internal/output/` | `Output` struct — `map[relPath]content` file map |
 | `state` | `internal/state/` | SHA-256 `scaffold.lock` generation, read, and write |
 | `registry` | `internal/registry/` | Global home bootstrap, project registry CRUD, platform provider scans |
-| `analyzer` | `internal/analyzer/` | Token counting via wazero WASM; disk output scanning |
+| `analyzer` | `internal/analyzer/` | Detects undeclared artifacts via `ScanOutputDir` |
 | `bir` | `internal/bir/` | Build Intermediate Representation — `SemanticUnit`, `FunctionalIntent`, `ProjectIR` |
 | `translator` | `internal/translator/` | Decomposes `SemanticUnit` intents into target primitives (skill/rule/permission) |
 | `resolver` | `internal/resolver/` | Resolves `instructions_file:` and `references:` relative paths |
@@ -218,7 +218,7 @@ The `local:` top-level block is a `SettingsConfig` variant that allows machine-l
 ```
 Bootstrap   → xcaffold init
 Ingestion   → xcaffold import    (native or --source cross-platform translation)
-Audit       → xcaffold analyze   (token analysis via WASM)
+Audit       → xcaffold analyze   (LLM-based repo audit)
 Topology    → xcaffold graph     (ASCII / mermaid / DOT / JSON output)
 Compilation → xcaffold apply     (XCF → target output files + scaffold.lock)
 Drift Check → xcaffold diff      (compares scaffold.lock against live output files)
@@ -257,7 +257,6 @@ Export      → xcaffold export    (packages compiled output as a distributable 
 | `--agent <id>` | Filter topology to a single agent |
 | `--project <name>` | Target a specific registered project by name or path |
 | `--full / -f` | Show fully expanded topology tree |
-| `--tokens / -t` | Run WASM token cost estimation |
 | `--scan-output` | Scan compiled output directories for undeclared artifacts |
 
 ### `xcaffold import` Flags
@@ -336,38 +335,34 @@ These inline architecture decisions record the reasoning behind strict implement
 **Decision:** We compile `.xcf` directly to native platform configurations (e.g. `.claude/`, `.cursor/`, `.agents/`) and explicitly forbid bidirectional synchronization.
 **Why:** Allowing users to manually tweak target-specific configuration files and attempting to backport those changes into `.xcf` introduces catastrophic parsing drift and state synchronization conflicts. Developers MUST update their `scaffold.xcf` file directly. Any manual changes in the generation target directories will be correctly flagged and overwritten during deployment.
 
-### 2. WASM Tokenizer (`wazero`)
-**Decision:** We embed Anthropic's `@anthropic-ai/tokenizer` via a JavaScript-compiled binary running within the `wazero` WebAssembly runtime inside Go.
-**Why:** Using a native custom Go implementation created subtle BPE token boundary drift compared to the official API, leading to unpredictable plan budgeting. `wazero` guarantees absolute bit-for-bit counting parity without requiring a bloated CGO stack or Python embeddings, ensuring cross-platform stability.
-
-### 3. Proxy Boundary Defenses
+### 2. Proxy Boundary Defenses
 **Decision:** `xcaffold test` sandboxes agents by spawning a transport-layer HTTP proxy interceptor.
 **Why:** Simulating tool execution without an intercept limits visibility. The HTTP proxy strictly confines the agent network, asserts safe boundary defenses preventing actual local side-effects, and accurately aggregates execution into `trace.jsonl` data.
 
-### 4. Path Traversal Defense-in-Depth
+### 3. Path Traversal Defense-in-Depth
 **Decision:** All resource IDs (agents, skills, rules, hooks, MCP) are validated at parse time for path traversal characters (`/`, `\`, `..`).
 **Why:** The compiler uses `filepath.Clean` on output paths, but defense-in-depth requires rejecting malicious IDs before they reach the compiler. Hook IDs are especially sensitive because they carry an arbitrary `run:` shell command.
 
-### 5. Skills as Directories
+### 4. Skills as Directories
 **Decision:** Skills compile to `skills/<id>/SKILL.md` (directory structure), not `skills/<id>.md` (flat files).
 **Why:** Target platforms (like Claude Code) expect skills in directories. Real skills have `references/` subdirectories with supplementary documents. The directory structure allows future `references:` support.
 
-### 6. Centralized Global Home (`~/.xcaffold/`)
+### 5. Centralized Global Home (`~/.xcaffold/`)
 **Decision:** All xcaffold global state lives in `~/.xcaffold/`, not coupled to any single platform directory.
 **Why:** The previous `~/.claude/` location coupled xcaffold to one platform target. A neutral home directory allows cross-platform registry, user preferences, and future profile support without target bias.
 
-### 7. Multi-Target Renderer Architecture
+### 6. Multi-Target Renderer Architecture
 **Decision:** The compiler dispatches to a `TargetRenderer` via a `Registry` keyed by target name. Each platform is a separate Go package under `internal/renderer/<target>/`.
 **Why:** A monolithic compiler with `if target == "claude" { ... } else if target == "cursor" { ... }` branches does not scale and cannot be extended by third parties. The Registry pattern allows adding new targets (e.g.) without touching the compiler core. Each renderer owns its own output contract.
 
-### 8. BIR Semantic Translation Layer
+### 7. BIR Semantic Translation Layer
 **Decision:** Cross-platform workflow import uses a two-phase pipeline: first build a `SemanticUnit` (BIR), then run static regex-based intent detection, then map to xcaffold primitives via `translator.Translate()`.
 **Why:** Direct format conversion (e.g. Antigravity workflow → Claude rule) loses semantic structure. The BIR/intent layer preserves the original body while extracting meaning — constraints become rules, procedures become skills, automation annotations become permissions — enabling correct round-tripping across platforms.
 
-### 9. `registry.xcf` File Naming
+### 8. `registry.xcf` File Naming
 **Decision:** The project registry file is `registry.xcf` (not `projects.yaml`) and preferences file is `settings.xcf` (not `config.yaml`).
 **Why:** Using `.xcf` extension for all xcaffold-managed configuration files provides a consistent, recognizable file type. The system diagram in older documentation reflected pre-refactor names that have since been updated.
 
-### 10. `TestConfig.CliPath` (generalized from `ClaudePath`)
+### 9. `TestConfig.CliPath` (generalized from `ClaudePath`)
 **Decision:** The `test:` block uses `cli_path` as the primary field (with `claude_path` retained for backward compatibility).
 **Why:** As xcaffold becomes platform-agnostic, the CLI under test is not always `claude`. The generalized `cli_path` supports any binary (e.g. `cursor`, a custom wrapper), while the deprecated alias ensures existing configs continue to work without changes.

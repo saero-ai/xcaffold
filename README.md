@@ -105,7 +105,7 @@ test:
 Then run the full lifecycle:
 
 ```bash
-xcaffold graph --tokens    # View maps & analyze token budgets
+xcaffold graph             # View agent topology maps
 xcaffold apply             # Compile to targets (or --check to validate syntax)
 xcaffold diff              # Check for manual drift in output dirs
 xcaffold test --agent developer --judge  # Simulate + evaluate
@@ -118,7 +118,7 @@ xcaffold test --agent developer --judge  # Simulate + evaluate
 | Bootstrap | `xcaffold init` | `scaffold.xcf` starter template |
 | Ingestion | `xcaffold import` | Migrated `.xcf` from existing targets, or translated from cross-platform workflows via `--source` |
 | Audit | `xcaffold analyze` | `scaffold.xcf` + `audit.json` |
-| Topology | `xcaffold graph` | terminal art, mermaid, JSON, or DOT graph (token estimates with `--tokens`) |
+| Topology | `xcaffold graph` | terminal art, mermaid, JSON, or DOT graph |
 | Compilation | `xcaffold apply` | Target configuration + `scaffold.lock` |
 | Drift Check | `xcaffold diff` | Exit 1 on drift |
 | Validation | `xcaffold validate` | Exit 1 on errors; structural warnings with `--structural` |
@@ -190,7 +190,6 @@ These flags are accepted by every xcaffold command.
 | Flag | Default | Description |
 |---|---|---|
 | `--format` | `terminal` | Format of output (`terminal`, `mermaid`, `dot`, `json`). |
-| `--tokens`, `-t` | `false` | Analyze configuration bloat and provide estimated AST token counts. |
 | `--agent`, `-a` | `""` | Target a specific agent (shows only its topology). |
 | `--full`, `-f` | `false` | Show the fully expanded topology tree. |
 | `--project`, `-p` | `""` | Target a registered project by name or path. |

@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/saero-ai/xcaffold/internal/analyzer"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/state"
@@ -72,24 +71,6 @@ func TestStress_LargeInstructions(t *testing.T) {
 	assert.Greater(t, len(content), 100000)
 }
 
-func TestStress_TokenAnalysis_500Agents(t *testing.T) {
-	var sb strings.Builder
-	sb.WriteString("version: \"1.0\"\nproject:\n  name: \"stress-test\"\nagents:\n")
-	for i := 0; i < 500; i++ {
-		fmt.Fprintf(&sb, "  agent-%03d:\n    description: \"Agent %d description\"\n    instructions: \"Do task %d with detailed instructions.\"\n", i, i, i)
-	}
-	config, err := parser.Parse(strings.NewReader(sb.String()))
-	require.NoError(t, err)
-
-	a := analyzer.New()
-	start := time.Now()
-	report := a.AnalyzeTokens(config)
-	elapsed := time.Since(start)
-
-	assert.Len(t, report, 500)
-	t.Logf("Analyzed tokens for 500 agents in %v", elapsed)
-	assert.Less(t, elapsed, 1*time.Second)
-}
 
 func TestStress_FullLifecycle_100Agents(t *testing.T) {
 	dir := t.TempDir()

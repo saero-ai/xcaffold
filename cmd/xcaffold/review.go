@@ -25,7 +25,7 @@ var reviewCmd = &cobra.Command{
  Supported Formats:
  • scaffold.xcf   -> Renders the AST tree structurally
  • audit.json     -> Visualizes the categorical greenfield/brownfield scores
- • plan.json      -> Displays token costing
+ • plan.json      -> Displays compilation plan
  • trace.jsonl    -> Formats the execution trace from proxy runs
 
  Examples:
