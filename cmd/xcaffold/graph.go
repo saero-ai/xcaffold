@@ -19,7 +19,6 @@ var graphFormat string
 var graphAgent string
 var graphProject string
 var graphFull bool
-var graphTokens bool
 var graphScanOutput bool
 
 const (
@@ -31,14 +30,13 @@ const (
 
 var graphCmd = &cobra.Command{
 	Use:   "graph [file]",
-	Short: "Visualize the agent topology of a scaffold.xcf file, and optionally analyze token complexity.",
+	Short: "Visualize the agent topology of a scaffold.xcf file.",
 	Long: `xcaffold graph renders a visual map of your agent team and how it connects.
 
 ┌───────────────────────────────────────────────────────────────────┐
 │                         TOPOLOGY PHASE                            │
 └───────────────────────────────────────────────────────────────────┘
  • Shows all agents with their model, effort, tools, skills, rules, and MCP
- • Add --tokens to perform static AST token cost estimation
  • Use --format mermaid for Mermaid markdown (embed in README or docs)
  • Use --format dot    for Graphviz DOT (pipe to dot -Tsvg for images)
  • Use --format json   for machine-readable output (used by the platform)
@@ -49,7 +47,6 @@ Formats:
   dot       Graphviz DOT language for rendering with graphviz.
   json      Machine-readable JSON graph for programmatic use.`,
 	Example: `  $ xcaffold graph
-  $ xcaffold graph --tokens
   $ xcaffold graph --format mermaid > topology.md
   $ xcaffold graph --format dot | dot -Tsvg > topology.svg
   $ xcaffold graph --format json | jq .`,
@@ -62,7 +59,6 @@ func init() {
 	graphCmd.Flags().StringVarP(&graphAgent, "agent", "a", "", "Target a specific agent (shows only its topology)")
 	graphCmd.Flags().StringVarP(&graphProject, "project", "p", "", "Target a specific managed project by registered name or path")
 	graphCmd.Flags().BoolVarP(&graphFull, "full", "f", false, "Show the fully expanded topology tree (always true if targeting an agent)")
-	graphCmd.Flags().BoolVarP(&graphTokens, "tokens", "t", false, "Analyze AST token counts")
 	graphCmd.Flags().BoolVar(&graphScanOutput, "scan-output", false, "Scan compiled output directories for undeclared artifacts")
 	rootCmd.AddCommand(graphCmd)
 }
@@ -90,8 +86,7 @@ type graphData struct {
 	Project     string
 	Scope       string
 	ConfigPath  string
-	TokenReport *analyzer.TokenReport `json:"token_report,omitempty"`
-	DiskEntries []analyzer.TokenEntry `json:"disk_entries,omitempty"`
+	DiskEntries []analyzer.ArtifactEntry `json:"disk_entries,omitempty"`
 	Nodes       []graphNode
 	Edges       []graphEdge
 }
@@ -161,10 +156,10 @@ func printGraphOutput(scopes []*graphData) error {
 			fmt.Print(renderTerminalSummary(scopes))
 		}
 
-		if graphTokens || graphScanOutput {
+		if graphScanOutput {
 			for _, g := range scopes {
-				if g.TokenReport != nil || len(g.DiskEntries) > 0 {
-					fmt.Print(renderTerminalTokens(g))
+				if len(g.DiskEntries) > 0 {
+					fmt.Print(renderTerminalDiskEntries(g))
 				}
 			}
 		}
@@ -235,26 +230,24 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 	g.Scope = scopeName
 	g.ConfigPath = configPath
 
-	if graphTokens || graphScanOutput {
+	if graphScanOutput {
 		a := analyzer.New()
-		g.TokenReport = a.AnalyzeTokens(config, filepath.Dir(configPath))
-
-		if graphScanOutput {
-			declared := make(map[string]bool)
-			for _, e := range g.TokenReport.Entries {
-				declared[fmt.Sprintf("%s:%s", e.Kind, e.ID)] = true
+		declared := make(map[string]bool)
+		for _, n := range g.Nodes {
+			if n.Kind != "settings" {
+				declared[fmt.Sprintf("%s:%s", n.Kind, n.ID)] = true
 			}
+		}
 
-			baseDir := filepath.Dir(configPath)
-			targetDir := filepath.Join(baseDir, ".agents")
-			if _, err := os.Stat(targetDir); os.IsNotExist(err) {
-				targetDir = filepath.Join(baseDir, ".claude")
-			}
+		baseDir := filepath.Dir(configPath)
+		targetDir := filepath.Join(baseDir, ".agents")
+		if _, err := os.Stat(targetDir); os.IsNotExist(err) {
+			targetDir = filepath.Join(baseDir, ".claude")
+		}
 
-			entries, err := a.ScanOutputDir(targetDir, declared)
-			if err == nil {
-				g.DiskEntries = entries
-			}
+		entries, err := a.ScanOutputDir(targetDir, declared)
+		if err == nil {
+			g.DiskEntries = entries
 		}
 	}
 
@@ -461,7 +454,7 @@ func renderTerminalLibrary(g *graphData) string {
 	for _, n := range g.Nodes {
 		var lines []string
 		if n.Kind == kindSkill {
-			lines = append(lines, fmt.Sprintf("  ● skill: %s%s", n.Label, getItemTokensStr(g, kindSkill, n.ID)))
+			lines = append(lines, fmt.Sprintf("  ● skill: %s", n.Label))
 			if len(n.Tools) > 0 {
 				lines = append(lines, "      ├─(tools)─▶ "+strings.Join(n.Tools, ", "))
 			}
@@ -471,7 +464,7 @@ func renderTerminalLibrary(g *graphData) string {
 				lines[1] = strings.Replace(lines[1], "      ├─", "      └─", 1)
 			}
 		} else if n.Kind == kindRule {
-			lines = append(lines, fmt.Sprintf("  ● rule: %s%s", n.Label, getItemTokensStr(g, kindRule, n.ID)))
+			lines = append(lines, fmt.Sprintf("  ● rule: %s", n.Label))
 			if len(n.Paths) > 0 {
 				lines = append(lines, "      └─(paths)─▶ "+strings.Join(n.Paths, ", "))
 			}
@@ -536,7 +529,7 @@ func renderTerminalAgents(g *graphData) string {
 
 func renderTerminalAgent(node graphNode, edges []graphEdge, g *graphData) string {
 	metaStr := renderAgentMeta(node)
-	agentStr := fmt.Sprintf("  ● %s%s%s\n      │", node.Label, metaStr, getItemTokensStr(g, kindAgent, node.ID))
+	agentStr := fmt.Sprintf("  ● %s%s\n      │", node.Label, metaStr)
 	blocks := []string{}
 
 	if capBlock := renderAgentCapabilities(node); capBlock != "" {
@@ -911,11 +904,7 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 	} else if label == "" {
 		label = "Unnamed Context"
 	}
-	if g.TokenReport != nil {
-		sb.WriteString(fmt.Sprintf("  ● %s [~%d tokens]\n    (%s)\n", label, g.TokenReport.Total, g.ConfigPath))
-	} else {
-		sb.WriteString(fmt.Sprintf("  ● %s\n    (%s)\n", label, g.ConfigPath))
-	}
+	sb.WriteString(fmt.Sprintf("  ● %s\n    (%s)\n", label, g.ConfigPath))
 
 	agentNodes := []graphNode{}
 	for _, n := range g.Nodes {
@@ -948,7 +937,7 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 		if idx == len(lines)-1 {
 			prefix = "      └─▶ "
 		}
-		sb.WriteString(fmt.Sprintf("%s%s: (%d)%s\n", prefix, ln.Title, ln.Value, getKindTokensStr(g, ln.Kind)))
+		sb.WriteString(fmt.Sprintf("%s%s: (%d)\n", prefix, ln.Title, ln.Value))
 
 		if ln.Title == "Agents" {
 			for i, n := range agentNodes {
@@ -962,73 +951,17 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 						aprefix = "           └─▶ "
 					}
 				}
-				sb.WriteString(fmt.Sprintf("%s%s%s\n", aprefix, n.Label, getItemTokensStr(g, kindAgent, n.ID)))
+				sb.WriteString(fmt.Sprintf("%s%s\n", aprefix, n.Label))
 			}
 		}
 	}
 }
 
-func renderTerminalTokens(g *graphData) string {
+func renderTerminalDiskEntries(g *graphData) string {
 	var sb strings.Builder
-	sb.WriteString("\n  [ TOKEN ESTIMATES ]\n")
-
-	if g.TokenReport != nil {
-		sb.WriteString(fmt.Sprintf("  ● Total Context Tokens: ~%d\n", g.TokenReport.Total))
-
-		// Top offenders from AST
-		var sorted []analyzer.TokenEntry
-		sorted = append(sorted, g.TokenReport.Entries...)
-		sort.Slice(sorted, func(i, j int) bool {
-			return sorted[i].Tokens > sorted[j].Tokens
-		})
-
-		sb.WriteString("    Top 3 Modules:\n")
-		for i := 0; i < len(sorted) && i < 3; i++ {
-			sb.WriteString(fmt.Sprintf("      %d. [%s] %s (~%d tokens)\n", i+1, sorted[i].Kind, sorted[i].ID, sorted[i].Tokens))
-		}
-
-		for _, w := range g.TokenReport.Warnings {
-			sb.WriteString(fmt.Sprintf("    ⚠ Warning: %s\n", w))
-		}
+	sb.WriteString("\n  [ UNDECLARED FILES ]  (!)\n")
+	for _, e := range g.DiskEntries {
+		sb.WriteString(fmt.Sprintf("      - [%s] %s\n", e.Kind, e.ID))
 	}
-
-	if len(g.DiskEntries) > 0 {
-		diskTotal := 0
-		for _, e := range g.DiskEntries {
-			diskTotal += e.Tokens
-		}
-		sb.WriteString("\n  [ UNDECLARED FILES ]  (!)\n")
-		sb.WriteString(fmt.Sprintf("  ● Total Disk Tokens: ~%d\n", diskTotal))
-		for _, e := range g.DiskEntries {
-			sb.WriteString(fmt.Sprintf("      - [%s] %s (~%d tokens)\n", e.Kind, e.ID, e.Tokens))
-		}
-	}
-
 	return sb.String()
-}
-
-func getKindTokensStr(g *graphData, kind string) string {
-	if g.TokenReport != nil {
-		if toks := g.TokenReport.ByKind[kind]; toks > 0 {
-			return fmt.Sprintf(" [~%d tokens]", toks)
-		}
-	}
-	return ""
-}
-
-func getItemTokensStr(g *graphData, kind, id string) string {
-	if g.TokenReport != nil {
-		// id in graph often includes prefix like "agent:frontend-engineer", strip it for matcher
-		rawID := id
-		if idx := strings.Index(rawID, ":"); idx > 0 {
-			rawID = rawID[idx+1:]
-		}
-
-		for _, e := range g.TokenReport.Entries {
-			if e.Kind == kind && e.ID == rawID {
-				return fmt.Sprintf(" [~%d tokens]", e.Tokens)
-			}
-		}
-	}
-	return ""
 }

@@ -53,7 +53,7 @@ var rootCmd = &cobra.Command{
   • Bootstrap   [xcaffold init]      Creates base project scaffolding
   • Ingestion   [xcaffold import]    Migrates dirs & translates via --source
   • Audit       [xcaffold analyze]   Inspects repo & builds XCF config
-  • Topology    [xcaffold graph]     Visualizes maps (use --tokens to estimate cost)
+  • Topology    [xcaffold graph]     Visualizes agent topology maps
   • Compilation [xcaffold apply]     Compiles XCF (use --check to validate syntax)
   • Drift Check [xcaffold diff]      Detects manual config tampering
   • Validation  [xcaffold test]      Runs an LLM-in-the-loop proxy
