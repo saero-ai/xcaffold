@@ -166,6 +166,15 @@ These flags are accepted by every xcaffold command.
 |---|---|---|
 | `--target` | `claude` | Compilation target platform (`claude`, `cursor`, `antigravity`). |
 | `--check` | `false` | Validate your YAML syntax without compiling. |
+| `--force` | `false` | Overwrite customized local files and bypass drift safeguard natively preventing data wiping. |
+| `--backup` | `false` | Backup existing target directory before overwriting. Follows `BackupDir` metadata if provided. |
+| `--project` | `""` | Apply to an external project directly via its registered global registry name without navigating directories. |
+
+### `xcaffold plan`
+
+| Flag | Default | Description |
+|---|---|---|
+| No specific flags | | Run a static dry-run parsing to preview the execution output AST paths and destinations before applying. |
 
 ### `xcaffold import`
 

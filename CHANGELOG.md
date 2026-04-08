@@ -13,11 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fleet auto-registration: `xcaffold init`, `xcaffold import`, and `xcaffold apply` now automatically detect your scope and auto-register cloned projects into your global registry.
 - `xcaffold list` command displays all managed projects with path, targets, resource counts, and last-applied timestamp.
 - `xcaffold graph --project <name>` queries any registered project's topology from any location.
+- `xcaffold apply` safely resolves project paths from the global registry when invoked using `--project <name>`.
+- `xcaffold plan` command for static parsing and pre-deployment execution dry-runs.
 - `xcaffold migrate` command detects legacy flat-layout projects, upgrades them to reference-in-place paths (including skills, rules, and references), and registers them in the central registry.
 - Reference-in-place import: `xcaffold import` generates `scaffold.xcf` entries pointing to existing instruction files without duplication.
+- `xcaffold import` natively extracts `hooks.json` mapping parameters and workflow assets directly into the merged definitions.
 - Walk-up configuration search: CLI commands work from project subdirectories by walking up to find the nearest `scaffold.xcf` (bounded by `$HOME`).
 - Semantic Translation Engine: cross-platform agent capabilities decomposed via static intent heuristics, accessible through `xcaffold import --source`.
 - `xcaffold test` execution flag `--claude-path` renamed to `--cli-path` to support fallback binary resolution for `cursor` or other detected proxies.
+- `xcaffold apply` safeguards: integrated drift-detection mechanism natively blocks overwrites to locally mutated unrecorded output files.
+- `xcaffold apply` overrides: included `--force` flag for drift circumvention and `--backup` flag utilizing localized timestamped clones.
 - `xcaffold apply` now supports the `--check` flag to perform fail-fast schema syntax validation without creating artifacts.
 - `xcaffold graph` now supports the `--tokens` flag, calculating abstract token weights from node AST depth, unifying prior `plan` analysis into the visualization topology.
 - Multi-target compilation support: CLI commands (`apply`, `import`) now support a `--target` flag (`claude`, `cursor`, `antigravity`) to isolate platform outputs.
@@ -36,13 +41,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make install` target added to `Makefile` with dynamic `LDFLAGS` injection for version propagation.
 
 ### Changed
-- Command Consolidation: The `translate`, `plan`, and `validate` workflows were absorbed into their logical primary operations (`import`, `graph`, and `apply` respectively) to reduce the CLI verb surface.
+- Lockfile standardization: state hashes are now enforced under explicit output conventions globally (`scaffold.claude.lock`, `scaffold.cursor.lock`).
+- Command Consolidation: The `translate` and `validate` workflows were absorbed into their logical primary operations (`import` and `apply` respectively) to reduce the CLI verb surface.
 - Platform neutral scopes: the internal `globalClaudeDir` has been renamed to `globalXcfHome`, aligning `xcaffold init` multi-platform detection for native Claude, Cursor, and Antigravity defaults.
 - README rewritten with badge row, "Why xcaffold?" section, Homebrew install target, expanded schema documentation, and multi-platform output tables.
 - `xcaffold analyze` now references `auth.AuthModeSubscription` from the shared auth package.
 - Token estimation explicitly documented as a `÷4` byte-count heuristic approximation with accuracy bounds.
 
 ### Fixed
+- Fixed unmapped `model` declarations failing string resolution in native `settings.json` renderer loops.
 - Compiler now emits all schema blocks. Previously, `skills`, `rules`, `hooks`, and `mcp` were silently discarded.
 - `xcaffold import` completely refactored to be highly faithful, dynamically discovering and preserving external file structures.
 - Settings structure type limitations fixed: `statusLine` and `enabledPlugins` are now strictly typed structures instead of untyped maps.
