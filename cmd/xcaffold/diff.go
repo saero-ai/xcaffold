@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/compiler"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -100,6 +101,47 @@ func diffScope(outputDir, lockFile, scopeName string) (int, error) {
 			driftCount++
 		} else {
 			fmt.Printf("  [%s] clean    %s\n", scopeName, absPath)
+		}
+	}
+
+	if len(manifest.SourceFiles) > 0 {
+		baseDir := filepath.Dir(lockFile)
+		currentSources, _ := resolver.FindXCFFiles(baseDir)
+
+		prevByPath := make(map[string]string)
+		for _, sf := range manifest.SourceFiles {
+			prevByPath[sf.Path] = sf.Hash
+		}
+
+		currByPath := make(map[string]string)
+		for _, absPath := range currentSources {
+			rel, err := filepath.Rel(baseDir, absPath)
+			if err != nil {
+				continue
+			}
+			data, err := os.ReadFile(absPath)
+			if err == nil {
+				hash := sha256.Sum256(data)
+				currByPath[rel] = fmt.Sprintf("sha256:%x", hash)
+			}
+		}
+
+		for _, sf := range manifest.SourceFiles {
+			if currHash, exists := currByPath[sf.Path]; !exists {
+				fmt.Printf("  [%s] SRC DELETED %s\n", scopeName, sf.Path)
+				driftCount++
+			} else if currHash != sf.Hash {
+				fmt.Printf("  [%s] SRC DRIFTED %s\n", scopeName, sf.Path)
+				fmt.Printf("    expected: %s\n", sf.Hash)
+				fmt.Printf("    actual:   %s\n", currHash)
+				driftCount++
+			}
+		}
+		for rel := range currByPath {
+			if _, exists := prevByPath[rel]; !exists {
+				fmt.Printf("  [%s] SRC ADDED   %s\n", scopeName, rel)
+				driftCount++
+			}
 		}
 	}
 

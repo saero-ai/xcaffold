@@ -13,6 +13,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -67,7 +68,11 @@ func init() {
 	rootCmd.AddCommand(applyCmd)
 }
 
-const targetClaude = "claude"
+const (
+	targetClaude      = "claude"
+	targetAntigravity = "antigravity"
+	targetCursor      = "cursor"
+)
 
 // currentSchemaVersion is the schema version this build of xcaffold targets.
 // Configs with older versions produce a warning prompting the user to migrate.
@@ -176,6 +181,35 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		fmt.Fprintf(os.Stderr, "WARNING: scaffold.xcf uses schema version %s; current schema is %s. Run \"xcaffold migrate\" to upgrade.\n", config.Version, currentSchemaVersion)
 	}
 
+	// --- Smart compilation skip: compare source hashes ---
+	targetLockFile := state.LockFilePath(lockFile, targetFlag)
+
+	// Auto-migrate legacy scaffold.lock → scaffold.<target>.lock
+	migrated, migrateErr := state.MigrateLegacyLock(lockFile, targetFlag)
+	if migrateErr != nil {
+		fmt.Fprintf(os.Stderr, "[%s] Warning: lock migration failed: %v\n", scopeName, migrateErr)
+	} else if migrated {
+		fmt.Printf("[%s] Migrated %s -> %s\n", scopeName, filepath.Base(lockFile), filepath.Base(targetLockFile))
+	}
+
+	sourceFiles, _ := resolver.FindXCFFiles(baseDir)
+
+	if !applyForce {
+		prevManifest, readErr := state.Read(targetLockFile)
+		if readErr == nil && len(prevManifest.SourceFiles) > 0 {
+			changed, _ := state.SourcesChanged(prevManifest.SourceFiles, sourceFiles, baseDir)
+			if !changed {
+				if applyDryRun {
+					fmt.Printf("[%s] No source files changed. Nothing to compile.\n", scopeName)
+				} else {
+					fmt.Printf("[%s] Sources unchanged — skipping compilation. Use --force to recompile.\n", scopeName)
+				}
+				return nil
+			}
+		}
+	}
+	// --- End smart skip ---
+
 	out, err := compiler.Compile(config, baseDir, targetFlag)
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
@@ -183,7 +217,6 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 
 	// Resolve the target-specific output directory instead of the hardcoded default
 	outputDir = filepath.Join(filepath.Dir(outputDir), compiler.OutputDir(targetFlag))
-	targetLockFile := state.LockFilePath(lockFile, targetFlag)
 
 	oldManifest, _ := state.Read(targetLockFile)
 
@@ -237,8 +270,14 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		return nil
 	}
 
-	// Write the lock file.
-	manifest := state.Generate(out)
+	// Write the lock file with source tracking.
+	manifest := state.GenerateWithOpts(out, state.GenerateOpts{
+		Target:      targetFlag,
+		Scope:       scopeName,
+		ConfigDir:   ".",
+		SourceFiles: sourceFiles,
+		BaseDir:     baseDir,
+	})
 	if err := state.Write(manifest, targetLockFile); err != nil {
 		return fmt.Errorf("[%s] failed to write %s: %w", scopeName, filepath.Base(targetLockFile), err)
 	}
@@ -430,23 +469,19 @@ func copyDir(src, dst string) error {
 }
 
 func cleanOrphans(oldManifest *state.LockManifest, out *compiler.Output, outputDir, scopeName string, hasChanges *bool) {
-	if oldManifest == nil {
-		return
-	}
-	for _, artifact := range oldManifest.Artifacts {
-		if _, exists := out.Files[artifact.Path]; !exists {
-			absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
-			if applyDryRun {
-				fmt.Printf("  [%s] \033[31m[- DELETE]\033[0m %s\n", scopeName, absPath)
+	orphans := state.FindOrphans(oldManifest, out.Files)
+	for _, orphanPath := range orphans {
+		absPath := filepath.Clean(filepath.Join(outputDir, orphanPath))
+		if applyDryRun {
+			fmt.Printf("  [%s] \033[31m[- DELETE]\033[0m %s\n", scopeName, absPath)
+			*hasChanges = true
+		} else {
+			if err := os.Remove(absPath); err == nil {
+				fmt.Printf("  [%s] ✓ deleted %s\n", scopeName, absPath)
 				*hasChanges = true
-			} else {
-				if err := os.Remove(absPath); err == nil {
-					fmt.Printf("  [%s] ✓ deleted %s\n", scopeName, absPath)
-					*hasChanges = true
-					cleanEmptyDirsUpToTarget(filepath.Dir(absPath), outputDir)
-				} else if os.IsNotExist(err) {
-					*hasChanges = true
-				}
+				cleanEmptyDirsUpToTarget(filepath.Dir(absPath), outputDir)
+			} else if os.IsNotExist(err) {
+				*hasChanges = true
 			}
 		}
 	}

@@ -197,7 +197,7 @@ func resolveCliPath(cliPath, claudePath string) string {
 	if claudePath != "" {
 		return claudePath
 	}
-	return "claude"
+	return targetClaude
 }
 
 // resolveJudgeModel returns the effective judge model.
