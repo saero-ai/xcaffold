@@ -39,10 +39,29 @@ func parsePartial(r io.Reader) (*ast.XcaffoldConfig, error) {
 	return config, nil
 }
 
+// ParsedFile pairs a parsed partial config with its source file path.
+type ParsedFile struct {
+	Config   *ast.XcaffoldConfig
+	FilePath string
+}
+
 // ParseDirectory recursively scans the given directory for all *.xcf files,
 // parses them, merges them strictly (erroring on duplicate IDs), and then
 // resolves 'extends:' chains.
 func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
+	merged, err := parseDirectoryUnvalidated(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validateMerged(merged); err != nil {
+		return nil, fmt.Errorf("validation failed for project configuration: %w", err)
+	}
+
+	return merged, nil
+}
+
+func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	var files []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -68,16 +87,16 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 		return nil, fmt.Errorf("no *.xcf files found in directory %q", dir)
 	}
 
-	var partials []*ast.XcaffoldConfig
+	var parsedFiles []ParsedFile
 	for _, f := range files {
 		cfg, err := parseFileExact(f)
 		if err != nil {
 			return nil, err
 		}
-		partials = append(partials, cfg)
+		parsedFiles = append(parsedFiles, ParsedFile{Config: cfg, FilePath: f})
 	}
 
-	merged, err := mergeAllStrict(partials)
+	merged, err := mergeAllStrict(parsedFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge config files in %q: %w", dir, err)
 	}
@@ -87,10 +106,6 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if err := validateMerged(merged); err != nil {
-		return nil, fmt.Errorf("validation failed for project configuration: %w", err)
 	}
 
 	return merged, nil
@@ -145,7 +160,24 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve 'extends: global': %w", err)
 		}
-		basePath = filepath.Join(home, ".claude", "global.xcf")
+
+		xcaffoldDir := filepath.Join(home, ".xcaffold")
+		if stat, err := os.Stat(xcaffoldDir); err == nil && stat.IsDir() {
+			baseConfig, err := parseDirectoryUnvalidated(xcaffoldDir)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
+			}
+			return mergeConfigOverride(baseConfig, config), nil
+		}
+
+		// Fallback to legacy single-file lookup
+		legacyPath := filepath.Join(home, ".claude", "global.xcf")
+		if _, err := os.Stat(legacyPath); err == nil {
+			fmt.Fprintf(os.Stderr, "WARNING: Inheriting from legacy %q. Consider migrating to %q\n", legacyPath, xcaffoldDir)
+			basePath = legacyPath
+		} else {
+			return nil, fmt.Errorf("could not resolve 'extends: global': .xcaffold namespace not initialized")
+		}
 	} else if filepath.IsAbs(config.Extends) {
 		basePath = config.Extends
 	} else {
@@ -179,14 +211,23 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 
 // mergeAllStrict is used to merge files living in the same directory.
 // Duplicate maps (like Agents, Skills, etc.) cause errors.
-func mergeAllStrict(partials []*ast.XcaffoldConfig) (*ast.XcaffoldConfig, error) {
-	if len(partials) == 0 {
+func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
+	if len(parsedFiles) == 0 {
 		return &ast.XcaffoldConfig{}, nil
 	}
 	merged := &ast.XcaffoldConfig{}
 
-	for _, p := range partials {
+	agentOrigins := map[string]string{}
+	skillOrigins := map[string]string{}
+	ruleOrigins := map[string]string{}
+	mcpOrigins := map[string]string{}
+	workflowOrigins := map[string]string{}
+
+	for _, pf := range parsedFiles {
+		p := pf.Config
+		f := pf.FilePath
 		var err error
+
 		if merged.Version != "" && p.Version != "" && merged.Version != p.Version {
 			return nil, fmt.Errorf("conflicting versions declared: %q vs %q", merged.Version, p.Version)
 		}
@@ -208,27 +249,27 @@ func mergeAllStrict(partials []*ast.XcaffoldConfig) (*ast.XcaffoldConfig, error)
 			merged.Extends = p.Extends
 		}
 
-		merged.Agents, err = mergeMapStrict(merged.Agents, p.Agents, "agent")
+		merged.Agents, agentOrigins, err = mergeMapStrict(merged.Agents, p.Agents, "agent", agentOrigins, f)
 		if err != nil {
 			return nil, err
 		}
 
-		merged.Skills, err = mergeMapStrict(merged.Skills, p.Skills, "skill")
+		merged.Skills, skillOrigins, err = mergeMapStrict(merged.Skills, p.Skills, "skill", skillOrigins, f)
 		if err != nil {
 			return nil, err
 		}
 
-		merged.Rules, err = mergeMapStrict(merged.Rules, p.Rules, "rule")
+		merged.Rules, ruleOrigins, err = mergeMapStrict(merged.Rules, p.Rules, "rule", ruleOrigins, f)
 		if err != nil {
 			return nil, err
 		}
 
-		merged.MCP, err = mergeMapStrict(merged.MCP, p.MCP, "mcp")
+		merged.MCP, mcpOrigins, err = mergeMapStrict(merged.MCP, p.MCP, "mcp", mcpOrigins, f)
 		if err != nil {
 			return nil, err
 		}
 
-		merged.Workflows, err = mergeMapStrict(merged.Workflows, p.Workflows, "workflow")
+		merged.Workflows, workflowOrigins, err = mergeMapStrict(merged.Workflows, p.Workflows, "workflow", workflowOrigins, f)
 		if err != nil {
 			return nil, err
 		}
@@ -249,24 +290,34 @@ func mergeAllStrict(partials []*ast.XcaffoldConfig) (*ast.XcaffoldConfig, error)
 	return merged, nil
 }
 
-func mergeMapStrict[K comparable, V any](base, child map[K]V, kind string) (map[K]V, error) {
+func mergeMapStrict[K comparable, V any](base, child map[K]V, kind string, baseOrigins map[K]string, childFile string) (map[K]V, map[K]string, error) {
+	if base == nil && child == nil {
+		return nil, baseOrigins, nil
+	}
 	if base == nil {
-		return child, nil
+		origins := make(map[K]string, len(child))
+		for k := range child {
+			origins[k] = childFile
+		}
+		return child, origins, nil
 	}
 	if child == nil {
-		return base, nil
+		return base, baseOrigins, nil
 	}
-	merged := make(map[K]V)
+	merged := make(map[K]V, len(base)+len(child))
+	origins := make(map[K]string, len(base)+len(child))
 	for k, v := range base {
 		merged[k] = v
+		origins[k] = baseOrigins[k]
 	}
 	for k, v := range child {
 		if _, exists := merged[k]; exists {
-			return nil, fmt.Errorf("duplicate %s ID detected across files: %v", kind, k)
+			return nil, nil, fmt.Errorf("duplicate %s ID \"%v\" found in %s and %s", kind, k, filepath.Base(origins[k]), filepath.Base(childFile))
 		}
 		merged[k] = v
+		origins[k] = childFile
 	}
-	return merged, nil
+	return merged, origins, nil
 }
 
 func mergeHooksAdditive(base, child ast.HookConfig) ast.HookConfig {
@@ -752,5 +803,11 @@ func validateInstructionsFile(kind, id, path string) error {
 	if strings.ContainsAny(path, "\\") || strings.Contains(path, "..") {
 		return fmt.Errorf("%s %q: instructions_file contains invalid path characters: %q", kind, id, path)
 	}
+
+	// Prevent circular dependencies by blocking references to compiler output directories.
+	if strings.HasPrefix(path, ".claude/") || strings.HasPrefix(path, ".cursor/") || strings.HasPrefix(path, ".agents/") || strings.HasPrefix(path, ".antigravity/") {
+		return fmt.Errorf("%s %q: instructions_file cannot reference %q to avoid circular dependencies during compilation", kind, id, strings.Split(path, "/")[0])
+	}
+
 	return nil
 }

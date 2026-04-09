@@ -267,9 +267,11 @@ func TestMergeMapStrict_DisallowsDuplicates(t *testing.T) {
 	child := map[string]string{
 		"shared": "child-value",
 	}
-	_, err := mergeMapStrict(base, child, "agent")
+	baseOrigins := map[string]string{"shared": "base.xcf"}
+
+	_, _, err := mergeMapStrict(base, child, "agent", baseOrigins, "child.xcf")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate agent ID detected")
+	assert.Contains(t, err.Error(), "duplicate agent ID \"shared\" found in base.xcf and child.xcf")
 }
 
 func TestMergeMapStrict_AllowsDisjoint(t *testing.T) {
@@ -279,8 +281,90 @@ func TestMergeMapStrict_AllowsDisjoint(t *testing.T) {
 	child := map[string]string{
 		"child-only": "child-value",
 	}
-	result, err := mergeMapStrict(base, child, "agent")
+	baseOrigins := map[string]string{"base-only": "base.xcf"}
+	result, origins, err := mergeMapStrict(base, child, "agent", baseOrigins, "child.xcf")
 	require.NoError(t, err)
 	assert.Equal(t, "base-value", result["base-only"])
 	assert.Equal(t, "child-value", result["child-only"])
+	assert.Equal(t, "base.xcf", origins["base-only"])
+	assert.Equal(t, "child.xcf", origins["child-only"])
+}
+
+// ---------------------------------------------------------------------------
+// TestParseFile_ExtendsGlobal_ReadsFromXcaffoldDir
+// ---------------------------------------------------------------------------
+
+func TestParseFile_ExtendsGlobal_ReadsFromXcaffoldDir(t *testing.T) {
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome) // For Windows
+
+	// 1. Create a mocked ~/.xcaffold directory with multiple files
+	xcaffoldDir := filepath.Join(fakeHome, ".xcaffold")
+	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
+
+	writeFile(t, xcaffoldDir, "agents.xcf", `
+version: "1.0"
+agents:
+  global-agent:
+    description: "I am a global agent from .xcaffold/agents.xcf"
+`)
+	writeFile(t, xcaffoldDir, "skills.xcf", `
+version: "1.0"
+skills:
+  global-skill:
+    description: "I am a global skill from .xcaffold/skills.xcf"
+`)
+
+	// 2. Create the project config extending "global"
+	projectDir := t.TempDir()
+	childPath := writeFile(t, projectDir, "scaffold.xcf", `
+version: "1.0"
+extends: "global"
+project:
+  name: "local-project"
+`)
+
+	cfg, err := ParseFile(childPath)
+	require.NoError(t, err)
+
+	// 3. Verify AST merges all global parts plus local project
+	assert.Equal(t, "local-project", cfg.Project.Name)
+	require.Contains(t, cfg.Agents, "global-agent")
+	assert.Equal(t, "I am a global agent from .xcaffold/agents.xcf", cfg.Agents["global-agent"].Description)
+	require.Contains(t, cfg.Skills, "global-skill")
+	assert.Equal(t, "I am a global skill from .xcaffold/skills.xcf", cfg.Skills["global-skill"].Description)
+}
+
+// ---------------------------------------------------------------------------
+// TestParseFile_ExtendsGlobal_LegacyFallback
+// ---------------------------------------------------------------------------
+
+func TestParseFile_ExtendsGlobal_LegacyFallback(t *testing.T) {
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome)
+
+	// Only .claude/global.xcf exists
+	legacyDir := filepath.Join(fakeHome, ".claude")
+	require.NoError(t, os.MkdirAll(legacyDir, 0755))
+	writeFile(t, legacyDir, "global.xcf", `
+version: "1.0"
+agents:
+  legacy-agent:
+    description: "From legacy .claude/global.xcf"
+`)
+
+	projectDir := t.TempDir()
+	childPath := writeFile(t, projectDir, "scaffold.xcf", `
+version: "1.0"
+extends: "global"
+project:
+  name: "legacy-project"
+`)
+
+	cfg, err := ParseFile(childPath)
+	require.NoError(t, err)
+	require.Contains(t, cfg.Agents, "legacy-agent")
+	assert.Equal(t, "From legacy .claude/global.xcf", cfg.Agents["legacy-agent"].Description)
 }

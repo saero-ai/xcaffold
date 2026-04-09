@@ -182,6 +182,8 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	outputDir = filepath.Join(filepath.Dir(outputDir), compiler.OutputDir(targetFlag))
 	targetLockFile := state.LockFilePath(lockFile, targetFlag)
 
+	oldManifest, _ := state.Read(targetLockFile)
+
 	if !applyDryRun && !applyForce {
 		drift, err := hasDrift(outputDir, targetLockFile)
 		if err == nil && drift {
@@ -215,6 +217,9 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 
 	// Write (or preview) each compiled file.
 	hasChanges := false
+
+	cleanOrphans(oldManifest, out, outputDir, scopeName, &hasChanges)
+
 	for relPath, content := range out.Files {
 		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
 		if err := applyFile(absPath, content, scopeName, &hasChanges); err != nil {
@@ -419,4 +424,46 @@ func copyDir(src, dst string) error {
 		}
 		return os.WriteFile(destPath, data, info.Mode())
 	})
+}
+
+func cleanOrphans(oldManifest *state.LockManifest, out *compiler.Output, outputDir, scopeName string, hasChanges *bool) {
+	if oldManifest == nil {
+		return
+	}
+	for _, artifact := range oldManifest.Artifacts {
+		if _, exists := out.Files[artifact.Path]; !exists {
+			absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
+			if applyDryRun {
+				fmt.Printf("  [%s] \033[31m[- DELETE]\033[0m %s\n", scopeName, absPath)
+				*hasChanges = true
+			} else {
+				if err := os.Remove(absPath); err == nil {
+					fmt.Printf("  [%s] ✓ deleted %s\n", scopeName, absPath)
+					*hasChanges = true
+					cleanEmptyDirsUpToTarget(filepath.Dir(absPath), outputDir)
+				} else if os.IsNotExist(err) {
+					*hasChanges = true
+				}
+			}
+		}
+	}
+}
+
+// cleanEmptyDirsUpToTarget recursively deletes empty parent directories
+// up to but not including the targetDir itself.
+func cleanEmptyDirsUpToTarget(dir, targetDir string) {
+	dir = filepath.Clean(dir)
+	targetDir = filepath.Clean(targetDir)
+
+	for dir != targetDir && dir != "." && dir != "/" {
+		rel, err := filepath.Rel(targetDir, dir)
+		if err != nil || strings.HasPrefix(rel, "..") || rel == "." {
+			break
+		}
+
+		if err := os.Remove(dir); err != nil {
+			break // Dir not empty, or permission error
+		}
+		dir = filepath.Dir(dir)
+	}
 }

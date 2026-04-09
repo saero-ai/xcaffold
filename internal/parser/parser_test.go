@@ -561,3 +561,45 @@ local:
 	}
 	assert.Equal(t, 2, count, "expected 2 unknown-plugin warnings (one per block), got: %v", diags)
 }
+
+func TestCompile_MultiFile_DuplicateIDErrorTracksOrigin(t *testing.T) {
+	dir := t.TempDir()
+
+	file1 := filepath.Join(dir, "agent1.xcf")
+	err := os.WriteFile(file1, []byte(`
+version: "1.0"
+project:
+  name: test
+agents:
+  dev:
+    name: dev1
+`), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	file2 := filepath.Join(dir, "agent2.xcf")
+	err = os.WriteFile(file2, []byte(`
+agents:
+  dev:
+    name: dev2
+`), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = ParseDirectory(dir)
+	if err == nil {
+		t.Fatal("expected error for duplicate agent ID")
+	}
+
+	expectedSubstring1 := "duplicate agent ID \"dev\" found in"
+	expectedSubstring2 := "agent1.xcf"
+	expectedSubstring3 := "agent2.xcf"
+
+	errMsg := err.Error()
+	// For simplicity, we just check if it contains the duplicate key strings and filenames.
+	if !strings.Contains(errMsg, expectedSubstring1) || !strings.Contains(errMsg, expectedSubstring2) || !strings.Contains(errMsg, expectedSubstring3) {
+		t.Errorf("error did not contain exact file origin info, got: %v", errMsg)
+	}
+}
