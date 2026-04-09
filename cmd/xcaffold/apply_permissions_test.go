@@ -49,7 +49,7 @@ agents:
 
 	// Set package-level state vars used by runApply.
 	xcfPath = xcf
-	scopeFlag = "project"
+	scopeFlag = "project" //nolint:goconst
 	applyCheckPermissions = true
 	targetFlag = "cursor"
 	defer func() {
@@ -61,7 +61,7 @@ agents:
 
 	w.Close()
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	r.Close()
 	os.Stdout = old
 

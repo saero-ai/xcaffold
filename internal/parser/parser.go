@@ -211,6 +211,8 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 
 // mergeAllStrict is used to merge files living in the same directory.
 // Duplicate maps (like Agents, Skills, etc.) cause errors.
+//
+//nolint:gocyclo
 func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	if len(parsedFiles) == 0 {
 		return &ast.XcaffoldConfig{}, nil
@@ -479,6 +481,8 @@ func parsePermissionRule(rule string) (toolName, pattern string, err error) {
 
 // validatePermissions validates permission rule strings in settings.permissions
 // and checks for agent/settings contradictions.
+//
+//nolint:gocyclo
 func validatePermissions(c *ast.XcaffoldConfig) error {
 	if c.Settings.Permissions == nil {
 		return nil
@@ -698,6 +702,8 @@ func ValidateFile(path string) []Diagnostic {
 
 // validateFileRefs checks that instructions_file paths and skill references
 // exist on disk, and detects duplicate IDs across resource types.
+//
+//nolint:gocyclo
 func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 	var diags []Diagnostic
 
@@ -745,7 +751,6 @@ func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 	}
 
 	// Duplicate ID check across resource types
-	type entry struct{ kind string }
 	seen := make(map[string][]string) // id -> []resourceType
 	for id := range c.Agents {
 		seen[id] = append(seen[id], "agent")

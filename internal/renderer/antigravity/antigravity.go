@@ -53,6 +53,8 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 //
 // Only rules and skills are compiled. Agents, hooks, and MCP configs are silently
 // skipped because Antigravity has no file format for those resource types.
+//
+//nolint:gocyclo
 func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
 	out := &output.Output{
 		Files: make(map[string]string),

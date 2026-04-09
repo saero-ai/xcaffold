@@ -337,6 +337,8 @@ func warnLossy(kind, field, id string) {
 }
 
 // warnLossyAgent emits fidelity warnings for lossy AgentConfig fields.
+//
+//nolint:gocyclo
 func warnLossyAgent(id string, a ast.AgentConfig) {
 	if len(a.Tools) > 0 {
 		warnLossy("agent", "tools", id)

@@ -73,6 +73,7 @@ const targetClaude = "claude"
 // Configs with older versions produce a warning prompting the user to migrate.
 const currentSchemaVersion = "1.1"
 
+//nolint:gocyclo
 func runApply(cmd *cobra.Command, args []string) error {
 	if applyProjectFlag != "" {
 		proj, err := registry.Resolve(applyProjectFlag)
@@ -159,6 +160,8 @@ func printDiagnostics(diags []parser.Diagnostic) {
 // applyScope compiles a single xcf file into outputDir and writes the lock file
 // at lockFile. scopeName is used as a prefix in terminal output when running
 // --scope all so the user can distinguish the two compilation passes.
+//
+//nolint:gocyclo
 func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	// baseDir is the directory containing the xcf file — used by the compiler
 	// to resolve instructions_file: and references: paths.

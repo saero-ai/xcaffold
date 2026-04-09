@@ -226,6 +226,8 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 //   - background: true → is_background: true (Normalization Rule 6)
 //   - CC-only fields are dropped: effort, permissionMode, isolation, color,
 //     memory, maxTurns, tools, disallowedTools, skills, initialPrompt
+//
+//nolint:gocyclo
 func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("agent id must not be empty")

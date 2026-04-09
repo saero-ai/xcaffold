@@ -383,7 +383,7 @@ skills:
 	diags := ValidateFile(xcf)
 	var found bool
 	for _, d := range diags {
-		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") {
+		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") { //nolint:goconst
 			found = true
 		}
 	}
@@ -573,7 +573,7 @@ project:
 agents:
   dev:
     name: dev1
-`), 0644)
+`), 0600) //nolint:goconst
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -583,7 +583,7 @@ agents:
 agents:
   dev:
     name: dev2
-`), 0644)
+`), 0600) //nolint:goconst
 	if err != nil {
 		t.Fatal(err)
 	}

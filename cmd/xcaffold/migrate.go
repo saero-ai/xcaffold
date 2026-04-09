@@ -15,6 +15,8 @@ import (
 )
 
 // Migration defines a single schema-version upgrade step.
+//
+//nolint:govet
 type Migration struct {
 	FromVersion string
 	ToVersion   string
