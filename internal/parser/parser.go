@@ -111,6 +111,49 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	return merged, nil
 }
 
+func parseDirectoryRaw(dir string) (*ast.XcaffoldConfig, error) {
+	var files []string
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			name := d.Name()
+			if path != dir && (strings.HasPrefix(name, ".") || name == "node_modules") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(d.Name(), ".xcf") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan directory %q: %w", dir, err)
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no *.xcf files found in directory %q", dir)
+	}
+
+	var parsedFiles []ParsedFile
+	for _, f := range files {
+		cfg, err := parseFileExact(f)
+		if err != nil {
+			return nil, err
+		}
+		parsedFiles = append(parsedFiles, ParsedFile{Config: cfg, FilePath: f})
+	}
+
+	merged, err := mergeAllStrict(parsedFiles)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge config files in %q: %w", dir, err)
+	}
+
+	return merged, nil
+}
+
 func parseFileExact(path string) (*ast.XcaffoldConfig, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -163,20 +206,30 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 
 		xcaffoldDir := filepath.Join(home, ".xcaffold")
 		if stat, err := os.Stat(xcaffoldDir); err == nil && stat.IsDir() {
-			baseConfig, err := parseDirectoryUnvalidated(xcaffoldDir)
+			if visited[xcaffoldDir] {
+				return nil, fmt.Errorf("circular dependency detected: global setup extends itself")
+			}
+			visited[xcaffoldDir] = true
+
+			baseConfig, err := parseDirectoryRaw(xcaffoldDir)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
+			}
+			if baseConfig.Extends != "" {
+				baseConfig, err = resolveExtendsRecursive(xcaffoldDir, baseConfig, visited)
+				if err != nil {
+					return nil, err
+				}
 			}
 			return mergeConfigOverride(baseConfig, config), nil
 		}
 
-		// Fallback to legacy single-file lookup
 		legacyPath := filepath.Join(home, ".claude", "global.xcf")
 		if _, err := os.Stat(legacyPath); err == nil {
-			fmt.Fprintf(os.Stderr, "WARNING: Inheriting from legacy %q. Consider migrating to %q\n", legacyPath, xcaffoldDir)
+			fmt.Fprintf(os.Stderr, "WARNING: extends: global resolved from legacy path %s -- run 'xcaffold migrate' to move to %s\n", legacyPath, xcaffoldDir)
 			basePath = legacyPath
 		} else {
-			return nil, fmt.Errorf("could not resolve 'extends: global': .xcaffold namespace not initialized")
+			return nil, fmt.Errorf("could not resolve 'extends: global': no global config found")
 		}
 	} else if filepath.IsAbs(config.Extends) {
 		basePath = config.Extends

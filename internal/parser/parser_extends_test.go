@@ -368,3 +368,73 @@ project:
 	require.Contains(t, cfg.Agents, "legacy-agent")
 	assert.Equal(t, "From legacy .claude/global.xcf", cfg.Agents["legacy-agent"].Description)
 }
+
+// ---------------------------------------------------------------------------
+// TestParseFile_ExtendsGlobal_Circular
+// ---------------------------------------------------------------------------
+
+func TestParseFile_ExtendsGlobal_Circular(t *testing.T) {
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome)
+
+	xcaffoldDir := filepath.Join(fakeHome, ".xcaffold")
+	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
+
+	writeFile(t, xcaffoldDir, "circular.xcf", `
+version: "1.0"
+extends: "global"
+`)
+
+	projectDir := t.TempDir()
+	childPath := writeFile(t, projectDir, "scaffold.xcf", `
+version: "1.0"
+extends: "global"
+`)
+
+	_, err := ParseFile(childPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "circular dependency detected")
+}
+
+// ---------------------------------------------------------------------------
+// TestParseFile_ExtendsGlobal_NestedInheritance
+// ---------------------------------------------------------------------------
+
+func TestParseFile_ExtendsGlobal_NestedInheritance(t *testing.T) {
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome)
+
+	// Create global config that extends something else
+	xcaffoldDir := filepath.Join(fakeHome, ".xcaffold")
+	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
+
+	writeFile(t, xcaffoldDir, "base.xcf", `
+version: "1.0"
+agents:
+  nested-agent:
+    description: "From nested global"
+`)
+
+	writeFile(t, xcaffoldDir, "main.xcf", `
+version: "1.0"
+extends: "base.xcf"
+agents:
+  main-agent:
+    description: "From main global"
+`)
+
+	projectDir := t.TempDir()
+	childPath := writeFile(t, projectDir, "scaffold.xcf", `
+version: "1.0"
+extends: "global"
+project:
+  name: "nested-project"
+`)
+
+	cfg, err := ParseFile(childPath)
+	require.NoError(t, err)
+	require.Contains(t, cfg.Agents, "nested-agent")
+	require.Contains(t, cfg.Agents, "main-agent")
+}
