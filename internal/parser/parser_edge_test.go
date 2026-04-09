@@ -306,41 +306,6 @@ agents:
 	assert.Contains(t, err.Error(), "instructions_file")
 }
 
-// TestParse_InstructionsFile_CircularReference_Rejected verifies that a parsing
-// instructions_file pointing into a compiler output directory (.claude/, .cursor/, etc) is rejected.
-func TestParse_InstructionsFile_CircularReference_Rejected(t *testing.T) {
-	yaml := `
-version: "1.0"
-project:
-  name: "test-project"
-agents:
-  cto:
-    instructions_file: ".claude/agents/cto.md"
-`
-	_, err := Parse(strings.NewReader(yaml))
-	require.Error(t, err, "instructions_file referencing a compiler output dir must be rejected at parse time")
-	assert.Contains(t, err.Error(), "circular dependencies")
-}
-
-// TestParse_InstructionsFile_ValidRelativePath_Accepted verifies that a valid
-// relative instructions_file path parses successfully.
-func TestParse_InstructionsFile_ValidRelativePath_Accepted(t *testing.T) {
-	yaml := `
-version: "1.0"
-project:
-  name: "test-project"
-agents:
-  cto:
-    description: "CTO agent"
-    instructions_file: "agents/cto.md"
-`
-	config, err := Parse(strings.NewReader(yaml))
-	require.NoError(t, err, "valid relative instructions_file should be accepted")
-	agent, ok := config.Agents["cto"]
-	require.True(t, ok)
-	assert.Equal(t, "agents/cto.md", agent.InstructionsFile)
-}
-
 // TestParse_SkillInstructionsFile_Valid verifies skills accept instructions_file.
 func TestParse_SkillInstructionsFile_Valid(t *testing.T) {
 	yaml := `
@@ -360,4 +325,88 @@ skills:
 	require.True(t, ok)
 	assert.Equal(t, "skills/flutter-integration/SKILL.md", skill.InstructionsFile)
 	assert.Len(t, skill.References, 1)
+}
+
+// TestParse_InstructionsFile_CircularReference_ClaudeDir verifies that instructions_file
+// pointing into .claude/ is rejected as a circular dependency.
+func TestParse_InstructionsFile_CircularReference_ClaudeDir(t *testing.T) {
+	yaml := `
+version: "1.0"
+project:
+  name: "my-project"
+agents:
+  dev:
+    instructions_file: .claude/agents/dev.md
+`
+	_, err := Parse(strings.NewReader(yaml))
+	require.Error(t, err, "instructions_file pointing to .claude/ must be rejected")
+	assert.Contains(t, err.Error(), "circular dependency")
+	assert.Contains(t, err.Error(), ".claude/")
+}
+
+// TestParse_InstructionsFile_CircularReference_CursorDir verifies that instructions_file
+// pointing into .cursor/ is rejected as a circular dependency.
+func TestParse_InstructionsFile_CircularReference_CursorDir(t *testing.T) {
+	yaml := `
+version: "1.0"
+project:
+  name: "my-project"
+skills:
+  deploy:
+    instructions_file: .cursor/rules/deploy.mdc
+`
+	_, err := Parse(strings.NewReader(yaml))
+	require.Error(t, err, "instructions_file pointing to .cursor/ must be rejected")
+	assert.Contains(t, err.Error(), "circular dependency")
+	assert.Contains(t, err.Error(), ".cursor/")
+}
+
+// TestParse_InstructionsFile_CircularReference_AgentsDir verifies that instructions_file
+// pointing into .agents/ (Antigravity output) is rejected.
+func TestParse_InstructionsFile_CircularReference_AgentsDir(t *testing.T) {
+	yaml := `
+version: "1.0"
+project:
+  name: "my-project"
+agents:
+  reviewer:
+    instructions_file: .agents/agents/reviewer.md
+`
+	_, err := Parse(strings.NewReader(yaml))
+	require.Error(t, err, "instructions_file pointing to .agents/ must be rejected")
+	assert.Contains(t, err.Error(), "circular dependency")
+	assert.Contains(t, err.Error(), ".agents/")
+}
+
+// TestParse_InstructionsFile_ValidRelativePath_Allowed ensures legitimate relative paths
+// are NOT rejected by the circular reference check.
+func TestParse_InstructionsFile_ValidRelativePath_Allowed(t *testing.T) {
+	yaml := `
+version: "1.0"
+project:
+  name: "my-project"
+agents:
+  dev:
+    instructions_file: docs/agents/dev.md
+`
+	cfg, err := Parse(strings.NewReader(yaml))
+	require.NoError(t, err, "valid relative path must not be rejected")
+	assert.Equal(t, "docs/agents/dev.md", cfg.Agents["dev"].InstructionsFile)
+}
+
+// TestParse_InstructionsFile_CircularReference_AntigravityDir verifies that instructions_file
+// pointing into .antigravity/ is rejected.
+func TestParse_InstructionsFile_CircularReference_AntigravityDir(t *testing.T) {
+	yaml := `
+version: "1.0"
+project:
+  name: "my-project"
+rules:
+  security:
+    instructions_file: .antigravity/rules/security.md
+`
+	_, err := Parse(strings.NewReader(yaml))
+	require.Error(t, err, "instructions_file pointing to .antigravity/ must be rejected")
+	assert.Contains(t, err.Error(), "circular dependency")
+	assert.Contains(t, err.Error(), ".antigravity/")
 }

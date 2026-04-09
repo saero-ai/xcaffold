@@ -287,11 +287,11 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 	// Cursor-compatible fields MUST appear
 	assert.Contains(t, content, "name: Full Agent")
 	assert.Contains(t, content, "description: Has many fields.")
-	assert.Contains(t, content, "model: claude-opus-4-5")
+	assert.NotContains(t, content, "model:", "literal model claude-opus-4-5 is unmapped for cursor — must be omitted")
 	assert.Contains(t, content, "is_background: true")
 }
 
-func TestCompile_Agent_ModelPreserved(t *testing.T) {
+func TestCompile_Agent_UnmappedModel_Omitted(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		Agents: map[string]ast.AgentConfig{
@@ -303,11 +303,74 @@ func TestCompile_Agent_ModelPreserved(t *testing.T) {
 		},
 	}
 
+	stderr, restore := captureStderr(t)
 	out, err := r.Compile(config, "")
+	restore()
 	require.NoError(t, err)
 
 	content := out.Files["agents/model-agent.md"]
-	assert.Contains(t, content, "model: claude-sonnet-4-5")
+	assert.NotContains(t, content, "model:", "unmapped literal model must be omitted from Cursor output")
+
+	// Verify warning was emitted
+	assert.Contains(t, stderr.String(), "WARNING (cursor):")
+	assert.Contains(t, stderr.String(), "unmapped model")
+	assert.Contains(t, stderr.String(), "model-agent")
+}
+
+func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"aliased-agent": {
+				Name:         "Aliased Agent",
+				Model:        "sonnet-4",
+				Instructions: "Uses an alias.",
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	out, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	content := out.Files["agents/aliased-agent.md"]
+	// sonnet-4 has no cursor mapping, so ResolveModel falls through to literal.
+	// IsMappedModel("sonnet-4", "cursor") is false, so the model is omitted.
+	assert.NotContains(t, content, "model:", "sonnet-4 has no cursor mapping — must be omitted")
+
+	// Warning should be emitted since there is no cursor mapping for this alias
+	assert.Contains(t, stderr.String(), "WARNING (cursor):")
+}
+
+func TestCompile_Agent_UnmappedModel_WarningSuppressed(t *testing.T) {
+	r := cursor.New()
+	suppress := true
+	config := &ast.XcaffoldConfig{
+		Agents: map[string]ast.AgentConfig{
+			"quiet-agent": {
+				Name:         "Quiet Agent",
+				Model:        "claude-sonnet-4-5",
+				Instructions: "Silence warnings.",
+				Targets: map[string]ast.TargetOverride{
+					"cursor": {
+						SuppressFidelityWarnings: &suppress,
+					},
+				},
+			},
+		},
+	}
+
+	stderr, restore := captureStderr(t)
+	out, err := r.Compile(config, "")
+	restore()
+	require.NoError(t, err)
+
+	content := out.Files["agents/quiet-agent.md"]
+	assert.NotContains(t, content, "model:", "unmapped literal model must be omitted regardless of suppress flag")
+
+	// Warning must NOT appear when SuppressFidelityWarnings is true
+	assert.NotContains(t, stderr.String(), "unmapped model", "warning must be suppressed")
 }
 
 func TestCompile_Agent_BodyContentPreserved(t *testing.T) {

@@ -798,6 +798,11 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 	return diags
 }
 
+// reservedOutputPrefixes are compiler output directories. instructions_file paths
+// starting with these prefixes create circular dependencies where the compiler
+// reads its own output.
+var reservedOutputPrefixes = []string{".claude/", ".cursor/", ".agents/", ".antigravity/"}
+
 func validateInstructionsFile(kind, id, path string) error {
 	if path == "" {
 		return nil
@@ -808,11 +813,11 @@ func validateInstructionsFile(kind, id, path string) error {
 	if strings.ContainsAny(path, "\\") || strings.Contains(path, "..") {
 		return fmt.Errorf("%s %q: instructions_file contains invalid path characters: %q", kind, id, path)
 	}
-
-	// Prevent circular dependencies by blocking references to compiler output directories.
-	if strings.HasPrefix(path, ".claude/") || strings.HasPrefix(path, ".cursor/") || strings.HasPrefix(path, ".agents/") || strings.HasPrefix(path, ".antigravity/") {
-		return fmt.Errorf("%s %q: instructions_file cannot reference %q to avoid circular dependencies during compilation", kind, id, strings.Split(path, "/")[0])
+	cleaned := filepath.Clean(path)
+	for _, prefix := range reservedOutputPrefixes {
+		if strings.HasPrefix(cleaned, filepath.Clean(prefix)) {
+			return fmt.Errorf("%s %q: instructions_file %q references compiler output directory %s — this creates a circular dependency", kind, id, path, prefix)
+		}
 	}
-
 	return nil
 }
