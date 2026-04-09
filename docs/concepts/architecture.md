@@ -1,3 +1,8 @@
+---
+title: "Architecture"
+description: "Under the hood of the Xcaffold compiler engine"
+---
+
 # Architecture Overview
 
 `xcaffold` operates on a strictly deterministic, One-Way Compiler architecture for managing agent configuration setups. It targets multiple platforms (Claude Code, Cursor, and Antigravity) from a single `.xcf` YAML source.
@@ -97,60 +102,6 @@ Created automatically on first run by `registry.EnsureGlobalHome()`. Contains th
 | **Antigravity** | `~/.gemini/antigravity/skills/`, `~/.gemini/GEMINI.md`, `~/.gemini/antigravity/mcp_config.json` |
 
 > New providersare added by implementing a scan function and appending it to `globalProviders` in `internal/registry/registry.go`. No other changes are required.
-
----
-
-## AST Object Model
-
-All `.xcf` configurations parse into this AST. The canonical types live in `internal/ast/types.go`.
-
-```mermaid
-graph TD
-    ROOT["📋 XcaffoldConfig\n(version, extends, local)"]
-    ROOT --> PROJ["🟢 Project\n(name, description, version,\nauthor, homepage, repository, license)"]
-    ROOT --> AGENTS["🤖 Agents\n(name, description, model, effort, memory,\nmaxTurns, mode, when, isolation, color,\ninitialPrompt, permissionMode, readonly,\nbackground, tools, disallowedTools,\nskills, rules, mcp, mcpServers,\nassertions, hooks, targets)"]
-    ROOT --> SKILLS["⚡ Skills\n(name, type, description, instructions,\ninstructions_file, context, agent, shell,\nmodel, effort, argument-hint, tools,\nallowed-tools, paths, references,\nhooks, user-invocable,\ndisable-model-invocation)"]
-    ROOT --> RULES["📐 Rules\n(description, instructions,\ninstructions_file, paths, alwaysApply)"]
-    ROOT --> HOOKS["🪝 Hooks\n(PreToolUse, PostToolUse, Notification,\nStop, SubagentStop, InstructionsLoaded,\nPreCompact, SessionStart, ConfigChange)"]
-    ROOT --> MCP["🔌 MCP Servers\n(type, command, url, args, env,\nheaders, cwd, disabled, oauth,\ndisabledTools, authProviderType)"]
-    ROOT --> WORKFLOWS["🔄 Workflows\n(name, description, instructions,\ninstructions_file)"]
-    ROOT --> SETTINGS["⚙️ Settings\n(env, statusLine, enabledPlugins,\nalwaysThinkingEnabled, effortLevel,\nskipDangerousModePermissionPrompt,\nmodel, defaultShell, language,\noutputStyle, plansDirectory,\nautoMemoryEnabled, autoMemoryDirectory,\ndisableAllHooks, disableSkillShellExecution,\nrespectGitignore, attribution, sandbox,\npermissions, mcpServers, hooks,\navailableModels, claudeMdExcludes,\ncleanupPeriodDays, includeGitInstructions,\nworktree, agent, autoMode, otelHeadersHelper)"]
-    ROOT --> TEST["🧪 Test\n(cli_path, claude_path [deprecated], judge_model)"]
-    AGENTS -->|"skills: []"| SKILLS
-    AGENTS -->|"rules: []"| RULES
-    AGENTS -->|"mcp: []"| MCP
-    AGENTS -->|"targets: {}"| TGTOVERRIDE["🎯 TargetOverride\n(instructions_override,\nskip_synthesis,\nsuppress_fidelity_warnings, hooks)"]
-```
-
-### HookConfig Structure
-
-Hooks are defined at two levels: the top-level `hooks:` block (applies globally) and per-agent/per-skill `hooks:` blocks (applies to that resource). Both resolve to the same `HookConfig` type.
-
-```
-HookConfig → map[EventName][]HookMatcherGroup
-HookMatcherGroup → { matcher: string, hooks: []HookHandler }
-HookHandler → { type, command/url/prompt, shell, model,
-                 if, async, once, timeout, statusMessage,
-                 headers, allowedEnvVars }
-```
-
-**Supported hook events:** `PreToolUse`, `PostToolUse`, `Notification`, `Stop`, `SubagentStop`, `InstructionsLoaded`, `PreCompact`, `SessionStart`, `ConfigChange`.
-
-**Supported handler types:** `command`, `webhook`, `prompt`.
-
-### SandboxConfig Structure
-
-The `settings.sandbox` block configures OS-level process isolation for Bash commands:
-
-```
-SandboxConfig → { enabled, autoAllow, failIfUnavailable,
-                   allowUnsandboxedCommands, excludedCommands,
-                   filesystem: SandboxFilesystem,
-                   network: SandboxNetwork }
-SandboxFilesystem → { allowWrite, denyWrite, allowRead, denyRead }
-SandboxNetwork → { httpProxyPort, socksProxyPort, allowedDomains,
-                    allowManagedDomainsOnly, allowUnixSockets }
-```
 
 ---
 
