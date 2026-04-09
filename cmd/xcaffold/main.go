@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/registry"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -161,51 +162,46 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "list" || cmd.Name() == "migrate" {
 		return nil
 	}
-	var xcfAbs string
+	var configDir string
 	if configFlag != "" {
 		abs, err := filepath.Abs(configFlag)
 		if err != nil {
 			return fmt.Errorf("--config: could not resolve path %q: %w", configFlag, err)
 		}
-		xcfAbs = abs
+		info, err := os.Stat(abs)
+		if err != nil {
+			return fmt.Errorf("--config: %q does not exist: %w", configFlag, err)
+		}
+		if info.IsDir() {
+			configDir = abs
+		} else {
+			// Single file: use its parent directory as the config dir
+			configDir = filepath.Dir(abs)
+		}
 	} else {
 		cwd, err := os.Getwd()
 		if err != nil {
 			return fmt.Errorf("could not determine working directory: %w", err)
 		}
-
-		// Walk up to find scaffold.xcf (stops at $HOME)
 		home, _ := os.UserHomeDir()
-		curr := cwd
-		for {
-			candidate := filepath.Join(curr, "scaffold.xcf")
-			if _, err := os.Stat(candidate); err == nil {
-				xcfAbs = candidate
-				break
-			}
-			if curr == home {
-				xcfAbs = filepath.Join(cwd, "scaffold.xcf") // fallback to allow error handling below
-				break
-			}
-			parent := filepath.Dir(curr)
-			if parent == curr {
-				xcfAbs = filepath.Join(cwd, "scaffold.xcf")
-				break
-			}
-			curr = parent
+		dir, err := resolver.FindConfigDir(cwd, home)
+		if err != nil {
+			return err
 		}
+		configDir = dir
 	}
 
-	if _, err := os.Stat(xcfAbs); err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("scaffold.xcf not found at %q\n\nHint: run 'xcaffold init' to create one, or use --config to specify a path", xcfAbs)
-		}
-		return fmt.Errorf("could not access %q: %w", xcfAbs, err)
+	// For backward compatibility, check if scaffold.xcf exists as the
+	// canonical entry point. If not, use the config directory itself.
+	candidate := filepath.Join(configDir, "scaffold.xcf")
+	if _, err := os.Stat(candidate); err == nil {
+		xcfPath = candidate
+	} else {
+		xcfPath = configDir
 	}
 
-	xcfPath = xcfAbs
-	claudeDir = filepath.Join(filepath.Dir(xcfAbs), ".claude")
-	lockPath = filepath.Join(filepath.Dir(xcfAbs), "scaffold.lock")
+	claudeDir = filepath.Join(configDir, ".claude")
+	lockPath = filepath.Join(configDir, "scaffold.lock")
 	return nil
 }
 

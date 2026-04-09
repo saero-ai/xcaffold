@@ -192,6 +192,7 @@ func resolveExtends(contextDir string, config *ast.XcaffoldConfig) (*ast.Xcaffol
 	return resolveExtendsRecursive(contextDir, config, visited)
 }
 
+//nolint:gocyclo
 func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visited map[string]bool) (*ast.XcaffoldConfig, error) {
 	if config.Extends == "" {
 		return config, nil

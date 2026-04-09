@@ -350,9 +350,9 @@ var knownCLIs = []struct {
 	target string
 	model  string
 }{
-	{"claude", "Claude Code", "claude", "claude-sonnet-4-6"},
-	{"gemini", "Gemini (Antigravity)", "antigravity", "gemini-2.5-pro"},
-	{"cursor", "Cursor", "cursor", "cursor-default"},
+	{targetClaude, "Claude Code", targetClaude, "claude-sonnet-4-6"},
+	{"gemini", "Gemini (Antigravity)", targetAntigravity, "gemini-2.5-pro"},
+	{targetCursor, "Cursor", targetCursor, "cursor-default"},
 }
 
 // detectDefaultTarget returns the target label for the first CLI binary
@@ -373,7 +373,7 @@ func resolveTargetMeta(target string) (model, binary string) {
 			return cli.model, cli.binary
 		}
 	}
-	return "claude-sonnet-4-6", "claude" // fallback
+	return "claude-sonnet-4-6", targetClaude // fallback
 }
 
 // collectWizardAnswers populates wizard answers. The project name is always
