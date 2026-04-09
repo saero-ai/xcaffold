@@ -79,7 +79,7 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 
 	// Cursor-compatible fields must be present
 	assert.Contains(t, agentContent, "name: Worker Agent")
-	assert.Contains(t, agentContent, "model: claude-opus-4-5")
+	assert.NotContains(t, agentContent, "model:", "literal model claude-opus-4-5 must be omitted")
 	assert.Contains(t, agentContent, "Process jobs efficiently.")
 
 	// ── Skill ─────────────────────────────────────────────────────────────────

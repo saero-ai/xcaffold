@@ -256,9 +256,14 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 
 	if agent.Model != "" {
 		if resolved, ok := renderer.ResolveModel(agent.Model, "cursor"); ok && resolved != "" {
-			fmt.Fprintf(&sb, "model: %s\n", yamlScalar(resolved))
-			if !suppress && !renderer.IsMappedModel(agent.Model, "cursor") {
-				fmt.Fprintf(os.Stderr, "WARNING (cursor): unmapped model %q literal passed through for agent %q. Cursor may not support this model natively.\n", agent.Model, id)
+			// Cursor doesn't natively support full Claude/OpenAI model strings here normally.
+			// Only emit the model if it's explicitly safely mapped. Literal fallbacks are omitted.
+			if renderer.IsMappedModel(agent.Model, "cursor") {
+				fmt.Fprintf(&sb, "model: %s\n", yamlScalar(resolved))
+			} else {
+				if !suppress {
+					fmt.Fprintf(os.Stderr, "WARNING (cursor): unmapped model %q (resolved to %q) omitted for agent %q. Cursor requires specific model strings.\n", agent.Model, resolved, id)
+				}
 			}
 		}
 	}
