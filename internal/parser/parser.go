@@ -50,6 +50,19 @@ type FileConfig struct {
 // parses them, merges them strictly (erroring on duplicate IDs), and then
 // resolves 'extends:' chains.
 func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
+	merged, err := parseDirectoryUnvalidated(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validateMerged(merged); err != nil {
+		return nil, fmt.Errorf("validation failed for project configuration: %w", err)
+	}
+
+	return merged, nil
+}
+
+func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	var files []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -94,10 +107,6 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if err := validateMerged(merged); err != nil {
-		return nil, fmt.Errorf("validation failed for project configuration: %w", err)
 	}
 
 	return merged, nil
@@ -152,7 +161,24 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 		if err != nil {
 			return nil, fmt.Errorf("could not resolve 'extends: global': %w", err)
 		}
-		basePath = filepath.Join(home, ".claude", "global.xcf")
+
+		xcaffoldDir := filepath.Join(home, ".xcaffold")
+		if stat, err := os.Stat(xcaffoldDir); err == nil && stat.IsDir() {
+			baseConfig, err := parseDirectoryUnvalidated(xcaffoldDir)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
+			}
+			return mergeConfigOverride(baseConfig, config), nil
+		}
+
+		// Fallback to legacy single-file lookup
+		legacyPath := filepath.Join(home, ".claude", "global.xcf")
+		if _, err := os.Stat(legacyPath); err == nil {
+			fmt.Fprintf(os.Stderr, "WARNING: Inheriting from legacy %q. Consider migrating to %q\n", legacyPath, xcaffoldDir)
+			basePath = legacyPath
+		} else {
+			return nil, fmt.Errorf("could not resolve 'extends: global': .xcaffold namespace not initialized")
+		}
 	} else if filepath.IsAbs(config.Extends) {
 		basePath = config.Extends
 	} else {
