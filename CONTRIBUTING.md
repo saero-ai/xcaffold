@@ -20,4 +20,18 @@ When contributing code to the engine, you must adhere strictly to the Determinis
 - All Pull Requests must natively pass `make lint` and `make test`.
 - We strictly enforce **Conventional Commits** (e.g. `feat(generator): ...`, `fix(cli): ...`, `docs(readme): ...`).
 - If you touch the execution boundaries, ensure your logic does not introduce proprietary SDKs or API keys. Keep the CLI platform agnostic.
-- Ensure any logical changes remain reflected in the `README.md` and `CHANGELOG.md` files structurally.
+- Ensure any logical changes remain reflected in the appropriate `docs/` pillar and `CHANGELOG.md`.
+
+## 4. Documentation Protocol
+
+Documentation is structured using the **Diátaxis framework** under `docs/`.
+When adding or updating documentation:
+1. Documentation MUST be nested in the correct pillar (`tutorials/`, `how-to/`, `concepts/`, `reference/`).
+2. Every `.md` file MUST contain the standard YAML frontmatter:
+   ```yaml
+   ---
+   title: "Your Title"
+   description: "Brief summary"
+         ---
+   ```
+3. Do NOT add monolithic reference content directly into `README.md`. It must remain a lightweight overview with links pointing to the `docs/` pillars.
