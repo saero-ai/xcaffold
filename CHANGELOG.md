@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Parser `ParseDirectory` API: Programmatic support for parsing and merging multiple `.xcf` files within a directory hierarchy, skipping hidden/nested repositories.
+- Hardened global inheritance parser `resolveExtendsGlobal` resolving `~/.xcaffold/` first with strict circular dependency traversal detection.
 - File-origin error reporting: Duplicate resource IDs (Agents, Skills, Rules, Workflows, MCPs) declared across multiple configuration files now report precise file locations in strict merge conflicts.
 - Centralized architecture: `~/.xcaffold/` is the global home for user preferences, project registry, and global agent resources.
 - `global.xcf` magical bootstrapping: CLI automatically runs `EnsureGlobalHome()`, migrating your legacy `~/.claude/global.xcf` entirely seamlessly or safely initialises boilerplate without demanding explicit `--scope global` setup.
