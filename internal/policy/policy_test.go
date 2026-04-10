@@ -199,3 +199,71 @@ func TestDeny_PathContains_Traversal_Violation(t *testing.T) {
 		t.Error("expected violation for .. in path")
 	}
 }
+
+// TestEngine_LoadBuiltin_AllPoliciesLoad verifies all 4 built-in policies load.
+func TestEngine_LoadBuiltin_AllPoliciesLoad(t *testing.T) {
+	e := policy.NewEngine()
+	if err := e.LoadBuiltin(); err != nil {
+		t.Fatalf("LoadBuiltin: %v", err)
+	}
+	count := e.PolicyCount()
+	if count != 4 {
+		t.Errorf("expected 4 built-in policies, got %d", count)
+	}
+}
+
+// TestEngine_LoadDir_ValidPolicies loads user-defined policies from a directory.
+func TestEngine_LoadDir_ValidPolicies(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "custom.xcf"), `kind: policy
+name: custom-check
+description: A custom policy
+severity: warning
+target: agent
+`)
+	e := policy.NewEngine()
+	if err := e.LoadDir(dir); err != nil {
+		t.Fatalf("LoadDir: %v", err)
+	}
+	if e.PolicyCount() != 1 {
+		t.Errorf("expected 1 custom policy, got %d", e.PolicyCount())
+	}
+}
+
+// TestEngine_LoadDir_InvalidPolicy_Error returns error for unparseable policy.
+func TestEngine_LoadDir_InvalidPolicy_Error(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "bad.xcf"), "kind: policy\nunknown_key: oops\n")
+	e := policy.NewEngine()
+	if err := e.LoadDir(dir); err == nil {
+		t.Error("expected error loading policy with unknown field, got nil")
+	}
+}
+
+// TestOverride_BuiltinBySameNameOff verifies user policy with same name + severity: off disables built-in.
+func TestOverride_BuiltinBySameNameOff(t *testing.T) {
+	dir := t.TempDir()
+	// Override agent-has-description to off
+	writeFile(t, filepath.Join(dir, "override.xcf"), `kind: policy
+name: agent-has-description
+description: Override built-in to off
+severity: off
+target: agent
+`)
+	e := policy.NewEngine()
+	if err := e.LoadBuiltin(); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.LoadDir(dir); err != nil {
+		t.Fatal(err)
+	}
+	// After override, the effective agent-has-description should be off (no violations for empty description)
+	violations := e.EvaluateAgents(map[string]map[string]string{
+		"my-agent": {"description": ""},
+	})
+	for _, v := range violations {
+		if v.Policy == "agent-has-description" {
+			t.Errorf("agent-has-description should be disabled by override, but produced violation: %s", v.Message)
+		}
+	}
+}

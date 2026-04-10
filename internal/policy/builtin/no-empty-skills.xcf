@@ -1,0 +1,8 @@
+kind: policy
+name: no-empty-skills
+description: Skills must have non-empty instructions
+severity: warning
+target: skill
+require:
+  - field: instructions
+    is_present: true

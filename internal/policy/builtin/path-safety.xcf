@@ -1,0 +1,7 @@
+kind: policy
+name: path-safety
+description: Compiled output file paths must not contain .. traversal sequences
+severity: error
+target: output
+deny:
+  - path_contains: ".."
