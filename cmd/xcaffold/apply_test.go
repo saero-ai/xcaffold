@@ -86,7 +86,6 @@ func TestRunApply_ScopeGlobal(t *testing.T) {
 	assert.NoError(t, err, "scaffold.lock should be written for global scope")
 }
 
-
 func TestRunApply_GlobalFlagFalse_CompilesProject(t *testing.T) {
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")

@@ -102,3 +102,59 @@ require:
 		t.Errorf("expected apply to succeed with warning policy: %v\nOutput: %s", err, out)
 	}
 }
+
+// TestValidate_ReportsViolationsExitCode1 verifies validate exits 1 on policy errors.
+func TestValidate_ReportsViolationsExitCode1(t *testing.T) {
+	dir := t.TempDir()
+
+	writePolicyTestFile(t, filepath.Join(dir, "scaffold.xcf"), `kind: config
+version: "1.0"
+project:
+  name: test-validate-fail
+agents:
+  no-description-agent:
+    instructions: "You are a test agent."
+`)
+
+	writePolicyTestFile(t, filepath.Join(dir, "policies", "require-description.xcf"), `kind: policy
+name: require-description
+description: Agents must have descriptions
+severity: error
+target: agent
+require:
+  - field: description
+    is_present: true
+`)
+
+	xcaffold := buildXcaffoldBinary(t)
+	cmd := exec.Command(xcaffold, "validate")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "XCAFFOLD_SKIP_GLOBAL=true")
+	_, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Error("expected validate to exit 1 due to policy violation, got exit 0")
+	}
+}
+
+// TestValidate_NoPolicies_Passes verifies validate exits 0 when no policies and syntax is valid.
+func TestValidate_NoPolicies_Passes(t *testing.T) {
+	dir := t.TempDir()
+	writePolicyTestFile(t, filepath.Join(dir, "scaffold.xcf"), `kind: config
+version: "1.0"
+project:
+  name: test-validate-pass
+agents:
+  dev:
+    instructions: "You are a developer."
+    description: "Development agent with full context."
+`)
+
+	xcaffold := buildXcaffoldBinary(t)
+	cmd := exec.Command(xcaffold, "validate")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "XCAFFOLD_SKIP_GLOBAL=true")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Errorf("expected validate to pass, got error: %v\nOutput: %s", err, out)
+	}
+}

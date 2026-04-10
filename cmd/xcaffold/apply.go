@@ -28,7 +28,6 @@ var applyBackup bool
 var applyProjectFlag string
 var targetFlag string
 
-
 var applyCmd = &cobra.Command{
 	Use:   "apply",
 	Short: "Compile scaffold.xcf into .claude/ agent files",

@@ -68,7 +68,7 @@ func TestValidate_GlobalFlag_FileNotFound(t *testing.T) {
 
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "could not open config")
+	assert.Contains(t, err.Error(), "failed to scan directory")
 }
 
 func TestValidate_GlobalFlag_InvalidYAML(t *testing.T) {
