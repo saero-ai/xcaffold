@@ -31,8 +31,8 @@ var claudeDir string
 // lockPath is the resolved, absolute path to scaffold.lock.
 var lockPath string
 
-// scopeFlag holds the value of the global --scope flag.
-var scopeFlag string
+// globalFlag indicates whether to operate on the user-wide global config.
+var globalFlag bool
 
 // globalXcfPath is the resolved path to global.xcf.
 var globalXcfPath string
@@ -74,8 +74,7 @@ var rootCmd = &cobra.Command{
  │                           SCOPES                                  │
  └───────────────────────────────────────────────────────────────────┘
   • Project  [default]         scaffold.xcf           -> .claude/ | .cursor/ | .agents/
-  • Global   [--scope global]  ~/.xcaffold/global.xcf -> ~/.claude/ | ~/.cursor/ | ~/.agents/
-  • Both     [--scope all]     Compiles both scopes
+  • Global   [--global / -g]   ~/.xcaffold/global.xcf -> ~/.claude/ | ~/.cursor/ | ~/.agents/
 
 Use 'xcaffold --help' for more information on available commands.`,
 	PersistentPreRunE: resolveConfig,
@@ -91,16 +90,17 @@ func init() {
 		"",
 		"Path to scaffold.xcf (default: ./scaffold.xcf). Use for monorepo sub-directories.",
 	)
-	rootCmd.PersistentFlags().StringVar(
-		&scopeFlag,
-		"scope",
-		"project",
-		"Compilation scope: project (default), global, or all",
+	rootCmd.PersistentFlags().BoolVarP(
+		&globalFlag,
+		"global",
+		"g",
+		false,
+		"Operate on user-wide global config (~/.xcaffold/global.xcf)",
 	)
 }
 
 // resolveConfig is a PersistentPreRunE hook that runs before every subcommand.
-// It resolves the --config and --scope flags into a stable set of absolute paths
+// It resolves the --config and --global flags into a stable set of absolute paths
 // that all subcommands can use without re-implementing CWD logic.
 func resolveConfig(cmd *cobra.Command, args []string) error {
 	if cmd.Name() == "review" {
@@ -111,22 +111,10 @@ func resolveConfig(cmd *cobra.Command, args []string) error {
 		fmt.Fprintf(os.Stderr, "warning: could not initialize global home: %v\n", err)
 	}
 
-	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
-		if err := resolveGlobalConfig(cmd); err != nil {
-			return err
-		}
-		if scopeFlag == scopeGlobal {
-			return nil
-		}
+	if globalFlag {
+		return resolveGlobalConfig(cmd)
 	}
-
-	if scopeFlag == scopeProject || scopeFlag == scopeAll {
-		if err := resolveProjectConfig(cmd); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return resolveProjectConfig(cmd)
 }
 
 func resolveGlobalConfig(cmd *cobra.Command) error {
@@ -137,7 +125,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 	globalXcfHome = filepath.Join(home, ".xcaffold")
 	globalLockPath = filepath.Join(globalXcfHome, "scaffold.lock")
 
-	if configFlag != "" && scopeFlag == scopeGlobal {
+	if configFlag != "" && globalFlag {
 		abs, err := filepath.Abs(configFlag)
 		if err != nil {
 			return fmt.Errorf("--config: could not resolve path %q: %w", configFlag, err)
@@ -150,7 +138,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 	if cmd.Name() != "init" && cmd.Name() != "import" {
 		if _, err := os.Stat(globalXcfPath); err != nil {
 			if os.IsNotExist(err) {
-				return fmt.Errorf("global.xcf not found at %q\n\nHint: run 'xcaffold init --scope global' to create one", globalXcfPath)
+				return fmt.Errorf("global.xcf not found at %q\n\nHint: run 'xcaffold init --global' to create one", globalXcfPath)
 			}
 			return fmt.Errorf("could not access %q: %w", globalXcfPath, err)
 		}

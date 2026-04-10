@@ -26,11 +26,6 @@ var applyBackup bool
 var applyProjectFlag string
 var targetFlag string
 
-const (
-	scopeAll     = "all"
-	scopeProject = "project"
-	scopeGlobal  = "global"
-)
 
 var applyCmd = &cobra.Command{
 	Use:   "apply",
@@ -53,7 +48,9 @@ Any manually edited files inside the target directory will be overwritten.
 Validation:
  Use the --check flag to validate your YAML syntax without compiling.`,
 	Example: `  $ xcaffold apply
-  $ xcaffold apply --check`,
+  $ xcaffold apply --check
+  $ xcaffold apply --global
+  $ xcaffold apply --dry-run    (replaces the former 'plan' command)`,
 	RunE: runApply,
 }
 
@@ -92,14 +89,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 	}
 
 	if applyCheckOnly {
-		if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
+		if globalFlag {
 			if _, err := parser.ParseDirectory(globalXcfHome); err != nil {
 				return fmt.Errorf("[global] parse error: %w", err)
 			}
 			fmt.Println("[global] ✓ Syntax is valid")
 			printDiagnostics(parser.ValidateFile(globalXcfPath))
-		}
-		if scopeFlag == scopeProject || scopeFlag == scopeAll {
+		} else {
 			if _, err := parser.ParseDirectory(filepath.Dir(xcfPath)); err != nil {
 				return fmt.Errorf("[project] parse error: %w", err)
 			}
@@ -137,17 +133,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
-		if err := applyScope(globalXcfPath, globalXcfHome, globalLockPath, scopeGlobal); err != nil {
-			return err
-		}
+	if globalFlag {
+		return applyScope(globalXcfPath, globalXcfHome, globalLockPath, "global")
 	}
-	if scopeFlag == scopeProject || scopeFlag == scopeAll {
-		if err := applyScope(xcfPath, claudeDir, lockPath, scopeProject); err != nil {
-			return err
-		}
-		_ = registry.UpdateLastApplied(filepath.Dir(xcfPath))
+	if err := applyScope(xcfPath, claudeDir, lockPath, "project"); err != nil {
+		return err
 	}
+	_ = registry.UpdateLastApplied(filepath.Dir(xcfPath))
 	return nil
 }
 
@@ -164,7 +156,7 @@ func printDiagnostics(diags []parser.Diagnostic) {
 
 // applyScope compiles a single xcf file into outputDir and writes the lock file
 // at lockFile. scopeName is used as a prefix in terminal output when running
-// --scope all so the user can distinguish the two compilation passes.
+// so the user can distinguish global from project compilation.
 //
 //nolint:gocyclo
 func applyScope(configPath, outputDir, lockFile, scopeName string) error {

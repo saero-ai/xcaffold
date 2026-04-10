@@ -24,7 +24,8 @@ var validateCmd = &cobra.Command{
 
 Exit code 0 means valid. Non-zero means errors found.`,
 	Example: `  $ xcaffold validate
-  $ xcaffold validate --structural`,
+  $ xcaffold validate --structural
+  $ xcaffold validate --global`,
 	RunE:          runValidate,
 	SilenceUsage:  true,
 	SilenceErrors: true,
@@ -36,7 +37,13 @@ func init() {
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	cfg, err := parser.ParseFile(xcfPath)
+	validatePath := xcfPath
+	if globalFlag {
+		// globalXcfPath is already resolved by resolveGlobalConfig in PersistentPreRunE.
+		validatePath = globalXcfPath
+	}
+
+	cfg, err := parser.ParseFile(validatePath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "validation failed: %v\n", err)
 		return err
@@ -44,7 +51,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintf(os.Stdout, "syntax and cross-references: ok\n")
 
-	diags := parser.ValidateFile(xcfPath)
+	diags := parser.ValidateFile(validatePath)
 	hasErrors := false
 	if len(diags) > 0 {
 		fmt.Fprintf(os.Stdout, "\ndiagnostics:\n")

@@ -49,7 +49,7 @@ agents:
 
 	// Set package-level state vars used by runApply.
 	xcfPath = xcf
-	scopeFlag = "project" //nolint:goconst
+	globalFlag = false
 	applyCheckPermissions = true
 	targetFlag = "cursor"
 	defer func() {
@@ -91,7 +91,7 @@ settings:
 	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
 
 	xcfPath = xcf
-	scopeFlag = "project"
+	globalFlag = false
 	applyCheckPermissions = true
 	defer func() {
 		applyCheckPermissions = false

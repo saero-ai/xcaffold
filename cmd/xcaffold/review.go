@@ -48,43 +48,23 @@ func runReview(cmd *cobra.Command, args []string) error {
 		file = args[0]
 	}
 
-	switch scopeFlag {
-	case "global":
+	if globalFlag {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return fmt.Errorf("could not determine home directory: %w", err)
 		}
-		dir := filepath.Join(home, ".claude")
-		if file == scopeAll {
+		dir := filepath.Join(home, ".xcaffold")
+		if file == "all" {
 			return reviewAllInDir(cmd, dir)
 		}
 		return reviewFile(cmd, filepath.Join(dir, file))
-	case scopeAll:
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("could not determine home directory: %w", err)
-		}
-		globalDir := filepath.Join(home, ".claude")
-		if file == scopeAll {
-			cmd.Println("-- project scope --")
-			if err := reviewAll(cmd); err != nil {
-				return err
-			}
-			cmd.Println("-- global scope --")
-			return reviewAllInDir(cmd, globalDir)
-		}
-		// Specific file: review in both project CWD and global dir.
-		cmd.Println("-- project scope --")
-		_ = reviewFile(cmd, file)
-		cmd.Println("-- global scope --")
-		return reviewFile(cmd, filepath.Join(globalDir, file))
-	default:
-		// "project" (default)
-		if file == "all" {
-			return reviewAll(cmd)
-		}
-		return reviewFile(cmd, file)
 	}
+
+	// project (default)
+	if file == "all" {
+		return reviewAll(cmd)
+	}
+	return reviewFile(cmd, file)
 }
 
 func reviewAll(cmd *cobra.Command) error {

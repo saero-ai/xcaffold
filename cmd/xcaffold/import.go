@@ -64,7 +64,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return runTranslateMode()
 	}
 
-	if scopeFlag == scopeGlobal {
+	if globalFlag {
 		return importScope(globalXcfHome, globalXcfPath, "global")
 	}
 

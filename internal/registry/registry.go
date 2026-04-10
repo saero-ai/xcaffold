@@ -40,7 +40,7 @@ func GlobalHome() (string, error) {
 const DefaultGlobalXCFContent = `kind: config
 version: "1.0"
 # No global agents were detected. Add agents here and run:
-#   xcaffold apply --scope global
+#   xcaffold apply --global
 agents: {}
 `
 

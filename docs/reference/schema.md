@@ -31,7 +31,7 @@ Xcaffold operates at two scopes, selected via the `--global / -g` flag.
 When evaluating a project configuration, xcaffold implicitly loads `~/.xcaffold/` first as a base layer. 
 
 - **Cross-reference validation** — an agent in the project can reference a skill defined globally without a parse error.
-- **Visualization** — `xcaffold graph` and `xcaffold plan` automatically show both inherited global resources and the local project resources.
+- **Visualization** — `xcaffold graph` automatically shows both inherited global resources and the local project resources.
 
 > [!IMPORTANT]
 > Because global configs are aggregated implicitly, you do **not** need to declare `extends: global` in your project's `.xcf` file.
