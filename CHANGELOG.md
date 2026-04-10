@@ -18,9 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed `--scope all` compilation mode (cli)
 
 ### Added
-- Added Policy Enforcement Engine with built-in rules for zero-dependency structural constraints (compiler)
-- Added `kind: policy` discriminator to allow workspace scoping and deterministic name-pattern overrides (parser)
-- Added `path-safety`, `settings-schema`, `no-empty-skills`, and `agent-has-description` out-of-the-box constraints (engine)
 - Smart Compilation Skipping: `xcaffold apply` tracks multi-file source hashing to skip redundant compilation automatically.
 - Deterministic Orphan Purge: `xcaffold apply` identifies and silently prunes missing artifacts to prevent config bloat, supporting `--dry-run` previews natively.
 - Legacy Lock Migration: `xcaffold apply` seamlessly upgrades older V1 lock files format mapping targets automatically.
@@ -61,8 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make install` target added to `Makefile` with dynamic `LDFLAGS` injection for version propagation.
 
 ### Changed
-- Changed `xcaffold apply` to integrate policy enforcement, capturing a snapshot of the AST before mutating external references (cli)
-- Changed `xcaffold validate` to utilize `ParseDirectory` natively, establishing parity with compiler scoping during dry-runs (cli)
 - Lockfile standardization: state hashes are now enforced under explicit output conventions globally (`scaffold.claude.lock`, `scaffold.cursor.lock`).
 - Command Consolidation: The `translate` and `validate` workflows were absorbed into their logical primary operations (`import` and `apply` respectively) to reduce the CLI verb surface.
 - Platform neutral scopes: the internal `globalClaudeDir` has been renamed to `globalXcfHome`, aligning `xcaffold init` multi-platform detection for native Claude, Cursor, and Antigravity defaults.

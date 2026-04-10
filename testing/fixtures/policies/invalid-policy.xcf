@@ -1,6 +1,0 @@
-kind: policy
-name: ""
-description: ""
-severity: bad-value
-target: agent
-unknown_field: will_fail_strict_parse

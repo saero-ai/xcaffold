@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
-	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
@@ -203,36 +201,10 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	}
 	// --- End smart skip ---
 
-	configSnapshot := deepCopyConfig(config)
 	out, err := compiler.Compile(config, baseDir, targetFlag)
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}
-
-	// --- Policy Evaluation ---
-	policyEngine := policy.NewEngine()
-	if err := policyEngine.LoadBuiltin(); err != nil {
-		fmt.Fprintf(os.Stderr, "[%s] warning: failed to load built-in policies: %v\n", scopeName, err)
-	}
-	policiesDir := filepath.Join(baseDir, "policies")
-	if stat, statErr := os.Stat(policiesDir); statErr == nil && stat.IsDir() {
-		if err := policyEngine.LoadDir(policiesDir); err != nil {
-			return fmt.Errorf("[%s] policy load error: %w", scopeName, err)
-		}
-	}
-	violations := policyEngine.Evaluate(configSnapshot, out)
-
-	if len(violations) > 0 {
-		fmt.Fprintf(os.Stdout, "\n[%s] Policy violations detected:\n", scopeName)
-		for _, v := range violations {
-			fmt.Fprint(os.Stderr, v.Format())
-		}
-		var errCount = countErrors(violations)
-		if errCount > 0 {
-			return fmt.Errorf("[%s] apply blocked: %d policy error(s) found", scopeName, errCount)
-		}
-	}
-	// --- End Policy Evaluation ---
 
 	// Resolve the target-specific output directory instead of the hardcoded default
 	outputDir = filepath.Join(filepath.Dir(outputDir), compiler.OutputDir(targetFlag))
@@ -535,23 +507,4 @@ func cleanEmptyDirsUpToTarget(dir, targetDir string) {
 		}
 		dir = filepath.Dir(dir)
 	}
-}
-
-func deepCopyConfig(c *ast.XcaffoldConfig) *ast.XcaffoldConfig {
-	// Simple robust clone using JSON since XcaffoldConfig is fully JSON tagged
-	// for Anthropic tool calls anyway.
-	data, _ := json.Marshal(c)
-	var clone ast.XcaffoldConfig
-	_ = json.Unmarshal(data, &clone)
-	return &clone
-}
-
-func countErrors(violations []policy.Violation) int {
-	c := 0
-	for _, v := range violations {
-		if v.IsError() {
-			c++
-		}
-	}
-	return c
 }

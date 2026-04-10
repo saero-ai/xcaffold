@@ -55,7 +55,7 @@ var rootCmd = &cobra.Command{
   • Ingestion   [xcaffold import]    Migrates dirs & translates via --source
   • Audit       [xcaffold analyze]   Inspects repo & builds XCF config
   • Topology    [xcaffold graph]     Visualizes agent topology maps
-  • Compilation [xcaffold apply]     Evaluates policies and compiles XCF to agent outputs
+  • Compilation [xcaffold apply]     Compiles XCF (use --check to validate syntax)
   • Drift Check [xcaffold diff]      Detects manual config tampering
   • Validation  [xcaffold test]      Runs an LLM-in-the-loop proxy
   • Export      [xcaffold export]    Packages output as a distributable plugin
@@ -63,7 +63,7 @@ var rootCmd = &cobra.Command{
  ┌───────────────────────────────────────────────────────────────────┐
  │                            UTILITIES                              │
  └───────────────────────────────────────────────────────────────────┘
-  • Validate    [xcaffold validate]  Checks syntax, cross-refs, and enforces project policies
+  • Validate    [xcaffold validate]  Checks syntax, cross-refs, and structural invariants
   • Review      [xcaffold review]    Universally parses state files
     ↳ Supports: scaffold.xcf, audit.json, plan.json, trace.jsonl
     ↳ Try: 'xcaffold review all'

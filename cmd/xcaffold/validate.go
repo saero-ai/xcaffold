@@ -3,12 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/parser"
-	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/spf13/cobra"
 )
 
@@ -42,11 +39,11 @@ func init() {
 func runValidate(cmd *cobra.Command, args []string) error {
 	validatePath := xcfPath
 	if globalFlag {
+		// globalXcfPath is already resolved by resolveGlobalConfig in PersistentPreRunE.
 		validatePath = globalXcfPath
 	}
 
-	baseDir := filepath.Dir(validatePath)
-	cfg, err := parser.ParseDirectory(baseDir)
+	cfg, err := parser.ParseFile(validatePath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "validation failed: %v\n", err)
 		return err
@@ -79,35 +76,6 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		} else {
 			fmt.Fprintf(os.Stdout, "structural checks: ok\n")
 		}
-	}
-
-	// --- Policy evaluation ---
-	policyEngine := policy.NewEngine()
-	if err := policyEngine.LoadBuiltin(); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: failed to load built-in policies: %v\n", err)
-	}
-	policiesDir := filepath.Join(baseDir, "policies")
-	if stat, statErr := os.Stat(policiesDir); statErr == nil && stat.IsDir() {
-		if err := policyEngine.LoadDir(policiesDir); err != nil {
-			return fmt.Errorf("policy load error: %w", err)
-		}
-	}
-	violations := policyEngine.Evaluate(cfg, &output.Output{Files: map[string]string{}})
-
-	policyErrors := false
-	if len(violations) == 0 {
-		fmt.Fprintf(os.Stdout, "policies: ok\n")
-	} else {
-		for _, v := range violations {
-			fmt.Fprint(os.Stderr, v.Format())
-			if v.IsError() {
-				policyErrors = true
-			}
-		}
-	}
-
-	if policyErrors {
-		return fmt.Errorf("validation failed: policy violations found")
 	}
 
 	fmt.Fprintf(os.Stdout, "\nvalidation passed\n")

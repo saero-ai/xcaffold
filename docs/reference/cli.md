@@ -108,7 +108,7 @@ Renders the agent dependency graph parsed from `scaffold.xcf`. Default terminal 
 
 **File:** `cmd/xcaffold/apply.go`
 
-Compiles `scaffold.xcf` (or a directory of `.xcf` files) into a target platform's native format. Writes a SHA-256 lock manifest to `scaffold.<target>.lock`. Automatically purges orphaned output files. **Evaluates the Policy Enforcement Engine against the source configuration, hard-blocking compilation on `error`-level violations.**
+Compiles `scaffold.xcf` (or a directory of `.xcf` files) into a target platform's native format. Writes a SHA-256 lock manifest to `scaffold.<target>.lock`. Automatically purges orphaned output files.
 
 **Smart skip:** If `scaffold.<target>.lock` contains a `source_files` manifest and no source hashes have changed, compilation is skipped. Use `--force` to bypass.
 
@@ -214,7 +214,6 @@ Validates `scaffold.xcf` without compiling. Checks:
 2. Cross-reference integrity: agent `skills:`, `rules:`, `mcp:` IDs must resolve to top-level map keys
 3. File existence: `instructions_file` and `references` paths must resolve on disk
 4. Plugin validation: `enabledPlugins` keys checked against a known registry
-5. **Project Policies:** Evaluates all constraints using the Policy Enforcement Engine.
 
 With `--structural`, additionally checks:
 - Orphan skills (defined but not referenced by any agent)

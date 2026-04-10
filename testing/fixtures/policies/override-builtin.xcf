@@ -1,5 +1,0 @@
-kind: policy
-name: agent-has-description
-description: Override built-in to off
-severity: off
-target: agent
