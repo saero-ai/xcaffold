@@ -38,10 +38,12 @@ func TestRenderer_Render_Identity(t *testing.T) {
 func TestCompile_Rule_OutputPathIsMarkdown(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"my-rule": {
-				Description:  "A rule",
-				Instructions: "Always format with gofmt.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"my-rule": {
+					Description:  "A rule",
+					Instructions: "Always format with gofmt.",
+				},
 			},
 		},
 	}
@@ -56,9 +58,11 @@ func TestCompile_Rule_OutputPathIsMarkdown(t *testing.T) {
 func TestCompile_Rule_NoFrontmatterDelimiters(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"plain-rule": {
-				Instructions: "Be concise.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"plain-rule": {
+					Instructions: "Be concise.",
+				},
 			},
 		},
 	}
@@ -77,10 +81,12 @@ func TestCompile_Rule_NoFrontmatterDelimiters(t *testing.T) {
 func TestCompile_Rule_DescriptionAsHeading(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"desc-rule": {
-				Description:  "My Rule Description",
-				Instructions: "Do something important.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"desc-rule": {
+					Description:  "My Rule Description",
+					Instructions: "Do something important.",
+				},
 			},
 		},
 	}
@@ -99,11 +105,13 @@ func TestCompile_Rule_DescriptionAsHeading(t *testing.T) {
 func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"path-rule": {
-				Description:  "A rule with paths",
-				Paths:        []string{"**/*.go"},
-				Instructions: "Check Go files.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"path-rule": {
+					Description:  "A rule with paths",
+					Paths:        []string{"**/*.go"},
+					Instructions: "Check Go files.",
+				},
 			},
 		},
 	}
@@ -124,9 +132,11 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 	r := antigravity.New()
 	body := "Always run tests before committing.\nUse table-driven tests."
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"test-rule": {
-				Instructions: body,
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"test-rule": {
+					Instructions: body,
+				},
 			},
 		},
 	}
@@ -142,10 +152,12 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 func TestCompile_Rule_DescriptionHeadingPrecedesBody(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"order-rule": {
-				Description:  "Title",
-				Instructions: "Body content.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"order-rule": {
+					Description:  "Title",
+					Instructions: "Body content.",
+				},
 			},
 		},
 	}
@@ -162,9 +174,11 @@ func TestCompile_Rule_DescriptionHeadingPrecedesBody(t *testing.T) {
 func TestCompile_Rule_NoDescription_NoHeading(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"no-desc-rule": {
-				Instructions: "Just the body.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"no-desc-rule": {
+					Instructions: "Just the body.",
+				},
 			},
 		},
 	}
@@ -181,9 +195,11 @@ func TestCompile_Rule_12KCharacterLimitWarning(t *testing.T) {
 	// Build a body longer than 12,000 characters
 	longBody := strings.Repeat("a", 12001)
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"long-rule": {
-				Instructions: longBody,
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"long-rule": {
+					Instructions: longBody,
+				},
 			},
 		},
 	}
@@ -201,9 +217,11 @@ func TestCompile_Rule_Under12K_NoWarning(t *testing.T) {
 	r := antigravity.New()
 	body := strings.Repeat("b", 11999)
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"short-rule": {
-				Instructions: body,
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"short-rule": {
+					Instructions: body,
+				},
 			},
 		},
 	}
@@ -218,9 +236,11 @@ func TestCompile_Rule_Under12K_NoWarning(t *testing.T) {
 func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"   ": {
-				Instructions: "Bad rule.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"   ": {
+					Instructions: "Bad rule.",
+				},
 			},
 		},
 	}
@@ -234,11 +254,13 @@ func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"my-skill": {
-				Name:         "My Skill",
-				Description:  "A test skill",
-				Instructions: "Do the skill thing.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"my-skill": {
+					Name:         "My Skill",
+					Description:  "A test skill",
+					Instructions: "Do the skill thing.",
+				},
 			},
 		},
 	}
@@ -253,11 +275,13 @@ func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"fmt-skill": {
-				Name:         "Format Skill",
-				Description:  "Formats code",
-				Instructions: "Run gofmt first.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"fmt-skill": {
+					Name:         "Format Skill",
+					Description:  "Formats code",
+					Instructions: "Run gofmt first.",
+				},
 			},
 		},
 	}
@@ -275,10 +299,12 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"delim-skill": {
-				Name:         "Delim Skill",
-				Instructions: "Some body.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"delim-skill": {
+					Name:         "Delim Skill",
+					Instructions: "Some body.",
+				},
 			},
 		},
 	}
@@ -294,15 +320,17 @@ func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
 func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"rich-skill": {
-				Name:         "Rich Skill",
-				Description:  "Has many fields.",
-				Instructions: "Do something.",
-				Tools:        []string{"Bash"},
-				References:   []string{"**/*.go"},
-				Scripts:      []string{"setup.sh"},
-				Assets:       []string{"icon.png"},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"rich-skill": {
+					Name:         "Rich Skill",
+					Description:  "Has many fields.",
+					Instructions: "Do something.",
+					Tools:        []string{"Bash"},
+					References:   []string{"**/*.go"},
+					Scripts:      []string{"setup.sh"},
+					Assets:       []string{"icon.png"},
+				},
 			},
 		},
 	}
@@ -328,10 +356,12 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"body-skill": {
-				Name:         "Body Skill",
-				Instructions: "Step 1: do this.\nStep 2: do that.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"body-skill": {
+					Name:         "Body Skill",
+					Instructions: "Step 1: do this.\nStep 2: do that.",
+				},
 			},
 		},
 	}
@@ -347,9 +377,11 @@ func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 func TestCompile_Skill_EmptyID_ReturnsError(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"   ": {
-				Instructions: "Bad skill.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"   ": {
+					Instructions: "Bad skill.",
+				},
 			},
 		},
 	}
@@ -363,37 +395,39 @@ func TestCompile_Skill_EmptyID_ReturnsError(t *testing.T) {
 func TestCompile_AgentsHooksAndMCP_AreNotEmitted(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"my-agent": {
-				Name:         "My Agent",
-				Instructions: "Do work.",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"my-agent": {
+					Name:         "My Agent",
+					Instructions: "Do work.",
+				},
 			},
-		},
-		Hooks: ast.HookConfig{
-			"PreToolUse": {
-				{
-					Matcher: "Bash",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo hi"},
+			Hooks: ast.HookConfig{
+				"PreToolUse": {
+					{
+						Matcher: "Bash",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo hi"},
+						},
 					},
 				},
 			},
-		},
-		MCP: map[string]ast.MCPConfig{
-			"my-server": {
-				Type:    "stdio",
-				Command: "npx",
+			MCP: map[string]ast.MCPConfig{
+				"my-server": {
+					Type:    "stdio",
+					Command: "npx",
+				},
 			},
-		},
-		Rules: map[string]ast.RuleConfig{
-			"a-rule": {
-				Instructions: "A rule body.",
+			Rules: map[string]ast.RuleConfig{
+				"a-rule": {
+					Instructions: "A rule body.",
+				},
 			},
-		},
-		Skills: map[string]ast.SkillConfig{
-			"a-skill": {
-				Name:         "A Skill",
-				Instructions: "A skill body.",
+			Skills: map[string]ast.SkillConfig{
+				"a-skill": {
+					Name:         "A Skill",
+					Instructions: "A skill body.",
+				},
 			},
 		},
 	}
@@ -425,11 +459,13 @@ func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {
 func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Workflows: map[string]ast.WorkflowConfig{
-			"commit-changes": {
-				Name:         "Commit Changes",
-				Description:  "How to commit changes",
-				Instructions: "1. Stage files\n2. Commit",
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"commit-changes": {
+					Name:         "Commit Changes",
+					Description:  "How to commit changes",
+					Instructions: "1. Stage files\n2. Commit",
+				},
 			},
 		},
 	}
@@ -444,10 +480,12 @@ func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
 func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Workflows: map[string]ast.WorkflowConfig{
-			"deploy": {
-				Description:  "Deploy to production",
-				Instructions: "Run deploy script.",
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"deploy": {
+					Description:  "Deploy to production",
+					Instructions: "Run deploy script.",
+				},
 			},
 		},
 	}
@@ -465,10 +503,12 @@ func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
 func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Workflows: map[string]ast.WorkflowConfig{
-			"build": {
-				Name:         "Build Project",
-				Instructions: "Run make build.",
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"build": {
+					Name:         "Build Project",
+					Instructions: "Run make build.",
+				},
 			},
 		},
 	}
@@ -483,10 +523,12 @@ func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
 func TestCompile_Workflow_BodyPreserved(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Workflows: map[string]ast.WorkflowConfig{
-			"test": {
-				Description:  "Run tests",
-				Instructions: "1. Run unit tests\n2. Run integration tests\n3. Check coverage",
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"test": {
+					Description:  "Run tests",
+					Instructions: "1. Run unit tests\n2. Run integration tests\n3. Check coverage",
+				},
 			},
 		},
 	}
@@ -503,7 +545,9 @@ func TestCompile_Workflow_BodyPreserved(t *testing.T) {
 func TestCompile_Workflow_EmptyWorkflowsNoOutput(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Workflows: map[string]ast.WorkflowConfig{},
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{},
+		},
 	}
 
 	out, err := r.Compile(config, "")
@@ -517,9 +561,11 @@ func TestCompile_Workflow_EmptyWorkflowsNoOutput(t *testing.T) {
 func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Workflows: map[string]ast.WorkflowConfig{
-			"   ": {
-				Instructions: "Bad workflow.",
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"   ": {
+					Instructions: "Bad workflow.",
+				},
 			},
 		},
 	}
@@ -531,10 +577,12 @@ func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
 func TestCompile_Skill_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"quoted": {
-				Name:        `Skill with "quotes"`,
-				Description: `A "very specal" skill`,
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"quoted": {
+					Name:        `Skill with "quotes"`,
+					Description: `A "very specal" skill`,
+				},
 			},
 		},
 	}
@@ -594,12 +642,14 @@ func TestAntigravityRenderer_SandboxFidelityWarning_Settings(t *testing.T) {
 func TestAntigravityRenderer_AgentSecurityFieldsFidelityWarning(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"dev": {
-				Instructions:    "Build things.",
-				PermissionMode:  "plan",
-				DisallowedTools: []string{"Write"},
-				Isolation:       "container",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Instructions:    "Build things.",
+					PermissionMode:  "plan",
+					DisallowedTools: []string{"Write"},
+					Isolation:       "container",
+				},
 			},
 		},
 	}
@@ -618,14 +668,16 @@ func TestAntigravityRenderer_SuppressFidelityWarnings_SkipsAgentWarnings(t *test
 	r := antigravity.New()
 	suppress := true
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"dev": {
-				Instructions:   "Build things.",
-				PermissionMode: "plan",
-				Isolation:      "container",
-				Targets: map[string]ast.TargetOverride{
-					"antigravity": {
-						SuppressFidelityWarnings: &suppress,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Instructions:   "Build things.",
+					PermissionMode: "plan",
+					Isolation:      "container",
+					Targets: map[string]ast.TargetOverride{
+						"antigravity": {
+							SuppressFidelityWarnings: &suppress,
+						},
 					},
 				},
 			},

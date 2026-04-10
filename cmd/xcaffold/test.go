@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/judge"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/proxy"
@@ -74,7 +75,11 @@ func runTest(cmd *cobra.Command, args []string) error {
 	}
 
 	// 2. Resolve the CLI binary path (flag > xcf > PATH).
-	cliPath := resolveCliPath(config.Test.CliPath, config.Test.ClaudePath)
+	var testCfg ast.TestConfig
+	if config.Project != nil {
+		testCfg = config.Project.Test
+	}
+	cliPath := resolveCliPath(testCfg.CliPath, testCfg.ClaudePath)
 
 	// 3. Set up trace file.
 	traceFile, err := os.Create(filepath.Clean(testOutputFlag))
@@ -125,7 +130,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// 7. Optional: Run LLM-as-a-Judge.
 	if testJudgeFlag {
-		if err := runJudge(summary, agentConfig.Assertions, config.Test.JudgeModel, cliPath); err != nil {
+		if err := runJudge(summary, agentConfig.Assertions, testCfg.JudgeModel, cliPath); err != nil {
 			return fmt.Errorf("judge evaluation failed: %w", err)
 		}
 	}

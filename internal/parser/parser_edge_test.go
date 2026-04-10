@@ -102,6 +102,9 @@ version: "1.0"
 project:
   name: "full-project"
   description: "All blocks populated"
+  test:
+    claude_path: "/usr/local/bin/claude"
+    judge_model: "claude-3-5-haiku-20241022"
 agents:
   my-agent:
     description: "An agent"
@@ -123,9 +126,6 @@ mcp:
   my-server:
     command: "npx"
     args: ["-y", "my-mcp-server"]
-test:
-  claude_path: "/usr/local/bin/claude"
-  judge_model: "claude-3-5-haiku-20241022"
 `
 	cfg, err := Parse(strings.NewReader(yaml))
 	require.NoError(t, err, "fully populated config should parse without errors")
@@ -135,8 +135,9 @@ test:
 	assert.Contains(t, cfg.Rules, "my-rule")
 	assert.Contains(t, cfg.Hooks, "PreToolUse")
 	assert.Contains(t, cfg.MCP, "my-server")
-	assert.Equal(t, "/usr/local/bin/claude", cfg.Test.ClaudePath)
-	assert.Equal(t, "claude-3-5-haiku-20241022", cfg.Test.JudgeModel)
+	require.NotNil(t, cfg.Project)
+	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.ClaudePath)
+	assert.Equal(t, "claude-3-5-haiku-20241022", cfg.Project.Test.JudgeModel)
 }
 
 // TestParse_MissingVersion verifies that a missing version field causes an error.
@@ -194,7 +195,7 @@ extends: "base.xcf"
 	require.NoError(t, err, "with extends set, empty project.name should be allowed")
 	require.NotNil(t, cfg)
 	assert.Equal(t, "base.xcf", cfg.Extends)
-	assert.Equal(t, "", cfg.Project.Name)
+	assert.Nil(t, cfg.Project)
 }
 
 // TestParse_SkillIDWithPathTraversal tests whether the parser catches path traversal in skill IDs.

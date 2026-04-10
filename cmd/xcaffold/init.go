@@ -103,7 +103,7 @@ func initProject(cmd *cobra.Command) error {
 
 func tryAutoRegister(xcfFile string) {
 	config, err := parser.ParseFile(xcfFile)
-	if err == nil && config.Project.Name != "" {
+	if err == nil && config.Project != nil && config.Project.Name != "" {
 		cwd, _ := os.Getwd()
 		_ = registry.Register(cwd, config.Project.Name, nil, ".")
 	}

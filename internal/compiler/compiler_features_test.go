@@ -24,10 +24,12 @@ func TestCompile_AgentInstructionsFile_ReadsExternalFile(t *testing.T) {
 	require.NoError(t, os.WriteFile(instrPath, []byte("You are the Chief Technology Officer.\nLead with clarity."), 0600))
 
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"cto": {
-				Description:      "Chief Technology Officer",
-				InstructionsFile: "agents/cto.md",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"cto": {
+					Description:      "Chief Technology Officer",
+					InstructionsFile: "agents/cto.md",
+				},
 			},
 		},
 	}
@@ -52,8 +54,10 @@ func TestCompile_AgentInstructionsFile_StripsFrontmatter(t *testing.T) {
 	require.NoError(t, os.WriteFile(instrPath, []byte(content), 0600))
 
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"developer": {InstructionsFile: "agents/dev.md"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {InstructionsFile: "agents/dev.md"},
+			},
 		},
 	}
 
@@ -69,8 +73,10 @@ func TestCompile_AgentInstructionsFile_StripsFrontmatter(t *testing.T) {
 // missing instructions_file causes a compile error, not silent empty content.
 func TestCompile_AgentInstructionsFile_Missing_ReturnsError(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"cto": {InstructionsFile: "nonexistent/cto.md"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"cto": {InstructionsFile: "nonexistent/cto.md"},
+			},
 		},
 	}
 
@@ -83,8 +89,10 @@ func TestCompile_AgentInstructionsFile_Missing_ReturnsError(t *testing.T) {
 // instructions_file paths that escape the project root are rejected.
 func TestCompile_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"evil": {InstructionsFile: "../../etc/passwd"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"evil": {InstructionsFile: "../../etc/passwd"},
+			},
 		},
 	}
 
@@ -102,10 +110,12 @@ func TestCompile_InstructionsFile_InlinePriority(t *testing.T) {
 	require.NoError(t, os.WriteFile(fPath, []byte("From file."), 0600))
 
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"agent": {
-				Instructions:     "From inline.",
-				InstructionsFile: "file.md",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent": {
+					Instructions:     "From inline.",
+					InstructionsFile: "file.md",
+				},
 			},
 		},
 	}
@@ -132,13 +142,15 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(refDir, "lottie-guide.md"), []byte("# Lottie Guide"), 0600))
 
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"flutter-integration": {
-				Description:  "Flutter SVG and Lottie integration",
-				Instructions: "Integrate SVG and Lottie into Flutter apps.",
-				References: []string{
-					"skills/flutter-integration/references/advanced-patterns.md",
-					"skills/flutter-integration/references/lottie-guide.md",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"flutter-integration": {
+					Description:  "Flutter SVG and Lottie integration",
+					Instructions: "Integrate SVG and Lottie into Flutter apps.",
+					References: []string{
+						"skills/flutter-integration/references/advanced-patterns.md",
+						"skills/flutter-integration/references/lottie-guide.md",
+					},
 				},
 			},
 		},
@@ -169,10 +181,12 @@ func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 	}
 
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"design": {
-				Instructions: "Design system patterns.",
-				References:   []string{"skills/design/refs/*.md"},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"design": {
+					Instructions: "Design system patterns.",
+					References:   []string{"skills/design/refs/*.md"},
+				},
 			},
 		},
 	}
@@ -192,10 +206,12 @@ func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 // TestCompile_SkillReferences_PathTraversal_Rejected verifies traversal is blocked.
 func TestCompile_SkillReferences_PathTraversal_Rejected(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"evil": {
-				Instructions: "Some skill.",
-				References:   []string{"../../etc/shadow"},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"evil": {
+					Instructions: "Some skill.",
+					References:   []string{"../../etc/shadow"},
+				},
 			},
 		},
 	}
@@ -269,8 +285,10 @@ func TestCompile_Settings_EnabledPlugins_IsMap(t *testing.T) {
 // as the first key in settings.json.
 func TestCompile_Settings_Schema_IsFirstKey(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		MCP: map[string]ast.MCPConfig{
-			"sqlite": {Command: "npx", Args: []string{"-y", "sqlite"}},
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"sqlite": {Command: "npx", Args: []string{"-y", "sqlite"}},
+			},
 		},
 	}
 	out, err := Compile(config, "", "")
@@ -328,9 +346,11 @@ func TestCompile_ConventionAutoDiscover_Agent(t *testing.T) {
 	))
 
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"cto": {Description: "Chief Technology Officer"},
-			// No instructions or instructions_file — relies on convention
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"cto": {Description: "Chief Technology Officer"},
+				// No instructions or instructions_file — relies on convention
+			},
 		},
 	}
 
@@ -353,9 +373,11 @@ func TestCompile_ConventionAutoDiscover_Skill(t *testing.T) {
 	))
 
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"git-workflow": {Description: "Git workflow patterns"},
-			// No instructions or instructions_file — relies on convention
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"git-workflow": {Description: "Git workflow patterns"},
+				// No instructions or instructions_file — relies on convention
+			},
 		},
 	}
 
@@ -372,9 +394,11 @@ func TestCompile_ConventionAutoDiscover_Skill(t *testing.T) {
 // body (not an error).
 func TestCompile_ConventionAutoDiscover_MissingFile_SilentEmpty(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"cto": {Description: "CTO agent"},
-			// No agents/cto.md exists in baseDir
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"cto": {Description: "CTO agent"},
+				// No agents/cto.md exists in baseDir
+			},
 		},
 	}
 
@@ -449,12 +473,14 @@ func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
 
 func TestCompile_MCP_HTTPTransport_EmitsCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		MCP: map[string]ast.MCPConfig{
-			"github": {
-				Type: "http",
-				URL:  "https://api.github.com/mcp",
-				Headers: map[string]string{
-					"Authorization": "Bearer ${GITHUB_TOKEN}",
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"github": {
+					Type: "http",
+					URL:  "https://api.github.com/mcp",
+					Headers: map[string]string{
+						"Authorization": "Bearer ${GITHUB_TOKEN}",
+					},
 				},
 			},
 		},
@@ -530,19 +556,21 @@ func TestCompile_Settings_TypedPermissions_EmitsCorrectly(t *testing.T) {
 
 func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"PostToolUse": []ast.HookMatcherGroup{
-				{
-					Matcher: "Write|Edit",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "npx prettier --write $FILE", Timeout: intPtr(10000)},
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"PostToolUse": []ast.HookMatcherGroup{
+					{
+						Matcher: "Write|Edit",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "npx prettier --write $FILE", Timeout: intPtr(10000)},
+						},
 					},
 				},
-			},
-			"Notification": []ast.HookMatcherGroup{
-				{
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo 'notification received'"},
+				"Notification": []ast.HookMatcherGroup{
+					{
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo 'notification received'"},
+						},
 					},
 				},
 			},
@@ -592,14 +620,16 @@ func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
 func TestCompile_Agent_NewFields_EmitCorrectly(t *testing.T) {
 	bgTrue := true
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"secure": {
-				Description:    "Secure agent",
-				PermissionMode: "plan",
-				Background:     &bgTrue,
-				Isolation:      "worktree",
-				Color:          "blue",
-				InitialPrompt:  "Hello, how can I help?",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"secure": {
+					Description:    "Secure agent",
+					PermissionMode: "plan",
+					Background:     &bgTrue,
+					Isolation:      "worktree",
+					Color:          "blue",
+					InitialPrompt:  "Hello, how can I help?",
+				},
 			},
 		},
 	}
@@ -621,23 +651,25 @@ func TestCompile_Agent_NewFields_EmitCorrectly(t *testing.T) {
 
 func TestCompile_Agent_ScopedHooksAndMCP_EmitCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"hooked": {
-				Description: "Agent with hooks and MCP",
-				Hooks: ast.HookConfig{
-					"PreToolUse": []ast.HookMatcherGroup{
-						{
-							Matcher: "Bash",
-							Hooks: []ast.HookHandler{
-								{Type: "command", Command: "echo check"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"hooked": {
+					Description: "Agent with hooks and MCP",
+					Hooks: ast.HookConfig{
+						"PreToolUse": []ast.HookMatcherGroup{
+							{
+								Matcher: "Bash",
+								Hooks: []ast.HookHandler{
+									{Type: "command", Command: "echo check"},
+								},
 							},
 						},
 					},
-				},
-				MCPServers: map[string]ast.MCPConfig{
-					"local-db": {
-						Command: "npx",
-						Args:    []string{"-y", "sqlite-mcp"},
+					MCPServers: map[string]ast.MCPConfig{
+						"local-db": {
+							Command: "npx",
+							Args:    []string{"-y", "sqlite-mcp"},
+						},
 					},
 				},
 			},
@@ -695,19 +727,21 @@ func intPtr(i int) *int { return &i }
 
 func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"PreToolUse": []ast.HookMatcherGroup{
-				{
-					Matcher: "Bash",
-					Hooks: []ast.HookHandler{
-						{
-							Type: "http",
-							URL:  "https://hooks.internal/validate",
-							Headers: map[string]string{
-								"Authorization": "Bearer ${API_KEY}",
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"PreToolUse": []ast.HookMatcherGroup{
+					{
+						Matcher: "Bash",
+						Hooks: []ast.HookHandler{
+							{
+								Type: "http",
+								URL:  "https://hooks.internal/validate",
+								Headers: map[string]string{
+									"Authorization": "Bearer ${API_KEY}",
+								},
+								AllowedEnvVars: []string{"API_KEY"},
+								Timeout:        intPtr(30),
 							},
-							AllowedEnvVars: []string{"API_KEY"},
-							Timeout:        intPtr(30),
 						},
 					},
 				},
@@ -735,16 +769,18 @@ func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 
 func TestCompile_Hooks_PromptHandler_EmitsCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"PreToolUse": []ast.HookMatcherGroup{
-				{
-					Matcher: "Edit",
-					Hooks: []ast.HookHandler{
-						{
-							Type:    "prompt",
-							Prompt:  "Verify this edit follows our coding standards",
-							Model:   "claude-haiku-4-5-20251001",
-							Timeout: intPtr(30),
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"PreToolUse": []ast.HookMatcherGroup{
+					{
+						Matcher: "Edit",
+						Hooks: []ast.HookHandler{
+							{
+								Type:    "prompt",
+								Prompt:  "Verify this edit follows our coding standards",
+								Model:   "claude-haiku-4-5-20251001",
+								Timeout: intPtr(30),
+							},
 						},
 					},
 				},
@@ -772,19 +808,21 @@ func TestCompile_Hooks_AllHandlerFields_EmitCorrectly(t *testing.T) {
 	asyncTrue := true
 	onceTrue := true
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"SessionStart": []ast.HookMatcherGroup{
-				{
-					Hooks: []ast.HookHandler{
-						{
-							Type:          "command",
-							Command:       "./scripts/setup.sh",
-							Timeout:       intPtr(120),
-							Async:         &asyncTrue,
-							Once:          &onceTrue,
-							Shell:         "bash",
-							StatusMessage: "Running setup...",
-							If:            "Bash(./scripts/*)",
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"SessionStart": []ast.HookMatcherGroup{
+					{
+						Hooks: []ast.HookHandler{
+							{
+								Type:          "command",
+								Command:       "./scripts/setup.sh",
+								Timeout:       intPtr(120),
+								Async:         &asyncTrue,
+								Once:          &onceTrue,
+								Shell:         "bash",
+								StatusMessage: "Running setup...",
+								If:            "Bash(./scripts/*)",
+							},
 						},
 					},
 				},
@@ -971,11 +1009,13 @@ func TestCompile_Permissions_CursorDropsSandbox(t *testing.T) {
 
 func TestCompile_Permissions_DisallowedToolsInAgentFrontmatter(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"dev": {
-				Description:     "Developer agent",
-				Instructions:    "Build things.",
-				DisallowedTools: []string{"Bash", "Write"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Description:     "Developer agent",
+					Instructions:    "Build things.",
+					DisallowedTools: []string{"Bash", "Write"},
+				},
 			},
 		},
 	}
@@ -990,11 +1030,13 @@ func TestCompile_Permissions_DisallowedToolsInAgentFrontmatter(t *testing.T) {
 
 func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"dev": {
-				Description:     "Developer agent",
-				Instructions:    "Build things.",
-				DisallowedTools: []string{"Bash", "Write"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Description:     "Developer agent",
+					Instructions:    "Build things.",
+					DisallowedTools: []string{"Bash", "Write"},
+				},
 			},
 		},
 	}
@@ -1010,10 +1052,12 @@ func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 // in the XcaffoldConfig compiles to settings.local.json.
 func TestCompile_LocalSettings_EmitsSettingsLocalJSON(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Local: ast.SettingsConfig{
-			Model: "claude-opus-4-6",
-			Env: map[string]string{
-				"ANTHROPIC_API_KEY": "sk-test-key",
+		Project: &ast.ProjectConfig{
+			Local: ast.SettingsConfig{
+				Model: "claude-opus-4-6",
+				Env: map[string]string{
+					"ANTHROPIC_API_KEY": "sk-test-key",
+				},
 			},
 		},
 	}

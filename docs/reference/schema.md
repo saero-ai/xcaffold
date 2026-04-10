@@ -59,23 +59,21 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.
 |---|---|---|---|
 | `kind` | `string` | Optional | File type discriminator. Values: `"config"` (compiler input) or omitted (treated as `config` for backward compatibility). Global configs should set `kind: config`. Non-config files (e.g. `registry.xcf`) use `kind: registry` and are skipped by the directory scanner. |
 | `version` | `string` | **Required** | Schema version. Current: `"1.1"`. |
-| `project` | `ProjectConfig` | Project scope only | Project-level metadata. Not present in global config. |
+| `project` | `*ProjectConfig` | Project scope only | Project-level metadata and workspace-scoped resources. `nil` for global configs. |
 | `extends` | `string` | Optional (project only) | Path to a parent `.xcf` config. Use `"global"` to reference `~/.xcaffold/global.xcf` for validation and visualization. Does not affect compiled output. |
-| `agents` | `map[string]AgentConfig` | Optional | Agent persona declarations keyed by ID. |
-| `skills` | `map[string]SkillConfig` | Optional | Reusable prompt packages keyed by ID. |
-| `rules` | `map[string]RuleConfig` | Optional | Path-gated formatting guidelines keyed by ID. |
-| `hooks` | `HookConfig` | Optional | Lifecycle event handlers. |
-| `mcp` | `map[string]MCPConfig` | Optional | MCP server definitions. Merged into `settings.mcpServers` during compilation; `settings.mcpServers` wins on key conflicts. |
-| `workflows` | `map[string]WorkflowConfig` | Optional | Reusable workflows keyed by ID. **Antigravity-only**: silently ignored by Claude and Cursor renderers. |
-| `test` | `TestConfig` | Project scope only | Configuration for `xcaffold test`. Not meaningful at global scope. |
+| `agents` | `map[string]AgentConfig` | Optional | Agent persona declarations keyed by ID. Provided via embedded `ResourceScope`. |
+| `skills` | `map[string]SkillConfig` | Optional | Reusable prompt packages keyed by ID. Provided via embedded `ResourceScope`. |
+| `rules` | `map[string]RuleConfig` | Optional | Path-gated formatting guidelines keyed by ID. Provided via embedded `ResourceScope`. |
+| `hooks` | `HookConfig` | Optional | Lifecycle event handlers. Provided via embedded `ResourceScope`. |
+| `mcp` | `map[string]MCPConfig` | Optional | MCP server definitions. Merged into `settings.mcpServers` during compilation; `settings.mcpServers` wins on key conflicts. Provided via embedded `ResourceScope`. |
+| `workflows` | `map[string]WorkflowConfig` | Optional | Reusable workflows keyed by ID. **Antigravity-only**: silently ignored by Claude and Cursor renderers. Provided via embedded `ResourceScope`. |
 | `settings` | `SettingsConfig` | Optional | Platform settings compiled to `settings.json`. At global scope, these become user-level defaults. |
-| `local` | `SettingsConfig` | Project scope only | Local override settings compiled to `settings.local.json` (gitignored). |
 
 ---
 
 ## `ProjectConfig`
 
-Project-level metadata. Present **only** in project-scope configs (`scaffold.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block.
+Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`scaffold.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`) and project-only settings (`test`, `local`) that are not valid at global scope.
 
 > [!NOTE]
 > `project.name` is required in `scaffold.xcf`. It is used to register the project in `~/.xcaffold/registry.xcf`, prefix lock file entries, and label graph and plan output. It has no equivalent at global scope.
@@ -90,6 +88,14 @@ Project-level metadata. Present **only** in project-scope configs (`scaffold.xcf
 | `repository` | `string` | Optional | Source control URL. |
 | `license` | `string` | Optional | SPDX license identifier. |
 | `backup_dir` | `string` | Optional | Directory for `xcaffold apply --backup` output. Defaults to `.<target>_bak_<timestamp>` in the project root. |
+| `test` | `TestConfig` | Optional | Configuration for `xcaffold test`. See [TestConfig](#testconfig). |
+| `local` | `SettingsConfig` | Optional | Local override settings compiled to `settings.local.json` (gitignored). |
+| `agents` | `map[string]AgentConfig` | Optional | Workspace-scoped agent declarations. Override global agents with the same ID. |
+| `skills` | `map[string]SkillConfig` | Optional | Workspace-scoped skill declarations. |
+| `rules` | `map[string]RuleConfig` | Optional | Workspace-scoped rule declarations. |
+| `hooks` | `HookConfig` | Optional | Workspace-scoped lifecycle hooks. Additive with global hooks. |
+| `mcp` | `map[string]MCPConfig` | Optional | Workspace-scoped MCP server definitions. |
+| `workflows` | `map[string]WorkflowConfig` | Optional | Workspace-scoped workflow declarations. |
 
 ---
 
@@ -276,7 +282,7 @@ Defines a local or remote MCP (Model Context Protocol) server.
 
 ## `SettingsConfig`
 
-Platform settings compiled to `settings.json` (Claude) or `settings.local.json` (from the `local:` block). These fields are passed through to the target platform's native settings file.
+Platform settings compiled to `settings.json` (Claude). The `local:` variant within `project:` compiles to `settings.local.json` (gitignored). These fields are passed through to the target platform's native settings file.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -422,7 +428,7 @@ Summary of which resource types compile for each target.
 | **MCP** | ✅ via `settings.json` | ✅ `mcp.json` | ❌ skipped | ❌ dropped |
 | **Workflows** | ❌ ignored | ❌ ignored | ✅ `workflows/<id>.md` | ✅ `## Workflows` section |
 | **Settings** | ✅ `settings.json` | ❌ ignored | ❌ ignored | ❌ ignored |
-| **Local** | ✅ `settings.local.json` | ❌ ignored | ❌ ignored | ❌ ignored |
+| **Local** | ✅ `settings.local.json` (from `project.local:`) | ❌ ignored | ❌ ignored | ❌ ignored |
 
 ### Key normalizations by target
 

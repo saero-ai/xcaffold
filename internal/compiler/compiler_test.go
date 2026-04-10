@@ -10,14 +10,16 @@ import (
 
 func TestCompile_SingleAgent(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "test-project"},
-		Agents: map[string]ast.AgentConfig{
-			"developer": {
-				Description:  "An expert developer.",
-				Instructions: "You are a software developer.\nWrite clean code.\n",
-				Model:        "claude-3-7-sonnet-20250219",
-				Effort:       "high",
-				Tools:        []string{"Bash", "Read", "Write"},
+		Project: &ast.ProjectConfig{Name: "test-project"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Description:  "An expert developer.",
+					Instructions: "You are a software developer.\nWrite clean code.\n",
+					Model:        "claude-3-7-sonnet-20250219",
+					Effort:       "high",
+					Tools:        []string{"Bash", "Read", "Write"},
+				},
 			},
 		},
 	}
@@ -38,10 +40,12 @@ func TestCompile_SingleAgent(t *testing.T) {
 
 func TestCompile_MultipleAgents(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "multi-agent-project"},
-		Agents: map[string]ast.AgentConfig{
-			"frontend": {Description: "Frontend specialist."},
-			"backend":  {Description: "Backend specialist."},
+		Project: &ast.ProjectConfig{Name: "multi-agent-project"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"frontend": {Description: "Frontend specialist."},
+				"backend":  {Description: "Backend specialist."},
+			},
 		},
 	}
 
@@ -54,12 +58,14 @@ func TestCompile_MultipleAgents(t *testing.T) {
 
 func TestCompile_AgentWithBlockedTools(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "secure-project"},
-		Agents: map[string]ast.AgentConfig{
-			"readonly": {
-				Description:     "Read-only agent.",
-				Tools:           []string{"Read", "Grep"},
-				DisallowedTools: []string{"Bash", "Write"},
+		Project: &ast.ProjectConfig{Name: "secure-project"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"readonly": {
+					Description:     "Read-only agent.",
+					Tools:           []string{"Read", "Grep"},
+					DisallowedTools: []string{"Bash", "Write"},
+				},
 			},
 		},
 	}
@@ -71,7 +77,7 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 
 func TestCompile_EmptyAgents(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "empty-project"},
+		Project: &ast.ProjectConfig{Name: "empty-project"},
 	}
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
@@ -80,35 +86,37 @@ func TestCompile_EmptyAgents(t *testing.T) {
 
 func TestCompile_FullSchema(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "full-project"},
-		Agents: map[string]ast.AgentConfig{
-			"dev": {Description: "A developer."},
-		},
-		Skills: map[string]ast.SkillConfig{
-			"git": {
-				Description:  "Git workflows",
-				Instructions: "Always use rebase.",
+		Project: &ast.ProjectConfig{Name: "full-project"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Description: "A developer."},
 			},
-		},
-		Rules: map[string]ast.RuleConfig{
-			"go": {
-				Instructions: "Use gofmt.",
+			Skills: map[string]ast.SkillConfig{
+				"git": {
+					Description:  "Git workflows",
+					Instructions: "Always use rebase.",
+				},
 			},
-		},
-		Hooks: ast.HookConfig{
-			"PreToolUse": []ast.HookMatcherGroup{
-				{
-					Matcher: "Bash",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "make test"},
+			Rules: map[string]ast.RuleConfig{
+				"go": {
+					Instructions: "Use gofmt.",
+				},
+			},
+			Hooks: ast.HookConfig{
+				"PreToolUse": []ast.HookMatcherGroup{
+					{
+						Matcher: "Bash",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "make test"},
+						},
 					},
 				},
 			},
-		},
-		MCP: map[string]ast.MCPConfig{
-			"db": {
-				Command: "npx",
-				Args:    []string{"-y", "sqlite"},
+			MCP: map[string]ast.MCPConfig{
+				"db": {
+					Command: "npx",
+					Args:    []string{"-y", "sqlite"},
+				},
 			},
 		},
 	}
@@ -146,8 +154,10 @@ func TestCompile_FullSchema(t *testing.T) {
 
 func TestCompile_CursorTarget_Supported(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"test": {Description: "Test", Instructions: "Test rule."},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"test": {Description: "Test", Instructions: "Test rule."},
+			},
 		},
 	}
 	out, err := Compile(config, "", "cursor")
@@ -157,8 +167,10 @@ func TestCompile_CursorTarget_Supported(t *testing.T) {
 
 func TestCompile_CursorTarget_RulesUseMdc(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"style": {Description: "Style", Instructions: "Format code."},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"style": {Description: "Style", Instructions: "Format code."},
+			},
 		},
 	}
 	out, err := Compile(config, "", "cursor")
@@ -169,8 +181,10 @@ func TestCompile_CursorTarget_RulesUseMdc(t *testing.T) {
 
 func TestCompile_AntigravityTarget_Supported(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"test": {Description: "Test", Instructions: "Test rule."},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"test": {Description: "Test", Instructions: "Test rule."},
+			},
 		},
 	}
 	out, err := Compile(config, "", "antigravity")
@@ -180,8 +194,10 @@ func TestCompile_AntigravityTarget_Supported(t *testing.T) {
 
 func TestCompile_AntigravityTarget_RulesNoFrontmatter(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"style": {Description: "Style", Instructions: "Format code."},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"style": {Description: "Style", Instructions: "Format code."},
+			},
 		},
 	}
 	out, err := Compile(config, "", "antigravity")
@@ -193,11 +209,13 @@ func TestCompile_AntigravityTarget_RulesNoFrontmatter(t *testing.T) {
 
 func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"reviewer": {Name: "Reviewer", Instructions: "Review."},
-		},
-		Rules: map[string]ast.RuleConfig{
-			"test": {Instructions: "Test."},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"reviewer": {Name: "Reviewer", Instructions: "Review."},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"test": {Instructions: "Test."},
+			},
 		},
 	}
 	out, err := Compile(config, "", "antigravity")
@@ -208,7 +226,7 @@ func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
 
 func TestCompile_AgentsMD_Target(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "agentsmd-test"},
+		Project: &ast.ProjectConfig{Name: "agentsmd-test"},
 	}
 	tmpDir := t.TempDir()
 	out, err := Compile(config, tmpDir, "agentsmd")
@@ -226,9 +244,11 @@ func TestOutputDir_AgentsMD(t *testing.T) {
 func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 	// An agent id containing path separators should be cleaned safely.
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "traversal-test"},
-		Agents: map[string]ast.AgentConfig{
-			"../evil": {Description: "Malicious agent."},
+		Project: &ast.ProjectConfig{Name: "traversal-test"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"../evil": {Description: "Malicious agent."},
+			},
 		},
 	}
 	out, err := Compile(config, "", "")

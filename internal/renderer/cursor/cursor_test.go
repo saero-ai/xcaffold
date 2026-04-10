@@ -35,11 +35,13 @@ func TestRenderer_Render_Identity(t *testing.T) {
 func TestCompile_Rule_WithPaths_OutputExtensionIsMdc(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"my-rule": {
-				Description:  "A rule with paths",
-				Paths:        []string{"**/*.go"},
-				Instructions: "Always format with gofmt.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"my-rule": {
+					Description:  "A rule with paths",
+					Paths:        []string{"**/*.go"},
+					Instructions: "Always format with gofmt.",
+				},
 			},
 		},
 	}
@@ -57,11 +59,13 @@ func TestCompile_Rule_WithPaths_OutputExtensionIsMdc(t *testing.T) {
 func TestCompile_Rule_WithPaths_FrontmatterHasGlobs(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"go-fmt": {
-				Description:  "Go formatting rule",
-				Paths:        []string{"**/*.go", "**/*.mod"},
-				Instructions: "Run gofmt.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"go-fmt": {
+					Description:  "Go formatting rule",
+					Paths:        []string{"**/*.go", "**/*.mod"},
+					Instructions: "Run gofmt.",
+				},
 			},
 		},
 	}
@@ -84,10 +88,12 @@ func TestCompile_Rule_WithPaths_FrontmatterHasGlobs(t *testing.T) {
 func TestCompile_Rule_WithoutPaths_HasAlwaysApply(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"global-rule": {
-				Description:  "Always active rule",
-				Instructions: "Be concise.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"global-rule": {
+					Description:  "Always active rule",
+					Instructions: "Be concise.",
+				},
 			},
 		},
 	}
@@ -107,9 +113,11 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 	r := cursor.New()
 	body := "Always run tests before committing.\nUse table-driven tests."
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"test-rule": {
-				Instructions: body,
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"test-rule": {
+					Instructions: body,
+				},
 			},
 		},
 	}
@@ -125,10 +133,12 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 func TestCompile_Rule_DescriptionInFrontmatter(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"desc-rule": {
-				Description:  "My rule description",
-				Instructions: "Do something.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"desc-rule": {
+					Description:  "My rule description",
+					Instructions: "Do something.",
+				},
 			},
 		},
 	}
@@ -145,9 +155,11 @@ func TestCompile_Rule_DescriptionInFrontmatter(t *testing.T) {
 func TestCompile_Rule_FrontmatterDelimiters(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"delim-rule": {
-				Instructions: "Body text.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"delim-rule": {
+					Instructions: "Body text.",
+				},
 			},
 		},
 	}
@@ -171,9 +183,11 @@ func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {
 func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"   ": {
-				Instructions: "Bad rule.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"   ": {
+					Instructions: "Bad rule.",
+				},
 			},
 		},
 	}
@@ -187,11 +201,13 @@ func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 func TestCompile_Agent_OutputAtCorrectPath(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"my-agent": {
-				Name:         "My Agent",
-				Description:  "A test agent",
-				Instructions: "Do something useful.",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"my-agent": {
+					Name:         "My Agent",
+					Description:  "A test agent",
+					Instructions: "Do something useful.",
+				},
 			},
 		},
 	}
@@ -207,11 +223,13 @@ func TestCompile_Agent_BackgroundRenamedToIsBackground(t *testing.T) {
 	r := cursor.New()
 	bg := true
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"bg-agent": {
-				Name:         "Background Agent",
-				Instructions: "Run in background.",
-				Background:   &bg,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"bg-agent": {
+					Name:         "Background Agent",
+					Instructions: "Run in background.",
+					Background:   &bg,
+				},
 			},
 		},
 	}
@@ -231,11 +249,13 @@ func TestCompile_Agent_BackgroundFalse_NotEmitted(t *testing.T) {
 	r := cursor.New()
 	bg := false
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"normal-agent": {
-				Name:         "Normal Agent",
-				Instructions: "Run normally.",
-				Background:   &bg,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"normal-agent": {
+					Name:         "Normal Agent",
+					Instructions: "Run normally.",
+					Background:   &bg,
+				},
 			},
 		},
 	}
@@ -252,23 +272,25 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 	r := cursor.New()
 	bg := true
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"full-agent": {
-				Name:            "Full Agent",
-				Description:     "Has many fields.",
-				Instructions:    "Do work.",
-				Model:           "claude-opus-4-5",
-				Effort:          "high",
-				PermissionMode:  "acceptEdits",
-				Isolation:       "worktree",
-				Color:           "blue",
-				Memory:          "project",
-				MaxTurns:        10,
-				Tools:           []string{"Bash", "Read"},
-				DisallowedTools: []string{"Write"},
-				Skills:          []string{"my-skill"},
-				InitialPrompt:   "Hello!",
-				Background:      &bg,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"full-agent": {
+					Name:            "Full Agent",
+					Description:     "Has many fields.",
+					Instructions:    "Do work.",
+					Model:           "claude-opus-4-5",
+					Effort:          "high",
+					PermissionMode:  "acceptEdits",
+					Isolation:       "worktree",
+					Color:           "blue",
+					Memory:          "project",
+					MaxTurns:        10,
+					Tools:           []string{"Bash", "Read"},
+					DisallowedTools: []string{"Write"},
+					Skills:          []string{"my-skill"},
+					InitialPrompt:   "Hello!",
+					Background:      &bg,
+				},
 			},
 		},
 	}
@@ -294,11 +316,13 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 func TestCompile_Agent_UnmappedModel_Omitted(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"model-agent": {
-				Name:         "Model Agent",
-				Model:        "claude-sonnet-4-5",
-				Instructions: "Use this model.",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"model-agent": {
+					Name:         "Model Agent",
+					Model:        "claude-sonnet-4-5",
+					Instructions: "Use this model.",
+				},
 			},
 		},
 	}
@@ -320,11 +344,13 @@ func TestCompile_Agent_UnmappedModel_Omitted(t *testing.T) {
 func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"aliased-agent": {
-				Name:         "Aliased Agent",
-				Model:        "sonnet-4",
-				Instructions: "Uses an alias.",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"aliased-agent": {
+					Name:         "Aliased Agent",
+					Model:        "sonnet-4",
+					Instructions: "Uses an alias.",
+				},
 			},
 		},
 	}
@@ -347,14 +373,16 @@ func TestCompile_Agent_UnmappedModel_WarningSuppressed(t *testing.T) {
 	r := cursor.New()
 	suppress := true
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"quiet-agent": {
-				Name:         "Quiet Agent",
-				Model:        "claude-sonnet-4-5",
-				Instructions: "Silence warnings.",
-				Targets: map[string]ast.TargetOverride{
-					"cursor": {
-						SuppressFidelityWarnings: &suppress,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"quiet-agent": {
+					Name:         "Quiet Agent",
+					Model:        "claude-sonnet-4-5",
+					Instructions: "Silence warnings.",
+					Targets: map[string]ast.TargetOverride{
+						"cursor": {
+							SuppressFidelityWarnings: &suppress,
+						},
 					},
 				},
 			},
@@ -376,10 +404,12 @@ func TestCompile_Agent_UnmappedModel_WarningSuppressed(t *testing.T) {
 func TestCompile_Agent_BodyContentPreserved(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"body-agent": {
-				Name:         "Body Agent",
-				Instructions: "Always write tests.\nNever skip lint.",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"body-agent": {
+					Name:         "Body Agent",
+					Instructions: "Always write tests.\nNever skip lint.",
+				},
 			},
 		},
 	}
@@ -397,11 +427,13 @@ func TestCompile_Agent_BodyContentPreserved(t *testing.T) {
 func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"my-skill": {
-				Name:         "My Skill",
-				Description:  "A test skill",
-				Instructions: "Do the skill thing.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"my-skill": {
+					Name:         "My Skill",
+					Description:  "A test skill",
+					Instructions: "Do the skill thing.",
+				},
 			},
 		},
 	}
@@ -416,11 +448,13 @@ func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"fmt-skill": {
-				Name:         "Format Skill",
-				Description:  "Formats code",
-				Instructions: "Run gofmt first.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"fmt-skill": {
+					Name:         "Format Skill",
+					Description:  "Formats code",
+					Instructions: "Run gofmt first.",
+				},
 			},
 		},
 	}
@@ -438,15 +472,17 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"rich-skill": {
-				Name:         "Rich Skill",
-				Description:  "Has many fields.",
-				Instructions: "Do something.",
-				Tools:        []string{"Bash"},
-				References:   []string{"**/*.go"},
-				Scripts:      []string{"setup.sh"},
-				Assets:       []string{"icon.png"},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"rich-skill": {
+					Name:         "Rich Skill",
+					Description:  "Has many fields.",
+					Instructions: "Do something.",
+					Tools:        []string{"Bash"},
+					References:   []string{"**/*.go"},
+					Scripts:      []string{"setup.sh"},
+					Assets:       []string{"icon.png"},
+				},
 			},
 		},
 	}
@@ -470,10 +506,12 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"body-skill": {
-				Name:         "Body Skill",
-				Instructions: "Step 1: do this.\nStep 2: do that.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"body-skill": {
+					Name:         "Body Skill",
+					Instructions: "Step 1: do this.\nStep 2: do that.",
+				},
 			},
 		},
 	}
@@ -491,11 +529,13 @@ func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 func TestCompile_MCP_EmitsMCPJson(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		MCP: map[string]ast.MCPConfig{
-			"my-server": {
-				Type:    "stdio",
-				Command: "npx",
-				Args:    []string{"-y", "@modelcontextprotocol/server-filesystem"},
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"my-server": {
+					Type:    "stdio",
+					Command: "npx",
+					Args:    []string{"-y", "@modelcontextprotocol/server-filesystem"},
+				},
 			},
 		},
 	}
@@ -510,11 +550,13 @@ func TestCompile_MCP_EmitsMCPJson(t *testing.T) {
 func TestCompile_MCP_HTTPTransport_URLBecomesServerURL(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		MCP: map[string]ast.MCPConfig{
-			"remote-server": {
-				Type:    "http",
-				URL:     "https://mcp.example.com/endpoint",
-				Headers: map[string]string{"Authorization": "Bearer tok"},
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"remote-server": {
+					Type:    "http",
+					URL:     "https://mcp.example.com/endpoint",
+					Headers: map[string]string{"Authorization": "Bearer tok"},
+				},
 			},
 		},
 	}
@@ -542,12 +584,14 @@ func TestCompile_MCP_HTTPTransport_URLBecomesServerURL(t *testing.T) {
 func TestCompile_MCP_StdioTransport_CommandArgsEnvPreserved(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		MCP: map[string]ast.MCPConfig{
-			"stdio-server": {
-				Type:    "stdio",
-				Command: "python3",
-				Args:    []string{"-m", "my_mcp_server"},
-				Env:     map[string]string{"MY_VAR": "value"},
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"stdio-server": {
+					Type:    "stdio",
+					Command: "python3",
+					Args:    []string{"-m", "my_mcp_server"},
+					Env:     map[string]string{"MY_VAR": "value"},
+				},
 			},
 		},
 	}
@@ -576,10 +620,12 @@ func TestCompile_MCP_StdioTransport_CommandArgsEnvPreserved(t *testing.T) {
 func TestCompile_MCP_TypeFieldNotInOutput(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		MCP: map[string]ast.MCPConfig{
-			"typed-server": {
-				Type: "sse",
-				URL:  "https://sse.example.com",
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"typed-server": {
+					Type: "sse",
+					URL:  "https://sse.example.com",
+				},
 			},
 		},
 	}
@@ -595,9 +641,11 @@ func TestCompile_MCP_TypeFieldNotInOutput(t *testing.T) {
 func TestCompile_MCP_MCPServersEnvelope(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		MCP: map[string]ast.MCPConfig{
-			"server-a": {Command: "tool-a"},
-			"server-b": {Command: "tool-b"},
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"server-a": {Command: "tool-a"},
+				"server-b": {Command: "tool-b"},
+			},
 		},
 	}
 
@@ -627,12 +675,14 @@ func TestCompile_Hooks_ProducesHooksJson(t *testing.T) {
 	r := cursor.New()
 	timeout := 5000
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"PreToolUse": {
-				{
-					Matcher: "Bash",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo lint", Timeout: &timeout},
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"PreToolUse": {
+					{
+						Matcher: "Bash",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo lint", Timeout: &timeout},
+						},
 					},
 				},
 			},
@@ -649,7 +699,9 @@ func TestCompile_Hooks_ProducesHooksJson(t *testing.T) {
 func TestCompile_Hooks_EmptyHooksNoOutput(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{},
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{},
+		},
 	}
 
 	out, err := r.Compile(config, "")
@@ -662,27 +714,29 @@ func TestCompile_Hooks_EmptyHooksNoOutput(t *testing.T) {
 func TestCompile_Hooks_EventNamesCamelCase(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"PreToolUse": {
-				{
-					Matcher: "Bash",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo pre"},
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"PreToolUse": {
+					{
+						Matcher: "Bash",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo pre"},
+						},
 					},
 				},
-			},
-			"PostToolUse": {
-				{
-					Matcher: "Write",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo post"},
+				"PostToolUse": {
+					{
+						Matcher: "Write",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo post"},
+						},
 					},
 				},
-			},
-			"SessionStart": {
-				{
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo session"},
+				"SessionStart": {
+					{
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo session"},
+						},
 					},
 				},
 			},
@@ -709,13 +763,15 @@ func TestCompile_Hooks_EventNamesCamelCase(t *testing.T) {
 func TestCompile_Hooks_FlatStructure_NoNestedHooksArray(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"PreToolUse": {
-				{
-					Matcher: "Bash",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo lint"},
-						{Type: "command", Command: "echo test"},
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"PreToolUse": {
+					{
+						Matcher: "Bash",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo lint"},
+							{Type: "command", Command: "echo test"},
+						},
 					},
 				},
 			},
@@ -747,12 +803,14 @@ func TestCompile_Hooks_FlatStructure_NoNestedHooksArray(t *testing.T) {
 func TestCompile_Hooks_MatcherInjectedInline(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"PostToolUse": {
-				{
-					Matcher: "Edit",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo edited"},
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"PostToolUse": {
+					{
+						Matcher: "Edit",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo edited"},
+						},
 					},
 				},
 			},
@@ -773,12 +831,14 @@ func TestCompile_Hooks_MatcherInjectedInline(t *testing.T) {
 func TestCompile_Hooks_EmptyMatcher_NotInjected(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"SessionStart": {
-				{
-					// No matcher — should not appear on handler
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo hi"},
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"SessionStart": {
+					{
+						// No matcher — should not appear on handler
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo hi"},
+						},
 					},
 				},
 			},
@@ -803,11 +863,13 @@ func TestCompile_Rule_AlwaysApplyExplicitFalse_EmitsFalse(t *testing.T) {
 	r := cursor.New()
 	f := false
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"opt-out-rule": {
-				Description:  "Explicit opt-out",
-				Instructions: "Not always.",
-				AlwaysApply:  &f,
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"opt-out-rule": {
+					Description:  "Explicit opt-out",
+					Instructions: "Not always.",
+					AlwaysApply:  &f,
+				},
 			},
 		},
 	}
@@ -823,12 +885,14 @@ func TestCompile_Rule_PathsWithAlwaysApplyTrue_BothEmitted(t *testing.T) {
 	r := cursor.New()
 	t2 := true
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"combo-rule": {
-				Description:  "Has both",
-				Paths:        []string{"**/*.ts"},
-				Instructions: "Lint TypeScript.",
-				AlwaysApply:  &t2,
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"combo-rule": {
+					Description:  "Has both",
+					Paths:        []string{"**/*.ts"},
+					Instructions: "Lint TypeScript.",
+					AlwaysApply:  &t2,
+				},
 			},
 		},
 	}
@@ -847,11 +911,13 @@ func TestCompile_Agent_Readonly_EmitsReadonlyTrue(t *testing.T) {
 	r := cursor.New()
 	ro := true
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"ro-agent": {
-				Name:         "Readonly Agent",
-				Instructions: "Only read files.",
-				Readonly:     &ro,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"ro-agent": {
+					Name:         "Readonly Agent",
+					Instructions: "Only read files.",
+					Readonly:     &ro,
+				},
 			},
 		},
 	}
@@ -867,11 +933,13 @@ func TestCompile_Agent_ReadonlyFalse_NotEmitted(t *testing.T) {
 	r := cursor.New()
 	ro := false
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"rw-agent": {
-				Name:         "ReadWrite Agent",
-				Instructions: "Full access.",
-				Readonly:     &ro,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"rw-agent": {
+					Name:         "ReadWrite Agent",
+					Instructions: "Full access.",
+					Readonly:     &ro,
+				},
 			},
 		},
 	}
@@ -886,10 +954,12 @@ func TestCompile_Agent_ReadonlyFalse_NotEmitted(t *testing.T) {
 func TestCompile_Agent_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"quoted": {
-				Name:        `Agent with "quotes"`,
-				Description: `A "very specal" agent`,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"quoted": {
+					Name:        `Agent with "quotes"`,
+					Description: `A "very specal" agent`,
+				},
 			},
 		},
 	}
@@ -949,10 +1019,12 @@ func TestCursorRenderer_SandboxFidelityWarning_Settings(t *testing.T) {
 func TestCursorRenderer_PermissionModeFidelityWarning_Agent(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"dev": {
-				Instructions:   "Build things.",
-				PermissionMode: "plan",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Instructions:   "Build things.",
+					PermissionMode: "plan",
+				},
 			},
 		},
 	}
@@ -971,10 +1043,12 @@ func TestCursorRenderer_PermissionModeFidelityWarning_Agent(t *testing.T) {
 func TestCursorRenderer_DisallowedToolsFidelityWarning_Agent(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"dev": {
-				Instructions:    "Build things.",
-				DisallowedTools: []string{"Write"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Instructions:    "Build things.",
+					DisallowedTools: []string{"Write"},
+				},
 			},
 		},
 	}
@@ -992,10 +1066,12 @@ func TestCursorRenderer_DisallowedToolsFidelityWarning_Agent(t *testing.T) {
 func TestCursorRenderer_IsolationFidelityWarning_Agent(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"dev": {
-				Instructions: "Build things.",
-				Isolation:    "container",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Instructions: "Build things.",
+					Isolation:    "container",
+				},
 			},
 		},
 	}
@@ -1015,14 +1091,16 @@ func TestCursorRenderer_SuppressFidelityWarnings_SkipsAgentWarnings(t *testing.T
 	r := cursor.New()
 	suppress := true
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"dev": {
-				Instructions:   "Build things.",
-				PermissionMode: "plan",
-				Isolation:      "container",
-				Targets: map[string]ast.TargetOverride{
-					"cursor": {
-						SuppressFidelityWarnings: &suppress,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Instructions:   "Build things.",
+					PermissionMode: "plan",
+					Isolation:      "container",
+					Targets: map[string]ast.TargetOverride{
+						"cursor": {
+							SuppressFidelityWarnings: &suppress,
+						},
 					},
 				},
 			},

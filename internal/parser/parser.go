@@ -390,11 +390,38 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			merged.Version = p.Version
 		}
 
-		if p.Project.Name != "" {
-			if merged.Project.Name != "" && merged.Project.Name != p.Project.Name {
+		if p.Project != nil && p.Project.Name != "" {
+			if merged.Project != nil && merged.Project.Name != "" && merged.Project.Name != p.Project.Name {
 				return nil, fmt.Errorf("multiple files declare project.name: %q vs %q", merged.Project.Name, p.Project.Name)
 			}
-			merged.Project = p.Project
+			if merged.Project == nil {
+				merged.Project = &ast.ProjectConfig{}
+			}
+			// Copy scalar metadata fields; Local and ResourceScope are merged separately below.
+			if p.Project.Name != "" {
+				merged.Project.Name = p.Project.Name
+			}
+			if p.Project.Description != "" {
+				merged.Project.Description = p.Project.Description
+			}
+			if p.Project.Version != "" {
+				merged.Project.Version = p.Project.Version
+			}
+			if p.Project.Author != "" {
+				merged.Project.Author = p.Project.Author
+			}
+			if p.Project.Homepage != "" {
+				merged.Project.Homepage = p.Project.Homepage
+			}
+			if p.Project.Repository != "" {
+				merged.Project.Repository = p.Project.Repository
+			}
+			if p.Project.License != "" {
+				merged.Project.License = p.Project.License
+			}
+			if p.Project.BackupDir != "" {
+				merged.Project.BackupDir = p.Project.BackupDir
+			}
 		}
 
 		if p.Extends != "" {
@@ -432,27 +459,40 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		// Hooks are additive (append handlers)
 		merged.Hooks = mergeHooksAdditive(merged.Hooks, p.Hooks)
 
-		// Overwrite test blocks (assuming only one file declares test config)
-		if p.Test.CliPath != "" || p.Test.ClaudePath != "" || p.Test.JudgeModel != "" {
-			merged.Test = p.Test
+		// Overwrite test blocks (assuming only one file declares test config).
+		// Test now lives in ProjectConfig.
+		if p.Project != nil {
+			pTest := p.Project.Test
+			if pTest.CliPath != "" || pTest.ClaudePath != "" || pTest.JudgeModel != "" {
+				if merged.Project == nil {
+					merged.Project = &ast.ProjectConfig{}
+				}
+				merged.Project.Test = pTest
+			}
 		}
 
 		// Track which file first contributed non-empty settings/local.
 		if settingsOrigin == "" && !isEmptySettings(p.Settings) {
 			settingsOrigin = f
 		}
-		if localOrigin == "" && !isEmptySettings(p.Local) {
+		if p.Project != nil && localOrigin == "" && !isEmptySettings(p.Project.Local) {
 			localOrigin = f
 		}
 
-		// Deep merge settings and local blocks (conflicting keys → error).
+		// Deep merge settings block (conflicting keys → error).
 		merged.Settings, err = mergeSettingsStrict(merged.Settings, p.Settings, settingsOrigin, f)
 		if err != nil {
 			return nil, err
 		}
-		merged.Local, err = mergeSettingsStrict(merged.Local, p.Local, localOrigin, f)
-		if err != nil {
-			return nil, err
+		// Deep merge local block (now lives in ProjectConfig).
+		if p.Project != nil {
+			if merged.Project == nil {
+				merged.Project = &ast.ProjectConfig{}
+			}
+			merged.Project.Local, err = mergeSettingsStrict(merged.Project.Local, p.Project.Local, localOrigin, f)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return merged, nil
@@ -517,13 +557,39 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 		merged.Version = base.Version
 	}
 
-	merged.Project = base.Project
-	if child.Project.Name != "" {
-		merged.Project.Name = child.Project.Name
+	if base.Project != nil || child.Project != nil {
+		merged.Project = &ast.ProjectConfig{}
+		if base.Project != nil {
+			*merged.Project = *base.Project
+		}
+		if child.Project != nil {
+			if child.Project.Name != "" {
+				merged.Project.Name = child.Project.Name
+			}
+			if child.Project.Description != "" {
+				merged.Project.Description = child.Project.Description
+			}
+			if child.Project.BackupDir != "" {
+				merged.Project.BackupDir = child.Project.BackupDir
+			}
+			// Test override
+			if child.Project.Test.CliPath != "" {
+				merged.Project.Test.CliPath = child.Project.Test.CliPath
+			}
+			if child.Project.Test.ClaudePath != "" {
+				merged.Project.Test.ClaudePath = child.Project.Test.ClaudePath
+			}
+			if child.Project.Test.JudgeModel != "" {
+				merged.Project.Test.JudgeModel = child.Project.Test.JudgeModel
+			}
+			// Local settings override
+			var baseLocal ast.SettingsConfig
+			if base.Project != nil {
+				baseLocal = base.Project.Local
+			}
+			merged.Project.Local = mergeSettingsOverride(baseLocal, child.Project.Local)
+		}
 	}
-	if child.Project.Description != "" {
-		merged.Project.Description = child.Project.Description
-	} // etc (other fields ignored for brevity as before)
 
 	merged.Extends = "" // after resolving, extends is empty
 
@@ -536,19 +602,7 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.Workflows = mergeWorkflowsOverrideInherited(base.Workflows, child.Workflows)
 	merged.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
 
-	merged.Test = base.Test
-	if child.Test.CliPath != "" {
-		merged.Test.CliPath = child.Test.CliPath
-	}
-	if child.Test.ClaudePath != "" {
-		merged.Test.ClaudePath = child.Test.ClaudePath
-	}
-	if child.Test.JudgeModel != "" {
-		merged.Test.JudgeModel = child.Test.JudgeModel
-	}
-
 	merged.Settings = mergeSettingsOverride(base.Settings, child.Settings)
-	merged.Local = mergeSettingsOverride(base.Local, child.Local)
 
 	return merged
 }
@@ -651,12 +705,6 @@ func mergeWorkflowsOverrideInherited(base, child map[string]ast.WorkflowConfig) 
 	}
 	return merged
 }
-
-// mergeMapOverrideInherited is a shim to satisfy the call sites in mergeConfigOverride.
-// Each concrete type is dispatched to its typed implementation above.
-// The type parameter constraint uses ~map[string]V but Go doesn't support that
-// elegantly, so we keep this as a compile-time documented stub — actual calls
-// use the concrete functions.
 
 // Validations
 
@@ -825,7 +873,7 @@ func validateBase(c *ast.XcaffoldConfig) error {
 		return fmt.Errorf("version is required (e.g. \"1.0\")")
 	}
 
-	if c.Extends == "" {
+	if c.Extends == "" && c.Project != nil {
 		name := strings.TrimSpace(c.Project.Name)
 		if name == "" {
 			return fmt.Errorf("project.name is required and must not be empty unless extending another config")
@@ -1061,7 +1109,9 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 		}
 	}
 	check(c.Settings.EnabledPlugins, "settings")
-	check(c.Local.EnabledPlugins, "local")
+	if c.Project != nil {
+		check(c.Project.Local.EnabledPlugins, "local")
+	}
 	return diags
 }
 

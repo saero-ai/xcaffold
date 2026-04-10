@@ -18,8 +18,10 @@ func TestAnalyze_EmptyConfig_ProducesEmptyUnits(t *testing.T) {
 
 func TestAnalyze_SingleAgent_ProducesSourceAgentUnit(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"alpha": {Instructions: "do agent things"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"alpha": {Instructions: "do agent things"},
+			},
 		},
 	}
 	ir, err := bir.Analyze(config, "/tmp")
@@ -32,8 +34,10 @@ func TestAnalyze_SingleAgent_ProducesSourceAgentUnit(t *testing.T) {
 
 func TestAnalyze_SingleSkill_ProducesSourceSkillUnit(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"beta": {Instructions: "do skill things"},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"beta": {Instructions: "do skill things"},
+			},
 		},
 	}
 	ir, err := bir.Analyze(config, "/tmp")
@@ -46,8 +50,10 @@ func TestAnalyze_SingleSkill_ProducesSourceSkillUnit(t *testing.T) {
 
 func TestAnalyze_SingleRule_ProducesSourceRuleUnit(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"gamma": {Instructions: "do rule things"},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"gamma": {Instructions: "do rule things"},
+			},
 		},
 	}
 	ir, err := bir.Analyze(config, "/tmp")
@@ -60,8 +66,10 @@ func TestAnalyze_SingleRule_ProducesSourceRuleUnit(t *testing.T) {
 
 func TestAnalyze_SingleWorkflow_ProducesSourceWorkflowUnit(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Workflows: map[string]ast.WorkflowConfig{
-			"delta": {Instructions: "do workflow things"},
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"delta": {Instructions: "do workflow things"},
+			},
 		},
 	}
 	ir, err := bir.Analyze(config, "/tmp")
@@ -74,18 +82,20 @@ func TestAnalyze_SingleWorkflow_ProducesSourceWorkflowUnit(t *testing.T) {
 
 func TestAnalyze_MultipleTypes_ProducesCorrectCount(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"a1": {Instructions: "agent one"},
-			"a2": {Instructions: "agent two"},
-		},
-		Skills: map[string]ast.SkillConfig{
-			"s1": {Instructions: "skill one"},
-		},
-		Rules: map[string]ast.RuleConfig{
-			"r1": {Instructions: "rule one"},
-		},
-		Workflows: map[string]ast.WorkflowConfig{
-			"w1": {Instructions: "workflow one"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"a1": {Instructions: "agent one"},
+				"a2": {Instructions: "agent two"},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"s1": {Instructions: "skill one"},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"r1": {Instructions: "rule one"},
+			},
+			Workflows: map[string]ast.WorkflowConfig{
+				"w1": {Instructions: "workflow one"},
+			},
 		},
 	}
 	ir, err := bir.Analyze(config, "/tmp")
@@ -96,8 +106,10 @@ func TestAnalyze_MultipleTypes_ProducesCorrectCount(t *testing.T) {
 func TestAnalyze_ResolvedBodyMatchesInstructions(t *testing.T) {
 	const body = "detailed instructions body"
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"x": {Instructions: body},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"x": {Instructions: body},
+			},
 		},
 	}
 	ir, err := bir.Analyze(config, "/tmp")

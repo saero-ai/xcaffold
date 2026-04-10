@@ -102,13 +102,13 @@ version: "1.0"
 project:
   name: "base-project"
   description: "Base description."
+  test:
+    claude_path: "/usr/local/bin/claude"
+    judge_model: "claude-3-5-haiku-20241022"
 agents:
   shared-agent:
     description: "Base version of agent."
     model: "claude-3-5-haiku-20241022"
-test:
-  claude_path: "/usr/local/bin/claude"
-  judge_model: "claude-3-5-haiku-20241022"
 `)
 
 	childPath := writeFile(t, dir, "child.xcf", `
@@ -117,12 +117,12 @@ version: "1.0"
 project:
   name: "child-project"
   description: "Child description."
+  test:
+    judge_model: "claude-3-opus-20240229"
 agents:
   shared-agent:
     description: "Child version of agent."
     model: "claude-3-7-sonnet-20250219"
-test:
-  judge_model: "claude-3-opus-20240229"
 `)
 
 	cfg, err := ParseFile(childPath)
@@ -139,8 +139,9 @@ test:
 	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["shared-agent"].Model)
 
 	// Test config: child overrides judge_model, base claude_path is inherited
-	assert.Equal(t, "/usr/local/bin/claude", cfg.Test.ClaudePath, "base claude_path should be inherited")
-	assert.Equal(t, "claude-3-opus-20240229", cfg.Test.JudgeModel, "child judge_model should override base")
+	require.NotNil(t, cfg.Project)
+	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.ClaudePath, "base claude_path should be inherited")
+	assert.Equal(t, "claude-3-opus-20240229", cfg.Project.Test.JudgeModel, "child judge_model should override base")
 }
 
 // ---------------------------------------------------------------------------

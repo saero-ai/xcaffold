@@ -1,23 +1,31 @@
 package ast
 
-// XcaffoldConfig is the root structure of a parsed .xcf YAML file.
-type XcaffoldConfig struct {
-	Kind      string                    `yaml:"kind,omitempty"`
-	Version   string                    `yaml:"version"`
-	Project   ProjectConfig             `yaml:"project"`
-	Extends   string                    `yaml:"extends,omitempty"`
+// ResourceScope contains all agentic primitives that can appear at both
+// global scope (root of XcaffoldConfig) and workspace scope (inside ProjectConfig).
+// Embedded with yaml:",inline" so fields appear at the same YAML level as the parent.
+type ResourceScope struct {
 	Agents    map[string]AgentConfig    `yaml:"agents,omitempty"`
 	Skills    map[string]SkillConfig    `yaml:"skills,omitempty"`
 	Rules     map[string]RuleConfig     `yaml:"rules,omitempty"`
 	Hooks     HookConfig                `yaml:"hooks,omitempty"`
 	MCP       map[string]MCPConfig      `yaml:"mcp,omitempty"`
 	Workflows map[string]WorkflowConfig `yaml:"workflows,omitempty"`
-	Test      TestConfig                `yaml:"test,omitempty"`
-	Settings  SettingsConfig            `yaml:"settings,omitempty"`
-	Local     SettingsConfig            `yaml:"local,omitempty"`
 }
 
-// ProjectConfig holds project-level metadata.
+// XcaffoldConfig is the root structure of a parsed .xcf YAML file.
+type XcaffoldConfig struct {
+	Kind    string `yaml:"kind,omitempty"`
+	Version string `yaml:"version"`
+	Extends string `yaml:"extends,omitempty"`
+
+	Settings SettingsConfig `yaml:"settings,omitempty"`
+
+	ResourceScope `yaml:",inline"` // Global-level resources
+
+	Project *ProjectConfig `yaml:"project,omitempty"` // nil for global configs
+}
+
+// ProjectConfig holds project-level metadata and workspace-scoped resources.
 type ProjectConfig struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
@@ -27,6 +35,11 @@ type ProjectConfig struct {
 	Repository  string `yaml:"repository,omitempty"`
 	License     string `yaml:"license,omitempty"`
 	BackupDir   string `yaml:"backup_dir,omitempty"`
+
+	Test  TestConfig     `yaml:"test,omitempty"`
+	Local SettingsConfig `yaml:"local,omitempty"`
+
+	ResourceScope `yaml:",inline"` // Workspace-level resources
 }
 
 // AgentConfig defines a Claude agent persona.

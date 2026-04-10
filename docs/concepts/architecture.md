@@ -120,7 +120,7 @@ Files without a `kind:` field are treated as `config` for backward compatibility
 
 | Package | Path | Role |
 |---|---|---|
-| `ast` | `internal/ast/` | Core types for all `.xcf` parsed structures |
+| `ast` | `internal/ast/` | Core types: `ResourceScope` (shared resource block), `XcaffoldConfig`, `*ProjectConfig`, and all resource configs |
 | `parser` | `internal/parser/` | Strict YAML parsing — unknown fields fail immediately |
 | `compiler` | `internal/compiler/` | Routes AST to the correct renderer; exposes `Compile()` and `OutputDir()` |
 | `renderer` | `internal/renderer/` | `TargetRenderer` interface + `Registry` |
@@ -171,7 +171,7 @@ The compiler merges two sources into `settings.json`:
 
 **Merge rule:** `settings.mcpServers` takes precedence over `mcp:` entries with the same key.
 
-The `local:` top-level block is a `SettingsConfig` variant that allows machine-local overrides (e.g. paths, secrets) without polluting the committed `scaffold.xcf`.
+The `local:` block within `project:` is a `SettingsConfig` variant that allows machine-local overrides (e.g. paths, secrets) without polluting the committed `scaffold.xcf`. It compiles to `settings.local.json`.
 
 ---
 
@@ -328,3 +328,7 @@ These inline architecture decisions record the reasoning behind strict implement
 ### 9. `TestConfig.CliPath` (generalized from `ClaudePath`)
 **Decision:** The `test:` block uses `cli_path` as the primary field (with `claude_path` retained for backward compatibility).
 **Why:** As xcaffold becomes platform-agnostic, the CLI under test is not always `claude`. The generalized `cli_path` supports any binary (e.g. `cursor`, a custom wrapper), while the deprecated alias ensures existing configs continue to work without changes.
+
+### 10. ResourceScope Extraction and Pointer-Backed ProjectConfig
+**Decision:** Generative primitives (agents, skills, rules, hooks, MCP, workflows) are extracted into a `ResourceScope` struct embedded with `yaml:",inline"` in both `XcaffoldConfig` (global scope) and `ProjectConfig` (workspace scope). `Project` is a pointer (`*ProjectConfig`) — nil means global scope.
+**Why:** The flat AST where all resources lived at root level alongside `project:`, `settings:`, and `test:` made no semantic distinction between global-scope resources (user-wide) and project-scope resources (workspace-specific). Embedding `ResourceScope` at both levels enables the compiler to merge workspace resources over global resources by ID, giving project configs explicit override authority. The pointer distinguishes "no project block" (global config) from "empty project block" (project config with defaults) at the type level, eliminating the need for parser flags to detect scope.

@@ -228,7 +228,11 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	}
 
 	if applyBackup && !applyDryRun {
-		if err := performBackup(outputDir, targetFlag, config.Project.BackupDir, scopeName); err != nil {
+		var backupDir string
+		if config.Project != nil {
+			backupDir = config.Project.BackupDir
+		}
+		if err := performBackup(outputDir, targetFlag, backupDir, scopeName); err != nil {
 			return fmt.Errorf("[%s] backup failed: %w", scopeName, err)
 		}
 	}
@@ -290,7 +294,11 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	if configRelDir == "" {
 		configRelDir = "."
 	}
-	_ = registry.Register(cwd, config.Project.Name, nil, configRelDir)
+	var projectName string
+	if config.Project != nil {
+		projectName = config.Project.Name
+	}
+	_ = registry.Register(cwd, projectName, nil, configRelDir)
 	_ = registry.UpdateLastApplied(cwd)
 
 	return nil

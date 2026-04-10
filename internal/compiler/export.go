@@ -11,6 +11,10 @@ import (
 // Settings files are excluded (they are environment-specific), and the hooks
 // file is relocated under a hooks/ subdirectory.
 func ExportPlugin(config *ast.XcaffoldConfig, compiled *Output) (*Output, error) {
+	if config.Project == nil {
+		return nil, fmt.Errorf("ExportPlugin requires a project configuration")
+	}
+
 	out := &Output{
 		Files: make(map[string]string),
 	}

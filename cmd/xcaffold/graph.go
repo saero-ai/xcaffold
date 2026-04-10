@@ -255,7 +255,11 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 }
 
 func buildGraph(config *ast.XcaffoldConfig) *graphData {
-	g := &graphData{Project: config.Project.Name}
+	var projectName string
+	if config.Project != nil {
+		projectName = config.Project.Name
+	}
+	g := &graphData{Project: projectName}
 	appendGraphSettings(config, g)
 	appendGraphSkills(config, g)
 	appendGraphRules(config, g)

@@ -51,8 +51,20 @@ When a configuration arborescence is collapsed (whether through implicit global 
 | `mcp:` | Child entry replaces base entry per ID. IDs present only in the base are kept. |
 | `workflows:` | Child entry replaces base entry per ID. IDs present only in the base are kept. |
 | `hooks:` | Additive. Both base and child handlers are kept. Child handlers are appended to base handlers for each event. |
-| `test:` | Field-by-field overlay. `cli_path`, `claude_path`, and `judge_model` are replaced individually only when the child sets a non-empty value. |
-| `settings:` / `local:` | Last file in the directory wins (single-settings-file convention). Not inherited via `extends:`. |
+| `project.test:` | Field-by-field overlay within `ProjectConfig`. `cli_path`, `claude_path`, and `judge_model` are replaced individually only when the child sets a non-empty value. |
+| `settings:` | Last file in the directory wins (single-settings-file convention). Inherited and merged via `extends:`. |
+| `project.local:` | Machine-local settings override within `ProjectConfig`. Not inherited via `extends:`. Compiles to `settings.local.json`. |
+
+### Compiler Scope Merge
+
+When a project config defines resources at both root level (global scope, from `extends:` or implicit global loading) and inside the `project:` block (workspace scope), the compiler merges them before rendering. Workspace resources override global resources by ID:
+
+| Resource level | Source | Priority |
+|---|---|---|
+| Root-level `agents:`, `skills:`, etc. | Global or inherited | Lower (base) |
+| `project.agents:`, `project.skills:`, etc. | Workspace-specific | Higher (override) |
+
+After merging, inherited resources (those originating from `extends:` chains) are stripped from the compilation output to prevent duplication.
 
 ### Additive Hook Pipelines
 

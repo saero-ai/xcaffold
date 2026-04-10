@@ -39,10 +39,12 @@ func TestWorkflowConfig_ZeroValue(t *testing.T) {
 // TestXcaffoldConfig_HasWorkflowsField verifies that XcaffoldConfig accepts a Workflows map.
 func TestXcaffoldConfig_HasWorkflowsField(t *testing.T) {
 	cfg := XcaffoldConfig{
-		Workflows: map[string]WorkflowConfig{
-			"build": {
-				Name:        "Build Workflow",
-				Description: "Compiles the project",
+		ResourceScope: ResourceScope{
+			Workflows: map[string]WorkflowConfig{
+				"build": {
+					Name:        "Build Workflow",
+					Description: "Compiles the project",
+				},
 			},
 		},
 	}

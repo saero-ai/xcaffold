@@ -17,46 +17,48 @@ import (
 // all AG-specific normalizations are applied correctly.
 func TestAntigravityRenderer_FullConfig(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "integration-test"},
-		Agents: map[string]ast.AgentConfig{
-			"worker": {
-				Name:         "Worker Agent",
-				Instructions: "Process jobs efficiently.",
+		Project: &ast.ProjectConfig{Name: "integration-test"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"worker": {
+					Name:         "Worker Agent",
+					Instructions: "Process jobs efficiently.",
+				},
 			},
-		},
-		Skills: map[string]ast.SkillConfig{
-			"deploy": {
-				Name:         "Deploy Skill",
-				Description:  "Handles deployment steps.",
-				Instructions: "Run the deploy pipeline.",
-				// CC-only fields that must be dropped
-				References: []string{"test/"},
-				Scripts:    []string{"run.sh"},
-				Assets:     []string{"icon.png"},
+			Skills: map[string]ast.SkillConfig{
+				"deploy": {
+					Name:         "Deploy Skill",
+					Description:  "Handles deployment steps.",
+					Instructions: "Run the deploy pipeline.",
+					// CC-only fields that must be dropped
+					References: []string{"test/"},
+					Scripts:    []string{"run.sh"},
+					Assets:     []string{"icon.png"},
+				},
 			},
-		},
-		Rules: map[string]ast.RuleConfig{
-			"formatting": {
-				Description:  "Code style rules",
-				Instructions: "Always use gofmt.",
-				Paths:        []string{"**/*.go"}, // must be dropped for AG
+			Rules: map[string]ast.RuleConfig{
+				"formatting": {
+					Description:  "Code style rules",
+					Instructions: "Always use gofmt.",
+					Paths:        []string{"**/*.go"}, // must be dropped for AG
+				},
+				"global-safety": {
+					Instructions: "Never delete production data.",
+				},
 			},
-			"global-safety": {
-				Instructions: "Never delete production data.",
+			MCP: map[string]ast.MCPConfig{
+				"remote-api": {
+					Type: "http",
+					URL:  "https://mcp.example.com/v1",
+				},
 			},
-		},
-		MCP: map[string]ast.MCPConfig{
-			"remote-api": {
-				Type: "http",
-				URL:  "https://mcp.example.com/v1",
-			},
-		},
-		Hooks: ast.HookConfig{
-			"PreToolUse": {
-				{
-					Matcher: "Bash",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo pre"},
+			Hooks: ast.HookConfig{
+				"PreToolUse": {
+					{
+						Matcher: "Bash",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo pre"},
+						},
 					},
 				},
 			},
@@ -129,10 +131,12 @@ func TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk(t *testing.T) {
 
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"from-file": {
-				Description:      "File-sourced rule",
-				InstructionsFile: "rule-body.md",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"from-file": {
+					Description:      "File-sourced rule",
+					InstructionsFile: "rule-body.md",
+				},
 			},
 		},
 	}
@@ -155,11 +159,13 @@ func TestAntigravityRenderer_Skill_InstructionsFile_ReadsFromDisk(t *testing.T) 
 
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"from-file": {
-				Name:             "File Skill",
-				Description:      "Sourced from disk",
-				InstructionsFile: "skill-body.md",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"from-file": {
+					Name:             "File Skill",
+					Description:      "Sourced from disk",
+					InstructionsFile: "skill-body.md",
+				},
 			},
 		},
 	}
@@ -181,9 +187,11 @@ func TestAntigravityRenderer_Skill_InstructionsFile_ReadsFromDisk(t *testing.T) 
 func TestAntigravityRenderer_Rule_InstructionsFile_TraversalRejected(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"bad-rule": {
-				InstructionsFile: "../../../etc/passwd",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"bad-rule": {
+					InstructionsFile: "../../../etc/passwd",
+				},
 			},
 		},
 	}

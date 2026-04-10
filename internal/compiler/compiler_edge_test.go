@@ -13,8 +13,10 @@ import (
 // TestCompile_AgentMinimalFields — agent with zero optional fields → frontmatter is just "---\n---\n"
 func TestCompile_AgentMinimalFields(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"minimal": {},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"minimal": {},
+			},
 		},
 	}
 	out, err := Compile(config, "", "")
@@ -28,9 +30,11 @@ func TestCompile_AgentMinimalFields(t *testing.T) {
 // TestCompile_AgentInstructionsTrailingNewlines — instructions ending with "\n\n\n" should be trimmed to one trailing newline
 func TestCompile_AgentInstructionsTrailingNewlines(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"trimtest": {
-				Instructions: "Do the thing.\n\n\n",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"trimtest": {
+					Instructions: "Do the thing.\n\n\n",
+				},
 			},
 		},
 	}
@@ -49,10 +53,12 @@ func TestCompile_AgentInstructionsTrailingNewlines(t *testing.T) {
 // TestCompile_SkillWithAllFields — all skill fields present in output
 func TestCompile_SkillWithAllFields(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"deploy": {
-				Description:  "Deploy the app",
-				Instructions: "Run the deploy script.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"deploy": {
+					Description:  "Deploy the app",
+					Instructions: "Run the deploy script.",
+				},
 			},
 		},
 	}
@@ -68,9 +74,11 @@ func TestCompile_SkillWithAllFields(t *testing.T) {
 // TestCompile_SkillEmptyID — whitespace-only ID should return an error
 func TestCompile_SkillEmptyID(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"   ": {
-				Description: "Blank ID skill",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"   ": {
+					Description: "Blank ID skill",
+				},
 			},
 		},
 	}
@@ -82,9 +90,11 @@ func TestCompile_SkillEmptyID(t *testing.T) {
 // TestCompile_RuleEmptyID — empty string ID should return an error
 func TestCompile_RuleEmptyID(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"": {
-				Instructions: "Some rule",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"": {
+					Instructions: "Some rule",
+				},
 			},
 		},
 	}
@@ -96,10 +106,12 @@ func TestCompile_RuleEmptyID(t *testing.T) {
 // TestCompile_RuleWithPaths — paths appear in rule frontmatter
 func TestCompile_RuleWithPaths(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"formatting": {
-				Paths:        []string{"**/*.go", "**/*.ts"},
-				Instructions: "Always use gofmt.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"formatting": {
+					Paths:        []string{"**/*.go", "**/*.ts"},
+					Instructions: "Always use gofmt.",
+				},
 			},
 		},
 	}
@@ -115,12 +127,14 @@ func TestCompile_RuleWithPaths(t *testing.T) {
 // TestCompile_HooksJSON — valid JSON output with 3-level nested structure
 func TestCompile_HooksJSON(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Hooks: ast.HookConfig{
-			"PreToolUse": []ast.HookMatcherGroup{
-				{
-					Matcher: "Bash",
-					Hooks: []ast.HookHandler{
-						{Type: "command", Command: "make lint"},
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"PreToolUse": []ast.HookMatcherGroup{
+					{
+						Matcher: "Bash",
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "make lint"},
+						},
 					},
 				},
 			},
@@ -149,12 +163,14 @@ func TestCompile_HooksJSON(t *testing.T) {
 // TestCompile_MCPSettingsJSON — valid JSON with "mcp" key, env map preserved
 func TestCompile_MCPSettingsJSON(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		MCP: map[string]ast.MCPConfig{
-			"my-server": {
-				Command: "node",
-				Args:    []string{"server.js"},
-				Env: map[string]string{
-					"API_KEY": "secret123",
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"my-server": {
+					Command: "node",
+					Args:    []string{"server.js"},
+					Env: map[string]string{
+						"API_KEY": "secret123",
+					},
 				},
 			},
 		},
@@ -191,8 +207,10 @@ func TestCompile_MCPSettingsJSON(t *testing.T) {
 // TestCompile_NoHooksOrMCP_NoJSON — hooks.json and settings.json absent when no hooks/mcp defined
 func TestCompile_NoHooksOrMCP_NoJSON(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"agent1": {Description: "An agent"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent1": {Description: "An agent"},
+			},
 		},
 	}
 	out, err := Compile(config, "", "")
@@ -208,9 +226,11 @@ func TestCompile_NoHooksOrMCP_NoJSON(t *testing.T) {
 // TestCompile_PathTraversalSkillID — "../evil" as skill ID → filepath.Clean prevents ".." in output key
 func TestCompile_PathTraversalSkillID(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"../evil": {
-				Description: "Malicious skill",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"../evil": {
+					Description: "Malicious skill",
+				},
 			},
 		},
 	}
@@ -230,9 +250,11 @@ func TestCompile_PathTraversalSkillID(t *testing.T) {
 func TestCompile_UnicodeInstructions(t *testing.T) {
 	unicodeInstructions := "日本語のテスト 🎉 これはテストです。"
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"unicode-agent": {
-				Instructions: unicodeInstructions,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"unicode-agent": {
+					Instructions: unicodeInstructions,
+				},
 			},
 		},
 	}
