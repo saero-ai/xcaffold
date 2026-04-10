@@ -36,14 +36,31 @@ graph LR
   end
 
   subgraph Outputs
-    E1[".claude/agents/*.md"]
-    E2[".cursor/rules/*.md"]
-    E3[".agents/**"]
     F["scaffold.lock  (or scaffold.<target>.lock)"]
-    G["<target>/skills/*/SKILL.md"]
-    H["<target>/rules/*.md"]
-    I["<target>/settings.json"]
-    J["<target>/hooks.json"]
+    
+    subgraph .claude/
+      C1["agents/*.md"]
+      C2["skills/*/SKILL.md"]
+      C3["rules/*.md"]
+      C4["hooks/*.sh"]
+      C5["settings.json"]
+      C6["mcp.json"]
+    end
+    
+    subgraph .cursor/
+      CU1["rules/*.md (Agents)"]
+      CU2["skills/*/SKILL.md"]
+      CU3["rules/*.md"]
+      CU4["mcp.json"]
+      CU5["hooks.json"]
+    end
+    
+    subgraph .agents/
+      A1["skills/*/SKILL.md"]
+      A2["rules/*.md"]
+      A3["workflows/*.md"]
+      A4["mcp_config.json"]
+    end
   end
 
   R -..->|registry lookup| A
@@ -53,9 +70,9 @@ graph LR
   C --> PE[Policy Engine]
   PE --> RG
   PE -->|"error → exit 1"| FAIL["stderr violations"]
-  RG --> RC --> E1
-  RG --> RCU --> E2
-  RG --> RA --> E3
+  RG --> RC --> C1
+  RG --> RCU --> CU1
+  RG --> RA --> A1
   C -->|Tracks SHA-256| D
   D --> F
 ```
@@ -155,16 +172,34 @@ Files without a `kind:` field are treated as `config` for backward compatibility
 
 ```
 <target_dir>/
-├── agents/
-│   ├── developer.md         ← YAML frontmatter (name, description, model, etc.) + markdown body
-│   └── cto.md
-├── skills/
-│   └── git-workflow/
-│       └── SKILL.md          ← YAML frontmatter + markdown body
-├── rules/
-│   └── code-review.md        ← YAML frontmatter + markdown body
-├── hooks.json                 ← JSON map of hook configs (only written when hooks are declared)
-└── settings.json              ← merged MCP + Settings block
+├── .claude/
+│   ├── agents/
+│   │   ├── developer.md
+│   │   └── cto.md
+│   ├── skills/
+│   │   └── git-workflow/
+│   │       └── SKILL.md
+│   ├── rules/
+│   │   └── code-review.md
+│   ├── settings.json
+│   └── mcp.json
+├── .cursor/
+│   ├── rules/                 ← Agents are compiled as rule files
+│   │   └── developer.mdc
+│   ├── skills/
+│   │   └── git-workflow/
+│   │       └── SKILL.md
+│   ├── hooks.json
+│   └── mcp.json
+└── .agents/                   ← (Antigravity target)
+    ├── workflows/
+    │   └── publish.md
+    ├── skills/
+    │   └── git-workflow/
+    │       └── SKILL.md
+    ├── rules/
+    │   └── code-review.md
+    └── mcp_config.json
 ```
 
 ### `settings.json` Compilation
