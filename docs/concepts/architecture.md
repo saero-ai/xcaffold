@@ -47,7 +47,7 @@ graph LR
   end
 
   R -..->|registry lookup| A
-  GC -->|"--scope global"| B
+  GC -->|"--global / -g"| B
   A --> B
   B --> C
   C --> RG
@@ -60,13 +60,14 @@ graph LR
 
 ---
 
-## Three Compilation Scopes
+## Two Compilation Scopes
 
-| Scope flag | Source | Output root |
+| Flag | Source | Output root |
 |---|---|---|
-| `project` (default) | `./scaffold.xcf` | `./.claude/` (or `.cursor/`, `.agents/`) |
-| `--scope global` | `~/.xcaffold/global.xcf` | `~/.claude/` (or `~/.cursor/`, `~/.agents/`) |
-| `--scope all` | Both of the above | Both output roots |
+| _(default)_ | `./scaffold.xcf` | `./.claude/` (or `.cursor/`, `.agents/`) |
+| `--global / -g` | `~/.xcaffold/global.xcf` | `~/.claude/` (or `~/.cursor/`, `~/.agents/`) |
+
+The two scopes are fully independent compilations with no atomicity guarantee. To compile both, run `xcaffold apply --global` then `xcaffold apply` separately.
 
 The output root is determined by the `--target` flag on `xcaffold apply`:
 
@@ -201,7 +202,7 @@ Export      → xcaffold export    (packages compiled output as a distributable 
 | Flag | Default | Purpose |
 |---|---|---|
 | `--config <path>` | `./scaffold.xcf` | Override `.xcf` file path (for monorepo sub-directories) |
-| `--scope <scope>` | `project` | Compilation scope: `project`, `global`, or `all` |
+| `--global` / `-g` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcf`) |
 
 ### `xcaffold apply` Flags
 
@@ -220,6 +221,7 @@ Export      → xcaffold export    (packages compiled output as a distributable 
 | `--project <name>` | Target a specific registered project by name or path |
 | `--full / -f` | Show fully expanded topology tree |
 | `--scan-output` | Scan compiled output directories for undeclared artifacts |
+| `--all` | Show global topology and all registered projects |
 
 ### `xcaffold import` Flags
 
