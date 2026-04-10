@@ -57,7 +57,7 @@ func TestRunApply_ScopeProject(t *testing.T) {
 	xcfPath = xcf
 	claudeDir = filepath.Join(dir, ".claude")
 	lockPath = filepath.Join(dir, "scaffold.lock")
-	scopeFlag = "project"
+	globalFlag = false
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
@@ -75,7 +75,8 @@ func TestRunApply_ScopeGlobal(t *testing.T) {
 	globalXcfPath = xcf
 	globalXcfHome = filepath.Join(dir, ".claude")
 	globalLockPath = filepath.Join(dir, "scaffold.lock")
-	scopeFlag = "global"
+	globalFlag = true
+	defer func() { globalFlag = false }()
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
@@ -85,36 +86,6 @@ func TestRunApply_ScopeGlobal(t *testing.T) {
 	assert.NoError(t, err, "scaffold.lock should be written for global scope")
 }
 
-func TestRunApply_ScopeAll(t *testing.T) {
-	dir := t.TempDir()
-
-	projXCF := filepath.Join(dir, "scaffold.xcf")
-	require.NoError(t, os.WriteFile(projXCF, []byte(minimalXCF), 0600))
-
-	globalXCF := filepath.Join(dir, "global.xcf")
-	require.NoError(t, os.WriteFile(globalXCF, []byte(minimalXCF), 0600))
-
-	xcfPath = projXCF
-	claudeDir = filepath.Join(dir, "proj-claude")
-	lockPath = filepath.Join(dir, "proj-scaffold.lock")
-
-	globalXcfPath = globalXCF
-	globalXcfHome = filepath.Join(dir, "global-claude")
-	globalLockPath = filepath.Join(dir, "global-scaffold.lock")
-
-	scopeFlag = "all"
-
-	err := runApply(nil, nil)
-	require.NoError(t, err)
-
-	targetProjLock := filepath.Join(dir, "proj-scaffold.claude.lock")
-	_, err = os.Stat(targetProjLock)
-	assert.NoError(t, err, "project scaffold.lock should be written")
-
-	targetGlobalLock := filepath.Join(dir, "global-scaffold.claude.lock")
-	_, err = os.Stat(targetGlobalLock)
-	assert.NoError(t, err, "global scaffold.lock should be written")
-}
 
 func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	dir := t.TempDir()
