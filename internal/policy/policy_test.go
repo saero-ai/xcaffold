@@ -112,3 +112,90 @@ func TestParseFile_InvalidYAML(t *testing.T) {
 		t.Error("expected parser error for bad YAML, got nil")
 	}
 }
+
+// TestMatch_HasTool_Matches returns true when agent has the specified tool.
+func TestMatch_HasTool_Matches(t *testing.T) {
+	m := policy.PolicyMatch{HasTool: "Bash"}
+	agent := map[string]any{"instructions": "x", "tools": []string{"Bash", "Read"}}
+	if !policy.MatchAgent(m, agent) {
+		t.Error("expected match for agent with Bash tool")
+	}
+}
+
+// TestMatch_HasTool_NoMatch returns false when agent lacks the specified tool.
+func TestMatch_HasTool_NoMatch(t *testing.T) {
+	m := policy.PolicyMatch{HasTool: "Bash"}
+	agent := map[string]any{"instructions": "x", "tools": []string{"Read"}}
+	if policy.MatchAgent(m, agent) {
+		t.Error("expected no match for agent without Bash")
+	}
+}
+
+// TestMatch_EmptyMatch matches all agents when no conditions are set.
+func TestMatch_EmptyMatch(t *testing.T) {
+	m := policy.PolicyMatch{}
+	agent := map[string]any{"instructions": "x"}
+	if !policy.MatchAgent(m, agent) {
+		t.Error("empty match should match all agents")
+	}
+}
+
+// TestMatch_NameMatches_Glob tests glob matching on resource names.
+func TestMatch_NameMatches_Glob(t *testing.T) {
+	m := policy.PolicyMatch{NameMatches: "backend-*"}
+	if !policy.MatchName(m, "backend-dev") {
+		t.Error("expected match for backend-dev against backend-*")
+	}
+	if policy.MatchName(m, "frontend-dev") {
+		t.Error("expected no match for frontend-dev against backend-*")
+	}
+}
+
+// TestRequire_IsPresent_Empty_Violation reports a violation when field is empty.
+func TestRequire_IsPresent_Empty_Violation(t *testing.T) {
+	present := true
+	req := policy.PolicyRequire{Field: "description", IsPresent: &present}
+	viols := policy.EvalRequire("agent", "my-agent", req, map[string]string{"description": ""})
+	if len(viols) == 0 {
+		t.Error("expected violation for empty description with is_present: true")
+	}
+}
+
+// TestRequire_MinLength_Short_Violation reports violation when string is too short.
+func TestRequire_MinLength_Short_Violation(t *testing.T) {
+	minLen := 50
+	req := policy.PolicyRequire{Field: "description", MinLength: &minLen}
+	viols := policy.EvalRequire("agent", "my-agent", req, map[string]string{"description": "too short"})
+	if len(viols) == 0 {
+		t.Error("expected violation for description shorter than 50 chars")
+	}
+}
+
+// TestRequire_OneOf_InvalidValue_Violation reports violation when value not in list.
+func TestRequire_OneOf_InvalidValue_Violation(t *testing.T) {
+	req := policy.PolicyRequire{Field: "model", OneOf: []string{"claude-sonnet-4-5-20250514", "claude-haiku-4-5-20251001"}}
+	viols := policy.EvalRequire("agent", "my-agent", req, map[string]string{"model": "gpt-4"})
+	if len(viols) == 0 {
+		t.Error("expected violation for model not in approved list")
+	}
+}
+
+// TestDeny_ContentContains_Found_Violation reports violation for denied string in content.
+func TestDeny_ContentContains_Found_Violation(t *testing.T) {
+	deny := policy.PolicyDeny{ContentContains: []string{"TODO", "FIXME"}}
+	files := map[string]string{"agents/dev.md": "# Dev Agent\nTODO: add instructions"}
+	viols := policy.EvalDeny("test-policy", policy.SeverityError, deny, files)
+	if len(viols) == 0 {
+		t.Error("expected violation for TODO in content")
+	}
+}
+
+// TestDeny_PathContains_Traversal_Violation reports violation for .. in output path.
+func TestDeny_PathContains_Traversal_Violation(t *testing.T) {
+	deny := policy.PolicyDeny{PathContains: ".."}
+	files := map[string]string{"../escape.md": "content"}
+	viols := policy.EvalDeny("path-safety", policy.SeverityError, deny, files)
+	if len(viols) == 0 {
+		t.Error("expected violation for .. in path")
+	}
+}
