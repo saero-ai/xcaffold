@@ -30,7 +30,7 @@ Each compilation target maintains its own independent lock manifest. The path fo
 
 This design means drift in one target is entirely isolated from others. A manual edit to a file in `.cursor/` has no effect on the `scaffold.claude.lock` manifest, and vice versa. Running `xcaffold diff --target cursor` checks only cursor artifacts; running it without a flag checks only claude artifacts. The two manifests are independent truth states.
 
-The `LockManifest` struct records the `Target` and `Scope` fields (`internal/state/state.go:47-48`) so that each manifest is self-describing — a manifest read in isolation carries enough metadata to identify which target and scope it was generated for.
+The `LockManifest` struct records the `Target` and `Scope` fields (`internal/state/state.go:46-47`) so that each manifest is self-describing — a manifest read in isolation carries enough metadata to identify which target and scope it was generated for.
 
 ---
 
@@ -68,7 +68,7 @@ The consequence is that the topology of the output directory at any point in tim
 
 xcaffold supports two compilation scopes: project and global. These are not merely organizational labels — they correspond to distinct filesystem locations with independent lock manifests and independent drift states.
 
-Project-scope lock files live alongside `scaffold.xcf` in the project directory. Global-scope lock files live in `~/.xcaffold/`, the global xcaffold home directory. The `Scope` field in `GenerateOpts` (`internal/state/state.go:62`) carries this distinction into the manifest itself.
+Project-scope lock files live alongside `scaffold.xcf` in the project directory. Global-scope lock files live in `~/.xcaffold/`, the global xcaffold home directory. The `Scope` field in `GenerateOpts` (`internal/state/state.go:63`) carries this distinction into the manifest itself.
 
 Because the manifests are independent, a drift condition in the global scope does not affect project-scope checks, and a project applying cleanly does not reset the global manifest. Each scope is a self-contained truth state. `runApply()` in `apply.go` dispatches to `applyScope()` with the correct `lockFile` path depending on whether `--global` is set, and `runDiff()` in `diff.go` similarly computes the correct `targetLock` path per scope before calling `diffScope()`.
 
