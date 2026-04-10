@@ -26,11 +26,6 @@ var applyBackup bool
 var applyProjectFlag string
 var targetFlag string
 
-const (
-	scopeAll     = "all"
-	scopeProject = "project"
-	scopeGlobal  = "global"
-)
 
 var applyCmd = &cobra.Command{
 	Use:   "apply",
@@ -92,14 +87,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 	}
 
 	if applyCheckOnly {
-		if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
+		if globalFlag {
 			if _, err := parser.ParseDirectory(globalXcfHome); err != nil {
 				return fmt.Errorf("[global] parse error: %w", err)
 			}
 			fmt.Println("[global] ✓ Syntax is valid")
 			printDiagnostics(parser.ValidateFile(globalXcfPath))
-		}
-		if scopeFlag == scopeProject || scopeFlag == scopeAll {
+		} else {
 			if _, err := parser.ParseDirectory(filepath.Dir(xcfPath)); err != nil {
 				return fmt.Errorf("[project] parse error: %w", err)
 			}
@@ -137,17 +131,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
-		if err := applyScope(globalXcfPath, globalXcfHome, globalLockPath, scopeGlobal); err != nil {
-			return err
-		}
+	if globalFlag {
+		return applyScope(globalXcfPath, globalXcfHome, globalLockPath, "global")
 	}
-	if scopeFlag == scopeProject || scopeFlag == scopeAll {
-		if err := applyScope(xcfPath, claudeDir, lockPath, scopeProject); err != nil {
-			return err
-		}
-		_ = registry.UpdateLastApplied(filepath.Dir(xcfPath))
+	if err := applyScope(xcfPath, claudeDir, lockPath, "project"); err != nil {
+		return err
 	}
+	_ = registry.UpdateLastApplied(filepath.Dir(xcfPath))
 	return nil
 }
 
