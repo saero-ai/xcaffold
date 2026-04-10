@@ -53,8 +53,6 @@ func TestCompile_SkillWithAllFields(t *testing.T) {
 			"deploy": {
 				Description:  "Deploy the app",
 				Instructions: "Run the deploy script.",
-				Paths:        []string{"deploy/", "scripts/"},
-				Tools:        []string{"Bash", "Read"},
 			},
 		},
 	}
@@ -64,8 +62,6 @@ func TestCompile_SkillWithAllFields(t *testing.T) {
 	content, ok := out.Files["skills/deploy/SKILL.md"]
 	require.True(t, ok, "skills/deploy/SKILL.md should exist in output")
 	assert.Contains(t, content, "description: Deploy the app")
-	assert.Contains(t, content, "tools: [Bash, Read]")
-	assert.Contains(t, content, "paths: [deploy/, scripts/]")
 	assert.Contains(t, content, "Run the deploy script.")
 }
 

@@ -292,15 +292,12 @@ func appendGraphSkills(config *ast.XcaffoldConfig, g *graphData) {
 		var tools []string
 		if len(skill.Tools) > 0 {
 			tools = skill.Tools
-		} else if len(skill.AllowedTools) > 0 {
-			tools = skill.AllowedTools
 		}
 		g.Nodes = append(g.Nodes, graphNode{
 			ID:    "skill:" + id,
 			Kind:  kindSkill,
 			Label: label,
 			Tools: tools,
-			Paths: skill.Paths,
 		})
 	}
 }

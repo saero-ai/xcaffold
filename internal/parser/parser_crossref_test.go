@@ -106,19 +106,3 @@ agents:
 	require.NoError(t, err, "agent without references should parse")
 	require.NotNil(t, cfg)
 }
-
-func TestParse_SkillReferencesUndefinedAgent(t *testing.T) {
-	yaml := `
-version: "1.0"
-project:
-  name: "test-project"
-skills:
-  deploy:
-    description: "Deploy skill"
-    agent: "devops"
-`
-	_, err := Parse(strings.NewReader(yaml))
-	require.Error(t, err, "skill referencing undefined agent must be rejected")
-	assert.Contains(t, err.Error(), "devops")
-	assert.Contains(t, err.Error(), "deploy")
-}

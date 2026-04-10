@@ -68,8 +68,16 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files[safePath] = md
 
 		// Copy reference files into skills/<id>/references/
-		if err := compileSkillReferences(id, skill, baseDir, out); err != nil {
+		if err := compileSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
 			return nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
+		}
+		// Copy script files into skills/<id>/scripts/
+		if err := compileSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
+			return nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
+		}
+		// Copy asset files into skills/<id>/assets/
+		if err := compileSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
+			return nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
 		}
 	}
 
@@ -251,17 +259,7 @@ func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (str
 	var sb strings.Builder
 	sb.WriteString("---\n")
 
-	appendSkillCoreMeta(&sb, skill)
-	appendSkillConfigMeta(&sb, skill)
-	appendSkillAgentMeta(&sb, skill)
-
-	if len(skill.Hooks) > 0 {
-		hooksYAML, err := yaml.Marshal(map[string]ast.HookConfig{"hooks": skill.Hooks})
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal skill hooks: %w", err)
-		}
-		sb.WriteString(string(hooksYAML))
-	}
+	appendSkillMeta(&sb, skill)
 	sb.WriteString("---\n")
 
 	if body != "" {
@@ -273,12 +271,9 @@ func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (str
 	return sb.String(), nil
 }
 
-func appendSkillCoreMeta(sb *strings.Builder, skill ast.SkillConfig) {
+func appendSkillMeta(sb *strings.Builder, skill ast.SkillConfig) {
 	if skill.Name != "" {
 		fmt.Fprintf(sb, "name: %s\n", skill.Name)
-	}
-	if skill.Type != "" {
-		fmt.Fprintf(sb, "type: %s\n", skill.Type)
 	}
 	if skill.Description != "" {
 		fmt.Fprintf(sb, "description: %s\n", skill.Description)
@@ -286,65 +281,31 @@ func appendSkillCoreMeta(sb *strings.Builder, skill ast.SkillConfig) {
 	if len(skill.Tools) > 0 {
 		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(skill.Tools, ", "))
 	}
-	if len(skill.AllowedTools) > 0 {
-		fmt.Fprintf(sb, "allowed-tools: [%s]\n", strings.Join(skill.AllowedTools, ", "))
-	}
-	if len(skill.Paths) > 0 {
-		fmt.Fprintf(sb, "paths: [%s]\n", strings.Join(skill.Paths, ", "))
-	}
 }
 
-func appendSkillConfigMeta(sb *strings.Builder, skill ast.SkillConfig) {
-	if skill.DisableModelInvocation != nil {
-		fmt.Fprintf(sb, "disable-model-invocation: %t\n", *skill.DisableModelInvocation)
-	}
-	if skill.UserInvocable != nil {
-		fmt.Fprintf(sb, "user-invocable: %t\n", *skill.UserInvocable)
-	}
-	if skill.Context != "" {
-		fmt.Fprintf(sb, "context: %s\n", skill.Context)
-	}
-	if skill.Shell != "" {
-		fmt.Fprintf(sb, "shell: %s\n", skill.Shell)
-	}
-	if skill.ArgumentHint != "" {
-		fmt.Fprintf(sb, "argument-hint: %s\n", skill.ArgumentHint)
-	}
-}
-
-func appendSkillAgentMeta(sb *strings.Builder, skill ast.SkillConfig) {
-	if skill.Agent != "" {
-		fmt.Fprintf(sb, "agent: %s\n", skill.Agent)
-	}
-	if skill.Model != "" {
-		if resolved, ok := renderer.ResolveModel(skill.Model, "claude"); ok && resolved != "" {
-			fmt.Fprintf(sb, "model: %s\n", resolved)
-		} else {
-			fmt.Fprintf(sb, "model: %s\n", skill.Model) // fallback if something fails
-		}
-	}
-	if skill.Effort != "" {
-		fmt.Fprintf(sb, "effort: %s\n", skill.Effort)
-	}
-}
-
-// compileSkillReferences copies reference files into the skill's output directory.
-// Reference paths are resolved relative to baseDir and placed under skills/<id>/references/.
-func compileSkillReferences(id string, skill ast.SkillConfig, baseDir string, out *output.Output) error {
-	if len(skill.References) == 0 {
+// compileSkillSubdir copies a set of files (resolved via glob from baseDir)
+// into a named subdirectory of the skill's output directory:
+//
+//	skills/<id>/<subdir>/<filename>
+//
+// Supported subdirs: references, scripts, assets.
+// Each pattern in paths is resolved relative to baseDir. Path traversal above
+// baseDir is rejected. Glob patterns are expanded; literal paths are read directly.
+func compileSkillSubdir(id, subdir string, paths []string, baseDir string, out *output.Output) error {
+	if len(paths) == 0 {
 		return nil
 	}
 
-	for _, pattern := range skill.References {
+	for _, pattern := range paths {
 		// Security: pattern must not traverse above baseDir.
 		cleanedPattern := filepath.Clean(pattern)
 		if strings.HasPrefix(cleanedPattern, "..") {
-			return fmt.Errorf("references path %q traverses above the project root", pattern)
+			return fmt.Errorf("%s path %q traverses above the project root", subdir, pattern)
 		}
 
 		absPattern := filepath.Join(baseDir, cleanedPattern)
 
-		// Expand glob patterns (e.g. "skills/my/references/*.md")
+		// Expand glob patterns (e.g. "docs/schema/*.sql")
 		matches, err := filepath.Glob(absPattern)
 		if err != nil {
 			return fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
@@ -353,10 +314,10 @@ func compileSkillReferences(id string, skill ast.SkillConfig, baseDir string, ou
 			// Treat as a literal path — if missing, it's an error.
 			data, readErr := os.ReadFile(absPattern)
 			if readErr != nil {
-				return fmt.Errorf("reference file %q: %w", pattern, readErr)
+				return fmt.Errorf("%s file %q: %w", subdir, pattern, readErr)
 			}
 			baseName := filepath.Base(absPattern)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/references/%s", id, baseName))
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
 			out.Files[outPath] = string(data)
 			continue
 		}
@@ -364,10 +325,10 @@ func compileSkillReferences(id string, skill ast.SkillConfig, baseDir string, ou
 		for _, match := range matches {
 			data, err := os.ReadFile(match)
 			if err != nil {
-				return fmt.Errorf("reference file %q: %w", match, err)
+				return fmt.Errorf("%s file %q: %w", subdir, match, err)
 			}
 			baseName := filepath.Base(match)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/references/%s", id, baseName))
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
 			out.Files[outPath] = string(data)
 		}
 	}

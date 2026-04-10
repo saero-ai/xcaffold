@@ -96,6 +96,11 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 		parsedFiles = append(parsedFiles, ParsedFile{Config: cfg, FilePath: f})
 	}
 
+	globalConfig, err := loadGlobalBase()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load implicit global configuration: %w", err)
+	}
+
 	merged, err := mergeAllStrict(parsedFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge config files in %q: %w", dir, err)
@@ -107,6 +112,9 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 			return nil, err
 		}
 	}
+
+	// Implicitly overlay the project configuration on top of the global base
+	merged = mergeConfigOverride(globalConfig, merged)
 
 	return merged, nil
 }
@@ -168,9 +176,50 @@ func parseFileExact(path string) (*ast.XcaffoldConfig, error) {
 	return config, nil
 }
 
+// loadGlobalBase implicitly discovers and loads the global configuration
+// from ~/.xcaffold/ (or falls back to legacy ~/.claude/global.xcf).
+// It returns an empty config if no global config is found.
+// Resources loaded from this base are tagged as Inherited=true during merge.
+func loadGlobalBase() (*ast.XcaffoldConfig, error) {
+	if os.Getenv("XCAFFOLD_SKIP_GLOBAL") == "true" {
+		return &ast.XcaffoldConfig{}, nil
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return &ast.XcaffoldConfig{}, nil // ignore errors, just no global
+	}
+
+	xcaffoldDir := filepath.Join(home, ".xcaffold")
+	if stat, err := os.Stat(xcaffoldDir); err == nil && stat.IsDir() {
+		// Parse the dir, but disable global loading to avoid infinite recursion!
+		// parseDirectoryRaw natively parses a dir without applying global base.
+		cfg, err := parseDirectoryRaw(xcaffoldDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
+		}
+		// If the global config itself extends something, resolve it!
+		if cfg.Extends != "" {
+			visited := map[string]bool{xcaffoldDir: true}
+			cfg, err = resolveExtendsRecursive(xcaffoldDir, cfg, visited)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return cfg, nil
+	}
+
+	return &ast.XcaffoldConfig{}, nil
+}
+
 // ParseFile reads a .xcf YAML configuration from the given path, resolving
 // 'extends:' references recursively. Evaluated as a strict, single file entry point.
 func ParseFile(path string) (*ast.XcaffoldConfig, error) {
+	globalConfig, err := loadGlobalBase()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load implicit global configuration: %w", err)
+	}
+
 	config, err := parseFileExact(path)
 	if err != nil {
 		return nil, err
@@ -181,10 +230,14 @@ func ParseFile(path string) (*ast.XcaffoldConfig, error) {
 			return nil, err
 		}
 	}
-	if err := validateMerged(config); err != nil {
+
+	// Implicitly overlay the project configuration on top of the global base
+	merged := mergeConfigOverride(globalConfig, config)
+
+	if err := validateMerged(merged); err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
-	return config, nil
+	return merged, nil
 }
 
 func resolveExtends(contextDir string, config *ast.XcaffoldConfig) (*ast.XcaffoldConfig, error) {
@@ -409,6 +462,8 @@ func mergeHooksAdditive(base, child ast.HookConfig) ast.HookConfig {
 }
 
 // mergeConfigOverride is used for extends resolution where the child overrides the base entirely.
+// Base resources (those not overridden by the child) are tagged Inherited=true so renderers
+// can skip them during project-scope compilation — they are already compiled at global scope.
 func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged := &ast.XcaffoldConfig{
 		Version: child.Version, // child overrides version
@@ -428,11 +483,13 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 
 	merged.Extends = "" // after resolving, extends is empty
 
-	merged.Agents = mergeMapOverride(base.Agents, child.Agents)
-	merged.Skills = mergeMapOverride(base.Skills, child.Skills)
-	merged.Rules = mergeMapOverride(base.Rules, child.Rules)
-	merged.MCP = mergeMapOverride(base.MCP, child.MCP)
-	merged.Workflows = mergeMapOverride(base.Workflows, child.Workflows)
+	// Tag all base resources as inherited so renderers skip them during project-scope
+	// compilation. Resources the child declares (same ID) are child-owned and NOT tagged.
+	merged.Agents = mergeAgentsOverrideInherited(base.Agents, child.Agents)
+	merged.Skills = mergeSkillsOverrideInherited(base.Skills, child.Skills)
+	merged.Rules = mergeRulesOverrideInherited(base.Rules, child.Rules)
+	merged.MCP = mergeMCPOverrideInherited(base.MCP, child.MCP)
+	merged.Workflows = mergeWorkflowsOverrideInherited(base.Workflows, child.Workflows)
 	merged.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
 
 	merged.Test = base.Test
@@ -465,6 +522,97 @@ func mergeMapOverride[K comparable, V any](base, child map[K]V) map[K]V {
 	}
 	return merged
 }
+
+// mergeMapOverrideInherited merges two maps where base resources are tagged
+// Inherited=true. Child resources (which override base) take precedence and are
+// NOT tagged. This is implemented per concrete type because Go generics cannot
+// assign to struct fields through a type parameter without reflection.
+
+func mergeAgentsOverrideInherited(base, child map[string]ast.AgentConfig) map[string]ast.AgentConfig {
+	if base == nil && child == nil {
+		return nil
+	}
+	merged := make(map[string]ast.AgentConfig, len(base)+len(child))
+	for k, v := range base {
+		v.Inherited = true
+		merged[k] = v
+	}
+	for k, v := range child {
+		v.Inherited = false
+		merged[k] = v
+	}
+	return merged
+}
+
+func mergeSkillsOverrideInherited(base, child map[string]ast.SkillConfig) map[string]ast.SkillConfig {
+	if base == nil && child == nil {
+		return nil
+	}
+	merged := make(map[string]ast.SkillConfig, len(base)+len(child))
+	for k, v := range base {
+		v.Inherited = true
+		merged[k] = v
+	}
+	for k, v := range child {
+		v.Inherited = false
+		merged[k] = v
+	}
+	return merged
+}
+
+func mergeRulesOverrideInherited(base, child map[string]ast.RuleConfig) map[string]ast.RuleConfig {
+	if base == nil && child == nil {
+		return nil
+	}
+	merged := make(map[string]ast.RuleConfig, len(base)+len(child))
+	for k, v := range base {
+		v.Inherited = true
+		merged[k] = v
+	}
+	for k, v := range child {
+		v.Inherited = false
+		merged[k] = v
+	}
+	return merged
+}
+
+func mergeMCPOverrideInherited(base, child map[string]ast.MCPConfig) map[string]ast.MCPConfig {
+	if base == nil && child == nil {
+		return nil
+	}
+	merged := make(map[string]ast.MCPConfig, len(base)+len(child))
+	for k, v := range base {
+		v.Inherited = true
+		merged[k] = v
+	}
+	for k, v := range child {
+		v.Inherited = false
+		merged[k] = v
+	}
+	return merged
+}
+
+func mergeWorkflowsOverrideInherited(base, child map[string]ast.WorkflowConfig) map[string]ast.WorkflowConfig {
+	if base == nil && child == nil {
+		return nil
+	}
+	merged := make(map[string]ast.WorkflowConfig, len(base)+len(child))
+	for k, v := range base {
+		v.Inherited = true
+		merged[k] = v
+	}
+	for k, v := range child {
+		v.Inherited = false
+		merged[k] = v
+	}
+	return merged
+}
+
+// mergeMapOverrideInherited is a shim to satisfy the call sites in mergeConfigOverride.
+// Each concrete type is dispatched to its typed implementation above.
+// The type parameter constraint uses ~map[string]V but Go doesn't support that
+// elegantly, so we keep this as a compile-time documented stub — actual calls
+// use the concrete functions.
 
 // Validations
 
@@ -731,13 +879,7 @@ func validateCrossReferences(c *ast.XcaffoldConfig) error {
 			}
 		}
 	}
-	for skillID, skill := range c.Skills {
-		if skill.Agent != "" {
-			if _, ok := c.Agents[skill.Agent]; !ok {
-				return fmt.Errorf("skill %q references undefined agent %q", skillID, skill.Agent)
-			}
-		}
-	}
+
 	return nil
 }
 
@@ -779,18 +921,27 @@ func ValidateFile(path string) []Diagnostic {
 func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 	var diags []Diagnostic
 
-	// Skill references: warning on missing files
+	// Skill subdirectory file sets: warn on missing files for references, scripts, assets
 	for id, skill := range c.Skills {
-		for _, ref := range skill.References {
-			if ref == "" {
-				continue
-			}
-			abs := filepath.Join(baseDir, ref)
-			if _, err := os.Stat(abs); os.IsNotExist(err) {
-				diags = append(diags, Diagnostic{
-					Severity: "warning",
-					Message:  fmt.Sprintf("skill %q references file that does not exist: %q", id, ref),
-				})
+		for _, subdirPaths := range []struct {
+			subdir string
+			paths  []string
+		}{
+			{"references", skill.References},
+			{"scripts", skill.Scripts},
+			{"assets", skill.Assets},
+		} {
+			for _, ref := range subdirPaths.paths {
+				if ref == "" {
+					continue
+				}
+				abs := filepath.Join(baseDir, ref)
+				if _, err := os.Stat(abs); os.IsNotExist(err) {
+					diags = append(diags, Diagnostic{
+						Severity: "warning",
+						Message:  fmt.Sprintf("skill %q %s file that does not exist: %q", id, subdirPaths.subdir, ref),
+					})
+				}
 			}
 		}
 	}

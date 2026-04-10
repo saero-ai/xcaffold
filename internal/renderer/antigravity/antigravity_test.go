@@ -293,25 +293,16 @@ func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
 
 func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	r := antigravity.New()
-	userInvocable := true
-	disabled := true
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
 			"rich-skill": {
-				Name:                   "Rich Skill",
-				Description:            "Has many fields.",
-				Instructions:           "Do something.",
-				DisableModelInvocation: &disabled,
-				Tools:                  []string{"Bash"},
-				AllowedTools:           []string{"Read"},
-				Context:                "fork",
-				Agent:                  "my-agent",
-				Model:                  "claude-opus-4-5",
-				Effort:                 "high",
-				Shell:                  "bash",
-				ArgumentHint:           "hint text",
-				UserInvocable:          &userInvocable,
-				Paths:                  []string{"**/*.go"},
+				Name:         "Rich Skill",
+				Description:  "Has many fields.",
+				Instructions: "Do something.",
+				Tools:        []string{"Bash"},
+				References:   []string{"**/*.go"},
+				Scripts:      []string{"setup.sh"},
+				Assets:       []string{"icon.png"},
 			},
 		},
 	}
@@ -324,9 +315,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 
 	// CC-only and target-specific fields must NOT appear
 	for _, dropped := range []string{
-		"tools:", "allowed-tools:", "context:", "agent:", "model:", "effort:",
-		"shell:", "argument-hint:", "user-invocable:", "paths:",
-		"disable-model-invocation:",
+		"tools:", "references:", "scripts:", "assets:",
 	} {
 		assert.NotContains(t, content, dropped, "field %q must be dropped for AG skills", dropped)
 	}
