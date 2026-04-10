@@ -5,6 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Replaced `--scope global|project|all` flag with `--global / -g` boolean flag across all commands (cli)
+- Changed `validate` command to accept `--global` for validating `~/.xcaffold/global.xcf` (cli)
+- Changed global config template to omit `project:` block (registry)
+
+### Added
+- Added `--all` flag to `graph` command for combined global and registered projects view (graph)
+
+### Removed
+- Removed `plan` command — use `apply --dry-run` instead (cli)
+- Removed `--scope all` compilation mode (cli)
+
 ### Added
 - Smart Compilation Skipping: `xcaffold apply` tracks multi-file source hashing to skip redundant compilation automatically.
 - Deterministic Orphan Purge: `xcaffold apply` identifies and silently prunes missing artifacts to prevent config bloat, supporting `--dry-run` previews natively.
