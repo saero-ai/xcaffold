@@ -28,7 +28,7 @@ var diffCmd = &cobra.Command{
 
 Usage:
   $ xcaffold diff
-  $ xcaffold diff --scope global
+  $ xcaffold diff --global
   $ xcaffold diff --target cursor
   $ xcaffold diff --target antigravity`,
 	Example: "  $ xcaffold diff --target cursor",
@@ -41,30 +41,30 @@ func init() {
 }
 
 func runDiff(cmd *cobra.Command, args []string) error {
-	totalDrift := 0
-
-	if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
+	if globalFlag {
 		targetDir := filepath.Join(filepath.Dir(globalXcfHome), compiler.OutputDir(diffTargetFlag))
 		targetLock := state.LockFilePath(globalLockPath, diffTargetFlag)
-		drift, err := diffScope(targetDir, targetLock, scopeGlobal)
+		drift, err := diffScope(targetDir, targetLock, "global")
 		if err != nil {
 			return err
 		}
-		totalDrift += drift
-	}
-	if scopeFlag == scopeProject || scopeFlag == scopeAll {
-		targetDir := filepath.Join(filepath.Dir(claudeDir), compiler.OutputDir(diffTargetFlag))
-		targetLock := state.LockFilePath(lockPath, diffTargetFlag)
-		drift, err := diffScope(targetDir, targetLock, scopeProject)
-		if err != nil {
-			return err
+		fmt.Println()
+		if drift > 0 {
+			return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply --global --target %s' to restore managed state", drift, diffTargetFlag)
 		}
-		totalDrift += drift
+		fmt.Println("No drift detected. All managed files are in sync.")
+		return nil
 	}
 
+	targetDir := filepath.Join(filepath.Dir(claudeDir), compiler.OutputDir(diffTargetFlag))
+	targetLock := state.LockFilePath(lockPath, diffTargetFlag)
+	drift, err := diffScope(targetDir, targetLock, "project")
+	if err != nil {
+		return err
+	}
 	fmt.Println()
-	if totalDrift > 0 {
-		return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply --target %s' to restore managed state", totalDrift, diffTargetFlag)
+	if drift > 0 {
+		return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply --target %s' to restore managed state", drift, diffTargetFlag)
 	}
 	fmt.Println("No drift detected. All managed files are in sync.")
 	return nil
@@ -77,7 +77,11 @@ func runDiff(cmd *cobra.Command, args []string) error {
 func diffScope(outputDir, lockFile, scopeName string) (int, error) {
 	manifest, err := state.Read(lockFile)
 	if err != nil {
-		return 0, fmt.Errorf("[%s] could not read lock file: %w\n\nHint: run 'xcaffold apply --scope %s' first", scopeName, err, scopeName)
+		hint := "xcaffold apply"
+		if scopeName == "global" {
+			hint = "xcaffold apply --global"
+		}
+		return 0, fmt.Errorf("[%s] could not read lock file: %w\n\nHint: run '%s' first", scopeName, err, hint)
 	}
 
 	driftCount := 0

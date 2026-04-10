@@ -20,6 +20,7 @@ var graphAgent string
 var graphProject string
 var graphFull bool
 var graphScanOutput bool
+var graphAll bool
 
 const (
 	kindAgent = "agent"
@@ -60,6 +61,7 @@ func init() {
 	graphCmd.Flags().StringVarP(&graphProject, "project", "p", "", "Target a specific managed project by registered name or path")
 	graphCmd.Flags().BoolVarP(&graphFull, "full", "f", false, "Show the fully expanded topology tree (always true if targeting an agent)")
 	graphCmd.Flags().BoolVar(&graphScanOutput, "scan-output", false, "Scan compiled output directories for undeclared artifacts")
+	graphCmd.Flags().BoolVar(&graphAll, "all", false, "Show global topology and all registered projects")
 	rootCmd.AddCommand(graphCmd)
 }
 
@@ -94,47 +96,69 @@ type graphData struct {
 func runGraph(cmd *cobra.Command, args []string) error {
 	var scopes []*graphData
 
-	if graphProject != "" {
+	// Mutual exclusion checks
+	if graphAll && globalFlag {
+		return fmt.Errorf("--all and --global are mutually exclusive")
+	}
+	if graphAll && graphProject != "" {
+		return fmt.Errorf("--all and --project are mutually exclusive")
+	}
+
+	if graphAll {
+		// Global topology
+		gGlobal, err := parseGraphData(globalXcfPath, "global")
+		if err != nil {
+			return err
+		}
+		scopes = append(scopes, gGlobal)
+
+		// All registered projects
+		projects, err := registry.List()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not list registered projects: %v\n", err)
+		} else {
+			for _, p := range projects {
+				projXcf := filepath.Join(p.Path, "scaffold.xcf")
+				if p.ConfigDir != "" && p.ConfigDir != "." {
+					projXcf = filepath.Join(p.Path, p.ConfigDir, "scaffold.xcf")
+				}
+				g, err := parseGraphData(projXcf, fmt.Sprintf("project:%s", p.Name))
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "warning: skipping project %q: %v\n", p.Name, err)
+					continue
+				}
+				scopes = append(scopes, g)
+			}
+		}
+	} else if graphProject != "" {
 		p, err := registry.Resolve(graphProject)
 		if err != nil {
 			return err
 		}
-
 		projXcf := filepath.Join(p.Path, "scaffold.xcf")
 		g, err := parseGraphData(projXcf, fmt.Sprintf("project:%s", p.Name))
 		if err != nil {
 			return err
 		}
 		scopes = append(scopes, g)
-
-		if scopeFlag == scopeAll {
-			gGlobal, err := parseGraphData(globalXcfPath, scopeGlobal)
-			if err != nil {
-				return err
-			}
-			scopes = append(scopes, gGlobal)
-		}
 	} else if len(args) > 0 {
 		g, err := parseGraphData(args[0], "")
 		if err != nil {
 			return err
 		}
 		scopes = append(scopes, g)
+	} else if globalFlag {
+		g, err := parseGraphData(globalXcfPath, "global")
+		if err != nil {
+			return err
+		}
+		scopes = append(scopes, g)
 	} else {
-		if scopeFlag == scopeGlobal || scopeFlag == scopeAll {
-			g, err := parseGraphData(globalXcfPath, scopeGlobal)
-			if err != nil {
-				return err
-			}
-			scopes = append(scopes, g)
+		g, err := parseGraphData(xcfPath, "project")
+		if err != nil {
+			return err
 		}
-		if scopeFlag == scopeProject || scopeFlag == scopeAll {
-			g, err := parseGraphData(xcfPath, scopeProject)
-			if err != nil {
-				return err
-			}
-			scopes = append(scopes, g)
-		}
+		scopes = append(scopes, g)
 	}
 
 	if len(scopes) == 0 {
@@ -859,9 +883,9 @@ func renderTerminalSummary(scopes []*graphData) string {
 	var sb strings.Builder
 
 	for _, g := range scopes {
-		if g.Scope == scopeGlobal {
+		if g.Scope == "global" {
 			sb.WriteString("\n[ GLOBAL ]\n")
-		} else if g.Scope == scopeProject {
+		} else if g.Scope == "project" {
 			sb.WriteString("\n[ PROJECTS ]\n")
 		} else {
 			sb.WriteString(fmt.Sprintf("\n[ TARGET: %s ]\n", g.ConfigPath))
@@ -900,7 +924,7 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 	}
 
 	label := g.Project
-	if label == "" && g.Scope == scopeGlobal {
+	if label == "" && g.Scope == "global" {
 		label = "Global Context"
 	} else if label == "" {
 		label = "Unnamed Context"

@@ -35,13 +35,13 @@ var initCmd = &cobra.Command{
  • Guides you through an interactive wizard for new projects.
  • Infers project name from the current directory (like npm init).
  • Use --yes / -y to accept all defaults non-interactively (CI/CD).
- • Use --scope global to create a user-wide global.xcf in ~/.claude/ (xcaffold home).
+ • Use --global to create a user-wide global.xcf in ~/.xcaffold/ (xcaffold home).
 
 Ready to get started? Run:
   $ xcaffold init`,
 	Example: `  $ xcaffold init
   $ xcaffold init --yes
-  $ xcaffold init --scope global`,
+  $ xcaffold init --global`,
 	RunE: runInit,
 }
 
@@ -71,7 +71,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	}
 
 	// ── Phase 2: Detect existing .claude/ and offer import ─────────────────
-	if scopeFlag == scopeGlobal {
+	if globalFlag {
 		return initGlobal()
 	}
 	return initProject(cmd)
@@ -512,7 +512,7 @@ func initGlobal() error {
 	} else {
 		fmt.Printf("✓ %s created.\n", target)
 	}
-	fmt.Println("  Edit it to define your global agents, then run 'xcaffold apply --scope global'.")
+	fmt.Println("  Edit it to define your global agents, then run 'xcaffold apply --global'.")
 	fmt.Println("  Projects can inherit with 'extends: global' in their scaffold.xcf.")
 	fmt.Printf("  Output: ~/.claude/ | ~/.cursor/ | ~/.agents/ (depending on --target)\n")
 	return nil
