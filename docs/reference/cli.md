@@ -11,16 +11,12 @@ Available on every subcommand via `rootCmd.PersistentFlags()`.
 | Flag | Default | Description |
 |---|---|---|
 | `--config <path>` | `""` | Path to a `scaffold.xcf` file or a directory containing `.xcf` files. If a directory is given, `parser.ParseDirectory()` scans all `*.xcf` files within it. Defaults to `./scaffold.xcf` discovered via upward directory walk. |
-| `--scope <scope>` | `project` | Compilation scope. One of `project`, `global`, or `all`. `global` operates on `~/.xcaffold/global.xcf`. `all` runs both scopes sequentially. |
+| `--global` / `-g` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcf`). When omitted, the default scope is project. |
 | `--version` | — | Prints `<version> (commit: <sha>, date: <date>)` and exits. |
 
 **Scope resolution (`resolveConfig` in `main.go`):**
 
-| Scope | Config resolved | Skipped for |
-|---|---|---|
-| `project` | `./scaffold.xcf` via `resolver.FindConfigDir` upward walk | — |
-| `global` | `~/.xcaffold/global.xcf` | `init`, `import` |
-| `all` | Both scopes sequentially | — |
+When `--global` is set, config is resolved to `~/.xcaffold/global.xcf`. Otherwise, `./scaffold.xcf` is discovered via `resolver.FindConfigDir` upward walk. `--global` is skipped for `init` and `import` (they bootstrap configs, so no pre-existing config is required).
 
 ---
 
@@ -34,7 +30,7 @@ Bootstraps a new `scaffold.xcf`. Idempotent: if `scaffold.xcf` already exists, e
 
 On first run, detects existing `.claude/`, `.cursor/`, and `.agents/` platform directories. Presents a confirmation or interactive multi-select to import them. With `--yes`, imports all detected directories without prompting.
 
-With `--scope global`, runs `registry.RebuildGlobalXCF()` to scan `~/.claude/`, `~/.cursor/`, and `~/.agents/` and write `~/.xcaffold/global.xcf`.
+With `--global`, runs `registry.RebuildGlobalXCF()` to scan `~/.claude/`, `~/.cursor/`, and `~/.agents/` and write `~/.xcaffold/global.xcf`.
 
 | Flag | Short | Default | Description |
 |---|---|---|---|
@@ -95,6 +91,7 @@ Renders the agent dependency graph parsed from `scaffold.xcf`. Default terminal 
 | `--project <name>` | `-p` | `""` | Target a registered project by name or path instead of the current directory. |
 | `--full` | `-f` | `false` | Show the fully expanded topology tree. Default view is a summary. |
 | `--scan-output` | — | `false` | Also scan compiled output directories for artifacts not tracked in `scaffold.xcf`. |
+| `--all` | — | `false` | Show global topology and all registered projects in one view. Mutually exclusive with `--global` and `--project`. |
 
 **Format details:**
 
@@ -135,19 +132,6 @@ Compiles `scaffold.xcf` (or a directory of `.xcf` files) into a target platform'
 | `--force` | `false` | Overwrite even if drift is detected or sources are unchanged. |
 | `--backup` | `false` | Copy the existing output directory to a timestamped backup before overwriting. Backup directory name: `.<target>_bak_<timestamp>`. Custom location via `project.backup_dir` in `scaffold.xcf`. |
 | `--project <name>` | `""` | Apply to a different project registered in the global registry by name. Resolves the project's path and uses it as the config root. |
-
----
-
-### `xcaffold plan`
-
-**File:** `cmd/xcaffold/plan.go`
-
-Alias for `xcaffold apply --dry-run`. Previews the compilation output as a colored unified diff without writing any files.
-
-| Flag | Short | Default | Description |
-|---|---|---|---|
-| `--scope <scope>` | — | `project` | Scope of preview: `project` or `global`. |
-| `--target <target>` | `-t` | `claude` | Preview output for a specific target platform. |
 
 ---
 
@@ -242,6 +226,9 @@ Exit code `0` means valid. Non-zero means errors found.
 | Flag | Default | Description |
 |---|---|---|
 | `--structural` | `false` | Run structural invariant checks (orphan resources, missing instructions, missing hooks). |
+| `--global` | `false` | Validate the global config at `~/.xcaffold/global.xcf` instead of the project config. |
+
+**Example:** `$ xcaffold validate --global`
 
 ---
 
@@ -260,7 +247,7 @@ Universal parser for xcaffold diagnostic artifacts. Does not require a `scaffold
 | `plan.json` | Pretty-printed JSON. |
 | `trace.jsonl` | Timestamp and tool name for each recorded event. |
 
-**Special argument:** `all` — loops through all four file types in the current directory (or the global scope directory with `--scope global`).
+**Special argument:** `all` — loops through all four file types in the current directory (or the global config directory with `--global`).
 
 No command-specific flags.
 
