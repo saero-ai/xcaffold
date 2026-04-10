@@ -1,0 +1,317 @@
+# Multi-Agent Workspace
+
+This tutorial walks through configuring a team of differentiated AI agents in a single `scaffold.xcf` file. You will define two agents with distinct tool permissions, attach shared rules and skills, validate the workspace, visualize the topology, audit security field behavior across targets, and inspect the compiled output.
+
+**Prerequisites:** Completed the Getting Started tutorial. A fresh project directory with no existing `scaffold.xcf`.
+
+---
+
+## 1. Defining Roles
+
+Before writing any YAML, answer two questions for each agent you need:
+
+1. **What is its purpose?** A narrow, single-responsibility description prevents instruction drift.
+2. **What tools does it need?** Grant the minimum set required. Tools not listed are unavailable.
+
+For this tutorial, the team has two agents:
+
+| Agent ID | Role | Allowed Tools | Blocked Tools |
+|---|---|---|---|
+| `frontend-dev` | Writes React and TypeScript components | `Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep` | — |
+| `security-reviewer` | Read-only security audit | `Read`, `Glob`, `Grep` | `Write`, `Edit`, `Bash` |
+
+The `agents:` map uses each key as both the agent's internal ID and its output filename. `frontend-dev` compiles to `agents/frontend-dev.md`. Choose IDs that are lowercase, hyphenated, and unambiguous.
+
+Start with the first agent only:
+
+```yaml
+kind: config
+version: "1.1"
+project:
+  name: my-team
+  agents:
+    frontend-dev:
+      description: "Frontend developer. React and TypeScript only."
+      instructions: |
+        You write React components and TypeScript.
+        Do not modify backend code.
+      model: "claude-sonnet-4-6"
+      effort: "high"
+      tools: [Read, Write, Edit, Bash, Glob, Grep]
+```
+
+Run a quick syntax check:
+
+```
+$ xcaffold validate
+syntax and cross-references: ok
+
+validation passed
+```
+
+---
+
+## 2. Building the Shared Library
+
+Rules and skills are defined alongside agents inside the `project:` block — as sibling maps to `agents:`. They form a shared library that agents reference by ID. They are compiled into separate files under `.claude/rules/` and `.claude/skills/` respectively.
+
+**Rules** enforce behavioral constraints. A rule with `paths:` activates only when the agent reads or writes matching file patterns. A rule with `alwaysApply: true` is injected regardless of context.
+
+**Skills** are reusable prompt packages. They are compiled to `skills/<id>/SKILL.md` and loaded when an agent invokes them.
+
+Add the second agent, then define the shared library:
+
+```yaml
+kind: config
+version: "1.1"
+project:
+  name: my-team
+  agents:
+    frontend-dev:
+      description: "Frontend developer. React and TypeScript only."
+      instructions: |
+        You write React components and TypeScript.
+        Do not modify backend code.
+      model: "claude-sonnet-4-6"
+      effort: "high"
+      tools: [Read, Write, Edit, Bash, Glob, Grep]
+      rules: ["frontend-only"]
+      skills: ["component-patterns"]
+    security-reviewer:
+      description: "Read-only security audit agent."
+      instructions: |
+        You review code for security vulnerabilities.
+        Never modify files. Only read and report.
+      model: "claude-sonnet-4-6"
+      effort: "high"
+      tools: [Read, Glob, Grep]
+      disallowedTools: [Write, Edit, Bash]
+      rules: ["security-review-protocol"]
+  rules:
+    frontend-only:
+      instructions: "Only modify files in src/components/ and src/pages/."
+      paths: ["src/components/**", "src/pages/**"]
+    security-review-protocol:
+      alwaysApply: true
+      instructions: |
+        Always output a structured JSON report.
+        [CRITICAL], [HIGH], [MEDIUM], [LOW] severity must be explicitly labeled.
+  skills:
+    component-patterns:
+      description: "React component pattern library reference."
+      instructions_file: "skills/component-patterns/SKILL.md"
+```
+
+Key points:
+- `disallowedTools` (lowercase `d`) is the YAML key. It corresponds to the `DisallowedTools` field in the Go AST.
+- `skills:` and `rules:` on each agent are lists of IDs — the compiler resolves them from the top-level library.
+- The `component-patterns` skill references `instructions_file:`. That file must exist on disk relative to `scaffold.xcf` before you run `apply`.
+
+---
+
+## 3. Validating the Workspace
+
+`xcaffold validate` checks YAML syntax and cross-reference integrity. The `--structural` flag adds a second pass that detects orphan resources, agents without instructions, and agents with `Bash` access but no `PreToolUse` hook.
+
+Run without `--structural` first:
+
+```
+$ xcaffold validate
+syntax and cross-references: ok
+
+validation passed
+```
+
+Now add a rule that has no `paths:`, no `alwaysApply: true`, and is not referenced by any agent, to see what a structural warning looks like:
+
+```yaml
+project:
+  name: my-team
+  agents:
+    # ... existing agents ...
+  rules:
+    # ... existing rules ...
+    orphan-rule:
+      instructions: "This rule is unreachable."
+```
+
+Run with `--structural`:
+
+```
+$ xcaffold validate --structural
+syntax and cross-references: ok
+
+structural warnings:
+  - rule "orphan-rule" is defined but not referenced by any agent and has no paths or alwaysApply
+
+validation passed
+```
+
+The exit code is still `0` — structural warnings are informational, not errors. Remove the orphan rule before continuing.
+
+The warning format strings the compiler uses:
+
+| Condition | Warning |
+|---|---|
+| Skill defined, no agent references it | `skill %q is defined but not referenced by any agent` |
+| Rule with no paths, no alwaysApply, no agent reference | `rule %q is defined but not referenced by any agent and has no paths or alwaysApply` |
+| Agent with no instructions or instructions_file | `agent %q has no instructions or instructions_file` |
+| Agent with Bash, no PreToolUse hook | `agent %q has Bash tool but no PreToolUse hook for command validation` |
+
+The `frontend-dev` agent has `Bash` in its tool list. Once you run `validate --structural` on the final config, you will see the hook warning. That is expected here; a production workspace should add a `PreToolUse` hook to validate Bash commands before execution.
+
+---
+
+## 4. Visualizing the Topology
+
+`xcaffold graph --full` renders the complete agent topology as an ASCII tree. It shows each agent's model, effort level, allowed tools, blocked tools, and library references.
+
+```
+$ xcaffold graph --full
+```
+
+```
+┌──────────────────────────────────────────────────┐
+│  my-team  •  2 agents  •  1 skills  •  2 rules  │
+└──────────────────────────────────────────────────┘
+  [ AGENTS ]
+  ● frontend-dev [claude-sonnet-4-6 · high effort]
+      │
+      ├─▶ [Capabilities]
+      │    ├─(tool)─▶ Read
+      │    ├─(tool)─▶ Write
+      │    ├─(tool)─▶ Edit
+      │    ├─(tool)─▶ Bash
+      │    ├─(tool)─▶ Glob
+      │    └─(tool)─▶ Grep
+      ├─▶ [Skills]
+      │    └─▶ component-patterns
+      └─▶ [Rules]
+           └─▶ frontend-only
+
+  ● security-reviewer [claude-sonnet-4-6 · high effort]
+      │
+      ├─▶ [Capabilities]
+      │    ├─(tool)─▶ Read
+      │    ├─(tool)─▶ Glob
+      │    ├─(tool)─▶ Grep
+      │    ├─(blocked)─▶ Write
+      │    ├─(blocked)─▶ Edit
+      │    └─(blocked)─▶ Bash
+      └─▶ [Rules]
+           └─▶ security-review-protocol
+
+  [ LIBRARY ]
+  ● rule: frontend-only
+      └─(paths)─▶ src/components/**, src/pages/**
+```
+
+What to read in this output:
+
+- The **header** shows the project name and resource counts.
+- Under `[ AGENTS ]`, each agent node lists all tools under a single `[Capabilities]` section. Allowed tools use `(tool)` as their kind label; disallowed tools use `(blocked)`. Both appear in the same block.
+- Under `[ LIBRARY ]`, only resources with sub-items (such as `paths:`) are rendered. `frontend-only` appears because it declares `paths:`. `component-patterns` and `security-review-protocol` have no paths or tool sub-items, so they are omitted from this section.
+
+Use `--format mermaid` or `--format dot` to generate embeddable diagrams for documentation.
+
+---
+
+## 5. The Security Permissions Audit
+
+`xcaffold apply --check-permissions` inspects which security fields your config declares and reports what the target platform will drop. This is a read-only check — no files are written.
+
+### Checking the `cursor` target
+
+The `cursor` target does not have a native concept of disallowed tools. Any `disallowedTools` declared on an agent is silently dropped during compilation. `--check-permissions` surfaces this before you apply.
+
+```
+$ xcaffold apply --check-permissions --target cursor
+```
+
+```
+[WARNING] cursor: agent "security-reviewer" disallowedTools will be dropped — tool restrictions will NOT be enforced
+[WARNING] cursor: settings.permissions will be dropped — no enforcement equivalent
+[WARNING] cursor: settings.sandbox will be dropped — no sandbox model
+```
+
+The second and third warnings only appear if your config has `settings.permissions` or `settings.sandbox` blocks. In this tutorial's config they do not exist, so only the first warning appears. The output above shows all possible cursor warnings for reference.
+
+The key warning for this config is the first one: the `security-reviewer` is declared as read-only via `disallowedTools`, but that declaration has no effect when compiled for `cursor`. An agent that appears constrained in your YAML source has full tool access in the compiled output.
+
+### Checking the `claude` target
+
+```
+$ xcaffold apply --check-permissions --target claude
+```
+
+```
+[INFO]    claude: all security fields are supported
+```
+
+The `claude` target enforces `disallowedTools` at runtime. The `security-reviewer`'s restrictions are compiled into the agent file and respected.
+
+The `--check-permissions` flag exits `0` when only warnings are present, and non-zero when errors are found. Errors occur when a `settings.permissions.deny` rule conflicts with a tool in an agent's `tools:` list.
+
+---
+
+## 6. The Compiled Output
+
+Apply the config to the `claude` target:
+
+```
+$ xcaffold apply --target claude
+```
+
+```
+  [project] ✓ wrote .claude/agents/frontend-dev.md  (sha256:<hex>)
+  [project] ✓ wrote .claude/agents/security-reviewer.md  (sha256:<hex>)
+
+[project] ✓ Apply complete. scaffold.claude.lock updated.
+```
+
+Two agent files are written, one per agent ID. Each file is self-contained — it embeds the agent's model, effort, tools, instructions, and resolved rule content. The shared library resources were referenced during compilation but each agent receives only what it declared.
+
+**`.claude/agents/frontend-dev.md`** (abbreviated):
+
+```markdown
+---
+description: Frontend developer. React and TypeScript only.
+model: claude-sonnet-4-6
+effort: high
+tools: [Read, Write, Edit, Bash, Glob, Grep]
+skills: [component-patterns]
+rules: [frontend-only]
+---
+
+You write React components and TypeScript.
+Do not modify backend code.
+```
+
+**`.claude/agents/security-reviewer.md`** (abbreviated):
+
+```markdown
+---
+description: Read-only security audit agent.
+model: claude-sonnet-4-6
+effort: high
+tools: [Read, Glob, Grep]
+disallowedTools: [Write, Edit, Bash]
+rules: [security-review-protocol]
+---
+
+You review code for security vulnerabilities.
+Never modify files. Only read and report.
+```
+
+The two files share the same model and effort settings, but their tool lists are entirely different. `frontend-dev` has `Write`, `Edit`, and `Bash`; `security-reviewer` does not and additionally has those three tools listed under `disallowedTools`. That field is enforced by the runtime, not just advisory. Rules are compiled to separate files under `.claude/rules/` — agent files reference them by ID in the `rules:` frontmatter field rather than inlining their content.
+
+The SHA-256 hash on each write line is recorded in `scaffold.claude.lock`. On the next `apply`, xcaffold compares source hashes and skips compilation if nothing changed. If you manually edit a compiled file, the next `apply` will detect drift and abort unless you pass `--force`.
+
+---
+
+## Next Steps
+
+- Add a `PreToolUse` hook to `frontend-dev` to validate Bash commands before execution.
+- Use `xcaffold diff` to preview what would change before applying.
+- Run `xcaffold apply --dry-run` to see a colored unified diff of pending changes without writing to disk.
+- Use `xcaffold graph --format mermaid > topology.md` to embed the topology in your project documentation.
