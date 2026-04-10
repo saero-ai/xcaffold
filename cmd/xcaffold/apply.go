@@ -48,7 +48,9 @@ Any manually edited files inside the target directory will be overwritten.
 Validation:
  Use the --check flag to validate your YAML syntax without compiling.`,
 	Example: `  $ xcaffold apply
-  $ xcaffold apply --check`,
+  $ xcaffold apply --check
+  $ xcaffold apply --global
+  $ xcaffold apply --dry-run    (replaces the former 'plan' command)`,
 	RunE: runApply,
 }
 
