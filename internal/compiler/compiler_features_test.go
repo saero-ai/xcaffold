@@ -285,10 +285,8 @@ func TestCompile_Settings_EnabledPlugins_IsMap(t *testing.T) {
 // as the first key in settings.json.
 func TestCompile_Settings_Schema_IsFirstKey(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			MCP: map[string]ast.MCPConfig{
-				"sqlite": {Command: "npx", Args: []string{"-y", "sqlite"}},
-			},
+		Settings: ast.SettingsConfig{
+			StatusLine: &ast.StatusLineConfig{Type: "command"},
 		},
 	}
 	out, err := Compile(config, "", "")
@@ -421,7 +419,7 @@ func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
 		Settings: ast.SettingsConfig{
 			Sandbox: &ast.SandboxConfig{
 				Enabled:                  &trueVal,
-				AutoAllow:                &trueVal,
+				AutoAllowBashIfSandboxed: &trueVal,
 				AllowUnsandboxedCommands: &falseVal,
 				ExcludedCommands:         []string{"docker *"},
 				Filesystem: &ast.SandboxFilesystem{
@@ -451,7 +449,7 @@ func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
 	require.True(t, ok, "sandbox must be an object")
 
 	assert.Equal(t, true, sandboxMap["enabled"])
-	assert.Equal(t, true, sandboxMap["autoAllow"])
+	assert.Equal(t, true, sandboxMap["autoAllowBashIfSandboxed"])
 	assert.Equal(t, false, sandboxMap["allowUnsandboxedCommands"])
 
 	fsMap, ok := sandboxMap["filesystem"].(map[string]any)
@@ -489,8 +487,8 @@ func TestCompile_MCP_HTTPTransport_EmitsCorrectly(t *testing.T) {
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	raw, ok := out.Files["settings.json"]
-	require.True(t, ok, "settings.json must be generated")
+	raw, ok := out.Files["mcp.json"]
+	require.True(t, ok, "mcp.json must be generated")
 
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
@@ -580,8 +578,8 @@ func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	raw, ok := out.Files["hooks.json"]
-	require.True(t, ok, "hooks.json should exist in output")
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "settings.json should exist in output")
 
 	// Must be valid JSON with {hooks: {event: [...]}} structure
 	var parsed map[string]any
@@ -752,7 +750,7 @@ func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	raw := out.Files["hooks.json"]
+	raw := out.Files["settings.json"]
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
 
@@ -791,7 +789,7 @@ func TestCompile_Hooks_PromptHandler_EmitsCorrectly(t *testing.T) {
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	raw := out.Files["hooks.json"]
+	raw := out.Files["settings.json"]
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
 
@@ -833,7 +831,7 @@ func TestCompile_Hooks_AllHandlerFields_EmitCorrectly(t *testing.T) {
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	raw := out.Files["hooks.json"]
+	raw := out.Files["settings.json"]
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
 

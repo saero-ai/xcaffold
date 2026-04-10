@@ -171,20 +171,25 @@ type StatusLineConfig struct {
 // PermissionsConfig defines strongly-typed permission rules.
 // Each field is a list of permission rule strings (e.g. "Bash(npm test *)").
 type PermissionsConfig struct {
-	Allow []string `yaml:"allow,omitempty" json:"allow,omitempty"`
-	Deny  []string `yaml:"deny,omitempty"  json:"deny,omitempty"`
-	Ask   []string `yaml:"ask,omitempty"   json:"ask,omitempty"`
+	Allow                        []string `yaml:"allow,omitempty"                       json:"allow,omitempty"`
+	Deny                         []string `yaml:"deny,omitempty"                        json:"deny,omitempty"`
+	Ask                          []string `yaml:"ask,omitempty"                         json:"ask,omitempty"`
+	DefaultMode                  string   `yaml:"defaultMode,omitempty"                 json:"defaultMode,omitempty"`
+	AdditionalDirectories        []string `yaml:"additionalDirectories,omitempty"       json:"additionalDirectories,omitempty"`
+	DisableBypassPermissionsMode string   `yaml:"disableBypassPermissionsMode,omitempty" json:"disableBypassPermissionsMode,omitempty"`
 }
 
 // SandboxConfig configures OS-level process isolation for Bash commands.
 type SandboxConfig struct {
-	Enabled                  *bool              `yaml:"enabled,omitempty"                  json:"enabled,omitempty"`
-	AutoAllow                *bool              `yaml:"autoAllow,omitempty"                json:"autoAllow,omitempty"`
-	FailIfUnavailable        *bool              `yaml:"failIfUnavailable,omitempty"        json:"failIfUnavailable,omitempty"`
-	AllowUnsandboxedCommands *bool              `yaml:"allowUnsandboxedCommands,omitempty" json:"allowUnsandboxedCommands,omitempty"`
-	Filesystem               *SandboxFilesystem `yaml:"filesystem,omitempty"               json:"filesystem,omitempty"`
-	Network                  *SandboxNetwork    `yaml:"network,omitempty"                  json:"network,omitempty"`
-	ExcludedCommands         []string           `yaml:"excludedCommands,omitempty"         json:"excludedCommands,omitempty"`
+	Enabled *bool `yaml:"enabled,omitempty"                    json:"enabled,omitempty"`
+	// AutoAllowBashIfSandboxed auto-approves bash commands when sandboxed, without prompting.
+	// Named autoAllowBashIfSandboxed in Claude Code's settings.json.
+	AutoAllowBashIfSandboxed *bool              `yaml:"autoAllowBashIfSandboxed,omitempty"   json:"autoAllowBashIfSandboxed,omitempty"`
+	FailIfUnavailable        *bool              `yaml:"failIfUnavailable,omitempty"          json:"failIfUnavailable,omitempty"`
+	AllowUnsandboxedCommands *bool              `yaml:"allowUnsandboxedCommands,omitempty"   json:"allowUnsandboxedCommands,omitempty"`
+	Filesystem               *SandboxFilesystem `yaml:"filesystem,omitempty"                 json:"filesystem,omitempty"`
+	Network                  *SandboxNetwork    `yaml:"network,omitempty"                    json:"network,omitempty"`
+	ExcludedCommands         []string           `yaml:"excludedCommands,omitempty"           json:"excludedCommands,omitempty"`
 }
 
 // SandboxFilesystem configures filesystem isolation boundaries.
@@ -197,11 +202,15 @@ type SandboxFilesystem struct {
 
 // SandboxNetwork configures network isolation boundaries.
 type SandboxNetwork struct {
-	HTTPProxyPort           *int     `yaml:"httpProxyPort,omitempty"           json:"httpProxyPort,omitempty"`
-	SOCKSProxyPort          *int     `yaml:"socksProxyPort,omitempty"          json:"socksProxyPort,omitempty"`
-	AllowManagedDomainsOnly *bool    `yaml:"allowManagedDomainsOnly,omitempty" json:"allowManagedDomainsOnly,omitempty"`
-	AllowUnixSockets        *bool    `yaml:"allowUnixSockets,omitempty"        json:"allowUnixSockets,omitempty"`
-	AllowedDomains          []string `yaml:"allowedDomains,omitempty"          json:"allowedDomains,omitempty"`
+	HTTPProxyPort           *int  `yaml:"httpProxyPort,omitempty"           json:"httpProxyPort,omitempty"`
+	SOCKSProxyPort          *int  `yaml:"socksProxyPort,omitempty"          json:"socksProxyPort,omitempty"`
+	AllowManagedDomainsOnly *bool `yaml:"allowManagedDomainsOnly,omitempty" json:"allowManagedDomainsOnly,omitempty"`
+	// AllowUnixSockets is a list of specific Unix domain socket paths permitted for
+	// outbound connections. Use an empty list to deny all, or ["*"] to allow all.
+	AllowUnixSockets []string `yaml:"allowUnixSockets,omitempty"        json:"allowUnixSockets,omitempty"`
+	// AllowLocalBinding permits the sandboxed process to bind to localhost ports.
+	AllowLocalBinding *bool    `yaml:"allowLocalBinding,omitempty"       json:"allowLocalBinding,omitempty"`
+	AllowedDomains    []string `yaml:"allowedDomains,omitempty"          json:"allowedDomains,omitempty"`
 }
 
 // SettingsConfig represents the full platform settings.json structure.
