@@ -62,12 +62,13 @@ func TestValidate_GlobalFlag_FileNotFound(t *testing.T) {
 	home := t.TempDir() // no .xcaffold/global.xcf inside
 	t.Setenv("HOME", home)
 
-	validateGlobal = true
-	defer func() { validateGlobal = false }()
+	globalFlag = true
+	globalXcfPath = filepath.Join(home, ".xcaffold", "global.xcf")
+	defer func() { globalFlag = false }()
 
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "global.xcf not found")
+	assert.Contains(t, err.Error(), "could not open config")
 }
 
 func TestValidate_GlobalFlag_InvalidYAML(t *testing.T) {
@@ -79,8 +80,9 @@ func TestValidate_GlobalFlag_InvalidYAML(t *testing.T) {
 	require.NoError(t, os.WriteFile(globalXCF, []byte(":\tinvalid: yaml: :::\n"), 0600))
 
 	t.Setenv("HOME", home)
-	validateGlobal = true
-	defer func() { validateGlobal = false }()
+	globalFlag = true
+	globalXcfPath = globalXCF
+	defer func() { globalFlag = false }()
 
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
@@ -93,15 +95,18 @@ func TestValidate_GlobalFlag_ValidFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll(xcaffoldDir, 0700))
 
 	globalXCF := filepath.Join(xcaffoldDir, "global.xcf")
-	content := `version: "1.0"
-project:
-  name: global-test
+	content := `kind: config
+version: "1.0"
+agents:
+  reviewer:
+    instructions: "Review code."
 `
 	require.NoError(t, os.WriteFile(globalXCF, []byte(content), 0600))
 
 	t.Setenv("HOME", home)
-	validateGlobal = true
-	defer func() { validateGlobal = false }()
+	globalFlag = true
+	globalXcfPath = globalXCF
+	defer func() { globalFlag = false }()
 
 	err := runValidate(validateCmd, []string{})
 	assert.NoError(t, err)
