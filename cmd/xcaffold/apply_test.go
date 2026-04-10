@@ -87,6 +87,25 @@ func TestRunApply_ScopeGlobal(t *testing.T) {
 }
 
 
+func TestRunApply_GlobalFlagFalse_CompilesProject(t *testing.T) {
+	dir := t.TempDir()
+	xcf := filepath.Join(dir, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
+
+	xcfPath = xcf
+	claudeDir = filepath.Join(dir, ".claude")
+	lockPath = filepath.Join(dir, "scaffold.lock")
+	globalFlag = false
+	targetFlag = targetClaude
+
+	err := runApply(nil, nil)
+	require.NoError(t, err)
+
+	targetLock := filepath.Join(dir, "scaffold.claude.lock")
+	_, err = os.Stat(targetLock)
+	assert.NoError(t, err, "project lock should be written when globalFlag is false")
+}
+
 func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
