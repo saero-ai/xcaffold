@@ -143,11 +143,12 @@ func TestCompile_HooksJSON(t *testing.T) {
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	raw, ok := out.Files["hooks.json"]
-	require.True(t, ok, "hooks.json should exist in output")
+	settingsJSON, hasSettings := out.Files["settings.json"]
+	require.True(t, hasSettings)
+	assert.Contains(t, settingsJSON, `"hooks"`)
 
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(raw), &parsed), "hooks.json must be valid JSON")
+	require.NoError(t, json.Unmarshal([]byte(settingsJSON), &parsed), "settings.json must be valid JSON")
 
 	// Verify the {hooks: ...} envelope
 	hooksAny, hasHooks := parsed["hooks"]
@@ -178,14 +179,14 @@ func TestCompile_MCPSettingsJSON(t *testing.T) {
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	raw, ok := out.Files["settings.json"]
-	require.True(t, ok, "settings.json should exist in output")
+	raw, ok := out.Files["mcp.json"]
+	require.True(t, ok, "mcp.json should exist in output")
 
 	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(raw), &parsed), "settings.json must be valid JSON")
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed), "mcp.json must be valid JSON")
 
 	mcpAny, hasMCP := parsed["mcpServers"]
-	require.True(t, hasMCP, "settings.json must contain a top-level 'mcpServers' key")
+	require.True(t, hasMCP, "mcp.json must contain a top-level 'mcpServers' key")
 
 	mcpMap, ok := mcpAny.(map[string]any)
 	require.True(t, ok, "'mcp' value should be an object")
@@ -216,11 +217,14 @@ func TestCompile_NoHooksOrMCP_NoJSON(t *testing.T) {
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	_, hasHooks := out.Files["hooks.json"]
-	assert.False(t, hasHooks, "hooks.json should not exist when no hooks are defined")
+	settingsJSON, hasSettings := out.Files["settings.json"]
+	if hasSettings {
+		assert.NotContains(t, settingsJSON, `"hooks"`, "settings.json should not contain hooks when no hooks are defined")
+	}
+	assert.False(t, hasSettings, "settings.json should not exist when no settings are defined")
 
-	_, hasSettings := out.Files["settings.json"]
-	assert.False(t, hasSettings, "settings.json should not exist when no MCP is defined")
+	_, hasMCP := out.Files["mcp.json"]
+	assert.False(t, hasMCP, "mcp.json should not exist when no MCP is defined")
 }
 
 // TestCompile_PathTraversalSkillID — "../evil" as skill ID → filepath.Clean prevents ".." in output key

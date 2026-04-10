@@ -91,17 +91,17 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files[safePath] = md
 	}
 
-	// Hooks
-	if len(config.Hooks) > 0 {
-		hooksJSON, err := compileHooksJSON(config.Hooks)
-		if err != nil {
-			return nil, fmt.Errorf("failed to compile hooks: %w", err)
-		}
-		out.Files["hooks.json"] = hooksJSON
+	// MCP Servers -> mcp.json
+	mcpJSON, err := compileClaudeMCP(config.MCP, config.Settings.MCPServers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile MCP servers: %w", err)
+	}
+	if mcpJSON != "" {
+		out.Files["mcp.json"] = mcpJSON
 	}
 
-	// settings.json: merge top-level mcp: block with the settings: block.
-	settingsJSON, err := compileSettingsJSON(config.MCP, config.Settings)
+	// settings.json: compile the settings: block + hooks.
+	settingsJSON, err := compileSettingsJSON(config.Settings, config.Hooks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile settings: %w", err)
 	}
@@ -115,7 +115,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	if config.Project != nil {
 		localSettings = config.Project.Local
 	}
-	localJSON, err := compileSettingsJSON(nil, localSettings)
+	localJSON, err := compileSettingsJSON(localSettings, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile local settings: %w", err)
 	}
@@ -376,26 +376,14 @@ func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string
 	return sb.String(), nil
 }
 
-func compileHooksJSON(hooks ast.HookConfig) (string, error) {
-	wrapper := map[string]ast.HookConfig{
-		"hooks": hooks,
-	}
-	b, err := json.MarshalIndent(wrapper, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-}
-
-// compileSettingsJSON produces a fully-populated settings.json by merging the
-// top-level mcp: convenience block with the settings: block.
+// compileSettingsJSON produces a fully-populated settings.json.
+// Note: mcpServers are now emitted to mcp.json.
 //
 // Merge rules:
-//   - settings.mcpServers takes precedence over mcp: on key conflicts.
 //   - Output is suppressed (empty string) when the resulting object has no
 //     meaningful content, to avoid writing a useless "{}".
 //   - The $schema key is always emitted first when there is content.
-func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.SettingsConfig) (string, error) {
+func compileSettingsJSON(settings ast.SettingsConfig, hooks ast.HookConfig) (string, error) {
 	out := map[string]any{
 		"$schema": "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json",
 	}
@@ -406,15 +394,8 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	populateSettingsAgent(out, settings)
 	populateSettingsSystem(out, settings)
 
-	mcpServers := make(map[string]ast.MCPConfig)
-	for k, v := range mcpShorthand {
-		mcpServers[k] = v
-	}
-	for k, v := range settings.MCPServers {
-		mcpServers[k] = v
-	}
-	if len(mcpServers) > 0 {
-		out["mcpServers"] = mcpServers
+	if len(hooks) > 0 {
+		out["hooks"] = hooks
 	}
 
 	// len(out) == 1 means only $schema is present
@@ -423,6 +404,32 @@ func compileSettingsJSON(mcpShorthand map[string]ast.MCPConfig, settings ast.Set
 	}
 
 	b, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// compileClaudeMCP renders MCP definitions into mcp.json
+// It merges the top-level mcp: shorthand block with settings.mcpServers.
+func compileClaudeMCP(mcpShorthand map[string]ast.MCPConfig, settingsMCPServers map[string]ast.MCPConfig) (string, error) {
+	mcpServers := make(map[string]ast.MCPConfig)
+	for k, v := range mcpShorthand {
+		mcpServers[k] = v
+	}
+	for k, v := range settingsMCPServers {
+		mcpServers[k] = v
+	}
+
+	if len(mcpServers) == 0 {
+		return "", nil
+	}
+
+	envelope := map[string]any{
+		"mcpServers": mcpServers,
+	}
+
+	b, err := json.MarshalIndent(envelope, "", "  ")
 	if err != nil {
 		return "", err
 	}

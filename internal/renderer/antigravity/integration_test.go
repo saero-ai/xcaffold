@@ -113,13 +113,13 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 		assert.False(t, strings.HasPrefix(path, "agents/"), "agents must not be emitted for AG target, got %q", path)
 	}
 
-	// MCP and hooks must not be emitted
-	_, hasMCP := out.Files["mcp.json"]
-	assert.False(t, hasMCP, "mcp.json must not be emitted for AG target")
+	// MCP is emitted, hooks are not emitted
+	_, hasMCPConfig := out.Files["mcp_config.json"]
+	assert.True(t, hasMCPConfig, "mcp_config.json must be emitted for AG target")
 
 	// ── File count ────────────────────────────────────────────────────────────
-	// 2 rules + 1 skill = 3 files (agents + MCP + hooks silently skipped)
-	assert.Len(t, out.Files, 3, "expected exactly 3 output files (rules + skill only)")
+	// 2 rules + 1 skill + 1 MCP = 4 files (agents + hooks silently skipped)
+	assert.Len(t, out.Files, 4, "expected exactly 4 output files (rules + skill + mcp)")
 }
 
 // TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk verifies that

@@ -10,6 +10,7 @@
 package antigravity
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -90,14 +91,13 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files[safePath] = md
 	}
 
-	// Agents, hooks, and MCP are silently skipped structurally,
-	// but we surface validation warnings on MCP usage.
-	for _, srv := range config.MCP {
-		for k, v := range srv.Env {
-			if strings.Contains(v, "${") {
-				fmt.Fprintf(os.Stderr, "WARNING (antigravity): interpolation pattern ${...} found in MCP env %q. Antigravity requires literal strings.\n", k)
-			}
+	// Compile MCP servers to mcp_config.json (only if any servers are defined)
+	if len(config.MCP) > 0 {
+		mcpJSON, err := compileAntigravityMCP(config.MCP)
+		if err != nil {
+			return nil, fmt.Errorf("antigravity: failed to compile mcp servers: %w", err)
 		}
+		out.Files["mcp_config.json"] = mcpJSON
 	}
 
 	// Emit security fidelity warnings for dropped settings fields.
@@ -224,6 +224,42 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 	}
 
 	return sb.String(), nil
+}
+
+// antigravityMCPEntry is the Antigravity-compatible MCP server entry shape.
+type antigravityMCPEntry struct {
+	Command string            `json:"command,omitempty"`
+	Args    []string          `json:"args,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
+}
+
+// compileAntigravityMCP renders all MCP server configs to a single mcp_config.json file.
+func compileAntigravityMCP(servers map[string]ast.MCPConfig) (string, error) {
+	entries := make(map[string]antigravityMCPEntry, len(servers))
+	for id, srv := range servers {
+		entries[id] = antigravityMCPEntry{
+			Command: srv.Command,
+			Args:    srv.Args,
+			Env:     srv.Env,
+		}
+
+		for k, v := range srv.Env {
+			if strings.Contains(v, "${") {
+				fmt.Fprintf(os.Stderr, "WARNING (antigravity): interpolation pattern ${...} found in MCP env %q. Antigravity requires literal strings.\n", k)
+			}
+		}
+	}
+
+	envelope := map[string]map[string]antigravityMCPEntry{
+		"mcpServers": entries,
+	}
+
+	data, err := json.MarshalIndent(envelope, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("mcp json marshal: %w", err)
+	}
+	// append newline to match standard file formatting
+	return string(data) + "\n", nil
 }
 
 // resolveFile returns the effective body content for a rule or skill.

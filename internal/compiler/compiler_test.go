@@ -138,18 +138,18 @@ func TestCompile_FullSchema(t *testing.T) {
 	require.True(t, ok, "expected rules/go.md to be compiled")
 	assert.Contains(t, ruleContent, "Use gofmt.")
 
-	hookContent, ok := out.Files["hooks.json"]
-	require.True(t, ok, "expected hooks.json to be compiled")
-	assert.Contains(t, hookContent, `"PreToolUse"`)
-	assert.Contains(t, hookContent, `"make test"`)
-	assert.Contains(t, hookContent, `"command"`)
+	settingsJSON, hasSettings := out.Files["settings.json"]
+	require.True(t, hasSettings, "expected settings.json to be compiled")
+	assert.Contains(t, settingsJSON, `"PreToolUse"`)
+	assert.Contains(t, settingsJSON, `"make test"`)
+	assert.Contains(t, settingsJSON, `"command"`)
 
-	// Settings (which should include MCP)
-	settingsContent, ok := out.Files["settings.json"]
-	require.True(t, ok, "expected settings.json to be compiled")
-	assert.Contains(t, settingsContent, `"db"`)
-	assert.Contains(t, settingsContent, `"npx"`)
-	assert.Contains(t, settingsContent, `"sqlite"`)
+	// MCP (which was previously in settings.json)
+	mcpContent, ok := out.Files["mcp.json"]
+	require.True(t, ok, "expected mcp.json to be compiled")
+	assert.Contains(t, mcpContent, `"db"`)
+	assert.Contains(t, mcpContent, `"npx"`)
+	assert.Contains(t, mcpContent, `"sqlite"`)
 }
 
 func TestCompile_CursorTarget_Supported(t *testing.T) {

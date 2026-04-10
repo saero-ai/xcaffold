@@ -392,7 +392,7 @@ func TestCompile_Skill_EmptyID_ReturnsError(t *testing.T) {
 
 // ─── Silent-skip tests ────────────────────────────────────────────────────────
 
-func TestCompile_AgentsHooksAndMCP_AreNotEmitted(t *testing.T) {
+func TestCompile_AgentsAndHooks_AreNotEmitted(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -410,12 +410,6 @@ func TestCompile_AgentsHooksAndMCP_AreNotEmitted(t *testing.T) {
 							{Type: "command", Command: "echo hi"},
 						},
 					},
-				},
-			},
-			MCP: map[string]ast.MCPConfig{
-				"my-server": {
-					Type:    "stdio",
-					Command: "npx",
 				},
 			},
 			Rules: map[string]ast.RuleConfig{
@@ -439,12 +433,37 @@ func TestCompile_AgentsHooksAndMCP_AreNotEmitted(t *testing.T) {
 	assert.Contains(t, out.Files, "rules/a-rule.md", "rules must be compiled")
 	assert.Contains(t, out.Files, "skills/a-skill/SKILL.md", "skills must be compiled")
 
-	// Agents, hooks, MCP must be silently skipped
+	// Agents and hooks must be silently skipped
 	for path := range out.Files {
 		assert.False(t, strings.HasPrefix(path, "agents/"), "agents must not be emitted for AG target")
-		assert.NotEqual(t, "mcp.json", path, "mcp.json must not be emitted for AG target")
 		assert.NotEqual(t, "hooks.json", path, "hooks must not be emitted for AG target")
 	}
+}
+
+func TestCompile_MCP_EmitsConfig(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"my-server": {
+					Command: "npx",
+					Args:    []string{"-y", "my-mcp", "--test"},
+					Env: map[string]string{
+						"DB": "pg",
+					},
+				},
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content, ok := out.Files["mcp_config.json"]
+	assert.True(t, ok, "expected mcp_config.json in output")
+	assert.Contains(t, content, `"command": "npx"`)
+	assert.Contains(t, content, `"my-server"`)
+	assert.Contains(t, content, `"-y"`)
 }
 
 func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {

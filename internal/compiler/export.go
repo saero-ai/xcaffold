@@ -47,14 +47,25 @@ func ExportPlugin(config *ast.XcaffoldConfig, compiled *Output) (*Output, error)
 
 	for path, content := range compiled.Files {
 		switch {
-		case path == "hooks.json":
-			out.Files["hooks/hooks.json"] = content
+		case path == "hooks.json", path == "hooks/hooks.json":
+			continue // Skip any lingering standalone hooks files
 		case path == "settings.json", path == "settings.local.json":
 			// settings files are environment-specific; exclude from plugin exports
 			continue
 		default:
 			out.Files[path] = content
 		}
+	}
+
+	if len(config.Hooks) > 0 {
+		wrapper := map[string]any{
+			"hooks": config.Hooks,
+		}
+		b, err := json.MarshalIndent(wrapper, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("failed to format plugin hooks: %w", err)
+		}
+		out.Files["hooks/hooks.json"] = string(b)
 	}
 
 	return out, nil
