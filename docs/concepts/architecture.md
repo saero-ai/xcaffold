@@ -50,7 +50,9 @@ graph LR
   GC -->|"--global / -g"| B
   A --> B
   B --> C
-  C --> RG
+  C --> PE[Policy Engine]
+  PE --> RG
+  PE -->|"error → exit 1"| FAIL["stderr violations"]
   RG --> RC --> E1
   RG --> RCU --> E2
   RG --> RA --> E3
@@ -111,6 +113,7 @@ Every `.xcf` file in `~/.xcaffold/` carries a `kind:` field as its first key. Th
 | Kind value | Schema | Parser |
 |---|---|---|
 | `config` (or absent) | `XcaffoldConfig` | `parser.ParseDirectory()` |
+| `policy` | `PolicyConfig` | `policy.ParseFile()` |
 | `registry` | `{kind, projects}` | `registry.readProjects()` |
 
 Files without a `kind:` field are treated as `config` for backward compatibility. Files with any other `kind:` value are silently skipped by the directory scanner — this prevents non-config files (like `registry.xcf`) from crashing the strict `KnownFields(true)` parser.
@@ -123,6 +126,7 @@ Files without a `kind:` field are treated as `config` for backward compatibility
 |---|---|---|
 | `ast` | `internal/ast/` | Core types: `ResourceScope` (shared resource block), `XcaffoldConfig`, `*ProjectConfig`, and all resource configs |
 | `parser` | `internal/parser/` | Strict YAML parsing — unknown fields fail immediately |
+| `policy` | `internal/policy/` | Zero-dependency constraint engine — evaluates built-in and user-defined `kind: policy` files against the AST and compiled output |
 | `compiler` | `internal/compiler/` | Routes AST to the correct renderer; exposes `Compile()` and `OutputDir()` |
 | `renderer` | `internal/renderer/` | `TargetRenderer` interface + `Registry` |
 | `renderer/claude` | `internal/renderer/claude/` | Claude Code renderer (`→ .claude/`) |
@@ -183,7 +187,7 @@ Bootstrap   → xcaffold init
 Ingestion   → xcaffold import    (native or --source cross-platform translation)
 Audit       → xcaffold analyze   (LLM-based repo audit)
 Topology    → xcaffold graph     (ASCII / mermaid / DOT / JSON output)
-Compilation → xcaffold apply     (XCF → target output files + scaffold.lock)
+Compilation → xcaffold apply     (XCF → policy evaluation → target output files + scaffold.lock)
 Drift Check → xcaffold diff      (compares scaffold.lock against live output files)
 Validation  → xcaffold test      (LLM-in-the-loop proxy sandbox)
 Export      → xcaffold export    (packages compiled output as a distributable plugin)
@@ -193,6 +197,7 @@ Export      → xcaffold export    (packages compiled output as a distributable 
 
 | Command | Description |
 |---|---|
+| `xcaffold validate` | YAML syntax check, cross-reference integrity, and policy evaluation without compiling |
 | `xcaffold review [file]` | Universal parser for `scaffold.xcf`, `audit.json`, `plan.json`, `trace.jsonl` |
 | `xcaffold list` | Lists all registered projects (reads `~/.xcaffold/registry.xcf`) |
 | `xcaffold migrate` | Upgrades legacy layouts (`~/.claude/global.xcf` → `~/.xcaffold/global.xcf`, flat paths → reference-in-place) |
@@ -334,3 +339,7 @@ These inline architecture decisions record the reasoning behind strict implement
 ### 10. ResourceScope Extraction and Pointer-Backed ProjectConfig
 **Decision:** Generative primitives (agents, skills, rules, hooks, MCP, workflows) are extracted into a `ResourceScope` struct embedded with `yaml:",inline"` in both `XcaffoldConfig` (global scope) and `ProjectConfig` (workspace scope). `Project` is a pointer (`*ProjectConfig`) — nil means global scope.
 **Why:** The flat AST where all resources lived at root level alongside `project:`, `settings:`, and `test:` made no semantic distinction between global-scope resources (user-wide) and project-scope resources (workspace-specific). Embedding `ResourceScope` at both levels enables the compiler to merge workspace resources over global resources by ID, giving project configs explicit override authority. The pointer distinguishes "no project block" (global config) from "empty project block" (project config with defaults) at the type level, eliminating the need for parser flags to detect scope.
+
+### 11. Policy Enforcement Engine
+**Decision:** The engine runs deterministically during `xcaffold apply` and `xcaffold validate` against a deep-copied AST before compiler mutation, hard-blocking generation on `error` violations. Configuration overrides are handled by defining a `kind: policy` file with the same `name` and `severity: off`.
+**Why:** Linters running *after* generation offer weak security guarantees. Fail-closed policy evaluation prior to compilation guarantees output files always respect path constraints and invariants. The name-based override mechanism avoids polluting the central schema with bypass flags, adhering to the project's declarative, GitOps-driven architecture.
