@@ -13,3 +13,5 @@ Task-oriented guides for engineers who already understand xcaffold's core model 
 - [Running Sandboxed Agent Evaluations with `xcaffold test`](sandboxed-evaluations.md) — Spawn an HTTP intercept proxy, record tool call traces, and evaluate agent behavior against assertions using LLM-as-a-Judge.
 
 - [Binding MCP Tool Servers to Agents](mcp-server-integration.md) — Define stdio, SSE, and HTTP MCP servers, reference them from agents, and understand how they compile to `settings.json` (Claude) vs `mcp.json` (Cursor).
+
+- [Enforcing Project Policies](policy-enforcement.md) — Understand how the Policy Enforcement Engine runs during `apply` and `validate`, how to override built-in rules, and best practices for configuration constraints.
