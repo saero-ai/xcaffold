@@ -203,7 +203,7 @@ func migrateProjectScope(cmd *cobra.Command) (bool, error) {
 	cwd, _ := os.Getwd()
 
 	if !needsUpdate {
-		_ = registry.Register(cwd, config.Project.Name, nil)
+		_ = registry.Register(cwd, config.Project.Name, nil, ".")
 		return false, nil
 	}
 
@@ -218,7 +218,7 @@ func migrateProjectScope(cmd *cobra.Command) (bool, error) {
 		return false, fmt.Errorf("failed to write scaffold.xcf: %w", err)
 	}
 
-	_ = registry.Register(cwd, config.Project.Name, nil)
+	_ = registry.Register(cwd, config.Project.Name, nil, ".")
 	cmd.Println("  ✓ Project config migrated and registered.")
 	return true, nil
 }

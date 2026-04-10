@@ -286,7 +286,11 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 
 	// Ensure the project is registered and the timestamp is updated.
 	cwd, _ := os.Getwd()
-	_ = registry.Register(cwd, config.Project.Name, nil)
+	configRelDir, _ := filepath.Rel(cwd, filepath.Dir(configPath))
+	if configRelDir == "" {
+		configRelDir = "."
+	}
+	_ = registry.Register(cwd, config.Project.Name, nil, configRelDir)
 	_ = registry.UpdateLastApplied(cwd)
 
 	return nil

@@ -105,7 +105,7 @@ func tryAutoRegister(xcfFile string) {
 	config, err := parser.ParseFile(xcfFile)
 	if err == nil && config.Project.Name != "" {
 		cwd, _ := os.Getwd()
-		_ = registry.Register(cwd, config.Project.Name, nil)
+		_ = registry.Register(cwd, config.Project.Name, nil, ".")
 	}
 }
 
@@ -313,7 +313,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 	cmd.Printf("\n✓ Created scaffold.xcf\n")
 	cmd.Printf("  Project: %s | Target: %s\n", ans.name, ans.target)
 
-	if err := registry.Register(cwd, ans.name, []string{ans.target}); err != nil {
+	if err := registry.Register(cwd, ans.name, []string{ans.target}, "."); err != nil {
 		cmd.Printf("  ⚠ Failed to register project: %v\n", err)
 	}
 

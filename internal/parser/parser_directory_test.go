@@ -276,3 +276,108 @@ skills:
 	require.Contains(t, cfg.Agents, "backend")
 	require.Contains(t, cfg.Skills, "git")
 }
+
+func TestParseDirectory_SettingsDeepMerge_NonConflicting(t *testing.T) {
+	dir := t.TempDir()
+
+	writeTestXCF(t, dir, "project.xcf", `
+version: "1.0"
+project:
+  name: "settings-merge-test"
+settings:
+  model: "sonnet-4"
+`)
+	writeTestXCF(t, dir, "settings.xcf", `
+settings:
+  effortLevel: "high"
+  env:
+    API_KEY: "test"
+`)
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	assert.Equal(t, "sonnet-4", cfg.Settings.Model)
+	assert.Equal(t, "high", cfg.Settings.EffortLevel)
+	assert.Equal(t, "test", cfg.Settings.Env["API_KEY"])
+}
+
+func TestParseDirectory_SettingsConflict_Errors(t *testing.T) {
+	dir := t.TempDir()
+
+	writeTestXCF(t, dir, "a.xcf", `
+version: "1.0"
+project:
+  name: "conflict-test"
+settings:
+  model: "sonnet-4"
+`)
+	writeTestXCF(t, dir, "b.xcf", `
+settings:
+  model: "opus-4"
+`)
+
+	_, err := ParseDirectory(dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "model")
+}
+
+func TestParseDirectory_LocalDeepMerge_NonConflicting(t *testing.T) {
+	dir := t.TempDir()
+
+	writeTestXCF(t, dir, "project.xcf", `
+version: "1.0"
+project:
+  name: "local-merge-test"
+local:
+  env:
+    SECRET: "abc"
+`)
+	writeTestXCF(t, dir, "local-overrides.xcf", `
+local:
+  effortLevel: "low"
+`)
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	assert.Equal(t, "low", cfg.Local.EffortLevel)
+	assert.Equal(t, "abc", cfg.Local.Env["SECRET"])
+}
+
+func TestParseDirectory_ExtendsGlobal_InheritsSettings(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Create global config
+	globalDir := filepath.Join(home, ".xcaffold")
+	require.NoError(t, os.MkdirAll(globalDir, 0755))
+	writeTestXCF(t, globalDir, "global.xcf", `
+version: "1.0"
+project:
+  name: "global"
+settings:
+  model: "sonnet-4"
+  effortLevel: "high"
+  env:
+    GLOBAL_KEY: "from-global"
+`)
+
+	// Create project config that extends global
+	projectDir := t.TempDir()
+	writeTestXCF(t, projectDir, "scaffold.xcf", `
+version: "1.0"
+project:
+  name: "my-project"
+extends: global
+settings:
+  effortLevel: "low"
+  env:
+    PROJECT_KEY: "from-project"
+`)
+
+	cfg, err := ParseDirectory(projectDir)
+	require.NoError(t, err)
+	assert.Equal(t, "sonnet-4", cfg.Settings.Model)
+	assert.Equal(t, "low", cfg.Settings.EffortLevel)
+	assert.Equal(t, "from-global", cfg.Settings.Env["GLOBAL_KEY"])
+	assert.Equal(t, "from-project", cfg.Settings.Env["PROJECT_KEY"])
+}
