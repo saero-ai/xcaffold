@@ -10,6 +10,171 @@ Exhaustive reference for the `.xcf` YAML configuration schema. Every field is ve
 
 ---
 
+## Schema Architecture
+
+The following diagram shows the structural relationships between the major types in the `.xcf` schema. Cardinality is shown as `||--o{` (one to zero-or-many) and `||--o|` (one to zero-or-one).
+
+```mermaid
+erDiagram
+    XcaffoldConfig {
+        string kind
+        string version
+        string extends
+    }
+    ProjectConfig {
+        string name
+        string description
+        string version
+        string author
+        string homepage
+        string repository
+        string license
+        string backup_dir
+    }
+    AgentConfig {
+        string name
+        string description
+        string instructions
+        string instructions_file
+        string model
+        string effort
+        string memory
+        int maxTurns
+        string permissionMode
+        string isolation
+        string mode
+        string when
+        string color
+        string initialPrompt
+    }
+    SkillConfig {
+        string name
+        string description
+        string instructions
+        string instructions_file
+    }
+    RuleConfig {
+        string description
+        string instructions
+        string instructions_file
+        bool alwaysApply
+    }
+    HookConfig {
+        string event_key
+    }
+    HookMatcherGroup {
+        string matcher
+    }
+    HookHandler {
+        string type
+        string command
+        string url
+        string prompt
+        string model
+        string shell
+        string if_condition
+        string statusMessage
+        bool async
+        int timeout
+        bool once
+    }
+    MCPConfig {
+        string type
+        string command
+        string url
+        string cwd
+        string authProviderType
+        bool disabled
+    }
+    SettingsConfig {
+        string model
+        string effortLevel
+        string defaultShell
+        string language
+        string outputStyle
+        bool includeGitInstructions
+        bool autoMemoryEnabled
+        bool disableAllHooks
+        bool respectGitignore
+    }
+    PermissionsConfig {
+        string defaultMode
+        string disableBypassPermissionsMode
+    }
+    SandboxConfig {
+        bool enabled
+        bool autoAllowBashIfSandboxed
+        bool failIfUnavailable
+        bool allowUnsandboxedCommands
+    }
+    SandboxFilesystem {
+        string allowWrite
+        string denyWrite
+        string allowRead
+        string denyRead
+    }
+    SandboxNetwork {
+        int httpProxyPort
+        int socksProxyPort
+        bool allowManagedDomainsOnly
+        bool allowLocalBinding
+    }
+    StatusLineConfig {
+        string type
+        string command
+    }
+    TargetOverride {
+        string instructions_override
+        bool suppress_fidelity_warnings
+        bool skip_synthesis
+    }
+    TestConfig {
+        string cli_path
+        string claude_path
+        string judge_model
+    }
+    WorkflowConfig {
+        string name
+        string description
+        string instructions
+        string instructions_file
+    }
+
+    XcaffoldConfig ||--o| ProjectConfig : "project"
+    XcaffoldConfig ||--o{ AgentConfig : "agents"
+    XcaffoldConfig ||--o{ SkillConfig : "skills"
+    XcaffoldConfig ||--o{ RuleConfig : "rules"
+    XcaffoldConfig ||--o| HookConfig : "hooks"
+    XcaffoldConfig ||--o{ MCPConfig : "mcp"
+    XcaffoldConfig ||--o{ WorkflowConfig : "workflows"
+    XcaffoldConfig ||--o| SettingsConfig : "settings"
+
+    ProjectConfig ||--o| TestConfig : "test"
+    ProjectConfig ||--o| SettingsConfig : "local"
+    ProjectConfig ||--o{ AgentConfig : "agents"
+    ProjectConfig ||--o{ SkillConfig : "skills"
+    ProjectConfig ||--o{ RuleConfig : "rules"
+    ProjectConfig ||--o| HookConfig : "hooks"
+    ProjectConfig ||--o{ MCPConfig : "mcp"
+    ProjectConfig ||--o{ WorkflowConfig : "workflows"
+
+    AgentConfig ||--o{ TargetOverride : "targets"
+    AgentConfig ||--o{ MCPConfig : "mcpServers"
+    AgentConfig ||--o| HookConfig : "hooks"
+
+    HookConfig ||--o{ HookMatcherGroup : "event_handlers"
+    HookMatcherGroup ||--o{ HookHandler : "hooks"
+
+    SettingsConfig ||--o| PermissionsConfig : "permissions"
+    SettingsConfig ||--o| SandboxConfig : "sandbox"
+    SettingsConfig ||--o| StatusLineConfig : "statusLine"
+    SettingsConfig ||--o| HookConfig : "hooks"
+    SettingsConfig ||--o{ MCPConfig : "mcpServers"
+
+    SandboxConfig ||--o| SandboxFilesystem : "filesystem"
+    SandboxConfig ||--o| SandboxNetwork : "network"
+```
+
 ## Scopes
 
 Xcaffold operates at two scopes, selected via the `--global / -g` flag.
