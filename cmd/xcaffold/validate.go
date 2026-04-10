@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/parser"
@@ -10,6 +11,7 @@ import (
 )
 
 var validateStructural bool
+var validateGlobal bool
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
@@ -24,7 +26,8 @@ var validateCmd = &cobra.Command{
 
 Exit code 0 means valid. Non-zero means errors found.`,
 	Example: `  $ xcaffold validate
-  $ xcaffold validate --structural`,
+  $ xcaffold validate --structural
+  $ xcaffold validate --global`,
 	RunE:          runValidate,
 	SilenceUsage:  true,
 	SilenceErrors: true,
@@ -32,11 +35,27 @@ Exit code 0 means valid. Non-zero means errors found.`,
 
 func init() {
 	validateCmd.Flags().BoolVar(&validateStructural, "structural", false, "run structural invariant checks (orphan resources, missing instructions)")
+	validateCmd.Flags().BoolVar(&validateGlobal, "global", false, "validate the global config at ~/.xcaffold/global.xcf")
 	rootCmd.AddCommand(validateCmd)
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	cfg, err := parser.ParseFile(xcfPath)
+	validatePath := xcfPath
+	if validateGlobal {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("could not determine home directory: %w", err)
+		}
+		validatePath = filepath.Join(home, ".xcaffold", "global.xcf")
+		if _, err := os.Stat(validatePath); err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("global.xcf not found at %q\n\nHint: run 'xcaffold init --global' to create one", validatePath)
+			}
+			return fmt.Errorf("could not access %q: %w", validatePath, err)
+		}
+	}
+
+	cfg, err := parser.ParseFile(validatePath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "validation failed: %v\n", err)
 		return err
@@ -44,7 +63,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 
 	fmt.Fprintf(os.Stdout, "syntax and cross-references: ok\n")
 
-	diags := parser.ValidateFile(xcfPath)
+	diags := parser.ValidateFile(validatePath)
 	hasErrors := false
 	if len(diags) > 0 {
 		fmt.Fprintf(os.Stdout, "\ndiagnostics:\n")

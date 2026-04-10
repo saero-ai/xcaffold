@@ -58,6 +58,55 @@ agents:
 	assert.Error(t, err)
 }
 
+func TestValidate_GlobalFlag_FileNotFound(t *testing.T) {
+	home := t.TempDir() // no .xcaffold/global.xcf inside
+	t.Setenv("HOME", home)
+
+	validateGlobal = true
+	defer func() { validateGlobal = false }()
+
+	err := runValidate(validateCmd, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "global.xcf not found")
+}
+
+func TestValidate_GlobalFlag_InvalidYAML(t *testing.T) {
+	home := t.TempDir()
+	xcaffoldDir := filepath.Join(home, ".xcaffold")
+	require.NoError(t, os.MkdirAll(xcaffoldDir, 0700))
+
+	globalXCF := filepath.Join(xcaffoldDir, "global.xcf")
+	require.NoError(t, os.WriteFile(globalXCF, []byte(":\tinvalid: yaml: :::\n"), 0600))
+
+	t.Setenv("HOME", home)
+	validateGlobal = true
+	defer func() { validateGlobal = false }()
+
+	err := runValidate(validateCmd, []string{})
+	require.Error(t, err)
+}
+
+func TestValidate_GlobalFlag_ValidFile(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	home := t.TempDir()
+	xcaffoldDir := filepath.Join(home, ".xcaffold")
+	require.NoError(t, os.MkdirAll(xcaffoldDir, 0700))
+
+	globalXCF := filepath.Join(xcaffoldDir, "global.xcf")
+	content := `version: "1.0"
+project:
+  name: global-test
+`
+	require.NoError(t, os.WriteFile(globalXCF, []byte(content), 0600))
+
+	t.Setenv("HOME", home)
+	validateGlobal = true
+	defer func() { validateGlobal = false }()
+
+	err := runValidate(validateCmd, []string{})
+	assert.NoError(t, err)
+}
+
 func TestValidateCmd_StructuralChecks(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
