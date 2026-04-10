@@ -11,18 +11,20 @@ import (
 
 func TestExportPlugin_GeneratesManifest(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{
+		Project: &ast.ProjectConfig{
 			Name:        "my-plugin",
 			Description: "A useful plugin",
 			Version:     "1.0.0",
 			Author:      "Test Author",
 			License:     "MIT",
 		},
-		Agents: map[string]ast.AgentConfig{
-			"helper": {Description: "A helper agent"},
-		},
-		Skills: map[string]ast.SkillConfig{
-			"deploy": {Description: "Deploy skill", Instructions: "Deploy it."},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"helper": {Description: "A helper agent"},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"deploy": {Description: "Deploy skill", Instructions: "Deploy it."},
+			},
 		},
 	}
 
@@ -50,7 +52,7 @@ func TestExportPlugin_GeneratesManifest(t *testing.T) {
 
 func TestExportPlugin_SkipsSettingsJSON(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "test"},
+		Project: &ast.ProjectConfig{Name: "test"},
 		Settings: ast.SettingsConfig{
 			Model: "claude-sonnet-4-6",
 		},
@@ -68,10 +70,12 @@ func TestExportPlugin_SkipsSettingsJSON(t *testing.T) {
 
 func TestExportPlugin_RemapsHooks(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "test"},
-		Hooks: ast.HookConfig{
-			"SessionStart": []ast.HookMatcherGroup{
-				{Hooks: []ast.HookHandler{{Type: "command", Command: "echo hi"}}},
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"SessionStart": []ast.HookMatcherGroup{
+					{Hooks: []ast.HookHandler{{Type: "command", Command: "echo hi"}}},
+				},
 			},
 		},
 	}

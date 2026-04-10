@@ -141,7 +141,11 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 	}
 
 	cmd.Println("\n=== XCAFFOLD CONFIGURATION REVIEW ===")
-	cmd.Printf("Project: %s (v%s)\n", manifest.Project.Name, manifest.Version)
+	var projectName string
+	if manifest.Project != nil {
+		projectName = manifest.Project.Name
+	}
+	cmd.Printf("Project: %s (v%s)\n", projectName, manifest.Version)
 	cmd.Println("=====================================")
 
 	if len(manifest.Agents) > 0 {

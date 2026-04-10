@@ -15,46 +15,52 @@ import (
 func TestMigrateTo1_1_FieldRename(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
-		Test: ast.TestConfig{
-			ClaudePath: "claude",
-			CliPath:    "",
+		Project: &ast.ProjectConfig{
+			Test: ast.TestConfig{
+				ClaudePath: "claude",
+				CliPath:    "",
+			},
 		},
 	}
 	err := migrateTo1_1(config)
 	require.NoError(t, err)
 	assert.Equal(t, "1.1", config.Version)
-	assert.Equal(t, "claude", config.Test.CliPath)
-	assert.Equal(t, "", config.Test.ClaudePath)
+	assert.Equal(t, "claude", config.Project.Test.CliPath)
+	assert.Equal(t, "", config.Project.Test.ClaudePath)
 }
 
 func TestMigrateTo1_1_CliPathAlreadySet(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
-		Test: ast.TestConfig{
-			ClaudePath: "old",
-			CliPath:    "new",
+		Project: &ast.ProjectConfig{
+			Test: ast.TestConfig{
+				ClaudePath: "old",
+				CliPath:    "new",
+			},
 		},
 	}
 	err := migrateTo1_1(config)
 	require.NoError(t, err)
 	assert.Equal(t, "1.1", config.Version)
-	assert.Equal(t, "new", config.Test.CliPath)
-	assert.Equal(t, "", config.Test.ClaudePath)
+	assert.Equal(t, "new", config.Project.Test.CliPath)
+	assert.Equal(t, "", config.Project.Test.ClaudePath)
 }
 
 func TestMigrateTo1_1_NeitherPathSet(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
-		Test: ast.TestConfig{
-			ClaudePath: "",
-			CliPath:    "",
+		Project: &ast.ProjectConfig{
+			Test: ast.TestConfig{
+				ClaudePath: "",
+				CliPath:    "",
+			},
 		},
 	}
 	err := migrateTo1_1(config)
 	require.NoError(t, err)
 	assert.Equal(t, "1.1", config.Version)
-	assert.Equal(t, "", config.Test.CliPath)
-	assert.Equal(t, "", config.Test.ClaudePath)
+	assert.Equal(t, "", config.Project.Test.CliPath)
+	assert.Equal(t, "", config.Project.Test.ClaudePath)
 }
 
 func TestRunSchemaVersionMigrations_Idempotent(t *testing.T) {
@@ -66,8 +72,8 @@ func TestRunSchemaVersionMigrations_Idempotent(t *testing.T) {
 	content := `version: "1.0"
 project:
   name: "test-project"
-test:
-  claude_path: "claude"
+  test:
+    claude_path: "claude"
 `
 	require.NoError(t, os.WriteFile(xcfFile, []byte(content), 0600))
 

@@ -55,7 +55,7 @@ func TestAgentsMDRenderer_Compile_EmptyConfig(t *testing.T) {
 func TestAgentsMDRenderer_Compile_ProjectSection(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{
+		Project: &ast.ProjectConfig{
 			Name:        "myapp",
 			Description: "a test project",
 		},
@@ -70,11 +70,13 @@ func TestAgentsMDRenderer_Compile_ProjectSection(t *testing.T) {
 func TestAgentsMDRenderer_Compile_AgentSection(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"developer": {
-				Description:  "Writes code.",
-				Model:        "claude-opus-4",
-				Instructions: "You are a developer.",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Description:  "Writes code.",
+					Model:        "claude-opus-4",
+					Instructions: "You are a developer.",
+				},
 			},
 		},
 	}
@@ -90,10 +92,12 @@ func TestAgentsMDRenderer_Compile_AgentSection(t *testing.T) {
 func TestAgentsMDRenderer_Compile_SkillSection(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"git": {
-				Description:  "Git conventions.",
-				Instructions: "Use conventional commits.",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"git": {
+					Description:  "Git conventions.",
+					Instructions: "Use conventional commits.",
+				},
 			},
 		},
 	}
@@ -108,10 +112,12 @@ func TestAgentsMDRenderer_Compile_SkillSection(t *testing.T) {
 func TestAgentsMDRenderer_Compile_RuleSection_WithPaths(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"go-style": {
-				Paths:        []string{"src/**/*.go"},
-				Instructions: "Use gofmt.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"go-style": {
+					Paths:        []string{"src/**/*.go"},
+					Instructions: "Use gofmt.",
+				},
 			},
 		},
 	}
@@ -133,9 +139,11 @@ func TestAgentsMDRenderer_Compile_RuleSection_WithPaths(t *testing.T) {
 func TestAgentsMDRenderer_Compile_RuleSection_NoPaths(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"global-lint": {
-				Instructions: "Run eslint.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"global-lint": {
+					Instructions: "Run eslint.",
+				},
 			},
 		},
 	}
@@ -149,10 +157,12 @@ func TestAgentsMDRenderer_Compile_RuleSection_NoPaths(t *testing.T) {
 func TestAgentsMDRenderer_Compile_WorkflowSection(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Workflows: map[string]ast.WorkflowConfig{
-			"release": {
-				Description:  "Release workflow.",
-				Instructions: "Tag and push.",
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"release": {
+					Description:  "Release workflow.",
+					Instructions: "Tag and push.",
+				},
 			},
 		},
 	}
@@ -167,8 +177,10 @@ func TestAgentsMDRenderer_Compile_WorkflowSection(t *testing.T) {
 func TestAgentsMDRenderer_Compile_EmptySectionsOmitted(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"dev": {Instructions: "Build things."},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Instructions: "Build things."},
+			},
 		},
 	}
 	out, err := r.Compile(config, t.TempDir())
@@ -187,9 +199,11 @@ func TestAgentsMDRenderer_Compile_InstructionsFile(t *testing.T) {
 
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"cautious": {
-				InstructionsFile: instrFile,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"cautious": {
+					InstructionsFile: instrFile,
+				},
 			},
 		},
 	}
@@ -206,10 +220,12 @@ func TestAgentsMDRenderer_Compile_FidelityWarning_Tools(t *testing.T) {
 
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"developer": {
-				Tools:        []string{"Bash", "Read"},
-				Instructions: "Do stuff.",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Tools:        []string{"Bash", "Read"},
+					Instructions: "Do stuff.",
+				},
 			},
 		},
 	}
@@ -229,12 +245,14 @@ func TestAgentsMDRenderer_Compile_SuppressFidelityWarnings(t *testing.T) {
 
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"developer": {
-				Tools:        []string{"Bash", "Read"},
-				Instructions: "Do stuff.",
-				Targets: map[string]ast.TargetOverride{
-					"agentsmd": {SuppressFidelityWarnings: boolPtr(true)},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Tools:        []string{"Bash", "Read"},
+					Instructions: "Do stuff.",
+					Targets: map[string]ast.TargetOverride{
+						"agentsmd": {SuppressFidelityWarnings: boolPtr(true)},
+					},
 				},
 			},
 		},
@@ -261,10 +279,12 @@ func TestAgentsMDRenderer_Compile_GeneratedComment(t *testing.T) {
 func TestAgentsMDRenderer_Compile_NestedRule_SingleDir(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"api-conventions": {
-				Paths:        []string{"src/api/**/*.ts"},
-				Instructions: "Use REST conventions.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"api-conventions": {
+					Paths:        []string{"src/api/**/*.ts"},
+					Instructions: "Use REST conventions.",
+				},
 			},
 		},
 	}
@@ -285,14 +305,16 @@ func TestAgentsMDRenderer_Compile_NestedRule_SingleDir(t *testing.T) {
 func TestAgentsMDRenderer_Compile_NestedRule_MultipleDir(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"api-conventions": {
-				Paths:        []string{"src/api/**/*.ts"},
-				Instructions: "Use REST conventions.",
-			},
-			"frontend-style": {
-				Paths:        []string{"src/ui/**/*.tsx"},
-				Instructions: "Use functional components.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"api-conventions": {
+					Paths:        []string{"src/api/**/*.ts"},
+					Instructions: "Use REST conventions.",
+				},
+				"frontend-style": {
+					Paths:        []string{"src/ui/**/*.tsx"},
+					Instructions: "Use functional components.",
+				},
 			},
 		},
 	}
@@ -312,10 +334,12 @@ func TestAgentsMDRenderer_Compile_NestedRule_MultipleDir(t *testing.T) {
 func TestAgentsMDRenderer_Compile_NestedRule_GlobalFallback(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"ts-global": {
-				Paths:        []string{"**/*.ts"},
-				Instructions: "Prefer type aliases.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"ts-global": {
+					Paths:        []string{"**/*.ts"},
+					Instructions: "Prefer type aliases.",
+				},
 			},
 		},
 	}
@@ -332,13 +356,15 @@ func TestAgentsMDRenderer_Compile_NestedRule_GlobalFallback(t *testing.T) {
 func TestAgentsMDRenderer_Compile_NestedRule_MixedGlobalAndScoped(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"global-lint": {
-				Instructions: "Run linter.",
-			},
-			"api-conventions": {
-				Paths:        []string{"src/api/**/*.ts"},
-				Instructions: "Use REST conventions.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"global-lint": {
+					Instructions: "Run linter.",
+				},
+				"api-conventions": {
+					Paths:        []string{"src/api/**/*.ts"},
+					Instructions: "Use REST conventions.",
+				},
 			},
 		},
 	}
@@ -357,14 +383,16 @@ func TestAgentsMDRenderer_Compile_NestedRule_MixedGlobalAndScoped(t *testing.T) 
 func TestAgentsMDRenderer_Compile_NestedLockTracking(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"api-conventions": {
-				Paths:        []string{"src/api/**/*.ts"},
-				Instructions: "Use REST conventions.",
-			},
-			"frontend-style": {
-				Paths:        []string{"src/ui/**/*.tsx"},
-				Instructions: "Use functional components.",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"api-conventions": {
+					Paths:        []string{"src/api/**/*.ts"},
+					Instructions: "Use REST conventions.",
+				},
+				"frontend-style": {
+					Paths:        []string{"src/ui/**/*.tsx"},
+					Instructions: "Use functional components.",
+				},
 			},
 		},
 	}

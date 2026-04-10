@@ -154,12 +154,14 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	projectName := inferProjectName()
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
-		Project: ast.ProjectConfig{Name: projectName},
-		Agents:  make(map[string]ast.AgentConfig),
-		Skills:  make(map[string]ast.SkillConfig),
-		Rules:   make(map[string]ast.RuleConfig),
-		Hooks:   make(ast.HookConfig),
-		MCP:     make(map[string]ast.MCPConfig),
+		Project: &ast.ProjectConfig{Name: projectName},
+		ResourceScope: ast.ResourceScope{
+			Agents: make(map[string]ast.AgentConfig),
+			Skills: make(map[string]ast.SkillConfig),
+			Rules:  make(map[string]ast.RuleConfig),
+			Hooks:  make(ast.HookConfig),
+			MCP:    make(map[string]ast.MCPConfig),
+		},
 	}
 
 	importCount := 0
@@ -217,7 +219,9 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
 
 	cwd, _ := os.Getwd()
-	_ = registry.Register(cwd, config.Project.Name, nil, ".")
+	if config.Project != nil {
+		_ = registry.Register(cwd, config.Project.Name, nil, ".")
+	}
 
 	if len(warnings) > 0 {
 		fmt.Println("\nWarnings:")
@@ -632,14 +636,16 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 
 	projectName := inferProjectName()
 	config := &ast.XcaffoldConfig{
-		Version:   "1.0",
-		Project:   ast.ProjectConfig{Name: projectName},
-		Agents:    make(map[string]ast.AgentConfig),
-		Skills:    make(map[string]ast.SkillConfig),
-		Rules:     make(map[string]ast.RuleConfig),
-		Workflows: make(map[string]ast.WorkflowConfig),
-		Hooks:     make(ast.HookConfig),
-		MCP:       make(map[string]ast.MCPConfig),
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: projectName},
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			Hooks:     make(ast.HookConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
 	}
 
 	importCount := 0
@@ -657,12 +663,14 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 
 		// Extract into a temporary config to compare before merging
 		tmpConfig := &ast.XcaffoldConfig{
-			Agents:    make(map[string]ast.AgentConfig),
-			Skills:    make(map[string]ast.SkillConfig),
-			Rules:     make(map[string]ast.RuleConfig),
-			Workflows: make(map[string]ast.WorkflowConfig),
-			Hooks:     make(ast.HookConfig),
-			MCP:       make(map[string]ast.MCPConfig),
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				Hooks:     make(ast.HookConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
 		}
 		tmpCount := 0
 
@@ -801,7 +809,9 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 	fmt.Println("  Run 'xcaffold apply' when ready to compile to your target platforms.")
 
 	cwd, _ := os.Getwd()
-	_ = registry.Register(cwd, config.Project.Name, nil, ".")
+	if config.Project != nil {
+		_ = registry.Register(cwd, config.Project.Name, nil, ".")
+	}
 
 	if len(warnings) > 0 {
 		fmt.Println("\nWarnings:")

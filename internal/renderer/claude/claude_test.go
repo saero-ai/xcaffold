@@ -31,11 +31,13 @@ func TestClaudeRenderer_Compile_EmptyConfig(t *testing.T) {
 func TestClaudeRenderer_Compile_MinimalAgent(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"reviewer": {
-				Description:  "Code review specialist.",
-				Instructions: "Review code for correctness and style.\n",
-				Model:        "claude-opus-4-5",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"reviewer": {
+					Description:  "Code review specialist.",
+					Instructions: "Review code for correctness and style.\n",
+					Model:        "claude-opus-4-5",
+				},
 			},
 		},
 	}
@@ -58,10 +60,12 @@ func TestClaudeRenderer_Compile_MinimalAgent(t *testing.T) {
 func TestClaudeRenderer_Compile_MinimalRule(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"security": {
-				Description:  "Security hardening rules.",
-				Instructions: "Never expose secrets in logs.\n",
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"security": {
+					Description:  "Security hardening rules.",
+					Instructions: "Never expose secrets in logs.\n",
+				},
 			},
 		},
 	}
@@ -80,13 +84,15 @@ func TestClaudeRenderer_Compile_MinimalRule(t *testing.T) {
 func TestClaudeRenderer_Compile_AgentFrontmatterFields(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"developer": {
-				Description: "An expert developer.",
-				Model:       "claude-sonnet-4-5",
-				Effort:      "high",
-				Tools:       []string{"Bash", "Read", "Write"},
-				Skills:      []string{"tdd", "code-review"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Description: "An expert developer.",
+					Model:       "claude-sonnet-4-5",
+					Effort:      "high",
+					Tools:       []string{"Bash", "Read", "Write"},
+					Skills:      []string{"tdd", "code-review"},
+				},
 			},
 		},
 	}
@@ -104,11 +110,13 @@ func TestClaudeRenderer_Compile_AgentFrontmatterFields(t *testing.T) {
 func TestClaudeRenderer_Compile_RuleWithPaths(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Rules: map[string]ast.RuleConfig{
-			"go-style": {
-				Description:  "Go coding conventions.",
-				Instructions: "Follow effective Go.\n",
-				Paths:        []string{"**/*.go"},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"go-style": {
+					Description:  "Go coding conventions.",
+					Instructions: "Follow effective Go.\n",
+					Paths:        []string{"**/*.go"},
+				},
 			},
 		},
 	}
@@ -134,12 +142,14 @@ func TestClaudeRenderer_Render(t *testing.T) {
 func TestClaudeRenderer_Compile_MultipleResources(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"frontend": {Description: "Frontend specialist."},
-			"backend":  {Description: "Backend specialist."},
-		},
-		Rules: map[string]ast.RuleConfig{
-			"security": {Description: "Security rules."},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"frontend": {Description: "Frontend specialist."},
+				"backend":  {Description: "Backend specialist."},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"security": {Description: "Security rules."},
+			},
 		},
 	}
 
@@ -155,11 +165,13 @@ func TestClaudeRenderer_Compile_MultipleResources(t *testing.T) {
 func TestClaudeRenderer_Compile_SkillMinimal(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"tdd": {
-				Name:         "tdd-driven-development",
-				Description:  "Test-driven development workflow.",
-				Instructions: "Write tests before implementation.\n",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {
+					Name:         "tdd-driven-development",
+					Description:  "Test-driven development workflow.",
+					Instructions: "Write tests before implementation.\n",
+				},
 			},
 		},
 	}
@@ -181,12 +193,14 @@ func TestClaudeRenderer_Compile_Agent_Readonly_EmitsToolsReadGrepGlob(t *testing
 	r := New()
 	ro := true
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"auditor": {
-				Name:         "Auditor",
-				Description:  "Read-only code auditor.",
-				Instructions: "Audit the code.",
-				Readonly:     &ro,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"auditor": {
+					Name:         "Auditor",
+					Description:  "Read-only code auditor.",
+					Instructions: "Audit the code.",
+					Readonly:     &ro,
+				},
 			},
 		},
 	}
@@ -205,12 +219,14 @@ func TestClaudeRenderer_Compile_Agent_Readonly_ExplicitToolsTakePrecedence(t *te
 	r := New()
 	ro := true
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"custom": {
-				Name:         "Custom",
-				Instructions: "Custom tools.",
-				Readonly:     &ro,
-				Tools:        []string{"Bash", "Read"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"custom": {
+					Name:         "Custom",
+					Instructions: "Custom tools.",
+					Readonly:     &ro,
+					Tools:        []string{"Bash", "Read"},
+				},
 			},
 		},
 	}
@@ -228,11 +244,13 @@ func TestClaudeRenderer_Compile_Agent_ReadonlyFalse_NoToolsSynthesized(t *testin
 	r := New()
 	ro := false
 	config := &ast.XcaffoldConfig{
-		Agents: map[string]ast.AgentConfig{
-			"writer": {
-				Name:         "Writer",
-				Instructions: "Write code.",
-				Readonly:     &ro,
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"writer": {
+					Name:         "Writer",
+					Instructions: "Write code.",
+					Readonly:     &ro,
+				},
 			},
 		},
 	}

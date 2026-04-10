@@ -38,10 +38,12 @@ var migrations = []Migration{
 // version to "1.1". This is idempotent: if CliPath is already set, it is
 // preserved unchanged.
 func migrateTo1_1(config *ast.XcaffoldConfig) error {
-	if config.Test.ClaudePath != "" && config.Test.CliPath == "" {
-		config.Test.CliPath = config.Test.ClaudePath
+	if config.Project != nil {
+		if config.Project.Test.ClaudePath != "" && config.Project.Test.CliPath == "" {
+			config.Project.Test.CliPath = config.Project.Test.ClaudePath
+		}
+		config.Project.Test.ClaudePath = ""
 	}
-	config.Test.ClaudePath = ""
 	config.Version = "1.1"
 	return nil
 }
@@ -203,7 +205,9 @@ func migrateProjectScope(cmd *cobra.Command) (bool, error) {
 	cwd, _ := os.Getwd()
 
 	if !needsUpdate {
-		_ = registry.Register(cwd, config.Project.Name, nil, ".")
+		if config.Project != nil {
+			_ = registry.Register(cwd, config.Project.Name, nil, ".")
+		}
 		return false, nil
 	}
 
@@ -218,7 +222,9 @@ func migrateProjectScope(cmd *cobra.Command) (bool, error) {
 		return false, fmt.Errorf("failed to write scaffold.xcf: %w", err)
 	}
 
-	_ = registry.Register(cwd, config.Project.Name, nil, ".")
+	if config.Project != nil {
+		_ = registry.Register(cwd, config.Project.Name, nil, ".")
+	}
 	cmd.Println("  ✓ Project config migrated and registered.")
 	return true, nil
 }

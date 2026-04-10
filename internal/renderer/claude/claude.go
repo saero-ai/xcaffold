@@ -110,7 +110,12 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	}
 
 	// settings.local.json: compile the local: block (gitignored settings).
-	localJSON, err := compileSettingsJSON(nil, config.Local)
+	// Local is now nested inside Project (nil when no project: block is defined).
+	var localSettings ast.SettingsConfig
+	if config.Project != nil {
+		localSettings = config.Project.Local
+	}
+	localJSON, err := compileSettingsJSON(nil, localSettings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile local settings: %w", err)
 	}

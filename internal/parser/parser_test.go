@@ -526,9 +526,9 @@ func TestValidatePlugins_UnknownLocalPlugin(t *testing.T) {
 	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
 project:
   name: "test"
-local:
-  enabledPlugins:
-    mystery-plugin: true
+  local:
+    enabledPlugins:
+      mystery-plugin: true
 `)
 	diags := ValidateFile(xcf)
 	var found bool
@@ -546,12 +546,12 @@ func TestValidatePlugins_BothBlocksUnknown(t *testing.T) {
 	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
 project:
   name: "test"
+  local:
+    enabledPlugins:
+      beta-plugin: true
 settings:
   enabledPlugins:
     alpha-plugin: true
-local:
-  enabledPlugins:
-    beta-plugin: true
 `)
 	diags := ValidateFile(xcf)
 	count := 0

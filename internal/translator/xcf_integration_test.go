@@ -161,11 +161,13 @@ func TestXcfIntegration_FullRoundTrip_WorkflowToConfigToYAMLAndBack(t *testing.T
 
 	// Build a minimal config to inject into.
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{
+		Project: &ast.ProjectConfig{
 			Name: "test-project",
 		},
-		Skills: make(map[string]ast.SkillConfig),
-		Rules:  make(map[string]ast.RuleConfig),
+		ResourceScope: ast.ResourceScope{
+			Skills: make(map[string]ast.SkillConfig),
+			Rules:  make(map[string]ast.RuleConfig),
+		},
 	}
 
 	// Inject primitives — mirrors the injectIntoConfig logic in translate.go.
@@ -254,7 +256,7 @@ func TestXcfIntegration_PlanMode_OriginalConfigUnchanged(t *testing.T) {
 
 	// Snapshot original config — no skills, no rules, no permissions.
 	original := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "unchanged"},
+		Project: &ast.ProjectConfig{Name: "unchanged"},
 	}
 	originalSkillCount := len(original.Skills)
 	originalRuleCount := len(original.Rules)

@@ -328,19 +328,22 @@ func TestParseDirectory_LocalDeepMerge_NonConflicting(t *testing.T) {
 version: "1.0"
 project:
   name: "local-merge-test"
-local:
-  env:
-    SECRET: "abc"
+  local:
+    env:
+      SECRET: "abc"
 `)
 	writeTestXCF(t, dir, "local-overrides.xcf", `
-local:
-  effortLevel: "low"
+project:
+  name: "local-merge-test"
+  local:
+    effortLevel: "low"
 `)
 
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
-	assert.Equal(t, "low", cfg.Local.EffortLevel)
-	assert.Equal(t, "abc", cfg.Local.Env["SECRET"])
+	require.NotNil(t, cfg.Project)
+	assert.Equal(t, "low", cfg.Project.Local.EffortLevel)
+	assert.Equal(t, "abc", cfg.Project.Local.Env["SECRET"])
 }
 
 func TestParseDirectory_ExtendsGlobal_InheritsSettings(t *testing.T) {

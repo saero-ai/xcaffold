@@ -17,43 +17,45 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 	bg := true
 
 	config := &ast.XcaffoldConfig{
-		Project: ast.ProjectConfig{Name: "integration-test"},
-		Agents: map[string]ast.AgentConfig{
-			"worker": {
-				Name:         "Worker Agent",
-				Description:  "Handles background tasks.",
-				Instructions: "Process jobs efficiently.",
-				Model:        "claude-opus-4-5",
-				Background:   &bg,
-				// CC-only fields that must be dropped
-				Effort:         "high",
-				PermissionMode: "acceptEdits",
-				MaxTurns:       5,
+		Project: &ast.ProjectConfig{Name: "integration-test"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"worker": {
+					Name:         "Worker Agent",
+					Description:  "Handles background tasks.",
+					Instructions: "Process jobs efficiently.",
+					Model:        "claude-opus-4-5",
+					Background:   &bg,
+					// CC-only fields that must be dropped
+					Effort:         "high",
+					PermissionMode: "acceptEdits",
+					MaxTurns:       5,
+				},
 			},
-		},
-		Skills: map[string]ast.SkillConfig{
-			"deploy": {
-				Name:         "Deploy Skill",
-				Description:  "Handles deployment steps.",
-				Instructions: "Run the deploy pipeline.",
+			Skills: map[string]ast.SkillConfig{
+				"deploy": {
+					Name:         "Deploy Skill",
+					Description:  "Handles deployment steps.",
+					Instructions: "Run the deploy pipeline.",
+				},
 			},
-		},
-		Rules: map[string]ast.RuleConfig{
-			"formatting": {
-				Description:  "Code style rules",
-				Instructions: "Always use gofmt.",
-				Paths:        []string{"**/*.go"},
+			Rules: map[string]ast.RuleConfig{
+				"formatting": {
+					Description:  "Code style rules",
+					Instructions: "Always use gofmt.",
+					Paths:        []string{"**/*.go"},
+				},
+				"global-safety": {
+					Description:  "Always-active safety rule",
+					Instructions: "Never delete production data.",
+				},
 			},
-			"global-safety": {
-				Description:  "Always-active safety rule",
-				Instructions: "Never delete production data.",
-			},
-		},
-		MCP: map[string]ast.MCPConfig{
-			"remote-api": {
-				Type:    "http",
-				URL:     "https://mcp.example.com/v1",
-				Headers: map[string]string{"Authorization": "Bearer token123"},
+			MCP: map[string]ast.MCPConfig{
+				"remote-api": {
+					Type:    "http",
+					URL:     "https://mcp.example.com/v1",
+					Headers: map[string]string{"Authorization": "Bearer token123"},
+				},
 			},
 		},
 	}
