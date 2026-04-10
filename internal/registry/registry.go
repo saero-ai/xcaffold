@@ -22,6 +22,7 @@ type Project struct {
 	LastApplied time.Time `yaml:"last_applied,omitempty"`
 	Path        string    `yaml:"path"`
 	Name        string    `yaml:"name"`
+	ConfigDir   string    `yaml:"config_directory,omitempty"`
 	Targets     []string  `yaml:"targets,omitempty"`
 }
 
@@ -487,7 +488,7 @@ func writeProjects(projects []Project) error {
 }
 
 // Register adds a new project or updates an existing one by path.
-func Register(projectPath, name string, targets []string) error {
+func Register(projectPath, name string, targets []string, configDir string) error {
 	abs, err := filepath.Abs(projectPath)
 	if err != nil {
 		return err
@@ -502,6 +503,7 @@ func Register(projectPath, name string, targets []string) error {
 	for i, p := range projects {
 		if p.Path == abs {
 			projects[i].Name = name
+			projects[i].ConfigDir = configDir
 			if len(targets) > 0 {
 				projects[i].Targets = targets
 			}
@@ -520,6 +522,7 @@ func Register(projectPath, name string, targets []string) error {
 		projects = append(projects, Project{
 			Path:       abs,
 			Name:       name,
+			ConfigDir:  configDir,
 			Registered: time.Now().UTC(),
 			Targets:    targets,
 		})

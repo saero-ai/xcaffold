@@ -67,7 +67,7 @@ func TestRegister_NewProject(t *testing.T) {
 	setupTestHome(t)
 
 	projectPath := t.TempDir()
-	if err := Register(projectPath, testProjectName, []string{"claude"}); err != nil {
+	if err := Register(projectPath, testProjectName, []string{"claude"}, "."); err != nil {
 		t.Fatalf("Register failed: %v", err)
 	}
 
@@ -93,8 +93,8 @@ func TestRegister_UpdateExisting(t *testing.T) {
 	setupTestHome(t)
 
 	projectPath := t.TempDir()
-	_ = Register(projectPath, testProjectName, []string{"claude"})
-	_ = Register(projectPath, "my-app-renamed", []string{"claude", "cursor"})
+	_ = Register(projectPath, testProjectName, []string{"claude"}, ".")
+	_ = Register(projectPath, "my-app-renamed", []string{"claude", "cursor"}, ".")
 
 	projects, _ := List()
 	if len(projects) != 1 {
@@ -116,8 +116,8 @@ func TestRegister_NameCollision(t *testing.T) {
 	_ = os.MkdirAll(pathA, 0755)
 	_ = os.MkdirAll(pathB, 0755)
 
-	_ = Register(pathA, "api", []string{"claude"})
-	_ = Register(pathB, "api", []string{"claude"})
+	_ = Register(pathA, "api", []string{"claude"}, ".")
+	_ = Register(pathB, "api", []string{"claude"}, ".")
 
 	projects, _ := List()
 	if len(projects) != 2 {
@@ -137,7 +137,7 @@ func TestUnregister_ByName(t *testing.T) {
 	setupTestHome(t)
 
 	projectPath := t.TempDir()
-	_ = Register(projectPath, testProjectName, []string{"claude"})
+	_ = Register(projectPath, testProjectName, []string{"claude"}, ".")
 	_ = Unregister(testProjectName)
 
 	projects, _ := List()
@@ -150,7 +150,7 @@ func TestUnregister_ByPath(t *testing.T) {
 	setupTestHome(t)
 
 	projectPath := t.TempDir()
-	_ = Register(projectPath, testProjectName, []string{"claude"})
+	_ = Register(projectPath, testProjectName, []string{"claude"}, ".")
 	_ = Unregister(projectPath)
 
 	projects, _ := List()
@@ -182,9 +182,9 @@ func TestList_Empty(t *testing.T) {
 func TestList_MultipleProjects(t *testing.T) {
 	setupTestHome(t)
 
-	_ = Register(t.TempDir(), "app-1", []string{"claude"})
-	_ = Register(t.TempDir(), "app-2", []string{"cursor"})
-	_ = Register(t.TempDir(), "app-3", []string{"claude", "cursor"})
+	_ = Register(t.TempDir(), "app-1", []string{"claude"}, ".")
+	_ = Register(t.TempDir(), "app-2", []string{"cursor"}, ".")
+	_ = Register(t.TempDir(), "app-3", []string{"claude", "cursor"}, ".")
 
 	projects, _ := List()
 	if len(projects) != 3 {
@@ -196,7 +196,7 @@ func TestResolve_ByName(t *testing.T) {
 	setupTestHome(t)
 
 	projectPath := t.TempDir()
-	_ = Register(projectPath, testProjectName, []string{"claude"})
+	_ = Register(projectPath, testProjectName, []string{"claude"}, ".")
 
 	p, err := Resolve(testProjectName)
 	if err != nil {
@@ -211,7 +211,7 @@ func TestResolve_ByPath(t *testing.T) {
 	setupTestHome(t)
 
 	projectPath := t.TempDir()
-	_ = Register(projectPath, testProjectName, []string{"claude"})
+	_ = Register(projectPath, testProjectName, []string{"claude"}, ".")
 
 	p, err := Resolve(projectPath)
 	if err != nil {
@@ -235,7 +235,7 @@ func TestUpdateLastApplied_SetsTimestamp(t *testing.T) {
 	setupTestHome(t)
 
 	projectPath := t.TempDir()
-	_ = Register(projectPath, testProjectName, []string{"claude"})
+	_ = Register(projectPath, testProjectName, []string{"claude"}, ".")
 
 	before := time.Now().UTC()
 	_ = UpdateLastApplied(projectPath)
@@ -254,5 +254,39 @@ func TestUpdateLastApplied_NoMatch(t *testing.T) {
 
 	if err := UpdateLastApplied("/nonexistent/path"); err != nil {
 		t.Fatalf("UpdateLastApplied should not error for missing project: %v", err)
+	}
+}
+
+func TestRegister_StoresConfigDir(t *testing.T) {
+	setupTestHome(t)
+
+	projectPath := t.TempDir()
+	if err := Register(projectPath, "with-configdir", []string{"claude"}, "xcaffold"); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	proj, err := Resolve("with-configdir")
+	if err != nil {
+		t.Fatalf("Resolve failed: %v", err)
+	}
+	if proj.ConfigDir != "xcaffold" {
+		t.Fatalf("expected ConfigDir %q, got %q", "xcaffold", proj.ConfigDir)
+	}
+}
+
+func TestRegister_DefaultConfigDir(t *testing.T) {
+	setupTestHome(t)
+
+	projectPath := t.TempDir()
+	if err := Register(projectPath, "default-configdir", []string{"claude"}, "."); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	proj, err := Resolve("default-configdir")
+	if err != nil {
+		t.Fatalf("Resolve failed: %v", err)
+	}
+	if proj.ConfigDir != "." {
+		t.Fatalf("expected ConfigDir %q, got %q", ".", proj.ConfigDir)
 	}
 }

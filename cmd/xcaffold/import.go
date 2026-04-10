@@ -217,7 +217,7 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
 
 	cwd, _ := os.Getwd()
-	_ = registry.Register(cwd, config.Project.Name, nil)
+	_ = registry.Register(cwd, config.Project.Name, nil, ".")
 
 	if len(warnings) > 0 {
 		fmt.Println("\nWarnings:")
@@ -801,7 +801,7 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 	fmt.Println("  Run 'xcaffold apply' when ready to compile to your target platforms.")
 
 	cwd, _ := os.Getwd()
-	_ = registry.Register(cwd, config.Project.Name, nil)
+	_ = registry.Register(cwd, config.Project.Name, nil, ".")
 
 	if len(warnings) > 0 {
 		fmt.Println("\nWarnings:")
