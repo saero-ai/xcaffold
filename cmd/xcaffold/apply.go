@@ -156,7 +156,7 @@ func printDiagnostics(diags []parser.Diagnostic) {
 
 // applyScope compiles a single xcf file into outputDir and writes the lock file
 // at lockFile. scopeName is used as a prefix in terminal output when running
-// --scope all so the user can distinguish the two compilation passes.
+// so the user can distinguish global from project compilation.
 //
 //nolint:gocyclo
 func applyScope(configPath, outputDir, lockFile, scopeName string) error {

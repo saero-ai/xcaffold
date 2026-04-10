@@ -72,8 +72,8 @@ func runDiff(cmd *cobra.Command, args []string) error {
 
 // diffScope reads the lock file at lockFile and compares each artifact's
 // recorded SHA-256 hash against the file on disk inside outputDir.
-// scopeName is used as a prefix in output lines when running --scope all
-// so the user can distinguish the two passes.
+// scopeName is used as a prefix in output lines
+// so the user can distinguish global from project passes.
 func diffScope(outputDir, lockFile, scopeName string) (int, error) {
 	manifest, err := state.Read(lockFile)
 	if err != nil {

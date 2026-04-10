@@ -501,7 +501,7 @@ func initGlobal() error {
 	}
 	target := filepath.Join(home, "global.xcf")
 
-	// Re-scan global platform dirs every time --scope global is explicit.
+	// Re-scan global platform dirs every time --global is used.
 	// This lets users refresh global.xcf after adding new agents to ~/.claude/ etc.
 	if err := registry.RebuildGlobalXCF(); err != nil {
 		return fmt.Errorf("failed to rebuild global.xcf: %w", err)
