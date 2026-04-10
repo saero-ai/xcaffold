@@ -1,74 +1,289 @@
 # Enforcing Project Policies
 
-Xcaffold ships with a zero-dependency, deterministic **Policy Enforcement Engine**. Unlike linters that run after generation or in CI, the Xcaffold policy engine evaluates your configuration *during* `xcaffold apply` and `xcaffold validate`, executing against the fully-resolved, inherited graph.
-
-This engine enforces architectural constraints (e.g., path boundaries, schema validation, agent metadata) and hard-blocks the creation of `.claude/` artifacts if `SeverityError` violations are found.
-
-This guide covers how the engine operates, how to override built-in policies, and best practices.
+xcaffold evaluates policies during `xcaffold apply` and `xcaffold validate`. Violations with `severity: error` block compilation and prevent `.claude/` from being written. You can write custom policies in `.xcf` files and override or disable any built-in policy by name.
 
 ---
 
-## 1. Engine Behavior & Built-ins
+## Writing a Custom Policy
 
-When you run `xcaffold apply`, the compiler takes an exact snapshot of your configuration graph (after processing `extends:` and `references:`) and runs it against active policies. 
+Create a `policies/` directory alongside your `scaffold.xcf`. Each `.xcf` file in that directory with `kind: policy` is loaded automatically by the policy engine.
 
-### Current Built-in Policies
+**Example: require all agents to have a model from an approved list.**
 
-| ID | Severity | Purpose |
-|----|----------|---------|
-| `path-safety` | `error` | Ensures `instructions_file` and `references:` use normalized, non-traversing file paths (blocks `../` and absolute paths outside the workspace). |
-| `settings-schema` | `error` | Verifies `custom_instructions` does not exceed 100 lines and valid permissions are defined in agent scopes. |
-| `no-empty-skills` | `warning` | Warns if a `skill` defines no tools and no workflows, meaning it provides zero agentic capabilities. |
-| `agent-has-description` | `warning` | Warns if an agent omits the `description` field, which lowers precision when the router dispatches tasks. |
+Create `policies/require-approved-model.xcf`:
 
-> [!NOTE]
-> Policies flagged `error` will fail `xcaffold apply` with exit code 1 and block the `.claude/` write. Policies flagged `warning` will print diagnostics but allow the generation to succeed.
+```yaml
+kind: policy
+name: require-approved-model
+description: Agents must use an approved model identifier
+severity: error
+target: agent
+require:
+  - field: model
+    one_of:
+      - claude-opus-4-5
+      - claude-sonnet-4-5
+      - claude-haiku-3-5
+```
+
+This policy evaluates every agent in the configuration. If an agent's `model` field does not match one of the listed values, the engine emits an error-severity violation.
+
+**Policy schema fields:**
+
+| Field | Type | Purpose |
+|---|---|---|
+| `kind` | `string` | Must be `policy` |
+| `name` | `string` | Unique identifier. Matches against built-in names for overrides |
+| `description` | `string` | Human-readable explanation of the policy's purpose |
+| `severity` | `string` | `error` (blocks apply), `warning` (diagnostic only), or `off` (disabled) |
+| `target` | `string` | Resource type to evaluate: `agent`, `skill`, `output`, or `settings` |
+| `match` | `PolicyMatch` | Optional filter conditions. See [Using Match Conditions](#using-match-conditions-to-filter-resources) |
+| `require` | `[]PolicyRequire` | Field presence and value constraints on matched resources |
+| `deny` | `[]PolicyDeny` | Content and path patterns that must not appear in compiled output |
+
+See `docs/reference/schema.md` for the full field reference including `PolicyRequire` and `PolicyDeny` sub-schemas.
 
 ---
 
-## 2. Overriding Policies
+## Running Policy Evaluation
 
-Xcaffold supports selective, deterministic overrides. You can disable or change the severity of a built-in policy simply by creating a policy with the *exact same ID* in your local project directory.
+Both `xcaffold apply` and `xcaffold validate` load built-in policies first, then scan for a `policies/` directory relative to the `.xcf` file location. Custom policies with the same `name` as a built-in override it.
 
-Policies are ordinary `.xcf` files containing a `kind: policy` block. By default, Xcaffold scans for files ending in `.xcf` to gather your project graph. 
+### Passing run (no violations)
 
-### Disabling a Built-in Policy
+```
+$ xcaffold validate
+syntax and cross-references: ok
+policies: ok
 
-If you have a legitimate architectural reason to disable the `path-safety` rule temporarily, create a file named `policy-overrides.xcf` in your project root:
+validation passed
+```
+
+### Run with warning violations
+
+Warnings are printed to stderr but do not block compilation. `xcaffold apply` writes the output directory and exits with code 0.
+
+```
+$ xcaffold validate
+syntax and cross-references: ok
+POLICY VIOLATION [warning] agent-has-description
+  agent: backend-dev
+  field "description" must be present and non-empty
+
+validation passed
+```
+
+### Run with error violations
+
+Error-severity violations block the write. `xcaffold apply` exits with code 1 and the output directory is not modified.
+
+```
+$ xcaffold apply
+POLICY VIOLATION [error] require-approved-model
+  agent: backend-dev
+  field "model" value "gpt-4o" is not in approved list [claude-opus-4-5 claude-sonnet-4-5 claude-haiku-3-5]
+
+[my-project] apply blocked: 1 policy error(s) found
+```
+
+```
+$ xcaffold validate
+syntax and cross-references: ok
+POLICY VIOLATION [error] path-safety
+  file: .claude/agents/../../../etc/passwd
+  output path contains forbidden string ".."
+
+validation failed: policy violations found
+```
+
+The violation format depends on the target type. Agent and skill violations print the resource name. Output violations print the file path.
+
+---
+
+## Overriding Built-in Policies
+
+xcaffold ships with four built-in policies embedded in the binary:
+
+| Name | Severity | Target | Purpose |
+|---|---|---|---|
+| `path-safety` | `error` | `output` | Blocks compiled output paths containing `..` traversal sequences |
+| `settings-schema` | `error` | `settings` | Rejects settings output containing `"permissions": null` |
+| `no-empty-skills` | `warning` | `skill` | Warns when a skill has no `instructions` content |
+| `agent-has-description` | `warning` | `agent` | Warns when an agent omits the `description` field |
+
+To disable a built-in policy, create a policy file with the same `name` and set `severity: off`. The engine resolves overrides by name: custom policies loaded from `policies/` replace any built-in with the same name.
+
+**Example: disable path-safety during a legacy migration.**
+
+Create `policies/allow-traversal.xcf`:
 
 ```yaml
 kind: policy
 name: path-safety
-description: Disable path safety explicitly for the legacy migration cleanup
+description: Temporarily disable path safety for legacy repo migration
 severity: off
 target: output
 ```
 
-Because your custom YAML targets the existing `path-safety` name with `severity: off`, the built-in policy is dynamically suppressed.
+When `severity` is `off`, the engine skips evaluation entirely. Only `kind`, `name`, `severity`, and `target` are required in the override file.
 
-> [!NOTE]
-> `severity: off` short-circuits evaluation, so only `kind`, `name`, `severity`, and `target` are required for overrides.
+**Example: downgrade a built-in error to a warning.**
+
+```yaml
+kind: policy
+name: settings-schema
+description: Downgrade settings-schema to warning during initial setup
+severity: warning
+target: settings
+deny:
+  - content_contains: ["\"permissions\": null"]
+```
+
+This replaces the built-in `settings-schema` policy. Because the full policy definition is replaced (not merged), you must re-declare the `deny` rules if you want the same checks to run at the new severity level.
 
 ---
 
-## 3. Best Practices
+## Using Match Conditions to Filter Resources
 
-### A. Reserve `error` for Security and Pathing
+The `match` block restricts which resources a policy applies to. All conditions within a single `match` block are AND-ed. An empty or omitted `match` block means the policy applies to all resources of the given `target` type.
 
-Only mark policies as `error` (fail-closed) if violating them causes downstream compiler crashes, breaks sandbox integrity, or leaks internal resources outside the target repository boundary. 
-- **Good Error**: Path traversal blocks.
-- **Good Error**: Schema validation blocks.
+**Example: only check agents that have the Bash tool.**
 
-### B. Use `warning` for Linting and Code Polish
+```yaml
+kind: policy
+name: bash-agents-need-hooks
+description: Agents with Bash tool access must have a description of at least 50 characters
+severity: warning
+target: agent
+match:
+  has_tool: Bash
+require:
+  - field: description
+    min_length: 50
+```
 
-If a configuration is sub-optimal but still mathematically valid to the `claude` compiler, label it `warning`.
-- **Warning**: Missing agent descriptions.
-- **Warning**: Redundant or unattached skills.
+**Example: match agents by name glob.**
 
-### C. Name-Based Toggling 
+```yaml
+kind: policy
+name: deployer-model-restriction
+description: Deployer agents must use opus
+severity: error
+target: agent
+match:
+  name_matches: "deploy*"
+require:
+  - field: model
+    one_of:
+      - claude-opus-4-5
+```
 
-Always prefer scoped overrides over disabling global inheritance. If one file needs an exception, override the policy name locally via `kind: policy`, complete the migration, and then remove the override file to automatically snap back to strict constraints.
+**Match condition fields:**
 
-### D. Centralize Overrides
+| Field | Type | Behavior |
+|---|---|---|
+| `has_tool` | `string` | Matches agents whose `tools` list contains this value |
+| `has_field` | `string` | Matches resources where the named field is present and non-empty |
+| `name_matches` | `string` | Glob pattern (`filepath.Match` syntax) tested against the resource ID |
+| `target_includes` | `string` | Matches resources whose target configuration includes this key |
 
-If you must invoke an override, it's highly recommended to isolate them in `.xcaffold/policies.xcf` or `overrides.xcf` rather than scattering `kind: policy` markers randomly throughout your domain files. 
+All conditions are optional. When multiple conditions are set, a resource must satisfy every condition to be evaluated by the policy.
+
+---
+
+## Denying Content Patterns in Compiled Output
+
+The `deny` block checks compiled output files for forbidden content or path patterns. Deny rules are evaluated against every file in the compiled output map. Each rule can use one or more of three check types.
+
+**Example: block leaked TODO markers.**
+
+```yaml
+kind: policy
+name: no-leaked-todos
+description: Compiled agent files must not contain TODO or FIXME markers
+severity: error
+target: output
+deny:
+  - content_contains:
+      - "TODO"
+      - "FIXME"
+      - "HACK"
+```
+
+`content_contains` is case-insensitive. A match against any file in the compiled output triggers a violation.
+
+**Example: block API key patterns.**
+
+```yaml
+kind: policy
+name: no-api-keys
+description: Compiled output must not contain API key patterns
+severity: error
+target: output
+deny:
+  - content_matches: "sk-[a-zA-Z0-9]{20,}"
+  - content_matches: "AKIA[0-9A-Z]{16}"
+```
+
+`content_matches` accepts a Go regular expression. Each `deny` entry is evaluated independently.
+
+**Example: block path traversal in output file paths.**
+
+```yaml
+kind: policy
+name: path-traversal-guard
+description: Output paths must not contain directory traversal
+severity: error
+target: output
+deny:
+  - path_contains: ".."
+```
+
+This is the same check performed by the built-in `path-safety` policy.
+
+**Deny rule fields:**
+
+| Field | Type | Behavior |
+|---|---|---|
+| `content_contains` | `[]string` | Case-insensitive substring match against file content |
+| `content_matches` | `string` | Go regex pattern tested against file content |
+| `path_contains` | `string` | Substring match against the compiled output file path |
+
+A single `deny` entry can combine `content_contains`, `content_matches`, and `path_contains`. Each check runs independently — any match produces a separate violation.
+
+---
+
+## Combining Require and Deny Rules
+
+A single policy can declare both `require` and `deny` blocks. The engine evaluates both independently against all matched resources.
+
+```yaml
+kind: policy
+name: strict-agent-standards
+description: Enforce description length and block shell references
+severity: error
+target: agent
+match:
+  has_tool: Bash
+require:
+  - field: description
+    is_present: true
+  - field: description
+    min_length: 20
+deny:
+  - content_contains:
+      - "rm -rf"
+      - "sudo"
+```
+
+**Require rule fields:**
+
+| Field | Type | Behavior |
+|---|---|---|
+| `field` | `string` | Name of the resource field to check |
+| `is_present` | `*bool` | When `true`, the field must exist and be non-empty |
+| `min_length` | `*int` | Minimum character count for the field value |
+| `max_count` | `*int` | Maximum item count for list-type fields (e.g., `tools`) |
+| `one_of` | `[]string` | The field value must be one of the listed strings |
+
+Multiple `require` entries are evaluated independently. A violation is emitted for each failing check.

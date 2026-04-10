@@ -14,4 +14,4 @@ Task-oriented guides for engineers who already understand xcaffold's core model 
 
 - [Binding MCP Tool Servers to Agents](mcp-server-integration.md) — Define stdio, SSE, and HTTP MCP servers, reference them from agents, and understand how they compile to `settings.json` (Claude) vs `mcp.json` (Cursor).
 
-- [Enforcing Project Policies](policy-enforcement.md) — Understand how the Policy Enforcement Engine runs during `apply` and `validate`, how to override built-in rules, and best practices for configuration constraints.
+- [Enforcing Project Policies](policy-enforcement.md) — Write custom constraint policies, override built-in rules, deny content patterns in compiled output, and interpret violation diagnostics from `apply` and `validate`.
