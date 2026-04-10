@@ -1,0 +1,12 @@
+version: "1.1"
+project:
+  name: mcp-example
+mcp:
+  local-db:
+    type: stdio
+    command: "sqlite3"
+  remote-api:
+    type: sse
+    url: "https://api.example.com/mcp"
+    headers:
+      "Authorization": "Bearer token"
