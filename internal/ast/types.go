@@ -55,6 +55,11 @@ type AgentConfig struct {
 	DisallowedTools  []string                  `yaml:"disallowedTools,omitempty"`
 	Tools            []string                  `yaml:"tools,omitempty"`
 	MaxTurns         int                       `yaml:"maxTurns,omitempty"`
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized and causes renderers
+	// to skip the resource during project-scope compilation (the global
+	// resources are already compiled separately via xcaffold apply -g).
+	Inherited bool `yaml:"-"`
 }
 
 // TargetOverride specifies overrides for multi-provider targets.
@@ -67,24 +72,21 @@ type TargetOverride struct {
 
 // SkillConfig defines a reusable prompt package.
 type SkillConfig struct {
-	DisableModelInvocation *bool      `yaml:"disable-model-invocation,omitempty"`
-	Hooks                  HookConfig `yaml:"hooks,omitempty"`
-	UserInvocable          *bool      `yaml:"user-invocable,omitempty"`
-	InstructionsFile       string     `yaml:"instructions_file,omitempty"`
-	Type                   string     `yaml:"type,omitempty"`
-	ArgumentHint           string     `yaml:"argument-hint,omitempty"`
-	Shell                  string     `yaml:"shell,omitempty"`
-	Effort                 string     `yaml:"effort,omitempty"`
-	Model                  string     `yaml:"model,omitempty"`
-	Instructions           string     `yaml:"instructions,omitempty"`
-	Context                string     `yaml:"context,omitempty"`
-	Agent                  string     `yaml:"agent,omitempty"`
-	Description            string     `yaml:"description,omitempty"`
-	Name                   string     `yaml:"name,omitempty"`
-	References             []string   `yaml:"references,omitempty"`
-	AllowedTools           []string   `yaml:"allowed-tools,omitempty"`
-	Tools                  []string   `yaml:"tools,omitempty"`
-	Paths                  []string   `yaml:"paths,omitempty"`
+	InstructionsFile string `yaml:"instructions_file,omitempty"`
+	Instructions     string `yaml:"instructions,omitempty"`
+	Description      string `yaml:"description,omitempty"`
+	Name             string `yaml:"name,omitempty"`
+	// References are docs/data files copied to skills/<id>/references/ at compile time.
+	References []string `yaml:"references,omitempty"`
+	// Scripts are executable helper files copied to skills/<id>/scripts/ at compile time.
+	// Use for reusable code that skill invocations would otherwise re-implement each run.
+	Scripts []string `yaml:"scripts,omitempty"`
+	// Assets are output artifact files (templates, fonts, icons) copied to skills/<id>/assets/.
+	Assets []string `yaml:"assets,omitempty"`
+	Tools  []string `yaml:"tools,omitempty"`
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
 }
 
 // RuleConfig defines a path-gated formatting guideline.
@@ -94,6 +96,9 @@ type RuleConfig struct {
 	Instructions     string   `yaml:"instructions,omitempty"`
 	InstructionsFile string   `yaml:"instructions_file,omitempty"`
 	Paths            []string `yaml:"paths,omitempty"`
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
 }
 
 // HookConfig maps lifecycle event names to their matcher groups.
@@ -137,6 +142,9 @@ type MCPConfig struct {
 	AuthProviderType string            `yaml:"authProviderType,omitempty" json:"authProviderType,omitempty"`
 	Args             []string          `yaml:"args,omitempty"    json:"args,omitempty"`
 	DisabledTools    []string          `yaml:"disabledTools,omitempty"    json:"disabledTools,omitempty"`
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-" json:"-"`
 }
 
 // StatusLineConfig defines the statusLine setting for the platform.
@@ -237,4 +245,39 @@ type WorkflowConfig struct {
 	Description      string `yaml:"description,omitempty"`
 	Instructions     string `yaml:"instructions,omitempty"`
 	InstructionsFile string `yaml:"instructions_file,omitempty"`
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
+}
+
+// StripInherited removes all top-level resources that are marked as Inherited=true.
+// This is called before compilation to ensure that resources loaded from
+// extends: global are not physically generated into local project directories.
+// It modifies the XcaffoldConfig in place.
+func (c *XcaffoldConfig) StripInherited() {
+	for k, v := range c.Agents {
+		if v.Inherited {
+			delete(c.Agents, k)
+		}
+	}
+	for k, v := range c.Skills {
+		if v.Inherited {
+			delete(c.Skills, k)
+		}
+	}
+	for k, v := range c.Rules {
+		if v.Inherited {
+			delete(c.Rules, k)
+		}
+	}
+	for k, v := range c.MCP {
+		if v.Inherited {
+			delete(c.MCP, k)
+		}
+	}
+	for k, v := range c.Workflows {
+		if v.Inherited {
+			delete(c.Workflows, k)
+		}
+	}
 }

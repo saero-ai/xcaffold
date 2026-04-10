@@ -435,67 +435,18 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 	assert.Contains(t, content, "description: Formats code")
 }
 
-func TestCompile_Skill_DisableModelInvocationEmitted(t *testing.T) {
-	r := cursor.New()
-	disabled := true
-	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"no-invoke-skill": {
-				Name:                   "No Invoke",
-				Instructions:           "Passive skill.",
-				DisableModelInvocation: &disabled,
-			},
-		},
-	}
-
-	out, err := r.Compile(config, "")
-	require.NoError(t, err)
-
-	content := out.Files["skills/no-invoke-skill/SKILL.md"]
-	assert.Contains(t, content, "disable-model-invocation: true")
-}
-
-func TestCompile_Skill_DisableModelInvocationFalse_NotEmitted(t *testing.T) {
-	r := cursor.New()
-	disabled := false
-	config := &ast.XcaffoldConfig{
-		Skills: map[string]ast.SkillConfig{
-			"active-skill": {
-				Name:                   "Active Skill",
-				Instructions:           "Always fires.",
-				DisableModelInvocation: &disabled,
-			},
-		},
-	}
-
-	out, err := r.Compile(config, "")
-	require.NoError(t, err)
-
-	content := out.Files["skills/active-skill/SKILL.md"]
-	assert.NotContains(t, content, "disable-model-invocation:")
-}
-
 func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	r := cursor.New()
-	userInvocable := true
-	disabled := true
 	config := &ast.XcaffoldConfig{
 		Skills: map[string]ast.SkillConfig{
 			"rich-skill": {
-				Name:                   "Rich Skill",
-				Description:            "Has many fields.",
-				Instructions:           "Do something.",
-				DisableModelInvocation: &disabled,
-				Tools:                  []string{"Bash"},
-				AllowedTools:           []string{"Read"},
-				Context:                "fork",
-				Agent:                  "my-agent",
-				Model:                  "claude-opus-4-5",
-				Effort:                 "high",
-				Shell:                  "bash",
-				ArgumentHint:           "hint text",
-				UserInvocable:          &userInvocable,
-				Paths:                  []string{"**/*.go"},
+				Name:         "Rich Skill",
+				Description:  "Has many fields.",
+				Instructions: "Do something.",
+				Tools:        []string{"Bash"},
+				References:   []string{"**/*.go"},
+				Scripts:      []string{"setup.sh"},
+				Assets:       []string{"icon.png"},
 			},
 		},
 	}
@@ -507,14 +458,13 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	require.NotEmpty(t, content)
 
 	// CC-only fields must NOT appear
-	for _, dropped := range []string{"tools:", "allowed-tools:", "context:", "agent:", "model:", "effort:", "shell:", "argument-hint:", "user-invocable:", "paths:"} {
+	for _, dropped := range []string{"tools:", "references:", "scripts:", "assets:"} {
 		assert.NotContains(t, content, dropped, "CC-only field %q must be dropped", dropped)
 	}
 
 	// Cursor-compatible fields MUST appear
 	assert.Contains(t, content, "name: Rich Skill")
 	assert.Contains(t, content, "description: Has many fields.")
-	assert.Contains(t, content, "disable-model-invocation: true")
 }
 
 func TestCompile_Skill_BodyContentPreserved(t *testing.T) {

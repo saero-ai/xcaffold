@@ -30,9 +30,9 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 				Description:  "Handles deployment steps.",
 				Instructions: "Run the deploy pipeline.",
 				// CC-only fields that must be dropped
-				Model:  "claude-opus-4-5",
-				Effort: "high",
-				Tools:  []string{"Bash"},
+				References: []string{"test/"},
+				Scripts:    []string{"run.sh"},
+				Assets:     []string{"icon.png"},
 			},
 		},
 		Rules: map[string]ast.RuleConfig{
@@ -100,7 +100,7 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 	assert.Contains(t, skillContent, "Run the deploy pipeline.")
 
 	// CC-only fields must be absent
-	for _, dropped := range []string{"model:", "effort:", "tools:"} {
+	for _, dropped := range []string{"references:", "scripts:", "assets:"} {
 		assert.NotContains(t, skillContent, dropped, "CC-only field %q must be absent", dropped)
 	}
 

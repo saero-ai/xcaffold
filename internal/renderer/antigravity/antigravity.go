@@ -163,8 +163,6 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (str
 // compileAntigravitySkill renders a single SkillConfig to a skills/<id>/SKILL.md file.
 //
 // Antigravity skills support only name and description in frontmatter.
-// All other fields (tools, context, model, effort, disable-model-invocation, etc.)
-// are dropped — they have no AG equivalent.
 func compileAntigravitySkill(id string, skill ast.SkillConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("skill id must not be empty")

@@ -85,6 +85,13 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		}
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
+		// Fidelity warnings: scripts and assets are Claude-native, Cursor drops them silently.
+		if len(skill.Scripts) > 0 {
+			fmt.Fprintf(os.Stderr, "WARNING (cursor): skill %q scripts: dropped — Cursor does not support skill scripts/ directories.\n", id)
+		}
+		if len(skill.Assets) > 0 {
+			fmt.Fprintf(os.Stderr, "WARNING (cursor): skill %q assets: dropped — Cursor does not support skill assets/ directories.\n", id)
+		}
 	}
 
 	// Compile MCP servers to mcp.json (only if any servers are defined)
@@ -302,9 +309,7 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 // compileCursorSkill renders a single SkillConfig to a Cursor skills/<id>/SKILL.md file.
 //
 // Normalizations:
-//   - disable-model-invocation is supported by Cursor — emitted when true
-//   - CC-only fields are dropped: tools, allowed-tools, context, agent, model,
-//     effort, shell, argument-hint, user-invocable, hooks, paths
+//   - Scripts and assets are warned about as fidelity loss if present, as Cursor does not support bundled subdirectories for skills.
 func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("skill id must not be empty")
@@ -324,9 +329,6 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 	}
 	if skill.Description != "" {
 		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(skill.Description))
-	}
-	if skill.DisableModelInvocation != nil && *skill.DisableModelInvocation {
-		sb.WriteString("disable-model-invocation: true\n")
 	}
 
 	sb.WriteString("---\n")

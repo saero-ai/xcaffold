@@ -407,44 +407,14 @@ func warnLossySkill(id string, s ast.SkillConfig) {
 	if len(s.Tools) > 0 {
 		warnLossy("skill", "tools", id)
 	}
-	if len(s.AllowedTools) > 0 {
-		warnLossy("skill", "allowedTools", id)
-	}
-	if s.Type != "" {
-		warnLossy("skill", "type", id)
-	}
-	if s.Context != "" {
-		warnLossy("skill", "context", id)
-	}
-	if s.Agent != "" {
-		warnLossy("skill", "agent", id)
-	}
-	if s.Shell != "" {
-		warnLossy("skill", "shell", id)
-	}
-	if s.Model != "" {
-		warnLossy("skill", "model", id)
-	}
-	if s.Effort != "" {
-		warnLossy("skill", "effort", id)
-	}
-	if s.ArgumentHint != "" {
-		warnLossy("skill", "argumentHint", id)
-	}
-	if s.UserInvocable != nil {
-		warnLossy("skill", "userInvocable", id)
-	}
-	if s.DisableModelInvocation != nil {
-		warnLossy("skill", "disableModelInvocation", id)
-	}
-	if len(s.Hooks) > 0 {
-		warnLossy("skill", "hooks", id)
-	}
-	if len(s.Paths) > 0 {
-		warnLossy("skill", "paths", id)
-	}
 	if len(s.References) > 0 {
 		warnLossy("skill", "references", id)
+	}
+	if len(s.Scripts) > 0 {
+		warnLossy("skill", "scripts", id)
+	}
+	if len(s.Assets) > 0 {
+		warnLossy("skill", "assets", id)
 	}
 }
 

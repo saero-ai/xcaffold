@@ -25,10 +25,17 @@ type Output = output.Output
 // Compile translates an XcaffoldConfig AST into platform-native files.
 // target selects the output platform: "claude" (default), "cursor", "antigravity".
 // If target is empty, defaults to "claude" for backward compatibility.
+//
+// Before compilation, any resources marked as Inherited (e.g. from extends: global)
+// are stripped. This ensures global configurations are not physically duplicated
+// into local project directories, keeping the compiler's output strictly localized
+// while allowing parser-level ASTs to retain full scope awareness (for e.g. graph).
 func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output, error) {
 	if target == "" {
 		target = TargetClaude
 	}
+
+	config.StripInherited()
 
 	switch target {
 	case TargetClaude:

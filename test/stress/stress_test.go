@@ -71,7 +71,6 @@ func TestStress_LargeInstructions(t *testing.T) {
 	assert.Greater(t, len(content), 100000)
 }
 
-
 func TestStress_FullLifecycle_100Agents(t *testing.T) {
 	dir := t.TempDir()
 
