@@ -189,8 +189,10 @@ The `Reasoning` field contains a full markdown evaluation report with per-assert
 4. `"claude"` (resolved via `$PATH`)
 
 ```yaml
-test:
-  cli_path: /usr/local/bin/claude
+project:
+  name: my-app
+  test:
+    cli_path: /usr/local/bin/claude
 ```
 
 To override at runtime without modifying the config file:
@@ -212,8 +214,10 @@ xcaffold test --agent backend-dev --cli-path /path/to/staging-claude
 3. `"claude-haiku-4-5-20251001"` (hard default)
 
 ```yaml
-test:
-  judge_model: claude-haiku-4-5-20251001
+project:
+  name: my-app
+  test:
+    judge_model: claude-haiku-4-5-20251001
 ```
 
 To override at runtime:
@@ -247,8 +251,10 @@ The proxy intercept mechanism is target-agnostic. Any CLI binary that respects `
 To test with a different CLI binary — a local staging build, a different agent runtime, or a version under development — set `test.cli_path`:
 
 ```yaml
-test:
-  cli_path: /home/user/builds/claude-dev
+project:
+  name: my-app
+  test:
+    cli_path: /home/user/builds/claude-dev
 ```
 
 Or pass it at runtime:
