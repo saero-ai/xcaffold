@@ -278,6 +278,8 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	ruleOrigins := map[string]string{}
 	mcpOrigins := map[string]string{}
 	workflowOrigins := map[string]string{}
+	settingsOrigin := ""
+	localOrigin := ""
 
 	for _, pf := range parsedFiles {
 		p := pf.Config
@@ -338,10 +340,23 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			merged.Test = p.Test
 		}
 
-		// Overwrite settings and local blocks (last file wins; ParseDirectory is
-		// designed for single-settings-file projects).
-		merged.Settings = p.Settings
-		merged.Local = p.Local
+		// Track which file first contributed non-empty settings/local.
+		if settingsOrigin == "" && !isEmptySettings(p.Settings) {
+			settingsOrigin = f
+		}
+		if localOrigin == "" && !isEmptySettings(p.Local) {
+			localOrigin = f
+		}
+
+		// Deep merge settings and local blocks (conflicting keys → error).
+		merged.Settings, err = mergeSettingsStrict(merged.Settings, p.Settings, settingsOrigin, f)
+		if err != nil {
+			return nil, err
+		}
+		merged.Local, err = mergeSettingsStrict(merged.Local, p.Local, localOrigin, f)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return merged, nil
 }
