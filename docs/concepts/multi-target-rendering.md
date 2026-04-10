@@ -60,6 +60,9 @@ No output directory is assumed at the time the `.xcf` file is parsed. The compil
 
 ```go
 func OutputDir(target string) string {
+    if target == "" {
+        target = TargetClaude
+    }
     switch target {
     case TargetClaude:      return claude.New().OutputDir()      // ".claude"
     case TargetCursor:      return cursor.New().OutputDir()      // ".cursor"
@@ -69,6 +72,8 @@ func OutputDir(target string) string {
     }
 }
 ```
+
+When no `--target` flag is provided, the empty string defaults to `TargetClaude` before the switch is evaluated. This is the only place in the compiler where a default target is assumed.
 
 Each renderer's `OutputDir()` method owns the answer. The compiler calls the method; it does not hardcode the path. This means adding a new renderer for a new target requires only implementing `TargetRenderer` and registering it — no changes to the compiler's dispatch logic or to any path-resolution logic outside the new renderer.
 
@@ -90,6 +95,9 @@ Each compilation target produces its own lock file. `state.LockFilePath` compute
 
 ```go
 func LockFilePath(basePath string, target string) string {
+    if target == "" {
+        target = "claude"
+    }
     ext := filepath.Ext(basePath)
     base := strings.TrimSuffix(basePath, ext)
     return base + "." + target + ext
