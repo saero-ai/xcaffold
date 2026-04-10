@@ -263,13 +263,12 @@ mcp:
 
 ### Claude Target (`--target claude`)
 
-Output: `.claude/settings.json`
+Output: `.claude/mcp.json`
 
-The top-level `mcp:` block is merged into the `mcpServers` key. The `type` field is included. The `$schema` key is always emitted first.
+The top-level `mcp:` block is written to a standalone `mcp.json` file wrapped in an `{"mcpServers": {...}}` envelope. The `type` field is included verbatim. No `$schema` key is emitted in `mcp.json` — the schema key lives in `settings.json`.
 
 ```json
 {
-  "$schema": "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json",
   "mcpServers": {
     "filesystem": {
       "type": "stdio",
@@ -318,10 +317,9 @@ mcp:
       Authorization: "Bearer ${TOKEN}"
 ```
 
-Claude output (`.claude/settings.json`):
+Claude output (`.claude/mcp.json`):
 ```json
 {
-  "$schema": "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json",
   "mcpServers": {
     "web-search": {
       "type": "sse",
