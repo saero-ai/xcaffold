@@ -16,7 +16,6 @@ graph LR
   subgraph Global Home ["~/.xcaffold/"]
     R[registry.xcf]
     GC[global.xcf]
-    CF[settings.xcf]
   end
 
   subgraph User Codebase
@@ -86,13 +85,12 @@ Lock files follow a naming convention:
 
 ## Global Home (`~/.xcaffold/`)
 
-Created automatically on first run by `registry.EnsureGlobalHome()`. Contains three seed files:
+Created automatically on first run by `registry.EnsureGlobalHome()`. Contains two seed files:
 
 | File | Purpose |
 |---|---|
-| `global.xcf` | User-wide agent config — auto-bootstrapped by scanning installed platform providers |
+| `global.xcf` | User-wide agent config (includes `kind: config` discriminator) — auto-bootstrapped by scanning installed platform providers |
 | `registry.xcf` | YAML list of all registered projects (`name`, `path`, `targets`, `registered`, `last_applied`) |
-| `settings.xcf` | User preferences (e.g. `default_target`) |
 
 `global.xcf` is rebuilt by `RebuildGlobalXCF()`, which iterates a `globalProviders` registry. Currently two providers are active:
 
@@ -102,6 +100,19 @@ Created automatically on first run by `registry.EnsureGlobalHome()`. Contains th
 | **Antigravity** | `~/.gemini/antigravity/skills/`, `~/.gemini/GEMINI.md`, `~/.gemini/antigravity/mcp_config.json` |
 
 > New providersare added by implementing a scan function and appending it to `globalProviders` in `internal/registry/registry.go`. No other changes are required.
+
+---
+
+### File Taxonomy (`kind:` Discriminator)
+
+Every `.xcf` file in `~/.xcaffold/` carries a `kind:` field as its first key. The parser scanner reads this field before attempting full parsing to determine if the file should be processed:
+
+| Kind value | Schema | Parser |
+|---|---|---|
+| `config` (or absent) | `XcaffoldConfig` | `parser.ParseDirectory()` |
+| `registry` | `{kind, projects}` | `registry.readProjects()` |
+
+Files without a `kind:` field are treated as `config` for backward compatibility. Files with any other `kind:` value are silently skipped by the directory scanner — this prevents non-config files (like `registry.xcf`) from crashing the strict `KnownFields(true)` parser.
 
 ---
 
@@ -311,8 +322,8 @@ These inline architecture decisions record the reasoning behind strict implement
 **Why:** Direct format conversion (e.g. Antigravity workflow → Claude rule) loses semantic structure. The BIR/intent layer preserves the original body while extracting meaning — constraints become rules, procedures become skills, automation annotations become permissions — enabling correct round-tripping across platforms.
 
 ### 8. `registry.xcf` File Naming
-**Decision:** The project registry file is `registry.xcf` (not `projects.yaml`) and preferences file is `settings.xcf` (not `config.yaml`).
-**Why:** Using `.xcf` extension for all xcaffold-managed configuration files provides a consistent, recognizable file type. The system diagram in older documentation reflected pre-refactor names that have since been updated.
+**Decision:** The project registry file is `registry.xcf` (not `projects.yaml`). User preferences (e.g. `default_target`) are stored in the `settings:` block of `global.xcf` rather than a separate file.
+**Why:** Using `.xcf` extension for all xcaffold-managed configuration files provides a consistent, recognizable file type. Consolidating preferences into `global.xcf` eliminates a separate file that had no type discriminator and adds to the configuration surface area.
 
 ### 9. `TestConfig.CliPath` (generalized from `ClaudePath`)
 **Decision:** The `test:` block uses `cli_path` as the primary field (with `claude_path` retained for backward compatibility).

@@ -57,6 +57,7 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `kind` | `string` | Optional | File type discriminator. Values: `"config"` (compiler input) or omitted (treated as `config` for backward compatibility). Global configs should set `kind: config`. Non-config files (e.g. `registry.xcf`) use `kind: registry` and are skipped by the directory scanner. |
 | `version` | `string` | **Required** | Schema version. Current: `"1.1"`. |
 | `project` | `ProjectConfig` | Project scope only | Project-level metadata. Not present in global config. |
 | `extends` | `string` | Optional (project only) | Path to a parent `.xcf` config. Use `"global"` to reference `~/.xcaffold/global.xcf` for validation and visualization. Does not affect compiled output. |
