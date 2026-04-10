@@ -2,6 +2,7 @@ package ast
 
 // XcaffoldConfig is the root structure of a parsed .xcf YAML file.
 type XcaffoldConfig struct {
+	Kind      string                    `yaml:"kind,omitempty"`
 	Version   string                    `yaml:"version"`
 	Project   ProjectConfig             `yaml:"project"`
 	Extends   string                    `yaml:"extends,omitempty"`

@@ -10,6 +10,7 @@ import (
 )
 
 func TestValidateCmd_ValidConfig(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
 	content := `
@@ -58,6 +59,7 @@ agents:
 }
 
 func TestValidateCmd_StructuralChecks(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
 	content := `

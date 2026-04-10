@@ -37,11 +37,8 @@ func GlobalHome() (string, error) {
 
 // DefaultGlobalXCFContent is a minimal starter template used only when no
 // real global agent configs are found on disk.
-const DefaultGlobalXCFContent = `version: "1.0"
-project:
-  name: "global"
-  description: "User-wide agent configuration."
-
+const DefaultGlobalXCFContent = `kind: config
+version: "1.0"
 # No global agents were detected. Add agents here and run:
 #   xcaffold apply --scope global
 agents: {}
@@ -70,16 +67,16 @@ func EnsureGlobalHome() error {
 		return fmt.Errorf("could not create global home: %w", err)
 	}
 
-	configPath := filepath.Join(home, "settings.xcf")
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		cfg := Config{DefaultTarget: "claude"}
-		out, _ := yaml.Marshal(cfg)
-		_ = os.WriteFile(configPath, out, 0600)
-	}
+	// Remove legacy settings.xcf — preferences now live in global.xcf's settings: block.
+	_ = os.Remove(filepath.Join(home, "settings.xcf"))
 
 	projectsPath := filepath.Join(home, "registry.xcf")
 	if _, err := os.Stat(projectsPath); os.IsNotExist(err) {
-		out, _ := yaml.Marshal([]Project{})
+		wrapper := map[string]interface{}{
+			"kind":     "registry",
+			"projects": []Project{},
+		}
+		out, _ := yaml.Marshal(wrapper)
 		_ = os.WriteFile(projectsPath, out, 0600)
 	}
 
@@ -390,10 +387,9 @@ func scanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string
 func marshalGlobalXCF(r *globalScanResult) []byte {
 	var buf bytes.Buffer
 
+	buf.WriteString("kind: config\n")
 	buf.WriteString("version: \"1.0\"\n")
-	buf.WriteString("project:\n")
-	buf.WriteString("  name: \"global\"\n")
-	buf.WriteString("  description: \"User-wide agent configuration (auto-discovered).\"\n\n")
+	buf.WriteString("# User-wide agent configuration (auto-discovered).\n\n")
 	buf.WriteString("# All instructions_file paths are absolute so they resolve correctly\n")
 	buf.WriteString("# regardless of the current working directory.\n")
 
@@ -467,6 +463,20 @@ func readProjects() ([]Project, error) {
 		}
 		return nil, err
 	}
+
+	// Try new format first: {kind: registry, projects: [...]}
+	var wrapper struct {
+		Kind     string    `yaml:"kind"`
+		Projects []Project `yaml:"projects"`
+	}
+	if err := yaml.Unmarshal(data, &wrapper); err == nil && wrapper.Kind == "registry" {
+		if wrapper.Projects == nil {
+			return []Project{}, nil
+		}
+		return wrapper.Projects, nil
+	}
+
+	// Fallback: legacy bare []Project array
 	var projects []Project
 	if err := yaml.Unmarshal(data, &projects); err != nil {
 		return nil, err
@@ -480,7 +490,11 @@ func writeProjects(projects []Project) error {
 		return err
 	}
 	projectsPath := filepath.Join(home, "registry.xcf")
-	data, err := yaml.Marshal(projects)
+	wrapper := map[string]interface{}{
+		"kind":     "registry",
+		"projects": projects,
+	}
+	data, err := yaml.Marshal(wrapper)
 	if err != nil {
 		return err
 	}

@@ -410,3 +410,81 @@ rules:
 	assert.Contains(t, err.Error(), "circular dependency")
 	assert.Contains(t, err.Error(), ".antigravity/")
 }
+
+// TestParsePartial_GlobalScope_AllowsAbsoluteInstructionsFile verifies that
+// parsePartial called with withGlobalScope() accepts absolute instructions_file
+// paths — global configs legitimately reference files like ~/.claude/agents/*.md.
+func TestParsePartial_GlobalScope_AllowsAbsoluteInstructionsFile(t *testing.T) {
+	xcf := `
+agents:
+  ceo:
+    description: "Global CEO agent"
+    instructions_file: "/Users/testuser/.claude/agents/ceo.md"
+`
+	cfg, err := parsePartial(strings.NewReader(xcf), withGlobalScope())
+	require.NoError(t, err, "global scope must accept absolute instructions_file path")
+	assert.Equal(t, "/Users/testuser/.claude/agents/ceo.md", cfg.Agents["ceo"].InstructionsFile)
+}
+
+// TestParsePartial_ProjectScope_RejectsAbsoluteInstructionsFile verifies that
+// parsePartial without withGlobalScope() still rejects absolute paths —
+// project-scoped configs must not read arbitrary absolute files.
+func TestParsePartial_ProjectScope_RejectsAbsoluteInstructionsFile(t *testing.T) {
+	xcf := `
+agents:
+  ceo:
+    description: "Project CEO agent"
+    instructions_file: "/etc/passwd"
+`
+	_, err := parsePartial(strings.NewReader(xcf))
+	require.Error(t, err, "project scope must reject absolute instructions_file path")
+	assert.Contains(t, err.Error(), "relative path")
+}
+
+// TestParsePartial_GlobalScope_StillRejectsPathTraversal verifies that
+// withGlobalScope() does not relax the path-traversal guard — ".." remains
+// invalid even in global scope.
+func TestParsePartial_GlobalScope_StillRejectsPathTraversal(t *testing.T) {
+	xcf := `
+agents:
+  ceo:
+    description: "Global CEO agent"
+    instructions_file: "../../etc/passwd"
+`
+	_, err := parsePartial(strings.NewReader(xcf), withGlobalScope())
+	require.Error(t, err, "global scope must still reject path traversal")
+	assert.Contains(t, err.Error(), "instructions_file")
+}
+
+// TestParseDirectoryRaw_GlobalScope_AllowsAbsoluteInstructionsFile verifies that
+// parseDirectoryRaw propagates withGlobalScope() into parseFileExact so that an
+// XCF file inside ~/.xcaffold/ with an absolute instructions_file parses without error.
+func TestParseDirectoryRaw_GlobalScope_AllowsAbsoluteInstructionsFile(t *testing.T) {
+	dir := t.TempDir()
+	writeTestXCF(t, dir, "agents.xcf", `
+agents:
+  ceo:
+    description: "Global CEO agent"
+    instructions_file: "/Users/testuser/.claude/agents/ceo.md"
+`)
+
+	cfg, err := parseDirectoryRaw(dir, withGlobalScope())
+	require.NoError(t, err, "parseDirectoryRaw with global scope must accept absolute instructions_file")
+	assert.Equal(t, "/Users/testuser/.claude/agents/ceo.md", cfg.Agents["ceo"].InstructionsFile)
+}
+
+// TestParseDirectoryRaw_ProjectScope_RejectsAbsoluteInstructionsFile verifies that
+// parseDirectoryRaw without withGlobalScope() still rejects absolute paths.
+func TestParseDirectoryRaw_ProjectScope_RejectsAbsoluteInstructionsFile(t *testing.T) {
+	dir := t.TempDir()
+	writeTestXCF(t, dir, "agents.xcf", `
+agents:
+  ceo:
+    description: "Project CEO agent"
+    instructions_file: "/etc/passwd"
+`)
+
+	_, err := parseDirectoryRaw(dir)
+	require.Error(t, err, "parseDirectoryRaw without global scope must reject absolute instructions_file")
+	assert.Contains(t, err.Error(), "relative path")
+}

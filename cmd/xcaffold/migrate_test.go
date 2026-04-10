@@ -58,6 +58,7 @@ func TestMigrateTo1_1_NeitherPathSet(t *testing.T) {
 }
 
 func TestRunSchemaVersionMigrations_Idempotent(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcfFile := filepath.Join(dir, "scaffold.xcf")
 

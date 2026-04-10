@@ -3,6 +3,7 @@ package registry
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -32,11 +33,34 @@ func TestEnsureGlobalHome_CreatesDirectory(t *testing.T) {
 	if _, err := os.Stat(xcfHome); os.IsNotExist(err) {
 		t.Fatal("~/.xcaffold/ was not created")
 	}
-	if _, err := os.Stat(filepath.Join(xcfHome, "settings.xcf")); os.IsNotExist(err) {
-		t.Fatal("settings.xcf was not created")
+
+	// settings.xcf must NOT be created (removed in file taxonomy update)
+	if _, err := os.Stat(filepath.Join(xcfHome, "settings.xcf")); err == nil {
+		t.Fatal("settings.xcf should not be created")
 	}
+
 	if _, err := os.Stat(filepath.Join(xcfHome, "registry.xcf")); os.IsNotExist(err) {
 		t.Fatal("registry.xcf was not created")
+	}
+
+	globalData, err := os.ReadFile(filepath.Join(xcfHome, "global.xcf"))
+	if err != nil {
+		t.Fatalf("global.xcf was not created: %v", err)
+	}
+	globalContent := string(globalData)
+	if !strings.Contains(globalContent, "kind: config") {
+		t.Errorf("global.xcf should contain 'kind: config', got:\n%s", globalContent)
+	}
+	if strings.Contains(globalContent, "project:") {
+		t.Errorf("global.xcf should NOT contain 'project:' block, got:\n%s", globalContent)
+	}
+
+	registryData, err := os.ReadFile(filepath.Join(xcfHome, "registry.xcf"))
+	if err != nil {
+		t.Fatalf("registry.xcf was not created: %v", err)
+	}
+	if !strings.Contains(string(registryData), "kind: registry") {
+		t.Errorf("registry.xcf should contain 'kind: registry', got:\n%s", string(registryData))
 	}
 }
 
@@ -48,18 +72,59 @@ func TestEnsureGlobalHome_Idempotent(t *testing.T) {
 		t.Fatalf("first call failed: %v", err)
 	}
 
-	// Write a custom value to settings.xcf
-	configPath := filepath.Join(tmp, ".xcaffold", "settings.xcf")
-	_ = os.WriteFile(configPath, []byte("default_target: cursor\n"), 0600)
+	// Write a project entry to registry.xcf and verify EnsureGlobalHome does not overwrite it.
+	home := filepath.Join(tmp, ".xcaffold")
+	registryPath := filepath.Join(home, "registry.xcf")
+	customRegistry := "kind: registry\nprojects:\n  - path: /some/project\n    name: sentinel\n"
+	_ = os.WriteFile(registryPath, []byte(customRegistry), 0600)
 
 	if err := EnsureGlobalHome(); err != nil {
 		t.Fatalf("second call failed: %v", err)
 	}
 
-	// Verify custom value was not overwritten
-	data, _ := os.ReadFile(configPath)
-	if string(data) != "default_target: cursor\n" {
-		t.Fatalf("settings.xcf was overwritten: got %q", string(data))
+	// Verify custom registry was not overwritten
+	data, _ := os.ReadFile(registryPath)
+	if string(data) != customRegistry {
+		t.Fatalf("registry.xcf was overwritten: got %q", string(data))
+	}
+}
+
+func TestGlobalXCF_KindConfig(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	// Create a fake .claude/agents/ directory with an agent so scanner finds something.
+	agentsDir := filepath.Join(tmp, ".claude", "agents")
+	_ = os.MkdirAll(agentsDir, 0755)
+	_ = os.WriteFile(filepath.Join(agentsDir, "test-agent.md"), []byte("# Test Agent"), 0600)
+
+	data := buildGlobalXCF()
+	content := string(data)
+
+	if !strings.Contains(content, "kind: config") {
+		t.Errorf("global.xcf should contain 'kind: config', got:\n%s", content)
+	}
+	if strings.Contains(content, "project:") {
+		t.Errorf("global.xcf should NOT contain 'project:' block, got:\n%s", content)
+	}
+}
+
+func TestRegistryXCF_KindRegistry(t *testing.T) {
+	setupTestHome(t)
+
+	projectPath := t.TempDir()
+	if err := Register(projectPath, "test-proj", []string{"claude"}, "."); err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	home, _ := GlobalHome()
+	data, err := os.ReadFile(filepath.Join(home, "registry.xcf"))
+	if err != nil {
+		t.Fatalf("could not read registry.xcf: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "kind: registry") {
+		t.Errorf("registry.xcf should contain 'kind: registry', got:\n%s", content)
 	}
 }
 

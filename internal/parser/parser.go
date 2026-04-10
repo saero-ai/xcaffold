@@ -12,6 +12,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// parseOption controls parsing behaviour per invocation.
+type parseOption struct {
+	globalScope bool
+}
+
+// parseOptionFunc configures a parseOption.
+type parseOptionFunc func(*parseOption)
+
+// withGlobalScope marks the parse as global scope, which allows absolute
+// instructions_file paths (global configs reference files like ~/.claude/agents/*.md).
+func withGlobalScope() parseOptionFunc {
+	return func(o *parseOption) { o.globalScope = true }
+}
+
+func resolveParseOptions(opts []parseOptionFunc) parseOption {
+	var o parseOption
+	for _, fn := range opts {
+		fn(&o)
+	}
+	return o
+}
+
 // Parse reads a .xcf YAML configuration from the given reader and returns a
 // validated XcaffoldConfig. It treats the configuration as a complete, standalone file.
 func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
@@ -25,7 +47,7 @@ func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
 	return config, nil
 }
 
-func parsePartial(r io.Reader) (*ast.XcaffoldConfig, error) {
+func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	config := &ast.XcaffoldConfig{}
 	decoder := yaml.NewDecoder(r)
 	decoder.KnownFields(true)
@@ -33,7 +55,8 @@ func parsePartial(r io.Reader) (*ast.XcaffoldConfig, error) {
 		return nil, fmt.Errorf("failed to parse .xcf YAML: %w", err)
 	}
 	// Validate only things that are unconditionally true for partials
-	if err := validatePartial(config); err != nil {
+	o := resolveParseOptions(opts)
+	if err := validatePartial(config, o.globalScope); err != nil {
 		return nil, fmt.Errorf("invalid .xcf configuration part: %w", err)
 	}
 	return config, nil
@@ -61,6 +84,23 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 	return merged, nil
 }
 
+// isConfigFile reads the kind: field from an .xcf file to determine if it
+// should be parsed as a compiler config. Returns true only for files where
+// kind is empty (legacy backward-compatible) or "config".
+func isConfigFile(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	var header struct {
+		Kind string `yaml:"kind"`
+	}
+	if err := yaml.Unmarshal(data, &header); err != nil {
+		return false
+	}
+	return header.Kind == "" || header.Kind == "config"
+}
+
 func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	var files []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -75,7 +115,9 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
-			files = append(files, path)
+			if isConfigFile(path) {
+				files = append(files, path)
+			}
 		}
 		return nil
 	})
@@ -119,7 +161,7 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	return merged, nil
 }
 
-func parseDirectoryRaw(dir string) (*ast.XcaffoldConfig, error) {
+func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	var files []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -133,7 +175,9 @@ func parseDirectoryRaw(dir string) (*ast.XcaffoldConfig, error) {
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
-			files = append(files, path)
+			if isConfigFile(path) {
+				files = append(files, path)
+			}
 		}
 		return nil
 	})
@@ -147,7 +191,7 @@ func parseDirectoryRaw(dir string) (*ast.XcaffoldConfig, error) {
 
 	var parsedFiles []ParsedFile
 	for _, f := range files {
-		cfg, err := parseFileExact(f)
+		cfg, err := parseFileExact(f, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -162,14 +206,14 @@ func parseDirectoryRaw(dir string) (*ast.XcaffoldConfig, error) {
 	return merged, nil
 }
 
-func parseFileExact(path string) (*ast.XcaffoldConfig, error) {
+func parseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not open config %q: %w", path, err)
 	}
 	defer f.Close()
 
-	config, err := parsePartial(f)
+	config, err := parsePartial(f, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("error in %q: %w", path, err)
 	}
@@ -194,7 +238,7 @@ func loadGlobalBase() (*ast.XcaffoldConfig, error) {
 	if stat, err := os.Stat(xcaffoldDir); err == nil && stat.IsDir() {
 		// Parse the dir, but disable global loading to avoid infinite recursion!
 		// parseDirectoryRaw natively parses a dir without applying global base.
-		cfg, err := parseDirectoryRaw(xcaffoldDir)
+		cfg, err := parseDirectoryRaw(xcaffoldDir, withGlobalScope())
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
 		}
@@ -265,7 +309,7 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 			}
 			visited[xcaffoldDir] = true
 
-			baseConfig, err := parseDirectoryRaw(xcaffoldDir)
+			baseConfig, err := parseDirectoryRaw(xcaffoldDir, withGlobalScope())
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
 			}
@@ -647,14 +691,14 @@ var validHookEvents = map[string]bool{
 	"Notification": true,
 }
 
-func validatePartial(c *ast.XcaffoldConfig) error {
+func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 	if err := validateIDs(c); err != nil {
 		return err
 	}
 	if err := validateHookEvents(c.Hooks); err != nil {
 		return err
 	}
-	if err := validateInstructions(c); err != nil {
+	if err := validateInstructions(c, globalScope); err != nil {
 		return err
 	}
 	return nil
@@ -830,35 +874,35 @@ func validateHookEvents(hooks ast.HookConfig) error {
 	return nil
 }
 
-func validateInstructions(c *ast.XcaffoldConfig) error {
+func validateInstructions(c *ast.XcaffoldConfig, globalScope bool) error {
 	for id, agent := range c.Agents {
-		if err := validateInstructionOrFile("agent", id, agent.Instructions, agent.InstructionsFile); err != nil {
+		if err := validateInstructionOrFile("agent", id, agent.Instructions, agent.InstructionsFile, globalScope); err != nil {
 			return err
 		}
 	}
 	for id, skill := range c.Skills {
-		if err := validateInstructionOrFile("skill", id, skill.Instructions, skill.InstructionsFile); err != nil {
+		if err := validateInstructionOrFile("skill", id, skill.Instructions, skill.InstructionsFile, globalScope); err != nil {
 			return err
 		}
 	}
 	for id, rule := range c.Rules {
-		if err := validateInstructionOrFile("rule", id, rule.Instructions, rule.InstructionsFile); err != nil {
+		if err := validateInstructionOrFile("rule", id, rule.Instructions, rule.InstructionsFile, globalScope); err != nil {
 			return err
 		}
 	}
 	for id, wf := range c.Workflows {
-		if err := validateInstructionOrFile("workflow", id, wf.Instructions, wf.InstructionsFile); err != nil {
+		if err := validateInstructionOrFile("workflow", id, wf.Instructions, wf.InstructionsFile, globalScope); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateInstructionOrFile(kind, id, inst, file string) error {
+func validateInstructionOrFile(kind, id, inst, file string, globalScope bool) error {
 	if inst != "" && file != "" {
 		return fmt.Errorf("%s %q: instructions and instructions_file are mutually exclusive; set one or the other", kind, id)
 	}
-	return validateInstructionsFile(kind, id, file)
+	return validateInstructionsFile(kind, id, file, globalScope)
 }
 
 func validateCrossReferences(c *ast.XcaffoldConfig) error {
@@ -1026,15 +1070,19 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 // reads its own output.
 var reservedOutputPrefixes = []string{".claude/", ".cursor/", ".agents/", ".antigravity/"}
 
-func validateInstructionsFile(kind, id, path string) error {
+func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	if path == "" {
 		return nil
 	}
-	if filepath.IsAbs(path) {
+	if filepath.IsAbs(path) && !globalScope {
 		return fmt.Errorf("%s %q: instructions_file must be a relative path, got absolute path %q", kind, id, path)
 	}
 	if strings.ContainsAny(path, "\\") || strings.Contains(path, "..") {
 		return fmt.Errorf("%s %q: instructions_file contains invalid path characters: %q", kind, id, path)
+	}
+	// Skip reserved-output-prefix check for absolute paths (they are outside project dir).
+	if filepath.IsAbs(path) {
+		return nil
 	}
 	cleaned := filepath.Clean(path)
 	for _, prefix := range reservedOutputPrefixes {

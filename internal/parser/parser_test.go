@@ -411,6 +411,7 @@ agents:
 }
 
 func TestValidateFileRefs_PresentInstructionsFile(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	// Create the actual instructions file
 	instrFile := filepath.Join(dir, "real.md")
@@ -560,6 +561,65 @@ local:
 		}
 	}
 	assert.Equal(t, 2, count, "expected 2 unknown-plugin warnings (one per block), got: %v", diags)
+}
+
+func TestParseDirectory_SkipsNonConfigFiles(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	// Write a valid config file
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(`
+kind: config
+version: "1.0"
+project:
+  name: "test-project"
+`), 0600))
+
+	// Write a registry file (should be skipped)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "registry.xcf"), []byte(`kind: registry
+projects: []
+`), 0600))
+
+	// Write a settings file (should be skipped)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcf"), []byte(`kind: settings
+default_target: claude
+`), 0600))
+
+	// ParseDirectory should succeed — it should skip registry.xcf and settings.xcf
+	// and only parse scaffold.xcf. Without the isConfigFile filter, this would
+	// panic or error because registry.xcf and settings.xcf don't conform to
+	// the XcaffoldConfig schema.
+	config, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	assert.Equal(t, "test-project", config.Project.Name)
+}
+
+func TestParseDirectory_SkipsNonConfigFiles_OnlyNonConfig(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	// Write only non-config files
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "registry.xcf"), []byte(`kind: registry
+projects: []
+`), 0600))
+
+	// ParseDirectory should fail with "no *.xcf files found" since all files are non-config
+	_, err := ParseDirectory(dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no *.xcf files found")
+}
+
+func TestIsConfigFile_LegacyNoKind(t *testing.T) {
+	dir := t.TempDir()
+
+	// File without kind: field should be treated as config (backward-compatible)
+	path := filepath.Join(dir, "legacy.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(`version: "1.0"
+project:
+  name: "legacy"
+`), 0600))
+
+	assert.True(t, isConfigFile(path), "files without kind: should be treated as config")
 }
 
 func TestCompile_MultiFile_DuplicateIDErrorTracksOrigin(t *testing.T) {
