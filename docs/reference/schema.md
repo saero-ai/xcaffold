@@ -119,8 +119,8 @@ Defines an agent persona. Compiled to `agents/<id>.md` with YAML frontmatter.
 | `rules` | `[]string` | Optional | Rule IDs the agent must follow. Must match top-level `rules:` map keys. |
 | `mcp` | `[]string` | Optional | MCP server IDs to load. Must match top-level `mcp:` map keys. |
 | `permissionMode` | `string` | Optional | Default execution permission fallback. |
-| `readonly` | `*bool` | Optional | When `true` and `tools` is empty, the compiler emits `tools: [Read, Grep, Glob]`. |
-| `background` | `*bool` | Optional | Execute without blocking the UI. Compiled as `is_background` for Cursor. |
+| `readonly` | `*bool` | Optional | When `true` and `tools` is empty, the compiler emits `tools: [Read, Grep, Glob]` for Claude; emits `readonly: true` natively for Cursor. |
+| `background` | `*bool` | Optional | Execute without blocking the UI. Compiled as `background` for Claude, `is_background` for Cursor. |
 | `isolation` | `string` | Optional | Worktree or environment isolation preference. |
 | `mode` | `string` | Optional | Agent execution mode. |
 | `when` | `string` | Optional | Trigger condition for agent invocation. |
@@ -132,9 +132,9 @@ Defines an agent persona. Compiled to `agents/<id>.md` with YAML frontmatter.
 | `hooks` | `HookConfig` | Optional | Agent-scoped lifecycle hooks. |
 
 > [!WARNING]
-> **Cursor**: `effort`, `tools`, `disallowedTools`, `skills`, `rules`, `permissionMode`, `isolation`, `color`, `initialPrompt`, `memory`, `maxTurns`, `hooks`, `mcpServers` are silently dropped. `background` is renamed to `is_background`. Unmapped `model` values emit a stderr warning and are omitted.
+> **Cursor**: Only `name`, `description`, `model`, `readonly`, and `background` (renamed to `is_background`) are emitted. All other fields — `effort`, `tools`, `disallowedTools`, `skills`, `rules`, `permissionMode`, `isolation`, `color`, `initialPrompt`, `memory`, `maxTurns`, `hooks`, `mcpServers` — are silently dropped. Unmapped `model` values emit a stderr warning and are omitted.
 >
-> **Antigravity**: Agents are **not compiled** — only rules, skills, and workflows are emitted. Security fields (`permissionMode`, `disallowedTools`, `isolation`) emit stderr warnings unless `targets.antigravity.suppress_fidelity_warnings` is set.
+> **Antigravity**: Antigravity has **no file-based agent configuration**. Agent behavior is controlled entirely via UI settings and conversation-level mode selection. xcaffold **cannot compile agents for Antigravity** — the target is skipped with a warning.
 >
 > **AgentsMD**: Only `name`, `description`, `model`, and instruction body are preserved. All other fields emit fidelity warnings and are dropped.
 
@@ -200,11 +200,38 @@ Path-gated formatting guideline. Compiled to `rules/<id>.md` (Claude), `rules/<i
 
 ## Hooks
 
+XCaffold hook syntax natively targets the following provider implementation standards:
+
+* **Cursor**: [https://cursor.com/docs/hooks](https://cursor.com/docs/hooks)
+* **Claude**: [https://code.claude.com/docs/en/hooks](https://code.claude.com/docs/en/hooks)
+* **Antigravity**: Not natively supported but can be translated via `workflows` + `rules` (always on).
+
+### Hook Locations & Configuration Scopes
+
+When injecting hooks into respective AI agents, Xcaffold and the underlying providers apply specific file resolution hierarchies:
+
+**Cursor Locations**:
+Cursor resolves hooks directly from:
+* `.cursor/hooks.json`
+
+**Claude Locations**:
+Claude supports resolving hooks from multiple layers depending on your intended scope:
+* Global User Settings: `~/.claude/settings.json`
+* Project Settings: `.claude/settings.json`
+* Local Overrides: `.claude/settings.local.json`
+* Plugin Hooks: `hooks/hooks.json`
+
+**Xcaffold Aggregation**:
+Xcaffold aggregates all `HookConfig` definitions across your `scaffold.xcf` inheritances and natively injects them into the correct location for your target provider. For Cursor, this is compiled exclusively to `.cursor/hooks.json`. For Claude, these are directly injected under the `"hooks"` key tightly coupled within `.claude/settings.json`, ensuring the `claude` CLI seamlessly picks them up without requiring plugin activation.
+
+> [!NOTE]
+> If you utilize `xcaffold plugin export` to bundle a custom Claude plugin, Xcaffold extracts these hook configurations out of `settings.json` and cleanly routes them to `hooks/hooks.json` to strictly comply with the Claude plugin specification payload format.
+
 ### `HookConfig`
 
-`HookConfig` is a `map[string][]HookMatcherGroup`. Keys are lifecycle event names:
+`HookConfig` is a `map[string][]HookMatcherGroup`. Keys are lifecycle event names matching the supported execution phases. 
 
-`PreToolUse`, `PostToolUse`, `Notification`, `Stop`, `SubagentStop`, `InstructionsLoaded`, `PreCompact`, `SessionStart`, `ConfigChange`.
+Supported hook events include: `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `Stop`, `StopFailure`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied`, `Notification`, `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle`, `InstructionsLoaded`, `ConfigChange`, `CwdChanged`, `FileChanged`, `WorktreeCreate`, `WorktreeRemove`, `PreCompact`, `PostCompact`, `Elicitation`, `ElicitationResult`.
 
 ```yaml
 hooks:
@@ -230,24 +257,26 @@ A single executable hook action.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `type` | `string` | **Required** | Handler type. Values: `command`, `url`, `prompt`. |
+| `type` | `string` | **Required** | Handler type. Values: `command`, `http`, `prompt`, `agent`. |
 | `command` | `string` | Optional | Shell command to execute (when `type: command`). |
-| `url` | `string` | Optional | URL endpoint for webhook dispatch (when `type: url`). |
+| `url` | `string` | Optional | URL endpoint for webhook dispatch (when `type: http`). |
 | `prompt` | `string` | Optional | LLM prompt to evaluate (when `type: prompt`). |
 | `model` | `string` | Optional | LLM model for prompt hooks. |
-| `shell` | `string` | Optional | Shell binary override (e.g., `/bin/bash`). |
-| `if` | `string` | Optional | Conditional expression. Hook is skipped when the condition evaluates to false. |
+| `shell` | `string` | Optional | Shell binary override (e.g., `/bin/bash` or `powershell`). |
+| `if` | `string` | Optional | Conditional expression. Hook is skipped when the condition evaluates to false (e.g., `Bash(rm *)`). |
 | `statusMessage` | `string` | Optional | Status text displayed in the UI while the hook runs. |
-| `headers` | `map[string]string` | Optional | HTTP headers for `url`-type hooks. |
-| `allowedEnvVars` | `[]string` | Optional | Environment variables passed to the hook subprocess. |
-| `async` | `*bool` | Optional | When `true`, the hook runs non-blocking. |
+| `headers` | `map[string]string` | Optional | HTTP headers for `http`-type hooks (supports interpolation, e.g., Bearer `${API_KEY}`). |
+| `allowedEnvVars` | `[]string` | Optional | Environment variables explicitly securely passed to the URL or command subprocess. |
+| `async` | `*bool` | Optional | When `true`, the hook runs non-blocking in the background. |
 | `timeout` | `*int` | Optional | Maximum execution time in seconds before the hook is killed. |
 | `once` | `*bool` | Optional | When `true`, the hook fires only once per session. |
 
 > [!WARNING]
-> **Cursor normalization**: Event names are converted to camelCase (`PreToolUse` → `preToolUse`). The three-level structure (`event → matcher group → handlers`) is flattened to two levels (`event → handlers` with `matcher` injected as a field on each handler). `${...}` interpolation patterns emit a warning — Cursor requires `${env:NAME}` syntax.
+> **Cursor normalization**: Event names are converted to camelCase (`PreToolUse` → `preToolUse`). The three-level structure (`event → matcher group → handlers`) is flattened to two levels (`event → handlers` with `matcher` injected as a field on each handler). `${...}` interpolation patterns emit a warning — Cursor requires `${env:NAME}` syntax. Handler types `http` and `agent` are silently dropped for Cursor — Cursor only supports `command` and `prompt` handlers.
 >
-> **Antigravity**: Hooks are silently skipped — Antigravity has no hook system.
+> **Cursor-unique events**: Cursor supports additional hook events not in the Claude Code catalog: `beforeMCPExecution`, `afterMCPExecution`, `beforeShellExecution`, `afterShellExecution`, `afterAgentResponse`, `afterAgentThought`, `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt`. Because `HookConfig` is a `map[string][]HookMatcherGroup`, these can be authored in a `.xcf` file and will compile correctly to `.cursor/hooks.json`. They are silently ignored when compiling for Claude.
+>
+> **Antigravity**: Hooks are silently skipped — Antigravity has no native hook system. Logic can be translated via workflows and always-on rules.
 >
 > **AgentsMD**: Hooks are dropped with fidelity warnings.
 
@@ -272,17 +301,26 @@ Defines a local or remote MCP (Model Context Protocol) server.
 | `disabled` | `*bool` | Optional | When `true`, the server is defined but not loaded. |
 
 > [!NOTE]
-> **Claude**: MCP definitions from the top-level `mcp:` block are merged into `settings.json` under `mcpServers`. `settings.mcpServers` takes precedence on key conflicts.
+> **Claude**: MCP definitions from the top-level `mcp:` block are merged into `mcp.json`. `settings.mcpServers` takes precedence on key conflicts.
 >
-> **Cursor normalization**: `url` is emitted as `serverUrl`. The `type` field is omitted — Cursor infers transport from the presence of `command` (stdio) or `serverUrl` (http/sse). Output file: `mcp.json`.
+> **Cursor normalization**: `url` is emitted as `serverUrl`. The `type` field is omitted — Cursor infers transport from the presence of `command` (stdio) or `serverUrl` (http/sse). Output file: `.cursor/mcp.json`.
 >
-> **Antigravity**: MCP is silently skipped with `${...}` interpolation warnings on env values.
+> **Env var interpolation**: Claude uses `${VAR_NAME}` syntax; Cursor uses `${env:VAR_NAME}` (and also `${userHome}`, `${workspaceFolder}`). xcaffold passes string values through verbatim — if you target both platforms from the same `.xcf` file, use the syntax for your primary target and document the difference for teams.
+>
+> **Antigravity normalization**: Compiled into `.agents/mcp_config.json` wrapped in an `mcpServers` block.
 
 ---
 
 ## `SettingsConfig`
 
-Platform settings compiled to `settings.json` (Claude). The `local:` variant within `project:` compiles to `settings.local.json` (gitignored). These fields are passed through to the target platform's native settings file.
+Platform settings compiled to the target's settings file. The `local:` variant within `project:` compiles to a gitignored local override file.
+
+> [!IMPORTANT]
+> **Compilation target: Claude only.** xcaffold compiles `settings:` to `.claude/settings.json` and `project.local:` to `.claude/settings.local.json`. Cursor and Antigravity do not receive a compiled settings file — they configure equivalent concepts through UI panels or vendor-specific configuration.
+>
+> Many fields here represent **universal agentic concepts** (model selection, shell, environment variables, permissions, sandboxing) that every provider implements. The field definitions in xcaffold are provider-agnostic in meaning; only the compilation output is Claude-specific. Fields that are architecturally Claude-unique are noted per-row.
+>
+> **Security fields**: `permissions` and `sandbox` emit explicit stderr warnings when compiled for Cursor or Antigravity, since those platforms have no file-based enforcement mechanism. The warnings are: `"settings.permissions dropped — <target> has no permission enforcement"` and `"settings.sandbox dropped — <target> has no sandbox model"`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -299,22 +337,23 @@ Platform settings compiled to `settings.json` (Claude). The `local:` variant wit
 | `autoMode` | `any` | Optional | Autonomous mode settings. Passed through unchanged. |
 | `cleanupPeriodDays` | `*int` | Optional | Days before orphaned data is garbage-collected. |
 | `includeGitInstructions` | `*bool` | Optional | When `true`, injects standard Git workflow instructions. |
-| `skipDangerousModePermissionPrompt` | `*bool` | Optional | When `true`, suppresses the dangerous-mode confirmation dialog. |
+| `skipDangerousModePermissionPrompt` | `*bool` | Optional | When `true`, suppresses the dangerous-mode confirmation dialog. Claude Code–specific UX concept. |
 | `autoMemoryEnabled` | `*bool` | Optional | When `true`, enables automatic context memory. |
 | `disableAllHooks` | `*bool` | Optional | When `true`, globally disables all hook execution. |
 | `attribution` | `*bool` | Optional | When `true`, adds attribution comments to generated code. |
-| `disableSkillShellExecution` | `*bool` | Optional | When `true`, prevents skills from executing shell commands. |
+| `disableSkillShellExecution` | `*bool` | Optional | When `true`, prevents skills from executing shell commands via `` !`cmd` `` syntax. Claude Code–specific. |
 | `alwaysThinkingEnabled` | `*bool` | Optional | When `true`, forces extended thinking mode for all interactions. |
 | `respectGitignore` | `*bool` | Optional | When `true`, excludes `.gitignore`-matched files from scanning. |
 | `permissions` | `*PermissionsConfig` | Optional | Permission rules for tool access. |
 | `sandbox` | `*SandboxConfig` | Optional | OS-level process isolation for Bash commands. |
-| `statusLine` | `*StatusLineConfig` | Optional | Custom status bar configuration. |
+| `statusLine` | `*StatusLineConfig` | Optional | Custom status bar configuration. Claude Code CLI–specific. |
 | `hooks` | `HookConfig` | Optional | Settings-level lifecycle hooks. |
 | `mcpServers` | `map[string]MCPConfig` | Optional | MCP server definitions (takes precedence over top-level `mcp:` on key conflicts). |
 | `env` | `map[string]string` | Optional | Global environment variables. |
-| `enabledPlugins` | `map[string]bool` | Optional | Plugin enable/disable toggles. |
+| `enabledPlugins` | `map[string]bool` | Optional | Plugin enable/disable toggles. Claude Code Plugin system–specific. |
 | `availableModels` | `[]string` | Optional | Models available for user selection. |
-| `claudeMdExcludes` | `[]string` | Optional | File patterns excluded from context file loading. |
+| `claudeMdExcludes` | `[]string` | Optional | File patterns excluded from CLAUDE.md context file loading. Claude Code–specific. |
+
 
 > [!IMPORTANT]
 > **Claude only.** Settings are compiled to `settings.json` and `settings.local.json`. No other target renders settings. Cursor, Antigravity, and AgentsMD silently ignore the entire `settings:` and `local:` blocks.
@@ -325,24 +364,27 @@ Platform settings compiled to `settings.json` (Claude). The `local:` variant wit
 
 ## `PermissionsConfig`
 
-Permission rules for tool access within `settings.permissions`.
+Permission rules for tool access within `settings.permissions`. All three providers have the concept of allow/deny for tool operations — xcaffold expresses it here and compiles it to Claude's `settings.json`. Cursor and Antigravity apply equivalent rules via their UI settings panels.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `allow` | `[]string` | Optional | Permitted tool operations (e.g., `"Bash(npm test *)"`, `"Read"`). |
 | `deny` | `[]string` | Optional | Denied operations. Overrides `allow` when both match. |
 | `ask` | `[]string` | Optional | Operations requiring interactive user confirmation. |
+| `defaultMode` | `string` | Optional | Default permission mode for the session (e.g., `"default"`, `"acceptEdits"`, `"plan"`, `"auto"`). |
+| `additionalDirectories` | `[]string` | Optional | Extra working directories the agent may access beyond the project root. |
+| `disableBypassPermissionsMode` | `string` | Optional | When set to `"disable"`, blocks the bypass permissions mode org-wide. |
 
 ---
 
 ## `SandboxConfig`
 
-OS-level process isolation within `settings.sandbox`.
+OS-level process isolation within `settings.sandbox`. Sandboxing is a universal security concept — Claude Code implements it via `settings.json`, Antigravity via a UI toggle (macOS Seatbelt / Linux nsjail). xcaffold compiles these settings for Claude Code only.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `enabled` | `*bool` | Optional | Master toggle for sandbox enforcement. |
-| `autoAllow` | `*bool` | Optional | When `true`, auto-approves sandboxed commands without prompting. |
+| `autoAllowBashIfSandboxed` | `*bool` | Optional | When `true`, auto-approves bash commands when sandboxed, without prompting. |
 | `failIfUnavailable` | `*bool` | Optional | When `true`, commands fail if the sandbox daemon is unreachable. |
 | `allowUnsandboxedCommands` | `*bool` | Optional | When `true`, permits unsandboxed execution as a fallback. |
 | `filesystem` | `*SandboxFilesystem` | Optional | Filesystem isolation boundaries. |
@@ -369,7 +411,8 @@ Network isolation boundaries within `sandbox.network`.
 | `httpProxyPort` | `*int` | Optional | HTTP proxy port for network interception. |
 | `socksProxyPort` | `*int` | Optional | SOCKS proxy port for network interception. |
 | `allowManagedDomainsOnly` | `*bool` | Optional | When `true`, restricts connections to managed domains only. |
-| `allowUnixSockets` | `*bool` | Optional | When `true`, permits Unix domain socket connections. |
+| `allowUnixSockets` | `[]string` | Optional | List of Unix domain socket paths permitted for outbound connections. Use `["*"]` to allow all. |
+| `allowLocalBinding` | `*bool` | Optional | When `true`, permits the sandboxed process to bind to localhost ports. |
 | `allowedDomains` | `[]string` | Optional | Domains permitted for outbound connections. |
 
 ---
@@ -391,9 +434,9 @@ Configuration for `xcaffold test`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `cli_path` | `string` | Optional | Path to the CLI binary used for simulation (e.g., `claude`, `cursor`). Defaults to `claude` on `$PATH`. |
-| `claude_path` | `string` | Optional | **Deprecated.** Alias for `cli_path`. Migrated automatically by `xcaffold migrate` (schema `1.0` → `1.1`). |
-| `judge_model` | `string` | Optional | LLM model used for `--judge` evaluation. Defaults to `claude-haiku-4-5-20251001`. |
+| `cli_path` | `string` | Optional | Path to the CLI binary used for simulation (e.g., `claude`, `cursor`). Defaults to `claude` on `$PATH`. Note: xcaffold's judge module uses this CLI regardless of the compilation target — you can point it at any Claude-compatible CLI. |
+| `claude_path` | `string` | Optional | **Deprecated.** Alias for `cli_path`. Renamed from `claude_path` to `cli_path` to support multi-provider test execution beyond the Claude CLI. Migrated automatically by `xcaffold migrate` (schema `1.0` → `1.1`). |
+| `judge_model` | `string` | Optional | LLM model used for `--judge` evaluation. Defaults to `claude-haiku-4-5-20251001`. The judge module always uses the Claude CLI regardless of your compilation target. |
 
 ---
 
@@ -424,8 +467,8 @@ Summary of which resource types compile for each target.
 | **Agents** | ✅ `agents/<id>.md` | ✅ `agents/<id>.md` | ❌ skipped | ✅ `## Agents` section |
 | **Skills** | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `## Skills` section |
 | **Rules** | ✅ `rules/<id>.md` | ✅ `rules/<id>.mdc` | ✅ `rules/<id>.md` | ✅ `## Rules` section |
-| **Hooks** | ✅ `hooks.json` | ✅ `hooks.json` (flattened) | ❌ skipped | ❌ dropped |
-| **MCP** | ✅ via `settings.json` | ✅ `mcp.json` | ❌ skipped | ❌ dropped |
+| **Hooks** | ✅ `settings.json` (or `hooks.json` via plugin export)| ✅ `hooks.json` (flattened) | ❌ skipped | ❌ dropped |
+| **MCP** | ✅ `mcp.json` | ✅ `mcp.json` | ✅ `mcp_config.json` | ❌ dropped |
 | **Workflows** | ❌ ignored | ❌ ignored | ✅ `workflows/<id>.md` | ✅ `## Workflows` section |
 | **Settings** | ✅ `settings.json` | ❌ ignored | ❌ ignored | ❌ ignored |
 | **Local** | ✅ `settings.local.json` (from `project.local:`) | ❌ ignored | ❌ ignored | ❌ ignored |
@@ -435,12 +478,20 @@ Summary of which resource types compile for each target.
 | Normalization | Source | Target |
 |---|---|---|
 | `background: true` | → `is_background: true` | Cursor agents |
+| `readonly: true` (no tools) | → `tools: [Read, Grep, Glob]` | Claude agents |
+| `readonly: true` | → `readonly: true` (native) | Cursor agents |
 | `paths:` | → `globs:` | Cursor rules (`.mdc` frontmatter) |
-| `url:` | → `serverUrl:` | Cursor MCP (`mcp.json`) |
+| `url:` | → `serverUrl:` | Cursor MCP (`.cursor/mcp.json`) |
 | MCP `type:` field | → omitted | Cursor (infers transport from `command` vs `serverUrl`) |
+| MCP env var syntax | `${VAR}` → `${env:VAR}` | Cursor hooks/MCP (user responsibility — xcaffold passes through verbatim) |
 | Hook event casing | `PreToolUse` → `preToolUse` | Cursor hooks |
 | Hook structure | 3-level (event → matcher group → handlers) → 2-level (event → handlers with inline matcher) | Cursor hooks |
-| Rule frontmatter | `---` YAML frontmatter | → `# heading` (no frontmatter) | Antigravity rules |
+| Hook handler type `http` | → dropped | Cursor (unsupported handler type) |
+| Hook handler type `agent` | → dropped | Cursor (unsupported handler type) |
+| Rule frontmatter | `---` YAML frontmatter → `# heading` (no frontmatter) | Antigravity rules |
 | Rule `paths:` / `alwaysApply:` | → dropped | Antigravity rules |
-| Skill frontmatter fields | all metadata | → only `name` + `description` | Antigravity skills |
+| Skill frontmatter fields | all metadata → only `name` + `description` | Antigravity skills |
 | Model aliases | `sonnet-4`, `opus-4`, `haiku-3.5` | → resolved per-target via `renderer.ResolveModel()` |
+
+> [!NOTE]
+> **Cursor-unique hook events** — `beforeMCPExecution`, `afterMCPExecution`, `beforeShellExecution`, `afterShellExecution`, `afterAgentResponse`, `afterAgentThought`, `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt` — can be authored in `.xcf` hooks blocks and will compile correctly to `.cursor/hooks.json`. They are silently ignored when the target is Claude.
