@@ -295,39 +295,9 @@ If a `SemanticUnit` has no detected intents, it falls back to a single `skill` p
 
 ---
 
-## Renderer Interface
+> For a detailed explanation of the renderer interface and multi-target output architecture, see [Multi-Target Rendering](multi-target-rendering.md).
 
-Each output target (Claude, Cursor, Antigravity) implements `TargetRenderer`:
-
-```go
-type TargetRenderer interface {
-    Target()    string          // canonical name: "claude", "cursor", "antigravity"
-    OutputDir() string          // base output directory: ".claude", ".cursor", ".agents"
-    Render(files map[string]string) *output.Output
-}
-```
-
-Renderers are composed via a `Registry` and dispatched by `compiler.Compile(config, baseDir, target)`. Each renderer is responsible for transforming the AST into the file layout expected by its platform. Adding a new platform requires only a new `TargetRenderer` implementation — no changes to the compiler core.
-
----
-
-## State Tracking (`scaffold.lock`)
-
-After each successful `xcaffold apply`, a lock manifest is written to `scaffold.lock` (or `scaffold.<target>.lock` for non-claude targets):
-
-```yaml
-version: 1
-last_applied: "2026-04-08T07:00:00Z"
-xcaffold_version: "1.0.0"
-claude_schema_version: "alpha"
-artifacts:
-  - path: agents/developer.md
-    hash: sha256:abc123...
-  - path: settings.json
-    hash: sha256:def456...
-```
-
-Artifacts are sorted by path to guarantee deterministic output. `xcaffold diff` uses this manifest to detect manual drift (files modified outside of `xcaffold apply`).
+> For a detailed explanation of lock manifests, drift detection, and per-target state tracking, see [Drift Detection and State](drift-detection-state.md).
 
 ---
 
@@ -335,46 +305,40 @@ Artifacts are sorted by path to guarantee deterministic output. `xcaffold diff` 
 
 These inline architecture decisions record the reasoning behind strict implementation choices that shape the `xcaffold` engine. Formal ADRs live in `.agents/skills/adr-management/`.
 
-### 1. One-Way Compilation
-**Decision:** We compile `.xcf` directly to native platform configurations (e.g. `.claude/`, `.cursor/`, `.agents/`) and explicitly forbid bidirectional synchronization.
-**Why:** Allowing users to manually tweak target-specific configuration files and attempting to backport those changes into `.xcf` introduces catastrophic parsing drift and state synchronization conflicts. Developers MUST update their `scaffold.xcf` file directly. Any manual changes in the generation target directories will be correctly flagged and overwritten during deployment.
+> For a detailed explanation of one-way compilation and the declarative source-of-truth model, see [Declarative Compilation](declarative-compilation.md).
 
-### 2. Proxy Boundary Defenses
-**Decision:** `xcaffold test` sandboxes agents by spawning a transport-layer HTTP proxy interceptor.
-**Why:** Simulating tool execution without an intercept limits visibility. The HTTP proxy strictly confines the agent network, asserts safe boundary defenses preventing actual local side-effects, and accurately aggregates execution into `trace.jsonl` data.
+> For a detailed explanation of the proxy sandbox and runtime boundary defenses, see [Sandboxing](sandboxing.md).
 
-### 3. Path Traversal Defense-in-Depth
+### 1. Path Traversal Defense-in-Depth
 **Decision:** All resource IDs (agents, skills, rules, hooks, MCP) are validated at parse time for path traversal characters (`/`, `\`, `..`).
 **Why:** The compiler uses `filepath.Clean` on output paths, but defense-in-depth requires rejecting malicious IDs before they reach the compiler. Hook IDs are especially sensitive because they carry an arbitrary `run:` shell command.
 
-### 4. Skills as Directories
+### 2. Skills as Directories
 **Decision:** Skills compile to `skills/<id>/SKILL.md` (directory structure), not `skills/<id>.md` (flat files).
 **Why:** Target platforms (like Claude Code) expect skills in directories. Real skills have `references/` subdirectories with supplementary documents. The directory structure allows future `references:` support.
 
-### 5. Centralized Global Home (`~/.xcaffold/`)
+### 3. Centralized Global Home (`~/.xcaffold/`)
 **Decision:** All xcaffold global state lives in `~/.xcaffold/`, not coupled to any single platform directory.
 **Why:** The previous `~/.claude/` location coupled xcaffold to one platform target. A neutral home directory allows cross-platform registry, user preferences, and future profile support without target bias.
 
-### 6. Multi-Target Renderer Architecture
-**Decision:** The compiler dispatches to a `TargetRenderer` via a `Registry` keyed by target name. Each platform is a separate Go package under `internal/renderer/<target>/`.
-**Why:** A monolithic compiler with `if target == "claude" { ... } else if target == "cursor" { ... }` branches does not scale and cannot be extended by third parties. The Registry pattern allows adding new targets (e.g.) without touching the compiler core. Each renderer owns its own output contract.
+> For a detailed explanation of the multi-target renderer architecture and the Registry dispatch pattern, see [Multi-Target Rendering](multi-target-rendering.md).
 
-### 7. BIR Semantic Translation Layer
+### 4. BIR Semantic Translation Layer
 **Decision:** Cross-platform workflow import uses a two-phase pipeline: first build a `SemanticUnit` (BIR), then run static regex-based intent detection, then map to xcaffold primitives via `translator.Translate()`.
 **Why:** Direct format conversion (e.g. Antigravity workflow → Claude rule) loses semantic structure. The BIR/intent layer preserves the original body while extracting meaning — constraints become rules, procedures become skills, automation annotations become permissions — enabling correct round-tripping across platforms.
 
-### 8. `registry.xcf` File Naming
+### 5. `registry.xcf` File Naming
 **Decision:** The project registry file is `registry.xcf` (not `projects.yaml`). User preferences (e.g. `default_target`) are stored in the `settings:` block of `global.xcf` rather than a separate file.
 **Why:** Using `.xcf` extension for all xcaffold-managed configuration files provides a consistent, recognizable file type. Consolidating preferences into `global.xcf` eliminates a separate file that had no type discriminator and adds to the configuration surface area.
 
-### 9. `TestConfig.CliPath` (generalized from `ClaudePath`)
+### 6. `TestConfig.CliPath` (generalized from `ClaudePath`)
 **Decision:** The `test:` block uses `cli_path` as the primary field (with `claude_path` retained for backward compatibility).
 **Why:** As xcaffold becomes platform-agnostic, the CLI under test is not always `claude`. The generalized `cli_path` supports any binary (e.g. `cursor`, a custom wrapper), while the deprecated alias ensures existing configs continue to work without changes.
 
-### 10. ResourceScope Extraction and Pointer-Backed ProjectConfig
+### 7. ResourceScope Extraction and Pointer-Backed ProjectConfig
 **Decision:** Generative primitives (agents, skills, rules, hooks, MCP, workflows) are extracted into a `ResourceScope` struct embedded with `yaml:",inline"` in both `XcaffoldConfig` (global scope) and `ProjectConfig` (workspace scope). `Project` is a pointer (`*ProjectConfig`) — nil means global scope.
 **Why:** The flat AST where all resources lived at root level alongside `project:`, `settings:`, and `test:` made no semantic distinction between global-scope resources (user-wide) and project-scope resources (workspace-specific). Embedding `ResourceScope` at both levels enables the compiler to merge workspace resources over global resources by ID, giving project configs explicit override authority. The pointer distinguishes "no project block" (global config) from "empty project block" (project config with defaults) at the type level, eliminating the need for parser flags to detect scope.
 
-### 11. Policy Enforcement Engine
+### 8. Policy Enforcement Engine
 **Decision:** The engine runs deterministically during `xcaffold apply` and `xcaffold validate` against a deep-copied AST before compiler mutation, hard-blocking generation on `error` violations. Configuration overrides are handled by defining a `kind: policy` file with the same `name` and `severity: off`.
 **Why:** Linters running *after* generation offer weak security guarantees. Fail-closed policy evaluation prior to compilation guarantees output files always respect path constraints and invariants. The name-based override mechanism avoids polluting the central schema with bypass flags, adhering to the project's declarative, GitOps-driven architecture.
