@@ -5,11 +5,11 @@ import "fmt"
 // Violation records a single policy check failure.
 type Violation struct {
 	Policy   string
-	Severity Severity
 	Target   string
 	Resource string // resource ID (agent name, skill name, etc.)
 	Path     string // output file path (for deny checks)
 	Message  string
+	Severity Severity
 }
 
 // IsError returns true if this violation has error severity.

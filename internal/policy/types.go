@@ -34,9 +34,9 @@ type PolicyRequire struct {
 
 // PolicyDeny defines content patterns that must NOT appear in compiled output.
 type PolicyDeny struct {
-	ContentContains []string `yaml:"content_contains,omitempty"`
 	ContentMatches  string   `yaml:"content_matches,omitempty"`
 	PathContains    string   `yaml:"path_contains,omitempty"`
+	ContentContains []string `yaml:"content_contains,omitempty"`
 }
 
 // Severity represents the enforcement level of a policy violation.

@@ -22,7 +22,7 @@ func writePolicyTestFile(t *testing.T, path, content string) {
 func buildXcaffoldBinary(t *testing.T) string {
 	t.Helper()
 	out := filepath.Join(t.TempDir(), "xcaffold")
-	cmd := exec.Command("go", "build", "-o", out, "github.com/saero-ai/xcaffold/cmd/xcaffold")
+	cmd := exec.Command("go", "build", "-buildvcs=false", "-o", out, "github.com/saero-ai/xcaffold/cmd/xcaffold")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("build xcaffold binary: %v\n%s", err, output)
 	}

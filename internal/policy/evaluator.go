@@ -9,7 +9,7 @@ import (
 // EvalRequire checks a single PolicyRequire rule against a resource's field values.
 // Returns any violations found. resourceKind and resourceID are used for messages.
 func EvalRequire(resourceKind, resourceID string, req PolicyRequire, fields map[string]string) []Violation {
-	val, _ := fields[req.Field]
+	val := fields[req.Field]
 	var viols []Violation
 
 	if req.IsPresent != nil && *req.IsPresent {
