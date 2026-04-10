@@ -446,6 +446,9 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 		merged.Test.JudgeModel = child.Test.JudgeModel
 	}
 
+	merged.Settings = mergeSettingsOverride(base.Settings, child.Settings)
+	merged.Local = mergeSettingsOverride(base.Local, child.Local)
+
 	return merged
 }
 

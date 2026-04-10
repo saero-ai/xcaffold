@@ -342,3 +342,42 @@ local:
 	assert.Equal(t, "low", cfg.Local.EffortLevel)
 	assert.Equal(t, "abc", cfg.Local.Env["SECRET"])
 }
+
+func TestParseDirectory_ExtendsGlobal_InheritsSettings(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Create global config
+	globalDir := filepath.Join(home, ".xcaffold")
+	require.NoError(t, os.MkdirAll(globalDir, 0755))
+	writeTestXCF(t, globalDir, "global.xcf", `
+version: "1.0"
+project:
+  name: "global"
+settings:
+  model: "sonnet-4"
+  effortLevel: "high"
+  env:
+    GLOBAL_KEY: "from-global"
+`)
+
+	// Create project config that extends global
+	projectDir := t.TempDir()
+	writeTestXCF(t, projectDir, "scaffold.xcf", `
+version: "1.0"
+project:
+  name: "my-project"
+extends: global
+settings:
+  effortLevel: "low"
+  env:
+    PROJECT_KEY: "from-project"
+`)
+
+	cfg, err := ParseDirectory(projectDir)
+	require.NoError(t, err)
+	assert.Equal(t, "sonnet-4", cfg.Settings.Model)
+	assert.Equal(t, "low", cfg.Settings.EffortLevel)
+	assert.Equal(t, "from-global", cfg.Settings.Env["GLOBAL_KEY"])
+	assert.Equal(t, "from-project", cfg.Settings.Env["PROJECT_KEY"])
+}
