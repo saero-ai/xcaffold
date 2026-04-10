@@ -1,0 +1,8 @@
+# Example: Overriding a Built-in Policy
+# Save this in your project's policies/ directory (e.g., policies/allow-traversal.xcf)
+# Because it uses the "path-safety" name, it dynamically suppresses the built-in.
+kind: policy
+name: path-safety
+description: "Temporarily suppressing path safety during legacy repo migration"
+severity: off
+target: output

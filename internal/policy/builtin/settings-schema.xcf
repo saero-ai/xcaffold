@@ -1,0 +1,7 @@
+kind: policy
+name: settings-schema
+description: Settings output must be valid JSON with required keys
+severity: error
+target: settings
+deny:
+  - content_contains: ["\"permissions\": null"]

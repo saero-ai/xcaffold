@@ -1,0 +1,14 @@
+# Example: Creating a Custom Regex Policy
+# Evaluated against compiled output content.
+kind: policy
+name: no-bash-skills
+description: "Skills should not have raw bash tools in this restricted project"
+severity: warning
+target: agent
+match:
+  has_tool: Bash
+require:
+  - field: description
+    min_length: 50
+deny:
+  - content_matches: "(?i)bash|shell"

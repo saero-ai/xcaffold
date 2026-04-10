@@ -1,0 +1,8 @@
+kind: policy
+name: test-agent-has-description
+description: Test policy that requires agent descriptions
+severity: warning
+target: agent
+require:
+  - field: description
+    is_present: true
