@@ -36,7 +36,31 @@ An absolute path is also accepted:
 extends: /opt/corp/standards/base.xcf
 ```
 
+### The `global` alias
 
+The string `"global"` is a reserved alias that resolves to `~/.xcaffold/global.xcf`:
+
+```yaml
+extends: global
+```
+
+This is equivalent to specifying the full path. The alias is only recognised during xcaffold's parse phase — the underlying provider (Claude Code, Cursor) receives the physically merged output, not the alias string.
+
+`extends: global` does not affect compiled output. xcaffold strips global resources from the project's compiled output directory (e.g., `.claude/`) because they are already compiled separately via `xcaffold apply -g`. The alias is for visualization (`xcaffold graph`) and cross-reference validation only.
+
+---
+
+## Circular dependency detection
+
+The parser detects cycles and fails immediately. If `project.xcf` extends `base.xcf` and `base.xcf` extends `project.xcf`, xcaffold fails with:
+
+```
+circular dependency detected: project.xcf → base.xcf → project.xcf
+```
+
+The cycle chain is printed in dependency order. xcaffold refuses to compile until the cycle is broken.
+
+---
 
 
 ## Skill resources with `references:`, `scripts:`, and `assets:`
