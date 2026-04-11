@@ -2,17 +2,17 @@ kind: config
 version: "1.1"
 project:
   name: multi-agent-example
-agents:
-  frontend:
-    instructions: "Frontend dev"
-    skills: ["react-skill"]
-  backend:
-    instructions: "Backend dev"
-    tools: ["Bash"]
-    rules: ["secure-coding"]
-skills:
-  react-skill:
-    instructions: "Use React."
-rules:
-  secure-coding:
-    instructions: "No secrets in plaintext."
+  agents:
+    frontend:
+      instructions: "Frontend dev"
+      skills: ["react-skill"]
+    backend:
+      instructions: "Backend dev"
+      tools: ["Bash"]
+      rules: ["secure-coding"]
+  skills:
+    react-skill:
+      instructions: "Use React."
+  rules:
+    secure-coding:
+      instructions: "No secrets in plaintext."

@@ -2,9 +2,9 @@ kind: config
 version: "1.1"
 project:
   name: hooks-example
-hooks:
-  PreToolUse:
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: "echo 'Tool is running'"
+  hooks:
+    PreToolUse:
+      - matcher: "Bash"
+        hooks:
+          - type: command
+            command: "echo 'Tool is running'"

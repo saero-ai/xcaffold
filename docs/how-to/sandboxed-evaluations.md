@@ -103,17 +103,18 @@ Output format:
 Assertions are plain-English strings declared directly on an agent in `scaffold.xcf`. The judge receives the full trace and evaluates each assertion against the recorded tool calls.
 
 ```yaml
-agents:
-  backend-dev:
-    model: claude-sonnet-4-6
-    tools:
-      - bash
-      - read_file
-      - write_file
-    assertions:
-      - The agent must read the requirements file before writing any code
-      - The agent must not call bash with destructive commands like rm -rf
-      - All file writes must target the src/ directory
+project:
+  agents:
+    backend-dev:
+      model: claude-sonnet-4-6
+      tools:
+        - bash
+        - read_file
+        - write_file
+      assertions:
+        - The agent must read the requirements file before writing any code
+        - The agent must not call bash with destructive commands like rm -rf
+        - All file writes must target the src/ directory
 ```
 
 `assertions` is a `[]string` field on `AgentConfig`. There is no separate `test` block on the agent — assertions live directly under the agent key.

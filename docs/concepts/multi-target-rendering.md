@@ -27,20 +27,9 @@ Each renderer implements this interface and receives the same `ast.XcaffoldConfi
 
 The consequence: a rule defined as `paths: ["src/**/*.ts"]` with a Markdown body appears as `rules/<id>.md` with a `paths:` frontmatter key when compiled for one target, and as `rules/<id>.mdc` with a `globs:` key and `alwaysApply: true` when compiled for another. The rule's *data* — its ID, scope patterns, and instruction body — is stable. Its *presentation* is determined entirely by the renderer.
 
-## Renderer Capability Matrix
+## Target Fidelity and Warnings
 
-The table below reflects the actual behavior of each renderer, derived from reading the implementation of each. "Dropped" means the field is silently discarded (no error). "Dropped (warning)" means a `WARNING` is written to stderr. "Partial" means only a subset of the field's data is preserved.
-
-| Resource / Field | `claude` | `cursor` | `antigravity` | `agentsmd` |
-|---|---|---|---|---|
-| **agents** | `agents/<id>.md` with full frontmatter | `agents/<id>.md`, CC-only fields dropped (warning) | Silently skipped | Inline `## Agents` section |
-| **skills** | `skills/<id>/SKILL.md` + `references/`, `scripts/`, `assets/` subdirs | `skills/<id>/SKILL.md`; `scripts/` and `assets/` dropped (warning) | `skills/<id>/SKILL.md`, name + description frontmatter only | Inline `## Skills` section |
-| **rules** | `rules/<id>.md` with `paths:` frontmatter | `rules/<id>.mdc`; `paths:` becomes `globs:`; no paths → `alwaysApply: true` | `rules/<id>.md`, no frontmatter; description becomes `#` heading; 12K char limit enforced (warning) | Inline `## Rules` section; path-scoped rules get per-directory `AGENTS.md` |
-| **workflows** | Not emitted | Not emitted | `workflows/<id>.md` | Inline `## Workflows` section |
-| **hooks** | `settings.json` (merged with settings hooks) | `hooks.json` (flattened to 2-level, camelCase event names) | Silently skipped | Silently skipped |
-| **settings.permissions** | `settings.json` | Dropped (warning) | Dropped (warning) | Dropped (warning) |
-| **settings.sandbox** | `settings.json` | Dropped (warning) | Dropped (warning) | Dropped (warning) |
-| **mcp / settings.mcpServers** | `mcp.json` (`mcpServers` envelope); `settings.mcpServers` wins on conflict | `mcp.json`; `url` → `serverUrl`, `type` omitted; only `mcp:` shorthand compiled | `mcp_config.json`; `command`, `args`, `env` only | Not emitted |
+> For a complete matrix of capabilities, supported fields, and fidelity mappings per target, see the [Schema Reference](../reference/schema.md).
 
 The fidelity warnings are not errors. Compilation always succeeds; warnings inform you that a configuration concept present in the source had no representation in the target format and was silently dropped.
 

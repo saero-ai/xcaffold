@@ -39,7 +39,7 @@ xcaffold apply --global
 
 ## Override Mechanics
 
-When a configuration arborescence is collapsed (whether through implicit global resolution or explicit `extends:` directives), xcaffold's internal parser applies the overriding file on top of the base file via the `mergeConfigOverride` directive.
+When a configuration hierarchy is resolved (whether through implicit global resolution or explicit `extends:` directives), xcaffold's internal parser applies the overriding file on top of the base file.
 
 ### Per-Resource Merge Behavior
 
@@ -79,20 +79,21 @@ hooks:
           command: "echo pre-tool-use from global baseline"
 
 # ./scaffold.xcf
-hooks:
-  PreToolUse:
-    - hooks:
-        - type: command
-          command: "echo pre-tool-use from project override"
+project:
+  hooks:
+    PreToolUse:
+      - hooks:
+          - type: command
+            command: "echo pre-tool-use from project override"
 ```
 
 The compiled evaluation contains both handlers in order: global base, then project override.
 
 ## Circular Dependency Prevention
 
-xcaffold strictly guarantees that a deterministic directed acyclic graph (DAG) avoids endless topological loop resolution via the parser's state machine.
+xcaffold prevents endless configuration loops by tracking file dependencies during parsing.
 
-An absolute path trace mapping is utilized recursively during load times. An explicit error terminates compilation instantly if:
+An explicit error terminates compilation instantly if:
 - Implicit `global` resolution references itself
 - Graph trace detects topological loops during `extends: /path/to/base.xcf` resolution
 

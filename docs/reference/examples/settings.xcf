@@ -2,13 +2,8 @@ kind: config
 version: "1.1"
 project:
   name: settings-example
-settings:
-  model: claude-3-7-sonnet-20250219
-  effortLevel: high
-  permissions:
-    allow: ["Read"]
-    deny: ["Bash(rm -rf *)"]
-  sandbox:
-    enabled: true
-    filesystem:
-      allowRead: ["./*"]
+  settings:
+    mcpServers:
+        filesystem:
+            command: "npx"
+            args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]

@@ -228,48 +228,7 @@ Validation  → xcaffold test      (LLM-in-the-loop proxy sandbox)
 Export      → xcaffold export    (packages compiled output as a distributable plugin)
 ```
 
-### Utilities
-
-| Command | Description |
-|---|---|
-| `xcaffold validate` | YAML syntax check, cross-reference integrity, and policy evaluation without compiling |
-| `xcaffold review [file]` | Universal parser for `scaffold.xcf`, `audit.json`, `plan.json`, `trace.jsonl` |
-| `xcaffold list` | Lists all registered projects (reads `~/.xcaffold/registry.xcf`) |
-| `xcaffold migrate` | Upgrades legacy layouts (`~/.claude/global.xcf` → `~/.xcaffold/global.xcf`, flat paths → reference-in-place) |
-
-### Global Flags
-
-| Flag | Default | Purpose |
-|---|---|---|
-| `--config <path>` | `./scaffold.xcf` | Override `.xcf` file path (for monorepo sub-directories) |
-| `--global` / `-g` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcf`) |
-
-### `xcaffold apply` Flags
-
-| Flag | Purpose |
-|---|---|
-| `--target <target>` | Output platform: `claude` (default), `cursor`, `antigravity` |
-| `--dry-run` | Preview unified diff without writing to disk |
-| `--check` | Validate YAML syntax without compiling |
-
-### `xcaffold graph` Flags
-
-| Flag | Purpose |
-|---|---|
-| `--format <fmt>` | `terminal` (default), `mermaid`, `dot`, `json` |
-| `--agent <id>` | Filter topology to a single agent |
-| `--project <name>` | Target a specific registered project by name or path |
-| `--full / -f` | Show fully expanded topology tree |
-| `--scan-output` | Scan compiled output directories for undeclared artifacts |
-| `--all` | Show global topology and all registered projects |
-
-### `xcaffold import` Flags
-
-| Flag | Purpose |
-|---|---|
-| `--source <path>` | Activate cross-platform translation mode (file or directory of `.md` workflow files) |
-| `--from <platform>` | Source platform: `antigravity`, `cursor`, etc. (default: `auto`) |
-| `--plan` | Dry-run: print decomposition plan without writing files |
+> For complete details on the command-line interface, including flags and utilities, please see the [CLI Reference](../reference/cli.md).
 
 ---
 

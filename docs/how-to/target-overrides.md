@@ -40,16 +40,17 @@ When compiling to `cursor` or `antigravity`, the renderer emits stderr warnings 
 **Example — suppress cursor fidelity warnings for a specific agent:**
 
 ```yaml
-agents:
-  security-auditor:
-    name: Security Auditor
-    model: claude-opus-4-5
-    permissionMode: restricted
-    disallowedTools:
-      - Bash
-    targets:
-      cursor:
-        suppress_fidelity_warnings: true
+project:
+  agents:
+    security-auditor:
+      name: Security Auditor
+      model: claude-opus-4-5
+      permissionMode: restricted
+      disallowedTools:
+        - Bash
+      targets:
+        cursor:
+          suppress_fidelity_warnings: true
 ```
 
 When compiling to `--target cursor`, the renderer checks:
@@ -97,22 +98,23 @@ For the `claude` target, all security fields are natively supported. `securityFi
 Consider a configuration with the following security fields set:
 
 ```yaml
-settings:
-  permissions:
-    allow:
-      - "Bash(go test *)"
-    deny:
-      - "Bash(rm *)"
-  sandbox:
-    enabled: true
+project:
+  settings:
+    permissions:
+      allow:
+        - "Bash(go test *)"
+      deny:
+        - "Bash(rm *)"
+    sandbox:
+      enabled: true
 
-agents:
-  deployer:
-    name: Deployer
-    permissionMode: restricted
-    disallowedTools:
-      - WebSearch
-    isolation: container
+  agents:
+    deployer:
+      name: Deployer
+      permissionMode: restricted
+      disallowedTools:
+        - WebSearch
+      isolation: container
 ```
 
 **`xcaffold apply --check-permissions --target cursor`:**

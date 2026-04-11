@@ -5,7 +5,7 @@ description: "Configuration and structural best practices"
 
 # Xcaffold Configuration Best Practices
 
-When building complex agentic environments, organizing your `.xcf` files efficiently becomes vital for maintaining team velocity and lowering cognitive load. Below are three recommended configuration patterns.
+When building complex agentic environments, organizing your `.xcf` files efficiently is critical. Below are three recommended configuration patterns.
 
 ## 1. Minimal (Single File Baseline)
 **Best for:** Tutorials, personal scripting, toy projects.
