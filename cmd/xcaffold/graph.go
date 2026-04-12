@@ -292,6 +292,8 @@ func buildGraph(config *ast.XcaffoldConfig) *graphData {
 	appendGraphRules(config, g)
 	appendGraphMCP(config, g)
 	appendGraphAgents(config, g)
+	appendGraphHooks(config, g)
+	appendGraphWorkflows(config, g)
 	return g
 }
 
@@ -392,6 +394,31 @@ func appendGraphAgents(config *ast.XcaffoldConfig, g *graphData) {
 		for _, mcpID := range agent.MCP {
 			g.Edges = append(g.Edges, graphEdge{From: "agent:" + id, To: "mcp:" + mcpID, Label: "mcp"})
 		}
+	}
+}
+
+func appendGraphHooks(config *ast.XcaffoldConfig, g *graphData) {
+	for _, event := range sortedKeys(config.Hooks) {
+		g.Nodes = append(g.Nodes, graphNode{
+			ID:    "hook:" + event,
+			Kind:  "hook",
+			Label: event,
+		})
+	}
+}
+
+func appendGraphWorkflows(config *ast.XcaffoldConfig, g *graphData) {
+	for _, id := range sortedKeys(config.Workflows) {
+		wf := config.Workflows[id]
+		label := id
+		if wf.Description != "" {
+			label = wf.Description
+		}
+		g.Nodes = append(g.Nodes, graphNode{
+			ID:    "workflow:" + id,
+			Kind:  "workflow",
+			Label: label,
+		})
 	}
 }
 

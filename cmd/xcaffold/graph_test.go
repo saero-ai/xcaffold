@@ -34,6 +34,60 @@ func TestGraphAll_MutualExclusion_WithProject(t *testing.T) {
 	assert.Contains(t, err.Error(), "mutually exclusive")
 }
 
+// TestBuildGraph_HooksAndWorkflows verifies that hooks and workflows appear as
+// graph nodes with the correct kind and labels.
+func TestBuildGraph_HooksAndWorkflows(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"PreToolUse": {
+					{
+						Matcher: "Bash",
+						Hooks:   []ast.HookHandler{{Type: "command", Command: "echo pre"}},
+					},
+				},
+				"Stop": {
+					{
+						Hooks: []ast.HookHandler{{Type: "command", Command: "echo stop"}},
+					},
+				},
+			},
+			Workflows: map[string]ast.WorkflowConfig{
+				"deploy": {
+					Description: "Run deployment pipeline",
+				},
+				"release": {},
+			},
+		},
+	}
+
+	g := buildGraph(config)
+
+	// Collect hook and workflow nodes.
+	hookIDs := map[string]bool{}
+	workflowIDs := map[string]string{} // id -> label
+	for _, n := range g.Nodes {
+		switch n.Kind {
+		case "hook":
+			hookIDs[n.ID] = true
+		case "workflow":
+			workflowIDs[n.ID] = n.Label
+		}
+	}
+
+	// Both hook events must appear.
+	require.True(t, hookIDs["hook:PreToolUse"], "expected hook:PreToolUse node")
+	require.True(t, hookIDs["hook:Stop"], "expected hook:Stop node")
+	assert.Len(t, hookIDs, 2)
+
+	// Workflows: description used as label when present, id otherwise.
+	require.Contains(t, workflowIDs, "workflow:deploy")
+	assert.Equal(t, "Run deployment pipeline", workflowIDs["workflow:deploy"])
+	require.Contains(t, workflowIDs, "workflow:release")
+	assert.Equal(t, "release", workflowIDs["workflow:release"])
+	assert.Len(t, workflowIDs, 2)
+}
+
 // TestBuildGraph_ExcludesInheritedAgents verifies that inherited resources
 // (from an extends: global config) do not appear in a project-scope graph
 // after StripInherited is applied.
