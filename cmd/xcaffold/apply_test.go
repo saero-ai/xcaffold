@@ -481,3 +481,41 @@ project:
 	applyDryRun = false
 	applyForce = false
 }
+
+// TestApplyScope_RegistryXCF_ExcludedFromSourceTracking verifies that a
+// kind: registry file is not recorded in the lock manifest's source list.
+// Without the filter, registry.xcf is updated on every apply, causing
+// SourcesChanged to always return true and defeating smart-skip.
+func TestApplyScope_RegistryXCF_ExcludedFromSourceTracking(t *testing.T) {
+	dir := t.TempDir()
+
+	// Config file — the only source that should appear in the lock.
+	xcf := filepath.Join(dir, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
+
+	// Registry file — must NOT appear in the lock's source list.
+	registryXCF := filepath.Join(dir, "registry.xcf")
+	registryContent := `kind: registry
+version: "1"
+`
+	require.NoError(t, os.WriteFile(registryXCF, []byte(registryContent), 0600))
+
+	claudeDirPath := filepath.Join(dir, ".claude")
+	lock := filepath.Join(dir, "scaffold.lock")
+
+	applyForce = true
+	targetFlag = targetClaude
+	err := applyScope(xcf, claudeDirPath, lock, "project")
+	require.NoError(t, err)
+
+	targetLock := filepath.Join(dir, "scaffold.claude.lock")
+	manifest, err := state.Read(targetLock)
+	require.NoError(t, err)
+
+	for _, sf := range manifest.SourceFiles {
+		assert.NotEqual(t, "registry.xcf", sf.Path,
+			"registry.xcf must not appear in lock manifest source files")
+	}
+
+	applyForce = false
+}

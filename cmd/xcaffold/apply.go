@@ -16,6 +16,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var applyDryRun bool
@@ -233,6 +234,25 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	}
 
 	sourceFiles, _ := resolver.FindXCFFiles(baseDir)
+
+	// Filter out non-config XCF files (e.g. kind: registry) to prevent
+	// SourcesChanged from detecting registry mutations as config changes.
+	var configSources []string
+	for _, f := range sourceFiles {
+		data, readErr := os.ReadFile(f)
+		if readErr != nil {
+			configSources = append(configSources, f)
+			continue
+		}
+		var header struct {
+			Kind string `yaml:"kind"`
+		}
+		if yaml.Unmarshal(data, &header) == nil && header.Kind == "registry" {
+			continue
+		}
+		configSources = append(configSources, f)
+	}
+	sourceFiles = configSources
 
 	if !applyForce {
 		prevManifest, readErr := state.Read(targetLockFile)
