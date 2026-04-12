@@ -26,8 +26,13 @@ type Project struct {
 	Targets     []string  `yaml:"targets,omitempty"`
 }
 
-// GlobalHome returns the absolute path to ~/.xcaffold/.
+// GlobalHome returns the absolute path to the xcaffold home directory.
+// If XCAFFOLD_HOME is set, it is used directly (primarily for test isolation).
+// Otherwise it falls back to ~/.xcaffold/.
 func GlobalHome() (string, error) {
+	if override := os.Getenv("XCAFFOLD_HOME"); override != "" {
+		return override, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("could not determine home directory: %w", err)
