@@ -66,7 +66,18 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	if globalFlag {
-		return importScope(globalXcfHome, globalXcfPath, "global")
+		dirs := detectAllGlobalPlatformDirs()
+		if len(dirs) == 0 {
+			return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
+		}
+		if len(dirs) > 1 {
+			var dirNames []string
+			for _, d := range dirs {
+				dirNames = append(dirNames, d.dirName)
+			}
+			return mergeImportDirs(dirNames, globalXcfPath)
+		}
+		return importScope(dirs[0].dirName, globalXcfPath, "global")
 	}
 
 	// project (default) — merge all detected directories
@@ -84,6 +95,64 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	// default fallback
 	return importScope(".claude", "scaffold.xcf", "project")
+}
+
+// detectAllGlobalPlatformDirs scans known provider directories under the user's home directory
+// (~/.claude/, ~/.cursor/, ~/.agents/) and returns all that contain agent/skill/rule resources,
+// sorted by total resource count descending.
+func detectAllGlobalPlatformDirs() []platformDirInfo {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+
+	platformDirs := []struct{ dir, platform string }{
+		{".claude", "claude"},
+		{".cursor", "cursor"},
+		{".agents", "antigravity"},
+	}
+
+	var results []platformDirInfo
+
+	for _, pt := range platformDirs {
+		targetPath := filepath.Join(home, pt.dir)
+		if _, err := os.Stat(targetPath); err != nil {
+			continue
+		}
+
+		info := platformDirInfo{exists: true, platform: pt.platform, dirName: targetPath}
+
+		if agents, _ := filepath.Glob(filepath.Join(targetPath, "agents", "*.md")); agents != nil {
+			info.agents += len(agents)
+		}
+		if skills, _ := filepath.Glob(filepath.Join(targetPath, "skills", "*", "SKILL.md")); skills != nil {
+			info.skills += len(skills)
+		}
+		if rulesMD, _ := filepath.Glob(filepath.Join(targetPath, "rules", "*.md")); rulesMD != nil {
+			info.rules += len(rulesMD)
+		}
+		if rulesMDC, _ := filepath.Glob(filepath.Join(targetPath, "rules", "*.mdc")); rulesMDC != nil {
+			info.rules += len(rulesMDC)
+		}
+		if workflows, _ := filepath.Glob(filepath.Join(targetPath, "workflows", "*.md")); workflows != nil {
+			info.workflows += len(workflows)
+		}
+
+		// Only include directories that actually have resources
+		if info.agents+info.skills+info.rules+info.workflows == 0 {
+			continue
+		}
+
+		results = append(results, info)
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		totalI := results[i].agents + results[i].skills + results[i].rules
+		totalJ := results[j].agents + results[j].skills + results[j].rules
+		return totalI > totalJ
+	})
+
+	return results
 }
 
 func runTranslateMode() error {
