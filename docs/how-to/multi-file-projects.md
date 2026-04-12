@@ -1,6 +1,8 @@
 # Splitting a Project Into Multiple .xcf Files
 
-A single `scaffold.xcf` works well for small projects. As projects grow, a monolithic file becomes difficult to maintain — a large agent roster mixed with MCP server definitions and global rules is hard to review and harder to diff. xcaffold supports splitting a project into multiple `.xcf` files within the same directory; the parser scans, merges, and validates them as a single configuration.
+A single `scaffold.xcf` works well for small projects. As projects grow, a monolithic file becomes difficult to maintain — a large agent roster mixed with MCP server definitions and global rules is hard to review and harder to diff. xcaffold supports splitting a project into multiple `.xcf` files; the parser scans, merges, and validates them as a single configuration.
+
+The recommended split layout uses `scaffold.xcf` (`kind: project`) at the project root and individual resource `.xcf` files under an `xcf/` subdirectory. All xcaffold commands should be run from the directory containing `scaffold.xcf`.
 
 This how-to covers when and how to split, what merge rules apply per resource type, how duplicate IDs are caught, and what the compiled output looks like for each target.
 
@@ -22,87 +24,113 @@ A single file remains correct when the project is small or the overhead of coord
 
 `FindXCFFiles` performs a **recursive** `filepath.WalkDir` over the project directory. Every file ending in `.xcf` is included, sorted alphabetically. Hidden directories (names beginning with `.`) and `node_modules` are skipped entirely. There is no depth limit.
 
-`ParseDirectory` calls `FindXCFFiles` internally. It parses each file independently and then merges the results through `mergeAllStrict`. The `scaffold.xcf` filename is a convention for the single-file case — when the CLI detects a `scaffold.xcf` at the project root, it treats that file's parent directory as the config directory and scans the whole directory. When no `scaffold.xcf` is present, the directory itself is used directly.
+`ParseDirectory` calls `FindXCFFiles` internally. It parses each file independently and then merges the results. When the CLI detects a `scaffold.xcf` at the project root, it treats that file's parent directory as the config directory and scans the whole tree — including the `xcf/` subdirectory.
 
-Practical consequence: file names are arbitrary. `agents.xcf`, `mcp-servers.xcf`, and `my-rules.xcf` are equally valid.
+**Naming conventions:**
+
+- `scaffold.xcf` is the recommended filename for the project manifest (`kind: project`). Users can name it anything, but `scaffold.xcf` is what `xcaffold init` generates and what the CLI looks for by default.
+- Resource files under `xcf/` can use any name. Convention: `xcf/agents/developer.xcf`, `xcf/rules/code-style.xcf`.
+- All xcaffold commands (`apply`, `diff`, `validate`, `graph`) run from the directory containing `scaffold.xcf`.
 
 ---
 
 ## Splitting by domain
 
-A common layout:
+The recommended layout uses `kind: project` at the root and individual `kind:` documents under `xcf/`:
 
 ```
 myproject/
-  scaffold.xcf        # version, project metadata, settings
-  agents.xcf          # all agent definitions
-  rules.xcf           # all rule definitions
-  skills.xcf          # all skill definitions
-  mcp.xcf             # all MCP server definitions
+  scaffold.xcf              # kind: project — metadata, targets, ref lists
+  xcf/
+    agents/
+      frontend-dev.xcf      # kind: agent
+      backend-dev.xcf       # kind: agent
+    skills/
+      component-builder.xcf # kind: skill
+      api-design.xcf        # kind: skill
+    rules/
+      code-style.xcf        # kind: rule
+    mcp/
+      filesystem.xcf        # kind: mcp
+    settings.xcf            # kind: settings
 ```
 
-`scaffold.xcf` holds the fields that apply globally and should be declared in exactly one place:
+`scaffold.xcf` holds the project manifest with ref lists pointing to child resources:
 
 ```yaml
-version: "1"
-
-project:
-  name: myproject
-  description: "Multi-agent development assistant"
-
-settings:
-  model: claude-opus-4-5
-```
-
-`agents.xcf` holds agent definitions only:
-
-```yaml
+kind: project
+version: "1.0"
+name: myproject
+description: "Multi-agent development assistant"
+targets:
+  - claude
 agents:
-  frontend-dev:
-    description: "Frontend engineering agent"
-    model: claude-sonnet-4-5
-    skills:
-      - component-builder
-    rules:
-      - code-style
-
-  backend-dev:
-    description: "Backend engineering agent"
-    model: claude-sonnet-4-5
-    skills:
-      - api-design
-```
-
-`skills.xcf` holds skill definitions that agents in `agents.xcf` reference:
-
-```yaml
+  - frontend-dev
+  - backend-dev
 skills:
-  component-builder:
-    description: "Builds React components"
-    instructions_file: skills/component-builder.md
-
-  api-design:
-    description: "Designs REST and GraphQL APIs"
-    instructions_file: skills/api-design.md
-```
-
-`rules.xcf`:
-
-```yaml
+  - component-builder
+  - api-design
 rules:
-  code-style:
-    description: "House coding standards"
-    instructions_file: rules/code-style.md
+  - code-style
+mcp:
+  - filesystem
 ```
 
-`mcp.xcf`:
+Each resource file under `xcf/` is a standalone document with `kind:`, `version:`, and `name:`:
+
+**`xcf/agents/frontend-dev.xcf`:**
 
 ```yaml
-mcp:
-  filesystem:
-    command: npx
-    args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+kind: agent
+version: "1.0"
+name: frontend-dev
+description: "Frontend engineering agent"
+model: claude-sonnet-4-5
+skills:
+  - component-builder
+rules:
+  - code-style
 ```
+
+**`xcf/skills/component-builder.xcf`:**
+
+```yaml
+kind: skill
+version: "1.0"
+name: component-builder
+description: "Builds React components"
+instructions_file: skills/component-builder.md
+```
+
+**`xcf/rules/code-style.xcf`:**
+
+```yaml
+kind: rule
+version: "1.0"
+name: code-style
+description: "House coding standards"
+instructions_file: rules/code-style.md
+```
+
+**`xcf/mcp/filesystem.xcf`:**
+
+```yaml
+kind: mcp
+version: "1.0"
+name: filesystem
+command: npx
+args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
+```
+
+**`xcf/settings.xcf`:**
+
+```yaml
+kind: settings
+version: "1.0"
+model: claude-opus-4-5
+```
+
+> **Legacy flat layout:** You can also use a flat layout with all `.xcf` files in the project root (e.g., `agents.xcf`, `rules.xcf`). This still works but the `xcf/` subdirectory layout is preferred for clarity.
 
 ---
 

@@ -1,0 +1,66 @@
+# multi-kind.xcf — Example multi-kind document
+# Each resource gets its own kind document, separated by ---
+
+kind: project
+version: "1.0"
+name: my-project
+targets:
+  - claude
+agents:
+  - developer
+  - reviewer
+skills:
+  - tdd
+rules:
+  - testing-framework
+
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "General software developer."
+model: sonnet
+tools: [Bash, Read, Write, Edit, Glob, Grep]
+skills: [tdd]
+instructions: |
+  You are a software developer.
+  Write clean, maintainable code.
+
+---
+kind: agent
+version: "1.0"
+name: reviewer
+description: "Code reviewer."
+model: sonnet
+tools: [Read, Glob, Grep]
+instructions: |
+  You are a code reviewer.
+  Check for bugs and style issues.
+
+---
+kind: skill
+version: "1.0"
+name: tdd
+description: "Test-driven development workflow."
+tools: [Bash, Read, Write, Edit]
+instructions: |
+  Follow TDD: Red-Green-Refactor.
+
+---
+kind: rule
+version: "1.0"
+name: testing-framework
+description: "Testing conventions."
+alwaysApply: true
+instructions: |
+  All tests must pass before committing.
+
+---
+kind: hooks
+version: "1.0"
+events:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: "echo Running pre-tool hook"

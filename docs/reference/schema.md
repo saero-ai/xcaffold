@@ -30,6 +30,12 @@ erDiagram
         string repository
         string license
         string backup_dir
+        string_list targets
+        string_list agentRefs
+        string_list skillRefs
+        string_list ruleRefs
+        string_list workflowRefs
+        string_list mcpRefs
     }
     AgentConfig {
         string name
@@ -175,6 +181,51 @@ erDiagram
     SandboxConfig ||--o| SandboxNetwork : "network"
 ```
 
+## Supported Kinds
+
+The `kind` field is the document type discriminator. Each `.xcf` file (or YAML document within a multi-document file) declares its kind. Multiple documents of different kinds can coexist in a single file, separated by `---`.
+
+| Kind | Description | Decode struct | Required fields |
+|---|---|---|---|
+| `config` | Legacy monolithic format. Contains all resources inline under `project:`, `agents:`, `skills:`, etc. Backward compatible — omitting `kind` is treated as `config`. | `XcaffoldConfig` (direct) | `version` |
+| `project` | Project manifest. Declares the project name, compilation targets, and child resource references as bare name lists (`agents: [dev, qa]`). Exactly one per project. | `projectDocFields` | `version`, `name` |
+| `agent` | Standalone agent definition. All `AgentConfig` fields at the top level. | `AgentConfig` (with envelope) | `version`, `name` |
+| `skill` | Standalone skill definition. All `SkillConfig` fields at the top level. | `SkillConfig` (with envelope) | `version`, `name` |
+| `rule` | Standalone rule definition. All `RuleConfig` fields at the top level. | `RuleConfig` (with envelope) | `version`, `name` |
+| `workflow` | Standalone workflow definition. All `WorkflowConfig` fields at the top level. | `WorkflowConfig` (with envelope) | `version`, `name` |
+| `mcp` | Standalone MCP server definition. All `MCPConfig` fields at the top level. | `MCPConfig` (with envelope) | `version`, `name` |
+| `hooks` | Standalone hooks definition. Uses an `events:` wrapper containing the `HookConfig` map. | `hooksDocument` | `version` |
+| `settings` | Standalone settings definition. All `SettingsConfig` fields at the top level (inlined). | `settingsDocument` | `version` |
+
+### `kind: project` semantics
+
+In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, and `mcp` keys are decoded as `[]string` (bare name lists), not as the `map[string]Config` structures used in `kind: config`. This is achieved via a separate decode struct (`projectDocFields`) that maps these YAML keys to `AgentRefs`, `SkillRefs`, `RuleRefs`, `WorkflowRefs`, and `MCPRefs` on `ProjectConfig`. These reference lists name child resources defined in sibling documents (same file via `---` separators, or separate `.xcf` files in the `xcf/` directory).
+
+The `targets` key on `kind: project` is also a `[]string` listing compilation targets (e.g., `["claude", "antigravity"]`). It is stored on `ProjectConfig.Targets` (tagged `yaml:"-"` — only populated by the parser for `kind: project` documents, never by legacy `kind: config` decoding).
+
+### Multi-document files
+
+A single `.xcf` file can contain multiple YAML documents separated by `---`. The parser decodes each document independently based on its `kind` and merges the results into a single `XcaffoldConfig`. This enables a self-contained project definition:
+
+```yaml
+kind: project
+version: "1.0"
+name: my-app
+agents:
+  - developer
+---
+kind: agent
+version: "1.0"
+name: developer
+model: sonnet
+instructions: |
+  You are a developer.
+```
+
+See [examples/multi-kind.xcf](examples/multi-kind.xcf) for a complete example.
+
+---
+
 ## Scopes
 
 Xcaffold operates at two scopes, selected via the `--global / -g` flag.
@@ -222,7 +273,7 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `kind` | `string` | Optional | File type discriminator. Values: `"config"` (compiler input) or omitted (treated as `config` for backward compatibility). Global configs should set `kind: config`. Non-config files (e.g. `registry.xcf`) use `kind: registry` and are skipped by the directory scanner. |
+| `kind` | `string` | Optional | Document type discriminator. See [Supported Kinds](#supported-kinds) for the full list. When omitted, the document is treated as `config` for backward compatibility. Non-config files (e.g. `registry.xcf`) use `kind: registry` and are skipped by the directory scanner. |
 | `version` | `string` | **Required** | Schema version. Current: `"1.0"`. |
 | `project` | `*ProjectConfig` | Project scope only | Project-level metadata and workspace-scoped resources. `nil` for global configs. |
 | `extends` | `string` | Optional (project only) | Path to a parent `.xcf` config. Use `"global"` to reference `~/.xcaffold/global.xcf` for validation and visualization. Does not affect compiled output. |
@@ -253,6 +304,12 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `repository` | `string` | Optional | Source control URL. |
 | `license` | `string` | Optional | SPDX license identifier. |
 | `backup_dir` | `string` | Optional | Directory for `xcaffold apply --backup` output. Defaults to `.<target>_bak_<timestamp>` in the project root. |
+| `targets` | `[]string` | Optional | Compilation targets (e.g., `["claude", "antigravity"]`). Only populated via `kind: project` documents — tagged `yaml:"-"` and ignored by legacy `kind: config` decoding. |
+| `agentRefs` | `[]string` | Optional | Bare name references to child agent resources. Only populated via `kind: project` documents. |
+| `skillRefs` | `[]string` | Optional | Bare name references to child skill resources. Only populated via `kind: project` documents. |
+| `ruleRefs` | `[]string` | Optional | Bare name references to child rule resources. Only populated via `kind: project` documents. |
+| `workflowRefs` | `[]string` | Optional | Bare name references to child workflow resources. Only populated via `kind: project` documents. |
+| `mcpRefs` | `[]string` | Optional | Bare name references to child MCP resources. Only populated via `kind: project` documents. |
 | `test` | `TestConfig` | Optional | Configuration for `xcaffold test`. See [TestConfig](#testconfig). |
 | `local` | `SettingsConfig` | Optional | Local override settings compiled to `settings.local.json` (gitignored). |
 | `agents` | `map[string]AgentConfig` | Optional | Workspace-scoped agent declarations. Override global agents with the same ID. |

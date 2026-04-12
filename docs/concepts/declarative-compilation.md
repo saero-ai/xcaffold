@@ -54,6 +54,16 @@ On the next run, the lock file is compared against the current hashes of the sam
 
 Determinism is also what makes CI verification possible. A pipeline that runs `xcaffold apply` and then checks for uncommitted changes in `.claude/` only works if clean-source-in produces clean-output-out, every time.
 
+## Multi-Document YAML Parsing
+
+A single `.xcf` file can contain multiple YAML documents separated by `---`. The parser's `parsePartial` function loops over each document in the stream and routes it by `kind:`:
+
+- `kind: project` populates `ProjectConfig` with the project name, targets, and resource reference lists.
+- `kind: hooks`, `kind: settings`, and other resource kinds merge their contents into `ResourceScope` maps.
+- `kind: config` (or absent `kind:`) is parsed as a legacy monolithic configuration.
+
+When `ParseDirectory` scans a project tree, it discovers all `.xcf` files recursively and merges all parsed documents into a single configuration. Strict deduplication is enforced: if the same resource ID (e.g., agent `deployer`) appears in two different files, parsing fails with a duplicate ID error. This prevents ambiguous precedence and ensures every resource has exactly one authoritative definition.
+
 ## The Fail-Closed Parser
 
 The YAML parser is strict by design. `parsePartial()` (`internal/parser/parser.go:50`) creates a `yaml.Decoder` and calls `KnownFields(true)` before decoding:

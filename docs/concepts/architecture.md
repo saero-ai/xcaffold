@@ -20,6 +20,7 @@ graph LR
 
   subgraph User Codebase
     A[scaffold.xcf]
+    XCF["xcf/**/*.xcf"]
   end
 
   subgraph xcaffold Engine
@@ -66,6 +67,7 @@ graph LR
   R -..->|registry lookup| A
   GC -->|"--global / -g"| B
   A --> B
+  XCF --> B
   B --> C
   C --> PE[Policy Engine]
   PE --> RG
@@ -109,7 +111,7 @@ Created automatically on first run by `registry.EnsureGlobalHome()`. Contains tw
 
 | File | Purpose |
 |---|---|
-| `global.xcf` | User-wide agent config (includes `kind: config` discriminator) — auto-bootstrapped by scanning installed platform providers |
+| `global.xcf` | User-wide agent config (uses `kind: config` for monolithic global scope) — auto-bootstrapped by scanning installed platform providers |
 | `registry.xcf` | YAML list of all registered projects (`name`, `path`, `targets`, `registered`, `last_applied`) |
 
 `global.xcf` is rebuilt by `RebuildGlobalXCF()`, which iterates a `globalProviders` registry. Currently two providers are active:
@@ -125,15 +127,20 @@ Created automatically on first run by `registry.EnsureGlobalHome()`. Contains tw
 
 ### File Taxonomy (`kind:` Discriminator)
 
-Every `.xcf` file in `~/.xcaffold/` carries a `kind:` field as its first key. The parser scanner reads this field before attempting full parsing to determine if the file should be processed:
+Every `.xcf` file carries a `kind:` field as its first key. The parser reads this field before attempting full parsing to determine how the file should be processed:
 
-| Kind value | Schema | Parser |
-|---|---|---|
-| `config` (or absent) | `XcaffoldConfig` | `parser.ParseDirectory()` |
-| `policy` | `PolicyConfig` | `policy.ParseFile()` |
-| `registry` | `{kind, projects}` | `registry.readProjects()` |
+| Kind value | Schema | Parser | Notes |
+|---|---|---|---|
+| `project` | `XcaffoldConfig` | `parser.ParseDirectory()` | Primary format. Exactly 1 required per project. Declares name, targets, resource refs. |
+| `hooks` | `XcaffoldConfig` | `parser.ParseDirectory()` | Standalone hooks with `events:` wrapper |
+| `settings` | `XcaffoldConfig` | `parser.ParseDirectory()` | Standalone settings |
+| `config` (or absent) | `XcaffoldConfig` | `parser.ParseDirectory()` | Legacy monolithic format — backward compatible |
+| `policy` | `PolicyConfig` | `policy.ParseFile()` | |
+| `registry` | `{kind, projects}` | `registry.readProjects()` | |
 
-Files without a `kind:` field are treated as `config` for backward compatibility. Files with any other `kind:` value are silently skipped by the directory scanner — this prevents non-config files (like `registry.xcf`) from crashing the strict `KnownFields(true)` parser.
+`kind: project` + resource kind files are now the primary format. `kind: config` remains fully supported as a backward-compatible alternative for single-file configurations.
+
+Files without a `kind:` field are treated as `config` for backward compatibility. Files with unrecognized `kind:` values (like `registry`) are silently skipped by the directory scanner — this prevents non-config files from crashing the strict `KnownFields(true)` parser.
 
 ---
 
@@ -211,7 +218,7 @@ The compiler merges two sources into `settings.json`:
 
 **Merge rule:** `settings.mcpServers` takes precedence over `mcp:` entries with the same key.
 
-The `local:` block within `project:` is a `SettingsConfig` variant that allows machine-local overrides (e.g. paths, secrets) without polluting the committed `scaffold.xcf`. It compiles to `settings.local.json`.
+The `local:` block is a `SettingsConfig` variant that allows machine-local overrides (e.g. paths, secrets) without polluting the committed `scaffold.xcf`. It compiles to `settings.local.json`. In `kind: project` format, `local:` is a top-level field (not nested under `project:`). In the legacy `kind: config` format, it appears within the `project:` block.
 
 ---
 
@@ -247,10 +254,12 @@ Source .md files
       IntentProcedure  → TargetPrimitive{Kind: "skill",      ID: <id>}
       IntentConstraint → TargetPrimitive{Kind: "rule",       ID: <id>-constraints}
       IntentAutomation → TargetPrimitive{Kind: "permission", ID: <id>-permissions}
-  → injectIntoConfig()           writes external .md files + updates scaffold.xcf
+  → injectIntoConfig()           (--source mode only) inlines instructions + writes split .xcf files
 ```
 
 If a `SemanticUnit` has no detected intents, it falls back to a single `skill` primitive containing the full body.
+
+> **Note:** `injectIntoConfig()` is used exclusively by the `--source` cross-platform translation mode. The main `xcaffold import` command uses `WriteSplitFiles` to produce `kind: project` manifests with inline instructions and individual `.xcf` resource files under `xcf/`.
 
 ---
 

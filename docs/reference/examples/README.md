@@ -8,5 +8,6 @@ This directory provides standalone snippet files demonstrating different `.xcf` 
 - [hooks.xcf](hooks.xcf) - Integrating pre-commit and post-install hooks
 - [mcp.xcf](mcp.xcf) - Connecting Model Context Protocol standard and SSE servers
 - [settings.xcf](settings.xcf) - IDE telemetry and auto-validation overrides
+- [multi-kind.xcf](multi-kind.xcf) - Multi-kind format with kind: project, agent, skill, rule, and hooks in one file
 - [test-assertions.xcf](test-assertions.xcf) - Defining rules for LLM-as-a-Judge test loops
 - [xcaffold-diff.yml](xcaffold-diff.yml) - A GitHub Actions CI workflow script

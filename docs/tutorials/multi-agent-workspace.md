@@ -1,6 +1,8 @@
 # Multi-Agent Workspace
 
-This tutorial walks through configuring a team of differentiated AI agents in a single `scaffold.xcf` file. You will define two agents with distinct tool permissions, attach shared rules and skills, validate the workspace, visualize the topology, audit security field behavior across targets, and inspect the compiled output.
+This tutorial walks through configuring a team of differentiated AI agents. You will define two agents with distinct tool permissions, attach shared rules and skills, validate the workspace, visualize the topology, audit security field behavior across targets, and inspect the compiled output.
+
+xcaffold supports two layout styles for multi-agent projects: a single `scaffold.xcf` with multiple `kind:` documents, or a split-file structure with `scaffold.xcf` (kind: project) at the root and individual `.xcf` files under `xcf/`. This tutorial shows both.
 
 **Prerequisites:** Completed the Getting Started tutorial. A fresh project directory with no existing `scaffold.xcf`.
 
@@ -22,22 +24,26 @@ For this tutorial, the team has two agents:
 
 The `agents:` map uses each key as both the agent's internal ID and its output filename. `frontend-dev` compiles to `agents/frontend-dev.md`. Choose IDs that are lowercase, hyphenated, and unambiguous.
 
-Start with the first agent only:
+Start with the first agent only. In multi-kind format, the project manifest and agent are separate documents:
 
 ```yaml
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: my-team
-  agents:
-    frontend-dev:
-      description: "Frontend developer. React and TypeScript only."
-      instructions: |
-        You write React components and TypeScript.
-        Do not modify backend code.
-      model: "claude-sonnet-4-6"
-      effort: "high"
-      tools: [Read, Write, Edit, Bash, Glob, Grep]
+name: my-team
+targets:
+  - claude
+
+---
+kind: agent
+version: "1.0"
+name: frontend-dev
+description: "Frontend developer. React and TypeScript only."
+instructions: |
+  You write React components and TypeScript.
+  Do not modify backend code.
+model: "claude-sonnet-4-6"
+effort: "high"
+tools: [Read, Write, Edit, Bash, Glob, Grep]
 ```
 
 Run a quick syntax check:
@@ -59,53 +65,130 @@ Rules and skills are defined alongside agents inside the `project:` block — as
 
 **Skills** are reusable prompt packages. They are compiled to `skills/<id>/SKILL.md` and loaded when an agent invokes them.
 
-Add the second agent, then define the shared library:
+Add the second agent, then define the shared library. Each resource is its own `kind:` document:
 
 ```yaml
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: my-team
-  agents:
-    frontend-dev:
-      description: "Frontend developer. React and TypeScript only."
-      instructions: |
-        You write React components and TypeScript.
-        Do not modify backend code.
-      model: "claude-sonnet-4-6"
-      effort: "high"
-      tools: [Read, Write, Edit, Bash, Glob, Grep]
-      rules: ["frontend-only"]
-      skills: ["component-patterns"]
-    security-reviewer:
-      description: "Read-only security audit agent."
-      instructions: |
-        You review code for security vulnerabilities.
-        Never modify files. Only read and report.
-      model: "claude-sonnet-4-6"
-      effort: "high"
-      tools: [Read, Glob, Grep]
-      disallowedTools: [Write, Edit, Bash]
-      rules: ["security-review-protocol"]
-  rules:
-    frontend-only:
-      instructions: "Only modify files in src/components/ and src/pages/."
-      paths: ["src/components/**", "src/pages/**"]
-    security-review-protocol:
-      alwaysApply: true
-      instructions: |
-        Always output a structured JSON report.
-        [CRITICAL], [HIGH], [MEDIUM], [LOW] severity must be explicitly labeled.
-  skills:
-    component-patterns:
-      description: "React component pattern library reference."
-      instructions_file: "skills/component-patterns/SKILL.md"
+name: my-team
+targets:
+  - claude
+
+---
+kind: agent
+version: "1.0"
+name: frontend-dev
+description: "Frontend developer. React and TypeScript only."
+instructions: |
+  You write React components and TypeScript.
+  Do not modify backend code.
+model: "claude-sonnet-4-6"
+effort: "high"
+tools: [Read, Write, Edit, Bash, Glob, Grep]
+rules: ["frontend-only"]
+skills: ["component-patterns"]
+
+---
+kind: agent
+version: "1.0"
+name: security-reviewer
+description: "Read-only security audit agent."
+instructions: |
+  You review code for security vulnerabilities.
+  Never modify files. Only read and report.
+model: "claude-sonnet-4-6"
+effort: "high"
+tools: [Read, Glob, Grep]
+disallowedTools: [Write, Edit, Bash]
+rules: ["security-review-protocol"]
+
+---
+kind: rule
+version: "1.0"
+name: frontend-only
+instructions: "Only modify files in src/components/ and src/pages/."
+paths: ["src/components/**", "src/pages/**"]
+
+---
+kind: rule
+version: "1.0"
+name: security-review-protocol
+alwaysApply: true
+instructions: |
+  Always output a structured JSON report.
+  [CRITICAL], [HIGH], [MEDIUM], [LOW] severity must be explicitly labeled.
+
+---
+kind: skill
+version: "1.0"
+name: component-patterns
+description: "React component pattern library reference."
+instructions_file: "skills/component-patterns/SKILL.md"
 ```
 
 Key points:
 - `disallowedTools` (lowercase `d`) is the YAML key. It corresponds to the `DisallowedTools` field in the Go AST.
-- `skills:` and `rules:` on each agent are lists of IDs — the compiler resolves them from the top-level library.
+- `skills:` and `rules:` on each agent are lists of IDs — the compiler resolves them from the top-level library of `kind: skill` and `kind: rule` documents.
 - The `component-patterns` skill references `instructions_file:`. That file must exist on disk relative to `scaffold.xcf` before you run `apply`.
+
+### Split-file alternative
+
+As projects grow, you can split the same configuration into separate files under `xcf/`:
+
+```
+my-team/
+  scaffold.xcf                    # kind: project — metadata + ref lists
+  xcf/
+    agents/
+      frontend-dev.xcf            # kind: agent
+      security-reviewer.xcf       # kind: agent
+    rules/
+      frontend-only.xcf           # kind: rule
+      security-review-protocol.xcf # kind: rule
+    skills/
+      component-patterns.xcf      # kind: skill
+```
+
+The project manifest references children by bare name:
+
+```yaml
+# scaffold.xcf
+kind: project
+version: "1.0"
+name: my-team
+targets:
+  - claude
+agents:
+  - frontend-dev
+  - security-reviewer
+rules:
+  - frontend-only
+  - security-review-protocol
+skills:
+  - component-patterns
+```
+
+Each child file is a standalone `kind:` document:
+
+```yaml
+# xcf/agents/frontend-dev.xcf
+kind: agent
+version: "1.0"
+name: frontend-dev
+description: "Frontend developer. React and TypeScript only."
+instructions: |
+  You write React components and TypeScript.
+  Do not modify backend code.
+model: "claude-sonnet-4-6"
+effort: "high"
+tools: [Read, Write, Edit, Bash, Glob, Grep]
+rules: ["frontend-only"]
+skills: ["component-patterns"]
+```
+
+`ParseDirectory` discovers all `.xcf` files recursively, parses each one, and merges the results into a single AST before compilation. The ref lists in the project manifest are informational — the parser uses file discovery, not the ref list, to find resources. However, listing refs explicitly documents the project structure and enables future validation.
+
+See [Split Configurations](../how-to/split-configs.md) for best practices on when and how to split.
 
 ---
 
@@ -122,17 +205,14 @@ syntax and cross-references: ok
 validation passed
 ```
 
-Now add a rule that has no `paths:`, no `alwaysApply: true`, and is not referenced by any agent, to see what a structural warning looks like:
+Now add a rule that has no `paths:`, no `alwaysApply: true`, and is not referenced by any agent, to see what a structural warning looks like. Append this document to your `scaffold.xcf`:
 
 ```yaml
-project:
-  name: my-team
-  agents:
-    # ... existing agents ...
-  rules:
-    # ... existing rules ...
-    orphan-rule:
-      instructions: "This rule is unreachable."
+---
+kind: rule
+version: "1.0"
+name: orphan-rule
+instructions: "This rule is unreachable."
 ```
 
 Run with `--structural`:
