@@ -11,3 +11,9 @@ Understanding-oriented explanations of xcaffold's architectural and philosophica
 - [Multi-Target Rendering](multi-target-rendering.md) — How the AST enables the same configuration to compile to different platform formats
 - [Configuration Scopes](configuration-scopes.md) — Understanding Implicit Global Inheritance and runtime scopes.
 - [Best Practices](best-practices.md) — Configuration and structural best practices
+
+## Next Steps
+
+- [`Tutorials`](../tutorials/index.md) — learning-oriented, step-by-step guides
+- [`How-To Guides`](../how-to/index.md) — task-oriented guides for specific operations
+- [`Reference`](../reference/index.md) — full schema reference and CLI command reference

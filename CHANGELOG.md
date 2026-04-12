@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
+- Refactored `README.md` "Why xcaffold?" section with a provider-agnostic ecosystem narrative, removing inaccurate "token budgeting" claims in favor of policy enforcement and fleet visibility (docs)
+- Updated Homebrew and Scoop package descriptions in `.goreleaser.yaml` to reflect provider-agnostic agent configuration positioning (release)
+- Standardized Diátaxis `index.md` files across `docs/` with unified cross-navigation "Next Steps" sections (docs)
+- Populated empty information-oriented reference index and created a dedicated `examples/README.md` for proper IDE Markdown parsing (docs)
 - Replaced `--scope global|project|all` flag with `--global / -g` boolean flag across all commands (cli)
 - Changed `validate` command to accept `--global` for validating `~/.xcaffold/global.xcf` (cli)
 - Changed global config template to omit `project:` block (registry)
@@ -64,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README rewritten with badge row, "Why xcaffold?" section, Homebrew install target, expanded schema documentation, and multi-platform output tables.
 - `xcaffold analyze` now references `auth.AuthModeSubscription` from the shared auth package.
 ### Fixed
+- Fixed `xcaffold init` generating stale `version: "1.0"` templates, and fixed inner `agents:` struct indentation to correctly fall under the `project:` scope (cli)
+- Fixed schema versions and YAML structure in `README.md` examples and `scaffold.xcf` (docs)
 - Fixed unmapped `model` declarations failing string resolution in native `settings.json` renderer loops.
 - Compiler now emits all schema blocks. Previously, `skills`, `rules`, `hooks`, and `mcp` were silently discarded.
 - `xcaffold import` completely refactored to be highly faithful, dynamically discovering and preserving external file structures.

@@ -4,7 +4,7 @@ xcaffold tutorials are learning-oriented, step-by-step guides that take you from
 
 ## Prerequisites
 
-- xcaffold installed: `brew install xcaffold` or `go install github.com/xcaffold/xcaffold/cmd/xcaffold@latest`
+- xcaffold installed: `brew install saero-ai/tap/xcaffold` or `go install github.com/saero-ai/xcaffold/cmd/xcaffold@latest`
 - A terminal
 - Any text editor
 
@@ -28,5 +28,6 @@ Work through these in order. Getting Started is a prerequisite for the other two
 
 ## Next Steps
 
-- [`../how-to/`](../how-to/) — task-oriented guides for specific operations
-- [`../reference/`](../reference/) — full schema reference and CLI command reference
+- [`Concepts`](../concepts/index.md) — deep dives into architecture and compilation scopes
+- [`How-To Guides`](../how-to/index.md) — task-oriented guides for specific operations
+- [`Reference`](../reference/index.md) — full schema reference and CLI command reference
