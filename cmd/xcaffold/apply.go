@@ -93,13 +93,25 @@ func runApply(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("[global] parse error: %w", err)
 			}
 			fmt.Println("[global] ✓ Syntax is valid")
-			printDiagnostics(parser.ValidateFile(globalXcfPath))
+			diags := parser.ValidateFile(globalXcfPath)
+			printDiagnostics(diags)
+			for _, d := range diags {
+				if d.Severity == "error" {
+					return fmt.Errorf("[global] validation failed with errors")
+				}
+			}
 		} else {
 			if _, err := parser.ParseDirectory(filepath.Dir(xcfPath)); err != nil {
 				return fmt.Errorf("[project] parse error: %w", err)
 			}
 			fmt.Println("[project] ✓ Syntax is valid")
-			printDiagnostics(parser.ValidateFile(xcfPath))
+			diags := parser.ValidateFile(xcfPath)
+			printDiagnostics(diags)
+			for _, d := range diags {
+				if d.Severity == "error" {
+					return fmt.Errorf("[project] validation failed with errors")
+				}
+			}
 		}
 		return nil
 	}

@@ -11,6 +11,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic verifies that
+// --check returns a non-zero exit (non-nil error) when ValidateFile produces
+// an error-severity diagnostic.  The xcf file points to a non-existent
+// instructions_file to trigger the error diagnostic.
+func TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic(t *testing.T) {
+	dir := t.TempDir()
+
+	// instructions_file pointing to a missing file → validateFileRefs emits
+	// a Severity:"error" diagnostic.
+	xcfContent := `version: "1"
+project:
+  name: check-error-test
+agents:
+  dev:
+    name: Developer
+    model: claude-sonnet-4-5
+    instructions_file: missing-instructions.md
+`
+	xcf := filepath.Join(dir, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+
+	xcfPath = xcf
+	claudeDir = filepath.Join(dir, ".claude")
+	lockPath = filepath.Join(dir, "scaffold.lock")
+	globalFlag = false
+	applyCheckOnly = true
+	defer func() { applyCheckOnly = false }()
+
+	err := runApply(nil, nil)
+	assert.Error(t, err, "--check must return non-zero when diagnostics contain errors")
+}
+
 // minimalXCF is a minimal valid scaffold.xcf for apply tests.
 const minimalXCF = `version: "1"
 project:
