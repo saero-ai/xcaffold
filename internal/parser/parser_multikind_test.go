@@ -590,6 +590,170 @@ instructions: "You are a developer"
 	assert.Equal(t, []string{"security"}, config.Agents["developer"].Rules)
 }
 
+// Phase N: kind:project, kind:hooks, kind:settings (RED — all tests below will
+// fail until the AST fields and parser switch cases are added).
+
+func TestParsePartial_KindProject_Basic(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+name: my-project
+description: "Test project"
+targets:
+  - claude
+  - antigravity
+agents:
+  - backend-engineer
+  - qa-engineer
+skills:
+  - tdd
+rules:
+  - testing-framework
+`
+	config, err := parsePartial(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Project, "config.Project must not be nil for kind:project")
+	assert.Equal(t, "my-project", config.Project.Name)
+	assert.Equal(t, []string{"claude", "antigravity"}, config.Project.Targets)
+	assert.Equal(t, []string{"backend-engineer", "qa-engineer"}, config.Project.AgentRefs)
+	assert.Equal(t, []string{"tdd"}, config.Project.SkillRefs)
+	assert.Equal(t, []string{"testing-framework"}, config.Project.RuleRefs)
+}
+
+func TestParsePartial_KindProject_BackwardCompat(t *testing.T) {
+	// kind:config with project: block — existing behavior must still work.
+	input := `kind: config
+version: "1.0"
+project:
+  name: compat-project
+  agents:
+    backend-engineer:
+      description: "Backend dev"
+      model: sonnet
+`
+	config, err := parsePartial(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Project)
+	assert.Equal(t, "compat-project", config.Project.Name)
+	require.Contains(t, config.Project.Agents, "backend-engineer")
+}
+
+func TestParsePartial_KindHooks_Basic(t *testing.T) {
+	input := `kind: hooks
+version: "1.0"
+events:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: "echo pre-hook"
+`
+	config, err := parsePartial(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Hooks, "config.Hooks must not be nil for kind:hooks")
+	require.Contains(t, config.Hooks, "PreToolUse")
+	assert.Len(t, config.Hooks["PreToolUse"], 1)
+}
+
+func TestParsePartial_KindSettings_Basic(t *testing.T) {
+	input := `kind: settings
+version: "1.0"
+model: sonnet
+effortLevel: high
+`
+	config, err := parsePartial(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Equal(t, "sonnet", config.Settings.Model)
+	assert.Equal(t, "high", config.Settings.EffortLevel)
+}
+
+func TestParsePartial_MultiDoc_ProjectAgentHooks(t *testing.T) {
+	input := `---
+kind: project
+version: "1.0"
+name: multi-doc-project
+agents:
+  - backend-engineer
+skills:
+  - tdd
+---
+kind: agent
+version: "1.0"
+name: backend-engineer
+description: "Backend dev"
+model: sonnet
+skills: [tdd]
+---
+kind: hooks
+version: "1.0"
+events:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: "echo hook"
+`
+	config, err := parsePartial(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Project, "config.Project must not be nil")
+	assert.Equal(t, "multi-doc-project", config.Project.Name)
+	assert.Equal(t, []string{"backend-engineer"}, config.Project.AgentRefs)
+	assert.Contains(t, config.Agents, "backend-engineer")
+	require.NotNil(t, config.Hooks)
+	assert.Contains(t, config.Hooks, "PreToolUse")
+}
+
+func TestParsePartial_KindProject_KnownFields_RejectsInvalid(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+name: my-project
+badField: true
+`
+	_, err := parsePartial(strings.NewReader(input))
+	require.Error(t, err, "KnownFields must reject unknown field 'badField' on kind:project")
+}
+
+func TestParsePartial_KindProject_RejectsWithoutName(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+description: "No name here"
+`
+	_, err := parsePartial(strings.NewReader(input))
+	require.Error(t, err, "kind:project without a name field must return an error")
+}
+
+func TestParsePartial_KindHooks_NoNameRequired(t *testing.T) {
+	// hooks are a singleton; name is not required.
+	input := `kind: hooks
+version: "1.0"
+events:
+  Stop:
+    - hooks:
+        - type: command
+          command: "echo stop"
+`
+	config, err := parsePartial(strings.NewReader(input))
+	require.NoError(t, err, "kind:hooks must succeed without a name field")
+	require.NotNil(t, config.Hooks)
+	assert.Contains(t, config.Hooks, "Stop")
+}
+
+func TestParsePartial_KindSettings_NoNameRequired(t *testing.T) {
+	// settings are a singleton; name is not required.
+	input := `kind: settings
+version: "1.0"
+model: haiku
+`
+	config, err := parsePartial(strings.NewReader(input))
+	require.NoError(t, err, "kind:settings must succeed without a name field")
+	assert.Equal(t, "haiku", config.Settings.Model)
+}
+
+func TestParseableKinds_IncludesNewKinds(t *testing.T) {
+	assert.True(t, parseableKinds["project"], "parseableKinds must contain 'project'")
+	assert.True(t, parseableKinds["hooks"], "parseableKinds must contain 'hooks'")
+	assert.True(t, parseableKinds["settings"], "parseableKinds must contain 'settings'")
+}
+
 func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
