@@ -273,6 +273,14 @@ type TestConfig struct {
 
 	// JudgeModel is the generative model used for LLM-as-a-Judge evaluation.
 	JudgeModel string `yaml:"judge_model,omitempty"`
+
+	// Task is the user prompt sent to the agent during simulation.
+	// Defaults to a generic capability discovery prompt when empty.
+	Task string `yaml:"task,omitempty"`
+
+	// MaxTurns caps the number of simulated conversation turns.
+	// Reserved for future multi-turn support; currently unused beyond recording.
+	MaxTurns int `yaml:"max_turns,omitempty"`
 }
 
 // WorkflowConfig defines a named, reusable workflow (Antigravity Workflow).
