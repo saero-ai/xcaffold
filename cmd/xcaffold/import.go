@@ -405,7 +405,9 @@ func extractAgents(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 
 		agentCfg := ast.AgentConfig{Description: "Imported agent"}
 		if fm, ok := extractFrontmatter(data); ok {
-			_ = yaml.Unmarshal(fm, &agentCfg)
+			if unmarshalErr := yaml.Unmarshal(fm, &agentCfg); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
 			agentCfg.InstructionsFile = ""
 		}
 		agentCfg.Instructions = body
@@ -439,7 +441,9 @@ func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 
 		skillCfg := ast.SkillConfig{Description: "Imported skill", References: refs}
 		if fm, ok := extractFrontmatter(data); ok {
-			_ = yaml.Unmarshal(fm, &skillCfg)
+			if unmarshalErr := yaml.Unmarshal(fm, &skillCfg); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
 			skillCfg.InstructionsFile = ""
 			if len(refs) > 0 {
 				skillCfg.References = refs // use copied refs, not frontmatter refs
@@ -490,7 +494,9 @@ func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count
 
 		ruleCfg := ast.RuleConfig{Description: "Imported rule"}
 		if fm, ok := extractFrontmatter(data); ok {
-			_ = yaml.Unmarshal(fm, &ruleCfg)
+			if unmarshalErr := yaml.Unmarshal(fm, &ruleCfg); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
 			ruleCfg.InstructionsFile = ""
 		}
 		ruleCfg.Instructions = body
@@ -1026,7 +1032,9 @@ func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, c
 
 		workflowCfg := ast.WorkflowConfig{Description: "Imported workflow"}
 		if fm, ok := extractFrontmatter(data); ok {
-			_ = yaml.Unmarshal(fm, &workflowCfg)
+			if unmarshalErr := yaml.Unmarshal(fm, &workflowCfg); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
 			workflowCfg.InstructionsFile = ""
 		}
 		workflowCfg.Instructions = body

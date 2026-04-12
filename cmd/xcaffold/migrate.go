@@ -152,12 +152,19 @@ func migrateGlobalScope(cmd *cobra.Command) (bool, error) {
 		return false, err
 	}
 
-	data, _ := os.ReadFile(oldGlobal)
-	_ = os.WriteFile(newGlobal, data, 0600)
+	data, err := os.ReadFile(oldGlobal)
+	if err != nil {
+		return false, fmt.Errorf("failed to read %s: %w", oldGlobal, err)
+	}
+	if err := os.WriteFile(newGlobal, data, 0600); err != nil {
+		return false, fmt.Errorf("failed to write %s: %w", newGlobal, err)
+	}
 
 	// Also move lockfile if present
 	if lockData, err := os.ReadFile(filepath.Join(home, ".claude", "scaffold.lock")); err == nil {
-		_ = os.WriteFile(filepath.Join(home, ".xcaffold", "scaffold.lock"), lockData, 0600)
+		if err := os.WriteFile(filepath.Join(home, ".xcaffold", "scaffold.lock"), lockData, 0600); err != nil {
+			return false, fmt.Errorf("failed to write scaffold.lock: %w", err)
+		}
 	}
 
 	cmd.Println("  ✓ Global config migrated.")

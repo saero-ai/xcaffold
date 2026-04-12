@@ -104,7 +104,11 @@ func initProject(cmd *cobra.Command) error {
 
 func tryAutoRegister(xcfFile string) {
 	config, err := parser.ParseFile(xcfFile)
-	if err == nil && config.Project != nil && config.Project.Name != "" {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s for auto-registration: %v\n", xcfFile, err)
+		return
+	}
+	if config.Project != nil && config.Project.Name != "" {
 		cwd, _ := os.Getwd()
 		_ = registry.Register(cwd, config.Project.Name, nil, ".")
 	}
