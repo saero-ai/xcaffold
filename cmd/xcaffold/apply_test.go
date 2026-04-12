@@ -279,6 +279,130 @@ project:
 	applyForce = false
 }
 
+// TestRunApply_MultiTarget verifies that when a kind: project document declares
+// multiple targets and --target is not explicitly set, runApply compiles for
+// all declared targets.
+func TestRunApply_MultiTarget(t *testing.T) {
+	dir := t.TempDir()
+
+	// kind: project document with two targets and an agent so both renderers
+	// produce output files (empty compile → no output dir created).
+	xcfContent := `kind: project
+version: "1.0"
+name: multi-target-test
+targets:
+  - claude
+  - cursor
+---
+kind: agent
+version: "1.0"
+name: dev
+description: "Developer agent."
+instructions: |
+  You are a developer.
+model: "claude-sonnet-4-5"
+`
+	xcf := filepath.Join(dir, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+
+	xcfPath = xcf
+	claudeDir = filepath.Join(dir, ".claude")
+	lockPath = filepath.Join(dir, "scaffold.lock")
+	globalFlag = false
+	applyForce = true
+	targetFlag = targetClaude // default value — not Changed
+	applyCmd.Flags().Lookup("target").Changed = false
+
+	err := runApply(applyCmd, nil)
+	require.NoError(t, err)
+
+	// Both target output directories must exist after compilation with content.
+	_, err = os.Stat(filepath.Join(dir, ".claude"))
+	assert.NoError(t, err, ".claude/ should be created for claude target")
+
+	_, err = os.Stat(filepath.Join(dir, ".cursor"))
+	assert.NoError(t, err, ".cursor/ should be created for cursor target")
+
+	// Both lock files must exist
+	_, err = os.Stat(filepath.Join(dir, "scaffold.claude.lock"))
+	assert.NoError(t, err, "scaffold.claude.lock should exist")
+
+	_, err = os.Stat(filepath.Join(dir, "scaffold.cursor.lock"))
+	assert.NoError(t, err, "scaffold.cursor.lock should exist")
+
+	applyForce = false
+}
+
+// TestRunApply_ExplicitTargetFlag verifies that when --target is explicitly set,
+// only that target is compiled even if the project config declares more targets.
+func TestRunApply_ExplicitTargetFlag(t *testing.T) {
+	dir := t.TempDir()
+
+	xcfContent := `kind: project
+version: "1.0"
+name: explicit-target-test
+targets:
+  - claude
+  - cursor
+`
+	xcf := filepath.Join(dir, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+
+	xcfPath = xcf
+	claudeDir = filepath.Join(dir, ".claude")
+	lockPath = filepath.Join(dir, "scaffold.lock")
+	globalFlag = false
+	applyForce = true
+
+	// Simulate --target=claude being explicitly set by marking the flag Changed.
+	require.NoError(t, applyCmd.Flags().Set("target", "claude"))
+
+	err := runApply(applyCmd, nil)
+	require.NoError(t, err)
+
+	// Only .claude/ should be created; .cursor/ must not exist
+	_, err = os.Stat(filepath.Join(dir, ".claude"))
+	assert.NoError(t, err, ".claude/ should be created")
+
+	_, err = os.Stat(filepath.Join(dir, ".cursor"))
+	assert.True(t, os.IsNotExist(err), ".cursor/ must NOT be created when --target is explicit")
+
+	// Reset the Changed flag by re-registering with default value
+	applyCmd.Flags().Lookup("target").Changed = false
+	applyForce = false
+}
+
+// TestRunApply_NoTargetsInConfig_DefaultsToClaude verifies that when the
+// project config has no declared targets and --target is not set, the
+// default "claude" target is used.
+func TestRunApply_NoTargetsInConfig_DefaultsToClaude(t *testing.T) {
+	dir := t.TempDir()
+
+	// Legacy config with no targets field
+	xcfContent := `version: "1"
+project:
+  name: no-targets-test
+`
+	xcf := filepath.Join(dir, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+
+	xcfPath = xcf
+	claudeDir = filepath.Join(dir, ".claude")
+	lockPath = filepath.Join(dir, "scaffold.lock")
+	globalFlag = false
+	applyForce = true
+	targetFlag = targetClaude
+	applyCmd.Flags().Lookup("target").Changed = false
+
+	err := runApply(applyCmd, nil)
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(dir, ".claude"))
+	assert.NoError(t, err, ".claude/ should be created as the default target")
+
+	applyForce = false
+}
+
 func TestApplyScope_DryRun_ListsOrphans(t *testing.T) {
 	dir := t.TempDir()
 

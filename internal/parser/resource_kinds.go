@@ -58,6 +58,46 @@ type mcpDocument struct {
 	ast.MCPConfig `yaml:",inline"`
 }
 
+// projectDocFields is the deserialization target for kind: project documents.
+// It does NOT embed ResourceScope, so "agents" maps to []string (ref list)
+// without colliding with ResourceScope's map[string]AgentConfig.
+type projectDocFields struct {
+	Kind         string             `yaml:"kind"`
+	Version      string             `yaml:"version"`
+	Name         string             `yaml:"name"`
+	Description  string             `yaml:"description,omitempty"`
+	Author       string             `yaml:"author,omitempty"`
+	Homepage     string             `yaml:"homepage,omitempty"`
+	Repository   string             `yaml:"repository,omitempty"`
+	License      string             `yaml:"license,omitempty"`
+	BackupDir    string             `yaml:"backup_dir,omitempty"`
+	Targets      []string           `yaml:"targets,omitempty"`
+	AgentRefs    []string           `yaml:"agents,omitempty"`
+	SkillRefs    []string           `yaml:"skills,omitempty"`
+	RuleRefs     []string           `yaml:"rules,omitempty"`
+	WorkflowRefs []string           `yaml:"workflows,omitempty"`
+	MCPRefs      []string           `yaml:"mcp,omitempty"`
+	Test         ast.TestConfig     `yaml:"test,omitempty"`
+	Local        ast.SettingsConfig `yaml:"local,omitempty"`
+}
+
+// hooksDocument wraps HookConfig with envelope fields for kind: hooks.
+// HookConfig is a map type, so it cannot be inlined; the "events" field
+// wraps it at the YAML level.
+type hooksDocument struct {
+	Kind    string         `yaml:"kind"`
+	Version string         `yaml:"version"`
+	Events  ast.HookConfig `yaml:"events"`
+}
+
+// settingsDocument wraps SettingsConfig with envelope fields for kind: settings.
+// SettingsConfig is a struct, so it inlines cleanly.
+type settingsDocument struct {
+	Kind               string `yaml:"kind"`
+	Version            string `yaml:"version"`
+	ast.SettingsConfig `yaml:",inline"`
+}
+
 // extractKind reads the "kind" value from a yaml.Node MappingNode
 // without decoding the full document.
 func extractKind(node *yaml.Node) string {
@@ -91,10 +131,16 @@ func nodeToBytes(node *yaml.Node) ([]byte, error) {
 	return yaml.Marshal(node)
 }
 
+// singletonKinds are resource kinds that do not require a name field.
+var singletonKinds = map[string]bool{
+	"hooks":    true,
+	"settings": true,
+}
+
 // validateEnvelope checks that mandatory envelope fields are present on a
-// resource kind document.
+// resource kind document. Singleton kinds (hooks, settings) skip the name check.
 func validateEnvelope(version, name, kind string) error {
-	if name == "" {
+	if !singletonKinds[kind] && name == "" {
 		return fmt.Errorf("%s document: name is required", kind)
 	}
 	if version == "" {
@@ -203,6 +249,64 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			return fmt.Errorf("duplicate mcp ID %q", doc.Name)
 		}
 		config.MCP[doc.Name] = doc.MCPConfig
+
+	case "project":
+		var doc projectDocFields
+		dec := yaml.NewDecoder(bytes.NewReader(b))
+		dec.KnownFields(true)
+		if err := dec.Decode(&doc); err != nil {
+			return fmt.Errorf("invalid project document: %w", err)
+		}
+		if err := validateEnvelope(doc.Version, doc.Name, kind); err != nil {
+			return err
+		}
+		if config.Project == nil {
+			config.Project = &ast.ProjectConfig{}
+		}
+		config.Project.Name = doc.Name
+		config.Project.Description = doc.Description
+		config.Project.Author = doc.Author
+		config.Project.Homepage = doc.Homepage
+		config.Project.Repository = doc.Repository
+		config.Project.License = doc.License
+		config.Project.BackupDir = doc.BackupDir
+		config.Project.Targets = doc.Targets
+		config.Project.AgentRefs = doc.AgentRefs
+		config.Project.SkillRefs = doc.SkillRefs
+		config.Project.RuleRefs = doc.RuleRefs
+		config.Project.WorkflowRefs = doc.WorkflowRefs
+		config.Project.MCPRefs = doc.MCPRefs
+		config.Project.Test = doc.Test
+		config.Project.Local = doc.Local
+
+	case "hooks":
+		var doc hooksDocument
+		dec := yaml.NewDecoder(bytes.NewReader(b))
+		dec.KnownFields(true)
+		if err := dec.Decode(&doc); err != nil {
+			return fmt.Errorf("invalid hooks document: %w", err)
+		}
+		if err := validateEnvelope(doc.Version, "", kind); err != nil {
+			return err
+		}
+		if config.Hooks == nil {
+			config.Hooks = make(ast.HookConfig)
+		}
+		for event, groups := range doc.Events {
+			config.Hooks[event] = append(config.Hooks[event], groups...)
+		}
+
+	case "settings":
+		var doc settingsDocument
+		dec := yaml.NewDecoder(bytes.NewReader(b))
+		dec.KnownFields(true)
+		if err := dec.Decode(&doc); err != nil {
+			return fmt.Errorf("invalid settings document: %w", err)
+		}
+		if err := validateEnvelope(doc.Version, "", kind); err != nil {
+			return err
+		}
+		config.Settings = doc.SettingsConfig
 
 	default:
 		return fmt.Errorf("unknown resource kind %q", kind)

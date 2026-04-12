@@ -580,14 +580,14 @@ project:
 projects: []
 `), 0600))
 
-	// Write a settings file (should be skipped)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcf"), []byte(`kind: settings
+	// Write a template file (should be skipped — "template" is not a parseable kind)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "template.xcf"), []byte(`kind: template
 default_target: claude
 `), 0600))
 
-	// ParseDirectory should succeed — it should skip registry.xcf and settings.xcf
+	// ParseDirectory should succeed — it should skip registry.xcf and template.xcf
 	// and only parse scaffold.xcf. Without the isConfigFile filter, this would
-	// panic or error because registry.xcf and settings.xcf don't conform to
+	// panic or error because registry.xcf and template.xcf don't conform to
 	// the XcaffoldConfig schema.
 	config, err := ParseDirectory(dir)
 	require.NoError(t, err)

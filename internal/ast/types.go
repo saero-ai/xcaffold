@@ -36,6 +36,18 @@ type ProjectConfig struct {
 	License     string `yaml:"license,omitempty"`
 	BackupDir   string `yaml:"backup_dir,omitempty"`
 
+	// Targets lists the compilation targets (e.g. "claude", "antigravity").
+	// Populated by the parser when decoding kind: project documents.
+	Targets []string `yaml:"-"`
+
+	// Reference lists: bare names linking to child resources in xcf/ subdirectories.
+	// Populated by the parser when decoding kind: project documents.
+	AgentRefs    []string `yaml:"-"`
+	SkillRefs    []string `yaml:"-"`
+	RuleRefs     []string `yaml:"-"`
+	WorkflowRefs []string `yaml:"-"`
+	MCPRefs      []string `yaml:"-"`
+
 	Test  TestConfig     `yaml:"test,omitempty"`
 	Local SettingsConfig `yaml:"local,omitempty"`
 

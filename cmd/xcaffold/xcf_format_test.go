@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -148,4 +150,207 @@ func TestMarshalMultiKind_ExtendsPreserved(t *testing.T) {
 	content := string(out)
 
 	assert.Contains(t, content, "extends: global")
+}
+
+func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name:        "my-project",
+			Description: "Test project",
+			Targets:     []string{"claude", "antigravity"},
+		},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {Name: "developer", Description: "Dev agent", Model: "sonnet"},
+				"reviewer":  {Name: "reviewer", Description: "Review agent", Model: "haiku"},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {Name: "tdd", Description: "Test-driven development"},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"security": {Name: "security", Description: "Security rules"},
+			},
+			Hooks: ast.HookConfig{
+				"PreToolUse": {
+					{Hooks: []ast.HookHandler{{Type: "command", Command: "echo pre"}}},
+				},
+			},
+		},
+		Settings: ast.SettingsConfig{
+			Model: "claude-sonnet-4-5",
+		},
+	}
+
+	err := WriteSplitFiles(config, tmpDir)
+	require.NoError(t, err)
+
+	// scaffold.xcf must exist with kind: project
+	scaffoldPath := filepath.Join(tmpDir, "scaffold.xcf")
+	assert.FileExists(t, scaffoldPath)
+	scaffoldBytes, err := os.ReadFile(scaffoldPath)
+	require.NoError(t, err)
+	scaffoldContent := string(scaffoldBytes)
+	assert.Contains(t, scaffoldContent, "kind: project")
+	assert.Contains(t, scaffoldContent, "name: my-project")
+	assert.Contains(t, scaffoldContent, "claude")
+	assert.Contains(t, scaffoldContent, "antigravity")
+	assert.Contains(t, scaffoldContent, "developer")
+	assert.Contains(t, scaffoldContent, "reviewer")
+	assert.Contains(t, scaffoldContent, "tdd")
+	assert.Contains(t, scaffoldContent, "security")
+
+	// Agent files
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer.xcf"))
+	developerBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "agents", "developer.xcf"))
+	require.NoError(t, err)
+	assert.Contains(t, string(developerBytes), "kind: agent")
+	assert.Contains(t, string(developerBytes), "name: developer")
+
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "reviewer.xcf"))
+
+	// Skill file
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "skills", "tdd.xcf"))
+	skillBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "skills", "tdd.xcf"))
+	require.NoError(t, err)
+	assert.Contains(t, string(skillBytes), "kind: skill")
+
+	// Rule file
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "rules", "security.xcf"))
+	ruleBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "rules", "security.xcf"))
+	require.NoError(t, err)
+	assert.Contains(t, string(ruleBytes), "kind: rule")
+
+	// Hooks file
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "hooks.xcf"))
+	hooksBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "hooks.xcf"))
+	require.NoError(t, err)
+	assert.Contains(t, string(hooksBytes), "kind: hooks")
+	assert.Contains(t, string(hooksBytes), "events:")
+
+	// Settings file
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "settings.xcf"))
+	settingsBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "settings.xcf"))
+	require.NoError(t, err)
+	assert.Contains(t, string(settingsBytes), "kind: settings")
+}
+
+func TestWriteSplitFiles_RoundTrip(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name: "round-trip",
+		},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"alpha": {Name: "alpha", Description: "Alpha agent", Model: "sonnet"},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"deploy": {Name: "deploy", Description: "Deploy skill"},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"lint": {Name: "lint", Description: "Lint rules"},
+			},
+		},
+	}
+
+	err := WriteSplitFiles(config, tmpDir)
+	require.NoError(t, err)
+
+	parsed, err := parser.ParseDirectory(tmpDir)
+	require.NoError(t, err)
+
+	assert.Equal(t, "round-trip", parsed.Project.Name)
+	assert.Contains(t, parsed.Agents, "alpha")
+	assert.Contains(t, parsed.Skills, "deploy")
+	assert.Contains(t, parsed.Rules, "lint")
+}
+
+func TestWriteSplitFiles_Deterministic(t *testing.T) {
+	tmpDir1 := t.TempDir()
+	tmpDir2 := t.TempDir()
+
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name:    "deterministic",
+			Targets: []string{"claude"},
+		},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"zulu":  {Name: "zulu", Model: "sonnet"},
+				"alpha": {Name: "alpha", Model: "haiku"},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"skill-b": {Name: "skill-b"},
+				"skill-a": {Name: "skill-a"},
+			},
+		},
+	}
+
+	err := WriteSplitFiles(config, tmpDir1)
+	require.NoError(t, err)
+	err = WriteSplitFiles(config, tmpDir2)
+	require.NoError(t, err)
+
+	// Compare scaffold.xcf
+	b1, err := os.ReadFile(filepath.Join(tmpDir1, "scaffold.xcf"))
+	require.NoError(t, err)
+	b2, err := os.ReadFile(filepath.Join(tmpDir2, "scaffold.xcf"))
+	require.NoError(t, err)
+	assert.Equal(t, b1, b2, "scaffold.xcf must be byte-identical")
+
+	// Compare an agent file
+	a1, err := os.ReadFile(filepath.Join(tmpDir1, "xcf", "agents", "alpha.xcf"))
+	require.NoError(t, err)
+	a2, err := os.ReadFile(filepath.Join(tmpDir2, "xcf", "agents", "alpha.xcf"))
+	require.NoError(t, err)
+	assert.Equal(t, a1, a2, "agent file must be byte-identical")
+}
+
+func TestWriteSplitFiles_EmptyResources(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name: "empty-project",
+		},
+	}
+
+	err := WriteSplitFiles(config, tmpDir)
+	require.NoError(t, err)
+
+	// scaffold.xcf must be created
+	assert.FileExists(t, filepath.Join(tmpDir, "scaffold.xcf"))
+
+	// No xcf/agents/ directory when there are no agents
+	_, statErr := os.Stat(filepath.Join(tmpDir, "xcf", "agents"))
+	assert.True(t, os.IsNotExist(statErr), "xcf/agents/ should not exist when config has no agents")
+}
+
+func TestWriteSplitFiles_NoHooks_NoHooksFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name: "no-hooks",
+		},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent1": {Name: "agent1", Model: "sonnet"},
+			},
+		},
+	}
+
+	err := WriteSplitFiles(config, tmpDir)
+	require.NoError(t, err)
+
+	_, statErr := os.Stat(filepath.Join(tmpDir, "xcf", "hooks.xcf"))
+	assert.True(t, os.IsNotExist(statErr), "xcf/hooks.xcf should not be created when config has no hooks")
 }

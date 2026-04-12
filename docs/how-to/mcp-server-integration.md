@@ -68,6 +68,26 @@ mcp:
 
 ---
 
+## Standalone MCP Documents (`kind: mcp`)
+
+In a multi-kind project, each MCP server can be defined in its own `.xcf` file using `kind: mcp`. The `MCPConfig` fields are inlined at the top level (not nested under an `mcp:` key):
+
+```yaml
+kind: mcp
+version: "1.0"
+name: filesystem
+type: stdio
+command: npx
+args:
+  - -y
+  - "@modelcontextprotocol/server-filesystem"
+  - /workspace
+```
+
+Place these files under `xcf/mcp/` (e.g., `xcf/mcp/filesystem.xcf`). `ParseDirectory` discovers them automatically and merges them into the project configuration. Each `kind: mcp` document defines one server; the `name:` field becomes the server ID. Duplicate IDs across files produce a parse error.
+
+---
+
 ## The Three Definition Locations
 
 xcaffold provides three places to define MCP servers. Each has a distinct scope.

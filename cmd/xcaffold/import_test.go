@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,7 +47,48 @@ func TestImportScope_XcfDirAlreadyExists(t *testing.T) {
 	}
 }
 
-func TestExtractAgents_CopiesToXcfDir(t *testing.T) {
+// TestExtractBodyAfterFrontmatter verifies the helper function handles all edge cases.
+func TestExtractBodyAfterFrontmatter(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "with frontmatter and body",
+			input:    "---\nname: dev\n---\n\nDev instructions here",
+			expected: "Dev instructions here",
+		},
+		{
+			name:     "no frontmatter returns full content",
+			input:    "# Plain markdown\n\nSome content",
+			expected: "# Plain markdown\n\nSome content",
+		},
+		{
+			name:     "frontmatter with empty body",
+			input:    "---\nname: dev\n---\n",
+			expected: "",
+		},
+		{
+			name:     "frontmatter with leading newline in body",
+			input:    "---\nname: dev\n---\n\n# Header\n\nBody content",
+			expected: "# Header\n\nBody content",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := extractBodyAfterFrontmatter([]byte(tc.input))
+			if got != tc.expected {
+				t.Errorf("extractBodyAfterFrontmatter(%q) = %q, want %q", tc.input, got, tc.expected)
+			}
+		})
+	}
+}
+
+// TestExtractAgents_InlinesInstructions verifies agents use instructions: inline
+// instead of copying .md files and setting instructions_file:.
+func TestExtractAgents_InlinesInstructions(t *testing.T) {
 	tmp := t.TempDir()
 
 	// Create .claude/agents/dev.md
@@ -87,28 +127,24 @@ func TestExtractAgents_CopiesToXcfDir(t *testing.T) {
 		t.Fatal("expected agent 'dev' to be in config.Agents")
 	}
 
-	// Must point to xcf/agents/dev.md, not .claude/agents/dev.md
-	if agentCfg.InstructionsFile != "xcf/agents/dev.md" {
-		t.Errorf("expected InstructionsFile == %q, got %q", "xcf/agents/dev.md", agentCfg.InstructionsFile)
+	// Instructions must be inlined — not an instructions_file reference
+	if agentCfg.InstructionsFile != "" {
+		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", agentCfg.InstructionsFile)
 	}
 
-	// The path must NOT start with .claude/
-	if strings.HasPrefix(agentCfg.InstructionsFile, ".claude/") {
-		t.Errorf("InstructionsFile should not start with .claude/, got: %q", agentCfg.InstructionsFile)
+	// Body content must be embedded in Instructions
+	if !strings.Contains(agentCfg.Instructions, "Dev instructions here") {
+		t.Errorf("expected Instructions to contain body text, got %q", agentCfg.Instructions)
 	}
 
-	// The file must exist on disk at xcf/agents/dev.md
+	// The .md file must NOT be copied to xcf/agents/
 	xcfPath := filepath.Join(tmp, "xcf", "agents", "dev.md")
-	data, err := os.ReadFile(xcfPath)
-	if err != nil {
-		t.Fatalf("expected xcf/agents/dev.md to exist on disk: %v", err)
-	}
-	if string(data) != agentContent {
-		t.Errorf("xcf/agents/dev.md content mismatch: got %q, want %q", string(data), agentContent)
+	if _, err := os.Stat(xcfPath); err == nil {
+		t.Errorf("xcf/agents/dev.md should NOT exist on disk (no file copy in inline mode)")
 	}
 }
 
-func TestExtractRules_CopiesToXcfDir(t *testing.T) {
+func TestExtractRules_InlinesInstructions(t *testing.T) {
 	tmp := t.TempDir()
 
 	// Create .claude/rules/security.md
@@ -147,28 +183,23 @@ func TestExtractRules_CopiesToXcfDir(t *testing.T) {
 		t.Fatal("expected rule 'security' to be in config.Rules")
 	}
 
-	// Must point to xcf/rules/security.md, not .claude/rules/security.md
-	if ruleCfg.InstructionsFile != "xcf/rules/security.md" {
-		t.Errorf("expected InstructionsFile == %q, got %q", "xcf/rules/security.md", ruleCfg.InstructionsFile)
+	// Instructions must be inlined
+	if ruleCfg.InstructionsFile != "" {
+		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", ruleCfg.InstructionsFile)
 	}
 
-	// The path must NOT start with .claude/
-	if strings.HasPrefix(ruleCfg.InstructionsFile, ".claude/") {
-		t.Errorf("InstructionsFile should not start with .claude/, got: %q", ruleCfg.InstructionsFile)
+	if !strings.Contains(ruleCfg.Instructions, "Never leak secrets.") {
+		t.Errorf("expected Instructions to contain body text, got %q", ruleCfg.Instructions)
 	}
 
-	// The file must exist on disk at xcf/rules/security.md
+	// The .md file must NOT be copied to xcf/rules/
 	xcfPath := filepath.Join(tmp, "xcf", "rules", "security.md")
-	data, err := os.ReadFile(xcfPath)
-	if err != nil {
-		t.Fatalf("expected xcf/rules/security.md to exist on disk: %v", err)
-	}
-	if string(data) != ruleContent {
-		t.Errorf("xcf/rules/security.md content mismatch: got %q, want %q", string(data), ruleContent)
+	if _, err := os.Stat(xcfPath); err == nil {
+		t.Errorf("xcf/rules/security.md should NOT exist on disk (no file copy in inline mode)")
 	}
 }
 
-func TestExtractSkills_CopiesToXcfDir(t *testing.T) {
+func TestExtractSkills_InlinesInstructionsButCopiesRefs(t *testing.T) {
 	tmp := t.TempDir()
 
 	// Create .claude/skills/tdd/SKILL.md
@@ -217,27 +248,22 @@ func TestExtractSkills_CopiesToXcfDir(t *testing.T) {
 		t.Fatal("expected skill 'tdd' to be in config.Skills")
 	}
 
-	// Must point to xcf/skills/tdd/SKILL.md, not .claude/skills/tdd/SKILL.md
-	if skillCfg.InstructionsFile != "xcf/skills/tdd/SKILL.md" {
-		t.Errorf("expected InstructionsFile == %q, got %q", "xcf/skills/tdd/SKILL.md", skillCfg.InstructionsFile)
+	// Instructions must be inlined — not an instructions_file reference
+	if skillCfg.InstructionsFile != "" {
+		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", skillCfg.InstructionsFile)
 	}
 
-	// Must NOT start with .claude/
-	if strings.HasPrefix(skillCfg.InstructionsFile, ".claude/") {
-		t.Errorf("InstructionsFile should not start with .claude/, got: %q", skillCfg.InstructionsFile)
+	if !strings.Contains(skillCfg.Instructions, "TDD Skill") {
+		t.Errorf("expected Instructions to contain body text, got %q", skillCfg.Instructions)
 	}
 
-	// SKILL.md must exist on disk at xcf/skills/tdd/SKILL.md
+	// SKILL.md must NOT be copied to xcf/skills/tdd/SKILL.md
 	xcfSkillPath := filepath.Join(tmp, "xcf", "skills", "tdd", "SKILL.md")
-	data, err := os.ReadFile(xcfSkillPath)
-	if err != nil {
-		t.Fatalf("expected xcf/skills/tdd/SKILL.md to exist on disk: %v", err)
-	}
-	if string(data) != skillContent {
-		t.Errorf("xcf/skills/tdd/SKILL.md content mismatch: got %q, want %q", string(data), skillContent)
+	if _, err := os.Stat(xcfSkillPath); err == nil {
+		t.Errorf("xcf/skills/tdd/SKILL.md should NOT exist on disk (no file copy for SKILL.md)")
 	}
 
-	// references/example.txt must exist on disk at xcf/skills/tdd/references/example.txt
+	// references/example.txt MUST still be copied to xcf/skills/tdd/references/example.txt
 	xcfRefPath := filepath.Join(tmp, "xcf", "skills", "tdd", "references", "example.txt")
 	refData, err := os.ReadFile(xcfRefPath)
 	if err != nil {
@@ -247,7 +273,7 @@ func TestExtractSkills_CopiesToXcfDir(t *testing.T) {
 		t.Errorf("xcf/skills/tdd/references/example.txt content mismatch: got %q, want %q", string(refData), refContent)
 	}
 
-	// References in config must point to xcf/ paths, not .claude/ paths
+	// References in config must point to xcf/ paths
 	for _, ref := range skillCfg.References {
 		if strings.HasPrefix(ref, ".claude/") {
 			t.Errorf("reference %q should not start with .claude/", ref)
@@ -258,7 +284,7 @@ func TestExtractSkills_CopiesToXcfDir(t *testing.T) {
 	}
 }
 
-func TestExtractWorkflows_CopiesToXcfDir(t *testing.T) {
+func TestExtractWorkflows_InlinesInstructions(t *testing.T) {
 	tmp := t.TempDir()
 
 	// Create .claude/workflows/deploy.md
@@ -297,28 +323,24 @@ func TestExtractWorkflows_CopiesToXcfDir(t *testing.T) {
 		t.Fatal("expected workflow 'deploy' to be in config.Workflows")
 	}
 
-	// Must point to xcf/workflows/deploy.md, not .claude/workflows/deploy.md
-	if workflowCfg.InstructionsFile != "xcf/workflows/deploy.md" {
-		t.Errorf("expected InstructionsFile == %q, got %q", "xcf/workflows/deploy.md", workflowCfg.InstructionsFile)
+	// Instructions must be inlined
+	if workflowCfg.InstructionsFile != "" {
+		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", workflowCfg.InstructionsFile)
 	}
 
-	// Must NOT start with .claude/
-	if strings.HasPrefix(workflowCfg.InstructionsFile, ".claude/") {
-		t.Errorf("InstructionsFile should not start with .claude/, got: %q", workflowCfg.InstructionsFile)
+	if !strings.Contains(workflowCfg.Instructions, "Run deploy steps.") {
+		t.Errorf("expected Instructions to contain body text, got %q", workflowCfg.Instructions)
 	}
 
-	// The file must exist on disk at xcf/workflows/deploy.md
+	// The .md file must NOT be copied to xcf/workflows/
 	xcfPath := filepath.Join(tmp, "xcf", "workflows", "deploy.md")
-	data, err := os.ReadFile(xcfPath)
-	if err != nil {
-		t.Fatalf("expected xcf/workflows/deploy.md to exist on disk: %v", err)
-	}
-	if string(data) != workflowContent {
-		t.Errorf("xcf/workflows/deploy.md content mismatch: got %q, want %q", string(data), workflowContent)
+	if _, err := os.Stat(xcfPath); err == nil {
+		t.Errorf("xcf/workflows/deploy.md should NOT exist on disk (no file copy in inline mode)")
 	}
 }
 
 func TestImportScope_Messaging_NoReferencedInPlace(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
 	tmp := t.TempDir()
 
 	// Create .claude/agents/dev.md with minimal content
@@ -363,12 +385,10 @@ func TestImportScope_Messaging_NoReferencedInPlace(t *testing.T) {
 	if strings.Contains(output, "referenced in-place") {
 		t.Errorf("output should not contain 'referenced in-place', got: %q", output)
 	}
-	if !strings.Contains(output, "xcf/") {
-		t.Errorf("output should contain 'xcf/', got: %q", output)
-	}
 }
 
-func TestImport_RoundTrip_ValidatesPaths(t *testing.T) {
+func TestImport_RoundTrip_SplitFiles(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
 	tmp := t.TempDir()
 
 	orig, err := os.Getwd()
@@ -406,7 +426,7 @@ func TestImport_RoundTrip_ValidatesPaths(t *testing.T) {
 		t.Fatalf("failed to write SKILL.md: %v", err)
 	}
 
-	// Create .claude/skills/tdd/references/patterns.md
+	// Create .claude/skills/tdd/references/patterns.md (should still be copied)
 	refsDir := filepath.Join(skillDir, "references")
 	if err := os.MkdirAll(refsDir, 0755); err != nil {
 		t.Fatalf("failed to create references dir: %v", err)
@@ -441,85 +461,63 @@ func TestImport_RoundTrip_ValidatesPaths(t *testing.T) {
 		t.Fatalf("failed to write settings.json: %v", err)
 	}
 
-	// Run importScope — this is the function under test.
+	// Run importScope
 	if err := importScope(".claude", "scaffold.xcf", "project"); err != nil {
 		t.Fatalf("importScope returned unexpected error: %v", err)
 	}
 
-	// scaffold.xcf must exist on disk.
+	// scaffold.xcf must exist
 	if _, err := os.Stat(filepath.Join(tmp, "scaffold.xcf")); err != nil {
 		t.Fatalf("scaffold.xcf was not created: %v", err)
 	}
 
-	// xcf/ directory must exist with expected subdirectories and files.
-	expectedFiles := []string{
+	// Read scaffold.xcf — must contain kind: project
+	scaffoldData, err := os.ReadFile(filepath.Join(tmp, "scaffold.xcf"))
+	require.NoError(t, err)
+	scaffoldStr := string(scaffoldData)
+	assert.Contains(t, scaffoldStr, "kind: project", "scaffold.xcf must use kind: project (split-file format)")
+
+	// Split .xcf files must exist for each resource
+	expectedXcfFiles := []string{
+		filepath.Join(tmp, "xcf", "agents", "dev.xcf"),
+		filepath.Join(tmp, "xcf", "agents", "reviewer.xcf"),
+		filepath.Join(tmp, "xcf", "skills", "tdd.xcf"),
+		filepath.Join(tmp, "xcf", "rules", "security.xcf"),
+		filepath.Join(tmp, "xcf", "workflows", "deploy.xcf"),
+	}
+	for _, f := range expectedXcfFiles {
+		if _, err := os.Stat(f); err != nil {
+			t.Errorf("expected split xcf file %q to exist: %v", f, err)
+		}
+	}
+
+	// Skill reference file must still be copied
+	xcfRefPath := filepath.Join(tmp, "xcf", "skills", "tdd", "references", "patterns.md")
+	if _, err := os.Stat(xcfRefPath); err != nil {
+		t.Errorf("expected skill reference file to be copied to %q: %v", xcfRefPath, err)
+	}
+
+	// .md files must NOT be copied (inline mode — no instructions_file references)
+	unexpectedMdFiles := []string{
 		filepath.Join(tmp, "xcf", "agents", "dev.md"),
 		filepath.Join(tmp, "xcf", "agents", "reviewer.md"),
-		filepath.Join(tmp, "xcf", "skills", "tdd", "SKILL.md"),
-		filepath.Join(tmp, "xcf", "skills", "tdd", "references", "patterns.md"),
 		filepath.Join(tmp, "xcf", "rules", "security.md"),
 		filepath.Join(tmp, "xcf", "workflows", "deploy.md"),
 	}
-	for _, f := range expectedFiles {
-		if _, err := os.Stat(f); err != nil {
-			t.Errorf("expected file %q to exist on disk: %v", f, err)
+	for _, f := range unexpectedMdFiles {
+		if _, err := os.Stat(f); err == nil {
+			t.Errorf("file %q should NOT exist (instructions are inlined, not copied)", f)
 		}
 	}
 
-	// Parse the generated scaffold.xcf — ParseFile runs full validation including
-	// validateInstructionsFile, so a successful parse proves no reserved-prefix paths
-	// (e.g. .claude/, .cursor/) slipped through.
-	parsed, err := parser.ParseFile(filepath.Join(tmp, "scaffold.xcf"))
-	if err != nil {
-		t.Fatalf("parser.ParseFile failed on generated scaffold.xcf: %v", err)
-	}
-
-	// Version must be "1.0".
-	if parsed.Version != "1.0" {
-		t.Errorf("expected version %q, got %q", "1.0", parsed.Version)
-	}
-
-	// Collect all InstructionsFile values from resources that originated from this
-	// import (i.e. not inherited from the global base config) and assert:
-	//   1. They do not start with any reserved output prefix.
-	//   2. The file they reference actually exists on disk (relative to tmp).
-	//
-	// Inherited resources have absolute paths pointing to the user's global
-	// ~/.xcaffold/ directory — those are valid by design and outside this test's scope.
-	reservedPrefixes := []string{".claude/", ".cursor/", ".agents/", ".antigravity/"}
-
-	checkPath := func(kind, id, path string, inherited bool) {
-		if path == "" || inherited {
-			return
-		}
-		// Absolute paths belong to the global scope — skip reserved-prefix and
-		// disk-existence checks for them (validateInstructionsFile does the same).
-		if filepath.IsAbs(path) {
-			return
-		}
-		for _, prefix := range reservedPrefixes {
-			if strings.HasPrefix(path, prefix) {
-				t.Errorf("%s %q: InstructionsFile %q starts with reserved prefix %q", kind, id, path, prefix)
-			}
-		}
-		abs := filepath.Join(tmp, path)
-		if _, err := os.Stat(abs); err != nil {
-			t.Errorf("%s %q: InstructionsFile %q does not exist on disk at %q: %v", kind, id, path, abs, err)
-		}
-	}
-
-	for id, a := range parsed.Agents {
-		checkPath("agent", id, a.InstructionsFile, a.Inherited)
-	}
-	for id, s := range parsed.Skills {
-		checkPath("skill", id, s.InstructionsFile, s.Inherited)
-	}
-	for id, r := range parsed.Rules {
-		checkPath("rule", id, r.InstructionsFile, r.Inherited)
-	}
-	for id, w := range parsed.Workflows {
-		checkPath("workflow", id, w.InstructionsFile, w.Inherited)
-	}
+	// Agent .xcf files must contain inline instructions, not instructions_file
+	devXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "agents", "dev.xcf"))
+	require.NoError(t, err)
+	devXcfStr := string(devXcf)
+	assert.Contains(t, devXcfStr, "kind: agent")
+	assert.Contains(t, devXcfStr, "instructions:", "agent xcf must have inline instructions")
+	assert.NotContains(t, devXcfStr, "instructions_file:", "agent xcf must not use instructions_file")
+	assert.Contains(t, devXcfStr, "Write clean, well-tested code", "agent xcf must contain body text")
 }
 
 func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
@@ -540,11 +538,11 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 	}
 
 	// Change into the temp dir
-	orig, err := os.Getwd()
+	origCwd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get cwd: %v", err)
 	}
-	defer func() { _ = os.Chdir(orig) }()
+	defer func() { _ = os.Chdir(origCwd) }()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
@@ -558,7 +556,8 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 	}
 }
 
-func TestImportScope_EmitsMultiKindFormat(t *testing.T) {
+func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
 	dir := t.TempDir()
 	origDir, err := os.Getwd()
 	require.NoError(t, err)
@@ -581,13 +580,76 @@ func TestImportScope_EmitsMultiKindFormat(t *testing.T) {
 
 	s := string(content)
 
-	// Must contain multi-kind documents
-	assert.Contains(t, s, "kind: config")
-	assert.Contains(t, s, "kind: agent")
-	assert.Contains(t, s, "kind: skill")
-	assert.Contains(t, s, "---")
+	// scaffold.xcf must use kind: project (split-file format, not multi-kind)
+	assert.Contains(t, s, "kind: project")
 
-	// Must NOT be monolithic — agents must not be nested under kind: config
-	// In multi-kind format the config document has no agents: key
-	assert.NotContains(t, s, "agents:\n  dev:")
+	// Must NOT contain multi-kind documents inline in scaffold.xcf
+	// (they are split into xcf/agents/*.xcf, xcf/skills/*.xcf, etc.)
+	assert.NotContains(t, s, "kind: agent", "agent must be in xcf/agents/dev.xcf, not scaffold.xcf")
+	assert.NotContains(t, s, "kind: skill", "skill must be in xcf/skills/tdd.xcf, not scaffold.xcf")
+
+	// Split files must exist
+	assert.FileExists(t, filepath.Join(dir, "xcf", "agents", "dev.xcf"))
+	assert.FileExists(t, filepath.Join(dir, "xcf", "skills", "tdd.xcf"))
+
+	// Agent split file must have inline instructions
+	devXcf, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev.xcf"))
+	require.NoError(t, err)
+	assert.Contains(t, string(devXcf), "instructions:")
+	assert.Contains(t, string(devXcf), "Dev instructions")
+	assert.NotContains(t, string(devXcf), "instructions_file:")
+}
+
+func TestDetectTargets(t *testing.T) {
+	tests := []struct {
+		name     string
+		dirs     []string
+		expected []string
+	}{
+		{
+			name:     "claude dir",
+			dirs:     []string{".claude"},
+			expected: []string{"claude"},
+		},
+		{
+			name:     "agents dir",
+			dirs:     []string{".agents"},
+			expected: []string{"antigravity"},
+		},
+		{
+			name:     "cursor dir",
+			dirs:     []string{".cursor"},
+			expected: []string{"cursor"},
+		},
+		{
+			name:     "multiple dirs sorted",
+			dirs:     []string{".claude", ".agents"},
+			expected: []string{"antigravity", "claude"},
+		},
+		{
+			name:     "unknown dir ignored",
+			dirs:     []string{".unknown"},
+			expected: []string{},
+		},
+		{
+			name:     "empty",
+			dirs:     []string{},
+			expected: []string{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := detectTargets(tc.dirs...)
+			if len(got) != len(tc.expected) {
+				t.Errorf("detectTargets(%v) = %v, want %v", tc.dirs, got, tc.expected)
+				return
+			}
+			for i, v := range got {
+				if v != tc.expected[i] {
+					t.Errorf("detectTargets(%v)[%d] = %q, want %q", tc.dirs, i, v, tc.expected[i])
+				}
+			}
+		})
+	}
 }

@@ -21,36 +21,91 @@ project/
 ## 2. Taxonomic Layout (Resource Type)
 **Best for:** Small to medium projects with a single developer.
 
-Split resources into separate files logically based on what they are.
+Split resources into separate `.xcf` files under `xcf/` subdirectories organized by resource type.
 
 ```
 project/
-├── project.xcf    ← Project metadata and version
-├── agents.xcf     ← Agents
-├── skills.xcf     ← Skills
-└── workflows.xcf  ← Workflows
+├── scaffold.xcf          ← kind: project (name, targets)
+└── xcf/
+    ├── agents/
+    │   └── developer.xcf ← kind: agent
+    ├── skills/
+    │   └── deploy.xcf    ← kind: skill
+    └── workflows/
+        └── release.xcf   ← kind: workflow
 ```
+
+> **Alternative:** Flat files at the project root (e.g. `agents.xcf`, `skills.xcf`) also work since `ParseDirectory` discovers `.xcf` files recursively, but `xcf/` subdirectories are the recommended default.
 
 ## 3. Domain Layout (Feature Focus)
 **Best for:** Large, cross-functional projects. (Highly Recommended)
 
-Xcaffold recursively scans subdirectories. You can and should organize configurations into domain-driven folders. This maps directly to CODEOWNERS rules and keeps concerns isolated.
+Xcaffold recursively scans subdirectories. You can organize configurations into domain-driven folders under `xcf/`. This maps directly to CODEOWNERS rules and keeps concerns isolated.
 
 ```
 project/
-├── project.xcf
-├── core/
-│   ├── rules.xcf
-│   └── mcp.xcf
-├── frontend/
-│   ├── designer-agent.xcf
-│   └── ui-skills.xcf
-└── backend/
-    ├── devops-agent.xcf
-    └── deployments.xcf
+├── scaffold.xcf          ← kind: project
+└── xcf/
+    ├── core/
+    │   ├── rules.xcf
+    │   └── mcp.xcf
+    ├── frontend/
+    │   ├── designer-agent.xcf
+    │   └── ui-skills.xcf
+    └── backend/
+        ├── devops-agent.xcf
+        └── deployments.xcf
 ```
 
-## 4. Policy Configuration Patterns
+> **Alternative:** Domain folders at the project root (outside `xcf/`) also work, but placing them under `xcf/` keeps configuration files cleanly separated from source code.
+
+## 4. Multi-Kind Project Structure
+
+### Use `scaffold.xcf` for the Project Manifest
+
+By convention, the `kind: project` document should live in a file named `scaffold.xcf` at the project root. This is the filename used by `xcaffold init` and `xcaffold import`, and is the first file other developers will look for.
+
+### Split Large Projects into `xcf/` Subdirectories
+
+For projects with many resources, place each resource in its own `.xcf` file under `xcf/` subdirectories organized by type:
+
+```
+project/
+├── scaffold.xcf          <- kind: project (name, targets, resource refs)
+└── xcf/
+    ├── agents/
+    │   ├── developer.xcf
+    │   └── reviewer.xcf
+    ├── skills/
+    │   └── git-workflow.xcf
+    └── rules/
+        └── code-review.xcf
+```
+
+`ParseDirectory` discovers all `.xcf` files recursively, so the directory structure is purely organizational.
+
+### Inline Instructions in `.xcf` Files
+
+Use inline `instructions:` as the default. Self-contained `.xcf` files are easier to review, move, and reason about. `xcaffold import` generates inline instructions by default. `instructions_file:` exists for backward compatibility but is not the recommended approach for new configurations.
+
+### Declare Targets in `kind: project`
+
+Define `targets:` in the project manifest rather than relying on the `--target` flag at apply time. This makes the project's intended targets explicit and reproducible:
+
+```yaml
+kind: project
+version: "1.0"
+name: my-service
+targets:
+  - claude
+  - cursor
+```
+
+### Run Commands from the Project Root
+
+Run `xcaffold` commands from the directory containing the `scaffold.xcf` file. The parser resolves all relative paths (instructions files, references, extends) from this directory.
+
+## 5. Policy Configuration Patterns
 
 This section covers how to organize and configure policies effectively.
 

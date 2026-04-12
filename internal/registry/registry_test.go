@@ -355,3 +355,15 @@ func TestRegister_DefaultConfigDir(t *testing.T) {
 		t.Fatalf("expected ConfigDir %q, got %q", ".", proj.ConfigDir)
 	}
 }
+
+func TestGlobalHome_XcaffoldHomeOverride(t *testing.T) {
+	customDir := t.TempDir()
+	t.Setenv("XCAFFOLD_HOME", customDir)
+	home, err := GlobalHome()
+	if err != nil {
+		t.Fatalf("GlobalHome returned error: %v", err)
+	}
+	if home != customDir {
+		t.Errorf("expected GlobalHome() == %q, got %q", customDir, home)
+	}
+}

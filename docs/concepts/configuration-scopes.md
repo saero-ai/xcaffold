@@ -14,6 +14,27 @@ Because `xcaffold` acts as a compiler for these configurations, it models this s
 
 ---
 
+## Multi-Kind Project Scope
+
+A project scope is defined by exactly one `kind: project` document. This document declares the project name, targets, and resource references (bare name lists of agents, skills, rules, etc.). The actual resource definitions live in separate `.xcf` files under `xcf/` subdirectories.
+
+`ParseDirectory` discovers all `.xcf` files recursively from the project root, parses each document, and routes it by `kind:`:
+
+| Kind | Role |
+|---|---|
+| `project` | Project manifest — name, targets, child resource refs. Exactly 1 required. |
+| `hooks` | Standalone hooks with `events:` wrapper |
+| `settings` | Standalone settings |
+| `config` | Legacy monolithic format (backward compatible) |
+
+All discovered resource documents are merged into a single `ResourceScope` with strict deduplication. If the same resource ID appears in two files, parsing fails immediately with a duplicate ID error.
+
+### Global Scope
+
+Resources in `~/.xcaffold/` define the global scope. These are loaded via `loadGlobalBase` and provide system-wide defaults. Project-scope resources override global resources by ID during compilation.
+
+---
+
 ## Implicit Global Inheritance
 
 xcaffold implicitly evaluates constraints from both contexts at parse-time. Whenever xcaffold evaluates a project configuration, it automatically scans and parses your global directory (`~/.xcaffold/`) as a baseline template behind the scenes.
@@ -62,7 +83,9 @@ When a project config defines resources at both root level (global scope, from `
 | Resource level | Source | Priority |
 |---|---|---|
 | Root-level `agents:`, `skills:`, etc. | Global or inherited | Lower (base) |
-| `project.agents:`, `project.skills:`, etc. | Workspace-specific | Higher (override) |
+| `project.agents:`, `project.skills:`, etc. (legacy `kind: config`) | Workspace-specific | Higher (override) |
+
+> **Format note:** In `kind: project` format, workspace-scoped resources are defined as bare name lists at the top level (e.g. `agents:` lists agent names, with definitions in separate `kind: agent` files). In `kind: config` format, they are nested under the `project:` block as `project.agents:`, `project.skills:`, etc. Both formats produce the same merge behavior.
 
 After merging, inherited resources (those originating from `extends:` chains) are stripped from the compilation output to prevent duplication.
 
@@ -78,14 +101,17 @@ hooks:
         - type: command
           command: "echo pre-tool-use from global baseline"
 
-# ./scaffold.xcf
-project:
-  hooks:
-    PreToolUse:
-      - hooks:
-          - type: command
-            command: "echo pre-tool-use from project override"
+# ./hooks.xcf (kind: hooks — standalone format, recommended)
+kind: hooks
+version: "1.0"
+events:
+  PreToolUse:
+    - hooks:
+        - type: command
+          command: "echo pre-tool-use from project override"
 ```
+
+> **Legacy format:** In `kind: config`, hooks are nested under `project: hooks:`. The standalone `kind: hooks` format with `events:` is the primary format for new configurations.
 
 The compiled evaluation contains both handlers in order: global base, then project override.
 

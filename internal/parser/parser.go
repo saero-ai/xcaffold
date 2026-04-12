@@ -134,7 +134,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 				}
 			}
 
-		case "agent", "skill", "rule", "workflow", "mcp":
+		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings":
 			// Resource-kind document: route to the kind-aware parser.
 			// Propagate the resource version to config.Version if not already set.
 			if config.Version == "" {
@@ -190,11 +190,14 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 var parseableKinds = map[string]bool{
 	"":         true,
 	"config":   true,
+	"project":  true,
 	"agent":    true,
 	"skill":    true,
 	"rule":     true,
 	"workflow": true,
 	"mcp":      true,
+	"hooks":    true,
+	"settings": true,
 }
 
 // isConfigFile reads the kind: field from an .xcf file to determine if it
@@ -536,6 +539,27 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			if p.Project.BackupDir != "" {
 				merged.Project.BackupDir = p.Project.BackupDir
 			}
+			// Propagate targets and ref lists declared by kind: project documents.
+			// These fields use yaml:"-" so they are not decoded by the legacy
+			// kind: config path; only kind: project documents populate them.
+			if len(p.Project.Targets) > 0 {
+				merged.Project.Targets = p.Project.Targets
+			}
+			if len(p.Project.AgentRefs) > 0 {
+				merged.Project.AgentRefs = p.Project.AgentRefs
+			}
+			if len(p.Project.SkillRefs) > 0 {
+				merged.Project.SkillRefs = p.Project.SkillRefs
+			}
+			if len(p.Project.RuleRefs) > 0 {
+				merged.Project.RuleRefs = p.Project.RuleRefs
+			}
+			if len(p.Project.WorkflowRefs) > 0 {
+				merged.Project.WorkflowRefs = p.Project.WorkflowRefs
+			}
+			if len(p.Project.MCPRefs) > 0 {
+				merged.Project.MCPRefs = p.Project.MCPRefs
+			}
 		}
 
 		if p.Extends != "" {
@@ -685,6 +709,25 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 			}
 			if child.Project.BackupDir != "" {
 				merged.Project.BackupDir = child.Project.BackupDir
+			}
+			// Propagate targets and ref lists from kind: project documents.
+			if len(child.Project.Targets) > 0 {
+				merged.Project.Targets = child.Project.Targets
+			}
+			if len(child.Project.AgentRefs) > 0 {
+				merged.Project.AgentRefs = child.Project.AgentRefs
+			}
+			if len(child.Project.SkillRefs) > 0 {
+				merged.Project.SkillRefs = child.Project.SkillRefs
+			}
+			if len(child.Project.RuleRefs) > 0 {
+				merged.Project.RuleRefs = child.Project.RuleRefs
+			}
+			if len(child.Project.WorkflowRefs) > 0 {
+				merged.Project.WorkflowRefs = child.Project.WorkflowRefs
+			}
+			if len(child.Project.MCPRefs) > 0 {
+				merged.Project.MCPRefs = child.Project.MCPRefs
 			}
 			// Test override
 			if child.Project.Test.CliPath != "" {
