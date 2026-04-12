@@ -1,15 +1,16 @@
-# Running Sandboxed Agent Evaluations with `xcaffold test`
+# Running Agent Evaluations with `xcaffold test`
 
-`xcaffold test` runs a local, mocked simulation of an agent defined in your `scaffold.xcf`. It spawns an HTTP intercept proxy that routes all outbound LLM traffic through a controlled sandbox, records every tool call the agent attempts, and optionally evaluates the trace against plain-English assertions using an LLM-as-a-Judge.
+`xcaffold test` simulates a compiled agent by reading its system prompt from `.claude/agents/<id>.md`, sending a task directly to the LLM API, and recording every tool call the model declares. The trace is then optionally evaluated against plain-English assertions using an LLM-as-a-Judge.
 
-The proxy intercepts tool-use requests before they reach the host OS. The agent executes in a contained environment where tool effects are mocked and deterministic, making evaluations safe to run repeatedly in CI or locally.
+The simulation does not execute tools against the host OS. It captures what the model declares it would do given its system prompt and task — making evaluations safe to run repeatedly in CI or locally without side effects.
 
 ---
 
 ## Prerequisites
 
-- The target CLI binary must be available on `$PATH` (default: `claude`), or configured via `test.cli_path` in `scaffold.xcf`.
-- To run the judge (`--judge`), set `ANTHROPIC_API_KEY`, `XCAFFOLD_LLM_API_KEY`, or use a local CLI subscription. See [Running the judge](#running-the-judge).
+- Run `xcaffold apply` before testing — the agent must be compiled to `.claude/agents/` before `xcaffold test` can read its system prompt.
+- Set `ANTHROPIC_API_KEY` or `XCAFFOLD_LLM_API_KEY` in your environment for the simulation run. See [Auth resolution](#auth-resolution).
+- To run the judge (`--judge`), the same API key is used. A local CLI subscription is the fallback if no key is set.
 
 ---
 
@@ -22,12 +23,11 @@ xcaffold test --agent backend-dev
 This command:
 
 1. Parses `scaffold.xcf` and resolves the `backend-dev` agent config.
-2. Resolves the CLI binary path (see [CLI path resolution](#configuring-cli-path-resolution)).
+2. Reads the compiled system prompt from `.claude/agents/backend-dev.md`.
 3. Creates the trace file (`trace.jsonl` by default).
-4. Starts the HTTP intercept proxy on a random loopback port.
-5. Spawns the target CLI subprocess with `HTTPS_PROXY` and `HTTP_PROXY` set to the proxy address.
-6. Waits for the subprocess to exit.
-7. Prints a trace summary to stdout.
+4. Sends the task to the LLM API (defaults to `"Describe what tools you have available and what you would do first."` if `test.task` is not set).
+5. Parses `tool_use` blocks from the model's response and records them.
+6. Prints a trace summary to stdout.
 
 To write the trace to a custom path:
 
@@ -37,46 +37,33 @@ xcaffold test --agent backend-dev --output my-run.jsonl
 
 ---
 
-## The HTTP intercept proxy
+## Configuring the task
 
-The proxy is the core isolation mechanism. It binds exclusively to `127.0.0.1:0` (a random loopback port) and is never exposed to the network. The subprocess receives the proxy address via `HTTPS_PROXY` and `HTTP_PROXY` environment variables.
+The task is the user prompt sent to the agent during simulation. Set it in `scaffold.xcf` under `project.test`:
 
-### Allowed hosts
+```yaml
+project:
+  name: my-app
+  test:
+    task: "Review the open pull requests and summarize what needs attention."
+```
 
-The proxy enforces an exact-match allowlist. Requests to any other host are rejected with HTTP 403:
-
-- `api.anthropic.com`
-- `generativelanguage.googleapis.com`
-- `api.cursor.sh`
-
-Exact-match comparison prevents SSRF via suffix confusion (e.g., `evil-api.anthropic.com` is rejected).
-
-### Tool call interception
-
-The proxy inspects POST requests to `/v1/messages` and URLs containing `generateContent`. If the request body contains a `"tool_use"` block, the proxy:
-
-1. Extracts the tool name and input parameters from the raw JSON payload.
-2. Records a `ToolCallEvent` to the trace file without executing the tool.
-3. Returns a deterministic mock response (`[SIMULATED SUCCESS]`) to the agent.
-
-All other requests — including initial prompt submissions — are forwarded transparently to the actual LLM API.
-
-The proxy enforces a 10 MB body limit on inspected endpoints to prevent out-of-memory conditions.
+If `task` is not set, the default prompt is used: `"Describe what tools you have available and what you would do first."`
 
 ---
 
 ## Reading the trace
 
-Every intercepted tool call is written as a newline-delimited JSON line to the trace file. Each line is a `ToolCallEvent` with the following fields:
+Every declared tool call is written as a newline-delimited JSON line to the trace file. Each line is a `ToolCallEvent` with the following fields:
 
 | Field | Type | Description |
 |---|---|---|
-| `timestamp` | string (RFC3339) | UTC time the interception occurred |
-| `agent_id` | string | Value of the `X-Xcaffold-Agent` request header, or `"unknown"` |
-| `tool_name` | string | Name of the intercepted tool, or `"unknown"` |
+| `timestamp` | string (RFC3339) | UTC time the event was recorded |
+| `agent_id` | string | Agent ID from `scaffold.xcf` |
+| `tool_name` | string | Name of the declared tool |
 | `input_params` | object | Parsed tool input parameters |
-| `mock_response` | string | The mock value returned to the agent |
-| `duration_ms` | number | Time from interception to mock response, in milliseconds |
+| `mock_response` | string | Reserved; empty for API simulation runs |
+| `duration_ms` | number | Time from call to record, in milliseconds |
 | `metadata` | object | Optional key-value pairs (omitted if empty) |
 
 ### Reviewing the trace
@@ -143,11 +130,11 @@ The judge reads the trace summary and each assertion, constructs an adversarial 
 
 ### Auth resolution
 
-The judge resolves credentials in this order:
+Both the simulation and the judge resolve credentials in the same order:
 
-1. `XCAFFOLD_LLM_API_KEY` (platform-agnostic LLM API key; also reads `XCAFFOLD_LLM_BASE_URL` for the base URL)
+1. `XCAFFOLD_LLM_API_KEY` (also reads `XCAFFOLD_LLM_BASE_URL` for the base URL)
 2. `ANTHROPIC_API_KEY` (direct Anthropic API key)
-3. CLI subscription fallback — uses the local CLI config of the target binary
+3. CLI subscription fallback — uses the local CLI binary configured via `test.cli_path`
 
 ### Verdict types
 
@@ -168,41 +155,15 @@ The judge resolves credentials in this order:
   Verdict: PARTIAL
   Reasoning: ...
 
-  ✓ Passed:
+  Passed:
     - The agent must read the requirements file before writing any code
 
-  ✗ Failed:
+  Failed:
     - The agent must not call bash with destructive commands like rm -rf
 ──────────────────────────────────────────────────────
 ```
 
 The `Reasoning` field contains a full markdown evaluation report with per-assertion evidence drawn from the trace.
-
----
-
-## Configuring CLI path resolution
-
-`resolveCliPath` determines which binary is spawned as the agent subprocess. Priority (highest to lowest):
-
-1. `--cli-path` flag
-2. `test.cli_path` in `scaffold.xcf`
-3. `test.claude_path` in `scaffold.xcf` (deprecated — retained for backward compatibility)
-4. `"claude"` (resolved via `$PATH`)
-
-```yaml
-project:
-  name: my-app
-  test:
-    cli_path: /usr/local/bin/claude
-```
-
-To override at runtime without modifying the config file:
-
-```bash
-xcaffold test --agent backend-dev --cli-path /path/to/staging-claude
-```
-
-`test.claude_path` is the deprecated predecessor of `test.cli_path`. If both are set, `test.cli_path` takes precedence.
 
 ---
 
@@ -231,43 +192,6 @@ Haiku is the default because judge evaluation is a structured extraction task �
 
 ---
 
-## Non-zero exit handling
-
-If the target CLI subprocess exits with a non-zero code, `xcaffold test` emits a warning to stderr and continues:
-
-```
-Warning: target CLI exited with error: exit status 1
-```
-
-This is intentional. The trace recorder and proxy are shut down gracefully after the subprocess exits, and the judge still runs if `--judge` was specified. This design allows you to evaluate agents that crash or time out — their partial trace is often the most diagnostic artifact.
-
-`xcaffold test` itself returns exit code 0 in this case. It only returns a non-zero code if the proxy fails to start, the config cannot be parsed, or the judge evaluation itself errors.
-
----
-
-## Swapping target CLIs
-
-The proxy intercept mechanism is target-agnostic. Any CLI binary that respects `HTTPS_PROXY` and `HTTP_PROXY` environment variables will have its LLM traffic routed through the sandbox.
-
-To test with a different CLI binary — a local staging build, a different agent runtime, or a version under development — set `test.cli_path`:
-
-```yaml
-project:
-  name: my-app
-  test:
-    cli_path: /home/user/builds/claude-dev
-```
-
-Or pass it at runtime:
-
-```bash
-xcaffold test --agent backend-dev --cli-path ./bin/my-agent-runtime
-```
-
-The proxy records tool calls identically regardless of which binary is spawned. Assertions and judge evaluation work the same way across CLI targets.
-
----
-
 ## Flag reference
 
 | Flag | Short | Default | Description |
@@ -275,5 +199,5 @@ The proxy records tool calls identically regardless of which binary is spawned. 
 | `--agent` | `-a` | (required) | Agent ID to simulate, as defined in `scaffold.xcf` |
 | `--judge` | | `false` | Run LLM-as-a-Judge after simulation |
 | `--output` | `-o` | `trace.jsonl` | Path to write the execution trace |
-| `--cli-path` | | | Path to CLI binary; overrides `test.cli_path` in `scaffold.xcf` |
+| `--cli-path` | | | Path to CLI binary used as judge subscription fallback; overrides `test.cli_path` in `scaffold.xcf` |
 | `--judge-model` | | | Anthropic model for judge; overrides `test.judge_model` in `scaffold.xcf` |

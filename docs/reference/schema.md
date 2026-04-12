@@ -138,6 +138,8 @@ erDiagram
         string cli_path
         string claude_path
         string judge_model
+        string task
+        int max_turns
     }
     WorkflowConfig {
         string name
@@ -656,9 +658,11 @@ Configuration for `xcaffold test`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `cli_path` | `string` | Optional | Path to the CLI binary used for simulation (e.g., `claude`, `cursor`). Defaults to `claude` on `$PATH`. Note: xcaffold's judge module uses this CLI regardless of the compilation target — you can point it at any Claude-compatible CLI. |
+| `cli_path` | `string` | Optional | Path to the CLI binary used as a judge subscription fallback when no API key is set. Defaults to `claude` on `$PATH`. |
 | `claude_path` | `string` | Optional | **Deprecated.** Alias for `cli_path`. Renamed from `claude_path` to `cli_path` to support multi-provider test execution beyond the Claude CLI. Migrated automatically by `xcaffold migrate` (schema `1.0` → `1.1`). |
-| `judge_model` | `string` | Optional | LLM model used for `--judge` evaluation. Defaults to `claude-haiku-4-5-20251001`. The judge module always uses the Claude CLI regardless of your compilation target. |
+| `judge_model` | `string` | Optional | LLM model used for `--judge` evaluation. Defaults to `claude-haiku-4-5-20251001`. |
+| `task` | `string` | Optional | User prompt sent to the agent during simulation. Defaults to `"Describe what tools you have available and what you would do first."` if unset. |
+| `max_turns` | `int` | Optional | Maximum number of simulated conversation turns. Defaults to a single turn if unset. |
 
 ---
 

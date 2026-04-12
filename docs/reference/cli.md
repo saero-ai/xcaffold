@@ -48,6 +48,8 @@ Two distinct modes:
 **Native Import Mode (default):**
 Scans a platform directory (`.claude/`, `.cursor/`, `.agents/`) and writes a `scaffold.xcf` referencing the existing files via `instructions_file:` with zero file duplication. Reads `settings.json` and `hooks.json`. If multiple platform directories are detected, merges them using a larger-file-wins deduplication strategy.
 
+With `--global`, scans all provider directories under the user's home (`~/.claude/`, `~/.cursor/`, `~/.agents/`) and writes `~/.xcaffold/global.xcf`. All discovered providers are merged.
+
 **Cross-Platform Translation Mode (`--source`):**
 Parses workflow Markdown files from another platform, detects functional intents via `internal/bir`, and decomposes them into xcaffold primitives (`skill`, `rule`, `permission`). Results are injected into an existing `scaffold.xcf`. Requires `scaffold.xcf` to already exist (run `xcaffold init` first).
 
@@ -63,7 +65,7 @@ Parses workflow Markdown files from another platform, detects functional intents
 
 **File:** `cmd/xcaffold/analyze.go`
 
-Scans the repository to build a `ProjectSignature`, then calls an LLM to generate a `scaffold.xcf` and an `audit.json` compliance report.
+Scans the repository to build a `ProjectSignature`, then calls an LLM to generate a `scaffold.xcf` and an `audit.json` compliance report. Does not require an existing `scaffold.xcf` — safe to run on any directory.
 
 **Auth resolution order:**
 1. `ANTHROPIC_API_KEY` env var (direct Anthropic API)
@@ -93,6 +95,8 @@ Renders the agent dependency graph parsed from `scaffold.xcf`. Default terminal 
 | `--scan-output` | — | `false` | Also scan compiled output directories for artifacts not tracked in `scaffold.xcf`. |
 | `--all` | — | `false` | Show global topology and all registered projects in one view. Mutually exclusive with `--global` and `--project`. |
 
+The topology includes agents, skills, rules, MCP servers, hooks, and workflows. Hook nodes are labeled by event name; workflow nodes are labeled by workflow ID.
+
 **Format details:**
 
 | Format | Output |
@@ -100,7 +104,9 @@ Renders the agent dependency graph parsed from `scaffold.xcf`. Default terminal 
 | `terminal` | ASCII art topology printed to stdout. |
 | `mermaid` | Mermaid graph syntax. Pipe to a markdown file for embedding in docs. |
 | `dot` | Graphviz DOT language. Pipe to `dot -Tsvg` to render an image. |
-| `json` | Machine-readable JSON graph for programmatic use. |
+| `json` | Machine-readable JSON graph for programmatic use. Field names use snake_case (`config_path`, `disk_entries`, `blocked_tools`). |
+
+> **Breaking change (JSON consumers):** The `json` output uses snake_case field names. Any tooling that read the previous camelCase JSON output must be updated.
 
 ---
 
@@ -127,7 +133,7 @@ Compiles `scaffold.xcf` (or a directory of `.xcf` files) into a target platform'
 |---|---|---|
 | `--target <target>` | `claude` | Compilation target. One of: `claude`, `cursor`, `antigravity`, `agentsmd`. |
 | `--dry-run` | `false` | Preview changes as a colored unified diff without writing any files. |
-| `--check` | `false` | Validate YAML syntax and cross-references only. Does not compile. |
+| `--check` | `false` | Validate YAML syntax and cross-references only. Does not compile. Returns non-zero exit code if any errors are found. |
 | `--check-permissions` | `false` | Report security fields that will be dropped for the active `--target`. Exits non-zero if contradictions are found (e.g., a tool in `permissions.deny` also appears in an agent's `tools` list). |
 | `--force` | `false` | Overwrite even if drift is detected or sources are unchanged. |
 | `--backup` | `false` | Copy the existing output directory to a timestamped backup before overwriting. Backup directory name: `.<target>_bak_<timestamp>`. Custom location via `project.backup_dir` in `scaffold.xcf`. |
@@ -164,17 +170,21 @@ Exits non-zero with a count of drifted files if any drift is found.
 
 **File:** `cmd/xcaffold/test.go`
 
-Spawns an HTTP intercept proxy, launches the target CLI subprocess with `HTTPS_PROXY` and `HTTP_PROXY` set, and records all tool calls to a JSONL trace file.
+Simulates a compiled agent by reading its system prompt from `.claude/agents/<id>.md`, sending a task to the LLM API directly, and recording all tool calls declared in the response to a JSONL trace file.
+
+Requires `xcaffold apply` to be run first — the agent must be compiled to `.claude/agents/` before testing.
 
 With `--judge`, sends the trace and the agent's `assertions` list to an LLM for evaluation.
 
 **Prerequisites:**
-- The target CLI binary (e.g., `claude`) must be available on `$PATH`, or `test.cli_path` must be set in `scaffold.xcf`.
-- `ANTHROPIC_API_KEY` or `XCAFFOLD_LLM_API_KEY` must be set for `--judge`.
+- Run `xcaffold apply` before testing — the agent system prompt must be compiled.
+- `ANTHROPIC_API_KEY` or `XCAFFOLD_LLM_API_KEY` must be set for simulation and `--judge`.
 
-**CLI path resolution priority:** `--cli-path` flag > `test.cli_path` in `scaffold.xcf` > `test.claude_path` (deprecated) > `claude` on `$PATH`.
+**Task resolution:** Uses `test.task` from `scaffold.xcf`. If unset, defaults to `"Describe what tools you have available and what you would do first."`.
 
-**Auth for judge (resolution order):**
+**CLI path resolution (judge fallback only):** `--cli-path` flag > `test.cli_path` in `scaffold.xcf` > `test.claude_path` (deprecated) > `claude` on `$PATH`.
+
+**Auth resolution order (simulation and judge):**
 1. `XCAFFOLD_LLM_API_KEY` + `XCAFFOLD_LLM_BASE_URL`
 2. `ANTHROPIC_API_KEY`
 3. CLI binary subscription fallback
@@ -184,7 +194,7 @@ With `--judge`, sends the trace and the agent's `assertions` list to an LLM for 
 | `--agent <id>` | `-a` | — | **Required.** Agent ID to simulate. Must exist in `scaffold.xcf`. |
 | `--judge` | — | `false` | Run LLM-as-a-Judge evaluation after simulation. Evaluates against `agents.<id>.assertions`. |
 | `--output <path>` | `-o` | `trace.jsonl` | Path for the execution trace output. |
-| `--cli-path <path>` | — | `""` | Path to the CLI binary. Overrides `test.cli_path` in `scaffold.xcf`. |
+| `--cli-path <path>` | — | `""` | Path to the CLI binary used as judge subscription fallback. Overrides `test.cli_path` in `scaffold.xcf`. |
 | `--judge-model <model>` | — | `""` | Model for judge evaluation. Overrides `test.judge_model`. Falls back to `claude-haiku-4-5-20251001`. |
 
 ---
@@ -213,7 +223,7 @@ Validates `scaffold.xcf` without compiling. Checks:
 1. YAML syntax and known fields (fail-closed parser — unknown fields are an error)
 2. Cross-reference integrity: agent `skills:`, `rules:`, `mcp:` IDs must resolve to top-level map keys
 3. File existence: `instructions_file` and `references` paths must resolve on disk
-4. Plugin validation: `enabledPlugins` keys checked against a known registry
+4. Tool validation: agent `tools` and `disallowedTools` entries checked against a known registry (includes `Task`, `Computer`, `AskUserQuestion`, `Agent`, `ExitPlanMode`, `EnterPlanMode`)
 
 With `--structural`, additionally checks:
 - Orphan skills (defined but not referenced by any agent)
@@ -242,7 +252,7 @@ Universal parser for xcaffold diagnostic artifacts. Does not require a `scaffold
 
 | File | Output |
 |---|---|
-| `scaffold.xcf` | AST tree: project name, agents with model/tools/assertions. |
+| `scaffold.xcf` | AST tree: project name, agents (model/tools/assertions), skills, rules, hooks, MCP servers, and workflows. |
 | `audit.json` | Compliance scores: `security`, `prompt_quality`, `tool_restrictions` (each `/100`) and feedback. |
 | `plan.json` | Pretty-printed JSON. |
 | `trace.jsonl` | Timestamp and tool name for each recorded event. |

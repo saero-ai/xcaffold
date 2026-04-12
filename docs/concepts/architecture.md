@@ -165,12 +165,11 @@ Files without a `kind:` field are treated as `config` for backward compatibility
 | `resolver` | `internal/resolver/` | Resolves `instructions_file:` and `references:` relative paths |
 | `generator` | `internal/generator/` | Anthropic API calls for scaffold generation; outputs `audit.json` |
 | `judge` | `internal/judge/` | LLM-as-a-Judge evaluation against agent assertions |
-| `proxy` | `internal/proxy/` | HTTP intercept proxy for sandboxed agent simulation; records `trace.jsonl` |
+| `proxy` | `internal/proxy/` | HTTP intercept proxy (retained; not currently used by `xcaffold test`) |
 | `trace` | `internal/trace/` | Concurrent-safe JSONL execution trace recording |
 | `auth` | `internal/auth/` | Authentication helpers for CLI-to-API flows |
-| `llmclient` | `internal/llmclient/` | Provider-agnostic LLM HTTP client (Anthropic API + `claude` CLI) |
+| `llmclient` | `internal/llmclient/` | Provider-agnostic LLM HTTP client (Anthropic API + `claude` CLI); used by `xcaffold test` for direct API simulation |
 | `prompt` | `internal/prompt/` | Interactive terminal prompt helpers (e.g. `Confirm()`) |
-| `mascot` | `internal/mascot/` | ASCII art mascot renderer for CLI output |
 | `integration` | `internal/integration/` | Integration test utilities |
 
 ---
@@ -231,7 +230,7 @@ Audit       → xcaffold analyze   (LLM-based repo audit)
 Topology    → xcaffold graph     (ASCII / mermaid / DOT / JSON output)
 Compilation → xcaffold apply     (XCF → policy evaluation → target output files + scaffold.lock)
 Drift Check → xcaffold diff      (compares scaffold.lock against live output files)
-Validation  → xcaffold test      (LLM-in-the-loop proxy sandbox)
+Validation  → xcaffold test      (API simulation: reads compiled agent prompt, sends task to LLM, records declared tool calls)
 Export      → xcaffold export    (packages compiled output as a distributable plugin)
 ```
 

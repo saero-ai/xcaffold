@@ -13,13 +13,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replaced `--scope global|project|all` flag with `--global / -g` boolean flag across all commands (cli)
 - Changed `validate` command to accept `--global` for validating `~/.xcaffold/global.xcf` (cli)
 - Changed global config template to omit `project:` block (registry)
+- Rewrote `xcaffold test` to send the compiled agent system prompt directly to the LLM API via `internal/llmclient` instead of spawning a CLI subprocess through an HTTP intercept proxy; trace records declared tool calls extracted from the response (test)
+- `xcaffold test` now reads the task from `test.task` in `scaffold.xcf`; defaults to a capabilities-description prompt if unset (test)
+- `graph --format json` now uses snake_case field names (`config_path`, `disk_entries`, `blocked_tools`) — breaking change for JSON consumers (graph)
+- `import --global` now scans all provider directories (`~/.claude/`, `~/.cursor/`, `~/.agents/`) and merges all discovered resources into `global.xcf` (import)
 
 ### Added
 - Added `--all` flag to `graph` command for combined global and registered projects view (graph)
+- Added hooks and workflows to `graph` topology output (graph)
+- Added `task` and `max_turns` fields to `TestConfig` (schema `project.test`) (ast)
+- Extended `review scaffold.xcf` to display skills, rules, hooks, MCP servers, and workflows in addition to agents (review)
+- Updated `knownTools` validation to include `Task`, `Computer`, `AskUserQuestion`, `Agent`, `ExitPlanMode`, and `EnterPlanMode` (parser)
+
+### Fixed
+- `analyze` no longer errors when no `scaffold.xcf` exists in the current directory (analyze)
+- `export --output` flag now correctly sets the destination path (export)
+- `init --global` no longer fails when a local `scaffold.xcf` is present (init)
+- `apply --check` now returns a non-zero exit code when validation errors are found (apply)
+- `apply --check-permissions --global` now reads the global config directory instead of the project directory (apply)
+- `diff` now surfaces `FindXCFFiles` errors instead of reporting false-positive `SRC DELETED` for valid source files (diff)
+- `apply` excludes `registry.xcf` from source file tracking, preventing unnecessary recompilation on every run (apply)
+- `graph` no longer includes inherited global resources in project-scope topology output (graph)
+- `migrate --global` no longer fails when `global.xcf` does not yet exist (migrate)
 
 ### Removed
 - Removed `plan` command — use `apply --dry-run` instead (cli)
 - Removed `--scope all` compilation mode (cli)
+- Removed `internal/mascot` package (unused terminal animation) (internal)
+- Removed `renderer.Register()`, `renderer.Get()`, and `renderer.Registered()` dead-code functions (renderer)
+- Removed `bir.Analyze()` unused function (bir)
 
 ### Added
 - Smart Compilation Skipping: `xcaffold apply` tracks multi-file source hashing to skip redundant compilation automatically.
