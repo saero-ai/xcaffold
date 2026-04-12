@@ -151,7 +151,8 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 
 	if len(manifest.Skills) > 0 {
 		cmd.Println("-- SKILLS --")
-		for id, skill := range manifest.Skills {
+		for _, id := range sortedKeys(manifest.Skills) {
+			skill := manifest.Skills[id]
 			label := id
 			if skill.Name != "" {
 				label = skill.Name
@@ -166,7 +167,8 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 
 	if len(manifest.Rules) > 0 {
 		cmd.Println("-- RULES --")
-		for id, rule := range manifest.Rules {
+		for _, id := range sortedKeys(manifest.Rules) {
+			rule := manifest.Rules[id]
 			suffix := ""
 			if rule.AlwaysApply != nil && *rule.AlwaysApply {
 				suffix = " (always-apply)"
@@ -178,7 +180,8 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 
 	if len(manifest.Hooks) > 0 {
 		cmd.Println("-- HOOKS --")
-		for event, groups := range manifest.Hooks {
+		for _, event := range sortedKeys(manifest.Hooks) {
+			groups := manifest.Hooks[event]
 			total := 0
 			for _, g := range groups {
 				total += len(g.Hooks)
@@ -190,7 +193,8 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 
 	if len(manifest.MCP) > 0 {
 		cmd.Println("-- MCP SERVERS --")
-		for id, mcp := range manifest.MCP {
+		for _, id := range sortedKeys(manifest.MCP) {
+			mcp := manifest.MCP[id]
 			typeStr := mcp.Type
 			if typeStr == "" {
 				typeStr = "unknown"
@@ -202,7 +206,8 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 
 	if len(manifest.Workflows) > 0 {
 		cmd.Println("-- WORKFLOWS --")
-		for id, wf := range manifest.Workflows {
+		for _, id := range sortedKeys(manifest.Workflows) {
+			wf := manifest.Workflows[id]
 			label := id
 			if wf.Name != "" {
 				label = wf.Name

@@ -233,7 +233,10 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		fmt.Printf("[%s] Migrated %s -> %s\n", scopeName, filepath.Base(lockFile), filepath.Base(targetLockFile))
 	}
 
-	sourceFiles, _ := resolver.FindXCFFiles(baseDir)
+	sourceFiles, findErr := resolver.FindXCFFiles(baseDir)
+	if findErr != nil {
+		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to scan source files: %v\n", scopeName, findErr)
+	}
 
 	// Filter out non-config XCF files (e.g. kind: registry) to prevent
 	// SourcesChanged from detecting registry mutations as config changes.

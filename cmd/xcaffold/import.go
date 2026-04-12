@@ -147,8 +147,8 @@ func detectAllGlobalPlatformDirs() []platformDirInfo {
 	}
 
 	sort.Slice(results, func(i, j int) bool {
-		totalI := results[i].agents + results[i].skills + results[i].rules
-		totalJ := results[j].agents + results[j].skills + results[j].rules
+		totalI := results[i].agents + results[i].skills + results[i].rules + results[i].workflows
+		totalJ := results[j].agents + results[j].skills + results[j].rules + results[j].workflows
 		return totalI > totalJ
 	})
 
