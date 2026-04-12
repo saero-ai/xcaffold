@@ -250,6 +250,9 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 		config.MCP = filteredMCP
 	}
 
+	if scopeName != "global" {
+		config.StripInherited()
+	}
 	g := buildGraph(config)
 	g.Scope = scopeName
 	g.ConfigPath = configPath
