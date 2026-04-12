@@ -416,45 +416,45 @@ func buildXCFContent(ans wizardAnswers) string {
 
 	model, binary := resolveTargetMeta(ans.target)
 
-	sb.WriteString(fmt.Sprintf("version: \"1.0\"\nproject:\n  name: %q\n  description: %q\n", ans.name, ans.desc))
+	sb.WriteString(fmt.Sprintf("kind: config\nversion: \"1.1\"\nproject:\n  name: %q\n  description: %q\n", ans.name, ans.desc))
 
 	if ans.wantAgent {
 		sb.WriteString(fmt.Sprintf(`
-agents:
-  developer:
-    description: "General software developer agent."
-    instructions: |
-      You are a software developer.
-      Write clean, maintainable code.
-    model: %q
-    effort: "high"
-    tools: [Bash, Read, Write, Edit, Glob, Grep]
+  agents:
+    developer:
+      description: "General software developer agent."
+      instructions: |
+        You are a software developer.
+        Write clean, maintainable code.
+      model: %q
+      effort: "high"
+      tools: [Bash, Read, Write, Edit, Glob, Grep]
 
-    # Assertions are evaluated by the LLM-as-a-Judge when running
-    # 'xcaffold test --judge'. Define expected behavioral constraints here.
-    # assertions:
-    #   - "The agent must not write files outside the project directory."
-    #   - "The agent must run tests before marking a task complete."
+      # Assertions are evaluated by the LLM-as-a-Judge when running
+      # 'xcaffold test --judge'. Define expected behavioral constraints here.
+      # assertions:
+      #   - "The agent must not write files outside the project directory."
+      #   - "The agent must run tests before marking a task complete."
 `, model))
 	} else {
 		sb.WriteString(fmt.Sprintf(`
-# agents:
-#   developer:
-#     description: "General software developer agent."
-#     instructions: |
-#       You are a software developer.
-#       Write clean, maintainable code.
-#     model: %q
-#     effort: "high"
-#     tools: [Bash, Read, Write, Edit, Glob, Grep]
+  # agents:
+  #   developer:
+  #     description: "General software developer agent."
+  #     instructions: |
+  #       You are a software developer.
+  #       Write clean, maintainable code.
+  #     model: %q
+  #     effort: "high"
+  #     tools: [Bash, Read, Write, Edit, Glob, Grep]
 `, model))
 	}
 
 	sb.WriteString(fmt.Sprintf(`
-# Optional: Configure the 'xcaffold test' simulator.
-# test:
-#   cli_path: %q   # Path to CLI binary. Defaults to '%s' on $PATH.
-#   judge_model: %q # Model used for --judge evaluation.
+  # Optional: Configure the 'xcaffold test' simulator.
+  # test:
+  #   cli_path: %q   # Path to CLI binary. Defaults to '%s' on $PATH.
+  #   judge_model: %q # Model used for --judge evaluation.
 `, binary, binary, model))
 
 	return sb.String()
