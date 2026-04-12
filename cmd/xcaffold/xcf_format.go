@@ -94,6 +94,9 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 		sort.Strings(keys)
 		for _, k := range keys {
 			agent := config.Agents[k]
+			if agent.Name == "" {
+				agent.Name = k
+			}
 			doc := agentDoc{
 				Kind:        "agent",
 				Version:     version,
@@ -116,6 +119,9 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 		sort.Strings(keys)
 		for _, k := range keys {
 			skill := config.Skills[k]
+			if skill.Name == "" {
+				skill.Name = k
+			}
 			doc := skillDoc{
 				Kind:        "skill",
 				Version:     version,
@@ -138,6 +144,9 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 		sort.Strings(keys)
 		for _, k := range keys {
 			rule := config.Rules[k]
+			if rule.Name == "" {
+				rule.Name = k
+			}
 			doc := ruleDoc{
 				Kind:       "rule",
 				Version:    version,
@@ -160,6 +169,9 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 		sort.Strings(keys)
 		for _, k := range keys {
 			wf := config.Workflows[k]
+			if wf.Name == "" {
+				wf.Name = k
+			}
 			doc := workflowDoc{
 				Kind:           "workflow",
 				Version:        version,
@@ -182,6 +194,9 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 		sort.Strings(keys)
 		for _, k := range keys {
 			mcp := config.MCP[k]
+			if mcp.Name == "" {
+				mcp.Name = k
+			}
 			doc := mcpDoc{
 				Kind:      "mcp",
 				Version:   version,
