@@ -135,11 +135,42 @@ func runApply(cmd *cobra.Command, args []string) error {
 	if globalFlag {
 		return applyScope(globalXcfPath, globalXcfHome, globalLockPath, "global")
 	}
-	if err := applyScope(xcfPath, claudeDir, lockPath, "project"); err != nil {
-		return err
+
+	// Determine which targets to compile.
+	// When --target is explicitly set by the user, honour it exclusively.
+	// Otherwise, read the declared targets from the project config and compile
+	// for each one. Fall back to "claude" for configs that predate targets:.
+	targets := resolveTargets(cmd, xcfPath)
+
+	baseDir := filepath.Dir(xcfPath)
+	for _, t := range targets {
+		targetFlag = t
+		outDir := filepath.Join(baseDir, compiler.OutputDir(t))
+		if err := applyScope(xcfPath, outDir, lockPath, "project"); err != nil {
+			return err
+		}
 	}
-	_ = registry.UpdateLastApplied(filepath.Dir(xcfPath))
+	_ = registry.UpdateLastApplied(baseDir)
 	return nil
+}
+
+// resolveTargets returns the list of compilation targets for a project apply.
+// When cmd is non-nil and --target was explicitly changed by the user, that
+// single value is returned. Otherwise the declared targets list from the
+// project config is used, falling back to ["claude"] when no targets are
+// declared.
+func resolveTargets(cmd *cobra.Command, xcfFilePath string) []string {
+	if cmd != nil && cmd.Flag("target") != nil && cmd.Flag("target").Changed {
+		return []string{targetFlag}
+	}
+
+	baseDir := filepath.Dir(xcfFilePath)
+	config, err := parser.ParseDirectory(baseDir)
+	if err == nil && config.Project != nil && len(config.Project.Targets) > 0 {
+		return config.Project.Targets
+	}
+
+	return []string{targetClaude}
 }
 
 // printDiagnostics prints ValidateFile diagnostics to stderr. Warnings do not
