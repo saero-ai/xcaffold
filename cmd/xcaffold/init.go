@@ -61,7 +61,12 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	cmd.Println()
 	cmd.Println("  Welcome! Let's scaffold your agents.")
 
-	// ── Phase 1: Idempotency check ─────────────────────────────────────────
+	// ── Phase 1: Global flag takes priority ───────────────────────────────
+	if globalFlag {
+		return initGlobal()
+	}
+
+	// ── Phase 2: Idempotency check ─────────────────────────────────────────
 	xcfFile := filepath.Join(".", "scaffold.xcf")
 	if _, err := os.Stat(xcfFile); err == nil {
 		cmd.Println("  ✓ scaffold.xcf already exists. Nothing to do.")
@@ -70,10 +75,6 @@ func runInit(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// ── Phase 2: Detect existing .claude/ and offer import ─────────────────
-	if globalFlag {
-		return initGlobal()
-	}
 	return initProject(cmd)
 }
 
