@@ -107,6 +107,7 @@ type SkillConfig struct {
 type RuleConfig struct {
 	AlwaysApply      *bool    `yaml:"alwaysApply,omitempty"`
 	Description      string   `yaml:"description,omitempty"`
+	Name             string   `yaml:"name,omitempty"`
 	Instructions     string   `yaml:"instructions,omitempty"`
 	InstructionsFile string   `yaml:"instructions_file,omitempty"`
 	Paths            []string `yaml:"paths,omitempty"`
@@ -149,6 +150,7 @@ type MCPConfig struct {
 	Headers          map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 	Disabled         *bool             `yaml:"disabled,omitempty"         json:"disabled,omitempty"`
 	OAuth            map[string]string `yaml:"oauth,omitempty"            json:"oauth,omitempty"`
+	Name             string            `yaml:"name,omitempty"             json:"name,omitempty"`
 	Type             string            `yaml:"type,omitempty"    json:"type,omitempty"`
 	Command          string            `yaml:"command,omitempty" json:"command,omitempty"`
 	URL              string            `yaml:"url,omitempty"     json:"url,omitempty"`

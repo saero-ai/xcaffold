@@ -1,0 +1,616 @@
+package parser
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
+)
+
+func TestParseFile_MultiKind_RuleConfig_NameField(t *testing.T) {
+	yaml := `
+version: "1.0"
+rules:
+  security:
+    name: security
+    description: "Security conventions"
+    instructions: "Follow security best practices"
+`
+	config, err := Parse(strings.NewReader(yaml))
+	require.NoError(t, err)
+	require.NotNil(t, config.Rules)
+	assert.Equal(t, "security", config.Rules["security"].Name)
+}
+
+func TestParseFile_MultiKind_EnvelopeFieldsAccepted(t *testing.T) {
+	yamlDoc := `kind: agent
+version: "1.0"
+name: developer
+description: "Dev agent"
+model: sonnet
+tools: [Bash, Read, Write]
+`
+	dec := yaml.NewDecoder(strings.NewReader(yamlDoc))
+	dec.KnownFields(true)
+	var doc agentDocument
+	err := dec.Decode(&doc)
+	require.NoError(t, err)
+	assert.Equal(t, "agent", doc.Kind)
+	assert.Equal(t, "1.0", doc.Version)
+	assert.Equal(t, "developer", doc.Name)
+	assert.Equal(t, "Dev agent", doc.AgentConfig.Description)
+	assert.Equal(t, "sonnet", doc.AgentConfig.Model)
+}
+
+func TestParseFile_MultiKind_KnownFields_RejectsInvalid(t *testing.T) {
+	yamlDoc := `kind: agent
+version: "1.0"
+name: developer
+description: "Dev agent"
+alwaysApply: true
+`
+	dec := yaml.NewDecoder(strings.NewReader(yamlDoc))
+	dec.KnownFields(true)
+	var doc agentDocument
+	err := dec.Decode(&doc)
+	require.Error(t, err, "alwaysApply is a RuleConfig field, not AgentConfig — KnownFields must reject it")
+}
+
+func TestExtractKind_Agent(t *testing.T) {
+	yamlStr := "kind: agent\nname: dev\nversion: \"1.0\"\n"
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(yamlStr), &node)
+	require.NoError(t, err)
+	// yaml.Unmarshal wraps in a DocumentNode
+	docNode := &node
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		docNode = node.Content[0]
+	}
+	kind := extractKind(docNode)
+	assert.Equal(t, "agent", kind)
+}
+
+func TestExtractKind_Empty(t *testing.T) {
+	yamlStr := "name: dev\nversion: \"1.0\"\n"
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(yamlStr), &node)
+	require.NoError(t, err)
+	docNode := &node
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		docNode = node.Content[0]
+	}
+	kind := extractKind(docNode)
+	assert.Equal(t, "", kind)
+}
+
+func TestExtractKind_Config(t *testing.T) {
+	yamlStr := "kind: config\nversion: \"1.0\"\n"
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(yamlStr), &node)
+	require.NoError(t, err)
+	docNode := &node
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		docNode = node.Content[0]
+	}
+	kind := extractKind(docNode)
+	assert.Equal(t, "config", kind)
+}
+
+func TestNodeToBytes_RoundTrip(t *testing.T) {
+	yamlStr := "kind: agent\nname: dev\n"
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(yamlStr), &node)
+	require.NoError(t, err)
+	docNode := &node
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		docNode = node.Content[0]
+	}
+	b, err := nodeToBytes(docNode)
+	require.NoError(t, err)
+	assert.Contains(t, string(b), "kind: agent")
+	assert.Contains(t, string(b), "name: dev")
+}
+
+func TestParseFile_MultiKind_MCPConfig_NameField(t *testing.T) {
+	yaml := `
+version: "1.0"
+mcp:
+  filesystem:
+    name: filesystem
+    type: stdio
+    command: npx
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+`
+	config, err := Parse(strings.NewReader(yaml))
+	require.NoError(t, err)
+	require.NotNil(t, config.MCP)
+	assert.Equal(t, "filesystem", config.MCP["filesystem"].Name)
+}
+
+func makeNodeFromYAML(t *testing.T, yamlStr string) *yaml.Node {
+	t.Helper()
+	var node yaml.Node
+	err := yaml.Unmarshal([]byte(yamlStr), &node)
+	require.NoError(t, err)
+	if node.Kind == yaml.DocumentNode && len(node.Content) > 0 {
+		return node.Content[0]
+	}
+	return &node
+}
+
+func makeEmptyConfig() *ast.XcaffoldConfig {
+	return &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+		},
+	}
+}
+
+func TestParseResourceDocument_SingleAgent(t *testing.T) {
+	yamlDoc := `kind: agent
+version: "1.0"
+name: developer
+description: "Dev"
+model: sonnet
+tools: [Bash, Read]
+`
+	node := makeNodeFromYAML(t, yamlDoc)
+	config := makeEmptyConfig()
+	err := parseResourceDocument(node, "agent", config, "")
+	require.NoError(t, err)
+	agent, ok := config.Agents["developer"]
+	require.True(t, ok, "expected agent 'developer' in config.Agents")
+	assert.Equal(t, "Dev", agent.Description)
+	assert.Equal(t, "sonnet", agent.Model)
+}
+
+func TestParseResourceDocument_MissingName_Error(t *testing.T) {
+	yamlDoc := `kind: agent
+version: "1.0"
+description: "Dev"
+`
+	node := makeNodeFromYAML(t, yamlDoc)
+	config := makeEmptyConfig()
+	err := parseResourceDocument(node, "agent", config, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "name is required")
+}
+
+func TestParseResourceDocument_MissingVersion_Error(t *testing.T) {
+	yamlDoc := `kind: agent
+name: dev
+description: "Dev"
+`
+	node := makeNodeFromYAML(t, yamlDoc)
+	config := makeEmptyConfig()
+	err := parseResourceDocument(node, "agent", config, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "version is required")
+}
+
+func TestParseResourceDocument_EmptyName_Error(t *testing.T) {
+	yamlDoc := `kind: agent
+version: "1.0"
+name: ""
+description: "Dev"
+`
+	node := makeNodeFromYAML(t, yamlDoc)
+	config := makeEmptyConfig()
+	err := parseResourceDocument(node, "agent", config, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "name")
+}
+
+func TestParseResourceDocument_DuplicateName_Error(t *testing.T) {
+	config := makeEmptyConfig()
+	config.Agents["developer"] = ast.AgentConfig{Name: "developer"}
+
+	yamlDoc := `kind: agent
+version: "1.0"
+name: developer
+description: "Another dev"
+`
+	node := makeNodeFromYAML(t, yamlDoc)
+	err := parseResourceDocument(node, "agent", config, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate")
+}
+
+// Multi-document parsing tests (Phase 5)
+
+func TestParseFile_MultiKind_MultipleDocuments(t *testing.T) {
+	input := `---
+kind: agent
+version: "1.0"
+name: developer
+description: "Dev agent"
+model: sonnet
+---
+kind: skill
+version: "1.0"
+name: tdd
+description: "TDD workflow"
+---
+kind: rule
+version: "1.0"
+name: security
+description: "Security rules"
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Contains(t, config.Agents, "developer")
+	assert.Contains(t, config.Skills, "tdd")
+	assert.Contains(t, config.Rules, "security")
+}
+
+func TestParseFile_MultiKind_MixedWithConfig(t *testing.T) {
+	input := `---
+kind: config
+version: "1.0"
+project:
+  name: my-project
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "Dev agent"
+model: sonnet
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Project)
+	assert.Equal(t, "my-project", config.Project.Name)
+	assert.Contains(t, config.Agents, "developer")
+}
+
+func TestParseFile_MultiKind_UnknownKind_Error(t *testing.T) {
+	input := `kind: invalid
+version: "1.0"
+name: test
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown resource kind")
+}
+
+func TestParseFile_MultiKind_DuplicateName_Error(t *testing.T) {
+	input := `---
+kind: agent
+version: "1.0"
+name: developer
+description: "First"
+model: sonnet
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "Second"
+model: haiku
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate")
+}
+
+func TestParseFile_MultiKind_WorkflowDocument(t *testing.T) {
+	input := `kind: workflow
+version: "1.0"
+name: deploy
+description: "Deploy workflow"
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Contains(t, config.Workflows, "deploy")
+}
+
+// Phase 7: cross-reference, collision, extends rejection, project-scope, and
+// mutual-exclusion validation tests.
+
+func TestParseFile_MultiKind_CrossRefValidation(t *testing.T) {
+	// A skill defined in one document and referenced by an agent in another must
+	// resolve successfully after all documents are merged.
+	input := `---
+kind: skill
+version: "1.0"
+name: tdd
+description: "TDD"
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "Dev"
+model: sonnet
+skills: [tdd]
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Contains(t, config.Agents, "developer")
+	assert.Contains(t, config.Skills, "tdd")
+}
+
+func TestParseFile_MultiKind_CrossRefValidation_Missing(t *testing.T) {
+	// An agent that references a skill not present anywhere in the manifest
+	// must fail with an error that names the missing skill.
+	input := `---
+kind: agent
+version: "1.0"
+name: developer
+description: "Dev"
+model: sonnet
+skills: [nonexistent]
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent")
+}
+
+func TestParseFile_MultiKind_ConfigAndAgentCollision_Error(t *testing.T) {
+	// A kind:config document that declares an agent named "developer" followed
+	// by a kind:agent document also named "developer" must fail with a duplicate
+	// ID error — the resource-kind parser detects the collision.
+	input := `---
+kind: config
+version: "1.0"
+agents:
+  developer:
+    description: "From config"
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "From agent doc"
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate")
+}
+
+func TestParseFile_MultiKind_ExtendsOnResourceKind_Error(t *testing.T) {
+	// "extends:" is not a declared field on agentDocument. KnownFields(true)
+	// must reject it immediately during document parsing.
+	input := `kind: agent
+version: "1.0"
+name: developer
+description: "Dev"
+extends: base.xcf
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err, "KnownFields must reject 'extends' as an unknown field on agentDocument")
+}
+
+func TestParseFile_MultiKind_ProjectScopedMerge(t *testing.T) {
+	// A kind:config document with a project block followed by a kind:agent
+	// document: both are valid together. Resource kind documents currently merge
+	// into the root ResourceScope (config.Agents), not a project-scoped map.
+	// This test documents that current behavior.
+	// TODO: if project-scoped agent maps are introduced, update this assertion.
+	input := `---
+kind: config
+version: "1.0"
+project:
+  name: test-project
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "Dev"
+model: sonnet
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Project)
+	assert.Equal(t, "test-project", config.Project.Name)
+	// Resource kind documents merge into root-level config.Agents.
+	assert.Contains(t, config.Agents, "developer")
+}
+
+func TestParseFile_MultiKind_MutuallyExclusiveInstructions_Error(t *testing.T) {
+	// A kind:agent document that sets both instructions and instructions_file
+	// must fail: they are mutually exclusive per validateInstructionOrFile.
+	input := `kind: agent
+version: "1.0"
+name: developer
+description: "Dev"
+instructions: "inline text"
+instructions_file: "agents/dev.md"
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "instructions")
+}
+
+// Phase 6: isConfigFile broadened to accept all resource kind values.
+
+func TestParseDirectory_MultiKind_AcrossFiles(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(
+		"kind: config\nversion: \"1.0\"\nproject:\n  name: test-project\n",
+	), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(
+		"kind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"Dev\"\nmodel: sonnet\n",
+	), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte(
+		"kind: skill\nversion: \"1.0\"\nname: tdd\ndescription: \"TDD\"\n",
+	), 0600))
+
+	config, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	require.NotNil(t, config.Project)
+	assert.Equal(t, "test-project", config.Project.Name)
+	assert.Contains(t, config.Agents, "developer")
+	assert.Contains(t, config.Skills, "tdd")
+}
+
+func TestParseFile_MultiKind_MCPDocument(t *testing.T) {
+	input := `kind: mcp
+version: "1.0"
+name: playwright
+command: npx
+args: ["@anthropic/mcp-playwright"]
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Contains(t, config.MCP, "playwright")
+}
+
+// Phase 9: round-trip equivalence tests.
+
+func TestRoundTrip_MultiKind_EquivalentToMonolithic(t *testing.T) {
+	// Monolithic kind: config format
+	monolithic := `
+version: "1.0"
+project:
+  name: test-project
+agents:
+  developer:
+    description: "Dev agent"
+    model: sonnet
+    tools: [Bash, Read, Write]
+    skills: [tdd]
+skills:
+  tdd:
+    description: "TDD workflow"
+    instructions: "Follow TDD"
+rules:
+  security:
+    description: "Security rules"
+    instructions: "Be secure"
+`
+	// Equivalent multi-kind format
+	multiKind := `---
+kind: config
+version: "1.0"
+project:
+  name: test-project
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "Dev agent"
+model: sonnet
+tools: [Bash, Read, Write]
+skills: [tdd]
+---
+kind: skill
+version: "1.0"
+name: tdd
+description: "TDD workflow"
+instructions: "Follow TDD"
+---
+kind: rule
+version: "1.0"
+name: security
+description: "Security rules"
+instructions: "Be secure"
+`
+	configMono, err := Parse(strings.NewReader(monolithic))
+	require.NoError(t, err)
+
+	configMulti, err := Parse(strings.NewReader(multiKind))
+	require.NoError(t, err)
+
+	// Compare key fields
+	assert.Equal(t, configMono.Project.Name, configMulti.Project.Name)
+	assert.Equal(t, configMono.Version, configMulti.Version)
+
+	// Compare agents
+	require.Contains(t, configMono.Agents, "developer")
+	require.Contains(t, configMulti.Agents, "developer")
+	assert.Equal(t, configMono.Agents["developer"].Description, configMulti.Agents["developer"].Description)
+	assert.Equal(t, configMono.Agents["developer"].Model, configMulti.Agents["developer"].Model)
+	assert.Equal(t, configMono.Agents["developer"].Tools, configMulti.Agents["developer"].Tools)
+	assert.Equal(t, configMono.Agents["developer"].Skills, configMulti.Agents["developer"].Skills)
+
+	// Compare skills
+	require.Contains(t, configMono.Skills, "tdd")
+	require.Contains(t, configMulti.Skills, "tdd")
+	assert.Equal(t, configMono.Skills["tdd"].Description, configMulti.Skills["tdd"].Description)
+
+	// Compare rules
+	require.Contains(t, configMono.Rules, "security")
+	require.Contains(t, configMulti.Rules, "security")
+	assert.Equal(t, configMono.Rules["security"].Description, configMulti.Rules["security"].Description)
+}
+
+func TestRoundTrip_MultiKind_Validate(t *testing.T) {
+	// A complete multi-kind config with cross-references
+	input := `---
+kind: config
+version: "1.0"
+project:
+  name: validation-test
+---
+kind: skill
+version: "1.0"
+name: tdd
+description: "TDD"
+instructions: "Follow TDD"
+---
+kind: skill
+version: "1.0"
+name: code-review
+description: "Code review"
+instructions: "Review code"
+---
+kind: rule
+version: "1.0"
+name: security
+description: "Security"
+instructions: "Be secure"
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "Dev"
+model: sonnet
+skills: [tdd, code-review]
+rules: [security]
+instructions: "You are a developer"
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Equal(t, "validation-test", config.Project.Name)
+	assert.Len(t, config.Agents, 1)
+	assert.Len(t, config.Skills, 2)
+	assert.Len(t, config.Rules, 1)
+	assert.Equal(t, []string{"tdd", "code-review"}, config.Agents["developer"].Skills)
+	assert.Equal(t, []string{"security"}, config.Agents["developer"].Rules)
+}
+
+func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	// main.xcf: kind config containing an inline agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcf"), []byte(`kind: config
+version: "1.0"
+agents:
+  reviewer:
+    name: reviewer
+    description: "Code reviewer"
+    model: sonnet
+`), 0600))
+
+	// dev.xcf: kind agent — separate file
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcf"), []byte(
+		"kind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"Dev\"\nmodel: haiku\n",
+	), 0600))
+
+	config, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	assert.Contains(t, config.Agents, "reviewer")
+	assert.Contains(t, config.Agents, "developer")
+}

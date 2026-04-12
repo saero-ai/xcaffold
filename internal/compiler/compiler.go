@@ -9,6 +9,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 )
 
 const (
@@ -40,6 +41,11 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output
 	// global resources by ID, giving workspace configs priority over user-wide defaults.
 	if config.Project != nil {
 		mergeResourceScope(&config.ResourceScope, &config.Project.ResourceScope)
+	}
+
+	// Resolve attribute references (${skill.tdd.tools} etc.) before rendering.
+	if err := resolver.ResolveAttributes(config); err != nil {
+		return nil, fmt.Errorf("attribute resolution failed: %w", err)
 	}
 
 	config.StripInherited()

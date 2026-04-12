@@ -257,3 +257,57 @@ func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
 	}
 }
+
+func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {
+					Description:  "TDD workflow",
+					Tools:        []string{"Bash", "Read", "Write"},
+					Instructions: "Follow TDD",
+				},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Description:  "Dev agent",
+					Model:        "sonnet",
+					Tools:        []string{"${skill.tdd.tools}"},
+					Skills:       []string{"tdd"},
+					Instructions: "You are a developer",
+				},
+			},
+		},
+	}
+
+	output, err := Compile(config, t.TempDir(), "claude")
+	require.NoError(t, err)
+
+	// The compiled agent output should have the resolved tools, not the ${...} reference
+	agentContent := output.Files["agents/developer.md"]
+	assert.Contains(t, agentContent, "Bash")
+	assert.Contains(t, agentContent, "Read")
+	assert.Contains(t, agentContent, "Write")
+	assert.NotContains(t, agentContent, "${skill.tdd.tools}")
+}
+
+func TestCompile_ResolveAttributes_NoRefsPassthrough(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Description:  "Dev agent",
+					Model:        "sonnet",
+					Tools:        []string{"Bash", "Read"},
+					Instructions: "You are a developer",
+				},
+			},
+		},
+	}
+
+	output, err := Compile(config, t.TempDir(), "claude")
+	require.NoError(t, err)
+	assert.Contains(t, output.Files["agents/developer.md"], "Dev agent")
+}
