@@ -78,7 +78,7 @@ brews:
       email: bot@saero.ai
     commit_msg_template: "chore: bump xcaffold to {{ .Tag }}"
     homepage: "https://github.com/saero-ai/xcaffold"
-    description: "agent configuration engine for Anthropic Claude Code. Compile .xcf blueprints into .claude/ deterministically."
+    description: "Deterministic agent configuration compiler for AI coding platforms. Compile .xcf blueprints deterministically into native agent configurations."
     license: "Apache-2.0"
     install: |
       bin.install "xcaffold"
@@ -96,5 +96,5 @@ scoops:
       email: bot@saero.ai
     commit_msg_template: "chore: bump xcaffold to {{ .Tag }}"
     homepage: "https://github.com/saero-ai/xcaffold"
-    description: "agent configuration engine for Anthropic Claude Code."
+    description: "Deterministic agent configuration compiler for AI coding platforms. Compile .xcf blueprints deterministically into native agent configurations."
     license: "Apache-2.0"
