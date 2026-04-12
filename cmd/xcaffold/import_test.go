@@ -600,6 +600,95 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	assert.NotContains(t, string(devXcf), "instructions_file:")
 }
 
+func TestDetectAllGlobalPlatformDirs_Empty(t *testing.T) {
+	// Point HOME to a temp dir with no provider directories
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	dirs := detectAllGlobalPlatformDirs()
+	if len(dirs) != 0 {
+		t.Errorf("expected 0 dirs when no provider dirs exist, got %d: %v", len(dirs), dirs)
+	}
+}
+
+func TestDetectAllGlobalPlatformDirs_SingleProvider(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	// Create ~/.claude/agents/dev.md and ~/.claude/rules/sec.md
+	claudeAgents := filepath.Join(tmp, ".claude", "agents")
+	if err := os.MkdirAll(claudeAgents, 0755); err != nil {
+		t.Fatalf("failed to create ~/.claude/agents/: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(claudeAgents, "dev.md"), []byte("# Dev\n"), 0600); err != nil {
+		t.Fatalf("failed to write dev.md: %v", err)
+	}
+	claudeRules := filepath.Join(tmp, ".claude", "rules")
+	if err := os.MkdirAll(claudeRules, 0755); err != nil {
+		t.Fatalf("failed to create ~/.claude/rules/: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(claudeRules, "sec.md"), []byte("# Sec\n"), 0600); err != nil {
+		t.Fatalf("failed to write sec.md: %v", err)
+	}
+
+	dirs := detectAllGlobalPlatformDirs()
+	if len(dirs) != 1 {
+		t.Fatalf("expected 1 dir, got %d: %v", len(dirs), dirs)
+	}
+	if dirs[0].platform != "claude" {
+		t.Errorf("expected platform %q, got %q", "claude", dirs[0].platform)
+	}
+	if dirs[0].agents != 1 {
+		t.Errorf("expected 1 agent, got %d", dirs[0].agents)
+	}
+	if dirs[0].rules != 1 {
+		t.Errorf("expected 1 rule, got %d", dirs[0].rules)
+	}
+	// dirName must be the absolute path to ~/.claude
+	expected := filepath.Join(tmp, ".claude")
+	if dirs[0].dirName != expected {
+		t.Errorf("expected dirName %q, got %q", expected, dirs[0].dirName)
+	}
+}
+
+func TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("HOME", tmp)
+
+	// ~/.claude — 1 agent
+	claudeAgents := filepath.Join(tmp, ".claude", "agents")
+	if err := os.MkdirAll(claudeAgents, 0755); err != nil {
+		t.Fatalf("failed to create ~/.claude/agents/: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(claudeAgents, "dev.md"), []byte("# Dev\n"), 0600); err != nil {
+		t.Fatalf("failed to write dev.md: %v", err)
+	}
+
+	// ~/.cursor — 2 rules (richer)
+	cursorRules := filepath.Join(tmp, ".cursor", "rules")
+	if err := os.MkdirAll(cursorRules, 0755); err != nil {
+		t.Fatalf("failed to create ~/.cursor/rules/: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cursorRules, "r1.mdc"), []byte("rule1"), 0600); err != nil {
+		t.Fatalf("failed to write r1.mdc: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cursorRules, "r2.mdc"), []byte("rule2"), 0600); err != nil {
+		t.Fatalf("failed to write r2.mdc: %v", err)
+	}
+
+	dirs := detectAllGlobalPlatformDirs()
+	if len(dirs) != 2 {
+		t.Fatalf("expected 2 dirs, got %d: %v", len(dirs), dirs)
+	}
+	// cursor has 2 rules vs claude's 1 agent — cursor must be first
+	if dirs[0].platform != "cursor" {
+		t.Errorf("expected richest provider first (cursor), got %q", dirs[0].platform)
+	}
+	if dirs[1].platform != "claude" {
+		t.Errorf("expected second provider to be claude, got %q", dirs[1].platform)
+	}
+}
+
 func TestDetectTargets(t *testing.T) {
 	tests := []struct {
 		name     string

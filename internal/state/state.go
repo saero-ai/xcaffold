@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/saero-ai/xcaffold/internal/compiler"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"gopkg.in/yaml.v3"
 )
 
@@ -67,7 +67,7 @@ type GenerateOpts struct {
 }
 
 // GenerateWithOpts creates a LockManifest from compiler output and source metadata.
-func GenerateWithOpts(out *compiler.Output, opts GenerateOpts) *LockManifest {
+func GenerateWithOpts(out *output.Output, opts GenerateOpts) *LockManifest {
 	manifest := &LockManifest{
 		Version:             lockFileVersion,
 		LastApplied:         time.Now().UTC().Format(time.RFC3339),
@@ -118,7 +118,7 @@ func GenerateWithOpts(out *compiler.Output, opts GenerateOpts) *LockManifest {
 // Generate creates a LockManifest from a compiler Output by hashing every
 // generated file's content. It does not write to disk.
 // Deprecated: Use GenerateWithOpts for new code.
-func Generate(out *compiler.Output) *LockManifest {
+func Generate(out *output.Output) *LockManifest {
 	return GenerateWithOpts(out, GenerateOpts{})
 }
 

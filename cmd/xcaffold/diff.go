@@ -110,7 +110,10 @@ func diffScope(outputDir, lockFile, scopeName string) (int, error) {
 
 	if len(manifest.SourceFiles) > 0 {
 		baseDir := filepath.Dir(lockFile)
-		currentSources, _ := resolver.FindXCFFiles(baseDir)
+		currentSources, err := resolver.FindXCFFiles(baseDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[%s] Warning: failed to scan source files: %v\n", scopeName, err)
+		}
 
 		prevByPath := make(map[string]string)
 		for _, sf := range manifest.SourceFiles {

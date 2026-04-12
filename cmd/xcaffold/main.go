@@ -135,7 +135,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 		globalXcfPath = filepath.Join(globalXcfHome, "global.xcf")
 	}
 
-	if cmd.Name() != "init" && cmd.Name() != "import" {
+	if cmd.Name() != "init" && cmd.Name() != "import" && cmd.Name() != "migrate" {
 		if _, err := os.Stat(globalXcfPath); err != nil {
 			if os.IsNotExist(err) {
 				return fmt.Errorf("global.xcf not found at %q\n\nHint: run 'xcaffold init --global' to create one", globalXcfPath)
@@ -147,7 +147,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "list" || cmd.Name() == "migrate" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "list" || cmd.Name() == "migrate" || cmd.Name() == "analyze" {
 		return nil
 	}
 	var configDir string

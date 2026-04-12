@@ -61,7 +61,12 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	cmd.Println()
 	cmd.Println("  Welcome! Let's scaffold your agents.")
 
-	// ── Phase 1: Idempotency check ─────────────────────────────────────────
+	// ── Phase 1: Global flag takes priority ───────────────────────────────
+	if globalFlag {
+		return initGlobal()
+	}
+
+	// ── Phase 2: Idempotency check ─────────────────────────────────────────
 	xcfFile := filepath.Join(".", "scaffold.xcf")
 	if _, err := os.Stat(xcfFile); err == nil {
 		cmd.Println("  ✓ scaffold.xcf already exists. Nothing to do.")
@@ -70,10 +75,6 @@ func runInit(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 
-	// ── Phase 2: Detect existing .claude/ and offer import ─────────────────
-	if globalFlag {
-		return initGlobal()
-	}
 	return initProject(cmd)
 }
 
@@ -103,7 +104,11 @@ func initProject(cmd *cobra.Command) error {
 
 func tryAutoRegister(xcfFile string) {
 	config, err := parser.ParseFile(xcfFile)
-	if err == nil && config.Project != nil && config.Project.Name != "" {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s for auto-registration: %v\n", xcfFile, err)
+		return
+	}
+	if config.Project != nil && config.Project.Name != "" {
 		cwd, _ := os.Getwd()
 		_ = registry.Register(cwd, config.Project.Name, nil, ".")
 	}
@@ -271,8 +276,8 @@ func detectAllPlatformDirs(dir string) []platformDirInfo {
 
 	// Sort by total items descending so the richest configuration is first
 	sort.Slice(results, func(i, j int) bool {
-		totalI := results[i].agents + results[i].skills + results[i].rules
-		totalJ := results[j].agents + results[j].skills + results[j].rules
+		totalI := results[i].agents + results[i].skills + results[i].rules + results[i].workflows
+		totalJ := results[j].agents + results[j].skills + results[j].rules + results[j].workflows
 		return totalI > totalJ
 	})
 

@@ -16,6 +16,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var applyDryRun bool
@@ -93,13 +94,25 @@ func runApply(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("[global] parse error: %w", err)
 			}
 			fmt.Println("[global] ✓ Syntax is valid")
-			printDiagnostics(parser.ValidateFile(globalXcfPath))
+			diags := parser.ValidateFile(globalXcfPath)
+			printDiagnostics(diags)
+			for _, d := range diags {
+				if d.Severity == "error" {
+					return fmt.Errorf("[global] validation failed with errors")
+				}
+			}
 		} else {
 			if _, err := parser.ParseDirectory(filepath.Dir(xcfPath)); err != nil {
 				return fmt.Errorf("[project] parse error: %w", err)
 			}
 			fmt.Println("[project] ✓ Syntax is valid")
-			printDiagnostics(parser.ValidateFile(xcfPath))
+			diags := parser.ValidateFile(xcfPath)
+			printDiagnostics(diags)
+			for _, d := range diags {
+				if d.Severity == "error" {
+					return fmt.Errorf("[project] validation failed with errors")
+				}
+			}
 		}
 		return nil
 	}
@@ -108,7 +121,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 		// Parse runs validatePermissions — any contradiction surfaces as a parse
 		// error before we reach this block. The structured report only shows target
 		// fidelity findings for configs that already pass parsing.
-		config, err := parser.ParseDirectory(filepath.Dir(xcfPath))
+		var parseDir string
+		if globalFlag {
+			parseDir = globalXcfHome
+		} else {
+			parseDir = filepath.Dir(xcfPath)
+		}
+		config, err := parser.ParseDirectory(parseDir)
 		if err != nil {
 			return fmt.Errorf("parse error: %w", err)
 		}
@@ -214,7 +233,29 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		fmt.Printf("[%s] Migrated %s -> %s\n", scopeName, filepath.Base(lockFile), filepath.Base(targetLockFile))
 	}
 
-	sourceFiles, _ := resolver.FindXCFFiles(baseDir)
+	sourceFiles, findErr := resolver.FindXCFFiles(baseDir)
+	if findErr != nil {
+		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to scan source files: %v\n", scopeName, findErr)
+	}
+
+	// Filter out non-config XCF files (e.g. kind: registry) to prevent
+	// SourcesChanged from detecting registry mutations as config changes.
+	var configSources []string
+	for _, f := range sourceFiles {
+		data, readErr := os.ReadFile(f)
+		if readErr != nil {
+			configSources = append(configSources, f)
+			continue
+		}
+		var header struct {
+			Kind string `yaml:"kind"`
+		}
+		if yaml.Unmarshal(data, &header) == nil && header.Kind == "registry" {
+			continue
+		}
+		configSources = append(configSources, f)
+	}
+	sourceFiles = configSources
 
 	if !applyForce {
 		prevManifest, readErr := state.Read(targetLockFile)

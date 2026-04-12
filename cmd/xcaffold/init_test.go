@@ -1,10 +1,13 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -62,6 +65,42 @@ func TestInitWizard_GeneratesMultiKindFormat_NoAgent(t *testing.T) {
 	assert.NotContains(t, content, "kind: config")
 	assert.NotContains(t, content, "kind: agent")
 	assert.Contains(t, content, "targets:")
+}
+
+// TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF verifies that
+// --global bypasses the local scaffold.xcf idempotency check.
+// Regression: globalFlag was checked AFTER the scaffold.xcf stat, causing
+// `xcaffold init --global` to silently no-op when a local scaffold.xcf existed.
+func TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF(t *testing.T) {
+	// Create a temp dir with a scaffold.xcf already present.
+	dir := t.TempDir()
+	xcfPath := filepath.Join(dir, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcfPath, []byte("kind: project\nname: existing\n"), 0600))
+
+	// Change to the temp dir so the idempotency check finds scaffold.xcf.
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(orig) }()
+
+	// Set globalFlag = true to simulate --global, and restore afterwards.
+	globalFlag = true
+	defer func() { globalFlag = false }()
+
+	// Build a minimal cobra.Command so runInit can write output.
+	cmd := &cobra.Command{}
+	var buf strings.Builder
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	// runInit must NOT return nil with "Nothing to do" — it must reach initGlobal.
+	// initGlobal will fail because ~/.xcaffold/global.xcf may or may not exist,
+	// but the key assertion is that the early-return idempotency message is NOT printed.
+	_ = runInit(cmd, nil)
+
+	output := buf.String()
+	assert.NotContains(t, output, "Nothing to do",
+		"--global should bypass the local scaffold.xcf idempotency check")
 }
 
 // TestInitWizard_GeneratesMultiKindFormat_TargetCursor verifies that the

@@ -135,21 +135,86 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 			if modelStr == "" {
 				modelStr = "default model"
 			}
-			cmd.Printf(" 🤖 %s (%s)\n", id, modelStr)
+			cmd.Printf("  %s (%s)\n", id, modelStr)
 			if agent.Description != "" {
 				cmd.Printf("    Description: %s\n", agent.Description)
 			}
 			if len(agent.Tools) > 0 {
 				cmd.Printf("    Tools:       %s\n", strings.Join(agent.Tools, ", "))
 			}
-
-			// We only count assertions if there's a test block? Wait in ast.go, Assertions is embedded directly on AgentConfig?
-			// Let's check ast.go: Yes, `agent.Assertions` is NOT agent.Test.Assertions! Because `TestConfig` is root-level.
 			if len(agent.Assertions) > 0 {
 				cmd.Printf("    Assertions:  %d adversarial checks\n", len(agent.Assertions))
 			}
 			cmd.Println()
 		}
+	}
+
+	if len(manifest.Skills) > 0 {
+		cmd.Println("-- SKILLS --")
+		for _, id := range sortedKeys(manifest.Skills) {
+			skill := manifest.Skills[id]
+			label := id
+			if skill.Name != "" {
+				label = skill.Name
+			}
+			cmd.Printf("  %s\n", label)
+			if len(skill.Tools) > 0 {
+				cmd.Printf("    Tools: %s\n", strings.Join(skill.Tools, ", "))
+			}
+		}
+		cmd.Println()
+	}
+
+	if len(manifest.Rules) > 0 {
+		cmd.Println("-- RULES --")
+		for _, id := range sortedKeys(manifest.Rules) {
+			rule := manifest.Rules[id]
+			suffix := ""
+			if rule.AlwaysApply != nil && *rule.AlwaysApply {
+				suffix = " (always-apply)"
+			}
+			cmd.Printf("  %s%s\n", id, suffix)
+		}
+		cmd.Println()
+	}
+
+	if len(manifest.Hooks) > 0 {
+		cmd.Println("-- HOOKS --")
+		for _, event := range sortedKeys(manifest.Hooks) {
+			groups := manifest.Hooks[event]
+			total := 0
+			for _, g := range groups {
+				total += len(g.Hooks)
+			}
+			cmd.Printf("  %s: %d handler(s)\n", event, total)
+		}
+		cmd.Println()
+	}
+
+	if len(manifest.MCP) > 0 {
+		cmd.Println("-- MCP SERVERS --")
+		for _, id := range sortedKeys(manifest.MCP) {
+			mcp := manifest.MCP[id]
+			typeStr := mcp.Type
+			if typeStr == "" {
+				typeStr = "unknown"
+			}
+			cmd.Printf("  %s (%s)\n", id, typeStr)
+		}
+		cmd.Println()
+	}
+
+	if len(manifest.Workflows) > 0 {
+		cmd.Println("-- WORKFLOWS --")
+		for _, id := range sortedKeys(manifest.Workflows) {
+			wf := manifest.Workflows[id]
+			label := id
+			if wf.Name != "" {
+				label = wf.Name
+			}
+			cmd.Printf("  %s\n", label)
+		}
+		cmd.Println()
 	}
 
 	return nil

@@ -67,30 +67,30 @@ func init() {
 
 // graphNode represents a node in the topology graph.
 type graphNode struct {
-	ID           string
-	Kind         string // "agent", "skill", "rule", "mcp", "hook", "settings"
-	Label        string // display label
-	Meta         map[string]string
-	Tools        []string
-	BlockedTools []string
-	Paths        []string
-	Plugins      []string
+	ID           string            `json:"id"`
+	Kind         string            `json:"kind"`  // "agent", "skill", "rule", "mcp", "hook", "settings"
+	Label        string            `json:"label"` // display label
+	Meta         map[string]string `json:"meta,omitempty"`
+	Tools        []string          `json:"tools,omitempty"`
+	BlockedTools []string          `json:"blocked_tools,omitempty"`
+	Paths        []string          `json:"paths,omitempty"`
+	Plugins      []string          `json:"plugins,omitempty"`
 }
 
 // graphEdge represents a directed edge.
 type graphEdge struct {
-	From  string
-	To    string
-	Label string // "skill", "rule", "mcp"
+	From  string `json:"from"`
+	To    string `json:"to"`
+	Label string `json:"label"` // "skill", "rule", "mcp"
 }
 
 type graphData struct {
-	Project     string
-	Scope       string
-	ConfigPath  string
+	Project     string                   `json:"project"`
+	Scope       string                   `json:"scope"`
+	ConfigPath  string                   `json:"config_path"`
 	DiskEntries []analyzer.ArtifactEntry `json:"disk_entries,omitempty"`
-	Nodes       []graphNode
-	Edges       []graphEdge
+	Nodes       []graphNode              `json:"nodes"`
+	Edges       []graphEdge              `json:"edges"`
 }
 
 func runGraph(cmd *cobra.Command, args []string) error {
@@ -250,6 +250,9 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 		config.MCP = filteredMCP
 	}
 
+	if scopeName != "global" {
+		config.StripInherited()
+	}
 	g := buildGraph(config)
 	g.Scope = scopeName
 	g.ConfigPath = configPath
@@ -289,6 +292,8 @@ func buildGraph(config *ast.XcaffoldConfig) *graphData {
 	appendGraphRules(config, g)
 	appendGraphMCP(config, g)
 	appendGraphAgents(config, g)
+	appendGraphHooks(config, g)
+	appendGraphWorkflows(config, g)
 	return g
 }
 
@@ -389,6 +394,31 @@ func appendGraphAgents(config *ast.XcaffoldConfig, g *graphData) {
 		for _, mcpID := range agent.MCP {
 			g.Edges = append(g.Edges, graphEdge{From: "agent:" + id, To: "mcp:" + mcpID, Label: "mcp"})
 		}
+	}
+}
+
+func appendGraphHooks(config *ast.XcaffoldConfig, g *graphData) {
+	for _, event := range sortedKeys(config.Hooks) {
+		g.Nodes = append(g.Nodes, graphNode{
+			ID:    "hook:" + event,
+			Kind:  "hook",
+			Label: event,
+		})
+	}
+}
+
+func appendGraphWorkflows(config *ast.XcaffoldConfig, g *graphData) {
+	for _, id := range sortedKeys(config.Workflows) {
+		wf := config.Workflows[id]
+		label := id
+		if wf.Description != "" {
+			label = wf.Description
+		}
+		g.Nodes = append(g.Nodes, graphNode{
+			ID:    "workflow:" + id,
+			Kind:  "workflow",
+			Label: label,
+		})
 	}
 }
 

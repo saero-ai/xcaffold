@@ -11,6 +11,38 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic verifies that
+// --check returns a non-zero exit (non-nil error) when ValidateFile produces
+// an error-severity diagnostic.  The xcf file points to a non-existent
+// instructions_file to trigger the error diagnostic.
+func TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic(t *testing.T) {
+	dir := t.TempDir()
+
+	// instructions_file pointing to a missing file → validateFileRefs emits
+	// a Severity:"error" diagnostic.
+	xcfContent := `version: "1"
+project:
+  name: check-error-test
+agents:
+  dev:
+    name: Developer
+    model: claude-sonnet-4-5
+    instructions_file: missing-instructions.md
+`
+	xcf := filepath.Join(dir, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+
+	xcfPath = xcf
+	claudeDir = filepath.Join(dir, ".claude")
+	lockPath = filepath.Join(dir, "scaffold.lock")
+	globalFlag = false
+	applyCheckOnly = true
+	defer func() { applyCheckOnly = false }()
+
+	err := runApply(nil, nil)
+	assert.Error(t, err, "--check must return non-zero when diagnostics contain errors")
+}
+
 // minimalXCF is a minimal valid scaffold.xcf for apply tests.
 const minimalXCF = `version: "1"
 project:
@@ -447,5 +479,43 @@ project:
 	assert.NoError(t, err, "dry run should NOT delete orphaned files")
 
 	applyDryRun = false
+	applyForce = false
+}
+
+// TestApplyScope_RegistryXCF_ExcludedFromSourceTracking verifies that a
+// kind: registry file is not recorded in the lock manifest's source list.
+// Without the filter, registry.xcf is updated on every apply, causing
+// SourcesChanged to always return true and defeating smart-skip.
+func TestApplyScope_RegistryXCF_ExcludedFromSourceTracking(t *testing.T) {
+	dir := t.TempDir()
+
+	// Config file — the only source that should appear in the lock.
+	xcf := filepath.Join(dir, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
+
+	// Registry file — must NOT appear in the lock's source list.
+	registryXCF := filepath.Join(dir, "registry.xcf")
+	registryContent := `kind: registry
+version: "1"
+`
+	require.NoError(t, os.WriteFile(registryXCF, []byte(registryContent), 0600))
+
+	claudeDirPath := filepath.Join(dir, ".claude")
+	lock := filepath.Join(dir, "scaffold.lock")
+
+	applyForce = true
+	targetFlag = targetClaude
+	err := applyScope(xcf, claudeDirPath, lock, "project")
+	require.NoError(t, err)
+
+	targetLock := filepath.Join(dir, "scaffold.claude.lock")
+	manifest, err := state.Read(targetLock)
+	require.NoError(t, err)
+
+	for _, sf := range manifest.SourceFiles {
+		assert.NotEqual(t, "registry.xcf", sf.Path,
+			"registry.xcf must not appear in lock manifest source files")
+	}
+
 	applyForce = false
 }

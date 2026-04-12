@@ -5,7 +5,7 @@ description: "Runtime sandbox configuration and compile-time evaluation sandbox"
 
 # Sandboxing
 
-xcaffold deals with two distinct sandboxing concepts that serve entirely different purposes. The first is `settings.sandbox` — a runtime configuration block that instructs the target AI platform to isolate the agent's process at the operating system level. The second is the intercept proxy used by `xcaffold test` — a loopback HTTP server that records tool-use calls during development-time evaluation without enforcing any restriction. These two mechanisms share a name in the broader agentic ecosystem but are architecturally unrelated, and conflating them produces incorrect assumptions about what xcaffold controls at runtime.
+xcaffold deals with two distinct sandboxing concepts that serve entirely different purposes. The first is `settings.sandbox` — a runtime configuration block that instructs the target AI platform to isolate the agent's process at the operating system level. The second is the API simulation used by `xcaffold test` — a direct LLM API call that reads the compiled agent system prompt, sends a task, and records tool calls declared in the response. These two mechanisms share a name in the broader agentic ecosystem but are architecturally unrelated, and conflating them produces incorrect assumptions about what xcaffold controls at runtime.
 
 ---
 
@@ -13,9 +13,9 @@ xcaffold deals with two distinct sandboxing concepts that serve entirely differe
 
 The `settings.sandbox` block (`internal/ast/types.go:183-193`, type `SandboxConfig`) declares OS-level process isolation properties. When compiled to a target that supports it, this configuration is embedded in the platform's settings output. The platform — not xcaffold — is responsible for enforcing the isolation. xcaffold's role is strictly compilation: it translates the YAML declaration into whatever format the target requires. Once the output is on disk, xcaffold's involvement ends.
 
-The `xcaffold test` proxy (`internal/proxy/proxy.go`) is a development-time observability tool. It binds a loopback HTTP server, intercepts outbound AI provider API calls made by a running CLI subprocess, records tool-use events to a JSONL trace file, and returns deterministic mock responses so that test scenarios complete without executing real tools. The proxy does not enforce the `settings.sandbox` configuration, cannot restrict filesystem access, and has no effect on any network policy declared in `SandboxNetwork`. It exists to make agent behavior observable during authoring — not to enforce production policies.
+The `xcaffold test` simulation reads the compiled agent system prompt from `.claude/agents/<id>.md`, sends a user task to the LLM API directly via `internal/llmclient`, and extracts tool call declarations from the model's response. It records these to a JSONL trace file. The simulation does not execute tools against the host OS — it captures what the model declares it would do, not what the tools actually produce. The simulation does not enforce `settings.sandbox` configuration and has no effect on any network policy declared in `SandboxNetwork`. It exists to make agent behavior observable during authoring.
 
-The distinction is consequential: `settings.sandbox` is a production guarantee delegated to the platform; the test proxy is a development instrument that imposes no guarantees at all.
+The distinction is consequential: `settings.sandbox` is a production guarantee delegated to the platform; the test simulation is a development instrument that imposes no runtime guarantees at all.
 
 ---
 
@@ -64,41 +64,24 @@ The `SandboxNetwork` struct (`internal/ast/types.go:204-214`) configures outboun
 
 These fields are compiled and passed through to the target platform's settings. As with filesystem isolation, the enforcement semantics are platform-defined. xcaffold guarantees only that the configuration reaches the output file in the correct format for the active target.
 
-`HTTPProxyPort` and `SOCKSProxyPort` are conceptually distinct from the test proxy port. The `SandboxNetwork` proxy ports direct production runtime traffic through an external inspection or filtering proxy chosen by the operator. The test proxy port is assigned dynamically at the loopback interface and exists only for the duration of a single `xcaffold test` session.
+`HTTPProxyPort` and `SOCKSProxyPort` direct production runtime traffic through an external inspection or filtering proxy chosen by the operator. They are unrelated to `xcaffold test`, which calls the LLM API directly rather than through a local proxy.
 
 ---
 
-## The Evaluation Proxy
+## The Evaluation Simulation
 
-`xcaffold test` launches a local HTTP intercept proxy and injects its address into the subprocess environment so that AI provider API calls pass through it. The proxy is constructed by `proxy.New()` (`internal/proxy/proxy.go:42-64`), which binds exclusively to the loopback interface on a random port:
+`xcaffold test` reads the compiled agent system prompt from `.claude/agents/<id>.md` and sends it along with a configurable task to the LLM API via `internal/llmclient`. The client resolves credentials in priority order: `XCAFFOLD_LLM_API_KEY` + `XCAFFOLD_LLM_BASE_URL`, then `ANTHROPIC_API_KEY`, then a CLI binary subscription fallback.
 
-```go
-ln, err := net.Listen("tcp", "127.0.0.1:0")
-```
+The model's response is parsed for `tool_use` blocks. Two formats are handled:
 
-The zero port causes the OS to assign an available ephemeral port. The proxy is never exposed to the network. `proxy.Addr()` returns the actual bound address (e.g., `127.0.0.1:54321`), and `proxy.ProxyURL()` wraps it in an HTTP URL suitable for injection as a subprocess environment variable.
+1. A structured Anthropic content array (`{"content": [{"type": "tool_use", ...}]}`).
+2. Inline JSON objects with `"type": "tool_use"` embedded in free-form text.
 
-Host validation is enforced by `handleRequest()` (`internal/proxy/proxy.go:93-128`) before any request is processed. The allowed set is a static map (`internal/proxy/proxy.go:25-29`):
+Each extracted tool call is recorded as a `trace.ToolCallEvent` via `trace.Recorder.Record()` (`internal/trace/trace.go:37-53`). `trace.Recorder` writes each event as a newline-delimited JSON line (JSONL) to its writer. It is safe for concurrent use via an internal mutex.
 
-```go
-var allowedHosts = map[string]bool{
-    "api.anthropic.com":                 true,
-    "generativelanguage.googleapis.com": true,
-    "api.cursor.sh":                     true,
-}
-```
+The simulation does not execute tools against the host OS. It captures what the model declares it would do given the system prompt and task — not the actual results of running those tools.
 
-Comparison uses exact map lookup after lowercasing the `Host` header. The comment in the source is explicit: "Use exact equality to prevent SSRF via suffix confusion (e.g. evil-api.anthropic.com)." Requests targeting any host not in this map receive a `403 Forbidden` response. The proxy does not follow redirects or attempt to resolve unknown hosts.
-
-When a POST request arrives at a recognized AI messaging endpoint (`/v1/messages` or a path containing `generateContent`), `handleRequest()` reads and inspects the body. If the payload contains a `"tool_use"` block, it is dispatched to `handleToolUse()` (`internal/proxy/proxy.go:139-169`). That function extracts the tool name and input parameters, constructs a `trace.ToolCallEvent`, records it via `trace.Recorder.Record()` (`internal/trace/trace.go:37-53`), and returns a deterministic mock response:
-
-```
-[SIMULATED SUCCESS]
-```
-
-The mock response is returned immediately without executing the tool against the host OS. The agent receives a plausible completion that allows the session to continue. All other requests — including non-tool-use messages and streaming completions — are forwarded transparently to the real AI provider API via `forward()` (`internal/proxy/proxy.go:172-186`).
-
-`trace.Recorder` writes each `ToolCallEvent` as a newline-delimited JSON line (JSONL) to its writer. It is safe for concurrent use (`internal/trace/trace.go:24-28`) via an internal mutex, which is relevant because multiple goroutines may record events during a multi-turn agent session. After the CLI subprocess exits, the proxy shuts down via `proxy.Close()`, which calls `http.Server.Close()` for a graceful shutdown.
+> **Note:** `internal/proxy` remains in the codebase for potential future use but is not invoked by `xcaffold test`.
 
 ---
 
