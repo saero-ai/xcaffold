@@ -147,7 +147,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "list" || cmd.Name() == "migrate" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "list" || cmd.Name() == "migrate" || cmd.Name() == "analyze" {
 		return nil
 	}
 	var configDir string
