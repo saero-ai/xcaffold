@@ -878,6 +878,8 @@ var knownTools = map[string]bool{
 	"WebFetch": true, "WebSearch": true,
 	"TodoRead": true, "TodoWrite": true,
 	"NotebookRead": true, "NotebookEdit": true,
+	"Task": true, "Computer": true, "AskUserQuestion": true,
+	"Agent": true, "ExitPlanMode": true, "EnterPlanMode": true,
 	"mcp": true,
 }
 
