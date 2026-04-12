@@ -120,7 +120,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 		// Parse runs validatePermissions — any contradiction surfaces as a parse
 		// error before we reach this block. The structured report only shows target
 		// fidelity findings for configs that already pass parsing.
-		config, err := parser.ParseDirectory(filepath.Dir(xcfPath))
+		var parseDir string
+		if globalFlag {
+			parseDir = globalXcfHome
+		} else {
+			parseDir = filepath.Dir(xcfPath)
+		}
+		config, err := parser.ParseDirectory(parseDir)
 		if err != nil {
 			return fmt.Errorf("parse error: %w", err)
 		}

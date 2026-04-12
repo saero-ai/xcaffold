@@ -101,3 +101,60 @@ settings:
 	require.Error(t, runErr, "contradictory permissions must produce a non-zero exit")
 	assert.Contains(t, runErr.Error(), "allow and deny", fmt.Sprintf("got: %v", runErr))
 }
+
+// TestApply_CheckPermissions_Global_UsesGlobalXcfHome verifies that
+// --check-permissions --global parses globalXcfHome, not filepath.Dir(xcfPath).
+// When --global is set, xcfPath is empty, so filepath.Dir("") == "." (CWD),
+// which is the wrong directory. The fix must use globalXcfHome instead.
+func TestApply_CheckPermissions_Global_UsesGlobalXcfHome(t *testing.T) {
+	// Create a temp dir to serve as globalXcfHome with a valid scaffold.xcf.
+	globalHome := t.TempDir()
+	xcf := filepath.Join(globalHome, "scaffold.xcf")
+	content := `version: "1.0"
+project:
+  name: global-check-perm-test
+settings:
+  permissions:
+    deny: [Bash]
+agents:
+  dev:
+    description: Developer
+    permissionMode: plan
+`
+	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
+
+	// A separate temp dir to act as CWD — it has no scaffold.xcf.
+	// If the bug is present, ParseDirectory(".") (or the CWD) will be used
+	// and the call will fail with a "no such file" or parse error.
+	cwdStand := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(cwdStand))
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Save and restore package-level state.
+	origXcfPath := xcfPath
+	origGlobalFlag := globalFlag
+	origGlobalXcfHome := globalXcfHome
+	origGlobalXcfPath := globalXcfPath
+	origCheckPerms := applyCheckPermissions
+	origTarget := targetFlag
+	defer func() {
+		xcfPath = origXcfPath
+		globalFlag = origGlobalFlag
+		globalXcfHome = origGlobalXcfHome
+		globalXcfPath = origGlobalXcfPath
+		applyCheckPermissions = origCheckPerms
+		targetFlag = origTarget
+	}()
+
+	xcfPath = ""
+	globalFlag = true
+	globalXcfHome = globalHome
+	globalXcfPath = xcf
+	applyCheckPermissions = true
+	targetFlag = targetClaude
+
+	runErr := runApply(nil, nil)
+	assert.NoError(t, runErr, "--check-permissions --global must succeed when globalXcfHome has a valid scaffold.xcf")
+}
