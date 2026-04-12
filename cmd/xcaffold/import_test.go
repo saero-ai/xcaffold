@@ -8,6 +8,8 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestImportScope_XcfDirAlreadyExists(t *testing.T) {
@@ -554,4 +556,38 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 	if !strings.Contains(err.Error(), "xcf/ directory already exists") {
 		t.Errorf("expected error to contain %q, got: %v", "xcf/ directory already exists", err)
 	}
+}
+
+func TestImportScope_EmitsMultiKindFormat(t *testing.T) {
+	dir := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(origDir)
+	require.NoError(t, os.Chdir(dir))
+
+	// Create .claude/ with an agent and a skill
+	require.NoError(t, os.MkdirAll(".claude/agents", 0755))
+	require.NoError(t, os.MkdirAll(".claude/skills/tdd", 0755))
+	require.NoError(t, os.WriteFile(".claude/agents/dev.md",
+		[]byte("---\nname: dev\ndescription: Dev agent\nmodel: sonnet\n---\n\nDev instructions"), 0644))
+	require.NoError(t, os.WriteFile(".claude/skills/tdd/SKILL.md",
+		[]byte("---\nname: tdd\ndescription: TDD\n---\n\nTDD instructions"), 0644))
+
+	err = importScope(".claude", "scaffold.xcf", "project")
+	require.NoError(t, err)
+
+	content, err := os.ReadFile("scaffold.xcf")
+	require.NoError(t, err)
+
+	s := string(content)
+
+	// Must contain multi-kind documents
+	assert.Contains(t, s, "kind: config")
+	assert.Contains(t, s, "kind: agent")
+	assert.Contains(t, s, "kind: skill")
+	assert.Contains(t, s, "---")
+
+	// Must NOT be monolithic — agents must not be nested under kind: config
+	// In multi-kind format the config document has no agents: key
+	assert.NotContains(t, s, "agents:\n  dev:")
 }

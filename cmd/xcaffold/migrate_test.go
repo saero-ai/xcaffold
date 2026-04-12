@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -63,4 +64,25 @@ project:
 	// No backup should be created when no migrations run
 	_, statErr := os.Stat("scaffold.xcf.bak")
 	assert.True(t, os.IsNotExist(statErr), "scaffold.xcf.bak should NOT be created when no migrations apply")
+}
+
+func TestMigrate_WritesMultiKindFormat(t *testing.T) {
+	// This test verifies that if a migration were to run and rewrite scaffold.xcf,
+	// the output would be in multi-kind format.
+	// Since migrations are empty, we test MarshalMultiKind directly with a config
+	// that has resources.
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "migrate-test"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Name: "dev", Description: "Dev agent"},
+			},
+		},
+	}
+	out, err := MarshalMultiKind(config, "# migrated")
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "kind: config")
+	assert.Contains(t, string(out), "kind: agent")
+	assert.Contains(t, string(out), "---")
 }
