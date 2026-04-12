@@ -25,28 +25,7 @@ type Migration struct {
 }
 
 // migrations is the ordered list of schema version upgrade steps.
-var migrations = []Migration{
-	{
-		FromVersion: "1.0",
-		ToVersion:   "1.1",
-		Description: "Normalize claude_path to cli_path in test block",
-		Apply:       migrateTo1_1,
-	},
-}
-
-// migrateTo1_1 copies ClaudePath into CliPath when CliPath is empty, then sets
-// version to "1.1". This is idempotent: if CliPath is already set, it is
-// preserved unchanged.
-func migrateTo1_1(config *ast.XcaffoldConfig) error {
-	if config.Project != nil {
-		if config.Project.Test.ClaudePath != "" && config.Project.Test.CliPath == "" {
-			config.Project.Test.CliPath = config.Project.Test.ClaudePath
-		}
-		config.Project.Test.ClaudePath = ""
-	}
-	config.Version = "1.1"
-	return nil
-}
+var migrations = []Migration{}
 
 // runSchemaVersionMigrations reads scaffold.xcf at configPath, applies all
 // applicable version migrations in order, and overwrites the file when any
@@ -105,7 +84,7 @@ var migrateCmd = &cobra.Command{
 	Short: "Migrate legacy xcaffold layouts to the centralized architecture",
 	Long: `Migrate upgrades scaffold.xcf file layouts and schema versions:
 
-  - Schema version migrations (e.g., 1.0 → 1.1: claude_path → cli_path)
+  - Schema version migrations (applies any pending version upgrades)
   - Global scope migration (~/.claude/ → ~/.xcaffold/)
   - Project scope migration (flat paths → reference-in-place)`,
 	RunE: runMigrate,

@@ -72,7 +72,7 @@ const (
 
 // currentSchemaVersion is the schema version this build of xcaffold targets.
 // Configs with older versions produce a warning prompting the user to migrate.
-const currentSchemaVersion = "1.1"
+const currentSchemaVersion = "1.0"
 
 //nolint:gocyclo
 func runApply(cmd *cobra.Command, args []string) error {

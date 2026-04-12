@@ -148,8 +148,9 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcfDest)
 	}
-
-	extractBase := claudeDir // Reference files in-place
+	if err := checkXcfDirPreexistence(xcfDest, scopeName); err != nil {
+		return err
+	}
 
 	projectName := inferProjectName()
 	config := &ast.XcaffoldConfig{
@@ -167,16 +168,16 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	importCount := 0
 	var warnings []string
 
-	if err := extractAgents(claudeDir, extractBase, scopeName, config, &importCount, &warnings); err != nil {
+	if err := extractAgents(claudeDir, scopeName, config, &importCount, &warnings); err != nil {
 		return err
 	}
-	if err := extractSkills(claudeDir, extractBase, scopeName, config, &importCount, &warnings); err != nil {
+	if err := extractSkills(claudeDir, scopeName, config, &importCount, &warnings); err != nil {
 		return err
 	}
-	if err := extractRules(claudeDir, extractBase, scopeName, config, &importCount, &warnings); err != nil {
+	if err := extractRules(claudeDir, scopeName, config, &importCount, &warnings); err != nil {
 		return err
 	}
-	if err := extractWorkflows(claudeDir, extractBase, scopeName, config, &importCount, &warnings); err != nil {
+	if err := extractWorkflows(claudeDir, scopeName, config, &importCount, &warnings); err != nil {
 		return err
 	}
 
@@ -215,7 +216,7 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	}
 
 	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcfDest, importCount)
-	fmt.Println("  Instructions referenced in-place — zero file duplication.")
+	fmt.Println("  Source files copied to xcf/ directory.")
 	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
 
 	cwd, _ := os.Getwd()
@@ -318,7 +319,7 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 	}
 }
 
-func extractAgents(claudeDir, extractBase, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+func extractAgents(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	agentFiles, _ := filepath.Glob(filepath.Join(claudeDir, "agents", "*.md"))
 	for _, f := range agentFiles {
 		data, err := os.ReadFile(f)
@@ -330,8 +331,13 @@ func extractAgents(claudeDir, extractBase, scopeName string, config *ast.Xcaffol
 		if id == "" {
 			continue
 		}
-		// Reference the file directly where it lives
-		destPath := filepath.ToSlash(f) // Make sure to use reliable path separators
+
+		xcfDest := filepath.Join("xcf", "agents", filepath.Base(f))
+		if err := copyFile(f, xcfDest); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("failed to copy agent %s: %v", f, err))
+			continue
+		}
+		destPath := filepath.ToSlash(xcfDest)
 
 		agentCfg := ast.AgentConfig{Description: "Imported agent", InstructionsFile: destPath}
 		if fm, ok := extractFrontmatter(data); ok {
@@ -346,7 +352,7 @@ func extractAgents(claudeDir, extractBase, scopeName string, config *ast.Xcaffol
 	return nil
 }
 
-func extractSkills(claudeDir, extractBase, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	skillFiles, _ := filepath.Glob(filepath.Join(claudeDir, "skills", "*", "SKILL.md"))
 	for _, f := range skillFiles {
 		data, err := os.ReadFile(f)
@@ -358,9 +364,15 @@ func extractSkills(claudeDir, extractBase, scopeName string, config *ast.Xcaffol
 		if id == "" || id == "." {
 			continue
 		}
-		destPath := filepath.ToSlash(f)
 
-		refs, err := extractSkillRefs(f, extractBase, scopeName, id, warnings)
+		xcfDest := filepath.Join("xcf", "skills", id, "SKILL.md")
+		if err := copyFile(f, xcfDest); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("failed to copy skill %s: %v", f, err))
+			continue
+		}
+		destPath := filepath.ToSlash(xcfDest)
+
+		refs, err := extractSkillRefs(f, scopeName, id, warnings)
 		if err != nil {
 			return err
 		}
@@ -381,7 +393,7 @@ func extractSkills(claudeDir, extractBase, scopeName string, config *ast.Xcaffol
 	return nil
 }
 
-func extractSkillRefs(skillFile, extractBase, scopeName, id string, warnings *[]string) ([]string, error) {
+func extractSkillRefs(skillFile, scopeName, id string, warnings *[]string) ([]string, error) {
 	refSrc := filepath.Join(filepath.Dir(skillFile), "references")
 	var refs []string
 	if refEntries, err := os.ReadDir(refSrc); err == nil {
@@ -389,14 +401,19 @@ func extractSkillRefs(skillFile, extractBase, scopeName, id string, warnings *[]
 			if entry.IsDir() {
 				continue
 			}
-			srcRef := filepath.ToSlash(filepath.Join(refSrc, entry.Name()))
-			refs = append(refs, srcRef)
+			srcRef := filepath.Join(refSrc, entry.Name())
+			xcfRefDest := filepath.Join("xcf", "skills", id, "references", entry.Name())
+			if err := copyFile(srcRef, xcfRefDest); err != nil {
+				*warnings = append(*warnings, fmt.Sprintf("failed to copy skill ref %s: %v", srcRef, err))
+				continue
+			}
+			refs = append(refs, filepath.ToSlash(xcfRefDest))
 		}
 	}
 	return refs, nil
 }
 
-func extractRules(claudeDir, extractBase, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	ruleFiles, _ := filepath.Glob(filepath.Join(claudeDir, "rules", "*.md"))
 	for _, f := range ruleFiles {
 		data, err := os.ReadFile(f)
@@ -408,7 +425,13 @@ func extractRules(claudeDir, extractBase, scopeName string, config *ast.Xcaffold
 		if id == "" {
 			continue
 		}
-		destPath := filepath.ToSlash(f)
+
+		xcfDest := filepath.Join("xcf", "rules", filepath.Base(f))
+		if err := copyFile(f, xcfDest); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("failed to copy rule %s: %v", f, err))
+			continue
+		}
+		destPath := filepath.ToSlash(xcfDest)
 
 		ruleCfg := ast.RuleConfig{Description: "Imported rule", InstructionsFile: destPath}
 		if fm, ok := extractFrontmatter(data); ok {
@@ -633,6 +656,9 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[project] %s already exists. Remove it first to import", xcfDest)
 	}
+	if err := checkXcfDirPreexistence(xcfDest, "project"); err != nil {
+		return err
+	}
 
 	projectName := inferProjectName()
 	config := &ast.XcaffoldConfig{
@@ -650,7 +676,6 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 
 	importCount := 0
 	var warnings []string
-	extractBase := "."
 
 	// Track which directory each resource came from for dedup logging
 	agentSources := make(map[string]string)
@@ -674,16 +699,16 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 		}
 		tmpCount := 0
 
-		if err := extractAgents(dir, extractBase, "project", tmpConfig, &tmpCount, &warnings); err != nil {
+		if err := extractAgents(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
 			return err
 		}
-		if err := extractSkills(dir, extractBase, "project", tmpConfig, &tmpCount, &warnings); err != nil {
+		if err := extractSkills(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
 			return err
 		}
-		if err := extractRules(dir, extractBase, "project", tmpConfig, &tmpCount, &warnings); err != nil {
+		if err := extractRules(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
 			return err
 		}
-		if err := extractWorkflows(dir, extractBase, "project", tmpConfig, &tmpCount, &warnings); err != nil {
+		if err := extractWorkflows(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
 			return err
 		}
 
@@ -805,7 +830,7 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 
 	fmt.Printf("\n[project] ✓ Merge complete. Created %s with %d resources from %d directories.\n",
 		xcfDest, importCount, len(dirs))
-	fmt.Println("  Instructions referenced in-place — zero file duplication.")
+	fmt.Println("  Source files copied to xcf/ directory.")
 	fmt.Println("  Run 'xcaffold apply' when ready to compile to your target platforms.")
 
 	cwd, _ := os.Getwd()
@@ -818,6 +843,16 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 		for _, w := range warnings {
 			fmt.Println(" ⚠", w)
 		}
+	}
+	return nil
+}
+
+// checkXcfDirPreexistence returns an error if a xcf/ directory already exists
+// adjacent to xcfDest. Callers must remove it before re-importing.
+func checkXcfDirPreexistence(xcfDest, scopeName string) error {
+	xcfSourceDir := filepath.Join(filepath.Dir(xcfDest), "xcf")
+	if _, err := os.Stat(xcfSourceDir); err == nil {
+		return fmt.Errorf("[%s] xcf/ directory already exists. Remove it first to re-import", scopeName)
 	}
 	return nil
 }
@@ -835,6 +870,18 @@ func inferProjectName() string {
 	return base
 }
 
+// copyFile copies the file at src to dst, creating parent directories as needed.
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", src, err)
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
+	}
+	return os.WriteFile(dst, data, 0600)
+}
+
 // fileSize returns the size of a file in bytes, or 0 if it can't be read.
 func fileSize(path string) int64 {
 	info, err := os.Stat(path)
@@ -844,7 +891,7 @@ func fileSize(path string) int64 {
 	return info.Size()
 }
 
-func extractWorkflows(claudeDir, extractBase, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	workflowFiles, _ := filepath.Glob(filepath.Join(claudeDir, "workflows", "*.md"))
 	for _, f := range workflowFiles {
 		data, err := os.ReadFile(f)
@@ -856,7 +903,13 @@ func extractWorkflows(claudeDir, extractBase, scopeName string, config *ast.Xcaf
 		if id == "" {
 			continue
 		}
-		destPath := filepath.ToSlash(f)
+
+		xcfDest := filepath.Join("xcf", "workflows", filepath.Base(f))
+		if err := copyFile(f, xcfDest); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("failed to copy workflow %s: %v", f, err))
+			continue
+		}
+		destPath := filepath.ToSlash(xcfDest)
 
 		workflowCfg := ast.WorkflowConfig{Description: "Imported workflow", InstructionsFile: destPath}
 		if fm, ok := extractFrontmatter(data); ok {

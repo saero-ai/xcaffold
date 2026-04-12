@@ -43,7 +43,7 @@ Open `scaffold.xcf` in your editor. It will look like this:
 
 ```yaml
 kind: config
-version: "1.1"
+version: "1.0"
 project:
   name: "my-project"
   description: ""

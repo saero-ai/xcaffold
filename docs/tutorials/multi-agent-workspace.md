@@ -26,7 +26,7 @@ Start with the first agent only:
 
 ```yaml
 kind: config
-version: "1.1"
+version: "1.0"
 project:
   name: my-team
   agents:
@@ -63,7 +63,7 @@ Add the second agent, then define the shared library:
 
 ```yaml
 kind: config
-version: "1.1"
+version: "1.0"
 project:
   name: my-team
   agents:

@@ -416,7 +416,7 @@ func buildXCFContent(ans wizardAnswers) string {
 
 	model, binary := resolveTargetMeta(ans.target)
 
-	sb.WriteString(fmt.Sprintf("kind: config\nversion: \"1.1\"\nproject:\n  name: %q\n  description: %q\n", ans.name, ans.desc))
+	sb.WriteString(fmt.Sprintf("kind: config\nversion: \"1.0\"\nproject:\n  name: %q\n  description: %q\n", ans.name, ans.desc))
 
 	if ans.wantAgent {
 		sb.WriteString(fmt.Sprintf(`

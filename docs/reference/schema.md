@@ -223,7 +223,7 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `kind` | `string` | Optional | File type discriminator. Values: `"config"` (compiler input) or omitted (treated as `config` for backward compatibility). Global configs should set `kind: config`. Non-config files (e.g. `registry.xcf`) use `kind: registry` and are skipped by the directory scanner. |
-| `version` | `string` | **Required** | Schema version. Current: `"1.1"`. |
+| `version` | `string` | **Required** | Schema version. Current: `"1.0"`. |
 | `project` | `*ProjectConfig` | Project scope only | Project-level metadata and workspace-scoped resources. `nil` for global configs. |
 | `extends` | `string` | Optional (project only) | Path to a parent `.xcf` config. Use `"global"` to reference `~/.xcaffold/global.xcf` for validation and visualization. Does not affect compiled output. |
 | `agents` | `map[string]AgentConfig` | Optional | Agent persona declarations keyed by ID. Provided via embedded `ResourceScope`. |

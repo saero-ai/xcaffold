@@ -70,7 +70,7 @@ make install           # Install globally to $GOPATH/bin
 
 ```yaml
 kind: config
-version: "1.1"
+version: "1.0"
 project:
   name: "acme-web-platform"
   test:
