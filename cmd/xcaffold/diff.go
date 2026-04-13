@@ -113,6 +113,7 @@ func diffScope(outputDir, lockFile, scopeName string) (int, error) {
 		currentSources, err := resolver.FindXCFFiles(baseDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[%s] Warning: failed to scan source files: %v\n", scopeName, err)
+			return driftCount, nil
 		}
 
 		prevByPath := make(map[string]string)
