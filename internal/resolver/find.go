@@ -63,7 +63,7 @@ func FindXCFFiles(dir string) ([]string, error) {
 			}
 			return nil
 		}
-		if strings.HasSuffix(d.Name(), ".xcf") {
+		if strings.HasSuffix(d.Name(), ".xcf") && d.Name() != "registry.xcf" {
 			files = append(files, path)
 		}
 		return nil

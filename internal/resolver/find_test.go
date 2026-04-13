@@ -123,6 +123,20 @@ func TestFindXCFFiles_ReturnsSorted(t *testing.T) {
 	assert.Equal(t, filepath.Join(dir, "z.xcf"), files[2])
 }
 
+func TestFindXCFFiles_ExcludesRegistryXcf(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte("s"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "registry.xcf"), []byte("r"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcf"), []byte("a"), 0600))
+
+	files, err := FindXCFFiles(dir)
+	require.NoError(t, err)
+	require.Len(t, files, 2, "registry.xcf must be excluded")
+	for _, f := range files {
+		assert.NotContains(t, f, "registry.xcf")
+	}
+}
+
 func TestFindXCFFiles_Recursive(t *testing.T) {
 	dir := t.TempDir()
 	subdir := filepath.Join(dir, "agents")
