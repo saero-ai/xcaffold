@@ -906,3 +906,149 @@ agents:
 	assert.Contains(t, config.Agents, "reviewer")
 	assert.Contains(t, config.Agents, "developer")
 }
+
+func TestParseResourceDocument_Policy_MissingName_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+severity: error
+target: agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "name is required")
+}
+
+func TestParseResourceDocument_Policy_MissingVersion_Error(t *testing.T) {
+	input := `kind: policy
+name: test-policy
+severity: error
+target: agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "version is required")
+}
+
+func TestParseResourceDocument_Policy_InvalidSeverity_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: bad-severity
+severity: err
+target: agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "severity must be")
+}
+
+func TestParseResourceDocument_Policy_InvalidTarget_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: bad-target
+severity: error
+target: agents
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target must be one of")
+}
+
+func TestParseResourceDocument_Policy_DuplicateName_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: dup-policy
+severity: error
+target: agent
+---
+kind: policy
+version: "1.0"
+name: dup-policy
+severity: warning
+target: skill
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate policy ID")
+}
+
+func TestParseResourceDocument_Policy_UnknownField_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: bad-fields
+severity: error
+target: agent
+unknown_field: true
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid policy document")
+}
+
+func TestParseResourceDocument_Policy_RequireEmptyField_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: empty-field
+severity: error
+target: agent
+require:
+  - one_of: ["sonnet"]
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "require[0].field is required")
+}
+
+func TestParseResourceDocument_Policy_DenyEmpty_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: empty-deny
+severity: error
+target: output
+deny:
+  - {}
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "deny[0] must specify at least one of")
+}
+
+func TestParseResourceDocument_Policy_MinimalValid(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: minimal
+severity: off
+target: agent
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	p, ok := config.Policies["minimal"]
+	require.True(t, ok)
+	assert.Equal(t, "off", p.Severity)
+	assert.Nil(t, p.Match)
+	assert.Empty(t, p.Require)
+	assert.Empty(t, p.Deny)
+}
+
+func TestParseResourceDocument_Policy_SeverityTypo_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: typo
+severity: Error
+target: agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "severity must be")
+}
+
+func TestParseResourceDocument_Policy_TargetTypo_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: typo
+severity: error
+target: Agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target must be one of")
+}
