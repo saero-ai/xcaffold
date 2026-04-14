@@ -1,0 +1,96 @@
+package templates
+
+// RenderAgentReference returns an annotated template showing every field
+// of the agent kind with descriptions, types, defaults, and provider support notes.
+//
+// The generated content is written to xcf/references/agent.xcf.reference and
+// is NOT parsed by xcaffold. Users copy fields from this file into their
+// scaffold.xcf as needed.
+func RenderAgentReference() string {
+	return `# ============================================================
+# Agent Kind — Full Field Reference
+# ============================================================
+# This file is NOT parsed by xcaffold.
+# Copy fields from here into your scaffold.xcf as needed.
+# See for the full schema specification.
+# ============================================================
+
+---
+kind: agent
+version: "1.0"
+
+# ── Group 1: Identity (xcaffold envelope) ────────────────────
+name: my-agent              # REQUIRED. Unique ID, lowercase + hyphens.
+description: "..."          # Recommended. When to delegate to this agent.
+
+# ── Group 2: Model & Execution ──────────────────────────────
+model: sonnet               # Alias (sonnet/opus/haiku) or full model ID.
+effort: high                # low | medium | high | max (max = Opus only).
+maxTurns: 10                # Max agentic turns. Gemini default: 30.
+mode: ""                    # Execution mode (xcaffold-specific).
+
+# ── Group 3: Tool Access ────────────────────────────────────
+tools: [Read, Grep, Glob]   # Allowed tools. Omit to inherit all.
+disallowedTools: []         # Denylist. Applied before tools allowlist (Claude).
+readonly: false             # Restrict to read-only tools (Cursor/Antigravity).
+
+# ── Group 4: Permissions & Invocation Control ───────────────
+permissionMode: default     # default | acceptEdits | auto | dontAsk | bypassPermissions | plan (Claude).
+disableModelInvocation: false  # Prevent automatic agent selection (Copilot/Cursor).
+userInvocable: true         # false = programmatic-only access (Copilot).
+
+# ── Group 5: Lifecycle ──────────────────────────────────────
+background: false           # Run as background task (Claude/Cursor/Antigravity).
+isolation: ""               # "worktree" for git worktree isolation (Claude).
+when: ""                    # Compile-time conditional (xcaffold-specific).
+
+# ── Group 6: Memory & Context ───────────────────────────────
+memory: ""                  # Claude memory scope: user | project | local.
+color: ""                   # Display color (Claude): red/blue/green/yellow/purple/orange/pink/cyan.
+initialPrompt: ""           # Auto-submitted first turn (Claude).
+
+# ── Group 7: Composition (references) ───────────────────────
+skills: []                  # Skills loaded into agent context.
+rules: []                   # Rules applied to this agent.
+mcp: []                     # MCP server references (by name).
+assertions: []              # Test assertions (evaluated by xcaffold test --judge).
+
+# ── Group 8: Inline Composition ─────────────────────────────
+# mcpServers:                 # Inline MCP server definitions.
+#   my-server:
+#     command: "/path/to/server"
+#     args: ["--flag"]
+
+# hooks:                      # Lifecycle hooks scoped to this agent.
+#   PreToolUse:
+#     - matcher: "Bash"
+#       hooks:
+#         - type: command
+#           command: "validate.sh"
+
+# ── Group 9: Multi-Target (per-provider overrides) ──────────
+# targets:
+#   gemini:
+#     instructions_override: |
+#       Alternative body for Gemini only.
+#     suppress_fidelity_warnings: false
+#     skip_synthesis: false
+#     provider:                  # Provider-native pass-through fields.
+#       temperature: 0.7         # Gemini: 0.0-2.0, default 1.0
+#       timeout_mins: 15         # Gemini: max execution time, default 10
+#       kind: local              # Gemini: local | remote (A2A protocol)
+#   copilot:
+#     provider:
+#       target: github-copilot   # Copilot: vscode | github-copilot
+#       metadata:                # Copilot: custom name/value annotations
+#         category: review
+
+# ── Group 10: Instructions (always last) ────────────────────
+instructions: |
+  Your agent instructions here. This becomes the body of the compiled
+  markdown file (e.g., .claude/agents/my-agent.md).
+
+# OR reference an external file (mutually exclusive with instructions):
+# instructions_file: "agents/my-agent.md"
+`
+}
