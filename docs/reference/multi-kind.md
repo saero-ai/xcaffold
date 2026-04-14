@@ -2,7 +2,7 @@
 
 xcaffold supports multi-kind YAML documents where each resource gets its own `kind:` discriminator. Resources can live in a single file (separated by `---`) or in individual `.xcf` files that `ParseDirectory` merges automatically.
 
-> **Parsing**: All multi-kind documents are decoded with `KnownFields(true)`. Unknown fields cause an immediate parse error. This is the same fail-closed behavior as monolithic `kind: config` files.
+> **Parsing**: All multi-kind documents are decoded with `KnownFields(true)`. Unknown fields cause an immediate parse error.
 
 ---
 
@@ -18,7 +18,8 @@ xcaffold supports multi-kind YAML documents where each resource gets its own `ki
 | `mcp` | No | No | MCP server definition |
 | `hooks` | No | Yes | Lifecycle event handlers |
 | `settings` | No | Yes | Platform settings |
-| `config` | No | Yes | Legacy monolithic format (backward compatible) |
+| `global` | No | Yes | Global-scope configuration (resources + settings, no project metadata) |
+| `policy` | No | No | Declarative constraint (require/deny rules) |
 
 **Singleton** kinds do not carry a `name` field and can only appear once per merged config. Non-singleton kinds are keyed by `name` and support multiple instances.
 
@@ -30,7 +31,7 @@ Every multi-kind document begins with envelope fields that identify the resource
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `kind` | `string` | **Required** | Resource type discriminator. One of the values in the table above. When omitted or set to `config`, the document is decoded as a legacy monolithic `XcaffoldConfig`. |
+| `kind` | `string` | **Required** | Required. Must be one of the supported kind values listed above. |
 | `version` | `string` | **Required** | Schema version. Current: `"1.0"`. |
 | `name` | `string` | Required for non-singleton kinds | Unique identifier for the resource. Used as the map key when merging. Duplicate names within the same kind cause a parse error. |
 
@@ -42,7 +43,7 @@ Singleton kinds (`hooks`, `settings`) skip the `name` check. The `project` kind 
 
 Project-level metadata and child resource references. Exactly one `project` document is expected per merged config.
 
-> **YAML field collision note**: In a `kind: project` document, the fields `agents`, `skills`, `rules`, `workflows`, and `mcp` are `[]string` reference lists (bare names linking to child `.xcf` files). This differs from the monolithic `kind: config` format where these same YAML keys map to `map[string]<Type>` inline definitions. The parser uses a separate `projectDocFields` struct to avoid the type collision.
+> **YAML field collision note**: In a `kind: project` document, the fields `agents`, `skills`, `rules`, `workflows`, and `mcp` are `[]string` reference lists (bare names linking to child `.xcf` files). The parser uses a separate `projectDocFields` struct to decode these without colliding with the `map[string]<Type>` inline definitions used by other kinds.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -61,6 +62,7 @@ Project-level metadata and child resource references. Exactly one `project` docu
 | `rules` | `[]string` | Optional | Bare names of child rule `.xcf` files to include. |
 | `workflows` | `[]string` | Optional | Bare names of child workflow `.xcf` files to include. |
 | `mcp` | `[]string` | Optional | Bare names of child MCP `.xcf` files to include. |
+| `policies` | `[]string` | Optional | Bare names of child policy `.xcf` files to include. |
 | `test` | `TestConfig` | Optional | Configuration for `xcaffold test`. |
 | `local` | `SettingsConfig` | Optional | Project-level settings overrides. |
 
@@ -445,26 +447,43 @@ sandbox:
 
 ---
 
-## kind: config
+## kind: global
 
-Legacy monolithic format. A single document containing all resources inline under their respective map keys (`agents:`, `skills:`, `rules:`, etc.) alongside `project:` and `settings:` blocks. This is the original xcaffold format and remains fully supported.
+Global-scope configuration for `~/.xcaffold/global.xcf`. Contains shared resources
+(agents, skills, rules, workflows, MCP, hooks, policies) and settings that apply
+across all projects. Does not contain project metadata.
 
-When `kind` is omitted or set to `"config"`, the document is decoded as a full `XcaffoldConfig` struct. All fields documented in the [Schema Reference](schema.md) are valid.
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `kind` | `string` | **Required** | `"global"` |
+| `version` | `string` | **Required** | Schema version. |
+| `extends` | `string` | Optional | Path to parent config for inheritance. |
+| `settings` | `SettingsConfig` | Optional | Global settings. |
+| `agents` | `map[string]AgentConfig` | Optional | Inline global agent definitions. |
+| `skills` | `map[string]SkillConfig` | Optional | Inline global skill definitions. |
+| `rules` | `map[string]RuleConfig` | Optional | Inline global rule definitions. |
+| `workflows` | `map[string]WorkflowConfig` | Optional | Inline global workflow definitions. |
+| `mcp` | `map[string]MCPConfig` | Optional | Inline global MCP definitions. |
+| `hooks` | `HookConfig` | Optional | Global lifecycle hooks. |
+| `policies` | `map[string]PolicyConfig` | Optional | Inline global policy definitions. |
 
-```yaml
-# kind: config is implied when kind is omitted
-version: "1.0"
-project:
-  name: my-project
-agents:
-  developer:
-    description: Backend developer
-    instructions: Write clean Go code.
-skills:
-  tdd:
-    description: TDD workflow
-    instructions: Red-Green-Refactor.
-```
+---
+
+## kind: policy
+
+Declarative constraint evaluated against the AST and compiled output.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `kind` | `string` | **Required** | `"policy"` |
+| `version` | `string` | **Required** | Schema version. |
+| `name` | `string` | **Required** | Unique policy identifier. |
+| `description` | `string` | Optional | Human-readable explanation. |
+| `severity` | `string` | **Required** | `"error"`, `"warning"`, or `"off"`. |
+| `target` | `string` | **Required** | `"agent"`, `"skill"`, `"rule"`, `"hook"`, `"settings"`, or `"output"`. |
+| `match` | `PolicyMatch` | Optional | Filter conditions (AND-ed). |
+| `require` | `[]PolicyRequire` | Optional | Field value constraints. |
+| `deny` | `[]PolicyDeny` | Optional | Forbidden content/path patterns. |
 
 ---
 
@@ -505,10 +524,3 @@ instructions: Use table-driven tests.
 
 In a `kind: project` document, the fields `agents`, `skills`, `rules`, `workflows`, and `mcp` are `[]string` reference lists. These bare names tell `ParseDirectory` which child `.xcf` files to include. The actual resource definitions live in separate files (e.g. `xcf/agents/developer.xcf`), each with their own `kind: agent` header.
 
----
-
-## Backward Compatibility
-
-`kind: config` (and documents with `kind` omitted) remain permanently supported. Existing monolithic `scaffold.xcf` files parse identically to previous versions. The multi-kind format is additive -- it does not deprecate or remove any existing functionality.
-
-The two formats can coexist in the same directory: `ParseDirectory` handles both `kind: config` files and individual `kind: <resource>` files, merging them into a single AST with the same strict dedup rules.

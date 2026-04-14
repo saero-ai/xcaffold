@@ -147,6 +147,26 @@ erDiagram
         string instructions
         string instructions_file
     }
+    PolicyConfig {
+        string name
+        string description
+        string severity
+        string target
+    }
+    PolicyMatch {
+        string name_glob
+        string has_field
+    }
+    PolicyRequire {
+        string field
+        string_list one_of
+        int min_length
+    }
+    PolicyDeny {
+        string field_matches
+        string_list content_contains
+        string path_glob
+    }
 
     XcaffoldConfig ||--o| ProjectConfig : "project"
     XcaffoldConfig ||--o{ AgentConfig : "agents"
@@ -165,6 +185,13 @@ erDiagram
     ProjectConfig ||--o| HookConfig : "hooks"
     ProjectConfig ||--o{ MCPConfig : "mcp"
     ProjectConfig ||--o{ WorkflowConfig : "workflows"
+
+    XcaffoldConfig ||--o{ PolicyConfig : "policies"
+    ProjectConfig ||--o{ PolicyConfig : "policies"
+
+    PolicyConfig ||--o| PolicyMatch : "match"
+    PolicyConfig ||--o{ PolicyRequire : "require"
+    PolicyConfig ||--o{ PolicyDeny : "deny"
 
     AgentConfig ||--o{ TargetOverride : "targets"
     AgentConfig ||--o{ MCPConfig : "mcpServers"
@@ -189,8 +216,9 @@ The `kind` field is the document type discriminator. Each `.xcf` file (or YAML d
 
 | Kind | Description | Decode struct | Required fields |
 |---|---|---|---|
-| `config` | Legacy monolithic format. Contains all resources inline under `project:`, `agents:`, `skills:`, etc. Backward compatible — omitting `kind` is treated as `config`. | `XcaffoldConfig` (direct) | `version` |
 | `project` | Project manifest. Declares the project name, compilation targets, and child resource references as bare name lists (`agents: [dev, qa]`). Exactly one per project. | `projectDocFields` | `version`, `name` |
+| `global` | Global-scope configuration for `~/.xcaffold/global.xcf`. Contains resources and settings without project metadata. | `XcaffoldConfig` (direct) | `version` |
+| `policy` | Declarative constraint evaluated against AST and compiled output during `apply` and `validate`. | `PolicyConfig` (with envelope) | `version`, `name` |
 | `agent` | Standalone agent definition. All `AgentConfig` fields at the top level. | `AgentConfig` (with envelope) | `version`, `name` |
 | `skill` | Standalone skill definition. All `SkillConfig` fields at the top level. | `SkillConfig` (with envelope) | `version`, `name` |
 | `rule` | Standalone rule definition. All `RuleConfig` fields at the top level. | `RuleConfig` (with envelope) | `version`, `name` |
@@ -198,13 +226,13 @@ The `kind` field is the document type discriminator. Each `.xcf` file (or YAML d
 | `mcp` | Standalone MCP server definition. All `MCPConfig` fields at the top level. | `MCPConfig` (with envelope) | `version`, `name` |
 | `hooks` | Standalone hooks definition. Uses an `events:` wrapper containing the `HookConfig` map. | `hooksDocument` | `version` |
 | `settings` | Standalone settings definition. All `SettingsConfig` fields at the top level (inlined). | `settingsDocument` | `version` |
-| `policy` | Standalone policy definition. Declarative constraint evaluated during apply and validate. Semantic validation enforces `severity` (`error`/`warning`/`off`) and `target` (`agent`/`skill`/`rule`/`hook`/`settings`/`output`) enums. | `PolicyConfig` (with envelope) | `version`, `name` |
+| `policy` | Standalone policy definition. Declarative constraint evaluated during `apply` and `validate`. Semantic validation enforces `severity` (`error`/`warning`/`off`) and `target` (`agent`/`skill`/`rule`/`hook`/`settings`/`output`) enums. | `PolicyConfig` (with envelope) | `version`, `name` |
 
 ### `kind: project` semantics
 
-In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `mcp`, and `policies` keys are decoded as `[]string` (bare name lists), not as the `map[string]Config` structures used in `kind: config`. This is achieved via a separate decode struct (`projectDocFields`) that maps these YAML keys to `AgentRefs`, `SkillRefs`, `RuleRefs`, `WorkflowRefs`, `MCPRefs`, and `PolicyRefs` on `ProjectConfig`. These reference lists name child resources defined in sibling documents (same file via `---` separators, or separate `.xcf` files in the `xcf/` directory).
+In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `mcp`, and `policies` keys are decoded as `[]string` (bare name lists), not as the `map[string]Config` inline definition structures used in other document kinds. This is achieved via a separate decode struct (`projectDocFields`) that maps these YAML keys to `AgentRefs`, `SkillRefs`, `RuleRefs`, `WorkflowRefs`, `MCPRefs`, and `PolicyRefs` on `ProjectConfig`. These reference lists name child resources defined in sibling documents (same file via `---` separators, or separate `.xcf` files in the `xcf/` directory).
 
-The `targets` key on `kind: project` is also a `[]string` listing compilation targets (e.g., `["claude", "antigravity"]`). It is stored on `ProjectConfig.Targets` (tagged `yaml:"-"` — only populated by the parser for `kind: project` documents, never by legacy `kind: config` decoding).
+The `targets` key on `kind: project` is also a `[]string` listing compilation targets (e.g., `["claude", "antigravity"]`). It is stored on `ProjectConfig.Targets` (tagged `yaml:"-"` — only populated by the parser for `kind: project` documents).
 
 ### Multi-document files
 
@@ -276,7 +304,7 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `kind` | `string` | Optional | Document type discriminator. See [Supported Kinds](#supported-kinds) for the full list. When omitted, the document is treated as `config` for backward compatibility. Non-config files (e.g. `registry.xcf`) use `kind: registry` and are skipped by the directory scanner. |
+| `kind` | `string` | **Required** | Document type discriminator. See [Supported Kinds](#supported-kinds) for the full list. Non-config files (e.g. `registry.xcf`) use `kind: registry` and are skipped by the directory scanner. |
 | `version` | `string` | **Required** | Schema version. Current: `"1.0"`. |
 | `project` | `*ProjectConfig` | Project scope only | Project-level metadata and workspace-scoped resources. `nil` for global configs. |
 | `extends` | `string` | Optional (project only) | Path to a parent `.xcf` config. Use `"global"` to reference `~/.xcaffold/global.xcf` for validation and visualization. Does not affect compiled output. |
@@ -308,7 +336,7 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `repository` | `string` | Optional | Source control URL. |
 | `license` | `string` | Optional | SPDX license identifier. |
 | `backup_dir` | `string` | Optional | Directory for `xcaffold apply --backup` output. Defaults to `.<target>_bak_<timestamp>` in the project root. |
-| `targets` | `[]string` | Optional | Compilation targets (e.g., `["claude", "antigravity"]`). Only populated via `kind: project` documents — tagged `yaml:"-"` and ignored by legacy `kind: config` decoding. |
+| `targets` | `[]string` | Optional | Compilation targets (e.g., `["claude", "antigravity"]`). Only populated via `kind: project` documents — tagged `yaml:"-"`. |
 | `agentRefs` | `[]string` | Optional | Bare name references to child agent resources. Only populated via `kind: project` documents. |
 | `skillRefs` | `[]string` | Optional | Bare name references to child skill resources. Only populated via `kind: project` documents. |
 | `ruleRefs` | `[]string` | Optional | Bare name references to child rule resources. Only populated via `kind: project` documents. |
@@ -685,6 +713,51 @@ Defines a named, reusable workflow. Compiled to `workflows/<id>.md`.
 > **Antigravity-only.** Workflows are compiled to `workflows/<id>.md` with YAML frontmatter containing only `description`. Claude and Cursor renderers silently ignore all workflow definitions.
 >
 > **AgentsMD**: Workflows are emitted under a `## Workflows` section.
+
+---
+
+## `PolicyConfig`
+
+Defines a declarative constraint evaluated against the AST and compiled output during `xcaffold apply` and `xcaffold validate`. Policies are not compiled to a file on disk — they run in-process and emit diagnostics.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | **Required** | Unique policy identifier. |
+| `description` | `string` | Optional | Human-readable explanation of the policy's intent. |
+| `severity` | `string` | **Required** | Diagnostic severity: `"error"` (blocks apply), `"warning"` (emits to stderr), or `"off"` (disabled). |
+| `target` | `string` | **Required** | Resource type the policy applies to: `"agent"`, `"skill"`, `"rule"`, `"hook"`, `"settings"`, or `"output"`. |
+| `match` | `PolicyMatch` | Optional | Filter conditions applied before evaluation. All conditions are AND-ed. |
+| `require` | `[]PolicyRequire` | Optional | Field value constraints. Each entry must pass for the policy to be satisfied. |
+| `deny` | `[]PolicyDeny` | Optional | Forbidden content or path patterns. A single match causes the policy to fail. |
+
+### `PolicyMatch`
+
+Narrows which resources a policy applies to. All specified conditions must match (AND logic).
+
+| Field | Type | Description |
+|---|---|---|
+| `name_glob` | `string` | Glob pattern matched against the resource name (e.g., `"*-prod"` matches `agent-prod`). |
+| `has_field` | `string` | Field that must be present (non-zero) on the resource for the policy to apply. |
+
+### `PolicyRequire`
+
+Asserts a field meets a value constraint.
+
+| Field | Type | Description |
+|---|---|---|
+| `field` | `string` | Dot-path to the field to check (e.g., `"model"`, `"permissions.defaultMode"`). |
+| `one_of` | `[]string` | Allowed values. The policy passes if the field value appears in this list. |
+| `min_length` | `int` | Minimum string length or minimum list length. Fails if the field is shorter. |
+
+### `PolicyDeny`
+
+Asserts forbidden content does not appear in a resource or its compiled output.
+
+| Field | Type | Description |
+|---|---|---|
+| `field_matches` | `string` | Regex matched against a field value. A match causes the policy to fail. |
+| `content_contains` | `[]string` | Substrings that must not appear in the compiled output file (applies when `target: output`). |
+| `path_glob` | `string` | File path pattern that must not exist in the compiled output. |
 
 ---
 
