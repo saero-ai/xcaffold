@@ -813,6 +813,39 @@ require:
 	assert.True(t, ok)
 }
 
+func TestParseFile_MultiKind_PolicyCrossRef_Missing_Error(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+name: my-api
+policies:
+  - nonexistent-policy
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "references policy \"nonexistent-policy\"")
+}
+
+func TestParseFile_MultiKind_PolicyCrossRef_Valid(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+name: my-api
+policies:
+  - my-policy
+---
+kind: policy
+version: "1.0"
+name: my-policy
+severity: warning
+target: agent
+require:
+  - field: description
+    is_present: true
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"my-policy"}, config.Project.PolicyRefs)
+}
+
 func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()

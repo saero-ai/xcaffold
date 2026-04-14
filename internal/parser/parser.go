@@ -1132,6 +1132,14 @@ func validateCrossReferences(c *ast.XcaffoldConfig) error {
 		}
 	}
 
+	if c.Project != nil {
+		for _, policyRef := range c.Project.PolicyRefs {
+			if _, ok := c.Policies[policyRef]; !ok {
+				return fmt.Errorf("project references policy %q but no policy with that name was found", policyRef)
+			}
+		}
+	}
+
 	return nil
 }
 
