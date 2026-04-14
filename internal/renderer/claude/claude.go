@@ -218,6 +218,12 @@ func appendAgentConfigMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	if agent.PermissionMode != "" {
 		fmt.Fprintf(sb, "permissionMode: %s\n", agent.PermissionMode)
 	}
+	if agent.DisableModelInvocation != nil {
+		fmt.Fprintf(sb, "disableModelInvocation: %t\n", *agent.DisableModelInvocation)
+	}
+	if agent.UserInvocable != nil {
+		fmt.Fprintf(sb, "userInvocable: %t\n", *agent.UserInvocable)
+	}
 	if agent.Background != nil {
 		fmt.Fprintf(sb, "background: %t\n", *agent.Background)
 	}

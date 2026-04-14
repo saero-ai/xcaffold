@@ -261,3 +261,27 @@ func TestClaudeRenderer_Compile_Agent_ReadonlyFalse_NoToolsSynthesized(t *testin
 	content := out.Files["agents/writer.md"]
 	assert.NotContains(t, content, "tools:", "readonly: false must not synthesize tools")
 }
+
+func TestClaudeRenderer_Compile_Agent_InvocationControl(t *testing.T) {
+	truthy := true
+	falsy := false
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"commit": {
+					Description:            "Commit workflow agent.",
+					DisableModelInvocation: &truthy,
+					UserInvocable:          &falsy,
+				},
+			},
+		},
+	}
+
+	out, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/commit.md"]
+	require.Contains(t, content, "disableModelInvocation: true")
+	require.Contains(t, content, "userInvocable: false")
+}
