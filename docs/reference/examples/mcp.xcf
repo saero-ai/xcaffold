@@ -1,13 +1,22 @@
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: mcp-example
-  mcp:
-    local-db:
-      type: stdio
-      command: "sqlite3"
-    remote-api:
-      type: sse
-      url: "https://api.example.com/mcp"
-      headers:
-        "Authorization": "Bearer token"
+name: mcp-example
+mcp:
+  - local-db
+  - remote-api
+
+---
+kind: mcp
+version: "1.0"
+name: local-db
+type: stdio
+command: "sqlite3"
+
+---
+kind: mcp
+version: "1.0"
+name: remote-api
+type: sse
+url: "https://api.example.com/mcp"
+headers:
+  "Authorization": "Bearer token"

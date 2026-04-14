@@ -1,0 +1,6 @@
+kind: policy
+version: "1.0"
+name: agent-has-description
+description: Override built-in -- allow agents without descriptions during migration
+severity: off
+target: agent

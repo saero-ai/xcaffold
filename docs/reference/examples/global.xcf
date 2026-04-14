@@ -1,4 +1,4 @@
-kind: config
+kind: global
 version: "1.0"
 settings:
   disableSkillShellExecution: true

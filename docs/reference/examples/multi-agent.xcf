@@ -1,18 +1,37 @@
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: multi-agent-example
-  agents:
-    frontend:
-      instructions: "Frontend dev"
-      skills: ["react-skill"]
-    backend:
-      instructions: "Backend dev"
-      tools: ["Bash"]
-      rules: ["secure-coding"]
-  skills:
-    react-skill:
-      instructions: "Use React."
-  rules:
-    secure-coding:
-      instructions: "No secrets in plaintext."
+name: multi-agent-example
+agents:
+  - frontend
+  - backend
+skills:
+  - react-skill
+rules:
+  - secure-coding
+
+---
+kind: agent
+version: "1.0"
+name: frontend
+instructions: "Frontend dev"
+skills: [react-skill]
+
+---
+kind: agent
+version: "1.0"
+name: backend
+instructions: "Backend dev"
+tools: [Bash]
+rules: [secure-coding]
+
+---
+kind: skill
+version: "1.0"
+name: react-skill
+instructions: "Use React."
+
+---
+kind: rule
+version: "1.0"
+name: secure-coding
+instructions: "No secrets in plaintext."

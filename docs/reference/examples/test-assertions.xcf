@@ -1,11 +1,15 @@
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: test-example
-  agents:
-    tester:
-      instructions: "Say hello"
-      assertions:
-        - "Never use shell tools"
-  test:
-    judge_model: claude-haiku-4-5-20251001
+name: test-example
+agents:
+  - tester
+test:
+  judge_model: claude-haiku-4-5-20251001
+
+---
+kind: agent
+version: "1.0"
+name: tester
+instructions: "Say hello"
+assertions:
+  - "Never use shell tools"

@@ -1,7 +1,11 @@
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: minimal-example
-  agents:
-    demo:
-      instructions: "You are a minimal agent."
+name: minimal-example
+agents:
+  - demo
+
+---
+kind: agent
+version: "1.0"
+name: demo
+instructions: "You are a minimal agent."

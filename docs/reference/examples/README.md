@@ -11,3 +11,6 @@ This directory provides standalone snippet files demonstrating different `.xcf` 
 - [multi-kind.xcf](multi-kind.xcf) - Multi-kind format with kind: project, agent, skill, rule, and hooks in one file
 - [test-assertions.xcf](test-assertions.xcf) - Defining rules for LLM-as-a-Judge test loops
 - [xcaffold-diff.yml](xcaffold-diff.yml) - A GitHub Actions CI workflow script
+- [policy-require.xcf](policy-require.xcf) - Requiring agents to use an approved model identifier
+- [policy-deny.xcf](policy-deny.xcf) - Blocking compiled output that contains TODO or FIXME markers
+- [policy-override.xcf](policy-override.xcf) - Silencing a built-in policy check during a migration window
