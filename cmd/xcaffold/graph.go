@@ -23,10 +23,11 @@ var graphScanOutput bool
 var graphAll bool
 
 const (
-	kindAgent = "agent"
-	kindSkill = "skill"
-	kindRule  = "rule"
-	kindMCP   = "mcp"
+	kindAgent  = "agent"
+	kindSkill  = "skill"
+	kindRule   = "rule"
+	kindMCP    = "mcp"
+	kindPolicy = "policy"
 )
 
 var graphCmd = &cobra.Command{
@@ -291,6 +292,7 @@ func buildGraph(config *ast.XcaffoldConfig) *graphData {
 	appendGraphSkills(config, g)
 	appendGraphRules(config, g)
 	appendGraphMCP(config, g)
+	appendGraphPolicies(config, g)
 	appendGraphAgents(config, g)
 	appendGraphHooks(config, g)
 	appendGraphWorkflows(config, g)
@@ -397,6 +399,18 @@ func appendGraphAgents(config *ast.XcaffoldConfig, g *graphData) {
 	}
 }
 
+func appendGraphPolicies(config *ast.XcaffoldConfig, g *graphData) {
+	for _, id := range sortedKeys(config.Policies) {
+		p := config.Policies[id]
+		g.Nodes = append(g.Nodes, graphNode{
+			ID:    "policy:" + id,
+			Kind:  kindPolicy,
+			Label: id,
+			Meta:  map[string]string{"severity": p.Severity, "target": p.Target},
+		})
+	}
+}
+
 func appendGraphHooks(config *ast.XcaffoldConfig, g *graphData) {
 	for _, event := range sortedKeys(config.Hooks) {
 		g.Nodes = append(g.Nodes, graphNode{
@@ -447,7 +461,7 @@ func renderTerminal(g *graphData) string {
 }
 
 func renderTerminalHeader(g *graphData) string {
-	agents, skills, rules, mcps, hooks := 0, 0, 0, 0, 0
+	agents, skills, rules, mcps, hooks, policies := 0, 0, 0, 0, 0, 0
 	for _, n := range g.Nodes {
 		switch n.Kind {
 		case kindAgent:
@@ -458,6 +472,8 @@ func renderTerminalHeader(g *graphData) string {
 			rules++
 		case kindMCP:
 			mcps++
+		case kindPolicy:
+			policies++
 		case "hook":
 			hooks++
 		}
@@ -472,6 +488,9 @@ func renderTerminalHeader(g *graphData) string {
 	}
 	if mcps > 0 {
 		parts = append(parts, fmt.Sprintf("%d mcp servers", mcps))
+	}
+	if policies > 0 {
+		parts = append(parts, fmt.Sprintf("%d policies", policies))
 	}
 	if hooks > 0 {
 		parts = append(parts, fmt.Sprintf("%d hooks", hooks))
@@ -540,7 +559,7 @@ func renderTerminalOrphans(g *graphData) string {
 	for _, e := range g.Edges {
 		referenced[e.To] = true
 	}
-	orphanSkills, orphanRules, orphanMCP := []string{}, []string{}, []string{}
+	orphanSkills, orphanRules, orphanMCP, orphanPolicies := []string{}, []string{}, []string{}, []string{}
 	for _, n := range g.Nodes {
 		if n.Kind == kindSkill && !referenced[n.ID] {
 			orphanSkills = append(orphanSkills, n.Label)
@@ -551,16 +570,22 @@ func renderTerminalOrphans(g *graphData) string {
 		if n.Kind == kindMCP && !referenced[n.ID] {
 			orphanMCP = append(orphanMCP, n.Label)
 		}
+		if n.Kind == kindPolicy && !referenced[n.ID] {
+			orphanPolicies = append(orphanPolicies, n.Label)
+		}
 	}
 	var sb strings.Builder
 	if len(orphanSkills) > 0 {
-		fmt.Fprintf(&sb, "  Unreferenced skills:  %s\n", strings.Join(orphanSkills, ", "))
+		fmt.Fprintf(&sb, "  Unreferenced skills:    %s\n", strings.Join(orphanSkills, ", "))
 	}
 	if len(orphanRules) > 0 {
-		fmt.Fprintf(&sb, "  Unreferenced rules:   %s\n", strings.Join(orphanRules, ", "))
+		fmt.Fprintf(&sb, "  Unreferenced rules:     %s\n", strings.Join(orphanRules, ", "))
 	}
 	if len(orphanMCP) > 0 {
-		fmt.Fprintf(&sb, "  Unreferenced mcp:     %s\n", strings.Join(orphanMCP, ", "))
+		fmt.Fprintf(&sb, "  Unreferenced mcp:       %s\n", strings.Join(orphanMCP, ", "))
+	}
+	if len(orphanPolicies) > 0 {
+		fmt.Fprintf(&sb, "  Unreferenced policies:  %s\n", strings.Join(orphanPolicies, ", "))
 	}
 	return sb.String()
 }
@@ -797,7 +822,7 @@ func renderMermaid(g *graphData) string {
 	sb.WriteString("```mermaid\ngraph LR\n")
 
 	// Subgraphs by kind
-	agentNodes, skillNodes, ruleNodes, mcpNodes := []graphNode{}, []graphNode{}, []graphNode{}, []graphNode{}
+	agentNodes, skillNodes, ruleNodes, mcpNodes, policyNodes := []graphNode{}, []graphNode{}, []graphNode{}, []graphNode{}, []graphNode{}
 	for _, n := range g.Nodes {
 		switch n.Kind {
 		case kindAgent:
@@ -808,6 +833,8 @@ func renderMermaid(g *graphData) string {
 			ruleNodes = append(ruleNodes, n)
 		case kindMCP:
 			mcpNodes = append(mcpNodes, n)
+		case kindPolicy:
+			policyNodes = append(policyNodes, n)
 		}
 	}
 
@@ -815,6 +842,7 @@ func renderMermaid(g *graphData) string {
 	appendMermaidSimpleSub(&sb, "Skills", skillNodes)
 	appendMermaidSimpleSub(&sb, "Rules", ruleNodes)
 	appendMermaidSimpleSub(&sb, "MCP", mcpNodes)
+	appendMermaidSimpleSub(&sb, "Policies", policyNodes)
 
 	// Edges
 	for _, e := range g.Edges {
@@ -859,11 +887,12 @@ func renderDOT(g *graphData) string {
 	sb.WriteString("  node  [fontname=Helvetica shape=box style=rounded]\n\n")
 
 	colors := map[string]string{
-		"agent": "#4A90D9",
-		"skill": "#7ED321",
-		"rule":  "#F5A623",
-		"mcp":   "#9B59B6",
-		"hook":  "#E74C3C",
+		"agent":  "#4A90D9",
+		"skill":  "#7ED321",
+		"rule":   "#F5A623",
+		"mcp":    "#9B59B6",
+		"hook":   "#E74C3C",
+		"policy": "#E67E22",
 	}
 	for _, n := range g.Nodes {
 		color := colors[n.Kind]
@@ -929,7 +958,7 @@ func renderTerminalSummary(scopes []*graphData) string {
 
 //nolint:gocyclo
 func renderScopeSummary(sb *strings.Builder, g *graphData) {
-	var agents, skills, rules, mcp, orphans int
+	var agents, skills, rules, mcp, policies, orphans int
 	for _, n := range g.Nodes {
 		switch n.Kind {
 		case kindAgent:
@@ -940,6 +969,8 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 			rules++
 		case kindMCP:
 			mcp++
+		case kindPolicy:
+			policies++
 		}
 	}
 
@@ -982,6 +1013,9 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 	}
 	if mcp > 0 {
 		lines = append(lines, summaryLine{"MCP Servers", kindMCP, mcp})
+	}
+	if policies > 0 {
+		lines = append(lines, summaryLine{"Policies", kindPolicy, policies})
 	}
 	if orphans > 0 {
 		lines = append(lines, summaryLine{"Unreferenced Skills", kindSkill, orphans})
