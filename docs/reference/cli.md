@@ -32,10 +32,13 @@ On first run, detects existing `.claude/`, `.cursor/`, and `.agents/` platform d
 
 With `--global`, runs `registry.RebuildGlobalXCF()` to scan `~/.claude/`, `~/.cursor/`, and `~/.agents/` and write `~/.xcaffold/global.xcf`.
 
+Also generates `xcf/references/` — an annotated, non-parsed reference template directory containing `agent.xcf.reference`. Users copy fields from these reference files into their `scaffold.xcf` as needed. Use `--no-references` to skip this step.
+
 | Flag | Short | Default | Description |
 |---|---|---|---|
 | `--yes` | `-y` | `false` | Accept all defaults non-interactively. Suitable for CI/CD. |
 | `--template <name>` | — | `""` | Use a pre-built topology template. Values: `rest-api`, `cli-tool`, `frontend-app`. |
+| `--no-references` | — | `false` | Skip generation of `xcf/references/` field reference templates. |
 
 ---
 
