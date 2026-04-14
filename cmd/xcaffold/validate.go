@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/spf13/cobra"
 )
 
@@ -75,6 +78,28 @@ func runValidate(cmd *cobra.Command, args []string) error {
 			}
 		} else {
 			fmt.Fprintf(os.Stdout, "structural checks: ok\n")
+		}
+	}
+
+	// Policy evaluation (requires compilation)
+	if !hasErrors {
+		configSnapshot := deepCopyConfig(cfg)
+		compiled, compileErr := compiler.Compile(cfg, filepath.Dir(validatePath), targetFlag)
+		if compileErr != nil {
+			fmt.Fprintf(os.Stdout, "\npolicy check skipped: compilation error: %v\n", compileErr)
+		} else {
+			violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
+			policyErrors := policy.FilterBySeverity(violations, policy.SeverityError)
+			policyWarnings := policy.FilterBySeverity(violations, policy.SeverityWarning)
+
+			if len(policyWarnings) > 0 {
+				fmt.Fprintf(os.Stdout, "\n%s", policy.FormatViolations(policyWarnings))
+			}
+			if len(policyErrors) > 0 {
+				fmt.Fprintf(os.Stdout, "\n%s", policy.FormatViolations(policyErrors))
+				return fmt.Errorf("validation failed: %d policy error(s) found", len(policyErrors))
+			}
+			fmt.Fprintf(os.Stdout, "policies: ok\n")
 		}
 	}
 
