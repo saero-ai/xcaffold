@@ -846,6 +846,42 @@ require:
 	assert.Equal(t, []string{"my-policy"}, config.Project.PolicyRefs)
 }
 
+func TestParseDirectory_PolicyInSubdir(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	// main.xcf: project referencing a policy
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcf"), []byte(`kind: project
+version: "1.0"
+name: test-project
+policies:
+  - approved-model
+`), 0644))
+
+	// xcf/policies/approved-model.xcf: policy in subdirectory
+	policiesDir := filepath.Join(dir, "xcf", "policies")
+	require.NoError(t, os.MkdirAll(policiesDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(policiesDir, "approved-model.xcf"), []byte(`kind: policy
+version: "1.0"
+name: approved-model
+severity: error
+target: agent
+require:
+  - field: model
+    one_of:
+      - claude-sonnet-4-5-20250514
+`), 0644))
+
+	config, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	require.NotNil(t, config.Policies)
+	p, ok := config.Policies["approved-model"]
+	require.True(t, ok, "policy should be discovered from xcf/policies/ subdirectory")
+	assert.Equal(t, "error", p.Severity)
+	assert.Equal(t, "agent", p.Target)
+	assert.Equal(t, []string{"approved-model"}, config.Project.PolicyRefs)
+}
+
 func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()

@@ -132,6 +132,12 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 					}
 					config.MCP[k] = v
 				}
+				for k, v := range partial.Policies {
+					if config.Policies == nil {
+						config.Policies = make(map[string]ast.PolicyConfig)
+					}
+					config.Policies[k] = v
+				}
 			}
 
 		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "policy":
@@ -493,6 +499,7 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	ruleOrigins := map[string]string{}
 	mcpOrigins := map[string]string{}
 	workflowOrigins := map[string]string{}
+	policyOrigins := map[string]string{}
 	settingsOrigin := ""
 	localOrigin := ""
 
@@ -561,6 +568,9 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			if len(p.Project.MCPRefs) > 0 {
 				merged.Project.MCPRefs = p.Project.MCPRefs
 			}
+			if len(p.Project.PolicyRefs) > 0 {
+				merged.Project.PolicyRefs = p.Project.PolicyRefs
+			}
 		}
 
 		if p.Extends != "" {
@@ -591,6 +601,11 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		}
 
 		merged.Workflows, workflowOrigins, err = mergeMapStrict(merged.Workflows, p.Workflows, "workflow", workflowOrigins, f)
+		if err != nil {
+			return nil, err
+		}
+
+		merged.Policies, policyOrigins, err = mergeMapStrict(merged.Policies, p.Policies, "policy", policyOrigins, f)
 		if err != nil {
 			return nil, err
 		}
@@ -730,6 +745,9 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 			if len(child.Project.MCPRefs) > 0 {
 				merged.Project.MCPRefs = child.Project.MCPRefs
 			}
+			if len(child.Project.PolicyRefs) > 0 {
+				merged.Project.PolicyRefs = child.Project.PolicyRefs
+			}
 			// Test override
 			if child.Project.Test.CliPath != "" {
 				merged.Project.Test.CliPath = child.Project.Test.CliPath
@@ -758,6 +776,7 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.Rules = mergeRulesOverrideInherited(base.Rules, child.Rules)
 	merged.MCP = mergeMCPOverrideInherited(base.MCP, child.MCP)
 	merged.Workflows = mergeWorkflowsOverrideInherited(base.Workflows, child.Workflows)
+	merged.Policies = mergeMapOverride(base.Policies, child.Policies)
 	merged.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
 
 	merged.Settings = mergeSettingsOverride(base.Settings, child.Settings)
@@ -1068,6 +1087,9 @@ func validateIDs(c *ast.XcaffoldConfig) error {
 		return err
 	}
 	if err := validateResourceIDs(c.Workflows, "workflow"); err != nil {
+		return err
+	}
+	if err := validateResourceIDs(c.Policies, "policy"); err != nil {
 		return err
 	}
 	return nil
