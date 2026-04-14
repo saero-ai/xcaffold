@@ -122,3 +122,38 @@ func TestInitWizard_GeneratesMultiKindFormat_TargetCursor(t *testing.T) {
 	require.NotNil(t, config.Project)
 	assert.Equal(t, []string{"cursor"}, config.Project.Targets)
 }
+
+// TestBuildXCFContent_CanonicalFieldOrdering verifies that the agent document
+// emits fields in canonical order: name, description, model, effort, tools, instructions.
+func TestBuildXCFContent_CanonicalFieldOrdering(t *testing.T) {
+	ans := wizardAnswers{
+		name:      "test-project",
+		desc:      "",
+		target:    "claude",
+		wantAgent: true,
+	}
+
+	content := buildXCFContent(ans)
+
+	// Extract only the agent document (everything after the --- separator).
+	parts := strings.SplitN(content, "---\n", 2)
+	require.Len(t, parts, 2, "expected --- document separator in generated content")
+	agentDoc := parts[1]
+
+	orderedKeys := []string{
+		"name: developer",
+		"description:",
+		"\nmodel:",
+		"effort:",
+		"tools:",
+		"instructions:",
+	}
+
+	lastIdx := -1
+	for _, key := range orderedKeys {
+		idx := strings.Index(agentDoc, key)
+		require.NotEqual(t, -1, idx, "key %q not found in agent document", key)
+		require.Greater(t, idx, lastIdx, "key %q appeared before a prior key in agent document", key)
+		lastIdx = idx
+	}
+}

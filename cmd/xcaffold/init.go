@@ -448,12 +448,12 @@ kind: agent
 version: "1.0"
 name: developer
 description: "General software developer agent."
-instructions: |
-  You are a software developer.
-  Write clean, maintainable code.
 model: %q
 effort: "high"
 tools: [Bash, Read, Write, Edit, Glob, Grep]
+instructions: |
+  You are a software developer.
+  Write clean, maintainable code.
 
 # Assertions are evaluated by the LLM-as-a-Judge when running
 # 'xcaffold test --judge'. Define expected behavioral constraints here.
