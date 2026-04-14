@@ -12,6 +12,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
@@ -273,9 +274,24 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	}
 	// --- End smart skip ---
 
+	configSnapshot := deepCopyConfig(config)
+
 	out, err := compiler.Compile(config, baseDir, targetFlag)
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
+	}
+
+	// Policy evaluation
+	violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, out)
+	policyErrors := policy.FilterBySeverity(violations, policy.SeverityError)
+	policyWarnings := policy.FilterBySeverity(violations, policy.SeverityWarning)
+
+	if len(policyWarnings) > 0 {
+		fmt.Fprint(os.Stderr, policy.FormatViolations(policyWarnings))
+	}
+	if len(policyErrors) > 0 {
+		fmt.Fprint(os.Stderr, policy.FormatViolations(policyErrors))
+		return fmt.Errorf("[%s] apply blocked: %d policy error(s) found", scopeName, len(policyErrors))
 	}
 
 	// Resolve the target-specific output directory instead of the hardcoded default
