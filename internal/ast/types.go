@@ -58,31 +58,33 @@ type ProjectConfig struct {
 
 // AgentConfig defines a Claude agent persona.
 type AgentConfig struct {
-	Hooks            HookConfig                `yaml:"hooks,omitempty"`
-	Readonly         *bool                     `yaml:"readonly,omitempty"`
-	Background       *bool                     `yaml:"background,omitempty"`
-	Targets          map[string]TargetOverride `yaml:"targets,omitempty"`
-	MCPServers       map[string]MCPConfig      `yaml:"mcpServers,omitempty"`
-	Memory           string                    `yaml:"memory,omitempty"`
-	InstructionsFile string                    `yaml:"instructions_file,omitempty"`
-	Description      string                    `yaml:"description,omitempty"`
-	InitialPrompt    string                    `yaml:"initialPrompt,omitempty"`
-	Color            string                    `yaml:"color,omitempty"`
-	Name             string                    `yaml:"name,omitempty"`
-	Isolation        string                    `yaml:"isolation,omitempty"`
-	Mode             string                    `yaml:"mode,omitempty"`
-	When             string                    `yaml:"when,omitempty"`
-	Instructions     string                    `yaml:"instructions,omitempty"`
-	Effort           string                    `yaml:"effort,omitempty"`
-	Model            string                    `yaml:"model,omitempty"`
-	PermissionMode   string                    `yaml:"permissionMode,omitempty"`
-	Skills           []string                  `yaml:"skills,omitempty"`
-	Assertions       []string                  `yaml:"assertions,omitempty"`
-	MCP              []string                  `yaml:"mcp,omitempty"`
-	Rules            []string                  `yaml:"rules,omitempty"`
-	DisallowedTools  []string                  `yaml:"disallowedTools,omitempty"`
-	Tools            []string                  `yaml:"tools,omitempty"`
-	MaxTurns         int                       `yaml:"maxTurns,omitempty"`
+	Hooks                  HookConfig                `yaml:"hooks,omitempty"`
+	Readonly               *bool                     `yaml:"readonly,omitempty"`
+	Background             *bool                     `yaml:"background,omitempty"`
+	Targets                map[string]TargetOverride `yaml:"targets,omitempty"`
+	MCPServers             map[string]MCPConfig      `yaml:"mcpServers,omitempty"`
+	Memory                 string                    `yaml:"memory,omitempty"`
+	InstructionsFile       string                    `yaml:"instructions_file,omitempty"`
+	Description            string                    `yaml:"description,omitempty"`
+	InitialPrompt          string                    `yaml:"initialPrompt,omitempty"`
+	Color                  string                    `yaml:"color,omitempty"`
+	Name                   string                    `yaml:"name,omitempty"`
+	Isolation              string                    `yaml:"isolation,omitempty"`
+	Mode                   string                    `yaml:"mode,omitempty"`
+	When                   string                    `yaml:"when,omitempty"`
+	Instructions           string                    `yaml:"instructions,omitempty"`
+	Effort                 string                    `yaml:"effort,omitempty"`
+	Model                  string                    `yaml:"model,omitempty"`
+	PermissionMode         string                    `yaml:"permissionMode,omitempty"`
+	DisableModelInvocation *bool                     `yaml:"disableModelInvocation,omitempty"`
+	UserInvocable          *bool                     `yaml:"userInvocable,omitempty"`
+	Skills                 []string                  `yaml:"skills,omitempty"`
+	Assertions             []string                  `yaml:"assertions,omitempty"`
+	MCP                    []string                  `yaml:"mcp,omitempty"`
+	Rules                  []string                  `yaml:"rules,omitempty"`
+	DisallowedTools        []string                  `yaml:"disallowedTools,omitempty"`
+	Tools                  []string                  `yaml:"tools,omitempty"`
+	MaxTurns               int                       `yaml:"maxTurns,omitempty"`
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized and causes renderers
 	// to skip the resource during project-scope compilation (the global

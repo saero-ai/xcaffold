@@ -2,6 +2,9 @@ package ast
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 // TestWorkflowConfig_StructExists verifies that WorkflowConfig has the expected fields
@@ -136,4 +139,21 @@ func TestTargetOverride_AllFieldsCombined(t *testing.T) {
 	if tr.SkipSynthesis == nil || *tr.SkipSynthesis {
 		t.Error("SkipSynthesis: expected false")
 	}
+}
+
+func TestAgentConfig_InvocationControlFields(t *testing.T) {
+	truthy := true
+	falsy := false
+	agent := AgentConfig{
+		Name:                   "test",
+		DisableModelInvocation: &truthy,
+		UserInvocable:          &falsy,
+	}
+
+	data, err := yaml.Marshal(agent)
+	require.NoError(t, err)
+
+	content := string(data)
+	require.Contains(t, content, "disableModelInvocation: true")
+	require.Contains(t, content, "userInvocable: false")
 }
