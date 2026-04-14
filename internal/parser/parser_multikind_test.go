@@ -754,6 +754,32 @@ func TestParseableKinds_IncludesNewKinds(t *testing.T) {
 	assert.True(t, parseableKinds["settings"], "parseableKinds must contain 'settings'")
 }
 
+func TestParseResourceDocument_SinglePolicy(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: require-approved-model
+description: Agents must use an approved model
+severity: error
+target: agent
+require:
+  - field: model
+    one_of:
+      - claude-opus-4-5-20250514
+      - claude-sonnet-4-5-20250514
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Policies)
+	p, ok := config.Policies["require-approved-model"]
+	require.True(t, ok)
+	assert.Equal(t, "require-approved-model", p.Name)
+	assert.Equal(t, "error", p.Severity)
+	assert.Equal(t, "agent", p.Target)
+	require.Len(t, p.Require, 1)
+	assert.Equal(t, "model", p.Require[0].Field)
+	assert.Equal(t, []string{"claude-opus-4-5-20250514", "claude-sonnet-4-5-20250514"}, p.Require[0].OneOf)
+}
+
 func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()

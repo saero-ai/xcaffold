@@ -98,6 +98,14 @@ type settingsDocument struct {
 	ast.SettingsConfig `yaml:",inline"`
 }
 
+// policyDocument wraps PolicyConfig with envelope fields for multi-kind parsing.
+// Name is promoted from PolicyConfig.Name.
+type policyDocument struct {
+	Kind             string `yaml:"kind"`
+	Version          string `yaml:"version"`
+	ast.PolicyConfig `yaml:",inline"`
+}
+
 // extractKind reads the "kind" value from a yaml.Node MappingNode
 // without decoding the full document.
 func extractKind(node *yaml.Node) string {
@@ -135,6 +143,44 @@ func nodeToBytes(node *yaml.Node) ([]byte, error) {
 var singletonKinds = map[string]bool{
 	"hooks":    true,
 	"settings": true,
+}
+
+// validatePolicyFields checks semantic constraints beyond KnownFields.
+func validatePolicyFields(p ast.PolicyConfig) error {
+	validSeverities := map[string]bool{
+		"error":   true,
+		"warning": true,
+		"off":     true,
+	}
+	if !validSeverities[p.Severity] {
+		return fmt.Errorf("policy %q: severity must be \"error\", \"warning\", or \"off\", got %q", p.Name, p.Severity)
+	}
+
+	validTargets := map[string]bool{
+		"agent":    true,
+		"skill":    true,
+		"rule":     true,
+		"hook":     true,
+		"settings": true,
+		"output":   true,
+	}
+	if !validTargets[p.Target] {
+		return fmt.Errorf("policy %q: target must be one of agent, skill, rule, hook, settings, output; got %q", p.Name, p.Target)
+	}
+
+	for i, r := range p.Require {
+		if r.Field == "" {
+			return fmt.Errorf("policy %q: require[%d].field is required", p.Name, i)
+		}
+	}
+
+	for i, d := range p.Deny {
+		if len(d.ContentContains) == 0 && d.ContentMatches == "" && d.PathContains == "" {
+			return fmt.Errorf("policy %q: deny[%d] must specify at least one of content_contains, content_matches, or path_contains", p.Name, i)
+		}
+	}
+
+	return nil
 }
 
 // validateEnvelope checks that mandatory envelope fields are present on a
@@ -307,6 +353,27 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			return err
 		}
 		config.Settings = doc.SettingsConfig
+
+	case "policy":
+		var doc policyDocument
+		dec := yaml.NewDecoder(bytes.NewReader(b))
+		dec.KnownFields(true)
+		if err := dec.Decode(&doc); err != nil {
+			return fmt.Errorf("invalid policy document: %w", err)
+		}
+		if err := validateEnvelope(doc.Version, doc.Name, kind); err != nil {
+			return err
+		}
+		if err := validatePolicyFields(doc.PolicyConfig); err != nil {
+			return err
+		}
+		if config.Policies == nil {
+			config.Policies = make(map[string]ast.PolicyConfig)
+		}
+		if _, exists := config.Policies[doc.Name]; exists {
+			return fmt.Errorf("duplicate policy ID %q", doc.Name)
+		}
+		config.Policies[doc.Name] = doc.PolicyConfig
 
 	default:
 		return fmt.Errorf("unknown resource kind %q", kind)
