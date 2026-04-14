@@ -66,15 +66,15 @@ project:
 agents:
   backend:
     description: "Backend developer for API endpoints, database queries, and business logic."
-    instructions: |
-      You are a backend developer.
-      Follow RESTful conventions. Write integration tests for every endpoint.
-      Use parameterized queries. Never use string interpolation for SQL.
     model: %q
     effort: "high"
     tools: [Bash, Read, Write, Edit, Glob, Grep]
     skills: [api-testing]
     rules: [api-conventions]
+    instructions: |
+      You are a backend developer.
+      Follow RESTful conventions. Write integration tests for every endpoint.
+      Use parameterized queries. Never use string interpolation for SQL.
 
 skills:
   api-testing:
@@ -103,14 +103,14 @@ project:
 agents:
   developer:
     description: "CLI developer for commands, flags, and user-facing output."
-    instructions: |
-      You are a CLI developer.
-      Use stdout for output, stderr for errors. Support --help on every command.
-      Write unit tests for command logic and integration tests for CLI invocation.
     model: %q
     effort: "high"
     tools: [Bash, Read, Write, Edit, Glob, Grep]
     rules: [cli-conventions]
+    instructions: |
+      You are a CLI developer.
+      Use stdout for output, stderr for errors. Support --help on every command.
+      Write unit tests for command logic and integration tests for CLI invocation.
 
 rules:
   cli-conventions:
@@ -132,15 +132,15 @@ project:
 agents:
   frontend:
     description: "Frontend developer for components, pages, and styling."
-    instructions: |
-      You are a frontend developer.
-      Write accessible, semantic HTML. Use components for reusable UI.
-      Write component tests. Never use inline styles for layout.
     model: %q
     effort: "high"
     tools: [Bash, Read, Write, Edit, Glob, Grep]
     skills: [component-testing]
     rules: [frontend-conventions]
+    instructions: |
+      You are a frontend developer.
+      Write accessible, semantic HTML. Use components for reusable UI.
+      Write component tests. Never use inline styles for layout.
 
 skills:
   component-testing:
