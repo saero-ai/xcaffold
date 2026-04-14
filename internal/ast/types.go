@@ -295,6 +295,43 @@ type WorkflowConfig struct {
 	Inherited bool `yaml:"-"`
 }
 
+// PolicyConfig defines a declarative constraint evaluated against the AST
+// and compiled output during apply and validate.
+type PolicyConfig struct {
+	Name        string          `yaml:"name"`
+	Description string          `yaml:"description,omitempty"`
+	Severity    string          `yaml:"severity"`
+	Target      string          `yaml:"target"`
+	Match       *PolicyMatch    `yaml:"match,omitempty"`
+	Require     []PolicyRequire `yaml:"require,omitempty"`
+	Deny        []PolicyDeny    `yaml:"deny,omitempty"`
+}
+
+// PolicyMatch filters which resources a policy evaluates. All conditions
+// are AND-ed. An empty or nil PolicyMatch matches all resources.
+type PolicyMatch struct {
+	HasTool        string `yaml:"has_tool,omitempty"`
+	HasField       string `yaml:"has_field,omitempty"`
+	NameMatches    string `yaml:"name_matches,omitempty"`
+	TargetIncludes string `yaml:"target_includes,omitempty"`
+}
+
+// PolicyRequire defines a field constraint on a matched resource.
+type PolicyRequire struct {
+	Field     string   `yaml:"field"`
+	IsPresent *bool    `yaml:"is_present,omitempty"`
+	MinLength *int     `yaml:"min_length,omitempty"`
+	MaxCount  *int     `yaml:"max_count,omitempty"`
+	OneOf     []string `yaml:"one_of,omitempty"`
+}
+
+// PolicyDeny defines forbidden content or path patterns in compiled output.
+type PolicyDeny struct {
+	ContentContains []string `yaml:"content_contains,omitempty"`
+	ContentMatches  string   `yaml:"content_matches,omitempty"`
+	PathContains    string   `yaml:"path_contains,omitempty"`
+}
+
 // StripInherited removes all top-level resources that are marked as Inherited=true.
 // This is called before compilation to ensure that resources loaded from
 // extends: global are not physically generated into local project directories.
