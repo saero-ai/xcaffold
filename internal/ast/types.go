@@ -56,39 +56,70 @@ type ProjectConfig struct {
 	ResourceScope `yaml:",inline"` // Workspace-level resources
 }
 
-// AgentConfig defines a Claude agent persona.
+// AgentConfig defines an AI coding agent persona.
+//
+// Field ordering is canonical and mirrors the compiled markdown frontmatter:
+//  1. Identity (name, description)
+//  2. Model & Execution (model, effort, maxTurns, mode)
+//  3. Tool Access (tools, disallowedTools, readonly)
+//  4. Permissions & Invocation (permissionMode, disableModelInvocation, userInvocable)
+//  5. Lifecycle (background, isolation, when)
+//  6. Memory & Context (memory, color, initialPrompt)
+//  7. Composition references (skills, rules, mcp, assertions)
+//  8. Inline composition (mcpServers, hooks)
+//  9. Multi-Target (targets)
+//  10. Instructions (always last)
 type AgentConfig struct {
-	Hooks                  HookConfig                `yaml:"hooks,omitempty"`
-	Readonly               *bool                     `yaml:"readonly,omitempty"`
-	Background             *bool                     `yaml:"background,omitempty"`
-	Targets                map[string]TargetOverride `yaml:"targets,omitempty"`
-	MCPServers             map[string]MCPConfig      `yaml:"mcpServers,omitempty"`
-	Memory                 string                    `yaml:"memory,omitempty"`
-	InstructionsFile       string                    `yaml:"instructions_file,omitempty"`
-	Description            string                    `yaml:"description,omitempty"`
-	InitialPrompt          string                    `yaml:"initialPrompt,omitempty"`
-	Color                  string                    `yaml:"color,omitempty"`
-	Name                   string                    `yaml:"name,omitempty"`
-	Isolation              string                    `yaml:"isolation,omitempty"`
-	Mode                   string                    `yaml:"mode,omitempty"`
-	When                   string                    `yaml:"when,omitempty"`
-	Instructions           string                    `yaml:"instructions,omitempty"`
-	Effort                 string                    `yaml:"effort,omitempty"`
-	Model                  string                    `yaml:"model,omitempty"`
-	PermissionMode         string                    `yaml:"permissionMode,omitempty"`
-	DisableModelInvocation *bool                     `yaml:"disableModelInvocation,omitempty"`
-	UserInvocable          *bool                     `yaml:"userInvocable,omitempty"`
-	Skills                 []string                  `yaml:"skills,omitempty"`
-	Assertions             []string                  `yaml:"assertions,omitempty"`
-	MCP                    []string                  `yaml:"mcp,omitempty"`
-	Rules                  []string                  `yaml:"rules,omitempty"`
-	DisallowedTools        []string                  `yaml:"disallowedTools,omitempty"`
-	Tools                  []string                  `yaml:"tools,omitempty"`
-	MaxTurns               int                       `yaml:"maxTurns,omitempty"`
+	// Group 1: Identity
+	Name        string `yaml:"name,omitempty"`
+	Description string `yaml:"description,omitempty"`
+
+	// Group 2: Model & Execution
+	Model    string `yaml:"model,omitempty"`
+	Effort   string `yaml:"effort,omitempty"`
+	MaxTurns int    `yaml:"maxTurns,omitempty"`
+	Mode     string `yaml:"mode,omitempty"`
+
+	// Group 3: Tool Access
+	Tools           []string `yaml:"tools,omitempty"`
+	DisallowedTools []string `yaml:"disallowedTools,omitempty"`
+	Readonly        *bool    `yaml:"readonly,omitempty"`
+
+	// Group 4: Permissions & Invocation
+	PermissionMode         string `yaml:"permissionMode,omitempty"`
+	DisableModelInvocation *bool  `yaml:"disableModelInvocation,omitempty"`
+	UserInvocable          *bool  `yaml:"userInvocable,omitempty"`
+
+	// Group 5: Lifecycle
+	Background *bool  `yaml:"background,omitempty"`
+	Isolation  string `yaml:"isolation,omitempty"`
+	When       string `yaml:"when,omitempty"`
+
+	// Group 6: Memory & Context
+	Memory        string `yaml:"memory,omitempty"`
+	Color         string `yaml:"color,omitempty"`
+	InitialPrompt string `yaml:"initialPrompt,omitempty"`
+
+	// Group 7: Composition references
+	Skills     []string `yaml:"skills,omitempty"`
+	Rules      []string `yaml:"rules,omitempty"`
+	MCP        []string `yaml:"mcp,omitempty"`
+	Assertions []string `yaml:"assertions,omitempty"`
+
+	// Group 8: Inline composition
+	MCPServers map[string]MCPConfig `yaml:"mcpServers,omitempty"`
+	Hooks      HookConfig           `yaml:"hooks,omitempty"`
+
+	// Group 9: Multi-Target
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
+
+	// Group 10: Instructions (always last)
+	Instructions     string `yaml:"instructions,omitempty"`
+	InstructionsFile string `yaml:"instructions_file,omitempty"`
+
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized and causes renderers
-	// to skip the resource during project-scope compilation (the global
-	// resources are already compiled separately via xcaffold apply -g).
+	// to skip the resource during project-scope compilation.
 	Inherited bool `yaml:"-"`
 }
 
