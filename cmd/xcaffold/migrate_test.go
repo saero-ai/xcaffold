@@ -17,9 +17,9 @@ func TestRunSchemaVersionMigrations_AlreadyCurrent(t *testing.T) {
 	xcfFile := filepath.Join(dir, "scaffold.xcf")
 
 	// Write a v1.0 config (already current)
-	content := `version: "1.0"
-project:
-  name: "test-project"
+	content := `kind: project
+version: "1.0"
+name: "test-project"
 `
 	require.NoError(t, os.WriteFile(xcfFile, []byte(content), 0600))
 
@@ -47,9 +47,9 @@ func TestRunSchemaVersionMigrations_NoMigrations(t *testing.T) {
 	xcfFile := filepath.Join(dir, "scaffold.xcf")
 
 	// Write a v1.0 config — with empty migrations slice no migration runs
-	content := `version: "1.0"
-project:
-  name: "test-project"
+	content := `kind: project
+version: "1.0"
+name: "test-project"
 `
 	require.NoError(t, os.WriteFile(xcfFile, []byte(content), 0600))
 
@@ -82,7 +82,7 @@ func TestMigrate_WritesMultiKindFormat(t *testing.T) {
 	}
 	out, err := MarshalMultiKind(config, "# migrated")
 	require.NoError(t, err)
-	assert.Contains(t, string(out), "kind: config")
+	assert.Contains(t, string(out), "kind: project")
 	assert.Contains(t, string(out), "kind: agent")
 	assert.Contains(t, string(out), "---")
 }

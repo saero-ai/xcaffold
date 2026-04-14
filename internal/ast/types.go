@@ -15,7 +15,7 @@ type ResourceScope struct {
 
 // XcaffoldConfig is the root structure of a parsed .xcf YAML file.
 type XcaffoldConfig struct {
-	Kind    string `yaml:"kind,omitempty"`
+	Kind    string `yaml:"-"` // Set by parser routing, not decoded from YAML
 	Version string `yaml:"version"`
 	Extends string `yaml:"extends,omitempty"`
 

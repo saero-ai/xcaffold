@@ -24,11 +24,14 @@ func writeFile(t *testing.T, dir, name, content string) string {
 
 func TestParseFile_ValidConfig(t *testing.T) {
 	dir := t.TempDir()
-	path := writeFile(t, dir, "base.xcf", `
+	path := writeFile(t, dir, "base.xcf", `---
+kind: project
 version: "1.0"
-project:
-  name: "valid-project"
-  description: "A simple project."
+name: "valid-project"
+description: "A simple project."
+---
+kind: global
+version: "1.0"
 agents:
   coder:
     description: "Writes code."
@@ -53,20 +56,23 @@ agents:
 func TestParseFile_ExtendsInheritance(t *testing.T) {
 	dir := t.TempDir()
 
-	writeFile(t, dir, "base.xcf", `
+	writeFile(t, dir, "base.xcf", `---
+kind: project
 version: "1.0"
-project:
-  name: "base-project"
-  description: "Base description."
+name: "base-project"
+description: "Base description."
+---
+kind: global
+version: "1.0"
 agents:
   base-agent:
     description: "Base agent."
     model: "claude-3-5-haiku-20241022"
 `)
 
-	childPath := writeFile(t, dir, "child.xcf", `
-extends: "base.xcf"
+	childPath := writeFile(t, dir, "child.xcf", `kind: global
 version: "1.0"
+extends: "base.xcf"
 agents:
   child-agent:
     description: "Child agent."
@@ -97,28 +103,34 @@ agents:
 func TestParseFile_ExtendsChildOverridesBase(t *testing.T) {
 	dir := t.TempDir()
 
-	writeFile(t, dir, "base.xcf", `
+	writeFile(t, dir, "base.xcf", `---
+kind: project
 version: "1.0"
-project:
-  name: "base-project"
-  description: "Base description."
-  test:
-    claude_path: "/usr/local/bin/claude"
-    judge_model: "claude-3-5-haiku-20241022"
+name: "base-project"
+description: "Base description."
+test:
+  claude_path: "/usr/local/bin/claude"
+  judge_model: "claude-3-5-haiku-20241022"
+---
+kind: global
+version: "1.0"
 agents:
   shared-agent:
     description: "Base version of agent."
     model: "claude-3-5-haiku-20241022"
 `)
 
-	childPath := writeFile(t, dir, "child.xcf", `
-extends: "base.xcf"
+	childPath := writeFile(t, dir, "child.xcf", `---
+kind: project
 version: "1.0"
-project:
-  name: "child-project"
-  description: "Child description."
-  test:
-    judge_model: "claude-3-opus-20240229"
+name: "child-project"
+description: "Child description."
+test:
+  judge_model: "claude-3-opus-20240229"
+---
+kind: global
+version: "1.0"
+extends: "base.xcf"
 agents:
   shared-agent:
     description: "Child version of agent."
@@ -151,18 +163,14 @@ agents:
 func TestParseFile_CircularExtendsDetected(t *testing.T) {
 	dir := t.TempDir()
 
-	writeFile(t, dir, "a.xcf", `
-extends: "b.xcf"
+	writeFile(t, dir, "a.xcf", `kind: global
 version: "1.0"
-project:
-  name: "a-project"
+extends: "b.xcf"
 `)
 
-	writeFile(t, dir, "b.xcf", `
-extends: "a.xcf"
+	writeFile(t, dir, "b.xcf", `kind: global
 version: "1.0"
-project:
-  name: "b-project"
+extends: "a.xcf"
 `)
 
 	aPath := filepath.Join(dir, "a.xcf")
@@ -181,11 +189,9 @@ project:
 func TestParseFile_ExtendsMissingBaseFile(t *testing.T) {
 	dir := t.TempDir()
 
-	childPath := writeFile(t, dir, "child.xcf", `
-extends: "nonexistent-base.xcf"
+	childPath := writeFile(t, dir, "child.xcf", `kind: global
 version: "1.0"
-project:
-  name: "child-project"
+extends: "nonexistent-base.xcf"
 `)
 
 	_, err := ParseFile(childPath)
@@ -304,13 +310,13 @@ func TestParseFile_ExtendsGlobal_ReadsFromXcaffoldDir(t *testing.T) {
 	xcaffoldDir := filepath.Join(fakeHome, ".xcaffold")
 	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
 
-	writeFile(t, xcaffoldDir, "agents.xcf", `
+	writeFile(t, xcaffoldDir, "agents.xcf", `kind: global
 version: "1.0"
 agents:
   global-agent:
     description: "I am a global agent from .xcaffold/agents.xcf"
 `)
-	writeFile(t, xcaffoldDir, "skills.xcf", `
+	writeFile(t, xcaffoldDir, "skills.xcf", `kind: global
 version: "1.0"
 skills:
   global-skill:
@@ -319,11 +325,14 @@ skills:
 
 	// 2. Create the project config extending "global"
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "scaffold.xcf", `
+	childPath := writeFile(t, projectDir, "scaffold.xcf", `---
+kind: project
+version: "1.0"
+name: "local-project"
+---
+kind: global
 version: "1.0"
 extends: "global"
-project:
-  name: "local-project"
 `)
 
 	cfg, err := ParseFile(childPath)
@@ -349,7 +358,7 @@ func TestParseFile_ExtendsGlobal_LegacyFallback(t *testing.T) {
 	// Only .claude/global.xcf exists
 	legacyDir := filepath.Join(fakeHome, ".claude")
 	require.NoError(t, os.MkdirAll(legacyDir, 0755))
-	writeFile(t, legacyDir, "global.xcf", `
+	writeFile(t, legacyDir, "global.xcf", `kind: global
 version: "1.0"
 agents:
   legacy-agent:
@@ -357,11 +366,9 @@ agents:
 `)
 
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "scaffold.xcf", `
+	childPath := writeFile(t, projectDir, "scaffold.xcf", `kind: global
 version: "1.0"
 extends: "global"
-project:
-  name: "legacy-project"
 `)
 
 	cfg, err := ParseFile(childPath)
@@ -382,13 +389,13 @@ func TestParseFile_ExtendsGlobal_Circular(t *testing.T) {
 	xcaffoldDir := filepath.Join(fakeHome, ".xcaffold")
 	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
 
-	writeFile(t, xcaffoldDir, "circular.xcf", `
+	writeFile(t, xcaffoldDir, "circular.xcf", `kind: global
 version: "1.0"
 extends: "global"
 `)
 
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "scaffold.xcf", `
+	childPath := writeFile(t, projectDir, "scaffold.xcf", `kind: global
 version: "1.0"
 extends: "global"
 `)
@@ -411,14 +418,14 @@ func TestParseFile_ExtendsGlobal_NestedInheritance(t *testing.T) {
 	xcaffoldDir := filepath.Join(fakeHome, ".xcaffold")
 	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
 
-	writeFile(t, xcaffoldDir, "base.xcf", `
+	writeFile(t, xcaffoldDir, "base.xcf", `kind: global
 version: "1.0"
 agents:
   nested-agent:
     description: "From nested global"
 `)
 
-	writeFile(t, xcaffoldDir, "main.xcf", `
+	writeFile(t, xcaffoldDir, "main.xcf", `kind: global
 version: "1.0"
 extends: "base.xcf"
 agents:
@@ -427,11 +434,9 @@ agents:
 `)
 
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "scaffold.xcf", `
+	childPath := writeFile(t, projectDir, "scaffold.xcf", `kind: global
 version: "1.0"
 extends: "global"
-project:
-  name: "nested-project"
 `)
 
 	cfg, err := ParseFile(childPath)

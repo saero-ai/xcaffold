@@ -10,10 +10,11 @@ import (
 
 // TestParse_UnknownFieldRejected verifies that strict YAML mode rejects unknown fields.
 func TestParse_UnknownFieldRejected(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
+agents:
+  dev:
+    description: "dev"
 unknown_field: "this should not be allowed"
 `
 	_, err := Parse(strings.NewReader(yaml))
@@ -22,10 +23,8 @@ unknown_field: "this should not be allowed"
 
 // TestParse_AgentIDWithDotDot verifies that ".." agent IDs are rejected.
 func TestParse_AgentIDWithDotDot(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 agents:
   "..":
     description: "path traversal via dotdot"
@@ -39,10 +38,8 @@ agents:
 // Note: YAML double-quoted strings treat '\' as an escape prefix (e.g. \n is newline).
 // We use '\\' to encode a literal backslash so the key reaches our validator.
 func TestParse_AgentIDWithBackslash(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 agents:
   "evil\\path":
     description: "backslash in agent id"
@@ -54,10 +51,8 @@ agents:
 
 // TestParse_AgentIDWithForwardSlash verifies that forward slash in agent IDs is rejected.
 func TestParse_AgentIDWithForwardSlash(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 agents:
   "evil/path":
     description: "forward slash in agent id"
@@ -69,11 +64,10 @@ agents:
 
 // TestParse_UnicodeProjectName verifies that unicode project names and descriptions parse OK.
 func TestParse_UnicodeProjectName(t *testing.T) {
-	yaml := `
+	yaml := `kind: project
 version: "1.0"
-project:
-  name: "プロジェクト"
-  description: "A project with emoji 🚀 and Japanese 日本語"
+name: "プロジェクト"
+description: "A project with emoji 🚀 and Japanese 日本語"
 `
 	cfg, err := Parse(strings.NewReader(yaml))
 	require.NoError(t, err, "unicode project name should be accepted")
@@ -84,10 +78,9 @@ project:
 
 // TestParse_EmptyAgentsMap verifies that a config with no agents block returns an empty map (not an error).
 func TestParse_EmptyAgentsMap(t *testing.T) {
-	yaml := `
+	yaml := `kind: project
 version: "1.0"
-project:
-  name: "no-agents-project"
+name: "no-agents-project"
 `
 	cfg, err := Parse(strings.NewReader(yaml))
 	require.NoError(t, err, "missing agents block should not be an error")
@@ -97,14 +90,17 @@ project:
 
 // TestParse_AllOptionalBlocks verifies that a config with all optional blocks populated parses fully.
 func TestParse_AllOptionalBlocks(t *testing.T) {
-	yaml := `
+	yaml := `---
+kind: project
 version: "1.0"
-project:
-  name: "full-project"
-  description: "All blocks populated"
-  test:
-    claude_path: "/usr/local/bin/claude"
-    judge_model: "claude-3-5-haiku-20241022"
+name: "full-project"
+description: "All blocks populated"
+test:
+  claude_path: "/usr/local/bin/claude"
+  judge_model: "claude-3-5-haiku-20241022"
+---
+kind: global
+version: "1.0"
 agents:
   my-agent:
     description: "An agent"
@@ -142,9 +138,8 @@ mcp:
 
 // TestParse_MissingVersion verifies that a missing version field causes an error.
 func TestParse_MissingVersion(t *testing.T) {
-	yaml := `
-project:
-  name: "my-project"
+	yaml := `kind: project
+name: "my-project"
 `
 	_, err := Parse(strings.NewReader(yaml))
 	require.Error(t, err, "missing version must be rejected")
@@ -153,10 +148,9 @@ project:
 
 // TestParse_WhitespaceOnlyProjectName verifies that a whitespace-only project name is rejected.
 func TestParse_WhitespaceOnlyProjectName(t *testing.T) {
-	yaml := `
+	yaml := `kind: project
 version: "1.0"
-project:
-  name: "   "
+name: "   "
 `
 	_, err := Parse(strings.NewReader(yaml))
 	require.Error(t, err, "whitespace-only project name must be rejected")
@@ -171,10 +165,8 @@ func TestParse_EmptyReaderEdge(t *testing.T) {
 
 // TestParse_ValidAgentIDWithHyphenAndUnderscore verifies that hyphens and underscores are allowed in agent IDs.
 func TestParse_ValidAgentIDWithHyphenAndUnderscore(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 agents:
   my-agent_v2:
     description: "Valid agent ID with hyphen and underscore"
@@ -187,7 +179,7 @@ agents:
 
 // TestParse_ExtendsOmitsProjectName verifies that when 'extends' is set, an empty project.name is OK.
 func TestParse_ExtendsOmitsProjectName(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
 extends: "base.xcf"
 `
@@ -203,10 +195,8 @@ extends: "base.xcf"
 // This test is expected to PASS (no error) if the parser does NOT validate skill IDs,
 // revealing a security gap.
 func TestParse_SkillIDWithPathTraversal(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 skills:
   "../evil-skill":
     description: "Path traversal in skill ID"
@@ -222,10 +212,8 @@ skills:
 // TestParse_RuleIDWithPathTraversal tests whether the parser catches path traversal in rule IDs.
 // BUG PROBE: Same gap as skill IDs — rule IDs are NOT validated by validate().
 func TestParse_RuleIDWithPathTraversal(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 rules:
   "../evil-rule":
     instructions: "Malicious rule"
@@ -239,10 +227,8 @@ rules:
 
 // TestParse_HookEventKey_ValidStructure tests that hooks parse with the new 3-level structure.
 func TestParse_HookEventKey_ValidStructure(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 hooks:
   PostToolUse:
     - matcher: "Write"
@@ -261,10 +247,8 @@ hooks:
 // TestParse_InstructionsAndFileSet_ReturnsError verifies that setting both
 // instructions: and instructions_file: on the same agent is a parse error.
 func TestParse_InstructionsAndFileSet_ReturnsError(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 agents:
   ambiguous:
     instructions: "Inline instructions."
@@ -278,10 +262,8 @@ agents:
 // TestParse_InstructionsFile_AbsolutePath_Rejected verifies that an absolute path
 // in instructions_file is rejected at parse time.
 func TestParse_InstructionsFile_AbsolutePath_Rejected(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 agents:
   cto:
     instructions_file: "/etc/passwd"
@@ -294,10 +276,8 @@ agents:
 // TestParse_InstructionsFile_PathTraversal_Rejected verifies that a path
 // traversal attempt in instructions_file is rejected at parse time.
 func TestParse_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 agents:
   cto:
     instructions_file: "../outside/cto.md"
@@ -309,10 +289,8 @@ agents:
 
 // TestParse_SkillInstructionsFile_Valid verifies skills accept instructions_file.
 func TestParse_SkillInstructionsFile_Valid(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 skills:
   flutter-integration:
     description: "Flutter integration skill"
@@ -331,10 +309,8 @@ skills:
 // TestParse_InstructionsFile_CircularReference_ClaudeDir verifies that instructions_file
 // pointing into .claude/ is rejected as a circular dependency.
 func TestParse_InstructionsFile_CircularReference_ClaudeDir(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 agents:
   dev:
     instructions_file: .claude/agents/dev.md
@@ -348,10 +324,8 @@ agents:
 // TestParse_InstructionsFile_CircularReference_CursorDir verifies that instructions_file
 // pointing into .cursor/ is rejected as a circular dependency.
 func TestParse_InstructionsFile_CircularReference_CursorDir(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 skills:
   deploy:
     instructions_file: .cursor/rules/deploy.mdc
@@ -365,10 +339,8 @@ skills:
 // TestParse_InstructionsFile_CircularReference_AgentsDir verifies that instructions_file
 // pointing into .agents/ (Antigravity output) is rejected.
 func TestParse_InstructionsFile_CircularReference_AgentsDir(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 agents:
   reviewer:
     instructions_file: .agents/agents/reviewer.md
@@ -382,10 +354,8 @@ agents:
 // TestParse_InstructionsFile_ValidRelativePath_Allowed ensures legitimate relative paths
 // are NOT rejected by the circular reference check.
 func TestParse_InstructionsFile_ValidRelativePath_Allowed(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 agents:
   dev:
     instructions_file: docs/agents/dev.md
@@ -398,10 +368,8 @@ agents:
 // TestParse_InstructionsFile_CircularReference_AntigravityDir verifies that instructions_file
 // pointing into .antigravity/ is rejected.
 func TestParse_InstructionsFile_CircularReference_AntigravityDir(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 rules:
   security:
     instructions_file: .antigravity/rules/security.md
@@ -416,7 +384,8 @@ rules:
 // parsePartial called with withGlobalScope() accepts absolute instructions_file
 // paths — global configs legitimately reference files like ~/.claude/agents/*.md.
 func TestParsePartial_GlobalScope_AllowsAbsoluteInstructionsFile(t *testing.T) {
-	xcf := `
+	xcf := `kind: global
+version: "1.0"
 agents:
   ceo:
     description: "Global CEO agent"
@@ -431,7 +400,8 @@ agents:
 // parsePartial without withGlobalScope() still rejects absolute paths —
 // project-scoped configs must not read arbitrary absolute files.
 func TestParsePartial_ProjectScope_RejectsAbsoluteInstructionsFile(t *testing.T) {
-	xcf := `
+	xcf := `kind: global
+version: "1.0"
 agents:
   ceo:
     description: "Project CEO agent"
@@ -446,7 +416,8 @@ agents:
 // withGlobalScope() does not relax the path-traversal guard — ".." remains
 // invalid even in global scope.
 func TestParsePartial_GlobalScope_StillRejectsPathTraversal(t *testing.T) {
-	xcf := `
+	xcf := `kind: global
+version: "1.0"
 agents:
   ceo:
     description: "Global CEO agent"
@@ -462,7 +433,8 @@ agents:
 // XCF file inside ~/.xcaffold/ with an absolute instructions_file parses without error.
 func TestParseDirectoryRaw_GlobalScope_AllowsAbsoluteInstructionsFile(t *testing.T) {
 	dir := t.TempDir()
-	writeTestXCF(t, dir, "agents.xcf", `
+	writeTestXCF(t, dir, "agents.xcf", `kind: global
+version: "1.0"
 agents:
   ceo:
     description: "Global CEO agent"
@@ -478,7 +450,8 @@ agents:
 // parseDirectoryRaw without withGlobalScope() still rejects absolute paths.
 func TestParseDirectoryRaw_ProjectScope_RejectsAbsoluteInstructionsFile(t *testing.T) {
 	dir := t.TempDir()
-	writeTestXCF(t, dir, "agents.xcf", `
+	writeTestXCF(t, dir, "agents.xcf", `kind: global
+version: "1.0"
 agents:
   ceo:
     description: "Project CEO agent"

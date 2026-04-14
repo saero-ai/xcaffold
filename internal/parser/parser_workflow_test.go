@@ -14,10 +14,8 @@ import (
 // TestValidate_WorkflowID_PathTraversal verifies that a workflow ID containing
 // ".." is rejected at parse time.
 func TestValidate_WorkflowID_PathTraversal(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 workflows:
   "../escape":
     instructions: "bad"
@@ -30,10 +28,8 @@ workflows:
 // TestValidate_WorkflowID_ForwardSlash verifies that forward slashes in workflow
 // IDs are rejected.
 func TestValidate_WorkflowID_ForwardSlash(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 workflows:
   "evil/path":
     instructions: "bad"
@@ -46,10 +42,8 @@ workflows:
 // TestValidate_WorkflowID_Backslash verifies that backslashes in workflow IDs
 // are rejected.
 func TestValidate_WorkflowID_Backslash(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 workflows:
   "evil\\path":
     instructions: "bad"
@@ -62,10 +56,8 @@ workflows:
 // TestValidate_Workflow_MutualExclusivity verifies that setting both instructions
 // and instructions_file on the same workflow is a parse error.
 func TestValidate_Workflow_MutualExclusivity(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 workflows:
   deploy:
     instructions: "Inline instructions."
@@ -79,10 +71,8 @@ workflows:
 // TestValidate_Workflow_InstructionsFile_AbsolutePath_Rejected verifies that an
 // absolute path in a workflow's instructions_file is rejected.
 func TestValidate_Workflow_InstructionsFile_AbsolutePath_Rejected(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 workflows:
   release:
     instructions_file: "/etc/passwd"
@@ -95,10 +85,8 @@ workflows:
 // TestValidate_Workflow_InstructionsFile_PathTraversal_Rejected verifies that
 // path traversal in a workflow's instructions_file is rejected.
 func TestValidate_Workflow_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 workflows:
   release:
     instructions_file: "../outside/release.md"
@@ -111,10 +99,8 @@ workflows:
 // TestValidate_Workflow_ValidRelativePath_Accepted verifies that a valid relative
 // instructions_file path on a workflow parses successfully.
 func TestValidate_Workflow_ValidRelativePath_Accepted(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 workflows:
   release:
     description: "Release workflow"
@@ -130,10 +116,8 @@ workflows:
 // TestValidate_Workflow_ValidInlineInstructions_Accepted verifies that a workflow
 // with only inline instructions parses successfully.
 func TestValidate_Workflow_ValidInlineInstructions_Accepted(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 workflows:
   build:
     description: "Build workflow"
@@ -149,16 +133,13 @@ workflows:
 // TestMerge_Workflows_ChildAddsNew verifies that a child config's workflows are
 // present in the merged result when the base has none.
 func TestMerge_Workflows_ChildAddsNew(t *testing.T) {
-	base := writeTemp(t, "base.xcf", `
+	base := writeTemp(t, "base.xcf", `kind: project
 version: "1.0"
-project:
-  name: "base-project"
+name: "base-project"
 `)
-	child := writeTemp(t, "child.xcf", fmt.Sprintf(`
-extends: %q
+	child := writeTemp(t, "child.xcf", fmt.Sprintf(`kind: global
 version: "1.0"
-project:
-  name: "child-project"
+extends: %q
 workflows:
   deploy:
     instructions: "Deploy to production."
@@ -172,19 +153,15 @@ workflows:
 // TestMerge_Workflows_BasePreserved verifies that base workflows survive when the
 // child introduces a different workflow ID.
 func TestMerge_Workflows_BasePreserved(t *testing.T) {
-	base := writeTemp(t, "base.xcf", `
+	base := writeTemp(t, "base.xcf", `kind: global
 version: "1.0"
-project:
-  name: "base-project"
 workflows:
   build:
     instructions: "Run go build."
 `)
-	child := writeTemp(t, "child.xcf", fmt.Sprintf(`
-extends: %q
+	child := writeTemp(t, "child.xcf", fmt.Sprintf(`kind: global
 version: "1.0"
-project:
-  name: "child-project"
+extends: %q
 workflows:
   deploy:
     instructions: "Deploy to production."
@@ -199,19 +176,15 @@ workflows:
 // TestMerge_Workflows_ChildOverridesBase verifies that when base and child define
 // the same workflow ID, the child's definition wins.
 func TestMerge_Workflows_ChildOverridesBase(t *testing.T) {
-	base := writeTemp(t, "base.xcf", `
+	base := writeTemp(t, "base.xcf", `kind: global
 version: "1.0"
-project:
-  name: "base-project"
 workflows:
   deploy:
     instructions: "Base deploy instructions."
 `)
-	child := writeTemp(t, "child.xcf", fmt.Sprintf(`
-extends: %q
+	child := writeTemp(t, "child.xcf", fmt.Sprintf(`kind: global
 version: "1.0"
-project:
-  name: "child-project"
+extends: %q
 workflows:
   deploy:
     instructions: "Child deploy instructions."

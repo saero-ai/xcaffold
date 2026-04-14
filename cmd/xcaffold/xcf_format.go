@@ -11,16 +11,29 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// configDocument is a minimal struct for serializing the kind: config document.
-// It deliberately excludes resource maps (agents, skills, rules, workflows, mcp)
-// so those are emitted as separate kind documents instead of nested under config.
-type configDocument struct {
-	Kind     string             `yaml:"kind"`
-	Version  string             `yaml:"version"`
-	Extends  string             `yaml:"extends,omitempty"`
-	Project  *ast.ProjectConfig `yaml:"project,omitempty"`
-	Settings ast.SettingsConfig `yaml:"settings,omitempty"`
-	Hooks    ast.HookConfig     `yaml:"hooks,omitempty"`
+// projectMarshalDoc is the serialization envelope for the kind: project first
+// document in MarshalMultiKind output. It replaces the legacy configDocument.
+// Settings and Hooks are emitted as separate kind: settings and kind: hooks
+// documents, matching the WriteSplitFiles pattern.
+type projectMarshalDoc struct {
+	Kind         string             `yaml:"kind"`
+	Version      string             `yaml:"version"`
+	Extends      string             `yaml:"extends,omitempty"`
+	Name         string             `yaml:"name,omitempty"`
+	Description  string             `yaml:"description,omitempty"`
+	Author       string             `yaml:"author,omitempty"`
+	Homepage     string             `yaml:"homepage,omitempty"`
+	Repository   string             `yaml:"repository,omitempty"`
+	License      string             `yaml:"license,omitempty"`
+	BackupDir    string             `yaml:"backup_dir,omitempty"`
+	Targets      []string           `yaml:"targets,omitempty"`
+	AgentRefs    []string           `yaml:"agents,omitempty"`
+	SkillRefs    []string           `yaml:"skills,omitempty"`
+	RuleRefs     []string           `yaml:"rules,omitempty"`
+	WorkflowRefs []string           `yaml:"workflows,omitempty"`
+	MCPRefs      []string           `yaml:"mcp,omitempty"`
+	Test         ast.TestConfig     `yaml:"test,omitempty"`
+	Local        ast.SettingsConfig `yaml:"local,omitempty"`
 }
 
 // agentDoc is the serialization envelope for a kind: agent document.
@@ -59,9 +72,10 @@ type mcpDoc struct {
 }
 
 // MarshalMultiKind serializes an XcaffoldConfig as multi-kind YAML documents
-// separated by "---". The first document is always kind: config, followed by
-// individual kind: agent, kind: skill, kind: rule, kind: workflow, and kind: mcp
-// documents in alphabetical key order (deterministic output).
+// separated by "---". The first document is always kind: project, followed by
+// individual kind: agent, kind: skill, kind: rule, kind: workflow, kind: mcp,
+// kind: settings, and kind: hooks documents in alphabetical key order
+// (deterministic output). Settings and hooks are emitted as separate documents.
 //
 // If header is non-empty it is prepended to the output as a comment block.
 func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error) {
@@ -72,14 +86,30 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 
 	var docs [][]byte
 
-	// ── kind: config document ────────────────────────────────────────────────
-	cfgDoc := configDocument{
-		Kind:     "config",
-		Version:  version,
-		Extends:  config.Extends,
-		Project:  config.Project,
-		Settings: config.Settings,
-		Hooks:    config.Hooks,
+	// ── kind: project document ──────────────────────────────────────────────
+	proj := config.Project
+	if proj == nil {
+		proj = &ast.ProjectConfig{}
+	}
+	cfgDoc := projectMarshalDoc{
+		Kind:         "project",
+		Version:      version,
+		Extends:      config.Extends,
+		Name:         proj.Name,
+		Description:  proj.Description,
+		Author:       proj.Author,
+		Homepage:     proj.Homepage,
+		Repository:   proj.Repository,
+		License:      proj.License,
+		BackupDir:    proj.BackupDir,
+		Targets:      proj.Targets,
+		AgentRefs:    proj.AgentRefs,
+		SkillRefs:    proj.SkillRefs,
+		RuleRefs:     proj.RuleRefs,
+		WorkflowRefs: proj.WorkflowRefs,
+		MCPRefs:      proj.MCPRefs,
+		Test:         proj.Test,
+		Local:        proj.Local,
 	}
 	b, err := yaml.Marshal(cfgDoc)
 	if err != nil {
@@ -210,6 +240,34 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 			}
 			docs = append(docs, bytes.TrimRight(b, "\n"))
 		}
+	}
+
+	// ── kind: settings document ─────────────────────────────────────────────
+	if !isZeroSettings(config.Settings) {
+		doc := settingsSplitDoc{
+			Kind:           "settings",
+			Version:        version,
+			SettingsConfig: config.Settings,
+		}
+		b, err := yaml.Marshal(doc)
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, bytes.TrimRight(b, "\n"))
+	}
+
+	// ── kind: hooks document ────────────────────────────────────────────────
+	if len(config.Hooks) > 0 {
+		doc := hooksSplitDoc{
+			Kind:    "hooks",
+			Version: version,
+			Events:  config.Hooks,
+		}
+		b, err := yaml.Marshal(doc)
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, bytes.TrimRight(b, "\n"))
 	}
 
 	// ── Assemble output ──────────────────────────────────────────────────────

@@ -16,11 +16,13 @@ func newTestCmd(buf *bytes.Buffer) *cobra.Command {
 }
 
 func TestReviewXCF_AllResourceSections(t *testing.T) {
-	xcf := []byte(`
+	xcf := []byte(`---
+kind: project
 version: "1.0"
-project:
-  name: testproject
-
+name: testproject
+---
+kind: global
+version: "1.0"
 agents:
   ceo:
     model: claude-opus-4-5
@@ -129,7 +131,7 @@ workflows:
 }
 
 func TestReviewXCF_NoEmoji(t *testing.T) {
-	xcf := []byte(`
+	xcf := []byte(`kind: global
 version: "1.0"
 agents:
   my-agent:
@@ -151,7 +153,7 @@ agents:
 }
 
 func TestReviewXCF_EmptySectionsOmitted(t *testing.T) {
-	xcf := []byte(`
+	xcf := []byte(`kind: global
 version: "1.0"
 agents:
   solo:

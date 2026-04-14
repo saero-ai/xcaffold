@@ -20,12 +20,16 @@ func TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic(t *testing.T) {
 
 	// instructions_file pointing to a missing file → validateFileRefs emits
 	// a Severity:"error" diagnostic.
-	xcfContent := `version: "1"
-project:
-  name: check-error-test
+	xcfContent := `---
+kind: project
+version: "1.0"
+name: check-error-test
+---
+kind: global
+version: "1.0"
 agents:
   dev:
-    name: Developer
+    description: Developer
     model: claude-sonnet-4-5
     instructions_file: missing-instructions.md
 `
@@ -44,9 +48,9 @@ agents:
 }
 
 // minimalXCF is a minimal valid scaffold.xcf for apply tests.
-const minimalXCF = `version: "1"
-project:
-  name: apply-test
+const minimalXCF = `kind: project
+version: "1.0"
+name: apply-test
 `
 
 func TestApplyScope_Project(t *testing.T) {
@@ -190,9 +194,9 @@ func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
 	require.NoError(t, err)
 
 	// Modify source
-	modifiedXCF := `version: "1"
-project:
-  name: apply-test-modified
+	modifiedXCF := `kind: project
+version: "1.0"
+name: apply-test-modified
 `
 	require.NoError(t, os.WriteFile(xcf, []byte(modifiedXCF), 0600))
 	time.Sleep(1 * time.Second)
@@ -268,12 +272,16 @@ func TestApplyScope_PurgesOrphanedFiles(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create initial config with an agent
-	xcfContent := `version: "1"
-project:
-  name: orphan-test
+	xcfContent := `---
+kind: project
+version: "1.0"
+name: orphan-test
+---
+kind: global
+version: "1.0"
 agents:
   dev:
-    name: Developer
+    description: Developer
     model: sonnet-4
     instructions: |
       You are a developer.
@@ -295,9 +303,9 @@ agents:
 	require.NoError(t, err, "agent file should exist after first apply")
 
 	// Remove the agent from config
-	xcfNoAgent := `version: "1"
-project:
-  name: orphan-test
+	xcfNoAgent := `kind: project
+version: "1.0"
+name: orphan-test
 `
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfNoAgent), 0600))
 
@@ -410,10 +418,10 @@ targets:
 func TestRunApply_NoTargetsInConfig_DefaultsToClaude(t *testing.T) {
 	dir := t.TempDir()
 
-	// Legacy config with no targets field
-	xcfContent := `version: "1"
-project:
-  name: no-targets-test
+	// Config with no targets field
+	xcfContent := `kind: project
+version: "1.0"
+name: no-targets-test
 `
 	xcf := filepath.Join(dir, "scaffold.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
@@ -438,12 +446,16 @@ project:
 func TestApplyScope_DryRun_ListsOrphans(t *testing.T) {
 	dir := t.TempDir()
 
-	xcfContent := `version: "1"
-project:
-  name: orphan-test
+	xcfContent := `---
+kind: project
+version: "1.0"
+name: orphan-test
+---
+kind: global
+version: "1.0"
 agents:
   dev:
-    name: Developer
+    description: Developer
     model: sonnet-4
     instructions: |
       You are a developer.
@@ -465,9 +477,9 @@ agents:
 	require.NoError(t, err)
 
 	// Remove agent from config
-	require.NoError(t, os.WriteFile(xcf, []byte(`version: "1"
-project:
-  name: orphan-test
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+version: "1.0"
+name: orphan-test
 `), 0600))
 
 	// Dry run — should NOT delete the file

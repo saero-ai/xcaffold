@@ -26,12 +26,18 @@ func TestApply_CheckPermissions_FlagRegistered(t *testing.T) {
 func TestApply_CheckPermissions_CursorTarget_ReportsDroppedFields(t *testing.T) {
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
-	content := `version: "1.0"
-project:
-  name: check-perm-test
-settings:
-  permissions:
-    deny: [Bash]
+	content := `---
+kind: project
+version: "1.0"
+name: check-perm-test
+---
+kind: settings
+version: "1.0"
+permissions:
+  deny: [Bash]
+---
+kind: global
+version: "1.0"
 agents:
   dev:
     description: Developer
@@ -80,13 +86,16 @@ agents:
 func TestApply_CheckPermissions_ContradictionExitsOne(t *testing.T) {
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
-	content := `version: "1.0"
-project:
-  name: contradiction-test
-settings:
-  permissions:
-    allow: [Bash]
-    deny: [Bash]
+	content := `---
+kind: project
+version: "1.0"
+name: contradiction-test
+---
+kind: settings
+version: "1.0"
+permissions:
+  allow: [Bash]
+  deny: [Bash]
 `
 	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
 
@@ -110,12 +119,18 @@ func TestApply_CheckPermissions_Global_UsesGlobalXcfHome(t *testing.T) {
 	// Create a temp dir to serve as globalXcfHome with a valid scaffold.xcf.
 	globalHome := t.TempDir()
 	xcf := filepath.Join(globalHome, "scaffold.xcf")
-	content := `version: "1.0"
-project:
-  name: global-check-perm-test
-settings:
-  permissions:
-    deny: [Bash]
+	content := `---
+kind: project
+version: "1.0"
+name: global-check-perm-test
+---
+kind: settings
+version: "1.0"
+permissions:
+  deny: [Bash]
+---
+kind: global
+version: "1.0"
 agents:
   dev:
     description: Developer

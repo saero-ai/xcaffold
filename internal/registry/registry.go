@@ -42,7 +42,7 @@ func GlobalHome() (string, error) {
 
 // DefaultGlobalXCFContent is a minimal starter template used only when no
 // real global agent configs are found on disk.
-const DefaultGlobalXCFContent = `kind: config
+const DefaultGlobalXCFContent = `kind: global
 version: "1.0"
 # No global agents were detected. Add agents here and run:
 #   xcaffold apply --global
@@ -392,7 +392,7 @@ func scanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string
 func marshalGlobalXCF(r *globalScanResult) []byte {
 	var buf bytes.Buffer
 
-	buf.WriteString("kind: config\n")
+	buf.WriteString("kind: global\n")
 	buf.WriteString("version: \"1.0\"\n")
 	buf.WriteString("# User-wide agent configuration (auto-discovered).\n\n")
 	buf.WriteString("# All instructions_file paths are absolute so they resolve correctly\n")

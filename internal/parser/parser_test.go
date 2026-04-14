@@ -11,11 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const validXCF = `
+const validXCF = `---
+kind: project
 version: "1.0"
-project:
-  name: "test-project"
-  description: "A test project."
+name: "test-project"
+description: "A test project."
+---
+kind: global
+version: "1.0"
 agents:
   developer:
     description: "An expert developer."
@@ -26,16 +29,16 @@ agents:
     tools: [Bash, Read, Write]
 `
 
-const missingProjectName = `
+const missingProjectName = `kind: project
 version: "1.0"
-project:
-  description: "Missing the name field."
+description: "Missing the name field."
 `
 
-const unknownFieldXCF = `
+const unknownFieldXCF = `kind: global
 version: "1.0"
-project:
-  name: "test-project"
+agents:
+  dev:
+    description: "developer"
 unknown_top_level_field: "should fail"
 `
 
@@ -52,7 +55,7 @@ func TestParse_ValidConfig(t *testing.T) {
 func TestParse_MissingProjectName(t *testing.T) {
 	_, err := Parse(strings.NewReader(missingProjectName))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "project.name is required")
+	assert.Contains(t, err.Error(), "name is required")
 }
 
 func TestParse_UnknownField_Rejected(t *testing.T) {
@@ -67,9 +70,8 @@ func TestParse_EmptyReader(t *testing.T) {
 }
 
 func TestParse_MissingVersion_Rejected(t *testing.T) {
-	missingVersionXCF := `
-project:
-  name: "test-project"
+	missingVersionXCF := `kind: project
+name: "test-project"
 `
 	_, err := Parse(strings.NewReader(missingVersionXCF))
 	require.Error(t, err)
@@ -77,10 +79,8 @@ project:
 }
 
 func TestParse_PathTraversalAgentID_Rejected(t *testing.T) {
-	maliciousXCF := `
+	maliciousXCF := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 agents:
   "../evil":
     description: "Path traversal attempt"
@@ -91,10 +91,8 @@ agents:
 }
 
 func TestParse_HookEvent_ValidEvent_Accepted(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test"
 hooks:
   PreToolUse:
     - hooks:
@@ -107,10 +105,8 @@ hooks:
 }
 
 func TestParse_HookEvent_InvalidEvent_Rejected(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test"
 hooks:
   MadeUpEvent:
     - hooks:
@@ -129,9 +125,8 @@ func TestParseFile_ExtendsGlobal_ResolvesToHomeClaude(t *testing.T) {
 	require.NoError(t, os.MkdirAll(claudeDir, 0755))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(claudeDir, "global.xcf"),
-		[]byte(`version: "1.0"
-project:
-  name: "global-base"
+		[]byte(`kind: global
+version: "1.0"
 agents:
   shared:
     description: "Shared agent"
@@ -147,10 +142,9 @@ agents:
 	globalPath := filepath.Join(claudeDir, "global.xcf")
 	require.NoError(t, os.WriteFile(
 		filepath.Join(projectDir, "scaffold.xcf"),
-		[]byte(fmt.Sprintf(`extends: "%s"
+		[]byte(fmt.Sprintf(`kind: global
 version: "1.0"
-project:
-  name: "my-project"
+extends: "%s"
 agents:
   local:
     description: "Local agent"
@@ -161,7 +155,6 @@ agents:
 	config, err := ParseFile(filepath.Join(projectDir, "scaffold.xcf"))
 	require.NoError(t, err)
 
-	assert.Equal(t, "my-project", config.Project.Name)
 	_, hasShared := config.Agents["shared"]
 	assert.True(t, hasShared, "inherited agent should be present")
 	_, hasLocal := config.Agents["local"]
@@ -183,10 +176,8 @@ func TestParse_HookEvent_AllValidEvents_Accepted(t *testing.T) {
 
 	for _, event := range events {
 		t.Run(event, func(t *testing.T) {
-			input := `
+			input := `kind: global
 version: "1.0"
-project:
-  name: "test"
 hooks:
   ` + event + `:
     - hooks:
@@ -200,13 +191,10 @@ hooks:
 }
 
 func TestValidatePermissions_ValidRule_BareToolName(t *testing.T) {
-	input := `
+	input := `kind: settings
 version: "1.0"
-project:
-  name: "test"
-settings:
-  permissions:
-    allow: [Bash]
+permissions:
+  allow: [Bash]
 `
 	cfg, err := Parse(strings.NewReader(input))
 	require.NoError(t, err)
@@ -214,13 +202,10 @@ settings:
 }
 
 func TestValidatePermissions_ValidRule_WithPattern(t *testing.T) {
-	input := `
+	input := `kind: settings
 version: "1.0"
-project:
-  name: "test"
-settings:
-  permissions:
-    allow: ["Bash(npm test *)"]
+permissions:
+  allow: ["Bash(npm test *)"]
 `
 	cfg, err := Parse(strings.NewReader(input))
 	require.NoError(t, err)
@@ -228,13 +213,10 @@ settings:
 }
 
 func TestValidatePermissions_InvalidRule_UnknownTool(t *testing.T) {
-	input := `
+	input := `kind: settings
 version: "1.0"
-project:
-  name: "test"
-settings:
-  permissions:
-    deny: [SomeUnknownTool]
+permissions:
+  deny: [SomeUnknownTool]
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -242,27 +224,21 @@ settings:
 }
 
 func TestValidatePermissions_InvalidRule_MalformedPattern(t *testing.T) {
-	input := `
+	input := `kind: settings
 version: "1.0"
-project:
-  name: "test"
-settings:
-  permissions:
-    allow: ["Bash(unclosed"]
+permissions:
+  allow: ["Bash(unclosed"]
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
 }
 
 func TestValidatePermissions_Contradiction_AllowAndDeny(t *testing.T) {
-	input := `
+	input := `kind: settings
 version: "1.0"
-project:
-  name: "test"
-settings:
-  permissions:
-    allow: [Bash]
-    deny: [Bash]
+permissions:
+  allow: [Bash]
+  deny: [Bash]
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -270,14 +246,11 @@ settings:
 }
 
 func TestValidatePermissions_Contradiction_AllowAndAsk(t *testing.T) {
-	input := `
+	input := `kind: settings
 version: "1.0"
-project:
-  name: "test"
-settings:
-  permissions:
-    allow: [Read]
-    ask: [Read]
+permissions:
+  allow: [Read]
+  ask: [Read]
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -285,17 +258,18 @@ settings:
 }
 
 func TestValidatePermissions_AgentDisallowedConflict(t *testing.T) {
-	input := `
+	input := `---
+kind: global
 version: "1.0"
-project:
-  name: "test"
 agents:
   dev:
     description: "Developer"
     disallowedTools: [Write]
-settings:
-  permissions:
-    allow: [Write]
+---
+kind: settings
+version: "1.0"
+permissions:
+  allow: [Write]
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -304,17 +278,18 @@ settings:
 }
 
 func TestValidatePermissions_AgentToolsDenyConflict(t *testing.T) {
-	input := `
+	input := `---
+kind: global
 version: "1.0"
-project:
-  name: "test"
 agents:
   dev:
     description: "Developer"
     tools: [Bash]
-settings:
-  permissions:
-    deny: [Bash]
+---
+kind: settings
+version: "1.0"
+permissions:
+  deny: [Bash]
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -323,10 +298,8 @@ settings:
 }
 
 func TestParse_MCP_PlatformSpecificFields(t *testing.T) {
-	input := `
+	input := `kind: global
 version: "1.0"
-project:
-  name: "test"
 mcp:
   local-server:
     type: "stdio"
@@ -370,9 +343,8 @@ func writeXCFFile(t *testing.T, dir, name, content string) string {
 
 func TestValidateFileRefs_MissingSkillReference(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
-project:
-  name: "test"
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+version: "1.0"
 skills:
   my-skill:
     description: "A skill"
@@ -392,9 +364,8 @@ skills:
 
 func TestValidateFileRefs_MissingInstructionsFile_Agent(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
-project:
-  name: "test"
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+version: "1.0"
 agents:
   my-agent:
     description: "An agent"
@@ -417,9 +388,8 @@ func TestValidateFileRefs_PresentInstructionsFile(t *testing.T) {
 	instrFile := filepath.Join(dir, "real.md")
 	require.NoError(t, os.WriteFile(instrFile, []byte("# instructions"), 0600))
 
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
-project:
-  name: "test"
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+version: "1.0"
 agents:
   my-agent:
     description: "An agent"
@@ -435,9 +405,8 @@ agents:
 
 func TestValidateFileRefs_DuplicateID(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
-project:
-  name: "test"
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+version: "1.0"
 agents:
   foo:
     description: "An agent"
@@ -459,9 +428,8 @@ skills:
 
 func TestValidateFileRefs_UniqueIDs(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
-project:
-  name: "test"
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+version: "1.0"
 agents:
   agent-one:
     description: "An agent"
@@ -486,12 +454,10 @@ rules:
 
 func TestValidatePlugins_KnownPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
-project:
-  name: "test"
-settings:
-  enabledPlugins:
-    commit-commands: true
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: settings
+version: "1.0"
+enabledPlugins:
+  commit-commands: true
 `)
 	diags := ValidateFile(xcf)
 	for _, d := range diags {
@@ -503,12 +469,10 @@ settings:
 
 func TestValidatePlugins_UnknownSettingsPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
-project:
-  name: "test"
-settings:
-  enabledPlugins:
-    my-custom-plugin: true
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: settings
+version: "1.0"
+enabledPlugins:
+  my-custom-plugin: true
 `)
 	diags := ValidateFile(xcf)
 	var found bool
@@ -523,12 +487,12 @@ settings:
 
 func TestValidatePlugins_UnknownLocalPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
-project:
-  name: "test"
-  local:
-    enabledPlugins:
-      mystery-plugin: true
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: project
+version: "1.0"
+name: "test"
+local:
+  enabledPlugins:
+    mystery-plugin: true
 `)
 	diags := ValidateFile(xcf)
 	var found bool
@@ -543,15 +507,18 @@ project:
 
 func TestValidatePlugins_BothBlocksUnknown(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `version: "1.0"
-project:
-  name: "test"
-  local:
-    enabledPlugins:
-      beta-plugin: true
-settings:
+	xcf := writeXCFFile(t, dir, "scaffold.xcf", `---
+kind: project
+version: "1.0"
+name: "test"
+local:
   enabledPlugins:
-    alpha-plugin: true
+    beta-plugin: true
+---
+kind: settings
+version: "1.0"
+enabledPlugins:
+  alpha-plugin: true
 `)
 	diags := ValidateFile(xcf)
 	count := 0
@@ -568,11 +535,9 @@ func TestParseDirectory_SkipsNonConfigFiles(t *testing.T) {
 	dir := t.TempDir()
 
 	// Write a valid config file
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(`
-kind: config
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(`kind: project
 version: "1.0"
-project:
-  name: "test-project"
+name: "test-project"
 `), 0600))
 
 	// Write a registry file (should be skipped)
@@ -609,40 +574,39 @@ projects: []
 	assert.Contains(t, err.Error(), "no *.xcf files found")
 }
 
-func TestIsConfigFile_LegacyNoKind(t *testing.T) {
+func TestIsParseableFile_LegacyNoKind_ReturnsFalse(t *testing.T) {
 	dir := t.TempDir()
 
-	// File without kind: field should be treated as config (backward-compatible)
+	// File without kind: field must not be treated as parseable — kind is required
 	path := filepath.Join(dir, "legacy.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(`version: "1.0"
 project:
   name: "legacy"
 `), 0600))
 
-	assert.True(t, isConfigFile(path), "files without kind: should be treated as config")
+	assert.False(t, isParseableFile(path), "files without kind: must not be treated as parseable")
 }
 
 func TestCompile_MultiFile_DuplicateIDErrorTracksOrigin(t *testing.T) {
 	dir := t.TempDir()
 
 	file1 := filepath.Join(dir, "agent1.xcf")
-	err := os.WriteFile(file1, []byte(`
+	err := os.WriteFile(file1, []byte(`kind: global
 version: "1.0"
-project:
-  name: test
 agents:
   dev:
-    name: dev1
+    description: "dev1"
 `), 0600) //nolint:goconst
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	file2 := filepath.Join(dir, "agent2.xcf")
-	err = os.WriteFile(file2, []byte(`
+	err = os.WriteFile(file2, []byte(`kind: global
+version: "1.0"
 agents:
   dev:
-    name: dev2
+    description: "dev2"
 `), 0600) //nolint:goconst
 	if err != nil {
 		t.Fatal(err)
