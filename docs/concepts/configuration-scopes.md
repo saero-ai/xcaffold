@@ -25,7 +25,7 @@ A project scope is defined by exactly one `kind: project` document. This documen
 | `project` | Project manifest — name, targets, child resource refs. Exactly 1 required. |
 | `hooks` | Standalone hooks with `events:` wrapper |
 | `settings` | Standalone settings |
-| `config` | Legacy monolithic format (backward compatible) |
+| `global` | Global-scope configuration |
 
 All discovered resource documents are merged into a single `ResourceScope` with strict deduplication. If the same resource ID appears in two files, parsing fails immediately with a duplicate ID error.
 
@@ -83,9 +83,9 @@ When a project config defines resources at both root level (global scope, from `
 | Resource level | Source | Priority |
 |---|---|---|
 | Root-level `agents:`, `skills:`, etc. | Global or inherited | Lower (base) |
-| `project.agents:`, `project.skills:`, etc. (legacy `kind: config`) | Workspace-specific | Higher (override) |
+| `project.agents:`, `project.skills:`, etc. | Workspace-specific | Higher (override) |
 
-> **Format note:** In `kind: project` format, workspace-scoped resources are defined as bare name lists at the top level (e.g. `agents:` lists agent names, with definitions in separate `kind: agent` files). In `kind: config` format, they are nested under the `project:` block as `project.agents:`, `project.skills:`, etc. Both formats produce the same merge behavior.
+> **Format note:** In `kind: project` format, workspace-scoped resources are defined as bare name lists at the top level (e.g. `agents:` lists agent names, with definitions in separate `kind: agent` files).
 
 After merging, inherited resources (those originating from `extends:` chains) are stripped from the compilation output to prevent duplication.
 
@@ -111,7 +111,7 @@ events:
           command: "echo pre-tool-use from project override"
 ```
 
-> **Legacy format:** In `kind: config`, hooks are nested under `project: hooks:`. The standalone `kind: hooks` format with `events:` is the primary format for new configurations.
+> Hooks are declared in a standalone `kind: hooks` file with an `events:` wrapper. This is the only supported format for hook declarations.
 
 The compiled evaluation contains both handlers in order: global base, then project override.
 

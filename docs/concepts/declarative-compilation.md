@@ -60,7 +60,7 @@ A single `.xcf` file can contain multiple YAML documents separated by `---`. The
 
 - `kind: project` populates `ProjectConfig` with the project name, targets, and resource reference lists.
 - `kind: hooks`, `kind: settings`, and other resource kinds merge their contents into `ResourceScope` maps.
-- `kind: config` (or absent `kind:`) is parsed as a legacy monolithic configuration.
+- `kind: global` contains global-scope resources and settings.
 
 When `ParseDirectory` scans a project tree, it discovers all `.xcf` files recursively and merges all parsed documents into a single configuration. Strict deduplication is enforced: if the same resource ID (e.g., agent `deployer`) appears in two different files, parsing fails with a duplicate ID error. This prevents ambiguous precedence and ensures every resource has exactly one authoritative definition.
 

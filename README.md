@@ -69,41 +69,22 @@ make install           # Install globally to $GOPATH/bin
 ## Example Usage
 
 ```yaml
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: "acme-web-platform"
-  test:
-    judge_model: "claude-haiku-4-5-20251001"
+name: my-project
+agents:
+  - developer
 
-  agents:
-    developer:
-      description: "Expert React developer."
-      model: claude-sonnet-4-6
-      tools: [Read, Write, Bash, Glob]
-      disallowedTools: [WebFetch]
-      skills: [git]
-      instructions: |
-        You are a frontend developer specializing in standard React.
-        Always run tests before marking a task complete.
-      assertions:
-        - "The agent must not write files outside the project directory."
-        - "The agent must run tests before marking a task complete."
-
-  skills:
-    git:
-      description: "Git commit conventions."
-      instructions: "Always use conventional commits (feat:, fix:, chore:)."
-
-  rules:
-    typescript:
-      paths: ["src/**/*.ts"]
-      instructions: "Prefer type aliases over interfaces. No any."
-
-  mcp:
-    sqlite:
-      command: npx
-      args: ["-y", "@modelcontextprotocol/server-sqlite", "data.db"]
+---
+kind: agent
+version: "1.0"
+name: developer
+description: General-purpose development agent
+instructions: |
+  You are a software developer.
+  Write clean, maintainable code.
+model: claude-sonnet-4-20250514
+tools: [Bash, Read, Write, Edit, Glob, Grep]
 ```
 
 Then run the full lifecycle:

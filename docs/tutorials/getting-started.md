@@ -75,8 +75,6 @@ The `kind: project` document declares project metadata and targets. Each resourc
 
 This file is the source of truth. Every file xcaffold produces traces back to it. You never edit generated output directly.
 
-> **Legacy format:** If you have an older `kind: config` file with resources nested under `project:`, it continues to work. `kind: project` is the current recommended format — it supports both single-file and split-file layouts. See [Split Configurations](../how-to/split-configs.md) for details.
-
 ---
 
 ## Step 2: Compile to AGENTS.md

@@ -111,7 +111,7 @@ Created automatically on first run by `registry.EnsureGlobalHome()`. Contains tw
 
 | File | Purpose |
 |---|---|
-| `global.xcf` | User-wide agent config (uses `kind: config` for monolithic global scope) — auto-bootstrapped by scanning installed platform providers |
+| `global.xcf` | User-wide agent config (uses `kind: global` for global-scope resources and settings) — auto-bootstrapped by scanning installed platform providers |
 | `registry.xcf` | YAML list of all registered projects (`name`, `path`, `targets`, `registered`, `last_applied`) |
 
 `global.xcf` is rebuilt by `RebuildGlobalXCF()`, which iterates a `globalProviders` registry. Currently two providers are active:
@@ -134,13 +134,11 @@ Every `.xcf` file carries a `kind:` field as its first key. The parser reads thi
 | `project` | `XcaffoldConfig` | `parser.ParseDirectory()` | Primary format. Exactly 1 required per project. Declares name, targets, resource refs. |
 | `hooks` | `XcaffoldConfig` | `parser.ParseDirectory()` | Standalone hooks with `events:` wrapper |
 | `settings` | `XcaffoldConfig` | `parser.ParseDirectory()` | Standalone settings |
-| `config` (or absent) | `XcaffoldConfig` | `parser.ParseDirectory()` | Legacy monolithic format — backward compatible |
-| `policy` | `PolicyConfig` | `policy.ParseFile()` | |
+| `global` | `XcaffoldConfig` | `parser.ParseDirectory()` | Global-scope resources and settings |
+| `policy` | `PolicyConfig` | `parseResourceDocument()` | Declarative constraint (standardized kind) |
 | `registry` | `{kind, projects}` | `registry.readProjects()` | |
 
-`kind: project` + resource kind files are now the primary format. `kind: config` remains fully supported as a backward-compatible alternative for single-file configurations.
-
-Files without a `kind:` field are treated as `config` for backward compatibility. Files with unrecognized `kind:` values (like `registry`) are silently skipped by the directory scanner — this prevents non-config files from crashing the strict `KnownFields(true)` parser.
+Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognized `kind:` values (like `registry`) are silently skipped by the directory scanner — this prevents non-config files from crashing the strict `KnownFields(true)` parser.
 
 ---
 
@@ -150,7 +148,7 @@ Files without a `kind:` field are treated as `config` for backward compatibility
 |---|---|---|
 | `ast` | `internal/ast/` | Core types: `ResourceScope` (shared resource block), `XcaffoldConfig`, `*ProjectConfig`, and all resource configs |
 | `parser` | `internal/parser/` | Strict YAML parsing — unknown fields fail immediately |
-| `policy` | `internal/policy/` | Zero-dependency constraint engine — evaluates built-in and user-defined `kind: policy` files against the AST and compiled output |
+| `policy` | `internal/policy/` | Post-compile constraint engine -- evaluates built-in and user-defined policies against AST snapshot and compiled output |
 | `compiler` | `internal/compiler/` | Routes AST to the correct renderer; exposes `Compile()` and `OutputDir()` |
 | `renderer` | `internal/renderer/` | `TargetRenderer` interface + `Registry` |
 | `renderer/claude` | `internal/renderer/claude/` | Claude Code renderer (`→ .claude/`) |
@@ -217,7 +215,7 @@ The compiler merges two sources into `settings.json`:
 
 **Merge rule:** `settings.mcpServers` takes precedence over `mcp:` entries with the same key.
 
-The `local:` block is a `SettingsConfig` variant that allows machine-local overrides (e.g. paths, secrets) without polluting the committed `scaffold.xcf`. It compiles to `settings.local.json`. In `kind: project` format, `local:` is a top-level field (not nested under `project:`). In the legacy `kind: config` format, it appears within the `project:` block.
+The `local:` block is a `SettingsConfig` variant that allows machine-local overrides (e.g. paths, secrets) without polluting the committed `scaffold.xcf`. It compiles to `settings.local.json`. In `kind: project` format, `local:` is a top-level field (not nested under `project:`).
 
 ---
 

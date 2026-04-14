@@ -115,16 +115,17 @@ Reserve `error` severity for constraints that protect sandbox integrity or preve
 
 ### Override Placement
 
-Centralize policy overrides in a single `policies/` directory rather than scattering `kind: policy` files across domain folders. This makes overrides discoverable and easy to audit.
+Declare `kind: policy` files alongside other resource files under `xcf/` and reference them from the `policies:` list in your `kind: project` manifest. This keeps policy definitions co-located with the resources they constrain and makes the full policy surface visible in one place.
 
 ```
 project/
-├── scaffold.xcf
-├── policies/
-│   ├── approved-models.xcf         ← custom policy
-│   └── allow-empty-skills.xcf      ← override of built-in
-└── backend/
-    └── devops-agent.xcf
+├── scaffold.xcf                    ← kind: project (includes policies: list)
+└── xcf/
+    ├── policies/
+    │   ├── approved-models.xcf     ← kind: policy (custom constraint)
+    │   └── allow-empty-skills.xcf  ← kind: policy (built-in override, severity: off)
+    └── backend/
+        └── devops-agent.xcf
 ```
 
 ### Name-Based Toggling

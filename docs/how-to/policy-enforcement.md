@@ -6,11 +6,26 @@ xcaffold evaluates policies during `xcaffold apply` and `xcaffold validate`. Vio
 
 ## Writing a Custom Policy
 
-Create a `policies/` directory alongside your `scaffold.xcf`. Each `.xcf` file in that directory with `kind: policy` is loaded automatically by the policy engine.
+Create policy `.xcf` files alongside your other resource files. Reference them from your `kind: project` manifest using the `policies:` list.
+
+**Example `kind: project` manifest referencing custom policies:**
+
+```yaml
+kind: project
+version: "1.0"
+name: my-project
+targets:
+  - claude
+policies:
+  - require-approved-model
+  - no-leaked-todos
+```
+
+Each name in `policies:` maps to a `kind: policy` document — either in the same file (separated by `---`) or in a separate `.xcf` file parsed alongside the project manifest.
 
 **Example: require all agents to have a model from an approved list.**
 
-Create `policies/require-approved-model.xcf`:
+Create `require-approved-model.xcf`:
 
 ```yaml
 kind: policy
@@ -47,7 +62,7 @@ See `docs/reference/schema.md` for the full field reference including `PolicyReq
 
 ## Running Policy Evaluation
 
-Both `xcaffold apply` and `xcaffold validate` load built-in policies first, then scan for a `policies/` directory relative to the `.xcf` file location. Custom policies with the same `name` as a built-in override it.
+Both `xcaffold apply` and `xcaffold validate` load built-in policies first, then merge with user-defined policies from the parsed configuration. Custom policies with the same `name` as a built-in override it.
 
 ### Passing run (no violations)
 
@@ -111,16 +126,16 @@ xcaffold ships with four built-in policies embedded in the binary:
 | `no-empty-skills` | `warning` | `skill` | Warns when a skill has no `instructions` content |
 | `agent-has-description` | `warning` | `agent` | Warns when an agent omits the `description` field |
 
-To disable a built-in policy, create a policy file with the same `name` and set `severity: off`. The engine resolves overrides by name: custom policies loaded from `policies/` replace any built-in with the same name.
+To disable a built-in policy, create a `kind: policy` document with the same `name` and set `severity: off`, then reference it in your `kind: project` manifest's `policies:` list. The engine resolves overrides by name: user-defined policies replace any built-in with the same name.
 
-**Example: disable path-safety during a legacy migration.**
+**Example: disable path-safety during a migration.**
 
-Create `policies/allow-traversal.xcf`:
+Create `allow-traversal.xcf`:
 
 ```yaml
 kind: policy
 name: path-safety
-description: Temporarily disable path safety for legacy repo migration
+description: Temporarily disable path safety during repo migration
 severity: off
 target: output
 ```

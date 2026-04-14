@@ -5,6 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Breaking Changes
+
+- **Removed `kind: config`**: The legacy monolithic format has been removed. Use `kind: project` with individual resource documents (`kind: agent`, `kind: skill`, etc.). For global configuration, use `kind: global`. Files with empty or missing `kind:` fields now produce a descriptive error with migration guidance.
+
+### Added
+
+- **`kind: global`**: New kind for `~/.xcaffold/global.xcf`. Contains shared resources and settings without project metadata.
+- **`kind: policy`**: Declarative constraint engine. Define `require` and `deny` rules evaluated during `apply` and `validate`. Four built-in policies ship with the binary: `path-safety`, `settings-schema`, `agent-has-description`, `no-empty-skills`.
+- **Policy references in `kind: project`**: Projects can reference policies via `policies:` list, same as agents, skills, and rules.
+- **Built-in policy overrides**: Create a `kind: policy` file with the same `name` as a built-in and set `severity: off` to disable it.
+
+### Changed
+
+- `isConfigFile()` renamed to `isParseableFile()` — now rejects empty and `config` kind values.
+- `MarshalMultiKind()` emits `kind: project` as the first document instead of `kind: config`.
+- `~/.xcaffold/global.xcf` now uses `kind: global` instead of `kind: config`.
+
 ### Changed
 - Refactored `README.md` "Why xcaffold?" section with a provider-agnostic ecosystem narrative, removing inaccurate "token budgeting" claims in favor of policy enforcement and fleet visibility (docs)
 - Updated Homebrew and Scoop package descriptions in `.goreleaser.yaml` to reflect provider-agnostic agent configuration positioning (release)
