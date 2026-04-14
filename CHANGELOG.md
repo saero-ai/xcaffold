@@ -17,11 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (Agent Schema Normalization)
 
-- Reordered `AgentConfig` struct fields into ten canonical groups: Identity, Model & Execution, Tool Access, Permissions & Invocation, Lifecycle, Memory & Context, Composition References, Inline Composition, Multi-Target, and Instructions (ast)
+- Reordered `AgentConfig` struct fields so compiled output emits them in a canonical order: identity, then model and execution, tool access, permissions and invocation, lifecycle, memory and context, composition references, inline composition, targets, and instructions last (ast)
 - Claude renderer now emits `disableModelInvocation` and `userInvocable` in agent frontmatter when set (renderer)
-- Claude renderer moved `memory` frontmatter emission from Group 2 to Group 6 (after `isolation`, before `color`) to match canonical ordering (renderer)
+- Claude renderer now emits `memory` after `isolation` (before `color`) to match the canonical order (renderer)
 - Reordered agent field emission in `rest-api`, `cli-tool`, and `frontend-app` init templates so `instructions` appears last (templates)
-- Reordered agent document emitted by `xcaffold init` so `instructions` appears after `tools`, matching canonical ordering (init)
+- Reordered agent document emitted by `xcaffold init` so `instructions` appears after `tools`, matching the canonical order (init)
 - Added inline comment in generated `scaffold.xcf` pointing users to `xcf/references/agent.xcf.reference` for the full field catalog (init)
 
 ### Breaking Changes

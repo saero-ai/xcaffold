@@ -19,43 +19,43 @@ func RenderAgentReference() string {
 kind: agent
 version: "1.0"
 
-# ── Group 1: Identity (xcaffold envelope) ────────────────────
+# ── Identity (xcaffold envelope) ─────────────────────────────
 name: my-agent              # REQUIRED. Unique ID, lowercase + hyphens.
 description: "..."          # Recommended. When to delegate to this agent.
 
-# ── Group 2: Model & Execution ──────────────────────────────
+# ── Model & Execution ────────────────────────────────────────
 model: sonnet               # Alias (sonnet/opus/haiku) or full model ID.
 effort: high                # low | medium | high | max (max = Opus only).
 maxTurns: 10                # Max agentic turns. Gemini default: 30.
 mode: ""                    # Execution mode (xcaffold-specific).
 
-# ── Group 3: Tool Access ────────────────────────────────────
+# ── Tool Access ──────────────────────────────────────────────
 tools: [Read, Grep, Glob]   # Allowed tools. Omit to inherit all.
 disallowedTools: []         # Denylist. Applied before tools allowlist (Claude).
 readonly: false             # Restrict to read-only tools (Cursor/Antigravity).
 
-# ── Group 4: Permissions & Invocation Control ───────────────
+# ── Permissions & Invocation Control ─────────────────────────
 permissionMode: default     # default | acceptEdits | auto | dontAsk | bypassPermissions | plan (Claude).
 disableModelInvocation: false  # Prevent automatic agent selection (Copilot/Cursor).
 userInvocable: true         # false = programmatic-only access (Copilot).
 
-# ── Group 5: Lifecycle ──────────────────────────────────────
+# ── Lifecycle ────────────────────────────────────────────────
 background: false           # Run as background task (Claude/Cursor/Antigravity).
 isolation: ""               # "worktree" for git worktree isolation (Claude).
 when: ""                    # Compile-time conditional (xcaffold-specific).
 
-# ── Group 6: Memory & Context ───────────────────────────────
+# ── Memory & Context ─────────────────────────────────────────
 memory: ""                  # Claude memory scope: user | project | local.
 color: ""                   # Display color (Claude): red/blue/green/yellow/purple/orange/pink/cyan.
 initialPrompt: ""           # Auto-submitted first turn (Claude).
 
-# ── Group 7: Composition (references) ───────────────────────
+# ── Composition (references) ─────────────────────────────────
 skills: []                  # Skills loaded into agent context.
 rules: []                   # Rules applied to this agent.
 mcp: []                     # MCP server references (by name).
 assertions: []              # Test assertions (evaluated by xcaffold test --judge).
 
-# ── Group 8: Inline Composition ─────────────────────────────
+# ── Inline Composition ───────────────────────────────────────
 # mcpServers:                 # Inline MCP server definitions.
 #   my-server:
 #     command: "/path/to/server"
@@ -68,7 +68,7 @@ assertions: []              # Test assertions (evaluated by xcaffold test --judg
 #         - type: command
 #           command: "validate.sh"
 
-# ── Group 9: Multi-Target (per-provider overrides) ──────────
+# ── Multi-Target (per-provider overrides) ────────────────────
 # targets:
 #   gemini:
 #     instructions_override: |
@@ -85,7 +85,7 @@ assertions: []              # Test assertions (evaluated by xcaffold test --judg
 #       metadata:                # Copilot: custom name/value annotations
 #         category: review
 
-# ── Group 10: Instructions (always last) ────────────────────
+# ── Instructions (always last) ───────────────────────────────
 instructions: |
   Your agent instructions here. This becomes the body of the compiled
   markdown file (e.g., .claude/agents/my-agent.md).
