@@ -10,6 +10,7 @@ type ResourceScope struct {
 	Hooks     HookConfig                `yaml:"hooks,omitempty"`
 	MCP       map[string]MCPConfig      `yaml:"mcp,omitempty"`
 	Workflows map[string]WorkflowConfig `yaml:"workflows,omitempty"`
+	Policies  map[string]PolicyConfig   `yaml:"policies,omitempty"`
 }
 
 // XcaffoldConfig is the root structure of a parsed .xcf YAML file.
@@ -47,6 +48,7 @@ type ProjectConfig struct {
 	RuleRefs     []string `yaml:"-"`
 	WorkflowRefs []string `yaml:"-"`
 	MCPRefs      []string `yaml:"-"`
+	PolicyRefs   []string `yaml:"-"`
 
 	Test  TestConfig     `yaml:"test,omitempty"`
 	Local SettingsConfig `yaml:"local,omitempty"`
