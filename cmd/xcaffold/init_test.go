@@ -157,3 +157,32 @@ func TestBuildXCFContent_CanonicalFieldOrdering(t *testing.T) {
 		lastIdx = idx
 	}
 }
+
+func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Ensure flag is false (default state).
+	noReferencesFlag = false
+	require.NoError(t, writeReferenceTemplates(tmp))
+
+	refPath := filepath.Join(tmp, "xcf", "references", "agent.xcf.reference")
+	_, err := os.Stat(refPath)
+	require.NoError(t, err, "agent.xcf.reference must exist at %s", refPath)
+
+	data, err := os.ReadFile(refPath)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "Agent Kind — Full Field Reference")
+}
+
+func TestInit_SkipsReferencesWithFlag(t *testing.T) {
+	tmp := t.TempDir()
+
+	noReferencesFlag = true
+	defer func() { noReferencesFlag = false }()
+
+	require.NoError(t, writeReferenceTemplates(tmp))
+
+	refPath := filepath.Join(tmp, "xcf", "references", "agent.xcf.reference")
+	_, err := os.Stat(refPath)
+	require.True(t, os.IsNotExist(err), "reference file must NOT be created when --no-references is set")
+}

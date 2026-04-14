@@ -23,6 +23,9 @@ var yesFlag bool
 // templateFlag is set by --template to use a pre-built topology template.
 var templateFlag string
 
+// noReferencesFlag is set by --no-references to skip reference template generation.
+var noReferencesFlag bool
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Bootstrap a new scaffold.xcf configuration",
@@ -48,6 +51,7 @@ Ready to get started? Run:
 func init() {
 	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Accept all defaults non-interactively (CI/CD mode)")
 	initCmd.Flags().StringVar(&templateFlag, "template", "", "use a topology template (rest-api, cli-tool, frontend-app)")
+	initCmd.Flags().BoolVar(&noReferencesFlag, "no-references", false, "Skip generation of xcf/references/ field reference templates")
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -315,6 +319,13 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		return fmt.Errorf("failed to create %s: %w", xcfFile, err)
 	}
 
+	if err := writeReferenceTemplates(cwd); err != nil {
+		cmd.Printf("  ⚠ Failed to write reference templates: %v\n", err)
+		// Non-fatal: continue with init.
+	} else if !noReferencesFlag {
+		cmd.Println("  Created xcf/references/ — field reference for resource kinds")
+	}
+
 	cmd.Printf("\n✓ Created scaffold.xcf\n")
 	cmd.Printf("  Project: %s | Target: %s\n", ans.name, ans.target)
 
@@ -495,6 +506,27 @@ func offerAnalyze(cmd *cobra.Command, target string) error {
 		cmd.Println("\n🧠 Running 'xcaffold analyze' via API key...")
 	}
 	return runAnalyze(cmd, nil)
+}
+
+// writeReferenceTemplates creates xcf/references/<kind>.xcf.reference files
+// inside baseDir. The files are documentation artifacts and are NOT parsed
+// by xcaffold. When the --no-references flag is set, this is a no-op.
+func writeReferenceTemplates(baseDir string) error {
+	if noReferencesFlag {
+		return nil
+	}
+
+	refDir := filepath.Join(baseDir, "xcf", "references")
+	if err := os.MkdirAll(refDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create references directory: %w", err)
+	}
+
+	agentRef := filepath.Join(refDir, "agent.xcf.reference")
+	if err := os.WriteFile(agentRef, []byte(templates.RenderAgentReference()), 0o600); err != nil {
+		return fmt.Errorf("failed to write agent reference: %w", err)
+	}
+
+	return nil
 }
 
 // ── Global scope ────────────────────────────────────────
