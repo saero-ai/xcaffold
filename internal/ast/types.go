@@ -98,6 +98,7 @@ type TargetOverride struct {
 	SuppressFidelityWarnings *bool             `yaml:"suppress_fidelity_warnings,omitempty"`
 	SkipSynthesis            *bool             `yaml:"skip_synthesis,omitempty"`
 	InstructionsOverride     string            `yaml:"instructions_override,omitempty"`
+	Provider                 map[string]any    `yaml:"provider,omitempty"`
 }
 
 // SkillConfig defines a reusable prompt package.

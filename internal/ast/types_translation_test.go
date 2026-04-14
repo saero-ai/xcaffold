@@ -157,3 +157,24 @@ func TestAgentConfig_InvocationControlFields(t *testing.T) {
 	require.Contains(t, content, "disableModelInvocation: true")
 	require.Contains(t, content, "userInvocable: false")
 }
+
+func TestTargetOverride_ProviderPassthrough(t *testing.T) {
+	override := TargetOverride{
+		InstructionsOverride: "Use Google style.",
+		Provider: map[string]any{
+			"temperature":  0.7,
+			"timeout_mins": 15,
+			"kind":         "local",
+		},
+	}
+
+	data, err := yaml.Marshal(override)
+	require.NoError(t, err)
+
+	content := string(data)
+	require.Contains(t, content, "instructions_override: Use Google style.")
+	require.Contains(t, content, "provider:")
+	require.Contains(t, content, "temperature: 0.7")
+	require.Contains(t, content, "timeout_mins: 15")
+	require.Contains(t, content, "kind: local")
+}

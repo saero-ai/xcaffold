@@ -627,3 +627,31 @@ agents:
 		t.Errorf("error did not contain exact file origin info, got: %v", errMsg)
 	}
 }
+
+func TestParse_TargetOverride_ProviderPassthrough(t *testing.T) {
+	yaml := `
+kind: agent
+version: "1.0"
+name: researcher
+model: sonnet
+targets:
+  gemini:
+    provider:
+      temperature: 0.7
+      timeout_mins: 15
+      kind: local
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "agent.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+
+	config, err := ParseFile(path)
+	require.NoError(t, err)
+
+	agent := config.Agents["researcher"]
+	gemini := agent.Targets["gemini"]
+	require.NotNil(t, gemini.Provider)
+	require.Equal(t, 0.7, gemini.Provider["temperature"])
+	require.Equal(t, 15, gemini.Provider["timeout_mins"])
+	require.Equal(t, "local", gemini.Provider["kind"])
+}
