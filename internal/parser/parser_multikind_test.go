@@ -752,6 +752,135 @@ func TestParseableKinds_IncludesNewKinds(t *testing.T) {
 	assert.True(t, parseableKinds["project"], "parseableKinds must contain 'project'")
 	assert.True(t, parseableKinds["hooks"], "parseableKinds must contain 'hooks'")
 	assert.True(t, parseableKinds["settings"], "parseableKinds must contain 'settings'")
+	assert.True(t, parseableKinds["policy"], "parseableKinds must contain 'policy'")
+}
+
+func TestParseResourceDocument_SinglePolicy(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: require-approved-model
+description: Agents must use an approved model
+severity: error
+target: agent
+require:
+  - field: model
+    one_of:
+      - claude-opus-4-5-20250514
+      - claude-sonnet-4-5-20250514
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Policies)
+	p, ok := config.Policies["require-approved-model"]
+	require.True(t, ok)
+	assert.Equal(t, "require-approved-model", p.Name)
+	assert.Equal(t, "error", p.Severity)
+	assert.Equal(t, "agent", p.Target)
+	require.Len(t, p.Require, 1)
+	assert.Equal(t, "model", p.Require[0].Field)
+	assert.Equal(t, []string{"claude-opus-4-5-20250514", "claude-sonnet-4-5-20250514"}, p.Require[0].OneOf)
+}
+
+func TestParseFile_MultiKind_ProjectWithPolicies(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+name: my-api
+agents:
+  - developer
+policies:
+  - require-approved-model
+---
+kind: agent
+version: "1.0"
+name: developer
+instructions: "Write code."
+---
+kind: policy
+version: "1.0"
+name: require-approved-model
+severity: error
+target: agent
+require:
+  - field: model
+    one_of:
+      - sonnet
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Project)
+	assert.Equal(t, []string{"require-approved-model"}, config.Project.PolicyRefs)
+	require.NotNil(t, config.Policies)
+	_, ok := config.Policies["require-approved-model"]
+	assert.True(t, ok)
+}
+
+func TestParseFile_MultiKind_PolicyCrossRef_Missing_Error(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+name: my-api
+policies:
+  - nonexistent-policy
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "references policy \"nonexistent-policy\"")
+}
+
+func TestParseFile_MultiKind_PolicyCrossRef_Valid(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+name: my-api
+policies:
+  - my-policy
+---
+kind: policy
+version: "1.0"
+name: my-policy
+severity: warning
+target: agent
+require:
+  - field: description
+    is_present: true
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"my-policy"}, config.Project.PolicyRefs)
+}
+
+func TestParseDirectory_PolicyInSubdir(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	// main.xcf: project referencing a policy
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcf"), []byte(`kind: project
+version: "1.0"
+name: test-project
+policies:
+  - approved-model
+`), 0644))
+
+	// xcf/policies/approved-model.xcf: policy in subdirectory
+	policiesDir := filepath.Join(dir, "xcf", "policies")
+	require.NoError(t, os.MkdirAll(policiesDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(policiesDir, "approved-model.xcf"), []byte(`kind: policy
+version: "1.0"
+name: approved-model
+severity: error
+target: agent
+require:
+  - field: model
+    one_of:
+      - claude-sonnet-4-5-20250514
+`), 0644))
+
+	config, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	require.NotNil(t, config.Policies)
+	p, ok := config.Policies["approved-model"]
+	require.True(t, ok, "policy should be discovered from xcf/policies/ subdirectory")
+	assert.Equal(t, "error", p.Severity)
+	assert.Equal(t, "agent", p.Target)
+	assert.Equal(t, []string{"approved-model"}, config.Project.PolicyRefs)
 }
 
 func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {
@@ -777,4 +906,164 @@ agents:
 	require.NoError(t, err)
 	assert.Contains(t, config.Agents, "reviewer")
 	assert.Contains(t, config.Agents, "developer")
+}
+
+func TestParseResourceDocument_Policy_MissingName_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+severity: error
+target: agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "name is required")
+}
+
+func TestParseResourceDocument_Policy_MissingVersion_Error(t *testing.T) {
+	input := `kind: policy
+name: test-policy
+severity: error
+target: agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "version is required")
+}
+
+func TestParseResourceDocument_Policy_InvalidSeverity_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: bad-severity
+severity: err
+target: agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "severity must be")
+}
+
+func TestParseResourceDocument_Policy_InvalidTarget_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: bad-target
+severity: error
+target: agents
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target must be one of")
+}
+
+func TestParseResourceDocument_Policy_DuplicateName_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: dup-policy
+severity: error
+target: agent
+---
+kind: policy
+version: "1.0"
+name: dup-policy
+severity: warning
+target: skill
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate policy ID")
+}
+
+func TestParseResourceDocument_Policy_UnknownField_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: bad-fields
+severity: error
+target: agent
+unknown_field: true
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid policy document")
+}
+
+func TestParseResourceDocument_Policy_RequireEmptyField_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: empty-field
+severity: error
+target: agent
+require:
+  - one_of: ["sonnet"]
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "require[0].field is required")
+}
+
+func TestParseResourceDocument_Policy_DenyEmpty_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: empty-deny
+severity: error
+target: output
+deny:
+  - {}
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "deny[0] must specify at least one of")
+}
+
+func TestParseResourceDocument_Policy_MinimalValid(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: minimal
+severity: off
+target: agent
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	p, ok := config.Policies["minimal"]
+	require.True(t, ok)
+	assert.Equal(t, "off", p.Severity)
+	assert.Nil(t, p.Match)
+	assert.Empty(t, p.Require)
+	assert.Empty(t, p.Deny)
+}
+
+func TestParseResourceDocument_Policy_SeverityTypo_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: typo
+severity: Error
+target: agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "severity must be")
+}
+
+func TestParseResourceDocument_Policy_TargetTypo_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: typo
+severity: error
+target: Agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target must be one of")
+}
+
+func TestParseResourceDocument_Policy_MatchAndNoTarget_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: match-no-target
+severity: error
+target: ""
+match:
+  has_tool: Bash
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target must be one of")
 }
