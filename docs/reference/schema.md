@@ -198,10 +198,11 @@ The `kind` field is the document type discriminator. Each `.xcf` file (or YAML d
 | `mcp` | Standalone MCP server definition. All `MCPConfig` fields at the top level. | `MCPConfig` (with envelope) | `version`, `name` |
 | `hooks` | Standalone hooks definition. Uses an `events:` wrapper containing the `HookConfig` map. | `hooksDocument` | `version` |
 | `settings` | Standalone settings definition. All `SettingsConfig` fields at the top level (inlined). | `settingsDocument` | `version` |
+| `policy` | Standalone policy definition. Declarative constraint evaluated during apply and validate. Semantic validation enforces `severity` (`error`/`warning`/`off`) and `target` (`agent`/`skill`/`rule`/`hook`/`settings`/`output`) enums. | `PolicyConfig` (with envelope) | `version`, `name` |
 
 ### `kind: project` semantics
 
-In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, and `mcp` keys are decoded as `[]string` (bare name lists), not as the `map[string]Config` structures used in `kind: config`. This is achieved via a separate decode struct (`projectDocFields`) that maps these YAML keys to `AgentRefs`, `SkillRefs`, `RuleRefs`, `WorkflowRefs`, and `MCPRefs` on `ProjectConfig`. These reference lists name child resources defined in sibling documents (same file via `---` separators, or separate `.xcf` files in the `xcf/` directory).
+In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `mcp`, and `policies` keys are decoded as `[]string` (bare name lists), not as the `map[string]Config` structures used in `kind: config`. This is achieved via a separate decode struct (`projectDocFields`) that maps these YAML keys to `AgentRefs`, `SkillRefs`, `RuleRefs`, `WorkflowRefs`, `MCPRefs`, and `PolicyRefs` on `ProjectConfig`. These reference lists name child resources defined in sibling documents (same file via `---` separators, or separate `.xcf` files in the `xcf/` directory).
 
 The `targets` key on `kind: project` is also a `[]string` listing compilation targets (e.g., `["claude", "antigravity"]`). It is stored on `ProjectConfig.Targets` (tagged `yaml:"-"` — only populated by the parser for `kind: project` documents, never by legacy `kind: config` decoding).
 
@@ -285,13 +286,14 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.
 | `hooks` | `HookConfig` | Optional | Lifecycle event handlers. Provided via embedded `ResourceScope`. |
 | `mcp` | `map[string]MCPConfig` | Optional | MCP server definitions. Merged into `settings.mcpServers` during compilation; `settings.mcpServers` wins on key conflicts. Provided via embedded `ResourceScope`. |
 | `workflows` | `map[string]WorkflowConfig` | Optional | Reusable workflows keyed by ID. **Antigravity-only**: silently ignored by Claude and Cursor renderers. Provided via embedded `ResourceScope`. |
+| `policies` | `map[string]PolicyConfig` | Optional | Declarative constraints keyed by ID. Evaluated during `apply` and `validate`. Provided via embedded `ResourceScope`. |
 | `settings` | `SettingsConfig` | Optional | Platform settings compiled to `settings.json`. At global scope, these become user-level defaults. |
 
 ---
 
 ## `ProjectConfig`
 
-Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`scaffold.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`) and project-only settings (`test`, `local`) that are not valid at global scope.
+Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`scaffold.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`, `policies`) and project-only settings (`test`, `local`) that are not valid at global scope.
 
 > [!NOTE]
 > `project.name` is required in `scaffold.xcf`. It is used to register the project in `~/.xcaffold/registry.xcf`, prefix lock file entries, and label graph and plan output. It has no equivalent at global scope.
@@ -312,6 +314,7 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `ruleRefs` | `[]string` | Optional | Bare name references to child rule resources. Only populated via `kind: project` documents. |
 | `workflowRefs` | `[]string` | Optional | Bare name references to child workflow resources. Only populated via `kind: project` documents. |
 | `mcpRefs` | `[]string` | Optional | Bare name references to child MCP resources. Only populated via `kind: project` documents. |
+| `policyRefs` | `[]string` | Optional | Bare name references to child policy resources. Only populated via `kind: project` documents. |
 | `test` | `TestConfig` | Optional | Configuration for `xcaffold test`. See [TestConfig](#testconfig). |
 | `local` | `SettingsConfig` | Optional | Local override settings compiled to `settings.local.json` (gitignored). |
 | `agents` | `map[string]AgentConfig` | Optional | Workspace-scoped agent declarations. Override global agents with the same ID. |
@@ -320,6 +323,7 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `hooks` | `HookConfig` | Optional | Workspace-scoped lifecycle hooks. Additive with global hooks. |
 | `mcp` | `map[string]MCPConfig` | Optional | Workspace-scoped MCP server definitions. |
 | `workflows` | `map[string]WorkflowConfig` | Optional | Workspace-scoped workflow declarations. |
+| `policies` | `map[string]PolicyConfig` | Optional | Workspace-scoped policy declarations. Evaluated during `apply` and `validate`. |
 
 ---
 
