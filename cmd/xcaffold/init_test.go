@@ -186,3 +186,14 @@ func TestInit_SkipsReferencesWithFlag(t *testing.T) {
 	_, err := os.Stat(refPath)
 	require.True(t, os.IsNotExist(err), "reference file must NOT be created when --no-references is set")
 }
+
+func TestBuildXCFContent_IncludesReferencePointer(t *testing.T) {
+	ans := wizardAnswers{
+		name:      "test",
+		target:    "claude",
+		wantAgent: true,
+	}
+	content := buildXCFContent(ans)
+
+	require.Contains(t, content, "xcf/references/agent.xcf.reference")
+}

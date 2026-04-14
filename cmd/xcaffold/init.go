@@ -459,6 +459,8 @@ kind: agent
 version: "1.0"
 name: developer
 description: "General software developer agent."
+
+# Model & Execution — see xcf/references/agent.xcf.reference for all options.
 model: %q
 effort: "high"
 tools: [Bash, Read, Write, Edit, Glob, Grep]
