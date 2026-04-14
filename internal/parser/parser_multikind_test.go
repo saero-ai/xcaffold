@@ -752,6 +752,7 @@ func TestParseableKinds_IncludesNewKinds(t *testing.T) {
 	assert.True(t, parseableKinds["project"], "parseableKinds must contain 'project'")
 	assert.True(t, parseableKinds["hooks"], "parseableKinds must contain 'hooks'")
 	assert.True(t, parseableKinds["settings"], "parseableKinds must contain 'settings'")
+	assert.True(t, parseableKinds["policy"], "parseableKinds must contain 'policy'")
 }
 
 func TestParseResourceDocument_SinglePolicy(t *testing.T) {
@@ -1047,6 +1048,20 @@ version: "1.0"
 name: typo
 severity: error
 target: Agent
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "target must be one of")
+}
+
+func TestParseResourceDocument_Policy_MatchAndNoTarget_Error(t *testing.T) {
+	input := `kind: policy
+version: "1.0"
+name: match-no-target
+severity: error
+target: ""
+match:
+  has_tool: Bash
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
