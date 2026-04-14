@@ -197,3 +197,33 @@ func TestBuildXCFContent_IncludesReferencePointer(t *testing.T) {
 
 	require.Contains(t, content, "xcf/references/agent.xcf.reference")
 }
+
+func TestInit_EndToEnd_GeneratesFieldOrderedAgent(t *testing.T) {
+	tmp := t.TempDir()
+
+	ans := wizardAnswers{
+		name:      "e2e-test",
+		desc:      "End-to-end test project",
+		target:    "claude",
+		wantAgent: true,
+	}
+	content := buildXCFContent(ans)
+	xcfPath := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcfPath, []byte(content), 0o600))
+
+	noReferencesFlag = false
+	require.NoError(t, writeReferenceTemplates(tmp))
+
+	config, err := parser.ParseFile(xcfPath)
+	require.NoError(t, err, "generated scaffold.xcf must be parseable")
+	require.NotNil(t, config)
+
+	agent, ok := config.Agents["developer"]
+	require.True(t, ok, "developer agent must be present")
+	require.Equal(t, "General software developer agent.", agent.Description)
+	require.NotEmpty(t, agent.Model)
+
+	refPath := filepath.Join(tmp, "xcf", "references", "agent.xcf.reference")
+	_, err = os.Stat(refPath)
+	require.NoError(t, err, "agent.xcf.reference must exist")
+}
