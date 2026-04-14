@@ -12,7 +12,7 @@ func RenderAgentReference() string {
 # ============================================================
 # This file is NOT parsed by xcaffold.
 # Copy fields from here into your scaffold.xcf as needed.
-# See for the full schema specification.
+# Field definitions follow the xcaffold schema specification.
 # ============================================================
 
 ---

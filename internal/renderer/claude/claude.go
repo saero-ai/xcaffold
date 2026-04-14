@@ -189,9 +189,6 @@ func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	if agent.Effort != "" {
 		fmt.Fprintf(sb, "effort: %s\n", agent.Effort)
 	}
-	if agent.Memory != "" {
-		fmt.Fprintf(sb, "memory: %s\n", agent.Memory)
-	}
 	if agent.MaxTurns > 0 {
 		fmt.Fprintf(sb, "maxTurns: %d\n", agent.MaxTurns)
 	}
@@ -229,6 +226,9 @@ func appendAgentConfigMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	}
 	if agent.Isolation != "" {
 		fmt.Fprintf(sb, "isolation: %s\n", agent.Isolation)
+	}
+	if agent.Memory != "" {
+		fmt.Fprintf(sb, "memory: %s\n", agent.Memory)
 	}
 	if agent.Color != "" {
 		fmt.Fprintf(sb, "color: %s\n", agent.Color)
