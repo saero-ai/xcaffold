@@ -2,6 +2,7 @@ package policy
 
 import (
 	"embed"
+	"sort"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
@@ -20,8 +21,16 @@ func Evaluate(
 ) []Violation {
 	merged := mergeBuiltins(userPolicies)
 
+	// Sort policy names for deterministic evaluation order.
+	policyNames := make([]string, 0, len(merged))
+	for name := range merged {
+		policyNames = append(policyNames, name)
+	}
+	sort.Strings(policyNames)
+
 	var violations []Violation
-	for _, p := range merged {
+	for _, name := range policyNames {
+		p := merged[name]
 		if p.Severity == SeverityOff {
 			continue
 		}
@@ -81,8 +90,16 @@ func evaluatePolicy(p ast.PolicyConfig, config *ast.XcaffoldConfig, compiled *ou
 }
 
 func evaluateMapResources[T any](p ast.PolicyConfig, resources map[string]T, newAccessor func(T) fieldAccessor) []Violation {
+	// Sort resource names for deterministic evaluation order.
+	names := make([]string, 0, len(resources))
+	for name := range resources {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
 	var violations []Violation
-	for name, resource := range resources {
+	for _, name := range names {
+		resource := resources[name]
 		acc := newAccessor(resource)
 		if !matchResource(p.Match, name, acc) {
 			continue
@@ -100,8 +117,16 @@ func evaluateOutput(p ast.PolicyConfig, compiled *output.Output) []Violation {
 	if compiled == nil {
 		return nil
 	}
+	// Sort file paths for deterministic evaluation order.
+	paths := make([]string, 0, len(compiled.Files))
+	for fp := range compiled.Files {
+		paths = append(paths, fp)
+	}
+	sort.Strings(paths)
+
 	var violations []Violation
-	for filePath, content := range compiled.Files {
+	for _, filePath := range paths {
+		content := compiled.Files[filePath]
 		for _, deny := range p.Deny {
 			violations = append(violations, evaluateDenyOnFile(p.Name, filePath, content, deny)...)
 		}
@@ -114,11 +139,14 @@ func evaluateSettings(p ast.PolicyConfig, compiled *output.Output) []Violation {
 		return nil
 	}
 	var violations []Violation
-	for filePath, content := range compiled.Files {
-		if filePath == "settings.json" || filePath == ".claude/settings.json" {
-			for _, deny := range p.Deny {
-				violations = append(violations, evaluateDenyOnFile(p.Name, filePath, content, deny)...)
-			}
+	// Settings target only checks known settings file paths.
+	for _, filePath := range []string{"settings.json", ".claude/settings.json"} {
+		content, ok := compiled.Files[filePath]
+		if !ok {
+			continue
+		}
+		for _, deny := range p.Deny {
+			violations = append(violations, evaluateDenyOnFile(p.Name, filePath, content, deny)...)
 		}
 	}
 	return violations
