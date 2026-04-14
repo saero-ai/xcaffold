@@ -122,3 +122,108 @@ func TestInitWizard_GeneratesMultiKindFormat_TargetCursor(t *testing.T) {
 	require.NotNil(t, config.Project)
 	assert.Equal(t, []string{"cursor"}, config.Project.Targets)
 }
+
+// TestBuildXCFContent_CanonicalFieldOrdering verifies that the agent document
+// emits fields in canonical order: name, description, model, effort, tools, instructions.
+func TestBuildXCFContent_CanonicalFieldOrdering(t *testing.T) {
+	ans := wizardAnswers{
+		name:      "test-project",
+		desc:      "",
+		target:    "claude",
+		wantAgent: true,
+	}
+
+	content := buildXCFContent(ans)
+
+	// Extract only the agent document (everything after the --- separator).
+	parts := strings.SplitN(content, "---\n", 2)
+	require.Len(t, parts, 2, "expected --- document separator in generated content")
+	agentDoc := parts[1]
+
+	orderedKeys := []string{
+		"name: developer",
+		"description:",
+		"\nmodel:",
+		"effort:",
+		"tools:",
+		"instructions:",
+	}
+
+	lastIdx := -1
+	for _, key := range orderedKeys {
+		idx := strings.Index(agentDoc, key)
+		require.NotEqual(t, -1, idx, "key %q not found in agent document", key)
+		require.Greater(t, idx, lastIdx, "key %q appeared before a prior key in agent document", key)
+		lastIdx = idx
+	}
+}
+
+func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Ensure flag is false (default state).
+	noReferencesFlag = false
+	require.NoError(t, writeReferenceTemplates(tmp))
+
+	refPath := filepath.Join(tmp, "xcf", "references", "agent.xcf.reference")
+	_, err := os.Stat(refPath)
+	require.NoError(t, err, "agent.xcf.reference must exist at %s", refPath)
+
+	data, err := os.ReadFile(refPath)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "Agent Kind — Full Field Reference")
+}
+
+func TestInit_SkipsReferencesWithFlag(t *testing.T) {
+	tmp := t.TempDir()
+
+	noReferencesFlag = true
+	defer func() { noReferencesFlag = false }()
+
+	require.NoError(t, writeReferenceTemplates(tmp))
+
+	refPath := filepath.Join(tmp, "xcf", "references", "agent.xcf.reference")
+	_, err := os.Stat(refPath)
+	require.True(t, os.IsNotExist(err), "reference file must NOT be created when --no-references is set")
+}
+
+func TestBuildXCFContent_IncludesReferencePointer(t *testing.T) {
+	ans := wizardAnswers{
+		name:      "test",
+		target:    "claude",
+		wantAgent: true,
+	}
+	content := buildXCFContent(ans)
+
+	require.Contains(t, content, "xcf/references/agent.xcf.reference")
+}
+
+func TestInit_EndToEnd_GeneratesFieldOrderedAgent(t *testing.T) {
+	tmp := t.TempDir()
+
+	ans := wizardAnswers{
+		name:      "e2e-test",
+		desc:      "End-to-end test project",
+		target:    "claude",
+		wantAgent: true,
+	}
+	content := buildXCFContent(ans)
+	xcfPath := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(xcfPath, []byte(content), 0o600))
+
+	noReferencesFlag = false
+	require.NoError(t, writeReferenceTemplates(tmp))
+
+	config, err := parser.ParseFile(xcfPath)
+	require.NoError(t, err, "generated scaffold.xcf must be parseable")
+	require.NotNil(t, config)
+
+	agent, ok := config.Agents["developer"]
+	require.True(t, ok, "developer agent must be present")
+	require.Equal(t, "General software developer agent.", agent.Description)
+	require.NotEmpty(t, agent.Model)
+
+	refPath := filepath.Join(tmp, "xcf", "references", "agent.xcf.reference")
+	_, err = os.Stat(refPath)
+	require.NoError(t, err, "agent.xcf.reference must exist")
+}

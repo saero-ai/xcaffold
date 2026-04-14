@@ -1,7 +1,11 @@
 package ast
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 // TestWorkflowConfig_StructExists verifies that WorkflowConfig has the expected fields
@@ -135,5 +139,91 @@ func TestTargetOverride_AllFieldsCombined(t *testing.T) {
 	}
 	if tr.SkipSynthesis == nil || *tr.SkipSynthesis {
 		t.Error("SkipSynthesis: expected false")
+	}
+}
+
+func TestAgentConfig_InvocationControlFields(t *testing.T) {
+	truthy := true
+	falsy := false
+	agent := AgentConfig{
+		Name:                   "test",
+		DisableModelInvocation: &truthy,
+		UserInvocable:          &falsy,
+	}
+
+	data, err := yaml.Marshal(agent)
+	require.NoError(t, err)
+
+	content := string(data)
+	require.Contains(t, content, "disableModelInvocation: true")
+	require.Contains(t, content, "userInvocable: false")
+}
+
+func TestTargetOverride_ProviderPassthrough(t *testing.T) {
+	override := TargetOverride{
+		InstructionsOverride: "Use Google style.",
+		Provider: map[string]any{
+			"temperature":  0.7,
+			"timeout_mins": 15,
+			"kind":         "local",
+		},
+	}
+
+	data, err := yaml.Marshal(override)
+	require.NoError(t, err)
+
+	content := string(data)
+	require.Contains(t, content, "instructions_override: Use Google style.")
+	require.Contains(t, content, "provider:")
+	require.Contains(t, content, "temperature: 0.7")
+	require.Contains(t, content, "timeout_mins: 15")
+	require.Contains(t, content, "kind: local")
+}
+
+func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
+	truthy := true
+	agent := AgentConfig{
+		Name:                   "developer",
+		Description:            "Software developer.",
+		Model:                  "sonnet",
+		Effort:                 "high",
+		MaxTurns:               10,
+		Tools:                  []string{"Read", "Write"},
+		Readonly:               &truthy,
+		PermissionMode:         "default",
+		DisableModelInvocation: &truthy,
+		UserInvocable:          &truthy,
+		Background:             &truthy,
+		Isolation:              "worktree",
+		Memory:                 "project",
+		Color:                  "blue",
+		InitialPrompt:          "Hello.",
+		Skills:                 []string{"tdd"},
+		Rules:                  []string{"coding-standards"},
+		MCP:                    []string{"github"},
+		Instructions:           "Do the work.",
+	}
+
+	data, err := yaml.Marshal(agent)
+	require.NoError(t, err)
+	content := string(data)
+
+	orderedKeys := []string{
+		"name:", "description:",
+		"model:", "effort:", "maxTurns:",
+		"tools:", "readonly:",
+		"permissionMode:", "disableModelInvocation:", "userInvocable:",
+		"background:", "isolation:",
+		"memory:", "color:", "initialPrompt:",
+		"skills:", "rules:", "mcp:",
+		"instructions:",
+	}
+
+	lastIdx := -1
+	for _, key := range orderedKeys {
+		idx := strings.Index(content, key)
+		require.NotEqual(t, -1, idx, "key %q not found in YAML", key)
+		require.Greater(t, idx, lastIdx, "key %q appeared before a prior key (got idx %d, last %d)\n\n%s", key, idx, lastIdx, content)
+		lastIdx = idx
 	}
 }

@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,4 +53,29 @@ func TestRenderTemplate_Unknown(t *testing.T) {
 	_, err := Render("nonexistent", "test", "model")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nonexistent")
+}
+
+func TestRenderTemplate_CanonicalFieldOrdering(t *testing.T) {
+	content, err := Render("rest-api", "my-api", "sonnet")
+	require.NoError(t, err)
+
+	orderedKeys := []string{
+		"    description:",
+		"    model:",
+		"    effort:",
+		"    tools:",
+		"    skills:",
+		"    rules:",
+		"    instructions:",
+	}
+
+	lastIdx := -1
+	for _, key := range orderedKeys {
+		idx := strings.Index(content, key)
+		if idx == -1 {
+			continue
+		}
+		require.Greater(t, idx, lastIdx, "key %q appeared before a prior key in rest-api template", key)
+		lastIdx = idx
+	}
 }

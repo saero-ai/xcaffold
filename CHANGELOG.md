@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Agent Schema Normalization)
+
+- Added `disableModelInvocation` (`*bool`) and `userInvocable` (`*bool`) fields to `AgentConfig` (ast)
+- Added `provider` pass-through map (`map[string]any`) to `TargetOverride` for carrying provider-native fields such as `temperature`, `timeout_mins`, `kind`, `target`, `metadata` (ast)
+- Added `--no-references` flag to `xcaffold init` to skip generation of reference template files (init)
+- Added `xcf/references/agent.xcf.reference` generation during `xcaffold init` — an annotated, non-parsed field catalog for the Agent kind (init)
+- Added `internal/templates.RenderAgentReference()` for rendering the Agent kind reference template (templates)
+- Added real-data integration tests validating agent schema round-tripping against provider fixtures (integration)
+
+### Changed (Agent Schema Normalization)
+
+- Reordered `AgentConfig` struct fields so compiled output emits them in a canonical order: identity, then model and execution, tool access, permissions and invocation, lifecycle, memory and context, composition references, inline composition, targets, and instructions last (ast)
+- Claude renderer now emits `disableModelInvocation` and `userInvocable` in agent frontmatter when set (renderer)
+- Claude renderer now emits `memory` after `isolation` (before `color`) to match the canonical order (renderer)
+- Reordered agent field emission in `rest-api`, `cli-tool`, and `frontend-app` init templates so `instructions` appears last (templates)
+- Reordered agent document emitted by `xcaffold init` so `instructions` appears after `tools`, matching the canonical order (init)
+- Added inline comment in generated `scaffold.xcf` pointing users to `xcf/references/agent.xcf.reference` for the full field catalog (init)
+
 ### Breaking Changes
 
 - **Removed `kind: config`**: The legacy monolithic format has been removed. Use `kind: project` with individual resource documents (`kind: agent`, `kind: skill`, etc.). For global configuration, use `kind: global`. Files with empty or missing `kind:` fields now produce a descriptive error with migration guidance.
