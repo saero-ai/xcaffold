@@ -780,6 +780,39 @@ require:
 	assert.Equal(t, []string{"claude-opus-4-5-20250514", "claude-sonnet-4-5-20250514"}, p.Require[0].OneOf)
 }
 
+func TestParseFile_MultiKind_ProjectWithPolicies(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+name: my-api
+agents:
+  - developer
+policies:
+  - require-approved-model
+---
+kind: agent
+version: "1.0"
+name: developer
+instructions: "Write code."
+---
+kind: policy
+version: "1.0"
+name: require-approved-model
+severity: error
+target: agent
+require:
+  - field: model
+    one_of:
+      - sonnet
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Project)
+	assert.Equal(t, []string{"require-approved-model"}, config.Project.PolicyRefs)
+	require.NotNil(t, config.Policies)
+	_, ok := config.Policies["require-approved-model"]
+	assert.True(t, ok)
+}
+
 func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()

@@ -77,6 +77,7 @@ type projectDocFields struct {
 	RuleRefs     []string           `yaml:"rules,omitempty"`
 	WorkflowRefs []string           `yaml:"workflows,omitempty"`
 	MCPRefs      []string           `yaml:"mcp,omitempty"`
+	PolicyRefs   []string           `yaml:"policies,omitempty"`
 	Test         ast.TestConfig     `yaml:"test,omitempty"`
 	Local        ast.SettingsConfig `yaml:"local,omitempty"`
 }
@@ -322,6 +323,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.RuleRefs = doc.RuleRefs
 		config.Project.WorkflowRefs = doc.WorkflowRefs
 		config.Project.MCPRefs = doc.MCPRefs
+		config.Project.PolicyRefs = doc.PolicyRefs
 		config.Project.Test = doc.Test
 		config.Project.Local = doc.Local
 
