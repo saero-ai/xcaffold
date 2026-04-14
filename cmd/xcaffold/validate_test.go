@@ -13,10 +13,13 @@ func TestValidateCmd_ValidConfig(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
-	content := `
+	content := `---
+kind: project
 version: "1.0"
-project:
-  name: "test"
+name: "test"
+---
+kind: global
+version: "1.0"
 agents:
   developer:
     description: "Dev agent"
@@ -39,10 +42,13 @@ skills:
 func TestValidateCmd_InvalidCrossRef(t *testing.T) {
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
-	content := `
+	content := `---
+kind: project
 version: "1.0"
-project:
-  name: "test"
+name: "test"
+---
+kind: global
+version: "1.0"
 agents:
   developer:
     description: "Dev agent"
@@ -95,7 +101,7 @@ func TestValidate_GlobalFlag_ValidFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll(xcaffoldDir, 0700))
 
 	globalXCF := filepath.Join(xcaffoldDir, "global.xcf")
-	content := `kind: config
+	content := `kind: global
 version: "1.0"
 agents:
   reviewer:
@@ -116,10 +122,13 @@ func TestValidateCmd_StructuralChecks(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
-	content := `
+	content := `---
+kind: project
 version: "1.0"
-project:
-  name: "test"
+name: "test"
+---
+kind: global
+version: "1.0"
 agents:
   developer:
     description: "Dev agent"

@@ -48,8 +48,8 @@ func TestEnsureGlobalHome_CreatesDirectory(t *testing.T) {
 		t.Fatalf("global.xcf was not created: %v", err)
 	}
 	globalContent := string(globalData)
-	if !strings.Contains(globalContent, "kind: config") {
-		t.Errorf("global.xcf should contain 'kind: config', got:\n%s", globalContent)
+	if !strings.Contains(globalContent, "kind: global") {
+		t.Errorf("global.xcf should contain 'kind: global', got:\n%s", globalContent)
 	}
 	if strings.Contains(globalContent, "project:") {
 		t.Errorf("global.xcf should NOT contain 'project:' block, got:\n%s", globalContent)
@@ -89,7 +89,7 @@ func TestEnsureGlobalHome_Idempotent(t *testing.T) {
 	}
 }
 
-func TestGlobalXCF_KindConfig(t *testing.T) {
+func TestGlobalXCF_KindGlobal(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 
@@ -101,8 +101,8 @@ func TestGlobalXCF_KindConfig(t *testing.T) {
 	data := buildGlobalXCF()
 	content := string(data)
 
-	if !strings.Contains(content, "kind: config") {
-		t.Errorf("global.xcf should contain 'kind: config', got:\n%s", content)
+	if !strings.Contains(content, "kind: global") {
+		t.Errorf("global.xcf should contain 'kind: global', got:\n%s", content)
 	}
 	if strings.Contains(content, "project:") {
 		t.Errorf("global.xcf should NOT contain 'project:' block, got:\n%s", content)

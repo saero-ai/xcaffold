@@ -98,6 +98,21 @@ type settingsDocument struct {
 	ast.SettingsConfig `yaml:",inline"`
 }
 
+// globalDocument wraps global-scope fields for kind: global parsing.
+// Global configs have no project metadata -- only resources and settings.
+type globalDocument struct {
+	Kind      string                        `yaml:"kind"`
+	Version   string                        `yaml:"version"`
+	Extends   string                        `yaml:"extends,omitempty"`
+	Settings  ast.SettingsConfig            `yaml:"settings,omitempty"`
+	Agents    map[string]ast.AgentConfig    `yaml:"agents,omitempty"`
+	Skills    map[string]ast.SkillConfig    `yaml:"skills,omitempty"`
+	Rules     map[string]ast.RuleConfig     `yaml:"rules,omitempty"`
+	Hooks     ast.HookConfig                `yaml:"hooks,omitempty"`
+	MCP       map[string]ast.MCPConfig      `yaml:"mcp,omitempty"`
+	Workflows map[string]ast.WorkflowConfig `yaml:"workflows,omitempty"`
+}
+
 // extractKind reads the "kind" value from a yaml.Node MappingNode
 // without decoding the full document.
 func extractKind(node *yaml.Node) string {
@@ -135,6 +150,7 @@ func nodeToBytes(node *yaml.Node) ([]byte, error) {
 var singletonKinds = map[string]bool{
 	"hooks":    true,
 	"settings": true,
+	"global":   true,
 }
 
 // validateEnvelope checks that mandatory envelope fields are present on a
@@ -307,6 +323,73 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			return err
 		}
 		config.Settings = doc.SettingsConfig
+
+	case "global":
+		var doc globalDocument
+		dec := yaml.NewDecoder(bytes.NewReader(b))
+		dec.KnownFields(true)
+		if err := dec.Decode(&doc); err != nil {
+			return fmt.Errorf("invalid global document: %w", err)
+		}
+		if err := validateEnvelope(doc.Version, "", kind); err != nil {
+			return err
+		}
+		config.Extends = doc.Extends
+		// Settings uses direct assignment (not merge), matching the case "settings":
+		// handler. Within a single file, only one kind: global or kind: settings
+		// document should appear; directory-level merging is handled by mergeAllStrict.
+		config.Settings = doc.Settings
+		for k, v := range doc.Agents {
+			if config.Agents == nil {
+				config.Agents = make(map[string]ast.AgentConfig)
+			}
+			if _, exists := config.Agents[k]; exists {
+				return fmt.Errorf("duplicate agent ID %q", k)
+			}
+			config.Agents[k] = v
+		}
+		for k, v := range doc.Skills {
+			if config.Skills == nil {
+				config.Skills = make(map[string]ast.SkillConfig)
+			}
+			if _, exists := config.Skills[k]; exists {
+				return fmt.Errorf("duplicate skill ID %q", k)
+			}
+			config.Skills[k] = v
+		}
+		for k, v := range doc.Rules {
+			if config.Rules == nil {
+				config.Rules = make(map[string]ast.RuleConfig)
+			}
+			if _, exists := config.Rules[k]; exists {
+				return fmt.Errorf("duplicate rule ID %q", k)
+			}
+			config.Rules[k] = v
+		}
+		for k, v := range doc.Workflows {
+			if config.Workflows == nil {
+				config.Workflows = make(map[string]ast.WorkflowConfig)
+			}
+			if _, exists := config.Workflows[k]; exists {
+				return fmt.Errorf("duplicate workflow ID %q", k)
+			}
+			config.Workflows[k] = v
+		}
+		for k, v := range doc.MCP {
+			if config.MCP == nil {
+				config.MCP = make(map[string]ast.MCPConfig)
+			}
+			if _, exists := config.MCP[k]; exists {
+				return fmt.Errorf("duplicate mcp ID %q", k)
+			}
+			config.MCP[k] = v
+		}
+		for event, groups := range doc.Hooks {
+			if config.Hooks == nil {
+				config.Hooks = make(ast.HookConfig)
+			}
+			config.Hooks[event] = append(config.Hooks[event], groups...)
+		}
 
 	default:
 		return fmt.Errorf("unknown resource kind %q", kind)

@@ -9,10 +9,8 @@ import (
 )
 
 func TestParse_AgentReferencesUndefinedSkill(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 agents:
   developer:
     description: "A developer agent"
@@ -28,10 +26,8 @@ skills:
 }
 
 func TestParse_AgentReferencesUndefinedRule(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 agents:
   backend:
     description: "Backend agent"
@@ -47,10 +43,8 @@ rules:
 }
 
 func TestParse_AgentReferencesUndefinedMCP(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 agents:
   developer:
     description: "Dev agent"
@@ -67,10 +61,8 @@ mcp:
 }
 
 func TestParse_ValidCrossReferences(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 agents:
   developer:
     description: "Dev agent"
@@ -94,10 +86,8 @@ mcp:
 }
 
 func TestParse_AgentWithNoReferences(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
-project:
-  name: "test-project"
 agents:
   developer:
     description: "Standalone agent"

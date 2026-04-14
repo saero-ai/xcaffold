@@ -21,18 +21,19 @@ func writeTestXCF(t *testing.T, dir, name, content string) string {
 func TestParseDirectory_DuplicateAgentID_ReportsBothFiles(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "project.xcf", `
+	writeTestXCF(t, dir, "project.xcf", `kind: project
 version: "1.0"
-project:
-  name: "test-project"
+name: "test-project"
 `)
-	writeTestXCF(t, dir, "agents.xcf", `
+	writeTestXCF(t, dir, "agents.xcf", `kind: global
+version: "1.0"
 agents:
   developer:
     description: "First developer"
     instructions: "Do stuff"
 `)
-	writeTestXCF(t, dir, "tools.xcf", `
+	writeTestXCF(t, dir, "tools.xcf", `kind: global
+version: "1.0"
 agents:
   developer:
     description: "Duplicate developer"
@@ -49,12 +50,14 @@ agents:
 func TestParseDirectory_DuplicateSkillID_ReportsBothFiles(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "skills1.xcf", `
+	writeTestXCF(t, dir, "skills1.xcf", `kind: global
+version: "1.0"
 skills:
   git:
     description: "Git skill"
 `)
-	writeTestXCF(t, dir, "skills2.xcf", `
+	writeTestXCF(t, dir, "skills2.xcf", `kind: global
+version: "1.0"
 skills:
   git:
     description: "Duplicate git skill"
@@ -70,12 +73,14 @@ skills:
 func TestParseDirectory_DuplicateRuleID_ReportsBothFiles(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "rules_a.xcf", `
+	writeTestXCF(t, dir, "rules_a.xcf", `kind: global
+version: "1.0"
 rules:
   no-panics:
     description: "No panics"
 `)
-	writeTestXCF(t, dir, "rules_b.xcf", `
+	writeTestXCF(t, dir, "rules_b.xcf", `kind: global
+version: "1.0"
 rules:
   no-panics:
     description: "Return errors instead"
@@ -91,12 +96,14 @@ rules:
 func TestParseDirectory_DuplicateMCPID_ReportsBothFiles(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "mcp1.xcf", `
+	writeTestXCF(t, dir, "mcp1.xcf", `kind: global
+version: "1.0"
 mcp:
   postgres:
     command: "npx"
 `)
-	writeTestXCF(t, dir, "mcp2.xcf", `
+	writeTestXCF(t, dir, "mcp2.xcf", `kind: global
+version: "1.0"
 mcp:
   postgres:
     command: "docker"
@@ -112,12 +119,14 @@ mcp:
 func TestParseDirectory_DuplicateWorkflowID_ReportsBothFiles(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "flows1.xcf", `
+	writeTestXCF(t, dir, "flows1.xcf", `kind: global
+version: "1.0"
 workflows:
   launch:
     description: "Launch flow"
 `)
-	writeTestXCF(t, dir, "flows2.xcf", `
+	writeTestXCF(t, dir, "flows2.xcf", `kind: global
+version: "1.0"
 workflows:
   launch:
     description: "Another launch flow"
@@ -133,17 +142,18 @@ workflows:
 func TestParseDirectory_RecursiveSubdirectories(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "root.xcf", `
+	writeTestXCF(t, dir, "root.xcf", `kind: project
 version: "1.0"
-project:
-  name: "recursive-test"
+name: "recursive-test"
 `)
-	writeTestXCF(t, dir, "sub/dir1/agent.xcf", `
+	writeTestXCF(t, dir, "sub/dir1/agent.xcf", `kind: global
+version: "1.0"
 agents:
   sub-agent:
     description: "I am nested"
 `)
-	writeTestXCF(t, dir, "sub/dir2/deep/skill.xcf", `
+	writeTestXCF(t, dir, "sub/dir2/deep/skill.xcf", `kind: global
+version: "1.0"
 skills:
   deep-skill:
     description: "I am very nested"
@@ -164,22 +174,24 @@ skills:
 func TestParseDirectory_HiddenDirectoriesSkipped(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "root.xcf", `
+	writeTestXCF(t, dir, "root.xcf", `kind: project
 version: "1.0"
-project:
-  name: "visible-project"
+name: "visible-project"
 `)
-	writeTestXCF(t, dir, ".hidden/agent.xcf", `
+	writeTestXCF(t, dir, ".hidden/agent.xcf", `kind: global
+version: "1.0"
 agents:
   hidden-agent:
     description: "Should not be read"
 `)
-	writeTestXCF(t, dir, "node_modules/pkg/agent.xcf", `
+	writeTestXCF(t, dir, "node_modules/pkg/agent.xcf", `kind: global
+version: "1.0"
 agents:
   node-agent:
     description: "Should not be read"
 `)
-	writeTestXCF(t, dir, "sub/.git/agent.xcf", `
+	writeTestXCF(t, dir, "sub/.git/agent.xcf", `kind: global
+version: "1.0"
 agents:
   git-agent:
     description: "Should not be read"
@@ -196,10 +208,13 @@ agents:
 
 func TestParseDirectory_SingleFileFallback(t *testing.T) {
 	dir := t.TempDir()
-	path := writeTestXCF(t, dir, "scaffold.xcf", `
+	path := writeTestXCF(t, dir, "scaffold.xcf", `---
+kind: project
 version: "1.0"
-project:
-  name: "fallback-project"
+name: "fallback-project"
+---
+kind: global
+version: "1.0"
 agents:
   fallback-agent:
     description: "Fallback"
@@ -222,15 +237,13 @@ func TestParseDirectory_EmptyDirectory(t *testing.T) {
 func TestParseDirectory_ConflictingVersionAndProject_Errors(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "a.xcf", `
+	writeTestXCF(t, dir, "a.xcf", `kind: project
 version: "1.0"
-project:
-  name: "project-a"
+name: "project-a"
 `)
-	writeTestXCF(t, dir, "b.xcf", `
+	writeTestXCF(t, dir, "b.xcf", `kind: project
 version: "2.0"
-project:
-  name: "project-b"
+name: "project-b"
 `)
 
 	_, err := ParseDirectory(dir)
@@ -246,22 +259,24 @@ project:
 func TestParseDirectory_MultiFileHappyPath(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "global.xcf", `
+	writeTestXCF(t, dir, "global.xcf", `kind: project
 version: "1.0"
-project:
-  name: "happy-path-project"
+name: "happy-path-project"
 `)
-	writeTestXCF(t, dir, "agents_front.xcf", `
+	writeTestXCF(t, dir, "agents_front.xcf", `kind: global
+version: "1.0"
 agents:
   frontend:
     description: "Frontend developer"
 `)
-	writeTestXCF(t, dir, "agents_back.xcf", `
+	writeTestXCF(t, dir, "agents_back.xcf", `kind: global
+version: "1.0"
 agents:
   backend:
     description: "Backend developer"
 `)
-	writeTestXCF(t, dir, "skills/utils.xcf", `
+	writeTestXCF(t, dir, "skills/utils.xcf", `kind: global
+version: "1.0"
 skills:
   git:
     description: "Git skill"
@@ -280,18 +295,19 @@ skills:
 func TestParseDirectory_SettingsDeepMerge_NonConflicting(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "project.xcf", `
+	writeTestXCF(t, dir, "project.xcf", `kind: project
 version: "1.0"
-project:
-  name: "settings-merge-test"
-settings:
-  model: "sonnet-4"
+name: "settings-merge-test"
 `)
-	writeTestXCF(t, dir, "settings.xcf", `
-settings:
-  effortLevel: "high"
-  env:
-    API_KEY: "test"
+	writeTestXCF(t, dir, "project-settings.xcf", `kind: settings
+version: "1.0"
+model: "sonnet-4"
+`)
+	writeTestXCF(t, dir, "settings.xcf", `kind: settings
+version: "1.0"
+effortLevel: "high"
+env:
+  API_KEY: "test"
 `)
 
 	cfg, err := ParseDirectory(dir)
@@ -304,16 +320,17 @@ settings:
 func TestParseDirectory_SettingsConflict_Errors(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "a.xcf", `
+	writeTestXCF(t, dir, "a.xcf", `kind: project
 version: "1.0"
-project:
-  name: "conflict-test"
-settings:
-  model: "sonnet-4"
+name: "conflict-test"
 `)
-	writeTestXCF(t, dir, "b.xcf", `
-settings:
-  model: "opus-4"
+	writeTestXCF(t, dir, "a-settings.xcf", `kind: settings
+version: "1.0"
+model: "sonnet-4"
+`)
+	writeTestXCF(t, dir, "b.xcf", `kind: settings
+version: "1.0"
+model: "opus-4"
 `)
 
 	_, err := ParseDirectory(dir)
@@ -324,19 +341,18 @@ settings:
 func TestParseDirectory_LocalDeepMerge_NonConflicting(t *testing.T) {
 	dir := t.TempDir()
 
-	writeTestXCF(t, dir, "project.xcf", `
+	writeTestXCF(t, dir, "project.xcf", `kind: project
 version: "1.0"
-project:
-  name: "local-merge-test"
-  local:
-    env:
-      SECRET: "abc"
+name: "local-merge-test"
+local:
+  env:
+    SECRET: "abc"
 `)
-	writeTestXCF(t, dir, "local-overrides.xcf", `
-project:
-  name: "local-merge-test"
-  local:
-    effortLevel: "low"
+	writeTestXCF(t, dir, "local-overrides.xcf", `kind: project
+version: "1.0"
+name: "local-merge-test"
+local:
+  effortLevel: "low"
 `)
 
 	cfg, err := ParseDirectory(dir)
@@ -353,10 +369,8 @@ func TestParseDirectory_ExtendsGlobal_InheritsSettings(t *testing.T) {
 	// Create global config
 	globalDir := filepath.Join(home, ".xcaffold")
 	require.NoError(t, os.MkdirAll(globalDir, 0755))
-	writeTestXCF(t, globalDir, "global.xcf", `
+	writeTestXCF(t, globalDir, "global.xcf", `kind: global
 version: "1.0"
-project:
-  name: "global"
 settings:
   model: "sonnet-4"
   effortLevel: "high"
@@ -366,10 +380,8 @@ settings:
 
 	// Create project config that extends global
 	projectDir := t.TempDir()
-	writeTestXCF(t, projectDir, "scaffold.xcf", `
+	writeTestXCF(t, projectDir, "scaffold.xcf", `kind: global
 version: "1.0"
-project:
-  name: "my-project"
 extends: global
 settings:
   effortLevel: "low"

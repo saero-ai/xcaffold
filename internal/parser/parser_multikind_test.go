@@ -13,7 +13,7 @@ import (
 )
 
 func TestParseFile_MultiKind_RuleConfig_NameField(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
 rules:
   security:
@@ -117,7 +117,7 @@ func TestNodeToBytes_RoundTrip(t *testing.T) {
 }
 
 func TestParseFile_MultiKind_MCPConfig_NameField(t *testing.T) {
-	yaml := `
+	yaml := `kind: global
 version: "1.0"
 mcp:
   filesystem:
@@ -254,26 +254,6 @@ description: "Security rules"
 	assert.Contains(t, config.Rules, "security")
 }
 
-func TestParseFile_MultiKind_MixedWithConfig(t *testing.T) {
-	input := `---
-kind: config
-version: "1.0"
-project:
-  name: my-project
----
-kind: agent
-version: "1.0"
-name: developer
-description: "Dev agent"
-model: sonnet
-`
-	config, err := Parse(strings.NewReader(input))
-	require.NoError(t, err)
-	require.NotNil(t, config.Project)
-	assert.Equal(t, "my-project", config.Project.Name)
-	assert.Contains(t, config.Agents, "developer")
-}
-
 func TestParseFile_MultiKind_UnknownKind_Error(t *testing.T) {
 	input := `kind: invalid
 version: "1.0"
@@ -355,27 +335,6 @@ skills: [nonexistent]
 	assert.Contains(t, err.Error(), "nonexistent")
 }
 
-func TestParseFile_MultiKind_ConfigAndAgentCollision_Error(t *testing.T) {
-	// A kind:config document that declares an agent named "developer" followed
-	// by a kind:agent document also named "developer" must fail with a duplicate
-	// ID error — the resource-kind parser detects the collision.
-	input := `---
-kind: config
-version: "1.0"
-agents:
-  developer:
-    description: "From config"
----
-kind: agent
-version: "1.0"
-name: developer
-description: "From agent doc"
-`
-	_, err := Parse(strings.NewReader(input))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate")
-}
-
 func TestParseFile_MultiKind_ExtendsOnResourceKind_Error(t *testing.T) {
 	// "extends:" is not a declared field on agentDocument. KnownFields(true)
 	// must reject it immediately during document parsing.
@@ -390,16 +349,14 @@ extends: base.xcf
 }
 
 func TestParseFile_MultiKind_ProjectScopedMerge(t *testing.T) {
-	// A kind:config document with a project block followed by a kind:agent
-	// document: both are valid together. Resource kind documents currently merge
-	// into the root ResourceScope (config.Agents), not a project-scoped map.
+	// A kind:project document followed by a kind:agent document: both are valid
+	// together. Resource kind documents merge into the root ResourceScope
+	// (config.Agents), not a project-scoped map.
 	// This test documents that current behavior.
-	// TODO: if project-scoped agent maps are introduced, update this assertion.
 	input := `---
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: test-project
+name: test-project
 ---
 kind: agent
 version: "1.0"
@@ -437,7 +394,7 @@ func TestParseDirectory_MultiKind_AcrossFiles(t *testing.T) {
 	dir := t.TempDir()
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(
-		"kind: config\nversion: \"1.0\"\nproject:\n  name: test-project\n",
+		"kind: project\nversion: \"1.0\"\nname: test-project\n",
 	), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(
 		"kind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"Dev\"\nmodel: sonnet\n",
@@ -469,11 +426,14 @@ args: ["@anthropic/mcp-playwright"]
 // Phase 9: round-trip equivalence tests.
 
 func TestRoundTrip_MultiKind_EquivalentToMonolithic(t *testing.T) {
-	// Monolithic kind: config format
-	monolithic := `
+	// kind: project + kind: global format (original monolithic equivalent)
+	monolithic := `---
+kind: project
 version: "1.0"
-project:
-  name: test-project
+name: test-project
+---
+kind: global
+version: "1.0"
 agents:
   developer:
     description: "Dev agent"
@@ -489,12 +449,11 @@ rules:
     description: "Security rules"
     instructions: "Be secure"
 `
-	// Equivalent multi-kind format
+	// Equivalent multi-kind format using individual resource documents
 	multiKind := `---
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: test-project
+name: test-project
 ---
 kind: agent
 version: "1.0"
@@ -548,10 +507,9 @@ instructions: "Be secure"
 func TestRoundTrip_MultiKind_Validate(t *testing.T) {
 	// A complete multi-kind config with cross-references
 	input := `---
-kind: config
+kind: project
 version: "1.0"
-project:
-  name: validation-test
+name: validation-test
 ---
 kind: skill
 version: "1.0"
@@ -617,24 +575,6 @@ rules:
 	assert.Equal(t, []string{"backend-engineer", "qa-engineer"}, config.Project.AgentRefs)
 	assert.Equal(t, []string{"tdd"}, config.Project.SkillRefs)
 	assert.Equal(t, []string{"testing-framework"}, config.Project.RuleRefs)
-}
-
-func TestParsePartial_KindProject_BackwardCompat(t *testing.T) {
-	// kind:config with project: block — existing behavior must still work.
-	input := `kind: config
-version: "1.0"
-project:
-  name: compat-project
-  agents:
-    backend-engineer:
-      description: "Backend dev"
-      model: sonnet
-`
-	config, err := parsePartial(strings.NewReader(input))
-	require.NoError(t, err)
-	require.NotNil(t, config.Project)
-	assert.Equal(t, "compat-project", config.Project.Name)
-	require.Contains(t, config.Project.Agents, "backend-engineer")
 }
 
 func TestParsePartial_KindHooks_Basic(t *testing.T) {
@@ -752,14 +692,116 @@ func TestParseableKinds_IncludesNewKinds(t *testing.T) {
 	assert.True(t, parseableKinds["project"], "parseableKinds must contain 'project'")
 	assert.True(t, parseableKinds["hooks"], "parseableKinds must contain 'hooks'")
 	assert.True(t, parseableKinds["settings"], "parseableKinds must contain 'settings'")
+	assert.True(t, parseableKinds["global"], "parseableKinds must contain 'global'")
+	assert.True(t, parseableKinds["policy"], "parseableKinds must contain 'policy'")
+}
+
+func TestParseFile_EmptyKind_Error(t *testing.T) {
+	input := `version: "1.0"
+agents:
+  dev:
+    instructions: "Hello."
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kind field is required")
+}
+
+func TestParseFile_ConfigKind_Error(t *testing.T) {
+	input := `kind: config
+version: "1.0"
+agents:
+  dev:
+    instructions: "Hello."
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kind \"config\" has been removed")
+}
+
+func TestIsParseableFile_ConfigKind_ReturnsFalse(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "legacy.xcf")
+	os.WriteFile(path, []byte("kind: config\nversion: \"1.0\"\nagents: {}\n"), 0644)
+	assert.False(t, isParseableFile(path))
+}
+
+func TestIsParseableFile_EmptyKind_ReturnsFalse(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "legacy.xcf")
+	os.WriteFile(path, []byte("version: \"1.0\"\nagents: {}\n"), 0644)
+	assert.False(t, isParseableFile(path))
+}
+
+func TestParseFile_GlobalKind_Basic(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+agents:
+  shared-dev:
+    description: "Global developer"
+    instructions: "Write clean code."
+settings:
+  model: sonnet
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.NotNil(t, config.Agents)
+	assert.Equal(t, "Global developer", config.Agents["shared-dev"].Description)
+	assert.Equal(t, "sonnet", config.Settings.Model)
+}
+
+func TestParseFile_GlobalKind_DuplicateAgent_Error(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+agents:
+  dev:
+    instructions: "First."
+---
+kind: agent
+version: "1.0"
+name: dev
+instructions: "Second."
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate agent ID")
+}
+
+func TestParseFile_GlobalKind_Singleton(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+settings:
+  model: sonnet
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	assert.Equal(t, "sonnet", config.Settings.Model)
+}
+
+func TestParseFile_GlobalKind_NoProject_Error(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+project:
+  name: "should-not-exist"
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "field project not found")
+}
+
+func TestIsParseableFile_GlobalKind_ReturnsTrue(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "global.xcf")
+	os.WriteFile(path, []byte("kind: global\nversion: \"1.0\"\nagents: {}\n"), 0644)
+	assert.True(t, isParseableFile(path))
 }
 
 func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
-	// main.xcf: kind config containing an inline agent
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcf"), []byte(`kind: config
+	// main.xcf: kind global containing an inline agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   reviewer:

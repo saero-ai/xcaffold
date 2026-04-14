@@ -76,65 +76,22 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 		kind := extractKind(docNode)
 
 		switch kind {
-		case "", "config":
-			// Existing path: decode the node as a full/partial XcaffoldConfig.
-			b, marshalErr := nodeToBytes(docNode)
-			if marshalErr != nil {
-				return nil, fmt.Errorf("failed to re-encode document %d: %w", docIndex, marshalErr)
-			}
-			dec := yaml.NewDecoder(bytes.NewReader(b))
-			dec.KnownFields(true)
+		case "":
+			return nil, fmt.Errorf(
+				"kind field is required: every .xcf document must declare a kind " +
+					"(e.g., kind: project, kind: agent, kind: global). " +
+					"See https://xcaffold.com/docs/reference/multi-kind",
+			)
 
-			if docIndex == 0 {
-				// First document: decode directly into config.
-				if decErr := dec.Decode(config); decErr != nil {
-					return nil, fmt.Errorf("failed to parse .xcf YAML: %w", decErr)
-				}
-			} else {
-				// Subsequent config document: decode into a partial and merge.
-				var partial ast.XcaffoldConfig
-				if decErr := dec.Decode(&partial); decErr != nil {
-					return nil, fmt.Errorf("failed to parse .xcf YAML document %d: %w", docIndex, decErr)
-				}
-				if partial.Version != "" {
-					config.Version = partial.Version
-				}
-				if partial.Project != nil {
-					config.Project = partial.Project
-				}
-				for k, v := range partial.Agents {
-					if config.Agents == nil {
-						config.Agents = make(map[string]ast.AgentConfig)
-					}
-					config.Agents[k] = v
-				}
-				for k, v := range partial.Skills {
-					if config.Skills == nil {
-						config.Skills = make(map[string]ast.SkillConfig)
-					}
-					config.Skills[k] = v
-				}
-				for k, v := range partial.Rules {
-					if config.Rules == nil {
-						config.Rules = make(map[string]ast.RuleConfig)
-					}
-					config.Rules[k] = v
-				}
-				for k, v := range partial.Workflows {
-					if config.Workflows == nil {
-						config.Workflows = make(map[string]ast.WorkflowConfig)
-					}
-					config.Workflows[k] = v
-				}
-				for k, v := range partial.MCP {
-					if config.MCP == nil {
-						config.MCP = make(map[string]ast.MCPConfig)
-					}
-					config.MCP[k] = v
-				}
-			}
+		case "config":
+			return nil, fmt.Errorf(
+				"kind \"config\" has been removed: migrate to kind: project with " +
+					"individual resource documents (kind: agent, kind: skill, etc.). " +
+					"For global config, use kind: global. " +
+					"See https://xcaffold.com/docs/migration/config-removal",
+			)
 
-		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings":
+		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy":
 			// Resource-kind document: route to the kind-aware parser.
 			// Propagate the resource version to config.Version if not already set.
 			if config.Version == "" {
@@ -184,12 +141,9 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 	return merged, nil
 }
 
-// parseableKinds lists the kind values that isConfigFile accepts. An empty
-// kind is treated as "config" for backward compatibility with legacy files
-// that predate the kind: envelope field.
+// parseableKinds lists the kind values accepted by isParseableFile.
+// Every .xcf document must declare an explicit kind field.
 var parseableKinds = map[string]bool{
-	"":         true,
-	"config":   true,
 	"project":  true,
 	"agent":    true,
 	"skill":    true,
@@ -198,13 +152,14 @@ var parseableKinds = map[string]bool{
 	"mcp":      true,
 	"hooks":    true,
 	"settings": true,
+	"global":   true,
+	"policy":   true,
 }
 
-// isConfigFile reads the kind: field from an .xcf file to determine if it
-// should be parsed by the compiler. Returns true for config, resource-kind,
-// and legacy (no-kind) files. Returns false for non-parseable kinds such as
-// "registry" or "settings".
-func isConfigFile(path string) bool {
+// isParseableFile reads the kind: field from an .xcf file to determine if it
+// should be parsed by the compiler. Returns true for known resource-kind files.
+// Returns false for files with unknown, empty, or removed kinds (such as "config").
+func isParseableFile(path string) bool {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
@@ -232,7 +187,7 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
-			if isConfigFile(path) {
+			if isParseableFile(path) {
 				files = append(files, path)
 			}
 		}
@@ -292,7 +247,7 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
-			if isConfigFile(path) {
+			if isParseableFile(path) {
 				files = append(files, path)
 			}
 		}
@@ -540,8 +495,8 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 				merged.Project.BackupDir = p.Project.BackupDir
 			}
 			// Propagate targets and ref lists declared by kind: project documents.
-			// These fields use yaml:"-" so they are not decoded by the legacy
-			// kind: config path; only kind: project documents populate them.
+			// These fields use yaml:"-" so they are not decoded from YAML
+			// directly; only kind: project documents populate them.
 			if len(p.Project.Targets) > 0 {
 				merged.Project.Targets = p.Project.Targets
 			}
