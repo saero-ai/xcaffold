@@ -405,7 +405,7 @@ func extractAgents(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 
 		agentCfg := ast.AgentConfig{Description: "Imported agent"}
 		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := yaml.Unmarshal(fm, &agentCfg); unmarshalErr != nil {
+			if unmarshalErr := lenientUnmarshal(fm, &agentCfg); unmarshalErr != nil {
 				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
 			}
 			agentCfg.InstructionsFile = ""
@@ -441,7 +441,7 @@ func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 
 		skillCfg := ast.SkillConfig{Description: "Imported skill", References: refs}
 		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := yaml.Unmarshal(fm, &skillCfg); unmarshalErr != nil {
+			if unmarshalErr := lenientUnmarshal(fm, &skillCfg); unmarshalErr != nil {
 				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
 			}
 			skillCfg.InstructionsFile = ""
@@ -494,7 +494,7 @@ func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count
 
 		ruleCfg := ast.RuleConfig{Description: "Imported rule"}
 		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := yaml.Unmarshal(fm, &ruleCfg); unmarshalErr != nil {
+			if unmarshalErr := lenientUnmarshal(fm, &ruleCfg); unmarshalErr != nil {
 				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
 			}
 			ruleCfg.InstructionsFile = ""
@@ -580,6 +580,45 @@ func extractFrontmatter(data []byte) ([]byte, bool) {
 		return nil, false
 	}
 	return data[4 : 4+idx], true
+}
+
+// lenientUnmarshal attempts to unmarshal YAML, and if it fails, applies a sanitizer
+// to auto-quote string values that contain colons (which otherwise break yaml mappings)
+// and tries again.
+func lenientUnmarshal(data []byte, v interface{}) error {
+	err := yaml.Unmarshal(data, v)
+	if err == nil {
+		return nil
+	}
+	sanitized := sanitizeFrontmatter(data)
+	if fallbackErr := yaml.Unmarshal(sanitized, v); fallbackErr == nil {
+		return nil
+	}
+	return err
+}
+
+// sanitizeFrontmatter auto-quotes top-level scalar values that contain unquoted colons.
+func sanitizeFrontmatter(data []byte) []byte {
+	lines := strings.Split(string(data), "\n")
+	for i, line := range lines {
+		if len(line) == 0 || line[0] == ' ' || line[0] == '\t' || line[0] == '-' {
+			continue
+		}
+		parts := strings.SplitN(line, ": ", 2)
+		if len(parts) == 2 {
+			val := strings.TrimSpace(parts[1])
+			if strings.Contains(val, ":") && len(val) > 0 {
+				switch val[0] {
+				case '"', '\'', '[', '{', '>', '|':
+					continue
+				default:
+					escapedVal := strings.ReplaceAll(val, "\"", "\\\"")
+					lines[i] = fmt.Sprintf("%s: \"%s\"", parts[0], escapedVal)
+				}
+			}
+		}
+	}
+	return []byte(strings.Join(lines, "\n"))
 }
 
 // injectIntoConfig writes external .md files for each primitive and updates
