@@ -1,0 +1,8 @@
+kind: policy
+version: "1.0"
+name: path-safety
+description: Output paths must not contain directory traversal sequences
+severity: error
+target: output
+deny:
+  - path_contains: ".."
