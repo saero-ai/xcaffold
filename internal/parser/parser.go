@@ -725,6 +725,7 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	mcpOrigins := map[string]string{}
 	workflowOrigins := map[string]string{}
 	policyOrigins := map[string]string{}
+	memoryOrigins := map[string]string{}
 	settingsOrigin := ""
 	localOrigin := ""
 
@@ -831,6 +832,11 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		}
 
 		merged.Policies, policyOrigins, err = mergeMapStrict(merged.Policies, p.Policies, "policy", policyOrigins, f)
+		if err != nil {
+			return nil, err
+		}
+
+		merged.Memory, memoryOrigins, err = mergeMapStrict(merged.Memory, p.Memory, "memory", memoryOrigins, f)
 		if err != nil {
 			return nil, err
 		}
@@ -1002,6 +1008,7 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.MCP = mergeMCPOverrideInherited(base.MCP, child.MCP)
 	merged.Workflows = mergeWorkflowsOverrideInherited(base.Workflows, child.Workflows)
 	merged.Policies = mergeMapOverride(base.Policies, child.Policies)
+	merged.Memory = mergeMemoryOverrideInherited(base.Memory, child.Memory)
 	merged.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
 
 	merged.Settings = mergeSettingsOverride(base.Settings, child.Settings)
@@ -1097,6 +1104,22 @@ func mergeWorkflowsOverrideInherited(base, child map[string]ast.WorkflowConfig) 
 		return nil
 	}
 	merged := make(map[string]ast.WorkflowConfig, len(base)+len(child))
+	for k, v := range base {
+		v.Inherited = true
+		merged[k] = v
+	}
+	for k, v := range child {
+		v.Inherited = false
+		merged[k] = v
+	}
+	return merged
+}
+
+func mergeMemoryOverrideInherited(base, child map[string]ast.MemoryConfig) map[string]ast.MemoryConfig {
+	if base == nil && child == nil {
+		return nil
+	}
+	merged := make(map[string]ast.MemoryConfig, len(base)+len(child))
 	for k, v := range base {
 		v.Inherited = true
 		merged[k] = v
@@ -1387,6 +1410,9 @@ func validateIDs(c *ast.XcaffoldConfig) error {
 	if err := validateResourceIDs(c.Policies, "policy"); err != nil {
 		return err
 	}
+	if err := validateResourceIDs(c.Memory, "memory"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -1417,6 +1443,11 @@ func validateInstructions(c *ast.XcaffoldConfig, globalScope bool) error {
 	}
 	for id, wf := range c.Workflows {
 		if err := validateInstructionOrFile("workflow", id, wf.Instructions, wf.InstructionsFile, globalScope); err != nil {
+			return err
+		}
+	}
+	for id, mem := range c.Memory {
+		if err := validateInstructionOrFile("memory", id, mem.Instructions, mem.InstructionsFile, globalScope); err != nil {
 			return err
 		}
 	}
@@ -1600,10 +1631,22 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 	return diags
 }
 
-// reservedOutputPrefixes are compiler output directories. instructions-file paths
-// starting with these prefixes create circular dependencies where the compiler
-// reads its own output.
-var reservedOutputPrefixes = []string{".agents/", ".antigravity/", ".claude/", ".cursor/", ".github/instructions/", ".github/prompts/"}
+// reservedOutputPrefixes are compiler output directories and well-known agent
+// config paths. instructions-file paths starting with these prefixes create
+// circular dependencies where the compiler reads its own output, or reference
+// files managed by other providers outside the project tree.
+var reservedOutputPrefixes = []string{
+	"~/.claude/",
+	"~/.gemini/",
+	".agents/",
+	".antigravity/",
+	".claude/",
+	".cursor/",
+	".cursorrules",
+	".github/copilot-instructions.md",
+	".github/instructions/",
+	".github/prompts/",
+}
 
 func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	if path == "" {
@@ -1614,6 +1657,14 @@ func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	}
 	if strings.ContainsAny(path, "\\") || strings.Contains(path, "..") {
 		return fmt.Errorf("%s %q: instructions-file contains invalid path characters: %q", kind, id, path)
+	}
+	// Check tilde-prefixed paths against the reserved list before any IsAbs
+	// guard, since filepath.IsAbs returns false for "~/" on Unix. We match
+	// raw string prefixes here — no tilde expansion is performed.
+	for _, prefix := range reservedOutputPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return fmt.Errorf("%s %q: instructions-file %q references compiler output directory %s — this creates a circular dependency", kind, id, path, prefix)
+		}
 	}
 	// Skip reserved-output-prefix check for absolute paths (they are outside project dir).
 	if filepath.IsAbs(path) {

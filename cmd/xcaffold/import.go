@@ -22,6 +22,7 @@ var (
 	importSource       string
 	importFromPlatform string
 	importPlan         bool
+	importWithMemory   bool
 )
 
 var importCmd = &cobra.Command{
@@ -57,44 +58,66 @@ func init() {
 	importCmd.Flags().StringVar(&importSource, "source", "", "File or directory of workflow markdown files to translate")
 	importCmd.Flags().StringVar(&importFromPlatform, "from", "auto", "Source platform of input files (antigravity, cursor, etc.)")
 	importCmd.Flags().BoolVar(&importPlan, "plan", false, "Dry-run: print decomposition plan without writing files")
+	importCmd.Flags().BoolVar(&importWithMemory, "with-memory", false, "Snapshot agent-written memory into xcf/memory/ sidecars")
 	rootCmd.AddCommand(importCmd)
 }
 
 func runImport(cmd *cobra.Command, args []string) error {
-	if importSource != "" {
+	if importSource != "" && !importWithMemory {
 		return runTranslateMode()
 	}
 
-	if globalFlag {
-		dirs := detectAllGlobalPlatformDirs()
-		if len(dirs) == 0 {
-			return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
-		}
-		if len(dirs) > 1 {
-			var dirNames []string
-			for _, d := range dirs {
-				dirNames = append(dirNames, d.dirName)
+	var importErr error
+
+	if importSource == "" {
+		if globalFlag {
+			dirs := detectAllGlobalPlatformDirs()
+			if len(dirs) == 0 {
+				return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
 			}
-			return mergeImportDirs(dirNames, globalXcfPath)
+			if len(dirs) > 1 {
+				var dirNames []string
+				for _, d := range dirs {
+					dirNames = append(dirNames, d.dirName)
+				}
+				importErr = mergeImportDirs(dirNames, globalXcfPath)
+			} else {
+				importErr = importScope(dirs[0].dirName, globalXcfPath, "global")
+			}
+		} else {
+			// project (default) — merge all detected directories
+			infos := detectAllPlatformDirs(".")
+			if len(infos) > 1 {
+				var dirs []string
+				for _, info := range infos {
+					dirs = append(dirs, info.dirName)
+				}
+				importErr = mergeImportDirs(dirs, "scaffold.xcf")
+			} else if len(infos) == 1 {
+				importErr = importScope(infos[0].dirName, "scaffold.xcf", "project")
+			} else {
+				// default fallback
+				importErr = importScope(".claude", "scaffold.xcf", "project")
+			}
 		}
-		return importScope(dirs[0].dirName, globalXcfPath, "global")
+	} else {
+		// --source is set together with --with-memory: run translate mode first.
+		importErr = runTranslateMode()
 	}
 
-	// project (default) — merge all detected directories
-	infos := detectAllPlatformDirs(".")
-	if len(infos) > 1 {
-		var dirs []string
-		for _, info := range infos {
-			dirs = append(dirs, info.dirName)
-		}
-		return mergeImportDirs(dirs, "scaffold.xcf")
-	}
-	if len(infos) == 1 {
-		return importScope(infos[0].dirName, "scaffold.xcf", "project")
+	if importErr != nil {
+		return importErr
 	}
 
-	// default fallback
-	return importScope(".claude", "scaffold.xcf", "project")
+	if importWithMemory {
+		memSummary, err := runMemorySnapshot(cmd, importSource, importFromPlatform, importPlan)
+		if err != nil {
+			return fmt.Errorf("memory snapshot: %w", err)
+		}
+		printMemorySnapshotSummary(cmd, memSummary, importPlan)
+	}
+
+	return nil
 }
 
 // detectAllGlobalPlatformDirs scans known provider directories under the user's home directory
@@ -1346,4 +1369,68 @@ func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, c
 		*count++
 	}
 	return nil
+}
+
+// runMemorySnapshot performs the memory import pass for --with-memory.
+func runMemorySnapshot(cmd *cobra.Command, source string, fromPlatform string, planOnly bool) (*bir.ImportSummary, error) {
+	memDir, err := resolveClaudeMemoryDir(source, fromPlatform)
+	if err != nil {
+		return nil, err
+	}
+
+	sidecarDir := filepath.Join("xcf", "memory")
+
+	return bir.ImportClaudeMemory(memDir, bir.ImportOpts{
+		PlanOnly:   planOnly,
+		SidecarDir: sidecarDir,
+	})
+}
+
+// resolveClaudeMemoryDir determines the memory directory to import from.
+// If source is a valid directory, it is used directly.
+// Otherwise, the function derives ~/.claude/projects/<encoded-cwd>/memory/
+// via claudeProjectMemoryDir (shared with apply.go).
+func resolveClaudeMemoryDir(source, fromPlatform string) (string, error) {
+	if source != "" {
+		info, err := os.Stat(source)
+		if err == nil && info.IsDir() {
+			return source, nil
+		}
+	}
+
+	// Derive ~/.claude/projects/<encoded-cwd>/memory/ using the shared helper.
+	// Empty string causes claudeProjectMemoryDir to fall back to os.Getwd().
+	memDir, err := claudeProjectMemoryDir("")
+	if err != nil {
+		return "", err
+	}
+
+	info, err := os.Stat(memDir)
+	if err != nil || !info.IsDir() {
+		return "", fmt.Errorf("claude memory directory not found at %s; pass --source <dir> to specify a location", memDir)
+	}
+
+	return memDir, nil
+}
+
+// printMemorySnapshotSummary writes the outcome of a memory snapshot pass.
+func printMemorySnapshotSummary(cmd *cobra.Command, s *bir.ImportSummary, planOnly bool) {
+	out := cmd.OutOrStdout()
+	if planOnly {
+		fmt.Fprintf(out, "memory snapshot plan\n  would import: %d entries\n", s.WouldImport)
+		return
+	}
+	fmt.Fprintf(out, "memory snapshot complete\n  imported: %d entries\n", s.Imported)
+	if s.Skipped > 0 {
+		fmt.Fprintf(out, "  skipped (already exists): %d\n", s.Skipped)
+	}
+	if len(s.Written) > 0 {
+		fmt.Fprintln(out, "  written:")
+		for _, w := range s.Written {
+			fmt.Fprintf(out, "           %s\n", w)
+		}
+	}
+	if s.Imported > 0 {
+		fmt.Fprintln(out, "\nadd --include-memory to your next xcaffold apply to seed these into a target provider")
+	}
 }

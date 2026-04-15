@@ -1,0 +1,61 @@
+package ast
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
+)
+
+func TestMemoryConfig_Parse_MinimalValid(t *testing.T) {
+	input := `
+name: user-role
+type: user
+instructions: "Robert is the founder."
+`
+	var m MemoryConfig
+	require.NoError(t, yaml.Unmarshal([]byte(input), &m))
+	assert.Equal(t, "user-role", m.Name)
+	assert.Equal(t, "user", m.Type)
+	assert.Equal(t, "Robert is the founder.", m.Instructions)
+}
+
+func TestMemoryConfig_Parse_FullFields(t *testing.T) {
+	input := `
+name: arch-decisions
+type: reference
+description: "Key architectural decisions."
+lifecycle: tracked
+instructions-file: xcf/memory/arch-decisions.md
+`
+	var m MemoryConfig
+	require.NoError(t, yaml.Unmarshal([]byte(input), &m))
+	assert.Equal(t, "arch-decisions", m.Name)
+	assert.Equal(t, "reference", m.Type)
+	assert.Equal(t, "Key architectural decisions.", m.Description)
+	assert.Equal(t, "tracked", m.Lifecycle)
+	assert.Equal(t, "xcf/memory/arch-decisions.md", m.InstructionsFile)
+}
+
+func TestMemoryConfig_InheritedNotSerialized(t *testing.T) {
+	m := MemoryConfig{
+		Name:      "test",
+		Inherited: true,
+	}
+	data, err := yaml.Marshal(m)
+	require.NoError(t, err)
+	require.NotContains(t, string(data), "inherited")
+}
+
+func TestStripInherited_Memory(t *testing.T) {
+	cfg := &XcaffoldConfig{}
+	cfg.Memory = map[string]MemoryConfig{
+		"inherited-mem": {Name: "inherited-mem", Inherited: true},
+		"local-mem":     {Name: "local-mem", Inherited: false},
+	}
+	cfg.StripInherited()
+	assert.NotContains(t, cfg.Memory, "inherited-mem")
+	assert.Contains(t, cfg.Memory, "local-mem")
+	assert.Equal(t, "local-mem", cfg.Memory["local-mem"].Name)
+}

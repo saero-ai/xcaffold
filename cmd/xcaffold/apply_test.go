@@ -1,11 +1,15 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -530,4 +534,152 @@ version: "1"
 	}
 
 	applyForce = false
+}
+
+// TestApplyCmd_IncludeMemoryFlag_Registered verifies the --include-memory flag
+// is registered on applyCmd with the correct default.
+func TestApplyCmd_IncludeMemoryFlag_Registered(t *testing.T) {
+	flag := applyCmd.Flags().Lookup("include-memory")
+	require.NotNil(t, flag, "--include-memory flag must be registered")
+	require.Equal(t, "false", flag.DefValue)
+}
+
+// TestApplyCmd_ReseedFlag_Registered verifies the --reseed flag is registered
+// on applyCmd with the correct default.
+func TestApplyCmd_ReseedFlag_Registered(t *testing.T) {
+	flag := applyCmd.Flags().Lookup("reseed")
+	require.NotNil(t, flag, "--reseed flag must be registered")
+	require.Equal(t, "false", flag.DefValue)
+}
+
+// TestApplyCmd_ReseedImpliesIncludeMemory verifies the memoryPassEnabled
+// helper treats --reseed as implying --include-memory.
+func TestApplyCmd_ReseedImpliesIncludeMemory(t *testing.T) {
+	require.True(t, memoryPassEnabled(false, true), "reseed=true must enable memory pass even when include-memory is false")
+	require.True(t, memoryPassEnabled(true, false), "include-memory=true must enable memory pass")
+	require.True(t, memoryPassEnabled(true, true), "both flags set must enable memory pass")
+	require.False(t, memoryPassEnabled(false, false), "neither flag set must not enable memory pass")
+}
+
+// TestRunMemoryPass_Cursor_EmitsFidelityNote verifies that running the memory
+// pass against the cursor target emits a MEMORY_NO_NATIVE_TARGET fidelity note.
+func TestRunMemoryPass_Cursor_EmitsFidelityNote(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"user-role": {Name: "user-role", Type: "user", Instructions: "test body"},
+			},
+		},
+	}
+	seeds, notes, err := runMemoryPass(config, t.TempDir(), "cursor", t.TempDir(), nil, false, false)
+	require.NoError(t, err)
+	require.Empty(t, seeds, "cursor memory pass must not produce lock seeds")
+	require.Len(t, notes, 1)
+	require.Equal(t, renderer.CodeMemoryNoNativeTarget, notes[0].Code)
+}
+
+// TestRunMemoryPass_Antigravity_WritesKnowledgeFiles verifies that the
+// antigravity memory pass writes knowledge/<name>.md files to outputDir and
+// returns a state.MemorySeed per file.
+func TestRunMemoryPass_Antigravity_WritesKnowledgeFiles(t *testing.T) {
+	outputDir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"team-context": {Name: "team-context", Type: "project", Instructions: "we ship weekly"},
+			},
+		},
+	}
+	seeds, _, err := runMemoryPass(config, t.TempDir(), "antigravity", outputDir, nil, false, false)
+	require.NoError(t, err)
+	require.Len(t, seeds, 1)
+	require.Equal(t, "antigravity", seeds[0].Target)
+
+	// Verify the knowledge file was actually written to disk.
+	written := filepath.Join(outputDir, "knowledge", "team-context.md")
+	_, err = os.Stat(written)
+	require.NoError(t, err, "antigravity knowledge file must be written to disk")
+}
+
+// TestRunMemoryPass_DryRun_SkipsWrites verifies dry-run mode does not write
+// files or return seeds.
+func TestRunMemoryPass_DryRun_SkipsWrites(t *testing.T) {
+	outputDir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"ctx": {Name: "ctx", Type: "project", Instructions: "x"},
+			},
+		},
+	}
+	seeds, _, err := runMemoryPass(config, t.TempDir(), "antigravity", outputDir, nil, true, false)
+	require.NoError(t, err)
+	require.Empty(t, seeds, "dry-run must not produce seeds")
+
+	// Knowledge dir must not exist after dry-run.
+	_, err = os.Stat(filepath.Join(outputDir, "knowledge"))
+	require.True(t, os.IsNotExist(err), "dry-run must not create knowledge/ directory")
+}
+
+// TestRunMemoryPass_NoMemoryEntries_NoOp verifies the memory pass is a no-op
+// when the config declares no memory entries.
+func TestRunMemoryPass_NoMemoryEntries_NoOp(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	seeds, notes, err := runMemoryPass(config, t.TempDir(), "claude", t.TempDir(), nil, false, false)
+	require.NoError(t, err)
+	require.Empty(t, seeds)
+	require.Empty(t, notes)
+}
+
+// TestRunMemoryPass_DryRun_Claude_LogsIntent verifies that dry-run mode for
+// the claude target logs a DRY-RUN intent message to stderr and produces no seeds.
+func TestRunMemoryPass_DryRun_Claude_LogsIntent(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"user-role": {Name: "user-role", Type: "user", Instructions: "test"},
+			},
+		},
+	}
+	// Capture stderr.
+	origStderr := os.Stderr
+	rPipe, wPipe, _ := os.Pipe()
+	os.Stderr = wPipe
+
+	seeds, _, err := runMemoryPass(config, t.TempDir(), "claude", t.TempDir(), nil, true, false)
+	wPipe.Close()
+	os.Stderr = origStderr
+
+	require.NoError(t, err)
+	require.Empty(t, seeds, "dry-run must produce no seeds")
+
+	captured, _ := io.ReadAll(rPipe)
+	require.Contains(t, string(captured), "DRY-RUN", "dry-run must log intent to stderr")
+}
+
+// TestClaudeProjectMemoryDir_ConsistentBetweenImportAndApply verifies that
+// claudeProjectMemoryDir returns the same directory for the same project root
+// on repeated calls, and falls back to the working directory without error
+// when given an empty projectRoot.
+func TestClaudeProjectMemoryDir_ConsistentBetweenImportAndApply(t *testing.T) {
+	tmp := t.TempDir()
+
+	dir, err := claudeProjectMemoryDir(tmp)
+	require.NoError(t, err)
+
+	// Same input must produce the same directory regardless of which caller
+	// (apply or import) invokes it.
+	dirAgain, err := claudeProjectMemoryDir(tmp)
+	require.NoError(t, err)
+	require.Equal(t, dir, dirAgain)
+
+	// The encoded path must contain the project root's directory name.
+	require.Contains(t, dir, ".claude/projects")
+	require.True(t, strings.HasSuffix(dir, "memory"))
+
+	// Empty projectRoot falls back to cwd without crashing.
+	dirEmpty, err := claudeProjectMemoryDir("")
+	require.NoError(t, err)
+	require.Contains(t, dirEmpty, ".claude/projects")
+	require.True(t, strings.HasSuffix(dirEmpty, "memory"))
 }

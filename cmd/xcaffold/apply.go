@@ -14,6 +14,11 @@ import (
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/saero-ai/xcaffold/internal/registry"
+	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
+	"github.com/saero-ai/xcaffold/internal/renderer/claude"
+	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
+	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
@@ -25,6 +30,8 @@ var applyCheckOnly bool
 var applyCheckPermissions bool
 var applyForce bool
 var applyBackup bool
+var applyIncludeMemory bool
+var applyReseed bool
 var applyProjectFlag string
 var targetFlag string
 
@@ -61,6 +68,8 @@ func init() {
 	applyCmd.Flags().BoolVar(&applyCheckPermissions, "check-permissions", false, "Report security field drops and permission contradictions, then exit")
 	applyCmd.Flags().BoolVar(&applyForce, "force", false, "Overwrite customized local files and bypass drift safeguard")
 	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
+	applyCmd.Flags().BoolVar(&applyIncludeMemory, "include-memory", false, "Seed memory entries to the target provider as part of this apply")
+	applyCmd.Flags().BoolVar(&applyReseed, "reseed", false, "Overwrite existing memory files (bypass seed-once guard and drift check); implies --include-memory")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
 	applyCmd.Flags().StringVar(&targetFlag, "target", targetClaude, "compilation target platform (claude, cursor, antigravity, agentsmd; default: claude)")
 	rootCmd.AddCommand(applyCmd)
@@ -70,7 +79,15 @@ const (
 	targetClaude      = "claude"
 	targetAntigravity = "antigravity"
 	targetCursor      = "cursor"
+	targetAgentsMD    = "agentsmd"
+	targetCopilot     = "copilot"
 )
+
+// memoryPassEnabled reports whether the memory rendering pass should run for
+// this apply invocation. --reseed implies --include-memory.
+func memoryPassEnabled(includeMemory, reseed bool) bool {
+	return includeMemory || reseed
+}
 
 // currentSchemaVersion is the schema version this build of xcaffold targets.
 // Configs with older versions produce a warning prompting the user to migrate.
@@ -352,7 +369,35 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		if !hasChanges {
 			fmt.Printf("[%s] ✓ No changes predicted. Current files are up to date.\n", scopeName)
 		}
+		// Log memory dry-run intent even though we are exiting early.
+		// priorSeeds from oldManifest are not yet available here; pass nil —
+		// this only affects drift-reporting precision, not the intent message.
+		if memoryPassEnabled(applyIncludeMemory, applyReseed) {
+			_, _, _ = runMemoryPass(config, baseDir, targetFlag, outputDir, nil, true, applyReseed)
+		}
 		return nil
+	}
+
+	// Memory rendering pass. Runs per-target when --include-memory or --reseed
+	// is set. Collected seeds are recorded in the target-specific scaffold.lock.
+	var memSeeds []state.MemorySeed
+	if memoryPassEnabled(applyIncludeMemory, applyReseed) {
+		var priorSeeds []state.MemorySeed
+		if oldManifest != nil {
+			priorSeeds = oldManifest.MemorySeeds
+		}
+		seeds, memNotes, memErr := runMemoryPass(config, baseDir, targetFlag, outputDir, priorSeeds, applyDryRun, applyReseed)
+		if len(memNotes) > 0 {
+			printFidelityNotes(os.Stderr, memNotes, nil, false)
+		}
+		if memErr != nil {
+			// Memory drift or other soft errors do not halt apply in v1 — the
+			// primary compile has already succeeded. Surface the message and
+			// skip seed recording for this target.
+			fmt.Fprintf(os.Stderr, "[%s] memory: %v\n", scopeName, memErr)
+		} else {
+			memSeeds = seeds
+		}
 	}
 
 	// Write the lock file with source tracking.
@@ -362,6 +407,7 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		ConfigDir:   ".",
 		SourceFiles: sourceFiles,
 		BaseDir:     baseDir,
+		MemorySeeds: memSeeds,
 	})
 	if err := state.Write(manifest, targetLockFile); err != nil {
 		return fmt.Errorf("[%s] failed to write %s: %w", scopeName, filepath.Base(targetLockFile), err)
@@ -597,4 +643,126 @@ func cleanEmptyDirsUpToTarget(dir, targetDir string) {
 		}
 		dir = filepath.Dir(dir)
 	}
+}
+
+// runMemoryPass executes the memory rendering pass for a single target.
+// Returns the seeds to record in scaffold.lock (empty on dry-run or targets
+// without native memory), fidelity notes to print, and an error if a hard
+// failure occurred (e.g., drift detected without --reseed for tracked
+// lifecycle entries on the Claude target).
+//
+// Dispatches to the provider-specific MemoryRenderer based on target. The
+// Antigravity renderer returns its files in-memory, so runMemoryPass writes
+// them to disk under outputDir. Cursor and Copilot emit FidelityNotes only
+// (no files). AgentsMD has no native memory primitive and is a silent no-op.
+func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string, priorSeeds []state.MemorySeed, dryRun, reseed bool) ([]state.MemorySeed, []renderer.FidelityNote, error) {
+	if config == nil || len(config.Memory) == 0 {
+		return nil, nil, nil
+	}
+
+	// Build prior-hash map scoped to this target for drift detection.
+	priorHashes := make(map[string]string, len(priorSeeds))
+	for _, s := range priorSeeds {
+		if s.Target == target {
+			priorHashes[s.Name] = s.Hash
+		}
+	}
+
+	switch target {
+	case targetClaude:
+		memDir, err := claudeProjectMemoryDir(baseDir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("memory pass: %w", err)
+		}
+		if dryRun {
+			fmt.Fprintf(os.Stderr, "[DRY-RUN] would seed %d memory entries to %s\n", len(config.Memory), memDir)
+			return nil, nil, nil
+		}
+		r := claude.NewMemoryRenderer(memDir).WithReseed(reseed)
+		_, notes, err := r.CompileWithPriorSeeds(config, baseDir, priorHashes)
+		if err != nil {
+			return nil, notes, err
+		}
+		return convertClaudeSeeds(r.Seeds()), notes, nil
+
+	case targetCursor:
+		r := cursor.NewMemoryRenderer()
+		_, notes, err := r.Compile(config, baseDir)
+		return nil, notes, err
+
+	case targetCopilot:
+		r := copilot.NewMemoryRenderer()
+		_, notes, err := r.Compile(config, baseDir)
+		return nil, notes, err
+
+	case targetAntigravity:
+		r := antigravity.NewMemoryRenderer()
+		out, notes, err := r.Compile(config, baseDir)
+		if err != nil {
+			return nil, notes, err
+		}
+		if dryRun {
+			fmt.Fprintf(os.Stderr, "[DRY-RUN] would write %d knowledge items to %s\n", len(out.Files), outputDir)
+			return nil, notes, nil
+		}
+		seeds, writeErr := writeAntigravityKnowledgeItems(outputDir, out.Files)
+		return seeds, notes, writeErr
+
+	case targetAgentsMD:
+		// AgentsMD has no native memory primitive in v1 — silent no-op.
+		return nil, nil, nil
+
+	default:
+		return nil, nil, fmt.Errorf("memory pass: unsupported target %q", target)
+	}
+}
+
+// convertClaudeSeeds copies the Claude renderer's local MemorySeed slice into
+// the state.MemorySeed shape for lock manifest persistence. The two types have
+// identical fields but live in different packages to avoid an import cycle.
+func convertClaudeSeeds(in []claude.MemorySeed) []state.MemorySeed {
+	out := make([]state.MemorySeed, len(in))
+	for i, s := range in {
+		out[i] = state.MemorySeed{
+			Name:      s.Name,
+			Target:    s.Target,
+			Path:      s.Path,
+			Hash:      s.Hash,
+			SeededAt:  s.SeededAt,
+			Lifecycle: s.Lifecycle,
+		}
+	}
+	return out
+}
+
+// writeAntigravityKnowledgeItems writes each in-memory knowledge file produced
+// by the Antigravity memory renderer to disk under outputDir. Returns one
+// state.MemorySeed per file with lifecycle "seed-once".
+func writeAntigravityKnowledgeItems(outputDir string, files map[string]string) ([]state.MemorySeed, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
+	seeds := make([]state.MemorySeed, 0, len(files))
+	now := time.Now().UTC().Format(time.RFC3339)
+	for relPath, content := range files {
+		dest := filepath.Clean(filepath.Join(outputDir, relPath))
+		if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+			return nil, fmt.Errorf("antigravity memory: mkdir %s: %w", filepath.Dir(dest), err)
+		}
+		if err := os.WriteFile(dest, []byte(content), 0o600); err != nil {
+			return nil, fmt.Errorf("antigravity memory: write %s: %w", dest, err)
+		}
+		sum := sha256.Sum256([]byte(content))
+		// Derive the entry name from the relative path: knowledge/<name>.md → <name>.
+		name := strings.TrimSuffix(filepath.Base(relPath), filepath.Ext(relPath))
+		seeds = append(seeds, state.MemorySeed{
+			Name:      name,
+			Target:    targetAntigravity,
+			Path:      dest,
+			Hash:      fmt.Sprintf("sha256:%x", sum),
+			SeededAt:  now,
+			Lifecycle: "seed-once",
+		})
+	}
+	return seeds, nil
 }

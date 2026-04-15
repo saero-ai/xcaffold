@@ -689,6 +689,31 @@ func TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
 	}
 }
 
+func TestImportCmd_WithMemoryFlag_Registered(t *testing.T) {
+	flag := importCmd.Flags().Lookup("with-memory")
+	require.NotNil(t, flag, "--with-memory flag must be registered on importCmd")
+	require.Equal(t, "false", flag.DefValue)
+}
+
+func TestRunImport_WithMemory_UsesSourceDir(t *testing.T) {
+	memDir := t.TempDir()
+	require.NoError(t, os.WriteFile(
+		filepath.Join(memDir, "user-role.md"),
+		[]byte("---\ntype: user\n---\nRobert."),
+		0o600,
+	))
+
+	tmp := t.TempDir()
+	origWd, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origWd)
+
+	summary, err := runMemorySnapshot(importCmd, memDir, "claude", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, summary.Imported)
+	require.FileExists(t, filepath.Join(tmp, "xcf", "memory", "user-role.md"))
+}
+
 func TestDetectTargets(t *testing.T) {
 	tests := []struct {
 		name     string

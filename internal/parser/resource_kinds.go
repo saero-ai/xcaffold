@@ -112,6 +112,7 @@ type globalDocument struct {
 	Hooks     ast.HookConfig                `yaml:"hooks,omitempty"`
 	MCP       map[string]ast.MCPConfig      `yaml:"mcp,omitempty"`
 	Workflows map[string]ast.WorkflowConfig `yaml:"workflows,omitempty"`
+	Memory    map[string]ast.MemoryConfig   `yaml:"memory,omitempty"`
 }
 
 // policyDocument wraps PolicyConfig with envelope fields for multi-kind parsing.
@@ -437,6 +438,15 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 				config.Hooks = make(ast.HookConfig)
 			}
 			config.Hooks[event] = append(config.Hooks[event], groups...)
+		}
+		for k, v := range doc.Memory {
+			if config.Memory == nil {
+				config.Memory = make(map[string]ast.MemoryConfig)
+			}
+			if _, exists := config.Memory[k]; exists {
+				return fmt.Errorf("duplicate memory ID %q", k)
+			}
+			config.Memory[k] = v
 		}
 
 	case "policy":
