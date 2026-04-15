@@ -64,6 +64,18 @@ const (
 	// a static prompt file. Dynamic branching steps are lost.
 	CodeWorkflowLoweredToPromptFile = "WORKFLOW_LOWERED_TO_PROMPT_FILE"
 
+	// CodeWorkflowLoweredToCustomCommand is emitted when a workflow was compiled to
+	// a custom shell command or script. Native workflow semantics are not preserved.
+	CodeWorkflowLoweredToCustomCommand = "WORKFLOW_LOWERED_TO_CUSTOM_COMMAND"
+
+	// CodeWorkflowLoweredToNative is emitted when a workflow was lowered to the
+	// native workflow model but with reduced fidelity compared to the source.
+	CodeWorkflowLoweredToNative = "WORKFLOW_LOWERED_TO_NATIVE"
+
+	// CodeWorkflowNoNativeTarget is emitted when a workflow has no native representation
+	// in the target. The workflow was either dropped or converted to an alternative form.
+	CodeWorkflowNoNativeTarget = "WORKFLOW_NO_NATIVE_TARGET"
+
 	// CodeReservedOutputPathRejected is emitted when a generated output path
 	// conflicts with a reserved path. The file was not written.
 	CodeReservedOutputPathRejected = "RESERVED_OUTPUT_PATH_REJECTED"
@@ -115,6 +127,11 @@ const (
 	// an instructions-scope file diverges from all known variants and the
 	// reconciliation strategy cannot determine a canonical source.
 	CodeReconciliationDriftDetected = "RECONCILIATION_DRIFT_DETECTED"
+
+	// CodeOptimizerPassReordered is emitted when the optimizer reordered compilation
+	// passes to meet target constraints. Semantic equivalence is maintained but
+	// the sequence differs from the source declaration.
+	CodeOptimizerPassReordered = "OPTIMIZER_PASS_REORDERED"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -134,6 +151,9 @@ func AllCodes() []string {
 		CodeMemoryIndexUpdateFailed,
 		CodeWorkflowLoweredToRulePlusSkill,
 		CodeWorkflowLoweredToPromptFile,
+		CodeWorkflowLoweredToCustomCommand,
+		CodeWorkflowLoweredToNative,
+		CodeWorkflowNoNativeTarget,
 		CodeReservedOutputPathRejected,
 		CodeSettingsFieldUnsupported,
 		CodeHookInterpolationRequiresEnvSyntax,
@@ -147,5 +167,6 @@ func AllCodes() []string {
 		CodeMemoryDriftDetected,
 		CodeReconciliationUnionLossy,
 		CodeReconciliationDriftDetected,
+		CodeOptimizerPassReordered,
 	}
 }
