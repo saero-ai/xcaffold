@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (FidelityNote Return Surface)
+
+- Added `renderer.FidelityNote` struct and `FidelityLevel` (`info` / `warning` / `error`) for structured, machine-readable fidelity reporting (renderer)
+- Added `renderer.NewNote()` constructor and a stable code catalog in `internal/renderer/fidelity_codes.go` covering 16 codes including `SKILL_SCRIPTS_DROPPED`, `SKILL_ASSETS_DROPPED`, `SETTINGS_FIELD_UNSUPPORTED`, `AGENT_MODEL_UNMAPPED`, `AGENT_SECURITY_FIELDS_DROPPED`, and `HOOK_INTERPOLATION_REQUIRES_ENV_SYNTAX` (renderer)
+- Added `renderer.AllCodes()` enumeration for tooling that needs to introspect known codes (renderer)
+- Added `cmd/xcaffold/fidelity.go` with `printFidelityNotes()` for human-readable output and `buildSuppressedResourcesMap()` for applying per-resource suppression at the command layer (cmd)
+- Added propagation test verifying fidelity notes flow from renderer through `compiler.Compile` to the caller (compiler)
+
+### Changed (FidelityNote Return Surface)
+
+- Changed `compiler.Compile` signature to `(*Output, []FidelityNote, error)`; the second return carries fidelity notes for the selected target (compiler)
+- Changed `TargetRenderer` interface to return notes from `Compile`, consolidating around the real semantic entry point rather than the thin `Render` wrapper (renderer)
+- Changed the cursor renderer to replace 12 stderr writes with typed notes (renderer/cursor)
+- Changed the antigravity renderer to replace 4 stderr writes with typed notes and added scripts/assets coverage for parity with cursor (renderer/antigravity)
+- Changed the agentsmd renderer to replace the package-level `warningWriter` and `warnLossy*` helpers with `collectNotes{Agent,Skill,Rule}` functions returning notes (renderer/agentsmd)
+- Moved `suppress-fidelity-warnings` enforcement out of every renderer and into `cmd/xcaffold/fidelity.go`; renderers now emit notes unconditionally and the command layer filters them (cmd, renderer)
+- Updated `xcaffold apply`, `xcaffold export`, and `xcaffold validate` to receive fidelity notes from the compiler and print them via the shared helper (cmd)
+
 ### Added (Agent Schema Normalization)
 
 - Added `disable-model-invocation` (`*bool`) and `user-invocable` (`*bool`) fields to `AgentConfig` (ast)
