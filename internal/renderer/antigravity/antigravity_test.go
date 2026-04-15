@@ -239,7 +239,7 @@ func TestCompile_Rule_Under12K_NoWarning(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/short-rule.md"]
-	assert.False(t, strings.HasPrefix(content, "<!--"), "rules under 12K must not have warning comment")
+	assert.NotContains(t, content, "WARNING:", "rules under 12K must not have 12K warning comment")
 }
 
 func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
@@ -764,4 +764,88 @@ func TestAntigravityRenderer_SkillAssets_EmitsNote(t *testing.T) {
 	require.NoError(t, err)
 	_, ok := findAgNote(notes, renderer.CodeSkillAssetsDropped, "assets")
 	assert.True(t, ok)
+}
+
+// ─── Activation provenance comment tests ─────────────────────────────────────
+
+func TestCompileAntigravityRule_Activation_AlwaysOn(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"security": {
+					Description:  "Security checklist.",
+					Activation:   ast.RuleActivationAlways,
+					Instructions: "Follow OWASP.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/security.md"]
+	require.Contains(t, content, "<!-- xcaffold:activation AlwaysOn -->")
+}
+
+func TestCompileAntigravityRule_Activation_Manual(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"commit-style": {
+					Activation:   ast.RuleActivationManualMention,
+					Instructions: "Body.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/commit-style.md"]
+	require.Contains(t, content, "<!-- xcaffold:activation Manual -->")
+}
+
+func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"api-style": {
+					Activation:   ast.RuleActivationPathGlob,
+					Paths:        []string{"src/**", "packages/api/**"},
+					Instructions: "REST conventions.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/api-style.md"]
+	require.Contains(t, content, "<!-- xcaffold:activation Glob -->")
+	require.Contains(t, content, `<!-- xcaffold:paths ["src/**","packages/api/**"] -->`)
+}
+
+func TestCompileAntigravityRule_NoProvenance_ExistingBehaviorPreserved(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"legacy": {
+					Description:  "Legacy rule.",
+					Instructions: "No activation field set.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/legacy.md"]
+	// No explicit activation → AlwaysOn (the default) is still emitted.
+	require.Contains(t, content, "<!-- xcaffold:activation AlwaysOn -->")
+	// Description must appear as heading.
+	require.Contains(t, content, "# Legacy rule.")
 }
