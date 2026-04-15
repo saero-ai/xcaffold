@@ -141,7 +141,7 @@ type TargetOverride struct {
 //	Group 3 — Tool Access (allowed-tools)
 //	Group 4 — Permissions & Invocation Control (disable-model-invocation, user-invocable, argument-hint)
 //	Group 7 — Composition / Supporting Files (references, scripts, assets)
-//	Group 9 — Multi-Target (targets — added in a future task; not present yet on SkillConfig)
+//	Group 9 — Multi-Target (targets — per-provider overrides and provider: pass-through)
 //	Group 10 — Instructions (instructions, instructions_file) — ALWAYS last
 type SkillConfig struct {
 	// Group 1 — Identity
@@ -165,6 +165,9 @@ type SkillConfig struct {
 	Scripts []string `yaml:"scripts,omitempty"`
 	// Assets are output artifact files (templates, fonts, icons) copied to skills/<id>/assets/.
 	Assets []string `yaml:"assets,omitempty"`
+
+	// Group 9 — Multi-Target (per-provider overrides + provider: pass-through)
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
 	// Group 10 — Instructions (mutually exclusive — enforced by parser)
 	Instructions     string `yaml:"instructions,omitempty"`

@@ -283,14 +283,64 @@ func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (str
 }
 
 func appendSkillMeta(sb *strings.Builder, skill ast.SkillConfig) {
+	// Group 1 — Identity
 	if skill.Name != "" {
 		fmt.Fprintf(sb, "name: %s\n", skill.Name)
 	}
 	if skill.Description != "" {
 		fmt.Fprintf(sb, "description: %s\n", skill.Description)
 	}
+	if skill.WhenToUse != "" {
+		fmt.Fprintf(sb, "when_to_use: %s\n", skill.WhenToUse)
+	}
+	if skill.License != "" {
+		fmt.Fprintf(sb, "license: %s\n", skill.License)
+	}
+
+	// Group 3 — Tool Access (Claude convention: space-separated string)
 	if len(skill.AllowedTools) > 0 {
-		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(skill.AllowedTools, ", "))
+		fmt.Fprintf(sb, "allowed-tools: %s\n", strings.Join(skill.AllowedTools, " "))
+	}
+
+	// Group 4 — Permissions & Invocation Control (hyphenated kebab-case for Claude)
+	if skill.DisableModelInvocation != nil {
+		fmt.Fprintf(sb, "disable-model-invocation: %t\n", *skill.DisableModelInvocation)
+	}
+	if skill.UserInvocable != nil {
+		fmt.Fprintf(sb, "user-invocable: %t\n", *skill.UserInvocable)
+	}
+	if skill.ArgumentHint != "" {
+		// quote because hint typically contains brackets
+		fmt.Fprintf(sb, "argument-hint: '%s'\n", skill.ArgumentHint)
+	}
+
+	// Claude-specific provider pass-through
+	if claude, ok := skill.Targets["claude"]; ok {
+		emitClaudeProviderKeys(sb, claude.Provider)
+	}
+}
+
+// emitClaudeProviderKeys writes Claude-recognized provider keys in a stable order.
+// Unknown keys are emitted at the end (renderer-level warnings handled by caller).
+func emitClaudeProviderKeys(sb *strings.Builder, provider map[string]any) {
+	if len(provider) == 0 {
+		return
+	}
+	// Stable, documented Claude keys in canonical order
+	known := []string{"context", "agent", "model", "effort", "shell"}
+	for _, k := range known {
+		if v, ok := provider[k]; ok {
+			fmt.Fprintf(sb, "%s: %v\n", k, v)
+		}
+	}
+	// Structured keys (paths, hooks) — emit via yaml.Marshal for correctness
+	for _, k := range []string{"paths", "hooks"} {
+		if v, ok := provider[k]; ok {
+			data, err := yaml.Marshal(map[string]any{k: v})
+			if err == nil {
+				sb.Write(data)
+			}
+		}
 	}
 }
 

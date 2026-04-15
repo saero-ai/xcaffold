@@ -655,3 +655,32 @@ targets:
 	require.Equal(t, 15, gemini.Provider["timeout_mins"])
 	require.Equal(t, "local", gemini.Provider["kind"])
 }
+
+func TestParse_Skill_TargetsClaudeProviderPassthrough(t *testing.T) {
+	yamlSrc := `
+kind: skill
+version: "1.0"
+name: deep-research
+description: Research deeply
+targets:
+  claude:
+    provider:
+      context: fork
+      agent: Explore
+      model: sonnet
+instructions: "Research deeply."
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "skill.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yamlSrc), 0o600))
+
+	config, err := ParseFile(path)
+	require.NoError(t, err)
+
+	skill := config.Skills["deep-research"]
+	claude := skill.Targets["claude"]
+	require.NotNil(t, claude.Provider)
+	require.Equal(t, "fork", claude.Provider["context"])
+	require.Equal(t, "Explore", claude.Provider["agent"])
+	require.Equal(t, "sonnet", claude.Provider["model"])
+}
