@@ -21,6 +21,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
+	"github.com/saero-ai/xcaffold/internal/translator"
 )
 
 const (
@@ -106,7 +107,33 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	}
 
 	for id, wf := range config.Workflows {
-		md, err := compileAntigravityWorkflow(id, wf, baseDir)
+		wfCopy := wf
+		if wfCopy.Name == "" {
+			wfCopy.Name = id
+		}
+		// When promote-rules-to-workflows is set, use TranslateWorkflow for
+		// the native path (emits a fidelity note). Otherwise fall back to the
+		// existing step-body compiler which handles single-body workflows too.
+		if override, ok := wfCopy.Targets["antigravity"]; ok {
+			if v, ok2 := override.Provider["promote-rules-to-workflows"]; ok2 {
+				if promote, _ := v.(bool); promote {
+					primitives, wfNotes := translator.TranslateWorkflow(&wfCopy, targetName)
+					notes = append(notes, wfNotes...)
+					for _, p := range primitives {
+						content := p.Content
+						if content == "" {
+							content = p.Body
+						}
+						if p.Kind == "workflow" {
+							safePath := filepath.Clean(fmt.Sprintf("workflows/%s.md", p.ID))
+							out.Files[safePath] = content
+						}
+					}
+					continue
+				}
+			}
+		}
+		md, err := compileAntigravityWorkflow(id, wfCopy, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("antigravity: failed to compile workflow %q: %w", id, err)
 		}
