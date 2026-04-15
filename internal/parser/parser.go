@@ -1603,7 +1603,7 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 // reservedOutputPrefixes are compiler output directories. instructions-file paths
 // starting with these prefixes create circular dependencies where the compiler
 // reads its own output.
-var reservedOutputPrefixes = []string{".claude/", ".cursor/", ".agents/", ".antigravity/"}
+var reservedOutputPrefixes = []string{".agents/", ".antigravity/", ".claude/", ".cursor/", ".github/instructions/", ".github/prompts/"}
 
 func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	if path == "" {
