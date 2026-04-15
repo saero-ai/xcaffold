@@ -24,6 +24,10 @@ func TestApply_CheckPermissions_FlagRegistered(t *testing.T) {
 // --check-permissions --target cursor emits [WARNING] lines for security fields
 // that the Cursor renderer drops, and exits 0.
 func TestApply_CheckPermissions_CursorTarget_ReportsDroppedFields(t *testing.T) {
+	// Prevent the parser from loading the real ~/.xcaffold/global.xcf, which
+	// may contain fields not present in the current AST and would cause parse
+	// failures unrelated to what this test exercises.
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
 	content := `---
@@ -84,6 +88,10 @@ agents:
 // the same rule in both allow and deny causes the parse to fail (via
 // validatePermissions), and the CLI exits non-zero with an appropriate message.
 func TestApply_CheckPermissions_ContradictionExitsOne(t *testing.T) {
+	// Prevent the parser from loading the real ~/.xcaffold/global.xcf, which
+	// may contain fields not present in the current AST and would cause parse
+	// failures unrelated to what this test exercises.
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "scaffold.xcf")
 	content := `---
