@@ -797,3 +797,37 @@ instructions-file: rules/body.md
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "mutually exclusive")
 }
+
+func TestParseRule_ExcludeAgents_Invalid(t *testing.T) {
+	src := `kind: rule
+version: "1.0"
+name: test-rule
+activation: always
+exclude-agents:
+  - ci-bot
+instructions: "Body."
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "rule.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must be one of: code-review, cloud-agent")
+}
+
+func TestParseRule_ExcludeAgents_Valid(t *testing.T) {
+	src := `kind: rule
+version: "1.0"
+name: test-rule
+activation: always
+exclude-agents:
+  - code-review
+  - cloud-agent
+instructions: "Body."
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "rule.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+	_, err := ParseFile(path)
+	require.NoError(t, err)
+}

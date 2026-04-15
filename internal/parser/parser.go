@@ -1160,9 +1160,16 @@ var pathFreeActivations = map[string]bool{
 	ast.RuleActivationExplicitInvoke: true,
 }
 
+// validExcludeAgents is the set of accepted values for the exclude-agents field.
+var validExcludeAgents = map[string]bool{
+	"code-review": true,
+	"cloud-agent": true,
+}
+
 // validateRuleActivations enforces activation enum and paths co-constraints
-// across all rules in the config. It also emits a deprecation warning to
-// stderr when always-apply is used without the activation field.
+// across all rules in the config. It also validates exclude-agents enum values
+// and emits a deprecation warning to stderr when always-apply is used without
+// the activation field.
 func validateRuleActivations(c *ast.XcaffoldConfig) error {
 	for _, rule := range c.Rules {
 		if rule.Activation != "" {
@@ -1182,6 +1189,14 @@ func validateRuleActivations(c *ast.XcaffoldConfig) error {
 				return fmt.Errorf(
 					"rule %q: paths must be empty when activation is %q",
 					rule.Name, rule.Activation,
+				)
+			}
+		}
+		for _, agent := range rule.ExcludeAgents {
+			if !validExcludeAgents[agent] {
+				return fmt.Errorf(
+					"rule %q: exclude-agents value %q must be one of: code-review, cloud-agent",
+					rule.Name, agent,
 				)
 			}
 		}

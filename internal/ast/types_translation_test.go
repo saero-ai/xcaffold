@@ -287,3 +287,20 @@ func TestRuleActivation_Constants(t *testing.T) {
 	require.Equal(t, "manual-mention", RuleActivationManualMention)
 	require.Equal(t, "explicit-invoke", RuleActivationExplicitInvoke)
 }
+
+func TestRuleConfig_ExcludeAgents_Serializes(t *testing.T) {
+	rule := RuleConfig{
+		Name:          "security",
+		Activation:    RuleActivationAlways,
+		ExcludeAgents: []string{"code-review", "cloud-agent"},
+		Instructions:  "Body.",
+	}
+
+	data, err := yaml.Marshal(rule)
+	require.NoError(t, err)
+
+	content := string(data)
+	require.Contains(t, content, "exclude-agents:")
+	require.Contains(t, content, "- code-review")
+	require.Contains(t, content, "- cloud-agent")
+}

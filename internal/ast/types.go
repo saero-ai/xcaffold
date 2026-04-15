@@ -197,6 +197,10 @@ type RuleConfig struct {
 	Instructions     string   `yaml:"instructions,omitempty"`
 	InstructionsFile string   `yaml:"instructions-file,omitempty"`
 	Paths            []string `yaml:"paths,omitempty"`
+	// ExcludeAgents is a Copilot-specific list of agent types that should NOT
+	// receive this rule. Valid values: code-review | cloud-agent.
+	// Silently ignored by all non-Copilot renderers.
+	ExcludeAgents []string `yaml:"exclude-agents,omitempty"`
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
