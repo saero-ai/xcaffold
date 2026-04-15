@@ -12,7 +12,9 @@ package copilot
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -66,7 +68,120 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		notes = append(notes, ruleNotes...)
 	}
 
+	if config.Project != nil {
+		instrNotes := r.renderProjectInstructions(config, baseDir, out.Files)
+		notes = append(notes, instrNotes...)
+	}
+
 	return out, notes, nil
+}
+
+// renderProjectInstructions emits a single flat-singleton file at
+// .github/copilot-instructions.md containing the project root instructions
+// followed by each InstructionsScope entry, each wrapped in
+// xcaffold:scope HTML provenance markers (path, merge-strategy, origin).
+//
+// Copilot has no multi-file nesting model, so all scopes are merged into one
+// file. Structural distinction is preserved via provenance markers only. One
+// INSTRUCTIONS_FLATTENED info note is emitted per scope.
+func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+	p := config.Project
+	if p.Instructions == "" && p.InstructionsFile == "" {
+		return nil
+	}
+
+	var notes []renderer.FidelityNote
+
+	rootContent := copilotResolveInstructions(p.Instructions, p.InstructionsFile, baseDir)
+
+	// Inline @-imports — Copilot has no native @-import mechanism.
+	for _, imp := range p.InstructionsImports {
+		data, err := os.ReadFile(filepath.Join(baseDir, imp))
+		if err == nil {
+			rootContent += "\n\n" + string(data)
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString(rootContent)
+
+	// Sort scopes: depth ascending (fewer path separators first), then alphabetical.
+	scopes := make([]ast.InstructionsScope, len(p.InstructionsScopes))
+	copy(scopes, p.InstructionsScopes)
+	sort.SliceStable(scopes, func(i, j int) bool {
+		di := strings.Count(scopes[i].Path, "/")
+		dj := strings.Count(scopes[j].Path, "/")
+		if di != dj {
+			return di < dj
+		}
+		return scopes[i].Path < scopes[j].Path
+	})
+
+	for _, scope := range scopes {
+		scopeContent := copilotResolveScopeContent(scope, baseDir)
+
+		// Build provenance marker attributes — the A-6 parser uses
+		// `(\w[\w-]*)="([^"]*)"`, so any double quote inside an attribute value
+		// would terminate the match early. Replace all double quotes with single
+		// quotes before embedding.
+		safePath := strings.ReplaceAll(scope.Path, `"`, `'`)
+		mergeStrategy := scope.MergeStrategy
+		if mergeStrategy == "" {
+			mergeStrategy = "concat"
+		}
+
+		origin := ""
+		if scope.SourceProvider != "" || scope.SourceFilename != "" {
+			safeProvider := strings.ReplaceAll(scope.SourceProvider, `"`, `'`)
+			safeFilename := strings.ReplaceAll(scope.SourceFilename, `"`, `'`)
+			origin = fmt.Sprintf(` origin="%s:%s"`, safeProvider, safeFilename)
+		}
+
+		fmt.Fprintf(&sb, "\n\n<!-- xcaffold:scope path=\"%s\" merge=\"%s\"%s -->\n",
+			safePath, mergeStrategy, origin)
+		sb.WriteString(scopeContent)
+		sb.WriteString("\n<!-- xcaffold:/scope -->\n")
+
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelInfo,
+			targetName,
+			"instructions",
+			scope.Path,
+			"merge-strategy",
+			renderer.CodeInstructionsFlattened,
+			fmt.Sprintf("scope %q flattened into single copilot-instructions.md file with provenance marker", scope.Path),
+			"Use a target that supports nested instruction files (e.g. claude) if scope isolation is required",
+		))
+	}
+
+	safePath := filepath.Clean(".github/copilot-instructions.md")
+	files[safePath] = sb.String()
+	return notes
+}
+
+// copilotResolveInstructions returns inline instructions or reads InstructionsFile
+// relative to baseDir. Returns empty string on any read error.
+func copilotResolveInstructions(inline, file, baseDir string) string {
+	if inline != "" {
+		return inline
+	}
+	if file == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(baseDir, file))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// copilotResolveScopeContent returns the effective content for a scope, preferring
+// a copilot-specific variant when one is declared.
+func copilotResolveScopeContent(scope ast.InstructionsScope, baseDir string) string {
+	if v, ok := scope.Variants[targetName]; ok {
+		return copilotResolveInstructions("", v.InstructionsFile, baseDir)
+	}
+	return copilotResolveInstructions(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
 // compileCopilotRule renders a single RuleConfig as a Copilot .instructions.md file.
