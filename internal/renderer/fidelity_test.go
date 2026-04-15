@@ -101,6 +101,8 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeAgentSecurityFieldsDropped:          true,
 		renderer.CodeSkillScriptsDropped:                 true,
 		renderer.CodeSkillAssetsDropped:                  true,
+		renderer.CodeRuleActivationUnsupported:           true,
+		renderer.CodeRuleExcludeAgentsDropped:            true,
 	}
 
 	got := make(map[string]bool)

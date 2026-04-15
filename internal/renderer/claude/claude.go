@@ -81,13 +81,15 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	}
 
 	// Compile all rules to .claude/rules/*.md
+	var notes []renderer.FidelityNote
 	for id, rule := range config.Rules {
-		md, err := compileRuleMarkdown(id, rule, baseDir)
+		md, ruleNotes, err := compileRuleMarkdown(id, rule, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
 		out.Files[safePath] = md
+		notes = append(notes, ruleNotes...)
 	}
 
 	mcpJSON, err := compileClaudeMCP(config.MCP, config.Settings.MCPServers)
@@ -118,7 +120,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files["settings.local.json"] = localJSON
 	}
 
-	return out, nil, nil
+	return out, notes, nil
 }
 
 // resolveInstructions returns the effective body content for an agent/skill/rule.
@@ -391,9 +393,19 @@ func compileSkillSubdir(id, subdir string, paths []string, baseDir string, out *
 }
 
 // compileRuleMarkdown renders a single RuleConfig to Claude Code markdown.
-func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string, error) {
+// It returns the rendered content, zero or more fidelity notes, and any error.
+//
+// Activation handling:
+//   - path-glob: emits paths: frontmatter from rule.Paths.
+//   - always:    no paths: frontmatter.
+//   - model-decided, manual-mention, explicit-invoke: Claude has no native
+//     equivalent; rule is emitted as always-loaded with a warning FidelityNote.
+//
+// exclude-agents: Claude has no native equivalent; the field is silently dropped
+// and an info FidelityNote is emitted.
+func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("rule id must not be empty")
+		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
 
 	body, err := resolver.ResolveInstructions(
@@ -403,7 +415,43 @@ func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string
 		baseDir,
 	)
 	if err != nil {
-		return "", err
+		return "", nil, err
+	}
+
+	activation := renderer.ResolvedActivation(rule)
+
+	var notes []renderer.FidelityNote
+
+	// Claude natively supports always and path-glob. Everything else is
+	// emitted as always-loaded with a warning note.
+	switch activation {
+	case ast.RuleActivationAlways, ast.RuleActivationPathGlob:
+		// supported — no note needed
+	default:
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning,
+			"claude",
+			"rule",
+			id,
+			"activation",
+			renderer.CodeRuleActivationUnsupported,
+			fmt.Sprintf("rule %q: activation %q has no Claude native equivalent; rule emitted as always-loaded", id, activation),
+			"Use activation: always or activation: path-glob for Claude.",
+		))
+	}
+
+	// exclude-agents has no Claude equivalent; drop it and emit an info note.
+	if len(rule.ExcludeAgents) > 0 {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelInfo,
+			"claude",
+			"rule",
+			id,
+			"exclude-agents",
+			renderer.CodeRuleExcludeAgentsDropped,
+			fmt.Sprintf("rule %q: exclude-agents %v has no Claude native equivalent and was dropped", id, rule.ExcludeAgents),
+			"Remove exclude-agents or target a provider that supports it (e.g. copilot).",
+		))
 	}
 
 	var sb strings.Builder
@@ -412,7 +460,8 @@ func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string
 	if rule.Description != "" {
 		fmt.Fprintf(&sb, "description: %s\n", rule.Description)
 	}
-	if len(rule.Paths) > 0 {
+	// Emit paths: only when activation resolves to path-glob.
+	if activation == ast.RuleActivationPathGlob && len(rule.Paths) > 0 {
 		fmt.Fprintf(&sb, "paths: [%s]\n", strings.Join(rule.Paths, ", "))
 	}
 	sb.WriteString("---\n")
@@ -423,7 +472,7 @@ func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string
 		sb.WriteString("\n")
 	}
 
-	return sb.String(), nil
+	return sb.String(), notes, nil
 }
 
 // compileSettingsJSON produces a fully-populated settings.json.

@@ -69,6 +69,14 @@ const (
 	// CodeSkillAssetsDropped is emitted when a skill's assets/ directory
 	// reference has no equivalent in the target and was dropped.
 	CodeSkillAssetsDropped = "SKILL_ASSETS_DROPPED"
+
+	// CodeRuleActivationUnsupported is emitted when a rule's activation mode
+	// has no native equivalent in the target. The rule is emitted as always-loaded.
+	CodeRuleActivationUnsupported = "RULE_ACTIVATION_UNSUPPORTED"
+
+	// CodeRuleExcludeAgentsDropped is emitted when a rule's exclude-agents list
+	// has no native equivalent in the target and was dropped.
+	CodeRuleExcludeAgentsDropped = "RULE_EXCLUDE_AGENTS_DROPPED"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -91,5 +99,7 @@ func AllCodes() []string {
 		CodeAgentSecurityFieldsDropped,
 		CodeSkillScriptsDropped,
 		CodeSkillAssetsDropped,
+		CodeRuleActivationUnsupported,
+		CodeRuleExcludeAgentsDropped,
 	}
 }
