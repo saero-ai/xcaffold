@@ -18,15 +18,13 @@ import (
 //
 // Antigravity supports memory natively via Knowledge Items, so no FidelityNotes
 // are emitted for a successful mapping.
-type MemoryRenderer struct {
-	targetDir string
-}
+type MemoryRenderer struct{}
 
-// NewMemoryRenderer constructs a MemoryRenderer. targetDir is the resolved path
-// to the Antigravity output root (e.g. baseDir/.agents); knowledge items are
-// written under <targetDir>/knowledge/.
-func NewMemoryRenderer(targetDir string) *MemoryRenderer {
-	return &MemoryRenderer{targetDir: targetDir}
+// NewMemoryRenderer constructs a MemoryRenderer. Knowledge items are returned
+// in output.Output.Files under knowledge/<name>.md and are not written to disk
+// by this renderer — disk writes are the caller's responsibility.
+func NewMemoryRenderer() *MemoryRenderer {
+	return &MemoryRenderer{}
 }
 
 // Compile translates each memory entry into an Antigravity Knowledge Item file.

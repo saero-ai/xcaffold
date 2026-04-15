@@ -9,7 +9,7 @@ import (
 
 func TestCompileMemory_Antigravity_WritesKnowledgeItem(t *testing.T) {
 	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
+	r := NewMemoryRenderer()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -38,7 +38,7 @@ func TestCompileMemory_Antigravity_WritesKnowledgeItem(t *testing.T) {
 
 func TestCompileMemory_Antigravity_TypeTagDerivation(t *testing.T) {
 	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
+	r := NewMemoryRenderer()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -61,7 +61,7 @@ func TestCompileMemory_Antigravity_TypeTagDerivation(t *testing.T) {
 
 func TestCompileMemory_Antigravity_ProviderKiTagsOverride(t *testing.T) {
 	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
+	r := NewMemoryRenderer()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -94,7 +94,7 @@ func TestCompileMemory_Antigravity_ProviderKiTagsOverride(t *testing.T) {
 
 func TestCompileMemory_Antigravity_EmptyMemory_NoFiles(t *testing.T) {
 	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
+	r := NewMemoryRenderer()
 
 	config := &ast.XcaffoldConfig{}
 	out, notes, err := r.Compile(config, dir)
@@ -105,7 +105,7 @@ func TestCompileMemory_Antigravity_EmptyMemory_NoFiles(t *testing.T) {
 
 func TestCompileMemory_Antigravity_FallbackTag_UnknownType(t *testing.T) {
 	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
+	r := NewMemoryRenderer()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -122,7 +122,7 @@ func TestCompileMemory_Antigravity_FallbackTag_UnknownType(t *testing.T) {
 
 func TestCompileMemory_Antigravity_InvalidName_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
+	r := NewMemoryRenderer()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
