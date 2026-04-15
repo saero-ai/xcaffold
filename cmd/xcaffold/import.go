@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/bir"
@@ -841,6 +843,151 @@ func extractFrontmatter(data []byte) ([]byte, bool) {
 		return nil, false
 	}
 	return data[4 : 4+idx], true
+}
+
+// writeSidecar writes content to path, creating parent directories as needed.
+// The file is written with 0o600 permissions.
+func writeSidecar(path string, content []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("creating sidecar directory: %w", err)
+	}
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		return fmt.Errorf("writing sidecar %s: %w", path, err)
+	}
+	return nil
+}
+
+// extractProjectInstructions discovers provider instruction files in projectDir,
+// writes sidecars under xcf/instructions/, and populates cfg.Project with
+// InstructionsFile and InstructionsScopes entries.
+// provider is one of: claude, gemini, cursor, copilot, antigravity.
+func extractProjectInstructions(projectDir, provider string, cfg *ast.XcaffoldConfig) error {
+	// Ensure cfg.Project is initialised before writing to it.
+	if cfg.Project == nil {
+		cfg.Project = &ast.ProjectConfig{}
+	}
+
+	// Derive the provider's instruction filename and nesting strategy.
+	var instructionsFilename string
+	var mergeStrategy string
+	switch provider {
+	case "claude":
+		instructionsFilename = "CLAUDE.md"
+		mergeStrategy = "concat"
+	case "gemini":
+		instructionsFilename = "GEMINI.md"
+		mergeStrategy = "concat"
+	case "cursor":
+		instructionsFilename = "AGENTS.md"
+		mergeStrategy = "closest-wins"
+	case "copilot":
+		// Copilot flat mode: single fixed file.
+		return extractCopilotInstructions(projectDir, cfg)
+	case "antigravity":
+		// Antigravity: handled separately via root rules block.
+		return nil
+	default:
+		return fmt.Errorf("unsupported instructions provider: %s", provider)
+	}
+
+	// Phase 1: Walk tree and collect instruction files sorted by depth, then alpha.
+	var files []string
+	err := filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && d.Name() == instructionsFilename {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("walking project directory: %w", err)
+	}
+	sort.Slice(files, func(i, j int) bool {
+		di := strings.Count(files[i], string(os.PathSeparator))
+		dj := strings.Count(files[j], string(os.PathSeparator))
+		if di != dj {
+			return di < dj
+		}
+		return files[i] < files[j]
+	})
+
+	sidecarBase := filepath.Join(projectDir, "xcf", "instructions")
+
+	// Phase 2: IR construction.
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", file, err)
+		}
+		rel, err := filepath.Rel(projectDir, filepath.Dir(file))
+		if err != nil {
+			return err
+		}
+		isRoot := rel == "."
+
+		if isRoot {
+			// Root file → project.instructions-file.
+			sidecar := filepath.Join(sidecarBase, "root.md")
+			if err := writeSidecar(sidecar, content); err != nil {
+				return err
+			}
+			cfg.Project.InstructionsFile = "xcf/instructions/root.md"
+		} else {
+			// Scope file → InstructionsScope entry.
+			slug := pathToSlug(rel)
+			sidecar := filepath.Join(sidecarBase, "scopes", slug+".md")
+			if err := writeSidecar(sidecar, content); err != nil {
+				return err
+			}
+			sidecarRel := "xcf/instructions/scopes/" + slug + ".md"
+			cfg.Project.InstructionsScopes = append(cfg.Project.InstructionsScopes, ast.InstructionsScope{
+				Path:             filepath.ToSlash(rel),
+				InstructionsFile: sidecarRel,
+				MergeStrategy:    mergeStrategy,
+				SourceProvider:   provider,
+				SourceFilename:   instructionsFilename,
+			})
+		}
+	}
+	return nil
+}
+
+// pathToSlug converts a relative directory path to a sidecar filename slug.
+// "packages/worker" → "packages-worker"
+func pathToSlug(path string) string {
+	slug := strings.ReplaceAll(filepath.ToSlash(path), "/", "-")
+	// Remove non-alphanumeric characters except hyphens.
+	var b strings.Builder
+	for _, r := range slug {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// extractCopilotInstructions handles Copilot's dual-mode instruction discovery.
+// If .github/copilot-instructions.md exists, flat mode is used: the file is written
+// as a sidecar and set as cfg.Project.InstructionsFile.
+// Otherwise, falls back to cursor-style nested AGENTS.md discovery.
+func extractCopilotInstructions(projectDir string, cfg *ast.XcaffoldConfig) error {
+	flatPath := filepath.Join(projectDir, ".github", "copilot-instructions.md")
+	if _, err := os.Stat(flatPath); err == nil {
+		content, err := os.ReadFile(flatPath)
+		if err != nil {
+			return fmt.Errorf("reading copilot-instructions.md: %w", err)
+		}
+		sidecar := filepath.Join(projectDir, "xcf", "instructions", "root.md")
+		if err := writeSidecar(sidecar, content); err != nil {
+			return err
+		}
+		cfg.Project.InstructionsFile = "xcf/instructions/root.md"
+		return nil
+	}
+	// AGENTS.md nested mode: delegate to cursor-style extraction.
+	return extractProjectInstructions(projectDir, "cursor", cfg)
 }
 
 // lenientUnmarshal attempts to unmarshal YAML, and if it fails, applies a sanitizer

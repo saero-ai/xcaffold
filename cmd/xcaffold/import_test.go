@@ -742,3 +742,72 @@ func TestDetectTargets(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractProjectInstructions_ClaudeRoot(t *testing.T) {
+	tmp := t.TempDir()
+	// Create a mock Claude project tree with a root CLAUDE.md.
+	claudeMd := filepath.Join(tmp, "CLAUDE.md")
+	require.NoError(t, os.WriteFile(claudeMd, []byte("Use pnpm. PostgreSQL 16."), 0o600))
+
+	cfg := &ast.XcaffoldConfig{}
+	require.NoError(t, extractProjectInstructions(tmp, "claude", cfg))
+
+	require.Equal(t, "xcf/instructions/root.md", cfg.Project.InstructionsFile)
+	sidecar := filepath.Join(tmp, "xcf", "instructions", "root.md")
+	_, err := os.Stat(sidecar)
+	require.NoError(t, err, "root sidecar must exist at %s", sidecar)
+}
+
+func TestExtractProjectInstructions_ClaudeNestedScopes(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "CLAUDE.md"), []byte("Root context."), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "packages", "worker"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "packages", "worker", "CLAUDE.md"), []byte("Worker context."), 0o600))
+
+	cfg := &ast.XcaffoldConfig{}
+	require.NoError(t, extractProjectInstructions(tmp, "claude", cfg))
+
+	require.Len(t, cfg.Project.InstructionsScopes, 1)
+	scope := cfg.Project.InstructionsScopes[0]
+	require.Equal(t, "packages/worker", scope.Path)
+	require.Equal(t, "concat", scope.MergeStrategy)
+	require.Equal(t, "claude", scope.SourceProvider)
+	// instructions-file must NOT point at the original CLAUDE.md.
+	require.NotEqual(t, "packages/worker/CLAUDE.md", scope.InstructionsFile)
+	require.Contains(t, scope.InstructionsFile, "xcf/instructions/scopes/")
+}
+
+func TestExtractProjectInstructions_CopilotFlatMode(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".github"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, ".github", "copilot-instructions.md"),
+		[]byte("Copilot flat instructions."),
+		0o600,
+	))
+
+	cfg := &ast.XcaffoldConfig{}
+	require.NoError(t, extractProjectInstructions(tmp, "copilot", cfg))
+
+	require.Equal(t, "xcf/instructions/root.md", cfg.Project.InstructionsFile)
+	require.Empty(t, cfg.Project.InstructionsScopes, "flat Copilot mode must not create scope entries")
+}
+
+func TestExtractProjectInstructions_NeverSetsProviderFilename(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "CLAUDE.md"), []byte("Root."), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "src"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "src", "CLAUDE.md"), []byte("Src."), 0o600))
+
+	cfg := &ast.XcaffoldConfig{}
+	require.NoError(t, extractProjectInstructions(tmp, "claude", cfg))
+
+	// instructions-file must never be set to a provider output filename.
+	reservedNames := []string{"CLAUDE.md", "AGENTS.md", "GEMINI.md"}
+	for _, scope := range cfg.Project.InstructionsScopes {
+		for _, name := range reservedNames {
+			require.NotContains(t, scope.InstructionsFile, name,
+				"instructions-file must never point at provider output file %s", name)
+		}
+	}
+}
