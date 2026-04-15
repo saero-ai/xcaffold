@@ -50,8 +50,38 @@ func TestAgentsmdRenderer_ProjectInstructions_ConcatScopeIsPreFlattened(t *testi
 	require.Contains(t, worker, "Root context.")
 	require.Contains(t, worker, "Worker context.")
 	require.NotEmpty(t, notes)
-	require.Equal(t, renderer.LevelWarning, notes[0].Level)
-	require.Equal(t, "INSTRUCTIONS_CLOSEST_WINS_FORCED_CONCAT", notes[0].Code)
+	var found *renderer.FidelityNote
+	for i := range notes {
+		if notes[i].Code == "INSTRUCTIONS_CLOSEST_WINS_FORCED_CONCAT" {
+			found = &notes[i]
+			break
+		}
+	}
+	require.NotNil(t, found, "expected INSTRUCTIONS_CLOSEST_WINS_FORCED_CONCAT note")
+	require.Equal(t, renderer.LevelWarning, found.Level)
+}
+
+// TestAgentsmdRenderer_ProjectInstructions_MergesWithRuleAggregatedRoot verifies that
+// renderProjectInstructions appends project.instructions to the rule-aggregated AGENTS.md
+// instead of overwriting it. Both rule content and project instructions must appear.
+func TestAgentsmdRenderer_ProjectInstructions_MergesWithRuleAggregatedRoot(t *testing.T) {
+	r := agentsmd.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"security-policy": {Instructions: "Never expose secrets."},
+			},
+		},
+		Project: &ast.ProjectConfig{
+			Name:         "test",
+			Instructions: "Project-level guidance here.",
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+	root := out.Files["AGENTS.md"]
+	require.Contains(t, root, "Never expose secrets.", "rule content must not be discarded")
+	require.Contains(t, root, "Project-level guidance here.", "project instructions must be present")
 }
 
 // TestAgentsmdRenderer_ProjectInstructions_NeverEmitsCopilotFlatFile verifies that

@@ -121,7 +121,14 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		))
 	}
 
-	files["AGENTS.md"] = rootContent
+	// Merge project-instructions root content with any existing rule-aggregated content
+	// from buildRootFile. Overwriting would silently discard rules and agents sections.
+	existing := files[filepath.Clean("AGENTS.md")]
+	if existing != "" {
+		files[filepath.Clean("AGENTS.md")] = existing + "\n\n" + rootContent
+	} else {
+		files[filepath.Clean("AGENTS.md")] = rootContent
+	}
 
 	for _, scope := range p.InstructionsScopes {
 		scopeContent := agentsmdResolveScopeContent(scope, targetName, baseDir)

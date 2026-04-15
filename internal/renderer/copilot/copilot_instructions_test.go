@@ -45,8 +45,15 @@ func TestCopilotRenderer_ProjectInstructions_FidelityNote(t *testing.T) {
 	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, notes)
-	require.Equal(t, renderer.LevelInfo, notes[0].Level)
-	require.Equal(t, "INSTRUCTIONS_FLATTENED", notes[0].Code)
+	var found *renderer.FidelityNote
+	for i := range notes {
+		if notes[i].Code == "INSTRUCTIONS_FLATTENED" {
+			found = &notes[i]
+			break
+		}
+	}
+	require.NotNil(t, found, "expected INSTRUCTIONS_FLATTENED note")
+	require.Equal(t, renderer.LevelInfo, found.Level)
 }
 
 func TestCopilotRenderer_ProjectInstructions_NoNestedOutput(t *testing.T) {
