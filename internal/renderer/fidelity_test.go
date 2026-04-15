@@ -56,10 +56,56 @@ func TestFidelityNote_JSON_OmitsEmptyField(t *testing.T) {
 	assert.NotContains(t, string(data), `"mitigation"`)
 }
 
-func TestFidelityNote_AllCodes_InCatalog(t *testing.T) {
+func TestFidelityNote_AllCodes_NoBlanks(t *testing.T) {
 	for _, code := range renderer.AllCodes() {
 		assert.NotEmpty(t, code, "catalog entry must not be blank")
 	}
-	assert.GreaterOrEqual(t, len(renderer.AllCodes()), 14,
-		"catalog must contain at least the 14 specified codes")
+}
+
+func TestFidelityNote_AllCodes_Unique(t *testing.T) {
+	seen := make(map[string]int)
+	for _, code := range renderer.AllCodes() {
+		seen[code]++
+	}
+	for code, count := range seen {
+		assert.Equal(t, 1, count, "catalog code %q appears %d times; codes must be unique", code, count)
+	}
+}
+
+// TestFidelityNote_AllCodes_ReferencedByConstant asserts every entry in
+// AllCodes() matches an exported Code* constant. This catches the class
+// of drift where a new constant is added but not added to the slice
+// (or vice-versa), which a simple length assertion would miss.
+func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
+	expected := map[string]bool{
+		renderer.CodeRendererKindUnsupported:             true,
+		renderer.CodeFieldUnsupported:                    true,
+		renderer.CodeFieldTransformed:                    true,
+		renderer.CodeActivationDegraded:                  true,
+		renderer.CodeInstructionsFlattened:               true,
+		renderer.CodeInstructionsClosestWinsForcedConcat: true,
+		renderer.CodeMemoryNoNativeTarget:                true,
+		renderer.CodeWorkflowLoweredToRulePlusSkill:      true,
+		renderer.CodeWorkflowLoweredToPromptFile:         true,
+		renderer.CodeReservedOutputPathRejected:          true,
+		renderer.CodeSettingsFieldUnsupported:            true,
+		renderer.CodeHookInterpolationRequiresEnvSyntax:  true,
+		renderer.CodeAgentModelUnmapped:                  true,
+		renderer.CodeAgentSecurityFieldsDropped:          true,
+		renderer.CodeSkillScriptsDropped:                 true,
+		renderer.CodeSkillAssetsDropped:                  true,
+	}
+
+	got := make(map[string]bool)
+	for _, code := range renderer.AllCodes() {
+		got[code] = true
+	}
+
+	for code := range expected {
+		assert.True(t, got[code], "catalog code %q is declared as a constant but not in AllCodes()", code)
+	}
+	for code := range got {
+		assert.True(t, expected[code], "AllCodes() returns %q which is not declared as an exported constant", code)
+	}
+	assert.Equal(t, len(expected), len(got), "catalog size mismatch")
 }
