@@ -51,7 +51,7 @@ kind: rule
 version: "1.0"
 name: testing-framework
 description: "Testing conventions."
-alwaysApply: true
+always-apply: true
 instructions: |
   All tests must pass before committing.
 

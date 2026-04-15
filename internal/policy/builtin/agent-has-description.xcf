@@ -6,4 +6,4 @@ severity: warning
 target: agent
 require:
   - field: description
-    is_present: true
+    is-present: true

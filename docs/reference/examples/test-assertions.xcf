@@ -4,7 +4,7 @@ name: test-example
 agents:
   - tester
 test:
-  judge_model: claude-haiku-4-5-20251001
+  judge-model: claude-haiku-4-5-20251001
 
 ---
 kind: agent

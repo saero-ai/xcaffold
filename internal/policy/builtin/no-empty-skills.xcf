@@ -6,4 +6,4 @@ severity: warning
 target: skill
 require:
   - field: instructions
-    is_present: true
+    is-present: true

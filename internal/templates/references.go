@@ -26,18 +26,18 @@ description: "..."          # Recommended. When to delegate to this agent.
 # ── Model & Execution ────────────────────────────────────────
 model: sonnet               # Alias (sonnet/opus/haiku) or full model ID.
 effort: high                # low | medium | high | max (max = Opus only).
-maxTurns: 10                # Max agentic turns. Gemini default: 30.
+max-turns: 10                # Max agentic turns. Gemini default: 30.
 mode: ""                    # Execution mode (xcaffold-specific).
 
 # ── Tool Access ──────────────────────────────────────────────
 tools: [Read, Grep, Glob]   # Allowed tools. Omit to inherit all.
-disallowedTools: []         # Denylist. Applied before tools allowlist (Claude).
+disallowed-tools: []         # Denylist. Applied before tools allowlist (Claude).
 readonly: false             # Restrict to read-only tools (Cursor/Antigravity).
 
 # ── Permissions & Invocation Control ─────────────────────────
-permissionMode: default     # default | acceptEdits | auto | dontAsk | bypassPermissions | plan (Claude).
-disableModelInvocation: false  # Prevent automatic agent selection (Copilot/Cursor).
-userInvocable: true         # false = programmatic-only access (Copilot).
+permission-mode: default     # default | acceptEdits | auto | dontAsk | bypassPermissions | plan (Claude).
+disable-model-invocation: false  # Prevent automatic agent selection (Copilot/Cursor).
+user-invocable: true         # false = programmatic-only access (Copilot).
 
 # ── Lifecycle ────────────────────────────────────────────────
 background: false           # Run as background task (Claude/Cursor/Antigravity).
@@ -47,7 +47,7 @@ when: ""                    # Compile-time conditional (xcaffold-specific).
 # ── Memory & Context ─────────────────────────────────────────
 memory: ""                  # Claude memory scope: user | project | local.
 color: ""                   # Display color (Claude): red/blue/green/yellow/purple/orange/pink/cyan.
-initialPrompt: ""           # Auto-submitted first turn (Claude).
+initial-prompt: ""           # Auto-submitted first turn (Claude).
 
 # ── Composition (references) ─────────────────────────────────
 skills: []                  # Skills loaded into agent context.
@@ -56,7 +56,7 @@ mcp: []                     # MCP server references (by name).
 assertions: []              # Test assertions (evaluated by xcaffold test --judge).
 
 # ── Inline Composition ───────────────────────────────────────
-# mcpServers:                 # Inline MCP server definitions.
+# mcp-servers:                 # Inline MCP server definitions.
 #   my-server:
 #     command: "/path/to/server"
 #     args: ["--flag"]
@@ -91,6 +91,6 @@ instructions: |
   markdown file (e.g., .claude/agents/my-agent.md).
 
 # OR reference an external file (mutually exclusive with instructions):
-# instructions_file: "agents/my-agent.md"
+# instructions-file: "agents/my-agent.md"
 `
 }
