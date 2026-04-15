@@ -113,7 +113,7 @@ func (r *MemoryRenderer) CompileWithPriorSeeds(config *ast.XcaffoldConfig, baseD
 // compileEntry handles a single memory entry end-to-end. It returns any
 // fidelity notes produced and a fatal error if drift is detected.
 func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseDir string, priorHashes map[string]string) ([]renderer.FidelityNote, error) {
-	body, err := resolveMemoryBody(entry, baseDir)
+	body, err := resolveMemoryBody(name, entry, baseDir)
 	if err != nil {
 		return nil, fmt.Errorf("memory %q: %w", name, err)
 	}
@@ -289,7 +289,7 @@ func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash, lifecycl
 // resolveMemoryBody returns the effective body content for a memory entry.
 // Parser enforces mutual exclusion between instructions and instructions-file;
 // the renderer treats both missing as an empty body (caller decides behavior).
-func resolveMemoryBody(entry ast.MemoryConfig, baseDir string) (string, error) {
+func resolveMemoryBody(name string, entry ast.MemoryConfig, baseDir string) (string, error) {
 	if entry.Instructions != "" {
 		return entry.Instructions, nil
 	}
@@ -308,7 +308,7 @@ func resolveMemoryBody(entry ast.MemoryConfig, baseDir string) (string, error) {
 	abs := filepath.Join(baseDir, cleaned)
 	rel, relErr := filepath.Rel(baseDir, abs)
 	if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("memory %q: instructions-file %q escapes base dir", entry.Name, entry.InstructionsFile)
+		return "", fmt.Errorf("memory %q: instructions-file %q escapes base dir", name, entry.InstructionsFile)
 	}
 	data, err := os.ReadFile(abs)
 	if err != nil {

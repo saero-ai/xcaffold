@@ -244,7 +244,6 @@ func TestCompileMemory_InstructionsFileTraversal_Rejected(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"traversal": {
-					Name:             "traversal",
 					InstructionsFile: "../../etc/passwd",
 				},
 			},
