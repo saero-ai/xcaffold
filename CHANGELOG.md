@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added (Agent Schema Normalization)
 
-- Added `disableModelInvocation` (`*bool`) and `userInvocable` (`*bool`) fields to `AgentConfig` (ast)
+- Added `disable-model-invocation` (`*bool`) and `user-invocable` (`*bool`) fields to `AgentConfig` (ast)
 - Added `provider` pass-through map (`map[string]any`) to `TargetOverride` for carrying provider-native fields such as `temperature`, `timeout_mins`, `kind`, `target`, `metadata` (ast)
 - Added `--no-references` flag to `xcaffold init` to skip generation of reference template files (init)
 - Added `xcf/references/agent.xcf.reference` generation during `xcaffold init` — an annotated, non-parsed field catalog for the Agent kind (init)
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed (Agent Schema Normalization)
 
 - Reordered `AgentConfig` struct fields so compiled output emits them in a canonical order: identity, then model and execution, tool access, permissions and invocation, lifecycle, memory and context, composition references, inline composition, targets, and instructions last (ast)
-- Claude renderer now emits `disableModelInvocation` and `userInvocable` in agent frontmatter when set (renderer)
+- Claude renderer now emits `disable-model-invocation` and `user-invocable` in agent frontmatter when set (renderer)
 - Claude renderer now emits `memory` after `isolation` (before `color`) to match the canonical order (renderer)
 - Reordered agent field emission in `rest-api`, `cli-tool`, and `frontend-app` init templates so `instructions` appears last (templates)
 - Reordered agent document emitted by `xcaffold init` so `instructions` appears after `tools`, matching the canonical order (init)
@@ -109,7 +109,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TargetRenderer` Registry: Pluggable compiler architecture delegating to platform-specific layout generation.
 - Full compiler surface: `xcaffold apply` now emits `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/hooks.json`, and `.claude/settings.json` (with MCP) in addition to agents.
 - `xcaffold graph` command with deep hierarchical topology visualization (segments global components, natively renders blocked/allowed tools, and separates inherited skills from rules automatically).
-- `instructions_file:` directive across agents, skills, and rules to allow sourcing prompts from external markdown files.
+- `instructions-file:` directive across agents, skills, and rules to allow sourcing prompts from external markdown files.
 - `references:` directive for skills to support copying supplementary context files (supports glob patterns).
 - GoReleaser configuration — pre-built release binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64). Homebrew tap formula included.
 - `AGENTS.md` — universal agent instruction file following the [agents.txt](https://agentstext.com) convention.
