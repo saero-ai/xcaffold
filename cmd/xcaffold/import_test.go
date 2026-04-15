@@ -881,3 +881,48 @@ func TestDetectDivergence_AutoMergeUnion(t *testing.T) {
 	require.NotNil(t, scope.Reconciliation)
 	require.Equal(t, "union", scope.Reconciliation.Strategy)
 }
+
+func TestParseProvenanceMarkers_ReconstructsScopes(t *testing.T) {
+	input := `Root content here.
+
+<!-- xcaffold:scope path="packages/worker" merge="concat" origin="claude:CLAUDE.md" -->
+Use BullMQ. Never call DB from worker code.
+<!-- xcaffold:/scope -->
+
+<!-- xcaffold:scope path="packages/api" merge="closest-wins" origin="cursor:AGENTS.md" -->
+REST conventions only.
+<!-- xcaffold:/scope -->
+`
+	scopes, rootContent, err := parseProvenanceMarkers(input)
+	require.NoError(t, err)
+	require.Equal(t, "Root content here.\n", rootContent)
+	require.Len(t, scopes, 2)
+	require.Equal(t, "packages/worker", scopes[0].Path)
+	require.Equal(t, "concat", scopes[0].MergeStrategy)
+	require.Equal(t, "claude", scopes[0].SourceProvider)
+	require.Equal(t, "CLAUDE.md", scopes[0].SourceFilename)
+	require.Contains(t, scopes[0].Instructions, "BullMQ")
+	require.Equal(t, "packages/api", scopes[1].Path)
+	require.Equal(t, "closest-wins", scopes[1].MergeStrategy)
+}
+
+func TestParseProvenanceMarkers_MalformedMarker_SkippedWithWarning(t *testing.T) {
+	// Missing path attribute — treated as regular content, no error.
+	input := `Root.
+
+<!-- xcaffold:scope merge="concat" -->
+Content without path.
+<!-- xcaffold:/scope -->
+`
+	scopes, _, err := parseProvenanceMarkers(input)
+	require.NoError(t, err)
+	require.Empty(t, scopes, "malformed marker without path must be skipped")
+}
+
+func TestParseProvenanceMarkers_NoMarkers_ReturnsEmptyScopes(t *testing.T) {
+	input := "Plain instructions with no markers.\n"
+	scopes, rootContent, err := parseProvenanceMarkers(input)
+	require.NoError(t, err)
+	require.Empty(t, scopes)
+	require.Equal(t, input, rootContent)
+}

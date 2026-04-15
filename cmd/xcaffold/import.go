@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -1580,4 +1581,77 @@ func detectAndMergeVariants(projectDir, provider string, cfg *ast.XcaffoldConfig
 		}
 	}
 	return nil
+}
+
+// parseProvenanceMarkers splits a flat-singleton file into root content and
+// individual scope entries using xcaffold:scope HTML comments.
+// Returns (scopes, rootContent, error).
+func parseProvenanceMarkers(content string) ([]ast.InstructionsScope, string, error) {
+	const openPrefix = "<!-- xcaffold:scope "
+	const closeMarker = "<!-- xcaffold:/scope -->"
+
+	var scopes []ast.InstructionsScope
+	var rootBuilder strings.Builder
+	lines := strings.Split(content, "\n")
+	inScope := false
+	var currentScope ast.InstructionsScope
+	var scopeContentBuilder strings.Builder
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, openPrefix) {
+			// Parse attributes.
+			attrs := parseHTMLCommentAttrs(line)
+			path, hasPath := attrs["path"]
+			if !hasPath || path == "" {
+				// Malformed — treat as regular content.
+				if !inScope {
+					rootBuilder.WriteString(line)
+					rootBuilder.WriteByte('\n')
+				}
+				continue
+			}
+			inScope = true
+			currentScope = ast.InstructionsScope{
+				Path:          path,
+				MergeStrategy: attrs["merge"],
+			}
+			if origin := attrs["origin"]; origin != "" {
+				parts := strings.SplitN(origin, ":", 2)
+				if len(parts) == 2 {
+					currentScope.SourceProvider = parts[0]
+					currentScope.SourceFilename = parts[1]
+				}
+			}
+			scopeContentBuilder.Reset()
+			continue
+		}
+		if strings.TrimSpace(line) == closeMarker && inScope {
+			currentScope.Instructions = strings.TrimRight(scopeContentBuilder.String(), "\n")
+			scopes = append(scopes, currentScope)
+			inScope = false
+			continue
+		}
+		if inScope {
+			scopeContentBuilder.WriteString(line)
+			scopeContentBuilder.WriteByte('\n')
+		} else {
+			rootBuilder.WriteString(line)
+			rootBuilder.WriteByte('\n')
+		}
+	}
+	rootContent := strings.TrimRight(rootBuilder.String(), "\n")
+	if rootContent != "" {
+		rootContent += "\n"
+	}
+	return scopes, rootContent, nil
+}
+
+// parseHTMLCommentAttrs extracts key="value" pairs from an HTML comment line.
+func parseHTMLCommentAttrs(line string) map[string]string {
+	attrs := map[string]string{}
+	re := regexp.MustCompile(`(\w[\w-]*)="([^"]*)"`)
+	for _, match := range re.FindAllStringSubmatch(line, -1) {
+		attrs[match[1]] = match[2]
+	}
+	return attrs
 }
