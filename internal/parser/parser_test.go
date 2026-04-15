@@ -979,3 +979,61 @@ instructions-scopes:
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unknown-field")
 }
+
+func TestValidateInstructionsFile_ReservedFilenames(t *testing.T) {
+	reserved := []string{"CLAUDE.md", "AGENTS.md", "GEMINI.md"}
+	for _, name := range reserved {
+		t.Run(name, func(t *testing.T) {
+			yml := fmt.Sprintf(`
+kind: project
+version: "1.0"
+name: test
+instructions-file: %s
+`, name)
+			tmp := t.TempDir()
+			path := filepath.Join(tmp, "scaffold.xcf")
+			require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
+			_, err := ParseFile(path)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "compiler output file")
+		})
+	}
+}
+
+func TestValidateInstructionsFile_ReservedCopilotPaths(t *testing.T) {
+	reserved := []string{
+		".github/copilot-instructions.md",
+		".github/instructions/foo.md",
+		".github/prompts/bar.md",
+	}
+	for _, p := range reserved {
+		t.Run(p, func(t *testing.T) {
+			yml := fmt.Sprintf(`
+kind: project
+version: "1.0"
+name: test
+instructions-file: %s
+`, p)
+			tmp := t.TempDir()
+			xcfPath := filepath.Join(tmp, "scaffold.xcf")
+			require.NoError(t, os.WriteFile(xcfPath, []byte(yml), 0o600))
+			_, err := ParseFile(xcfPath)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "compiler output path")
+		})
+	}
+}
+
+func TestValidateInstructionsFile_ValidPath_Accepted(t *testing.T) {
+	yml := `
+kind: project
+version: "1.0"
+name: test
+instructions-file: xcf/instructions/root.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
+	_, err := ParseFile(path)
+	require.NoError(t, err)
+}

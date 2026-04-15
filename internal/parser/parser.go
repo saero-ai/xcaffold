@@ -1386,6 +1386,12 @@ func validateProjectInstructions(p *ast.ProjectConfig) error {
 	if p.Instructions != "" && p.InstructionsFile != "" {
 		return fmt.Errorf("project %q: instructions and instructions-file are mutually exclusive", p.Name)
 	}
+	// Reserved-path check on project-level instructions-file.
+	if p.InstructionsFile != "" {
+		if err := validateInstructionsFile("project", p.Name, p.InstructionsFile, false); err != nil {
+			return err
+		}
+	}
 
 	// Validate each InstructionsScope entry.
 	seenScopePaths := map[string]bool{}
@@ -1393,6 +1399,12 @@ func validateProjectInstructions(p *ast.ProjectConfig) error {
 		// Mutual exclusivity on scope.
 		if scope.Instructions != "" && scope.InstructionsFile != "" {
 			return fmt.Errorf("project %q: instructions-scope[%d] path %q: instructions and instructions-file are mutually exclusive", p.Name, i, scope.Path)
+		}
+		// Reserved-path check on scope-level instructions-file.
+		if scope.InstructionsFile != "" {
+			if err := validateInstructionsFile(fmt.Sprintf("project %q instructions-scope", p.Name), scope.Path, scope.InstructionsFile, false); err != nil {
+				return err
+			}
 		}
 		// Duplicate path check.
 		if seenScopePaths[scope.Path] {
@@ -1666,7 +1678,23 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 // reservedOutputPrefixes are compiler output directories. instructions-file paths
 // starting with these prefixes create circular dependencies where the compiler
 // reads its own output.
-var reservedOutputPrefixes = []string{".agents/", ".antigravity/", ".claude/", ".cursor/", ".github/instructions/", ".github/prompts/"}
+var reservedOutputPrefixes = []string{".agents/", ".antigravity/", ".claude/", ".cursor/"}
+
+// reservedOutputFilenames are root-level files written directly by the compiler.
+// Pointing instructions-file at one of these creates a circular read dependency.
+var reservedOutputFilenames = []string{
+	"CLAUDE.md",
+	"AGENTS.md",
+	"GEMINI.md",
+}
+
+// reservedOutputPaths are specific files and directories written by the compiler.
+// Exact-match and prefix-match are both applied (directory entries end with /).
+var reservedOutputPaths = []string{
+	".github/copilot-instructions.md",
+	".github/instructions/",
+	".github/prompts/",
+}
 
 func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	if path == "" {
@@ -1686,6 +1714,17 @@ func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	for _, prefix := range reservedOutputPrefixes {
 		if strings.HasPrefix(cleaned, filepath.Clean(prefix)) {
 			return fmt.Errorf("%s %q: instructions-file %q references compiler output directory %s — this creates a circular dependency", kind, id, path, prefix)
+		}
+	}
+	for _, name := range reservedOutputFilenames {
+		if cleaned == name {
+			return fmt.Errorf("%s %q: instructions-file %q references compiler output file %s — use xcf/instructions/ instead", kind, id, path, name)
+		}
+	}
+	for _, reserved := range reservedOutputPaths {
+		cleanedReserved := filepath.Clean(reserved)
+		if cleaned == cleanedReserved || strings.HasPrefix(cleaned, cleanedReserved+string(filepath.Separator)) {
+			return fmt.Errorf("%s %q: instructions-file %q references compiler output path %s — use xcf/instructions/ instead", kind, id, path, reserved)
 		}
 	}
 	return nil
