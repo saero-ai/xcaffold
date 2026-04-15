@@ -811,3 +811,73 @@ func TestExtractProjectInstructions_NeverSetsProviderFilename(t *testing.T) {
 		}
 	}
 }
+
+func TestDetectDivergence_IdenticalContent_Collapsed(t *testing.T) {
+	tmp := t.TempDir()
+	// Same path, same content from two providers → single entry.
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "packages", "worker"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "worker", "CLAUDE.md"),
+		[]byte("Worker context."), 0o600,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "worker", "AGENTS.md"),
+		[]byte("Worker context."), 0o600,
+	))
+
+	cfg := &ast.XcaffoldConfig{}
+	require.NoError(t, extractProjectInstructions(tmp, "claude", cfg))
+	require.NoError(t, detectAndMergeVariants(tmp, "cursor", cfg, false))
+
+	require.Len(t, cfg.Project.InstructionsScopes, 1)
+	require.Empty(t, cfg.Project.InstructionsScopes[0].Variants,
+		"identical content must be collapsed to single entry")
+}
+
+func TestDetectDivergence_DifferentContent_VariantsSet(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "packages", "api"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "api", "CLAUDE.md"),
+		[]byte("Claude API context — 42 lines of content here."), 0o600,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "api", "AGENTS.md"),
+		[]byte("Cursor API context — 31 lines here."), 0o600,
+	))
+
+	cfg := &ast.XcaffoldConfig{}
+	require.NoError(t, extractProjectInstructions(tmp, "claude", cfg))
+	require.NoError(t, detectAndMergeVariants(tmp, "cursor", cfg, false))
+
+	require.Len(t, cfg.Project.InstructionsScopes, 1)
+	scope := cfg.Project.InstructionsScopes[0]
+	require.NotEmpty(t, scope.Variants, "divergent content must produce variant entries")
+	require.Contains(t, scope.Variants, "claude")
+	require.Contains(t, scope.Variants, "cursor")
+	require.NotNil(t, scope.Reconciliation)
+	require.Equal(t, "per-target", scope.Reconciliation.Strategy)
+}
+
+func TestDetectDivergence_AutoMergeUnion(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "packages", "api"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "api", "CLAUDE.md"),
+		[]byte("Claude content."), 0o600,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "api", "AGENTS.md"),
+		[]byte("Cursor content."), 0o600,
+	))
+
+	cfg := &ast.XcaffoldConfig{}
+	require.NoError(t, extractProjectInstructions(tmp, "claude", cfg))
+	require.NoError(t, detectAndMergeVariants(tmp, "cursor", cfg, true /* autoMergeUnion */))
+
+	require.Len(t, cfg.Project.InstructionsScopes, 1)
+	scope := cfg.Project.InstructionsScopes[0]
+	require.Empty(t, scope.Variants, "--auto-merge=union must clear variants map")
+	require.NotNil(t, scope.Reconciliation)
+	require.Equal(t, "union", scope.Reconciliation.Strategy)
+}

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -24,6 +25,7 @@ var (
 	importSource       string
 	importFromPlatform string
 	importPlan         bool
+	autoMergeFlag      string
 )
 
 var importCmd = &cobra.Command{
@@ -59,6 +61,7 @@ func init() {
 	importCmd.Flags().StringVar(&importSource, "source", "", "File or directory of workflow markdown files to translate")
 	importCmd.Flags().StringVar(&importFromPlatform, "from", "auto", "Source platform of input files (antigravity, cursor, etc.)")
 	importCmd.Flags().BoolVar(&importPlan, "plan", false, "Dry-run: print decomposition plan without writing files")
+	importCmd.Flags().StringVar(&autoMergeFlag, "auto-merge", "", "Merge divergent variants: union")
 	rootCmd.AddCommand(importCmd)
 }
 
@@ -1491,6 +1494,90 @@ func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, c
 		}
 		config.Workflows[id] = workflowCfg
 		*count++
+	}
+	return nil
+}
+
+// detectAndMergeVariants runs the Phase 3 multi-provider divergence algorithm.
+// It discovers instruction files for the second provider and compares their
+// content with existing scope entries byte-for-byte. Identical content is
+// collapsed to a single entry; divergent content populates Variants with
+// per-provider sidecar paths and Reconciliation metadata.
+// autoMergeUnion concatenates both content blobs into the existing sidecar.
+func detectAndMergeVariants(projectDir, provider string, cfg *ast.XcaffoldConfig, autoMergeUnion bool) error {
+	// Build a secondary config from the second provider.
+	// extractProjectInstructions writes sidecars under xcf/instructions/scopes/
+	// using the slug derived from the scope path — provider-agnostic. To avoid
+	// overwriting the first provider's sidecars, snapshot the existing sidecar
+	// content before the secondary extraction runs.
+	exContentByPath := map[string][]byte{}
+	for i := range cfg.Project.InstructionsScopes {
+		sc := &cfg.Project.InstructionsScopes[i]
+		if sc.InstructionsFile != "" {
+			data, _ := os.ReadFile(filepath.Join(projectDir, sc.InstructionsFile))
+			exContentByPath[sc.Path] = data
+		}
+	}
+
+	secondary := &ast.XcaffoldConfig{}
+	if err := extractProjectInstructions(projectDir, provider, secondary); err != nil {
+		return err
+	}
+
+	// Index existing scopes by path.
+	existing := map[string]*ast.InstructionsScope{}
+	for i := range cfg.Project.InstructionsScopes {
+		existing[cfg.Project.InstructionsScopes[i].Path] = &cfg.Project.InstructionsScopes[i]
+	}
+
+	// Compare.
+	for _, newScope := range secondary.Project.InstructionsScopes {
+		ex, ok := existing[newScope.Path]
+		if !ok {
+			continue
+		}
+		// Use snapshotted existing content and the freshly written new sidecar.
+		exContent := exContentByPath[ex.Path]
+		newContent, _ := os.ReadFile(filepath.Join(projectDir, newScope.InstructionsFile))
+		if bytes.Equal(exContent, newContent) {
+			// Identical — collapse. Keep existing entry unchanged.
+			continue
+		}
+		// Divergent — write provider-specific sidecars and record variants.
+		exSlug := pathToSlug(ex.Path)
+		exVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + ex.SourceProvider + ".md"
+		newVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + newScope.SourceProvider + ".md"
+		if err := writeSidecar(filepath.Join(projectDir, exVariantSidecar), exContent); err != nil {
+			return err
+		}
+		if err := writeSidecar(filepath.Join(projectDir, newVariantSidecar), newContent); err != nil {
+			return err
+		}
+		if ex.Variants == nil {
+			ex.Variants = map[string]ast.InstructionsVariant{}
+		}
+		ex.Variants[ex.SourceProvider] = ast.InstructionsVariant{
+			InstructionsFile: exVariantSidecar,
+			SourceFilename:   ex.SourceFilename,
+		}
+		ex.Variants[newScope.SourceProvider] = ast.InstructionsVariant{
+			InstructionsFile: newVariantSidecar,
+			SourceFilename:   newScope.SourceFilename,
+		}
+		ex.Reconciliation = &ast.ReconciliationConfig{
+			Strategy:       "per-target",
+			LastReconciled: time.Now().UTC().Format(time.RFC3339),
+			Notes:          fmt.Sprintf("%s variant has %d bytes; %s variant has %d bytes", ex.SourceProvider, len(exContent), newScope.SourceProvider, len(newContent)),
+		}
+		if autoMergeUnion {
+			// Union merge: concatenate existing and new content, reuse existing sidecar.
+			merged := string(exContent) + "\n" + string(newContent)
+			if err := writeSidecar(filepath.Join(projectDir, ex.InstructionsFile), []byte(merged)); err != nil {
+				return err
+			}
+			ex.Variants = nil
+			ex.Reconciliation.Strategy = "union"
+		}
 	}
 	return nil
 }
