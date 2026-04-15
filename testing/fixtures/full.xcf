@@ -1,0 +1,48 @@
+kind: global
+version: "1.0"
+
+agents:
+  test-agent:
+    name: test-agent
+    description: Fixture agent for round-trip testing.
+    model: sonnet
+    tools: [Read, Grep, Glob]
+
+skills:
+  test-skill:
+    name: test-skill
+    description: Fixture skill for round-trip testing.
+    allowed-tools: [Read, Grep]
+    instructions: |
+      A minimal skill used to verify full-fixture parsing.
+
+rules:
+  test-rule:
+    name: test-rule
+    description: Fixture rule for round-trip testing.
+    instructions: "All changes must be tested before committing."
+
+memory:
+  user-role:
+    name: user-role
+    type: user
+    description: "Developer role and working preferences."
+    instructions: |
+      The developer is the sole contributor. Prefer concise responses.
+      Always confirm approach before multi-file changes.
+  architecture-decisions:
+    name: architecture-decisions
+    type: reference
+    description: "Key architectural decisions for the CLI compiler."
+    lifecycle: tracked
+    instructions-file: xcf/memory/architecture-decisions.md
+
+---
+kind: policy
+version: "1.0"
+name: require-agent-description
+description: "Every agent must have a description."
+severity: error
+target: agent
+require:
+  - field: description

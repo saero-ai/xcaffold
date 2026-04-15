@@ -106,3 +106,24 @@ memory:
 	_, err := ParseFile(path)
 	require.Error(t, err, "setting both instructions and instructions-file must be a parse error")
 }
+
+func TestParse_Fixture_MemoryEntries(t *testing.T) {
+	path := "../../testing/fixtures/full.xcf"
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	config, err := ParseFile(path)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, config.Memory, "full fixture must have at least one memory entry")
+
+	var hasSeedOnce, hasTracked bool
+	for _, m := range config.Memory {
+		if m.Lifecycle == "tracked" {
+			hasTracked = true
+		}
+		if m.Lifecycle == "" || m.Lifecycle == "seed-once" {
+			hasSeedOnce = true
+		}
+	}
+	require.True(t, hasSeedOnce, "fixture must have a seed-once (or default) memory entry")
+	require.True(t, hasTracked, "fixture must have a tracked memory entry")
+}
