@@ -218,7 +218,11 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	for _, scope := range scopes {
 		scopeContent := agResolveScopeContent(scope, targetName, baseDir)
 
-		// Build provenance marker attributes — never allow unescaped quotes in path.
+		// Build provenance marker attributes — the A-6 parser uses
+		// `(\w[\w-]*)="([^"]*)"`, so any double quote inside an attribute value
+		// would terminate the match early. Replace all double quotes with single
+		// quotes before embedding — identical treatment across path, source
+		// provider, and source filename keeps round-trip re-import consistent.
 		safePath := strings.ReplaceAll(scope.Path, `"`, `'`)
 		mergeStrategy := scope.MergeStrategy
 		if mergeStrategy == "" {
@@ -227,10 +231,12 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 
 		origin := ""
 		if scope.SourceProvider != "" || scope.SourceFilename != "" {
-			origin = fmt.Sprintf(" origin=%q", scope.SourceProvider+":"+scope.SourceFilename)
+			safeProvider := strings.ReplaceAll(scope.SourceProvider, `"`, `'`)
+			safeFilename := strings.ReplaceAll(scope.SourceFilename, `"`, `'`)
+			origin = fmt.Sprintf(` origin="%s:%s"`, safeProvider, safeFilename)
 		}
 
-		fmt.Fprintf(&sb, "\n\n<!-- xcaffold:scope path=%q merge=%q%s -->\n",
+		fmt.Fprintf(&sb, "\n\n<!-- xcaffold:scope path=\"%s\" merge=\"%s\"%s -->\n",
 			safePath, mergeStrategy, origin)
 		sb.WriteString(scopeContent)
 		sb.WriteString("\n<!-- xcaffold:/scope -->\n")
