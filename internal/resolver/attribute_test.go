@@ -24,10 +24,10 @@ func TestResolveAttributes_StringField(t *testing.T) {
 func TestResolveAttributes_StringSliceField(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.Skills = map[string]ast.SkillConfig{
-		"tdd": {Tools: []string{"Bash", "Read", "Write"}},
+		"tdd": {AllowedTools: []string{"Bash", "Read", "Write"}},
 	}
 	config.Agents = map[string]ast.AgentConfig{
-		"developer": {Tools: []string{"${skill.tdd.tools}"}},
+		"developer": {Tools: []string{"${skill.tdd.allowed-tools}"}},
 	}
 	err := ResolveAttributes(config)
 	require.NoError(t, err)

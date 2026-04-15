@@ -408,7 +408,7 @@ func warnLossyAgent(id string, a ast.AgentConfig) {
 
 // warnLossySkill emits fidelity warnings for lossy SkillConfig fields.
 func warnLossySkill(id string, s ast.SkillConfig) {
-	if len(s.Tools) > 0 {
+	if len(s.AllowedTools) > 0 {
 		warnLossy("skill", "tools", id)
 	}
 	if len(s.References) > 0 {

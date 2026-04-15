@@ -158,8 +158,8 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 				label = skill.Name
 			}
 			cmd.Printf("  %s\n", label)
-			if len(skill.Tools) > 0 {
-				cmd.Printf("    Tools: %s\n", strings.Join(skill.Tools, ", "))
+			if len(skill.AllowedTools) > 0 {
+				cmd.Printf("    Tools: %s\n", strings.Join(skill.AllowedTools, ", "))
 			}
 		}
 		cmd.Println()
