@@ -354,3 +354,51 @@ func TestWriteSplitFiles_NoHooks_NoHooksFile(t *testing.T) {
 	_, statErr := os.Stat(filepath.Join(tmpDir, "xcf", "hooks.xcf"))
 	assert.True(t, os.IsNotExist(statErr), "xcf/hooks.xcf should not be created when config has no hooks")
 }
+
+func TestXCFFormat_ProjectInstructionsFields_KebabCase(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:                "test",
+			InstructionsFile:    "xcf/instructions/root.md",
+			InstructionsImports: []string{"xcf/instructions/style-guide.md"},
+			InstructionsScopes: []ast.InstructionsScope{
+				{
+					Path:             "packages/worker",
+					InstructionsFile: "xcf/instructions/scopes/packages-worker.md",
+					MergeStrategy:    "concat",
+					SourceProvider:   "claude",
+					SourceFilename:   "CLAUDE.md",
+				},
+			},
+		},
+	}
+	content, err := FormatXCF(config)
+	require.NoError(t, err)
+	require.Contains(t, content, "instructions-file:")
+	require.Contains(t, content, "instructions-imports:")
+	require.Contains(t, content, "instructions-scopes:")
+	require.Contains(t, content, "merge-strategy:")
+	require.Contains(t, content, "source-provider:")
+	require.Contains(t, content, "source-filename:")
+	// Must NOT use snake_case for any of these keys.
+	require.NotContains(t, content, "instructions_file:")
+	require.NotContains(t, content, "merge_strategy:")
+}
+
+func TestXCFFormat_ProjectInstructionsFields_ScopeOrderPreserved(t *testing.T) {
+	// Slice order must be preserved — no sorting by the serializer.
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name: "test",
+			InstructionsScopes: []ast.InstructionsScope{
+				{Path: "packages/worker", MergeStrategy: "concat"},
+				{Path: "packages/api", MergeStrategy: "closest-wins"},
+			},
+		},
+	}
+	content, err := FormatXCF(config)
+	require.NoError(t, err)
+	workerIdx := strings.Index(content, "packages/worker")
+	apiIdx := strings.Index(content, "packages/api")
+	require.Less(t, workerIdx, apiIdx, "serializer must preserve InstructionsScopes slice order")
+}

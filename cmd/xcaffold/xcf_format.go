@@ -16,24 +16,28 @@ import (
 // Settings and Hooks are emitted as separate kind: settings and kind: hooks
 // documents, matching the WriteSplitFiles pattern.
 type projectMarshalDoc struct {
-	Kind         string             `yaml:"kind"`
-	Version      string             `yaml:"version"`
-	Extends      string             `yaml:"extends,omitempty"`
-	Name         string             `yaml:"name,omitempty"`
-	Description  string             `yaml:"description,omitempty"`
-	Author       string             `yaml:"author,omitempty"`
-	Homepage     string             `yaml:"homepage,omitempty"`
-	Repository   string             `yaml:"repository,omitempty"`
-	License      string             `yaml:"license,omitempty"`
-	BackupDir    string             `yaml:"backup-dir,omitempty"`
-	Targets      []string           `yaml:"targets,omitempty"`
-	AgentRefs    []string           `yaml:"agents,omitempty"`
-	SkillRefs    []string           `yaml:"skills,omitempty"`
-	RuleRefs     []string           `yaml:"rules,omitempty"`
-	WorkflowRefs []string           `yaml:"workflows,omitempty"`
-	MCPRefs      []string           `yaml:"mcp,omitempty"`
-	Test         ast.TestConfig     `yaml:"test,omitempty"`
-	Local        ast.SettingsConfig `yaml:"local,omitempty"`
+	Kind                string                  `yaml:"kind"`
+	Version             string                  `yaml:"version"`
+	Extends             string                  `yaml:"extends,omitempty"`
+	Name                string                  `yaml:"name,omitempty"`
+	Description         string                  `yaml:"description,omitempty"`
+	Author              string                  `yaml:"author,omitempty"`
+	Homepage            string                  `yaml:"homepage,omitempty"`
+	Repository          string                  `yaml:"repository,omitempty"`
+	License             string                  `yaml:"license,omitempty"`
+	BackupDir           string                  `yaml:"backup-dir,omitempty"`
+	Targets             []string                `yaml:"targets,omitempty"`
+	AgentRefs           []string                `yaml:"agents,omitempty"`
+	SkillRefs           []string                `yaml:"skills,omitempty"`
+	RuleRefs            []string                `yaml:"rules,omitempty"`
+	WorkflowRefs        []string                `yaml:"workflows,omitempty"`
+	MCPRefs             []string                `yaml:"mcp,omitempty"`
+	Instructions        string                  `yaml:"instructions,omitempty"`
+	InstructionsFile    string                  `yaml:"instructions-file,omitempty"`
+	InstructionsImports []string                `yaml:"instructions-imports,omitempty"`
+	InstructionsScopes  []ast.InstructionsScope `yaml:"instructions-scopes,omitempty"`
+	Test                ast.TestConfig          `yaml:"test,omitempty"`
+	Local               ast.SettingsConfig      `yaml:"local,omitempty"`
 }
 
 // agentDoc is the serialization envelope for a kind: agent document.
@@ -71,6 +75,17 @@ type mcpDoc struct {
 	ast.MCPConfig `yaml:",inline"`
 }
 
+// FormatXCF serializes config to a multi-kind YAML string with no header comment.
+// It is a thin wrapper around MarshalMultiKind for use in tests and tooling that
+// need a plain string rather than a []byte with an optional header.
+func FormatXCF(config *ast.XcaffoldConfig) (string, error) {
+	b, err := MarshalMultiKind(config, "")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
 // MarshalMultiKind serializes an XcaffoldConfig as multi-kind YAML documents
 // separated by "---". The first document is always kind: project, followed by
 // individual kind: agent, kind: skill, kind: rule, kind: workflow, kind: mcp,
@@ -92,24 +107,28 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 		proj = &ast.ProjectConfig{}
 	}
 	cfgDoc := projectMarshalDoc{
-		Kind:         "project",
-		Version:      version,
-		Extends:      config.Extends,
-		Name:         proj.Name,
-		Description:  proj.Description,
-		Author:       proj.Author,
-		Homepage:     proj.Homepage,
-		Repository:   proj.Repository,
-		License:      proj.License,
-		BackupDir:    proj.BackupDir,
-		Targets:      proj.Targets,
-		AgentRefs:    proj.AgentRefs,
-		SkillRefs:    proj.SkillRefs,
-		RuleRefs:     proj.RuleRefs,
-		WorkflowRefs: proj.WorkflowRefs,
-		MCPRefs:      proj.MCPRefs,
-		Test:         proj.Test,
-		Local:        proj.Local,
+		Kind:                "project",
+		Version:             version,
+		Extends:             config.Extends,
+		Name:                proj.Name,
+		Description:         proj.Description,
+		Author:              proj.Author,
+		Homepage:            proj.Homepage,
+		Repository:          proj.Repository,
+		License:             proj.License,
+		BackupDir:           proj.BackupDir,
+		Targets:             proj.Targets,
+		AgentRefs:           proj.AgentRefs,
+		SkillRefs:           proj.SkillRefs,
+		RuleRefs:            proj.RuleRefs,
+		WorkflowRefs:        proj.WorkflowRefs,
+		MCPRefs:             proj.MCPRefs,
+		Instructions:        proj.Instructions,
+		InstructionsFile:    proj.InstructionsFile,
+		InstructionsImports: proj.InstructionsImports,
+		InstructionsScopes:  proj.InstructionsScopes,
+		Test:                proj.Test,
+		Local:               proj.Local,
 	}
 	b, err := yaml.Marshal(cfgDoc)
 	if err != nil {
