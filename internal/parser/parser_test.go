@@ -831,3 +831,27 @@ instructions: "Body."
 	_, err := ParseFile(path)
 	require.NoError(t, err)
 }
+
+func TestParseRule_Targets_ProviderPassthrough(t *testing.T) {
+	src := `kind: rule
+version: "1.0"
+name: test-rule
+activation: always
+targets:
+  copilot:
+    provider:
+      mode: edit
+instructions: "Body."
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "rule.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+	config, err := ParseFile(path)
+	require.NoError(t, err)
+
+	rule := config.Rules["test-rule"]
+	require.NotNil(t, rule.Targets)
+	copilot := rule.Targets["copilot"]
+	require.NotNil(t, copilot.Provider)
+	require.Equal(t, "edit", copilot.Provider["mode"])
+}

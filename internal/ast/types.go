@@ -201,6 +201,8 @@ type RuleConfig struct {
 	// receive this rule. Valid values: code-review | cloud-agent.
 	// Silently ignored by all non-Copilot renderers.
 	ExcludeAgents []string `yaml:"exclude-agents,omitempty"`
+	// Targets holds per-provider overrides including provider-native pass-through fields.
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`

@@ -304,3 +304,27 @@ func TestRuleConfig_ExcludeAgents_Serializes(t *testing.T) {
 	require.Contains(t, content, "- code-review")
 	require.Contains(t, content, "- cloud-agent")
 }
+
+func TestRuleConfig_Targets_Serializes(t *testing.T) {
+	rule := RuleConfig{
+		Name:       "api-style",
+		Activation: RuleActivationAlways,
+		Targets: map[string]TargetOverride{
+			"copilot": {
+				Provider: map[string]any{
+					"mode": "edit",
+				},
+			},
+		},
+		Instructions: "Body.",
+	}
+
+	data, err := yaml.Marshal(rule)
+	require.NoError(t, err)
+
+	content := string(data)
+	require.Contains(t, content, "targets:")
+	require.Contains(t, content, "copilot:")
+	require.Contains(t, content, "provider:")
+	require.Contains(t, content, "mode: edit")
+}
