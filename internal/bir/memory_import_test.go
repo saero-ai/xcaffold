@@ -140,6 +140,30 @@ func TestImportMemory_Plan_NoDiskWrite(t *testing.T) {
 	require.True(t, os.IsNotExist(statErr), "plan mode must not write files")
 }
 
+func TestImportMemory_WriteSidecar_TraversalKey_Rejected(t *testing.T) {
+	tmp := t.TempDir()
+	sidecarDir := filepath.Join(tmp, "xcf", "memory")
+	require.NoError(t, os.MkdirAll(sidecarDir, 0o755))
+
+	cases := []struct {
+		name string
+		key  string
+	}{
+		{"traversal", "../../etc/passwd"},
+		{"slash", "a/b"},
+		{"backslash", `a\b`},
+		{"dot-dot", ".."},
+		{"empty", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := MemoryImportEntry{Key: tc.key, Type: "user", Body: "x"}
+			err := WriteSidecar(sidecarDir, entry)
+			require.Error(t, err, "key %q must be rejected", tc.key)
+		})
+	}
+}
+
 func TestImportMemory_RoundTrip_Claude(t *testing.T) {
 	memDir := t.TempDir()
 	sidecarDir := filepath.Join(t.TempDir(), "xcf", "memory")

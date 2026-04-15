@@ -149,6 +149,11 @@ func parseFrontmatterAndBody(content string) (memoryFrontmatter, string) {
 // WriteSidecar writes a memory entry as a sidecar markdown file under sidecarDir.
 // The file is named <entry.Key>.md and contains YAML frontmatter followed by the body.
 func WriteSidecar(sidecarDir string, entry MemoryImportEntry) error {
+	// Guard against path traversal via a crafted Key attribute.
+	if entry.Key == "" || strings.ContainsAny(entry.Key, "/\\") || entry.Key == ".." || strings.Contains(entry.Key, "..") || filepath.IsAbs(entry.Key) {
+		return fmt.Errorf("memory sidecar: unsafe key %q (contains path separator, traversal, or absolute)", entry.Key)
+	}
+
 	if err := os.MkdirAll(sidecarDir, 0o755); err != nil {
 		return fmt.Errorf("creating sidecar directory: %w", err)
 	}
@@ -164,6 +169,12 @@ func WriteSidecar(sidecarDir string, entry MemoryImportEntry) error {
 	}
 
 	dest := filepath.Join(sidecarDir, entry.Key+".md")
+	// Defense-in-depth: confirm the resolved path stays inside sidecarDir.
+	rel, err := filepath.Rel(sidecarDir, dest)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("memory sidecar: key %q escapes sidecar dir", entry.Key)
+	}
+
 	if err := os.WriteFile(dest, []byte(sb.String()), 0o600); err != nil {
 		return fmt.Errorf("writing sidecar %s: %w", dest, err)
 	}
@@ -259,7 +270,6 @@ func ExtractGeminiMemoryBlocks(content string) ([]MemoryImportEntry, error) {
 		// Parse attributes from open marker.
 		attrStr := strings.TrimPrefix(line, openPrefix)
 		attrStr = strings.TrimSuffix(attrStr, openSuffix)
-		attrStr = strings.TrimSuffix(attrStr, " -->")
 
 		name := extractAttr(attrStr, "name")
 		memType := extractAttr(attrStr, "type")
