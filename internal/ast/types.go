@@ -188,8 +188,8 @@ type HookHandler struct {
 	If             string            `yaml:"if,omitempty"               json:"if,omitempty"`
 	Type           string            `yaml:"type"                       json:"type"`
 	Shell          string            `yaml:"shell,omitempty"            json:"shell,omitempty"`
-	StatusMessage  string            `yaml:"statusMessage,omitempty"    json:"statusMessage,omitempty"`
-	AllowedEnvVars []string          `yaml:"allowedEnvVars,omitempty"   json:"allowedEnvVars,omitempty"`
+	StatusMessage  string            `yaml:"status-message,omitempty"   json:"statusMessage,omitempty"`
+	AllowedEnvVars []string          `yaml:"allowed-env-vars,omitempty" json:"allowedEnvVars,omitempty"`
 }
 
 // MCPConfig defines a local or remote MCP server context.

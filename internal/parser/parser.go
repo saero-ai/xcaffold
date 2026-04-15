@@ -58,14 +58,26 @@ func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
 // TODO: Remove this map and the rewriting logic once the deprecation window closes
 // (target: next major version after migration lands).
 var legacyKeyAliases = map[string]string{
-	// AgentConfig
+	// AgentConfig — camelCase (pre-migration convention for agent fields)
 	"maxTurns:":               "max-turns:",
 	"disallowedTools:":        "disallowed-tools:",
 	"permissionMode:":         "permission-mode:",
 	"disableModelInvocation:": "disable-model-invocation:",
 	"userInvocable:":          "user-invocable:",
 	"initialPrompt:":          "initial-prompt:",
-	"mcpServers:":             "mcp-servers:",
+	// NOTE: "mcpServers:" is intentionally NOT aliased here. SettingsConfig's
+	// top-level `mcpServers:` key is a provider wire-format pass-through that
+	// appears inside `kind: settings` documents AND inside the `settings:`
+	// sub-block of `kind: global` documents. The settings-document exemption
+	// only protects standalone `kind: settings` files, so aliasing "mcpServers:"
+	// globally would corrupt the inline-settings subtree. AgentConfig.MCPServers
+	// is authored as "mcp-servers:" going forward; pre-migration xcf files that
+	// used "mcpServers:" at the agent level are a non-existent population (the
+	// field was always called MCPServers in Go with a yaml tag that emitted
+	// "mcpServers" — no user-facing documentation ever promoted it).
+	// HookHandler — camelCase Claude-settings mirror (pre-migration convention)
+	"statusMessage:":  "status-message:",
+	"allowedEnvVars:": "allowed-env-vars:",
 	// AgentConfig / SkillConfig / RuleConfig / WorkflowConfig
 	"instructions_file:": "instructions-file:",
 	// RuleConfig
@@ -155,32 +167,39 @@ func rewriteLegacyKeys(data []byte) []byte {
 	return out.Bytes()
 }
 
-// isSettingsDocument returns true if the document declares "kind: settings".
+// isSettingsDocument returns true if the document declares "kind: settings"
+// at the top level. Indented "kind: settings" values inside nested maps do
+// not qualify — only a zero-indent top-level kind discriminator matters.
 func isSettingsDocument(doc []byte) bool {
 	for _, line := range bytes.Split(doc, []byte("\n")) {
+		// Only consider top-level lines (no leading whitespace).
+		if len(line) == 0 || line[0] == ' ' || line[0] == '\t' {
+			continue
+		}
+		if line[0] == '#' {
+			continue
+		}
 		trimmed := bytes.TrimSpace(line)
 		if bytes.Equal(trimmed, []byte("kind: settings")) {
 			return true
 		}
-		// Stop scanning after the first non-comment, non-empty line that
-		// isn't "kind:" — settings documents always declare kind near the top.
-		if len(trimmed) > 0 && !bytes.HasPrefix(trimmed, []byte("#")) {
-			if bytes.HasPrefix(trimmed, []byte("kind:")) {
-				// Only one kind per document; this isn't settings.
-				return false
-			}
+		if bytes.HasPrefix(trimmed, []byte("kind:")) {
+			// A top-level kind that isn't settings — this document is not exempt.
+			return false
 		}
 	}
 	return false
 }
 
 // rewriteDocumentKeys applies legacyKeyAliases to a single document body.
-// It rewrites any line (at any indentation level) whose trimmed content starts
-// with a legacy key — preserving the original leading whitespace. Comment lines
-// (trimmed prefix "#") are skipped.
+// It rewrites any line (at any indentation level) whose key position starts
+// with a legacy key — preserving the original leading whitespace and any
+// YAML list-item marker ("- "). Comment lines (trimmed prefix "#") are skipped.
 //
 // This handles all field positions in the .xcf YAML structure: top-level fields
-// (e.g. "backup-dir:") and nested fields (e.g. "  instructions-file:", "  max-turns:").
+// (e.g. "backup-dir:"), nested fields (e.g. "  instructions-file:", "  max-turns:"),
+// and list-item fields (e.g. "  - content-contains:") which are common in
+// policy deny/require blocks.
 func rewriteDocumentKeys(doc []byte) []byte {
 	lines := bytes.Split(doc, []byte("\n"))
 	for i, line := range lines {
@@ -196,13 +215,19 @@ func rewriteDocumentKeys(doc []byte) []byte {
 		if indent >= len(line) || line[indent] == '#' {
 			continue
 		}
-		trimmed := line[indent:]
+		// Advance past a YAML list-item marker ("- ") if present, so that
+		// "  - content_contains:" is treated like a key at deeper indent.
+		keyStart := indent
+		if keyStart+1 < len(line) && line[keyStart] == '-' && line[keyStart+1] == ' ' {
+			keyStart += 2
+		}
+		keyRegion := line[keyStart:]
 		for old, newKey := range legacyKeyAliases {
-			if bytes.HasPrefix(trimmed, []byte(old)) {
-				// Reconstruct: original_indent + new_key + remainder_after_old_key
-				remainder := trimmed[len(old):]
-				newLine := make([]byte, 0, indent+len(newKey)+len(remainder))
-				newLine = append(newLine, line[:indent]...)
+			if bytes.HasPrefix(keyRegion, []byte(old)) {
+				// Reconstruct: prefix (indent + optional "- ") + new_key + remainder.
+				remainder := keyRegion[len(old):]
+				newLine := make([]byte, 0, keyStart+len(newKey)+len(remainder))
+				newLine = append(newLine, line[:keyStart]...)
 				newLine = append(newLine, newKey...)
 				newLine = append(newLine, remainder...)
 				lines[i] = newLine
