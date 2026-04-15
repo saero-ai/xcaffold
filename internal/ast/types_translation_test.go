@@ -155,8 +155,8 @@ func TestAgentConfig_InvocationControlFields(t *testing.T) {
 	require.NoError(t, err)
 
 	content := string(data)
-	require.Contains(t, content, "disableModelInvocation: true")
-	require.Contains(t, content, "userInvocable: false")
+	require.Contains(t, content, "disable-model-invocation: true")
+	require.Contains(t, content, "user-invocable: false")
 }
 
 func TestTargetOverride_ProviderPassthrough(t *testing.T) {
@@ -173,7 +173,7 @@ func TestTargetOverride_ProviderPassthrough(t *testing.T) {
 	require.NoError(t, err)
 
 	content := string(data)
-	require.Contains(t, content, "instructions_override: Use Google style.")
+	require.Contains(t, content, "instructions-override: Use Google style.")
 	require.Contains(t, content, "provider:")
 	require.Contains(t, content, "temperature: 0.7")
 	require.Contains(t, content, "timeout_mins: 15")
@@ -210,11 +210,11 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 
 	orderedKeys := []string{
 		"name:", "description:",
-		"model:", "effort:", "maxTurns:",
+		"model:", "effort:", "max-turns:",
 		"tools:", "readonly:",
-		"permissionMode:", "disableModelInvocation:", "userInvocable:",
+		"permission-mode:", "disable-model-invocation:", "user-invocable:",
 		"background:", "isolation:",
-		"memory:", "color:", "initialPrompt:",
+		"memory:", "color:", "initial-prompt:",
 		"skills:", "rules:", "mcp:",
 		"instructions:",
 	}

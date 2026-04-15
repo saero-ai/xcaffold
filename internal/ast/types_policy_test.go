@@ -55,15 +55,15 @@ func TestPolicyConfig_YAMLRoundTrip(t *testing.T) {
 
 func TestPolicyRequire_PointerFields(t *testing.T) {
 	input := `field: model
-is_present: false
-min_length: 0
+is-present: false
+min-length: 0
 `
 	var req PolicyRequire
 	err := yaml.Unmarshal([]byte(input), &req)
 	require.NoError(t, err)
-	require.NotNil(t, req.IsPresent, "is_present should be non-nil when explicitly set to false")
+	require.NotNil(t, req.IsPresent, "is-present should be non-nil when explicitly set to false")
 	assert.False(t, *req.IsPresent)
-	require.NotNil(t, req.MinLength, "min_length should be non-nil when explicitly set to 0")
+	require.NotNil(t, req.MinLength, "min-length should be non-nil when explicitly set to 0")
 	assert.Equal(t, 0, *req.MinLength)
 }
 

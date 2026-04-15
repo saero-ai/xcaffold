@@ -35,7 +35,7 @@ type ProjectConfig struct {
 	Homepage    string `yaml:"homepage,omitempty"`
 	Repository  string `yaml:"repository,omitempty"`
 	License     string `yaml:"license,omitempty"`
-	BackupDir   string `yaml:"backup_dir,omitempty"`
+	BackupDir   string `yaml:"backup-dir,omitempty"`
 
 	// Targets lists the compilation targets (e.g. "claude", "antigravity").
 	// Populated by the parser when decoding kind: project documents.
@@ -77,18 +77,18 @@ type AgentConfig struct {
 	// Group 2: Model & Execution
 	Model    string `yaml:"model,omitempty"`
 	Effort   string `yaml:"effort,omitempty"`
-	MaxTurns int    `yaml:"maxTurns,omitempty"`
+	MaxTurns int    `yaml:"max-turns,omitempty"`
 	Mode     string `yaml:"mode,omitempty"`
 
 	// Group 3: Tool Access
 	Tools           []string `yaml:"tools,omitempty"`
-	DisallowedTools []string `yaml:"disallowedTools,omitempty"`
+	DisallowedTools []string `yaml:"disallowed-tools,omitempty"`
 	Readonly        *bool    `yaml:"readonly,omitempty"`
 
 	// Group 4: Permissions & Invocation
-	PermissionMode         string `yaml:"permissionMode,omitempty"`
-	DisableModelInvocation *bool  `yaml:"disableModelInvocation,omitempty"`
-	UserInvocable          *bool  `yaml:"userInvocable,omitempty"`
+	PermissionMode         string `yaml:"permission-mode,omitempty"`
+	DisableModelInvocation *bool  `yaml:"disable-model-invocation,omitempty"`
+	UserInvocable          *bool  `yaml:"user-invocable,omitempty"`
 
 	// Group 5: Lifecycle
 	Background *bool  `yaml:"background,omitempty"`
@@ -98,7 +98,7 @@ type AgentConfig struct {
 	// Group 6: Memory & Context
 	Memory        string `yaml:"memory,omitempty"`
 	Color         string `yaml:"color,omitempty"`
-	InitialPrompt string `yaml:"initialPrompt,omitempty"`
+	InitialPrompt string `yaml:"initial-prompt,omitempty"`
 
 	// Group 7: Composition references
 	Skills     []string `yaml:"skills,omitempty"`
@@ -107,7 +107,7 @@ type AgentConfig struct {
 	Assertions []string `yaml:"assertions,omitempty"`
 
 	// Group 8: Inline composition
-	MCPServers map[string]MCPConfig `yaml:"mcpServers,omitempty"`
+	MCPServers map[string]MCPConfig `yaml:"mcp-servers,omitempty"`
 	Hooks      HookConfig           `yaml:"hooks,omitempty"`
 
 	// Group 9: Multi-Target
@@ -115,7 +115,7 @@ type AgentConfig struct {
 
 	// Group 10: Instructions (always last)
 	Instructions     string `yaml:"instructions,omitempty"`
-	InstructionsFile string `yaml:"instructions_file,omitempty"`
+	InstructionsFile string `yaml:"instructions-file,omitempty"`
 
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized and causes renderers
@@ -126,15 +126,15 @@ type AgentConfig struct {
 // TargetOverride specifies overrides for multi-provider targets.
 type TargetOverride struct {
 	Hooks                    map[string]string `yaml:"hooks,omitempty"`
-	SuppressFidelityWarnings *bool             `yaml:"suppress_fidelity_warnings,omitempty"`
-	SkipSynthesis            *bool             `yaml:"skip_synthesis,omitempty"`
-	InstructionsOverride     string            `yaml:"instructions_override,omitempty"`
+	SuppressFidelityWarnings *bool             `yaml:"suppress-fidelity-warnings,omitempty"`
+	SkipSynthesis            *bool             `yaml:"skip-synthesis,omitempty"`
+	InstructionsOverride     string            `yaml:"instructions-override,omitempty"`
 	Provider                 map[string]any    `yaml:"provider,omitempty"`
 }
 
 // SkillConfig defines a reusable prompt package.
 type SkillConfig struct {
-	InstructionsFile string `yaml:"instructions_file,omitempty"`
+	InstructionsFile string `yaml:"instructions-file,omitempty"`
 	Instructions     string `yaml:"instructions,omitempty"`
 	Description      string `yaml:"description,omitempty"`
 	Name             string `yaml:"name,omitempty"`
@@ -153,11 +153,11 @@ type SkillConfig struct {
 
 // RuleConfig defines a path-gated formatting guideline.
 type RuleConfig struct {
-	AlwaysApply      *bool    `yaml:"alwaysApply,omitempty"`
+	AlwaysApply      *bool    `yaml:"always-apply,omitempty"`
 	Description      string   `yaml:"description,omitempty"`
 	Name             string   `yaml:"name,omitempty"`
 	Instructions     string   `yaml:"instructions,omitempty"`
-	InstructionsFile string   `yaml:"instructions_file,omitempty"`
+	InstructionsFile string   `yaml:"instructions-file,omitempty"`
 	Paths            []string `yaml:"paths,omitempty"`
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
@@ -302,13 +302,13 @@ type SettingsConfig struct {
 // TestConfig holds project-level configuration for `xcaffold test`.
 type TestConfig struct {
 	// CliPath is the path to the CLI binary (e.g., claude, cursor). Defaults to "claude" on $PATH.
-	CliPath string `yaml:"cli_path,omitempty"`
+	CliPath string `yaml:"cli-path,omitempty"`
 
 	// ClaudePath is deprecated in favor of CliPath but retained for backward compatibility.
-	ClaudePath string `yaml:"claude_path,omitempty"`
+	ClaudePath string `yaml:"claude-path,omitempty"`
 
 	// JudgeModel is the generative model used for LLM-as-a-Judge evaluation.
-	JudgeModel string `yaml:"judge_model,omitempty"`
+	JudgeModel string `yaml:"judge-model,omitempty"`
 
 	// Task is the user prompt sent to the agent during simulation.
 	// Defaults to a generic capability discovery prompt when empty.
@@ -316,7 +316,7 @@ type TestConfig struct {
 
 	// MaxTurns caps the number of simulated conversation turns.
 	// Reserved for future multi-turn support; currently unused beyond recording.
-	MaxTurns int `yaml:"max_turns,omitempty"`
+	MaxTurns int `yaml:"max-turns,omitempty"`
 }
 
 // WorkflowConfig defines a named, reusable workflow (Antigravity Workflow).
@@ -325,7 +325,7 @@ type WorkflowConfig struct {
 	Name             string `yaml:"name,omitempty"`
 	Description      string `yaml:"description,omitempty"`
 	Instructions     string `yaml:"instructions,omitempty"`
-	InstructionsFile string `yaml:"instructions_file,omitempty"`
+	InstructionsFile string `yaml:"instructions-file,omitempty"`
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
@@ -346,26 +346,26 @@ type PolicyConfig struct {
 // PolicyMatch filters which resources a policy evaluates. All conditions
 // are AND-ed. An empty or nil PolicyMatch matches all resources.
 type PolicyMatch struct {
-	HasTool        string `yaml:"has_tool,omitempty"`
-	HasField       string `yaml:"has_field,omitempty"`
-	NameMatches    string `yaml:"name_matches,omitempty"`
-	TargetIncludes string `yaml:"target_includes,omitempty"`
+	HasTool        string `yaml:"has-tool,omitempty"`
+	HasField       string `yaml:"has-field,omitempty"`
+	NameMatches    string `yaml:"name-matches,omitempty"`
+	TargetIncludes string `yaml:"target-includes,omitempty"`
 }
 
 // PolicyRequire defines a field constraint on a matched resource.
 type PolicyRequire struct {
 	Field     string   `yaml:"field"`
-	IsPresent *bool    `yaml:"is_present,omitempty"`
-	MinLength *int     `yaml:"min_length,omitempty"`
-	MaxCount  *int     `yaml:"max_count,omitempty"`
-	OneOf     []string `yaml:"one_of,omitempty"`
+	IsPresent *bool    `yaml:"is-present,omitempty"`
+	MinLength *int     `yaml:"min-length,omitempty"`
+	MaxCount  *int     `yaml:"max-count,omitempty"`
+	OneOf     []string `yaml:"one-of,omitempty"`
 }
 
 // PolicyDeny defines forbidden content or path patterns in compiled output.
 type PolicyDeny struct {
-	ContentContains []string `yaml:"content_contains,omitempty"`
-	ContentMatches  string   `yaml:"content_matches,omitempty"`
-	PathContains    string   `yaml:"path_contains,omitempty"`
+	ContentContains []string `yaml:"content-contains,omitempty"`
+	ContentMatches  string   `yaml:"content-matches,omitempty"`
+	PathContains    string   `yaml:"path-contains,omitempty"`
 }
 
 // StripInherited removes all top-level resources that are marked as Inherited=true.
