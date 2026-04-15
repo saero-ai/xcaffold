@@ -636,11 +636,11 @@ func TestCompile_Agent_NewFields_EmitCorrectly(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["agents/secure.md"]
-	assert.Contains(t, content, "permissionMode: plan")
+	assert.Contains(t, content, "permission-mode: plan")
 	assert.Contains(t, content, "background: true")
 	assert.Contains(t, content, "isolation: worktree")
 	assert.Contains(t, content, "color: blue")
-	assert.Contains(t, content, "initialPrompt: Hello, how can I help?")
+	assert.Contains(t, content, "initial-prompt: Hello, how can I help?")
 }
 
 // ---------------------------------------------------------------------------
@@ -680,7 +680,7 @@ func TestCompile_Agent_ScopedHooksAndMCP_EmitCorrectly(t *testing.T) {
 	content := out.Files["agents/hooked.md"]
 	assert.Contains(t, content, "hooks:")
 	assert.Contains(t, content, "PreToolUse")
-	assert.Contains(t, content, "mcpServers:")
+	assert.Contains(t, content, "mcp-servers:")
 	assert.Contains(t, content, "local-db")
 }
 
@@ -1023,7 +1023,7 @@ func TestCompile_Permissions_DisallowedToolsInAgentFrontmatter(t *testing.T) {
 
 	content, ok := out.Files["agents/dev.md"]
 	require.True(t, ok, "agents/dev.md must be generated")
-	assert.Contains(t, content, "disallowedTools:", "disallowedTools must appear in Claude agent frontmatter")
+	assert.Contains(t, content, "disallowed-tools:", "disallowed-tools must appear in Claude agent frontmatter")
 }
 
 func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
@@ -1044,7 +1044,7 @@ func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 
 	content, ok := out.Files["agents/dev.md"]
 	require.True(t, ok, "agents/dev.md must be generated for cursor target")
-	assert.NotContains(t, content, "disallowedTools:", "disallowedTools must not appear in Cursor agent output")
+	assert.NotContains(t, content, "disallowed-tools:", "disallowed-tools must not appear in Cursor agent output")
 }
 
 // in the XcaffoldConfig compiles to settings.local.json.

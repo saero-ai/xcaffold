@@ -72,7 +72,7 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 
 	out, err := Compile(config, "", "")
 	require.NoError(t, err)
-	assert.Contains(t, out.Files["agents/readonly.md"], "disallowedTools: [Bash, Write]")
+	assert.Contains(t, out.Files["agents/readonly.md"], "disallowed-tools: [Bash, Write]")
 }
 
 func TestCompile_EmptyAgents(t *testing.T) {

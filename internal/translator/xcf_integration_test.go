@@ -55,7 +55,7 @@ func TestXcfIntegration_SkillPrimitive_ProducesInstructionsFileReference(t *test
 	require.NoError(t, err)
 
 	yamlStr := string(out)
-	assert.Contains(t, yamlStr, "instructions_file:", "skill YAML must use instructions_file")
+	assert.Contains(t, yamlStr, "instructions-file:", "skill YAML must use instructions-file")
 	assert.NotContains(t, yamlStr, "\ninstructions:", "skill YAML must not contain inline instructions key")
 	assert.Contains(t, yamlStr, relPath, "skill YAML must include the relative path")
 }
@@ -90,7 +90,7 @@ func TestXcfIntegration_RulePrimitive_ProducesInstructionsFileReference(t *testi
 	require.NoError(t, err)
 
 	yamlStr := string(out)
-	assert.Contains(t, yamlStr, "instructions_file:", "rule YAML must use instructions_file")
+	assert.Contains(t, yamlStr, "instructions-file:", "rule YAML must use instructions-file")
 	assert.NotContains(t, yamlStr, "\ninstructions:", "rule YAML must not contain inline instructions key")
 	assert.Contains(t, yamlStr, relPath, "rule YAML must include the relative path")
 }
