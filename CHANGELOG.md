@@ -24,9 +24,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reordered agent document emitted by `xcaffold init` so `instructions` appears after `tools`, matching the canonical order (init)
 - Added inline comment in generated `scaffold.xcf` pointing users to `xcf/references/agent.xcf.reference` for the full field catalog (init)
 
+### Added (Skill Schema Normalization)
+
+- Added `whenToUse` (`string`) field to `SkillConfig` for detailed activation guidance (ast)
+- Added `license` (`string`) field to `SkillConfig` for SPDX identifier (ast)
+- Added `disableModelInvocation` (`*bool`) field to `SkillConfig` — if true, the skill is user-invocable only (ast)
+- Added `userInvocable` (`*bool`) field to `SkillConfig` — if false, the skill is model-only with no slash command (ast)
+- Added `argumentHint` (`string`) field to `SkillConfig` for slash-command autocomplete (ast)
+- Added `targets` (`map[string]TargetOverride`) field to `SkillConfig` for per-provider overrides and provider pass-through (ast)
+- Added `xcf/references/skill.xcf.reference` generation during `xcaffold init` — an annotated, non-parsed field catalog for the Skill kind (init)
+- Added `internal/templates.RenderSkillReference()` for rendering the Skill kind reference template (templates)
+- Added Claude provider pass-through for skills — keys under `targets.claude.provider:` (`context`, `agent`, `model`, `effort`, `shell`, `paths`, `hooks`) are emitted into compiled SKILL.md frontmatter (renderer)
+- Added real-data integration tests validating skill schema round-tripping against provider fixtures (integration)
+
+### Changed (Skill Schema Normalization)
+
+- Renamed `SkillConfig.Tools` to `SkillConfig.AllowedTools` with canonical YAML key `allowed-tools`, aligning with the agentskills.io open standard and the Claude and Copilot published conventions (ast, renderer)
+- Reordered `SkillConfig` struct fields into the canonical six-group layout: identity, tool access, permissions and invocation, composition files, targets, and instructions last (ast)
+- Claude renderer now emits `when_to_use`, `license`, `allowed-tools`, `disable-model-invocation`, `user-invocable`, and `argument-hint` in skill frontmatter when set (renderer)
+- All skill provider pass-through scalars now route through yaml.Marshal for correct escaping — previously vulnerable values containing newlines could have terminated the frontmatter block (renderer)
+- Broadened the attribute resolver regex to accept kebab-case field names in resource references like `${skill.tdd.allowed-tools}` (resolver)
+- Updated the shipped multi-kind reference example and schema documentation to use `allowed-tools` under the skill block (docs)
+
 ### Breaking Changes
 
 - **Removed `kind: config`**: The legacy monolithic format has been removed. Use `kind: project` with individual resource documents (`kind: agent`, `kind: skill`, etc.). For global configuration, use `kind: global`. Files with empty or missing `kind:` fields now produce a descriptive error with migration guidance.
+- **Renamed `tools:` to `allowed-tools:` under `kind: skill`**: Any `.xcf` file using `tools:` under a skill block must rename to `allowed-tools:` to parse successfully. `AgentConfig.tools` is unchanged — the rename applies only to skills. This aligns with the cross-provider canonical name from the agentskills.io open standard.
 
 ### Added
 

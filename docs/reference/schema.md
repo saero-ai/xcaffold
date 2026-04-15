@@ -56,6 +56,13 @@ erDiagram
     SkillConfig {
         string name
         string description
+        string whenToUse
+        string license
+        stringArray allowedTools
+        boolPtr disableModelInvocation
+        boolPtr userInvocable
+        string argumentHint
+        targetMap targets
         string instructions
         string instructions_file
     }
