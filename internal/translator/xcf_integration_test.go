@@ -43,14 +43,14 @@ func TestXcfIntegration_SkillPrimitive_ProducesInstructionsFileReference(t *test
 	require.Equal(t, "skill", p.Kind)
 
 	// Simulate what injectIntoConfig does: build an ast.SkillConfig with
-	// instructions_file pointing to the external file path.
+	// instructions-file pointing to the external file path.
 	relPath := filepath.Join("skills", p.ID, "SKILL.md")
 	skill := ast.SkillConfig{
 		Description:      fmt.Sprintf("Translated from workflow %s", p.ID),
 		InstructionsFile: relPath,
 	}
 
-	// Marshal to YAML and verify instructions_file: appears, not instructions:.
+	// Marshal to YAML and verify instructions-file: appears, not instructions:.
 	out, err := yaml.Marshal(skill)
 	require.NoError(t, err)
 
@@ -61,7 +61,7 @@ func TestXcfIntegration_SkillPrimitive_ProducesInstructionsFileReference(t *test
 }
 
 // TestXcfIntegration_RulePrimitive_ProducesInstructionsFileReference verifies
-// that a rule primitive produces an ast.RuleConfig with instructions_file set
+// that a rule primitive produces an ast.RuleConfig with instructions-file set
 // and no inline instructions field.
 func TestXcfIntegration_RulePrimitive_ProducesInstructionsFileReference(t *testing.T) {
 	path := writeTemp(t, "constraints.md", constraintOnlyWorkflow)
@@ -229,14 +229,14 @@ func TestXcfIntegration_FullRoundTrip_WorkflowToConfigToYAMLAndBack(t *testing.T
 	require.NotNil(t, parsed.Skills, "parsed config must have skills")
 	skillConfig, hasSkill := parsed.Skills["commit-changes"]
 	require.True(t, hasSkill, "commit-changes skill must be present in parsed config")
-	assert.NotEmpty(t, skillConfig.InstructionsFile, "skill must have instructions_file set")
-	assert.Contains(t, skillConfig.InstructionsFile, "SKILL.md", "skill instructions_file must reference SKILL.md")
+	assert.NotEmpty(t, skillConfig.InstructionsFile, "skill must have instructions-file set")
+	assert.Contains(t, skillConfig.InstructionsFile, "SKILL.md", "skill instructions-file must reference SKILL.md")
 
 	// Verify Rules.
 	require.NotNil(t, parsed.Rules, "parsed config must have rules")
 	ruleConfig, hasRule := parsed.Rules["commit-changes-constraints"]
 	require.True(t, hasRule, "commit-changes-constraints rule must be present in parsed config")
-	assert.NotEmpty(t, ruleConfig.InstructionsFile, "rule must have instructions_file set")
+	assert.NotEmpty(t, ruleConfig.InstructionsFile, "rule must have instructions-file set")
 
 	// Verify Permissions.
 	require.NotNil(t, parsed.Settings.Permissions, "parsed config must have permissions")

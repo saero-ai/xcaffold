@@ -49,7 +49,7 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 
 // Compile translates an XcaffoldConfig AST into its Antigravity (Antigravity) output representation.
 // baseDir is the directory that contains the scaffold.xcf file; it is used to
-// resolve instructions_file: paths. Compile returns an error if any resource
+// resolve instructions-file: paths. Compile returns an error if any resource
 // fails to compile. It never panics.
 //
 // Only rules and skills are compiled. Agents, hooks, and MCP configs are silently
@@ -115,7 +115,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 			suppress = true
 		}
 		if !suppress && (agent.PermissionMode != "" || len(agent.DisallowedTools) > 0 || agent.Isolation != "") {
-			fmt.Fprintf(os.Stderr, "WARNING (antigravity): agent %q security fields dropped (permissionMode, disallowedTools, isolation are not supported).\n", id)
+			fmt.Fprintf(os.Stderr, "WARNING (antigravity): agent %q security fields dropped (permission-mode, disallowed-tools, isolation are not supported).\n", id)
 		}
 	}
 
@@ -266,7 +266,7 @@ func compileAntigravityMCP(servers map[string]ast.MCPConfig) (string, error) {
 //
 // Priority (highest to lowest):
 //  1. inline    — the "instructions:" YAML field
-//  2. filePath  — the "instructions_file:" YAML field (read from disk, frontmatter stripped)
+//  2. filePath  — the "instructions-file:" YAML field (read from disk, frontmatter stripped)
 
 // stripFrontmatter removes YAML frontmatter delimited by "---" from the start
 // of a markdown file, returning only the body content with leading newlines trimmed.

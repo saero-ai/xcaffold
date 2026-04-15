@@ -197,7 +197,7 @@ func evaluateDenyOnFile(policyName, filePath, content string, deny ast.PolicyDen
 			violations = append(violations, Violation{
 				PolicyName: policyName,
 				FilePath:   filePath,
-				Message:    fmt.Sprintf("invalid regex in content_matches: %s", err),
+				Message:    fmt.Sprintf("invalid regex in content-matches: %s", err),
 			})
 		} else if re.MatchString(content) {
 			violations = append(violations, Violation{

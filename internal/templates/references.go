@@ -71,10 +71,10 @@ assertions: []              # Test assertions (evaluated by xcaffold test --judg
 # ── Multi-Target (per-provider overrides) ────────────────────
 # targets:
 #   gemini:
-#     instructions_override: |
+#     instructions-override: |
 #       Alternative body for Gemini only.
-#     suppress_fidelity_warnings: false
-#     skip_synthesis: false
+#     suppress-fidelity-warnings: false
+#     skip-synthesis: false
 #     provider:                  # Provider-native pass-through fields.
 #       temperature: 0.7         # Gemini: 0.0-2.0, default 1.0
 #       timeout_mins: 15         # Gemini: max execution time, default 10

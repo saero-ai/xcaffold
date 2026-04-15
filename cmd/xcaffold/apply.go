@@ -211,7 +211,7 @@ func printDiagnostics(diags []parser.Diagnostic) {
 //nolint:gocyclo
 func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	// baseDir is the directory containing the xcf file — used by the compiler
-	// to resolve instructions_file: and references: paths.
+	// to resolve instructions-file: and references: paths.
 	baseDir := filepath.Dir(configPath)
 
 	config, err := parser.ParseDirectory(baseDir)

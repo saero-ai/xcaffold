@@ -75,7 +75,7 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 	assert.NotContains(t, agentContent, "\nbackground:")
 
 	// CC-only fields must not appear
-	for _, dropped := range []string{"effort:", "permissionMode:", "maxTurns:"} {
+	for _, dropped := range []string{"effort:", "permission-mode:", "max-turns:"} {
 		assert.NotContains(t, agentContent, dropped, "CC-only field %q must be absent", dropped)
 	}
 

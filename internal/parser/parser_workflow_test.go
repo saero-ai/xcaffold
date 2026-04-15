@@ -93,7 +93,7 @@ workflows:
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err, "instructions-file with path traversal must be rejected")
-	assert.Contains(t, err.Error(), "instructions_file")
+	assert.Contains(t, err.Error(), "instructions-file")
 }
 
 // TestValidate_Workflow_ValidRelativePath_Accepted verifies that a valid relative

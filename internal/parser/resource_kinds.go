@@ -70,7 +70,7 @@ type projectDocFields struct {
 	Homepage     string             `yaml:"homepage,omitempty"`
 	Repository   string             `yaml:"repository,omitempty"`
 	License      string             `yaml:"license,omitempty"`
-	BackupDir    string             `yaml:"backup_dir,omitempty"`
+	BackupDir    string             `yaml:"backup-dir,omitempty"`
 	Targets      []string           `yaml:"targets,omitempty"`
 	AgentRefs    []string           `yaml:"agents,omitempty"`
 	SkillRefs    []string           `yaml:"skills,omitempty"`
@@ -193,7 +193,7 @@ func validatePolicyFields(p ast.PolicyConfig) error {
 
 	for i, d := range p.Deny {
 		if len(d.ContentContains) == 0 && d.ContentMatches == "" && d.PathContains == "" {
-			return fmt.Errorf("policy %q: deny[%d] must specify at least one of content_contains, content_matches, or path_contains", p.Name, i)
+			return fmt.Errorf("policy %q: deny[%d] must specify at least one of content-contains, content-matches, or path-contains", p.Name, i)
 		}
 	}
 

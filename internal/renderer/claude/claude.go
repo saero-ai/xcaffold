@@ -41,7 +41,7 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 
 // Compile translates an XcaffoldConfig AST into its Claude Code output
 // representation. baseDir is the directory that contains the scaffold.xcf file;
-// it is used to resolve instructions_file: and references: paths.
+// it is used to resolve instructions-file: and references: paths.
 // Compile returns an error if any resource fails to compile. It never panics.
 func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
 	out := &output.Output{
@@ -130,7 +130,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 //
 // Priority (highest to lowest):
 //  1. inline          — the "instructions:" YAML field
-//  2. filePath        — the "instructions_file:" YAML field (read from disk)
+//  2. filePath        — the "instructions-file:" YAML field (read from disk)
 //  3. conventionPath  — auto-discovered by convention (agents/<id>.md etc.); silent no-op if missing
 //
 // The file is read relative to baseDir. Its frontmatter (--- blocks) is stripped

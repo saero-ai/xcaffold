@@ -22,7 +22,7 @@ type parseOption struct {
 type parseOptionFunc func(*parseOption)
 
 // withGlobalScope marks the parse as global scope, which allows absolute
-// instructions_file paths (global configs reference files like ~/.claude/agents/*.md).
+// instructions-file paths (global configs reference files like ~/.claude/agents/*.md).
 func withGlobalScope() parseOptionFunc {
 	return func(o *parseOption) { o.globalScope = true }
 }
@@ -1144,12 +1144,12 @@ func validatePermissions(c *ast.XcaffoldConfig) error {
 
 	// Agent cross-reference checks
 	for agentID, agent := range c.Agents {
-		// disallowedTools vs settings.permissions.allow
+		// disallowed-tools vs settings.permissions.allow
 		for _, tool := range agent.DisallowedTools {
 			for rule := range allowSet {
 				ruleName, _, _ := parsePermissionRule(rule)
 				if ruleName == tool {
-					return fmt.Errorf("agent %q: tool %q is in disallowedTools but also in settings.permissions.allow", agentID, tool)
+					return fmt.Errorf("agent %q: tool %q is in disallowed-tools but also in settings.permissions.allow", agentID, tool)
 				}
 			}
 		}
@@ -1247,7 +1247,7 @@ func validateInstructions(c *ast.XcaffoldConfig, globalScope bool) error {
 
 func validateInstructionOrFile(kind, id, inst, file string, globalScope bool) error {
 	if inst != "" && file != "" {
-		return fmt.Errorf("%s %q: instructions and instructions_file are mutually exclusive; set one or the other", kind, id)
+		return fmt.Errorf("%s %q: instructions and instructions-file are mutually exclusive; set one or the other", kind, id)
 	}
 	return validateInstructionsFile(kind, id, file, globalScope)
 }
@@ -1313,7 +1313,7 @@ func ValidateFile(path string) []Diagnostic {
 	return diags
 }
 
-// validateFileRefs checks that instructions_file paths and skill references
+// validateFileRefs checks that instructions-file paths and skill references
 // exist on disk, and detects duplicate IDs across resource types.
 //
 //nolint:gocyclo
@@ -1345,7 +1345,7 @@ func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 		}
 	}
 
-	// instructions_file existence: error on missing files
+	// instructions-file existence: error on missing files
 	checkInstrFile := func(kind, id, instrFile string) {
 		if instrFile == "" {
 			return
@@ -1354,7 +1354,7 @@ func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 		if _, err := os.Stat(abs); os.IsNotExist(err) {
 			diags = append(diags, Diagnostic{
 				Severity: "error",
-				Message:  fmt.Sprintf("%s %q instructions_file not found: %q", kind, id, instrFile),
+				Message:  fmt.Sprintf("%s %q instructions-file not found: %q", kind, id, instrFile),
 			})
 		}
 	}
@@ -1422,7 +1422,7 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 	return diags
 }
 
-// reservedOutputPrefixes are compiler output directories. instructions_file paths
+// reservedOutputPrefixes are compiler output directories. instructions-file paths
 // starting with these prefixes create circular dependencies where the compiler
 // reads its own output.
 var reservedOutputPrefixes = []string{".claude/", ".cursor/", ".agents/", ".antigravity/"}
@@ -1432,10 +1432,10 @@ func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 		return nil
 	}
 	if filepath.IsAbs(path) && !globalScope {
-		return fmt.Errorf("%s %q: instructions_file must be a relative path, got absolute path %q", kind, id, path)
+		return fmt.Errorf("%s %q: instructions-file must be a relative path, got absolute path %q", kind, id, path)
 	}
 	if strings.ContainsAny(path, "\\") || strings.Contains(path, "..") {
-		return fmt.Errorf("%s %q: instructions_file contains invalid path characters: %q", kind, id, path)
+		return fmt.Errorf("%s %q: instructions-file contains invalid path characters: %q", kind, id, path)
 	}
 	// Skip reserved-output-prefix check for absolute paths (they are outside project dir).
 	if filepath.IsAbs(path) {
@@ -1444,7 +1444,7 @@ func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	cleaned := filepath.Clean(path)
 	for _, prefix := range reservedOutputPrefixes {
 		if strings.HasPrefix(cleaned, filepath.Clean(prefix)) {
-			return fmt.Errorf("%s %q: instructions_file %q references compiler output directory %s — this creates a circular dependency", kind, id, path, prefix)
+			return fmt.Errorf("%s %q: instructions-file %q references compiler output directory %s — this creates a circular dependency", kind, id, path, prefix)
 		}
 	}
 	return nil

@@ -273,7 +273,7 @@ func runJudge(summary trace.Summary, assertions []string, configModel, cliPath s
 }
 
 // resolveCliPath returns the effective path to the underlying CLI binary.
-// Priority: CLI flag > scaffold.xcf test.cli_path > default "claude".
+// Priority: CLI flag > scaffold.xcf test.cli-path > default "claude".
 func resolveCliPath(cliPath, claudePath string) string {
 	if testCliPathFlag != "" {
 		return testCliPathFlag
@@ -288,7 +288,7 @@ func resolveCliPath(cliPath, claudePath string) string {
 }
 
 // resolveJudgeModel returns the effective judge model.
-// Priority: CLI flag > scaffold.xcf test.judge_model > default Haiku.
+// Priority: CLI flag > scaffold.xcf test.judge-model > default Haiku.
 func resolveJudgeModel(xcfModel string) string {
 	if testJudgeModelFlag != "" {
 		return testJudgeModelFlag

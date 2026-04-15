@@ -50,7 +50,7 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 
 // Compile translates an XcaffoldConfig AST into its Cursor output representation.
 // baseDir is the directory that contains the scaffold.xcf file; it is used to
-// resolve instructions_file: paths. Compile returns an error if any resource
+// resolve instructions-file: paths. Compile returns an error if any resource
 // fails to compile. It never panics.
 func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
 	out := &output.Output{
@@ -231,8 +231,8 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 //
 // Normalizations:
 //   - background: true → is_background: true (Normalization Rule 6)
-//   - CC-only fields are dropped: effort, permissionMode, isolation, color,
-//     memory, maxTurns, tools, disallowedTools, skills, initialPrompt
+//   - CC-only fields are dropped: effort, permission-mode, isolation, color,
+//     memory, max-turns, tools, disallowed-tools, skills, initial-prompt
 //
 //nolint:gocyclo
 func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (string, error) {
@@ -400,7 +400,7 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, error) {
 //
 // Priority (highest to lowest):
 //  1. inline    — the "instructions:" YAML field
-//  2. filePath  — the "instructions_file:" YAML field (read from disk, frontmatter stripped)
+//  2. filePath  — the "instructions-file:" YAML field (read from disk, frontmatter stripped)
 
 // stripFrontmatter removes YAML frontmatter delimited by "---" from the start
 // of a markdown file, returning only the body content with leading newlines trimmed.

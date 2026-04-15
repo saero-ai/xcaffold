@@ -60,11 +60,11 @@ type ProjectConfig struct {
 //
 // Field ordering is canonical and mirrors the compiled markdown frontmatter:
 //  1. Identity (name, description)
-//  2. Model & Execution (model, effort, maxTurns, mode)
-//  3. Tool Access (tools, disallowedTools, readonly)
-//  4. Permissions & Invocation (permissionMode, disableModelInvocation, userInvocable)
+//  2. Model & Execution (model, effort, max-turns, mode)
+//  3. Tool Access (tools, disallowed-tools, readonly)
+//  4. Permissions & Invocation (permission-mode, disable-model-invocation, user-invocable)
 //  5. Lifecycle (background, isolation, when)
-//  6. Memory & Context (memory, color, initialPrompt)
+//  6. Memory & Context (memory, color, initial-prompt)
 //  7. Composition references (skills, rules, mcp, assertions)
 //  8. Inline composition (mcpServers, hooks)
 //  9. Multi-Target (targets)

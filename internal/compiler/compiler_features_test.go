@@ -12,11 +12,11 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Feature 1A: instructions_file: external file references
+// Feature 1A: instructions-file: external file references
 // ---------------------------------------------------------------------------
 
 // TestCompile_AgentInstructionsFile_ReadsExternalFile verifies that an agent
-// with instructions_file: uses the file body as its system prompt.
+// with instructions-file: uses the file body as its system prompt.
 func TestCompile_AgentInstructionsFile_ReadsExternalFile(t *testing.T) {
 	dir := t.TempDir()
 	instrPath := filepath.Join(dir, "agents", "cto.md")
@@ -45,7 +45,7 @@ func TestCompile_AgentInstructionsFile_ReadsExternalFile(t *testing.T) {
 }
 
 // TestCompile_AgentInstructionsFile_StripsFrontmatter verifies that frontmatter
-// in an instructions_file is stripped before being used as the prompt body.
+// in an instructions-file is stripped before being used as the prompt body.
 func TestCompile_AgentInstructionsFile_StripsFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	instrPath := filepath.Join(dir, "agents", "dev.md")
@@ -70,7 +70,7 @@ func TestCompile_AgentInstructionsFile_StripsFrontmatter(t *testing.T) {
 }
 
 // TestCompile_AgentInstructionsFile_Missing_ReturnsError verifies that a
-// missing instructions_file causes a compile error, not silent empty content.
+// missing instructions-file causes a compile error, not silent empty content.
 func TestCompile_AgentInstructionsFile_Missing_ReturnsError(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -81,12 +81,12 @@ func TestCompile_AgentInstructionsFile_Missing_ReturnsError(t *testing.T) {
 	}
 
 	_, err := Compile(config, t.TempDir(), "")
-	require.Error(t, err, "missing instructions_file must return an error")
+	require.Error(t, err, "missing instructions-file must return an error")
 	assert.Contains(t, err.Error(), "nonexistent/cto.md")
 }
 
 // TestCompile_InstructionsFile_PathTraversal_Rejected verifies that
-// instructions_file paths that escape the project root are rejected.
+// instructions-file paths that escape the project root are rejected.
 func TestCompile_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -97,11 +97,11 @@ func TestCompile_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
 	}
 
 	_, err := Compile(config, t.TempDir(), "")
-	require.Error(t, err, "traversal paths in instructions_file must be rejected")
+	require.Error(t, err, "traversal paths in instructions-file must be rejected")
 }
 
 // TestCompile_InstructionsFile_InlineWins verifies that inline "instructions:"
-// takes priority over "instructions_file:" when both are set in the AST
+// takes priority over "instructions-file:" when both are set in the AST
 // (this case is normally caught by the parser, but the compiler should also
 // be defensive and honour the priority ordering).
 func TestCompile_InstructionsFile_InlinePriority(t *testing.T) {
@@ -333,7 +333,7 @@ func TestStripFrontmatter_OnlyFrontmatter(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestCompile_ConventionAutoDiscover_Agent verifies that when an agent has no
-// instructions or instructions_file, the compiler auto-discovers agents/<id>.md.
+// instructions or instructions-file, the compiler auto-discovers agents/<id>.md.
 func TestCompile_ConventionAutoDiscover_Agent(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "agents"), 0755))
@@ -347,7 +347,7 @@ func TestCompile_ConventionAutoDiscover_Agent(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"cto": {Description: "Chief Technology Officer"},
-				// No instructions or instructions_file — relies on convention
+				// No instructions or instructions-file — relies on convention
 			},
 		},
 	}
@@ -374,7 +374,7 @@ func TestCompile_ConventionAutoDiscover_Skill(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"git-workflow": {Description: "Git workflow patterns"},
-				// No instructions or instructions_file — relies on convention
+				// No instructions or instructions-file — relies on convention
 			},
 		},
 	}

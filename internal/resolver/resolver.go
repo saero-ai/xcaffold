@@ -41,7 +41,7 @@ func ResolveInstructions(inline, filePath, conventionPath, baseDir string) (stri
 	if filePath != "" {
 		cleaned := filepath.Clean(filePath)
 		if strings.HasPrefix(cleaned, "..") {
-			return "", fmt.Errorf("instructions_file must be a relative path inside the project: %q traverses above the project root", filePath)
+			return "", fmt.Errorf("instructions-file must be a relative path inside the project: %q traverses above the project root", filePath)
 		}
 		bestPath = cleaned
 		if !filepath.IsAbs(bestPath) {
@@ -60,7 +60,7 @@ func ResolveInstructions(inline, filePath, conventionPath, baseDir string) (stri
 	b, err := os.ReadFile(bestPath)
 	if err != nil {
 		if filePath != "" {
-			return "", fmt.Errorf("instructions_file %q not found: %w", filePath, err)
+			return "", fmt.Errorf("instructions-file %q not found: %w", filePath, err)
 		}
 		return "", nil // convention fallback miss is silent
 	}

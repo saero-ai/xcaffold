@@ -14,11 +14,11 @@ import (
 // TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic verifies that
 // --check returns a non-zero exit (non-nil error) when ValidateFile produces
 // an error-severity diagnostic.  The xcf file points to a non-existent
-// instructions_file to trigger the error diagnostic.
+// instructions-file to trigger the error diagnostic.
 func TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic(t *testing.T) {
 	dir := t.TempDir()
 
-	// instructions_file pointing to a missing file → validateFileRefs emits
+	// instructions-file pointing to a missing file → validateFileRefs emits
 	// a Severity:"error" diagnostic.
 	xcfContent := `---
 kind: project

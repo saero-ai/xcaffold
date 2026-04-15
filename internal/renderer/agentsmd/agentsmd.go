@@ -40,7 +40,7 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 
 // Compile translates an XcaffoldConfig AST into AGENTS.md files.
 // baseDir is the directory containing scaffold.xcf; used to resolve
-// instructions_file: paths. Compile never panics — all errors are returned.
+// instructions-file: paths. Compile never panics — all errors are returned.
 func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
 	out := &output.Output{Files: make(map[string]string)}
 

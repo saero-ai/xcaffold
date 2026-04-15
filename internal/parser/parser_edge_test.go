@@ -284,7 +284,7 @@ agents:
 `
 	_, err := Parse(strings.NewReader(yaml))
 	require.Error(t, err, "instructions-file with path traversal must be rejected at parse time")
-	assert.Contains(t, err.Error(), "instructions_file")
+	assert.Contains(t, err.Error(), "instructions-file")
 }
 
 // TestParse_SkillInstructionsFile_Valid verifies skills accept instructions-file.
@@ -425,7 +425,7 @@ agents:
 `
 	_, err := parsePartial(strings.NewReader(xcf), withGlobalScope())
 	require.Error(t, err, "global scope must still reject path traversal")
-	assert.Contains(t, err.Error(), "instructions_file")
+	assert.Contains(t, err.Error(), "instructions-file")
 }
 
 // TestParseDirectoryRaw_GlobalScope_AllowsAbsoluteInstructionsFile verifies that

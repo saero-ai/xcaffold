@@ -87,7 +87,7 @@ func TestExtractBodyAfterFrontmatter(t *testing.T) {
 }
 
 // TestExtractAgents_InlinesInstructions verifies agents use instructions: inline
-// instead of copying .md files and setting instructions_file:.
+// instead of copying .md files and setting instructions-file:.
 func TestExtractAgents_InlinesInstructions(t *testing.T) {
 	tmp := t.TempDir()
 
@@ -127,7 +127,7 @@ func TestExtractAgents_InlinesInstructions(t *testing.T) {
 		t.Fatal("expected agent 'dev' to be in config.Agents")
 	}
 
-	// Instructions must be inlined — not an instructions_file reference
+	// Instructions must be inlined — not an instructions-file reference
 	if agentCfg.InstructionsFile != "" {
 		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", agentCfg.InstructionsFile)
 	}
@@ -248,7 +248,7 @@ func TestExtractSkills_InlinesInstructionsButCopiesRefs(t *testing.T) {
 		t.Fatal("expected skill 'tdd' to be in config.Skills")
 	}
 
-	// Instructions must be inlined — not an instructions_file reference
+	// Instructions must be inlined — not an instructions-file reference
 	if skillCfg.InstructionsFile != "" {
 		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", skillCfg.InstructionsFile)
 	}
@@ -497,7 +497,7 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 		t.Errorf("expected skill reference file to be copied to %q: %v", xcfRefPath, err)
 	}
 
-	// .md files must NOT be copied (inline mode — no instructions_file references)
+	// .md files must NOT be copied (inline mode — no instructions-file references)
 	unexpectedMdFiles := []string{
 		filepath.Join(tmp, "xcf", "agents", "dev.md"),
 		filepath.Join(tmp, "xcf", "agents", "reviewer.md"),
@@ -510,7 +510,7 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 		}
 	}
 
-	// Agent .xcf files must contain inline instructions, not instructions_file
+	// Agent .xcf files must contain inline instructions, not instructions-file
 	devXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "agents", "dev.xcf"))
 	require.NoError(t, err)
 	devXcfStr := string(devXcf)

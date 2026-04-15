@@ -622,7 +622,7 @@ func sanitizeFrontmatter(data []byte) []byte {
 }
 
 // injectIntoConfig writes external .md files for each primitive and updates
-// scaffold.xcf with instructions_file: references, following the import.go pattern.
+// scaffold.xcf with instructions-file: references, following the import.go pattern.
 func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.TranslationResult, xcfPath, baseDir string) error {
 	if config.Skills == nil {
 		config.Skills = make(map[string]ast.SkillConfig)

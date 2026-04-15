@@ -123,7 +123,7 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 }
 
 // TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk verifies that
-// instructions_file: paths are resolved correctly from baseDir.
+// instructions-file: paths are resolved correctly from baseDir.
 func TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk(t *testing.T) {
 	dir := t.TempDir()
 	body := "# Style\n\nAlways write clean code."
@@ -151,7 +151,7 @@ func TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk(t *testing.T) {
 }
 
 // TestAntigravityRenderer_Skill_InstructionsFile_ReadsFromDisk verifies that
-// skill bodies sourced from instructions_file: are resolved from baseDir.
+// skill bodies sourced from instructions-file: are resolved from baseDir.
 func TestAntigravityRenderer_Skill_InstructionsFile_ReadsFromDisk(t *testing.T) {
 	dir := t.TempDir()
 	body := "---\nname: Old Name\n---\n\nStep 1: read the code.\nStep 2: ship it."
@@ -183,7 +183,7 @@ func TestAntigravityRenderer_Skill_InstructionsFile_ReadsFromDisk(t *testing.T) 
 }
 
 // TestAntigravityRenderer_Rule_InstructionsFile_TraversalRejected verifies that
-// instructions_file: values that traverse above the project root are rejected.
+// instructions-file: values that traverse above the project root are rejected.
 func TestAntigravityRenderer_Rule_InstructionsFile_TraversalRejected(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
