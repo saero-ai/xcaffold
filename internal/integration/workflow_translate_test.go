@@ -196,7 +196,7 @@ func TestTranslate_AuditOut_ContainsWorkflowLowering(t *testing.T) {
 		require.NoError(t, os.MkdirAll(skillDir, 0o755))
 		require.NoError(t, os.WriteFile(
 			filepath.Join(skillDir, "SKILL.md"),
-			[]byte("---\nname: code-review-0"+string(rune('1'+i))+"-"+step+"\n---\n\n"+strings.Title(step)),
+			[]byte("---\nname: code-review-0"+string(rune('1'+i))+"-"+step+"\n---\n\n"+strings.ToUpper(step[:1])+step[1:]),
 			0o644,
 		))
 	}
