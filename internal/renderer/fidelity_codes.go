@@ -33,6 +33,22 @@ const (
 	// storage target in this renderer. Content was dropped or embedded in a fallback.
 	CodeMemoryNoNativeTarget = "MEMORY_NO_NATIVE_TARGET"
 
+	// CodeMemoryPartialFidelity is emitted when a memory entry is appended to a
+	// single flat file (e.g. GEMINI.md), losing per-entry file granularity.
+	CodeMemoryPartialFidelity = "MEMORY_PARTIAL_FIDELITY"
+
+	// CodeMemoryBodyEmpty is emitted when a memory entry has neither
+	// instructions nor a resolvable instructions-file body.
+	CodeMemoryBodyEmpty = "MEMORY_BODY_EMPTY"
+
+	// CodeMemorySeedSkipped is emitted when a seed-once memory file already
+	// exists on disk and --reseed was not set; the existing file is preserved.
+	CodeMemorySeedSkipped = "MEMORY_SEED_SKIPPED"
+
+	// CodeMemoryIndexUpdateFailed is emitted when writing the MEMORY.md
+	// project index fails but the memory file itself was written successfully.
+	CodeMemoryIndexUpdateFailed = "MEMORY_INDEX_UPDATE_FAILED"
+
 	// CodeWorkflowLoweredToRulePlusSkill is emitted when a workflow was compiled
 	// to a rule + skill pair because the target has no first-class workflow primitive.
 	CodeWorkflowLoweredToRulePlusSkill = "WORKFLOW_LOWERED_TO_RULE_PLUS_SKILL"
@@ -90,6 +106,10 @@ func AllCodes() []string {
 		CodeInstructionsFlattened,
 		CodeInstructionsClosestWinsForcedConcat,
 		CodeMemoryNoNativeTarget,
+		CodeMemoryPartialFidelity,
+		CodeMemoryBodyEmpty,
+		CodeMemorySeedSkipped,
+		CodeMemoryIndexUpdateFailed,
 		CodeWorkflowLoweredToRulePlusSkill,
 		CodeWorkflowLoweredToPromptFile,
 		CodeReservedOutputPathRejected,

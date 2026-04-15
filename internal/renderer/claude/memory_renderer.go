@@ -124,7 +124,7 @@ func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseD
 			"memory",
 			name,
 			"instructions",
-			"MEMORY_BODY_EMPTY",
+			renderer.CodeMemoryBodyEmpty,
 			"memory entry has no instructions or instructions-file content; skipping",
 			"Provide instructions or instructions-file in the .xcf memory entry.",
 		)}, nil
@@ -190,7 +190,7 @@ func (r *MemoryRenderer) applySeedOnce(name, targetPath, content, newHash, lifec
 		"memory",
 		name,
 		"",
-		"MEMORY_SEED_SKIPPED",
+		renderer.CodeMemorySeedSkipped,
 		"file exists; seed-once lifecycle preserves existing content",
 		"use --reseed to overwrite",
 	)}, nil
@@ -252,7 +252,7 @@ func (r *MemoryRenderer) applyTracked(name, targetPath, content, newHash, lifecy
 // before the index update so that drift detection is never compromised by an
 // index-append failure. A failed index update is downgraded to a warning note.
 func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash, lifecycle string) ([]renderer.FidelityNote, error) {
-	if err := os.MkdirAll(r.targetDir, 0o755); err != nil {
+	if err := os.MkdirAll(r.targetDir, 0o700); err != nil {
 		return nil, fmt.Errorf("memory %q: create target dir: %w", name, err)
 	}
 	if err := os.WriteFile(targetPath, []byte(content), 0o600); err != nil {
@@ -278,7 +278,7 @@ func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash, lifecycl
 			"memory",
 			name,
 			"",
-			"MEMORY_INDEX_UPDATE_FAILED",
+			renderer.CodeMemoryIndexUpdateFailed,
 			fmt.Sprintf("failed to update MEMORY.md index: %v", err),
 			"MEMORY.md index is advisory; drift detection unaffected",
 		))

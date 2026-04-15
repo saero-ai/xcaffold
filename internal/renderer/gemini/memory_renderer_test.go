@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -64,6 +65,9 @@ func TestCompileMemory_Gemini_MarkerIdempotent(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dir, "GEMINI.md"))
 	count := strings.Count(string(data), `xcaffold:memory name="user-role"`)
 	require.Equal(t, 1, count, "memory block must appear exactly once after two compiles")
+
+	headerCount := strings.Count(string(data), "## Gemini Added Memories")
+	require.Equal(t, 1, headerCount, "section header must appear exactly once after two compiles")
 }
 
 func TestCompileMemory_Gemini_ProvenanceMarker(t *testing.T) {
@@ -109,7 +113,44 @@ func TestCompileMemory_Gemini_FidelityNoteCode(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, notes, 2, "one note per memory entry")
 	for _, n := range notes {
-		require.Equal(t, "MEMORY_PARTIAL_FIDELITY", n.Code)
+		require.Equal(t, renderer.CodeMemoryPartialFidelity, n.Code)
+	}
+}
+
+func TestCompileMemory_Gemini_EmptyBody_EmitsBothNotes(t *testing.T) {
+	dir := t.TempDir()
+	r := NewMemoryRenderer(dir)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"empty-entry": {
+					Name: "empty-entry",
+					Type: "user",
+					// No instructions or instructions-file — body will be empty.
+				},
+			},
+		},
+	}
+
+	_, notes, err := r.Compile(config, dir)
+	require.NoError(t, err)
+	require.Len(t, notes, 2, "empty-body entry must emit exactly 2 notes")
+
+	codes := make([]string, 0, 2)
+	for _, n := range notes {
+		codes = append(codes, n.Code)
+	}
+	require.Contains(t, codes, "MEMORY_PARTIAL_FIDELITY", "must emit MEMORY_PARTIAL_FIDELITY info note")
+	require.Contains(t, codes, "MEMORY_BODY_EMPTY", "must emit MEMORY_BODY_EMPTY warning note")
+
+	for _, n := range notes {
+		if n.Code == renderer.CodeMemoryPartialFidelity {
+			require.Equal(t, renderer.LevelInfo, n.Level)
+		}
+		if n.Code == renderer.CodeMemoryBodyEmpty {
+			require.Equal(t, renderer.LevelWarning, n.Level)
+		}
 	}
 }
 

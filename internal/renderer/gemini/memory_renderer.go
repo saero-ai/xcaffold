@@ -105,12 +105,22 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 		}
 		if strings.TrimSpace(body) == "" {
 			notes = append(notes, renderer.NewNote(
+				renderer.LevelInfo,
+				"gemini",
+				"memory",
+				name,
+				"",
+				renderer.CodeMemoryPartialFidelity,
+				"Gemini has no native multi-file memory store; entry appended to GEMINI.md, losing per-file granularity",
+				"Review GEMINI.md to confirm context ordering.",
+			))
+			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning,
 				"gemini",
 				"memory",
 				name,
 				"instructions",
-				"MEMORY_BODY_EMPTY",
+				renderer.CodeMemoryBodyEmpty,
 				"memory entry has no instructions or instructions-file content; skipping",
 				"Provide instructions or instructions-file in the .xcf memory entry.",
 			))
@@ -136,14 +146,14 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 			"memory",
 			name,
 			"",
-			"MEMORY_PARTIAL_FIDELITY",
+			renderer.CodeMemoryPartialFidelity,
 			"Gemini has no native multi-file memory store; entry appended to GEMINI.md, losing per-file granularity",
 			"Review GEMINI.md to confirm context ordering.",
 		))
 	}
 
 	// Write GEMINI.md atomically.
-	if err := os.MkdirAll(r.targetDir, 0o755); err != nil {
+	if err := os.MkdirAll(r.targetDir, 0o700); err != nil {
 		return nil, nil, fmt.Errorf("gemini memory: create target dir: %w", err)
 	}
 	if err := os.WriteFile(geminiPath, []byte(content), 0o600); err != nil {
@@ -213,7 +223,7 @@ func removeMemoryBlock(content, name string) string {
 		end = start + end + len(closeMarker)
 
 		// Strip the block plus any immediately trailing newlines.
-		afterBlock := strings.TrimLeft(content[end:], "\n")
+		afterBlock := strings.TrimPrefix(content[end:], "\n")
 		content = content[:start] + afterBlock
 	}
 }
