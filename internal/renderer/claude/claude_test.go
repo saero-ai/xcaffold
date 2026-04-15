@@ -459,7 +459,7 @@ func TestClaudeRenderer_Compile_Skill_ProviderInjectionSafety(t *testing.T) {
 	require.NotContains(t, md, "\nmalicious: true\n")
 }
 
-// ─── Rule activation + fidelity note tests (A7) ──────────────────────────────
+// ─── Rule activation + fidelity note tests ───────────────────────────────────
 
 func TestCompileRuleMarkdown_Activation_PathGlob(t *testing.T) {
 	r := New()
