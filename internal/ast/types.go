@@ -11,6 +11,7 @@ type ResourceScope struct {
 	MCP       map[string]MCPConfig      `yaml:"mcp,omitempty"`
 	Workflows map[string]WorkflowConfig `yaml:"workflows,omitempty"`
 	Policies  map[string]PolicyConfig   `yaml:"policies,omitempty"`
+	Memory    map[string]MemoryConfig   `yaml:"memory,omitempty"` // NEW
 }
 
 // XcaffoldConfig is the root structure of a parsed .xcf YAML file.
@@ -412,6 +413,35 @@ type PolicyDeny struct {
 	PathContains    string   `yaml:"path-contains,omitempty"`
 }
 
+// MemoryConfig defines a named memory entry that is snapshot-imported from a
+// provider's agent-written memory store and seeded into a target provider on apply.
+// Field ordering mirrors the MemoryConfig canonical group ordering:
+//
+//  1. Identity (name, type, description)
+//  2. Lifecycle (lifecycle)
+//  3. Multi-Target (targets)
+//  4. Body (instructions, instructions-file)
+type MemoryConfig struct {
+	// Group 1: Identity
+	Name        string `yaml:"name,omitempty"`
+	Type        string `yaml:"type,omitempty"` // user | feedback | project | reference
+	Description string `yaml:"description,omitempty"`
+
+	// Group 2: Lifecycle
+	Lifecycle string `yaml:"lifecycle,omitempty"` // seed-once (default) | tracked
+
+	// Group 3: Multi-Target
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
+
+	// Group 4: Body (mutually exclusive)
+	Instructions     string `yaml:"instructions,omitempty"`
+	InstructionsFile string `yaml:"instructions-file,omitempty"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
+}
+
 // StripInherited removes all top-level resources that are marked as Inherited=true.
 // This is called before compilation to ensure that resources loaded from
 // extends: global are not physically generated into local project directories.
@@ -440,6 +470,11 @@ func (c *XcaffoldConfig) StripInherited() {
 	for k, v := range c.Workflows {
 		if v.Inherited {
 			delete(c.Workflows, k)
+		}
+	}
+	for k, m := range c.Memory {
+		if m.Inherited {
+			delete(c.Memory, k)
 		}
 	}
 }
