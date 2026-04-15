@@ -198,6 +198,34 @@ func TestBuildXCFContent_IncludesReferencePointer(t *testing.T) {
 	require.Contains(t, content, "xcf/references/agent.xcf.reference")
 }
 
+func TestWriteReferenceTemplates_GeneratesSkillReference(t *testing.T) {
+	tmp := t.TempDir()
+	noReferencesFlag = false
+	require.NoError(t, writeReferenceTemplates(tmp))
+
+	path := filepath.Join(tmp, "xcf", "references", "skill.xcf.reference")
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	body := string(data)
+	require.Contains(t, body, "Skill Kind — Full Field Reference")
+	require.Contains(t, body, "allowed-tools:")
+	require.Contains(t, body, "disable-model-invocation:")
+	require.Contains(t, body, "targets:")
+}
+
+func TestWriteReferenceTemplates_NoReferencesFlag_SkipsSkill(t *testing.T) {
+	tmp := t.TempDir()
+	noReferencesFlag = true
+	t.Cleanup(func() { noReferencesFlag = false })
+
+	require.NoError(t, writeReferenceTemplates(tmp))
+
+	path := filepath.Join(tmp, "xcf", "references", "skill.xcf.reference")
+	_, err := os.Stat(path)
+	require.True(t, os.IsNotExist(err), "skill.xcf.reference should not exist when --no-references is set")
+}
+
 func TestInit_EndToEnd_GeneratesFieldOrderedAgent(t *testing.T) {
 	tmp := t.TempDir()
 

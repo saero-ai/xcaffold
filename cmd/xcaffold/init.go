@@ -528,6 +528,11 @@ func writeReferenceTemplates(baseDir string) error {
 		return fmt.Errorf("failed to write agent reference: %w", err)
 	}
 
+	skillRef := filepath.Join(refDir, "skill.xcf.reference")
+	if err := os.WriteFile(skillRef, []byte(templates.RenderSkillReference()), 0o600); err != nil {
+		return fmt.Errorf("failed to write skill reference: %w", err)
+	}
+
 	return nil
 }
 
