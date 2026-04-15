@@ -446,7 +446,7 @@ func buildXCFContent(ans wizardAnswers) string {
 # Optional: Configure the 'xcaffold test' simulator.
 # test:
 #   cli_path: %q   # Path to CLI binary. Defaults to '%s' on $PATH.
-#   judge_model: %q # Model used for --judge evaluation.
+#   judge-model: %q # Model used for --judge evaluation.
 `, binary, binary, model))
 
 	if !ans.wantAgent {

@@ -41,8 +41,8 @@ version: "1.0"
 agents:
   dev:
     description: Developer
-    permissionMode: plan
-    disallowedTools: [Write]
+    permission-mode: plan
+    disallowed-tools: [Write]
     isolation: container
 `
 	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
@@ -134,7 +134,7 @@ version: "1.0"
 agents:
   dev:
     description: Developer
-    permissionMode: plan
+    permission-mode: plan
 `
 	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
 

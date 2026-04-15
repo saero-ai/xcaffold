@@ -21,7 +21,7 @@ var validateCmd = &cobra.Command{
 
   - YAML syntax and known fields
   - Cross-reference integrity (agent -> skill/rule/MCP IDs exist)
-  - File existence (instructions_file and skill references resolve on disk)
+  - File existence (instructions-file and skill references resolve on disk)
   - Plugin validation (enabledPlugins checked against known registry)
   - Structural invariants (with --structural flag)
 
@@ -149,7 +149,7 @@ func checkOrphanRules(cfg *ast.XcaffoldConfig) []string {
 			continue
 		}
 		if !referenced[ruleID] {
-			warnings = append(warnings, fmt.Sprintf("rule %q is defined but not referenced by any agent and has no paths or alwaysApply", ruleID))
+			warnings = append(warnings, fmt.Sprintf("rule %q is defined but not referenced by any agent and has no paths or always-apply", ruleID))
 		}
 	}
 	return warnings
@@ -159,7 +159,7 @@ func checkMissingInstructions(cfg *ast.XcaffoldConfig) []string {
 	var warnings []string
 	for agentID, agent := range cfg.Agents {
 		if agent.Instructions == "" && agent.InstructionsFile == "" {
-			warnings = append(warnings, fmt.Sprintf("agent %q has no instructions or instructions_file", agentID))
+			warnings = append(warnings, fmt.Sprintf("agent %q has no instructions or instructions-file", agentID))
 		}
 	}
 	return warnings

@@ -34,7 +34,7 @@ severity: error
 target: agent
 require:
   - field: description
-    is_present: true
+    is-present: true
 `
 	xcf := filepath.Join(dir, "scaffold.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
@@ -97,7 +97,7 @@ severity: warning
 target: agent
 require:
   - field: description
-    is_present: true
+    is-present: true
 `
 	xcf := filepath.Join(dir, "scaffold.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))

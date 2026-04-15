@@ -516,7 +516,7 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	devXcfStr := string(devXcf)
 	assert.Contains(t, devXcfStr, "kind: agent")
 	assert.Contains(t, devXcfStr, "instructions:", "agent xcf must have inline instructions")
-	assert.NotContains(t, devXcfStr, "instructions_file:", "agent xcf must not use instructions_file")
+	assert.NotContains(t, devXcfStr, "instructions-file:", "agent xcf must not use instructions-file")
 	assert.Contains(t, devXcfStr, "Write clean, well-tested code", "agent xcf must contain body text")
 }
 
@@ -597,7 +597,7 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(devXcf), "instructions:")
 	assert.Contains(t, string(devXcf), "Dev instructions")
-	assert.NotContains(t, string(devXcf), "instructions_file:")
+	assert.NotContains(t, string(devXcf), "instructions-file:")
 }
 
 func TestDetectAllGlobalPlatformDirs_Empty(t *testing.T) {

@@ -37,13 +37,13 @@ Native Import Mode (Default):
  • Scans .claude/skills/*/SKILL.md → extracts to skills/<id>/SKILL.md
  • Scans .claude/rules/*.md    → extracts to rules/<id>.md
  • Reads .claude/settings.json for MCP and settings context
- • Generates a scaffold.xcf with instructions_file: references
+ • Generates a scaffold.xcf with instructions-file: references
 
 Cross-Platform Translation Mode (--source):
  • Imports agent workflow files from other platforms and decomposes
    them into xcaffold primitives (skills, rules, permissions).
  • Detected intents determine primitive mappings.
- • Results are injected into scaffold.xcf using instructions_file: references.
+ • Results are injected into scaffold.xcf using instructions-file: references.
  • Use --plan to preview the decomposition without writing any files.
 
 Usage:

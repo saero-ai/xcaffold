@@ -39,7 +39,7 @@ skills:
 
 rules:
   style-guide:
-    alwaysApply: true
+    always-apply: true
 
 hooks:
   PreToolUse:
@@ -102,7 +102,7 @@ workflows:
 		t.Error("expected rule 'style-guide' in output")
 	}
 	if !strings.Contains(out, "(always-apply)") {
-		t.Error("expected '(always-apply)' suffix for alwaysApply rule")
+		t.Error("expected '(always-apply)' suffix for always-apply rule")
 	}
 
 	// Hooks section

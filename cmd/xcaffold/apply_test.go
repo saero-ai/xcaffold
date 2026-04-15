@@ -31,7 +31,7 @@ agents:
   dev:
     description: Developer
     model: claude-sonnet-4-5
-    instructions_file: missing-instructions.md
+    instructions-file: missing-instructions.md
 `
 	xcf := filepath.Join(dir, "scaffold.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))

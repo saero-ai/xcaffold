@@ -509,10 +509,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 
 		for id, agent := range config.Agents {
 			if agent.PermissionMode != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q permissionMode %q will be dropped", label, id, agent.PermissionMode))
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", label, id, agent.PermissionMode))
 			}
 			if len(agent.DisallowedTools) > 0 {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowedTools will be dropped — tool restrictions will NOT be enforced", label, id))
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowed-tools will be dropped — tool restrictions will NOT be enforced", label, id))
 			}
 			if agent.Isolation != "" {
 				warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", label, id, agent.Isolation))
