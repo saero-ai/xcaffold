@@ -395,14 +395,14 @@ func marshalGlobalXCF(r *globalScanResult) []byte {
 	buf.WriteString("kind: global\n")
 	buf.WriteString("version: \"1.0\"\n")
 	buf.WriteString("# User-wide agent configuration (auto-discovered).\n\n")
-	buf.WriteString("# All instructions_file paths are absolute so they resolve correctly\n")
+	buf.WriteString("# All instructions-file paths are absolute so they resolve correctly\n")
 	buf.WriteString("# regardless of the current working directory.\n")
 
 	if len(r.agents) > 0 {
 		buf.WriteString("\nagents:\n")
 		for id, a := range r.agents {
 			buf.WriteString("  " + id + ":\n")
-			buf.WriteString("    instructions_file: \"" + a.instructionsFile + "\"\n")
+			buf.WriteString("    instructions-file: \"" + a.instructionsFile + "\"\n")
 		}
 	}
 
@@ -410,7 +410,7 @@ func marshalGlobalXCF(r *globalScanResult) []byte {
 		buf.WriteString("\nskills:\n")
 		for id, s := range r.skills {
 			buf.WriteString("  " + id + ":\n")
-			buf.WriteString("    instructions_file: \"" + s.instructionsFile + "\"\n")
+			buf.WriteString("    instructions-file: \"" + s.instructionsFile + "\"\n")
 		}
 	}
 
@@ -418,7 +418,7 @@ func marshalGlobalXCF(r *globalScanResult) []byte {
 		buf.WriteString("\nrules:\n")
 		for id, ru := range r.rules {
 			buf.WriteString("  " + id + ":\n")
-			buf.WriteString("    instructions_file: \"" + ru.instructionsFile + "\"\n")
+			buf.WriteString("    instructions-file: \"" + ru.instructionsFile + "\"\n")
 		}
 	}
 
@@ -426,7 +426,7 @@ func marshalGlobalXCF(r *globalScanResult) []byte {
 		buf.WriteString("\nworkflows:\n")
 		for id, w := range r.workflows {
 			buf.WriteString("  " + id + ":\n")
-			buf.WriteString("    instructions_file: \"" + w.instructionsFile + "\"\n")
+			buf.WriteString("    instructions-file: \"" + w.instructionsFile + "\"\n")
 		}
 	}
 

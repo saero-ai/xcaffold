@@ -38,7 +38,7 @@ func TestRealData_ImportedAgent_CompilesWithCanonicalFieldOrder(t *testing.T) {
 		t.Skipf("fixture %s not present; skipping", agentPath)
 	}
 
-	// Copy the real agent file into the temp dir so instructions_file can be
+	// Copy the real agent file into the temp dir so instructions-file can be
 	// a relative path (the parser rejects absolute paths in non-global scope).
 	tmp := t.TempDir()
 	fixtureData, err := os.ReadFile(agentPath)
@@ -52,7 +52,7 @@ description: "Backend engineer agent."
 model: sonnet
 effort: high
 tools: [Bash, Read, Write, Edit, Glob, Grep]
-instructions_file: "backend-engineer.md"
+instructions-file: "backend-engineer.md"
 `
 	xcfPath := filepath.Join(tmp, "agent.xcf")
 	require.NoError(t, os.WriteFile(xcfPath, []byte(xcfContent), 0o600))
@@ -89,7 +89,7 @@ instructions_file: "backend-engineer.md"
 }
 
 // TestRealData_AllClaudeAgents_Parse verifies that every real agent md file
-// can be referenced via instructions_file, parsed, and recompiled without
+// can be referenced via instructions-file, parsed, and recompiled without
 // error.
 func TestRealData_AllClaudeAgents_Parse(t *testing.T) {
 	claudeAgents := filepath.Join(realDataPath, ".claude", "agents")
@@ -109,7 +109,7 @@ func TestRealData_AllClaudeAgents_Parse(t *testing.T) {
 		id := strings.TrimSuffix(entry.Name(), ".md")
 
 		t.Run(id, func(t *testing.T) {
-			// Copy the real agent file into a temp dir so instructions_file
+			// Copy the real agent file into a temp dir so instructions-file
 			// can use a relative path (absolute paths are rejected by the parser).
 			tmp := t.TempDir()
 			fixtureData, err := os.ReadFile(agentFile)
@@ -122,7 +122,7 @@ version: "1.0"
 name: ` + id + `
 description: "Real-data validation agent."
 model: sonnet
-instructions_file: "` + localName + `"
+instructions-file: "` + localName + `"
 `
 			xcfPath := filepath.Join(tmp, "agent.xcf")
 			require.NoError(t, os.WriteFile(xcfPath, []byte(xcfContent), 0o600))

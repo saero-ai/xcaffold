@@ -90,7 +90,7 @@ rules:
       Use plural nouns for resource endpoints.
       Return appropriate HTTP status codes (201 for creation, 404 for not found).
       Version APIs via URL prefix (/v1/).
-    alwaysApply: true
+    always-apply: true
 `, projectName, model)
 }
 
@@ -119,7 +119,7 @@ rules:
       Use meaningful exit codes (0 success, 1 user error, 2 system error).
       Support --json flag for machine-readable output where applicable.
       Never prompt for input when stdin is not a TTY.
-    alwaysApply: true
+    always-apply: true
 `, projectName, model)
 }
 
@@ -155,6 +155,6 @@ rules:
     instructions: |
       Use semantic HTML elements. Ensure all interactive elements are keyboard accessible.
       Keep components focused -- one responsibility per component.
-    alwaysApply: true
+    always-apply: true
 `, projectName, model)
 }

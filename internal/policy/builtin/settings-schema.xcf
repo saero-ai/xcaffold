@@ -5,5 +5,5 @@ description: Settings output must not contain null permissions
 severity: error
 target: settings
 deny:
-  - content_contains:
+  - content-contains:
       - "\"permissions\": null"

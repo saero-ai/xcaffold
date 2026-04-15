@@ -5,7 +5,7 @@ description: Compiled output must not contain TODO or FIXME markers
 severity: error
 target: output
 deny:
-  - content_contains:
+  - content-contains:
       - "TODO"
       - "FIXME"
       - "HACK"
