@@ -178,10 +178,21 @@ type SkillConfig struct {
 	Inherited bool `yaml:"-"`
 }
 
+// Rule activation mode values. These are the canonical cross-provider activation
+// modes for the rule kind. Renderers map these to provider-native expressions.
+const (
+	RuleActivationAlways         = "always"
+	RuleActivationPathGlob       = "path-glob"
+	RuleActivationModelDecided   = "model-decided"
+	RuleActivationManualMention  = "manual-mention"
+	RuleActivationExplicitInvoke = "explicit-invoke"
+)
+
 // RuleConfig defines a path-gated formatting guideline.
 type RuleConfig struct {
 	AlwaysApply      *bool    `yaml:"always-apply,omitempty"`
 	Description      string   `yaml:"description,omitempty"`
+	Activation       string   `yaml:"activation,omitempty"`
 	Name             string   `yaml:"name,omitempty"`
 	Instructions     string   `yaml:"instructions,omitempty"`
 	InstructionsFile string   `yaml:"instructions-file,omitempty"`
