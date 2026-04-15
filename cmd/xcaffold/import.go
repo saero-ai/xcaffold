@@ -462,7 +462,11 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 // xcaffold config without writing any files to disk. It mirrors the extraction
 // logic inside importScope but skips the WriteSplitFiles call, making it safe
 // to use as a building block for translate pipelines.
-func buildConfigFromDir(sourceDir string) (*ast.XcaffoldConfig, error) {
+//
+// fromProvider selects provider-specific extraction logic when available (e.g.
+// "antigravity" uses extractAntigravityRules instead of the generic extractor).
+// Pass an empty string to use the generic extractors for all resource types.
+func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, error) {
 	projectName := inferProjectName()
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
@@ -485,11 +489,29 @@ func buildConfigFromDir(sourceDir string) (*ast.XcaffoldConfig, error) {
 	if err := extractSkills(sourceDir, "translate", config, &importCount, &warnings); err != nil {
 		return nil, err
 	}
-	if err := extractRules(sourceDir, "translate", config, &importCount, &warnings); err != nil {
-		return nil, err
+
+	// Use provider-specific rule extractor when available.
+	switch fromProvider {
+	case "antigravity":
+		if err := extractAntigravityRules(sourceDir, config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+	default:
+		if err := extractRules(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
 	}
-	if err := extractWorkflows(sourceDir, "translate", config, &importCount, &warnings); err != nil {
-		return nil, err
+
+	// Extract workflows; for antigravity, parse multi-step markdown sections.
+	switch fromProvider {
+	case "antigravity":
+		if err := extractAntigravityWorkflows(sourceDir, config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+	default:
+		if err := extractWorkflows(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
 	}
 
 	settingsPath := filepath.Join(sourceDir, "settings.json")
@@ -963,6 +985,90 @@ func extractAntigravityRules(dir string, config *ast.XcaffoldConfig, count *int,
 		*count++
 	}
 	return nil
+}
+
+// extractAntigravityWorkflows reads .agents/workflows/*.md files and imports
+// them as WorkflowConfig entries in the xcaffold IR.
+//
+// Each file may contain multiple steps delimited by level-2 headings ("## name").
+// When step headings are present, each heading becomes a named WorkflowStep whose
+// body is the content between that heading and the next. If no step headings are
+// found, the entire file body is treated as a single step, preserving any
+// existing whole-file workflow definition without information loss.
+func extractAntigravityWorkflows(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	wfFiles, _ := filepath.Glob(filepath.Join(dir, "workflows", "*.md"))
+	for _, f := range wfFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping antigravity workflow %s: %v", f, err))
+			continue
+		}
+		id := strings.TrimSuffix(filepath.Base(f), ".md")
+		if id == "" {
+			continue
+		}
+
+		body := extractBodyAfterFrontmatter(data)
+		steps := splitMarkdownH2Sections(body)
+
+		wfCfg := ast.WorkflowConfig{Description: "Imported antigravity workflow"}
+		if fm, ok := extractFrontmatter(data); ok {
+			if unmarshalErr := yaml.Unmarshal(fm, &wfCfg); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
+			wfCfg.InstructionsFile = ""
+		}
+
+		if len(steps) > 0 {
+			wfCfg.Steps = steps
+			wfCfg.Instructions = ""
+		} else {
+			wfCfg.Instructions = body
+		}
+
+		if config.Workflows == nil {
+			config.Workflows = make(map[string]ast.WorkflowConfig)
+		}
+		config.Workflows[id] = wfCfg
+		*count++
+	}
+	return nil
+}
+
+// splitMarkdownH2Sections splits a markdown body on level-2 headings ("## title")
+// and returns a slice of WorkflowStep values. If the body contains no H2
+// headings, nil is returned so callers can fall back to treating the file as a
+// single-step workflow.
+func splitMarkdownH2Sections(body string) []ast.WorkflowStep {
+	lines := strings.Split(body, "\n")
+	var steps []ast.WorkflowStep
+	var currentName string
+	var currentLines []string
+
+	flush := func() {
+		if currentName == "" {
+			return
+		}
+		stepBody := strings.TrimSpace(strings.Join(currentLines, "\n"))
+		steps = append(steps, ast.WorkflowStep{
+			Name:         currentName,
+			Instructions: stepBody,
+		})
+	}
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "## ") {
+			flush()
+			currentName = strings.TrimSpace(strings.TrimPrefix(line, "## "))
+			currentLines = nil
+			continue
+		}
+		if currentName != "" {
+			currentLines = append(currentLines, line)
+		}
+	}
+	flush()
+	return steps
 }
 
 // parseAntigravityProvenance extracts activation and optional paths from

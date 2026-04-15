@@ -231,7 +231,8 @@ func TestTranslate_AuditOut_ContainsWorkflowLowering(t *testing.T) {
 }
 
 // TestTranslate_WorkflowLowering_RulePlusSkill_EndToEnd verifies that the translate
-// command processes workflow-lowered artifacts (rule + per-step skills) without error.
+// command processes workflow-lowered artifacts (rule + per-step skills) and writes
+// them to the correct provider-prefixed output paths.
 func TestTranslate_WorkflowLowering_RulePlusSkill_EndToEnd(t *testing.T) {
 	bin := buildTranslateBinary(t)
 
@@ -254,7 +255,7 @@ x-xcaffold:
 
 # Code Review Workflow
 
-Analyze → Lint → Summarize pipeline for pull request reviews.
+Analyze -> Lint -> Summarize pipeline for pull request reviews.
 `
 	require.NoError(t, os.WriteFile(
 		filepath.Join(rulesDir, "code-review-workflow.md"),
@@ -286,7 +287,7 @@ Perform ` + step + ` checks on code changes.
 
 	dstDir := t.TempDir()
 
-	// Run translate.
+	// Run translate: claude -> antigravity, source-dir is the PROJECT ROOT.
 	cmd := exec.Command(
 		bin,
 		"translate",
@@ -295,11 +296,10 @@ Perform ` + step + ` checks on code changes.
 		"--source-dir", srcDir,
 		"--output-dir", dstDir,
 	)
-	err := cmd.Run()
-	require.NoError(t, err, "translate must succeed with workflow-lowered source files")
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "translate must succeed with workflow-lowered source files:\n%s", out)
 
-	// Verify source files are still intact (not modified by translate).
-	// This ensures the command can handle workflow artifacts without error.
+	// Source files must be intact (translate is non-destructive).
 	ruleSource := filepath.Join(rulesDir, "code-review-workflow.md")
 	_, err = os.Stat(ruleSource)
 	require.NoError(t, err, "source rule file must still exist after translate")
@@ -314,4 +314,74 @@ Perform ` + step + ` checks on code changes.
 		_, err := os.Stat(skillPath)
 		require.NoError(t, err, "source skill file must still exist after translate: %s", skillPath)
 	}
+
+	// Output files must be written under .agents/ (antigravity's output prefix).
+	// The rule imported from .claude/rules/ should appear under .agents/rules/.
+	ruleOut := filepath.Join(dstDir, ".agents", "rules", "code-review-workflow.md")
+	data, err := os.ReadFile(ruleOut)
+	require.NoError(t, err, "translated rule must exist at %s", ruleOut)
+	require.NotEmpty(t, data, "translated rule file must not be empty")
+}
+
+// TestTranslate_AntigravityToClaude_WritesFilesWithProviderPrefix verifies that
+// translate resolves the provider scope directory from the project root (Gap 1)
+// and writes output files under the correct provider prefix (Gap 2).
+func TestTranslate_AntigravityToClaude_WritesFilesWithProviderPrefix(t *testing.T) {
+	bin := buildTranslateBinary(t)
+
+	// Build the source tree:
+	//   <srcRoot>/.agents/workflows/code-review.md   — antigravity native layout
+	srcRoot := t.TempDir()
+	wfDir := filepath.Join(srcRoot, ".agents", "workflows")
+	require.NoError(t, os.MkdirAll(wfDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(wfDir, "code-review.md"),
+		[]byte("## analyze\nRead the diff.\n\n## lint\nCheck style.\n\n## summarize\nWrite review.\n"),
+		0o644,
+	))
+
+	dstDir := t.TempDir()
+
+	// --source-dir points at the PROJECT ROOT, not at .agents/.
+	cmd := exec.Command(
+		bin,
+		"translate",
+		"--from", "antigravity",
+		"--to", "claude",
+		"--source-dir", srcRoot,
+		"--output-dir", dstDir,
+	)
+	combinedOut, err := cmd.CombinedOutput()
+	require.NoError(t, err, "translate antigravity->claude must succeed:\n%s", combinedOut)
+
+	// The workflow should appear as a rule under .claude/rules/.
+	ruleOut := filepath.Join(dstDir, ".claude", "rules", "code-review-workflow.md")
+	data, err := os.ReadFile(ruleOut)
+	require.NoError(t, err,
+		"workflow rule must be written to %s\nactual dst contents:\n%s",
+		ruleOut, listDir(t, dstDir))
+	require.Contains(t, string(data), "x-xcaffold:",
+		"translated rule must contain x-xcaffold provenance marker")
+	require.Contains(t, string(data), "compiled-from: workflow",
+		"translated rule must contain compiled-from: workflow marker")
+}
+
+// listDir is a test helper that walks a directory tree and returns a formatted
+// listing for diagnostic messages.
+func listDir(t *testing.T, root string) string {
+	t.Helper()
+	var sb strings.Builder
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		rel, _ := filepath.Rel(root, path)
+		if info.IsDir() {
+			sb.WriteString(rel + "/\n")
+		} else {
+			sb.WriteString(rel + "\n")
+		}
+		return nil
+	})
+	return sb.String()
 }

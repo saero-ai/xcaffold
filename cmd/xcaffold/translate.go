@@ -219,6 +219,26 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 
 	// Phase 3: Apply.
 	//
+	// compiler.Compile returns paths relative to the provider output dir
+	// (e.g. "rules/X.md", "skills/Y/SKILL.md"). Rewrite the map keys to
+	// include the provider prefix (.claude, .agents, …) so that every path
+	// used below — dry-run listing, diff, idempotent-check, and write —
+	// reflects the final on-disk layout.
+	//
+	// When --output-dir is set the user controls the destination root; we
+	// still prepend the provider subdir so files land at
+	// <output-dir>/<prefix>/<relPath>. When --output-dir is unset we
+	// fall back to <baseDir> and omit the extra prefix (the outDir already
+	// incorporates it via compiler.OutputDir).
+	prefix := compiler.OutputDir(translateTo)
+	if translateOutputDir != "" {
+		prefixed := make(map[string]string, len(files))
+		for relPath, content := range files {
+			prefixed[filepath.Join(prefix, relPath)] = content
+		}
+		files = prefixed
+	}
+
 	// Precedence: --dry-run > --diff > --idempotent-check > write.
 
 	if translateDryRun {
@@ -247,7 +267,7 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 	// Write files to disk.
 	outDir := translateOutputDir
 	if outDir == "" {
-		outDir = filepath.Join(baseDir, compiler.OutputDir(translateTo))
+		outDir = filepath.Join(baseDir, prefix)
 	}
 
 	for relPath, content := range files {
@@ -377,12 +397,37 @@ func translateImport() (*ast.XcaffoldConfig, error) {
 	return importFromSource(srcDir, translateFrom)
 }
 
+// providerScopeSubdir maps a provider name to its conventional config
+// subdirectory within a project root. When a user passes --source-dir pointing
+// at the project root, we descend into this subdir before scanning.
+var providerScopeSubdir = map[string]string{
+	"claude":      ".claude",
+	"antigravity": ".agents",
+	"cursor":      ".cursor",
+	"gemini":      ".gemini",
+	"copilot":     ".github",
+}
+
+// resolveScopeDir resolves the actual scope directory for a given provider and
+// source directory. If the conventional subdirectory exists under sourceDir, it
+// is returned; otherwise sourceDir is assumed to already point at the scope.
+func resolveScopeDir(sourceDir, provider string) string {
+	if sub, ok := providerScopeSubdir[provider]; ok {
+		candidate := filepath.Join(sourceDir, sub)
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate
+		}
+	}
+	return sourceDir
+}
+
 // importFromSource scans a provider source directory and returns an xcaffold
 // IR config without writing any files to disk.
-func importFromSource(sourceDir, _ string) (*ast.XcaffoldConfig, error) {
-	config, err := buildConfigFromDir(sourceDir)
+func importFromSource(sourceDir, fromProvider string) (*ast.XcaffoldConfig, error) {
+	scopeDir := resolveScopeDir(sourceDir, fromProvider)
+	config, err := buildConfigFromDir(scopeDir, fromProvider)
 	if err != nil {
-		return nil, fmt.Errorf("scanning source directory %q: %w", sourceDir, err)
+		return nil, fmt.Errorf("scanning source directory %q: %w", scopeDir, err)
 	}
 	return config, nil
 }
