@@ -61,7 +61,7 @@ validation passed
 
 Rules and skills are defined alongside agents inside the `project:` block — as sibling maps to `agents:`. They form a shared library that agents reference by ID. They are compiled into separate files under `.claude/rules/` and `.claude/skills/` respectively.
 
-**Rules** enforce behavioral constraints. A rule with `paths:` activates only when the agent reads or writes matching file patterns. A rule with `alwaysApply: true` is injected regardless of context.
+**Rules** enforce behavioral constraints. A rule with `paths:` activates only when the agent reads or writes matching file patterns. A rule with `always-apply: true` is injected regardless of context.
 
 **Skills** are reusable prompt packages. They are compiled to `skills/<id>/SKILL.md` and loaded when an agent invokes them.
 
@@ -99,7 +99,7 @@ instructions: |
 model: "claude-sonnet-4-6"
 effort: "high"
 tools: [Read, Glob, Grep]
-disallowedTools: [Write, Edit, Bash]
+disallowed-tools: [Write, Edit, Bash]
 rules: ["security-review-protocol"]
 
 ---
@@ -113,7 +113,7 @@ paths: ["src/components/**", "src/pages/**"]
 kind: rule
 version: "1.0"
 name: security-review-protocol
-alwaysApply: true
+always-apply: true
 instructions: |
   Always output a structured JSON report.
   [CRITICAL], [HIGH], [MEDIUM], [LOW] severity must be explicitly labeled.
@@ -123,13 +123,13 @@ kind: skill
 version: "1.0"
 name: component-patterns
 description: "React component pattern library reference."
-instructions_file: "skills/component-patterns/SKILL.md"
+instructions-file: "skills/component-patterns/SKILL.md"
 ```
 
 Key points:
-- `disallowedTools` (lowercase `d`) is the YAML key. It corresponds to the `DisallowedTools` field in the Go AST.
+- `disallowed-tools` (lowercase `d`) is the YAML key. It corresponds to the `DisallowedTools` field in the Go AST.
 - `skills:` and `rules:` on each agent are lists of IDs — the compiler resolves them from the top-level library of `kind: skill` and `kind: rule` documents.
-- The `component-patterns` skill references `instructions_file:`. That file must exist on disk relative to `scaffold.xcf` before you run `apply`.
+- The `component-patterns` skill references `instructions-file:`. That file must exist on disk relative to `scaffold.xcf` before you run `apply`.
 
 ### Split-file alternative
 
@@ -205,7 +205,7 @@ syntax and cross-references: ok
 validation passed
 ```
 
-Now add a rule that has no `paths:`, no `alwaysApply: true`, and is not referenced by any agent, to see what a structural warning looks like. Append this document to your `scaffold.xcf`:
+Now add a rule that has no `paths:`, no `always-apply: true`, and is not referenced by any agent, to see what a structural warning looks like. Append this document to your `scaffold.xcf`:
 
 ```yaml
 ---
@@ -222,7 +222,7 @@ $ xcaffold validate --structural
 syntax and cross-references: ok
 
 structural warnings:
-  - rule "orphan-rule" is defined but not referenced by any agent and has no paths or alwaysApply
+  - rule "orphan-rule" is defined but not referenced by any agent and has no paths or always-apply
 
 validation passed
 ```
@@ -234,8 +234,8 @@ The warning format strings the compiler uses:
 | Condition | Warning |
 |---|---|
 | Skill defined, no agent references it | `skill %q is defined but not referenced by any agent` |
-| Rule with no paths, no alwaysApply, no agent reference | `rule %q is defined but not referenced by any agent and has no paths or alwaysApply` |
-| Agent with no instructions or instructions_file | `agent %q has no instructions or instructions_file` |
+| Rule with no paths, no always-apply, no agent reference | `rule %q is defined but not referenced by any agent and has no paths or always-apply` |
+| Agent with no instructions or instructions-file | `agent %q has no instructions or instructions-file` |
 | Agent with Bash, no PreToolUse hook | `agent %q has Bash tool but no PreToolUse hook for command validation` |
 
 The `frontend-dev` agent has `Bash` in its tool list. Once you run `validate --structural` on the final config, you will see the hook warning. That is expected here; a production workspace should add a `PreToolUse` hook to validate Bash commands before execution.
@@ -302,21 +302,21 @@ Use `--format mermaid` or `--format dot` to generate embeddable diagrams for doc
 
 ### Checking the `cursor` target
 
-The `cursor` target does not have a native concept of disallowed tools. Any `disallowedTools` declared on an agent is silently dropped during compilation. `--check-permissions` surfaces this before you apply.
+The `cursor` target does not have a native concept of disallowed tools. Any `disallowed-tools` declared on an agent is silently dropped during compilation. `--check-permissions` surfaces this before you apply.
 
 ```
 $ xcaffold apply --check-permissions --target cursor
 ```
 
 ```
-[WARNING] cursor: agent "security-reviewer" disallowedTools will be dropped — tool restrictions will NOT be enforced
+[WARNING] cursor: agent "security-reviewer" disallowed-tools will be dropped — tool restrictions will NOT be enforced
 [WARNING] cursor: settings.permissions will be dropped — no enforcement equivalent
 [WARNING] cursor: settings.sandbox will be dropped — no sandbox model
 ```
 
 The second and third warnings only appear if your config has `settings.permissions` or `settings.sandbox` blocks. In this tutorial's config they do not exist, so only the first warning appears. The output above shows all possible cursor warnings for reference.
 
-The key warning for this config is the first one: the `security-reviewer` is declared as read-only via `disallowedTools`, but that declaration has no effect when compiled for `cursor`. An agent that appears constrained in your YAML source has full tool access in the compiled output.
+The key warning for this config is the first one: the `security-reviewer` is declared as read-only via `disallowed-tools`, but that declaration has no effect when compiled for `cursor`. An agent that appears constrained in your YAML source has full tool access in the compiled output.
 
 ### Checking the `claude` target
 
@@ -328,7 +328,7 @@ $ xcaffold apply --check-permissions --target claude
 [INFO]    claude: all security fields are supported
 ```
 
-The `claude` target enforces `disallowedTools` at runtime. The `security-reviewer`'s restrictions are compiled into the agent file and respected.
+The `claude` target enforces `disallowed-tools` at runtime. The `security-reviewer`'s restrictions are compiled into the agent file and respected.
 
 The `--check-permissions` flag exits `0` when only warnings are present, and non-zero when errors are found. Errors occur when a `settings.permissions.deny` rule conflicts with a tool in an agent's `tools:` list.
 
@@ -375,7 +375,7 @@ description: Read-only security audit agent.
 model: claude-sonnet-4-6
 effort: high
 tools: [Read, Glob, Grep]
-disallowedTools: [Write, Edit, Bash]
+disallowed-tools: [Write, Edit, Bash]
 rules: [security-review-protocol]
 ---
 
@@ -383,7 +383,7 @@ You review code for security vulnerabilities.
 Never modify files. Only read and report.
 ```
 
-The two files share the same model and effort settings, but their tool lists are entirely different. `frontend-dev` has `Write`, `Edit`, and `Bash`; `security-reviewer` does not and additionally has those three tools listed under `disallowedTools`. That field is enforced by the runtime, not just advisory. Rules are compiled to separate files under `.claude/rules/` — agent files reference them by ID in the `rules:` frontmatter field rather than inlining their content.
+The two files share the same model and effort settings, but their tool lists are entirely different. `frontend-dev` has `Write`, `Edit`, and `Bash`; `security-reviewer` does not and additionally has those three tools listed under `disallowed-tools`. That field is enforced by the runtime, not just advisory. Rules are compiled to separate files under `.claude/rules/` — agent files reference them by ID in the `rules:` frontmatter field rather than inlining their content.
 
 The SHA-256 hash on each write line is recorded in `scaffold.claude.lock`. On the next `apply`, xcaffold compares source hashes and skips compilation if nothing changed. If you manually edit a compiled file, the next `apply` will detect drift and abort unless you pass `--force`.
 

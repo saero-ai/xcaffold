@@ -43,7 +43,7 @@ tools: [Bash, Read, Write, Edit, Glob, Grep]
 kind: rule
 version: "1.0"
 name: code-style
-alwaysApply: true
+always-apply: true
 instructions: "Use 2-space indentation. No semicolons in TypeScript."
 ```
 
@@ -98,7 +98,7 @@ tools: [Bash, Read, Write, Edit, Glob, Grep]
 kind: rule
 version: "1.0"
 name: code-style
-alwaysApply: true
+always-apply: true
 instructions: "Use 2-space indentation. No semicolons in TypeScript."
 ```
 

@@ -50,7 +50,7 @@ targets:
 # Optional: Configure the 'xcaffold test' simulator.
 # test:
 #   cli_path: "claude"   # Path to CLI binary. Defaults to 'claude' on $PATH.
-#   judge_model: "claude-sonnet-4-6" # Model used for --judge evaluation.
+#   judge-model: "claude-sonnet-4-6" # Model used for --judge evaluation.
 
 ---
 kind: agent

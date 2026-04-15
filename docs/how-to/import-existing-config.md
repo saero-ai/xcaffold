@@ -78,7 +78,7 @@ instructions: |
   Write clean, tested code. Run tests before committing.
 ```
 
-The `instructions_file:` field is cleared during import — the body is always inlined. This makes the `.xcf` file self-contained.
+The `instructions-file:` field is cleared during import — the body is always inlined. This makes the `.xcf` file self-contained.
 
 ---
 

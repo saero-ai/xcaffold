@@ -86,7 +86,7 @@ project/
 
 ### Inline Instructions in `.xcf` Files
 
-Use inline `instructions:` as the default. Self-contained `.xcf` files are easier to review, move, and reason about. `xcaffold import` generates inline instructions by default. `instructions_file:` exists for backward compatibility but is not the recommended approach for new configurations.
+Use inline `instructions:` as the default. Self-contained `.xcf` files are easier to review, move, and reason about. `xcaffold import` generates inline instructions by default. `instructions-file:` exists for backward compatibility but is not the recommended approach for new configurations.
 
 ### Declare Targets in `kind: project`
 

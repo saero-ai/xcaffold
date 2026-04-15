@@ -55,7 +55,7 @@ Project-level metadata and child resource references. Exactly one `project` docu
 | `homepage` | `string` | Optional | Project homepage URL. |
 | `repository` | `string` | Optional | Source repository URL. |
 | `license` | `string` | Optional | SPDX license identifier. |
-| `backup_dir` | `string` | Optional | Custom directory for `--backup` output. Default: `.<target>_bak_<timestamp>` in project root. |
+| `backup-dir` | `string` | Optional | Custom directory for `--backup` output. Default: `.<target>_bak_<timestamp>` in project root. |
 | `targets` | `[]string` | Optional | Compilation targets (e.g. `["claude", "cursor"]`). |
 | `agents` | `[]string` | Optional | Bare names of child agent `.xcf` files to include. |
 | `skills` | `[]string` | Optional | Bare names of child skill `.xcf` files to include. |
@@ -71,8 +71,8 @@ Project-level metadata and child resource references. Exactly one `project` docu
 | Field | Type | Description |
 |---|---|---|
 | `cli_path` | `string` | Path to the CLI binary (e.g. `claude`, `cursor`). Defaults to `claude` on `$PATH`. |
-| `claude_path` | `string` | **Deprecated.** Use `cli_path`. Retained for backward compatibility. |
-| `judge_model` | `string` | Generative model for LLM-as-a-Judge evaluation. |
+| `cli-path` | `string` | **Deprecated.** Use `cli_path`. Retained for backward compatibility. |
+| `judge-model` | `string` | Generative model for LLM-as-a-Judge evaluation. |
 
 ### Example
 
@@ -95,7 +95,7 @@ rules:
   - testing
 test:
   cli_path: claude
-  judge_model: claude-haiku-4-5-20251001
+  judge-model: claude-haiku-4-5-20251001
 ```
 
 ---
@@ -110,22 +110,22 @@ Agent persona definition. Each agent is keyed by `name` and compiled to a markdo
 | `version` | `string` | **Required** | Schema version. |
 | `name` | `string` | **Required** | Agent identifier. Used as the map key and output filename. |
 | `description` | `string` | Optional | Short description shown in graph output and agent headers. |
-| `instructions` | `string` | Optional | Inline instruction body. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
+| `instructions` | `string` | Optional | Inline instruction body. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
 | `model` | `string` | Optional | Model override (e.g. `claude-sonnet-4-20250514`). |
 | `effort` | `string` | Optional | Effort level override. |
 | `memory` | `string` | Optional | Memory directory path for this agent. |
-| `maxTurns` | `int` | Optional | Maximum conversation turns. |
-| `permissionMode` | `string` | Optional | Permission mode for the agent session. |
+| `max-turns` | `int` | Optional | Maximum conversation turns. |
+| `permission-mode` | `string` | Optional | Permission mode for the agent session. |
 | `isolation` | `string` | Optional | Isolation mode. |
 | `mode` | `string` | Optional | Agent mode. |
 | `when` | `string` | Optional | Condition for when the agent is available. |
 | `color` | `string` | Optional | Display color in UI. |
-| `initialPrompt` | `string` | Optional | Prompt sent automatically when the agent starts. |
+| `initial-prompt` | `string` | Optional | Prompt sent automatically when the agent starts. |
 | `readonly` | `*bool` | Optional | When `true`, agent cannot write files. |
 | `background` | `*bool` | Optional | When `true`, agent runs in the background. |
 | `tools` | `[]string` | Optional | Allowed tool names. |
-| `disallowedTools` | `[]string` | Optional | Explicitly denied tool names. |
+| `disallowed-tools` | `[]string` | Optional | Explicitly denied tool names. |
 | `skills` | `[]string` | Optional | Skill IDs this agent can invoke. Must resolve to defined skills. |
 | `rules` | `[]string` | Optional | Rule IDs applied to this agent. Must resolve to defined rules. |
 | `mcp` | `[]string` | Optional | MCP server IDs available to this agent. Must resolve to defined MCP servers. |
@@ -163,7 +163,7 @@ skills:
   - tdd
 rules:
   - testing
-maxTurns: 25
+max-turns: 25
 ```
 
 ---
@@ -178,8 +178,8 @@ Reusable prompt package. Compiled to a directory with a `SKILL.md` file and opti
 | `version` | `string` | **Required** | Schema version. |
 | `name` | `string` | **Required** | Skill identifier. |
 | `description` | `string` | Optional | Short description of the skill's purpose. |
-| `instructions` | `string` | Optional | Inline skill instructions. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
+| `instructions` | `string` | Optional | Inline skill instructions. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
 | `tools` | `[]string` | Optional | Tools this skill requires. |
 | `references` | `[]string` | Optional | Doc/data files copied to `skills/<id>/references/` at compile time. |
 | `scripts` | `[]string` | Optional | Executable helpers copied to `skills/<id>/scripts/` at compile time. |
@@ -215,9 +215,9 @@ Path-gated formatting guideline. Compiled to a markdown file under the target's 
 | `version` | `string` | **Required** | Schema version. |
 | `name` | `string` | **Required** | Rule identifier. |
 | `description` | `string` | Optional | Short description of the rule. |
-| `instructions` | `string` | Optional | Inline rule body. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
-| `alwaysApply` | `*bool` | Optional | When `true`, rule applies to all files regardless of `paths`. When omitted, inherits platform default. |
+| `instructions` | `string` | Optional | Inline rule body. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
+| `always-apply` | `*bool` | Optional | When `true`, rule applies to all files regardless of `paths`. When omitted, inherits platform default. |
 | `paths` | `[]string` | Optional | Glob patterns restricting which files this rule applies to. |
 
 ### Example
@@ -227,7 +227,7 @@ kind: rule
 version: "1.0"
 name: testing
 description: Go testing conventions
-alwaysApply: false
+always-apply: false
 paths:
   - "**/*_test.go"
 instructions: |
@@ -247,8 +247,8 @@ Named reusable workflow. Compiled for targets that support workflows (e.g. Antig
 | `version` | `string` | **Required** | Schema version. |
 | `name` | `string` | **Required** | Workflow identifier. |
 | `description` | `string` | Optional | Short description. |
-| `instructions` | `string` | Optional | Inline workflow instructions. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
+| `instructions` | `string` | Optional | Inline workflow instructions. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
 
 ### Example
 

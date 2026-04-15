@@ -99,7 +99,7 @@ kind: skill
 version: "1.0"
 name: component-builder
 description: "Builds React components"
-instructions_file: skills/component-builder.md
+instructions-file: skills/component-builder.md
 ```
 
 **`xcf/rules/code-style.xcf`:**
@@ -109,7 +109,7 @@ kind: rule
 version: "1.0"
 name: code-style
 description: "House coding standards"
-instructions_file: rules/code-style.md
+instructions-file: rules/code-style.md
 ```
 
 **`xcf/mcp/filesystem.xcf`:**
@@ -176,7 +176,7 @@ Resolve the conflict by removing the duplicate or renaming one of the IDs before
 
 ## Path resolution and path safety
 
-`instructions_file` and `references` paths resolve **relative to the root scan directory** — the directory passed to `ParseDirectory()`, which is determined once by `apply.go` as `filepath.Dir(configPath)`. All `.xcf` files in the scan share this same base directory, regardless of which file declares a given resource.
+`instructions-file` and `references` paths resolve **relative to the root scan directory** — the directory passed to `ParseDirectory()`, which is determined once by `apply.go` as `filepath.Dir(configPath)`. All `.xcf` files in the scan share this same base directory, regardless of which file declares a given resource.
 
 > **Path safety:** `..` traversal is rejected. A path like `../../shared/instructions.md` will fail at compile time with a path traversal error. All paths must resolve within or below the root scan directory.
 
@@ -194,12 +194,12 @@ The declaration in `skills.xcf`:
 ```yaml
 skills:
   component-builder:
-    instructions_file: skills/component-builder.md
+    instructions-file: skills/component-builder.md
 ```
 
 resolves to `myproject/skills/component-builder.md` — the root scan directory (`myproject/`), which is the same base used by every `.xcf` file in the project.
 
-Because `FindXCFFiles` scans recursively, `.xcf` files in subdirectories are included in the merge. However, their `instructions_file` paths still resolve relative to the root scan directory, not relative to the subdirectory. Keep this in mind when reorganizing files.
+Because `FindXCFFiles` scans recursively, `.xcf` files in subdirectories are included in the merge. However, their `instructions-file` paths still resolve relative to the root scan directory, not relative to the subdirectory. Keep this in mind when reorganizing files.
 
 ---
 

@@ -49,7 +49,7 @@ Also generates `xcf/references/` — an annotated, non-parsed reference template
 Two distinct modes:
 
 **Native Import Mode (default):**
-Scans a platform directory (`.claude/`, `.cursor/`, `.agents/`) and writes a `scaffold.xcf` referencing the existing files via `instructions_file:` with zero file duplication. Reads `settings.json` and `hooks.json`. If multiple platform directories are detected, merges them using a larger-file-wins deduplication strategy.
+Scans a platform directory (`.claude/`, `.cursor/`, `.agents/`) and writes a `scaffold.xcf` referencing the existing files via `instructions-file:` with zero file duplication. Reads `settings.json` and `hooks.json`. If multiple platform directories are detected, merges them using a larger-file-wins deduplication strategy.
 
 With `--global`, scans all provider directories under the user's home (`~/.claude/`, `~/.cursor/`, `~/.agents/`) and writes `~/.xcaffold/global.xcf`. All discovered providers are merged.
 
@@ -139,7 +139,7 @@ Compiles `scaffold.xcf` (or a directory of `.xcf` files) into a target platform'
 | `--check` | `false` | Validate YAML syntax and cross-references only. Does not compile. Returns non-zero exit code if any errors are found. |
 | `--check-permissions` | `false` | Report security fields that will be dropped for the active `--target`. Exits non-zero if contradictions are found (e.g., a tool in `permissions.deny` also appears in an agent's `tools` list). |
 | `--force` | `false` | Overwrite even if drift is detected or sources are unchanged. |
-| `--backup` | `false` | Copy the existing output directory to a timestamped backup before overwriting. Backup directory name: `.<target>_bak_<timestamp>`. Custom location via `project.backup_dir` in `scaffold.xcf`. |
+| `--backup` | `false` | Copy the existing output directory to a timestamped backup before overwriting. Backup directory name: `.<target>_bak_<timestamp>`. Custom location via `project.backup-dir` in `scaffold.xcf`. |
 | `--project <name>` | `""` | Apply to a different project registered in the global registry by name. Resolves the project's path and uses it as the config root. |
 
 ---
@@ -185,7 +185,7 @@ With `--judge`, sends the trace and the agent's `assertions` list to an LLM for 
 
 **Task resolution:** Uses `test.task` from `scaffold.xcf`. If unset, defaults to `"Describe what tools you have available and what you would do first."`.
 
-**CLI path resolution (judge fallback only):** `--cli-path` flag > `test.cli_path` in `scaffold.xcf` > `test.claude_path` (deprecated) > `claude` on `$PATH`.
+**CLI path resolution (judge fallback only):** `--cli-path` flag > `test.cli_path` in `scaffold.xcf` > `test.cli-path` (deprecated) > `claude` on `$PATH`.
 
 **Auth resolution order (simulation and judge):**
 1. `XCAFFOLD_LLM_API_KEY` + `XCAFFOLD_LLM_BASE_URL`
@@ -198,7 +198,7 @@ With `--judge`, sends the trace and the agent's `assertions` list to an LLM for 
 | `--judge` | — | `false` | Run LLM-as-a-Judge evaluation after simulation. Evaluates against `agents.<id>.assertions`. |
 | `--output <path>` | `-o` | `trace.jsonl` | Path for the execution trace output. |
 | `--cli-path <path>` | — | `""` | Path to the CLI binary used as judge subscription fallback. Overrides `test.cli_path` in `scaffold.xcf`. |
-| `--judge-model <model>` | — | `""` | Model for judge evaluation. Overrides `test.judge_model`. Falls back to `claude-haiku-4-5-20251001`. |
+| `--judge-model <model>` | — | `""` | Model for judge evaluation. Overrides `test.judge-model`. Falls back to `claude-haiku-4-5-20251001`. |
 
 ---
 
@@ -225,13 +225,13 @@ Compiles `scaffold.xcf` and packages the output as a distributable plugin direct
 Validates `scaffold.xcf` without compiling. Checks:
 1. YAML syntax and known fields (fail-closed parser — unknown fields are an error)
 2. Cross-reference integrity: agent `skills:`, `rules:`, `mcp:` IDs must resolve to top-level map keys
-3. File existence: `instructions_file` and `references` paths must resolve on disk
-4. Tool validation: agent `tools` and `disallowedTools` entries checked against a known registry (includes `Task`, `Computer`, `AskUserQuestion`, `Agent`, `ExitPlanMode`, `EnterPlanMode`)
+3. File existence: `instructions-file` and `references` paths must resolve on disk
+4. Tool validation: agent `tools` and `disallowed-tools` entries checked against a known registry (includes `Task`, `Computer`, `AskUserQuestion`, `Agent`, `ExitPlanMode`, `EnterPlanMode`)
 
 With `--structural`, additionally checks:
 - Orphan skills (defined but not referenced by any agent)
-- Orphan rules (defined, not referenced, no `paths`, no `alwaysApply: true`)
-- Agents with no `instructions` or `instructions_file`
+- Orphan rules (defined, not referenced, no `paths`, no `always-apply: true`)
+- Agents with no `instructions` or `instructions-file`
 - Agents with `Bash` in `tools` but no `PreToolUse` hook
 
 Exit code `0` means valid. Non-zero means errors found.
@@ -286,8 +286,8 @@ Applies schema version upgrades and layout migrations. Safe to run repeatedly (i
 
 **Operations (in order):**
 
-1. **Schema `1.0 → 1.1`**: Copies `test.claude_path` to `test.cli_path` and clears the deprecated field. Writes a `.bak` backup before overwriting.
+1. **Schema `1.0 → 1.1`**: Copies `test.cli-path` to `test.cli_path` and clears the deprecated field. Writes a `.bak` backup before overwriting.
 2. **Global scope migration**: Moves `~/.claude/global.xcf` → `~/.xcaffold/global.xcf` (and the accompanying lock file). Requires interactive confirmation.
-3. **Project scope migration**: Rewrites flat `instructions_file` paths (e.g., `"developer.md"`) to full reference-in-place paths (e.g., `".claude/agents/developer.md"`). Registers the project. Requires interactive confirmation.
+3. **Project scope migration**: Rewrites flat `instructions-file` paths (e.g., `"developer.md"`) to full reference-in-place paths (e.g., `".claude/agents/developer.md"`). Registers the project. Requires interactive confirmation.
 
 No flags.

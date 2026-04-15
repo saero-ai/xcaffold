@@ -110,15 +110,15 @@ For the `claude` target (and all other targets following the open standard), the
 > scripts path "../../etc/passwd" traverses above the project root
 > ```
 >
-> Paths are resolved relative to `baseDir` (the directory of the `.xcf` file), not the current working directory. This applies equally to `instructions_file:` paths across all resource types.
+> Paths are resolved relative to `baseDir` (the directory of the `.xcf` file), not the current working directory. This applies equally to `instructions-file:` paths across all resource types.
 
 ---
 
 ## Path safety callout
 
-Both `instructions_file:` and `references:` enforce the following constraints at parse and compile time:
+Both `instructions-file:` and `references:` enforce the following constraints at parse and compile time:
 
-- Absolute paths are rejected for `instructions_file:` — only relative paths are accepted.
+- Absolute paths are rejected for `instructions-file:` — only relative paths are accepted.
 - Any path containing `..` is rejected.
 - Paths that resolve into compiler output directories (`.claude/`, `.cursor/`, `.agents/`, `.antigravity/`) are rejected to prevent circular read-write dependencies.
 - All output paths pass through `filepath.Clean` before being written.
@@ -161,7 +161,7 @@ globs: [**/*.go]
 Run golangci-lint --fix before every commit.
 ```
 
-The key normalization: the cursor renderer translates `paths:` to `globs:` in frontmatter. A rule with no `paths:` receives `alwaysApply: true` instead.
+The key normalization: the cursor renderer translates `paths:` to `globs:` in frontmatter. A rule with no `paths:` receives `always-apply: true` instead.
 
 The `antigravity` and `agentsmd` targets follow the same source; their renderers apply their own target-specific normalizations.
 

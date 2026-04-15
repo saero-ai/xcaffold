@@ -35,7 +35,7 @@ severity: error
 target: agent
 require:
   - field: model
-    one_of:
+    one-of:
       - claude-opus-4-5
       - claude-sonnet-4-5
       - claude-haiku-3-5
@@ -171,10 +171,10 @@ description: Agents with Bash tool access must have a description of at least 50
 severity: warning
 target: agent
 match:
-  has_tool: Bash
+  has-tool: Bash
 require:
   - field: description
-    min_length: 50
+    min-length: 50
 ```
 
 **Example: match agents by name glob.**
@@ -189,7 +189,7 @@ match:
   name_matches: "deploy*"
 require:
   - field: model
-    one_of:
+    one-of:
       - claude-opus-4-5
 ```
 
@@ -197,7 +197,7 @@ require:
 
 | Field | Type | Behavior |
 |---|---|---|
-| `has_tool` | `string` | Matches agents whose `tools` list contains this value |
+| `has-tool` | `string` | Matches agents whose `tools` list contains this value |
 | `has_field` | `string` | Matches resources where the named field is present and non-empty |
 | `name_matches` | `string` | Glob pattern (`filepath.Match` syntax) tested against the resource ID |
 | `target_includes` | `string` | Matches resources whose target configuration includes this key |
@@ -279,12 +279,12 @@ description: Enforce description length and block shell references
 severity: error
 target: agent
 match:
-  has_tool: Bash
+  has-tool: Bash
 require:
   - field: description
-    is_present: true
+    is-present: true
   - field: description
-    min_length: 20
+    min-length: 20
 deny:
   - content_contains:
       - "rm -rf"
@@ -296,9 +296,9 @@ deny:
 | Field | Type | Behavior |
 |---|---|---|
 | `field` | `string` | Name of the resource field to check |
-| `is_present` | `*bool` | When `true`, the field must exist and be non-empty |
-| `min_length` | `*int` | Minimum character count for the field value |
+| `is-present` | `*bool` | When `true`, the field must exist and be non-empty |
+| `min-length` | `*int` | Minimum character count for the field value |
 | `max_count` | `*int` | Maximum item count for list-type fields (e.g., `tools`) |
-| `one_of` | `[]string` | The field value must be one of the listed strings |
+| `one-of` | `[]string` | The field value must be one of the listed strings |
 
 Multiple `require` entries are evaluated independently. A violation is emitted for each failing check.

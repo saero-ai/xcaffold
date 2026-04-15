@@ -35,7 +35,7 @@ Valid target keys are: `claude`, `cursor`, `antigravity`, `agentsmd`.
 
 This is the only `TargetOverride` field with active behavior today.
 
-When compiling to `cursor` or `antigravity`, the renderer emits stderr warnings for each agent whose security fields (`permissionMode`, `disallowedTools`, `isolation`) will be dropped — these fields have no enforcement equivalent in those renderers. Setting `suppress_fidelity_warnings: true` for the relevant target silences those per-agent warnings.
+When compiling to `cursor` or `antigravity`, the renderer emits stderr warnings for each agent whose security fields (`permission-mode`, `disallowed-tools`, `isolation`) will be dropped — these fields have no enforcement equivalent in those renderers. Setting `suppress_fidelity_warnings: true` for the relevant target silences those per-agent warnings.
 
 **Example — suppress cursor fidelity warnings for a specific agent:**
 
@@ -45,8 +45,8 @@ project:
     security-auditor:
       name: Security Auditor
       model: claude-opus-4-5
-      permissionMode: restricted
-      disallowedTools:
+      permission-mode: restricted
+      disallowed-tools:
         - Bash
       targets:
         cursor:
@@ -64,14 +64,14 @@ if override, ok := agent.Targets["cursor"]; ok && override.SuppressFidelityWarni
 Without this override, the cursor renderer emits separate warnings for each dropped field:
 
 ```
-WARNING (cursor): agent "security-auditor" permissionMode "bypassAll" dropped — Cursor has no permission mode equivalent.
-WARNING (cursor): agent "security-auditor" disallowedTools dropped — tool restrictions will NOT be enforced by Cursor.
+WARNING (cursor): agent "security-auditor" permission-mode "bypassAll" dropped — Cursor has no permission mode equivalent.
+WARNING (cursor): agent "security-auditor" disallowed-tools dropped — tool restrictions will NOT be enforced by Cursor.
 WARNING (cursor): agent "security-auditor" isolation "sandbox" dropped — Cursor has no process isolation model.
 ```
 
 With `suppress_fidelity_warnings: true`, those warnings are silenced. The fields are still dropped — the override only controls whether the warnings appear.
 
-The `antigravity` renderer emits a single combined warning instead (`security fields dropped (permissionMode, disallowedTools, isolation are not supported)`), but `suppress_fidelity_warnings` suppresses it in the same way under the `antigravity` key.
+The `antigravity` renderer emits a single combined warning instead (`security fields dropped (permission-mode, disallowed-tools, isolation are not supported)`), but `suppress_fidelity_warnings` suppresses it in the same way under the `antigravity` key.
 
 ## Using `--check-permissions` today
 
@@ -85,8 +85,8 @@ xcaffold apply --check-permissions --target <target>
 
 - `settings.permissions` — dropped with no enforcement equivalent
 - `settings.sandbox` — dropped, no sandbox model
-- Per-agent `permissionMode` — dropped
-- Per-agent `disallowedTools` — dropped, tool restrictions will not be enforced
+- Per-agent `permission-mode` — dropped
+- Per-agent `disallowed-tools` — dropped, tool restrictions will not be enforced
 - Per-agent `isolation` — dropped
 
 It also detects conflicts: if an agent's `tools` list includes a tool that appears in `settings.permissions.deny`, that is reported as an `[ERROR]`.
@@ -111,8 +111,8 @@ project:
   agents:
     deployer:
       name: Deployer
-      permissionMode: restricted
-      disallowedTools:
+      permission-mode: restricted
+      disallowed-tools:
         - WebSearch
       isolation: container
 ```
@@ -122,8 +122,8 @@ project:
 ```
 [WARNING] cursor: settings.permissions will be dropped — no enforcement equivalent
 [WARNING] cursor: settings.sandbox will be dropped — no sandbox model
-[WARNING] cursor: agent "deployer" permissionMode "restricted" will be dropped
-[WARNING] cursor: agent "deployer" disallowedTools will be dropped — tool restrictions will NOT be enforced
+[WARNING] cursor: agent "deployer" permission-mode "restricted" will be dropped
+[WARNING] cursor: agent "deployer" disallowed-tools will be dropped — tool restrictions will NOT be enforced
 [WARNING] cursor: agent "deployer" isolation "container" will be dropped
 ```
 

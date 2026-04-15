@@ -29,7 +29,7 @@ erDiagram
         string homepage
         string repository
         string license
-        string backup_dir
+        string backup-dir
         string_list targets
         string_list agentRefs
         string_list skillRefs
@@ -41,29 +41,29 @@ erDiagram
         string name
         string description
         string instructions
-        string instructions_file
+        string instructions-file
         string model
         string effort
         string memory
-        int maxTurns
-        string permissionMode
+        int max-turns
+        string permission-mode
         string isolation
         string mode
         string when
         string color
-        string initialPrompt
+        string initial-prompt
     }
     SkillConfig {
         string name
         string description
         string instructions
-        string instructions_file
+        string instructions-file
     }
     RuleConfig {
         string description
         string instructions
-        string instructions_file
-        bool alwaysApply
+        string instructions-file
+        bool always-apply
     }
     HookConfig {
         string event_key
@@ -136,8 +136,8 @@ erDiagram
     }
     TestConfig {
         string cli_path
-        string claude_path
-        string judge_model
+        string cli-path
+        string judge-model
         string task
         int max_turns
     }
@@ -145,7 +145,7 @@ erDiagram
         string name
         string description
         string instructions
-        string instructions_file
+        string instructions-file
     }
     PolicyConfig {
         string name
@@ -159,8 +159,8 @@ erDiagram
     }
     PolicyRequire {
         string field
-        string_list one_of
-        int min_length
+        string_list one-of
+        int min-length
     }
     PolicyDeny {
         string field_matches
@@ -335,7 +335,7 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `homepage` | `string` | Optional | Project URL. |
 | `repository` | `string` | Optional | Source control URL. |
 | `license` | `string` | Optional | SPDX license identifier. |
-| `backup_dir` | `string` | Optional | Directory for `xcaffold apply --backup` output. Defaults to `.<target>_bak_<timestamp>` in the project root. |
+| `backup-dir` | `string` | Optional | Directory for `xcaffold apply --backup` output. Defaults to `.<target>_bak_<timestamp>` in the project root. |
 | `targets` | `[]string` | Optional | Compilation targets (e.g., `["claude", "antigravity"]`). Only populated via `kind: project` documents — tagged `yaml:"-"`. |
 | `agentRefs` | `[]string` | Optional | Bare name references to child agent resources. Only populated via `kind: project` documents. |
 | `skillRefs` | `[]string` | Optional | Bare name references to child skill resources. Only populated via `kind: project` documents. |
@@ -374,7 +374,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 |---|---|---|---|
 | `model` | `string` | Optional | LLM model identifier. Supports aliases (`sonnet-4`, `opus-4`, `haiku-3.5`) which are resolved per-target by the model resolver. |
 | `effort` | `string` | Optional | Resource utilization level (`"low"`, `"medium"`, `"high"`, `"max"`). |
-| `maxTurns` | `int` | Optional | Maximum conversation turns before the agent stops. |
+| `max-turns` | `int` | Optional | Maximum conversation turns before the agent stops. |
 | `mode` | `string` | Optional | Agent execution mode. |
 
 **Tool Access**
@@ -382,16 +382,16 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tools` | `[]string` | Optional | Runtime tools granted to the agent (e.g., `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`). Omit to inherit all available tools. |
-| `disallowedTools` | `[]string` | Optional | Tools the agent is explicitly forbidden from using. Applied before `tools` resolution. |
+| `disallowed-tools` | `[]string` | Optional | Tools the agent is explicitly forbidden from using. Applied before `tools` resolution. |
 | `readonly` | `*bool` | Optional | When `true` and `tools` is empty, the Claude renderer emits `tools: [Read, Grep, Glob]`; Cursor and Antigravity emit `readonly: true` natively. |
 
 **Permissions & Invocation Control**
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `permissionMode` | `string` | Optional | Default execution permission mode. Values: `default`, `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, `plan`. |
-| `disableModelInvocation` | `*bool` | Optional | When `true`, the host model must not auto-invoke this agent. Users can still invoke it explicitly. |
-| `userInvocable` | `*bool` | Optional | When `false`, the agent is accessible only programmatically (not from a UI picker). |
+| `permission-mode` | `string` | Optional | Default execution permission mode. Values: `default`, `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, `plan`. |
+| `disable-model-invocation` | `*bool` | Optional | When `true`, the host model must not auto-invoke this agent. Users can still invoke it explicitly. |
+| `user-invocable` | `*bool` | Optional | When `false`, the agent is accessible only programmatically (not from a UI picker). |
 
 **Lifecycle**
 
@@ -407,7 +407,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 |---|---|---|---|
 | `memory` | `string` | Optional | Agent memory scope. Values: `user`, `project`, `local`. |
 | `color` | `string` | Optional | Terminal UI color attribute. |
-| `initialPrompt` | `string` | Optional | Default message auto-submitted as the first turn. |
+| `initial-prompt` | `string` | Optional | Default message auto-submitted as the first turn. |
 
 **Composition References**
 
@@ -435,11 +435,11 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a Markdown file containing the prompt body. Resolved relative to `scaffold.xcf` directory. Mutually exclusive with `instructions`. |
+| `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file containing the prompt body. Resolved relative to `scaffold.xcf` directory. Mutually exclusive with `instructions`. |
 
 > [!WARNING]
-> **Cursor**: Only `name`, `description`, `model`, `readonly`, and `background` (renamed to `is_background`) are emitted. All other fields — `effort`, `tools`, `disallowedTools`, `skills`, `rules`, `permissionMode`, `isolation`, `color`, `initialPrompt`, `memory`, `maxTurns`, `hooks`, `mcpServers` — are silently dropped. Unmapped `model` values emit a stderr warning and are omitted.
+> **Cursor**: Only `name`, `description`, `model`, `readonly`, and `background` (renamed to `is_background`) are emitted. All other fields — `effort`, `tools`, `disallowed-tools`, `skills`, `rules`, `permission-mode`, `isolation`, `color`, `initial-prompt`, `memory`, `max-turns`, `hooks`, `mcpServers` — are silently dropped. Unmapped `model` values emit a stderr warning and are omitted.
 >
 > **Antigravity**: Antigravity has **no file-based agent configuration**. Agent behavior is controlled entirely via UI settings and conversation-level mode selection. xcaffold **cannot compile agents for Antigravity** — the target is skipped with a warning.
 >
@@ -495,8 +495,8 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 |---|---|---|---|
 | `name` | `string` | Optional | Display name for the skill. |
 | `description` | `string` | Optional | Human-readable description. Shown in listings and help text. |
-| `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
+| `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
 | `tools` | `[]string` | Optional | Tools required or relevant during skill execution. |
 | `references` | `[]string` | Optional | Supporting files or glob patterns. Resolved relative to `scaffold.xcf`. Copied to `skills/<id>/references/` during compilation. |
 | `scripts` | `[]string` | Optional | Executable helper files. Resolved relative to `scaffold.xcf`. Copied to `skills/<id>/scripts/` during compilation. |
@@ -518,17 +518,17 @@ Path-gated formatting guideline. Compiled to `rules/<id>.md` (Claude), `rules/<i
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `description` | `string` | Optional | Summary of the rule. |
-| `instructions` | `string` | Optional | Inline rule content. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
+| `instructions` | `string` | Optional | Inline rule content. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
 | `paths` | `[]string` | Optional | Glob patterns restricting where the rule applies (e.g., `["src/**/*.go"]`). |
-| `alwaysApply` | `*bool` | Optional | When `true`, the rule applies globally regardless of `paths`. |
+| `always-apply` | `*bool` | Optional | When `true`, the rule applies globally regardless of `paths`. |
 
 > [!NOTE]
-> **Cursor normalization**: `paths` is emitted as `globs:` in `.mdc` frontmatter. Rules without `paths` automatically receive `alwaysApply: true`.
+> **Cursor normalization**: `paths` is emitted as `globs:` in `.mdc` frontmatter. Rules without `paths` automatically receive `always-apply: true`.
 >
-> **Antigravity normalization**: No YAML frontmatter is emitted. `description` becomes a `# heading`. `paths` and `alwaysApply` are dropped — Antigravity handles rule activation via UI. Bodies exceeding 12,000 characters receive a warning comment.
+> **Antigravity normalization**: No YAML frontmatter is emitted. `description` becomes a `# heading`. `paths` and `always-apply` are dropped — Antigravity handles rule activation via UI. Bodies exceeding 12,000 characters receive a warning comment.
 >
-> **AgentsMD**: Rules with `paths` are grouped into directory-scoped `AGENTS.md` files. `alwaysApply` is dropped.
+> **AgentsMD**: Rules with `paths` are grouped into directory-scoped `AGENTS.md` files. `always-apply` is dropped.
 
 ---
 
@@ -769,8 +769,8 @@ Configuration for `xcaffold test`.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `cli_path` | `string` | Optional | Path to the CLI binary used as a judge subscription fallback when no API key is set. Defaults to `claude` on `$PATH`. |
-| `claude_path` | `string` | Optional | **Deprecated.** Alias for `cli_path`. Renamed from `claude_path` to `cli_path` to support multi-provider test execution beyond the Claude CLI. Migrated automatically by `xcaffold migrate` (schema `1.0` → `1.1`). |
-| `judge_model` | `string` | Optional | LLM model used for `--judge` evaluation. Defaults to `claude-haiku-4-5-20251001`. |
+| `cli-path` | `string` | Optional | **Deprecated.** Alias for `cli_path`. Renamed from `cli-path` to `cli_path` to support multi-provider test execution beyond the Claude CLI. Migrated automatically by `xcaffold migrate` (schema `1.0` → `1.1`). |
+| `judge-model` | `string` | Optional | LLM model used for `--judge` evaluation. Defaults to `claude-haiku-4-5-20251001`. |
 | `task` | `string` | Optional | User prompt sent to the agent during simulation. Defaults to `"Describe what tools you have available and what you would do first."` if unset. |
 | `max_turns` | `int` | Optional | Maximum number of simulated conversation turns. Defaults to a single turn if unset. |
 
@@ -784,8 +784,8 @@ Defines a named, reusable workflow. Compiled to `workflows/<id>.md`.
 |---|---|---|---|
 | `name` | `string` | Optional | Workflow title. Used as fallback `description` in Antigravity frontmatter. |
 | `description` | `string` | Optional | Human-readable description of the workflow. |
-| `instructions` | `string` | Optional | Inline Markdown workflow content. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
+| `instructions` | `string` | Optional | Inline Markdown workflow content. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
 
 > [!IMPORTANT]
 > **Antigravity-only.** Workflows are compiled to `workflows/<id>.md` with YAML frontmatter containing only `description`. Claude and Cursor renderers silently ignore all workflow definitions.
@@ -824,8 +824,8 @@ Asserts a field meets a value constraint.
 | Field | Type | Description |
 |---|---|---|
 | `field` | `string` | Dot-path to the field to check (e.g., `"model"`, `"permissions.defaultMode"`). |
-| `one_of` | `[]string` | Allowed values. The policy passes if the field value appears in this list. |
-| `min_length` | `int` | Minimum string length or minimum list length. Fails if the field is shorter. |
+| `one-of` | `[]string` | Allowed values. The policy passes if the field value appears in this list. |
+| `min-length` | `int` | Minimum string length or minimum list length. Fails if the field is shorter. |
 
 ### `PolicyDeny`
 
@@ -870,7 +870,7 @@ Summary of which resource types compile for each target.
 | Hook handler type `http` | → dropped | Cursor (unsupported handler type) |
 | Hook handler type `agent` | → dropped | Cursor (unsupported handler type) |
 | Rule frontmatter | `---` YAML frontmatter → `# heading` (no frontmatter) | Antigravity rules |
-| Rule `paths:` / `alwaysApply:` | → dropped | Antigravity rules |
+| Rule `paths:` / `always-apply:` | → dropped | Antigravity rules |
 | Skill frontmatter fields | all metadata → only `name` + `description` | Antigravity skills |
 | Model aliases | `sonnet-4`, `opus-4`, `haiku-3.5` | → resolved per-target via `renderer.ResolveModel()` |
 

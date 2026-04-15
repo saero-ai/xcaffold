@@ -160,7 +160,7 @@ Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognize
 | `analyzer` | `internal/analyzer/` | Detects undeclared artifacts via `ScanOutputDir` |
 | `bir` | `internal/bir/` | Build Intermediate Representation — `SemanticUnit`, `FunctionalIntent`, `ProjectIR` |
 | `translator` | `internal/translator/` | Decomposes `SemanticUnit` intents into target primitives (skill/rule/permission) |
-| `resolver` | `internal/resolver/` | Resolves `instructions_file:` and `references:` relative paths |
+| `resolver` | `internal/resolver/` | Resolves `instructions-file:` and `references:` relative paths |
 | `generator` | `internal/generator/` | Anthropic API calls for scaffold generation; outputs `audit.json` |
 | `judge` | `internal/judge/` | LLM-as-a-Judge evaluation against agent assertions |
 | `proxy` | `internal/proxy/` | HTTP intercept proxy (retained; not currently used by `xcaffold test`) |
@@ -297,7 +297,7 @@ These inline architecture decisions record the reasoning behind strict implement
 **Why:** Using `.xcf` extension for all xcaffold-managed configuration files provides a consistent, recognizable file type. Consolidating preferences into `global.xcf` eliminates a separate file that had no type discriminator and adds to the configuration surface area.
 
 ### 6. `TestConfig.CliPath` (generalized from `ClaudePath`)
-**Decision:** The `test:` block uses `cli_path` as the primary field (with `claude_path` retained for backward compatibility).
+**Decision:** The `test:` block uses `cli_path` as the primary field (with `cli-path` retained for backward compatibility).
 **Why:** As xcaffold becomes platform-agnostic, the CLI under test is not always `claude`. The generalized `cli_path` supports any binary (e.g. `cursor`, a custom wrapper), while the deprecated alias ensures existing configs continue to work without changes.
 
 ### 7. ResourceScope Extraction and Pointer-Backed ProjectConfig

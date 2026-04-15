@@ -41,7 +41,7 @@ xcaffold implicitly evaluates constraints from both contexts at parse-time. When
 
 This provides two massive architectural benefits for developers:
 
-1. **Cross-Reference Safety**: An agent explicitly defined in a local enterprise project can harmlessly `instructions_file:` reference a skill that exists purely in the user's global repository. The xcaffold compiler parses both spaces transparently, resolving relationships without emitting broken links or parser failures.
+1. **Cross-Reference Safety**: An agent explicitly defined in a local enterprise project can harmlessly `instructions-file:` reference a skill that exists purely in the user's global repository. The xcaffold compiler parses both spaces transparently, resolving relationships without emitting broken links or parser failures.
 2. **Holistic Topology**: When running `xcaffold graph`, developers instantly receive a combined, unified view of the entire agentic topology—precisely what the underlying AI (Cursor, Claude) will actually understand when the terminal starts.
 
 ### The Compiler Hard Boundary
@@ -72,7 +72,7 @@ When a configuration hierarchy is resolved (whether through implicit global reso
 | `mcp:` | Child entry replaces base entry per ID. IDs present only in the base are kept. |
 | `workflows:` | Child entry replaces base entry per ID. IDs present only in the base are kept. |
 | `hooks:` | Additive. Both base and child handlers are kept. Child handlers are appended to base handlers for each event. |
-| `project.test:` | Field-by-field overlay within `ProjectConfig`. `cli_path`, `claude_path`, and `judge_model` are replaced individually only when the child sets a non-empty value. |
+| `project.test:` | Field-by-field overlay within `ProjectConfig`. `cli_path`, `cli-path`, and `judge-model` are replaced individually only when the child sets a non-empty value. |
 | `settings:` | Last file in the directory wins (single-settings-file convention). Inherited and merged via `extends:`. |
 | `project.local:` | Machine-local settings override within `ProjectConfig`. Not inherited via `extends:`. Compiles to `settings.local.json`. |
 

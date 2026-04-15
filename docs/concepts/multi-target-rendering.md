@@ -25,7 +25,7 @@ type TargetRenderer interface {
 
 Each renderer implements this interface and receives the same `ast.XcaffoldConfig`. The renderer decides how each field maps to the target platform's file format, which fields have equivalents, and which must be dropped with a fidelity warning. The AST is never modified during rendering; the compiler passes it by pointer but renderers treat it as read-only input.
 
-The consequence: a rule defined as `paths: ["src/**/*.ts"]` with a Markdown body appears as `rules/<id>.md` with a `paths:` frontmatter key when compiled for one target, and as `rules/<id>.mdc` with a `globs:` key and `alwaysApply: true` when compiled for another. The rule's *data* — its ID, scope patterns, and instruction body — is stable. Its *presentation* is determined entirely by the renderer.
+The consequence: a rule defined as `paths: ["src/**/*.ts"]` with a Markdown body appears as `rules/<id>.md` with a `paths:` frontmatter key when compiled for one target, and as `rules/<id>.mdc` with a `globs:` key and `always-apply: true` when compiled for another. The rule's *data* — its ID, scope patterns, and instruction body — is stable. Its *presentation* is determined entirely by the renderer.
 
 ## Target Fidelity and Warnings
 

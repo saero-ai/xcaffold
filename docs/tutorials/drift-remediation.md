@@ -195,12 +195,12 @@ xcaffold copies the current `.claude/` directory to a timestamped backup before 
 
 Backup naming convention: `.<target>_bak_<YYYYMMDD_HHMMSS>`. For `--target claude`, the backup is `.claude_bak_<timestamp>`.
 
-The backup is placed in the same parent directory as the output directory by default. If `project.backup_dir` is set in `scaffold.xcf`, backups go there instead:
+The backup is placed in the same parent directory as the output directory by default. If `project.backup-dir` is set in `scaffold.xcf`, backups go there instead:
 
 ```yaml
 project:
   name: my-project
-  backup_dir: .xcf-backups
+  backup-dir: .xcf-backups
 ```
 
 Backups are not managed by xcaffold. They are not recorded in the lock file and will not be cleaned up automatically.
