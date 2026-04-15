@@ -222,7 +222,7 @@ type SkillConfig struct {
 	WhenToUse   string `yaml:"when-to-use,omitempty"`
 	License     string `yaml:"license,omitempty"`
 
-	// Group 3 — Tool Access (renamed from Tools)
+	// Group 3 — Tool Access
 	AllowedTools []string `yaml:"allowed-tools,omitempty"`
 
 	// Group 4 — Permissions & Invocation Control
@@ -435,16 +435,43 @@ type TestConfig struct {
 	MaxTurns int `yaml:"max-turns,omitempty"`
 }
 
-// WorkflowConfig defines a named, reusable workflow (Antigravity Workflow).
+// WorkflowConfig defines a named, reusable, multi-step procedure.
 // Each workflow maps to an entry under the `workflows:` key in scaffold.xcf.
+// api-version: workflow/v1 is the current stable shape; workflow/v2 will add
+// parameterized steps and DAG ordering without breaking v1 schemas.
 type WorkflowConfig struct {
-	Name             string `yaml:"name,omitempty"`
+	// api-version discriminates the schema shape. Default: "workflow/v1".
+	ApiVersion string `yaml:"api-version,omitempty"`
+
+	// Identity
+	Name        string `yaml:"name,omitempty"`
+	Description string `yaml:"description,omitempty"`
+
+	// Steps is the ordered procedural body.
+	// Mutually exclusive with Instructions / InstructionsFile at the top level
+	// (top-level body is permitted only for single-step legacy configs).
+	Steps []WorkflowStep `yaml:"steps,omitempty"`
+
+	// Targets holds per-provider overrides and lowering-strategy directives.
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
+
+	// Instructions and InstructionsFile are the top-level body for single-step
+	// or legacy workflows. Mutually exclusive with each other; deprecated in
+	// favor of Steps when more than one step is needed.
+	Instructions     string `yaml:"instructions,omitempty"`
+	InstructionsFile string `yaml:"instructions-file,omitempty"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. Never serialized.
+	Inherited bool `yaml:"-"`
+}
+
+// WorkflowStep is one named step in a workflow's ordered body.
+type WorkflowStep struct {
+	Name             string `yaml:"name"`
 	Description      string `yaml:"description,omitempty"`
 	Instructions     string `yaml:"instructions,omitempty"`
 	InstructionsFile string `yaml:"instructions-file,omitempty"`
-	// Inherited is set by the parser when this resource originates from an
-	// extends: global base config. It is never serialized.
-	Inherited bool `yaml:"-"`
 }
 
 // PolicyConfig defines a declarative constraint evaluated against the AST

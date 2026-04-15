@@ -149,7 +149,7 @@ func newScanResult() globalScanResult {
 // globalScanResult (first-seen wins for deduplication).
 //
 // HOW TO ADD A NEW PROVIDER:
-//  1. Implement a scan function: funcscanProvider<Name>(userHome string, r *globalScanResult).
+//  1. Implement a scan function: func scanProvider<Name>(userHome string, r *globalScanResult).
 //  2. Document which on-disk paths this provider uses (see existing examples).
 //  3. Append an entry to globalProviders below.
 //  No other code changes are needed.
@@ -170,8 +170,8 @@ var globalProviders = []platformProvider{
 	// Cursor: User Rules live in the Cursor app Settings UI — not on disk.
 	// Project-scoped rules (.cursor/rules/) are handled separately per-project.
 	//
-	// Add new providers here, e.g.:
-	// {Scan:scanProvider<Name>, Name: "<Name>"},
+	// Add new providers here by appending an entry:
+	// {Scan: scanProvider<Name>, Name: "<DisplayName>"},
 }
 
 // ── Core bootstrap ────────────────────────────────────────────────────────

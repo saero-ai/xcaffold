@@ -206,3 +206,215 @@ func writeTemp(t *testing.T, name, content string) string {
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 	return path
 }
+
+// TestParse_Workflow_FullSchema verifies that a workflow with all supported
+// fields (api-version, steps, targets with lowering-strategy) round-trips
+// through the parser without error.
+func TestParse_Workflow_FullSchema(t *testing.T) {
+	input := `
+kind: global
+version: "1.0"
+workflows:
+  code-review:
+    api-version: workflow/v1
+    name: code-review
+    description: Multi-step PR review procedure.
+    steps:
+      - name: analyze
+        description: Read the diff and summarize changed modules.
+        instructions-file: xcf/workflows/code-review/01-analyze.md
+      - name: lint
+        description: Check style and flag violations.
+        instructions: Lint the changed files.
+      - name: summarize
+        instructions: Write the review comment.
+    targets:
+      claude:
+        provider:
+          lowering-strategy: rule-plus-skill
+      copilot:
+        provider:
+          lowering-strategy: prompt-file
+`
+	path := writeTemp(t, "scaffold.xcf", input)
+
+	config, err := ParseFile(path)
+	require.NoError(t, err)
+
+	wf, ok := config.Workflows["code-review"]
+	require.True(t, ok)
+	require.Equal(t, "workflow/v1", wf.ApiVersion)
+	require.Len(t, wf.Steps, 3)
+	require.Equal(t, "analyze", wf.Steps[0].Name)
+	require.Equal(t, "xcf/workflows/code-review/01-analyze.md", wf.Steps[0].InstructionsFile)
+	require.Equal(t, "lint", wf.Steps[1].Name)
+	require.Equal(t, "rule-plus-skill", wf.Targets["claude"].Provider["lowering-strategy"])
+	require.Equal(t, "prompt-file", wf.Targets["copilot"].Provider["lowering-strategy"])
+}
+
+// TestParse_Workflow_StepsAndInstructions_Mutex verifies that setting both
+// top-level instructions and steps on a workflow is a parse error.
+func TestParse_Workflow_StepsAndInstructions_Mutex(t *testing.T) {
+	input := `
+kind: global
+version: "1.0"
+workflows:
+  bad:
+    name: bad
+    instructions: Top-level body.
+    steps:
+      - name: step-one
+        instructions: Step body.
+`
+	path := writeTemp(t, "scaffold.xcf", input)
+
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "steps")
+	require.Contains(t, err.Error(), "instructions")
+}
+
+// TestParse_Workflow_StepMissingName verifies that a workflow step without a
+// name field is rejected.
+func TestParse_Workflow_StepMissingName(t *testing.T) {
+	input := `
+kind: global
+version: "1.0"
+workflows:
+  nameless:
+    name: nameless
+    steps:
+      - description: No name field here.
+        instructions: Body.
+`
+	path := writeTemp(t, "scaffold.xcf", input)
+
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "name")
+}
+
+// TestParse_Workflow_InvalidLoweringStrategy verifies that an unrecognized
+// lowering-strategy value in targets.<provider>.provider is rejected.
+func TestParse_Workflow_InvalidLoweringStrategy(t *testing.T) {
+	input := `
+kind: global
+version: "1.0"
+workflows:
+  bad-strategy:
+    name: bad-strategy
+    steps:
+      - name: step-one
+        instructions: Body.
+    targets:
+      claude:
+        provider:
+          lowering-strategy: invalid-value
+`
+	path := writeTemp(t, "scaffold.xcf", input)
+
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "lowering-strategy")
+}
+
+// TestParse_Workflow_InstructionsFileUnderReservedPrefix_IsRejected verifies
+// that a workflow step instructions-file pointing at .agents/ is rejected.
+func TestParse_Workflow_InstructionsFileUnderReservedPrefix_IsRejected(t *testing.T) {
+	input := `
+kind: global
+version: "1.0"
+workflows:
+  smuggled:
+    name: smuggled
+    steps:
+      - name: step-one
+        instructions-file: .agents/workflows/smuggled.md
+`
+	path := writeTemp(t, "scaffold.xcf", input)
+
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "reserved")
+}
+
+// TestParse_Workflow_Step_InstructionsAndFile_Mutex verifies that a step with
+// both instructions and instructions-file set is rejected.
+func TestParse_Workflow_Step_InstructionsAndFile_Mutex(t *testing.T) {
+	input := `
+kind: global
+version: "1.0"
+workflows:
+  bad-step:
+    name: bad-step
+    steps:
+      - name: step-one
+        instructions: Inline body.
+        instructions-file: xcf/workflows/bad/step.md
+`
+	path := writeTemp(t, "scaffold.xcf", input)
+
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mutually exclusive")
+}
+
+// TestParse_Workflow_Step_MissingBody verifies that a step with neither
+// instructions nor instructions-file is rejected.
+func TestParse_Workflow_Step_MissingBody(t *testing.T) {
+	input := `
+kind: global
+version: "1.0"
+workflows:
+  empty-step:
+    name: empty-step
+    steps:
+      - name: step-one
+`
+	path := writeTemp(t, "scaffold.xcf", input)
+
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "instructions")
+}
+
+// TestParse_Workflow_Step_ReservedPrefix_GithubPrompts verifies that a step
+// instructions-file pointing at .github/prompts/ is rejected.
+func TestParse_Workflow_Step_ReservedPrefix_GithubPrompts(t *testing.T) {
+	input := `
+kind: global
+version: "1.0"
+workflows:
+  smuggled:
+    name: smuggled
+    steps:
+      - name: step-one
+        instructions-file: .github/prompts/smuggled.md
+`
+	path := writeTemp(t, "scaffold.xcf", input)
+
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "reserved")
+}
+
+// TestParse_Workflow_UnknownApiVersion_IsRejected verifies that an api-version
+// other than "workflow/v1" is rejected.
+func TestParse_Workflow_UnknownApiVersion_IsRejected(t *testing.T) {
+	input := `
+kind: global
+version: "1.0"
+workflows:
+  future:
+    api-version: workflow/v2
+    name: future
+    steps:
+      - name: step-one
+        instructions: Body.
+`
+	path := writeTemp(t, "scaffold.xcf", input)
+
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "api-version")
+}

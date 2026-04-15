@@ -121,7 +121,7 @@ Created automatically on first run by `registry.EnsureGlobalHome()`. Contains tw
 | **Claude Code** | `~/.claude/agents/`, `~/.claude/skills/`, `~/.claude/rules/`, `~/.claude/CLAUDE.md`, `~/.claude.json` (mcpServers) |
 | **Antigravity** | `~/.gemini/antigravity/skills/`, `~/.gemini/GEMINI.md`, `~/.gemini/antigravity/mcp_config.json` |
 
-> New providersare added by implementing a scan function and appending it to `globalProviders` in `internal/registry/registry.go`. No other changes are required.
+> New providers are added by implementing a scan function and appending it to `globalProviders` in `internal/registry/registry.go`. No other changes are required.
 
 ---
 

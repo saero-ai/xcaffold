@@ -21,6 +21,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
+	"github.com/saero-ai/xcaffold/internal/translator"
 )
 
 const targetName = "cursor"
@@ -103,6 +104,31 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 				fmt.Sprintf("skill %q assets dropped; Cursor does not support skill assets/ directories", id),
 				"Inline asset references into the instructions body",
 			))
+		}
+	}
+
+	// Lower workflows via TranslateWorkflow; cursor uses rule-plus-skill when
+	// an explicit lowering-strategy is set, otherwise emits a no-native note.
+	for id, wf := range config.Workflows {
+		wfCopy := wf
+		if wfCopy.Name == "" {
+			wfCopy.Name = id
+		}
+		primitives, wfNotes := translator.TranslateWorkflow(&wfCopy, targetName)
+		notes = append(notes, wfNotes...)
+		for _, p := range primitives {
+			content := p.Content
+			if content == "" {
+				content = p.Body
+			}
+			switch p.Kind {
+			case "rule":
+				safePath := filepath.Clean(fmt.Sprintf("rules/%s.mdc", p.ID))
+				out.Files[safePath] = content
+			case "skill":
+				safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))
+				out.Files[safePath] = content
+			}
 		}
 	}
 

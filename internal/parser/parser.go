@@ -1294,6 +1294,79 @@ func validateRuleActivations(c *ast.XcaffoldConfig) error {
 	return nil
 }
 
+// validLoweringStrategies is the set of accepted lowering-strategy values for
+// workflow targets.<provider>.provider["lowering-strategy"].
+var validLoweringStrategies = map[string]bool{
+	"rule-plus-skill": true,
+	"prompt-file":     true,
+	"custom-command":  true,
+}
+
+// validateWorkflows enforces semantic constraints on all workflow entries:
+//   - steps and top-level instructions/instructions-file are mutually exclusive
+//   - every step must have a non-empty name
+//   - targets.<provider>.provider["lowering-strategy"] must be a known value
+//   - api-version, if set, must be "workflow/v1"
+//   - step instructions-file paths may not target reserved output directories
+func validateWorkflows(c *ast.XcaffoldConfig) error {
+	for id, wf := range c.Workflows {
+		// api-version validation
+		if wf.ApiVersion != "" && wf.ApiVersion != "workflow/v1" {
+			return fmt.Errorf("workflow %q: api-version %q is not supported; only \"workflow/v1\" is accepted", id, wf.ApiVersion)
+		}
+
+		// steps vs instructions/instructions-file mutex
+		if len(wf.Steps) > 0 && (wf.Instructions != "" || wf.InstructionsFile != "") {
+			return fmt.Errorf("workflow %q: steps and instructions/instructions-file are mutually exclusive; use steps for multi-step workflows or instructions for single-body workflows", id)
+		}
+
+		// per-step validations
+		for i, step := range wf.Steps {
+			if step.Name == "" {
+				return fmt.Errorf("workflow %q: step[%d] is missing a required name field", id, i)
+			}
+			// step-level instructions / instructions-file mutex
+			if step.Instructions != "" && step.InstructionsFile != "" {
+				return fmt.Errorf("workflow %q step %q: instructions and instructions-file are mutually exclusive", id, step.Name)
+			}
+			// step body is required
+			if step.Instructions == "" && step.InstructionsFile == "" {
+				return fmt.Errorf("workflow %q step %q: must set instructions or instructions-file", id, step.Name)
+			}
+			// reserved-prefix check on step instructions-file
+			if step.InstructionsFile != "" {
+				cleaned := filepath.Clean(step.InstructionsFile)
+				for _, prefix := range reservedOutputPrefixes {
+					cleanedPrefix := filepath.Clean(prefix)
+					if strings.HasPrefix(cleaned, cleanedPrefix+string(filepath.Separator)) || cleaned == cleanedPrefix {
+						return fmt.Errorf("workflow %q step %q: instructions-file %q references reserved output directory %s", id, step.Name, step.InstructionsFile, prefix)
+					}
+				}
+				for _, reserved := range reservedOutputPaths {
+					cleanedReserved := filepath.Clean(reserved)
+					if cleaned == cleanedReserved || strings.HasPrefix(cleaned, cleanedReserved+string(filepath.Separator)) {
+						return fmt.Errorf("workflow %q step %q: instructions-file %q references reserved output directory %s", id, step.Name, step.InstructionsFile, reserved)
+					}
+				}
+			}
+		}
+
+		// lowering-strategy enum validation across all target providers
+		for provider, override := range wf.Targets {
+			if override.Provider == nil {
+				continue
+			}
+			if raw, ok := override.Provider["lowering-strategy"]; ok {
+				strategy, _ := raw.(string)
+				if !validLoweringStrategies[strategy] {
+					return fmt.Errorf("workflow %q: targets.%s.provider[\"lowering-strategy\"] %q is invalid; must be one of: rule-plus-skill, prompt-file, custom-command", id, provider, strategy)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 	if err := validateIDs(c); err != nil {
 		return err
@@ -1305,6 +1378,9 @@ func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 		return err
 	}
 	if err := validateRuleActivations(c); err != nil {
+		return err
+	}
+	if err := validateWorkflows(c); err != nil {
 		return err
 	}
 	return nil
@@ -1824,6 +1900,7 @@ var reservedOutputPrefixes = []string{
 	".claude/",
 	".cursor/",
 	".cursorrules",
+	".gemini/commands/",
 }
 
 // reservedOutputFilenames are root-level files written directly by the compiler.

@@ -37,6 +37,19 @@ memory:
     lifecycle: tracked
     instructions-file: xcf/memory/architecture-decisions.md
 
+workflows:
+  code-review:
+    api-version: workflow/v1
+    name: code-review
+    description: "Multi-step pull request review procedure."
+    steps:
+      - name: analyze
+        instructions-file: testing/workflows/code-review/01-analyze.md
+      - name: lint
+        instructions-file: testing/workflows/code-review/02-lint.md
+      - name: summarize
+        instructions-file: testing/workflows/code-review/03-summarize.md
+
 ---
 kind: policy
 version: "1.0"

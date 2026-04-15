@@ -458,6 +458,94 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	return nil
 }
 
+// buildConfigFromDir scans a provider source directory and returns an in-memory
+// xcaffold config without writing any files to disk. It mirrors the extraction
+// logic inside importScope but skips the WriteSplitFiles call, making it safe
+// to use as a building block for translate pipelines.
+//
+// fromProvider selects provider-specific extraction logic when available (e.g.
+// "antigravity" uses extractAntigravityRules instead of the generic extractor).
+// Pass an empty string to use the generic extractors for all resource types.
+func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, error) {
+	projectName := inferProjectName()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: projectName},
+		ResourceScope: ast.ResourceScope{
+			Agents: make(map[string]ast.AgentConfig),
+			Skills: make(map[string]ast.SkillConfig),
+			Rules:  make(map[string]ast.RuleConfig),
+			Hooks:  make(ast.HookConfig),
+			MCP:    make(map[string]ast.MCPConfig),
+		},
+	}
+
+	importCount := 0
+	var warnings []string
+
+	if err := extractAgents(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+		return nil, err
+	}
+	if err := extractSkills(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+		return nil, err
+	}
+
+	// Use provider-specific rule extractor when available.
+	switch fromProvider {
+	case "antigravity":
+		if err := extractAntigravityRules(sourceDir, config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+	default:
+		if err := extractRules(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+	}
+
+	// Extract workflows; for antigravity, parse multi-step markdown sections.
+	switch fromProvider {
+	case "antigravity":
+		if err := extractAntigravityWorkflows(sourceDir, config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+	default:
+		if err := extractWorkflows(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+	}
+
+	settingsPath := filepath.Join(sourceDir, "settings.json")
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		if err := importSettings(data, config, &importCount, &warnings); err != nil {
+			warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
+		}
+	}
+
+	hooksPath := filepath.Join(sourceDir, "hooks.json")
+	if data, err := os.ReadFile(hooksPath); err == nil {
+		if err := json.Unmarshal(data, &config.Hooks); err != nil {
+			warnings = append(warnings, fmt.Sprintf("hooks.json failed to parse: %v", err))
+		}
+	}
+
+	if config.Project != nil {
+		config.Project.Targets = detectTargets(sourceDir)
+		config.Project.AgentRefs = sortedMapKeysStr(config.Agents)
+		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
+		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
+		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
+		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
+	}
+
+	if len(warnings) > 0 {
+		for _, w := range warnings {
+			fmt.Fprintf(os.Stderr, "warn: %s\n", w)
+		}
+	}
+
+	return config, nil
+}
+
 // importSettings parses settings.json and populates MCP, rules, and settings.
 func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	var raw map[string]interface{}
@@ -646,6 +734,41 @@ func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count
 			continue
 		}
 
+		// If this rule file carries an x-xcaffold workflow provenance marker, reassemble
+		// the WorkflowConfig from the marker and its companion skill files instead of
+		// importing it as a standalone rule. The workflow name is the rule ID with the
+		// "-workflow" suffix stripped (e.g. "code-review-workflow" → "code-review").
+		if strings.HasSuffix(id, "-workflow") {
+			workflowName := strings.TrimSuffix(id, "-workflow")
+			// claudeDir is the .claude directory; parent is the project root passed to
+			// bir.ReassembleWorkflow which expects the project root (it appends .claude/).
+			projectDir := filepath.Dir(claudeDir)
+			wf, _, reassembleErr := bir.ReassembleWorkflow(projectDir, workflowName)
+			if reassembleErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("workflow reassembly failed for %s: %v", workflowName, reassembleErr))
+			} else if wf != nil {
+				if config.Workflows == nil {
+					config.Workflows = make(map[string]ast.WorkflowConfig)
+				}
+				config.Workflows[workflowName] = *wf
+				// Remove companion skill files from config.Skills; they are now encoded
+				// as workflow steps and should not be emitted as standalone skills.
+				for _, step := range wf.Steps {
+					// Derive the skill ID from the step name following the translator
+					// naming convention: <workflowName>-<NN>-<stepName>. Since we only
+					// have the step names here, we match by prefix scan.
+					for skillID := range config.Skills {
+						if isWorkflowStepSkill(skillID, workflowName) {
+							delete(config.Skills, skillID)
+						}
+					}
+					_ = step // step used for range; skill removal is by ID prefix
+				}
+				*count++
+				continue
+			}
+		}
+
 		body := extractBodyAfterFrontmatter(data)
 
 		ruleCfg := ast.RuleConfig{Description: "Imported rule"}
@@ -670,6 +793,13 @@ func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count
 		*count++
 	}
 	return nil
+}
+
+// isWorkflowStepSkill reports whether skillID looks like it was generated by
+// translator.TranslateWorkflow for the given workflowName. The naming convention is
+// "<workflowName>-<NN>-<stepName>" (e.g. "code-review-01-analyze").
+func isWorkflowStepSkill(skillID, workflowName string) bool {
+	return strings.HasPrefix(skillID, workflowName+"-")
 }
 
 // extractCursorRules reads .cursor/rules/*.mdc files and maps Cursor frontmatter
@@ -855,6 +985,90 @@ func extractAntigravityRules(dir string, config *ast.XcaffoldConfig, count *int,
 		*count++
 	}
 	return nil
+}
+
+// extractAntigravityWorkflows reads .agents/workflows/*.md files and imports
+// them as WorkflowConfig entries in the xcaffold IR.
+//
+// Each file may contain multiple steps delimited by level-2 headings ("## name").
+// When step headings are present, each heading becomes a named WorkflowStep whose
+// body is the content between that heading and the next. If no step headings are
+// found, the entire file body is treated as a single step, preserving any
+// existing whole-file workflow definition without information loss.
+func extractAntigravityWorkflows(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	wfFiles, _ := filepath.Glob(filepath.Join(dir, "workflows", "*.md"))
+	for _, f := range wfFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping antigravity workflow %s: %v", f, err))
+			continue
+		}
+		id := strings.TrimSuffix(filepath.Base(f), ".md")
+		if id == "" {
+			continue
+		}
+
+		body := extractBodyAfterFrontmatter(data)
+		steps := splitMarkdownH2Sections(body)
+
+		wfCfg := ast.WorkflowConfig{Description: "Imported antigravity workflow"}
+		if fm, ok := extractFrontmatter(data); ok {
+			if unmarshalErr := yaml.Unmarshal(fm, &wfCfg); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
+			wfCfg.InstructionsFile = ""
+		}
+
+		if len(steps) > 0 {
+			wfCfg.Steps = steps
+			wfCfg.Instructions = ""
+		} else {
+			wfCfg.Instructions = body
+		}
+
+		if config.Workflows == nil {
+			config.Workflows = make(map[string]ast.WorkflowConfig)
+		}
+		config.Workflows[id] = wfCfg
+		*count++
+	}
+	return nil
+}
+
+// splitMarkdownH2Sections splits a markdown body on level-2 headings ("## title")
+// and returns a slice of WorkflowStep values. If the body contains no H2
+// headings, nil is returned so callers can fall back to treating the file as a
+// single-step workflow.
+func splitMarkdownH2Sections(body string) []ast.WorkflowStep {
+	lines := strings.Split(body, "\n")
+	var steps []ast.WorkflowStep
+	var currentName string
+	var currentLines []string
+
+	flush := func() {
+		if currentName == "" {
+			return
+		}
+		stepBody := strings.TrimSpace(strings.Join(currentLines, "\n"))
+		steps = append(steps, ast.WorkflowStep{
+			Name:         currentName,
+			Instructions: stepBody,
+		})
+	}
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, "## ") {
+			flush()
+			currentName = strings.TrimSpace(strings.TrimPrefix(line, "## "))
+			currentLines = nil
+			continue
+		}
+		if currentName != "" {
+			currentLines = append(currentLines, line)
+		}
+	}
+	flush()
+	return steps
 }
 
 // parseAntigravityProvenance extracts activation and optional paths from

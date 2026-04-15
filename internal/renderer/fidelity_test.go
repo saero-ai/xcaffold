@@ -98,6 +98,9 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeMemoryIndexUpdateFailed:             true,
 		renderer.CodeWorkflowLoweredToRulePlusSkill:      true,
 		renderer.CodeWorkflowLoweredToPromptFile:         true,
+		renderer.CodeWorkflowLoweredToCustomCommand:      true,
+		renderer.CodeWorkflowLoweredToNative:             true,
+		renderer.CodeWorkflowNoNativeTarget:              true,
 		renderer.CodeReservedOutputPathRejected:          true,
 		renderer.CodeSettingsFieldUnsupported:            true,
 		renderer.CodeHookInterpolationRequiresEnvSyntax:  true,
@@ -111,6 +114,7 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeReconciliationUnionLossy:            true,
 		renderer.CodeReconciliationDriftDetected:         true,
 		renderer.CodeMemoryDriftDetected:                 true,
+		renderer.CodeOptimizerPassReordered:              true,
 	}
 
 	got := make(map[string]bool)

@@ -11,6 +11,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
+	"github.com/saero-ai/xcaffold/internal/translator"
 	"gopkg.in/yaml.v3"
 )
 
@@ -90,6 +91,30 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
 		out.Files[safePath] = md
 		notes = append(notes, ruleNotes...)
+	}
+
+	// Lower workflows to rule + per-step skills.
+	for id, wf := range config.Workflows {
+		wfCopy := wf
+		if wfCopy.Name == "" {
+			wfCopy.Name = id
+		}
+		primitives, wfNotes := translator.TranslateWorkflow(&wfCopy, "claude")
+		notes = append(notes, wfNotes...)
+		for _, p := range primitives {
+			content := p.Content
+			if content == "" {
+				content = p.Body
+			}
+			switch p.Kind {
+			case "rule":
+				safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", p.ID))
+				out.Files[safePath] = content
+			case "skill":
+				safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))
+				out.Files[safePath] = content
+			}
+		}
 	}
 
 	mcpJSON, err := compileClaudeMCP(config.MCP, config.Settings.MCPServers)
