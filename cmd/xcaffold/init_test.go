@@ -255,3 +255,25 @@ func TestInit_EndToEnd_GeneratesFieldOrderedAgent(t *testing.T) {
 	_, err = os.Stat(refPath)
 	require.NoError(t, err, "agent.xcf.reference must exist")
 }
+
+func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
+	tmp := t.TempDir()
+	noReferencesFlag = false
+
+	// Run init's reference generation step
+	require.NoError(t, writeReferenceTemplates(tmp))
+
+	// Verify both agent and skill references exist
+	for _, name := range []string{"agent.xcf.reference", "skill.xcf.reference"} {
+		path := filepath.Join(tmp, "xcf", "references", name)
+		_, err := os.Stat(path)
+		require.NoError(t, err, "expected %s to exist", name)
+	}
+
+	// Verify skill reference contains canonical-only field names
+	skillData, err := os.ReadFile(filepath.Join(tmp, "xcf", "references", "skill.xcf.reference"))
+	require.NoError(t, err)
+	skillBody := string(skillData)
+	require.Contains(t, skillBody, "allowed-tools:")
+	require.NotContains(t, skillBody, "\ntools:") // legacy name must not appear
+}
