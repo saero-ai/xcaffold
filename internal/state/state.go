@@ -48,6 +48,7 @@ type LockManifest struct {
 	ConfigDir           string       `yaml:"config_directory"`
 	SourceFiles         []SourceFile `yaml:"source_files"`
 	Artifacts           []Artifact   `yaml:"artifacts"`
+	MemorySeeds         []MemorySeed `yaml:"memory_seeds,omitempty"`
 	Version             int          `yaml:"version"`
 }
 
@@ -57,13 +58,33 @@ type Artifact struct {
 	Hash string `yaml:"hash"`
 }
 
+// MemorySeed tracks a single seeded memory file, including its content hash
+// at seed time and its lifecycle value. Used for drift detection on tracked
+// memory entries.
+type MemorySeed struct {
+	Name      string `yaml:"name"`
+	Target    string `yaml:"target"`
+	Path      string `yaml:"path"`
+	Hash      string `yaml:"hash"`
+	SeededAt  string `yaml:"seeded_at"`
+	Lifecycle string `yaml:"lifecycle"`
+}
+
 // GenerateOpts holds additional metadata for lock manifest generation.
 type GenerateOpts struct {
 	Target      string
 	Scope       string
 	ConfigDir   string
-	BaseDir     string   // base directory for computing relative source paths
-	SourceFiles []string // absolute paths to source .xcf files
+	BaseDir     string       // base directory for computing relative source paths
+	SourceFiles []string     // absolute paths to source .xcf files
+	MemorySeeds []MemorySeed // seeded memory entries to record in the lock manifest
+}
+
+// sortMemorySeeds sorts a slice of MemorySeed in ascending order by Name.
+func sortMemorySeeds(seeds []MemorySeed) {
+	sort.Slice(seeds, func(i, j int) bool {
+		return seeds[i].Name < seeds[j].Name
+	})
 }
 
 // GenerateWithOpts creates a LockManifest from compiler output and source metadata.
@@ -111,6 +132,13 @@ func GenerateWithOpts(out *output.Output, opts GenerateOpts) *LockManifest {
 	sort.Slice(manifest.SourceFiles, func(i, j int) bool {
 		return manifest.SourceFiles[i].Path < manifest.SourceFiles[j].Path
 	})
+
+	// Copy and sort memory seeds
+	if len(opts.MemorySeeds) > 0 {
+		manifest.MemorySeeds = make([]MemorySeed, len(opts.MemorySeeds))
+		copy(manifest.MemorySeeds, opts.MemorySeeds)
+		sortMemorySeeds(manifest.MemorySeeds)
+	}
 
 	return manifest
 }
