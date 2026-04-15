@@ -12,7 +12,9 @@ package antigravity
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -24,6 +26,11 @@ import (
 const (
 	ruleCharLimit = 12000
 	targetName    = "antigravity"
+
+	// RulesFile is the output path for the project-level flat-singleton rules file.
+	// All project instructions and scopes are merged into this single file with
+	// xcaffold:scope provenance markers preserving origin metadata.
+	RulesFile = "rules/project-instructions.md"
 )
 
 // Renderer compiles an XcaffoldConfig AST into Antigravity (Antigravity) output files.
@@ -116,6 +123,11 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		notes = append(notes, mcpNotes...)
 	}
 
+	if config.Project != nil {
+		instrNotes := r.renderProjectInstructions(config, baseDir, out.Files)
+		notes = append(notes, instrNotes...)
+	}
+
 	if config.Settings.Permissions != nil {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "settings", "global", "permissions",
@@ -161,6 +173,108 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	}
 
 	return out, notes, nil
+}
+
+// renderProjectInstructions emits a single flat-singleton rules file containing
+// the project root instructions followed by each InstructionsScope entry, each
+// wrapped in xcaffold:scope HTML provenance markers (path, merge-strategy, origin).
+//
+// Antigravity has no multi-file nesting model, so all scopes are merged into one
+// file. Structural distinction is preserved via provenance markers only. One
+// INSTRUCTIONS_FLATTENED info note is emitted per scope.
+func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+	p := config.Project
+	if p.Instructions == "" && p.InstructionsFile == "" {
+		return nil
+	}
+
+	var notes []renderer.FidelityNote
+
+	rootContent := agResolveInstructions(p.Instructions, p.InstructionsFile, baseDir)
+
+	// Inline @-imports — Antigravity has no native @-import mechanism.
+	for _, imp := range p.InstructionsImports {
+		data, err := os.ReadFile(filepath.Join(baseDir, imp))
+		if err == nil {
+			rootContent += "\n\n" + string(data)
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString(rootContent)
+
+	// Sort scopes: depth ascending (fewer path separators first), then alphabetical.
+	scopes := make([]ast.InstructionsScope, len(p.InstructionsScopes))
+	copy(scopes, p.InstructionsScopes)
+	sort.SliceStable(scopes, func(i, j int) bool {
+		di := strings.Count(scopes[i].Path, "/")
+		dj := strings.Count(scopes[j].Path, "/")
+		if di != dj {
+			return di < dj
+		}
+		return scopes[i].Path < scopes[j].Path
+	})
+
+	for _, scope := range scopes {
+		scopeContent := agResolveScopeContent(scope, targetName, baseDir)
+
+		// Build provenance marker attributes — never allow unescaped quotes in path.
+		safePath := strings.ReplaceAll(scope.Path, `"`, `'`)
+		mergeStrategy := scope.MergeStrategy
+		if mergeStrategy == "" {
+			mergeStrategy = "concat"
+		}
+
+		origin := ""
+		if scope.SourceProvider != "" || scope.SourceFilename != "" {
+			origin = fmt.Sprintf(" origin=%q", scope.SourceProvider+":"+scope.SourceFilename)
+		}
+
+		fmt.Fprintf(&sb, "\n\n<!-- xcaffold:scope path=%q merge=%q%s -->\n",
+			safePath, mergeStrategy, origin)
+		sb.WriteString(scopeContent)
+		sb.WriteString("\n<!-- xcaffold:/scope -->\n")
+
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelInfo,
+			targetName,
+			"instructions",
+			scope.Path,
+			"merge-strategy",
+			renderer.CodeInstructionsFlattened,
+			fmt.Sprintf("scope %q flattened into single rules file with provenance marker", scope.Path),
+			"Use a target that supports nested instruction files (e.g. claude) if scope isolation is required",
+		))
+	}
+
+	safePath := filepath.Clean(RulesFile)
+	files[safePath] = sb.String()
+	return notes
+}
+
+// agResolveInstructions returns inline instructions or reads InstructionsFile
+// relative to baseDir. Returns empty string on any read error.
+func agResolveInstructions(inline, file, baseDir string) string {
+	if inline != "" {
+		return inline
+	}
+	if file == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(baseDir, file))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// agResolveScopeContent returns the effective content for a scope, preferring
+// an antigravity-specific variant when one is declared.
+func agResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) string {
+	if v, ok := scope.Variants[provider]; ok {
+		return agResolveInstructions("", v.InstructionsFile, baseDir)
+	}
+	return agResolveInstructions(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
 // compileAntigravityRule renders a single RuleConfig to a plain Markdown file.
