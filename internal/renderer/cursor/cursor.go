@@ -13,7 +13,6 @@ package cursor
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -22,6 +21,8 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 )
+
+const targetName = "cursor"
 
 // Renderer compiles an XcaffoldConfig AST into Cursor output files.
 // It targets the ".cursor/rules/" directory structure understood by Cursor.
@@ -34,7 +35,7 @@ func New() *Renderer {
 
 // Target returns the identifier for this renderer's target platform.
 func (r *Renderer) Target() string {
-	return "cursor"
+	return targetName
 }
 
 // OutputDir returns the output directory prefix for this renderer.
@@ -50,77 +51,95 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 
 // Compile translates an XcaffoldConfig AST into its Cursor output representation.
 // baseDir is the directory that contains the scaffold.xcf file; it is used to
-// resolve instructions_file: paths. Compile returns an error if any resource
-// fails to compile. It never panics.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
-	out := &output.Output{
-		Files: make(map[string]string),
-	}
+// resolve instructions_file: paths. The second return is a slice of fidelity
+// notes describing information loss relative to the native Claude target;
+// suppression is applied at the command layer, not inside this renderer.
+// Compile returns an error if any resource fails to compile. It never panics.
+func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
+	out := &output.Output{Files: make(map[string]string)}
+	var notes []renderer.FidelityNote
 
-	// Compile all rules to rules/<id>.mdc
 	for id, rule := range config.Rules {
 		mdc, err := compileCursorRule(id, rule, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("cursor: failed to compile rule %q: %w", id, err)
+			return nil, nil, fmt.Errorf("cursor: failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.mdc", id))
 		out.Files[safePath] = mdc
 	}
 
-	// Compile all agents to agents/<id>.md
 	for id, agent := range config.Agents {
-		md, err := compileCursorAgent(id, agent, baseDir)
+		md, agentNotes, err := compileCursorAgent(id, agent, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("cursor: failed to compile agent %q: %w", id, err)
+			return nil, nil, fmt.Errorf("cursor: failed to compile agent %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("agents/%s.md", id))
 		out.Files[safePath] = md
+		notes = append(notes, agentNotes...)
 	}
 
-	// Compile all skills to skills/<id>/SKILL.md
 	for id, skill := range config.Skills {
 		md, err := compileCursorSkill(id, skill, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("cursor: failed to compile skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("cursor: failed to compile skill %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
-		// Fidelity warnings: scripts and assets are Claude-native, Cursor drops them silently.
+
 		if len(skill.Scripts) > 0 {
-			fmt.Fprintf(os.Stderr, "WARNING (cursor): skill %q scripts: dropped — Cursor does not support skill scripts/ directories.\n", id)
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "scripts",
+				renderer.CodeSkillScriptsDropped,
+				fmt.Sprintf("skill %q scripts dropped; Cursor does not support skill scripts/ directories", id),
+				"Move script logic into the skill instructions or use a separate target",
+			))
 		}
 		if len(skill.Assets) > 0 {
-			fmt.Fprintf(os.Stderr, "WARNING (cursor): skill %q assets: dropped — Cursor does not support skill assets/ directories.\n", id)
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "assets",
+				renderer.CodeSkillAssetsDropped,
+				fmt.Sprintf("skill %q assets dropped; Cursor does not support skill assets/ directories", id),
+				"Inline asset references into the instructions body",
+			))
 		}
 	}
 
-	// Compile MCP servers to mcp.json (only if any servers are defined)
 	if len(config.MCP) > 0 {
-		mcpJSON, err := compileCursorMCP(config.MCP)
+		mcpJSON, mcpNotes, err := compileCursorMCP(config.MCP)
 		if err != nil {
-			return nil, fmt.Errorf("cursor: failed to compile mcp servers: %w", err)
+			return nil, nil, fmt.Errorf("cursor: failed to compile mcp servers: %w", err)
 		}
 		out.Files["mcp.json"] = mcpJSON
+		notes = append(notes, mcpNotes...)
 	}
 
-	// Compile Hooks to hooks.json
 	if len(config.Hooks) > 0 {
-		hooksJSON, err := compileCursorHooks(config.Hooks)
+		hooksJSON, hookNotes, err := compileCursorHooks(config.Hooks)
 		if err != nil {
-			return nil, fmt.Errorf("cursor: failed to compile hooks: %w", err)
+			return nil, nil, fmt.Errorf("cursor: failed to compile hooks: %w", err)
 		}
 		out.Files["hooks.json"] = hooksJSON
+		notes = append(notes, hookNotes...)
 	}
 
-	// Emit security fidelity warnings for dropped settings fields.
 	if config.Settings.Permissions != nil {
-		fmt.Fprintf(os.Stderr, "WARNING (cursor): settings.permissions dropped — Cursor has no permission enforcement. Declared allow/deny/ask rules will NOT apply.\n")
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "settings", "global", "permissions",
+			renderer.CodeSettingsFieldUnsupported,
+			"settings.permissions dropped; Cursor has no permission enforcement. Declared allow/deny/ask rules will NOT apply",
+			"Enforce permissions via repository tooling or remove the permissions block for this target",
+		))
 	}
 	if config.Settings.Sandbox != nil {
-		fmt.Fprintf(os.Stderr, "WARNING (cursor): settings.sandbox dropped — Cursor has no sandbox model. Filesystem and network restrictions will NOT apply.\n")
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "settings", "global", "sandbox",
+			renderer.CodeSettingsFieldUnsupported,
+			"settings.sandbox dropped; Cursor has no sandbox model. Filesystem and network restrictions will NOT apply",
+			"Remove the sandbox block for this target or use a platform that supports sandboxing",
+		))
 	}
 
-	return out, nil
+	return out, notes, nil
 }
 
 // toCamelCase lowercases the first character of a string (PreToolUse -> preToolUse)
@@ -132,9 +151,9 @@ func toCamelCase(s string) string {
 }
 
 // compileCursorHooks flattens Claude's 3-level HookConfig to Cursor's 2-level format.
-func compileCursorHooks(hooks ast.HookConfig) (string, error) {
-	// target map is: eventName -> array of flat hook handlers (with matcher added inline)
+func compileCursorHooks(hooks ast.HookConfig) (string, []renderer.FidelityNote, error) {
 	flatHooks := make(map[string][]map[string]interface{})
+	var notes []renderer.FidelityNote
 
 	for eventName, groups := range hooks {
 		camelEvent := toCamelCase(eventName)
@@ -142,23 +161,26 @@ func compileCursorHooks(hooks ast.HookConfig) (string, error) {
 
 		for _, group := range groups {
 			for _, handler := range group.Hooks {
-				// Convert to generic map to inject the matcher field safely
 				b, err := json.Marshal(handler)
 				if err != nil {
-					return "", err
+					return "", nil, err
 				}
 				var flatHandler map[string]interface{}
 				if err := json.Unmarshal(b, &flatHandler); err != nil {
-					return "", err
+					return "", nil, err
 				}
 
 				if group.Matcher != "" {
 					flatHandler["matcher"] = group.Matcher
 				}
 
-				// Warn on interpolation syntax differences
 				if strings.Contains(string(b), "${") {
-					fmt.Fprintf(os.Stderr, "WARNING (cursor): interpolation pattern ${...} found in hook %q. Cursor requires ${env:NAME} syntax.\n", eventName)
+					notes = append(notes, renderer.NewNote(
+						renderer.LevelWarning, targetName, "agent", eventName, "hooks",
+						renderer.CodeHookInterpolationRequiresEnvSyntax,
+						fmt.Sprintf("interpolation pattern ${...} in hook %q; Cursor requires ${env:NAME} syntax", eventName),
+						"Rewrite ${VAR} as ${env:VAR} in hook configuration",
+					))
 				}
 
 				eventHandlers = append(eventHandlers, flatHandler)
@@ -172,17 +194,12 @@ func compileCursorHooks(hooks ast.HookConfig) (string, error) {
 
 	data, err := json.MarshalIndent(flatHooks, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("hook json marshal: %w", err)
+		return "", nil, fmt.Errorf("hook json marshal: %w", err)
 	}
-	return string(data), nil
+	return string(data), notes, nil
 }
 
 // compileCursorRule renders a single RuleConfig to a Cursor .mdc file.
-//
-// Normalizations:
-//   - paths: values are emitted as globs: in frontmatter
-//   - absent paths → alwaysApply: true
-//   - body content is preserved verbatim after the closing frontmatter delimiter
 func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("rule id must not be empty")
@@ -201,14 +218,12 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 		fmt.Fprintf(&sb, "description: %s\n", rule.Description)
 	}
 
-	// Normalization: paths: → globs: (Normalization Rule 4)
 	if len(rule.Paths) > 0 {
 		fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
 		if rule.AlwaysApply != nil && *rule.AlwaysApply {
 			sb.WriteString("alwaysApply: true\n")
 		}
 	} else {
-		// No paths = always active → alwaysApply: true, unless explicitly false
 		if rule.AlwaysApply != nil && !*rule.AlwaysApply {
 			sb.WriteString("alwaysApply: false\n")
 		} else {
@@ -229,23 +244,19 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 
 // compileCursorAgent renders a single AgentConfig to a Cursor agents/<id>.md file.
 //
-// Normalizations:
-//   - background: true → is_background: true (Normalization Rule 6)
-//   - CC-only fields are dropped: effort, permissionMode, isolation, color,
-//     memory, maxTurns, tools, disallowedTools, skills, initialPrompt
-//
 //nolint:gocyclo
-func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (string, error) {
+func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("agent id must not be empty")
+		return "", nil, fmt.Errorf("agent id must not be empty")
 	}
 
 	body, err := resolver.ResolveInstructions(agent.Instructions, agent.InstructionsFile, "", baseDir)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	var sb strings.Builder
+	var notes []renderer.FidelityNote
 
 	sb.WriteString("---\n")
 
@@ -255,26 +266,21 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 	if agent.Description != "" {
 		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(agent.Description))
 	}
-	// Determine if fidelity warnings are suppressed
-	suppress := false
-	if override, ok := agent.Targets["cursor"]; ok && override.SuppressFidelityWarnings != nil && *override.SuppressFidelityWarnings {
-		suppress = true
-	}
 
 	if agent.Model != "" {
-		if resolved, ok := renderer.ResolveModel(agent.Model, "cursor"); ok && resolved != "" {
-			// Cursor doesn't natively support full Claude/OpenAI model strings here normally.
-			// Only emit the model if it's explicitly safely mapped. Literal fallbacks are omitted.
-			if renderer.IsMappedModel(agent.Model, "cursor") {
+		if resolved, ok := renderer.ResolveModel(agent.Model, targetName); ok && resolved != "" {
+			if renderer.IsMappedModel(agent.Model, targetName) {
 				fmt.Fprintf(&sb, "model: %s\n", yamlScalar(resolved))
 			} else {
-				if !suppress {
-					fmt.Fprintf(os.Stderr, "WARNING (cursor): unmapped model %q (resolved to %q) omitted for agent %q. Cursor requires specific model strings.\n", agent.Model, resolved, id)
-				}
+				notes = append(notes, renderer.NewNote(
+					renderer.LevelWarning, targetName, "agent", id, "model",
+					renderer.CodeAgentModelUnmapped,
+					fmt.Sprintf("unmapped model %q (resolved to %q) omitted for agent %q; Cursor requires specific model strings", agent.Model, resolved, id),
+					"Use a Cursor-supported model identifier or add a targets.cursor.provider.model override",
+				))
 			}
 		}
 	}
-	// Normalization Rule 6: background → is_background
 	if agent.Background != nil && *agent.Background {
 		sb.WriteString("is_background: true\n")
 	}
@@ -290,26 +296,35 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 		sb.WriteString("\n")
 	}
 
-	// Emit remaining per-agent security fidelity warnings unless suppressed.
-	if !suppress {
-		if agent.PermissionMode != "" {
-			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q permissionMode %q dropped — Cursor has no permission mode equivalent.\n", id, agent.PermissionMode)
-		}
-		if len(agent.DisallowedTools) > 0 {
-			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q disallowedTools dropped — tool restrictions will NOT be enforced by Cursor.\n", id)
-		}
-		if agent.Isolation != "" {
-			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q isolation %q dropped — Cursor has no process isolation model.\n", id, agent.Isolation)
-		}
+	if agent.PermissionMode != "" {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "agent", id, "permissionMode",
+			renderer.CodeAgentSecurityFieldsDropped,
+			fmt.Sprintf("agent %q permissionMode %q dropped; Cursor has no permission mode equivalent", id, agent.PermissionMode),
+			"Remove permissionMode from the cursor target override",
+		))
+	}
+	if len(agent.DisallowedTools) > 0 {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "agent", id, "disallowedTools",
+			renderer.CodeAgentSecurityFieldsDropped,
+			fmt.Sprintf("agent %q disallowedTools dropped; tool restrictions will NOT be enforced by Cursor", id),
+			"Enforce tool restrictions via a different target or accept the loss",
+		))
+	}
+	if agent.Isolation != "" {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "agent", id, "isolation",
+			renderer.CodeAgentSecurityFieldsDropped,
+			fmt.Sprintf("agent %q isolation %q dropped; Cursor has no process isolation model", id, agent.Isolation),
+			"Remove isolation from the cursor target override",
+		))
 	}
 
-	return sb.String(), nil
+	return sb.String(), notes, nil
 }
 
 // compileCursorSkill renders a single SkillConfig to a Cursor skills/<id>/SKILL.md file.
-//
-// Normalizations:
-//   - Scripts and assets are warned about as fidelity loss if present, as Cursor does not support bundled subdirectories for skills.
 func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", fmt.Errorf("skill id must not be empty")
@@ -343,8 +358,6 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 }
 
 // cursorMCPEntry is the Cursor-compatible MCP server entry shape.
-// The type field is intentionally omitted — Cursor infers the transport
-// from the presence of command (stdio) or serverUrl (http/sse).
 type cursorMCPEntry struct {
 	Env       map[string]string `json:"env,omitempty"`
 	Headers   map[string]string `json:"headers,omitempty"`
@@ -354,12 +367,10 @@ type cursorMCPEntry struct {
 }
 
 // compileCursorMCP renders all MCP server configs to a single mcp.json file.
-//
-// Normalizations:
-//   - url → serverUrl (Normalization Rule 2)
-//   - type field omitted — Cursor infers transport
-func compileCursorMCP(servers map[string]ast.MCPConfig) (string, error) {
+func compileCursorMCP(servers map[string]ast.MCPConfig) (string, []renderer.FidelityNote, error) {
 	entries := make(map[string]cursorMCPEntry, len(servers))
+	var notes []renderer.FidelityNote
+
 	for id, srv := range servers {
 		entries[id] = cursorMCPEntry{
 			Command:   srv.Command,
@@ -370,17 +381,32 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, error) {
 		}
 
 		if strings.Contains(srv.Command, "${") {
-			fmt.Fprintf(os.Stderr, "WARNING (cursor): interpolation pattern ${...} found in MCP command for %q. Cursor requires ${env:NAME} syntax.\n", id)
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "settings", id, "mcp.command",
+				renderer.CodeHookInterpolationRequiresEnvSyntax,
+				fmt.Sprintf("interpolation pattern ${...} in MCP command for %q; Cursor requires ${env:NAME} syntax", id),
+				"Rewrite ${VAR} as ${env:VAR} in MCP server command",
+			))
 		}
 		for _, arg := range srv.Args {
 			if strings.Contains(arg, "${") {
-				fmt.Fprintf(os.Stderr, "WARNING (cursor): interpolation pattern ${...} found in MCP args for %q. Cursor requires ${env:NAME} syntax.\n", id)
-				break // warn once per args array
+				notes = append(notes, renderer.NewNote(
+					renderer.LevelWarning, targetName, "settings", id, "mcp.args",
+					renderer.CodeHookInterpolationRequiresEnvSyntax,
+					fmt.Sprintf("interpolation pattern ${...} in MCP args for %q; Cursor requires ${env:NAME} syntax", id),
+					"Rewrite ${VAR} as ${env:VAR} in MCP server args",
+				))
+				break
 			}
 		}
 		for k, v := range srv.Env {
 			if strings.Contains(v, "${") {
-				fmt.Fprintf(os.Stderr, "WARNING (cursor): interpolation pattern ${...} found in MCP env %q. Cursor requires ${env:NAME} syntax.\n", k)
+				notes = append(notes, renderer.NewNote(
+					renderer.LevelWarning, targetName, "settings", id, "mcp.env",
+					renderer.CodeHookInterpolationRequiresEnvSyntax,
+					fmt.Sprintf("interpolation pattern ${...} in MCP env %q for server %q; Cursor requires ${env:NAME} syntax", k, id),
+					"Rewrite ${VAR} as ${env:VAR} in MCP server env",
+				))
 			}
 		}
 	}
@@ -391,23 +417,13 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, error) {
 
 	data, err := json.MarshalIndent(envelope, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("mcp json marshal: %w", err)
+		return "", nil, fmt.Errorf("mcp json marshal: %w", err)
 	}
-	return string(data), nil
+	return string(data), notes, nil
 }
 
-// resolveFile returns the effective body content for a rule.
-//
-// Priority (highest to lowest):
-//  1. inline    — the "instructions:" YAML field
-//  2. filePath  — the "instructions_file:" YAML field (read from disk, frontmatter stripped)
-
-// stripFrontmatter removes YAML frontmatter delimited by "---" from the start
-// of a markdown file, returning only the body content with leading newlines trimmed.
-
 // yamlScalar quotes a string value for safe inclusion in YAML if it contains
-// characters that would otherwise need quoting. For simple values it returns
-// the string as-is.
+// characters that would otherwise need quoting.
 func yamlScalar(s string) string {
 	needsQuote := strings.ContainsAny(s, ":#{}[]|>&*!,'\"\\%@`")
 	if needsQuote {

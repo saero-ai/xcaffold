@@ -41,9 +41,11 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 
 // Compile translates an XcaffoldConfig AST into its Claude Code output
 // representation. baseDir is the directory that contains the scaffold.xcf file;
-// it is used to resolve instructions_file: and references: paths.
+// it is used to resolve instructions_file: and references: paths. The second
+// return is a slice of fidelity notes; Claude is the native target and has no
+// fidelity gaps, so Compile always returns a nil notes slice.
 // Compile returns an error if any resource fails to compile. It never panics.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
+func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
 	out := &output.Output{
 		Files: make(map[string]string),
 	}
@@ -52,7 +54,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	for id, agent := range config.Agents {
 		md, err := compileAgentMarkdown(id, agent, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to compile agent %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile agent %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("agents/%s.md", id))
 		out.Files[safePath] = md
@@ -62,22 +64,19 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	for id, skill := range config.Skills {
 		md, err := compileSkillMarkdown(id, skill, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to compile skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile skill %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
-		// Copy reference files into skills/<id>/references/
 		if err := compileSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
-			return nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
 		}
-		// Copy script files into skills/<id>/scripts/
 		if err := compileSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
-			return nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
 		}
-		// Copy asset files into skills/<id>/assets/
 		if err := compileSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
-			return nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
 		}
 	}
 
@@ -85,45 +84,41 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	for id, rule := range config.Rules {
 		md, err := compileRuleMarkdown(id, rule, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to compile rule %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
 		out.Files[safePath] = md
 	}
 
-	// MCP Servers -> mcp.json
 	mcpJSON, err := compileClaudeMCP(config.MCP, config.Settings.MCPServers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile MCP servers: %w", err)
+		return nil, nil, fmt.Errorf("failed to compile MCP servers: %w", err)
 	}
 	if mcpJSON != "" {
 		out.Files["mcp.json"] = mcpJSON
 	}
 
-	// settings.json: compile the settings: block + hooks.
 	settingsJSON, err := compileSettingsJSON(config.Settings, config.Hooks)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile settings: %w", err)
+		return nil, nil, fmt.Errorf("failed to compile settings: %w", err)
 	}
 	if settingsJSON != "" {
 		out.Files["settings.json"] = settingsJSON
 	}
 
-	// settings.local.json: compile the local: block (gitignored settings).
-	// Local is now nested inside Project (nil when no project: block is defined).
 	var localSettings ast.SettingsConfig
 	if config.Project != nil {
 		localSettings = config.Project.Local
 	}
 	localJSON, err := compileSettingsJSON(localSettings, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile local settings: %w", err)
+		return nil, nil, fmt.Errorf("failed to compile local settings: %w", err)
 	}
 	if localJSON != "" {
 		out.Files["settings.local.json"] = localJSON
 	}
 
-	return out, nil
+	return out, nil, nil
 }
 
 // resolveInstructions returns the effective body content for an agent/skill/rule.

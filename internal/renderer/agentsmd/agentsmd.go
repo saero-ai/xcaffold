@@ -5,19 +5,16 @@ package agentsmd
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 )
 
-// warningWriter is the destination for fidelity warnings.
-// Overridable in tests to capture output.
-var warningWriter io.Writer = os.Stderr
+const targetName = "agentsmd"
 
 // Renderer compiles an XcaffoldConfig AST into AGENTS.md output files.
 type Renderer struct{}
@@ -26,7 +23,7 @@ type Renderer struct{}
 func New() *Renderer { return &Renderer{} }
 
 // Target returns the canonical target name for this renderer.
-func (r *Renderer) Target() string { return "agentsmd" }
+func (r *Renderer) Target() string { return targetName }
 
 // OutputDir returns the base output directory for this renderer.
 // AGENTS.md lives at the repository root, so this returns ".".
@@ -38,34 +35,44 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 	return &output.Output{Files: files}
 }
 
-// Compile translates an XcaffoldConfig AST into AGENTS.md files.
+// Compile translates an XcaffoldConfig AST into AGENTS.md files along with a
+// slice of fidelity notes for fields that have no AGENTS.md equivalent.
 // baseDir is the directory containing scaffold.xcf; used to resolve
 // instructions_file: paths. Compile never panics — all errors are returned.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
+func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
 	out := &output.Output{Files: make(map[string]string)}
+	var notes []renderer.FidelityNote
 
-	// Group rules by directory prefix. Bucket "." = root AGENTS.md.
 	ruleGroups := groupRulesByDirectory(config.Rules)
 
 	rootContent, err := buildRootFile(config, baseDir, ruleGroups["."])
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out.Files["AGENTS.md"] = rootContent
 
-	// Emit directory-scoped AGENTS.md files for non-root rule buckets.
 	for dir, rules := range ruleGroups {
 		if dir == "." {
 			continue
 		}
 		dirContent, err := buildDirFile(rules, baseDir)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		out.Files[filepath.Clean(dir+"/AGENTS.md")] = dirContent
 	}
 
-	return out, nil
+	for id, agent := range config.Agents {
+		notes = append(notes, collectNotesAgent(id, agent)...)
+	}
+	for id, skill := range config.Skills {
+		notes = append(notes, collectNotesSkill(id, skill)...)
+	}
+	for id, rule := range config.Rules {
+		notes = append(notes, collectNotesRule(id, rule)...)
+	}
+
+	return out, notes, nil
 }
 
 // buildRootFile constructs the root AGENTS.md content.
@@ -108,7 +115,6 @@ func buildDirFile(rules []namedRule, baseDir string) (string, error) {
 	return sb.String(), nil
 }
 
-// renderProjectSection emits the ## Project section when name or description is set.
 func renderProjectSection(sb *strings.Builder, p ast.ProjectConfig) error {
 	if p.Name == "" && p.Description == "" {
 		return nil
@@ -123,18 +129,12 @@ func renderProjectSection(sb *strings.Builder, p ast.ProjectConfig) error {
 	return nil
 }
 
-// renderAgentsSection emits the ## Agents section for all agents in the config.
 func renderAgentsSection(sb *strings.Builder, agents map[string]ast.AgentConfig, baseDir string) error {
 	if len(agents) == 0 {
 		return nil
 	}
 	sb.WriteString("\n## Agents\n")
 	for id, agent := range agents {
-		suppress := isSuppressed(agent)
-		if !suppress {
-			warnLossyAgent(id, agent)
-		}
-
 		fmt.Fprintf(sb, "\n### %s\n", id)
 		if agent.Model != "" {
 			fmt.Fprintf(sb, "**Model**: %s\n", agent.Model)
@@ -156,15 +156,12 @@ func renderAgentsSection(sb *strings.Builder, agents map[string]ast.AgentConfig,
 	return nil
 }
 
-// renderSkillsSection emits the ## Skills section for all skills in the config.
 func renderSkillsSection(sb *strings.Builder, skills map[string]ast.SkillConfig, baseDir string) error {
 	if len(skills) == 0 {
 		return nil
 	}
 	sb.WriteString("\n## Skills\n")
 	for id, skill := range skills {
-		warnLossySkill(id, skill)
-
 		fmt.Fprintf(sb, "\n### %s\n", id)
 		if skill.Description != "" {
 			fmt.Fprintf(sb, "**Description**: %s\n", skill.Description)
@@ -183,15 +180,12 @@ func renderSkillsSection(sb *strings.Builder, skills map[string]ast.SkillConfig,
 	return nil
 }
 
-// renderRulesSection emits the ## Rules section for the given named rules.
 func renderRulesSection(sb *strings.Builder, rules []namedRule, baseDir string) error {
 	if len(rules) == 0 {
 		return nil
 	}
 	sb.WriteString("\n## Rules\n")
 	for _, nr := range rules {
-		warnLossyRule(nr.id, nr.rule)
-
 		fmt.Fprintf(sb, "\n### %s\n", nr.id)
 		if len(nr.rule.Paths) > 0 {
 			fmt.Fprintf(sb, "**Applies to**: %s\n", strings.Join(nr.rule.Paths, ", "))
@@ -212,7 +206,6 @@ func renderRulesSection(sb *strings.Builder, rules []namedRule, baseDir string) 
 	return nil
 }
 
-// renderWorkflowsSection emits the ## Workflows section for all workflows.
 func renderWorkflowsSection(sb *strings.Builder, workflows map[string]ast.WorkflowConfig, baseDir string) error {
 	if len(workflows) == 0 {
 		return nil
@@ -237,19 +230,15 @@ func renderWorkflowsSection(sb *strings.Builder, workflows map[string]ast.Workfl
 	return nil
 }
 
-// namedRule pairs a rule config with its map key (the rule ID).
 type namedRule struct {
 	id   string
 	rule ast.RuleConfig
 }
 
 // groupRulesByDirectory splits rules into buckets keyed by their common directory
-// prefix. Key "." means the root AGENTS.md. Rules with no paths or with a global
-// prefix (empty / ".") also land in the "." bucket.
+// prefix. Key "." means the root AGENTS.md.
 func groupRulesByDirectory(rules map[string]ast.RuleConfig) map[string][]namedRule {
-	groups := map[string][]namedRule{
-		".": {},
-	}
+	groups := map[string][]namedRule{".": {}}
 
 	for id, rule := range rules {
 		if len(rule.Paths) == 0 {
@@ -268,23 +257,15 @@ func groupRulesByDirectory(rules map[string]ast.RuleConfig) map[string][]namedRu
 	return groups
 }
 
-// commonDirPrefix extracts the longest common directory prefix from a set of
-// glob patterns. It splits each pattern on "/" and considers only the directory
-// components (all path segments except the last). The result is the common
-// prefix of those component slices joined with "/".
 func commonDirPrefix(patterns []string) string {
 	if len(patterns) == 0 {
 		return ""
 	}
 
-	// Compute directory components for each pattern.
 	dirParts := make([][]string, 0, len(patterns))
 	for _, p := range patterns {
 		parts := strings.Split(p, "/")
-		// Drop the last component (filename/glob part), keep only dir segments.
 		dirs := parts[:len(parts)-1]
-		// Filter out glob characters in the leading segments — if any dir segment
-		// contains "*" or "?", it's a global pattern and we stop there.
 		cleaned := make([]string, 0, len(dirs))
 		for _, d := range dirs {
 			if strings.ContainsAny(d, "*?[") {
@@ -299,7 +280,6 @@ func commonDirPrefix(patterns []string) string {
 		return ""
 	}
 
-	// Find common prefix across all patterns' dir parts.
 	prefix := dirParts[0]
 	for _, parts := range dirParts[1:] {
 		prefix = commonPrefix(prefix, parts)
@@ -312,7 +292,6 @@ func commonDirPrefix(patterns []string) string {
 	return strings.Join(prefix, "/")
 }
 
-// commonPrefix returns the longest common prefix of two string slices.
 func commonPrefix(a, b []string) []string {
 	max := len(a)
 	if len(b) < max {
@@ -327,104 +306,115 @@ func commonPrefix(a, b []string) []string {
 }
 
 // isSuppressed returns true if the agent has SuppressFidelityWarnings set for
-// the "agentsmd" target.
+// the "agentsmd" target. Retained as a utility; suppression is evaluated at
+// the command layer rather than inside this renderer.
 func isSuppressed(agent ast.AgentConfig) bool {
-	if override, ok := agent.Targets["agentsmd"]; ok {
+	if override, ok := agent.Targets[targetName]; ok {
 		return override.SuppressFidelityWarnings != nil && *override.SuppressFidelityWarnings
 	}
 	return false
 }
 
-// warnLossy emits one fidelity warning line to warningWriter.
-func warnLossy(kind, field, id string) {
-	fmt.Fprintf(warningWriter, "WARNING (agentsmd): field %q on %s %q has no AGENTS.md equivalent and was dropped.\n", field, kind, id)
+func fieldNote(kind, id, field string) renderer.FidelityNote {
+	return renderer.NewNote(
+		renderer.LevelWarning,
+		targetName,
+		kind,
+		id,
+		field,
+		renderer.CodeFieldUnsupported,
+		fmt.Sprintf("field %q on %s %q has no AGENTS.md equivalent and was dropped", field, kind, id),
+		"",
+	)
 }
 
-// warnLossyAgent emits fidelity warnings for lossy AgentConfig fields.
-//
 //nolint:gocyclo
-func warnLossyAgent(id string, a ast.AgentConfig) {
+func collectNotesAgent(id string, a ast.AgentConfig) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	if len(a.Tools) > 0 {
-		warnLossy("agent", "tools", id)
+		notes = append(notes, fieldNote("agent", id, "tools"))
 	}
 	if len(a.DisallowedTools) > 0 {
-		warnLossy("agent", "disallowedTools", id)
+		notes = append(notes, fieldNote("agent", id, "disallowedTools"))
 	}
 	if len(a.Skills) > 0 {
-		warnLossy("agent", "skills", id)
+		notes = append(notes, fieldNote("agent", id, "skills"))
 	}
 	if len(a.Rules) > 0 {
-		warnLossy("agent", "rules", id)
+		notes = append(notes, fieldNote("agent", id, "rules"))
 	}
 	if a.Effort != "" {
-		warnLossy("agent", "effort", id)
+		notes = append(notes, fieldNote("agent", id, "effort"))
 	}
 	if a.PermissionMode != "" {
-		warnLossy("agent", "permissionMode", id)
+		notes = append(notes, fieldNote("agent", id, "permissionMode"))
 	}
 	if a.Isolation != "" {
-		warnLossy("agent", "isolation", id)
+		notes = append(notes, fieldNote("agent", id, "isolation"))
 	}
 	if a.Color != "" {
-		warnLossy("agent", "color", id)
+		notes = append(notes, fieldNote("agent", id, "color"))
 	}
 	if a.MaxTurns > 0 {
-		warnLossy("agent", "maxTurns", id)
+		notes = append(notes, fieldNote("agent", id, "maxTurns"))
 	}
 	if a.Background != nil {
-		warnLossy("agent", "background", id)
+		notes = append(notes, fieldNote("agent", id, "background"))
 	}
 	if a.Readonly != nil {
-		warnLossy("agent", "readonly", id)
+		notes = append(notes, fieldNote("agent", id, "readonly"))
 	}
 	if a.Mode != "" {
-		warnLossy("agent", "mode", id)
+		notes = append(notes, fieldNote("agent", id, "mode"))
 	}
 	if a.When != "" {
-		warnLossy("agent", "when", id)
+		notes = append(notes, fieldNote("agent", id, "when"))
 	}
 	if a.InitialPrompt != "" {
-		warnLossy("agent", "initialPrompt", id)
+		notes = append(notes, fieldNote("agent", id, "initialPrompt"))
 	}
 	if a.Memory != "" {
-		warnLossy("agent", "memory", id)
+		notes = append(notes, fieldNote("agent", id, "memory"))
 	}
 	if len(a.Hooks) > 0 {
-		warnLossy("agent", "hooks", id)
+		notes = append(notes, fieldNote("agent", id, "hooks"))
 	}
 	if len(a.MCPServers) > 0 {
-		warnLossy("agent", "mcpServers", id)
+		notes = append(notes, fieldNote("agent", id, "mcpServers"))
 	}
 	if len(a.Targets) > 0 {
-		warnLossy("agent", "targets", id)
+		notes = append(notes, fieldNote("agent", id, "targets"))
 	}
 	if len(a.Assertions) > 0 {
-		warnLossy("agent", "assertions", id)
+		notes = append(notes, fieldNote("agent", id, "assertions"))
 	}
 	if len(a.MCP) > 0 {
-		warnLossy("agent", "mcp", id)
+		notes = append(notes, fieldNote("agent", id, "mcp"))
 	}
+	return notes
 }
 
-// warnLossySkill emits fidelity warnings for lossy SkillConfig fields.
-func warnLossySkill(id string, s ast.SkillConfig) {
+func collectNotesSkill(id string, s ast.SkillConfig) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	if len(s.AllowedTools) > 0 {
-		warnLossy("skill", "tools", id)
+		notes = append(notes, fieldNote("skill", id, "tools"))
 	}
 	if len(s.References) > 0 {
-		warnLossy("skill", "references", id)
+		notes = append(notes, fieldNote("skill", id, "references"))
 	}
 	if len(s.Scripts) > 0 {
-		warnLossy("skill", "scripts", id)
+		notes = append(notes, fieldNote("skill", id, "scripts"))
 	}
 	if len(s.Assets) > 0 {
-		warnLossy("skill", "assets", id)
+		notes = append(notes, fieldNote("skill", id, "assets"))
 	}
+	return notes
 }
 
-// warnLossyRule emits fidelity warnings for lossy RuleConfig fields.
-func warnLossyRule(id string, rule ast.RuleConfig) {
+func collectNotesRule(id string, rule ast.RuleConfig) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	if rule.AlwaysApply != nil {
-		warnLossy("rule", "alwaysApply", id)
+		notes = append(notes, fieldNote("rule", id, "alwaysApply"))
 	}
+	return notes
 }

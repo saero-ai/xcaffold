@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -24,7 +25,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -49,7 +50,7 @@ func TestCompile_MultipleAgents(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 	assert.Len(t, out.Files, 2)
 	assert.Contains(t, out.Files, "agents/frontend.md")
@@ -70,7 +71,7 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 	assert.Contains(t, out.Files["agents/readonly.md"], "disallowedTools: [Bash, Write]")
 }
@@ -79,7 +80,7 @@ func TestCompile_EmptyAgents(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "empty-project"},
 	}
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
@@ -121,7 +122,7 @@ func TestCompile_FullSchema(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	// Agents
@@ -160,7 +161,7 @@ func TestCompile_CursorTarget_Supported(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "", "cursor")
+	out, _, err := Compile(config, "", "cursor")
 	require.NoError(t, err)
 	assert.NotEmpty(t, out.Files)
 }
@@ -173,7 +174,7 @@ func TestCompile_CursorTarget_RulesUseMdc(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "", "cursor")
+	out, _, err := Compile(config, "", "cursor")
 	require.NoError(t, err)
 	_, ok := out.Files["rules/style.mdc"]
 	assert.True(t, ok, "Cursor rules should use .mdc extension")
@@ -187,7 +188,7 @@ func TestCompile_AntigravityTarget_Supported(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "", "antigravity")
+	out, _, err := Compile(config, "", "antigravity")
 	require.NoError(t, err)
 	assert.NotEmpty(t, out.Files)
 }
@@ -200,7 +201,7 @@ func TestCompile_AntigravityTarget_RulesNoFrontmatter(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "", "antigravity")
+	out, _, err := Compile(config, "", "antigravity")
 	require.NoError(t, err)
 	content, ok := out.Files["rules/style.md"]
 	assert.True(t, ok)
@@ -218,7 +219,7 @@ func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "", "antigravity")
+	out, _, err := Compile(config, "", "antigravity")
 	require.NoError(t, err)
 	// Only rule should appear, not agent
 	assert.Len(t, out.Files, 1)
@@ -229,7 +230,7 @@ func TestCompile_AgentsMD_Target(t *testing.T) {
 		Project: &ast.ProjectConfig{Name: "agentsmd-test"},
 	}
 	tmpDir := t.TempDir()
-	out, err := Compile(config, tmpDir, "agentsmd")
+	out, _, err := Compile(config, tmpDir, "agentsmd")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	_, ok := out.Files["AGENTS.md"]
@@ -251,7 +252,7 @@ func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 			},
 		},
 	}
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 	for path := range out.Files {
 		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
@@ -281,7 +282,7 @@ func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
 		},
 	}
 
-	output, err := Compile(config, t.TempDir(), "claude")
+	output, _, err := Compile(config, t.TempDir(), "claude")
 	require.NoError(t, err)
 
 	// The compiled agent output should have the resolved tools, not the ${...} reference
@@ -307,7 +308,37 @@ func TestCompile_ResolveAttributes_NoRefsPassthrough(t *testing.T) {
 		},
 	}
 
-	output, err := Compile(config, t.TempDir(), "claude")
+	output, _, err := Compile(config, t.TempDir(), "claude")
 	require.NoError(t, err)
 	assert.Contains(t, output.Files["agents/developer.md"], "Dev agent")
+}
+
+// Plan A4: ensure notes emitted by a target renderer are threaded through
+// compiler.Compile's return values.
+func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"reviewer": {
+					Description:    "Code review agent.",
+					PermissionMode: "acceptEdits",
+				},
+			},
+		},
+	}
+
+	_, notes, err := Compile(config, t.TempDir(), "cursor")
+	require.NoError(t, err)
+	require.NotEmpty(t, notes, "cursor compile with permissionMode must produce fidelity notes")
+
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeAgentSecurityFieldsDropped && n.Resource == "reviewer" {
+			found = true
+			assert.Equal(t, renderer.LevelWarning, n.Level)
+			assert.Equal(t, "cursor", n.Target)
+			assert.Equal(t, "agent", n.Kind)
+		}
+	}
+	assert.True(t, found, "AGENT_SECURITY_FIELDS_DROPPED note must be in the returned slice")
 }

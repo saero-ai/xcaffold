@@ -1,7 +1,6 @@
-package agentsmd
+package agentsmd_test
 
 import (
-	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,28 +8,29 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/saero-ai/xcaffold/internal/renderer/agentsmd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// helper returns a pointer to a bool value.
 func boolPtr(b bool) *bool { return &b }
 
 // Test 1
 func TestAgentsMDRenderer_Target(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	assert.Equal(t, "agentsmd", r.Target())
 }
 
 // Test 2
 func TestAgentsMDRenderer_OutputDir(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	assert.Equal(t, ".", r.OutputDir())
 }
 
 // Test 3
 func TestAgentsMDRenderer_Render_Identity(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	files := map[string]string{
 		"AGENTS.md": "hello",
 	}
@@ -42,25 +42,26 @@ func TestAgentsMDRenderer_Render_Identity(t *testing.T) {
 
 // Test 4
 func TestAgentsMDRenderer_Compile_EmptyConfig(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{}
-	out, err := r.Compile(config, t.TempDir())
+	out, notes, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 	require.Len(t, out.Files, 1)
 	_, ok := out.Files["AGENTS.md"]
 	assert.True(t, ok, "expected AGENTS.md to be present")
+	assert.Empty(t, notes)
 }
 
 // Test 5
 func TestAgentsMDRenderer_Compile_ProjectSection(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{
 			Name:        "myapp",
 			Description: "a test project",
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 	body := out.Files["AGENTS.md"]
 	assert.Contains(t, body, "myapp — a test project")
@@ -68,7 +69,7 @@ func TestAgentsMDRenderer_Compile_ProjectSection(t *testing.T) {
 
 // Test 6
 func TestAgentsMDRenderer_Compile_AgentSection(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
@@ -80,7 +81,7 @@ func TestAgentsMDRenderer_Compile_AgentSection(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 	body := out.Files["AGENTS.md"]
 	assert.Contains(t, body, "## Agents")
@@ -90,7 +91,7 @@ func TestAgentsMDRenderer_Compile_AgentSection(t *testing.T) {
 
 // Test 7
 func TestAgentsMDRenderer_Compile_SkillSection(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
@@ -101,7 +102,7 @@ func TestAgentsMDRenderer_Compile_SkillSection(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 	body := out.Files["AGENTS.md"]
 	assert.Contains(t, body, "## Skills")
@@ -110,7 +111,7 @@ func TestAgentsMDRenderer_Compile_SkillSection(t *testing.T) {
 
 // Test 8
 func TestAgentsMDRenderer_Compile_RuleSection_WithPaths(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
@@ -121,10 +122,8 @@ func TestAgentsMDRenderer_Compile_RuleSection_WithPaths(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
-	// Rule with paths goes to a nested file, not root AGENTS.md
-	// Check nested file contains the Applies to line
 	found := false
 	for _, content := range out.Files {
 		if strings.Contains(content, "**Applies to**: src/**/*.go") {
@@ -137,7 +136,7 @@ func TestAgentsMDRenderer_Compile_RuleSection_WithPaths(t *testing.T) {
 
 // Test 9
 func TestAgentsMDRenderer_Compile_RuleSection_NoPaths(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
@@ -147,7 +146,7 @@ func TestAgentsMDRenderer_Compile_RuleSection_NoPaths(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 	body := out.Files["AGENTS.md"]
 	assert.Contains(t, body, "**Applies to**: all files")
@@ -155,7 +154,7 @@ func TestAgentsMDRenderer_Compile_RuleSection_NoPaths(t *testing.T) {
 
 // Test 10
 func TestAgentsMDRenderer_Compile_WorkflowSection(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
@@ -166,7 +165,7 @@ func TestAgentsMDRenderer_Compile_WorkflowSection(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 	body := out.Files["AGENTS.md"]
 	assert.Contains(t, body, "## Workflows")
@@ -175,7 +174,7 @@ func TestAgentsMDRenderer_Compile_WorkflowSection(t *testing.T) {
 
 // Test 11
 func TestAgentsMDRenderer_Compile_EmptySectionsOmitted(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
@@ -183,7 +182,7 @@ func TestAgentsMDRenderer_Compile_EmptySectionsOmitted(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 	body := out.Files["AGENTS.md"]
 	assert.NotContains(t, body, "## Skills")
@@ -197,7 +196,7 @@ func TestAgentsMDRenderer_Compile_InstructionsFile(t *testing.T) {
 	instrFile := filepath.Join(tmpDir, "instructions.md")
 	require.NoError(t, os.WriteFile(instrFile, []byte("Read carefully before acting."), 0600))
 
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
@@ -207,18 +206,15 @@ func TestAgentsMDRenderer_Compile_InstructionsFile(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, tmpDir)
+	out, _, err := r.Compile(config, tmpDir)
 	require.NoError(t, err)
 	body := out.Files["AGENTS.md"]
 	assert.Contains(t, body, "Read carefully before acting.")
 }
 
-// Test 13
-func TestAgentsMDRenderer_Compile_FidelityWarning_Tools(t *testing.T) {
-	var buf bytes.Buffer
-	warningWriter = &buf
-
-	r := New()
+// Test 13 — notes returned for lossy agent field (tools)
+func TestAgentsMDRenderer_Compile_FidelityNote_Tools(t *testing.T) {
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
@@ -229,21 +225,27 @@ func TestAgentsMDRenderer_Compile_FidelityWarning_Tools(t *testing.T) {
 			},
 		},
 	}
-	_, err := r.Compile(config, t.TempDir())
+	_, notes, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
+	require.NotEmpty(t, notes)
 
-	output := buf.String()
-	assert.Contains(t, output, `WARNING (agentsmd): field "tools" on agent "developer" has no AGENTS.md equivalent and was dropped.`)
-
-	warningWriter = os.Stderr
+	var found bool
+	for _, n := range notes {
+		if n.Field == "tools" {
+			found = true
+			assert.Equal(t, renderer.CodeFieldUnsupported, n.Code)
+			assert.Equal(t, "agentsmd", n.Target)
+			assert.Equal(t, "agent", n.Kind)
+			assert.Equal(t, "developer", n.Resource)
+			assert.Equal(t, renderer.LevelWarning, n.Level)
+		}
+	}
+	assert.True(t, found, "tools note must be emitted")
 }
 
-// Test 14
-func TestAgentsMDRenderer_Compile_SuppressFidelityWarnings(t *testing.T) {
-	var buf bytes.Buffer
-	warningWriter = &buf
-
-	r := New()
+// Test 14 — suppression moved to the command layer; renderer always returns notes.
+func TestAgentsMDRenderer_Compile_SuppressFidelityWarnings_NotesStillReturned(t *testing.T) {
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
@@ -257,27 +259,44 @@ func TestAgentsMDRenderer_Compile_SuppressFidelityWarnings(t *testing.T) {
 			},
 		},
 	}
-	_, err := r.Compile(config, t.TempDir())
+	_, notes, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
-
-	assert.Empty(t, buf.String(), "expected no warnings when SuppressFidelityWarnings is true")
-
-	warningWriter = os.Stderr
+	assert.NotEmpty(t, notes, "renderer returns notes regardless of suppression; suppression is applied at the command layer")
 }
 
-// Test 15
+// Test 15 — unsupported field test that exercises the CodeFieldUnsupported path for a skill field.
+func TestAgentsMDRenderer_Compile_FidelityNote_UnsupportedSkillField(t *testing.T) {
+	r := agentsmd.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"setup": {
+					Description: "Env setup.",
+					Scripts:     []string{"scripts/install.sh"},
+				},
+			},
+		},
+	}
+	_, notes, err := r.Compile(config, t.TempDir())
+	require.NoError(t, err)
+	require.NotEmpty(t, notes)
+	assert.Equal(t, renderer.CodeFieldUnsupported, notes[0].Code)
+	assert.Equal(t, "agentsmd", notes[0].Target)
+}
+
+// Test 16
 func TestAgentsMDRenderer_Compile_GeneratedComment(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 	body := out.Files["AGENTS.md"]
 	assert.Contains(t, body, "<!-- Generated by xcaffold. Do not edit manually. -->")
 }
 
-// Test 16
+// Test 17
 func TestAgentsMDRenderer_Compile_NestedRule_SingleDir(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
@@ -288,7 +307,7 @@ func TestAgentsMDRenderer_Compile_NestedRule_SingleDir(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 
 	_, hasRoot := out.Files["AGENTS.md"]
@@ -297,13 +316,12 @@ func TestAgentsMDRenderer_Compile_NestedRule_SingleDir(t *testing.T) {
 	_, hasNested := out.Files["src/api/AGENTS.md"]
 	assert.True(t, hasNested, "src/api/AGENTS.md should be present")
 
-	// Root should NOT contain this scoped rule
 	assert.NotContains(t, out.Files["AGENTS.md"], "api-conventions")
 }
 
-// Test 17
+// Test 18
 func TestAgentsMDRenderer_Compile_NestedRule_MultipleDir(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
@@ -318,7 +336,7 @@ func TestAgentsMDRenderer_Compile_NestedRule_MultipleDir(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 
 	assert.Len(t, out.Files, 3, "expected root AGENTS.md + two directory-scoped files")
@@ -330,9 +348,9 @@ func TestAgentsMDRenderer_Compile_NestedRule_MultipleDir(t *testing.T) {
 	assert.True(t, hasUI)
 }
 
-// Test 18
+// Test 19
 func TestAgentsMDRenderer_Compile_NestedRule_GlobalFallback(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
@@ -343,18 +361,17 @@ func TestAgentsMDRenderer_Compile_NestedRule_GlobalFallback(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 
-	// Should only have root AGENTS.md (no common dir prefix for **/*.ts)
 	assert.Len(t, out.Files, 1)
 	body := out.Files["AGENTS.md"]
 	assert.Contains(t, body, "ts-global")
 }
 
-// Test 19
+// Test 20
 func TestAgentsMDRenderer_Compile_NestedRule_MixedGlobalAndScoped(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
@@ -368,20 +385,17 @@ func TestAgentsMDRenderer_Compile_NestedRule_MixedGlobalAndScoped(t *testing.T) 
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 
-	// Root contains global rule
 	assert.Contains(t, out.Files["AGENTS.md"], "global-lint")
-	// Root does NOT contain scoped rule
 	assert.NotContains(t, out.Files["AGENTS.md"], "api-conventions")
-	// Nested file contains scoped rule
 	assert.Contains(t, out.Files["src/api/AGENTS.md"], "api-conventions")
 }
 
-// Test 20
+// Test 21
 func TestAgentsMDRenderer_Compile_NestedLockTracking(t *testing.T) {
-	r := New()
+	r := agentsmd.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
@@ -396,10 +410,9 @@ func TestAgentsMDRenderer_Compile_NestedLockTracking(t *testing.T) {
 			},
 		},
 	}
-	out, err := r.Compile(config, t.TempDir())
+	out, _, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 
-	// All emitted files must appear as keys in Output.Files
 	assert.Contains(t, out.Files, "AGENTS.md")
 	assert.Contains(t, out.Files, "src/api/AGENTS.md")
 	assert.Contains(t, out.Files, "src/ui/AGENTS.md")

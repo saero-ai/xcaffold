@@ -46,10 +46,11 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	baseDir := filepath.Dir(xcfPath)
-	compiled, err := compiler.Compile(config, baseDir, exportTarget)
+	compiled, notes, err := compiler.Compile(config, baseDir, exportTarget)
 	if err != nil {
 		return fmt.Errorf("compilation error: %w", err)
 	}
+	printFidelityNotes(os.Stderr, notes, buildSuppressedResourcesMap(config, exportTarget), false)
 
 	exported, err := compiler.ExportPlugin(config, compiled)
 	if err != nil {
