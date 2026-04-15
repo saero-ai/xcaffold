@@ -34,7 +34,7 @@ agents:
 skills:
   research:
     name: Research Skill
-    tools:
+    allowed-tools:
       - WebSearch
 
 rules:

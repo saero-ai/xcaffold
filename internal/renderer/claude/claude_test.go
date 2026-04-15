@@ -23,7 +23,7 @@ func TestClaudeRenderer_Compile_EmptyConfig(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	assert.Empty(t, out.Files)
@@ -43,7 +43,7 @@ func TestClaudeRenderer_Compile_MinimalAgent(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -71,7 +71,7 @@ func TestClaudeRenderer_Compile_MinimalRule(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -98,7 +98,7 @@ func TestClaudeRenderer_Compile_AgentFrontmatterFields(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/developer.md"]
@@ -122,7 +122,7 @@ func TestClaudeRenderer_Compile_RuleWithPaths(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/go-style.md"]
@@ -154,7 +154,7 @@ func TestClaudeRenderer_Compile_MultipleResources(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	assert.Contains(t, out.Files, "agents/frontend.md")
@@ -177,7 +177,7 @@ func TestClaudeRenderer_Compile_SkillMinimal(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["skills/tdd/SKILL.md"]
@@ -206,7 +206,7 @@ func TestClaudeRenderer_Compile_Agent_Readonly_EmitsToolsReadGrepGlob(t *testing
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/auditor.md"]
@@ -232,7 +232,7 @@ func TestClaudeRenderer_Compile_Agent_Readonly_ExplicitToolsTakePrecedence(t *te
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/custom.md"]
@@ -256,7 +256,7 @@ func TestClaudeRenderer_Compile_Agent_ReadonlyFalse_NoToolsSynthesized(t *testin
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/writer.md"]
@@ -279,7 +279,7 @@ func TestClaudeRenderer_Compile_Agent_InvocationControl(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/commit.md"]
@@ -304,7 +304,7 @@ func TestClaudeRenderer_Compile_Agent_MemoryInGroup6(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/researcher.md"]
@@ -319,4 +319,141 @@ func TestClaudeRenderer_Compile_Agent_MemoryInGroup6(t *testing.T) {
 
 	require.Greater(t, memoryIdx, maxTurnsIdx, "memory must come AFTER max-turns (Group 6 > Group 2)")
 	require.Greater(t, memoryIdx, isolationIdx, "memory must come AFTER isolation (within Group 5-6 ordering)")
+}
+
+func TestClaudeRenderer_Compile_Skill_NewFrontmatterFields(t *testing.T) {
+	truthy := true
+	falsy := false
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"deploy": {
+					Name:                   "deploy",
+					Description:            "Deploy the app",
+					WhenToUse:              "When asked to ship",
+					License:                "MIT",
+					AllowedTools:           []string{"Bash(git *)", "Read"},
+					DisableModelInvocation: &truthy,
+					UserInvocable:          &falsy,
+					ArgumentHint:           "[env]",
+					Instructions:           "Run the deploy script.",
+				},
+			},
+		},
+	}
+
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	md, ok := out.Files["skills/deploy/SKILL.md"]
+	require.True(t, ok, "expected skills/deploy/SKILL.md in output")
+
+	require.Contains(t, md, "name: deploy")
+	require.Contains(t, md, "description: Deploy the app")
+	require.Contains(t, md, "when_to_use: When asked to ship")
+	require.Contains(t, md, "license: MIT")
+	require.Contains(t, md, "allowed-tools: Bash(git *) Read")
+	require.Contains(t, md, "disable-model-invocation: true")
+	require.Contains(t, md, "user-invocable: false")
+	require.Contains(t, md, "argument-hint: '[env]'")
+}
+
+func TestClaudeRenderer_Compile_Skill_ClaudeProviderPassthrough(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"deep-research": {
+					Name:        "deep-research",
+					Description: "Research a topic deeply",
+					Targets: map[string]ast.TargetOverride{
+						"claude": {
+							Provider: map[string]any{
+								"context": "fork",
+								"agent":   "Explore",
+								"model":   "sonnet",
+								"effort":  "high",
+								"shell":   "bash",
+								"paths":   []any{"docs/**"},
+							},
+						},
+					},
+					Instructions: "Research deeply.",
+				},
+			},
+		},
+	}
+
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	md, ok := out.Files["skills/deep-research/SKILL.md"]
+	require.True(t, ok)
+
+	require.Contains(t, md, "context: fork")
+	require.Contains(t, md, "agent: Explore")
+	require.Contains(t, md, "model: sonnet")
+	require.Contains(t, md, "effort: high")
+	require.Contains(t, md, "shell: bash")
+	require.Contains(t, md, "paths:")
+}
+
+func TestClaudeRenderer_Compile_Skill_ProviderIsolation(t *testing.T) {
+	// Cursor provider keys must NOT leak into Claude SKILL.md.
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"x": {
+					Name:        "x",
+					Description: "x",
+					Targets: map[string]ast.TargetOverride{
+						"cursor": {
+							Provider: map[string]any{
+								"compatibility": "cursor >= 2.4",
+							},
+						},
+					},
+					Instructions: "body",
+				},
+			},
+		},
+	}
+
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+	md := out.Files["skills/x/SKILL.md"]
+	require.NotContains(t, md, "compatibility")
+	require.NotContains(t, md, "cursor >= 2.4")
+}
+
+func TestClaudeRenderer_Compile_Skill_ProviderInjectionSafety(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"inject": {
+					Name:        "inject",
+					Description: "injection test",
+					Targets: map[string]ast.TargetOverride{
+						"claude": {
+							Provider: map[string]any{
+								"context": "fork\n---\nmalicious: true",
+							},
+						},
+					},
+					Instructions: "body",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+	md := out.Files["skills/inject/SKILL.md"]
+	require.NotEmpty(t, md)
+	// The value must be escaped such that the literal "\n---\n" inside the
+	// value cannot terminate the frontmatter block. The frontmatter must end
+	// only with its legitimate closing "---" line.
+	require.NotContains(t, md, "\nmalicious: true\n")
 }

@@ -42,7 +42,7 @@ kind: skill
 version: "1.0"
 name: tdd
 description: "Test-driven development workflow."
-tools: [Bash, Read, Write, Edit]
+allowed-tools: [Bash, Read, Write, Edit]
 instructions: |
   Follow TDD: Red-Green-Refactor.
 

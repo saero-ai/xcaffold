@@ -83,13 +83,13 @@ func (s skillAccessor) fieldValue(name string) string {
 func (s skillAccessor) fieldCount(name string) int {
 	switch name {
 	case "tools":
-		return len(s.cfg.Tools)
+		return len(s.cfg.AllowedTools)
 	default:
 		return 0
 	}
 }
 
-func (s skillAccessor) tools() []string   { return s.cfg.Tools }
+func (s skillAccessor) tools() []string   { return s.cfg.AllowedTools }
 func (s skillAccessor) targets() []string { return nil }
 
 // --- ruleAccessor ---

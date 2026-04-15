@@ -41,9 +41,11 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 
 // Compile translates an XcaffoldConfig AST into its Claude Code output
 // representation. baseDir is the directory that contains the scaffold.xcf file;
-// it is used to resolve instructions-file: and references: paths.
+// it is used to resolve instructions_file: and references: paths. The second
+// return is a slice of fidelity notes; Claude is the native target and has no
+// fidelity gaps, so Compile always returns a nil notes slice.
 // Compile returns an error if any resource fails to compile. It never panics.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
+func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
 	out := &output.Output{
 		Files: make(map[string]string),
 	}
@@ -52,7 +54,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	for id, agent := range config.Agents {
 		md, err := compileAgentMarkdown(id, agent, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to compile agent %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile agent %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("agents/%s.md", id))
 		out.Files[safePath] = md
@@ -62,22 +64,19 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	for id, skill := range config.Skills {
 		md, err := compileSkillMarkdown(id, skill, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to compile skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile skill %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
-		// Copy reference files into skills/<id>/references/
 		if err := compileSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
-			return nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
 		}
-		// Copy script files into skills/<id>/scripts/
 		if err := compileSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
-			return nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
 		}
-		// Copy asset files into skills/<id>/assets/
 		if err := compileSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
-			return nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
 		}
 	}
 
@@ -85,52 +84,48 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	for id, rule := range config.Rules {
 		md, err := compileRuleMarkdown(id, rule, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("failed to compile rule %q: %w", id, err)
+			return nil, nil, fmt.Errorf("failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
 		out.Files[safePath] = md
 	}
 
-	// MCP Servers -> mcp.json
 	mcpJSON, err := compileClaudeMCP(config.MCP, config.Settings.MCPServers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile MCP servers: %w", err)
+		return nil, nil, fmt.Errorf("failed to compile MCP servers: %w", err)
 	}
 	if mcpJSON != "" {
 		out.Files["mcp.json"] = mcpJSON
 	}
 
-	// settings.json: compile the settings: block + hooks.
 	settingsJSON, err := compileSettingsJSON(config.Settings, config.Hooks)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile settings: %w", err)
+		return nil, nil, fmt.Errorf("failed to compile settings: %w", err)
 	}
 	if settingsJSON != "" {
 		out.Files["settings.json"] = settingsJSON
 	}
 
-	// settings.local.json: compile the local: block (gitignored settings).
-	// Local is now nested inside Project (nil when no project: block is defined).
 	var localSettings ast.SettingsConfig
 	if config.Project != nil {
 		localSettings = config.Project.Local
 	}
 	localJSON, err := compileSettingsJSON(localSettings, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile local settings: %w", err)
+		return nil, nil, fmt.Errorf("failed to compile local settings: %w", err)
 	}
 	if localJSON != "" {
 		out.Files["settings.local.json"] = localJSON
 	}
 
-	return out, nil
+	return out, nil, nil
 }
 
 // resolveInstructions returns the effective body content for an agent/skill/rule.
 //
 // Priority (highest to lowest):
 //  1. inline          — the "instructions:" YAML field
-//  2. filePath        — the "instructions-file:" YAML field (read from disk)
+//  2. filePath        — the "instructions_file:" YAML field (read from disk)
 //  3. conventionPath  — auto-discovered by convention (agents/<id>.md etc.); silent no-op if missing
 //
 // The file is read relative to baseDir. Its frontmatter (--- blocks) is stripped
@@ -247,9 +242,9 @@ func appendAgentYAMLMeta(sb *strings.Builder, agent ast.AgentConfig) error {
 		sb.WriteString(string(hooksYAML))
 	}
 	if len(agent.MCPServers) > 0 {
-		mcpYAML, err := yaml.Marshal(map[string]map[string]ast.MCPConfig{"mcp-servers": agent.MCPServers})
+		mcpYAML, err := yaml.Marshal(map[string]map[string]ast.MCPConfig{"mcpServers": agent.MCPServers})
 		if err != nil {
-			return fmt.Errorf("failed to marshal agent mcp-servers: %w", err)
+			return fmt.Errorf("failed to marshal agent mcpServers: %w", err)
 		}
 		sb.WriteString(string(mcpYAML))
 	}
@@ -283,14 +278,63 @@ func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (str
 }
 
 func appendSkillMeta(sb *strings.Builder, skill ast.SkillConfig) {
+	// Group 1 — Identity
 	if skill.Name != "" {
 		fmt.Fprintf(sb, "name: %s\n", skill.Name)
 	}
 	if skill.Description != "" {
 		fmt.Fprintf(sb, "description: %s\n", skill.Description)
 	}
-	if len(skill.Tools) > 0 {
-		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(skill.Tools, ", "))
+	if skill.WhenToUse != "" {
+		fmt.Fprintf(sb, "when_to_use: %s\n", skill.WhenToUse)
+	}
+	if skill.License != "" {
+		fmt.Fprintf(sb, "license: %s\n", skill.License)
+	}
+
+	// Group 3 — Tool Access (Claude convention: space-separated string)
+	if len(skill.AllowedTools) > 0 {
+		fmt.Fprintf(sb, "allowed-tools: %s\n", strings.Join(skill.AllowedTools, " "))
+	}
+
+	// Group 4 — Permissions & Invocation Control (hyphenated kebab-case for Claude)
+	if skill.DisableModelInvocation != nil {
+		fmt.Fprintf(sb, "disable-model-invocation: %t\n", *skill.DisableModelInvocation)
+	}
+	if skill.UserInvocable != nil {
+		fmt.Fprintf(sb, "user-invocable: %t\n", *skill.UserInvocable)
+	}
+	if skill.ArgumentHint != "" {
+		data, err := yaml.Marshal(map[string]any{"argument-hint": skill.ArgumentHint})
+		if err == nil {
+			sb.Write(data)
+		}
+	}
+
+	// Claude-specific provider pass-through
+	if claude, ok := skill.Targets["claude"]; ok {
+		emitClaudeProviderKeys(sb, claude.Provider)
+	}
+}
+
+// emitClaudeProviderKeys writes Claude-recognized provider keys in a stable order.
+// All values are routed through yaml.Marshal to ensure correct escaping and quoting.
+// Unknown keys are ignored (renderer-level warnings handled by caller).
+func emitClaudeProviderKeys(sb *strings.Builder, provider map[string]any) {
+	if len(provider) == 0 {
+		return
+	}
+	orderedKeys := []string{"context", "agent", "model", "effort", "shell", "paths", "hooks"}
+	for _, k := range orderedKeys {
+		v, ok := provider[k]
+		if !ok {
+			continue
+		}
+		data, err := yaml.Marshal(map[string]any{k: v})
+		if err != nil {
+			continue
+		}
+		sb.Write(data)
 	}
 }
 

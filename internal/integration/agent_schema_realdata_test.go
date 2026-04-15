@@ -62,7 +62,7 @@ instructions-file: "backend-engineer.md"
 	require.Contains(t, config.Agents, "backend-engineer")
 
 	renderer := claude.New()
-	out, err := renderer.Compile(config, tmp)
+	out, _, err := renderer.Compile(config, tmp)
 	require.NoError(t, err)
 
 	compiledPath := "agents/backend-engineer.md"
@@ -130,7 +130,7 @@ instructions-file: "` + localName + `"
 			config, err := parser.ParseFile(xcfPath)
 			require.NoError(t, err, "parse failed for %s", id)
 
-			out, err := renderer.Compile(config, tmp)
+			out, _, err := renderer.Compile(config, tmp)
 			require.NoError(t, err, "compile failed for %s", id)
 			require.NotEmpty(t, out.Files["agents/"+id+".md"], "no output for %s", id)
 		})
@@ -185,7 +185,7 @@ instructions: |
 	require.Equal(t, "github-copilot", copilot.Provider["target"])
 
 	renderer := claude.New()
-	out, err := renderer.Compile(config, tmp)
+	out, _, err := renderer.Compile(config, tmp)
 	require.NoError(t, err)
 
 	claudeMd := out.Files["agents/round-trip.md"]

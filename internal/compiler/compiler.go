@@ -5,6 +5,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/agentsmd"
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
@@ -32,20 +33,17 @@ type Output = output.Output
 // the compiler merges them before rendering. Project resources override global
 // resources by ID. After merging, inherited resources are stripped so global
 // configurations are not physically duplicated into local project directories.
-func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output, error) {
+func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output, []renderer.FidelityNote, error) {
 	if target == "" {
 		target = TargetClaude
 	}
 
-	// Merge project-scoped resources into root scope. Project resources override
-	// global resources by ID, giving workspace configs priority over user-wide defaults.
 	if config.Project != nil {
 		mergeResourceScope(&config.ResourceScope, &config.Project.ResourceScope)
 	}
 
-	// Resolve attribute references (${skill.tdd.tools} etc.) before rendering.
 	if err := resolver.ResolveAttributes(config); err != nil {
-		return nil, fmt.Errorf("attribute resolution failed: %w", err)
+		return nil, nil, fmt.Errorf("attribute resolution failed: %w", err)
 	}
 
 	config.StripInherited()
@@ -64,7 +62,7 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output
 		r := agentsmd.New()
 		return r.Compile(config, baseDir)
 	default:
-		return nil, fmt.Errorf("unsupported target %q: supported targets are \"claude\", \"cursor\", \"antigravity\", \"agentsmd\"", target)
+		return nil, nil, fmt.Errorf("unsupported target %q: supported targets are \"claude\", \"cursor\", \"antigravity\", \"agentsmd\"", target)
 	}
 }
 

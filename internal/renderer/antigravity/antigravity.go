@@ -12,16 +12,19 @@ package antigravity
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 )
 
-const ruleCharLimit = 12000
+const (
+	ruleCharLimit = 12000
+	targetName    = "antigravity"
+)
 
 // Renderer compiles an XcaffoldConfig AST into Antigravity (Antigravity) output files.
 type Renderer struct{}
@@ -33,7 +36,7 @@ func New() *Renderer {
 
 // Target returns the identifier for this renderer's target platform.
 func (r *Renderer) Target() string {
-	return "antigravity"
+	return targetName
 }
 
 // OutputDir returns the output directory prefix for this renderer.
@@ -49,77 +52,115 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 
 // Compile translates an XcaffoldConfig AST into its Antigravity (Antigravity) output representation.
 // baseDir is the directory that contains the scaffold.xcf file; it is used to
-// resolve instructions-file: paths. Compile returns an error if any resource
+// resolve instructions_file: paths. Compile returns an error if any resource
 // fails to compile. It never panics.
 //
 // Only rules and skills are compiled. Agents, hooks, and MCP configs are silently
 // skipped because Antigravity has no file format for those resource types.
 //
 //nolint:gocyclo
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
-	out := &output.Output{
-		Files: make(map[string]string),
-	}
+func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
+	out := &output.Output{Files: make(map[string]string)}
+	var notes []renderer.FidelityNote
 
-	// Compile all rules to rules/<id>.md
 	for id, rule := range config.Rules {
 		md, err := compileAntigravityRule(id, rule, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("antigravity: failed to compile rule %q: %w", id, err)
+			return nil, nil, fmt.Errorf("antigravity: failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
 		out.Files[safePath] = md
 	}
 
-	// Compile all skills to skills/<id>/SKILL.md
 	for id, skill := range config.Skills {
 		md, err := compileAntigravitySkill(id, skill, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("antigravity: failed to compile skill %q: %w", id, err)
+			return nil, nil, fmt.Errorf("antigravity: failed to compile skill %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
+
+		if len(skill.Scripts) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "scripts",
+				renderer.CodeSkillScriptsDropped,
+				fmt.Sprintf("skill %q scripts dropped; Antigravity does not support skill scripts/ directories", id),
+				"Move script logic into the skill instructions or use a target that supports scripts",
+			))
+		}
+		if len(skill.Assets) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "assets",
+				renderer.CodeSkillAssetsDropped,
+				fmt.Sprintf("skill %q assets dropped; Antigravity does not support skill assets/ directories", id),
+				"Inline asset references into the instructions body",
+			))
+		}
 	}
 
-	// Compile all workflows to workflows/<id>.md
 	for id, wf := range config.Workflows {
 		md, err := compileAntigravityWorkflow(id, wf, baseDir)
 		if err != nil {
-			return nil, fmt.Errorf("antigravity: failed to compile workflow %q: %w", id, err)
+			return nil, nil, fmt.Errorf("antigravity: failed to compile workflow %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("workflows/%s.md", id))
 		out.Files[safePath] = md
 	}
 
-	// Compile MCP servers to mcp_config.json (only if any servers are defined)
 	if len(config.MCP) > 0 {
-		mcpJSON, err := compileAntigravityMCP(config.MCP)
+		mcpJSON, mcpNotes, err := compileAntigravityMCP(config.MCP)
 		if err != nil {
-			return nil, fmt.Errorf("antigravity: failed to compile mcp servers: %w", err)
+			return nil, nil, fmt.Errorf("antigravity: failed to compile mcp servers: %w", err)
 		}
 		out.Files["mcp_config.json"] = mcpJSON
+		notes = append(notes, mcpNotes...)
 	}
 
-	// Emit security fidelity warnings for dropped settings fields.
 	if config.Settings.Permissions != nil {
-		fmt.Fprintf(os.Stderr, "WARNING (antigravity): settings.permissions dropped — Antigravity has no permission enforcement model.\n")
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "settings", "global", "permissions",
+			renderer.CodeSettingsFieldUnsupported,
+			"settings.permissions dropped; Antigravity has no permission enforcement model",
+			"Remove the permissions block for this target or use a platform that enforces permissions",
+		))
 	}
 	if config.Settings.Sandbox != nil {
-		fmt.Fprintf(os.Stderr, "WARNING (antigravity): settings.sandbox dropped — Antigravity has no sandbox model.\n")
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "settings", "global", "sandbox",
+			renderer.CodeSettingsFieldUnsupported,
+			"settings.sandbox dropped; Antigravity has no sandbox model",
+			"Remove the sandbox block for this target or use a platform that supports sandboxing",
+		))
 	}
 
-	// Emit per-agent security fidelity warnings.
 	for id, agent := range config.Agents {
-		suppress := false
-		if override, ok := agent.Targets["antigravity"]; ok && override.SuppressFidelityWarnings != nil && *override.SuppressFidelityWarnings {
-			suppress = true
+		if agent.PermissionMode != "" {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "agent", id, "permissionMode",
+				renderer.CodeAgentSecurityFieldsDropped,
+				fmt.Sprintf("agent %q permissionMode dropped; Antigravity has no permission mode equivalent", id),
+				"Remove permissionMode from the antigravity target override",
+			))
 		}
-		if !suppress && (agent.PermissionMode != "" || len(agent.DisallowedTools) > 0 || agent.Isolation != "") {
-			fmt.Fprintf(os.Stderr, "WARNING (antigravity): agent %q security fields dropped (permission-mode, disallowed-tools, isolation are not supported).\n", id)
+		if len(agent.DisallowedTools) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "agent", id, "disallowedTools",
+				renderer.CodeAgentSecurityFieldsDropped,
+				fmt.Sprintf("agent %q disallowedTools dropped; tool restrictions will NOT be enforced by Antigravity", id),
+				"Enforce tool restrictions via a different target or accept the loss",
+			))
+		}
+		if agent.Isolation != "" {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "agent", id, "isolation",
+				renderer.CodeAgentSecurityFieldsDropped,
+				fmt.Sprintf("agent %q isolation dropped; Antigravity has no process isolation model", id),
+				"Remove isolation from the antigravity target override",
+			))
 		}
 	}
 
-	return out, nil
+	return out, notes, nil
 }
 
 // compileAntigravityRule renders a single RuleConfig to a plain Markdown file.
@@ -234,8 +275,10 @@ type antigravityMCPEntry struct {
 }
 
 // compileAntigravityMCP renders all MCP server configs to a single mcp_config.json file.
-func compileAntigravityMCP(servers map[string]ast.MCPConfig) (string, error) {
+func compileAntigravityMCP(servers map[string]ast.MCPConfig) (string, []renderer.FidelityNote, error) {
 	entries := make(map[string]antigravityMCPEntry, len(servers))
+	var notes []renderer.FidelityNote
+
 	for id, srv := range servers {
 		entries[id] = antigravityMCPEntry{
 			Command: srv.Command,
@@ -245,7 +288,12 @@ func compileAntigravityMCP(servers map[string]ast.MCPConfig) (string, error) {
 
 		for k, v := range srv.Env {
 			if strings.Contains(v, "${") {
-				fmt.Fprintf(os.Stderr, "WARNING (antigravity): interpolation pattern ${...} found in MCP env %q. Antigravity requires literal strings.\n", k)
+				notes = append(notes, renderer.NewNote(
+					renderer.LevelWarning, targetName, "settings", id, "mcp.env",
+					renderer.CodeHookInterpolationRequiresEnvSyntax,
+					fmt.Sprintf("interpolation pattern ${...} in MCP env %q for server %q; Antigravity requires literal strings", k, id),
+					"Resolve interpolation before compilation or supply literal environment values",
+				))
 			}
 		}
 	}
@@ -256,17 +304,16 @@ func compileAntigravityMCP(servers map[string]ast.MCPConfig) (string, error) {
 
 	data, err := json.MarshalIndent(envelope, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("mcp json marshal: %w", err)
+		return "", nil, fmt.Errorf("mcp json marshal: %w", err)
 	}
-	// append newline to match standard file formatting
-	return string(data) + "\n", nil
+	return string(data) + "\n", notes, nil
 }
 
 // resolveFile returns the effective body content for a rule or skill.
 //
 // Priority (highest to lowest):
 //  1. inline    — the "instructions:" YAML field
-//  2. filePath  — the "instructions-file:" YAML field (read from disk, frontmatter stripped)
+//  2. filePath  — the "instructions_file:" YAML field (read from disk, frontmatter stripped)
 
 // stripFrontmatter removes YAML frontmatter delimited by "---" from the start
 // of a markdown file, returning only the body content with leading newlines trimmed.

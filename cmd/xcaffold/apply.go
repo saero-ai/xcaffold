@@ -276,10 +276,12 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 
 	configSnapshot := deepCopyConfig(config)
 
-	out, err := compiler.Compile(config, baseDir, targetFlag)
+	out, notes, err := compiler.Compile(config, baseDir, targetFlag)
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}
+
+	printFidelityNotes(os.Stderr, notes, buildSuppressedResourcesMap(config, targetFlag), false)
 
 	// Policy evaluation
 	violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, out)

@@ -1,15 +1,24 @@
 package antigravity_test
 
 import (
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func findAgNote(notes []renderer.FidelityNote, code, field string) (renderer.FidelityNote, bool) {
+	for _, n := range notes {
+		if n.Code == code && (field == "" || n.Field == field) {
+			return n, true
+		}
+	}
+	return renderer.FidelityNote{}, false
+}
 
 // ─── Target / OutputDir / Render ─────────────────────────────────────────────
 
@@ -48,7 +57,7 @@ func TestCompile_Rule_OutputPathIsMarkdown(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["rules/my-rule.md"]
@@ -67,7 +76,7 @@ func TestCompile_Rule_NoFrontmatterDelimiters(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/plain-rule.md"]
@@ -91,7 +100,7 @@ func TestCompile_Rule_DescriptionAsHeading(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/desc-rule.md"]
@@ -116,7 +125,7 @@ func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/path-rule.md"]
@@ -141,7 +150,7 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/test-rule.md"]
@@ -162,7 +171,7 @@ func TestCompile_Rule_DescriptionHeadingPrecedesBody(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/order-rule.md"]
@@ -183,7 +192,7 @@ func TestCompile_Rule_NoDescription_NoHeading(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/no-desc-rule.md"]
@@ -204,7 +213,7 @@ func TestCompile_Rule_12KCharacterLimitWarning(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/long-rule.md"]
@@ -226,7 +235,7 @@ func TestCompile_Rule_Under12K_NoWarning(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/short-rule.md"]
@@ -245,7 +254,7 @@ func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 		},
 	}
 
-	_, err := r.Compile(config, "")
+	_, _, err := r.Compile(config, "")
 	assert.Error(t, err)
 }
 
@@ -265,7 +274,7 @@ func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["skills/my-skill/SKILL.md"]
@@ -286,7 +295,7 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/fmt-skill/SKILL.md"]
@@ -309,7 +318,7 @@ func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/delim-skill/SKILL.md"]
@@ -326,7 +335,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Name:         "Rich Skill",
 					Description:  "Has many fields.",
 					Instructions: "Do something.",
-					Tools:        []string{"Bash"},
+					AllowedTools: []string{"Bash"},
 					References:   []string{"**/*.go"},
 					Scripts:      []string{"setup.sh"},
 					Assets:       []string{"icon.png"},
@@ -335,7 +344,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/rich-skill/SKILL.md"]
@@ -366,7 +375,7 @@ func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/body-skill/SKILL.md"]
@@ -386,7 +395,7 @@ func TestCompile_Skill_EmptyID_ReturnsError(t *testing.T) {
 		},
 	}
 
-	_, err := r.Compile(config, "")
+	_, _, err := r.Compile(config, "")
 	assert.Error(t, err)
 }
 
@@ -426,7 +435,7 @@ func TestCompile_AgentsAndHooks_AreNotEmitted(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	// Rules and skills must be emitted
@@ -456,7 +465,7 @@ func TestCompile_MCP_EmitsConfig(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["mcp_config.json"]
@@ -468,7 +477,7 @@ func TestCompile_MCP_EmitsConfig(t *testing.T) {
 
 func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {
 	r := antigravity.New()
-	out, err := r.Compile(&ast.XcaffoldConfig{}, "")
+	out, _, err := r.Compile(&ast.XcaffoldConfig{}, "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
@@ -489,7 +498,7 @@ func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["workflows/commit-changes.md"]
@@ -509,7 +518,7 @@ func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["workflows/deploy.md"]
@@ -532,7 +541,7 @@ func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["workflows/build.md"]
@@ -552,7 +561,7 @@ func TestCompile_Workflow_BodyPreserved(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["workflows/test.md"]
@@ -569,7 +578,7 @@ func TestCompile_Workflow_EmptyWorkflowsNoOutput(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	for path := range out.Files {
@@ -589,7 +598,7 @@ func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
 		},
 	}
 
-	_, err := r.Compile(config, "")
+	_, _, err := r.Compile(config, "")
 	assert.Error(t, err)
 }
 
@@ -606,7 +615,7 @@ func TestCompile_Skill_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/quoted/SKILL.md"]
@@ -615,50 +624,41 @@ func TestCompile_Skill_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 	assert.NotContains(t, content, `\\\"`, "Must not double-escape quotes")
 }
 
-// ─── Security fidelity warning tests ─────────────────────────────────────────
+// ─── Fidelity note tests ──────────────────────────────────────────────────────
 
-func TestAntigravityRenderer_PermissionsFidelityWarning_Settings(t *testing.T) {
+func TestAntigravityRenderer_PermissionsSetting_EmitsNote(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		Settings: ast.SettingsConfig{
-			Permissions: &ast.PermissionsConfig{
-				Allow: []string{"Read"},
-			},
+			Permissions: &ast.PermissionsConfig{Allow: []string{"Read"}},
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	output := stderr.String()
-	assert.Contains(t, output, "WARNING (antigravity):")
-	assert.Contains(t, output, "settings.permissions dropped")
+	note, ok := findAgNote(notes, renderer.CodeSettingsFieldUnsupported, "permissions")
+	require.True(t, ok)
+	assert.Equal(t, "antigravity", note.Target)
 }
 
-func TestAntigravityRenderer_SandboxFidelityWarning_Settings(t *testing.T) {
+func TestAntigravityRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 	r := antigravity.New()
 	enabled := true
 	config := &ast.XcaffoldConfig{
 		Settings: ast.SettingsConfig{
-			Sandbox: &ast.SandboxConfig{
-				Enabled: &enabled,
-			},
+			Sandbox: &ast.SandboxConfig{Enabled: &enabled},
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	output := stderr.String()
-	assert.Contains(t, output, "WARNING (antigravity):")
-	assert.Contains(t, output, "settings.sandbox dropped")
+	_, ok := findAgNote(notes, renderer.CodeSettingsFieldUnsupported, "sandbox")
+	assert.True(t, ok)
 }
 
-func TestAntigravityRenderer_AgentSecurityFieldsFidelityWarning(t *testing.T) {
+func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -673,17 +673,20 @@ func TestAntigravityRenderer_AgentSecurityFieldsFidelityWarning(t *testing.T) {
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	output := stderr.String()
-	assert.Contains(t, output, "WARNING (antigravity):")
-	assert.Contains(t, output, "security fields dropped")
+	_, pm := findAgNote(notes, renderer.CodeAgentSecurityFieldsDropped, "permissionMode")
+	_, dt := findAgNote(notes, renderer.CodeAgentSecurityFieldsDropped, "disallowedTools")
+	_, iso := findAgNote(notes, renderer.CodeAgentSecurityFieldsDropped, "isolation")
+	assert.True(t, pm, "permissionMode note must be emitted")
+	assert.True(t, dt, "disallowedTools note must be emitted")
+	assert.True(t, iso, "isolation note must be emitted")
 }
 
-func TestAntigravityRenderer_SuppressFidelityWarnings_SkipsAgentWarnings(t *testing.T) {
+// Suppression is enforced at the command layer; the renderer returns notes
+// regardless of the suppress-fidelity-warnings override.
+func TestAntigravityRenderer_SuppressFidelityWarnings_NotesStillReturned(t *testing.T) {
 	r := antigravity.New()
 	suppress := true
 	config := &ast.XcaffoldConfig{
@@ -694,54 +697,71 @@ func TestAntigravityRenderer_SuppressFidelityWarnings_SkipsAgentWarnings(t *test
 					PermissionMode: "plan",
 					Isolation:      "container",
 					Targets: map[string]ast.TargetOverride{
-						"antigravity": {
-							SuppressFidelityWarnings: &suppress,
-						},
+						"antigravity": {SuppressFidelityWarnings: &suppress},
 					},
 				},
 			},
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
-
-	output := stderr.String()
-	// Per-agent warnings must be suppressed
-	assert.NotContains(t, output, "security fields dropped")
+	assert.NotEmpty(t, notes, "renderer returns notes; suppression is applied at the command layer")
 }
 
-// captureStderr temporarily redirects os.Stderr to a buffer for testing.
-// Returns the buffer and a restore function.
-func captureStderr(t *testing.T) (*strings.Builder, func()) {
-	t.Helper()
-	old := os.Stderr
-	r2, w, err := os.Pipe()
-	require.NoError(t, err)
-	os.Stderr = w
-
-	var buf strings.Builder
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		b := make([]byte, 4096)
-		for {
-			n, readErr := r2.Read(b)
-			if n > 0 {
-				buf.Write(b[:n])
-			}
-			if readErr != nil {
-				return
-			}
-		}
-	}()
-
-	return &buf, func() {
-		w.Close()
-		<-done
-		r2.Close()
-		os.Stderr = old
+func TestAntigravityRenderer_MCPEnvInterpolation_EmitsNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"my-server": {
+					Command: "node",
+					Env:     map[string]string{"TOKEN": "${MY_TOKEN}"},
+				},
+			},
+		},
 	}
+
+	_, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	_, ok := findAgNote(notes, renderer.CodeHookInterpolationRequiresEnvSyntax, "mcp.env")
+	assert.True(t, ok)
+}
+
+func TestAntigravityRenderer_SkillScripts_EmitsNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"setup": {
+					Description: "Env setup.",
+					Scripts:     []string{"scripts/install.sh"},
+				},
+			},
+		},
+	}
+	_, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+	note, ok := findAgNote(notes, renderer.CodeSkillScriptsDropped, "scripts")
+	require.True(t, ok)
+	assert.Equal(t, "setup", note.Resource)
+}
+
+func TestAntigravityRenderer_SkillAssets_EmitsNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"branding": {
+					Description: "Brand assets.",
+					Assets:      []string{"assets/logo.svg"},
+				},
+			},
+		},
+	}
+	_, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+	_, ok := findAgNote(notes, renderer.CodeSkillAssetsDropped, "assets")
+	assert.True(t, ok)
 }

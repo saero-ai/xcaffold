@@ -10,7 +10,8 @@ import (
 )
 
 // refPattern matches ${resource_type.resource_name.field} tokens.
-var refPattern = regexp.MustCompile(`\$\{(\w+)\.(\w+)\.(\w+)\}`)
+// The field segment allows hyphens to support kebab-case YAML keys (e.g. allowed-tools).
+var refPattern = regexp.MustCompile(`\$\{(\w+)\.(\w+)\.([\w-]+)\}`)
 
 // resourceKey identifies a specific resource in the config.
 type resourceKey struct {

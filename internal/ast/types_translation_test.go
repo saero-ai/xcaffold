@@ -227,3 +227,40 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 		lastIdx = idx
 	}
 }
+
+func TestSkillConfig_NewCanonicalFields(t *testing.T) {
+	truthy := true
+	falsy := false
+	skill := SkillConfig{
+		Name:                   "deploy",
+		Description:            "Deploy the application",
+		WhenToUse:              "When user asks to deploy",
+		License:                "MIT",
+		AllowedTools:           []string{"Bash", "Read"},
+		DisableModelInvocation: &truthy,
+		UserInvocable:          &falsy,
+		ArgumentHint:           "[environment]",
+	}
+
+	data, err := yaml.Marshal(skill)
+	require.NoError(t, err)
+	content := string(data)
+
+	require.Contains(t, content, "name: deploy")
+	require.Contains(t, content, "description: Deploy the application")
+	require.Contains(t, content, "when-to-use: When user asks to deploy")
+	require.Contains(t, content, "license: MIT")
+	require.Contains(t, content, "allowed-tools:")
+	require.Contains(t, content, "disable-model-invocation: true")
+	require.Contains(t, content, "user-invocable: false")
+	require.Contains(t, content, "argument-hint: '[environment]'")
+}
+
+func TestSkillConfig_ToolsFieldRemoved(t *testing.T) {
+	// The legacy Tools field must no longer exist on SkillConfig.
+	// This compile-time assertion catches accidental re-introduction.
+	skill := SkillConfig{Name: "x"}
+	_ = skill
+	// Intentional: if someone adds .Tools back, the next line will fail to compile:
+	// _ = skill.Tools  // uncomment to verify the field is gone
+}

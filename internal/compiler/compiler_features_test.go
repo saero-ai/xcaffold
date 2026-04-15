@@ -12,11 +12,11 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// Feature 1A: instructions-file: external file references
+// Feature 1A: instructions_file: external file references
 // ---------------------------------------------------------------------------
 
 // TestCompile_AgentInstructionsFile_ReadsExternalFile verifies that an agent
-// with instructions-file: uses the file body as its system prompt.
+// with instructions_file: uses the file body as its system prompt.
 func TestCompile_AgentInstructionsFile_ReadsExternalFile(t *testing.T) {
 	dir := t.TempDir()
 	instrPath := filepath.Join(dir, "agents", "cto.md")
@@ -34,7 +34,7 @@ func TestCompile_AgentInstructionsFile_ReadsExternalFile(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/cto.md"]
@@ -45,7 +45,7 @@ func TestCompile_AgentInstructionsFile_ReadsExternalFile(t *testing.T) {
 }
 
 // TestCompile_AgentInstructionsFile_StripsFrontmatter verifies that frontmatter
-// in an instructions-file is stripped before being used as the prompt body.
+// in an instructions_file is stripped before being used as the prompt body.
 func TestCompile_AgentInstructionsFile_StripsFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	instrPath := filepath.Join(dir, "agents", "dev.md")
@@ -61,7 +61,7 @@ func TestCompile_AgentInstructionsFile_StripsFrontmatter(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "")
 	require.NoError(t, err)
 
 	compiled := out.Files["agents/developer.md"]
@@ -70,7 +70,7 @@ func TestCompile_AgentInstructionsFile_StripsFrontmatter(t *testing.T) {
 }
 
 // TestCompile_AgentInstructionsFile_Missing_ReturnsError verifies that a
-// missing instructions-file causes a compile error, not silent empty content.
+// missing instructions_file causes a compile error, not silent empty content.
 func TestCompile_AgentInstructionsFile_Missing_ReturnsError(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -80,13 +80,13 @@ func TestCompile_AgentInstructionsFile_Missing_ReturnsError(t *testing.T) {
 		},
 	}
 
-	_, err := Compile(config, t.TempDir(), "")
-	require.Error(t, err, "missing instructions-file must return an error")
+	_, _, err := Compile(config, t.TempDir(), "")
+	require.Error(t, err, "missing instructions_file must return an error")
 	assert.Contains(t, err.Error(), "nonexistent/cto.md")
 }
 
 // TestCompile_InstructionsFile_PathTraversal_Rejected verifies that
-// instructions-file paths that escape the project root are rejected.
+// instructions_file paths that escape the project root are rejected.
 func TestCompile_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -96,12 +96,12 @@ func TestCompile_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
 		},
 	}
 
-	_, err := Compile(config, t.TempDir(), "")
-	require.Error(t, err, "traversal paths in instructions-file must be rejected")
+	_, _, err := Compile(config, t.TempDir(), "")
+	require.Error(t, err, "traversal paths in instructions_file must be rejected")
 }
 
 // TestCompile_InstructionsFile_InlineWins verifies that inline "instructions:"
-// takes priority over "instructions-file:" when both are set in the AST
+// takes priority over "instructions_file:" when both are set in the AST
 // (this case is normally caught by the parser, but the compiler should also
 // be defensive and honour the priority ordering).
 func TestCompile_InstructionsFile_InlinePriority(t *testing.T) {
@@ -121,7 +121,7 @@ func TestCompile_InstructionsFile_InlinePriority(t *testing.T) {
 	}
 
 	// Parser would reject this, but we test the compiler directly.
-	out, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "")
 	require.NoError(t, err)
 	content := out.Files["agents/agent.md"]
 	assert.Contains(t, content, "From inline.", "inline instructions must take priority")
@@ -156,7 +156,7 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "")
 	require.NoError(t, err)
 
 	_, hasSkill := out.Files["skills/flutter-integration/SKILL.md"]
@@ -191,7 +191,7 @@ func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "")
 	require.NoError(t, err)
 
 	refCount := 0
@@ -215,7 +215,7 @@ func TestCompile_SkillReferences_PathTraversal_Rejected(t *testing.T) {
 			},
 		},
 	}
-	_, err := Compile(config, t.TempDir(), "")
+	_, _, err := Compile(config, t.TempDir(), "")
 	require.Error(t, err, "traversal references must be rejected")
 }
 
@@ -235,7 +235,7 @@ func TestCompile_Settings_StatusLine_IsObject(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -264,7 +264,7 @@ func TestCompile_Settings_EnabledPlugins_IsMap(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -289,7 +289,7 @@ func TestCompile_Settings_Schema_IsFirstKey(t *testing.T) {
 			StatusLine: &ast.StatusLineConfig{Type: "command"},
 		},
 	}
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -333,7 +333,7 @@ func TestStripFrontmatter_OnlyFrontmatter(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestCompile_ConventionAutoDiscover_Agent verifies that when an agent has no
-// instructions or instructions-file, the compiler auto-discovers agents/<id>.md.
+// instructions or instructions_file, the compiler auto-discovers agents/<id>.md.
 func TestCompile_ConventionAutoDiscover_Agent(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "agents"), 0755))
@@ -347,12 +347,12 @@ func TestCompile_ConventionAutoDiscover_Agent(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"cto": {Description: "Chief Technology Officer"},
-				// No instructions or instructions-file — relies on convention
+				// No instructions or instructions_file — relies on convention
 			},
 		},
 	}
 
-	out, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/cto.md"]
@@ -374,12 +374,12 @@ func TestCompile_ConventionAutoDiscover_Skill(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"git-workflow": {Description: "Git workflow patterns"},
-				// No instructions or instructions-file — relies on convention
+				// No instructions or instructions_file — relies on convention
 			},
 		},
 	}
 
-	out, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/git-workflow/SKILL.md"]
@@ -400,7 +400,7 @@ func TestCompile_ConventionAutoDiscover_MissingFile_SilentEmpty(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, t.TempDir(), "") // empty tempdir — no convention file
+	out, _, err := Compile(config, t.TempDir(), "") // empty tempdir — no convention file
 	require.NoError(t, err, "missing convention file must be silent, not an error")
 
 	content := out.Files["agents/cto.md"]
@@ -434,7 +434,7 @@ func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -484,7 +484,7 @@ func TestCompile_MCP_HTTPTransport_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["mcp.json"]
@@ -521,7 +521,7 @@ func TestCompile_Settings_TypedPermissions_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -575,7 +575,7 @@ func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -632,7 +632,7 @@ func TestCompile_Agent_NewFields_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/secure.md"]
@@ -674,13 +674,13 @@ func TestCompile_Agent_ScopedHooksAndMCP_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/hooked.md"]
 	assert.Contains(t, content, "hooks:")
 	assert.Contains(t, content, "PreToolUse")
-	assert.Contains(t, content, "mcp-servers:")
+	assert.Contains(t, content, "mcpServers:")
 	assert.Contains(t, content, "local-db")
 }
 
@@ -699,7 +699,7 @@ func TestCompile_Settings_NewFields_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -747,7 +747,7 @@ func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -786,7 +786,7 @@ func TestCompile_Hooks_PromptHandler_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -828,7 +828,7 @@ func TestCompile_Hooks_AllHandlerFields_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -875,7 +875,7 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -917,7 +917,7 @@ func TestCompile_Permissions_DenyPropagatestoSettings(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -947,7 +947,7 @@ func TestCompile_Permissions_SandboxPropagatestoSettings(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -973,7 +973,7 @@ func TestCompile_Permissions_CursorDropsPermissions(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, t.TempDir(), "cursor")
+	out, _, err := Compile(config, t.TempDir(), "cursor")
 	require.NoError(t, err)
 
 	// Cursor emits no settings.json — permissions must not appear in any output file
@@ -995,7 +995,7 @@ func TestCompile_Permissions_CursorDropsSandbox(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, t.TempDir(), "cursor")
+	out, _, err := Compile(config, t.TempDir(), "cursor")
 	require.NoError(t, err)
 
 	_, hasSettings := out.Files["settings.json"]
@@ -1018,12 +1018,12 @@ func TestCompile_Permissions_DisallowedToolsInAgentFrontmatter(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/dev.md"]
 	require.True(t, ok, "agents/dev.md must be generated")
-	assert.Contains(t, content, "disallowed-tools:", "disallowed-tools must appear in Claude agent frontmatter")
+	assert.Contains(t, content, "disallowed-tools:", "disallowedTools must appear in Claude agent frontmatter")
 }
 
 func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
@@ -1039,12 +1039,12 @@ func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, t.TempDir(), "cursor")
+	out, _, err := Compile(config, t.TempDir(), "cursor")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/dev.md"]
 	require.True(t, ok, "agents/dev.md must be generated for cursor target")
-	assert.NotContains(t, content, "disallowed-tools:", "disallowed-tools must not appear in Cursor agent output")
+	assert.NotContains(t, content, "disallowed-tools:", "disallowedTools must not appear in Cursor agent output")
 }
 
 // in the XcaffoldConfig compiles to settings.local.json.
@@ -1060,7 +1060,7 @@ func TestCompile_LocalSettings_EmitsSettingsLocalJSON(t *testing.T) {
 		},
 	}
 
-	out, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.local.json"]

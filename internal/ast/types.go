@@ -60,11 +60,11 @@ type ProjectConfig struct {
 //
 // Field ordering is canonical and mirrors the compiled markdown frontmatter:
 //  1. Identity (name, description)
-//  2. Model & Execution (model, effort, max-turns, mode)
-//  3. Tool Access (tools, disallowed-tools, readonly)
-//  4. Permissions & Invocation (permission-mode, disable-model-invocation, user-invocable)
+//  2. Model & Execution (model, effort, maxTurns, mode)
+//  3. Tool Access (tools, disallowedTools, readonly)
+//  4. Permissions & Invocation (permissionMode, disableModelInvocation, userInvocable)
 //  5. Lifecycle (background, isolation, when)
-//  6. Memory & Context (memory, color, initial-prompt)
+//  6. Memory & Context (memory, color, initialPrompt)
 //  7. Composition references (skills, rules, mcp, assertions)
 //  8. Inline composition (mcpServers, hooks)
 //  9. Multi-Target (targets)
@@ -133,19 +133,46 @@ type TargetOverride struct {
 }
 
 // SkillConfig defines a reusable prompt package.
+//
+// Field ordering follows the canonical 6-group structure from
+// docs/reference/schema.md:
+//
+//	Group 1 — Identity (name, description, when-to-use, license)
+//	Group 3 — Tool Access (allowed-tools)
+//	Group 4 — Permissions & Invocation Control (disable-model-invocation, user-invocable, argument-hint)
+//	Group 7 — Composition / Supporting Files (references, scripts, assets)
+//	Group 9 — Multi-Target (targets — per-provider overrides and provider: pass-through)
+//	Group 10 — Instructions (instructions, instructions_file) — ALWAYS last
 type SkillConfig struct {
-	InstructionsFile string `yaml:"instructions-file,omitempty"`
-	Instructions     string `yaml:"instructions,omitempty"`
-	Description      string `yaml:"description,omitempty"`
-	Name             string `yaml:"name,omitempty"`
+	// Group 1 — Identity
+	Name        string `yaml:"name,omitempty"`
+	Description string `yaml:"description,omitempty"`
+	WhenToUse   string `yaml:"when-to-use,omitempty"`
+	License     string `yaml:"license,omitempty"`
+
+	// Group 3 — Tool Access (renamed from Tools)
+	AllowedTools []string `yaml:"allowed-tools,omitempty"`
+
+	// Group 4 — Permissions & Invocation Control
+	DisableModelInvocation *bool  `yaml:"disable-model-invocation,omitempty"`
+	UserInvocable          *bool  `yaml:"user-invocable,omitempty"`
+	ArgumentHint           string `yaml:"argument-hint,omitempty"`
+
+	// Group 7 — Composition / Supporting Files (agentskills.io folder convention)
 	// References are docs/data files copied to skills/<id>/references/ at compile time.
 	References []string `yaml:"references,omitempty"`
 	// Scripts are executable helper files copied to skills/<id>/scripts/ at compile time.
-	// Use for reusable code that skill invocations would otherwise re-implement each run.
 	Scripts []string `yaml:"scripts,omitempty"`
 	// Assets are output artifact files (templates, fonts, icons) copied to skills/<id>/assets/.
 	Assets []string `yaml:"assets,omitempty"`
-	Tools  []string `yaml:"tools,omitempty"`
+
+	// Group 9 — Multi-Target (per-provider overrides + provider: pass-through)
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
+
+	// Group 10 — Instructions (mutually exclusive — enforced by parser)
+	Instructions     string `yaml:"instructions,omitempty"`
+	InstructionsFile string `yaml:"instructions-file,omitempty"`
+
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
@@ -188,8 +215,8 @@ type HookHandler struct {
 	If             string            `yaml:"if,omitempty"               json:"if,omitempty"`
 	Type           string            `yaml:"type"                       json:"type"`
 	Shell          string            `yaml:"shell,omitempty"            json:"shell,omitempty"`
-	StatusMessage  string            `yaml:"status-message,omitempty"   json:"statusMessage,omitempty"`
-	AllowedEnvVars []string          `yaml:"allowed-env-vars,omitempty" json:"allowedEnvVars,omitempty"`
+	StatusMessage  string            `yaml:"status-message,omitempty"    json:"statusMessage,omitempty"`
+	AllowedEnvVars []string          `yaml:"allowed-env-vars,omitempty"   json:"allowedEnvVars,omitempty"`
 }
 
 // MCPConfig defines a local or remote MCP server context.
