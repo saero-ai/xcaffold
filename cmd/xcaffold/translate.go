@@ -2,8 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -12,7 +16,7 @@ var (
 	translateSourceDir        string
 	translateOutputDir        string
 	translateXcf              string
-	translateSaveXcf          bool
+	translateSaveXcf          string
 	translateFidelity         string
 	translateInstructionsMode string
 	translateIncludeMemory    bool
@@ -69,7 +73,7 @@ func init() {
 	translateCmd.Flags().StringVar(&translateSourceDir, "source-dir", "", "source directory containing agent configs")
 	translateCmd.Flags().StringVar(&translateOutputDir, "output-dir", "", "output directory for translated configs")
 	translateCmd.Flags().StringVar(&translateXcf, "xcf", "", "xcaffold config file path")
-	translateCmd.Flags().BoolVar(&translateSaveXcf, "save-xcf", false, "save translated config as scaffold.xcf")
+	translateCmd.Flags().StringVar(&translateSaveXcf, "save-xcf", "", "write the imported IR to this path as scaffold.xcf YAML")
 
 	// Fidelity and translation modes
 	translateCmd.Flags().StringVar(&translateFidelity, "fidelity", "warn", "fidelity mode: strict, warn, or lossy")
@@ -154,6 +158,60 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// A8 stub: validation only, no implementation yet
+	// Phase 1: Import — build an xcaffold IR from source material.
+	config, err := translateImport()
+	if err != nil {
+		return err
+	}
+
+	// Persist IR to disk when --save-xcf is requested.
+	if translateSaveXcf != "" {
+		data, err := yaml.Marshal(config)
+		if err != nil {
+			return fmt.Errorf("marshalling xcf IR: %w", err)
+		}
+		if err := os.WriteFile(translateSaveXcf, data, 0o600); err != nil {
+			return fmt.Errorf("writing --save-xcf %q: %w", translateSaveXcf, err)
+		}
+	}
+
+	// A10 will add Phase 2 (compile/optimize) and Phase 3 (apply/diff/audit).
+	// For A9, dry-run terminates here after confirming import succeeded.
 	return nil
+}
+
+// translateImport loads the xcaffold IR for the translate pipeline.
+//
+// When --xcf is set, the IR is read directly from that file (skipping import).
+// Otherwise, the source directory is scanned via importScope using --from as
+// the platform hint, and the resulting config is returned as the IR.
+func translateImport() (*ast.XcaffoldConfig, error) {
+	if translateXcf != "" {
+		config, err := parser.ParseFile(translateXcf)
+		if err != nil {
+			return nil, fmt.Errorf("loading --xcf %q: %w", translateXcf, err)
+		}
+		return config, nil
+	}
+
+	srcDir := translateSourceDir
+	if srcDir == "" {
+		var err error
+		srcDir, err = os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("resolving working directory: %w", err)
+		}
+	}
+
+	return importFromSource(srcDir, translateFrom)
+}
+
+// importFromSource scans a provider source directory and returns an xcaffold
+// IR config without writing any files to disk.
+func importFromSource(sourceDir, _ string) (*ast.XcaffoldConfig, error) {
+	config, err := buildConfigFromDir(sourceDir)
+	if err != nil {
+		return nil, fmt.Errorf("scanning source directory %q: %w", sourceDir, err)
+	}
+	return config, nil
 }

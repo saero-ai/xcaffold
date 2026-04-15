@@ -458,6 +458,72 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	return nil
 }
 
+// buildConfigFromDir scans a provider source directory and returns an in-memory
+// xcaffold config without writing any files to disk. It mirrors the extraction
+// logic inside importScope but skips the WriteSplitFiles call, making it safe
+// to use as a building block for translate pipelines.
+func buildConfigFromDir(sourceDir string) (*ast.XcaffoldConfig, error) {
+	projectName := inferProjectName()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: projectName},
+		ResourceScope: ast.ResourceScope{
+			Agents: make(map[string]ast.AgentConfig),
+			Skills: make(map[string]ast.SkillConfig),
+			Rules:  make(map[string]ast.RuleConfig),
+			Hooks:  make(ast.HookConfig),
+			MCP:    make(map[string]ast.MCPConfig),
+		},
+	}
+
+	importCount := 0
+	var warnings []string
+
+	if err := extractAgents(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+		return nil, err
+	}
+	if err := extractSkills(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+		return nil, err
+	}
+	if err := extractRules(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+		return nil, err
+	}
+	if err := extractWorkflows(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+		return nil, err
+	}
+
+	settingsPath := filepath.Join(sourceDir, "settings.json")
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		if err := importSettings(data, config, &importCount, &warnings); err != nil {
+			warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
+		}
+	}
+
+	hooksPath := filepath.Join(sourceDir, "hooks.json")
+	if data, err := os.ReadFile(hooksPath); err == nil {
+		if err := json.Unmarshal(data, &config.Hooks); err != nil {
+			warnings = append(warnings, fmt.Sprintf("hooks.json failed to parse: %v", err))
+		}
+	}
+
+	if config.Project != nil {
+		config.Project.Targets = detectTargets(sourceDir)
+		config.Project.AgentRefs = sortedMapKeysStr(config.Agents)
+		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
+		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
+		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
+		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
+	}
+
+	if len(warnings) > 0 {
+		for _, w := range warnings {
+			fmt.Fprintf(os.Stderr, "warn: %s\n", w)
+		}
+	}
+
+	return config, nil
+}
+
 // importSettings parses settings.json and populates MCP, rules, and settings.
 func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	var raw map[string]interface{}
