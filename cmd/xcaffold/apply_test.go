@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -627,4 +628,30 @@ func TestRunMemoryPass_NoMemoryEntries_NoOp(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, seeds)
 	require.Empty(t, notes)
+}
+
+// TestRunMemoryPass_DryRun_Claude_LogsIntent verifies that dry-run mode for
+// the claude target logs a DRY-RUN intent message to stderr and produces no seeds.
+func TestRunMemoryPass_DryRun_Claude_LogsIntent(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"user-role": {Name: "user-role", Type: "user", Instructions: "test"},
+			},
+		},
+	}
+	// Capture stderr.
+	origStderr := os.Stderr
+	rPipe, wPipe, _ := os.Pipe()
+	os.Stderr = wPipe
+
+	seeds, _, err := runMemoryPass(config, t.TempDir(), "claude", t.TempDir(), nil, true, false)
+	wPipe.Close()
+	os.Stderr = origStderr
+
+	require.NoError(t, err)
+	require.Empty(t, seeds, "dry-run must produce no seeds")
+
+	captured, _ := io.ReadAll(rPipe)
+	require.Contains(t, string(captured), "DRY-RUN", "dry-run must log intent to stderr")
 }

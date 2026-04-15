@@ -369,6 +369,12 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		if !hasChanges {
 			fmt.Printf("[%s] ✓ No changes predicted. Current files are up to date.\n", scopeName)
 		}
+		// Log memory dry-run intent even though we are exiting early.
+		// priorSeeds from oldManifest are not yet available here; pass nil —
+		// this only affects drift-reporting precision, not the intent message.
+		if memoryPassEnabled(applyIncludeMemory, applyReseed) {
+			_, _, _ = runMemoryPass(config, baseDir, targetFlag, outputDir, nil, true, applyReseed)
+		}
 		return nil
 	}
 
@@ -664,7 +670,10 @@ func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string
 
 	switch target {
 	case targetClaude:
-		memDir := claudeMemoryTargetDir()
+		memDir, err := claudeMemoryTargetDir(baseDir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("memory pass: %w", err)
+		}
 		if dryRun {
 			fmt.Fprintf(os.Stderr, "[DRY-RUN] would seed %d memory entries to %s\n", len(config.Memory), memDir)
 			return nil, nil, nil
@@ -709,14 +718,25 @@ func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string
 }
 
 // claudeMemoryTargetDir returns the Claude project memory directory derived
-// from the current working directory: ~/.claude/projects/<encoded-cwd>/memory/.
+// from baseDir: ~/.claude/projects/<encoded-baseDir>/memory/.
 // Path encoding matches encodeClaudeProjectPath in import.go (slashes → hyphens).
+// If baseDir is empty or ".", the current working directory is used as a fallback.
 // TODO: consolidate with import.go's resolveClaudeMemoryDir in a follow-up.
-func claudeMemoryTargetDir() string {
-	home, _ := os.UserHomeDir()
-	cwd, _ := os.Getwd()
-	encoded := strings.ReplaceAll(cwd, "/", "-")
-	return filepath.Join(home, ".claude", "projects", encoded, "memory")
+func claudeMemoryTargetDir(baseDir string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("claude memory dir: home directory: %w", err)
+	}
+	projectDir := baseDir
+	if projectDir == "" || projectDir == "." {
+		projectDir, err = os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("claude memory dir: working directory: %w", err)
+		}
+	}
+	projectDir = filepath.Clean(projectDir)
+	encoded := strings.ReplaceAll(projectDir, "/", "-")
+	return filepath.Join(home, ".claude", "projects", encoded, "memory"), nil
 }
 
 // convertClaudeSeeds copies the Claude renderer's local MemorySeed slice into
