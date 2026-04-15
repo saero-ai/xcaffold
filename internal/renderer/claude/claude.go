@@ -120,7 +120,61 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files["settings.local.json"] = localJSON
 	}
 
+	if config.Project != nil {
+		instrNotes := r.renderProjectInstructions(config, baseDir, out.Files)
+		notes = append(notes, instrNotes...)
+	}
+
 	return out, notes, nil
+}
+
+// renderProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per scope.
+// This is the concat-nested class — the reference implementation with zero fidelity loss.
+func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+	p := config.Project
+	if p.Instructions == "" && p.InstructionsFile == "" {
+		return nil
+	}
+
+	rootContent := resolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
+
+	// Append @-import lines for each import entry.
+	for _, imp := range p.InstructionsImports {
+		rootContent += "\n@" + imp
+	}
+	files["CLAUDE.md"] = rootContent
+
+	// Emit one file per scope.
+	for _, scope := range p.InstructionsScopes {
+		content := resolveScopeContent(scope, "claude", baseDir)
+		files[scope.Path+"/CLAUDE.md"] = content
+	}
+	return nil // concat-nested: zero fidelity notes
+}
+
+// resolveInstructionsContent returns the instructions string, reading InstructionsFile
+// if Instructions is empty.
+func resolveInstructionsContent(inline, file, baseDir string) string {
+	if inline != "" {
+		return inline
+	}
+	if file == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(baseDir, file))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// resolveScopeContent returns the content for a scope, preferring a provider-specific
+// variant if available.
+func resolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) string {
+	if v, ok := scope.Variants[provider]; ok {
+		return resolveInstructionsContent("", v.InstructionsFile, baseDir)
+	}
+	return resolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
 // resolveInstructions returns the effective body content for an agent/skill/rule.
