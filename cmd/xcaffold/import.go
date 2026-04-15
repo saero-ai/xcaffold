@@ -1388,7 +1388,8 @@ func runMemorySnapshot(cmd *cobra.Command, source string, fromPlatform string, p
 
 // resolveClaudeMemoryDir determines the memory directory to import from.
 // If source is a valid directory, it is used directly.
-// Otherwise, the function derives ~/.claude/projects/<encoded-cwd>/memory/.
+// Otherwise, the function derives ~/.claude/projects/<encoded-cwd>/memory/
+// via claudeProjectMemoryDir (shared with apply.go).
 func resolveClaudeMemoryDir(source, fromPlatform string) (string, error) {
 	if source != "" {
 		info, err := os.Stat(source)
@@ -1397,18 +1398,12 @@ func resolveClaudeMemoryDir(source, fromPlatform string) (string, error) {
 		}
 	}
 
-	// Derive ~/.claude/projects/<encoded-cwd>/memory/
-	home, err := os.UserHomeDir()
+	// Derive ~/.claude/projects/<encoded-cwd>/memory/ using the shared helper.
+	// Empty string causes claudeProjectMemoryDir to fall back to os.Getwd().
+	memDir, err := claudeProjectMemoryDir("")
 	if err != nil {
-		return "", fmt.Errorf("cannot determine home directory: %w", err)
+		return "", err
 	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("cannot determine working directory: %w", err)
-	}
-
-	encoded := encodeClaudeProjectPath(cwd)
-	memDir := filepath.Join(home, ".claude", "projects", encoded, "memory")
 
 	info, err := os.Stat(memDir)
 	if err != nil || !info.IsDir() {
@@ -1416,12 +1411,6 @@ func resolveClaudeMemoryDir(source, fromPlatform string) (string, error) {
 	}
 
 	return memDir, nil
-}
-
-// encodeClaudeProjectPath encodes a filesystem path using Claude's project-dir
-// naming scheme: forward slashes are replaced with hyphens.
-func encodeClaudeProjectPath(cwd string) string {
-	return strings.ReplaceAll(cwd, "/", "-")
 }
 
 // printMemorySnapshotSummary writes the outcome of a memory snapshot pass.

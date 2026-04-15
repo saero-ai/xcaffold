@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -654,4 +655,31 @@ func TestRunMemoryPass_DryRun_Claude_LogsIntent(t *testing.T) {
 
 	captured, _ := io.ReadAll(rPipe)
 	require.Contains(t, string(captured), "DRY-RUN", "dry-run must log intent to stderr")
+}
+
+// TestClaudeProjectMemoryDir_ConsistentBetweenImportAndApply verifies that
+// claudeProjectMemoryDir returns the same directory for the same project root
+// on repeated calls, and falls back to the working directory without error
+// when given an empty projectRoot.
+func TestClaudeProjectMemoryDir_ConsistentBetweenImportAndApply(t *testing.T) {
+	tmp := t.TempDir()
+
+	dir, err := claudeProjectMemoryDir(tmp)
+	require.NoError(t, err)
+
+	// Same input must produce the same directory regardless of which caller
+	// (apply or import) invokes it.
+	dirAgain, err := claudeProjectMemoryDir(tmp)
+	require.NoError(t, err)
+	require.Equal(t, dir, dirAgain)
+
+	// The encoded path must contain the project root's directory name.
+	require.Contains(t, dir, ".claude/projects")
+	require.True(t, strings.HasSuffix(dir, "memory"))
+
+	// Empty projectRoot falls back to cwd without crashing.
+	dirEmpty, err := claudeProjectMemoryDir("")
+	require.NoError(t, err)
+	require.Contains(t, dirEmpty, ".claude/projects")
+	require.True(t, strings.HasSuffix(dirEmpty, "memory"))
 }

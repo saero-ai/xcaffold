@@ -670,7 +670,7 @@ func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string
 
 	switch target {
 	case targetClaude:
-		memDir, err := claudeMemoryTargetDir(baseDir)
+		memDir, err := claudeProjectMemoryDir(baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("memory pass: %w", err)
 		}
@@ -715,28 +715,6 @@ func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string
 	default:
 		return nil, nil, fmt.Errorf("memory pass: unsupported target %q", target)
 	}
-}
-
-// claudeMemoryTargetDir returns the Claude project memory directory derived
-// from baseDir: ~/.claude/projects/<encoded-baseDir>/memory/.
-// Path encoding matches encodeClaudeProjectPath in import.go (slashes → hyphens).
-// If baseDir is empty or ".", the current working directory is used as a fallback.
-// TODO: consolidate with import.go's resolveClaudeMemoryDir in a follow-up.
-func claudeMemoryTargetDir(baseDir string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("claude memory dir: home directory: %w", err)
-	}
-	projectDir := baseDir
-	if projectDir == "" || projectDir == "." {
-		projectDir, err = os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("claude memory dir: working directory: %w", err)
-		}
-	}
-	projectDir = filepath.Clean(projectDir)
-	encoded := strings.ReplaceAll(projectDir, "/", "-")
-	return filepath.Join(home, ".claude", "projects", encoded, "memory"), nil
 }
 
 // convertClaudeSeeds copies the Claude renderer's local MemorySeed slice into
