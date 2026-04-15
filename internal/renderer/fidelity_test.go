@@ -55,3 +55,11 @@ func TestFidelityNote_JSON_OmitsEmptyField(t *testing.T) {
 	assert.NotContains(t, string(data), `"field"`)
 	assert.NotContains(t, string(data), `"mitigation"`)
 }
+
+func TestFidelityNote_AllCodes_InCatalog(t *testing.T) {
+	for _, code := range renderer.AllCodes() {
+		assert.NotEmpty(t, code, "catalog entry must not be blank")
+	}
+	assert.GreaterOrEqual(t, len(renderer.AllCodes()), 14,
+		"catalog must contain at least the 14 specified codes")
+}
