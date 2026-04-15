@@ -135,7 +135,7 @@ type TargetOverride struct {
 // SkillConfig defines a reusable prompt package.
 //
 // Field ordering follows the canonical 6-group structure from
-// docs/superpowers/specs/2026-04-15-skill-kind-cross-provider-schema-design.md:
+// docs/reference/schema.md:
 //
 //	Group 1 — Identity (name, description, when-to-use, license)
 //	Group 3 — Tool Access (allowed-tools)

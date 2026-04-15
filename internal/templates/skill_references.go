@@ -13,7 +13,7 @@ func RenderSkillReference() string {
 # This file is NOT parsed by xcaffold.
 # Copy fields from here into your scaffold.xcf as needed.
 # Field definitions follow the xcaffold schema specification.
-# Spec: docs/superpowers/specs/2026-04-15-skill-kind-cross-provider-schema-design.md
+# See: docs/reference/schema.md
 # ============================================================
 
 ---
