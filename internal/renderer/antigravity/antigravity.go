@@ -79,6 +79,23 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		}
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
+
+		if len(skill.Scripts) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "scripts",
+				renderer.CodeSkillScriptsDropped,
+				fmt.Sprintf("skill %q scripts dropped; Antigravity does not support skill scripts/ directories", id),
+				"Move script logic into the skill instructions or use a target that supports scripts",
+			))
+		}
+		if len(skill.Assets) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "assets",
+				renderer.CodeSkillAssetsDropped,
+				fmt.Sprintf("skill %q assets dropped; Antigravity does not support skill assets/ directories", id),
+				"Inline asset references into the instructions body",
+			))
+		}
 	}
 
 	for id, wf := range config.Workflows {

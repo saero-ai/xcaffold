@@ -305,16 +305,6 @@ func commonPrefix(a, b []string) []string {
 	return a[:max]
 }
 
-// isSuppressed returns true if the agent has SuppressFidelityWarnings set for
-// the "agentsmd" target. Retained as a utility; suppression is evaluated at
-// the command layer rather than inside this renderer.
-func isSuppressed(agent ast.AgentConfig) bool {
-	if override, ok := agent.Targets[targetName]; ok {
-		return override.SuppressFidelityWarnings != nil && *override.SuppressFidelityWarnings
-	}
-	return false
-}
-
 func fieldNote(kind, id, field string) renderer.FidelityNote {
 	return renderer.NewNote(
 		renderer.LevelWarning,

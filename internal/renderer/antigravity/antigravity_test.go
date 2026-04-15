@@ -728,3 +728,40 @@ func TestAntigravityRenderer_MCPEnvInterpolation_EmitsNote(t *testing.T) {
 	_, ok := findAgNote(notes, renderer.CodeHookInterpolationRequiresEnvSyntax, "mcp.env")
 	assert.True(t, ok)
 }
+
+func TestAntigravityRenderer_SkillScripts_EmitsNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"setup": {
+					Description: "Env setup.",
+					Scripts:     []string{"scripts/install.sh"},
+				},
+			},
+		},
+	}
+	_, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+	note, ok := findAgNote(notes, renderer.CodeSkillScriptsDropped, "scripts")
+	require.True(t, ok)
+	assert.Equal(t, "setup", note.Resource)
+}
+
+func TestAntigravityRenderer_SkillAssets_EmitsNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"branding": {
+					Description: "Brand assets.",
+					Assets:      []string{"assets/logo.svg"},
+				},
+			},
+		},
+	}
+	_, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+	_, ok := findAgNote(notes, renderer.CodeSkillAssetsDropped, "assets")
+	assert.True(t, ok)
+}
