@@ -222,7 +222,7 @@ type SkillConfig struct {
 	WhenToUse   string `yaml:"when-to-use,omitempty"`
 	License     string `yaml:"license,omitempty"`
 
-	// Group 3 — Tool Access (renamed from Tools)
+	// Group 3 — Tool Access
 	AllowedTools []string `yaml:"allowed-tools,omitempty"`
 
 	// Group 4 — Permissions & Invocation Control

@@ -1,0 +1,9 @@
+kind: rule
+version: "1.0"
+description: Imported rule
+activation: always
+name: style
+instructions: |-
+    # Style
+
+    Use consistent naming.
