@@ -1067,3 +1067,12 @@ instructions-file: xcf/instructions/root.md
 	_, err := ParseFile(path)
 	require.NoError(t, err)
 }
+
+func TestParse_Fixture_InstructionsScopes(t *testing.T) {
+	fixturePath := "../../testing/fixtures/instructions-scopes.xcf"
+	if _, err := os.Stat(fixturePath); os.IsNotExist(err) {
+		t.Skipf("fixture not present at %s", fixturePath)
+	}
+	_, err := ParseFile(fixturePath)
+	require.NoError(t, err, "instructions-scopes.xcf fixture must parse without error")
+}

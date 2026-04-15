@@ -1,0 +1,47 @@
+# testing/fixtures/instructions-scopes.xcf
+# Exercises all new ProjectConfig instructions fields for KnownFields compliance.
+
+kind: project
+version: "1.0"
+name: instructions-scopes-fixture
+description: "Fixture covering all instructions fields."
+
+instructions: |
+  Root project instructions. Use pnpm. PostgreSQL 16.
+  Conventional Commits. Never commit secrets.
+
+instructions-imports:
+  - xcf/instructions/style-guide.md
+  - xcf/instructions/security-policy.md
+
+instructions-scopes:
+  - path: packages/worker
+    instructions-file: xcf/instructions/scopes/packages-worker.md
+    merge-strategy: concat
+    source-provider: claude
+    source-filename: CLAUDE.md
+
+  - path: packages/api
+    instructions-file: xcf/instructions/scopes/packages-api.md
+    merge-strategy: closest-wins
+    source-provider: cursor
+    source-filename: AGENTS.md
+
+  - path: packages/shared
+    merge-strategy: concat
+    variants:
+      claude:
+        instructions-file: xcf/instructions/scopes/packages-shared.claude.md
+        source-filename: CLAUDE.md
+      cursor:
+        instructions-file: xcf/instructions/scopes/packages-shared.cursor.md
+        source-filename: AGENTS.md
+    reconciliation:
+      strategy: per-target
+      last-reconciled: "2026-04-15T15:30:00Z"
+      notes: "claude variant has security section absent from cursor variant"
+
+targets:
+  - claude
+  - cursor
+  - antigravity
