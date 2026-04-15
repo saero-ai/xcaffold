@@ -293,10 +293,10 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 	// Emit remaining per-agent security fidelity warnings unless suppressed.
 	if !suppress {
 		if agent.PermissionMode != "" {
-			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q permissionMode %q dropped — Cursor has no permission mode equivalent.\n", id, agent.PermissionMode)
+			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q permission-mode %q dropped — Cursor has no permission mode equivalent.\n", id, agent.PermissionMode)
 		}
 		if len(agent.DisallowedTools) > 0 {
-			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q disallowedTools dropped — tool restrictions will NOT be enforced by Cursor.\n", id)
+			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q disallowed-tools dropped — tool restrictions will NOT be enforced by Cursor.\n", id)
 		}
 		if agent.Isolation != "" {
 			fmt.Fprintf(os.Stderr, "WARNING (cursor): agent %q isolation %q dropped — Cursor has no process isolation model.\n", id, agent.Isolation)

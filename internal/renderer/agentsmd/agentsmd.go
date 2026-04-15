@@ -348,7 +348,7 @@ func warnLossyAgent(id string, a ast.AgentConfig) {
 		warnLossy("agent", "tools", id)
 	}
 	if len(a.DisallowedTools) > 0 {
-		warnLossy("agent", "disallowedTools", id)
+		warnLossy("agent", "disallowed-tools", id)
 	}
 	if len(a.Skills) > 0 {
 		warnLossy("agent", "skills", id)
@@ -360,7 +360,7 @@ func warnLossyAgent(id string, a ast.AgentConfig) {
 		warnLossy("agent", "effort", id)
 	}
 	if a.PermissionMode != "" {
-		warnLossy("agent", "permissionMode", id)
+		warnLossy("agent", "permission-mode", id)
 	}
 	if a.Isolation != "" {
 		warnLossy("agent", "isolation", id)
@@ -369,7 +369,7 @@ func warnLossyAgent(id string, a ast.AgentConfig) {
 		warnLossy("agent", "color", id)
 	}
 	if a.MaxTurns > 0 {
-		warnLossy("agent", "maxTurns", id)
+		warnLossy("agent", "max-turns", id)
 	}
 	if a.Background != nil {
 		warnLossy("agent", "background", id)
@@ -384,7 +384,7 @@ func warnLossyAgent(id string, a ast.AgentConfig) {
 		warnLossy("agent", "when", id)
 	}
 	if a.InitialPrompt != "" {
-		warnLossy("agent", "initialPrompt", id)
+		warnLossy("agent", "initial-prompt", id)
 	}
 	if a.Memory != "" {
 		warnLossy("agent", "memory", id)
@@ -393,7 +393,7 @@ func warnLossyAgent(id string, a ast.AgentConfig) {
 		warnLossy("agent", "hooks", id)
 	}
 	if len(a.MCPServers) > 0 {
-		warnLossy("agent", "mcpServers", id)
+		warnLossy("agent", "mcp-servers", id)
 	}
 	if len(a.Targets) > 0 {
 		warnLossy("agent", "targets", id)
@@ -425,6 +425,6 @@ func warnLossySkill(id string, s ast.SkillConfig) {
 // warnLossyRule emits fidelity warnings for lossy RuleConfig fields.
 func warnLossyRule(id string, rule ast.RuleConfig) {
 	if rule.AlwaysApply != nil {
-		warnLossy("rule", "alwaysApply", id)
+		warnLossy("rule", "always-apply", id)
 	}
 }

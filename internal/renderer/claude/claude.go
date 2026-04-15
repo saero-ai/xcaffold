@@ -190,7 +190,7 @@ func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
 		fmt.Fprintf(sb, "effort: %s\n", agent.Effort)
 	}
 	if agent.MaxTurns > 0 {
-		fmt.Fprintf(sb, "maxTurns: %d\n", agent.MaxTurns)
+		fmt.Fprintf(sb, "max-turns: %d\n", agent.MaxTurns)
 	}
 }
 
@@ -201,7 +201,7 @@ func appendAgentToolsMeta(sb *strings.Builder, agent ast.AgentConfig) {
 		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(agent.Tools, ", "))
 	}
 	if len(agent.DisallowedTools) > 0 {
-		fmt.Fprintf(sb, "disallowedTools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
+		fmt.Fprintf(sb, "disallowed-tools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
 	}
 	if len(agent.Skills) > 0 {
 		fmt.Fprintf(sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
@@ -213,13 +213,13 @@ func appendAgentToolsMeta(sb *strings.Builder, agent ast.AgentConfig) {
 
 func appendAgentConfigMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	if agent.PermissionMode != "" {
-		fmt.Fprintf(sb, "permissionMode: %s\n", agent.PermissionMode)
+		fmt.Fprintf(sb, "permission-mode: %s\n", agent.PermissionMode)
 	}
 	if agent.DisableModelInvocation != nil {
-		fmt.Fprintf(sb, "disableModelInvocation: %t\n", *agent.DisableModelInvocation)
+		fmt.Fprintf(sb, "disable-model-invocation: %t\n", *agent.DisableModelInvocation)
 	}
 	if agent.UserInvocable != nil {
-		fmt.Fprintf(sb, "userInvocable: %t\n", *agent.UserInvocable)
+		fmt.Fprintf(sb, "user-invocable: %t\n", *agent.UserInvocable)
 	}
 	if agent.Background != nil {
 		fmt.Fprintf(sb, "background: %t\n", *agent.Background)
@@ -234,7 +234,7 @@ func appendAgentConfigMeta(sb *strings.Builder, agent ast.AgentConfig) {
 		fmt.Fprintf(sb, "color: %s\n", agent.Color)
 	}
 	if agent.InitialPrompt != "" {
-		fmt.Fprintf(sb, "initialPrompt: %s\n", agent.InitialPrompt)
+		fmt.Fprintf(sb, "initial-prompt: %s\n", agent.InitialPrompt)
 	}
 }
 
@@ -247,9 +247,9 @@ func appendAgentYAMLMeta(sb *strings.Builder, agent ast.AgentConfig) error {
 		sb.WriteString(string(hooksYAML))
 	}
 	if len(agent.MCPServers) > 0 {
-		mcpYAML, err := yaml.Marshal(map[string]map[string]ast.MCPConfig{"mcpServers": agent.MCPServers})
+		mcpYAML, err := yaml.Marshal(map[string]map[string]ast.MCPConfig{"mcp-servers": agent.MCPServers})
 		if err != nil {
-			return fmt.Errorf("failed to marshal agent mcpServers: %w", err)
+			return fmt.Errorf("failed to marshal agent mcp-servers: %w", err)
 		}
 		sb.WriteString(string(mcpYAML))
 	}

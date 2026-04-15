@@ -283,8 +283,8 @@ func TestClaudeRenderer_Compile_Agent_InvocationControl(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["agents/commit.md"]
-	require.Contains(t, content, "disableModelInvocation: true")
-	require.Contains(t, content, "userInvocable: false")
+	require.Contains(t, content, "disable-model-invocation: true")
+	require.Contains(t, content, "user-invocable: false")
 }
 
 func TestClaudeRenderer_Compile_Agent_MemoryInGroup6(t *testing.T) {
@@ -310,13 +310,13 @@ func TestClaudeRenderer_Compile_Agent_MemoryInGroup6(t *testing.T) {
 	content := out.Files["agents/researcher.md"]
 
 	memoryIdx := strings.Index(content, "memory:")
-	maxTurnsIdx := strings.Index(content, "maxTurns:")
+	maxTurnsIdx := strings.Index(content, "max-turns:")
 	isolationIdx := strings.Index(content, "isolation:")
 
 	require.NotEqual(t, -1, memoryIdx, "memory: not found in output:\n%s", content)
-	require.NotEqual(t, -1, maxTurnsIdx, "maxTurns: not found")
+	require.NotEqual(t, -1, maxTurnsIdx, "max-turns: not found")
 	require.NotEqual(t, -1, isolationIdx, "isolation: not found")
 
-	require.Greater(t, memoryIdx, maxTurnsIdx, "memory must come AFTER maxTurns (Group 6 > Group 2)")
+	require.Greater(t, memoryIdx, maxTurnsIdx, "memory must come AFTER max-turns (Group 6 > Group 2)")
 	require.Greater(t, memoryIdx, isolationIdx, "memory must come AFTER isolation (within Group 5-6 ordering)")
 }

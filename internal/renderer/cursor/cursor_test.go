@@ -302,7 +302,7 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 	require.NotEmpty(t, content)
 
 	// CC-only fields must NOT appear as standalone frontmatter keys
-	for _, dropped := range []string{"effort:", "permissionMode:", "isolation:", "color:", "memory:", "maxTurns:", "tools:", "disallowedTools:", "skills:", "initialPrompt:", "\nbackground:"} {
+	for _, dropped := range []string{"effort:", "permission-mode:", "isolation:", "color:", "memory:", "max-turns:", "tools:", "disallowed-tools:", "skills:", "initial-prompt:", "\nbackground:"} {
 		assert.NotContains(t, content, dropped, "CC-only field %q must be dropped", dropped)
 	}
 
@@ -1036,7 +1036,7 @@ func TestCursorRenderer_PermissionModeFidelityWarning_Agent(t *testing.T) {
 
 	output := stderr.String()
 	assert.Contains(t, output, "WARNING (cursor):")
-	assert.Contains(t, output, "permissionMode")
+	assert.Contains(t, output, "permission-mode")
 	assert.Contains(t, output, "dropped")
 }
 
@@ -1060,7 +1060,7 @@ func TestCursorRenderer_DisallowedToolsFidelityWarning_Agent(t *testing.T) {
 
 	output := stderr.String()
 	assert.Contains(t, output, "WARNING (cursor):")
-	assert.Contains(t, output, "disallowedTools dropped")
+	assert.Contains(t, output, "disallowed-tools dropped")
 }
 
 func TestCursorRenderer_IsolationFidelityWarning_Agent(t *testing.T) {
@@ -1114,7 +1114,7 @@ func TestCursorRenderer_SuppressFidelityWarnings_SkipsAgentWarnings(t *testing.T
 
 	output := stderr.String()
 	// Per-agent warnings must be suppressed
-	assert.NotContains(t, output, "permissionMode")
+	assert.NotContains(t, output, "permission-mode")
 	assert.NotContains(t, output, "isolation")
 }
 
