@@ -89,9 +89,10 @@ func sortMemorySeeds(seeds []MemorySeed) {
 
 // GenerateWithOpts creates a LockManifest from compiler output and source metadata.
 func GenerateWithOpts(out *output.Output, opts GenerateOpts) *LockManifest {
+	now := time.Now().UTC().Format(time.RFC3339)
 	manifest := &LockManifest{
 		Version:             lockFileVersion,
-		LastApplied:         time.Now().UTC().Format(time.RFC3339),
+		LastApplied:         now,
 		XcaffoldVersion:     XcaffoldVersion,
 		ClaudeSchemaVersion: claudeSchemaVersion,
 		Target:              opts.Target,
@@ -137,6 +138,11 @@ func GenerateWithOpts(out *output.Output, opts GenerateOpts) *LockManifest {
 	if len(opts.MemorySeeds) > 0 {
 		manifest.MemorySeeds = make([]MemorySeed, len(opts.MemorySeeds))
 		copy(manifest.MemorySeeds, opts.MemorySeeds)
+		for i := range manifest.MemorySeeds {
+			if manifest.MemorySeeds[i].SeededAt == "" {
+				manifest.MemorySeeds[i].SeededAt = now
+			}
+		}
 		sortMemorySeeds(manifest.MemorySeeds)
 	}
 

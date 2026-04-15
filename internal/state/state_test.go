@@ -111,6 +111,39 @@ func TestMemorySeed_SortedByName(t *testing.T) {
 	require.Equal(t, "z-entry", seeds[2].Name)
 }
 
+func TestGenerateWithOpts_MemorySeeds_CopiedAndSorted(t *testing.T) {
+	seeds := []MemorySeed{
+		{Name: "z-seed", Target: "claude", Lifecycle: "tracked", Hash: "sha256:z", SeededAt: "2026-04-15T00:00:00Z"},
+		{Name: "a-seed", Target: "claude", Lifecycle: "seed-once", Hash: "sha256:a", SeededAt: "2026-04-15T00:00:00Z"},
+	}
+
+	out := &compiler.Output{Files: map[string]string{"x.md": "x"}}
+	manifest := GenerateWithOpts(out, GenerateOpts{MemorySeeds: seeds})
+
+	require.Len(t, manifest.MemorySeeds, 2)
+	require.Equal(t, "a-seed", manifest.MemorySeeds[0].Name)
+	require.Equal(t, "z-seed", manifest.MemorySeeds[1].Name)
+
+	// Defensive copy: mutating source must not affect manifest
+	seeds[0].Name = "mutated"
+	require.Equal(t, "z-seed", manifest.MemorySeeds[1].Name)
+}
+
+func TestGenerateWithOpts_MemorySeeds_AutoPopulatesSeededAt(t *testing.T) {
+	seeds := []MemorySeed{
+		{Name: "a-seed", Target: "claude", Lifecycle: "seed-once", Hash: "sha256:a"}, // no SeededAt
+	}
+
+	out := &compiler.Output{Files: map[string]string{"x.md": "x"}}
+	manifest := GenerateWithOpts(out, GenerateOpts{MemorySeeds: seeds})
+
+	require.Len(t, manifest.MemorySeeds, 1)
+	require.NotEmpty(t, manifest.MemorySeeds[0].SeededAt, "GenerateWithOpts must fill empty SeededAt")
+
+	// Caller's slice must still have the empty SeededAt (copy is defensive)
+	require.Empty(t, seeds[0].SeededAt)
+}
+
 func TestLockManifest_BackwardCompat_NoMemorySeeds(t *testing.T) {
 	raw := `
 last_applied: "2026-04-01T10:00:00Z"
