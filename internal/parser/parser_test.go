@@ -264,7 +264,7 @@ version: "1.0"
 agents:
   dev:
     description: "Developer"
-    disallowedTools: [Write]
+    disallowed-tools: [Write]
 ---
 kind: settings
 version: "1.0"
@@ -369,7 +369,7 @@ version: "1.0"
 agents:
   my-agent:
     description: "An agent"
-    instructions_file: ghost.md
+    instructions-file: ghost.md
 `)
 	diags := ValidateFile(xcf)
 	var found bool
@@ -378,7 +378,7 @@ agents:
 			found = true
 		}
 	}
-	assert.True(t, found, "expected an error diagnostic about missing instructions_file, got: %v", diags)
+	assert.True(t, found, "expected an error diagnostic about missing instructions-file, got: %v", diags)
 }
 
 func TestValidateFileRefs_PresentInstructionsFile(t *testing.T) {
@@ -393,7 +393,7 @@ version: "1.0"
 agents:
   my-agent:
     description: "An agent"
-    instructions_file: real.md
+    instructions-file: real.md
 `)
 	diags := ValidateFile(xcf)
 	for _, d := range diags {

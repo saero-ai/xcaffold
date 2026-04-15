@@ -96,8 +96,8 @@ version: "1.0"
 name: "full-project"
 description: "All blocks populated"
 test:
-  claude_path: "/usr/local/bin/claude"
-  judge_model: "claude-3-5-haiku-20241022"
+  claude-path: "/usr/local/bin/claude"
+  judge-model: "claude-3-5-haiku-20241022"
 ---
 kind: global
 version: "1.0"
@@ -245,108 +245,108 @@ hooks:
 }
 
 // TestParse_InstructionsAndFileSet_ReturnsError verifies that setting both
-// instructions: and instructions_file: on the same agent is a parse error.
+// instructions: and instructions-file: on the same agent is a parse error.
 func TestParse_InstructionsAndFileSet_ReturnsError(t *testing.T) {
 	yaml := `kind: global
 version: "1.0"
 agents:
   ambiguous:
     instructions: "Inline instructions."
-    instructions_file: "agents/ambiguous.md"
+    instructions-file: "agents/ambiguous.md"
 `
 	_, err := Parse(strings.NewReader(yaml))
-	require.Error(t, err, "both instructions and instructions_file set must be rejected")
+	require.Error(t, err, "both instructions and instructions-file set must be rejected")
 	assert.Contains(t, err.Error(), "mutually exclusive")
 }
 
 // TestParse_InstructionsFile_AbsolutePath_Rejected verifies that an absolute path
-// in instructions_file is rejected at parse time.
+// in instructions-file is rejected at parse time.
 func TestParse_InstructionsFile_AbsolutePath_Rejected(t *testing.T) {
 	yaml := `kind: global
 version: "1.0"
 agents:
   cto:
-    instructions_file: "/etc/passwd"
+    instructions-file: "/etc/passwd"
 `
 	_, err := Parse(strings.NewReader(yaml))
-	require.Error(t, err, "absolute instructions_file path must be rejected at parse time")
+	require.Error(t, err, "absolute instructions-file path must be rejected at parse time")
 	assert.Contains(t, err.Error(), "relative path")
 }
 
 // TestParse_InstructionsFile_PathTraversal_Rejected verifies that a path
-// traversal attempt in instructions_file is rejected at parse time.
+// traversal attempt in instructions-file is rejected at parse time.
 func TestParse_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
 	yaml := `kind: global
 version: "1.0"
 agents:
   cto:
-    instructions_file: "../outside/cto.md"
+    instructions-file: "../outside/cto.md"
 `
 	_, err := Parse(strings.NewReader(yaml))
-	require.Error(t, err, "instructions_file with path traversal must be rejected at parse time")
+	require.Error(t, err, "instructions-file with path traversal must be rejected at parse time")
 	assert.Contains(t, err.Error(), "instructions_file")
 }
 
-// TestParse_SkillInstructionsFile_Valid verifies skills accept instructions_file.
+// TestParse_SkillInstructionsFile_Valid verifies skills accept instructions-file.
 func TestParse_SkillInstructionsFile_Valid(t *testing.T) {
 	yaml := `kind: global
 version: "1.0"
 skills:
   flutter-integration:
     description: "Flutter integration skill"
-    instructions_file: "skills/flutter-integration/SKILL.md"
+    instructions-file: "skills/flutter-integration/SKILL.md"
     references:
       - "skills/flutter-integration/references/advanced-patterns.md"
 `
 	config, err := Parse(strings.NewReader(yaml))
-	require.NoError(t, err, "skill with instructions_file and references should be accepted")
+	require.NoError(t, err, "skill with instructions-file and references should be accepted")
 	skill, ok := config.Skills["flutter-integration"]
 	require.True(t, ok)
 	assert.Equal(t, "skills/flutter-integration/SKILL.md", skill.InstructionsFile)
 	assert.Len(t, skill.References, 1)
 }
 
-// TestParse_InstructionsFile_CircularReference_ClaudeDir verifies that instructions_file
+// TestParse_InstructionsFile_CircularReference_ClaudeDir verifies that instructions-file
 // pointing into .claude/ is rejected as a circular dependency.
 func TestParse_InstructionsFile_CircularReference_ClaudeDir(t *testing.T) {
 	yaml := `kind: global
 version: "1.0"
 agents:
   dev:
-    instructions_file: .claude/agents/dev.md
+    instructions-file: .claude/agents/dev.md
 `
 	_, err := Parse(strings.NewReader(yaml))
-	require.Error(t, err, "instructions_file pointing to .claude/ must be rejected")
+	require.Error(t, err, "instructions-file pointing to .claude/ must be rejected")
 	assert.Contains(t, err.Error(), "circular dependency")
 	assert.Contains(t, err.Error(), ".claude/")
 }
 
-// TestParse_InstructionsFile_CircularReference_CursorDir verifies that instructions_file
+// TestParse_InstructionsFile_CircularReference_CursorDir verifies that instructions-file
 // pointing into .cursor/ is rejected as a circular dependency.
 func TestParse_InstructionsFile_CircularReference_CursorDir(t *testing.T) {
 	yaml := `kind: global
 version: "1.0"
 skills:
   deploy:
-    instructions_file: .cursor/rules/deploy.mdc
+    instructions-file: .cursor/rules/deploy.mdc
 `
 	_, err := Parse(strings.NewReader(yaml))
-	require.Error(t, err, "instructions_file pointing to .cursor/ must be rejected")
+	require.Error(t, err, "instructions-file pointing to .cursor/ must be rejected")
 	assert.Contains(t, err.Error(), "circular dependency")
 	assert.Contains(t, err.Error(), ".cursor/")
 }
 
-// TestParse_InstructionsFile_CircularReference_AgentsDir verifies that instructions_file
+// TestParse_InstructionsFile_CircularReference_AgentsDir verifies that instructions-file
 // pointing into .agents/ (Antigravity output) is rejected.
 func TestParse_InstructionsFile_CircularReference_AgentsDir(t *testing.T) {
 	yaml := `kind: global
 version: "1.0"
 agents:
   reviewer:
-    instructions_file: .agents/agents/reviewer.md
+    instructions-file: .agents/agents/reviewer.md
 `
 	_, err := Parse(strings.NewReader(yaml))
-	require.Error(t, err, "instructions_file pointing to .agents/ must be rejected")
+	require.Error(t, err, "instructions-file pointing to .agents/ must be rejected")
 	assert.Contains(t, err.Error(), "circular dependency")
 	assert.Contains(t, err.Error(), ".agents/")
 }
@@ -358,30 +358,30 @@ func TestParse_InstructionsFile_ValidRelativePath_Allowed(t *testing.T) {
 version: "1.0"
 agents:
   dev:
-    instructions_file: docs/agents/dev.md
+    instructions-file: docs/agents/dev.md
 `
 	cfg, err := Parse(strings.NewReader(yaml))
 	require.NoError(t, err, "valid relative path must not be rejected")
 	assert.Equal(t, "docs/agents/dev.md", cfg.Agents["dev"].InstructionsFile)
 }
 
-// TestParse_InstructionsFile_CircularReference_AntigravityDir verifies that instructions_file
+// TestParse_InstructionsFile_CircularReference_AntigravityDir verifies that instructions-file
 // pointing into .antigravity/ is rejected.
 func TestParse_InstructionsFile_CircularReference_AntigravityDir(t *testing.T) {
 	yaml := `kind: global
 version: "1.0"
 rules:
   security:
-    instructions_file: .antigravity/rules/security.md
+    instructions-file: .antigravity/rules/security.md
 `
 	_, err := Parse(strings.NewReader(yaml))
-	require.Error(t, err, "instructions_file pointing to .antigravity/ must be rejected")
+	require.Error(t, err, "instructions-file pointing to .antigravity/ must be rejected")
 	assert.Contains(t, err.Error(), "circular dependency")
 	assert.Contains(t, err.Error(), ".antigravity/")
 }
 
 // TestParsePartial_GlobalScope_AllowsAbsoluteInstructionsFile verifies that
-// parsePartial called with withGlobalScope() accepts absolute instructions_file
+// parsePartial called with withGlobalScope() accepts absolute instructions-file
 // paths — global configs legitimately reference files like ~/.claude/agents/*.md.
 func TestParsePartial_GlobalScope_AllowsAbsoluteInstructionsFile(t *testing.T) {
 	xcf := `kind: global
@@ -389,10 +389,10 @@ version: "1.0"
 agents:
   ceo:
     description: "Global CEO agent"
-    instructions_file: "/Users/testuser/.claude/agents/ceo.md"
+    instructions-file: "/Users/testuser/.claude/agents/ceo.md"
 `
 	cfg, err := parsePartial(strings.NewReader(xcf), withGlobalScope())
-	require.NoError(t, err, "global scope must accept absolute instructions_file path")
+	require.NoError(t, err, "global scope must accept absolute instructions-file path")
 	assert.Equal(t, "/Users/testuser/.claude/agents/ceo.md", cfg.Agents["ceo"].InstructionsFile)
 }
 
@@ -405,10 +405,10 @@ version: "1.0"
 agents:
   ceo:
     description: "Project CEO agent"
-    instructions_file: "/etc/passwd"
+    instructions-file: "/etc/passwd"
 `
 	_, err := parsePartial(strings.NewReader(xcf))
-	require.Error(t, err, "project scope must reject absolute instructions_file path")
+	require.Error(t, err, "project scope must reject absolute instructions-file path")
 	assert.Contains(t, err.Error(), "relative path")
 }
 
@@ -421,7 +421,7 @@ version: "1.0"
 agents:
   ceo:
     description: "Global CEO agent"
-    instructions_file: "../../etc/passwd"
+    instructions-file: "../../etc/passwd"
 `
 	_, err := parsePartial(strings.NewReader(xcf), withGlobalScope())
 	require.Error(t, err, "global scope must still reject path traversal")
@@ -430,7 +430,7 @@ agents:
 
 // TestParseDirectoryRaw_GlobalScope_AllowsAbsoluteInstructionsFile verifies that
 // parseDirectoryRaw propagates withGlobalScope() into parseFileExact so that an
-// XCF file inside ~/.xcaffold/ with an absolute instructions_file parses without error.
+// XCF file inside ~/.xcaffold/ with an absolute instructions-file parses without error.
 func TestParseDirectoryRaw_GlobalScope_AllowsAbsoluteInstructionsFile(t *testing.T) {
 	dir := t.TempDir()
 	writeTestXCF(t, dir, "agents.xcf", `kind: global
@@ -438,11 +438,11 @@ version: "1.0"
 agents:
   ceo:
     description: "Global CEO agent"
-    instructions_file: "/Users/testuser/.claude/agents/ceo.md"
+    instructions-file: "/Users/testuser/.claude/agents/ceo.md"
 `)
 
 	cfg, err := parseDirectoryRaw(dir, withGlobalScope())
-	require.NoError(t, err, "parseDirectoryRaw with global scope must accept absolute instructions_file")
+	require.NoError(t, err, "parseDirectoryRaw with global scope must accept absolute instructions-file")
 	assert.Equal(t, "/Users/testuser/.claude/agents/ceo.md", cfg.Agents["ceo"].InstructionsFile)
 }
 
@@ -455,10 +455,10 @@ version: "1.0"
 agents:
   ceo:
     description: "Project CEO agent"
-    instructions_file: "/etc/passwd"
+    instructions-file: "/etc/passwd"
 `)
 
 	_, err := parseDirectoryRaw(dir)
-	require.Error(t, err, "parseDirectoryRaw without global scope must reject absolute instructions_file")
+	require.Error(t, err, "parseDirectoryRaw without global scope must reject absolute instructions-file")
 	assert.Contains(t, err.Error(), "relative path")
 }

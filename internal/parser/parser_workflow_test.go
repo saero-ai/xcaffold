@@ -54,60 +54,60 @@ workflows:
 }
 
 // TestValidate_Workflow_MutualExclusivity verifies that setting both instructions
-// and instructions_file on the same workflow is a parse error.
+// and instructions-file on the same workflow is a parse error.
 func TestValidate_Workflow_MutualExclusivity(t *testing.T) {
 	input := `kind: global
 version: "1.0"
 workflows:
   deploy:
     instructions: "Inline instructions."
-    instructions_file: "workflows/deploy.md"
+    instructions-file: "workflows/deploy.md"
 `
 	_, err := Parse(strings.NewReader(input))
-	require.Error(t, err, "both instructions and instructions_file set must be rejected")
+	require.Error(t, err, "both instructions and instructions-file set must be rejected")
 	assert.Contains(t, err.Error(), "mutually exclusive")
 }
 
 // TestValidate_Workflow_InstructionsFile_AbsolutePath_Rejected verifies that an
-// absolute path in a workflow's instructions_file is rejected.
+// absolute path in a workflow's instructions-file is rejected.
 func TestValidate_Workflow_InstructionsFile_AbsolutePath_Rejected(t *testing.T) {
 	input := `kind: global
 version: "1.0"
 workflows:
   release:
-    instructions_file: "/etc/passwd"
+    instructions-file: "/etc/passwd"
 `
 	_, err := Parse(strings.NewReader(input))
-	require.Error(t, err, "absolute instructions_file path must be rejected")
+	require.Error(t, err, "absolute instructions-file path must be rejected")
 	assert.Contains(t, err.Error(), "relative path")
 }
 
 // TestValidate_Workflow_InstructionsFile_PathTraversal_Rejected verifies that
-// path traversal in a workflow's instructions_file is rejected.
+// path traversal in a workflow's instructions-file is rejected.
 func TestValidate_Workflow_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
 	input := `kind: global
 version: "1.0"
 workflows:
   release:
-    instructions_file: "../outside/release.md"
+    instructions-file: "../outside/release.md"
 `
 	_, err := Parse(strings.NewReader(input))
-	require.Error(t, err, "instructions_file with path traversal must be rejected")
+	require.Error(t, err, "instructions-file with path traversal must be rejected")
 	assert.Contains(t, err.Error(), "instructions_file")
 }
 
 // TestValidate_Workflow_ValidRelativePath_Accepted verifies that a valid relative
-// instructions_file path on a workflow parses successfully.
+// instructions-file path on a workflow parses successfully.
 func TestValidate_Workflow_ValidRelativePath_Accepted(t *testing.T) {
 	input := `kind: global
 version: "1.0"
 workflows:
   release:
     description: "Release workflow"
-    instructions_file: "workflows/release.md"
+    instructions-file: "workflows/release.md"
 `
 	cfg, err := Parse(strings.NewReader(input))
-	require.NoError(t, err, "valid relative instructions_file should be accepted")
+	require.NoError(t, err, "valid relative instructions-file should be accepted")
 	wf, ok := cfg.Workflows["release"]
 	require.True(t, ok)
 	assert.Equal(t, "workflows/release.md", wf.InstructionsFile)

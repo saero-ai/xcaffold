@@ -52,13 +52,13 @@ func TestParseFile_MultiKind_KnownFields_RejectsInvalid(t *testing.T) {
 version: "1.0"
 name: developer
 description: "Dev agent"
-alwaysApply: true
+always-apply: true
 `
 	dec := yaml.NewDecoder(strings.NewReader(yamlDoc))
 	dec.KnownFields(true)
 	var doc agentDocument
 	err := dec.Decode(&doc)
-	require.Error(t, err, "alwaysApply is a RuleConfig field, not AgentConfig — KnownFields must reject it")
+	require.Error(t, err, "always-apply is a RuleConfig field, not AgentConfig — KnownFields must reject it")
 }
 
 func TestExtractKind_Agent(t *testing.T) {
@@ -373,14 +373,14 @@ model: sonnet
 }
 
 func TestParseFile_MultiKind_MutuallyExclusiveInstructions_Error(t *testing.T) {
-	// A kind:agent document that sets both instructions and instructions_file
+	// A kind:agent document that sets both instructions and instructions-file
 	// must fail: they are mutually exclusive per validateInstructionOrFile.
 	input := `kind: agent
 version: "1.0"
 name: developer
 description: "Dev"
 instructions: "inline text"
-instructions_file: "agents/dev.md"
+instructions-file: "agents/dev.md"
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -805,7 +805,7 @@ severity: error
 target: agent
 require:
   - field: model
-    one_of:
+    one-of:
       - claude-opus-4-5-20250514
       - claude-sonnet-4-5-20250514
 `
@@ -843,7 +843,7 @@ severity: error
 target: agent
 require:
   - field: model
-    one_of:
+    one-of:
       - sonnet
 `
 	config, err := Parse(strings.NewReader(input))
@@ -881,7 +881,7 @@ severity: warning
 target: agent
 require:
   - field: description
-    is_present: true
+    is-present: true
 `
 	config, err := Parse(strings.NewReader(input))
 	require.NoError(t, err)
@@ -910,7 +910,7 @@ severity: error
 target: agent
 require:
   - field: model
-    one_of:
+    one-of:
       - claude-sonnet-4-5-20250514
 `), 0644))
 
@@ -1033,7 +1033,7 @@ name: empty-field
 severity: error
 target: agent
 require:
-  - one_of: ["sonnet"]
+  - one-of: ["sonnet"]
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -1102,7 +1102,7 @@ name: match-no-target
 severity: error
 target: ""
 match:
-  has_tool: Bash
+  has-tool: Bash
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)

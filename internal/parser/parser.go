@@ -48,11 +48,180 @@ func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
 	return config, nil
 }
 
+// legacyKeyAliases maps pre-migration camelCase/snake_case xcf YAML keys to their
+// canonical kebab-case equivalents. This rewrite is applied per-document (after
+// splitting on "---") to provide a deprecation-period grace window.
+//
+// IMPORTANT: Keys inside "kind: settings" documents are provider wire-format
+// pass-throughs and are intentionally excluded from aliasing.
+//
+// TODO: Remove this map and the rewriting logic once the deprecation window closes
+// (target: next major version after migration lands).
+var legacyKeyAliases = map[string]string{
+	// AgentConfig
+	"maxTurns:":               "max-turns:",
+	"disallowedTools:":        "disallowed-tools:",
+	"permissionMode:":         "permission-mode:",
+	"disableModelInvocation:": "disable-model-invocation:",
+	"userInvocable:":          "user-invocable:",
+	"initialPrompt:":          "initial-prompt:",
+	"mcpServers:":             "mcp-servers:",
+	// AgentConfig / SkillConfig / RuleConfig / WorkflowConfig
+	"instructions_file:": "instructions-file:",
+	// RuleConfig
+	"alwaysApply:": "always-apply:",
+	// TargetOverride
+	"suppress_fidelity_warnings:": "suppress-fidelity-warnings:",
+	"skip_synthesis:":             "skip-synthesis:",
+	"instructions_override:":      "instructions-override:",
+	// ProjectConfig
+	"backup_dir:": "backup-dir:",
+	// TestConfig
+	"cli_path:":    "cli-path:",
+	"claude_path:": "claude-path:",
+	"judge_model:": "judge-model:",
+	// PolicyMatch
+	"has_tool:":        "has-tool:",
+	"has_field:":       "has-field:",
+	"name_matches:":    "name-matches:",
+	"target_includes:": "target-includes:",
+	// PolicyRequire
+	"is_present:": "is-present:",
+	"min_length:": "min-length:",
+	"max_count:":  "max-count:",
+	"one_of:":     "one-of:",
+	// PolicyDeny
+	"content_contains:": "content-contains:",
+	"content_matches:":  "content-matches:",
+	"path_contains:":    "path-contains:",
+}
+
+// rewriteLegacyKeys rewrites pre-migration xcf YAML keys to kebab-case equivalents
+// on a per-document basis. The "kind: settings" document type is exempt — settings
+// fields are provider-native pass-throughs that must not be mangled.
+//
+// Detection is line-oriented: the rewriter scans for "key:" at the start of a
+// non-indented line (scalar key), which is sufficient for all affected fields.
+// Indented values and YAML strings are not affected.
+func rewriteLegacyKeys(data []byte) []byte {
+	// Split into per-document segments on "---" boundaries so each document
+	// can be checked for "kind: settings" independently.
+	type segment struct {
+		sep  []byte // leading "---\n" or nil for first doc
+		body []byte
+	}
+
+	var segments []segment
+	rest := data
+
+	// First segment: content before the first "---"
+	if idx := bytes.Index(rest, []byte("\n---")); idx >= 0 {
+		segments = append(segments, segment{nil, rest[:idx+1]})
+		rest = rest[idx+1:]
+	} else {
+		segments = append(segments, segment{nil, rest})
+		rest = nil
+	}
+
+	// Remaining segments: split on "\n---\n" or "\n---" at EOF
+	for len(rest) > 0 {
+		markerEnd := 4 // len("---\n")
+		if len(rest) < 4 || !bytes.HasPrefix(rest, []byte("---")) {
+			// Shouldn't happen; append as-is.
+			segments = append(segments, segment{nil, rest})
+			break
+		}
+		// Find next "---"
+		next := bytes.Index(rest[3:], []byte("\n---"))
+		if next < 0 {
+			segments = append(segments, segment{[]byte("---\n"), rest[markerEnd:]})
+			break
+		}
+		cutAt := 3 + next + 1 // position of "\n" before next "---"
+		segments = append(segments, segment{[]byte("---\n"), rest[markerEnd:cutAt]})
+		rest = rest[cutAt:]
+	}
+
+	var out bytes.Buffer
+	for _, seg := range segments {
+		out.Write(seg.sep)
+		// Check if this document is "kind: settings" — exempt from aliasing.
+		if isSettingsDocument(seg.body) {
+			out.Write(seg.body)
+			continue
+		}
+		out.Write(rewriteDocumentKeys(seg.body))
+	}
+	return out.Bytes()
+}
+
+// isSettingsDocument returns true if the document declares "kind: settings".
+func isSettingsDocument(doc []byte) bool {
+	for _, line := range bytes.Split(doc, []byte("\n")) {
+		trimmed := bytes.TrimSpace(line)
+		if bytes.Equal(trimmed, []byte("kind: settings")) {
+			return true
+		}
+		// Stop scanning after the first non-comment, non-empty line that
+		// isn't "kind:" — settings documents always declare kind near the top.
+		if len(trimmed) > 0 && !bytes.HasPrefix(trimmed, []byte("#")) {
+			if bytes.HasPrefix(trimmed, []byte("kind:")) {
+				// Only one kind per document; this isn't settings.
+				return false
+			}
+		}
+	}
+	return false
+}
+
+// rewriteDocumentKeys applies legacyKeyAliases to a single document body.
+// It rewrites any line (at any indentation level) whose trimmed content starts
+// with a legacy key — preserving the original leading whitespace. Comment lines
+// (trimmed prefix "#") are skipped.
+//
+// This handles all field positions in the .xcf YAML structure: top-level fields
+// (e.g. "backup-dir:") and nested fields (e.g. "  instructions-file:", "  max-turns:").
+func rewriteDocumentKeys(doc []byte) []byte {
+	lines := bytes.Split(doc, []byte("\n"))
+	for i, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+		// Calculate leading whitespace length.
+		indent := 0
+		for indent < len(line) && (line[indent] == ' ' || line[indent] == '\t') {
+			indent++
+		}
+		// Skip comment lines and lines that are only whitespace.
+		if indent >= len(line) || line[indent] == '#' {
+			continue
+		}
+		trimmed := line[indent:]
+		for old, newKey := range legacyKeyAliases {
+			if bytes.HasPrefix(trimmed, []byte(old)) {
+				// Reconstruct: original_indent + new_key + remainder_after_old_key
+				remainder := trimmed[len(old):]
+				newLine := make([]byte, 0, indent+len(newKey)+len(remainder))
+				newLine = append(newLine, line[:indent]...)
+				newLine = append(newLine, newKey...)
+				newLine = append(newLine, remainder...)
+				lines[i] = newLine
+				break
+			}
+		}
+	}
+	return bytes.Join(lines, []byte("\n"))
+}
+
 func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read .xcf input: %w", err)
 	}
+
+	// Rewrite deprecated camelCase/snake_case keys to kebab-case before decoding.
+	// This provides backward compatibility during the migration period.
+	data = rewriteLegacyKeys(data)
 
 	config := &ast.XcaffoldConfig{}
 	decoder := yaml.NewDecoder(bytes.NewReader(data))

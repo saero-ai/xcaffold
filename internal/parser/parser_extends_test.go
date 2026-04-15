@@ -109,8 +109,8 @@ version: "1.0"
 name: "base-project"
 description: "Base description."
 test:
-  claude_path: "/usr/local/bin/claude"
-  judge_model: "claude-3-5-haiku-20241022"
+  claude-path: "/usr/local/bin/claude"
+  judge-model: "claude-3-5-haiku-20241022"
 ---
 kind: global
 version: "1.0"
@@ -126,7 +126,7 @@ version: "1.0"
 name: "child-project"
 description: "Child description."
 test:
-  judge_model: "claude-3-opus-20240229"
+  judge-model: "claude-3-opus-20240229"
 ---
 kind: global
 version: "1.0"
@@ -150,10 +150,10 @@ agents:
 	assert.Equal(t, "Child version of agent.", cfg.Agents["shared-agent"].Description)
 	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["shared-agent"].Model)
 
-	// Test config: child overrides judge_model, base claude_path is inherited
+	// Test config: child overrides judge-model, base claude-path is inherited
 	require.NotNil(t, cfg.Project)
-	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.ClaudePath, "base claude_path should be inherited")
-	assert.Equal(t, "claude-3-opus-20240229", cfg.Project.Test.JudgeModel, "child judge_model should override base")
+	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.ClaudePath, "base claude-path should be inherited")
+	assert.Equal(t, "claude-3-opus-20240229", cfg.Project.Test.JudgeModel, "child judge-model should override base")
 }
 
 // ---------------------------------------------------------------------------
