@@ -885,7 +885,10 @@ func TestCompile_Rule_AlwaysApplyExplicitFalse_EmitsFalse(t *testing.T) {
 	assert.Contains(t, content, "alwaysApply: false", "explicit false must be emitted")
 }
 
-func TestCompile_Rule_PathsWithAlwaysApplyTrue_BothEmitted(t *testing.T) {
+func TestCompile_Rule_PathsWithAlwaysApplyTrue_AlwaysTakesPrecedence(t *testing.T) {
+	// When AlwaysApply=true is set explicitly alongside Paths, ResolvedActivation
+	// returns "always" (AlwaysApply has higher precedence than path presence).
+	// The rule fires on every file — globs: is not emitted.
 	r := cursor.New()
 	t2 := true
 	config := &ast.XcaffoldConfig{
@@ -905,8 +908,8 @@ func TestCompile_Rule_PathsWithAlwaysApplyTrue_BothEmitted(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/combo-rule.mdc"]
-	assert.Contains(t, content, "globs:", "paths must be emitted as globs")
-	assert.Contains(t, content, "alwaysApply: true", "alwaysApply must also be emitted")
+	assert.Contains(t, content, "alwaysApply: true", "AlwaysApply=true takes precedence; rule fires on every file")
+	assert.NotContains(t, content, "globs:", "AlwaysApply=true supersedes paths; globs must not be emitted")
 }
 
 // ─── Readonly tests (Issue #5) ───────────────────────────────────────────────
@@ -1129,4 +1132,154 @@ func TestCursorRenderer_SkillScriptsDropped_EmitsNote(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "setup", note.Resource)
 	assert.Equal(t, renderer.LevelWarning, note.Level)
+}
+
+// ─── Activation mapping tests ─────────────────────────────────────────────────
+
+func TestCompileCursorRule_Activation_Always(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"security": {
+					Activation:   ast.RuleActivationAlways,
+					Instructions: "Body.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/security.mdc"]
+	require.Contains(t, content, "alwaysApply: true")
+	require.NotContains(t, content, "globs:")
+}
+
+func TestCompileCursorRule_Activation_PathGlob(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"api-style": {
+					Activation:   ast.RuleActivationPathGlob,
+					Paths:        []string{"src/**"},
+					Instructions: "Body.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/api-style.mdc"]
+	require.Contains(t, content, "globs:")
+	require.Contains(t, content, "src/**")
+	require.NotContains(t, content, "alwaysApply:")
+}
+
+func TestCompileCursorRule_Activation_ManualMention(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"commit-style": {
+					Activation:   ast.RuleActivationManualMention,
+					Instructions: "Body.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/commit-style.mdc"]
+	require.Contains(t, content, "alwaysApply: false")
+	require.NotContains(t, content, "globs:")
+}
+
+func TestCompileCursorRule_Activation_ModelDecided_FidelityNote(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"arch-review": {
+					Activation:   ast.RuleActivationModelDecided,
+					Instructions: "Body.",
+				},
+			},
+		},
+	}
+	out, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/arch-review.mdc"]
+	require.Contains(t, content, "alwaysApply: false")
+
+	require.NotEmpty(t, notes)
+	require.Equal(t, renderer.LevelWarning, notes[0].Level)
+	require.Contains(t, notes[0].Reason, "model-decided")
+}
+
+func TestCompileCursorRule_Activation_ExplicitInvoke_FidelityNote(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"deploy-gate": {
+					Activation:   ast.RuleActivationExplicitInvoke,
+					Instructions: "Body.",
+				},
+			},
+		},
+	}
+	out, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/deploy-gate.mdc"]
+	require.Contains(t, content, "alwaysApply: false")
+
+	require.NotEmpty(t, notes)
+	require.Equal(t, renderer.LevelWarning, notes[0].Level)
+	require.Contains(t, notes[0].Reason, "explicit-invoke")
+}
+
+func TestCompileCursorRule_LegacyAlwaysApply_True(t *testing.T) {
+	truthy := true
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"style": {
+					AlwaysApply:  &truthy,
+					Instructions: "Body.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/style.mdc"]
+	require.Contains(t, content, "alwaysApply: true")
+}
+
+func TestCompileCursorRule_LegacyAlwaysApply_False(t *testing.T) {
+	falsy := false
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"manual": {
+					AlwaysApply:  &falsy,
+					Instructions: "Body.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/manual.mdc"]
+	require.Contains(t, content, "alwaysApply: false")
 }

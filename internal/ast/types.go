@@ -178,14 +178,31 @@ type SkillConfig struct {
 	Inherited bool `yaml:"-"`
 }
 
+// Rule activation mode values. These are the canonical cross-provider activation
+// modes for the rule kind. Renderers map these to provider-native expressions.
+const (
+	RuleActivationAlways         = "always"
+	RuleActivationPathGlob       = "path-glob"
+	RuleActivationModelDecided   = "model-decided"
+	RuleActivationManualMention  = "manual-mention"
+	RuleActivationExplicitInvoke = "explicit-invoke"
+)
+
 // RuleConfig defines a path-gated formatting guideline.
 type RuleConfig struct {
 	AlwaysApply      *bool    `yaml:"always-apply,omitempty"`
 	Description      string   `yaml:"description,omitempty"`
+	Activation       string   `yaml:"activation,omitempty"`
 	Name             string   `yaml:"name,omitempty"`
 	Instructions     string   `yaml:"instructions,omitempty"`
 	InstructionsFile string   `yaml:"instructions-file,omitempty"`
 	Paths            []string `yaml:"paths,omitempty"`
+	// ExcludeAgents is a Copilot-specific list of agent types that should NOT
+	// receive this rule. Valid values: code-review | cloud-agent.
+	// Silently ignored by all non-Copilot renderers.
+	ExcludeAgents []string `yaml:"exclude-agents,omitempty"`
+	// Targets holds per-provider overrides including provider-native pass-through fields.
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`

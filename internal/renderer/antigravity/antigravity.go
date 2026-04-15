@@ -190,10 +190,30 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (str
 
 	// Description becomes a markdown heading — no --- frontmatter delimiters.
 	if rule.Description != "" {
-		fmt.Fprintf(&sb, "# %s\n\n", rule.Description)
+		fmt.Fprintf(&sb, "# %s\n", rule.Description)
+	}
+
+	// Emit activation provenance comment(s) immediately after the heading (or at
+	// top of file when no description is set). These allow the importer to recover
+	// activation semantics on re-import.
+	activation := renderer.ResolvedActivation(rule)
+	switch activation {
+	case ast.RuleActivationAlways:
+		sb.WriteString("<!-- xcaffold:activation AlwaysOn -->\n")
+	case ast.RuleActivationPathGlob:
+		sb.WriteString("<!-- xcaffold:activation Glob -->\n")
+		pathsJSON, err := json.Marshal(rule.Paths)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal rule paths: %w", err)
+		}
+		fmt.Fprintf(&sb, "<!-- xcaffold:paths %s -->\n", string(pathsJSON))
+	default:
+		// ManualMention, ModelDecided, ExplicitInvoke — all map to Manual in AG.
+		sb.WriteString("<!-- xcaffold:activation Manual -->\n")
 	}
 
 	if body != "" {
+		sb.WriteString("\n")
 		sb.WriteString(strings.TrimRight(body, "\n"))
 		sb.WriteString("\n")
 	}

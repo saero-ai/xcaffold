@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -456,4 +457,98 @@ func TestClaudeRenderer_Compile_Skill_ProviderInjectionSafety(t *testing.T) {
 	// value cannot terminate the frontmatter block. The frontmatter must end
 	// only with its legitimate closing "---" line.
 	require.NotContains(t, md, "\nmalicious: true\n")
+}
+
+// ─── Rule activation + fidelity note tests ───────────────────────────────────
+
+func TestCompileRuleMarkdown_Activation_PathGlob(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"api-style": {
+					Description:  "API style guide.",
+					Activation:   ast.RuleActivationPathGlob,
+					Paths:        []string{"src/**"},
+					Instructions: "Use REST conventions.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/api-style.md"]
+	require.Contains(t, content, "paths:")
+	require.Contains(t, content, "src/**")
+}
+
+func TestCompileRuleMarkdown_Activation_Always(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"security": {
+					Description:  "Security checklist.",
+					Activation:   ast.RuleActivationAlways,
+					Instructions: "Follow OWASP.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/security.md"]
+	require.NotContains(t, content, "paths:")
+}
+
+func TestCompileRuleMarkdown_Activation_ManualMention_FidelityNote(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"commit-style": {
+					Description:  "Commit formatting.",
+					Activation:   ast.RuleActivationManualMention,
+					Instructions: "Use Conventional Commits.",
+				},
+			},
+		},
+	}
+	out, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+	require.NotEmpty(t, out.Files["rules/commit-style.md"])
+
+	// Must produce a FidelityNote warning for unsupported activation.
+	require.NotEmpty(t, notes)
+	require.Equal(t, renderer.LevelWarning, notes[0].Level)
+	require.Contains(t, notes[0].Reason, "manual-mention")
+}
+
+func TestCompileRuleMarkdown_ExcludeAgents_FidelityNote(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"pr-review": {
+					Description:   "PR review standards.",
+					Activation:    ast.RuleActivationAlways,
+					ExcludeAgents: []string{"code-review"},
+					Instructions:  "Review carefully.",
+				},
+			},
+		},
+	}
+	out, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/pr-review.md"]
+	require.NotContains(t, content, "excludeAgent")
+	require.NotContains(t, content, "exclude-agents")
+
+	// Must produce an info-level FidelityNote for the dropped field.
+	require.NotEmpty(t, notes)
+	require.Equal(t, renderer.LevelInfo, notes[0].Level)
+	require.Contains(t, notes[0].Reason, "exclude-agents")
 }

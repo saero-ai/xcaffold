@@ -264,3 +264,67 @@ func TestSkillConfig_ToolsFieldRemoved(t *testing.T) {
 	// Intentional: if someone adds .Tools back, the next line will fail to compile:
 	// _ = skill.Tools  // uncomment to verify the field is gone
 }
+
+func TestRuleConfig_Activation_Field(t *testing.T) {
+	rule := RuleConfig{
+		Name:       "coding-style",
+		Activation: RuleActivationAlways,
+		Paths:      []string{"src/**"},
+	}
+
+	data, err := yaml.Marshal(rule)
+	require.NoError(t, err)
+
+	content := string(data)
+	require.Contains(t, content, "activation: always")
+	require.Contains(t, content, "paths:")
+}
+
+func TestRuleActivation_Constants(t *testing.T) {
+	require.Equal(t, "always", RuleActivationAlways)
+	require.Equal(t, "path-glob", RuleActivationPathGlob)
+	require.Equal(t, "model-decided", RuleActivationModelDecided)
+	require.Equal(t, "manual-mention", RuleActivationManualMention)
+	require.Equal(t, "explicit-invoke", RuleActivationExplicitInvoke)
+}
+
+func TestRuleConfig_ExcludeAgents_Serializes(t *testing.T) {
+	rule := RuleConfig{
+		Name:          "security",
+		Activation:    RuleActivationAlways,
+		ExcludeAgents: []string{"code-review", "cloud-agent"},
+		Instructions:  "Body.",
+	}
+
+	data, err := yaml.Marshal(rule)
+	require.NoError(t, err)
+
+	content := string(data)
+	require.Contains(t, content, "exclude-agents:")
+	require.Contains(t, content, "- code-review")
+	require.Contains(t, content, "- cloud-agent")
+}
+
+func TestRuleConfig_Targets_Serializes(t *testing.T) {
+	rule := RuleConfig{
+		Name:       "api-style",
+		Activation: RuleActivationAlways,
+		Targets: map[string]TargetOverride{
+			"copilot": {
+				Provider: map[string]any{
+					"mode": "edit",
+				},
+			},
+		},
+		Instructions: "Body.",
+	}
+
+	data, err := yaml.Marshal(rule)
+	require.NoError(t, err)
+
+	content := string(data)
+	require.Contains(t, content, "targets:")
+	require.Contains(t, content, "copilot:")
+	require.Contains(t, content, "provider:")
+	require.Contains(t, content, "mode: edit")
+}

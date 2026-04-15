@@ -501,10 +501,271 @@ func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count
 		}
 		ruleCfg.Instructions = body
 
+		// Populate Activation from path-presence heuristic when not set explicitly.
+		if ruleCfg.Activation == "" {
+			if len(ruleCfg.Paths) > 0 {
+				ruleCfg.Activation = ast.RuleActivationPathGlob
+			} else {
+				ruleCfg.Activation = ast.RuleActivationAlways
+			}
+		}
+
 		config.Rules[id] = ruleCfg
 		*count++
 	}
 	return nil
+}
+
+// extractCursorRules reads .cursor/rules/*.mdc files and maps Cursor frontmatter
+// fields to RuleConfig. Activation is derived from globs and always-apply fields.
+func extractCursorRules(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	ruleFiles, _ := filepath.Glob(filepath.Join(dir, "rules", "*.mdc"))
+	for _, f := range ruleFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping cursor rule %s: %v", f, err))
+			continue
+		}
+		id := strings.TrimSuffix(filepath.Base(f), ".mdc")
+		if id == "" {
+			continue
+		}
+
+		body := extractBodyAfterFrontmatter(data)
+
+		// Parse Cursor-specific frontmatter fields.
+		var cursorFM struct {
+			Description string   `yaml:"description"`
+			Globs       []string `yaml:"globs"`
+			AlwaysApply *bool    `yaml:"alwaysApply"`
+		}
+		if fm, ok := extractFrontmatter(data); ok {
+			if unmarshalErr := yaml.Unmarshal(fm, &cursorFM); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
+		}
+
+		ruleCfg := ast.RuleConfig{
+			Description:  cursorFM.Description,
+			Instructions: body,
+		}
+		if ruleCfg.Description == "" {
+			ruleCfg.Description = "Imported cursor rule"
+		}
+
+		// Derive activation per spec Section 9.2.
+		hasGlobs := len(cursorFM.Globs) > 0
+		alwaysApplyTrue := cursorFM.AlwaysApply != nil && *cursorFM.AlwaysApply
+		alwaysApplyFalse := cursorFM.AlwaysApply != nil && !*cursorFM.AlwaysApply
+
+		switch {
+		case hasGlobs && alwaysApplyTrue:
+			// globs take precedence over always-apply
+			ruleCfg.Activation = ast.RuleActivationPathGlob
+			ruleCfg.Paths = cursorFM.Globs
+		case hasGlobs:
+			ruleCfg.Activation = ast.RuleActivationPathGlob
+			ruleCfg.Paths = cursorFM.Globs
+		case alwaysApplyFalse:
+			ruleCfg.Activation = ast.RuleActivationManualMention
+		case alwaysApplyTrue:
+			ruleCfg.Activation = ast.RuleActivationAlways
+		default:
+			// Neither globs nor always-apply: Cursor default is always-on.
+			ruleCfg.Activation = ast.RuleActivationAlways
+		}
+
+		config.Rules[id] = ruleCfg
+		*count++
+	}
+	return nil
+}
+
+// extractCopilotRules reads .github/instructions/*.instructions.md files and maps
+// Copilot frontmatter fields to RuleConfig.
+func extractCopilotRules(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	ruleFiles, _ := filepath.Glob(filepath.Join(dir, "instructions", "*.instructions.md"))
+	for _, f := range ruleFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping copilot rule %s: %v", f, err))
+			continue
+		}
+		// Strip the double suffix ".instructions.md"
+		base := filepath.Base(f)
+		id := strings.TrimSuffix(base, ".instructions.md")
+		if id == "" || id == base {
+			continue
+		}
+
+		body := extractBodyAfterFrontmatter(data)
+
+		// Parse Copilot-specific frontmatter fields.
+		var copilotFM struct {
+			Description  string      `yaml:"description"`
+			ApplyTo      string      `yaml:"applyTo"`
+			ExcludeAgent interface{} `yaml:"excludeAgent"`
+		}
+		if fm, ok := extractFrontmatter(data); ok {
+			if unmarshalErr := yaml.Unmarshal(fm, &copilotFM); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
+		}
+
+		ruleCfg := ast.RuleConfig{
+			Description:  copilotFM.Description,
+			Instructions: body,
+		}
+		if ruleCfg.Description == "" {
+			ruleCfg.Description = "Imported copilot rule"
+		}
+
+		// Derive activation per spec Section 9.3.
+		applyTo := strings.TrimSpace(copilotFM.ApplyTo)
+		// Strip surrounding quotes from scalar values like `"**"`.
+		applyTo = strings.Trim(applyTo, `"'`)
+		if applyTo == "" || applyTo == "**" {
+			ruleCfg.Activation = ast.RuleActivationAlways
+		} else {
+			ruleCfg.Activation = ast.RuleActivationPathGlob
+			// Split comma-separated paths, trim whitespace from each.
+			parts := strings.Split(applyTo, ",")
+			for _, p := range parts {
+				p = strings.TrimSpace(p)
+				if p != "" {
+					ruleCfg.Paths = append(ruleCfg.Paths, p)
+				}
+			}
+		}
+
+		// Map excludeAgent (scalar or list) → ExcludeAgents.
+		switch v := copilotFM.ExcludeAgent.(type) {
+		case string:
+			if v != "" {
+				ruleCfg.ExcludeAgents = []string{v}
+			}
+		case []interface{}:
+			for _, item := range v {
+				if s, ok := item.(string); ok && s != "" {
+					ruleCfg.ExcludeAgents = append(ruleCfg.ExcludeAgents, s)
+				}
+			}
+		}
+
+		config.Rules[id] = ruleCfg
+		*count++
+	}
+	return nil
+}
+
+// extractAntigravityRules reads .agents/rules/*.md files and maps Antigravity
+// provenance comments to RuleConfig. If no provenance comments are present,
+// activation defaults to always.
+func extractAntigravityRules(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	ruleFiles, _ := filepath.Glob(filepath.Join(dir, "rules", "*.md"))
+	for _, f := range ruleFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping antigravity rule %s: %v", f, err))
+			continue
+		}
+		id := strings.TrimSuffix(filepath.Base(f), ".md")
+		if id == "" {
+			continue
+		}
+
+		content := string(data)
+
+		// Extract activation from provenance comments.
+		activation, paths := parseAntigravityProvenance(content)
+
+		// Extract description from first H1 heading (after any HTML comments).
+		description := extractH1Description(content)
+		if description == "" {
+			description = "Imported antigravity rule"
+		}
+
+		// Body is the full content stripped of provenance comments.
+		body := strings.TrimSpace(removeAntigravityProvenanceComments(content))
+
+		ruleCfg := ast.RuleConfig{
+			Description:  description,
+			Activation:   activation,
+			Paths:        paths,
+			Instructions: body,
+		}
+
+		config.Rules[id] = ruleCfg
+		*count++
+	}
+	return nil
+}
+
+// parseAntigravityProvenance extracts activation and optional paths from
+// xcaffold provenance HTML comments in the file content.
+func parseAntigravityProvenance(content string) (activation string, paths []string) {
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "<!-- xcaffold:activation ") {
+			value := strings.TrimPrefix(line, "<!-- xcaffold:activation ")
+			value = strings.TrimSuffix(value, " -->")
+			value = strings.TrimSpace(value)
+			switch value {
+			case "AlwaysOn":
+				activation = ast.RuleActivationAlways
+			case "Manual":
+				activation = ast.RuleActivationManualMention
+			case "ModelDecision":
+				activation = ast.RuleActivationModelDecided
+			case "Glob":
+				activation = ast.RuleActivationPathGlob
+			}
+		}
+		if strings.HasPrefix(line, "<!-- xcaffold:paths ") {
+			raw := strings.TrimPrefix(line, "<!-- xcaffold:paths ")
+			raw = strings.TrimSuffix(raw, " -->")
+			raw = strings.TrimSpace(raw)
+			var parsed []string
+			if err := json.Unmarshal([]byte(raw), &parsed); err == nil {
+				paths = parsed
+			}
+		}
+	}
+	if activation == "" {
+		activation = ast.RuleActivationAlways
+	}
+	return activation, paths
+}
+
+// extractH1Description returns the text of the first H1 heading found after
+// HTML comments in the markdown content.
+func extractH1Description(content string) string {
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "<!--") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "# ") {
+			return strings.TrimPrefix(trimmed, "# ")
+		}
+	}
+	return ""
+}
+
+// removeAntigravityProvenanceComments strips xcaffold HTML comment lines from content.
+func removeAntigravityProvenanceComments(content string) string {
+	lines := strings.Split(content, "\n")
+	var out []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "<!-- xcaffold:") {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
 }
 
 // extractBodyAfterFrontmatter returns the markdown body that follows the YAML frontmatter block.
