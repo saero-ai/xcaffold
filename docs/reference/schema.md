@@ -497,7 +497,12 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 | `description` | `string` | Optional | Human-readable description. Shown in listings and help text. |
 | `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions_file`. |
 | `instructions_file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
-| `tools` | `[]string` | Optional | Tools required or relevant during skill execution. |
+| `whenToUse` | `string` | Optional | Detailed activation guidance. Claude appends to `description`; renderer emits `when_to_use:` (Claude's documented snake_case for this one field). |
+| `license` | `string` | Optional | SPDX identifier. Emitted as `license:` for Cursor/Copilot; ignored by other renderers. |
+| `allowed-tools` | `[]string` | Optional | Pre-approved tool list. Renderer emits as `allowed-tools` for Claude/Copilot. (Renamed from `tools` for cross-provider canonical naming.) |
+| `disable-model-invocation` | `*bool` | Optional | If `true`, the skill is user-invocable only (no model selection). Honored by Claude and Cursor. |
+| `user-invocable` | `*bool` | Optional | If `false`, the skill is model-only (no slash command). Claude-only. |
+| `argument-hint` | `string` | Optional | Autocomplete hint shown on the slash command. Claude-only. |
 | `references` | `[]string` | Optional | Supporting files or glob patterns. Resolved relative to `scaffold.xcf`. Copied to `skills/<id>/references/` during compilation. |
 | `scripts` | `[]string` | Optional | Executable helper files. Resolved relative to `scaffold.xcf`. Copied to `skills/<id>/scripts/` during compilation. |
 | `assets` | `[]string` | Optional | Output artifact files like templates or icons. Resolved relative to `scaffold.xcf`. Copied to `skills/<id>/assets/` during compilation. |
