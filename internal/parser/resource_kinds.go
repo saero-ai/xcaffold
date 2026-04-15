@@ -169,34 +169,6 @@ var singletonKinds = map[string]bool{
 	"global":   true,
 }
 
-// knownInstructionsScopeFields enumerates the valid YAML keys for InstructionsScope
-// entries. Enforced transitively by yaml.KnownFields(true) on projectDocFields.
-var knownInstructionsScopeFields = map[string]bool{
-	"path":              true,
-	"instructions":      true,
-	"instructions-file": true,
-	"merge-strategy":    true,
-	"source-provider":   true,
-	"source-filename":   true,
-	"variants":          true,
-	"reconciliation":    true,
-}
-
-// knownInstructionsVariantFields enumerates the valid YAML keys for InstructionsVariant
-// entries. Enforced transitively by yaml.KnownFields(true) on projectDocFields.
-var knownInstructionsVariantFields = map[string]bool{
-	"instructions-file": true,
-	"source-filename":   true,
-}
-
-// knownReconciliationConfigFields enumerates the valid YAML keys for ReconciliationConfig
-// entries. Enforced transitively by yaml.KnownFields(true) on projectDocFields.
-var knownReconciliationConfigFields = map[string]bool{
-	"strategy":        true,
-	"last-reconciled": true,
-	"notes":           true,
-}
-
 // validatePolicyFields checks semantic constraints beyond KnownFields.
 func validatePolicyFields(p ast.PolicyConfig) error {
 	validSeverities := map[string]bool{
