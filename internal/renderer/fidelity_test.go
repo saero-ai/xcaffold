@@ -108,6 +108,9 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeRuleActivationUnsupported:           true,
 		renderer.CodeRuleExcludeAgentsDropped:            true,
 		renderer.CodeInstructionsImportInlined:           true,
+		renderer.CodeReconciliationUnionLossy:            true,
+		renderer.CodeReconciliationDriftDetected:         true,
+		renderer.CodeMemoryDriftDetected:                 true,
 	}
 
 	got := make(map[string]bool)

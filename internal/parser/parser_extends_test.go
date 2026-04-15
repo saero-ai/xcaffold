@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -443,4 +444,77 @@ extends: "global"
 	require.NoError(t, err)
 	require.Contains(t, cfg.Agents, "nested-agent")
 	require.Contains(t, cfg.Agents, "main-agent")
+}
+
+// ---------------------------------------------------------------------------
+// TestParseFile_InstructionsScopes_StripInherited — global scopes must not
+// appear after StripInherited() is called on the merged config.
+// ---------------------------------------------------------------------------
+
+func TestParseFile_InstructionsScopes_StripInherited(t *testing.T) {
+	dir := t.TempDir()
+
+	// Base config: a global with an instructions-scope.
+	writeFile(t, dir, "base.xcf", `---
+kind: project
+version: "1.0"
+name: "base-project"
+instructions-scopes:
+  - path: packages/shared
+    instructions: "Shared base instructions."
+    merge-strategy: concat
+---
+kind: global
+version: "1.0"
+agents:
+  base-agent:
+    description: "Base agent."
+    model: "claude-3-5-haiku-20241022"
+`)
+
+	// Child config: extends base, declares its own scope.
+	childPath := writeFile(t, dir, "child.xcf", `---
+kind: project
+version: "1.0"
+name: "child-project"
+instructions-scopes:
+  - path: packages/api
+    instructions: "API-specific instructions."
+    merge-strategy: closest-wins
+---
+kind: global
+version: "1.0"
+extends: "base.xcf"
+`)
+
+	cfg, err := ParseFile(childPath)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Project)
+
+	// Before stripping, the base scope is present and tagged Inherited=true.
+	var sharedScope *ast.InstructionsScope
+	for i := range cfg.Project.InstructionsScopes {
+		if cfg.Project.InstructionsScopes[i].Path == "packages/shared" {
+			sharedScope = &cfg.Project.InstructionsScopes[i]
+		}
+	}
+	require.NotNil(t, sharedScope, "packages/shared scope should be present before stripping")
+	assert.True(t, sharedScope.Inherited, "base scope must be tagged Inherited=true")
+
+	// After StripInherited, only child-declared scopes remain.
+	cfg.StripInherited()
+	for _, scope := range cfg.Project.InstructionsScopes {
+		assert.False(t, scope.Path == "packages/shared",
+			"inherited scope packages/shared must not appear after StripInherited()")
+	}
+
+	// Child scope is preserved.
+	var apiScope *ast.InstructionsScope
+	for i := range cfg.Project.InstructionsScopes {
+		if cfg.Project.InstructionsScopes[i].Path == "packages/api" {
+			apiScope = &cfg.Project.InstructionsScopes[i]
+		}
+	}
+	require.NotNil(t, apiScope, "child scope packages/api must remain after StripInherited()")
+	assert.False(t, apiScope.Inherited, "child scope must not be tagged Inherited")
 }

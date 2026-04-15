@@ -657,6 +657,52 @@ func TestRunMemoryPass_DryRun_Claude_LogsIntent(t *testing.T) {
 	require.Contains(t, string(captured), "DRY-RUN", "dry-run must log intent to stderr")
 }
 
+// TestRunMemoryPass_Gemini_WritesGeminiMD verifies that runMemoryPass dispatches
+// correctly to the Gemini memory renderer when target == "gemini" and writes
+// GEMINI.md under the resolved gemini directory.
+func TestRunMemoryPass_Gemini_WritesGeminiMD(t *testing.T) {
+	geminiDir := t.TempDir()
+	t.Setenv("XCAFFOLD_GEMINI_DIR", geminiDir)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"user-role": {Name: "user-role", Type: "user", Instructions: "Robert is the founder."},
+			},
+		},
+	}
+
+	seeds, notes, err := runMemoryPass(config, t.TempDir(), targetGemini, t.TempDir(), nil, false, false)
+	require.NoError(t, err)
+	// Gemini does not record seeds in scaffold.lock.
+	require.Empty(t, seeds)
+	// Gemini emits MEMORY_PARTIAL_FIDELITY notes.
+	require.NotEmpty(t, notes)
+	require.Equal(t, renderer.CodeMemoryPartialFidelity, notes[0].Code)
+
+	data, err := os.ReadFile(filepath.Join(geminiDir, "GEMINI.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(data), "Robert is the founder.")
+}
+
+// TestRunMemoryPass_Gemini_UnsupportedTarget_NoLongerErrors verifies that the
+// gemini target no longer falls through to the default unsupported-target branch.
+func TestRunMemoryPass_Gemini_UnsupportedTarget_NoLongerErrors(t *testing.T) {
+	geminiDir := t.TempDir()
+	t.Setenv("XCAFFOLD_GEMINI_DIR", geminiDir)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"entry": {Name: "entry", Type: "feedback", Instructions: "Some feedback."},
+			},
+		},
+	}
+
+	_, _, err := runMemoryPass(config, t.TempDir(), targetGemini, t.TempDir(), nil, false, false)
+	require.NoError(t, err, "gemini target must not return unsupported-target error")
+}
+
 // TestClaudeProjectMemoryDir_ConsistentBetweenImportAndApply verifies that
 // claudeProjectMemoryDir returns the same directory for the same project root
 // on repeated calls, and falls back to the working directory without error

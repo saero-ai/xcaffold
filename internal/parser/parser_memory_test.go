@@ -107,6 +107,85 @@ memory:
 	require.Error(t, err, "setting both instructions and instructions-file must be a parse error")
 }
 
+func TestParse_Memory_InvalidLifecycle_Fails(t *testing.T) {
+	xcf := `
+kind: global
+version: "1.0"
+memory:
+  user-role:
+    name: user-role
+    type: user
+    lifecycle: permanent
+    instructions: "test"
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
+
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	_, err := ParseFile(path)
+	require.Error(t, err, "unknown lifecycle value must be rejected at parse time")
+	require.Contains(t, err.Error(), "lifecycle")
+	require.Contains(t, err.Error(), "permanent")
+}
+
+func TestParse_Memory_InvalidType_Fails(t *testing.T) {
+	xcf := `
+kind: global
+version: "1.0"
+memory:
+  user-role:
+    name: user-role
+    type: secret
+    instructions: "test"
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
+
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	_, err := ParseFile(path)
+	require.Error(t, err, "unknown type value must be rejected at parse time")
+	require.Contains(t, err.Error(), "type")
+	require.Contains(t, err.Error(), "secret")
+}
+
+func TestParse_Memory_ValidLifecycleAndType_Passes(t *testing.T) {
+	cases := []struct {
+		lifecycle string
+		memType   string
+	}{
+		{"seed-once", "user"},
+		{"tracked", "feedback"},
+		{"", "project"},
+		{"seed-once", "reference"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.lifecycle+"/"+tc.memType, func(t *testing.T) {
+			lifecycleLine := ""
+			if tc.lifecycle != "" {
+				lifecycleLine = "    lifecycle: " + tc.lifecycle + "\n"
+			}
+			xcf := fmt.Sprintf(`
+kind: global
+version: "1.0"
+memory:
+  entry:
+    name: entry
+    type: %s
+%s    instructions: "test"
+`, tc.memType, lifecycleLine)
+			tmp := t.TempDir()
+			path := filepath.Join(tmp, "scaffold.xcf")
+			require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
+
+			t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+			_, err := ParseFile(path)
+			require.NoError(t, err, "valid lifecycle=%q type=%q must not fail", tc.lifecycle, tc.memType)
+		})
+	}
+}
+
 func TestParse_Fixture_MemoryEntries(t *testing.T) {
 	path := "../../testing/fixtures/full.xcf"
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")

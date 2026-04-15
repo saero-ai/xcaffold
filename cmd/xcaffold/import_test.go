@@ -714,6 +714,32 @@ func TestRunImport_WithMemory_UsesSourceDir(t *testing.T) {
 	require.FileExists(t, filepath.Join(tmp, "xcf", "memory", "user-role.md"))
 }
 
+func TestImport_WithMemory_Gemini_ExtractsBlocks(t *testing.T) {
+	// Prepare a GEMINI.md file with an xcaffold-seeded memory block.
+	geminiDir := t.TempDir()
+	geminiMD := `## Gemini Added Memories
+
+<!-- xcaffold:memory name="user-role" type="user" seeded-at="2026-04-15T00:00:00Z" -->
+**user-role** (user): Developer role.
+
+Robert is the founder.
+<!-- xcaffold:/memory -->
+`
+	require.NoError(t, os.WriteFile(filepath.Join(geminiDir, "GEMINI.md"), []byte(geminiMD), 0o600))
+	t.Setenv("XCAFFOLD_GEMINI_DIR", geminiDir)
+
+	// Set up a temp working directory for the sidecar output.
+	tmp := t.TempDir()
+	origWd, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origWd)
+
+	summary, err := runMemorySnapshot(importCmd, "", "gemini", false)
+	require.NoError(t, err)
+	require.Equal(t, 1, summary.Imported, "one Gemini memory block must be imported")
+	require.FileExists(t, filepath.Join(tmp, "xcf", "memory", "user-role.md"))
+}
+
 func TestDetectTargets(t *testing.T) {
 	tests := []struct {
 		name     string

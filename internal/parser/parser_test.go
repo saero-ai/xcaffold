@@ -1076,3 +1076,73 @@ func TestParse_Fixture_InstructionsScopes(t *testing.T) {
 	_, err := ParseFile(fixturePath)
 	require.NoError(t, err, "instructions-scopes.xcf fixture must parse without error")
 }
+
+// TestParse_ProjectInstructions_VariantsRequireMergeStrategy verifies that
+// a scope with a non-empty variants map and no merge-strategy and no
+// source-provider is rejected by the parser (MS-REQ rule).
+func TestParse_ProjectInstructions_VariantsRequireMergeStrategy(t *testing.T) {
+	yml := `
+kind: project
+version: "1.0"
+name: test
+instructions-scopes:
+  - path: packages/worker
+    instructions: "inline"
+    variants:
+      cursor:
+        instructions-file: xcf/instructions/scopes/packages-worker-cursor.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "merge-strategy is required when variants are present")
+}
+
+// TestParse_ProjectInstructions_VariantsWithMergeStrategyAccepted verifies that
+// a scope with variants AND an explicit merge-strategy is accepted.
+func TestParse_ProjectInstructions_VariantsWithMergeStrategyAccepted(t *testing.T) {
+	yml := `
+kind: project
+version: "1.0"
+name: test
+instructions-scopes:
+  - path: packages/worker
+    instructions: "inline"
+    merge-strategy: concat
+    variants:
+      cursor:
+        instructions-file: xcf/instructions/scopes/packages-worker-cursor.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
+	cfg, err := ParseFile(path)
+	require.NoError(t, err)
+	require.Len(t, cfg.Project.InstructionsScopes, 1)
+}
+
+// TestParse_ProjectInstructions_VariantsWithSourceProviderAccepted verifies that
+// a scope with variants and no merge-strategy but with source-provider set is
+// accepted (source-provider satisfies the MS-REQ rule).
+func TestParse_ProjectInstructions_VariantsWithSourceProviderAccepted(t *testing.T) {
+	yml := `
+kind: project
+version: "1.0"
+name: test
+instructions-scopes:
+  - path: packages/worker
+    instructions: "inline"
+    source-provider: claude
+    variants:
+      cursor:
+        instructions-file: xcf/instructions/scopes/packages-worker-cursor.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
+	cfg, err := ParseFile(path)
+	require.NoError(t, err)
+	require.Len(t, cfg.Project.InstructionsScopes, 1)
+}

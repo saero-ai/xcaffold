@@ -1650,13 +1650,27 @@ func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, c
 }
 
 // runMemorySnapshot performs the memory import pass for --with-memory.
+// When fromPlatform is "gemini" it reads xcaffold-seeded blocks from GEMINI.md
+// in the resolved gemini directory. For all other platforms (and "auto") it
+// imports from the Claude project memory directory.
 func runMemorySnapshot(cmd *cobra.Command, source string, fromPlatform string, planOnly bool) (*bir.ImportSummary, error) {
+	sidecarDir := filepath.Join("xcf", "memory")
+
+	if fromPlatform == "gemini" {
+		gDir, err := geminiMemoryDir()
+		if err != nil {
+			return nil, fmt.Errorf("resolving gemini directory: %w", err)
+		}
+		return bir.ImportGeminiMemory(gDir, bir.ImportOpts{
+			PlanOnly:   planOnly,
+			SidecarDir: sidecarDir,
+		})
+	}
+
 	memDir, err := resolveClaudeMemoryDir(source, fromPlatform)
 	if err != nil {
 		return nil, err
 	}
-
-	sidecarDir := filepath.Join("xcf", "memory")
 
 	return bir.ImportClaudeMemory(memDir, bir.ImportOpts{
 		PlanOnly:   planOnly,

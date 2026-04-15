@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
@@ -306,4 +307,42 @@ func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
 	var parsed map[string]interface{}
 	require.NoError(t, yaml.Unmarshal([]byte(parts[1]), &parsed))
 	require.Equal(t, "has: a colon", parsed["description"])
+}
+
+func TestCompileMemory_Tracked_DriftEmitsFidelityNote(t *testing.T) {
+	dir := t.TempDir()
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"arch": {Name: "arch", Type: "reference", Lifecycle: "tracked", Instructions: "Original xcf content."},
+			},
+		},
+	}
+
+	// Seed the file.
+	r1 := NewMemoryRenderer(dir)
+	_, _, err := r1.Compile(config, dir)
+	require.NoError(t, err)
+	priorHash := r1.Seeds()[0].Hash
+
+	// Simulate agent modification.
+	targetPath := filepath.Join(dir, "arch.md")
+	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
+
+	// Apply with prior hash: must return an error AND emit a CodeMemoryDriftDetected note.
+	r2 := NewMemoryRenderer(dir)
+	_, notes, err := r2.CompileWithPriorSeeds(config, dir, map[string]string{"arch": priorHash})
+	require.Error(t, err, "drift must return an error")
+	require.Contains(t, err.Error(), "memory drift detected")
+	require.NotEmpty(t, notes, "drift must emit at least one FidelityNote")
+
+	var hasDriftCode bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeMemoryDriftDetected {
+			hasDriftCode = true
+			require.Equal(t, renderer.LevelError, n.Level)
+		}
+	}
+	require.True(t, hasDriftCode, "notes must include a MEMORY_DRIFT_DETECTED note")
 }

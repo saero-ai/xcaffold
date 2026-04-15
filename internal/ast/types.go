@@ -67,6 +67,11 @@ type ProjectConfig struct {
 	// Order in this slice is authoritative (depth ascending, then alphabetical).
 	InstructionsScopes []InstructionsScope `yaml:"instructions-scopes,omitempty"`
 
+	// TargetOptions holds per-provider compile-time options for the project.
+	// Keys are provider names (e.g. "copilot", "cursor"). Values are TargetOverride
+	// instances. Only fields relevant to the named provider are examined.
+	TargetOptions map[string]TargetOverride `yaml:"target-options,omitempty"`
+
 	ResourceScope `yaml:",inline"` // Workspace-level resources
 }
 
@@ -94,6 +99,11 @@ type InstructionsScope struct {
 
 	// Reconciliation records the strategy and state for divergent variants.
 	Reconciliation *ReconciliationConfig `yaml:"reconciliation,omitempty"`
+
+	// Inherited is set by the parser when this scope originates from an
+	// extends: global base config. It is never serialized and causes StripInherited
+	// to remove it from the local project during compilation.
+	Inherited bool `yaml:"-"`
 }
 
 // InstructionsVariant holds the per-provider sidecar path when two providers
@@ -187,6 +197,11 @@ type TargetOverride struct {
 	SkipSynthesis            *bool             `yaml:"skip-synthesis,omitempty"`
 	InstructionsOverride     string            `yaml:"instructions-override,omitempty"`
 	Provider                 map[string]any    `yaml:"provider,omitempty"`
+	// InstructionsMode controls how project instructions-scopes are emitted.
+	// Valid values: flat (default) | nested. Only used by the Copilot renderer.
+	// flat: all scopes merged into a single .github/copilot-instructions.md file.
+	// nested: scopes emitted as per-directory AGENTS.md files (closest-wins class).
+	InstructionsMode string `yaml:"instructions-mode,omitempty"`
 }
 
 // SkillConfig defines a reusable prompt package.
@@ -532,5 +547,14 @@ func (c *XcaffoldConfig) StripInherited() {
 		if m.Inherited {
 			delete(c.Memory, k)
 		}
+	}
+	if c.Project != nil {
+		filtered := c.Project.InstructionsScopes[:0]
+		for _, scope := range c.Project.InstructionsScopes {
+			if !scope.Inherited {
+				filtered = append(filtered, scope)
+			}
+		}
+		c.Project.InstructionsScopes = filtered
 	}
 }

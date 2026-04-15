@@ -1,10 +1,13 @@
 package copilot_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
 	"github.com/stretchr/testify/require"
@@ -75,4 +78,80 @@ func TestCopilotRenderer_ProjectInstructions_NoNestedOutput(t *testing.T) {
 		require.False(t, strings.HasSuffix(path, "/AGENTS.md"),
 			"copilot renderer must not emit nested AGENTS.md; got %s", path)
 	}
+}
+
+// TestCopilotRenderer_FlatMode_ExplicitFlag verifies that setting
+// target-options.copilot.instructions-mode: flat produces flat singleton output
+// (identical to the default).
+func TestCopilotRenderer_FlatMode_ExplicitFlag(t *testing.T) {
+	r := copilot.New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:         "test",
+			Instructions: "Root.",
+			TargetOptions: map[string]ast.TargetOverride{
+				"copilot": {InstructionsMode: "flat"},
+			},
+			InstructionsScopes: []ast.InstructionsScope{
+				{Path: "packages/worker", Instructions: "Worker.", MergeStrategy: "flat"},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+	_, hasCopilotInstructions := out.Files[".github/copilot-instructions.md"]
+	require.True(t, hasCopilotInstructions, "flat mode must emit .github/copilot-instructions.md")
+	for path := range out.Files {
+		require.False(t, strings.HasSuffix(path, "/AGENTS.md"),
+			"flat mode must not emit AGENTS.md; got %s", path)
+	}
+}
+
+// TestCopilotRenderer_NestedMode_EmitsAGENTSMDTree verifies that setting
+// target-options.copilot.instructions-mode: nested produces per-directory AGENTS.md
+// files instead of the flat singleton.
+func TestCopilotRenderer_NestedMode_EmitsAGENTSMDTree(t *testing.T) {
+	r := copilot.New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:         "test",
+			Instructions: "Root.",
+			TargetOptions: map[string]ast.TargetOverride{
+				"copilot": {InstructionsMode: "nested"},
+			},
+			InstructionsScopes: []ast.InstructionsScope{
+				{Path: "packages/worker", Instructions: "Worker.", MergeStrategy: "closest-wins"},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+	// Nested mode must NOT emit flat singleton.
+	_, hasFlatFile := out.Files[".github/copilot-instructions.md"]
+	require.False(t, hasFlatFile, "nested mode must not emit .github/copilot-instructions.md")
+	// Nested mode must emit root AGENTS.md and per-scope AGENTS.md.
+	_, hasRoot := out.Files["AGENTS.md"]
+	require.True(t, hasRoot, "nested mode must emit root AGENTS.md")
+	_, hasScope := out.Files["packages/worker/AGENTS.md"]
+	require.True(t, hasScope, "nested mode must emit packages/worker/AGENTS.md")
+}
+
+// TestCopilotParser_InstructionsModeInvalidValue verifies that an unknown
+// instructions-mode value on a project.target-options.copilot block is a parse error.
+func TestCopilotParser_InstructionsModeInvalidValue(t *testing.T) {
+	yml := `
+kind: project
+version: "1.0"
+name: test
+instructions: "Root."
+target-options:
+  copilot:
+    instructions-mode: sideways
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
+	_, err := parser.ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "instructions-mode")
 }

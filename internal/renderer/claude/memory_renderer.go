@@ -101,10 +101,13 @@ func (r *MemoryRenderer) CompileWithPriorSeeds(config *ast.XcaffoldConfig, baseD
 	for _, name := range names {
 		entry := config.Memory[name]
 		entryNotes, err := r.compileEntry(name, entry, baseDir, priorHashes)
-		if err != nil {
-			return nil, nil, err
-		}
+		// Always collect notes even when err != nil: drift detection returns
+		// both a structured FidelityNote and a hard error simultaneously so
+		// callers (e.g. audit.json writers) see the structured event.
 		notes = append(notes, entryNotes...)
+		if err != nil {
+			return nil, notes, err
+		}
 	}
 
 	return out, notes, nil
@@ -241,7 +244,17 @@ func (r *MemoryRenderer) applyTracked(name, targetPath, content, newHash, lifecy
 		return notes, nil
 	}
 
-	return nil, fmt.Errorf(
+	driftNote := renderer.NewNote(
+		renderer.LevelError,
+		"claude",
+		"memory",
+		name,
+		"",
+		renderer.CodeMemoryDriftDetected,
+		fmt.Sprintf("on-disk hash %s diverges from last-seed hash %s; entry was modified after last apply", onDisk, prior),
+		"To capture agent changes: xcaffold import --with-memory\nTo discard agent changes and re-apply: xcaffold apply --include-memory --reseed",
+	)
+	return []renderer.FidelityNote{driftNote}, fmt.Errorf(
 		"memory drift detected for entry %q\n  target: claude\n  path: %s\n  last-seed: %s\n  on-disk: %s (modified after last seed)\n  To capture agent changes: xcaffold import --with-memory\n  To discard agent changes and re-apply: xcaffold apply --include-memory --reseed",
 		name, targetPath, prior, onDisk,
 	)

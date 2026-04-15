@@ -137,6 +137,55 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 	require.FileExists(t, filepath.Join(applyDir, "user-role.md"))
 }
 
+func TestIntegration_Memory_InheritedEntry_NotSeeded(t *testing.T) {
+	// Verifies that inherited memory entries are stripped before the seed pass
+	// and therefore do not produce seed records or on-disk files.
+	// This mirrors the structural guarantee provided by StripInherited(): inherited
+	// entries are removed before runMemoryPass is called, so they never reach any
+	// renderer. The test makes the invariant explicit and test-verified.
+	dir := t.TempDir()
+	r := claude.NewMemoryRenderer(dir)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				// A locally owned entry: must be seeded.
+				"local-entry": {
+					Name:         "local-entry",
+					Type:         "user",
+					Instructions: "Local content owned by this project.",
+				},
+				// An inherited entry: must NOT be seeded.
+				"inherited-entry": {
+					Name:         "inherited-entry",
+					Type:         "reference",
+					Instructions: "Inherited from global base.",
+					Inherited:    true,
+				},
+			},
+		},
+	}
+
+	// Strip inherited entries as the compiler would before calling the renderer.
+	config.StripInherited()
+
+	_, _, err := r.Compile(config, dir)
+	require.NoError(t, err)
+
+	// Only the local entry must produce a seed record.
+	seeds := r.Seeds()
+	require.Len(t, seeds, 1, "only the local entry must be seeded")
+	require.Equal(t, "local-entry", seeds[0].Name)
+
+	// The local file must exist on disk.
+	require.FileExists(t, filepath.Join(dir, "local-entry.md"))
+
+	// The inherited file must NOT exist on disk.
+	inheritedPath := filepath.Join(dir, "inherited-entry.md")
+	_, statErr := os.Stat(inheritedPath)
+	require.True(t, os.IsNotExist(statErr), "inherited entry must not be written to disk")
+}
+
 func TestIntegration_Memory_Gemini_AppendWithMarkers(t *testing.T) {
 	dir := t.TempDir()
 	r := gemini.NewMemoryRenderer(dir)
@@ -207,6 +256,45 @@ func TestIntegration_Memory_Antigravity_WritesKnowledgeItems(t *testing.T) {
 	content := out.Files["knowledge/user-role.md"]
 	require.Contains(t, content, "type: user")
 	require.Contains(t, content, "- user")
+	require.Contains(t, content, "Robert is the founder.")
+}
+
+func TestIntegration_Memory_Gemini_AppendsToGeminiMD(t *testing.T) {
+	// This test validates the runMemoryPass Gemini dispatch by calling the
+	// Gemini memory renderer directly with a temp dir as the target. It asserts
+	// that GEMINI.md is written with the seeded entries under the expected section.
+	dir := t.TempDir()
+	r := gemini.NewMemoryRenderer(dir)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"user-role": {
+					Name:         "user-role",
+					Type:         "user",
+					Description:  "Developer role.",
+					Instructions: "Robert is the founder.",
+				},
+			},
+		},
+	}
+
+	_, notes, err := r.Compile(config, dir)
+	require.NoError(t, err)
+
+	// Gemini emits MEMORY_PARTIAL_FIDELITY notes (one per entry).
+	require.NotEmpty(t, notes)
+	require.Equal(t, renderer.CodeMemoryPartialFidelity, notes[0].Code)
+
+	data, err := os.ReadFile(filepath.Join(dir, "GEMINI.md"))
+	require.NoError(t, err)
+	content := string(data)
+
+	// The "## Gemini Added Memories" section must exist.
+	require.Contains(t, content, "## Gemini Added Memories")
+
+	// The seeded entry must be present under the section.
+	require.Contains(t, content, `xcaffold:memory name="user-role"`)
 	require.Contains(t, content, "Robert is the founder.")
 }
 

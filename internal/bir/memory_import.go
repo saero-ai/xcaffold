@@ -337,6 +337,62 @@ func extractAttr(attrs, key string) string {
 	return attrs[start : start+end]
 }
 
+// ImportGeminiMemory reads GEMINI.md from geminiDir, extracts xcaffold-seeded
+// memory blocks via ExtractGeminiMemoryBlocks, and writes a sidecar file per
+// entry under opts.SidecarDir. It mirrors the ImportClaudeMemory flow.
+// If GEMINI.md does not exist, the function returns an empty summary without error
+// (Gemini memory is optional).
+func ImportGeminiMemory(geminiDir string, opts ImportOpts) (*ImportSummary, error) {
+	geminiPath := filepath.Join(geminiDir, "GEMINI.md")
+	data, err := os.ReadFile(geminiPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &ImportSummary{}, nil
+		}
+		return nil, fmt.Errorf("reading GEMINI.md: %w", err)
+	}
+
+	entries, err := ExtractGeminiMemoryBlocks(string(data))
+	if err != nil {
+		return nil, fmt.Errorf("parsing GEMINI.md memory blocks: %w", err)
+	}
+
+	// Build existing-sidecar index.
+	existing := make(map[string]bool)
+	if opts.SidecarDir != "" {
+		pattern := filepath.Join(opts.SidecarDir, "*.md")
+		matches, globErr := filepath.Glob(pattern)
+		if globErr != nil {
+			return nil, fmt.Errorf("scanning sidecar directory: %w", globErr)
+		}
+		for _, m := range matches {
+			key := DeriveMemoryKey(filepath.Base(m))
+			existing[key] = true
+		}
+	}
+
+	summary := &ImportSummary{}
+
+	for _, entry := range entries {
+		skipped, _ := HandleConflict(existing, entry, opts.Force)
+		if skipped {
+			summary.Skipped++
+			continue
+		}
+		if opts.PlanOnly {
+			summary.WouldImport++
+			continue
+		}
+		if err := WriteSidecar(opts.SidecarDir, entry); err != nil {
+			return nil, err
+		}
+		summary.Imported++
+		summary.Written = append(summary.Written, filepath.Join(opts.SidecarDir, entry.Key+".md"))
+	}
+
+	return summary, nil
+}
+
 // extractHeaderDescription returns the description from a Gemini header line of the form:
 //
 //	**name** (type): description text

@@ -19,6 +19,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
 	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
+	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
@@ -81,6 +82,7 @@ const (
 	targetCursor      = "cursor"
 	targetAgentsMD    = "agentsmd"
 	targetCopilot     = "copilot"
+	targetGemini      = "gemini"
 )
 
 // memoryPassEnabled reports whether the memory rendering pass should run for
@@ -708,6 +710,19 @@ func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string
 		seeds, writeErr := writeAntigravityKnowledgeItems(outputDir, out.Files)
 		return seeds, notes, writeErr
 
+	case targetGemini:
+		geminiDir, err := geminiMemoryDir()
+		if err != nil {
+			return nil, nil, fmt.Errorf("memory pass: %w", err)
+		}
+		if dryRun {
+			fmt.Fprintf(os.Stderr, "[DRY-RUN] would seed %d memory entries to %s/GEMINI.md\n", len(config.Memory), geminiDir)
+			return nil, nil, nil
+		}
+		r := gemini.NewMemoryRenderer(geminiDir)
+		_, notes, err := r.Compile(config, baseDir)
+		return nil, notes, err
+
 	case targetAgentsMD:
 		// AgentsMD has no native memory primitive in v1 — silent no-op.
 		return nil, nil, nil
@@ -715,6 +730,21 @@ func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string
 	default:
 		return nil, nil, fmt.Errorf("memory pass: unsupported target %q", target)
 	}
+}
+
+// geminiMemoryDir returns the directory where Gemini's GEMINI.md context file
+// lives. The default is ~/.gemini/ following Gemini CLI conventions. The
+// XCAFFOLD_GEMINI_DIR environment variable overrides this for testing and
+// non-standard installations.
+func geminiMemoryDir() (string, error) {
+	if override := os.Getenv("XCAFFOLD_GEMINI_DIR"); override != "" {
+		return filepath.Clean(override), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolving home directory for gemini target: %w", err)
+	}
+	return filepath.Join(home, ".gemini"), nil
 }
 
 // convertClaudeSeeds copies the Claude renderer's local MemorySeed slice into

@@ -1008,8 +1008,17 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 			if len(child.Project.InstructionsImports) > 0 {
 				merged.Project.InstructionsImports = child.Project.InstructionsImports
 			}
-			if len(child.Project.InstructionsScopes) > 0 {
-				merged.Project.InstructionsScopes = child.Project.InstructionsScopes
+			// InstructionsScopes: child scopes win over base; base-only scopes
+			// are tagged Inherited=true for StripInherited() to remove.
+			{
+				var baseScopes []ast.InstructionsScope
+				if base.Project != nil {
+					baseScopes = base.Project.InstructionsScopes
+				}
+				merged.Project.InstructionsScopes = mergeInstructionsScopesOverrideInherited(baseScopes, child.Project.InstructionsScopes)
+			}
+			if len(child.Project.TargetOptions) > 0 {
+				merged.Project.TargetOptions = child.Project.TargetOptions
 			}
 		}
 	}
@@ -1147,6 +1156,42 @@ func mergeMemoryOverrideInherited(base, child map[string]ast.MemoryConfig) map[s
 	return merged
 }
 
+// mergeInstructionsScopesOverrideInherited merges two InstructionsScope slices where
+// base scopes are tagged Inherited=true. Child scopes (same path) take precedence
+// and are NOT tagged. Scopes unique to the base are tagged Inherited=true and appended.
+// When base is empty, child scopes are returned verbatim (existing Inherited tags preserved).
+func mergeInstructionsScopesOverrideInherited(base, child []ast.InstructionsScope) []ast.InstructionsScope {
+	if len(base) == 0 && len(child) == 0 {
+		return nil
+	}
+	// When there is no base to merge, preserve child scopes without touching Inherited.
+	// This handles the case where mergeConfigOverride is called for the global overlay
+	// (empty base) and the child already carries Inherited tags from extends resolution.
+	if len(base) == 0 {
+		result := make([]ast.InstructionsScope, len(child))
+		copy(result, child)
+		return result
+	}
+	childPaths := make(map[string]bool, len(child))
+	for _, s := range child {
+		childPaths[s.Path] = true
+	}
+	result := make([]ast.InstructionsScope, 0, len(base)+len(child))
+	// Append child scopes first (not inherited).
+	for _, s := range child {
+		s.Inherited = false
+		result = append(result, s)
+	}
+	// Append base scopes not overridden by the child (tagged inherited).
+	for _, s := range base {
+		if !childPaths[s.Path] {
+			s.Inherited = true
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
 // Validations
 
 func validateID(kind, id string) error {
@@ -1274,6 +1319,43 @@ func validateMerged(c *ast.XcaffoldConfig) error {
 	}
 	if err := validatePermissions(c); err != nil {
 		return err
+	}
+	if err := validateMemoryFields(c); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateMemoryFields checks that lifecycle and type fields on memory entries
+// contain only known enum values. Unknown values fail immediately — they would
+// either be silently ignored at render time or cause a hard error only when
+// --include-memory is active. Failing at parse time catches misconfigurations
+// early, during xcaffold apply and xcaffold validate.
+//
+// Lifecycle defaults to "seed-once" when empty (documented behavior).
+// Type is optional; when set it must be one of the four canonical values.
+func validateMemoryFields(c *ast.XcaffoldConfig) error {
+	validLifecycles := map[string]bool{
+		"seed-once": true,
+		"tracked":   true,
+	}
+	validTypes := map[string]bool{
+		"user":      true,
+		"feedback":  true,
+		"project":   true,
+		"reference": true,
+	}
+	for name, m := range c.Memory {
+		if m.Lifecycle != "" {
+			if !validLifecycles[m.Lifecycle] {
+				return fmt.Errorf("memory %q: lifecycle must be one of [seed-once, tracked], got %q", name, m.Lifecycle)
+			}
+		}
+		if m.Type != "" {
+			if !validTypes[m.Type] {
+				return fmt.Errorf("memory %q: type must be one of [user, feedback, project, reference], got %q", name, m.Type)
+			}
+		}
 	}
 	return nil
 }
@@ -1444,6 +1526,11 @@ func validateProjectInstructions(p *ast.ProjectConfig) error {
 			return fmt.Errorf("project %q: duplicate instructions-scope path %q", p.Name, scope.Path)
 		}
 		seenScopePaths[scope.Path] = true
+		// MS-REQ: when variants are non-empty and no merge-strategy and no source-provider
+		// are set, the scope is ambiguous — reject immediately.
+		if len(scope.Variants) > 0 && scope.MergeStrategy == "" && scope.SourceProvider == "" {
+			return fmt.Errorf("project %q: instructions-scope path %q: merge-strategy is required when variants are present (no implicit default for divergent variants)", p.Name, scope.Path)
+		}
 		// Merge-strategy enum check.
 		switch scope.MergeStrategy {
 		case "", "concat", "closest-wins", "flat":
@@ -1459,6 +1546,15 @@ func validateProjectInstructions(p *ast.ProjectConfig) error {
 			default:
 				return fmt.Errorf("project %q: instructions-scope path %q: invalid reconciliation.strategy %q", p.Name, scope.Path, scope.Reconciliation.Strategy)
 			}
+		}
+	}
+	// Validate per-provider target-options.
+	for provider, opts := range p.TargetOptions {
+		switch opts.InstructionsMode {
+		case "", "flat", "nested":
+			// valid
+		default:
+			return fmt.Errorf("project %q: target-options[%q]: invalid instructions-mode %q; valid values: flat, nested", p.Name, provider, opts.InstructionsMode)
 		}
 	}
 	return nil

@@ -76,7 +76,31 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	return out, notes, nil
 }
 
-// renderProjectInstructions emits a single flat-singleton file at
+// instructionsMode returns the effective instructions-mode for the Copilot renderer.
+// Reads project.target-options.copilot.instructions-mode; defaults to "flat".
+func instructionsMode(config *ast.XcaffoldConfig) string {
+	if config.Project == nil {
+		return "flat"
+	}
+	if opts, ok := config.Project.TargetOptions[targetName]; ok {
+		switch opts.InstructionsMode {
+		case "nested":
+			return "nested"
+		}
+	}
+	return "flat"
+}
+
+// renderProjectInstructions dispatches to the flat or nested implementation
+// based on the effective instructions-mode for this compilation.
+func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+	if instructionsMode(config) == "nested" {
+		return r.renderProjectInstructionsNested(config, baseDir, files)
+	}
+	return r.renderProjectInstructionsFlat(config, baseDir, files)
+}
+
+// renderProjectInstructionsFlat emits a single flat-singleton file at
 // .github/copilot-instructions.md containing the project root instructions
 // followed by each InstructionsScope entry, each wrapped in
 // xcaffold:scope HTML provenance markers (path, merge-strategy, origin).
@@ -84,7 +108,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 // Copilot has no multi-file nesting model, so all scopes are merged into one
 // file. Structural distinction is preserved via provenance markers only. One
 // INSTRUCTIONS_FLATTENED info note is emitted per scope.
-func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+func (r *Renderer) renderProjectInstructionsFlat(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
 	p := config.Project
 	if p.Instructions == "" && p.InstructionsFile == "" {
 		return nil
@@ -156,6 +180,56 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 
 	safePath := filepath.Clean(".github/copilot-instructions.md")
 	files[safePath] = sb.String()
+	return notes
+}
+
+// renderProjectInstructionsNested emits per-directory AGENTS.md files instead
+// of the flat singleton. This mirrors the closest-wins-nested class used by
+// the agentsmd and cursor renderers. Root instructions go to AGENTS.md;
+// each InstructionsScope produces <scope.Path>/AGENTS.md.
+// concat-tagged scopes are pre-flattened (root + scope), emitting a
+// INSTRUCTIONS_CLOSEST_WINS_FORCED_CONCAT warning.
+func (r *Renderer) renderProjectInstructionsNested(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+	p := config.Project
+	if p.Instructions == "" && p.InstructionsFile == "" {
+		return nil
+	}
+
+	var notes []renderer.FidelityNote
+
+	rootContent := copilotResolveInstructions(p.Instructions, p.InstructionsFile, baseDir)
+
+	// Inline @-imports — AGENTS.md has no native @-import mechanism.
+	for _, imp := range p.InstructionsImports {
+		data, err := os.ReadFile(filepath.Join(baseDir, imp))
+		if err == nil {
+			rootContent += "\n\n" + string(data)
+		}
+	}
+
+	files[filepath.Clean("AGENTS.md")] = rootContent
+
+	for _, scope := range p.InstructionsScopes {
+		scopeContent := copilotResolveScopeContent(scope, baseDir)
+		safePath := filepath.Clean(scope.Path + "/AGENTS.md")
+
+		if scope.MergeStrategy == "concat" {
+			files[safePath] = rootContent + "\n\n" + scopeContent
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning,
+				targetName,
+				"instructions",
+				scope.Path,
+				"merge-strategy",
+				renderer.CodeInstructionsClosestWinsForcedConcat,
+				fmt.Sprintf("concat scope %q pre-flattened into closest-wins AGENTS.md", scope.Path),
+				"Use merge-strategy: closest-wins or flat for Copilot nested mode",
+			))
+		} else {
+			files[safePath] = scopeContent
+		}
+	}
+
 	return notes
 }
 

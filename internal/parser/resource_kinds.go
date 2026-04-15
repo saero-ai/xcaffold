@@ -87,6 +87,8 @@ type projectDocFields struct {
 	InstructionsFile    string                  `yaml:"instructions-file,omitempty"`
 	InstructionsImports []string                `yaml:"instructions-imports,omitempty"`
 	InstructionsScopes  []ast.InstructionsScope `yaml:"instructions-scopes,omitempty"`
+	// TargetOptions holds per-provider compile-time options.
+	TargetOptions map[string]ast.TargetOverride `yaml:"target-options,omitempty"`
 }
 
 // hooksDocument wraps HookConfig with envelope fields for kind: hooks.
@@ -354,6 +356,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.InstructionsFile = doc.InstructionsFile
 		config.Project.InstructionsImports = doc.InstructionsImports
 		config.Project.InstructionsScopes = doc.InstructionsScopes
+		config.Project.TargetOptions = doc.TargetOptions
 
 	case "hooks":
 		var doc hooksDocument

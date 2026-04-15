@@ -49,6 +49,13 @@ const (
 	// project index fails but the memory file itself was written successfully.
 	CodeMemoryIndexUpdateFailed = "MEMORY_INDEX_UPDATE_FAILED"
 
+	// CodeMemoryDriftDetected is emitted when a tracked memory entry's on-disk
+	// hash diverges from the hash recorded in scaffold.lock after the last seed.
+	// This is an error-level note: the drift aborts the memory pass for that
+	// entry. Emitted alongside the hard error so tooling consuming FidelityNotes
+	// (e.g. CI drift reports) sees a structured event rather than only stderr text.
+	CodeMemoryDriftDetected = "MEMORY_DRIFT_DETECTED"
+
 	// CodeWorkflowLoweredToRulePlusSkill is emitted when a workflow was compiled
 	// to a rule + skill pair because the target has no first-class workflow primitive.
 	CodeWorkflowLoweredToRulePlusSkill = "WORKFLOW_LOWERED_TO_RULE_PLUS_SKILL"
@@ -98,6 +105,16 @@ const (
 	// are inlined into the rendered output because the target lacks native @-import
 	// support (e.g. Cursor, Copilot, Gemini).
 	CodeInstructionsImportInlined = "INSTRUCTIONS_IMPORT_INLINED"
+
+	// CodeReconciliationUnionLossy is emitted when a union merge of variant
+	// instructions-scopes drops one or more lines that exist in one variant but
+	// not all others.
+	CodeReconciliationUnionLossy = "RECONCILIATION_UNION_LOSSY"
+
+	// CodeReconciliationDriftDetected is emitted when the on-disk content of
+	// an instructions-scope file diverges from all known variants and the
+	// reconciliation strategy cannot determine a canonical source.
+	CodeReconciliationDriftDetected = "RECONCILIATION_DRIFT_DETECTED"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -127,5 +144,8 @@ func AllCodes() []string {
 		CodeRuleActivationUnsupported,
 		CodeRuleExcludeAgentsDropped,
 		CodeInstructionsImportInlined,
+		CodeMemoryDriftDetected,
+		CodeReconciliationUnionLossy,
+		CodeReconciliationDriftDetected,
 	}
 }
