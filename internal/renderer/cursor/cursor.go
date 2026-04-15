@@ -60,12 +60,13 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	var notes []renderer.FidelityNote
 
 	for id, rule := range config.Rules {
-		mdc, err := compileCursorRule(id, rule, baseDir)
+		mdc, ruleNotes, err := compileCursorRule(id, rule, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cursor: failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.mdc", id))
 		out.Files[safePath] = mdc
+		notes = append(notes, ruleNotes...)
 	}
 
 	for id, agent := range config.Agents {
@@ -200,17 +201,19 @@ func compileCursorHooks(hooks ast.HookConfig) (string, []renderer.FidelityNote, 
 }
 
 // compileCursorRule renders a single RuleConfig to a Cursor .mdc file.
-func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, error) {
+// It returns the rendered content, any fidelity notes, and an error.
+func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("rule id must not be empty")
+		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
 
 	body, err := resolver.ResolveInstructions(rule.Instructions, rule.InstructionsFile, "", baseDir)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	var sb strings.Builder
+	var notes []renderer.FidelityNote
 
 	sb.WriteString("---\n")
 
@@ -218,17 +221,35 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 		fmt.Fprintf(&sb, "description: %s\n", rule.Description)
 	}
 
-	if len(rule.Paths) > 0 {
-		fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
-		if rule.AlwaysApply != nil && *rule.AlwaysApply {
-			sb.WriteString("alwaysApply: true\n")
+	activation := renderer.ResolvedActivation(rule)
+
+	switch activation {
+	case ast.RuleActivationAlways:
+		sb.WriteString("alwaysApply: true\n")
+	case ast.RuleActivationPathGlob:
+		if len(rule.Paths) > 0 {
+			fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
 		}
-	} else {
-		if rule.AlwaysApply != nil && !*rule.AlwaysApply {
-			sb.WriteString("alwaysApply: false\n")
-		} else {
-			sb.WriteString("alwaysApply: true\n")
-		}
+	case ast.RuleActivationManualMention:
+		sb.WriteString("alwaysApply: false\n")
+	case ast.RuleActivationModelDecided:
+		sb.WriteString("alwaysApply: false\n")
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "rule", id, "activation",
+			renderer.CodeActivationDegraded,
+			fmt.Sprintf("rule %q activation \"model-decided\" has no Cursor equivalent; lowered to alwaysApply: false", id),
+			"Use a supported activation (always, path-glob, manual-mention) or add a targets.cursor.provider override",
+		))
+	case ast.RuleActivationExplicitInvoke:
+		sb.WriteString("alwaysApply: false\n")
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "rule", id, "activation",
+			renderer.CodeActivationDegraded,
+			fmt.Sprintf("rule %q activation \"explicit-invoke\" has no Cursor equivalent; lowered to alwaysApply: false", id),
+			"Use a supported activation (always, path-glob, manual-mention) or add a targets.cursor.provider override",
+		))
+	default:
+		sb.WriteString("alwaysApply: true\n")
 	}
 
 	sb.WriteString("---\n")
@@ -239,7 +260,7 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 		sb.WriteString("\n")
 	}
 
-	return sb.String(), nil
+	return sb.String(), notes, nil
 }
 
 // compileCursorAgent renders a single AgentConfig to a Cursor agents/<id>.md file.
