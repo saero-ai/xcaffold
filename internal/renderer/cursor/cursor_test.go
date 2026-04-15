@@ -2,15 +2,25 @@ package cursor_test
 
 import (
 	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// findNote returns the first note with the given code, or a zero value and false.
+func findNote(notes []renderer.FidelityNote, code string) (renderer.FidelityNote, bool) {
+	for _, n := range notes {
+		if n.Code == code {
+			return n, true
+		}
+	}
+	return renderer.FidelityNote{}, false
+}
 
 func TestRenderer_Target(t *testing.T) {
 	r := cursor.New()
@@ -46,7 +56,7 @@ func TestCompile_Rule_WithPaths_OutputExtensionIsMdc(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	// Output path must use .mdc extension, not .md
@@ -70,7 +80,7 @@ func TestCompile_Rule_WithPaths_FrontmatterHasGlobs(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/go-fmt.mdc"]
@@ -98,7 +108,7 @@ func TestCompile_Rule_WithoutPaths_HasAlwaysApply(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/global-rule.mdc"]
@@ -122,7 +132,7 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/test-rule.mdc"]
@@ -143,7 +153,7 @@ func TestCompile_Rule_DescriptionInFrontmatter(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/desc-rule.mdc"]
@@ -164,7 +174,7 @@ func TestCompile_Rule_FrontmatterDelimiters(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/delim-rule.mdc"]
@@ -175,7 +185,7 @@ func TestCompile_Rule_FrontmatterDelimiters(t *testing.T) {
 
 func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {
 	r := cursor.New()
-	out, err := r.Compile(&ast.XcaffoldConfig{}, "")
+	out, _, err := r.Compile(&ast.XcaffoldConfig{}, "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
@@ -192,7 +202,7 @@ func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 		},
 	}
 
-	_, err := r.Compile(config, "")
+	_, _, err := r.Compile(config, "")
 	assert.Error(t, err)
 }
 
@@ -212,7 +222,7 @@ func TestCompile_Agent_OutputAtCorrectPath(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["agents/my-agent.md"]
@@ -234,7 +244,7 @@ func TestCompile_Agent_BackgroundRenamedToIsBackground(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/bg-agent.md"]
@@ -260,7 +270,7 @@ func TestCompile_Agent_BackgroundFalse_NotEmitted(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/normal-agent.md"]
@@ -295,7 +305,7 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/full-agent.md"]
@@ -327,18 +337,16 @@ func TestCompile_Agent_UnmappedModel_Omitted(t *testing.T) {
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	out, err := r.Compile(config, "")
-	restore()
+	out, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/model-agent.md"]
 	assert.NotContains(t, content, "model:", "unmapped literal model must be omitted from Cursor output")
 
-	// Verify warning was emitted
-	assert.Contains(t, stderr.String(), "WARNING (cursor):")
-	assert.Contains(t, stderr.String(), "unmapped model")
-	assert.Contains(t, stderr.String(), "model-agent")
+	note, ok := findNote(notes, renderer.CodeAgentModelUnmapped)
+	require.True(t, ok, "AGENT_MODEL_UNMAPPED note must be emitted")
+	assert.Equal(t, "model-agent", note.Resource)
+	assert.Equal(t, renderer.LevelWarning, note.Level)
 }
 
 func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
@@ -355,21 +363,19 @@ func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	out, err := r.Compile(config, "")
-	restore()
+	out, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/aliased-agent.md"]
-	// sonnet-4 has no cursor mapping, so ResolveModel falls through to literal.
-	// IsMappedModel("sonnet-4", "cursor") is false, so the model is omitted.
 	assert.NotContains(t, content, "model:", "sonnet-4 has no cursor mapping — must be omitted")
 
-	// Warning should be emitted since there is no cursor mapping for this alias
-	assert.Contains(t, stderr.String(), "WARNING (cursor):")
+	_, ok := findNote(notes, renderer.CodeAgentModelUnmapped)
+	assert.True(t, ok, "unmapped alias must emit AGENT_MODEL_UNMAPPED")
 }
 
-func TestCompile_Agent_UnmappedModel_WarningSuppressed(t *testing.T) {
+// Suppression is now enforced at the command layer; renderers return notes
+// unconditionally. The command-layer test covers the filter behaviour.
+func TestCompile_Agent_UnmappedModel_NoteReturnedRegardlessOfSuppress(t *testing.T) {
 	r := cursor.New()
 	suppress := true
 	config := &ast.XcaffoldConfig{
@@ -389,16 +395,14 @@ func TestCompile_Agent_UnmappedModel_WarningSuppressed(t *testing.T) {
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	out, err := r.Compile(config, "")
-	restore()
+	out, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/quiet-agent.md"]
 	assert.NotContains(t, content, "model:", "unmapped literal model must be omitted regardless of suppress flag")
 
-	// Warning must NOT appear when SuppressFidelityWarnings is true
-	assert.NotContains(t, stderr.String(), "unmapped model", "warning must be suppressed")
+	_, ok := findNote(notes, renderer.CodeAgentModelUnmapped)
+	assert.True(t, ok, "renderer returns the note regardless of suppression; suppression is applied at the command layer")
 }
 
 func TestCompile_Agent_BodyContentPreserved(t *testing.T) {
@@ -414,7 +418,7 @@ func TestCompile_Agent_BodyContentPreserved(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/body-agent.md"]
@@ -438,7 +442,7 @@ func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["skills/my-skill/SKILL.md"]
@@ -459,7 +463,7 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/fmt-skill/SKILL.md"]
@@ -487,7 +491,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/rich-skill/SKILL.md"]
@@ -516,7 +520,7 @@ func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/body-skill/SKILL.md"]
@@ -540,7 +544,7 @@ func TestCompile_MCP_EmitsMCPJson(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["mcp.json"]
@@ -561,7 +565,7 @@ func TestCompile_MCP_HTTPTransport_URLBecomesServerURL(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	raw := out.Files["mcp.json"]
@@ -596,7 +600,7 @@ func TestCompile_MCP_StdioTransport_CommandArgsEnvPreserved(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	raw := out.Files["mcp.json"]
@@ -630,7 +634,7 @@ func TestCompile_MCP_TypeFieldNotInOutput(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	raw := out.Files["mcp.json"]
@@ -649,7 +653,7 @@ func TestCompile_MCP_MCPServersEnvelope(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	raw := out.Files["mcp.json"]
@@ -663,7 +667,7 @@ func TestCompile_MCP_MCPServersEnvelope(t *testing.T) {
 
 func TestCompile_MCP_EmptyMCPMap_NoMCPJsonEmitted(t *testing.T) {
 	r := cursor.New()
-	out, err := r.Compile(&ast.XcaffoldConfig{}, "")
+	out, _, err := r.Compile(&ast.XcaffoldConfig{}, "")
 	require.NoError(t, err)
 	_, ok := out.Files["mcp.json"]
 	assert.False(t, ok, "mcp.json must not be emitted when no MCP servers are defined")
@@ -689,7 +693,7 @@ func TestCompile_Hooks_ProducesHooksJson(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["hooks.json"]
@@ -704,7 +708,7 @@ func TestCompile_Hooks_EmptyHooksNoOutput(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["hooks.json"]
@@ -743,7 +747,7 @@ func TestCompile_Hooks_EventNamesCamelCase(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	raw := out.Files["hooks.json"]
@@ -778,7 +782,7 @@ func TestCompile_Hooks_FlatStructure_NoNestedHooksArray(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	raw := out.Files["hooks.json"]
@@ -817,7 +821,7 @@ func TestCompile_Hooks_MatcherInjectedInline(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	var parsed map[string][]map[string]interface{}
@@ -845,7 +849,7 @@ func TestCompile_Hooks_EmptyMatcher_NotInjected(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	var parsed map[string][]map[string]interface{}
@@ -874,7 +878,7 @@ func TestCompile_Rule_AlwaysApplyExplicitFalse_EmitsFalse(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/opt-out-rule.mdc"]
@@ -897,7 +901,7 @@ func TestCompile_Rule_PathsWithAlwaysApplyTrue_BothEmitted(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/combo-rule.mdc"]
@@ -922,7 +926,7 @@ func TestCompile_Agent_Readonly_EmitsReadonlyTrue(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/ro-agent.md"]
@@ -944,7 +948,7 @@ func TestCompile_Agent_ReadonlyFalse_NotEmitted(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/rw-agent.md"]
@@ -964,7 +968,7 @@ func TestCompile_Agent_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/quoted.md"]
@@ -973,121 +977,116 @@ func TestCompile_Agent_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 	assert.NotContains(t, content, `\\\"`, "Must not double-escape quotes")
 }
 
-// ─── Security fidelity warning tests ─────────────────────────────────────────
+// ─── Fidelity note tests ──────────────────────────────────────────────────────
 
-func TestCursorRenderer_PermissionsFidelityWarning_Settings(t *testing.T) {
+func TestCursorRenderer_PermissionsSetting_EmitsNote(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		Settings: ast.SettingsConfig{
-			Permissions: &ast.PermissionsConfig{
-				Allow: []string{"Read"},
-			},
+			Permissions: &ast.PermissionsConfig{Allow: []string{"Read"}},
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	output := stderr.String()
-	assert.Contains(t, output, "WARNING (cursor):")
-	assert.Contains(t, output, "settings.permissions dropped")
+	note, ok := findNote(notes, renderer.CodeSettingsFieldUnsupported)
+	require.True(t, ok)
+	assert.Equal(t, "permissions", note.Field)
+	assert.Equal(t, renderer.LevelWarning, note.Level)
 }
 
-func TestCursorRenderer_SandboxFidelityWarning_Settings(t *testing.T) {
+func TestCursorRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 	r := cursor.New()
 	enabled := true
 	config := &ast.XcaffoldConfig{
 		Settings: ast.SettingsConfig{
-			Sandbox: &ast.SandboxConfig{
-				Enabled: &enabled,
-			},
+			Sandbox: &ast.SandboxConfig{Enabled: &enabled},
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	output := stderr.String()
-	assert.Contains(t, output, "WARNING (cursor):")
-	assert.Contains(t, output, "settings.sandbox dropped")
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeSettingsFieldUnsupported && n.Field == "sandbox" {
+			found = true
+		}
+	}
+	assert.True(t, found, "SETTINGS_FIELD_UNSUPPORTED note for sandbox must be emitted")
 }
 
-func TestCursorRenderer_PermissionModeFidelityWarning_Agent(t *testing.T) {
+func TestCursorRenderer_AgentPermissionMode_EmitsNote(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {
-					Instructions:   "Build things.",
-					PermissionMode: "plan",
-				},
+				"dev": {Instructions: "Build things.", PermissionMode: "plan"},
 			},
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	output := stderr.String()
-	assert.Contains(t, output, "WARNING (cursor):")
-	assert.Contains(t, output, "permissionMode")
-	assert.Contains(t, output, "dropped")
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeAgentSecurityFieldsDropped && n.Field == "permissionMode" {
+			found = true
+			assert.Equal(t, "dev", n.Resource)
+		}
+	}
+	assert.True(t, found, "AGENT_SECURITY_FIELDS_DROPPED note for permissionMode must be emitted")
 }
 
-func TestCursorRenderer_DisallowedToolsFidelityWarning_Agent(t *testing.T) {
+func TestCursorRenderer_AgentDisallowedTools_EmitsNote(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {
-					Instructions:    "Build things.",
-					DisallowedTools: []string{"Write"},
-				},
+				"dev": {Instructions: "Build things.", DisallowedTools: []string{"Write"}},
 			},
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	output := stderr.String()
-	assert.Contains(t, output, "WARNING (cursor):")
-	assert.Contains(t, output, "disallowedTools dropped")
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeAgentSecurityFieldsDropped && n.Field == "disallowedTools" {
+			found = true
+		}
+	}
+	assert.True(t, found)
 }
 
-func TestCursorRenderer_IsolationFidelityWarning_Agent(t *testing.T) {
+func TestCursorRenderer_AgentIsolation_EmitsNote(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {
-					Instructions: "Build things.",
-					Isolation:    "container",
-				},
+				"dev": {Instructions: "Build things.", Isolation: "container"},
 			},
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	output := stderr.String()
-	assert.Contains(t, output, "WARNING (cursor):")
-	assert.Contains(t, output, "isolation")
-	assert.Contains(t, output, "dropped")
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeAgentSecurityFieldsDropped && n.Field == "isolation" {
+			found = true
+		}
+	}
+	assert.True(t, found)
 }
 
-func TestCursorRenderer_SuppressFidelityWarnings_SkipsAgentWarnings(t *testing.T) {
+// Suppression lives at the command layer now; the renderer returns notes
+// regardless of the suppress-fidelity-warnings override.
+func TestCursorRenderer_SuppressFidelityWarnings_NotesStillReturned(t *testing.T) {
 	r := cursor.New()
 	suppress := true
 	config := &ast.XcaffoldConfig{
@@ -1098,55 +1097,36 @@ func TestCursorRenderer_SuppressFidelityWarnings_SkipsAgentWarnings(t *testing.T
 					PermissionMode: "plan",
 					Isolation:      "container",
 					Targets: map[string]ast.TargetOverride{
-						"cursor": {
-							SuppressFidelityWarnings: &suppress,
-						},
+						"cursor": {SuppressFidelityWarnings: &suppress},
 					},
 				},
 			},
 		},
 	}
 
-	stderr, restore := captureStderr(t)
-	_, err := r.Compile(config, "")
-	restore()
+	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
-
-	output := stderr.String()
-	// Per-agent warnings must be suppressed
-	assert.NotContains(t, output, "permissionMode")
-	assert.NotContains(t, output, "isolation")
+	assert.NotEmpty(t, notes, "renderer returns notes; suppression is filtered at the command layer")
 }
 
-// captureStderr temporarily redirects os.Stderr to a buffer for testing.
-// Returns the buffer and a restore function that the caller must defer.
-func captureStderr(t *testing.T) (*strings.Builder, func()) {
-	t.Helper()
-	old := os.Stderr
-	r2, w, err := os.Pipe()
-	require.NoError(t, err)
-	os.Stderr = w
-
-	var buf strings.Builder
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		b := make([]byte, 4096)
-		for {
-			n, readErr := r2.Read(b)
-			if n > 0 {
-				buf.Write(b[:n])
-			}
-			if readErr != nil {
-				return
-			}
-		}
-	}()
-
-	return &buf, func() {
-		w.Close()
-		<-done
-		r2.Close()
-		os.Stderr = old
+func TestCursorRenderer_SkillScriptsDropped_EmitsNote(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"setup": {
+					Description: "Env setup.",
+					Scripts:     []string{"scripts/install.sh"},
+				},
+			},
+		},
 	}
+
+	_, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	note, ok := findNote(notes, renderer.CodeSkillScriptsDropped)
+	require.True(t, ok)
+	assert.Equal(t, "setup", note.Resource)
+	assert.Equal(t, renderer.LevelWarning, note.Level)
 }

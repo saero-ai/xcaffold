@@ -3,6 +3,7 @@
 package renderer
 
 import (
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
 )
 
@@ -15,7 +16,12 @@ type TargetRenderer interface {
 	// (e.g. ".claude", ".cursor/rules").
 	OutputDir() string
 
-	// Render takes a map of relative path → content and returns a compiler
-	// Output containing the files as they should be written to disk.
-	Render(files map[string]string) *output.Output
+	// Compile translates an XcaffoldConfig into a compiler Output and a slice
+	// of fidelity notes describing any information loss or transformation
+	// that occurred. Compile is the semantic entry point consumed by the
+	// top-level compiler; Render is an internal helper retained for test
+	// scaffolding. A non-empty notes slice does not indicate failure;
+	// callers decide whether to promote notes to errors based on the
+	// --fidelity mode.
+	Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []FidelityNote, error)
 }

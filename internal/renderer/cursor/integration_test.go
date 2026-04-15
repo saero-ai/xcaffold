@@ -61,7 +61,7 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 	}
 
 	r := cursor.New()
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 

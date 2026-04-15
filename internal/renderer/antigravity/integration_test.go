@@ -66,7 +66,7 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 	}
 
 	r := antigravity.New()
-	out, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -141,7 +141,7 @@ func TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk(t *testing.T) {
 		},
 	}
 
-	out, err := r.Compile(config, dir)
+	out, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 
 	content := out.Files["rules/from-file.md"]
@@ -170,7 +170,7 @@ func TestAntigravityRenderer_Skill_InstructionsFile_ReadsFromDisk(t *testing.T) 
 		},
 	}
 
-	out, err := r.Compile(config, dir)
+	out, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 
 	content := out.Files["skills/from-file/SKILL.md"]
@@ -196,7 +196,7 @@ func TestAntigravityRenderer_Rule_InstructionsFile_TraversalRejected(t *testing.
 		},
 	}
 
-	_, err := r.Compile(config, "/tmp")
+	_, _, err := r.Compile(config, "/tmp")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "traverses above the project root")
 }
