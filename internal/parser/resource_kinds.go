@@ -80,6 +80,13 @@ type projectDocFields struct {
 	PolicyRefs   []string           `yaml:"policies,omitempty"`
 	Test         ast.TestConfig     `yaml:"test,omitempty"`
 	Local        ast.SettingsConfig `yaml:"local,omitempty"`
+
+	// Instructions fields — A-3: KnownFields entries.
+	// yaml.KnownFields(true) enforces these recursively through nested types.
+	Instructions        string                  `yaml:"instructions,omitempty"`
+	InstructionsFile    string                  `yaml:"instructions-file,omitempty"`
+	InstructionsImports []string                `yaml:"instructions-imports,omitempty"`
+	InstructionsScopes  []ast.InstructionsScope `yaml:"instructions-scopes,omitempty"`
 }
 
 // hooksDocument wraps HookConfig with envelope fields for kind: hooks.
@@ -343,6 +350,10 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.PolicyRefs = doc.PolicyRefs
 		config.Project.Test = doc.Test
 		config.Project.Local = doc.Local
+		config.Project.Instructions = doc.Instructions
+		config.Project.InstructionsFile = doc.InstructionsFile
+		config.Project.InstructionsImports = doc.InstructionsImports
+		config.Project.InstructionsScopes = doc.InstructionsScopes
 
 	case "hooks":
 		var doc hooksDocument

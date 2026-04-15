@@ -5,6 +5,7 @@ package agentsmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -62,6 +63,11 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files[filepath.Clean(dir+"/AGENTS.md")] = dirContent
 	}
 
+	if config.Project != nil {
+		instrNotes := r.renderProjectInstructions(config, baseDir, out.Files)
+		notes = append(notes, instrNotes...)
+	}
+
 	for id, agent := range config.Agents {
 		notes = append(notes, collectNotesAgent(id, agent)...)
 	}
@@ -73,6 +79,106 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	}
 
 	return out, notes, nil
+}
+
+// renderProjectInstructions emits a root AGENTS.md and one AGENTS.md per scope.
+// agentsmd uses the closest-wins nesting class: each subdirectory's AGENTS.md is
+// authoritative for that directory; parent files do not cascade automatically.
+//
+// Deviation handling:
+//   - concat-tagged scopes are pre-flattened: child = root + scope content.
+//     An INSTRUCTIONS_CLOSEST_WINS_FORCED_CONCAT warning is emitted per scope.
+//   - InstructionsImports are inlined because AGENTS.md has no native @-import support.
+//     A single INSTRUCTIONS_IMPORT_INLINED info note is emitted when any imports exist.
+func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+	p := config.Project
+	if p.Instructions == "" && p.InstructionsFile == "" {
+		return nil
+	}
+
+	var notes []renderer.FidelityNote
+
+	rootContent := agentsmdResolveInstructions(p.Instructions, p.InstructionsFile, baseDir)
+
+	// Inline @-imports — AGENTS.md has no native @-import mechanism.
+	if len(p.InstructionsImports) > 0 {
+		for _, imp := range p.InstructionsImports {
+			data, err := os.ReadFile(filepath.Join(baseDir, imp))
+			if err == nil {
+				rootContent += "\n\n" + string(data)
+			}
+			// On read failure, skip silently; the note still fires below.
+		}
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelInfo,
+			targetName,
+			"instructions",
+			"<root>",
+			"instructions-imports",
+			renderer.CodeInstructionsImportInlined,
+			"@-imports inlined; AGENTS.md lacks native @-import support",
+			"Remove InstructionsImports or use a target that supports @-imports (e.g. claude)",
+		))
+	}
+
+	// Merge project-instructions root content with any existing rule-aggregated content
+	// from buildRootFile. Overwriting would silently discard rules and agents sections.
+	existing := files[filepath.Clean("AGENTS.md")]
+	if existing != "" {
+		files[filepath.Clean("AGENTS.md")] = existing + "\n\n" + rootContent
+	} else {
+		files[filepath.Clean("AGENTS.md")] = rootContent
+	}
+
+	for _, scope := range p.InstructionsScopes {
+		scopeContent := agentsmdResolveScopeContent(scope, targetName, baseDir)
+		safePath := filepath.Clean(scope.Path + "/AGENTS.md")
+
+		if scope.MergeStrategy == "concat" {
+			// Pre-flatten: child AGENTS.md = root content + scope content.
+			files[safePath] = rootContent + "\n\n" + scopeContent
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning,
+				targetName,
+				"instructions",
+				scope.Path,
+				"merge-strategy",
+				renderer.CodeInstructionsClosestWinsForcedConcat,
+				fmt.Sprintf("concat scope %q pre-flattened into closest-wins child file", scope.Path),
+				"Use merge-strategy: closest-wins or flat for agentsmd targets",
+			))
+		} else {
+			// closest-wins or flat: child AGENTS.md = scope content only.
+			files[safePath] = scopeContent
+		}
+	}
+
+	return notes
+}
+
+// agentsmdResolveInstructions returns inline instructions or reads InstructionsFile
+// relative to baseDir. Returns empty string on any read error.
+func agentsmdResolveInstructions(inline, file, baseDir string) string {
+	if inline != "" {
+		return inline
+	}
+	if file == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(baseDir, file))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// agentsmdResolveScopeContent returns the effective content for a scope, preferring
+// an agentsmd-specific variant when one is declared.
+func agentsmdResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) string {
+	if v, ok := scope.Variants[provider]; ok {
+		return agentsmdResolveInstructions("", v.InstructionsFile, baseDir)
+	}
+	return agentsmdResolveInstructions(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
 // buildRootFile constructs the root AGENTS.md content.

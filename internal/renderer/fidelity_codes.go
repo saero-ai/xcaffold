@@ -93,6 +93,11 @@ const (
 	// CodeRuleExcludeAgentsDropped is emitted when a rule's exclude-agents list
 	// has no native equivalent in the target and was dropped.
 	CodeRuleExcludeAgentsDropped = "RULE_EXCLUDE_AGENTS_DROPPED"
+
+	// CodeInstructionsImportInlined is emitted when InstructionsImports entries
+	// are inlined into the rendered output because the target lacks native @-import
+	// support (e.g. Cursor, Copilot, Gemini).
+	CodeInstructionsImportInlined = "INSTRUCTIONS_IMPORT_INLINED"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -121,5 +126,6 @@ func AllCodes() []string {
 		CodeSkillAssetsDropped,
 		CodeRuleActivationUnsupported,
 		CodeRuleExcludeAgentsDropped,
+		CodeInstructionsImportInlined,
 	}
 }

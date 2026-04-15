@@ -995,6 +995,22 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 				baseLocal = base.Project.Local
 			}
 			merged.Project.Local = mergeSettingsOverride(baseLocal, child.Project.Local)
+
+			// Project instructions fields. A set field on the child wins; an empty
+			// field on the child preserves the base value (matches the same
+			// convention applied to Name, Description, and other scalar fields above).
+			if child.Project.Instructions != "" {
+				merged.Project.Instructions = child.Project.Instructions
+			}
+			if child.Project.InstructionsFile != "" {
+				merged.Project.InstructionsFile = child.Project.InstructionsFile
+			}
+			if len(child.Project.InstructionsImports) > 0 {
+				merged.Project.InstructionsImports = child.Project.InstructionsImports
+			}
+			if len(child.Project.InstructionsScopes) > 0 {
+				merged.Project.InstructionsScopes = child.Project.InstructionsScopes
+			}
 		}
 	}
 
@@ -1376,6 +1392,75 @@ func validateBase(c *ast.XcaffoldConfig) error {
 			return fmt.Errorf("project.name is required and must not be empty unless extending another config")
 		}
 	}
+
+	if c.Project != nil {
+		if err := validateProjectInstructions(c.Project); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateProjectInstructions checks mutual exclusivity, duplicate paths, and
+// enum values for ProjectConfig instructions fields.
+func validateProjectInstructions(p *ast.ProjectConfig) error {
+	// Mutual exclusivity: instructions vs instructions-file on ProjectConfig.
+	if p.Instructions != "" && p.InstructionsFile != "" {
+		return fmt.Errorf("project %q: instructions and instructions-file are mutually exclusive", p.Name)
+	}
+	// Reserved-path check on project-level instructions-file.
+	if p.InstructionsFile != "" {
+		if err := validateInstructionsFile("project", p.Name, p.InstructionsFile, false); err != nil {
+			return err
+		}
+	}
+
+	// Validate each InstructionsScope entry.
+	seenScopePaths := map[string]bool{}
+	for i, scope := range p.InstructionsScopes {
+		// Path-traversal guard: scope.Path becomes part of a renderer output
+		// directory (e.g. "<scope.Path>/CLAUDE.md"). A "../" segment would let
+		// the renderer write outside the project root.
+		if scope.Path == "" {
+			return fmt.Errorf("project %q: instructions-scope[%d]: path is required", p.Name, i)
+		}
+		cleanedScopePath := filepath.Clean(scope.Path)
+		if strings.HasPrefix(cleanedScopePath, "..") || strings.Contains(cleanedScopePath, "/../") || filepath.IsAbs(cleanedScopePath) {
+			return fmt.Errorf("project %q: instructions-scope[%d] path %q: path traversal and absolute paths are not allowed", p.Name, i, scope.Path)
+		}
+		// Mutual exclusivity on scope.
+		if scope.Instructions != "" && scope.InstructionsFile != "" {
+			return fmt.Errorf("project %q: instructions-scope[%d] path %q: instructions and instructions-file are mutually exclusive", p.Name, i, scope.Path)
+		}
+		// Reserved-path check on scope-level instructions-file.
+		if scope.InstructionsFile != "" {
+			if err := validateInstructionsFile(fmt.Sprintf("project %q instructions-scope", p.Name), scope.Path, scope.InstructionsFile, false); err != nil {
+				return err
+			}
+		}
+		// Duplicate path check.
+		if seenScopePaths[scope.Path] {
+			return fmt.Errorf("project %q: duplicate instructions-scope path %q", p.Name, scope.Path)
+		}
+		seenScopePaths[scope.Path] = true
+		// Merge-strategy enum check.
+		switch scope.MergeStrategy {
+		case "", "concat", "closest-wins", "flat":
+			// valid
+		default:
+			return fmt.Errorf("project %q: instructions-scope path %q: invalid merge-strategy %q; valid values: concat, closest-wins, flat", p.Name, scope.Path, scope.MergeStrategy)
+		}
+		// reconciliation.strategy enum check.
+		if scope.Reconciliation != nil {
+			switch scope.Reconciliation.Strategy {
+			case "", "per-target", "union", "manual":
+				// valid
+			default:
+				return fmt.Errorf("project %q: instructions-scope path %q: invalid reconciliation.strategy %q", p.Name, scope.Path, scope.Reconciliation.Strategy)
+			}
+		}
+	}
 	return nil
 }
 
@@ -1643,6 +1728,19 @@ var reservedOutputPrefixes = []string{
 	".claude/",
 	".cursor/",
 	".cursorrules",
+}
+
+// reservedOutputFilenames are root-level files written directly by the compiler.
+// Pointing instructions-file at one of these creates a circular read dependency.
+var reservedOutputFilenames = []string{
+	"CLAUDE.md",
+	"AGENTS.md",
+	"GEMINI.md",
+}
+
+// reservedOutputPaths are specific files and directories written by the compiler.
+// Exact-match and prefix-match are both applied (directory entries end with /).
+var reservedOutputPaths = []string{
 	".github/copilot-instructions.md",
 	".github/instructions/",
 	".github/prompts/",
@@ -1674,6 +1772,17 @@ func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	for _, prefix := range reservedOutputPrefixes {
 		if strings.HasPrefix(cleaned, filepath.Clean(prefix)) {
 			return fmt.Errorf("%s %q: instructions-file %q references compiler output directory %s — this creates a circular dependency", kind, id, path, prefix)
+		}
+	}
+	for _, name := range reservedOutputFilenames {
+		if cleaned == name {
+			return fmt.Errorf("%s %q: instructions-file %q references compiler output file %s — use xcf/instructions/ instead", kind, id, path, name)
+		}
+	}
+	for _, reserved := range reservedOutputPaths {
+		cleanedReserved := filepath.Clean(reserved)
+		if cleaned == cleanedReserved || strings.HasPrefix(cleaned, cleanedReserved+string(filepath.Separator)) {
+			return fmt.Errorf("%s %q: instructions-file %q references compiler output path %s — use xcf/instructions/ instead", kind, id, path, reserved)
 		}
 	}
 	return nil

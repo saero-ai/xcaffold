@@ -54,7 +54,63 @@ type ProjectConfig struct {
 	Test  TestConfig     `yaml:"test,omitempty"`
 	Local SettingsConfig `yaml:"local,omitempty"`
 
+	// Instructions fields — Group A: Root instructions.
+	// Instructions and InstructionsFile are mutually exclusive.
+	Instructions     string `yaml:"instructions,omitempty"`
+	InstructionsFile string `yaml:"instructions-file,omitempty"`
+
+	// InstructionsImports lists @-import targets preserved verbatim for providers
+	// that support them (Claude, Gemini). Emitted as-is into the rendered output.
+	InstructionsImports []string `yaml:"instructions-imports,omitempty"`
+
+	// InstructionsScopes defines per-directory nested instruction files.
+	// Order in this slice is authoritative (depth ascending, then alphabetical).
+	InstructionsScopes []InstructionsScope `yaml:"instructions-scopes,omitempty"`
+
 	ResourceScope `yaml:",inline"` // Workspace-level resources
+}
+
+// InstructionsScope defines instructions for a specific directory path within the project.
+type InstructionsScope struct {
+	// Path is the directory this scope applies to, relative to the project root.
+	// Required. Duplicate paths are a parse error.
+	Path string `yaml:"path"`
+
+	// Instructions and InstructionsFile are mutually exclusive.
+	Instructions     string `yaml:"instructions,omitempty"`
+	InstructionsFile string `yaml:"instructions-file,omitempty"`
+
+	// MergeStrategy is load-bearing: preserves runtime nesting semantic across round-trips.
+	// Valid values: concat | closest-wins | flat. Defaults to "concat" if omitted.
+	MergeStrategy string `yaml:"merge-strategy,omitempty"`
+
+	// SourceProvider and SourceFilename are provenance metadata only.
+	// xcaffold never reads these fields after import.
+	SourceProvider string `yaml:"source-provider,omitempty"`
+	SourceFilename string `yaml:"source-filename,omitempty"`
+
+	// Variants holds divergent content for the same path across providers.
+	Variants map[string]InstructionsVariant `yaml:"variants,omitempty"`
+
+	// Reconciliation records the strategy and state for divergent variants.
+	Reconciliation *ReconciliationConfig `yaml:"reconciliation,omitempty"`
+}
+
+// InstructionsVariant holds the per-provider sidecar path when two providers
+// have divergent content for the same scope path.
+type InstructionsVariant struct {
+	InstructionsFile string `yaml:"instructions-file,omitempty"`
+	SourceFilename   string `yaml:"source-filename,omitempty"`
+}
+
+// ReconciliationConfig records the strategy and state for divergent variants.
+type ReconciliationConfig struct {
+	// Strategy: per-target | union | manual
+	Strategy string `yaml:"strategy,omitempty"`
+	// LastReconciled is an RFC3339 timestamp set by the importer.
+	LastReconciled string `yaml:"last-reconciled,omitempty"`
+	// Notes is a human-readable explanation set by the importer.
+	Notes string `yaml:"notes,omitempty"`
 }
 
 // AgentConfig defines an AI coding agent persona.

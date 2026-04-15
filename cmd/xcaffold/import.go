@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"time"
+	"unicode"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/bir"
@@ -23,7 +27,12 @@ var (
 	importFromPlatform string
 	importPlan         bool
 	importWithMemory   bool
+	autoMergeFlag      string
 )
+
+// htmlCommentAttrRE matches key="value" pairs inside HTML comment lines.
+// Declared at package scope to avoid recompilation on every call.
+var htmlCommentAttrRE = regexp.MustCompile(`(\w[\w-]*)="([^"]*)"`)
 
 var importCmd = &cobra.Command{
 	Use:   "import",
@@ -59,6 +68,7 @@ func init() {
 	importCmd.Flags().StringVar(&importFromPlatform, "from", "auto", "Source platform of input files (antigravity, cursor, etc.)")
 	importCmd.Flags().BoolVar(&importPlan, "plan", false, "Dry-run: print decomposition plan without writing files")
 	importCmd.Flags().BoolVar(&importWithMemory, "with-memory", false, "Snapshot agent-written memory into xcf/memory/ sidecars")
+	importCmd.Flags().StringVar(&autoMergeFlag, "auto-merge", "", "Merge divergent variants: union")
 	rootCmd.AddCommand(importCmd)
 }
 
@@ -94,10 +104,18 @@ func runImport(cmd *cobra.Command, args []string) error {
 				}
 				importErr = mergeImportDirs(dirs, "scaffold.xcf")
 			} else if len(infos) == 1 {
-				importErr = importScope(infos[0].dirName, "scaffold.xcf", "project")
+				if err := importScope(infos[0].dirName, "scaffold.xcf", "project"); err != nil {
+					importErr = err
+				} else {
+					importErr = runProjectInstructionsDiscovery(".", infos[0].platform, "scaffold.xcf")
+				}
 			} else {
 				// default fallback
-				importErr = importScope(".claude", "scaffold.xcf", "project")
+				if err := importScope(".claude", "scaffold.xcf", "project"); err != nil {
+					importErr = err
+				} else {
+					importErr = runProjectInstructionsDiscovery(".", "claude", "scaffold.xcf")
+				}
 			}
 		}
 	} else {
@@ -118,6 +136,121 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// runProjectInstructionsDiscovery runs extractProjectInstructions for the primary
+// provider, then checks for a secondary provider's instruction files and invokes
+// detectAndMergeVariants if found.
+//
+// Secondary provider detection:
+//   - primary=claude and AGENTS.md found in tree → secondary=cursor
+//   - primary=cursor and CLAUDE.md found in tree → secondary=claude
+//   - Other combinations are not yet implemented; they are logged and skipped.
+//
+// The autoMergeFlag ("union") is forwarded to detectAndMergeVariants.
+// If the xcf config file cannot be parsed (e.g., it doesn't exist yet or has no
+// project block), the function returns nil without error — project instructions
+// discovery is best-effort and must not block the import.
+func runProjectInstructionsDiscovery(projectDir, primaryProvider, xcfPath string) error {
+	cfg, err := parser.ParseFile(xcfPath)
+	if err != nil {
+		// Not a fatal error — xcf may not have a project block yet.
+		return nil
+	}
+	if cfg.Project == nil {
+		return nil
+	}
+
+	// Check if the source file contains provenance markers. If so, reconstruct
+	// scopes from the markers rather than walking the file tree (re-import path).
+	primaryFilename := providerInstructionsFilename(primaryProvider)
+	if primaryFilename != "" {
+		rootPath := filepath.Join(projectDir, primaryFilename)
+		if data, err := os.ReadFile(rootPath); err == nil {
+			if scopes, rootContent, parseErr := parseProvenanceMarkers(string(data)); parseErr == nil && len(scopes) > 0 {
+				cfg.Project.InstructionsScopes = scopes
+				_ = rootContent // rootContent used downstream if needed
+				// Write updated xcf back to disk with reconstructed scopes.
+				if out, marshalErr := MarshalMultiKind(cfg, ""); marshalErr == nil {
+					_ = os.WriteFile(xcfPath, out, 0o600)
+				}
+				return nil
+			}
+		}
+	}
+
+	// Primary extraction: discover and sidecar the primary provider's files.
+	if err := extractProjectInstructions(projectDir, primaryProvider, cfg); err != nil {
+		return fmt.Errorf("extracting project instructions (%s): %w", primaryProvider, err)
+	}
+
+	// Secondary provider detection.
+	secondaryProvider := detectSecondaryProvider(projectDir, primaryProvider)
+	if secondaryProvider != "" {
+		autoMergeUnion := autoMergeFlag == "union"
+		if err := detectAndMergeVariants(projectDir, secondaryProvider, cfg, autoMergeUnion); err != nil {
+			return fmt.Errorf("merging variants (%s + %s): %w", primaryProvider, secondaryProvider, err)
+		}
+	}
+
+	// Persist the updated config.
+	out, err := MarshalMultiKind(cfg, "")
+	if err != nil {
+		return fmt.Errorf("marshalling updated config: %w", err)
+	}
+	return os.WriteFile(xcfPath, out, 0o600)
+}
+
+// providerInstructionsFilename returns the canonical root instruction filename
+// for the given provider, or "" if the provider does not have one.
+func providerInstructionsFilename(provider string) string {
+	switch provider {
+	case "claude":
+		return "CLAUDE.md"
+	case "cursor":
+		return "AGENTS.md"
+	case "gemini":
+		return "GEMINI.md"
+	default:
+		return ""
+	}
+}
+
+// detectSecondaryProvider returns the secondary provider name when a second
+// provider's instruction files are present alongside the primary provider's tree.
+// Returns "" when no secondary is detected or the combination is not yet supported.
+func detectSecondaryProvider(projectDir, primaryProvider string) string {
+	switch primaryProvider {
+	case "claude":
+		// If AGENTS.md exists anywhere in the tree, cursor is a secondary provider.
+		if fileExistsInTree(projectDir, "AGENTS.md") {
+			return "cursor"
+		}
+	case "cursor":
+		// If CLAUDE.md exists anywhere in the tree, claude is a secondary provider.
+		if fileExistsInTree(projectDir, "CLAUDE.md") {
+			return "claude"
+		}
+		// Other combinations (e.g., antigravity+cursor) are not yet implemented.
+		// Add them here as new provider pairs are defined.
+	}
+	return ""
+}
+
+// fileExistsInTree reports whether a file with the given name exists anywhere
+// under rootDir (recursive). Returns false on any walk error.
+func fileExistsInTree(rootDir, name string) bool {
+	found := false
+	_ = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || found {
+			return nil
+		}
+		if !d.IsDir() && d.Name() == name {
+			found = true
+		}
+		return nil
+	})
+	return found
 }
 
 // detectAllGlobalPlatformDirs scans known provider directories under the user's home directory
@@ -866,6 +999,151 @@ func extractFrontmatter(data []byte) ([]byte, bool) {
 	return data[4 : 4+idx], true
 }
 
+// writeSidecar writes content to path, creating parent directories as needed.
+// The file is written with 0o600 permissions.
+func writeSidecar(path string, content []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("creating sidecar directory: %w", err)
+	}
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		return fmt.Errorf("writing sidecar %s: %w", path, err)
+	}
+	return nil
+}
+
+// extractProjectInstructions discovers provider instruction files in projectDir,
+// writes sidecars under xcf/instructions/, and populates cfg.Project with
+// InstructionsFile and InstructionsScopes entries.
+// provider is one of: claude, gemini, cursor, copilot, antigravity.
+func extractProjectInstructions(projectDir, provider string, cfg *ast.XcaffoldConfig) error {
+	// Ensure cfg.Project is initialised before writing to it.
+	if cfg.Project == nil {
+		cfg.Project = &ast.ProjectConfig{}
+	}
+
+	// Derive the provider's instruction filename and nesting strategy.
+	var instructionsFilename string
+	var mergeStrategy string
+	switch provider {
+	case "claude":
+		instructionsFilename = "CLAUDE.md"
+		mergeStrategy = "concat"
+	case "gemini":
+		instructionsFilename = "GEMINI.md"
+		mergeStrategy = "concat"
+	case "cursor":
+		instructionsFilename = "AGENTS.md"
+		mergeStrategy = "closest-wins"
+	case "copilot":
+		// Copilot flat mode: single fixed file.
+		return extractCopilotInstructions(projectDir, cfg)
+	case "antigravity":
+		// Antigravity: handled separately via root rules block.
+		return nil
+	default:
+		return fmt.Errorf("unsupported instructions provider: %s", provider)
+	}
+
+	// Phase 1: Walk tree and collect instruction files sorted by depth, then alpha.
+	var files []string
+	err := filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && d.Name() == instructionsFilename {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("walking project directory: %w", err)
+	}
+	sort.Slice(files, func(i, j int) bool {
+		di := strings.Count(files[i], string(os.PathSeparator))
+		dj := strings.Count(files[j], string(os.PathSeparator))
+		if di != dj {
+			return di < dj
+		}
+		return files[i] < files[j]
+	})
+
+	sidecarBase := filepath.Join(projectDir, "xcf", "instructions")
+
+	// Phase 2: IR construction.
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", file, err)
+		}
+		rel, err := filepath.Rel(projectDir, filepath.Dir(file))
+		if err != nil {
+			return err
+		}
+		isRoot := rel == "."
+
+		if isRoot {
+			// Root file → project.instructions-file.
+			sidecar := filepath.Join(sidecarBase, "root.md")
+			if err := writeSidecar(sidecar, content); err != nil {
+				return err
+			}
+			cfg.Project.InstructionsFile = "xcf/instructions/root.md"
+		} else {
+			// Scope file → InstructionsScope entry.
+			slug := pathToSlug(rel)
+			sidecar := filepath.Join(sidecarBase, "scopes", slug+".md")
+			if err := writeSidecar(sidecar, content); err != nil {
+				return err
+			}
+			sidecarRel := "xcf/instructions/scopes/" + slug + ".md"
+			cfg.Project.InstructionsScopes = append(cfg.Project.InstructionsScopes, ast.InstructionsScope{
+				Path:             filepath.ToSlash(rel),
+				InstructionsFile: sidecarRel,
+				MergeStrategy:    mergeStrategy,
+				SourceProvider:   provider,
+				SourceFilename:   instructionsFilename,
+			})
+		}
+	}
+	return nil
+}
+
+// pathToSlug converts a relative directory path to a sidecar filename slug.
+// "packages/worker" → "packages-worker"
+func pathToSlug(path string) string {
+	slug := strings.ReplaceAll(filepath.ToSlash(path), "/", "-")
+	// Remove non-alphanumeric characters except hyphens.
+	var b strings.Builder
+	for _, r := range slug {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+// extractCopilotInstructions handles Copilot's dual-mode instruction discovery.
+// If .github/copilot-instructions.md exists, flat mode is used: the file is written
+// as a sidecar and set as cfg.Project.InstructionsFile.
+// Otherwise, falls back to cursor-style nested AGENTS.md discovery.
+func extractCopilotInstructions(projectDir string, cfg *ast.XcaffoldConfig) error {
+	flatPath := filepath.Join(projectDir, ".github", "copilot-instructions.md")
+	if _, err := os.Stat(flatPath); err == nil {
+		content, err := os.ReadFile(flatPath)
+		if err != nil {
+			return fmt.Errorf("reading copilot-instructions.md: %w", err)
+		}
+		sidecar := filepath.Join(projectDir, "xcf", "instructions", "root.md")
+		if err := writeSidecar(sidecar, content); err != nil {
+			return err
+		}
+		cfg.Project.InstructionsFile = "xcf/instructions/root.md"
+		return nil
+	}
+	// AGENTS.md nested mode: delegate to cursor-style extraction.
+	return extractProjectInstructions(projectDir, "cursor", cfg)
+}
+
 // lenientUnmarshal attempts to unmarshal YAML, and if it fails, applies a sanitizer
 // to auto-quote string values that contain colons (which otherwise break yaml mappings)
 // and tries again.
@@ -1433,4 +1711,170 @@ func printMemorySnapshotSummary(cmd *cobra.Command, s *bir.ImportSummary, planOn
 	if s.Imported > 0 {
 		fmt.Fprintln(out, "\nadd --include-memory to your next xcaffold apply to seed these into a target provider")
 	}
+}
+
+// detectAndMergeVariants runs the multi-provider divergence algorithm.
+// It discovers instruction files for the second provider and compares their
+// content with existing scope entries byte-for-byte. Identical content is
+// collapsed to a single entry; divergent content populates Variants with
+// per-provider sidecar paths and Reconciliation metadata.
+// autoMergeUnion concatenates both content blobs into the existing sidecar.
+//
+// Scopes present only in the secondary provider's tree are intentionally not
+// added to the primary config; this function reconciles overlapping paths only.
+// New scopes from a secondary provider should be added via a separate import pass.
+func detectAndMergeVariants(projectDir, provider string, cfg *ast.XcaffoldConfig, autoMergeUnion bool) error {
+	// Build a secondary config from the second provider.
+	// extractProjectInstructions writes sidecars under xcf/instructions/scopes/
+	// using the slug derived from the scope path — provider-agnostic. To avoid
+	// overwriting the first provider's sidecars, snapshot the existing sidecar
+	// content before the secondary extraction runs.
+	exContentByPath := map[string][]byte{}
+	for i := range cfg.Project.InstructionsScopes {
+		sc := &cfg.Project.InstructionsScopes[i]
+		if sc.InstructionsFile != "" {
+			data, err := os.ReadFile(filepath.Join(projectDir, sc.InstructionsFile))
+			if err != nil {
+				return fmt.Errorf("read existing sidecar %q: %w", sc.InstructionsFile, err)
+			}
+			exContentByPath[sc.Path] = data
+		}
+	}
+
+	secondary := &ast.XcaffoldConfig{}
+	if err := extractProjectInstructions(projectDir, provider, secondary); err != nil {
+		return err
+	}
+
+	// Index existing scopes by path.
+	existing := map[string]*ast.InstructionsScope{}
+	for i := range cfg.Project.InstructionsScopes {
+		existing[cfg.Project.InstructionsScopes[i].Path] = &cfg.Project.InstructionsScopes[i]
+	}
+
+	// Compare.
+	for _, newScope := range secondary.Project.InstructionsScopes {
+		ex, ok := existing[newScope.Path]
+		if !ok {
+			continue
+		}
+		// Use snapshotted existing content and the freshly written new sidecar.
+		exContent := exContentByPath[ex.Path]
+		newContent, err := os.ReadFile(filepath.Join(projectDir, newScope.InstructionsFile))
+		if err != nil {
+			return fmt.Errorf("read new sidecar %q: %w", newScope.InstructionsFile, err)
+		}
+		if bytes.Equal(exContent, newContent) {
+			// Identical — collapse. Keep existing entry unchanged.
+			continue
+		}
+		// Divergent — write provider-specific sidecars and record variants.
+		exSlug := pathToSlug(ex.Path)
+		exVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + ex.SourceProvider + ".md"
+		newVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + newScope.SourceProvider + ".md"
+		if err := writeSidecar(filepath.Join(projectDir, exVariantSidecar), exContent); err != nil {
+			return err
+		}
+		if err := writeSidecar(filepath.Join(projectDir, newVariantSidecar), newContent); err != nil {
+			return err
+		}
+		if ex.Variants == nil {
+			ex.Variants = map[string]ast.InstructionsVariant{}
+		}
+		ex.Variants[ex.SourceProvider] = ast.InstructionsVariant{
+			InstructionsFile: exVariantSidecar,
+			SourceFilename:   ex.SourceFilename,
+		}
+		ex.Variants[newScope.SourceProvider] = ast.InstructionsVariant{
+			InstructionsFile: newVariantSidecar,
+			SourceFilename:   newScope.SourceFilename,
+		}
+		ex.Reconciliation = &ast.ReconciliationConfig{
+			Strategy:       "per-target",
+			LastReconciled: time.Now().UTC().Format(time.RFC3339),
+			Notes:          fmt.Sprintf("%s variant has %d bytes; %s variant has %d bytes", ex.SourceProvider, len(exContent), newScope.SourceProvider, len(newContent)),
+		}
+		if autoMergeUnion {
+			// Union merge: concatenate existing and new content, reuse existing sidecar.
+			merged := string(exContent) + "\n" + string(newContent)
+			if err := writeSidecar(filepath.Join(projectDir, ex.InstructionsFile), []byte(merged)); err != nil {
+				return err
+			}
+			ex.Variants = nil
+			ex.Reconciliation.Strategy = "union"
+		}
+	}
+	return nil
+}
+
+// parseProvenanceMarkers splits a flat-singleton file into root content and
+// individual scope entries using xcaffold:scope HTML comments.
+// Returns (scopes, rootContent, error).
+func parseProvenanceMarkers(content string) ([]ast.InstructionsScope, string, error) {
+	const openPrefix = "<!-- xcaffold:scope "
+	const closeMarker = "<!-- xcaffold:/scope -->"
+
+	var scopes []ast.InstructionsScope
+	var rootBuilder strings.Builder
+	lines := strings.Split(content, "\n")
+	inScope := false
+	var currentScope ast.InstructionsScope
+	var scopeContentBuilder strings.Builder
+
+	for _, line := range lines {
+		if strings.HasPrefix(line, openPrefix) {
+			// Parse attributes.
+			attrs := parseHTMLCommentAttrs(line)
+			path, hasPath := attrs["path"]
+			if !hasPath || path == "" {
+				// Malformed — treat as regular content.
+				if !inScope {
+					rootBuilder.WriteString(line)
+					rootBuilder.WriteByte('\n')
+				}
+				continue
+			}
+			inScope = true
+			currentScope = ast.InstructionsScope{
+				Path:          path,
+				MergeStrategy: attrs["merge"],
+			}
+			if origin := attrs["origin"]; origin != "" {
+				parts := strings.SplitN(origin, ":", 2)
+				if len(parts) == 2 {
+					currentScope.SourceProvider = parts[0]
+					currentScope.SourceFilename = parts[1]
+				}
+			}
+			scopeContentBuilder.Reset()
+			continue
+		}
+		if inScope && strings.Contains(strings.TrimSpace(line), "xcaffold:/scope") {
+			currentScope.Instructions = strings.TrimRight(scopeContentBuilder.String(), "\n")
+			scopes = append(scopes, currentScope)
+			inScope = false
+			continue
+		}
+		if inScope {
+			scopeContentBuilder.WriteString(line)
+			scopeContentBuilder.WriteByte('\n')
+		} else {
+			rootBuilder.WriteString(line)
+			rootBuilder.WriteByte('\n')
+		}
+	}
+	rootContent := strings.TrimRight(rootBuilder.String(), "\n")
+	if rootContent != "" {
+		rootContent += "\n"
+	}
+	return scopes, rootContent, nil
+}
+
+// parseHTMLCommentAttrs extracts key="value" pairs from an HTML comment line.
+func parseHTMLCommentAttrs(line string) map[string]string {
+	attrs := map[string]string{}
+	for _, match := range htmlCommentAttrRE.FindAllStringSubmatch(line, -1) {
+		attrs[match[1]] = match[2]
+	}
+	return attrs
 }
