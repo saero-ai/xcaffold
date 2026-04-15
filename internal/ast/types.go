@@ -133,19 +133,43 @@ type TargetOverride struct {
 }
 
 // SkillConfig defines a reusable prompt package.
+//
+// Field ordering follows the canonical 6-group structure from
+// docs/superpowers/specs/2026-04-15-skill-kind-cross-provider-schema-design.md:
+//
+//	Group 1 — Identity (name, description, when-to-use, license)
+//	Group 3 — Tool Access (allowed-tools)
+//	Group 4 — Permissions & Invocation Control (disable-model-invocation, user-invocable, argument-hint)
+//	Group 7 — Composition / Supporting Files (references, scripts, assets)
+//	Group 9 — Multi-Target (targets — added in a future task; not present yet on SkillConfig)
+//	Group 10 — Instructions (instructions, instructions_file) — ALWAYS last
 type SkillConfig struct {
-	InstructionsFile string `yaml:"instructions_file,omitempty"`
-	Instructions     string `yaml:"instructions,omitempty"`
-	Description      string `yaml:"description,omitempty"`
-	Name             string `yaml:"name,omitempty"`
+	// Group 1 — Identity
+	Name        string `yaml:"name,omitempty"`
+	Description string `yaml:"description,omitempty"`
+	WhenToUse   string `yaml:"when-to-use,omitempty"`
+	License     string `yaml:"license,omitempty"`
+
+	// Group 3 — Tool Access (renamed from Tools)
+	AllowedTools []string `yaml:"allowed-tools,omitempty"`
+
+	// Group 4 — Permissions & Invocation Control
+	DisableModelInvocation *bool  `yaml:"disable-model-invocation,omitempty"`
+	UserInvocable          *bool  `yaml:"user-invocable,omitempty"`
+	ArgumentHint           string `yaml:"argument-hint,omitempty"`
+
+	// Group 7 — Composition / Supporting Files (agentskills.io folder convention)
 	// References are docs/data files copied to skills/<id>/references/ at compile time.
 	References []string `yaml:"references,omitempty"`
 	// Scripts are executable helper files copied to skills/<id>/scripts/ at compile time.
-	// Use for reusable code that skill invocations would otherwise re-implement each run.
 	Scripts []string `yaml:"scripts,omitempty"`
 	// Assets are output artifact files (templates, fonts, icons) copied to skills/<id>/assets/.
 	Assets []string `yaml:"assets,omitempty"`
-	Tools  []string `yaml:"tools,omitempty"`
+
+	// Group 10 — Instructions (mutually exclusive — enforced by parser)
+	Instructions     string `yaml:"instructions,omitempty"`
+	InstructionsFile string `yaml:"instructions_file,omitempty"`
+
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`

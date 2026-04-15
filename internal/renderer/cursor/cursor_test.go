@@ -478,7 +478,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Name:         "Rich Skill",
 					Description:  "Has many fields.",
 					Instructions: "Do something.",
-					Tools:        []string{"Bash"},
+					AllowedTools: []string{"Bash"},
 					References:   []string{"**/*.go"},
 					Scripts:      []string{"setup.sh"},
 					Assets:       []string{"icon.png"},

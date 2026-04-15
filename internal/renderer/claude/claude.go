@@ -289,8 +289,8 @@ func appendSkillMeta(sb *strings.Builder, skill ast.SkillConfig) {
 	if skill.Description != "" {
 		fmt.Fprintf(sb, "description: %s\n", skill.Description)
 	}
-	if len(skill.Tools) > 0 {
-		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(skill.Tools, ", "))
+	if len(skill.AllowedTools) > 0 {
+		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(skill.AllowedTools, ", "))
 	}
 }
 

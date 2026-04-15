@@ -265,7 +265,7 @@ func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {
 					Description:  "TDD workflow",
-					Tools:        []string{"Bash", "Read", "Write"},
+					AllowedTools: []string{"Bash", "Read", "Write"},
 					Instructions: "Follow TDD",
 				},
 			},
@@ -273,7 +273,7 @@ func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
 				"developer": {
 					Description:  "Dev agent",
 					Model:        "sonnet",
-					Tools:        []string{"${skill.tdd.tools}"},
+					Tools:        []string{"${skill.tdd.allowed-tools}"},
 					Skills:       []string{"tdd"},
 					Instructions: "You are a developer",
 				},
@@ -289,7 +289,7 @@ func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
 	assert.Contains(t, agentContent, "Bash")
 	assert.Contains(t, agentContent, "Read")
 	assert.Contains(t, agentContent, "Write")
-	assert.NotContains(t, agentContent, "${skill.tdd.tools}")
+	assert.NotContains(t, agentContent, "${skill.tdd.allowed-tools}")
 }
 
 func TestCompile_ResolveAttributes_NoRefsPassthrough(t *testing.T) {
