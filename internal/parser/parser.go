@@ -1631,10 +1631,22 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 	return diags
 }
 
-// reservedOutputPrefixes are compiler output directories. instructions-file paths
-// starting with these prefixes create circular dependencies where the compiler
-// reads its own output.
-var reservedOutputPrefixes = []string{".agents/", ".antigravity/", ".claude/", ".cursor/", ".github/instructions/", ".github/prompts/"}
+// reservedOutputPrefixes are compiler output directories and well-known agent
+// config paths. instructions-file paths starting with these prefixes create
+// circular dependencies where the compiler reads its own output, or reference
+// files managed by other providers outside the project tree.
+var reservedOutputPrefixes = []string{
+	"~/.claude/",
+	"~/.gemini/",
+	".agents/",
+	".antigravity/",
+	".claude/",
+	".cursor/",
+	".cursorrules",
+	".github/copilot-instructions.md",
+	".github/instructions/",
+	".github/prompts/",
+}
 
 func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	if path == "" {
@@ -1645,6 +1657,14 @@ func validateInstructionsFile(kind, id, path string, globalScope bool) error {
 	}
 	if strings.ContainsAny(path, "\\") || strings.Contains(path, "..") {
 		return fmt.Errorf("%s %q: instructions-file contains invalid path characters: %q", kind, id, path)
+	}
+	// Check tilde-prefixed paths against the reserved list before any IsAbs
+	// guard, since filepath.IsAbs returns false for "~/" on Unix. We match
+	// raw string prefixes here — no tilde expansion is performed.
+	for _, prefix := range reservedOutputPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return fmt.Errorf("%s %q: instructions-file %q references compiler output directory %s — this creates a circular dependency", kind, id, path, prefix)
+		}
 	}
 	// Skip reserved-output-prefix check for absolute paths (they are outside project dir).
 	if filepath.IsAbs(path) {
