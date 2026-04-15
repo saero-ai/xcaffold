@@ -238,10 +238,93 @@ func rewriteDocumentKeys(doc []byte) []byte {
 	return bytes.Join(lines, []byte("\n"))
 }
 
+// detectRejectedSnakeCaseKeys scans raw .xcf YAML bytes (before legacy-key
+// rewriting) for snake_case keys that are rejected with a targeted diagnostic
+// rather than silently aliased to their kebab-case equivalents.
+//
+// Currently enforced:
+//   - instructions_file: in a kind: rule document must not be used. Authors
+//     must use instructions-file: (renamed in schema v1.1). The rewriter would
+//     silently alias this key, masking the usage. We surface it as an error
+//     with a message that includes the canonical name "instructions-file" so
+//     tooling and users know the correct spelling.
+func detectRejectedSnakeCaseKeys(data []byte) error {
+	// Split into per-document segments on "---" boundaries (same logic as
+	// rewriteLegacyKeys) so we can check kind per document.
+	type segment struct{ body []byte }
+	var segments []segment
+	rest := data
+
+	if idx := bytes.Index(rest, []byte("\n---")); idx >= 0 {
+		segments = append(segments, segment{rest[:idx+1]})
+		rest = rest[idx+1:]
+	} else {
+		segments = append(segments, segment{rest})
+		rest = nil
+	}
+	for len(rest) > 0 {
+		if len(rest) < 4 || !bytes.HasPrefix(rest, []byte("---")) {
+			segments = append(segments, segment{rest})
+			break
+		}
+		markerEnd := 4 // len("---\n")
+		next := bytes.Index(rest[3:], []byte("\n---"))
+		if next < 0 {
+			segments = append(segments, segment{rest[markerEnd:]})
+			break
+		}
+		cutAt := 3 + next + 1
+		segments = append(segments, segment{rest[markerEnd:cutAt]})
+		rest = rest[cutAt:]
+	}
+
+	for _, seg := range segments {
+		if !isRuleDocument(seg.body) {
+			continue
+		}
+		for _, line := range bytes.Split(seg.body, []byte("\n")) {
+			// Strip leading whitespace to handle any indentation level.
+			trimmed := bytes.TrimLeft(line, " \t")
+			if bytes.HasPrefix(trimmed, []byte("instructions_file:")) {
+				return fmt.Errorf(
+					"rule document: unknown field \"instructions_file\" — " +
+						"use instructions-file: instead (renamed in schema v1.1)",
+				)
+			}
+		}
+	}
+	return nil
+}
+
+// isRuleDocument returns true if the YAML document segment declares "kind: rule"
+// at the top level.
+func isRuleDocument(doc []byte) bool {
+	for _, line := range bytes.Split(doc, []byte("\n")) {
+		if len(line) == 0 || line[0] == ' ' || line[0] == '\t' || line[0] == '#' {
+			continue
+		}
+		trimmed := bytes.TrimSpace(line)
+		if bytes.Equal(trimmed, []byte("kind: rule")) {
+			return true
+		}
+		if bytes.HasPrefix(trimmed, []byte("kind:")) {
+			return false
+		}
+	}
+	return false
+}
+
 func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read .xcf input: %w", err)
+	}
+
+	// Detect pre-migration snake_case keys that are rejected (not silently aliased)
+	// for specific kinds. This scan runs before rewriteLegacyKeys so the original
+	// key spelling is still visible.
+	if err := detectRejectedSnakeCaseKeys(data); err != nil {
+		return nil, err
 	}
 
 	// Rewrite deprecated camelCase/snake_case keys to kebab-case before decoding.
@@ -1060,6 +1143,58 @@ var validHookEvents = map[string]bool{
 	"Notification": true,
 }
 
+// validRuleActivations is the set of accepted activation values for rule kind.
+var validRuleActivations = map[string]bool{
+	ast.RuleActivationAlways:         true,
+	ast.RuleActivationPathGlob:       true,
+	ast.RuleActivationModelDecided:   true,
+	ast.RuleActivationManualMention:  true,
+	ast.RuleActivationExplicitInvoke: true,
+}
+
+// pathFreeActivations are rule activations that must have an empty paths list.
+var pathFreeActivations = map[string]bool{
+	ast.RuleActivationAlways:         true,
+	ast.RuleActivationModelDecided:   true,
+	ast.RuleActivationManualMention:  true,
+	ast.RuleActivationExplicitInvoke: true,
+}
+
+// validateRuleActivations enforces activation enum and paths co-constraints
+// across all rules in the config. It also emits a deprecation warning to
+// stderr when always-apply is used without the activation field.
+func validateRuleActivations(c *ast.XcaffoldConfig) error {
+	for _, rule := range c.Rules {
+		if rule.Activation != "" {
+			if !validRuleActivations[rule.Activation] {
+				return fmt.Errorf(
+					"rule %q: activation must be one of: always, path-glob, model-decided, manual-mention, explicit-invoke (got %q)",
+					rule.Name, rule.Activation,
+				)
+			}
+			if rule.Activation == ast.RuleActivationPathGlob && len(rule.Paths) == 0 {
+				return fmt.Errorf(
+					"rule %q: activation %q requires at least one path in paths",
+					rule.Name, rule.Activation,
+				)
+			}
+			if pathFreeActivations[rule.Activation] && len(rule.Paths) > 0 {
+				return fmt.Errorf(
+					"rule %q: paths must be empty when activation is %q",
+					rule.Name, rule.Activation,
+				)
+			}
+		}
+		if rule.AlwaysApply != nil && rule.Activation == "" {
+			fmt.Fprintf(os.Stderr,
+				"DEPRECATION: rule %q uses always-apply without activation; migrate to activation: always\n",
+				rule.Name,
+			)
+		}
+	}
+	return nil
+}
+
 func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 	if err := validateIDs(c); err != nil {
 		return err
@@ -1068,6 +1203,9 @@ func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 		return err
 	}
 	if err := validateInstructions(c, globalScope); err != nil {
+		return err
+	}
+	if err := validateRuleActivations(c); err != nil {
 		return err
 	}
 	return nil

@@ -684,3 +684,116 @@ instructions: "Research deeply."
 	require.Equal(t, "Explore", claude.Provider["agent"])
 	require.Equal(t, "sonnet", claude.Provider["model"])
 }
+
+func TestParseRule_Activation_Valid(t *testing.T) {
+	for _, activation := range []string{"always", "path-glob", "model-decided", "manual-mention", "explicit-invoke"} {
+		t.Run(activation, func(t *testing.T) {
+			paths := ""
+			if activation == "path-glob" {
+				paths = "\npaths:\n  - src/**"
+			}
+			src := fmt.Sprintf(`kind: rule
+version: "1.0"
+name: test-rule
+activation: %s%s
+instructions: "Body."
+`, activation, paths)
+			tmp := t.TempDir()
+			path := filepath.Join(tmp, "rule.xcf")
+			require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+			_, err := ParseFile(path)
+			require.NoError(t, err, "activation %q must be valid", activation)
+		})
+	}
+}
+
+func TestParseRule_Activation_Invalid(t *testing.T) {
+	src := `kind: rule
+version: "1.0"
+name: test-rule
+activation: on-demand
+instructions: "Body."
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "rule.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must be one of")
+}
+
+func TestParseRule_PathsRequiredForPathGlob(t *testing.T) {
+	src := `kind: rule
+version: "1.0"
+name: test-rule
+activation: path-glob
+instructions: "Body."
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "rule.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "requires at least one path")
+}
+
+func TestParseRule_PathsMustBeEmptyForAlways(t *testing.T) {
+	src := `kind: rule
+version: "1.0"
+name: test-rule
+activation: always
+paths:
+  - src/**
+instructions: "Body."
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "rule.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `paths must be empty when activation is "always"`)
+}
+
+func TestParseRule_LegacyAlwaysApply_Deprecation(t *testing.T) {
+	src := `kind: rule
+version: "1.0"
+name: test-rule
+always-apply: true
+instructions: "Body."
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "rule.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+	// Must not return a hard error — always-apply without activation is a deprecation warning.
+	_, err := ParseFile(path)
+	require.NoError(t, err, "always-apply without activation must not return an error")
+}
+
+func TestParseRule_OldSnakeCaseInstructionsFile_Error(t *testing.T) {
+	src := `kind: rule
+version: "1.0"
+name: test-rule
+instructions_file: rules/body.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "rule.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `instructions-file`)
+}
+
+func TestParseRule_MutuallyExclusive_Instructions(t *testing.T) {
+	src := `kind: rule
+version: "1.0"
+name: test-rule
+instructions: "Body."
+instructions-file: rules/body.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "rule.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mutually exclusive")
+}
