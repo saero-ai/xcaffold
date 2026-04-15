@@ -855,3 +855,127 @@ instructions: "Body."
 	require.NotNil(t, copilot.Provider)
 	require.Equal(t, "edit", copilot.Provider["mode"])
 }
+
+func TestParse_ProjectInstructions_MutualExclusivity(t *testing.T) {
+	yaml := `
+kind: project
+version: "1.0"
+name: test
+instructions: "inline content"
+instructions-file: xcf/instructions/root.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "instructions and instructions-file are mutually exclusive")
+}
+
+func TestParse_ProjectInstructions_ScopeMutualExclusivity(t *testing.T) {
+	yaml := `
+kind: project
+version: "1.0"
+name: test
+instructions-scopes:
+  - path: packages/worker
+    instructions: "inline"
+    instructions-file: xcf/instructions/scopes/packages-worker.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mutually exclusive")
+}
+
+func TestParse_ProjectInstructions_DuplicateScopePath(t *testing.T) {
+	yaml := `
+kind: project
+version: "1.0"
+name: test
+instructions-scopes:
+  - path: packages/worker
+    instructions-file: xcf/instructions/scopes/packages-worker.md
+  - path: packages/worker
+    instructions-file: xcf/instructions/scopes/packages-worker-2.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `duplicate instructions-scope path "packages/worker"`)
+}
+
+func TestParse_ProjectInstructions_InvalidMergeStrategy(t *testing.T) {
+	yaml := `
+kind: project
+version: "1.0"
+name: test
+instructions-scopes:
+  - path: packages/worker
+    instructions-file: xcf/instructions/scopes/packages-worker.md
+    merge-strategy: invalid-value
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "merge-strategy")
+}
+
+func TestParse_ProjectInstructions_ValidConfig(t *testing.T) {
+	yaml := `
+kind: project
+version: "1.0"
+name: test
+instructions-scopes:
+  - path: packages/worker
+    instructions-file: xcf/instructions/scopes/packages-worker.md
+    merge-strategy: concat
+    source-provider: claude
+    source-filename: CLAUDE.md
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	config, err := ParseFile(path)
+	require.NoError(t, err)
+	require.Len(t, config.Project.InstructionsScopes, 1)
+	require.Equal(t, "concat", config.Project.InstructionsScopes[0].MergeStrategy)
+}
+
+func TestParse_ProjectInstructions_UnknownFieldRejected(t *testing.T) {
+	yaml := `
+kind: project
+version: "1.0"
+name: test
+instructions-bogus: should-fail
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "instructions-bogus")
+}
+
+func TestParse_InstructionsScope_UnknownFieldRejected(t *testing.T) {
+	yaml := `
+kind: project
+version: "1.0"
+name: test
+instructions-scopes:
+  - path: packages/worker
+    unknown-field: bogus
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "scaffold.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
+	_, err := ParseFile(path)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown-field")
+}

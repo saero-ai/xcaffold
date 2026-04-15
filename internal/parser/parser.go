@@ -989,6 +989,22 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 				baseLocal = base.Project.Local
 			}
 			merged.Project.Local = mergeSettingsOverride(baseLocal, child.Project.Local)
+
+			// Project instructions fields. A set field on the child wins; an empty
+			// field on the child preserves the base value (matches the same
+			// convention applied to Name, Description, and other scalar fields above).
+			if child.Project.Instructions != "" {
+				merged.Project.Instructions = child.Project.Instructions
+			}
+			if child.Project.InstructionsFile != "" {
+				merged.Project.InstructionsFile = child.Project.InstructionsFile
+			}
+			if len(child.Project.InstructionsImports) > 0 {
+				merged.Project.InstructionsImports = child.Project.InstructionsImports
+			}
+			if len(child.Project.InstructionsScopes) > 0 {
+				merged.Project.InstructionsScopes = child.Project.InstructionsScopes
+			}
 		}
 	}
 
@@ -1351,6 +1367,53 @@ func validateBase(c *ast.XcaffoldConfig) error {
 		name := strings.TrimSpace(c.Project.Name)
 		if name == "" {
 			return fmt.Errorf("project.name is required and must not be empty unless extending another config")
+		}
+	}
+
+	if c.Project != nil {
+		if err := validateProjectInstructions(c.Project); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateProjectInstructions checks mutual exclusivity, duplicate paths, and
+// enum values for ProjectConfig instructions fields.
+func validateProjectInstructions(p *ast.ProjectConfig) error {
+	// Mutual exclusivity: instructions vs instructions-file on ProjectConfig.
+	if p.Instructions != "" && p.InstructionsFile != "" {
+		return fmt.Errorf("project %q: instructions and instructions-file are mutually exclusive", p.Name)
+	}
+
+	// Validate each InstructionsScope entry.
+	seenScopePaths := map[string]bool{}
+	for i, scope := range p.InstructionsScopes {
+		// Mutual exclusivity on scope.
+		if scope.Instructions != "" && scope.InstructionsFile != "" {
+			return fmt.Errorf("project %q: instructions-scope[%d] path %q: instructions and instructions-file are mutually exclusive", p.Name, i, scope.Path)
+		}
+		// Duplicate path check.
+		if seenScopePaths[scope.Path] {
+			return fmt.Errorf("project %q: duplicate instructions-scope path %q", p.Name, scope.Path)
+		}
+		seenScopePaths[scope.Path] = true
+		// Merge-strategy enum check.
+		switch scope.MergeStrategy {
+		case "", "concat", "closest-wins", "flat":
+			// valid
+		default:
+			return fmt.Errorf("project %q: instructions-scope path %q: invalid merge-strategy %q; valid values: concat, closest-wins, flat", p.Name, scope.Path, scope.MergeStrategy)
+		}
+		// reconciliation.strategy enum check.
+		if scope.Reconciliation != nil {
+			switch scope.Reconciliation.Strategy {
+			case "", "per-target", "union", "manual":
+				// valid
+			default:
+				return fmt.Errorf("project %q: instructions-scope path %q: invalid reconciliation.strategy %q", p.Name, scope.Path, scope.Reconciliation.Strategy)
+			}
 		}
 	}
 	return nil

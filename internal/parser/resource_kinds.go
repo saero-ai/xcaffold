@@ -80,6 +80,13 @@ type projectDocFields struct {
 	PolicyRefs   []string           `yaml:"policies,omitempty"`
 	Test         ast.TestConfig     `yaml:"test,omitempty"`
 	Local        ast.SettingsConfig `yaml:"local,omitempty"`
+
+	// Instructions fields — A-3: KnownFields entries.
+	// yaml.KnownFields(true) enforces these recursively through nested types.
+	Instructions        string                  `yaml:"instructions,omitempty"`
+	InstructionsFile    string                  `yaml:"instructions-file,omitempty"`
+	InstructionsImports []string                `yaml:"instructions-imports,omitempty"`
+	InstructionsScopes  []ast.InstructionsScope `yaml:"instructions-scopes,omitempty"`
 }
 
 // hooksDocument wraps HookConfig with envelope fields for kind: hooks.
@@ -160,6 +167,34 @@ var singletonKinds = map[string]bool{
 	"hooks":    true,
 	"settings": true,
 	"global":   true,
+}
+
+// knownInstructionsScopeFields enumerates the valid YAML keys for InstructionsScope
+// entries. Enforced transitively by yaml.KnownFields(true) on projectDocFields.
+var knownInstructionsScopeFields = map[string]bool{
+	"path":              true,
+	"instructions":      true,
+	"instructions-file": true,
+	"merge-strategy":    true,
+	"source-provider":   true,
+	"source-filename":   true,
+	"variants":          true,
+	"reconciliation":    true,
+}
+
+// knownInstructionsVariantFields enumerates the valid YAML keys for InstructionsVariant
+// entries. Enforced transitively by yaml.KnownFields(true) on projectDocFields.
+var knownInstructionsVariantFields = map[string]bool{
+	"instructions-file": true,
+	"source-filename":   true,
+}
+
+// knownReconciliationConfigFields enumerates the valid YAML keys for ReconciliationConfig
+// entries. Enforced transitively by yaml.KnownFields(true) on projectDocFields.
+var knownReconciliationConfigFields = map[string]bool{
+	"strategy":        true,
+	"last-reconciled": true,
+	"notes":           true,
 }
 
 // validatePolicyFields checks semantic constraints beyond KnownFields.
@@ -342,6 +377,10 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.PolicyRefs = doc.PolicyRefs
 		config.Project.Test = doc.Test
 		config.Project.Local = doc.Local
+		config.Project.Instructions = doc.Instructions
+		config.Project.InstructionsFile = doc.InstructionsFile
+		config.Project.InstructionsImports = doc.InstructionsImports
+		config.Project.InstructionsScopes = doc.InstructionsScopes
 
 	case "hooks":
 		var doc hooksDocument
