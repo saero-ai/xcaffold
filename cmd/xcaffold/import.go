@@ -29,6 +29,10 @@ var (
 	autoMergeFlag      string
 )
 
+// htmlCommentAttrRE matches key="value" pairs inside HTML comment lines.
+// Declared at package scope to avoid recompilation on every call.
+var htmlCommentAttrRE = regexp.MustCompile(`(\w[\w-]*)="([^"]*)"`)
+
 var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Migrate an existing directory or translate cross-platform workflows into scaffold.xcf",
@@ -96,11 +100,132 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return mergeImportDirs(dirs, "scaffold.xcf")
 	}
 	if len(infos) == 1 {
-		return importScope(infos[0].dirName, "scaffold.xcf", "project")
+		if err := importScope(infos[0].dirName, "scaffold.xcf", "project"); err != nil {
+			return err
+		}
+		return runProjectInstructionsDiscovery(".", infos[0].platform, "scaffold.xcf")
 	}
 
 	// default fallback
-	return importScope(".claude", "scaffold.xcf", "project")
+	if err := importScope(".claude", "scaffold.xcf", "project"); err != nil {
+		return err
+	}
+	return runProjectInstructionsDiscovery(".", "claude", "scaffold.xcf")
+}
+
+// runProjectInstructionsDiscovery runs extractProjectInstructions for the primary
+// provider, then checks for a secondary provider's instruction files and invokes
+// detectAndMergeVariants if found.
+//
+// Secondary provider detection:
+//   - primary=claude and AGENTS.md found in tree → secondary=cursor
+//   - primary=cursor and CLAUDE.md found in tree → secondary=claude
+//   - Other combinations are not yet implemented; they are logged and skipped.
+//
+// The autoMergeFlag ("union") is forwarded to detectAndMergeVariants.
+// If the xcf config file cannot be parsed (e.g., it doesn't exist yet or has no
+// project block), the function returns nil without error — project instructions
+// discovery is best-effort and must not block the import.
+func runProjectInstructionsDiscovery(projectDir, primaryProvider, xcfPath string) error {
+	cfg, err := parser.ParseFile(xcfPath)
+	if err != nil {
+		// Not a fatal error — xcf may not have a project block yet.
+		return nil
+	}
+	if cfg.Project == nil {
+		return nil
+	}
+
+	// Check if the source file contains provenance markers. If so, reconstruct
+	// scopes from the markers rather than walking the file tree (re-import path).
+	primaryFilename := providerInstructionsFilename(primaryProvider)
+	if primaryFilename != "" {
+		rootPath := filepath.Join(projectDir, primaryFilename)
+		if data, err := os.ReadFile(rootPath); err == nil {
+			if scopes, rootContent, parseErr := parseProvenanceMarkers(string(data)); parseErr == nil && len(scopes) > 0 {
+				cfg.Project.InstructionsScopes = scopes
+				_ = rootContent // rootContent used downstream if needed
+				// Write updated xcf back to disk with reconstructed scopes.
+				if out, marshalErr := MarshalMultiKind(cfg, ""); marshalErr == nil {
+					_ = os.WriteFile(xcfPath, out, 0o600)
+				}
+				return nil
+			}
+		}
+	}
+
+	// Primary extraction: discover and sidecar the primary provider's files.
+	if err := extractProjectInstructions(projectDir, primaryProvider, cfg); err != nil {
+		return fmt.Errorf("extracting project instructions (%s): %w", primaryProvider, err)
+	}
+
+	// Secondary provider detection.
+	secondaryProvider := detectSecondaryProvider(projectDir, primaryProvider)
+	if secondaryProvider != "" {
+		autoMergeUnion := autoMergeFlag == "union"
+		if err := detectAndMergeVariants(projectDir, secondaryProvider, cfg, autoMergeUnion); err != nil {
+			return fmt.Errorf("merging variants (%s + %s): %w", primaryProvider, secondaryProvider, err)
+		}
+	}
+
+	// Persist the updated config.
+	out, err := MarshalMultiKind(cfg, "")
+	if err != nil {
+		return fmt.Errorf("marshalling updated config: %w", err)
+	}
+	return os.WriteFile(xcfPath, out, 0o600)
+}
+
+// providerInstructionsFilename returns the canonical root instruction filename
+// for the given provider, or "" if the provider does not have one.
+func providerInstructionsFilename(provider string) string {
+	switch provider {
+	case "claude":
+		return "CLAUDE.md"
+	case "cursor":
+		return "AGENTS.md"
+	case "gemini":
+		return "GEMINI.md"
+	default:
+		return ""
+	}
+}
+
+// detectSecondaryProvider returns the secondary provider name when a second
+// provider's instruction files are present alongside the primary provider's tree.
+// Returns "" when no secondary is detected or the combination is not yet supported.
+func detectSecondaryProvider(projectDir, primaryProvider string) string {
+	switch primaryProvider {
+	case "claude":
+		// If AGENTS.md exists anywhere in the tree, cursor is a secondary provider.
+		if fileExistsInTree(projectDir, "AGENTS.md") {
+			return "cursor"
+		}
+	case "cursor":
+		// If CLAUDE.md exists anywhere in the tree, claude is a secondary provider.
+		if fileExistsInTree(projectDir, "CLAUDE.md") {
+			return "claude"
+		}
+		// Other combinations (e.g., antigravity+cursor) are not yet implemented.
+		// Add them here as new provider pairs are defined.
+	}
+	return ""
+}
+
+// fileExistsInTree reports whether a file with the given name exists anywhere
+// under rootDir (recursive). Returns false on any walk error.
+func fileExistsInTree(rootDir, name string) bool {
+	found := false
+	_ = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || found {
+			return nil
+		}
+		if !d.IsDir() && d.Name() == name {
+			found = true
+		}
+		return nil
+	})
+	return found
 }
 
 // detectAllGlobalPlatformDirs scans known provider directories under the user's home directory
@@ -1499,12 +1624,16 @@ func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, c
 	return nil
 }
 
-// detectAndMergeVariants runs the Phase 3 multi-provider divergence algorithm.
+// detectAndMergeVariants runs the multi-provider divergence algorithm.
 // It discovers instruction files for the second provider and compares their
 // content with existing scope entries byte-for-byte. Identical content is
 // collapsed to a single entry; divergent content populates Variants with
 // per-provider sidecar paths and Reconciliation metadata.
 // autoMergeUnion concatenates both content blobs into the existing sidecar.
+//
+// Scopes present only in the secondary provider's tree are intentionally not
+// added to the primary config; this function reconciles overlapping paths only.
+// New scopes from a secondary provider should be added via a separate import pass.
 func detectAndMergeVariants(projectDir, provider string, cfg *ast.XcaffoldConfig, autoMergeUnion bool) error {
 	// Build a secondary config from the second provider.
 	// extractProjectInstructions writes sidecars under xcf/instructions/scopes/
@@ -1515,7 +1644,10 @@ func detectAndMergeVariants(projectDir, provider string, cfg *ast.XcaffoldConfig
 	for i := range cfg.Project.InstructionsScopes {
 		sc := &cfg.Project.InstructionsScopes[i]
 		if sc.InstructionsFile != "" {
-			data, _ := os.ReadFile(filepath.Join(projectDir, sc.InstructionsFile))
+			data, err := os.ReadFile(filepath.Join(projectDir, sc.InstructionsFile))
+			if err != nil {
+				return fmt.Errorf("read existing sidecar %q: %w", sc.InstructionsFile, err)
+			}
 			exContentByPath[sc.Path] = data
 		}
 	}
@@ -1539,7 +1671,10 @@ func detectAndMergeVariants(projectDir, provider string, cfg *ast.XcaffoldConfig
 		}
 		// Use snapshotted existing content and the freshly written new sidecar.
 		exContent := exContentByPath[ex.Path]
-		newContent, _ := os.ReadFile(filepath.Join(projectDir, newScope.InstructionsFile))
+		newContent, err := os.ReadFile(filepath.Join(projectDir, newScope.InstructionsFile))
+		if err != nil {
+			return fmt.Errorf("read new sidecar %q: %w", newScope.InstructionsFile, err)
+		}
 		if bytes.Equal(exContent, newContent) {
 			// Identical — collapse. Keep existing entry unchanged.
 			continue
@@ -1625,7 +1760,7 @@ func parseProvenanceMarkers(content string) ([]ast.InstructionsScope, string, er
 			scopeContentBuilder.Reset()
 			continue
 		}
-		if strings.TrimSpace(line) == closeMarker && inScope {
+		if inScope && strings.Contains(strings.TrimSpace(line), "xcaffold:/scope") {
 			currentScope.Instructions = strings.TrimRight(scopeContentBuilder.String(), "\n")
 			scopes = append(scopes, currentScope)
 			inScope = false
@@ -1649,8 +1784,7 @@ func parseProvenanceMarkers(content string) ([]ast.InstructionsScope, string, er
 // parseHTMLCommentAttrs extracts key="value" pairs from an HTML comment line.
 func parseHTMLCommentAttrs(line string) map[string]string {
 	attrs := map[string]string{}
-	re := regexp.MustCompile(`(\w[\w-]*)="([^"]*)"`)
-	for _, match := range re.FindAllStringSubmatch(line, -1) {
+	for _, match := range htmlCommentAttrRE.FindAllStringSubmatch(line, -1) {
 		attrs[match[1]] = match[2]
 	}
 	return attrs

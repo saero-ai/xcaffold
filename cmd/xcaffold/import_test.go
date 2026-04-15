@@ -926,3 +926,150 @@ func TestParseProvenanceMarkers_NoMarkers_ReturnsEmptyScopes(t *testing.T) {
 	require.Empty(t, scopes)
 	require.Equal(t, input, rootContent)
 }
+
+// TestDetectDivergence_ExistingSidecarMissing_ReturnsError verifies that
+// detectAndMergeVariants surfaces a read error when the existing sidecar
+// path on disk does not exist, rather than silently treating it as empty.
+func TestDetectDivergence_ExistingSidecarMissing_ReturnsError(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "packages", "api"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "api", "CLAUDE.md"),
+		[]byte("Claude API context."), 0o600,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "api", "AGENTS.md"),
+		[]byte("Cursor API context."), 0o600,
+	))
+
+	cfg := &ast.XcaffoldConfig{}
+	require.NoError(t, extractProjectInstructions(tmp, "claude", cfg))
+
+	// Sabotage: remove the existing sidecar so the read will fail.
+	require.Len(t, cfg.Project.InstructionsScopes, 1)
+	sidecarPath := filepath.Join(tmp, cfg.Project.InstructionsScopes[0].InstructionsFile)
+	require.NoError(t, os.Remove(sidecarPath))
+
+	err := detectAndMergeVariants(tmp, "cursor", cfg, false)
+	require.Error(t, err, "detectAndMergeVariants must return an error when existing sidecar is missing")
+	require.Contains(t, err.Error(), "read existing sidecar")
+}
+
+// TestParseProvenanceMarkers_CRLFLineEndings verifies that the close marker
+// is recognised even when the file uses CRLF line endings.
+func TestParseProvenanceMarkers_CRLFLineEndings(t *testing.T) {
+	// Construct the input with CRLF line endings.
+	input := "Root content.\r\n" +
+		"<!-- xcaffold:scope path=\"packages/worker\" merge=\"concat\" origin=\"claude:CLAUDE.md\" -->\r\n" +
+		"Worker instructions.\r\n" +
+		"<!-- xcaffold:/scope -->\r\n"
+
+	scopes, _, err := parseProvenanceMarkers(input)
+	require.NoError(t, err)
+	require.Len(t, scopes, 1, "CRLF close marker must be recognised")
+	require.Equal(t, "packages/worker", scopes[0].Path)
+	require.Contains(t, scopes[0].Instructions, "Worker instructions.")
+}
+
+// TestImport_ClaudeAndCursor_DetectsDivergence creates a temp project with both
+// CLAUDE.md and AGENTS.md (different content) and verifies that after the import
+// flow the resulting config has Variants populated on the overlapping scope.
+func TestImport_ClaudeAndCursor_DetectsDivergence(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
+	tmp := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(origDir)
+	require.NoError(t, os.Chdir(tmp))
+
+	// Root CLAUDE.md and AGENTS.md (different content for divergence detection).
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "CLAUDE.md"), []byte("Claude root instructions."), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "AGENTS.md"), []byte("Cursor root instructions."), 0o600))
+
+	// Nested scopes with differing content.
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, "packages", "api"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "api", "CLAUDE.md"),
+		[]byte("Claude API context — unique content."), 0o600,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "packages", "api", "AGENTS.md"),
+		[]byte("Cursor API context — different content."), 0o600,
+	))
+
+	// Simulate the importScope+runProjectInstructionsDiscovery sequence.
+	// We call extractProjectInstructions directly and then detectAndMergeVariants
+	// to exercise the wiring logic without touching the importScope preamble guards.
+	cfg := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test-project"},
+		ResourceScope: ast.ResourceScope{
+			Agents: make(map[string]ast.AgentConfig),
+			Skills: make(map[string]ast.SkillConfig),
+			Rules:  make(map[string]ast.RuleConfig),
+			Hooks:  make(ast.HookConfig),
+			MCP:    make(map[string]ast.MCPConfig),
+		},
+	}
+
+	require.NoError(t, extractProjectInstructions(tmp, "claude", cfg))
+	require.NoError(t, detectAndMergeVariants(tmp, "cursor", cfg, false))
+
+	require.Len(t, cfg.Project.InstructionsScopes, 1, "should have one overlapping scope")
+	scope := cfg.Project.InstructionsScopes[0]
+	require.NotEmpty(t, scope.Variants, "divergent CLAUDE.md vs AGENTS.md must populate Variants")
+	require.Contains(t, scope.Variants, "claude")
+	require.Contains(t, scope.Variants, "cursor")
+}
+
+// TestImport_FlatFileWithProvenanceMarkers_ReconstructsScopes verifies that a
+// previously flattened instructions file containing xcaffold:scope markers is
+// parsed back into discrete scope entries by runProjectInstructionsDiscovery.
+func TestImport_FlatFileWithProvenanceMarkers_ReconstructsScopes(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
+	tmp := t.TempDir()
+	origDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(origDir)
+	require.NoError(t, os.Chdir(tmp))
+
+	// Flat CLAUDE.md with embedded provenance markers (as rendered by xcaffold).
+	flat := `Root context.
+
+<!-- xcaffold:scope path="packages/worker" merge="concat" origin="claude:CLAUDE.md" -->
+Use BullMQ. Never call DB from worker code.
+<!-- xcaffold:/scope -->
+
+<!-- xcaffold:scope path="packages/api" merge="closest-wins" origin="cursor:AGENTS.md" -->
+REST conventions only.
+<!-- xcaffold:/scope -->
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "CLAUDE.md"), []byte(flat), 0o600))
+
+	// Create a minimal .claude/ structure so importScope succeeds.
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".claude", "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, ".claude", "agents", "dev.md"),
+		[]byte("---\nname: dev\ndescription: Dev agent\n---\n\nDev instructions."),
+		0o644,
+	))
+
+	// Run importScope to write scaffold.xcf.
+	require.NoError(t, importScope(".claude", "scaffold.xcf", "project"))
+
+	// Now run the project instructions discovery which should detect markers.
+	require.NoError(t, runProjectInstructionsDiscovery(tmp, "claude", "scaffold.xcf"))
+
+	// Read the updated scaffold.xcf raw content — avoid parser.ParseFile which
+	// merges global config and would pick up the user's real ~/.xcaffold/scaffold.xcf.
+	xcfData, err := os.ReadFile("scaffold.xcf")
+	require.NoError(t, err)
+	xcfStr := string(xcfData)
+
+	// Scopes should have been reconstructed from the markers and serialised
+	// back into scaffold.xcf as instruction-scopes entries.
+	require.Contains(t, xcfStr, "packages/worker",
+		"xcf must contain the reconstructed packages/worker scope")
+	require.Contains(t, xcfStr, "packages/api",
+		"xcf must contain the reconstructed packages/api scope")
+}
