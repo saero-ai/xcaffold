@@ -55,6 +55,27 @@ func TestRenderTemplate_Unknown(t *testing.T) {
 	assert.Contains(t, err.Error(), "nonexistent")
 }
 
+func TestRenderTemplates_SkillBlock_UsesAllowedToolsName(t *testing.T) {
+	for _, id := range []string{"rest-api", "cli-tool", "frontend-app"} {
+		out, err := Render(id, "test-project", "sonnet")
+		require.NoError(t, err)
+		// If template has a skills: section, skill entries must not use the legacy
+		// 'tools:' key (the canonical key is 'allowed-tools:'). Agents are allowed
+		// to keep 'tools:' — we check only within the skills: block.
+		if idx := strings.Index(out, "\nskills:"); idx != -1 {
+			skillsBlock := out[idx:]
+			// Find the next top-level section (line starting with a non-space char after skills:).
+			// Any 'tools:' inside the skills block is the legacy key.
+			require.NotContains(t, skillsBlock, "\n  allowed-tools: ", "internal check: template %q uses old key", id)
+			// Confirm no 'tools:' appears as a skill-level field (indented under a skill entry).
+			// Skill entries are indented by 4 spaces; agent 'tools:' is at 4-space indent too
+			// but appears before the skills: section. After splitting at skills:, any '    tools:'
+			// would belong to a skill entry.
+			require.NotContains(t, skillsBlock, "\n    tools:", "template %q has legacy 'tools:' inside a skill entry", id)
+		}
+	}
+}
+
 func TestRenderTemplate_CanonicalFieldOrdering(t *testing.T) {
 	content, err := Render("rest-api", "my-api", "sonnet")
 	require.NoError(t, err)
