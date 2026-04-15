@@ -25,7 +25,7 @@ type projectMarshalDoc struct {
 	Homepage     string             `yaml:"homepage,omitempty"`
 	Repository   string             `yaml:"repository,omitempty"`
 	License      string             `yaml:"license,omitempty"`
-	BackupDir    string             `yaml:"backup_dir,omitempty"`
+	BackupDir    string             `yaml:"backup-dir,omitempty"`
 	Targets      []string           `yaml:"targets,omitempty"`
 	AgentRefs    []string           `yaml:"agents,omitempty"`
 	SkillRefs    []string           `yaml:"skills,omitempty"`
@@ -300,7 +300,7 @@ type projectSplitDoc struct {
 	Homepage     string   `yaml:"homepage,omitempty"`
 	Repository   string   `yaml:"repository,omitempty"`
 	License      string   `yaml:"license,omitempty"`
-	BackupDir    string   `yaml:"backup_dir,omitempty"`
+	BackupDir    string   `yaml:"backup-dir,omitempty"`
 	Targets      []string `yaml:"targets,omitempty"`
 	AgentRefs    []string `yaml:"agents,omitempty"`
 	SkillRefs    []string `yaml:"skills,omitempty"`

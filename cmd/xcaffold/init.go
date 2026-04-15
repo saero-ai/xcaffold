@@ -445,7 +445,7 @@ func buildXCFContent(ans wizardAnswers) string {
 	sb.WriteString(fmt.Sprintf(`
 # Optional: Configure the 'xcaffold test' simulator.
 # test:
-#   cli_path: %q   # Path to CLI binary. Defaults to '%s' on $PATH.
+#   cli-path: %q   # Path to CLI binary. Defaults to '%s' on $PATH.
 #   judge-model: %q # Model used for --judge evaluation.
 `, binary, binary, model))
 
