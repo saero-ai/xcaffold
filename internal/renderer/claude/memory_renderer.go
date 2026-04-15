@@ -138,20 +138,38 @@ func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseD
 		lifecycle = memoryLifecycleSeedOnce
 	}
 
+	// Issue 1: path-safety — reject names that could escape the target directory.
+	if strings.ContainsAny(name, "/\\") {
+		return nil, fmt.Errorf("memory %q: entry name must not contain path separators", name)
+	}
+	if name == ".." || strings.Contains(name, "..") {
+		return nil, fmt.Errorf("memory %q: entry name must not contain traversal sequences", name)
+	}
+	if filepath.IsAbs(name) {
+		return nil, fmt.Errorf("memory %q: entry name must not be absolute", name)
+	}
+
 	targetPath := filepath.Join(r.targetDir, name+".md")
 	exists, err := fileExists(targetPath)
 	if err != nil {
 		return nil, fmt.Errorf("memory %q: stat target: %w", name, err)
 	}
 
+	// Issue 4: reject unknown lifecycle values rather than silently treating them as seed-once.
+	switch lifecycle {
+	case "", memoryLifecycleSeedOnce:
+		lifecycle = memoryLifecycleSeedOnce
+	case memoryLifecycleTracked:
+		// ok
+	default:
+		return nil, fmt.Errorf("memory %q: unknown lifecycle %q (expected seed-once or tracked)", name, entry.Lifecycle)
+	}
+
 	switch lifecycle {
 	case memoryLifecycleSeedOnce:
 		return r.applySeedOnce(name, targetPath, content, newHash, lifecycle, exists)
-	case memoryLifecycleTracked:
+	default: // memoryLifecycleTracked
 		return r.applyTracked(name, targetPath, content, newHash, lifecycle, exists, priorHashes)
-	default:
-		// Unknown lifecycle — treat as seed-once to fail safe.
-		return r.applySeedOnce(name, targetPath, content, newHash, memoryLifecycleSeedOnce, exists)
 	}
 }
 
@@ -159,10 +177,11 @@ func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseD
 // reseed is enabled. A FidelityNote is emitted for the no-op case.
 func (r *MemoryRenderer) applySeedOnce(name, targetPath, content, newHash, lifecycle string, exists bool) ([]renderer.FidelityNote, error) {
 	if !exists || r.reseed {
-		if err := r.writeEntry(name, targetPath, content, newHash, lifecycle); err != nil {
+		notes, err := r.writeEntry(name, targetPath, content, newHash, lifecycle)
+		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+		return notes, nil
 	}
 
 	return []renderer.FidelityNote{renderer.NewNote(
@@ -182,19 +201,21 @@ func (r *MemoryRenderer) applySeedOnce(name, targetPath, content, newHash, lifec
 // error is returned.
 func (r *MemoryRenderer) applyTracked(name, targetPath, content, newHash, lifecycle string, exists bool, priorHashes map[string]string) ([]renderer.FidelityNote, error) {
 	if !exists {
-		if err := r.writeEntry(name, targetPath, content, newHash, lifecycle); err != nil {
+		notes, err := r.writeEntry(name, targetPath, content, newHash, lifecycle)
+		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+		return notes, nil
 	}
 
 	prior, hasPrior := priorHashes[name]
 	if !hasPrior {
 		// First tracked apply — adopt the existing file as the new seed baseline.
-		if err := r.writeEntry(name, targetPath, content, newHash, lifecycle); err != nil {
+		notes, err := r.writeEntry(name, targetPath, content, newHash, lifecycle)
+		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+		return notes, nil
 	}
 
 	onDisk, err := hashFile(targetPath)
@@ -204,18 +225,20 @@ func (r *MemoryRenderer) applyTracked(name, targetPath, content, newHash, lifecy
 
 	if onDisk == prior {
 		// No drift — xcf is authoritative, write the new content.
-		if err := r.writeEntry(name, targetPath, content, newHash, lifecycle); err != nil {
+		notes, err := r.writeEntry(name, targetPath, content, newHash, lifecycle)
+		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+		return notes, nil
 	}
 
 	// Drift detected.
 	if r.reseed {
-		if err := r.writeEntry(name, targetPath, content, newHash, lifecycle); err != nil {
+		notes, err := r.writeEntry(name, targetPath, content, newHash, lifecycle)
+		if err != nil {
 			return nil, err
 		}
-		return nil, nil
+		return notes, nil
 	}
 
 	return nil, fmt.Errorf(
@@ -224,19 +247,20 @@ func (r *MemoryRenderer) applyTracked(name, targetPath, content, newHash, lifecy
 	)
 }
 
-// writeEntry persists the memory file, appends it to the MEMORY.md index, and
-// records a MemorySeed for the lock manifest.
-func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash, lifecycle string) error {
+// writeEntry persists the memory file, records a MemorySeed for the lock
+// manifest, then appends the entry to the MEMORY.md index. The seed is recorded
+// before the index update so that drift detection is never compromised by an
+// index-append failure. A failed index update is downgraded to a warning note.
+func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash, lifecycle string) ([]renderer.FidelityNote, error) {
 	if err := os.MkdirAll(r.targetDir, 0o755); err != nil {
-		return fmt.Errorf("memory %q: create target dir: %w", name, err)
+		return nil, fmt.Errorf("memory %q: create target dir: %w", name, err)
 	}
 	if err := os.WriteFile(targetPath, []byte(content), 0o600); err != nil {
-		return fmt.Errorf("memory %q: write file: %w", name, err)
-	}
-	if err := appendMemoryIndex(r.targetDir, name); err != nil {
-		return fmt.Errorf("memory %q: update index: %w", name, err)
+		return nil, fmt.Errorf("memory %q: write file: %w", name, err)
 	}
 
+	// Issue 2: record seed immediately after successful write so drift detection
+	// is not affected by a subsequent index-append failure.
 	r.seeds = append(r.seeds, MemorySeed{
 		Name:      name,
 		Target:    "claude",
@@ -245,7 +269,21 @@ func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash, lifecycl
 		SeededAt:  time.Now().UTC().Format(time.RFC3339),
 		Lifecycle: lifecycle,
 	})
-	return nil
+
+	var notes []renderer.FidelityNote
+	if err := appendMemoryIndex(r.targetDir, name); err != nil {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning,
+			"claude",
+			"memory",
+			name,
+			"",
+			"MEMORY_INDEX_UPDATE_FAILED",
+			fmt.Sprintf("failed to update MEMORY.md index: %v", err),
+			"MEMORY.md index is advisory; drift detection unaffected",
+		))
+	}
+	return notes, nil
 }
 
 // resolveMemoryBody returns the effective body content for a memory entry.
@@ -259,15 +297,19 @@ func resolveMemoryBody(entry ast.MemoryConfig, baseDir string) (string, error) {
 		return "", nil
 	}
 
-	// Reject absolute paths or traversal escaping baseDir.
+	// Issue 3: reject absolute paths or any traversal that escapes baseDir.
+	// filepath.Clean + filepath.Rel is the only correct escape check because
+	// HasPrefix("..") false-matches names like "..config" and misses nested
+	// traversal like "sub/../../etc/passwd".
 	if filepath.IsAbs(entry.InstructionsFile) {
 		return "", fmt.Errorf("instructions-file %q must be relative", entry.InstructionsFile)
 	}
 	cleaned := filepath.Clean(entry.InstructionsFile)
-	if strings.HasPrefix(cleaned, "..") {
-		return "", fmt.Errorf("instructions-file %q traverses above the project root", entry.InstructionsFile)
-	}
 	abs := filepath.Join(baseDir, cleaned)
+	rel, relErr := filepath.Rel(baseDir, abs)
+	if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("memory %q: instructions-file %q escapes base dir", entry.Name, entry.InstructionsFile)
+	}
 	data, err := os.ReadFile(abs)
 	if err != nil {
 		return "", fmt.Errorf("read instructions-file: %w", err)
@@ -284,7 +326,10 @@ func renderMemoryMarkdown(entry ast.MemoryConfig, body string) string {
 		fmt.Fprintf(&sb, "type: %s\n", entry.Type)
 	}
 	if entry.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", entry.Description)
+		// Issue 5: use %q (Go double-quoted scalar) which is a valid YAML
+		// double-quoted string, safely escaping colons, newlines, and other
+		// YAML-special characters.
+		fmt.Fprintf(&sb, "description: %q\n", entry.Description)
 	}
 	sb.WriteString("---\n\n")
 	sb.WriteString(strings.TrimRight(body, "\n"))

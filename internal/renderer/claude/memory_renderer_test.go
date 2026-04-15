@@ -3,10 +3,12 @@ package claude
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestCompileMemory_SeedOnce_FileAbsent(t *testing.T) {
@@ -187,7 +189,7 @@ func TestCompileMemory_FrontmatterFormat(t *testing.T) {
 	content := string(data)
 	require.Contains(t, content, "---")
 	require.Contains(t, content, "type: user")
-	require.Contains(t, content, "description: Developer role.")
+	require.Contains(t, content, `description: "Developer role."`)
 	require.Contains(t, content, "Robert is the founder.")
 }
 
@@ -214,4 +216,95 @@ func TestCompileMemory_MemoryIndexAppend(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(data), "## xcaffold seeds")
 	require.Contains(t, string(data), "user-role")
+}
+
+func TestCompileMemory_EntryNameWithSlash_Rejected(t *testing.T) {
+	dir := t.TempDir()
+	r := NewMemoryRenderer(dir)
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"bad/name": {
+					Name:         "bad/name",
+					Instructions: "some content",
+				},
+			},
+		},
+	}
+
+	_, _, err := r.Compile(config, dir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must not contain path separators")
+}
+
+func TestCompileMemory_InstructionsFileTraversal_Rejected(t *testing.T) {
+	dir := t.TempDir()
+	r := NewMemoryRenderer(dir)
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"traversal": {
+					Name:             "traversal",
+					InstructionsFile: "../../etc/passwd",
+				},
+			},
+		},
+	}
+
+	_, _, err := r.Compile(config, dir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "escapes base dir")
+}
+
+func TestCompileMemory_UnknownLifecycle_Rejected(t *testing.T) {
+	dir := t.TempDir()
+	r := NewMemoryRenderer(dir)
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"bad-lifecycle": {
+					Name:         "bad-lifecycle",
+					Lifecycle:    "weird",
+					Instructions: "some content",
+				},
+			},
+		},
+	}
+
+	_, _, err := r.Compile(config, dir)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown lifecycle")
+}
+
+func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
+	dir := t.TempDir()
+	r := NewMemoryRenderer(dir)
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"colon-desc": {
+					Name:         "colon-desc",
+					Type:         "user",
+					Description:  "has: a colon",
+					Instructions: "Some body text.",
+				},
+			},
+		},
+	}
+
+	_, _, err := r.Compile(config, dir)
+	require.NoError(t, err)
+
+	data, readErr := os.ReadFile(filepath.Join(dir, "colon-desc.md"))
+	require.NoError(t, readErr)
+	content := string(data)
+	require.Contains(t, content, `description: "has: a colon"`)
+
+	// Extract the YAML frontmatter block (between the two "---" delimiters)
+	// and verify it parses correctly.
+	parts := strings.SplitN(content, "---", 3)
+	require.Len(t, parts, 3, "expected two --- delimiters in output")
+	var parsed map[string]interface{}
+	require.NoError(t, yaml.Unmarshal([]byte(parts[1]), &parsed))
+	require.Equal(t, "has: a colon", parsed["description"])
 }
