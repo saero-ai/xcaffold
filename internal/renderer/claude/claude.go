@@ -147,7 +147,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	// Emit one file per scope.
 	for _, scope := range p.InstructionsScopes {
 		content := resolveScopeContent(scope, "claude", baseDir)
-		files[scope.Path+"/CLAUDE.md"] = content
+		files[filepath.Clean(scope.Path+"/CLAUDE.md")] = content
 	}
 	return nil // concat-nested: zero fidelity notes
 }

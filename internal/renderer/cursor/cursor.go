@@ -193,10 +193,11 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 
 	for _, scope := range p.InstructionsScopes {
 		scopeContent := cursorResolveScopeContent(scope, targetName, baseDir)
+		safePath := filepath.Clean(scope.Path + "/AGENTS.md")
 
 		if scope.MergeStrategy == "concat" {
 			// Pre-flatten: child AGENTS.md = root content + scope content.
-			files[scope.Path+"/AGENTS.md"] = rootContent + "\n\n" + scopeContent
+			files[safePath] = rootContent + "\n\n" + scopeContent
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning,
 				targetName,
@@ -209,7 +210,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 			))
 		} else {
 			// closest-wins or flat: child AGENTS.md = scope content only.
-			files[scope.Path+"/AGENTS.md"] = scopeContent
+			files[safePath] = scopeContent
 		}
 	}
 

@@ -927,6 +927,36 @@ instructions-scopes:
 	require.Contains(t, err.Error(), "merge-strategy")
 }
 
+func TestParse_ProjectInstructions_ScopePathTraversalRejected(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+	}{
+		{"parent-traversal", "../escape"},
+		{"embedded-traversal", "packages/../../etc"},
+		{"absolute-path", "/etc/passwd"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			yaml := fmt.Sprintf(`
+kind: project
+version: "1.0"
+name: test
+instructions-scopes:
+  - path: %s
+    instructions-file: xcf/instructions/scopes/test.md
+    merge-strategy: concat
+`, tc.path)
+			tmp := t.TempDir()
+			p := filepath.Join(tmp, "scaffold.xcf")
+			require.NoError(t, os.WriteFile(p, []byte(yaml), 0o600))
+			_, err := ParseFile(p)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "path traversal and absolute paths are not allowed")
+		})
+	}
+}
+
 func TestParse_ProjectInstructions_ValidConfig(t *testing.T) {
 	yaml := `
 kind: project

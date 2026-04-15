@@ -1396,6 +1396,16 @@ func validateProjectInstructions(p *ast.ProjectConfig) error {
 	// Validate each InstructionsScope entry.
 	seenScopePaths := map[string]bool{}
 	for i, scope := range p.InstructionsScopes {
+		// Path-traversal guard: scope.Path becomes part of a renderer output
+		// directory (e.g. "<scope.Path>/CLAUDE.md"). A "../" segment would let
+		// the renderer write outside the project root.
+		if scope.Path == "" {
+			return fmt.Errorf("project %q: instructions-scope[%d]: path is required", p.Name, i)
+		}
+		cleanedScopePath := filepath.Clean(scope.Path)
+		if strings.HasPrefix(cleanedScopePath, "..") || strings.Contains(cleanedScopePath, "/../") || filepath.IsAbs(cleanedScopePath) {
+			return fmt.Errorf("project %q: instructions-scope[%d] path %q: path traversal and absolute paths are not allowed", p.Name, i, scope.Path)
+		}
 		// Mutual exclusivity on scope.
 		if scope.Instructions != "" && scope.InstructionsFile != "" {
 			return fmt.Errorf("project %q: instructions-scope[%d] path %q: instructions and instructions-file are mutually exclusive", p.Name, i, scope.Path)
