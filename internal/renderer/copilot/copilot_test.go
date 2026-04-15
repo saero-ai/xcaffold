@@ -45,7 +45,7 @@ func TestCompileCopilotRule_Activation_PathGlob(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files[".github/instructions/api-style.instructions.md"]
-	require.Contains(t, content, "applyTo: src/api/**, packages/api/**")
+	require.Contains(t, content, `applyTo: "src/api/**, packages/api/**"`)
 }
 
 func TestCompileCopilotRule_ExcludeAgents_Single(t *testing.T) {

@@ -5,7 +5,7 @@
 // Key normalizations applied during compilation:
 //   - Output path: .github/instructions/<id>.instructions.md
 //   - activation: always → applyTo: "**"
-//   - activation: path-glob → applyTo: <comma-joined paths>
+//   - activation: path-glob → applyTo: "<comma-joined paths>"
 //   - activation: manual-mention / model-decided / explicit-invoke → applyTo: "**" + FidelityNote
 //   - exclude-agents → excludeAgent: <list> (Copilot singular key name)
 package copilot
@@ -81,7 +81,7 @@ func compileCopilotRule(id string, rule ast.RuleConfig) (string, []renderer.Fide
 		applyTo = `"**"`
 	case ast.RuleActivationPathGlob:
 		if len(rule.Paths) > 0 {
-			applyTo = strings.Join(rule.Paths, ", ")
+			applyTo = fmt.Sprintf("%q", strings.Join(rule.Paths, ", "))
 		} else {
 			applyTo = `"**"`
 		}
