@@ -130,11 +130,12 @@ Compiles `scaffold.xcf` (or a directory of `.xcf` files) into a target platform'
 | `claude` | `.claude/` |
 | `cursor` | `.cursor/` |
 | `antigravity` | `.agents/` |
-| `agentsmd` | `.agents/` |
+| `copilot` | `.github/` |
+| `gemini` | `.gemini/` |
 
 | Flag | Default | Description |
 |---|---|---|
-| `--target <target>` | `claude` | Compilation target. One of: `claude`, `cursor`, `antigravity`, `agentsmd`. |
+| `--target <target>` | `claude` | Compilation target. One of: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`. |
 | `--dry-run` | `false` | Preview changes as a colored unified diff without writing any files. |
 | `--check` | `false` | Validate YAML syntax and cross-references only. Does not compile. Returns non-zero exit code if any errors are found. |
 | `--check-permissions` | `false` | Report security fields that will be dropped for the active `--target`. Exits non-zero if contradictions are found (e.g., a tool in `permissions.deny` also appears in an agent's `tools` list). |
@@ -165,7 +166,7 @@ Exits non-zero with a count of drifted files if any drift is found.
 
 | Flag | Default | Description |
 |---|---|---|
-| `--target <target>` | `""` (defaults to `claude`) | Target lock file to inspect. One of: `claude`, `cursor`, `antigravity`. |
+| `--target <target>` | `""` (defaults to `claude`) | Target lock file to inspect. One of: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`. |
 
 ---
 
@@ -212,7 +213,7 @@ Compiles `scaffold.xcf` and packages the output as a distributable plugin direct
 |---|---|---|
 | `--output <path>` | — | **Required.** Destination directory for the exported plugin. |
 | `--format <fmt>` | `plugin` | Export format. Only `plugin` is currently supported. |
-| `--target <target>` | `""` (defaults to `claude`) | Compilation target for the export. |
+| `--target <target>` | `""` (defaults to `claude`) | Compilation target for the export. One of: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`. |
 
 ---
 

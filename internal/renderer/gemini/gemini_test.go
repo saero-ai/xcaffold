@@ -215,6 +215,82 @@ func TestCompile_Gemini_PathTraversal(t *testing.T) {
 	}
 }
 
+func intPtr(i int) *int { return &i }
+
+func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "agent-body.md"), []byte("Agent system prompt."), 0o644))
+
+	r := New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:                "full-parity-test",
+			Instructions:        "Root project instructions.",
+			InstructionsImports: []string{"./docs/contributing.md"},
+			InstructionsScopes: []ast.InstructionsScope{
+				{Path: "packages/api", Instructions: "API scope."},
+			},
+		},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"code-style": {Description: "Style rules.", Instructions: "Use gofmt."},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {Name: "tdd", Description: "TDD workflow.", Instructions: "Test first."},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"helper": {
+					Name: "helper", Description: "Helper agent.",
+					Tools: []string{"read_file"}, Model: "gemini-3-flash-preview",
+					InstructionsFile: "agent-body.md",
+				},
+			},
+			Hooks: ast.HookConfig{
+				"PreToolExecution": {
+					{Matcher: "write_file", Hooks: []ast.HookHandler{
+						{Type: "command", Command: "./hooks/check.sh", Timeout: intPtr(5000)},
+					}},
+				},
+			},
+			MCP: map[string]ast.MCPConfig{
+				"github": {Command: "docker", Args: []string{"run", "-i", "ghcr.io/github/github-mcp-server"}},
+			},
+		},
+	}
+
+	out, notes, err := r.Compile(config, tmpDir)
+	require.NoError(t, err)
+
+	// Instructions
+	assert.Contains(t, out.Files, "GEMINI.md")
+	assert.Contains(t, out.Files["GEMINI.md"], "Root project instructions.")
+	assert.Contains(t, out.Files["GEMINI.md"], "@./docs/contributing.md")
+	assert.Contains(t, out.Files, "packages/api/GEMINI.md")
+
+	// Rules
+	assert.Contains(t, out.Files, ".gemini/rules/code-style.md")
+	assert.Contains(t, out.Files["GEMINI.md"], "@.gemini/rules/code-style.md")
+
+	// Skills
+	assert.Contains(t, out.Files, ".gemini/skills/tdd/SKILL.md")
+	assert.Contains(t, out.Files[".gemini/skills/tdd/SKILL.md"], "name: tdd")
+
+	// Agents
+	assert.Contains(t, out.Files, ".gemini/agents/helper.md")
+	assert.Contains(t, out.Files[".gemini/agents/helper.md"], "name: helper")
+	assert.Contains(t, out.Files[".gemini/agents/helper.md"], "Agent system prompt.")
+
+	// Settings (hooks + MCP)
+	assert.Contains(t, out.Files, ".gemini/settings.json")
+	settingsJSON := out.Files[".gemini/settings.json"]
+	assert.Contains(t, settingsJSON, "BeforeTool")
+	assert.Contains(t, settingsJSON, "github")
+
+	// Should have zero fidelity notes for this supported config
+	// (no unsupported fields used)
+	assert.Empty(t, notes, "full-parity config with only supported fields should produce zero fidelity notes")
+}
+
 func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{

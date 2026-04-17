@@ -5,7 +5,7 @@ description: "How the AST enables the same configuration to compile to different
 
 # Multi-Target Rendering
 
-A single `.xcf` file describes your agent configuration once. xcaffold compiles that description into whichever native format a target AI platform expects — `.claude/` for one runtime, `.cursor/` for another, `.agents/` for a third, or a portable `AGENTS.md` for any runtime that reads the community-standard format. The same source, different outputs, without editing the configuration between runs.
+A single `.xcf` file describes your agent configuration once. xcaffold compiles that description into whichever native format a target AI platform expects — `.claude/` for Claude Code, `.cursor/` for Cursor, `.agents/` for Antigravity, `.github/` for GitHub Copilot, or `.gemini/` for Gemini CLI. The same source, different outputs, without editing the configuration between runs.
 
 This works because xcaffold treats configuration as data and delegates all format concerns to per-target renderers.
 
@@ -33,15 +33,21 @@ The consequence: a rule defined as `paths: ["src/**/*.ts"]` with a Markdown body
 
 The fidelity warnings are not errors. Compilation always succeeds; warnings inform you that a configuration concept present in the source had no representation in the target format and was silently dropped.
 
-## The Portable Baseline: agentsmd
+## The Five-Target Architecture
 
-The `agentsmd` target produces `AGENTS.md` files at the repository root (and, for path-scoped rules, in the appropriate subdirectory). It is the only target whose `OutputDir()` returns `"."` rather than a hidden directory (`internal/renderer/agentsmd/agentsmd.go:33`).
+xcaffold ships five renderers, each targeting a distinct platform:
 
-The format is intentionally minimal. Each resource type — agents, skills, rules, workflows — becomes a Markdown section headed by `##`. Individual resources become `###` subsections. No YAML frontmatter appears in the output. The goal is plain prose that any AI runtime capable of reading a Markdown file can ingest without knowing anything about xcaffold's internal conventions.
+| Target | Output directory | Format |
+|---|---|---|
+| `claude` | `.claude/` | YAML-frontmatter Markdown agents, `settings.json`, `mcp.json` |
+| `cursor` | `.cursor/` | YAML-frontmatter Markdown agents, `.mdc` rules, `mcp.json` |
+| `antigravity` | `.agents/` | Plain Markdown workflow definitions, `mcp_config.json` |
+| `copilot` | `.github/` | GitHub Copilot instructions and prompt files |
+| `gemini` | `.gemini/` | YAML-frontmatter Markdown agents, `rules/*.md`, `settings.json` |
 
-Because `agentsmd` is the most permissive in terms of readability and the most restrictive in terms of structured metadata, it serves as a lowest-common-denominator format for cross-platform distribution. A configuration that compiles cleanly to `agentsmd` is guaranteed to be readable by any tool that accepts the community `AGENTS.md` convention.
+Each renderer is an independent implementation of the `TargetRenderer` interface. Renderers differ in which fields they support, how they name output files, and how they serialize MCP and hook configuration. A field that is fully supported in `claude` may be silently dropped in `gemini` with a fidelity warning. A field with no equivalent in any target is still parsed and stored in the AST — it is simply not emitted.
 
-The tradeoff is fidelity. Fields that depend on platform-specific semantics — tool lists, permission modes, hook commands, MCP server declarations, sandbox constraints — have no `AGENTS.md` equivalent and are dropped. The renderer emits a warning for each dropped field via `warnLossyAgent`, `warnLossySkill`, and `warnLossyRule` (`internal/renderer/agentsmd/agentsmd.go:346–430`).
+The `gemini` target writes project-level instructions to `GEMINI.md` at the repository root, using Gemini's native `@`-import syntax to reference rule files stored under `.gemini/rules/`. Agent system prompts are written to `.gemini/agents/<id>.md` with YAML frontmatter. Hooks and MCP servers are serialized to `.gemini/settings.json`.
 
 ## Target-Determined Output Directories
 
@@ -56,7 +62,8 @@ func OutputDir(target string) string {
     case TargetClaude:      return claude.New().OutputDir()      // ".claude"
     case TargetCursor:      return cursor.New().OutputDir()      // ".cursor"
     case TargetAntigravity: return antigravity.New().OutputDir() // ".agents"
-    case TargetAgentsMD:    return agentsmd.New().OutputDir()    // "."
+    case TargetCopilot:     return copilot.New().OutputDir()     // ".github"
+    case TargetGemini:      return gemini.New().OutputDir()      // ".gemini"
     default:                return ".claude"
     }
 }
@@ -64,9 +71,9 @@ func OutputDir(target string) string {
 
 When no `--target` flag is provided, the empty string defaults to `TargetClaude` before the switch is evaluated. This is the only place in the compiler where a default target is assumed.
 
-Each renderer's `OutputDir()` method owns the answer. The compiler calls the method; it does not hardcode the path. This means adding a new renderer for a new target requires only implementing `TargetRenderer` and registering it — no changes to the compiler's dispatch logic or to any path-resolution logic outside the new renderer.
+Each renderer's `OutputDir()` method owns the answer. The compiler calls the method; it does not hardcode the path. Adding a new renderer for a new target requires only implementing `TargetRenderer` and registering it — no changes to the compiler's dispatch logic or to any path-resolution logic outside the new renderer.
 
-When the target is `"cursor"`, every file path in the output `map[string]string` is interpreted relative to `.cursor/`. When the target is `"agentsmd"`, paths are relative to the project root. The file map structure is identical in both cases; only the base directory differs.
+When the target is `"cursor"`, every file path in the output `map[string]string` is interpreted relative to `.cursor/`. When the target is `"gemini"`, paths are relative to `.gemini/`. The file map structure is identical in both cases; only the base directory differs.
 
 ## MCP Shorthand and Settings Merge
 

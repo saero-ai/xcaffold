@@ -29,7 +29,7 @@ Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct.
 | `skip_synthesis` | `*bool` | Parsed, not compiled |
 | `instructions_override` | `string` | Parsed, not compiled |
 
-Valid target keys are: `claude`, `cursor`, `antigravity`, `agentsmd`.
+Valid target keys are: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`.
 
 ## `suppress_fidelity_warnings`
 
@@ -162,6 +162,7 @@ When the `targets:` block is fully compiled, it will enable the following patter
 | `claude` | `.claude/` | Claude Code agent files (YAML frontmatter + Markdown) |
 | `cursor` | `.cursor/` | Cursor agent rules (YAML frontmatter + Markdown) |
 | `antigravity` | `.agents/` | Antigravity workflow definitions (plain Markdown) |
-| `agentsmd` | `.` | Flat `AGENTS.md` file at the project root |
+| `copilot` | `.github/` | GitHub Copilot instructions and prompt files |
+| `gemini` | `.gemini/` | Gemini CLI agent and rules files |
 
 The default target when `--target` is omitted is `claude`.

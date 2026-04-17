@@ -2,7 +2,7 @@
 
 MCP (Model Context Protocol) servers extend agents with external tools — file systems, databases, APIs, and custom executables. In xcaffold, MCP servers are declared in your `.xcf` file and compiled deterministically into the target platform's configuration on every `xcaffold apply` run.
 
-Four compilation targets are supported: `claude`, `cursor`, `antigravity`, and `agentsmd`. This guide covers `claude` and `cursor` in full, with normalization differences called out explicitly.
+Five compilation targets are supported: `claude`, `cursor`, `antigravity`, `copilot`, and `gemini`. This guide covers `claude` and `cursor` in full, with normalization differences called out explicitly.
 
 ---
 

@@ -4,7 +4,7 @@
 
 > **Note:** Configuration inheritance is **strictly an Xcaffold parser-layer construct**. Target providers (like Claude Code and Cursor) do not natively support cross-project inheritance loops or `extends:` directives. Xcaffold resolves the inheritance graph securely during compilation and physically emits the inherited resources into the local project so the providers can read them seamlessly.
 
-Both mechanisms are target-agnostic: the same inheritance chain produces correct output for `--target claude`, `--target cursor`, `--target antigravity`, and `--target agentsmd`.
+Both mechanisms are target-agnostic: the same inheritance chain produces correct output for `--target claude`, `--target cursor`, `--target antigravity`, `--target copilot`, and `--target gemini`.
 
 ---
 
@@ -120,7 +120,7 @@ Both `instructions-file:` and `references:` enforce the following constraints at
 
 - Absolute paths are rejected for `instructions-file:` — only relative paths are accepted.
 - Any path containing `..` is rejected.
-- Paths that resolve into compiler output directories (`.claude/`, `.cursor/`, `.agents/`, `.antigravity/`) are rejected to prevent circular read-write dependencies.
+- Paths that resolve into compiler output directories (`.claude/`, `.cursor/`, `.agents/`, `.github/`, `.gemini/`) are rejected to prevent circular read-write dependencies.
 - All output paths pass through `filepath.Clean` before being written.
 
 ---
@@ -163,7 +163,7 @@ Run golangci-lint --fix before every commit.
 
 The key normalization: the cursor renderer translates `paths:` to `globs:` in frontmatter. A rule with no `paths:` receives `always-apply: true` instead.
 
-The `antigravity` and `agentsmd` targets follow the same source; their renderers apply their own target-specific normalizations.
+The `antigravity`, `copilot`, and `gemini` targets follow the same source; their renderers apply their own target-specific normalizations.
 
 ---
 

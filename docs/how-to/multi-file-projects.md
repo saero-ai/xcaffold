@@ -264,7 +264,7 @@ Output directory: `.cursor/`
 
 Rules use the `.mdc` extension under the cursor target. MCP servers are written to `mcp.json` rather than embedded in `settings.json`.
 
-Two additional targets exist: `antigravity` (output to `.agents/`) and `agentsmd` (output to the project root). The merge and duplicate-detection logic is identical across all targets; only the output directory structure and file extensions differ.
+Three additional targets exist: `antigravity` (output to `.agents/`), `copilot` (output to `.github/`), and `gemini` (output to `.gemini/`). The merge and duplicate-detection logic is identical across all targets; only the output directory structure and file extensions differ.
 
 ---
 
