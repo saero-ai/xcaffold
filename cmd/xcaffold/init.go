@@ -247,6 +247,7 @@ func detectAllPlatformDirs(dir string) []platformDirInfo {
 		{".claude", "claude"},
 		{".cursor", "cursor"},
 		{".agents", "antigravity"},
+		{".gemini", "gemini"},
 	}
 
 	var results []platformDirInfo

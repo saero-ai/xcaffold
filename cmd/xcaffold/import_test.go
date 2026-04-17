@@ -1124,3 +1124,127 @@ REST conventions only.
 	require.Contains(t, xcfStr, "packages/api",
 		"xcf must contain the reconstructed packages/api scope")
 }
+
+// TestImport_FromGemini_ExtractsRules verifies that rules in .gemini/rules/*.md
+// are imported as RuleConfig entries with inlined instructions.
+func TestImport_FromGemini_ExtractsRules(t *testing.T) {
+	tmp := t.TempDir()
+
+	rulesDir := filepath.Join(tmp, ".gemini", "rules")
+	require.NoError(t, os.MkdirAll(rulesDir, 0755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(rulesDir, "code-style.md"),
+		[]byte("# Code Style\n\nAlways use tabs for indentation."),
+		0o600,
+	))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: make(map[string]ast.RuleConfig),
+		},
+	}
+	count := 0
+	var warnings []string
+
+	require.NoError(t, extractGeminiRules(tmp, config, &count, &warnings))
+
+	rule, ok := config.Rules["code-style"]
+	require.True(t, ok, "expected rule 'code-style' to be present")
+	require.Equal(t, 1, count)
+	require.Empty(t, rule.InstructionsFile, "instructions must be inlined, not file-referenced")
+	require.Contains(t, rule.Instructions, "Always use tabs for indentation.")
+	require.Empty(t, warnings)
+}
+
+// TestImport_FromGemini_ExtractsSkills verifies that .gemini/skills/*/SKILL.md
+// files are imported as SkillConfig entries via the generic extractor.
+func TestImport_FromGemini_ExtractsSkills(t *testing.T) {
+	tmp := t.TempDir()
+
+	skillDir := filepath.Join(tmp, ".gemini", "skills", "tdd")
+	require.NoError(t, os.MkdirAll(skillDir, 0755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(skillDir, "SKILL.md"),
+		[]byte("---\nname: tdd\ndescription: Test-driven development\n---\n\nWrite tests first."),
+		0o600,
+	))
+
+	origWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(origWd)
+	require.NoError(t, os.Chdir(tmp))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: make(map[string]ast.SkillConfig),
+		},
+	}
+	count := 0
+	var warnings []string
+
+	require.NoError(t, extractSkills(".gemini", "project", config, &count, &warnings))
+
+	skill, ok := config.Skills["tdd"]
+	require.True(t, ok, "expected skill 'tdd' to be present")
+	require.Equal(t, 1, count)
+	require.Empty(t, skill.InstructionsFile, "instructions must be inlined")
+	require.Contains(t, skill.Instructions, "Write tests first.")
+	require.Equal(t, "tdd", skill.Name)
+}
+
+// TestImport_FromGemini_ExtractsAgents verifies that .gemini/agents/*.md files
+// are imported as AgentConfig entries via the generic extractor.
+func TestImport_FromGemini_ExtractsAgents(t *testing.T) {
+	tmp := t.TempDir()
+
+	agentsDir := filepath.Join(tmp, ".gemini", "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(agentsDir, "helper.md"),
+		[]byte("---\nname: helper\ndescription: A helpful agent\nmodel: gemini-2.5-flash\n---\n\nHelp the user."),
+		0o600,
+	))
+
+	origWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(origWd)
+	require.NoError(t, os.Chdir(tmp))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: make(map[string]ast.AgentConfig),
+		},
+	}
+	count := 0
+	var warnings []string
+
+	require.NoError(t, extractAgents(".gemini", "project", config, &count, &warnings))
+
+	agent, ok := config.Agents["helper"]
+	require.True(t, ok, "expected agent 'helper' to be present")
+	require.Equal(t, 1, count)
+	require.Empty(t, agent.InstructionsFile, "instructions must be inlined")
+	require.Contains(t, agent.Instructions, "Help the user.")
+	require.Equal(t, "A helpful agent", agent.Description)
+}
+
+// TestImport_FromGemini_ExtractsInstructions verifies that GEMINI.md is
+// discovered by extractProjectInstructions and written to a sidecar.
+func TestImport_FromGemini_ExtractsInstructions(t *testing.T) {
+	tmp := t.TempDir()
+
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, "GEMINI.md"),
+		[]byte("Use Go 1.24. Never panic in library code."),
+		0o600,
+	))
+
+	cfg := &ast.XcaffoldConfig{}
+	require.NoError(t, extractProjectInstructions(tmp, "gemini", cfg))
+
+	require.Equal(t, "xcf/instructions/root.md", cfg.Project.InstructionsFile)
+	sidecar := filepath.Join(tmp, "xcf", "instructions", "root.md")
+	data, err := os.ReadFile(sidecar)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "Use Go 1.24.")
+}

@@ -59,13 +59,14 @@ Cross-Platform Translation Mode (--source):
 Usage:
   $ xcaffold import
   $ xcaffold import --source ./workflows/ --from antigravity
-  $ xcaffold import --source .cursor/rules/ --from cursor --plan`,
+  $ xcaffold import --source .cursor/rules/ --from cursor --plan
+  $ xcaffold import --source .gemini/ --from gemini`,
 	RunE: runImport,
 }
 
 func init() {
 	importCmd.Flags().StringVar(&importSource, "source", "", "File or directory of workflow markdown files to translate")
-	importCmd.Flags().StringVar(&importFromPlatform, "from", "auto", "Source platform of input files (antigravity, cursor, etc.)")
+	importCmd.Flags().StringVar(&importFromPlatform, "from", "auto", "Source platform of input files (antigravity, claude, cursor, gemini, copilot)")
 	importCmd.Flags().BoolVar(&importPlan, "plan", false, "Dry-run: print decomposition plan without writing files")
 	importCmd.Flags().BoolVar(&importWithMemory, "with-memory", false, "Snapshot agent-written memory into xcf/memory/ sidecars")
 	importCmd.Flags().StringVar(&autoMergeFlag, "auto-merge", "", "Merge divergent variants: union")
@@ -266,6 +267,7 @@ func detectAllGlobalPlatformDirs() []platformDirInfo {
 		{".claude", "claude"},
 		{".cursor", "cursor"},
 		{".agents", "antigravity"},
+		{".gemini", "gemini"},
 	}
 
 	var results []platformDirInfo
@@ -494,6 +496,10 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 	switch fromProvider {
 	case "antigravity":
 		if err := extractAntigravityRules(sourceDir, config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+	case "gemini":
+		if err := extractGeminiRules(sourceDir, config, &importCount, &warnings); err != nil {
 			return nil, err
 		}
 	default:
@@ -944,6 +950,44 @@ func extractCopilotRules(dir string, config *ast.XcaffoldConfig, count *int, war
 	return nil
 }
 
+// extractGeminiRules reads .gemini/rules/*.md files and maps them to RuleConfig
+// entries. Frontmatter is stripped if present; the body becomes Instructions.
+// Activation defaults to always since Gemini loads all rules unconditionally.
+func extractGeminiRules(projectDir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	rulesDir := filepath.Join(projectDir, ".gemini", "rules")
+	ruleFiles, _ := filepath.Glob(filepath.Join(rulesDir, "*.md"))
+	for _, f := range ruleFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping gemini rule %s: %v", f, err))
+			continue
+		}
+		id := strings.TrimSuffix(filepath.Base(f), ".md")
+		if id == "" {
+			continue
+		}
+
+		body := extractBodyAfterFrontmatter(data)
+
+		ruleCfg := ast.RuleConfig{Description: "Imported gemini rule"}
+		if fm, ok := extractFrontmatter(data); ok {
+			if unmarshalErr := lenientUnmarshal(fm, &ruleCfg); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
+			ruleCfg.InstructionsFile = ""
+		}
+		ruleCfg.Instructions = body
+
+		if ruleCfg.Activation == "" {
+			ruleCfg.Activation = ast.RuleActivationAlways
+		}
+
+		config.Rules[id] = ruleCfg
+		*count++
+	}
+	return nil
+}
+
 // extractAntigravityRules reads .agents/rules/*.md files and maps Antigravity
 // provenance comments to RuleConfig. If no provenance comments are present,
 // activation defaults to always.
@@ -1175,6 +1219,8 @@ func detectTargets(baseDirs ...string) []string {
 			targetMap["antigravity"] = true
 		case ".cursor":
 			targetMap["cursor"] = true
+		case ".gemini":
+			targetMap["gemini"] = true
 		}
 	}
 	targets := make([]string, 0, len(targetMap))
