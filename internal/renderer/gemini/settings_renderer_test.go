@@ -200,6 +200,71 @@ func TestCompile_Gemini_Settings_EmptyHooksAndMCP(t *testing.T) {
 	assert.False(t, ok, "settings.json must not be emitted when there are no hooks or MCP servers")
 }
 
+// TestCompile_Gemini_Hooks_UnsupportedEvent verifies that a hook on a
+// Claude-specific event (e.g. SubagentStop, PreCompact) emits a
+// CodeFieldUnsupported fidelity note and is NOT written to settings.json.
+func TestCompile_Gemini_Hooks_UnsupportedEvent(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Hooks: ast.HookConfig{
+				"SubagentStop": []ast.HookMatcherGroup{
+					{
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "scripts/cleanup.sh"},
+						},
+					},
+				},
+				"PreCompact": []ast.HookMatcherGroup{
+					{
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "scripts/pre-compact.sh"},
+						},
+					},
+				},
+				// A valid event that should still be emitted.
+				"PreToolExecution": []ast.HookMatcherGroup{
+					{
+						Hooks: []ast.HookHandler{
+							{Type: "command", Command: "scripts/check.sh"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	r := New()
+	out, notes, err := r.Compile(cfg, t.TempDir())
+	require.NoError(t, err)
+
+	// At least two CodeFieldUnsupported notes must be emitted (one per bad event).
+	unsupportedFields := make(map[string]bool)
+	for _, n := range notes {
+		if n.Code == renderer.CodeFieldUnsupported {
+			unsupportedFields[n.Field] = true
+		}
+	}
+	assert.True(t, unsupportedFields["SubagentStop"], "expected CodeFieldUnsupported for SubagentStop")
+	assert.True(t, unsupportedFields["PreCompact"], "expected CodeFieldUnsupported for PreCompact")
+
+	// settings.json must be present (because PreToolExecution is valid).
+	raw, ok := out.Files[".gemini/settings.json"]
+	require.True(t, ok, "expected .gemini/settings.json to be emitted for the valid event")
+
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+
+	hooksSection, ok := parsed["hooks"].(map[string]any)
+	require.True(t, ok, "expected hooks key in settings.json")
+
+	// Valid event must be present.
+	assert.Contains(t, hooksSection, "BeforeTool", "PreToolExecution must map to BeforeTool")
+
+	// Unsupported events must NOT appear in output.
+	assert.NotContains(t, hooksSection, "SubagentStop", "SubagentStop must not appear in settings.json")
+	assert.NotContains(t, hooksSection, "PreCompact", "PreCompact must not appear in settings.json")
+}
+
 // TestCompile_Gemini_Settings_UnsupportedSettingsFields verifies that
 // Claude-specific SettingsConfig fields emit CodeSettingsFieldUnsupported notes.
 func TestCompile_Gemini_Settings_UnsupportedSettingsFields(t *testing.T) {

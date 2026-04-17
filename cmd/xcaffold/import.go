@@ -552,6 +552,93 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 	return config, nil
 }
 
+// geminiToXcaffoldEvent maps Gemini-native hook event names back to xcaffold
+// event names for the import roundtrip.
+var geminiToXcaffoldEvent = map[string]string{
+	"BeforeTool": "PreToolExecution",
+	"AfterTool":  "PostToolExecution",
+}
+
+// importGeminiSettings parses a .gemini/settings.json file and populates MCP
+// servers and hooks in config. Hook event names are mapped from Gemini-native
+// names (BeforeTool, AfterTool) back to xcaffold names (PreToolExecution,
+// PostToolExecution). Gemini-native events with no xcaffold equivalent are
+// preserved under their Gemini name. The hooks JSON shape in .gemini/settings.json
+// is: {"EventName": [{"matcher":"...", "hooks":[{"type":"command","command":"...","timeout":N}]}]}
+func importGeminiSettings(data []byte, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	// Extract MCP servers using the shared helper.
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal(data, &rawMap); err != nil {
+		return err
+	}
+	importMCPServers(rawMap, config, count)
+
+	// Extract hooks from the Gemini-specific structure.
+	hooksRaw, ok := raw["hooks"]
+	if !ok {
+		return nil
+	}
+
+	// Gemini hook shape: map[eventName][]geminiHookEvent
+	// where geminiHookEvent = {matcher: string, hooks: [{type, command, timeout}]}
+	type geminiImportHookEntry struct {
+		Type    string `json:"type"`
+		Command string `json:"command"`
+		Timeout *int   `json:"timeout,omitempty"`
+	}
+	type geminiImportHookEvent struct {
+		Matcher string                  `json:"matcher,omitempty"`
+		Hooks   []geminiImportHookEntry `json:"hooks"`
+	}
+
+	var hooksMap map[string][]geminiImportHookEvent
+	if err := json.Unmarshal(hooksRaw, &hooksMap); err != nil {
+		*warnings = append(*warnings, fmt.Sprintf("gemini settings.json hooks failed to parse: %v", err))
+		return nil
+	}
+
+	if config.Hooks == nil {
+		config.Hooks = make(ast.HookConfig)
+	}
+
+	for geminiEvent, eventGroups := range hooksMap {
+		xcaffoldEvent := geminiEvent
+		if mapped, ok := geminiToXcaffoldEvent[geminiEvent]; ok {
+			xcaffoldEvent = mapped
+		}
+
+		var matcherGroups []ast.HookMatcherGroup
+		for _, eg := range eventGroups {
+			var handlers []ast.HookHandler
+			for _, h := range eg.Hooks {
+				handler := ast.HookHandler{
+					Type:    h.Type,
+					Command: h.Command,
+					Timeout: h.Timeout,
+				}
+				handlers = append(handlers, handler)
+			}
+			if len(handlers) > 0 {
+				matcherGroups = append(matcherGroups, ast.HookMatcherGroup{
+					Matcher: eg.Matcher,
+					Hooks:   handlers,
+				})
+			}
+		}
+		if len(matcherGroups) > 0 {
+			config.Hooks[xcaffoldEvent] = append(config.Hooks[xcaffoldEvent], matcherGroups...)
+			*count++
+		}
+	}
+
+	return nil
+}
+
 // importSettings parses settings.json and populates MCP, rules, and settings.
 func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	var raw map[string]interface{}
@@ -590,6 +677,14 @@ func importMCPServers(raw map[string]interface{}, config *ast.XcaffoldConfig, co
 				for _, a := range argsRaw {
 					if argStr, ok := a.(string); ok {
 						mc.Args = append(mc.Args, argStr)
+					}
+				}
+			}
+			if envRaw, ok := serverMap["env"].(map[string]interface{}); ok {
+				mc.Env = make(map[string]string, len(envRaw))
+				for k, v := range envRaw {
+					if vStr, ok := v.(string); ok {
+						mc.Env[k] = vStr
 					}
 				}
 			}

@@ -1228,6 +1228,81 @@ func TestImport_FromGemini_ExtractsAgents(t *testing.T) {
 	require.Equal(t, "A helpful agent", agent.Description)
 }
 
+// TestImport_FromGemini_ExtractsSettingsHooksAndMCP verifies that hooks and
+// MCP servers in .gemini/settings.json are correctly imported: BeforeTool maps
+// back to PreToolExecution, AfterTool maps back to PostToolExecution, and MCP
+// server entries are extracted into config.MCP.
+func TestImport_FromGemini_ExtractsSettingsHooksAndMCP(t *testing.T) {
+	tmp := t.TempDir()
+
+	geminiDir := filepath.Join(tmp, ".gemini")
+	require.NoError(t, os.MkdirAll(geminiDir, 0755))
+
+	settingsJSON := `{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "write_file|replace",
+        "hooks": [
+          {"type": "command", "command": "scripts/security-check.sh", "timeout": 5000}
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "hooks": [
+          {"type": "command", "command": "scripts/post.sh"}
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "my-server": {
+      "command": "node",
+      "args": ["server.js"],
+      "env": {"API_KEY": "secret"}
+    }
+  }
+}`
+	require.NoError(t, os.WriteFile(filepath.Join(geminiDir, "settings.json"), []byte(settingsJSON), 0o600))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Hooks: make(ast.HookConfig),
+			MCP:   make(map[string]ast.MCPConfig),
+		},
+	}
+	count := 0
+	var warnings []string
+
+	data, err := os.ReadFile(filepath.Join(geminiDir, "settings.json"))
+	require.NoError(t, err)
+	require.NoError(t, importGeminiSettings(data, config, &count, &warnings))
+	require.Empty(t, warnings)
+
+	// Hooks must be mapped back to xcaffold event names.
+	preTool, ok := config.Hooks["PreToolExecution"]
+	require.True(t, ok, "BeforeTool must map to PreToolExecution")
+	require.Len(t, preTool, 1)
+	require.Equal(t, "write_file|replace", preTool[0].Matcher)
+	require.Len(t, preTool[0].Hooks, 1)
+	require.Equal(t, "scripts/security-check.sh", preTool[0].Hooks[0].Command)
+	require.NotNil(t, preTool[0].Hooks[0].Timeout)
+	require.Equal(t, 5000, *preTool[0].Hooks[0].Timeout)
+
+	postTool, ok := config.Hooks["PostToolExecution"]
+	require.True(t, ok, "AfterTool must map to PostToolExecution")
+	require.Len(t, postTool, 1)
+	require.Equal(t, "scripts/post.sh", postTool[0].Hooks[0].Command)
+
+	// MCP server must be extracted.
+	srv, ok := config.MCP["my-server"]
+	require.True(t, ok, "my-server must be present in config.MCP")
+	require.Equal(t, "node", srv.Command)
+	require.Equal(t, []string{"server.js"}, srv.Args)
+	require.Equal(t, "secret", srv.Env["API_KEY"])
+}
+
 // TestImport_FromGemini_ExtractsInstructions verifies that GEMINI.md is
 // discovered by extractProjectInstructions and written to a sidecar.
 func TestImport_FromGemini_ExtractsInstructions(t *testing.T) {

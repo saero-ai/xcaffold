@@ -66,7 +66,8 @@ func compileGeminiSettings(hooks ast.HookConfig, mcp map[string]ast.MCPConfig, s
 	out := map[string]any{}
 
 	if len(hooks) > 0 {
-		hooksSection := compileGeminiHooks(hooks)
+		hooksSection, hookNotes := compileGeminiHooks(hooks)
+		notes = append(notes, hookNotes...)
 		if len(hooksSection) > 0 {
 			out["hooks"] = hooksSection
 		}
@@ -92,15 +93,25 @@ func compileGeminiSettings(hooks ast.HookConfig, mcp map[string]ast.MCPConfig, s
 }
 
 // compileGeminiHooks translates xcaffold HookConfig into Gemini's hooks section.
-// Each xcaffold event name is mapped to its Gemini equivalent. Only "command"
-// type handlers are supported in Gemini; other types are included with best-effort
-// command extraction.
-func compileGeminiHooks(hooks ast.HookConfig) map[string][]geminiHookEvent {
+// Each xcaffold event name is mapped to its Gemini equivalent. Events that have
+// no Gemini equivalent are skipped and a CodeFieldUnsupported fidelity note is
+// returned for each. Only "command" type handlers are supported in Gemini.
+func compileGeminiHooks(hooks ast.HookConfig) (map[string][]geminiHookEvent, []renderer.FidelityNote) {
 	section := map[string][]geminiHookEvent{}
+	var notes []renderer.FidelityNote
 
 	for _, eventName := range sortedKeys(hooks) {
 		groups := hooks[eventName]
-		geminiEvent := mapEventName(eventName)
+		geminiEvent, ok := mapEventName(eventName)
+		if !ok {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "hooks", "hooks", eventName,
+				renderer.CodeFieldUnsupported,
+				fmt.Sprintf("hook event %q has no Gemini CLI equivalent and was dropped", eventName),
+				"Remove this hook or replace it with a Gemini-native event (BeforeTool, AfterTool, SessionStart, etc.)",
+			))
+			continue
+		}
 
 		var entries []geminiHookEvent
 		for _, group := range groups {
@@ -128,7 +139,7 @@ func compileGeminiHooks(hooks ast.HookConfig) map[string][]geminiHookEvent {
 		}
 	}
 
-	return section
+	return section, notes
 }
 
 // compileGeminiMCP converts xcaffold MCP config into Gemini's mcpServers section.
@@ -188,12 +199,16 @@ func detectUnsupportedSettingsFields(settings ast.SettingsConfig) []renderer.Fid
 
 // mapEventName translates an xcaffold hook event name to the Gemini equivalent.
 // Known mappings: PreToolExecution → BeforeTool, PostToolExecution → AfterTool.
-// Native Gemini event names and unknown events pass through unchanged.
-func mapEventName(event string) string {
+// Native Gemini event names pass through unchanged. Unknown events return ("", false)
+// so callers can emit a fidelity note and skip writing the event.
+func mapEventName(event string) (string, bool) {
 	if gemini, ok := xcaffoldToGeminiEvent[event]; ok {
-		return gemini
+		return gemini, true
 	}
-	return event
+	if geminiNativeEvents[event] {
+		return event, true
+	}
+	return "", false
 }
 
 // sortedStringKeys returns a sorted slice of keys from map[string]T.
