@@ -69,6 +69,15 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	agentNotes := r.renderAgents(config, baseDir, out.Files)
 	notes = append(notes, agentNotes...)
 
+	settingsJSON, settingsNotes, err := compileGeminiSettings(config.Hooks, config.MCP, config.Settings)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to compile gemini settings: %w", err)
+	}
+	notes = append(notes, settingsNotes...)
+	if settingsJSON != "" {
+		out.Files[".gemini/settings.json"] = settingsJSON
+	}
+
 	return out, notes, nil
 }
 
