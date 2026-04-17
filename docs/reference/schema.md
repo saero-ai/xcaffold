@@ -450,7 +450,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 >
 > **Antigravity**: Antigravity has **no file-based agent configuration**. Agent behavior is controlled entirely via UI settings and conversation-level mode selection. xcaffold **cannot compile agents for Antigravity** — the target is skipped with a warning.
 >
-> **Gemini**: Agent compilation is not supported in Session 1. Planned for Session 2.
+> **Gemini**: Compiled to `.gemini/agents/<id>.md` with `name` and `description` frontmatter and inline instructions body.
 
 ---
 
@@ -519,7 +519,7 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 >
 > **Antigravity**: Frontmatter fields beyond `name` and `description` are dropped.
 >
-> **Gemini**: Skill compilation is not supported in Session 1. Planned for Session 2.
+> **Gemini**: Compiled to `.gemini/skills/<id>/SKILL.md`. Frontmatter fields beyond `name` and `description` are dropped with a fidelity note.
 
 ---
 
@@ -624,7 +624,7 @@ A single executable hook action.
 >
 > **Antigravity**: Hooks are silently skipped — Antigravity has no native hook system. Logic can be translated via workflows and always-on rules.
 >
-> **Gemini**: Hook compilation is not supported in Session 1. Planned for Session 3.
+> **Gemini**: Hooks are compiled to `.gemini/settings.json` under the `hooks` key. Only `command` handlers are supported; `http` and `agent` handlers are dropped with a fidelity note.
 
 ---
 
@@ -855,14 +855,14 @@ Summary of which resource types compile for each target.
 
 | Resource | Claude | Cursor | Antigravity | Copilot | Gemini |
 |---|---|---|---|---|---|
-| **Agents** | ✅ `agents/<id>.md` | ✅ `agents/<id>.md` | ❌ skipped | ✅ `.github/agents/<id>.md` | ❌ Session 2 |
-| **Skills** | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `.github/skills/<id>/SKILL.md` | ❌ Session 2 |
+| **Agents** | ✅ `agents/<id>.md` | ✅ `agents/<id>.md` | ❌ skipped | ✅ `.github/agents/<id>.md` | ✅ `.gemini/agents/<id>.md` |
+| **Skills** | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `.github/skills/<id>/SKILL.md` | ✅ `.gemini/skills/<id>/SKILL.md` |
 | **Rules** | ✅ `rules/<id>.md` | ✅ `rules/<id>.mdc` | ✅ `rules/<id>.md` | ✅ `AGENTS.md` (appended) | ✅ `.gemini/rules/<id>.md` |
-| **Hooks** | ✅ `settings.json` (or `hooks.json` via plugin export)| ✅ `hooks.json` (flattened) | ❌ skipped | ❌ dropped | ❌ Session 3 |
-| **MCP** | ✅ `mcp.json` | ✅ `mcp.json` | ✅ `mcp_config.json` | ❌ dropped | ❌ Session 3 |
+| **Hooks** | ✅ `settings.json` (or `hooks.json` via plugin export)| ✅ `hooks.json` (flattened) | ❌ skipped | ❌ dropped | ✅ `.gemini/settings.json` |
+| **MCP** | ✅ `mcp.json` | ✅ `mcp.json` | ✅ `mcp_config.json` | ❌ dropped | ✅ `.gemini/settings.json` |
 | **Workflows** | ❌ ignored | ❌ ignored | ✅ `workflows/<id>.md` | ❌ ignored | ❌ ignored |
-| **Settings** | ✅ `settings.json` | ❌ ignored | ❌ ignored | ❌ ignored | ❌ Session 3 |
-| **Local** | ✅ `settings.local.json` (from `project.local:`) | ❌ ignored | ❌ ignored | ❌ ignored | ❌ Session 3 |
+| **Settings** | ✅ `settings.json` | ❌ ignored | ❌ ignored | ❌ ignored | ✅ `.gemini/settings.json` |
+| **Local** | ✅ `settings.local.json` (from `project.local:`) | ❌ ignored | ❌ ignored | ❌ ignored | ❌ ignored |
 | **Instructions** | ✅ `CLAUDE.md` | ✅ `.cursor/rules/` | ❌ N/A | ✅ `AGENTS.md` | ✅ `GEMINI.md` (`@`-import) |
 
 ### Key normalizations by target

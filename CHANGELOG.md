@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Gemini CLI renderer (Session 1)**: `--target gemini` now compiles instructions to `GEMINI.md` (concat-nested with native `@`-import support) and rules to `.gemini/rules/<id>.md` with `@`-import references. Skills, agents, hooks, MCP, and settings will be added in Sessions 2-3.
+- **Gemini CLI renderer**: `--target gemini` compiles all resource kinds to Gemini CLI native format — instructions to `GEMINI.md`, rules to `.gemini/rules/`, skills to `.gemini/skills/`, agents to `.gemini/agents/`, hooks and MCP to `.gemini/settings.json`.
 
 ### Added (FidelityNote Return Surface)
 
