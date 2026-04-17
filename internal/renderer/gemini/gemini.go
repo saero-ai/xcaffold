@@ -49,7 +49,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		notes = append(notes, instrNotes...)
 	}
 
-	ruleNotes, err := r.renderRules(config, out.Files)
+	ruleNotes, err := r.renderRules(config, out.Files, baseDir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -99,7 +99,9 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 // renderRules writes each rule to .gemini/rules/<id>.md and appends @-import
 // lines to GEMINI.md. Rules with unsupported activation modes emit a fidelity note
 // but are still written (Gemini treats all imported rules as always-active).
-func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]string) ([]renderer.FidelityNote, error) {
+// baseDir is used to resolve instructions-file paths on rules; pass "" when no
+// file resolution is needed.
+func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]string, baseDir string) ([]renderer.FidelityNote, error) {
 	if len(config.Rules) == 0 {
 		return nil, nil
 	}
@@ -124,7 +126,7 @@ func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]stri
 			))
 		}
 
-		body := buildRuleBody(rule)
+		body := buildRuleBody(rule, baseDir)
 		rulePath := fmt.Sprintf(".gemini/rules/%s.md", id)
 		safePath := filepath.Clean(rulePath)
 		files[safePath] = body
@@ -143,12 +145,18 @@ func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]stri
 }
 
 // buildRuleBody constructs the markdown content for a rule file.
-func buildRuleBody(rule ast.RuleConfig) string {
+// baseDir is used to resolve instructions-file paths; pass "" when no
+// file resolution is needed.
+func buildRuleBody(rule ast.RuleConfig, baseDir string) string {
 	var sb strings.Builder
 	if rule.Description != "" {
 		fmt.Fprintf(&sb, "# %s\n\n", rule.Description)
 	}
-	body := strings.TrimRight(rule.Instructions, "\n")
+	instructions := rule.Instructions
+	if instructions == "" && rule.InstructionsFile != "" && baseDir != "" {
+		instructions = resolveInstructionsContent("", rule.InstructionsFile, baseDir)
+	}
+	body := strings.TrimRight(instructions, "\n")
 	if body != "" {
 		sb.WriteString(body)
 		sb.WriteString("\n")

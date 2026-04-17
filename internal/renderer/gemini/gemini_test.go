@@ -1,6 +1,8 @@
 package gemini
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -143,4 +145,71 @@ func TestCompile_Gemini_Rules_NoProjectInstructions(t *testing.T) {
 	// No project — no GEMINI.md content except from rules.
 	geminiContent := out.Files["GEMINI.md"]
 	assert.Contains(t, geminiContent, "@.gemini/rules/lint.md")
+}
+
+func TestCompile_Gemini_FullConfig_InstructionsAndRules(t *testing.T) {
+	tmpDir := t.TempDir()
+	err := os.WriteFile(filepath.Join(tmpDir, "style.md"), []byte("Style guide content."), 0o644)
+	require.NoError(t, err)
+
+	r := New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:                "integration-test",
+			Instructions:        "Root project instructions.",
+			InstructionsImports: []string{"./docs/contributing.md"},
+			InstructionsScopes: []ast.InstructionsScope{
+				{
+					Path:         "packages/api",
+					Instructions: "API scope instructions.",
+				},
+			},
+		},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"code-style": {
+					Description:      "Code style.",
+					InstructionsFile: "style.md",
+				},
+				"testing": {
+					Description:  "Testing rules.",
+					Instructions: "Always write tests.",
+				},
+			},
+		},
+	}
+	out, notes, err := r.Compile(config, tmpDir)
+	require.NoError(t, err)
+	assert.Empty(t, notes, "no fidelity notes expected for supported activations")
+
+	root := out.Files["GEMINI.md"]
+	assert.Contains(t, root, "Root project instructions.")
+	assert.Contains(t, root, "@./docs/contributing.md")
+	assert.Contains(t, root, "@.gemini/rules/code-style.md")
+	assert.Contains(t, root, "@.gemini/rules/testing.md")
+
+	assert.Contains(t, out.Files, "packages/api/GEMINI.md")
+	assert.Contains(t, out.Files["packages/api/GEMINI.md"], "API scope instructions.")
+
+	assert.Contains(t, out.Files[".gemini/rules/code-style.md"], "Style guide content.")
+	assert.Contains(t, out.Files[".gemini/rules/testing.md"], "Always write tests.")
+}
+
+func TestCompile_Gemini_PathTraversal(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"../evil": {
+					Description:  "Malicious rule.",
+					Instructions: "Bad content.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "/tmp/test")
+	require.NoError(t, err)
+	for path := range out.Files {
+		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
+	}
 }
