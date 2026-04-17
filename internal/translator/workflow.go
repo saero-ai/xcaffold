@@ -77,8 +77,8 @@ func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive
 		return lowerCustomCommand(wf, name, target)
 	case strategy == "rule-plus-skill":
 		return lowerRulePlusSkill(wf, name, target)
-	case target == "claude", target == "gemini":
-		// Claude and Gemini default to rule-plus-skill when no strategy is set.
+	case target == "claude", target == "gemini", target == "copilot":
+		// Claude, Gemini, and Copilot default to rule-plus-skill when no strategy is set.
 		return lowerRulePlusSkill(wf, name, target)
 	default:
 		note := renderer.NewNote(
