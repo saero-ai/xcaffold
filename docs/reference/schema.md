@@ -436,7 +436,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `targets` | `map[string]TargetOverride` | Optional | Per-target overrides and provider-native pass-through fields. Keys are target names (`claude`, `cursor`, `antigravity`, `agentsmd`). See `TargetOverride` below. |
+| `targets` | `map[string]TargetOverride` | Optional | Per-target overrides and provider-native pass-through fields. Keys are target names (`claude`, `cursor`, `antigravity`, `copilot`, `gemini`). See `TargetOverride` below. |
 
 **Instructions** (always last)
 
@@ -450,7 +450,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 >
 > **Antigravity**: Antigravity has **no file-based agent configuration**. Agent behavior is controlled entirely via UI settings and conversation-level mode selection. xcaffold **cannot compile agents for Antigravity** — the target is skipped with a warning.
 >
-> **AgentsMD**: Only `name`, `description`, `model`, and instruction body are preserved. All other fields emit fidelity warnings and are dropped.
+> **Gemini**: Agent compilation is not supported in Session 1. Planned for Session 2.
 
 ---
 
@@ -519,7 +519,7 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 >
 > **Antigravity**: Frontmatter fields beyond `name` and `description` are dropped.
 >
-> **AgentsMD**: Only instruction bodies and `description` are emitted.
+> **Gemini**: Skill compilation is not supported in Session 1. Planned for Session 2.
 
 ---
 
@@ -540,7 +540,7 @@ Path-gated formatting guideline. Compiled to `rules/<id>.md` (Claude), `rules/<i
 >
 > **Antigravity normalization**: No YAML frontmatter is emitted. `description` becomes a `# heading`. `paths` and `alwaysApply` are dropped — Antigravity handles rule activation via UI. Bodies exceeding 12,000 characters receive a warning comment.
 >
-> **AgentsMD**: Rules with `paths` are grouped into directory-scoped `AGENTS.md` files. `alwaysApply` is dropped.
+> **Gemini**: Rules are compiled to `.gemini/rules/<id>.md`. `paths` and `alwaysApply` are dropped — Gemini CLI activates rules via `@`-import references in `GEMINI.md`.
 
 ---
 
@@ -624,7 +624,7 @@ A single executable hook action.
 >
 > **Antigravity**: Hooks are silently skipped — Antigravity has no native hook system. Logic can be translated via workflows and always-on rules.
 >
-> **AgentsMD**: Hooks are dropped with fidelity warnings.
+> **Gemini**: Hook compilation is not supported in Session 1. Planned for Session 3.
 
 ---
 
@@ -702,7 +702,7 @@ Platform settings compiled to the target's settings file. The `local:` variant w
 
 
 > [!IMPORTANT]
-> **Claude only.** Settings are compiled to `settings.json` and `settings.local.json`. No other target renders settings. Cursor, Antigravity, and AgentsMD silently ignore the entire `settings:` and `local:` blocks.
+> **Claude only.** Settings are compiled to `settings.json` and `settings.local.json`. No other target renders settings. Cursor, Antigravity, Copilot, and Gemini silently ignore the entire `settings:` and `local:` blocks.
 >
 > **Security fields**: `permissions` and `sandbox` emit explicit stderr warnings when compiled for Cursor or Antigravity, since those platforms have no enforcement mechanism. The warnings are: `"settings.permissions dropped — <target> has no permission enforcement"` and `"settings.sandbox dropped — <target> has no sandbox model"`.
 
@@ -800,9 +800,7 @@ Defines a named, reusable workflow. Compiled to `workflows/<id>.md`.
 | `instructions_file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
 
 > [!IMPORTANT]
-> **Antigravity-only.** Workflows are compiled to `workflows/<id>.md` with YAML frontmatter containing only `description`. Claude and Cursor renderers silently ignore all workflow definitions.
->
-> **AgentsMD**: Workflows are emitted under a `## Workflows` section.
+> **Antigravity-only.** Workflows are compiled to `workflows/<id>.md` with YAML frontmatter containing only `description`. All other renderers silently ignore workflow definitions.
 
 ---
 
@@ -855,16 +853,17 @@ Asserts forbidden content does not appear in a resource or its compiled output.
 
 Summary of which resource types compile for each target.
 
-| Resource | Claude | Cursor | Antigravity | AgentsMD |
-|---|---|---|---|---|
-| **Agents** | ✅ `agents/<id>.md` | ✅ `agents/<id>.md` | ❌ skipped | ✅ `## Agents` section |
-| **Skills** | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `## Skills` section |
-| **Rules** | ✅ `rules/<id>.md` | ✅ `rules/<id>.mdc` | ✅ `rules/<id>.md` | ✅ `## Rules` section |
-| **Hooks** | ✅ `settings.json` (or `hooks.json` via plugin export)| ✅ `hooks.json` (flattened) | ❌ skipped | ❌ dropped |
-| **MCP** | ✅ `mcp.json` | ✅ `mcp.json` | ✅ `mcp_config.json` | ❌ dropped |
-| **Workflows** | ❌ ignored | ❌ ignored | ✅ `workflows/<id>.md` | ✅ `## Workflows` section |
-| **Settings** | ✅ `settings.json` | ❌ ignored | ❌ ignored | ❌ ignored |
-| **Local** | ✅ `settings.local.json` (from `project.local:`) | ❌ ignored | ❌ ignored | ❌ ignored |
+| Resource | Claude | Cursor | Antigravity | Copilot | Gemini |
+|---|---|---|---|---|---|
+| **Agents** | ✅ `agents/<id>.md` | ✅ `agents/<id>.md` | ❌ skipped | ✅ `.github/agents/<id>.md` | ❌ Session 2 |
+| **Skills** | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `skills/<id>/SKILL.md` | ✅ `.github/skills/<id>/SKILL.md` | ❌ Session 2 |
+| **Rules** | ✅ `rules/<id>.md` | ✅ `rules/<id>.mdc` | ✅ `rules/<id>.md` | ✅ `AGENTS.md` (appended) | ✅ `.gemini/rules/<id>.md` |
+| **Hooks** | ✅ `settings.json` (or `hooks.json` via plugin export)| ✅ `hooks.json` (flattened) | ❌ skipped | ❌ dropped | ❌ Session 3 |
+| **MCP** | ✅ `mcp.json` | ✅ `mcp.json` | ✅ `mcp_config.json` | ❌ dropped | ❌ Session 3 |
+| **Workflows** | ❌ ignored | ❌ ignored | ✅ `workflows/<id>.md` | ❌ ignored | ❌ ignored |
+| **Settings** | ✅ `settings.json` | ❌ ignored | ❌ ignored | ❌ ignored | ❌ Session 3 |
+| **Local** | ✅ `settings.local.json` (from `project.local:`) | ❌ ignored | ❌ ignored | ❌ ignored | ❌ Session 3 |
+| **Instructions** | ✅ `CLAUDE.md` | ✅ `.cursor/rules/` | ❌ N/A | ✅ `AGENTS.md` | ✅ `GEMINI.md` (`@`-import) |
 
 ### Key normalizations by target
 

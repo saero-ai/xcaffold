@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **agentsmd renderer**: The `--target agentsmd` compilation target has been removed. AGENTS.md is an open standard for project instructions, not a provider. Cursor (`--target cursor`) and Copilot (`--target copilot`) generate AGENTS.md files via their own instruction renderers.
+
+### Added
+
+- **Gemini CLI renderer (Session 1)**: `--target gemini` now compiles instructions to `GEMINI.md` (concat-nested with native `@`-import support) and rules to `.gemini/rules/<id>.md` with `@`-import references. Skills, agents, hooks, MCP, and settings will be added in Sessions 2-3.
+
 ### Added (FidelityNote Return Surface)
 
 - Added `renderer.FidelityNote` struct and `FidelityLevel` (`info` / `warning` / `error`) for structured, machine-readable fidelity reporting (renderer)

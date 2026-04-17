@@ -16,7 +16,8 @@
                                     ──► (claude)       ──►  .claude/
 scaffold.xcf  ──►  xcaffold apply   ──► (cursor)       ──►  .cursor/
                                     ──► (antigravity)  ──►  .agents/
-                                    ──► (agentsmd)     ──►  AGENTS.md
+                                    ──► (copilot)      ──►  .github/
+                                    ──► (gemini)       ──►  .gemini/
 ```
 
 ## Why xcaffold?
