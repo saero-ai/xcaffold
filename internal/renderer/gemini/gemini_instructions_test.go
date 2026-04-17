@@ -96,6 +96,38 @@ func TestCompile_Gemini_Instructions_FromFile(t *testing.T) {
 	assert.Contains(t, content, "File-sourced instructions.")
 }
 
+func TestCompile_Gemini_Instructions_ScopeVariant(t *testing.T) {
+	tmpDir := t.TempDir()
+	variantFile := filepath.Join(tmpDir, "gemini-specific.md")
+	require.NoError(t, os.WriteFile(variantFile, []byte("Gemini-specific scope content.\n"), 0o600))
+
+	r := New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:         "variant-project",
+			Instructions: "default content",
+			InstructionsScopes: []ast.InstructionsScope{
+				{
+					Path:         "packages/backend",
+					Instructions: "default scope instructions",
+					Variants: map[string]ast.InstructionsVariant{
+						"gemini": {
+							InstructionsFile: "gemini-specific.md",
+						},
+					},
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, tmpDir)
+	require.NoError(t, err)
+
+	scopeContent, ok := out.Files["packages/backend/GEMINI.md"]
+	require.True(t, ok, "expected packages/backend/GEMINI.md to be produced")
+	assert.Contains(t, scopeContent, "Gemini-specific scope content.")
+	assert.NotContains(t, scopeContent, "default scope instructions")
+}
+
 func TestCompile_Gemini_Instructions_NoProject(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{}

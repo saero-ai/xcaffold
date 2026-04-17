@@ -256,20 +256,6 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 // Unsupported fields emit fidelity notes.
 func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
 	agents := config.Agents
-	if config.Project != nil && len(config.Project.Agents) > 0 {
-		if agents == nil {
-			agents = config.Project.Agents
-		} else {
-			merged := make(map[string]ast.AgentConfig, len(agents)+len(config.Project.Agents))
-			for k, v := range agents {
-				merged[k] = v
-			}
-			for k, v := range config.Project.Agents {
-				merged[k] = v
-			}
-			agents = merged
-		}
-	}
 	if len(agents) == 0 {
 		return nil
 	}
@@ -369,13 +355,10 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		files[filepath.Clean(filePath)] = sb.String()
 
 		// Fidelity notes for security fields with no Gemini equivalent.
-		hasSecurityDrop := agent.Effort != "" || agent.PermissionMode != "" ||
+		hasSecurityDrop := agent.PermissionMode != "" ||
 			len(agent.DisallowedTools) > 0 || agent.Isolation != ""
 		if hasSecurityDrop {
 			var dropped []string
-			if agent.Effort != "" {
-				dropped = append(dropped, "effort")
-			}
 			if agent.PermissionMode != "" {
 				dropped = append(dropped, "permission-mode")
 			}
@@ -400,6 +383,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			present bool
 		}
 		unsupported := []unsupportedField{
+			{"effort", agent.Effort != ""},
 			{"background", agent.Background != nil},
 			{"color", agent.Color != ""},
 			{"initial-prompt", agent.InitialPrompt != ""},
@@ -452,8 +436,8 @@ func (r *Renderer) lowerWorkflows(config *ast.XcaffoldConfig) (*ast.XcaffoldConf
 
 	var notes []renderer.FidelityNote
 
-	for id, wf := range rs.Workflows {
-		wf := wf // capture
+	for _, id := range sortedKeys(rs.Workflows) {
+		wf := rs.Workflows[id]
 		if wf.Name == "" {
 			wf.Name = id
 		}

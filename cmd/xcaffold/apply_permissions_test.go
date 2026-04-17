@@ -84,6 +84,58 @@ agents:
 	assert.Contains(t, output, "cursor", "warning must reference the cursor target")
 }
 
+// TestApply_CheckPermissions_GeminiTarget_ReportsDroppedFields verifies that
+// --check-permissions --target gemini emits [WARNING] lines for fields that the
+// Gemini renderer drops (effort, permission-mode, isolation), and exits 0.
+func TestApply_CheckPermissions_GeminiTarget_ReportsDroppedFields(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+	xcf := filepath.Join(dir, "scaffold.xcf")
+	content := `---
+kind: project
+version: "1.0"
+name: gemini-check-perm-test
+---
+kind: global
+version: "1.0"
+agents:
+  dev:
+    description: Developer
+    effort: high
+    permission-mode: plan
+    isolation: container
+`
+	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
+
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdout = w
+
+	xcfPath = xcf
+	globalFlag = false
+	applyCheckPermissions = true
+	targetFlag = "gemini"
+	defer func() {
+		applyCheckPermissions = false
+		targetFlag = targetClaude
+	}()
+
+	runErr := runApply(nil, nil)
+
+	w.Close()
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r)
+	r.Close()
+	os.Stdout = old
+
+	assert.NoError(t, runErr, "check-permissions with warnings only must exit 0")
+
+	output := buf.String()
+	assert.Contains(t, output, "[WARNING]", "at least one warning must be emitted")
+	assert.Contains(t, output, "gemini", "warning must reference the gemini target")
+}
+
 // TestApply_CheckPermissions_ContradictionExitsOne verifies that a config with
 // the same rule in both allow and deny causes the parse to fail (via
 // validatePermissions), and the CLI exits non-zero with an appropriate message.

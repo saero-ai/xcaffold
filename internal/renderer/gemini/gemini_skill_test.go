@@ -81,13 +81,14 @@ func TestCompile_Gemini_Skills_UnsupportedFields(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"full-skill": {
-					Name:         "full-skill",
-					Description:  "Skill with all fields.",
-					Instructions: "Do the thing.",
-					AllowedTools: []string{"Read", "Grep"},
-					WhenToUse:    "When reviewing code.",
-					Scripts:      []string{"scripts/run.sh"},
-					Assets:       []string{"assets/template.md"},
+					Name:                   "full-skill",
+					Description:            "Skill with all fields.",
+					Instructions:           "Do the thing.",
+					AllowedTools:           []string{"Read", "Grep"},
+					WhenToUse:              "When reviewing code.",
+					Scripts:                []string{"scripts/run.sh"},
+					Assets:                 []string{"assets/template.md"},
+					DisableModelInvocation: boolPtr(true),
 				},
 			},
 		},
@@ -97,10 +98,13 @@ func TestCompile_Gemini_Skills_UnsupportedFields(t *testing.T) {
 
 	// Should have fidelity notes for unsupported fields
 	codes := make(map[string]bool)
+	fields := make(map[string]bool)
 	for _, n := range notes {
 		codes[n.Code] = true
+		fields[n.Field] = true
 	}
-	assert.True(t, codes[renderer.CodeFieldUnsupported], "expected CodeFieldUnsupported for allowed-tools or when-to-use")
+	assert.True(t, codes[renderer.CodeFieldUnsupported], "expected CodeFieldUnsupported for allowed-tools, when-to-use, or disable-model-invocation")
+	assert.True(t, fields["disable-model-invocation"], "expected fidelity note for disable-model-invocation")
 	assert.True(t, codes[renderer.CodeSkillScriptsDropped], "expected CodeSkillScriptsDropped")
 	assert.True(t, codes[renderer.CodeSkillAssetsDropped], "expected CodeSkillAssetsDropped")
 }
