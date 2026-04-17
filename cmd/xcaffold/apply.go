@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -630,7 +631,13 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
 		}
 
-		for id, agent := range config.Agents {
+		agentIDs := make([]string, 0, len(config.Agents))
+		for id := range config.Agents {
+			agentIDs = append(agentIDs, id)
+		}
+		sort.Strings(agentIDs)
+		for _, id := range agentIDs {
+			agent := config.Agents[id]
 			if agent.Effort != "" {
 				warnings = append(warnings, fmt.Sprintf("%s: agent %q effort %q will be dropped", label, id, agent.Effort))
 			}

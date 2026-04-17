@@ -1403,3 +1403,60 @@ func TestImport_Copilot_Skills(t *testing.T) {
 	require.Equal(t, "Systematic code review skill", skill.Description)
 	require.Empty(t, warnings)
 }
+
+// TestImport_Copilot_Hooks_Roundtrip verifies that hook entries exported with
+// "bash" and "timeoutSec" fields are correctly re-imported into HookHandler
+// with Command and Timeout (milliseconds).
+func TestImport_Copilot_Hooks_Roundtrip(t *testing.T) {
+	dir := t.TempDir()
+	hooksDir := filepath.Join(dir, ".github", "hooks")
+	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
+
+	hookJSON := `{"version":1,"hooks":{"preToolUse":[{"hooks":[{"type":"command","bash":"echo pre","timeoutSec":5}]}]}}`
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "xcaffold-hooks.json"), []byte(hookJSON), 0o644))
+
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Hooks: make(ast.HookConfig),
+			MCP:   make(map[string]ast.MCPConfig),
+		},
+	}
+	var count int
+	var warnings []string
+	err := importCopilotSettings(filepath.Join(dir, ".github"), dir, cfg, &count, &warnings)
+	require.NoError(t, err)
+
+	require.Contains(t, cfg.Hooks, "PreToolUse")
+	handlers := cfg.Hooks["PreToolUse"]
+	require.Len(t, handlers, 1)
+	require.Len(t, handlers[0].Hooks, 1)
+	assert.Equal(t, "echo pre", handlers[0].Hooks[0].Command)
+	require.NotNil(t, handlers[0].Hooks[0].Timeout)
+	assert.Equal(t, 5000, *handlers[0].Hooks[0].Timeout)
+}
+
+// TestImport_Copilot_MCP verifies that .vscode/mcp.json servers are imported
+// into config.MCP without using path traversal.
+func TestImport_Copilot_MCP(t *testing.T) {
+	dir := t.TempDir()
+	vscodeDir := filepath.Join(dir, ".vscode")
+	require.NoError(t, os.MkdirAll(vscodeDir, 0o755))
+
+	mcpJSON := `{"servers":{"test-server":{"command":"node","args":["server.js"],"env":{"KEY":"value"}}}}`
+	require.NoError(t, os.WriteFile(filepath.Join(vscodeDir, "mcp.json"), []byte(mcpJSON), 0o644))
+
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Hooks: make(ast.HookConfig),
+			MCP:   make(map[string]ast.MCPConfig),
+		},
+	}
+	var count int
+	var warnings []string
+	err := importCopilotSettings(filepath.Join(dir, ".github"), dir, cfg, &count, &warnings)
+	require.NoError(t, err)
+
+	require.Contains(t, cfg.MCP, "test-server")
+	assert.Equal(t, "node", cfg.MCP["test-server"].Command)
+	assert.Equal(t, []string{"server.js"}, cfg.MCP["test-server"].Args)
+}

@@ -212,6 +212,8 @@ func providerInstructionsFilename(provider string) string {
 		return "AGENTS.md"
 	case "gemini":
 		return "GEMINI.md"
+	case "copilot":
+		return ".github/copilot-instructions.md"
 	default:
 		return ""
 	}
@@ -538,7 +540,7 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 	// Use provider-specific settings extractor when available.
 	switch fromProvider {
 	case "copilot":
-		if err := importCopilotSettings(sourceDir, config, &importCount, &warnings); err != nil {
+		if err := importCopilotSettings(sourceDir, filepath.Dir(sourceDir), config, &importCount, &warnings); err != nil {
 			warnings = append(warnings, fmt.Sprintf("copilot settings partially imported: %v", err))
 		}
 	default:
@@ -1167,7 +1169,10 @@ func extractCopilotSkills(dir string, config *ast.XcaffoldConfig, count *int, wa
 // config.Hooks and config.MCP. Hook event names are mapped from Copilot-native names
 // back to xcaffold names using copilotToXcaffoldEvent. Unknown events are preserved
 // under their Copilot name.
-func importCopilotSettings(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+//
+// dir is the .github directory. projectRoot is the root of the project (parent of .github),
+// used to locate .vscode/mcp.json without path traversal.
+func importCopilotSettings(dir string, projectRoot string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	// Parse hooks from .github/hooks/*.json
 	hookFiles, _ := filepath.Glob(filepath.Join(dir, "hooks", "*.json"))
 	for _, hookFile := range hookFiles {
@@ -1178,9 +1183,9 @@ func importCopilotSettings(dir string, config *ast.XcaffoldConfig, count *int, w
 		}
 
 		type copilotHookEntry struct {
-			Type    string `json:"type"`
-			Command string `json:"command"`
-			Timeout *int   `json:"timeout,omitempty"`
+			Type       string `json:"type"`
+			Bash       string `json:"bash"`
+			TimeoutSec *int   `json:"timeoutSec,omitempty"`
 		}
 		type copilotHookEventShape struct {
 			Matcher string             `json:"matcher,omitempty"`
@@ -1211,8 +1216,11 @@ func importCopilotSettings(dir string, config *ast.XcaffoldConfig, count *int, w
 				for _, h := range eg.Hooks {
 					handler := ast.HookHandler{
 						Type:    h.Type,
-						Command: h.Command,
-						Timeout: h.Timeout,
+						Command: h.Bash,
+					}
+					if h.TimeoutSec != nil {
+						ms := *h.TimeoutSec * 1000
+						handler.Timeout = &ms
 					}
 					handlers = append(handlers, handler)
 				}
@@ -1231,8 +1239,7 @@ func importCopilotSettings(dir string, config *ast.XcaffoldConfig, count *int, w
 	}
 
 	// Parse MCP servers from .vscode/mcp.json
-	mcpPath := filepath.Join(dir, "..", ".vscode", "mcp.json")
-	mcpPath = filepath.Clean(mcpPath)
+	mcpPath := filepath.Join(projectRoot, ".vscode", "mcp.json")
 	if data, err := os.ReadFile(mcpPath); err == nil {
 		var mcpFile struct {
 			Servers map[string]struct {
