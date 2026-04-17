@@ -14,6 +14,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 )
 
 const targetName = "gemini"
@@ -54,6 +55,9 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		return nil, nil, err
 	}
 	notes = append(notes, ruleNotes...)
+
+	skillNotes := r.renderSkills(config, baseDir, out.Files)
+	notes = append(notes, skillNotes...)
 
 	return out, notes, nil
 }
@@ -142,6 +146,88 @@ func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]stri
 	}
 
 	return notes, nil
+}
+
+// renderSkills writes each skill to .gemini/skills/<id>/SKILL.md using the
+// agentskills.io format: YAML frontmatter (name + description) + markdown body.
+func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+	if len(config.Skills) == 0 {
+		return nil
+	}
+
+	var notes []renderer.FidelityNote
+
+	for _, id := range sortedKeys(config.Skills) {
+		skill := config.Skills[id]
+
+		body, _ := resolver.ResolveInstructions(
+			skill.Instructions, skill.InstructionsFile,
+			fmt.Sprintf("skills/%s/SKILL.md", id), baseDir,
+		)
+
+		var sb strings.Builder
+		sb.WriteString("---\n")
+		if skill.Name != "" {
+			fmt.Fprintf(&sb, "name: %s\n", skill.Name)
+		}
+		if skill.Description != "" {
+			fmt.Fprintf(&sb, "description: %s\n", skill.Description)
+		}
+		sb.WriteString("---\n")
+
+		if body != "" {
+			sb.WriteString("\n")
+			sb.WriteString(strings.TrimRight(body, "\n"))
+			sb.WriteString("\n")
+		}
+
+		filePath := fmt.Sprintf(".gemini/skills/%s/SKILL.md", id)
+		files[filepath.Clean(filePath)] = sb.String()
+
+		// Emit fidelity notes for unsupported fields.
+		if len(skill.AllowedTools) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "allowed-tools",
+				renderer.CodeFieldUnsupported,
+				"Gemini CLI skills do not support allowed-tools in SKILL.md frontmatter",
+				"Remove allowed-tools or use targets.gemini.provider pass-through",
+			))
+		}
+		if skill.WhenToUse != "" {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "when-to-use",
+				renderer.CodeFieldUnsupported,
+				"Gemini CLI skills do not support when-to-use; use description for trigger guidance",
+				"Move when-to-use content into description",
+			))
+		}
+		if len(skill.Scripts) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "scripts",
+				renderer.CodeSkillScriptsDropped,
+				fmt.Sprintf("skill %q scripts dropped; Gemini does not support skill scripts/ directories", id),
+				"Copy scripts into .gemini/skills/"+id+"/scripts/ manually",
+			))
+		}
+		if len(skill.Assets) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "assets",
+				renderer.CodeSkillAssetsDropped,
+				fmt.Sprintf("skill %q assets dropped; Gemini does not support skill assets/ directories", id),
+				"Copy assets into .gemini/skills/"+id+"/assets/ manually",
+			))
+		}
+		if skill.DisableModelInvocation != nil {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "disable-model-invocation",
+				renderer.CodeFieldUnsupported,
+				"Gemini CLI skills do not support disable-model-invocation",
+				"",
+			))
+		}
+	}
+
+	return notes
 }
 
 // buildRuleBody constructs the markdown content for a rule file.
