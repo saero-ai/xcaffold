@@ -84,6 +84,15 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	skillNotes := r.renderSkills(config, baseDir, out.Files)
 	notes = append(notes, skillNotes...)
 
+	settingsFiles, settingsNotes, err := compileCopilotSettings(config.Hooks, config.MCP, &config.Settings)
+	if err != nil {
+		return nil, nil, fmt.Errorf("copilot: failed to compile settings: %w", err)
+	}
+	notes = append(notes, settingsNotes...)
+	for path, content := range settingsFiles {
+		out.Files[path] = content
+	}
+
 	return out, notes, nil
 }
 
