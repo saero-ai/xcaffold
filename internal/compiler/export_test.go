@@ -31,7 +31,7 @@ func TestExportPlugin_GeneratesManifest(t *testing.T) {
 	compiled, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	exported, err := ExportPlugin(config, compiled)
+	exported, err := ExportPlugin(config, compiled, "")
 	require.NoError(t, err)
 
 	manifestJSON, ok := exported.Files[".claude-plugin/plugin.json"]
@@ -61,7 +61,7 @@ func TestExportPlugin_SkipsSettingsJSON(t *testing.T) {
 	compiled, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	exported, err := ExportPlugin(config, compiled)
+	exported, err := ExportPlugin(config, compiled, "claude")
 	require.NoError(t, err)
 
 	_, hasSettings := exported.Files["settings.json"]
@@ -83,7 +83,7 @@ func TestExportPlugin_RemapsHooks(t *testing.T) {
 	compiled, _, err := Compile(config, "", "")
 	require.NoError(t, err)
 
-	exported, err := ExportPlugin(config, compiled)
+	exported, err := ExportPlugin(config, compiled, "claude")
 	require.NoError(t, err)
 
 	_, hasOldHooks := exported.Files["hooks.json"]
@@ -91,4 +91,77 @@ func TestExportPlugin_RemapsHooks(t *testing.T) {
 
 	_, hasNewHooks := exported.Files["hooks/hooks.json"]
 	assert.True(t, hasNewHooks, "hooks should be at hooks/hooks.json")
+}
+
+// TestExportPlugin_TargetClaude verifies the explicit "claude" target writes
+// the manifest to .claude-plugin/plugin.json.
+func TestExportPlugin_TargetClaude(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "test-plugin", Version: "0.1.0"},
+	}
+
+	compiled, _, err := Compile(config, "", "claude")
+	require.NoError(t, err)
+
+	exported, err := ExportPlugin(config, compiled, "claude")
+	require.NoError(t, err)
+
+	_, ok := exported.Files[".claude-plugin/plugin.json"]
+	assert.True(t, ok, "manifest must be at .claude-plugin/plugin.json for claude target")
+}
+
+// TestExportPlugin_EmptyTargetDefaultsToClaude verifies that an empty target
+// falls back to claude behavior (backwards compatibility).
+func TestExportPlugin_EmptyTargetDefaultsToClaude(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "test-plugin"},
+	}
+
+	compiled, _, err := Compile(config, "", "")
+	require.NoError(t, err)
+
+	exported, err := ExportPlugin(config, compiled, "")
+	require.NoError(t, err)
+
+	_, ok := exported.Files[".claude-plugin/plugin.json"]
+	assert.True(t, ok, "empty target must default to .claude-plugin/plugin.json")
+}
+
+// TestExportPlugin_UnsupportedTarget verifies that targets other than "claude"
+// return a clear error rather than silently producing incorrect output.
+func TestExportPlugin_UnsupportedTarget(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "test-plugin"},
+	}
+
+	compiled, _, err := Compile(config, "", "cursor")
+	require.NoError(t, err)
+
+	_, err = ExportPlugin(config, compiled, "cursor")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cursor")
+	assert.Contains(t, err.Error(), "not supported")
+
+	_, err = ExportPlugin(config, compiled, "antigravity")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "antigravity")
+
+	_, err = ExportPlugin(config, compiled, "copilot")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "copilot")
+}
+
+// TestExportPlugin_UnknownTarget verifies that a completely unknown target
+// returns an error.
+func TestExportPlugin_UnknownTarget(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "test-plugin"},
+	}
+
+	compiled, _, err := Compile(config, "", "")
+	require.NoError(t, err)
+
+	_, err = ExportPlugin(config, compiled, "vscode")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "vscode")
 }

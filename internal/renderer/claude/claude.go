@@ -266,12 +266,9 @@ func appendAgentConfigMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	if agent.PermissionMode != "" {
 		fmt.Fprintf(sb, "permission-mode: %s\n", agent.PermissionMode)
 	}
-	if agent.DisableModelInvocation != nil {
-		fmt.Fprintf(sb, "disable-model-invocation: %t\n", *agent.DisableModelInvocation)
-	}
-	if agent.UserInvocable != nil {
-		fmt.Fprintf(sb, "user-invocable: %t\n", *agent.UserInvocable)
-	}
+	// disable-model-invocation and user-invocable are Copilot-only agent fields.
+	// Claude Code does not support them for agents (they are valid for skills).
+	// Drop silently — no fidelity note needed because these fields have no effect.
 	if agent.Background != nil {
 		fmt.Fprintf(sb, "background: %t\n", *agent.Background)
 	}
@@ -341,6 +338,8 @@ func appendSkillMeta(sb *strings.Builder, skill ast.SkillConfig) {
 	if skill.Description != "" {
 		fmt.Fprintf(sb, "description: %s\n", skill.Description)
 	}
+	// when_to_use uses snake_case (not kebab-case) because Claude Code's native
+	// SKILL.md schema requires this exact field name.
 	if skill.WhenToUse != "" {
 		fmt.Fprintf(sb, "when_to_use: %s\n", skill.WhenToUse)
 	}

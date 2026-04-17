@@ -1,14 +1,20 @@
+---
+title: "Multi-Agent Workspace"
+description: "Configure differentiated agents with distinct permissions, shared rules and skills, and validated output"
+---
+
 # Multi-Agent Workspace
 
 This tutorial walks through configuring a team of differentiated AI agents. You will define two agents with distinct tool permissions, attach shared rules and skills, validate the workspace, visualize the topology, audit security field behavior across targets, and inspect the compiled output.
 
 xcaffold supports two layout styles for multi-agent projects: a single `scaffold.xcf` with multiple `kind:` documents, or a split-file structure with `scaffold.xcf` (kind: project) at the root and individual `.xcf` files under `xcf/`. This tutorial shows both.
 
+**Time to complete:** ~15 minutes
 **Prerequisites:** Completed the Getting Started tutorial. A fresh project directory with no existing `scaffold.xcf`.
 
 ---
 
-## 1. Defining Roles
+## Step 1 — Define agent roles
 
 Before writing any YAML, answer two questions for each agent you need:
 
@@ -50,6 +56,11 @@ Run a quick syntax check:
 
 ```
 $ xcaffold validate
+```
+
+**Expected output:**
+
+```
 syntax and cross-references: ok
 
 validation passed
@@ -57,13 +68,13 @@ validation passed
 
 ---
 
-## 2. Building the Shared Library
+## Step 2 — Build the shared library
 
 Rules and skills are defined alongside agents inside the `project:` block — as sibling maps to `agents:`. They form a shared library that agents reference by ID. They are compiled into separate files under `.claude/rules/` and `.claude/skills/` respectively.
 
 **Rules** enforce behavioral constraints. A rule with `paths:` activates only when the agent reads or writes matching file patterns. A rule with `always-apply: true` is injected regardless of context.
 
-**Skills** are reusable prompt packages. They are compiled to `skills/<id>/SKILL.md` and loaded when an agent invokes them.
+**Skills** are reusable prompt packages. They are compiled to `.claude/skills/<id>/SKILL.md` and loaded when an agent invokes them.
 
 Add the second agent, then define the shared library. Each resource is its own `kind:` document:
 
@@ -188,11 +199,11 @@ skills: ["component-patterns"]
 
 `ParseDirectory` discovers all `.xcf` files recursively, parses each one, and merges the results into a single AST before compilation. The ref lists in the project manifest are informational — the parser uses file discovery, not the ref list, to find resources. However, listing refs explicitly documents the project structure and enables future validation.
 
-See [Split Configurations](../how-to/split-configs.md) for best practices on when and how to split.
+See [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md) for best practices on when and how to split.
 
 ---
 
-## 3. Validating the Workspace
+## Step 3 — Validate the workspace
 
 `xcaffold validate` checks YAML syntax and cross-reference integrity. The `--structural` flag adds a second pass that detects orphan resources, agents without instructions, and agents with `Bash` access but no `PreToolUse` hook.
 
@@ -200,6 +211,11 @@ Run without `--structural` first:
 
 ```
 $ xcaffold validate
+```
+
+**Expected output:**
+
+```
 syntax and cross-references: ok
 
 validation passed
@@ -219,6 +235,11 @@ Run with `--structural`:
 
 ```
 $ xcaffold validate --structural
+```
+
+**Expected output:**
+
+```
 syntax and cross-references: ok
 
 structural warnings:
@@ -242,13 +263,15 @@ The `frontend-dev` agent has `Bash` in its tool list. Once you run `validate --s
 
 ---
 
-## 4. Visualizing the Topology
+## Step 4 — Visualize the topology
 
 `xcaffold graph --full` renders the complete agent topology as an ASCII tree. It shows each agent's model, effort level, allowed tools, blocked tools, and library references.
 
 ```
 $ xcaffold graph --full
 ```
+
+**Expected output:**
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -296,7 +319,7 @@ Use `--format mermaid` or `--format dot` to generate embeddable diagrams for doc
 
 ---
 
-## 5. The Security Permissions Audit
+## Step 5 — Audit security permissions
 
 `xcaffold apply --check-permissions` inspects which security fields your config declares and reports what the target platform will drop. This is a read-only check — no files are written.
 
@@ -307,6 +330,8 @@ The `cursor` target does not have a native concept of disallowed tools. Any `dis
 ```
 $ xcaffold apply --check-permissions --target cursor
 ```
+
+**Expected output:**
 
 ```
 [WARNING] cursor: agent "security-reviewer" disallowed-tools will be dropped — tool restrictions will NOT be enforced
@@ -324,6 +349,8 @@ The key warning for this config is the first one: the `security-reviewer` is dec
 $ xcaffold apply --check-permissions --target claude
 ```
 
+**Expected output:**
+
 ```
 [INFO]    claude: all security fields are supported
 ```
@@ -334,13 +361,15 @@ The `--check-permissions` flag exits `0` when only warnings are present, and non
 
 ---
 
-## 6. The Compiled Output
+## Step 6 — Apply and inspect output
 
 Apply the config to the `claude` target:
 
 ```
 $ xcaffold apply --target claude
 ```
+
+**Expected output:**
 
 ```
   [project] ✓ wrote .claude/agents/frontend-dev.md  (sha256:<hex>)
@@ -389,9 +418,15 @@ The SHA-256 hash on each write line is recorded in `scaffold.claude.lock`. On th
 
 ---
 
+## What You Built
+
+You configured a two-agent workspace with distinct tool permissions, defined shared rules and a skill in a single `scaffold.xcf`, validated structural integrity with `xcaffold validate --structural`, and audited how security fields behave across targets. You compiled the configuration to `.claude/` and verified that each agent file contains only the resources it declared.
+
+---
+
 ## Next Steps
 
-- Add a `PreToolUse` hook to `frontend-dev` to validate Bash commands before execution.
-- Use `xcaffold diff` to preview what would change before applying.
-- Run `xcaffold apply --dry-run` to see a colored unified diff of pending changes without writing to disk.
-- Use `xcaffold graph --format mermaid > topology.md` to embed the topology in your project documentation.
+- **Drift remediation** — detect and restore managed files when compiled output has been modified directly: [Drift Remediation](drift-remediation.md)
+- **Split configurations** — break a large `scaffold.xcf` into per-resource files under `xcf/`: [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md)
+- **Policy enforcement** — add `require` and `deny` constraints that block compilation when violated: [Policy Enforcement](../how-to/policy-enforcement.md)
+- **CLI reference** — full command reference including all flags for `apply`, `diff`, `validate`, and `graph`: [CLI Reference](../reference/cli.md)

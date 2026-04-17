@@ -598,7 +598,7 @@ func TestParsePartial_KindSettings_Basic(t *testing.T) {
 	input := `kind: settings
 version: "1.0"
 model: sonnet
-effortLevel: high
+effort-level: high
 `
 	config, err := parsePartial(strings.NewReader(input))
 	require.NoError(t, err)

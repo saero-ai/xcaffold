@@ -30,6 +30,24 @@ type FidelityNote struct {
 	Mitigation string        `json:"mitigation,omitempty" yaml:"mitigation,omitempty"`
 }
 
+// FilterNotes returns only the notes whose Resource is not in suppressed.
+// When suppressed is nil or empty every note is returned unchanged.
+// Callers that pre-filter after Compile() should pass the map produced by
+// buildSuppressedResourcesMap; printFidelityNotes then receives an already-
+// filtered slice and no longer needs its own suppression check.
+func FilterNotes(notes []FidelityNote, suppressed map[string]bool) []FidelityNote {
+	if len(suppressed) == 0 || len(notes) == 0 {
+		return notes
+	}
+	filtered := make([]FidelityNote, 0, len(notes))
+	for _, n := range notes {
+		if !suppressed[n.Resource] {
+			filtered = append(filtered, n)
+		}
+	}
+	return filtered
+}
+
 // NewNote constructs a FidelityNote from positional arguments to reduce
 // construction boilerplate inside renderer packages.
 func NewNote(level FidelityLevel, target, kind, resource, field, code, reason, mitigation string) FidelityNote {

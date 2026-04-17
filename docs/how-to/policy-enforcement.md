@@ -1,6 +1,16 @@
+---
+title: "Enforcing Project Policies"
+description: "Write constraint policies that block compilation when agents violate organizational rules"
+---
+
 # Enforcing Project Policies
 
-xcaffold evaluates policies during `xcaffold apply` and `xcaffold validate`. Violations with `severity: error` block compilation and prevent `.claude/` from being written. You can write custom policies in `.xcf` files and override or disable any built-in policy by name.
+You need to enforce constraints on compiled agent output — for example, requiring all agents to use approved models or preventing sensitive patterns in generated files. xcaffold evaluates policies during `xcaffold apply` and `xcaffold validate`. Violations with `severity: error` block compilation and prevent `.claude/` from being written. You can write custom policies in `.xcf` files and override or disable any built-in policy by name.
+
+**When to use this:** When you need compile-time enforcement of organizational standards on agent configurations.
+
+**Prerequisites:**
+- Completed [Getting Started](../tutorials/getting-started.md) tutorial
 
 ---
 
@@ -43,20 +53,7 @@ require:
 
 This policy evaluates every agent in the configuration. If an agent's `model` field does not match one of the listed values, the engine emits an error-severity violation.
 
-**Policy schema fields:**
-
-| Field | Type | Purpose |
-|---|---|---|
-| `kind` | `string` | Must be `policy` |
-| `name` | `string` | Unique identifier. Matches against built-in names for overrides |
-| `description` | `string` | Human-readable explanation of the policy's purpose |
-| `severity` | `string` | `error` (blocks apply), `warning` (diagnostic only), or `off` (disabled) |
-| `target` | `string` | Resource type to evaluate: `agent`, `skill`, `output`, or `settings` |
-| `match` | `PolicyMatch` | Optional filter conditions. See [Using Match Conditions](#using-match-conditions-to-filter-resources) |
-| `require` | `[]PolicyRequire` | Field presence and value constraints on matched resources |
-| `deny` | `[]PolicyDeny` | Content and path patterns that must not appear in compiled output |
-
-See `docs/reference/schema.md` for the full field reference including `PolicyRequire` and `PolicyDeny` sub-schemas.
+For the full field reference including `PolicyRequire` and `PolicyDeny` sub-schemas, see [Schema Reference](../reference/schema.md#policy).
 
 ---
 
@@ -193,14 +190,7 @@ require:
       - claude-opus-4-5
 ```
 
-**Match condition fields:**
-
-| Field | Type | Behavior |
-|---|---|---|
-| `has-tool` | `string` | Matches agents whose `tools` list contains this value |
-| `has_field` | `string` | Matches resources where the named field is present and non-empty |
-| `name_matches` | `string` | Glob pattern (`filepath.Match` syntax) tested against the resource ID |
-| `target_includes` | `string` | Matches resources whose target configuration includes this key |
+For the full match condition field reference, see [Schema Reference](../reference/schema.md#policymatch).
 
 All conditions are optional. When multiple conditions are set, a resource must satisfy every condition to be evaluated by the policy.
 
@@ -256,13 +246,7 @@ deny:
 
 This is the same check performed by the built-in `path-safety` policy.
 
-**Deny rule fields:**
-
-| Field | Type | Behavior |
-|---|---|---|
-| `content_contains` | `[]string` | Case-insensitive substring match against file content |
-| `content_matches` | `string` | Go regex pattern tested against file content |
-| `path_contains` | `string` | Substring match against the compiled output file path |
+For the full deny rule field reference, see [Schema Reference](../reference/schema.md#policydeny).
 
 A single `deny` entry can combine `content_contains`, `content_matches`, and `path_contains`. Each check runs independently — any match produces a separate violation.
 
@@ -291,14 +275,57 @@ deny:
       - "sudo"
 ```
 
-**Require rule fields:**
-
-| Field | Type | Behavior |
-|---|---|---|
-| `field` | `string` | Name of the resource field to check |
-| `is-present` | `*bool` | When `true`, the field must exist and be non-empty |
-| `min-length` | `*int` | Minimum character count for the field value |
-| `max_count` | `*int` | Maximum item count for list-type fields (e.g., `tools`) |
-| `one-of` | `[]string` | The field value must be one of the listed strings |
+For the full require rule field reference, see [Schema Reference](../reference/schema.md#policyrequire).
 
 Multiple `require` entries are evaluated independently. A violation is emitted for each failing check.
+
+---
+
+## Verification
+
+After writing your policies, verify they evaluate correctly:
+
+```bash
+xcaffold validate
+```
+
+Expected output when all policies pass:
+
+```
+syntax and cross-references: ok
+policies: ok
+
+validation passed
+```
+
+Expected output when a policy blocks apply:
+
+```
+POLICY VIOLATION [error] require-approved-model
+  agent: backend-dev
+  field "model" value "gpt-4o" is not in approved list [claude-opus-4-5 claude-sonnet-4-5 claude-haiku-3-5]
+
+[my-project] apply blocked: 1 policy error(s) found
+```
+
+Exit code 1 confirms the policy blocked compilation.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Policy not triggering on any agent | `name` in `policies:` list does not match `name` in the policy document | Ensure the name strings match exactly, including case |
+| Override not disabling built-in | The override document is not referenced in `kind: project` `policies:` list | Add the policy name to the `policies:` field in your project manifest |
+| `severity: off` still produces violations | A second policy with the same name exists elsewhere in the scanned files | Search for duplicate `name:` values across all `.xcf` files |
+| `match` conditions not filtering | Unknown field in `match` — `KnownFields` rejects the parse | Check field names against the [Schema Reference](../reference/schema.md#policymatch) |
+
+---
+
+## Related
+
+- [Architecture Overview](../concepts/architecture.md) — how the policy engine fits into the compilation pipeline
+- [Schema Reference: Policy](../reference/schema.md#policy) — full `PolicyConfig`, `PolicyMatch`, `PolicyRequire`, `PolicyDeny` field tables
+- [CLI Reference: xcaffold validate](../reference/cli.md#xcaffold-validate)
+- [CLI Reference: xcaffold apply](../reference/cli.md#xcaffold-apply)

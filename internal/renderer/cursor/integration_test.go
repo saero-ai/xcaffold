@@ -99,13 +99,13 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 	require.True(t, ok, "expected rules/formatting.mdc in output")
 	assert.Contains(t, fmtContent, "globs:")
 	assert.Contains(t, fmtContent, "**/*.go")
-	assert.NotContains(t, fmtContent, "alwaysApply:")
+	assert.NotContains(t, fmtContent, "always-apply:")
 	assert.NotContains(t, fmtContent, "paths:")
 
-	// Rule without paths → alwaysApply: true
+	// Rule without paths → always-apply: true
 	safetyContent, ok := out.Files["rules/global-safety.mdc"]
 	require.True(t, ok, "expected rules/global-safety.mdc in output")
-	assert.Contains(t, safetyContent, "alwaysApply: true")
+	assert.Contains(t, safetyContent, "always-apply: true")
 	assert.NotContains(t, safetyContent, "globs:")
 
 	// Rules must use .mdc extension, not .md
@@ -126,9 +126,9 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 	entry, ok := servers["remote-api"].(map[string]interface{})
 	require.True(t, ok, "remote-api server must be present in mcpServers")
 
-	// url → serverUrl (Normalization Rule 2)
-	assert.Equal(t, "https://mcp.example.com/v1", entry["serverUrl"])
-	assert.Nil(t, entry["url"], "original url field must be absent")
+	// url preserved as-is (Cursor uses "url", not "serverUrl")
+	assert.Equal(t, "https://mcp.example.com/v1", entry["url"])
+	assert.Nil(t, entry["serverUrl"], "serverUrl field must not appear for Cursor")
 	// type must be omitted — Cursor infers transport
 	assert.Nil(t, entry["type"], "type field must be omitted from mcp.json")
 

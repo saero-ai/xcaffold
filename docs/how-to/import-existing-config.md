@@ -1,10 +1,22 @@
-# Import Existing Config
+---
+title: "Importing Existing Configurations"
+description: "Adopt xcaffold on an existing project by importing native agent configuration directories into .xcf files"
+---
 
-`xcaffold import` reads an existing platform configuration directory and generates xcaffold source files from it. This is the fastest way to adopt xcaffold on an existing project without rewriting your agent definitions from scratch.
+# Importing Existing Configurations
+
+You have an existing `.claude/`, `.cursor/`, or `.agents/` directory and want to bring it under xcaffold management without rewriting all your definitions. `xcaffold import` reads an existing platform configuration directory and generates xcaffold source files from it. This is the fastest way to adopt xcaffold on an existing project without rewriting your agent definitions from scratch.
+
+**When to use this:** When you have an existing native agent configuration directory and want to manage it through xcaffold going forward.
+
+**Prerequisites:**
+- Completed [Getting Started](../tutorials/getting-started.md) tutorial
+- An existing `.claude/`, `.cursor/`, or `.agents/` directory in your project
 
 ---
 
 ## What it reads
+
 
 Import auto-detects platform directories (`.claude/`, `.cursor/`, `.agents/`) and scans each one for resources using the same patterns:
 
@@ -12,7 +24,7 @@ Import auto-detects platform directories (`.claude/`, `.cursor/`, `.agents/`) an
 |---|---|
 | Agents | `agents/*.md` |
 | Skills | `skills/*/SKILL.md` |
-| Rules | `rules/*.md`, `rules/*.mdc` |
+| Rules | `rules/*.md`, `rules/*.mdc` (Cursor only) |
 | Workflows | `workflows/*.md` |
 | Settings | `settings.json` (MCP servers, hooks, plugins, effort level) |
 | Hooks | `hooks.json` |
@@ -100,6 +112,13 @@ Output:
   Run 'xcaffold apply' when ready to assume management.
 ```
 
+**Flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `--with-memory` | `false` | Include any agent-written memory files found in the platform directory in the extracted IR. Memory entries are stored in the `memory:` block of the generated `scaffold.xcf`. |
+| `--auto-merge` | `false` | When multiple provider directories are detected, automatically merge without interactive prompts. |
+
 ### Import via init
 
 `xcaffold init` detects existing platform directories and offers to import them:
@@ -180,3 +199,49 @@ Skills may include non-markdown reference files (data files, templates) under `.
 4. Commit `scaffold.xcf`, `xcf/`, and the generated lock file.
 
 The original platform directory (`.claude/`, etc.) is not modified or deleted by import. You can keep it until you verify the compiled output matches, then remove it.
+
+---
+
+## Verification
+
+After import, verify the generated configuration is structurally sound:
+
+```bash
+xcaffold validate
+```
+
+Expected output when the imported config is valid:
+
+```
+syntax and cross-references: ok
+policies: ok
+
+validation passed
+```
+
+Then compile and confirm the output matches your original directory:
+
+```bash
+xcaffold apply --target claude
+```
+
+Inspect the compiled `.claude/` directory and compare it to your original to confirm no definitions were dropped or mangled during import.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Duplicate agent ID error during import | Same agent name exists in `.claude/` and `.cursor/` | Rename one agent before importing, or use `--auto-merge` to keep the version with more content |
+| Agent `description` shows "Imported agent" | Source `.md` file had no `description:` in its frontmatter | Edit the generated `.xcf` file and add a `description:` field |
+| `xcaffold validate` fails after import | Frontmatter fields in the source file used provider-native keys not recognized by xcaffold | Check the error message for the unknown field name and remove or map it in the generated `.xcf` |
+| MCP servers missing from `scaffold.xcf` | Source `settings.json` had no `mcpServers` key | Inspect the source `settings.json` directly and add any missing servers as `kind: mcp` documents manually |
+
+---
+
+## Related
+
+- [Translating Configurations Between Providers](xcaffold-translate.md) — for one-shot cross-provider conversion without creating an xcaffold project
+- [CLI Reference: xcaffold import](../reference/cli.md#xcaffold-import)
+- [Splitting a Project Into Multiple .xcf Files](multi-file-projects.md) — the split-file layout that import generates

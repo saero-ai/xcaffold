@@ -132,6 +132,12 @@ const (
 	// passes to meet target constraints. Semantic equivalence is maintained but
 	// the sequence differs from the source declaration.
 	CodeOptimizerPassReordered = "OPTIMIZER_PASS_REORDERED"
+
+	// CodeMCPGlobalConfigOnly is emitted when MCP servers are declared but the
+	// target only reads MCP configuration from a global user-level path. No
+	// project-local MCP config file is written. The user must configure MCP
+	// servers via the provider UI or by editing the global config file directly.
+	CodeMCPGlobalConfigOnly = "MCP_GLOBAL_CONFIG_ONLY"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -168,5 +174,6 @@ func AllCodes() []string {
 		CodeReconciliationUnionLossy,
 		CodeReconciliationDriftDetected,
 		CodeOptimizerPassReordered,
+		CodeMCPGlobalConfigOnly,
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/spf13/cobra"
 )
 
@@ -88,7 +89,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		if compileErr != nil {
 			fmt.Fprintf(os.Stdout, "\npolicy check skipped: compilation error: %v\n", compileErr)
 		} else {
-			printFidelityNotes(os.Stderr, notes, buildSuppressedResourcesMap(cfg, targetFlag), false)
+			printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag)), false)
 			violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
 			policyErrors := policy.FilterBySeverity(violations, policy.SeverityError)
 			policyWarnings := policy.FilterBySeverity(violations, policy.SeverityWarning)

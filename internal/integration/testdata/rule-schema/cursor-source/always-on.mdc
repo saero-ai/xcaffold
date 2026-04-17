@@ -1,6 +1,6 @@
 ---
 description: Security
-alwaysApply: true
+always-apply: true
 ---
 # Security
 

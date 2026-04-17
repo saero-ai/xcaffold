@@ -298,19 +298,24 @@ func TestCompile_ResolveAttributes_NoRefsPassthrough(t *testing.T) {
 
 // Plan A4: ensure notes emitted by a target renderer are threaded through
 // compiler.Compile's return values.
-func TestCompile_Gemini_Target(t *testing.T) {
-	config := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{Name: "gemini-test"},
+func TestOutputDir_AllTargets(t *testing.T) {
+	tests := []struct {
+		target string
+		want   string
+	}{
+		{"", ".claude"},
+		{"claude", ".claude"},
+		{"cursor", ".cursor"},
+		{"antigravity", ".agents"},
+		{"copilot", ".github/instructions"},
+		{"unknown", ".claude"},
 	}
-	tmpDir := t.TempDir()
-	out, _, err := Compile(config, tmpDir, "gemini")
-	require.NoError(t, err)
-	require.NotNil(t, out)
-}
-
-func TestOutputDir_Gemini(t *testing.T) {
-	dir := OutputDir("gemini")
-	assert.Equal(t, ".gemini", dir)
+	for _, tt := range tests {
+		t.Run(tt.target, func(t *testing.T) {
+			got := OutputDir(tt.target)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {

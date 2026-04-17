@@ -265,6 +265,9 @@ func TestClaudeRenderer_Compile_Agent_ReadonlyFalse_NoToolsSynthesized(t *testin
 }
 
 func TestClaudeRenderer_Compile_Agent_InvocationControl(t *testing.T) {
+	// disable-model-invocation and user-invocable are Copilot-only agent fields.
+	// The Claude renderer must silently drop them — they must not appear in the
+	// emitted agent frontmatter. (These fields ARE valid for Claude skills.)
 	truthy := true
 	falsy := false
 	r := New()
@@ -284,8 +287,10 @@ func TestClaudeRenderer_Compile_Agent_InvocationControl(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["agents/commit.md"]
-	require.Contains(t, content, "disable-model-invocation: true")
-	require.Contains(t, content, "user-invocable: false")
+	require.NotContains(t, content, "disable-model-invocation", "disable-model-invocation is Copilot-only and must be dropped for Claude agents")
+	require.NotContains(t, content, "user-invocable", "user-invocable is Copilot-only and must be dropped for Claude agents")
+	// The description must still be emitted.
+	require.Contains(t, content, "description: Commit workflow agent.")
 }
 
 func TestClaudeRenderer_Compile_Agent_MemoryInGroup6(t *testing.T) {

@@ -95,10 +95,10 @@ permissions:
 	assert.NotContains(t, s, "mcp-servers:")
 }
 
-// TestRewriteLegacyKeys_SettingsInsideGlobal verifies that an inline settings
-// sub-block inside a kind: global document does NOT get its provider
-// wire-format keys rewritten. This is the Issue 5 regression from code review:
-// the flat alias map must not corrupt the settings subtree of a global doc.
+// TestRewriteLegacyKeys_SettingsInsideGlobal verifies that the legacy camelCase
+// mcpServers key inside the settings sub-block of a kind: global document is
+// rewritten to mcp-servers (kebab-case). kind: global is not exempt from
+// rewriting — only standalone kind: settings documents are exempt.
 func TestRewriteLegacyKeys_SettingsInsideGlobal_MCPServersUntouched(t *testing.T) {
 	in := []byte(`kind: global
 version: "1.0"
@@ -112,9 +112,10 @@ agents:
 `)
 	out := rewriteLegacyKeys(in)
 	s := string(out)
-	// mcpServers is NOT in the alias map by design — it must pass through.
-	assert.Contains(t, s, "mcpServers:", "settings.mcpServers must NOT be rewritten")
-	assert.NotContains(t, s, "mcp-servers:")
+	// mcpServers inside a kind: global doc is rewritten to mcp-servers so the
+	// SettingsConfig struct (yaml:"mcp-servers") can parse it correctly.
+	assert.Contains(t, s, "mcp-servers:", "settings.mcpServers inside kind: global must be rewritten to mcp-servers")
+	assert.NotContains(t, s, "mcpServers:")
 }
 
 // TestRewriteLegacyKeys_MultiDocumentMixedKinds verifies a multi-document file

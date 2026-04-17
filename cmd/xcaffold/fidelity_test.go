@@ -9,6 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestPrintFidelityNotes_Suppressed verifies the suppression path: callers
+// pre-filter with renderer.FilterNotes before passing to printFidelityNotes,
+// so printFidelityNotes receives an already-filtered (empty) slice.
 func TestPrintFidelityNotes_Suppressed(t *testing.T) {
 	var buf bytes.Buffer
 
@@ -26,7 +29,8 @@ func TestPrintFidelityNotes_Suppressed(t *testing.T) {
 	}
 
 	suppressed := map[string]bool{"reviewer": true}
-	printed := printFidelityNotes(&buf, notes, suppressed, false)
+	filtered := renderer.FilterNotes(notes, suppressed)
+	printed := printFidelityNotes(&buf, filtered, false)
 	assert.Equal(t, 0, printed, "suppressed note must not be printed")
 	assert.Empty(t, buf.String())
 }
@@ -47,7 +51,7 @@ func TestPrintFidelityNotes_StrictMode_PromotesWarningToError(t *testing.T) {
 		),
 	}
 
-	printed := printFidelityNotes(&buf, notes, nil, true)
+	printed := printFidelityNotes(&buf, notes, true)
 	assert.Equal(t, 1, printed)
 	assert.Contains(t, buf.String(), "ERROR")
 }
@@ -65,7 +69,7 @@ func TestPrintFidelityNotes_WarnMode_DefaultPrefix(t *testing.T) {
 		),
 	}
 
-	printed := printFidelityNotes(&buf, notes, nil, false)
+	printed := printFidelityNotes(&buf, notes, false)
 	assert.Equal(t, 1, printed)
 	assert.Contains(t, buf.String(), "WARNING (cursor):")
 }
@@ -92,4 +96,98 @@ func TestBuildSuppressedResourcesMap_PicksUpAgentOverride(t *testing.T) {
 	got := buildSuppressedResourcesMap(config, "cursor")
 	assert.True(t, got["quiet"])
 	assert.False(t, got["loud"])
+}
+
+func TestBuildSuppressedResourcesMap_PicksUpSkillOverride(t *testing.T) {
+	suppress := true
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"quiet-skill": {
+					Targets: map[string]ast.TargetOverride{
+						"cursor": {SuppressFidelityWarnings: &suppress},
+					},
+				},
+				"loud-skill": {
+					Targets: map[string]ast.TargetOverride{
+						"cursor": {SuppressFidelityWarnings: nil},
+					},
+				},
+			},
+		},
+	}
+
+	got := buildSuppressedResourcesMap(config, "cursor")
+	assert.True(t, got["quiet-skill"])
+	assert.False(t, got["loud-skill"])
+}
+
+func TestBuildSuppressedResourcesMap_PicksUpRuleOverride(t *testing.T) {
+	suppress := true
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"quiet-rule": {
+					Targets: map[string]ast.TargetOverride{
+						"antigravity": {SuppressFidelityWarnings: &suppress},
+					},
+				},
+			},
+		},
+	}
+
+	got := buildSuppressedResourcesMap(config, "antigravity")
+	assert.True(t, got["quiet-rule"])
+}
+
+func TestBuildSuppressedResourcesMap_PicksUpWorkflowOverride(t *testing.T) {
+	suppress := true
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"quiet-wf": {
+					Targets: map[string]ast.TargetOverride{
+						"cursor": {SuppressFidelityWarnings: &suppress},
+					},
+				},
+			},
+		},
+	}
+
+	got := buildSuppressedResourcesMap(config, "cursor")
+	assert.True(t, got["quiet-wf"])
+}
+
+func TestBuildSuppressedResourcesMap_MixedResourceKinds(t *testing.T) {
+	suppress := true
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-a": {
+					Targets: map[string]ast.TargetOverride{
+						"cursor": {SuppressFidelityWarnings: &suppress},
+					},
+				},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"skill-b": {
+					Targets: map[string]ast.TargetOverride{
+						"cursor": {SuppressFidelityWarnings: &suppress},
+					},
+				},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"rule-c": {
+					Targets: map[string]ast.TargetOverride{
+						"cursor": {},
+					},
+				},
+			},
+		},
+	}
+
+	got := buildSuppressedResourcesMap(config, "cursor")
+	assert.True(t, got["agent-a"])
+	assert.True(t, got["skill-b"])
+	assert.False(t, got["rule-c"])
 }

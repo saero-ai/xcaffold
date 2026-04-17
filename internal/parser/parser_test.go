@@ -456,7 +456,7 @@ func TestValidatePlugins_KnownPlugin(t *testing.T) {
 	dir := t.TempDir()
 	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: settings
 version: "1.0"
-enabledPlugins:
+enabled-plugins:
   commit-commands: true
 `)
 	diags := ValidateFile(xcf)
@@ -471,7 +471,7 @@ func TestValidatePlugins_UnknownSettingsPlugin(t *testing.T) {
 	dir := t.TempDir()
 	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: settings
 version: "1.0"
-enabledPlugins:
+enabled-plugins:
   my-custom-plugin: true
 `)
 	diags := ValidateFile(xcf)
@@ -517,7 +517,7 @@ local:
 ---
 kind: settings
 version: "1.0"
-enabledPlugins:
+enabled-plugins:
   alpha-plugin: true
 `)
 	diags := ValidateFile(xcf)

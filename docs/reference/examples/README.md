@@ -1,3 +1,8 @@
+---
+title: "Configuration Examples"
+description: "Standalone .xcf snippet files demonstrating different features and topology patterns"
+---
+
 # Configuration Examples
 
 This directory provides standalone snippet files demonstrating different `.xcf` features and topology patterns.

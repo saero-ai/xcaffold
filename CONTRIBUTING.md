@@ -1,6 +1,6 @@
 # Contributing to xcaffold
 
-First off, thank you for considering contributing to `xcaffold`! It's engineering leaders like you that make `xcaffold` a powerful, deterministic xcaffold ecosystem for everyone.
+Thank you for considering contributing to xcaffold. This guide covers everything you need to get a pull request merged.
 
 ## 1. Getting Started
 
@@ -11,8 +11,8 @@ First off, thank you for considering contributing to `xcaffold`! It's engineerin
 ## 2. Core Architectural Mandates (One-Way Compilation)
 
 When contributing code to the engine, you must adhere strictly to the Deterministic Target architecture.
-- **Single Source of Truth**: The `scaffold.xcf` YAML file is the definitive state object.
-- **No Bi-directional Syncs**: Do NOT introduce synchronization tools. The CLI is a one-way compiler (`.xcf` -> `.claude/` files). Modifications inside `.claude/` are designed to be explicitly overwritten.
+- **Single Source of Truth**: The `scaffold.xcf` file is the definitive state object.
+- **No Bi-directional Syncs**: Do NOT introduce synchronization tools. The CLI is a one-way compiler (`.xcf` → provider-specific output directories). Modifications inside generated files are designed to be explicitly overwritten on re-compilation.
 - **Framework Independence**: The engine must remain native. Do not integrate deep legacy tools directly into the AST generation boundaries.
 
 ## 3. Submission Guidelines
@@ -32,6 +32,18 @@ When adding or updating documentation:
    ---
    title: "Your Title"
    description: "Brief summary"
-         ---
+   ---
    ```
 3. Do NOT add monolithic reference content directly into `README.md`. It must remain a lightweight overview with links pointing to the `docs/` pillars.
+
+## 5. Adding a New Provider Renderer
+
+Adding a target platform is the highest-leverage community contribution. A renderer maps the AST to a target's native file format.
+
+1. Create a new package under `internal/renderer/<target>/`
+2. Implement the `renderer.TargetRenderer` interface (`Render`, `OutputDir`, `LockSuffix`)
+3. Register the renderer in `internal/renderer/registry.go`
+4. Add test fixtures in `internal/renderer/<target>/<target>_test.go`
+5. Run `make test` to verify
+
+See `internal/renderer/claude/` for a reference implementation.

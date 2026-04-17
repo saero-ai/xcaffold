@@ -1,3 +1,8 @@
+---
+title: "CLI Reference"
+description: "Detailed breakdown of every xcaffold command, flag, and exit behavior"
+---
+
 # CLI Reference
 
 Reference for all `xcaffold` commands and flags. Commands are organized by lifecycle phase, then utilities.
@@ -61,6 +66,8 @@ Parses workflow Markdown files from another platform, detects functional intents
 | `--source <path>` | `""` | File or directory of workflow `.md` files to translate. Activates cross-platform translation mode. |
 | `--from <platform>` | `auto` | Source platform format. Values: `antigravity`, `cursor`, `auto`. |
 | `--plan` | `false` | Dry-run: print the decomposition plan without writing any files. |
+| `--with-memory` | `false` | Include memory sections in the extracted IR. |
+| `--auto-merge` | `false` | Automatically merge compatible configurations when multiple provider directories are detected. |
 
 ---
 
@@ -142,6 +149,8 @@ Compiles `scaffold.xcf` (or a directory of `.xcf` files) into a target platform'
 | `--force` | `false` | Overwrite even if drift is detected or sources are unchanged. |
 | `--backup` | `false` | Copy the existing output directory to a timestamped backup before overwriting. Backup directory name: `.<target>_bak_<timestamp>`. Custom location via `project.backup-dir` in `scaffold.xcf`. |
 | `--project <name>` | `""` | Apply to a different project registered in the global registry by name. Resolves the project's path and uses it as the config root. |
+| `--include-memory` | `false` | Snapshot memory seeds from the source and write them to the target provider's memory directory during compilation. |
+| `--reseed` | `false` | Force re-seeding of memory entries marked `lifecycle: seed-once` even if they were already seeded. |
 
 ---
 
@@ -292,3 +301,75 @@ Applies schema version upgrades and layout migrations. Safe to run repeatedly (i
 3. **Project scope migration**: Rewrites flat `instructions-file` paths (e.g., `"developer.md"`) to full reference-in-place paths (e.g., `".claude/agents/developer.md"`). Registers the project. Requires interactive confirmation.
 
 No flags.
+
+---
+
+### `xcaffold translate`
+
+**File:** `cmd/xcaffold/translate.go`
+
+Converts agent configurations between provider formats in a single command without requiring an existing xcaffold project. Runs a three-phase pipeline: **Import** (build xcaffold IR from source), **Compile + Optimize** (render to target format, apply passes), **Apply** (write files to disk or preview).
+
+**Supported providers:** `claude`, `cursor`, `antigravity`, `copilot`, `gemini`
+
+**Fidelity modes:**
+- `strict` — fail on any information loss
+- `warn` — emit fidelity warnings (default)
+- `lossy` — allow information loss silently
+
+**Provider-subdirectory resolution:** When `--source-dir` points to a project root, `resolveScopeDir` automatically descends into the provider's conventional subdirectory (`.claude`, `.cursor`, `.agents`, `.gemini`, `.github`) if it exists.
+
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--from` | — | `string` | `""` | **Required.** Source provider format. |
+| `--to` | — | `string` | `""` | **Required.** Target provider format. |
+| `--source-dir` | — | `string` | `""` | Source directory containing agent configs. Defaults to CWD. |
+| `--output-dir` | — | `string` | `""` | Output directory for translated configs. Defaults to `<baseDir>/<provider-prefix>`. |
+| `--xcf` | — | `string` | `""` | Load xcaffold IR directly from this `.xcf` file, bypassing the import phase. |
+| `--save-xcf` | — | `string` | `""` | Write the imported IR to this path as `scaffold.xcf` YAML before compiling. |
+| `--fidelity` | — | `string` | `"warn"` | Fidelity mode: `strict`, `warn`, or `lossy`. |
+| `--instructions-mode` | — | `string` | `""` | How to handle instructions: `inline`, `file`, or `mixed`. |
+| `--include-memory` | — | `bool` | `false` | Include memory sections in translation. |
+| `--with-memory` | — | `bool` | `false` | Alias for `--include-memory`. |
+| `--scope` | — | `string` | `""` | Scope of translation: `project`, `global`, or `both`. |
+| `--variant` | — | `string` | `""` | Configuration variant to translate. |
+| `--auto-merge` | — | `bool` | `false` | Automatically merge compatible configurations. |
+| `--dry-run` | — | `bool` | `false` | List files that would be written without writing them. |
+| `--diff` | — | `bool` | `false` | Show diff between source and target format. |
+| `--diff-format` | — | `string` | `"unified"` | Diff output format: `unified`, `json`, or `markdown`. |
+| `--diff-only` | — | `bool` | `false` | Only show diff; do not write files. Implies `--diff`. |
+| `--regenerate` | — | `bool` | `false` | Regenerate all metadata during translation. |
+| `--reseed` | — | `bool` | `false` | Reseed deterministic IDs. |
+| `--idempotent-check` | — | `bool` | `false` | Verify translation is idempotent with current on-disk state. Exits non-zero if any file would change. |
+| `--audit-out` | — | `string` | `""` | Write a JSON audit report to this file. Report includes `from`, `to`, fidelity notes, file count, and timestamp. |
+| `--optimize` | — | `[]string` | `nil` | Named optimization pass to apply after compilation (repeatable). See Optimizer Passes below. |
+| `--optimize-target` | — | `string` | `""` | Target optimization metric. |
+
+**Optimizer Passes** (used with `--optimize`):
+
+| Pass name | Description |
+|-----------|-------------|
+| `flatten-scopes` | Flattens nested scope blocks into a single flat structure. Required for `antigravity` and `copilot`. |
+| `inline-imports` | Resolves `@`-import directives by inlining referenced content. Required for `cursor`, `gemini`, `antigravity`, and `copilot`. |
+| `dedupe` | Removes files whose content is identical to a lexicographically earlier key. Emits one info note per dropped file. |
+| `extract-common` | Hoists repeated content blocks into a shared file. Must precede `inline-imports`; optimizer auto-reorders if needed. |
+| `prune-unused` | Removes files not referenced by any agent or rule. |
+| `normalize-paths` | Rewrites output paths to conform to target conventions. |
+| `split-large-rules` | Splits any rules file exceeding the per-target budget into two parts (`<stem>-part-1.md`, `<stem>-part-2.md`). |
+
+**Precedence (Apply phase):** `--dry-run` > `--diff` > `--idempotent-check` > write files.
+
+**Example:**
+```bash
+# Translate Claude config to Cursor
+xcaffold translate --from claude --to cursor
+
+# Strict fidelity, save the intermediate IR
+xcaffold translate --from antigravity --to cursor --fidelity strict --save-xcf ir.xcf
+
+# Preview diff in JSON format without writing
+xcaffold translate --from claude --to cursor --diff --diff-format json
+
+# Write audit report
+xcaffold translate --from claude --to copilot --audit-out audit.json
+```

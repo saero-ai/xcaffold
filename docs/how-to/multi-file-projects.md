@@ -1,30 +1,28 @@
+---
+title: "Splitting a Project Into Multiple .xcf Files"
+description: "Break a monolithic scaffold.xcf into domain-scoped files with automatic merge and duplicate detection"
+---
+
 # Splitting a Project Into Multiple .xcf Files
 
 A single `scaffold.xcf` works well for small projects. As projects grow, a monolithic file becomes difficult to maintain — a large agent roster mixed with MCP server definitions and global rules is hard to review and harder to diff. xcaffold supports splitting a project into multiple `.xcf` files; the parser scans, merges, and validates them as a single configuration.
 
 The recommended split layout uses `scaffold.xcf` (`kind: project`) at the project root and individual resource `.xcf` files under an `xcf/` subdirectory. All xcaffold commands should be run from the directory containing `scaffold.xcf`.
 
+**When to use this:** When a monolithic `scaffold.xcf` exceeds a few hundred lines, or when different team members own distinct resource domains and need isolated files for review and diffing.
+
+**Prerequisites:**
+- Completed [Getting Started](../tutorials/getting-started.md) tutorial
+- An existing `scaffold.xcf` in your project
+
 This how-to covers when and how to split, what merge rules apply per resource type, how duplicate IDs are caught, and what the compiled output looks like for each target.
 
 ---
 
-## When to split
-
-Split when:
-
-- The `scaffold.xcf` file exceeds a few hundred lines and logical domains are clearly distinct.
-- Different team members own different resources (agents vs. MCP servers vs. rules) and want isolated files to review.
-- You want to conditionally include or exclude a domain file during development without commenting out large YAML blocks.
-
-A single file remains correct when the project is small or the overhead of coordinating multiple files outweighs the benefit.
-
----
 
 ## How the scanner works
 
-`FindXCFFiles` performs a **recursive** `filepath.WalkDir` over the project directory. Every file ending in `.xcf` is included, sorted alphabetically. Hidden directories (names beginning with `.`) and `node_modules` are skipped entirely. There is no depth limit.
-
-`ParseDirectory` calls `FindXCFFiles` internally. It parses each file independently and then merges the results. When the CLI detects a `scaffold.xcf` at the project root, it treats that file's parent directory as the config directory and scans the whole tree — including the `xcf/` subdirectory.
+`FindXCFFiles` performs a recursive `filepath.WalkDir` over the project directory. Every file ending in `.xcf` is included, sorted alphabetically. Hidden directories (names beginning with `.`) and `node_modules` are skipped entirely. There is no depth limit. For more detail on the compilation pipeline, see [Architecture Overview](../concepts/architecture.md).
 
 **Naming conventions:**
 
@@ -34,72 +32,90 @@ A single file remains correct when the project is small or the overhead of coord
 
 ---
 
-## Splitting by domain
+## When to use each approach
 
-The recommended layout uses `kind: project` at the root and individual `kind:` documents under `xcf/`:
+| Project size | Recommended layout |
+|---|---|
+| 1-3 agents, few rules | Single `scaffold.xcf` with multi-kind documents |
+| 4+ agents, shared libraries | Split: `scaffold.xcf` + `xcf/` subdirectories |
+| Team-owned resources | Split: each owner edits their own `.xcf` files |
 
-```
-myproject/
-  scaffold.xcf              # kind: project — metadata, targets, ref lists
-  xcf/
-    agents/
-      frontend-dev.xcf      # kind: agent
-      backend-dev.xcf       # kind: agent
-    skills/
-      component-builder.xcf # kind: skill
-      api-design.xcf        # kind: skill
-    rules/
-      code-style.xcf        # kind: rule
-    mcp/
-      filesystem.xcf        # kind: mcp
-    settings.xcf            # kind: settings
-```
+There is no functional difference — both produce identical compiled output. The choice is organizational.
 
-`scaffold.xcf` holds the project manifest with ref lists pointing to child resources:
+---
+
+## Single-file layout
+
+All resources live in one file as `---`-separated YAML documents:
 
 ```yaml
 kind: project
 version: "1.0"
-name: myproject
-description: "Multi-agent development assistant"
+name: my-project
+targets:
+  - claude
+
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "General development agent"
+instructions: |
+  You write clean, maintainable code.
+model: "claude-sonnet-4-6"
+tools: [Bash, Read, Write, Edit, Glob, Grep]
+
+---
+kind: rule
+version: "1.0"
+name: code-style
+always-apply: true
+instructions: "Use 2-space indentation. No semicolons in TypeScript."
+```
+
+---
+
+## Split-file layout
+
+The same project split into files:
+
+```
+my-project/
+  scaffold.xcf              # kind: project
+  xcf/
+    agents/
+      developer.xcf          # kind: agent
+    rules/
+      code-style.xcf         # kind: rule
+```
+
+**`scaffold.xcf`** — the project manifest:
+
+```yaml
+kind: project
+version: "1.0"
+name: my-project
 targets:
   - claude
 agents:
-  - frontend-dev
-  - backend-dev
-skills:
-  - component-builder
-  - api-design
+  - developer
 rules:
   - code-style
-mcp:
-  - filesystem
 ```
 
-Each resource file under `xcf/` is a standalone document with `kind:`, `version:`, and `name:`:
+The `agents:` and `rules:` fields are bare name lists — they reference the `name:` field in each child `.xcf` file. These ref lists are informational; the parser discovers files by scanning the directory tree, not by reading the list. However, listing them explicitly documents the project structure.
 
-**`xcf/agents/frontend-dev.xcf`:**
+**`xcf/agents/developer.xcf`:**
 
 ```yaml
 kind: agent
 version: "1.0"
-name: frontend-dev
-description: "Frontend engineering agent"
-model: claude-sonnet-4-5
-skills:
-  - component-builder
-rules:
-  - code-style
-```
-
-**`xcf/skills/component-builder.xcf`:**
-
-```yaml
-kind: skill
-version: "1.0"
-name: component-builder
-description: "Builds React components"
-instructions-file: skills/component-builder.md
+name: developer
+description: "General development agent"
+instructions: |
+  You write clean, maintainable code.
+model: "claude-sonnet-4-6"
+tools: [Bash, Read, Write, Edit, Glob, Grep]
 ```
 
 **`xcf/rules/code-style.xcf`:**
@@ -108,32 +124,28 @@ instructions-file: skills/component-builder.md
 kind: rule
 version: "1.0"
 name: code-style
-description: "House coding standards"
-instructions-file: rules/code-style.md
+always-apply: true
+instructions: "Use 2-space indentation. No semicolons in TypeScript."
 ```
-
-**`xcf/mcp/filesystem.xcf`:**
-
-```yaml
-kind: mcp
-version: "1.0"
-name: filesystem
-command: npx
-args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]
-```
-
-**`xcf/settings.xcf`:**
-
-```yaml
-kind: settings
-version: "1.0"
-model: claude-opus-4-5
-```
-
-> **Legacy flat layout:** You can also use a flat layout with all `.xcf` files in the project root (e.g., `agents.xcf`, `rules.xcf`). This still works but the `xcf/` subdirectory layout is preferred for clarity.
 
 ---
 
+## Directory conventions
+
+| Path | Contents |
+|---|---|
+| `scaffold.xcf` | `kind: project` manifest — always at project root |
+| `xcf/agents/*.xcf` | `kind: agent` documents |
+| `xcf/skills/*.xcf` | `kind: skill` documents |
+| `xcf/rules/*.xcf` | `kind: rule` documents |
+| `xcf/workflows/*.xcf` | `kind: workflow` documents |
+| `xcf/mcp/*.xcf` | `kind: mcp` documents |
+| `xcf/hooks.xcf` | `kind: hooks` (singleton — one file) |
+| `xcf/settings.xcf` | `kind: settings` (singleton — one file) |
+
+The `xcf/` prefix is a convention, not a requirement. The parser scans recursively from the project root. You could use `configs/agents/dev.xcf` and it would work identically. The `xcf/` convention exists because `xcaffold import` generates it by default.
+
+---
 ## Cross-file references
 
 References between resources in different files resolve correctly. An agent defined in `agents.xcf` can reference a skill defined in `skills.xcf`. The merge step combines all resources into a single unified AST before the compiler runs; by compilation time there is no distinction between resources that came from different files.
@@ -262,9 +274,30 @@ Output directory: `.cursor/`
   mcp.json
 ```
 
-Rules use the `.mdc` extension under the cursor target. MCP servers are written to `mcp.json` rather than embedded in `settings.json`.
+Rule files use the `.mdc` extension under the Cursor target. MCP servers are written to `mcp.json` rather than embedded in `settings.json`.
 
-Three additional targets exist: `antigravity` (output to `.agents/`), `copilot` (output to `.github/`), and `gemini` (output to `.gemini/`). The merge and duplicate-detection logic is identical across all targets; only the output directory structure and file extensions differ.
+**`xcaffold apply --target antigravity`**
+
+Output directory: `.agents/`
+
+```
+.agents/
+  rules/
+    code-style.md
+    project-instructions.md
+  skills/
+    component-builder/
+      SKILL.md
+    api-design/
+      SKILL.md
+  workflows/
+    deploy.md
+  mcp_config.json
+```
+
+Antigravity supports rules, skills, workflows, and MCP servers. Individual rules are written as plain Markdown files (no YAML frontmatter) under `rules/`; project-level instructions are also written to `rules/project-instructions.md` with scope provenance markers. Skills are written with minimal YAML frontmatter (name and description only) in `skills/{id}/SKILL.md`. Workflows output to `workflows/{id}.md`. MCP servers are consolidated into `mcp_config.json`. Agents and hooks are not supported by Antigravity and are silently omitted from the output.
+
+Two additional targets are also supported: `copilot` (output to `.github/`) and `gemini` (output to `.gemini/`). The merge and duplicate-detection logic is identical across all targets; only the output directory structure and file extensions differ.
 
 ---
 
@@ -278,3 +311,52 @@ xcaffold apply --target cursor --config /path/to/myproject
 ```
 
 `--config` accepts either a directory path (scans all `.xcf` files in it) or a path to a single `.xcf` file (uses that file's parent directory as the scan root).
+
+---
+
+## Verification
+
+After splitting, verify the merged configuration compiles without errors:
+
+```bash
+xcaffold validate
+```
+
+Expected output when all files merge cleanly:
+
+```
+syntax and cross-references: ok
+policies: ok
+
+validation passed
+```
+
+Then apply and inspect the output to confirm all resources from all files are present:
+
+```bash
+xcaffold apply --target claude
+ls .claude/agents/
+```
+
+All agent files declared across your split `.xcf` files should appear in the output directory.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `duplicate agent ID "X" found in A.xcf and B.xcf` | Same `name:` declared in two files | Remove one definition or rename the ID in one of the files |
+| `instructions-file` not found after moving a resource file | Path resolves relative to root scan dir, not the `.xcf` file's location | Update the `instructions-file:` path to be relative to the root scan directory |
+| Settings block from one file overwriting another | Two `kind: settings` documents exist; last alphabetically wins | Consolidate all settings into a single `kind: settings` file |
+| New `.xcf` file not picked up by the scanner | File is inside a hidden directory (name starts with `.`) | Move the file to a non-hidden directory or rename the parent |
+
+---
+
+## Related
+
+- [Architecture Overview](../concepts/architecture.md) — how `ParseDirectory` and `FindXCFFiles` work in the compilation pipeline
+- [Schema Reference](../reference/schema.md) — full field tables for each `kind:` document type
+- [CLI Reference: xcaffold diff](../reference/cli.md#xcaffold-diff)
+- [CLI Reference: xcaffold validate](../reference/cli.md#xcaffold-validate)
+- [Import Existing Config](import-existing-config.md) — generate split files from an existing provider directory

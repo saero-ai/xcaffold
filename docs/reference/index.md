@@ -1,3 +1,8 @@
+---
+title: "Reference"
+description: "Exhaustive schema references, CLI flags, and configuration examples for xcaffold"
+---
+
 # Reference
 
 Information-oriented documentation that provides exhaustive, definitive facts about xcaffold's machinery. Use these documents when you need exact schema definitions, flag behaviors, or configuration syntax.
@@ -6,6 +11,7 @@ Information-oriented documentation that provides exhaustive, definitive facts ab
 
 - [Schema Reference](schema.md) — Comprehensive reference of all `.xcf` YAML fields, valid types, and provider-specific normalization behavior.
 - [CLI Reference](cli.md) — Detailed breakdown of every `xcaffold` command, argument, and flag.
+- [Multi-Kind Document Format](multi-kind.md) — Reference for using multiple resource types in a single .xcf file.
 
 ## Examples
 

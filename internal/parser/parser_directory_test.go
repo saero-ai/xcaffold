@@ -305,7 +305,7 @@ model: "sonnet-4"
 `)
 	writeTestXCF(t, dir, "settings.xcf", `kind: settings
 version: "1.0"
-effortLevel: "high"
+effort-level: "high"
 env:
   API_KEY: "test"
 `)

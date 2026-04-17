@@ -1,16 +1,20 @@
-# Running Agent Evaluations with `xcaffold test`
+---
+title: "Running Sandboxed Agent Evaluations"
+description: "Spawn a simulated agent session, record tool call traces, and evaluate behavior with LLM-as-a-Judge"
+---
 
-`xcaffold test` simulates a compiled agent by reading its system prompt from `.claude/agents/<id>.md`, sending a task directly to the LLM API, and recording every tool call the model declares. The trace is then optionally evaluated against plain-English assertions using an LLM-as-a-Judge.
+# Running Sandboxed Agent Evaluations
+
+You want to verify that your agent follows its declared constraints before deploying it — without risking side effects from live tool execution. `xcaffold test` simulates a compiled agent by reading its system prompt from `.claude/agents/<id>.md`, sending a task directly to the LLM API, and recording every tool call the model declares. The trace is then optionally evaluated against plain-English assertions using an LLM-as-a-Judge.
 
 The simulation does not execute tools against the host OS. It captures what the model declares it would do given its system prompt and task — making evaluations safe to run repeatedly in CI or locally without side effects.
 
----
+**When to use this:** When you need to verify agent behavior against declared constraints before applying a compiled configuration to a live environment.
 
-## Prerequisites
-
-- Run `xcaffold apply` before testing — the agent must be compiled to `.claude/agents/` before `xcaffold test` can read its system prompt.
-- Set `ANTHROPIC_API_KEY` or `XCAFFOLD_LLM_API_KEY` in your environment for the simulation run. See [Auth resolution](#auth-resolution).
-- To run the judge (`--judge`), the same API key is used. A local CLI subscription is the fallback if no key is set.
+**Prerequisites:**
+- Completed [Getting Started](../tutorials/getting-started.md) tutorial
+- Run `xcaffold apply` before testing — the agent must be compiled to `.claude/agents/` before `xcaffold test` can read its system prompt
+- Set `ANTHROPIC_API_KEY` or `XCAFFOLD_LLM_API_KEY` in your environment for the simulation run. See [Auth resolution](#auth-resolution)
 
 ---
 
@@ -192,12 +196,48 @@ Haiku is the default because judge evaluation is a structured extraction task �
 
 ---
 
+## Verification
+
+Run a basic simulation to confirm the test pipeline is wired correctly:
+
+```bash
+xcaffold test --agent backend-dev
+```
+
+Expected output when the simulation completes successfully:
+
+```
+=== XCAFFOLD TRACE LOG (3 events) ===
+ [1] 2026-04-10T14:22:01Z -> bash
+ [2] 2026-04-10T14:22:03Z -> read_file
+ [3] 2026-04-10T14:22:05Z -> write_file
+```
+
+The trace file (`trace.jsonl` by default) is created in the current directory. A non-empty trace file with at least one event confirms the simulation ran and recorded tool calls.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `agent file not found: .claude/agents/<id>.md` | `xcaffold apply` has not been run yet | Run `xcaffold apply` first to compile the agent |
+| Empty trace file | Agent declared no tools in `scaffold.xcf` | Add tools to the agent's `tools:` list so the model has something to call |
+| `FAIL` verdicts on all assertions | Assertions describe reasoning or intent, not observable tool calls | Rewrite assertions to reference specific tool names and argument patterns |
+| Auth error during simulation | Neither `XCAFFOLD_LLM_API_KEY` nor `ANTHROPIC_API_KEY` is set | Export one of these environment variables or configure `test.cli_path` for the CLI fallback |
+| Judge returns `PARTIAL` unexpectedly | Task prompt does not exercise the behaviors the assertions check | Set a more targeted `test.task` that forces the agent to invoke the tools your assertions reference |
+
+---
+
 ## Flag reference
 
-| Flag | Short | Default | Description |
-|---|---|---|---|
-| `--agent` | `-a` | (required) | Agent ID to simulate, as defined in `scaffold.xcf` |
-| `--judge` | | `false` | Run LLM-as-a-Judge after simulation |
-| `--output` | `-o` | `trace.jsonl` | Path to write the execution trace |
-| `--cli-path` | | | Path to CLI binary used as judge subscription fallback; overrides `test.cli_path` in `scaffold.xcf` |
-| `--judge-model` | | | Anthropic model for judge; overrides `test.judge-model` in `scaffold.xcf` |
+For all available flags, see [CLI Reference: xcaffold test](../reference/cli.md#xcaffold-test).
+
+---
+
+## Related
+
+- [Architecture Overview](../concepts/architecture.md) — how `xcaffold test` fits into the compilation and evaluation pipeline
+- [CLI Reference: xcaffold test](../reference/cli.md#xcaffold-test) — full flag reference
+- [CLI Reference: xcaffold review](../reference/cli.md#xcaffold-review)
+- [Schema Reference: TestConfig](../reference/schema.md#testconfig) — `test.task`, `test.judge-model`, `test.cli_path` fields

@@ -189,8 +189,8 @@ instructions: |
 	require.NoError(t, err)
 
 	claudeMd := out.Files["agents/round-trip.md"]
-	require.Contains(t, claudeMd, "disable-model-invocation: true")
-	require.Contains(t, claudeMd, "user-invocable: false")
+	require.NotContains(t, claudeMd, "disable-model-invocation", "Copilot-only agent field leaked into Claude output")
+	require.NotContains(t, claudeMd, "user-invocable", "Copilot-only agent field leaked into Claude output")
 	require.NotContains(t, claudeMd, "temperature", "provider-specific gemini field leaked into Claude output")
 	require.NotContains(t, claudeMd, "timeout_mins", "provider-specific gemini field leaked into Claude output")
 	require.NotContains(t, claudeMd, "github-copilot", "provider-specific copilot field leaked into Claude output")

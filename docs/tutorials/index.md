@@ -1,3 +1,8 @@
+---
+title: "Tutorials"
+description: "Learning-oriented, step-by-step guides for xcaffold"
+---
+
 # Tutorials
 
 xcaffold tutorials are learning-oriented, step-by-step guides that take you from zero to a working result. Each tutorial prioritizes a successful first experience over comprehensive coverage — consult the reference documentation once the workflow is familiar.

@@ -142,12 +142,17 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	}
 
 	if len(config.MCP) > 0 {
-		mcpJSON, mcpNotes, err := compileAntigravityMCP(config.MCP)
-		if err != nil {
-			return nil, nil, fmt.Errorf("antigravity: failed to compile mcp servers: %w", err)
-		}
-		out.Files["mcp_config.json"] = mcpJSON
-		notes = append(notes, mcpNotes...)
+		// Antigravity reads MCP configuration exclusively from the global user-level
+		// path (~/.gemini/antigravity/mcp_config.json). A project-local mcp_config.json
+		// is silently ignored by the tool, so writing one would produce a non-functional
+		// file. Emit a note directing the user to configure MCP via the UI or by editing
+		// the global config file directly.
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "settings", "global", "mcp",
+			renderer.CodeMCPGlobalConfigOnly,
+			fmt.Sprintf("%d MCP server(s) declared but not written; Antigravity reads MCP config from ~/.gemini/antigravity/mcp_config.json (global only, not project-local)", len(config.MCP)),
+			"Configure MCP servers via the Antigravity MCP Store UI or edit ~/.gemini/antigravity/mcp_config.json directly",
+		))
 	}
 
 	if config.Project != nil {
@@ -355,7 +360,10 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (str
 		}
 		fmt.Fprintf(&sb, "<!-- xcaffold:paths %s -->\n", string(pathsJSON))
 	default:
-		// ManualMention, ModelDecided, ExplicitInvoke — all map to Manual in AG.
+		// ManualMention, ModelDecided, ExplicitInvoke all map to Manual in
+		// Antigravity. ModelDecided could map to AG's native "Model Decision"
+		// mode, but Manual is the conservative choice until AG's model-decision
+		// semantics are verified to match xcaffold's definition.
 		sb.WriteString("<!-- xcaffold:activation Manual -->\n")
 	}
 
@@ -432,48 +440,6 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 	}
 
 	return sb.String(), nil
-}
-
-// antigravityMCPEntry is the Antigravity-compatible MCP server entry shape.
-type antigravityMCPEntry struct {
-	Command string            `json:"command,omitempty"`
-	Args    []string          `json:"args,omitempty"`
-	Env     map[string]string `json:"env,omitempty"`
-}
-
-// compileAntigravityMCP renders all MCP server configs to a single mcp_config.json file.
-func compileAntigravityMCP(servers map[string]ast.MCPConfig) (string, []renderer.FidelityNote, error) {
-	entries := make(map[string]antigravityMCPEntry, len(servers))
-	var notes []renderer.FidelityNote
-
-	for id, srv := range servers {
-		entries[id] = antigravityMCPEntry{
-			Command: srv.Command,
-			Args:    srv.Args,
-			Env:     srv.Env,
-		}
-
-		for k, v := range srv.Env {
-			if strings.Contains(v, "${") {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "settings", id, "mcp.env",
-					renderer.CodeHookInterpolationRequiresEnvSyntax,
-					fmt.Sprintf("interpolation pattern ${...} in MCP env %q for server %q; Antigravity requires literal strings", k, id),
-					"Resolve interpolation before compilation or supply literal environment values",
-				))
-			}
-		}
-	}
-
-	envelope := map[string]map[string]antigravityMCPEntry{
-		"mcpServers": entries,
-	}
-
-	data, err := json.MarshalIndent(envelope, "", "  ")
-	if err != nil {
-		return "", nil, fmt.Errorf("mcp json marshal: %w", err)
-	}
-	return string(data) + "\n", notes, nil
 }
 
 // resolveFile returns the effective body content for a rule or skill.

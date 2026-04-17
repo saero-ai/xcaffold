@@ -1,3 +1,8 @@
+---
+title: "Getting Started with xcaffold"
+description: "Initialize a project, compile your first agent, and understand the .xcf to output pipeline"
+---
+
 # Getting Started with xcaffold
 
 This tutorial walks through creating your first agent configuration with xcaffold. By the end, you will have a working `scaffold.xcf` file compiled to your target platform's native format.
@@ -9,7 +14,7 @@ No AI subscription or API key is required to run `init` and `apply`.
 
 ---
 
-## Step 1: Initialize a new project
+## Step 1 — Initialize a new project
 
 Open a terminal in your empty project directory and run:
 
@@ -19,7 +24,7 @@ xcaffold init --yes
 
 The `--yes` flag accepts all defaults non-interactively. xcaffold infers the project name from the directory name — it never prompts for one.
 
-**Terminal output:**
+**Expected output:**
 
 ```
   xcaffold v0.x.x
@@ -54,15 +59,14 @@ targets:
 
 ---
 kind: agent
-version: "1.0"
 name: developer
 description: "General software developer agent."
-instructions: |
-  You are a software developer.
-  Write clean, maintainable code.
 model: "claude-sonnet-4-6"
 effort: "high"
 tools: [Bash, Read, Write, Edit, Glob, Grep]
+instructions: |
+  You are a software developer.
+  Write clean, maintainable code.
 
 # Assertions are evaluated by the LLM-as-a-Judge when running
 # 'xcaffold test --judge'. Define expected behavioral constraints here.
@@ -77,7 +81,7 @@ This file is the source of truth. Every file xcaffold produces traces back to it
 
 ---
 
-## Step 2: Compile to your target
+## Step 2 — Compile to your target
 
 Run apply with an explicit target. This example uses `claude` (the default):
 
@@ -110,7 +114,7 @@ cat .claude/agents/developer.md
 
 ---
 
-## Step 3: The compiled output
+## Step 3 — Inspect the compiled output
 
 `.claude/agents/developer.md` contains exactly what `scaffold.xcf` described, in YAML frontmatter + Markdown body format:
 
@@ -148,7 +152,7 @@ Every line maps back to `scaffold.xcf`:
 
 ---
 
-## Step 4: The lock file
+## Step 4 — Examine the lock file
 
 `xcaffold apply` writes a lock file alongside your configuration. For `--target claude`:
 
@@ -192,7 +196,7 @@ Lock files are committed to version control alongside `scaffold.xcf`. Together t
 
 ---
 
-## Step 5: Make a change and re-apply
+## Step 5 — Make a change and re-apply
 
 Open `scaffold.xcf` and update the instructions:
 
@@ -219,10 +223,16 @@ The new instruction line appears in `.claude/agents/developer.md`. The lock's ar
 
 ---
 
-## Next steps
+## What You Built
+
+You created a `scaffold.xcf` file with a project manifest and one agent definition, compiled it to `.claude/agents/developer.md` using the `claude` target, and observed how the lock file records SHA-256 hashes of both source and output. You verified that xcaffold recompiles only when the source changes, and that the lock prevents unrecorded drift on subsequent applies.
+
+---
+
+## Next Steps
 
 - **Drift remediation** — learn how `xcaffold diff` detects and resolves manual edits in compiled output: [`drift-remediation.md`](drift-remediation.md)
 - **Multi-agent workspaces** — define multiple agents, skills, and rules: [`multi-agent-workspace.md`](multi-agent-workspace.md)
-- **Split configurations** — break a growing project into `scaffold.xcf` + `xcf/` subdirectories: [`../how-to/split-configs.md`](../how-to/split-configs.md)
+- **Split configurations** — break a growing project into `scaffold.xcf` + `xcf/` subdirectories: [`../how-to/multi-file-projects.md`](../how-to/multi-file-projects.md)
 - **Import existing config** — adopt xcaffold on an existing `.claude/` project: [`../how-to/import-existing-config.md`](../how-to/import-existing-config.md)
 - **Other targets** — compile the same configuration to `.cursor/` (`--target cursor`), `.gemini/` (`--target gemini`), `.github/` (`--target copilot`), or `.agents/` (`--target antigravity`) without changing `scaffold.xcf`.

@@ -4,10 +4,10 @@
 // Key normalizations applied during compilation:
 //   - Output extension: .md → .mdc (Rule 5)
 //   - Frontmatter key: paths: → globs: (Normalization Rule 4)
-//   - Rules without paths receive alwaysApply: true instead of a globs: field
+//   - Rules without paths receive always-apply: true instead of a globs: field
 //   - Agent field: background → is_background (Normalization Rule 6)
-//   - Skills emitted to skills/<id>/SKILL.md (shared skills/ path)
-//   - MCP field: url → serverUrl; type field omitted (Cursor infers transport)
+//   - Skills emitted to skills/<id>/SKILL.md with bundled scripts/, references/, assets/
+//   - MCP field: url preserved as-is; type field omitted (Cursor infers transport)
 package cursor
 
 import (
@@ -89,21 +89,14 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
-		if len(skill.Scripts) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "scripts",
-				renderer.CodeSkillScriptsDropped,
-				fmt.Sprintf("skill %q scripts dropped; Cursor does not support skill scripts/ directories", id),
-				"Move script logic into the skill instructions or use a separate target",
-			))
+		if err := compileCursorSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
+			return nil, nil, fmt.Errorf("cursor: skill %q references: %w", id, err)
 		}
-		if len(skill.Assets) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "assets",
-				renderer.CodeSkillAssetsDropped,
-				fmt.Sprintf("skill %q assets dropped; Cursor does not support skill assets/ directories", id),
-				"Inline asset references into the instructions body",
-			))
+		if err := compileCursorSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
+			return nil, nil, fmt.Errorf("cursor: skill %q scripts: %w", id, err)
+		}
+		if err := compileCursorSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
+			return nil, nil, fmt.Errorf("cursor: skill %q assets: %w", id, err)
 		}
 	}
 
@@ -350,31 +343,31 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 
 	switch activation {
 	case ast.RuleActivationAlways:
-		sb.WriteString("alwaysApply: true\n")
+		sb.WriteString("always-apply: true\n")
 	case ast.RuleActivationPathGlob:
 		if len(rule.Paths) > 0 {
 			fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
 		}
 	case ast.RuleActivationManualMention:
-		sb.WriteString("alwaysApply: false\n")
+		sb.WriteString("always-apply: false\n")
 	case ast.RuleActivationModelDecided:
-		sb.WriteString("alwaysApply: false\n")
+		sb.WriteString("always-apply: false\n")
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "rule", id, "activation",
 			renderer.CodeActivationDegraded,
-			fmt.Sprintf("rule %q activation \"model-decided\" has no Cursor equivalent; lowered to alwaysApply: false", id),
+			fmt.Sprintf("rule %q activation \"model-decided\" has no Cursor equivalent; lowered to always-apply: false", id),
 			"Use a supported activation (always, path-glob, manual-mention) or add a targets.cursor.provider override",
 		))
 	case ast.RuleActivationExplicitInvoke:
-		sb.WriteString("alwaysApply: false\n")
+		sb.WriteString("always-apply: false\n")
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "rule", id, "activation",
 			renderer.CodeActivationDegraded,
-			fmt.Sprintf("rule %q activation \"explicit-invoke\" has no Cursor equivalent; lowered to alwaysApply: false", id),
+			fmt.Sprintf("rule %q activation \"explicit-invoke\" has no Cursor equivalent; lowered to always-apply: false", id),
 			"Use a supported activation (always, path-glob, manual-mention) or add a targets.cursor.provider override",
 		))
 	default:
-		sb.WriteString("alwaysApply: true\n")
+		sb.WriteString("always-apply: true\n")
 	}
 
 	sb.WriteString("---\n")
@@ -505,11 +498,11 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 
 // cursorMCPEntry is the Cursor-compatible MCP server entry shape.
 type cursorMCPEntry struct {
-	Env       map[string]string `json:"env,omitempty"`
-	Headers   map[string]string `json:"headers,omitempty"`
-	Command   string            `json:"command,omitempty"`
-	ServerURL string            `json:"serverUrl,omitempty"`
-	Args      []string          `json:"args,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Command string            `json:"command,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Args    []string          `json:"args,omitempty"`
 }
 
 // compileCursorMCP renders all MCP server configs to a single mcp.json file.
@@ -519,11 +512,11 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, []renderer.Fide
 
 	for id, srv := range servers {
 		entries[id] = cursorMCPEntry{
-			Command:   srv.Command,
-			Args:      srv.Args,
-			Env:       srv.Env,
-			ServerURL: srv.URL,
-			Headers:   srv.Headers,
+			Command: srv.Command,
+			Args:    srv.Args,
+			Env:     srv.Env,
+			URL:     srv.URL,
+			Headers: srv.Headers,
 		}
 
 		if strings.Contains(srv.Command, "${") {
@@ -566,6 +559,51 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, []renderer.Fide
 		return "", nil, fmt.Errorf("mcp json marshal: %w", err)
 	}
 	return string(data), notes, nil
+}
+
+// compileCursorSkillSubdir copies skill subdirectory files (references/, scripts/,
+// assets/) into the output map under skills/<id>/<subdir>/<filename>.
+// Path traversal above baseDir is rejected. Glob patterns are expanded;
+// literal paths are read directly.
+func compileCursorSkillSubdir(id, subdir string, paths []string, baseDir string, out *output.Output) error {
+	if len(paths) == 0 {
+		return nil
+	}
+
+	for _, pattern := range paths {
+		cleanedPattern := filepath.Clean(pattern)
+		if strings.HasPrefix(cleanedPattern, "..") {
+			return fmt.Errorf("%s path %q traverses above the project root", subdir, pattern)
+		}
+
+		absPattern := filepath.Join(baseDir, cleanedPattern)
+
+		matches, err := filepath.Glob(absPattern)
+		if err != nil {
+			return fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
+		}
+		if len(matches) == 0 {
+			data, readErr := os.ReadFile(absPattern)
+			if readErr != nil {
+				return fmt.Errorf("%s file %q: %w", subdir, pattern, readErr)
+			}
+			baseName := filepath.Base(absPattern)
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
+			out.Files[outPath] = string(data)
+			continue
+		}
+
+		for _, match := range matches {
+			data, err := os.ReadFile(match)
+			if err != nil {
+				return fmt.Errorf("%s file %q: %w", subdir, match, err)
+			}
+			baseName := filepath.Base(match)
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
+			out.Files[outPath] = string(data)
+		}
+	}
+	return nil
 }
 
 // yamlScalar quotes a string value for safe inclusion in YAML if it contains

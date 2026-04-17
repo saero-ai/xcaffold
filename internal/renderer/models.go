@@ -4,9 +4,9 @@ package renderer
 // a provider-specific actual model identifier.
 // If a target doesn't support model definition per agent, it will return an empty lookup.
 var modelAliases = map[string]map[string]string{
-	"sonnet-4":  {"claude": "claude-3-7-sonnet-20250219"},
-	"opus-4":    {"claude": "claude-3-5-sonnet-20241022"}, // Placeholder till opus 4 comes out
-	"haiku-3.5": {"claude": "claude-3-5-haiku-20241022"},
+	"sonnet-4":  {"claude": "claude-sonnet-4-5"},
+	"opus-4":    {"claude": "claude-opus-4-7"},
+	"haiku-3.5": {"claude": "claude-haiku-4-5"},
 }
 
 // ResolveModel takes an alias from the Xcaffold configuration and a target name (e.g. "claude", "cursor").

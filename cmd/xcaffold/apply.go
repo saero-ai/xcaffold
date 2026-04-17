@@ -299,7 +299,7 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}
 
-	printFidelityNotes(os.Stderr, notes, buildSuppressedResourcesMap(config, targetFlag), false)
+	printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, targetFlag)), false)
 
 	// Policy evaluation
 	violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, out)
@@ -389,7 +389,7 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		}
 		seeds, memNotes, memErr := runMemoryPass(config, baseDir, targetFlag, outputDir, priorSeeds, applyDryRun, applyReseed)
 		if len(memNotes) > 0 {
-			printFidelityNotes(os.Stderr, memNotes, nil, false)
+			printFidelityNotes(os.Stderr, memNotes, false)
 		}
 		if memErr != nil {
 			// Memory drift or other soft errors do not halt apply in v1 — the

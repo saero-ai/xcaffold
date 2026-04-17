@@ -1,6 +1,6 @@
 ---
 description: Commit style
-alwaysApply: false
+always-apply: false
 ---
 # Commit Style
 

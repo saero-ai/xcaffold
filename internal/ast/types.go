@@ -319,9 +319,9 @@ type MCPConfig struct {
 	Command          string            `yaml:"command,omitempty" json:"command,omitempty"`
 	URL              string            `yaml:"url,omitempty"     json:"url,omitempty"`
 	Cwd              string            `yaml:"cwd,omitempty"              json:"cwd,omitempty"`
-	AuthProviderType string            `yaml:"authProviderType,omitempty" json:"authProviderType,omitempty"`
+	AuthProviderType string            `yaml:"auth-provider-type,omitempty" json:"authProviderType,omitempty"`
 	Args             []string          `yaml:"args,omitempty"    json:"args,omitempty"`
-	DisabledTools    []string          `yaml:"disabledTools,omitempty"    json:"disabledTools,omitempty"`
+	DisabledTools    []string          `yaml:"disabled-tools,omitempty"    json:"disabledTools,omitempty"`
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-" json:"-"`
@@ -340,9 +340,9 @@ type PermissionsConfig struct {
 	Allow                        []string `yaml:"allow,omitempty"                       json:"allow,omitempty"`
 	Deny                         []string `yaml:"deny,omitempty"                        json:"deny,omitempty"`
 	Ask                          []string `yaml:"ask,omitempty"                         json:"ask,omitempty"`
-	DefaultMode                  string   `yaml:"defaultMode,omitempty"                 json:"defaultMode,omitempty"`
-	AdditionalDirectories        []string `yaml:"additionalDirectories,omitempty"       json:"additionalDirectories,omitempty"`
-	DisableBypassPermissionsMode string   `yaml:"disableBypassPermissionsMode,omitempty" json:"disableBypassPermissionsMode,omitempty"`
+	DefaultMode                  string   `yaml:"default-mode,omitempty"                 json:"defaultMode,omitempty"`
+	AdditionalDirectories        []string `yaml:"additional-directories,omitempty"       json:"additionalDirectories,omitempty"`
+	DisableBypassPermissionsMode string   `yaml:"disable-bypass-permissions-mode,omitempty" json:"disableBypassPermissionsMode,omitempty"`
 }
 
 // SandboxConfig configures OS-level process isolation for Bash commands.
@@ -350,33 +350,33 @@ type SandboxConfig struct {
 	Enabled *bool `yaml:"enabled,omitempty"                    json:"enabled,omitempty"`
 	// AutoAllowBashIfSandboxed auto-approves bash commands when sandboxed, without prompting.
 	// Named autoAllowBashIfSandboxed in Claude Code's settings.json.
-	AutoAllowBashIfSandboxed *bool              `yaml:"autoAllowBashIfSandboxed,omitempty"   json:"autoAllowBashIfSandboxed,omitempty"`
-	FailIfUnavailable        *bool              `yaml:"failIfUnavailable,omitempty"          json:"failIfUnavailable,omitempty"`
-	AllowUnsandboxedCommands *bool              `yaml:"allowUnsandboxedCommands,omitempty"   json:"allowUnsandboxedCommands,omitempty"`
+	AutoAllowBashIfSandboxed *bool              `yaml:"auto-allow-bash-if-sandboxed,omitempty"   json:"autoAllowBashIfSandboxed,omitempty"`
+	FailIfUnavailable        *bool              `yaml:"fail-if-unavailable,omitempty"          json:"failIfUnavailable,omitempty"`
+	AllowUnsandboxedCommands *bool              `yaml:"allow-unsandboxed-commands,omitempty"   json:"allowUnsandboxedCommands,omitempty"`
 	Filesystem               *SandboxFilesystem `yaml:"filesystem,omitempty"                 json:"filesystem,omitempty"`
 	Network                  *SandboxNetwork    `yaml:"network,omitempty"                    json:"network,omitempty"`
-	ExcludedCommands         []string           `yaml:"excludedCommands,omitempty"           json:"excludedCommands,omitempty"`
+	ExcludedCommands         []string           `yaml:"excluded-commands,omitempty"           json:"excludedCommands,omitempty"`
 }
 
 // SandboxFilesystem configures filesystem isolation boundaries.
 type SandboxFilesystem struct {
-	AllowWrite []string `yaml:"allowWrite,omitempty" json:"allowWrite,omitempty"`
-	DenyWrite  []string `yaml:"denyWrite,omitempty"  json:"denyWrite,omitempty"`
-	AllowRead  []string `yaml:"allowRead,omitempty"  json:"allowRead,omitempty"`
-	DenyRead   []string `yaml:"denyRead,omitempty"   json:"denyRead,omitempty"`
+	AllowWrite []string `yaml:"allow-write,omitempty" json:"allowWrite,omitempty"`
+	DenyWrite  []string `yaml:"deny-write,omitempty"  json:"denyWrite,omitempty"`
+	AllowRead  []string `yaml:"allow-read,omitempty"  json:"allowRead,omitempty"`
+	DenyRead   []string `yaml:"deny-read,omitempty"   json:"denyRead,omitempty"`
 }
 
 // SandboxNetwork configures network isolation boundaries.
 type SandboxNetwork struct {
-	HTTPProxyPort           *int  `yaml:"httpProxyPort,omitempty"           json:"httpProxyPort,omitempty"`
-	SOCKSProxyPort          *int  `yaml:"socksProxyPort,omitempty"          json:"socksProxyPort,omitempty"`
-	AllowManagedDomainsOnly *bool `yaml:"allowManagedDomainsOnly,omitempty" json:"allowManagedDomainsOnly,omitempty"`
+	HTTPProxyPort           *int  `yaml:"http-proxy-port,omitempty"           json:"httpProxyPort,omitempty"`
+	SOCKSProxyPort          *int  `yaml:"socks-proxy-port,omitempty"          json:"socksProxyPort,omitempty"`
+	AllowManagedDomainsOnly *bool `yaml:"allow-managed-domains-only,omitempty" json:"allowManagedDomainsOnly,omitempty"`
 	// AllowUnixSockets is a list of specific Unix domain socket paths permitted for
 	// outbound connections. Use an empty list to deny all, or ["*"] to allow all.
-	AllowUnixSockets []string `yaml:"allowUnixSockets,omitempty"        json:"allowUnixSockets,omitempty"`
+	AllowUnixSockets []string `yaml:"allow-unix-sockets,omitempty"        json:"allowUnixSockets,omitempty"`
 	// AllowLocalBinding permits the sandboxed process to bind to localhost ports.
-	AllowLocalBinding *bool    `yaml:"allowLocalBinding,omitempty"       json:"allowLocalBinding,omitempty"`
-	AllowedDomains    []string `yaml:"allowedDomains,omitempty"          json:"allowedDomains,omitempty"`
+	AllowLocalBinding *bool    `yaml:"allow-local-binding,omitempty"       json:"allowLocalBinding,omitempty"`
+	AllowedDomains    []string `yaml:"allowed-domains,omitempty"          json:"allowedDomains,omitempty"`
 }
 
 // SettingsConfig represents the full platform settings.json structure.
@@ -386,33 +386,33 @@ type SandboxNetwork struct {
 type SettingsConfig struct {
 	Agent                             any                  `yaml:"agent,omitempty" json:"agent,omitempty"`
 	Worktree                          any                  `yaml:"worktree,omitempty" json:"worktree,omitempty"`
-	AutoMode                          any                  `yaml:"autoMode,omitempty" json:"autoMode,omitempty"`
-	CleanupPeriodDays                 *int                 `yaml:"cleanupPeriodDays,omitempty" json:"cleanupPeriodDays,omitempty"`
-	IncludeGitInstructions            *bool                `yaml:"includeGitInstructions,omitempty" json:"includeGitInstructions,omitempty"`
-	SkipDangerousModePermissionPrompt *bool                `yaml:"skipDangerousModePermissionPrompt,omitempty" json:"skipDangerousModePermissionPrompt,omitempty"`
+	AutoMode                          any                  `yaml:"auto-mode,omitempty" json:"autoMode,omitempty"`
+	CleanupPeriodDays                 *int                 `yaml:"cleanup-period-days,omitempty" json:"cleanupPeriodDays,omitempty"`
+	IncludeGitInstructions            *bool                `yaml:"include-git-instructions,omitempty" json:"includeGitInstructions,omitempty"`
+	SkipDangerousModePermissionPrompt *bool                `yaml:"skip-dangerous-mode-permission-prompt,omitempty" json:"skipDangerousModePermissionPrompt,omitempty"`
 	Permissions                       *PermissionsConfig   `yaml:"permissions,omitempty" json:"permissions,omitempty"`
 	Sandbox                           *SandboxConfig       `yaml:"sandbox,omitempty" json:"sandbox,omitempty"`
-	AutoMemoryEnabled                 *bool                `yaml:"autoMemoryEnabled,omitempty" json:"autoMemoryEnabled,omitempty"`
-	DisableAllHooks                   *bool                `yaml:"disableAllHooks,omitempty" json:"disableAllHooks,omitempty"`
+	AutoMemoryEnabled                 *bool                `yaml:"auto-memory-enabled,omitempty" json:"autoMemoryEnabled,omitempty"`
+	DisableAllHooks                   *bool                `yaml:"disable-all-hooks,omitempty" json:"disableAllHooks,omitempty"`
 	Attribution                       *bool                `yaml:"attribution,omitempty" json:"attribution,omitempty"`
-	MCPServers                        map[string]MCPConfig `yaml:"mcpServers,omitempty" json:"mcpServers,omitempty"`
+	MCPServers                        map[string]MCPConfig `yaml:"mcp-servers,omitempty" json:"mcpServers,omitempty"`
 	Hooks                             HookConfig           `yaml:"hooks,omitempty" json:"hooks,omitempty"`
-	StatusLine                        *StatusLineConfig    `yaml:"statusLine,omitempty" json:"statusLine,omitempty"`
-	RespectGitignore                  *bool                `yaml:"respectGitignore,omitempty" json:"respectGitignore,omitempty"`
+	StatusLine                        *StatusLineConfig    `yaml:"status-line,omitempty" json:"statusLine,omitempty"`
+	RespectGitignore                  *bool                `yaml:"respect-gitignore,omitempty" json:"respectGitignore,omitempty"`
 	Env                               map[string]string    `yaml:"env,omitempty" json:"env,omitempty"`
-	EnabledPlugins                    map[string]bool      `yaml:"enabledPlugins,omitempty" json:"enabledPlugins,omitempty"`
-	DisableSkillShellExecution        *bool                `yaml:"disableSkillShellExecution,omitempty" json:"disableSkillShellExecution,omitempty"`
-	AlwaysThinkingEnabled             *bool                `yaml:"alwaysThinkingEnabled,omitempty" json:"alwaysThinkingEnabled,omitempty"`
-	EffortLevel                       string               `yaml:"effortLevel,omitempty" json:"effortLevel,omitempty"`
-	DefaultShell                      string               `yaml:"defaultShell,omitempty" json:"defaultShell,omitempty"`
+	EnabledPlugins                    map[string]bool      `yaml:"enabled-plugins,omitempty" json:"enabledPlugins,omitempty"`
+	DisableSkillShellExecution        *bool                `yaml:"disable-skill-shell-execution,omitempty" json:"disableSkillShellExecution,omitempty"`
+	AlwaysThinkingEnabled             *bool                `yaml:"always-thinking-enabled,omitempty" json:"alwaysThinkingEnabled,omitempty"`
+	EffortLevel                       string               `yaml:"effort-level,omitempty" json:"effortLevel,omitempty"`
+	DefaultShell                      string               `yaml:"default-shell,omitempty" json:"defaultShell,omitempty"`
 	Language                          string               `yaml:"language,omitempty" json:"language,omitempty"`
-	OutputStyle                       string               `yaml:"outputStyle,omitempty" json:"outputStyle,omitempty"`
-	PlansDirectory                    string               `yaml:"plansDirectory,omitempty" json:"plansDirectory,omitempty"`
+	OutputStyle                       string               `yaml:"output-style,omitempty" json:"outputStyle,omitempty"`
+	PlansDirectory                    string               `yaml:"plans-directory,omitempty" json:"plansDirectory,omitempty"`
 	Model                             string               `yaml:"model,omitempty" json:"model,omitempty"`
-	OtelHeadersHelper                 string               `yaml:"otelHeadersHelper,omitempty" json:"otelHeadersHelper,omitempty"`
-	AutoMemoryDirectory               string               `yaml:"autoMemoryDirectory,omitempty" json:"autoMemoryDirectory,omitempty"`
-	AvailableModels                   []string             `yaml:"availableModels,omitempty" json:"availableModels,omitempty"`
-	ClaudeMdExcludes                  []string             `yaml:"claudeMdExcludes,omitempty" json:"claudeMdExcludes,omitempty"`
+	OtelHeadersHelper                 string               `yaml:"otel-headers-helper,omitempty" json:"otelHeadersHelper,omitempty"`
+	AutoMemoryDirectory               string               `yaml:"auto-memory-directory,omitempty" json:"autoMemoryDirectory,omitempty"`
+	AvailableModels                   []string             `yaml:"available-models,omitempty" json:"availableModels,omitempty"`
+	ClaudeMdExcludes                  []string             `yaml:"claude-md-excludes,omitempty" json:"claudeMdExcludes,omitempty"`
 }
 
 // TestConfig holds project-level configuration for `xcaffold test`.

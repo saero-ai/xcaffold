@@ -1,3 +1,8 @@
+---
+title: "Multi-Kind Document Format"
+description: "Reference for using multiple kind: documents in a single .xcf file with YAML document separators"
+---
+
 # Multi-Kind Resource Manifests
 
 xcaffold supports multi-kind YAML documents where each resource gets its own `kind:` discriminator. Resources can live in a single file (separated by `---`) or in individual `.xcf` files that `ParseDirectory` merges automatically.
@@ -239,7 +244,7 @@ instructions: |
 
 ## kind: workflow
 
-Named reusable workflow. Compiled for targets that support workflows (e.g. Antigravity). Silently ignored by Claude and Cursor renderers.
+Named reusable workflow. Compiled for targets that support workflows (Antigravity). Claude Code lacks standalone workflows. Cursor encodes workflows via Rules. GitHub Copilot and Gemini CLI have no native workflow support.
 
 | Field | Type | Required | Description |
 |---|---|---|---|

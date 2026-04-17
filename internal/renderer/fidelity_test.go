@@ -11,7 +11,6 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
-	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -115,6 +114,7 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeReconciliationDriftDetected:         true,
 		renderer.CodeMemoryDriftDetected:                 true,
 		renderer.CodeOptimizerPassReordered:              true,
+		renderer.CodeMCPGlobalConfigOnly:                 true,
 	}
 
 	got := make(map[string]bool)
@@ -148,7 +148,6 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 		claude.New(),
 		cursor.New(),
 		antigravity.New(),
-		gemini.New(),
 	}
 
 	for _, r := range renderers {
@@ -178,8 +177,73 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// FilterNotes
+// ---------------------------------------------------------------------------
+
+func TestFilterNotes_EmptySuppressionMap_ReturnsAll(t *testing.T) {
+	notes := []renderer.FidelityNote{
+		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "reviewer", "", "CODE1", "reason", ""),
+		renderer.NewNote(renderer.LevelInfo, "cursor", "skill", "linter", "", "CODE2", "reason", ""),
+	}
+	got := renderer.FilterNotes(notes, nil)
+	assert.Equal(t, notes, got)
+}
+
+func TestFilterNotes_EmptySuppressionMapExplicit_ReturnsAll(t *testing.T) {
+	notes := []renderer.FidelityNote{
+		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "reviewer", "", "CODE1", "reason", ""),
+	}
+	got := renderer.FilterNotes(notes, map[string]bool{})
+	assert.Equal(t, notes, got)
+}
+
+func TestFilterNotes_SuppressedResource_Excluded(t *testing.T) {
+	notes := []renderer.FidelityNote{
+		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "quiet", "", "CODE1", "reason", ""),
+		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "loud", "", "CODE2", "reason", ""),
+	}
+	suppressed := map[string]bool{"quiet": true}
+	got := renderer.FilterNotes(notes, suppressed)
+	require.Len(t, got, 1)
+	assert.Equal(t, "loud", got[0].Resource)
+}
+
+func TestFilterNotes_AllSuppressed_ReturnsEmpty(t *testing.T) {
+	notes := []renderer.FidelityNote{
+		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "a", "", "CODE1", "reason", ""),
+		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "b", "", "CODE2", "reason", ""),
+	}
+	suppressed := map[string]bool{"a": true, "b": true}
+	got := renderer.FilterNotes(notes, suppressed)
+	assert.Empty(t, got)
+}
+
+func TestFilterNotes_NilInputNotes_ReturnsNil(t *testing.T) {
+	got := renderer.FilterNotes(nil, map[string]bool{"a": true})
+	assert.Nil(t, got)
+}
+
+func TestFilterNotes_EmptyInputNotes_ReturnsEmpty(t *testing.T) {
+	got := renderer.FilterNotes([]renderer.FidelityNote{}, map[string]bool{"a": true})
+	assert.Empty(t, got)
+}
+
+func TestFilterNotes_PreservesOrder(t *testing.T) {
+	notes := []renderer.FidelityNote{
+		renderer.NewNote(renderer.LevelInfo, "cursor", "agent", "first", "", "C1", "r1", ""),
+		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "second", "", "C2", "r2", ""),
+		renderer.NewNote(renderer.LevelError, "cursor", "agent", "third", "", "C3", "r3", ""),
+	}
+	suppressed := map[string]bool{"second": true}
+	got := renderer.FilterNotes(notes, suppressed)
+	require.Len(t, got, 2)
+	assert.Equal(t, "first", got[0].Resource)
+	assert.Equal(t, "third", got[1].Resource)
+}
+
 // buildFidelityFixture constructs an XcaffoldConfig that exercises the maximum
-// number of fidelity emit sites across all three concrete renderers.
+// number of fidelity emit sites across all four concrete renderers.
 //
 // Stub files (scripts/helper.sh, assets/logo.png, docs/ref.md) are created in
 // baseDir so that the claude renderer — which physically copies skill subfiles —
@@ -202,13 +266,8 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 //	  HOOK_INTERPOLATION_REQUIRES_ENV_SYNTAX — MCP env with ${VAR}
 //	  SETTINGS_FIELD_UNSUPPORTED   — settings.Permissions + settings.Sandbox
 //
-//	gemini:
-//	  SKILL_SCRIPTS_DROPPED        — same skill
-//	  SKILL_ASSETS_DROPPED         — same skill
-//	  AGENT_SECURITY_FIELDS_DROPPED — agent.Effort, PermissionMode, DisallowedTools, Isolation
-//	  FIELD_UNSUPPORTED            — skill.AllowedTools, agent unsupported fields (hooks, memory, etc.)
-//
-//	claude: (native target — no fidelity notes by design)
+
+// claude: (native target — no fidelity notes by design)
 func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 	t.Helper()
 

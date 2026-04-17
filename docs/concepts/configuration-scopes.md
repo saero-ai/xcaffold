@@ -1,16 +1,14 @@
 ---
-title: "Configuration Scopes"
-description: "Understanding Implicit Global Inheritance and runtime scopes."
+title: "Configuration Theory"
+description: "Understanding configuration contexts, scopes, implicit global inheritance, and boundaries"
 ---
 
 # Configuration Scopes
 
-When you operate an AI coding assistant, it typically aggregates configurations from two independently maintained directories: your **global user profile** (e.g., `~/.cursor/`) and your **local project repository** (e.g., `./.cursor/`).
+xcaffold defines two compilation scopes: **global scope** (`~/.xcaffold/`) and **project scope** (the directory containing `scaffold.xcf`). Each scope compiles independently and produces its own lock manifest. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
 
-Because `xcaffold` acts as a compiler for these configurations, it models this same duality:
-
-1. **Global Scope** (`~/.xcaffold/`): Your personal, system-wide configurations representing *how you work* across all projects.
-2. **Project Scope** (Directories containing `.xcf` files): The specific, contextual agent behaviors tailored *to the current codebase*.
+- **Global Scope** (`~/.xcaffold/`): System-wide agent configurations that apply across all projects on the machine.
+- **Project Scope** (directory containing `scaffold.xcf`): Project-specific resources that override global resources by ID at compile time.
 
 ---
 
@@ -35,14 +33,77 @@ Resources in `~/.xcaffold/` define the global scope. These are loaded via `loadG
 
 ---
 
+## Configuration Classification
+
+Xcaffold acts as a deterministic compiler that sits between an agnostic declarative schema (`scaffold.xcf`) and the provider-specific agent constraints required by the LLM target (e.g. Claude, Cursor, GitHub Copilot).
+
+To satisfy this architectural boundary, the YAML configuration schema maintains a strict, philosophical separation between two distinct classes of structures:
+
+1. **Xcaffold-Specific Configurations:** The mechanics of the compilation engine.
+2. **Provider-Specific Agent Configurations:** The native behaviors of the LLM itself.
+
+This document serves as the canonical map separating procedural compiler rules from generative intelligent personas.
+
+---
+
+## Xcaffold-Specific Configurations
+
+These configuration blocks control how Xcaffold evaluates paths, manages execution policies, configures local sandbox bounds, hooks build lifecycle events, and enforces compile-time restrictions.
+
+**Crucially, nothing defined in these configurations is natively loaded into the AI's contextual window.** They represent classical, deterministic computing mechanics that execute surrounding the LLM prompt, without ever polluting it.
+
+### `global` (Global Scope)
+System-wide declarations residing outside your project repository (`~/.xcaffold/scaffold.xcf`). Evaluated under the overarching workspace scope to ensure consistent inheritance of security boundaries across all local projects.
+
+### `project` (Project Scope)
+The authoritative root bounding the local workspace (`project:` object). It registers metadata signatures tracked in lock manifests and limits the execution blast radius to localized overrides and dependencies.
+
+### `policy` (Evaluation Engine)
+AST tree-walking rules (`policies:`) that statically enforce or forbid specific field patterns within the Xcaffold configuration. Used to deny unsafe shell execution (`deny`) or mandate strict tool inclusions (`require`). This allows organizations to police agentic permissions purely at compilation time before passing control to the AI.
+
+### `template` (Structural Bootstrapping)
+File structures and boilerplate primitives orchestrating initial project construction. Currently evaluated natively by initializing workflows without a persistent compilation AST structure.
+
+---
+
+## Provider-Specific Agent Configurations
+
+These configurations describe the behavioral identity, situational awareness, environmental restrictions, and explicit constraints ultimately passed to the underlying Large Language Model.
+
+Unlike deterministic compiler settings, these definitions are passed down and compiled directly into the provider-native format (e.g., `.claude/agents/`, `.cursor/rules/`, `.github/instructions/`) to explicitly steer LLM cognition.
+
+### `agent` (Personas)
+The identity structure mapping the LLM system prompt. Modulates conversational alignment, defines memory tracking layers, limits inference turn constraints, and orchestrates target overarching target model routing (e.g., Claude 3.7 Sonnet vs GPT-4).
+
+### `skill` (Specialization)
+Action-oriented execution blocks instructing the AI on exactly how to solve a singular problem algorithmically. Bound dynamically via invocation tools or `@-import` directives to assemble complex abilities at runtime.
+
+### `rule` (Behavioral Guidelines)
+Targeted contextual boundaries that constrain LLM autonomy when navigating paths or domains within the active codebase. Limits token pollution by conditionally injecting context strictly based on real-time code proximity (via glob match mechanisms).
+
+### `workflow` (Procedural Automations)
+Complex sequential tasks decomposed into rigidly ordered pipelines (lowered natively for Antigravity, translated using internal tool chains for Claude/Cursor/Copilot). Allows deterministic human processes to govern LLM intuition across arbitrary checkpoint chains.
+
+### `mcp` (Model Context Protocols)
+Definitions routing real-time external observability integrations, database introspection capabilities, or sandboxed browser execution servers strictly required for LLM semantic decision-making. 
+
+### `memory` (Cognitive Continuity)
+Cross-iteration continuity anchors tracking architectural constraints across separate agent sessions without human recalibration. Ensures deep longitudinal history is snapshotted to preserve long-term agent context.
+
+### `settings` (Environment Bounds)
+Execution bindings explicitly managed by target platform IDEs (such as Claude Code's `settings.json`). Configures telemetry, IDE conventions, allowed domains, network proxy connections, and CLI styling.
+
+### `hooks` (Lifecycle Shell Dispatch)
+Event handlers triggered sequentially when navigating execution stages. Intercepts specific phases (like `PreToolUse` or `SessionStart`) to dispatch shell commands or bash automation completely independent from the core agent contextual workflow.
+
 ## Implicit Global Inheritance
 
 xcaffold implicitly evaluates constraints from both contexts at parse-time. Whenever xcaffold evaluates a project configuration, it automatically scans and parses your global directory (`~/.xcaffold/`) as a baseline template behind the scenes.
 
-This provides two massive architectural benefits for developers:
+This merge produces two notable behaviors at the parser level:
 
-1. **Cross-Reference Safety**: An agent explicitly defined in a local enterprise project can harmlessly `instructions-file:` reference a skill that exists purely in the user's global repository. The xcaffold compiler parses both spaces transparently, resolving relationships without emitting broken links or parser failures.
-2. **Holistic Topology**: When running `xcaffold graph`, developers instantly receive a combined, unified view of the entire agentic topology—precisely what the underlying AI (Cursor, Claude) will actually understand when the terminal starts.
+1. **Cross-Reference Safety**: A project-scoped agent can `instructions-file:` reference a skill defined only in the global repository. The compiler parses both scopes before resolving references, so the cross-scope reference resolves correctly rather than producing a parse failure.
+2. **Holistic Topology**: `xcaffold graph` produces a combined view of the full agent topology — global resources plus project resources — reflecting what the target platform will load at runtime.
 
 ### The Compiler Hard Boundary
 
@@ -50,7 +111,7 @@ Implicit global inheritance deliberately extends *only* to the parser boundary l
 
 When you execute an `xcaffold apply` inside your project, the compilation runtime securely **strips** global resources from the aggregated AST before physically generating files.
 
-Global resources are intentionally **NOT** written to the local project output directories (like `.claude/` or `.cursor/`). Because every known agentic provider autonomously combines the user's global environment at inference time, duplicating physical files into the local workspace would cause duplicate instruction injection and pollute git history unnecessarily.
+Global resources are intentionally **NOT** written to the local project output directories (like `.claude/` or `.cursor/`). Because Claude Code, Cursor, Gemini CLI, and GitHub Copilot all autonomously combine the user's global environment at inference time, duplicating physical files into the local workspace would cause duplicate instruction injection and pollute git history unnecessarily. (Antigravity's scope loading behavior is not documented.)
 
 To synchronize global changes to disc, execute a global-scoped apply independent of your project:
 
@@ -127,3 +188,22 @@ Example compiler termination:
 ```
 circular extends detected: "/abs/path/to/base.xcf"
 ```
+
+---
+
+## When This Matters
+
+- **A project agent references a globally-defined skill** — because xcaffold loads both scopes before resolving cross-references, the reference resolves cleanly at parse time; no special declaration is required in the project manifest.
+- **Running `xcaffold apply --global` vs `xcaffold apply`** — the two commands compile independent scopes and write independent lock files; a change to one scope never invalidates the other's drift state.
+- **Debugging a duplicate ID error across files** — strict deduplication operates within each scope independently; the same ID appearing in both global and project scopes is valid (project overrides global), but the same ID in two files within the same scope is an error.
+- **Understanding why global resources do not appear in the project output directory after a project apply** — global resources are stripped from project-scope output before writing, because Claude Code, Cursor, Gemini CLI, and GitHub Copilot all load global and project configurations separately at runtime. (Antigravity's scope loading behavior is not documented.)
+
+---
+
+## Related
+
+- [Getting Started](../tutorials/getting-started.md) — walkthrough of project-scope initialization and first apply
+- [Multi-Agent Workspace](../tutorials/multi-agent-workspace.md) — example project using both global and project-scoped agents
+- [Split Configs](../how-to/multi-file-projects.md) — how to organize a project across multiple `.xcf` files
+- [Architecture](architecture.md) — the full compilation pipeline including scope merge mechanics
+- [Schema Reference](../reference/schema.md) — `kind: global`, `kind: project`, and `extends:` field definitions

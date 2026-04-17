@@ -7,6 +7,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/spf13/cobra"
 )
 
@@ -50,9 +51,9 @@ func runExport(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("compilation error: %w", err)
 	}
-	printFidelityNotes(os.Stderr, notes, buildSuppressedResourcesMap(config, exportTarget), false)
+	printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, exportTarget)), false)
 
-	exported, err := compiler.ExportPlugin(config, compiled)
+	exported, err := compiler.ExportPlugin(config, compiled, exportTarget)
 	if err != nil {
 		return fmt.Errorf("export error: %w", err)
 	}

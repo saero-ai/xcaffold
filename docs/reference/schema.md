@@ -1,6 +1,6 @@
 # Schema Reference
 
-Exhaustive reference for the `.xcf` YAML configuration schema. Every field is verified against `internal/ast/types.go`.
+Exhaustive reference for the `.xcf` YAML configuration schema. Every field is verified against `internal/ast/types.go` and compiles deterministically to [multiple supported platforms](supported-providers.md).
 
 > **Parsing**: Xcaffold uses a strict, fail-closed YAML parser (`KnownFields(true)`). Unknown fields cause an immediate parse error. All filesystem paths are resolved via `filepath.Clean()` — `..` traversal is rejected.
 
@@ -35,6 +35,7 @@ erDiagram
         string_list skillRefs
         string_list ruleRefs
         string_list workflowRefs
+        string_list memoryRefs
         string_list mcpRefs
     }
     AgentConfig {
@@ -154,6 +155,14 @@ erDiagram
         string instructions
         string instructions_file
     }
+    MemoryConfig {
+        string name
+        string type
+        string description
+        string lifecycle
+        string instructions
+        string instructions_file
+    }
     PolicyConfig {
         string name
         string description
@@ -182,6 +191,7 @@ erDiagram
     XcaffoldConfig ||--o| HookConfig : "hooks"
     XcaffoldConfig ||--o{ MCPConfig : "mcp"
     XcaffoldConfig ||--o{ WorkflowConfig : "workflows"
+    XcaffoldConfig ||--o{ MemoryConfig : "memory"
     XcaffoldConfig ||--o| SettingsConfig : "settings"
 
     ProjectConfig ||--o| TestConfig : "test"
@@ -192,6 +202,7 @@ erDiagram
     ProjectConfig ||--o| HookConfig : "hooks"
     ProjectConfig ||--o{ MCPConfig : "mcp"
     ProjectConfig ||--o{ WorkflowConfig : "workflows"
+    ProjectConfig ||--o{ MemoryConfig : "memory"
 
     XcaffoldConfig ||--o{ PolicyConfig : "policies"
     ProjectConfig ||--o{ PolicyConfig : "policies"
@@ -217,27 +228,38 @@ erDiagram
     SandboxConfig ||--o| SandboxNetwork : "network"
 ```
 
+
 ## Supported Kinds
 
 The `kind` field is the document type discriminator. Each `.xcf` file (or YAML document within a multi-document file) declares its kind. Multiple documents of different kinds can coexist in a single file, separated by `---`.
 
+### Xcaffold-Specific Configurations
+These configurations coordinate the compiler engine and local development workflows.
+
 | Kind | Description | Decode struct | Required fields |
 |---|---|---|---|
-| `project` | Project manifest. Declares the project name, compilation targets, and child resource references as bare name lists (`agents: [dev, qa]`). Exactly one per project. | `projectDocFields` | `version`, `name` |
-| `global` | Global-scope configuration for `~/.xcaffold/global.xcf`. Contains resources and settings without project metadata. | `XcaffoldConfig` (direct) | `version` |
-| `policy` | Declarative constraint evaluated against AST and compiled output during `apply` and `validate`. | `PolicyConfig` (with envelope) | `version`, `name` |
-| `agent` | Standalone agent definition. All `AgentConfig` fields at the top level. | `AgentConfig` (with envelope) | `version`, `name` |
-| `skill` | Standalone skill definition. All `SkillConfig` fields at the top level. | `SkillConfig` (with envelope) | `version`, `name` |
-| `rule` | Standalone rule definition. All `RuleConfig` fields at the top level. | `RuleConfig` (with envelope) | `version`, `name` |
-| `workflow` | Standalone workflow definition. All `WorkflowConfig` fields at the top level. | `WorkflowConfig` (with envelope) | `version`, `name` |
-| `mcp` | Standalone MCP server definition. All `MCPConfig` fields at the top level. | `MCPConfig` (with envelope) | `version`, `name` |
+| `project` | Project manifest. Declares the project name, compilation targets, and child resource references as bare name lists. | `projectDocFields` | `version`, `name` |
+| `global` | Global-scope configuration for `~/.xcaffold/global.xcf`. Contains resources and settings. | `XcaffoldConfig` | `version` |
+| `policy` | Declarative constraint evaluated against AST and compiled output during `apply` and `validate`. | `PolicyConfig` | `version`, `name` |
+
+### Provider-Specific Agent Configurations
+These configurations are passed down to target AI platforms.
+
+| Kind | Description | Decode struct | Required fields |
+|---|---|---|---|
+| `agent` | Standalone agent definition. All `AgentConfig` fields at the top level. | `AgentConfig` | `version`, `name` |
+| `skill` | Standalone skill definition. All `SkillConfig` fields at the top level. | `SkillConfig` | `version`, `name` |
+| `rule` | Standalone rule definition. All `RuleConfig` fields at the top level. | `RuleConfig` | `version`, `name` |
+| `workflow` | Standalone workflow definition. All `WorkflowConfig` fields at the top level. | `WorkflowConfig` | `version`, `name` |
+| `mcp` | Standalone MCP server definition. All `MCPConfig` fields at the top level. | `MCPConfig` | `version`, `name` |
+| `memory` | Standalone memory definition. All `MemoryConfig` fields at the top level. | `MemoryConfig` | `version`, `name` |
 | `hooks` | Standalone hooks definition. Uses an `events:` wrapper containing the `HookConfig` map. | `hooksDocument` | `version` |
 | `settings` | Standalone settings definition. All `SettingsConfig` fields at the top level (inlined). | `settingsDocument` | `version` |
-| `policy` | Standalone policy definition. Declarative constraint evaluated during `apply` and `validate`. Semantic validation enforces `severity` (`error`/`warning`/`off`) and `target` (`agent`/`skill`/`rule`/`hook`/`settings`/`output`) enums. | `PolicyConfig` (with envelope) | `version`, `name` |
+
 
 ### `kind: project` semantics
 
-In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `mcp`, and `policies` keys are decoded as `[]string` (bare name lists), not as the `map[string]Config` inline definition structures used in other document kinds. This is achieved via a separate decode struct (`projectDocFields`) that maps these YAML keys to `AgentRefs`, `SkillRefs`, `RuleRefs`, `WorkflowRefs`, `MCPRefs`, and `PolicyRefs` on `ProjectConfig`. These reference lists name child resources defined in sibling documents (same file via `---` separators, or separate `.xcf` files in the `xcf/` directory).
+In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `memory`, `mcp`, and `policies` keys are decoded as `[]string` (bare name lists), not as the `map[string]Config` inline definition structures used in other document kinds. This is achieved via a separate decode struct (`projectDocFields`) that maps these YAML keys to `AgentRefs`, `SkillRefs`, `RuleRefs`, `WorkflowRefs`, `MemoryRefs`, `MCPRefs`, and `PolicyRefs` on `ProjectConfig`. These reference lists name child resources defined in sibling documents (same file via `---` separators, or separate `.xcf` files in the `xcf/` directory).
 
 The `targets` key on `kind: project` is also a `[]string` listing compilation targets (e.g., `["claude", "antigravity"]`). It is stored on `ProjectConfig.Targets` (tagged `yaml:"-"` — only populated by the parser for `kind: project` documents).
 
@@ -305,6 +327,10 @@ There is no `--all` flag — the two commands are independent (different sources
 
 ---
 
+# Xcaffold-Specific Configurations
+
+These configurations orchestrate the compilation engine, validate rules, and manage the local environment. They do not get passed natively to the LLM agent.
+
 ## `XcaffoldConfig`
 
 Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.xcf`) and global scope (`~/.xcaffold/global.xcf`). See [Scopes](#scopes) for field applicability at each level.
@@ -321,6 +347,7 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.
 | `hooks` | `HookConfig` | Optional | Lifecycle event handlers. Provided via embedded `ResourceScope`. |
 | `mcp` | `map[string]MCPConfig` | Optional | MCP server definitions. Merged into `settings.mcpServers` during compilation; `settings.mcpServers` wins on key conflicts. Provided via embedded `ResourceScope`. |
 | `workflows` | `map[string]WorkflowConfig` | Optional | Reusable workflows keyed by ID. **Antigravity-only**: silently ignored by Claude and Cursor renderers. Provided via embedded `ResourceScope`. |
+| `memory` | `map[string]MemoryConfig` | Optional | Declarative memory definitions keyed by ID. Provided via embedded `ResourceScope`. |
 | `policies` | `map[string]PolicyConfig` | Optional | Declarative constraints keyed by ID. Evaluated during `apply` and `validate`. Provided via embedded `ResourceScope`. |
 | `settings` | `SettingsConfig` | Optional | Platform settings compiled to `settings.json`. At global scope, these become user-level defaults. |
 
@@ -328,7 +355,7 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.
 
 ## `ProjectConfig`
 
-Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`scaffold.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`, `policies`) and project-only settings (`test`, `local`) that are not valid at global scope.
+Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`scaffold.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`, `memory`, `policies`) and project-only settings (`test`, `local`) that are not valid at global scope.
 
 > [!NOTE]
 > `project.name` is required in `scaffold.xcf`. It is used to register the project in `~/.xcaffold/registry.xcf`, prefix lock file entries, and label graph and plan output. It has no equivalent at global scope.
@@ -348,6 +375,7 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `skillRefs` | `[]string` | Optional | Bare name references to child skill resources. Only populated via `kind: project` documents. |
 | `ruleRefs` | `[]string` | Optional | Bare name references to child rule resources. Only populated via `kind: project` documents. |
 | `workflowRefs` | `[]string` | Optional | Bare name references to child workflow resources. Only populated via `kind: project` documents. |
+| `memoryRefs` | `[]string` | Optional | Bare name references to child memory resources. Only populated via `kind: project` documents. |
 | `mcpRefs` | `[]string` | Optional | Bare name references to child MCP resources. Only populated via `kind: project` documents. |
 | `policyRefs` | `[]string` | Optional | Bare name references to child policy resources. Only populated via `kind: project` documents. |
 | `test` | `TestConfig` | Optional | Configuration for `xcaffold test`. See [TestConfig](#testconfig). |
@@ -358,9 +386,61 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `hooks` | `HookConfig` | Optional | Workspace-scoped lifecycle hooks. Additive with global hooks. |
 | `mcp` | `map[string]MCPConfig` | Optional | Workspace-scoped MCP server definitions. |
 | `workflows` | `map[string]WorkflowConfig` | Optional | Workspace-scoped workflow declarations. |
+| `memory` | `map[string]MemoryConfig` | Optional | Workspace-scoped declarative memory definitions. |
 | `policies` | `map[string]PolicyConfig` | Optional | Workspace-scoped policy declarations. Evaluated during `apply` and `validate`. |
 
 ---
+
+## `PolicyConfig`
+
+Defines a declarative constraint evaluated against the AST and compiled output during `xcaffold apply` and `xcaffold validate`. Policies are not compiled to a file on disk — they run in-process and emit diagnostics.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | **Required** | Unique policy identifier. |
+| `description` | `string` | Optional | Human-readable explanation of the policy's intent. |
+| `severity` | `string` | **Required** | Diagnostic severity: `"error"` (blocks apply), `"warning"` (emits to stderr), or `"off"` (disabled). |
+| `target` | `string` | **Required** | Resource type the policy applies to: `"agent"`, `"skill"`, `"rule"`, `"hook"`, `"settings"`, or `"output"`. |
+| `match` | `PolicyMatch` | Optional | Filter conditions applied before evaluation. All conditions are AND-ed. |
+| `require` | `[]PolicyRequire` | Optional | Field value constraints. Each entry must pass for the policy to be satisfied. |
+| `deny` | `[]PolicyDeny` | Optional | Forbidden content or path patterns. A single match causes the policy to fail. |
+
+### `PolicyMatch`
+
+Narrows which resources a policy applies to. All specified conditions must match (AND logic).
+
+| Field | Type | Description |
+|---|---|---|
+| `name_glob` | `string` | Glob pattern matched against the resource name (e.g., `"*-prod"` matches `agent-prod`). |
+| `has_field` | `string` | Field that must be present (non-zero) on the resource for the policy to apply. |
+
+### `PolicyRequire`
+
+Asserts a field meets a value constraint.
+
+| Field | Type | Description |
+|---|---|---|
+| `field` | `string` | Dot-path to the field to check (e.g., `"model"`, `"permissions.defaultMode"`). |
+| `one_of` | `[]string` | Allowed values. The policy passes if the field value appears in this list. |
+| `min_length` | `int` | Minimum string length or minimum list length. Fails if the field is shorter. |
+
+### `PolicyDeny`
+
+Asserts forbidden content does not appear in a resource or its compiled output.
+
+| Field | Type | Description |
+|---|---|---|
+| `field_matches` | `string` | Regex matched against a field value. A match causes the policy to fail. |
+| `content_contains` | `[]string` | Substrings that must not appear in the compiled output file (applies when `target: output`). |
+| `path_glob` | `string` | File path pattern that must not exist in the compiled output. |
+
+---
+
+---
+
+# Provider-Specific Agent Configurations
+
+These configurations describe the persona, guidelines, hooks, and environment that are natively compiled into prompts and configurations for Claude, Cursor, Copilot, etc.
 
 ## `AgentConfig`
 
@@ -390,7 +470,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 |---|---|---|---|
 | `tools` | `[]string` | Optional | Runtime tools granted to the agent (e.g., `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`). Omit to inherit all available tools. |
 | `disallowedTools` | `[]string` | Optional | Tools the agent is explicitly forbidden from using. Applied before `tools` resolution. |
-| `readonly` | `*bool` | Optional | When `true` and `tools` is empty, the Claude renderer emits `tools: [Read, Grep, Glob]`; Cursor and Antigravity emit `readonly: true` natively. |
+| `readonly` | `*bool` | Optional | When `true` and `tools` is empty, the Claude renderer emits `tools: [Read, Grep, Glob]`; Cursor emits `readonly: true` natively. |
 
 **Permissions & Invocation Control**
 
@@ -404,7 +484,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `background` | `*bool` | Optional | Execute without blocking the UI. Emitted as `background` for Claude, `is_background` for Cursor and Antigravity. |
+| `background` | `*bool` | Optional | Execute without blocking the UI. Emitted as `background` for Claude, `is_background` for Cursor. |
 | `isolation` | `string` | Optional | Worktree or environment isolation preference. |
 | `when` | `string` | Optional | Compile-time conditional for inclusion. |
 
@@ -454,7 +534,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 
 ---
 
-## `TargetOverride`
+### `TargetOverride`
 
 Per-target compilation overrides. Used inside `agents.<id>.targets.<target>`.
 
@@ -515,7 +595,7 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 | `assets` | `[]string` | Optional | Output artifact files like templates or icons. Resolved relative to `scaffold.xcf`. Copied to `skills/<id>/assets/` during compilation. |
 
 > [!WARNING]
-> **Cursor**: Script and asset bundling is not supported. Those directories are dropped during compilation with a standard stderr warning.
+> **Cursor**: Skills support optional `scripts/`, `references/`, and `assets/` directories. These are emitted as-is during skill directory compilation.
 >
 > **Antigravity**: Frontmatter fields beyond `name` and `description` are dropped.
 >
@@ -546,7 +626,7 @@ Path-gated formatting guideline. Compiled to `rules/<id>.md` (Claude), `rules/<i
 
 ## Hooks
 
-XCaffold hook syntax natively targets the following provider implementation standards:
+Xcaffold hook syntax natively targets the following provider implementation standards:
 
 * **Cursor**: [https://cursor.com/docs/hooks](https://cursor.com/docs/hooks)
 * **Claude**: [https://code.claude.com/docs/en/hooks](https://code.claude.com/docs/en/hooks)
@@ -649,11 +729,11 @@ Defines a local or remote MCP (Model Context Protocol) server.
 > [!NOTE]
 > **Claude**: MCP definitions from the top-level `mcp:` block are merged into `mcp.json`. `settings.mcpServers` takes precedence on key conflicts.
 >
-> **Cursor normalization**: `url` is emitted as `serverUrl`. The `type` field is omitted — Cursor infers transport from the presence of `command` (stdio) or `serverUrl` (http/sse). Output file: `.cursor/mcp.json`.
+> **Cursor normalization**: The `type` field is omitted — Cursor infers transport from the presence of `command` (stdio) or `url` (http/sse). Output file: `.cursor/mcp.json`.
+>
+> **Antigravity normalization**: `url` is emitted as `serverUrl`. The `type` field is omitted — Antigravity infers transport from the presence of `command` (stdio) or `serverUrl` (http). Compiled into `.agents/mcp_config.json` wrapped in an `mcpServers` block.
 >
 > **Env var interpolation**: Claude uses `${VAR_NAME}` syntax; Cursor uses `${env:VAR_NAME}` (and also `${userHome}`, `${workspaceFolder}`). xcaffold passes string values through verbatim — if you target both platforms from the same `.xcf` file, use the syntax for your primary target and document the difference for teams.
->
-> **Antigravity normalization**: Compiled into `.agents/mcp_config.json` wrapped in an `mcpServers` block.
 
 ---
 
@@ -708,7 +788,7 @@ Platform settings compiled to the target's settings file. The `local:` variant w
 
 ---
 
-## `PermissionsConfig`
+### `PermissionsConfig`
 
 Permission rules for tool access within `settings.permissions`. All three providers have the concept of allow/deny for tool operations — xcaffold expresses it here and compiles it to Claude's `settings.json`. Cursor and Antigravity apply equivalent rules via their UI settings panels.
 
@@ -723,7 +803,7 @@ Permission rules for tool access within `settings.permissions`. All three provid
 
 ---
 
-## `SandboxConfig`
+### `SandboxConfig`
 
 OS-level process isolation within `settings.sandbox`. Sandboxing is a universal security concept — Claude Code implements it via `settings.json`, Antigravity via a UI toggle (macOS Seatbelt / Linux nsjail). xcaffold compiles these settings for Claude Code only.
 
@@ -763,7 +843,7 @@ Network isolation boundaries within `sandbox.network`.
 
 ---
 
-## `StatusLineConfig`
+### `StatusLineConfig`
 
 Custom status bar command within `settings.statusLine`.
 
@@ -774,7 +854,7 @@ Custom status bar command within `settings.statusLine`.
 
 ---
 
-## `TestConfig`
+### `TestConfig`
 
 Configuration for `xcaffold test`.
 
@@ -804,51 +884,6 @@ Defines a named, reusable workflow. Compiled to `workflows/<id>.md`.
 
 ---
 
-## `PolicyConfig`
-
-Defines a declarative constraint evaluated against the AST and compiled output during `xcaffold apply` and `xcaffold validate`. Policies are not compiled to a file on disk — they run in-process and emit diagnostics.
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | `string` | **Required** | Unique policy identifier. |
-| `description` | `string` | Optional | Human-readable explanation of the policy's intent. |
-| `severity` | `string` | **Required** | Diagnostic severity: `"error"` (blocks apply), `"warning"` (emits to stderr), or `"off"` (disabled). |
-| `target` | `string` | **Required** | Resource type the policy applies to: `"agent"`, `"skill"`, `"rule"`, `"hook"`, `"settings"`, or `"output"`. |
-| `match` | `PolicyMatch` | Optional | Filter conditions applied before evaluation. All conditions are AND-ed. |
-| `require` | `[]PolicyRequire` | Optional | Field value constraints. Each entry must pass for the policy to be satisfied. |
-| `deny` | `[]PolicyDeny` | Optional | Forbidden content or path patterns. A single match causes the policy to fail. |
-
-### `PolicyMatch`
-
-Narrows which resources a policy applies to. All specified conditions must match (AND logic).
-
-| Field | Type | Description |
-|---|---|---|
-| `name_glob` | `string` | Glob pattern matched against the resource name (e.g., `"*-prod"` matches `agent-prod`). |
-| `has_field` | `string` | Field that must be present (non-zero) on the resource for the policy to apply. |
-
-### `PolicyRequire`
-
-Asserts a field meets a value constraint.
-
-| Field | Type | Description |
-|---|---|---|
-| `field` | `string` | Dot-path to the field to check (e.g., `"model"`, `"permissions.defaultMode"`). |
-| `one_of` | `[]string` | Allowed values. The policy passes if the field value appears in this list. |
-| `min_length` | `int` | Minimum string length or minimum list length. Fails if the field is shorter. |
-
-### `PolicyDeny`
-
-Asserts forbidden content does not appear in a resource or its compiled output.
-
-| Field | Type | Description |
-|---|---|---|
-| `field_matches` | `string` | Regex matched against a field value. A match causes the policy to fail. |
-| `content_contains` | `[]string` | Substrings that must not appear in the compiled output file (applies when `target: output`). |
-| `path_glob` | `string` | File path pattern that must not exist in the compiled output. |
-
----
-
 ## Provider Compatibility Matrix
 
 Summary of which resource types compile for each target.
@@ -873,8 +908,8 @@ Summary of which resource types compile for each target.
 | `readonly: true` (no tools) | → `tools: [Read, Grep, Glob]` | Claude agents |
 | `readonly: true` | → `readonly: true` (native) | Cursor agents |
 | `paths:` | → `globs:` | Cursor rules (`.mdc` frontmatter) |
-| `url:` | → `serverUrl:` | Cursor MCP (`.cursor/mcp.json`) |
-| MCP `type:` field | → omitted | Cursor (infers transport from `command` vs `serverUrl`) |
+| `url:` | → `serverUrl:` | Antigravity MCP (`.agents/mcp_config.json`) |
+| MCP `type:` field | → omitted | Cursor (infers transport from `command` vs `url`); Antigravity (infers transport from `command` vs `serverUrl`) |
 | MCP env var syntax | `${VAR}` → `${env:VAR}` | Cursor hooks/MCP (user responsibility — xcaffold passes through verbatim) |
 | Hook event casing | `PreToolUse` → `preToolUse` | Cursor hooks |
 | Hook structure | 3-level (event → matcher group → handlers) → 2-level (event → handlers with inline matcher) | Cursor hooks |

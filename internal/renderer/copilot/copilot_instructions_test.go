@@ -107,10 +107,10 @@ func TestCopilotRenderer_FlatMode_ExplicitFlag(t *testing.T) {
 	}
 }
 
-// TestCopilotRenderer_NestedMode_EmitsAGENTSMDTree verifies that setting
+// TestCopilotRenderer_NestedMode_EmitsNestedDirs verifies that setting
 // target-options.copilot.instructions-mode: nested produces per-directory AGENTS.md
 // files instead of the flat singleton.
-func TestCopilotRenderer_NestedMode_EmitsAGENTSMDTree(t *testing.T) {
+func TestCopilotRenderer_NestedMode_EmitsNestedDirs(t *testing.T) {
 	r := copilot.New()
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{

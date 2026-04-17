@@ -113,13 +113,15 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 		assert.False(t, strings.HasPrefix(path, "agents/"), "agents must not be emitted for AG target, got %q", path)
 	}
 
-	// MCP is emitted, hooks are not emitted
+	// MCP config is NOT written to the project output directory; Antigravity reads
+	// MCP config from ~/.gemini/antigravity/mcp_config.json (global only).
+	// Hooks are also not emitted.
 	_, hasMCPConfig := out.Files["mcp_config.json"]
-	assert.True(t, hasMCPConfig, "mcp_config.json must be emitted for AG target")
+	assert.False(t, hasMCPConfig, "mcp_config.json must NOT be emitted; Antigravity reads MCP config from the global user path only")
 
 	// ── File count ────────────────────────────────────────────────────────────
-	// 2 rules + 1 skill + 1 MCP = 4 files (agents + hooks silently skipped)
-	assert.Len(t, out.Files, 4, "expected exactly 4 output files (rules + skill + mcp)")
+	// 2 rules + 1 skill = 3 files (agents, hooks, and MCP silently skipped/noted)
+	assert.Len(t, out.Files, 3, "expected exactly 3 output files (rules + skill); MCP, agents, and hooks are not written")
 }
 
 // TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk verifies that

@@ -1,8 +1,18 @@
+---
+title: "Binding MCP Tool Servers to Agents"
+description: "Define stdio, SSE, and HTTP MCP servers and reference them from agents in .xcf files"
+---
+
 # Binding MCP Tool Servers to Agents
 
-MCP (Model Context Protocol) servers extend agents with external tools — file systems, databases, APIs, and custom executables. In xcaffold, MCP servers are declared in your `.xcf` file and compiled deterministically into the target platform's configuration on every `xcaffold apply` run.
+You want to give your agents access to external tools — databases, file systems, APIs — without hard-coding tool implementations into agent instructions. MCP (Model Context Protocol) servers extend agents with external tools and are declared in your `.xcf` file, compiled deterministically into the target platform's configuration on every `xcaffold apply` run.
 
 Five compilation targets are supported: `claude`, `cursor`, `antigravity`, `copilot`, and `gemini`. This guide covers `claude` and `cursor` in full, with normalization differences called out explicitly.
+
+**When to use this:** When you need to give agents structured access to external tools, and want that wiring tracked as source under xcaffold management.
+
+**Prerequisites:**
+- Completed [Getting Started](../tutorials/getting-started.md) tutorial
 
 ---
 
@@ -28,15 +38,7 @@ mcp:
       NODE_ENV: production
 ```
 
-**Fields:**
-
-| Field | Type | Purpose |
-|---|---|---|
-| `command` | `string` | Executable to launch |
-| `args` | `[]string` | Arguments passed to the executable |
-| `cwd` | `string` | Working directory for the process |
-| `env` | `map[string]string` | Environment variables injected at launch |
-| `type` | `string` | Transport hint (`stdio`, `sse`, `http`). Claude target writes this field; Cursor infers it from the presence of `command` vs `url` and omits the field entirely. |
+For the full field reference, see [Schema Reference: MCPConfig](../reference/schema.md#mcpconfig).
 
 ---
 
@@ -56,15 +58,6 @@ mcp:
       client_id: "${OAUTH_CLIENT_ID}"
       client_secret: "${OAUTH_CLIENT_SECRET}"
 ```
-
-**Fields:**
-
-| Field | Type | Purpose |
-|---|---|---|
-| `url` | `string` | Server endpoint URL |
-| `headers` | `map[string]string` | HTTP headers sent with every request |
-| `authProviderType` | `string` | Auth provider hint (e.g. `oauth`) |
-| `oauth` | `map[string]string` | OAuth configuration key/value pairs |
 
 ---
 
@@ -127,7 +120,7 @@ agents:
         args: ["--dsn", "${DATABASE_URL}"]
 ```
 
-Agent-scoped servers are compiled directly into the agent's output file (the agent's `.md` frontmatter for the `claude` target). They do not appear in `settings.json`. Use this when a server is meaningful only within one agent's context.
+xcaffold accepts MCP servers scoped to individual agents in the `.xcf` AST. Compilation output depends on the target provider — verify that the target provider supports agent-level MCP configuration before using this feature.
 
 ---
 
@@ -306,10 +299,7 @@ The top-level `mcp:` block is written to a standalone `mcp.json` file wrapped in
 
 Output: `.cursor/mcp.json`
 
-The MCP servers are emitted to a separate `mcp.json` file under the `mcpServers` envelope key. Two normalizations apply:
-
-- `url` is renamed to `serverUrl`
-- `type` is omitted entirely — Cursor infers the transport from the presence of `command` (stdio) or `serverUrl` (http/sse)
+The MCP servers are emitted to a separate `mcp.json` file under the `mcpServers` envelope key. Cursor ground truth shows that remote servers use the `url` field name in mcp.json configuration. xcaffold's output may normalize field names — verify the actual compiled output matches your Cursor configuration expectations.
 
 ```json
 {
@@ -325,7 +315,7 @@ The MCP servers are emitted to a separate `mcp.json` file under the `mcpServers`
 }
 ```
 
-**For a remote server**, the `url` → `serverUrl` normalization is visible:
+**For a remote server**, compare the xcaffold input to the compiled Claude and Cursor outputs:
 
 `.xcf` input:
 ```yaml
@@ -357,7 +347,7 @@ Cursor output (`.cursor/mcp.json`):
 {
   "mcpServers": {
     "web-search": {
-      "serverUrl": "https://mcp.example.com/search",
+      "url": "https://mcp.example.com/search",
       "headers": {
         "Authorization": "Bearer ${TOKEN}"
       }
@@ -366,22 +356,48 @@ Cursor output (`.cursor/mcp.json`):
 }
 ```
 
-`type` is absent from the Cursor output. `url` becomes `serverUrl`. Fields `cwd`, `authProviderType`, `oauth`, `disabled`, and `disabledTools` are not included in the Cursor `cursorMCPEntry` shape and are dropped on compilation to that target.
+
+Fields `cwd`, `authProviderType`, `oauth`, `disabled`, and `disabledTools` are xcaffold-specific and are dropped when compiling to the Cursor target, as Cursor's mcp.json schema does not include them.
 
 ---
 
-## Complete `MCPConfig` Field Reference
+## Verification
 
-| Field | Type | Description |
+After declaring your servers and running `xcaffold apply`, verify the connections with:
+
+```bash
+xcaffold graph --full
+```
+
+Expected output includes each declared server as an edge from the agent that references it:
+
+```
+  └─▶ [Servers]
+           └─(mcp)─▶ filesystem
+```
+
+Any server not referenced by an agent appears in the `Unreferenced mcp:` section. To verify the compiled JSON shape, inspect the output file directly:
+
+```bash
+cat .claude/mcp.json
+```
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| `command` | `string` | Executable path or name for stdio servers |
-| `args` | `[]string` | Arguments passed to `command` |
-| `cwd` | `string` | Working directory for the process |
-| `env` | `map[string]string` | Environment variables |
-| `type` | `string` | Transport hint: `stdio`, `sse`, or `http` |
-| `url` | `string` | Endpoint URL for remote servers |
-| `headers` | `map[string]string` | HTTP request headers |
-| `authProviderType` | `string` | Auth provider type (e.g. `oauth`) |
-| `oauth` | `map[string]string` | OAuth key/value configuration |
-| `disabled` | `*bool` | When `true`, server is inactive but retained in config |
-| `disabledTools` | `[]string` | Individual tools to suppress from this server |
+| `agent "X" references undefined mcp server "Y"` | Server declared in `mcp:` but agent's `mcp:` list uses a different ID | Ensure the ID in `agents.<id>.mcp` matches the key in the top-level `mcp:` map exactly |
+| Cursor output missing `serverUrl` | Remote server declared with `url:` but targeting `claude` — no normalization needed | For Cursor, xcaffold renames `url` to `serverUrl` automatically; verify `--target cursor` is set |
+| Server appears in graph but not in compiled output | `disabled: true` is set on the server | Remove `disabled` or set `disabled: false` |
+| Duplicate server ID parse error | Same server key defined in both `mcp:` and a `kind: mcp` standalone document | Remove one definition or rename the duplicate |
+
+---
+
+## Related
+
+- [Architecture Overview](../concepts/architecture.md) — compilation pipeline from `.xcf` to target output
+- [Schema Reference: MCPConfig](../reference/schema.md#mcpconfig) — full field table for all MCP server fields
+- [CLI Reference: xcaffold graph](../reference/cli.md#xcaffold-graph)
+- [Splitting a Project Into Multiple .xcf Files](multi-file-projects.md) — organizing MCP servers in standalone `kind: mcp` documents

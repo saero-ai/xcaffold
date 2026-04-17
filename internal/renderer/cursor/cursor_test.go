@@ -2,6 +2,8 @@ package cursor_test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -114,7 +116,7 @@ func TestCompile_Rule_WithoutPaths_HasAlwaysApply(t *testing.T) {
 	content := out.Files["rules/global-rule.mdc"]
 	require.NotEmpty(t, content)
 
-	assert.Contains(t, content, "alwaysApply: true")
+	assert.Contains(t, content, "always-apply: true")
 	assert.NotContains(t, content, "globs:")
 	assert.NotContains(t, content, "paths:")
 }
@@ -475,6 +477,13 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 
 func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	r := cursor.New()
+
+	// Provide real files so compileCursorSkillSubdir can read them.
+	tmpDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "setup.sh"), []byte("#!/bin/bash"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "icon.png"), []byte("\x89PNG"), 0o644))
+
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
@@ -483,7 +492,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Description:  "Has many fields.",
 					Instructions: "Do something.",
 					AllowedTools: []string{"Bash"},
-					References:   []string{"**/*.go"},
+					References:   []string{"main.go"},
 					Scripts:      []string{"setup.sh"},
 					Assets:       []string{"icon.png"},
 				},
@@ -491,18 +500,18 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := r.Compile(config, tmpDir)
 	require.NoError(t, err)
 
 	content := out.Files["skills/rich-skill/SKILL.md"]
 	require.NotEmpty(t, content)
 
-	// CC-only fields must NOT appear
+	// CC-only fields must NOT appear in the SKILL.md frontmatter.
 	for _, dropped := range []string{"tools:", "references:", "scripts:", "assets:"} {
-		assert.NotContains(t, content, dropped, "CC-only field %q must be dropped", dropped)
+		assert.NotContains(t, content, dropped, "CC-only field %q must be dropped from frontmatter", dropped)
 	}
 
-	// Cursor-compatible fields MUST appear
+	// Cursor-compatible fields MUST appear.
 	assert.Contains(t, content, "name: Rich Skill")
 	assert.Contains(t, content, "description: Has many fields.")
 }
@@ -551,7 +560,7 @@ func TestCompile_MCP_EmitsMCPJson(t *testing.T) {
 	assert.True(t, ok, "expected mcp.json in output")
 }
 
-func TestCompile_MCP_HTTPTransport_URLBecomesServerURL(t *testing.T) {
+func TestCompile_MCP_HTTPTransport_URLPreserved(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -580,8 +589,8 @@ func TestCompile_MCP_HTTPTransport_URLBecomesServerURL(t *testing.T) {
 	entry, ok := servers["remote-server"].(map[string]interface{})
 	require.True(t, ok)
 
-	assert.Equal(t, "https://mcp.example.com/endpoint", entry["serverUrl"], "url must be renamed to serverUrl")
-	assert.Nil(t, entry["url"], "original url field must not appear")
+	assert.Equal(t, "https://mcp.example.com/endpoint", entry["url"], "url field must be preserved as-is")
+	assert.Nil(t, entry["serverUrl"], "serverUrl field must not appear for Cursor")
 	assert.Nil(t, entry["type"], "type field must be omitted — Cursor infers transport")
 }
 
@@ -882,7 +891,7 @@ func TestCompile_Rule_AlwaysApplyExplicitFalse_EmitsFalse(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/opt-out-rule.mdc"]
-	assert.Contains(t, content, "alwaysApply: false", "explicit false must be emitted")
+	assert.Contains(t, content, "always-apply: false", "explicit false must be emitted")
 }
 
 func TestCompile_Rule_PathsWithAlwaysApplyTrue_AlwaysTakesPrecedence(t *testing.T) {
@@ -908,7 +917,7 @@ func TestCompile_Rule_PathsWithAlwaysApplyTrue_AlwaysTakesPrecedence(t *testing.
 	require.NoError(t, err)
 
 	content := out.Files["rules/combo-rule.mdc"]
-	assert.Contains(t, content, "alwaysApply: true", "AlwaysApply=true takes precedence; rule fires on every file")
+	assert.Contains(t, content, "always-apply: true", "AlwaysApply=true takes precedence; rule fires on every file")
 	assert.NotContains(t, content, "globs:", "AlwaysApply=true supersedes paths; globs must not be emitted")
 }
 
@@ -1112,8 +1121,14 @@ func TestCursorRenderer_SuppressFidelityWarnings_NotesStillReturned(t *testing.T
 	assert.NotEmpty(t, notes, "renderer returns notes; suppression is filtered at the command layer")
 }
 
-func TestCursorRenderer_SkillScriptsDropped_EmitsNote(t *testing.T) {
+func TestCursorRenderer_SkillScriptsEmitted(t *testing.T) {
 	r := cursor.New()
+
+	tmpDir := t.TempDir()
+	scriptPath := filepath.Join(tmpDir, "scripts")
+	require.NoError(t, os.MkdirAll(scriptPath, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(scriptPath, "install.sh"), []byte("#!/bin/bash\necho hello"), 0o644))
+
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
@@ -1125,13 +1140,96 @@ func TestCursorRenderer_SkillScriptsDropped_EmitsNote(t *testing.T) {
 		},
 	}
 
-	_, notes, err := r.Compile(config, "")
+	out, notes, err := r.Compile(config, tmpDir)
 	require.NoError(t, err)
 
-	note, ok := findNote(notes, renderer.CodeSkillScriptsDropped)
-	require.True(t, ok)
-	assert.Equal(t, "setup", note.Resource)
-	assert.Equal(t, renderer.LevelWarning, note.Level)
+	// Scripts should be emitted, not dropped.
+	content, ok := out.Files["skills/setup/scripts/install.sh"]
+	assert.True(t, ok, "script file should be emitted")
+	assert.Contains(t, content, "echo hello")
+
+	// No drop warning should exist.
+	for _, n := range notes {
+		assert.NotEqual(t, renderer.CodeSkillScriptsDropped, n.Code, "should not emit scripts-dropped warning")
+	}
+}
+
+func TestCursorRenderer_SkillAssetsEmitted(t *testing.T) {
+	r := cursor.New()
+
+	tmpDir := t.TempDir()
+	assetPath := filepath.Join(tmpDir, "assets")
+	require.NoError(t, os.MkdirAll(assetPath, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(assetPath, "template.txt"), []byte("hello world"), 0o644))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"gen": {
+					Description: "Generator.",
+					Assets:      []string{"assets/template.txt"},
+				},
+			},
+		},
+	}
+
+	out, notes, err := r.Compile(config, tmpDir)
+	require.NoError(t, err)
+
+	content, ok := out.Files["skills/gen/assets/template.txt"]
+	assert.True(t, ok, "asset file should be emitted")
+	assert.Equal(t, "hello world", content)
+
+	for _, n := range notes {
+		assert.NotEqual(t, renderer.CodeSkillAssetsDropped, n.Code, "should not emit assets-dropped warning")
+	}
+}
+
+func TestCursorRenderer_SkillReferencesEmitted(t *testing.T) {
+	r := cursor.New()
+
+	tmpDir := t.TempDir()
+	refPath := filepath.Join(tmpDir, "refs")
+	require.NoError(t, os.MkdirAll(refPath, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(refPath, "schema.sql"), []byte("CREATE TABLE t(id INT);"), 0o644))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"db-setup": {
+					Description: "DB setup.",
+					References:  []string{"refs/schema.sql"},
+				},
+			},
+		},
+	}
+
+	out, notes, err := r.Compile(config, tmpDir)
+	require.NoError(t, err)
+
+	content, ok := out.Files["skills/db-setup/references/schema.sql"]
+	assert.True(t, ok, "reference file should be emitted")
+	assert.Contains(t, content, "CREATE TABLE")
+
+	_ = notes
+}
+
+func TestCursorRenderer_SkillSubdirPathTraversal(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"evil": {
+					Description: "Bad.",
+					Scripts:     []string{"../../../etc/passwd"},
+				},
+			},
+		},
+	}
+
+	_, _, err := r.Compile(config, t.TempDir())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "traverses above")
 }
 
 // ─── Activation mapping tests ─────────────────────────────────────────────────
@@ -1152,7 +1250,7 @@ func TestCompileCursorRule_Activation_Always(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/security.mdc"]
-	require.Contains(t, content, "alwaysApply: true")
+	require.Contains(t, content, "always-apply: true")
 	require.NotContains(t, content, "globs:")
 }
 
@@ -1175,7 +1273,7 @@ func TestCompileCursorRule_Activation_PathGlob(t *testing.T) {
 	content := out.Files["rules/api-style.mdc"]
 	require.Contains(t, content, "globs:")
 	require.Contains(t, content, "src/**")
-	require.NotContains(t, content, "alwaysApply:")
+	require.NotContains(t, content, "always-apply:")
 }
 
 func TestCompileCursorRule_Activation_ManualMention(t *testing.T) {
@@ -1194,7 +1292,7 @@ func TestCompileCursorRule_Activation_ManualMention(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/commit-style.mdc"]
-	require.Contains(t, content, "alwaysApply: false")
+	require.Contains(t, content, "always-apply: false")
 	require.NotContains(t, content, "globs:")
 }
 
@@ -1214,7 +1312,7 @@ func TestCompileCursorRule_Activation_ModelDecided_FidelityNote(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/arch-review.mdc"]
-	require.Contains(t, content, "alwaysApply: false")
+	require.Contains(t, content, "always-apply: false")
 
 	require.NotEmpty(t, notes)
 	require.Equal(t, renderer.LevelWarning, notes[0].Level)
@@ -1237,7 +1335,7 @@ func TestCompileCursorRule_Activation_ExplicitInvoke_FidelityNote(t *testing.T) 
 	require.NoError(t, err)
 
 	content := out.Files["rules/deploy-gate.mdc"]
-	require.Contains(t, content, "alwaysApply: false")
+	require.Contains(t, content, "always-apply: false")
 
 	require.NotEmpty(t, notes)
 	require.Equal(t, renderer.LevelWarning, notes[0].Level)
@@ -1261,7 +1359,7 @@ func TestCompileCursorRule_LegacyAlwaysApply_True(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/style.mdc"]
-	require.Contains(t, content, "alwaysApply: true")
+	require.Contains(t, content, "always-apply: true")
 }
 
 func TestCompileCursorRule_LegacyAlwaysApply_False(t *testing.T) {
@@ -1281,5 +1379,5 @@ func TestCompileCursorRule_LegacyAlwaysApply_False(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/manual.mdc"]
-	require.Contains(t, content, "alwaysApply: false")
+	require.Contains(t, content, "always-apply: false")
 }

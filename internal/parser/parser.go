@@ -65,16 +65,12 @@ var legacyKeyAliases = map[string]string{
 	"disableModelInvocation:": "disable-model-invocation:",
 	"userInvocable:":          "user-invocable:",
 	"initialPrompt:":          "initial-prompt:",
-	// NOTE: "mcpServers:" is intentionally NOT aliased here. SettingsConfig's
-	// top-level `mcpServers:` key is a provider wire-format pass-through that
-	// appears inside `kind: settings` documents AND inside the `settings:`
-	// sub-block of `kind: global` documents. The settings-document exemption
-	// only protects standalone `kind: settings` files, so aliasing "mcpServers:"
-	// globally would corrupt the inline-settings subtree. AgentConfig.MCPServers
-	// is authored as "mcp-servers:" going forward; pre-migration xcf files that
-	// used "mcpServers:" at the agent level are a non-existent population (the
-	// field was always called MCPServers in Go with a yaml tag that emitted
-	// "mcpServers" — no user-facing documentation ever promoted it).
+	// NOTE: "mcpServers:" aliasing for non-settings documents is handled below in
+	// the SettingsConfig block. The "kind: settings" document exemption in
+	// isSettingsDocument protects standalone settings files (provider wire-format
+	// pass-throughs). The alias only fires for non-settings xcf documents (e.g.
+	// kind: global, kind: project) where the settings: sub-block uses the xcf
+	// schema key "mcp-servers:" going forward.
 	// HookHandler — camelCase Claude-settings mirror (pre-migration convention)
 	"statusMessage:":  "status-message:",
 	"allowedEnvVars:": "allowed-env-vars:",
@@ -106,6 +102,51 @@ var legacyKeyAliases = map[string]string{
 	"content_contains:": "content-contains:",
 	"content_matches:":  "content-matches:",
 	"path_contains:":    "path-contains:",
+	// MCPConfig — camelCase (pre-migration)
+	"authProviderType:": "auth-provider-type:",
+	"disabledTools:":    "disabled-tools:",
+	// PermissionsConfig — camelCase (pre-migration)
+	"defaultMode:":                  "default-mode:",
+	"additionalDirectories:":        "additional-directories:",
+	"disableBypassPermissionsMode:": "disable-bypass-permissions-mode:",
+	// SandboxConfig — camelCase (pre-migration)
+	"autoAllowBashIfSandboxed:": "auto-allow-bash-if-sandboxed:",
+	"failIfUnavailable:":        "fail-if-unavailable:",
+	"allowUnsandboxedCommands:": "allow-unsandboxed-commands:",
+	"excludedCommands:":         "excluded-commands:",
+	// SandboxFilesystem — camelCase (pre-migration)
+	"allowWrite:": "allow-write:",
+	"denyWrite:":  "deny-write:",
+	"allowRead:":  "allow-read:",
+	"denyRead:":   "deny-read:",
+	// SandboxNetwork — camelCase (pre-migration)
+	"httpProxyPort:":           "http-proxy-port:",
+	"socksProxyPort:":          "socks-proxy-port:",
+	"allowManagedDomainsOnly:": "allow-managed-domains-only:",
+	"allowUnixSockets:":        "allow-unix-sockets:",
+	"allowLocalBinding:":       "allow-local-binding:",
+	"allowedDomains:":          "allowed-domains:",
+	// SettingsConfig — camelCase (pre-migration)
+	"autoMode:":                          "auto-mode:",
+	"cleanupPeriodDays:":                 "cleanup-period-days:",
+	"includeGitInstructions:":            "include-git-instructions:",
+	"skipDangerousModePermissionPrompt:": "skip-dangerous-mode-permission-prompt:",
+	"autoMemoryEnabled:":                 "auto-memory-enabled:",
+	"disableAllHooks:":                   "disable-all-hooks:",
+	"mcpServers:":                        "mcp-servers:",
+	"statusLine:":                        "status-line:",
+	"respectGitignore:":                  "respect-gitignore:",
+	"enabledPlugins:":                    "enabled-plugins:",
+	"disableSkillShellExecution:":        "disable-skill-shell-execution:",
+	"alwaysThinkingEnabled:":             "always-thinking-enabled:",
+	"effortLevel:":                       "effort-level:",
+	"defaultShell:":                      "default-shell:",
+	"outputStyle:":                       "output-style:",
+	"plansDirectory:":                    "plans-directory:",
+	"otelHeadersHelper:":                 "otel-headers-helper:",
+	"autoMemoryDirectory:":               "auto-memory-directory:",
+	"availableModels:":                   "available-models:",
+	"claudeMdExcludes:":                  "claude-md-excludes:",
 }
 
 // rewriteLegacyKeys rewrites pre-migration xcf YAML keys to kebab-case equivalents

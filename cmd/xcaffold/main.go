@@ -45,11 +45,11 @@ var globalLockPath string
 
 var rootCmd = &cobra.Command{
 	Use:   "xcaffold",
-	Short: "xcaffold — deterministic agent-as-code orchestration",
-	Long: `xcaffold is an open-source, deterministic agent configuration compiler engine for Claude Code.
+	Short: "xcaffold — deterministic agent configuration compiler",
+	Long: `xcaffold is an open-source, deterministic agent configuration compiler.
 
  ┌───────────────────────────────────────────────────────────────────┐
- │                 THE 8-PHASE ORCHESTRATION ENGINE                  │
+ │                       COMMAND REFERENCE                           │
  └───────────────────────────────────────────────────────────────────┘
   • Bootstrap   [xcaffold init]      Creates base project scaffolding
   • Ingestion   [xcaffold import]    Migrates dirs & translates via --source
@@ -63,6 +63,7 @@ var rootCmd = &cobra.Command{
  ┌───────────────────────────────────────────────────────────────────┐
  │                            UTILITIES                              │
  └───────────────────────────────────────────────────────────────────┘
+  • Translate   [xcaffold translate] Converts configs between providers with fidelity control
   • Validate    [xcaffold validate]  Checks syntax, cross-refs, and structural invariants
   • Review      [xcaffold review]    Universally parses state files
     ↳ Supports: scaffold.xcf, audit.json, plan.json, trace.jsonl

@@ -449,7 +449,11 @@ func TestCompile_AgentsAndHooks_AreNotEmitted(t *testing.T) {
 	}
 }
 
-func TestCompile_MCP_EmitsConfig(t *testing.T) {
+// TestCompile_MCP_NoProjectLocalFile verifies that Antigravity does NOT emit
+// mcp_config.json into the project output directory. Antigravity reads MCP
+// config from the global user path (~/.gemini/antigravity/mcp_config.json)
+// only; a project-local file is silently ignored by the tool.
+func TestCompile_MCP_NoProjectLocalFile(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -468,11 +472,50 @@ func TestCompile_MCP_EmitsConfig(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	content, ok := out.Files["mcp_config.json"]
-	assert.True(t, ok, "expected mcp_config.json in output")
-	assert.Contains(t, content, `"command": "npx"`)
-	assert.Contains(t, content, `"my-server"`)
-	assert.Contains(t, content, `"-y"`)
+	_, ok := out.Files["mcp_config.json"]
+	assert.False(t, ok, "mcp_config.json must NOT be written; Antigravity only reads MCP config from ~/.gemini/antigravity/mcp_config.json")
+}
+
+// TestCompile_MCP_EmitsGlobalConfigOnlyNote verifies that a MCP_GLOBAL_CONFIG_ONLY
+// fidelity note is emitted when MCP servers are declared. The note directs the
+// user to configure MCP via the Antigravity UI or by editing the global config file.
+func TestCompile_MCP_EmitsGlobalConfigOnlyNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"my-server": {
+					Command: "npx",
+					Args:    []string{"-y", "my-mcp"},
+				},
+			},
+		},
+	}
+
+	_, notes, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	note, ok := findAgNote(notes, renderer.CodeMCPGlobalConfigOnly, "mcp")
+	require.True(t, ok, "expected a MCP_GLOBAL_CONFIG_ONLY fidelity note")
+	assert.Equal(t, "antigravity", note.Target)
+}
+
+// TestCompile_MCP_HTTPServer_NoProjectLocalFile verifies that HTTP-transport MCP
+// servers also do not produce a project-local mcp_config.json for Antigravity.
+func TestCompile_MCP_HTTPServer_NoProjectLocalFile(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"http-server": {URL: "https://mcp.example.com/v1"},
+			},
+		},
+	}
+	out, _, err := r.Compile(config, "")
+	require.NoError(t, err)
+
+	_, ok := out.Files["mcp_config.json"]
+	assert.False(t, ok, "mcp_config.json must NOT be written for HTTP-transport servers either")
 }
 
 func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {
@@ -709,7 +752,12 @@ func TestAntigravityRenderer_SuppressFidelityWarnings_NotesStillReturned(t *test
 	assert.NotEmpty(t, notes, "renderer returns notes; suppression is applied at the command layer")
 }
 
-func TestAntigravityRenderer_MCPEnvInterpolation_EmitsNote(t *testing.T) {
+// TestAntigravityRenderer_MCPDeclared_EmitsGlobalConfigOnlyNote verifies that
+// any MCP declaration — regardless of env var interpolation or transport type —
+// produces a MCP_GLOBAL_CONFIG_ONLY note rather than an interpolation warning.
+// Antigravity reads MCP config from a global path only, so project-local
+// compilation is not performed and per-entry env inspection is skipped.
+func TestAntigravityRenderer_MCPDeclared_EmitsGlobalConfigOnlyNote(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -725,8 +773,8 @@ func TestAntigravityRenderer_MCPEnvInterpolation_EmitsNote(t *testing.T) {
 	_, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	_, ok := findAgNote(notes, renderer.CodeHookInterpolationRequiresEnvSyntax, "mcp.env")
-	assert.True(t, ok)
+	_, ok := findAgNote(notes, renderer.CodeMCPGlobalConfigOnly, "mcp")
+	assert.True(t, ok, "expected MCP_GLOBAL_CONFIG_ONLY note for MCP declarations on Antigravity target")
 }
 
 func TestAntigravityRenderer_SkillScripts_EmitsNote(t *testing.T) {

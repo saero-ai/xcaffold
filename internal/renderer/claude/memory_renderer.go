@@ -45,8 +45,8 @@ const memoryIndexSection = "## xcaffold seeds"
 // between the last seeded hash and the current on-disk hash.
 type MemoryRenderer struct {
 	targetDir string
-	reseed    bool
 	seeds     []MemorySeed
+	reseed    bool
 }
 
 // NewMemoryRenderer constructs a MemoryRenderer rooted at targetDir (the
