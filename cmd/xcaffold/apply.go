@@ -72,7 +72,7 @@ func init() {
 	applyCmd.Flags().BoolVar(&applyIncludeMemory, "include-memory", false, "Seed memory entries to the target provider as part of this apply")
 	applyCmd.Flags().BoolVar(&applyReseed, "reseed", false, "Overwrite existing memory files (bypass seed-once guard and drift check); implies --include-memory")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
-	applyCmd.Flags().StringVar(&targetFlag, "target", targetClaude, "compilation target platform (claude, cursor, antigravity, agentsmd; default: claude)")
+	applyCmd.Flags().StringVar(&targetFlag, "target", targetClaude, "compilation target platform (claude, cursor, antigravity, copilot; default: claude)")
 	rootCmd.AddCommand(applyCmd)
 }
 
@@ -80,7 +80,6 @@ const (
 	targetClaude      = "claude"
 	targetAntigravity = "antigravity"
 	targetCursor      = "cursor"
-	targetAgentsMD    = "agentsmd"
 	targetCopilot     = "copilot"
 	targetGemini      = "gemini"
 )
@@ -656,7 +655,7 @@ func cleanEmptyDirsUpToTarget(dir, targetDir string) {
 // Dispatches to the provider-specific MemoryRenderer based on target. The
 // Antigravity renderer returns its files in-memory, so runMemoryPass writes
 // them to disk under outputDir. Cursor and Copilot emit FidelityNotes only
-// (no files). AgentsMD has no native memory primitive and is a silent no-op.
+// (no files).
 func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string, priorSeeds []state.MemorySeed, dryRun, reseed bool) ([]state.MemorySeed, []renderer.FidelityNote, error) {
 	if config == nil || len(config.Memory) == 0 {
 		return nil, nil, nil
@@ -722,10 +721,6 @@ func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string
 		r := gemini.NewMemoryRenderer(geminiDir)
 		_, notes, err := r.Compile(config, baseDir)
 		return nil, notes, err
-
-	case targetAgentsMD:
-		// AgentsMD has no native memory primitive in v1 — silent no-op.
-		return nil, nil, nil
 
 	default:
 		return nil, nil, fmt.Errorf("memory pass: unsupported target %q", target)

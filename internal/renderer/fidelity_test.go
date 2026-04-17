@@ -8,7 +8,6 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/agentsmd"
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
@@ -148,7 +147,6 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 		claude.New(),
 		cursor.New(),
 		antigravity.New(),
-		agentsmd.New(),
 	}
 
 	for _, r := range renderers {
@@ -179,7 +177,7 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 }
 
 // buildFidelityFixture constructs an XcaffoldConfig that exercises the maximum
-// number of fidelity emit sites across all four concrete renderers.
+// number of fidelity emit sites across all three concrete renderers.
 //
 // Stub files (scripts/helper.sh, assets/logo.png, docs/ref.md) are created in
 // baseDir so that the claude renderer — which physically copies skill subfiles —
@@ -201,13 +199,6 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 //	  AGENT_SECURITY_FIELDS_DROPPED — same agent
 //	  HOOK_INTERPOLATION_REQUIRES_ENV_SYNTAX — MCP env with ${VAR}
 //	  SETTINGS_FIELD_UNSUPPORTED   — settings.Permissions + settings.Sandbox
-//
-//	agentsmd:
-//	  FIELD_UNSUPPORTED            — agent.Tools, DisallowedTools, Skills, Rules,
-//	                                 Effort, PermissionMode, Isolation, Color, MaxTurns,
-//	                                 Background, Readonly, Mode, Memory, Hooks, MCPServers,
-//	                                 Targets, Assertions, MCP; skill.AllowedTools,
-//	                                 References, Scripts, Assets; rule.AlwaysApply
 //
 //	claude: (native target — no fidelity notes by design)
 func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {

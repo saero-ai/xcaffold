@@ -6,7 +6,6 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/agentsmd"
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
@@ -18,7 +17,6 @@ const (
 	TargetClaude      = "claude"
 	TargetCursor      = "cursor"
 	TargetAntigravity = "antigravity"
-	TargetAgentsMD    = "agentsmd"
 	TargetCopilot     = "copilot"
 )
 
@@ -60,14 +58,11 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output
 	case TargetAntigravity:
 		r := antigravity.New()
 		return r.Compile(config, baseDir)
-	case TargetAgentsMD:
-		r := agentsmd.New()
-		return r.Compile(config, baseDir)
 	case TargetCopilot:
 		r := copilot.New()
 		return r.Compile(config, baseDir)
 	default:
-		return nil, nil, fmt.Errorf("unsupported target %q: supported targets are \"claude\", \"cursor\", \"antigravity\", \"agentsmd\", \"copilot\"", target)
+		return nil, nil, fmt.Errorf("unsupported target %q: supported targets are \"claude\", \"cursor\", \"antigravity\", \"copilot\"", target)
 	}
 }
 
@@ -120,8 +115,6 @@ func OutputDir(target string) string {
 		return cursor.New().OutputDir()
 	case TargetAntigravity:
 		return antigravity.New().OutputDir()
-	case TargetAgentsMD:
-		return agentsmd.New().OutputDir()
 	default:
 		return ".claude"
 	}

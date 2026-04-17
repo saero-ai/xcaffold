@@ -25,11 +25,3 @@ func TestExportCmd_OutputFlagIsRequired(t *testing.T) {
 	_, required := f.Annotations[cobraRequiredAnnotation]
 	assert.True(t, required, "--output flag must be marked as required")
 }
-
-// TestExportCmd_TargetFlagDescriptionIncludesAgentsmd verifies that the --target
-// flag description documents agentsmd as a valid compilation target.
-func TestExportCmd_TargetFlagDescriptionIncludesAgentsmd(t *testing.T) {
-	f := exportCmd.Flags().Lookup("target")
-	require.NotNil(t, f, "--target flag must be registered on exportCmd")
-	assert.Contains(t, f.Usage, "agentsmd", "--target flag description must list agentsmd as a valid target")
-}

@@ -185,7 +185,7 @@ func (r *Renderer) renderProjectInstructionsFlat(config *ast.XcaffoldConfig, bas
 
 // renderProjectInstructionsNested emits per-directory AGENTS.md files instead
 // of the flat singleton. This mirrors the closest-wins-nested class used by
-// the agentsmd and cursor renderers. Root instructions go to AGENTS.md;
+// the cursor renderer. Root instructions go to AGENTS.md;
 // each InstructionsScope produces <scope.Path>/AGENTS.md.
 // concat-tagged scopes are pre-flattened (root + scope), emitting a
 // INSTRUCTIONS_CLOSEST_WINS_FORCED_CONCAT warning.
