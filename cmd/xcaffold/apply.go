@@ -542,8 +542,9 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 // target by inspecting which security fields in the config would be dropped.
 // It is read-only and never modifies any files.
 //
-// The claude target supports all security fields; cursor and antigravity drop
-// settings.Permissions, settings.Sandbox, and per-agent security fields.
+// The claude target supports all security fields; cursor, antigravity, and
+// gemini drop settings.Permissions, settings.Sandbox, and per-agent security
+// fields (effort, permission-mode, disallowed-tools, isolation).
 func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, warnings []string) {
 	switch target {
 	case "cursor", "antigravity":
@@ -557,6 +558,44 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 		}
 
 		for id, agent := range config.Agents {
+			if agent.PermissionMode != "" {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", label, id, agent.PermissionMode))
+			}
+			if len(agent.DisallowedTools) > 0 {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowed-tools will be dropped — tool restrictions will NOT be enforced", label, id))
+			}
+			if agent.Isolation != "" {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", label, id, agent.Isolation))
+			}
+		}
+
+		// Agent vs deny conflicts (errors)
+		if config.Settings.Permissions != nil {
+			for agentID, agent := range config.Agents {
+				for _, tool := range agent.Tools {
+					for _, denyRule := range config.Settings.Permissions.Deny {
+						if denyRule == tool {
+							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
+						}
+					}
+				}
+			}
+		}
+
+	case targetGemini:
+		label := targetGemini
+
+		if config.Settings.Permissions != nil {
+			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
+		}
+		if config.Settings.Sandbox != nil {
+			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
+		}
+
+		for id, agent := range config.Agents {
+			if agent.Effort != "" {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q effort %q will be dropped", label, id, agent.Effort))
+			}
 			if agent.PermissionMode != "" {
 				warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", label, id, agent.PermissionMode))
 			}

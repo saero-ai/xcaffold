@@ -3,6 +3,7 @@ package gemini
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -212,4 +213,47 @@ func TestCompile_Gemini_PathTraversal(t *testing.T) {
 	for path := range out.Files {
 		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
 	}
+}
+
+func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"deploy": {
+					Name:        "deploy",
+					Description: "Deploy to production.",
+					Steps: []ast.WorkflowStep{
+						{Name: "build", Instructions: "Run go build."},
+						{Name: "test", Instructions: "Run go test."},
+					},
+				},
+			},
+		},
+	}
+	out, notes, err := r.Compile(config, "/tmp/test")
+	require.NoError(t, err)
+
+	// Should have lowered workflow to rules + skills
+	hasRule := false
+	hasSkill := false
+	for path := range out.Files {
+		if strings.Contains(path, ".gemini/rules/") {
+			hasRule = true
+		}
+		if strings.Contains(path, ".gemini/skills/") {
+			hasSkill = true
+		}
+	}
+	assert.True(t, hasRule, "lowered workflow should produce at least one rule file")
+	assert.True(t, hasSkill, "lowered workflow should produce at least one skill file")
+
+	// Should have workflow lowering fidelity note
+	hasLoweringNote := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeWorkflowLoweredToRulePlusSkill {
+			hasLoweringNote = true
+		}
+	}
+	assert.True(t, hasLoweringNote, "expected CodeWorkflowLoweredToRulePlusSkill fidelity note")
 }

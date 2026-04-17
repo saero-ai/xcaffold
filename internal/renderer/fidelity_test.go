@@ -11,6 +11,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
+	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -147,6 +148,7 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 		claude.New(),
 		cursor.New(),
 		antigravity.New(),
+		gemini.New(),
 	}
 
 	for _, r := range renderers {
@@ -199,6 +201,12 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 //	  AGENT_SECURITY_FIELDS_DROPPED — same agent
 //	  HOOK_INTERPOLATION_REQUIRES_ENV_SYNTAX — MCP env with ${VAR}
 //	  SETTINGS_FIELD_UNSUPPORTED   — settings.Permissions + settings.Sandbox
+//
+//	gemini:
+//	  SKILL_SCRIPTS_DROPPED        — same skill
+//	  SKILL_ASSETS_DROPPED         — same skill
+//	  AGENT_SECURITY_FIELDS_DROPPED — agent.Effort, PermissionMode, DisallowedTools, Isolation
+//	  FIELD_UNSUPPORTED            — skill.AllowedTools, agent unsupported fields (hooks, memory, etc.)
 //
 //	claude: (native target — no fidelity notes by design)
 func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
