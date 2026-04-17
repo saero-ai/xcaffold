@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -593,6 +594,50 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 		}
 
 		for id, agent := range config.Agents {
+			if agent.Effort != "" {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q effort %q will be dropped", label, id, agent.Effort))
+			}
+			if agent.PermissionMode != "" {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", label, id, agent.PermissionMode))
+			}
+			if len(agent.DisallowedTools) > 0 {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowed-tools will be dropped — tool restrictions will NOT be enforced", label, id))
+			}
+			if agent.Isolation != "" {
+				warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", label, id, agent.Isolation))
+			}
+		}
+
+		// Agent vs deny conflicts (errors)
+		if config.Settings.Permissions != nil {
+			for agentID, agent := range config.Agents {
+				for _, tool := range agent.Tools {
+					for _, denyRule := range config.Settings.Permissions.Deny {
+						if denyRule == tool {
+							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
+						}
+					}
+				}
+			}
+		}
+
+	case targetCopilot:
+		label := targetCopilot
+
+		if config.Settings.Permissions != nil {
+			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
+		}
+		if config.Settings.Sandbox != nil {
+			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
+		}
+
+		agentIDs := make([]string, 0, len(config.Agents))
+		for id := range config.Agents {
+			agentIDs = append(agentIDs, id)
+		}
+		sort.Strings(agentIDs)
+		for _, id := range agentIDs {
+			agent := config.Agents[id]
 			if agent.Effort != "" {
 				warnings = append(warnings, fmt.Sprintf("%s: agent %q effort %q will be dropped", label, id, agent.Effort))
 			}

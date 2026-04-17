@@ -1,10 +1,13 @@
 package copilot_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -128,4 +131,145 @@ func TestCompileCopilotRule_Activation_ManualMention_FidelityNote(t *testing.T) 
 	content := out.Files[".github/instructions/manual-rule.instructions.md"]
 	require.Contains(t, content, `applyTo: "**"`)
 	require.NotEmpty(t, notes, "expected a fidelity note for manual-mention activation")
+}
+
+func TestCompile_Copilot_Workflows_LoweredToRulePlusSkill(t *testing.T) {
+	r := copilot.New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"deploy-flow": {
+					Name:        "deploy-flow",
+					Description: "Deployment workflow",
+					Steps: []ast.WorkflowStep{
+						{Name: "step-1", Instructions: "Run tests"},
+						{Name: "step-2", Instructions: "Deploy to staging"},
+					},
+				},
+			},
+		},
+	}
+	out, notes, err := r.Compile(cfg, "")
+	require.NoError(t, err)
+
+	// Workflow should produce lowered rule and/or skill files.
+	hasRule := false
+	hasSkill := false
+	for path := range out.Files {
+		if strings.HasPrefix(path, ".github/instructions/") {
+			hasRule = true
+		}
+		if strings.HasPrefix(path, ".github/skills/") {
+			hasSkill = true
+		}
+	}
+	assert.True(t, hasRule || hasSkill, "workflow should lower to at least a rule or skill")
+
+	workflowNotes := filterNotes(notes, renderer.CodeWorkflowLoweredToRulePlusSkill)
+	assert.NotEmpty(t, workflowNotes, "workflow lowering should emit fidelity note")
+}
+
+func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
+	r := copilot.New()
+	timeout := 3000
+	cfg := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Instructions: "Full Copilot integration test",
+		},
+		Settings: ast.SettingsConfig{
+			Sandbox: &ast.SandboxConfig{},
+		},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"go-style": {
+					Description:  "Go style guide",
+					Instructions: "Follow Go conventions",
+					Activation:   "always",
+				},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"auditor": {
+					Name:        "auditor",
+					Description: "Security auditor",
+					Tools:       []string{"read", "search"},
+				},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"review": {
+					Name:         "review",
+					Description:  "Code review skill",
+					AllowedTools: []string{"shell"},
+					Instructions: "Review code carefully.",
+				},
+			},
+			Hooks: ast.HookConfig{
+				"PreToolUse": []ast.HookMatcherGroup{
+					{Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo checking", Timeout: &timeout},
+					}},
+				},
+			},
+			MCP: map[string]ast.MCPConfig{
+				"test-mcp": {Command: "npx", Args: []string{"mcp-test"}},
+			},
+		},
+	}
+	out, notes, err := r.Compile(cfg, "")
+	require.NoError(t, err)
+
+	// Verify ALL output paths exist.
+	assert.Contains(t, out.Files, ".github/copilot-instructions.md", "instructions")
+	assert.Contains(t, out.Files, ".github/instructions/go-style.instructions.md", "rule")
+	assert.Contains(t, out.Files, ".github/agents/auditor.agent.md", "agent")
+	assert.Contains(t, out.Files, ".github/skills/review/SKILL.md", "skill")
+	assert.Contains(t, out.Files, ".github/hooks/xcaffold-hooks.json", "hooks")
+	assert.Contains(t, out.Files, ".vscode/mcp.json", "MCP")
+
+	// Verify fidelity notes.
+	settingsNotes := filterNotes(notes, renderer.CodeSettingsFieldUnsupported)
+	assert.NotEmpty(t, settingsNotes, "sandbox should emit unsupported note")
+
+	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
+	assert.NotEmpty(t, mcpNotes, "MCP should emit global config note")
+}
+
+func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
+	r := copilot.New()
+	cfg := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Instructions: "Project instructions for Copilot",
+		},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"style-guide": {
+					Description:  "Style guide",
+					Instructions: "Follow the Go style guide",
+					Activation:   "always",
+				},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"reviewer": {
+					Name:        "reviewer",
+					Description: "Code reviewer agent",
+					Tools:       []string{"read", "search"},
+					Model:       "gpt-4o",
+				},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {
+					Name:         "tdd",
+					Description:  "Test-driven development workflow",
+					AllowedTools: []string{"shell"},
+					Instructions: "Write failing test first.",
+				},
+			},
+		},
+	}
+	out, _, err := r.Compile(cfg, "")
+	require.NoError(t, err)
+
+	assert.Contains(t, out.Files, ".github/copilot-instructions.md", "instructions")
+	assert.Contains(t, out.Files, ".github/instructions/style-guide.instructions.md", "rule")
+	assert.Contains(t, out.Files, ".github/agents/reviewer.agent.md", "agent")
+	assert.Contains(t, out.Files, ".github/skills/tdd/SKILL.md", "skill")
 }
