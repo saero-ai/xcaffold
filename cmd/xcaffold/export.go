@@ -30,7 +30,7 @@ plugin directory that can be shared and distributed.
 func init() {
 	exportCmd.Flags().StringVar(&exportFormat, "format", "plugin", "Export format (currently only 'plugin')")
 	exportCmd.Flags().StringVar(&exportOutput, "output", "", "Output directory for exported plugin")
-	exportCmd.Flags().StringVar(&exportTarget, "target", "", "Compilation target (claude, cursor, antigravity, copilot; default: claude)")
+	exportCmd.Flags().StringVar(&exportTarget, "target", "", "Compilation target (claude, cursor, antigravity, copilot, gemini; default: claude)")
 	_ = exportCmd.MarkFlagRequired("output")
 	rootCmd.AddCommand(exportCmd)
 }

@@ -36,7 +36,7 @@ Usage:
 }
 
 func init() {
-	diffCmd.Flags().StringVar(&diffTargetFlag, "target", "", "compilation target platform (claude, cursor, antigravity; default: claude)")
+	diffCmd.Flags().StringVar(&diffTargetFlag, "target", "", "compilation target platform (claude, cursor, antigravity, copilot, gemini; default: claude)")
 	rootCmd.AddCommand(diffCmd)
 }
 

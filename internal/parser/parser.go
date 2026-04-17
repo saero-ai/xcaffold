@@ -1900,7 +1900,7 @@ var reservedOutputPrefixes = []string{
 	".claude/",
 	".cursor/",
 	".cursorrules",
-	".gemini/commands/",
+	".gemini/",
 }
 
 // reservedOutputFilenames are root-level files written directly by the compiler.
