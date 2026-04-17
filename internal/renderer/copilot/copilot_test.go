@@ -169,6 +169,70 @@ func TestCompile_Copilot_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 	assert.NotEmpty(t, workflowNotes, "workflow lowering should emit fidelity note")
 }
 
+func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
+	r := copilot.New()
+	timeout := 3000
+	cfg := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Instructions: "Full Copilot integration test",
+		},
+		Settings: ast.SettingsConfig{
+			Sandbox: &ast.SandboxConfig{},
+		},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"go-style": {
+					Description:  "Go style guide",
+					Instructions: "Follow Go conventions",
+					Activation:   "always",
+				},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"auditor": {
+					Name:        "auditor",
+					Description: "Security auditor",
+					Tools:       []string{"read", "search"},
+				},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"review": {
+					Name:         "review",
+					Description:  "Code review skill",
+					AllowedTools: []string{"shell"},
+					Instructions: "Review code carefully.",
+				},
+			},
+			Hooks: ast.HookConfig{
+				"PreToolUse": []ast.HookMatcherGroup{
+					{Hooks: []ast.HookHandler{
+						{Type: "command", Command: "echo checking", Timeout: &timeout},
+					}},
+				},
+			},
+			MCP: map[string]ast.MCPConfig{
+				"test-mcp": {Command: "npx", Args: []string{"mcp-test"}},
+			},
+		},
+	}
+	out, notes, err := r.Compile(cfg, "")
+	require.NoError(t, err)
+
+	// Verify ALL output paths exist.
+	assert.Contains(t, out.Files, ".github/copilot-instructions.md", "instructions")
+	assert.Contains(t, out.Files, ".github/instructions/go-style.instructions.md", "rule")
+	assert.Contains(t, out.Files, ".github/agents/auditor.agent.md", "agent")
+	assert.Contains(t, out.Files, ".github/skills/review/SKILL.md", "skill")
+	assert.Contains(t, out.Files, ".github/hooks/xcaffold-hooks.json", "hooks")
+	assert.Contains(t, out.Files, ".vscode/mcp.json", "MCP")
+
+	// Verify fidelity notes.
+	settingsNotes := filterNotes(notes, renderer.CodeSettingsFieldUnsupported)
+	assert.NotEmpty(t, settingsNotes, "sandbox should emit unsupported note")
+
+	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
+	assert.NotEmpty(t, mcpNotes, "MCP should emit global config note")
+}
+
 func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
 	r := copilot.New()
 	cfg := &ast.XcaffoldConfig{
