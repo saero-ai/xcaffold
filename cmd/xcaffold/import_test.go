@@ -1323,3 +1323,83 @@ func TestImport_FromGemini_ExtractsInstructions(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(data), "Use Go 1.24.")
 }
+
+// TestImport_Copilot_Agents verifies that .github/agents/*.agent.md files are
+// imported as AgentConfig entries with frontmatter parsed and body inlined.
+func TestImport_Copilot_Agents(t *testing.T) {
+	tmp := t.TempDir()
+
+	agentsDir := filepath.Join(tmp, "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(agentsDir, "reviewer.agent.md"),
+		[]byte("---\nname: reviewer\ndescription: Code reviewer agent\nmodel: gpt-4o\n---\n\nReview all pull requests carefully."),
+		0o600,
+	))
+	// Plain .md agent (no .agent.md suffix)
+	require.NoError(t, os.WriteFile(
+		filepath.Join(agentsDir, "helper.md"),
+		[]byte("---\ndescription: A helper\n---\n\nHelp the user with tasks."),
+		0o600,
+	))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: make(map[string]ast.AgentConfig),
+		},
+	}
+	count := 0
+	var warnings []string
+
+	require.NoError(t, extractCopilotAgents(tmp, config, &count, &warnings))
+
+	require.Equal(t, 2, count)
+	require.Empty(t, warnings)
+
+	reviewer, ok := config.Agents["reviewer"]
+	require.True(t, ok, "expected agent 'reviewer' to be present")
+	require.Empty(t, reviewer.InstructionsFile, "instructions must be inlined")
+	require.Contains(t, reviewer.Instructions, "Review all pull requests carefully.")
+	require.Equal(t, "Code reviewer agent", reviewer.Description)
+
+	helper, ok := config.Agents["helper"]
+	require.True(t, ok, "expected agent 'helper' to be present")
+	require.Contains(t, helper.Instructions, "Help the user with tasks.")
+}
+
+// TestImport_Copilot_Skills verifies that .github/skills/*/SKILL.md files are
+// imported as SkillConfig entries with frontmatter parsed and body inlined.
+func TestImport_Copilot_Skills(t *testing.T) {
+	tmp := t.TempDir()
+
+	skillDir := filepath.Join(tmp, "skills", "code-review")
+	require.NoError(t, os.MkdirAll(skillDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(skillDir, "SKILL.md"),
+		[]byte("---\nname: code-review\ndescription: Systematic code review skill\n---\n\nReview code for bugs and style."),
+		0o600,
+	))
+
+	origWd, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(origWd)
+	require.NoError(t, os.Chdir(tmp))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: make(map[string]ast.SkillConfig),
+		},
+	}
+	count := 0
+	var warnings []string
+
+	require.NoError(t, extractCopilotSkills(tmp, config, &count, &warnings))
+
+	skill, ok := config.Skills["code-review"]
+	require.True(t, ok, "expected skill 'code-review' to be present")
+	require.Equal(t, 1, count)
+	require.Empty(t, skill.InstructionsFile, "instructions must be inlined")
+	require.Contains(t, skill.Instructions, "Review code for bugs and style.")
+	require.Equal(t, "Systematic code review skill", skill.Description)
+	require.Empty(t, warnings)
+}

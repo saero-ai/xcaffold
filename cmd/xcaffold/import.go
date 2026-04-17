@@ -485,11 +485,22 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 	importCount := 0
 	var warnings []string
 
-	if err := extractAgents(sourceDir, "translate", config, &importCount, &warnings); err != nil {
-		return nil, err
-	}
-	if err := extractSkills(sourceDir, "translate", config, &importCount, &warnings); err != nil {
-		return nil, err
+	// Use provider-specific agent/skill extractors when available.
+	switch fromProvider {
+	case "copilot":
+		if err := extractCopilotAgents(sourceDir, config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+		if err := extractCopilotSkills(sourceDir, config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+	default:
+		if err := extractAgents(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+		if err := extractSkills(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
 	}
 
 	// Use provider-specific rule extractor when available.
@@ -500,6 +511,10 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 		}
 	case "gemini":
 		if err := extractGeminiRules(sourceDir, config, &importCount, &warnings); err != nil {
+			return nil, err
+		}
+	case "copilot":
+		if err := extractCopilotRules(sourceDir, config, &importCount, &warnings); err != nil {
 			return nil, err
 		}
 	default:
@@ -520,17 +535,25 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 		}
 	}
 
-	settingsPath := filepath.Join(sourceDir, "settings.json")
-	if data, err := os.ReadFile(settingsPath); err == nil {
-		if err := importSettings(data, config, &importCount, &warnings); err != nil {
-			warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
+	// Use provider-specific settings extractor when available.
+	switch fromProvider {
+	case "copilot":
+		if err := importCopilotSettings(sourceDir, config, &importCount, &warnings); err != nil {
+			warnings = append(warnings, fmt.Sprintf("copilot settings partially imported: %v", err))
 		}
-	}
+	default:
+		settingsPath := filepath.Join(sourceDir, "settings.json")
+		if data, err := os.ReadFile(settingsPath); err == nil {
+			if err := importSettings(data, config, &importCount, &warnings); err != nil {
+				warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
+			}
+		}
 
-	hooksPath := filepath.Join(sourceDir, "hooks.json")
-	if data, err := os.ReadFile(hooksPath); err == nil {
-		if err := json.Unmarshal(data, &config.Hooks); err != nil {
-			warnings = append(warnings, fmt.Sprintf("hooks.json failed to parse: %v", err))
+		hooksPath := filepath.Join(sourceDir, "hooks.json")
+		if data, err := os.ReadFile(hooksPath); err == nil {
+			if err := json.Unmarshal(data, &config.Hooks); err != nil {
+				warnings = append(warnings, fmt.Sprintf("hooks.json failed to parse: %v", err))
+			}
 		}
 	}
 
@@ -550,6 +573,18 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 	}
 
 	return config, nil
+}
+
+// copilotToXcaffoldEvent maps Copilot-native hook event names back to xcaffold
+// event names for the import roundtrip.
+var copilotToXcaffoldEvent = map[string]string{
+	"preToolUse":          "PreToolUse",
+	"postToolUse":         "PostToolUse",
+	"sessionStart":        "SessionStart",
+	"sessionEnd":          "SessionEnd",
+	"agentStop":           "Stop",
+	"subagentStop":        "SubagentStop",
+	"userPromptSubmitted": "UserPromptSubmit",
 }
 
 // geminiToXcaffoldEvent maps Gemini-native hook event names back to xcaffold
@@ -1042,6 +1077,187 @@ func extractCopilotRules(dir string, config *ast.XcaffoldConfig, count *int, war
 		config.Rules[id] = ruleCfg
 		*count++
 	}
+	return nil
+}
+
+// extractCopilotAgents reads .github/agents/*.agent.md and .github/agents/*.md
+// files and maps them to AgentConfig entries. ID is derived from the filename by
+// stripping the ".agent.md" double-suffix or the plain ".md" suffix.
+func extractCopilotAgents(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	agentsDir := filepath.Join(dir, "agents")
+	// Collect both *.agent.md and plain *.md files, de-duplicating by ID.
+	seenIDs := make(map[string]bool)
+	patterns := []string{
+		filepath.Join(agentsDir, "*.agent.md"),
+		filepath.Join(agentsDir, "*.md"),
+	}
+	for _, pattern := range patterns {
+		files, _ := filepath.Glob(pattern)
+		for _, f := range files {
+			base := filepath.Base(f)
+			var id string
+			if strings.HasSuffix(base, ".agent.md") {
+				id = strings.TrimSuffix(base, ".agent.md")
+			} else {
+				id = strings.TrimSuffix(base, ".md")
+			}
+			if id == "" || seenIDs[id] {
+				continue
+			}
+			seenIDs[id] = true
+
+			data, err := os.ReadFile(f)
+			if err != nil {
+				*warnings = append(*warnings, fmt.Sprintf("skipping copilot agent %s: %v", f, err))
+				continue
+			}
+
+			body := extractBodyAfterFrontmatter(data)
+
+			agentCfg := ast.AgentConfig{Description: "Imported copilot agent"}
+			if fm, ok := extractFrontmatter(data); ok {
+				if unmarshalErr := lenientUnmarshal(fm, &agentCfg); unmarshalErr != nil {
+					*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+				}
+				agentCfg.InstructionsFile = ""
+			}
+			agentCfg.Instructions = body
+
+			config.Agents[id] = agentCfg
+			*count++
+		}
+	}
+	return nil
+}
+
+// extractCopilotSkills reads .github/skills/*/SKILL.md files and maps them to
+// SkillConfig entries. ID is the parent directory name.
+func extractCopilotSkills(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	skillFiles, _ := filepath.Glob(filepath.Join(dir, "skills", "*", "SKILL.md"))
+	for _, f := range skillFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping copilot skill %s: %v", f, err))
+			continue
+		}
+		id := filepath.Base(filepath.Dir(f))
+		if id == "" || id == "." {
+			continue
+		}
+
+		body := extractBodyAfterFrontmatter(data)
+
+		skillCfg := ast.SkillConfig{Description: "Imported copilot skill"}
+		if fm, ok := extractFrontmatter(data); ok {
+			if unmarshalErr := lenientUnmarshal(fm, &skillCfg); unmarshalErr != nil {
+				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
+			}
+			skillCfg.InstructionsFile = ""
+		}
+		skillCfg.Instructions = body
+
+		config.Skills[id] = skillCfg
+		*count++
+	}
+	return nil
+}
+
+// importCopilotSettings reads .github/hooks/*.json (shape: {"version":N,"hooks":{event:[entries]}})
+// and .vscode/mcp.json (shape: {"servers":{name:{command,args,env}}}) and populates
+// config.Hooks and config.MCP. Hook event names are mapped from Copilot-native names
+// back to xcaffold names using copilotToXcaffoldEvent. Unknown events are preserved
+// under their Copilot name.
+func importCopilotSettings(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	// Parse hooks from .github/hooks/*.json
+	hookFiles, _ := filepath.Glob(filepath.Join(dir, "hooks", "*.json"))
+	for _, hookFile := range hookFiles {
+		data, err := os.ReadFile(hookFile)
+		if err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("skipping copilot hook file %s: %v", hookFile, err))
+			continue
+		}
+
+		type copilotHookEntry struct {
+			Type    string `json:"type"`
+			Command string `json:"command"`
+			Timeout *int   `json:"timeout,omitempty"`
+		}
+		type copilotHookEventShape struct {
+			Matcher string             `json:"matcher,omitempty"`
+			Hooks   []copilotHookEntry `json:"hooks"`
+		}
+		var hookFile struct {
+			Version int                                `json:"version"`
+			Hooks   map[string][]copilotHookEventShape `json:"hooks"`
+		}
+		if err := json.Unmarshal(data, &hookFile); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("failed to parse copilot hook file: %v", err))
+			continue
+		}
+
+		if config.Hooks == nil {
+			config.Hooks = make(ast.HookConfig)
+		}
+
+		for copilotEvent, eventGroups := range hookFile.Hooks {
+			xcaffoldEvent := copilotEvent
+			if mapped, ok := copilotToXcaffoldEvent[copilotEvent]; ok {
+				xcaffoldEvent = mapped
+			}
+
+			var matcherGroups []ast.HookMatcherGroup
+			for _, eg := range eventGroups {
+				var handlers []ast.HookHandler
+				for _, h := range eg.Hooks {
+					handler := ast.HookHandler{
+						Type:    h.Type,
+						Command: h.Command,
+						Timeout: h.Timeout,
+					}
+					handlers = append(handlers, handler)
+				}
+				if len(handlers) > 0 {
+					matcherGroups = append(matcherGroups, ast.HookMatcherGroup{
+						Matcher: eg.Matcher,
+						Hooks:   handlers,
+					})
+				}
+			}
+			if len(matcherGroups) > 0 {
+				config.Hooks[xcaffoldEvent] = append(config.Hooks[xcaffoldEvent], matcherGroups...)
+				*count++
+			}
+		}
+	}
+
+	// Parse MCP servers from .vscode/mcp.json
+	mcpPath := filepath.Join(dir, "..", ".vscode", "mcp.json")
+	mcpPath = filepath.Clean(mcpPath)
+	if data, err := os.ReadFile(mcpPath); err == nil {
+		var mcpFile struct {
+			Servers map[string]struct {
+				Command string            `json:"command"`
+				Args    []string          `json:"args"`
+				Env     map[string]string `json:"env"`
+			} `json:"servers"`
+		}
+		if err := json.Unmarshal(data, &mcpFile); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("failed to parse .vscode/mcp.json: %v", err))
+		} else {
+			for name, srv := range mcpFile.Servers {
+				mc := ast.MCPConfig{
+					Command: srv.Command,
+					Args:    srv.Args,
+				}
+				if len(srv.Env) > 0 {
+					mc.Env = srv.Env
+				}
+				config.MCP[name] = mc
+				*count++
+			}
+		}
+	}
+
 	return nil
 }
 
