@@ -15,6 +15,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
+	"gopkg.in/yaml.v3"
 )
 
 const targetName = "gemini"
@@ -58,6 +59,9 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 
 	skillNotes := r.renderSkills(config, baseDir, out.Files)
 	notes = append(notes, skillNotes...)
+
+	agentNotes := r.renderAgents(config, baseDir, out.Files)
+	notes = append(notes, agentNotes...)
 
 	return out, notes, nil
 }
@@ -224,6 +228,184 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				"Gemini CLI skills do not support disable-model-invocation",
 				"",
 			))
+		}
+	}
+
+	return notes
+}
+
+// renderAgents writes each agent to .gemini/agents/<id>.md using YAML
+// frontmatter (name, description, tools, model, max_turns, mcpServers) with
+// a markdown body as the system prompt. Gemini-specific fields (timeout_mins,
+// temperature, kind) are sourced from targets.gemini.provider pass-through.
+// Unsupported fields emit fidelity notes.
+func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+	agents := config.Agents
+	if config.Project != nil && len(config.Project.Agents) > 0 {
+		if agents == nil {
+			agents = config.Project.Agents
+		} else {
+			merged := make(map[string]ast.AgentConfig, len(agents)+len(config.Project.Agents))
+			for k, v := range agents {
+				merged[k] = v
+			}
+			for k, v := range config.Project.Agents {
+				merged[k] = v
+			}
+			agents = merged
+		}
+	}
+	if len(agents) == 0 {
+		return nil
+	}
+
+	var notes []renderer.FidelityNote
+
+	for _, id := range sortedKeys(agents) {
+		agent := agents[id]
+		if agent.Inherited {
+			continue
+		}
+
+		var sb strings.Builder
+		sb.WriteString("---\n")
+
+		// Required fields.
+		if agent.Name != "" {
+			fmt.Fprintf(&sb, "name: %s\n", agent.Name)
+		}
+		if agent.Description != "" {
+			fmt.Fprintf(&sb, "description: %s\n", agent.Description)
+		}
+
+		// Optional supported fields.
+		if len(agent.Tools) > 0 {
+			sb.WriteString("tools:\n")
+			for _, tool := range agent.Tools {
+				fmt.Fprintf(&sb, "  - %s\n", tool)
+			}
+		}
+		if agent.Model != "" {
+			fmt.Fprintf(&sb, "model: %s\n", agent.Model)
+		}
+		if agent.MaxTurns > 0 {
+			fmt.Fprintf(&sb, "max_turns: %d\n", agent.MaxTurns)
+		}
+
+		// Inline MCP servers.
+		if len(agent.MCPServers) > 0 {
+			sb.WriteString("mcpServers:\n")
+			for _, mcpID := range sortedKeys(agent.MCPServers) {
+				mcp := agent.MCPServers[mcpID]
+				fmt.Fprintf(&sb, "  %s:\n", mcpID)
+				if mcp.Command != "" {
+					fmt.Fprintf(&sb, "    command: %s\n", mcp.Command)
+				}
+				if len(mcp.Args) > 0 {
+					sb.WriteString("    args:\n")
+					for _, arg := range mcp.Args {
+						fmt.Fprintf(&sb, "      - %s\n", arg)
+					}
+				}
+				if mcp.URL != "" {
+					fmt.Fprintf(&sb, "    url: %s\n", mcp.URL)
+				}
+				if mcp.Type != "" {
+					fmt.Fprintf(&sb, "    type: %s\n", mcp.Type)
+				}
+				if len(mcp.Env) > 0 {
+					sb.WriteString("    env:\n")
+					for _, envKey := range sortedKeys(mcp.Env) {
+						fmt.Fprintf(&sb, "      %s: %s\n", envKey, mcp.Env[envKey])
+					}
+				}
+			}
+		}
+
+		// Provider pass-through fields from targets.gemini.provider.
+		if geminiTarget, ok := agent.Targets[targetName]; ok {
+			provider := geminiTarget.Provider
+			// Emit known pass-through keys in stable order.
+			for _, key := range []string{"kind", "temperature", "timeout_mins"} {
+				if val, exists := provider[key]; exists {
+					encoded, err := yaml.Marshal(val)
+					if err == nil {
+						fmt.Fprintf(&sb, "%s: %s", key, strings.TrimRight(string(encoded), "\n"))
+						sb.WriteString("\n")
+					}
+				}
+			}
+		}
+
+		sb.WriteString("---\n")
+
+		// Markdown body — system prompt.
+		body, _ := resolver.ResolveInstructions(
+			agent.Instructions, agent.InstructionsFile,
+			fmt.Sprintf("agents/%s.md", id), baseDir,
+		)
+		if body != "" {
+			sb.WriteString("\n")
+			sb.WriteString(strings.TrimRight(body, "\n"))
+			sb.WriteString("\n")
+		}
+
+		filePath := fmt.Sprintf(".gemini/agents/%s.md", id)
+		files[filepath.Clean(filePath)] = sb.String()
+
+		// Fidelity notes for security fields with no Gemini equivalent.
+		hasSecurityDrop := agent.Effort != "" || agent.PermissionMode != "" ||
+			len(agent.DisallowedTools) > 0 || agent.Isolation != ""
+		if hasSecurityDrop {
+			var dropped []string
+			if agent.Effort != "" {
+				dropped = append(dropped, "effort")
+			}
+			if agent.PermissionMode != "" {
+				dropped = append(dropped, "permission-mode")
+			}
+			if len(agent.DisallowedTools) > 0 {
+				dropped = append(dropped, "disallowed-tools")
+			}
+			if agent.Isolation != "" {
+				dropped = append(dropped, "isolation")
+			}
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "agent", id,
+				strings.Join(dropped, ","),
+				renderer.CodeAgentSecurityFieldsDropped,
+				fmt.Sprintf("agent %q fields [%s] have no Gemini equivalent and were dropped; security constraints will NOT be enforced", id, strings.Join(dropped, ", ")),
+				"Review agent security requirements manually for this target",
+			))
+		}
+
+		// Fidelity notes for other unsupported fields.
+		type unsupportedField struct {
+			name    string
+			present bool
+		}
+		unsupported := []unsupportedField{
+			{"background", agent.Background != nil},
+			{"color", agent.Color != ""},
+			{"initial-prompt", agent.InitialPrompt != ""},
+			{"readonly", agent.Readonly != nil},
+			{"user-invocable", agent.UserInvocable != nil},
+			{"skills", len(agent.Skills) > 0},
+			{"hooks", len(agent.Hooks) > 0},
+			{"memory", agent.Memory != ""},
+			{"disable-model-invocation", agent.DisableModelInvocation != nil},
+			{"when", agent.When != ""},
+			{"mode", agent.Mode != ""},
+		}
+		for _, f := range unsupported {
+			if f.present {
+				notes = append(notes, renderer.NewNote(
+					renderer.LevelWarning, targetName, "agent", id, f.name,
+					renderer.CodeFieldUnsupported,
+					fmt.Sprintf("agent %q field %q has no Gemini CLI equivalent and was dropped", id, f.name),
+					"Remove the field or use targets.gemini.provider pass-through",
+				))
+			}
 		}
 	}
 
