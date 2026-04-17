@@ -6,7 +6,6 @@ package gemini
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -90,7 +89,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		return nil
 	}
 
-	rootContent := resolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
+	rootContent := renderer.ResolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
 
 	var sb strings.Builder
 	sb.WriteString(rootContent)
@@ -107,7 +106,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 
 	// Emit per-scope GEMINI.md files.
 	for _, scope := range p.InstructionsScopes {
-		scopeContent := resolveScopeContent(scope, targetName, baseDir)
+		scopeContent := renderer.ResolveScopeContent(scope, targetName, baseDir)
 		if scopeContent == "" {
 			continue
 		}
@@ -484,7 +483,7 @@ func buildRuleBody(rule ast.RuleConfig, baseDir string) string {
 	}
 	instructions := rule.Instructions
 	if instructions == "" && rule.InstructionsFile != "" && baseDir != "" {
-		instructions = resolveInstructionsContent("", rule.InstructionsFile, baseDir)
+		instructions = renderer.ResolveInstructionsContent("", rule.InstructionsFile, baseDir)
 	}
 	body := strings.TrimRight(instructions, "\n")
 	if body != "" {
@@ -492,31 +491,6 @@ func buildRuleBody(rule ast.RuleConfig, baseDir string) string {
 		sb.WriteString("\n")
 	}
 	return sb.String()
-}
-
-// resolveInstructionsContent returns inline instructions or reads InstructionsFile
-// relative to baseDir. Returns empty string on any read error.
-func resolveInstructionsContent(inline, file, baseDir string) string {
-	if inline != "" {
-		return inline
-	}
-	if file == "" {
-		return ""
-	}
-	data, err := os.ReadFile(filepath.Join(baseDir, file))
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
-
-// resolveScopeContent returns the effective content for a scope, preferring
-// a gemini-specific variant when one is declared.
-func resolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) string {
-	if v, ok := scope.Variants[provider]; ok {
-		return resolveInstructionsContent("", v.InstructionsFile, baseDir)
-	}
-	return resolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
 // sortedKeys returns a sorted slice of keys from a map.

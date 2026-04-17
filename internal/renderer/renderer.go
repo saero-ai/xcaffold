@@ -3,9 +3,41 @@
 package renderer
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
 )
+
+// ResolveInstructionsContent returns inline instructions or reads InstructionsFile
+// relative to baseDir. Returns an empty string on any read error or when both
+// are empty. This is the shared low-level helper used by all renderers; it
+// intentionally swallows file read errors (missing files are treated as empty).
+func ResolveInstructionsContent(inline, file, baseDir string) string {
+	if inline != "" {
+		return inline
+	}
+	if file == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(baseDir, file))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// ResolveScopeContent returns the effective content for an InstructionsScope,
+// preferring a provider-specific variant when one is declared under
+// scope.Variants[provider]. Falls back to the scope's own Instructions /
+// InstructionsFile pair.
+func ResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) string {
+	if v, ok := scope.Variants[provider]; ok {
+		return ResolveInstructionsContent("", v.InstructionsFile, baseDir)
+	}
+	return ResolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
+}
 
 // TargetRenderer renders a compiled file map for a specific target environment.
 type TargetRenderer interface {
