@@ -1191,12 +1191,12 @@ func importCopilotSettings(dir string, projectRoot string, config *ast.XcaffoldC
 			Matcher string             `json:"matcher,omitempty"`
 			Hooks   []copilotHookEntry `json:"hooks"`
 		}
-		var hookFile struct {
+		var hookPayload struct {
 			Version int                                `json:"version"`
 			Hooks   map[string][]copilotHookEventShape `json:"hooks"`
 		}
-		if err := json.Unmarshal(data, &hookFile); err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("failed to parse copilot hook file: %v", err))
+		if err := json.Unmarshal(data, &hookPayload); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("failed to parse copilot hook file %s: %v", hookFile, err))
 			continue
 		}
 
@@ -1204,7 +1204,7 @@ func importCopilotSettings(dir string, projectRoot string, config *ast.XcaffoldC
 			config.Hooks = make(ast.HookConfig)
 		}
 
-		for copilotEvent, eventGroups := range hookFile.Hooks {
+		for copilotEvent, eventGroups := range hookPayload.Hooks {
 			xcaffoldEvent := copilotEvent
 			if mapped, ok := copilotToXcaffoldEvent[copilotEvent]; ok {
 				xcaffoldEvent = mapped
@@ -1539,6 +1539,8 @@ func detectTargets(baseDirs ...string) []string {
 			targetMap["cursor"] = true
 		case ".gemini":
 			targetMap["gemini"] = true
+		case ".github":
+			targetMap["copilot"] = true
 		}
 	}
 	targets := make([]string, 0, len(targetMap))
