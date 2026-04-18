@@ -1460,3 +1460,97 @@ func TestImport_Copilot_MCP(t *testing.T) {
 	assert.Equal(t, "node", cfg.MCP["test-server"].Command)
 	assert.Equal(t, []string{"server.js"}, cfg.MCP["test-server"].Args)
 }
+
+// TestExtractRules_NestedSubdirectories verifies that rules stored in subdirectories
+// of .claude/rules/ are recursively discovered and imported with slash-namespaced IDs
+// (e.g. rules/cli/build-go-cli.md → rule ID "cli/build-go-cli").
+func TestExtractRules_NestedSubdirectories(t *testing.T) {
+	tmp := t.TempDir()
+
+	// rules/security.md — flat rule at root level
+	rulesDir := filepath.Join(tmp, ".claude", "rules")
+	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(rulesDir, "security.md"),
+		[]byte("---\ndescription: Security rules\n---\n\nNever leak secrets."), 0o600))
+
+	// rules/cli/build-go-cli.md — nested under cli/
+	cliDir := filepath.Join(rulesDir, "cli")
+	require.NoError(t, os.MkdirAll(cliDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(cliDir, "build-go-cli.md"),
+		[]byte("---\ndescription: Go CLI build constraints\n---\n\nAlways use make build."), 0o600))
+
+	// rules/platform/api-conventions.md — nested under platform/
+	platformDir := filepath.Join(rulesDir, "platform")
+	require.NoError(t, os.MkdirAll(platformDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(platformDir, "api-conventions.md"),
+		[]byte("---\ndescription: API conventions\n---\n\nFollow REST conventions."), 0o600))
+
+	origWd, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origWd)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: make(map[string]ast.RuleConfig),
+		},
+	}
+	count := 0
+	var warnings []string
+
+	require.NoError(t, extractRules(".claude", "project", config, &count, &warnings))
+
+	// Flat rule must be imported under its filename stem.
+	assert.Contains(t, config.Rules, "security", "flat root rule must be imported")
+	assert.Contains(t, config.Rules["security"].Instructions, "Never leak secrets.")
+
+	// Nested rule under cli/ must be imported with namespaced ID.
+	assert.Contains(t, config.Rules, "cli/build-go-cli",
+		"nested rule under cli/ must be imported with namespaced ID")
+	assert.Contains(t, config.Rules["cli/build-go-cli"].Instructions, "Always use make build.")
+
+	// Nested rule under platform/ must be imported with namespaced ID.
+	assert.Contains(t, config.Rules, "platform/api-conventions",
+		"nested rule under platform/ must be imported with namespaced ID")
+	assert.Contains(t, config.Rules["platform/api-conventions"].Instructions, "Follow REST conventions.")
+
+	assert.Equal(t, 3, count, "all three rules (flat + 2 nested) must be counted")
+	assert.Empty(t, warnings, "no warnings expected for valid rule files")
+}
+
+// TestResolveSourceFiles_WalksNestedDirs verifies that resolveSourceFiles recurses
+// into subdirectories when the source is a directory (fixing the --source .claude/rules/
+// regression where nested .md files were silently dropped).
+func TestResolveSourceFiles_WalksNestedDirs(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Flat file at root of the directory.
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "root.md"), []byte("# root"), 0o600))
+
+	// File one level deep.
+	sub := filepath.Join(tmp, "sub")
+	require.NoError(t, os.MkdirAll(sub, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(sub, "nested.md"), []byte("# nested"), 0o600))
+
+	// File two levels deep.
+	deep := filepath.Join(tmp, "sub", "deep")
+	require.NoError(t, os.MkdirAll(deep, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(deep, "very-nested.md"), []byte("# very nested"), 0o600))
+
+	// Non-.md file must be excluded.
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "ignore.txt"), []byte("not a doc"), 0o600))
+
+	files, err := resolveSourceFiles(tmp)
+	require.NoError(t, err)
+
+	// All three .md files must be discovered regardless of depth.
+	assert.Len(t, files, 3, "resolveSourceFiles must walk nested subdirectories")
+
+	// Results must be sorted (deterministic).
+	names := make([]string, len(files))
+	for i, f := range files {
+		names[i] = filepath.Base(f)
+	}
+	assert.Contains(t, names, "root.md")
+	assert.Contains(t, names, "nested.md")
+	assert.Contains(t, names, "very-nested.md")
+}

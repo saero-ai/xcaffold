@@ -24,10 +24,12 @@ Import auto-detects platform directories (`.claude/`, `.cursor/`, `.agents/`) an
 |---|---|
 | Agents | `agents/*.md` |
 | Skills | `skills/*/SKILL.md` |
-| Rules | `rules/*.md`, `rules/*.mdc` (Cursor only) |
+| Rules | `rules/**/*.md`, `rules/**/*.mdc` (recursive) |
 | Workflows | `workflows/*.md` |
 | Settings | `settings.json` (MCP servers, hooks, plugins, effort level) |
 | Hooks | `hooks.json` |
+
+Rules are walked recursively, so files inside subdirectories like `rules/cli/` or `rules/platform/` are included. The subdirectory path becomes part of the rule ID using forward-slash notation. For example, `.claude/rules/cli/build-go-cli.md` is imported with the ID `cli/build-go-cli`.
 
 For example, `.claude/agents/*.md` and `.claude/skills/*/SKILL.md` are scanned when a `.claude/` directory exists. The same patterns apply to `.cursor/` and `.agents/` if present.
 
@@ -237,6 +239,7 @@ Inspect the compiled `.claude/` directory and compare it to your original to con
 | Agent `description` shows "Imported agent" | Source `.md` file had no `description:` in its frontmatter | Edit the generated `.xcf` file and add a `description:` field |
 | `xcaffold validate` fails after import | Frontmatter fields in the source file used provider-native keys not recognized by xcaffold | Check the error message for the unknown field name and remove or map it in the generated `.xcf` |
 | MCP servers missing from `scaffold.xcf` | Source `settings.json` had no `mcpServers` key | Inspect the source `settings.json` directly and add any missing servers as `kind: mcp` documents manually |
+| Rules in `rules/cli/` or `rules/platform/` not imported | Occurs only on xcaffold versions before this fix | Upgrade xcaffold; nested rule IDs use slash notation, e.g. `cli/build-go-cli` |
 
 ---
 

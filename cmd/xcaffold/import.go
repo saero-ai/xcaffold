@@ -288,12 +288,17 @@ func detectAllGlobalPlatformDirs() []platformDirInfo {
 		if skills, _ := filepath.Glob(filepath.Join(targetPath, "skills", "*", "SKILL.md")); skills != nil {
 			info.skills += len(skills)
 		}
-		if rulesMD, _ := filepath.Glob(filepath.Join(targetPath, "rules", "*.md")); rulesMD != nil {
-			info.rules += len(rulesMD)
-		}
-		if rulesMDC, _ := filepath.Glob(filepath.Join(targetPath, "rules", "*.mdc")); rulesMDC != nil {
-			info.rules += len(rulesMDC)
-		}
+		// Count rules recursively to include nested subdirectory rules.
+		_ = filepath.WalkDir(filepath.Join(targetPath, "rules"), func(_ string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			name := strings.ToLower(d.Name())
+			if strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".mdc") {
+				info.rules++
+			}
+			return nil
+		})
 		if workflows, _ := filepath.Glob(filepath.Join(targetPath, "workflows", "*.md")); workflows != nil {
 			info.workflows += len(workflows)
 		}
@@ -860,14 +865,35 @@ func extractSkillRefs(skillFile, scopeName, id string, warnings *[]string) ([]st
 }
 
 func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	ruleFiles, _ := filepath.Glob(filepath.Join(claudeDir, "rules", "*.md"))
+	rulesRoot := filepath.Join(claudeDir, "rules")
+	// Collect all .md files recursively so that nested subdirectories (e.g.
+	// rules/cli/, rules/platform/) are fully imported. Subdirectory paths are
+	// preserved in the rule ID using forward-slash notation (e.g. "cli/build-go-cli")
+	// so that rules from different folders cannot collide.
+	var ruleFiles []string
+	_ = filepath.WalkDir(rulesRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
+			ruleFiles = append(ruleFiles, path)
+		}
+		return nil
+	})
+	sort.Strings(ruleFiles)
 	for _, f := range ruleFiles {
 		data, err := os.ReadFile(f)
 		if err != nil {
 			*warnings = append(*warnings, fmt.Sprintf("skipping rule %s: %v", f, err))
 			continue
 		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
+		// Derive the rule ID from the path relative to the rules/ root so that
+		// nested files get a namespaced ID (e.g. "cli/build-go-cli").
+		rel, relErr := filepath.Rel(rulesRoot, f)
+		if relErr != nil {
+			rel = filepath.Base(f)
+		}
+		id := filepath.ToSlash(strings.TrimSuffix(rel, ".md"))
 		if id == "" {
 			continue
 		}
@@ -1907,17 +1933,21 @@ func resolveSourceFiles(source string) ([]string, error) {
 		return []string{abs}, nil
 	}
 
-	entries, err := os.ReadDir(abs)
-	if err != nil {
-		return nil, fmt.Errorf("could not read directory: %w", err)
-	}
-
+	// Walk the directory recursively so that nested subdirectories
+	// (e.g. .claude/rules/cli/, .agents/rules/platform/) are included.
 	var files []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
-			files = append(files, filepath.Join(abs, e.Name()))
+	if walkErr := filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
 		}
+		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
+			files = append(files, path)
+		}
+		return nil
+	}); walkErr != nil {
+		return nil, fmt.Errorf("could not walk directory: %w", walkErr)
 	}
+	sort.Strings(files)
 
 	return files, nil
 }
