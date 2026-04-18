@@ -234,15 +234,77 @@ func detectSecondaryProvider(projectDir, primaryProvider string) string {
 	return ""
 }
 
+// directoryFilter maintains a list of exact directory names to ignore
+// during tree traversals (e.g., .git, .worktrees, node_modules).
+type directoryFilter struct {
+	ignored map[string]bool
+}
+
+// newDirectoryFilter creates a filter pre-populated with standard blocked directories
+// and extracts basic top-level exclusions from the project's .gitignore if present.
+func newDirectoryFilter(projectDir string) *directoryFilter {
+	filter := &directoryFilter{
+		ignored: map[string]bool{
+			".git":         true,
+			".worktrees":   true,
+			"node_modules": true,
+			"vendor":       true,
+			".venv":        true,
+			".xcaffold":    true,
+			"xcf":          true,
+			".claude":      true,
+			".cursor":      true,
+			".gemini":      true,
+			".agents":      true,
+			"dist":         true,
+			"build":        true,
+			"coverage":     true,
+		},
+	}
+
+	gitignorePath := filepath.Join(projectDir, ".gitignore")
+	data, err := os.ReadFile(gitignorePath)
+	if err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			// Extremely naive exclusion parser: if it targets a top-level dir (e.g., "target/", "/target")
+			clean := strings.TrimPrefix(line, "/")
+			clean = strings.TrimSuffix(clean, "/")
+			// Ignore complex glob patterns for this fast-path skipping
+			if !strings.ContainsAny(clean, "*?[") {
+				filter.ignored[clean] = true
+			}
+		}
+	}
+	return filter
+}
+
+// shouldSkip reports whether the directory name should be skipped.
+func (f *directoryFilter) shouldSkip(name string) bool {
+	return f.ignored[name]
+}
+
 // fileExistsInTree reports whether a file with the given name exists anywhere
-// under rootDir (recursive). Returns false on any walk error.
+// under rootDir (recursive). It skips standard blocked directories. Returns false on any walk error.
 func fileExistsInTree(rootDir, name string) bool {
 	found := false
+	filter := newDirectoryFilter(rootDir)
+
 	_ = filepath.WalkDir(rootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || found {
 			return nil
 		}
-		if !d.IsDir() && d.Name() == name {
+		if d.IsDir() {
+			if path != rootDir && filter.shouldSkip(d.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Name() == name {
 			found = true
 		}
 		return nil
@@ -1867,11 +1929,19 @@ func extractProjectInstructions(projectDir, provider string, cfg *ast.XcaffoldCo
 
 	// Phase 1: Walk tree and collect instruction files sorted by depth, then alpha.
 	var files []string
+	filter := newDirectoryFilter(projectDir)
+
 	err := filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() && d.Name() == instructionsFilename {
+		if d.IsDir() {
+			if path != projectDir && filter.shouldSkip(d.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Name() == instructionsFilename {
 			files = append(files, path)
 		}
 		return nil
