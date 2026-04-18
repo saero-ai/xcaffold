@@ -491,15 +491,48 @@ func isParseableFile(path string) bool {
 	return parseableKinds[header.Kind]
 }
 
+// newParseFilter creates a map of directory names to skip during xcf scanning.
+func newParseFilter(dir string) map[string]bool {
+	ignored := map[string]bool{
+		".git":         true,
+		".worktrees":   true,
+		"node_modules": true,
+		"vendor":       true,
+		".venv":        true,
+		".xcaffold":    true,
+		".claude":      true,
+		".cursor":      true,
+		".gemini":      true,
+		".agents":      true,
+		"dist":         true,
+		"build":        true,
+		"coverage":     true,
+	}
+	if data, err := os.ReadFile(filepath.Join(dir, ".gitignore")); err == nil {
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") {
+				clean := strings.TrimPrefix(line, "/")
+				clean = strings.TrimSuffix(clean, "/")
+				if !strings.ContainsAny(clean, "*?[") {
+					ignored[clean] = true
+				}
+			}
+		}
+	}
+	return ignored
+}
+
 func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	var files []string
+	ignored := newParseFilter(dir)
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			name := d.Name()
-			if path != dir && (strings.HasPrefix(name, ".") || name == "node_modules") {
+			if path != dir && (strings.HasPrefix(name, ".") || ignored[name]) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -553,13 +586,15 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 
 func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	var files []string
+	ignored := newParseFilter(dir)
+
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			name := d.Name()
-			if path != dir && (strings.HasPrefix(name, ".") || name == "node_modules") {
+			if path != dir && (strings.HasPrefix(name, ".") || ignored[name]) {
 				return filepath.SkipDir
 			}
 			return nil

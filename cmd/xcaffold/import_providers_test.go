@@ -1,8 +1,10 @@
 package main
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -340,4 +342,61 @@ func TestImportScope_ClaudeWithProvider_DoesNotBreakExistingBehavior(t *testing.
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "kind: project")
 	assert.Contains(t, string(data), "dev")
+}
+
+// ─── Gitignore directory filtering ───────────────────────────────────────────
+
+// TestImportScope_GitignoreFilter verifies that standard directories like
+// .worktrees and directories matching top-level .gitignore exclusions are
+// skipped during project instruction discovery, preventing them from being
+// included in scaffold.xcf or generating absolute paths.
+func TestImportScope_GitignoreFilter(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
+	tmp := t.TempDir()
+	setupAndChdir(t, tmp)
+
+	// Create root CLAUDE.md
+	writeFile(t, filepath.Join(tmp, "CLAUDE.md"), "# Root Instructions\n")
+	// Create minimal .claude to trigger import
+	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"), "# Dev\n")
+
+	// Create a dummy .worktrees directory with its own CLAUDE.md.
+	// This must be ignored.
+	writeFile(t, filepath.Join(tmp, ".worktrees", "some-branch", "CLAUDE.md"), "# Branch Instructions\n")
+
+	// Create a custom ignored directory via .gitignore
+	writeFile(t, filepath.Join(tmp, ".gitignore"), "node_modules/\ncustom_ignore\n")
+	writeFile(t, filepath.Join(tmp, "custom_ignore", "CLAUDE.md"), "# Ignored Custom\n")
+
+	// Create a valid nested CLAUDE.md that SHOULD be included
+	writeFile(t, filepath.Join(tmp, "src", "CLAUDE.md"), "# Valid Nested\n")
+
+	require.NoError(t, importScope(".claude", "scaffold.xcf", "project", "claude"))
+
+	// Check the sidecars created
+	instructionsDir := filepath.Join(tmp, "xcf", "instructions")
+
+	// root.md should exist
+	assert.FileExists(t, filepath.Join(instructionsDir, "root.md"), "Root CLAUDE.md should be imported")
+
+	// src.md should exist (it's flattened as scopes/src.md or similar, checking for presence in tree)
+	foundSrc := false
+	foundIgnored := false
+	_ = filepath.WalkDir(instructionsDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		content, _ := os.ReadFile(path)
+		strContent := string(content)
+		if strings.Contains(strContent, "Valid Nested") {
+			foundSrc = true
+		}
+		if strings.Contains(strContent, "Branch Instructions") || strings.Contains(strContent, "Ignored Custom") {
+			foundIgnored = true
+		}
+		return nil
+	})
+
+	assert.True(t, foundSrc, "Nested CLAUDE.md in src/ should be imported")
+	assert.False(t, foundIgnored, "CLAUDE.md in .worktrees or custom_ignore should be skipped")
 }
