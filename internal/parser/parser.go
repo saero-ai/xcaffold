@@ -554,7 +554,7 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 
 	var parsedFiles []ParsedFile
 	for _, f := range files {
-		cfg, err := parseFileExact(f)
+		cfg, err := ParseFileExact(f)
 		if err != nil {
 			return nil, err
 		}
@@ -616,7 +616,7 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 
 	var parsedFiles []ParsedFile
 	for _, f := range files {
-		cfg, err := parseFileExact(f, opts...)
+		cfg, err := ParseFileExact(f, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -631,7 +631,7 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 	return merged, nil
 }
 
-func parseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
+func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("could not open config %q: %w", path, err)
@@ -689,7 +689,7 @@ func ParseFile(path string) (*ast.XcaffoldConfig, error) {
 		return nil, fmt.Errorf("failed to load implicit global configuration: %w", err)
 	}
 
-	config, err := parseFileExact(path)
+	config, err := ParseFileExact(path)
 	if err != nil {
 		return nil, err
 	}
@@ -770,7 +770,7 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 	}
 	visited[absPath] = true
 
-	parsed, err := parseFileExact(absPath)
+	parsed, err := ParseFileExact(absPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load base config %q: %w", config.Extends, err)
 	}

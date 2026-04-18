@@ -147,7 +147,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 // project block), the function returns nil without error — project instructions
 // discovery is best-effort and must not block the import.
 func runProjectInstructionsDiscovery(projectDir, primaryProvider, xcfPath string) error {
-	cfg, err := parser.ParseFile(xcfPath)
+	cfg, err := parser.ParseFileExact(xcfPath)
 	if err != nil {
 		// Not a fatal error — xcf may not have a project block yet.
 		return nil
@@ -378,7 +378,7 @@ func detectAllGlobalPlatformDirs() []platformDirInfo {
 
 func runTranslateMode() error {
 	xcfPath := "scaffold.xcf"
-	config, err := parser.ParseFile(xcfPath)
+	config, err := parser.ParseFileExact(xcfPath)
 	if err != nil {
 		return fmt.Errorf("no scaffold.xcf found — run 'xcaffold init' first, then 'xcaffold import --source': %w", err)
 	}
