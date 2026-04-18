@@ -38,7 +38,7 @@ func TestImportScope_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = importScope(".claude", "scaffold.xcf", "project")
+	err = importScope(".claude", "scaffold.xcf", "project", "claude")
 	if err == nil {
 		t.Fatal("expected error when xcf/ directory already exists, got nil")
 	}
@@ -369,7 +369,7 @@ func TestImportScope_Messaging_NoReferencedInPlace(t *testing.T) {
 	}
 	os.Stdout = w
 
-	importErr := importScope(".claude", "scaffold.xcf", "project")
+	importErr := importScope(".claude", "scaffold.xcf", "project", "claude")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -462,7 +462,7 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	}
 
 	// Run importScope
-	if err := importScope(".claude", "scaffold.xcf", "project"); err != nil {
+	if err := importScope(".claude", "scaffold.xcf", "project", "claude"); err != nil {
 		t.Fatalf("importScope returned unexpected error: %v", err)
 	}
 
@@ -572,7 +572,7 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	require.NoError(t, os.WriteFile(".claude/skills/tdd/SKILL.md",
 		[]byte("---\nname: tdd\ndescription: TDD\n---\n\nTDD instructions"), 0644))
 
-	err = importScope(".claude", "scaffold.xcf", "project")
+	err = importScope(".claude", "scaffold.xcf", "project", "claude")
 	require.NoError(t, err)
 
 	content, err := os.ReadFile("scaffold.xcf")
@@ -1106,7 +1106,7 @@ REST conventions only.
 	))
 
 	// Run importScope to write scaffold.xcf.
-	require.NoError(t, importScope(".claude", "scaffold.xcf", "project"))
+	require.NoError(t, importScope(".claude", "scaffold.xcf", "project", "claude"))
 
 	// Now run the project instructions discovery which should detect markers.
 	require.NoError(t, runProjectInstructionsDiscovery(tmp, "claude", "scaffold.xcf"))

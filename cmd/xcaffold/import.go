@@ -93,7 +93,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 				}
 				importErr = mergeImportDirs(dirNames, globalXcfPath)
 			} else {
-				importErr = importScope(dirs[0].dirName, globalXcfPath, "global")
+				importErr = importScope(dirs[0].dirName, globalXcfPath, "global", dirs[0].platform)
 			}
 		} else {
 			// project (default) — merge all detected directories
@@ -105,18 +105,12 @@ func runImport(cmd *cobra.Command, args []string) error {
 				}
 				importErr = mergeImportDirs(dirs, "scaffold.xcf")
 			} else if len(infos) == 1 {
-				if err := importScope(infos[0].dirName, "scaffold.xcf", "project"); err != nil {
-					importErr = err
-				} else {
-					importErr = runProjectInstructionsDiscovery(".", infos[0].platform, "scaffold.xcf")
-				}
+				// importScope now handles project-instruction discovery and memory
+				// snapshot internally, so no separate call needed here.
+				importErr = importScope(infos[0].dirName, "scaffold.xcf", "project", infos[0].platform)
 			} else {
-				// default fallback
-				if err := importScope(".claude", "scaffold.xcf", "project"); err != nil {
-					importErr = err
-				} else {
-					importErr = runProjectInstructionsDiscovery(".", "claude", "scaffold.xcf")
-				}
+				// No platform directories found
+				importErr = fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
 			}
 		}
 	} else {
@@ -379,13 +373,28 @@ func runTranslateMode() error {
 }
 
 // importScope scans a platform directory and writes a xcf file to xcfDest.
-func importScope(claudeDir, xcfDest, scopeName string) error {
+// provider selects provider-specific extraction logic for settings, MCP,
+// hooks, project-instruction files, and memory. Supported values match the
+// platform field from platformDirInfo: "claude", "gemini", "cursor",
+// "copilot", "antigravity". An empty string or unknown value falls back to
+// Claude-style extraction (settings.json + hooks.json).
+func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcfDest)
 	}
 	if err := checkXcfDirPreexistence(xcfDest, scopeName); err != nil {
 		return err
 	}
+
+	// projectDir is the directory that contains the provider sub-directory.
+	// For a project-local import (e.g. .claude/ inside the project root),
+	// this is the current working directory. We compute it from platformDir
+	// so it works for both relative and absolute paths.
+	platformAbs, err := filepath.Abs(platformDir)
+	if err != nil {
+		return fmt.Errorf("resolving provider dir: %w", err)
+	}
+	projectDir := filepath.Dir(platformAbs)
 
 	projectName := inferProjectName()
 	config := &ast.XcaffoldConfig{
@@ -403,50 +412,176 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 	importCount := 0
 	var warnings []string
 
-	if err := extractAgents(claudeDir, scopeName, config, &importCount, &warnings); err != nil {
-		return err
-	}
-	if err := extractSkills(claudeDir, scopeName, config, &importCount, &warnings); err != nil {
-		return err
-	}
-	if err := extractRules(claudeDir, scopeName, config, &importCount, &warnings); err != nil {
-		return err
-	}
-	if err := extractWorkflows(claudeDir, scopeName, config, &importCount, &warnings); err != nil {
-		return err
-	}
-
-	// 4. Parse settings.json for MCP servers and settings.
-	settingsPath := filepath.Join(claudeDir, "settings.json")
-	if data, err := os.ReadFile(settingsPath); err == nil {
-		if err := importSettings(data, config, &importCount, &warnings); err != nil {
-			warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
+	// ── 1. Agents / Skills / Rules / Workflows ───────────────────────────────
+	switch provider {
+	case "copilot":
+		if err := extractCopilotAgents(platformDir, config, &importCount, &warnings); err != nil {
+			return err
+		}
+		if err := extractCopilotSkills(platformDir, config, &importCount, &warnings); err != nil {
+			return err
+		}
+		if err := extractCopilotRules(platformDir, config, &importCount, &warnings); err != nil {
+			return err
+		}
+	case "gemini":
+		if err := extractGeminiRules(projectDir, config, &importCount, &warnings); err != nil {
+			return err
+		}
+		if err := extractAgents(platformDir, scopeName, config, &importCount, &warnings); err != nil {
+			return err
+		}
+		if err := extractSkills(platformDir, scopeName, config, &importCount, &warnings); err != nil {
+			return err
+		}
+		if err := extractWorkflows(platformDir, scopeName, config, &importCount, &warnings); err != nil {
+			return err
+		}
+	case "antigravity":
+		if err := extractAntigravityRules(platformDir, config, &importCount, &warnings); err != nil {
+			return err
+		}
+		if err := extractAntigravityWorkflows(platformDir, config, &importCount, &warnings); err != nil {
+			return err
+		}
+	default:
+		// claude, cursor, or unknown — use generic extractors
+		if err := extractAgents(platformDir, scopeName, config, &importCount, &warnings); err != nil {
+			return err
+		}
+		if err := extractSkills(platformDir, scopeName, config, &importCount, &warnings); err != nil {
+			return err
+		}
+		if err := extractRules(platformDir, scopeName, config, &importCount, &warnings); err != nil {
+			return err
+		}
+		if err := extractWorkflows(platformDir, scopeName, config, &importCount, &warnings); err != nil {
+			return err
 		}
 	}
 
-	// 5. Parse hooks.json
-	hooksPath := filepath.Join(claudeDir, "hooks.json")
-	if data, err := os.ReadFile(hooksPath); err == nil {
-		if err := json.Unmarshal(data, &config.Hooks); err != nil {
-			warnings = append(warnings, fmt.Sprintf("hooks.json failed to parse: %v", err))
-		} else {
-			importCount++
+	// ── 2. Settings / MCP / Hooks (provider-specific) ────────────────────────
+	switch provider {
+	case "gemini":
+		// Gemini stores MCP + hooks inside .gemini/settings.json.
+		settingsPath := filepath.Join(platformDir, "settings.json")
+		if data, err := os.ReadFile(settingsPath); err == nil {
+			if err := importGeminiSettings(data, config, &importCount, &warnings); err != nil {
+				warnings = append(warnings, fmt.Sprintf(".gemini/settings.json partially imported: %v", err))
+			}
 		}
+	case "cursor":
+		// Cursor stores MCP in .cursor/mcp.json and hooks in .cursor/hooks.json.
+		cursorMCPPath := filepath.Join(platformDir, "mcp.json")
+		if data, err := os.ReadFile(cursorMCPPath); err == nil {
+			if err := importCursorMCP(data, config, &importCount, &warnings); err != nil {
+				warnings = append(warnings, fmt.Sprintf(".cursor/mcp.json partially imported: %v", err))
+			}
+		}
+		cursorHooksPath := filepath.Join(platformDir, "hooks.json")
+		if data, err := os.ReadFile(cursorHooksPath); err == nil {
+			if err := json.Unmarshal(data, &config.Hooks); err != nil {
+				warnings = append(warnings, fmt.Sprintf(".cursor/hooks.json failed to parse: %v", err))
+			} else {
+				importCount++
+			}
+		}
+	case "copilot":
+		// Copilot stores hooks in .github/hooks/*.json and MCP in .vscode/mcp.json.
+		if err := importCopilotSettings(platformDir, projectDir, config, &importCount, &warnings); err != nil {
+			warnings = append(warnings, fmt.Sprintf("copilot settings partially imported: %v", err))
+		}
+	case "antigravity":
+		// Antigravity has no project-scope settings file per ground truth.
+		// Global MCP is stored in ~/.gemini/antigravity/mcp_config.json (user-scope only).
+	default:
+		// claude (and unknown): settings.json and hooks.json inside the platform dir.
+		settingsPath := filepath.Join(platformDir, "settings.json")
+		if data, err := os.ReadFile(settingsPath); err == nil {
+			if err := importSettings(data, config, &importCount, &warnings); err != nil {
+				warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
+			}
+		}
+		hooksPath := filepath.Join(platformDir, "hooks.json")
+		if data, err := os.ReadFile(hooksPath); err == nil {
+			if err := json.Unmarshal(data, &config.Hooks); err != nil {
+				warnings = append(warnings, fmt.Sprintf("hooks.json failed to parse: %v", err))
+			} else {
+				importCount++
+			}
+		}
+		// Claude Code also stores project-scope MCP in a root-level .mcp.json
+		// (sibling to .claude/). Read it and merge with any servers from settings.json.
+		rootMCPPath := filepath.Join(projectDir, ".mcp.json")
+		if data, err := os.ReadFile(rootMCPPath); err == nil {
+			if err := importSettings(data, config, &importCount, &warnings); err != nil {
+				warnings = append(warnings, fmt.Sprintf(".mcp.json partially imported: %v", err))
+			}
+		}
+	}
+
+	// ── 3. Project instruction file discovery is deferred to after WriteSplitFiles.
+	// (see runProjectInstructionsDiscovery call below)
+
+	// ── 4. Agent memory auto-snapshot ────────────────────────────────────────────
+	// Claude Code: snapshot .claude/agent-memory/<agent>/ → xcf/memory/<agent>/
+	// This is performed without requiring --with-memory because the data is
+	// project-local and naturally discovered during init/import.
+	switch provider {
+	case "claude", "":
+		agentMemDir := filepath.Join(platformDir, "agent-memory")
+		if info, err := os.Stat(agentMemDir); err == nil && info.IsDir() {
+			if memSummary, err := snapshotAgentMemoryDir(agentMemDir); err != nil {
+				warnings = append(warnings, fmt.Sprintf("agent-memory snapshot: %v", err))
+			} else if memSummary > 0 {
+				fmt.Printf("  Agent memory: snapshotted %d agent(s) → xcf/memory/\n", memSummary)
+			}
+		}
+	case "gemini":
+		// Gemini memory lives in ~/.gemini/GEMINI.md (global). Auto-snapshot is
+		// best-effort — silently skip if not configured via XCAFFOLD_GEMINI_DIR.
+		if gDir, err := geminiMemoryDir(); err == nil {
+			if memSum, err := bir.ImportGeminiMemory(gDir, bir.ImportOpts{
+				SidecarDir: filepath.Join("xcf", "memory"),
+			}); err == nil && memSum.Imported > 0 {
+				fmt.Printf("  Gemini memory: snapshotted %d entry(ies) → xcf/memory/\n", memSum.Imported)
+			}
+		}
+	case "antigravity":
+		// Antigravity Knowledge Items are stored in the AI provider's app data
+		// directory, which is not accessible via the filesystem. Emit an
+		// informational note so users know this limitation.
+		warnings = append(warnings,
+			"Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem")
 	}
 
 	// Detect compilation targets from the scanned platform directory.
 	if config.Project != nil {
-		config.Project.Targets = detectTargets(claudeDir)
+		config.Project.Targets = detectTargets(platformDir)
 		config.Project.AgentRefs = sortedMapKeysStr(config.Agents)
 		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
 		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
 		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
 		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
+		// Propagate instructions-file from project-instruction discovery.
 	}
 
 	// Write split .xcf files: scaffold.xcf (kind: project) + xcf/**/*.xcf
 	if err := WriteSplitFiles(config, "."); err != nil {
 		return fmt.Errorf("[%s] failed to write split xcf files: %w", scopeName, err)
+	}
+
+	// ── 3. Project instruction file (CLAUDE.md / GEMINI.md / AGENTS.md / etc.) ─
+	// Only run discovery if the provider's instruction file actually exists.
+	// This guards against rewriting scaffold.xcf via MarshalMultiKind when
+	// there is nothing to discover (which would inline globally-merged resources).
+	if instrFile := providerInstructionsFilename(provider); instrFile != "" {
+		instrPath := filepath.Join(projectDir, instrFile)
+		if _, sErr := os.Stat(instrPath); sErr == nil {
+			if discoverErr := runProjectInstructionsDiscovery(projectDir, provider, xcfDest); discoverErr != nil {
+				warnings = append(warnings, fmt.Sprintf("project instructions discovery (%s): %v", provider, discoverErr))
+			}
+		}
 	}
 
 	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcfDest, importCount)
@@ -464,6 +599,70 @@ func importScope(claudeDir, xcfDest, scopeName string) error {
 			fmt.Println(" ⚠", w)
 		}
 	}
+	return nil
+}
+
+// snapshotAgentMemoryDir copies the contents of an in-project agent-memory
+// directory (e.g. .claude/agent-memory/) into xcf/memory/ so they are
+// preserved alongside the xcf configuration files. Each sub-directory
+// (agent name) becomes a matching sub-directory under xcf/memory/.
+// Returns the number of agent memory directories successfully snapshotted.
+func snapshotAgentMemoryDir(agentMemDir string) (int, error) {
+	entries, err := os.ReadDir(agentMemDir)
+	if err != nil {
+		return 0, fmt.Errorf("reading agent-memory dir: %w", err)
+	}
+	snapshotted := 0
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		agentName := entry.Name()
+		srcDir := filepath.Join(agentMemDir, agentName)
+		dstDir := filepath.Join("xcf", "memory", agentName)
+		if err := copyDirContents(srcDir, dstDir); err != nil {
+			return snapshotted, fmt.Errorf("copying agent memory for %q: %w", agentName, err)
+		}
+		snapshotted++
+	}
+	return snapshotted, nil
+}
+
+// copyDirContents recursively copies all files from src into dst,
+// creating dst and any intermediate directories as needed.
+func copyDirContents(src, dst string) error {
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, 0o600)
+	})
+}
+
+// importCursorMCP reads a Cursor .cursor/mcp.json file (shape: {mcpServers:{...}})
+// and imports the server entries into config.MCP. Cursor uses the same
+// mcpServers key as Claude Code per ground truth.
+func importCursorMCP(data []byte, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	importMCPServers(raw, config, count)
 	return nil
 }
 
