@@ -156,7 +156,7 @@ func offerImportIfPlatformDirExists(cmd *cobra.Command) (bool, error) {
 		}
 		if doImport {
 			cmd.Println()
-			return true, importScope(info.dirName, "scaffold.xcf", "project")
+			return true, importScope(info.dirName, "scaffold.xcf", "project", info.platform)
 		}
 
 		cmd.Println("\n  ⚠  Skipping import. Continuing with fresh scaffold.xcf.")
@@ -204,7 +204,7 @@ func offerImportIfPlatformDirExists(cmd *cobra.Command) (bool, error) {
 
 	if len(selected) == 1 {
 		cmd.Println()
-		return true, importScope(selected[0], "scaffold.xcf", "project")
+		return true, importScope(selected[0], "scaffold.xcf", "project", selectedPlatform(infos, selected[0]))
 	}
 
 	cmd.Println()
@@ -293,6 +293,17 @@ func detectAllPlatformDirs(dir string) []platformDirInfo {
 	})
 
 	return results
+}
+
+// selectedPlatform returns the platform name for the given dirName from infos.
+// Falls back to "claude" if not found (safe default).
+func selectedPlatform(infos []platformDirInfo, dirName string) string {
+	for _, info := range infos {
+		if info.dirName == dirName {
+			return info.platform
+		}
+	}
+	return "claude"
 }
 
 // runWizard runs the interactive new-project wizard and writes scaffold.xcf.
