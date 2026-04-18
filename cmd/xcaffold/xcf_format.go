@@ -463,7 +463,13 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 				rule.Name = k
 			}
 			doc := ruleDoc{Kind: "rule", Version: version, RuleConfig: rule}
-			if err := writeYAMLFile(filepath.Join(dir, k+".xcf"), doc); err != nil {
+			outPath := filepath.Join(dir, filepath.FromSlash(k)+".xcf")
+			// Rule IDs may contain forward-slash namespacing for subdirectory rules
+			// (e.g. "cli/build-go-cli"). Ensure the parent directory exists before writing.
+			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+				return err
+			}
+			if err := writeYAMLFile(outPath, doc); err != nil {
 				return err
 			}
 		}
