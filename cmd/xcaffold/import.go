@@ -887,23 +887,33 @@ func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count
 			*warnings = append(*warnings, fmt.Sprintf("skipping rule %s: %v", f, err))
 			continue
 		}
-		// Derive the rule ID from the path relative to the rules/ root so that
-		// nested files get a namespaced ID (e.g. "cli/build-go-cli").
+		// Derive the rule ID from only the filename stem — no path prefix — so that
+		// the ID is always a simple slug the parser accepts (e.g. "build-go-cli",
+		// not "cli/build-go-cli" which the validateID security guard rejects).
+		// The xcf file is still emitted under the subdirectory (xcf/rules/cli/)
+		// for human-readable organisation; WriteSplitFiles uses the map key as a
+		// relative path under xcf/rules/, so we attach the subdir prefix there
+		// instead — see the note below.
+		//
+		// Store the key as "<subdir>/<stem>" so WriteSplitFiles emits the file in
+		// the right subdirectory while the config name field carries only the stem.
 		rel, relErr := filepath.Rel(rulesRoot, f)
 		if relErr != nil {
 			rel = filepath.Base(f)
 		}
-		id := filepath.ToSlash(strings.TrimSuffix(rel, ".md"))
-		if id == "" {
+		slashRel := filepath.ToSlash(strings.TrimSuffix(rel, ".md")) // e.g. "cli/build-go-cli"
+		stem := filepath.Base(slashRel)                              // e.g. "build-go-cli"
+		id := slashRel                                               // use full rel path as map key so WriteSplitFiles places files in subdirs
+		if stem == "" || id == "" {
 			continue
 		}
 
 		// If this rule file carries an x-xcaffold workflow provenance marker, reassemble
 		// the WorkflowConfig from the marker and its companion skill files instead of
-		// importing it as a standalone rule. The workflow name is the rule ID with the
+		// importing it as a standalone rule. The workflow name is the stem with the
 		// "-workflow" suffix stripped (e.g. "code-review-workflow" → "code-review").
-		if strings.HasSuffix(id, "-workflow") {
-			workflowName := strings.TrimSuffix(id, "-workflow")
+		if strings.HasSuffix(stem, "-workflow") {
+			workflowName := strings.TrimSuffix(stem, "-workflow")
 			// claudeDir is the .claude directory; parent is the project root passed to
 			// bir.ReassembleWorkflow which expects the project root (it appends .claude/).
 			projectDir := filepath.Dir(claudeDir)
@@ -941,6 +951,12 @@ func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count
 				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
 			}
 			ruleCfg.InstructionsFile = ""
+		}
+		// Ensure the name field is always a plain slug the parser accepts.
+		// Frontmatter may have set a name already; if not, fall back to the file
+		// stem (e.g. "build-go-cli"), never to the slash-separated path.
+		if ruleCfg.Name == "" {
+			ruleCfg.Name = stem
 		}
 		ruleCfg.Instructions = body
 
