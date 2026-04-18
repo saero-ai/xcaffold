@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -266,12 +267,17 @@ func detectAllPlatformDirs(dir string) []platformDirInfo {
 		if skills, _ := filepath.Glob(filepath.Join(targetPath, "skills", "*", "SKILL.md")); skills != nil {
 			info.skills += len(skills)
 		}
-		if rulesMD, _ := filepath.Glob(filepath.Join(targetPath, "rules", "*.md")); rulesMD != nil {
-			info.rules += len(rulesMD)
-		}
-		if rulesMDC, _ := filepath.Glob(filepath.Join(targetPath, "rules", "*.mdc")); rulesMDC != nil {
-			info.rules += len(rulesMDC)
-		}
+		// Count rules recursively to include nested subdirectory rules.
+		_ = filepath.WalkDir(filepath.Join(targetPath, "rules"), func(_ string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			name := strings.ToLower(d.Name())
+			if strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".mdc") {
+				info.rules++
+			}
+			return nil
+		})
 		if workflows, _ := filepath.Glob(filepath.Join(targetPath, "workflows", "*.md")); workflows != nil {
 			info.workflows += len(workflows)
 		}
