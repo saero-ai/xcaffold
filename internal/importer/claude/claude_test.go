@@ -174,6 +174,87 @@ func TestClaudeExtract_ExtrasCollection(t *testing.T) {
 	assert.True(t, hasStatusline, "expected 'statusline' in ProviderExtras")
 }
 
+// --- Nested rules tests ---
+
+func TestClaudeClassify_NestedRulePattern(t *testing.T) {
+	imp := claudeimp.New()
+	kind, layout := imp.Classify("rules/cli/testing-framework.md", false)
+	assert.Equal(t, importer.KindRule, kind, "nested rule should classify as KindRule")
+	assert.Equal(t, importer.FlatFile, layout)
+}
+
+func TestClaudeClassify_NestedRuleDeepPattern(t *testing.T) {
+	imp := claudeimp.New()
+	kind, layout := imp.Classify("rules/platform/infrastructure.md", false)
+	assert.Equal(t, importer.KindRule, kind, "two-level nested rule should classify as KindRule")
+	assert.Equal(t, importer.FlatFile, layout)
+}
+
+func TestClaudeExtract_NestedRuleID(t *testing.T) {
+	// A rule at rules/cli/testing-framework.md should get ID "cli/testing-framework",
+	// not just "testing-framework" (which would collide with rules/testing-framework.md).
+	data := []byte("---\ndescription: CLI testing standards\n---\n\nAlways write table-driven tests.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := claudeimp.New()
+	err := imp.Extract("rules/cli/testing-framework.md", data, config)
+	require.NoError(t, err)
+	_, flat := config.Rules["testing-framework"]
+	assert.False(t, flat, "flat ID 'testing-framework' should NOT be used for nested rules")
+	rule, nested := config.Rules["cli/testing-framework"]
+	require.True(t, nested, "expected rule ID 'cli/testing-framework' for nested rule")
+	assert.Equal(t, "CLI testing standards", rule.Description)
+	assert.Equal(t, "claude", rule.SourceProvider)
+}
+
+// --- Bad frontmatter resilience tests ---
+
+func TestClaudeParseFrontmatter_BadYAMLReturnsError(t *testing.T) {
+	// YAML with a backtick-quoted value containing ': ' triggers "mapping values
+	// are not allowed in this context". Extract must return an error so the caller
+	// (Import) can stash the file in ProviderExtras rather than creating a
+	// zero-value resource.
+	data := []byte("---\ndescription: Do NOT use `isolation: worktree` in agents\n---\n\nBody text.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := claudeimp.New()
+	err := imp.Extract("rules/bad-frontmatter.md", data, config)
+	require.Error(t, err, "Extract must propagate YAML parse errors")
+	_, ok := config.Rules["bad-frontmatter"]
+	assert.False(t, ok, "bad-frontmatter rule must NOT be registered as a zero-value resource")
+}
+
+func TestClaudeImport_BadFrontmatterContinues(t *testing.T) {
+	// Import must not abort when one file has bad YAML frontmatter.
+	// All other files in the workspace must still be processed.
+	imp := claudeimp.New()
+	config := &ast.XcaffoldConfig{}
+	inputDir := filepath.Join("testdata", "input")
+	err := imp.Import(inputDir, config)
+	require.NoError(t, err, "Import must not return error for bad-frontmatter.md")
+	// skills must have been discovered (walked AFTER rules/ alphabetically — this verifies
+	// the walk was not aborted by the bad-frontmatter.md rule).
+	_, ok := config.Skills["tdd"]
+	assert.True(t, ok, "skills must be imported even when a rule file has bad frontmatter")
+	// The bad-frontmatter file should be stashed in ProviderExtras, not registered as a rule.
+	_, inRules := config.Rules["bad-frontmatter"]
+	assert.False(t, inRules, "bad-frontmatter must NOT appear as a zero-value rule")
+	extras, inExtras := config.ProviderExtras["claude"]["rules/bad-frontmatter.md"]
+	assert.True(t, inExtras, "bad-frontmatter file must be preserved in ProviderExtras")
+	assert.NotEmpty(t, extras)
+	// A warning must have been recorded.
+	assert.NotEmpty(t, imp.GetWarnings(), "Import must record a warning for bad frontmatter")
+}
+
+func TestClaudeImport_NestedRulesDiscovered(t *testing.T) {
+	// Import must discover rules in subdirectories (e.g. rules/cli/*.md).
+	imp := claudeimp.New()
+	config := &ast.XcaffoldConfig{}
+	inputDir := filepath.Join("testdata", "input")
+	err := imp.Import(inputDir, config)
+	require.NoError(t, err)
+	_, ok := config.Rules["cli/testing-framework"]
+	assert.True(t, ok, "nested rule rules/cli/testing-framework.md must be imported with ID 'cli/testing-framework'")
+}
+
 // --- Full workspace golden test ---
 
 func TestClaudeImporter_FullWorkspace(t *testing.T) {
@@ -196,10 +277,12 @@ func TestClaudeImporter_FullWorkspace(t *testing.T) {
 	assert.Equal(t, "tdd-driven-development", tdd.Name)
 	assert.Equal(t, "claude", tdd.SourceProvider)
 
-	// Rules
+	// Rules — flat and nested
 	sec, ok := config.Rules["security"]
 	require.True(t, ok, "expected rule 'security'")
 	assert.Equal(t, "claude", sec.SourceProvider)
+	_, ok = config.Rules["cli/testing-framework"]
+	assert.True(t, ok, "expected nested rule 'cli/testing-framework'")
 
 	// Hooks from settings.json
 	assert.NotEmpty(t, config.Hooks["PreToolUse"])
