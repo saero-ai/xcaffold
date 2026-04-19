@@ -19,12 +19,20 @@ func init() {
 }
 
 // CopilotImporter imports resources from a .github/ directory tree.
-type CopilotImporter struct{}
+// Warnings accumulates non-fatal per-file extraction errors encountered during Import().
+// Callers may inspect Warnings after Import() returns to surface skipped files.
+type CopilotImporter struct {
+	Warnings     []string
+	visitedLinks map[string]bool
+}
 
 // New returns a new CopilotImporter.
-func New() importer.ProviderImporter {
+func New() *CopilotImporter {
 	return &CopilotImporter{}
 }
+
+// GetWarnings returns non-fatal per-file extraction errors collected during the last Import() call.
+func (c *CopilotImporter) GetWarnings() []string { return c.Warnings }
 
 // Provider returns the canonical provider name.
 func (c *CopilotImporter) Provider() string { return "copilot" }
@@ -83,13 +91,36 @@ func (c *CopilotImporter) Extract(rel string, data []byte, config *ast.XcaffoldC
 
 // Import walks dir, classifies each entry, extracts classified files, and
 // appends unclassified files to config.ProviderExtras["copilot"].
+//
+// Extraction errors for individual files are non-fatal: they are collected in
+// c.Warnings and the walk continues. Only I/O errors (unreadable directory or
+// file) abort the walk.
 func (c *CopilotImporter) Import(dir string, config *ast.XcaffoldConfig) error {
+	c.Warnings = c.Warnings[:0]
+	c.visitedLinks = make(map[string]bool)
 	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			return nil
+		}
+
+		// Symlinks to directories: resolve and walk if target is a directory.
+		if d.Type()&fs.ModeSymlink != 0 {
+			target, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				c.Warnings = append(c.Warnings, fmt.Sprintf("resolving symlink %q: %v", path, err))
+				return nil
+			}
+			info, err := os.Stat(target)
+			if err != nil {
+				c.Warnings = append(c.Warnings, fmt.Sprintf("stat symlink target %q: %v", target, err))
+				return nil
+			}
+			if info.IsDir() {
+				return c.importSymlinkedDir(path, dir, config)
+			}
 		}
 
 		rel, err := filepath.Rel(dir, path)
@@ -100,7 +131,8 @@ func (c *CopilotImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("copilot: read %q: %w", rel, err)
+			c.Warnings = append(c.Warnings, fmt.Sprintf("read %q: %v", rel, err))
+			return nil
 		}
 
 		kind, _ := c.Classify(rel, false)
@@ -115,7 +147,90 @@ func (c *CopilotImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 			return nil
 		}
 
-		return c.Extract(rel, data, config)
+		if extractErr := c.Extract(rel, data, config); extractErr != nil {
+			if config.ProviderExtras == nil {
+				config.ProviderExtras = make(map[string]map[string][]byte)
+			}
+			if config.ProviderExtras["copilot"] == nil {
+				config.ProviderExtras["copilot"] = make(map[string][]byte)
+			}
+			config.ProviderExtras["copilot"][rel] = data
+			c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
+		}
+		return nil
+	})
+}
+
+// importSymlinkedDir walks a symlinked directory and imports its contents.
+func (c *CopilotImporter) importSymlinkedDir(symlinkPath, importRoot string, config *ast.XcaffoldConfig) error {
+	target, err := filepath.EvalSymlinks(symlinkPath)
+	if err != nil {
+		return nil
+	}
+	if c.visitedLinks[target] {
+		return nil
+	}
+	c.visitedLinks[target] = true
+
+	symlinkRel, err := filepath.Rel(importRoot, symlinkPath)
+	if err != nil {
+		return nil
+	}
+	return filepath.WalkDir(target, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if d.Type()&fs.ModeSymlink != 0 {
+			resolved, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				return nil
+			}
+			info, err := os.Stat(resolved)
+			if err != nil {
+				return nil
+			}
+			if info.IsDir() {
+				return c.importSymlinkedDir(path, importRoot, config)
+			}
+		}
+		relToTarget, err := filepath.Rel(target, path)
+		if err != nil {
+			return nil
+		}
+		rel := filepath.ToSlash(filepath.Join(symlinkRel, relToTarget))
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			c.Warnings = append(c.Warnings, fmt.Sprintf("read %q: %v", rel, err))
+			return nil
+		}
+
+		kind, _ := c.Classify(rel, false)
+		if kind == importer.KindUnknown {
+			if config.ProviderExtras == nil {
+				config.ProviderExtras = make(map[string]map[string][]byte)
+			}
+			if config.ProviderExtras["copilot"] == nil {
+				config.ProviderExtras["copilot"] = make(map[string][]byte)
+			}
+			config.ProviderExtras["copilot"][rel] = data
+			return nil
+		}
+
+		if extractErr := c.Extract(rel, data, config); extractErr != nil {
+			if config.ProviderExtras == nil {
+				config.ProviderExtras = make(map[string]map[string][]byte)
+			}
+			if config.ProviderExtras["copilot"] == nil {
+				config.ProviderExtras["copilot"] = make(map[string][]byte)
+			}
+			config.ProviderExtras["copilot"][rel] = data
+			c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
+		}
+		return nil
 	})
 }
 

@@ -71,15 +71,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 		return initGlobal()
 	}
 
-	// ── Phase 2: Idempotency check ─────────────────────────────────────────
-	xcfFile := filepath.Join(".", "scaffold.xcf")
-	if _, err := os.Stat(xcfFile); err == nil {
-		cmd.Println("  ✓ scaffold.xcf already exists. Nothing to do.")
-		cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold diff' to check for drift.")
-		tryAutoRegister(xcfFile)
-		return nil
-	}
-
+	// ── Phase 2: Existing scaffold.xcf — offer re-import ────────────────
 	return initProject(cmd)
 }
 
@@ -87,13 +79,27 @@ func runInit(cmd *cobra.Command, _ []string) error {
 func initProject(cmd *cobra.Command) error {
 	const xcfFile = "scaffold.xcf"
 
-	// ── Phase 1: Idempotency check ─────────────────────────────────────────
-	// If scaffold.xcf already exists this is a no-op (like `git init` re-run).
+	// ── Phase 1: Re-import when scaffold.xcf already exists ────────────────
 	if _, err := os.Stat(xcfFile); err == nil {
-		cmd.Println("scaffold.xcf already exists. Nothing to do.")
-		cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold diff' to check for drift.")
-		tryAutoRegister(xcfFile)
-		return nil
+		cmd.Println()
+		cmd.Println("  scaffold.xcf already exists.")
+
+		reImport := yesFlag
+		if !yesFlag {
+			var err error
+			reImport, err = prompt.Confirm("Re-import from source directories? (overwrites scaffold.xcf and xcf/)", false)
+			if err != nil {
+				return fmt.Errorf("prompt error: %w", err)
+			}
+		}
+		if !reImport {
+			cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold diff' to check for drift.")
+			tryAutoRegister(xcfFile)
+			return nil
+		}
+		// Remove existing output so importScope doesn't conflict.
+		_ = os.Remove(xcfFile)
+		_ = os.RemoveAll("xcf")
 	}
 
 	// ── Phase 2: Detect existing config and offer import ─────────────────

@@ -1271,7 +1271,10 @@ func mergeInstructionsScopesOverrideInherited(base, child []ast.InstructionsScop
 // Validations
 
 func validateID(kind, id string) error {
-	if strings.ContainsAny(id, "/\\") || strings.Contains(id, "..") {
+	if strings.ContainsAny(id, "\\") || strings.Contains(id, "..") {
+		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
+	}
+	if strings.Contains(id, "/") && kind != "rule" {
 		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
 	}
 	return nil
