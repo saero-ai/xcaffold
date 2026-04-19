@@ -32,7 +32,7 @@ func TestCompile_Copilot_Hooks_BasicEvent(t *testing.T) {
 	out, _, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".github/hooks/xcaffold-hooks.json"]
+	raw, ok := out.Files["hooks/xcaffold-hooks.json"]
 	require.True(t, ok, "expected .github/hooks/xcaffold-hooks.json to be emitted")
 
 	var parsed map[string]any
@@ -71,7 +71,7 @@ func TestCompile_Copilot_Hooks_MultipleEvents(t *testing.T) {
 	out, _, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".github/hooks/xcaffold-hooks.json"]
+	raw, ok := out.Files["hooks/xcaffold-hooks.json"]
 	require.True(t, ok, "expected .github/hooks/xcaffold-hooks.json")
 
 	var parsed map[string]any
@@ -112,7 +112,7 @@ func TestCompile_Copilot_Hooks_UnsupportedEvent(t *testing.T) {
 	}
 	assert.True(t, fieldSet["Notification"], "expected CodeFieldUnsupported for Notification event")
 
-	raw, ok := out.Files[".github/hooks/xcaffold-hooks.json"]
+	raw, ok := out.Files["hooks/xcaffold-hooks.json"]
 	require.True(t, ok, "expected .github/hooks/xcaffold-hooks.json to be emitted for valid event")
 
 	var parsed map[string]any
@@ -147,7 +147,7 @@ func TestCompile_Copilot_Hooks_TimeoutConversion(t *testing.T) {
 	out, _, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".github/hooks/xcaffold-hooks.json"]
+	raw, ok := out.Files["hooks/xcaffold-hooks.json"]
 	require.True(t, ok, "expected .github/hooks/xcaffold-hooks.json")
 
 	var parsed map[string]any
@@ -163,8 +163,9 @@ func TestCompile_Copilot_Hooks_TimeoutConversion(t *testing.T) {
 	assert.Equal(t, float64(5), timeoutSec, "5000ms must convert to 5 seconds")
 }
 
-// TestCompile_Copilot_MCP_StdioServer verifies that an MCP server with command
-// and args is written to .vscode/mcp.json with the servers key.
+// TestCompile_Copilot_MCP_StdioServer verifies that an MCP server config does NOT
+// produce a .vscode/mcp.json file (it lives outside .github/ and requires manual
+// placement) but DOES emit a CodeMCPGlobalConfigOnly fidelity note.
 func TestCompile_Copilot_MCP_StdioServer(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -178,29 +179,20 @@ func TestCompile_Copilot_MCP_StdioServer(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, notes, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".vscode/mcp.json"]
-	require.True(t, ok, "expected .vscode/mcp.json to be emitted")
+	// .vscode/mcp.json is outside .github/ — renderer must NOT write it.
+	_, hasMCP := out.Files[".vscode/mcp.json"]
+	assert.False(t, hasMCP, ".vscode/mcp.json must not appear in output map; requires manual placement")
 
-	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
-
-	serversSection, ok := parsed["servers"].(map[string]any)
-	require.True(t, ok, "expected servers key in .vscode/mcp.json")
-
-	serverEntry, ok := serversSection["my-server"].(map[string]any)
-	require.True(t, ok, "expected my-server entry in servers")
-
-	assert.Equal(t, "node", serverEntry["command"])
-	args, _ := serverEntry["args"].([]any)
-	require.Len(t, args, 1)
-	assert.Equal(t, "server.js", args[0])
+	// A CodeMCPGlobalConfigOnly note must be emitted to guide the user.
+	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
+	assert.NotEmpty(t, mcpNotes, "expected CodeMCPGlobalConfigOnly fidelity note for MCP servers")
 }
 
-// TestCompile_Copilot_MCP_EnvVars verifies that env variables on an MCP server
-// are passed through to .vscode/mcp.json.
+// TestCompile_Copilot_MCP_EnvVars verifies that an MCP server with env vars
+// does NOT produce a .vscode/mcp.json file and emits a CodeMCPGlobalConfigOnly note.
 func TestCompile_Copilot_MCP_EnvVars(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -218,22 +210,15 @@ func TestCompile_Copilot_MCP_EnvVars(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, notes, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".vscode/mcp.json"]
-	require.True(t, ok, "expected .vscode/mcp.json")
+	// .vscode/mcp.json is outside .github/ — renderer must NOT write it.
+	_, hasMCP := out.Files[".vscode/mcp.json"]
+	assert.False(t, hasMCP, ".vscode/mcp.json must not appear in output map; requires manual placement")
 
-	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
-
-	serversSection := parsed["servers"].(map[string]any)
-	serverEntry := serversSection["env-server"].(map[string]any)
-
-	envMap, ok := serverEntry["env"].(map[string]any)
-	require.True(t, ok, "expected env key in MCP server entry")
-	assert.Equal(t, "secret", envMap["API_KEY"])
-	assert.Equal(t, "prod", envMap["MODE"])
+	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
+	assert.NotEmpty(t, mcpNotes, "expected CodeMCPGlobalConfigOnly fidelity note")
 }
 
 // TestCompile_Copilot_MCP_GlobalConfigNote verifies that MCP compilation emits
@@ -255,9 +240,9 @@ func TestCompile_Copilot_MCP_GlobalConfigNote(t *testing.T) {
 	assert.NotEmpty(t, globalNotes, "expected CodeMCPGlobalConfigOnly note for MCP servers")
 }
 
-// TestCompile_Copilot_Settings_MergedOutput verifies that hooks and MCP compile
-// to SEPARATE files (.github/hooks/xcaffold-hooks.json and .vscode/mcp.json),
-// not merged into a single file.
+// TestCompile_Copilot_Settings_MergedOutput verifies that hooks compile to
+// hooks/xcaffold-hooks.json (relative to OutputDir) and MCP emits a fidelity
+// note rather than a file (because .vscode/mcp.json lives outside .github/).
 func TestCompile_Copilot_Settings_MergedOutput(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -273,13 +258,18 @@ func TestCompile_Copilot_Settings_MergedOutput(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, notes, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	_, hasHooks := out.Files[".github/hooks/xcaffold-hooks.json"]
+	_, hasHooks := out.Files["hooks/xcaffold-hooks.json"]
+	assert.True(t, hasHooks, "expected hooks/xcaffold-hooks.json in output map")
+
+	// .vscode/mcp.json is outside .github/ — must not be in output map.
 	_, hasMCP := out.Files[".vscode/mcp.json"]
-	assert.True(t, hasHooks, "expected .github/hooks/xcaffold-hooks.json")
-	assert.True(t, hasMCP, "expected .vscode/mcp.json")
+	assert.False(t, hasMCP, ".vscode/mcp.json must not appear in output map")
+
+	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
+	assert.NotEmpty(t, mcpNotes, "MCP must emit CodeMCPGlobalConfigOnly fidelity note")
 }
 
 // TestCompile_Copilot_Settings_UnsupportedFields verifies that Claude-specific

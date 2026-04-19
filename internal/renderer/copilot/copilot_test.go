@@ -27,7 +27,7 @@ func TestCompileCopilotRule_Activation_Always(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	content := out.Files[".github/instructions/security.instructions.md"]
+	content := out.Files["instructions/security.instructions.md"]
 	require.Contains(t, content, `applyTo: "**"`)
 }
 
@@ -47,7 +47,7 @@ func TestCompileCopilotRule_Activation_PathGlob(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	content := out.Files[".github/instructions/api-style.instructions.md"]
+	content := out.Files["instructions/api-style.instructions.md"]
 	require.Contains(t, content, `applyTo: "src/api/**, packages/api/**"`)
 }
 
@@ -67,7 +67,7 @@ func TestCompileCopilotRule_ExcludeAgents_Single(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	content := out.Files[".github/instructions/pr-review.instructions.md"]
+	content := out.Files["instructions/pr-review.instructions.md"]
 	require.Contains(t, content, "excludeAgent:")
 	require.Contains(t, content, "code-review")
 }
@@ -88,7 +88,7 @@ func TestCompileCopilotRule_ExcludeAgents_Multiple(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	content := out.Files[".github/instructions/security.instructions.md"]
+	content := out.Files["instructions/security.instructions.md"]
 	require.Contains(t, content, "code-review")
 	require.Contains(t, content, "cloud-agent")
 }
@@ -108,7 +108,7 @@ func TestCompileCopilotRule_OutputPath(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	_, ok := out.Files[".github/instructions/my-rule.instructions.md"]
+	_, ok := out.Files["instructions/my-rule.instructions.md"]
 	require.True(t, ok, "output path must be .github/instructions/<id>.instructions.md")
 }
 
@@ -128,7 +128,7 @@ func TestCompileCopilotRule_Activation_ManualMention_FidelityNote(t *testing.T) 
 	require.NoError(t, err)
 
 	// Degraded to "**" with a fidelity note
-	content := out.Files[".github/instructions/manual-rule.instructions.md"]
+	content := out.Files["instructions/manual-rule.instructions.md"]
 	require.Contains(t, content, `applyTo: "**"`)
 	require.NotEmpty(t, notes, "expected a fidelity note for manual-mention activation")
 }
@@ -156,10 +156,10 @@ func TestCompile_Copilot_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 	hasRule := false
 	hasSkill := false
 	for path := range out.Files {
-		if strings.HasPrefix(path, ".github/instructions/") {
+		if strings.HasPrefix(path, "instructions/") {
 			hasRule = true
 		}
-		if strings.HasPrefix(path, ".github/skills/") {
+		if strings.HasPrefix(path, "skills/") {
 			hasSkill = true
 		}
 	}
@@ -218,12 +218,13 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify ALL output paths exist.
-	assert.Contains(t, out.Files, ".github/copilot-instructions.md", "instructions")
-	assert.Contains(t, out.Files, ".github/instructions/go-style.instructions.md", "rule")
-	assert.Contains(t, out.Files, ".github/agents/auditor.agent.md", "agent")
-	assert.Contains(t, out.Files, ".github/skills/review/SKILL.md", "skill")
-	assert.Contains(t, out.Files, ".github/hooks/xcaffold-hooks.json", "hooks")
-	assert.Contains(t, out.Files, ".vscode/mcp.json", "MCP")
+	assert.Contains(t, out.Files, "copilot-instructions.md", "instructions")
+	assert.Contains(t, out.Files, "instructions/go-style.instructions.md", "rule")
+	assert.Contains(t, out.Files, "agents/auditor.agent.md", "agent")
+	assert.Contains(t, out.Files, "skills/review/SKILL.md", "skill")
+	assert.Contains(t, out.Files, "hooks/xcaffold-hooks.json", "hooks")
+	// MCP is not written to the output map; it requires manual .vscode/mcp.json placement.
+	assert.NotContains(t, out.Files, ".vscode/mcp.json", "MCP must not be in output map")
 
 	// Verify fidelity notes.
 	settingsNotes := filterNotes(notes, renderer.CodeSettingsFieldUnsupported)
@@ -268,8 +269,8 @@ func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
 	out, _, err := r.Compile(cfg, "")
 	require.NoError(t, err)
 
-	assert.Contains(t, out.Files, ".github/copilot-instructions.md", "instructions")
-	assert.Contains(t, out.Files, ".github/instructions/style-guide.instructions.md", "rule")
-	assert.Contains(t, out.Files, ".github/agents/reviewer.agent.md", "agent")
-	assert.Contains(t, out.Files, ".github/skills/tdd/SKILL.md", "skill")
+	assert.Contains(t, out.Files, "copilot-instructions.md", "instructions")
+	assert.Contains(t, out.Files, "instructions/style-guide.instructions.md", "rule")
+	assert.Contains(t, out.Files, "agents/reviewer.agent.md", "agent")
+	assert.Contains(t, out.Files, "skills/tdd/SKILL.md", "skill")
 }

@@ -26,7 +26,7 @@ func TestCopilotRenderer_ProjectInstructions_FlatSingleton(t *testing.T) {
 	}
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
-	root := out.Files[".github/copilot-instructions.md"]
+	root := out.Files["copilot-instructions.md"]
 	require.NotEmpty(t, root)
 	require.Contains(t, root, "Root content.")
 	require.Contains(t, root, `<!-- xcaffold:scope path="packages/worker"`)
@@ -99,7 +99,7 @@ func TestCopilotRenderer_FlatMode_ExplicitFlag(t *testing.T) {
 	}
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
-	_, hasCopilotInstructions := out.Files[".github/copilot-instructions.md"]
+	_, hasCopilotInstructions := out.Files["copilot-instructions.md"]
 	require.True(t, hasCopilotInstructions, "flat mode must emit .github/copilot-instructions.md")
 	for path := range out.Files {
 		require.False(t, strings.HasSuffix(path, "/AGENTS.md"),
@@ -127,7 +127,7 @@ func TestCopilotRenderer_NestedMode_EmitsNestedDirs(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 	// Nested mode must NOT emit flat singleton.
-	_, hasFlatFile := out.Files[".github/copilot-instructions.md"]
+	_, hasFlatFile := out.Files["copilot-instructions.md"]
 	require.False(t, hasFlatFile, "nested mode must not emit .github/copilot-instructions.md")
 	// Nested mode must emit root AGENTS.md and per-scope AGENTS.md.
 	_, hasRoot := out.Files["AGENTS.md"]

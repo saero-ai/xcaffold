@@ -41,7 +41,7 @@ func (r *Renderer) Target() string {
 
 // OutputDir returns the output directory prefix for this renderer.
 func (r *Renderer) OutputDir() string {
-	return ".github/instructions"
+	return ".github"
 }
 
 // Render wraps a files map in an output.Output. This is an identity
@@ -68,7 +68,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		if err != nil {
 			return nil, nil, fmt.Errorf("copilot: failed to compile rule %q: %w", id, err)
 		}
-		safePath := filepath.Clean(fmt.Sprintf(".github/instructions/%s.instructions.md", id))
+		safePath := filepath.Clean(fmt.Sprintf("instructions/%s.instructions.md", id))
 		out.Files[safePath] = md
 		notes = append(notes, ruleNotes...)
 	}
@@ -198,7 +198,7 @@ func (r *Renderer) renderProjectInstructionsFlat(config *ast.XcaffoldConfig, bas
 		))
 	}
 
-	safePath := filepath.Clean(".github/copilot-instructions.md")
+	safePath := filepath.Clean("copilot-instructions.md")
 	files[safePath] = sb.String()
 	return notes
 }
@@ -370,7 +370,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			sb.WriteString("\n")
 		}
 
-		filePath := fmt.Sprintf(".github/agents/%s.agent.md", id)
+		filePath := fmt.Sprintf("agents/%s.agent.md", id)
 		files[filepath.Clean(filePath)] = sb.String()
 
 		// Fidelity notes for security fields with no Copilot equivalent.
@@ -471,7 +471,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 			sb.WriteString("\n")
 		}
 
-		filePath := fmt.Sprintf(".github/skills/%s/SKILL.md", id)
+		filePath := fmt.Sprintf("skills/%s/SKILL.md", id)
 		files[filepath.Clean(filePath)] = sb.String()
 
 		// Fidelity notes for unsupported fields.
