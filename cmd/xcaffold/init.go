@@ -221,6 +221,9 @@ func initProject(cmd *cobra.Command) error {
 				if importErr != nil {
 					return importErr
 				}
+
+				_ = writeReferenceTemplates(".")
+
 				if injectErr := injectXcaffoldSkillAfterImport("."); injectErr != nil {
 					cmd.Printf("  ⚠ Failed to inject /xcaffold skill: %v\n", injectErr)
 				} else {
@@ -699,12 +702,8 @@ func injectXcaffoldSkillAfterImport(baseDir string) error {
 	}
 	if !hasSkill {
 		config.Project.SkillRefs = append(config.Project.SkillRefs, "xcaffold")
-		out, err := MarshalMultiKind(config, "")
-		if err != nil {
-			return fmt.Errorf("marshalling updated config: %w", err)
-		}
-		if err := os.WriteFile(xcfFile, out, 0o600); err != nil {
-			return fmt.Errorf("writing updated scaffold: %w", err)
+		if err := WriteSplitFiles(config, baseDir); err != nil {
+			return fmt.Errorf("writing updated split config: %w", err)
 		}
 	}
 
