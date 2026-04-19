@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `xcaffold init` multi-file generator that scaffolds an entire `xcf/` directory, replacing the legacy single `scaffold.xcf` builder.
+- `xcaffold init` `--target` string slice flag and multi-select UI prompt for concurrent platform targeting (`claude`, `cursor`, `antigravity`, etc).
+- `xcaffold init` `--no-policies` flag to skip starter policy generation.
+- `xcaffold init` `--json` manifest mode for machine-readable output tailored for autonomous agent execution.
+- `internal/templates` provider matrix renderer emitting exact field support tables for selected compilation targets.
 - `internal/importer`: ProviderImporter interface with per-provider implementations for claude, cursor, gemini, copilot, and antigravity
 - `ast.XcaffoldConfig.ProviderExtras`: genuinely-unclassified file catchall for provider-specific artifacts
 - `SourceProvider` annotation field on all AST resource types for import provenance tracking
