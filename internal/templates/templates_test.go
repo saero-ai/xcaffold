@@ -100,3 +100,83 @@ func TestRenderTemplate_CanonicalFieldOrdering(t *testing.T) {
 		lastIdx = idx
 	}
 }
+
+// --- Provider-first scaffold render functions ---
+
+func TestRenderProjectXCF_SingleTarget(t *testing.T) {
+	out := RenderProjectXCF("my-api", []string{"claude"})
+
+	assert.Contains(t, out, "kind: project")
+	assert.Contains(t, out, `name: "my-api"`)
+	assert.Contains(t, out, "targets:")
+	assert.Contains(t, out, "- claude")
+	assert.Contains(t, out, "agents:")
+	assert.Contains(t, out, "- developer")
+	assert.Contains(t, out, "rules:")
+	assert.Contains(t, out, "- conventions")
+	assert.Contains(t, out, "policies:")
+	assert.Contains(t, out, "- safety")
+	assert.NotContains(t, out, "- cursor")
+}
+
+func TestRenderProjectXCF_MultiTarget(t *testing.T) {
+	out := RenderProjectXCF("multi", []string{"claude", "cursor", "gemini"})
+
+	assert.Contains(t, out, "- claude")
+	assert.Contains(t, out, "- cursor")
+	assert.Contains(t, out, "- gemini")
+}
+
+func TestRenderAgentXCF_ContainsMatrix(t *testing.T) {
+	out := RenderAgentXCF("developer", "claude-sonnet-4-6", []string{"claude", "cursor"})
+
+	assert.Contains(t, out, "kind: agent")
+	assert.Contains(t, out, "name: developer")
+	assert.Contains(t, out, "model:")
+	assert.Contains(t, out, "kind: agent - provider field support")
+	assert.Contains(t, out, "claude")
+	assert.Contains(t, out, "cursor")
+	// effort is claude-only: must show dropped for cursor
+	assert.Contains(t, out, "dropped")
+}
+
+func TestRenderAgentXCF_SingleTarget_NoCursorColumn(t *testing.T) {
+	out := RenderAgentXCF("developer", "claude-sonnet-4-6", []string{"claude"})
+
+	// Matrix must exist but cursor column must not appear
+	assert.Contains(t, out, "kind: agent - provider field support")
+
+	// Only check the matrix section for the column (before the actual kind declaration)
+	matrixBlock := out[:strings.Index(out, "kind: agent")]
+	assert.NotContains(t, matrixBlock, "cursor")
+}
+
+func TestRenderRuleXCF_ContainsMatrix(t *testing.T) {
+	out := RenderRuleXCF([]string{"claude", "cursor"})
+
+	assert.Contains(t, out, "kind: rule")
+	assert.Contains(t, out, "name: conventions")
+	assert.Contains(t, out, "activation: always")
+	assert.Contains(t, out, "kind: rule - provider field support")
+}
+
+func TestRenderSettingsXCF_ContainsMatrix(t *testing.T) {
+	out := RenderSettingsXCF([]string{"claude"})
+
+	assert.Contains(t, out, "kind: settings")
+	assert.Contains(t, out, "kind: settings - provider field support")
+	assert.Contains(t, out, "mcp-servers")
+	assert.Contains(t, out, "permissions")
+}
+
+func TestRenderPolicyXCF_ContainsTwoPolicies(t *testing.T) {
+	out := RenderPolicyXCF()
+
+	assert.Contains(t, out, "kind: policy")
+	assert.Contains(t, out, "require-agent-description")
+	assert.Contains(t, out, "require-agent-instructions")
+	assert.Contains(t, out, "severity: warning")
+	assert.Contains(t, out, "severity: error")
+	// Must be valid multi-document YAML (two --- separated docs)
+	assert.Contains(t, out, "---")
+}
