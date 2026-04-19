@@ -204,3 +204,5 @@ func TestWriteXCFDirectory_NoAgent_StillCreatesScaffold(t *testing.T) {
 	// but xcf/ should NOT contain an agents/developer.xcf
 	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer.xcf"))
 }
+
+// --- Target Flag & Flow Tests ---

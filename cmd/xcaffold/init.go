@@ -27,6 +27,10 @@ var templateFlag string
 // noReferencesFlag is set by --no-references to skip reference template generation.
 var noReferencesFlag bool
 
+var targetsFlag []string
+var noPoliciesFlag bool
+var jsonManifestFlag bool
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Bootstrap a new scaffold.xcf configuration",
@@ -51,8 +55,11 @@ Ready to get started? Run:
 
 func init() {
 	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Accept all defaults non-interactively (CI/CD mode)")
+	initCmd.Flags().StringSliceVar(&targetsFlag, "target", nil, "Generate output tailored to specific target(s) (comma-separated)")
 	initCmd.Flags().StringVar(&templateFlag, "template", "", "use a topology template (rest-api, cli-tool, frontend-app)")
 	initCmd.Flags().BoolVar(&noReferencesFlag, "no-references", false, "Skip generation of xcf/references/ field reference templates")
+	initCmd.Flags().BoolVar(&noPoliciesFlag, "no-policies", false, "Skip generation of starter policies")
+	initCmd.Flags().BoolVar(&jsonManifestFlag, "json", false, "Output machine-readable JSON manifest instead of interactive logs")
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -326,6 +333,14 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		return err
 	}
 
+	if jsonManifestFlag {
+		yesFlag = true // silent mode implicitly accepts defaults if questions not answered
+		ans.targets = []string{detectDefaultTarget()}
+		if len(targetsFlag) > 0 {
+			ans.targets = targetsFlag
+		}
+	}
+
 	// ── Build scaffold.xcf content ─────────────────────────────────────────
 	if templateFlag != "" {
 		model, _ := resolveTargetMeta(ans.targets[0])
@@ -424,20 +439,35 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 	// Name and description are set automatically — never prompted.
 	ans.name = defaultName
 	ans.desc = ""
-	ans.targets = []string{detectDefaultTarget()}
+	if len(targetsFlag) > 0 {
+		ans.targets = targetsFlag
+	} else {
+		ans.targets = []string{detectDefaultTarget()}
+	}
 	ans.wantAgent = true
 
 	if yesFlag {
 		return
 	}
 
-	// Target platform — auto-detected but user can change.
-	time.Sleep(300 * time.Millisecond)
-	targetStr, err := prompt.Ask("Target platform (claude / cursor / antigravity)", ans.targets[0])
-	if err != nil {
-		return
+	if len(targetsFlag) == 0 {
+		time.Sleep(300 * time.Millisecond)
+		options := []prompt.SelectOption{
+			{Label: "Claude Code", Value: "claude", Selected: ans.targets[0] == "claude"},
+			{Label: "Cursor", Value: "cursor", Selected: ans.targets[0] == "cursor"},
+			{Label: "Gemini", Value: "gemini", Selected: ans.targets[0] == "gemini"},
+			{Label: "GitHub Copilot", Value: "copilot", Selected: ans.targets[0] == "copilot"},
+			{Label: "Antigravity", Value: "antigravity", Selected: ans.targets[0] == "antigravity"},
+		}
+		selected, promptErr := prompt.MultiSelect("Target platforms (space to select)", options)
+		if promptErr != nil {
+			err = promptErr
+			return
+		}
+		if len(selected) > 0 {
+			ans.targets = selected
+		}
 	}
-	ans.targets = []string{targetStr}
 
 	time.Sleep(300 * time.Millisecond)
 	ans.wantAgent, err = prompt.Confirm("Add a starter agent?", true)
@@ -456,7 +486,9 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 	dirs := []string{
 		filepath.Join(baseDir, "xcf", "agents"),
 		filepath.Join(baseDir, "xcf", "rules"),
-		filepath.Join(baseDir, "xcf", "policies"),
+	}
+	if !noPoliciesFlag {
+		dirs = append(dirs, filepath.Join(baseDir, "xcf", "policies"))
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0o755); err != nil {
@@ -479,8 +511,10 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 	settingsContent := templates.RenderSettingsXCF(ans.targets)
 	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "settings.xcf"), []byte(settingsContent), 0o600)
 
-	policyContent := templates.RenderPolicyXCF()
-	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "safety.xcf"), []byte(policyContent), 0o600)
+	if !noPoliciesFlag {
+		policyContent := templates.RenderPolicyXCF()
+		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "safety.xcf"), []byte(policyContent), 0o600)
+	}
 
 	// starter agent
 	if ans.wantAgent {
