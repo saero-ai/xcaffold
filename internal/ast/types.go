@@ -22,6 +22,11 @@ type XcaffoldConfig struct {
 
 	Settings SettingsConfig `yaml:"settings,omitempty"`
 
+	// ProviderExtras holds raw file content keyed by provider name then by path
+	// within that provider's output directory. It is populated by the import
+	// pipeline and is never serialized to YAML or JSON.
+	ProviderExtras map[string]map[string][]byte `yaml:"-" json:"-"`
+
 	ResourceScope `yaml:",inline"` // Global-level resources
 
 	Project *ProjectConfig `yaml:"project,omitempty"` // nil for global configs
@@ -188,6 +193,10 @@ type AgentConfig struct {
 	// extends: global base config. It is never serialized and causes renderers
 	// to skip the resource during project-scope compilation.
 	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // TargetOverride specifies overrides for multi-provider targets.
@@ -248,6 +257,10 @@ type SkillConfig struct {
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // Rule activation mode values. These are the canonical cross-provider activation
@@ -278,6 +291,10 @@ type RuleConfig struct {
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // HookConfig maps lifecycle event names to their matcher groups.
@@ -306,6 +323,10 @@ type HookHandler struct {
 	Shell          string            `yaml:"shell,omitempty"            json:"shell,omitempty"`
 	StatusMessage  string            `yaml:"status-message,omitempty"    json:"statusMessage,omitempty"`
 	AllowedEnvVars []string          `yaml:"allowed-env-vars,omitempty"   json:"allowedEnvVars,omitempty"`
+
+	// SourceProvider identifies the provider this hook was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // MCPConfig defines a local or remote MCP server context.
@@ -325,6 +346,10 @@ type MCPConfig struct {
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-" json:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // StatusLineConfig defines the statusLine setting for the platform.
@@ -413,6 +438,10 @@ type SettingsConfig struct {
 	AutoMemoryDirectory               string               `yaml:"auto-memory-directory,omitempty" json:"autoMemoryDirectory,omitempty"`
 	AvailableModels                   []string             `yaml:"available-models,omitempty" json:"availableModels,omitempty"`
 	ClaudeMdExcludes                  []string             `yaml:"claude-md-excludes,omitempty" json:"claudeMdExcludes,omitempty"`
+
+	// SourceProvider identifies the provider this settings block was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // TestConfig holds project-level configuration for `xcaffold test`.
@@ -464,6 +493,10 @@ type WorkflowConfig struct {
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. Never serialized.
 	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // WorkflowStep is one named step in a workflow's ordered body.
@@ -538,6 +571,10 @@ type MemoryConfig struct {
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // StripInherited removes all top-level resources that are marked as Inherited=true.

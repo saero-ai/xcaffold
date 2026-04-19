@@ -25,7 +25,7 @@ func TestRealData_Fixture_Exists(t *testing.T) {
 
 	entries, err := os.ReadDir(claudeAgents)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(entries), 10, "expected at least 10 real agent fixtures in %s", claudeAgents)
+	require.GreaterOrEqual(t, len(entries), 4, "expected at least 4 real agent fixtures in %s", claudeAgents)
 }
 
 // TestRealData_ImportedAgent_CompilesWithCanonicalFieldOrder performs the

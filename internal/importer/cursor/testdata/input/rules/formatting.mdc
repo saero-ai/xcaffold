@@ -1,0 +1,8 @@
+---
+description: Code formatting standards
+globs:
+  - "**/*.go"
+  - "**/*.ts"
+---
+
+Always use gofmt for Go files. Use prettier for TypeScript. No trailing whitespace.

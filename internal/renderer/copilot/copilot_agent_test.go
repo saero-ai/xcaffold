@@ -28,7 +28,7 @@ func TestCompile_Copilot_Agents_Minimal(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	const wantPath = ".github/agents/my-agent.agent.md"
+	const wantPath = "agents/my-agent.agent.md"
 	content, ok := out.Files[wantPath]
 	require.True(t, ok, "expected output file %s; got files: %v", wantPath, out.Files)
 	assert.Contains(t, content, "---", "frontmatter delimiters must be present")
@@ -58,7 +58,7 @@ func TestCompile_Copilot_Agents_FullSchema(t *testing.T) {
 	out, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	const wantPath = ".github/agents/full-agent.agent.md"
+	const wantPath = "agents/full-agent.agent.md"
 	content, ok := out.Files[wantPath]
 	require.True(t, ok, "expected output file %s", wantPath)
 
@@ -102,7 +102,7 @@ func TestCompile_Copilot_Agents_ProviderPassthrough(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	const wantPath = ".github/agents/passthrough-agent.agent.md"
+	const wantPath = "agents/passthrough-agent.agent.md"
 	content, ok := out.Files[wantPath]
 	require.True(t, ok, "expected output file %s", wantPath)
 
@@ -144,7 +144,7 @@ func TestCompile_Copilot_Agents_UnsupportedFields(t *testing.T) {
 	out, notes, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	const wantPath = ".github/agents/unsupported-agent.agent.md"
+	const wantPath = "agents/unsupported-agent.agent.md"
 	_, ok := out.Files[wantPath]
 	require.True(t, ok, "expected output file %s", wantPath)
 
@@ -183,7 +183,7 @@ func TestCompile_Copilot_Agents_InlineMCP(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	const wantPath = ".github/agents/mcp-agent.agent.md"
+	const wantPath = "agents/mcp-agent.agent.md"
 	content, ok := out.Files[wantPath]
 	require.True(t, ok, "expected output file %s", wantPath)
 
@@ -210,7 +210,7 @@ func TestCompile_Copilot_Agents_WithBody(t *testing.T) {
 	out, _, err := r.Compile(config, "")
 	require.NoError(t, err)
 
-	const wantPath = ".github/agents/body-agent.agent.md"
+	const wantPath = "agents/body-agent.agent.md"
 	content, ok := out.Files[wantPath]
 	require.True(t, ok, "expected output file %s", wantPath)
 

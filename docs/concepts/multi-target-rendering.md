@@ -103,3 +103,11 @@ func LockFilePath(basePath string, target string) string {
 A project compiled for both `claude` and `cursor` produces `scaffold.claude.lock` and `scaffold.cursor.lock` as independent files. Each lock records the SHA-256 hashes of that target's artifacts, the xcaffold version, and the timestamp of the last apply. Neither lock file references the other.
 
 This separation is significant for teams that maintain multiple deployment contexts from a single `.xcf` file. Advancing a `claude` compilation — adding new rules, updating agent definitions — does not invalidate the `cursor` lock, and vice versa. Drift detection operates independently per target. A team can keep one target stable while iterating on another, with the lock file providing the audit trail for each independently.
+
+## Import Side
+
+The import direction mirrors the render direction. Each provider has a `ProviderImporter` implementation (`internal/importer/<provider>/`) symmetric to its `TargetRenderer`. Where renderers translate `ast.XcaffoldConfig` → native files, importers translate native files → `ast.XcaffoldConfig`. The same five-provider model applies in both directions, and the AST serves as the shared IR between them.
+
+Files that no importer recognizes go to `ProviderExtras`, a per-provider bucket that preserves unclassified artifacts for same-provider round-trips without contaminating the typed AST. This keeps the AST strictly typed while ensuring no data is silently discarded during import.
+
+> See [Provider Architecture](provider-architecture.md) for the full pipeline diagram and kind classification layout table.

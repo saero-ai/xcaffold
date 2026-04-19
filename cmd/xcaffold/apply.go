@@ -300,6 +300,9 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}
 
+	// Restore same-provider extras and emit fidelity notes for cross-provider ones.
+	notes = applyProviderExtras(config, out, targetFlag, notes)
+
 	printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, targetFlag)), false)
 
 	// Policy evaluation
@@ -431,6 +434,63 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	_ = registry.UpdateLastApplied(cwd)
 
 	return nil
+}
+
+// applyProviderExtras merges ProviderExtras from the config into the compiled
+// output. Files whose provider key matches target are added to out.Files as-is.
+// Files from other providers are skipped and a FidelityNote is appended for
+// each skipped path. Provider keys and file paths within each provider are
+// sorted before iteration so note order is deterministic.
+func applyProviderExtras(config *ast.XcaffoldConfig, out *compiler.Output, target string, notes []renderer.FidelityNote) []renderer.FidelityNote {
+	if len(config.ProviderExtras) == 0 {
+		return notes
+	}
+
+	// Sort provider keys for deterministic output.
+	providers := make([]string, 0, len(config.ProviderExtras))
+	for p := range config.ProviderExtras {
+		providers = append(providers, p)
+	}
+	sort.Strings(providers)
+
+	for _, provider := range providers {
+		files := config.ProviderExtras[provider]
+		if provider == target {
+			for relPath, data := range files {
+				cleaned := filepath.Clean(relPath)
+				if strings.HasPrefix(cleaned, "..") || filepath.IsAbs(cleaned) {
+					notes = append(notes, renderer.FidelityNote{
+						Level:    renderer.LevelWarning,
+						Target:   target,
+						Kind:     "extras",
+						Resource: relPath,
+						Code:     "provider-extras-path-unsafe",
+						Reason:   fmt.Sprintf("skipping extras path %q: path traversal detected", relPath),
+					})
+					continue
+				}
+				out.Files[cleaned] = string(data)
+			}
+			continue
+		}
+		// Cross-provider: sort paths then emit one warning note per file.
+		paths := make([]string, 0, len(files))
+		for relPath := range files {
+			paths = append(paths, relPath)
+		}
+		sort.Strings(paths)
+		for _, relPath := range paths {
+			notes = append(notes, renderer.FidelityNote{
+				Level:    renderer.LevelWarning,
+				Target:   target,
+				Kind:     "extras",
+				Resource: relPath,
+				Code:     "provider-extras-skipped",
+				Reason:   fmt.Sprintf("provider-specific artifact from %q not applicable to target %q", provider, target),
+			})
+		}
+	}
+	return notes
 }
 
 // colorDiff prints a unified diff with basic ANSI terminal colors.

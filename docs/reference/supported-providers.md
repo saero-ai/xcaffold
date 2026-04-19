@@ -33,3 +33,23 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 > [!NOTE]
 > Target capabilities are continuously expanding. For a granular block-by-block breakdown of per-field fidelity mappings per target, consult the [Schema Reference](../reference/schema.md).
+
+---
+
+## Provider Import Support
+
+`xcaffold import` reads an existing provider directory and synthesises a `scaffold.xcf` from the artifacts found on disk. Each provider importer handles the kinds it natively understands; unknown files are captured as `provider-extras` and emitted as fidelity notes during `xcaffold apply`.
+
+### Kind Matrix
+
+| Kind | Claude | Cursor | Gemini | Copilot | Antigravity |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **agent** | `.claude/agents/*.md` | `.cursor/agents/*.md` | `.gemini/agents/*.md` | `.github/agents/*.{md,agent.md}` | — |
+| **skill** | `.claude/skills/*/SKILL.md` | `.cursor/skills/*/SKILL.md` | `.gemini/skills/*/SKILL.md` | `.github/skills/*/SKILL.md` | `.agents/skills/*/SKILL.md` |
+| **rule** | `.claude/rules/*.md` | `.cursor/rules/*.{md,mdc}` | `.gemini/rules/*.md` | `.github/copilot-instructions.md` | `.agents/rules/*.md` |
+| **hook** | `.claude/settings.json` (`hooks` key) | `.cursor/hooks.json` | — | — | — |
+| **mcp** | `.mcp.json` | `.cursor/mcp.json` | `.gemini/settings.json` | — | — |
+| **settings** | `.claude/settings.json` | Cursor Settings UI | `.gemini/settings.json` | — | `.agents/settings.json` |
+| **provider-extras** | unrecognised `.claude/` files | unrecognised `.cursor/` files | unrecognised `.gemini/` files | unrecognised `.github/` files | unrecognised `.agents/` files |
+
+`SourceProvider` is recorded on every imported resource so `xcaffold apply` can emit targeted fidelity notes when a resource cannot be faithfully translated to a different provider.

@@ -27,7 +27,7 @@ func TestCompile_Copilot_Skills_Minimal(t *testing.T) {
 	out, notes, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	content, ok := out.Files[".github/skills/code-review/SKILL.md"]
+	content, ok := out.Files["skills/code-review/SKILL.md"]
 	require.True(t, ok, "expected .github/skills/code-review/SKILL.md to be emitted")
 	assert.Contains(t, content, "---")
 	assert.Contains(t, content, "name: code-review")
@@ -58,7 +58,7 @@ func TestCompile_Copilot_Skills_WithBody(t *testing.T) {
 	out, _, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	content, ok := out.Files[".github/skills/tdd/SKILL.md"]
+	content, ok := out.Files["skills/tdd/SKILL.md"]
 	require.True(t, ok, "expected .github/skills/tdd/SKILL.md to be emitted")
 	assert.Contains(t, content, "---")
 	assert.Contains(t, content, "name: tdd")
@@ -85,7 +85,7 @@ func TestCompile_Copilot_Skills_WithAllowedTools(t *testing.T) {
 	out, notes, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	content, ok := out.Files[".github/skills/search-skill/SKILL.md"]
+	content, ok := out.Files["skills/search-skill/SKILL.md"]
 	require.True(t, ok, "expected .github/skills/search-skill/SKILL.md to be emitted")
 	assert.Contains(t, content, "allowed-tools:")
 	assert.Contains(t, content, "Read")
@@ -155,8 +155,8 @@ func TestCompile_Copilot_Skills_Multiple(t *testing.T) {
 	out, _, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	assert.Contains(t, out.Files, ".github/skills/alpha-skill/SKILL.md",
+	assert.Contains(t, out.Files, "skills/alpha-skill/SKILL.md",
 		"expected .github/skills/alpha-skill/SKILL.md")
-	assert.Contains(t, out.Files, ".github/skills/beta-skill/SKILL.md",
+	assert.Contains(t, out.Files, "skills/beta-skill/SKILL.md",
 		"expected .github/skills/beta-skill/SKILL.md")
 }
