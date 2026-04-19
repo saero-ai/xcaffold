@@ -502,6 +502,14 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 				}
 			}
 		}
+		// Attempt to graduate any extras the importer stashed in ProviderExtras.
+		// A file placed in extras during Import() (e.g. because it was unrecognised
+		// at scan time) may now be classifiable — ReclassifyExtras runs a second
+		// pass and promotes those files into the typed AST.
+		if err := parser.ReclassifyExtras(config, importer.DefaultImporters()); err != nil {
+			warnings = append(warnings, fmt.Sprintf("reclassify extras: %v", err))
+		}
+
 		// Count resources extracted by the importer.
 		importCount += len(config.Agents) + len(config.Skills) + len(config.Rules) +
 			len(config.Workflows) + len(config.MCP)
