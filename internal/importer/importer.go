@@ -3,6 +3,7 @@ package importer
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 )
@@ -29,8 +30,26 @@ func DetectProviders(root string, all []ProviderImporter) []ProviderImporter {
 	return found
 }
 
-// DefaultImporters returns all built-in provider importers.
-// Sub-packages are registered here as they are implemented.
+var (
+	registryMu sync.RWMutex
+	registry   []ProviderImporter
+)
+
+// Register adds a ProviderImporter to the global registry. It is called from
+// init() functions in each provider sub-package when that package is imported.
+func Register(imp ProviderImporter) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	registry = append(registry, imp)
+}
+
+// DefaultImporters returns a snapshot of all registered provider importers.
+// The slice is ordered by registration order (i.e. the order in which the
+// provider sub-packages were imported by the caller).
 func DefaultImporters() []ProviderImporter {
-	return []ProviderImporter{}
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	out := make([]ProviderImporter, len(registry))
+	copy(out, registry)
+	return out
 }
