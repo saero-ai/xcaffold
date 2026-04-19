@@ -208,18 +208,20 @@ func TestClaudeExtract_NestedRuleID(t *testing.T) {
 
 // --- Bad frontmatter resilience tests ---
 
-func TestClaudeParseFrontmatter_BadYAMLReturnsError(t *testing.T) {
+func TestClaudeParseFrontmatter_BadYAMLFallback(t *testing.T) {
 	// YAML with a backtick-quoted value containing ': ' triggers "mapping values
-	// are not allowed in this context". Extract must return an error so the caller
-	// (Import) can stash the file in ProviderExtras rather than creating a
-	// zero-value resource.
+	// are not allowed in this context". parseFrontmatter skips the unparseable
+	// metadata and returns the body after the closing ---. The rule is registered
+	// with zero-value metadata but valid instructions.
 	data := []byte("---\ndescription: Do NOT use `isolation: worktree` in agents\n---\n\nBody text.\n")
 	config := &ast.XcaffoldConfig{}
 	imp := claudeimp.New()
 	err := imp.Extract("rules/bad-frontmatter.md", data, config)
-	require.Error(t, err, "Extract must propagate YAML parse errors")
-	_, ok := config.Rules["bad-frontmatter"]
-	assert.False(t, ok, "bad-frontmatter rule must NOT be registered as a zero-value resource")
+	require.NoError(t, err, "Extract must not fail — body is valid even if metadata is unparseable")
+	rule, ok := config.Rules["bad-frontmatter"]
+	require.True(t, ok, "rule must be registered with body content")
+	assert.Equal(t, "Body text.", rule.Instructions)
+	assert.Empty(t, rule.Description, "metadata should be zero-valued when frontmatter fails")
 }
 
 func TestClaudeImport_BadFrontmatterContinues(t *testing.T) {
@@ -230,18 +232,13 @@ func TestClaudeImport_BadFrontmatterContinues(t *testing.T) {
 	inputDir := filepath.Join("testdata", "input")
 	err := imp.Import(inputDir, config)
 	require.NoError(t, err, "Import must not return error for bad-frontmatter.md")
-	// skills must have been discovered (walked AFTER rules/ alphabetically — this verifies
-	// the walk was not aborted by the bad-frontmatter.md rule).
+	// skills must have been discovered (walked AFTER rules/ alphabetically).
 	_, ok := config.Skills["tdd"]
 	assert.True(t, ok, "skills must be imported even when a rule file has bad frontmatter")
-	// The bad-frontmatter file should be stashed in ProviderExtras, not registered as a rule.
-	_, inRules := config.Rules["bad-frontmatter"]
-	assert.False(t, inRules, "bad-frontmatter must NOT appear as a zero-value rule")
-	extras, inExtras := config.ProviderExtras["claude"]["rules/bad-frontmatter.md"]
-	assert.True(t, inExtras, "bad-frontmatter file must be preserved in ProviderExtras")
-	assert.NotEmpty(t, extras)
-	// A warning must have been recorded.
-	assert.NotEmpty(t, imp.GetWarnings(), "Import must record a warning for bad frontmatter")
+	// The bad-frontmatter file should be registered as a rule with body content.
+	rule, inRules := config.Rules["bad-frontmatter"]
+	assert.True(t, inRules, "bad-frontmatter must be registered as a rule with body content")
+	assert.NotEmpty(t, rule.Instructions)
 }
 
 func TestClaudeImport_NestedRulesDiscovered(t *testing.T) {

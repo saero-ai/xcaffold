@@ -540,7 +540,10 @@ func parseFrontmatter(data []byte, v interface{}) (body string, err error) {
 		return strings.TrimSpace(content), nil
 	}
 	if err := yaml.Unmarshal([]byte(parts[0]), v); err != nil {
-		return "", fmt.Errorf("frontmatter: %w", err)
+		// Metadata is unparseable (e.g. backtick-quoted `: ` in a value) but the
+		// body after the closing --- is valid. Return the body with zero-value
+		// metadata rather than failing the entire file.
+		return strings.TrimSpace(strings.TrimPrefix(parts[1], "\n")), nil
 	}
 	// parts[1] starts with "\n" after the "---"; trim leading newline.
 	return strings.TrimSpace(strings.TrimPrefix(parts[1], "\n")), nil
