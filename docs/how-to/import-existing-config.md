@@ -17,6 +17,7 @@ You have an existing `.claude/`, `.cursor/`, or `.agents/` directory and want to
 
 ## What it reads
 
+Import delegates to per-provider `ProviderImporter` implementations (`internal/importer/<provider>/`) rather than a monolithic switch-case. Each importer owns a `[]KindMapping` table that maps file patterns to AST kinds. Files that match no pattern are stored in `ProviderExtras` and restored as-is during a same-provider apply. This means adding support for a new provider's file types requires only updating that provider's importer — no changes to the core import orchestrator.
 
 Import auto-detects platform directories (`.claude/`, `.cursor/`, `.agents/`) and scans each one for resources using the same patterns:
 

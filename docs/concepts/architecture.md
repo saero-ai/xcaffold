@@ -148,6 +148,12 @@ Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognize
 | `renderer/claude` | `internal/renderer/claude/` | Claude Code renderer (`→ .claude/`) |
 | `renderer/cursor` | `internal/renderer/cursor/` | Cursor renderer (`→ .cursor/`) |
 | `renderer/antigravity` | `internal/renderer/antigravity/` | Antigravity renderer (`→ .agents/`) |
+| `importer` | `internal/importer/` | `ProviderImporter` interface — symmetric to `TargetRenderer`; thin orchestrator dispatches to per-provider sub-packages |
+| `importer/claude` | `internal/importer/claude/` | Claude Code importer (reads `.claude/`) |
+| `importer/cursor` | `internal/importer/cursor/` | Cursor importer (reads `.cursor/`) |
+| `importer/gemini` | `internal/importer/gemini/` | Gemini CLI importer (reads `.gemini/`) |
+| `importer/copilot` | `internal/importer/copilot/` | GitHub Copilot importer (reads `.github/`) |
+| `importer/antigravity` | `internal/importer/antigravity/` | Antigravity importer (reads `.agents/`) |
 | `output` | `internal/output/` | `Output` struct — `map[relPath]content` file map |
 | `state` | `internal/state/` | SHA-256 `scaffold.lock` generation, read, and write |
 | `registry` | `internal/registry/` | Global home bootstrap, project registry CRUD, platform provider scans |
@@ -473,7 +479,11 @@ The consequence: a rule defined as `paths: ["src/**/*.ts"]` with a Markdown body
 
 The fidelity warnings are not errors. Compilation always succeeds; warnings inform you that a configuration concept present in the source had no representation in the target format and was silently dropped.
 
+## Provider Registry
 
+Each supported provider has two registered components: a `ProviderImporter` (`internal/importer/<provider>/`) that reads the provider's native directory and populates the AST, and a `TargetRenderer` (`internal/renderer/<provider>/`) that compiles the AST back to the provider's native format. This symmetric structure means the import side mirrors the render side — the same five-provider model applies in both directions. Files that no importer pattern matches are stored in `ProviderExtras`, a genuine unknowns bucket that preserves round-trip fidelity for same-provider workflows.
+
+> See [Provider Architecture](provider-architecture.md) for the full pipeline diagram and kind classification table.
 
 ### Target-Determined Output Directories
 

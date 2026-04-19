@@ -900,6 +900,16 @@ Summary of which resource types compile for each target.
 | **Local** | ✅ `settings.local.json` (from `project.local:`) | ❌ ignored | ❌ ignored | ❌ ignored | ❌ ignored |
 | **Instructions** | ✅ `CLAUDE.md` | ✅ `.cursor/rules/` | ❌ N/A | ✅ `AGENTS.md` | ✅ `GEMINI.md` (`@`-import) |
 
+### ProviderExtras
+
+When `xcaffold import` reads a provider directory, files that match no `KindMapping` pattern in the provider's importer are stored in `ProviderExtras`. These are genuinely unclassifiable artifacts — not a bypass for unmodeled resources.
+
+During `xcaffold apply`:
+- Same-provider extras are restored to the output directory as-is, preserving round-trip fidelity.
+- Cross-provider extras (importing from Claude, applying to Cursor) are skipped with a `FidelityNote` logged to stderr.
+
+`ProviderExtras` is not represented as a field in the `.xcf` schema. It is an internal IR concept surfaced only in the import and apply pipelines.
+
 ### Key normalizations by target
 
 | Normalization | Source | Target |
