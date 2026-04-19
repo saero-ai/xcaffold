@@ -26,8 +26,9 @@ This how-to covers when and how to split, what merge rules apply per resource ty
 
 **Naming conventions:**
 
-- `scaffold.xcf` is the recommended filename for the project manifest (`kind: project`). Users can name it anything, but `scaffold.xcf` is what `xcaffold init` generates and what the CLI looks for by default.
+- `scaffold.xcf` is the recommended filename for the project manifest (`kind: project`). It is what the CLI looks for by default during execution.
 - Resource files under `xcf/` can use any name. Convention: `xcf/agents/developer.xcf`, `xcf/rules/code-style.xcf`.
+- `xcaffold init` natively bootstraps a full `xcf/` multi-file layout by default. You do not need to manually migrate if you start with `init`.
 - All xcaffold commands (`apply`, `diff`, `validate`, `graph`) run from the directory containing `scaffold.xcf`.
 
 ---
