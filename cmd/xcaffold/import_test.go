@@ -803,8 +803,8 @@ func TestExtractProjectInstructions_ClaudeRoot(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{}
 	require.NoError(t, extractProjectInstructions(tmp, "claude", cfg))
 
-	require.Equal(t, "xcf/instructions/root.md", cfg.Project.InstructionsFile)
-	sidecar := filepath.Join(tmp, "xcf", "instructions", "root.md")
+	require.Equal(t, "xcf/instructions/root.xcf", cfg.Project.InstructionsFile)
+	sidecar := filepath.Join(tmp, "xcf", "instructions", "root.xcf")
 	_, err := os.Stat(sidecar)
 	require.NoError(t, err, "root sidecar must exist at %s", sidecar)
 }
@@ -840,7 +840,7 @@ func TestExtractProjectInstructions_CopilotFlatMode(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{}
 	require.NoError(t, extractProjectInstructions(tmp, "copilot", cfg))
 
-	require.Equal(t, "xcf/instructions/root.md", cfg.Project.InstructionsFile)
+	require.Equal(t, "xcf/instructions/root.xcf", cfg.Project.InstructionsFile)
 	require.Empty(t, cfg.Project.InstructionsScopes, "flat Copilot mode must not create scope entries")
 }
 
@@ -1317,8 +1317,8 @@ func TestImport_FromGemini_ExtractsInstructions(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{}
 	require.NoError(t, extractProjectInstructions(tmp, "gemini", cfg))
 
-	require.Equal(t, "xcf/instructions/root.md", cfg.Project.InstructionsFile)
-	sidecar := filepath.Join(tmp, "xcf", "instructions", "root.md")
+	require.Equal(t, "xcf/instructions/root.xcf", cfg.Project.InstructionsFile)
+	sidecar := filepath.Join(tmp, "xcf", "instructions", "root.xcf")
 	data, err := os.ReadFile(sidecar)
 	require.NoError(t, err)
 	require.Contains(t, string(data), "Use Go 1.24.")

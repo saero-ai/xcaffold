@@ -91,10 +91,10 @@ func TestImportScope_Claude_AgentMemoryAutoSnapshot(t *testing.T) {
 	// xcf/memory/dev/ must have been created
 	assert.DirExists(t, filepath.Join(tmp, "xcf", "memory", "dev"),
 		"xcf/memory/dev/ must be created from .claude/agent-memory/dev/")
-	assert.FileExists(t, filepath.Join(tmp, "xcf", "memory", "dev", "MEMORY.md"),
-		"MEMORY.md must be snapshotted into xcf/memory/dev/")
-	assert.FileExists(t, filepath.Join(tmp, "xcf", "memory", "dev", "note.md"),
-		"note.md must be snapshotted into xcf/memory/dev/")
+	assert.FileExists(t, filepath.Join(tmp, "xcf", "memory", "dev", "MEMORY.xcf"),
+		"MEMORY.xcf must be written into xcf/memory/dev/")
+	assert.FileExists(t, filepath.Join(tmp, "xcf", "memory", "dev", "note.xcf"),
+		"note.xcf must be written into xcf/memory/dev/")
 }
 
 // ─── Gap 3: Claude Code — CLAUDE.md project instructions ────────────────────
@@ -112,9 +112,9 @@ func TestImportScope_Claude_ProjectInstructions(t *testing.T) {
 
 	require.NoError(t, importScope(".claude", "scaffold.xcf", "project", "claude"))
 
-	// xcf/instructions/root.md must exist with CLAUDE.md content
-	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.md"))
-	require.NoError(t, err, "xcf/instructions/root.md must be created")
+	// xcf/instructions/root.xcf must exist with CLAUDE.md content
+	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.xcf"))
+	require.NoError(t, err, "xcf/instructions/root.xcf must be created")
 	assert.Contains(t, string(sidecar), "Do not expose secrets")
 
 	// scaffold.xcf is rewritten by runProjectInstructionsDiscovery with MarshalMultiKind,
@@ -174,9 +174,9 @@ func TestImportScope_Gemini_ProjectInstructions(t *testing.T) {
 
 	require.NoError(t, importScope(".gemini", "scaffold.xcf", "project", "gemini"))
 
-	// xcf/instructions/root.md from GEMINI.md
-	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.md"))
-	require.NoError(t, err, "xcf/instructions/root.md must be created from GEMINI.md")
+	// xcf/instructions/root.xcf from GEMINI.md
+	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.xcf"))
+	require.NoError(t, err, "xcf/instructions/root.xcf must be created from GEMINI.md")
 	assert.Contains(t, string(sidecar), "structured output")
 
 	// scaffold.xcf rewritten with instructions-file
@@ -261,9 +261,9 @@ func TestImportScope_Cursor_ProjectInstructions(t *testing.T) {
 
 	require.NoError(t, importScope(".cursor", "scaffold.xcf", "project", "cursor"))
 
-	// xcf/instructions/root.md from AGENTS.md
-	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.md"))
-	require.NoError(t, err, "xcf/instructions/root.md must be created from AGENTS.md")
+	// xcf/instructions/root.xcf from AGENTS.md
+	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.xcf"))
+	require.NoError(t, err, "xcf/instructions/root.xcf must be created from AGENTS.md")
 	assert.Contains(t, string(sidecar), "style guide")
 
 	// scaffold.xcf rewritten with instructions-file
@@ -289,9 +289,9 @@ func TestImportScope_Copilot_ProjectInstructions(t *testing.T) {
 
 	require.NoError(t, importScope(".github", "scaffold.xcf", "project", "copilot"))
 
-	// xcf/instructions/root.md from copilot-instructions.md
-	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.md"))
-	require.NoError(t, err, "xcf/instructions/root.md must be created from copilot-instructions.md")
+	// xcf/instructions/root.xcf from copilot-instructions.md
+	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.xcf"))
+	require.NoError(t, err, "xcf/instructions/root.xcf must be created from copilot-instructions.md")
 	assert.Contains(t, string(sidecar), "idiomatic code")
 
 	// scaffold.xcf rewritten with instructions-file
@@ -376,8 +376,8 @@ func TestImportScope_GitignoreFilter(t *testing.T) {
 	// Check the sidecars created
 	instructionsDir := filepath.Join(tmp, "xcf", "instructions")
 
-	// root.md should exist
-	assert.FileExists(t, filepath.Join(instructionsDir, "root.md"), "Root CLAUDE.md should be imported")
+	// root.xcf should exist
+	assert.FileExists(t, filepath.Join(instructionsDir, "root.xcf"), "Root CLAUDE.md should be imported")
 
 	// src.md should exist (it's flattened as scopes/src.md or similar, checking for presence in tree)
 	foundSrc := false

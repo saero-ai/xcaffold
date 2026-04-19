@@ -579,23 +579,16 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	// ── 3. Project instruction file discovery is deferred to after WriteSplitFiles.
 	// (see runProjectInstructionsDiscovery call below)
 
-	// ── 4. Agent memory auto-snapshot ────────────────────────────────────────────
-	// Claude Code: snapshot .claude/agent-memory/<agent>/ → xcf/memory/<agent>/
-	// This is performed without requiring --with-memory because the data is
-	// project-local and naturally discovered during init/import.
+	// ── 4. Agent memory ─────────────────────────────────────────────────────────
+	// Memory is extracted into config.Memory by the ProviderImporter during
+	// Import() (e.g. claude extracts agent-memory/**). WriteSplitFiles writes
+	// them as kind: memory .xcf files to xcf/memory/. No separate raw-copy
+	// snapshot step is needed.
+	if len(config.Memory) > 0 {
+		fmt.Printf("  Agent memory: %d entry(ies) → xcf/memory/\n", len(config.Memory))
+	}
 	switch provider {
-	case "claude", "":
-		agentMemDir := filepath.Join(platformDir, "agent-memory")
-		if info, err := os.Stat(agentMemDir); err == nil && info.IsDir() {
-			if memSummary, err := snapshotAgentMemoryDir(agentMemDir); err != nil {
-				warnings = append(warnings, fmt.Sprintf("agent-memory snapshot: %v", err))
-			} else if memSummary > 0 {
-				fmt.Printf("  Agent memory: snapshotted %d agent(s) → xcf/memory/\n", memSummary)
-			}
-		}
 	case "gemini":
-		// Gemini memory lives in ~/.gemini/GEMINI.md (global). Auto-snapshot is
-		// best-effort — silently skip if not configured via XCAFFOLD_GEMINI_DIR.
 		if gDir, err := geminiMemoryDir(); err == nil {
 			if memSum, err := bir.ImportGeminiMemory(gDir, bir.ImportOpts{
 				SidecarDir: filepath.Join("xcf", "memory"),
@@ -604,9 +597,6 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 			}
 		}
 	case "antigravity":
-		// Antigravity Knowledge Items are stored in the AI provider's app data
-		// directory, which is not accessible via the filesystem. Emit an
-		// informational note so users know this limitation.
 		warnings = append(warnings,
 			"Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem")
 	}
@@ -1887,6 +1877,26 @@ func writeSidecar(path string, content []byte) error {
 	return nil
 }
 
+type instructionsXCFDoc struct {
+	Kind         string `yaml:"kind"`
+	Version      string `yaml:"version"`
+	Name         string `yaml:"name"`
+	Instructions string `yaml:"instructions"`
+}
+
+func writeInstructionsXCF(path, name, content string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("creating instructions directory: %w", err)
+	}
+	doc := instructionsXCFDoc{
+		Kind:         "instructions",
+		Version:      "1.0",
+		Name:         name,
+		Instructions: content,
+	}
+	return writeYAMLFile(path, doc)
+}
+
 // extractProjectInstructions discovers provider instruction files in projectDir,
 // writes sidecars under xcf/instructions/, and populates cfg.Project with
 // InstructionsFile and InstructionsScopes entries.
@@ -1967,19 +1977,19 @@ func extractProjectInstructions(projectDir, provider string, cfg *ast.XcaffoldCo
 
 		if isRoot {
 			// Root file → project.instructions-file.
-			sidecar := filepath.Join(sidecarBase, "root.md")
-			if err := writeSidecar(sidecar, content); err != nil {
+			sidecar := filepath.Join(sidecarBase, "root.xcf")
+			if err := writeInstructionsXCF(sidecar, "root", string(content)); err != nil {
 				return err
 			}
-			cfg.Project.InstructionsFile = "xcf/instructions/root.md"
+			cfg.Project.InstructionsFile = "xcf/instructions/root.xcf"
 		} else {
 			// Scope file → InstructionsScope entry.
 			slug := pathToSlug(rel)
-			sidecar := filepath.Join(sidecarBase, "scopes", slug+".md")
-			if err := writeSidecar(sidecar, content); err != nil {
+			sidecar := filepath.Join(sidecarBase, "scopes", slug+".xcf")
+			if err := writeInstructionsXCF(sidecar, slug, string(content)); err != nil {
 				return err
 			}
-			sidecarRel := "xcf/instructions/scopes/" + slug + ".md"
+			sidecarRel := "xcf/instructions/scopes/" + slug + ".xcf"
 			cfg.Project.InstructionsScopes = append(cfg.Project.InstructionsScopes, ast.InstructionsScope{
 				Path:             filepath.ToSlash(rel),
 				InstructionsFile: sidecarRel,
@@ -2017,11 +2027,11 @@ func extractCopilotInstructions(projectDir string, cfg *ast.XcaffoldConfig) erro
 		if err != nil {
 			return fmt.Errorf("reading copilot-instructions.md: %w", err)
 		}
-		sidecar := filepath.Join(projectDir, "xcf", "instructions", "root.md")
-		if err := writeSidecar(sidecar, content); err != nil {
+		sidecar := filepath.Join(projectDir, "xcf", "instructions", "root.xcf")
+		if err := writeInstructionsXCF(sidecar, "root", string(content)); err != nil {
 			return err
 		}
-		cfg.Project.InstructionsFile = "xcf/instructions/root.md"
+		cfg.Project.InstructionsFile = "xcf/instructions/root.xcf"
 		return nil
 	}
 	// AGENTS.md nested mode: delegate to cursor-style extraction.
@@ -2672,12 +2682,12 @@ func detectAndMergeVariants(projectDir, provider string, cfg *ast.XcaffoldConfig
 		}
 		// Divergent — write provider-specific sidecars and record variants.
 		exSlug := pathToSlug(ex.Path)
-		exVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + ex.SourceProvider + ".md"
-		newVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + newScope.SourceProvider + ".md"
-		if err := writeSidecar(filepath.Join(projectDir, exVariantSidecar), exContent); err != nil {
+		exVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + ex.SourceProvider + ".xcf"
+		newVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + newScope.SourceProvider + ".xcf"
+		if err := writeInstructionsXCF(filepath.Join(projectDir, exVariantSidecar), exSlug+"-"+ex.SourceProvider, string(exContent)); err != nil {
 			return err
 		}
-		if err := writeSidecar(filepath.Join(projectDir, newVariantSidecar), newContent); err != nil {
+		if err := writeInstructionsXCF(filepath.Join(projectDir, newVariantSidecar), exSlug+"-"+newScope.SourceProvider, string(newContent)); err != nil {
 			return err
 		}
 		if ex.Variants == nil {

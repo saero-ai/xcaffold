@@ -75,6 +75,13 @@ type mcpDoc struct {
 	ast.MCPConfig `yaml:",inline"`
 }
 
+// memoryDoc is the serialization envelope for a kind: memory document.
+type memoryDoc struct {
+	Kind             string `yaml:"kind"`
+	Version          string `yaml:"version"`
+	ast.MemoryConfig `yaml:",inline"`
+}
+
 // FormatXCF serializes config to a multi-kind YAML string with no header comment.
 // It is a thin wrapper around MarshalMultiKind for use in tests and tooling that
 // need a plain string rather than a []byte with an optional header.
@@ -130,7 +137,7 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 		Test:                proj.Test,
 		Local:               proj.Local,
 	}
-	b, err := yaml.Marshal(cfgDoc)
+	b, err := marshalYAML2(cfgDoc)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +160,7 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 				Version:     version,
 				AgentConfig: agent,
 			}
-			b, err := yaml.Marshal(doc)
+			b, err := marshalYAML2(doc)
 			if err != nil {
 				return nil, err
 			}
@@ -178,7 +185,7 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 				Version:     version,
 				SkillConfig: skill,
 			}
-			b, err := yaml.Marshal(doc)
+			b, err := marshalYAML2(doc)
 			if err != nil {
 				return nil, err
 			}
@@ -203,7 +210,7 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 				Version:    version,
 				RuleConfig: rule,
 			}
-			b, err := yaml.Marshal(doc)
+			b, err := marshalYAML2(doc)
 			if err != nil {
 				return nil, err
 			}
@@ -228,7 +235,7 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 				Version:        version,
 				WorkflowConfig: wf,
 			}
-			b, err := yaml.Marshal(doc)
+			b, err := marshalYAML2(doc)
 			if err != nil {
 				return nil, err
 			}
@@ -253,7 +260,7 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 				Version:   version,
 				MCPConfig: mcp,
 			}
-			b, err := yaml.Marshal(doc)
+			b, err := marshalYAML2(doc)
 			if err != nil {
 				return nil, err
 			}
@@ -268,7 +275,7 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 			Version:        version,
 			SettingsConfig: config.Settings,
 		}
-		b, err := yaml.Marshal(doc)
+		b, err := marshalYAML2(doc)
 		if err != nil {
 			return nil, err
 		}
@@ -282,7 +289,7 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 			Version: version,
 			Events:  config.Hooks,
 		}
-		b, err := yaml.Marshal(doc)
+		b, err := marshalYAML2(doc)
 		if err != nil {
 			return nil, err
 		}
@@ -541,12 +548,75 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		}
 	}
 
+	// ── kind: memory ─────────────────────────────────────────────────────────
+	if len(config.Memory) > 0 {
+		dir := filepath.Join(xcfDir, "memory")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		for _, k := range sortedMapKeys(config.Memory) {
+			mem := config.Memory[k]
+			if mem.Name == "" {
+				mem.Name = k
+			}
+			doc := memoryDoc{Kind: "memory", Version: version, MemoryConfig: mem}
+			outPath := filepath.Join(dir, filepath.FromSlash(k)+".xcf")
+			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+				return err
+			}
+			if err := writeYAMLFile(outPath, doc); err != nil {
+				return err
+			}
+		}
+	}
+
+	// ── extras (provider-specific unrecognized files) ─────────────────────────
+	if len(config.ProviderExtras) > 0 {
+		providers := sortedMapKeys(config.ProviderExtras)
+		for _, provider := range providers {
+			files := config.ProviderExtras[provider]
+			if len(files) == 0 {
+				continue
+			}
+			keys := make([]string, 0, len(files))
+			for k := range files {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, rel := range keys {
+				data := files[rel]
+				outPath := filepath.Join(xcfDir, "extras", provider, filepath.FromSlash(rel))
+				if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+					return err
+				}
+				if err := os.WriteFile(filepath.Clean(outPath), data, 0644); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
-// writeYAMLFile marshals v to YAML and writes it to path with 0644 permissions.
+// marshalYAML2 marshals v to YAML with 2-space indentation.
+func marshalYAML2(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	if err := enc.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// writeYAMLFile marshals v to YAML with 2-space indentation and writes it to
+// path with 0644 permissions.
 func writeYAMLFile(path string, v any) error {
-	b, err := yaml.Marshal(v)
+	b, err := marshalYAML2(v)
 	if err != nil {
 		return err
 	}
