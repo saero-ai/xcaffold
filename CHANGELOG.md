@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `internal/importer`: ProviderImporter interface with per-provider implementations for claude, cursor, gemini, copilot, and antigravity
+- `ast.XcaffoldConfig.ProviderExtras`: genuinely-unclassified file catchall for provider-specific artifacts
+- `SourceProvider` annotation field on all AST resource types for import provenance tracking
+- `parser.ReclassifyExtras`: auto-graduates ProviderExtras files when importers recognize them
+- Apply-time fidelity notes for cross-provider extras that cannot be translated
+
+### Fixed
+- Copilot renderer path-doubling bug: OutputDir() now returns ".github" and all emitted file paths are relative
+
 ### Removed
 
 - **agentsmd renderer**: The `--target agentsmd` compilation target has been removed. AGENTS.md is an open standard for project instructions, not a provider. Cursor (`--target cursor`) and Copilot (`--target copilot`) generate AGENTS.md files via their own instruction renderers.
