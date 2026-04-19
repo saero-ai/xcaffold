@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,22 +22,6 @@ func TestInitWizard_Targets_IsSlice(t *testing.T) {
 	require.Len(t, ans.targets, 2)
 	assert.Equal(t, "claude", ans.targets[0])
 	assert.Equal(t, "cursor", ans.targets[1])
-}
-
-// TestInitWizard_GeneratesMultiKindFormat_NoAgent verifies that when wantAgent
-// is false, only the kind: project document is emitted (no separator, no agent).
-func TestInitWizard_GeneratesMultiKindFormat_NoAgent(t *testing.T) {
-	ans := wizardAnswers{
-		name:      "test-project",
-		desc:      "",
-		targets:   []string{"claude"},
-		wantAgent: false,
-	}
-	content := buildXCFContent(ans)
-	assert.Contains(t, content, "kind: project")
-	assert.NotContains(t, content, "kind: config")
-	assert.NotContains(t, content, "kind: agent")
-	assert.Contains(t, content, "targets:")
 }
 
 // TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF verifies that
@@ -77,61 +60,6 @@ func TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF(t *testing.T) {
 		"--global should bypass the local scaffold.xcf idempotency check")
 }
 
-// TestInitWizard_GeneratesMultiKindFormat_TargetCursor verifies that the
-// targets field reflects the chosen target when it is not "claude".
-func TestInitWizard_GeneratesMultiKindFormat_TargetCursor(t *testing.T) {
-	ans := wizardAnswers{
-		name:      "cursor-project",
-		desc:      "",
-		targets:   []string{"cursor"},
-		wantAgent: false,
-	}
-	content := buildXCFContent(ans)
-	assert.Contains(t, content, "kind: project")
-	assert.Contains(t, content, "- cursor")
-
-	// Must round-trip through the parser
-	config, err := parser.Parse(strings.NewReader(content))
-	require.NoError(t, err)
-	require.NotNil(t, config.Project)
-	assert.Equal(t, []string{"cursor"}, config.Project.Targets)
-}
-
-// TestBuildXCFContent_CanonicalFieldOrdering verifies that the agent document
-// emits fields in canonical order: name, description, model, effort, tools, instructions.
-func TestBuildXCFContent_CanonicalFieldOrdering(t *testing.T) {
-	ans := wizardAnswers{
-		name:      "test-project",
-		desc:      "",
-		targets:   []string{"claude"},
-		wantAgent: true,
-	}
-
-	content := buildXCFContent(ans)
-
-	// Extract only the agent document (everything after the --- separator).
-	parts := strings.SplitN(content, "---\n", 2)
-	require.Len(t, parts, 2, "expected --- document separator in generated content")
-	agentDoc := parts[1]
-
-	orderedKeys := []string{
-		"name: developer",
-		"description:",
-		"\nmodel:",
-		"effort:",
-		"tools:",
-		"instructions:",
-	}
-
-	lastIdx := -1
-	for _, key := range orderedKeys {
-		idx := strings.Index(agentDoc, key)
-		require.NotEqual(t, -1, idx, "key %q not found in agent document", key)
-		require.Greater(t, idx, lastIdx, "key %q appeared before a prior key in agent document", key)
-		lastIdx = idx
-	}
-}
-
 func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
 	tmp := t.TempDir()
 
@@ -159,17 +87,6 @@ func TestInit_SkipsReferencesWithFlag(t *testing.T) {
 	refPath := filepath.Join(tmp, "xcf", "references", "agent.xcf.reference")
 	_, err := os.Stat(refPath)
 	require.True(t, os.IsNotExist(err), "reference file must NOT be created when --no-references is set")
-}
-
-func TestBuildXCFContent_IncludesReferencePointer(t *testing.T) {
-	ans := wizardAnswers{
-		name:      "test",
-		targets:   []string{"claude"},
-		wantAgent: true,
-	}
-	content := buildXCFContent(ans)
-
-	require.Contains(t, content, "xcf/references/agent.xcf.reference")
 }
 
 func TestWriteReferenceTemplates_GeneratesSkillReference(t *testing.T) {
@@ -200,36 +117,6 @@ func TestWriteReferenceTemplates_NoReferencesFlag_SkipsSkill(t *testing.T) {
 	require.True(t, os.IsNotExist(err), "skill.xcf.reference should not exist when --no-references is set")
 }
 
-func TestInit_EndToEnd_GeneratesFieldOrderedAgent(t *testing.T) {
-	tmp := t.TempDir()
-
-	ans := wizardAnswers{
-		name:      "e2e-test",
-		desc:      "End-to-end test project",
-		targets:   []string{"claude"},
-		wantAgent: true,
-	}
-	content := buildXCFContent(ans)
-	xcfPath := filepath.Join(tmp, "scaffold.xcf")
-	require.NoError(t, os.WriteFile(xcfPath, []byte(content), 0o600))
-
-	noReferencesFlag = false
-	require.NoError(t, writeReferenceTemplates(tmp))
-
-	config, err := parser.ParseFile(xcfPath)
-	require.NoError(t, err, "generated scaffold.xcf must be parseable")
-	require.NotNil(t, config)
-
-	agent, ok := config.Agents["developer"]
-	require.True(t, ok, "developer agent must be present")
-	require.Equal(t, "General software developer agent.", agent.Description)
-	require.NotEmpty(t, agent.Model)
-
-	refPath := filepath.Join(tmp, "xcf", "references", "agent.xcf.reference")
-	_, err = os.Stat(refPath)
-	require.NoError(t, err, "agent.xcf.reference must exist")
-}
-
 func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
 	tmp := t.TempDir()
 	noReferencesFlag = false
@@ -250,4 +137,70 @@ func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
 	skillBody := string(skillData)
 	require.Contains(t, skillBody, "allowed-tools:")
 	require.NotContains(t, skillBody, "\ntools:") // legacy name must not appear
+}
+
+// --- Multi-File Generation Tests ---
+
+func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
+	ans := wizardAnswers{
+		name:      "multi-file-test",
+		desc:      "Test project",
+		targets:   []string{"claude", "cursor"},
+		wantAgent: true,
+	}
+
+	tmpDir := t.TempDir()
+	err := writeXCFDirectory(tmpDir, ans)
+	require.NoError(t, err)
+
+	// Verify top-level scaffold.xcf
+	scaffoldBytes, err := os.ReadFile(filepath.Join(tmpDir, "scaffold.xcf"))
+	require.NoError(t, err)
+	content := string(scaffoldBytes)
+	assert.Contains(t, content, "kind: project")
+	assert.Contains(t, content, "- claude")
+	assert.Contains(t, content, "rules:")
+	assert.Contains(t, content, "policies:")
+
+	// Verify xcf/ agents directory and file
+	agentFile := filepath.Join(tmpDir, "xcf", "agents", "developer.xcf")
+	assert.FileExists(t, agentFile)
+	agentBytes, _ := os.ReadFile(agentFile)
+	assert.Contains(t, string(agentBytes), "kind: agent")
+
+	// Verify xcf/ rules directory and file
+	ruleFile := filepath.Join(tmpDir, "xcf", "rules", "conventions.xcf")
+	assert.FileExists(t, ruleFile)
+	ruleBytes, _ := os.ReadFile(ruleFile)
+	assert.Contains(t, string(ruleBytes), "kind: rule")
+
+	// Verify xcf/ policies directory and file
+	policyFile := filepath.Join(tmpDir, "xcf", "policies", "safety.xcf")
+	assert.FileExists(t, policyFile)
+	policyBytes, _ := os.ReadFile(policyFile)
+	assert.Contains(t, string(policyBytes), "kind: policy")
+
+	// Verify xcf/ settings file
+	settingsFile := filepath.Join(tmpDir, "xcf", "settings.xcf")
+	assert.FileExists(t, settingsFile)
+	settingsBytes, _ := os.ReadFile(settingsFile)
+	assert.Contains(t, string(settingsBytes), "kind: settings")
+}
+
+func TestWriteXCFDirectory_NoAgent_StillCreatesScaffold(t *testing.T) {
+	ans := wizardAnswers{
+		name:      "no-agent-test",
+		targets:   []string{"claude"},
+		wantAgent: false, // User chose NO starter agent
+	}
+
+	tmpDir := t.TempDir()
+	err := writeXCFDirectory(tmpDir, ans)
+	require.NoError(t, err)
+
+	// scaffold.xcf should exist
+	assert.FileExists(t, filepath.Join(tmpDir, "scaffold.xcf"))
+
+	// but xcf/ should NOT contain an agents/developer.xcf
+	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer.xcf"))
 }
