@@ -1,0 +1,296 @@
+---
+title: "AI-Assisted Agent Authoring"
+description: "Use xcaffold with an AI assistant  to generate deterministic, provider-native agent configurations without hallucination"
+---
+
+# AI-Assisted Agent Authoring
+
+xcaffold is designed to work alongside AI assistants — not just for human developers. When you give an AI assistant your `xcf/` directory, it has a complete, annotated schema of every field your target providers support. The AI fills in the `.xcf` files. You run `xcaffold apply`. No hallucinated frontmatter fields, no wrong directory structures, no provider-specific guessing.
+
+This tutorial walks through two complementary workflows:
+
+1. **You use AI to fill in your scaffold** — initialize with `xcaffold init`, hand the files to Claude or Gemini, get filled-in `.xcf` resources back, then compile.
+2. **AI uses xcaffold as a build tool** — the AI runs `xcaffold init` itself, edits the `.xcf` files, and runs `xcaffold apply` to emit provider-native output.
+
+**Time to complete:** ~15 minutes  
+**Prerequisites:** xcaffold installed, an AI assistant or IDE with Claude/Gemini/Copilot access, an empty project directory.
+
+---
+
+## Why xcaffold prevents AI hallucination
+
+AI coding assistants know that Claude Code stores agents in `.claude/agents/*.md`, that Cursor uses `.cursor/rules/*.mdc`, that Gemini reads `.gemini/skills/*/SKILL.md`. But the exact field names, activation behaviors, and cross-field interactions differ significantly between providers — and between versions of the same provider.
+
+The typical failure mode: an AI generates a `.claude/agents/dev.md` with `activation: always` in the frontmatter. That field does not exist for Claude Code agents — it belongs to rules. Claude Code silently ignores it. The agent ships broken with no error.
+
+xcaffold breaks this failure mode in three steps:
+
+1. `xcaffold init` generates `.xcf` files with an **embedded provider matrix** for your selected targets. Every field is annotated with which targets support it. The AI has a ground-truth reference baked into the file it is editing.
+2. The AI edits `.xcf` files — not provider output. It can only set fields that the xcaffold schema accepts.
+3. `xcaffold apply` validates the edited `.xcf` against all configured policies before writing a single file. Policy violations are caught and reported before any output is written.
+
+The AI never touches `.claude/`, `.cursor/`, or `.gemini/`. Those directories are write-only outputs owned by xcaffold.
+
+---
+
+## Workflow 1 — Human initializes, AI fills in the scaffold
+
+### Step 1 — Scaffold a new project
+
+Run `xcaffold init` with the targets your project will compile to. Select multiple targets in the interactive prompt, or pass them with `--target`:
+
+```bash
+mkdir my-project && cd my-project
+xcaffold init --target claude,cursor
+```
+
+This generates:
+
+```
+my-project/
+  scaffold.xcf              # kind: project
+  xcf/
+    agents/
+      developer.xcf         # kind: agent (with provider matrix)
+    rules/
+      conventions.xcf       # kind: rule (with provider matrix)
+    policies/
+      safety.xcf            # kind: policy (guardrail)
+    settings.xcf            # kind: settings (MCP, permissions)
+    references/
+      agent.xcf.reference   # full annotated field catalog
+      skill.xcf.reference   # full annotated field catalog
+```
+
+Every `.xcf` file opens with a commented **provider support matrix** filtered to your selected targets (`claude`, `cursor` in this example):
+
+```yaml
+# kind: agent - provider field support for your selected targets
+#
+#  Field                 claude    cursor
+#  name / description    YES       YES
+#  model                 YES       dropped
+#  effort                YES       dropped
+#  permission-mode       YES       dropped
+#  tools                 YES       YES
+#  skills / rules / mcp  YES       YES
+#  hooks                 YES       dropped
+#  memory                YES       dropped
+#  targets: overrides    YES       YES
+```
+
+This matrix is the single source of truth the AI will use when filling in the config.
+
+### Step 2 — Describe your agent to the AI
+
+Open your AI assistant and give it the contents of `xcf/agents/developer.xcf` along with a plain-English description of what you want the agent to do. Example prompt:
+
+> I have an xcaffold scaffold below. Fill in the `instructions` field with a focused backend API developer persona. The agent should enforce TypeScript strict mode, always prefer `async/await` over callbacks, and refuse to edit files outside `src/`. Respect the provider matrix — if a field says `dropped` for `cursor`, leave it as-is or remove it. Do not invent fields that are not already present in the YAML.
+>
+> ```yaml
+> [paste xcf/agents/developer.xcf contents here]
+> ```
+
+The AI returns a completed `xcf/agents/developer.xcf`. Because the matrix is embedded in the file, a well-instructed AI will not place `effort:` in a way that breaks Cursor, and will not invent fields like `activation:` on an agent (that field belongs to rules).
+
+### Step 3 — Validate and apply
+
+Run validate first to catch any schema errors before writing output:
+
+```bash
+xcaffold validate
+```
+
+Then apply to one or more targets:
+
+```bash
+xcaffold apply --target claude
+xcaffold apply --target cursor
+```
+
+Policy violations (e.g. empty `instructions:`, missing `description:`) are caught at apply time before any output is written:
+
+```
+[policy] ERROR require-agent-instructions — agent "developer": instructions must be at least 10 characters
+Apply aborted. Fix policy violations and re-run.
+```
+
+When it passes, inspect the compiled output:
+
+```bash
+cat .claude/agents/developer.md      # Claude Code native format
+cat .cursor/agents/developer.md      # Cursor native format
+```
+
+---
+
+## Workflow 2 — AI runs xcaffold itself
+
+This workflow is for agentic IDE sessions where the AI assistant has terminal access (Claude Code, Gemini CLI, Cursor with shell tools, GitHub Copilot agents). The AI treats xcaffold as a determinism layer — it uses it to generate configs that it cannot hallucinate its way around.
+
+### What you tell the AI
+
+Give the AI a single instruction. Example for Claude Code:
+
+> Use `xcaffold` to initialize a new agent project in the current directory targeting `claude` and `gemini`. Then add two agents:
+> 1. A **backend developer** agent with TypeScript expertise in `xcf/agents/backend.xcf`
+> 2. A **code reviewer** agent that runs in read-only mode in `xcf/agents/reviewer.xcf`
+>
+> After writing the .xcf files, validate with `xcaffold validate` and apply with `xcaffold apply --target claude --dry-run`. Report any policy violations.
+
+### What the AI does
+
+The AI runs a deterministic sequence of xcaffold commands:
+
+```bash
+# Step 1: Initialize. --json gives the AI a map of what was created.
+xcaffold init --target claude,gemini --yes --json
+```
+
+This returns a machine-readable manifest of every generated file:
+
+```json
+{
+  "targets": ["claude", "gemini"],
+  "files": [
+    "scaffold.xcf",
+    "xcf/agents/developer.xcf",
+    "xcf/rules/conventions.xcf",
+    "xcf/settings.xcf",
+    "xcf/policies/safety.xcf",
+    "xcf/references/agent.xcf.reference",
+    "xcf/references/skill.xcf.reference"
+  ],
+  "provider_notes": {
+    "claude": "full feature set",
+    "gemini": "hooks, memory, permission-mode unsupported — will be dropped at apply"
+  }
+}
+```
+
+The AI reads this manifest to know exactly which files to edit. It reads `xcf/references/agent.xcf.reference` for the complete field catalog, and `xcf/agents/developer.xcf` for the provider matrix.
+
+```bash
+# Step 2: The AI edits xcf/agents/developer.xcf and creates xcf/agents/reviewer.xcf
+# (using Write or Edit tools in its tool belt)
+
+# Step 3: Validate
+xcaffold validate
+
+# Step 4: Dry-run apply to preview output without writing files
+xcaffold apply --target claude --dry-run
+xcaffold apply --target gemini --dry-run
+```
+
+The AI reports the dry-run output back to you. Any policy violations from step 3 are reported with the exact field and agent, so the AI can fix and re-validate before any files are written.
+
+### Why `--json` matters for AI workflows
+
+Without `--json`, `xcaffold init` emits human-readable banners and interactive prompts. With `--json`, it emits only a machine-readable manifest suitable for `jq` or direct parsing inside an agentic loop. This is what makes xcaffold composable in AI tool chains:
+
+```bash
+# AI can pipeline: initialize → read manifest → determine files to edit
+xcaffold init --target claude --yes --json | jq '.files[]'
+```
+
+---
+
+## Adding a skill from scratch
+
+Skills are the most complex resource type — they have their own directory structure in some providers (`skills/<id>/SKILL.md` in Antigravity), and their own frontmatter conventions. Ask the AI to create one using the reference:
+
+### Human prompt to AI
+
+> Read `xcf/references/skill.xcf.reference`. Create a new skill called `tdd` in `xcf/skills/tdd.xcf`. The skill should:
+>
+> - Instruct the agent to write a failing test first, then minimal code to pass it, then refactor.
+> - Apply to all selected targets (claude, cursor).
+> - Set `allowed-tools` to `[Read, Write, Edit, Bash]`.
+>
+> Respect the provider matrix in the reference file. Do not include fields marked as `dropped` for either target. After writing the file, add `tdd` to the `skills:` list in `scaffold.xcf`.
+
+### AI command sequence
+
+The AI writes `xcf/skills/tdd.xcf`, then runs:
+
+```bash
+xcaffold validate    # catch malformed YAML or schema violations
+xcaffold apply --target claude --dry-run
+```
+
+If validation passes, you apply for real:
+
+```bash
+xcaffold apply --target claude
+xcaffold apply --target cursor
+```
+
+The compiled output for Claude:
+
+```
+.claude/skills/tdd/SKILL.md     # Claude Code native skill directory
+```
+
+The compiled output for Cursor:
+
+```
+.cursor/rules/tdd.mdc           # Cursor uses .mdc rule files for skills
+```
+
+Same source, two provider-native outputs.
+
+---
+
+## Enforcing constraints with policies
+
+Policies are especially important in AI-assisted workflows because they catch structural problems — missing descriptions, empty instructions, insecure tool grants — *before* any output is written. The starter policies generated by `xcaffold init` cover the most common failure modes:
+
+| Policy | What it catches |
+|---|---|
+| `require-agent-description` | Agents with no `description:` field |
+| `require-agent-instructions` | Agents with empty or < 10 character `instructions:` |
+
+You can add your own policies to `xcf/policies/` at any time. Example: require that no agent grants `Bash` without also setting a `permission-mode`:
+
+```yaml
+kind: policy
+version: "1.0"
+name: no-unrestricted-bash
+description: "Agents with Bash access must also set permission-mode."
+severity: error
+target: agent
+require:
+  - field: permission-mode
+    is-present: true
+    when:
+      field: tools
+      contains: "Bash"
+```
+
+The next time an AI assistant creates an agent with `tools: [Bash]` but forgets `permission-mode`, apply will fail with a clear message:
+
+```
+[policy] ERROR no-unrestricted-bash — agent "developer": permission-mode is required when Bash is in tools
+Apply aborted. Fix policy violations and re-run.
+```
+
+The AI sees this output and self-corrects. The policy turns ambiguous guidance ("always set permission-mode with Bash") into a machine-enforceable constraint.
+
+---
+
+## What You Built
+
+You have a project where:
+- All agent configuration lives in `xcf/` — the AI's editing surface.
+- Provider-specific output is generated by xcaffold — the AI never touches `.claude/`, `.cursor/`, or `.gemini/` directly.
+- Policies enforce structural correctness at apply time, whether a human or an AI authored the `.xcf` files.
+- The `--json` manifest flag makes the entire init workflow composable in agentic pipelines.
+
+---
+
+## Next Steps
+
+- **Multi-agent workspace** — build a team of differentiated agents with shared skills: [`multi-agent-workspace.md`](multi-agent-workspace.md)
+- **Policy enforcement** — write custom policies to enforce team-specific constraints: [`../how-to/policy-enforcement.md`](../how-to/policy-enforcement.md)
+- **Target overrides** — fine-tune behavior per provider without duplicating resources: [`../how-to/target-overrides.md`](../how-to/target-overrides.md)
+- **CLI reference** — full flag documentation for every command: [`../reference/cli.md`](../reference/cli.md)
