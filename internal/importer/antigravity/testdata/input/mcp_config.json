@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "mcp-filesystem",
+      "args": ["--root", "."]
+    }
+  }
+}
