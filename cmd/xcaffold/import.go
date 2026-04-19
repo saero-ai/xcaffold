@@ -218,6 +218,30 @@ func providerInstructionsFilename(provider string) string {
 	}
 }
 
+// anyInstructionFileExists reports whether filename exists anywhere under root —
+// either as a direct child (root instruction file) or within a subdirectory.
+// This is used to gate project-instruction discovery: we run discovery whenever
+// ANY scoped instruction file exists, not only when the root-level file exists.
+func anyInstructionFileExists(root, filename string) bool {
+	found := false
+	base := filepath.Base(filename)
+	filter := newDirectoryFilter(root)
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || found {
+			return filepath.SkipDir
+		}
+		if d.IsDir() && path != root && filter.shouldSkip(d.Name()) {
+			return filepath.SkipDir
+		}
+		if !d.IsDir() && d.Name() == base {
+			found = true
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	return found
+}
+
 // detectSecondaryProvider returns the secondary provider name when a second
 // provider's instruction files are present alongside the primary provider's tree.
 // Returns "" when no secondary is detected or the combination is not yet supported.
@@ -488,6 +512,16 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		if err := providerImp.Import(platformDir, config); err != nil {
 			warnings = append(warnings, fmt.Sprintf("%s import: %v", provider, err))
 		}
+		// Surface per-file extraction warnings from importers that support it.
+		// Importers that expose a Warnings []string field satisfy this interface.
+		type warningImporter interface {
+			GetWarnings() []string
+		}
+		if wi, ok := providerImp.(warningImporter); ok {
+			for _, w := range wi.GetWarnings() {
+				warnings = append(warnings, fmt.Sprintf("%s: %s", provider, w))
+			}
+		}
 		// Copy skill reference files — ProviderImporter populates AST only; side-car
 		// files under <skill>/references/ must still be copied to xcf/skills/<id>/references/.
 		for id := range config.Skills {
@@ -594,12 +628,11 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	}
 
 	// ── 3. Project instruction file (CLAUDE.md / GEMINI.md / AGENTS.md / etc.) ─
-	// Only run discovery if the provider's instruction file actually exists.
-	// This guards against rewriting scaffold.xcf via MarshalMultiKind when
-	// there is nothing to discover (which would inline globally-merged resources).
+	// Run discovery if ANY instruction file exists — root OR in subdirectories.
+	// Checking only the root file missed sub-directory scopes (e.g. packages/CLAUDE.md)
+	// when the project had no root-level instruction file.
 	if instrFile := providerInstructionsFilename(provider); instrFile != "" {
-		instrPath := filepath.Join(projectDir, instrFile)
-		if _, sErr := os.Stat(instrPath); sErr == nil {
+		if anyInstructionFileExists(projectDir, instrFile) {
 			if discoverErr := runProjectInstructionsDiscovery(projectDir, provider, xcfDest); discoverErr != nil {
 				warnings = append(warnings, fmt.Sprintf("project instructions discovery (%s): %v", provider, discoverErr))
 			}
