@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -357,19 +358,41 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		}
 	}
 
-	if err := writeReferenceTemplates(cwd); err != nil {
+	if err := writeReferenceTemplates(cwd); err != nil && !jsonManifestFlag {
 		cmd.Printf("  ⚠ Failed to write reference templates: %v\n", err)
 		// Non-fatal: continue with init.
-	} else if !noReferencesFlag {
+	} else if !noReferencesFlag && !jsonManifestFlag {
 		cmd.Println("  Created xcf/references/ — field reference for resource kinds")
+	}
+
+	if err := registry.Register(cwd, ans.name, ans.targets, "."); err != nil && !jsonManifestFlag {
+		cmd.Printf("  ⚠ Failed to register project: %v\n", err)
+	}
+
+	if jsonManifestFlag {
+		type Manifest struct {
+			Project string   `json:"project"`
+			Targets []string `json:"targets"`
+			Files   []string `json:"files"`
+		}
+
+		files := []string{"scaffold.xcf", "xcf/rules/conventions.xcf", "xcf/settings.xcf"}
+		if !noPoliciesFlag {
+			files = append(files, "xcf/policies/safety.xcf")
+		}
+		if ans.wantAgent {
+			files = append(files, "xcf/agents/developer.xcf")
+		}
+
+		b, err := json.MarshalIndent(Manifest{Project: ans.name, Targets: ans.targets, Files: files}, "", "  ")
+		if err == nil {
+			cmd.Println(string(b))
+		}
+		return nil
 	}
 
 	cmd.Printf("\n✓ Created scaffold.xcf\n")
 	cmd.Printf("  Project: %s | Targets: %s\n", ans.name, strings.Join(ans.targets, ", "))
-
-	if err := registry.Register(cwd, ans.name, ans.targets, "."); err != nil {
-		cmd.Printf("  ⚠ Failed to register project: %v\n", err)
-	}
 
 	if ans.wantAgent {
 		model, _ := resolveTargetMeta(ans.targets[0])
