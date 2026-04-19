@@ -61,12 +61,12 @@ func TestCompile_Gemini_Rules_AlwaysActivation(t *testing.T) {
 	out, notes, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 
-	// Rule file must exist.
-	ruleContent, ok := out.Files[".gemini/rules/go-style.md"]
-	assert.True(t, ok, "expected .gemini/rules/go-style.md")
+	// Rule file must exist at the OutputDir-relative path.
+	ruleContent, ok := out.Files["rules/go-style.md"]
+	assert.True(t, ok, "expected rules/go-style.md (relative to OutputDir)")
 	assert.Contains(t, ruleContent, "Use gofmt.")
 
-	// GEMINI.md must contain @-import.
+	// GEMINI.md must contain @-import with the project-relative path.
 	geminiContent := out.Files["GEMINI.md"]
 	assert.Contains(t, geminiContent, "@.gemini/rules/go-style.md")
 
@@ -91,8 +91,8 @@ func TestCompile_Gemini_Rules_PathGlob(t *testing.T) {
 	out, notes, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 
-	_, ok := out.Files[".gemini/rules/api-style.md"]
-	assert.True(t, ok, "expected .gemini/rules/api-style.md")
+	_, ok := out.Files["rules/api-style.md"]
+	assert.True(t, ok, "expected rules/api-style.md (relative to OutputDir)")
 
 	geminiContent := out.Files["GEMINI.md"]
 	assert.Contains(t, geminiContent, "@.gemini/rules/api-style.md")
@@ -118,8 +118,8 @@ func TestCompile_Gemini_Rules_UnsupportedActivation(t *testing.T) {
 	require.NoError(t, err)
 
 	// Rule still written.
-	_, ok := out.Files[".gemini/rules/secret-rule.md"]
-	assert.True(t, ok, "expected .gemini/rules/secret-rule.md even for unsupported activation")
+	_, ok := out.Files["rules/secret-rule.md"]
+	assert.True(t, ok, "expected rules/secret-rule.md (relative to OutputDir) even for unsupported activation")
 
 	// Fidelity note must be emitted.
 	require.Len(t, notes, 1)
@@ -143,7 +143,7 @@ func TestCompile_Gemini_Rules_NoProjectInstructions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
-	// No project — no GEMINI.md content except from rules.
+	// No project — GEMINI.md content comes from rules @-imports only.
 	geminiContent := out.Files["GEMINI.md"]
 	assert.Contains(t, geminiContent, "@.gemini/rules/lint.md")
 }
@@ -192,8 +192,8 @@ func TestCompile_Gemini_FullConfig_InstructionsAndRules(t *testing.T) {
 	assert.Contains(t, out.Files, "packages/api/GEMINI.md")
 	assert.Contains(t, out.Files["packages/api/GEMINI.md"], "API scope instructions.")
 
-	assert.Contains(t, out.Files[".gemini/rules/code-style.md"], "Style guide content.")
-	assert.Contains(t, out.Files[".gemini/rules/testing.md"], "Always write tests.")
+	assert.Contains(t, out.Files["rules/code-style.md"], "Style guide content.")
+	assert.Contains(t, out.Files["rules/testing.md"], "Always write tests.")
 }
 
 func TestCompile_Gemini_PathTraversal(t *testing.T) {
@@ -216,6 +216,67 @@ func TestCompile_Gemini_PathTraversal(t *testing.T) {
 }
 
 func intPtr(i int) *int { return &i }
+
+// TestCompile_Gemini_OutputPathsRelativeToOutputDir verifies that all keys in
+// out.Files are relative to OutputDir() — no ".gemini/" prefix — so that the
+// apply command's join of outputDir+relPath produces the correct final path
+// (e.g. ".gemini/rules/foo.md", not ".gemini/.gemini/rules/foo.md").
+// @-import lines in GEMINI.md must still use the project-relative ".gemini/"
+// prefix so that the Gemini CLI can locate the rule files.
+func TestCompile_Gemini_OutputPathsRelativeToOutputDir(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:         "path-test",
+			Instructions: "Root instructions.",
+		},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"style": {Description: "Style.", Instructions: "Use gofmt."},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {Name: "tdd", Description: "TDD workflow.", Instructions: "Test first."},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"helper": {Name: "helper", Description: "Helper agent.", Instructions: "You help."},
+			},
+			Hooks: ast.HookConfig{
+				"PreToolExecution": {
+					{Matcher: "write_file", Hooks: []ast.HookHandler{
+						{Type: "command", Command: "./hooks/check.sh"},
+					}},
+				},
+			},
+			MCP: map[string]ast.MCPConfig{
+				"github": {Command: "docker", Args: []string{"run", "ghcr.io/github/github-mcp-server"}},
+			},
+		},
+	}
+
+	out, _, err := r.Compile(config, t.TempDir())
+	require.NoError(t, err)
+
+	// No out.Files key may have ".gemini/" as a path segment prefix.
+	// OutputDir() already returns ".gemini"; the apply layer joins them.
+	for path := range out.Files {
+		assert.False(t,
+			strings.HasPrefix(path, ".gemini/"),
+			"out.Files key %q must not start with .gemini/ — paths must be relative to OutputDir()", path,
+		)
+	}
+
+	// Specific keys that must exist without the prefix.
+	assert.Contains(t, out.Files, "rules/style.md", "rule path must be rules/<id>.md")
+	assert.Contains(t, out.Files, "skills/tdd/SKILL.md", "skill path must be skills/<id>/SKILL.md")
+	assert.Contains(t, out.Files, "agents/helper.md", "agent path must be agents/<id>.md")
+	assert.Contains(t, out.Files, "settings.json", "settings path must be settings.json")
+
+	// @-import lines in GEMINI.md must use the project-relative path so the
+	// Gemini CLI resolves the file correctly from the project root.
+	geminiMD := out.Files["GEMINI.md"]
+	assert.Contains(t, geminiMD, "@.gemini/rules/style.md",
+		"@-import lines must use the project-relative .gemini/ prefix")
+}
 
 func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -267,22 +328,22 @@ func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
 	assert.Contains(t, out.Files["GEMINI.md"], "@./docs/contributing.md")
 	assert.Contains(t, out.Files, "packages/api/GEMINI.md")
 
-	// Rules
-	assert.Contains(t, out.Files, ".gemini/rules/code-style.md")
+	// Rules — key relative to OutputDir; @-import uses project-relative path.
+	assert.Contains(t, out.Files, "rules/code-style.md")
 	assert.Contains(t, out.Files["GEMINI.md"], "@.gemini/rules/code-style.md")
 
-	// Skills
-	assert.Contains(t, out.Files, ".gemini/skills/tdd/SKILL.md")
-	assert.Contains(t, out.Files[".gemini/skills/tdd/SKILL.md"], "name: tdd")
+	// Skills — key relative to OutputDir.
+	assert.Contains(t, out.Files, "skills/tdd/SKILL.md")
+	assert.Contains(t, out.Files["skills/tdd/SKILL.md"], "name: tdd")
 
-	// Agents
-	assert.Contains(t, out.Files, ".gemini/agents/helper.md")
-	assert.Contains(t, out.Files[".gemini/agents/helper.md"], "name: helper")
-	assert.Contains(t, out.Files[".gemini/agents/helper.md"], "Agent system prompt.")
+	// Agents — key relative to OutputDir.
+	assert.Contains(t, out.Files, "agents/helper.md")
+	assert.Contains(t, out.Files["agents/helper.md"], "name: helper")
+	assert.Contains(t, out.Files["agents/helper.md"], "Agent system prompt.")
 
-	// Settings (hooks + MCP)
-	assert.Contains(t, out.Files, ".gemini/settings.json")
-	settingsJSON := out.Files[".gemini/settings.json"]
+	// Settings (hooks + MCP) — key relative to OutputDir.
+	assert.Contains(t, out.Files, "settings.json")
+	settingsJSON := out.Files["settings.json"]
 	assert.Contains(t, settingsJSON, "BeforeTool")
 	assert.Contains(t, settingsJSON, "github")
 
@@ -310,14 +371,14 @@ func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 	out, notes, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	// Should have lowered workflow to rules + skills
+	// Should have lowered workflow to rules + skills (paths relative to OutputDir).
 	hasRule := false
 	hasSkill := false
 	for path := range out.Files {
-		if strings.Contains(path, ".gemini/rules/") {
+		if strings.HasPrefix(path, "rules/") {
 			hasRule = true
 		}
-		if strings.Contains(path, ".gemini/skills/") {
+		if strings.HasPrefix(path, "skills/") {
 			hasSkill = true
 		}
 	}

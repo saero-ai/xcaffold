@@ -25,7 +25,7 @@ func TestCompile_Gemini_Skills_Minimal(t *testing.T) {
 	}
 	out, notes, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
-	content := out.Files[".gemini/skills/code-review/SKILL.md"]
+	content := out.Files["skills/code-review/SKILL.md"]
 	assert.Contains(t, content, "---")
 	assert.Contains(t, content, "name: code-review")
 	assert.Contains(t, content, "description: Reviews code for bugs.")
@@ -47,7 +47,7 @@ func TestCompile_Gemini_Skills_WithBody(t *testing.T) {
 	}
 	out, _, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
-	content := out.Files[".gemini/skills/tdd/SKILL.md"]
+	content := out.Files["skills/tdd/SKILL.md"]
 	assert.Contains(t, content, "name: tdd")
 	assert.Contains(t, content, "Write the test first.")
 }
@@ -71,7 +71,7 @@ func TestCompile_Gemini_Skills_FromFile(t *testing.T) {
 	}
 	out, _, err := r.Compile(config, tmpDir)
 	require.NoError(t, err)
-	content := out.Files[".gemini/skills/file-skill/SKILL.md"]
+	content := out.Files["skills/file-skill/SKILL.md"]
 	assert.Contains(t, content, "Skill instructions from file.")
 }
 
@@ -121,6 +121,6 @@ func TestCompile_Gemini_Skills_Multiple(t *testing.T) {
 	}
 	out, _, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
-	assert.Contains(t, out.Files, ".gemini/skills/alpha-skill/SKILL.md")
-	assert.Contains(t, out.Files, ".gemini/skills/beta-skill/SKILL.md")
+	assert.Contains(t, out.Files, "skills/alpha-skill/SKILL.md")
+	assert.Contains(t, out.Files, "skills/beta-skill/SKILL.md")
 }
