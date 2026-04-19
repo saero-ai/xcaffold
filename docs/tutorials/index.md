@@ -17,17 +17,20 @@ No AI subscription or API key is required for `init`, `apply`, `diff`, or `valid
 
 ## Tutorials
 
-Work through these in order. Getting Started is a prerequisite for the other two.
+Work through these in order. Getting Started is a prerequisite for the other three.
 
 | Order | Tutorial | Description | Time |
 |-------|----------|-------------|------|
 | 1 | [Getting Started](getting-started.md) | Initialize a project, compile your first agent, and understand the `.xcf` → output pipeline | ~10 min |
-| 2 | [Multi-Agent Workspace](multi-agent-workspace.md) | Configure a team of differentiated agents with distinct tool permissions, shared rules and skills, and validated output | ~15 min |
-| 3 | [Drift Remediation](drift-remediation.md) | Detect, diagnose, and restore managed files when compiled output has been modified directly | ~10 min |
+| 2 | [AI-Assisted Scaffolding](ai-assisted-scaffolding.md) | Use an AI assistant  to fill in your scaffold without hallucinating provider-specific formats | ~15 min |
+| 3 | [Multi-Agent Workspace](multi-agent-workspace.md) | Configure a team of differentiated agents with distinct tool permissions, shared rules and skills, and validated output | ~15 min |
+| 4 | [Drift Remediation](drift-remediation.md) | Detect, diagnose, and restore managed files when compiled output has been modified directly | ~10 min |
 
 ## Reading Order
 
-**Getting Started** must be completed first — it establishes the project structure and compilation workflow that the other two tutorials build on.
+**Getting Started** must be completed first — it establishes the project structure and compilation workflow that all other tutorials build on.
+
+**AI-Assisted Scaffolding** is the natural second step — it shows how the multi-file layout from Getting Started becomes the editing surface for an AI assistant.
 
 **Multi-Agent Workspace** and **Drift Remediation** are independent of each other and can be read in either order after Getting Started.
 

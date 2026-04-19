@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -27,6 +28,10 @@ var templateFlag string
 // noReferencesFlag is set by --no-references to skip reference template generation.
 var noReferencesFlag bool
 
+var targetsFlag []string
+var noPoliciesFlag bool
+var jsonManifestFlag bool
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Bootstrap a new scaffold.xcf configuration",
@@ -51,8 +56,11 @@ Ready to get started? Run:
 
 func init() {
 	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Accept all defaults non-interactively (CI/CD mode)")
+	initCmd.Flags().StringSliceVar(&targetsFlag, "target", nil, "Generate output tailored to specific target(s) (comma-separated)")
 	initCmd.Flags().StringVar(&templateFlag, "template", "", "use a topology template (rest-api, cli-tool, frontend-app)")
 	initCmd.Flags().BoolVar(&noReferencesFlag, "no-references", false, "Skip generation of xcf/references/ field reference templates")
+	initCmd.Flags().BoolVar(&noPoliciesFlag, "no-policies", false, "Skip generation of starter policies")
+	initCmd.Flags().BoolVar(&jsonManifestFlag, "json", false, "Output machine-readable JSON manifest instead of interactive logs")
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -326,46 +334,82 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		return err
 	}
 
+	if jsonManifestFlag {
+		yesFlag = true // silent mode implicitly accepts defaults if questions not answered
+		ans.targets = []string{detectDefaultTarget()}
+		if len(targetsFlag) > 0 {
+			ans.targets = targetsFlag
+		}
+	}
+
 	// ── Build scaffold.xcf content ─────────────────────────────────────────
-	var content string
 	if templateFlag != "" {
-		model, _ := resolveTargetMeta(ans.target)
-		var err error
-		content, err = templates.Render(templateFlag, ans.name, model)
+		model, _ := resolveTargetMeta(ans.targets[0])
+		content, err := templates.Render(templateFlag, ans.name, model)
 		if err != nil {
 			return err
 		}
+		if err := os.WriteFile(xcfFile, []byte(content), 0600); err != nil {
+			return fmt.Errorf("failed to create %s: %w", xcfFile, err)
+		}
 	} else {
-		content = buildXCFContent(ans)
+		if err := writeXCFDirectory(cwd, ans); err != nil {
+			return fmt.Errorf("failed to scaffold directory: %w", err)
+		}
 	}
 
-	if err := os.WriteFile(xcfFile, []byte(content), 0600); err != nil {
-		return fmt.Errorf("failed to create %s: %w", xcfFile, err)
-	}
-
-	if err := writeReferenceTemplates(cwd); err != nil {
+	if err := writeReferenceTemplates(cwd); err != nil && !jsonManifestFlag {
 		cmd.Printf("  ⚠ Failed to write reference templates: %v\n", err)
 		// Non-fatal: continue with init.
-	} else if !noReferencesFlag {
+	} else if !noReferencesFlag && !jsonManifestFlag {
 		cmd.Println("  Created xcf/references/ — field reference for resource kinds")
 	}
 
-	cmd.Printf("\n✓ Created scaffold.xcf\n")
-	cmd.Printf("  Project: %s | Target: %s\n", ans.name, ans.target)
-
-	if err := registry.Register(cwd, ans.name, []string{ans.target}, "."); err != nil {
+	if err := registry.Register(cwd, ans.name, ans.targets, "."); err != nil && !jsonManifestFlag {
 		cmd.Printf("  ⚠ Failed to register project: %v\n", err)
 	}
 
+	if jsonManifestFlag {
+		type Manifest struct {
+			Project string   `json:"project"`
+			Targets []string `json:"targets"`
+			Files   []string `json:"files"`
+		}
+
+		files := []string{"scaffold.xcf", "xcf/rules/conventions.xcf", "xcf/settings.xcf"}
+		if !noPoliciesFlag {
+			files = append(files, "xcf/policies/safety.xcf")
+		}
+		if ans.wantAgent {
+			files = append(files, "xcf/agents/developer.xcf")
+		}
+
+		b, err := json.MarshalIndent(Manifest{Project: ans.name, Targets: ans.targets, Files: files}, "", "  ")
+		if err == nil {
+			cmd.Println(string(b))
+		}
+		return nil
+	}
+
+	cmd.Printf("\n✓ Created scaffold.xcf\n")
+	cmd.Printf("  Project: %s | Targets: %s\n", ans.name, strings.Join(ans.targets, ", "))
+
 	if ans.wantAgent {
-		model, _ := resolveTargetMeta(ans.target)
+		model, _ := resolveTargetMeta(ans.targets[0])
 		cmd.Printf("  Starter agent: developer (model: %s)\n", model)
 	}
 	cmd.Println("\n  Edit your agents, then run 'xcaffold apply'.")
 
+	cmd.Println("\n💡 AI Assistant Integration:")
+	cmd.Println("  A complementary /xcaffold AI skill was generated in xcf/skills/xcaffold.xcf.")
+	cmd.Println("  Run 'xcaffold apply' to instantly teach AI assistants in this project how to use xcaffold.")
+	cmd.Println("  To install this skill globally for your preferred provider, run:")
+	cmd.Println("    $ xcaffold init --global")
+	cmd.Println("    $ xcaffold apply --global")
+
 	// ── Optional: offer xcaffold analyze ──────────────────────────────────
-	if ans.wantAnalyze {
-		if err := offerAnalyze(cmd, ans.target); err != nil {
+	if ans.wantAnalyze && len(ans.targets) > 0 {
+		if err := offerAnalyze(cmd, ans.targets[0]); err != nil {
 			return err
 		}
 	}
@@ -377,7 +421,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 type wizardAnswers struct {
 	name        string
 	desc        string
-	target      string // "claude", "cursor", "antigravity", or "other"
+	targets     []string // list of providers, e.g. ["claude", "cursor"]
 	wantAgent   bool
 	wantAnalyze bool
 }
@@ -425,18 +469,34 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 	// Name and description are set automatically — never prompted.
 	ans.name = defaultName
 	ans.desc = ""
-	ans.target = detectDefaultTarget()
+	if len(targetsFlag) > 0 {
+		ans.targets = targetsFlag
+	} else {
+		ans.targets = []string{detectDefaultTarget()}
+	}
 	ans.wantAgent = true
 
 	if yesFlag {
 		return
 	}
 
-	// Target platform — auto-detected but user can change.
-	time.Sleep(300 * time.Millisecond)
-	ans.target, err = prompt.Ask("Target platform (claude / cursor / antigravity)", ans.target)
-	if err != nil {
-		return
+	if len(targetsFlag) == 0 {
+		time.Sleep(300 * time.Millisecond)
+		options := []prompt.SelectOption{
+			{Label: "Claude Code", Value: "claude", Selected: ans.targets[0] == "claude"},
+			{Label: "Cursor", Value: "cursor", Selected: ans.targets[0] == "cursor"},
+			{Label: "Gemini", Value: "gemini", Selected: ans.targets[0] == "gemini"},
+			{Label: "GitHub Copilot", Value: "copilot", Selected: ans.targets[0] == "copilot"},
+			{Label: "Antigravity", Value: "antigravity", Selected: ans.targets[0] == "antigravity"},
+		}
+		selected, promptErr := prompt.MultiSelect("Target platforms (space to select)", options)
+		if promptErr != nil {
+			err = promptErr
+			return
+		}
+		if len(selected) > 0 {
+			ans.targets = selected
+		}
 	}
 
 	time.Sleep(300 * time.Millisecond)
@@ -450,56 +510,54 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 	return
 }
 
-// buildXCFContent generates the scaffold.xcf YAML string from wizard answers.
-// It emits multi-kind format: a kind: project document for project metadata,
-// optionally followed by a kind: agent document separated by ---.
-func buildXCFContent(ans wizardAnswers) string {
-	var sb strings.Builder
-
-	model, binary := resolveTargetMeta(ans.target)
-
-	// ── kind: project document ─────────────────────────────────────────────
-	sb.WriteString("# scaffold.xcf — generated by xcaffold init\n")
-	sb.WriteString("# Multi-kind format. Use 'xcaffold apply' to compile.\n")
-	sb.WriteString(fmt.Sprintf("kind: project\nversion: \"1.0\"\nname: %q\n", ans.name))
-	if ans.desc != "" {
-		sb.WriteString(fmt.Sprintf("description: %q\n", ans.desc))
+// writeXCFDirectory generates the multi-file scaffold structure.
+func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
+	// Ensure xcf/ directories exist
+	dirs := []string{
+		filepath.Join(baseDir, "xcf", "agents"),
+		filepath.Join(baseDir, "xcf", "skills"),
+		filepath.Join(baseDir, "xcf", "rules"),
 	}
-	sb.WriteString(fmt.Sprintf("targets:\n  - %s\n", ans.target))
-	sb.WriteString(fmt.Sprintf(`
-# Optional: Configure the 'xcaffold test' simulator.
-# test:
-#   cli-path: %q   # Path to CLI binary. Defaults to '%s' on $PATH.
-#   judge-model: %q # Model used for --judge evaluation.
-`, binary, binary, model))
-
-	if !ans.wantAgent {
-		return sb.String()
+	if !noPoliciesFlag {
+		dirs = append(dirs, filepath.Join(baseDir, "xcf", "policies"))
+	}
+	for _, d := range dirs {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", d, err)
+		}
 	}
 
-	// ── kind: agent document ───────────────────────────────────────────────
-	sb.WriteString(fmt.Sprintf(`---
-kind: agent
-version: "1.0"
-name: developer
-description: "General software developer agent."
+	model, _ := resolveTargetMeta(ans.targets[0])
 
-# Model & Execution — see xcf/references/agent.xcf.reference for all options.
-model: %q
-effort: "high"
-tools: [Bash, Read, Write, Edit, Glob, Grep]
-instructions: |
-  You are a software developer.
-  Write clean, maintainable code.
+	// scaffold.xcf
+	projectContent := templates.RenderProjectXCF(ans.name, ans.targets)
+	if err := os.WriteFile(filepath.Join(baseDir, "scaffold.xcf"), []byte(projectContent), 0o600); err != nil {
+		return err
+	}
 
-# Assertions are evaluated by the LLM-as-a-Judge when running
-# 'xcaffold test --judge'. Define expected behavioral constraints here.
-# assertions:
-#   - "The agent must not write files outside the project directory."
-#   - "The agent must run tests before marking a task complete."
-`, model))
+	// rules & policies & settings
+	ruleContent := templates.RenderRuleXCF(ans.targets)
+	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "rules", "conventions.xcf"), []byte(ruleContent), 0o600)
 
-	return sb.String()
+	settingsContent := templates.RenderSettingsXCF(ans.targets)
+	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "settings.xcf"), []byte(settingsContent), 0o600)
+
+	if !noPoliciesFlag {
+		policyContent := templates.RenderPolicyXCF()
+		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "safety.xcf"), []byte(policyContent), 0o600)
+	}
+
+	// starter agent
+	if ans.wantAgent {
+		agentContent := templates.RenderAgentXCF("developer", model, ans.targets)
+		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "agents", "developer.xcf"), []byte(agentContent), 0o600)
+	}
+
+	// xcaffold skill
+	skillContent := templates.RenderXcaffoldSkillXCF(ans.targets)
+	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "skills", "xcaffold.xcf"), []byte(skillContent), 0o600)
+
+	return nil
 }
 
 // offerAnalyze runs xcaffold analyze inline when a supported LLM is available

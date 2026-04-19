@@ -91,6 +91,7 @@ tools: [Bash, Read, Write, Edit, Glob, Grep]
 Then run the full lifecycle:
 
 ```bash
+xcaffold init --target claude,cursor     # Scaffold a new provider-first project
 xcaffold list                            # View all registered projects and their status
 xcaffold graph                           # Visualize agent topology
 xcaffold apply                           # Compile to target (--dry-run to preview)
