@@ -11,7 +11,7 @@ import (
 )
 
 // TestCompile_Gemini_Hooks_BasicEvent verifies that a hook on PreToolExecution
-// maps to Gemini's BeforeTool event and is written to .gemini/settings.json.
+// maps to Gemini's BeforeTool event and is written to settings.json.
 func TestCompile_Gemini_Hooks_BasicEvent(t *testing.T) {
 	timeout := 5000
 	cfg := &ast.XcaffoldConfig{
@@ -37,8 +37,8 @@ func TestCompile_Gemini_Hooks_BasicEvent(t *testing.T) {
 	out, _, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".gemini/settings.json"]
-	require.True(t, ok, "expected .gemini/settings.json to be emitted")
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "expected settings.json (relative to OutputDir) to be emitted")
 
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
@@ -71,8 +71,8 @@ func TestCompile_Gemini_Hooks_PostToolExecution(t *testing.T) {
 	out, _, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".gemini/settings.json"]
-	require.True(t, ok, "expected .gemini/settings.json to be emitted")
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "expected settings.json (relative to OutputDir) to be emitted")
 
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
@@ -84,7 +84,7 @@ func TestCompile_Gemini_Hooks_PostToolExecution(t *testing.T) {
 }
 
 // TestCompile_Gemini_MCP_StdioServer verifies that an MCP server with command
-// and args is written to mcpServers in .gemini/settings.json.
+// and args is written to mcpServers in settings.json.
 func TestCompile_Gemini_MCP_StdioServer(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -101,8 +101,8 @@ func TestCompile_Gemini_MCP_StdioServer(t *testing.T) {
 	out, _, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".gemini/settings.json"]
-	require.True(t, ok, "expected .gemini/settings.json")
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "expected settings.json (relative to OutputDir)")
 
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
@@ -140,8 +140,8 @@ func TestCompile_Gemini_MCP_WithEnv(t *testing.T) {
 	out, _, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".gemini/settings.json"]
-	require.True(t, ok, "expected .gemini/settings.json")
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "expected settings.json (relative to OutputDir)")
 
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
@@ -156,7 +156,7 @@ func TestCompile_Gemini_MCP_WithEnv(t *testing.T) {
 }
 
 // TestCompile_Gemini_Settings_MergedOutput verifies that both hooks and MCP
-// produce a single .gemini/settings.json containing both keys.
+// produce a single settings.json (relative to OutputDir) containing both keys.
 func TestCompile_Gemini_Settings_MergedOutput(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -175,8 +175,8 @@ func TestCompile_Gemini_Settings_MergedOutput(t *testing.T) {
 	out, _, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, ok := out.Files[".gemini/settings.json"]
-	require.True(t, ok, "expected single .gemini/settings.json")
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "expected single settings.json (relative to OutputDir)")
 
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
@@ -196,7 +196,7 @@ func TestCompile_Gemini_Settings_EmptyHooksAndMCP(t *testing.T) {
 	out, _, err := r.Compile(cfg, t.TempDir())
 	require.NoError(t, err)
 
-	_, ok := out.Files[".gemini/settings.json"]
+	_, ok := out.Files["settings.json"]
 	assert.False(t, ok, "settings.json must not be emitted when there are no hooks or MCP servers")
 }
 
@@ -248,8 +248,8 @@ func TestCompile_Gemini_Hooks_UnsupportedEvent(t *testing.T) {
 	assert.True(t, unsupportedFields["PreCompact"], "expected CodeFieldUnsupported for PreCompact")
 
 	// settings.json must be present (because PreToolExecution is valid).
-	raw, ok := out.Files[".gemini/settings.json"]
-	require.True(t, ok, "expected .gemini/settings.json to be emitted for the valid event")
+	raw, ok := out.Files["settings.json"]
+	require.True(t, ok, "expected settings.json (relative to OutputDir) to be emitted for the valid event")
 
 	var parsed map[string]any
 	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))

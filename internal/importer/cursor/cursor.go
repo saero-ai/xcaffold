@@ -44,6 +44,9 @@ func (c *CursorImporter) InputDir() string { return ".cursor" }
 var cursorMappings = []importer.KindMapping{
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/assets/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "rules/*.mdc", Kind: importer.KindRule, Layout: importer.FlatFile, Extension: ".mdc"},
 	{Pattern: "mcp.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "hooks.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
@@ -72,6 +75,8 @@ func (c *CursorImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractAgent(rel, data, config)
 	case importer.KindSkill:
 		return extractSkill(rel, data, config)
+	case importer.KindSkillAsset:
+		return extractSkillAsset(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
 	case importer.KindMCP:
@@ -339,6 +344,44 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		SourceProvider:         "cursor",
 	}
 	return nil
+}
+
+// extractSkillAsset records a skill companion file (references/*, scripts/*, assets/*)
+// in the parent skill's corresponding slice. rel is the path relative to InputDir()
+// and must match the pattern "skills/<id>/<sub>/<file>".
+func extractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) error {
+	parts := strings.SplitN(rel, "/", 4)
+	if len(parts) < 4 {
+		return fmt.Errorf("cursor: skill asset path too short: %q", rel)
+	}
+	skillID := parts[1]
+	subDir := parts[2]
+	relWithinSkill := subDir + "/" + parts[3]
+
+	if config.Skills == nil {
+		config.Skills = make(map[string]ast.SkillConfig)
+	}
+	skill := config.Skills[skillID]
+	switch subDir {
+	case "references":
+		skill.References = appendUnique(skill.References, relWithinSkill)
+	case "scripts":
+		skill.Scripts = appendUnique(skill.Scripts, relWithinSkill)
+	case "assets":
+		skill.Assets = appendUnique(skill.Assets, relWithinSkill)
+	}
+	config.Skills[skillID] = skill
+	return nil
+}
+
+// appendUnique appends s to slice only if it is not already present.
+func appendUnique(slice []string, s string) []string {
+	for _, v := range slice {
+		if v == s {
+			return slice
+		}
+	}
+	return append(slice, s)
 }
 
 func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {

@@ -150,6 +150,11 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		notes = append(notes, instrNotes...)
 	}
 
+	// Memory rendering is handled separately by MemoryRenderer (called via
+	// runMemoryPass in apply.go) which supports lifecycle tracking, drift
+	// detection, and seed-once semantics. The compiler Compile() path
+	// intentionally excludes memory from its output map.
+
 	return out, notes, nil
 }
 

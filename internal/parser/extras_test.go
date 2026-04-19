@@ -1,0 +1,83 @@
+package parser
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// minimalScaffoldXCF is the smallest valid scaffold.xcf content for test dirs.
+const minimalScaffoldXCF = `kind: project
+version: "1.0"
+name: "test-project"
+`
+
+// writeExtrasFile creates the directory hierarchy and writes content to
+// <dir>/xcf/extras/<provider>/<relpath>.
+func writeExtrasFile(t *testing.T, dir, provider, relpath string, content []byte) {
+	t.Helper()
+	full := filepath.Join(dir, "xcf", "extras", provider, filepath.FromSlash(relpath))
+	require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
+	require.NoError(t, os.WriteFile(full, content, 0o644))
+}
+
+func TestLoadExtras_PopulatesProviderExtras(t *testing.T) {
+	dir := t.TempDir()
+
+	// Write a minimal scaffold.xcf so ParseDirectory succeeds.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(minimalScaffoldXCF), 0o644))
+
+	wantData := []byte("#!/bin/sh\necho hello\n")
+	writeExtrasFile(t, dir, "claude", "hooks/pre-commit.sh", wantData)
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+
+	require.NotNil(t, cfg.ProviderExtras, "ProviderExtras must be populated")
+	require.Contains(t, cfg.ProviderExtras, "claude")
+	assert.Equal(t, wantData, cfg.ProviderExtras["claude"]["hooks/pre-commit.sh"])
+}
+
+func TestLoadExtras_NoExtrasDir_NoError(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(minimalScaffoldXCF), 0o644))
+
+	// No xcf/extras/ directory written — must succeed with empty/nil ProviderExtras.
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	assert.Empty(t, cfg.ProviderExtras)
+}
+
+func TestLoadExtras_MultipleProviders(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(minimalScaffoldXCF), 0o644))
+
+	claudeData := []byte("claude hook content")
+	cursorData := []byte("cursor rule content")
+	writeExtrasFile(t, dir, "claude", "hooks/pre-commit.sh", claudeData)
+	writeExtrasFile(t, dir, "cursor", "rules/style.md", cursorData)
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+
+	require.NotNil(t, cfg.ProviderExtras)
+	assert.Equal(t, claudeData, cfg.ProviderExtras["claude"]["hooks/pre-commit.sh"])
+	assert.Equal(t, cursorData, cfg.ProviderExtras["cursor"]["rules/style.md"])
+}
+
+func TestLoadExtras_NestedPaths(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(minimalScaffoldXCF), 0o644))
+
+	deepData := []byte("deep nested content")
+	writeExtrasFile(t, dir, "claude", "hooks/nested/deep.sh", deepData)
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+
+	require.NotNil(t, cfg.ProviderExtras)
+	assert.Equal(t, deepData, cfg.ProviderExtras["claude"]["hooks/nested/deep.sh"])
+}

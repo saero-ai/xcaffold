@@ -581,6 +581,10 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	// Implicitly overlay the project configuration on top of the global base
 	merged = mergeConfigOverride(globalConfig, merged)
 
+	if err := loadExtras(dir, merged); err != nil {
+		return nil, fmt.Errorf("failed to load extras: %w", err)
+	}
+
 	return merged, nil
 }
 
@@ -626,6 +630,10 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 	merged, err := mergeAllStrict(parsedFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge config files in %q: %w", dir, err)
+	}
+
+	if err := loadExtras(dir, merged); err != nil {
+		return nil, fmt.Errorf("failed to load extras: %w", err)
 	}
 
 	return merged, nil

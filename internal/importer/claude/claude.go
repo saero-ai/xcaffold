@@ -43,9 +43,14 @@ func (c *ClaudeImporter) InputDir() string { return ".claude" }
 // claudeMappings maps path patterns to AST kinds. First match wins.
 // settings.json appears first for the container-level KindSettings match;
 // the embedded mcpServers and hooks keys are handled inside Extract().
+// Skill companion patterns (references/**, scripts/**, assets/**) must appear
+// before the catch-all agent-memory/** so they are matched first.
 var claudeMappings = []importer.KindMapping{
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/assets/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "rules/**/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
 	{Pattern: "workflows/*.md", Kind: importer.KindWorkflow, Layout: importer.FlatFile},
 	{Pattern: "mcp.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
@@ -77,6 +82,8 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractAgent(rel, data, config)
 	case importer.KindSkill:
 		return extractSkill(rel, data, config)
+	case importer.KindSkillAsset:
+		return extractSkillAsset(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
 	case importer.KindWorkflow:
@@ -361,6 +368,47 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		SourceProvider:         "claude",
 	}
 	return nil
+}
+
+// extractSkillAsset records a skill companion file (references/*, scripts/*, assets/*)
+// in the parent skill's corresponding slice. rel is the path relative to InputDir()
+// and must match the pattern "skills/<id>/<sub>/<file>".
+// If the parent skill does not yet exist in config, it is created with a minimal entry
+// so that the path reference is preserved even when SKILL.md is walked after the asset.
+func extractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) error {
+	// rel looks like: skills/tdd/references/schema.sql
+	parts := strings.SplitN(rel, "/", 4)
+	if len(parts) < 4 {
+		return fmt.Errorf("claude: skill asset path too short: %q", rel)
+	}
+	skillID := parts[1]
+	subDir := parts[2]                        // "references", "scripts", or "assets"
+	relWithinSkill := subDir + "/" + parts[3] // e.g. "references/schema.sql"
+
+	if config.Skills == nil {
+		config.Skills = make(map[string]ast.SkillConfig)
+	}
+	skill := config.Skills[skillID]
+	switch subDir {
+	case "references":
+		skill.References = appendUnique(skill.References, relWithinSkill)
+	case "scripts":
+		skill.Scripts = appendUnique(skill.Scripts, relWithinSkill)
+	case "assets":
+		skill.Assets = appendUnique(skill.Assets, relWithinSkill)
+	}
+	config.Skills[skillID] = skill
+	return nil
+}
+
+// appendUnique appends s to slice only if it is not already present.
+func appendUnique(slice []string, s string) []string {
+	for _, v := range slice {
+		if v == s {
+			return slice
+		}
+	}
+	return append(slice, s)
 }
 
 func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {

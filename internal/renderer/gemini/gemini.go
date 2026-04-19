@@ -1,7 +1,8 @@
 // Package gemini compiles an XcaffoldConfig AST into Gemini CLI output files.
 // Project instructions are written to GEMINI.md using concat-nested semantics with
-// native @-import preservation. Rules are written to .gemini/rules/<id>.md and
-// referenced via @-import lines in GEMINI.md.
+// native @-import preservation. Rules are written to rules/<id>.md (relative to
+// OutputDir) and referenced via @-import lines in GEMINI.md using the
+// project-relative path (.gemini/rules/<id>.md).
 package gemini
 
 import (
@@ -74,7 +75,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	}
 	notes = append(notes, settingsNotes...)
 	if settingsJSON != "" {
-		out.Files[".gemini/settings.json"] = settingsJSON
+		out.Files["settings.json"] = settingsJSON
 	}
 
 	return out, notes, nil
@@ -118,11 +119,12 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	return nil
 }
 
-// renderRules writes each rule to .gemini/rules/<id>.md and appends @-import
-// lines to GEMINI.md. Rules with unsupported activation modes emit a fidelity note
-// but are still written (Gemini treats all imported rules as always-active).
-// baseDir is used to resolve instructions-file paths on rules; pass "" when no
-// file resolution is needed.
+// renderRules writes each rule to rules/<id>.md (relative to OutputDir) and
+// appends @-import lines to GEMINI.md using the project-relative path
+// (.gemini/rules/<id>.md). Rules with unsupported activation modes emit a
+// fidelity note but are still written (Gemini treats all imported rules as
+// always-active). baseDir is used to resolve instructions-file paths on rules;
+// pass "" when no file resolution is needed.
 func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]string, baseDir string) ([]renderer.FidelityNote, error) {
 	if len(config.Rules) == 0 {
 		return nil, nil
@@ -149,10 +151,12 @@ func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]stri
 		}
 
 		body := buildRuleBody(rule, baseDir)
-		rulePath := fmt.Sprintf(".gemini/rules/%s.md", id)
+		rulePath := fmt.Sprintf("rules/%s.md", id)
 		safePath := filepath.Clean(rulePath)
 		files[safePath] = body
-		importLines = append(importLines, fmt.Sprintf("@%s", safePath))
+		// @-import lines use the project-relative path so the Gemini CLI can
+		// locate rule files from the project root (OutputDir is .gemini).
+		importLines = append(importLines, fmt.Sprintf("@.gemini/%s", safePath))
 	}
 
 	if len(importLines) > 0 {
@@ -166,8 +170,8 @@ func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]stri
 	return notes, nil
 }
 
-// renderSkills writes each skill to .gemini/skills/<id>/SKILL.md using the
-// agentskills.io format: YAML frontmatter (name + description) + markdown body.
+// renderSkills writes each skill to skills/<id>/SKILL.md (relative to OutputDir)
+// using the agentskills.io format: YAML frontmatter (name + description) + markdown body.
 func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
 	if len(config.Skills) == 0 {
 		return nil
@@ -199,7 +203,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 			sb.WriteString("\n")
 		}
 
-		filePath := fmt.Sprintf(".gemini/skills/%s/SKILL.md", id)
+		filePath := fmt.Sprintf("skills/%s/SKILL.md", id)
 		files[filepath.Clean(filePath)] = sb.String()
 
 		// Emit fidelity notes for unsupported fields.
@@ -248,8 +252,8 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 	return notes
 }
 
-// renderAgents writes each agent to .gemini/agents/<id>.md using YAML
-// frontmatter (name, description, tools, model, max_turns, mcpServers) with
+// renderAgents writes each agent to agents/<id>.md (relative to OutputDir) using
+// YAML frontmatter (name, description, tools, model, max_turns, mcpServers) with
 // a markdown body as the system prompt. Gemini-specific fields (timeout_mins,
 // temperature, kind) are sourced from targets.gemini.provider pass-through.
 // Unsupported fields emit fidelity notes.
@@ -350,7 +354,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			sb.WriteString("\n")
 		}
 
-		filePath := fmt.Sprintf(".gemini/agents/%s.md", id)
+		filePath := fmt.Sprintf("agents/%s.md", id)
 		files[filepath.Clean(filePath)] = sb.String()
 
 		// Fidelity notes for security fields with no Gemini equivalent.

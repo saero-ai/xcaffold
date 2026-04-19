@@ -26,8 +26,8 @@ func TestCompile_Gemini_Agents_Minimal(t *testing.T) {
 	out, notes, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	content, ok := out.Files[".gemini/agents/helper.md"]
-	require.True(t, ok, "expected .gemini/agents/helper.md to be present")
+	content, ok := out.Files["agents/helper.md"]
+	require.True(t, ok, "expected agents/helper.md (relative to OutputDir) to be present")
 	assert.Contains(t, content, "---")
 	assert.Contains(t, content, "name: helper")
 	assert.Contains(t, content, "description: Helps.")
@@ -52,8 +52,8 @@ func TestCompile_Gemini_Agents_FullSchema(t *testing.T) {
 	out, _, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	content, ok := out.Files[".gemini/agents/analyst.md"]
-	require.True(t, ok, "expected .gemini/agents/analyst.md to be present")
+	content, ok := out.Files["agents/analyst.md"]
+	require.True(t, ok, "expected agents/analyst.md (relative to OutputDir) to be present")
 	assert.Contains(t, content, "tools:")
 	assert.Contains(t, content, "read_file")
 	assert.Contains(t, content, "grep_search")
@@ -85,8 +85,8 @@ func TestCompile_Gemini_Agents_ProviderPassthrough(t *testing.T) {
 	out, _, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	content, ok := out.Files[".gemini/agents/runner.md"]
-	require.True(t, ok, "expected .gemini/agents/runner.md to be present")
+	content, ok := out.Files["agents/runner.md"]
+	require.True(t, ok, "expected agents/runner.md (relative to OutputDir) to be present")
 	assert.Contains(t, content, "timeout_mins:")
 	assert.Contains(t, content, "temperature:")
 	assert.Contains(t, content, "kind: local")
@@ -142,8 +142,8 @@ func TestCompile_Gemini_Agents_InlineMCP(t *testing.T) {
 	out, _, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	content, ok := out.Files[".gemini/agents/mcp-agent.md"]
-	require.True(t, ok, "expected .gemini/agents/mcp-agent.md to be present")
+	content, ok := out.Files["agents/mcp-agent.md"]
+	require.True(t, ok, "expected agents/mcp-agent.md (relative to OutputDir) to be present")
 	assert.Contains(t, content, "mcpServers:")
 	assert.Contains(t, content, "my-server")
 }
@@ -164,7 +164,7 @@ func TestCompile_Gemini_Agents_WithBody(t *testing.T) {
 	out, _, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 
-	content, ok := out.Files[".gemini/agents/auditor.md"]
-	require.True(t, ok, "expected .gemini/agents/auditor.md to be present")
+	content, ok := out.Files["agents/auditor.md"]
+	require.True(t, ok, "expected agents/auditor.md (relative to OutputDir) to be present")
 	assert.Contains(t, content, "You are a security auditor.")
 }

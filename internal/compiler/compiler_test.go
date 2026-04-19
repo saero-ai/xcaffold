@@ -308,6 +308,7 @@ func TestOutputDir_AllTargets(t *testing.T) {
 		{"cursor", ".cursor"},
 		{"antigravity", ".agents"},
 		{"copilot", ".github"},
+		{"gemini", ".gemini"},
 		{"unknown", ".claude"},
 	}
 	for _, tt := range tests {
@@ -316,6 +317,25 @@ func TestOutputDir_AllTargets(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestCompile_Gemini_DispatchesGeminiRenderer(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"style": {Description: "Style guide", Instructions: "Format code."},
+			},
+		},
+	}
+	out, _, err := Compile(config, t.TempDir(), "gemini")
+	require.NoError(t, err)
+	assert.NotNil(t, out)
+	assert.NotEmpty(t, out.Files)
+}
+
+func TestOutputDir_Gemini_ReturnsDotGemini(t *testing.T) {
+	got := OutputDir("gemini")
+	assert.Equal(t, ".gemini", got)
 }
 
 func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {
