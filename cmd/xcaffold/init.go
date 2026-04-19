@@ -400,6 +400,13 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 	}
 	cmd.Println("\n  Edit your agents, then run 'xcaffold apply'.")
 
+	cmd.Println("\n💡 AI Assistant Integration:")
+	cmd.Println("  A complementary /xcaffold AI skill was generated in xcf/skills/xcaffold.xcf.")
+	cmd.Println("  Run 'xcaffold apply' to instantly teach AI assistants in this project how to use xcaffold.")
+	cmd.Println("  To install this skill globally for your preferred provider, run:")
+	cmd.Println("    $ xcaffold init --global")
+	cmd.Println("    $ xcaffold apply --global")
+
 	// ── Optional: offer xcaffold analyze ──────────────────────────────────
 	if ans.wantAnalyze && len(ans.targets) > 0 {
 		if err := offerAnalyze(cmd, ans.targets[0]); err != nil {
@@ -508,6 +515,7 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 	// Ensure xcf/ directories exist
 	dirs := []string{
 		filepath.Join(baseDir, "xcf", "agents"),
+		filepath.Join(baseDir, "xcf", "skills"),
 		filepath.Join(baseDir, "xcf", "rules"),
 	}
 	if !noPoliciesFlag {
@@ -544,6 +552,10 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		agentContent := templates.RenderAgentXCF("developer", model, ans.targets)
 		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "agents", "developer.xcf"), []byte(agentContent), 0o600)
 	}
+
+	// xcaffold skill
+	skillContent := templates.RenderXcaffoldSkillXCF(ans.targets)
+	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "skills", "xcaffold.xcf"), []byte(skillContent), 0o600)
 
 	return nil
 }

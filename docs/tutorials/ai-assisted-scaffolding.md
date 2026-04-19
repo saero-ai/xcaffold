@@ -11,6 +11,7 @@ This tutorial walks through two complementary workflows:
 
 1. **You use AI to fill in your scaffold** — initialize with `xcaffold init`, hand the files to Claude or Gemini, get filled-in `.xcf` resources back, then compile.
 2. **AI uses xcaffold as a build tool** — the AI runs `xcaffold init` itself, edits the `.xcf` files, and runs `xcaffold apply` to emit provider-native output.
+3. **AI handles existing provider config** — the AI uses `xcaffold import` to reverse-engineer your `.claude/` or `.cursor/` directories into `.xcf` source.
 
 **Time to complete:** ~15 minutes  
 **Prerequisites:** xcaffold installed, an AI assistant or IDE with Claude/Gemini/Copilot access, an empty project directory.
@@ -192,6 +193,61 @@ Without `--json`, `xcaffold init` emits human-readable banners and interactive p
 # AI can pipeline: initialize → read manifest → determine files to edit
 xcaffold init --target claude --yes --json | jq '.files[]'
 ```
+
+---
+
+## Workflow 3 — Handling existing configs
+
+If your project already has a `.claude/` or `.cursor/` directory, use the AI to safely convert it to xcaffold source `xcf/` directories using `xcaffold import`.
+
+### Human prompt to AI
+
+> This project has a `.claude/` directory. Initialize a new xcaffold project here targeting `claude` and `cursor`. Then import the existing Claude configuration into xcaffold. Show me the `import --plan` output before actually importing.
+
+### AI command sequence
+
+```bash
+# 1. Initialize empty scaffold
+xcaffold init --target claude,cursor --yes --no-policies
+
+# 2. Preview import plan
+xcaffold import --from claude --plan
+
+# The AI reports the plan to the user. Once approved:
+
+# 3. Import
+xcaffold import --from claude
+
+# 4. Verify the imported output
+xcaffold validate
+```
+
+Once imported, the AI can now modify the configurations through the `.xcf` files rather than editing the raw `.claude/` output.
+
+---
+
+## The `/xcaffold` AI skill
+
+Every time you run `xcaffold init`, it automatically generates a self-referential skill in `xcf/skills/xcaffold.xcf`. This file includes a built-in schema reference, workflow cheat sheets, and provider matrices.
+
+When you run `xcaffold apply`, this skill compiles to your project's `.claude/skills/xcaffold/` (or Cursor equivalent) directory. 
+
+This gives you a magic loop: **your AI assistant instantly learns how to use xcaffold just by being inside an initialized project.**
+
+### Using it globally
+
+If you want the `/xcaffold` skill available to your AI assistant everywhere (not just inside specific initialized projects), run:
+
+```bash
+# Initialize the user-wide environment
+xcaffold init --global --target claude,cursor
+
+# Compile the skill to your global ~/.claude/skills/ directories
+xcaffold apply --global --target claude
+xcaffold apply --global --target cursor
+```
+
+Once compiled, you can type `/xcaffold` in Claude Code or Cursor, or simply ask Gemini *"scaffold a new agent for me using xcaffold"* from any directory, and it will autonomously know the exact commands and schema to use.
 
 ---
 

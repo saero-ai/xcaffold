@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `xcaffold init` automatically generates a self-referential `/xcaffold` skill (`xcf/skills/xcaffold.xcf`) out of the box, teaching AI assistants local schema constraints and provider support matrices natively.
 - `xcaffold init` multi-file generator that scaffolds an entire `xcf/` directory, replacing the legacy single `scaffold.xcf` builder.
 - `xcaffold init` `--target` string slice flag and multi-select UI prompt for concurrent platform targeting (`claude`, `cursor`, `antigravity`, etc).
 - `xcaffold init` `--no-policies` flag to skip starter policy generation.

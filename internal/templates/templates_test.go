@@ -114,8 +114,10 @@ func TestRenderProjectXCF_SingleTarget(t *testing.T) {
 	assert.Contains(t, out, "- developer")
 	assert.Contains(t, out, "rules:")
 	assert.Contains(t, out, "- conventions")
+	assert.Contains(t, out, "skills:")
+	assert.Contains(t, out, "- xcaffold")
 	assert.Contains(t, out, "policies:")
-	assert.Contains(t, out, "- safety")
+	assert.Contains(t, out, "- require-agent-description")
 	assert.NotContains(t, out, "- cursor")
 }
 
