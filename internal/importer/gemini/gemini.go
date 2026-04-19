@@ -40,9 +40,10 @@ var geminiMappings = []importer.KindMapping{
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*.md", Kind: importer.KindSkill, Layout: importer.FlatFile},
 	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
+	// settings.json is a container file holding settings, mcpServers, AND hooks.
+	// Classify returns KindSettings (first match); extractSettings() handles the
+	// two-phase decomposition of mcpServers → config.MCP and hooks → config.Hooks.
 	{Pattern: "settings.json", Kind: importer.KindSettings, Layout: importer.EmbeddedJSONKey, JSONKey: ""},
-	{Pattern: "settings.json", Kind: importer.KindMCP, Layout: importer.EmbeddedJSONKey, JSONKey: "mcpServers"},
-	{Pattern: "settings.json", Kind: importer.KindHook, Layout: importer.EmbeddedJSONKey, JSONKey: "hooks"},
 }
 
 // Classify returns the Kind and Layout for a given relative path.
