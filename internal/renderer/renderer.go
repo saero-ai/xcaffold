@@ -5,9 +5,11 @@ package renderer
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"gopkg.in/yaml.v3"
 )
 
 // ResolveInstructionsContent returns inline instructions or reads InstructionsFile
@@ -25,7 +27,26 @@ func ResolveInstructionsContent(inline, file, baseDir string) string {
 	if err != nil {
 		return ""
 	}
+	if strings.HasSuffix(file, ".xcf") {
+		return extractXCFInstructions(data)
+	}
 	return string(data)
+}
+
+// extractXCFInstructions parses a .xcf instructions sidecar and returns the
+// value of the top-level "instructions" field. If the YAML is malformed or
+// the field is absent, the raw bytes are returned unchanged.
+func extractXCFInstructions(data []byte) string {
+	var doc struct {
+		Instructions string `yaml:"instructions"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return string(data)
+	}
+	if doc.Instructions == "" {
+		return string(data)
+	}
+	return doc.Instructions
 }
 
 // ResolveScopeContent returns the effective content for an InstructionsScope,
