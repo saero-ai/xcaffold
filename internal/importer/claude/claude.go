@@ -39,6 +39,7 @@ var claudeMappings = []importer.KindMapping{
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
 	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
+	{Pattern: "workflows/*.md", Kind: importer.KindWorkflow, Layout: importer.FlatFile},
 	{Pattern: "mcp.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "settings.json", Kind: importer.KindSettings, Layout: importer.EmbeddedJSONKey},
 	{Pattern: "settings.local.json", Kind: importer.KindSettings, Layout: importer.StandaloneJSON},
@@ -70,6 +71,8 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractSkill(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
+	case importer.KindWorkflow:
+		return extractWorkflow(rel, data, config)
 	case importer.KindMCP:
 		return extractMCPStandalone(rel, data, config)
 	case importer.KindSettings:
@@ -260,6 +263,30 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Paths:          front.Paths,
 		ExcludeAgents:  front.ExcludeAgents,
 		Targets:        front.Targets,
+		Instructions:   body,
+		SourceProvider: "claude",
+	}
+	return nil
+}
+
+func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var front struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+	}
+
+	body, err := parseFrontmatter(data, &front)
+	if err != nil {
+		return fmt.Errorf("claude: workflow %q: %w", rel, err)
+	}
+
+	id := strings.TrimSuffix(filepath.Base(rel), ".md")
+	if config.Workflows == nil {
+		config.Workflows = make(map[string]ast.WorkflowConfig)
+	}
+	config.Workflows[id] = ast.WorkflowConfig{
+		Name:           front.Name,
+		Description:    front.Description,
 		Instructions:   body,
 		SourceProvider: "claude",
 	}

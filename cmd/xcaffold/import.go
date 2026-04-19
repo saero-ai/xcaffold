@@ -15,6 +15,12 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/bir"
+	"github.com/saero-ai/xcaffold/internal/importer"
+	_ "github.com/saero-ai/xcaffold/internal/importer/antigravity"
+	_ "github.com/saero-ai/xcaffold/internal/importer/claude"
+	_ "github.com/saero-ai/xcaffold/internal/importer/copilot"
+	_ "github.com/saero-ai/xcaffold/internal/importer/cursor"
+	_ "github.com/saero-ai/xcaffold/internal/importer/gemini"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/translator"
@@ -96,20 +102,19 @@ func runImport(cmd *cobra.Command, args []string) error {
 				importErr = importScope(dirs[0].dirName, globalXcfPath, "global", dirs[0].platform)
 			}
 		} else {
-			// project (default) — merge all detected directories
-			infos := detectAllPlatformDirs(".")
-			if len(infos) > 1 {
+			// project (default) — detect providers via ProviderImporter registry.
+			detected := importer.DetectProviders(".", importer.DefaultImporters())
+			if len(detected) > 1 {
 				var dirs []string
-				for _, info := range infos {
-					dirs = append(dirs, info.dirName)
+				for _, imp := range detected {
+					dirs = append(dirs, imp.InputDir())
 				}
 				importErr = mergeImportDirs(dirs, "scaffold.xcf")
-			} else if len(infos) == 1 {
-				// importScope now handles project-instruction discovery and memory
-				// snapshot internally, so no separate call needed here.
-				importErr = importScope(infos[0].dirName, "scaffold.xcf", "project", infos[0].platform)
+			} else if len(detected) == 1 {
+				imp := detected[0]
+				importErr = importScope(imp.InputDir(), "scaffold.xcf", "project", imp.Provider())
 			} else {
-				// No platform directories found
+				// No provider directories found
 				importErr = fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
 			}
 		}
@@ -474,40 +479,34 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	importCount := 0
 	var warnings []string
 
-	// ── 1. Agents / Skills / Rules / Workflows ───────────────────────────────
-	switch provider {
-	case "copilot":
-		if err := extractCopilotAgents(platformDir, config, &importCount, &warnings); err != nil {
-			return err
+	// ── 1. Delegate resource extraction to the registered ProviderImporter. ──────
+	// Each provider importer handles its own file layout, frontmatter parsing, and
+	// JSON key splitting. The legacy per-provider switch blocks below remain only
+	// for the translate path (buildConfigFromDir) and backward-compat with tests.
+	providerImp := findImporterByProvider(provider)
+	if providerImp != nil {
+		if err := providerImp.Import(platformDir, config); err != nil {
+			warnings = append(warnings, fmt.Sprintf("%s import: %v", provider, err))
 		}
-		if err := extractCopilotSkills(platformDir, config, &importCount, &warnings); err != nil {
-			return err
+		// Copy skill reference files — ProviderImporter populates AST only; side-car
+		// files under <skill>/references/ must still be copied to xcf/skills/<id>/references/.
+		for id := range config.Skills {
+			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
+			if _, err := os.Stat(skillFile); err == nil {
+				if refs, err := extractSkillRefs(skillFile, scopeName, id, &warnings); err == nil {
+					sc := config.Skills[id]
+					if len(refs) > 0 {
+						sc.References = refs
+						config.Skills[id] = sc
+					}
+				}
+			}
 		}
-		if err := extractCopilotRules(platformDir, config, &importCount, &warnings); err != nil {
-			return err
-		}
-	case "gemini":
-		if err := extractGeminiRules(projectDir, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractAgents(platformDir, scopeName, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractSkills(platformDir, scopeName, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractWorkflows(platformDir, scopeName, config, &importCount, &warnings); err != nil {
-			return err
-		}
-	case "antigravity":
-		if err := extractAntigravityRules(platformDir, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractAntigravityWorkflows(platformDir, config, &importCount, &warnings); err != nil {
-			return err
-		}
-	default:
-		// claude, cursor, or unknown — use generic extractors
+		// Count resources extracted by the importer.
+		importCount += len(config.Agents) + len(config.Skills) + len(config.Rules) +
+			len(config.Workflows) + len(config.MCP)
+	} else {
+		// Fallback to legacy extractors for unknown providers.
 		if err := extractAgents(platformDir, scopeName, config, &importCount, &warnings); err != nil {
 			return err
 		}
@@ -522,58 +521,11 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		}
 	}
 
-	// ── 2. Settings / MCP / Hooks (provider-specific) ────────────────────────
-	switch provider {
-	case "gemini":
-		// Gemini stores MCP + hooks inside .gemini/settings.json.
-		settingsPath := filepath.Join(platformDir, "settings.json")
-		if data, err := os.ReadFile(settingsPath); err == nil {
-			if err := importGeminiSettings(data, config, &importCount, &warnings); err != nil {
-				warnings = append(warnings, fmt.Sprintf(".gemini/settings.json partially imported: %v", err))
-			}
-		}
-	case "cursor":
-		// Cursor stores MCP in .cursor/mcp.json and hooks in .cursor/hooks.json.
-		cursorMCPPath := filepath.Join(platformDir, "mcp.json")
-		if data, err := os.ReadFile(cursorMCPPath); err == nil {
-			if err := importCursorMCP(data, config, &importCount, &warnings); err != nil {
-				warnings = append(warnings, fmt.Sprintf(".cursor/mcp.json partially imported: %v", err))
-			}
-		}
-		cursorHooksPath := filepath.Join(platformDir, "hooks.json")
-		if data, err := os.ReadFile(cursorHooksPath); err == nil {
-			if err := json.Unmarshal(data, &config.Hooks); err != nil {
-				warnings = append(warnings, fmt.Sprintf(".cursor/hooks.json failed to parse: %v", err))
-			} else {
-				importCount++
-			}
-		}
-	case "copilot":
-		// Copilot stores hooks in .github/hooks/*.json and MCP in .vscode/mcp.json.
-		if err := importCopilotSettings(platformDir, projectDir, config, &importCount, &warnings); err != nil {
-			warnings = append(warnings, fmt.Sprintf("copilot settings partially imported: %v", err))
-		}
-	case "antigravity":
-		// Antigravity has no project-scope settings file per ground truth.
-		// Global MCP is stored in ~/.gemini/antigravity/mcp_config.json (user-scope only).
-	default:
-		// claude (and unknown): settings.json and hooks.json inside the platform dir.
-		settingsPath := filepath.Join(platformDir, "settings.json")
-		if data, err := os.ReadFile(settingsPath); err == nil {
-			if err := importSettings(data, config, &importCount, &warnings); err != nil {
-				warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
-			}
-		}
-		hooksPath := filepath.Join(platformDir, "hooks.json")
-		if data, err := os.ReadFile(hooksPath); err == nil {
-			if err := json.Unmarshal(data, &config.Hooks); err != nil {
-				warnings = append(warnings, fmt.Sprintf("hooks.json failed to parse: %v", err))
-			} else {
-				importCount++
-			}
-		}
-		// Claude Code also stores project-scope MCP in a root-level .mcp.json
-		// (sibling to .claude/). Read it and merge with any servers from settings.json.
+	// ── 2. Claude-specific: read root .mcp.json (sibling to .claude/).
+	// Claude Code stores project-scope MCP servers in a root-level .mcp.json
+	// that lives outside .claude/. The ProviderImporter only walks .claude/, so
+	// we handle this cross-boundary file here.
+	if provider == "claude" || provider == "" {
 		rootMCPPath := filepath.Join(projectDir, ".mcp.json")
 		if data, err := os.ReadFile(rootMCPPath); err == nil {
 			if err := importSettings(data, config, &importCount, &warnings); err != nil {
@@ -2786,4 +2738,15 @@ func parseHTMLCommentAttrs(line string) map[string]string {
 		attrs[match[1]] = match[2]
 	}
 	return attrs
+}
+
+// findImporterByProvider returns the registered ProviderImporter for the given
+// provider name, or nil when no importer is registered for that provider.
+func findImporterByProvider(provider string) importer.ProviderImporter {
+	for _, imp := range importer.DefaultImporters() {
+		if imp.Provider() == provider {
+			return imp
+		}
+	}
+	return nil
 }
