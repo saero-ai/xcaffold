@@ -33,7 +33,11 @@ func (c *CopilotImporter) Provider() string { return "copilot" }
 func (c *CopilotImporter) InputDir() string { return ".github" }
 
 // copilotMappings maps path patterns to AST kinds. First match wins.
+// agents/*.agent.md is listed before agents/*.md so the more specific
+// renderer-emitted extension takes priority while plain .md still matches
+// for backward compatibility.
 var copilotMappings = []importer.KindMapping{
+	{Pattern: "agents/*.agent.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*.md", Kind: importer.KindSkill, Layout: importer.FlatFile},
 	{Pattern: "instructions/*.instructions.md", Kind: importer.KindRule, Layout: importer.FlatFile, Extension: ".instructions.md"},
@@ -149,7 +153,12 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		return fmt.Errorf("copilot: agent %q: %w", rel, err)
 	}
 
-	id := strings.TrimSuffix(filepath.Base(rel), ".md")
+	base := filepath.Base(rel)
+	id := strings.TrimSuffix(base, ".agent.md")
+	if id == base {
+		// Fall back to plain .md for backward compatibility.
+		id = strings.TrimSuffix(base, ".md")
+	}
 	if config.Agents == nil {
 		config.Agents = make(map[string]ast.AgentConfig)
 	}

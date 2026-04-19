@@ -92,6 +92,42 @@ func TestApplyProviderExtras_NilExtras_NoOp(t *testing.T) {
 	assert.Empty(t, notes)
 }
 
+// TestApplyProviderExtras_RejectsPathTraversal verifies that same-provider
+// extras with path-traversal sequences or absolute paths are rejected and a
+// warning FidelityNote is emitted for each unsafe path.
+func TestApplyProviderExtras_RejectsPathTraversal(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ProviderExtras: map[string]map[string][]byte{
+			"claude": {
+				"../../etc/passwd":  []byte("malicious"),
+				"agents/legit.md":   []byte("safe"),
+				"/absolute/path.md": []byte("also bad"),
+			},
+		},
+	}
+	out := &compiler.Output{Files: make(map[string]string)}
+	var notes []renderer.FidelityNote
+
+	notes = applyProviderExtras(config, out, "claude", notes)
+
+	assert.NotContains(t, out.Files, "../../etc/passwd", "traversal path must not be written")
+	assert.NotContains(t, out.Files, "/absolute/path.md", "absolute path must not be written")
+	require.Contains(t, out.Files, "agents/legit.md", "safe relative path must be written")
+	assert.Equal(t, "safe", out.Files["agents/legit.md"])
+
+	// Two unsafe paths must each produce exactly one warning note.
+	require.Len(t, notes, 2)
+	codes := make([]string, len(notes))
+	for i, n := range notes {
+		codes[i] = n.Code
+		assert.Equal(t, renderer.LevelWarning, n.Level)
+		assert.Equal(t, "claude", n.Target)
+		assert.Equal(t, "extras", n.Kind)
+	}
+	assert.Contains(t, codes, "provider-extras-path-unsafe")
+	assert.Contains(t, codes, "provider-extras-path-unsafe")
+}
+
 // TestApplyProviderExtras_NoteOrderIsDeterministic verifies that multiple
 // cross-provider extras emit notes in sorted path order.
 func TestApplyProviderExtras_NoteOrderIsDeterministic(t *testing.T) {

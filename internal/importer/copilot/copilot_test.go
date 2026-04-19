@@ -26,7 +26,7 @@ func TestCopilotImporter_InputDir(t *testing.T) {
 
 func TestCopilotClassify_AgentPattern(t *testing.T) {
 	imp := copilotimp.New()
-	kind, layout := imp.Classify("agents/auditor.md", false)
+	kind, layout := imp.Classify("agents/auditor.agent.md", false)
 	assert.Equal(t, importer.KindAgent, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
@@ -88,7 +88,7 @@ func TestCopilotExtract_Agent(t *testing.T) {
 	data := []byte("---\nname: Code Auditor\ndescription: Reviews code\nmodel: gpt-4o\n---\n\nYou are an auditor.\n")
 	config := &ast.XcaffoldConfig{}
 	imp := copilotimp.New()
-	err := imp.Extract("agents/auditor.md", data, config)
+	err := imp.Extract("agents/auditor.agent.md", data, config)
 	require.NoError(t, err)
 	agent, ok := config.Agents["auditor"]
 	require.True(t, ok, "expected agent 'auditor' in config")
@@ -96,6 +96,20 @@ func TestCopilotExtract_Agent(t *testing.T) {
 	assert.Equal(t, "Reviews code", agent.Description)
 	assert.Equal(t, "gpt-4o", agent.Model)
 	assert.Contains(t, agent.Instructions, "You are an auditor.")
+	assert.Equal(t, "copilot", agent.SourceProvider)
+}
+
+// TestCopilotExtract_Agent_PlainMd ensures plain .md agent files still parse
+// correctly for backward compatibility.
+func TestCopilotExtract_Agent_PlainMd(t *testing.T) {
+	data := []byte("---\nname: Legacy Agent\ndescription: Old style\nmodel: gpt-4o\n---\n\nLegacy instructions.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := copilotimp.New()
+	err := imp.Extract("agents/legacy.md", data, config)
+	require.NoError(t, err)
+	agent, ok := config.Agents["legacy"]
+	require.True(t, ok, "expected agent 'legacy' in config")
+	assert.Equal(t, "Legacy Agent", agent.Name)
 	assert.Equal(t, "copilot", agent.SourceProvider)
 }
 

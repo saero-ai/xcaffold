@@ -457,7 +457,19 @@ func applyProviderExtras(config *ast.XcaffoldConfig, out *compiler.Output, targe
 		files := config.ProviderExtras[provider]
 		if provider == target {
 			for relPath, data := range files {
-				out.Files[relPath] = string(data)
+				cleaned := filepath.Clean(relPath)
+				if strings.HasPrefix(cleaned, "..") || filepath.IsAbs(cleaned) {
+					notes = append(notes, renderer.FidelityNote{
+						Level:    renderer.LevelWarning,
+						Target:   target,
+						Kind:     "extras",
+						Resource: relPath,
+						Code:     "provider-extras-path-unsafe",
+						Reason:   fmt.Sprintf("skipping extras path %q: path traversal detected", relPath),
+					})
+					continue
+				}
+				out.Files[cleaned] = string(data)
 			}
 			continue
 		}
