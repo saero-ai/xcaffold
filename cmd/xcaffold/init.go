@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/registry"
@@ -114,6 +115,16 @@ func initProject(cmd *cobra.Command) error {
 	if imported, err := offerImportIfPlatformDirExists(cmd); err != nil {
 		return err
 	} else if imported {
+		if injectErr := injectXcaffoldSkillAfterImport("."); injectErr != nil {
+			cmd.Printf("  ⚠ Failed to inject /xcaffold skill: %v\n", injectErr)
+		} else {
+			cmd.Println("\n💡 AI Assistant Integration:")
+			cmd.Println("  A complementary /xcaffold AI skill was generated in xcf/skills/xcaffold.xcf.")
+			cmd.Println("  Run 'xcaffold apply' to instantly teach AI assistants in this project how to use xcaffold.")
+			cmd.Println("  To install this skill globally for your preferred provider, run:")
+			cmd.Println("    $ xcaffold init --global")
+			cmd.Println("    $ xcaffold apply --global")
+		}
 		return nil
 	}
 
@@ -131,6 +142,49 @@ func tryAutoRegister(xcfFile string) {
 		cwd, _ := os.Getwd()
 		_ = registry.Register(cwd, config.Project.Name, nil, ".")
 	}
+}
+
+// injectXcaffoldSkillAfterImport parses the imported scaffold.xcf, adds the xcaffold skill to the
+// skills list if not present, and statically writes the xcf/skills/xcaffold.xcf template.
+func injectXcaffoldSkillAfterImport(baseDir string) error {
+	xcfFile := filepath.Join(baseDir, "scaffold.xcf")
+	config, err := parser.ParseFile(xcfFile)
+	if err != nil {
+		return fmt.Errorf("parsing imported scaffold: %w", err)
+	}
+
+	targets := []string{"claude"} // fallback
+	if config.Project != nil && len(config.Project.Targets) > 0 {
+		targets = config.Project.Targets
+	} else if config.Project == nil {
+		config.Project = &ast.ProjectConfig{Name: filepath.Base(baseDir), Targets: targets}
+	}
+
+	hasSkill := false
+	for _, s := range config.Project.SkillRefs {
+		if s == "xcaffold" {
+			hasSkill = true
+			break
+		}
+	}
+	if !hasSkill {
+		config.Project.SkillRefs = append(config.Project.SkillRefs, "xcaffold")
+		out, err := MarshalMultiKind(config, "")
+		if err != nil {
+			return fmt.Errorf("marshalling updated config: %w", err)
+		}
+		if err := os.WriteFile(xcfFile, out, 0o600); err != nil {
+			return fmt.Errorf("writing updated scaffold: %w", err)
+		}
+	}
+
+	// Always ensure the xcf/skills/xcaffold.xcf is written
+	skillsDir := filepath.Join(baseDir, "xcf", "skills")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		return err
+	}
+	skillContent := templates.RenderXcaffoldSkillXCF(targets)
+	return os.WriteFile(filepath.Join(skillsDir, "xcaffold.xcf"), []byte(skillContent), 0o600)
 }
 
 // offerImportIfPlatformDirExists checks for existing platform directories (.claude/, .cursor/, .agents/).
