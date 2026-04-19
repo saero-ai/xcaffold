@@ -2,6 +2,7 @@ package claude_test
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -71,12 +72,86 @@ func TestClaudeClassify_MemoryNestedFile(t *testing.T) {
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
-func TestClaudeClassify_SkillAssetNotRoot(t *testing.T) {
-	// skills/tdd/references/schema.sql is inside a skill dir — not a root-level pattern
-	// Skill subdirectory files are handled by Extract(), not Classify() root-level patterns.
+func TestClaudeClassify_SkillReferenceFile(t *testing.T) {
 	imp := claudeimp.New()
-	kind, _ := imp.Classify("skills/tdd/references/schema.sql", false)
-	assert.Equal(t, importer.KindUnknown, kind)
+	kind, layout := imp.Classify("skills/tdd/references/schema.sql", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestClaudeClassify_SkillScriptFile(t *testing.T) {
+	imp := claudeimp.New()
+	kind, layout := imp.Classify("skills/tdd/scripts/run.sh", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestClaudeClassify_SkillAssetFile(t *testing.T) {
+	imp := claudeimp.New()
+	kind, layout := imp.Classify("skills/tdd/assets/template.md", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestClaudeClassify_SkillNestedReferenceFile(t *testing.T) {
+	imp := claudeimp.New()
+	kind, _ := imp.Classify("skills/tdd/references/subdir/deep.txt", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+}
+
+func TestClaudeExtract_SkillCompanionFilePopulatesReferences(t *testing.T) {
+	// Pre-populate the skill so the companion extractor can find it.
+	config := &ast.XcaffoldConfig{}
+	config.Skills = map[string]ast.SkillConfig{
+		"tdd": {Name: "tdd-driven-development", SourceProvider: "claude"},
+	}
+	imp := claudeimp.New()
+	err := imp.Extract("skills/tdd/references/schema.sql", []byte("CREATE TABLE t (id INT);"), config)
+	require.NoError(t, err)
+	skill := config.Skills["tdd"]
+	assert.Contains(t, skill.References, "references/schema.sql")
+}
+
+func TestClaudeExtract_SkillCompanionFilePopulatesScripts(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Skills = map[string]ast.SkillConfig{
+		"tdd": {Name: "tdd-driven-development", SourceProvider: "claude"},
+	}
+	imp := claudeimp.New()
+	err := imp.Extract("skills/tdd/scripts/run.sh", []byte("#!/bin/bash\necho ok"), config)
+	require.NoError(t, err)
+	skill := config.Skills["tdd"]
+	assert.Contains(t, skill.Scripts, "scripts/run.sh")
+}
+
+func TestClaudeExtract_SkillCompanionFilePopulatesAssets(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Skills = map[string]ast.SkillConfig{
+		"tdd": {Name: "tdd-driven-development", SourceProvider: "claude"},
+	}
+	imp := claudeimp.New()
+	err := imp.Extract("skills/tdd/assets/template.md", []byte("# Template"), config)
+	require.NoError(t, err)
+	skill := config.Skills["tdd"]
+	assert.Contains(t, skill.Assets, "assets/template.md")
+}
+
+func TestClaudeImport_SkillCompanionFilesNotInExtras(t *testing.T) {
+	// After import, companion files must NOT appear in ProviderExtras.
+	imp := claudeimp.New()
+	config := &ast.XcaffoldConfig{}
+	inputDir := filepath.Join("testdata", "input")
+	err := imp.Import(inputDir, config)
+	require.NoError(t, err)
+	extras := config.ProviderExtras["claude"]
+	for k := range extras {
+		assert.False(t, strings.HasPrefix(k, "skills/tdd/references/"),
+			"skill reference file %q must not appear in ProviderExtras", k)
+		assert.False(t, strings.HasPrefix(k, "skills/tdd/scripts/"),
+			"skill script file %q must not appear in ProviderExtras", k)
+		assert.False(t, strings.HasPrefix(k, "skills/tdd/assets/"),
+			"skill asset file %q must not appear in ProviderExtras", k)
+	}
 }
 
 func TestClaudeImporter_Provider(t *testing.T) {

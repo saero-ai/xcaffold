@@ -4,16 +4,17 @@ package importer
 type Kind string
 
 const (
-	KindAgent    Kind = "agent"
-	KindSkill    Kind = "skill"
-	KindRule     Kind = "rule"
-	KindMCP      Kind = "mcp"
-	KindHook     Kind = "hook"
-	KindSettings Kind = "settings"
-	KindMemory   Kind = "memory"
-	KindWorkflow Kind = "workflow"
-	KindPolicy   Kind = "policy"
-	KindUnknown  Kind = ""
+	KindAgent      Kind = "agent"
+	KindSkill      Kind = "skill"
+	KindSkillAsset Kind = "skill-asset"
+	KindRule       Kind = "rule"
+	KindMCP        Kind = "mcp"
+	KindHook       Kind = "hook"
+	KindSettings   Kind = "settings"
+	KindMemory     Kind = "memory"
+	KindWorkflow   Kind = "workflow"
+	KindPolicy     Kind = "policy"
+	KindUnknown    Kind = ""
 )
 
 // Layout describes how a provider stores a particular kind on disk.

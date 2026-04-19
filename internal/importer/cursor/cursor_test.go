@@ -63,6 +63,39 @@ func TestCursorClassify_UnknownFile(t *testing.T) {
 	assert.Equal(t, importer.LayoutUnknown, layout)
 }
 
+func TestCursorClassify_SkillReferenceFile(t *testing.T) {
+	imp := cursorimp.New()
+	kind, layout := imp.Classify("skills/code-review/references/guide.md", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestCursorClassify_SkillScriptFile(t *testing.T) {
+	imp := cursorimp.New()
+	kind, layout := imp.Classify("skills/code-review/scripts/helper.sh", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestCursorClassify_SkillAssetFile(t *testing.T) {
+	imp := cursorimp.New()
+	kind, layout := imp.Classify("skills/code-review/assets/icon.svg", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestCursorExtract_SkillCompanionFilePopulatesReferences(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Skills = map[string]ast.SkillConfig{
+		"code-review": {Name: "code-review", SourceProvider: "cursor"},
+	}
+	imp := cursorimp.New()
+	err := imp.Extract("skills/code-review/references/guide.md", []byte("# Guide"), config)
+	require.NoError(t, err)
+	skill := config.Skills["code-review"]
+	assert.Contains(t, skill.References, "references/guide.md")
+}
+
 func TestCursorImporter_Provider(t *testing.T) {
 	assert.Equal(t, "cursor", cursorimp.New().Provider())
 }
