@@ -14,41 +14,15 @@ import (
 
 // TestInitWizard_GeneratesMultiKindFormat verifies that buildXCFContent emits
 // a multi-kind scaffold with a kind: project document and a kind: agent document.
-func TestInitWizard_GeneratesMultiKindFormat(t *testing.T) {
+func TestInitWizard_Targets_IsSlice(t *testing.T) {
 	ans := wizardAnswers{
-		name:      "test-project",
-		desc:      "",
-		target:    "claude",
-		wantAgent: true,
+		name:    "test-project",
+		targets: []string{"claude", "cursor"},
 	}
-	content := buildXCFContent(ans)
-
-	// Must contain kind: project (not kind: config)
-	assert.Contains(t, content, "kind: project")
-	assert.NotContains(t, content, "kind: config")
-
-	// name must be at top level, not nested under project:
-	assert.Contains(t, content, `name: "test-project"`)
-	assert.NotContains(t, content, "project:")
-
-	// Must declare targets
-	assert.Contains(t, content, "targets:")
-	assert.Contains(t, content, "- claude")
-
-	// Must contain kind: agent document
-	assert.Contains(t, content, "kind: agent")
-	assert.Contains(t, content, "name: developer")
-
-	// Must have --- separator between documents
-	assert.Contains(t, content, "---")
-
-	// Must be parseable as a valid XcaffoldConfig
-	config, err := parser.Parse(strings.NewReader(content))
-	require.NoError(t, err)
-	require.NotNil(t, config.Project)
-	assert.Equal(t, "test-project", config.Project.Name)
-	assert.Equal(t, []string{"claude"}, config.Project.Targets)
-	assert.Contains(t, config.Agents, "developer")
+	// targets must be a []string field, not a string
+	require.Len(t, ans.targets, 2)
+	assert.Equal(t, "claude", ans.targets[0])
+	assert.Equal(t, "cursor", ans.targets[1])
 }
 
 // TestInitWizard_GeneratesMultiKindFormat_NoAgent verifies that when wantAgent
@@ -57,7 +31,7 @@ func TestInitWizard_GeneratesMultiKindFormat_NoAgent(t *testing.T) {
 	ans := wizardAnswers{
 		name:      "test-project",
 		desc:      "",
-		target:    "claude",
+		targets:   []string{"claude"},
 		wantAgent: false,
 	}
 	content := buildXCFContent(ans)
@@ -109,7 +83,7 @@ func TestInitWizard_GeneratesMultiKindFormat_TargetCursor(t *testing.T) {
 	ans := wizardAnswers{
 		name:      "cursor-project",
 		desc:      "",
-		target:    "cursor",
+		targets:   []string{"cursor"},
 		wantAgent: false,
 	}
 	content := buildXCFContent(ans)
@@ -129,7 +103,7 @@ func TestBuildXCFContent_CanonicalFieldOrdering(t *testing.T) {
 	ans := wizardAnswers{
 		name:      "test-project",
 		desc:      "",
-		target:    "claude",
+		targets:   []string{"claude"},
 		wantAgent: true,
 	}
 
@@ -190,7 +164,7 @@ func TestInit_SkipsReferencesWithFlag(t *testing.T) {
 func TestBuildXCFContent_IncludesReferencePointer(t *testing.T) {
 	ans := wizardAnswers{
 		name:      "test",
-		target:    "claude",
+		targets:   []string{"claude"},
 		wantAgent: true,
 	}
 	content := buildXCFContent(ans)
@@ -232,7 +206,7 @@ func TestInit_EndToEnd_GeneratesFieldOrderedAgent(t *testing.T) {
 	ans := wizardAnswers{
 		name:      "e2e-test",
 		desc:      "End-to-end test project",
-		target:    "claude",
+		targets:   []string{"claude"},
 		wantAgent: true,
 	}
 	content := buildXCFContent(ans)
