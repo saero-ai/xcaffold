@@ -1,0 +1,9 @@
+kind: blueprint
+version: "1.0"
+name: base-engineering
+description: Common resources shared across all engineering work
+skills:
+  - tdd
+  - commit-changes
+rules:
+  - secure-code

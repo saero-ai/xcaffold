@@ -3,6 +3,7 @@ package parser
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -127,4 +128,27 @@ func TestBlueprint_SingleActive_IsValid(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: b\n"), 0600))
 	_, err := ParseDirectory(dir)
 	require.NoError(t, err)
+}
+
+func TestBlueprint_FixturesParse(t *testing.T) {
+	// Verifies that each blueprint fixture file is structurally valid YAML.
+	// ParseFileExact runs validatePartial (IDs, hooks, instructions, activations)
+	// but not validateMerged (cross-ref checks), so fixtures may reference resources
+	// that do not exist in the fixture directory without failing here.
+	fixtureDir := filepath.Join("..", "..", "testing", "fixtures", "blueprints")
+
+	entries, err := os.ReadDir(fixtureDir)
+	require.NoError(t, err)
+	require.NotEmpty(t, entries)
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".xcf") {
+			continue
+		}
+		t.Run(entry.Name(), func(t *testing.T) {
+			path := filepath.Join(fixtureDir, entry.Name())
+			_, err := ParseFileExact(path)
+			require.NoError(t, err, "fixture %s should parse without error", entry.Name())
+		})
+	}
 }
