@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -505,10 +506,11 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			lastName = extractScalarField(docNode, "name")
 
 		case "blueprint":
-			// Accepted by isParseableFile; full routing owned by the blueprint kind spec.
-			// Extract version for config envelope consistency.
 			if config.Version == "" {
 				config.Version = extractVersion(docNode)
+			}
+			if parseErr := parseBlueprintDocument(docNode, config); parseErr != nil {
+				return nil, parseErr
 			}
 			lastKind = "blueprint"
 			lastName = extractScalarField(docNode, "name")
@@ -570,7 +572,6 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 				ref.Content = trimmedBody
 				config.References[lastName] = ref
 			}
-			// "blueprint" intentionally omitted — body routing deferred to the blueprint renderer.
 		}
 	}
 
@@ -957,6 +958,7 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	policyOrigins := map[string]string{}
 	memoryOrigins := map[string]string{}
 	referenceOrigins := map[string]string{}
+	blueprintOrigins := map[string]string{}
 	settingsOrigin := ""
 	localOrigin := ""
 
@@ -1079,6 +1081,11 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		}
 
 		merged.References, referenceOrigins, err = mergeMapStrict(merged.References, p.References, "reference", referenceOrigins, f)
+		if err != nil {
+			return nil, err
+		}
+
+		merged.Blueprints, blueprintOrigins, err = mergeMapStrict(merged.Blueprints, p.Blueprints, "blueprint name", blueprintOrigins, f)
 		if err != nil {
 			return nil, err
 		}
@@ -1277,6 +1284,7 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.Policies = mergeMapOverride(base.Policies, child.Policies)
 	merged.Memory = mergeMemoryOverrideInherited(base.Memory, child.Memory)
 	merged.References = mergeReferencesOverrideInherited(base.References, child.References)
+	merged.Blueprints = mergeMapOverride(base.Blueprints, child.Blueprints)
 	merged.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
 
 	merged.Settings = mergeSettingsOverride(base.Settings, child.Settings)
@@ -1648,6 +1656,22 @@ func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 	return nil
 }
 
+// validateActiveBlueprint checks that at most one blueprint has Active set to true.
+// Multiple active blueprints are ambiguous and are rejected at parse time.
+func validateActiveBlueprint(blueprints map[string]ast.BlueprintConfig) error {
+	var activeNames []string
+	for name, bp := range blueprints {
+		if bp.Active {
+			activeNames = append(activeNames, name)
+		}
+	}
+	if len(activeNames) > 1 {
+		sort.Strings(activeNames)
+		return fmt.Errorf("multiple blueprints marked as active: %s (at most one allowed)", strings.Join(activeNames, ", "))
+	}
+	return nil
+}
+
 func validateMerged(c *ast.XcaffoldConfig) error {
 	if err := validateBase(c); err != nil {
 		return err
@@ -1659,6 +1683,9 @@ func validateMerged(c *ast.XcaffoldConfig) error {
 		return err
 	}
 	if err := validateMemoryFields(c); err != nil {
+		return err
+	}
+	if err := validateActiveBlueprint(c.Blueprints); err != nil {
 		return err
 	}
 	return nil

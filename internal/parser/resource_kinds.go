@@ -140,6 +140,58 @@ type referenceDocument struct {
 	ast.ReferenceConfig `yaml:",inline"`
 }
 
+// blueprintDocument wraps BlueprintConfig with envelope fields for kind: blueprint parsing.
+// Name is promoted from BlueprintConfig.Name.
+type blueprintDocument struct {
+	Kind                string `yaml:"kind"`
+	Version             string `yaml:"version"`
+	ast.BlueprintConfig `yaml:",inline"`
+}
+
+// isValidResourceName checks that a name contains only lowercase letters,
+// digits, and hyphens. Empty names are rejected.
+func isValidResourceName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+			return false
+		}
+	}
+	return true
+}
+
+// parseBlueprintDocument decodes a yaml.Node into a blueprintDocument with
+// KnownFields validation, validates envelope fields and name constraints,
+// and inserts the resource into config.Blueprints.
+func parseBlueprintDocument(node *yaml.Node, config *ast.XcaffoldConfig) error {
+	b, err := nodeToBytes(node)
+	if err != nil {
+		return fmt.Errorf("failed to marshal blueprint document: %w", err)
+	}
+	var doc blueprintDocument
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+	dec.KnownFields(true)
+	if err := dec.Decode(&doc); err != nil {
+		return fmt.Errorf("invalid blueprint document: %w", err)
+	}
+	if err := validateEnvelope(doc.Version, doc.Name, "blueprint"); err != nil {
+		return err
+	}
+	if !isValidResourceName(doc.Name) {
+		return fmt.Errorf("blueprint name %q is invalid: must contain only lowercase letters, digits, and hyphens", doc.Name)
+	}
+	if config.Blueprints == nil {
+		config.Blueprints = make(map[string]ast.BlueprintConfig)
+	}
+	if _, exists := config.Blueprints[doc.Name]; exists {
+		return fmt.Errorf("duplicate blueprint name %q", doc.Name)
+	}
+	config.Blueprints[doc.Name] = doc.BlueprintConfig
+	return nil
+}
+
 // parseReferenceDocument decodes a yaml.Node into a referenceDocument with
 // KnownFields validation, validates envelope fields, and inserts the resource
 // into config.References.
