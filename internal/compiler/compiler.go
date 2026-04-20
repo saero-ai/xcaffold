@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
@@ -49,6 +50,26 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 
 	if err := resolver.ResolveAttributes(config); err != nil {
 		return nil, nil, fmt.Errorf("attribute resolution failed: %w", err)
+	}
+
+	// Blueprint resolution: resolve extends chains and transitive deps before filtering.
+	if len(config.Blueprints) > 0 {
+		if err := blueprint.ResolveBlueprintExtends(config.Blueprints); err != nil {
+			return nil, nil, fmt.Errorf("blueprint extends resolution failed: %w", err)
+		}
+		if errs := blueprint.ValidateBlueprintRefs(config.Blueprints, &config.ResourceScope); len(errs) > 0 {
+			msgs := make([]string, len(errs))
+			for i, e := range errs {
+				msgs[i] = e.Error()
+			}
+			return nil, nil, fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
+		}
+	}
+	if blueprintName != "" {
+		if p, ok := config.Blueprints[blueprintName]; ok {
+			blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope)
+			config.Blueprints[blueprintName] = p
+		}
 	}
 
 	// Blueprint filtering: narrow the resource scope to the named blueprint's subset.

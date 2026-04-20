@@ -428,3 +428,98 @@ func TestCompile_UnknownBlueprint_Error(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ghost")
 }
+
+// TestCompile_BlueprintExtends_InheritedResources verifies that extends
+// resolution runs before ApplyBlueprint so a child blueprint inherits
+// the parent's ref-lists and the inherited agents are compiled.
+func TestCompile_BlueprintExtends_InheritedResources(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"base-agent":  {Name: "BaseAgent", Description: "base", Instructions: "base instructions"},
+				"child-agent": {Name: "ChildAgent", Description: "child", Instructions: "child instructions"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"base":  {Name: "base", Agents: []string{"base-agent"}},
+			"child": {Name: "child", Extends: "base", Agents: []string{"child-agent"}},
+		},
+	}
+
+	out, _, err := Compile(cfg, t.TempDir(), "claude", "child")
+	require.NoError(t, err)
+
+	hasAgent := func(name string) bool {
+		for path := range out.Files {
+			if strings.Contains(path, name) {
+				return true
+			}
+		}
+		return false
+	}
+	require.True(t, hasAgent("child-agent"), "child-agent must be compiled for 'child' blueprint")
+	require.True(t, hasAgent("base-agent"), "base-agent must be compiled — inherited via extends from 'base'")
+}
+
+// TestCompile_BlueprintTransitiveDeps_AutoExpandsSkills verifies that
+// ResolveTransitiveDeps is called so an agent's skills are auto-included
+// when the blueprint lists no explicit skills.
+func TestCompile_BlueprintTransitiveDeps_AutoExpandsSkills(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Name:         "Dev",
+					Description:  "developer",
+					Instructions: "dev instructions",
+					Skills:       []string{"tdd"},
+				},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {Name: "tdd", Description: "TDD skill", Instructions: "follow tdd"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			// Only agents listed; skills intentionally empty so transitive dep
+			// resolution should populate them automatically.
+			"backend": {Name: "backend", Agents: []string{"dev"}},
+		},
+	}
+
+	out, _, err := Compile(cfg, t.TempDir(), "claude", "backend")
+	require.NoError(t, err)
+
+	hasSkill := func(name string) bool {
+		for path := range out.Files {
+			if strings.Contains(path, name) {
+				return true
+			}
+		}
+		return false
+	}
+	require.True(t, hasSkill("tdd"), "tdd skill must be compiled via transitive dep expansion")
+}
+
+// TestCompile_BlueprintValidation_RunsAfterExtends ensures that
+// ValidateBlueprintRefs is evaluated after extends resolution. A child
+// blueprint that references resources only available through the parent
+// must not produce a validation error.
+func TestCompile_BlueprintValidation_RunsAfterExtends(t *testing.T) {
+	// "child" extends "base" and picks up "base-agent" through inheritance.
+	// Without post-extends validation this would erroneously report
+	// "base-agent" as unknown for the "child" blueprint.
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"base-agent": {Name: "BaseAgent", Description: "base", Instructions: "base instructions"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"base":  {Name: "base", Agents: []string{"base-agent"}},
+			"child": {Name: "child", Extends: "base"},
+		},
+	}
+
+	_, _, err := Compile(cfg, t.TempDir(), "claude", "child")
+	require.NoError(t, err, "child blueprint inheriting base-agent via extends must compile without error")
+}

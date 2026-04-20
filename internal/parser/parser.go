@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	blueprintpkg "github.com/saero-ai/xcaffold/internal/blueprint"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1760,13 +1759,6 @@ func validateMerged(c *ast.XcaffoldConfig) error {
 	}
 	if err := validateActiveBlueprint(c.Blueprints); err != nil {
 		return err
-	}
-	if errs := blueprintpkg.ValidateBlueprintRefs(c.Blueprints, &c.ResourceScope); len(errs) > 0 {
-		msgs := make([]string, len(errs))
-		for i, e := range errs {
-			msgs[i] = e.Error()
-		}
-		return fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
 	}
 	return nil
 }

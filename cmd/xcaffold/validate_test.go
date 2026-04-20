@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -129,6 +130,60 @@ func TestValidate_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
+}
+
+// TestCheckBashWithoutHook_ProjectHook_NoWarn verifies that a project-level
+// PreToolUse hook declared in the "default" block suppresses the Bash warning.
+// Before the fix this failed because the code indexed cfg.Hooks["PreToolUse"]
+// (wrong level) instead of cfg.Hooks["default"].Events["PreToolUse"].
+func TestCheckBashWithoutHook_ProjectHook_NoWarn(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Name:         "Dev",
+					Instructions: "instructions",
+					Tools:        []string{"Bash"},
+					Hooks:        ast.HookConfig{},
+				},
+			},
+		},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Command: "validate.sh"}}},
+					},
+				},
+			},
+		},
+	}
+
+	warnings := checkBashWithoutHook(cfg)
+	assert.Empty(t, warnings, "project-level PreToolUse hook must suppress Bash warning")
+}
+
+// TestCheckBashWithoutHook_NoHook_Warns verifies that the warning fires when
+// neither the project nor the agent has a PreToolUse hook.
+func TestCheckBashWithoutHook_NoHook_Warns(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Name:         "Dev",
+					Instructions: "instructions",
+					Tools:        []string{"Bash"},
+					Hooks:        ast.HookConfig{},
+				},
+			},
+		},
+		Hooks: map[string]ast.NamedHookConfig{},
+	}
+
+	warnings := checkBashWithoutHook(cfg)
+	assert.Len(t, warnings, 1, "missing PreToolUse hook must produce a warning")
+	assert.Contains(t, warnings[0], "PreToolUse")
 }
 
 func TestValidateCmd_StructuralChecks(t *testing.T) {

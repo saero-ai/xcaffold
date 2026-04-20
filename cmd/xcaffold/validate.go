@@ -174,7 +174,10 @@ func checkMissingInstructions(cfg *ast.XcaffoldConfig) []string {
 }
 
 func checkBashWithoutHook(cfg *ast.XcaffoldConfig) []string {
-	_, projectHasPreToolUse := cfg.Hooks["PreToolUse"]
+	projectHasPreToolUse := false
+	if dh, ok := cfg.Hooks["default"]; ok {
+		_, projectHasPreToolUse = dh.Events["PreToolUse"]
+	}
 	var warnings []string
 	for agentID, agent := range cfg.Agents {
 		hasBash := false
