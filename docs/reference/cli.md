@@ -15,8 +15,9 @@ Available on every subcommand via `rootCmd.PersistentFlags()`.
 
 | Flag | Default | Description |
 |---|---|---|
-| `--config <path>` | `""` | Path to a `project.xcf` file or a directory containing `.xcf` files. If a directory is given, `parser.ParseDirectory()` scans all `*.xcf` files within it. Defaults to `./project.xcf` discovered via upward directory walk. |
+| `--config <path>` | `""` | Path to a `project.xcf` file or a directory containing `.xcf` files. If a directory is given, `parser.ParseDirectory()` scans all `*.xcf` files within it. Defaults to `./project.xcf` discovered via upward directory walk. Any filename is accepted as long as it contains `kind: project` frontmatter. |
 | `--global` / `-g` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcf`). When omitted, the default scope is project. |
+| `--blueprint <name>` | `""` | Compile only the named blueprint subset (resources selected by a `kind: blueprint` file with the matching name). Mutually exclusive with `--global`. |
 | `--version` | — | Prints `<version> (commit: <sha>, date: <date>)` and exits. |
 
 **Scope resolution (`resolveConfig` in `main.go`):**
@@ -124,11 +125,11 @@ The topology includes agents, skills, rules, MCP servers, hooks, and workflows. 
 
 **File:** `cmd/xcaffold/apply.go`
 
-Compiles `project.xcf` (or a directory of `.xcf` files) into a target platform's native format. Writes a SHA-256 lock manifest to `scaffold.<target>.lock`. Automatically purges orphaned output files.
+Compiles `project.xcf` (or a directory of `.xcf` files) into a target platform's native format. Writes a SHA-256 state manifest to `.xcaffold/<blueprint>.xcf.state`. Automatically purges orphaned output files.
 
-**Smart skip:** If `scaffold.<target>.lock` contains a `source_files` manifest and no source hashes have changed, compilation is skipped. Use `--force` to bypass.
+**Smart skip:** If `.xcaffold/<blueprint>.xcf.state` contains a `source_files` manifest and no source hashes have changed, compilation is skipped. Use `--force` to bypass.
 
-**Drift guard:** Before writing, compares current output file hashes against the lock manifest. If manual edits are detected (drift), the command exits with an error. Use `--force` to override.
+**Drift guard:** Before writing, compares current output file hashes against the state manifest. If manual edits are detected (drift), the command exits with an error. Use `--force` to override.
 
 **Target → output directory mapping:**
 
@@ -158,7 +159,7 @@ Compiles `project.xcf` (or a directory of `.xcf` files) into a target platform's
 
 **File:** `cmd/xcaffold/diff.go`
 
-Compares SHA-256 hashes of all tracked output files against the lock manifest (`scaffold.<target>.lock`). Also compares source file hashes if `SourceFiles` is present in the lock.
+Compares SHA-256 hashes of all tracked output files against the state manifest (`.xcaffold/<blueprint>.xcf.state`). Also compares source file hashes if `SourceFiles` is present in the state.
 
 **Status codes per file:**
 
@@ -176,6 +177,54 @@ Exits non-zero with a count of drifted files if any drift is found.
 | Flag | Default | Description |
 |---|---|---|
 | `--target <target>` | `""` (defaults to `claude`) | Target lock file to inspect. One of: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`. |
+| `--blueprint <name>` | `""` | Check drift for the named blueprint's state file (`.xcaffold/<name>.xcf.state`). |
+
+---
+
+### `xcaffold status`
+
+**File:** `cmd/xcaffold/status.go`
+
+Reads state from `.xcaffold/` and displays a summary of project compilation state, active blueprint, per-target freshness, and any detected drift.
+
+**Output fields:**
+
+| Field | Description |
+|-------|-------------|
+| `Blueprint` | Active blueprint name (the blueprint with `active: true`). Shows `none` if no blueprint is active. |
+| `Targets` | Compilation targets recorded in the active state file. |
+| Per-target status | Last applied timestamp and artifact count. Shows `drifted` if artifact hashes differ from state. |
+| `Sources` | Count of tracked source `.xcf` files. Lists changed files individually. |
+
+**Example output:**
+
+```
+Blueprint: backend (active)
+Targets:   claude, cursor
+
+  claude:  applied 2 hours ago, 9 artifacts (all clean)
+  cursor:  applied 2 hours ago, 9 artifacts (1 drifted)
+
+Sources:   7 files
+  changed  xcf/skills/tdd/tdd.xcf    <- re-apply needed
+
+Run 'xcaffold apply --blueprint backend' to sync.
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--blueprint <name>` | `""` | Show status for the named blueprint's state file. |
+| `--global` | `false` | Show status for the global config state. |
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0` | No drift detected. |
+| `1` | Drift detected (source changed or artifact modified). |
+| `2` | No state file found (project has never been applied). |
+
+For a walkthrough, see [Checking Project Status](../how-to/checking-project-status.md).
 
 ---
 
@@ -195,7 +244,7 @@ With `--judge`, sends the trace and the agent's `assertions` list to an LLM for 
 
 **Task resolution:** Uses `test.task` from `project.xcf`. If unset, defaults to `"Describe what tools you have available and what you would do first."`.
 
-**CLI path resolution (judge fallback only):** `--cli-path` flag > `test.cli_path` in `project.xcf` > `test.cli-path` (deprecated) > `claude` on `$PATH`.
+**CLI path resolution (judge fallback only):** `--cli-path` flag > `test.cli-path` in `project.xcf` > `claude` on `$PATH`.
 
 **Auth resolution order (simulation and judge):**
 1. `XCAFFOLD_LLM_API_KEY` + `XCAFFOLD_LLM_BASE_URL`
@@ -207,7 +256,7 @@ With `--judge`, sends the trace and the agent's `assertions` list to an LLM for 
 | `--agent <id>` | `-a` | — | **Required.** Agent ID to simulate. Must exist in `project.xcf`. |
 | `--judge` | — | `false` | Run LLM-as-a-Judge evaluation after simulation. Evaluates against `agents.<id>.assertions`. |
 | `--output <path>` | `-o` | `trace.jsonl` | Path for the execution trace output. |
-| `--cli-path <path>` | — | `""` | Path to the CLI binary used as judge subscription fallback. Overrides `test.cli_path` in `project.xcf`. |
+| `--cli-path <path>` | — | `""` | Path to the CLI binary used as judge subscription fallback. Overrides `test.cli-path` in `project.xcf`. |
 | `--judge-model <model>` | — | `""` | Model for judge evaluation. Overrides `test.judge-model`. Falls back to `claude-haiku-4-5-20251001`. |
 
 ---
@@ -292,13 +341,7 @@ No flags.
 
 **File:** `cmd/xcaffold/migrate.go`
 
-Applies schema version upgrades and layout migrations. Safe to run repeatedly (idempotent).
-
-**Operations (in order):**
-
-1. **Schema `1.0 → 1.1`**: Copies `test.cli-path` to `test.cli_path` and clears the deprecated field. Writes a `.bak` backup before overwriting.
-2. **Global scope migration**: Moves `~/.claude/global.xcf` → `~/.xcaffold/global.xcf` (and the accompanying lock file). Requires interactive confirmation.
-3. **Project scope migration**: Rewrites flat `instructions-file` paths (e.g., `"developer.md"`) to full reference-in-place paths (e.g., `".claude/agents/developer.md"`). Registers the project. Requires interactive confirmation.
+Restructures project layouts to align with xcaffold conventions. Safe to run repeatedly (idempotent).
 
 No flags.
 
