@@ -15,7 +15,7 @@ xcaffold supports multi-kind YAML documents where each resource gets its own `ki
 
 | Kind | Required | Singleton | Purpose |
 |---|---|---|---|
-| `project` | Yes | Yes | Project manifest: metadata, targets, child references |
+| `project` | Yes | Yes | Project manifest: metadata, targets, and instructions only. Resource discovery is via filesystem walk. |
 | `agent` | No | No | Agent persona definition |
 | `skill` | No | No | Reusable prompt package |
 | `rule` | No | No | Path-gated formatting guideline |
@@ -48,7 +48,7 @@ Singleton kinds (`hooks`, `settings`) skip the `name` check. The `project` kind 
 
 Project-level metadata and child resource references. Exactly one `project` document is expected per merged config.
 
-> **YAML field collision note**: In a `kind: project` document, the fields `agents`, `skills`, `rules`, `workflows`, and `mcp` are `[]string` reference lists (bare names linking to child `.xcf` files). The parser uses a separate `projectDocFields` struct to decode these without colliding with the `map[string]<Type>` inline definitions used by other kinds.
+> **YAML field collision note**: In a `kind: project` document, the fields `agents`, `skills`, `rules`, `workflows`, and `mcp` are decoded as `[]string` (bare name lists), not as resource definition maps. These lists are advisory only — `ParseDirectory` discovers resources by scanning `xcf/` recursively, not by reading these lists. The separate decode struct (`projectDocFields`) prevents type collision with resource definition kinds; it does not make the lists authoritative.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -62,12 +62,12 @@ Project-level metadata and child resource references. Exactly one `project` docu
 | `license` | `string` | Optional | SPDX license identifier. |
 | `backup-dir` | `string` | Optional | Custom directory for `--backup` output. Default: `.<target>_bak_<timestamp>` in project root. |
 | `targets` | `[]string` | Optional | Compilation targets (e.g. `["claude", "cursor"]`). |
-| `agents` | `[]string` | Optional | Bare names of child agent `.xcf` files to include. |
-| `skills` | `[]string` | Optional | Bare names of child skill `.xcf` files to include. |
-| `rules` | `[]string` | Optional | Bare names of child rule `.xcf` files to include. |
-| `workflows` | `[]string` | Optional | Bare names of child workflow `.xcf` files to include. |
-| `mcp` | `[]string` | Optional | Bare names of child MCP `.xcf` files to include. |
-| `policies` | `[]string` | Optional | Bare names of child policy `.xcf` files to include. |
+| `agents` | `[]string` | Optional | Advisory. Bare names of agent resources in `xcf/`. Not used by `ParseDirectory` for resource loading. `xcaffold validate` warns if out of sync with the filesystem. |
+| `skills` | `[]string` | Optional | Advisory. Bare names of skill resources in `xcf/`. Not used by `ParseDirectory` for resource loading. `xcaffold validate` warns if out of sync with the filesystem. |
+| `rules` | `[]string` | Optional | Advisory. Bare names of rule resources in `xcf/`. Not used by `ParseDirectory` for resource loading. `xcaffold validate` warns if out of sync with the filesystem. |
+| `workflows` | `[]string` | Optional | Advisory. Bare names of workflow resources in `xcf/`. Not used by `ParseDirectory` for resource loading. `xcaffold validate` warns if out of sync with the filesystem. |
+| `mcp` | `[]string` | Optional | Advisory. Bare names of MCP resources in `xcf/`. Not used by `ParseDirectory` for resource loading. `xcaffold validate` warns if out of sync with the filesystem. |
+| `policies` | `[]string` | Optional | Advisory. Bare names of policy resources in `xcf/`. Not used by `ParseDirectory` for resource loading. `xcaffold validate` warns if out of sync with the filesystem. |
 | `test` | `TestConfig` | Optional | Configuration for `xcaffold test`. |
 | `local` | `SettingsConfig` | Optional | Project-level settings overrides. |
 
@@ -75,13 +75,13 @@ Project-level metadata and child resource references. Exactly one `project` docu
 
 | Field | Type | Description |
 |---|---|---|
-| `cli_path` | `string` | Path to the CLI binary (e.g. `claude`, `cursor`). Defaults to `claude` on `$PATH`. |
-| `cli-path` | `string` | **Deprecated.** Use `cli_path`. Retained for backward compatibility. |
+| `cli-path` | `string` | Path to the CLI binary (e.g. `claude`, `cursor`). Defaults to `claude` on `$PATH`. |
 | `judge-model` | `string` | Generative model for LLM-as-a-Judge evaluation. |
 
 ### Example
 
 ```yaml
+# project.xcf — project manifest (metadata and instructions only)
 kind: project
 version: "1.0"
 name: my-api
@@ -91,17 +91,14 @@ repository: https://github.com/example/my-api
 targets:
   - claude
   - cursor
-agents:
-  - developer
-  - reviewer
-skills:
-  - tdd
-rules:
-  - testing
+# instructions: |
+#   You are a software developer working on my-api.
 test:
-  cli_path: claude
+  cli-path: claude
   judge-model: claude-haiku-4-5-20251001
 ```
+
+Resources (`agents`, `skills`, `rules`, etc.) are discovered automatically by scanning the `xcf/` directory. You do not list them in `project.xcf`. The ref list fields (`agents`, `skills`, etc.) remain valid YAML and the parser accepts them — they are treated as advisory documentation and do not change compilation behavior.
 
 ---
 
@@ -527,5 +524,5 @@ instructions: Use table-driven tests.
 
 ### Project scope routing
 
-In a `kind: project` document, the fields `agents`, `skills`, `rules`, `workflows`, and `mcp` are `[]string` reference lists. These bare names tell `ParseDirectory` which child `.xcf` files to include. The actual resource definitions live in separate files (e.g. `xcf/agents/developer.xcf`), each with their own `kind: agent` header.
+`ParseDirectory` discovers resources by recursively scanning `xcf/` for all `*.xcf` files and routing each by `kind:`. The `agents`, `skills`, `rules`, `workflows`, and `mcp` lists in a `kind: project` document are advisory; they do not filter or gate resource loading. `xcaffold validate` emits warnings when these lists diverge from the actual filesystem contents, helping teams keep documentation current.
 
