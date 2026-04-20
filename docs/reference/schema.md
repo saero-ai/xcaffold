@@ -259,7 +259,7 @@ These configurations are passed down to target AI platforms.
 
 ### `kind: project` semantics
 
-In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `memory`, `mcp`, and `policies` keys are decoded as `[]string` (bare name lists), not as the `map[string]Config` inline definition structures used in other document kinds. This is achieved via a separate decode struct (`projectDocFields`) that maps these YAML keys to `AgentRefs`, `SkillRefs`, `RuleRefs`, `WorkflowRefs`, `MemoryRefs`, `MCPRefs`, and `PolicyRefs` on `ProjectConfig`. These reference lists name child resources defined in sibling documents (same file via `---` separators, or separate `.xcf` files in the `xcf/` directory).
+In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `memory`, `mcp`, and `policies` keys are decoded as `[]string` (bare name lists). These are **advisory documentation only** — `ParseDirectory` discovers resources by scanning `xcf/` recursively, not by reading these lists. If present, `xcaffold validate` emits advisory warnings when a list entry has no corresponding `.xcf` file, or when a `.xcf` file has no corresponding list entry. Resource loading is not affected.
 
 The `targets` key on `kind: project` is also a `[]string` listing compilation targets (e.g., `["claude", "antigravity"]`). It is stored on `ProjectConfig.Targets` (tagged `yaml:"-"` — only populated by the parser for `kind: project` documents).
 
@@ -288,19 +288,18 @@ See [examples/multi-kind.xcf](examples/multi-kind.xcf) for a complete example.
 
 ## Scopes
 
-Xcaffold operates at two scopes, selected via the `--global / -g` flag.
+Xcaffold operates at three scopes, selected via flag.
 
-| | Global (`-g`) | Project (default) |
-|---|---|---|
-| **Config dir** | `~/.xcaffold/` | Project root (`./`) |
-| **Primary file** | `~/.xcaffold/global.xcf` | `./project.xcf` |
-| **Lock file** | `~/.xcaffold/scaffold.<target>.lock` | `./scaffold.<target>.lock` |
-| **Compiled output** | `~/.claude/`, `~/.cursor/`, `~/.agents/` | `./.claude/`, `./.cursor/`, `./.agents/` |
-| **Represents** | User-wide personal agent configuration | A specific codebase's agent setup |
-| **Has `project:` block** | **No** — it is a user profile, not a project | **Yes** |
-| **Has `test:`** | No | Yes |
-| **Has `settings:`** | Yes — user-level defaults | Yes — project-level overrides |
-| **Has `extends:`** | No — it is the root config | Yes — may declare `extends: "path/to/base.xcf"` |
+| | Global (`--global`) | Project (default) | Blueprint (`--blueprint <name>`) |
+|---|---|---|---|
+| **Config dir** | `~/.xcaffold/` | `xcf/` (project directory) | `xcf/` (project directory) |
+| **Primary file** | `~/.xcaffold/global.xcf` | `project.xcf` | `project.xcf` + blueprint file |
+| **State file** | `~/.xcaffold/<state>.xcf.state` | `.xcaffold/project.xcf.state` | `.xcaffold/<blueprint-name>.xcf.state` |
+| **Compiled output** | `~/.claude/`, `~/.cursor/`, `~/.agents/` | `./.claude/`, `./.cursor/`, `./.agents/` | `./.claude/`, `./.cursor/`, `./.agents/` |
+| **Represents** | User-wide personal agent configuration | All resources in `xcf/` | Named resource subset selected by a `kind: blueprint` file |
+| **Has `project:` block** | No — it is a user blueprint | Yes | Yes |
+| **Has `test:`** | No | Yes | Yes |
+| **Has `extends:`** | No — it is the root config | Yes | Yes |
 
 ### Implicit Global Inheritance
 
@@ -323,7 +322,7 @@ xcaffold apply -g   # compile ~/.xcaffold/global.xcf → ~/.claude/
 xcaffold apply      # compile ./project.xcf → ./.claude/
 ```
 
-There is no `--all` flag — the two commands are independent (different sources, outputs, lock files) with no atomicity guarantee.
+There is no `--all` flag — the two commands are independent (different sources, outputs, state files) with no atomicity guarantee.
 
 ---
 
@@ -358,7 +357,7 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./project.x
 Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`project.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`, `memory`, `policies`) and project-only settings (`test`, `local`) that are not valid at global scope.
 
 > [!NOTE]
-> `project.name` is required in `project.xcf`. It is used to register the project in `~/.xcaffold/registry.xcf`, prefix lock file entries, and label graph and plan output. It has no equivalent at global scope.
+> `project.name` is required in `project.xcf`. It is used to register the project in `~/.xcaffold/registry.xcf`, label state file entries, and identify the project in graph and plan output. It has no equivalent at global scope.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -371,13 +370,13 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `license` | `string` | Optional | SPDX license identifier. |
 | `backup_dir` | `string` | Optional | Directory for `xcaffold apply --backup` output. Defaults to `.<target>_bak_<timestamp>` in the project root. |
 | `targets` | `[]string` | Optional | Compilation targets (e.g., `["claude", "antigravity"]`). Only populated via `kind: project` documents — tagged `yaml:"-"`. |
-| `agentRefs` | `[]string` | Optional | Bare name references to child agent resources. Only populated via `kind: project` documents. |
-| `skillRefs` | `[]string` | Optional | Bare name references to child skill resources. Only populated via `kind: project` documents. |
-| `ruleRefs` | `[]string` | Optional | Bare name references to child rule resources. Only populated via `kind: project` documents. |
-| `workflowRefs` | `[]string` | Optional | Bare name references to child workflow resources. Only populated via `kind: project` documents. |
-| `memoryRefs` | `[]string` | Optional | Bare name references to child memory resources. Only populated via `kind: project` documents. |
-| `mcpRefs` | `[]string` | Optional | Bare name references to child MCP resources. Only populated via `kind: project` documents. |
-| `policyRefs` | `[]string` | Optional | Bare name references to child policy resources. Only populated via `kind: project` documents. |
+| `agentRefs` | `[]string` | Optional | Advisory only. Bare name references to agent resources. Not used by `ParseDirectory` for resource loading; serves as documentation and triggers `validate` warnings if out of sync with the filesystem. |
+| `skillRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
+| `ruleRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
+| `workflowRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
+| `memoryRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
+| `mcpRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
+| `policyRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
 | `test` | `TestConfig` | Optional | Configuration for `xcaffold test`. See [TestConfig](#testconfig). |
 | `local` | `SettingsConfig` | Optional | Local override settings compiled to `settings.local.json` (gitignored). |
 | `agents` | `map[string]AgentConfig` | Optional | Workspace-scoped agent declarations. Override global agents with the same ID. |
