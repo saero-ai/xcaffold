@@ -314,7 +314,12 @@ func buildGraph(config *ast.XcaffoldConfig) *graphData {
 }
 
 func appendGraphSettings(config *ast.XcaffoldConfig, g *graphData) {
-	es := config.Settings["default"]
+	// Get the active settings (first available key after blueprint filtering).
+	var es ast.SettingsConfig
+	for _, s := range config.Settings {
+		es = s
+		break
+	}
 	if len(es.EnabledPlugins) > 0 {
 		plugins := make([]string, 0, len(es.EnabledPlugins))
 		for p, enabled := range es.EnabledPlugins {

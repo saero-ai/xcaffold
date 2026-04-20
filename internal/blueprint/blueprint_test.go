@@ -503,6 +503,65 @@ func TestBlueprintHash_OrderIndependent(t *testing.T) {
 	require.Equal(t, BlueprintHash(p1), BlueprintHash(p2))
 }
 
+func TestApplyBlueprint_NamedSettings_SelectsOnly(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		Settings: map[string]ast.SettingsConfig{
+			"default":    {Model: "sonnet-4"},
+			"restricted": {Model: "haiku"},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"locked": {Name: "locked", Settings: "restricted"},
+		},
+	}
+	filtered, err := ApplyBlueprint(cfg, "locked")
+	require.NoError(t, err)
+	require.Len(t, filtered.Settings, 1)
+	require.Contains(t, filtered.Settings, "restricted")
+}
+
+func TestApplyBlueprint_NamedSettings_MissingKey_Error(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {Model: "sonnet-4"}},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"bad": {Name: "bad", Settings: "nonexistent"},
+		},
+	}
+	_, err := ApplyBlueprint(cfg, "bad")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "nonexistent")
+}
+
+func TestApplyBlueprint_NamedHooks_SelectsOnly(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		Hooks: map[string]ast.NamedHookConfig{
+			"ci":   {Name: "ci"},
+			"test": {Name: "test"},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {Name: "backend", Hooks: "ci"},
+		},
+	}
+	filtered, err := ApplyBlueprint(cfg, "backend")
+	require.NoError(t, err)
+	require.Contains(t, filtered.Hooks, "ci")
+	require.NotContains(t, filtered.Hooks, "test")
+}
+
+func TestApplyBlueprint_OmittedSettings_IncludesAll(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		Settings: map[string]ast.SettingsConfig{
+			"default": {Model: "sonnet-4"},
+			"other":   {Model: "haiku"},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {Name: "backend"},
+		},
+	}
+	filtered, err := ApplyBlueprint(cfg, "backend")
+	require.NoError(t, err)
+	require.Len(t, filtered.Settings, 2)
+}
+
 func TestApplyBlueprint_EmptyRefList_ReturnsNilMap(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{

@@ -237,8 +237,26 @@ func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.Xcaf
 		// References are not blueprint-filtered; preserve originals.
 		References: config.References,
 	}
-	// Hooks live on XcaffoldConfig directly (not in ResourceScope); preserve originals.
-	filtered.Hooks = config.Hooks
+
+	// Named settings selection: if the blueprint specifies a settings key,
+	// filter to only that entry. An empty Settings field means "keep all".
+	if p.Settings != "" {
+		s, ok := config.Settings[p.Settings]
+		if !ok {
+			return nil, fmt.Errorf("blueprint %q references settings %q which does not exist", blueprintName, p.Settings)
+		}
+		filtered.Settings = map[string]ast.SettingsConfig{p.Settings: s}
+	}
+
+	// Named hooks selection: if the blueprint specifies a hooks key,
+	// filter to only that entry. An empty Hooks field means "keep all".
+	if p.Hooks != "" {
+		h, ok := config.Hooks[p.Hooks]
+		if !ok {
+			return nil, fmt.Errorf("blueprint %q references hooks %q which does not exist", blueprintName, p.Hooks)
+		}
+		filtered.Hooks = map[string]ast.NamedHookConfig{p.Hooks: h}
+	}
 
 	return &filtered, nil
 }

@@ -592,7 +592,12 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 // gemini drop settings.Permissions, settings.Sandbox, and per-agent security
 // fields (effort, permission-mode, disallowed-tools, isolation).
 func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, warnings []string) {
-	es := config.Settings["default"]
+	// Get the active settings (first available key after blueprint filtering).
+	var es ast.SettingsConfig
+	for _, s := range config.Settings {
+		es = s
+		break
+	}
 	switch target {
 	case "cursor", "antigravity":
 		label := target
