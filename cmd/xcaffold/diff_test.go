@@ -21,30 +21,28 @@ func TestDiffScope_ReportsSourceChanges(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(outputDir, "agents", "dev.md"), []byte(agentContent), 0600))
 
 	// Write source file
-	srcFile := filepath.Join(dir, "scaffold.xcf")
+	srcFile := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(srcFile, []byte("version: \"1\"\n"), 0600))
 
-	// Create lock with matching artifact hash and source hash
+	// Create state with matching artifact hash and source hash
 	out := &compiler.Output{Files: map[string]string{"agents/dev.md": agentContent}}
-	manifest := state.GenerateWithOpts(out, state.GenerateOpts{
+	manifest := state.GenerateState(out, state.StateOpts{
 		Target:      "claude",
-		Scope:       "project",
-		ConfigDir:   ".",
-		SourceFiles: []string{srcFile},
 		BaseDir:     dir,
-	})
+		SourceFiles: []string{srcFile},
+	}, nil)
 
-	lockFile := filepath.Join(dir, "scaffold.claude.lock")
-	require.NoError(t, state.Write(manifest, lockFile))
+	statePath := state.StateFilePath(dir, "")
+	require.NoError(t, state.WriteState(manifest, statePath))
 
 	// No drift — artifacts match
-	driftCount, err := diffScope(outputDir, lockFile, "project")
+	driftCount, err := diffScope(outputDir, statePath, "claude", "project")
 	require.NoError(t, err)
 	assert.Equal(t, 0, driftCount)
 
 	// Modify source file -> should report drift
 	require.NoError(t, os.WriteFile(srcFile, []byte("version: \"1\"\nproject:\n  name: changed\n"), 0600))
-	driftCount, err = diffScope(outputDir, lockFile, "project")
+	driftCount, err = diffScope(outputDir, statePath, "claude", "project")
 	require.NoError(t, err)
 	assert.Equal(t, 1, driftCount, "source change should increment drift count")
 }

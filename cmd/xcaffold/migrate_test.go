@@ -14,7 +14,7 @@ import (
 
 func TestRunSchemaVersionMigrations_AlreadyCurrent(t *testing.T) {
 	dir := t.TempDir()
-	xcfFile := filepath.Join(dir, "scaffold.xcf")
+	xcfFile := filepath.Join(dir, "project.xcf")
 
 	// Write a v1.0 config (already current)
 	content := `kind: project
@@ -32,19 +32,19 @@ name: "test-project"
 	cmd := &cobra.Command{}
 	cmd.SetOut(&buf)
 
-	err = runSchemaVersionMigrations(cmd, "scaffold.xcf")
+	err = runSchemaVersionMigrations(cmd, "project.xcf")
 	require.NoError(t, err)
 
 	// No bak file should have been written
-	_, statErr := os.Stat("scaffold.xcf.bak")
-	assert.True(t, os.IsNotExist(statErr), "scaffold.xcf.bak should NOT be written for current version")
+	_, statErr := os.Stat("project.xcf.bak")
+	assert.True(t, os.IsNotExist(statErr), "project.xcf.bak should NOT be written for current version")
 
 	assert.Contains(t, buf.String(), "current")
 }
 
 func TestRunSchemaVersionMigrations_NoMigrations(t *testing.T) {
 	dir := t.TempDir()
-	xcfFile := filepath.Join(dir, "scaffold.xcf")
+	xcfFile := filepath.Join(dir, "project.xcf")
 
 	// Write a v1.0 config — with empty migrations slice no migration runs
 	content := `kind: project
@@ -58,16 +58,16 @@ name: "test-project"
 	require.NoError(t, os.Chdir(dir))
 	defer func() { _ = os.Chdir(origDir) }()
 
-	err = runSchemaVersionMigrations(nil, "scaffold.xcf")
+	err = runSchemaVersionMigrations(nil, "project.xcf")
 	require.NoError(t, err)
 
 	// No backup should be created when no migrations run
-	_, statErr := os.Stat("scaffold.xcf.bak")
-	assert.True(t, os.IsNotExist(statErr), "scaffold.xcf.bak should NOT be created when no migrations apply")
+	_, statErr := os.Stat("project.xcf.bak")
+	assert.True(t, os.IsNotExist(statErr), "project.xcf.bak should NOT be created when no migrations apply")
 }
 
 func TestMigrate_WritesMultiKindFormat(t *testing.T) {
-	// This test verifies that if a migration were to run and rewrite scaffold.xcf,
+	// This test verifies that if a migration were to run and rewrite project.xcf,
 	// the output would be in multi-kind format.
 	// Since migrations are empty, we test MarshalMultiKind directly with a config
 	// that has resources.

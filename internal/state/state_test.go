@@ -1,102 +1,16 @@
 package state
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
-	"github.com/saero-ai/xcaffold/internal/compiler"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
-
-func TestGenerate_ProducesCorrectArtifacts(t *testing.T) {
-	out := &compiler.Output{
-		Files: map[string]string{
-			"agents/developer.md": "---\ndescription: dev\n---\n",
-		},
-	}
-
-	manifest := Generate(out)
-	require.NotNil(t, manifest)
-
-	assert.Equal(t, lockFileVersion, manifest.Version)
-	assert.Equal(t, XcaffoldVersion, manifest.XcaffoldVersion)
-	assert.Len(t, manifest.Artifacts, 1)
-	assert.Equal(t, "agents/developer.md", manifest.Artifacts[0].Path)
-	assert.True(t, len(manifest.Artifacts[0].Hash) > 0)
-	assert.Contains(t, manifest.Artifacts[0].Hash, "sha256:")
-}
-
-func TestGenerate_EmptyOutput_ProducesEmptyArtifacts(t *testing.T) {
-	out := &compiler.Output{Files: map[string]string{}}
-	manifest := Generate(out)
-	assert.Empty(t, manifest.Artifacts)
-}
-
-func TestWriteAndRead_RoundTrip(t *testing.T) {
-	out := &compiler.Output{
-		Files: map[string]string{
-			"agents/backend.md": "---\ndescription: backend\n---\n",
-		},
-	}
-	manifest := Generate(out)
-
-	tmpFile := t.TempDir() + "/scaffold.lock"
-
-	err := Write(manifest, tmpFile)
-	require.NoError(t, err)
-
-	recovered, err := Read(tmpFile)
-	require.NoError(t, err)
-
-	assert.Equal(t, manifest.Version, recovered.Version)
-	assert.Equal(t, manifest.XcaffoldVersion, recovered.XcaffoldVersion)
-	assert.Len(t, recovered.Artifacts, 1)
-	assert.Equal(t, manifest.Artifacts[0].Hash, recovered.Artifacts[0].Hash)
-}
-
-func TestRead_NonExistentFile_ReturnsError(t *testing.T) {
-	_, err := Read("/tmp/this-file-does-not-exist-xcaffold.lock")
-	require.Error(t, err)
-}
-
-func TestLockManifest_MemorySeeds_Serialization(t *testing.T) {
-	manifest := LockManifest{
-		LastApplied:     "2026-04-15T16:00:00Z",
-		XcaffoldVersion: "1.3.0",
-		Target:          "claude",
-		Version:         2,
-		MemorySeeds: []MemorySeed{
-			{
-				Name:      "user-role",
-				Target:    "claude",
-				Path:      "~/.claude/projects/test/memory/user-role.md",
-				Hash:      "sha256:abc123",
-				SeededAt:  "2026-04-15T16:00:00Z",
-				Lifecycle: "seed-once",
-			},
-		},
-	}
-
-	data, err := yaml.Marshal(manifest)
-	require.NoError(t, err)
-	content := string(data)
-
-	require.Contains(t, content, "memory_seeds:")
-	require.Contains(t, content, "name: user-role")
-	require.Contains(t, content, "lifecycle: seed-once")
-	require.Contains(t, content, "sha256:abc123")
-}
-
-func TestLockManifest_MemorySeeds_OmitEmptyWhenAbsent(t *testing.T) {
-	manifest := LockManifest{
-		LastApplied: "2026-04-15T16:00:00Z",
-		Version:     2,
-	}
-	data, err := yaml.Marshal(manifest)
-	require.NoError(t, err)
-	require.NotContains(t, string(data), "memory_seeds")
-}
 
 func TestMemorySeed_SortedByName(t *testing.T) {
 	seeds := []MemorySeed{
@@ -111,47 +25,292 @@ func TestMemorySeed_SortedByName(t *testing.T) {
 	require.Equal(t, "z-entry", seeds[2].Name)
 }
 
-func TestGenerateWithOpts_MemorySeeds_CopiedAndSorted(t *testing.T) {
-	seeds := []MemorySeed{
-		{Name: "z-seed", Target: "claude", Lifecycle: "tracked", Hash: "sha256:z", SeededAt: "2026-04-15T00:00:00Z"},
-		{Name: "a-seed", Target: "claude", Lifecycle: "seed-once", Hash: "sha256:a", SeededAt: "2026-04-15T00:00:00Z"},
+func TestStateManifest_Fields(t *testing.T) {
+	m := &StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.2.0",
+		Blueprint:       "backend",
+		BlueprintHash:   "sha256:abc",
+		SourceFiles: []SourceFile{
+			{Path: "project.xcf", Hash: "sha256:111"},
+		},
+		Targets: map[string]TargetState{
+			"claude": {
+				LastApplied: "2026-04-20T00:00:00Z",
+				Artifacts: []Artifact{
+					{Path: "agents/dev.md", Hash: "sha256:222"},
+				},
+			},
+		},
+		MemorySeeds: []MemorySeed{
+			{Name: "arch", Target: "claude", Path: "arch.md", Hash: "sha256:333",
+				SeededAt: "2026-04-20T00:00:00Z", Lifecycle: "managed"},
+		},
 	}
 
-	out := &compiler.Output{Files: map[string]string{"x.md": "x"}}
-	manifest := GenerateWithOpts(out, GenerateOpts{MemorySeeds: seeds})
+	data, err := yaml.Marshal(m)
+	require.NoError(t, err)
 
-	require.Len(t, manifest.MemorySeeds, 2)
-	require.Equal(t, "a-seed", manifest.MemorySeeds[0].Name)
-	require.Equal(t, "z-seed", manifest.MemorySeeds[1].Name)
-
-	// Defensive copy: mutating source must not affect manifest
-	seeds[0].Name = "mutated"
-	require.Equal(t, "z-seed", manifest.MemorySeeds[1].Name)
+	raw := string(data)
+	assert.Contains(t, raw, "version: 1")
+	assert.Contains(t, raw, "xcaffold-version:")
+	assert.Contains(t, raw, "blueprint: backend")
+	assert.Contains(t, raw, "blueprint-hash:")
+	assert.Contains(t, raw, "source-files:")
+	assert.Contains(t, raw, "memory-seeds:")
+	assert.Contains(t, raw, "seeded-at:")
+	assert.NotContains(t, raw, "seeded_at")
+	assert.Contains(t, raw, "last-applied:")
 }
 
-func TestGenerateWithOpts_MemorySeeds_AutoPopulatesSeededAt(t *testing.T) {
-	seeds := []MemorySeed{
-		{Name: "a-seed", Target: "claude", Lifecycle: "seed-once", Hash: "sha256:a"}, // no SeededAt
+func TestStateManifest_EmptyBlueprint(t *testing.T) {
+	m := &StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Targets:         map[string]TargetState{},
+	}
+	data, err := yaml.Marshal(m)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "blueprint:")
+
+	var out StateManifest
+	require.NoError(t, yaml.Unmarshal(data, &out))
+	assert.Equal(t, "", out.Blueprint)
+}
+
+func TestStateDir(t *testing.T) {
+	assert.Equal(t, "/home/user/proj/.xcaffold", StateDir("/home/user/proj"))
+}
+
+func TestStateFilePath_Default(t *testing.T) {
+	got := StateFilePath("/home/user/proj", "")
+	assert.Equal(t, "/home/user/proj/.xcaffold/project.xcf.state", got)
+}
+
+func TestStateFilePath_NamedProfile(t *testing.T) {
+	got := StateFilePath("/home/user/proj", "backend")
+	assert.Equal(t, "/home/user/proj/.xcaffold/backend.xcf.state", got)
+}
+
+func TestStateFilePath_PathTraversal(t *testing.T) {
+	got := StateFilePath("/home/user/proj", "../../etc/passwd")
+	assert.True(t, strings.HasPrefix(got, "/home/user/proj/.xcaffold/"),
+		"path must remain inside .xcaffold/: %s", got)
+	assert.NotContains(t, got, "..")
+}
+
+func TestStateOpts_Fields(t *testing.T) {
+	opts := StateOpts{
+		Blueprint:     "backend",
+		BlueprintHash: "sha256:abc",
+		Target:        "claude",
+		BaseDir:       "/tmp/proj",
+		SourceFiles:   []string{"/tmp/proj/project.xcf"},
+		MemorySeeds:   nil,
+	}
+	assert.Equal(t, "claude", opts.Target)
+	assert.Equal(t, "backend", opts.Blueprint)
+}
+
+func TestState_WriteRead_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := StateFilePath(dir, "")
+
+	original := &StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.2.0",
+		Blueprint:       "",
+		SourceFiles:     []SourceFile{{Path: "project.xcf", Hash: "sha256:aaa"}},
+		Targets: map[string]TargetState{
+			"claude": {
+				LastApplied: "2026-04-20T01:00:00Z",
+				Artifacts:   []Artifact{{Path: "agents/dev.md", Hash: "sha256:bbb"}},
+			},
+		},
 	}
 
-	out := &compiler.Output{Files: map[string]string{"x.md": "x"}}
-	manifest := GenerateWithOpts(out, GenerateOpts{MemorySeeds: seeds})
+	require.NoError(t, WriteState(original, path))
 
-	require.Len(t, manifest.MemorySeeds, 1)
-	require.NotEmpty(t, manifest.MemorySeeds[0].SeededAt, "GenerateWithOpts must fill empty SeededAt")
+	got, err := ReadState(path)
+	require.NoError(t, err)
 
-	// Caller's slice must still have the empty SeededAt (copy is defensive)
-	require.Empty(t, seeds[0].SeededAt)
+	assert.Equal(t, original.Version, got.Version)
+	assert.Equal(t, original.XcaffoldVersion, got.XcaffoldVersion)
+	assert.Equal(t, original.SourceFiles, got.SourceFiles)
+	assert.Equal(t, original.Targets["claude"].LastApplied, got.Targets["claude"].LastApplied)
+	assert.Equal(t, original.Targets["claude"].Artifacts, got.Targets["claude"].Artifacts)
 }
 
-func TestLockManifest_BackwardCompat_NoMemorySeeds(t *testing.T) {
-	raw := `
-last_applied: "2026-04-01T10:00:00Z"
-xcaffold_version: 1.2.0
-target: claude
-version: 2
-`
-	var manifest LockManifest
-	require.NoError(t, yaml.Unmarshal([]byte(raw), &manifest))
-	require.Nil(t, manifest.MemorySeeds)
+func TestWriteState_CreatesDirectory(t *testing.T) {
+	base := t.TempDir()
+	path := StateFilePath(base, "")
+	require.NoError(t, WriteState(&StateManifest{Version: 1, Targets: map[string]TargetState{}}, path))
+	_, err := os.Stat(filepath.Join(base, ".xcaffold"))
+	assert.NoError(t, err, ".xcaffold/ should be created")
+}
+
+func TestWriteState_Permissions(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root always has access")
+	}
+	base := t.TempDir()
+	path := StateFilePath(base, "")
+	require.NoError(t, WriteState(&StateManifest{Version: 1, Targets: map[string]TargetState{}}, path))
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+}
+
+func TestReadState_FileNotFound(t *testing.T) {
+	_, err := ReadState("/nonexistent/.xcaffold/project.xcf.state")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "project.xcf.state")
+}
+
+func TestReadState_InvalidYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.xcf.state")
+	require.NoError(t, os.WriteFile(path, []byte("version: [invalid\n  broken:"), 0600))
+	_, err := ReadState(path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parse")
+}
+
+func TestGenerateState_DefaultBlueprint(t *testing.T) {
+	out := &output.Output{Files: map[string]string{
+		"agents/dev.md": "# dev",
+	}}
+	opts := StateOpts{Target: "claude", BaseDir: t.TempDir()}
+	m := GenerateState(out, opts, nil)
+
+	assert.Equal(t, 1, m.Version)
+	ts, ok := m.Targets["claude"]
+	require.True(t, ok)
+	assert.Len(t, ts.Artifacts, 1)
+	assert.Equal(t, "agents/dev.md", ts.Artifacts[0].Path)
+	assert.True(t, strings.HasPrefix(ts.Artifacts[0].Hash, "sha256:"))
+}
+
+func TestGenerateState_MergesTargets(t *testing.T) {
+	out1 := &output.Output{Files: map[string]string{"agents/dev.md": "# dev"}}
+	out2 := &output.Output{Files: map[string]string{"agents/dev.md": "# dev cursor"}}
+
+	opts1 := StateOpts{Target: "claude", BaseDir: t.TempDir()}
+	opts2 := StateOpts{Target: "cursor", BaseDir: t.TempDir()}
+
+	m1 := GenerateState(out1, opts1, nil)
+	m2 := GenerateState(out2, opts2, m1)
+
+	assert.Contains(t, m2.Targets, "claude")
+	assert.Contains(t, m2.Targets, "cursor")
+}
+
+func TestFindOrphansFromState_NilOldState(t *testing.T) {
+	orphans := FindOrphansFromState(nil, "claude", map[string]string{"agents/dev.md": "# dev"})
+	assert.Nil(t, orphans)
+}
+
+func TestFindOrphansFromState_TargetNotInOldState(t *testing.T) {
+	old := &StateManifest{
+		Targets: map[string]TargetState{
+			"cursor": {Artifacts: []Artifact{{Path: "agents/dev.md", Hash: "sha256:aaa"}}},
+		},
+	}
+	orphans := FindOrphansFromState(old, "claude", map[string]string{})
+	assert.Nil(t, orphans)
+}
+
+func TestFindOrphansFromState_NoOrphans(t *testing.T) {
+	old := &StateManifest{
+		Targets: map[string]TargetState{
+			"claude": {Artifacts: []Artifact{
+				{Path: "agents/dev.md", Hash: "sha256:aaa"},
+				{Path: "skills/tdd/SKILL.md", Hash: "sha256:bbb"},
+			}},
+		},
+	}
+	newFiles := map[string]string{
+		"agents/dev.md":       "# dev",
+		"skills/tdd/SKILL.md": "# tdd",
+	}
+	orphans := FindOrphansFromState(old, "claude", newFiles)
+	assert.Empty(t, orphans)
+}
+
+func TestFindOrphansFromState_OrphansFound(t *testing.T) {
+	old := &StateManifest{
+		Targets: map[string]TargetState{
+			"claude": {Artifacts: []Artifact{
+				{Path: "agents/dev.md", Hash: "sha256:aaa"},
+				{Path: "agents/old.md", Hash: "sha256:bbb"},
+				{Path: "skills/tdd/SKILL.md", Hash: "sha256:ccc"},
+			}},
+		},
+	}
+	newFiles := map[string]string{
+		"agents/dev.md": "# dev",
+	}
+	orphans := FindOrphansFromState(old, "claude", newFiles)
+	assert.Equal(t, []string{"agents/old.md", "skills/tdd/SKILL.md"}, orphans)
+}
+
+func TestGenerateState_SourceFilesHashed(t *testing.T) {
+	base := t.TempDir()
+	src := filepath.Join(base, "project.xcf")
+	require.NoError(t, os.WriteFile(src, []byte("kind: project\n"), 0644))
+
+	out := &output.Output{Files: map[string]string{}}
+	opts := StateOpts{
+		Target:      "claude",
+		BaseDir:     base,
+		SourceFiles: []string{src},
+	}
+	m := GenerateState(out, opts, nil)
+
+	require.Len(t, m.SourceFiles, 1)
+	assert.Equal(t, "project.xcf", m.SourceFiles[0].Path)
+	assert.True(t, strings.HasPrefix(m.SourceFiles[0].Hash, "sha256:"))
+}
+
+func TestMigrateStateFiles_NoLockFiles(t *testing.T) {
+	dir := t.TempDir()
+	migrated, err := MigrateStateFiles(dir)
+	require.NoError(t, err)
+	assert.False(t, migrated)
+}
+
+func TestMigrateStateFiles_SingleTarget(t *testing.T) {
+	dir := t.TempDir()
+	lockContent := "target: claude\nlast_applied: \"2026-04-20T00:00:00Z\"\nartifacts:\n  - path: agents/dev.md\n    hash: \"sha256:abc\"\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.claude.lock"), []byte(lockContent), 0600))
+
+	migrated, err := MigrateStateFiles(dir)
+	require.NoError(t, err)
+	assert.True(t, migrated)
+
+	// Verify state file was created
+	statePath := StateFilePath(dir, "")
+	m, err := ReadState(statePath)
+	require.NoError(t, err)
+	assert.Equal(t, 1, m.Version)
+	assert.Contains(t, m.Targets, "claude")
+	assert.Len(t, m.Targets["claude"].Artifacts, 1)
+
+	// Verify lock file was renamed
+	_, err = os.Stat(filepath.Join(dir, "scaffold.claude.lock.migrated"))
+	assert.NoError(t, err)
+}
+
+func TestMigrateStateFiles_AlreadyMigrated(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.claude.lock"), []byte("target: claude\n"), 0600))
+
+	// Pre-create the state file
+	stateDir := StateDir(dir)
+	require.NoError(t, os.MkdirAll(stateDir, 0700))
+	require.NoError(t, os.WriteFile(StateFilePath(dir, ""), []byte("version: 1\n"), 0600))
+
+	migrated, err := MigrateStateFiles(dir)
+	require.NoError(t, err)
+	assert.False(t, migrated) // should skip
 }

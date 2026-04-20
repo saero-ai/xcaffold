@@ -52,7 +52,7 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 }
 
 // Compile translates an XcaffoldConfig AST into its Cursor output representation.
-// baseDir is the directory that contains the scaffold.xcf file; it is used to
+// baseDir is the directory that contains the project.xcf file; it is used to
 // resolve instructions_file: paths. The second return is a slice of fidelity
 // notes describing information loss relative to the native Claude target;
 // suppression is applied at the command layer, not inside this renderer.

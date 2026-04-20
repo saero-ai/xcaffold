@@ -16,7 +16,7 @@ func TestFindConfigDir_FindsScaffoldXcf(t *testing.T) {
 	sub := filepath.Join(project, "sub")
 	require.NoError(t, os.MkdirAll(sub, 0755))
 
-	xcf := filepath.Join(project, "scaffold.xcf")
+	xcf := filepath.Join(project, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte("version: \"1\"\n"), 0600))
 
 	got, err := FindConfigDir(sub, home)
@@ -31,7 +31,7 @@ func TestFindConfigDir_FindsAnyXcfFile(t *testing.T) {
 	sub := filepath.Join(project, "sub")
 	require.NoError(t, os.MkdirAll(sub, 0755))
 
-	// Only agents.xcf — no scaffold.xcf
+	// Only agents.xcf — no project.xcf
 	xcf := filepath.Join(project, "agents.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte("agents:\n  dev:\n    name: Dev\n"), 0600))
 
@@ -62,7 +62,7 @@ func TestFindConfigDir_StopsAtHome(t *testing.T) {
 	require.NoError(t, os.MkdirAll(sub, 0755))
 
 	// Place xcf ABOVE home — must NOT be found
-	require.NoError(t, os.WriteFile(filepath.Join(root, "scaffold.xcf"), []byte("version: \"1\"\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "project.xcf"), []byte("version: \"1\"\n"), 0600))
 
 	_, err := FindConfigDir(sub, home)
 	assert.Error(t, err, "should fail when no xcf found within home boundary")
@@ -74,7 +74,7 @@ func TestFindConfigDir_FindsAtHome(t *testing.T) {
 	sub := filepath.Join(home, "sub")
 	require.NoError(t, os.MkdirAll(sub, 0755))
 
-	require.NoError(t, os.WriteFile(filepath.Join(home, "scaffold.xcf"), []byte("version: \"1\"\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(home, "project.xcf"), []byte("version: \"1\"\n"), 0600))
 
 	got, err := FindConfigDir(sub, home)
 	require.NoError(t, err)
@@ -87,7 +87,7 @@ func TestFindConfigDir_CwdHasXcf(t *testing.T) {
 	project := filepath.Join(home, "project")
 	require.NoError(t, os.MkdirAll(project, 0755))
 
-	require.NoError(t, os.WriteFile(filepath.Join(project, "scaffold.xcf"), []byte("version: \"1\"\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(project, "project.xcf"), []byte("version: \"1\"\n"), 0600))
 
 	got, err := FindConfigDir(project, home)
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestFindXCFFiles_ReturnsSorted(t *testing.T) {
 
 func TestFindXCFFiles_ExcludesRegistryXcf(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte("s"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("s"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "registry.xcf"), []byte("r"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcf"), []byte("a"), 0600))
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,22 +36,23 @@ var applyBackup bool
 var applyIncludeMemory bool
 var applyReseed bool
 var applyProjectFlag string
+var applyBlueprintFlag string
 var targetFlag string
 
 var applyCmd = &cobra.Command{
 	Use:   "apply",
-	Short: "Compile scaffold.xcf into .claude/ agent files",
+	Short: "Compile project.xcf into .claude/ agent files",
 	Long: `xcaffold apply deterministically compiles your YAML logic into native target outputs.
 
 ┌───────────────────────────────────────────────────────────────────┐
 │                          COMPILATION PHASE                        │
 └───────────────────────────────────────────────────────────────────┘
- [scaffold.xcf] ──(Compiles)──▶ [.claude/agents/*.md]
+ [project.xcf] ──(Compiles)──▶ [.claude/agents/*.md]
        │
-   (Locks)──▶ [scaffold.lock]
+   (State)──▶ [.xcaffold/project.xcf.state]
 
  • Strict one-way generation (YAML -> MD)
- • Generates a cryptographic SHA-256 state manifest (scaffold.lock)
+ • Generates a cryptographic SHA-256 state manifest (.xcaffold/)
  • Automatically purges orphaned target files
 
 Any manually edited files inside the target directory will be overwritten.
@@ -73,6 +75,7 @@ func init() {
 	applyCmd.Flags().BoolVar(&applyIncludeMemory, "include-memory", false, "Seed memory entries to the target provider as part of this apply")
 	applyCmd.Flags().BoolVar(&applyReseed, "reseed", false, "Overwrite existing memory files (bypass seed-once guard and drift check); implies --include-memory")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
+	applyCmd.Flags().StringVar(&applyBlueprintFlag, "blueprint", "", "Compile a specific blueprint (default: all resources)")
 	applyCmd.Flags().StringVar(&targetFlag, "target", targetClaude, "compilation target platform (claude, cursor, antigravity, copilot, gemini; default: claude)")
 	rootCmd.AddCommand(applyCmd)
 }
@@ -102,10 +105,9 @@ func runApply(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("project %q not found in registry: %w", applyProjectFlag, err)
 		}
-		globalXcfPath = filepath.Join(proj.Path, "scaffold.xcf")
+		globalXcfPath = filepath.Join(proj.Path, "project.xcf")
 		xcfPath = globalXcfPath
 		claudeDir = filepath.Join(proj.Path, ".claude")
-		lockPath = filepath.Join(proj.Path, "scaffold.lock")
 	}
 
 	if applyCheckOnly {
@@ -172,7 +174,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 	}
 
 	if globalFlag {
-		return applyScope(globalXcfPath, globalXcfHome, globalLockPath, "global")
+		return applyScope(globalXcfPath, globalXcfHome, "global")
 	}
 
 	// Determine which targets to compile.
@@ -185,7 +187,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 	for _, t := range targets {
 		targetFlag = t
 		outDir := filepath.Join(baseDir, compiler.OutputDir(t))
-		if err := applyScope(xcfPath, outDir, lockPath, "project"); err != nil {
+		if err := applyScope(xcfPath, outDir, "project"); err != nil {
 			return err
 		}
 	}
@@ -223,12 +225,12 @@ func printDiagnostics(diags []parser.Diagnostic) {
 	}
 }
 
-// applyScope compiles a single xcf file into outputDir and writes the lock file
-// at lockFile. scopeName is used as a prefix in terminal output when running
-// so the user can distinguish global from project compilation.
+// applyScope compiles a single xcf file into outputDir. scopeName is used as a
+// prefix in terminal output so the user can distinguish global from project
+// compilation.
 //
 //nolint:gocyclo
-func applyScope(configPath, outputDir, lockFile, scopeName string) error {
+func applyScope(configPath, outputDir, scopeName string) error {
 	// baseDir is the directory containing the xcf file — used by the compiler
 	// to resolve instructions-file: and references: paths.
 	baseDir := filepath.Dir(configPath)
@@ -239,19 +241,13 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	}
 
 	if config.Version != "" && config.Version < currentSchemaVersion {
-		fmt.Fprintf(os.Stderr, "WARNING: scaffold.xcf uses schema version %s; current schema is %s. Run \"xcaffold migrate\" to upgrade.\n", config.Version, currentSchemaVersion)
+		fmt.Fprintf(os.Stderr, "WARNING: project.xcf uses schema version %s; current schema is %s. Run \"xcaffold migrate\" to upgrade.\n", config.Version, currentSchemaVersion)
 	}
 
 	// --- Smart compilation skip: compare source hashes ---
-	targetLockFile := state.LockFilePath(lockFile, targetFlag)
+	stateFilePath := state.StateFilePath(baseDir, applyBlueprintFlag)
 
-	// Auto-migrate legacy scaffold.lock → scaffold.<target>.lock
-	migrated, migrateErr := state.MigrateLegacyLock(lockFile, targetFlag)
-	if migrateErr != nil {
-		fmt.Fprintf(os.Stderr, "[%s] Warning: lock migration failed: %v\n", scopeName, migrateErr)
-	} else if migrated {
-		fmt.Printf("[%s] Migrated %s -> %s\n", scopeName, filepath.Base(lockFile), filepath.Base(targetLockFile))
-	}
+	ensureGitignoreEntry(baseDir, ".xcaffold/")
 
 	sourceFiles, findErr := resolver.FindXCFFiles(baseDir)
 	if findErr != nil {
@@ -278,7 +274,7 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	sourceFiles = configSources
 
 	if !applyForce {
-		prevManifest, readErr := state.Read(targetLockFile)
+		prevManifest, readErr := state.ReadState(stateFilePath)
 		if readErr == nil && len(prevManifest.SourceFiles) > 0 {
 			changed, _ := state.SourcesChanged(prevManifest.SourceFiles, sourceFiles, baseDir)
 			if !changed {
@@ -321,10 +317,10 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	// Resolve the target-specific output directory instead of the hardcoded default
 	outputDir = filepath.Join(filepath.Dir(outputDir), compiler.OutputDir(targetFlag))
 
-	oldManifest, _ := state.Read(targetLockFile)
+	oldManifest, _ := state.ReadState(stateFilePath)
 
 	if !applyDryRun && !applyForce {
-		drift, err := hasDrift(outputDir, targetLockFile)
+		drift, err := hasDriftFromState(outputDir, stateFilePath, targetFlag)
 		if err == nil && drift {
 			return fmt.Errorf("[%s] drift detected! Target directory contains unrecorded changes. Use --force to overwrite", scopeName)
 		}
@@ -361,7 +357,7 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	// Write (or preview) each compiled file.
 	hasChanges := false
 
-	cleanOrphans(oldManifest, out, outputDir, scopeName, &hasChanges)
+	cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, scopeName, &hasChanges)
 
 	for relPath, content := range out.Files {
 		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
@@ -384,7 +380,7 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 	}
 
 	// Memory rendering pass. Runs per-target when --include-memory or --reseed
-	// is set. Collected seeds are recorded in the target-specific scaffold.lock.
+	// is set. Collected seeds are recorded in the state file.
 	var memSeeds []state.MemorySeed
 	if memoryPassEnabled(applyIncludeMemory, applyReseed) {
 		var priorSeeds []state.MemorySeed
@@ -405,20 +401,19 @@ func applyScope(configPath, outputDir, lockFile, scopeName string) error {
 		}
 	}
 
-	// Write the lock file with source tracking.
-	manifest := state.GenerateWithOpts(out, state.GenerateOpts{
+	// Write the state file with source tracking.
+	newManifest := state.GenerateState(out, state.StateOpts{
+		Blueprint:   applyBlueprintFlag,
 		Target:      targetFlag,
-		Scope:       scopeName,
-		ConfigDir:   ".",
-		SourceFiles: sourceFiles,
 		BaseDir:     baseDir,
+		SourceFiles: sourceFiles,
 		MemorySeeds: memSeeds,
-	})
-	if err := state.Write(manifest, targetLockFile); err != nil {
-		return fmt.Errorf("[%s] failed to write %s: %w", scopeName, filepath.Base(targetLockFile), err)
+	}, oldManifest)
+	if err := state.WriteState(newManifest, stateFilePath); err != nil {
+		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to write state: %v\n", scopeName, err)
 	}
 
-	fmt.Printf("\n[%s] ✓ Apply complete. %s updated.\n", scopeName, filepath.Base(targetLockFile))
+	fmt.Printf("\n[%s] ✓ Apply complete. State updated.\n", scopeName)
 
 	// Ensure the project is registered and the timestamp is updated.
 	cwd, _ := os.Getwd()
@@ -547,30 +542,6 @@ func applyFile(absPath, content, scopeName string, hasChanges *bool) error {
 	hash := sha256.Sum256([]byte(content))
 	fmt.Printf("  [%s] ✓ wrote %s  (sha256:%x)\n", scopeName, absPath, hash)
 	return nil
-}
-
-func hasDrift(outputDir, lockFile string) (bool, error) {
-	manifest, err := state.Read(lockFile)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil // no lock file means no drift (first run)
-		}
-		return false, err
-	}
-
-	for _, artifact := range manifest.Artifacts {
-		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
-		data, err := os.ReadFile(absPath)
-		if err != nil {
-			return true, nil // missing file is drift
-		}
-		actualHash := sha256.Sum256(data)
-		actual := fmt.Sprintf("sha256:%x", actualHash)
-		if actual != artifact.Hash {
-			return true, nil // content drift
-		}
-	}
-	return false, nil
 }
 
 func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
@@ -752,8 +723,10 @@ func copyDir(src, dst string) error {
 	})
 }
 
-func cleanOrphans(oldManifest *state.LockManifest, out *compiler.Output, outputDir, scopeName string, hasChanges *bool) {
-	orphans := state.FindOrphans(oldManifest, out.Files)
+// cleanOrphansFromState removes files from outputDir that were recorded in old
+// for the given target but are absent from the new compiler output.
+func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out *compiler.Output, outputDir, scopeName string, hasChanges *bool) {
+	orphans := state.FindOrphansFromState(oldManifest, target, out.Files)
 	for _, orphanPath := range orphans {
 		absPath := filepath.Clean(filepath.Join(outputDir, orphanPath))
 		if applyDryRun {
@@ -769,6 +742,56 @@ func cleanOrphans(oldManifest *state.LockManifest, out *compiler.Output, outputD
 			}
 		}
 	}
+}
+
+// hasDriftFromState checks whether any artifact recorded for target in the
+// StateManifest at stateFile has been modified on disk since the last apply.
+func hasDriftFromState(outputDir, stateFile, target string) (bool, error) {
+	manifest, err := state.ReadState(stateFile)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	ts, ok := manifest.Targets[target]
+	if !ok {
+		return false, nil
+	}
+
+	for _, artifact := range ts.Artifacts {
+		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
+		data, err := os.ReadFile(absPath)
+		if err != nil {
+			return true, nil // missing file is drift
+		}
+		actualHash := sha256.Sum256(data)
+		actual := fmt.Sprintf("sha256:%x", actualHash)
+		if actual != artifact.Hash {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ensureGitignoreEntry appends entry to dir/.gitignore if not already present.
+// Creates the file if it does not exist.
+func ensureGitignoreEntry(dir, entry string) {
+	gitignorePath := filepath.Join(dir, ".gitignore")
+	data, _ := os.ReadFile(gitignorePath)
+	if strings.Contains(string(data), entry) {
+		return
+	}
+	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	if len(data) > 0 && data[len(data)-1] != '\n' {
+		f.WriteString("\n")
+	}
+	f.WriteString(entry + "\n")
 }
 
 // cleanEmptyDirsUpToTarget recursively deletes empty parent directories
@@ -791,7 +814,7 @@ func cleanEmptyDirsUpToTarget(dir, targetDir string) {
 }
 
 // runMemoryPass executes the memory rendering pass for a single target.
-// Returns the seeds to record in scaffold.lock (empty on dry-run or targets
+// Returns the seeds to record in the state file (empty on dry-run or targets
 // without native memory), fidelity notes to print, and an error if a hard
 // failure occurred (e.g., drift detected without --reseed for tracked
 // lifecycle entries on the Claude target).

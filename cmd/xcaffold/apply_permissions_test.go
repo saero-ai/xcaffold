@@ -29,7 +29,7 @@ func TestApply_CheckPermissions_CursorTarget_ReportsDroppedFields(t *testing.T) 
 	// failures unrelated to what this test exercises.
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	content := `---
 kind: project
 version: "1.0"
@@ -90,7 +90,7 @@ agents:
 func TestApply_CheckPermissions_GeminiTarget_ReportsDroppedFields(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	content := `---
 kind: project
 version: "1.0"
@@ -145,7 +145,7 @@ func TestApply_CheckPermissions_ContradictionExitsOne(t *testing.T) {
 	// failures unrelated to what this test exercises.
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	content := `---
 kind: project
 version: "1.0"
@@ -176,9 +176,9 @@ permissions:
 // When --global is set, xcfPath is empty, so filepath.Dir("") == "." (CWD),
 // which is the wrong directory. The fix must use globalXcfHome instead.
 func TestApply_CheckPermissions_Global_UsesGlobalXcfHome(t *testing.T) {
-	// Create a temp dir to serve as globalXcfHome with a valid scaffold.xcf.
+	// Create a temp dir to serve as globalXcfHome with a valid project.xcf.
 	globalHome := t.TempDir()
-	xcf := filepath.Join(globalHome, "scaffold.xcf")
+	xcf := filepath.Join(globalHome, "project.xcf")
 	content := `---
 kind: project
 version: "1.0"
@@ -198,7 +198,7 @@ agents:
 `
 	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
 
-	// A separate temp dir to act as CWD — it has no scaffold.xcf.
+	// A separate temp dir to act as CWD — it has no project.xcf.
 	// If the bug is present, ParseDirectory(".") (or the CWD) will be used
 	// and the call will fail with a "no such file" or parse error.
 	cwdStand := t.TempDir()
@@ -231,5 +231,5 @@ agents:
 	targetFlag = targetClaude
 
 	runErr := runApply(nil, nil)
-	assert.NoError(t, runErr, "--check-permissions --global must succeed when globalXcfHome has a valid scaffold.xcf")
+	assert.NoError(t, runErr, "--check-permissions --global must succeed when globalXcfHome has a valid project.xcf")
 }

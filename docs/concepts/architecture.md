@@ -19,7 +19,7 @@ graph LR
   end
 
   subgraph User Codebase
-    A[scaffold.xcf]
+    A[project.xcf]
     XCF["xcf/**/*.xcf"]
   end
 
@@ -37,7 +37,7 @@ graph LR
   end
 
   subgraph Outputs
-    F["scaffold.lock  (or scaffold.<target>.lock)"]
+    F[".xcaffold/project.xcf.state  (or scaffold.<target>.lock)"]
     
     subgraph .claude/
       C1["agents/*.md"]
@@ -84,7 +84,7 @@ graph LR
 
 | Flag | Source | Output root |
 |---|---|---|
-| _(default)_ | `./scaffold.xcf` | `./.claude/` (or `.cursor/`, `.agents/`) |
+| _(default)_ | `./project.xcf` | `./.claude/` (or `.cursor/`, `.agents/`) |
 | `--global / -g` | `~/.xcaffold/global.xcf` | `~/.claude/` (or `~/.cursor/`, `~/.agents/`) |
 
 The two scopes are fully independent compilations with no atomicity guarantee. To compile both, run `xcaffold apply --global` then `xcaffold apply` separately.
@@ -98,7 +98,7 @@ The output root is determined by the `--target` flag on `xcaffold apply`:
 | `antigravity` | `.agents/` |
 
 Lock files follow a naming convention:
-- `claude` → `scaffold.lock` (default, backward compatible)
+- `claude` → `.xcaffold/project.xcf.state` (default, backward compatible)
 - `cursor` → `scaffold.cursor.lock`
 - `antigravity` → `scaffold.antigravity.lock`
 
@@ -155,7 +155,7 @@ Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognize
 | `importer/copilot` | `internal/importer/copilot/` | GitHub Copilot importer (reads `.github/`) |
 | `importer/antigravity` | `internal/importer/antigravity/` | Antigravity importer (reads `.agents/`) |
 | `output` | `internal/output/` | `Output` struct — `map[relPath]content` file map |
-| `state` | `internal/state/` | SHA-256 `scaffold.lock` generation, read, and write |
+| `state` | `internal/state/` | SHA-256 `.xcaffold/project.xcf.state` generation, read, and write |
 | `registry` | `internal/registry/` | Global home bootstrap, project registry CRUD, platform provider scans |
 | `templates` | `internal/templates/` | Rendering templates for references and boilerplate generation |
 | `analyzer` | `internal/analyzer/` | Detects undeclared artifacts via `ScanOutputDir` |
@@ -217,7 +217,7 @@ The compiler merges two sources into `settings.json`:
 
 **Merge rule:** `settings.mcpServers` takes precedence over `mcp:` entries with the same key.
 
-The `local:` block is a `SettingsConfig` variant that allows machine-local overrides (e.g. paths, secrets) without polluting the committed `scaffold.xcf`. It compiles to `settings.local.json`. In `kind: project` format, `local:` is a top-level field (not nested under `project:`).
+The `local:` block is a `SettingsConfig` variant that allows machine-local overrides (e.g. paths, secrets) without polluting the committed `project.xcf`. It compiles to `settings.local.json`. In `kind: project` format, `local:` is a top-level field (not nested under `project:`).
 
 ---
 
@@ -231,8 +231,8 @@ Audit        → xcaffold analyze   (LLM-based repo audit)
 Topology     → xcaffold graph     (ASCII / mermaid / DOT / JSON output)
 Listing      → xcaffold list      (View registered projects)
 Migration    → xcaffold migrate   (Upgrade legacy flat layouts)
-Compilation  → xcaffold apply     (XCF → policy evaluation → target output files + scaffold.lock)
-Drift Check  → xcaffold diff      (compares scaffold.lock against live output files)
+Compilation  → xcaffold apply     (XCF → policy evaluation → target output files + .xcaffold/project.xcf.state)
+Drift Check  → xcaffold diff      (compares .xcaffold/project.xcf.state against live output files)
 Validation   → xcaffold validate  (Syntax/structural check)
 Review       → xcaffold review    (Terminal-based diagnostic viewing)
 Simulation   → xcaffold test      (API simulation: reads compiled agent prompt, sends task to LLM, records declared tool calls)
@@ -251,15 +251,15 @@ The IR is the bridge between every import, translation, and compilation phase:
 
 | Phase | IR role |
 |---|---|
-| `xcaffold import` | Reads provider source files → builds IR → writes to `scaffold.xcf` (persists IR to disk) |
+| `xcaffold import` | Reads provider source files → builds IR → writes to `project.xcf` (persists IR to disk) |
 | `xcaffold translate` — phase 1 | Reads provider source files → builds IR (in-memory only, never written unless `--save-xcf` is set) |
 | `xcaffold translate` — phase 2 | Passes IR to the compiler + optimizer → emits target output files |
-| `xcaffold apply` | Reads `scaffold.xcf` from disk (the persisted IR) → compiles to target |
-| `xcaffold diff` | Reads persisted IR from `scaffold.lock` hashes → detects drift |
+| `xcaffold apply` | Reads `project.xcf` from disk (the persisted IR) → compiles to target |
+| `xcaffold diff` | Reads persisted IR from `.xcaffold/project.xcf.state` hashes → detects drift |
 
 The IR is intentionally format-neutral: the same struct that represents a Claude Code `.claude/agents/developer.md` agent also represents a Cursor `agents/developer.md` agent or an Antigravity skill. Renderers receive this struct and decide how to map it to the target format.
 
-When you run `xcaffold translate --save-xcf ir.xcf`, the in-memory IR is serialized to disk as a `scaffold.xcf` file. This lets you inspect the IR before compilation, version-control it as a managed project, or feed it into `xcaffold apply` for ongoing GitOps management.
+When you run `xcaffold translate --save-xcf ir.xcf`, the in-memory IR is serialized to disk as a `project.xcf` file. This lets you inspect the IR before compilation, version-control it as a managed project, or feed it into `xcaffold apply` for ongoing GitOps management.
 
 > **Why "IR"?** The term is borrowed from compiler design, where an IR is the normalized, source-language-independent form between parsing and code generation. xcaffold's IR plays the same role: it normalizes disjoint provider formats into a shared data model, then generates target-specific output from that model.
 
@@ -562,7 +562,7 @@ The lock manifest — serialized as `scaffold.<target>.lock` — is xcaffold's p
 
 Each compilation target maintains its own independent lock manifest. The path for a given target is computed by `LockFilePath()` (`internal/state/state.go:22-29`):
 
-- For the `claude` target (or an empty target string), the function returns `basePath` unchanged — `scaffold.lock` — preserving backward compatibility with existing projects.
+- For the `claude` target (or an empty target string), the function returns `basePath` unchanged — `.xcaffold/project.xcf.state` — preserving backward compatibility with existing projects.
 - For all other targets, the target name is inserted before the file extension: `scaffold.cursor.lock`, `scaffold.antigravity.lock`, and so on.
 
 This design means drift in one target is entirely isolated from others. A manual edit to a file in `.cursor/` has no effect on the `scaffold.claude.lock` manifest, and vice versa. Running `xcaffold diff --target cursor` checks only cursor artifacts; running it without a flag checks only claude artifacts. The two manifests are independent truth states.
@@ -591,7 +591,7 @@ This dual tracking — inputs and outputs — means the system can distinguish b
 
 The lock manifest enables a property that distinguishes declarative systems from imperative ones: the ability to *remove* what is no longer declared.
 
-When xcaffold compiles a new version of `scaffold.xcf`, it produces a new set of output files. Some files that existed in the previous compilation may no longer appear — an agent was removed, a skill was renamed, a rule was deleted. Without explicit cleanup, these stale files would persist on disk indefinitely, creating a gap between what is declared and what exists.
+When xcaffold compiles a new version of `project.xcf`, it produces a new set of output files. Some files that existed in the previous compilation may no longer appear — an agent was removed, a skill was renamed, a rule was deleted. Without explicit cleanup, these stale files would persist on disk indefinitely, creating a gap between what is declared and what exists.
 
 `FindOrphans()` (`internal/state/state.go:224-237`) closes this gap. It takes the old `LockManifest` and the new compilation's file map as inputs, and returns the set difference: artifact paths recorded in the old manifest that do not appear in the new output. Results are sorted alphabetically for deterministic ordering.
 
@@ -605,7 +605,7 @@ The consequence is that the topology of the output directory at any point in tim
 
 xcaffold supports two compilation scopes: project and global. These are not merely organizational labels — they correspond to distinct filesystem locations with independent lock manifests and independent drift states.
 
-Project-scope lock files live alongside `scaffold.xcf` in the project directory. Global-scope lock files live in `~/.xcaffold/`, the global xcaffold home directory. The `Scope` field in `GenerateOpts` (`internal/state/state.go:63`) carries this distinction into the manifest itself.
+Project-scope lock files live alongside `project.xcf` in the project directory. Global-scope lock files live in `~/.xcaffold/`, the global xcaffold home directory. The `Scope` field in `GenerateOpts` (`internal/state/state.go:63`) carries this distinction into the manifest itself.
 
 Because the manifests are independent, a drift condition in the global scope does not affect project-scope checks, and a project applying cleanly does not reset the global manifest. Each scope is a self-contained truth state. `runApply()` in `apply.go` dispatches to `applyScope()` with the correct `lockFile` path depending on whether `--global` is set, and `runDiff()` in `diff.go` similarly computes the correct `targetLock` path per scope before calling `diffScope()`.
 
@@ -613,11 +613,11 @@ Because the manifests are independent, a drift condition in the global scope doe
 
 ### Legacy Lock Migration
 
-xcaffold originally wrote a single `scaffold.lock` regardless of target. When per-target lock files were introduced, projects using the old format required a migration path that preserved their drift state without requiring a full recompilation.
+xcaffold originally wrote a single `.xcaffold/project.xcf.state` regardless of target. When per-target lock files were introduced, projects using the old format required a migration path that preserved their drift state without requiring a full recompilation.
 
-`MigrateLegacyLock()` (`internal/state/state.go:202-220`) handles this transparently. When `applyScope()` runs, it calls `MigrateLegacyLock()` before reading the lock. If a `scaffold.lock` exists at the legacy path and the target-specific path does not yet exist, the legacy file is renamed — not copied — to the target-specific path (e.g., `scaffold.cursor.lock`). The rename is atomic on supported filesystems. If the target-specific file already exists, migration is skipped entirely; the existing state is authoritative.
+`MigrateLegacyLock()` (`internal/state/state.go:202-220`) handles this transparently. When `applyScope()` runs, it calls `MigrateLegacyLock()` before reading the lock. If a `.xcaffold/project.xcf.state` exists at the legacy path and the target-specific path does not yet exist, the legacy file is renamed — not copied — to the target-specific path (e.g., `scaffold.cursor.lock`). The rename is atomic on supported filesystems. If the target-specific file already exists, migration is skipped entirely; the existing state is authoritative.
 
-The original `scaffold.lock` file is not deleted by the migration. It persists until the user removes it. This means projects transitioning between xcaffold versions encounter no silent data loss: the legacy manifest remains available for inspection, and the renamed target-specific manifest takes over as the active truth state for future applies.
+The original `.xcaffold/project.xcf.state` file is not deleted by the migration. It persists until the user removes it. This means projects transitioning between xcaffold versions encounter no silent data loss: the legacy manifest remains available for inspection, and the renamed target-specific manifest takes over as the active truth state for future applies.
 
 ---
 
@@ -678,12 +678,12 @@ These inline architecture decisions record the reasoning behind strict implement
 
 ---
 - **Reviewing agent behavior changes in a pull request** — because configuration is compiled from `.xcf` files, `git diff` on `.xcf` files surfaces exactly what changed, which is not possible with prompt-at-runtime configurations stored only in an IDE dialog.
-- **Debugging a CI drift-gate failure** — determinism means the compiler always produces the same bytes from the same input, so a `scaffold.lock` mismatch means a generated file was edited directly, not that the compiler is non-deterministic.
+- **Debugging a CI drift-gate failure** — determinism means the compiler always produces the same bytes from the same input, so a `.xcaffold/project.xcf.state` mismatch means a generated file was edited directly, not that the compiler is non-deterministic.
 - **Understanding why compiled output files are read-only** — the one-way compilation model means the `.xcf` source is the authority; editing generated files (`.claude/`, `.cursor/`, `.agents/`, etc.) is semantically equivalent to editing a compiled binary instead of its source.
 - **Tracing a parse error back to its cause** — `KnownFields(true)` fails immediately on the first unknown field, so parse errors point to a specific line rather than producing a silently misconfigured agent.
 
 ---
-- **A team uses multiple IDEs** — a single `scaffold.xcf` can be compiled to `claude`, `cursor`, and `antigravity` targets without modifying the source; each team member runs `xcaffold apply --target <target>` for their environment, and all receive semantically equivalent configurations.
+- **A team uses multiple IDEs** — a single `project.xcf` can be compiled to `claude`, `cursor`, and `antigravity` targets without modifying the source; each team member runs `xcaffold apply --target <target>` for their environment, and all receive semantically equivalent configurations.
 - **Adding a new target renderer** — implementing `TargetRenderer` and registering it in the compiler registry is the only change required; the AST, parser, state tracking, and policy engine do not need modification.
 - **Understanding why different targets produce different output** — field-level fidelity differences (e.g., `settings.sandbox` dropped for `cursor`) are reported by the renderer as warnings rather than errors; knowing where the renderer boundary sits clarifies why a field present in `.xcf` does not appear in a specific output directory.
 - **Diagnosing MCP server merge behavior** — the Claude renderer merges `mcp:` and `settings.mcpServers` during rendering, not during parsing; the `.xcf` AST retains both fields as separate until render time.

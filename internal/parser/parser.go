@@ -355,26 +355,99 @@ func isRuleDocument(doc []byte) bool {
 	return false
 }
 
+// extractFrontmatterAndBody splits .xcf file bytes on the frontmatter `---`
+// delimiter. The format is:
+//
+//	---
+//	<yaml frontmatter>
+//	---
+//	<markdown body>
+//
+// Rules:
+//   - If data does NOT start with "---\n", it is treated as pure YAML (no body
+//     extraction). frontmatter == data, body == nil. Existing multi-document
+//     YAML files and legacy single-document files continue to work unchanged.
+//   - If data starts with "---\n" and the region following the closing "---\n"
+//     starts with another YAML kind document (begins with "kind:"), the file is
+//     treated as a multi-document YAML stream (no frontmatter split). This
+//     preserves full backward compatibility with multi-kind .xcf files.
+//   - If data starts with "---\n" with no closing "---\n", an error is
+//     returned.
+//   - body is the raw bytes after the closing "---\n". Callers must TrimSpace
+//     before use; an empty or whitespace-only body is treated as no body.
+func extractFrontmatterAndBody(data []byte) (frontmatter []byte, body []byte, err error) {
+	const delim = "---\n"
+	if !bytes.HasPrefix(data, []byte(delim)) {
+		// Pure YAML mode — no frontmatter/body split.
+		return data, nil, nil
+	}
+	rest := data[len(delim):]
+	idx := bytes.Index(rest, []byte(delim))
+	if idx == -1 {
+		// Starts with "---\n" but no closing delimiter found.
+		// If the remainder looks like a multi-document YAML stream or a single
+		// YAML doc (has "kind:"), treat the whole file as pure YAML to stay
+		// compatible with single-document files that begin with "---\n".
+		if looksLikeYAMLDocument(rest) {
+			return data, nil, nil
+		}
+		return nil, nil, fmt.Errorf(
+			".xcf file opens with '---' but has no closing '---' delimiter: " +
+				"every frontmatter block must be closed with a line containing only '---'",
+		)
+	}
+	candidate := rest[idx+len(delim):]
+	// If the body after the closing "---\n" starts another YAML document
+	// (detected by a top-level "kind:" key), the entire file is a multi-document
+	// YAML stream — fall back to pure YAML mode for full backward compatibility.
+	if looksLikeYAMLDocument(candidate) {
+		return data, nil, nil
+	}
+	frontmatter = rest[:idx]
+	body = candidate
+	return frontmatter, body, nil
+}
+
+// looksLikeYAMLDocument returns true when data begins with a line of the form
+// "kind: <value>" at the top level (no leading whitespace), indicating the
+// content is a .xcf resource document rather than free-form markdown.
+func looksLikeYAMLDocument(data []byte) bool {
+	trimmed := bytes.TrimLeft(data, " \t\r\n")
+	return bytes.HasPrefix(trimmed, []byte("kind:"))
+}
+
 func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read .xcf input: %w", err)
 	}
 
+	// Split on frontmatter delimiter before any YAML processing.
+	// Files that do NOT start with "---\n" are treated as pure YAML (body == nil)
+	// and fall through unchanged — full backward compatibility is preserved.
+	frontmatter, body, err := extractFrontmatterAndBody(data)
+	if err != nil {
+		return nil, err
+	}
+
 	// Detect pre-migration snake_case keys that are rejected (not silently aliased)
 	// for specific kinds. This scan runs before rewriteLegacyKeys so the original
 	// key spelling is still visible.
-	if err := detectRejectedSnakeCaseKeys(data); err != nil {
+	if err := detectRejectedSnakeCaseKeys(frontmatter); err != nil {
 		return nil, err
 	}
 
 	// Rewrite deprecated camelCase/snake_case keys to kebab-case before decoding.
 	// This provides backward compatibility during the migration period.
-	data = rewriteLegacyKeys(data)
+	frontmatter = rewriteLegacyKeys(frontmatter)
 
 	config := &ast.XcaffoldConfig{}
-	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder := yaml.NewDecoder(bytes.NewReader(frontmatter))
 	docIndex := 0
+
+	// Track the kind and name of the last parsed resource for body assignment.
+	var lastKind string
+	var lastName string
 
 	for {
 		var node yaml.Node
@@ -418,9 +491,41 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			if parseErr := parseResourceDocument(docNode, kind, config, ""); parseErr != nil {
 				return nil, parseErr
 			}
+			lastKind = kind
+			lastName = extractScalarField(docNode, "name")
+
+		case "reference":
+			if config.Version == "" {
+				config.Version = extractVersion(docNode)
+			}
+			if parseErr := parseReferenceDocument(docNode, config); parseErr != nil {
+				return nil, parseErr
+			}
+			lastKind = "reference"
+			lastName = extractScalarField(docNode, "name")
+
+		case "blueprint":
+			// Accepted by isParseableFile; full routing owned by the blueprint kind spec.
+			// Extract version for config envelope consistency.
+			if config.Version == "" {
+				config.Version = extractVersion(docNode)
+			}
+			lastKind = "blueprint"
+			lastName = extractScalarField(docNode, "name")
 
 		default:
 			return nil, fmt.Errorf("unknown resource kind %q in document %d", kind, docIndex)
+		}
+
+		// Emit a deprecation warning on the second+ document of a multi-document
+		// YAML stream. Gated by XCAFFOLD_LEGACY_WARNINGS=true to avoid noise on
+		// projects that haven't migrated yet. The recommended migration is to split
+		// each resource into its own single-kind .xcf file.
+		if docIndex > 0 && os.Getenv("XCAFFOLD_LEGACY_WARNINGS") == "true" {
+			fmt.Fprintf(os.Stderr,
+				"Warning: multi-document .xcf files are deprecated; "+
+					"split each resource into its own file (document %d, kind: %s)\n",
+				docIndex+1, kind)
 		}
 
 		docIndex++
@@ -428,6 +533,45 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 
 	if docIndex == 0 {
 		return nil, fmt.Errorf("failed to parse .xcf YAML: EOF")
+	}
+
+	// Assign markdown body to the parsed resource's Instructions or Content field.
+	// Only applies to frontmatter-format files (body != nil) with non-empty body text.
+	// The YAML instructions: field wins — body is silently discarded when already set.
+	if body != nil && len(strings.TrimSpace(string(body))) > 0 {
+		trimmedBody := strings.TrimSpace(string(body))
+		switch lastKind {
+		case "agent":
+			if a, ok := config.Agents[lastName]; ok && a.Instructions == "" {
+				a.Instructions = trimmedBody
+				config.Agents[lastName] = a
+			}
+		case "skill":
+			if s, ok := config.Skills[lastName]; ok && s.Instructions == "" {
+				s.Instructions = trimmedBody
+				config.Skills[lastName] = s
+			}
+		case "rule":
+			if r, ok := config.Rules[lastName]; ok && r.Instructions == "" {
+				r.Instructions = trimmedBody
+				config.Rules[lastName] = r
+			}
+		case "workflow":
+			if w, ok := config.Workflows[lastName]; ok && w.Instructions == "" {
+				w.Instructions = trimmedBody
+				config.Workflows[lastName] = w
+			}
+		case "project":
+			if config.Project != nil && config.Project.Instructions == "" {
+				config.Project.Instructions = trimmedBody
+			}
+		case "reference":
+			if ref, ok := config.References[lastName]; ok && ref.Content == "" {
+				ref.Content = trimmedBody
+				config.References[lastName] = ref
+			}
+			// "blueprint" intentionally omitted — body routing deferred to the blueprint renderer.
+		}
 	}
 
 	o := resolveParseOptions(opts)
@@ -462,16 +606,18 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 // parseableKinds lists the kind values accepted by isParseableFile.
 // Every .xcf document must declare an explicit kind field.
 var parseableKinds = map[string]bool{
-	"project":  true,
-	"agent":    true,
-	"skill":    true,
-	"rule":     true,
-	"workflow": true,
-	"mcp":      true,
-	"hooks":    true,
-	"settings": true,
-	"global":   true,
-	"policy":   true,
+	"project":   true,
+	"agent":     true,
+	"skill":     true,
+	"rule":      true,
+	"workflow":  true,
+	"mcp":       true,
+	"hooks":     true,
+	"settings":  true,
+	"global":    true,
+	"policy":    true,
+	"reference": true,
+	"blueprint": true,
 }
 
 // isParseableFile reads the kind: field from an .xcf file to determine if it
@@ -810,6 +956,7 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	workflowOrigins := map[string]string{}
 	policyOrigins := map[string]string{}
 	memoryOrigins := map[string]string{}
+	referenceOrigins := map[string]string{}
 	settingsOrigin := ""
 	localOrigin := ""
 
@@ -881,6 +1028,12 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			if len(p.Project.PolicyRefs) > 0 {
 				merged.Project.PolicyRefs = p.Project.PolicyRefs
 			}
+			if p.Project.Instructions != "" {
+				merged.Project.Instructions = p.Project.Instructions
+			}
+			if p.Project.InstructionsFile != "" {
+				merged.Project.InstructionsFile = p.Project.InstructionsFile
+			}
 		}
 
 		if p.Extends != "" {
@@ -921,6 +1074,11 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		}
 
 		merged.Memory, memoryOrigins, err = mergeMapStrict(merged.Memory, p.Memory, "memory", memoryOrigins, f)
+		if err != nil {
+			return nil, err
+		}
+
+		merged.References, referenceOrigins, err = mergeMapStrict(merged.References, p.References, "reference", referenceOrigins, f)
 		if err != nil {
 			return nil, err
 		}
@@ -1118,6 +1276,7 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.Workflows = mergeWorkflowsOverrideInherited(base.Workflows, child.Workflows)
 	merged.Policies = mergeMapOverride(base.Policies, child.Policies)
 	merged.Memory = mergeMemoryOverrideInherited(base.Memory, child.Memory)
+	merged.References = mergeReferencesOverrideInherited(base.References, child.References)
 	merged.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
 
 	merged.Settings = mergeSettingsOverride(base.Settings, child.Settings)
@@ -1229,6 +1388,22 @@ func mergeMemoryOverrideInherited(base, child map[string]ast.MemoryConfig) map[s
 		return nil
 	}
 	merged := make(map[string]ast.MemoryConfig, len(base)+len(child))
+	for k, v := range base {
+		v.Inherited = true
+		merged[k] = v
+	}
+	for k, v := range child {
+		v.Inherited = false
+		merged[k] = v
+	}
+	return merged
+}
+
+func mergeReferencesOverrideInherited(base, child map[string]ast.ReferenceConfig) map[string]ast.ReferenceConfig {
+	if base == nil && child == nil {
+		return nil
+	}
+	merged := make(map[string]ast.ReferenceConfig, len(base)+len(child))
 	for k, v := range base {
 		v.Inherited = true
 		merged[k] = v
@@ -1755,6 +1930,9 @@ func validateIDs(c *ast.XcaffoldConfig) error {
 		return err
 	}
 	if err := validateResourceIDs(c.Memory, "memory"); err != nil {
+		return err
+	}
+	if err := validateResourceIDs(c.References, "reference"); err != nil {
 		return err
 	}
 	return nil

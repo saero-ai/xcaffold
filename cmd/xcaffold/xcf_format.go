@@ -351,7 +351,7 @@ type settingsSplitDoc struct {
 
 // WriteSplitFiles writes an XcaffoldConfig to rootDir as individual .xcf files:
 //
-//   - rootDir/scaffold.xcf        — kind: project (metadata + ref lists)
+//   - rootDir/project.xcf        — kind: project (metadata + ref lists)
 //   - rootDir/xcf/agents/<n>.xcf  — kind: agent   (one per agent)
 //   - rootDir/xcf/skills/<n>.xcf  — kind: skill   (one per skill)
 //   - rootDir/xcf/rules/<n>.xcf   — kind: rule    (one per rule)
@@ -371,7 +371,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		version = "1.0"
 	}
 
-	// ── kind: project (scaffold.xcf) ────────────────────────────────────────
+	// ── kind: project (project.xcf) ────────────────────────────────────────
 	proj := config.Project
 	if proj == nil {
 		proj = &ast.ProjectConfig{}
@@ -416,7 +416,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		WorkflowRefs: workflowRefs,
 		MCPRefs:      mcpRefs,
 	}
-	if err := writeYAMLFile(filepath.Join(rootDir, "scaffold.xcf"), projDoc); err != nil {
+	if err := writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc); err != nil {
 		return err
 	}
 

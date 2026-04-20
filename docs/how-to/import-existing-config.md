@@ -44,7 +44,7 @@ Import produces a split-file layout:
 
 ```
 my-project/
-  scaffold.xcf              # kind: project — metadata, targets, ref lists
+  project.xcf              # kind: project — metadata, targets, ref lists
   xcf/
     agents/
       developer.xcf          # kind: agent (one per imported agent)
@@ -110,7 +110,7 @@ xcaffold import
 Output:
 
 ```
-[project] ✓ Import complete. Created scaffold.xcf with 8 resources.
+[project] ✓ Import complete. Created project.xcf with 8 resources.
   Split xcf/ files written to xcf/ directory.
   Run 'xcaffold apply' when ready to assume management.
 ```
@@ -119,7 +119,7 @@ Output:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--with-memory` | `false` | Include any agent-written memory files found in the platform directory in the extracted IR. Memory entries are stored in the `memory:` block of the generated `scaffold.xcf`. |
+| `--with-memory` | `false` | Include any agent-written memory files found in the platform directory in the extracted IR. Memory entries are stored in the `memory:` block of the generated `project.xcf`. |
 | `--auto-merge` | `false` | When multiple provider directories are detected, automatically merge without interactive prompts. |
 
 ### Import via init
@@ -135,8 +135,8 @@ xcaffold init
 
      .claude  — 5 agent(s), 3 skill(s), 7 rule(s)
 
-  xcaffold will import this into a single scaffold.xcf.
-Import .claude into scaffold.xcf? [Y/n]
+  xcaffold will import this into a single project.xcf.
+Import .claude into project.xcf? [Y/n]
 ```
 
 ### Multi-directory merge
@@ -153,7 +153,7 @@ xcaffold init
      .claude  — 5 agent(s), 3 skill(s), 7 rule(s)
      .cursor  — 2 agent(s), 1 rule(s)
 
-  xcaffold consolidates multiple configs into one scaffold.xcf.
+  xcaffold consolidates multiple configs into one project.xcf.
   This lets you compile to any target and switch providers seamlessly.
 
 Select directories to import:
@@ -175,7 +175,7 @@ Import derives compilation targets from the platform directory names:
 | `.cursor/` | `cursor` |
 | `.agents/` | `antigravity` |
 
-The detected targets are written to the `targets:` field in `scaffold.xcf`:
+The detected targets are written to the `targets:` field in `project.xcf`:
 
 ```yaml
 kind: project
@@ -199,7 +199,7 @@ Skills may include non-markdown reference files (data files, templates) under `.
 1. Review the generated files. Import uses `"Imported agent"`, `"Imported skill"`, `"Imported rule"` as default descriptions when the source file has no frontmatter `description:` field.
 2. Run `xcaffold validate` to check for structural issues.
 3. Run `xcaffold apply --target claude` to compile. The first apply after import will regenerate all output files.
-4. Commit `scaffold.xcf`, `xcf/`, and the generated lock file.
+4. Commit `project.xcf`, `xcf/`, and the generated lock file.
 
 The original platform directory (`.claude/`, etc.) is not modified or deleted by import. You can keep it until you verify the compiled output matches, then remove it.
 
@@ -239,7 +239,7 @@ Inspect the compiled `.claude/` directory and compare it to your original to con
 | Duplicate agent ID error during import | Same agent name exists in `.claude/` and `.cursor/` | Rename one agent before importing, or use `--auto-merge` to keep the version with more content |
 | Agent `description` shows "Imported agent" | Source `.md` file had no `description:` in its frontmatter | Edit the generated `.xcf` file and add a `description:` field |
 | `xcaffold validate` fails after import | Frontmatter fields in the source file used provider-native keys not recognized by xcaffold | Check the error message for the unknown field name and remove or map it in the generated `.xcf` |
-| MCP servers missing from `scaffold.xcf` | Source `settings.json` had no `mcpServers` key | Inspect the source `settings.json` directly and add any missing servers as `kind: mcp` documents manually |
+| MCP servers missing from `project.xcf` | Source `settings.json` had no `mcpServers` key | Inspect the source `settings.json` directly and add any missing servers as `kind: mcp` documents manually |
 | Rules in `rules/cli/` or `rules/platform/` not imported | Occurs only on xcaffold versions before this fix | Upgrade xcaffold; nested rule IDs use slash notation, e.g. `cli/build-go-cli` |
 
 ---

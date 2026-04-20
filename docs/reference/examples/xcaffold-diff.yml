@@ -2,12 +2,12 @@
 #
 # This workflow enforces that .claude/ files are never manually edited.
 # It fails if a developer modifies any file in .claude/ directly instead
-# of updating scaffold.xcf and re-running xcaffold apply.
+# of updating project.xcf and re-running xcaffold apply.
 #
 # Setup:
-# 1. Run `xcaffold apply` locally and commit scaffold.lock alongside scaffold.xcf.
+# 1. Run `xcaffold apply` locally and commit .xcaffold/project.xcf.state alongside project.xcf.
 # 2. Add this workflow to your repository.
-# 3. CI will fail on any PR where scaffold.lock is stale or .claude/ drifts.
+# 3. CI will fail on any PR where .xcaffold/project.xcf.state is stale or .claude/ drifts.
 #
 # Docs: https://github.com/saero-ai/xcaffold
 
@@ -16,13 +16,13 @@ name: xcaffold Drift Check
 on:
   pull_request:
     paths:
-      - "scaffold.xcf"
-      - "scaffold.lock"
+      - "project.xcf"
+      - ".xcaffold/project.xcf.state"
       - ".claude/**"
 
 jobs:
   drift-check:
-    name: Verify .claude/ matches scaffold.lock
+    name: Verify .claude/ matches .xcaffold/project.xcf.state
     runs-on: ubuntu-latest
 
     steps:
@@ -40,4 +40,4 @@ jobs:
       - name: Run drift check
         run: xcaffold diff
         # Exit code 1 if any .claude/ file has been manually edited
-        # or if scaffold.lock is out of date with scaffold.xcf.
+        # or if .xcaffold/project.xcf.state is out of date with project.xcf.

@@ -7,10 +7,10 @@ description: "Configure differentiated agents with distinct permissions, shared 
 
 This tutorial walks through configuring a team of differentiated AI agents. You will define two agents with distinct tool permissions, attach shared rules and skills, validate the workspace, visualize the topology, audit security field behavior across targets, and inspect the compiled output.
 
-xcaffold supports two layout styles for multi-agent projects: a single `scaffold.xcf` with multiple `kind:` documents, or a split-file structure with `scaffold.xcf` (kind: project) at the root and individual `.xcf` files under `xcf/`. This tutorial shows both.
+xcaffold supports two layout styles for multi-agent projects: a single `project.xcf` with multiple `kind:` documents, or a split-file structure with `project.xcf` (kind: project) at the root and individual `.xcf` files under `xcf/`. This tutorial shows both.
 
 **Time to complete:** ~15 minutes
-**Prerequisites:** Completed the Getting Started tutorial. A fresh project directory with no existing `scaffold.xcf`.
+**Prerequisites:** Completed the Getting Started tutorial. A fresh project directory with no existing `project.xcf`.
 
 ---
 
@@ -140,7 +140,7 @@ instructions-file: "skills/component-patterns/SKILL.md"
 Key points:
 - `disallowed-tools` (lowercase `d`) is the YAML key. It corresponds to the `DisallowedTools` field in the Go AST.
 - `skills:` and `rules:` on each agent are lists of IDs — the compiler resolves them from the top-level library of `kind: skill` and `kind: rule` documents.
-- The `component-patterns` skill references `instructions-file:`. That file must exist on disk relative to `scaffold.xcf` before you run `apply`.
+- The `component-patterns` skill references `instructions-file:`. That file must exist on disk relative to `project.xcf` before you run `apply`.
 
 ### Split-file alternative
 
@@ -148,7 +148,7 @@ As projects grow, you can split the same configuration into separate files under
 
 ```
 my-team/
-  scaffold.xcf                    # kind: project — metadata + ref lists
+  project.xcf                    # kind: project — metadata + ref lists
   xcf/
     agents/
       frontend-dev.xcf            # kind: agent
@@ -163,7 +163,7 @@ my-team/
 The project manifest references children by bare name:
 
 ```yaml
-# scaffold.xcf
+# project.xcf
 kind: project
 version: "1.0"
 name: my-team
@@ -221,7 +221,7 @@ syntax and cross-references: ok
 validation passed
 ```
 
-Now add a rule that has no `paths:`, no `always-apply: true`, and is not referenced by any agent, to see what a structural warning looks like. Append this document to your `scaffold.xcf`:
+Now add a rule that has no `paths:`, no `always-apply: true`, and is not referenced by any agent, to see what a structural warning looks like. Append this document to your `project.xcf`:
 
 ```yaml
 ---
@@ -420,13 +420,13 @@ The SHA-256 hash on each write line is recorded in `scaffold.claude.lock`. On th
 
 ## What You Built
 
-You configured a two-agent workspace with distinct tool permissions, defined shared rules and a skill in a single `scaffold.xcf`, validated structural integrity with `xcaffold validate --structural`, and audited how security fields behave across targets. You compiled the configuration to `.claude/` and verified that each agent file contains only the resources it declared.
+You configured a two-agent workspace with distinct tool permissions, defined shared rules and a skill in a single `project.xcf`, validated structural integrity with `xcaffold validate --structural`, and audited how security fields behave across targets. You compiled the configuration to `.claude/` and verified that each agent file contains only the resources it declared.
 
 ---
 
 ## Next Steps
 
 - **Drift remediation** — detect and restore managed files when compiled output has been modified directly: [Drift Remediation](drift-remediation.md)
-- **Split configurations** — break a large `scaffold.xcf` into per-resource files under `xcf/`: [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md)
+- **Split configurations** — break a large `project.xcf` into per-resource files under `xcf/`: [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md)
 - **Policy enforcement** — add `require` and `deny` constraints that block compilation when violated: [Policy Enforcement](../how-to/policy-enforcement.md)
 - **CLI reference** — full command reference including all flags for `apply`, `diff`, `validate`, and `graph`: [CLI Reference](../reference/cli.md)

@@ -21,15 +21,12 @@ var (
 // It is resolved before any subcommand runs.
 var configFlag string
 
-// xcfPath is the resolved, absolute path to the scaffold.xcf file.
-// All subcommands should read from this rather than a hardcoded "scaffold.xcf".
+// xcfPath is the resolved, absolute path to the project.xcf file.
+// All subcommands should read from this rather than a hardcoded filename.
 var xcfPath string
 
 // claudeDir is the resolved, absolute path to the .claude/ output directory.
 var claudeDir string
-
-// lockPath is the resolved, absolute path to scaffold.lock.
-var lockPath string
 
 // globalFlag indicates whether to operate on the user-wide global config.
 var globalFlag bool
@@ -39,9 +36,6 @@ var globalXcfPath string
 
 // globalXcfHome is where global.xcf lives ~/.xcaffold/ by convention.
 var globalXcfHome string
-
-// globalLockPath is ~/.xcaffold/scaffold.lock.
-var globalLockPath string
 
 var rootCmd = &cobra.Command{
 	Use:   "xcaffold",
@@ -66,7 +60,7 @@ var rootCmd = &cobra.Command{
   • Translate   [xcaffold translate] Converts configs between providers with fidelity control
   • Validate    [xcaffold validate]  Checks syntax, cross-refs, and structural invariants
   • Review      [xcaffold review]    Universally parses state files
-    ↳ Supports: scaffold.xcf, audit.json, plan.json, trace.jsonl
+    ↳ Supports: project.xcf, audit.json, plan.json, trace.jsonl
     ↳ Try: 'xcaffold review all'
   • Registry    [xcaffold list]      Lists all managed projects
   • Migration   [xcaffold migrate]   Upgrades legacy layouts
@@ -74,7 +68,7 @@ var rootCmd = &cobra.Command{
  ┌───────────────────────────────────────────────────────────────────┐
  │                           SCOPES                                  │
  └───────────────────────────────────────────────────────────────────┘
-  • Project  [default]         scaffold.xcf           -> .claude/ | .cursor/ | .agents/
+  • Project  [default]         project.xcf            -> .claude/ | .cursor/ | .agents/
   • Global   [--global / -g]   ~/.xcaffold/global.xcf -> ~/.claude/ | ~/.cursor/ | ~/.agents/
 
 Use 'xcaffold --help' for more information on available commands.`,
@@ -89,7 +83,7 @@ func init() {
 		&configFlag,
 		"config",
 		"",
-		"Path to scaffold.xcf (default: ./scaffold.xcf). Use for monorepo sub-directories.",
+		"Path to project.xcf (default: ./project.xcf). Use for monorepo sub-directories.",
 	)
 	rootCmd.PersistentFlags().BoolVarP(
 		&globalFlag,
@@ -124,7 +118,6 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 		return fmt.Errorf("could not determine home directory: %w", err)
 	}
 	globalXcfHome = filepath.Join(home, ".xcaffold")
-	globalLockPath = filepath.Join(globalXcfHome, "scaffold.lock")
 
 	if configFlag != "" && globalFlag {
 		abs, err := filepath.Abs(configFlag)
@@ -180,9 +173,9 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 		configDir = dir
 	}
 
-	// For backward compatibility, check if scaffold.xcf exists as the
-	// canonical entry point. If not, use the config directory itself.
-	candidate := filepath.Join(configDir, "scaffold.xcf")
+	// Use project.xcf as the canonical entry point. If it does not exist,
+	// use the config directory itself (multi-file xcf/ layout).
+	candidate := filepath.Join(configDir, "project.xcf")
 	if _, err := os.Stat(candidate); err == nil {
 		xcfPath = candidate
 	} else {
@@ -190,7 +183,6 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 	}
 
 	claudeDir = filepath.Join(configDir, ".claude")
-	lockPath = filepath.Join(configDir, "scaffold.lock")
 	return nil
 }
 

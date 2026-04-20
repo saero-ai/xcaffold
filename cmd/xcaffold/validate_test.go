@@ -12,7 +12,7 @@ import (
 func TestValidateCmd_ValidConfig(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	content := `---
 kind: project
 version: "1.0"
@@ -41,7 +41,7 @@ skills:
 
 func TestValidateCmd_InvalidCrossRef(t *testing.T) {
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	content := `---
 kind: project
 version: "1.0"
@@ -74,7 +74,7 @@ func TestValidate_GlobalFlag_FileNotFound(t *testing.T) {
 
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "could not open config")
+	assert.Contains(t, err.Error(), "failed to scan directory")
 }
 
 func TestValidate_GlobalFlag_InvalidYAML(t *testing.T) {
@@ -121,7 +121,7 @@ agents:
 func TestValidateCmd_StructuralChecks(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	content := `---
 kind: project
 version: "1.0"

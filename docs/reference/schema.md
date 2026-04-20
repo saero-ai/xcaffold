@@ -293,7 +293,7 @@ Xcaffold operates at two scopes, selected via the `--global / -g` flag.
 | | Global (`-g`) | Project (default) |
 |---|---|---|
 | **Config dir** | `~/.xcaffold/` | Project root (`./`) |
-| **Primary file** | `~/.xcaffold/global.xcf` | `./scaffold.xcf` |
+| **Primary file** | `~/.xcaffold/global.xcf` | `./project.xcf` |
 | **Lock file** | `~/.xcaffold/scaffold.<target>.lock` | `./scaffold.<target>.lock` |
 | **Compiled output** | `~/.claude/`, `~/.cursor/`, `~/.agents/` | `./.claude/`, `./.cursor/`, `./.agents/` |
 | **Represents** | User-wide personal agent configuration | A specific codebase's agent setup |
@@ -320,7 +320,7 @@ Global and project scopes are fully independent compilations. To compile both:
 
 ```bash
 xcaffold apply -g   # compile ~/.xcaffold/global.xcf → ~/.claude/
-xcaffold apply      # compile ./scaffold.xcf → ./.claude/
+xcaffold apply      # compile ./project.xcf → ./.claude/
 ```
 
 There is no `--all` flag — the two commands are independent (different sources, outputs, lock files) with no atomicity guarantee.
@@ -333,7 +333,7 @@ These configurations orchestrate the compilation engine, validate rules, and man
 
 ## `XcaffoldConfig`
 
-Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.xcf`) and global scope (`~/.xcaffold/global.xcf`). See [Scopes](#scopes) for field applicability at each level.
+Root structure of a parsed `.xcf` file. Used at both project scope (`./project.xcf`) and global scope (`~/.xcaffold/global.xcf`). See [Scopes](#scopes) for field applicability at each level.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -355,10 +355,10 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./scaffold.
 
 ## `ProjectConfig`
 
-Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`scaffold.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`, `memory`, `policies`) and project-only settings (`test`, `local`) that are not valid at global scope.
+Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`project.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`, `memory`, `policies`) and project-only settings (`test`, `local`) that are not valid at global scope.
 
 > [!NOTE]
-> `project.name` is required in `scaffold.xcf`. It is used to register the project in `~/.xcaffold/registry.xcf`, prefix lock file entries, and label graph and plan output. It has no equivalent at global scope.
+> `project.name` is required in `project.xcf`. It is used to register the project in `~/.xcaffold/registry.xcf`, prefix lock file entries, and label graph and plan output. It has no equivalent at global scope.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -523,7 +523,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a Markdown file containing the prompt body. Resolved relative to `scaffold.xcf` directory. Mutually exclusive with `instructions`. |
+| `instructions_file` | `string` | Optional | Path to a Markdown file containing the prompt body. Resolved relative to `project.xcf` directory. Mutually exclusive with `instructions`. |
 
 > [!WARNING]
 > **Cursor**: Only `name`, `description`, `model`, `readonly`, and `background` (renamed to `is_background`) are emitted. All other fields — `effort`, `tools`, `disallowedTools`, `skills`, `rules`, `permissionMode`, `isolation`, `color`, `initialPrompt`, `memory`, `maxTurns`, `hooks`, `mcpServers` — are silently dropped. Unmapped `model` values emit a stderr warning and are omitted.
@@ -590,9 +590,9 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 | `disable-model-invocation` | `*bool` | Optional | If `true`, the skill is user-invocable only (no model selection). Honored by Claude and Cursor. |
 | `user-invocable` | `*bool` | Optional | If `false`, the skill is model-only (no slash command). Claude-only. |
 | `argument-hint` | `string` | Optional | Autocomplete hint shown on the slash command. Claude-only. |
-| `references` | `[]string` | Optional | Supporting files or glob patterns. Resolved relative to `scaffold.xcf`. Copied to `skills/<id>/references/` during compilation. |
-| `scripts` | `[]string` | Optional | Executable helper files. Resolved relative to `scaffold.xcf`. Copied to `skills/<id>/scripts/` during compilation. |
-| `assets` | `[]string` | Optional | Output artifact files like templates or icons. Resolved relative to `scaffold.xcf`. Copied to `skills/<id>/assets/` during compilation. |
+| `references` | `[]string` | Optional | Supporting files or glob patterns. Resolved relative to `project.xcf`. Copied to `skills/<id>/references/` during compilation. |
+| `scripts` | `[]string` | Optional | Executable helper files. Resolved relative to `project.xcf`. Copied to `skills/<id>/scripts/` during compilation. |
+| `assets` | `[]string` | Optional | Output artifact files like templates or icons. Resolved relative to `project.xcf`. Copied to `skills/<id>/assets/` during compilation. |
 
 > [!WARNING]
 > **Cursor**: Skills support optional `scripts/`, `references/`, and `assets/` directories. These are emitted as-is during skill directory compilation.
@@ -648,7 +648,7 @@ Claude supports resolving hooks from multiple layers depending on your intended 
 * Plugin Hooks: `hooks/hooks.json`
 
 **Xcaffold Aggregation**:
-Xcaffold aggregates all `HookConfig` definitions across your `scaffold.xcf` inheritances and natively injects them into the correct location for your target provider. For Cursor, this is compiled exclusively to `.cursor/hooks.json`. For Claude, these are directly injected under the `"hooks"` key tightly coupled within `.claude/settings.json`, ensuring the `claude` CLI seamlessly picks them up without requiring plugin activation.
+Xcaffold aggregates all `HookConfig` definitions across your `project.xcf` inheritances and natively injects them into the correct location for your target provider. For Cursor, this is compiled exclusively to `.cursor/hooks.json`. For Claude, these are directly injected under the `"hooks"` key tightly coupled within `.claude/settings.json`, ensuring the `claude` CLI seamlessly picks them up without requiring plugin activation.
 
 > [!NOTE]
 > If you utilize `xcaffold plugin export` to bundle a custom Claude plugin, Xcaffold extracts these hook configurations out of `settings.json` and cleanly routes them to `hooks/hooks.json` to strictly comply with the Claude plugin specification payload format.

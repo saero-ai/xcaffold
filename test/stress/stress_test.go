@@ -80,7 +80,7 @@ func TestStress_FullLifecycle_100Agents(t *testing.T) {
 		fmt.Fprintf(&sb, "  agent-%03d:\n    description: \"Agent %d\"\n    instructions: \"Do task %d.\"\n", i, i, i)
 	}
 
-	xcfPath := filepath.Join(dir, "scaffold.xcf")
+	xcfPath := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcfPath, []byte(sb.String()), 0644))
 
 	config, err := parser.ParseFile(xcfPath)
@@ -98,19 +98,21 @@ func TestStress_FullLifecycle_100Agents(t *testing.T) {
 		require.NoError(t, os.WriteFile(absPath, []byte(content), 0644))
 	}
 
-	manifest := state.Generate(out)
-	lockPath := filepath.Join(dir, "scaffold.lock")
-	require.NoError(t, state.Write(manifest, lockPath))
+	manifest := state.GenerateState(out, state.StateOpts{Target: "claude", BaseDir: dir}, nil)
+	statePath := state.StateFilePath(dir, "")
+	require.NoError(t, state.WriteState(manifest, statePath))
 
-	recovered, err := state.Read(lockPath)
+	recovered, err := state.ReadState(statePath)
 	require.NoError(t, err)
-	assert.Len(t, recovered.Artifacts, 100)
+	assert.Len(t, recovered.Targets["claude"].Artifacts, 100)
 
 	// Verify determinism
-	manifest2 := state.Generate(out)
-	for i := range manifest.Artifacts {
-		assert.Equal(t, manifest.Artifacts[i].Path, manifest2.Artifacts[i].Path)
-		assert.Equal(t, manifest.Artifacts[i].Hash, manifest2.Artifacts[i].Hash)
+	manifest2 := state.GenerateState(out, state.StateOpts{Target: "claude", BaseDir: dir}, nil)
+	arts1 := manifest.Targets["claude"].Artifacts
+	arts2 := manifest2.Targets["claude"].Artifacts
+	for i := range arts1 {
+		assert.Equal(t, arts1[i].Path, arts2[i].Path)
+		assert.Equal(t, arts1[i].Hash, arts2[i].Hash)
 	}
 }
 
@@ -137,10 +139,12 @@ func TestStress_FullSchema_AllBlockTypes(t *testing.T) {
 
 	assert.Len(t, out.Files, 40) // 20 agents + 10 skills + 10 rules
 
-	m1 := state.Generate(out)
-	m2 := state.Generate(out)
-	assert.Len(t, m1.Artifacts, 40)
-	for i := range m1.Artifacts {
-		assert.Equal(t, m1.Artifacts[i].Path, m2.Artifacts[i].Path)
+	m1 := state.GenerateState(out, state.StateOpts{Target: "claude"}, nil)
+	m2 := state.GenerateState(out, state.StateOpts{Target: "claude"}, nil)
+	arts1 := m1.Targets["claude"].Artifacts
+	arts2 := m2.Targets["claude"].Artifacts
+	assert.Len(t, arts1, 40)
+	for i := range arts1 {
+		assert.Equal(t, arts1[i].Path, arts2[i].Path)
 	}
 }

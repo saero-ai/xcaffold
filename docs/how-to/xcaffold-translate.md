@@ -118,7 +118,7 @@ Exits non-zero if any output file would change from its current on-disk state. U
 xcaffold translate --from antigravity --to claude --save-xcf ir.xcf
 ```
 
-Writes the xcaffold intermediate representation (a `scaffold.xcf` file) to `ir.xcf` before compiling. Useful for debugging translation fidelity or using the IR as input to `xcaffold apply` later.
+Writes the xcaffold intermediate representation (a `project.xcf` file) to `ir.xcf` before compiling. Useful for debugging translation fidelity or using the IR as input to `xcaffold apply` later.
 
 ### Load IR directly (skip import phase)
 
@@ -251,7 +251,7 @@ Translates both project-scope (`.claude/`) and global-scope (`~/.claude/`) confi
 
 ## After translation
 
-The translated files are written directly to the target provider's directory. No `scaffold.xcf` is created unless you pass `--save-xcf`. xcaffold does not track drift or manage state for translated output — the translated directory is not under xcaffold's lock-based management.
+The translated files are written directly to the target provider's directory. No `project.xcf` is created unless you pass `--save-xcf`. xcaffold does not track drift or manage state for translated output — the translated directory is not under xcaffold's lock-based management.
 
 If you want ongoing management (drift detection, re-compilation, provider switching), use `xcaffold import` instead to produce a managed xcaffold project.
 

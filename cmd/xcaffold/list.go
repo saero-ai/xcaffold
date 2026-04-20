@@ -45,17 +45,17 @@ func runList(cmd *cobra.Command, args []string) error {
 			targets = strings.Join(p.Targets, ", ")
 		}
 
-		// Try to read scaffold.xcf to show resource counts
+		// Try to read project.xcf to show resource counts
 		var resInfo string
-		xcfPath := filepath.Join(p.Path, "scaffold.xcf")
+		xcfPath := filepath.Join(p.Path, "project.xcf")
 		if _, err := os.Stat(xcfPath); err == nil {
-			if cfg, err := parser.ParseFile(xcfPath); err == nil {
+			if cfg, err := parser.ParseDirectory(filepath.Dir(xcfPath)); err == nil {
 				resInfo = fmt.Sprintf("    resources: %d agents, %d skills, %d rules", len(cfg.Agents), len(cfg.Skills), len(cfg.Rules))
 			} else {
 				resInfo = "    resources: parse error"
 			}
 		} else {
-			resInfo = "    resources: not found (scaffold.xcf missing)"
+			resInfo = "    resources: not found (project.xcf missing)"
 		}
 
 		lastApplied := "never"
@@ -80,7 +80,7 @@ func runList(cmd *cobra.Command, args []string) error {
 	// Show global info
 	cmd.Printf("  GLOBAL (%s)\n", globalXcfPath)
 	if _, err := os.Stat(globalXcfPath); err == nil {
-		if cfg, err := parser.ParseFile(globalXcfPath); err == nil {
+		if cfg, err := parser.ParseDirectory(filepath.Dir(globalXcfPath)); err == nil {
 			cmd.Printf("    resources: %d agents, %d skills, %d rules\n", len(cfg.Agents), len(cfg.Skills), len(cfg.Rules))
 		} else {
 			cmd.Printf("    resources: parse error\n")

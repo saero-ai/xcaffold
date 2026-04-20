@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `xcaffold init` automatically generates a self-referential `/xcaffold` skill (`xcf/skills/xcaffold.xcf`) out of the box, teaching AI assistants local schema constraints and provider support matrices natively.
-- `xcaffold init` multi-file generator that scaffolds an entire `xcf/` directory, replacing the legacy single `scaffold.xcf` builder.
+- `xcaffold init` multi-file generator that scaffolds an entire `xcf/` directory, replacing the legacy single `project.xcf` builder.
 - `xcaffold init` `--target` string slice flag and multi-select UI prompt for concurrent platform targeting (`claude`, `cursor`, `antigravity`, etc).
 - `xcaffold init` `--no-policies` flag to skip starter policy generation.
 - `xcaffold init` `--json` manifest mode for machine-readable output tailored for autonomous agent execution.
@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Claude renderer now emits `memory` after `isolation` (before `color`) to match the canonical order (renderer)
 - Reordered agent field emission in `rest-api`, `cli-tool`, and `frontend-app` init templates so `instructions` appears last (templates)
 - Reordered agent document emitted by `xcaffold init` so `instructions` appears after `tools`, matching the canonical order (init)
-- Added inline comment in generated `scaffold.xcf` pointing users to `xcf/references/agent.xcf.reference` for the full field catalog (init)
+- Added inline comment in generated `project.xcf` pointing users to `xcf/references/agent.xcf.reference` for the full field catalog (init)
 
 ### Added (Skill Schema Normalization)
 
@@ -115,7 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `validate` command to accept `--global` for validating `~/.xcaffold/global.xcf` (cli)
 - Changed global config template to omit `project:` block (registry)
 - Rewrote `xcaffold test` to send the compiled agent system prompt directly to the LLM API via `internal/llmclient` instead of spawning a CLI subprocess through an HTTP intercept proxy; trace records declared tool calls extracted from the response (test)
-- `xcaffold test` now reads the task from `test.task` in `scaffold.xcf`; defaults to a capabilities-description prompt if unset (test)
+- `xcaffold test` now reads the task from `test.task` in `project.xcf`; defaults to a capabilities-description prompt if unset (test)
 - `graph --format json` now uses snake_case field names (`config_path`, `disk_entries`, `blocked_tools`) — breaking change for JSON consumers (graph)
 - `import --global` now scans all provider directories (`~/.claude/`, `~/.cursor/`, `~/.agents/`) and merges all discovered resources into `global.xcf` (import)
 
@@ -123,13 +123,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `--all` flag to `graph` command for combined global and registered projects view (graph)
 - Added hooks and workflows to `graph` topology output (graph)
 - Added `task` and `max_turns` fields to `TestConfig` (schema `project.test`) (ast)
-- Extended `review scaffold.xcf` to display skills, rules, hooks, MCP servers, and workflows in addition to agents (review)
+- Extended `review project.xcf` to display skills, rules, hooks, MCP servers, and workflows in addition to agents (review)
 - Updated `knownTools` validation to include `Task`, `Computer`, `AskUserQuestion`, `Agent`, `ExitPlanMode`, and `EnterPlanMode` (parser)
 
 ### Fixed
-- `analyze` no longer errors when no `scaffold.xcf` exists in the current directory (analyze)
+- `analyze` no longer errors when no `project.xcf` exists in the current directory (analyze)
 - `export --output` flag now correctly sets the destination path (export)
-- `init --global` no longer fails when a local `scaffold.xcf` is present (init)
+- `init --global` no longer fails when a local `project.xcf` is present (init)
 - `apply --check` now returns a non-zero exit code when validation errors are found (apply)
 - `apply --check-permissions --global` now reads the global config directory instead of the project directory (apply)
 - `diff` now surfaces `FindXCFFiles` errors instead of reporting false-positive `SRC DELETED` for valid source files (diff)
@@ -148,7 +148,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smart Compilation Skipping: `xcaffold apply` tracks multi-file source hashing to skip redundant compilation automatically.
 - Deterministic Orphan Purge: `xcaffold apply` identifies and silently prunes missing artifacts to prevent config bloat, supporting `--dry-run` previews natively.
 - Legacy Lock Migration: `xcaffold apply` seamlessly upgrades older V1 lock files format mapping targets automatically.
-- Source File Drift Tracking: `xcaffold diff` explicitly reports modifications within `scaffold.xcf` dependencies indicating required compilation cycles.
+- Source File Drift Tracking: `xcaffold diff` explicitly reports modifications within `project.xcf` dependencies indicating required compilation cycles.
 - Parser `ParseDirectory` API: Programmatic support for parsing and merging multiple `.xcf` files within a directory hierarchy, skipping hidden/nested repositories.
 - Hardened global inheritance parser `resolveExtendsGlobal` resolving `~/.xcaffold/` first with strict circular dependency traversal detection.
 - File-origin error reporting: Duplicate resource IDs (Agents, Skills, Rules, Workflows, MCPs) declared across multiple configuration files now report precise file locations in strict merge conflicts.
@@ -162,9 +162,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `xcaffold apply` safely resolves project paths from the global registry when invoked using `--project <name>`.
 - `xcaffold plan` command for static parsing and pre-deployment execution dry-runs.
 - `xcaffold migrate` command detects legacy flat-layout projects, upgrades them to reference-in-place paths (including skills, rules, and references), and registers them in the central registry.
-- Reference-in-place import: `xcaffold import` generates `scaffold.xcf` entries pointing to existing instruction files without duplication.
+- Reference-in-place import: `xcaffold import` generates `project.xcf` entries pointing to existing instruction files without duplication.
 - `xcaffold import` natively extracts `hooks.json` mapping parameters and workflow assets directly into the merged definitions.
-- Walk-up configuration search: CLI commands work from project subdirectories by walking up to find the nearest `scaffold.xcf` (bounded by `$HOME`).
+- Walk-up configuration search: CLI commands work from project subdirectories by walking up to find the nearest `project.xcf` (bounded by `$HOME`).
 - Semantic Translation Engine: cross-platform agent capabilities decomposed via static intent heuristics, accessible through `xcaffold import --source`.
 - `xcaffold test` execution flag `--claude-path` renamed to `--cli-path` to support fallback binary resolution for `cursor` or other detected proxies.
 - `xcaffold apply` safeguards: integrated drift-detection mechanism natively blocks overwrites to locally mutated unrecorded output files.
@@ -192,7 +192,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `xcaffold analyze` now references `auth.AuthModeSubscription` from the shared auth package.
 ### Fixed
 - Fixed `xcaffold init` generating stale `version: "1.0"` templates, and fixed inner `agents:` struct indentation to correctly fall under the `project:` scope (cli)
-- Fixed schema versions and YAML structure in `README.md` examples and `scaffold.xcf` (docs)
+- Fixed schema versions and YAML structure in `README.md` examples and `project.xcf` (docs)
 - Fixed unmapped `model` declarations failing string resolution in native `settings.json` renderer loops.
 - Compiler now emits all schema blocks. Previously, `skills`, `rules`, `hooks`, and `mcp` were silently discarded.
 - `xcaffold import` completely refactored to be highly faithful, dynamically discovering and preserving external file structures.
@@ -213,10 +213,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Complete rewrite of the CLI compiler replacing the deprecated TypeScript prototype with a robust Go binary.
 - One-Way Compilation architecture targeting Anthropic Claude Code configurations natively.
 - Automatic creation and formatting of `.claude/agents/*.md` and `.claude/settings.json`.
-- `scaffold.lock` manifest generation tracking SHA-256 state blobs of output configurations.
+- `.xcaffold/project.xcf.state` manifest generation tracking SHA-256 state blobs of output configurations.
 - `xcaffold plan` command for static parsing and pre-deployment analysis.
 - `xcaffold diff` command to enforce GitOps strictness and identify shadow configuration modifications (drift).
-- Support for `tools`, `skills`, `blocked_tools`, `effort`, `model`, and `mcp` declarations within `scaffold.xcf`.
+- Support for `tools`, `skills`, `blocked_tools`, `effort`, `model`, and `mcp` declarations within `project.xcf`.
 
 ### Removed
 - Support for multi-provider prompt polyfilling has been explicitly removed in V1 in favor of the strict native ecosystem.

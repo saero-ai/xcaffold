@@ -42,7 +42,7 @@ var htmlCommentAttrRE = regexp.MustCompile(`(\w[\w-]*)="([^"]*)"`)
 
 var importCmd = &cobra.Command{
 	Use:   "import",
-	Short: "Migrate an existing directory or translate cross-platform workflows into scaffold.xcf",
+	Short: "Migrate an existing directory or translate cross-platform workflows into project.xcf",
 	Long: `xcaffold import manages adopting existing configurations into xcaffold.
 
 ┌───────────────────────────────────────────────────────────────────┐
@@ -53,13 +53,13 @@ Native Import Mode (Default):
  • Scans .claude/skills/*/SKILL.md → extracts to skills/<id>/SKILL.md
  • Scans .claude/rules/*.md    → extracts to rules/<id>.md
  • Reads .claude/settings.json for MCP and settings context
- • Generates a scaffold.xcf with instructions-file: references
+ • Generates a project.xcf with instructions-file: references
 
 Cross-Platform Translation Mode (--source):
  • Imports agent workflow files from other platforms and decomposes
    them into xcaffold primitives (skills, rules, permissions).
  • Detected intents determine primitive mappings.
- • Results are injected into scaffold.xcf using instructions-file: references.
+ • Results are injected into project.xcf using instructions-file: references.
  • Use --plan to preview the decomposition without writing any files.
 
 Usage:
@@ -109,10 +109,10 @@ func runImport(cmd *cobra.Command, args []string) error {
 				for _, imp := range detected {
 					dirs = append(dirs, imp.InputDir())
 				}
-				importErr = mergeImportDirs(dirs, "scaffold.xcf")
+				importErr = mergeImportDirs(dirs, "project.xcf")
 			} else if len(detected) == 1 {
 				imp := detected[0]
-				importErr = importScope(imp.InputDir(), "scaffold.xcf", "project", imp.Provider())
+				importErr = importScope(imp.InputDir(), "project.xcf", "project", imp.Provider())
 			} else {
 				// No provider directories found
 				importErr = fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
@@ -406,15 +406,15 @@ func detectAllGlobalPlatformDirs() []platformDirInfo {
 }
 
 func runTranslateMode() error {
-	xcfPath := "scaffold.xcf"
+	xcfPath := "project.xcf"
 	config, err := parser.ParseFileExact(xcfPath)
 	if err != nil {
-		return fmt.Errorf("no scaffold.xcf found — run 'xcaffold init' first, then 'xcaffold import --source': %w", err)
+		return fmt.Errorf("no project.xcf found — run 'xcaffold init' first, then 'xcaffold import --source': %w", err)
 	}
 
 	xcfAbs, err := filepath.Abs(xcfPath)
 	if err != nil {
-		return fmt.Errorf("could not resolve scaffold.xcf path: %w", err)
+		return fmt.Errorf("could not resolve project.xcf path: %w", err)
 	}
 	baseDir := filepath.Dir(xcfAbs)
 
@@ -612,7 +612,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		// Propagate instructions-file from project-instruction discovery.
 	}
 
-	// Write split .xcf files: scaffold.xcf (kind: project) + xcf/**/*.xcf
+	// Write split .xcf files: project.xcf (kind: project) + xcf/**/*.xcf
 	if err := WriteSplitFiles(config, "."); err != nil {
 		return fmt.Errorf("[%s] failed to write split xcf files: %w", scopeName, err)
 	}
@@ -2078,7 +2078,7 @@ func sanitizeFrontmatter(data []byte) []byte {
 }
 
 // injectIntoConfig writes external .md files for each primitive and updates
-// scaffold.xcf with instructions-file: references, following the import.go pattern.
+// project.xcf with instructions-file: references, following the import.go pattern.
 func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.TranslationResult, xcfPath, baseDir string) error {
 	if config.Skills == nil {
 		config.Skills = make(map[string]ast.SkillConfig)
@@ -2103,16 +2103,16 @@ func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.Translati
 
 	injectAllowEntries(config, allowEntries)
 
-	header := "# scaffold.xcf — updated by 'xcaffold import --source'"
+	header := "# project.xcf — updated by 'xcaffold import --source'"
 	out, err := MarshalMultiKind(config, header)
 	if err != nil {
-		return fmt.Errorf("failed to encode scaffold.xcf: %w", err)
+		return fmt.Errorf("failed to encode project.xcf: %w", err)
 	}
 	if err := os.WriteFile(xcfPath, out, 0600); err != nil {
-		return fmt.Errorf("failed to write scaffold.xcf: %w", err)
+		return fmt.Errorf("failed to write project.xcf: %w", err)
 	}
 
-	fmt.Printf("\nscaffold.xcf updated. Run 'xcaffold apply' to render output\n")
+	fmt.Printf("\nproject.xcf updated. Run 'xcaffold apply' to render output\n")
 	return nil
 }
 
@@ -2268,7 +2268,7 @@ func resolveAllowEntries(body string) []string {
 	return []string{"Bash(*)"}
 }
 
-// mergeImportDirs consolidates multiple platform directories into a single scaffold.xcf.
+// mergeImportDirs consolidates multiple platform directories into a single project.xcf.
 // When the same resource ID exists in multiple directories, the version with the larger
 // file (richer content) is kept and the conflict is logged.
 //
@@ -2446,7 +2446,7 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
 	}
 
-	// Write split .xcf files: scaffold.xcf (kind: project) + xcf/**/*.xcf
+	// Write split .xcf files: project.xcf (kind: project) + xcf/**/*.xcf
 	if err := WriteSplitFiles(config, "."); err != nil {
 		return fmt.Errorf("[project] failed to write split xcf files: %w", err)
 	}

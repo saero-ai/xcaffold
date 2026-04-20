@@ -236,7 +236,7 @@ workflows:
         provider:
           lowering-strategy: prompt-file
 `
-	path := writeTemp(t, "scaffold.xcf", input)
+	path := writeTemp(t, "project.xcf", input)
 
 	config, err := ParseFile(path)
 	require.NoError(t, err)
@@ -266,7 +266,7 @@ workflows:
       - name: step-one
         instructions: Step body.
 `
-	path := writeTemp(t, "scaffold.xcf", input)
+	path := writeTemp(t, "project.xcf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -287,7 +287,7 @@ workflows:
       - description: No name field here.
         instructions: Body.
 `
-	path := writeTemp(t, "scaffold.xcf", input)
+	path := writeTemp(t, "project.xcf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -311,7 +311,7 @@ workflows:
         provider:
           lowering-strategy: invalid-value
 `
-	path := writeTemp(t, "scaffold.xcf", input)
+	path := writeTemp(t, "project.xcf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -331,7 +331,7 @@ workflows:
       - name: step-one
         instructions-file: .agents/workflows/smuggled.md
 `
-	path := writeTemp(t, "scaffold.xcf", input)
+	path := writeTemp(t, "project.xcf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -352,7 +352,7 @@ workflows:
         instructions: Inline body.
         instructions-file: xcf/workflows/bad/step.md
 `
-	path := writeTemp(t, "scaffold.xcf", input)
+	path := writeTemp(t, "project.xcf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -371,7 +371,7 @@ workflows:
     steps:
       - name: step-one
 `
-	path := writeTemp(t, "scaffold.xcf", input)
+	path := writeTemp(t, "project.xcf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -391,7 +391,7 @@ workflows:
       - name: step-one
         instructions-file: .github/prompts/smuggled.md
 `
-	path := writeTemp(t, "scaffold.xcf", input)
+	path := writeTemp(t, "project.xcf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -412,7 +412,7 @@ workflows:
       - name: step-one
         instructions: Body.
 `
-	path := writeTemp(t, "scaffold.xcf", input)
+	path := writeTemp(t, "project.xcf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)

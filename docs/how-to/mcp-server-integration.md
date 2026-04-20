@@ -255,7 +255,7 @@ xcaffold graph --format dot | dot -Tsvg > topology.svg
 
 The same `mcp:` declaration compiles to different output files and shapes depending on the target.
 
-**Input (`scaffold.xcf`):**
+**Input (`project.xcf`):**
 
 ```yaml
 version: "1.0"

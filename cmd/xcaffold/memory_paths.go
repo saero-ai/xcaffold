@@ -14,7 +14,7 @@ import (
 // this function so they always resolve the same directory for the same project.
 //
 // projectRoot must be the absolute directory of the project (e.g. the directory
-// containing scaffold.xcf, or the registered project path for --project flag
+// containing project.xcf, or the registered project path for --project flag
 // usage). If projectRoot is empty or ".", os.Getwd() is used as a fallback.
 //
 // Path encoding follows Claude's own convention: forward slashes are replaced

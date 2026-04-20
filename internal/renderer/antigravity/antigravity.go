@@ -59,7 +59,7 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 }
 
 // Compile translates an XcaffoldConfig AST into its Antigravity (Antigravity) output representation.
-// baseDir is the directory that contains the scaffold.xcf file; it is used to
+// baseDir is the directory that contains the project.xcf file; it is used to
 // resolve instructions_file: paths. Compile returns an error if any resource
 // fails to compile. It never panics.
 //

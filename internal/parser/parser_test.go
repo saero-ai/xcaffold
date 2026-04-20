@@ -134,14 +134,14 @@ agents:
 		0600,
 	))
 
-	// Create a project scaffold.xcf that extends using an absolute path.
+	// Create a project project.xcf that extends using an absolute path.
 	// (os.UserHomeDir cannot be mocked in tests, so the extends mechanism
 	// is verified with an absolute path; the "global" keyword path is a
 	// simple string-comparison branch on top of the same merge logic.)
 	projectDir := t.TempDir()
 	globalPath := filepath.Join(claudeDir, "global.xcf")
 	require.NoError(t, os.WriteFile(
-		filepath.Join(projectDir, "scaffold.xcf"),
+		filepath.Join(projectDir, "project.xcf"),
 		[]byte(fmt.Sprintf(`kind: global
 version: "1.0"
 extends: "%s"
@@ -152,7 +152,7 @@ agents:
 		0600,
 	))
 
-	config, err := ParseFile(filepath.Join(projectDir, "scaffold.xcf"))
+	config, err := ParseFile(filepath.Join(projectDir, "project.xcf"))
 	require.NoError(t, err)
 
 	_, hasShared := config.Agents["shared"]
@@ -343,7 +343,7 @@ func writeXCFFile(t *testing.T, dir, name, content string) string {
 
 func TestValidateFileRefs_MissingSkillReference(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
 version: "1.0"
 skills:
   my-skill:
@@ -364,7 +364,7 @@ skills:
 
 func TestValidateFileRefs_MissingInstructionsFile_Agent(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
 version: "1.0"
 agents:
   my-agent:
@@ -388,7 +388,7 @@ func TestValidateFileRefs_PresentInstructionsFile(t *testing.T) {
 	instrFile := filepath.Join(dir, "real.md")
 	require.NoError(t, os.WriteFile(instrFile, []byte("# instructions"), 0600))
 
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
 version: "1.0"
 agents:
   my-agent:
@@ -405,7 +405,7 @@ agents:
 
 func TestValidateFileRefs_DuplicateID(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
 version: "1.0"
 agents:
   foo:
@@ -428,7 +428,7 @@ skills:
 
 func TestValidateFileRefs_UniqueIDs(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: global
+	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
 version: "1.0"
 agents:
   agent-one:
@@ -454,7 +454,7 @@ rules:
 
 func TestValidatePlugins_KnownPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: settings
+	xcf := writeXCFFile(t, dir, "project.xcf", `kind: settings
 version: "1.0"
 enabled-plugins:
   commit-commands: true
@@ -469,7 +469,7 @@ enabled-plugins:
 
 func TestValidatePlugins_UnknownSettingsPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: settings
+	xcf := writeXCFFile(t, dir, "project.xcf", `kind: settings
 version: "1.0"
 enabled-plugins:
   my-custom-plugin: true
@@ -487,7 +487,7 @@ enabled-plugins:
 
 func TestValidatePlugins_UnknownLocalPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `kind: project
+	xcf := writeXCFFile(t, dir, "project.xcf", `kind: project
 version: "1.0"
 name: "test"
 local:
@@ -507,7 +507,7 @@ local:
 
 func TestValidatePlugins_BothBlocksUnknown(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "scaffold.xcf", `---
+	xcf := writeXCFFile(t, dir, "project.xcf", `---
 kind: project
 version: "1.0"
 name: "test"
@@ -535,7 +535,7 @@ func TestParseDirectory_SkipsNonConfigFiles(t *testing.T) {
 	dir := t.TempDir()
 
 	// Write a valid config file
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 version: "1.0"
 name: "test-project"
 `), 0600))
@@ -551,7 +551,7 @@ default_target: claude
 `), 0600))
 
 	// ParseDirectory should succeed — it should skip registry.xcf and template.xcf
-	// and only parse scaffold.xcf. Without the isConfigFile filter, this would
+	// and only parse project.xcf. Without the isConfigFile filter, this would
 	// panic or error because registry.xcf and template.xcf don't conform to
 	// the XcaffoldConfig schema.
 	config, err := ParseDirectory(dir)
@@ -865,7 +865,7 @@ instructions: "inline content"
 instructions-file: xcf/instructions/root.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -883,7 +883,7 @@ instructions-scopes:
     instructions-file: xcf/instructions/scopes/packages-worker.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -902,7 +902,7 @@ instructions-scopes:
     instructions-file: xcf/instructions/scopes/packages-worker-2.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -920,7 +920,7 @@ instructions-scopes:
     merge-strategy: invalid-value
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -948,7 +948,7 @@ instructions-scopes:
     merge-strategy: concat
 `, tc.path)
 			tmp := t.TempDir()
-			p := filepath.Join(tmp, "scaffold.xcf")
+			p := filepath.Join(tmp, "project.xcf")
 			require.NoError(t, os.WriteFile(p, []byte(yaml), 0o600))
 			_, err := ParseFile(p)
 			require.Error(t, err)
@@ -970,7 +970,7 @@ instructions-scopes:
     source-filename: CLAUDE.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
 	config, err := ParseFile(path)
 	require.NoError(t, err)
@@ -986,7 +986,7 @@ name: test
 instructions-bogus: should-fail
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -1003,7 +1003,7 @@ instructions-scopes:
     unknown-field: bogus
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -1021,7 +1021,7 @@ name: test
 instructions-file: %s
 `, name)
 			tmp := t.TempDir()
-			path := filepath.Join(tmp, "scaffold.xcf")
+			path := filepath.Join(tmp, "project.xcf")
 			require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
 			_, err := ParseFile(path)
 			require.Error(t, err)
@@ -1045,7 +1045,7 @@ name: test
 instructions-file: %s
 `, p)
 			tmp := t.TempDir()
-			xcfPath := filepath.Join(tmp, "scaffold.xcf")
+			xcfPath := filepath.Join(tmp, "project.xcf")
 			require.NoError(t, os.WriteFile(xcfPath, []byte(yml), 0o600))
 			_, err := ParseFile(xcfPath)
 			require.Error(t, err)
@@ -1062,7 +1062,7 @@ name: test
 instructions-file: xcf/instructions/root.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
 	_, err := ParseFile(path)
 	require.NoError(t, err)
@@ -1093,7 +1093,7 @@ instructions-scopes:
         instructions-file: xcf/instructions/scopes/packages-worker-cursor.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -1116,7 +1116,7 @@ instructions-scopes:
         instructions-file: xcf/instructions/scopes/packages-worker-cursor.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
 	cfg, err := ParseFile(path)
 	require.NoError(t, err)
@@ -1140,7 +1140,7 @@ instructions-scopes:
         instructions-file: xcf/instructions/scopes/packages-worker-cursor.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
 	cfg, err := ParseFile(path)
 	require.NoError(t, err)

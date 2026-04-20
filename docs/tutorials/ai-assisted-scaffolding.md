@@ -49,7 +49,7 @@ This generates:
 
 ```
 my-project/
-  scaffold.xcf              # kind: project
+  project.xcf              # kind: project
   xcf/
     agents/
       developer.xcf         # kind: agent (with provider matrix)
@@ -154,7 +154,7 @@ This returns a machine-readable manifest of every generated file:
 {
   "targets": ["claude", "gemini"],
   "files": [
-    "scaffold.xcf",
+    "project.xcf",
     "xcf/agents/developer.xcf",
     "xcf/rules/conventions.xcf",
     "xcf/settings.xcf",
@@ -263,7 +263,7 @@ Skills are the most complex resource type — they have their own directory stru
 > - Apply to all selected targets (claude, cursor).
 > - Set `allowed-tools` to `[Read, Write, Edit, Bash]`.
 >
-> Respect the provider matrix in the reference file. Do not include fields marked as `dropped` for either target. After writing the file, add `tdd` to the `skills:` list in `scaffold.xcf`.
+> Respect the provider matrix in the reference file. Do not include fields marked as `dropped` for either target. After writing the file, add `tdd` to the `skills:` list in `project.xcf`.
 
 ### AI command sequence
 

@@ -20,7 +20,7 @@ memory:
     instructions: "Robert is the founder."
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
 
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
@@ -45,7 +45,7 @@ memory:
     instructions: "test"
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
 
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
@@ -77,7 +77,7 @@ memory:
     instructions-file: %s
 `, tc.path)
 			tmp := t.TempDir()
-			path := filepath.Join(tmp, "scaffold.xcf")
+			path := filepath.Join(tmp, "project.xcf")
 			require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
 
 			t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
@@ -99,7 +99,7 @@ memory:
     instructions-file: xcf/memory/user-role.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
 
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
@@ -119,7 +119,7 @@ memory:
     instructions: "test"
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
 
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
@@ -140,7 +140,7 @@ memory:
     instructions: "test"
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
 
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
@@ -176,7 +176,7 @@ memory:
 %s    instructions: "test"
 `, tc.memType, lifecycleLine)
 			tmp := t.TempDir()
-			path := filepath.Join(tmp, "scaffold.xcf")
+			path := filepath.Join(tmp, "project.xcf")
 			require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
 
 			t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")

@@ -15,13 +15,13 @@ Available on every subcommand via `rootCmd.PersistentFlags()`.
 
 | Flag | Default | Description |
 |---|---|---|
-| `--config <path>` | `""` | Path to a `scaffold.xcf` file or a directory containing `.xcf` files. If a directory is given, `parser.ParseDirectory()` scans all `*.xcf` files within it. Defaults to `./scaffold.xcf` discovered via upward directory walk. |
+| `--config <path>` | `""` | Path to a `project.xcf` file or a directory containing `.xcf` files. If a directory is given, `parser.ParseDirectory()` scans all `*.xcf` files within it. Defaults to `./project.xcf` discovered via upward directory walk. |
 | `--global` / `-g` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcf`). When omitted, the default scope is project. |
 | `--version` | — | Prints `<version> (commit: <sha>, date: <date>)` and exits. |
 
 **Scope resolution (`resolveConfig` in `main.go`):**
 
-When `--global` is set, config is resolved to `~/.xcaffold/global.xcf`. Otherwise, `./scaffold.xcf` is discovered via `resolver.FindConfigDir` upward walk. `--global` is skipped for `init` and `import` (they bootstrap configs, so no pre-existing config is required).
+When `--global` is set, config is resolved to `~/.xcaffold/global.xcf`. Otherwise, `./project.xcf` is discovered via `resolver.FindConfigDir` upward walk. `--global` is skipped for `init` and `import` (they bootstrap configs, so no pre-existing config is required).
 
 ---
 
@@ -31,13 +31,13 @@ When `--global` is set, config is resolved to `~/.xcaffold/global.xcf`. Otherwis
 
 **File:** `cmd/xcaffold/init.go`
 
-Bootstraps a new `scaffold.xcf`. Idempotent: if `scaffold.xcf` already exists, exits immediately with no changes.
+Bootstraps a new `project.xcf`. Idempotent: if `project.xcf` already exists, exits immediately with no changes.
 
 On first run, detects existing `.claude/`, `.cursor/`, and `.agents/` platform directories. Presents a confirmation or interactive multi-select to import them. With `--yes`, imports all detected directories without prompting.
 
 With `--global`, runs `registry.RebuildGlobalXCF()` to scan `~/.claude/`, `~/.cursor/`, and `~/.agents/` and write `~/.xcaffold/global.xcf`.
 
-Also generates `xcf/references/` — an annotated, non-parsed reference template directory containing `agent.xcf.reference`. Users copy fields from these reference files into their `scaffold.xcf` as needed. Use `--no-references` to skip this step.
+Also generates `xcf/references/` — an annotated, non-parsed reference template directory containing `agent.xcf.reference`. Users copy fields from these reference files into their `project.xcf` as needed. Use `--no-references` to skip this step.
 
 | Flag | Short | Default | Description |
 |---|---|---|---|
@@ -54,12 +54,12 @@ Also generates `xcf/references/` — an annotated, non-parsed reference template
 Two distinct modes:
 
 **Native Import Mode (default):**
-Scans a platform directory (`.claude/`, `.cursor/`, `.agents/`) and writes a `scaffold.xcf` referencing the existing files via `instructions-file:` with zero file duplication. Reads `settings.json` and `hooks.json`. If multiple platform directories are detected, merges them using a larger-file-wins deduplication strategy.
+Scans a platform directory (`.claude/`, `.cursor/`, `.agents/`) and writes a `project.xcf` referencing the existing files via `instructions-file:` with zero file duplication. Reads `settings.json` and `hooks.json`. If multiple platform directories are detected, merges them using a larger-file-wins deduplication strategy.
 
 With `--global`, scans all provider directories under the user's home (`~/.claude/`, `~/.cursor/`, `~/.agents/`) and writes `~/.xcaffold/global.xcf`. All discovered providers are merged.
 
 **Cross-Platform Translation Mode (`--source`):**
-Parses workflow Markdown files from another platform, detects functional intents via `internal/bir`, and decomposes them into xcaffold primitives (`skill`, `rule`, `permission`). Results are injected into an existing `scaffold.xcf`. Requires `scaffold.xcf` to already exist (run `xcaffold init` first).
+Parses workflow Markdown files from another platform, detects functional intents via `internal/bir`, and decomposes them into xcaffold primitives (`skill`, `rule`, `permission`). Results are injected into an existing `project.xcf`. Requires `project.xcf` to already exist (run `xcaffold init` first).
 
 | Flag | Default | Description |
 |---|---|---|
@@ -75,7 +75,7 @@ Parses workflow Markdown files from another platform, detects functional intents
 
 **File:** `cmd/xcaffold/analyze.go`
 
-Scans the repository to build a `ProjectSignature`, then calls an LLM to generate a `scaffold.xcf` and an `audit.json` compliance report. Does not require an existing `scaffold.xcf` — safe to run on any directory.
+Scans the repository to build a `ProjectSignature`, then calls an LLM to generate a `project.xcf` and an `audit.json` compliance report. Does not require an existing `project.xcf` — safe to run on any directory.
 
 **Auth resolution order:**
 1. `ANTHROPIC_API_KEY` env var (direct Anthropic API)
@@ -86,7 +86,7 @@ Scans the repository to build a `ProjectSignature`, then calls an LLM to generat
 |---|---|---|---|
 | `--model <model>` | `-m` | `claude-3-7-sonnet-20250219` | Generative model to use for scaffold generation. |
 
-**Outputs:** `scaffold.xcf`, `audit.json`.
+**Outputs:** `project.xcf`, `audit.json`.
 
 ---
 
@@ -94,7 +94,7 @@ Scans the repository to build a `ProjectSignature`, then calls an LLM to generat
 
 **File:** `cmd/xcaffold/graph.go`
 
-Renders the agent dependency graph parsed from `scaffold.xcf`. Default terminal output shows a summary view; `--full` or `--agent` expands the full tree.
+Renders the agent dependency graph parsed from `project.xcf`. Default terminal output shows a summary view; `--full` or `--agent` expands the full tree.
 
 | Flag | Short | Default | Description |
 |---|---|---|---|
@@ -102,7 +102,7 @@ Renders the agent dependency graph parsed from `scaffold.xcf`. Default terminal 
 | `--agent <id>` | `-a` | `""` | Focus on a single agent and its direct dependencies. Implies `--full`. |
 | `--project <name>` | `-p` | `""` | Target a registered project by name or path instead of the current directory. |
 | `--full` | `-f` | `false` | Show the fully expanded topology tree. Default view is a summary. |
-| `--scan-output` | — | `false` | Also scan compiled output directories for artifacts not tracked in `scaffold.xcf`. |
+| `--scan-output` | — | `false` | Also scan compiled output directories for artifacts not tracked in `project.xcf`. |
 | `--all` | — | `false` | Show global topology and all registered projects in one view. Mutually exclusive with `--global` and `--project`. |
 
 The topology includes agents, skills, rules, MCP servers, hooks, and workflows. Hook nodes are labeled by event name; workflow nodes are labeled by workflow ID.
@@ -124,7 +124,7 @@ The topology includes agents, skills, rules, MCP servers, hooks, and workflows. 
 
 **File:** `cmd/xcaffold/apply.go`
 
-Compiles `scaffold.xcf` (or a directory of `.xcf` files) into a target platform's native format. Writes a SHA-256 lock manifest to `scaffold.<target>.lock`. Automatically purges orphaned output files.
+Compiles `project.xcf` (or a directory of `.xcf` files) into a target platform's native format. Writes a SHA-256 lock manifest to `scaffold.<target>.lock`. Automatically purges orphaned output files.
 
 **Smart skip:** If `scaffold.<target>.lock` contains a `source_files` manifest and no source hashes have changed, compilation is skipped. Use `--force` to bypass.
 
@@ -147,7 +147,7 @@ Compiles `scaffold.xcf` (or a directory of `.xcf` files) into a target platform'
 | `--check` | `false` | Validate YAML syntax and cross-references only. Does not compile. Returns non-zero exit code if any errors are found. |
 | `--check-permissions` | `false` | Report security fields that will be dropped for the active `--target`. Exits non-zero if contradictions are found (e.g., a tool in `permissions.deny` also appears in an agent's `tools` list). |
 | `--force` | `false` | Overwrite even if drift is detected or sources are unchanged. |
-| `--backup` | `false` | Copy the existing output directory to a timestamped backup before overwriting. Backup directory name: `.<target>_bak_<timestamp>`. Custom location via `project.backup-dir` in `scaffold.xcf`. |
+| `--backup` | `false` | Copy the existing output directory to a timestamped backup before overwriting. Backup directory name: `.<target>_bak_<timestamp>`. Custom location via `project.backup-dir` in `project.xcf`. |
 | `--project <name>` | `""` | Apply to a different project registered in the global registry by name. Resolves the project's path and uses it as the config root. |
 | `--include-memory` | `false` | Snapshot memory seeds from the source and write them to the target provider's memory directory during compilation. |
 | `--reseed` | `false` | Force re-seeding of memory entries marked `lifecycle: seed-once` even if they were already seeded. |
@@ -193,9 +193,9 @@ With `--judge`, sends the trace and the agent's `assertions` list to an LLM for 
 - Run `xcaffold apply` before testing — the agent system prompt must be compiled.
 - `ANTHROPIC_API_KEY` or `XCAFFOLD_LLM_API_KEY` must be set for simulation and `--judge`.
 
-**Task resolution:** Uses `test.task` from `scaffold.xcf`. If unset, defaults to `"Describe what tools you have available and what you would do first."`.
+**Task resolution:** Uses `test.task` from `project.xcf`. If unset, defaults to `"Describe what tools you have available and what you would do first."`.
 
-**CLI path resolution (judge fallback only):** `--cli-path` flag > `test.cli_path` in `scaffold.xcf` > `test.cli-path` (deprecated) > `claude` on `$PATH`.
+**CLI path resolution (judge fallback only):** `--cli-path` flag > `test.cli_path` in `project.xcf` > `test.cli-path` (deprecated) > `claude` on `$PATH`.
 
 **Auth resolution order (simulation and judge):**
 1. `XCAFFOLD_LLM_API_KEY` + `XCAFFOLD_LLM_BASE_URL`
@@ -204,10 +204,10 @@ With `--judge`, sends the trace and the agent's `assertions` list to an LLM for 
 
 | Flag | Short | Default | Description |
 |---|---|---|---|
-| `--agent <id>` | `-a` | — | **Required.** Agent ID to simulate. Must exist in `scaffold.xcf`. |
+| `--agent <id>` | `-a` | — | **Required.** Agent ID to simulate. Must exist in `project.xcf`. |
 | `--judge` | — | `false` | Run LLM-as-a-Judge evaluation after simulation. Evaluates against `agents.<id>.assertions`. |
 | `--output <path>` | `-o` | `trace.jsonl` | Path for the execution trace output. |
-| `--cli-path <path>` | — | `""` | Path to the CLI binary used as judge subscription fallback. Overrides `test.cli_path` in `scaffold.xcf`. |
+| `--cli-path <path>` | — | `""` | Path to the CLI binary used as judge subscription fallback. Overrides `test.cli_path` in `project.xcf`. |
 | `--judge-model <model>` | — | `""` | Model for judge evaluation. Overrides `test.judge-model`. Falls back to `claude-haiku-4-5-20251001`. |
 
 ---
@@ -216,7 +216,7 @@ With `--judge`, sends the trace and the agent's `assertions` list to an LLM for 
 
 **File:** `cmd/xcaffold/export.go`
 
-Compiles `scaffold.xcf` and packages the output as a distributable plugin directory.
+Compiles `project.xcf` and packages the output as a distributable plugin directory.
 
 | Flag | Default | Description |
 |---|---|---|
@@ -232,7 +232,7 @@ Compiles `scaffold.xcf` and packages the output as a distributable plugin direct
 
 **File:** `cmd/xcaffold/validate.go`
 
-Validates `scaffold.xcf` without compiling. Checks:
+Validates `project.xcf` without compiling. Checks:
 1. YAML syntax and known fields (fail-closed parser — unknown fields are an error)
 2. Cross-reference integrity: agent `skills:`, `rules:`, `mcp:` IDs must resolve to top-level map keys
 3. File existence: `instructions-file` and `references` paths must resolve on disk
@@ -259,13 +259,13 @@ Exit code `0` means valid. Non-zero means errors found.
 
 **File:** `cmd/xcaffold/review.go`
 
-Universal parser for xcaffold diagnostic artifacts. Does not require a `scaffold.xcf` to be present (`resolveConfig` is skipped for `review`).
+Universal parser for xcaffold diagnostic artifacts. Does not require a `project.xcf` to be present (`resolveConfig` is skipped for `review`).
 
 **Supported file types:**
 
 | File | Output |
 |---|---|
-| `scaffold.xcf` | AST tree: project name, agents (model/tools/assertions), skills, rules, hooks, MCP servers, and workflows. |
+| `project.xcf` | AST tree: project name, agents (model/tools/assertions), skills, rules, hooks, MCP servers, and workflows. |
 | `audit.json` | Compliance scores: `security`, `prompt_quality`, `tool_restrictions` (each `/100`) and feedback. |
 | `plan.json` | Pretty-printed JSON. |
 | `trace.jsonl` | Timestamp and tool name for each recorded event. |
@@ -326,7 +326,7 @@ Converts agent configurations between provider formats in a single command witho
 | `--source-dir` | — | `string` | `""` | Source directory containing agent configs. Defaults to CWD. |
 | `--output-dir` | — | `string` | `""` | Output directory for translated configs. Defaults to `<baseDir>/<provider-prefix>`. |
 | `--xcf` | — | `string` | `""` | Load xcaffold IR directly from this `.xcf` file, bypassing the import phase. |
-| `--save-xcf` | — | `string` | `""` | Write the imported IR to this path as `scaffold.xcf` YAML before compiling. |
+| `--save-xcf` | — | `string` | `""` | Write the imported IR to this path as `project.xcf` YAML before compiling. |
 | `--fidelity` | — | `string` | `"warn"` | Fidelity mode: `strict`, `warn`, or `lossy`. |
 | `--instructions-mode` | — | `string` | `""` | How to handle instructions: `inline`, `file`, or `mixed`. |
 | `--include-memory` | — | `bool` | `false` | Include memory sections in translation. |

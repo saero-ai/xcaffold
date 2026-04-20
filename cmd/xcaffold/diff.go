@@ -13,17 +13,18 @@ import (
 )
 
 var diffTargetFlag string
+var diffBlueprintFlag string
 
 var diffCmd = &cobra.Command{
 	Use:   "diff",
-	Short: "Detect drift between scaffold.lock and compilation targets on disk",
+	Short: "Detect drift between state manifest and compilation targets on disk",
 	Long: `xcaffold diff flags manual tampering and shadow-edits in your workspace.
 
 ┌───────────────────────────────────────────────────────────────────┐
 │                          DRIFT CHECK PHASE                        │
 └───────────────────────────────────────────────────────────────────┘
  • Recomputes SHA-256 hashes for all output files natively
- • Compares current file hashes against the target lock file truth state
+ • Compares current file hashes against the state manifest truth state
  • Warns you if humans or external agents have mutated the generated files
 
 Usage:
@@ -37,14 +38,20 @@ Usage:
 
 func init() {
 	diffCmd.Flags().StringVar(&diffTargetFlag, "target", "", "compilation target platform (claude, cursor, antigravity, copilot, gemini; default: claude)")
+	diffCmd.Flags().StringVar(&diffBlueprintFlag, "blueprint", "", "Show drift for a specific blueprint (default: all resources)")
 	rootCmd.AddCommand(diffCmd)
 }
 
 func runDiff(cmd *cobra.Command, args []string) error {
+	effectiveTarget := diffTargetFlag
+	if effectiveTarget == "" {
+		effectiveTarget = "claude"
+	}
+
 	if globalFlag {
 		targetDir := filepath.Join(filepath.Dir(globalXcfHome), compiler.OutputDir(diffTargetFlag))
-		targetLock := state.LockFilePath(globalLockPath, diffTargetFlag)
-		drift, err := diffScope(targetDir, targetLock, "global")
+		stateFile := state.StateFilePath(filepath.Dir(globalXcfHome), diffBlueprintFlag)
+		drift, err := diffScope(targetDir, stateFile, effectiveTarget, "global")
 		if err != nil {
 			return err
 		}
@@ -57,8 +64,8 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	}
 
 	targetDir := filepath.Join(filepath.Dir(claudeDir), compiler.OutputDir(diffTargetFlag))
-	targetLock := state.LockFilePath(lockPath, diffTargetFlag)
-	drift, err := diffScope(targetDir, targetLock, "project")
+	stateFile := state.StateFilePath(filepath.Dir(claudeDir), diffBlueprintFlag)
+	drift, err := diffScope(targetDir, stateFile, effectiveTarget, "project")
 	if err != nil {
 		return err
 	}
@@ -70,22 +77,27 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// diffScope reads the lock file at lockFile and compares each artifact's
-// recorded SHA-256 hash against the file on disk inside outputDir.
-// scopeName is used as a prefix in output lines
-// so the user can distinguish global from project passes.
-func diffScope(outputDir, lockFile, scopeName string) (int, error) {
-	manifest, err := state.Read(lockFile)
+// diffScope reads the state file at stateFile and compares each artifact's
+// recorded SHA-256 hash for the given target against the file on disk inside
+// outputDir. scopeName is used as a prefix in output lines so the user can
+// distinguish global from project passes.
+func diffScope(outputDir, stateFile, target, scopeName string) (int, error) {
+	manifest, err := state.ReadState(stateFile)
 	if err != nil {
 		hint := "xcaffold apply"
 		if scopeName == "global" {
 			hint = "xcaffold apply --global"
 		}
-		return 0, fmt.Errorf("[%s] could not read lock file: %w\n\nHint: run '%s' first", scopeName, err, hint)
+		return 0, fmt.Errorf("[%s] could not read state file: %w\n\nHint: run '%s' first", scopeName, err, hint)
+	}
+
+	ts, ok := manifest.Targets[target]
+	if !ok {
+		return 0, fmt.Errorf("[%s] no state found for target %q", scopeName, target)
 	}
 
 	driftCount := 0
-	for _, artifact := range manifest.Artifacts {
+	for _, artifact := range ts.Artifacts {
 		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
 
 		data, err := os.ReadFile(absPath)
@@ -109,7 +121,9 @@ func diffScope(outputDir, lockFile, scopeName string) (int, error) {
 	}
 
 	if len(manifest.SourceFiles) > 0 {
-		baseDir := filepath.Dir(lockFile)
+		// State files live at <baseDir>/.xcaffold/<name>.xcf.state, so strip two
+		// path components to recover the project root.
+		baseDir := filepath.Dir(filepath.Dir(stateFile))
 		currentSources, err := resolver.FindXCFFiles(baseDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[%s] Warning: failed to scan source files: %v\n", scopeName, err)

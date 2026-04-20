@@ -7,7 +7,7 @@ description: "Declare renderer-specific behavior on agents using the targets: bl
 
 # Configuring Per-Target Overrides
 
-You compile the same `.xcf` to multiple platforms but need certain agents to behave differently on specific targets — for example, suppressing fidelity warnings for Cursor or checking permission compatibility. xcaffold compiles a single `scaffold.xcf` source into platform-native output directories. The `targets:` block on an agent allows you to declare renderer-specific behavior — different instructions, skipped synthesis, suppressed warnings — without duplicating the entire agent definition.
+You compile the same `.xcf` to multiple platforms but need certain agents to behave differently on specific targets — for example, suppressing fidelity warnings for Cursor or checking permission compatibility. xcaffold compiles a single `project.xcf` source into platform-native output directories. The `targets:` block on an agent allows you to declare renderer-specific behavior — different instructions, skipped synthesis, suppressed warnings — without duplicating the entire agent definition.
 
 **When to use this:** When you compile to `cursor` or `antigravity` and want to silence per-agent fidelity drop warnings for agents that intentionally carry security fields without a target equivalent.
 

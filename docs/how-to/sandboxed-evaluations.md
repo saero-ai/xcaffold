@@ -26,7 +26,7 @@ xcaffold test --agent backend-dev
 
 This command:
 
-1. Parses `scaffold.xcf` and resolves the `backend-dev` agent config.
+1. Parses `project.xcf` and resolves the `backend-dev` agent config.
 2. Reads the compiled system prompt from `.claude/agents/backend-dev.md`.
 3. Creates the trace file (`trace.jsonl` by default).
 4. Sends the task to the LLM API (defaults to `"Describe what tools you have available and what you would do first."` if `test.task` is not set).
@@ -43,7 +43,7 @@ xcaffold test --agent backend-dev --output my-run.jsonl
 
 ## Configuring the task
 
-The task is the user prompt sent to the agent during simulation. Set it in `scaffold.xcf` under `project.test`:
+The task is the user prompt sent to the agent during simulation. Set it in `project.xcf` under `project.test`:
 
 ```yaml
 project:
@@ -63,7 +63,7 @@ Every declared tool call is written as a newline-delimited JSON line to the trac
 | Field | Type | Description |
 |---|---|---|
 | `timestamp` | string (RFC3339) | UTC time the event was recorded |
-| `agent_id` | string | Agent ID from `scaffold.xcf` |
+| `agent_id` | string | Agent ID from `project.xcf` |
 | `tool_name` | string | Name of the declared tool |
 | `input_params` | object | Parsed tool input parameters |
 | `mock_response` | string | Reserved; empty for API simulation runs |
@@ -91,7 +91,7 @@ Output format:
 
 ## Writing effective assertions
 
-Assertions are plain-English strings declared directly on an agent in `scaffold.xcf`. The judge receives the full trace and evaluates each assertion against the recorded tool calls.
+Assertions are plain-English strings declared directly on an agent in `project.xcf`. The judge receives the full trace and evaluates each assertion against the recorded tool calls.
 
 ```yaml
 project:
@@ -176,7 +176,7 @@ The `Reasoning` field contains a full markdown evaluation report with per-assert
 `resolveJudgeModel` determines the model used for evaluation. Priority (highest to lowest):
 
 1. `--judge-model` flag
-2. `test.judge-model` in `scaffold.xcf`
+2. `test.judge-model` in `project.xcf`
 3. `"claude-haiku-4-5-20251001"` (hard default)
 
 ```yaml
@@ -222,7 +222,7 @@ The trace file (`trace.jsonl` by default) is created in the current directory. A
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `agent file not found: .claude/agents/<id>.md` | `xcaffold apply` has not been run yet | Run `xcaffold apply` first to compile the agent |
-| Empty trace file | Agent declared no tools in `scaffold.xcf` | Add tools to the agent's `tools:` list so the model has something to call |
+| Empty trace file | Agent declared no tools in `project.xcf` | Add tools to the agent's `tools:` list so the model has something to call |
 | `FAIL` verdicts on all assertions | Assertions describe reasoning or intent, not observable tool calls | Rewrite assertions to reference specific tool names and argument patterns |
 | Auth error during simulation | Neither `XCAFFOLD_LLM_API_KEY` nor `ANTHROPIC_API_KEY` is set | Export one of these environment variables or configure `test.cli_path` for the CLI fallback |
 | Judge returns `PARTIAL` unexpectedly | Task prompt does not exercise the behaviors the assertions check | Set a more targeted `test.task` that forces the agent to invoke the tools your assertions reference |

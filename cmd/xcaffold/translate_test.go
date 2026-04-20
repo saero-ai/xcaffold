@@ -210,11 +210,11 @@ func TestTranslateCmd_AuditOut_WritesJSON(t *testing.T) {
 }
 
 func TestTranslateCmd_XcfFlag_SkipsImport(t *testing.T) {
-	// Write a minimal scaffold.xcf so the parser has something to load.
+	// Write a minimal project.xcf so the parser has something to load.
 	// The kind: project document is flat — name is a top-level field, not
 	// nested under a "project:" key.
 	xcfDir := t.TempDir()
-	xcfPath := filepath.Join(xcfDir, "scaffold.xcf")
+	xcfPath := filepath.Join(xcfDir, "project.xcf")
 	minimalXcf := `kind: project
 version: "1.0"
 name: test-project

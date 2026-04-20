@@ -25,16 +25,16 @@ func TestInitWizard_Targets_IsSlice(t *testing.T) {
 }
 
 // TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF verifies that
-// --global bypasses the local scaffold.xcf idempotency check.
-// Regression: globalFlag was checked AFTER the scaffold.xcf stat, causing
-// `xcaffold init --global` to silently no-op when a local scaffold.xcf existed.
+// --global bypasses the local project.xcf idempotency check.
+// Regression: globalFlag was checked AFTER the project.xcf stat, causing
+// `xcaffold init --global` to silently no-op when a local project.xcf existed.
 func TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF(t *testing.T) {
-	// Create a temp dir with a scaffold.xcf already present.
+	// Create a temp dir with a project.xcf already present.
 	dir := t.TempDir()
-	xcfPath := filepath.Join(dir, "scaffold.xcf")
+	xcfPath := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcfPath, []byte("kind: project\nname: existing\n"), 0600))
 
-	// Change to the temp dir so the idempotency check finds scaffold.xcf.
+	// Change to the temp dir so the idempotency check finds project.xcf.
 	orig, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(dir))
@@ -57,7 +57,7 @@ func TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF(t *testing.T) {
 
 	output := buf.String()
 	assert.NotContains(t, output, "Nothing to do",
-		"--global should bypass the local scaffold.xcf idempotency check")
+		"--global should bypass the local project.xcf idempotency check")
 }
 
 func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
@@ -153,8 +153,8 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	err := writeXCFDirectory(tmpDir, ans)
 	require.NoError(t, err)
 
-	// Verify top-level scaffold.xcf
-	scaffoldBytes, err := os.ReadFile(filepath.Join(tmpDir, "scaffold.xcf"))
+	// Verify top-level project.xcf
+	scaffoldBytes, err := os.ReadFile(filepath.Join(tmpDir, "project.xcf"))
 	require.NoError(t, err)
 	content := string(scaffoldBytes)
 	assert.Contains(t, content, "kind: project")
@@ -198,11 +198,29 @@ func TestWriteXCFDirectory_NoAgent_StillCreatesScaffold(t *testing.T) {
 	err := writeXCFDirectory(tmpDir, ans)
 	require.NoError(t, err)
 
-	// scaffold.xcf should exist
-	assert.FileExists(t, filepath.Join(tmpDir, "scaffold.xcf"))
+	// project.xcf should exist
+	assert.FileExists(t, filepath.Join(tmpDir, "project.xcf"))
 
 	// but xcf/ should NOT contain an agents/developer.xcf
 	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer.xcf"))
 }
 
 // --- Target Flag & Flow Tests ---
+
+// TestInit_GeneratesProjectXcf verifies that writeXCFDirectory writes project.xcf
+// (not project.xcf) as the top-level entry point.
+func TestInit_GeneratesProjectXcf(t *testing.T) {
+	ans := wizardAnswers{
+		name:      "my-project",
+		targets:   []string{"claude"},
+		wantAgent: false,
+	}
+
+	tmpDir := t.TempDir()
+	err := writeXCFDirectory(tmpDir, ans)
+	require.NoError(t, err)
+
+	_, projectXcfErr := os.Stat(filepath.Join(tmpDir, "project.xcf"))
+
+	assert.NoError(t, projectXcfErr, "project.xcf should be generated")
+}

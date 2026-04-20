@@ -11,7 +11,7 @@ import (
 )
 
 // TestWalkUp_FindsFileWithinHome verifies the walk-up locates a directory
-// containing scaffold.xcf when it sits inside the home boundary.
+// containing project.xcf when it sits inside the home boundary.
 func TestWalkUp_FindsFileWithinHome(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
@@ -19,12 +19,12 @@ func TestWalkUp_FindsFileWithinHome(t *testing.T) {
 	sub := filepath.Join(project, "sub")
 	require.NoError(t, os.MkdirAll(sub, 0755))
 
-	xcf := filepath.Join(project, "scaffold.xcf")
+	xcf := filepath.Join(project, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte("version: \"1\"\n"), 0600))
 
 	got, err := resolver.FindConfigDir(sub, home)
 	require.NoError(t, err)
-	assert.Equal(t, project, got, "should find directory containing scaffold.xcf")
+	assert.Equal(t, project, got, "should find directory containing project.xcf")
 }
 
 // TestWalkUp_StopsAtHome verifies the walk-up does NOT traverse above $HOME.
@@ -34,25 +34,25 @@ func TestWalkUp_StopsAtHome(t *testing.T) {
 	sub := filepath.Join(home, "sub")
 	require.NoError(t, os.MkdirAll(sub, 0755))
 
-	xcfAboveHome := filepath.Join(root, "scaffold.xcf")
+	xcfAboveHome := filepath.Join(root, "project.xcf")
 	require.NoError(t, os.WriteFile(xcfAboveHome, []byte("version: \"1\"\n"), 0600))
 
 	_, err := resolver.FindConfigDir(sub, home)
 	assert.Error(t, err, "walk-up must not cross the home boundary")
 }
 
-// TestWalkUp_FindsAtHome verifies scaffold.xcf at $HOME itself is found.
+// TestWalkUp_FindsAtHome verifies project.xcf at $HOME itself is found.
 func TestWalkUp_FindsAtHome(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	sub := filepath.Join(home, "sub")
 	require.NoError(t, os.MkdirAll(sub, 0755))
 
-	require.NoError(t, os.WriteFile(filepath.Join(home, "scaffold.xcf"), []byte("version: \"1\"\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(home, "project.xcf"), []byte("version: \"1\"\n"), 0600))
 
 	got, err := resolver.FindConfigDir(sub, home)
 	require.NoError(t, err)
-	assert.Equal(t, home, got, "scaffold.xcf at $HOME itself must be found")
+	assert.Equal(t, home, got, "project.xcf at $HOME itself must be found")
 }
 
 // TestWalkUp_CwdIsHome_NoXcf verifies fallback when cwd equals home and no xcf.
@@ -65,7 +65,7 @@ func TestWalkUp_CwdIsHome_NoXcf(t *testing.T) {
 	assert.Error(t, err, "should error when no xcf found")
 }
 
-// TestWalkUp_FindsAnyXcfFile verifies the walk-up finds agents.xcf (not just scaffold.xcf).
+// TestWalkUp_FindsAnyXcfFile verifies the walk-up finds agents.xcf (not just project.xcf).
 func TestWalkUp_FindsAnyXcfFile(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")

@@ -17,8 +17,8 @@ var validateStructural bool
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
-	Short: "Validate a scaffold.xcf configuration",
-	Long: `Validate checks the scaffold.xcf file for correctness:
+	Short: "Validate a project.xcf configuration",
+	Long: `Validate checks the project.xcf file for correctness:
 
   - YAML syntax and known fields
   - Cross-reference integrity (agent -> skill/rule/MCP IDs exist)
@@ -47,7 +47,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		validatePath = globalXcfPath
 	}
 
-	cfg, err := parser.ParseFile(validatePath)
+	cfg, err := parser.ParseDirectory(filepath.Dir(validatePath))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "validation failed: %v\n", err)
 		return err

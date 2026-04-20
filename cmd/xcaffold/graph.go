@@ -32,7 +32,7 @@ const (
 
 var graphCmd = &cobra.Command{
 	Use:   "graph [file]",
-	Short: "Visualize the agent topology of a scaffold.xcf file.",
+	Short: "Visualize the agent topology of a project.xcf file.",
 	Long: `xcaffold graph renders a visual map of your agent team and how it connects.
 
 ┌───────────────────────────────────────────────────────────────────┐
@@ -119,9 +119,9 @@ func runGraph(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(os.Stderr, "warning: could not list registered projects: %v\n", err)
 		} else {
 			for _, p := range projects {
-				projXcf := filepath.Join(p.Path, "scaffold.xcf")
+				projXcf := filepath.Join(p.Path, "project.xcf")
 				if p.ConfigDir != "" && p.ConfigDir != "." {
-					projXcf = filepath.Join(p.Path, p.ConfigDir, "scaffold.xcf")
+					projXcf = filepath.Join(p.Path, p.ConfigDir, "project.xcf")
 				}
 				g, err := parseGraphData(projXcf, fmt.Sprintf("project:%s", p.Name))
 				if err != nil {
@@ -136,7 +136,7 @@ func runGraph(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		projXcf := filepath.Join(p.Path, "scaffold.xcf")
+		projXcf := filepath.Join(p.Path, "project.xcf")
 		g, err := parseGraphData(projXcf, fmt.Sprintf("project:%s", p.Name))
 		if err != nil {
 			return err
@@ -210,7 +210,7 @@ func printGraphOutput(scopes []*graphData) error {
 
 //nolint:gocyclo
 func parseGraphData(configPath, scopeName string) (*graphData, error) {
-	config, err := parser.ParseFile(configPath)
+	config, err := parser.ParseDirectory(filepath.Dir(configPath))
 	if err != nil {
 		if scopeName != "" {
 			return nil, fmt.Errorf("[%s] parse error: %w", scopeName, err)

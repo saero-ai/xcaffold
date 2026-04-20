@@ -14,7 +14,7 @@ var analyzeModel string
 
 var analyzeCmd = &cobra.Command{
 	Use:   "analyze [directory]",
-	Short: "Analyze the repository and generate a scaffold.xcf",
+	Short: "Analyze the repository and generate a project.xcf",
 	Long: `xcaffold analyze reverse-engineers the current repository and builds an intelligent agent configuration blueprint.
 
 ┌───────────────────────────────────────────────────────────────────┐
@@ -22,11 +22,11 @@ var analyzeCmd = &cobra.Command{
 └───────────────────────────────────────────────────────────────────┘
  1. 🔍 Scans the local directory, ignoring bloat (e.g. node_modules, .git)
  2. 🗜️ Computes a core ProjectSignature representing the exact architecture
- 3. 🧠 Prompts Anthropic to generate an adversarial-ready scaffold.xcf 
+ 3. 🧠 Prompts Anthropic to generate an adversarial-ready project.xcf
  4. ⚖️ Outputs an audit.json compliance assessment
 
 Generated Artifacts:
- • scaffold.xcf   (The generated deterministic configuration)
+ • project.xcf   (The generated deterministic configuration)
  • audit.json     (The LLM-as-a-judge compliance scores)`,
 	Example: `  $ xcaffold analyze
   $ xcaffold analyze ./path/to/project
@@ -74,16 +74,16 @@ func runAnalyze(cmd *cobra.Command, args []string) error {
 		cmd.Println("   Note: Generation may display an external CLI spinner briefly.")
 	}
 
-	cmd.Printf("🧠 Generating scaffold.xcf using %s via %s...\n", analyzeModel, authMsg)
+	cmd.Printf("🧠 Generating project.xcf using %s via %s...\n", analyzeModel, authMsg)
 
 	res, err := gen.Generate(cmd.Context(), sig)
 	if err != nil {
 		return fmt.Errorf("generation failed: %w", err)
 	}
 
-	outPath := "scaffold.xcf" // nolint:goconst
+	outPath := "project.xcf" // nolint:goconst
 	if err := os.WriteFile(outPath, []byte(res.YAMLConfig), 0600); err != nil {
-		return fmt.Errorf("failed to write scaffold.xcf: %w", err)
+		return fmt.Errorf("failed to write project.xcf: %w", err)
 	}
 
 	auditPath := "audit.json"

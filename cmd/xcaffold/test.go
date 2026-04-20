@@ -56,8 +56,8 @@ func init() {
 	testCmd.Flags().StringVarP(&testAgentFlag, "agent", "a", "", "Agent ID to simulate (required)")
 	testCmd.Flags().BoolVar(&testJudgeFlag, "judge", false, "Run LLM-as-a-Judge evaluation after simulation")
 	testCmd.Flags().StringVarP(&testOutputFlag, "output", "o", "trace.jsonl", "Path to write the execution trace")
-	testCmd.Flags().StringVar(&testCliPathFlag, "cli-path", "", "Path to underlying CLI binary (overrides scaffold.xcf test.cli-path)")
-	testCmd.Flags().StringVar(&testJudgeModelFlag, "judge-model", "", "Anthropic model for the judge (overrides scaffold.xcf test.judge-model)")
+	testCmd.Flags().StringVar(&testCliPathFlag, "cli-path", "", "Path to underlying CLI binary (overrides project.xcf test.cli-path)")
+	testCmd.Flags().StringVar(&testJudgeModelFlag, "judge-model", "", "Anthropic model for the judge (overrides project.xcf test.judge-model)")
 
 	_ = testCmd.MarkFlagRequired("agent")
 	rootCmd.AddCommand(testCmd)
@@ -65,14 +65,14 @@ func init() {
 
 func runTest(cmd *cobra.Command, args []string) error {
 	// 1. Load and validate the project config.
-	config, err := parser.ParseFile(xcfPath)
+	config, err := parser.ParseDirectory(filepath.Dir(xcfPath))
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
 	}
 
 	agentConfig, ok := config.Agents[testAgentFlag]
 	if !ok {
-		return fmt.Errorf("agent %q not found in scaffold.xcf", testAgentFlag)
+		return fmt.Errorf("agent %q not found in project.xcf", testAgentFlag)
 	}
 
 	// 2. Resolve test config (CLI flag > xcf > defaults).
@@ -273,7 +273,7 @@ func runJudge(summary trace.Summary, assertions []string, configModel, cliPath s
 }
 
 // resolveCliPath returns the effective path to the underlying CLI binary.
-// Priority: CLI flag > scaffold.xcf test.cli-path > default "claude".
+// Priority: CLI flag > project.xcf test.cli-path > default "claude".
 func resolveCliPath(cliPath, claudePath string) string {
 	if testCliPathFlag != "" {
 		return testCliPathFlag
@@ -288,7 +288,7 @@ func resolveCliPath(cliPath, claudePath string) string {
 }
 
 // resolveJudgeModel returns the effective judge model.
-// Priority: CLI flag > scaffold.xcf test.judge-model > default Haiku.
+// Priority: CLI flag > project.xcf test.judge-model > default Haiku.
 func resolveJudgeModel(xcfModel string) string {
 	if testJudgeModelFlag != "" {
 		return testJudgeModelFlag

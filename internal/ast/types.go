@@ -4,14 +4,15 @@ package ast
 // global scope (root of XcaffoldConfig) and workspace scope (inside ProjectConfig).
 // Embedded with yaml:",inline" so fields appear at the same YAML level as the parent.
 type ResourceScope struct {
-	Agents    map[string]AgentConfig    `yaml:"agents,omitempty"`
-	Skills    map[string]SkillConfig    `yaml:"skills,omitempty"`
-	Rules     map[string]RuleConfig     `yaml:"rules,omitempty"`
-	Hooks     HookConfig                `yaml:"hooks,omitempty"`
-	MCP       map[string]MCPConfig      `yaml:"mcp,omitempty"`
-	Workflows map[string]WorkflowConfig `yaml:"workflows,omitempty"`
-	Policies  map[string]PolicyConfig   `yaml:"policies,omitempty"`
-	Memory    map[string]MemoryConfig   `yaml:"memory,omitempty"` // NEW
+	Agents     map[string]AgentConfig     `yaml:"agents,omitempty"`
+	Skills     map[string]SkillConfig     `yaml:"skills,omitempty"`
+	Rules      map[string]RuleConfig      `yaml:"rules,omitempty"`
+	Hooks      HookConfig                 `yaml:"hooks,omitempty"`
+	MCP        map[string]MCPConfig       `yaml:"mcp,omitempty"`
+	Workflows  map[string]WorkflowConfig  `yaml:"workflows,omitempty"`
+	Policies   map[string]PolicyConfig    `yaml:"policies,omitempty"`
+	Memory     map[string]MemoryConfig    `yaml:"memory,omitempty"`
+	References map[string]ReferenceConfig `yaml:"references,omitempty"`
 }
 
 // XcaffoldConfig is the root structure of a parsed .xcf YAML file.
@@ -49,12 +50,12 @@ type ProjectConfig struct {
 
 	// Reference lists: bare names linking to child resources in xcf/ subdirectories.
 	// Populated by the parser when decoding kind: project documents.
-	AgentRefs    []string `yaml:"-"`
-	SkillRefs    []string `yaml:"-"`
-	RuleRefs     []string `yaml:"-"`
-	WorkflowRefs []string `yaml:"-"`
-	MCPRefs      []string `yaml:"-"`
-	PolicyRefs   []string `yaml:"-"`
+	AgentRefs    []string `yaml:"agent-refs,omitempty"`
+	SkillRefs    []string `yaml:"skill-refs,omitempty"`
+	RuleRefs     []string `yaml:"rule-refs,omitempty"`
+	WorkflowRefs []string `yaml:"workflow-refs,omitempty"`
+	MCPRefs      []string `yaml:"mcp-refs,omitempty"`
+	PolicyRefs   []string `yaml:"policy-refs,omitempty"`
 
 	Test  TestConfig     `yaml:"test,omitempty"`
 	Local SettingsConfig `yaml:"local,omitempty"`
@@ -465,7 +466,7 @@ type TestConfig struct {
 }
 
 // WorkflowConfig defines a named, reusable, multi-step procedure.
-// Each workflow maps to an entry under the `workflows:` key in scaffold.xcf.
+// Each workflow maps to an entry under the `workflows:` key in project.xcf.
 // api-version: workflow/v1 is the current stable shape; workflow/v2 will add
 // parameterized steps and DAG ordering without breaking v1 schemas.
 type WorkflowConfig struct {
@@ -577,6 +578,31 @@ type MemoryConfig struct {
 	SourceProvider string `yaml:"-" json:"-"`
 }
 
+// ReferenceConfig defines a named reference document — a docs or data file that is
+// seeded into a provider's output directory at compile time as a supporting file.
+// Field ordering follows the canonical group structure:
+//
+//  1. Identity (name, description)
+//  2. Body (content — runtime only; not serialized)
+//  3. Provenance (source-provider — runtime only; not serialized)
+type ReferenceConfig struct {
+	// Group 1: Identity
+	Name        string `yaml:"name,omitempty"`
+	Description string `yaml:"description,omitempty"`
+
+	// Content holds the raw file content when loaded from disk.
+	// It is never decoded from or serialized to YAML.
+	Content string `yaml:"-"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
+}
+
 // StripInherited removes all top-level resources that are marked as Inherited=true.
 // This is called before compilation to ensure that resources loaded from
 // extends: global are not physically generated into local project directories.
@@ -610,6 +636,11 @@ func (c *XcaffoldConfig) StripInherited() {
 	for k, m := range c.Memory {
 		if m.Inherited {
 			delete(c.Memory, k)
+		}
+	}
+	for k, v := range c.References {
+		if v.Inherited {
+			delete(c.References, k)
 		}
 	}
 	if c.Project != nil {

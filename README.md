@@ -14,7 +14,7 @@
 
 ```
                                     ──► (claude)       ──►  .claude/
-scaffold.xcf  ──►  xcaffold apply   ──► (cursor)       ──►  .cursor/
+project.xcf  ──►  xcaffold apply   ──► (cursor)       ──►  .cursor/
                                     ──► (antigravity)  ──►  .agents/
                                     ──► (copilot)      ──►  .github/
                                     ──► (gemini)       ──►  .gemini/

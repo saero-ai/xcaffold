@@ -79,7 +79,7 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 }
 
 // CompileWithPriorSeeds is Compile + drift detection. priorHashes is a map from
-// memory entry name to the SHA-256 hash recorded in scaffold.lock on the last
+// memory entry name to the SHA-256 hash recorded in the state file on the last
 // apply. For tracked entries, the current on-disk hash is compared to
 // priorHashes[name]; any mismatch produces a drift error unless WithReseed(true)
 // is set.

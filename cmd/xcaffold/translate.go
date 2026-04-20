@@ -81,7 +81,7 @@ func init() {
 	translateCmd.Flags().StringVar(&translateSourceDir, "source-dir", "", "source directory containing agent configs")
 	translateCmd.Flags().StringVar(&translateOutputDir, "output-dir", "", "output directory for translated configs")
 	translateCmd.Flags().StringVar(&translateXcf, "xcf", "", "xcaffold config file path")
-	translateCmd.Flags().StringVar(&translateSaveXcf, "save-xcf", "", "write the imported IR to this path as scaffold.xcf YAML")
+	translateCmd.Flags().StringVar(&translateSaveXcf, "save-xcf", "", "write the imported IR to this path as project.xcf YAML")
 
 	// Fidelity and translation modes
 	translateCmd.Flags().StringVar(&translateFidelity, "fidelity", "warn", "fidelity mode: strict, warn, or lossy")

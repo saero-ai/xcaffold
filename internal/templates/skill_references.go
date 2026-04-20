@@ -5,13 +5,13 @@ package templates
 //
 // The generated content is written to xcf/references/skill.xcf.reference and
 // is NOT parsed by xcaffold. Users copy fields from this file into their
-// scaffold.xcf as needed.
+// project.xcf as needed.
 func RenderSkillReference() string {
 	return `# ============================================================
 # Skill Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
-# Copy fields from here into your scaffold.xcf as needed.
+# Copy fields from here into your project.xcf as needed.
 # Field definitions follow the xcaffold schema specification.
 # See: docs/reference/schema.md
 # ============================================================

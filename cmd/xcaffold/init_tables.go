@@ -7,13 +7,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// renderCurrentStateTable prints an ASCII table summarizing the current scaffold.xcf state.
+// renderCurrentStateTable prints an ASCII table summarizing the current project.xcf state.
 func renderCurrentStateTable(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 	if config == nil {
 		return
 	}
 	cmd.Println("  ┌───────────────────────────── CURRENT STATE ─────────────────────────────┐")
-	cmd.Println("  │ Source: scaffold.xcf                                                    │")
+	cmd.Println("  │ Source: project.xcf                                                    │")
 	cmd.Println("  ├─────────────────────────────────────────────────────────────────────────┤")
 
 	row := fmt.Sprintf("  │  %2d agent(s)  │  %2d skill(s)  │  %2d rule(s)  │  %2d workflow(s)       │",

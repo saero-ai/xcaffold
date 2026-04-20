@@ -187,8 +187,8 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 	err := WriteSplitFiles(config, tmpDir)
 	require.NoError(t, err)
 
-	// scaffold.xcf must exist with kind: project
-	scaffoldPath := filepath.Join(tmpDir, "scaffold.xcf")
+	// project.xcf must exist with kind: project
+	scaffoldPath := filepath.Join(tmpDir, "project.xcf")
 	assert.FileExists(t, scaffoldPath)
 	scaffoldBytes, err := os.ReadFile(scaffoldPath)
 	require.NoError(t, err)
@@ -297,12 +297,12 @@ func TestWriteSplitFiles_Deterministic(t *testing.T) {
 	err = WriteSplitFiles(config, tmpDir2)
 	require.NoError(t, err)
 
-	// Compare scaffold.xcf
-	b1, err := os.ReadFile(filepath.Join(tmpDir1, "scaffold.xcf"))
+	// Compare project.xcf
+	b1, err := os.ReadFile(filepath.Join(tmpDir1, "project.xcf"))
 	require.NoError(t, err)
-	b2, err := os.ReadFile(filepath.Join(tmpDir2, "scaffold.xcf"))
+	b2, err := os.ReadFile(filepath.Join(tmpDir2, "project.xcf"))
 	require.NoError(t, err)
-	assert.Equal(t, b1, b2, "scaffold.xcf must be byte-identical")
+	assert.Equal(t, b1, b2, "project.xcf must be byte-identical")
 
 	// Compare an agent file
 	a1, err := os.ReadFile(filepath.Join(tmpDir1, "xcf", "agents", "alpha.xcf"))
@@ -325,8 +325,8 @@ func TestWriteSplitFiles_EmptyResources(t *testing.T) {
 	err := WriteSplitFiles(config, tmpDir)
 	require.NoError(t, err)
 
-	// scaffold.xcf must be created
-	assert.FileExists(t, filepath.Join(tmpDir, "scaffold.xcf"))
+	// project.xcf must be created
+	assert.FileExists(t, filepath.Join(tmpDir, "project.xcf"))
 
 	// No xcf/agents/ directory when there are no agents
 	_, statErr := os.Stat(filepath.Join(tmpDir, "xcf", "agents"))

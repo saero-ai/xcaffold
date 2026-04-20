@@ -50,7 +50,7 @@ const (
 	CodeMemoryIndexUpdateFailed = "MEMORY_INDEX_UPDATE_FAILED"
 
 	// CodeMemoryDriftDetected is emitted when a tracked memory entry's on-disk
-	// hash diverges from the hash recorded in scaffold.lock after the last seed.
+	// hash diverges from the hash recorded in the state file after the last seed.
 	// This is an error-level note: the drift aborts the memory pass for that
 	// entry. Emitted alongside the hard error so tooling consuming FidelityNotes
 	// (e.g. CI drift reports) sees a structured event rather than only stderr text.

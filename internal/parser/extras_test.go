@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// minimalScaffoldXCF is the smallest valid scaffold.xcf content for test dirs.
+// minimalScaffoldXCF is the smallest valid project.xcf content for test dirs.
 const minimalScaffoldXCF = `kind: project
 version: "1.0"
 name: "test-project"
@@ -27,8 +27,8 @@ func writeExtrasFile(t *testing.T, dir, provider, relpath string, content []byte
 func TestLoadExtras_PopulatesProviderExtras(t *testing.T) {
 	dir := t.TempDir()
 
-	// Write a minimal scaffold.xcf so ParseDirectory succeeds.
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(minimalScaffoldXCF), 0o644))
+	// Write a minimal project.xcf so ParseDirectory succeeds.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(minimalScaffoldXCF), 0o644))
 
 	wantData := []byte("#!/bin/sh\necho hello\n")
 	writeExtrasFile(t, dir, "claude", "hooks/pre-commit.sh", wantData)
@@ -43,7 +43,7 @@ func TestLoadExtras_PopulatesProviderExtras(t *testing.T) {
 
 func TestLoadExtras_NoExtrasDir_NoError(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(minimalScaffoldXCF), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(minimalScaffoldXCF), 0o644))
 
 	// No xcf/extras/ directory written — must succeed with empty/nil ProviderExtras.
 	cfg, err := ParseDirectory(dir)
@@ -53,7 +53,7 @@ func TestLoadExtras_NoExtrasDir_NoError(t *testing.T) {
 
 func TestLoadExtras_MultipleProviders(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(minimalScaffoldXCF), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(minimalScaffoldXCF), 0o644))
 
 	claudeData := []byte("claude hook content")
 	cursorData := []byte("cursor rule content")
@@ -70,7 +70,7 @@ func TestLoadExtras_MultipleProviders(t *testing.T) {
 
 func TestLoadExtras_NestedPaths(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "scaffold.xcf"), []byte(minimalScaffoldXCF), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(minimalScaffoldXCF), 0o644))
 
 	deepData := []byte("deep nested content")
 	writeExtrasFile(t, dir, "claude", "hooks/nested/deep.sh", deepData)

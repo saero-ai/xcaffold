@@ -23,7 +23,7 @@ var reviewCmd = &cobra.Command{
  Use this command to pretty-print operational artifacts securely in the terminal.
 
  Supported Formats:
- • scaffold.xcf   -> Renders the AST tree structurally
+ • project.xcf   -> Renders the AST tree structurally
  • audit.json     -> Visualizes the categorical greenfield/brownfield scores
  • plan.json      -> Displays compilation plan
  • trace.jsonl    -> Formats the execution trace from proxy runs
@@ -43,7 +43,7 @@ func init() {
 }
 
 func runReview(cmd *cobra.Command, args []string) error {
-	file := "scaffold.xcf"
+	file := "project.xcf"
 	if len(args) > 0 {
 		file = args[0]
 	}
@@ -72,7 +72,7 @@ func reviewAll(cmd *cobra.Command) error {
 }
 
 func reviewAllInDir(cmd *cobra.Command, dir string) error {
-	targets := []string{"scaffold.xcf", "audit.json", "plan.json", "trace.jsonl"}
+	targets := []string{"project.xcf", "audit.json", "plan.json", "trace.jsonl"}
 	found := false
 	for _, target := range targets {
 		path := target

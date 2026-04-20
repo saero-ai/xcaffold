@@ -15,11 +15,11 @@ Configuration patterns in xcaffold range from a single file to multi-directory d
 
 ```
 project/
-├── scaffold.xcf
+├── project.xcf
 └── <target output directory>   # e.g. .claude/, .cursor/
 ```
 
-A single `scaffold.xcf` can hold all resource kinds using YAML multi-document syntax:
+A single `project.xcf` can hold all resource kinds using YAML multi-document syntax:
 
 ```yaml
 kind: project
@@ -51,11 +51,11 @@ instructions: |
 
 **Best for:** Medium projects where one developer manages all agents, and grouping by kind (agents, skills, rules) is natural.
 
-By convention, keep `scaffold.xcf` at the project root as the `kind: project` manifest. Place additional resources under `xcf/` subdirectories organized by resource type:
+By convention, keep `project.xcf` at the project root as the `kind: project` manifest. Place additional resources under `xcf/` subdirectories organized by resource type:
 
 ```
 project/
-├── scaffold.xcf          ← kind: project (name, targets)
+├── project.xcf          ← kind: project (name, targets)
 └── xcf/
     ├── agents/
     │   └── developer.xcf
@@ -63,10 +63,10 @@ project/
         └── git-workflow.xcf
 ```
 
-`ParseDirectory` discovers all `.xcf` files recursively, so the directory structure is purely organizational. The `scaffold.xcf` manifest declares the project name and targets — it does not need to enumerate the individual resource files:
+`ParseDirectory` discovers all `.xcf` files recursively, so the directory structure is purely organizational. The `project.xcf` manifest declares the project name and targets — it does not need to enumerate the individual resource files:
 
 ```yaml
-# scaffold.xcf
+# project.xcf
 kind: project
 version: "1.0"
 name: my-service
@@ -114,7 +114,7 @@ Organize configurations into domain-driven folders under `xcf/`. This maps direc
 
 ```
 project/
-├── scaffold.xcf          ← kind: project
+├── project.xcf          ← kind: project
 └── xcf/
     ├── frontend/
     │   └── designer-agent.xcf
@@ -123,7 +123,7 @@ project/
 ```
 
 ```yaml
-# scaffold.xcf
+# project.xcf
 kind: project
 version: "1.0"
 name: my-platform
@@ -188,7 +188,7 @@ Declare `kind: policy` files alongside other resource files under `xcf/` and ref
 
 ```
 project/
-├── scaffold.xcf                    ← kind: project (includes policies: list)
+├── project.xcf                    ← kind: project (includes policies: list)
 └── xcf/
     └── policies/
         ├── approved-models.xcf     ← kind: policy (custom constraint)
@@ -196,7 +196,7 @@ project/
 ```
 
 ```yaml
-# scaffold.xcf
+# project.xcf
 kind: project
 version: "1.0"
 name: my-platform
@@ -235,10 +235,10 @@ Override a built-in policy by creating a `.xcf` file with the same `name` and `s
 
 ## Cross-Provider Translation
 
-Use `xcaffold translate` for one-shot conversions when onboarding a new AI coding platform or sharing tools with team members using different IDEs. For ongoing management across multiple providers, use `xcaffold import` to establish a central `scaffold.xcf` project, then `xcaffold apply` to multiple targets from that single source:
+Use `xcaffold translate` for one-shot conversions when onboarding a new AI coding platform or sharing tools with team members using different IDEs. For ongoing management across multiple providers, use `xcaffold import` to establish a central `project.xcf` project, then `xcaffold apply` to multiple targets from that single source:
 
 ```yaml
-# scaffold.xcf — one source, multiple targets
+# project.xcf — one source, multiple targets
 kind: project
 version: "1.0"
 name: my-service
@@ -274,7 +274,7 @@ Use `lifecycle: tracked` only for memories that represent strictly managed docum
 - **Starting a new project and deciding on a layout** — the minimal single-file baseline is sufficient for personal or tutorial projects; the domain layout becomes relevant when multiple teams own different agent configurations and CODEOWNERS rules apply.
 - **Choosing between `instructions:` and `instructions-file:`** — inline instructions are recommended by default because they keep the resource definition self-contained and are what `xcaffold import` generates; `instructions-file:` is retained for cases where long-form prose benefits from dedicated Markdown tooling.
 - **Organizing policies in a large project** — placing `kind: policy` files under `xcf/policies/` and listing them in the `policies:` field of the project manifest makes the full policy surface visible in one location and keeps overrides (`severity: off`) co-located with the resources they affect.
-- **Deciding between `xcaffold translate` and `xcaffold import`** — `translate` is appropriate for one-shot cross-provider migrations; `import` establishes a managed `scaffold.xcf` source intended for ongoing management via `xcaffold apply`.
+- **Deciding between `xcaffold translate` and `xcaffold import`** — `translate` is appropriate for one-shot cross-provider migrations; `import` establishes a managed `project.xcf` source intended for ongoing management via `xcaffold apply`.
 
 ---
 

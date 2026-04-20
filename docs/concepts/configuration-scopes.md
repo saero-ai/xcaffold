@@ -5,10 +5,10 @@ description: "Understanding configuration contexts, scopes, implicit global inhe
 
 # Configuration Scopes
 
-xcaffold defines two compilation scopes: **global scope** (`~/.xcaffold/`) and **project scope** (the directory containing `scaffold.xcf`). Each scope compiles independently and produces its own lock manifest. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
+xcaffold defines two compilation scopes: **global scope** (`~/.xcaffold/`) and **project scope** (the directory containing `project.xcf`). Each scope compiles independently and produces its own lock manifest. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
 
 - **Global Scope** (`~/.xcaffold/`): System-wide agent configurations that apply across all projects on the machine.
-- **Project Scope** (directory containing `scaffold.xcf`): Project-specific resources that override global resources by ID at compile time.
+- **Project Scope** (directory containing `project.xcf`): Project-specific resources that override global resources by ID at compile time.
 
 ---
 
@@ -35,7 +35,7 @@ Resources in `~/.xcaffold/` define the global scope. These are loaded via `loadG
 
 ## Configuration Classification
 
-Xcaffold acts as a deterministic compiler that sits between an agnostic declarative schema (`scaffold.xcf`) and the provider-specific agent constraints required by the LLM target (e.g. Claude, Cursor, GitHub Copilot).
+Xcaffold acts as a deterministic compiler that sits between an agnostic declarative schema (`project.xcf`) and the provider-specific agent constraints required by the LLM target (e.g. Claude, Cursor, GitHub Copilot).
 
 To satisfy this architectural boundary, the YAML configuration schema maintains a strict, philosophical separation between two distinct classes of structures:
 
@@ -53,7 +53,7 @@ These configuration blocks control how Xcaffold evaluates paths, manages executi
 **Crucially, nothing defined in these configurations is natively loaded into the AI's contextual window.** They represent classical, deterministic computing mechanics that execute surrounding the LLM prompt, without ever polluting it.
 
 ### `global` (Global Scope)
-System-wide declarations residing outside your project repository (`~/.xcaffold/scaffold.xcf`). Evaluated under the overarching workspace scope to ensure consistent inheritance of security boundaries across all local projects.
+System-wide declarations residing outside your project repository (`~/.xcaffold/project.xcf`). Evaluated under the overarching workspace scope to ensure consistent inheritance of security boundaries across all local projects.
 
 ### `project` (Project Scope)
 The authoritative root bounding the local workspace (`project:` object). It registers metadata signatures tracked in lock manifests and limits the execution blast radius to localized overrides and dependencies.

@@ -41,7 +41,7 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 }
 
 // Compile translates an XcaffoldConfig AST into its Claude Code output
-// representation. baseDir is the directory that contains the scaffold.xcf file;
+// representation. baseDir is the directory that contains the project.xcf file;
 // it is used to resolve instructions_file: and references: paths. The second
 // return is a slice of fidelity notes; Claude is the native target and has no
 // fidelity gaps, so Compile always returns a nil notes slice.

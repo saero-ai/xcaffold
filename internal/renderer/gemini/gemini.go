@@ -40,7 +40,7 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 }
 
 // Compile translates an XcaffoldConfig AST into Gemini CLI output files.
-// baseDir is the directory containing the scaffold.xcf file; it is used to
+// baseDir is the directory containing the project.xcf file; it is used to
 // resolve instructions-file paths. Compile returns an error if any resource
 // fails to compile. It never panics.
 func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {

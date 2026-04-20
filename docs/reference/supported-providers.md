@@ -38,7 +38,7 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 ## Provider Import Support
 
-`xcaffold import` reads an existing provider directory and synthesises a `scaffold.xcf` from the artifacts found on disk. Each provider importer handles the kinds it natively understands; unknown files are captured as `provider-extras` and emitted as fidelity notes during `xcaffold apply`.
+`xcaffold import` reads an existing provider directory and synthesises a `project.xcf` from the artifacts found on disk. Each provider importer handles the kinds it natively understands; unknown files are captured as `provider-extras` and emitted as fidelity notes during `xcaffold apply`.
 
 ### Kind Matrix
 

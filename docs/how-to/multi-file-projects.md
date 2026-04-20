@@ -1,19 +1,19 @@
 ---
 title: "Splitting a Project Into Multiple .xcf Files"
-description: "Break a monolithic scaffold.xcf into domain-scoped files with automatic merge and duplicate detection"
+description: "Break a monolithic project.xcf into domain-scoped files with automatic merge and duplicate detection"
 ---
 
 # Splitting a Project Into Multiple .xcf Files
 
-A single `scaffold.xcf` works well for small projects. As projects grow, a monolithic file becomes difficult to maintain — a large agent roster mixed with MCP server definitions and global rules is hard to review and harder to diff. xcaffold supports splitting a project into multiple `.xcf` files; the parser scans, merges, and validates them as a single configuration.
+A single `project.xcf` works well for small projects. As projects grow, a monolithic file becomes difficult to maintain — a large agent roster mixed with MCP server definitions and global rules is hard to review and harder to diff. xcaffold supports splitting a project into multiple `.xcf` files; the parser scans, merges, and validates them as a single configuration.
 
-The recommended split layout uses `scaffold.xcf` (`kind: project`) at the project root and individual resource `.xcf` files under an `xcf/` subdirectory. All xcaffold commands should be run from the directory containing `scaffold.xcf`.
+The recommended split layout uses `project.xcf` (`kind: project`) at the project root and individual resource `.xcf` files under an `xcf/` subdirectory. All xcaffold commands should be run from the directory containing `project.xcf`.
 
-**When to use this:** When a monolithic `scaffold.xcf` exceeds a few hundred lines, or when different team members own distinct resource domains and need isolated files for review and diffing.
+**When to use this:** When a monolithic `project.xcf` exceeds a few hundred lines, or when different team members own distinct resource domains and need isolated files for review and diffing.
 
 **Prerequisites:**
 - Completed [Getting Started](../tutorials/getting-started.md) tutorial
-- An existing `scaffold.xcf` in your project
+- An existing `project.xcf` in your project
 
 This how-to covers when and how to split, what merge rules apply per resource type, how duplicate IDs are caught, and what the compiled output looks like for each target.
 
@@ -26,10 +26,10 @@ This how-to covers when and how to split, what merge rules apply per resource ty
 
 **Naming conventions:**
 
-- `scaffold.xcf` is the recommended filename for the project manifest (`kind: project`). It is what the CLI looks for by default during execution.
+- `project.xcf` is the recommended filename for the project manifest (`kind: project`). It is what the CLI looks for by default during execution.
 - Resource files under `xcf/` can use any name. Convention: `xcf/agents/developer.xcf`, `xcf/rules/code-style.xcf`.
 - `xcaffold init` natively bootstraps a full `xcf/` multi-file layout by default. You do not need to manually migrate if you start with `init`.
-- All xcaffold commands (`apply`, `diff`, `validate`, `graph`) run from the directory containing `scaffold.xcf`.
+- All xcaffold commands (`apply`, `diff`, `validate`, `graph`) run from the directory containing `project.xcf`.
 
 ---
 
@@ -37,8 +37,8 @@ This how-to covers when and how to split, what merge rules apply per resource ty
 
 | Project size | Recommended layout |
 |---|---|
-| 1-3 agents, few rules | Single `scaffold.xcf` with multi-kind documents |
-| 4+ agents, shared libraries | Split: `scaffold.xcf` + `xcf/` subdirectories |
+| 1-3 agents, few rules | Single `project.xcf` with multi-kind documents |
+| 4+ agents, shared libraries | Split: `project.xcf` + `xcf/` subdirectories |
 | Team-owned resources | Split: each owner edits their own `.xcf` files |
 
 There is no functional difference — both produce identical compiled output. The choice is organizational.
@@ -82,7 +82,7 @@ The same project split into files:
 
 ```
 my-project/
-  scaffold.xcf              # kind: project
+  project.xcf              # kind: project
   xcf/
     agents/
       developer.xcf          # kind: agent
@@ -90,7 +90,7 @@ my-project/
       code-style.xcf         # kind: rule
 ```
 
-**`scaffold.xcf`** — the project manifest:
+**`project.xcf`** — the project manifest:
 
 ```yaml
 kind: project
@@ -135,7 +135,7 @@ instructions: "Use 2-space indentation. No semicolons in TypeScript."
 
 | Path | Contents |
 |---|---|
-| `scaffold.xcf` | `kind: project` manifest — always at project root |
+| `project.xcf` | `kind: project` manifest — always at project root |
 | `xcf/agents/*.xcf` | `kind: agent` documents |
 | `xcf/skills/*.xcf` | `kind: skill` documents |
 | `xcf/rules/*.xcf` | `kind: rule` documents |

@@ -5,13 +5,13 @@ description: "Detect, diagnose, and restore managed files when compiled output h
 
 # Drift Remediation
 
-This tutorial walks through detecting and resolving drift in an xcaffold-managed project. Drift occurs when files inside a compiled output directory (`.claude/`, `.cursor/`, `.agents/`) are modified directly rather than through `scaffold.xcf`. xcaffold uses SHA-256 hashes to detect these changes precisely and gives you explicit control over remediation. For background on why drift matters, see [Concepts: Drift Detection and State](../concepts/architecture.md#drift-detection-and-state).
+This tutorial walks through detecting and resolving drift in an xcaffold-managed project. Drift occurs when files inside a compiled output directory (`.claude/`, `.cursor/`, `.agents/`) are modified directly rather than through `project.xcf`. xcaffold uses SHA-256 hashes to detect these changes precisely and gives you explicit control over remediation. For background on why drift matters, see [Concepts: Drift Detection and State](../concepts/architecture.md#drift-detection-and-state).
 
 **Time to complete:** ~10 minutes
 
 **Prerequisites:**
 - `xcaffold` installed and on `$PATH`
-- A project directory with `scaffold.xcf` present
+- A project directory with `project.xcf` present
 - First apply already run (`xcaffold apply --target claude`)
 
 ---
@@ -22,7 +22,7 @@ This tutorial walks through detecting and resolving drift in an xcaffold-managed
 xcaffold apply --target claude
 ```
 
-This compiles `scaffold.xcf` into `.claude/` and writes `scaffold.claude.lock` with SHA-256 hashes of every output file. The lock is the reference state for all subsequent drift checks.
+This compiles `project.xcf` into `.claude/` and writes `scaffold.claude.lock` with SHA-256 hashes of every output file. The lock is the reference state for all subsequent drift checks.
 
 **Expected output:**
 ```
@@ -31,7 +31,7 @@ This compiles `scaffold.xcf` into `.claude/` and writes `scaffold.claude.lock` w
 [project] ✓ Apply complete. scaffold.claude.lock updated.
 ```
 
-Commit `scaffold.xcf` and `scaffold.claude.lock` together.
+Commit `project.xcf` and `scaffold.claude.lock` together.
 
 ---
 
@@ -41,7 +41,7 @@ Commit `scaffold.xcf` and `scaffold.claude.lock` together.
 echo "# MANUAL EDIT" >> .claude/agents/developer.md
 ```
 
-This simulates a direct edit to a managed file — the kind that happens when someone tweaks an agent definition in place rather than updating `scaffold.xcf`.
+This simulates a direct edit to a managed file — the kind that happens when someone tweaks an agent definition in place rather than updating `project.xcf`.
 
 ---
 

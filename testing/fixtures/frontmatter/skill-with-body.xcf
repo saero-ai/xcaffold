@@ -1,0 +1,12 @@
+---
+kind: skill
+name: tdd
+version: "1.0"
+description: Test-driven development workflow
+allowed-tools: [Read, Edit, Bash]
+---
+# Red-Green-Refactor
+
+1. Write a failing test.
+2. Write minimal code to pass.
+3. Refactor.

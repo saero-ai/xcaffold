@@ -149,7 +149,7 @@ target-options:
     instructions-mode: sideways
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "scaffold.xcf")
+	path := filepath.Join(tmp, "project.xcf")
 	require.NoError(t, os.WriteFile(path, []byte(yml), 0o600))
 	_, err := parser.ParseFile(path)
 	require.Error(t, err)

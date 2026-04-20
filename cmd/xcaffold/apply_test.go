@@ -37,12 +37,11 @@ agents:
     model: claude-sonnet-4-5
     instructions-file: missing-instructions.md
 `
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
 	xcfPath = xcf
 	claudeDir = filepath.Join(dir, ".claude")
-	lockPath = filepath.Join(dir, "scaffold.lock")
 	globalFlag = false
 	applyCheckOnly = true
 	defer func() { applyCheckOnly = false }()
@@ -51,7 +50,7 @@ agents:
 	assert.Error(t, err, "--check must return non-zero when diagnostics contain errors")
 }
 
-// minimalXCF is a minimal valid scaffold.xcf for apply tests.
+// minimalXCF is a minimal valid project.xcf for apply tests.
 const minimalXCF = `kind: project
 version: "1.0"
 name: apply-test
@@ -59,18 +58,17 @@ name: apply-test
 
 func TestApplyScope_Project(t *testing.T) {
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
-	lock := filepath.Join(dir, "scaffold.lock")
 
-	err := applyScope(xcf, claudeDirPath, lock, "project")
+	err := applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
-	targetLock := filepath.Join(dir, "scaffold.claude.lock")
-	_, err = os.Stat(targetLock)
-	assert.NoError(t, err, "scaffold.lock should exist after applyScope")
+	stateFile := state.StateFilePath(dir, "")
+	_, err = os.Stat(stateFile)
+	assert.NoError(t, err, "state file should exist after applyScope")
 
 	// .claude/ subdirectories must exist.
 	for _, sub := range []string{"agents", "skills", "rules"} {
@@ -82,29 +80,27 @@ func TestApplyScope_Project(t *testing.T) {
 func TestApplyScope_MissingXCF(t *testing.T) {
 	dir := t.TempDir()
 	claudeDirPath := filepath.Join(dir, ".claude")
-	lock := filepath.Join(dir, "scaffold.lock")
 
-	err := applyScope(filepath.Join(dir, "nonexistent.xcf"), claudeDirPath, lock, "project")
+	err := applyScope(filepath.Join(dir, "nonexistent.xcf"), claudeDirPath, "project")
 	assert.Error(t, err, "should fail when xcf file does not exist")
 }
 
 func TestRunApply_ScopeProject(t *testing.T) {
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	// Set package-level path vars used by runApply.
 	xcfPath = xcf
 	claudeDir = filepath.Join(dir, ".claude")
-	lockPath = filepath.Join(dir, "scaffold.lock")
 	globalFlag = false
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
 
-	targetLock := filepath.Join(dir, "scaffold.claude.lock")
-	_, err = os.Stat(targetLock)
-	assert.NoError(t, err, "scaffold.lock should be written for project scope")
+	stateFile := state.StateFilePath(dir, "")
+	_, err = os.Stat(stateFile)
+	assert.NoError(t, err, "state file should be written for project scope")
 }
 
 func TestRunApply_ScopeGlobal(t *testing.T) {
@@ -114,88 +110,85 @@ func TestRunApply_ScopeGlobal(t *testing.T) {
 
 	globalXcfPath = xcf
 	globalXcfHome = filepath.Join(dir, ".claude")
-	globalLockPath = filepath.Join(dir, "scaffold.lock")
 	globalFlag = true
 	defer func() { globalFlag = false }()
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
 
-	targetLock := filepath.Join(dir, "scaffold.claude.lock")
-	_, err = os.Stat(targetLock)
-	assert.NoError(t, err, "scaffold.lock should be written for global scope")
+	stateFile := state.StateFilePath(dir, "")
+	_, err = os.Stat(stateFile)
+	assert.NoError(t, err, "state file should be written for global scope")
 }
 
 func TestRunApply_GlobalFlagFalse_CompilesProject(t *testing.T) {
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	xcfPath = xcf
 	claudeDir = filepath.Join(dir, ".claude")
-	lockPath = filepath.Join(dir, "scaffold.lock")
 	globalFlag = false
 	targetFlag = targetClaude
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
 
-	targetLock := filepath.Join(dir, "scaffold.claude.lock")
-	_, err = os.Stat(targetLock)
-	assert.NoError(t, err, "project lock should be written when globalFlag is false")
+	stateFile := state.StateFilePath(dir, "")
+	_, err = os.Stat(stateFile)
+	assert.NoError(t, err, "state file should be written when globalFlag is false")
 }
 
 func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
-	lock := filepath.Join(dir, "scaffold.lock")
 
 	// First apply — should compile
 	applyForce = false
 	targetFlag = targetClaude
-	err := applyScope(xcf, claudeDirPath, lock, "project")
+	err := applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
-	targetLock := filepath.Join(dir, "scaffold.claude.lock")
-	_, err = os.Stat(targetLock)
-	require.NoError(t, err, "lock file should exist after first apply")
+	stateFile := state.StateFilePath(dir, "")
+	_, err = os.Stat(stateFile)
+	require.NoError(t, err, "state file should exist after first apply")
 
-	// Read first lock to get timestamp
-	m1, err := state.Read(targetLock)
+	// Read first state to get timestamp
+	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.LastApplied
+	ts1 := m1.Targets[targetClaude].LastApplied
 
 	// Second apply — should skip (same sources)
-	err = applyScope(xcf, claudeDirPath, lock, "project")
+	err = applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
-	// Lock timestamp should NOT change (compilation was skipped)
-	m2, err := state.Read(targetLock)
+	// State timestamp should NOT change (compilation was skipped)
+	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.Equal(t, ts1, m2.LastApplied, "timestamp should not change when sources are unchanged")
+	assert.Equal(t, ts1, m2.Targets[targetClaude].LastApplied, "timestamp should not change when sources are unchanged")
 }
 
 func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
-	lock := filepath.Join(dir, "scaffold.lock")
 
 	applyForce = false
 	targetFlag = targetClaude
 
 	// First apply
-	err := applyScope(xcf, claudeDirPath, lock, "project")
+	err := applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
-	targetLock := filepath.Join(dir, "scaffold.claude.lock")
-	m1, err := state.Read(targetLock)
+	stateFile := state.StateFilePath(dir, "")
+	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
+	ts1 := m1.Targets[targetClaude].LastApplied
 
 	// Modify source
 	modifiedXCF := `kind: project
@@ -206,69 +199,44 @@ name: apply-test-modified
 	time.Sleep(1 * time.Second)
 
 	// Second apply — should recompile
-	err = applyScope(xcf, claudeDirPath, lock, "project")
+	err = applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
-	m2, err := state.Read(targetLock)
+	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.NotEqual(t, m1.LastApplied, m2.LastApplied, "timestamp should change when sources are modified")
+	assert.NotEqual(t, ts1, m2.Targets[targetClaude].LastApplied, "timestamp should change when sources are modified")
 }
 
 func TestApplyScope_ForceRecompiles(t *testing.T) {
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
-	lock := filepath.Join(dir, "scaffold.lock")
 
 	targetFlag = targetClaude
 
 	// First apply (non-force)
 	applyForce = false
-	err := applyScope(xcf, claudeDirPath, lock, "project")
+	err := applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
-	targetLock := filepath.Join(dir, "scaffold.claude.lock")
-	m1, err := state.Read(targetLock)
+	stateFile := state.StateFilePath(dir, "")
+	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
+	ts1 := m1.Targets[targetClaude].LastApplied
 
 	// Second apply with --force — should recompile despite no changes
 	applyForce = true
 	time.Sleep(1 * time.Second)
-	err = applyScope(xcf, claudeDirPath, lock, "project")
+	err = applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
-	m2, err := state.Read(targetLock)
+	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.NotEqual(t, m1.LastApplied, m2.LastApplied, "force should always recompile")
+	assert.NotEqual(t, ts1, m2.Targets[targetClaude].LastApplied, "force should always recompile")
 
 	// Reset
-	applyForce = false
-}
-
-func TestApplyScope_MigratesLegacyLock(t *testing.T) {
-	dir := t.TempDir()
-	xcf := filepath.Join(dir, "scaffold.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
-
-	claudeDirPath := filepath.Join(dir, ".claude")
-	legacyLock := filepath.Join(dir, "scaffold.lock")
-
-	// Create a legacy lock file
-	require.NoError(t, os.WriteFile(legacyLock, []byte("version: 1\nlast_applied: \"2025-01-01T00:00:00Z\"\n"), 0600))
-
-	targetFlag = targetClaude
-	applyForce = true // force to avoid skip logic
-	err := applyScope(xcf, claudeDirPath, legacyLock, "project")
-	require.NoError(t, err)
-
-	// Legacy lock should be gone (was migrated before first read)
-	// Target-specific lock should exist with fresh data
-	targetLock := filepath.Join(dir, "scaffold.claude.lock")
-	_, err = os.Stat(targetLock)
-	assert.NoError(t, err, "target-specific lock should exist")
-
 	applyForce = false
 }
 
@@ -290,15 +258,14 @@ agents:
     instructions: |
       You are a developer.
 `
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
-	lock := filepath.Join(dir, "scaffold.lock")
 
 	targetFlag = targetClaude
 	applyForce = true
-	err := applyScope(xcf, claudeDirPath, lock, "project")
+	err := applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
 	// Verify agent file exists
@@ -314,7 +281,7 @@ name: orphan-test
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfNoAgent), 0600))
 
 	// Second apply — should purge the orphaned agent file
-	err = applyScope(xcf, claudeDirPath, lock, "project")
+	err = applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
 	_, err = os.Stat(agentFile)
@@ -346,12 +313,11 @@ instructions: |
   You are a developer.
 model: "claude-sonnet-4-5"
 `
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
 	xcfPath = xcf
 	claudeDir = filepath.Join(dir, ".claude")
-	lockPath = filepath.Join(dir, "scaffold.lock")
 	globalFlag = false
 	applyForce = true
 	targetFlag = targetClaude // default value — not Changed
@@ -367,12 +333,17 @@ model: "claude-sonnet-4-5"
 	_, err = os.Stat(filepath.Join(dir, ".cursor"))
 	assert.NoError(t, err, ".cursor/ should be created for cursor target")
 
-	// Both lock files must exist
-	_, err = os.Stat(filepath.Join(dir, "scaffold.claude.lock"))
-	assert.NoError(t, err, "scaffold.claude.lock should exist")
+	// State file must exist (both targets are recorded in the single state file)
+	stateFile := state.StateFilePath(dir, "")
+	_, err = os.Stat(stateFile)
+	assert.NoError(t, err, "state file should exist")
 
-	_, err = os.Stat(filepath.Join(dir, "scaffold.cursor.lock"))
-	assert.NoError(t, err, "scaffold.cursor.lock should exist")
+	manifest, err := state.ReadState(stateFile)
+	require.NoError(t, err)
+	_, hasClaude := manifest.Targets["claude"]
+	_, hasCursor := manifest.Targets["cursor"]
+	assert.True(t, hasClaude, "state should have claude target entry")
+	assert.True(t, hasCursor, "state should have cursor target entry")
 
 	applyForce = false
 }
@@ -389,12 +360,11 @@ targets:
   - claude
   - cursor
 `
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
 	xcfPath = xcf
 	claudeDir = filepath.Join(dir, ".claude")
-	lockPath = filepath.Join(dir, "scaffold.lock")
 	globalFlag = false
 	applyForce = true
 
@@ -427,12 +397,11 @@ func TestRunApply_NoTargetsInConfig_DefaultsToClaude(t *testing.T) {
 version: "1.0"
 name: no-targets-test
 `
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
 	xcfPath = xcf
 	claudeDir = filepath.Join(dir, ".claude")
-	lockPath = filepath.Join(dir, "scaffold.lock")
 	globalFlag = false
 	applyForce = true
 	targetFlag = targetClaude
@@ -464,16 +433,15 @@ agents:
     instructions: |
       You are a developer.
 `
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
-	lock := filepath.Join(dir, "scaffold.lock")
 
 	targetFlag = targetClaude
 	applyForce = true
 	applyDryRun = false
-	err := applyScope(xcf, claudeDirPath, lock, "project")
+	err := applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
 	agentFile := filepath.Join(dir, ".claude", "agents", "dev.md")
@@ -488,7 +456,7 @@ name: orphan-test
 
 	// Dry run — should NOT delete the file
 	applyDryRun = true
-	err = applyScope(xcf, claudeDirPath, lock, "project")
+	err = applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
 	_, err = os.Stat(agentFile)
@@ -506,7 +474,7 @@ func TestApplyScope_RegistryXCF_ExcludedFromSourceTracking(t *testing.T) {
 	dir := t.TempDir()
 
 	// Config file — the only source that should appear in the lock.
-	xcf := filepath.Join(dir, "scaffold.xcf")
+	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	// Registry file — must NOT appear in the lock's source list.
@@ -517,20 +485,19 @@ version: "1"
 	require.NoError(t, os.WriteFile(registryXCF, []byte(registryContent), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
-	lock := filepath.Join(dir, "scaffold.lock")
 
 	applyForce = true
 	targetFlag = targetClaude
-	err := applyScope(xcf, claudeDirPath, lock, "project")
+	err := applyScope(xcf, claudeDirPath, "project")
 	require.NoError(t, err)
 
-	targetLock := filepath.Join(dir, "scaffold.claude.lock")
-	manifest, err := state.Read(targetLock)
+	stateFile := state.StateFilePath(dir, "")
+	manifest, err := state.ReadState(stateFile)
 	require.NoError(t, err)
 
 	for _, sf := range manifest.SourceFiles {
 		assert.NotEqual(t, "registry.xcf", sf.Path,
-			"registry.xcf must not appear in lock manifest source files")
+			"registry.xcf must not appear in state manifest source files")
 	}
 
 	applyForce = false
@@ -674,7 +641,7 @@ func TestRunMemoryPass_Gemini_WritesGeminiMD(t *testing.T) {
 
 	seeds, notes, err := runMemoryPass(config, t.TempDir(), targetGemini, t.TempDir(), nil, false, false)
 	require.NoError(t, err)
-	// Gemini does not record seeds in scaffold.lock.
+	// Gemini does not record seeds in the state file.
 	require.Empty(t, seeds)
 	// Gemini emits MEMORY_PARTIAL_FIDELITY notes.
 	require.NotEmpty(t, notes)

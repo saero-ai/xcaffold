@@ -326,7 +326,7 @@ skills:
 
 	// 2. Create the project config extending "global"
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "scaffold.xcf", `---
+	childPath := writeFile(t, projectDir, "project.xcf", `---
 kind: project
 version: "1.0"
 name: "local-project"
@@ -367,7 +367,7 @@ agents:
 `)
 
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "scaffold.xcf", `kind: global
+	childPath := writeFile(t, projectDir, "project.xcf", `kind: global
 version: "1.0"
 extends: "global"
 `)
@@ -396,7 +396,7 @@ extends: "global"
 `)
 
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "scaffold.xcf", `kind: global
+	childPath := writeFile(t, projectDir, "project.xcf", `kind: global
 version: "1.0"
 extends: "global"
 `)
@@ -435,7 +435,7 @@ agents:
 `)
 
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "scaffold.xcf", `kind: global
+	childPath := writeFile(t, projectDir, "project.xcf", `kind: global
 version: "1.0"
 extends: "global"
 `)

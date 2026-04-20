@@ -35,7 +35,7 @@ var jsonManifestFlag bool
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Bootstrap a new scaffold.xcf configuration",
+	Short: "Bootstrap a new project.xcf configuration",
 	Long: `xcaffold init bootstraps the environment.
 
 +-------------------------------------------------------------------+
@@ -80,13 +80,13 @@ func runInit(cmd *cobra.Command, _ []string) error {
 		return initGlobal()
 	}
 
-	// ── Phase 2: Existing scaffold.xcf — offer re-import ────────────────
+	// ── Phase 2: Existing project.xcf — offer re-import ─────────────────
 	return initProject(cmd)
 }
 
 // initProject runs the interactive project-level init wizard.
 func initProject(cmd *cobra.Command) error {
-	const xcfFile = "scaffold.xcf"
+	const xcfFile = "project.xcf"
 
 	var currentConfig *ast.XcaffoldConfig
 	hasExistingScaffold := false
@@ -100,7 +100,7 @@ func initProject(cmd *cobra.Command) error {
 	// ── Phase 1: Existing scaffold, NO native dirs ────────────────────────
 	if hasExistingScaffold && len(infos) == 0 {
 		cmd.Println()
-		cmd.Println("  scaffold.xcf already exists, but no provider directories were found.")
+		cmd.Println("  project.xcf already exists, but no provider directories were found.")
 		cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold diff' to check for drift.")
 		tryAutoRegister(xcfFile)
 		return nil
@@ -110,7 +110,7 @@ func initProject(cmd *cobra.Command) error {
 	if len(infos) > 0 {
 		cmd.Println()
 		if hasExistingScaffold {
-			cmd.Println("  scaffold.xcf already exists, but existing compiled configurations were detected.")
+			cmd.Println("  project.xcf already exists, but existing compiled configurations were detected.")
 		} else {
 			cmd.Println("  ⚡ Detected existing agent configuration(s):")
 		}
@@ -129,7 +129,7 @@ func initProject(cmd *cobra.Command) error {
 				doImport = true
 			} else {
 				var err error
-				doImport, err = prompt.Confirm("Re-import from source directories? (overwrites scaffold.xcf and xcf/)", false)
+				doImport, err = prompt.Confirm("Re-import from source directories? (overwrites project.xcf and xcf/)", false)
 				if err != nil {
 					return fmt.Errorf("prompt error: %w", err)
 				}
@@ -139,10 +139,10 @@ func initProject(cmd *cobra.Command) error {
 			if yesFlag {
 				doImport = true
 			} else {
-				fmtStr := "Import %s into scaffold.xcf?"
+				fmtStr := "Import %s into project.xcf?"
 				if len(infos) > 1 {
-					cmd.Println("  xcaffold consolidates multiple configs into one scaffold.xcf.")
-					fmtStr = "Import these directories into scaffold.xcf?"
+					cmd.Println("  xcaffold consolidates multiple configs into one project.xcf.")
+					fmtStr = "Import these directories into project.xcf?"
 				} else {
 					fmtStr = fmt.Sprintf(fmtStr, infos[0].dirName)
 				}
@@ -161,7 +161,7 @@ func initProject(cmd *cobra.Command) error {
 				tryAutoRegister(xcfFile)
 				return nil
 			} else {
-				cmd.Println("\n  ⚠  Skipping import. Continuing with fresh scaffold.xcf.")
+				cmd.Println("\n  ⚠  Skipping import. Continuing with fresh project.xcf.")
 				cmd.Println("     Note: 'xcaffold apply' will overlay your existing target files.")
 				cmd.Println()
 				// Proceed to Phase 3
@@ -201,7 +201,7 @@ func initProject(cmd *cobra.Command) error {
 							cmd.Println("\n  ⚠  No directories selected. Aborting.")
 							return nil
 						} else {
-							cmd.Println("\n  ⚠  No directories selected. Continuing with fresh scaffold.xcf.")
+							cmd.Println("\n  ⚠  No directories selected. Continuing with fresh project.xcf.")
 							// Proceed to Phase 3 instead of aborting
 							doImport = false
 						}
@@ -341,7 +341,7 @@ func selectedPlatform(infos []platformDirInfo, dirName string) string {
 	return "claude"
 }
 
-// runWizard runs the interactive new-project wizard and writes scaffold.xcf.
+// runWizard runs the interactive new-project wizard and writes project.xcf.
 func runWizard(cmd *cobra.Command, xcfFile string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -363,7 +363,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		}
 	}
 
-	// ── Build scaffold.xcf content ─────────────────────────────────────────
+	// ── Build project.xcf content ──────────────────────────────────────────
 	if templateFlag != "" {
 		model, _ := resolveTargetMeta(ans.targets[0])
 		content, err := templates.Render(templateFlag, ans.name, model)
@@ -397,7 +397,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 			Files   []string `json:"files"`
 		}
 
-		files := []string{"scaffold.xcf", "xcf/rules/conventions.xcf", "xcf/settings.xcf"}
+		files := []string{"project.xcf", "xcf/rules/conventions.xcf", "xcf/settings.xcf"}
 		if !noPoliciesFlag {
 			files = append(files, "xcf/policies/safety.xcf")
 		}
@@ -412,7 +412,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		return nil
 	}
 
-	cmd.Printf("\n✓ Created scaffold.xcf\n")
+	cmd.Printf("\n✓ Created project.xcf\n")
 	cmd.Printf("  Project: %s | Targets: %s\n", ans.name, strings.Join(ans.targets, ", "))
 
 	if ans.wantAgent {
@@ -550,9 +550,9 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 
 	model, _ := resolveTargetMeta(ans.targets[0])
 
-	// scaffold.xcf
+	// project.xcf
 	projectContent := templates.RenderProjectXCF(ans.name, ans.targets)
-	if err := os.WriteFile(filepath.Join(baseDir, "scaffold.xcf"), []byte(projectContent), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(baseDir, "project.xcf"), []byte(projectContent), 0o600); err != nil {
 		return err
 	}
 
@@ -660,7 +660,7 @@ func initGlobal() error {
 		fmt.Printf("✓ %s created.\n", target)
 	}
 	fmt.Println("  Edit it to define your global agents, then run 'xcaffold apply --global'.")
-	fmt.Println("  Projects can inherit with 'extends: global' in their scaffold.xcf.")
+	fmt.Println("  Projects can inherit with 'extends: global' in their project.xcf.")
 	fmt.Printf("  Output: ~/.claude/ | ~/.cursor/ | ~/.agents/ (depending on --target)\n")
 	return nil
 }
@@ -677,10 +677,10 @@ func tryAutoRegister(xcfFile string) {
 	}
 }
 
-// injectXcaffoldSkillAfterImport parses the imported scaffold.xcf, adds the xcaffold skill to the
+// injectXcaffoldSkillAfterImport parses the imported project.xcf, adds the xcaffold skill to the
 // skills list if not present, and statically writes the xcf/skills/xcaffold.xcf template.
 func injectXcaffoldSkillAfterImport(baseDir string) error {
-	xcfFile := filepath.Join(baseDir, "scaffold.xcf")
+	xcfFile := filepath.Join(baseDir, "project.xcf")
 	config, err := parser.ParseFile(xcfFile)
 	if err != nil {
 		return fmt.Errorf("parsing imported scaffold: %w", err)

@@ -141,7 +141,7 @@ func TestTranslate_SaveXcf_ProducesValidYAML(t *testing.T) {
 		0o644,
 	))
 
-	xcfOut := filepath.Join(t.TempDir(), "scaffold.xcf")
+	xcfOut := filepath.Join(t.TempDir(), "project.xcf")
 
 	// Run translate with --save-xcf; the flag takes a positional value.
 	cmd := exec.Command(
