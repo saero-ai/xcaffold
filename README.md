@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/dl/)
 
-**deterministic agent configuration compiler for AI coding platforms.** Declare your AI agents in a single `.xcf` YAML file. `xcaffold` compiles it deterministically into native AI coding agent configurations — with drift detection, policy enforcement, and sandboxed simulation.
+**Your agents, by design.** Agent-as-Code — design, compile, and manage agent blueprints across every AI coding platform. Declare your agents in a single `.xcf` YAML file. `xcaffold` compiles it deterministically into native configurations across multiple providers — with drift detection, behavioral testing, and policy enforcement.
 
 ```
                                     ──► (claude)       ──►  .claude/
@@ -22,18 +22,19 @@ project.xcf  ──►  xcaffold apply   ──► (cursor)       ──►  .cu
 
 ## Why xcaffold?
 
-The agentic development ecosystem is fragmented. Every AI coding tool ships its own configuration format, its own rules directory, its own agent file structure. Teams maintaining agents across multiple tools end up with multiple independent configuration trees — no shared source of truth, no consistency guarantee, and no systematic way to move between them.
+Agent configuration fragments across tools. Each AI coding platform (Claude Code, Cursor, GitHub Copilot, Gemini CLI, Antigravity) has its own format: `.claude/`, `.cursor/`, `.github/`, `.agents/`, etc. Teams either maintain parallel copies — accepting drift and inconsistency — or lock themselves into a single provider.
 
-`xcaffold` treats agent configuration as code. A single `.xcf` file is compiled deterministically into the native format each platform expects. As the ecosystem grows — and new AI coding tools continue to emerge — xcaffold's renderer model means your existing configuration adapts without being rewritten from scratch.
+`xcaffold` treats agent blueprints as a programmable, testable source of truth. A single `.xcf` file defines your agents once, then compiles into every platform's native format:
 
-- **No portability** — Configurations written for one AI coding tool cannot be compiled to another. Evaluating an alternative or migrating to a different provider means recreating every agent, skill, and rule from scratch.
-- **No reproducible onboarding** — New team members configure agents from memory or copy-paste. There is no `git clone && xcaffold apply` for agent setup.
-- **No drift detection** — Changes made directly to generated files (`.claude/`, `.cursor/`) go unnoticed and are silently overwritten on the next compile.
-- **No fleet visibility** — Teams with multiple projects have no single view of what agents are deployed, which targets are active, or when a project was last compiled.
-- **No policy enforcement** — Nothing prevents an agent from being configured with dangerous permissions or missing required constraints before it runs against production code.
-- **No testability** — Agent behavior is never validated against declared constraints before deployment.
+- **Blueprint-based design** — Declare intent once. Grow configurations over time without rewriting. Switch contexts between providers without losing fidelity.
+- **Multi-provider compilation** — Compile to Claude Code, Cursor, GitHub Copilot, Gemini CLI, Antigravity simultaneously. Evaluate and migrate between platforms without rebuilding agents.
+- **Drift detection** — SHA-256 state tracking detects when `.claude/`, `.cursor/`, or other generated directories are manually edited, preventing silent overwrites.
+- **Behavioral testing** — Define test assertions and use `xcaffold test --judge` to validate agent behavior before deployment, powered by LLM-as-a-Judge.
+- **Cross-provider translation** — Automatically map capabilities, constraints, and tools across platform differences. Fidelity reporting shows what translates and what requires customization.
+- **Policy enforcement** — Compile-time policy checks prevent unsafe configurations (dangerous tool combinations, missing required constraints) from reaching any platform.
+- **Import from existing** — Start from an existing `.claude/`, `.cursor/`, or other provider config. `xcaffold import` extracts your agents and skills into a `.xcf` blueprint.
 
-`xcaffold` is not a format — it is the compilation and governance layer above any format, including community standards like `AGENTS.md`. Version control, drift detection, policy evaluation, and behavioral testing apply regardless of which platform you compile to.
+`xcaffold` is a compiler layer, not a new format. It sits above any source (`.xcf` YAML, community standards like `AGENTS.md`, or imported configs) and produces deterministic, testable, multi-platform agent output.
 
 ## Installation
 
