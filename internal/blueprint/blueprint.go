@@ -2,6 +2,7 @@ package blueprint
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 )
@@ -204,6 +205,65 @@ func keysSet[V any](m map[string]V) map[string]struct{} {
 		s[k] = struct{}{}
 	}
 	return s
+}
+
+// ApplyBlueprint filters the config's ResourceScope to only include resources
+// named in the given blueprint. Returns a shallow copy with filtered maps.
+// The input config is not modified.
+//
+// If blueprintName is empty, returns config unmodified (no filtering).
+// If blueprintName is unknown, returns an error listing available blueprints.
+func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.XcaffoldConfig, error) {
+	if blueprintName == "" {
+		return config, nil
+	}
+
+	p, ok := config.Blueprints[blueprintName]
+	if !ok {
+		available := sortedKeys(config.Blueprints)
+		return nil, fmt.Errorf("blueprint %q not found; available: %v", blueprintName, available)
+	}
+
+	filtered := *config // shallow copy
+	filtered.ResourceScope = ast.ResourceScope{
+		Agents:    filterMap(config.Agents, p.Agents),
+		Skills:    filterMap(config.Skills, p.Skills),
+		Rules:     filterMap(config.Rules, p.Rules),
+		Workflows: filterMap(config.Workflows, p.Workflows),
+		MCP:       filterMap(config.MCP, p.MCP),
+		Policies:  filterMap(config.Policies, p.Policies),
+		Memory:    filterMap(config.Memory, p.Memory),
+		// Hooks and References are not blueprint-filtered; preserve originals.
+		Hooks:      config.Hooks,
+		References: config.References,
+	}
+
+	return &filtered, nil
+}
+
+// filterMap returns a new map containing only entries whose key appears in allowed.
+// If allowed is empty, returns nil (blueprint selects zero of this type).
+func filterMap[V any](source map[string]V, allowed []string) map[string]V {
+	if len(allowed) == 0 {
+		return nil
+	}
+	result := make(map[string]V, len(allowed))
+	for _, name := range allowed {
+		if v, ok := source[name]; ok {
+			result[name] = v
+		}
+	}
+	return result
+}
+
+// sortedKeys returns the sorted keys of a map.
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // unionStrings returns the set union of a and b, preserving order.

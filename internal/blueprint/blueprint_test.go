@@ -414,3 +414,85 @@ func TestValidateBlueprintRefs_AllResourceTypes(t *testing.T) {
 	errs := ValidateBlueprintRefs(blueprints, scope)
 	require.Len(t, errs, 7)
 }
+
+// ── ApplyBlueprint ──────────────────────────────────────────────────────────
+
+func TestApplyBlueprint_FiltersAgents(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {Name: "Developer"},
+				"designer":  {Name: "Designer"},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"tdd":   {},
+				"figma": {},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {Name: "backend", Agents: []string{"developer"}, Skills: []string{"tdd"}},
+		},
+	}
+	filtered, err := ApplyBlueprint(cfg, "backend")
+	require.NoError(t, err)
+	require.Contains(t, filtered.Agents, "developer")
+	require.NotContains(t, filtered.Agents, "designer")
+	require.Contains(t, filtered.Skills, "tdd")
+	require.NotContains(t, filtered.Skills, "figma")
+}
+
+func TestApplyBlueprint_EmptyName_ReturnsUnmodified(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{"developer": {}},
+		},
+	}
+	result, err := ApplyBlueprint(cfg, "")
+	require.NoError(t, err)
+	require.Same(t, cfg, result)
+}
+
+func TestApplyBlueprint_UnknownBlueprint_ReturnsError(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {Name: "backend"},
+		},
+	}
+	_, err := ApplyBlueprint(cfg, "unknown")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown")
+	require.Contains(t, err.Error(), "backend")
+}
+
+func TestApplyBlueprint_DoesNotModifyInput(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {},
+				"designer":  {},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {Name: "backend", Agents: []string{"developer"}},
+		},
+	}
+	_, err := ApplyBlueprint(cfg, "backend")
+	require.NoError(t, err)
+	require.Contains(t, cfg.Agents, "designer")
+}
+
+func TestApplyBlueprint_EmptyRefList_ReturnsNilMap(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{"developer": {}},
+			Skills: map[string]ast.SkillConfig{"tdd": {}},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"minimal": {Name: "minimal", Agents: []string{"developer"}},
+		},
+	}
+	filtered, err := ApplyBlueprint(cfg, "minimal")
+	require.NoError(t, err)
+	require.Contains(t, filtered.Agents, "developer")
+	require.Nil(t, filtered.Skills) // not listed in blueprint = nil
+}
