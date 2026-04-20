@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
@@ -29,13 +30,15 @@ type Output = output.Output
 // Compile translates an XcaffoldConfig AST into platform-native files.
 // target selects the output platform: "claude" (default), "cursor", "antigravity".
 // If target is empty, defaults to "claude" for backward compatibility.
+// blueprintName narrows compilation to the named blueprint's resource subset.
+// If blueprintName is empty, all resources are compiled.
 //
 // When a project config has both root-level resources (global scope, from extends
 // or implicit global loading) and project-level resources (inside the project: block),
 // the compiler merges them before rendering. Project resources override global
 // resources by ID. After merging, inherited resources are stripped so global
 // configurations are not physically duplicated into local project directories.
-func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output, []renderer.FidelityNote, error) {
+func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprintName string) (*Output, []renderer.FidelityNote, error) {
 	if target == "" {
 		target = TargetClaude
 	}
@@ -46,6 +49,15 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output
 
 	if err := resolver.ResolveAttributes(config); err != nil {
 		return nil, nil, fmt.Errorf("attribute resolution failed: %w", err)
+	}
+
+	// Blueprint filtering: narrow the resource scope to the named blueprint's subset.
+	if blueprintName != "" {
+		var err error
+		config, err = blueprint.ApplyBlueprint(config, blueprintName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("blueprint filter failed: %w", err)
+		}
 	}
 
 	config.StripInherited()

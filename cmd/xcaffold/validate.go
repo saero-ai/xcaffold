@@ -85,7 +85,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	// Policy evaluation (requires compilation)
 	if !hasErrors {
 		configSnapshot := deepCopyConfig(cfg)
-		compiled, notes, compileErr := compiler.Compile(cfg, filepath.Dir(validatePath), targetFlag)
+		compiled, notes, compileErr := compiler.Compile(cfg, filepath.Dir(validatePath), targetFlag, "")
 		if compileErr != nil {
 			fmt.Fprintf(os.Stdout, "\npolicy check skipped: compilation error: %v\n", compileErr)
 		} else {

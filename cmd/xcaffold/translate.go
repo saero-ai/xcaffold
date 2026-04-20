@@ -199,7 +199,7 @@ func runTranslate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Phase 2: Compile + Optimize.
-	out, compileNotes, err := compiler.Compile(config, baseDir, translateTo)
+	out, compileNotes, err := compiler.Compile(config, baseDir, translateTo, "")
 	if err != nil {
 		return fmt.Errorf("compile error: %w", err)
 	}

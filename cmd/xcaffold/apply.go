@@ -291,7 +291,7 @@ func applyScope(configPath, outputDir, scopeName string) error {
 
 	configSnapshot := deepCopyConfig(config)
 
-	out, notes, err := compiler.Compile(config, baseDir, targetFlag)
+	out, notes, err := compiler.Compile(config, baseDir, targetFlag, applyBlueprintFlag)
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}

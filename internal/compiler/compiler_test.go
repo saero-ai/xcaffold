@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -25,7 +26,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -50,7 +51,7 @@ func TestCompile_MultipleAgents(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 	assert.Len(t, out.Files, 2)
 	assert.Contains(t, out.Files, "agents/frontend.md")
@@ -71,7 +72,7 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 	assert.Contains(t, out.Files["agents/readonly.md"], "disallowed-tools: [Bash, Write]")
 }
@@ -80,7 +81,7 @@ func TestCompile_EmptyAgents(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "empty-project"},
 	}
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
@@ -122,7 +123,7 @@ func TestCompile_FullSchema(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	// Agents
@@ -161,7 +162,7 @@ func TestCompile_CursorTarget_Supported(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "cursor")
+	out, _, err := Compile(config, "", "cursor", "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, out.Files)
 }
@@ -174,7 +175,7 @@ func TestCompile_CursorTarget_RulesUseMdc(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "cursor")
+	out, _, err := Compile(config, "", "cursor", "")
 	require.NoError(t, err)
 	_, ok := out.Files["rules/style.mdc"]
 	assert.True(t, ok, "Cursor rules should use .mdc extension")
@@ -188,7 +189,7 @@ func TestCompile_AntigravityTarget_Supported(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "antigravity")
+	out, _, err := Compile(config, "", "antigravity", "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, out.Files)
 }
@@ -201,7 +202,7 @@ func TestCompile_AntigravityTarget_RulesNoFrontmatter(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "antigravity")
+	out, _, err := Compile(config, "", "antigravity", "")
 	require.NoError(t, err)
 	content, ok := out.Files["rules/style.md"]
 	assert.True(t, ok)
@@ -219,7 +220,7 @@ func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "antigravity")
+	out, _, err := Compile(config, "", "antigravity", "")
 	require.NoError(t, err)
 	// Only rule should appear, not agent
 	assert.Len(t, out.Files, 1)
@@ -235,7 +236,7 @@ func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 	for path := range out.Files {
 		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
@@ -265,7 +266,7 @@ func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
 		},
 	}
 
-	output, _, err := Compile(config, t.TempDir(), "claude")
+	output, _, err := Compile(config, t.TempDir(), "claude", "")
 	require.NoError(t, err)
 
 	// The compiled agent output should have the resolved tools, not the ${...} reference
@@ -291,7 +292,7 @@ func TestCompile_ResolveAttributes_NoRefsPassthrough(t *testing.T) {
 		},
 	}
 
-	output, _, err := Compile(config, t.TempDir(), "claude")
+	output, _, err := Compile(config, t.TempDir(), "claude", "")
 	require.NoError(t, err)
 	assert.Contains(t, output.Files["agents/developer.md"], "Dev agent")
 }
@@ -327,7 +328,7 @@ func TestCompile_Gemini_DispatchesGeminiRenderer(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, t.TempDir(), "gemini")
+	out, _, err := Compile(config, t.TempDir(), "gemini", "")
 	require.NoError(t, err)
 	assert.NotNil(t, out)
 	assert.NotEmpty(t, out.Files)
@@ -350,7 +351,7 @@ func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {
 		},
 	}
 
-	_, notes, err := Compile(config, t.TempDir(), "cursor")
+	_, notes, err := Compile(config, t.TempDir(), "cursor", "")
 	require.NoError(t, err)
 	require.NotEmpty(t, notes, "cursor compile with permissionMode must produce fidelity notes")
 
@@ -364,4 +365,63 @@ func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "AGENT_SECURITY_FIELDS_DROPPED note must be in the returned slice")
+}
+
+func TestCompile_Blueprint_FiltersResources(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {Name: "Developer", Description: "A developer", Instructions: "dev instructions"},
+				"designer":  {Name: "Designer", Description: "A designer", Instructions: "design instructions"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {Name: "backend", Agents: []string{"developer"}},
+		},
+	}
+	out, _, err := Compile(cfg, t.TempDir(), "claude", "backend")
+	require.NoError(t, err)
+
+	hasAgent := func(name string) bool {
+		for path := range out.Files {
+			if strings.Contains(path, name) {
+				return true
+			}
+		}
+		return false
+	}
+	require.True(t, hasAgent("developer"), "developer agent must be present in blueprint output")
+	require.False(t, hasAgent("designer"), "designer agent must be excluded by blueprint filter")
+}
+
+func TestCompile_NoBlueprint_CompilesAll(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {Name: "Developer", Description: "d", Instructions: "x"},
+				"designer":  {Name: "Designer", Description: "d", Instructions: "x"},
+			},
+		},
+	}
+	out, _, err := Compile(cfg, t.TempDir(), "claude", "")
+	require.NoError(t, err)
+
+	count := 0
+	for path := range out.Files {
+		if strings.Contains(path, "agents/") {
+			count++
+		}
+	}
+	require.Equal(t, 2, count, "all agents must be compiled when blueprintName is empty")
+}
+
+func TestCompile_UnknownBlueprint_Error(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {Name: "backend"},
+		},
+	}
+	_, _, err := Compile(cfg, t.TempDir(), "claude", "ghost")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "ghost")
 }
