@@ -23,6 +23,11 @@ type XcaffoldConfig struct {
 
 	Settings SettingsConfig `yaml:"settings,omitempty"`
 
+	// Blueprints maps named resource subset selectors. Each blueprint selects
+	// which agents, skills, rules, workflows, MCP servers, policies, memory
+	// entries, settings, and hooks to include during compilation.
+	Blueprints map[string]BlueprintConfig `yaml:"blueprints,omitempty"`
+
 	// ProviderExtras holds raw file content keyed by provider name then by path
 	// within that provider's output directory. It is populated by the import
 	// pipeline and is never serialized to YAML or JSON.
@@ -50,12 +55,13 @@ type ProjectConfig struct {
 
 	// Reference lists: bare names linking to child resources in xcf/ subdirectories.
 	// Populated by the parser when decoding kind: project documents.
-	AgentRefs    []string `yaml:"agent-refs,omitempty"`
-	SkillRefs    []string `yaml:"skill-refs,omitempty"`
-	RuleRefs     []string `yaml:"rule-refs,omitempty"`
-	WorkflowRefs []string `yaml:"workflow-refs,omitempty"`
-	MCPRefs      []string `yaml:"mcp-refs,omitempty"`
-	PolicyRefs   []string `yaml:"policy-refs,omitempty"`
+	AgentRefs     []string `yaml:"agent-refs,omitempty"`
+	SkillRefs     []string `yaml:"skill-refs,omitempty"`
+	RuleRefs      []string `yaml:"rule-refs,omitempty"`
+	WorkflowRefs  []string `yaml:"workflow-refs,omitempty"`
+	MCPRefs       []string `yaml:"mcp-refs,omitempty"`
+	PolicyRefs    []string `yaml:"policy-refs,omitempty"`
+	BlueprintRefs []string `yaml:"-"`
 
 	Test  TestConfig     `yaml:"test,omitempty"`
 	Local SettingsConfig `yaml:"local,omitempty"`
@@ -601,6 +607,33 @@ type ReferenceConfig struct {
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
 	SourceProvider string `yaml:"-" json:"-"`
+}
+
+// BlueprintConfig defines a named resource subset selector.
+// A blueprint selects which agents, skills, rules, workflows, MCP servers,
+// policies, memory entries, settings, and hooks to compile.
+type BlueprintConfig struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description,omitempty"`
+
+	Extends string `yaml:"extends,omitempty"`
+
+	Active bool `yaml:"active,omitempty"`
+
+	Agents    []string `yaml:"agents,omitempty"`
+	Skills    []string `yaml:"skills,omitempty"`
+	Rules     []string `yaml:"rules,omitempty"`
+	Workflows []string `yaml:"workflows,omitempty"`
+	MCP       []string `yaml:"mcp,omitempty"`
+	Policies  []string `yaml:"policies,omitempty"`
+	Memory    []string `yaml:"memory,omitempty"`
+
+	Settings string `yaml:"settings,omitempty"`
+	Hooks    string `yaml:"hooks,omitempty"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
 }
 
 // StripInherited removes all top-level resources that are marked as Inherited=true.

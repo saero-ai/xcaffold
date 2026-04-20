@@ -159,3 +159,42 @@ func TestProjectConfig_AdvisoryRefFields_DoNotConflictWithResourceScope(t *testi
 		require.Contains(t, string(data), "developer:")
 	})
 }
+
+// --- BlueprintConfig tests ---
+
+func TestBlueprintConfig_Fields_Exist(t *testing.T) {
+	p := BlueprintConfig{
+		Name:        "backend",
+		Description: "Backend engineering",
+		Extends:     "base",
+		Active:      true,
+		Agents:      []string{"developer"},
+		Skills:      []string{"tdd"},
+		Rules:       []string{"testing"},
+		Workflows:   []string{"commit-changes"},
+		MCP:         []string{"database-tools"},
+		Policies:    []string{"security"},
+		Memory:      []string{"arch-decisions"},
+		Settings:    "default",
+		Hooks:       "ci",
+		Inherited:   false,
+	}
+	require.Equal(t, "backend", p.Name)
+	require.True(t, p.Active)
+}
+
+func TestXcaffoldConfig_BlueprintsMap_Exists(t *testing.T) {
+	cfg := &XcaffoldConfig{
+		Blueprints: map[string]BlueprintConfig{
+			"backend": {Name: "backend"},
+		},
+	}
+	require.Len(t, cfg.Blueprints, 1)
+}
+
+func TestProjectConfig_BlueprintRefs_Exists(t *testing.T) {
+	pc := &ProjectConfig{
+		BlueprintRefs: []string{"backend", "frontend"},
+	}
+	require.Len(t, pc.BlueprintRefs, 2)
+}
