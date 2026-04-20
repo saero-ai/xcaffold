@@ -199,7 +199,7 @@ Skills may include non-markdown reference files (data files, templates) under `.
 1. Review the generated files. Import uses `"Imported agent"`, `"Imported skill"`, `"Imported rule"` as default descriptions when the source file has no frontmatter `description:` field.
 2. Run `xcaffold validate` to check for structural issues.
 3. Run `xcaffold apply --target claude` to compile. The first apply after import will regenerate all output files.
-4. Commit `project.xcf`, `xcf/`, and the generated lock file.
+4. Commit `project.xcf`, `xcf/`, and the generated state file.
 
 The original platform directory (`.claude/`, etc.) is not modified or deleted by import. You can keep it until you verify the compiled output matches, then remove it.
 

@@ -160,7 +160,7 @@ my-team/
       component-patterns.xcf      # kind: skill
 ```
 
-The project manifest references children by bare name:
+The project manifest is metadata-only — agents, rules, and skills are discovered automatically:
 
 ```yaml
 # project.xcf
@@ -169,17 +169,9 @@ version: "1.0"
 name: my-team
 targets:
   - claude
-agents:
-  - frontend-dev
-  - security-reviewer
-rules:
-  - frontend-only
-  - security-review-protocol
-skills:
-  - component-patterns
 ```
 
-Each child file is a standalone `kind:` document:
+Agents are discovered automatically by scanning `xcf/` — you do not list them in `project.xcf`. Each child file is a standalone `kind:` document:
 
 ```yaml
 # xcf/agents/frontend-dev.xcf
@@ -197,7 +189,7 @@ rules: ["frontend-only"]
 skills: ["component-patterns"]
 ```
 
-`ParseDirectory` discovers all `.xcf` files recursively, parses each one, and merges the results into a single AST before compilation. The ref lists in the project manifest are informational — the parser uses file discovery, not the ref list, to find resources. However, listing refs explicitly documents the project structure and enables future validation.
+`ParseDirectory` discovers all `.xcf` files recursively, parses each one, and merges the results into a single AST before compilation. The parser uses file discovery to find resources — no explicit ref lists needed.
 
 See [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md) for best practices on when and how to split.
 
@@ -375,7 +367,7 @@ $ xcaffold apply --target claude
   [project] ✓ wrote .claude/agents/frontend-dev.md  (sha256:<hex>)
   [project] ✓ wrote .claude/agents/security-reviewer.md  (sha256:<hex>)
 
-[project] ✓ Apply complete. scaffold.claude.lock updated.
+[project] ✓ Apply complete. .xcaffold/project.xcf.state updated.
 ```
 
 Two agent files are written, one per agent ID. Each file is self-contained — it embeds the agent's model, effort, tools, instructions, and resolved rule content. The shared library resources were referenced during compilation but each agent receives only what it declared.
@@ -414,7 +406,7 @@ Never modify files. Only read and report.
 
 The two files share the same model and effort settings, but their tool lists are entirely different. `frontend-dev` has `Write`, `Edit`, and `Bash`; `security-reviewer` does not and additionally has those three tools listed under `disallowed-tools`. That field is enforced by the runtime, not just advisory. Rules are compiled to separate files under `.claude/rules/` — agent files reference them by ID in the `rules:` frontmatter field rather than inlining their content.
 
-The SHA-256 hash on each write line is recorded in `scaffold.claude.lock`. On the next `apply`, xcaffold compares source hashes and skips compilation if nothing changed. If you manually edit a compiled file, the next `apply` will detect drift and abort unless you pass `--force`.
+The SHA-256 hash on each write line is recorded in `.xcaffold/project.xcf.state`. On the next `apply`, xcaffold compares source hashes and skips compilation if nothing changed. If you manually edit a compiled file, the next `apply` will detect drift and abort unless you pass `--force`.
 
 ---
 

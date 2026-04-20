@@ -10,31 +10,31 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/dl/)
 
-**Your agents, by design.** Agent-as-Code — design, compile, and manage agent blueprints across every AI coding platform. Declare your agents in a single `.xcf` YAML file. `xcaffold` compiles it deterministically into native configurations across multiple providers — with drift detection, behavioral testing, and policy enforcement.
+**Your agents, by design.** Agent-as-Code — design, compile, and manage agent blueprints across every AI coding platform. Declare your agents once in a `.xcf` YAML file. `xcaffold` compiles deterministically into native configurations for Claude Code, Cursor, GitHub Copilot, Gemini CLI, and Antigravity — with drift detection, policy enforcement, and behavioral testing.
 
 ```
-                                    ──► (claude)       ──►  .claude/
-project.xcf  ──►  xcaffold apply   ──► (cursor)       ──►  .cursor/
-                                    ──► (antigravity)  ──►  .agents/
-                                    ──► (copilot)      ──►  .github/
-                                    ──► (gemini)       ──►  .gemini/
+                                   ──► claude        ──►  .claude/
+project.xcf  ──►  xcaffold apply  ──► cursor        ──►  .cursor/
+                                   ──► antigravity   ──►  .agents/
+                                   ──► copilot       ──►  .github/
+                                   ──► gemini        ──►  .gemini/
 ```
 
 ## Why xcaffold?
 
-Agent configuration fragments across tools. Each AI coding platform (Claude Code, Cursor, GitHub Copilot, Gemini CLI, Antigravity) has its own format: `.claude/`, `.cursor/`, `.github/`, `.agents/`, etc. Teams either maintain parallel copies — accepting drift and inconsistency — or lock themselves into a single provider.
+The agentic development ecosystem is fragmented. Every AI coding tool ships its own configuration format, directory structure, and file conventions. Teams maintaining agents across multiple tools end up with multiple independent, unmaintained configuration trees.
 
-`xcaffold` treats agent blueprints as a programmable, testable source of truth. A single `.xcf` file defines your agents once, then compiles into every platform's native format:
+`xcaffold` eliminates this fragmentation by treating agent configuration as code — declarative, deterministic, and version-controlled. A single `project.xcf` YAML file is your source of truth. It compiles to native formats for every supported platform.
 
-- **Blueprint-based design** — Declare intent once. Grow configurations over time without rewriting. Switch contexts between providers without losing fidelity.
-- **Multi-provider compilation** — Compile to Claude Code, Cursor, GitHub Copilot, Gemini CLI, Antigravity simultaneously. Evaluate and migrate between platforms without rebuilding agents.
-- **Drift detection** — SHA-256 state tracking detects when `.claude/`, `.cursor/`, or other generated directories are manually edited, preventing silent overwrites.
-- **Behavioral testing** — Define test assertions and use `xcaffold test --judge` to validate agent behavior before deployment, powered by LLM-as-a-Judge.
-- **Cross-provider translation** — Automatically map capabilities, constraints, and tools across platform differences. Fidelity reporting shows what translates and what requires customization.
-- **Policy enforcement** — Compile-time policy checks prevent unsafe configurations (dangerous tool combinations, missing required constraints) from reaching any platform.
-- **Import from existing** — Start from an existing `.claude/`, `.cursor/`, or other provider config. `xcaffold import` extracts your agents and skills into a `.xcf` blueprint.
+### Core capabilities
 
-`xcaffold` is a compiler layer, not a new format. It sits above any source (`.xcf` YAML, community standards like `AGENTS.md`, or imported configs) and produces deterministic, testable, multi-platform agent output.
+- **Blueprint-based agent configuration** — Define agents, skills, rules, and hooks once in `.xcf` YAML. Target-specific details emerge at compile time, not in your source tree.
+- **Multi-provider compilation** — Single source, native output. Compile to Claude Code, Cursor, GitHub Copilot, Gemini CLI, Antigravity — all from one `.xcf` file.
+- **Drift detection via SHA-256 state** — Track compiled state in `project.lock`. Detect when `.claude/`, `.cursor/`, or other output directories have been manually edited. `xcaffold diff` shows exactly what changed and why.
+- **Policy enforcement at compile time** — Define policies (require, deny, match constraints). Violations block compilation with precise error messages. No unsafe agent configurations reach production.
+- **Behavioral testing with `xcaffold test`** — Simulate agent behavior against declared test cases. Use `--judge` to evaluate behavior against assertions with LLM-backed reasoning.
+- **Cross-provider translation with fidelity reporting** — When a capability cannot be expressed in a target's native format, `xcaffold` reports the translation loss. Migrate between providers with full visibility into behavioral gaps.
+- **Import existing configs** — Have agents already configured in Claude Code, Cursor, or GitHub Copilot? `xcaffold import` reads existing agent/skill/rule directories and reconstructs the `.xcf` blueprint.
 
 ## Installation
 
@@ -70,35 +70,44 @@ make install           # Install globally to $GOPATH/bin
 
 ## Example Usage
 
+Define your agents in `project.xcf`:
+
 ```yaml
 kind: project
 version: "1.0"
-name: my-project
+name: my-agents
 agents:
-  - developer
-
----
-kind: agent
-version: "1.0"
-name: developer
-description: General-purpose development agent
-instructions: |
-  You are a software developer.
-  Write clean, maintainable code.
-model: claude-sonnet-4-20250514
-tools: [Bash, Read, Write, Edit, Glob, Grep]
+  - name: backend
+    description: Backend development agent
+    instructions: |
+      You are a Golang backend engineer. 
+      Write production-grade code.
+    model: claude-opus-4-1-20250805
+    tools: [Bash, Read, Write, Edit, Glob, Grep]
+    targets:
+      - claude
+      - cursor
+      
+  - name: frontend
+    description: Frontend development agent
+    instructions: |
+      You are a TypeScript/React engineer.
+      Prioritize accessibility and performance.
+    model: claude-opus-4-1-20250805
+    tools: [Bash, Read, Write, Edit, Glob, Grep]
+    targets:
+      - claude
 ```
 
-Then run the full lifecycle:
+Run the lifecycle:
 
 ```bash
-xcaffold init --target claude,cursor     # Scaffold a new provider-first project
-xcaffold list                            # View all registered projects and their status
-xcaffold graph                           # Visualize agent topology
-xcaffold apply                           # Compile to target (--dry-run to preview)
-xcaffold diff                            # Check for manual drift in output dirs
-xcaffold validate                        # Validate syntax without compiling
-xcaffold test --agent developer --judge  # Simulate and evaluate agent behavior
+xcaffold init                      # Initialize a new project.xcf
+xcaffold apply                     # Compile to .claude/, .cursor/, etc.
+xcaffold diff                      # Detect manual drift in output directories
+xcaffold validate                  # Check syntax without compiling
+xcaffold test --agent backend      # Simulate agent behavior
+xcaffold import --provider claude  # Read existing .claude/ and generate .xcf
 ```
 
 ## Documentation

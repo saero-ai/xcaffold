@@ -7,6 +7,8 @@ description: "Recommended configuration patterns and project layout conventions 
 
 Configuration patterns in xcaffold range from a single file to multi-directory domain splits. The right choice depends on project size and team structure. Each pattern below includes the directory layout and a working `.xcf` example.
 
+**Note on naming:** This guide uses `project.xcf` as the manifest filename. The state files that track compiled output are stored in `.xcaffold/project.xcf.state` (for the default project) or `.xcaffold/<blueprint-name>.xcf.state` (for blueprint-specific compilations). There is no lock file — state files are the single record of what has been compiled.
+
 ---
 
 ## Single File (Minimal)
@@ -178,7 +180,37 @@ name: reviewer
 instructions-file: docs/reviewer-instructions.md
 ```
 
-`instructions-file:` exists for backward compatibility and for cases where long-form prose genuinely benefits from dedicated Markdown tooling. For most configurations, inline instructions are simpler and more portable.
+`instructions-file:` exists for cases where long-form prose genuinely benefits from dedicated Markdown tooling. For most configurations, inline instructions are simpler and more portable.
+
+---
+
+## Blueprint Design
+
+Blueprints are opt-in. A project with fewer than 5 agents typically doesn't need them — `xcaffold apply` compiles everything by default.
+
+**When to introduce blueprints:**
+- Multiple developers work on different subsystems (backend vs. frontend vs. infra)
+- Context switching between roles (reviewing code vs. writing features vs. debugging)
+- Different environments need different agent configurations
+
+**Granularity guidance:**
+- One blueprint per role or workflow, not per individual agent
+- If a blueprint has fewer than 2 agents, it's probably too granular
+- If a blueprint has more than 10 agents, consider splitting by domain
+
+**Keep blueprints lean:**
+- Prefer transitive dependencies — selecting an agent auto-includes its skills and rules
+- Only list skills/rules explicitly in the blueprint when you need to override the agent's defaults
+- Use `xcaffold list --blueprint <name> --resolved` to see what actually gets compiled
+
+**Named settings and hooks:**
+- Use the default (unnamed) settings for shared configuration
+- Create named settings only when a blueprint needs materially different platform behavior
+- Same principle for hooks — most projects need one set of hooks, not one per blueprint
+
+**Drift hygiene:**
+- Run `xcaffold status --blueprint <name>` before switching between blueprints
+- Each blueprint maintains independent state — drifting in one doesn't affect another
 
 ---
 
@@ -274,6 +306,7 @@ Use `lifecycle: tracked` only for memories that represent strictly managed docum
 - **Starting a new project and deciding on a layout** — the minimal single-file baseline is sufficient for personal or tutorial projects; the domain layout becomes relevant when multiple teams own different agent configurations and CODEOWNERS rules apply.
 - **Choosing between `instructions:` and `instructions-file:`** — inline instructions are recommended by default because they keep the resource definition self-contained and are what `xcaffold import` generates; `instructions-file:` is retained for cases where long-form prose benefits from dedicated Markdown tooling.
 - **Organizing policies in a large project** — placing `kind: policy` files under `xcf/policies/` and listing them in the `policies:` field of the project manifest makes the full policy surface visible in one location and keeps overrides (`severity: off`) co-located with the resources they affect.
+- **Deciding when to introduce blueprints** — most projects don't need them; if you find yourself managing separate agent sets for different environments or teams, blueprints keep state separate and prevent drift in one from affecting another.
 - **Deciding between `xcaffold translate` and `xcaffold import`** — `translate` is appropriate for one-shot cross-provider migrations; `import` establishes a managed `project.xcf` source intended for ongoing management via `xcaffold apply`.
 
 ---
