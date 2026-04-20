@@ -1,0 +1,4 @@
+kind: settings
+version: "1.0"
+name: default
+model: sonnet-4

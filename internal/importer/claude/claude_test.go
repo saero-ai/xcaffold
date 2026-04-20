@@ -222,14 +222,18 @@ func TestClaudeExtract_SettingsDecomposition(t *testing.T) {
 	err := imp.Extract("settings.json", data, config)
 	require.NoError(t, err)
 	// Hooks extracted
-	assert.NotNil(t, config.Hooks["PreToolUse"])
-	assert.Len(t, config.Hooks["PreToolUse"], 1)
+	var effectiveHooks ast.HookConfig
+	if dh, ok := config.Hooks["default"]; ok {
+		effectiveHooks = dh.Events
+	}
+	assert.NotNil(t, effectiveHooks["PreToolUse"])
+	assert.Len(t, effectiveHooks["PreToolUse"], 1)
 	// MCP from settings.json mcpServers extracted
 	_, ok := config.MCP["local-tool"]
 	require.True(t, ok, "expected mcp 'local-tool' from settings.json")
 	// Settings model extracted
-	assert.Equal(t, "claude-opus-4-5", config.Settings.Model)
-	assert.Equal(t, "claude", config.Settings.SourceProvider)
+	assert.Equal(t, "claude-opus-4-5", config.Settings["default"].Model)
+	assert.Equal(t, "claude", config.Settings["default"].SourceProvider)
 }
 
 func TestClaudeExtract_ExtrasCollection(t *testing.T) {
@@ -357,7 +361,7 @@ func TestClaudeImporter_FullWorkspace(t *testing.T) {
 	assert.True(t, ok, "expected nested rule 'cli/testing-framework'")
 
 	// Hooks from settings.json
-	assert.NotEmpty(t, config.Hooks["PreToolUse"])
+	assert.NotEmpty(t, config.Hooks["default"].Events["PreToolUse"])
 
 	// MCP from mcp.json
 	_, ok = config.MCP["github"]
@@ -367,7 +371,7 @@ func TestClaudeImporter_FullWorkspace(t *testing.T) {
 	assert.NotEmpty(t, config.Memory)
 
 	// Settings
-	assert.Equal(t, "claude-opus-4-5", config.Settings.Model)
+	assert.Equal(t, "claude-opus-4-5", config.Settings["default"].Model)
 
 	// Unknown file goes to extras
 	assert.NotEmpty(t, config.ProviderExtras["claude"])

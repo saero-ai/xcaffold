@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/spf13/cobra"
 )
@@ -178,10 +179,14 @@ func reviewXCF(cmd *cobra.Command, content []byte) error {
 		cmd.Println()
 	}
 
-	if len(manifest.Hooks) > 0 {
+	var effectiveHooks ast.HookConfig
+	if dh, ok := manifest.Hooks["default"]; ok {
+		effectiveHooks = dh.Events
+	}
+	if len(effectiveHooks) > 0 {
 		cmd.Println("-- HOOKS --")
-		for _, event := range sortedKeys(manifest.Hooks) {
-			groups := manifest.Hooks[event]
+		for _, event := range sortedKeys(effectiveHooks) {
+			groups := effectiveHooks[event]
 			total := 0
 			for _, g := range groups {
 				total += len(g.Hooks)

@@ -404,21 +404,26 @@ func TestCompile_Skill_EmptyID_ReturnsError(t *testing.T) {
 func TestCompile_AgentsAndHooks_AreNotEmitted(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": {
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo hi"},
+							},
+						},
+					},
+				},
+			},
+		},
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"my-agent": {
 					Name:         "My Agent",
 					Instructions: "Do work.",
-				},
-			},
-			Hooks: ast.HookConfig{
-				"PreToolUse": {
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo hi"},
-						},
-					},
 				},
 			},
 			Rules: map[string]ast.RuleConfig{
@@ -672,9 +677,9 @@ func TestCompile_Skill_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 func TestAntigravityRenderer_PermissionsSetting_EmitsNote(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{Allow: []string{"Read"}},
-		},
+		}},
 	}
 
 	_, notes, err := r.Compile(config, "")
@@ -689,9 +694,9 @@ func TestAntigravityRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 	r := antigravity.New()
 	enabled := true
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{Enabled: &enabled},
-		},
+		}},
 	}
 
 	_, notes, err := r.Compile(config, "")

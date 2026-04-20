@@ -1,0 +1,9 @@
+kind: hooks
+version: "1.0"
+name: ci
+events:
+  PreToolUse:
+    - matcher: Bash
+      hooks:
+        - type: command
+          command: scripts/validate-command.sh

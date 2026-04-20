@@ -21,6 +21,19 @@ func TestGraphAll_MutualExclusion_WithGlobal(t *testing.T) {
 	assert.Contains(t, err.Error(), "mutually exclusive")
 }
 
+func TestGraph_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
+	graphBlueprintFlag = "my-blueprint"
+	globalFlag = true
+	defer func() {
+		graphBlueprintFlag = ""
+		globalFlag = false
+	}()
+
+	err := runGraph(nil, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
+}
+
 func TestGraphAll_MutualExclusion_WithProject(t *testing.T) {
 	graphAll = true
 	graphProject = "some-project"
@@ -38,20 +51,25 @@ func TestGraphAll_MutualExclusion_WithProject(t *testing.T) {
 // graph nodes with the correct kind and labels.
 func TestBuildGraph_HooksAndWorkflows(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": {
-					{
-						Matcher: "Bash",
-						Hooks:   []ast.HookHandler{{Type: "command", Command: "echo pre"}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": {
+						{
+							Matcher: "Bash",
+							Hooks:   []ast.HookHandler{{Type: "command", Command: "echo pre"}},
+						},
 					},
-				},
-				"Stop": {
-					{
-						Hooks: []ast.HookHandler{{Type: "command", Command: "echo stop"}},
+					"Stop": {
+						{
+							Hooks: []ast.HookHandler{{Type: "command", Command: "echo stop"}},
+						},
 					},
 				},
 			},
+		},
+		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"deploy": {
 					Description: "Run deployment pipeline",

@@ -1,0 +1,11 @@
+kind: blueprint
+version: "1.0"
+name: frontend-engineering
+description: Frontend development -- React, components, styling
+extends: base-engineering
+agents:
+  - frontend-engineer
+skills:
+  - glass-morphic-ui
+rules:
+  - design-system

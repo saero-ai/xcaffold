@@ -10,6 +10,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/analyzer"
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/spf13/cobra"
@@ -21,6 +22,7 @@ var graphProject string
 var graphFull bool
 var graphScanOutput bool
 var graphAll bool
+var graphBlueprintFlag string
 
 const (
 	kindAgent  = "agent"
@@ -63,6 +65,7 @@ func init() {
 	graphCmd.Flags().BoolVarP(&graphFull, "full", "f", false, "Show the fully expanded topology tree (always true if targeting an agent)")
 	graphCmd.Flags().BoolVar(&graphScanOutput, "scan-output", false, "Scan compiled output directories for undeclared artifacts")
 	graphCmd.Flags().BoolVar(&graphAll, "all", false, "Show global topology and all registered projects")
+	graphCmd.Flags().StringVar(&graphBlueprintFlag, "blueprint", "", "Show graph for the named blueprint only")
 	rootCmd.AddCommand(graphCmd)
 }
 
@@ -98,6 +101,9 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	var scopes []*graphData
 
 	// Mutual exclusion checks
+	if graphBlueprintFlag != "" && globalFlag {
+		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
+	}
 	if graphAll && globalFlag {
 		return fmt.Errorf("--all and --global are mutually exclusive")
 	}
@@ -251,6 +257,14 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 		config.MCP = filteredMCP
 	}
 
+	if graphBlueprintFlag != "" {
+		filtered, err := blueprint.ApplyBlueprint(config, graphBlueprintFlag)
+		if err != nil {
+			return nil, fmt.Errorf("blueprint %q: %w", graphBlueprintFlag, err)
+		}
+		config = filtered
+	}
+
 	if scopeName != "global" {
 		config.StripInherited()
 	}
@@ -300,9 +314,15 @@ func buildGraph(config *ast.XcaffoldConfig) *graphData {
 }
 
 func appendGraphSettings(config *ast.XcaffoldConfig, g *graphData) {
-	if len(config.Settings.EnabledPlugins) > 0 {
-		plugins := make([]string, 0, len(config.Settings.EnabledPlugins))
-		for p, enabled := range config.Settings.EnabledPlugins {
+	// Get the active settings (first available key after blueprint filtering).
+	var es ast.SettingsConfig
+	for _, s := range config.Settings {
+		es = s
+		break
+	}
+	if len(es.EnabledPlugins) > 0 {
+		plugins := make([]string, 0, len(es.EnabledPlugins))
+		for p, enabled := range es.EnabledPlugins {
 			if enabled {
 				plugins = append(plugins, p)
 			}
@@ -412,7 +432,11 @@ func appendGraphPolicies(config *ast.XcaffoldConfig, g *graphData) {
 }
 
 func appendGraphHooks(config *ast.XcaffoldConfig, g *graphData) {
-	for _, event := range sortedKeys(config.Hooks) {
+	var effectiveHooks ast.HookConfig
+	if dh, ok := config.Hooks["default"]; ok {
+		effectiveHooks = dh.Events
+	}
+	for _, event := range sortedKeys(effectiveHooks) {
 		g.Nodes = append(g.Nodes, graphNode{
 			ID:    "hook:" + event,
 			Kind:  "hook",

@@ -160,7 +160,8 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		notes = append(notes, instrNotes...)
 	}
 
-	if config.Settings.Permissions != nil {
+	settings := config.Settings["default"]
+	if settings.Permissions != nil {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "settings", "global", "permissions",
 			renderer.CodeSettingsFieldUnsupported,
@@ -168,7 +169,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 			"Remove the permissions block for this target or use a platform that enforces permissions",
 		))
 	}
-	if config.Settings.Sandbox != nil {
+	if settings.Sandbox != nil {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "settings", "global", "sandbox",
 			renderer.CodeSettingsFieldUnsupported,

@@ -7,7 +7,6 @@ type ResourceScope struct {
 	Agents     map[string]AgentConfig     `yaml:"agents,omitempty"`
 	Skills     map[string]SkillConfig     `yaml:"skills,omitempty"`
 	Rules      map[string]RuleConfig      `yaml:"rules,omitempty"`
-	Hooks      HookConfig                 `yaml:"hooks,omitempty"`
 	MCP        map[string]MCPConfig       `yaml:"mcp,omitempty"`
 	Workflows  map[string]WorkflowConfig  `yaml:"workflows,omitempty"`
 	Policies   map[string]PolicyConfig    `yaml:"policies,omitempty"`
@@ -21,7 +20,13 @@ type XcaffoldConfig struct {
 	Version string `yaml:"version"`
 	Extends string `yaml:"extends,omitempty"`
 
-	Settings SettingsConfig `yaml:"settings,omitempty"`
+	Settings map[string]SettingsConfig  `yaml:"settings,omitempty"`
+	Hooks    map[string]NamedHookConfig `yaml:"hooks,omitempty"`
+
+	// Blueprints maps named resource subset selectors. Each blueprint selects
+	// which agents, skills, rules, workflows, MCP servers, policies, memory
+	// entries, settings, and hooks to include during compilation.
+	Blueprints map[string]BlueprintConfig `yaml:"blueprints,omitempty"`
 
 	// ProviderExtras holds raw file content keyed by provider name then by path
 	// within that provider's output directory. It is populated by the import
@@ -50,12 +55,13 @@ type ProjectConfig struct {
 
 	// Reference lists: bare names linking to child resources in xcf/ subdirectories.
 	// Populated by the parser when decoding kind: project documents.
-	AgentRefs    []string `yaml:"agent-refs,omitempty"`
-	SkillRefs    []string `yaml:"skill-refs,omitempty"`
-	RuleRefs     []string `yaml:"rule-refs,omitempty"`
-	WorkflowRefs []string `yaml:"workflow-refs,omitempty"`
-	MCPRefs      []string `yaml:"mcp-refs,omitempty"`
-	PolicyRefs   []string `yaml:"policy-refs,omitempty"`
+	AgentRefs     []string `yaml:"agent-refs,omitempty"`
+	SkillRefs     []string `yaml:"skill-refs,omitempty"`
+	RuleRefs      []string `yaml:"rule-refs,omitempty"`
+	WorkflowRefs  []string `yaml:"workflow-refs,omitempty"`
+	MCPRefs       []string `yaml:"mcp-refs,omitempty"`
+	PolicyRefs    []string `yaml:"policy-refs,omitempty"`
+	BlueprintRefs []string `yaml:"-"`
 
 	Test  TestConfig     `yaml:"test,omitempty"`
 	Local SettingsConfig `yaml:"local,omitempty"`
@@ -330,6 +336,12 @@ type HookHandler struct {
 	SourceProvider string `yaml:"-" json:"-"`
 }
 
+// NamedHookConfig is a named lifecycle hook block.
+type NamedHookConfig struct {
+	Name   string     `yaml:"name,omitempty"`
+	Events HookConfig `yaml:"events,omitempty"`
+}
+
 // MCPConfig defines a local or remote MCP server context.
 type MCPConfig struct {
 	Env              map[string]string `yaml:"env,omitempty"     json:"env,omitempty"`
@@ -410,6 +422,7 @@ type SandboxNetwork struct {
 // that gets merged into the mcpServers key during compilation. Fields defined
 // here take precedence over the shorthand for mcpServers if both are set.
 type SettingsConfig struct {
+	Name                              string               `yaml:"name,omitempty" json:"-"`
 	Agent                             any                  `yaml:"agent,omitempty" json:"agent,omitempty"`
 	Worktree                          any                  `yaml:"worktree,omitempty" json:"worktree,omitempty"`
 	AutoMode                          any                  `yaml:"auto-mode,omitempty" json:"autoMode,omitempty"`
@@ -601,6 +614,33 @@ type ReferenceConfig struct {
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
 	SourceProvider string `yaml:"-" json:"-"`
+}
+
+// BlueprintConfig defines a named resource subset selector.
+// A blueprint selects which agents, skills, rules, workflows, MCP servers,
+// policies, memory entries, settings, and hooks to compile.
+type BlueprintConfig struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description,omitempty"`
+
+	Extends string `yaml:"extends,omitempty"`
+
+	Active bool `yaml:"active,omitempty"`
+
+	Agents    []string `yaml:"agents,omitempty"`
+	Skills    []string `yaml:"skills,omitempty"`
+	Rules     []string `yaml:"rules,omitempty"`
+	Workflows []string `yaml:"workflows,omitempty"`
+	MCP       []string `yaml:"mcp,omitempty"`
+	Policies  []string `yaml:"policies,omitempty"`
+	Memory    []string `yaml:"memory,omitempty"`
+
+	Settings string `yaml:"settings,omitempty"`
+	Hooks    string `yaml:"hooks,omitempty"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
 }
 
 // StripInherited removes all top-level resources that are marked as Inherited=true.

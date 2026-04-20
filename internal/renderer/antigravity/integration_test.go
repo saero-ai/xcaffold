@@ -52,12 +52,17 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 					URL:  "https://mcp.example.com/v1",
 				},
 			},
-			Hooks: ast.HookConfig{
-				"PreToolUse": {
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo pre"},
+		},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": {
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo pre"},
+							},
 						},
 					},
 				},

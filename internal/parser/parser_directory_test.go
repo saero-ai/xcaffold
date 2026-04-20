@@ -312,9 +312,9 @@ env:
 
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
-	assert.Equal(t, "sonnet-4", cfg.Settings.Model)
-	assert.Equal(t, "high", cfg.Settings.EffortLevel)
-	assert.Equal(t, "test", cfg.Settings.Env["API_KEY"])
+	assert.Equal(t, "sonnet-4", cfg.Settings["default"].Model)
+	assert.Equal(t, "high", cfg.Settings["default"].EffortLevel)
+	assert.Equal(t, "test", cfg.Settings["default"].Env["API_KEY"])
 }
 
 func TestParseDirectory_SettingsConflict_Errors(t *testing.T) {
@@ -418,8 +418,8 @@ settings:
 
 	cfg, err := ParseDirectory(projectDir)
 	require.NoError(t, err)
-	assert.Equal(t, "sonnet-4", cfg.Settings.Model)
-	assert.Equal(t, "low", cfg.Settings.EffortLevel)
-	assert.Equal(t, "from-global", cfg.Settings.Env["GLOBAL_KEY"])
-	assert.Equal(t, "from-project", cfg.Settings.Env["PROJECT_KEY"])
+	assert.Equal(t, "sonnet-4", cfg.Settings["default"].Model)
+	assert.Equal(t, "low", cfg.Settings["default"].EffortLevel)
+	assert.Equal(t, "from-global", cfg.Settings["default"].Env["GLOBAL_KEY"])
+	assert.Equal(t, "from-project", cfg.Settings["default"].Env["PROJECT_KEY"])
 }

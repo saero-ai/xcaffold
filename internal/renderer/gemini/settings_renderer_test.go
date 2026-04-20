@@ -15,16 +15,19 @@ import (
 func TestCompile_Gemini_Hooks_BasicEvent(t *testing.T) {
 	timeout := 5000
 	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolExecution": []ast.HookMatcherGroup{
-					{
-						Matcher: "write_file|replace",
-						Hooks: []ast.HookHandler{
-							{
-								Type:    "command",
-								Command: "scripts/security-check.sh",
-								Timeout: &timeout,
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolExecution": []ast.HookMatcherGroup{
+						{
+							Matcher: "write_file|replace",
+							Hooks: []ast.HookHandler{
+								{
+									Type:    "command",
+									Command: "scripts/security-check.sh",
+									Timeout: &timeout,
+								},
 							},
 						},
 					},
@@ -54,12 +57,15 @@ func TestCompile_Gemini_Hooks_BasicEvent(t *testing.T) {
 // maps to Gemini's AfterTool event.
 func TestCompile_Gemini_Hooks_PostToolExecution(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PostToolExecution": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "scripts/post.sh"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PostToolExecution": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "scripts/post.sh"},
+							},
 						},
 					},
 				},
@@ -159,12 +165,17 @@ func TestCompile_Gemini_MCP_WithEnv(t *testing.T) {
 // produce a single settings.json (relative to OutputDir) containing both keys.
 func TestCompile_Gemini_Settings_MergedOutput(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolExecution": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "check.sh"}}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolExecution": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "check.sh"}}},
+					},
 				},
 			},
+		},
+		ResourceScope: ast.ResourceScope{
 			MCP: map[string]ast.MCPConfig{
 				"my-mcp": {Command: "node", Args: []string{"index.js"}},
 			},
@@ -205,27 +216,30 @@ func TestCompile_Gemini_Settings_EmptyHooksAndMCP(t *testing.T) {
 // CodeFieldUnsupported fidelity note and is NOT written to settings.json.
 func TestCompile_Gemini_Hooks_UnsupportedEvent(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"SubagentStop": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "scripts/cleanup.sh"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"SubagentStop": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "scripts/cleanup.sh"},
+							},
 						},
 					},
-				},
-				"PreCompact": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "scripts/pre-compact.sh"},
+					"PreCompact": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "scripts/pre-compact.sh"},
+							},
 						},
 					},
-				},
-				// A valid event that should still be emitted.
-				"PreToolExecution": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "scripts/check.sh"},
+					// A valid event that should still be emitted.
+					"PreToolExecution": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "scripts/check.sh"},
+							},
 						},
 					},
 				},
@@ -269,7 +283,7 @@ func TestCompile_Gemini_Hooks_UnsupportedEvent(t *testing.T) {
 // Claude-specific SettingsConfig fields emit CodeSettingsFieldUnsupported notes.
 func TestCompile_Gemini_Settings_UnsupportedSettingsFields(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Allow: []string{"Bash(*)"},
 			},
@@ -278,7 +292,7 @@ func TestCompile_Gemini_Settings_UnsupportedSettingsFields(t *testing.T) {
 				Type:    "command",
 				Command: "echo ok",
 			},
-		},
+		}},
 	}
 
 	r := New()

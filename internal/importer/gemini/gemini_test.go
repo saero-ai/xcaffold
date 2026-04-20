@@ -127,15 +127,19 @@ func TestGeminiExtract_SettingsDecomposition(t *testing.T) {
 	err := imp.Extract("settings.json", data, config)
 	require.NoError(t, err)
 	// Hooks extracted
-	assert.NotNil(t, config.Hooks["PreToolUse"])
-	assert.Len(t, config.Hooks["PreToolUse"], 1)
+	var effectiveHooks ast.HookConfig
+	if dh, ok := config.Hooks["default"]; ok {
+		effectiveHooks = dh.Events
+	}
+	assert.NotNil(t, effectiveHooks["PreToolUse"])
+	assert.Len(t, effectiveHooks["PreToolUse"], 1)
 	// MCP from settings.json mcpServers extracted
 	_, ok := config.MCP["search-tool"]
 	require.True(t, ok, "expected mcp 'search-tool' from settings.json")
 	assert.Equal(t, "gemini", config.MCP["search-tool"].SourceProvider)
 	// Settings model extracted
-	assert.Equal(t, "gemini-2.5-pro", config.Settings.Model)
-	assert.Equal(t, "gemini", config.Settings.SourceProvider)
+	assert.Equal(t, "gemini-2.5-pro", config.Settings["default"].Model)
+	assert.Equal(t, "gemini", config.Settings["default"].SourceProvider)
 }
 
 func TestGeminiExtract_UnknownKindReturnsError(t *testing.T) {
@@ -190,7 +194,7 @@ func TestGeminiImporter_FullWorkspace(t *testing.T) {
 	assert.Equal(t, "gemini", style.SourceProvider)
 
 	// Hooks from settings.json
-	assert.NotEmpty(t, config.Hooks["PreToolUse"])
+	assert.NotEmpty(t, config.Hooks["default"].Events["PreToolUse"])
 
 	// MCP from settings.json mcpServers
 	_, ok = config.MCP["search-tool"]
@@ -198,7 +202,7 @@ func TestGeminiImporter_FullWorkspace(t *testing.T) {
 	assert.Equal(t, "gemini", config.MCP["search-tool"].SourceProvider)
 
 	// Settings
-	assert.Equal(t, "gemini-2.5-pro", config.Settings.Model)
+	assert.Equal(t, "gemini-2.5-pro", config.Settings["default"].Model)
 
 	// Unknown file goes to extras
 	assert.NotEmpty(t, config.ProviderExtras["gemini"])

@@ -101,7 +101,7 @@ hooks:
 `
 	config, err := Parse(strings.NewReader(input))
 	require.NoError(t, err)
-	assert.Len(t, config.Hooks["PreToolUse"], 1)
+	assert.Len(t, config.Hooks["default"].Events["PreToolUse"], 1)
 }
 
 func TestParse_HookEvent_InvalidEvent_Rejected(t *testing.T) {

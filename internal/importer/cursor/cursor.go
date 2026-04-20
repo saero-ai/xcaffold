@@ -454,7 +454,7 @@ func extractHooksStandalone(rel string, data []byte, config *ast.XcaffoldConfig)
 	if err := json.Unmarshal(data, &hooks); err != nil {
 		return fmt.Errorf("cursor: hooks.json parse: %w", err)
 	}
-	config.Hooks = hooks
+	config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
 	return nil
 }
 

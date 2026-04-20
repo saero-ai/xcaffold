@@ -14,6 +14,7 @@ import (
 )
 
 var validateStructural bool
+var validateBlueprintFlag string
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
@@ -37,10 +38,15 @@ Exit code 0 means valid. Non-zero means errors found.`,
 
 func init() {
 	validateCmd.Flags().BoolVar(&validateStructural, "structural", false, "run structural invariant checks (orphan resources, missing instructions)")
+	validateCmd.Flags().StringVar(&validateBlueprintFlag, "blueprint", "", "Validate only the named blueprint")
 	rootCmd.AddCommand(validateCmd)
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
+	if validateBlueprintFlag != "" && globalFlag {
+		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
+	}
+
 	validatePath := xcfPath
 	if globalFlag {
 		// globalXcfPath is already resolved by resolveGlobalConfig in PersistentPreRunE.
@@ -85,7 +91,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	// Policy evaluation (requires compilation)
 	if !hasErrors {
 		configSnapshot := deepCopyConfig(cfg)
-		compiled, notes, compileErr := compiler.Compile(cfg, filepath.Dir(validatePath), targetFlag)
+		compiled, notes, compileErr := compiler.Compile(cfg, filepath.Dir(validatePath), targetFlag, validateBlueprintFlag)
 		if compileErr != nil {
 			fmt.Fprintf(os.Stdout, "\npolicy check skipped: compilation error: %v\n", compileErr)
 		} else {
@@ -168,7 +174,10 @@ func checkMissingInstructions(cfg *ast.XcaffoldConfig) []string {
 }
 
 func checkBashWithoutHook(cfg *ast.XcaffoldConfig) []string {
-	_, projectHasPreToolUse := cfg.Hooks["PreToolUse"]
+	projectHasPreToolUse := false
+	if dh, ok := cfg.Hooks["default"]; ok {
+		_, projectHasPreToolUse = dh.Events["PreToolUse"]
+	}
 	var warnings []string
 	for agentID, agent := range cfg.Agents {
 		hasBash := false

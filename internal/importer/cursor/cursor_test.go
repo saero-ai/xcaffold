@@ -183,7 +183,11 @@ func TestCursorExtract_HooksStandaloneJSON(t *testing.T) {
 	imp := cursorimp.New()
 	err := imp.Extract("hooks.json", data, config)
 	require.NoError(t, err)
-	hooks, ok := config.Hooks["PreToolUse"]
+	var effectiveHooks ast.HookConfig
+	if dh, ok2 := config.Hooks["default"]; ok2 {
+		effectiveHooks = dh.Events
+	}
+	hooks, ok := effectiveHooks["PreToolUse"]
 	require.True(t, ok, "expected PreToolUse hooks")
 	require.Len(t, hooks, 1)
 	assert.Equal(t, "Bash", hooks[0].Matcher)
@@ -236,7 +240,7 @@ func TestCursorImporter_FullWorkspace(t *testing.T) {
 	assert.Equal(t, []string{"**/*.go", "**/*.ts"}, fmt.Paths)
 
 	// Hooks from hooks.json (standalone)
-	assert.NotEmpty(t, config.Hooks["PreToolUse"])
+	assert.NotEmpty(t, config.Hooks["default"].Events["PreToolUse"])
 
 	// MCP from mcp.json
 	_, ok = config.MCP["github"]

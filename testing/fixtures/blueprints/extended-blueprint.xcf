@@ -1,0 +1,15 @@
+kind: blueprint
+version: "1.0"
+name: backend-engineering
+description: Backend development -- databases, APIs, testing
+extends: base-engineering
+active: true
+agents:
+  - backend-engineer
+  - database-engineer
+skills:
+  - drizzle-schema
+rules:
+  - testing-framework
+settings: default
+hooks: ci

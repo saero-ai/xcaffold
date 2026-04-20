@@ -134,8 +134,13 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		notes = append(notes, mcpNotes...)
 	}
 
+	settings := config.Settings["default"]
 	if len(config.Hooks) > 0 {
-		hooksJSON, hookNotes, err := compileCursorHooks(config.Hooks)
+		var hooks ast.HookConfig
+		if dh, ok := config.Hooks["default"]; ok {
+			hooks = dh.Events
+		}
+		hooksJSON, hookNotes, err := compileCursorHooks(hooks)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cursor: failed to compile hooks: %w", err)
 		}
@@ -148,7 +153,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		notes = append(notes, instrNotes...)
 	}
 
-	if config.Settings.Permissions != nil {
+	if settings.Permissions != nil {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "settings", "global", "permissions",
 			renderer.CodeSettingsFieldUnsupported,
@@ -156,7 +161,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 			"Enforce permissions via repository tooling or remove the permissions block for this target",
 		))
 	}
-	if config.Settings.Sandbox != nil {
+	if settings.Sandbox != nil {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "settings", "global", "sandbox",
 			renderer.CodeSettingsFieldUnsupported,

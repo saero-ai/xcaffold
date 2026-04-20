@@ -34,7 +34,7 @@ func TestCompile_AgentInstructionsFile_ReadsExternalFile(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "", "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/cto.md"]
@@ -61,7 +61,7 @@ func TestCompile_AgentInstructionsFile_StripsFrontmatter(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "", "")
 	require.NoError(t, err)
 
 	compiled := out.Files["agents/developer.md"]
@@ -80,7 +80,7 @@ func TestCompile_AgentInstructionsFile_Missing_ReturnsError(t *testing.T) {
 		},
 	}
 
-	_, _, err := Compile(config, t.TempDir(), "")
+	_, _, err := Compile(config, t.TempDir(), "", "")
 	require.Error(t, err, "missing instructions_file must return an error")
 	assert.Contains(t, err.Error(), "nonexistent/cto.md")
 }
@@ -96,7 +96,7 @@ func TestCompile_InstructionsFile_PathTraversal_Rejected(t *testing.T) {
 		},
 	}
 
-	_, _, err := Compile(config, t.TempDir(), "")
+	_, _, err := Compile(config, t.TempDir(), "", "")
 	require.Error(t, err, "traversal paths in instructions_file must be rejected")
 }
 
@@ -121,7 +121,7 @@ func TestCompile_InstructionsFile_InlinePriority(t *testing.T) {
 	}
 
 	// Parser would reject this, but we test the compiler directly.
-	out, _, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "", "")
 	require.NoError(t, err)
 	content := out.Files["agents/agent.md"]
 	assert.Contains(t, content, "From inline.", "inline instructions must take priority")
@@ -156,7 +156,7 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "", "")
 	require.NoError(t, err)
 
 	_, hasSkill := out.Files["skills/flutter-integration/SKILL.md"]
@@ -191,7 +191,7 @@ func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "", "")
 	require.NoError(t, err)
 
 	refCount := 0
@@ -215,7 +215,7 @@ func TestCompile_SkillReferences_PathTraversal_Rejected(t *testing.T) {
 			},
 		},
 	}
-	_, _, err := Compile(config, t.TempDir(), "")
+	_, _, err := Compile(config, t.TempDir(), "", "")
 	require.Error(t, err, "traversal references must be rejected")
 }
 
@@ -227,15 +227,15 @@ func TestCompile_SkillReferences_PathTraversal_Rejected(t *testing.T) {
 // a JSON object ({"type":"command","command":"..."}) not a plain string.
 func TestCompile_Settings_StatusLine_IsObject(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			StatusLine: &ast.StatusLineConfig{
 				Type:    "command",
 				Command: "bash ~/.claude/statusline.sh",
 			},
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -256,15 +256,15 @@ func TestCompile_Settings_StatusLine_IsObject(t *testing.T) {
 // as a JSON object (map[string]bool) not an array.
 func TestCompile_Settings_EnabledPlugins_IsMap(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			EnabledPlugins: map[string]bool{
 				"plugin-a": true,
 				"plugin-b": false,
 			},
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -285,11 +285,11 @@ func TestCompile_Settings_EnabledPlugins_IsMap(t *testing.T) {
 // as the first key in settings.json.
 func TestCompile_Settings_Schema_IsFirstKey(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			StatusLine: &ast.StatusLineConfig{Type: "command"},
-		},
+		}},
 	}
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -352,7 +352,7 @@ func TestCompile_ConventionAutoDiscover_Agent(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "", "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/cto.md"]
@@ -379,7 +379,7 @@ func TestCompile_ConventionAutoDiscover_Skill(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, dir, "")
+	out, _, err := Compile(config, dir, "", "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/git-workflow/SKILL.md"]
@@ -400,7 +400,7 @@ func TestCompile_ConventionAutoDiscover_MissingFile_SilentEmpty(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, t.TempDir(), "") // empty tempdir — no convention file
+	out, _, err := Compile(config, t.TempDir(), "", "") // empty tempdir — no convention file
 	require.NoError(t, err, "missing convention file must be silent, not an error")
 
 	content := out.Files["agents/cto.md"]
@@ -416,7 +416,7 @@ func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
 	trueVal := true
 	falseVal := false
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{
 				Enabled:                  &trueVal,
 				AutoAllowBashIfSandboxed: &trueVal,
@@ -431,10 +431,10 @@ func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
 					AllowedDomains: []string{"registry.npmjs.org", "github.com"},
 				},
 			},
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -484,7 +484,7 @@ func TestCompile_MCP_HTTPTransport_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["mcp.json"]
@@ -513,15 +513,15 @@ func TestCompile_MCP_HTTPTransport_EmitsCorrectly(t *testing.T) {
 
 func TestCompile_Settings_TypedPermissions_EmitsCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Allow: []string{"Bash(npm test *)", "Read(**/*.ts)"},
 				Deny:  []string{"Bash(rm -rf *)"},
 			},
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -554,20 +554,23 @@ func TestCompile_Settings_TypedPermissions_EmitsCorrectly(t *testing.T) {
 
 func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PostToolUse": []ast.HookMatcherGroup{
-					{
-						Matcher: "Write|Edit",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "npx prettier --write $FILE", Timeout: intPtr(10000)},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PostToolUse": []ast.HookMatcherGroup{
+						{
+							Matcher: "Write|Edit",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "npx prettier --write $FILE", Timeout: intPtr(10000)},
+							},
 						},
 					},
-				},
-				"Notification": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo 'notification received'"},
+					"Notification": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo 'notification received'"},
+							},
 						},
 					},
 				},
@@ -575,7 +578,7 @@ func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -632,7 +635,7 @@ func TestCompile_Agent_NewFields_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/secure.md"]
@@ -674,7 +677,7 @@ func TestCompile_Agent_ScopedHooksAndMCP_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/hooked.md"]
@@ -692,14 +695,14 @@ func TestCompile_Settings_NewFields_EmitCorrectly(t *testing.T) {
 	trueVal := true
 	falseVal := false
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			OtelHeadersHelper: "/bin/generate_headers.sh",
 			DisableAllHooks:   &falseVal,
 			Attribution:       &trueVal,
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -725,20 +728,23 @@ func intPtr(i int) *int { return &i }
 
 func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{
-								Type: "http",
-								URL:  "https://hooks.internal/validate",
-								Headers: map[string]string{
-									"Authorization": "Bearer ${API_KEY}",
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{
+									Type: "http",
+									URL:  "https://hooks.internal/validate",
+									Headers: map[string]string{
+										"Authorization": "Bearer ${API_KEY}",
+									},
+									AllowedEnvVars: []string{"API_KEY"},
+									Timeout:        intPtr(30),
 								},
-								AllowedEnvVars: []string{"API_KEY"},
-								Timeout:        intPtr(30),
 							},
 						},
 					},
@@ -747,7 +753,7 @@ func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -767,17 +773,20 @@ func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 
 func TestCompile_Hooks_PromptHandler_EmitsCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{
-						Matcher: "Edit",
-						Hooks: []ast.HookHandler{
-							{
-								Type:    "prompt",
-								Prompt:  "Verify this edit follows our coding standards",
-								Model:   "claude-haiku-4-5-20251001",
-								Timeout: intPtr(30),
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{
+							Matcher: "Edit",
+							Hooks: []ast.HookHandler{
+								{
+									Type:    "prompt",
+									Prompt:  "Verify this edit follows our coding standards",
+									Model:   "claude-haiku-4-5-20251001",
+									Timeout: intPtr(30),
+								},
 							},
 						},
 					},
@@ -786,7 +795,7 @@ func TestCompile_Hooks_PromptHandler_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -806,20 +815,23 @@ func TestCompile_Hooks_AllHandlerFields_EmitCorrectly(t *testing.T) {
 	asyncTrue := true
 	onceTrue := true
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"SessionStart": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{
-								Type:          "command",
-								Command:       "./scripts/setup.sh",
-								Timeout:       intPtr(120),
-								Async:         &asyncTrue,
-								Once:          &onceTrue,
-								Shell:         "bash",
-								StatusMessage: "Running setup...",
-								If:            "Bash(./scripts/*)",
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"SessionStart": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{
+									Type:          "command",
+									Command:       "./scripts/setup.sh",
+									Timeout:       intPtr(120),
+									Async:         &asyncTrue,
+									Once:          &onceTrue,
+									Shell:         "bash",
+									StatusMessage: "Running setup...",
+									If:            "Bash(./scripts/*)",
+								},
 							},
 						},
 					},
@@ -828,7 +840,7 @@ func TestCompile_Hooks_AllHandlerFields_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -858,7 +870,7 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 	falseVal := false
 	cleanupDays := 30
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Model:                      "claude-sonnet-4-6",
 			OutputStyle:                "concise",
 			Language:                   "en",
@@ -872,10 +884,10 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 			ClaudeMdExcludes:           []string{"vendor/**"},
 			AutoMemoryEnabled:          &trueVal,
 			AutoMemoryDirectory:        ".claude/memory",
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -910,14 +922,14 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 
 func TestCompile_Permissions_DenyPropagatestoSettings(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Deny: []string{"Write"},
 			},
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -940,14 +952,14 @@ func TestCompile_Permissions_DenyPropagatestoSettings(t *testing.T) {
 func TestCompile_Permissions_SandboxPropagatestoSettings(t *testing.T) {
 	enabled := true
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{
 				Enabled: &enabled,
 			},
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -965,15 +977,15 @@ func TestCompile_Permissions_SandboxPropagatestoSettings(t *testing.T) {
 
 func TestCompile_Permissions_CursorDropsPermissions(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Allow: []string{"Read"},
 				Deny:  []string{"Bash"},
 			},
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, t.TempDir(), "cursor")
+	out, _, err := Compile(config, t.TempDir(), "cursor", "")
 	require.NoError(t, err)
 
 	// Cursor emits no settings.json — permissions must not appear in any output file
@@ -988,14 +1000,14 @@ func TestCompile_Permissions_CursorDropsPermissions(t *testing.T) {
 func TestCompile_Permissions_CursorDropsSandbox(t *testing.T) {
 	enabled := true
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{
 				Enabled: &enabled,
 			},
-		},
+		}},
 	}
 
-	out, _, err := Compile(config, t.TempDir(), "cursor")
+	out, _, err := Compile(config, t.TempDir(), "cursor", "")
 	require.NoError(t, err)
 
 	_, hasSettings := out.Files["settings.json"]
@@ -1018,7 +1030,7 @@ func TestCompile_Permissions_DisallowedToolsInAgentFrontmatter(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/dev.md"]
@@ -1039,7 +1051,7 @@ func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, t.TempDir(), "cursor")
+	out, _, err := Compile(config, t.TempDir(), "cursor", "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/dev.md"]
@@ -1060,7 +1072,7 @@ func TestCompile_LocalSettings_EmitsSettingsLocalJSON(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "")
+	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.local.json"]

@@ -1,0 +1,8 @@
+kind: blueprint
+version: "1.0"
+name: restricted-access
+description: Locked-down blueprint for restricted environments
+agents:
+  - developer
+settings: restricted
+hooks: ci

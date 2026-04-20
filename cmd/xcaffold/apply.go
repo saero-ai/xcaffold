@@ -12,6 +12,7 @@ import (
 
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
@@ -100,6 +101,10 @@ const currentSchemaVersion = "1.0"
 
 //nolint:gocyclo
 func runApply(cmd *cobra.Command, args []string) error {
+	if applyBlueprintFlag != "" && globalFlag {
+		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
+	}
+
 	if applyProjectFlag != "" {
 		proj, err := registry.Resolve(applyProjectFlag)
 		if err != nil {
@@ -291,7 +296,7 @@ func applyScope(configPath, outputDir, scopeName string) error {
 
 	configSnapshot := deepCopyConfig(config)
 
-	out, notes, err := compiler.Compile(config, baseDir, targetFlag)
+	out, notes, err := compiler.Compile(config, baseDir, targetFlag, applyBlueprintFlag)
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}
@@ -401,13 +406,22 @@ func applyScope(configPath, outputDir, scopeName string) error {
 		}
 	}
 
+	// Compute blueprint hash before writing state.
+	var bpHash string
+	if applyBlueprintFlag != "" {
+		if p, ok := config.Blueprints[applyBlueprintFlag]; ok {
+			bpHash = blueprint.BlueprintHash(p)
+		}
+	}
+
 	// Write the state file with source tracking.
 	newManifest := state.GenerateState(out, state.StateOpts{
-		Blueprint:   applyBlueprintFlag,
-		Target:      targetFlag,
-		BaseDir:     baseDir,
-		SourceFiles: sourceFiles,
-		MemorySeeds: memSeeds,
+		Blueprint:     applyBlueprintFlag,
+		BlueprintHash: bpHash,
+		Target:        targetFlag,
+		BaseDir:       baseDir,
+		SourceFiles:   sourceFiles,
+		MemorySeeds:   memSeeds,
 	}, oldManifest)
 	if err := state.WriteState(newManifest, stateFilePath); err != nil {
 		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to write state: %v\n", scopeName, err)
@@ -578,14 +592,20 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 // gemini drop settings.Permissions, settings.Sandbox, and per-agent security
 // fields (effort, permission-mode, disallowed-tools, isolation).
 func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, warnings []string) {
+	// Get the active settings (first available key after blueprint filtering).
+	var es ast.SettingsConfig
+	for _, s := range config.Settings {
+		es = s
+		break
+	}
 	switch target {
 	case "cursor", "antigravity":
 		label := target
 
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
 		}
-		if config.Settings.Sandbox != nil {
+		if es.Sandbox != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
 		}
 
@@ -602,10 +622,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 		}
 
 		// Agent vs deny conflicts (errors)
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			for agentID, agent := range config.Agents {
 				for _, tool := range agent.Tools {
-					for _, denyRule := range config.Settings.Permissions.Deny {
+					for _, denyRule := range es.Permissions.Deny {
 						if denyRule == tool {
 							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
 						}
@@ -617,10 +637,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 	case targetGemini:
 		label := targetGemini
 
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
 		}
-		if config.Settings.Sandbox != nil {
+		if es.Sandbox != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
 		}
 
@@ -640,10 +660,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 		}
 
 		// Agent vs deny conflicts (errors)
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			for agentID, agent := range config.Agents {
 				for _, tool := range agent.Tools {
-					for _, denyRule := range config.Settings.Permissions.Deny {
+					for _, denyRule := range es.Permissions.Deny {
 						if denyRule == tool {
 							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
 						}
@@ -655,10 +675,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 	case targetCopilot:
 		label := targetCopilot
 
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
 		}
-		if config.Settings.Sandbox != nil {
+		if es.Sandbox != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
 		}
 
@@ -684,10 +704,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 		}
 
 		// Agent vs deny conflicts (errors)
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			for agentID, agent := range config.Agents {
 				for _, tool := range agent.Tools {
-					for _, denyRule := range config.Settings.Permissions.Deny {
+					for _, denyRule := range es.Permissions.Deny {
 						if denyRule == tool {
 							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
 						}

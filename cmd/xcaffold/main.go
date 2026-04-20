@@ -62,7 +62,8 @@ var rootCmd = &cobra.Command{
   • Review      [xcaffold review]    Universally parses state files
     ↳ Supports: project.xcf, audit.json, plan.json, trace.jsonl
     ↳ Try: 'xcaffold review all'
-  • Registry    [xcaffold list]      Lists all managed projects
+  • List        [xcaffold list]      Lists local resources and blueprints
+  • Registry    [xcaffold registry]  Lists all managed projects
   • Migration   [xcaffold migrate]   Upgrades legacy layouts
 
  ┌───────────────────────────────────────────────────────────────────┐
@@ -141,7 +142,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "list" || cmd.Name() == "migrate" || cmd.Name() == "analyze" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "registry" || cmd.Name() == "migrate" || cmd.Name() == "analyze" {
 		return nil
 	}
 	var configDir string

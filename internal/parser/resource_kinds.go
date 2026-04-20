@@ -97,6 +97,7 @@ type projectDocFields struct {
 type hooksDocument struct {
 	Kind    string         `yaml:"kind"`
 	Version string         `yaml:"version"`
+	Name    string         `yaml:"name,omitempty"`
 	Events  ast.HookConfig `yaml:"events"`
 }
 
@@ -138,6 +139,58 @@ type referenceDocument struct {
 	Kind                string `yaml:"kind"`
 	Version             string `yaml:"version"`
 	ast.ReferenceConfig `yaml:",inline"`
+}
+
+// blueprintDocument wraps BlueprintConfig with envelope fields for kind: blueprint parsing.
+// Name is promoted from BlueprintConfig.Name.
+type blueprintDocument struct {
+	Kind                string `yaml:"kind"`
+	Version             string `yaml:"version"`
+	ast.BlueprintConfig `yaml:",inline"`
+}
+
+// isValidResourceName checks that a name contains only lowercase letters,
+// digits, and hyphens. Empty names are rejected.
+func isValidResourceName(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, r := range name {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-') {
+			return false
+		}
+	}
+	return true
+}
+
+// parseBlueprintDocument decodes a yaml.Node into a blueprintDocument with
+// KnownFields validation, validates envelope fields and name constraints,
+// and inserts the resource into config.Blueprints.
+func parseBlueprintDocument(node *yaml.Node, config *ast.XcaffoldConfig) error {
+	b, err := nodeToBytes(node)
+	if err != nil {
+		return fmt.Errorf("failed to marshal blueprint document: %w", err)
+	}
+	var doc blueprintDocument
+	dec := yaml.NewDecoder(bytes.NewReader(b))
+	dec.KnownFields(true)
+	if err := dec.Decode(&doc); err != nil {
+		return fmt.Errorf("invalid blueprint document: %w", err)
+	}
+	if err := validateEnvelope(doc.Version, doc.Name, "blueprint"); err != nil {
+		return err
+	}
+	if !isValidResourceName(doc.Name) {
+		return fmt.Errorf("blueprint name %q is invalid: must contain only lowercase letters, digits, and hyphens", doc.Name)
+	}
+	if config.Blueprints == nil {
+		config.Blueprints = make(map[string]ast.BlueprintConfig)
+	}
+	if _, exists := config.Blueprints[doc.Name]; exists {
+		return fmt.Errorf("duplicate blueprint name %q", doc.Name)
+	}
+	config.Blueprints[doc.Name] = doc.BlueprintConfig
+	return nil
 }
 
 // parseReferenceDocument decodes a yaml.Node into a referenceDocument with
@@ -403,12 +456,24 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if err := validateEnvelope(doc.Version, "", kind); err != nil {
 			return err
 		}
+		name := doc.Name
+		if name == "" {
+			name = "default"
+		}
 		if config.Hooks == nil {
-			config.Hooks = make(ast.HookConfig)
+			config.Hooks = make(map[string]ast.NamedHookConfig)
+		}
+		existing, ok := config.Hooks[name]
+		if !ok {
+			existing = ast.NamedHookConfig{Name: name}
+		}
+		if existing.Events == nil {
+			existing.Events = make(ast.HookConfig)
 		}
 		for event, groups := range doc.Events {
-			config.Hooks[event] = append(config.Hooks[event], groups...)
+			existing.Events[event] = append(existing.Events[event], groups...)
 		}
+		config.Hooks[name] = existing
 
 	case "settings":
 		var doc settingsDocument
@@ -420,7 +485,15 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if err := validateEnvelope(doc.Version, "", kind); err != nil {
 			return err
 		}
-		config.Settings = doc.SettingsConfig
+		name := doc.SettingsConfig.Name
+		if name == "" {
+			name = "default"
+			doc.SettingsConfig.Name = name
+		}
+		if config.Settings == nil {
+			config.Settings = make(map[string]ast.SettingsConfig)
+		}
+		config.Settings[name] = doc.SettingsConfig
 
 	case "global":
 		var doc globalDocument
@@ -433,10 +506,30 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			return err
 		}
 		config.Extends = doc.Extends
-		// Settings uses direct assignment (not merge), matching the case "settings":
-		// handler. Within a single file, only one kind: global or kind: settings
-		// document should appear; directory-level merging is handled by mergeAllStrict.
-		config.Settings = doc.Settings
+		if config.Settings == nil {
+			config.Settings = make(map[string]ast.SettingsConfig)
+		}
+		sName := doc.Settings.Name
+		if sName == "" {
+			sName = "default"
+		}
+		config.Settings[sName] = doc.Settings
+		if doc.Hooks != nil {
+			if config.Hooks == nil {
+				config.Hooks = make(map[string]ast.NamedHookConfig)
+			}
+			existing, ok := config.Hooks["default"]
+			if !ok {
+				existing = ast.NamedHookConfig{Name: "default"}
+			}
+			if existing.Events == nil {
+				existing.Events = make(ast.HookConfig)
+			}
+			for event, groups := range doc.Hooks {
+				existing.Events[event] = append(existing.Events[event], groups...)
+			}
+			config.Hooks["default"] = existing
+		}
 		for k, v := range doc.Agents {
 			if config.Agents == nil {
 				config.Agents = make(map[string]ast.AgentConfig)
@@ -481,12 +574,6 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 				return fmt.Errorf("duplicate mcp ID %q", k)
 			}
 			config.MCP[k] = v
-		}
-		for event, groups := range doc.Hooks {
-			if config.Hooks == nil {
-				config.Hooks = make(ast.HookConfig)
-			}
-			config.Hooks[event] = append(config.Hooks[event], groups...)
 		}
 		for k, v := range doc.Memory {
 			if config.Memory == nil {
