@@ -85,24 +85,11 @@ The merge happens entirely in the renderer. The raw `.xcf` YAML is not modified.
 
 For the `cursor` target, only the `mcp:` shorthand block is compiled to `mcp.json` (`internal/renderer/cursor/cursor.go:97–104`). For the `antigravity` target, MCP servers are written to `mcp_config.json` using a reduced schema that supports only `command`, `args`, and `env` — the `url` and `headers` fields used for HTTP-based MCP servers have no equivalent and are silently dropped.
 
-## Per-Target Lock Files as Proof of Separation
+## Per-Target State Files as Proof of Separation
 
-Each compilation target produces its own lock file. `state.LockFilePath` computes the path from the base lock filename and the active target (`internal/state/state.go:22–29`):
+A project compiled for both targets produces a single `.xcaffold/project.xcf.state` file containing artifact hashes for both targets under separate target sections. Per-blueprint compilations produce `.xcaffold/<blueprint-name>.xcf.state`. Each state file records the SHA-256 hashes of that context's artifacts, the xcaffold version, and the timestamp of the last apply.
 
-```go
-func LockFilePath(basePath string, target string) string {
-    if target == "" {
-        target = "claude"
-    }
-    ext := filepath.Ext(basePath)
-    base := strings.TrimSuffix(basePath, ext)
-    return base + "." + target + ext
-}
-```
-
-A project compiled for both `claude` and `cursor` produces `scaffold.claude.lock` and `scaffold.cursor.lock` as independent files. Each lock records the SHA-256 hashes of that target's artifacts, the xcaffold version, and the timestamp of the last apply. Neither lock file references the other.
-
-This separation is significant for teams that maintain multiple deployment contexts from a single `.xcf` file. Advancing a `claude` compilation — adding new rules, updating agent definitions — does not invalidate the `cursor` lock, and vice versa. Drift detection operates independently per target. A team can keep one target stable while iterating on another, with the lock file providing the audit trail for each independently.
+This separation is significant for teams that maintain multiple deployment contexts from a single `.xcf` file. Advancing a `claude` compilation — adding new rules, updating agent definitions — does not invalidate the `cursor` state section, and vice versa. Drift detection operates independently per target. A team can keep one target stable while iterating on another, with the state file providing the audit trail for each independently.
 
 ## Import Side
 

@@ -22,16 +22,16 @@ This tutorial walks through detecting and resolving drift in an xcaffold-managed
 xcaffold apply --target claude
 ```
 
-This compiles `project.xcf` into `.claude/` and writes `scaffold.claude.lock` with SHA-256 hashes of every output file. The lock is the reference state for all subsequent drift checks.
+This compiles `project.xcf` into `.claude/` and writes `.xcaffold/project.xcf.state` with SHA-256 hashes of every output file. The state file is the reference state for all subsequent drift checks.
 
 **Expected output:**
 ```
   [project] ✓ wrote /path/to/project/.claude/agents/developer.md  (sha256:<hex>)
 
-[project] ✓ Apply complete. scaffold.claude.lock updated.
+[project] ✓ Apply complete. .xcaffold/project.xcf.state updated.
 ```
 
-Commit `project.xcf` and `scaffold.claude.lock` together.
+Commit `project.xcf` and `.xcaffold/project.xcf.state` together.
 
 ---
 
@@ -51,7 +51,7 @@ This simulates a direct edit to a managed file — the kind that happens when so
 xcaffold diff --target claude
 ```
 
-xcaffold recomputes SHA-256 hashes for all artifacts listed in `scaffold.claude.lock` and compares them against disk. Any mismatch is reported.
+xcaffold recomputes SHA-256 hashes for all artifacts listed in `.xcaffold/project.xcf.state` and compares them against disk. Any mismatch is reported.
 
 **Expected output:**
 ```
@@ -72,7 +72,7 @@ drift detected in 1 file(s) — run 'xcaffold apply --target claude' to restore 
 xcaffold apply --target claude
 ```
 
-When a lock file exists and drift is detected, `apply` refuses to proceed:
+When a state file exists and drift is detected, `apply` refuses to proceed:
 
 **Expected output:**
 ```
@@ -89,7 +89,7 @@ This drift guard prevents silent data loss. To proceed you must acknowledge the 
 xcaffold apply --target claude --force
 ```
 
-`--force` bypasses the drift guard and overwrites the output directory with freshly compiled content. The manual edit in `developer.md` is discarded. `scaffold.claude.lock` is updated with the new hashes.
+`--force` bypasses the drift guard and overwrites the output directory with freshly compiled content. The manual edit in `developer.md` is discarded. `.xcaffold/project.xcf.state` is updated with the new hashes.
 
 If you want to preserve the drifted state before overwriting, add `--backup`:
 
@@ -101,7 +101,7 @@ xcaffold apply --target claude --force --backup
 ```
   [project] ✓ wrote /path/to/project/.claude/agents/developer.md  (sha256:<hex>)
 
-[project] ✓ Apply complete. scaffold.claude.lock updated.
+[project] ✓ Apply complete. .xcaffold/project.xcf.state updated.
 ```
 
 ---
@@ -119,7 +119,7 @@ xcaffold diff --target claude
 No drift detected. All managed files are in sync.
 ```
 
-Exit code `0`. The output directory matches the lock. The project is back under xcaffold's control.
+Exit code `0`. The output directory matches the state file. The project is back under xcaffold's control.
 
 ---
 
@@ -133,5 +133,5 @@ You induced drift on a managed file, used `xcaffold diff` to detect it precisely
 
 - **Getting Started** — if you haven't compiled your first agent yet: [Getting Started](getting-started.md)
 - **Multi-Agent Workspace** — define multiple agents, rules, and skills: [Multi-Agent Workspace](multi-agent-workspace.md)
-- **Drift detection concepts** — how the lock file, SHA-256 hashes, and source vs. artifact drift work: [Concepts: Drift Detection and State](../concepts/architecture.md#drift-detection-and-state)
+- **Drift detection concepts** — how the state file, SHA-256 hashes, and source vs. artifact drift work: [Concepts: Drift Detection and State](../concepts/state-and-drift.md)
 - **CLI reference** — full flag reference for `diff`, `apply`, and `--force`: [CLI Reference](../reference/cli.md)
