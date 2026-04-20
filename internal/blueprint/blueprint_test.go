@@ -481,6 +481,28 @@ func TestApplyBlueprint_DoesNotModifyInput(t *testing.T) {
 	require.Contains(t, cfg.Agents, "designer")
 }
 
+// ── BlueprintHash ───────────────────────────────────────────────────────────
+
+func TestBlueprintHash_StableForSameRefs(t *testing.T) {
+	p := ast.BlueprintConfig{Name: "backend", Agents: []string{"dev", "dba"}, Skills: []string{"tdd"}}
+	h1 := BlueprintHash(p)
+	h2 := BlueprintHash(p)
+	require.Equal(t, h1, h2)
+	require.True(t, strings.HasPrefix(h1, "sha256:"))
+}
+
+func TestBlueprintHash_ChangesWhenRefsChange(t *testing.T) {
+	p1 := ast.BlueprintConfig{Agents: []string{"dev"}}
+	p2 := ast.BlueprintConfig{Agents: []string{"dev", "dba"}}
+	require.NotEqual(t, BlueprintHash(p1), BlueprintHash(p2))
+}
+
+func TestBlueprintHash_OrderIndependent(t *testing.T) {
+	p1 := ast.BlueprintConfig{Agents: []string{"a", "b"}}
+	p2 := ast.BlueprintConfig{Agents: []string{"b", "a"}}
+	require.Equal(t, BlueprintHash(p1), BlueprintHash(p2))
+}
+
 func TestApplyBlueprint_EmptyRefList_ReturnsNilMap(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{

@@ -12,6 +12,7 @@ import (
 
 	"github.com/pmezard/go-difflib/difflib"
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
@@ -405,13 +406,22 @@ func applyScope(configPath, outputDir, scopeName string) error {
 		}
 	}
 
+	// Compute blueprint hash before writing state.
+	var bpHash string
+	if applyBlueprintFlag != "" {
+		if p, ok := config.Blueprints[applyBlueprintFlag]; ok {
+			bpHash = blueprint.BlueprintHash(p)
+		}
+	}
+
 	// Write the state file with source tracking.
 	newManifest := state.GenerateState(out, state.StateOpts{
-		Blueprint:   applyBlueprintFlag,
-		Target:      targetFlag,
-		BaseDir:     baseDir,
-		SourceFiles: sourceFiles,
-		MemorySeeds: memSeeds,
+		Blueprint:     applyBlueprintFlag,
+		BlueprintHash: bpHash,
+		Target:        targetFlag,
+		BaseDir:       baseDir,
+		SourceFiles:   sourceFiles,
+		MemorySeeds:   memSeeds,
 	}, oldManifest)
 	if err := state.WriteState(newManifest, stateFilePath); err != nil {
 		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to write state: %v\n", scopeName, err)

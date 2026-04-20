@@ -1,6 +1,7 @@
 package blueprint
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"sort"
 
@@ -264,6 +265,35 @@ func sortedKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// BlueprintHash computes a SHA-256 hash of a blueprint's resolved resource ref-lists.
+// The hash is order-independent (sorts each list before hashing).
+// Returns a "sha256:<hex>" prefixed string.
+func BlueprintHash(p ast.BlueprintConfig) string {
+	h := sha256.New()
+	for _, entry := range []struct {
+		label string
+		refs  []string
+	}{
+		{"agents", p.Agents},
+		{"skills", p.Skills},
+		{"rules", p.Rules},
+		{"workflows", p.Workflows},
+		{"mcp", p.MCP},
+		{"policies", p.Policies},
+		{"memory", p.Memory},
+	} {
+		fmt.Fprintf(h, "%s:", entry.label)
+		sorted := make([]string, len(entry.refs))
+		copy(sorted, entry.refs)
+		sort.Strings(sorted)
+		for _, name := range sorted {
+			fmt.Fprintf(h, "%s,", name)
+		}
+		fmt.Fprintln(h)
+	}
+	return fmt.Sprintf("sha256:%x", h.Sum(nil))
 }
 
 // unionStrings returns the set union of a and b, preserving order.
