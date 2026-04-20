@@ -406,7 +406,7 @@ func extractSettings(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		if err := json.Unmarshal(hooksRaw, &hooks); err != nil {
 			return fmt.Errorf("gemini: %s hooks: %w", rel, err)
 		}
-		config.Hooks = hooks
+		config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
 	}
 
 	// Extract full settings into config.Settings
@@ -415,7 +415,7 @@ func extractSettings(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		return fmt.Errorf("gemini: %s settings: %w", rel, err)
 	}
 	settings.SourceProvider = "gemini"
-	config.Settings = settings
+	config.Settings = map[string]ast.SettingsConfig{"default": settings}
 	return nil
 }
 

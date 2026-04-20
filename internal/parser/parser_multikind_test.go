@@ -590,8 +590,12 @@ events:
 	config, err := parsePartial(strings.NewReader(input))
 	require.NoError(t, err)
 	require.NotNil(t, config.Hooks, "config.Hooks must not be nil for kind:hooks")
-	require.Contains(t, config.Hooks, "PreToolUse")
-	assert.Len(t, config.Hooks["PreToolUse"], 1)
+	var effectiveHooks ast.HookConfig
+	if dh, ok := config.Hooks["default"]; ok {
+		effectiveHooks = dh.Events
+	}
+	require.Contains(t, effectiveHooks, "PreToolUse")
+	assert.Len(t, effectiveHooks["PreToolUse"], 1)
 }
 
 func TestParsePartial_KindSettings_Basic(t *testing.T) {
@@ -602,8 +606,8 @@ effort-level: high
 `
 	config, err := parsePartial(strings.NewReader(input))
 	require.NoError(t, err)
-	assert.Equal(t, "sonnet", config.Settings.Model)
-	assert.Equal(t, "high", config.Settings.EffortLevel)
+	assert.Equal(t, "sonnet", config.Settings["default"].Model)
+	assert.Equal(t, "high", config.Settings["default"].EffortLevel)
 }
 
 func TestParsePartial_MultiDoc_ProjectAgentHooks(t *testing.T) {
@@ -639,7 +643,7 @@ events:
 	assert.Equal(t, []string{"backend-engineer"}, config.Project.AgentRefs)
 	assert.Contains(t, config.Agents, "backend-engineer")
 	require.NotNil(t, config.Hooks)
-	assert.Contains(t, config.Hooks, "PreToolUse")
+	assert.Contains(t, config.Hooks["default"].Events, "PreToolUse")
 }
 
 func TestParsePartial_KindProject_KnownFields_RejectsInvalid(t *testing.T) {
@@ -674,7 +678,7 @@ events:
 	config, err := parsePartial(strings.NewReader(input))
 	require.NoError(t, err, "kind:hooks must succeed without a name field")
 	require.NotNil(t, config.Hooks)
-	assert.Contains(t, config.Hooks, "Stop")
+	assert.Contains(t, config.Hooks["default"].Events, "Stop")
 }
 
 func TestParsePartial_KindSettings_NoNameRequired(t *testing.T) {
@@ -685,7 +689,7 @@ model: haiku
 `
 	config, err := parsePartial(strings.NewReader(input))
 	require.NoError(t, err, "kind:settings must succeed without a name field")
-	assert.Equal(t, "haiku", config.Settings.Model)
+	assert.Equal(t, "haiku", config.Settings["default"].Model)
 }
 
 func TestParseableKinds_IncludesNewKinds(t *testing.T) {
@@ -747,7 +751,7 @@ settings:
 	require.NoError(t, err)
 	require.NotNil(t, config.Agents)
 	assert.Equal(t, "Global developer", config.Agents["shared-dev"].Description)
-	assert.Equal(t, "sonnet", config.Settings.Model)
+	assert.Equal(t, "sonnet", config.Settings["default"].Model)
 }
 
 func TestParseFile_GlobalKind_DuplicateAgent_Error(t *testing.T) {
@@ -775,7 +779,7 @@ settings:
 `
 	config, err := Parse(strings.NewReader(input))
 	require.NoError(t, err)
-	assert.Equal(t, "sonnet", config.Settings.Model)
+	assert.Equal(t, "sonnet", config.Settings["default"].Model)
 }
 
 func TestParseFile_GlobalKind_NoProject_Error(t *testing.T) {

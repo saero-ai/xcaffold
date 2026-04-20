@@ -117,7 +117,13 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		}
 	}
 
-	mcpJSON, err := compileClaudeMCP(config.MCP, config.Settings.MCPServers)
+	settings := config.Settings["default"]
+	var hooks ast.HookConfig
+	if dh, ok := config.Hooks["default"]; ok {
+		hooks = dh.Events
+	}
+
+	mcpJSON, err := compileClaudeMCP(config.MCP, settings.MCPServers)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to compile MCP servers: %w", err)
 	}
@@ -125,7 +131,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		out.Files["mcp.json"] = mcpJSON
 	}
 
-	settingsJSON, err := compileSettingsJSON(config.Settings, config.Hooks)
+	settingsJSON, err := compileSettingsJSON(settings, hooks)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to compile settings: %w", err)
 	}

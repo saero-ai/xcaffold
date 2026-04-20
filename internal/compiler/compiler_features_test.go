@@ -227,12 +227,12 @@ func TestCompile_SkillReferences_PathTraversal_Rejected(t *testing.T) {
 // a JSON object ({"type":"command","command":"..."}) not a plain string.
 func TestCompile_Settings_StatusLine_IsObject(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			StatusLine: &ast.StatusLineConfig{
 				Type:    "command",
 				Command: "bash ~/.claude/statusline.sh",
 			},
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, "", "", "")
@@ -256,12 +256,12 @@ func TestCompile_Settings_StatusLine_IsObject(t *testing.T) {
 // as a JSON object (map[string]bool) not an array.
 func TestCompile_Settings_EnabledPlugins_IsMap(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			EnabledPlugins: map[string]bool{
 				"plugin-a": true,
 				"plugin-b": false,
 			},
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, "", "", "")
@@ -285,9 +285,9 @@ func TestCompile_Settings_EnabledPlugins_IsMap(t *testing.T) {
 // as the first key in settings.json.
 func TestCompile_Settings_Schema_IsFirstKey(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			StatusLine: &ast.StatusLineConfig{Type: "command"},
-		},
+		}},
 	}
 	out, _, err := Compile(config, "", "", "")
 	require.NoError(t, err)
@@ -416,7 +416,7 @@ func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
 	trueVal := true
 	falseVal := false
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{
 				Enabled:                  &trueVal,
 				AutoAllowBashIfSandboxed: &trueVal,
@@ -431,7 +431,7 @@ func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
 					AllowedDomains: []string{"registry.npmjs.org", "github.com"},
 				},
 			},
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, "", "", "")
@@ -513,12 +513,12 @@ func TestCompile_MCP_HTTPTransport_EmitsCorrectly(t *testing.T) {
 
 func TestCompile_Settings_TypedPermissions_EmitsCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Allow: []string{"Bash(npm test *)", "Read(**/*.ts)"},
 				Deny:  []string{"Bash(rm -rf *)"},
 			},
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, "", "", "")
@@ -554,20 +554,23 @@ func TestCompile_Settings_TypedPermissions_EmitsCorrectly(t *testing.T) {
 
 func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PostToolUse": []ast.HookMatcherGroup{
-					{
-						Matcher: "Write|Edit",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "npx prettier --write $FILE", Timeout: intPtr(10000)},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PostToolUse": []ast.HookMatcherGroup{
+						{
+							Matcher: "Write|Edit",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "npx prettier --write $FILE", Timeout: intPtr(10000)},
+							},
 						},
 					},
-				},
-				"Notification": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo 'notification received'"},
+					"Notification": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo 'notification received'"},
+							},
 						},
 					},
 				},
@@ -692,11 +695,11 @@ func TestCompile_Settings_NewFields_EmitCorrectly(t *testing.T) {
 	trueVal := true
 	falseVal := false
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			OtelHeadersHelper: "/bin/generate_headers.sh",
 			DisableAllHooks:   &falseVal,
 			Attribution:       &trueVal,
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, "", "", "")
@@ -725,20 +728,23 @@ func intPtr(i int) *int { return &i }
 
 func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{
-								Type: "http",
-								URL:  "https://hooks.internal/validate",
-								Headers: map[string]string{
-									"Authorization": "Bearer ${API_KEY}",
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{
+									Type: "http",
+									URL:  "https://hooks.internal/validate",
+									Headers: map[string]string{
+										"Authorization": "Bearer ${API_KEY}",
+									},
+									AllowedEnvVars: []string{"API_KEY"},
+									Timeout:        intPtr(30),
 								},
-								AllowedEnvVars: []string{"API_KEY"},
-								Timeout:        intPtr(30),
 							},
 						},
 					},
@@ -767,17 +773,20 @@ func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 
 func TestCompile_Hooks_PromptHandler_EmitsCorrectly(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{
-						Matcher: "Edit",
-						Hooks: []ast.HookHandler{
-							{
-								Type:    "prompt",
-								Prompt:  "Verify this edit follows our coding standards",
-								Model:   "claude-haiku-4-5-20251001",
-								Timeout: intPtr(30),
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{
+							Matcher: "Edit",
+							Hooks: []ast.HookHandler{
+								{
+									Type:    "prompt",
+									Prompt:  "Verify this edit follows our coding standards",
+									Model:   "claude-haiku-4-5-20251001",
+									Timeout: intPtr(30),
+								},
 							},
 						},
 					},
@@ -806,20 +815,23 @@ func TestCompile_Hooks_AllHandlerFields_EmitCorrectly(t *testing.T) {
 	asyncTrue := true
 	onceTrue := true
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"SessionStart": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{
-								Type:          "command",
-								Command:       "./scripts/setup.sh",
-								Timeout:       intPtr(120),
-								Async:         &asyncTrue,
-								Once:          &onceTrue,
-								Shell:         "bash",
-								StatusMessage: "Running setup...",
-								If:            "Bash(./scripts/*)",
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"SessionStart": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{
+									Type:          "command",
+									Command:       "./scripts/setup.sh",
+									Timeout:       intPtr(120),
+									Async:         &asyncTrue,
+									Once:          &onceTrue,
+									Shell:         "bash",
+									StatusMessage: "Running setup...",
+									If:            "Bash(./scripts/*)",
+								},
 							},
 						},
 					},
@@ -858,7 +870,7 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 	falseVal := false
 	cleanupDays := 30
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Model:                      "claude-sonnet-4-6",
 			OutputStyle:                "concise",
 			Language:                   "en",
@@ -872,7 +884,7 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 			ClaudeMdExcludes:           []string{"vendor/**"},
 			AutoMemoryEnabled:          &trueVal,
 			AutoMemoryDirectory:        ".claude/memory",
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, "", "", "")
@@ -910,11 +922,11 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 
 func TestCompile_Permissions_DenyPropagatestoSettings(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Deny: []string{"Write"},
 			},
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, "", "", "")
@@ -940,11 +952,11 @@ func TestCompile_Permissions_DenyPropagatestoSettings(t *testing.T) {
 func TestCompile_Permissions_SandboxPropagatestoSettings(t *testing.T) {
 	enabled := true
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{
 				Enabled: &enabled,
 			},
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, "", "", "")
@@ -965,12 +977,12 @@ func TestCompile_Permissions_SandboxPropagatestoSettings(t *testing.T) {
 
 func TestCompile_Permissions_CursorDropsPermissions(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Allow: []string{"Read"},
 				Deny:  []string{"Bash"},
 			},
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, t.TempDir(), "cursor", "")
@@ -988,11 +1000,11 @@ func TestCompile_Permissions_CursorDropsPermissions(t *testing.T) {
 func TestCompile_Permissions_CursorDropsSandbox(t *testing.T) {
 	enabled := true
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{
 				Enabled: &enabled,
 			},
-		},
+		}},
 	}
 
 	out, _, err := Compile(config, t.TempDir(), "cursor", "")

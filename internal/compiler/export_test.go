@@ -53,9 +53,9 @@ func TestExportPlugin_GeneratesManifest(t *testing.T) {
 func TestExportPlugin_SkipsSettingsJSON(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "test"},
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Model: "claude-sonnet-4-6",
-		},
+		}},
 	}
 
 	compiled, _, err := Compile(config, "", "", "")
@@ -71,10 +71,13 @@ func TestExportPlugin_SkipsSettingsJSON(t *testing.T) {
 func TestExportPlugin_RemapsHooks(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "test"},
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"SessionStart": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "echo hi"}}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"SessionStart": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "echo hi"}}},
+					},
 				},
 			},
 		},

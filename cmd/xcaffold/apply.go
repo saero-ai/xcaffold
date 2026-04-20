@@ -592,14 +592,15 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 // gemini drop settings.Permissions, settings.Sandbox, and per-agent security
 // fields (effort, permission-mode, disallowed-tools, isolation).
 func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, warnings []string) {
+	es := config.Settings["default"]
 	switch target {
 	case "cursor", "antigravity":
 		label := target
 
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
 		}
-		if config.Settings.Sandbox != nil {
+		if es.Sandbox != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
 		}
 
@@ -616,10 +617,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 		}
 
 		// Agent vs deny conflicts (errors)
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			for agentID, agent := range config.Agents {
 				for _, tool := range agent.Tools {
-					for _, denyRule := range config.Settings.Permissions.Deny {
+					for _, denyRule := range es.Permissions.Deny {
 						if denyRule == tool {
 							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
 						}
@@ -631,10 +632,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 	case targetGemini:
 		label := targetGemini
 
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
 		}
-		if config.Settings.Sandbox != nil {
+		if es.Sandbox != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
 		}
 
@@ -654,10 +655,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 		}
 
 		// Agent vs deny conflicts (errors)
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			for agentID, agent := range config.Agents {
 				for _, tool := range agent.Tools {
-					for _, denyRule := range config.Settings.Permissions.Deny {
+					for _, denyRule := range es.Permissions.Deny {
 						if denyRule == tool {
 							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
 						}
@@ -669,10 +670,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 	case targetCopilot:
 		label := targetCopilot
 
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
 		}
-		if config.Settings.Sandbox != nil {
+		if es.Sandbox != nil {
 			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
 		}
 
@@ -698,10 +699,10 @@ func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, war
 		}
 
 		// Agent vs deny conflicts (errors)
-		if config.Settings.Permissions != nil {
+		if es.Permissions != nil {
 			for agentID, agent := range config.Agents {
 				for _, tool := range agent.Tools {
-					for _, denyRule := range config.Settings.Permissions.Deny {
+					for _, denyRule := range es.Permissions.Deny {
 						if denyRule == tool {
 							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
 						}

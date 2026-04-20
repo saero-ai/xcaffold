@@ -176,8 +176,20 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 		Project: &ast.ProjectConfig{
 			Instructions: "Full Copilot integration test",
 		},
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{},
+		}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{
+							{Type: "command", Command: "echo checking", Timeout: &timeout},
+						}},
+					},
+				},
+			},
 		},
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
@@ -200,13 +212,6 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 					Description:  "Code review skill",
 					AllowedTools: []string{"shell"},
 					Instructions: "Review code carefully.",
-				},
-			},
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{
-						{Type: "command", Command: "echo checking", Timeout: &timeout},
-					}},
 				},
 			},
 			MCP: map[string]ast.MCPConfig{

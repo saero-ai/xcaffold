@@ -167,7 +167,7 @@ func TestParse_Frontmatter_SettingsKindWithBodyIgnored(t *testing.T) {
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
-	assert.Equal(t, "sonnet-4", cfg.Settings.Model)
+	assert.Equal(t, "sonnet-4", cfg.Settings["default"].Model)
 }
 
 func TestParse_Frontmatter_KnownFieldsOnFrontmatterOnly(t *testing.T) {

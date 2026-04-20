@@ -288,12 +288,27 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 	isolation := "container"
 
 	return &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Allow: []string{"Bash(*)"},
 			},
 			Sandbox: &ast.SandboxConfig{
 				Enabled: &trueVal,
+			},
+		}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": {
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo ${MY_ENV_VAR}"},
+							},
+						},
+					},
+				},
 			},
 		},
 		ResourceScope: ast.ResourceScope{
@@ -353,16 +368,6 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 					Description:  "triggers alwaysApply fidelity note",
 					AlwaysApply:  &trueVal,
 					Instructions: "Follow this rule.",
-				},
-			},
-			Hooks: ast.HookConfig{
-				"PreToolUse": {
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo ${MY_ENV_VAR}"},
-						},
-					},
 				},
 			},
 			MCP: map[string]ast.MCPConfig{

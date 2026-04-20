@@ -85,23 +85,13 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 
 // mergeResourceScope overlays project-scoped resources onto the root scope.
 // For map-based resources (agents, skills, rules, MCP, workflows), project
-// entries override global entries with the same ID. Hooks are additive.
+// entries override global entries with the same ID.
 func mergeResourceScope(root, project *ast.ResourceScope) {
 	root.Agents = mergeMap(root.Agents, project.Agents)
 	root.Skills = mergeMap(root.Skills, project.Skills)
 	root.Rules = mergeMap(root.Rules, project.Rules)
 	root.MCP = mergeMap(root.MCP, project.MCP)
 	root.Workflows = mergeMap(root.Workflows, project.Workflows)
-
-	// Hooks are additive — project hooks append to global hooks.
-	if project.Hooks != nil {
-		if root.Hooks == nil {
-			root.Hooks = make(ast.HookConfig)
-		}
-		for event, groups := range project.Hooks {
-			root.Hooks[event] = append(root.Hooks[event], groups...)
-		}
-	}
 }
 
 // mergeMap copies base entries then overlays child entries (child wins on conflict).

@@ -225,7 +225,7 @@ func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.Xcaf
 		return nil, fmt.Errorf("blueprint %q not found; available: %v", blueprintName, available)
 	}
 
-	filtered := *config // shallow copy
+	filtered := *config // shallow copy preserves Hooks, Settings, Blueprints, etc.
 	filtered.ResourceScope = ast.ResourceScope{
 		Agents:    filterMap(config.Agents, p.Agents),
 		Skills:    filterMap(config.Skills, p.Skills),
@@ -234,10 +234,11 @@ func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.Xcaf
 		MCP:       filterMap(config.MCP, p.MCP),
 		Policies:  filterMap(config.Policies, p.Policies),
 		Memory:    filterMap(config.Memory, p.Memory),
-		// Hooks and References are not blueprint-filtered; preserve originals.
-		Hooks:      config.Hooks,
+		// References are not blueprint-filtered; preserve originals.
 		References: config.References,
 	}
+	// Hooks live on XcaffoldConfig directly (not in ResourceScope); preserve originals.
+	filtered.Hooks = config.Hooks
 
 	return &filtered, nil
 }

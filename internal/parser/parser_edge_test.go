@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -129,7 +130,7 @@ mcp:
 	assert.Contains(t, cfg.Agents, "my-agent")
 	assert.Contains(t, cfg.Skills, "my-skill")
 	assert.Contains(t, cfg.Rules, "my-rule")
-	assert.Contains(t, cfg.Hooks, "PreToolUse")
+	assert.Contains(t, cfg.Hooks["default"].Events, "PreToolUse")
 	assert.Contains(t, cfg.MCP, "my-server")
 	require.NotNil(t, cfg.Project)
 	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.ClaudePath)
@@ -239,9 +240,13 @@ hooks:
 	cfg, err := Parse(strings.NewReader(yaml))
 	require.NoError(t, err, "valid hooks structure should parse without errors")
 	require.NotNil(t, cfg)
-	assert.Contains(t, cfg.Hooks, "PostToolUse")
-	assert.Len(t, cfg.Hooks["PostToolUse"], 1)
-	assert.Equal(t, "Write", cfg.Hooks["PostToolUse"][0].Matcher)
+	var effectiveHooks ast.HookConfig
+	if dh, ok := cfg.Hooks["default"]; ok {
+		effectiveHooks = dh.Events
+	}
+	assert.Contains(t, effectiveHooks, "PostToolUse")
+	assert.Len(t, effectiveHooks["PostToolUse"], 1)
+	assert.Equal(t, "Write", effectiveHooks["PostToolUse"][0].Matcher)
 }
 
 // TestParse_InstructionsAndFileSet_ReturnsError verifies that setting both

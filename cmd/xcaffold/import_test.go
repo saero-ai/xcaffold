@@ -1058,7 +1058,6 @@ func TestImport_ClaudeAndCursor_DetectsDivergence(t *testing.T) {
 			Agents: make(map[string]ast.AgentConfig),
 			Skills: make(map[string]ast.SkillConfig),
 			Rules:  make(map[string]ast.RuleConfig),
-			Hooks:  make(ast.HookConfig),
 			MCP:    make(map[string]ast.MCPConfig),
 		},
 	}
@@ -1268,8 +1267,7 @@ func TestImport_FromGemini_ExtractsSettingsHooksAndMCP(t *testing.T) {
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
-			Hooks: make(ast.HookConfig),
-			MCP:   make(map[string]ast.MCPConfig),
+			MCP: make(map[string]ast.MCPConfig),
 		},
 	}
 	count := 0
@@ -1280,8 +1278,12 @@ func TestImport_FromGemini_ExtractsSettingsHooksAndMCP(t *testing.T) {
 	require.NoError(t, importGeminiSettings(data, config, &count, &warnings))
 	require.Empty(t, warnings)
 
-	// Hooks must be mapped back to xcaffold event names.
-	preTool, ok := config.Hooks["PreToolExecution"]
+	// Hooks must be mapped back to xcaffold event names via config.Hooks["default"].
+	var effectiveHooks ast.HookConfig
+	if dh, ok := config.Hooks["default"]; ok {
+		effectiveHooks = dh.Events
+	}
+	preTool, ok := effectiveHooks["PreToolExecution"]
 	require.True(t, ok, "BeforeTool must map to PreToolExecution")
 	require.Len(t, preTool, 1)
 	require.Equal(t, "write_file|replace", preTool[0].Matcher)
@@ -1290,7 +1292,7 @@ func TestImport_FromGemini_ExtractsSettingsHooksAndMCP(t *testing.T) {
 	require.NotNil(t, preTool[0].Hooks[0].Timeout)
 	require.Equal(t, 5000, *preTool[0].Hooks[0].Timeout)
 
-	postTool, ok := config.Hooks["PostToolExecution"]
+	postTool, ok := effectiveHooks["PostToolExecution"]
 	require.True(t, ok, "AfterTool must map to PostToolExecution")
 	require.Len(t, postTool, 1)
 	require.Equal(t, "scripts/post.sh", postTool[0].Hooks[0].Command)
@@ -1417,8 +1419,7 @@ func TestImport_Copilot_Hooks_Roundtrip(t *testing.T) {
 
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
-			Hooks: make(ast.HookConfig),
-			MCP:   make(map[string]ast.MCPConfig),
+			MCP: make(map[string]ast.MCPConfig),
 		},
 	}
 	var count int
@@ -1426,8 +1427,12 @@ func TestImport_Copilot_Hooks_Roundtrip(t *testing.T) {
 	err := importCopilotSettings(filepath.Join(dir, ".github"), dir, cfg, &count, &warnings)
 	require.NoError(t, err)
 
-	require.Contains(t, cfg.Hooks, "PreToolUse")
-	handlers := cfg.Hooks["PreToolUse"]
+	var effectiveHooks ast.HookConfig
+	if dh, ok := cfg.Hooks["default"]; ok {
+		effectiveHooks = dh.Events
+	}
+	require.Contains(t, effectiveHooks, "PreToolUse")
+	handlers := effectiveHooks["PreToolUse"]
 	require.Len(t, handlers, 1)
 	require.Len(t, handlers[0].Hooks, 1)
 	assert.Equal(t, "echo pre", handlers[0].Hooks[0].Command)
@@ -1447,8 +1452,7 @@ func TestImport_Copilot_MCP(t *testing.T) {
 
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
-			Hooks: make(ast.HookConfig),
-			MCP:   make(map[string]ast.MCPConfig),
+			MCP: make(map[string]ast.MCPConfig),
 		},
 	}
 	var count int

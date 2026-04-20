@@ -7,7 +7,6 @@ type ResourceScope struct {
 	Agents     map[string]AgentConfig     `yaml:"agents,omitempty"`
 	Skills     map[string]SkillConfig     `yaml:"skills,omitempty"`
 	Rules      map[string]RuleConfig      `yaml:"rules,omitempty"`
-	Hooks      HookConfig                 `yaml:"hooks,omitempty"`
 	MCP        map[string]MCPConfig       `yaml:"mcp,omitempty"`
 	Workflows  map[string]WorkflowConfig  `yaml:"workflows,omitempty"`
 	Policies   map[string]PolicyConfig    `yaml:"policies,omitempty"`
@@ -21,7 +20,8 @@ type XcaffoldConfig struct {
 	Version string `yaml:"version"`
 	Extends string `yaml:"extends,omitempty"`
 
-	Settings SettingsConfig `yaml:"settings,omitempty"`
+	Settings map[string]SettingsConfig  `yaml:"settings,omitempty"`
+	Hooks    map[string]NamedHookConfig `yaml:"hooks,omitempty"`
 
 	// Blueprints maps named resource subset selectors. Each blueprint selects
 	// which agents, skills, rules, workflows, MCP servers, policies, memory
@@ -336,6 +336,12 @@ type HookHandler struct {
 	SourceProvider string `yaml:"-" json:"-"`
 }
 
+// NamedHookConfig is a named lifecycle hook block.
+type NamedHookConfig struct {
+	Name   string     `yaml:"name,omitempty"`
+	Events HookConfig `yaml:"events,omitempty"`
+}
+
 // MCPConfig defines a local or remote MCP server context.
 type MCPConfig struct {
 	Env              map[string]string `yaml:"env,omitempty"     json:"env,omitempty"`
@@ -416,6 +422,7 @@ type SandboxNetwork struct {
 // that gets merged into the mcpServers key during compilation. Fields defined
 // here take precedence over the shorthand for mcpServers if both are set.
 type SettingsConfig struct {
+	Name                              string               `yaml:"name,omitempty" json:"-"`
 	Agent                             any                  `yaml:"agent,omitempty" json:"agent,omitempty"`
 	Worktree                          any                  `yaml:"worktree,omitempty" json:"worktree,omitempty"`
 	AutoMode                          any                  `yaml:"auto-mode,omitempty" json:"autoMode,omitempty"`

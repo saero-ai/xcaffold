@@ -127,13 +127,16 @@ func TestCompile_RuleWithPaths(t *testing.T) {
 // TestCompile_HooksJSON — valid JSON output with 3-level nested structure
 func TestCompile_HooksJSON(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "make lint"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "make lint"},
+							},
 						},
 					},
 				},

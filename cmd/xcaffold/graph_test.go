@@ -51,20 +51,25 @@ func TestGraphAll_MutualExclusion_WithProject(t *testing.T) {
 // graph nodes with the correct kind and labels.
 func TestBuildGraph_HooksAndWorkflows(t *testing.T) {
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": {
-					{
-						Matcher: "Bash",
-						Hooks:   []ast.HookHandler{{Type: "command", Command: "echo pre"}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": {
+						{
+							Matcher: "Bash",
+							Hooks:   []ast.HookHandler{{Type: "command", Command: "echo pre"}},
+						},
 					},
-				},
-				"Stop": {
-					{
-						Hooks: []ast.HookHandler{{Type: "command", Command: "echo stop"}},
+					"Stop": {
+						{
+							Hooks: []ast.HookHandler{{Type: "command", Command: "echo stop"}},
+						},
 					},
 				},
 			},
+		},
+		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"deploy": {
 					Description: "Run deployment pipeline",

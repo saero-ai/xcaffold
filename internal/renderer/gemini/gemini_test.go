@@ -240,15 +240,20 @@ func TestCompile_Gemini_OutputPathsRelativeToOutputDir(t *testing.T) {
 			Agents: map[string]ast.AgentConfig{
 				"helper": {Name: "helper", Description: "Helper agent.", Instructions: "You help."},
 			},
-			Hooks: ast.HookConfig{
-				"PreToolExecution": {
-					{Matcher: "write_file", Hooks: []ast.HookHandler{
-						{Type: "command", Command: "./hooks/check.sh"},
-					}},
-				},
-			},
 			MCP: map[string]ast.MCPConfig{
 				"github": {Command: "docker", Args: []string{"run", "ghcr.io/github/github-mcp-server"}},
+			},
+		},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolExecution": {
+						{Matcher: "write_file", Hooks: []ast.HookHandler{
+							{Type: "command", Command: "./hooks/check.sh"},
+						}},
+					},
+				},
 			},
 		},
 	}
@@ -306,15 +311,20 @@ func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
 					InstructionsFile: "agent-body.md",
 				},
 			},
-			Hooks: ast.HookConfig{
-				"PreToolExecution": {
-					{Matcher: "write_file", Hooks: []ast.HookHandler{
-						{Type: "command", Command: "./hooks/check.sh", Timeout: intPtr(5000)},
-					}},
-				},
-			},
 			MCP: map[string]ast.MCPConfig{
 				"github": {Command: "docker", Args: []string{"run", "-i", "ghcr.io/github/github-mcp-server"}},
+			},
+		},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolExecution": {
+						{Matcher: "write_file", Hooks: []ast.HookHandler{
+							{Type: "command", Command: "./hooks/check.sh", Timeout: intPtr(5000)},
+						}},
+					},
+				},
 			},
 		},
 	}

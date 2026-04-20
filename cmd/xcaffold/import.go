@@ -495,7 +495,6 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 			Agents: make(map[string]ast.AgentConfig),
 			Skills: make(map[string]ast.SkillConfig),
 			Rules:  make(map[string]ast.RuleConfig),
-			Hooks:  make(ast.HookConfig),
 			MCP:    make(map[string]ast.MCPConfig),
 		},
 	}
@@ -728,7 +727,6 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 			Agents: make(map[string]ast.AgentConfig),
 			Skills: make(map[string]ast.SkillConfig),
 			Rules:  make(map[string]ast.RuleConfig),
-			Hooks:  make(ast.HookConfig),
 			MCP:    make(map[string]ast.MCPConfig),
 		},
 	}
@@ -889,7 +887,12 @@ func importGeminiSettings(data []byte, config *ast.XcaffoldConfig, count *int, w
 	}
 
 	if config.Hooks == nil {
-		config.Hooks = make(ast.HookConfig)
+		config.Hooks = make(map[string]ast.NamedHookConfig)
+	}
+	defaultHook := config.Hooks["default"]
+	if defaultHook.Events == nil {
+		defaultHook.Name = "default"
+		defaultHook.Events = make(ast.HookConfig)
 	}
 
 	for geminiEvent, eventGroups := range hooksMap {
@@ -917,10 +920,11 @@ func importGeminiSettings(data []byte, config *ast.XcaffoldConfig, count *int, w
 			}
 		}
 		if len(matcherGroups) > 0 {
-			config.Hooks[xcaffoldEvent] = append(config.Hooks[xcaffoldEvent], matcherGroups...)
+			defaultHook.Events[xcaffoldEvent] = append(defaultHook.Events[xcaffoldEvent], matcherGroups...)
 			*count++
 		}
 	}
+	config.Hooks["default"] = defaultHook
 
 	return nil
 }
@@ -939,7 +943,9 @@ func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warning
 	if hooksRaw, ok := raw["hooks"]; ok {
 		hooksBytes, err := json.Marshal(hooksRaw)
 		if err == nil {
-			if err := json.Unmarshal(hooksBytes, &config.Hooks); err == nil {
+			var hooks ast.HookConfig
+			if err := json.Unmarshal(hooksBytes, &hooks); err == nil {
+				config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
 				*count++
 			}
 		}
@@ -1015,7 +1021,7 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 	}
 
 	if changed {
-		config.Settings = settings
+		config.Settings = map[string]ast.SettingsConfig{"default": settings}
 	}
 }
 
@@ -1487,7 +1493,12 @@ func importCopilotSettings(dir string, projectRoot string, config *ast.XcaffoldC
 		}
 
 		if config.Hooks == nil {
-			config.Hooks = make(ast.HookConfig)
+			config.Hooks = make(map[string]ast.NamedHookConfig)
+		}
+		defaultHook := config.Hooks["default"]
+		if defaultHook.Events == nil {
+			defaultHook.Name = "default"
+			defaultHook.Events = make(ast.HookConfig)
 		}
 
 		for copilotEvent, eventGroups := range hookPayload.Hooks {
@@ -1518,10 +1529,11 @@ func importCopilotSettings(dir string, projectRoot string, config *ast.XcaffoldC
 				}
 			}
 			if len(matcherGroups) > 0 {
-				config.Hooks[xcaffoldEvent] = append(config.Hooks[xcaffoldEvent], matcherGroups...)
+				defaultHook.Events[xcaffoldEvent] = append(defaultHook.Events[xcaffoldEvent], matcherGroups...)
 				*count++
 			}
 		}
+		config.Hooks["default"] = defaultHook
 	}
 
 	// Parse MCP servers from .vscode/mcp.json
@@ -2163,18 +2175,24 @@ func injectAllowEntries(config *ast.XcaffoldConfig, allowEntries []string) {
 	if len(allowEntries) == 0 {
 		return
 	}
-	if config.Settings.Permissions == nil {
-		config.Settings.Permissions = &ast.PermissionsConfig{}
+	// Retrieve (or create) the "default" settings entry.
+	settings := config.Settings["default"]
+	if settings.Permissions == nil {
+		settings.Permissions = &ast.PermissionsConfig{}
 	}
-	existing := make(map[string]bool, len(config.Settings.Permissions.Allow))
-	for _, e := range config.Settings.Permissions.Allow {
+	existing := make(map[string]bool, len(settings.Permissions.Allow))
+	for _, e := range settings.Permissions.Allow {
 		existing[e] = true
 	}
 	for _, entry := range allowEntries {
 		if !existing[entry] {
-			config.Settings.Permissions.Allow = append(config.Settings.Permissions.Allow, entry)
+			settings.Permissions.Allow = append(settings.Permissions.Allow, entry)
 		}
 	}
+	if config.Settings == nil {
+		config.Settings = make(map[string]ast.SettingsConfig)
+	}
+	config.Settings["default"] = settings
 	fmt.Printf("  merged %d permission allow entries into settings.permissions\n", len(allowEntries))
 }
 
@@ -2290,7 +2308,6 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 			Skills:    make(map[string]ast.SkillConfig),
 			Rules:     make(map[string]ast.RuleConfig),
 			Workflows: make(map[string]ast.WorkflowConfig),
-			Hooks:     make(ast.HookConfig),
 			MCP:       make(map[string]ast.MCPConfig),
 		},
 	}
@@ -2314,7 +2331,6 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 				Skills:    make(map[string]ast.SkillConfig),
 				Rules:     make(map[string]ast.RuleConfig),
 				Workflows: make(map[string]ast.WorkflowConfig),
-				Hooks:     make(ast.HookConfig),
 				MCP:       make(map[string]ast.MCPConfig),
 			},
 		}

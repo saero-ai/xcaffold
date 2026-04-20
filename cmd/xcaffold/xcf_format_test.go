@@ -173,15 +173,20 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"security": {Name: "security", Description: "Security rules"},
 			},
-			Hooks: ast.HookConfig{
-				"PreToolUse": {
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "echo pre"}}},
+		},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": {
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "echo pre"}}},
+					},
 				},
 			},
 		},
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Model: "claude-sonnet-4-5",
-		},
+		}},
 	}
 
 	err := WriteSplitFiles(config, tmpDir)

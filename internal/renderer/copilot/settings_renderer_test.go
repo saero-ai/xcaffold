@@ -15,12 +15,15 @@ import (
 // to .github/hooks/xcaffold-hooks.json with version 1 and the preToolUse event key.
 func TestCompile_Copilot_Hooks_BasicEvent(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "scripts/pre-tool.sh"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "scripts/pre-tool.sh"},
+							},
 						},
 					},
 				},
@@ -52,16 +55,19 @@ func TestCompile_Copilot_Hooks_BasicEvent(t *testing.T) {
 // and SessionStart all appear as separate event keys in xcaffold-hooks.json.
 func TestCompile_Copilot_Hooks_MultipleEvents(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "pre.sh"}}},
-				},
-				"PostToolUse": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "post.sh"}}},
-				},
-				"SessionStart": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "start.sh"}}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "pre.sh"}}},
+					},
+					"PostToolUse": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "post.sh"}}},
+					},
+					"SessionStart": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "start.sh"}}},
+					},
 				},
 			},
 		},
@@ -88,14 +94,17 @@ func TestCompile_Copilot_Hooks_MultipleEvents(t *testing.T) {
 // (Notification) emits a CodeFieldUnsupported note and does NOT appear in the JSON.
 func TestCompile_Copilot_Hooks_UnsupportedEvent(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"Notification": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "notify.sh"}}},
-				},
-				// A valid event that should still be emitted.
-				"PreToolUse": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "check.sh"}}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"Notification": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "notify.sh"}}},
+					},
+					// A valid event that should still be emitted.
+					"PreToolUse": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "check.sh"}}},
+					},
 				},
 			},
 		},
@@ -130,12 +139,15 @@ func TestCompile_Copilot_Hooks_UnsupportedEvent(t *testing.T) {
 func TestCompile_Copilot_Hooks_TimeoutConversion(t *testing.T) {
 	timeout := 5000
 	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "check.sh", Timeout: &timeout},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "check.sh", Timeout: &timeout},
+							},
 						},
 					},
 				},
@@ -245,12 +257,17 @@ func TestCompile_Copilot_MCP_GlobalConfigNote(t *testing.T) {
 // note rather than a file (because .vscode/mcp.json lives outside .github/).
 func TestCompile_Copilot_Settings_MergedOutput(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "check.sh"}}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "check.sh"}}},
+					},
 				},
 			},
+		},
+		ResourceScope: ast.ResourceScope{
 			MCP: map[string]ast.MCPConfig{
 				"my-mcp": {Command: "node", Args: []string{"index.js"}},
 			},
@@ -276,7 +293,7 @@ func TestCompile_Copilot_Settings_MergedOutput(t *testing.T) {
 // settings fields (Permissions, Sandbox, StatusLine) emit CodeSettingsFieldUnsupported.
 func TestCompile_Copilot_Settings_UnsupportedFields(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Allow: []string{"Bash(*)"},
 			},
@@ -285,7 +302,7 @@ func TestCompile_Copilot_Settings_UnsupportedFields(t *testing.T) {
 				Type:    "command",
 				Command: "echo ok",
 			},
-		},
+		}},
 	}
 
 	r := copilot.New()

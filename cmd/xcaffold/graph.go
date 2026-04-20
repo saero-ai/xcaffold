@@ -314,9 +314,10 @@ func buildGraph(config *ast.XcaffoldConfig) *graphData {
 }
 
 func appendGraphSettings(config *ast.XcaffoldConfig, g *graphData) {
-	if len(config.Settings.EnabledPlugins) > 0 {
-		plugins := make([]string, 0, len(config.Settings.EnabledPlugins))
-		for p, enabled := range config.Settings.EnabledPlugins {
+	es := config.Settings["default"]
+	if len(es.EnabledPlugins) > 0 {
+		plugins := make([]string, 0, len(es.EnabledPlugins))
+		for p, enabled := range es.EnabledPlugins {
 			if enabled {
 				plugins = append(plugins, p)
 			}
@@ -426,7 +427,11 @@ func appendGraphPolicies(config *ast.XcaffoldConfig, g *graphData) {
 }
 
 func appendGraphHooks(config *ast.XcaffoldConfig, g *graphData) {
-	for _, event := range sortedKeys(config.Hooks) {
+	var effectiveHooks ast.HookConfig
+	if dh, ok := config.Hooks["default"]; ok {
+		effectiveHooks = dh.Events
+	}
+	for _, event := range sortedKeys(effectiveHooks) {
 		g.Nodes = append(g.Nodes, graphNode{
 			ID:    "hook:" + event,
 			Kind:  "hook",

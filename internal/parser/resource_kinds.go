@@ -97,6 +97,7 @@ type projectDocFields struct {
 type hooksDocument struct {
 	Kind    string         `yaml:"kind"`
 	Version string         `yaml:"version"`
+	Name    string         `yaml:"name,omitempty"`
 	Events  ast.HookConfig `yaml:"events"`
 }
 
@@ -455,12 +456,24 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if err := validateEnvelope(doc.Version, "", kind); err != nil {
 			return err
 		}
+		name := doc.Name
+		if name == "" {
+			name = "default"
+		}
 		if config.Hooks == nil {
-			config.Hooks = make(ast.HookConfig)
+			config.Hooks = make(map[string]ast.NamedHookConfig)
+		}
+		existing, ok := config.Hooks[name]
+		if !ok {
+			existing = ast.NamedHookConfig{Name: name}
+		}
+		if existing.Events == nil {
+			existing.Events = make(ast.HookConfig)
 		}
 		for event, groups := range doc.Events {
-			config.Hooks[event] = append(config.Hooks[event], groups...)
+			existing.Events[event] = append(existing.Events[event], groups...)
 		}
+		config.Hooks[name] = existing
 
 	case "settings":
 		var doc settingsDocument
@@ -472,7 +485,15 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if err := validateEnvelope(doc.Version, "", kind); err != nil {
 			return err
 		}
-		config.Settings = doc.SettingsConfig
+		name := doc.SettingsConfig.Name
+		if name == "" {
+			name = "default"
+			doc.SettingsConfig.Name = name
+		}
+		if config.Settings == nil {
+			config.Settings = make(map[string]ast.SettingsConfig)
+		}
+		config.Settings[name] = doc.SettingsConfig
 
 	case "global":
 		var doc globalDocument
@@ -485,10 +506,30 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			return err
 		}
 		config.Extends = doc.Extends
-		// Settings uses direct assignment (not merge), matching the case "settings":
-		// handler. Within a single file, only one kind: global or kind: settings
-		// document should appear; directory-level merging is handled by mergeAllStrict.
-		config.Settings = doc.Settings
+		if config.Settings == nil {
+			config.Settings = make(map[string]ast.SettingsConfig)
+		}
+		sName := doc.Settings.Name
+		if sName == "" {
+			sName = "default"
+		}
+		config.Settings[sName] = doc.Settings
+		if doc.Hooks != nil {
+			if config.Hooks == nil {
+				config.Hooks = make(map[string]ast.NamedHookConfig)
+			}
+			existing, ok := config.Hooks["default"]
+			if !ok {
+				existing = ast.NamedHookConfig{Name: "default"}
+			}
+			if existing.Events == nil {
+				existing.Events = make(ast.HookConfig)
+			}
+			for event, groups := range doc.Hooks {
+				existing.Events[event] = append(existing.Events[event], groups...)
+			}
+			config.Hooks["default"] = existing
+		}
 		for k, v := range doc.Agents {
 			if config.Agents == nil {
 				config.Agents = make(map[string]ast.AgentConfig)
@@ -533,12 +574,6 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 				return fmt.Errorf("duplicate mcp ID %q", k)
 			}
 			config.MCP[k] = v
-		}
-		for event, groups := range doc.Hooks {
-			if config.Hooks == nil {
-				config.Hooks = make(ast.HookConfig)
-			}
-			config.Hooks[event] = append(config.Hooks[event], groups...)
 		}
 		for k, v := range doc.Memory {
 			if config.Memory == nil {

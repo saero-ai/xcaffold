@@ -95,10 +95,13 @@ func TestCopilotRenderer_SkillPaths_PathFix(t *testing.T) {
 func TestCopilotRenderer_HookPaths_PathFix(t *testing.T) {
 	r := copilot.New()
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{Hooks: []ast.HookHandler{{Type: "command", Command: "check.sh"}}},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "check.sh"}}},
+					},
 				},
 			},
 		},

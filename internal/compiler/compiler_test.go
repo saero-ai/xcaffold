@@ -89,6 +89,19 @@ func TestCompile_EmptyAgents(t *testing.T) {
 func TestCompile_FullSchema(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "full-project"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": []ast.HookMatcherGroup{
+						{
+							Matcher: "Bash",
+							Hooks:   []ast.HookHandler{{Type: "command", Command: "make test"}},
+						},
+					},
+				},
+			},
+		},
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"dev": {Description: "A developer."},
@@ -102,16 +115,6 @@ func TestCompile_FullSchema(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"go": {
 					Instructions: "Use gofmt.",
-				},
-			},
-			Hooks: ast.HookConfig{
-				"PreToolUse": []ast.HookMatcherGroup{
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "make test"},
-						},
-					},
 				},
 			},
 			MCP: map[string]ast.MCPConfig{

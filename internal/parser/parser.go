@@ -1091,8 +1091,8 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			return nil, err
 		}
 
-		// Hooks are additive (append handlers)
-		merged.Hooks = mergeHooksAdditive(merged.Hooks, p.Hooks)
+		// Hooks are additive (merge named hook blocks).
+		merged.Hooks = mergeNamedHooksAdditive(merged.Hooks, p.Hooks)
 
 		// Overwrite test blocks (assuming only one file declares test config).
 		// Test now lives in ProjectConfig.
@@ -1107,15 +1107,15 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		}
 
 		// Track which file first contributed non-empty settings/local.
-		if settingsOrigin == "" && !isEmptySettings(p.Settings) {
+		if settingsOrigin == "" && len(p.Settings) > 0 {
 			settingsOrigin = f
 		}
 		if p.Project != nil && localOrigin == "" && !isEmptySettings(p.Project.Local) {
 			localOrigin = f
 		}
 
-		// Deep merge settings block (conflicting keys → error).
-		merged.Settings, err = mergeSettingsStrict(merged.Settings, p.Settings, settingsOrigin, f)
+		// Deep merge settings map (conflicting scalar keys within the same named entry → error).
+		merged.Settings, err = mergeSettingsMapStrict(merged.Settings, p.Settings, settingsOrigin, f)
 		if err != nil {
 			return nil, err
 		}
@@ -1176,6 +1176,74 @@ func mergeHooksAdditive(base, child ast.HookConfig) ast.HookConfig {
 	}
 	for k, v := range child {
 		merged[k] = append(merged[k], v...)
+	}
+	return merged
+}
+
+// mergeNamedHooksAdditive merges two map[string]NamedHookConfig values additively.
+// Events within each named block are appended across base and child.
+func mergeNamedHooksAdditive(base, child map[string]ast.NamedHookConfig) map[string]ast.NamedHookConfig {
+	if len(base) == 0 && len(child) == 0 {
+		return nil
+	}
+	merged := make(map[string]ast.NamedHookConfig, len(base)+len(child))
+	for k, v := range base {
+		merged[k] = v
+	}
+	for name, nh := range child {
+		if existing, ok := merged[name]; ok {
+			existing.Events = mergeHooksAdditive(existing.Events, nh.Events)
+			merged[name] = existing
+		} else {
+			merged[name] = nh
+		}
+	}
+	return merged
+}
+
+// mergeSettingsMapStrict merges two map[string]SettingsConfig values from the same
+// directory. Named entries are merged per-name using mergeSettingsStrict.
+func mergeSettingsMapStrict(base, child map[string]ast.SettingsConfig, baseFile, childFile string) (map[string]ast.SettingsConfig, error) {
+	if len(child) == 0 {
+		return base, nil
+	}
+	if len(base) == 0 {
+		return child, nil
+	}
+	merged := make(map[string]ast.SettingsConfig, len(base)+len(child))
+	for k, v := range base {
+		merged[k] = v
+	}
+	for name, cs := range child {
+		if bs, ok := merged[name]; ok {
+			result, err := mergeSettingsStrict(bs, cs, baseFile, childFile)
+			if err != nil {
+				return nil, err
+			}
+			merged[name] = result
+		} else {
+			merged[name] = cs
+		}
+	}
+	return merged, nil
+}
+
+// mergeSettingsMapOverride merges two map[string]SettingsConfig for extends
+// resolution. Child entries override base entries with the same name.
+func mergeSettingsMapOverride(base, child map[string]ast.SettingsConfig) map[string]ast.SettingsConfig {
+	if len(base) == 0 && len(child) == 0 {
+		return nil
+	}
+	merged := make(map[string]ast.SettingsConfig, len(base)+len(child))
+	for k, v := range base {
+		merged[k] = v
+	}
+	for name, cs := range child {
+		if bs, ok := merged[name]; ok {
+			merged[name] = mergeSettingsOverride(bs, cs)
+		} else {
+			merged[name] = cs
+		}
 	}
 	return merged
 }
@@ -1286,9 +1354,9 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.Memory = mergeMemoryOverrideInherited(base.Memory, child.Memory)
 	merged.References = mergeReferencesOverrideInherited(base.References, child.References)
 	merged.Blueprints = mergeMapOverride(base.Blueprints, child.Blueprints)
-	merged.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
+	merged.Hooks = mergeNamedHooksAdditive(base.Hooks, child.Hooks)
 
-	merged.Settings = mergeSettingsOverride(base.Settings, child.Settings)
+	merged.Settings = mergeSettingsMapOverride(base.Settings, child.Settings)
 
 	return merged
 }
@@ -1642,7 +1710,11 @@ func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 	if err := validateIDs(c); err != nil {
 		return err
 	}
-	if err := validateHookEvents(c.Hooks); err != nil {
+	var hookEvents ast.HookConfig
+	if dh, ok := c.Hooks["default"]; ok {
+		hookEvents = dh.Events
+	}
+	if err := validateHookEvents(hookEvents); err != nil {
 		return err
 	}
 	if err := validateInstructions(c, globalScope); err != nil {
@@ -1764,10 +1836,11 @@ func parsePermissionRule(rule string) (toolName, pattern string, err error) {
 //
 //nolint:gocyclo
 func validatePermissions(c *ast.XcaffoldConfig) error {
-	if c.Settings.Permissions == nil {
+	settings := c.Settings["default"]
+	if settings.Permissions == nil {
 		return nil
 	}
-	p := c.Settings.Permissions
+	p := settings.Permissions
 
 	allowSet := make(map[string]bool)
 	denySet := make(map[string]bool)
@@ -1952,7 +2025,7 @@ func validateIDs(c *ast.XcaffoldConfig) error {
 	if err := validateResourceIDs(c.Rules, "rule"); err != nil {
 		return err
 	}
-	if err := validateResourceIDs(c.Hooks, "hook"); err != nil {
+	if err := validateResourceIDs(c.Hooks, "hook-block"); err != nil {
 		return err
 	}
 	if err := validateResourceIDs(c.MCP, "mcp"); err != nil {
@@ -2181,7 +2254,7 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 			}
 		}
 	}
-	check(c.Settings.EnabledPlugins, "settings")
+	check(c.Settings["default"].EnabledPlugins, "settings")
 	if c.Project != nil {
 		check(c.Project.Local.EnabledPlugins, "local")
 	}

@@ -269,11 +269,12 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 	}
 
 	// ── kind: settings document ─────────────────────────────────────────────
-	if !isZeroSettings(config.Settings) {
+	defaultSettings := config.Settings["default"]
+	if !isZeroSettings(defaultSettings) {
 		doc := settingsSplitDoc{
 			Kind:           "settings",
 			Version:        version,
-			SettingsConfig: config.Settings,
+			SettingsConfig: defaultSettings,
 		}
 		b, err := marshalYAML2(doc)
 		if err != nil {
@@ -283,11 +284,15 @@ func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error)
 	}
 
 	// ── kind: hooks document ────────────────────────────────────────────────
-	if len(config.Hooks) > 0 {
+	var defaultHooks ast.HookConfig
+	if dh, ok := config.Hooks["default"]; ok {
+		defaultHooks = dh.Events
+	}
+	if len(defaultHooks) > 0 {
 		doc := hooksSplitDoc{
 			Kind:    "hooks",
 			Version: version,
-			Events:  config.Hooks,
+			Events:  defaultHooks,
 		}
 		b, err := marshalYAML2(doc)
 		if err != nil {
@@ -519,14 +524,18 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	}
 
 	// ── kind: hooks ──────────────────────────────────────────────────────────
-	if len(config.Hooks) > 0 {
+	var fileHooks ast.HookConfig
+	if dh, ok := config.Hooks["default"]; ok {
+		fileHooks = dh.Events
+	}
+	if len(fileHooks) > 0 {
 		if err := os.MkdirAll(xcfDir, 0755); err != nil {
 			return err
 		}
 		doc := hooksSplitDoc{
 			Kind:    "hooks",
 			Version: version,
-			Events:  config.Hooks,
+			Events:  fileHooks,
 		}
 		if err := writeYAMLFile(filepath.Join(xcfDir, "hooks.xcf"), doc); err != nil {
 			return err
@@ -534,14 +543,15 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	}
 
 	// ── kind: settings ───────────────────────────────────────────────────────
-	if !isZeroSettings(config.Settings) {
+	fileSettings := config.Settings["default"]
+	if !isZeroSettings(fileSettings) {
 		if err := os.MkdirAll(xcfDir, 0755); err != nil {
 			return err
 		}
 		doc := settingsSplitDoc{
 			Kind:           "settings",
 			Version:        version,
-			SettingsConfig: config.Settings,
+			SettingsConfig: fileSettings,
 		}
 		if err := writeYAMLFile(filepath.Join(xcfDir, "settings.xcf"), doc); err != nil {
 			return err

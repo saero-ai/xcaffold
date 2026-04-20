@@ -102,36 +102,43 @@ func TestXcfIntegration_PermissionPrimitive_MergesWithoutDuplicates(t *testing.T
 	// Start with a config that already has one allow entry.
 	existing := []string{"Bash(npm *)"}
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{
 				Allow: existing,
 			},
-		},
+		}},
 	}
 
 	// Incoming allow entries from translation (turbo → git + go).
 	newEntries := []string{"Bash(git *)", "Bash(go *)"}
 
 	// Merge — same logic as injectIntoConfig.
-	seen := make(map[string]bool, len(config.Settings.Permissions.Allow))
-	for _, e := range config.Settings.Permissions.Allow {
+	effective := config.Settings["default"]
+	seen := make(map[string]bool, len(effective.Permissions.Allow))
+	for _, e := range effective.Permissions.Allow {
 		seen[e] = true
 	}
-	for _, entry := range newEntries {
-		if !seen[entry] {
-			seen[entry] = true
-			config.Settings.Permissions.Allow = append(config.Settings.Permissions.Allow, entry)
+
+	// We need to mutate the settings entry; extract, modify, and put back.
+	entry := config.Settings["default"]
+	for _, newEntry := range newEntries {
+		if !seen[newEntry] {
+			seen[newEntry] = true
+			entry.Permissions.Allow = append(entry.Permissions.Allow, newEntry)
 		}
 	}
+	config.Settings["default"] = entry
 
 	// Re-merge same entries — duplicates must be rejected.
-	for _, entry := range newEntries {
-		if !seen[entry] {
-			config.Settings.Permissions.Allow = append(config.Settings.Permissions.Allow, entry)
+	entry2 := config.Settings["default"]
+	for _, newEntry := range newEntries {
+		if !seen[newEntry] {
+			entry2.Permissions.Allow = append(entry2.Permissions.Allow, newEntry)
 		}
 	}
+	config.Settings["default"] = entry2
 
-	allow := config.Settings.Permissions.Allow
+	allow := config.Settings["default"].Permissions.Allow
 	assert.Len(t, allow, 3, "expected original + 2 new entries, no duplicates")
 	assert.Contains(t, allow, "Bash(npm *)", "original entry must be preserved")
 	assert.Contains(t, allow, "Bash(git *)", "new git entry must be added")
@@ -211,9 +218,12 @@ func TestXcfIntegration_FullRoundTrip_WorkflowToConfigToYAMLAndBack(t *testing.T
 	}
 
 	if len(allowEntries) > 0 {
-		config.Settings.Permissions = &ast.PermissionsConfig{
-			Allow: allowEntries,
+		s := config.Settings["default"]
+		s.Permissions = &ast.PermissionsConfig{Allow: allowEntries}
+		if config.Settings == nil {
+			config.Settings = make(map[string]ast.SettingsConfig)
 		}
+		config.Settings["default"] = s
 	}
 
 	// Marshal to YAML.
@@ -239,8 +249,8 @@ func TestXcfIntegration_FullRoundTrip_WorkflowToConfigToYAMLAndBack(t *testing.T
 	assert.NotEmpty(t, ruleConfig.InstructionsFile, "rule must have instructions-file set")
 
 	// Verify Permissions.
-	require.NotNil(t, parsed.Settings.Permissions, "parsed config must have permissions")
-	require.NotEmpty(t, parsed.Settings.Permissions.Allow, "parsed config must have allow entries")
+	require.NotNil(t, parsed.Settings["default"].Permissions, "parsed config must have permissions")
+	require.NotEmpty(t, parsed.Settings["default"].Permissions.Allow, "parsed config must have allow entries")
 }
 
 // TestXcfIntegration_PlanMode_OriginalConfigUnchanged verifies that translating
@@ -260,7 +270,7 @@ func TestXcfIntegration_PlanMode_OriginalConfigUnchanged(t *testing.T) {
 	}
 	originalSkillCount := len(original.Skills)
 	originalRuleCount := len(original.Rules)
-	originalPermissions := original.Settings.Permissions
+	originalPermissions := original.Settings["default"].Permissions
 
 	// In plan mode the caller only prints the plan and returns — no mutation.
 	// We simulate this by verifying the config is never touched when plan=true.
@@ -276,7 +286,7 @@ func TestXcfIntegration_PlanMode_OriginalConfigUnchanged(t *testing.T) {
 		"plan mode must not add skills to config")
 	assert.Equal(t, originalRuleCount, len(original.Rules),
 		"plan mode must not add rules to config")
-	assert.Equal(t, originalPermissions, original.Settings.Permissions,
+	assert.Equal(t, originalPermissions, original.Settings["default"].Permissions,
 		"plan mode must not modify settings.permissions")
 	assert.Equal(t, "unchanged", original.Project.Name,
 		"plan mode must not modify project metadata")

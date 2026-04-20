@@ -688,13 +688,16 @@ func TestCompile_Hooks_ProducesHooksJson(t *testing.T) {
 	r := cursor.New()
 	timeout := 5000
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": {
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo lint", Timeout: &timeout},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": {
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo lint", Timeout: &timeout},
+							},
 						},
 					},
 				},
@@ -712,9 +715,7 @@ func TestCompile_Hooks_ProducesHooksJson(t *testing.T) {
 func TestCompile_Hooks_EmptyHooksNoOutput(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{},
-		},
+		Hooks: map[string]ast.NamedHookConfig{},
 	}
 
 	out, _, err := r.Compile(config, "")
@@ -727,28 +728,31 @@ func TestCompile_Hooks_EmptyHooksNoOutput(t *testing.T) {
 func TestCompile_Hooks_EventNamesCamelCase(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": {
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo pre"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": {
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo pre"},
+							},
 						},
 					},
-				},
-				"PostToolUse": {
-					{
-						Matcher: "Write",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo post"},
+					"PostToolUse": {
+						{
+							Matcher: "Write",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo post"},
+							},
 						},
 					},
-				},
-				"SessionStart": {
-					{
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo session"},
+					"SessionStart": {
+						{
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo session"},
+							},
 						},
 					},
 				},
@@ -776,14 +780,17 @@ func TestCompile_Hooks_EventNamesCamelCase(t *testing.T) {
 func TestCompile_Hooks_FlatStructure_NoNestedHooksArray(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PreToolUse": {
-					{
-						Matcher: "Bash",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo lint"},
-							{Type: "command", Command: "echo test"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PreToolUse": {
+						{
+							Matcher: "Bash",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo lint"},
+								{Type: "command", Command: "echo test"},
+							},
 						},
 					},
 				},
@@ -816,13 +823,16 @@ func TestCompile_Hooks_FlatStructure_NoNestedHooksArray(t *testing.T) {
 func TestCompile_Hooks_MatcherInjectedInline(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"PostToolUse": {
-					{
-						Matcher: "Edit",
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo edited"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"PostToolUse": {
+						{
+							Matcher: "Edit",
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo edited"},
+							},
 						},
 					},
 				},
@@ -844,13 +854,16 @@ func TestCompile_Hooks_MatcherInjectedInline(t *testing.T) {
 func TestCompile_Hooks_EmptyMatcher_NotInjected(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Hooks: ast.HookConfig{
-				"SessionStart": {
-					{
-						// No matcher — should not appear on handler
-						Hooks: []ast.HookHandler{
-							{Type: "command", Command: "echo hi"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name: "default",
+				Events: ast.HookConfig{
+					"SessionStart": {
+						{
+							// No matcher — should not appear on handler
+							Hooks: []ast.HookHandler{
+								{Type: "command", Command: "echo hi"},
+							},
 						},
 					},
 				},
@@ -994,9 +1007,9 @@ func TestCompile_Agent_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 func TestCursorRenderer_PermissionsSetting_EmitsNote(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Permissions: &ast.PermissionsConfig{Allow: []string{"Read"}},
-		},
+		}},
 	}
 
 	_, notes, err := r.Compile(config, "")
@@ -1012,9 +1025,9 @@ func TestCursorRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 	r := cursor.New()
 	enabled := true
 	config := &ast.XcaffoldConfig{
-		Settings: ast.SettingsConfig{
+		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{Enabled: &enabled},
-		},
+		}},
 	}
 
 	_, notes, err := r.Compile(config, "")
