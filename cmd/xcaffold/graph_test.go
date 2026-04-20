@@ -21,6 +21,19 @@ func TestGraphAll_MutualExclusion_WithGlobal(t *testing.T) {
 	assert.Contains(t, err.Error(), "mutually exclusive")
 }
 
+func TestGraph_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
+	graphBlueprintFlag = "my-blueprint"
+	globalFlag = true
+	defer func() {
+		graphBlueprintFlag = ""
+		globalFlag = false
+	}()
+
+	err := runGraph(nil, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
+}
+
 func TestGraphAll_MutualExclusion_WithProject(t *testing.T) {
 	graphAll = true
 	graphProject = "some-project"

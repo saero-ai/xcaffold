@@ -15,6 +15,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal verifies that
+// --blueprint and --global are mutually exclusive on apply.
+func TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
+	applyBlueprintFlag = "my-blueprint"
+	globalFlag = true
+	defer func() {
+		applyBlueprintFlag = ""
+		globalFlag = false
+	}()
+
+	err := runApply(applyCmd, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
+}
+
 // TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic verifies that
 // --check returns a non-zero exit (non-nil error) when ValidateFile produces
 // an error-severity diagnostic.  The xcf file points to a non-existent

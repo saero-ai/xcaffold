@@ -43,6 +43,10 @@ func init() {
 }
 
 func runDiff(cmd *cobra.Command, args []string) error {
+	if diffBlueprintFlag != "" && globalFlag {
+		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
+	}
+
 	effectiveTarget := diffTargetFlag
 	if effectiveTarget == "" {
 		effectiveTarget = "claude"

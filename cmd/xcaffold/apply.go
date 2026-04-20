@@ -100,6 +100,10 @@ const currentSchemaVersion = "1.0"
 
 //nolint:gocyclo
 func runApply(cmd *cobra.Command, args []string) error {
+	if applyBlueprintFlag != "" && globalFlag {
+		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
+	}
+
 	if applyProjectFlag != "" {
 		proj, err := registry.Resolve(applyProjectFlag)
 		if err != nil {

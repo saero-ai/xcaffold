@@ -118,6 +118,19 @@ agents:
 	assert.NoError(t, err)
 }
 
+func TestValidate_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
+	validateBlueprintFlag = "my-blueprint"
+	globalFlag = true
+	defer func() {
+		validateBlueprintFlag = ""
+		globalFlag = false
+	}()
+
+	err := runValidate(validateCmd, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
+}
+
 func TestValidateCmd_StructuralChecks(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()

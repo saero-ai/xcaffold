@@ -11,6 +11,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestRunDiff_BlueprintFlag_MutualExclusion_WithGlobal verifies that
+// --blueprint and --global are mutually exclusive on diff.
+func TestRunDiff_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
+	diffBlueprintFlag = "my-blueprint"
+	globalFlag = true
+	defer func() {
+		diffBlueprintFlag = ""
+		globalFlag = false
+	}()
+
+	err := runDiff(diffCmd, []string{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
+}
+
 func TestDiffScope_ReportsSourceChanges(t *testing.T) {
 	dir := t.TempDir()
 	outputDir := filepath.Join(dir, ".claude")
