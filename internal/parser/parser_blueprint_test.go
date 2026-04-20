@@ -12,6 +12,9 @@ import (
 func TestBlueprint_ParsesBasicDocument(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test-project\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte("kind: agent\nversion: \"1.0\"\nname: developer\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte("kind: skill\nversion: \"1.0\"\nname: tdd\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcf"), []byte("kind: rule\nversion: \"1.0\"\nname: testing\n"), 0600))
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "backend.xcf"), []byte(`kind: blueprint
 version: "1.0"

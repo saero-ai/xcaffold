@@ -162,6 +162,50 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) {
 	}
 }
 
+// ValidateBlueprintRefs checks that every resource name in every blueprint's
+// ref-lists exists in the merged ResourceScope. Returns all errors (not just
+// the first) so the user can fix everything in one pass.
+func ValidateBlueprintRefs(blueprints map[string]ast.BlueprintConfig, scope *ast.ResourceScope) []error {
+	var errs []error
+	for bpName, p := range blueprints {
+		checkRefs := func(resType string, names []string, catalog map[string]struct{}) {
+			for _, name := range names {
+				if _, ok := catalog[name]; !ok {
+					errs = append(errs, fmt.Errorf("blueprint %q references %s %q which does not exist", bpName, resType, name))
+				}
+			}
+		}
+		var scopeAgents, scopeSkills, scopeRules, scopeWorkflows, scopeMCP, scopePolicies, scopeMemory map[string]struct{}
+		if scope != nil {
+			scopeAgents = keysSet(scope.Agents)
+			scopeSkills = keysSet(scope.Skills)
+			scopeRules = keysSet(scope.Rules)
+			scopeWorkflows = keysSet(scope.Workflows)
+			scopeMCP = keysSet(scope.MCP)
+			scopePolicies = keysSet(scope.Policies)
+			scopeMemory = keysSet(scope.Memory)
+		}
+		checkRefs("agent", p.Agents, scopeAgents)
+		checkRefs("skill", p.Skills, scopeSkills)
+		checkRefs("rule", p.Rules, scopeRules)
+		checkRefs("workflow", p.Workflows, scopeWorkflows)
+		checkRefs("mcp", p.MCP, scopeMCP)
+		checkRefs("policy", p.Policies, scopePolicies)
+		checkRefs("memory", p.Memory, scopeMemory)
+	}
+	return errs
+}
+
+// keysSet returns a set of the keys in m as a map[string]struct{}.
+// A nil map returns an empty set (not a panic).
+func keysSet[V any](m map[string]V) map[string]struct{} {
+	s := make(map[string]struct{}, len(m))
+	for k := range m {
+		s[k] = struct{}{}
+	}
+	return s
+}
+
 // unionStrings returns the set union of a and b, preserving order.
 // Elements from a appear first, followed by elements from b not already in a.
 func unionStrings(a, b []string) []string {

@@ -322,3 +322,95 @@ func TestResolveTransitiveDeps_AllExplicit_NoAutoResolve(t *testing.T) {
 	assert.Equal(t, []string{"my-rule"}, p.Rules)
 	assert.Equal(t, []string{"my-mcp"}, p.MCP)
 }
+
+// ── ValidateBlueprintRefs ───────────────────────────────────────────────────
+
+func TestValidateBlueprintRefs_AllExist_NoErrors(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"backend": {Name: "backend", Agents: []string{"developer"}, Skills: []string{"tdd"}},
+	}
+	scope := &ast.ResourceScope{
+		Agents: map[string]ast.AgentConfig{"developer": {}},
+		Skills: map[string]ast.SkillConfig{"tdd": {}},
+	}
+	errs := ValidateBlueprintRefs(blueprints, scope)
+	require.Empty(t, errs)
+}
+
+func TestValidateBlueprintRefs_MissingAgent(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"backend": {Name: "backend", Agents: []string{"missing-agent"}},
+	}
+	scope := &ast.ResourceScope{
+		Agents: map[string]ast.AgentConfig{"developer": {}},
+	}
+	errs := ValidateBlueprintRefs(blueprints, scope)
+	require.Len(t, errs, 1)
+	require.Contains(t, errs[0].Error(), "missing-agent")
+	require.Contains(t, errs[0].Error(), "backend")
+}
+
+func TestValidateBlueprintRefs_MultipleErrors(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"bad": {Name: "bad", Agents: []string{"ghost"}, Skills: []string{"ghost"}, Rules: []string{"ghost"}},
+	}
+	scope := &ast.ResourceScope{
+		Agents: map[string]ast.AgentConfig{},
+		Skills: map[string]ast.SkillConfig{},
+		Rules:  map[string]ast.RuleConfig{},
+	}
+	errs := ValidateBlueprintRefs(blueprints, scope)
+	require.Len(t, errs, 3)
+}
+
+func TestValidateBlueprintRefs_EmptyBlueprint_NoErrors(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"empty": {Name: "empty"},
+	}
+	scope := &ast.ResourceScope{}
+	errs := ValidateBlueprintRefs(blueprints, scope)
+	require.Empty(t, errs)
+}
+
+func TestValidateBlueprintRefs_NilMapsInScope_NoErrors(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"bp": {Name: "bp"},
+	}
+	// nil scope maps — must not panic
+	scope := &ast.ResourceScope{}
+	errs := ValidateBlueprintRefs(blueprints, scope)
+	require.Empty(t, errs)
+}
+
+func TestValidateBlueprintRefs_NilScope_NoErrors(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"bp": {Name: "bp", Agents: []string{"someone"}},
+	}
+	// nil scope — all refs missing but must not panic; returns errors for missing refs
+	errs := ValidateBlueprintRefs(blueprints, nil)
+	require.Len(t, errs, 1)
+	require.Contains(t, errs[0].Error(), "someone")
+}
+
+func TestValidateBlueprintRefs_EmptyBlueprintsMap_NoErrors(t *testing.T) {
+	errs := ValidateBlueprintRefs(map[string]ast.BlueprintConfig{}, &ast.ResourceScope{})
+	require.Empty(t, errs)
+}
+
+func TestValidateBlueprintRefs_AllResourceTypes(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"full": {
+			Name:      "full",
+			Agents:    []string{"missing-agent"},
+			Skills:    []string{"missing-skill"},
+			Rules:     []string{"missing-rule"},
+			Workflows: []string{"missing-workflow"},
+			MCP:       []string{"missing-mcp"},
+			Policies:  []string{"missing-policy"},
+			Memory:    []string{"missing-memory"},
+		},
+	}
+	scope := &ast.ResourceScope{}
+	errs := ValidateBlueprintRefs(blueprints, scope)
+	require.Len(t, errs, 7)
+}
