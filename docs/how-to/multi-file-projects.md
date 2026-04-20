@@ -26,7 +26,7 @@ This how-to covers when and how to split, what merge rules apply per resource ty
 
 **Naming conventions:**
 
-- `project.xcf` is the recommended filename for the project manifest (`kind: project`). It is what the CLI looks for by default during execution.
+- `project.xcf` is the recommended filename for the project manifest (`kind: project`). The parser identifies it by `kind: project`, not by filename — any name works, but `project.xcf` is the convention.
 - Resource files under `xcf/` can use any name. Convention: `xcf/agents/developer.xcf`, `xcf/rules/code-style.xcf`.
 - `xcaffold init` natively bootstraps a full `xcf/` multi-file layout by default. You do not need to manually migrate if you start with `init`.
 - All xcaffold commands (`apply`, `diff`, `validate`, `graph`) run from the directory containing `project.xcf`.
@@ -98,13 +98,9 @@ version: "1.0"
 name: my-project
 targets:
   - claude
-agents:
-  - developer
-rules:
-  - code-style
 ```
 
-The `agents:` and `rules:` fields are bare name lists — they reference the `name:` field in each child `.xcf` file. These ref lists are informational; the parser discovers files by scanning the directory tree, not by reading the list. However, listing them explicitly documents the project structure.
+Resources are discovered automatically. xcaffold scans `xcf/` recursively for all `*.xcf` files and merges them into a single configuration. You do not list resources in `project.xcf`.
 
 **`xcf/agents/developer.xcf`:**
 
@@ -218,7 +214,7 @@ Because `FindXCFFiles` scans recursively, `.xcf` files in subdirectories are inc
 
 ## Tracking changes with `xcaffold diff`
 
-The lock file (`scaffold.<target>.lock`) stores a `source_files` manifest: a list of every `.xcf` file path and its SHA-256 hash at the time of the last `apply`.
+The state file (`.xcaffold/project.xcf.state`) stores a `source_files` manifest: a list of every `.xcf` file path and its SHA-256 hash at the time of the last `apply`.
 
 When you add, remove, or modify `.xcf` files between runs, `xcaffold diff` reports the change alongside artifact drift:
 
@@ -230,8 +226,8 @@ When you add, remove, or modify `.xcf` files between runs, `xcaffold diff` repor
     actual:   sha256:9c2b...
 ```
 
-`SRC ADDED` — a `.xcf` file exists on disk that was not in the previous lock manifest.  
-`SRC DELETED` — a `.xcf` file recorded in the lock manifest no longer exists on disk.  
+`SRC ADDED` — a `.xcf` file exists on disk that was not in the previous state manifest.  
+`SRC DELETED` — a `.xcf` file recorded in the state manifest no longer exists on disk.  
 `SRC DRIFTED` — a `.xcf` file exists in both but its content hash has changed.
 
 Any of these conditions causes `xcaffold apply` to recompile. Pass `--force` to recompile unconditionally regardless of source hash state.
