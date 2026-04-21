@@ -64,7 +64,7 @@ my-project/
 
 ## How instructions are inlined
 
-Import parses each `.md` source file for YAML frontmatter. The frontmatter fields (`description`, `model`, `tools`, etc.) become top-level fields in the `.xcf` document. The markdown body after the closing `---` is stripped of leading/trailing whitespace and embedded as the `instructions:` field.
+Import parses each `.md` source file for YAML frontmatter. The frontmatter fields (`description`, `model`, `tools`, etc.) become top-level fields in the `.xcf` document. The markdown body after the closing `---` is written as the instruction body in frontmatter format.
 
 Source agent file (`.claude/agents/developer.md`):
 
@@ -81,19 +81,20 @@ Write clean, tested code. Run tests before committing.
 
 Generated xcf file (`xcf/agents/developer.xcf`):
 
-```yaml
+```
+---
 kind: agent
 version: "1.0"
 name: developer
 description: Full-stack developer
 model: claude-sonnet-4-6
 tools: [Read, Write, Edit, Bash, Glob, Grep]
-instructions: |
-  You are a full-stack developer.
-  Write clean, tested code. Run tests before committing.
+---
+You are a full-stack developer.
+Write clean, tested code. Run tests before committing.
 ```
 
-The `instructions-file:` field is cleared during import — the body is always inlined. This makes the `.xcf` file self-contained.
+The `instructions-file:` field is not used in frontmatter format — the body is always written after the closing `---`. This makes the `.xcf` file self-contained.
 
 ---
 
