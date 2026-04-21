@@ -19,15 +19,18 @@ Provider Directory (.claude/, .cursor/, .gemini/, .github/, .agents/)
 ProviderImporter.Import()
     |-- Classify(path) -> Kind + Layout
     |-- Extract(path, data) -> populate AST
+    |-- Shared helpers: ParseFrontmatter, MatchGlob, ReadFile
     |-- Unclassified -> ProviderExtras
     |
     v
 ast.XcaffoldConfig (shared IR)
     |
     v
-TargetRenderer.Compile()
-    |-- Per-kind rendering
-    |-- FidelityNotes for information loss
+renderer.Orchestrate(TargetRenderer, config, baseDir)
+    |-- Capabilities() -> CapabilitySet (declares supported resource kinds)
+    |-- Per-kind dispatch: CompileAgents, CompileSkills, CompileRules, ...
+    |-- Unsupported kinds -> RENDERER_KIND_UNSUPPORTED FidelityNote
+    |-- Finalize() -> post-processing pass
     |
     v
 Provider Directory (output)
@@ -49,8 +52,9 @@ Files that match no pattern go to `ProviderExtras` — a genuinely-unknown catch
 ## Adding a New Provider
 
 1. Create `internal/importer/<name>/<name>.go` implementing `ProviderImporter`
-2. Create `internal/renderer/<name>/<name>.go` implementing `TargetRenderer`
+2. Create `internal/renderer/<name>/<name>.go` implementing `TargetRenderer` (per-resource methods + `Capabilities()` + `Finalize()`)
 3. Register both via `init()` functions
-4. Add golden test data in `testdata/input/`
+4. Add a row to `provider_features_test.go` to lock the capability ground truth
+5. Add golden test data in `testdata/input/`
 
-No changes needed to the core compiler, parser, or AST.
+No changes needed to the core compiler, parser, or AST. The orchestrator automatically dispatches to per-resource methods and emits fidelity notes for unsupported kinds based on the `CapabilitySet`.

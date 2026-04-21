@@ -144,9 +144,12 @@ Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognize
 | `parser` | `internal/parser/` | Strict YAML parsing — unknown fields fail immediately |
 | `policy` | `internal/policy/` | Post-compile constraint engine -- evaluates built-in and user-defined policies against AST snapshot and compiled output |
 | `compiler` | `internal/compiler/` | Routes AST to the correct renderer; exposes `Compile()` and `OutputDir()` |
-| `renderer` | `internal/renderer/` | `TargetRenderer` interface + `Registry` |
+| `renderer` | `internal/renderer/` | `TargetRenderer` interface, `Orchestrate()` per-resource dispatcher, `CapabilitySet`, `FidelityNote`, shared helpers |
+| `renderer/shared` | `internal/renderer/shared/` | Cross-renderer helpers (`LowerWorkflows`) that cannot live in the root renderer package due to import cycles |
 | `renderer/claude` | `internal/renderer/claude/` | Claude Code renderer (`→ .claude/`) |
 | `renderer/cursor` | `internal/renderer/cursor/` | Cursor renderer (`→ .cursor/`) |
+| `renderer/copilot` | `internal/renderer/copilot/` | GitHub Copilot renderer (`→ .github/`) |
+| `renderer/gemini` | `internal/renderer/gemini/` | Gemini CLI renderer (`→ .gemini/`) |
 | `renderer/antigravity` | `internal/renderer/antigravity/` | Antigravity renderer (`→ .agents/`) |
 | `importer` | `internal/importer/` | `ProviderImporter` interface — symmetric to `TargetRenderer`; thin orchestrator dispatches to per-provider sub-packages |
 | `importer/claude` | `internal/importer/claude/` | Claude Code importer (reads `.claude/`) |
@@ -161,7 +164,7 @@ Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognize
 | `analyzer` | `internal/analyzer/` | Detects undeclared artifacts via `ScanOutputDir` |
 | `bir` | `internal/bir/` | Build Intermediate Representation — `SemanticUnit`, `FunctionalIntent`, `ProjectIR`; also `bir.ReassembleWorkflow()` for round-trip reconstruction from provenance markers |
 | `translator` | `internal/translator/` | Decomposes `SemanticUnit` intents into target primitives (skill/rule/permission); `TranslateWorkflow()` lowers `WorkflowConfig` to provider primitives via four strategies |
-| `optimizer` | `internal/optimizer/` | Post-compile transformation pipeline for `xcaffold translate` — 7 named passes (`flatten-scopes`, `inline-imports`, `dedupe`, `extract-common`, `prune-unused`, `normalize-paths`, `split-large-rules`); required passes prepended per-target |
+| `optimizer` | `internal/optimizer/` | Post-compile transformation pipeline for `xcaffold translate` and `xcaffold apply` — 7 named passes (`flatten-scopes`, `inline-imports`, `dedupe`, `extract-common`, `prune-unused`, `normalize-paths`, `split-large-rules`); required passes prepended per-target |
 | `resolver` | `internal/resolver/` | Resolves `instructions-file:` and `references:` relative paths |
 | `generator` | `internal/generator/` | Anthropic API calls for scaffold generation; outputs `audit.json` |
 | `judge` | `internal/judge/` | LLM-as-a-Judge evaluation against agent assertions |
@@ -391,25 +394,23 @@ The same strict posture extends to cross-resource references. `validateCrossRefe
 
 Generated files in `.claude/`, `.cursor/`, and `.agents/` are machine outputs. They are not intended to be edited by hand, and xcaffold does not read them back. The compilation direction is fixed: `.xcf` in, platform files out.
 
-`Compile()` (`internal/compiler/compiler.go:34`) makes this flow explicit. It merges project-scoped resources over global-scoped resources, strips inherited resources that should not be duplicated locally, then dispatches to the appropriate renderer:
+`Compile()` (`internal/compiler/compiler.go`) makes this flow explicit. It merges project-scoped resources over global-scoped resources, strips inherited resources that should not be duplicated locally, resolves the target renderer, and dispatches via the orchestrator:
 
 ```go
-func Compile(config *ast.XcaffoldConfig, baseDir string, target string) (*Output, error) {
+func Compile(config *ast.XcaffoldConfig, baseDir, target, blueprintName string) (*Output, []FidelityNote, error) {
     if config.Project != nil {
         mergeResourceScope(&config.ResourceScope, &config.Project.ResourceScope)
     }
     config.StripInherited()
-    switch target {
-    case TargetClaude:
-        r := claude.New()
-        return r.Compile(config, baseDir)
-    case TargetCursor:
-        ...
+    r, err := resolveRenderer(target)
+    if err != nil {
+        return nil, nil, err
     }
+    return renderer.Orchestrate(r, config, baseDir)
 }
 ```
 
-There is no code path that reads compiled output files and updates `.xcf`. This asymmetry is the trust boundary. When a generated file is found to differ from what the compiler would produce, the answer is always "recompile," never "sync back." The `.xcf` source is the truth; the generated files are a derived view of it.
+`renderer.Orchestrate()` iterates each resource kind, checks the renderer's `Capabilities()`, and calls the appropriate `Compile*` method or emits a `RENDERER_KIND_UNSUPPORTED` note. There is no code path that reads compiled output files and updates `.xcf`. This asymmetry is the trust boundary. When a generated file is found to differ from what the compiler would produce, the answer is always "recompile," never "sync back." The `.xcf` source is the truth; the generated files are a derived view of it.
 
 Bidirectional sync would collapse this boundary. If edits to generated files were propagated back into the `.xcf` source, the system would have two authorities for the same configuration and no principled way to resolve conflicts. One-way compilation avoids that class of problem entirely.
 
@@ -465,11 +466,18 @@ Translation is delegated entirely to the `TargetRenderer` interface (`internal/r
 type TargetRenderer interface {
     Target() string
     OutputDir() string
-    Render(files map[string]string) *output.Output
+    Capabilities() CapabilitySet
+
+    CompileAgents(agents map[string]AgentConfig, baseDir string) (map[string]string, []FidelityNote, error)
+    CompileSkills(skills map[string]SkillConfig, baseDir string) (map[string]string, []FidelityNote, error)
+    CompileRules(rules map[string]RuleConfig, baseDir string) (map[string]string, []FidelityNote, error)
+    // ... CompileWorkflows, CompileHooks, CompileSettings, CompileMCP, CompileProjectInstructions
+
+    Finalize(files map[string]string) (map[string]string, []FidelityNote, error)
 }
 ```
 
-Each renderer implements this interface and receives the same `ast.XcaffoldConfig`. The renderer decides how each field maps to the target platform's file format, which fields have equivalents, and which must be dropped with a fidelity warning. The AST is never modified during rendering; the compiler passes it by pointer but renderers treat it as read-only input.
+Each renderer declares which resource kinds it supports via `Capabilities()`. The `Orchestrate()` function dispatches to per-resource methods for supported kinds and emits `RENDERER_KIND_UNSUPPORTED` fidelity notes for unsupported ones. The AST is never modified during rendering; the compiler passes it by pointer but renderers treat it as read-only input.
 
 The consequence: a rule defined as `paths: ["src/**/*.ts"]` with a Markdown body appears as `rules/<id>.md` with a `paths:` frontmatter key when compiled for one target, and as `rules/<id>.mdc` with a `globs:` key and `always-apply: true` when compiled for another. The rule's *data* — its ID, scope patterns, and instruction body — is stable. Its *presentation* is determined entirely by the renderer.
 
@@ -487,25 +495,21 @@ Each supported provider has two registered components: a `ProviderImporter` (`in
 
 ### Target-Determined Output Directories
 
-No output directory is assumed at the time the `.xcf` file is parsed. The compiler never writes to a default location. The target determines the directory at the point `compiler.OutputDir(target)` is called (`internal/compiler/compiler.go:103–119`):
+No output directory is assumed at the time the `.xcf` file is parsed. The compiler never writes to a default location. The target determines the directory at the point `compiler.OutputDir(target)` is called:
 
 ```go
 func OutputDir(target string) string {
-    if target == "" {
-        target = TargetClaude
+    r, err := resolveRenderer(target)
+    if err != nil {
+        return ""
     }
-    switch target {
-    case TargetClaude:      return claude.New().OutputDir()      // ".claude"
-    case TargetCursor:      return cursor.New().OutputDir()      // ".cursor"
-    case TargetAntigravity: return antigravity.New().OutputDir() // ".agents"
-    default:                return ".claude"
-    }
+    return r.OutputDir()
 }
 ```
 
-When no `--target` flag is provided, the empty string defaults to `TargetClaude` before the switch is evaluated. This is the only place in the compiler where a default target is assumed.
+`resolveRenderer()` maps a target name to its `TargetRenderer` instance. Unknown targets return an error and `OutputDir` returns an empty string — the compiler does not silently default to any provider's directory.
 
-Each renderer's `OutputDir()` method owns the answer. The compiler calls the method; it does not hardcode the path. This means adding a new renderer for a new target requires only implementing `TargetRenderer` and registering it — no changes to the compiler's dispatch logic or to any path-resolution logic outside the new renderer.
+Each renderer's `OutputDir()` method owns the answer. The compiler calls the method; it does not hardcode the path. Adding a new renderer for a new target requires only implementing `TargetRenderer` and registering it — no changes to the compiler's dispatch logic or to any path-resolution logic outside the new renderer.
 
 When the target is `"cursor"`, every file path in the output `map[string]string` is interpreted relative to `.cursor/`. The file map structure is identical in both cases; only the base directory differs.
 

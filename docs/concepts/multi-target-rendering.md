@@ -19,11 +19,17 @@ Translation is delegated entirely to the `TargetRenderer` interface (`internal/r
 type TargetRenderer interface {
     Target() string
     OutputDir() string
-    Render(files map[string]string) *output.Output
+    Capabilities() CapabilitySet
+
+    CompileAgents(agents map[string]AgentConfig, baseDir string) (map[string]string, []FidelityNote, error)
+    CompileSkills(skills map[string]SkillConfig, baseDir string) (map[string]string, []FidelityNote, error)
+    // ... per-resource methods for rules, workflows, hooks, settings, MCP, project instructions
+
+    Finalize(files map[string]string) (map[string]string, []FidelityNote, error)
 }
 ```
 
-Each renderer implements this interface and receives the same `ast.XcaffoldConfig`. The renderer decides how each field maps to the target platform's file format, which fields have equivalents, and which must be dropped with a fidelity warning. The AST is never modified during rendering; the compiler passes it by pointer but renderers treat it as read-only input.
+Each renderer declares which resource kinds it supports via a `CapabilitySet`. The `Orchestrate()` function dispatches compilation to per-resource methods for supported kinds and automatically emits `RENDERER_KIND_UNSUPPORTED` fidelity notes for unsupported ones — no renderer silently drops resources. The AST is never modified during rendering; the compiler passes it by pointer but renderers treat it as read-only input.
 
 The consequence: a rule defined as `paths: ["src/**/*.ts"]` with a Markdown body appears as `rules/<id>.md` with a `paths:` frontmatter key when compiled for one target, and as `rules/<id>.mdc` with a `globs:` key and `always-apply: true` when compiled for another. The rule's *data* — its ID, scope patterns, and instruction body — is stable. Its *presentation* is determined entirely by the renderer.
 
@@ -51,25 +57,19 @@ The `gemini` target writes project-level instructions to `GEMINI.md` at the repo
 
 ## Target-Determined Output Directories
 
-No output directory is assumed at the time the `.xcf` file is parsed. The compiler never writes to a default location. The target determines the directory at the point `compiler.OutputDir(target)` is called (`internal/compiler/compiler.go:103–119`):
+No output directory is assumed at the time the `.xcf` file is parsed. The compiler never writes to a default location. The target determines the directory at the point `compiler.OutputDir(target)` is called:
 
 ```go
 func OutputDir(target string) string {
-    if target == "" {
-        target = TargetClaude
+    r, err := resolveRenderer(target)
+    if err != nil {
+        return ""
     }
-    switch target {
-    case TargetClaude:      return claude.New().OutputDir()      // ".claude"
-    case TargetCursor:      return cursor.New().OutputDir()      // ".cursor"
-    case TargetAntigravity: return antigravity.New().OutputDir() // ".agents"
-    case TargetCopilot:     return copilot.New().OutputDir()     // ".github"
-    case TargetGemini:      return gemini.New().OutputDir()      // ".gemini"
-    default:                return ".claude"
-    }
+    return r.OutputDir()
 }
 ```
 
-When no `--target` flag is provided, the empty string defaults to `TargetClaude` before the switch is evaluated. This is the only place in the compiler where a default target is assumed.
+`resolveRenderer()` maps a target name to its `TargetRenderer` instance. Unknown targets return an error and `OutputDir` returns an empty string — the compiler does not silently default to any provider's directory.
 
 Each renderer's `OutputDir()` method owns the answer. The compiler calls the method; it does not hardcode the path. Adding a new renderer for a new target requires only implementing `TargetRenderer` and registering it — no changes to the compiler's dispatch logic or to any path-resolution logic outside the new renderer.
 
