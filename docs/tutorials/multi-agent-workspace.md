@@ -7,7 +7,7 @@ description: "Configure differentiated agents with distinct permissions, shared 
 
 This tutorial walks through configuring a team of differentiated AI agents. You will define two agents with distinct tool permissions, attach shared rules and skills, validate the workspace, visualize the topology, audit security field behavior across targets, and inspect the compiled output.
 
-xcaffold supports two layout styles for multi-agent projects: a single `project.xcf` with multiple `kind:` documents, or a split-file structure with `project.xcf` (kind: project) at the root and individual `.xcf` files under `xcf/`. This tutorial shows both.
+xcaffold uses a split-file layout: `project.xcf` (kind: project) at the root and individual `.xcf` files under `xcf/` for each resource. Body-bearing kinds (`agent`, `skill`, `rule`) use frontmatter format; structural kinds (`project`, `settings`, `hooks`, `policy`) use pure YAML.
 
 **Time to complete:** ~15 minutes
 **Prerequisites:** Completed the Getting Started tutorial. A fresh project directory with no existing `project.xcf`.
@@ -30,7 +30,9 @@ For this tutorial, the team has two agents:
 
 The `agents:` map uses each key as both the agent's internal ID and its output filename. `frontend-dev` compiles to `agents/frontend-dev.md`. Choose IDs that are lowercase, hyphenated, and unambiguous.
 
-Start with the first agent only. In multi-kind format, the project manifest and agent are separate documents:
+Start with the first agent only. Create two files:
+
+`project.xcf`:
 
 ```yaml
 kind: project
@@ -38,18 +40,22 @@ version: "1.0"
 name: my-team
 targets:
   - claude
+```
 
+`xcf/agents/frontend-dev.xcf`:
+
+```
 ---
 kind: agent
 version: "1.0"
 name: frontend-dev
 description: "Frontend developer. React and TypeScript only."
-instructions: |
-  You write React components and TypeScript.
-  Do not modify backend code.
 model: "claude-sonnet-4-6"
 effort: "high"
 tools: [Read, Write, Edit, Bash, Glob, Grep]
+---
+You write React components and TypeScript.
+Do not modify backend code.
 ```
 
 Run a quick syntax check:
@@ -76,7 +82,9 @@ Rules and skills are defined alongside agents inside the `project:` block — as
 
 **Skills** are reusable prompt packages. They are compiled to `.claude/skills/<id>/SKILL.md` and loaded when an agent invokes them.
 
-Add the second agent, then define the shared library. Each resource is its own `kind:` document:
+Add the second agent, then define the shared library. Each resource is its own file under `xcf/`:
+
+`project.xcf`:
 
 ```yaml
 kind: project
@@ -84,57 +92,79 @@ version: "1.0"
 name: my-team
 targets:
   - claude
+```
 
+`xcf/agents/frontend-dev.xcf`:
+
+```
 ---
 kind: agent
 version: "1.0"
 name: frontend-dev
 description: "Frontend developer. React and TypeScript only."
-instructions: |
-  You write React components and TypeScript.
-  Do not modify backend code.
 model: "claude-sonnet-4-6"
 effort: "high"
 tools: [Read, Write, Edit, Bash, Glob, Grep]
 rules: ["frontend-only"]
 skills: ["component-patterns"]
+---
+You write React components and TypeScript.
+Do not modify backend code.
+```
 
+`xcf/agents/security-reviewer.xcf`:
+
+```
 ---
 kind: agent
 version: "1.0"
 name: security-reviewer
 description: "Read-only security audit agent."
-instructions: |
-  You review code for security vulnerabilities.
-  Never modify files. Only read and report.
 model: "claude-sonnet-4-6"
 effort: "high"
 tools: [Read, Glob, Grep]
 disallowed-tools: [Write, Edit, Bash]
 rules: ["security-review-protocol"]
+---
+You review code for security vulnerabilities.
+Never modify files. Only read and report.
+```
 
+`xcf/rules/frontend-only.xcf`:
+
+```
 ---
 kind: rule
 version: "1.0"
 name: frontend-only
-instructions: "Only modify files in src/components/ and src/pages/."
 paths: ["src/components/**", "src/pages/**"]
+---
+Only modify files in src/components/ and src/pages/.
+```
 
+`xcf/rules/security-review-protocol.xcf`:
+
+```
 ---
 kind: rule
 version: "1.0"
 name: security-review-protocol
 always-apply: true
-instructions: |
-  Always output a structured JSON report.
-  [CRITICAL], [HIGH], [MEDIUM], [LOW] severity must be explicitly labeled.
+---
+Always output a structured JSON report.
+[CRITICAL], [HIGH], [MEDIUM], [LOW] severity must be explicitly labeled.
+```
 
+`xcf/skills/component-patterns.xcf`:
+
+```
 ---
 kind: skill
 version: "1.0"
 name: component-patterns
 description: "React component pattern library reference."
 instructions-file: "skills/component-patterns/SKILL.md"
+---
 ```
 
 Key points:
@@ -142,56 +172,27 @@ Key points:
 - `skills:` and `rules:` on each agent are lists of IDs — the compiler resolves them from the top-level library of `kind: skill` and `kind: rule` documents.
 - The `component-patterns` skill references `instructions-file:`. That file must exist on disk relative to `project.xcf` before you run `apply`.
 
-### Split-file alternative
+### Layout reference
 
-As projects grow, you can split the same configuration into separate files under `xcf/`:
+The directory layout for this workspace:
 
 ```
 my-team/
-  project.xcf                    # kind: project — metadata + ref lists
+  project.xcf                      # kind: project — metadata only
   xcf/
     agents/
-      frontend-dev.xcf            # kind: agent
-      security-reviewer.xcf       # kind: agent
+      frontend-dev.xcf              # kind: agent
+      security-reviewer.xcf         # kind: agent
     rules/
-      frontend-only.xcf           # kind: rule
-      security-review-protocol.xcf # kind: rule
+      frontend-only.xcf             # kind: rule
+      security-review-protocol.xcf  # kind: rule
     skills/
-      component-patterns.xcf      # kind: skill
+      component-patterns.xcf        # kind: skill
 ```
 
-The project manifest is metadata-only — agents, rules, and skills are discovered automatically:
+`ParseDirectory` discovers all `.xcf` files recursively, parses each one, and merges the results into a single AST before compilation. The parser uses file discovery to find resources — no explicit ref lists needed in `project.xcf`.
 
-```yaml
-# project.xcf
-kind: project
-version: "1.0"
-name: my-team
-targets:
-  - claude
-```
-
-Agents are discovered automatically by scanning `xcf/` — you do not list them in `project.xcf`. Each child file is a standalone `kind:` document:
-
-```yaml
-# xcf/agents/frontend-dev.xcf
-kind: agent
-version: "1.0"
-name: frontend-dev
-description: "Frontend developer. React and TypeScript only."
-instructions: |
-  You write React components and TypeScript.
-  Do not modify backend code.
-model: "claude-sonnet-4-6"
-effort: "high"
-tools: [Read, Write, Edit, Bash, Glob, Grep]
-rules: ["frontend-only"]
-skills: ["component-patterns"]
-```
-
-`ParseDirectory` discovers all `.xcf` files recursively, parses each one, and merges the results into a single AST before compilation. The parser uses file discovery to find resources — no explicit ref lists needed.
-
-See [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md) for best practices on when and how to split.
+See [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md) for best practices on directory organization as projects grow.
 
 ---
 
@@ -213,14 +214,15 @@ syntax and cross-references: ok
 validation passed
 ```
 
-Now add a rule that has no `paths:`, no `always-apply: true`, and is not referenced by any agent, to see what a structural warning looks like. Append this document to your `project.xcf`:
+Now add a rule that has no `paths:`, no `always-apply: true`, and is not referenced by any agent, to see what a structural warning looks like. Create `xcf/rules/orphan-rule.xcf`:
 
-```yaml
+```
 ---
 kind: rule
 version: "1.0"
 name: orphan-rule
-instructions: "This rule is unreachable."
+---
+This rule is unreachable.
 ```
 
 Run with `--structural`:
