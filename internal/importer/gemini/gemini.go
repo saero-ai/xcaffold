@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
 )
@@ -260,7 +258,7 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Readonly               *bool                         `yaml:"readonly"`
 	}
 
-	body, err := parseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
 		return fmt.Errorf("gemini: agent %q: %w", rel, err)
 	}
@@ -315,7 +313,7 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets                map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
-	body, err := parseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
 		return fmt.Errorf("gemini: skill %q: %w", rel, err)
 	}
@@ -355,7 +353,7 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets       map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
-	body, err := parseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
 		return fmt.Errorf("gemini: rule %q: %w", rel, err)
 	}
@@ -417,27 +415,4 @@ func extractSettings(rel string, data []byte, config *ast.XcaffoldConfig) error 
 	settings.SourceProvider = "gemini"
 	config.Settings = map[string]ast.SettingsConfig{"default": settings}
 	return nil
-}
-
-// --- helpers ---
-
-// parseFrontmatter parses YAML frontmatter from markdown content.
-// The body after the closing "---" delimiter is returned as a trimmed string.
-// If the content has no frontmatter, the full content is returned as the body
-// and v is left unmodified.
-func parseFrontmatter(data []byte, v interface{}) (body string, err error) {
-	content := string(data)
-	if !strings.HasPrefix(content, "---\n") {
-		return strings.TrimSpace(content), nil
-	}
-	// content[4:] skips the leading "---\n"
-	parts := strings.SplitN("\n"+content[4:], "\n---", 2)
-	if len(parts) < 2 {
-		return strings.TrimSpace(content), nil
-	}
-	if err := yaml.Unmarshal([]byte(parts[0]), v); err != nil {
-		return "", fmt.Errorf("frontmatter: %w", err)
-	}
-	// parts[1] starts with "\n" after the "---"; trim leading newline.
-	return strings.TrimSpace(strings.TrimPrefix(parts[1], "\n")), nil
 }
