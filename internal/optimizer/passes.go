@@ -96,18 +96,102 @@ func DefaultBudget(target string) Budget {
 // Pass implementations
 // ---------------------------------------------------------------------------
 
-// ApplyFlattenScopes is a stub that returns the file map unchanged.
-// Full implementation flattens nested scope blocks into a single flat structure.
+// ApplyFlattenScopes merges files nested under a rules/ subdirectory into a
+// single flat file keyed by "<parent>.md". Only groups with 2+ children are
+// merged; single-child groups are left at their original path. Files outside
+// rules/ or with fewer than 3 path segments are copied unchanged. Content
+// within each merged file is joined in sorted key order with "\n\n---\n\n".
 func ApplyFlattenScopes(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
-	out := copyFiles(files)
-	return out, nil, nil
+	out := make(map[string]string, len(files))
+	groups := make(map[string][]string) // parent dir → child keys
+	var notes []renderer.FidelityNote
+
+	keys := sortedKeys(files)
+	for _, k := range keys {
+		normalized := filepath.ToSlash(k)
+		parts := strings.Split(normalized, "/")
+		if len(parts) >= 3 && isRulesPath(k) {
+			parent := strings.Join(parts[:len(parts)-1], "/")
+			groups[parent] = append(groups[parent], k)
+		} else {
+			out[k] = files[k]
+		}
+	}
+
+	// Sort group keys for deterministic output order.
+	groupKeys := make([]string, 0, len(groups))
+	for k := range groups {
+		groupKeys = append(groupKeys, k)
+	}
+	sort.Strings(groupKeys)
+
+	for _, parent := range groupKeys {
+		children := groups[parent]
+		if len(children) == 1 {
+			// Single child: leave at its original path, no merge.
+			out[children[0]] = files[children[0]]
+			continue
+		}
+		sort.Strings(children)
+		parts := make([]string, 0, len(children))
+		for _, c := range children {
+			parts = append(parts, files[c])
+		}
+		merged := strings.Join(parts, "\n\n---\n\n")
+		flatKey := parent + ".md"
+		out[flatKey] = merged
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelInfo, "", "optimizer", flatKey, "",
+			"OPTIMIZER_FLATTEN_SCOPES",
+			fmt.Sprintf("merged %d nested files from %s/ into %s", len(children), parent, flatKey),
+			"",
+		))
+	}
+	return out, notes, nil
 }
 
-// ApplyInlineImports is a stub that returns the file map unchanged.
-// Full implementation resolves @-import directives by inlining the referenced content.
+// ApplyInlineImports resolves "@import <path>" directives found on their own
+// line within any file in the map. The referenced path must be an exact key in
+// the input map. On a hit the directive line is replaced by the target file's
+// content and a LevelInfo note is emitted. On a miss the line is left unchanged
+// and a LevelWarning note is emitted identifying the missing target.
 func ApplyInlineImports(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
 	out := copyFiles(files)
-	return out, nil, nil
+	var notes []renderer.FidelityNote
+
+	for k, body := range out {
+		lines := strings.Split(body, "\n")
+		changed := false
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if !strings.HasPrefix(trimmed, "@import ") {
+				continue
+			}
+			target := strings.TrimSpace(strings.TrimPrefix(trimmed, "@import"))
+			if content, ok := files[target]; ok {
+				lines[i] = content
+				changed = true
+				notes = append(notes, renderer.NewNote(
+					renderer.LevelInfo, "", "optimizer", k, "",
+					"OPTIMIZER_INLINE_IMPORT",
+					fmt.Sprintf("inlined @import %s into %s", target, k),
+					"",
+				))
+			} else {
+				notes = append(notes, renderer.NewNote(
+					renderer.LevelWarning, "", "optimizer", k, "",
+					"OPTIMIZER_INLINE_IMPORT_MISSING",
+					fmt.Sprintf("@import target %q not found in file map", target),
+					"check the import path matches an existing file key",
+				))
+			}
+		}
+		if changed {
+			out[k] = strings.Join(lines, "\n")
+		}
+	}
+
+	return out, notes, nil
 }
 
 // ApplyDedupe removes files whose content is identical to a lexicographically
