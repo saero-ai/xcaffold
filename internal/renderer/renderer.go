@@ -83,3 +83,24 @@ type TargetRenderer interface {
 	// compilation entry point is Compile; Render is a thin passthrough.
 	Render(files map[string]string) *output.Output
 }
+
+// ResourceRenderer extends TargetRenderer with per-resource compilation methods
+// and capability declarations. Renderers that implement this interface are used
+// by the orchestrator for per-resource compilation with automatic fidelity notes.
+// During migration, renderers may implement only TargetRenderer (legacy) or both.
+type ResourceRenderer interface {
+	TargetRenderer
+
+	Capabilities() CapabilitySet
+
+	CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileRules(rules map[string]ast.RuleConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileHooks(hooks ast.HookConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileSettings(settings ast.SettingsConfig) (map[string]string, []FidelityNote, error)
+	CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []FidelityNote, error)
+	CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []FidelityNote, error)
+
+	Finalize(files map[string]string) (map[string]string, []FidelityNote, error)
+}
