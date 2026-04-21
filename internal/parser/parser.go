@@ -472,7 +472,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			return nil, fmt.Errorf(
 				"kind field is required: every .xcf document must declare a kind " +
 					"(e.g., kind: project, kind: agent, kind: global). " +
-					"See https://xcaffold.com/docs/reference/multi-kind",
+					"See https://xcaffold.com/docs/reference/schema",
 			)
 
 		case "config":
@@ -519,14 +519,13 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			return nil, fmt.Errorf("unknown resource kind %q in document %d", kind, docIndex)
 		}
 
-		// Emit a deprecation warning on the second+ document of a multi-document
-		// YAML stream. Gated by XCAFFOLD_LEGACY_WARNINGS=true to avoid noise on
-		// projects that haven't migrated yet. The recommended migration is to split
-		// each resource into its own single-kind .xcf file.
-		if docIndex > 0 && os.Getenv("XCAFFOLD_LEGACY_WARNINGS") == "true" {
-			fmt.Fprintf(os.Stderr,
-				"Warning: multi-document .xcf files are deprecated; "+
-					"split each resource into its own file (document %d, kind: %s)\n",
+		// Reject multi-document .xcf files. Each file must contain exactly one
+		// resource document. Split multi-resource files into separate .xcf files.
+		if docIndex > 0 {
+			return nil, fmt.Errorf(
+				"multi-document .xcf files are no longer supported; "+
+					"each .xcf file must contain exactly one resource (found document %d, kind: %s); "+
+					"split into separate files under xcf/",
 				docIndex+1, kind)
 		}
 
