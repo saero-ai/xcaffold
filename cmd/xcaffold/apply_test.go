@@ -258,13 +258,13 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 func TestApplyScope_PurgesOrphanedFiles(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create initial config with an agent
-	xcfContent := `---
-kind: project
+	// Create initial config with an agent — split into two single-doc files.
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: orphan-test
----
-kind: global
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   dev:
@@ -272,9 +272,7 @@ agents:
     model: sonnet-4
     instructions: |
       You are a developer.
-`
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+`), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
@@ -288,12 +286,13 @@ agents:
 	_, err = os.Stat(agentFile)
 	require.NoError(t, err, "agent file should exist after first apply")
 
-	// Remove the agent from config
-	xcfNoAgent := `kind: project
+	// Remove the agent from config: update project.xcf and remove global.xcf so
+	// the second apply finds no agents and must purge the orphaned agent file.
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: orphan-test
-`
-	require.NoError(t, os.WriteFile(xcf, []byte(xcfNoAgent), 0600))
+`), 0600))
+	require.NoError(t, os.Remove(filepath.Join(dir, "global.xcf")))
 
 	// Second apply — should purge the orphaned agent file
 	err = applyScope(xcf, claudeDirPath, "project")
@@ -313,23 +312,22 @@ func TestRunApply_MultiTarget(t *testing.T) {
 
 	// kind: project document with two targets and an agent so both renderers
 	// produce output files (empty compile → no output dir created).
-	xcfContent := `kind: project
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: multi-target-test
 targets:
   - claude
   - cursor
----
-kind: agent
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcf"), []byte(`kind: agent
 version: "1.0"
 name: dev
 description: "Developer agent."
 instructions: |
   You are a developer.
 model: "claude-sonnet-4-5"
-`
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+`), 0600))
 
 	xcfPath = xcf
 	claudeDir = filepath.Join(dir, ".claude")
@@ -434,12 +432,12 @@ name: no-targets-test
 func TestApplyScope_DryRun_ListsOrphans(t *testing.T) {
 	dir := t.TempDir()
 
-	xcfContent := `---
-kind: project
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: orphan-test
----
-kind: global
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   dev:
@@ -447,9 +445,7 @@ agents:
     model: sonnet-4
     instructions: |
       You are a developer.
-`
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+`), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 

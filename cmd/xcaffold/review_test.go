@@ -16,12 +16,9 @@ func newTestCmd(buf *bytes.Buffer) *cobra.Command {
 }
 
 func TestReviewXCF_AllResourceSections(t *testing.T) {
-	xcf := []byte(`---
-kind: project
-version: "1.0"
-name: testproject
----
-kind: global
+	// Single-doc kind:global containing all resource sections.
+	// Multi-document .xcf files are no longer supported by the parser.
+	xcf := []byte(`kind: global
 version: "1.0"
 agents:
   ceo:

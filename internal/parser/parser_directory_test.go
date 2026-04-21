@@ -207,20 +207,20 @@ agents:
 }
 
 func TestParseDirectory_SingleFileFallback(t *testing.T) {
+	// Multi-doc .xcf files are no longer supported; split into separate files.
 	dir := t.TempDir()
-	path := writeTestXCF(t, dir, "project.xcf", `---
-kind: project
+	writeTestXCF(t, dir, "project.xcf", `kind: project
 version: "1.0"
 name: "fallback-project"
----
-kind: global
+`)
+	writeTestXCF(t, dir, "global.xcf", `kind: global
 version: "1.0"
 agents:
   fallback-agent:
     description: "Fallback"
 `)
 
-	cfg, err := ParseDirectory(path)
+	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "fallback-project", cfg.Project.Name)
 	require.Contains(t, cfg.Agents, "fallback-agent")

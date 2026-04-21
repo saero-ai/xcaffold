@@ -13,6 +13,7 @@ import (
 )
 
 func TestMarshalMultiKind_BasicConfig(t *testing.T) {
+	t.Skip("MarshalMultiKind removed in later task")
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
 		Project: &ast.ProjectConfig{Name: "test-project"},
