@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
 )
@@ -55,7 +53,7 @@ var antigravityMappings = []importer.KindMapping{
 func (a *AntigravityImporter) Classify(rel string, isDir bool) (importer.Kind, importer.Layout) {
 	rel = filepath.ToSlash(filepath.Clean(rel))
 	for _, m := range antigravityMappings {
-		if matchGlob(m.Pattern, rel) {
+		if importer.MatchGlob(m.Pattern, rel) {
 			return m.Kind, m.Layout
 		}
 	}
@@ -124,7 +122,7 @@ func (a *AntigravityImporter) Import(dir string, config *ast.XcaffoldConfig) err
 		}
 		rel = filepath.ToSlash(rel)
 
-		data, err := readFile(path)
+		data, err := importer.ReadFile(path)
 		if err != nil {
 			a.Warnings = append(a.Warnings, fmt.Sprintf("read %q: %v", rel, err))
 			return nil
@@ -197,7 +195,7 @@ func (a *AntigravityImporter) importSymlinkedDir(symlinkPath, importRoot string,
 		}
 		rel := filepath.ToSlash(filepath.Join(symlinkRel, relToTarget))
 
-		data, err := readFile(path)
+		data, err := importer.ReadFile(path)
 		if err != nil {
 			a.Warnings = append(a.Warnings, fmt.Sprintf("read %q: %v", rel, err))
 			return nil
@@ -258,7 +256,7 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Readonly               *bool                         `yaml:"readonly"`
 	}
 
-	body, err := parseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
 		return fmt.Errorf("antigravity: agent %q: %w", rel, err)
 	}
@@ -313,7 +311,7 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets                map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
-	body, err := parseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
 		return fmt.Errorf("antigravity: skill %q: %w", rel, err)
 	}
@@ -353,7 +351,7 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets       map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
-	body, err := parseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
 		return fmt.Errorf("antigravity: rule %q: %w", rel, err)
 	}
@@ -406,7 +404,7 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		Targets     map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
-	body, err := parseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
 		return fmt.Errorf("antigravity: workflow %q: %w", rel, err)
 	}
@@ -425,62 +423,4 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		SourceProvider: "antigravity",
 	}
 	return nil
-}
-
-// --- helpers ---
-
-// parseFrontmatter parses YAML frontmatter from markdown content.
-// The body after the closing "---" delimiter is returned as a trimmed string.
-// If the content has no frontmatter, the full content is returned as the body
-// and v is left unmodified.
-func parseFrontmatter(data []byte, v interface{}) (body string, err error) {
-	content := string(data)
-	if !strings.HasPrefix(content, "---\n") {
-		return strings.TrimSpace(content), nil
-	}
-	// content[4:] skips the leading "---\n"
-	parts := strings.SplitN("\n"+content[4:], "\n---", 2)
-	if len(parts) < 2 {
-		return strings.TrimSpace(content), nil
-	}
-	if err := yaml.Unmarshal([]byte(parts[0]), v); err != nil {
-		return "", fmt.Errorf("frontmatter: %w", err)
-	}
-	// parts[1] starts with "\n" after the "---"; trim leading newline.
-	return strings.TrimSpace(strings.TrimPrefix(parts[1], "\n")), nil
-}
-
-// matchGlob matches a relative path against a glob pattern.
-// Supports "*" (any single segment) and "**" (any number of segments).
-func matchGlob(pattern, rel string) bool {
-	patParts := strings.Split(pattern, "/")
-	relParts := strings.Split(rel, "/")
-	return matchSegments(patParts, relParts)
-}
-
-func matchSegments(pat, rel []string) bool {
-	for len(pat) > 0 && len(rel) > 0 {
-		switch pat[0] {
-		case "**":
-			// Try consuming zero or more rel segments.
-			for i := 0; i <= len(rel); i++ {
-				if matchSegments(pat[1:], rel[i:]) {
-					return true
-				}
-			}
-			return false
-		default:
-			ok, err := filepath.Match(pat[0], rel[0])
-			if err != nil || !ok {
-				return false
-			}
-			pat, rel = pat[1:], rel[1:]
-		}
-	}
-	return len(pat) == 0 && len(rel) == 0
-}
-
-// readFile reads a file from disk.
-func readFile(path string) ([]byte, error) {
-	return os.ReadFile(path)
 }

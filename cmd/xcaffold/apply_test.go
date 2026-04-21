@@ -56,7 +56,7 @@ agents:
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
 	xcfPath = xcf
-	claudeDir = filepath.Join(dir, ".claude")
+	projectRoot = dir
 	globalFlag = false
 	applyCheckOnly = true
 	defer func() { applyCheckOnly = false }()
@@ -107,7 +107,7 @@ func TestRunApply_ScopeProject(t *testing.T) {
 
 	// Set package-level path vars used by runApply.
 	xcfPath = xcf
-	claudeDir = filepath.Join(dir, ".claude")
+	projectRoot = dir
 	globalFlag = false
 
 	err := runApply(nil, nil)
@@ -142,7 +142,7 @@ func TestRunApply_GlobalFlagFalse_CompilesProject(t *testing.T) {
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	xcfPath = xcf
-	claudeDir = filepath.Join(dir, ".claude")
+	projectRoot = dir
 	globalFlag = false
 	targetFlag = targetClaude
 
@@ -330,7 +330,7 @@ model: "claude-sonnet-4-5"
 `), 0600))
 
 	xcfPath = xcf
-	claudeDir = filepath.Join(dir, ".claude")
+	projectRoot = dir
 	globalFlag = false
 	applyForce = true
 	targetFlag = targetClaude // default value — not Changed
@@ -377,7 +377,7 @@ targets:
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
 	xcfPath = xcf
-	claudeDir = filepath.Join(dir, ".claude")
+	projectRoot = dir
 	globalFlag = false
 	applyForce = true
 
@@ -414,7 +414,7 @@ name: no-targets-test
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
 	xcfPath = xcf
-	claudeDir = filepath.Join(dir, ".claude")
+	projectRoot = dir
 	globalFlag = false
 	applyForce = true
 	targetFlag = targetClaude

@@ -313,7 +313,7 @@ func TestOutputDir_AllTargets(t *testing.T) {
 		{"antigravity", ".agents"},
 		{"copilot", ".github"},
 		{"gemini", ".gemini"},
-		{"unknown", ".claude"},
+		{"unknown", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.target, func(t *testing.T) {

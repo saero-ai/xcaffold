@@ -140,14 +140,14 @@ func renderKnowledgeItem(name string, entry ast.MemoryConfig, tags []string, bod
 	if title == "" {
 		title = name
 	}
-	fmt.Fprintf(&sb, "title: %s\n", yamlScalar(title))
+	fmt.Fprintf(&sb, "title: %s\n", renderer.YAMLScalar(title))
 
 	if entry.Type != "" {
 		fmt.Fprintf(&sb, "type: %s\n", entry.Type)
 	}
 
 	if entry.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(entry.Description))
+		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(entry.Description))
 	}
 
 	if len(tags) > 0 {

@@ -307,7 +307,7 @@ func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
 			Agents: map[string]ast.AgentConfig{
 				"helper": {
 					Name: "helper", Description: "Helper agent.",
-					Tools: []string{"read_file"}, Model: "gemini-3-flash-preview",
+					Tools: []string{"read_file"}, Model: "opus-4",
 					InstructionsFile: "agent-body.md",
 				},
 			},

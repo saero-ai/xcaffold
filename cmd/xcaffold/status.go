@@ -25,7 +25,7 @@ artifact health, and source file drift per target.
 
 Use --blueprint to scope to a specific blueprint.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dir := filepath.Dir(claudeDir)
+		dir := projectRoot
 		if globalFlag {
 			dir = globalXcfHome
 		}

@@ -1,6 +1,7 @@
 package gemini
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -146,6 +147,35 @@ func TestCompile_Gemini_Agents_InlineMCP(t *testing.T) {
 	require.True(t, ok, "expected agents/mcp-agent.md (relative to OutputDir) to be present")
 	assert.Contains(t, content, "mcpServers:")
 	assert.Contains(t, content, "my-server")
+}
+
+func TestRenderAgents_ModelAlias_Translated(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"test-agent": {
+					Name:         "test-agent",
+					Description:  "A test agent",
+					Model:        "sonnet-4",
+					Instructions: "Do things.",
+				},
+			},
+		},
+	}
+	r := New()
+	out, notes, err := r.Compile(config, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = notes
+
+	agentFile, ok := out.Files["agents/test-agent.md"]
+	if !ok {
+		t.Fatal("expected agents/test-agent.md in output")
+	}
+	if strings.Contains(agentFile, "model: sonnet-4") {
+		t.Errorf("agent file contains raw alias 'sonnet-4'; expected translated model ID")
+	}
 }
 
 func TestCompile_Gemini_Agents_WithBody(t *testing.T) {

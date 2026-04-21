@@ -140,6 +140,35 @@ func TestCompile_Copilot_Skills_UnsupportedFields(t *testing.T) {
 		"expected CodeSkillAssetsDropped for assets field")
 }
 
+// TestCompile_Copilot_Skills_ReferencesDropped verifies that a skill with
+// references produces a SKILL_REFERENCES_DROPPED fidelity note because Copilot
+// has no native support for skill references/ directories.
+func TestCompile_Copilot_Skills_ReferencesDropped(t *testing.T) {
+	r := copilot.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"test-skill": {
+					Name:         "test-skill",
+					Description:  "A skill with references",
+					Instructions: "Do things.",
+					References:   []string{"refs/doc.md"},
+				},
+			},
+		},
+	}
+	_, notes, err := r.Compile(config, t.TempDir())
+	require.NoError(t, err)
+
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeSkillReferencesDropped {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected SKILL_REFERENCES_DROPPED fidelity note for skill with references")
+}
+
 // TestCompile_Copilot_Skills_Multiple verifies that two skills each produce a
 // separate SKILL.md file under .github/skills/<id>/SKILL.md.
 func TestCompile_Copilot_Skills_Multiple(t *testing.T) {

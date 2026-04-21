@@ -51,37 +51,59 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 	return &output.Output{Files: files}
 }
 
+// Capabilities returns the CapabilitySet for the Cursor renderer.
+// Cursor supports agents, skills (with references/scripts/assets subdirs), rules,
+// workflows (via rule-plus-skill lowering), hooks, MCP, and project instructions.
+// Model selection in Cursor is UI-only, so ModelField is false.
+func (r *Renderer) Capabilities() renderer.CapabilitySet {
+	return renderer.CapabilitySet{
+		Agents:              true,
+		Skills:              true,
+		Rules:               true,
+		Workflows:           true,
+		Hooks:               true,
+		Settings:            true,
+		MCP:                 true,
+		Memory:              false,
+		ProjectInstructions: true,
+		ModelField:          false,
+		RuleActivations:     []string{"always", "path-glob", "manual-mention"},
+		SkillSubdirs:        []string{"references", "scripts", "assets"},
+	}
+}
+
 // Compile translates an XcaffoldConfig AST into its Cursor output representation.
 // baseDir is the directory that contains the project.xcf file; it is used to
 // resolve instructions_file: paths. The second return is a slice of fidelity
 // notes describing information loss relative to the native Claude target;
 // suppression is applied at the command layer, not inside this renderer.
+// Compile delegates to the orchestrator which calls per-resource methods.
 // Compile returns an error if any resource fails to compile. It never panics.
 func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	out := &output.Output{Files: make(map[string]string)}
+	return renderer.Orchestrate(r, config, baseDir)
+}
+
+// CompileAgents renders all agents to Cursor agents/<id>.md files.
+func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
 	var notes []renderer.FidelityNote
-
-	for id, rule := range config.Rules {
-		mdc, ruleNotes, err := compileCursorRule(id, rule, baseDir)
-		if err != nil {
-			return nil, nil, fmt.Errorf("cursor: failed to compile rule %q: %w", id, err)
-		}
-		safePath := filepath.Clean(fmt.Sprintf("rules/%s.mdc", id))
-		out.Files[safePath] = mdc
-		notes = append(notes, ruleNotes...)
-	}
-
-	for id, agent := range config.Agents {
+	for id, agent := range agents {
 		md, agentNotes, err := compileCursorAgent(id, agent, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cursor: failed to compile agent %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("agents/%s.md", id))
-		out.Files[safePath] = md
+		files[safePath] = md
 		notes = append(notes, agentNotes...)
 	}
+	return files, notes, nil
+}
 
-	for id, skill := range config.Skills {
+// CompileSkills renders all skills to Cursor skills/<id>/SKILL.md files,
+// including references, scripts, and assets subdirectories.
+func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	out := &output.Output{Files: make(map[string]string)}
+	for id, skill := range skills {
 		md, err := compileCursorSkill(id, skill, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cursor: failed to compile skill %q: %w", id, err)
@@ -89,20 +111,41 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
-		if err := compileCursorSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("cursor: skill %q references: %w", id, err)
 		}
-		if err := compileCursorSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("cursor: skill %q scripts: %w", id, err)
 		}
-		if err := compileCursorSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("cursor: skill %q assets: %w", id, err)
 		}
 	}
+	return out.Files, nil, nil
+}
 
-	// Lower workflows via TranslateWorkflow; cursor uses rule-plus-skill when
-	// an explicit lowering-strategy is set, otherwise emits a no-native note.
-	for id, wf := range config.Workflows {
+// CompileRules renders all rules to Cursor rules/<id>.mdc files.
+func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	var notes []renderer.FidelityNote
+	for id, rule := range rules {
+		mdc, ruleNotes, err := compileCursorRule(id, rule, baseDir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("cursor: failed to compile rule %q: %w", id, err)
+		}
+		safePath := filepath.Clean(fmt.Sprintf("rules/%s.mdc", id))
+		files[safePath] = mdc
+		notes = append(notes, ruleNotes...)
+	}
+	return files, notes, nil
+}
+
+// CompileWorkflows lowers workflows via TranslateWorkflow; Cursor uses
+// rule-plus-skill primitives when an explicit lowering-strategy is set.
+func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	var notes []renderer.FidelityNote
+	for id, wf := range workflows {
 		wfCopy := wf
 		if wfCopy.Name == "" {
 			wfCopy.Name = id
@@ -117,42 +160,31 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 			switch p.Kind {
 			case "rule":
 				safePath := filepath.Clean(fmt.Sprintf("rules/%s.mdc", p.ID))
-				out.Files[safePath] = content
+				files[safePath] = content
 			case "skill":
 				safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))
-				out.Files[safePath] = content
+				files[safePath] = content
 			}
 		}
 	}
+	return files, notes, nil
+}
 
-	if len(config.MCP) > 0 {
-		mcpJSON, mcpNotes, err := compileCursorMCP(config.MCP)
-		if err != nil {
-			return nil, nil, fmt.Errorf("cursor: failed to compile mcp servers: %w", err)
-		}
-		out.Files["mcp.json"] = mcpJSON
-		notes = append(notes, mcpNotes...)
+// CompileHooks flattens Claude's 3-level HookConfig to Cursor's 2-level format
+// and writes it to hooks.json.
+func (r *Renderer) CompileHooks(hooks ast.HookConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	hooksJSON, notes, err := compileCursorHooks(hooks)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cursor: failed to compile hooks: %w", err)
 	}
+	files := map[string]string{"hooks.json": hooksJSON}
+	return files, notes, nil
+}
 
-	settings := config.Settings["default"]
-	if len(config.Hooks) > 0 {
-		var hooks ast.HookConfig
-		if dh, ok := config.Hooks["default"]; ok {
-			hooks = dh.Events
-		}
-		hooksJSON, hookNotes, err := compileCursorHooks(hooks)
-		if err != nil {
-			return nil, nil, fmt.Errorf("cursor: failed to compile hooks: %w", err)
-		}
-		out.Files["hooks.json"] = hooksJSON
-		notes = append(notes, hookNotes...)
-	}
-
-	if config.Project != nil {
-		instrNotes := r.renderProjectInstructions(config, baseDir, out.Files)
-		notes = append(notes, instrNotes...)
-	}
-
+// CompileSettings emits fidelity notes for unsupported Cursor settings fields
+// (permissions, sandbox). Cursor has no settings.json equivalent.
+func (r *Renderer) CompileSettings(settings ast.SettingsConfig) (map[string]string, []renderer.FidelityNote, error) {
+	var notes []renderer.FidelityNote
 	if settings.Permissions != nil {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "settings", "global", "permissions",
@@ -169,8 +201,33 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 			"Remove the sandbox block for this target or use a platform that supports sandboxing",
 		))
 	}
+	return nil, notes, nil
+}
 
-	return out, notes, nil
+// CompileMCP renders all MCP server configs to a single mcp.json file.
+func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
+	mcpJSON, notes, err := compileCursorMCP(servers)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cursor: failed to compile mcp servers: %w", err)
+	}
+	files := map[string]string{"mcp.json": mcpJSON}
+	return files, notes, nil
+}
+
+// CompileProjectInstructions emits AGENTS.md at root and one AGENTS.md per scope.
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	// Build a minimal config shell to reuse renderProjectInstructions.
+	cfg := &ast.XcaffoldConfig{}
+	cfg.Project = project
+	files := make(map[string]string)
+	notes := r.renderProjectInstructions(cfg, baseDir, files)
+	return files, notes, nil
+}
+
+// Finalize is a no-op post-processing pass for the Cursor renderer.
+// Path normalization is already applied per-resource during compilation.
+func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
+	return files, nil, nil
 }
 
 // renderProjectInstructions emits AGENTS.md at root and one AGENTS.md per scope.
@@ -405,16 +462,16 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 	sb.WriteString("---\n")
 
 	if agent.Name != "" {
-		fmt.Fprintf(&sb, "name: %s\n", yamlScalar(agent.Name))
+		fmt.Fprintf(&sb, "name: %s\n", renderer.YAMLScalar(agent.Name))
 	}
 	if agent.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(agent.Description))
+		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(agent.Description))
 	}
 
 	if agent.Model != "" {
 		if resolved, ok := renderer.ResolveModel(agent.Model, targetName); ok && resolved != "" {
 			if renderer.IsMappedModel(agent.Model, targetName) {
-				fmt.Fprintf(&sb, "model: %s\n", yamlScalar(resolved))
+				fmt.Fprintf(&sb, "model: %s\n", renderer.YAMLScalar(resolved))
 			} else {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "agent", id, "model",
@@ -484,10 +541,10 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 	sb.WriteString("---\n")
 
 	if skill.Name != "" {
-		fmt.Fprintf(&sb, "name: %s\n", yamlScalar(skill.Name))
+		fmt.Fprintf(&sb, "name: %s\n", renderer.YAMLScalar(skill.Name))
 	}
 	if skill.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(skill.Description))
+		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(skill.Description))
 	}
 
 	sb.WriteString("---\n")
@@ -564,59 +621,4 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, []renderer.Fide
 		return "", nil, fmt.Errorf("mcp json marshal: %w", err)
 	}
 	return string(data), notes, nil
-}
-
-// compileCursorSkillSubdir copies skill subdirectory files (references/, scripts/,
-// assets/) into the output map under skills/<id>/<subdir>/<filename>.
-// Path traversal above baseDir is rejected. Glob patterns are expanded;
-// literal paths are read directly.
-func compileCursorSkillSubdir(id, subdir string, paths []string, baseDir string, out *output.Output) error {
-	if len(paths) == 0 {
-		return nil
-	}
-
-	for _, pattern := range paths {
-		cleanedPattern := filepath.Clean(pattern)
-		if strings.HasPrefix(cleanedPattern, "..") {
-			return fmt.Errorf("%s path %q traverses above the project root", subdir, pattern)
-		}
-
-		absPattern := filepath.Join(baseDir, cleanedPattern)
-
-		matches, err := filepath.Glob(absPattern)
-		if err != nil {
-			return fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
-		}
-		if len(matches) == 0 {
-			data, readErr := os.ReadFile(absPattern)
-			if readErr != nil {
-				return fmt.Errorf("%s file %q: %w", subdir, pattern, readErr)
-			}
-			baseName := filepath.Base(absPattern)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
-			out.Files[outPath] = string(data)
-			continue
-		}
-
-		for _, match := range matches {
-			data, err := os.ReadFile(match)
-			if err != nil {
-				return fmt.Errorf("%s file %q: %w", subdir, match, err)
-			}
-			baseName := filepath.Base(match)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
-			out.Files[outPath] = string(data)
-		}
-	}
-	return nil
-}
-
-// yamlScalar quotes a string value for safe inclusion in YAML if it contains
-// characters that would otherwise need quoting.
-func yamlScalar(s string) string {
-	needsQuote := strings.ContainsAny(s, ":#{}[]|>&*!,'\"\\%@`")
-	if needsQuote {
-		return fmt.Sprintf("%q", s)
-	}
-	return s
 }

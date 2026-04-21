@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/output"
 	"gopkg.in/yaml.v3"
 )
 
@@ -60,7 +59,10 @@ func ResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) 
 	return ResolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
-// TargetRenderer renders a compiled file map for a specific target environment.
+// TargetRenderer is the contract for all output-target renderers. It declares
+// per-resource compilation methods and Capabilities/Finalize hooks. The
+// orchestrator calls these methods directly via Orchestrate(); there is no
+// monolithic Compile/Render method on the interface.
 type TargetRenderer interface {
 	// Target returns the canonical name of this renderer (e.g. "claude").
 	Target() string
@@ -69,17 +71,21 @@ type TargetRenderer interface {
 	// (e.g. ".claude", ".cursor/rules").
 	OutputDir() string
 
-	// Compile translates an XcaffoldConfig into a compiler Output and a slice
-	// of fidelity notes describing any information loss or transformation
-	// that occurred. Compile is the semantic entry point consumed by the
-	// top-level compiler. A non-empty notes slice does not indicate failure;
-	// callers decide whether to promote notes to errors based on the
-	// --fidelity mode.
-	Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []FidelityNote, error)
+	// Capabilities declares which resource kinds this renderer supports.
+	// The orchestrator uses this to decide whether to call a Compile* method
+	// or emit a RENDERER_KIND_UNSUPPORTED fidelity note.
+	Capabilities() CapabilitySet
 
-	// Render wraps a file map in an output.Output. It is retained for
-	// backward compatibility with callers that have already assembled a
-	// file map and need the renderer's Output envelope. The canonical
-	// compilation entry point is Compile; Render is a thin passthrough.
-	Render(files map[string]string) *output.Output
+	CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileRules(rules map[string]ast.RuleConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileHooks(hooks ast.HookConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileSettings(settings ast.SettingsConfig) (map[string]string, []FidelityNote, error)
+	CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []FidelityNote, error)
+	CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []FidelityNote, error)
+
+	// Finalize is a post-processing pass called after all per-resource methods
+	// have run (path normalization, deduplication, etc.).
+	Finalize(files map[string]string) (map[string]string, []FidelityNote, error)
 }

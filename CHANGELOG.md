@@ -6,6 +6,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Provider-Agnostic Renderer)
+
+- Added `CapabilitySet` type declaring per-resource support for each renderer (renderer)
+- Added `Orchestrate()` function dispatching compilation to per-resource methods based on capability declarations (renderer)
+- Added cross-provider invariant test suite asserting render-or-note, no raw aliases, no Claude env var leakage, reference fidelity, and code catalog completeness (renderer)
+- Added `provider_features_test.go` with ground truth assertions for all five providers' capability sets, target names, and output directories (renderer)
+- Added shared `CompileSkillSubdir`, `SortedKeys`, `YAMLScalar`, `StripAllFrontmatter` helpers (renderer)
+- Added `LowerWorkflows` helper in `renderer/shared/` subpackage to avoid import cycles (renderer)
+- Added shared `ParseFrontmatter`, `ParseFrontmatterLenient`, `MatchGlob`, `ReadFile`, `AppendUnique` helpers to eliminate duplication across five provider importers (importer)
+
+### Changed (Provider-Agnostic Renderer)
+
+- Changed `TargetRenderer` interface from monolithic `Compile()`/`Render()` to per-resource methods (`CompileAgents`, `CompileSkills`, `CompileRules`, `CompileWorkflows`, `CompileHooks`, `CompileSettings`, `CompileMCP`, `CompileProjectInstructions`) with `Capabilities()` and `Finalize()` hooks (renderer)
+- Changed `compiler.Compile()` to use `resolveRenderer()` + `renderer.Orchestrate()` instead of a target switch with direct renderer construction (compiler)
+- Changed `compiler.OutputDir()` to return empty string for unknown targets instead of defaulting to `.claude` (compiler)
+- Changed `xcaffold apply` to run optimizer required passes (e.g. `flatten-scopes`, `inline-imports`) after compilation and before policy evaluation (apply)
+- Changed internal `claudeDir` variable to `projectRoot` across all CLI commands for provider-agnostic path resolution (cmd)
+
+### Fixed (Provider-Agnostic Renderer)
+
+- Fixed model alias resolution for gemini, copilot, and cursor agent rendering — raw aliases like `sonnet-4` are now mapped to provider-specific model identifiers (renderer)
+- Fixed antigravity renderer silently dropping agents without emitting a `RENDERER_KIND_UNSUPPORTED` fidelity note (renderer)
+- Fixed data loss in copilot `InstructionsFile` rendering and copilot/gemini model resolution (renderer)
+- Fixed `graph` command hardcoded `.claude` fallback to use `compiler.OutputDir()` (graph)
+- Fixed `diff` command inconsistent target normalization between global and project scope (diff)
+
 ### Added
 - `xcaffold init` automatically generates a self-referential `/xcaffold` skill (`xcf/skills/xcaffold.xcf`) out of the box, teaching AI assistants local schema constraints and provider support matrices natively.
 - `xcaffold init` multi-file generator that scaffolds an entire `xcf/` directory, replacing the legacy single `project.xcf` builder.

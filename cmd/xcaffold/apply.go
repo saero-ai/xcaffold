@@ -14,6 +14,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/compiler"
+	"github.com/saero-ai/xcaffold/internal/optimizer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/saero-ai/xcaffold/internal/registry"
@@ -112,7 +113,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 		}
 		globalXcfPath = filepath.Join(proj.Path, "project.xcf")
 		xcfPath = globalXcfPath
-		claudeDir = filepath.Join(proj.Path, ".claude")
+		projectRoot = proj.Path
 	}
 
 	if applyCheckOnly {
@@ -300,6 +301,15 @@ func applyScope(configPath, outputDir, scopeName string) error {
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}
+
+	// Renderers resolve @-imports natively; the optimizer handles targets that don't.
+	opt := optimizer.New(targetFlag)
+	optimized, optNotes, optErr := opt.Run(out.Files)
+	if optErr != nil {
+		return fmt.Errorf("[%s] optimizer error: %w", scopeName, optErr)
+	}
+	out.Files = optimized
+	notes = append(notes, optNotes...)
 
 	// Restore same-provider extras and emit fidelity notes for cross-provider ones.
 	notes = applyProviderExtras(config, out, targetFlag, notes)
@@ -566,7 +576,7 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 	timestamp := time.Now().Format("20060102_150405")
 	bakName := fmt.Sprintf(".%s_bak_%s", target, timestamp)
 	if target == "" {
-		bakName = fmt.Sprintf(".claude_bak_%s", timestamp)
+		bakName = fmt.Sprintf(".%s_bak_%s", targetClaude, timestamp)
 	}
 
 	var destDir string

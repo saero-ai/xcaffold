@@ -76,7 +76,7 @@ func compileCopilotHooks(hookConfig ast.HookConfig) (string, []renderer.Fidelity
 	hooksSection := make(map[string][]copilotHookEntry)
 	var notes []renderer.FidelityNote
 
-	for _, eventName := range sortedKeys(hookConfig) {
+	for _, eventName := range renderer.SortedKeys(hookConfig) {
 		groups := hookConfig[eventName]
 		copilotEvent, ok := mapCopilotEvent(eventName)
 		if !ok {

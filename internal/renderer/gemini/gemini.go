@@ -6,20 +6,33 @@
 package gemini
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	rendshared "github.com/saero-ai/xcaffold/internal/renderer/shared"
 	"github.com/saero-ai/xcaffold/internal/resolver"
-	"github.com/saero-ai/xcaffold/internal/translator"
 	"gopkg.in/yaml.v3"
 )
 
 const targetName = "gemini"
+
+// Sentinel keys used to accumulate partial data across per-resource method calls.
+// These keys are never written to disk — Finalize consumes and removes them.
+const (
+	// geminiRuleImportsKey accumulates @-import lines to be appended to GEMINI.md.
+	geminiRuleImportsKey = "_gemini_rule_imports"
+	// geminiHooksKey stores JSON-encoded ast.HookConfig from CompileHooks.
+	geminiHooksKey = "_gemini_hooks_json"
+	// geminiMCPKey stores JSON-encoded map[string]ast.MCPConfig from CompileMCP.
+	geminiMCPKey = "_gemini_mcp_json"
+	// geminiSettingsKey stores JSON-encoded ast.SettingsConfig from CompileSettings.
+	geminiSettingsKey = "_gemini_settings_json"
+)
 
 // Renderer compiles an XcaffoldConfig AST into Gemini CLI output files.
 type Renderer struct{}
@@ -39,50 +52,189 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 	return &output.Output{Files: files}
 }
 
-// Compile translates an XcaffoldConfig AST into Gemini CLI output files.
-// baseDir is the directory containing the project.xcf file; it is used to
-// resolve instructions-file paths. Compile returns an error if any resource
-// fails to compile. It never panics.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	out := &output.Output{Files: make(map[string]string)}
-	var notes []renderer.FidelityNote
-
-	if config.Project != nil {
-		instrNotes := r.renderProjectInstructions(config, baseDir, out.Files)
-		notes = append(notes, instrNotes...)
+// Capabilities declares the resource kinds the Gemini renderer supports.
+func (r *Renderer) Capabilities() renderer.CapabilitySet {
+	return renderer.CapabilitySet{
+		Agents:              true,
+		Skills:              true,
+		Rules:               true,
+		Workflows:           true,
+		Hooks:               true,
+		Settings:            true,
+		MCP:                 true,
+		Memory:              false,
+		ProjectInstructions: true,
+		SkillSubdirs:        []string{},
+		ModelField:          true,
+		RuleActivations:     []string{"always", "path-glob"},
 	}
+}
 
-	// Lower workflows to rule+skill primitives before rendering rules and skills.
-	// Lowered primitives are merged into the config copies used for rendering.
-	config, workflowNotes := r.lowerWorkflows(config)
-	notes = append(notes, workflowNotes...)
+// Compile translates an XcaffoldConfig AST into Gemini CLI output files.
+// It delegates to renderer.Orchestrate which calls the per-resource methods.
+// Compile returns an error if any resource fails to compile. It never panics.
+func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
+	return renderer.Orchestrate(r, config, baseDir)
+}
 
-	ruleNotes, err := r.renderRules(config, out.Files, baseDir)
+// CompileAgents compiles all agent configs to agents/<id>.md files.
+func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Agents: agents}}
+	notes := r.renderAgents(cfg, baseDir, files)
+	return files, notes, nil
+}
+
+// CompileSkills compiles all skill configs to skills/<id>/SKILL.md files.
+func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Skills: skills}}
+	notes := r.renderSkills(cfg, baseDir, files)
+	return files, notes, nil
+}
+
+// CompileRules compiles all rule configs to rules/<id>.md files and records
+// @-import lines under the geminiRuleImportsKey sentinel for Finalize.
+func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Rules: rules}}
+	notes, err := r.renderRulesToMap(cfg, files, baseDir)
 	if err != nil {
 		return nil, nil, err
 	}
-	notes = append(notes, ruleNotes...)
+	return files, notes, nil
+}
 
-	skillNotes := r.renderSkills(config, baseDir, out.Files)
-	notes = append(notes, skillNotes...)
+// CompileWorkflows lowers workflow configs to rule+skill primitives and compiles
+// them. @-import lines for any lowered rules are stored under the sentinel key.
+func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Workflows: workflows}}
+	lowered, workflowNotes := rendshared.LowerWorkflows(cfg, targetName)
 
-	agentNotes := r.renderAgents(config, baseDir, out.Files)
-	notes = append(notes, agentNotes...)
+	files := make(map[string]string)
+	var notes []renderer.FidelityNote
+	notes = append(notes, workflowNotes...)
 
-	var hooks ast.HookConfig
-	if dh, ok := config.Hooks["default"]; ok {
-		hooks = dh.Events
+	if len(lowered.Rules) > 0 {
+		ruleNotes, err := r.renderRulesToMap(lowered, files, baseDir)
+		if err != nil {
+			return nil, nil, err
+		}
+		notes = append(notes, ruleNotes...)
 	}
-	settingsJSON, settingsNotes, err := compileGeminiSettings(hooks, config.MCP, config.Settings["default"])
+
+	if len(lowered.Skills) > 0 {
+		skillNotes := r.renderSkills(lowered, baseDir, files)
+		notes = append(notes, skillNotes...)
+	}
+
+	return files, notes, nil
+}
+
+// CompileHooks stores the hook config under a sentinel key for Finalize to merge
+// into settings.json alongside MCP and settings data.
+func (r *Renderer) CompileHooks(hooks ast.HookConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	if len(hooks) == 0 {
+		return files, nil, nil
+	}
+	b, err := json.Marshal(hooks)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to compile gemini settings: %w", err)
+		return nil, nil, fmt.Errorf("gemini: marshal hooks for sentinel: %w", err)
 	}
-	notes = append(notes, settingsNotes...)
-	if settingsJSON != "" {
-		out.Files["settings.json"] = settingsJSON
+	files[geminiHooksKey] = string(b)
+	return files, nil, nil
+}
+
+// CompileSettings stores the settings config under a sentinel key for Finalize
+// and emits fidelity notes for unsupported fields.
+func (r *Renderer) CompileSettings(settings ast.SettingsConfig) (map[string]string, []renderer.FidelityNote, error) {
+	notes := detectUnsupportedSettingsFields(settings)
+	b, err := json.Marshal(settings)
+	if err != nil {
+		return nil, nil, fmt.Errorf("gemini: marshal settings for sentinel: %w", err)
+	}
+	files := map[string]string{
+		geminiSettingsKey: string(b),
+	}
+	return files, notes, nil
+}
+
+// CompileMCP stores the MCP config under a sentinel key for Finalize to merge
+// into settings.json.
+func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	if len(servers) == 0 {
+		return files, nil, nil
+	}
+	b, err := json.Marshal(servers)
+	if err != nil {
+		return nil, nil, fmt.Errorf("gemini: marshal MCP for sentinel: %w", err)
+	}
+	files[geminiMCPKey] = string(b)
+	return files, nil, nil
+}
+
+// CompileProjectInstructions writes GEMINI.md with project root instructions and
+// emits per-scope GEMINI.md files.
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	cfg := &ast.XcaffoldConfig{Project: project}
+	notes := r.renderProjectInstructions(cfg, baseDir, files)
+	return files, notes, nil
+}
+
+// Finalize merges all sentinel data into their final output files:
+//  1. Appends rule @-import lines from geminiRuleImportsKey to GEMINI.md.
+//  2. Deserializes hooks, MCP, and settings sentinels and regenerates settings.json
+//     via compileGeminiSettings so hooks and MCP are always combined in one file.
+//
+// All sentinel keys are removed before returning.
+func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
+	// 1. Merge rule @-import lines into GEMINI.md.
+	if imports, ok := files[geminiRuleImportsKey]; ok {
+		if imports != "" {
+			existing := files["GEMINI.md"]
+			if existing != "" && !strings.HasSuffix(existing, "\n") {
+				existing += "\n"
+			}
+			files["GEMINI.md"] = existing + imports
+		}
+		delete(files, geminiRuleImportsKey)
 	}
 
-	return out, notes, nil
+	// 2. Regenerate settings.json from sentinel data.
+	var hooks ast.HookConfig
+	if raw, ok := files[geminiHooksKey]; ok {
+		_ = json.Unmarshal([]byte(raw), &hooks)
+		delete(files, geminiHooksKey)
+	}
+
+	var mcp map[string]ast.MCPConfig
+	if raw, ok := files[geminiMCPKey]; ok {
+		_ = json.Unmarshal([]byte(raw), &mcp)
+		delete(files, geminiMCPKey)
+	}
+
+	var settings ast.SettingsConfig
+	if raw, ok := files[geminiSettingsKey]; ok {
+		_ = json.Unmarshal([]byte(raw), &settings)
+		delete(files, geminiSettingsKey)
+	}
+
+	// Remove any stale settings.json written before Finalize.
+	delete(files, "settings.json")
+
+	// Regenerate the combined settings.json with all three data sources.
+	settingsJSON, settingsNotes, err := compileGeminiSettings(hooks, mcp, settings)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Finalize: gemini settings: %w", err)
+	}
+	if settingsJSON != "" {
+		files["settings.json"] = settingsJSON
+	}
+
+	return files, settingsNotes, nil
 }
 
 // renderProjectInstructions writes project root instructions to GEMINI.md and
@@ -123,13 +275,11 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	return nil
 }
 
-// renderRules writes each rule to rules/<id>.md (relative to OutputDir) and
-// appends @-import lines to GEMINI.md using the project-relative path
-// (.gemini/rules/<id>.md). Rules with unsupported activation modes emit a
-// fidelity note but are still written (Gemini treats all imported rules as
-// always-active). baseDir is used to resolve instructions-file paths on rules;
-// pass "" when no file resolution is needed.
-func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]string, baseDir string) ([]renderer.FidelityNote, error) {
+// renderRulesToMap writes each rule to rules/<id>.md and stores @-import lines
+// under geminiRuleImportsKey. This allows Finalize to append them to GEMINI.md
+// after project instructions have been assembled. baseDir is used to resolve
+// instructions-file paths.
+func (r *Renderer) renderRulesToMap(config *ast.XcaffoldConfig, files map[string]string, baseDir string) ([]renderer.FidelityNote, error) {
 	if len(config.Rules) == 0 {
 		return nil, nil
 	}
@@ -137,7 +287,7 @@ func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]stri
 	var notes []renderer.FidelityNote
 	var importLines []string
 
-	for _, id := range sortedKeys(config.Rules) {
+	for _, id := range renderer.SortedKeys(config.Rules) {
 		rule := config.Rules[id]
 
 		activation := renderer.ResolvedActivation(rule)
@@ -164,11 +314,11 @@ func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]stri
 	}
 
 	if len(importLines) > 0 {
-		existing := files["GEMINI.md"]
+		existing := files[geminiRuleImportsKey]
 		if existing != "" && !strings.HasSuffix(existing, "\n") {
 			existing += "\n"
 		}
-		files["GEMINI.md"] = existing + strings.Join(importLines, "\n") + "\n"
+		files[geminiRuleImportsKey] = existing + strings.Join(importLines, "\n") + "\n"
 	}
 
 	return notes, nil
@@ -183,7 +333,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 
 	var notes []renderer.FidelityNote
 
-	for _, id := range sortedKeys(config.Skills) {
+	for _, id := range renderer.SortedKeys(config.Skills) {
 		skill := config.Skills[id]
 
 		body, _ := resolver.ResolveInstructions(
@@ -243,6 +393,14 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				"Copy assets into .gemini/skills/"+id+"/assets/ manually",
 			))
 		}
+		if len(skill.References) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "references",
+				renderer.CodeSkillReferencesDropped,
+				fmt.Sprintf("skill %q references dropped; Gemini does not compile skill references/ directories", id),
+				"Copy references into .gemini/skills/"+id+"/references/ manually",
+			))
+		}
 		if skill.DisableModelInvocation != nil {
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning, targetName, "skill", id, "disable-model-invocation",
@@ -269,7 +427,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 
 	var notes []renderer.FidelityNote
 
-	for _, id := range sortedKeys(agents) {
+	for _, id := range renderer.SortedKeys(agents) {
 		agent := agents[id]
 		if agent.Inherited {
 			continue
@@ -294,7 +452,18 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			}
 		}
 		if agent.Model != "" {
-			fmt.Fprintf(&sb, "model: %s\n", agent.Model)
+			resolved, ok := renderer.ResolveModel(agent.Model, targetName)
+			if ok && resolved != "" {
+				fmt.Fprintf(&sb, "model: %s\n", resolved)
+				if !renderer.IsMappedModel(agent.Model, targetName) {
+					notes = append(notes, renderer.NewNote(
+						renderer.LevelInfo, targetName, "agent", id, "model",
+						renderer.CodeAgentModelUnmapped,
+						fmt.Sprintf("agent %q model %q passed through as literal; not a known xcaffold alias", id, agent.Model),
+						"Use a known alias (sonnet-4, opus-4, haiku-3.5) or a Gemini-native model ID",
+					))
+				}
+			}
 		}
 		if agent.MaxTurns > 0 {
 			fmt.Fprintf(&sb, "max_turns: %d\n", agent.MaxTurns)
@@ -303,7 +472,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		// Inline MCP servers.
 		if len(agent.MCPServers) > 0 {
 			sb.WriteString("mcpServers:\n")
-			for _, mcpID := range sortedKeys(agent.MCPServers) {
+			for _, mcpID := range renderer.SortedKeys(agent.MCPServers) {
 				mcp := agent.MCPServers[mcpID]
 				fmt.Fprintf(&sb, "  %s:\n", mcpID)
 				if mcp.Command != "" {
@@ -323,7 +492,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 				}
 				if len(mcp.Env) > 0 {
 					sb.WriteString("    env:\n")
-					for _, envKey := range sortedKeys(mcp.Env) {
+					for _, envKey := range renderer.SortedKeys(mcp.Env) {
 						fmt.Fprintf(&sb, "      %s: %s\n", envKey, mcp.Env[envKey])
 					}
 				}
@@ -418,69 +587,6 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 	return notes
 }
 
-// lowerWorkflows translates each workflow in config into rule and skill
-// primitives via translator.TranslateWorkflow, then returns a shallow copy of
-// config with the lowered primitives merged into Rules and Skills. The original
-// config is never mutated. Fidelity notes from the lowering are also returned.
-func (r *Renderer) lowerWorkflows(config *ast.XcaffoldConfig) (*ast.XcaffoldConfig, []renderer.FidelityNote) {
-	if len(config.Workflows) == 0 {
-		return config, nil
-	}
-
-	// Shallow-copy ResourceScope so we can merge without mutating the input.
-	merged := *config
-	rs := config.ResourceScope
-
-	mergedRules := make(map[string]ast.RuleConfig, len(rs.Rules))
-	for k, v := range rs.Rules {
-		mergedRules[k] = v
-	}
-
-	mergedSkills := make(map[string]ast.SkillConfig, len(rs.Skills))
-	for k, v := range rs.Skills {
-		mergedSkills[k] = v
-	}
-
-	var notes []renderer.FidelityNote
-
-	for _, id := range sortedKeys(rs.Workflows) {
-		wf := rs.Workflows[id]
-		if wf.Name == "" {
-			wf.Name = id
-		}
-		primitives, wfNotes := translator.TranslateWorkflow(&wf, targetName)
-		notes = append(notes, wfNotes...)
-
-		for _, p := range primitives {
-			switch p.Kind {
-			case "rule":
-				body := p.Content
-				if body == "" {
-					body = p.Body
-				}
-				mergedRules[p.ID] = ast.RuleConfig{
-					Description:  wf.Description,
-					Instructions: body,
-				}
-			case "skill":
-				body := p.Content
-				if body == "" {
-					body = p.Body
-				}
-				mergedSkills[p.ID] = ast.SkillConfig{
-					Name:         p.ID,
-					Instructions: body,
-				}
-			}
-		}
-	}
-
-	rs.Rules = mergedRules
-	rs.Skills = mergedSkills
-	merged.ResourceScope = rs
-	return &merged, notes
-}
-
 // buildRuleBody constructs the markdown content for a rule file.
 // baseDir is used to resolve instructions-file paths; pass "" when no
 // file resolution is needed.
@@ -499,14 +605,4 @@ func buildRuleBody(rule ast.RuleConfig, baseDir string) string {
 		sb.WriteString("\n")
 	}
 	return sb.String()
-}
-
-// sortedKeys returns a sorted slice of keys from a map.
-func sortedKeys[K ~string, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-	return keys
 }

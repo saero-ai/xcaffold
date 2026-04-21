@@ -362,6 +362,32 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	assert.Contains(t, content, "description: Has many fields.")
 }
 
+func TestCompile_Skill_ReferencesDropped_EmitsFidelityNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"test-skill": {
+					Name:         "test-skill",
+					Description:  "A skill with references",
+					Instructions: "Do things.",
+					References:   []string{"refs/doc.md"},
+				},
+			},
+		},
+	}
+	_, notes, err := r.Compile(config, t.TempDir())
+	require.NoError(t, err)
+
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeSkillReferencesDropped {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected SKILL_REFERENCES_DROPPED fidelity note for skill with references")
+}
+
 func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
@@ -879,6 +905,34 @@ func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
 	content := out.Files["rules/api-style.md"]
 	require.Contains(t, content, "<!-- xcaffold:activation Glob -->")
 	require.Contains(t, content, `<!-- xcaffold:paths ["src/**","packages/api/**"] -->`)
+}
+
+func TestCompile_Agents_EmitsKindUnsupported(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"test-agent": {
+					Name:         "test-agent",
+					Description:  "A test agent",
+					Instructions: "Do things.",
+				},
+			},
+		},
+	}
+	r := antigravity.New()
+	_, notes, err := r.Compile(config, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeRendererKindUnsupported && n.Resource == "test-agent" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected RENDERER_KIND_UNSUPPORTED fidelity note for agent in antigravity")
+	}
 }
 
 func TestCompileAntigravityRule_NoProvenance_ExistingBehaviorPreserved(t *testing.T) {

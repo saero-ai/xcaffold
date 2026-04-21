@@ -100,7 +100,7 @@ func compileGeminiHooks(hooks ast.HookConfig) (map[string][]geminiHookEvent, []r
 	section := map[string][]geminiHookEvent{}
 	var notes []renderer.FidelityNote
 
-	for _, eventName := range sortedKeys(hooks) {
+	for _, eventName := range renderer.SortedKeys(hooks) {
 		groups := hooks[eventName]
 		geminiEvent, ok := mapEventName(eventName)
 		if !ok {

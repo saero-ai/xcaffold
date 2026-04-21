@@ -3,7 +3,6 @@ package claude
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -40,29 +39,49 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 	return &output.Output{Files: files}
 }
 
-// Compile translates an XcaffoldConfig AST into its Claude Code output
-// representation. baseDir is the directory that contains the project.xcf file;
-// it is used to resolve instructions_file: and references: paths. The second
-// return is a slice of fidelity notes; Claude is the native target and has no
-// fidelity gaps, so Compile always returns a nil notes slice.
-// Compile returns an error if any resource fails to compile. It never panics.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	out := &output.Output{
-		Files: make(map[string]string),
+// Capabilities declares the full set of resource kinds this renderer supports.
+func (r *Renderer) Capabilities() renderer.CapabilitySet {
+	return renderer.CapabilitySet{
+		Agents:              true,
+		Skills:              true,
+		Rules:               true,
+		Workflows:           true,
+		Hooks:               true,
+		Settings:            true,
+		MCP:                 true,
+		Memory:              true,
+		ProjectInstructions: true,
+		SkillSubdirs:        []string{"references", "scripts", "assets"},
+		ModelField:          true,
+		RuleActivations:     []string{"always", "path-glob"},
 	}
+}
 
-	// Compile all agent personas to .claude/agents/*.md
-	for id, agent := range config.Agents {
+// Compile translates an XcaffoldConfig AST into its Claude Code output
+// representation. It delegates to Orchestrate so per-resource methods are
+// used. Compile never panics and returns an error if any resource fails.
+func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
+	return renderer.Orchestrate(r, config, baseDir)
+}
+
+// CompileAgents compiles all agent configs to agents/<id>.md files.
+func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	for id, agent := range agents {
 		md, err := compileAgentMarkdown(id, agent, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile agent %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("agents/%s.md", id))
-		out.Files[safePath] = md
+		files[safePath] = md
 	}
+	return files, nil, nil
+}
 
-	// Compile all skills to .claude/skills/<id>/SKILL.md
-	for id, skill := range config.Skills {
+// CompileSkills compiles all skill configs to skills/<id>/SKILL.md plus subdirs.
+func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	out := &output.Output{Files: make(map[string]string)}
+	for id, skill := range skills {
 		md, err := compileSkillMarkdown(id, skill, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile skill %q: %w", id, err)
@@ -70,31 +89,40 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
-		if err := compileSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
 		}
-		if err := compileSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
 		}
-		if err := compileSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
 		}
 	}
+	return out.Files, nil, nil
+}
 
-	// Compile all rules to .claude/rules/*.md
+// CompileRules compiles all rule configs to rules/<id>.md files.
+func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
 	var notes []renderer.FidelityNote
-	for id, rule := range config.Rules {
+	for id, rule := range rules {
 		md, ruleNotes, err := compileRuleMarkdown(id, rule, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
-		out.Files[safePath] = md
+		files[safePath] = md
 		notes = append(notes, ruleNotes...)
 	}
+	return files, notes, nil
+}
 
-	// Lower workflows to rule + per-step skills.
-	for id, wf := range config.Workflows {
+// CompileWorkflows lowers workflow configs to rules and skills.
+func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	var notes []renderer.FidelityNote
+	for id, wf := range workflows {
 		wfCopy := wf
 		if wfCopy.Name == "" {
 			wfCopy.Name = id
@@ -109,59 +137,169 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 			switch p.Kind {
 			case "rule":
 				safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", p.ID))
-				out.Files[safePath] = content
+				files[safePath] = content
 			case "skill":
 				safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))
-				out.Files[safePath] = content
+				files[safePath] = content
 			}
 		}
 	}
+	return files, notes, nil
+}
 
-	settings := config.Settings["default"]
-	var hooks ast.HookConfig
-	if dh, ok := config.Hooks["default"]; ok {
-		hooks = dh.Events
+// claudeHooksKey and claudeMCPSettingsKey are private staging keys used during
+// Finalize to merge hooks and settings.MCPServers into their target output files.
+// They are never written to disk; Finalize removes them before returning.
+const (
+	claudeHooksKey       = "__claude_hooks__"
+	claudeMCPSettingsKey = "__claude_mcp_settings__"
+)
+
+// CompileHooks stages the hook config so Finalize can merge it into settings.json.
+// Claude embeds hooks inside settings.json, not as a standalone file. Storing
+// hooks under a private staging key avoids a last-writer-wins collision with
+// CompileSettings (which also writes settings.json).
+func (r *Renderer) CompileHooks(hooks ast.HookConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	if len(hooks) == 0 {
+		return make(map[string]string), nil, nil
 	}
-
-	mcpJSON, err := compileClaudeMCP(config.MCP, settings.MCPServers)
+	b, err := json.Marshal(hooks)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to compile MCP servers: %w", err)
+		return nil, nil, fmt.Errorf("failed to marshal hooks: %w", err)
 	}
-	if mcpJSON != "" {
-		out.Files["mcp.json"] = mcpJSON
-	}
+	return map[string]string{claudeHooksKey: string(b)}, nil, nil
+}
 
-	settingsJSON, err := compileSettingsJSON(settings, hooks)
+// CompileSettings compiles the settings block to settings.json. When
+// settings.MCPServers is non-empty, it is staged under a private key so
+// Finalize can merge those servers into mcp.json alongside config.MCP entries.
+func (r *Renderer) CompileSettings(settings ast.SettingsConfig) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+
+	settingsJSON, err := compileSettingsJSON(settings, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to compile settings: %w", err)
 	}
 	if settingsJSON != "" {
-		out.Files["settings.json"] = settingsJSON
+		files["settings.json"] = settingsJSON
 	}
 
-	var localSettings ast.SettingsConfig
-	if config.Project != nil {
-		localSettings = config.Project.Local
+	// Stage settings.MCPServers for merging in Finalize.
+	if len(settings.MCPServers) > 0 {
+		b, err := json.Marshal(settings.MCPServers)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to marshal settings.MCPServers: %w", err)
+		}
+		files[claudeMCPSettingsKey] = string(b)
 	}
-	localJSON, err := compileSettingsJSON(localSettings, nil)
+
+	return files, nil, nil
+}
+
+// CompileMCP compiles MCP server definitions from the top-level mcp: block to
+// mcp.json. settings.MCPServers is merged in Finalize.
+func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	mcpJSON, err := compileClaudeMCP(servers, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to compile MCP servers: %w", err)
+	}
+	if mcpJSON != "" {
+		files["mcp.json"] = mcpJSON
+	}
+	return files, nil, nil
+}
+
+// CompileProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per
+// scope, plus settings.local.json when a project.local block is present.
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+
+	// Synthesize a minimal config so renderProjectInstructions can read it.
+	cfg := &ast.XcaffoldConfig{Project: project}
+	notes := r.renderProjectInstructions(cfg, baseDir, files)
+
+	// Emit settings.local.json when a local block is present.
+	localJSON, err := compileSettingsJSON(project.Local, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to compile local settings: %w", err)
 	}
 	if localJSON != "" {
-		out.Files["settings.local.json"] = localJSON
+		files["settings.local.json"] = localJSON
 	}
 
-	if config.Project != nil {
-		instrNotes := r.renderProjectInstructions(config, baseDir, out.Files)
-		notes = append(notes, instrNotes...)
+	return files, notes, nil
+}
+
+// Finalize merges staged hooks and settings.MCPServers into their target output
+// files (settings.json and mcp.json), then removes the private staging keys.
+//
+// Hooks (claudeHooksKey): staged by CompileHooks and merged into the "hooks"
+// key of settings.json. If settings.json is absent, a minimal one is created.
+//
+// MCPServers (claudeMCPSettingsKey): staged by CompileSettings and merged into
+// mcp.json alongside any top-level config.MCP entries compiled by CompileMCP.
+func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
+	// Merge staged hooks into settings.json.
+	if hooksRaw, ok := files[claudeHooksKey]; ok {
+		delete(files, claudeHooksKey)
+		var hooks ast.HookConfig
+		if err := json.Unmarshal([]byte(hooksRaw), &hooks); err != nil {
+			return nil, nil, fmt.Errorf("Finalize: failed to unmarshal staged hooks: %w", err)
+		}
+		if len(hooks) > 0 {
+			// Parse existing settings.json (if any) and inject hooks.
+			existing := make(map[string]any)
+			if s, has := files["settings.json"]; has {
+				if err := json.Unmarshal([]byte(s), &existing); err != nil {
+					return nil, nil, fmt.Errorf("Finalize: failed to parse settings.json for hook merge: %w", err)
+				}
+			} else {
+				existing["$schema"] = "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json"
+			}
+			existing["hooks"] = hooks
+			b, err := json.MarshalIndent(existing, "", "  ")
+			if err != nil {
+				return nil, nil, fmt.Errorf("Finalize: failed to re-serialize settings.json with hooks: %w", err)
+			}
+			files["settings.json"] = string(b)
+		}
 	}
 
-	// Memory rendering is handled separately by MemoryRenderer (called via
-	// runMemoryPass in apply.go) which supports lifecycle tracking, drift
-	// detection, and seed-once semantics. The compiler Compile() path
-	// intentionally excludes memory from its output map.
+	// Merge staged settings.MCPServers into mcp.json.
+	if mcpRaw, ok := files[claudeMCPSettingsKey]; ok {
+		delete(files, claudeMCPSettingsKey)
+		var settingsMCPServers map[string]ast.MCPConfig
+		if err := json.Unmarshal([]byte(mcpRaw), &settingsMCPServers); err != nil {
+			return nil, nil, fmt.Errorf("Finalize: failed to unmarshal staged MCPServers: %w", err)
+		}
+		if len(settingsMCPServers) > 0 {
+			// Parse existing mcp.json (if any) and merge.
+			mcpServers := make(map[string]ast.MCPConfig)
+			if m, has := files["mcp.json"]; has {
+				var envelope struct {
+					MCPServers map[string]ast.MCPConfig `json:"mcpServers"`
+				}
+				if err := json.Unmarshal([]byte(m), &envelope); err != nil {
+					return nil, nil, fmt.Errorf("Finalize: failed to parse mcp.json for merge: %w", err)
+				}
+				for k, v := range envelope.MCPServers {
+					mcpServers[k] = v
+				}
+			}
+			// settings.MCPServers wins on conflict (original compile() semantics).
+			for k, v := range settingsMCPServers {
+				mcpServers[k] = v
+			}
+			b, err := json.MarshalIndent(map[string]any{"mcpServers": mcpServers}, "", "  ")
+			if err != nil {
+				return nil, nil, fmt.Errorf("Finalize: failed to re-serialize mcp.json: %w", err)
+			}
+			files["mcp.json"] = string(b)
+		}
+	}
 
-	return out, notes, nil
+	return files, nil, nil
 }
 
 // renderProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per scope.
@@ -402,58 +540,6 @@ func emitClaudeProviderKeys(sb *strings.Builder, provider map[string]any) {
 		}
 		sb.Write(data)
 	}
-}
-
-// compileSkillSubdir copies a set of files (resolved via glob from baseDir)
-// into a named subdirectory of the skill's output directory:
-//
-//	skills/<id>/<subdir>/<filename>
-//
-// Supported subdirs: references, scripts, assets.
-// Each pattern in paths is resolved relative to baseDir. Path traversal above
-// baseDir is rejected. Glob patterns are expanded; literal paths are read directly.
-func compileSkillSubdir(id, subdir string, paths []string, baseDir string, out *output.Output) error {
-	if len(paths) == 0 {
-		return nil
-	}
-
-	for _, pattern := range paths {
-		// Security: pattern must not traverse above baseDir.
-		cleanedPattern := filepath.Clean(pattern)
-		if strings.HasPrefix(cleanedPattern, "..") {
-			return fmt.Errorf("%s path %q traverses above the project root", subdir, pattern)
-		}
-
-		absPattern := filepath.Join(baseDir, cleanedPattern)
-
-		// Expand glob patterns (e.g. "docs/schema/*.sql")
-		matches, err := filepath.Glob(absPattern)
-		if err != nil {
-			return fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
-		}
-		if len(matches) == 0 {
-			// Treat as a literal path — if missing, it's an error.
-			data, readErr := os.ReadFile(absPattern)
-			if readErr != nil {
-				return fmt.Errorf("%s file %q: %w", subdir, pattern, readErr)
-			}
-			baseName := filepath.Base(absPattern)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
-			out.Files[outPath] = string(data)
-			continue
-		}
-
-		for _, match := range matches {
-			data, err := os.ReadFile(match)
-			if err != nil {
-				return fmt.Errorf("%s file %q: %w", subdir, match, err)
-			}
-			baseName := filepath.Base(match)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
-			out.Files[outPath] = string(data)
-		}
-	}
-	return nil
 }
 
 // compileRuleMarkdown renders a single RuleConfig to Claude Code markdown.

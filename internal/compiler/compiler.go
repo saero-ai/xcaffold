@@ -29,8 +29,8 @@ const (
 type Output = output.Output
 
 // Compile translates an XcaffoldConfig AST into platform-native files.
-// target selects the output platform: "claude" (default), "cursor", "antigravity".
-// If target is empty, defaults to "claude" for backward compatibility.
+// target selects the output platform: "claude", "cursor", "antigravity", "copilot", "gemini".
+// An empty target defaults to "claude" for backward compatibility.
 // blueprintName narrows compilation to the named blueprint's resource subset.
 // If blueprintName is empty, all resources are compiled.
 //
@@ -83,24 +83,28 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 
 	config.StripInherited()
 
+	r, err := resolveRenderer(target)
+	if err != nil {
+		return nil, nil, err
+	}
+	return renderer.Orchestrate(r, config, baseDir)
+}
+
+// resolveRenderer returns the TargetRenderer for the given target name.
+func resolveRenderer(target string) (renderer.TargetRenderer, error) {
 	switch target {
 	case TargetClaude:
-		r := claude.New()
-		return r.Compile(config, baseDir)
+		return claude.New(), nil
 	case TargetCursor:
-		r := cursor.New()
-		return r.Compile(config, baseDir)
+		return cursor.New(), nil
 	case TargetAntigravity:
-		r := antigravity.New()
-		return r.Compile(config, baseDir)
+		return antigravity.New(), nil
 	case TargetCopilot:
-		r := copilot.New()
-		return r.Compile(config, baseDir)
+		return copilot.New(), nil
 	case TargetGemini:
-		r := gemini.New()
-		return r.Compile(config, baseDir)
+		return gemini.New(), nil
 	default:
-		return nil, nil, fmt.Errorf("unsupported target %q: supported targets are \"claude\", \"cursor\", \"antigravity\", \"copilot\", \"gemini\"", target)
+		return nil, fmt.Errorf("unsupported target %q: supported targets are \"claude\", \"cursor\", \"antigravity\", \"copilot\", \"gemini\"", target)
 	}
 }
 
@@ -131,23 +135,15 @@ func mergeMap[K comparable, V any](base, child map[K]V) map[K]V {
 }
 
 // OutputDir returns the target-specific root directory for compilation outputs
-// (e.g. .claude, .cursor, .agents).
+// (e.g. .claude, .cursor, .agents). Empty target defaults to ".claude" for
+// backward compatibility. Unknown targets return an empty string.
 func OutputDir(target string) string {
 	if target == "" {
 		target = TargetClaude
 	}
-	switch target {
-	case TargetClaude:
-		return claude.New().OutputDir()
-	case TargetCursor:
-		return cursor.New().OutputDir()
-	case TargetAntigravity:
-		return antigravity.New().OutputDir()
-	case TargetCopilot:
-		return copilot.New().OutputDir()
-	case TargetGemini:
-		return gemini.New().OutputDir()
-	default:
-		return ".claude"
+	r, err := resolveRenderer(target)
+	if err != nil {
+		return ""
 	}
+	return r.OutputDir()
 }
