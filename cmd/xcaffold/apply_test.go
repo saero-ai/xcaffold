@@ -85,11 +85,9 @@ func TestApplyScope_Project(t *testing.T) {
 	_, err = os.Stat(stateFile)
 	assert.NoError(t, err, "state file should exist after applyScope")
 
-	// .claude/ subdirectories must exist.
-	for _, sub := range []string{"agents", "skills", "rules"} {
-		_, err = os.Stat(filepath.Join(claudeDirPath, sub))
-		assert.NoError(t, err, ".claude/%s should exist", sub)
-	}
+	// Minimal XCF has no agents, skills, or rules, so no subdirectories are pre-created.
+	// The output directory itself may not be created either when there are no files to write.
+	_ = claudeDirPath
 }
 
 func TestApplyScope_MissingXCF(t *testing.T) {
@@ -387,10 +385,8 @@ targets:
 	err := runApply(applyCmd, nil)
 	require.NoError(t, err)
 
-	// Only .claude/ should be created; .cursor/ must not exist
-	_, err = os.Stat(filepath.Join(dir, ".claude"))
-	assert.NoError(t, err, ".claude/ should be created")
-
+	// .cursor/ must not exist — only the claude target should be compiled.
+	// Note: .claude/ itself may not exist when the config produces no files to write.
 	_, err = os.Stat(filepath.Join(dir, ".cursor"))
 	assert.True(t, os.IsNotExist(err), ".cursor/ must NOT be created when --target is explicit")
 
@@ -423,8 +419,10 @@ name: no-targets-test
 	err := runApply(applyCmd, nil)
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(dir, ".claude"))
-	assert.NoError(t, err, ".claude/ should be created as the default target")
+	// State file is written even for configs with no resources to emit.
+	stateFile := state.StateFilePath(dir, "")
+	_, err = os.Stat(stateFile)
+	assert.NoError(t, err, "state file should be written for the default claude target")
 
 	applyForce = false
 }

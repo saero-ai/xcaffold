@@ -37,7 +37,7 @@ Usage:
 }
 
 func init() {
-	diffCmd.Flags().StringVar(&diffTargetFlag, "target", "", "compilation target platform (claude, cursor, antigravity, copilot, gemini; default: claude)")
+	diffCmd.Flags().StringVar(&diffTargetFlag, "target", "", "compilation target platform (claude, cursor, antigravity, copilot, gemini)")
 	diffCmd.Flags().StringVar(&diffBlueprintFlag, "blueprint", "", "Show drift for a specific blueprint (default: all resources)")
 	rootCmd.AddCommand(diffCmd)
 }
@@ -49,7 +49,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 
 	effectiveTarget := diffTargetFlag
 	if effectiveTarget == "" {
-		effectiveTarget = "claude"
+		return fmt.Errorf("--target is required; specify a target or declare targets in project.xcf")
 	}
 
 	if globalFlag {

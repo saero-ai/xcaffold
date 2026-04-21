@@ -360,13 +360,6 @@ func applyScope(configPath, outputDir, scopeName string) error {
 
 	if applyDryRun {
 		fmt.Printf("[%s] Dry-run preview (no files will be written):\n\n", scopeName)
-	} else if targetFlag == "" || targetFlag == targetClaude {
-		// Pre-create baseline subdirectories exclusively for the Claude format contract.
-		for _, subdir := range []string{"agents", "skills", "rules"} {
-			if err := os.MkdirAll(filepath.Join(outputDir, subdir), 0755); err != nil {
-				return fmt.Errorf("[%s] failed to create output directory %q: %w", scopeName, subdir, err)
-			}
-		}
 	}
 
 	// Write (or preview) each compiled file.
@@ -425,7 +418,7 @@ func applyScope(configPath, outputDir, scopeName string) error {
 	}
 
 	// Write the state file with source tracking.
-	newManifest := state.GenerateState(out, state.StateOpts{
+	newManifest, err := state.GenerateState(out, state.StateOpts{
 		Blueprint:     applyBlueprintFlag,
 		BlueprintHash: bpHash,
 		Target:        targetFlag,
@@ -433,6 +426,9 @@ func applyScope(configPath, outputDir, scopeName string) error {
 		SourceFiles:   sourceFiles,
 		MemorySeeds:   memSeeds,
 	}, oldManifest)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to generate state: %v\n", scopeName, err)
+	}
 	if err := state.WriteState(newManifest, stateFilePath); err != nil {
 		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to write state: %v\n", scopeName, err)
 	}

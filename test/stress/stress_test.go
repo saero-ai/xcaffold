@@ -98,7 +98,8 @@ func TestStress_FullLifecycle_100Agents(t *testing.T) {
 		require.NoError(t, os.WriteFile(absPath, []byte(content), 0644))
 	}
 
-	manifest := state.GenerateState(out, state.StateOpts{Target: "claude", BaseDir: dir}, nil)
+	manifest, err := state.GenerateState(out, state.StateOpts{Target: "claude", BaseDir: dir}, nil)
+	require.NoError(t, err)
 	statePath := state.StateFilePath(dir, "")
 	require.NoError(t, state.WriteState(manifest, statePath))
 
@@ -107,7 +108,8 @@ func TestStress_FullLifecycle_100Agents(t *testing.T) {
 	assert.Len(t, recovered.Targets["claude"].Artifacts, 100)
 
 	// Verify determinism
-	manifest2 := state.GenerateState(out, state.StateOpts{Target: "claude", BaseDir: dir}, nil)
+	manifest2, err := state.GenerateState(out, state.StateOpts{Target: "claude", BaseDir: dir}, nil)
+	require.NoError(t, err)
 	arts1 := manifest.Targets["claude"].Artifacts
 	arts2 := manifest2.Targets["claude"].Artifacts
 	for i := range arts1 {
@@ -139,8 +141,10 @@ func TestStress_FullSchema_AllBlockTypes(t *testing.T) {
 
 	assert.Len(t, out.Files, 40) // 20 agents + 10 skills + 10 rules
 
-	m1 := state.GenerateState(out, state.StateOpts{Target: "claude"}, nil)
-	m2 := state.GenerateState(out, state.StateOpts{Target: "claude"}, nil)
+	m1, err2 := state.GenerateState(out, state.StateOpts{Target: "claude"}, nil)
+	require.NoError(t, err2)
+	m2, err3 := state.GenerateState(out, state.StateOpts{Target: "claude"}, nil)
+	require.NoError(t, err3)
 	arts1 := m1.Targets["claude"].Artifacts
 	arts2 := m2.Targets["claude"].Artifacts
 	assert.Len(t, arts1, 40)

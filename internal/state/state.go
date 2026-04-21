@@ -137,7 +137,12 @@ func ReadState(path string) (*StateManifest, error) {
 
 // GenerateState creates a StateManifest from compiler output and metadata.
 // If existing is non-nil, its Targets are preserved (merged with the new target).
-func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) *StateManifest {
+// Returns an error if opts.Target is empty.
+func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) (*StateManifest, error) {
+	if opts.Target == "" {
+		return nil, fmt.Errorf("state.GenerateState: target must not be empty")
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	manifest := &StateManifest{
@@ -161,9 +166,6 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 
 	// Build artifacts for the current target
 	target := opts.Target
-	if target == "" {
-		target = "claude"
-	}
 
 	artifacts := make([]Artifact, 0, len(out.Files))
 	for path, content := range out.Files {
@@ -218,7 +220,7 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 		sortMemorySeeds(manifest.MemorySeeds)
 	}
 
-	return manifest
+	return manifest, nil
 }
 
 // SourcesChanged compares the previous state's source file hashes against the

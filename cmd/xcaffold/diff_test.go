@@ -41,11 +41,12 @@ func TestDiffScope_ReportsSourceChanges(t *testing.T) {
 
 	// Create state with matching artifact hash and source hash
 	out := &compiler.Output{Files: map[string]string{"agents/dev.md": agentContent}}
-	manifest := state.GenerateState(out, state.StateOpts{
+	manifest, err := state.GenerateState(out, state.StateOpts{
 		Target:      "claude",
 		BaseDir:     dir,
 		SourceFiles: []string{srcFile},
 	}, nil)
+	require.NoError(t, err)
 
 	statePath := state.StateFilePath(dir, "")
 	require.NoError(t, state.WriteState(manifest, statePath))

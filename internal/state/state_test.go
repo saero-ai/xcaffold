@@ -181,7 +181,8 @@ func TestGenerateState_DefaultBlueprint(t *testing.T) {
 		"agents/dev.md": "# dev",
 	}}
 	opts := StateOpts{Target: "claude", BaseDir: t.TempDir()}
-	m := GenerateState(out, opts, nil)
+	m, err := GenerateState(out, opts, nil)
+	require.NoError(t, err)
 
 	assert.Equal(t, 1, m.Version)
 	ts, ok := m.Targets["claude"]
@@ -198,8 +199,10 @@ func TestGenerateState_MergesTargets(t *testing.T) {
 	opts1 := StateOpts{Target: "claude", BaseDir: t.TempDir()}
 	opts2 := StateOpts{Target: "cursor", BaseDir: t.TempDir()}
 
-	m1 := GenerateState(out1, opts1, nil)
-	m2 := GenerateState(out2, opts2, m1)
+	m1, err := GenerateState(out1, opts1, nil)
+	require.NoError(t, err)
+	m2, err := GenerateState(out2, opts2, m1)
+	require.NoError(t, err)
 
 	assert.Contains(t, m2.Targets, "claude")
 	assert.Contains(t, m2.Targets, "cursor")
@@ -265,7 +268,8 @@ func TestGenerateState_SourceFilesHashed(t *testing.T) {
 		BaseDir:     base,
 		SourceFiles: []string{src},
 	}
-	m := GenerateState(out, opts, nil)
+	m, err := GenerateState(out, opts, nil)
+	require.NoError(t, err)
 
 	require.Len(t, m.SourceFiles, 1)
 	assert.Equal(t, "project.xcf", m.SourceFiles[0].Path)
