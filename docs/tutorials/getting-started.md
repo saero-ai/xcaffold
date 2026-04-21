@@ -33,7 +33,7 @@ The `--yes` flag accepts all defaults non-interactively. xcaffold infers the pro
 
   Welcome! Let's scaffold your agents.
 
-  Created xcf/references/ — field reference for resource kinds
+  Created xcf/skills/xcaffold/references/ — field reference for resource kinds
 
 ✓ Created project.xcf
   Project: my-project | Targets: claude
