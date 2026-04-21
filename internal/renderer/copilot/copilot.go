@@ -318,7 +318,17 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			}
 		}
 		if agent.Model != "" {
-			fmt.Fprintf(&sb, "model: %s\n", agent.Model)
+			if resolved, ok := renderer.ResolveModel(agent.Model, targetName); ok && resolved != "" {
+				fmt.Fprintf(&sb, "model: %s\n", resolved)
+			} else if !ok {
+				// Target does not support per-agent model; emit a fidelity note.
+				notes = append(notes, renderer.NewNote(
+					renderer.LevelWarning, targetName, "agent", id, "model",
+					renderer.CodeAgentModelUnmapped,
+					fmt.Sprintf("agent %q model %q has no mapping for target %q and was omitted", id, agent.Model, targetName),
+					"Specify a target-native model string in targets.copilot.provider.",
+				))
+			}
 		}
 		if agent.DisableModelInvocation != nil {
 			fmt.Fprintf(&sb, "disable-model-invocation: %v\n", *agent.DisableModelInvocation)
