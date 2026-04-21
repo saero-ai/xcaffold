@@ -2,6 +2,7 @@ package importer
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,4 +91,54 @@ func AppendUnique(slice []string, s string) []string {
 		}
 	}
 	return append(slice, s)
+}
+
+// FileVisitor is called for each regular file found during a provider directory walk.
+// rel is the slash-separated path relative to the walk root. data is the file contents.
+type FileVisitor func(rel string, data []byte) error
+
+// WalkProviderDir walks dir recursively, calling visitor for each regular file.
+// Symlinks to directories are followed with cycle detection. Directories are
+// skipped. rel paths use forward slashes.
+func WalkProviderDir(dir string, visitor FileVisitor) error {
+	visited := make(map[string]bool)
+	return walkProviderDir(dir, dir, visitor, visited)
+}
+
+func walkProviderDir(root, current string, visitor FileVisitor, visited map[string]bool) error {
+	return filepath.WalkDir(current, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if d.Type()&fs.ModeSymlink != 0 {
+			target, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				return nil
+			}
+			info, err := os.Stat(target)
+			if err != nil {
+				return nil
+			}
+			if info.IsDir() {
+				if visited[target] {
+					return nil
+				}
+				visited[target] = true
+				return walkProviderDir(root, target, visitor, visited)
+			}
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return fmt.Errorf("rel path: %w", err)
+		}
+		rel = filepath.ToSlash(rel)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil // non-fatal: skip unreadable files
+		}
+		return visitor(rel, data)
+	})
 }

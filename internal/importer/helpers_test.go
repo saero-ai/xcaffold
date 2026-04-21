@@ -1,6 +1,8 @@
 package importer_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/importer"
@@ -80,4 +82,43 @@ func TestAppendUnique_Duplicate(t *testing.T) {
 func TestAppendUnique_EmptySlice(t *testing.T) {
 	result := importer.AppendUnique(nil, "a")
 	assert.Equal(t, []string{"a"}, result)
+}
+
+func TestWalkProviderDir_CallsVisitorForEachFile(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "sub"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.md"), []byte("alpha"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub", "b.md"), []byte("beta"), 0o644))
+
+	var visited []string
+	err := importer.WalkProviderDir(dir, func(rel string, data []byte) error {
+		visited = append(visited, rel)
+		return nil
+	})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"a.md", "sub/b.md"}, visited)
+}
+
+func TestWalkProviderDir_EmptyDir_NoError(t *testing.T) {
+	dir := t.TempDir()
+	var count int
+	err := importer.WalkProviderDir(dir, func(rel string, data []byte) error {
+		count++
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Zero(t, count)
+}
+
+func TestWalkProviderDir_ReadsFileContent(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "test.md"), []byte("hello world"), 0o644))
+
+	var content []byte
+	err := importer.WalkProviderDir(dir, func(rel string, data []byte) error {
+		content = data
+		return nil
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "hello world", string(content))
 }
