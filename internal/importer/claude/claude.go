@@ -583,7 +583,7 @@ func parseFrontmatter(data []byte, v interface{}) (body string, err error) {
 		return strings.TrimSpace(content), nil
 	}
 	// content[4:] skips the leading "---\n"
-	parts := strings.SplitN(content[4:], "\n---", 2)
+	parts := strings.SplitN("\n"+content[4:], "\n---", 2)
 	if len(parts) < 2 {
 		return strings.TrimSpace(content), nil
 	}
