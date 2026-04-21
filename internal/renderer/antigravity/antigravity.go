@@ -69,6 +69,9 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		Memory:              true,
 		ProjectInstructions: true,
 		RuleActivations:     []string{"always", "path-glob", "manual"},
+		SecurityFields: renderer.SecurityFieldSupport{
+			Effort: true,
+		},
 	}
 }
 
@@ -283,6 +286,20 @@ func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDi
 	files := make(map[string]string)
 	notes := r.renderProjectInstructions(cfg, baseDir, files)
 	return files, notes, nil
+}
+
+// CompileMemory delegates to MemoryRenderer, emitting Antigravity Knowledge
+// Item files under knowledge/<name>.md for each declared memory entry.
+func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opts renderer.MemoryOptions) (map[string]string, []renderer.FidelityNote, error) {
+	if len(config.Memory) == 0 {
+		return map[string]string{}, nil, nil
+	}
+	mr := NewMemoryRenderer()
+	out, notes, err := mr.Compile(config, baseDir)
+	if err != nil {
+		return nil, notes, err
+	}
+	return out.Files, notes, nil
 }
 
 // Finalize is a no-op post-processing pass for the Antigravity renderer.

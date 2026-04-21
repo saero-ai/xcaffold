@@ -60,6 +60,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		SkillSubdirs:        []string{},
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
+		SecurityFields:      renderer.SecurityFieldSupport{},
 	}
 }
 
@@ -168,6 +169,24 @@ func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDi
 	cfg := &ast.XcaffoldConfig{Project: project}
 	notes := r.renderProjectInstructions(cfg, baseDir, files)
 	return files, notes, nil
+}
+
+// CompileMemory delegates to MemoryRenderer, writing entries into GEMINI.md
+// as provenance-marked blocks under the gemini memory section.
+func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opts renderer.MemoryOptions) (map[string]string, []renderer.FidelityNote, error) {
+	if len(config.Memory) == 0 {
+		return map[string]string{}, nil, nil
+	}
+	memDir := opts.OutputDir
+	if memDir == "" {
+		return nil, nil, fmt.Errorf("gemini CompileMemory: OutputDir required")
+	}
+	mr := NewMemoryRenderer(memDir)
+	out, notes, err := mr.Compile(config, baseDir)
+	if err != nil {
+		return nil, notes, err
+	}
+	return out.Files, notes, nil
 }
 
 // Finalize merges all sentinel data into their final output files:

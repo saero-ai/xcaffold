@@ -104,6 +104,9 @@ func (m *mockRenderer) CompileMCP(_ map[string]ast.MCPConfig) (map[string]string
 func (m *mockRenderer) CompileProjectInstructions(_ *ast.ProjectConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
 	return nil, nil, nil
 }
+func (m *mockRenderer) CompileMemory(_ *ast.XcaffoldConfig, _ string, _ renderer.MemoryOptions) (map[string]string, []renderer.FidelityNote, error) {
+	return map[string]string{}, nil, nil
+}
 func (m *mockRenderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
 	return files, nil, nil
 }

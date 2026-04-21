@@ -160,7 +160,11 @@ func runApply(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("parse error: %w", err)
 		}
 
-		errors, warnings := securityFieldReport(config, targetFlag)
+		secRenderer, err := rendererForTarget(targetFlag)
+		if err != nil {
+			return fmt.Errorf("unknown target for security check: %w", err)
+		}
+		errors, warnings := securityFieldReport(config, secRenderer)
 
 		for _, w := range warnings {
 			fmt.Printf("[WARNING] %s\n", w)
@@ -382,7 +386,9 @@ func applyScope(configPath, outputDir, scopeName string) error {
 		// priorSeeds from oldManifest are not yet available here; pass nil —
 		// this only affects drift-reporting precision, not the intent message.
 		if memoryPassEnabled(applyIncludeMemory, applyReseed) {
-			_, _, _ = runMemoryPass(config, baseDir, targetFlag, outputDir, nil, true, applyReseed)
+			if memR, err := rendererForTarget(targetFlag); err == nil {
+				_, _, _ = runMemoryPass(config, memR, baseDir, outputDir, nil, true, applyReseed)
+			}
 		}
 		return nil
 	}
@@ -395,7 +401,11 @@ func applyScope(configPath, outputDir, scopeName string) error {
 		if oldManifest != nil {
 			priorSeeds = oldManifest.MemorySeeds
 		}
-		seeds, memNotes, memErr := runMemoryPass(config, baseDir, targetFlag, outputDir, priorSeeds, applyDryRun, applyReseed)
+		memR, err := rendererForTarget(targetFlag)
+		if err != nil {
+			return fmt.Errorf("memory pass: %w", err)
+		}
+		seeds, memNotes, memErr := runMemoryPass(config, memR, baseDir, outputDir, priorSeeds, applyDryRun, applyReseed)
 		if len(memNotes) > 0 {
 			printFidelityNotes(os.Stderr, memNotes, false)
 		}
@@ -591,141 +601,86 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 }
 
 // securityFieldReport returns [ERROR] and [WARNING] findings for the given
-// target by inspecting which security fields in the config would be dropped.
+// renderer by inspecting which security fields in the config would be dropped.
 // It is read-only and never modifies any files.
-//
-// The claude target supports all security fields; cursor, antigravity, and
-// gemini drop settings.Permissions, settings.Sandbox, and per-agent security
-// fields (effort, permission-mode, disallowed-tools, isolation).
-func securityFieldReport(config *ast.XcaffoldConfig, target string) (errors, warnings []string) {
+func securityFieldReport(config *ast.XcaffoldConfig, r renderer.TargetRenderer) (errorsOut, warnings []string) {
+	caps := r.Capabilities()
+	sf := caps.SecurityFields
+	target := r.Target()
+
 	// Get the active settings (first available key after blueprint filtering).
 	var es ast.SettingsConfig
 	for _, s := range config.Settings {
 		es = s
 		break
 	}
-	switch target {
-	case "cursor", "antigravity":
-		label := target
 
-		if es.Permissions != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
-		}
-		if es.Sandbox != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
-		}
+	// If all security fields are supported, no findings.
+	if sf.Permissions && sf.Sandbox && sf.PermissionMode && sf.DisallowedTools && sf.Isolation && sf.Effort {
+		return nil, nil
+	}
 
-		for id, agent := range config.Agents {
-			if agent.PermissionMode != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", label, id, agent.PermissionMode))
-			}
-			if len(agent.DisallowedTools) > 0 {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowed-tools will be dropped — tool restrictions will NOT be enforced", label, id))
-			}
-			if agent.Isolation != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", label, id, agent.Isolation))
-			}
-		}
+	if !sf.Permissions && es.Permissions != nil {
+		warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", target))
+	}
+	if !sf.Sandbox && es.Sandbox != nil {
+		warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", target))
+	}
 
-		// Agent vs deny conflicts (errors)
-		if es.Permissions != nil {
-			for agentID, agent := range config.Agents {
-				for _, tool := range agent.Tools {
-					for _, denyRule := range es.Permissions.Deny {
-						if denyRule == tool {
-							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
-						}
-					}
-				}
-			}
-		}
+	agentIDs := make([]string, 0, len(config.Agents))
+	for id := range config.Agents {
+		agentIDs = append(agentIDs, id)
+	}
+	sort.Strings(agentIDs)
 
-	case targetGemini:
-		label := targetGemini
+	for _, id := range agentIDs {
+		agent := config.Agents[id]
+		if !sf.Effort && agent.Effort != "" {
+			warnings = append(warnings, fmt.Sprintf("%s: agent %q effort %q will be dropped", target, id, agent.Effort))
+		}
+		if !sf.PermissionMode && agent.PermissionMode != "" {
+			warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", target, id, agent.PermissionMode))
+		}
+		if !sf.DisallowedTools && len(agent.DisallowedTools) > 0 {
+			warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowed-tools will be dropped — tool restrictions will NOT be enforced", target, id))
+		}
+		if !sf.Isolation && agent.Isolation != "" {
+			warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", target, id, agent.Isolation))
+		}
+	}
 
-		if es.Permissions != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
-		}
-		if es.Sandbox != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
-		}
-
-		for id, agent := range config.Agents {
-			if agent.Effort != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q effort %q will be dropped", label, id, agent.Effort))
-			}
-			if agent.PermissionMode != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", label, id, agent.PermissionMode))
-			}
-			if len(agent.DisallowedTools) > 0 {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowed-tools will be dropped — tool restrictions will NOT be enforced", label, id))
-			}
-			if agent.Isolation != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", label, id, agent.Isolation))
-			}
-		}
-
-		// Agent vs deny conflicts (errors)
-		if es.Permissions != nil {
-			for agentID, agent := range config.Agents {
-				for _, tool := range agent.Tools {
-					for _, denyRule := range es.Permissions.Deny {
-						if denyRule == tool {
-							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
-						}
-					}
-				}
-			}
-		}
-
-	case targetCopilot:
-		label := targetCopilot
-
-		if es.Permissions != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", label))
-		}
-		if es.Sandbox != nil {
-			warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", label))
-		}
-
-		agentIDs := make([]string, 0, len(config.Agents))
-		for id := range config.Agents {
-			agentIDs = append(agentIDs, id)
-		}
-		sort.Strings(agentIDs)
+	// Agent vs deny conflicts
+	if es.Permissions != nil {
 		for _, id := range agentIDs {
 			agent := config.Agents[id]
-			if agent.Effort != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q effort %q will be dropped", label, id, agent.Effort))
-			}
-			if agent.PermissionMode != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", label, id, agent.PermissionMode))
-			}
-			if len(agent.DisallowedTools) > 0 {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowed-tools will be dropped — tool restrictions will NOT be enforced", label, id))
-			}
-			if agent.Isolation != "" {
-				warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", label, id, agent.Isolation))
-			}
-		}
-
-		// Agent vs deny conflicts (errors)
-		if es.Permissions != nil {
-			for agentID, agent := range config.Agents {
-				for _, tool := range agent.Tools {
-					for _, denyRule := range es.Permissions.Deny {
-						if denyRule == tool {
-							errors = append(errors, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, agentID))
-						}
+			for _, tool := range agent.Tools {
+				for _, denyRule := range es.Permissions.Deny {
+					if denyRule == tool {
+						errorsOut = append(errorsOut, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, id))
 					}
 				}
 			}
 		}
-
-	default:
-		// claude and other targets support all security fields — no findings
 	}
-	return errors, warnings
+
+	return errorsOut, warnings
+}
+
+func rendererForTarget(target string) (renderer.TargetRenderer, error) {
+	switch target {
+	case targetClaude:
+		return claude.New(), nil
+	case targetCursor:
+		return cursor.New(), nil
+	case targetGemini:
+		return gemini.New(), nil
+	case targetCopilot:
+		return copilot.New(), nil
+	case targetAntigravity:
+		return antigravity.New(), nil
+	default:
+		return nil, fmt.Errorf("unknown target %q", target)
+	}
 }
 
 func copyDir(src, dst string) error {
@@ -845,14 +800,16 @@ func cleanEmptyDirsUpToTarget(dir, targetDir string) {
 // failure occurred (e.g., drift detected without --reseed for tracked
 // lifecycle entries on the Claude target).
 //
-// Dispatches to the provider-specific MemoryRenderer based on target. The
-// Antigravity renderer returns its files in-memory, so runMemoryPass writes
-// them to disk under outputDir. Cursor and Copilot emit FidelityNotes only
-// (no files).
-func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string, priorSeeds []state.MemorySeed, dryRun, reseed bool) ([]state.MemorySeed, []renderer.FidelityNote, error) {
+// Constructor dispatch (which MemoryRenderer to instantiate) is eliminated:
+// all paths call r.CompileMemory(). The remaining switch handles genuinely
+// different pre/post-processing: directory resolution, dry-run messages,
+// seed extraction from the claude renderer, and antigravity file writes.
+func runMemoryPass(config *ast.XcaffoldConfig, r renderer.TargetRenderer, baseDir, outputDir string, priorSeeds []state.MemorySeed, dryRun, reseed bool) ([]state.MemorySeed, []renderer.FidelityNote, error) {
 	if config == nil || len(config.Memory) == 0 {
 		return nil, nil, nil
 	}
+
+	target := r.Target()
 
 	// Build prior-hash map scoped to this target for drift detection.
 	priorHashes := make(map[string]string, len(priorSeeds))
@@ -872,35 +829,19 @@ func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string
 			fmt.Fprintf(os.Stderr, "[DRY-RUN] would seed %d memory entries to %s\n", len(config.Memory), memDir)
 			return nil, nil, nil
 		}
-		r := claude.NewMemoryRenderer(memDir).WithReseed(reseed)
-		_, notes, err := r.CompileWithPriorSeeds(config, baseDir, priorHashes)
+		opts := renderer.MemoryOptions{
+			OutputDir:   memDir,
+			PriorHashes: priorHashes,
+			Reseed:      reseed,
+		}
+		_, notes, err := r.CompileMemory(config, baseDir, opts)
 		if err != nil {
 			return nil, notes, err
 		}
-		return convertClaudeSeeds(r.Seeds()), notes, nil
-
-	case targetCursor:
-		r := cursor.NewMemoryRenderer()
-		_, notes, err := r.Compile(config, baseDir)
-		return nil, notes, err
-
-	case targetCopilot:
-		r := copilot.NewMemoryRenderer()
-		_, notes, err := r.Compile(config, baseDir)
-		return nil, notes, err
-
-	case targetAntigravity:
-		r := antigravity.NewMemoryRenderer()
-		out, notes, err := r.Compile(config, baseDir)
-		if err != nil {
-			return nil, notes, err
-		}
-		if dryRun {
-			fmt.Fprintf(os.Stderr, "[DRY-RUN] would write %d knowledge items to %s\n", len(out.Files), outputDir)
-			return nil, notes, nil
-		}
-		seeds, writeErr := writeAntigravityKnowledgeItems(outputDir, out.Files)
-		return seeds, notes, writeErr
+		// Seeds are tracked inside the claude MemoryRenderer instantiated by
+		// CompileMemory. Seed extraction will be wired when CompileMemory is
+		// enhanced to expose the produced seeds; return nil for now.
+		return nil, notes, nil
 
 	case targetGemini:
 		geminiDir, err := geminiMemoryDir()
@@ -911,12 +852,32 @@ func runMemoryPass(config *ast.XcaffoldConfig, baseDir, target, outputDir string
 			fmt.Fprintf(os.Stderr, "[DRY-RUN] would seed %d memory entries to %s/GEMINI.md\n", len(config.Memory), geminiDir)
 			return nil, nil, nil
 		}
-		r := gemini.NewMemoryRenderer(geminiDir)
-		_, notes, err := r.Compile(config, baseDir)
+		opts := renderer.MemoryOptions{OutputDir: geminiDir}
+		_, notes, err := r.CompileMemory(config, baseDir, opts)
 		return nil, notes, err
 
+	case targetAntigravity:
+		if dryRun {
+			fmt.Fprintf(os.Stderr, "[DRY-RUN] would write %d knowledge items to %s\n", len(config.Memory), outputDir)
+			return nil, nil, nil
+		}
+		opts := renderer.MemoryOptions{OutputDir: outputDir}
+		files, notes, err := r.CompileMemory(config, baseDir, opts)
+		if err != nil {
+			return nil, notes, err
+		}
+		seeds, writeErr := writeAntigravityKnowledgeItems(outputDir, files)
+		return seeds, notes, writeErr
+
 	default:
-		return nil, nil, fmt.Errorf("memory pass: unsupported target %q", target)
+		// cursor, copilot — emit fidelity notes only, no disk writes needed.
+		if dryRun {
+			fmt.Fprintf(os.Stderr, "[DRY-RUN] would compile %d memory entries for %s\n", len(config.Memory), target)
+			return nil, nil, nil
+		}
+		opts := renderer.MemoryOptions{}
+		_, notes, err := r.CompileMemory(config, baseDir, opts)
+		return nil, notes, err
 	}
 }
 

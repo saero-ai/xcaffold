@@ -59,6 +59,22 @@ func ResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) 
 	return ResolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
+// MemoryOptions controls how CompileMemory writes memory entries.
+type MemoryOptions struct {
+	// OutputDir is the resolved path to the provider's memory directory.
+	// Required for providers that write memory to disk (claude, gemini).
+	OutputDir string
+	// PriorHashes maps memory entry names to the SHA-256 hash recorded on the
+	// last apply. Used by the claude renderer for drift detection.
+	PriorHashes map[string]string
+	// Reseed instructs tracked and seed-once renderers to overwrite existing
+	// memory files regardless of lifecycle or drift state.
+	Reseed bool
+	// DryRun, when true, causes the renderer to compute output without writing
+	// any files to disk.
+	DryRun bool
+}
+
 // TargetRenderer is the contract for all output-target renderers. It declares
 // per-resource compilation methods and Capabilities/Finalize hooks. The
 // orchestrator calls these methods directly via Orchestrate(); there is no
@@ -84,6 +100,7 @@ type TargetRenderer interface {
 	CompileSettings(settings ast.SettingsConfig) (map[string]string, []FidelityNote, error)
 	CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []FidelityNote, error)
 	CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileMemory(config *ast.XcaffoldConfig, baseDir string, opts MemoryOptions) (map[string]string, []FidelityNote, error)
 
 	// Finalize is a post-processing pass called after all per-resource methods
 	// have run (path normalization, deduplication, etc.).

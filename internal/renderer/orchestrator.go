@@ -186,6 +186,27 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 		}
 	}
 
+	// Memory
+	if len(config.Memory) > 0 {
+		if caps.Memory {
+			files, n, err := r.CompileMemory(config, baseDir, MemoryOptions{})
+			if err != nil {
+				return nil, nil, fmt.Errorf("CompileMemory: %w", err)
+			}
+			mergeFiles(out, files)
+			notes = append(notes, n...)
+		} else {
+			for _, id := range SortedKeys(config.Memory) {
+				notes = append(notes, NewNote(
+					LevelWarning, r.Target(), "memory", id, "",
+					CodeRendererKindUnsupported,
+					"memory entries are not supported by this renderer",
+					"",
+				))
+			}
+		}
+	}
+
 	// Finalize: post-processing pass (path normalization, dedup, etc.)
 	finalized, finalNotes, err := r.Finalize(out.Files)
 	if err != nil {
