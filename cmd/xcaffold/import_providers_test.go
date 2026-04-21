@@ -117,7 +117,7 @@ func TestImportScope_Claude_ProjectInstructions(t *testing.T) {
 	require.NoError(t, err, "xcf/instructions/root.xcf must be created")
 	assert.Contains(t, string(sidecar), "Do not expose secrets")
 
-	// project.xcf is rewritten by runProjectInstructionsDiscovery with MarshalMultiKind,
+	// project.xcf is rewritten by runProjectInstructionsDiscovery with WriteProjectFile,
 	// which includes instructions-file in the project block.
 	xcf, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)

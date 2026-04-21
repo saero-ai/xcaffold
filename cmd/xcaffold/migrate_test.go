@@ -66,11 +66,11 @@ name: "test-project"
 	assert.True(t, os.IsNotExist(statErr), "project.xcf.bak should NOT be created when no migrations apply")
 }
 
-func TestMigrate_WritesMultiKindFormat(t *testing.T) {
-	// This test verifies that if a migration were to run and rewrite project.xcf,
-	// the output would be in multi-kind format.
-	// Since migrations are empty, we test MarshalMultiKind directly with a config
-	// that has resources.
+func TestMigrate_WritesSplitFiles(t *testing.T) {
+	// Verify that when a migration rewrites the project, WriteSplitFiles produces
+	// the expected split-file layout: project.xcf + xcf/agents/<id>.xcf.
+	dir := t.TempDir()
+
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
 		Project: &ast.ProjectConfig{Name: "migrate-test"},
@@ -80,9 +80,19 @@ func TestMigrate_WritesMultiKindFormat(t *testing.T) {
 			},
 		},
 	}
-	out, err := MarshalMultiKind(config, "# migrated")
+
+	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
-	assert.Contains(t, string(out), "kind: project")
-	assert.Contains(t, string(out), "kind: agent")
-	assert.Contains(t, string(out), "---")
+
+	// project.xcf must contain kind: project and the agent ref
+	projData, readErr := os.ReadFile(filepath.Join(dir, "project.xcf"))
+	require.NoError(t, readErr)
+	assert.Contains(t, string(projData), "kind: project")
+	assert.Contains(t, string(projData), "dev")
+
+	// Agent must be written to its own file
+	agentData, readErr := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev.xcf"))
+	require.NoError(t, readErr)
+	assert.Contains(t, string(agentData), "kind: agent")
+	assert.Contains(t, string(agentData), "name: dev")
 }
