@@ -20,8 +20,8 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	rendshared "github.com/saero-ai/xcaffold/internal/renderer/shared"
 	"github.com/saero-ai/xcaffold/internal/resolver"
+	"github.com/saero-ai/xcaffold/internal/translator"
 )
 
 const targetName = "copilot"
@@ -51,55 +51,152 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 	return &output.Output{Files: files}
 }
 
+// Capabilities declares the resource kinds this renderer supports.
+func (r *Renderer) Capabilities() renderer.CapabilitySet {
+	return renderer.CapabilitySet{
+		Agents:              true,
+		Skills:              true,
+		Rules:               true,
+		Workflows:           true,
+		Hooks:               true,
+		Settings:            true,
+		MCP:                 true,
+		Memory:              false,
+		ProjectInstructions: true,
+		SkillSubdirs:        []string{},
+		ModelField:          true,
+		RuleActivations:     []string{"always", "path-glob"},
+	}
+}
+
 // Compile translates an XcaffoldConfig AST into its Copilot output representation.
-// baseDir is the directory that contains the project.xcf file; it is used to
-// resolve instructions-file: paths. The second return is a slice of fidelity
-// notes describing information loss relative to the native Claude target.
+// It delegates to renderer.Orchestrate so per-resource methods are used.
 // Compile returns an error if any resource fails to compile. It never panics.
 func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	out := &output.Output{Files: make(map[string]string)}
+	return renderer.Orchestrate(r, config, baseDir)
+}
+
+// CompileAgents compiles each agent to agents/<id>.agent.md.
+func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Agents: agents}}
+	notes := r.renderAgents(cfg, baseDir, files)
+	return files, notes, nil
+}
+
+// CompileSkills compiles each skill to skills/<id>/SKILL.md.
+func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Skills: skills}}
+	notes := r.renderSkills(cfg, baseDir, files)
+	return files, notes, nil
+}
+
+// CompileRules compiles each rule to instructions/<id>.instructions.md.
+func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
 	var notes []renderer.FidelityNote
-
-	// Lower workflows to rule+skill primitives before rendering rules and skills.
-	config, workflowNotes := rendshared.LowerWorkflows(config, targetName)
-	notes = append(notes, workflowNotes...)
-
-	for id, rule := range config.Rules {
+	for id, rule := range rules {
 		md, ruleNotes, err := compileCopilotRule(id, rule, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("copilot: failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("instructions/%s.instructions.md", id))
-		out.Files[safePath] = md
+		files[safePath] = md
 		notes = append(notes, ruleNotes...)
 	}
+	return files, notes, nil
+}
 
-	if config.Project != nil {
-		instrNotes := r.renderProjectInstructions(config, baseDir, out.Files)
-		notes = append(notes, instrNotes...)
+// CompileWorkflows lowers each workflow to rule and skill primitives and emits
+// the appropriate instructions/<id>.instructions.md and skills/<id>/SKILL.md files.
+func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	var notes []renderer.FidelityNote
+	for id, wf := range workflows {
+		wfCopy := wf
+		if wfCopy.Name == "" {
+			wfCopy.Name = id
+		}
+		primitives, wfNotes := translator.TranslateWorkflow(&wfCopy, targetName)
+		notes = append(notes, wfNotes...)
+		for _, p := range primitives {
+			content := p.Content
+			if content == "" {
+				content = p.Body
+			}
+			switch p.Kind {
+			case "rule":
+				rule := ast.RuleConfig{
+					Description:  wf.Description,
+					Instructions: content,
+					Activation:   ast.RuleActivationAlways,
+				}
+				md, ruleNotes, err := compileCopilotRule(p.ID, rule, baseDir)
+				if err != nil {
+					return nil, nil, fmt.Errorf("copilot: failed to compile lowered rule %q: %w", p.ID, err)
+				}
+				safePath := filepath.Clean(fmt.Sprintf("instructions/%s.instructions.md", p.ID))
+				files[safePath] = md
+				notes = append(notes, ruleNotes...)
+			case "skill":
+				skill := ast.SkillConfig{
+					Name:         p.ID,
+					Instructions: content,
+				}
+				var sb strings.Builder
+				sb.WriteString("---\n")
+				if skill.Name != "" {
+					fmt.Fprintf(&sb, "name: %s\n", skill.Name)
+				}
+				sb.WriteString("---\n")
+				if content != "" {
+					sb.WriteString("\n")
+					sb.WriteString(strings.TrimRight(content, "\n"))
+					sb.WriteString("\n")
+				}
+				safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))
+				files[safePath] = sb.String()
+			}
+		}
 	}
+	return files, notes, nil
+}
 
-	agentNotes := r.renderAgents(config, baseDir, out.Files)
-	notes = append(notes, agentNotes...)
+// CompileHooks compiles hooks to hooks/xcaffold-hooks.json.
+func (r *Renderer) CompileHooks(hooks ast.HookConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files, notes, err := compileCopilotSettings(hooks, nil, nil)
+	return files, notes, err
+}
 
-	skillNotes := r.renderSkills(config, baseDir, out.Files)
-	notes = append(notes, skillNotes...)
+// CompileSettings emits fidelity notes for unsupported settings fields.
+// Copilot settings themselves are not written to a file.
+func (r *Renderer) CompileSettings(settings ast.SettingsConfig) (map[string]string, []renderer.FidelityNote, error) {
+	notes := detectUnsupportedCopilotSettings(&settings)
+	return make(map[string]string), notes, nil
+}
 
-	settings := config.Settings["default"]
-	var hooks ast.HookConfig
-	if dh, ok := config.Hooks["default"]; ok {
-		hooks = dh.Events
-	}
-	settingsFiles, settingsNotes, err := compileCopilotSettings(hooks, config.MCP, &settings)
+// CompileMCP emits a fidelity note for MCP servers that require manual placement.
+func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
+	mcpNotes, err := compileCopilotMCP(servers)
 	if err != nil {
-		return nil, nil, fmt.Errorf("copilot: failed to compile settings: %w", err)
+		return nil, nil, err
 	}
-	notes = append(notes, settingsNotes...)
-	for path, content := range settingsFiles {
-		out.Files[path] = content
-	}
+	return make(map[string]string), mcpNotes, nil
+}
 
-	return out, notes, nil
+// CompileProjectInstructions emits copilot-instructions.md (flat) or AGENTS.md
+// files (nested) based on the effective instructions-mode.
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	cfg := &ast.XcaffoldConfig{Project: project}
+	notes := r.renderProjectInstructions(cfg, baseDir, files)
+	return files, notes, nil
+}
+
+// Finalize is a no-op for the Copilot renderer — no post-processing is required.
+func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
+	return files, nil, nil
 }
 
 // instructionsMode returns the effective instructions-mode for the Copilot renderer.
