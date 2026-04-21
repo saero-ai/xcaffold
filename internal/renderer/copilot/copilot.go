@@ -296,7 +296,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 
 	var notes []renderer.FidelityNote
 
-	for _, id := range sortedKeys(config.Agents) {
+	for _, id := range renderer.SortedKeys(config.Agents) {
 		agent := config.Agents[id]
 		if agent.Inherited {
 			continue
@@ -330,7 +330,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		// Inline MCP servers.
 		if len(agent.MCPServers) > 0 {
 			sb.WriteString("mcp-servers:\n")
-			for _, mcpID := range sortedKeys(agent.MCPServers) {
+			for _, mcpID := range renderer.SortedKeys(agent.MCPServers) {
 				mcp := agent.MCPServers[mcpID]
 				fmt.Fprintf(&sb, "  %s:\n", mcpID)
 				if mcp.Command != "" {
@@ -350,7 +350,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 				}
 				if len(mcp.Env) > 0 {
 					sb.WriteString("    env:\n")
-					for _, envKey := range sortedKeys(mcp.Env) {
+					for _, envKey := range renderer.SortedKeys(mcp.Env) {
 						fmt.Fprintf(&sb, "      %s: %s\n", envKey, mcp.Env[envKey])
 					}
 				}
@@ -445,7 +445,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 
 	var notes []renderer.FidelityNote
 
-	for _, id := range sortedKeys(config.Skills) {
+	for _, id := range renderer.SortedKeys(config.Skills) {
 		skill := config.Skills[id]
 		if skill.Inherited {
 			continue
@@ -567,7 +567,7 @@ func (r *Renderer) lowerWorkflows(config *ast.XcaffoldConfig) (*ast.XcaffoldConf
 
 	var notes []renderer.FidelityNote
 
-	for _, id := range sortedKeys(rs.Workflows) {
+	for _, id := range renderer.SortedKeys(rs.Workflows) {
 		wf := rs.Workflows[id]
 		if wf.Name == "" {
 			wf.Name = id
@@ -603,16 +603,6 @@ func (r *Renderer) lowerWorkflows(config *ast.XcaffoldConfig) (*ast.XcaffoldConf
 	rs.Skills = mergedSkills
 	merged.ResourceScope = rs
 	return &merged, notes
-}
-
-// sortedKeys returns a sorted slice of keys from a map with string-convertible keys.
-func sortedKeys[K ~string, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-	return keys
 }
 
 // compileCopilotRule renders a single RuleConfig as a Copilot .instructions.md file.

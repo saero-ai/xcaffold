@@ -405,16 +405,16 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 	sb.WriteString("---\n")
 
 	if agent.Name != "" {
-		fmt.Fprintf(&sb, "name: %s\n", yamlScalar(agent.Name))
+		fmt.Fprintf(&sb, "name: %s\n", renderer.YAMLScalar(agent.Name))
 	}
 	if agent.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(agent.Description))
+		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(agent.Description))
 	}
 
 	if agent.Model != "" {
 		if resolved, ok := renderer.ResolveModel(agent.Model, targetName); ok && resolved != "" {
 			if renderer.IsMappedModel(agent.Model, targetName) {
-				fmt.Fprintf(&sb, "model: %s\n", yamlScalar(resolved))
+				fmt.Fprintf(&sb, "model: %s\n", renderer.YAMLScalar(resolved))
 			} else {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "agent", id, "model",
@@ -484,10 +484,10 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 	sb.WriteString("---\n")
 
 	if skill.Name != "" {
-		fmt.Fprintf(&sb, "name: %s\n", yamlScalar(skill.Name))
+		fmt.Fprintf(&sb, "name: %s\n", renderer.YAMLScalar(skill.Name))
 	}
 	if skill.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(skill.Description))
+		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(skill.Description))
 	}
 
 	sb.WriteString("---\n")
@@ -564,14 +564,4 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, []renderer.Fide
 		return "", nil, fmt.Errorf("mcp json marshal: %w", err)
 	}
 	return string(data), notes, nil
-}
-
-// yamlScalar quotes a string value for safe inclusion in YAML if it contains
-// characters that would otherwise need quoting.
-func yamlScalar(s string) string {
-	needsQuote := strings.ContainsAny(s, ":#{}[]|>&*!,'\"\\%@`")
-	if needsQuote {
-		return fmt.Sprintf("%q", s)
-	}
-	return s
 }

@@ -8,7 +8,6 @@ package gemini
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -137,7 +136,7 @@ func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]stri
 	var notes []renderer.FidelityNote
 	var importLines []string
 
-	for _, id := range sortedKeys(config.Rules) {
+	for _, id := range renderer.SortedKeys(config.Rules) {
 		rule := config.Rules[id]
 
 		activation := renderer.ResolvedActivation(rule)
@@ -183,7 +182,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 
 	var notes []renderer.FidelityNote
 
-	for _, id := range sortedKeys(config.Skills) {
+	for _, id := range renderer.SortedKeys(config.Skills) {
 		skill := config.Skills[id]
 
 		body, _ := resolver.ResolveInstructions(
@@ -277,7 +276,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 
 	var notes []renderer.FidelityNote
 
-	for _, id := range sortedKeys(agents) {
+	for _, id := range renderer.SortedKeys(agents) {
 		agent := agents[id]
 		if agent.Inherited {
 			continue
@@ -322,7 +321,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		// Inline MCP servers.
 		if len(agent.MCPServers) > 0 {
 			sb.WriteString("mcpServers:\n")
-			for _, mcpID := range sortedKeys(agent.MCPServers) {
+			for _, mcpID := range renderer.SortedKeys(agent.MCPServers) {
 				mcp := agent.MCPServers[mcpID]
 				fmt.Fprintf(&sb, "  %s:\n", mcpID)
 				if mcp.Command != "" {
@@ -342,7 +341,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 				}
 				if len(mcp.Env) > 0 {
 					sb.WriteString("    env:\n")
-					for _, envKey := range sortedKeys(mcp.Env) {
+					for _, envKey := range renderer.SortedKeys(mcp.Env) {
 						fmt.Fprintf(&sb, "      %s: %s\n", envKey, mcp.Env[envKey])
 					}
 				}
@@ -462,7 +461,7 @@ func (r *Renderer) lowerWorkflows(config *ast.XcaffoldConfig) (*ast.XcaffoldConf
 
 	var notes []renderer.FidelityNote
 
-	for _, id := range sortedKeys(rs.Workflows) {
+	for _, id := range renderer.SortedKeys(rs.Workflows) {
 		wf := rs.Workflows[id]
 		if wf.Name == "" {
 			wf.Name = id
@@ -518,14 +517,4 @@ func buildRuleBody(rule ast.RuleConfig, baseDir string) string {
 		sb.WriteString("\n")
 	}
 	return sb.String()
-}
-
-// sortedKeys returns a sorted slice of keys from a map.
-func sortedKeys[K ~string, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-	return keys
 }

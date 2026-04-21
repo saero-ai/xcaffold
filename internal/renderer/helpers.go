@@ -4,10 +4,51 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/output"
 )
+
+// SortedKeys returns a sorted slice of keys from a map with string-convertible keys.
+// Using this function over ranging directly on a map ensures deterministic output.
+func SortedKeys[K ~string, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+	return keys
+}
+
+// YAMLScalar quotes a string value for safe inclusion in YAML if it contains
+// characters that would otherwise need quoting. For simple values it returns
+// the string as-is.
+func YAMLScalar(s string) string {
+	if strings.ContainsAny(s, ":#{}[]|>&*!,'\"\\%@`") {
+		return fmt.Sprintf("%q", s)
+	}
+	return s
+}
+
+// StripAllFrontmatter removes all leading YAML frontmatter blocks from content.
+// Unlike a single-pass strip, this loops until no further --- delimited blocks
+// remain at the top of the string, which handles files that accumulate multiple
+// frontmatter sections during template expansion.
+func StripAllFrontmatter(content string) string {
+	for {
+		trimmed := strings.TrimSpace(content)
+		if !strings.HasPrefix(trimmed, "---") {
+			return content
+		}
+		after := trimmed[3:]
+		idx := strings.Index(after, "\n---")
+		if idx < 0 {
+			return content
+		}
+		content = strings.TrimSpace(after[idx+4:])
+	}
+}
 
 // CompileSkillSubdir reads files from a skill subdirectory (references/, scripts/, assets/)
 // and adds them to the output map at skills/<id>/<subdir>/<filename>.

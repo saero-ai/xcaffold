@@ -411,10 +411,10 @@ func compileAntigravitySkill(id string, skill ast.SkillConfig, baseDir string) (
 
 	sb.WriteString("---\n")
 	if skill.Name != "" {
-		fmt.Fprintf(&sb, "name: %s\n", yamlScalar(skill.Name))
+		fmt.Fprintf(&sb, "name: %s\n", renderer.YAMLScalar(skill.Name))
 	}
 	if skill.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(skill.Description))
+		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(skill.Description))
 	}
 	// All other fields dropped — AG skills only support name + description.
 	sb.WriteString("---\n")
@@ -444,9 +444,9 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 
 	sb.WriteString("---\n")
 	if wf.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(wf.Description))
+		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(wf.Description))
 	} else if wf.Name != "" {
-		fmt.Fprintf(&sb, "description: %s\n", yamlScalar(wf.Name))
+		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(wf.Name))
 	}
 	sb.WriteString("---\n")
 
@@ -468,14 +468,3 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 
 // stripFrontmatter removes YAML frontmatter delimited by "---" from the start
 // of a markdown file, returning only the body content with leading newlines trimmed.
-
-// yamlScalar quotes a string value for safe inclusion in YAML if it contains
-// characters that would otherwise need quoting. For simple values it returns
-// the string as-is.
-func yamlScalar(s string) string {
-	needsQuote := strings.ContainsAny(s, ":#{}[]|>&*!,'\"\\%@`")
-	if needsQuote {
-		return fmt.Sprintf("%q", s)
-	}
-	return s
-}

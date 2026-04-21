@@ -3,6 +3,7 @@ package renderer
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/output"
@@ -71,5 +72,100 @@ func TestCompileSkillSubdir_MissingLiteralFile(t *testing.T) {
 	err := CompileSkillSubdir("my-skill", "assets", []string{"nonexistent.png"}, t.TempDir(), out)
 	if err == nil {
 		t.Error("expected error for missing literal file, got nil")
+	}
+}
+
+func TestSortedKeys_ReturnsSorted(t *testing.T) {
+	m := map[string]int{"charlie": 3, "alpha": 1, "bravo": 2}
+	got := SortedKeys(m)
+	want := []string{"alpha", "bravo", "charlie"}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d keys, got %d", len(want), len(got))
+	}
+	for i, k := range got {
+		if k != want[i] {
+			t.Errorf("index %d: got %q want %q", i, k, want[i])
+		}
+	}
+}
+
+func TestSortedKeys_EmptyMap(t *testing.T) {
+	got := SortedKeys(map[string]string{})
+	if len(got) != 0 {
+		t.Errorf("expected empty slice, got %v", got)
+	}
+}
+
+func TestSortedKeys_CustomStringType(t *testing.T) {
+	type EventName string
+	m := map[EventName]int{"stop": 1, "start": 2, "pause": 3}
+	got := SortedKeys(m)
+	if len(got) != 3 {
+		t.Fatalf("expected 3 keys, got %d", len(got))
+	}
+	if got[0] != "pause" || got[1] != "start" || got[2] != "stop" {
+		t.Errorf("unexpected order: %v", got)
+	}
+}
+
+func TestYAMLScalar_PlainString(t *testing.T) {
+	got := YAMLScalar("hello")
+	if got != "hello" {
+		t.Errorf("expected 'hello', got %q", got)
+	}
+}
+
+func TestYAMLScalar_QuotesSpecialChars(t *testing.T) {
+	got := YAMLScalar("value: with colon")
+	if got == "" {
+		t.Error("expected non-empty YAML scalar output")
+	}
+	if !strings.HasPrefix(got, `"`) {
+		t.Errorf("expected quoted output for colon-containing string, got %q", got)
+	}
+}
+
+func TestYAMLScalar_QuotesHashChar(t *testing.T) {
+	got := YAMLScalar("key#val")
+	if !strings.HasPrefix(got, `"`) {
+		t.Errorf("expected quoted output for hash char, got %q", got)
+	}
+}
+
+func TestYAMLScalar_PlainURL(t *testing.T) {
+	// URLs with slashes are fine unquoted; colons trigger quoting
+	got := YAMLScalar("https://example.com")
+	if !strings.HasPrefix(got, `"`) {
+		t.Errorf("expected quoted output for URL with colon, got %q", got)
+	}
+}
+
+func TestStripAllFrontmatter_SingleBlock(t *testing.T) {
+	input := "---\nkey: val\n---\n# Body"
+	got := StripAllFrontmatter(input)
+	if strings.Contains(got, "key: val") {
+		t.Errorf("expected frontmatter stripped, got: %q", got)
+	}
+	if !strings.Contains(got, "# Body") {
+		t.Errorf("expected body preserved, got: %q", got)
+	}
+}
+
+func TestStripAllFrontmatter_DoubleBlock(t *testing.T) {
+	input := "---\n---\n\n---\n---\n\n# Body"
+	got := StripAllFrontmatter(input)
+	if strings.HasPrefix(strings.TrimSpace(got), "---") {
+		t.Errorf("expected all frontmatter blocks stripped, got: %q", got)
+	}
+	if !strings.Contains(got, "# Body") {
+		t.Errorf("expected body preserved, got: %q", got)
+	}
+}
+
+func TestStripAllFrontmatter_NoFrontmatter(t *testing.T) {
+	input := "# Just a heading\n\nSome content."
+	got := StripAllFrontmatter(input)
+	if got != input {
+		t.Errorf("expected unchanged content, got: %q", got)
 	}
 }
