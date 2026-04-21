@@ -42,13 +42,37 @@ func TestRenderSkillReference_ContainsAllCanonicalFields(t *testing.T) {
 	require.Contains(t, out, "targets:")
 	require.Contains(t, out, "provider:")
 
-	// Instructions LAST
-	idxInstructions := strings.Index(out, "instructions:")
+	// Closing --- body separator must appear after targets:
+	firstDelim := strings.Index(out, "---")
+	require.NotEqual(t, -1, firstDelim)
+	rest := out[firstDelim+3:]
+	secondDelim := strings.Index(rest, "---")
+	require.NotEqual(t, -1, secondDelim, "skill reference must have a closing --- delimiter")
+	closingDelimAbsIdx := firstDelim + 3 + secondDelim
 	idxTargets := strings.Index(out, "targets:")
-	require.True(t, idxInstructions > idxTargets, "instructions must appear after targets")
+	require.Greater(t, closingDelimAbsIdx, idxTargets, "closing --- must appear after targets:")
 
 	// Header annotation about not being parsed
 	require.Contains(t, out, "NOT parsed")
+}
+
+func TestRenderSkillReference_FrontmatterFormat(t *testing.T) {
+	out := RenderSkillReference()
+
+	// Must NOT use inline YAML instructions block
+	require.NotContains(t, out, "instructions: |", "skill reference must not use inline YAML instructions block")
+
+	// Must have a closing --- body separator
+	require.Contains(t, out, "---\n", "skill reference must contain closing frontmatter delimiter")
+
+	// Body text must appear after the second ---
+	firstDelim := strings.Index(out, "---")
+	require.NotEqual(t, -1, firstDelim)
+	rest := out[firstDelim+3:]
+	secondDelim := strings.Index(rest, "---")
+	require.NotEqual(t, -1, secondDelim, "skill reference must have a second --- delimiter")
+	body := rest[secondDelim+3:]
+	require.True(t, len(strings.TrimSpace(body)) > 0, "body content must appear after closing ---")
 }
 
 func TestRenderSkillReference_NoGroupNumbersInOutput(t *testing.T) {

@@ -26,9 +26,6 @@ var yesFlag bool
 // templateFlag is set by --template to use a pre-built topology template.
 var templateFlag string
 
-// noReferencesFlag is set by --no-references to skip reference template generation.
-var noReferencesFlag bool
-
 var targetsFlag []string
 var noPoliciesFlag bool
 var jsonManifestFlag bool
@@ -59,7 +56,6 @@ func init() {
 	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Accept all defaults non-interactively (CI/CD mode)")
 	initCmd.Flags().StringSliceVar(&targetsFlag, "target", nil, "Generate output tailored to specific target(s) (comma-separated)")
 	initCmd.Flags().StringVar(&templateFlag, "template", "", "use a topology template (rest-api, cli-tool, frontend-app)")
-	initCmd.Flags().BoolVar(&noReferencesFlag, "no-references", false, "Skip generation of xcf/references/ field reference templates")
 	initCmd.Flags().BoolVar(&noPoliciesFlag, "no-policies", false, "Skip generation of starter policies")
 	initCmd.Flags().BoolVar(&jsonManifestFlag, "json", false, "Output machine-readable JSON manifest instead of interactive logs")
 	rootCmd.AddCommand(initCmd)
@@ -366,12 +362,16 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 	// ── Build project.xcf content ──────────────────────────────────────────
 	if templateFlag != "" {
 		model, _ := resolveTargetMeta(ans.targets[0])
-		content, err := templates.Render(templateFlag, ans.name, model)
+		config, err := templates.Render(templateFlag, ans.name, model)
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(xcfFile, []byte(content), 0600); err != nil {
-			return fmt.Errorf("failed to create %s: %w", xcfFile, err)
+		// Propagate wizard-selected targets into the config.
+		if config.Project != nil {
+			config.Project.Targets = ans.targets
+		}
+		if err := WriteSplitFiles(config, cwd); err != nil {
+			return fmt.Errorf("failed to scaffold directory: %w", err)
 		}
 	} else {
 		if err := writeXCFDirectory(cwd, ans); err != nil {
@@ -382,8 +382,8 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 	if err := writeReferenceTemplates(cwd); err != nil && !jsonManifestFlag {
 		cmd.Printf("  ⚠ Failed to write reference templates: %v\n", err)
 		// Non-fatal: continue with init.
-	} else if !noReferencesFlag && !jsonManifestFlag {
-		cmd.Println("  Created xcf/references/ — field reference for resource kinds")
+	} else if !jsonManifestFlag {
+		cmd.Println("  Created xcf/skills/xcaffold/references/ — field reference companion files")
 	}
 
 	if err := registry.Register(cwd, ans.name, ans.targets, "."); err != nil && !jsonManifestFlag {
@@ -399,7 +399,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 
 		files := []string{"project.xcf", "xcf/rules/conventions.xcf", "xcf/settings.xcf"}
 		if !noPoliciesFlag {
-			files = append(files, "xcf/policies/safety.xcf")
+			files = append(files, "xcf/policies/require-agent-description.xcf", "xcf/policies/require-agent-instructions.xcf")
 		}
 		if ans.wantAgent {
 			files = append(files, "xcf/agents/developer.xcf")
@@ -564,8 +564,10 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "settings.xcf"), []byte(settingsContent), 0o600)
 
 	if !noPoliciesFlag {
-		policyContent := templates.RenderPolicyXCF()
-		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "safety.xcf"), []byte(policyContent), 0o600)
+		descPolicy := templates.RenderPolicyDescriptionXCF()
+		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-description.xcf"), []byte(descPolicy), 0o600)
+		instrPolicy := templates.RenderPolicyInstructionsXCF()
+		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-instructions.xcf"), []byte(instrPolicy), 0o600)
 	}
 
 	// starter agent
@@ -613,15 +615,11 @@ func offerAnalyze(cmd *cobra.Command, target string) error {
 	return runAnalyze(cmd, nil)
 }
 
-// writeReferenceTemplates creates xcf/references/<kind>.xcf.reference files
-// inside baseDir. The files are documentation artifacts and are NOT parsed
-// by xcaffold. When the --no-references flag is set, this is a no-op.
+// writeReferenceTemplates creates xcf/skills/xcaffold/references/<kind>.xcf.reference
+// files inside baseDir. The files are documentation artifacts and are NOT parsed
+// by xcaffold. They are companion files to the xcaffold skill.
 func writeReferenceTemplates(baseDir string) error {
-	if noReferencesFlag {
-		return nil
-	}
-
-	refDir := filepath.Join(baseDir, "xcf", "references")
+	refDir := filepath.Join(baseDir, "xcf", "skills", "xcaffold", "references")
 	if err := os.MkdirAll(refDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create references directory: %w", err)
 	}

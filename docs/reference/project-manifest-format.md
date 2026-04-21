@@ -126,4 +126,4 @@ Local settings compile to `settings.local.json` (gitignored) and override the ma
 
 - [Configuration Scopes](../concepts/configuration-scopes.md)
 - [Schema Reference](schema.md)
-- [Multi-Kind Documents](multi-kind.md)
+- [Resource File Format](multi-kind.md)

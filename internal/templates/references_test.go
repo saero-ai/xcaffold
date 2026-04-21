@@ -33,13 +33,31 @@ func TestRenderAgentReference_IncludesAllCanonicalFields(t *testing.T) {
 		"mcp-servers:",
 		"hooks:",
 		"targets:",
-		"instructions:",
 		"instructions-file:",
 	}
 
 	for _, field := range requiredFields {
 		require.Contains(t, content, field, "agent reference missing field: %s", field)
 	}
+}
+
+func TestRenderAgentReference_FrontmatterFormat(t *testing.T) {
+	content := RenderAgentReference()
+
+	// Must NOT use inline YAML instructions key
+	require.NotContains(t, content, "instructions: |", "agent reference must not use inline YAML instructions block")
+
+	// Must have a closing --- body separator
+	require.Contains(t, content, "---\n", "agent reference must contain closing frontmatter delimiter")
+
+	// Body text must appear after the second ---
+	firstDelim := strings.Index(content, "---")
+	require.NotEqual(t, -1, firstDelim)
+	rest := content[firstDelim+3:]
+	secondDelim := strings.Index(rest, "---")
+	require.NotEqual(t, -1, secondDelim, "agent reference must have a second --- delimiter")
+	body := rest[secondDelim+3:]
+	require.True(t, len(strings.TrimSpace(body)) > 0, "body content must appear after closing ---")
 }
 
 func TestRenderAgentReference_IncludesProviderExamples(t *testing.T) {
@@ -70,7 +88,6 @@ func TestRenderAgentReference_FieldOrdering(t *testing.T) {
 		"memory:",
 		"skills:",
 		"targets:",
-		"instructions:",
 	}
 
 	lastIdx := -1
@@ -80,4 +97,13 @@ func TestRenderAgentReference_FieldOrdering(t *testing.T) {
 		require.Greater(t, idx, lastIdx, "key %q out of order", key)
 		lastIdx = idx
 	}
+
+	// Body separator must appear after all YAML fields
+	firstDelim := strings.Index(content, "---")
+	require.NotEqual(t, -1, firstDelim)
+	rest := content[firstDelim+3:]
+	secondDelim := strings.Index(rest, "---")
+	require.NotEqual(t, -1, secondDelim, "closing --- must appear after all YAML fields")
+	closingDelimAbsIdx := firstDelim + 3 + secondDelim
+	require.Greater(t, closingDelimAbsIdx, lastIdx, "closing --- must appear after targets:")
 }

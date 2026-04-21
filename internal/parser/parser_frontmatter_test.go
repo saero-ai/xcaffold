@@ -1,10 +1,9 @@
 package parser
 
 import (
-	"bytes"
-	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -198,21 +197,23 @@ func TestParse_Frontmatter_MultiDocumentDeprecationWarning(t *testing.T) {
 	content := "kind: agent\nname: agent-a\nversion: \"1.0\"\n---\nkind: skill\nname: skill-b\nversion: \"1.0\"\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 
-	// Capture stderr.
-	old := os.Stderr
-	r, w, _ := os.Pipe()
-	os.Stderr = w
+	_, err := ParseFileExact(f)
+	require.Error(t, err, "multi-document files must be rejected")
+	assert.Contains(t, err.Error(), "no longer supported")
+}
 
-	t.Setenv("XCAFFOLD_LEGACY_WARNINGS", "true")
-	cfg, err := ParseFileExact(f)
-
-	w.Close()
-	os.Stderr = old
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, r)
-
-	require.NoError(t, err)
-	require.NotNil(t, cfg.Agents["agent-a"])
-	require.NotNil(t, cfg.Skills["skill-b"])
-	assert.Contains(t, buf.String(), "multi-document")
+func TestParse_Frontmatter_MultiDocumentRejected(t *testing.T) {
+	input := `kind: project
+version: "1.0"
+name: test
+---
+kind: agent
+version: "1.0"
+name: developer
+instructions: "Hello."
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no longer supported")
+	assert.Contains(t, err.Error(), "document 2")
 }

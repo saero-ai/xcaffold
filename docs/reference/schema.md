@@ -231,7 +231,7 @@ erDiagram
 
 ## Supported Kinds
 
-The `kind` field is the document type discriminator. Each `.xcf` file (or YAML document within a multi-document file) declares its kind. Multiple documents of different kinds can coexist in a single file, separated by `---`.
+The `kind` field is the document type discriminator. Each `.xcf` file declares exactly one `kind`. Resources are discovered by `ParseDirectory`, which scans `xcf/` recursively and merges results before compilation.
 
 ### Xcaffold-Specific Configurations
 These configurations coordinate the compiler engine and local development workflows.
@@ -263,26 +263,33 @@ In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `mem
 
 The `targets` key on `kind: project` is also a `[]string` listing compilation targets (e.g., `["claude", "antigravity"]`). It is stored on `ProjectConfig.Targets` (tagged `yaml:"-"` — only populated by the parser for `kind: project` documents).
 
-### Multi-document files
+### Split-file layout
 
-A single `.xcf` file can contain multiple YAML documents separated by `---`. The parser decodes each document independently based on its `kind` and merges the results into a single `XcaffoldConfig`. This enables a self-contained project definition:
+Each resource lives in its own `.xcf` file under `xcf/`. `ParseDirectory` scans recursively and merges all results before compilation.
+
+`project.xcf` (pure YAML — no frontmatter delimiters):
 
 ```yaml
 kind: project
 version: "1.0"
 name: my-app
-agents:
-  - developer
+targets:
+  - claude
+```
+
+`xcf/agents/developer.xcf` (frontmatter format — body-bearing kind):
+
+```
 ---
 kind: agent
 version: "1.0"
 name: developer
 model: sonnet
-instructions: |
-  You are a developer.
+---
+You are a developer.
 ```
 
-See [examples/multi-kind.xcf](examples/multi-kind.xcf) for a complete example.
+See [Resource File Format](multi-kind.md) for the full format reference by kind.
 
 ---
 

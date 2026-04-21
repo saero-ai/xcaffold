@@ -14,12 +14,11 @@ func TestValidateCmd_ValidConfig(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "project.xcf")
-	content := `---
-kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: "test"
----
-kind: global
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   developer:
@@ -28,8 +27,7 @@ agents:
 skills:
   deploy:
     description: "Deploy skill"
-`
-	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
+`), 0600))
 
 	// Set the package-level xcfPath directly (PersistentPreRunE would normally do this)
 	oldPath := xcfPath
@@ -190,12 +188,11 @@ func TestValidateCmd_StructuralChecks(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "project.xcf")
-	content := `---
-kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: "test"
----
-kind: global
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   developer:
@@ -203,8 +200,7 @@ agents:
 skills:
   orphan:
     description: "No agent references this skill"
-`
-	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
+`), 0600))
 
 	oldPath := xcfPath
 	xcfPath = xcf

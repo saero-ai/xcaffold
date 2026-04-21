@@ -5,17 +5,52 @@ description: "Standalone .xcf snippet files demonstrating different features and
 
 # Configuration Examples
 
-This directory provides standalone snippet files demonstrating different `.xcf` features and topology patterns.
+This directory provides standalone snippet files demonstrating different `.xcf` features and topology patterns. Each file contains exactly one resource document, matching the format the parser requires.
 
-- [global.xcf](global.xcf) - Defining shared global agents and base configuration profiles
-- [minimal.xcf](minimal.xcf) - A bare-bones starting point
-- [multi-agent.xcf](multi-agent.xcf) - Deploying multiple agents with scoped tool execution
-- [hooks.xcf](hooks.xcf) - Integrating pre-commit and post-install hooks
-- [mcp.xcf](mcp.xcf) - Connecting Model Context Protocol standard and SSE servers
-- [settings.xcf](settings.xcf) - IDE telemetry and auto-validation overrides
-- [multi-kind.xcf](multi-kind.xcf) - Multi-kind format with kind: project, agent, skill, rule, and hooks in one file
-- [test-assertions.xcf](test-assertions.xcf) - Defining rules for LLM-as-a-Judge test loops
-- [xcaffold-diff.yml](xcaffold-diff.yml) - A GitHub Actions CI workflow script
-- [policy-require.xcf](policy-require.xcf) - Requiring agents to use an approved model identifier
-- [policy-deny.xcf](policy-deny.xcf) - Blocking compiled output that contains TODO or FIXME markers
-- [policy-override.xcf](policy-override.xcf) - Silencing a built-in policy check during a migration window
+## Project
+
+- [minimal.xcf](minimal.xcf) — A bare-bones `kind: project` starting point
+- [multi-agent.xcf](multi-agent.xcf) — A `kind: project` referencing multiple agents, skills, and rules
+- [mcp.xcf](mcp.xcf) — A `kind: project` referencing MCP server resources
+- [test-assertions.xcf](test-assertions.xcf) — A `kind: project` with LLM-as-a-Judge test configuration
+
+## Agents
+
+Body-bearing kinds (`agent`, `skill`, `rule`) use frontmatter format: YAML between the opening and closing `---`, followed by the instruction body as plain text.
+
+- [minimal-agent.xcf](minimal-agent.xcf) — A bare-bones agent
+- [agent-developer.xcf](agent-developer.xcf) — Developer agent with tools and a linked skill
+- [agent-reviewer.xcf](agent-reviewer.xcf) — Code reviewer agent with read-only tools
+- [agent-frontend.xcf](agent-frontend.xcf) — Frontend agent example
+- [agent-backend.xcf](agent-backend.xcf) — Backend agent example
+- [agent-tester.xcf](agent-tester.xcf) — Agent with LLM-as-a-Judge assertions
+
+## Skills
+
+- [skill-tdd.xcf](skill-tdd.xcf) — TDD workflow skill with allowed-tools
+- [skill-react.xcf](skill-react.xcf) — React development skill
+
+## Rules
+
+- [rule-testing-framework.xcf](rule-testing-framework.xcf) — Always-active testing convention rule
+- [rule-secure-coding.xcf](rule-secure-coding.xcf) — Secure coding rule
+
+## Settings, Hooks, and MCP
+
+Non-body kinds (`project`, `settings`, `hooks`, `policy`, `mcp`, `global`) use pure YAML format — no frontmatter delimiters.
+
+- [settings.xcf](settings.xcf) — Settings with an MCP filesystem server
+- [hooks.xcf](hooks.xcf) — Pre-tool-use hook definition
+- [global.xcf](global.xcf) — Global shared configuration
+- [mcp-local-db.xcf](mcp-local-db.xcf) — stdio MCP server (SQLite)
+- [mcp-remote-api.xcf](mcp-remote-api.xcf) — SSE MCP server with authorization header
+
+## Policies
+
+- [policy-require.xcf](policy-require.xcf) — Require agents to use an approved model identifier
+- [policy-deny.xcf](policy-deny.xcf) — Block compiled output containing TODO or FIXME markers
+- [policy-override.xcf](policy-override.xcf) — Silence a built-in policy check during a migration window
+
+## CI
+
+- [xcaffold-diff.yml](xcaffold-diff.yml) — GitHub Actions workflow for CI diff checks

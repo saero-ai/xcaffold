@@ -230,6 +230,7 @@ description: "Another dev"
 // Multi-document parsing tests (Phase 5)
 
 func TestParseFile_MultiKind_MultipleDocuments(t *testing.T) {
+	// Multi-document .xcf files are no longer supported. Parse must return an error.
 	input := `---
 kind: agent
 version: "1.0"
@@ -241,17 +242,10 @@ kind: skill
 version: "1.0"
 name: tdd
 description: "TDD workflow"
----
-kind: rule
-version: "1.0"
-name: security
-description: "Security rules"
 `
-	config, err := Parse(strings.NewReader(input))
-	require.NoError(t, err)
-	assert.Contains(t, config.Agents, "developer")
-	assert.Contains(t, config.Skills, "tdd")
-	assert.Contains(t, config.Rules, "security")
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err, "multi-document .xcf files must be rejected")
+	assert.Contains(t, err.Error(), "multi-document .xcf files are no longer supported")
 }
 
 func TestParseFile_MultiKind_UnknownKind_Error(t *testing.T) {
@@ -298,22 +292,24 @@ description: "Deploy workflow"
 // mutual-exclusion validation tests.
 
 func TestParseFile_MultiKind_CrossRefValidation(t *testing.T) {
-	// A skill defined in one document and referenced by an agent in another must
-	// resolve successfully after all documents are merged.
-	input := `---
-kind: skill
+	// A skill defined in one file and referenced by an agent in another must
+	// resolve successfully after all files are merged via ParseDirectory.
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte(`kind: skill
 version: "1.0"
 name: tdd
 description: "TDD"
----
-kind: agent
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
 version: "1.0"
 name: developer
 description: "Dev"
 model: sonnet
 skills: [tdd]
-`
-	config, err := Parse(strings.NewReader(input))
+`), 0600))
+
+	config, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	assert.Contains(t, config.Agents, "developer")
 	assert.Contains(t, config.Skills, "tdd")
@@ -349,22 +345,23 @@ extends: base.xcf
 }
 
 func TestParseFile_MultiKind_ProjectScopedMerge(t *testing.T) {
-	// A kind:project document followed by a kind:agent document: both are valid
-	// together. Resource kind documents merge into the root ResourceScope
-	// (config.Agents), not a project-scoped map.
-	// This test documents that current behavior.
-	input := `---
-kind: project
+	// A kind:project file and a kind:agent file in the same directory: both are
+	// valid together via ParseDirectory. Resource kind documents merge into the
+	// root ResourceScope (config.Agents), not a project-scoped map.
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 version: "1.0"
 name: test-project
----
-kind: agent
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
 version: "1.0"
 name: developer
 description: "Dev"
 model: sonnet
-`
-	config, err := Parse(strings.NewReader(input))
+`), 0600))
+
+	config, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	require.NotNil(t, config.Project)
 	assert.Equal(t, "test-project", config.Project.Name)
@@ -426,7 +423,12 @@ args: ["@anthropic/mcp-playwright"]
 // Phase 9: round-trip equivalence tests.
 
 func TestRoundTrip_MultiKind_EquivalentToMonolithic(t *testing.T) {
-	// kind: project + kind: global format (original monolithic equivalent)
+	// Multi-document .xcf files (kind:project + kind:global in one file) are no
+	// longer supported. This test verifies that both formats are now rejected and
+	// that ParseDirectory with separate single-kind files produces equivalent results.
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+
+	// Verify multi-doc monolithic format is rejected.
 	monolithic := `---
 kind: project
 version: "1.0"
@@ -438,18 +440,11 @@ agents:
   developer:
     description: "Dev agent"
     model: sonnet
-    tools: [Bash, Read, Write]
-    skills: [tdd]
-skills:
-  tdd:
-    description: "TDD workflow"
-    instructions: "Follow TDD"
-rules:
-  security:
-    description: "Security rules"
-    instructions: "Be secure"
 `
-	// Equivalent multi-kind format using individual resource documents
+	_, err := Parse(strings.NewReader(monolithic))
+	require.Error(t, err, "multi-doc monolithic format must be rejected")
+
+	// Verify multi-doc multi-kind format is rejected.
 	multiKind := `---
 kind: project
 version: "1.0"
@@ -460,76 +455,73 @@ version: "1.0"
 name: developer
 description: "Dev agent"
 model: sonnet
+`
+	_, err = Parse(strings.NewReader(multiKind))
+	require.Error(t, err, "multi-doc multi-kind format must be rejected")
+
+	// ParseDirectory with separate single-kind files produces the correct result.
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: test-project
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+version: "1.0"
+name: developer
+description: "Dev agent"
+model: sonnet
 tools: [Bash, Read, Write]
 skills: [tdd]
----
-kind: skill
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte(`kind: skill
 version: "1.0"
 name: tdd
 description: "TDD workflow"
 instructions: "Follow TDD"
----
-kind: rule
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcf"), []byte(`kind: rule
 version: "1.0"
 name: security
 description: "Security rules"
 instructions: "Be secure"
-`
-	configMono, err := Parse(strings.NewReader(monolithic))
+`), 0600))
+
+	config, err := ParseDirectory(dir)
 	require.NoError(t, err)
-
-	configMulti, err := Parse(strings.NewReader(multiKind))
-	require.NoError(t, err)
-
-	// Compare key fields
-	assert.Equal(t, configMono.Project.Name, configMulti.Project.Name)
-	assert.Equal(t, configMono.Version, configMulti.Version)
-
-	// Compare agents
-	require.Contains(t, configMono.Agents, "developer")
-	require.Contains(t, configMulti.Agents, "developer")
-	assert.Equal(t, configMono.Agents["developer"].Description, configMulti.Agents["developer"].Description)
-	assert.Equal(t, configMono.Agents["developer"].Model, configMulti.Agents["developer"].Model)
-	assert.Equal(t, configMono.Agents["developer"].Tools, configMulti.Agents["developer"].Tools)
-	assert.Equal(t, configMono.Agents["developer"].Skills, configMulti.Agents["developer"].Skills)
-
-	// Compare skills
-	require.Contains(t, configMono.Skills, "tdd")
-	require.Contains(t, configMulti.Skills, "tdd")
-	assert.Equal(t, configMono.Skills["tdd"].Description, configMulti.Skills["tdd"].Description)
-
-	// Compare rules
-	require.Contains(t, configMono.Rules, "security")
-	require.Contains(t, configMulti.Rules, "security")
-	assert.Equal(t, configMono.Rules["security"].Description, configMulti.Rules["security"].Description)
+	assert.Equal(t, "test-project", config.Project.Name)
+	require.Contains(t, config.Agents, "developer")
+	assert.Equal(t, "Dev agent", config.Agents["developer"].Description)
+	require.Contains(t, config.Skills, "tdd")
+	require.Contains(t, config.Rules, "security")
 }
 
 func TestRoundTrip_MultiKind_Validate(t *testing.T) {
-	// A complete multi-kind config with cross-references
-	input := `---
-kind: project
+	// A complete multi-resource config with cross-references via ParseDirectory.
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 version: "1.0"
 name: validation-test
----
-kind: skill
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill-tdd.xcf"), []byte(`kind: skill
 version: "1.0"
 name: tdd
 description: "TDD"
 instructions: "Follow TDD"
----
-kind: skill
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill-cr.xcf"), []byte(`kind: skill
 version: "1.0"
 name: code-review
 description: "Code review"
 instructions: "Review code"
----
-kind: rule
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcf"), []byte(`kind: rule
 version: "1.0"
 name: security
 description: "Security"
 instructions: "Be secure"
----
-kind: agent
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
 version: "1.0"
 name: developer
 description: "Dev"
@@ -537,8 +529,9 @@ model: sonnet
 skills: [tdd, code-review]
 rules: [security]
 instructions: "You are a developer"
-`
-	config, err := Parse(strings.NewReader(input))
+`), 0600))
+
+	config, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "validation-test", config.Project.Name)
 	assert.Len(t, config.Agents, 1)
@@ -611,23 +604,50 @@ effort-level: high
 }
 
 func TestParsePartial_MultiDoc_ProjectAgentHooks(t *testing.T) {
+	// Multi-document .xcf files are no longer supported; parsePartial rejects them.
+	// Use ParseDirectory with separate files to achieve the same composition.
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+
+	// Verify multi-doc input is rejected by parsePartial.
 	input := `---
 kind: project
 version: "1.0"
 name: multi-doc-project
 agents:
   - backend-engineer
-skills:
-  - tdd
 ---
 kind: agent
 version: "1.0"
 name: backend-engineer
 description: "Backend dev"
 model: sonnet
+`
+	_, err := parsePartial(strings.NewReader(input))
+	require.Error(t, err, "multi-document input must be rejected by parsePartial")
+
+	// ParseDirectory with separate files achieves the same result.
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: multi-doc-project
+agents:
+  - backend-engineer
+skills:
+  - tdd
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+version: "1.0"
+name: backend-engineer
+description: "Backend dev"
+model: sonnet
 skills: [tdd]
----
-kind: hooks
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte(`kind: skill
+version: "1.0"
+name: tdd
+description: "TDD"
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "hooks.xcf"), []byte(`kind: hooks
 version: "1.0"
 events:
   PreToolUse:
@@ -635,8 +655,9 @@ events:
       hooks:
         - type: command
           command: "echo hook"
-`
-	config, err := parsePartial(strings.NewReader(input))
+`), 0600))
+
+	config, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	require.NotNil(t, config.Project, "config.Project must not be nil")
 	assert.Equal(t, "multi-doc-project", config.Project.Name)
@@ -827,20 +848,22 @@ require:
 }
 
 func TestParseFile_MultiKind_ProjectWithPolicies(t *testing.T) {
-	input := `kind: project
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 version: "1.0"
 name: my-api
 agents:
   - developer
 policies:
   - require-approved-model
----
-kind: agent
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
 version: "1.0"
 name: developer
 instructions: "Write code."
----
-kind: policy
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`kind: policy
 version: "1.0"
 name: require-approved-model
 severity: error
@@ -849,8 +872,9 @@ require:
   - field: model
     one-of:
       - sonnet
-`
-	config, err := Parse(strings.NewReader(input))
+`), 0600))
+
+	config, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	require.NotNil(t, config.Project)
 	assert.Equal(t, []string{"require-approved-model"}, config.Project.PolicyRefs)
@@ -872,13 +896,15 @@ policies:
 }
 
 func TestParseFile_MultiKind_PolicyCrossRef_Valid(t *testing.T) {
-	input := `kind: project
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 version: "1.0"
 name: my-api
 policies:
   - my-policy
----
-kind: policy
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`kind: policy
 version: "1.0"
 name: my-policy
 severity: warning
@@ -886,8 +912,9 @@ target: agent
 require:
   - field: description
     is-present: true
-`
-	config, err := Parse(strings.NewReader(input))
+`), 0600))
+
+	config, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"my-policy"}, config.Project.PolicyRefs)
 }

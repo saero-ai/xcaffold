@@ -11,7 +11,7 @@ Information-oriented documentation that provides exhaustive, definitive facts ab
 
 - [Schema Reference](schema.md) — Comprehensive reference of all `.xcf` YAML fields, valid types, and provider-specific normalization behavior.
 - [CLI Reference](cli.md) — Detailed breakdown of every `xcaffold` command, argument, and flag.
-- [Multi-Kind Document Format](multi-kind.md) — Reference for using multiple resource types in a single .xcf file.
+- [Resource File Format](multi-kind.md) — Reference for per-kind file formats: frontmatter for body-bearing kinds, pure YAML for structural kinds.
 
 ## Examples
 

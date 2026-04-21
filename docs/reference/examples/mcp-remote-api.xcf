@@ -1,0 +1,7 @@
+kind: mcp
+version: "1.0"
+name: remote-api
+type: sse
+url: "https://api.example.com/mcp"
+headers:
+  "Authorization": "Bearer token"

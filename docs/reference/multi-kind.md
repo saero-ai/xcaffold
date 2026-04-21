@@ -1,30 +1,66 @@
 ---
-title: "Multi-Kind Document Format"
-description: "Reference for using multiple kind: documents in a single .xcf file with YAML document separators"
+title: "One Kind Per File — Resource Format Reference"
+description: "Reference for xcaffold resource file formats: frontmatter for body-bearing kinds, pure YAML for structural kinds"
 ---
 
-# Multi-Kind Resource Manifests
+# One Kind Per File — Resource Format Reference
 
-xcaffold supports multi-kind YAML documents where each resource gets its own `kind:` discriminator. Resources can live in a single file (separated by `---`) or in individual `.xcf` files that `ParseDirectory` merges automatically.
+xcaffold uses a single-kind-per-file layout. Each `.xcf` file declares exactly one `kind:`. Resources under `xcf/` are discovered automatically by `ParseDirectory`, which scans recursively and merges results before compilation.
 
-> **Parsing**: All multi-kind documents are decoded with `KnownFields(true)`. Unknown fields cause an immediate parse error.
+> **Parsing**: All `.xcf` files are decoded with `KnownFields(true)`. Unknown fields cause an immediate parse error.
+
+---
+
+## File Format by Kind
+
+xcaffold uses two distinct file formats depending on whether a resource has an instruction body.
+
+### Body-Bearing Kinds (Frontmatter Format)
+
+`agent`, `skill`, `rule`, and `workflow` embed their instruction body as Markdown after a YAML frontmatter block.
+
+```
+---
+kind: agent
+version: "1.0"
+name: developer
+description: "Senior backend developer."
+model: claude-sonnet-4-6
+---
+You are a senior backend developer.
+Follow TDD. Write tests before implementation.
+```
+
+The `---` delimiters mark the frontmatter block. Everything after the closing `---` is the instruction body. The `instructions:` field is not used when frontmatter format is in effect.
+
+### Non-Body Kinds (Pure YAML)
+
+`project`, `settings`, `hooks`, `policy`, `mcp`, `global`, and `memory` use plain YAML with no `---` delimiters.
+
+```yaml
+kind: project
+version: "1.0"
+name: my-api
+targets:
+  - claude
+```
 
 ---
 
 ## Supported Kinds
 
-| Kind | Required | Singleton | Purpose |
+| Kind | Format | Singleton | Purpose |
 |---|---|---|---|
-| `project` | Yes | Yes | Project manifest: metadata, targets, and instructions only. Resource discovery is via filesystem walk. |
-| `agent` | No | No | Agent persona definition |
-| `skill` | No | No | Reusable prompt package |
-| `rule` | No | No | Path-gated formatting guideline |
-| `workflow` | No | No | Named reusable workflow |
-| `mcp` | No | No | MCP server definition |
-| `hooks` | No | Yes | Lifecycle event handlers |
-| `settings` | No | Yes | Platform settings |
-| `global` | No | Yes | Global-scope configuration (resources + settings, no project metadata) |
-| `policy` | No | No | Declarative constraint (require/deny rules) |
+| `project` | Pure YAML | Yes | Project manifest: metadata, targets, and project-wide instructions. |
+| `agent` | Frontmatter | No | Agent persona definition |
+| `skill` | Frontmatter | No | Reusable prompt package |
+| `rule` | Frontmatter | No | Path-gated formatting guideline |
+| `workflow` | Frontmatter | No | Named reusable workflow |
+| `mcp` | Pure YAML | No | MCP server definition |
+| `hooks` | Pure YAML | Yes | Lifecycle event handlers |
+| `settings` | Pure YAML | Yes | Platform settings |
+| `global` | Pure YAML | Yes | Global-scope configuration (resources + settings, no project metadata) |
+| `policy` | Pure YAML | No | Declarative constraint (require/deny rules) |
 
 **Singleton** kinds do not carry a `name` field and can only appear once per merged config. Non-singleton kinds are keyed by `name` and support multiple instances.
 
@@ -32,7 +68,7 @@ xcaffold supports multi-kind YAML documents where each resource gets its own `ki
 
 ## Envelope Fields
 
-Every multi-kind document begins with envelope fields that identify the resource.
+Every `.xcf` file begins with envelope fields that identify the resource.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -46,7 +82,7 @@ Singleton kinds (`hooks`, `settings`) skip the `name` check. The `project` kind 
 
 ## kind: project
 
-Project-level metadata and child resource references. Exactly one `project` document is expected per merged config.
+Project-level metadata and child resource references. Exactly one `project` document is expected per merged config. Uses pure YAML format.
 
 > **YAML field collision note**: In a `kind: project` document, the fields `agents`, `skills`, `rules`, `workflows`, and `mcp` are decoded as `[]string` (bare name lists), not as resource definition maps. These lists are advisory only — `ParseDirectory` discovers resources by scanning `xcf/` recursively, not by reading these lists. The separate decode struct (`projectDocFields`) prevents type collision with resource definition kinds; it does not make the lists authoritative.
 
@@ -81,7 +117,7 @@ Project-level metadata and child resource references. Exactly one `project` docu
 ### Example
 
 ```yaml
-# project.xcf — project manifest (metadata and instructions only)
+# project.xcf — project manifest (metadata only)
 kind: project
 version: "1.0"
 name: my-api
@@ -91,8 +127,6 @@ repository: https://github.com/example/my-api
 targets:
   - claude
   - cursor
-# instructions: |
-#   You are a software developer working on my-api.
 test:
   cli-path: claude
   judge-model: claude-haiku-4-5-20251001
@@ -104,7 +138,7 @@ Resources (`agents`, `skills`, `rules`, etc.) are discovered automatically by sc
 
 ## kind: agent
 
-Agent persona definition. Each agent is keyed by `name` and compiled to a markdown file under the target's agents directory.
+Agent persona definition. Each agent is a separate file under `xcf/agents/`, keyed by `name` and compiled to a markdown file under the target's agents directory. Uses frontmatter format.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -112,8 +146,7 @@ Agent persona definition. Each agent is keyed by `name` and compiled to a markdo
 | `version` | `string` | **Required** | Schema version. |
 | `name` | `string` | **Required** | Agent identifier. Used as the map key and output filename. |
 | `description` | `string` | Optional | Short description shown in graph output and agent headers. |
-| `instructions` | `string` | Optional | Inline instruction body. Mutually exclusive with `instructions-file`. |
-| `instructions-file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
+| `instructions-file` | `string` | Optional | Path to a file containing instructions. Cannot be combined with a frontmatter body. |
 | `model` | `string` | Optional | Model override (e.g. `claude-sonnet-4-20250514`). |
 | `effort` | `string` | Optional | Effort level override. |
 | `memory` | `string` | Optional | Memory directory path for this agent. |
@@ -147,15 +180,13 @@ Agent persona definition. Each agent is keyed by `name` and compiled to a markdo
 
 ### Example
 
-```yaml
+```
+---
 kind: agent
 version: "1.0"
 name: developer
 description: Senior backend developer
 model: claude-sonnet-4-20250514
-instructions: |
-  You are a senior backend developer.
-  Follow TDD. Write tests before implementation.
 tools:
   - Read
   - Edit
@@ -166,13 +197,16 @@ skills:
 rules:
   - testing
 max-turns: 25
+---
+You are a senior backend developer.
+Follow TDD. Write tests before implementation.
 ```
 
 ---
 
 ## kind: skill
 
-Reusable prompt package. Compiled to a directory with a `SKILL.md` file and optional reference/script/asset subdirectories.
+Reusable prompt package. Compiled to a directory with a `SKILL.md` file and optional reference/script/asset subdirectories. Uses frontmatter format.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -180,8 +214,7 @@ Reusable prompt package. Compiled to a directory with a `SKILL.md` file and opti
 | `version` | `string` | **Required** | Schema version. |
 | `name` | `string` | **Required** | Skill identifier. |
 | `description` | `string` | Optional | Short description of the skill's purpose. |
-| `instructions` | `string` | Optional | Inline skill instructions. Mutually exclusive with `instructions-file`. |
-| `instructions-file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
+| `instructions-file` | `string` | Optional | Path to a file containing instructions. Cannot be combined with a frontmatter body. |
 | `tools` | `[]string` | Optional | Tools this skill requires. |
 | `references` | `[]string` | Optional | Doc/data files copied to `skills/<id>/references/` at compile time. |
 | `scripts` | `[]string` | Optional | Executable helpers copied to `skills/<id>/scripts/` at compile time. |
@@ -189,27 +222,28 @@ Reusable prompt package. Compiled to a directory with a `SKILL.md` file and opti
 
 ### Example
 
-```yaml
+```
+---
 kind: skill
 version: "1.0"
 name: tdd
 description: Test-driven development workflow
-instructions: |
-  Follow the Red-Green-Refactor cycle.
-  1. Write a failing test.
-  2. Write minimal code to pass.
-  3. Refactor.
 allowed-tools:
   - Bash
   - Edit
   - Read
+---
+Follow the Red-Green-Refactor cycle.
+1. Write a failing test.
+2. Write minimal code to pass.
+3. Refactor.
 ```
 
 ---
 
 ## kind: rule
 
-Path-gated formatting guideline. Compiled to a markdown file under the target's rules directory.
+Path-gated formatting guideline. Compiled to a markdown file under the target's rules directory. Uses frontmatter format.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -217,14 +251,14 @@ Path-gated formatting guideline. Compiled to a markdown file under the target's 
 | `version` | `string` | **Required** | Schema version. |
 | `name` | `string` | **Required** | Rule identifier. |
 | `description` | `string` | Optional | Short description of the rule. |
-| `instructions` | `string` | Optional | Inline rule body. Mutually exclusive with `instructions-file`. |
-| `instructions-file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
+| `instructions-file` | `string` | Optional | Path to a file containing instructions. Cannot be combined with a frontmatter body. |
 | `always-apply` | `*bool` | Optional | When `true`, rule applies to all files regardless of `paths`. When omitted, inherits platform default. |
 | `paths` | `[]string` | Optional | Glob patterns restricting which files this rule applies to. |
 
 ### Example
 
-```yaml
+```
+---
 kind: rule
 version: "1.0"
 name: testing
@@ -232,16 +266,16 @@ description: Go testing conventions
 always-apply: false
 paths:
   - "**/*_test.go"
-instructions: |
-  Use table-driven tests. Name tests TestFunc_Scenario.
-  Always add negative test cases.
+---
+Use table-driven tests. Name tests TestFunc_Scenario.
+Always add negative test cases.
 ```
 
 ---
 
 ## kind: workflow
 
-Named reusable workflow. Compiled for targets that support workflows (Antigravity). Claude Code lacks standalone workflows. Cursor encodes workflows via Rules. GitHub Copilot and Gemini CLI have no native workflow support.
+Named reusable workflow. Compiled for targets that support workflows (Antigravity). Claude Code lacks standalone workflows. Cursor encodes workflows via Rules. GitHub Copilot and Gemini CLI have no native workflow support. Uses frontmatter format.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -249,28 +283,28 @@ Named reusable workflow. Compiled for targets that support workflows (Antigravit
 | `version` | `string` | **Required** | Schema version. |
 | `name` | `string` | **Required** | Workflow identifier. |
 | `description` | `string` | Optional | Short description. |
-| `instructions` | `string` | Optional | Inline workflow instructions. Mutually exclusive with `instructions-file`. |
-| `instructions-file` | `string` | Optional | Path to a file containing instructions. Mutually exclusive with `instructions`. |
+| `instructions-file` | `string` | Optional | Path to a file containing instructions. Cannot be combined with a frontmatter body. |
 
 ### Example
 
-```yaml
+```
+---
 kind: workflow
 version: "1.0"
 name: deploy
 description: Production deployment checklist
-instructions: |
-  1. Run full test suite.
-  2. Build release binary.
-  3. Tag version.
-  4. Push to registry.
+---
+1. Run full test suite.
+2. Build release binary.
+3. Tag version.
+4. Push to registry.
 ```
 
 ---
 
 ## kind: mcp
 
-MCP (Model Context Protocol) server definition. Compiled into the `mcpServers` key of `settings.json`.
+MCP (Model Context Protocol) server definition. Compiled into the `mcpServers` key of `settings.json`. Uses pure YAML format.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -308,7 +342,7 @@ env:
 
 ## kind: hooks
 
-Lifecycle event handlers. Singleton: no `name` field. Hook events are wrapped under an `events:` key because `HookConfig` is a map type that cannot be inlined.
+Lifecycle event handlers. Singleton: no `name` field. Hook events are wrapped under an `events:` key because `HookConfig` is a map type that cannot be inlined. Uses pure YAML format.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -370,7 +404,7 @@ events:
 
 ## kind: settings
 
-Platform settings compiled to `settings.json`. Singleton: no `name` field.
+Platform settings compiled to `settings.json`. Singleton: no `name` field. Uses pure YAML format.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -453,7 +487,7 @@ sandbox:
 
 Global-scope configuration for `~/.xcaffold/global.xcf`. Contains shared resources
 (agents, skills, rules, workflows, MCP, hooks, policies) and settings that apply
-across all projects. Does not contain project metadata.
+across all projects. Does not contain project metadata. Uses pure YAML format.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -473,7 +507,7 @@ across all projects. Does not contain project metadata.
 
 ## kind: policy
 
-Declarative constraint evaluated against the AST and compiled output.
+Declarative constraint evaluated against the AST and compiled output. Uses pure YAML format.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -489,32 +523,29 @@ Declarative constraint evaluated against the AST and compiled output.
 
 ---
 
-## Merge Behavior
+## Directory Layout
 
-### Multi-document files
+A typical project uses this layout:
 
-A single `.xcf` file can contain multiple YAML documents separated by `---`. The parser iterates through each document, extracts the `kind:` discriminator, and routes to the appropriate kind-specific decoder.
-
-```yaml
-kind: project
-version: "1.0"
-name: my-api
-agents:
-  - developer
----
-kind: agent
-version: "1.0"
-name: developer
-description: Backend developer
-instructions: Write clean Go code.
----
-kind: rule
-version: "1.0"
-name: testing
-instructions: Use table-driven tests.
+```
+my-project/
+  project.xcf                    # kind: project (pure YAML)
+  xcf/
+    agents/
+      developer.xcf              # kind: agent (frontmatter)
+      reviewer.xcf               # kind: agent (frontmatter)
+    rules/
+      conventions.xcf            # kind: rule (frontmatter)
+    skills/
+      tdd.xcf                    # kind: skill (frontmatter)
+    settings.xcf                 # kind: settings (pure YAML)
+    policies/
+      safety.xcf                 # kind: policy (pure YAML)
 ```
 
-### ParseDirectory
+`ParseDirectory` scans `xcf/` recursively, parses each file by `kind`, and merges the results into a single `XcaffoldConfig` before compilation.
+
+### Merge Behavior
 
 `ParseDirectory` scans a directory for all `*.xcf` files, parses each independently, and merges the results. Merge rules:
 
@@ -525,4 +556,3 @@ instructions: Use table-driven tests.
 ### Project scope routing
 
 `ParseDirectory` discovers resources by recursively scanning `xcf/` for all `*.xcf` files and routing each by `kind:`. The `agents`, `skills`, `rules`, `workflows`, and `mcp` lists in a `kind: project` document are advisory; they do not filter or gate resource loading. `xcaffold validate` emits warnings when these lists diverge from the actual filesystem contents, helping teams keep documentation current.
-

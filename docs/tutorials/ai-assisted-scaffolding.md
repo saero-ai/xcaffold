@@ -159,8 +159,8 @@ This returns a machine-readable manifest of every generated file:
     "xcf/rules/conventions.xcf",
     "xcf/settings.xcf",
     "xcf/policies/safety.xcf",
-    "xcf/references/agent.xcf.reference",
-    "xcf/references/skill.xcf.reference"
+    "xcf/skills/xcaffold/references/agent.xcf.reference",
+    "xcf/skills/xcaffold/references/skill.xcf.reference"
   ],
   "provider_notes": {
     "claude": "full feature set",
@@ -169,7 +169,7 @@ This returns a machine-readable manifest of every generated file:
 }
 ```
 
-The AI reads this manifest to know exactly which files to edit. It reads `xcf/references/agent.xcf.reference` for the complete field catalog, and `xcf/agents/developer.xcf` for the provider matrix.
+The AI reads this manifest to know exactly which files to edit. It reads `xcf/skills/xcaffold/references/agent.xcf.reference` for the complete field catalog, and `xcf/agents/developer.xcf` for the provider matrix.
 
 ```bash
 # Step 2: The AI edits xcf/agents/developer.xcf and creates xcf/agents/reviewer.xcf
@@ -257,7 +257,7 @@ Skills are the most complex resource type — they have their own directory stru
 
 ### Human prompt to AI
 
-> Read `xcf/references/skill.xcf.reference`. Create a new skill called `tdd` in `xcf/skills/tdd.xcf`. The skill should:
+> Read `xcf/skills/xcaffold/references/skill.xcf.reference`. Create a new skill called `tdd` in `xcf/skills/tdd.xcf`. The skill should:
 >
 > - Instruct the agent to write a failing test first, then minimal code to pass it, then refactor.
 > - Apply to all selected targets (claude, cursor).

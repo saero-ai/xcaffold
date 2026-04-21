@@ -1,0 +1,5 @@
+kind: mcp
+version: "1.0"
+name: local-db
+type: stdio
+command: "sqlite3"

@@ -30,17 +30,16 @@ func TestApply_CheckPermissions_CursorTarget_ReportsDroppedFields(t *testing.T) 
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "project.xcf")
-	content := `---
-kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: check-perm-test
----
-kind: settings
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcf"), []byte(`kind: settings
 version: "1.0"
 permissions:
   deny: [Bash]
----
-kind: global
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   dev:
@@ -48,8 +47,7 @@ agents:
     permission-mode: plan
     disallowed-tools: [Write]
     isolation: container
-`
-	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
+`), 0600))
 
 	// Capture stdout where [WARNING]/[INFO] lines are printed.
 	old := os.Stdout
@@ -91,12 +89,11 @@ func TestApply_CheckPermissions_GeminiTarget_ReportsDroppedFields(t *testing.T) 
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "project.xcf")
-	content := `---
-kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: gemini-check-perm-test
----
-kind: global
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   dev:
@@ -104,8 +101,7 @@ agents:
     effort: high
     permission-mode: plan
     isolation: container
-`
-	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
+`), 0600))
 
 	old := os.Stdout
 	r, w, err := os.Pipe()
@@ -146,18 +142,16 @@ func TestApply_CheckPermissions_ContradictionExitsOne(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "project.xcf")
-	content := `---
-kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: contradiction-test
----
-kind: settings
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcf"), []byte(`kind: settings
 version: "1.0"
 permissions:
   allow: [Bash]
   deny: [Bash]
-`
-	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
+`), 0600))
 
 	xcfPath = xcf
 	globalFlag = false
@@ -179,24 +173,22 @@ func TestApply_CheckPermissions_Global_UsesGlobalXcfHome(t *testing.T) {
 	// Create a temp dir to serve as globalXcfHome with a valid project.xcf.
 	globalHome := t.TempDir()
 	xcf := filepath.Join(globalHome, "project.xcf")
-	content := `---
-kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
 version: "1.0"
 name: global-check-perm-test
----
-kind: settings
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(globalHome, "settings.xcf"), []byte(`kind: settings
 version: "1.0"
 permissions:
   deny: [Bash]
----
-kind: global
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(globalHome, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   dev:
     description: Developer
     permission-mode: plan
-`
-	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
+`), 0600))
 
 	// A separate temp dir to act as CWD — it has no project.xcf.
 	// If the bug is present, ParseDirectory(".") (or the CWD) will be used

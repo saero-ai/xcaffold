@@ -5,7 +5,7 @@ description: "Break a monolithic project.xcf into domain-scoped files with autom
 
 # Splitting a Project Into Multiple .xcf Files
 
-A single `project.xcf` works well for small projects. As projects grow, a monolithic file becomes difficult to maintain — a large agent roster mixed with MCP server definitions and global rules is hard to review and harder to diff. xcaffold supports splitting a project into multiple `.xcf` files; the parser scans, merges, and validates them as a single configuration.
+xcaffold uses one file per resource: a `project.xcf` manifest plus individual `.xcf` files for agents, skills, rules, and other resources under `xcf/`. As projects grow, spreading resources across domain subdirectories keeps each file focused and easy to review and diff. The parser scans all `.xcf` files recursively, merges them, and validates the result as a single configuration.
 
 The recommended split layout uses `project.xcf` (`kind: project`) at the project root and individual resource `.xcf` files under an `xcf/` subdirectory. All xcaffold commands should be run from the directory containing `project.xcf`.
 
@@ -37,17 +37,19 @@ This how-to covers when and how to split, what merge rules apply per resource ty
 
 | Project size | Recommended layout |
 |---|---|
-| 1-3 agents, few rules | Single `project.xcf` with multi-kind documents |
-| 4+ agents, shared libraries | Split: `project.xcf` + `xcf/` subdirectories |
-| Team-owned resources | Split: each owner edits their own `.xcf` files |
+| 1-3 agents, few rules | `project.xcf` + flat `xcf/agents/` directory |
+| 4+ agents, shared libraries | `project.xcf` + `xcf/agents/`, `xcf/skills/`, `xcf/rules/` subdirectories |
+| Team-owned resources | Domain subdirectories under `xcf/` — each owner edits their own `.xcf` files |
 
-There is no functional difference — both produce identical compiled output. The choice is organizational.
+Each layout produces identical compiled output. The choice is purely organizational.
 
 ---
 
-## Single-file layout
+## Minimal layout
 
-All resources live in one file as `---`-separated YAML documents:
+A minimal project uses two files — the project manifest and one file per resource:
+
+`project.xcf`:
 
 ```yaml
 kind: project
@@ -55,18 +57,25 @@ version: "1.0"
 name: my-project
 targets:
   - claude
+```
 
+`xcf/agents/developer.xcf`:
+
+```
 ---
 kind: agent
 version: "1.0"
 name: developer
 description: "General development agent"
-instructions: |
-  You write clean, maintainable code.
 model: "claude-sonnet-4-6"
 tools: [Bash, Read, Write, Edit, Glob, Grep]
-
 ---
+You write clean, maintainable code.
+```
+
+`xcf/rules/code-style.xcf`:
+
+```yaml
 kind: rule
 version: "1.0"
 name: code-style
@@ -76,9 +85,9 @@ instructions: "Use 2-space indentation. No semicolons in TypeScript."
 
 ---
 
-## Split-file layout
+## Standard layout
 
-The same project split into files:
+The standard layout separates resources by type under `xcf/`:
 
 ```
 my-project/
@@ -104,15 +113,16 @@ Resources are discovered automatically. xcaffold scans `xcf/` recursively for al
 
 **`xcf/agents/developer.xcf`:**
 
-```yaml
+```
+---
 kind: agent
 version: "1.0"
 name: developer
 description: "General development agent"
-instructions: |
-  You write clean, maintainable code.
 model: "claude-sonnet-4-6"
 tools: [Bash, Read, Write, Edit, Glob, Grep]
+---
+You write clean, maintainable code.
 ```
 
 **`xcf/rules/code-style.xcf`:**

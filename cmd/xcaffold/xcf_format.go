@@ -11,35 +11,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// projectMarshalDoc is the serialization envelope for the kind: project first
-// document in MarshalMultiKind output. It replaces the legacy configDocument.
-// Settings and Hooks are emitted as separate kind: settings and kind: hooks
-// documents, matching the WriteSplitFiles pattern.
-type projectMarshalDoc struct {
-	Kind                string                  `yaml:"kind"`
-	Version             string                  `yaml:"version"`
-	Extends             string                  `yaml:"extends,omitempty"`
-	Name                string                  `yaml:"name,omitempty"`
-	Description         string                  `yaml:"description,omitempty"`
-	Author              string                  `yaml:"author,omitempty"`
-	Homepage            string                  `yaml:"homepage,omitempty"`
-	Repository          string                  `yaml:"repository,omitempty"`
-	License             string                  `yaml:"license,omitempty"`
-	BackupDir           string                  `yaml:"backup-dir,omitempty"`
-	Targets             []string                `yaml:"targets,omitempty"`
-	AgentRefs           []string                `yaml:"agents,omitempty"`
-	SkillRefs           []string                `yaml:"skills,omitempty"`
-	RuleRefs            []string                `yaml:"rules,omitempty"`
-	WorkflowRefs        []string                `yaml:"workflows,omitempty"`
-	MCPRefs             []string                `yaml:"mcp,omitempty"`
-	Instructions        string                  `yaml:"instructions,omitempty"`
-	InstructionsFile    string                  `yaml:"instructions-file,omitempty"`
-	InstructionsImports []string                `yaml:"instructions-imports,omitempty"`
-	InstructionsScopes  []ast.InstructionsScope `yaml:"instructions-scopes,omitempty"`
-	Test                ast.TestConfig          `yaml:"test,omitempty"`
-	Local               ast.SettingsConfig      `yaml:"local,omitempty"`
-}
-
 // agentDoc is the serialization envelope for a kind: agent document.
 type agentDoc struct {
 	Kind            string `yaml:"kind"`
@@ -82,262 +53,29 @@ type memoryDoc struct {
 	ast.MemoryConfig `yaml:",inline"`
 }
 
-// FormatXCF serializes config to a multi-kind YAML string with no header comment.
-// It is a thin wrapper around MarshalMultiKind for use in tests and tooling that
-// need a plain string rather than a []byte with an optional header.
-func FormatXCF(config *ast.XcaffoldConfig) (string, error) {
-	b, err := MarshalMultiKind(config, "")
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-}
-
-// MarshalMultiKind serializes an XcaffoldConfig as multi-kind YAML documents
-// separated by "---". The first document is always kind: project, followed by
-// individual kind: agent, kind: skill, kind: rule, kind: workflow, kind: mcp,
-// kind: settings, and kind: hooks documents in alphabetical key order
-// (deterministic output). Settings and hooks are emitted as separate documents.
-//
-// If header is non-empty it is prepended to the output as a comment block.
-func MarshalMultiKind(config *ast.XcaffoldConfig, header string) ([]byte, error) {
-	version := config.Version
-	if version == "" {
-		version = "1.0"
-	}
-
-	var docs [][]byte
-
-	// ── kind: project document ──────────────────────────────────────────────
-	proj := config.Project
-	if proj == nil {
-		proj = &ast.ProjectConfig{}
-	}
-	cfgDoc := projectMarshalDoc{
-		Kind:                "project",
-		Version:             version,
-		Extends:             config.Extends,
-		Name:                proj.Name,
-		Description:         proj.Description,
-		Author:              proj.Author,
-		Homepage:            proj.Homepage,
-		Repository:          proj.Repository,
-		License:             proj.License,
-		BackupDir:           proj.BackupDir,
-		Targets:             proj.Targets,
-		AgentRefs:           proj.AgentRefs,
-		SkillRefs:           proj.SkillRefs,
-		RuleRefs:            proj.RuleRefs,
-		WorkflowRefs:        proj.WorkflowRefs,
-		MCPRefs:             proj.MCPRefs,
-		Instructions:        proj.Instructions,
-		InstructionsFile:    proj.InstructionsFile,
-		InstructionsImports: proj.InstructionsImports,
-		InstructionsScopes:  proj.InstructionsScopes,
-		Test:                proj.Test,
-		Local:               proj.Local,
-	}
-	b, err := marshalYAML2(cfgDoc)
-	if err != nil {
-		return nil, err
-	}
-	docs = append(docs, bytes.TrimRight(b, "\n"))
-
-	// ── kind: agent documents (sorted) ───────────────────────────────────────
-	if len(config.Agents) > 0 {
-		keys := make([]string, 0, len(config.Agents))
-		for k := range config.Agents {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			agent := config.Agents[k]
-			if agent.Name == "" {
-				agent.Name = k
-			}
-			doc := agentDoc{
-				Kind:        "agent",
-				Version:     version,
-				AgentConfig: agent,
-			}
-			b, err := marshalYAML2(doc)
-			if err != nil {
-				return nil, err
-			}
-			docs = append(docs, bytes.TrimRight(b, "\n"))
-		}
-	}
-
-	// ── kind: skill documents (sorted) ───────────────────────────────────────
-	if len(config.Skills) > 0 {
-		keys := make([]string, 0, len(config.Skills))
-		for k := range config.Skills {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			skill := config.Skills[k]
-			if skill.Name == "" {
-				skill.Name = k
-			}
-			doc := skillDoc{
-				Kind:        "skill",
-				Version:     version,
-				SkillConfig: skill,
-			}
-			b, err := marshalYAML2(doc)
-			if err != nil {
-				return nil, err
-			}
-			docs = append(docs, bytes.TrimRight(b, "\n"))
-		}
-	}
-
-	// ── kind: rule documents (sorted) ────────────────────────────────────────
-	if len(config.Rules) > 0 {
-		keys := make([]string, 0, len(config.Rules))
-		for k := range config.Rules {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			rule := config.Rules[k]
-			if rule.Name == "" {
-				rule.Name = k
-			}
-			doc := ruleDoc{
-				Kind:       "rule",
-				Version:    version,
-				RuleConfig: rule,
-			}
-			b, err := marshalYAML2(doc)
-			if err != nil {
-				return nil, err
-			}
-			docs = append(docs, bytes.TrimRight(b, "\n"))
-		}
-	}
-
-	// ── kind: workflow documents (sorted) ─────────────────────────────────────
-	if len(config.Workflows) > 0 {
-		keys := make([]string, 0, len(config.Workflows))
-		for k := range config.Workflows {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			wf := config.Workflows[k]
-			if wf.Name == "" {
-				wf.Name = k
-			}
-			doc := workflowDoc{
-				Kind:           "workflow",
-				Version:        version,
-				WorkflowConfig: wf,
-			}
-			b, err := marshalYAML2(doc)
-			if err != nil {
-				return nil, err
-			}
-			docs = append(docs, bytes.TrimRight(b, "\n"))
-		}
-	}
-
-	// ── kind: mcp documents (sorted) ─────────────────────────────────────────
-	if len(config.MCP) > 0 {
-		keys := make([]string, 0, len(config.MCP))
-		for k := range config.MCP {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			mcp := config.MCP[k]
-			if mcp.Name == "" {
-				mcp.Name = k
-			}
-			doc := mcpDoc{
-				Kind:      "mcp",
-				Version:   version,
-				MCPConfig: mcp,
-			}
-			b, err := marshalYAML2(doc)
-			if err != nil {
-				return nil, err
-			}
-			docs = append(docs, bytes.TrimRight(b, "\n"))
-		}
-	}
-
-	// ── kind: settings document ─────────────────────────────────────────────
-	defaultSettings := config.Settings["default"]
-	if !isZeroSettings(defaultSettings) {
-		doc := settingsSplitDoc{
-			Kind:           "settings",
-			Version:        version,
-			SettingsConfig: defaultSettings,
-		}
-		b, err := marshalYAML2(doc)
-		if err != nil {
-			return nil, err
-		}
-		docs = append(docs, bytes.TrimRight(b, "\n"))
-	}
-
-	// ── kind: hooks document ────────────────────────────────────────────────
-	var defaultHooks ast.HookConfig
-	if dh, ok := config.Hooks["default"]; ok {
-		defaultHooks = dh.Events
-	}
-	if len(defaultHooks) > 0 {
-		doc := hooksSplitDoc{
-			Kind:    "hooks",
-			Version: version,
-			Events:  defaultHooks,
-		}
-		b, err := marshalYAML2(doc)
-		if err != nil {
-			return nil, err
-		}
-		docs = append(docs, bytes.TrimRight(b, "\n"))
-	}
-
-	// ── Assemble output ──────────────────────────────────────────────────────
-	strs := make([]string, len(docs))
-	for i, d := range docs {
-		strs[i] = string(d)
-	}
-	joined := strings.Join(strs, "\n---\n")
-
-	var out strings.Builder
-	if header != "" {
-		out.WriteString(header)
-		out.WriteString("\n\n")
-	}
-	out.WriteString(joined)
-	out.WriteString("\n")
-
-	return []byte(out.String()), nil
-}
-
 // projectSplitDoc is the serialization envelope for kind: project in split-file mode.
-// It does NOT contain resource maps — only metadata, targets, and ref lists pointing
-// to child files under xcf/.
+// It does NOT contain resource maps — only metadata, targets, ref lists pointing
+// to child files under xcf/, and project-level instruction references.
 type projectSplitDoc struct {
-	Kind         string   `yaml:"kind"`
-	Version      string   `yaml:"version"`
-	Name         string   `yaml:"name"`
-	Description  string   `yaml:"description,omitempty"`
-	Author       string   `yaml:"author,omitempty"`
-	Homepage     string   `yaml:"homepage,omitempty"`
-	Repository   string   `yaml:"repository,omitempty"`
-	License      string   `yaml:"license,omitempty"`
-	BackupDir    string   `yaml:"backup-dir,omitempty"`
-	Targets      []string `yaml:"targets,omitempty"`
-	AgentRefs    []string `yaml:"agents,omitempty"`
-	SkillRefs    []string `yaml:"skills,omitempty"`
-	RuleRefs     []string `yaml:"rules,omitempty"`
-	WorkflowRefs []string `yaml:"workflows,omitempty"`
-	MCPRefs      []string `yaml:"mcp,omitempty"`
+	Kind                string                  `yaml:"kind"`
+	Version             string                  `yaml:"version"`
+	Name                string                  `yaml:"name"`
+	Description         string                  `yaml:"description,omitempty"`
+	Author              string                  `yaml:"author,omitempty"`
+	Homepage            string                  `yaml:"homepage,omitempty"`
+	Repository          string                  `yaml:"repository,omitempty"`
+	License             string                  `yaml:"license,omitempty"`
+	BackupDir           string                  `yaml:"backup-dir,omitempty"`
+	Targets             []string                `yaml:"targets,omitempty"`
+	AgentRefs           []string                `yaml:"agents,omitempty"`
+	SkillRefs           []string                `yaml:"skills,omitempty"`
+	RuleRefs            []string                `yaml:"rules,omitempty"`
+	WorkflowRefs        []string                `yaml:"workflows,omitempty"`
+	MCPRefs             []string                `yaml:"mcp,omitempty"`
+	Instructions        string                  `yaml:"instructions,omitempty"`
+	InstructionsFile    string                  `yaml:"instructions-file,omitempty"`
+	InstructionsImports []string                `yaml:"instructions-imports,omitempty"`
+	InstructionsScopes  []ast.InstructionsScope `yaml:"instructions-scopes,omitempty"`
 }
 
 // hooksSplitDoc is the serialization envelope for kind: hooks in split-file mode.
@@ -352,6 +90,63 @@ type settingsSplitDoc struct {
 	Kind               string `yaml:"kind"`
 	Version            string `yaml:"version"`
 	ast.SettingsConfig `yaml:",inline"`
+}
+
+// WriteProjectFile writes only the project.xcf file for rootDir from config.
+// Use this instead of WriteSplitFiles when only the project metadata block needs
+// updating (e.g. on re-import) and resource files should be left untouched.
+func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
+	rootDir = filepath.Clean(rootDir)
+	version := config.Version
+	if version == "" {
+		version = "1.0"
+	}
+	proj := config.Project
+	if proj == nil {
+		proj = &ast.ProjectConfig{}
+	}
+	agentRefs := proj.AgentRefs
+	if len(agentRefs) == 0 && len(config.Agents) > 0 {
+		agentRefs = sortedMapKeys(config.Agents)
+	}
+	skillRefs := proj.SkillRefs
+	if len(skillRefs) == 0 && len(config.Skills) > 0 {
+		skillRefs = sortedMapKeys(config.Skills)
+	}
+	ruleRefs := proj.RuleRefs
+	if len(ruleRefs) == 0 && len(config.Rules) > 0 {
+		ruleRefs = sortedMapKeys(config.Rules)
+	}
+	workflowRefs := proj.WorkflowRefs
+	if len(workflowRefs) == 0 && len(config.Workflows) > 0 {
+		workflowRefs = sortedMapKeys(config.Workflows)
+	}
+	mcpRefs := proj.MCPRefs
+	if len(mcpRefs) == 0 && len(config.MCP) > 0 {
+		mcpRefs = sortedMapKeys(config.MCP)
+	}
+	projDoc := projectSplitDoc{
+		Kind:                "project",
+		Version:             version,
+		Name:                proj.Name,
+		Description:         proj.Description,
+		Author:              proj.Author,
+		Homepage:            proj.Homepage,
+		Repository:          proj.Repository,
+		License:             proj.License,
+		BackupDir:           proj.BackupDir,
+		Targets:             proj.Targets,
+		AgentRefs:           agentRefs,
+		SkillRefs:           skillRefs,
+		RuleRefs:            ruleRefs,
+		WorkflowRefs:        workflowRefs,
+		MCPRefs:             mcpRefs,
+		Instructions:        proj.Instructions,
+		InstructionsFile:    proj.InstructionsFile,
+		InstructionsImports: proj.InstructionsImports,
+		InstructionsScopes:  proj.InstructionsScopes,
+	}
+	return writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc)
 }
 
 // WriteSplitFiles writes an XcaffoldConfig to rootDir as individual .xcf files:
@@ -404,22 +199,33 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		mcpRefs = sortedMapKeys(config.MCP)
 	}
 
+	// Build filter sets from the explicit ref lists. A nil map means "write all".
+	agentFilter := refSet(proj.AgentRefs)
+	skillFilter := refSet(proj.SkillRefs)
+	ruleFilter := refSet(proj.RuleRefs)
+	workflowFilter := refSet(proj.WorkflowRefs)
+	mcpFilter := refSet(proj.MCPRefs)
+
 	projDoc := projectSplitDoc{
-		Kind:         "project",
-		Version:      version,
-		Name:         proj.Name,
-		Description:  proj.Description,
-		Author:       proj.Author,
-		Homepage:     proj.Homepage,
-		Repository:   proj.Repository,
-		License:      proj.License,
-		BackupDir:    proj.BackupDir,
-		Targets:      proj.Targets,
-		AgentRefs:    agentRefs,
-		SkillRefs:    skillRefs,
-		RuleRefs:     ruleRefs,
-		WorkflowRefs: workflowRefs,
-		MCPRefs:      mcpRefs,
+		Kind:                "project",
+		Version:             version,
+		Name:                proj.Name,
+		Description:         proj.Description,
+		Author:              proj.Author,
+		Homepage:            proj.Homepage,
+		Repository:          proj.Repository,
+		License:             proj.License,
+		BackupDir:           proj.BackupDir,
+		Targets:             proj.Targets,
+		AgentRefs:           agentRefs,
+		SkillRefs:           skillRefs,
+		RuleRefs:            ruleRefs,
+		WorkflowRefs:        workflowRefs,
+		MCPRefs:             mcpRefs,
+		Instructions:        proj.Instructions,
+		InstructionsFile:    proj.InstructionsFile,
+		InstructionsImports: proj.InstructionsImports,
+		InstructionsScopes:  proj.InstructionsScopes,
 	}
 	if err := writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc); err != nil {
 		return err
@@ -434,12 +240,19 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.Agents) {
+			if agentFilter != nil && !agentFilter[k] {
+				continue
+			}
 			agent := config.Agents[k]
 			if agent.Name == "" {
 				agent.Name = k
 			}
+			body := strings.TrimSpace(agent.Instructions)
+			// Zero out Instructions so it does not appear as a YAML field when
+			// the body is written as markdown content after the --- delimiter.
+			agent.Instructions = ""
 			doc := agentDoc{Kind: "agent", Version: version, AgentConfig: agent}
-			if err := writeYAMLFile(filepath.Join(dir, k+".xcf"), doc); err != nil {
+			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
 				return err
 			}
 		}
@@ -452,12 +265,19 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.Skills) {
+			if skillFilter != nil && !skillFilter[k] {
+				continue
+			}
 			skill := config.Skills[k]
 			if skill.Name == "" {
 				skill.Name = k
 			}
+			body := strings.TrimSpace(skill.Instructions)
+			// Zero out Instructions so it does not appear as a YAML field when
+			// the body is written as markdown content after the --- delimiter.
+			skill.Instructions = ""
 			doc := skillDoc{Kind: "skill", Version: version, SkillConfig: skill}
-			if err := writeYAMLFile(filepath.Join(dir, k+".xcf"), doc); err != nil {
+			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
 				return err
 			}
 		}
@@ -470,10 +290,17 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.Rules) {
+			if ruleFilter != nil && !ruleFilter[k] {
+				continue
+			}
 			rule := config.Rules[k]
 			if rule.Name == "" {
 				rule.Name = k
 			}
+			body := strings.TrimSpace(rule.Instructions)
+			// Zero out Instructions so it does not appear as a YAML field when
+			// the body is written as markdown content after the --- delimiter.
+			rule.Instructions = ""
 			doc := ruleDoc{Kind: "rule", Version: version, RuleConfig: rule}
 			outPath := filepath.Join(dir, filepath.FromSlash(k)+".xcf")
 			// Rule IDs may contain forward-slash namespacing for subdirectory rules
@@ -481,7 +308,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 				return err
 			}
-			if err := writeYAMLFile(outPath, doc); err != nil {
+			if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 				return err
 			}
 		}
@@ -494,6 +321,9 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.Workflows) {
+			if workflowFilter != nil && !workflowFilter[k] {
+				continue
+			}
 			wf := config.Workflows[k]
 			if wf.Name == "" {
 				wf.Name = k
@@ -512,6 +342,9 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.MCP) {
+			if mcpFilter != nil && !mcpFilter[k] {
+				continue
+			}
 			mcp := config.MCP[k]
 			if mcp.Name == "" {
 				mcp.Name = k
@@ -633,6 +466,31 @@ func writeYAMLFile(path string, v any) error {
 	return os.WriteFile(filepath.Clean(path), b, 0644)
 }
 
+// writeFrontmatterFile writes doc as YAML frontmatter (between --- delimiters)
+// followed by body when body is non-empty. When body is empty it falls back to
+// writeYAMLFile so the output remains plain YAML with no frontmatter wrapper.
+func writeFrontmatterFile(path string, doc any, body string) error {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return writeYAMLFile(path, doc)
+	}
+
+	b, err := marshalYAML2(doc)
+	if err != nil {
+		return err
+	}
+	content := strings.TrimRight(string(b), "\n")
+
+	var out strings.Builder
+	out.WriteString("---\n")
+	out.WriteString(content)
+	out.WriteString("\n---\n")
+	out.WriteString(body)
+	out.WriteString("\n")
+
+	return os.WriteFile(filepath.Clean(path), []byte(out.String()), 0644)
+}
+
 // sortedMapKeys returns sorted keys for the common resource map types.
 // Each overload uses a generic helper to avoid reflection.
 func sortedMapKeys[V any](m map[string]V) []string {
@@ -642,6 +500,19 @@ func sortedMapKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// refSet builds a lookup set from a list of resource reference names.
+// Returns nil when refs is empty, which callers interpret as "no filter — write all".
+func refSet(refs []string) map[string]bool {
+	if len(refs) == 0 {
+		return nil
+	}
+	s := make(map[string]bool, len(refs))
+	for _, r := range refs {
+		s[r] = true
+	}
+	return s
 }
 
 // isZeroSettings reports whether s is the zero value of SettingsConfig,

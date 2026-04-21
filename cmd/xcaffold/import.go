@@ -171,9 +171,7 @@ func runProjectInstructionsDiscovery(projectDir, primaryProvider, xcfPath string
 				cfg.Project.InstructionsScopes = scopes
 				_ = rootContent // rootContent used downstream if needed
 				// Write updated xcf back to disk with reconstructed scopes.
-				if out, marshalErr := MarshalMultiKind(cfg, ""); marshalErr == nil {
-					_ = os.WriteFile(xcfPath, out, 0o600)
-				}
+				_ = WriteProjectFile(cfg, filepath.Dir(xcfPath))
 				return nil
 			}
 		}
@@ -194,11 +192,7 @@ func runProjectInstructionsDiscovery(projectDir, primaryProvider, xcfPath string
 	}
 
 	// Persist the updated config.
-	out, err := MarshalMultiKind(cfg, "")
-	if err != nil {
-		return fmt.Errorf("marshalling updated config: %w", err)
-	}
-	return os.WriteFile(xcfPath, out, 0o600)
+	return WriteProjectFile(cfg, filepath.Dir(xcfPath))
 }
 
 // providerInstructionsFilename returns the canonical root instruction filename
@@ -2115,12 +2109,7 @@ func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.Translati
 
 	injectAllowEntries(config, allowEntries)
 
-	header := "# project.xcf — updated by 'xcaffold import --source'"
-	out, err := MarshalMultiKind(config, header)
-	if err != nil {
-		return fmt.Errorf("failed to encode project.xcf: %w", err)
-	}
-	if err := os.WriteFile(xcfPath, out, 0600); err != nil {
+	if err := WriteSplitFiles(config, filepath.Dir(xcfPath)); err != nil {
 		return fmt.Errorf("failed to write project.xcf: %w", err)
 	}
 

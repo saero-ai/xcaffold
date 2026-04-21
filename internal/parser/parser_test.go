@@ -11,13 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const validXCF = `---
-kind: project
-version: "1.0"
-name: "test-project"
-description: "A test project."
----
-kind: global
+const validXCF = `kind: global
 version: "1.0"
 agents:
   developer:
@@ -47,7 +41,6 @@ func TestParse_ValidConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
-	assert.Equal(t, "test-project", cfg.Project.Name)
 	assert.Contains(t, cfg.Agents, "developer")
 	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["developer"].Model)
 }
@@ -258,40 +251,42 @@ permissions:
 }
 
 func TestValidatePermissions_AgentDisallowedConflict(t *testing.T) {
-	input := `---
-kind: global
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   dev:
     description: "Developer"
     disallowed-tools: [Write]
----
-kind: settings
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcf"), []byte(`kind: settings
 version: "1.0"
 permissions:
   allow: [Write]
-`
-	_, err := Parse(strings.NewReader(input))
+`), 0600))
+	_, err := ParseDirectory(dir)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dev")
 	assert.Contains(t, err.Error(), "Write")
 }
 
 func TestValidatePermissions_AgentToolsDenyConflict(t *testing.T) {
-	input := `---
-kind: global
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   dev:
     description: "Developer"
     tools: [Bash]
----
-kind: settings
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcf"), []byte(`kind: settings
 version: "1.0"
 permissions:
   deny: [Bash]
-`
-	_, err := Parse(strings.NewReader(input))
+`), 0600))
+	_, err := ParseDirectory(dir)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "dev")
 	assert.Contains(t, err.Error(), "Bash")
@@ -507,20 +502,23 @@ local:
 
 func TestValidatePlugins_BothBlocksUnknown(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "project.xcf", `---
-kind: project
+	// Two separate files — one per resource kind.
+	writeXCFFile(t, dir, "project.xcf", `kind: project
 version: "1.0"
 name: "test"
 local:
   enabledPlugins:
     beta-plugin: true
----
-kind: settings
+`)
+	writeXCFFile(t, dir, "settings.xcf", `kind: settings
 version: "1.0"
 enabled-plugins:
   alpha-plugin: true
 `)
-	diags := ValidateFile(xcf)
+	// ValidateFile operates on a single file; run it on each file separately.
+	diagsProject := ValidateFile(filepath.Join(dir, "project.xcf"))
+	diagsSettings := ValidateFile(filepath.Join(dir, "settings.xcf"))
+	diags := append(diagsProject, diagsSettings...)
 	count := 0
 	for _, d := range diags {
 		if d.Severity == "warning" && strings.Contains(d.Message, "unknown plugin") {

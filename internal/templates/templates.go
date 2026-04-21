@@ -3,11 +3,13 @@ package templates
 import (
 	"fmt"
 	"strings"
+
+	"github.com/saero-ai/xcaffold/internal/ast"
 )
 
 // Template defines a topology template for xcaffold init.
 type Template struct {
-	render      func(projectName, model string) string
+	render      func(projectName, model string) *ast.XcaffoldConfig
 	ID          string
 	Label       string
 	Description string
@@ -39,14 +41,15 @@ func List() []Template {
 	return registry
 }
 
-// Render generates .xcf content for the given template, project name, and model.
-func Render(templateID, projectName, model string) (string, error) {
+// Render returns a populated *ast.XcaffoldConfig for the given template, project
+// name, and model. The caller is responsible for writing the config to disk.
+func Render(templateID, projectName, model string) (*ast.XcaffoldConfig, error) {
 	for _, tmpl := range registry {
 		if tmpl.ID == templateID {
 			return tmpl.render(projectName, model), nil
 		}
 	}
-	return "", fmt.Errorf("unknown template %q; available: %s", templateID, availableIDs())
+	return nil, fmt.Errorf("unknown template %q; available: %s", templateID, availableIDs())
 }
 
 func availableIDs() string {
@@ -57,106 +60,129 @@ func availableIDs() string {
 	return strings.Join(ids, ", ")
 }
 
-func renderRESTAPI(projectName, model string) string {
-	return fmt.Sprintf(`version: "1.0"
-project:
-  name: %q
-  description: "REST API service"
-
-agents:
-  backend:
-    description: "Backend developer for API endpoints, database queries, and business logic."
-    model: %q
-    effort: "high"
-    tools: [Bash, Read, Write, Edit, Glob, Grep]
-    skills: [api-testing]
-    rules: [api-conventions]
-    instructions: |
-      You are a backend developer.
-      Follow RESTful conventions. Write integration tests for every endpoint.
-      Use parameterized queries. Never use string interpolation for SQL.
-
-skills:
-  api-testing:
-    description: "REST API testing patterns"
-    instructions: |
-      Write integration tests that verify HTTP status codes, response shapes,
-      and error handling. Test both success and failure paths.
-
-rules:
-  api-conventions:
-    description: "REST API design conventions"
-    instructions: |
-      Use plural nouns for resource endpoints.
-      Return appropriate HTTP status codes (201 for creation, 404 for not found).
-      Version APIs via URL prefix (/v1/).
-    always-apply: true
-`, projectName, model)
+func renderRESTAPI(projectName, model string) *ast.XcaffoldConfig {
+	alwaysApply := true
+	return &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name:        projectName,
+			Description: "REST API service",
+		},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"backend": {
+					Name:        "backend",
+					Description: "Backend developer for API endpoints, database queries, and business logic.",
+					Model:       model,
+					Effort:      "high",
+					Tools:       []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"},
+					Skills:      []string{"api-testing"},
+					Rules:       []string{"api-conventions"},
+					Instructions: "You are a backend developer.\n" +
+						"Follow RESTful conventions. Write integration tests for every endpoint.\n" +
+						"Use parameterized queries. Never use string interpolation for SQL.",
+				},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"api-testing": {
+					Name:        "api-testing",
+					Description: "REST API testing patterns",
+					Instructions: "Write integration tests that verify HTTP status codes, response shapes,\n" +
+						"and error handling. Test both success and failure paths.",
+				},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"api-conventions": {
+					Name:        "api-conventions",
+					Description: "REST API design conventions",
+					AlwaysApply: &alwaysApply,
+					Instructions: "Use plural nouns for resource endpoints.\n" +
+						"Return appropriate HTTP status codes (201 for creation, 404 for not found).\n" +
+						"Version APIs via URL prefix (/v1/).",
+				},
+			},
+		},
+	}
 }
 
-func renderCLITool(projectName, model string) string {
-	return fmt.Sprintf(`version: "1.0"
-project:
-  name: %q
-  description: "Command-line tool"
-
-agents:
-  developer:
-    description: "CLI developer for commands, flags, and user-facing output."
-    model: %q
-    effort: "high"
-    tools: [Bash, Read, Write, Edit, Glob, Grep]
-    rules: [cli-conventions]
-    instructions: |
-      You are a CLI developer.
-      Use stdout for output, stderr for errors. Support --help on every command.
-      Write unit tests for command logic and integration tests for CLI invocation.
-
-rules:
-  cli-conventions:
-    description: "CLI design conventions"
-    instructions: |
-      Use meaningful exit codes (0 success, 1 user error, 2 system error).
-      Support --json flag for machine-readable output where applicable.
-      Never prompt for input when stdin is not a TTY.
-    always-apply: true
-`, projectName, model)
+func renderCLITool(projectName, model string) *ast.XcaffoldConfig {
+	alwaysApply := true
+	return &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name:        projectName,
+			Description: "Command-line tool",
+		},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Name:        "developer",
+					Description: "CLI developer for commands, flags, and user-facing output.",
+					Model:       model,
+					Effort:      "high",
+					Tools:       []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"},
+					Rules:       []string{"cli-conventions"},
+					Instructions: "You are a CLI developer.\n" +
+						"Use stdout for output, stderr for errors. Support --help on every command.\n" +
+						"Write unit tests for command logic and integration tests for CLI invocation.",
+				},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"cli-conventions": {
+					Name:        "cli-conventions",
+					Description: "CLI design conventions",
+					AlwaysApply: &alwaysApply,
+					Instructions: "Use meaningful exit codes (0 success, 1 user error, 2 system error).\n" +
+						"Support --json flag for machine-readable output where applicable.\n" +
+						"Never prompt for input when stdin is not a TTY.",
+				},
+			},
+		},
+	}
 }
 
-func renderFrontendApp(projectName, model string) string {
-	return fmt.Sprintf(`version: "1.0"
-project:
-  name: %q
-  description: "Frontend web application"
-
-agents:
-  frontend:
-    description: "Frontend developer for components, pages, and styling."
-    model: %q
-    effort: "high"
-    tools: [Bash, Read, Write, Edit, Glob, Grep]
-    skills: [component-testing]
-    rules: [frontend-conventions]
-    instructions: |
-      You are a frontend developer.
-      Write accessible, semantic HTML. Use components for reusable UI.
-      Write component tests. Never use inline styles for layout.
-
-skills:
-  component-testing:
-    description: "Component testing patterns"
-    instructions: |
-      Test components in isolation. Verify render output, user interactions,
-      and accessibility attributes. Mock API calls at the network layer.
-
-rules:
-  frontend-conventions:
-    description: "Frontend coding conventions"
-    instructions: |
-      Use semantic HTML elements. Ensure all interactive elements are keyboard accessible.
-      Keep components focused -- one responsibility per component.
-    always-apply: true
-`, projectName, model)
+func renderFrontendApp(projectName, model string) *ast.XcaffoldConfig {
+	alwaysApply := true
+	return &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name:        projectName,
+			Description: "Frontend web application",
+		},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"frontend": {
+					Name:        "frontend",
+					Description: "Frontend developer for components, pages, and styling.",
+					Model:       model,
+					Effort:      "high",
+					Tools:       []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"},
+					Skills:      []string{"component-testing"},
+					Rules:       []string{"frontend-conventions"},
+					Instructions: "You are a frontend developer.\n" +
+						"Write accessible, semantic HTML. Use components for reusable UI.\n" +
+						"Write component tests. Never use inline styles for layout.",
+				},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"component-testing": {
+					Name:        "component-testing",
+					Description: "Component testing patterns",
+					Instructions: "Test components in isolation. Verify render output, user interactions,\n" +
+						"and accessibility attributes. Mock API calls at the network layer.",
+				},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"frontend-conventions": {
+					Name:        "frontend-conventions",
+					Description: "Frontend coding conventions",
+					AlwaysApply: &alwaysApply,
+					Instructions: "Use semantic HTML elements. Ensure all interactive elements are keyboard accessible.\n" +
+						"Keep components focused -- one responsibility per component.",
+				},
+			},
+		},
+	}
 }
 
 // RenderProjectXCF generates the kind: project project.xcf content.
@@ -181,7 +207,7 @@ func RenderProjectXCF(projectName string, targets []string) string {
 	sb.WriteString("agents:\n  - developer          # xcf/agents/developer.xcf\n")
 	sb.WriteString("skills:\n  - xcaffold           # xcf/skills/xcaffold.xcf\n")
 	sb.WriteString("rules:\n  - conventions        # xcf/rules/conventions.xcf\n")
-	sb.WriteString("policies:\n  - require-agent-description  # xcf/policies/safety.xcf\n  - require-agent-instructions\n")
+	sb.WriteString("policies:\n  - require-agent-description  # xcf/policies/require-agent-description.xcf\n  - require-agent-instructions  # xcf/policies/require-agent-instructions.xcf\n")
 	sb.WriteString("\n")
 	sb.WriteString("# Uncomment to configure the 'xcaffold test' simulator.\n")
 	sb.WriteString("# test:\n")
@@ -193,6 +219,8 @@ func RenderProjectXCF(projectName string, targets []string) string {
 
 // RenderAgentXCF generates the xcf/agents/developer.xcf content with a
 // provider support matrix comment for the given selectedTargets.
+// The output uses frontmatter format: YAML metadata between --- delimiters,
+// followed by the instruction body as plain text.
 func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 	var sb strings.Builder
 
@@ -201,6 +229,7 @@ func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 		sb.WriteString(matrix)
 	}
 	sb.WriteString("\n")
+	sb.WriteString("---\n")
 	sb.WriteString("kind: agent\n")
 	sb.WriteString("version: \"1.0\"\n")
 	sb.WriteString(fmt.Sprintf("name: %s\n", agentName))
@@ -213,10 +242,9 @@ func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 	sb.WriteString("effort: \"high\"\n")
 	sb.WriteString("\n")
 	sb.WriteString("tools: [Read, Write, Edit, Bash, Glob, Grep]\n")
-	sb.WriteString("\n")
-	sb.WriteString("instructions: |\n")
-	sb.WriteString("  You are a software developer.\n")
-	sb.WriteString("  Write clean, maintainable code.\n")
+	sb.WriteString("---\n")
+	sb.WriteString("You are a software developer.\n")
+	sb.WriteString("Write clean, maintainable code.\n")
 	sb.WriteString("\n")
 	sb.WriteString("# Optional: per-provider instruction overrides\n")
 	sb.WriteString("# targets:\n")
@@ -233,6 +261,8 @@ func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 }
 
 // RenderRuleXCF generates the xcf/rules/conventions.xcf content.
+// The output uses frontmatter format: YAML metadata between --- delimiters,
+// followed by the rule body as plain text.
 func RenderRuleXCF(selectedTargets []string) string {
 	var sb strings.Builder
 
@@ -241,6 +271,7 @@ func RenderRuleXCF(selectedTargets []string) string {
 		sb.WriteString(matrix)
 	}
 	sb.WriteString("\n")
+	sb.WriteString("---\n")
 	sb.WriteString("kind: rule\n")
 	sb.WriteString("version: \"1.0\"\n")
 	sb.WriteString("name: conventions\n")
@@ -248,11 +279,10 @@ func RenderRuleXCF(selectedTargets []string) string {
 	sb.WriteString("\n")
 	sb.WriteString("# activation: always | path-glob | model-decided | manual-mention | explicit-invoke\n")
 	sb.WriteString("activation: always\n")
-	sb.WriteString("\n")
-	sb.WriteString("instructions: |\n")
-	sb.WriteString("  Follow standard coding conventions for this project.\n")
-	sb.WriteString("  Write clean, readable, well-documented code.\n")
-	sb.WriteString("  Prefer explicit over implicit.\n")
+	sb.WriteString("---\n")
+	sb.WriteString("Follow standard coding conventions for this project.\n")
+	sb.WriteString("Write clean, readable, well-documented code.\n")
+	sb.WriteString("Prefer explicit over implicit.\n")
 	sb.WriteString("\n")
 	sb.WriteString("# Optional: path-scoped activation\n")
 	sb.WriteString("# paths:\n")
@@ -300,11 +330,10 @@ func RenderSettingsXCF(selectedTargets []string) string {
 	return sb.String()
 }
 
-// RenderPolicyXCF generates the xcf/policies/safety.xcf content.
-// Returns a multi-document YAML string with two starter policies.
-func RenderPolicyXCF() string {
+// RenderPolicyDescriptionXCF generates the xcf/policies/require-agent-description.xcf content.
+// Returns a single-document YAML policy that enforces agent descriptions.
+func RenderPolicyDescriptionXCF() string {
 	return `# kind: policy - guardrails enforced at 'xcaffold apply' time.
-# Both humans and AI assistants filling in this scaffold must comply.
 # Violations are caught before any files are written.
 kind: policy
 version: "1.0"
@@ -315,9 +344,13 @@ target: agent
 require:
   - field: description
     is-present: true
+`
+}
 
----
-kind: policy
+// RenderPolicyInstructionsXCF generates the xcf/policies/require-agent-instructions.xcf content.
+// Returns a single-document YAML policy that enforces agent instructions.
+func RenderPolicyInstructionsXCF() string {
+	return `kind: policy
 version: "1.0"
 name: require-agent-instructions
 description: "Every agent must have instructions."

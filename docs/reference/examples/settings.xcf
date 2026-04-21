@@ -1,11 +1,7 @@
-kind: project
-version: "1.0"
-name: settings-example
-
----
 kind: settings
 version: "1.0"
-mcpServers:
+mcp-servers:
   filesystem:
+    type: stdio
     command: "npx"
     args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]

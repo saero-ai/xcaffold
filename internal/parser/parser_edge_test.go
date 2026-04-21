@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -90,17 +92,23 @@ name: "no-agents-project"
 }
 
 // TestParse_AllOptionalBlocks verifies that a config with all optional blocks populated parses fully.
+// Uses ParseDirectory with separate single-kind files (multi-doc files are no longer supported).
 func TestParse_AllOptionalBlocks(t *testing.T) {
-	yaml := `---
-kind: project
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	// kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 version: "1.0"
 name: "full-project"
 description: "All blocks populated"
 test:
   claude-path: "/usr/local/bin/claude"
   judge-model: "claude-3-5-haiku-20241022"
----
-kind: global
+`), 0600))
+
+	// kind: global — agents, skills, rules, hooks, mcp
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
 agents:
   my-agent:
@@ -123,8 +131,9 @@ mcp:
   my-server:
     command: "npx"
     args: ["-y", "my-mcp-server"]
-`
-	cfg, err := Parse(strings.NewReader(yaml))
+`), 0600))
+
+	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err, "fully populated config should parse without errors")
 	require.NotNil(t, cfg)
 	assert.Contains(t, cfg.Agents, "my-agent")

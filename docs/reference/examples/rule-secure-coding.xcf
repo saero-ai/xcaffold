@@ -1,0 +1,7 @@
+---
+kind: rule
+version: "1.0"
+name: secure-coding
+description: "Security coding standards."
+---
+No secrets in plaintext.

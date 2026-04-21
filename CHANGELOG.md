@@ -103,11 +103,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `isConfigFile()` renamed to `isParseableFile()` — now rejects empty and `config` kind values.
-- `MarshalMultiKind()` emits `kind: project` as the first document instead of `kind: config`.
+- `WriteSplitFiles()` emits each resource as a separate file with frontmatter format for body-bearing kinds.
 - `~/.xcaffold/global.xcf` now uses `kind: global` instead of `kind: config`.
 
 ### Changed
-- Refactored `README.md` "Why xcaffold?" section with a provider-agnostic ecosystem narrative, removing inaccurate "token budgeting" claims in favor of policy enforcement and fleet visibility (docs)
+- Refactored `README.md` "Why xcaffold?" section with a provider-agnostic ecosystem narrative, removing inaccurate "token budgeting" claims in favor of policy enforcement and agent topology visibility (docs)
 - Updated Homebrew and Scoop package descriptions in `.goreleaser.yaml` to reflect provider-agnostic agent configuration positioning (release)
 - Standardized Diátaxis `index.md` files across `docs/` with unified cross-navigation "Next Steps" sections (docs)
 - Populated empty information-oriented reference index and created a dedicated `examples/README.md` for proper IDE Markdown parsing (docs)

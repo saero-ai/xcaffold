@@ -510,12 +510,14 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 		}
 	}
 
-	// Agent .xcf files must contain inline instructions, not instructions-file
+	// Agent .xcf files must use frontmatter format for inline instructions, not instructions-file.
+	// Instructions content moves into the markdown body (after the closing ---), not as a YAML field.
 	devXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "agents", "dev.xcf"))
 	require.NoError(t, err)
 	devXcfStr := string(devXcf)
 	assert.Contains(t, devXcfStr, "kind: agent")
-	assert.Contains(t, devXcfStr, "instructions:", "agent xcf must have inline instructions")
+	assert.True(t, strings.HasPrefix(devXcfStr, "---\n"), "agent xcf must use frontmatter format for inline instructions")
+	assert.NotContains(t, devXcfStr, "instructions:", "instructions must be in the markdown body, not as a YAML field")
 	assert.NotContains(t, devXcfStr, "instructions-file:", "agent xcf must not use instructions-file")
 	assert.Contains(t, devXcfStr, "Write clean, well-tested code", "agent xcf must contain body text")
 }
@@ -592,12 +594,15 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	assert.FileExists(t, filepath.Join(dir, "xcf", "agents", "dev.xcf"))
 	assert.FileExists(t, filepath.Join(dir, "xcf", "skills", "tdd.xcf"))
 
-	// Agent split file must have inline instructions
+	// Agent split file must use frontmatter format for inline instructions.
+	// Instructions content moves into the markdown body, not as a YAML field.
 	devXcf, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev.xcf"))
 	require.NoError(t, err)
-	assert.Contains(t, string(devXcf), "instructions:")
-	assert.Contains(t, string(devXcf), "Dev instructions")
-	assert.NotContains(t, string(devXcf), "instructions-file:")
+	devXcfContent := string(devXcf)
+	assert.True(t, strings.HasPrefix(devXcfContent, "---\n"), "agent xcf must use frontmatter format")
+	assert.NotContains(t, devXcfContent, "instructions:", "instructions must be in the markdown body, not as a YAML field")
+	assert.Contains(t, devXcfContent, "Dev instructions")
+	assert.NotContains(t, devXcfContent, "instructions-file:")
 }
 
 func TestDetectAllGlobalPlatformDirs_Empty(t *testing.T) {

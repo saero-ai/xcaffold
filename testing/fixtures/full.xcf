@@ -49,13 +49,3 @@ workflows:
         instructions-file: testing/workflows/code-review/02-lint.md
       - name: summarize
         instructions-file: testing/workflows/code-review/03-summarize.md
-
----
-kind: policy
-version: "1.0"
-name: require-agent-description
-description: "Every agent must have a description."
-severity: error
-target: agent
-require:
-  - field: description

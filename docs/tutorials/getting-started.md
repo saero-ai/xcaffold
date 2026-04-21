@@ -33,7 +33,7 @@ The `--yes` flag accepts all defaults non-interactively. xcaffold infers the pro
 
   Welcome! Let's scaffold your agents.
 
-  Created xcf/references/ — field reference for resource kinds
+  Created xcf/skills/xcaffold/references/ — field reference for resource kinds
 
 ✓ Created project.xcf
   Project: my-project | Targets: claude
@@ -203,13 +203,27 @@ For a human-readable summary, use `xcaffold status` instead of reading the state
 
 ## Step 5 — Make a change and re-apply
 
-Open `project.xcf` and update the instructions:
+Open `xcf/agents/developer.xcf` and update the instruction body:
 
-```yaml
-    instructions: |
-      You are a software developer.
-      Write clean, maintainable code.
-      Always run tests before marking a task complete.
+```
+---
+kind: agent
+version: "1.0"
+name: developer
+description: General software developer agent.
+model: claude-sonnet-4-6
+effort: high
+tools:
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+---
+You are a software developer.
+Write clean, maintainable code.
+Always run tests before marking a task complete.
 ```
 
 Run apply again:

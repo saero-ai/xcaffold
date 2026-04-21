@@ -11,17 +11,22 @@ Configuration patterns in xcaffold range from a single file to multi-directory d
 
 ---
 
-## Single File (Minimal)
+## Minimal Layout
 
 **Best for:** Personal projects, tutorials, and small teams with fewer than 5 agents.
 
 ```
 project/
 ├── project.xcf
+├── xcf/
+│   └── agents/
+│       └── developer.xcf
 └── <target output directory>   # e.g. .claude/, .cursor/
 ```
 
-A single `project.xcf` can hold all resource kinds using YAML multi-document syntax:
+A minimal project has one manifest and one `.xcf` file per agent:
+
+`project.xcf`:
 
 ```yaml
 kind: project
@@ -29,22 +34,32 @@ version: "1.0"
 name: my-service
 targets:
   - claude
+```
+
+`xcf/agents/developer.xcf`:
+
+```
 ---
 kind: agent
 name: developer
 description: "Implements features and writes tests"
 model: claude-sonnet-4-5
-instructions: |
-  You implement features for this project. Follow the existing code patterns
-  and write tests for all new logic before submitting a pull request.
+---
+You implement features for this project. Follow the existing code patterns
+and write tests for all new logic before submitting a pull request.
+```
+
+`xcf/agents/reviewer.xcf`:
+
+```
 ---
 kind: agent
 name: reviewer
 description: "Reviews pull requests for correctness and style"
 model: claude-sonnet-4-5
-instructions: |
-  You review pull requests. Check for correctness, test coverage,
-  and adherence to project conventions. Leave clear, actionable feedback.
+---
+You review pull requests. Check for correctness, test coverage,
+and adherence to project conventions. Leave clear, actionable feedback.
 ```
 
 ---
@@ -76,32 +91,36 @@ targets:
   - claude
 ```
 
-```yaml
-# xcf/agents/developer.xcf
+`xcf/agents/developer.xcf`:
+
+```
+---
 kind: agent
 name: developer
 description: "Implements features and writes tests"
 model: claude-sonnet-4-5
-instructions: |
-  You implement features for this project. Follow the existing code patterns
-  and write tests for all new logic. Run the test suite before declaring
-  a task complete.
+---
+You implement features for this project. Follow the existing code patterns
+and write tests for all new logic. Run the test suite before declaring
+a task complete.
 ```
 
-```yaml
-# xcf/skills/git-workflow.xcf
+`xcf/skills/git-workflow.xcf`:
+
+```
+---
 kind: skill
 name: git-workflow
 description: "Branch, commit, and pull request conventions"
-instructions: |
-  ## Branch Naming
-  Use feat/<name> for features, fix/<name> for bug fixes.
+---
+## Branch Naming
+Use feat/<name> for features, fix/<name> for bug fixes.
 
-  ## Commit Format
-  Follow Conventional Commits: type(scope): description
+## Commit Format
+Follow Conventional Commits: type(scope): description
 
-  ## Pull Requests
-  Open a draft PR early, mark it ready when tests pass.
+## Pull Requests
+Open a draft PR early, mark it ready when tests pass.
 ```
 
 > **Alternative:** Flat files at the project root (e.g., `agents.xcf`, `skills.xcf`) also work since `ParseDirectory` discovers `.xcf` files recursively, but `xcf/` subdirectories are the recommended default.
@@ -133,44 +152,48 @@ targets:
   - claude
 ```
 
-```yaml
-# xcf/frontend/designer-agent.xcf
+`xcf/frontend/designer-agent.xcf`:
+
+```
+---
 kind: agent
 name: designer
 description: "Implements frontend interfaces"
 model: claude-sonnet-4-6
-instructions: |
-  You build React components. Follow the established glass-morphic CSS guidelines
-  and ensure components are responsive.
+---
+You build React components. Follow the established glass-morphic CSS guidelines
+and ensure components are responsive.
 ```
 
-```yaml
-# xcf/backend/devops-agent.xcf
+`xcf/backend/devops-agent.xcf`:
+
+```
+---
 kind: agent
 name: devops
 description: "Manages deployments and infrastructure changes"
 model: claude-sonnet-4-5
-instructions: |
-  You handle deployments for the backend services. Before applying any
-  infrastructure change, confirm the target environment. After deploying,
-  verify that health checks pass and surface any rollback steps if they fail.
+---
+You handle deployments for the backend services. Before applying any
+infrastructure change, confirm the target environment. After deploying,
+verify that health checks pass and surface any rollback steps if they fail.
 ```
 
 > **Alternative:** Domain folders at the project root (outside `xcf/`) also work, but placing them under `xcf/` keeps configuration files cleanly separated from source code.
 
 ---
 
-## Inline Instructions vs `instructions-file`
+## Frontmatter Body vs `instructions-file`
 
-Use inline `instructions:` as the default. Self-contained `.xcf` files are easier to review, move, and reason about. `xcaffold import` generates inline instructions by default.
+Use frontmatter body as the default. Self-contained `.xcf` files are easier to review, move, and reason about. `xcaffold import` generates them in this format.
 
-```yaml
-# Recommended — inline
+```
+---
 kind: agent
 name: reviewer
-instructions: |
-  You review pull requests. Check correctness, test coverage,
-  and adherence to project conventions.
+---
+You review pull requests. Check correctness, test coverage,
+and adherence to project conventions.
 ```
 
 ```yaml
@@ -180,7 +203,7 @@ name: reviewer
 instructions-file: docs/reviewer-instructions.md
 ```
 
-`instructions-file:` exists for cases where long-form prose genuinely benefits from dedicated Markdown tooling. For most configurations, inline instructions are simpler and more portable.
+`instructions-file:` exists for cases where long-form prose genuinely benefits from dedicated Markdown tooling. For most configurations, frontmatter body is simpler and more portable.
 
 ---
 
@@ -303,8 +326,8 @@ Use `lifecycle: tracked` only for memories that represent strictly managed docum
 
 ## When This Matters
 
-- **Starting a new project and deciding on a layout** — the minimal single-file baseline is sufficient for personal or tutorial projects; the domain layout becomes relevant when multiple teams own different agent configurations and CODEOWNERS rules apply.
-- **Choosing between `instructions:` and `instructions-file:`** — inline instructions are recommended by default because they keep the resource definition self-contained and are what `xcaffold import` generates; `instructions-file:` is retained for cases where long-form prose benefits from dedicated Markdown tooling.
+- **Starting a new project and deciding on a layout** — the minimal two-file baseline (`project.xcf` + one agent file) is sufficient for personal or tutorial projects; the domain layout becomes relevant when multiple teams own different agent configurations and CODEOWNERS rules apply.
+- **Choosing between frontmatter body and `instructions-file:`** — frontmatter body is the default because it keeps the resource definition self-contained and is what `xcaffold import` generates; `instructions-file:` is retained for cases where long-form prose benefits from dedicated Markdown tooling.
 - **Organizing policies in a large project** — placing `kind: policy` files under `xcf/policies/` and listing them in the `policies:` field of the project manifest makes the full policy surface visible in one location and keeps overrides (`severity: off`) co-located with the resources they affect.
 - **Deciding when to introduce blueprints** — most projects don't need them; if you find yourself managing separate agent sets for different environments or teams, blueprints keep state separate and prevent drift in one from affecting another.
 - **Deciding between `xcaffold translate` and `xcaffold import`** — `translate` is appropriate for one-shot cross-provider migrations; `import` establishes a managed `project.xcf` source intended for ongoing management via `xcaffold apply`.
