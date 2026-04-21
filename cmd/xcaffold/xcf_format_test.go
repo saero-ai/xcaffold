@@ -548,6 +548,90 @@ func TestWriteSplitFiles_RuleFrontmatter(t *testing.T) {
 	assert.NotContains(t, content, "instructions:")
 }
 
+func TestWriteSplitFiles_ScopeFilter_OnlyDeclaredAgents(t *testing.T) {
+	dir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name:      "test",
+			AgentRefs: []string{"developer"},
+		},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {Name: "developer", Instructions: "Local agent."},
+				"ceo":       {Name: "ceo", InstructionsFile: "/home/.claude/agents/ceo.md"},
+				"cfo":       {Name: "cfo", InstructionsFile: "/home/.claude/agents/cfo.md"},
+			},
+		},
+	}
+	err := WriteSplitFiles(config, dir)
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer.xcf"))
+	require.NoError(t, err, "declared agent must be written")
+
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "ceo.xcf"))
+	assert.True(t, os.IsNotExist(err), "undeclared agent must NOT be written")
+
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "cfo.xcf"))
+	assert.True(t, os.IsNotExist(err), "undeclared agent must NOT be written")
+}
+
+func TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll(t *testing.T) {
+	dir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {Name: "developer", Instructions: "Dev."},
+				"reviewer":  {Name: "reviewer", Instructions: "Rev."},
+			},
+		},
+	}
+	err := WriteSplitFiles(config, dir)
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer.xcf"))
+	require.NoError(t, err)
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "reviewer.xcf"))
+	require.NoError(t, err)
+}
+
+func TestWriteSplitFiles_ScopeFilter_SkillsAndRules(t *testing.T) {
+	dir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name:      "test",
+			SkillRefs: []string{"tdd"},
+			RuleRefs:  []string{"conventions"},
+		},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"tdd":       {Name: "tdd", Instructions: "Red-Green-Refactor."},
+				"global-sk": {Name: "global-sk", InstructionsFile: "/home/.claude/skills/global/SKILL.md"},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"conventions": {Name: "conventions", Instructions: "Write clean code."},
+				"global-rule": {Name: "global-rule", InstructionsFile: "/home/.claude/rules/global.md"},
+			},
+		},
+	}
+	err := WriteSplitFiles(config, dir)
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(dir, "xcf", "skills", "tdd.xcf"))
+	require.NoError(t, err, "declared skill must be written")
+	_, err = os.Stat(filepath.Join(dir, "xcf", "skills", "global-sk.xcf"))
+	assert.True(t, os.IsNotExist(err), "undeclared skill must NOT be written")
+
+	_, err = os.Stat(filepath.Join(dir, "xcf", "rules", "conventions.xcf"))
+	require.NoError(t, err, "declared rule must be written")
+	_, err = os.Stat(filepath.Join(dir, "xcf", "rules", "global-rule.xcf"))
+	assert.True(t, os.IsNotExist(err), "undeclared rule must NOT be written")
+}
+
 func TestWriteFrontmatterFile_EmptyBody_FallsBackToYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "ceo.xcf")

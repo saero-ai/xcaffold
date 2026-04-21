@@ -404,6 +404,13 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		mcpRefs = sortedMapKeys(config.MCP)
 	}
 
+	// Build filter sets from the explicit ref lists. A nil map means "write all".
+	agentFilter := refSet(proj.AgentRefs)
+	skillFilter := refSet(proj.SkillRefs)
+	ruleFilter := refSet(proj.RuleRefs)
+	workflowFilter := refSet(proj.WorkflowRefs)
+	mcpFilter := refSet(proj.MCPRefs)
+
 	projDoc := projectSplitDoc{
 		Kind:         "project",
 		Version:      version,
@@ -434,6 +441,9 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.Agents) {
+			if agentFilter != nil && !agentFilter[k] {
+				continue
+			}
 			agent := config.Agents[k]
 			if agent.Name == "" {
 				agent.Name = k
@@ -456,6 +466,9 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.Skills) {
+			if skillFilter != nil && !skillFilter[k] {
+				continue
+			}
 			skill := config.Skills[k]
 			if skill.Name == "" {
 				skill.Name = k
@@ -478,6 +491,9 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.Rules) {
+			if ruleFilter != nil && !ruleFilter[k] {
+				continue
+			}
 			rule := config.Rules[k]
 			if rule.Name == "" {
 				rule.Name = k
@@ -506,6 +522,9 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.Workflows) {
+			if workflowFilter != nil && !workflowFilter[k] {
+				continue
+			}
 			wf := config.Workflows[k]
 			if wf.Name == "" {
 				wf.Name = k
@@ -524,6 +543,9 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			return err
 		}
 		for _, k := range sortedMapKeys(config.MCP) {
+			if mcpFilter != nil && !mcpFilter[k] {
+				continue
+			}
 			mcp := config.MCP[k]
 			if mcp.Name == "" {
 				mcp.Name = k
@@ -679,6 +701,19 @@ func sortedMapKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// refSet builds a lookup set from a list of resource reference names.
+// Returns nil when refs is empty, which callers interpret as "no filter — write all".
+func refSet(refs []string) map[string]bool {
+	if len(refs) == 0 {
+		return nil
+	}
+	s := make(map[string]bool, len(refs))
+	for _, r := range refs {
+		s[r] = true
+	}
+	return s
 }
 
 // isZeroSettings reports whether s is the zero value of SettingsConfig,
