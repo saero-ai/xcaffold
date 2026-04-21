@@ -178,6 +178,15 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		))
 	}
 
+	for id := range config.Agents {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "agent", id, "",
+			renderer.CodeRendererKindUnsupported,
+			fmt.Sprintf("agent %q dropped; Antigravity does not support agent definitions", id),
+			"Use a target that supports agents (claude, cursor, gemini, copilot)",
+		))
+	}
+
 	for id, agent := range config.Agents {
 		if agent.PermissionMode != "" {
 			notes = append(notes, renderer.NewNote(

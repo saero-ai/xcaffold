@@ -881,6 +881,34 @@ func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
 	require.Contains(t, content, `<!-- xcaffold:paths ["src/**","packages/api/**"] -->`)
 }
 
+func TestCompile_Agents_EmitsKindUnsupported(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"test-agent": {
+					Name:         "test-agent",
+					Description:  "A test agent",
+					Instructions: "Do things.",
+				},
+			},
+		},
+	}
+	r := antigravity.New()
+	_, notes, err := r.Compile(config, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeRendererKindUnsupported && n.Resource == "test-agent" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected RENDERER_KIND_UNSUPPORTED fidelity note for agent in antigravity")
+	}
+}
+
 func TestCompileAntigravityRule_NoProvenance_ExistingBehaviorPreserved(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
