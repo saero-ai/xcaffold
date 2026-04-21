@@ -14,6 +14,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/compiler"
+	"github.com/saero-ai/xcaffold/internal/optimizer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/saero-ai/xcaffold/internal/registry"
@@ -300,6 +301,14 @@ func applyScope(configPath, outputDir, scopeName string) error {
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}
+
+	opt := optimizer.New(targetFlag)
+	optimized, optNotes, optErr := opt.Run(out.Files)
+	if optErr != nil {
+		return fmt.Errorf("[%s] optimizer error: %w", scopeName, optErr)
+	}
+	out.Files = optimized
+	notes = append(notes, optNotes...)
 
 	// Restore same-provider extras and emit fidelity notes for cross-provider ones.
 	notes = applyProviderExtras(config, out, targetFlag, notes)
