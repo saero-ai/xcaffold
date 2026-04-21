@@ -135,11 +135,15 @@ func mergeMap[K comparable, V any](base, child map[K]V) map[K]V {
 }
 
 // OutputDir returns the target-specific root directory for compilation outputs
-// (e.g. .claude, .cursor, .agents). Unknown or empty targets return ".claude".
+// (e.g. .claude, .cursor, .agents). Empty target defaults to ".claude" for
+// backward compatibility. Unknown targets return an empty string.
 func OutputDir(target string) string {
+	if target == "" {
+		target = TargetClaude
+	}
 	r, err := resolveRenderer(target)
 	if err != nil {
-		return ".claude"
+		return ""
 	}
 	return r.OutputDir()
 }

@@ -25,8 +25,8 @@ var configFlag string
 // All subcommands should read from this rather than a hardcoded filename.
 var xcfPath string
 
-// claudeDir is the resolved, absolute path to the .claude/ output directory.
-var claudeDir string
+// projectRoot is the resolved, absolute path to the project's config directory.
+var projectRoot string
 
 // globalFlag indicates whether to operate on the user-wide global config.
 var globalFlag bool
@@ -183,7 +183,7 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 		xcfPath = configDir
 	}
 
-	claudeDir = filepath.Join(configDir, ".claude")
+	projectRoot = configDir
 	return nil
 }
 

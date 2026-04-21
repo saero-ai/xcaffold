@@ -67,8 +67,8 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	targetDir := filepath.Join(filepath.Dir(claudeDir), compiler.OutputDir(diffTargetFlag))
-	stateFile := state.StateFilePath(filepath.Dir(claudeDir), diffBlueprintFlag)
+	targetDir := filepath.Join(projectRoot, compiler.OutputDir(diffTargetFlag))
+	stateFile := state.StateFilePath(projectRoot, diffBlueprintFlag)
 	drift, err := diffScope(targetDir, stateFile, effectiveTarget, "project")
 	if err != nil {
 		return err

@@ -112,7 +112,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 		}
 		globalXcfPath = filepath.Join(proj.Path, "project.xcf")
 		xcfPath = globalXcfPath
-		claudeDir = filepath.Join(proj.Path, ".claude")
+		projectRoot = proj.Path
 	}
 
 	if applyCheckOnly {
@@ -566,7 +566,7 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 	timestamp := time.Now().Format("20060102_150405")
 	bakName := fmt.Sprintf(".%s_bak_%s", target, timestamp)
 	if target == "" {
-		bakName = fmt.Sprintf(".claude_bak_%s", timestamp)
+		bakName = fmt.Sprintf(".%s_bak_%s", targetClaude, timestamp)
 	}
 
 	var destDir string

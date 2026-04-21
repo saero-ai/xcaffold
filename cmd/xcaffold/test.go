@@ -91,7 +91,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 	recorder := trace.NewRecorder(traceFile)
 
 	// 4. Read compiled agent system prompt from disk.
-	agentMDPath := filepath.Join(claudeDir, "agents", testAgentFlag+".md")
+	agentMDPath := filepath.Join(projectRoot, ".claude", "agents", testAgentFlag+".md")
 	systemPromptBytes, err := os.ReadFile(agentMDPath) //nolint:gosec
 	if err != nil {
 		return fmt.Errorf("agent %q not compiled — run 'xcaffold apply' first: %w", testAgentFlag, err)
