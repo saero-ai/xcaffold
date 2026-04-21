@@ -633,6 +633,31 @@ func writeYAMLFile(path string, v any) error {
 	return os.WriteFile(filepath.Clean(path), b, 0644)
 }
 
+// writeFrontmatterFile writes doc as YAML frontmatter (between --- delimiters)
+// followed by body when body is non-empty. When body is empty it falls back to
+// writeYAMLFile so the output remains plain YAML with no frontmatter wrapper.
+func writeFrontmatterFile(path string, doc any, body string) error {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return writeYAMLFile(path, doc)
+	}
+
+	b, err := marshalYAML2(doc)
+	if err != nil {
+		return err
+	}
+	content := strings.TrimRight(string(b), "\n")
+
+	var out strings.Builder
+	out.WriteString("---\n")
+	out.WriteString(content)
+	out.WriteString("\n---\n")
+	out.WriteString(body)
+	out.WriteString("\n")
+
+	return os.WriteFile(filepath.Clean(path), []byte(out.String()), 0644)
+}
+
 // sortedMapKeys returns sorted keys for the common resource map types.
 // Each overload uses a generic helper to avoid reflection.
 func sortedMapKeys[V any](m map[string]V) []string {

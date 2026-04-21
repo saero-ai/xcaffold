@@ -407,3 +407,56 @@ func TestXCFFormat_ProjectInstructionsFields_ScopeOrderPreserved(t *testing.T) {
 	apiIdx := strings.Index(content, "packages/api")
 	require.Less(t, workerIdx, apiIdx, "serializer must preserve InstructionsScopes slice order")
 }
+
+func TestWriteFrontmatterFile_AgentWithBody(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "developer.xcf")
+
+	type frontmatterDoc struct {
+		Kind    string `yaml:"kind"`
+		Version string `yaml:"version"`
+		Name    string `yaml:"name"`
+		Model   string `yaml:"model"`
+	}
+
+	doc := frontmatterDoc{Kind: "agent", Version: "1.0", Name: "developer", Model: "sonnet"}
+	body := "You are a developer.\nWrite clean code."
+
+	err := writeFrontmatterFile(path, doc, body)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	content := string(data)
+	assert.True(t, strings.HasPrefix(content, "---\n"), "must start with ---")
+	assert.Contains(t, content, "kind: agent")
+	assert.Contains(t, content, "name: developer")
+	assert.Contains(t, content, "---\nYou are a developer.")
+	assert.NotContains(t, content, "instructions:")
+}
+
+func TestWriteFrontmatterFile_EmptyBody_FallsBackToYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ceo.xcf")
+
+	type frontmatterDoc struct {
+		Kind             string `yaml:"kind"`
+		Version          string `yaml:"version"`
+		Name             string `yaml:"name"`
+		InstructionsFile string `yaml:"instructions-file"`
+	}
+
+	doc := frontmatterDoc{Kind: "agent", Version: "1.0", Name: "ceo", InstructionsFile: "agents/ceo.md"}
+
+	err := writeFrontmatterFile(path, doc, "")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+
+	content := string(data)
+	assert.False(t, strings.HasPrefix(content, "---\n"), "empty body must NOT use frontmatter")
+	assert.Contains(t, content, "kind: agent")
+	assert.Contains(t, content, "instructions-file: agents/ceo.md")
+}
