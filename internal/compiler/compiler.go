@@ -41,7 +41,7 @@ type Output = output.Output
 // configurations are not physically duplicated into local project directories.
 func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprintName string) (*Output, []renderer.FidelityNote, error) {
 	if target == "" {
-		target = TargetClaude
+		return nil, nil, fmt.Errorf("target is required; supported: claude, cursor, antigravity, copilot, gemini")
 	}
 
 	if config.Project != nil {
@@ -135,11 +135,10 @@ func mergeMap[K comparable, V any](base, child map[K]V) map[K]V {
 }
 
 // OutputDir returns the target-specific root directory for compilation outputs
-// (e.g. .claude, .cursor, .agents). Empty target defaults to ".claude" for
-// backward compatibility. Unknown targets return an empty string.
+// (e.g. .claude, .cursor, .agents). Empty or unknown targets return an empty string.
 func OutputDir(target string) string {
 	if target == "" {
-		target = TargetClaude
+		return ""
 	}
 	r, err := resolveRenderer(target)
 	if err != nil {

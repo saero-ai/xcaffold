@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 )
 
@@ -49,7 +50,7 @@ func TestSkillSchema_RealData_RoundTrip_CanonicalOrder(t *testing.T) {
 				Skills: map[string]ast.SkillConfig{e.Name(): skill},
 			},
 		}
-		out, _, err := r.Compile(config, "")
+		out, _, err := renderer.Orchestrate(r, config, "")
 		require.NoError(t, err, "compile failed for fixture %s", e.Name())
 
 		md := out.Files["skills/"+e.Name()+"/SKILL.md"]
@@ -86,7 +87,7 @@ func TestSkillSchema_RealData_ProviderIsolation(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{"iso": skill},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	md := out.Files["skills/iso/SKILL.md"]
 	require.Contains(t, md, "context: fork")

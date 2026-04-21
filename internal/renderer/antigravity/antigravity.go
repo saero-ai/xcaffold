@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/translator"
@@ -54,12 +53,6 @@ func (r *Renderer) OutputDir() string {
 	return ".agents"
 }
 
-// Render wraps a files map in an output.Output. This is an identity
-// operation — no additional path rewriting is needed at this layer.
-func (r *Renderer) Render(files map[string]string) *output.Output {
-	return &output.Output{Files: files}
-}
-
 // Capabilities declares which resource kinds this renderer supports.
 // Agents and Hooks are handled via per-resource methods but produce no output
 // files — they emit fidelity notes only. MCP and Settings are similarly supported
@@ -77,15 +70,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		ProjectInstructions: true,
 		RuleActivations:     []string{"always", "path-glob", "manual"},
 	}
-}
-
-// Compile translates an XcaffoldConfig AST into its Antigravity output representation.
-// baseDir is the directory that contains the project.xcf file; it is used to
-// resolve instructions-file paths. Compile delegates to the orchestrator which
-// calls each per-resource method individually. It returns an error if any
-// resource fails to compile. It never panics.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	return renderer.Orchestrate(r, config, baseDir)
 }
 
 // CompileAgents returns no output files — Antigravity does not support agent

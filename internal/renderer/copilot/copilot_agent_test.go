@@ -25,7 +25,7 @@ func TestCompile_Copilot_Agents_Minimal(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	const wantPath = "agents/my-agent.agent.md"
@@ -55,7 +55,7 @@ func TestCompile_Copilot_Agents_FullSchema(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "")
+	out, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	const wantPath = "agents/full-agent.agent.md"
@@ -99,7 +99,7 @@ func TestCompile_Copilot_Agents_ProviderPassthrough(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	const wantPath = "agents/passthrough-agent.agent.md"
@@ -141,7 +141,7 @@ func TestCompile_Copilot_Agents_UnsupportedFields(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "")
+	out, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	const wantPath = "agents/unsupported-agent.agent.md"
@@ -180,7 +180,7 @@ func TestCompile_Copilot_Agents_InlineMCP(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	const wantPath = "agents/mcp-agent.agent.md"
@@ -207,7 +207,7 @@ func TestCompile_Copilot_Agents_WithBody(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	const wantPath = "agents/body-agent.agent.md"

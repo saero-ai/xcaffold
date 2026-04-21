@@ -28,7 +28,7 @@ func TestExportPlugin_GeneratesManifest(t *testing.T) {
 		},
 	}
 
-	compiled, _, err := Compile(config, "", "", "")
+	compiled, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled, "")
@@ -58,7 +58,7 @@ func TestExportPlugin_SkipsSettingsJSON(t *testing.T) {
 		}},
 	}
 
-	compiled, _, err := Compile(config, "", "", "")
+	compiled, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled, "claude")
@@ -83,7 +83,7 @@ func TestExportPlugin_RemapsHooks(t *testing.T) {
 		},
 	}
 
-	compiled, _, err := Compile(config, "", "", "")
+	compiled, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled, "claude")
@@ -113,21 +113,22 @@ func TestExportPlugin_TargetClaude(t *testing.T) {
 	assert.True(t, ok, "manifest must be at .claude-plugin/plugin.json for claude target")
 }
 
-// TestExportPlugin_EmptyTargetDefaultsToClaude verifies that an empty target
-// falls back to claude behavior (backwards compatibility).
+// TestExportPlugin_EmptyTargetDefaultsToClaude verifies that ExportPlugin with
+// an empty target falls back to claude behavior (backwards compatibility).
+// Note: Compile() no longer accepts an empty target; callers must pass "claude".
 func TestExportPlugin_EmptyTargetDefaultsToClaude(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "test-plugin"},
 	}
 
-	compiled, _, err := Compile(config, "", "", "")
+	compiled, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled, "")
 	require.NoError(t, err)
 
 	_, ok := exported.Files[".claude-plugin/plugin.json"]
-	assert.True(t, ok, "empty target must default to .claude-plugin/plugin.json")
+	assert.True(t, ok, "empty ExportPlugin target must default to .claude-plugin/plugin.json")
 }
 
 // TestExportPlugin_UnsupportedTarget verifies that targets other than "claude"
@@ -161,7 +162,7 @@ func TestExportPlugin_UnknownTarget(t *testing.T) {
 		Project: &ast.ProjectConfig{Name: "test-plugin"},
 	}
 
-	compiled, _, err := Compile(config, "", "", "")
+	compiled, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 
 	_, err = ExportPlugin(config, compiled, "vscode")

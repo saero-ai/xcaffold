@@ -32,7 +32,7 @@ func TestCompile_Copilot_Hooks_BasicEvent(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	raw, ok := out.Files["hooks/xcaffold-hooks.json"]
@@ -74,7 +74,7 @@ func TestCompile_Copilot_Hooks_MultipleEvents(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	raw, ok := out.Files["hooks/xcaffold-hooks.json"]
@@ -111,7 +111,7 @@ func TestCompile_Copilot_Hooks_UnsupportedEvent(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, notes, err := r.Compile(cfg, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	unsupportedNotes := filterNotes(notes, renderer.CodeFieldUnsupported)
@@ -156,7 +156,7 @@ func TestCompile_Copilot_Hooks_TimeoutConversion(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	raw, ok := out.Files["hooks/xcaffold-hooks.json"]
@@ -191,7 +191,7 @@ func TestCompile_Copilot_MCP_StdioServer(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, notes, err := r.Compile(cfg, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	// .vscode/mcp.json is outside .github/ — renderer must NOT write it.
@@ -222,7 +222,7 @@ func TestCompile_Copilot_MCP_EnvVars(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, notes, err := r.Compile(cfg, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	// .vscode/mcp.json is outside .github/ — renderer must NOT write it.
@@ -245,7 +245,7 @@ func TestCompile_Copilot_MCP_GlobalConfigNote(t *testing.T) {
 	}
 
 	r := copilot.New()
-	_, notes, err := r.Compile(cfg, t.TempDir())
+	_, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	globalNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
@@ -275,7 +275,7 @@ func TestCompile_Copilot_Settings_MergedOutput(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, notes, err := r.Compile(cfg, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	_, hasHooks := out.Files["hooks/xcaffold-hooks.json"]
@@ -306,7 +306,7 @@ func TestCompile_Copilot_Settings_UnsupportedFields(t *testing.T) {
 	}
 
 	r := copilot.New()
-	_, notes, err := r.Compile(cfg, t.TempDir())
+	_, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	settingsNotes := filterNotes(notes, renderer.CodeSettingsFieldUnsupported)

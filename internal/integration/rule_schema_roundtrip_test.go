@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,7 @@ func TestRuleSchema_RoundTrip_ClaudeToCursor(t *testing.T) {
 	require.NoError(t, err)
 
 	cr := cursor.New()
-	out, _, err := cr.Compile(config, filepath.Dir(xcfPath))
+	out, _, err := renderer.Orchestrate(cr, config, filepath.Dir(xcfPath))
 	require.NoError(t, err)
 
 	ruleKey := "rules/path-glob-rule.mdc"
@@ -46,10 +47,10 @@ func TestRuleSchema_LegacyAlwaysApply_NormalizedToActivation(t *testing.T) {
 
 	cr := claude.New()
 
-	legacyOut, _, err := cr.Compile(legacyConfig, filepath.Dir(legacyPath))
+	legacyOut, _, err := renderer.Orchestrate(cr, legacyConfig, filepath.Dir(legacyPath))
 	require.NoError(t, err)
 
-	activationOut, _, err := cr.Compile(activationConfig, filepath.Dir(activationPath))
+	activationOut, _, err := renderer.Orchestrate(cr, activationConfig, filepath.Dir(activationPath))
 	require.NoError(t, err)
 
 	for key, legacyContent := range legacyOut.Files {
@@ -113,7 +114,7 @@ instructions-file: "` + localName + `"
 			config, err := parser.ParseFile(xcfPath)
 			require.NoError(t, err, "parse failed for %s", id)
 
-			out, _, err := cr.Compile(config, tmp)
+			out, _, err := renderer.Orchestrate(cr, config, tmp)
 			require.NoError(t, err, "compile failed for %s", id)
 			require.NotEmpty(t, out.Files["rules/"+id+".md"], "no output for %s", id)
 		})

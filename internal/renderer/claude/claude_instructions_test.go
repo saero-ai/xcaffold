@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/stretchr/testify/require"
 )
@@ -16,7 +17,7 @@ func TestClaudeRenderer_ProjectInstructions_RootFile(t *testing.T) {
 			Instructions: "Use pnpm. PostgreSQL 16.",
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.Contains(t, out.Files, "CLAUDE.md")
 	require.Contains(t, out.Files["CLAUDE.md"], "Use pnpm. PostgreSQL 16.")
@@ -42,7 +43,7 @@ func TestClaudeRenderer_ProjectInstructions_PerScopeFiles(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.Contains(t, out.Files, "CLAUDE.md")
 	require.Contains(t, out.Files, "packages/worker/CLAUDE.md")
@@ -59,7 +60,7 @@ func TestClaudeRenderer_ProjectInstructions_ImportsAsAtLines(t *testing.T) {
 			InstructionsImports: []string{"xcf/instructions/style-guide.md"},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.Contains(t, out.Files["CLAUDE.md"], "@xcf/instructions/style-guide.md")
 }
@@ -75,7 +76,7 @@ func TestClaudeRenderer_ProjectInstructions_ZeroFidelityNotes(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.Empty(t, notes, "concat-nested class must return zero fidelity notes")
 }

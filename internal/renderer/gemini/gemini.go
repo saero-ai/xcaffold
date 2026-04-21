@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	rendshared "github.com/saero-ai/xcaffold/internal/renderer/shared"
 	"github.com/saero-ai/xcaffold/internal/resolver"
@@ -46,12 +45,6 @@ func (r *Renderer) Target() string { return targetName }
 // OutputDir returns the base output directory for Gemini CLI.
 func (r *Renderer) OutputDir() string { return ".gemini" }
 
-// Render wraps a files map in an output.Output. This is an identity
-// operation — no additional path rewriting is needed at this layer.
-func (r *Renderer) Render(files map[string]string) *output.Output {
-	return &output.Output{Files: files}
-}
-
 // Capabilities declares the resource kinds the Gemini renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
@@ -68,13 +61,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
 	}
-}
-
-// Compile translates an XcaffoldConfig AST into Gemini CLI output files.
-// It delegates to renderer.Orchestrate which calls the per-resource methods.
-// Compile returns an error if any resource fails to compile. It never panics.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	return renderer.Orchestrate(r, config, baseDir)
 }
 
 // CompileAgents compiles all agent configs to agents/<id>.md files.

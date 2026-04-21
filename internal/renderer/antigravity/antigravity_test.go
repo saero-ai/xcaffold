@@ -32,16 +32,6 @@ func TestRenderer_OutputDir(t *testing.T) {
 	assert.Equal(t, ".agents", r.OutputDir())
 }
 
-func TestRenderer_Render_Identity(t *testing.T) {
-	r := antigravity.New()
-	files := map[string]string{
-		"rules/my-rule.md": "content",
-	}
-	out := r.Render(files)
-	require.NotNil(t, out)
-	assert.Equal(t, files, out.Files)
-}
-
 // ─── Rule tests ───────────────────────────────────────────────────────────────
 
 func TestCompile_Rule_OutputPathIsMarkdown(t *testing.T) {
@@ -57,7 +47,7 @@ func TestCompile_Rule_OutputPathIsMarkdown(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["rules/my-rule.md"]
@@ -76,7 +66,7 @@ func TestCompile_Rule_NoFrontmatterDelimiters(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/plain-rule.md"]
@@ -100,7 +90,7 @@ func TestCompile_Rule_DescriptionAsHeading(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/desc-rule.md"]
@@ -125,7 +115,7 @@ func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/path-rule.md"]
@@ -150,7 +140,7 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/test-rule.md"]
@@ -171,7 +161,7 @@ func TestCompile_Rule_DescriptionHeadingPrecedesBody(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/order-rule.md"]
@@ -192,7 +182,7 @@ func TestCompile_Rule_NoDescription_NoHeading(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/no-desc-rule.md"]
@@ -213,7 +203,7 @@ func TestCompile_Rule_12KCharacterLimitWarning(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/long-rule.md"]
@@ -235,7 +225,7 @@ func TestCompile_Rule_Under12K_NoWarning(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/short-rule.md"]
@@ -254,7 +244,7 @@ func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 		},
 	}
 
-	_, _, err := r.Compile(config, "")
+	_, _, err := renderer.Orchestrate(r, config, "")
 	assert.Error(t, err)
 }
 
@@ -274,7 +264,7 @@ func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["skills/my-skill/SKILL.md"]
@@ -295,7 +285,7 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/fmt-skill/SKILL.md"]
@@ -318,7 +308,7 @@ func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/delim-skill/SKILL.md"]
@@ -344,7 +334,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/rich-skill/SKILL.md"]
@@ -376,7 +366,7 @@ func TestCompile_Skill_ReferencesDropped_EmitsFidelityNote(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, t.TempDir())
+	_, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
 	found := false
@@ -401,7 +391,7 @@ func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/body-skill/SKILL.md"]
@@ -421,7 +411,7 @@ func TestCompile_Skill_EmptyID_ReturnsError(t *testing.T) {
 		},
 	}
 
-	_, _, err := r.Compile(config, "")
+	_, _, err := renderer.Orchestrate(r, config, "")
 	assert.Error(t, err)
 }
 
@@ -466,7 +456,7 @@ func TestCompile_AgentsAndHooks_AreNotEmitted(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	// Rules and skills must be emitted
@@ -500,7 +490,7 @@ func TestCompile_MCP_NoProjectLocalFile(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["mcp_config.json"]
@@ -523,7 +513,7 @@ func TestCompile_MCP_EmitsGlobalConfigOnlyNote(t *testing.T) {
 		},
 	}
 
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	note, ok := findAgNote(notes, renderer.CodeMCPGlobalConfigOnly, "mcp")
@@ -542,7 +532,7 @@ func TestCompile_MCP_HTTPServer_NoProjectLocalFile(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["mcp_config.json"]
@@ -551,7 +541,7 @@ func TestCompile_MCP_HTTPServer_NoProjectLocalFile(t *testing.T) {
 
 func TestCompile_EmptyConfig_ReturnsEmptyOutput(t *testing.T) {
 	r := antigravity.New()
-	out, _, err := r.Compile(&ast.XcaffoldConfig{}, "")
+	out, _, err := renderer.Orchestrate(r, &ast.XcaffoldConfig{}, "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
@@ -572,7 +562,7 @@ func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["workflows/commit-changes.md"]
@@ -592,7 +582,7 @@ func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["workflows/deploy.md"]
@@ -615,7 +605,7 @@ func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["workflows/build.md"]
@@ -635,7 +625,7 @@ func TestCompile_Workflow_BodyPreserved(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["workflows/test.md"]
@@ -652,7 +642,7 @@ func TestCompile_Workflow_EmptyWorkflowsNoOutput(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	for path := range out.Files {
@@ -672,7 +662,7 @@ func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
 		},
 	}
 
-	_, _, err := r.Compile(config, "")
+	_, _, err := renderer.Orchestrate(r, config, "")
 	assert.Error(t, err)
 }
 
@@ -689,7 +679,7 @@ func TestCompile_Skill_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["skills/quoted/SKILL.md"]
@@ -708,7 +698,7 @@ func TestAntigravityRenderer_PermissionsSetting_EmitsNote(t *testing.T) {
 		}},
 	}
 
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	note, ok := findAgNote(notes, renderer.CodeSettingsFieldUnsupported, "permissions")
@@ -725,7 +715,7 @@ func TestAntigravityRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 		}},
 	}
 
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := findAgNote(notes, renderer.CodeSettingsFieldUnsupported, "sandbox")
@@ -747,7 +737,7 @@ func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T
 		},
 	}
 
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, pm := findAgNote(notes, renderer.CodeAgentSecurityFieldsDropped, "permissionMode")
@@ -778,7 +768,7 @@ func TestAntigravityRenderer_SuppressFidelityWarnings_NotesStillReturned(t *test
 		},
 	}
 
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, notes, "renderer returns notes; suppression is applied at the command layer")
 }
@@ -801,7 +791,7 @@ func TestAntigravityRenderer_MCPDeclared_EmitsGlobalConfigOnlyNote(t *testing.T)
 		},
 	}
 
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := findAgNote(notes, renderer.CodeMCPGlobalConfigOnly, "mcp")
@@ -820,7 +810,7 @@ func TestAntigravityRenderer_SkillScripts_EmitsNote(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	note, ok := findAgNote(notes, renderer.CodeSkillScriptsDropped, "scripts")
 	require.True(t, ok)
@@ -839,7 +829,7 @@ func TestAntigravityRenderer_SkillAssets_EmitsNote(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	_, ok := findAgNote(notes, renderer.CodeSkillAssetsDropped, "assets")
 	assert.True(t, ok)
@@ -860,7 +850,7 @@ func TestCompileAntigravityRule_Activation_AlwaysOn(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/security.md"]
@@ -879,7 +869,7 @@ func TestCompileAntigravityRule_Activation_Manual(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/commit-style.md"]
@@ -899,7 +889,7 @@ func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/api-style.md"]
@@ -920,7 +910,7 @@ func TestCompile_Agents_EmitsKindUnsupported(t *testing.T) {
 		},
 	}
 	r := antigravity.New()
-	_, notes, err := r.Compile(config, t.TempDir())
+	_, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -947,7 +937,7 @@ func TestCompileAntigravityRule_NoProvenance_ExistingBehaviorPreserved(t *testin
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/legacy.md"]

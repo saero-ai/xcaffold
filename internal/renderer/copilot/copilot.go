@@ -18,10 +18,9 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	rendshared "github.com/saero-ai/xcaffold/internal/renderer/shared"
 	"github.com/saero-ai/xcaffold/internal/resolver"
-	"github.com/saero-ai/xcaffold/internal/translator"
 )
 
 const targetName = "copilot"
@@ -45,12 +44,6 @@ func (r *Renderer) OutputDir() string {
 	return ".github"
 }
 
-// Render wraps a files map in an output.Output. This is an identity
-// operation — no additional path rewriting is needed at this layer.
-func (r *Renderer) Render(files map[string]string) *output.Output {
-	return &output.Output{Files: files}
-}
-
 // Capabilities declares the resource kinds this renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
@@ -67,13 +60,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
 	}
-}
-
-// Compile translates an XcaffoldConfig AST into its Copilot output representation.
-// It delegates to renderer.Orchestrate so per-resource methods are used.
-// Compile returns an error if any resource fails to compile. It never panics.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	return renderer.Orchestrate(r, config, baseDir)
 }
 
 // CompileAgents compiles each agent to agents/<id>.agent.md.
@@ -108,58 +94,33 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	return files, notes, nil
 }
 
-// CompileWorkflows lowers each workflow to rule and skill primitives and emits
-// the appropriate instructions/<id>.instructions.md and skills/<id>/SKILL.md files.
+// CompileWorkflows lowers workflow configs to rule+skill primitives and compiles
+// them. Rules are emitted as instructions/<id>.instructions.md files; skills
+// are emitted as skills/<id>/SKILL.md files.
 func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Workflows: workflows}}
+	lowered, workflowNotes := rendshared.LowerWorkflows(cfg, targetName)
+
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
-	for id, wf := range workflows {
-		wfCopy := wf
-		if wfCopy.Name == "" {
-			wfCopy.Name = id
+	notes = append(notes, workflowNotes...)
+
+	if len(lowered.Rules) > 0 {
+		ruleFiles, ruleNotes, err := r.CompileRules(lowered.Rules, baseDir)
+		if err != nil {
+			return nil, nil, err
 		}
-		primitives, wfNotes := translator.TranslateWorkflow(&wfCopy, targetName)
-		notes = append(notes, wfNotes...)
-		for _, p := range primitives {
-			content := p.Content
-			if content == "" {
-				content = p.Body
-			}
-			switch p.Kind {
-			case "rule":
-				rule := ast.RuleConfig{
-					Description:  wf.Description,
-					Instructions: content,
-					Activation:   ast.RuleActivationAlways,
-				}
-				md, ruleNotes, err := compileCopilotRule(p.ID, rule, baseDir)
-				if err != nil {
-					return nil, nil, fmt.Errorf("copilot: failed to compile lowered rule %q: %w", p.ID, err)
-				}
-				safePath := filepath.Clean(fmt.Sprintf("instructions/%s.instructions.md", p.ID))
-				files[safePath] = md
-				notes = append(notes, ruleNotes...)
-			case "skill":
-				skill := ast.SkillConfig{
-					Name:         p.ID,
-					Instructions: content,
-				}
-				var sb strings.Builder
-				sb.WriteString("---\n")
-				if skill.Name != "" {
-					fmt.Fprintf(&sb, "name: %s\n", skill.Name)
-				}
-				sb.WriteString("---\n")
-				if content != "" {
-					sb.WriteString("\n")
-					sb.WriteString(strings.TrimRight(content, "\n"))
-					sb.WriteString("\n")
-				}
-				safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))
-				files[safePath] = sb.String()
-			}
+		for k, v := range ruleFiles {
+			files[k] = v
 		}
+		notes = append(notes, ruleNotes...)
 	}
+
+	if len(lowered.Skills) > 0 {
+		skillNotes := r.renderSkills(lowered, baseDir, files)
+		notes = append(notes, skillNotes...)
+	}
+
 	return files, notes, nil
 }
 

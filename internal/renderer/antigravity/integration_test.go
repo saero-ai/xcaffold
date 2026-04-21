@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,7 +72,7 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 	}
 
 	r := antigravity.New()
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -148,7 +149,7 @@ func TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, dir)
+	out, _, err := renderer.Orchestrate(r, config, dir)
 	require.NoError(t, err)
 
 	content := out.Files["rules/from-file.md"]
@@ -177,7 +178,7 @@ func TestAntigravityRenderer_Skill_InstructionsFile_ReadsFromDisk(t *testing.T) 
 		},
 	}
 
-	out, _, err := r.Compile(config, dir)
+	out, _, err := renderer.Orchestrate(r, config, dir)
 	require.NoError(t, err)
 
 	content := out.Files["skills/from-file/SKILL.md"]
@@ -203,7 +204,7 @@ func TestAntigravityRenderer_Rule_InstructionsFile_TraversalRejected(t *testing.
 		},
 	}
 
-	_, _, err := r.Compile(config, "/tmp")
+	_, _, err := renderer.Orchestrate(r, config, "/tmp")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "traverses above the project root")
 }

@@ -29,7 +29,7 @@ func TestCursorRenderer_ProjectInstructions_PreFlattensConcat(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	// Pre-flattening: worker AGENTS.md must contain root + worker content.
 	worker, ok := out.Files["packages/worker/AGENTS.md"]
@@ -51,7 +51,7 @@ func TestCursorRenderer_ProjectInstructions_FidelityNoteForPreFlatten(t *testing
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, notes)
 
@@ -87,7 +87,7 @@ func TestCursorRenderer_ProjectInstructions_InlinesImports(t *testing.T) {
 		},
 	}
 
-	out, notes, err := r.Compile(config, dir)
+	out, notes, err := renderer.Orchestrate(r, config, dir)
 	require.NoError(t, err)
 
 	rootMD, ok := out.Files["AGENTS.md"]

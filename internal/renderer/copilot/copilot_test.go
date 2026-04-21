@@ -26,7 +26,7 @@ func TestCompileCopilotRule_Activation_Always(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["instructions/security.instructions.md"]
@@ -46,7 +46,7 @@ func TestCompileCopilotRule_Activation_PathGlob(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["instructions/api-style.instructions.md"]
@@ -66,7 +66,7 @@ func TestCompileCopilotRule_ExcludeAgents_Single(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["instructions/pr-review.instructions.md"]
@@ -87,7 +87,7 @@ func TestCompileCopilotRule_ExcludeAgents_Multiple(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["instructions/security.instructions.md"]
@@ -107,7 +107,7 @@ func TestCompileCopilotRule_OutputPath(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["instructions/my-rule.instructions.md"]
@@ -126,7 +126,7 @@ func TestCompileCopilotRule_Activation_ManualMention_FidelityNote(t *testing.T) 
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "")
+	out, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	// Degraded to "**" with a fidelity note
@@ -151,7 +151,7 @@ func TestCompile_Copilot_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(cfg, "")
+	out, notes, err := renderer.Orchestrate(r, cfg, "")
 	require.NoError(t, err)
 
 	// Workflow should produce lowered rule and/or skill files.
@@ -221,7 +221,7 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(cfg, "")
+	out, notes, err := renderer.Orchestrate(r, cfg, "")
 	require.NoError(t, err)
 
 	// Verify ALL output paths exist.
@@ -273,7 +273,7 @@ func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(cfg, "")
+	out, _, err := renderer.Orchestrate(r, cfg, "")
 	require.NoError(t, err)
 
 	assert.Contains(t, out.Files, "copilot-instructions.md", "instructions")
@@ -301,7 +301,7 @@ func TestCompileCopilotRule_InstructionsFile_Resolved(t *testing.T) {
 	}
 
 	r := copilot.New()
-	out, _, err := r.Compile(config, tmpDir)
+	out, _, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 
 	found := false

@@ -23,7 +23,7 @@ func TestCompile_Gemini_Skills_Minimal(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "/tmp/test")
+	out, notes, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 	content := out.Files["skills/code-review/SKILL.md"]
 	assert.Contains(t, content, "---")
@@ -45,7 +45,7 @@ func TestCompile_Gemini_Skills_WithBody(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "/tmp/test")
+	out, _, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 	content := out.Files["skills/tdd/SKILL.md"]
 	assert.Contains(t, content, "name: tdd")
@@ -69,7 +69,7 @@ func TestCompile_Gemini_Skills_FromFile(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, tmpDir)
+	out, _, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 	content := out.Files["skills/file-skill/SKILL.md"]
 	assert.Contains(t, content, "Skill instructions from file.")
@@ -93,7 +93,7 @@ func TestCompile_Gemini_Skills_UnsupportedFields(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, "/tmp/test")
+	_, notes, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	// Should have fidelity notes for unsupported fields
@@ -123,7 +123,7 @@ func TestCompile_Gemini_Skills_ReferencesDropped(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, t.TempDir())
+	_, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
 	found := false
@@ -145,7 +145,7 @@ func TestCompile_Gemini_Skills_Multiple(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "/tmp/test")
+	out, _, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 	assert.Contains(t, out.Files, "skills/alpha-skill/SKILL.md")
 	assert.Contains(t, out.Files, "skills/beta-skill/SKILL.md")

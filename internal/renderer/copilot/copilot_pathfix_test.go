@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ func TestCopilotRenderer_RulePaths_PathFix(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["instructions/go-style.instructions.md"]
@@ -55,7 +56,7 @@ func TestCopilotRenderer_AgentPaths_PathFix(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["agents/my-agent.agent.md"]
@@ -80,7 +81,7 @@ func TestCopilotRenderer_SkillPaths_PathFix(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["skills/tdd/SKILL.md"]
@@ -106,7 +107,7 @@ func TestCopilotRenderer_HookPaths_PathFix(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["hooks/xcaffold-hooks.json"]
@@ -125,7 +126,7 @@ func TestCopilotRenderer_InstructionPath_PathFix(t *testing.T) {
 			Instructions: "Project-wide instructions.",
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	_, ok := out.Files["copilot-instructions.md"]

@@ -25,22 +25,11 @@ func TestCompile_Gemini_OutputDir(t *testing.T) {
 func TestCompile_Gemini_EmptyConfig(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{}
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	assert.Empty(t, out.Files)
 	assert.Empty(t, notes)
-}
-
-func TestCompile_Gemini_Render(t *testing.T) {
-	r := New()
-	files := map[string]string{
-		"GEMINI.md":           "# Project\n",
-		".gemini/rules/go.md": "Use gofmt.\n",
-	}
-	out := r.Render(files)
-	require.NotNil(t, out)
-	assert.Equal(t, files, out.Files)
 }
 
 // Task 8 rule tests.
@@ -58,7 +47,7 @@ func TestCompile_Gemini_Rules_AlwaysActivation(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
 	// Rule file must exist at the OutputDir-relative path.
@@ -88,7 +77,7 @@ func TestCompile_Gemini_Rules_PathGlob(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
 	_, ok := out.Files["rules/api-style.md"]
@@ -114,7 +103,7 @@ func TestCompile_Gemini_Rules_UnsupportedActivation(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
 	// Rule still written.
@@ -139,7 +128,7 @@ func TestCompile_Gemini_Rules_NoProjectInstructions(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
@@ -179,7 +168,7 @@ func TestCompile_Gemini_FullConfig_InstructionsAndRules(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, tmpDir)
+	out, notes, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 	assert.Empty(t, notes, "no fidelity notes expected for supported activations")
 
@@ -208,7 +197,7 @@ func TestCompile_Gemini_PathTraversal(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "/tmp/test")
+	out, _, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 	for path := range out.Files {
 		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
@@ -258,7 +247,7 @@ func TestCompile_Gemini_OutputPathsRelativeToOutputDir(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
 	// No out.Files key may have ".gemini/" as a path segment prefix.
@@ -329,7 +318,7 @@ func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
 		},
 	}
 
-	out, notes, err := r.Compile(config, tmpDir)
+	out, notes, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 
 	// Instructions
@@ -378,7 +367,7 @@ func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "/tmp/test")
+	out, notes, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	// Should have lowered workflow to rules + skills (paths relative to OutputDir).

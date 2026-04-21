@@ -36,7 +36,7 @@ func TestInstructionsRoundTrip_ClaudeToCursor(t *testing.T) {
 	}
 
 	cr := cursorRenderer.New()
-	out, notes, err := cr.Compile(config, "")
+	out, notes, err := renderer.Orchestrate(cr, config, "")
 	require.NoError(t, err)
 
 	// Pre-flatten: worker AGENTS.md must contain BOTH root and worker content.
@@ -78,7 +78,7 @@ func TestInstructionsRoundTrip_CursorToAntigravity(t *testing.T) {
 	}
 
 	ar := antigravityRenderer.New()
-	out, _, err := ar.Compile(config, "")
+	out, _, err := renderer.Orchestrate(ar, config, "")
 	require.NoError(t, err)
 
 	// Flat output must contain provenance markers.
@@ -113,6 +113,6 @@ func TestInstructionsIntegration_FixtureParsesAndCompiles(t *testing.T) {
 	require.NoError(t, err)
 
 	r := claudeRenderer.New()
-	_, _, err = r.Compile(config, filepath.Dir(fixturePath))
+	_, _, err = renderer.Orchestrate(r, config, filepath.Dir(fixturePath))
 	require.NoError(t, err)
 }

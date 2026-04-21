@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/stretchr/testify/require"
 )
@@ -61,8 +62,8 @@ instructions-file: "backend-engineer.md"
 	require.NoError(t, err)
 	require.Contains(t, config.Agents, "backend-engineer")
 
-	renderer := claude.New()
-	out, _, err := renderer.Compile(config, tmp)
+	r := claude.New()
+	out, _, err := renderer.Orchestrate(r, config, tmp)
 	require.NoError(t, err)
 
 	compiledPath := "agents/backend-engineer.md"
@@ -100,7 +101,7 @@ func TestRealData_AllClaudeAgents_Parse(t *testing.T) {
 	entries, err := os.ReadDir(claudeAgents)
 	require.NoError(t, err)
 
-	renderer := claude.New()
+	r := claude.New()
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
@@ -130,7 +131,7 @@ instructions-file: "` + localName + `"
 			config, err := parser.ParseFile(xcfPath)
 			require.NoError(t, err, "parse failed for %s", id)
 
-			out, _, err := renderer.Compile(config, tmp)
+			out, _, err := renderer.Orchestrate(r, config, tmp)
 			require.NoError(t, err, "compile failed for %s", id)
 			require.NotEmpty(t, out.Files["agents/"+id+".md"], "no output for %s", id)
 		})
@@ -184,8 +185,8 @@ instructions: |
 	copilot := agent.Targets["copilot"]
 	require.Equal(t, "github-copilot", copilot.Provider["target"])
 
-	renderer := claude.New()
-	out, _, err := renderer.Compile(config, tmp)
+	r := claude.New()
+	out, _, err := renderer.Orchestrate(r, config, tmp)
 	require.NoError(t, err)
 
 	claudeMd := out.Files["agents/round-trip.md"]

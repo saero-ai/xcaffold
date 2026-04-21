@@ -24,7 +24,7 @@ func TestCopilotRenderer_ProjectInstructions_FlatSingleton(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	root := out.Files["copilot-instructions.md"]
 	require.NotEmpty(t, root)
@@ -45,7 +45,7 @@ func TestCopilotRenderer_ProjectInstructions_FidelityNote(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, notes)
 	var found *renderer.FidelityNote
@@ -71,7 +71,7 @@ func TestCopilotRenderer_ProjectInstructions_NoNestedOutput(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	for path := range out.Files {
 		require.NotEqual(t, "AGENTS.md", path, "copilot renderer must not emit AGENTS.md")
@@ -97,7 +97,7 @@ func TestCopilotRenderer_FlatMode_ExplicitFlag(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	_, hasCopilotInstructions := out.Files["copilot-instructions.md"]
 	require.True(t, hasCopilotInstructions, "flat mode must emit .github/copilot-instructions.md")
@@ -124,7 +124,7 @@ func TestCopilotRenderer_NestedMode_EmitsNestedDirs(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	// Nested mode must NOT emit flat singleton.
 	_, hasFlatFile := out.Files["copilot-instructions.md"]

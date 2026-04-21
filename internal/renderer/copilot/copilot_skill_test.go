@@ -24,7 +24,7 @@ func TestCompile_Copilot_Skills_Minimal(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "/tmp/test")
+	out, notes, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	content, ok := out.Files["skills/code-review/SKILL.md"]
@@ -55,7 +55,7 @@ func TestCompile_Copilot_Skills_WithBody(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "/tmp/test")
+	out, _, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	content, ok := out.Files["skills/tdd/SKILL.md"]
@@ -82,7 +82,7 @@ func TestCompile_Copilot_Skills_WithAllowedTools(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "/tmp/test")
+	out, notes, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	content, ok := out.Files["skills/search-skill/SKILL.md"]
@@ -117,7 +117,7 @@ func TestCompile_Copilot_Skills_UnsupportedFields(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, "/tmp/test")
+	_, notes, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 	require.NotEmpty(t, notes, "expected fidelity notes for unsupported fields")
 
@@ -157,7 +157,7 @@ func TestCompile_Copilot_Skills_ReferencesDropped(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, t.TempDir())
+	_, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
 	found := false
@@ -181,7 +181,7 @@ func TestCompile_Copilot_Skills_Multiple(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "/tmp/test")
+	out, _, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	assert.Contains(t, out.Files, "skills/alpha-skill/SKILL.md",

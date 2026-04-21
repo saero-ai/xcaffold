@@ -22,7 +22,7 @@ func TestAntigravityRenderer_ProjectInstructions_FlatSingleton(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	// Root rules file must contain root + all scopes with provenance markers.
 	root := out.Files[antigravity.RulesFile]
@@ -47,7 +47,7 @@ func TestAntigravityRenderer_ProjectInstructions_ScopeOrderDepthAscAlpha(t *test
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	root := out.Files[antigravity.RulesFile]
 	apiIdx := strings.Index(root, "packages/api")
@@ -66,7 +66,7 @@ func TestAntigravityRenderer_ProjectInstructions_FidelityNotePerScope(t *testing
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, "")
+	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, notes)
 	var found *renderer.FidelityNote

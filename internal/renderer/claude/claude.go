@@ -33,12 +33,6 @@ func (r *Renderer) OutputDir() string {
 	return ".claude"
 }
 
-// Render wraps a files map in a output.Output. This is an identity
-// operation for Claude — no additional path prefix is needed.
-func (r *Renderer) Render(files map[string]string) *output.Output {
-	return &output.Output{Files: files}
-}
-
 // Capabilities declares the full set of resource kinds this renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
@@ -55,13 +49,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
 	}
-}
-
-// Compile translates an XcaffoldConfig AST into its Claude Code output
-// representation. It delegates to Orchestrate so per-resource methods are
-// used. Compile never panics and returns an error if any resource fails.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	return renderer.Orchestrate(r, config, baseDir)
 }
 
 // CompileAgents compiles all agent configs to agents/<id>.md files.

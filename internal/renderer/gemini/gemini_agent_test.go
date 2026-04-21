@@ -24,7 +24,7 @@ func TestCompile_Gemini_Agents_Minimal(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "/tmp/test")
+	out, notes, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/helper.md"]
@@ -50,7 +50,7 @@ func TestCompile_Gemini_Agents_FullSchema(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "/tmp/test")
+	out, _, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/analyst.md"]
@@ -83,7 +83,7 @@ func TestCompile_Gemini_Agents_ProviderPassthrough(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "/tmp/test")
+	out, _, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/runner.md"]
@@ -111,7 +111,7 @@ func TestCompile_Gemini_Agents_UnsupportedFields(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := r.Compile(config, "/tmp/test")
+	_, notes, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	codes := make(map[string]bool)
@@ -140,7 +140,7 @@ func TestCompile_Gemini_Agents_InlineMCP(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "/tmp/test")
+	out, _, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/mcp-agent.md"]
@@ -163,7 +163,7 @@ func TestRenderAgents_ModelAlias_Translated(t *testing.T) {
 		},
 	}
 	r := New()
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TestCompile_Gemini_Agents_WithBody(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "/tmp/test")
+	out, _, err := renderer.Orchestrate(r, config, "/tmp/test")
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/auditor.md"]

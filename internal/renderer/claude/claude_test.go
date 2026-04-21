@@ -24,7 +24,7 @@ func TestClaudeRenderer_Compile_EmptyConfig(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 	assert.Empty(t, out.Files)
@@ -44,7 +44,7 @@ func TestClaudeRenderer_Compile_MinimalAgent(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -72,7 +72,7 @@ func TestClaudeRenderer_Compile_MinimalRule(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -99,7 +99,7 @@ func TestClaudeRenderer_Compile_AgentFrontmatterFields(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/developer.md"]
@@ -123,22 +123,11 @@ func TestClaudeRenderer_Compile_RuleWithPaths(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/go-style.md"]
 	assert.Contains(t, content, "paths: [**/*.go]")
-}
-
-func TestClaudeRenderer_Render(t *testing.T) {
-	r := New()
-	files := map[string]string{
-		"agents/test.md": "---\n---\n",
-	}
-
-	result := r.Render(files)
-	require.NotNil(t, result)
-	assert.Equal(t, files, result.Files)
 }
 
 func TestClaudeRenderer_Compile_MultipleResources(t *testing.T) {
@@ -155,7 +144,7 @@ func TestClaudeRenderer_Compile_MultipleResources(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	assert.Contains(t, out.Files, "agents/frontend.md")
@@ -178,7 +167,7 @@ func TestClaudeRenderer_Compile_SkillMinimal(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content, ok := out.Files["skills/tdd/SKILL.md"]
@@ -207,7 +196,7 @@ func TestClaudeRenderer_Compile_Agent_Readonly_EmitsToolsReadGrepGlob(t *testing
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/auditor.md"]
@@ -233,7 +222,7 @@ func TestClaudeRenderer_Compile_Agent_Readonly_ExplicitToolsTakePrecedence(t *te
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/custom.md"]
@@ -257,7 +246,7 @@ func TestClaudeRenderer_Compile_Agent_ReadonlyFalse_NoToolsSynthesized(t *testin
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/writer.md"]
@@ -283,7 +272,7 @@ func TestClaudeRenderer_Compile_Agent_InvocationControl(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/commit.md"]
@@ -310,7 +299,7 @@ func TestClaudeRenderer_Compile_Agent_MemoryInGroup6(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/researcher.md"]
@@ -349,7 +338,7 @@ func TestClaudeRenderer_Compile_Skill_NewFrontmatterFields(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	md, ok := out.Files["skills/deploy/SKILL.md"]
@@ -391,7 +380,7 @@ func TestClaudeRenderer_Compile_Skill_ClaudeProviderPassthrough(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	md, ok := out.Files["skills/deep-research/SKILL.md"]
@@ -427,7 +416,7 @@ func TestClaudeRenderer_Compile_Skill_ProviderIsolation(t *testing.T) {
 		},
 	}
 
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	md := out.Files["skills/x/SKILL.md"]
 	require.NotContains(t, md, "compatibility")
@@ -454,7 +443,7 @@ func TestClaudeRenderer_Compile_Skill_ProviderInjectionSafety(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	md := out.Files["skills/inject/SKILL.md"]
 	require.NotEmpty(t, md)
@@ -480,7 +469,7 @@ func TestCompileRuleMarkdown_Activation_PathGlob(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/api-style.md"]
@@ -501,7 +490,7 @@ func TestCompileRuleMarkdown_Activation_Always(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, "")
+	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/security.md"]
@@ -521,7 +510,7 @@ func TestCompileRuleMarkdown_Activation_ManualMention_FidelityNote(t *testing.T)
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "")
+	out, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	require.NotEmpty(t, out.Files["rules/commit-style.md"])
 
@@ -545,7 +534,7 @@ func TestCompileRuleMarkdown_ExcludeAgents_FidelityNote(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, "")
+	out, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
 	content := out.Files["rules/pr-review.md"]

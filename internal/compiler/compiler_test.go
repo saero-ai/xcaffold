@@ -26,7 +26,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "", "")
+	out, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -51,7 +51,7 @@ func TestCompile_MultipleAgents(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "", "")
+	out, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 	assert.Len(t, out.Files, 2)
 	assert.Contains(t, out.Files, "agents/frontend.md")
@@ -72,7 +72,7 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "", "")
+	out, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 	assert.Contains(t, out.Files["agents/readonly.md"], "disallowed-tools: [Bash, Write]")
 }
@@ -81,7 +81,7 @@ func TestCompile_EmptyAgents(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "empty-project"},
 	}
-	out, _, err := Compile(config, "", "", "")
+	out, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
@@ -126,7 +126,7 @@ func TestCompile_FullSchema(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "", "")
+	out, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 
 	// Agents
@@ -239,7 +239,7 @@ func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "", "")
+	out, _, err := Compile(config, "", "claude", "")
 	require.NoError(t, err)
 	for path := range out.Files {
 		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
@@ -307,7 +307,7 @@ func TestOutputDir_AllTargets(t *testing.T) {
 		target string
 		want   string
 	}{
-		{"", ".claude"},
+		{"", ""},
 		{"claude", ".claude"},
 		{"cursor", ".cursor"},
 		{"antigravity", ".agents"},

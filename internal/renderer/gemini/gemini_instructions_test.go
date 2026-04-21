@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +19,7 @@ func TestCompile_Gemini_Instructions_RootOnly(t *testing.T) {
 			Instructions: "Build with go build.",
 		},
 	}
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
@@ -36,7 +37,7 @@ func TestCompile_Gemini_Instructions_WithImports(t *testing.T) {
 			InstructionsImports: []string{"./rules/style.md"},
 		},
 	}
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
@@ -60,7 +61,7 @@ func TestCompile_Gemini_Instructions_WithScopes(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
@@ -87,7 +88,7 @@ func TestCompile_Gemini_Instructions_FromFile(t *testing.T) {
 			InstructionsFile: "instructions.md",
 		},
 	}
-	out, notes, err := r.Compile(config, tmpDir)
+	out, notes, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
@@ -119,7 +120,7 @@ func TestCompile_Gemini_Instructions_ScopeVariant(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := r.Compile(config, tmpDir)
+	out, _, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 
 	scopeContent, ok := out.Files["packages/backend/GEMINI.md"]
@@ -131,7 +132,7 @@ func TestCompile_Gemini_Instructions_ScopeVariant(t *testing.T) {
 func TestCompile_Gemini_Instructions_NoProject(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{}
-	out, notes, err := r.Compile(config, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 

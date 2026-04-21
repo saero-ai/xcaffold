@@ -45,12 +45,6 @@ func (r *Renderer) OutputDir() string {
 	return ".cursor"
 }
 
-// Render wraps a files map in an output.Output. This is an identity
-// operation — no additional path rewriting is needed at this layer.
-func (r *Renderer) Render(files map[string]string) *output.Output {
-	return &output.Output{Files: files}
-}
-
 // Capabilities returns the CapabilitySet for the Cursor renderer.
 // Cursor supports agents, skills (with references/scripts/assets subdirs), rules,
 // workflows (via rule-plus-skill lowering), hooks, MCP, and project instructions.
@@ -70,17 +64,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		RuleActivations:     []string{"always", "path-glob", "manual-mention"},
 		SkillSubdirs:        []string{"references", "scripts", "assets"},
 	}
-}
-
-// Compile translates an XcaffoldConfig AST into its Cursor output representation.
-// baseDir is the directory that contains the project.xcf file; it is used to
-// resolve instructions_file: paths. The second return is a slice of fidelity
-// notes describing information loss relative to the native Claude target;
-// suppression is applied at the command layer, not inside this renderer.
-// Compile delegates to the orchestrator which calls per-resource methods.
-// Compile returns an error if any resource fails to compile. It never panics.
-func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	return renderer.Orchestrate(r, config, baseDir)
 }
 
 // CompileAgents renders all agents to Cursor agents/<id>.md files.

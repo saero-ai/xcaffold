@@ -37,7 +37,7 @@ func TestCompile_Gemini_Hooks_BasicEvent(t *testing.T) {
 	}
 
 	r := New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -74,7 +74,7 @@ func TestCompile_Gemini_Hooks_PostToolExecution(t *testing.T) {
 	}
 
 	r := New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -104,7 +104,7 @@ func TestCompile_Gemini_MCP_StdioServer(t *testing.T) {
 	}
 
 	r := New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -143,7 +143,7 @@ func TestCompile_Gemini_MCP_WithEnv(t *testing.T) {
 	}
 
 	r := New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -183,7 +183,7 @@ func TestCompile_Gemini_Settings_MergedOutput(t *testing.T) {
 	}
 
 	r := New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -204,7 +204,7 @@ func TestCompile_Gemini_Settings_EmptyHooksAndMCP(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{}
 
 	r := New()
-	out, _, err := r.Compile(cfg, t.TempDir())
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	_, ok := out.Files["settings.json"]
@@ -248,7 +248,7 @@ func TestCompile_Gemini_Hooks_UnsupportedEvent(t *testing.T) {
 	}
 
 	r := New()
-	out, notes, err := r.Compile(cfg, t.TempDir())
+	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	// At least two CodeFieldUnsupported notes must be emitted (one per bad event).
@@ -296,7 +296,7 @@ func TestCompile_Gemini_Settings_UnsupportedSettingsFields(t *testing.T) {
 	}
 
 	r := New()
-	_, notes, err := r.Compile(cfg, t.TempDir())
+	_, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
 	codeSet := make(map[string]bool)
