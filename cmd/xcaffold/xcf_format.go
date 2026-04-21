@@ -438,8 +438,12 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if agent.Name == "" {
 				agent.Name = k
 			}
+			body := strings.TrimSpace(agent.Instructions)
+			// Zero out Instructions so it does not appear as a YAML field when
+			// the body is written as markdown content after the --- delimiter.
+			agent.Instructions = ""
 			doc := agentDoc{Kind: "agent", Version: version, AgentConfig: agent}
-			if err := writeYAMLFile(filepath.Join(dir, k+".xcf"), doc); err != nil {
+			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
 				return err
 			}
 		}
@@ -456,8 +460,12 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if skill.Name == "" {
 				skill.Name = k
 			}
+			body := strings.TrimSpace(skill.Instructions)
+			// Zero out Instructions so it does not appear as a YAML field when
+			// the body is written as markdown content after the --- delimiter.
+			skill.Instructions = ""
 			doc := skillDoc{Kind: "skill", Version: version, SkillConfig: skill}
-			if err := writeYAMLFile(filepath.Join(dir, k+".xcf"), doc); err != nil {
+			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
 				return err
 			}
 		}
@@ -474,6 +482,10 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if rule.Name == "" {
 				rule.Name = k
 			}
+			body := strings.TrimSpace(rule.Instructions)
+			// Zero out Instructions so it does not appear as a YAML field when
+			// the body is written as markdown content after the --- delimiter.
+			rule.Instructions = ""
 			doc := ruleDoc{Kind: "rule", Version: version, RuleConfig: rule}
 			outPath := filepath.Join(dir, filepath.FromSlash(k)+".xcf")
 			// Rule IDs may contain forward-slash namespacing for subdirectory rules
@@ -481,7 +493,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 				return err
 			}
-			if err := writeYAMLFile(outPath, doc); err != nil {
+			if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 				return err
 			}
 		}

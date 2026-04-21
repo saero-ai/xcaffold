@@ -436,6 +436,118 @@ func TestWriteFrontmatterFile_AgentWithBody(t *testing.T) {
 	assert.NotContains(t, content, "instructions:")
 }
 
+func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Name:         "developer",
+					Description:  "General developer.",
+					Model:        "sonnet",
+					Instructions: "You are a developer.\nWrite clean code.",
+				},
+			},
+		},
+	}
+	err := WriteSplitFiles(config, dir)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "developer.xcf"))
+	require.NoError(t, err)
+	content := string(data)
+
+	assert.True(t, strings.HasPrefix(content, "---\n"), "agent with body must use frontmatter")
+	assert.Contains(t, content, "kind: agent")
+	assert.Contains(t, content, "name: developer")
+	assert.Contains(t, content, "---\nYou are a developer.")
+	assert.NotContains(t, content, "instructions:")
+}
+
+func TestWriteSplitFiles_AgentInstructionsFile_PureYAML(t *testing.T) {
+	dir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"ceo": {
+					Name:             "ceo",
+					InstructionsFile: "agents/ceo.md",
+				},
+			},
+		},
+	}
+	err := WriteSplitFiles(config, dir)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "ceo.xcf"))
+	require.NoError(t, err)
+	content := string(data)
+
+	assert.False(t, strings.HasPrefix(content, "---\n"), "instructions-file agent must be pure YAML")
+	assert.Contains(t, content, "instructions-file: agents/ceo.md")
+}
+
+func TestWriteSplitFiles_SkillFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {
+					Name:         "tdd",
+					Description:  "Test-driven development.",
+					AllowedTools: []string{"Read", "Edit", "Bash"},
+					Instructions: "Follow Red-Green-Refactor.",
+				},
+			},
+		},
+	}
+	err := WriteSplitFiles(config, dir)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(dir, "xcf", "skills", "tdd.xcf"))
+	require.NoError(t, err)
+	content := string(data)
+
+	assert.True(t, strings.HasPrefix(content, "---\n"), "skill with body must use frontmatter")
+	assert.Contains(t, content, "kind: skill")
+	assert.Contains(t, content, "---\nFollow Red-Green-Refactor.")
+	assert.NotContains(t, content, "instructions:")
+}
+
+func TestWriteSplitFiles_RuleFrontmatter(t *testing.T) {
+	dir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"conventions": {
+					Name:         "conventions",
+					Description:  "Coding conventions.",
+					Instructions: "Write clean code.\nUse 2-space indentation.",
+				},
+			},
+		},
+	}
+	err := WriteSplitFiles(config, dir)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(dir, "xcf", "rules", "conventions.xcf"))
+	require.NoError(t, err)
+	content := string(data)
+
+	assert.True(t, strings.HasPrefix(content, "---\n"), "rule with body must use frontmatter")
+	assert.Contains(t, content, "kind: rule")
+	assert.Contains(t, content, "---\nWrite clean code.")
+	assert.NotContains(t, content, "instructions:")
+}
+
 func TestWriteFrontmatterFile_EmptyBody_FallsBackToYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "ceo.xcf")
