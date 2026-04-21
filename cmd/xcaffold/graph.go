@@ -11,6 +11,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/analyzer"
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/spf13/cobra"
@@ -282,10 +283,7 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 		}
 
 		baseDir := filepath.Dir(configPath)
-		targetDir := filepath.Join(baseDir, ".agents")
-		if _, err := os.Stat(targetDir); os.IsNotExist(err) {
-			targetDir = filepath.Join(baseDir, ".claude")
-		}
+		targetDir := filepath.Join(baseDir, compiler.OutputDir(targetFlag))
 
 		entries, err := a.ScanOutputDir(targetDir, declared)
 		if err == nil {

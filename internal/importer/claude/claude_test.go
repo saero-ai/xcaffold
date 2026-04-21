@@ -14,7 +14,7 @@ func TestParseFrontmatter_EmptyFrontmatter(t *testing.T) {
 	var front struct {
 		Name string `yaml:"name"`
 	}
-	body, err := importer.ParseFrontmatter(input, &front)
+	body, err := importer.ParseFrontmatterLenient(input, &front)
 	require.NoError(t, err)
 	assert.Equal(t, "", front.Name, "empty frontmatter should produce zero-value struct")
 	assert.Equal(t, "# Rule: Worktree Creation\n\nThis is the body.", body)
@@ -27,7 +27,7 @@ func TestParseFrontmatter_NormalFrontmatter(t *testing.T) {
 		Name        string `yaml:"name"`
 		Description string `yaml:"description"`
 	}
-	body, err := importer.ParseFrontmatter(input, &front)
+	body, err := importer.ParseFrontmatterLenient(input, &front)
 	require.NoError(t, err)
 	assert.Equal(t, "developer", front.Name)
 	assert.Equal(t, "Dev agent", front.Description)
@@ -39,7 +39,7 @@ func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 	var front struct {
 		Name string `yaml:"name"`
 	}
-	body, err := importer.ParseFrontmatter(input, &front)
+	body, err := importer.ParseFrontmatterLenient(input, &front)
 	require.NoError(t, err)
 	assert.Equal(t, "", front.Name)
 	assert.Equal(t, "# Just markdown\n\nNo frontmatter here.", body)

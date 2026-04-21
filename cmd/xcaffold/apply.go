@@ -302,6 +302,7 @@ func applyScope(configPath, outputDir, scopeName string) error {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
 	}
 
+	// Renderers resolve @-imports natively; the optimizer handles targets that don't.
 	opt := optimizer.New(targetFlag)
 	optimized, optNotes, optErr := opt.Run(out.Files)
 	if optErr != nil {

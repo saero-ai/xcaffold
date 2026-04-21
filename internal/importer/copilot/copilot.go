@@ -129,7 +129,7 @@ func (c *CopilotImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 		}
 		rel = filepath.ToSlash(rel)
 
-		data, err := os.ReadFile(path)
+		data, err := importer.ReadFile(path)
 		if err != nil {
 			c.Warnings = append(c.Warnings, fmt.Sprintf("read %q: %v", rel, err))
 			return nil
@@ -202,7 +202,7 @@ func (c *CopilotImporter) importSymlinkedDir(symlinkPath, importRoot string, con
 		}
 		rel := filepath.ToSlash(filepath.Join(symlinkRel, relToTarget))
 
-		data, err := os.ReadFile(path)
+		data, err := importer.ReadFile(path)
 		if err != nil {
 			c.Warnings = append(c.Warnings, fmt.Sprintf("read %q: %v", rel, err))
 			return nil

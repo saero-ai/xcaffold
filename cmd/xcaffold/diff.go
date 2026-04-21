@@ -53,7 +53,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	}
 
 	if globalFlag {
-		targetDir := filepath.Join(filepath.Dir(globalXcfHome), compiler.OutputDir(diffTargetFlag))
+		targetDir := filepath.Join(filepath.Dir(globalXcfHome), compiler.OutputDir(effectiveTarget))
 		stateFile := state.StateFilePath(filepath.Dir(globalXcfHome), diffBlueprintFlag)
 		drift, err := diffScope(targetDir, stateFile, effectiveTarget, "global")
 		if err != nil {
@@ -61,13 +61,13 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println()
 		if drift > 0 {
-			return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply --global --target %s' to restore managed state", drift, diffTargetFlag)
+			return fmt.Errorf("drift detected in %d file(s) — run 'xcaffold apply --global --target %s' to restore managed state", drift, effectiveTarget)
 		}
 		fmt.Println("No drift detected. All managed files are in sync.")
 		return nil
 	}
 
-	targetDir := filepath.Join(projectRoot, compiler.OutputDir(diffTargetFlag))
+	targetDir := filepath.Join(projectRoot, compiler.OutputDir(effectiveTarget))
 	stateFile := state.StateFilePath(projectRoot, diffBlueprintFlag)
 	drift, err := diffScope(targetDir, stateFile, effectiveTarget, "project")
 	if err != nil {

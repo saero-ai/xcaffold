@@ -1,6 +1,7 @@
 package importer
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,9 +11,28 @@ import (
 
 // ParseFrontmatter splits YAML frontmatter from a markdown file's body.
 // If the data does not start with "---\n", the entire content is returned as
-// the body with zero-value metadata. If the YAML is malformed, the body after
-// the closing "---" is still returned (graceful fallback).
+// the body with zero-value metadata. Malformed YAML in the frontmatter block
+// returns an error — callers that need graceful fallback should use
+// ParseFrontmatterLenient.
 func ParseFrontmatter(data []byte, v interface{}) (body string, err error) {
+	content := string(data)
+	if !strings.HasPrefix(content, "---\n") {
+		return strings.TrimSpace(content), nil
+	}
+	parts := strings.SplitN("\n"+content[4:], "\n---", 2)
+	if len(parts) < 2 {
+		return strings.TrimSpace(content), nil
+	}
+	if err := yaml.Unmarshal([]byte(parts[0]), v); err != nil {
+		return "", fmt.Errorf("frontmatter: %w", err)
+	}
+	return strings.TrimSpace(strings.TrimPrefix(parts[1], "\n")), nil
+}
+
+// ParseFrontmatterLenient is like ParseFrontmatter but returns the body with
+// zero-value metadata when the YAML is malformed, instead of an error. Use
+// for user-edited files where frontmatter may contain unquoted special chars.
+func ParseFrontmatterLenient(data []byte, v interface{}) (body string, err error) {
 	content := string(data)
 	if !strings.HasPrefix(content, "---\n") {
 		return strings.TrimSpace(content), nil

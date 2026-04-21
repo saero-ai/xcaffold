@@ -284,7 +284,7 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Readonly               *bool                         `yaml:"readonly"`
 	}
 
-	body, err := importer.ParseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatterLenient(data, &front)
 	if err != nil {
 		return fmt.Errorf("claude: agent %q: %w", rel, err)
 	}
@@ -339,7 +339,7 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets                map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
-	body, err := importer.ParseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatterLenient(data, &front)
 	if err != nil {
 		return fmt.Errorf("claude: skill %q: %w", rel, err)
 	}
@@ -410,7 +410,7 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets       map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
-	body, err := importer.ParseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatterLenient(data, &front)
 	if err != nil {
 		return fmt.Errorf("claude: rule %q: %w", rel, err)
 	}
@@ -445,7 +445,7 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		Description string `yaml:"description"`
 	}
 
-	body, err := importer.ParseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatterLenient(data, &front)
 	if err != nil {
 		return fmt.Errorf("claude: workflow %q: %w", rel, err)
 	}
@@ -539,7 +539,7 @@ func extractMemory(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Description string `yaml:"description"`
 		Lifecycle   string `yaml:"lifecycle"`
 	}
-	body, err := importer.ParseFrontmatter(data, &front)
+	body, err := importer.ParseFrontmatterLenient(data, &front)
 	if err != nil {
 		// Not valid frontmatter — treat entire content as instructions.
 		body = string(data)
