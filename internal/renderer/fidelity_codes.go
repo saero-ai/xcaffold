@@ -105,6 +105,10 @@ const (
 	// reference has no equivalent in the target and was dropped.
 	CodeSkillAssetsDropped = "SKILL_ASSETS_DROPPED"
 
+	// CodeSkillReferencesDropped is emitted when a skill's references/ directory
+	// has no equivalent in the target and was dropped.
+	CodeSkillReferencesDropped = "SKILL_REFERENCES_DROPPED"
+
 	// CodeRuleActivationUnsupported is emitted when a rule's activation mode
 	// has no native equivalent in the target. The rule is emitted as always-loaded.
 	CodeRuleActivationUnsupported = "RULE_ACTIVATION_UNSUPPORTED"
@@ -167,6 +171,7 @@ func AllCodes() []string {
 		CodeAgentSecurityFieldsDropped,
 		CodeSkillScriptsDropped,
 		CodeSkillAssetsDropped,
+		CodeSkillReferencesDropped,
 		CodeRuleActivationUnsupported,
 		CodeRuleExcludeAgentsDropped,
 		CodeInstructionsImportInlined,

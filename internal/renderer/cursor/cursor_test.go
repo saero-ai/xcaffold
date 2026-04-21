@@ -369,10 +369,10 @@ func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["agents/aliased-agent.md"]
-	assert.NotContains(t, content, "model:", "sonnet-4 has no cursor mapping — must be omitted")
+	assert.Contains(t, content, "model: claude-sonnet-4-5", "sonnet-4 maps to claude-sonnet-4-5 for cursor — must be emitted")
 
 	_, ok := findNote(notes, renderer.CodeAgentModelUnmapped)
-	assert.True(t, ok, "unmapped alias must emit AGENT_MODEL_UNMAPPED")
+	assert.False(t, ok, "mapped alias must not emit AGENT_MODEL_UNMAPPED")
 }
 
 // Suppression is now enforced at the command layer; renderers return notes

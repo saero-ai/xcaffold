@@ -1,6 +1,8 @@
 package copilot_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -278,4 +280,40 @@ func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
 	assert.Contains(t, out.Files, "instructions/style-guide.instructions.md", "rule")
 	assert.Contains(t, out.Files, "agents/reviewer.agent.md", "agent")
 	assert.Contains(t, out.Files, "skills/tdd/SKILL.md", "skill")
+}
+
+func TestCompileCopilotRule_InstructionsFile_Resolved(t *testing.T) {
+	tmpDir := t.TempDir()
+	ruleContent := "# This is my rule\n\nFollow these guidelines."
+	os.MkdirAll(filepath.Join(tmpDir, "rules"), 0o755)
+	os.WriteFile(filepath.Join(tmpDir, "rules", "test-rule.md"), []byte(ruleContent), 0o644)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"test-rule": {
+					Description:      "A test rule",
+					InstructionsFile: "rules/test-rule.md",
+					Activation:       ast.RuleActivationAlways,
+				},
+			},
+		},
+	}
+
+	r := copilot.New()
+	out, _, err := r.Compile(config, tmpDir)
+	require.NoError(t, err)
+
+	found := false
+	for path, content := range out.Files {
+		if strings.Contains(path, "test-rule") {
+			found = true
+			if !strings.Contains(content, "This is my rule") {
+				t.Errorf("rule file at %q has empty body; InstructionsFile was not resolved.\nContent:\n%s", path, content)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected a rule file containing 'test-rule' in output")
+	}
 }

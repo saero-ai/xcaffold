@@ -20,6 +20,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/translator"
 )
 
@@ -64,7 +65,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 	notes = append(notes, workflowNotes...)
 
 	for id, rule := range config.Rules {
-		md, ruleNotes, err := compileCopilotRule(id, rule)
+		md, ruleNotes, err := compileCopilotRule(id, rule, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("copilot: failed to compile rule %q: %w", id, err)
 		}
@@ -607,7 +608,7 @@ func sortedKeys[K ~string, V any](m map[K]V) []K {
 }
 
 // compileCopilotRule renders a single RuleConfig as a Copilot .instructions.md file.
-func compileCopilotRule(id string, rule ast.RuleConfig) (string, []renderer.FidelityNote, error) {
+func compileCopilotRule(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
 	var notes []renderer.FidelityNote
 
 	activation := renderer.ResolvedActivation(rule)
@@ -656,9 +657,12 @@ func compileCopilotRule(id string, rule ast.RuleConfig) (string, []renderer.Fide
 
 	sb.WriteString("---\n")
 
-	if rule.Instructions != "" {
+	body, _ := resolver.ResolveInstructions(
+		rule.Instructions, rule.InstructionsFile, "", baseDir,
+	)
+	if body != "" {
 		sb.WriteString("\n")
-		sb.WriteString(rule.Instructions)
+		sb.WriteString(body)
 		sb.WriteString("\n")
 	}
 
