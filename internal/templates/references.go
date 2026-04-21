@@ -86,11 +86,11 @@ assertions: []              # Test assertions (evaluated by xcaffold test --judg
 #         category: review
 
 # ── Instructions (always last) ───────────────────────────────
-instructions: |
-  Your agent instructions here. This becomes the body of the compiled
-  markdown file (e.g., .claude/agents/my-agent.md).
+---
+Your agent instructions here. This becomes the body of the compiled
+markdown file (e.g., .claude/agents/my-agent.md).
 
-# OR reference an external file (mutually exclusive with instructions):
+# OR reference an external file (mutually exclusive with body):
 # instructions-file: "agents/my-agent.md"
 `
 }

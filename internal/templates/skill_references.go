@@ -61,8 +61,10 @@ targets:
         category: ops
 
 # ── Instructions (ALWAYS last — mutually exclusive) ──────────
-instructions: |
-  Inline SKILL.md body content goes here.
-# instructions_file: ./SKILL.md   # OR external file reference (not both).
+---
+Inline SKILL.md body content goes here.
+
+# OR reference an external file (mutually exclusive with body):
+# instructions-file: "./SKILL.md"
 `
 }
