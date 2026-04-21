@@ -271,6 +271,25 @@ func TestRenderPolicyInstructionsXCF(t *testing.T) {
 	assert.NotContains(t, out, "\n---\n")
 }
 
+func TestRenderXcaffoldSkillXCF_FrontmatterFormat(t *testing.T) {
+	out := RenderXcaffoldSkillXCF([]string{"claude"})
+
+	assert.Contains(t, out, "---\nkind: skill")
+	assert.Contains(t, out, "---\n# xcaffold")
+
+	// The YAML frontmatter block (between the two --- delimiters) must not
+	// contain an 'instructions: |' key — that was the old format.
+	// Extract the frontmatter: from the opening --- to the closing ---.
+	parts := strings.SplitN(out, "---\n", 3)
+	require.Len(t, parts, 3, "output must have exactly two --- delimiters")
+	frontmatter := parts[1] // YAML content between the two ---
+	assert.NotContains(t, frontmatter, "instructions: |", "frontmatter must not use legacy block scalar format")
+
+	// Body lines must not be indented with the old 2-space block scalar prefix.
+	// Check the heading lines immediately after the closing ---
+	assert.NotContains(t, out, "\n  # xcaffold")
+}
+
 // compile-time check: Render returns *ast.XcaffoldConfig.
 var _ *ast.XcaffoldConfig = func() *ast.XcaffoldConfig {
 	cfg, _ := Render("rest-api", "", "")
