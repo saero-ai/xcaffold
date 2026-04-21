@@ -1,0 +1,7 @@
+---
+kind: skill
+version: "1.0"
+name: react-skill
+description: "React development practices."
+---
+Use React.

@@ -3,9 +3,3 @@ version: "1.0"
 name: minimal-example
 agents:
   - demo
-
----
-kind: agent
-version: "1.0"
-name: demo
-instructions: "You are a minimal agent."
