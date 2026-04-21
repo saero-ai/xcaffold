@@ -181,7 +181,7 @@ func RenderProjectXCF(projectName string, targets []string) string {
 	sb.WriteString("agents:\n  - developer          # xcf/agents/developer.xcf\n")
 	sb.WriteString("skills:\n  - xcaffold           # xcf/skills/xcaffold.xcf\n")
 	sb.WriteString("rules:\n  - conventions        # xcf/rules/conventions.xcf\n")
-	sb.WriteString("policies:\n  - require-agent-description  # xcf/policies/safety.xcf\n  - require-agent-instructions\n")
+	sb.WriteString("policies:\n  - require-agent-description  # xcf/policies/require-agent-description.xcf\n  - require-agent-instructions  # xcf/policies/require-agent-instructions.xcf\n")
 	sb.WriteString("\n")
 	sb.WriteString("# Uncomment to configure the 'xcaffold test' simulator.\n")
 	sb.WriteString("# test:\n")
@@ -193,6 +193,8 @@ func RenderProjectXCF(projectName string, targets []string) string {
 
 // RenderAgentXCF generates the xcf/agents/developer.xcf content with a
 // provider support matrix comment for the given selectedTargets.
+// The output uses frontmatter format: YAML metadata between --- delimiters,
+// followed by the instruction body as plain text.
 func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 	var sb strings.Builder
 
@@ -201,6 +203,7 @@ func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 		sb.WriteString(matrix)
 	}
 	sb.WriteString("\n")
+	sb.WriteString("---\n")
 	sb.WriteString("kind: agent\n")
 	sb.WriteString("version: \"1.0\"\n")
 	sb.WriteString(fmt.Sprintf("name: %s\n", agentName))
@@ -213,10 +216,9 @@ func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 	sb.WriteString("effort: \"high\"\n")
 	sb.WriteString("\n")
 	sb.WriteString("tools: [Read, Write, Edit, Bash, Glob, Grep]\n")
-	sb.WriteString("\n")
-	sb.WriteString("instructions: |\n")
-	sb.WriteString("  You are a software developer.\n")
-	sb.WriteString("  Write clean, maintainable code.\n")
+	sb.WriteString("---\n")
+	sb.WriteString("You are a software developer.\n")
+	sb.WriteString("Write clean, maintainable code.\n")
 	sb.WriteString("\n")
 	sb.WriteString("# Optional: per-provider instruction overrides\n")
 	sb.WriteString("# targets:\n")
@@ -233,6 +235,8 @@ func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 }
 
 // RenderRuleXCF generates the xcf/rules/conventions.xcf content.
+// The output uses frontmatter format: YAML metadata between --- delimiters,
+// followed by the rule body as plain text.
 func RenderRuleXCF(selectedTargets []string) string {
 	var sb strings.Builder
 
@@ -241,6 +245,7 @@ func RenderRuleXCF(selectedTargets []string) string {
 		sb.WriteString(matrix)
 	}
 	sb.WriteString("\n")
+	sb.WriteString("---\n")
 	sb.WriteString("kind: rule\n")
 	sb.WriteString("version: \"1.0\"\n")
 	sb.WriteString("name: conventions\n")
@@ -248,11 +253,10 @@ func RenderRuleXCF(selectedTargets []string) string {
 	sb.WriteString("\n")
 	sb.WriteString("# activation: always | path-glob | model-decided | manual-mention | explicit-invoke\n")
 	sb.WriteString("activation: always\n")
-	sb.WriteString("\n")
-	sb.WriteString("instructions: |\n")
-	sb.WriteString("  Follow standard coding conventions for this project.\n")
-	sb.WriteString("  Write clean, readable, well-documented code.\n")
-	sb.WriteString("  Prefer explicit over implicit.\n")
+	sb.WriteString("---\n")
+	sb.WriteString("Follow standard coding conventions for this project.\n")
+	sb.WriteString("Write clean, readable, well-documented code.\n")
+	sb.WriteString("Prefer explicit over implicit.\n")
 	sb.WriteString("\n")
 	sb.WriteString("# Optional: path-scoped activation\n")
 	sb.WriteString("# paths:\n")
@@ -300,11 +304,10 @@ func RenderSettingsXCF(selectedTargets []string) string {
 	return sb.String()
 }
 
-// RenderPolicyXCF generates the xcf/policies/safety.xcf content.
-// Returns a multi-document YAML string with two starter policies.
-func RenderPolicyXCF() string {
+// RenderPolicyDescriptionXCF generates the xcf/policies/require-agent-description.xcf content.
+// Returns a single-document YAML policy that enforces agent descriptions.
+func RenderPolicyDescriptionXCF() string {
 	return `# kind: policy - guardrails enforced at 'xcaffold apply' time.
-# Both humans and AI assistants filling in this scaffold must comply.
 # Violations are caught before any files are written.
 kind: policy
 version: "1.0"
@@ -315,9 +318,13 @@ target: agent
 require:
   - field: description
     is-present: true
+`
+}
 
----
-kind: policy
+// RenderPolicyInstructionsXCF generates the xcf/policies/require-agent-instructions.xcf content.
+// Returns a single-document YAML policy that enforces agent instructions.
+func RenderPolicyInstructionsXCF() string {
+	return `kind: policy
 version: "1.0"
 name: require-agent-instructions
 description: "Every agent must have instructions."

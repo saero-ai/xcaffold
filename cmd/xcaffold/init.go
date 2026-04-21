@@ -399,7 +399,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 
 		files := []string{"project.xcf", "xcf/rules/conventions.xcf", "xcf/settings.xcf"}
 		if !noPoliciesFlag {
-			files = append(files, "xcf/policies/safety.xcf")
+			files = append(files, "xcf/policies/require-agent-description.xcf", "xcf/policies/require-agent-instructions.xcf")
 		}
 		if ans.wantAgent {
 			files = append(files, "xcf/agents/developer.xcf")
@@ -564,8 +564,10 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "settings.xcf"), []byte(settingsContent), 0o600)
 
 	if !noPoliciesFlag {
-		policyContent := templates.RenderPolicyXCF()
-		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "safety.xcf"), []byte(policyContent), 0o600)
+		descPolicy := templates.RenderPolicyDescriptionXCF()
+		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-description.xcf"), []byte(descPolicy), 0o600)
+		instrPolicy := templates.RenderPolicyInstructionsXCF()
+		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-instructions.xcf"), []byte(instrPolicy), 0o600)
 	}
 
 	// starter agent

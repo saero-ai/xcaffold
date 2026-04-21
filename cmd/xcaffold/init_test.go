@@ -174,11 +174,18 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	ruleBytes, _ := os.ReadFile(ruleFile)
 	assert.Contains(t, string(ruleBytes), "kind: rule")
 
-	// Verify xcf/ policies directory and file
-	policyFile := filepath.Join(tmpDir, "xcf", "policies", "safety.xcf")
-	assert.FileExists(t, policyFile)
-	policyBytes, _ := os.ReadFile(policyFile)
-	assert.Contains(t, string(policyBytes), "kind: policy")
+	// Verify xcf/ policies directory and files (split into one file per policy)
+	descPolicyFile := filepath.Join(tmpDir, "xcf", "policies", "require-agent-description.xcf")
+	assert.FileExists(t, descPolicyFile)
+	descPolicyBytes, _ := os.ReadFile(descPolicyFile)
+	assert.Contains(t, string(descPolicyBytes), "kind: policy")
+	assert.Contains(t, string(descPolicyBytes), "require-agent-description")
+
+	instrPolicyFile := filepath.Join(tmpDir, "xcf", "policies", "require-agent-instructions.xcf")
+	assert.FileExists(t, instrPolicyFile)
+	instrPolicyBytes, _ := os.ReadFile(instrPolicyFile)
+	assert.Contains(t, string(instrPolicyBytes), "kind: policy")
+	assert.Contains(t, string(instrPolicyBytes), "require-agent-instructions")
 
 	// Verify xcf/ settings file
 	settingsFile := filepath.Join(tmpDir, "xcf", "settings.xcf")

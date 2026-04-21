@@ -142,6 +142,17 @@ func TestRenderAgentXCF_ContainsMatrix(t *testing.T) {
 	assert.Contains(t, out, "dropped")
 }
 
+func TestRenderAgentXCF_FrontmatterFormat(t *testing.T) {
+	out := RenderAgentXCF("developer", "claude-sonnet-4-6", []string{"claude"})
+
+	// Must use frontmatter delimiters
+	assert.Contains(t, out, "---\nkind: agent")
+	// Body must appear after the closing ---
+	assert.Contains(t, out, "---\nYou are a software developer.")
+	// Must NOT contain the legacy 'instructions: |' field in the YAML block
+	assert.NotContains(t, out, "instructions: |")
+}
+
 func TestRenderAgentXCF_SingleTarget_NoCursorColumn(t *testing.T) {
 	out := RenderAgentXCF("developer", "claude-sonnet-4-6", []string{"claude"})
 
@@ -149,7 +160,7 @@ func TestRenderAgentXCF_SingleTarget_NoCursorColumn(t *testing.T) {
 	assert.Contains(t, out, "kind: agent - provider field support")
 
 	// Only check the matrix section for the column (before the actual kind declaration)
-	matrixBlock := out[:strings.Index(out, "kind: agent")]
+	matrixBlock := out[:strings.Index(out, "kind: agent\n")]
 	assert.NotContains(t, matrixBlock, "cursor")
 }
 
@@ -162,6 +173,17 @@ func TestRenderRuleXCF_ContainsMatrix(t *testing.T) {
 	assert.Contains(t, out, "kind: rule - provider field support")
 }
 
+func TestRenderRuleXCF_FrontmatterFormat(t *testing.T) {
+	out := RenderRuleXCF([]string{"claude"})
+
+	// Must use frontmatter delimiters
+	assert.Contains(t, out, "---\nkind: rule")
+	// Body must appear after the closing ---
+	assert.Contains(t, out, "---\nFollow standard coding conventions")
+	// Must NOT contain the legacy 'instructions: |' field in the YAML block
+	assert.NotContains(t, out, "instructions: |")
+}
+
 func TestRenderSettingsXCF_ContainsMatrix(t *testing.T) {
 	out := RenderSettingsXCF([]string{"claude"})
 
@@ -171,14 +193,26 @@ func TestRenderSettingsXCF_ContainsMatrix(t *testing.T) {
 	assert.Contains(t, out, "permissions")
 }
 
-func TestRenderPolicyXCF_ContainsTwoPolicies(t *testing.T) {
-	out := RenderPolicyXCF()
+func TestRenderPolicyDescriptionXCF(t *testing.T) {
+	out := RenderPolicyDescriptionXCF()
 
 	assert.Contains(t, out, "kind: policy")
-	assert.Contains(t, out, "require-agent-description")
-	assert.Contains(t, out, "require-agent-instructions")
+	assert.Contains(t, out, "name: require-agent-description")
 	assert.Contains(t, out, "severity: warning")
+	assert.Contains(t, out, "target: agent")
+	assert.Contains(t, out, "is-present: true")
+	// Single-document YAML — no multi-doc separator
+	assert.NotContains(t, out, "\n---\n")
+}
+
+func TestRenderPolicyInstructionsXCF(t *testing.T) {
+	out := RenderPolicyInstructionsXCF()
+
+	assert.Contains(t, out, "kind: policy")
+	assert.Contains(t, out, "name: require-agent-instructions")
 	assert.Contains(t, out, "severity: error")
-	// Must be valid multi-document YAML (two --- separated docs)
-	assert.Contains(t, out, "---")
+	assert.Contains(t, out, "target: agent")
+	assert.Contains(t, out, "min-length: 10")
+	// Single-document YAML — no multi-doc separator
+	assert.NotContains(t, out, "\n---\n")
 }
