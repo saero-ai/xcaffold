@@ -274,7 +274,8 @@ func TestRenderPolicyInstructionsXCF(t *testing.T) {
 func TestRenderXcaffoldSkillXCF_FrontmatterFormat(t *testing.T) {
 	out := RenderXcaffoldSkillXCF([]string{"claude"})
 
-	assert.Contains(t, out, "---\nkind: skill")
+	assert.True(t, strings.HasPrefix(out, "---\n"), "must start with frontmatter delimiter")
+	assert.Contains(t, out, "\nkind: skill\n")
 	assert.Contains(t, out, "---\n# xcaffold")
 
 	// The YAML frontmatter block (between the two --- delimiters) must not

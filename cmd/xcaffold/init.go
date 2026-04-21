@@ -679,7 +679,7 @@ func tryAutoRegister(xcfFile string) {
 // skills list if not present, and statically writes the xcf/skills/xcaffold.xcf template.
 func injectXcaffoldSkillAfterImport(baseDir string) error {
 	xcfFile := filepath.Join(baseDir, "project.xcf")
-	config, err := parser.ParseFile(xcfFile)
+	config, err := parser.ParseFileExact(xcfFile)
 	if err != nil {
 		return fmt.Errorf("parsing imported scaffold: %w", err)
 	}
@@ -700,8 +700,8 @@ func injectXcaffoldSkillAfterImport(baseDir string) error {
 	}
 	if !hasSkill {
 		config.Project.SkillRefs = append(config.Project.SkillRefs, "xcaffold")
-		if err := WriteSplitFiles(config, baseDir); err != nil {
-			return fmt.Errorf("writing updated split config: %w", err)
+		if err := WriteProjectFile(config, baseDir); err != nil {
+			return fmt.Errorf("writing updated project.xcf: %w", err)
 		}
 	}
 

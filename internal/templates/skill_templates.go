@@ -19,6 +19,7 @@ func padField(s string) string {
 // The output uses frontmatter format: YAML metadata between --- delimiters, then plain markdown body.
 func RenderXcaffoldSkillXCF(targets []string) string {
 	lines := []string{
+		"---",
 		"# kind: skill - provider field support for your selected targets",
 		"#",
 		"#  Field                 " + strings.Join(targets, "  "),
@@ -29,7 +30,6 @@ func RenderXcaffoldSkillXCF(targets []string) string {
 	}
 
 	lines = append(lines, "",
-		"---",
 		"kind: skill",
 		`version: "1.0"`,
 		"name: xcaffold",
