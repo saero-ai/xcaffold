@@ -154,7 +154,7 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 	for _, r := range renderers {
 		r := r
 		t.Run(r.Target(), func(t *testing.T) {
-			_, notes, err := r.Compile(config, baseDir)
+			_, notes, err := renderer.Orchestrate(r, config, baseDir)
 			require.NoError(t, err)
 
 			// The claude renderer is the native target; it intentionally emits no

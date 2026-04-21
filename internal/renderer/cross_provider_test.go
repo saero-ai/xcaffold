@@ -101,7 +101,7 @@ func TestCrossProvider_RenderOrNote(t *testing.T) {
 		r := r
 		t.Run(r.Target(), func(t *testing.T) {
 			cfg, baseDir := crossProviderFixture(t)
-			out, notes, err := r.Compile(cfg, baseDir)
+			out, notes, err := renderer.Orchestrate(r, cfg, baseDir)
 			require.NoError(t, err)
 
 			if len(out.Files) == 0 {
@@ -130,7 +130,7 @@ func TestCrossProvider_NoRawModelAliases(t *testing.T) {
 		r := r
 		t.Run(r.Target(), func(t *testing.T) {
 			cfg, baseDir := crossProviderFixture(t)
-			out, _, err := r.Compile(cfg, baseDir)
+			out, _, err := renderer.Orchestrate(r, cfg, baseDir)
 			require.NoError(t, err)
 
 			for path, content := range out.Files {
@@ -160,7 +160,7 @@ func TestCrossProvider_NoClaudeEnvVars(t *testing.T) {
 		}
 		t.Run(r.Target(), func(t *testing.T) {
 			cfg, baseDir := crossProviderFixture(t)
-			out, _, err := r.Compile(cfg, baseDir)
+			out, _, err := renderer.Orchestrate(r, cfg, baseDir)
 			require.NoError(t, err)
 
 			for path, content := range out.Files {
@@ -182,7 +182,7 @@ func TestCrossProvider_SkillReferences(t *testing.T) {
 		r := r
 		t.Run(r.Target(), func(t *testing.T) {
 			cfg, baseDir := crossProviderFixture(t)
-			out, notes, err := r.Compile(cfg, baseDir)
+			out, notes, err := renderer.Orchestrate(r, cfg, baseDir)
 			require.NoError(t, err)
 
 			// Check whether any output file path looks like a references sub-file.
@@ -221,7 +221,7 @@ func TestCrossProvider_RuleInstructionsFile(t *testing.T) {
 		r := r
 		t.Run(r.Target(), func(t *testing.T) {
 			cfg, baseDir := crossProviderFixture(t)
-			out, _, err := r.Compile(cfg, baseDir)
+			out, _, err := renderer.Orchestrate(r, cfg, baseDir)
 			require.NoError(t, err)
 
 			// Find output files that correspond to the rule (contains "test-rule").
@@ -249,7 +249,7 @@ func TestCrossProvider_FidelityCodesValid(t *testing.T) {
 		r := r
 		t.Run(r.Target(), func(t *testing.T) {
 			cfg, baseDir := crossProviderFixture(t)
-			_, notes, err := r.Compile(cfg, baseDir)
+			_, notes, err := renderer.Orchestrate(r, cfg, baseDir)
 			require.NoError(t, err)
 
 			for _, n := range notes {

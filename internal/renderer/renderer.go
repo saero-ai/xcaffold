@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/output"
 	"gopkg.in/yaml.v3"
 )
 
@@ -60,9 +59,10 @@ func ResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) 
 	return ResolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
-// TargetRenderer renders a compiled file map for a specific target environment.
-// All renderers implement both the top-level Compile entry point and the
-// per-resource methods used by the orchestrator.
+// TargetRenderer is the contract for all output-target renderers. It declares
+// per-resource compilation methods and Capabilities/Finalize hooks. The
+// orchestrator calls these methods directly via Orchestrate(); there is no
+// monolithic Compile/Render method on the interface.
 type TargetRenderer interface {
 	// Target returns the canonical name of this renderer (e.g. "claude").
 	Target() string
@@ -70,15 +70,6 @@ type TargetRenderer interface {
 	// OutputDir returns the base output directory for this target
 	// (e.g. ".claude", ".cursor/rules").
 	OutputDir() string
-
-	// Compile translates an XcaffoldConfig into a compiler Output. It is the
-	// semantic entry point for callers that hold a TargetRenderer reference.
-	// Implementations delegate to Orchestrate so per-resource methods are used.
-	Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []FidelityNote, error)
-
-	// Render wraps a file map in an output.Output. Retained for callers that
-	// have already assembled a file map and need the Output envelope.
-	Render(files map[string]string) *output.Output
 
 	// Capabilities declares which resource kinds this renderer supports.
 	// The orchestrator uses this to decide whether to call a Compile* method

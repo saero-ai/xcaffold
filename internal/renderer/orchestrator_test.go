@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 	"github.com/stretchr/testify/assert"
@@ -71,12 +70,6 @@ type mockRenderer struct {
 
 func (m *mockRenderer) Target() string    { return "mock" }
 func (m *mockRenderer) OutputDir() string { return ".mock" }
-func (m *mockRenderer) Compile(_ *ast.XcaffoldConfig, _ string) (*output.Output, []renderer.FidelityNote, error) {
-	panic("Compile should not be called on mockRenderer; use Orchestrate instead")
-}
-func (m *mockRenderer) Render(files map[string]string) *output.Output {
-	return &output.Output{Files: files}
-}
 func (m *mockRenderer) Capabilities() renderer.CapabilitySet {
 	if m.capabilities != nil {
 		return *m.capabilities
