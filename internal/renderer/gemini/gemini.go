@@ -13,8 +13,8 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	rendshared "github.com/saero-ai/xcaffold/internal/renderer/shared"
 	"github.com/saero-ai/xcaffold/internal/resolver"
-	"github.com/saero-ai/xcaffold/internal/translator"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,7 +53,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 
 	// Lower workflows to rule+skill primitives before rendering rules and skills.
 	// Lowered primitives are merged into the config copies used for rendering.
-	config, workflowNotes := r.lowerWorkflows(config)
+	config, workflowNotes := rendshared.LowerWorkflows(config, targetName)
 	notes = append(notes, workflowNotes...)
 
 	ruleNotes, err := r.renderRules(config, out.Files, baseDir)
@@ -434,69 +434,6 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 	}
 
 	return notes
-}
-
-// lowerWorkflows translates each workflow in config into rule and skill
-// primitives via translator.TranslateWorkflow, then returns a shallow copy of
-// config with the lowered primitives merged into Rules and Skills. The original
-// config is never mutated. Fidelity notes from the lowering are also returned.
-func (r *Renderer) lowerWorkflows(config *ast.XcaffoldConfig) (*ast.XcaffoldConfig, []renderer.FidelityNote) {
-	if len(config.Workflows) == 0 {
-		return config, nil
-	}
-
-	// Shallow-copy ResourceScope so we can merge without mutating the input.
-	merged := *config
-	rs := config.ResourceScope
-
-	mergedRules := make(map[string]ast.RuleConfig, len(rs.Rules))
-	for k, v := range rs.Rules {
-		mergedRules[k] = v
-	}
-
-	mergedSkills := make(map[string]ast.SkillConfig, len(rs.Skills))
-	for k, v := range rs.Skills {
-		mergedSkills[k] = v
-	}
-
-	var notes []renderer.FidelityNote
-
-	for _, id := range renderer.SortedKeys(rs.Workflows) {
-		wf := rs.Workflows[id]
-		if wf.Name == "" {
-			wf.Name = id
-		}
-		primitives, wfNotes := translator.TranslateWorkflow(&wf, targetName)
-		notes = append(notes, wfNotes...)
-
-		for _, p := range primitives {
-			switch p.Kind {
-			case "rule":
-				body := p.Content
-				if body == "" {
-					body = p.Body
-				}
-				mergedRules[p.ID] = ast.RuleConfig{
-					Description:  wf.Description,
-					Instructions: body,
-				}
-			case "skill":
-				body := p.Content
-				if body == "" {
-					body = p.Body
-				}
-				mergedSkills[p.ID] = ast.SkillConfig{
-					Name:         p.ID,
-					Instructions: body,
-				}
-			}
-		}
-	}
-
-	rs.Rules = mergedRules
-	rs.Skills = mergedSkills
-	merged.ResourceScope = rs
-	return &merged, notes
 }
 
 // buildRuleBody constructs the markdown content for a rule file.

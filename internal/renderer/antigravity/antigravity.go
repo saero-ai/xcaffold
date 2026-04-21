@@ -351,7 +351,7 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (str
 
 	var sb strings.Builder
 
-	body = resolver.StripFrontmatter(body)
+	body = renderer.StripAllFrontmatter(body)
 
 	// Prepend 12K warning comment before any other content if body is too long.
 	if len(body) > ruleCharLimit {
@@ -422,7 +422,7 @@ func compileAntigravitySkill(id string, skill ast.SkillConfig, baseDir string) (
 	if body != "" {
 		sb.WriteString("\n")
 		// Strip any inner frontmatter the user might have accidentally provided inline
-		sb.WriteString(strings.TrimRight(resolver.StripFrontmatter(body), "\n"))
+		sb.WriteString(strings.TrimRight(renderer.StripAllFrontmatter(body), "\n"))
 		sb.WriteString("\n")
 	}
 
@@ -453,7 +453,7 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 	if body != "" {
 		sb.WriteString("\n")
 		// Strip any inner frontmatter
-		sb.WriteString(strings.TrimRight(resolver.StripFrontmatter(body), "\n"))
+		sb.WriteString(strings.TrimRight(renderer.StripAllFrontmatter(body), "\n"))
 		sb.WriteString("\n")
 	}
 
