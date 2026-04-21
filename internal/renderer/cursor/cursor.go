@@ -89,13 +89,13 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
-		if err := compileCursorSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("cursor: skill %q references: %w", id, err)
 		}
-		if err := compileCursorSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("cursor: skill %q scripts: %w", id, err)
 		}
-		if err := compileCursorSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("cursor: skill %q assets: %w", id, err)
 		}
 	}
@@ -564,51 +564,6 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, []renderer.Fide
 		return "", nil, fmt.Errorf("mcp json marshal: %w", err)
 	}
 	return string(data), notes, nil
-}
-
-// compileCursorSkillSubdir copies skill subdirectory files (references/, scripts/,
-// assets/) into the output map under skills/<id>/<subdir>/<filename>.
-// Path traversal above baseDir is rejected. Glob patterns are expanded;
-// literal paths are read directly.
-func compileCursorSkillSubdir(id, subdir string, paths []string, baseDir string, out *output.Output) error {
-	if len(paths) == 0 {
-		return nil
-	}
-
-	for _, pattern := range paths {
-		cleanedPattern := filepath.Clean(pattern)
-		if strings.HasPrefix(cleanedPattern, "..") {
-			return fmt.Errorf("%s path %q traverses above the project root", subdir, pattern)
-		}
-
-		absPattern := filepath.Join(baseDir, cleanedPattern)
-
-		matches, err := filepath.Glob(absPattern)
-		if err != nil {
-			return fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
-		}
-		if len(matches) == 0 {
-			data, readErr := os.ReadFile(absPattern)
-			if readErr != nil {
-				return fmt.Errorf("%s file %q: %w", subdir, pattern, readErr)
-			}
-			baseName := filepath.Base(absPattern)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
-			out.Files[outPath] = string(data)
-			continue
-		}
-
-		for _, match := range matches {
-			data, err := os.ReadFile(match)
-			if err != nil {
-				return fmt.Errorf("%s file %q: %w", subdir, match, err)
-			}
-			baseName := filepath.Base(match)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
-			out.Files[outPath] = string(data)
-		}
-	}
-	return nil
 }
 
 // yamlScalar quotes a string value for safe inclusion in YAML if it contains
