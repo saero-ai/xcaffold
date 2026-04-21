@@ -1,4 +1,4 @@
-// Package antigravity compiles an XcaffoldConfig AST into Antigravity (Antigravity) output files.
+// Package antigravity compiles an XcaffoldConfig AST into Antigravity output files.
 // Rules are written as plain Markdown files under rules/ — no YAML frontmatter.
 // Skills are written to skills/<id>/SKILL.md with minimal frontmatter (name + description only).
 //
@@ -6,7 +6,9 @@
 //   - Rules: NO --- frontmatter; description becomes a # heading; 12K char limit enforced with warning
 //   - Rules: paths/globs fields are dropped — AG handles activation via UI
 //   - Skills: only name and description emitted in frontmatter; all other fields dropped
-//   - Agents, hooks, and MCP are silently skipped — AG has no file format for them
+//   - Agents are not supported; RENDERER_KIND_UNSUPPORTED notes plus per-field security notes are emitted
+//   - Hooks are not supported by this renderer; the orchestrator emits RENDERER_KIND_UNSUPPORTED
+//   - MCP is global-only; no project-local file is written; a MCP_GLOBAL_CONFIG_ONLY note is emitted
 package antigravity
 
 import (
@@ -58,35 +60,92 @@ func (r *Renderer) Render(files map[string]string) *output.Output {
 	return &output.Output{Files: files}
 }
 
-// Compile translates an XcaffoldConfig AST into its Antigravity (Antigravity) output representation.
+// Capabilities declares which resource kinds this renderer supports.
+// Agents and Hooks are handled via per-resource methods but produce no output
+// files — they emit fidelity notes only. MCP and Settings are similarly supported
+// via their per-resource methods (notes only, no project-local files).
+func (r *Renderer) Capabilities() renderer.CapabilitySet {
+	return renderer.CapabilitySet{
+		Agents:              true,
+		Skills:              true,
+		Rules:               true,
+		Workflows:           true,
+		Hooks:               false,
+		Settings:            true,
+		MCP:                 true,
+		Memory:              true,
+		ProjectInstructions: true,
+		RuleActivations:     []string{"always", "path-glob", "manual"},
+	}
+}
+
+// Compile translates an XcaffoldConfig AST into its Antigravity output representation.
 // baseDir is the directory that contains the project.xcf file; it is used to
-// resolve instructions_file: paths. Compile returns an error if any resource
-// fails to compile. It never panics.
-//
-// Only rules and skills are compiled. Agents, hooks, and MCP configs are silently
-// skipped because Antigravity has no file format for those resource types.
-//
-//nolint:gocyclo
+// resolve instructions-file paths. Compile delegates to the orchestrator which
+// calls each per-resource method individually. It returns an error if any
+// resource fails to compile. It never panics.
 func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
-	out := &output.Output{Files: make(map[string]string)}
+	return renderer.Orchestrate(r, config, baseDir)
+}
+
+// CompileAgents returns no output files — Antigravity does not support agent
+// definitions. It emits a RENDERER_KIND_UNSUPPORTED fidelity note for each
+// agent, and additional per-field notes for any security fields (permissionMode,
+// disallowedTools, isolation) that would be silently lost.
+func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	var notes []renderer.FidelityNote
 
-	for id, rule := range config.Rules {
-		md, err := compileAntigravityRule(id, rule, baseDir)
-		if err != nil {
-			return nil, nil, fmt.Errorf("antigravity: failed to compile rule %q: %w", id, err)
+	for _, id := range renderer.SortedKeys(agents) {
+		agent := agents[id]
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "agent", id, "",
+			renderer.CodeRendererKindUnsupported,
+			fmt.Sprintf("agent %q dropped; Antigravity does not support agent definitions", id),
+			"Use a target that supports agents (claude, cursor, gemini, copilot)",
+		))
+		if agent.PermissionMode != "" {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "agent", id, "permissionMode",
+				renderer.CodeAgentSecurityFieldsDropped,
+				fmt.Sprintf("agent %q permissionMode dropped; Antigravity has no permission mode equivalent", id),
+				"Remove permissionMode from the antigravity target override",
+			))
 		}
-		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
-		out.Files[safePath] = md
+		if len(agent.DisallowedTools) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "agent", id, "disallowedTools",
+				renderer.CodeAgentSecurityFieldsDropped,
+				fmt.Sprintf("agent %q disallowedTools dropped; tool restrictions will NOT be enforced by Antigravity", id),
+				"Enforce tool restrictions via a different target or accept the loss",
+			))
+		}
+		if agent.Isolation != "" {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "agent", id, "isolation",
+				renderer.CodeAgentSecurityFieldsDropped,
+				fmt.Sprintf("agent %q isolation dropped; Antigravity has no process isolation model", id),
+				"Remove isolation from the antigravity target override",
+			))
+		}
 	}
 
-	for id, skill := range config.Skills {
+	return nil, notes, nil
+}
+
+// CompileSkills renders all skills to skills/<id>/SKILL.md files with minimal
+// frontmatter (name and description only). Fields not supported by Antigravity
+// (scripts, assets, references) produce fidelity notes.
+func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	var notes []renderer.FidelityNote
+
+	for id, skill := range skills {
 		md, err := compileAntigravitySkill(id, skill, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("antigravity: failed to compile skill %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
-		out.Files[safePath] = md
+		files[safePath] = md
 
 		if len(skill.Scripts) > 0 {
 			notes = append(notes, renderer.NewNote(
@@ -114,7 +173,35 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		}
 	}
 
-	for id, wf := range config.Workflows {
+	return files, notes, nil
+}
+
+// CompileRules renders all rules to rules/<id>.md files. Rules use no YAML
+// frontmatter; description becomes a # heading. Bodies exceeding 12,000
+// characters receive a leading warning HTML comment.
+func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+
+	for id, rule := range rules {
+		md, err := compileAntigravityRule(id, rule, baseDir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("antigravity: failed to compile rule %q: %w", id, err)
+		}
+		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
+		files[safePath] = md
+	}
+
+	return files, nil, nil
+}
+
+// CompileWorkflows renders all workflows to workflows/<id>.md files. When
+// promote-rules-to-workflows is set on the antigravity target override,
+// TranslateWorkflow is used for the native lowering path.
+func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	var notes []renderer.FidelityNote
+
+	for id, wf := range workflows {
 		wfCopy := wf
 		if wfCopy.Name == "" {
 			wfCopy.Name = id
@@ -134,7 +221,7 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 						}
 						if p.Kind == "workflow" {
 							safePath := filepath.Clean(fmt.Sprintf("workflows/%s.md", p.ID))
-							out.Files[safePath] = content
+							files[safePath] = content
 						}
 					}
 					continue
@@ -146,29 +233,24 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 			return nil, nil, fmt.Errorf("antigravity: failed to compile workflow %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("workflows/%s.md", id))
-		out.Files[safePath] = md
+		files[safePath] = md
 	}
 
-	if len(config.MCP) > 0 {
-		// Antigravity reads MCP configuration exclusively from the global user-level
-		// path (~/.gemini/antigravity/mcp_config.json). A project-local mcp_config.json
-		// is silently ignored by the tool, so writing one would produce a non-functional
-		// file. Emit a note directing the user to configure MCP via the UI or by editing
-		// the global config file directly.
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "global", "mcp",
-			renderer.CodeMCPGlobalConfigOnly,
-			fmt.Sprintf("%d MCP server(s) declared but not written; Antigravity reads MCP config from ~/.gemini/antigravity/mcp_config.json (global only, not project-local)", len(config.MCP)),
-			"Configure MCP servers via the Antigravity MCP Store UI or edit ~/.gemini/antigravity/mcp_config.json directly",
-		))
-	}
+	return files, notes, nil
+}
 
-	if config.Project != nil {
-		instrNotes := r.renderProjectInstructions(config, baseDir, out.Files)
-		notes = append(notes, instrNotes...)
-	}
+// CompileHooks is a stub — Antigravity does not support hooks. This method
+// exists to satisfy the ResourceRenderer interface; the orchestrator will not
+// call it because Capabilities().Hooks is false.
+func (r *Renderer) CompileHooks(_ ast.HookConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
+	return nil, nil, nil
+}
 
-	settings := config.Settings["default"]
+// CompileSettings emits fidelity notes for settings fields that Antigravity
+// does not support (permissions, sandbox). No output files are produced.
+func (r *Renderer) CompileSettings(settings ast.SettingsConfig) (map[string]string, []renderer.FidelityNote, error) {
+	var notes []renderer.FidelityNote
+
 	if settings.Permissions != nil {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "settings", "global", "permissions",
@@ -186,43 +268,43 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 		))
 	}
 
-	for id := range config.Agents {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "agent", id, "",
-			renderer.CodeRendererKindUnsupported,
-			fmt.Sprintf("agent %q dropped; Antigravity does not support agent definitions", id),
-			"Use a target that supports agents (claude, cursor, gemini, copilot)",
-		))
+	return nil, notes, nil
+}
+
+// CompileMCP emits a MCP_GLOBAL_CONFIG_ONLY fidelity note and produces no
+// project-local files. Antigravity reads MCP configuration exclusively from
+// ~/.gemini/antigravity/mcp_config.json; a project-local file is silently
+// ignored by the tool.
+func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
+	if len(servers) == 0 {
+		return nil, nil, nil
 	}
 
-	for id, agent := range config.Agents {
-		if agent.PermissionMode != "" {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "agent", id, "permissionMode",
-				renderer.CodeAgentSecurityFieldsDropped,
-				fmt.Sprintf("agent %q permissionMode dropped; Antigravity has no permission mode equivalent", id),
-				"Remove permissionMode from the antigravity target override",
-			))
-		}
-		if len(agent.DisallowedTools) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "agent", id, "disallowedTools",
-				renderer.CodeAgentSecurityFieldsDropped,
-				fmt.Sprintf("agent %q disallowedTools dropped; tool restrictions will NOT be enforced by Antigravity", id),
-				"Enforce tool restrictions via a different target or accept the loss",
-			))
-		}
-		if agent.Isolation != "" {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "agent", id, "isolation",
-				renderer.CodeAgentSecurityFieldsDropped,
-				fmt.Sprintf("agent %q isolation dropped; Antigravity has no process isolation model", id),
-				"Remove isolation from the antigravity target override",
-			))
-		}
-	}
+	note := renderer.NewNote(
+		renderer.LevelWarning, targetName, "settings", "global", "mcp",
+		renderer.CodeMCPGlobalConfigOnly,
+		fmt.Sprintf("%d MCP server(s) declared but not written; Antigravity reads MCP config from ~/.gemini/antigravity/mcp_config.json (global only, not project-local)", len(servers)),
+		"Configure MCP servers via the Antigravity MCP Store UI or edit ~/.gemini/antigravity/mcp_config.json directly",
+	)
 
-	return out, notes, nil
+	return nil, []renderer.FidelityNote{note}, nil
+}
+
+// CompileProjectInstructions renders the project-level instructions into a
+// flat singleton rules file (rules/project-instructions.md) with xcaffold:scope
+// provenance markers for each InstructionsScope entry.
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	cfg := &ast.XcaffoldConfig{}
+	cfg.Project = project
+	files := make(map[string]string)
+	notes := r.renderProjectInstructions(cfg, baseDir, files)
+	return files, notes, nil
+}
+
+// Finalize is a no-op post-processing pass for the Antigravity renderer.
+// Path normalization is already applied per-resource during compilation.
+func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
+	return files, nil, nil
 }
 
 // renderProjectInstructions emits a single flat-singleton rules file containing
