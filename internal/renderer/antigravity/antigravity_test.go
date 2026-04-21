@@ -362,6 +362,32 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	assert.Contains(t, content, "description: Has many fields.")
 }
 
+func TestCompile_Skill_ReferencesDropped_EmitsFidelityNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"test-skill": {
+					Name:         "test-skill",
+					Description:  "A skill with references",
+					Instructions: "Do things.",
+					References:   []string{"refs/doc.md"},
+				},
+			},
+		},
+	}
+	_, notes, err := r.Compile(config, t.TempDir())
+	require.NoError(t, err)
+
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeSkillReferencesDropped {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected SKILL_REFERENCES_DROPPED fidelity note for skill with references")
+}
+
 func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{

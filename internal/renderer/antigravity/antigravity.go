@@ -104,6 +104,14 @@ func (r *Renderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.
 				"Inline asset references into the instructions body",
 			))
 		}
+		if len(skill.References) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "references",
+				renderer.CodeSkillReferencesDropped,
+				fmt.Sprintf("skill %q references dropped; Antigravity does not compile skill references/ directories", id),
+				"Inline reference content into the skill instructions body",
+			))
+		}
 	}
 
 	for id, wf := range config.Workflows {

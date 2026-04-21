@@ -529,6 +529,14 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				"Copy assets manually if needed",
 			))
 		}
+		if len(skill.References) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "references",
+				renderer.CodeSkillReferencesDropped,
+				fmt.Sprintf("skill %q references dropped; Copilot does not compile skill references/ directories", id),
+				"Copy references into .github/skills/"+id+"/references/ manually",
+			))
+		}
 	}
 
 	return notes

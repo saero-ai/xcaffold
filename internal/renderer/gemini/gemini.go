@@ -243,6 +243,14 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				"Copy assets into .gemini/skills/"+id+"/assets/ manually",
 			))
 		}
+		if len(skill.References) > 0 {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "references",
+				renderer.CodeSkillReferencesDropped,
+				fmt.Sprintf("skill %q references dropped; Gemini does not compile skill references/ directories", id),
+				"Copy references into .gemini/skills/"+id+"/references/ manually",
+			))
+		}
 		if skill.DisableModelInvocation != nil {
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning, targetName, "skill", id, "disable-model-invocation",
@@ -294,7 +302,18 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			}
 		}
 		if agent.Model != "" {
-			fmt.Fprintf(&sb, "model: %s\n", agent.Model)
+			resolved, ok := renderer.ResolveModel(agent.Model, targetName)
+			if ok && resolved != "" {
+				fmt.Fprintf(&sb, "model: %s\n", resolved)
+				if !renderer.IsMappedModel(agent.Model, targetName) {
+					notes = append(notes, renderer.NewNote(
+						renderer.LevelInfo, targetName, "agent", id, "model",
+						renderer.CodeAgentModelUnmapped,
+						fmt.Sprintf("agent %q model %q passed through as literal; not a known xcaffold alias", id, agent.Model),
+						"Use a known alias (sonnet-4, opus-4, haiku-3.5) or a Gemini-native model ID",
+					))
+				}
+			}
 		}
 		if agent.MaxTurns > 0 {
 			fmt.Fprintf(&sb, "max_turns: %d\n", agent.MaxTurns)
