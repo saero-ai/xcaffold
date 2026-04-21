@@ -61,6 +61,8 @@ func ResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) 
 }
 
 // TargetRenderer renders a compiled file map for a specific target environment.
+// All renderers implement both the top-level Compile entry point and the
+// per-resource methods used by the orchestrator.
 type TargetRenderer interface {
 	// Target returns the canonical name of this renderer (e.g. "claude").
 	Target() string
@@ -69,28 +71,18 @@ type TargetRenderer interface {
 	// (e.g. ".claude", ".cursor/rules").
 	OutputDir() string
 
-	// Compile translates an XcaffoldConfig into a compiler Output and a slice
-	// of fidelity notes describing any information loss or transformation
-	// that occurred. Compile is the semantic entry point consumed by the
-	// top-level compiler. A non-empty notes slice does not indicate failure;
-	// callers decide whether to promote notes to errors based on the
-	// --fidelity mode.
+	// Compile translates an XcaffoldConfig into a compiler Output. It is the
+	// semantic entry point for callers that hold a TargetRenderer reference.
+	// Implementations delegate to Orchestrate so per-resource methods are used.
 	Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []FidelityNote, error)
 
-	// Render wraps a file map in an output.Output. It is retained for
-	// backward compatibility with callers that have already assembled a
-	// file map and need the renderer's Output envelope. The canonical
-	// compilation entry point is Compile; Render is a thin passthrough.
+	// Render wraps a file map in an output.Output. Retained for callers that
+	// have already assembled a file map and need the Output envelope.
 	Render(files map[string]string) *output.Output
-}
 
-// ResourceRenderer extends TargetRenderer with per-resource compilation methods
-// and capability declarations. Renderers that implement this interface are used
-// by the orchestrator for per-resource compilation with automatic fidelity notes.
-// During migration, renderers may implement only TargetRenderer (legacy) or both.
-type ResourceRenderer interface {
-	TargetRenderer
-
+	// Capabilities declares which resource kinds this renderer supports.
+	// The orchestrator uses this to decide whether to call a Compile* method
+	// or emit a RENDERER_KIND_UNSUPPORTED fidelity note.
 	Capabilities() CapabilitySet
 
 	CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []FidelityNote, error)
@@ -102,5 +94,7 @@ type ResourceRenderer interface {
 	CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []FidelityNote, error)
 	CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []FidelityNote, error)
 
+	// Finalize is a post-processing pass called after all per-resource methods
+	// have run (path normalization, deduplication, etc.).
 	Finalize(files map[string]string) (map[string]string, []FidelityNote, error)
 }

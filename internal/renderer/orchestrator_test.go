@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestOrchestrate_FallbackToCompile verifies that when a renderer only implements
-// TargetRenderer (not ResourceRenderer), Orchestrate falls back to Compile().
+// TestOrchestrate_FallbackToCompile verifies that Orchestrate dispatches to
+// per-resource methods and produces at least one file for non-empty configs.
 func TestOrchestrate_FallbackToCompile(t *testing.T) {
 	r := claude.New()
 	config := &ast.XcaffoldConfig{
@@ -35,8 +35,8 @@ func TestOrchestrate_FallbackToCompile(t *testing.T) {
 	_ = notes
 }
 
-// TestOrchestrate_FallbackToCompile_EmptyConfig verifies the fallback path
-// returns a non-nil output even when config has no resources.
+// TestOrchestrate_FallbackToCompile_EmptyConfig verifies Orchestrate returns a
+// non-nil output even when config has no resources.
 func TestOrchestrate_FallbackToCompile_EmptyConfig(t *testing.T) {
 	r := claude.New()
 	config := &ast.XcaffoldConfig{
@@ -61,36 +61,72 @@ func TestOrchestrate_SignatureCompiles(t *testing.T) {
 	assert.NotNil(t, out)
 }
 
-// mockLegacyRenderer implements only TargetRenderer, not ResourceRenderer.
-// Used to verify the orchestrator dispatches to Compile() for legacy renderers.
-type mockLegacyRenderer struct {
-	compileCallCount int
-	returnFiles      map[string]string
+// mockRenderer implements TargetRenderer with all per-resource methods.
+// Used to verify the orchestrator calls each per-resource method.
+type mockRenderer struct {
+	agentsCallCount int
+	returnFiles     map[string]string
 }
 
-func (m *mockLegacyRenderer) Target() string    { return "mock" }
-func (m *mockLegacyRenderer) OutputDir() string { return ".mock" }
-func (m *mockLegacyRenderer) Render(files map[string]string) *output.Output {
+func (m *mockRenderer) Target() string    { return "mock" }
+func (m *mockRenderer) OutputDir() string { return ".mock" }
+func (m *mockRenderer) Compile(_ *ast.XcaffoldConfig, _ string) (*output.Output, []renderer.FidelityNote, error) {
+	panic("Compile should not be called on mockRenderer; use Orchestrate instead")
+}
+func (m *mockRenderer) Render(files map[string]string) *output.Output {
 	return &output.Output{Files: files}
 }
-func (m *mockLegacyRenderer) Compile(_ *ast.XcaffoldConfig, _ string) (*output.Output, []renderer.FidelityNote, error) {
-	m.compileCallCount++
-	files := m.returnFiles
-	if files == nil {
-		files = map[string]string{"mock.txt": "mock content"}
+func (m *mockRenderer) Capabilities() renderer.CapabilitySet {
+	return renderer.CapabilitySet{Agents: true}
+}
+func (m *mockRenderer) CompileAgents(_ map[string]ast.AgentConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
+	m.agentsCallCount++
+	if m.returnFiles != nil {
+		return m.returnFiles, nil, nil
 	}
-	return &output.Output{Files: files}, nil, nil
+	return map[string]string{"mock.txt": "mock content"}, nil, nil
+}
+func (m *mockRenderer) CompileSkills(_ map[string]ast.SkillConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
+	return nil, nil, nil
+}
+func (m *mockRenderer) CompileRules(_ map[string]ast.RuleConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
+	return nil, nil, nil
+}
+func (m *mockRenderer) CompileWorkflows(_ map[string]ast.WorkflowConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
+	return nil, nil, nil
+}
+func (m *mockRenderer) CompileHooks(_ ast.HookConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
+	return nil, nil, nil
+}
+func (m *mockRenderer) CompileSettings(_ ast.SettingsConfig) (map[string]string, []renderer.FidelityNote, error) {
+	return nil, nil, nil
+}
+func (m *mockRenderer) CompileMCP(_ map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
+	return nil, nil, nil
+}
+func (m *mockRenderer) CompileProjectInstructions(_ *ast.ProjectConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
+	return nil, nil, nil
+}
+func (m *mockRenderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
+	return files, nil, nil
 }
 
-// TestOrchestrate_LegacyRenderer_CallsCompile verifies that Orchestrate dispatches
-// to Compile() exactly once when the renderer does not implement ResourceRenderer.
-func TestOrchestrate_LegacyRenderer_CallsCompile(t *testing.T) {
-	m := &mockLegacyRenderer{}
-	config := &ast.XcaffoldConfig{Version: "1"}
+// TestOrchestrate_PerResourceDispatch verifies that Orchestrate dispatches to
+// CompileAgents for a config with agents.
+func TestOrchestrate_PerResourceDispatch(t *testing.T) {
+	m := &mockRenderer{}
+	config := &ast.XcaffoldConfig{
+		Version: "1",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"tester": {Name: "Tester"},
+			},
+		},
+	}
 
 	out, _, err := renderer.Orchestrate(m, config, ".")
 	require.NoError(t, err)
 	require.NotNil(t, out)
-	assert.Equal(t, 1, m.compileCallCount, "Compile should be called exactly once for legacy renderers")
+	assert.Equal(t, 1, m.agentsCallCount, "CompileAgents should be called once")
 	assert.Equal(t, "mock content", out.Files["mock.txt"])
 }

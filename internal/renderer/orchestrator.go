@@ -7,25 +7,18 @@ import (
 	"github.com/saero-ai/xcaffold/internal/output"
 )
 
-// Orchestrate compiles config using r. If r also implements ResourceRenderer, the
-// orchestrator calls each per-resource method individually and emits
-// RENDERER_KIND_UNSUPPORTED fidelity notes for resource kinds the renderer does
-// not support. If r only implements TargetRenderer, Orchestrate falls back to the
-// legacy Compile() method unchanged.
+// Orchestrate compiles config using r by dispatching to each per-resource method
+// individually. RENDERER_KIND_UNSUPPORTED fidelity notes are emitted for resource
+// kinds the renderer does not support according to its Capabilities declaration.
 func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (*output.Output, []FidelityNote, error) {
-	rr, ok := r.(ResourceRenderer)
-	if !ok {
-		return r.Compile(config, baseDir)
-	}
-
-	caps := rr.Capabilities()
+	caps := r.Capabilities()
 	out := &output.Output{Files: make(map[string]string)}
 	var notes []FidelityNote
 
 	// Agents
 	if len(config.Agents) > 0 {
 		if caps.Agents {
-			files, n, err := rr.CompileAgents(config.Agents, baseDir)
+			files, n, err := r.CompileAgents(config.Agents, baseDir)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileAgents: %w", err)
 			}
@@ -46,7 +39,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	// Skills
 	if len(config.Skills) > 0 {
 		if caps.Skills {
-			files, n, err := rr.CompileSkills(config.Skills, baseDir)
+			files, n, err := r.CompileSkills(config.Skills, baseDir)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileSkills: %w", err)
 			}
@@ -67,7 +60,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	// Rules
 	if len(config.Rules) > 0 {
 		if caps.Rules {
-			files, n, err := rr.CompileRules(config.Rules, baseDir)
+			files, n, err := r.CompileRules(config.Rules, baseDir)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileRules: %w", err)
 			}
@@ -88,7 +81,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	// Workflows
 	if len(config.Workflows) > 0 {
 		if caps.Workflows {
-			files, n, err := rr.CompileWorkflows(config.Workflows, baseDir)
+			files, n, err := r.CompileWorkflows(config.Workflows, baseDir)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileWorkflows: %w", err)
 			}
@@ -115,7 +108,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	}
 	if len(mergedHooks) > 0 {
 		if caps.Hooks {
-			files, n, err := rr.CompileHooks(mergedHooks, baseDir)
+			files, n, err := r.CompileHooks(mergedHooks, baseDir)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileHooks: %w", err)
 			}
@@ -137,7 +130,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	settings, hasSettings := config.Settings["default"]
 	if hasSettings {
 		if caps.Settings {
-			files, n, err := rr.CompileSettings(settings)
+			files, n, err := r.CompileSettings(settings)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileSettings: %w", err)
 			}
@@ -156,7 +149,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	// MCP servers
 	if len(config.MCP) > 0 {
 		if caps.MCP {
-			files, n, err := rr.CompileMCP(config.MCP)
+			files, n, err := r.CompileMCP(config.MCP)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileMCP: %w", err)
 			}
@@ -177,7 +170,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	// Project instructions
 	if config.Project != nil {
 		if caps.ProjectInstructions {
-			files, n, err := rr.CompileProjectInstructions(config.Project, baseDir)
+			files, n, err := r.CompileProjectInstructions(config.Project, baseDir)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileProjectInstructions: %w", err)
 			}
@@ -194,7 +187,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	}
 
 	// Finalize: post-processing pass (path normalization, dedup, etc.)
-	finalized, finalNotes, err := rr.Finalize(out.Files)
+	finalized, finalNotes, err := r.Finalize(out.Files)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Finalize: %w", err)
 	}
