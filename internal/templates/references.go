@@ -3,8 +3,8 @@ package templates
 // RenderAgentReference returns an annotated template showing every field
 // of the agent kind with descriptions, types, defaults, and provider support notes.
 //
-// The generated content is written to xcf/references/agent.xcf.reference and
-// is NOT parsed by xcaffold. Users copy fields from this file into their
+// The generated content is written to xcf/skills/xcaffold/references/agent.xcf.reference
+// and is NOT parsed by xcaffold. Users copy fields from this file into their
 // project.xcf as needed.
 func RenderAgentReference() string {
 	return `# ============================================================
