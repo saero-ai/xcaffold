@@ -547,7 +547,8 @@ func TestRunMemoryPass_Cursor_EmitsFidelityNote(t *testing.T) {
 			},
 		},
 	}
-	seeds, notes, err := runMemoryPass(config, t.TempDir(), "cursor", t.TempDir(), nil, false, false)
+	cursorR, _ := rendererForTarget("cursor")
+	seeds, notes, err := runMemoryPass(config, cursorR, t.TempDir(), t.TempDir(), nil, false, false)
 	require.NoError(t, err)
 	require.Empty(t, seeds, "cursor memory pass must not produce lock seeds")
 	require.Len(t, notes, 1)
@@ -566,7 +567,8 @@ func TestRunMemoryPass_Antigravity_WritesKnowledgeFiles(t *testing.T) {
 			},
 		},
 	}
-	seeds, _, err := runMemoryPass(config, t.TempDir(), "antigravity", outputDir, nil, false, false)
+	antigravityR, _ := rendererForTarget("antigravity")
+	seeds, _, err := runMemoryPass(config, antigravityR, t.TempDir(), outputDir, nil, false, false)
 	require.NoError(t, err)
 	require.Len(t, seeds, 1)
 	require.Equal(t, "antigravity", seeds[0].Target)
@@ -588,7 +590,8 @@ func TestRunMemoryPass_DryRun_SkipsWrites(t *testing.T) {
 			},
 		},
 	}
-	seeds, _, err := runMemoryPass(config, t.TempDir(), "antigravity", outputDir, nil, true, false)
+	antigravityR, _ := rendererForTarget("antigravity")
+	seeds, _, err := runMemoryPass(config, antigravityR, t.TempDir(), outputDir, nil, true, false)
 	require.NoError(t, err)
 	require.Empty(t, seeds, "dry-run must not produce seeds")
 
@@ -601,7 +604,8 @@ func TestRunMemoryPass_DryRun_SkipsWrites(t *testing.T) {
 // when the config declares no memory entries.
 func TestRunMemoryPass_NoMemoryEntries_NoOp(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
-	seeds, notes, err := runMemoryPass(config, t.TempDir(), "claude", t.TempDir(), nil, false, false)
+	claudeR, _ := rendererForTarget("claude")
+	seeds, notes, err := runMemoryPass(config, claudeR, t.TempDir(), t.TempDir(), nil, false, false)
 	require.NoError(t, err)
 	require.Empty(t, seeds)
 	require.Empty(t, notes)
@@ -622,7 +626,8 @@ func TestRunMemoryPass_DryRun_Claude_LogsIntent(t *testing.T) {
 	rPipe, wPipe, _ := os.Pipe()
 	os.Stderr = wPipe
 
-	seeds, _, err := runMemoryPass(config, t.TempDir(), "claude", t.TempDir(), nil, true, false)
+	claudeR, _ := rendererForTarget("claude")
+	seeds, _, err := runMemoryPass(config, claudeR, t.TempDir(), t.TempDir(), nil, true, false)
 	wPipe.Close()
 	os.Stderr = origStderr
 
@@ -648,7 +653,8 @@ func TestRunMemoryPass_Gemini_WritesGeminiMD(t *testing.T) {
 		},
 	}
 
-	seeds, notes, err := runMemoryPass(config, t.TempDir(), targetGemini, t.TempDir(), nil, false, false)
+	geminiR, _ := rendererForTarget(targetGemini)
+	seeds, notes, err := runMemoryPass(config, geminiR, t.TempDir(), t.TempDir(), nil, false, false)
 	require.NoError(t, err)
 	// Gemini does not record seeds in the state file.
 	require.Empty(t, seeds)
@@ -675,7 +681,8 @@ func TestRunMemoryPass_Gemini_UnsupportedTarget_NoLongerErrors(t *testing.T) {
 		},
 	}
 
-	_, _, err := runMemoryPass(config, t.TempDir(), targetGemini, t.TempDir(), nil, false, false)
+	geminiR, _ := rendererForTarget(targetGemini)
+	_, _, err := runMemoryPass(config, geminiR, t.TempDir(), t.TempDir(), nil, false, false)
 	require.NoError(t, err, "gemini target must not return unsupported-target error")
 }
 

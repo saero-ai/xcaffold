@@ -48,6 +48,14 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		SkillSubdirs:        []string{"references", "scripts", "assets"},
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
+		SecurityFields: renderer.SecurityFieldSupport{
+			Permissions:     true,
+			Sandbox:         true,
+			PermissionMode:  true,
+			DisallowedTools: true,
+			Isolation:       true,
+			Effort:          true,
+		},
 	}
 }
 
@@ -216,6 +224,33 @@ func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDi
 	}
 
 	return files, notes, nil
+}
+
+// CompileMemory delegates to MemoryRenderer, respecting lifecycle and drift
+// detection options carried in opts.
+func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opts renderer.MemoryOptions) (map[string]string, []renderer.FidelityNote, error) {
+	if len(config.Memory) == 0 {
+		return map[string]string{}, nil, nil
+	}
+	memDir := opts.OutputDir
+	if memDir == "" {
+		// No output directory — caller is in compile-only mode (e.g., the
+		// orchestrator dry path). Return empty output; no disk writes occur.
+		return map[string]string{}, nil, nil
+	}
+	mr := NewMemoryRenderer(memDir).WithReseed(opts.Reseed)
+	var out *output.Output
+	var notes []renderer.FidelityNote
+	var err error
+	if len(opts.PriorHashes) > 0 {
+		out, notes, err = mr.CompileWithPriorSeeds(config, baseDir, opts.PriorHashes)
+	} else {
+		out, notes, err = mr.Compile(config, baseDir)
+	}
+	if err != nil {
+		return nil, notes, err
+	}
+	return out.Files, notes, nil
 }
 
 // Finalize merges staged hooks and settings.MCPServers into their target output

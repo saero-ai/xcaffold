@@ -59,6 +59,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		SkillSubdirs:        []string{},
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
+		SecurityFields:      renderer.SecurityFieldSupport{},
 	}
 }
 
@@ -153,6 +154,21 @@ func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDi
 	cfg := &ast.XcaffoldConfig{Project: project}
 	notes := r.renderProjectInstructions(cfg, baseDir, files)
 	return files, notes, nil
+}
+
+// CompileMemory delegates to MemoryRenderer. Copilot has no native per-file
+// memory primitive; the renderer emits FidelityNotes advising use of
+// .github/copilot-instructions.md.
+func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opts renderer.MemoryOptions) (map[string]string, []renderer.FidelityNote, error) {
+	if len(config.Memory) == 0 {
+		return map[string]string{}, nil, nil
+	}
+	mr := NewMemoryRenderer()
+	out, notes, err := mr.Compile(config, baseDir)
+	if err != nil {
+		return nil, notes, err
+	}
+	return out.Files, notes, nil
 }
 
 // Finalize is a no-op for the Copilot renderer — no post-processing is required.

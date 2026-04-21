@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/renderer"
@@ -214,6 +215,37 @@ func groundTruthDir(t *testing.T) string {
 // ResolveModel for a known alias actually exists in the verified ground truth
 // models database. If the ground truth files are absent (e.g. in CI without the
 // full monorepo checkout), the test is skipped rather than failed.
+func TestProviderFeatures_SecurityFields(t *testing.T) {
+	cases := []struct {
+		target          string
+		renderer        renderer.TargetRenderer
+		permissions     bool
+		sandbox         bool
+		permissionMode  bool
+		disallowedTools bool
+		isolation       bool
+		effort          bool
+	}{
+		{"claude", claude.New(), true, true, true, true, true, true},
+		{"cursor", cursor.New(), false, false, false, false, false, true},
+		{"gemini", gemini.New(), false, false, false, false, false, false},
+		{"copilot", copilot.New(), false, false, false, false, false, false},
+		{"antigravity", antigravity.New(), false, false, false, false, false, true},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.target, func(t *testing.T) {
+			sf := tc.renderer.Capabilities().SecurityFields
+			assert.Equal(t, tc.permissions, sf.Permissions, "Permissions")
+			assert.Equal(t, tc.sandbox, sf.Sandbox, "Sandbox")
+			assert.Equal(t, tc.permissionMode, sf.PermissionMode, "PermissionMode")
+			assert.Equal(t, tc.disallowedTools, sf.DisallowedTools, "DisallowedTools")
+			assert.Equal(t, tc.isolation, sf.Isolation, "Isolation")
+			assert.Equal(t, tc.effort, sf.Effort, "Effort")
+		})
+	}
+}
+
 func TestResolveModel_GroundTruthBinding(t *testing.T) {
 	dir := groundTruthDir(t)
 	dbPath := filepath.Join(dir, "models.json")
@@ -272,5 +304,130 @@ func TestResolveModel_GroundTruthBinding(t *testing.T) {
 					alias, target, resolved, target)
 			})
 		}
+	}
+}
+
+func TestProviderFeatures_SkillFrontmatter_GroundTruth(t *testing.T) {
+	dir := groundTruthDir(t)
+	dbPath := filepath.Join(dir, "skills.json")
+
+	data, err := os.ReadFile(dbPath)
+	if os.IsNotExist(err) {
+		t.Skipf("ground truth database not found at %s; skipping", dbPath)
+	}
+	require.NoError(t, err)
+
+	var db struct {
+		Records []struct {
+			Category string `json:"category"`
+			Aspect   string `json:"aspect"`
+			Provider string `json:"provider"`
+			Value    string `json:"value"`
+		} `json:"records"`
+	}
+	require.NoError(t, json.Unmarshal(data, &db))
+
+	providerFields := make(map[string]map[string]bool)
+	for _, rec := range db.Records {
+		if rec.Category != "Frontmatter" {
+			continue
+		}
+		if providerFields[rec.Provider] == nil {
+			providerFields[rec.Provider] = make(map[string]bool)
+		}
+		supported := !strings.Contains(strings.ToLower(rec.Value), "not supported") &&
+			!strings.Contains(strings.ToLower(rec.Value), "no native")
+		providerFields[rec.Provider][rec.Aspect] = supported
+	}
+
+	for provider, fields := range providerFields {
+		provider, fields := provider, fields
+		t.Run(provider, func(t *testing.T) {
+			assert.NotEmpty(t, fields, "expected frontmatter field data for %s", provider)
+		})
+	}
+}
+
+func TestProviderFeatures_Capabilities_GroundTruthConsistency(t *testing.T) {
+	dir := groundTruthDir(t)
+
+	resourceFiles := []string{"agents.json", "skills.json", "rules.json", "hooks.json", "memory.json"}
+
+	providerTargetName := map[string]string{
+		"Claude Code":    "claude",
+		"Gemini CLI":     "gemini",
+		"GitHub Copilot": "copilot",
+		"Cursor":         "cursor",
+		"Antigravity":    "antigravity",
+	}
+
+	providerSupport := make(map[string]map[string]bool)
+
+	for _, fname := range resourceFiles {
+		data, err := os.ReadFile(filepath.Join(dir, fname))
+		if os.IsNotExist(err) {
+			continue
+		}
+		require.NoError(t, err)
+
+		var db struct {
+			Records []struct {
+				Category string `json:"category"`
+				Aspect   string `json:"aspect"`
+				Provider string `json:"provider"`
+				Value    string `json:"value"`
+			} `json:"records"`
+		}
+		require.NoError(t, json.Unmarshal(data, &db))
+
+		resource := strings.TrimSuffix(fname, ".json")
+		for _, rec := range db.Records {
+			if rec.Category == "Architecture" && rec.Aspect == "Native Support" {
+				target, ok := providerTargetName[rec.Provider]
+				if !ok {
+					continue
+				}
+				if providerSupport[target] == nil {
+					providerSupport[target] = make(map[string]bool)
+				}
+				supported := !strings.Contains(strings.ToLower(rec.Value), "not supported") &&
+					!strings.Contains(strings.ToLower(rec.Value), "no native")
+				providerSupport[target][resource] = supported
+			}
+		}
+	}
+
+	renderers := map[string]renderer.TargetRenderer{
+		"claude":      claude.New(),
+		"cursor":      cursor.New(),
+		"gemini":      gemini.New(),
+		"copilot":     copilot.New(),
+		"antigravity": antigravity.New(),
+	}
+
+	for target, r := range renderers {
+		target, r := target, r
+		caps := r.Capabilities()
+		gtSupport, ok := providerSupport[target]
+		if !ok {
+			continue
+		}
+		t.Run(target, func(t *testing.T) {
+			if v, exists := gtSupport["agents"]; exists {
+				assert.Equal(t, v, caps.Agents, "Agents capability mismatch for %s", target)
+			}
+			if v, exists := gtSupport["skills"]; exists {
+				assert.Equal(t, v, caps.Skills, "Skills capability mismatch for %s", target)
+			}
+			if v, exists := gtSupport["rules"]; exists {
+				assert.Equal(t, v, caps.Rules, "Rules capability mismatch for %s", target)
+			}
+			if v, exists := gtSupport["hooks"]; exists {
+				assert.Equal(t, v, caps.Hooks, "Hooks capability mismatch for %s", target)
+			}
+			if v, exists := gtSupport["memory"]; exists {
+				assert.Equal(t, v, caps.Memory, "Memory capability mismatch for %s", target)
+			}
+		})
 	}
 }

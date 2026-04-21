@@ -3,8 +3,6 @@ package copilot
 import (
 	"encoding/json"
 	"fmt"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -22,8 +20,7 @@ func init() {
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
 type CopilotImporter struct {
-	Warnings     []string
-	visitedLinks map[string]bool
+	Warnings []string
 }
 
 // New returns a new CopilotImporter.
@@ -97,44 +94,7 @@ func (c *CopilotImporter) Extract(rel string, data []byte, config *ast.XcaffoldC
 // file) abort the walk.
 func (c *CopilotImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	c.Warnings = c.Warnings[:0]
-	c.visitedLinks = make(map[string]bool)
-	return filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-
-		// Symlinks to directories: resolve and walk if target is a directory.
-		if d.Type()&fs.ModeSymlink != 0 {
-			target, err := filepath.EvalSymlinks(path)
-			if err != nil {
-				c.Warnings = append(c.Warnings, fmt.Sprintf("resolving symlink %q: %v", path, err))
-				return nil
-			}
-			info, err := os.Stat(target)
-			if err != nil {
-				c.Warnings = append(c.Warnings, fmt.Sprintf("stat symlink target %q: %v", target, err))
-				return nil
-			}
-			if info.IsDir() {
-				return c.importSymlinkedDir(path, dir, config)
-			}
-		}
-
-		rel, err := filepath.Rel(dir, path)
-		if err != nil {
-			return fmt.Errorf("copilot: rel path: %w", err)
-		}
-		rel = filepath.ToSlash(rel)
-
-		data, err := importer.ReadFile(path)
-		if err != nil {
-			c.Warnings = append(c.Warnings, fmt.Sprintf("read %q: %v", rel, err))
-			return nil
-		}
-
+	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
 		kind, _ := c.Classify(rel, false)
 		if kind == importer.KindUnknown {
 			if config.ProviderExtras == nil {
@@ -146,80 +106,6 @@ func (c *CopilotImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 			config.ProviderExtras["copilot"][rel] = data
 			return nil
 		}
-
-		if extractErr := c.Extract(rel, data, config); extractErr != nil {
-			if config.ProviderExtras == nil {
-				config.ProviderExtras = make(map[string]map[string][]byte)
-			}
-			if config.ProviderExtras["copilot"] == nil {
-				config.ProviderExtras["copilot"] = make(map[string][]byte)
-			}
-			config.ProviderExtras["copilot"][rel] = data
-			c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
-		}
-		return nil
-	})
-}
-
-// importSymlinkedDir walks a symlinked directory and imports its contents.
-func (c *CopilotImporter) importSymlinkedDir(symlinkPath, importRoot string, config *ast.XcaffoldConfig) error {
-	target, err := filepath.EvalSymlinks(symlinkPath)
-	if err != nil {
-		return nil
-	}
-	if c.visitedLinks[target] {
-		return nil
-	}
-	c.visitedLinks[target] = true
-
-	symlinkRel, err := filepath.Rel(importRoot, symlinkPath)
-	if err != nil {
-		return nil
-	}
-	return filepath.WalkDir(target, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return nil
-		}
-		if d.IsDir() {
-			return nil
-		}
-		if d.Type()&fs.ModeSymlink != 0 {
-			resolved, err := filepath.EvalSymlinks(path)
-			if err != nil {
-				return nil
-			}
-			info, err := os.Stat(resolved)
-			if err != nil {
-				return nil
-			}
-			if info.IsDir() {
-				return c.importSymlinkedDir(path, importRoot, config)
-			}
-		}
-		relToTarget, err := filepath.Rel(target, path)
-		if err != nil {
-			return nil
-		}
-		rel := filepath.ToSlash(filepath.Join(symlinkRel, relToTarget))
-
-		data, err := importer.ReadFile(path)
-		if err != nil {
-			c.Warnings = append(c.Warnings, fmt.Sprintf("read %q: %v", rel, err))
-			return nil
-		}
-
-		kind, _ := c.Classify(rel, false)
-		if kind == importer.KindUnknown {
-			if config.ProviderExtras == nil {
-				config.ProviderExtras = make(map[string]map[string][]byte)
-			}
-			if config.ProviderExtras["copilot"] == nil {
-				config.ProviderExtras["copilot"] = make(map[string][]byte)
-			}
-			config.ProviderExtras["copilot"][rel] = data
-			return nil
-		}
-
 		if extractErr := c.Extract(rel, data, config); extractErr != nil {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
