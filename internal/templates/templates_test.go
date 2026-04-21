@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,27 +27,38 @@ func TestListTemplates(t *testing.T) {
 }
 
 func TestRenderTemplate_RESTAPI(t *testing.T) {
-	content, err := Render("rest-api", "my-service", "claude-sonnet-4-6")
+	config, err := Render("rest-api", "my-service", "claude-sonnet-4-6")
 	require.NoError(t, err)
-	assert.Contains(t, content, "my-service")
-	assert.Contains(t, content, "claude-sonnet-4-6")
-	assert.Contains(t, content, "agents:")
-	assert.Contains(t, content, "skills:")
-	assert.Contains(t, content, "rules:")
+	require.NotNil(t, config)
+	require.NotNil(t, config.Project)
+	assert.Equal(t, "my-service", config.Project.Name)
+	require.Contains(t, config.Agents, "backend")
+	assert.Equal(t, "claude-sonnet-4-6", config.Agents["backend"].Model)
+	assert.NotEmpty(t, config.Agents["backend"].Instructions)
+	assert.NotEmpty(t, config.Skills)
+	assert.NotEmpty(t, config.Rules)
 }
 
 func TestRenderTemplate_CLITool(t *testing.T) {
-	content, err := Render("cli-tool", "my-cli", "claude-sonnet-4-6")
+	config, err := Render("cli-tool", "my-cli", "claude-sonnet-4-6")
 	require.NoError(t, err)
-	assert.Contains(t, content, "my-cli")
-	assert.Contains(t, content, "agents:")
+	require.NotNil(t, config)
+	require.NotNil(t, config.Project)
+	assert.Equal(t, "my-cli", config.Project.Name)
+	require.Contains(t, config.Agents, "developer")
+	assert.Equal(t, "claude-sonnet-4-6", config.Agents["developer"].Model)
+	assert.NotEmpty(t, config.Agents["developer"].Instructions)
 }
 
 func TestRenderTemplate_FrontendApp(t *testing.T) {
-	content, err := Render("frontend-app", "my-app", "claude-sonnet-4-6")
+	config, err := Render("frontend-app", "my-app", "claude-sonnet-4-6")
 	require.NoError(t, err)
-	assert.Contains(t, content, "my-app")
-	assert.Contains(t, content, "agents:")
+	require.NotNil(t, config)
+	require.NotNil(t, config.Project)
+	assert.Equal(t, "my-app", config.Project.Name)
+	require.Contains(t, config.Agents, "frontend")
+	assert.Equal(t, "claude-sonnet-4-6", config.Agents["frontend"].Model)
+	assert.NotEmpty(t, config.Agents["frontend"].Instructions)
 }
 
 func TestRenderTemplate_Unknown(t *testing.T) {
@@ -55,49 +67,91 @@ func TestRenderTemplate_Unknown(t *testing.T) {
 	assert.Contains(t, err.Error(), "nonexistent")
 }
 
-func TestRenderTemplates_SkillBlock_UsesAllowedToolsName(t *testing.T) {
+// TestRenderTemplate_RESTAPI_Resources verifies the REST API template includes
+// the expected skills and rules in the resource scope.
+func TestRenderTemplate_RESTAPI_Resources(t *testing.T) {
+	config, err := Render("rest-api", "my-api", "sonnet")
+	require.NoError(t, err)
+	require.NotNil(t, config)
+
+	// Agent must reference skills and rules
+	backend := config.Agents["backend"]
+	assert.Contains(t, backend.Skills, "api-testing")
+	assert.Contains(t, backend.Rules, "api-conventions")
+	assert.Equal(t, "high", backend.Effort)
+	assert.Contains(t, backend.Tools, "Bash")
+
+	// Skill must exist at scope level
+	require.Contains(t, config.Skills, "api-testing")
+	assert.NotEmpty(t, config.Skills["api-testing"].Instructions)
+
+	// Rule must exist at scope level
+	require.Contains(t, config.Rules, "api-conventions")
+	assert.NotEmpty(t, config.Rules["api-conventions"].Instructions)
+}
+
+// TestRenderTemplate_CLITool_Resources verifies the CLI Tool template includes
+// the expected rules in the resource scope.
+func TestRenderTemplate_CLITool_Resources(t *testing.T) {
+	config, err := Render("cli-tool", "my-cli", "sonnet")
+	require.NoError(t, err)
+	require.NotNil(t, config)
+
+	dev := config.Agents["developer"]
+	assert.Contains(t, dev.Rules, "cli-conventions")
+	assert.Equal(t, "high", dev.Effort)
+
+	require.Contains(t, config.Rules, "cli-conventions")
+	assert.NotEmpty(t, config.Rules["cli-conventions"].Instructions)
+}
+
+// TestRenderTemplate_FrontendApp_Resources verifies the frontend-app template
+// includes the expected skills and rules in the resource scope.
+func TestRenderTemplate_FrontendApp_Resources(t *testing.T) {
+	config, err := Render("frontend-app", "my-app", "sonnet")
+	require.NoError(t, err)
+	require.NotNil(t, config)
+
+	fe := config.Agents["frontend"]
+	assert.Contains(t, fe.Skills, "component-testing")
+	assert.Contains(t, fe.Rules, "frontend-conventions")
+	assert.Equal(t, "high", fe.Effort)
+
+	require.Contains(t, config.Skills, "component-testing")
+	assert.NotEmpty(t, config.Skills["component-testing"].Instructions)
+
+	require.Contains(t, config.Rules, "frontend-conventions")
+	assert.NotEmpty(t, config.Rules["frontend-conventions"].Instructions)
+}
+
+// TestRenderTemplate_Version verifies all topology templates set Version: "1.0".
+func TestRenderTemplate_Version(t *testing.T) {
 	for _, id := range []string{"rest-api", "cli-tool", "frontend-app"} {
-		out, err := Render(id, "test-project", "sonnet")
-		require.NoError(t, err)
-		// If template has a skills: section, skill entries must not use the legacy
-		// 'tools:' key (the canonical key is 'allowed-tools:'). Agents are allowed
-		// to keep 'tools:' — we check only within the skills: block.
-		if idx := strings.Index(out, "\nskills:"); idx != -1 {
-			skillsBlock := out[idx:]
-			// Find the next top-level section (line starting with a non-space char after skills:).
-			// Any 'tools:' inside the skills block is the legacy key.
-			require.NotContains(t, skillsBlock, "\n  allowed-tools: ", "internal check: template %q uses old key", id)
-			// Confirm no 'tools:' appears as a skill-level field (indented under a skill entry).
-			// Skill entries are indented by 4 spaces; agent 'tools:' is at 4-space indent too
-			// but appears before the skills: section. After splitting at skills:, any '    tools:'
-			// would belong to a skill entry.
-			require.NotContains(t, skillsBlock, "\n    tools:", "template %q has legacy 'tools:' inside a skill entry", id)
-		}
+		config, err := Render(id, "proj", "model")
+		require.NoError(t, err, "template %q", id)
+		assert.Equal(t, "1.0", config.Version, "template %q must have version 1.0", id)
 	}
 }
 
-func TestRenderTemplate_CanonicalFieldOrdering(t *testing.T) {
-	content, err := Render("rest-api", "my-api", "sonnet")
-	require.NoError(t, err)
-
-	orderedKeys := []string{
-		"    description:",
-		"    model:",
-		"    effort:",
-		"    tools:",
-		"    skills:",
-		"    rules:",
-		"    instructions:",
+// TestRenderTemplate_ProjectDescription verifies all topology templates populate
+// a non-empty project description.
+func TestRenderTemplate_ProjectDescription(t *testing.T) {
+	for _, id := range []string{"rest-api", "cli-tool", "frontend-app"} {
+		config, err := Render(id, "proj", "model")
+		require.NoError(t, err, "template %q", id)
+		require.NotNil(t, config.Project, "template %q must have a Project", id)
+		assert.NotEmpty(t, config.Project.Description, "template %q must have a project description", id)
 	}
+}
 
-	lastIdx := -1
-	for _, key := range orderedKeys {
-		idx := strings.Index(content, key)
-		if idx == -1 {
-			continue
+// TestRenderTemplate_AgentTools verifies topology template agents declare tools.
+func TestRenderTemplate_AgentTools(t *testing.T) {
+	for _, id := range []string{"rest-api", "cli-tool", "frontend-app"} {
+		config, err := Render(id, "proj", "model")
+		require.NoError(t, err, "template %q", id)
+		for name, agent := range config.Agents {
+			assert.NotEmpty(t, agent.Tools, "agent %q in template %q must declare tools", name, id)
 		}
-		require.Greater(t, idx, lastIdx, "key %q appeared before a prior key in rest-api template", key)
-		lastIdx = idx
 	}
 }
 
@@ -216,3 +270,9 @@ func TestRenderPolicyInstructionsXCF(t *testing.T) {
 	// Single-document YAML — no multi-doc separator
 	assert.NotContains(t, out, "\n---\n")
 }
+
+// compile-time check: Render returns *ast.XcaffoldConfig.
+var _ *ast.XcaffoldConfig = func() *ast.XcaffoldConfig {
+	cfg, _ := Render("rest-api", "", "")
+	return cfg
+}()

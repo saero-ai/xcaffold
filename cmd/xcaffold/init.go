@@ -362,12 +362,16 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 	// ── Build project.xcf content ──────────────────────────────────────────
 	if templateFlag != "" {
 		model, _ := resolveTargetMeta(ans.targets[0])
-		content, err := templates.Render(templateFlag, ans.name, model)
+		config, err := templates.Render(templateFlag, ans.name, model)
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(xcfFile, []byte(content), 0600); err != nil {
-			return fmt.Errorf("failed to create %s: %w", xcfFile, err)
+		// Propagate wizard-selected targets into the config.
+		if config.Project != nil {
+			config.Project.Targets = ans.targets
+		}
+		if err := WriteSplitFiles(config, cwd); err != nil {
+			return fmt.Errorf("failed to scaffold directory: %w", err)
 		}
 	} else {
 		if err := writeXCFDirectory(cwd, ans); err != nil {
