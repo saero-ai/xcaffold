@@ -192,23 +192,42 @@ type groundTruthModelsDB struct {
 }
 
 // groundTruthDir returns the path to the ground truth database directory.
-// It walks up from this source file to find the project root, then descends
-// into docs/agentic/data/ground_truth/db/. Falls back to the
-// XCAFFOLD_GROUND_TRUTH_DIR environment variable if set.
+// It walks up from this source file to find the Go module root (go.mod), then
+// goes one level further to reach the monorepo root where docs/ lives. Falls
+// back to the XCAFFOLD_GROUND_TRUTH_DIR environment variable if set.
+//
+// This approach handles both the main working tree and any worktree checkout
+// without hard-coding a fixed level count.
 func groundTruthDir(t *testing.T) string {
 	t.Helper()
 	if dir := os.Getenv("XCAFFOLD_GROUND_TRUTH_DIR"); dir != "" {
 		return dir
 	}
-	// __FILE__ is internal/renderer/provider_features_test.go inside the worktree.
-	// We climb 5 levels to reach the monorepo root where docs/ lives.
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Skip("cannot determine source file path; skipping ground truth binding test")
 	}
-	// file -> internal/renderer -> worktree root -> .worktrees -> xcaffold root -> project root
-	root := filepath.Join(filepath.Dir(file), "..", "..", "..", "..", "..")
-	return filepath.Join(root, "docs", "agentic", "data", "ground_truth", "db")
+	// Walk up from the source file's directory until we find go.mod (the Go
+	// module root, i.e. xcaffold/). The monorepo root (xcaffold-project/) is
+	// one level above that, and docs/ lives there.
+	dir := filepath.Dir(file)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			// dir is now xcaffold/ — parent is the monorepo root.
+			root := filepath.Dir(dir)
+			candidate := filepath.Join(root, "docs", "agentic", "data", "ground_truth", "db")
+			if _, err := os.Stat(candidate); err != nil {
+				t.Skipf("ground truth directory not found at %s; skipping binding test", candidate)
+			}
+			return candidate
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached filesystem root without finding go.mod.
+			t.Skip("could not locate go.mod walking up from source file; skipping ground truth binding test")
+		}
+		dir = parent
+	}
 }
 
 // TestResolveModel_GroundTruthBinding verifies that every model ID produced by

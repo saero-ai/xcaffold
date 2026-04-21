@@ -799,17 +799,25 @@ func cleanEmptyDirsUpToTarget(dir, targetDir string) {
 // without native memory), fidelity notes to print, and an error if a hard
 // failure occurred (e.g., drift detected without --reseed for tracked
 // lifecycle entries on the Claude target).
-//
-// Constructor dispatch (which MemoryRenderer to instantiate) is eliminated:
-// all paths call r.CompileMemory(). The remaining switch handles genuinely
-// different pre/post-processing: directory resolution, dry-run messages,
-// seed extraction from the claude renderer, and antigravity file writes.
 func runMemoryPass(config *ast.XcaffoldConfig, r renderer.TargetRenderer, baseDir, outputDir string, priorSeeds []state.MemorySeed, dryRun, reseed bool) ([]state.MemorySeed, []renderer.FidelityNote, error) {
 	if config == nil || len(config.Memory) == 0 {
 		return nil, nil, nil
 	}
 
 	target := r.Target()
+
+	// Resolve the provider-specific memory output directory. Providers that do
+	// not write memory to disk (cursor, copilot) receive an empty string and
+	// CompileMemory is expected to treat that as a no-op / notes-only path.
+	memDir, err := resolveMemoryOutputDir(target, baseDir, outputDir)
+	if err != nil {
+		return nil, nil, fmt.Errorf("memory pass: %w", err)
+	}
+
+	if dryRun {
+		fmt.Fprintf(os.Stderr, "[DRY-RUN] would compile %d memory entries for %s (dir: %s)\n", len(config.Memory), target, memDir)
+		return nil, nil, nil
+	}
 
 	// Build prior-hash map scoped to this target for drift detection.
 	priorHashes := make(map[string]string, len(priorSeeds))
@@ -819,65 +827,45 @@ func runMemoryPass(config *ast.XcaffoldConfig, r renderer.TargetRenderer, baseDi
 		}
 	}
 
-	switch target {
-	case targetClaude:
-		memDir, err := claudeProjectMemoryDir(baseDir)
-		if err != nil {
-			return nil, nil, fmt.Errorf("memory pass: %w", err)
-		}
-		if dryRun {
-			fmt.Fprintf(os.Stderr, "[DRY-RUN] would seed %d memory entries to %s\n", len(config.Memory), memDir)
-			return nil, nil, nil
-		}
-		opts := renderer.MemoryOptions{
-			OutputDir:   memDir,
-			PriorHashes: priorHashes,
-			Reseed:      reseed,
-		}
-		_, notes, err := r.CompileMemory(config, baseDir, opts)
-		if err != nil {
-			return nil, notes, err
-		}
-		// Seeds are tracked inside the claude MemoryRenderer instantiated by
-		// CompileMemory. Seed extraction will be wired when CompileMemory is
-		// enhanced to expose the produced seeds; return nil for now.
-		return nil, notes, nil
-
-	case targetGemini:
-		geminiDir, err := geminiMemoryDir()
-		if err != nil {
-			return nil, nil, fmt.Errorf("memory pass: %w", err)
-		}
-		if dryRun {
-			fmt.Fprintf(os.Stderr, "[DRY-RUN] would seed %d memory entries to %s/GEMINI.md\n", len(config.Memory), geminiDir)
-			return nil, nil, nil
-		}
-		opts := renderer.MemoryOptions{OutputDir: geminiDir}
-		_, notes, err := r.CompileMemory(config, baseDir, opts)
+	opts := renderer.MemoryOptions{
+		OutputDir:   memDir,
+		PriorHashes: priorHashes,
+		Reseed:      reseed,
+	}
+	files, notes, err := r.CompileMemory(config, baseDir, opts)
+	if err != nil {
 		return nil, notes, err
+	}
 
-	case targetAntigravity:
-		if dryRun {
-			fmt.Fprintf(os.Stderr, "[DRY-RUN] would write %d knowledge items to %s\n", len(config.Memory), outputDir)
-			return nil, nil, nil
-		}
-		opts := renderer.MemoryOptions{OutputDir: outputDir}
-		files, notes, err := r.CompileMemory(config, baseDir, opts)
-		if err != nil {
-			return nil, notes, err
-		}
+	// Antigravity requires a post-compile disk-write pass: CompileMemory returns
+	// the knowledge items as an in-memory map; writeAntigravityKnowledgeItems
+	// materialises them to disk and produces state seeds for the lock file.
+	if target == targetAntigravity {
 		seeds, writeErr := writeAntigravityKnowledgeItems(outputDir, files)
 		return seeds, notes, writeErr
+	}
 
+	// Seeds are tracked inside the claude MemoryRenderer instantiated by
+	// CompileMemory. Seed extraction will be wired when CompileMemory is
+	// enhanced to expose the produced seeds; return nil for now.
+	return nil, notes, nil
+}
+
+// resolveMemoryOutputDir returns the filesystem directory that the memory
+// renderer for the given provider should write into. For providers without
+// native memory persistence (cursor, copilot) it returns an empty string so
+// that CompileMemory operates in notes-only mode.
+func resolveMemoryOutputDir(provider, baseDir, fallbackOutputDir string) (string, error) {
+	switch provider {
+	case targetClaude:
+		return claudeProjectMemoryDir(baseDir)
+	case targetGemini:
+		return geminiMemoryDir()
+	case targetAntigravity:
+		return fallbackOutputDir, nil
 	default:
-		// cursor, copilot — emit fidelity notes only, no disk writes needed.
-		if dryRun {
-			fmt.Fprintf(os.Stderr, "[DRY-RUN] would compile %d memory entries for %s\n", len(config.Memory), target)
-			return nil, nil, nil
-		}
-		opts := renderer.MemoryOptions{}
-		_, notes, err := r.CompileMemory(config, baseDir, opts)
-		return nil, notes, err
+		// cursor, copilot — no disk memory directory.
+		return "", nil
 	}
 }
 
