@@ -1384,3 +1384,28 @@ func TestCompileCursorRule_LegacyAlwaysApply_False(t *testing.T) {
 	content := out.Files["rules/manual.mdc"]
 	require.Contains(t, content, "always-apply: false")
 }
+
+func TestCompile_SkillWithExamples_Cursor(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "examples"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample"), 0o644))
+
+	skills := map[string]ast.SkillConfig{
+		"my-skill": {
+			Description:  "test",
+			Instructions: "Do the thing.",
+			Examples:     []string{"examples/sample.md"},
+		},
+	}
+
+	r := cursor.New()
+	files, _, err := r.CompileSkills(skills, tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Cursor: examples collapse into references/
+	if _, ok := files["skills/my-skill/references/sample.md"]; !ok {
+		t.Errorf("expected examples collapsed into references/, got keys: %v", renderer.SortedKeys(files))
+	}
+}

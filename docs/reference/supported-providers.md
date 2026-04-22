@@ -64,7 +64,7 @@ Skills may declare `references/`, `scripts/`, `assets/`, and `examples/` subdire
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `references/` | `references/` | `references/` | `references/` | co-located | &rarr; `examples/` |
 | `scripts/` | `scripts/` | `scripts/` | `scripts/` | co-located | `scripts/` |
-| `assets/` | FidelityNote | `assets/` | `assets/` | co-located | &rarr; `resources/` |
+| `assets/` | `assets/` | `assets/` | `assets/` | co-located | &rarr; `resources/` |
 | `examples/` | flat | &rarr; `references/` | &rarr; `references/` | co-located | `examples/` |
 
 - **co-located** — Copilot flattens all subdirectory contents alongside `SKILL.md`.

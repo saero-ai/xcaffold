@@ -227,7 +227,7 @@ Skills support four canonical subdirectories (`references/`, `scripts/`, `assets
 |---|---|---|---|---|---|
 | `references/` | `references/` | `references/` | `references/` | co-located | `examples/` |
 | `scripts/` | `scripts/` | `scripts/` | `scripts/` | co-located | `scripts/` |
-| `assets/` | FidelityNote | `assets/` | `assets/` | co-located | `resources/` |
+| `assets/` | `assets/` | `assets/` | `assets/` | co-located | `resources/` |
 | `examples/` | flat alongside SKILL.md | collapse into `references/` | collapse into `references/` | co-located | `examples/` |
 
 **FidelityNote (unsupported).** When a canonical subdirectory has no equivalent in the target provider, the renderer emits a `FidelityNote` with code `FIELD_UNSUPPORTED` and drops the files. Claude Code does not support `assets/` — placing files there produces a fidelity warning, not an error. Compilation succeeds; the warning informs the user that those files were not emitted.

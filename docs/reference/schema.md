@@ -599,7 +599,7 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 | `references` | `[]string` | Optional | Supporting files or glob patterns. Resolved relative to `project.xcf`. Copied to `skills/<id>/references/` during compilation. |
 | `scripts` | `[]string` | Optional | Executable helper files. Resolved relative to `project.xcf`. Copied to `skills/<id>/scripts/` during compilation. |
 | `assets` | `[]string` | Optional | Output artifact files like templates or icons. Resolved relative to `project.xcf`. Copied to `skills/<id>/assets/` during compilation. |
-| `examples` | `[]string` | Optional | Demonstration files showing correct output patterns. Resolved relative to `project.xcf`. Copied to `skills/<id>/examples/` during compilation. |
+| `examples` | `[]string` | Optional | Demonstration files showing correct output patterns. Resolved relative to `project.xcf`. Provider behavior varies: Claude and Antigravity copy to `examples/`, Gemini and Cursor collapse into `references/`, Copilot flattens alongside SKILL.md. |
 
 > [!WARNING]
 > **Cursor**: Skills support optional `scripts/`, `references/`, and `assets/` directories. These are emitted as-is during skill directory compilation.

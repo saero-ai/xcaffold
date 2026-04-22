@@ -604,7 +604,7 @@ Because the state files are independent, a drift condition in the global scope d
 
 ## Key Architectural Decisions
 
-These inline architecture decisions record the reasoning behind strict implementation choices that shape the `xcaffold` engine. Formal ADRs live in `.agents/skills/adr-management/`.
+These inline architecture decisions record the reasoning behind strict implementation choices that shape the `xcaffold` engine. Architecture decisions are documented as ADRs in the project.
 
 
 

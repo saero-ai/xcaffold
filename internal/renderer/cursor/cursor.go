@@ -106,6 +106,9 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("cursor: skill %q assets: %w", id, err)
 		}
+		if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples, baseDir, out); err != nil {
+			return nil, nil, fmt.Errorf("failed to compile examples for skill %q: %w", id, err)
+		}
 	}
 	return out.Files, nil, nil
 }
