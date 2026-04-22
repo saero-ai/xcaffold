@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -197,4 +198,30 @@ func TestProjectConfig_BlueprintRefs_Exists(t *testing.T) {
 		BlueprintRefs: []string{"backend", "frontend"},
 	}
 	require.Len(t, pc.BlueprintRefs, 2)
+}
+
+// TestSkillConfig_Examples_RoundTrip verifies that the examples: field on
+// SkillConfig is accepted by KnownFields(true) and survives a marshal/unmarshal
+// round-trip with all values intact.
+func TestSkillConfig_Examples_RoundTrip(t *testing.T) {
+	input := `examples:
+- xcf/skills/tdd/examples/basic.xcf
+- xcf/skills/tdd/examples/advanced.xcf
+`
+	var sc SkillConfig
+	dec := yaml.NewDecoder(strings.NewReader(input))
+	dec.KnownFields(true)
+	require.NoError(t, dec.Decode(&sc), "examples: must be a known field on SkillConfig")
+
+	require.Len(t, sc.Examples, 2)
+	require.Equal(t, "xcf/skills/tdd/examples/basic.xcf", sc.Examples[0])
+	require.Equal(t, "xcf/skills/tdd/examples/advanced.xcf", sc.Examples[1])
+
+	data, err := yaml.Marshal(sc)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "examples:")
+
+	var sc2 SkillConfig
+	require.NoError(t, yaml.Unmarshal(data, &sc2))
+	require.Equal(t, sc.Examples, sc2.Examples)
 }
