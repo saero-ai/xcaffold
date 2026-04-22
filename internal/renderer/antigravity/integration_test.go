@@ -17,6 +17,13 @@ import (
 // resource types (agents, hooks, MCP) in a single compilation pass and verifies
 // all AG-specific normalizations are applied correctly.
 func TestAntigravityRenderer_FullConfig(t *testing.T) {
+	// Create the files referenced by skill subdirs so CompileSkillSubdir can read them.
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "test"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "test", "spec.md"), []byte("# Spec"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "run.sh"), []byte("#!/bin/sh"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "icon.png"), []byte("PNG"), 0o644))
+
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "integration-test"},
 		ResourceScope: ast.ResourceScope{
@@ -31,8 +38,8 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 					Name:         "Deploy Skill",
 					Description:  "Handles deployment steps.",
 					Instructions: "Run the deploy pipeline.",
-					// CC-only fields that must be dropped
-					References: []string{"test/"},
+					// Subdirs are now compiled with name translation
+					References: []string{"test/spec.md"},
 					Scripts:    []string{"run.sh"},
 					Assets:     []string{"icon.png"},
 				},
@@ -72,7 +79,7 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 	}
 
 	r := antigravity.New()
-	out, _, err := renderer.Orchestrate(r, config, "")
+	out, _, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -125,9 +132,18 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 	_, hasMCPConfig := out.Files["mcp_config.json"]
 	assert.False(t, hasMCPConfig, "mcp_config.json must NOT be emitted; Antigravity reads MCP config from the global user path only")
 
+	// ── Skill subdirectories compiled with name translation ───────────────────
+	_, hasRef := out.Files["skills/deploy/examples/spec.md"]
+	assert.True(t, hasRef, "expected references compiled to examples/ subdirectory")
+	_, hasScript := out.Files["skills/deploy/scripts/run.sh"]
+	assert.True(t, hasScript, "expected scripts compiled to scripts/ subdirectory")
+	_, hasAsset := out.Files["skills/deploy/resources/icon.png"]
+	assert.True(t, hasAsset, "expected assets compiled to resources/ subdirectory")
+
 	// ── File count ────────────────────────────────────────────────────────────
-	// 2 rules + 1 skill = 3 files (agents, hooks, and MCP silently skipped/noted)
-	assert.Len(t, out.Files, 3, "expected exactly 3 output files (rules + skill); MCP, agents, and hooks are not written")
+	// 2 rules + 1 skill SKILL.md + 3 subdir files = 6 files
+	// (agents, hooks, and MCP silently skipped/noted)
+	assert.Len(t, out.Files, 6, "expected 6 output files (2 rules + 1 SKILL.md + 3 subdir files)")
 }
 
 // TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk verifies that

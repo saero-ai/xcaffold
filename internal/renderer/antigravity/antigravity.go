@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/translator"
@@ -68,6 +69,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                 true,
 		Memory:              true,
 		ProjectInstructions: true,
+		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 		RuleActivations:     []string{"always", "path-glob", "manual"},
 		SecurityFields: renderer.SecurityFieldSupport{
 			Effort: true,
@@ -120,11 +122,14 @@ func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir stri
 }
 
 // CompileSkills renders all skills to skills/<id>/SKILL.md files with minimal
-// frontmatter (name and description only). Fields not supported by Antigravity
-// (scripts, assets, references) produce fidelity notes.
+// frontmatter (name and description only). Subdirectories are compiled with
+// Antigravity-specific name translation:
+//   - references/ → examples/
+//   - scripts/    → scripts/
+//   - assets/     → resources/
+//   - examples/   → examples/
 func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
-	var notes []renderer.FidelityNote
 
 	for id, skill := range skills {
 		md, err := compileAntigravitySkill(id, skill, baseDir)
@@ -134,33 +139,27 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		files[safePath] = md
 
-		if len(skill.Scripts) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "scripts",
-				renderer.CodeSkillScriptsDropped,
-				fmt.Sprintf("skill %q scripts dropped; Antigravity does not support skill scripts/ directories", id),
-				"Move script logic into the skill instructions or use a target that supports scripts",
-			))
+		out := &output.Output{Files: make(map[string]string)}
+
+		if err := renderer.CompileSkillSubdir(id, "references", "examples", skill.References, baseDir, out); err != nil {
+			return nil, nil, fmt.Errorf("antigravity: references for skill %q: %w", id, err)
 		}
-		if len(skill.Assets) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "assets",
-				renderer.CodeSkillAssetsDropped,
-				fmt.Sprintf("skill %q assets dropped; Antigravity does not support skill assets/ directories", id),
-				"Inline asset references into the instructions body",
-			))
+		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
+			return nil, nil, fmt.Errorf("antigravity: scripts for skill %q: %w", id, err)
 		}
-		if len(skill.References) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "references",
-				renderer.CodeSkillReferencesDropped,
-				fmt.Sprintf("skill %q references dropped; Antigravity does not compile skill references/ directories", id),
-				"Inline reference content into the skill instructions body",
-			))
+		if err := renderer.CompileSkillSubdir(id, "assets", "resources", skill.Assets, baseDir, out); err != nil {
+			return nil, nil, fmt.Errorf("antigravity: assets for skill %q: %w", id, err)
+		}
+		if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples, baseDir, out); err != nil {
+			return nil, nil, fmt.Errorf("antigravity: examples for skill %q: %w", id, err)
+		}
+
+		for k, v := range out.Files {
+			files[k] = v
 		}
 	}
 
-	return files, notes, nil
+	return files, nil, nil
 }
 
 // CompileRules renders all rules to rules/<id>.md files. Rules use no YAML

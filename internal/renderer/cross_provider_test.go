@@ -186,9 +186,11 @@ func TestCrossProvider_SkillReferences(t *testing.T) {
 			require.NoError(t, err)
 
 			// Check whether any output file path looks like a references sub-file.
+			// Antigravity translates references/ → examples/ — both satisfy the invariant.
 			hasRefFile := false
 			for path := range out.Files {
-				if strings.Contains(path, "references/") || strings.Contains(path, "/references") {
+				if strings.Contains(path, "references/") || strings.Contains(path, "/references") ||
+					strings.Contains(path, "examples/") || strings.Contains(path, "/examples") {
 					hasRefFile = true
 					break
 				}
