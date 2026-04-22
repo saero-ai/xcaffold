@@ -60,7 +60,7 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 			continue
 		}
 
-		if name != xcfFile {
+		if !strings.EqualFold(name, xcfFile) {
 			result.Errors = append(result.Errors, fmt.Errorf(
 				"unrecognized file %q at skill root %q; move to references/, scripts/, assets/, or examples/ based on its purpose",
 				name, skillID))

@@ -142,6 +142,10 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	if hasErrors {
+		return fmt.Errorf("validation failed: one or more errors found")
+	}
+
 	fmt.Fprintf(os.Stdout, "\nvalidation passed\n")
 	return nil
 }

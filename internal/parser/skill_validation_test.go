@@ -84,3 +84,13 @@ func TestValidateSkillDirectory_SkillDirWithNoSubdirs(t *testing.T) {
 	assert.Empty(t, result.Errors, "skill with only .xcf and no subdirs should be valid")
 	assert.Empty(t, result.Warnings, "skill with only .xcf and no subdirs should have no warnings")
 }
+
+func TestValidateSkillDirectory_SkillMDAtRoot(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.WriteFile(filepath.Join(tmpDir, "my-skill.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, "SKILL.md"), []byte("# My Skill"), 0o644)
+
+	result := ValidateSkillDirectory(tmpDir, "my-skill")
+	require.NotEmpty(t, result.Errors, "SKILL.md at root should be rejected — only .xcf allowed")
+	assert.Contains(t, result.Errors[0].Error(), "SKILL.md")
+}
