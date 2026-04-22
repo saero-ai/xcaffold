@@ -4,5 +4,7 @@ version: "1.0"
 name: tdd
 description: "Test-driven development workflow."
 allowed-tools: [Bash, Read, Write, Edit]
+examples:
+  - xcf/skills/tdd/examples/red-green-refactor.md
 ---
 Follow TDD: Red-Green-Refactor.

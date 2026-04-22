@@ -599,6 +599,7 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 | `references` | `[]string` | Optional | Supporting files or glob patterns. Resolved relative to `project.xcf`. Copied to `skills/<id>/references/` during compilation. |
 | `scripts` | `[]string` | Optional | Executable helper files. Resolved relative to `project.xcf`. Copied to `skills/<id>/scripts/` during compilation. |
 | `assets` | `[]string` | Optional | Output artifact files like templates or icons. Resolved relative to `project.xcf`. Copied to `skills/<id>/assets/` during compilation. |
+| `examples` | `[]string` | Optional | Demonstration files showing correct output patterns. Resolved relative to `project.xcf`. Copied to `skills/<id>/examples/` during compilation. |
 
 > [!WARNING]
 > **Cursor**: Skills support optional `scripts/`, `references/`, and `assets/` directories. These are emitted as-is during skill directory compilation.
@@ -606,6 +607,8 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 > **Antigravity**: Frontmatter fields beyond `name` and `description` are dropped.
 >
 > **Gemini**: Compiled to `.gemini/skills/<id>/SKILL.md`. Frontmatter fields beyond `name` and `description` are dropped with a fidelity note.
+
+> **Validation:** Skills with subdirectories are validated at parse time. Unknown directories under `xcf/skills/<name>/` cause a parse error. Non-`.xcf` files at the skill directory root (not in a subdirectory) cause a parse error. Maximum subdirectory depth is 1 level.
 
 ---
 
