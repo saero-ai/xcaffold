@@ -135,6 +135,42 @@ func TestCompile_Gemini_Skills_ReferencesDropped(t *testing.T) {
 	assert.True(t, found, "expected SKILL_REFERENCES_DROPPED fidelity note for skill with references")
 }
 
+func TestCompile_Gemini_Skills_WithSubdirs(t *testing.T) {
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "refs", "guide.md"), []byte("# Guide"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "examples"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample"), 0o644))
+
+	skills := map[string]ast.SkillConfig{
+		"my-skill": {
+			Description:  "test",
+			Instructions: "Do the thing.",
+			References:   []string{"refs/guide.md"},
+			Examples:     []string{"examples/sample.md"},
+		},
+	}
+
+	r := New()
+	files, notes, err := r.CompileSkills(skills, tmpDir)
+	require.NoError(t, err)
+
+	if _, ok := files["skills/my-skill/references/guide.md"]; !ok {
+		t.Error("expected references/guide.md to be compiled")
+	}
+	// Examples collapse into references for Gemini
+	if _, ok := files["skills/my-skill/references/sample.md"]; !ok {
+		t.Error("expected examples collapsed into references/sample.md")
+	}
+
+	// No drop notes should be emitted when files exist
+	for _, n := range notes {
+		if n.Code == renderer.CodeSkillReferencesDropped {
+			t.Errorf("unexpected SKILL_REFERENCES_DROPPED note: %s", n.Reason)
+		}
+	}
+}
+
 func TestCompile_Gemini_Skills_Multiple(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{

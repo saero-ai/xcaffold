@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -34,7 +35,13 @@ func loadExtras(dir string, config *ast.XcaffoldConfig) error {
 // exists in the map are not overwritten (used for the legacy xcf/extras/ pass).
 func walkExtrasDir(extrasDir string, config *ast.XcaffoldConfig, skipExisting bool) error {
 	info, err := os.Stat(extrasDir)
-	if err != nil || !info.IsDir() {
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("stat extras dir %q: %w", extrasDir, err)
+	}
+	if !info.IsDir() {
 		return nil
 	}
 

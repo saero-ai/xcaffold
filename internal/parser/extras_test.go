@@ -106,6 +106,20 @@ func TestLoadExtras_ReadsFromProviderDir(t *testing.T) {
 	assert.Equal(t, wantData, cfg.ProviderExtras["claude"]["hooks/pre-commit.sh"])
 }
 
+func TestLoadExtras_FileWithoutProviderSubdir_Skipped(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(minimalScaffoldXCF), 0o644))
+
+	// Write file directly under xcf/extras/ with no provider subdirectory
+	orphanDir := filepath.Join(dir, "xcf", "extras")
+	require.NoError(t, os.MkdirAll(orphanDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(orphanDir, "orphan.sh"), []byte("#!/bin/sh"), 0o644))
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	assert.Empty(t, cfg.ProviderExtras, "file without provider subdirectory should be skipped")
+}
+
 func TestLoadExtras_PrefersProviderOverExtras(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(minimalScaffoldXCF), 0o644))
