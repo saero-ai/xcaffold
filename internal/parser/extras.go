@@ -10,19 +10,29 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 )
 
-// loadExtras reads raw provider-extra files from <dir>/xcf/extras/ into
-// config.ProviderExtras. The on-disk layout is:
+// loadExtras reads raw provider-extra files into config.ProviderExtras.
+// It checks two directories in priority order:
 //
-//	<dir>/xcf/extras/<provider>/<relpath>
+//  1. <dir>/xcf/provider/<provider>/<relpath>  (new convention, higher priority)
+//  2. <dir>/xcf/extras/<provider>/<relpath>    (legacy convention, lower priority)
 //
-// provider is the first subdirectory under extras/; relpath is everything
-// after that, always normalised to forward slashes.
+// Files found in xcf/provider/ take precedence: if the same <provider>/<relpath>
+// exists in both directories, the xcf/provider/ version is kept and the
+// xcf/extras/ version is silently ignored.
 //
-// If the extras directory does not exist the function returns nil — the
-// absence of extras is not an error.
+// If neither directory exists the function returns nil — absence of extras is
+// not an error.
 func loadExtras(dir string, config *ast.XcaffoldConfig) error {
-	extrasDir := filepath.Join(dir, "xcf", "extras")
+	if err := walkExtrasDir(filepath.Join(dir, "xcf", "provider"), config, false); err != nil {
+		return err
+	}
+	return walkExtrasDir(filepath.Join(dir, "xcf", "extras"), config, true)
+}
 
+// walkExtrasDir walks a single extras-style directory and populates
+// config.ProviderExtras.  When skipExisting is true, entries whose key already
+// exists in the map are not overwritten (used for the legacy xcf/extras/ pass).
+func walkExtrasDir(extrasDir string, config *ast.XcaffoldConfig, skipExisting bool) error {
 	info, err := os.Stat(extrasDir)
 	if err != nil || !info.IsDir() {
 		return nil
@@ -44,17 +54,12 @@ func loadExtras(dir string, config *ast.XcaffoldConfig) error {
 
 		parts := strings.SplitN(filepath.ToSlash(rel), "/", 2)
 		if len(parts) < 2 {
-			// File directly under xcf/extras/ with no provider subdirectory — skip.
+			// File directly under the extras dir with no provider subdirectory — skip.
 			return nil
 		}
 
 		provider := parts[0]
 		relPath := parts[1]
-
-		data, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return fmt.Errorf("read extras file %q: %w", path, readErr)
-		}
 
 		if config.ProviderExtras == nil {
 			config.ProviderExtras = make(map[string]map[string][]byte)
@@ -62,6 +67,18 @@ func loadExtras(dir string, config *ast.XcaffoldConfig) error {
 		if config.ProviderExtras[provider] == nil {
 			config.ProviderExtras[provider] = make(map[string][]byte)
 		}
+
+		if skipExisting {
+			if _, exists := config.ProviderExtras[provider][relPath]; exists {
+				return nil
+			}
+		}
+
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("read extras file %q: %w", path, readErr)
+		}
+
 		config.ProviderExtras[provider][relPath] = data
 		return nil
 	})

@@ -81,3 +81,45 @@ func TestLoadExtras_NestedPaths(t *testing.T) {
 	require.NotNil(t, cfg.ProviderExtras)
 	assert.Equal(t, deepData, cfg.ProviderExtras["claude"]["hooks/nested/deep.sh"])
 }
+
+// writeProviderFile creates the directory hierarchy and writes content to
+// <dir>/xcf/provider/<provider>/<relpath>.
+func writeProviderFile(t *testing.T, dir, provider, relpath string, content []byte) {
+	t.Helper()
+	full := filepath.Join(dir, "xcf", "provider", provider, filepath.FromSlash(relpath))
+	require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
+	require.NoError(t, os.WriteFile(full, content, 0o644))
+}
+
+func TestLoadExtras_ReadsFromProviderDir(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(minimalScaffoldXCF), 0o644))
+
+	wantData := []byte("provider hook content")
+	writeProviderFile(t, dir, "claude", "hooks/pre-commit.sh", wantData)
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+
+	require.NotNil(t, cfg.ProviderExtras, "ProviderExtras must be populated from xcf/provider/")
+	require.Contains(t, cfg.ProviderExtras, "claude")
+	assert.Equal(t, wantData, cfg.ProviderExtras["claude"]["hooks/pre-commit.sh"])
+}
+
+func TestLoadExtras_PrefersProviderOverExtras(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(minimalScaffoldXCF), 0o644))
+
+	providerData := []byte("provider version wins")
+	extrasData := []byte("extras version loses")
+
+	writeProviderFile(t, dir, "claude", "hooks/pre-commit.sh", providerData)
+	writeExtrasFile(t, dir, "claude", "hooks/pre-commit.sh", extrasData)
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+
+	require.NotNil(t, cfg.ProviderExtras)
+	assert.Equal(t, providerData, cfg.ProviderExtras["claude"]["hooks/pre-commit.sh"],
+		"xcf/provider/ content must win over xcf/extras/ when the same relpath exists in both")
+}
