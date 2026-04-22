@@ -257,24 +257,16 @@ func TestWriteSplitFiles_ProviderPassthrough(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	os.WriteFile(filepath.Join(tmpDir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\n"), 0o644)
 
 	err := WriteSplitFiles(config, tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
-	// Should write to xcf/provider/ not xcf/extras/
 	expected := filepath.Join(tmpDir, "xcf", "provider", "claude", "skills", "adr-management", "TEMPLATE.md")
-	if _, err := os.Stat(expected); os.IsNotExist(err) {
-		t.Errorf("expected file at xcf/provider/claude/..., not found")
-	}
+	assert.FileExists(t, expected, "expected file at xcf/provider/claude/...")
 
-	// Should NOT write to xcf/extras/
 	unexpected := filepath.Join(tmpDir, "xcf", "extras")
-	if _, err := os.Stat(unexpected); err == nil {
-		t.Error("xcf/extras/ should not exist — should be xcf/provider/")
-	}
+	_, statErr := os.Stat(unexpected)
+	assert.True(t, os.IsNotExist(statErr), "xcf/extras/ should not exist — should be xcf/provider/")
 }
 
 func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {

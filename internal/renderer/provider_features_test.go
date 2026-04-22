@@ -50,7 +50,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              true,
 			projectInstructions: true,
 			modelField:          true,
-			skillSubdirs:        []string{"references", "scripts", "assets"},
+			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 			ruleActivations:     []string{"always", "path-glob"},
 		},
 		{
