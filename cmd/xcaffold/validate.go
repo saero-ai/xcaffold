@@ -79,28 +79,30 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	// Validate skill directory structures (if xcf/skills/ exists)
 	xcfSkillsDir := filepath.Join(filepath.Dir(validatePath), "xcf", "skills")
 	if entries, dirErr := os.ReadDir(xcfSkillsDir); dirErr == nil {
+		skillDirCount := 0
 		skillDirHasIssues := false
 		for _, entry := range entries {
 			if !entry.IsDir() {
 				continue
 			}
+			skillDirCount++
 			skillDir := filepath.Join(xcfSkillsDir, entry.Name())
 			result := parser.ValidateSkillDirectory(skillDir, entry.Name())
 			if len(result.Errors) > 0 || len(result.Warnings) > 0 {
 				skillDirHasIssues = true
 				fmt.Fprintf(os.Stdout, "\nskill directory issues (%s):\n", entry.Name())
 				for _, e := range result.Errors {
-					fmt.Fprintf(os.Stdout, "  [error] %v\n", e)
+					fmt.Fprintf(os.Stdout, "  [error] %s\n", e)
 				}
 				for _, w := range result.Warnings {
-					fmt.Fprintf(os.Stdout, "  [warning] %v\n", w)
+					fmt.Fprintf(os.Stdout, "  [warning] %s\n", w)
 				}
 			}
 			if len(result.Errors) > 0 {
 				hasErrors = true
 			}
 		}
-		if !skillDirHasIssues {
+		if skillDirCount > 0 && !skillDirHasIssues {
 			fmt.Fprintf(os.Stdout, "skill directories: ok\n")
 		}
 	}
