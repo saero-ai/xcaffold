@@ -1563,3 +1563,43 @@ func TestResolveSourceFiles_WalksNestedDirs(t *testing.T) {
 	assert.Contains(t, names, "nested.md")
 	assert.Contains(t, names, "very-nested.md")
 }
+
+func TestExtractSkillSubdirs_AntigravityResources(t *testing.T) {
+	// Create a fake Antigravity skill directory with resources/ and examples/
+	tmpDir := t.TempDir()
+	skillDir := filepath.Join(tmpDir, "my-skill")
+	os.MkdirAll(filepath.Join(skillDir, "resources"), 0o755)
+	os.WriteFile(filepath.Join(skillDir, "resources", "TEMPLATE.md"), []byte("# Template"), 0o644)
+	os.MkdirAll(filepath.Join(skillDir, "examples"), 0o755)
+	os.WriteFile(filepath.Join(skillDir, "examples", "sample.md"), []byte("# Sample"), 0o644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: my-skill\n---\nInstructions"), 0o644)
+
+	outDir := t.TempDir()
+	var warnings []string
+
+	refs, scripts, assets, examples, err := extractSkillSubdirs(
+		filepath.Join(skillDir, "SKILL.md"), "", "my-skill", "antigravity", outDir, &warnings,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// refs and scripts should be empty for this fixture
+	_ = refs
+	_ = scripts
+
+	// Antigravity resources/ → canonical assets/
+	if len(assets) == 0 {
+		t.Error("expected resources/ to map to assets/, got empty")
+	}
+	// Antigravity examples/ → canonical examples/
+	if len(examples) == 0 {
+		t.Error("expected examples/ to map to examples/, got empty")
+	}
+
+	// Verify files were copied to canonical locations
+	expectedAsset := filepath.Join(outDir, "xcf", "skills", "my-skill", "assets", "TEMPLATE.md")
+	if _, err := os.Stat(expectedAsset); os.IsNotExist(err) {
+		t.Errorf("expected asset copied to %s", expectedAsset)
+	}
+}
