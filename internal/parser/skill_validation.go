@@ -60,6 +60,12 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 			continue
 		}
 
+		// Skip hidden files (dotfiles like .DS_Store, .gitkeep, .gitignore).
+		// These are not user-authored xcf content and must not be flagged.
+		if strings.HasPrefix(name, ".") {
+			continue
+		}
+
 		if !strings.EqualFold(name, xcfFile) {
 			result.Errors = append(result.Errors, fmt.Errorf(
 				"unrecognized file %q at skill root %q; move to references/, scripts/, assets/, or examples/ based on its purpose",

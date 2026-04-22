@@ -85,6 +85,18 @@ func TestValidateSkillDirectory_SkillDirWithNoSubdirs(t *testing.T) {
 	assert.Empty(t, result.Warnings, "skill with only .xcf and no subdirs should have no warnings")
 }
 
+func TestValidateSkillDirectory_HiddenFilesIgnored(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.WriteFile(filepath.Join(tmpDir, "my-skill.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, ".DS_Store"), []byte("binary"), 0o644)
+	os.WriteFile(filepath.Join(tmpDir, ".gitkeep"), []byte(""), 0o644)
+
+	result := ValidateSkillDirectory(tmpDir, "my-skill")
+	if len(result.Errors) != 0 {
+		t.Errorf("hidden files should be silently ignored, got errors: %v", result.Errors)
+	}
+}
+
 func TestValidateSkillDirectory_SkillMDAtRoot(t *testing.T) {
 	tmpDir := t.TempDir()
 	os.WriteFile(filepath.Join(tmpDir, "my-skill.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
