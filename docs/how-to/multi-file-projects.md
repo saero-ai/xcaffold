@@ -153,6 +153,111 @@ instructions: "Use 2-space indentation. No semicolons in TypeScript."
 The `xcf/` prefix is a convention, not a requirement. The parser scans recursively from the project root. You could use `configs/agents/dev.xcf` and it would work identically. The `xcf/` convention exists because `xcaffold import` generates it by default.
 
 ---
+
+## Skill directory layout
+
+Skills support an optional directory structure beneath `xcf/skills/`. A skill can be a single `.xcf` file or a directory containing the `.xcf` file plus categorized subdirectories for supporting files:
+
+```
+xcf/skills/<skill-name>/
+├── <skill-name>.xcf          # required: kind: skill frontmatter + instructions body
+├── references/               # INFORM: background knowledge for AI context
+│   └── *.md, *.mdx, *.json, *.yaml, *.yml, *.toml, *.txt
+├── scripts/                  # DO: executable tools the AI can run
+│   └── *.sh, *.bash, *.py, *.js, *.ts, *.ps1
+├── assets/                   # BECOME: templates, schemas, stubs used to produce output
+│   └── * (any extension)
+└── examples/                 # DEMONSTRATE: correct output illustrations
+    └── *.md, *.txt
+```
+
+The `.xcf` file is the only required item. All subdirectories are optional.
+
+### When to use each subdirectory
+
+| Subdirectory | Purpose | Typical contents |
+|---|---|---|
+| `references/` | Background knowledge the AI reads for context | API specs, coding standards, domain glossaries, protocol documentation |
+| `scripts/` | Executable helpers the AI can invoke as tools | Build helpers, linting wrappers, data migration scripts, test runners |
+| `assets/` | Templates and schemas used to produce output artifacts | Boilerplate files, JSON schemas, icon assets, stub generators |
+| `examples/` | Demonstrations of correct output format | Sample outputs, golden files, correct-format illustrations |
+
+**`references/`** — Provide files that inform the AI's decisions without being directly executed or copied into output. A `references/api-v2-spec.yaml` file gives the AI knowledge of the API surface; a `references/style-guide.md` establishes coding conventions.
+
+**`scripts/`** — Provide executable tools the AI can run during skill execution. A `scripts/lint-check.sh` wrapper runs project-specific linting; a `scripts/migrate.py` handles data format conversion. Scripts must be executable (`chmod +x`).
+
+**`examples/`** — Show the AI what "good" looks like. An `examples/correct-output.md` file demonstrates the expected format and structure of the skill's output. The AI uses these as reference patterns, not as templates to fill in.
+
+**`assets/`** — Provide files that become part of the output. A `assets/component.tsx.tmpl` template is used to generate new components; a `assets/schema.json` is copied into the target directory. Unlike references (read-only context), assets are production artifacts.
+
+### Allowed file types
+
+| Subdirectory | Allowed extensions |
+|---|---|
+| `references/` | `.md`, `.mdx`, `.json`, `.yaml`, `.yml`, `.toml`, `.txt` |
+| `scripts/` | `.sh`, `.bash`, `.py`, `.js`, `.ts`, `.ps1` |
+| `assets/` | Any extension |
+| `examples/` | `.md`, `.txt` |
+
+### Validation rules
+
+The parser enforces a strict directory contract:
+
+- **Unknown subdirectories** at the skill directory root produce a parse error. Only `references/`, `scripts/`, `assets/`, and `examples/` are recognized.
+- **Stray files** at the skill directory root (other than the `.xcf` file itself) produce a parse error with a message suggesting which subdirectory to use based on the file extension.
+- **Maximum depth** is one level. Nesting directories inside `references/`, `scripts/`, `assets/`, or `examples/` is not supported and produces a parse error.
+
+Example error for a misplaced file:
+
+```
+xcf/skills/tdd/style-guide.md: file at skill root not allowed;
+  move to references/ (knowledge files) or examples/ (demonstrations)
+```
+
+Example error for an unknown subdirectory:
+
+```
+xcf/skills/tdd/helpers/: unknown subdirectory "helpers";
+  allowed: references, scripts, assets, examples
+```
+
+### Example: skill with references
+
+```
+xcf/skills/api-design/
+├── api-design.xcf
+└── references/
+    ├── rest-conventions.md
+    └── openapi-v3-spec.yaml
+```
+
+`xcf/skills/api-design/api-design.xcf`:
+
+```
+---
+kind: skill
+version: "1.0"
+name: api-design
+description: "REST API design following project conventions"
+---
+Design REST endpoints following the conventions in the reference files.
+Use OpenAPI 3.x for schema definitions.
+```
+
+### Example: skill with scripts and assets
+
+```
+xcf/skills/component-builder/
+├── component-builder.xcf
+├── scripts/
+│   └── validate-props.sh
+└── assets/
+    └── component.tsx.tmpl
+```
+
+The compiler copies subdirectory contents into the target output. For Claude, `references/` files appear under `.claude/skills/<name>/references/`, and so on for each subdirectory.
+
+---
 ## Cross-file references
 
 References between resources in different files resolve correctly. An agent defined in `agents.xcf` can reference a skill defined in `skills.xcf`. The merge step combines all resources into a single unified AST before the compiler runs; by compilation time there is no distinction between resources that came from different files.

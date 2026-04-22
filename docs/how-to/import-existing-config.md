@@ -195,6 +195,30 @@ Skills may include non-markdown reference files (data files, templates) under `.
 
 ---
 
+## Skill subdirectory classification
+
+When importing skills that contain subdirectories, `xcaffold import` classifies each provider-native directory into the canonical skill directory layout (`references/`, `scripts/`, `assets/`, `examples/`). Most providers use directory names that map directly to canonical names. Where they diverge, import applies semantic matching.
+
+| Provider | Source directory | Canonical mapping |
+|---|---|---|
+| Claude Code | `references/` | `references/` |
+| Claude Code | `scripts/` | `scripts/` |
+| Gemini CLI | `references/` | `references/` |
+| Gemini CLI | `scripts/` | `scripts/` |
+| Gemini CLI | `assets/` | `assets/` |
+| Cursor | `references/` | `references/` |
+| Cursor | `scripts/` | `scripts/` |
+| Cursor | `assets/` | `assets/` |
+| Antigravity | `examples/` | `references/` |
+| Antigravity | `scripts/` | `scripts/` |
+| Antigravity | `resources/` | `assets/` |
+
+Antigravity's `examples/` directory contains knowledge files (API specs, domain context), not output demonstrations. Import maps it to `references/` based on semantic role rather than name. Antigravity's `resources/` directory contains template assets, mapped to `assets/`.
+
+Files in provider subdirectories that do not match any canonical directory name are not discarded. They are routed to `xcf/provider/<source-provider>/` as passthrough files, preserving them for same-provider compilation without polluting the canonical skill layout. See [Provider File Passthrough](target-overrides.md#provider-file-passthrough-xcfprovider) for details.
+
+---
+
 ## After import
 
 1. Review the generated files. Import uses `"Imported agent"`, `"Imported skill"`, `"Imported rule"` as default descriptions when the source file has no frontmatter `description:` field.

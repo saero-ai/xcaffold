@@ -168,6 +168,48 @@ When the `targets:` block is fully compiled, it will enable the following patter
 
 **`hooks`** — map per-agent hooks to renderer-specific event names where lifecycle event naming differs between platforms.
 
+## Provider file passthrough (`xcf/provider/`)
+
+The `xcf/provider/` directory is the file-level equivalent of `target-options:` in `.xcf` frontmatter. Where `target-options:` overrides individual field values in the compiled YAML frontmatter, `xcf/provider/` places entire files into a provider's output directory unchanged.
+
+```
+xcf/provider/<target>/
+└── <path>              # copied verbatim to <output-dir>/<path>
+```
+
+The directory structure under `xcf/provider/<target>/` mirrors the target's output directory. Files are copied as-is during `xcaffold apply` — no parsing, no transformation.
+
+**Example:** A Claude Code skill that requires a provider-native template file with no canonical equivalent:
+
+```
+xcf/provider/claude/skills/adr-management/TEMPLATE.md
+```
+
+Running `xcaffold apply --target claude` copies this file to:
+
+```
+.claude/skills/adr-management/TEMPLATE.md
+```
+
+The file is not processed by the compiler. It appears in the output directory exactly as written.
+
+**When to use passthrough:**
+
+- A provider-native feature requires files that have no canonical `.xcf` representation
+- A skill needs provider-specific auxiliary files (templates, data files) that only apply to one target
+- Migration scenarios where provider-native files must be preserved alongside compiled output
+
+**Passthrough vs `target-options:`:**
+
+| Mechanism | Scope | Effect |
+|---|---|---|
+| `target-options:` | Field values in `.xcf` frontmatter | Overrides specific fields in the compiled YAML frontmatter for a target |
+| `xcf/provider/` | Entire files | Copies files verbatim into the target output directory |
+
+Passthrough files are ignored when compiling to a different target. `xcf/provider/claude/` files are only copied during `--target claude` compilation. They do not appear in `--target cursor` output.
+
+---
+
 ## Supported targets
 
 | Target flag | Output directory | Description |
