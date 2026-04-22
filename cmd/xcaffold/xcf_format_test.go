@@ -248,6 +248,27 @@ func TestWriteFrontmatterFile_AgentWithBody(t *testing.T) {
 	assert.NotContains(t, content, "instructions:")
 }
 
+func TestWriteSplitFiles_ProviderPassthrough(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.ProviderExtras = map[string]map[string][]byte{
+		"claude": {
+			"skills/adr-management/TEMPLATE.md": []byte("# Template"),
+		},
+	}
+
+	tmpDir := t.TempDir()
+
+	err := WriteSplitFiles(config, tmpDir)
+	require.NoError(t, err)
+
+	expected := filepath.Join(tmpDir, "xcf", "provider", "claude", "skills", "adr-management", "TEMPLATE.md")
+	assert.FileExists(t, expected, "expected file at xcf/provider/claude/...")
+
+	unexpected := filepath.Join(tmpDir, "xcf", "extras")
+	_, statErr := os.Stat(unexpected)
+	assert.True(t, os.IsNotExist(statErr), "xcf/extras/ should not exist — should be xcf/provider/")
+}
+
 func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	config := &ast.XcaffoldConfig{
@@ -442,6 +463,45 @@ func TestWriteSplitFiles_ScopeFilter_SkillsAndRules(t *testing.T) {
 	require.NoError(t, err, "declared rule must be written")
 	_, err = os.Stat(filepath.Join(dir, "xcf", "rules", "global-rule.xcf"))
 	assert.True(t, os.IsNotExist(err), "undeclared rule must NOT be written")
+}
+
+func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
+	outDir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"my-skill": {
+					Name:         "my-skill",
+					Description:  "Test skill",
+					References:   []string{"xcf/skills/my-skill/references/ref.md"},
+					Scripts:      []string{"xcf/skills/my-skill/scripts/run.sh"},
+					Assets:       []string{"xcf/skills/my-skill/assets/icon.svg"},
+					Examples:     []string{"xcf/skills/my-skill/examples/sample.md"},
+					Instructions: "Do the thing.",
+				},
+			},
+		},
+	}
+	err := WriteSplitFiles(config, outDir)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(outDir, "xcf", "skills", "my-skill.xcf"))
+	require.NoError(t, err)
+	content := string(data)
+
+	// Verify frontmatter mode is used for skills with a body
+	assert.True(t, strings.HasPrefix(content, "---\n"), "skill with body must use frontmatter")
+	// Verify all 4 subdir fields appear in frontmatter
+	assert.Contains(t, content, "references:")
+	assert.Contains(t, content, "scripts:")
+	assert.Contains(t, content, "assets:")
+	assert.Contains(t, content, "examples:")
+	// Verify body appears after the closing --- delimiter
+	assert.Contains(t, content, "---\nDo the thing.")
+	// Verify instructions field is NOT duplicated in YAML
+	assert.NotContains(t, content, "instructions:")
 }
 
 func TestWriteFrontmatterFile_EmptyBody_FallsBackToYAML(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	rendshared "github.com/saero-ai/xcaffold/internal/renderer/shared"
 	"github.com/saero-ai/xcaffold/internal/resolver"
@@ -57,10 +58,11 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                 true,
 		Memory:              false,
 		ProjectInstructions: true,
-		SkillSubdirs:        []string{},
-		ModelField:          true,
-		RuleActivations:     []string{"always", "path-glob"},
-		SecurityFields:      renderer.SecurityFieldSupport{},
+		// examples is intentionally absent — Gemini collapses examples into references/ at compile time.
+		SkillSubdirs:    []string{"references", "scripts", "assets"},
+		ModelField:      true,
+		RuleActivations: []string{"always", "path-glob"},
+		SecurityFields:  renderer.SecurityFieldSupport{},
 	}
 }
 
@@ -382,29 +384,44 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				"Move when-to-use content into description",
 			))
 		}
-		if len(skill.Scripts) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "scripts",
-				renderer.CodeSkillScriptsDropped,
-				fmt.Sprintf("skill %q scripts dropped; Gemini does not support skill scripts/ directories", id),
-				"Copy scripts into .gemini/skills/"+id+"/scripts/ manually",
-			))
-		}
-		if len(skill.Assets) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "assets",
-				renderer.CodeSkillAssetsDropped,
-				fmt.Sprintf("skill %q assets dropped; Gemini does not support skill assets/ directories", id),
-				"Copy assets into .gemini/skills/"+id+"/assets/ manually",
-			))
-		}
-		if len(skill.References) > 0 {
+		// Skill subdirs are best-effort for Gemini: compilation errors are
+		// demoted to fidelity notes so the rest of the skill still compiles.
+		// Examples collapse into references for Gemini.
+		subOut := &output.Output{Files: make(map[string]string)}
+		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning, targetName, "skill", id, "references",
 				renderer.CodeSkillReferencesDropped,
-				fmt.Sprintf("skill %q references dropped; Gemini does not compile skill references/ directories", id),
-				"Copy references into .gemini/skills/"+id+"/references/ manually",
+				err.Error(),
+				"Check file paths in references",
 			))
+		}
+		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "scripts",
+				renderer.CodeSkillScriptsDropped,
+				err.Error(),
+				"Check file paths in scripts",
+			))
+		}
+		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "assets",
+				renderer.CodeSkillAssetsDropped,
+				err.Error(),
+				"Check file paths in assets",
+			))
+		}
+		if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "examples",
+				renderer.CodeSkillExamplesDropped,
+				err.Error(),
+				"Check file paths in examples",
+			))
+		}
+		for k, v := range subOut.Files {
+			files[k] = v
 		}
 		if skill.DisableModelInvocation != nil {
 			notes = append(notes, renderer.NewNote(

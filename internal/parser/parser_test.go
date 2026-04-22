@@ -357,6 +357,27 @@ skills:
 	assert.True(t, found, "expected a warning diagnostic about a missing reference file, got: %v", diags)
 }
 
+func TestValidateFileRefs_MissingSkillExample(t *testing.T) {
+	dir := t.TempDir()
+	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
+version: "1.0"
+skills:
+  my-skill:
+    description: "A skill"
+    instructions: "do stuff"
+    examples:
+      - xcf/skills/my-skill/examples/nonexistent.md
+`)
+	diags := ValidateFile(xcf)
+	var found bool
+	for _, d := range diags {
+		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") && strings.Contains(d.Message, "examples") {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected a warning diagnostic about a missing examples file, got: %v", diags)
+}
+
 func TestValidateFileRefs_MissingInstructionsFile_Agent(t *testing.T) {
 	dir := t.TempDir()
 	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global

@@ -53,3 +53,21 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 | **provider-extras** | unrecognised `.claude/` files | unrecognised `.cursor/` files | unrecognised `.gemini/` files | unrecognised `.github/` files | unrecognised `.agents/` files |
 
 `SourceProvider` is recorded on every imported resource so `xcaffold apply` can emit targeted fidelity notes when a resource cannot be faithfully translated to a different provider.
+
+---
+
+### Skill Subdirectory Support
+
+Skills may declare `references/`, `scripts/`, `assets/`, and `examples/` subdirectories. Each provider handles these differently during compilation:
+
+| Subdirectory | Claude Code | Cursor | Gemini CLI | GitHub Copilot | Antigravity |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `references/` | `references/` | `references/` | `references/` | co-located | &rarr; `examples/` |
+| `scripts/` | `scripts/` | `scripts/` | `scripts/` | co-located | `scripts/` |
+| `assets/` | `assets/` | `assets/` | `assets/` | co-located | &rarr; `resources/` |
+| `examples/` | flat | &rarr; `references/` | &rarr; `references/` | co-located | `examples/` |
+
+- **co-located** — Copilot flattens all subdirectory contents alongside `SKILL.md`.
+- **&rarr;** — Directory name is translated to the provider-native equivalent.
+- **FidelityNote** — Provider does not support this concept; a `FIELD_UNSUPPORTED` fidelity note is emitted.
+- **flat** — Files are placed alongside `SKILL.md` without a subdirectory wrapper.

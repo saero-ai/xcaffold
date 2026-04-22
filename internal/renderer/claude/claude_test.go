@@ -1,6 +1,8 @@
 package claude
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -518,6 +520,39 @@ func TestCompileRuleMarkdown_Activation_ManualMention_FidelityNote(t *testing.T)
 	require.NotEmpty(t, notes)
 	require.Equal(t, renderer.LevelWarning, notes[0].Level)
 	require.Contains(t, notes[0].Reason, "manual-mention")
+}
+
+func TestCompile_SkillWithExamples_Claude(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmpDir, "examples"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample Output"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	skills := map[string]ast.SkillConfig{
+		"my-skill": {
+			Description:  "test skill",
+			Instructions: "Do the thing.",
+			Examples:     []string{"examples/sample.md"},
+		},
+	}
+
+	r := New()
+	files, _, err := r.CompileSkills(skills, tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Claude: examples flattened alongside SKILL.md (no subdirectory)
+	if _, ok := files["skills/my-skill/sample.md"]; !ok {
+		keys := make([]string, 0, len(files))
+		for k := range files {
+			keys = append(keys, k)
+		}
+		t.Errorf("expected examples flattened to skills/my-skill/sample.md, got: %v", keys)
+	}
 }
 
 func TestCompileRuleMarkdown_ExcludeAgents_FidelityNote(t *testing.T) {

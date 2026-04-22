@@ -186,9 +186,18 @@ func TestCrossProvider_SkillReferences(t *testing.T) {
 			require.NoError(t, err)
 
 			// Check whether any output file path looks like a references sub-file.
+			// Antigravity translates references/ → examples/ — both satisfy the invariant.
+			// Copilot uses a flat co-located layout: skills/<id>/<filename> alongside
+			// SKILL.md — any non-SKILL.md file under skills/ satisfies the invariant.
 			hasRefFile := false
 			for path := range out.Files {
-				if strings.Contains(path, "references/") || strings.Contains(path, "/references") {
+				if strings.Contains(path, "references/") || strings.Contains(path, "/references") ||
+					strings.Contains(path, "examples/") || strings.Contains(path, "/examples") {
+					hasRefFile = true
+					break
+				}
+				// Flat co-located layout: file under skills/<id>/ that is not SKILL.md.
+				if strings.HasPrefix(path, "skills/") && !strings.HasSuffix(path, "/SKILL.md") {
 					hasRefFile = true
 					break
 				}

@@ -3,7 +3,7 @@ package templates
 // RenderSkillReference returns an annotated template showing every field
 // of the skill kind with descriptions, types, defaults, and provider notes.
 //
-// The generated content is written to xcf/skills/xcaffold/references/skill.xcf.reference
+// The generated content is written to .xcaffold/schemas/skill.xcf.reference
 // and is NOT parsed by xcaffold. Users copy fields from this file into their
 // project.xcf as needed.
 func RenderSkillReference() string {

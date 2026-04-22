@@ -604,7 +604,7 @@ Because the state files are independent, a drift condition in the global scope d
 
 ## Key Architectural Decisions
 
-These inline architecture decisions record the reasoning behind strict implementation choices that shape the `xcaffold` engine. Formal ADRs live in `.agents/skills/adr-management/`.
+These inline architecture decisions record the reasoning behind strict implementation choices that shape the `xcaffold` engine. Architecture decisions are documented as ADRs in the project.
 
 
 
@@ -617,6 +617,23 @@ These inline architecture decisions record the reasoning behind strict implement
 ### 2. Skills as Directories
 **Decision:** Skills compile to `skills/<id>/SKILL.md` (directory structure), not `skills/<id>.md` (flat files).
 **Why:** Target platforms (like Claude Code) expect skills in directories. Real skills have `references/` subdirectories with supplementary documents. The directory structure allows future `references:` support.
+
+#### Skill Directory Structure
+
+Skills support four canonical subdirectories beneath `xcf/skills/<id>/`:
+
+| Subdirectory | Semantic Role | Purpose |
+|---|---|---|
+| `references/` | INFORM | Knowledge files the agent reads for context — documentation, specs, guidelines |
+| `scripts/` | DO | Executable scripts the agent can invoke — shell scripts, code generators |
+| `assets/` | BECOME | Static artifacts compiled into output — templates, config fragments |
+| `examples/` | DEMONSTRATE | Sample inputs/outputs that teach usage patterns — example configs, before/after pairs |
+
+These are the only permitted subdirectories. The parser rejects unknown subdirectories and stray files at the skill root (files that are not `SKILL.md` or `instructions.md`). This strict validation prevents accidental file placement from silently degrading compilation.
+
+Each renderer declares which subdirectories it supports via the `SkillSubdirs` field in its `CapabilitySet`. The shared `CompileSkillSubdir` helper (`internal/renderer/`) copies files from canonical subdirectories into the output map, translating directory names to provider-native equivalents at the renderer boundary. For example, `assets/` may become `resources/` for one provider while being dropped entirely (with a `FidelityNote`) for another.
+
+The canonical-to-native directory translation is provider-specific. See [Per-Provider Subdirectory Translation](provider-architecture.md#per-provider-subdirectory-translation) for the full mapping table.
 
 ### 3. Centralized Global Home (`~/.xcaffold/`)
 **Decision:** All xcaffold global state lives in `~/.xcaffold/`, not coupled to any single platform directory.

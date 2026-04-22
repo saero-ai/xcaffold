@@ -73,7 +73,7 @@ Each importer owns a `[]KindMapping` table that maps file patterns to AST resour
 | Kind | Description |
 |---|---|
 | `agent` | Agent system prompt with optional YAML frontmatter |
-| `skill` | Skill definition with optional `references/`, `scripts/`, `assets/` subdirectories |
+| `skill` | Skill definition with optional `references/`, `scripts/`, `assets/`, `examples/` subdirectories |
 | `rule` | Rule file with activation metadata |
 | `hook` | Shell hook declarations (often embedded in a settings JSON file) |
 | `mcp` | MCP server configuration |
@@ -218,6 +218,31 @@ Cross-renderer utilities live in the root `internal/renderer/` package:
 | `StripAllFrontmatter` | Removes YAML frontmatter from markdown content |
 
 The `LowerWorkflows` helper lives in `internal/renderer/shared/` — a separate subpackage — because it depends on the `translator` package, which would create an import cycle if placed in the root `renderer` package.
+
+### Per-Provider Subdirectory Translation
+
+Skills support four canonical subdirectories (`references/`, `scripts/`, `assets/`, `examples/`). Each renderer translates these canonical names to provider-native directory names at the renderer boundary. The translation is declared in each renderer's `CompileSkills` method and executed by the shared `CompileSkillSubdir` helper.
+
+| Canonical | Claude Code | Gemini CLI | Cursor | GitHub Copilot | Antigravity |
+|---|---|---|---|---|---|
+| `references/` | `references/` | `references/` | `references/` | co-located | `examples/` |
+| `scripts/` | `scripts/` | `scripts/` | `scripts/` | co-located | `scripts/` |
+| `assets/` | `assets/` | `assets/` | `assets/` | co-located | `resources/` |
+| `examples/` | flat alongside SKILL.md | collapse into `references/` | collapse into `references/` | co-located | `examples/` |
+
+**FidelityNote (unsupported).** When a canonical subdirectory has no equivalent in the target provider, the renderer emits a `FidelityNote` with code `FIELD_UNSUPPORTED` and drops the files. Claude Code does not support `assets/` — placing files there produces a fidelity warning, not an error. Compilation succeeds; the warning informs the user that those files were not emitted.
+
+**Co-located (Copilot).** GitHub Copilot does not use subdirectories within skill folders. All supporting files are placed flat alongside `SKILL.md` in the skill's output directory. The canonical subdirectory structure is flattened during rendering.
+
+**Collapse.** Gemini CLI and Cursor merge `examples/` files into the `references/` output directory. The semantic distinction between "demonstrate" and "inform" does not exist in these providers' native layouts, so both are emitted under the provider's references directory.
+
+**Flat alongside SKILL.md (Claude Code examples).** Claude Code's `examples/` files are placed directly in the skill directory next to `SKILL.md`, not in a subdirectory. This matches Claude Code's native convention for example content.
+
+#### Provider Passthrough (`xcf/provider/`)
+
+When a provider-native feature has no canonical equivalent — a file type or directory structure specific to one provider that xcaffold's canonical schema does not model — users can place files in `xcf/provider/<provider-name>/`. These files are copied verbatim into the provider's output directory during compilation, bypassing the canonical translation layer entirely.
+
+This is the file-level equivalent of `target-options:` (which provides field-level passthrough). Both mechanisms share the same principle: xcaffold cannot anticipate every present and future provider feature, so it provides an explicit escape hatch for provider-native content that falls outside the canonical schema.
 
 ---
 

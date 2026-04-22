@@ -50,7 +50,7 @@ func TestApplyProviderExtras_EmitsFidelityNoteForCrossProviderExtras(t *testing.
 	require.Len(t, notes, 1)
 	assert.Equal(t, renderer.LevelWarning, notes[0].Level)
 	assert.Equal(t, "claude", notes[0].Target)
-	assert.Equal(t, "extras", notes[0].Kind)
+	assert.Equal(t, "provider", notes[0].Kind)
 	assert.Equal(t, ".cursor/rules/some-rule.md", notes[0].Resource)
 	assert.Equal(t, "provider-extras-skipped", notes[0].Code)
 }
@@ -122,7 +122,7 @@ func TestApplyProviderExtras_RejectsPathTraversal(t *testing.T) {
 		codes[i] = n.Code
 		assert.Equal(t, renderer.LevelWarning, n.Level)
 		assert.Equal(t, "claude", n.Target)
-		assert.Equal(t, "extras", n.Kind)
+		assert.Equal(t, "provider", n.Kind)
 	}
 	assert.Contains(t, codes, "provider-extras-path-unsafe")
 	assert.Contains(t, codes, "provider-extras-path-unsafe")

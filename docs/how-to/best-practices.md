@@ -207,6 +207,38 @@ instructions-file: docs/reviewer-instructions.md
 
 ---
 
+## Skill Organization
+
+Skills range from a single `.xcf` file to a directory with four subdirectories. Match the structure to the skill's complexity — not every skill needs all subdirectories.
+
+**Most skills need only the `.xcf` file.** A skill that provides instructions and nothing else does not need a directory at all. Keep it as `xcf/skills/git-workflow.xcf`.
+
+**Add `references/` when the skill needs background knowledge.** If the AI needs to read an API spec, a coding standard, or a domain glossary to execute the skill correctly, place those files in `references/`. This is the most common subdirectory — most skills that graduate from a single file add references first.
+
+**Add `scripts/` when the skill needs to execute helpers.** Build scripts, linting wrappers, and data migration tools belong here. If the skill's instructions say "run this script," the script lives in `scripts/`.
+
+**Add `assets/` when the skill generates output from templates.** Boilerplate files, JSON schemas, and stub generators are production artifacts that become part of the output. The distinction from `references/` is that assets are transformed or copied into the final result, while references are read-only context.
+
+**Add `examples/` when the AI needs to see what "good" looks like.** Golden files and correct-format demonstrations help the AI match an expected output style. Use `examples/` sparingly — a few well-chosen samples are more effective than an exhaustive collection.
+
+**Choosing between `references/` and `assets/`:**
+
+| Question | If yes | If no |
+|---|---|---|
+| Does the AI read this file to inform decisions? | `references/` | — |
+| Does this file become part of the compiled output? | `assets/` | — |
+| Is this a template the AI fills in? | `assets/` | — |
+| Is this a spec or standard the AI should follow? | `references/` | — |
+
+**Choosing between `references/` and `examples/`:**
+
+| Question | If yes | If no |
+|---|---|---|
+| Does this file describe rules or conventions? | `references/` | — |
+| Does this file show a finished output sample? | `examples/` | — |
+
+---
+
 ## Blueprint Design
 
 Blueprints are opt-in. A project with fewer than 5 agents typically doesn't need them — `xcaffold apply` compiles everything by default.

@@ -487,7 +487,7 @@ func applyProviderExtras(config *ast.XcaffoldConfig, out *compiler.Output, targe
 					notes = append(notes, renderer.FidelityNote{
 						Level:    renderer.LevelWarning,
 						Target:   target,
-						Kind:     "extras",
+						Kind:     "provider",
 						Resource: relPath,
 						Code:     "provider-extras-path-unsafe",
 						Reason:   fmt.Sprintf("skipping extras path %q: path traversal detected", relPath),
@@ -508,7 +508,7 @@ func applyProviderExtras(config *ast.XcaffoldConfig, out *compiler.Output, targe
 			notes = append(notes, renderer.FidelityNote{
 				Level:    renderer.LevelWarning,
 				Target:   target,
-				Kind:     "extras",
+				Kind:     "provider",
 				Resource: relPath,
 				Code:     "provider-extras-skipped",
 				Reason:   fmt.Sprintf("provider-specific artifact from %q not applicable to target %q", provider, target),

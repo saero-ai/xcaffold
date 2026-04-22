@@ -1,6 +1,8 @@
 package copilot_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -167,6 +169,45 @@ func TestCompile_Copilot_Skills_ReferencesDropped(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "expected SKILL_REFERENCES_DROPPED fidelity note for skill with references")
+}
+
+// TestCompile_Copilot_Skills_WithSubdirs verifies that references and scripts
+// are flattened co-located alongside SKILL.md under skills/<id>/<filename>.
+func TestCompile_Copilot_Skills_WithSubdirs(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "refs", "guide.md"), []byte("# Guide"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmpDir, "scripts"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "scripts", "run.sh"), []byte("#!/bin/bash"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	skills := map[string]ast.SkillConfig{
+		"my-skill": {
+			Description:  "test",
+			Instructions: "Do the thing.",
+			References:   []string{"refs/guide.md"},
+			Scripts:      []string{"scripts/run.sh"},
+		},
+	}
+
+	r := copilot.New()
+	files, _, err := r.CompileSkills(skills, tmpDir)
+	require.NoError(t, err)
+
+	// Copilot: all files co-located alongside SKILL.md
+	if _, ok := files["skills/my-skill/guide.md"]; !ok {
+		t.Error("expected references flattened to skills/my-skill/guide.md")
+	}
+	if _, ok := files["skills/my-skill/run.sh"]; !ok {
+		t.Error("expected scripts flattened to skills/my-skill/run.sh")
+	}
 }
 
 // TestCompile_Copilot_Skills_Multiple verifies that two skills each produce a

@@ -515,18 +515,26 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 				warnings = append(warnings, fmt.Sprintf("%s: %s", provider, w))
 			}
 		}
-		// Copy skill reference files — ProviderImporter populates AST only; side-car
-		// files under <skill>/references/ must still be copied to xcf/skills/<id>/references/.
+		// Copy skill supporting files — ProviderImporter populates AST only; side-car
+		// files under known subdirectories must still be copied to xcf/skills/<id>/.
 		for id := range config.Skills {
 			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				if refs, err := extractSkillRefs(skillFile, scopeName, id, &warnings); err == nil {
-					sc := config.Skills[id]
-					if len(refs) > 0 {
-						sc.References = refs
-						config.Skills[id] = sc
-					}
+				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", &warnings)
+				sc := config.Skills[id]
+				if len(refs) > 0 {
+					sc.References = refs
 				}
+				if len(scripts) > 0 {
+					sc.Scripts = scripts
+				}
+				if len(fileAssets) > 0 {
+					sc.Assets = fileAssets
+				}
+				if len(fileExamples) > 0 {
+					sc.Examples = fileExamples
+				}
+				config.Skills[id] = sc
 			}
 		}
 		// Attempt to graduate any extras the importer stashed in ProviderExtras.
@@ -545,7 +553,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		if err := extractAgents(platformDir, scopeName, config, &importCount, &warnings); err != nil {
 			return err
 		}
-		if err := extractSkills(platformDir, scopeName, config, &importCount, &warnings); err != nil {
+		if err := extractSkills(platformDir, scopeName, provider, config, &importCount, &warnings); err != nil {
 			return err
 		}
 		if err := extractRules(platformDir, scopeName, config, &importCount, &warnings); err != nil {
@@ -741,7 +749,7 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 		if err := extractAgents(sourceDir, "translate", config, &importCount, &warnings); err != nil {
 			return nil, err
 		}
-		if err := extractSkills(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+		if err := extractSkills(sourceDir, "translate", fromProvider, config, &importCount, &warnings); err != nil {
 			return nil, err
 		}
 	}
@@ -1049,7 +1057,7 @@ func extractAgents(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 	return nil
 }
 
-func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+func extractSkills(claudeDir, scopeName, provider string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	skillFiles, _ := filepath.Glob(filepath.Join(claudeDir, "skills", "*", "SKILL.md"))
 	for _, f := range skillFiles {
 		data, err := os.ReadFile(f)
@@ -1064,8 +1072,8 @@ func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 
 		body := extractBodyAfterFrontmatter(data)
 
-		// Reference files (non-.md data files) are still copied to xcf/skills/<id>/references/
-		refs, err := extractSkillRefs(f, scopeName, id, warnings)
+		// Supporting files are copied to xcf/skills/<id>/ using canonical subdirectories.
+		refs, scripts, fileAssets, fileExamples, err := extractSkillSubdirs(f, id, provider, "", warnings)
 		if err != nil {
 			return err
 		}
@@ -1080,6 +1088,15 @@ func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 				skillCfg.References = refs // use copied refs, not frontmatter refs
 			}
 		}
+		if len(scripts) > 0 {
+			skillCfg.Scripts = scripts
+		}
+		if len(fileAssets) > 0 {
+			skillCfg.Assets = fileAssets
+		}
+		if len(fileExamples) > 0 {
+			skillCfg.Examples = fileExamples
+		}
 		skillCfg.Instructions = body
 
 		config.Skills[id] = skillCfg
@@ -1088,24 +1105,137 @@ func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 	return nil
 }
 
-func extractSkillRefs(skillFile, scopeName, id string, warnings *[]string) ([]string, error) {
-	refSrc := filepath.Join(filepath.Dir(skillFile), "references")
-	var refs []string
-	if refEntries, err := os.ReadDir(refSrc); err == nil {
-		for _, entry := range refEntries {
-			if entry.IsDir() {
-				continue
-			}
-			srcRef := filepath.Join(refSrc, entry.Name())
-			xcfRefDest := filepath.Join("xcf", "skills", id, "references", entry.Name())
-			if err := copyFile(srcRef, xcfRefDest); err != nil {
-				*warnings = append(*warnings, fmt.Sprintf("failed to copy skill ref %s: %v", srcRef, err))
-				continue
-			}
-			refs = append(refs, filepath.ToSlash(xcfRefDest))
+// providerSubdirMap maps provider-native subdirectory names to the canonical
+// xcaffold subdir names (references, scripts, assets, examples). An empty
+// string value means the subdir has no canonical mapping and its files are
+// routed to the provider-native passthrough directory.
+var providerSubdirMap = map[string]map[string]string{
+	"claude": {
+		"references": "references",
+		"scripts":    "scripts",
+	},
+	"gemini": {
+		"references": "references",
+		"scripts":    "scripts",
+		"assets":     "assets",
+	},
+	"cursor": {
+		"references": "references",
+		"scripts":    "scripts",
+		"assets":     "assets",
+	},
+	"copilot": {}, // co-located — classify by extension
+	"antigravity": {
+		"examples":  "examples",
+		"scripts":   "scripts",
+		"resources": "assets",
+	},
+}
+
+// extractSkillSubdirs scans the skill directory for known canonical and
+// provider-native subdirectories, copies their files to xcf/skills/<id>/,
+// and returns slices of copied paths grouped by canonical category.
+//
+// outDir is the base directory for output paths (xcf/skills/<id>/...).  When
+// empty, the current working directory is used.
+//
+// For Claude imports, any .md file alongside SKILL.md (not in a subdirectory)
+// is treated as a reference.
+//
+// Files from subdirectories that have no canonical mapping are copied to
+// xcf/provider/<provider>/skills/<id>/<subdir>/.
+func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]string) (refs, scripts, assets, examples []string, err error) {
+	skillDir := filepath.Dir(skillFile)
+
+	// Determine the base for output paths.
+	base := outDir
+
+	subdirMap := providerSubdirMap[provider] // nil if provider unknown
+	if subdirMap == nil {
+		*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs: unknown provider %q — all subdirectory files routed to passthrough", provider))
+	}
+
+	// Walk all direct children of the skill directory.
+	entries, readErr := os.ReadDir(skillDir)
+	if readErr != nil {
+		// If the directory cannot be read at all, return empty (not an error).
+		return nil, nil, nil, nil, nil
+	}
+
+	// Helper: copy a file and append to the appropriate slice.
+	appendCopied := func(src, canonicalSubdir, filename string) {
+		// The xcf-relative path is always outDir-agnostic — it is what gets
+		// stored in AST SkillConfig fields (References, Scripts, Assets, Examples).
+		xcfRelPath := filepath.ToSlash(filepath.Join("xcf", "skills", id, canonicalSubdir, filename))
+		var dest string
+		if base != "" {
+			dest = filepath.Join(base, "xcf", "skills", id, canonicalSubdir, filename)
+		} else {
+			dest = filepath.Join("xcf", "skills", id, canonicalSubdir, filename)
+		}
+		if copyErr := copyFile(src, dest); copyErr != nil {
+			*warnings = append(*warnings, fmt.Sprintf("failed to copy skill file %s: %v", src, copyErr))
+			return
+		}
+		switch canonicalSubdir {
+		case "references":
+			refs = append(refs, xcfRelPath)
+		case "scripts":
+			scripts = append(scripts, xcfRelPath)
+		case "assets":
+			assets = append(assets, xcfRelPath)
+		case "examples":
+			examples = append(examples, xcfRelPath)
 		}
 	}
-	return refs, nil
+
+	// Helper: copy a file to the provider passthrough directory.
+	appendPassthrough := func(src, subdir, filename string) {
+		var dest string
+		if base != "" {
+			dest = filepath.Join(base, "xcf", "provider", provider, "skills", id, subdir, filename)
+		} else {
+			dest = filepath.Join("xcf", "provider", provider, "skills", id, subdir, filename)
+		}
+		if copyErr := copyFile(src, dest); copyErr != nil {
+			*warnings = append(*warnings, fmt.Sprintf("failed to copy provider file %s: %v", src, copyErr))
+		}
+	}
+
+	for _, entry := range entries {
+		name := entry.Name()
+
+		if entry.IsDir() {
+			// Determine canonical mapping for this subdir.
+			var canonicalSubdir string
+			if subdirMap != nil {
+				canonicalSubdir = subdirMap[name] // empty string = no mapping
+			}
+
+			// Walk files in this subdir (non-recursive — one level only).
+			subEntries, _ := os.ReadDir(filepath.Join(skillDir, name))
+			for _, sub := range subEntries {
+				if sub.IsDir() {
+					continue
+				}
+				src := filepath.Join(skillDir, name, sub.Name())
+				if canonicalSubdir != "" {
+					appendCopied(src, canonicalSubdir, sub.Name())
+				} else {
+					appendPassthrough(src, name, sub.Name())
+				}
+			}
+			continue
+		}
+
+		// Non-directory entry alongside SKILL.md.
+		// For Claude: any .md file that is not SKILL.md is treated as a reference.
+		if provider == "claude" && strings.ToLower(name) != "skill.md" && strings.HasSuffix(strings.ToLower(name), ".md") {
+			appendCopied(filepath.Join(skillDir, name), "references", name)
+		}
+	}
+
+	return refs, scripts, assets, examples, nil
 }
 
 func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
@@ -2328,7 +2458,7 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 		if err := extractAgents(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
 			return err
 		}
-		if err := extractSkills(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
+		if err := extractSkills(dir, "project", "claude", tmpConfig, &tmpCount, &warnings); err != nil {
 			return err
 		}
 		if err := extractRules(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {

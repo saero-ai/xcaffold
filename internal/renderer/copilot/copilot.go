@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	rendshared "github.com/saero-ai/xcaffold/internal/renderer/shared"
 	"github.com/saero-ai/xcaffold/internal/resolver"
@@ -56,7 +57,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                 true,
 		Memory:              false,
 		ProjectInstructions: true,
-		SkillSubdirs:        []string{},
+		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
 		SecurityFields:      renderer.SecurityFieldSupport{},
@@ -597,29 +598,21 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				"",
 			))
 		}
-		if len(skill.Scripts) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "scripts",
-				renderer.CodeSkillScriptsDropped,
-				fmt.Sprintf("skill %q scripts dropped; Copilot does not support skill scripts/ directories", id),
-				"Copy scripts manually if needed",
-			))
+		subOut := &output.Output{Files: make(map[string]string)}
+		if err := renderer.FlattenToSkillRoot(id, "references", skill.References, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "references", renderer.CodeSkillReferencesDropped, err.Error(), "Check file paths"))
 		}
-		if len(skill.Assets) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "assets",
-				renderer.CodeSkillAssetsDropped,
-				fmt.Sprintf("skill %q assets dropped; Copilot does not support skill assets/ directories", id),
-				"Copy assets manually if needed",
-			))
+		if err := renderer.FlattenToSkillRoot(id, "scripts", skill.Scripts, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "scripts", renderer.CodeSkillScriptsDropped, err.Error(), "Check file paths"))
 		}
-		if len(skill.References) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "references",
-				renderer.CodeSkillReferencesDropped,
-				fmt.Sprintf("skill %q references dropped; Copilot does not compile skill references/ directories", id),
-				"Copy references into .github/skills/"+id+"/references/ manually",
-			))
+		if err := renderer.FlattenToSkillRoot(id, "assets", skill.Assets, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "assets", renderer.CodeSkillAssetsDropped, err.Error(), "Check file paths"))
+		}
+		if err := renderer.FlattenToSkillRoot(id, "examples", skill.Examples, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "examples", renderer.CodeSkillExamplesDropped, err.Error(), "Check file paths"))
+		}
+		for k, v := range subOut.Files {
+			files[k] = v
 		}
 	}
 

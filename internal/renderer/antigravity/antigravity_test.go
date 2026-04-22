@@ -1,6 +1,8 @@
 package antigravity_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -317,6 +319,13 @@ func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
 }
 
 func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
+	// Create actual files so CompileSkillSubdir can read them.
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "refs", "guide.go"), []byte("// guide"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "setup.sh"), []byte("#!/bin/sh"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "icon.png"), []byte("PNG"), 0o644))
+
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -326,7 +335,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Description:  "Has many fields.",
 					Instructions: "Do something.",
 					AllowedTools: []string{"Bash"},
-					References:   []string{"**/*.go"},
+					References:   []string{"refs/guide.go"},
 					Scripts:      []string{"setup.sh"},
 					Assets:       []string{"icon.png"},
 				},
@@ -334,17 +343,17 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 		},
 	}
 
-	out, _, err := renderer.Orchestrate(r, config, "")
+	out, _, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 
 	content := out.Files["skills/rich-skill/SKILL.md"]
 	require.NotEmpty(t, content)
 
-	// CC-only and target-specific fields must NOT appear
+	// CC-only and target-specific fields must NOT appear in SKILL.md frontmatter.
 	for _, dropped := range []string{
 		"tools:", "references:", "scripts:", "assets:",
 	} {
-		assert.NotContains(t, content, dropped, "field %q must be dropped for AG skills", dropped)
+		assert.NotContains(t, content, dropped, "field %q must be dropped for AG SKILL.md frontmatter", dropped)
 	}
 
 	// Only name and description allowed in frontmatter
@@ -352,7 +361,12 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	assert.Contains(t, content, "description: Has many fields.")
 }
 
-func TestCompile_Skill_ReferencesDropped_EmitsFidelityNote(t *testing.T) {
+func TestCompile_Skill_References_CompiledToExamples(t *testing.T) {
+	// Antigravity now compiles references/ → examples/ instead of dropping them.
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "refs", "doc.md"), []byte("# Doc"), 0o644))
+
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -366,16 +380,17 @@ func TestCompile_Skill_ReferencesDropped_EmitsFidelityNote(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := renderer.Orchestrate(r, config, t.TempDir())
+	files, notes, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 
-	found := false
+	// References are compiled to examples/ (name translation)
+	_, ok := files.Files["skills/test-skill/examples/doc.md"]
+	assert.True(t, ok, "expected references compiled to examples/ subdirectory")
+
+	// No drop note should be emitted
 	for _, n := range notes {
-		if n.Code == renderer.CodeSkillReferencesDropped {
-			found = true
-		}
+		assert.NotEqual(t, renderer.CodeSkillReferencesDropped, n.Code, "references must not produce a drop note")
 	}
-	assert.True(t, found, "expected SKILL_REFERENCES_DROPPED fidelity note for skill with references")
 }
 
 func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
@@ -798,7 +813,12 @@ func TestAntigravityRenderer_MCPDeclared_EmitsGlobalConfigOnlyNote(t *testing.T)
 	assert.True(t, ok, "expected MCP_GLOBAL_CONFIG_ONLY note for MCP declarations on Antigravity target")
 }
 
-func TestAntigravityRenderer_SkillScripts_EmitsNote(t *testing.T) {
+func TestAntigravityRenderer_SkillScripts_CompiledToScripts(t *testing.T) {
+	// Antigravity now compiles scripts/ instead of dropping them.
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "scripts"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "scripts", "install.sh"), []byte("#!/bin/sh\necho hi"), 0o755))
+
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -810,14 +830,23 @@ func TestAntigravityRenderer_SkillScripts_EmitsNote(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := renderer.Orchestrate(r, config, "")
+	files, notes, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
-	note, ok := findAgNote(notes, renderer.CodeSkillScriptsDropped, "scripts")
-	require.True(t, ok)
-	assert.Equal(t, "setup", note.Resource)
+
+	_, ok := files.Files["skills/setup/scripts/install.sh"]
+	assert.True(t, ok, "expected scripts compiled to scripts/ subdirectory")
+
+	for _, n := range notes {
+		assert.NotEqual(t, renderer.CodeSkillScriptsDropped, n.Code, "scripts must not produce a drop note")
+	}
 }
 
-func TestAntigravityRenderer_SkillAssets_EmitsNote(t *testing.T) {
+func TestAntigravityRenderer_SkillAssets_CompiledToResources(t *testing.T) {
+	// Antigravity now compiles assets/ → resources/ instead of dropping them.
+	tmpDir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "assets"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "assets", "logo.svg"), []byte("<svg/>"), 0o644))
+
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -829,10 +858,15 @@ func TestAntigravityRenderer_SkillAssets_EmitsNote(t *testing.T) {
 			},
 		},
 	}
-	_, notes, err := renderer.Orchestrate(r, config, "")
+	files, notes, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
-	_, ok := findAgNote(notes, renderer.CodeSkillAssetsDropped, "assets")
-	assert.True(t, ok)
+
+	_, ok := files.Files["skills/branding/resources/logo.svg"]
+	assert.True(t, ok, "expected assets compiled to resources/ subdirectory")
+
+	for _, n := range notes {
+		assert.NotEqual(t, renderer.CodeSkillAssetsDropped, n.Code, "assets must not produce a drop note")
+	}
 }
 
 // ─── Activation provenance comment tests ─────────────────────────────────────
@@ -922,6 +956,62 @@ func TestCompile_Agents_EmitsKindUnsupported(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected RENDERER_KIND_UNSUPPORTED fidelity note for agent in antigravity")
+	}
+}
+
+// ─── Skill subdirectory compilation tests ────────────────────────────────────
+
+func TestCompile_SkillWithSubdirs_Antigravity(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmpDir, "assets"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "assets", "TEMPLATE.md"), []byte("# Template"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, "refs", "guide.md"), []byte("# Guide"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	skills := map[string]ast.SkillConfig{
+		"my-skill": {
+			Description:  "test",
+			Instructions: "Do the thing.",
+			Assets:       []string{"assets/TEMPLATE.md"},
+			References:   []string{"refs/guide.md"},
+		},
+	}
+
+	r := antigravity.New()
+	files, notes, err := r.CompileSkills(skills, tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Antigravity: assets → resources
+	if _, ok := files["skills/my-skill/resources/TEMPLATE.md"]; !ok {
+		keys := make([]string, 0, len(files))
+		for k := range files {
+			keys = append(keys, k)
+		}
+		t.Errorf("expected assets mapped to resources/, got keys: %v", keys)
+	}
+	// Antigravity: references → examples
+	if _, ok := files["skills/my-skill/examples/guide.md"]; !ok {
+		keys := make([]string, 0, len(files))
+		for k := range files {
+			keys = append(keys, k)
+		}
+		t.Errorf("expected references mapped to examples/, got keys: %v", keys)
+	}
+	// Should NOT have "dropped" fidelity notes for assets/references anymore
+	for _, n := range notes {
+		if n.Code == renderer.CodeSkillAssetsDropped || n.Code == renderer.CodeSkillReferencesDropped {
+			t.Errorf("unexpected drop note: %v", n)
+		}
 	}
 }
 

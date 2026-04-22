@@ -253,6 +253,8 @@ type SkillConfig struct {
 	Scripts []string `yaml:"scripts,omitempty"`
 	// Assets are output artifact files (templates, fonts, icons) copied to skills/<id>/assets/.
 	Assets []string `yaml:"assets,omitempty"`
+	// Examples are demonstration files showing correct output, copied to skills/<id>/examples/ at compile time.
+	Examples []string `yaml:"examples,omitempty"`
 
 	// Group 9 — Multi-Target (per-provider overrides + provider: pass-through)
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`

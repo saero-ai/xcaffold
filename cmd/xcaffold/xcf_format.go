@@ -413,7 +413,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		}
 	}
 
-	// ── extras (provider-specific unrecognized files) ─────────────────────────
+	// ── provider passthrough (provider-specific files) ─────────────────────────
 	if len(config.ProviderExtras) > 0 {
 		providers := sortedMapKeys(config.ProviderExtras)
 		for _, provider := range providers {
@@ -428,7 +428,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			sort.Strings(keys)
 			for _, rel := range keys {
 				data := files[rel]
-				outPath := filepath.Join(xcfDir, "extras", provider, filepath.FromSlash(rel))
+				outPath := filepath.Join(xcfDir, "provider", provider, filepath.FromSlash(rel))
 				if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 					return err
 				}

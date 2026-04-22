@@ -108,6 +108,7 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeSkillScriptsDropped:                 true,
 		renderer.CodeSkillAssetsDropped:                  true,
 		renderer.CodeSkillReferencesDropped:              true,
+		renderer.CodeSkillExamplesDropped:                true,
 		renderer.CodeRuleActivationUnsupported:           true,
 		renderer.CodeRuleExcludeAgentsDropped:            true,
 		renderer.CodeInstructionsImportInlined:           true,

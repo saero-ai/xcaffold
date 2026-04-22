@@ -50,7 +50,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              true,
 			projectInstructions: true,
 			modelField:          true,
-			skillSubdirs:        []string{"references", "scripts", "assets"},
+			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 			ruleActivations:     []string{"always", "path-glob"},
 		},
 		{
@@ -82,7 +82,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              false,
 			projectInstructions: true,
 			modelField:          true,
-			skillSubdirs:        []string{},
+			skillSubdirs:        []string{"references", "scripts", "assets"},
 			ruleActivations:     []string{"always", "path-glob"},
 		},
 		{
@@ -98,7 +98,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              false,
 			projectInstructions: true,
 			modelField:          true,
-			skillSubdirs:        []string{},
+			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 			ruleActivations:     []string{"always", "path-glob"},
 		},
 		{
@@ -114,7 +114,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              true,
 			projectInstructions: true,
 			modelField:          false,
-			skillSubdirs:        nil,
+			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 			ruleActivations:     []string{"always", "path-glob", "manual"},
 		},
 	}
