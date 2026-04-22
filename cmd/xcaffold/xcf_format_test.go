@@ -465,6 +465,43 @@ func TestWriteSplitFiles_ScopeFilter_SkillsAndRules(t *testing.T) {
 	assert.True(t, os.IsNotExist(err), "undeclared rule must NOT be written")
 }
 
+func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
+	outDir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"my-skill": {
+					Name:         "my-skill",
+					Description:  "Test skill",
+					References:   []string{"xcf/skills/my-skill/references/ref.md"},
+					Scripts:      []string{"xcf/skills/my-skill/scripts/run.sh"},
+					Assets:       []string{"xcf/skills/my-skill/assets/icon.svg"},
+					Examples:     []string{"xcf/skills/my-skill/examples/sample.md"},
+					Instructions: "Do the thing.",
+				},
+			},
+		},
+	}
+	err := WriteSplitFiles(config, outDir)
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(outDir, "xcf", "skills", "my-skill.xcf"))
+	require.NoError(t, err)
+	content := string(data)
+
+	// Verify all 4 subdir fields appear in frontmatter
+	assert.Contains(t, content, "references:")
+	assert.Contains(t, content, "scripts:")
+	assert.Contains(t, content, "assets:")
+	assert.Contains(t, content, "examples:")
+	// Verify body is written as markdown after the --- delimiter
+	assert.Contains(t, content, "Do the thing.")
+	// Verify instructions field is NOT duplicated in YAML
+	assert.NotContains(t, content, "instructions:")
+}
+
 func TestWriteFrontmatterFile_EmptyBody_FallsBackToYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "ceo.xcf")
