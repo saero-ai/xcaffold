@@ -20,15 +20,25 @@ var subdirAllowedExtensions = map[string][]string{
 	"examples":   {".md", ".txt"},
 }
 
+// SkillValidationResult separates hard errors from advisory warnings produced
+// by ValidateSkillDirectory. Errors indicate structural violations that must be
+// fixed; Warnings indicate misplaced file types that are allowed but unusual.
+type SkillValidationResult struct {
+	Errors   []error
+	Warnings []error
+}
+
 // ValidateSkillDirectory checks that a skill directory conforms to the canonical
-// 4-subdirectory layout. It returns a slice of errors — one per violation found.
-// An empty slice means the directory is valid.
-func ValidateSkillDirectory(skillDir, skillID string) []error {
-	var errs []error
+// 4-subdirectory layout. It returns a SkillValidationResult with hard errors
+// (unknown subdirs, stray files, nested subdirs) and advisory warnings
+// (misplaced file types). Both slices are nil when the directory is fully valid.
+func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
+	result := &SkillValidationResult{}
 
 	entries, err := os.ReadDir(skillDir)
 	if err != nil {
-		return []error{fmt.Errorf("cannot read skill directory %q: %w", skillDir, err)}
+		result.Errors = append(result.Errors, fmt.Errorf("cannot read skill directory %q: %w", skillDir, err))
+		return result
 	}
 
 	xcfFile := skillID + ".xcf"
@@ -38,31 +48,34 @@ func ValidateSkillDirectory(skillDir, skillID string) []error {
 
 		if entry.IsDir() {
 			if !canonicalSkillSubdirs[name] {
-				errs = append(errs, fmt.Errorf(
+				result.Errors = append(result.Errors, fmt.Errorf(
 					"unknown subdirectory %q in skill %q; use references/, scripts/, assets/, or examples/",
 					name, skillID))
 				continue
 			}
-			errs = append(errs, validateSubdirDepth(filepath.Join(skillDir, name), skillID, name)...)
-			errs = append(errs, validateSubdirFileTypes(filepath.Join(skillDir, name), skillID, name)...)
+			subdirPath := filepath.Join(skillDir, name)
+			result.Errors = append(result.Errors, validateSubdirDepth(subdirPath, skillID, name)...)
+			errs, warns := validateSubdirFileTypes(subdirPath, skillID, name)
+			result.Errors = append(result.Errors, errs...)
+			result.Warnings = append(result.Warnings, warns...)
 			continue
 		}
 
 		if name != xcfFile {
-			errs = append(errs, fmt.Errorf(
+			result.Errors = append(result.Errors, fmt.Errorf(
 				"unrecognized file %q at skill root %q; move to references/, scripts/, assets/, or examples/ based on its purpose",
 				name, skillID))
 		}
 	}
 
-	return errs
+	return result
 }
 
 func validateSubdirDepth(subdirPath, skillID, subdirName string) []error {
 	var errs []error
 	entries, err := os.ReadDir(subdirPath)
 	if err != nil {
-		return nil
+		return []error{fmt.Errorf("cannot read %s/%s/: %w", skillID, subdirName, err)}
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -74,14 +87,20 @@ func validateSubdirDepth(subdirPath, skillID, subdirName string) []error {
 	return errs
 }
 
-func validateSubdirFileTypes(subdirPath, skillID, subdirName string) []error {
+// validateSubdirFileTypes returns (errors, warnings). File type mismatches are
+// warnings, not errors. A ReadDir failure is returned as an error.
+func validateSubdirFileTypes(subdirPath, skillID, subdirName string) ([]error, []error) {
 	allowed, hasRestriction := subdirAllowedExtensions[subdirName]
 	if !hasRestriction {
-		return nil
+		return nil, nil
 	}
 
-	var errs []error
-	entries, _ := os.ReadDir(subdirPath)
+	entries, err := os.ReadDir(subdirPath)
+	if err != nil {
+		return []error{fmt.Errorf("cannot read %s/%s/: %w", skillID, subdirName, err)}, nil
+	}
+
+	var warns []error
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -95,10 +114,10 @@ func validateSubdirFileTypes(subdirPath, skillID, subdirName string) []error {
 			}
 		}
 		if !found {
-			errs = append(errs, fmt.Errorf(
+			warns = append(warns, fmt.Errorf(
 				"file %q in %s/%s/ has extension %q which is not typical for %s; consider moving to the appropriate subdirectory",
 				entry.Name(), skillID, subdirName, ext, subdirName))
 		}
 	}
-	return errs
+	return nil, warns
 }
