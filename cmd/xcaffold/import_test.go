@@ -1568,21 +1568,19 @@ func TestExtractSkillSubdirs_AntigravityResources(t *testing.T) {
 	// Create a fake Antigravity skill directory with resources/ and examples/
 	tmpDir := t.TempDir()
 	skillDir := filepath.Join(tmpDir, "my-skill")
-	os.MkdirAll(filepath.Join(skillDir, "resources"), 0o755)
-	os.WriteFile(filepath.Join(skillDir, "resources", "TEMPLATE.md"), []byte("# Template"), 0o644)
-	os.MkdirAll(filepath.Join(skillDir, "examples"), 0o755)
-	os.WriteFile(filepath.Join(skillDir, "examples", "sample.md"), []byte("# Sample"), 0o644)
-	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: my-skill\n---\nInstructions"), 0o644)
+	require.NoError(t, os.MkdirAll(filepath.Join(skillDir, "resources"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "resources", "TEMPLATE.md"), []byte("# Template"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(skillDir, "examples"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "examples", "sample.md"), []byte("# Sample"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: my-skill\n---\nInstructions"), 0o644))
 
 	outDir := t.TempDir()
 	var warnings []string
 
 	refs, scripts, assets, examples, err := extractSkillSubdirs(
-		filepath.Join(skillDir, "SKILL.md"), "", "my-skill", "antigravity", outDir, &warnings,
+		filepath.Join(skillDir, "SKILL.md"), "my-skill", "antigravity", outDir, &warnings,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// refs and scripts should be empty for this fixture
 	_ = refs
@@ -1601,5 +1599,92 @@ func TestExtractSkillSubdirs_AntigravityResources(t *testing.T) {
 	expectedAsset := filepath.Join(outDir, "xcf", "skills", "my-skill", "assets", "TEMPLATE.md")
 	if _, err := os.Stat(expectedAsset); os.IsNotExist(err) {
 		t.Errorf("expected asset copied to %s", expectedAsset)
+	}
+
+	expectedExample := filepath.Join(outDir, "xcf", "skills", "my-skill", "examples", "sample.md")
+	if _, err := os.Stat(expectedExample); os.IsNotExist(err) {
+		t.Errorf("expected example copied to %s", expectedExample)
+	}
+}
+
+func TestExtractSkillSubdirs_ClaudeFlatMdFiles(t *testing.T) {
+	// Claude flat .md files alongside SKILL.md should be treated as references.
+	tmpDir := t.TempDir()
+	skillDir := filepath.Join(tmpDir, "my-skill")
+	require.NoError(t, os.MkdirAll(skillDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: my-skill\n---\nInstructions"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "helper.md"), []byte("# Helper"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "guide.md"), []byte("# Guide"), 0o644))
+
+	outDir := t.TempDir()
+	var warnings []string
+
+	refs, scripts, assets, examples, err := extractSkillSubdirs(
+		filepath.Join(skillDir, "SKILL.md"), "my-skill", "claude", outDir, &warnings,
+	)
+	require.NoError(t, err)
+
+	_ = scripts
+	_ = assets
+	_ = examples
+
+	if len(refs) != 2 {
+		t.Errorf("expected 2 refs for flat .md files, got %d: %v", len(refs), refs)
+	}
+
+	// Verify files were copied to references/
+	for _, name := range []string{"helper.md", "guide.md"} {
+		dest := filepath.Join(outDir, "xcf", "skills", "my-skill", "references", name)
+		if _, err := os.Stat(dest); os.IsNotExist(err) {
+			t.Errorf("expected reference copied to %s", dest)
+		}
+	}
+
+	if len(warnings) != 0 {
+		t.Errorf("expected no warnings for claude provider, got: %v", warnings)
+	}
+}
+
+func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
+	// Unknown providers should route all subdir files to passthrough and emit a warning.
+	tmpDir := t.TempDir()
+	skillDir := filepath.Join(tmpDir, "my-skill")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillDir, "extras"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "extras", "data.json"), []byte(`{}`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: my-skill\n---\nInstructions"), 0o644))
+
+	outDir := t.TempDir()
+	var warnings []string
+
+	refs, scripts, assets, examples, err := extractSkillSubdirs(
+		filepath.Join(skillDir, "SKILL.md"), "my-skill", "unknown-provider", outDir, &warnings,
+	)
+	require.NoError(t, err)
+
+	// All canonical slices should be empty — unknown provider has no canonical mapping.
+	if len(refs)+len(scripts)+len(assets)+len(examples) != 0 {
+		t.Errorf("expected empty canonical slices for unknown provider, got refs=%v scripts=%v assets=%v examples=%v",
+			refs, scripts, assets, examples)
+	}
+
+	// File should appear in the passthrough directory.
+	passthroughFile := filepath.Join(outDir, "xcf", "provider", "unknown-provider", "skills", "my-skill", "extras", "data.json")
+	if _, err := os.Stat(passthroughFile); os.IsNotExist(err) {
+		t.Errorf("expected passthrough file at %s", passthroughFile)
+	}
+
+	// A warning must have been emitted for the unknown provider.
+	if len(warnings) == 0 {
+		t.Error("expected a warning for unknown provider, got none")
+	}
+	found := false
+	for _, w := range warnings {
+		if strings.Contains(w, "unknown provider") && strings.Contains(w, "unknown-provider") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected warning about unknown provider, got: %v", warnings)
 	}
 }

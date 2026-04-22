@@ -520,7 +520,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		for id := range config.Skills {
 			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, scopeName, id, provider, "", &warnings)
+				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", &warnings)
 				sc := config.Skills[id]
 				if len(refs) > 0 {
 					sc.References = refs
@@ -1073,7 +1073,7 @@ func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 		body := extractBodyAfterFrontmatter(data)
 
 		// Supporting files are copied to xcf/skills/<id>/ using canonical subdirectories.
-		refs, scripts, fileAssets, fileExamples, err := extractSkillSubdirs(f, scopeName, id, "claude", "", warnings)
+		refs, scripts, fileAssets, fileExamples, err := extractSkillSubdirs(f, id, "claude", "", warnings)
 		if err != nil {
 			return err
 		}
@@ -1103,26 +1103,6 @@ func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 		*count++
 	}
 	return nil
-}
-
-func extractSkillRefs(skillFile, scopeName, id string, warnings *[]string) ([]string, error) {
-	refSrc := filepath.Join(filepath.Dir(skillFile), "references")
-	var refs []string
-	if refEntries, err := os.ReadDir(refSrc); err == nil {
-		for _, entry := range refEntries {
-			if entry.IsDir() {
-				continue
-			}
-			srcRef := filepath.Join(refSrc, entry.Name())
-			xcfRefDest := filepath.Join("xcf", "skills", id, "references", entry.Name())
-			if err := copyFile(srcRef, xcfRefDest); err != nil {
-				*warnings = append(*warnings, fmt.Sprintf("failed to copy skill ref %s: %v", srcRef, err))
-				continue
-			}
-			refs = append(refs, filepath.ToSlash(xcfRefDest))
-		}
-	}
-	return refs, nil
 }
 
 // providerSubdirMap maps provider-native subdirectory names to the canonical
@@ -1164,13 +1144,16 @@ var providerSubdirMap = map[string]map[string]string{
 //
 // Files from subdirectories that have no canonical mapping are copied to
 // xcf/provider/<provider>/skills/<id>/<subdir>/.
-func extractSkillSubdirs(skillFile, scopeName, id, provider, outDir string, warnings *[]string) (refs, scripts, assets, examples []string, err error) {
+func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]string) (refs, scripts, assets, examples []string, err error) {
 	skillDir := filepath.Dir(skillFile)
 
 	// Determine the base for output paths.
 	base := outDir
 
 	subdirMap := providerSubdirMap[provider] // nil if provider unknown
+	if subdirMap == nil {
+		*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs: unknown provider %q — all subdirectory files routed to passthrough", provider))
+	}
 
 	// Walk all direct children of the skill directory.
 	entries, readErr := os.ReadDir(skillDir)
@@ -1181,6 +1164,9 @@ func extractSkillSubdirs(skillFile, scopeName, id, provider, outDir string, warn
 
 	// Helper: copy a file and append to the appropriate slice.
 	appendCopied := func(src, canonicalSubdir, filename string) {
+		// The xcf-relative path is always outDir-agnostic — it is what gets
+		// stored in AST SkillConfig fields (References, Scripts, Assets, Examples).
+		xcfRelPath := filepath.ToSlash(filepath.Join("xcf", "skills", id, canonicalSubdir, filename))
 		var dest string
 		if base != "" {
 			dest = filepath.Join(base, "xcf", "skills", id, canonicalSubdir, filename)
@@ -1191,16 +1177,15 @@ func extractSkillSubdirs(skillFile, scopeName, id, provider, outDir string, warn
 			*warnings = append(*warnings, fmt.Sprintf("failed to copy skill file %s: %v", src, copyErr))
 			return
 		}
-		slashDest := filepath.ToSlash(dest)
 		switch canonicalSubdir {
 		case "references":
-			refs = append(refs, slashDest)
+			refs = append(refs, xcfRelPath)
 		case "scripts":
-			scripts = append(scripts, slashDest)
+			scripts = append(scripts, xcfRelPath)
 		case "assets":
-			assets = append(assets, slashDest)
+			assets = append(assets, xcfRelPath)
 		case "examples":
-			examples = append(examples, slashDest)
+			examples = append(examples, xcfRelPath)
 		}
 	}
 
