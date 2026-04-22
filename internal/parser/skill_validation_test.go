@@ -3,9 +3,18 @@ package parser
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestValidateSkillDirectory_NonExistentDir(t *testing.T) {
+	result := ValidateSkillDirectory("/tmp/does-not-exist-xcaffold-test", "my-skill")
+	require.Len(t, result.Errors, 1)
+	assert.Contains(t, result.Errors[0].Error(), "cannot read skill directory")
+	require.Empty(t, result.Warnings)
+}
 
 func TestValidateSkillDirectory_UnknownSubdir(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -13,12 +22,8 @@ func TestValidateSkillDirectory_UnknownSubdir(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "my-skill.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
 
 	result := ValidateSkillDirectory(tmpDir, "my-skill")
-	if len(result.Errors) == 0 {
-		t.Fatal("expected error for unknown subdir 'templates/', got none")
-	}
-	if !strings.Contains(result.Errors[0].Error(), "templates") {
-		t.Errorf("error should mention 'templates', got: %v", result.Errors[0])
-	}
+	require.NotEmpty(t, result.Errors, "expected error for unknown subdir 'templates/'")
+	assert.Contains(t, result.Errors[0].Error(), "templates")
 }
 
 func TestValidateSkillDirectory_StrayFile(t *testing.T) {
@@ -27,12 +32,8 @@ func TestValidateSkillDirectory_StrayFile(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "notes.txt"), []byte("stray"), 0o644)
 
 	result := ValidateSkillDirectory(tmpDir, "my-skill")
-	if len(result.Errors) == 0 {
-		t.Fatal("expected error for stray file 'notes.txt', got none")
-	}
-	if !strings.Contains(result.Errors[0].Error(), "notes.txt") {
-		t.Errorf("error should mention 'notes.txt', got: %v", result.Errors[0])
-	}
+	require.NotEmpty(t, result.Errors, "expected error for stray file 'notes.txt'")
+	assert.Contains(t, result.Errors[0].Error(), "notes.txt")
 }
 
 func TestValidateSkillDirectory_MaxDepth(t *testing.T) {
@@ -42,12 +43,8 @@ func TestValidateSkillDirectory_MaxDepth(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "references", "nested", "deep.md"), []byte("deep"), 0o644)
 
 	result := ValidateSkillDirectory(tmpDir, "my-skill")
-	if len(result.Errors) == 0 {
-		t.Fatal("expected error for nested subdir, got none")
-	}
-	if !strings.Contains(result.Errors[0].Error(), "nested") {
-		t.Errorf("error should mention 'nested', got: %v", result.Errors[0])
-	}
+	require.NotEmpty(t, result.Errors, "expected error for nested subdir")
+	assert.Contains(t, result.Errors[0].Error(), "nested")
 }
 
 func TestValidateSkillDirectory_ValidStructure(t *testing.T) {
@@ -63,12 +60,8 @@ func TestValidateSkillDirectory_ValidStructure(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample"), 0o644)
 
 	result := ValidateSkillDirectory(tmpDir, "my-skill")
-	if len(result.Errors) != 0 {
-		t.Errorf("expected no errors for valid structure, got: %v", result.Errors)
-	}
-	if len(result.Warnings) != 0 {
-		t.Errorf("expected no warnings for valid structure, got: %v", result.Warnings)
-	}
+	assert.Empty(t, result.Errors, "expected no errors for valid structure")
+	assert.Empty(t, result.Warnings, "expected no warnings for valid structure")
 }
 
 func TestValidateSkillDirectory_FileTypeWarning(t *testing.T) {
@@ -78,15 +71,9 @@ func TestValidateSkillDirectory_FileTypeWarning(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "references", "run.sh"), []byte("#!/bin/bash"), 0o644)
 
 	result := ValidateSkillDirectory(tmpDir, "my-skill")
-	if len(result.Errors) != 0 {
-		t.Errorf("expected no hard errors for misplaced file type, got: %v", result.Errors)
-	}
-	if len(result.Warnings) == 0 {
-		t.Fatal("expected warning for .sh in references/, got none")
-	}
-	if !strings.Contains(result.Warnings[0].Error(), ".sh") {
-		t.Errorf("warning should mention '.sh', got: %v", result.Warnings[0])
-	}
+	assert.Empty(t, result.Errors, "expected no hard errors for misplaced file type")
+	require.NotEmpty(t, result.Warnings, "expected warning for .sh in references/")
+	assert.Contains(t, result.Warnings[0].Error(), ".sh")
 }
 
 func TestValidateSkillDirectory_SkillDirWithNoSubdirs(t *testing.T) {
@@ -94,10 +81,6 @@ func TestValidateSkillDirectory_SkillDirWithNoSubdirs(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "my-skill.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
 
 	result := ValidateSkillDirectory(tmpDir, "my-skill")
-	if len(result.Errors) != 0 {
-		t.Errorf("skill with only .xcf and no subdirs should be valid, got: %v", result.Errors)
-	}
-	if len(result.Warnings) != 0 {
-		t.Errorf("skill with only .xcf and no subdirs should have no warnings, got: %v", result.Warnings)
-	}
+	assert.Empty(t, result.Errors, "skill with only .xcf and no subdirs should be valid")
+	assert.Empty(t, result.Warnings, "skill with only .xcf and no subdirs should have no warnings")
 }

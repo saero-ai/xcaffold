@@ -54,8 +54,7 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 				continue
 			}
 			subdirPath := filepath.Join(skillDir, name)
-			result.Errors = append(result.Errors, validateSubdirDepth(subdirPath, skillID, name)...)
-			errs, warns := validateSubdirFileTypes(subdirPath, skillID, name)
+			errs, warns := validateSubdir(subdirPath, skillID, name)
 			result.Errors = append(result.Errors, errs...)
 			result.Warnings = append(result.Warnings, warns...)
 			continue
@@ -71,38 +70,24 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 	return result
 }
 
-func validateSubdirDepth(subdirPath, skillID, subdirName string) []error {
-	var errs []error
+// validateSubdir reads subdirPath once and checks both max-depth and file-type
+// constraints in a single pass. It returns (errors, warnings).
+func validateSubdir(subdirPath, skillID, subdirName string) ([]error, []error) {
 	entries, err := os.ReadDir(subdirPath)
 	if err != nil {
-		return []error{fmt.Errorf("cannot read %s/%s/: %w", skillID, subdirName, err)}
+		return []error{fmt.Errorf("cannot read %s/%s/: %w", skillID, subdirName, err)}, nil
 	}
+	allowed := subdirAllowedExtensions[subdirName]
+	var errs []error
+	var warns []error
 	for _, entry := range entries {
 		if entry.IsDir() {
 			errs = append(errs, fmt.Errorf(
 				"nested subdirectory %q inside %s/%s/ is not allowed; max depth is 1",
 				entry.Name(), skillID, subdirName))
+			continue
 		}
-	}
-	return errs
-}
-
-// validateSubdirFileTypes returns (errors, warnings). File type mismatches are
-// warnings, not errors. A ReadDir failure is returned as an error.
-func validateSubdirFileTypes(subdirPath, skillID, subdirName string) ([]error, []error) {
-	allowed, hasRestriction := subdirAllowedExtensions[subdirName]
-	if !hasRestriction {
-		return nil, nil
-	}
-
-	entries, err := os.ReadDir(subdirPath)
-	if err != nil {
-		return []error{fmt.Errorf("cannot read %s/%s/: %w", skillID, subdirName, err)}, nil
-	}
-
-	var warns []error
-	for _, entry := range entries {
-		if entry.IsDir() {
+		if allowed == nil {
 			continue
 		}
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
@@ -119,5 +104,5 @@ func validateSubdirFileTypes(subdirPath, skillID, subdirName string) ([]error, [
 				entry.Name(), skillID, subdirName, ext, subdirName))
 		}
 	}
-	return nil, warns
+	return errs, warns
 }
