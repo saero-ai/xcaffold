@@ -3,11 +3,57 @@ package renderer
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/output"
 )
+
+func sortedFileKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func TestFlattenToSkillRoot_WritesFlat(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.MkdirAll(filepath.Join(tmpDir, "examples"), 0o755)
+	os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample"), 0o644)
+
+	out := &output.Output{Files: make(map[string]string)}
+	err := FlattenToSkillRoot("my-skill", "examples", []string{"examples/sample.md"}, tmpDir, out)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "skills/my-skill/sample.md"
+	if _, ok := out.Files[expected]; !ok {
+		t.Errorf("expected flat output at %q, got keys: %v", expected, sortedFileKeys(out.Files))
+	}
+}
+
+func TestFlattenToSkillRoot_RejectsTraversal(t *testing.T) {
+	out := &output.Output{Files: make(map[string]string)}
+	err := FlattenToSkillRoot("my-skill", "examples", []string{"../../etc/passwd"}, t.TempDir(), out)
+	if err == nil {
+		t.Error("expected error for path traversal, got nil")
+	}
+}
+
+func TestFlattenToSkillRoot_EmptyPaths(t *testing.T) {
+	out := &output.Output{Files: make(map[string]string)}
+	err := FlattenToSkillRoot("my-skill", "examples", nil, t.TempDir(), out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Files) != 0 {
+		t.Errorf("expected no files for nil paths, got %d", len(out.Files))
+	}
+}
 
 func TestCompileSkillSubdir_CopiesFiles(t *testing.T) {
 	tmpDir := t.TempDir()

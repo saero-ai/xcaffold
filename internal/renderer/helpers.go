@@ -50,6 +50,47 @@ func StripAllFrontmatter(content string) string {
 	}
 }
 
+// FlattenToSkillRoot reads files matching paths (globs or literals) relative to
+// baseDir and writes them directly to skills/<id>/<filename> in out.Files — no
+// subdirectory is created. This is used by providers that co-locate all skill
+// files alongside SKILL.md (e.g., Claude examples, Copilot all subdirs).
+func FlattenToSkillRoot(id, canonicalName string, paths []string, baseDir string, out *output.Output) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	for _, pattern := range paths {
+		cleanedPattern := filepath.Clean(pattern)
+		if strings.HasPrefix(cleanedPattern, "..") {
+			return fmt.Errorf("%s path %q traverses above the project root", canonicalName, pattern)
+		}
+		absPattern := filepath.Join(baseDir, cleanedPattern)
+		matches, err := filepath.Glob(absPattern)
+		if err != nil {
+			return fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
+		}
+		if len(matches) == 0 {
+			data, readErr := os.ReadFile(absPattern)
+			if readErr != nil {
+				return fmt.Errorf("%s file %q: %w", canonicalName, pattern, readErr)
+			}
+			baseName := filepath.Base(absPattern)
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s", id, baseName))
+			out.Files[outPath] = string(data)
+			continue
+		}
+		for _, match := range matches {
+			data, readErr := os.ReadFile(match)
+			if readErr != nil {
+				return fmt.Errorf("%s file %q: %w", canonicalName, match, readErr)
+			}
+			baseName := filepath.Base(match)
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s", id, baseName))
+			out.Files[outPath] = string(data)
+		}
+	}
+	return nil
+}
+
 // CompileSkillSubdir reads files from a skill subdirectory (references/, scripts/, assets/)
 // and adds them to the output map at skills/<id>/<outputSubdir>/<filename>.
 //

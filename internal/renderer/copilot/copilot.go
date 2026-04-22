@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	rendshared "github.com/saero-ai/xcaffold/internal/renderer/shared"
 	"github.com/saero-ai/xcaffold/internal/resolver"
@@ -597,71 +598,21 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				"",
 			))
 		}
-		// flattenToSkillRoot reads each file matched by pattern and writes it
-		// co-located alongside SKILL.md under skills/<id>/<filename>. Copilot
-		// makes the entire skill directory accessible, so a flat layout is the
-		// correct output — no subdirectories are created.
-		flattenToSkillRoot := func(canonicalName string, paths []string) error {
-			for _, pattern := range paths {
-				cleanedPattern := filepath.Clean(pattern)
-				if strings.HasPrefix(cleanedPattern, "..") {
-					return fmt.Errorf("%s path %q traverses above the project root", canonicalName, pattern)
-				}
-				absPattern := filepath.Join(baseDir, cleanedPattern)
-				matches, err := filepath.Glob(absPattern)
-				if err != nil {
-					return fmt.Errorf("invalid glob %q: %w", pattern, err)
-				}
-				if len(matches) == 0 {
-					data, readErr := os.ReadFile(absPattern)
-					if readErr != nil {
-						return fmt.Errorf("%s file %q: %w", canonicalName, pattern, readErr)
-					}
-					files[filepath.Clean(fmt.Sprintf("skills/%s/%s", id, filepath.Base(absPattern)))] = string(data)
-					continue
-				}
-				for _, match := range matches {
-					data, readErr := os.ReadFile(match)
-					if readErr != nil {
-						return fmt.Errorf("%s file %q: %w", canonicalName, match, readErr)
-					}
-					files[filepath.Clean(fmt.Sprintf("skills/%s/%s", id, filepath.Base(match)))] = string(data)
-				}
-			}
-			return nil
+		subOut := &output.Output{Files: make(map[string]string)}
+		if err := renderer.FlattenToSkillRoot(id, "references", skill.References, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "references", renderer.CodeSkillReferencesDropped, err.Error(), "Check file paths"))
 		}
-
-		if err := flattenToSkillRoot("references", skill.References); err != nil {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "references",
-				renderer.CodeSkillReferencesDropped,
-				err.Error(),
-				"Check file paths",
-			))
+		if err := renderer.FlattenToSkillRoot(id, "scripts", skill.Scripts, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "scripts", renderer.CodeSkillScriptsDropped, err.Error(), "Check file paths"))
 		}
-		if err := flattenToSkillRoot("scripts", skill.Scripts); err != nil {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "scripts",
-				renderer.CodeSkillScriptsDropped,
-				err.Error(),
-				"Check file paths",
-			))
+		if err := renderer.FlattenToSkillRoot(id, "assets", skill.Assets, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "assets", renderer.CodeSkillAssetsDropped, err.Error(), "Check file paths"))
 		}
-		if err := flattenToSkillRoot("assets", skill.Assets); err != nil {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "assets",
-				renderer.CodeSkillAssetsDropped,
-				err.Error(),
-				"Check file paths",
-			))
+		if err := renderer.FlattenToSkillRoot(id, "examples", skill.Examples, baseDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "examples", renderer.CodeSkillExamplesDropped, err.Error(), "Check file paths"))
 		}
-		if err := flattenToSkillRoot("examples", skill.Examples); err != nil {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "examples",
-				renderer.CodeSkillReferencesDropped,
-				err.Error(),
-				"Check file paths",
-			))
+		for k, v := range subOut.Files {
+			files[k] = v
 		}
 	}
 

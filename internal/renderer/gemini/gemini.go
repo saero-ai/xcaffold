@@ -58,10 +58,11 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                 true,
 		Memory:              false,
 		ProjectInstructions: true,
-		SkillSubdirs:        []string{"references", "scripts", "assets"},
-		ModelField:          true,
-		RuleActivations:     []string{"always", "path-glob"},
-		SecurityFields:      renderer.SecurityFieldSupport{},
+		// examples is intentionally absent — Gemini collapses examples into references/ at compile time.
+		SkillSubdirs:    []string{"references", "scripts", "assets"},
+		ModelField:      true,
+		RuleActivations: []string{"always", "path-glob"},
+		SecurityFields:  renderer.SecurityFieldSupport{},
 	}
 }
 
@@ -383,7 +384,9 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				"Move when-to-use content into description",
 			))
 		}
-		// Compile skill subdirectories. Examples collapse into references for Gemini.
+		// Skill subdirs are best-effort for Gemini: compilation errors are
+		// demoted to fidelity notes so the rest of the skill still compiles.
+		// Examples collapse into references for Gemini.
 		subOut := &output.Output{Files: make(map[string]string)}
 		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(
@@ -412,7 +415,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 		if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning, targetName, "skill", id, "examples",
-				renderer.CodeSkillReferencesDropped,
+				renderer.CodeSkillExamplesDropped,
 				err.Error(),
 				"Check file paths in examples",
 			))

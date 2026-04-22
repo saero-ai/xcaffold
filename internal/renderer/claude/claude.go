@@ -3,7 +3,6 @@ package claude
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -97,35 +96,8 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 
 		// Claude flattens examples alongside SKILL.md (no subdirectory).
 		// Claude auto-loads all .md/.mdx files from the skill directory.
-		for _, pattern := range skill.Examples {
-			cleanedPattern := filepath.Clean(pattern)
-			if strings.HasPrefix(cleanedPattern, "..") {
-				return nil, nil, fmt.Errorf("examples path %q traverses above the project root", pattern)
-			}
-			absPattern := filepath.Join(baseDir, cleanedPattern)
-			matches, err := filepath.Glob(absPattern)
-			if err != nil {
-				return nil, nil, fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
-			}
-			if len(matches) == 0 {
-				data, readErr := os.ReadFile(absPattern)
-				if readErr != nil {
-					return nil, nil, fmt.Errorf("examples file %q: %w", pattern, readErr)
-				}
-				baseName := filepath.Base(absPattern)
-				outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s", id, baseName))
-				out.Files[outPath] = string(data)
-				continue
-			}
-			for _, match := range matches {
-				data, readErr := os.ReadFile(match)
-				if readErr != nil {
-					return nil, nil, fmt.Errorf("examples file %q: %w", match, readErr)
-				}
-				baseName := filepath.Base(match)
-				outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s", id, baseName))
-				out.Files[outPath] = string(data)
-			}
+		if err := renderer.FlattenToSkillRoot(id, "examples", skill.Examples, baseDir, out); err != nil {
+			return nil, nil, fmt.Errorf("failed to compile examples for skill %q: %w", id, err)
 		}
 	}
 	return out.Files, nil, nil
