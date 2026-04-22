@@ -60,6 +60,12 @@ targets:
 | `targets.<name>.artifacts` | Per-target | Output file hashes for a specific target. |
 | `blueprint` | Top-level | Empty string for default compilation, or the blueprint name. |
 
+### Supporting File Tracking
+
+Skill subdirectory files (`references/`, `scripts/`, `assets/`, `examples/`) are tracked as individual artifacts in the state file alongside the main `SKILL.md` entry. Each supporting file's content is hashed with SHA-256 independently — for example, a skill with two reference files produces three artifact entries: `skills/<id>/SKILL.md`, `skills/<id>/references/api-spec.md`, and `skills/<id>/references/conventions.md`.
+
+When a supporting file is added, removed, or modified, `xcaffold diff` reports it as artifact drift for the affected target. The same orphan cleanup logic applies: if a supporting file is removed from the source `xcf/skills/<id>/` directory, the corresponding output file is deleted on the next `xcaffold apply` and its entry is removed from the state file.
+
 ## Source Drift vs. Artifact Drift
 
 xcaffold distinguishes two types of divergence:
