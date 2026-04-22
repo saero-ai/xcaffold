@@ -248,6 +248,35 @@ func TestWriteFrontmatterFile_AgentWithBody(t *testing.T) {
 	assert.NotContains(t, content, "instructions:")
 }
 
+func TestWriteSplitFiles_ProviderPassthrough(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.ProviderExtras = map[string]map[string][]byte{
+		"claude": {
+			"skills/adr-management/TEMPLATE.md": []byte("# Template"),
+		},
+	}
+
+	tmpDir := t.TempDir()
+	os.WriteFile(filepath.Join(tmpDir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\n"), 0o644)
+
+	err := WriteSplitFiles(config, tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should write to xcf/provider/ not xcf/extras/
+	expected := filepath.Join(tmpDir, "xcf", "provider", "claude", "skills", "adr-management", "TEMPLATE.md")
+	if _, err := os.Stat(expected); os.IsNotExist(err) {
+		t.Errorf("expected file at xcf/provider/claude/..., not found")
+	}
+
+	// Should NOT write to xcf/extras/
+	unexpected := filepath.Join(tmpDir, "xcf", "extras")
+	if _, err := os.Stat(unexpected); err == nil {
+		t.Error("xcf/extras/ should not exist — should be xcf/provider/")
+	}
+}
+
 func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	config := &ast.XcaffoldConfig{
