@@ -84,13 +84,13 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
-		if err := renderer.CompileSkillSubdir(id, "references", skill.References, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
 		}
-		if err := renderer.CompileSkillSubdir(id, "scripts", skill.Scripts, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
 		}
-		if err := renderer.CompileSkillSubdir(id, "assets", skill.Assets, baseDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, out); err != nil {
 			return nil, nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
 		}
 	}

@@ -51,13 +51,15 @@ func StripAllFrontmatter(content string) string {
 }
 
 // CompileSkillSubdir reads files from a skill subdirectory (references/, scripts/, assets/)
-// and adds them to the output map at skills/<id>/<subdir>/<filename>.
+// and adds them to the output map at skills/<id>/<outputSubdir>/<filename>.
+//
+// canonicalSubdir is used in error messages and represents the logical name (e.g. "references").
+// outputSubdir is the provider-native directory name written to the output path (e.g. "resources").
+// Passing the same value for both parameters produces identity translation.
 //
 // Each pattern in paths is resolved relative to baseDir. Path traversal above
 // baseDir is rejected. Glob patterns are expanded; literal paths are read directly.
-//
-// Supported subdirs: references, scripts, assets.
-func CompileSkillSubdir(id, subdir string, paths []string, baseDir string, out *output.Output) error {
+func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string, baseDir string, out *output.Output) error {
 	if len(paths) == 0 {
 		return nil
 	}
@@ -66,7 +68,7 @@ func CompileSkillSubdir(id, subdir string, paths []string, baseDir string, out *
 		// Security: pattern must not traverse above baseDir.
 		cleanedPattern := filepath.Clean(pattern)
 		if strings.HasPrefix(cleanedPattern, "..") {
-			return fmt.Errorf("%s path %q traverses above the project root", subdir, pattern)
+			return fmt.Errorf("%s path %q traverses above the project root", canonicalSubdir, pattern)
 		}
 
 		absPattern := filepath.Join(baseDir, cleanedPattern)
@@ -80,10 +82,10 @@ func CompileSkillSubdir(id, subdir string, paths []string, baseDir string, out *
 			// Treat as a literal path — if missing, it's an error.
 			data, readErr := os.ReadFile(absPattern)
 			if readErr != nil {
-				return fmt.Errorf("%s file %q: %w", subdir, pattern, readErr)
+				return fmt.Errorf("%s file %q: %w", canonicalSubdir, pattern, readErr)
 			}
 			baseName := filepath.Base(absPattern)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, outputSubdir, baseName))
 			out.Files[outPath] = string(data)
 			continue
 		}
@@ -91,10 +93,10 @@ func CompileSkillSubdir(id, subdir string, paths []string, baseDir string, out *
 		for _, match := range matches {
 			data, err := os.ReadFile(match)
 			if err != nil {
-				return fmt.Errorf("%s file %q: %w", subdir, match, err)
+				return fmt.Errorf("%s file %q: %w", canonicalSubdir, match, err)
 			}
 			baseName := filepath.Base(match)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, subdir, baseName))
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, outputSubdir, baseName))
 			out.Files[outPath] = string(data)
 		}
 	}
