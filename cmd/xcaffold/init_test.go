@@ -116,16 +116,16 @@ func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
 func TestInit_ReferencesFieldInSkillXCF(t *testing.T) {
 	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
 	require.Contains(t, out, "references:", "skill XCF must contain a references: field")
-	require.Contains(t, out, "xcf/skills/xcaffold/references/agent.xcf.reference")
-	require.Contains(t, out, "xcf/skills/xcaffold/references/skill.xcf.reference")
+	require.Contains(t, out, ".xcaffold/schemas/agent.xcf.reference")
+	require.Contains(t, out, ".xcaffold/schemas/skill.xcf.reference")
 }
 
 // TestInit_SkillXCF_PathsUpdated verifies that the generated xcaffold.xcf skill body
 // references the new companion path, not the old xcf/references/ path.
 func TestInit_SkillXCF_PathsUpdated(t *testing.T) {
 	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
-	require.NotContains(t, out, "xcf/references/", "old xcf/references/ path must not appear in generated skill")
-	require.Contains(t, out, "xcf/skills/xcaffold/references/", "new companion path must appear in generated skill")
+	require.NotContains(t, out, "xcf/skills/xcaffold/references/", "old xcf/skills/xcaffold/references/ path must not appear in generated skill")
+	require.Contains(t, out, ".xcaffold/schemas/", "new companion path must appear in generated skill")
 }
 
 func TestWriteReferenceTemplates_WritesToDotXcaffoldSchemas(t *testing.T) {
