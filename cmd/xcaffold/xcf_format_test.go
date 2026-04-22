@@ -491,13 +491,15 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 	require.NoError(t, err)
 	content := string(data)
 
+	// Verify frontmatter mode is used for skills with a body
+	assert.True(t, strings.HasPrefix(content, "---\n"), "skill with body must use frontmatter")
 	// Verify all 4 subdir fields appear in frontmatter
 	assert.Contains(t, content, "references:")
 	assert.Contains(t, content, "scripts:")
 	assert.Contains(t, content, "assets:")
 	assert.Contains(t, content, "examples:")
-	// Verify body is written as markdown after the --- delimiter
-	assert.Contains(t, content, "Do the thing.")
+	// Verify body appears after the closing --- delimiter
+	assert.Contains(t, content, "---\nDo the thing.")
 	// Verify instructions field is NOT duplicated in YAML
 	assert.NotContains(t, content, "instructions:")
 }
