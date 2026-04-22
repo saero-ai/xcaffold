@@ -2150,7 +2150,7 @@ func ValidateFile(path string) []Diagnostic {
 func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 	var diags []Diagnostic
 
-	// Skill subdirectory file sets: warn on missing files for references, scripts, assets
+	// Skill subdirectory file sets: warn on missing files for references, scripts, assets, examples
 	for id, skill := range c.Skills {
 		for _, subdirPaths := range []struct {
 			subdir string
@@ -2159,6 +2159,7 @@ func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 			{"references", skill.References},
 			{"scripts", skill.Scripts},
 			{"assets", skill.Assets},
+			{"examples", skill.Examples},
 		} {
 			for _, ref := range subdirPaths.paths {
 				if ref == "" {

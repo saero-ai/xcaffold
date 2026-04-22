@@ -239,7 +239,7 @@ func TestExtractSkills_InlinesInstructionsButCopiesRefs(t *testing.T) {
 	count := 0
 	var warnings []string
 
-	if err := extractSkills(".claude", "project", config, &count, &warnings); err != nil {
+	if err := extractSkills(".claude", "project", "claude", config, &count, &warnings); err != nil {
 		t.Fatalf("extractSkills returned error: %v", err)
 	}
 
@@ -1186,7 +1186,7 @@ func TestImport_FromGemini_ExtractsSkills(t *testing.T) {
 	count := 0
 	var warnings []string
 
-	require.NoError(t, extractSkills(".gemini", "project", config, &count, &warnings))
+	require.NoError(t, extractSkills(".gemini", "project", "gemini", config, &count, &warnings))
 
 	skill, ok := config.Skills["tdd"]
 	require.True(t, ok, "expected skill 'tdd' to be present")

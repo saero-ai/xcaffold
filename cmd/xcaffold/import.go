@@ -553,7 +553,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		if err := extractAgents(platformDir, scopeName, config, &importCount, &warnings); err != nil {
 			return err
 		}
-		if err := extractSkills(platformDir, scopeName, config, &importCount, &warnings); err != nil {
+		if err := extractSkills(platformDir, scopeName, provider, config, &importCount, &warnings); err != nil {
 			return err
 		}
 		if err := extractRules(platformDir, scopeName, config, &importCount, &warnings); err != nil {
@@ -749,7 +749,7 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 		if err := extractAgents(sourceDir, "translate", config, &importCount, &warnings); err != nil {
 			return nil, err
 		}
-		if err := extractSkills(sourceDir, "translate", config, &importCount, &warnings); err != nil {
+		if err := extractSkills(sourceDir, "translate", fromProvider, config, &importCount, &warnings); err != nil {
 			return nil, err
 		}
 	}
@@ -1057,7 +1057,7 @@ func extractAgents(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 	return nil
 }
 
-func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
+func extractSkills(claudeDir, scopeName, provider string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	skillFiles, _ := filepath.Glob(filepath.Join(claudeDir, "skills", "*", "SKILL.md"))
 	for _, f := range skillFiles {
 		data, err := os.ReadFile(f)
@@ -1073,7 +1073,7 @@ func extractSkills(claudeDir, scopeName string, config *ast.XcaffoldConfig, coun
 		body := extractBodyAfterFrontmatter(data)
 
 		// Supporting files are copied to xcf/skills/<id>/ using canonical subdirectories.
-		refs, scripts, fileAssets, fileExamples, err := extractSkillSubdirs(f, id, "claude", "", warnings)
+		refs, scripts, fileAssets, fileExamples, err := extractSkillSubdirs(f, id, provider, "", warnings)
 		if err != nil {
 			return err
 		}
@@ -2458,7 +2458,7 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 		if err := extractAgents(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
 			return err
 		}
-		if err := extractSkills(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
+		if err := extractSkills(dir, "project", "claude", tmpConfig, &tmpCount, &warnings); err != nil {
 			return err
 		}
 		if err := extractRules(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
