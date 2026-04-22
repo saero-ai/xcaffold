@@ -98,7 +98,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              false,
 			projectInstructions: true,
 			modelField:          true,
-			skillSubdirs:        []string{},
+			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 			ruleActivations:     []string{"always", "path-glob"},
 		},
 		{

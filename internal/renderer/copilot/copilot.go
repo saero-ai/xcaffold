@@ -56,7 +56,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                 true,
 		Memory:              false,
 		ProjectInstructions: true,
-		SkillSubdirs:        []string{},
+		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
 		SecurityFields:      renderer.SecurityFieldSupport{},
@@ -597,28 +597,70 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				"",
 			))
 		}
-		if len(skill.Scripts) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "scripts",
-				renderer.CodeSkillScriptsDropped,
-				fmt.Sprintf("skill %q scripts dropped; Copilot does not support skill scripts/ directories", id),
-				"Copy scripts manually if needed",
-			))
+		// flattenToSkillRoot reads each file matched by pattern and writes it
+		// co-located alongside SKILL.md under skills/<id>/<filename>. Copilot
+		// makes the entire skill directory accessible, so a flat layout is the
+		// correct output — no subdirectories are created.
+		flattenToSkillRoot := func(canonicalName string, paths []string) error {
+			for _, pattern := range paths {
+				cleanedPattern := filepath.Clean(pattern)
+				if strings.HasPrefix(cleanedPattern, "..") {
+					return fmt.Errorf("%s path %q traverses above the project root", canonicalName, pattern)
+				}
+				absPattern := filepath.Join(baseDir, cleanedPattern)
+				matches, err := filepath.Glob(absPattern)
+				if err != nil {
+					return fmt.Errorf("invalid glob %q: %w", pattern, err)
+				}
+				if len(matches) == 0 {
+					data, readErr := os.ReadFile(absPattern)
+					if readErr != nil {
+						return fmt.Errorf("%s file %q: %w", canonicalName, pattern, readErr)
+					}
+					files[filepath.Clean(fmt.Sprintf("skills/%s/%s", id, filepath.Base(absPattern)))] = string(data)
+					continue
+				}
+				for _, match := range matches {
+					data, readErr := os.ReadFile(match)
+					if readErr != nil {
+						return fmt.Errorf("%s file %q: %w", canonicalName, match, readErr)
+					}
+					files[filepath.Clean(fmt.Sprintf("skills/%s/%s", id, filepath.Base(match)))] = string(data)
+				}
+			}
+			return nil
 		}
-		if len(skill.Assets) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "assets",
-				renderer.CodeSkillAssetsDropped,
-				fmt.Sprintf("skill %q assets dropped; Copilot does not support skill assets/ directories", id),
-				"Copy assets manually if needed",
-			))
-		}
-		if len(skill.References) > 0 {
+
+		if err := flattenToSkillRoot("references", skill.References); err != nil {
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning, targetName, "skill", id, "references",
 				renderer.CodeSkillReferencesDropped,
-				fmt.Sprintf("skill %q references dropped; Copilot does not compile skill references/ directories", id),
-				"Copy references into .github/skills/"+id+"/references/ manually",
+				err.Error(),
+				"Check file paths",
+			))
+		}
+		if err := flattenToSkillRoot("scripts", skill.Scripts); err != nil {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "scripts",
+				renderer.CodeSkillScriptsDropped,
+				err.Error(),
+				"Check file paths",
+			))
+		}
+		if err := flattenToSkillRoot("assets", skill.Assets); err != nil {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "assets",
+				renderer.CodeSkillAssetsDropped,
+				err.Error(),
+				"Check file paths",
+			))
+		}
+		if err := flattenToSkillRoot("examples", skill.Examples); err != nil {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "skill", id, "examples",
+				renderer.CodeSkillReferencesDropped,
+				err.Error(),
+				"Check file paths",
 			))
 		}
 	}

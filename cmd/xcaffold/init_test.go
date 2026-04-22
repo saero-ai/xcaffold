@@ -66,7 +66,7 @@ func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
 
 	require.NoError(t, writeReferenceTemplates(tmp))
 
-	refPath := filepath.Join(tmp, "xcf", "skills", "xcaffold", "references", "agent.xcf.reference")
+	refPath := filepath.Join(tmp, ".xcaffold", "schemas", "agent.xcf.reference")
 	_, err := os.Stat(refPath)
 	require.NoError(t, err, "agent.xcf.reference must exist at %s", refPath)
 
@@ -79,7 +79,7 @@ func TestWriteReferenceTemplates_GeneratesSkillReference(t *testing.T) {
 	tmp := t.TempDir()
 	require.NoError(t, writeReferenceTemplates(tmp))
 
-	path := filepath.Join(tmp, "xcf", "skills", "xcaffold", "references", "skill.xcf.reference")
+	path := filepath.Join(tmp, ".xcaffold", "schemas", "skill.xcf.reference")
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 
@@ -96,15 +96,15 @@ func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
 	// Run init's reference generation step
 	require.NoError(t, writeReferenceTemplates(tmp))
 
-	// Verify both agent and skill references exist at the new companion path
+	// Verify both agent and skill references exist at the new schemas path
 	for _, name := range []string{"agent.xcf.reference", "skill.xcf.reference"} {
-		path := filepath.Join(tmp, "xcf", "skills", "xcaffold", "references", name)
+		path := filepath.Join(tmp, ".xcaffold", "schemas", name)
 		_, err := os.Stat(path)
-		require.NoError(t, err, "expected %s to exist at xcf/skills/xcaffold/references/", name)
+		require.NoError(t, err, "expected %s to exist at .xcaffold/schemas/", name)
 	}
 
 	// Verify skill reference contains canonical-only field names
-	skillData, err := os.ReadFile(filepath.Join(tmp, "xcf", "skills", "xcaffold", "references", "skill.xcf.reference"))
+	skillData, err := os.ReadFile(filepath.Join(tmp, ".xcaffold", "schemas", "skill.xcf.reference"))
 	require.NoError(t, err)
 	skillBody := string(skillData)
 	require.Contains(t, skillBody, "allowed-tools:")
@@ -126,6 +126,25 @@ func TestInit_SkillXCF_PathsUpdated(t *testing.T) {
 	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
 	require.NotContains(t, out, "xcf/references/", "old xcf/references/ path must not appear in generated skill")
 	require.Contains(t, out, "xcf/skills/xcaffold/references/", "new companion path must appear in generated skill")
+}
+
+func TestWriteReferenceTemplates_WritesToDotXcaffoldSchemas(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	err := writeReferenceTemplates(tmpDir)
+	require.NoError(t, err)
+
+	// Should write to .xcaffold/schemas/
+	agentRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "agent.xcf.reference")
+	assert.FileExists(t, agentRef, "expected agent.xcf.reference in .xcaffold/schemas/")
+
+	skillRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "skill.xcf.reference")
+	assert.FileExists(t, skillRef, "expected skill.xcf.reference in .xcaffold/schemas/")
+
+	// Should NOT write to the old location
+	oldDir := filepath.Join(tmpDir, "xcf", "skills", "xcaffold", "references")
+	_, statErr := os.Stat(oldDir)
+	assert.True(t, os.IsNotExist(statErr), "old path xcf/skills/xcaffold/references/ should not exist")
 }
 
 // --- Multi-File Generation Tests ---

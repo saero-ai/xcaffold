@@ -383,7 +383,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		cmd.Printf("  ⚠ Failed to write reference templates: %v\n", err)
 		// Non-fatal: continue with init.
 	} else if !jsonManifestFlag {
-		cmd.Println("  Created xcf/skills/xcaffold/references/ — field reference companion files")
+		cmd.Println("  Created .xcaffold/schemas/ — field reference companion files")
 	}
 
 	if err := registry.Register(cwd, ans.name, ans.targets, "."); err != nil && !jsonManifestFlag {
@@ -615,11 +615,11 @@ func offerAnalyze(cmd *cobra.Command, target string) error {
 	return runAnalyze(cmd, nil)
 }
 
-// writeReferenceTemplates creates xcf/skills/xcaffold/references/<kind>.xcf.reference
+// writeReferenceTemplates creates .xcaffold/schemas/<kind>.xcf.reference
 // files inside baseDir. The files are documentation artifacts and are NOT parsed
-// by xcaffold. They are companion files to the xcaffold skill.
+// by xcaffold. They document the full field reference for each resource kind.
 func writeReferenceTemplates(baseDir string) error {
-	refDir := filepath.Join(baseDir, "xcf", "skills", "xcaffold", "references")
+	refDir := filepath.Join(baseDir, ".xcaffold", "schemas")
 	if err := os.MkdirAll(refDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create references directory: %w", err)
 	}
