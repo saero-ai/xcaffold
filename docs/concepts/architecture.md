@@ -37,7 +37,7 @@ graph LR
   end
 
   subgraph Outputs
-    F[".xcaffold/project.xcf.state  (or scaffold.<target>.lock)"]
+    F[".xcaffold/project.xcf.state"]
     
     subgraph .claude/
       C1["agents/*.md"]
@@ -80,14 +80,15 @@ graph LR
 
 ---
 
-## Two Compilation Scopes
+## Three Compilation Scopes
 
-| Flag | Source | Output root |
+| Scope | Flag | Description |
 |---|---|---|
-| _(default)_ | `./project.xcf` | `./.claude/` (or `.cursor/`, `.agents/`) |
-| `--global / -g` | `~/.xcaffold/global.xcf` | `~/.claude/` (or `~/.cursor/`, `~/.agents/`) |
+| Default (project) | none | All resources in `xcf/` |
+| Global | `--global` | All resources in `~/.xcaffold/` |
+| Blueprint | `--blueprint <name>` | Subset of project resources selected by a blueprint |
 
-The two scopes are fully independent compilations with no atomicity guarantee. To compile both, run `xcaffold apply --global` then `xcaffold apply` separately.
+The three scopes are fully independent compilations with no atomicity guarantee. To compile both project and global, run `xcaffold apply --global` then `xcaffold apply` separately.
 
 The output root is determined by the `--target` flag on `xcaffold apply`:
 
@@ -344,7 +345,7 @@ This separation is the boundary that makes multi-target rendering possible. The 
 
 xcaffold makes a hard guarantee: given the same `.xcf` file, every invocation of the compiler produces byte-for-byte identical output. There are no timestamps embedded in generated file content, no random identifiers, no environment-dependent paths inside compiled files.
 
-This guarantee is what makes drift detection meaningful. After compilation, `state.GenerateWithOpts()` (`internal/state/state.go:70`) hashes every output artifact with SHA-256 and records the results in a lock file:
+This guarantee is what makes drift detection meaningful. After compilation, `state.GenerateWithOpts()` (`internal/state/state.go:70`) hashes every output artifact with SHA-256 and records the results in a state file:
 
 ```go
 hash := sha256.Sum256([]byte(content))
@@ -354,7 +355,7 @@ manifest.Artifacts = append(manifest.Artifacts, Artifact{
 })
 ```
 
-On the next run, the lock file is compared against the current hashes of the same paths. Any divergence means someone edited a generated file directly. If determinism were not guaranteed, the compiler itself would appear to produce drift every run, making the lock file useless.
+On the next run, the state file is compared against the current hashes of the same paths. Any divergence means someone edited a generated file directly. If determinism were not guaranteed, the compiler itself would appear to produce drift every run, making the state file useless.
 
 Determinism is also what makes CI verification possible. A pipeline that runs `xcaffold apply` and then checks for uncommitted changes in the target output directory only works if clean-source-in produces clean-output-out, every time.
 
@@ -594,7 +595,7 @@ The consequence is that the topology of the output directory at any point in tim
 
 ### Global vs. Project Scope
 
-xcaffold supports two compilation scopes: project and global. These are not merely organizational labels — they correspond to distinct filesystem locations with independent state files and independent drift states.
+xcaffold supports three compilation scopes: project, global, and blueprint. These are not merely organizational labels — they correspond to distinct filesystem locations with independent state files and independent drift states.
 
 Project-scope state files live alongside `project.xcf` in the project directory. Global-scope state files live in `~/.xcaffold/`, the global xcaffold home directory. The `scope` field in the state file carries this distinction into the manifest itself.
 
@@ -711,7 +712,7 @@ The canonical-to-native directory translation is provider-specific. See [Per-Pro
 - [Multi-Agent Workspace](../tutorials/multi-agent-workspace.md) — example using multiple targets from one source
 - [Architecture] — internal package map including all renderer packages
 - [Schema Reference](../reference/schema.md) — per-target fidelity matrix and field support table
-- [Getting Started](../tutorials/getting-started.md) — first-run walkthrough including initial lock file creation
+- [Getting Started](../tutorials/getting-started.md) — first-run walkthrough including initial state file creation
 - [Drift Remediation](../how-to/drift-remediation.md) — how to resolve drift detected by `xcaffold diff`
 - [Architecture] — the compilation pipeline and state writer phase
 - [Declarative Compilation](#declarative-compilation) — why determinism is required for drift detection to be meaningful

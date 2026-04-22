@@ -5,10 +5,11 @@ description: "Understanding configuration contexts, scopes, implicit global inhe
 
 # Configuration Scopes
 
-xcaffold defines two compilation scopes: **global scope** (`~/.xcaffold/`) and **project scope** (the directory containing `project.xcf`). Each scope compiles independently and produces its own lock manifest. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
+xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **project scope** (the directory containing `project.xcf`), and **blueprint scope** (a named subset of project resources). Each scope compiles independently and produces its own state file. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
 
 - **Global Scope** (`~/.xcaffold/`): System-wide agent configurations that apply across all projects on the machine.
 - **Project Scope** (directory containing `project.xcf`): Project-specific resources that override global resources by ID at compile time.
+- **Blueprint Scope** (`--blueprint <name>`): Compiles a named subset of project resources. State written to `.xcaffold/<blueprint>.xcf.state`.
 
 ---
 
@@ -56,7 +57,7 @@ These configuration blocks control how Xcaffold evaluates paths, manages executi
 System-wide declarations residing outside your project repository (`~/.xcaffold/project.xcf`). Evaluated under the overarching workspace scope to ensure consistent inheritance of security boundaries across all local projects.
 
 ### `project` (Project Scope)
-The authoritative root bounding the local workspace (`project:` object). It registers metadata signatures tracked in lock manifests and limits the execution blast radius to localized overrides and dependencies.
+The authoritative root bounding the local workspace (`project:` object). It registers metadata signatures tracked in state files and limits the execution blast radius to localized overrides and dependencies.
 
 ### `policy` (Evaluation Engine)
 AST tree-walking rules (`policies:`) that statically enforce or forbid specific field patterns within the Xcaffold configuration. Used to deny unsafe shell execution (`deny`) or mandate strict tool inclusions (`require`). This allows organizations to police agentic permissions purely at compilation time before passing control to the AI.
@@ -194,7 +195,7 @@ circular extends detected: "/abs/path/to/base.xcf"
 ## When This Matters
 
 - **A project agent references a globally-defined skill** — because xcaffold loads both scopes before resolving cross-references, the reference resolves cleanly at parse time; no special declaration is required in the project manifest.
-- **Running `xcaffold apply --global` vs `xcaffold apply`** — the two commands compile independent scopes and write independent lock files; a change to one scope never invalidates the other's drift state.
+- **Running `xcaffold apply --global` vs `xcaffold apply`** — the two commands compile independent scopes and write independent state files; a change to one scope never invalidates the other's drift state.
 - **Debugging a duplicate ID error across files** — strict deduplication operates within each scope independently; the same ID appearing in both global and project scopes is valid (project overrides global), but the same ID in two files within the same scope is an error.
 - **Understanding why global resources do not appear in the project output directory after a project apply** — global resources are stripped from project-scope output before writing, because Claude Code, Cursor, Gemini CLI, and GitHub Copilot all load global and project configurations separately at runtime. (Antigravity's scope loading behavior is not documented.)
 

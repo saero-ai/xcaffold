@@ -176,7 +176,7 @@ Exits non-zero with a count of drifted files if any drift is found.
 
 | Flag | Default | Description |
 |---|---|---|
-| `--target <target>` | `""` (defaults to `claude`) | Target lock file to inspect. One of: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`. |
+| `--target <target>` | `""` (defaults to `claude`) | Target state file to inspect. One of: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`. |
 | `--blueprint <name>` | `""` | Check drift for the named blueprint's state file (`.xcaffold/<name>.xcf.state`). |
 
 ---
@@ -343,7 +343,13 @@ No flags.
 
 Restructures project layouts to align with xcaffold conventions. Safe to run repeatedly (idempotent).
 
-No flags.
+**Operations performed:**
+
+1. **Project manifest rename:** Detects `scaffold.xcf` and renames to `project.xcf` (creates a `.backup` copy first)
+2. **State file migration:** Converts `scaffold.<target>.lock` files in the project root to `.xcaffold/project.xcf.state` (original files renamed to `*.lock.migrated`)
+3. **Schema version upgrade:** Updates project configuration to the current schema version
+
+No flags. Run from a directory containing xcaffold configuration files.
 
 ---
 
