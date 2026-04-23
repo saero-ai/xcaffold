@@ -65,7 +65,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			mcp:                 true,
 			memory:              false,
 			projectInstructions: true,
-			modelField:          false,
+			modelField:          true,
 			skillSubdirs:        []string{"references", "scripts", "assets"},
 			ruleActivations:     []string{"always", "path-glob", "manual-mention"},
 		},
@@ -115,7 +115,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			projectInstructions: true,
 			modelField:          false,
 			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
-			ruleActivations:     []string{"always", "path-glob", "manual"},
+			ruleActivations:     []string{"always", "path-glob", "model-decided"},
 		},
 	}
 

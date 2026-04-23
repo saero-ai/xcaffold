@@ -36,18 +36,24 @@ func (r *Renderer) OutputDir() string {
 // Capabilities declares the full set of resource kinds this renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
-		Agents:              true,
-		Skills:              true,
-		Rules:               true,
-		Workflows:           true,
-		Hooks:               true,
-		Settings:            true,
-		MCP:                 true,
-		Memory:              true,
-		ProjectInstructions: true,
-		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
-		ModelField:          true,
-		RuleActivations:     []string{"always", "path-glob"},
+		Agents:               true,
+		Skills:               true,
+		Rules:                true,
+		Workflows:            true,
+		Hooks:                true,
+		Settings:             true,
+		MCP:                  true,
+		Memory:               true,
+		ProjectInstructions:  true,
+		SkillSubdirs:         []string{"references", "scripts", "assets", "examples"},
+		AgentToolsField:      true,
+		AgentNativeToolsOnly: true,
+		ModelField:           true,
+		RuleActivations:      []string{"always", "path-glob"},
+		RuleEncoding: renderer.RuleEncodingCapabilities{
+			Description: "frontmatter",
+			Activation:  "frontmatter",
+		},
 		SecurityFields: renderer.SecurityFieldSupport{
 			Permissions:     true,
 			Sandbox:         true,
@@ -62,15 +68,18 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 // CompileAgents compiles all agent configs to agents/<id>.md files.
 func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	caps := r.Capabilities()
+	var notes []renderer.FidelityNote
 	for id, agent := range agents {
-		md, err := compileAgentMarkdown(id, agent, baseDir)
+		md, agentNotes, err := compileAgentMarkdown(id, agent, baseDir, caps)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile agent %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("agents/%s.md", id))
 		files[safePath] = md
+		notes = append(notes, agentNotes...)
 	}
-	return files, nil, nil
+	return files, notes, nil
 }
 
 // CompileSkills compiles all skill configs to skills/<id>/SKILL.md plus subdirs.
@@ -108,7 +117,7 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 	for id, rule := range rules {
-		md, ruleNotes, err := compileRuleMarkdown(id, rule, baseDir)
+		md, ruleNotes, err := compileClaudeRule(id, rule, r.Capabilities(), baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile rule %q: %w", id, err)
 		}
@@ -354,39 +363,52 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	return nil // concat-nested: zero fidelity notes
 }
 
-// resolveInstructions returns the effective body content for an agent/skill/rule.
-//
-// Priority (highest to lowest):
-//  1. inline          — the "instructions:" YAML field
-//  2. filePath        — the "instructions_file:" YAML field (read from disk)
-//  3. conventionPath  — auto-discovered by convention (agents/<id>.md etc.); silent no-op if missing
-//
-// The file is read relative to baseDir. Its frontmatter (--- blocks) is stripped
-// so that referencing an existing .md file with frontmatter works transparently.
-
-// stripFrontmatter removes YAML frontmatter delimited by "---" from the start
-// of a markdown file, returning only the body content with leading whitespace trimmed.
-
 // compileAgentMarkdown renders a single AgentConfig to Claude Code markdown.
-func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (string, error) {
+func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps renderer.CapabilitySet) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("agent id must not be empty")
+		return "", nil, fmt.Errorf("agent id must not be empty")
 	}
 
 	body, err := resolver.ResolveInstructions(agent.Instructions, agent.InstructionsFile, fmt.Sprintf("agents/%s.md", id), baseDir)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	var sb strings.Builder
+	var notes []renderer.FidelityNote
+
 	sb.WriteString("---\n")
 
 	appendAgentCoreMeta(&sb, agent)
-	appendAgentToolsMeta(&sb, agent)
+
+	sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, "claude", id)
+	notes = append(notes, toolNotes...)
+
+	if agent.Readonly != nil && *agent.Readonly && len(sanitizedTools) == 0 {
+		sb.WriteString("tools: [Read, Grep, Glob]\n")
+	} else if len(sanitizedTools) > 0 {
+		fmt.Fprintf(&sb, "tools: [%s]\n", strings.Join(sanitizedTools, ", "))
+	}
+	if len(agent.DisallowedTools) > 0 {
+		fmt.Fprintf(&sb, "disallowed-tools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
+	}
+	if len(agent.Skills) > 0 {
+		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
+	}
+	if len(agent.Rules) > 0 {
+		fmt.Fprintf(&sb, "rules: [%s]\n", strings.Join(agent.Rules, ", "))
+	}
+
+	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, "claude", id)
+	notes = append(notes, modelNotes...)
+	if resolvedModel != "" {
+		fmt.Fprintf(&sb, "model: %s\n", resolvedModel)
+	}
+
 	appendAgentConfigMeta(&sb, agent)
 
 	if err := appendAgentYAMLMeta(&sb, agent); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	sb.WriteString("---\n")
@@ -397,7 +419,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 		sb.WriteString("\n")
 	}
 
-	return sb.String(), nil
+	return sb.String(), notes, nil
 }
 
 func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
@@ -407,35 +429,11 @@ func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	if agent.Description != "" {
 		fmt.Fprintf(sb, "description: %s\n", agent.Description)
 	}
-	if agent.Model != "" {
-		if resolved, ok := renderer.ResolveModel(agent.Model, "claude"); ok && resolved != "" {
-			fmt.Fprintf(sb, "model: %s\n", resolved)
-		} else {
-			fmt.Fprintf(sb, "model: %s\n", agent.Model) // fallback if something fails
-		}
-	}
 	if agent.Effort != "" {
 		fmt.Fprintf(sb, "effort: %s\n", agent.Effort)
 	}
 	if agent.MaxTurns > 0 {
 		fmt.Fprintf(sb, "max-turns: %d\n", agent.MaxTurns)
-	}
-}
-
-func appendAgentToolsMeta(sb *strings.Builder, agent ast.AgentConfig) {
-	if agent.Readonly != nil && *agent.Readonly && len(agent.Tools) == 0 {
-		sb.WriteString("tools: [Read, Grep, Glob]\n")
-	} else if len(agent.Tools) > 0 {
-		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(agent.Tools, ", "))
-	}
-	if len(agent.DisallowedTools) > 0 {
-		fmt.Fprintf(sb, "disallowed-tools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
-	}
-	if len(agent.Skills) > 0 {
-		fmt.Fprintf(sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
-	}
-	if len(agent.Rules) > 0 {
-		fmt.Fprintf(sb, "rules: [%s]\n", strings.Join(agent.Rules, ", "))
 	}
 }
 
@@ -570,18 +568,8 @@ func emitClaudeProviderKeys(sb *strings.Builder, provider map[string]any) {
 	}
 }
 
-// compileRuleMarkdown renders a single RuleConfig to Claude Code markdown.
-// It returns the rendered content, zero or more fidelity notes, and any error.
-//
-// Activation handling:
-//   - path-glob: emits paths: frontmatter from rule.Paths.
-//   - always:    no paths: frontmatter.
-//   - model-decided, manual-mention, explicit-invoke: Claude has no native
-//     equivalent; rule is emitted as always-loaded with a warning FidelityNote.
-//
-// exclude-agents: Claude has no native equivalent; the field is silently dropped
-// and an info FidelityNote is emitted.
-func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+// compileClaudeRule compiles a single rule to markdown.
+func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
@@ -602,10 +590,7 @@ func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string
 
 	// Claude natively supports always and path-glob. Everything else is
 	// emitted as always-loaded with a warning note.
-	switch activation {
-	case ast.RuleActivationAlways, ast.RuleActivationPathGlob:
-		// supported — no note needed
-	default:
+	if !renderer.ValidateRuleActivation(rule, caps) {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning,
 			"claude",
@@ -635,9 +620,7 @@ func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string
 	var sb strings.Builder
 
 	sb.WriteString("---\n")
-	if rule.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", rule.Description)
-	}
+	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 	// Emit paths: only when activation resolves to path-glob.
 	if activation == ast.RuleActivationPathGlob && len(rule.Paths) > 0 {
 		fmt.Fprintf(&sb, "paths: [%s]\n", strings.Join(rule.Paths, ", "))

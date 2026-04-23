@@ -62,17 +62,24 @@ func (r *Renderer) OutputDir() string {
 // via their per-resource methods (notes only, no project-local files).
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
-		Agents:              true,
-		Skills:              true,
-		Rules:               true,
-		Workflows:           true,
-		Hooks:               false,
-		Settings:            true,
-		MCP:                 true,
-		Memory:              true,
-		ProjectInstructions: true,
-		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
-		RuleActivations:     []string{"always", "path-glob", "manual"},
+		Agents:               true,
+		Skills:               true,
+		Rules:                true,
+		Workflows:            true,
+		Hooks:                false,
+		Settings:             true,
+		MCP:                  true,
+		Memory:               true,
+		ProjectInstructions:  true,
+		AgentToolsField:      false,
+		AgentNativeToolsOnly: false,
+		SkillSubdirs:         []string{"references", "scripts", "assets", "examples"},
+		ModelField:           false,
+		RuleActivations:      []string{"always", "path-glob", "model-decided"},
+		RuleEncoding: renderer.RuleEncodingCapabilities{
+			Description: "frontmatter",
+			Activation:  "frontmatter",
+		},
 		SecurityFields: renderer.SecurityFieldSupport{
 			Effort: true,
 		},
@@ -172,7 +179,7 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	var notes []renderer.FidelityNote
 
 	for id, rule := range rules {
-		md, ruleNotes, err := compileAntigravityRule(id, rule, baseDir)
+		md, ruleNotes, err := compileAntigravityRule(id, rule, r.Capabilities(), baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("antigravity: failed to compile rule %q: %w", id, err)
 		}
@@ -435,7 +442,7 @@ func agResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string
 //   - ManualMention / ExplicitInvoke → no frontmatter encoding; fidelity note returned
 //   - frontmatter block only emitted when needed (empty description + AlwaysOn → no --- block)
 //   - Bodies exceeding 12,000 characters receive a warning HTML comment (after frontmatter)
-func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+func compileAntigravityRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
@@ -462,18 +469,24 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (str
 
 	if needsFrontmatter {
 		sb.WriteString("---\n")
-		if rule.Description != "" {
-			fmt.Fprintf(&sb, "description: %s\n", rule.Description)
-		}
-		switch activation {
-		case ast.RuleActivationPathGlob:
-			sb.WriteString("trigger: glob\n")
-			if len(rule.Paths) > 0 {
-				fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths, ","))
+		sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
+		if !renderer.ValidateRuleActivation(rule, caps) {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "rule", id, "activation",
+				renderer.CodeActivationDegraded,
+				fmt.Sprintf("activation %q lowers to standard rule injection for antigravity", activation),
+				"",
+			))
+		} else {
+			switch activation {
+			case ast.RuleActivationModelDecided:
+				sb.WriteString("trigger: model_decision\n")
+			case ast.RuleActivationPathGlob:
+				sb.WriteString("trigger: glob\n")
+				if len(rule.Paths) > 0 {
+					fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths, ","))
+				}
 			}
-		case ast.RuleActivationModelDecided:
-			sb.WriteString("trigger: model_decision\n")
-			// ast.RuleActivationAlways: no trigger field — always-on is the default.
 		}
 		sb.WriteString("---\n\n")
 	}

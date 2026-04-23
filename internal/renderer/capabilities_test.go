@@ -27,3 +27,16 @@ func TestCapabilitySet_Fields(t *testing.T) {
 		t.Errorf("expected 2 skill subdirs, got %d", len(caps.SkillSubdirs))
 	}
 }
+
+func TestCapabilitySet_AgentTools(t *testing.T) {
+	caps := CapabilitySet{
+		AgentToolsField:      true,
+		AgentNativeToolsOnly: false,
+	}
+	if !caps.AgentToolsField {
+		t.Error("expected AgentToolsField supported")
+	}
+	if caps.AgentNativeToolsOnly {
+		t.Error("expected AgentNativeToolsOnly unsupported")
+	}
+}

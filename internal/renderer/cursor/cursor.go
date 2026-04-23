@@ -51,18 +51,24 @@ func (r *Renderer) OutputDir() string {
 // Model selection in Cursor is UI-only, so ModelField is false.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
-		Agents:              true,
-		Skills:              true,
-		Rules:               true,
-		Workflows:           true,
-		Hooks:               true,
-		Settings:            true,
-		MCP:                 true,
-		Memory:              false,
-		ProjectInstructions: true,
-		ModelField:          false,
-		RuleActivations:     []string{"always", "path-glob", "manual-mention"},
-		SkillSubdirs:        []string{"references", "scripts", "assets"},
+		Agents:               true,
+		Skills:               true,
+		Rules:                true,
+		Workflows:            true,
+		Hooks:                true,
+		Settings:             true,
+		MCP:                  true,
+		Memory:               false,
+		ProjectInstructions:  true,
+		AgentToolsField:      false,
+		AgentNativeToolsOnly: false,
+		ModelField:           true,
+		RuleActivations:      []string{"always", "path-glob", "manual-mention"},
+		RuleEncoding: renderer.RuleEncodingCapabilities{
+			Description: "frontmatter",
+			Activation:  "frontmatter",
+		},
+		SkillSubdirs: []string{"references", "scripts", "assets"},
 		SecurityFields: renderer.SecurityFieldSupport{
 			Effort: true,
 		},
@@ -72,9 +78,10 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 // CompileAgents renders all agents to Cursor agents/<id>.md files.
 func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	caps := r.Capabilities()
 	var notes []renderer.FidelityNote
 	for id, agent := range agents {
-		md, agentNotes, err := compileCursorAgent(id, agent, baseDir)
+		md, agentNotes, err := compileCursorAgent(id, agent, baseDir, caps)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cursor: failed to compile agent %q: %w", id, err)
 		}
@@ -118,7 +125,7 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 	for id, rule := range rules {
-		mdc, ruleNotes, err := compileCursorRule(id, rule, baseDir)
+		mdc, ruleNotes, err := compileCursorRule(id, rule, r.Capabilities(), baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cursor: failed to compile rule %q: %w", id, err)
 		}
@@ -326,6 +333,26 @@ func cursorResolveScopeContent(scope ast.InstructionsScope, provider, baseDir st
 	return cursorResolveInstructions(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
+// xcaffoldToCursorEvent maps xcaffold hook event names to their Cursor equivalents.
+// Unmapped events fall back to toCamelCase with a fidelity note.
+var xcaffoldToCursorEvent = map[string]string{
+	// xcaffold native names (from Claude Code event names)
+	"PreToolUse":       "preToolUse",
+	"PostToolUse":      "postToolUse",
+	"UserPromptSubmit": "beforeSubmitPrompt",
+	"SessionStart":     "sessionStart",
+	"SessionEnd":       "sessionEnd",
+	"SubagentStart":    "subagentStart",
+	"SubagentStop":     "subagentStop",
+	"Stop":             "stop",
+	// Gemini-style aliases (to handle xcf files originally authored for Gemini)
+	"PreToolExecution":  "preToolUse",
+	"PostToolExecution": "postToolUse",
+	"BeforeTool":        "preToolUse",
+	"AfterTool":         "postToolUse",
+	"BeforeAgent":       "beforeSubmitPrompt",
+}
+
 // toCamelCase lowercases the first character of a string (PreToolUse -> preToolUse)
 func toCamelCase(s string) string {
 	if s == "" {
@@ -340,11 +367,23 @@ func compileCursorHooks(hooks ast.HookConfig) (string, []renderer.FidelityNote, 
 	var notes []renderer.FidelityNote
 
 	for eventName, groups := range hooks {
-		camelEvent := toCamelCase(eventName)
+		cursorEvent, mapped := xcaffoldToCursorEvent[eventName]
+		if !mapped {
+			cursorEvent = toCamelCase(eventName)
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "hooks", "hooks", eventName,
+				renderer.CodeFieldUnsupported,
+				fmt.Sprintf("hook event %q has no verified Cursor equivalent; emitted as %q (camelCase fallback)", eventName, cursorEvent),
+				"Verify this event name against Cursor hooks documentation",
+			))
+		}
+
 		var eventHandlers []map[string]interface{}
 
 		for _, group := range groups {
 			for _, handler := range group.Hooks {
+				handler.Command = renderer.TranslateHookCommand(handler.Command, "$CURSOR_PROJECT_DIR", ".cursor/hooks/")
+
 				b, err := json.Marshal(handler)
 				if err != nil {
 					return "", nil, err
@@ -372,11 +411,16 @@ func compileCursorHooks(hooks ast.HookConfig) (string, []renderer.FidelityNote, 
 		}
 
 		if len(eventHandlers) > 0 {
-			flatHooks[camelEvent] = eventHandlers
+			flatHooks[cursorEvent] = eventHandlers
 		}
 	}
 
-	data, err := json.MarshalIndent(flatHooks, "", "  ")
+	envelope := map[string]any{"version": 1}
+	for k, v := range flatHooks {
+		envelope[k] = v
+	}
+
+	data, err := json.MarshalIndent(envelope, "", "  ")
 	if err != nil {
 		return "", nil, fmt.Errorf("hook json marshal: %w", err)
 	}
@@ -385,7 +429,7 @@ func compileCursorHooks(hooks ast.HookConfig) (string, []renderer.FidelityNote, 
 
 // compileCursorRule renders a single RuleConfig to a Cursor .mdc file.
 // It returns the rendered content, any fidelity notes, and an error.
-func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+func compileCursorRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
@@ -399,40 +443,28 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 	var notes []renderer.FidelityNote
 
 	sb.WriteString("---\n")
-
-	if rule.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", rule.Description)
-	}
+	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 
 	activation := renderer.ResolvedActivation(rule)
-
-	switch activation {
-	case ast.RuleActivationAlways:
-		sb.WriteString("always-apply: true\n")
-	case ast.RuleActivationPathGlob:
-		if len(rule.Paths) > 0 {
-			fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
+	if !renderer.ValidateRuleActivation(rule, caps) {
+		sb.WriteString("always-apply: false\n")
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "rule", id, "activation",
+			renderer.CodeActivationDegraded,
+			fmt.Sprintf("rule %q activation %q has no Cursor equivalent; lowered to always-apply: false", id, activation),
+			"Use a supported activation (always, path-glob) or add a targets.cursor.provider override",
+		))
+	} else {
+		switch activation {
+		case ast.RuleActivationAlways:
+			sb.WriteString("always-apply: true\n")
+		case ast.RuleActivationPathGlob:
+			if len(rule.Paths) > 0 {
+				fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
+			}
+		case ast.RuleActivationManualMention:
+			sb.WriteString("always-apply: false\n")
 		}
-	case ast.RuleActivationManualMention:
-		sb.WriteString("always-apply: false\n")
-	case ast.RuleActivationModelDecided:
-		sb.WriteString("always-apply: false\n")
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "rule", id, "activation",
-			renderer.CodeActivationDegraded,
-			fmt.Sprintf("rule %q activation \"model-decided\" has no Cursor equivalent; lowered to always-apply: false", id),
-			"Use a supported activation (always, path-glob, manual-mention) or add a targets.cursor.provider override",
-		))
-	case ast.RuleActivationExplicitInvoke:
-		sb.WriteString("always-apply: false\n")
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "rule", id, "activation",
-			renderer.CodeActivationDegraded,
-			fmt.Sprintf("rule %q activation \"explicit-invoke\" has no Cursor equivalent; lowered to always-apply: false", id),
-			"Use a supported activation (always, path-glob, manual-mention) or add a targets.cursor.provider override",
-		))
-	default:
-		sb.WriteString("always-apply: true\n")
 	}
 
 	sb.WriteString("---\n")
@@ -449,7 +481,7 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 // compileCursorAgent renders a single AgentConfig to a Cursor agents/<id>.md file.
 //
 //nolint:gocyclo
-func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string, caps renderer.CapabilitySet) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", nil, fmt.Errorf("agent id must not be empty")
 	}
@@ -471,19 +503,21 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string) (strin
 		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(agent.Description))
 	}
 
-	if agent.Model != "" {
-		if resolved, ok := renderer.ResolveModel(agent.Model, targetName); ok && resolved != "" {
-			if renderer.IsMappedModel(agent.Model, targetName) {
-				fmt.Fprintf(&sb, "model: %s\n", renderer.YAMLScalar(resolved))
-			} else {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "agent", id, "model",
-					renderer.CodeAgentModelUnmapped,
-					fmt.Sprintf("unmapped model %q (resolved to %q) omitted for agent %q; Cursor requires specific model strings", agent.Model, resolved, id),
-					"Use a Cursor-supported model identifier or add a targets.cursor.provider.model override",
-				))
-			}
-		}
+	_, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, targetName, id)
+	notes = append(notes, toolNotes...)
+
+	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)
+	notes = append(notes, modelNotes...)
+	// Cursor only accepts explicitly mapped models.
+	if resolvedModel != "" && renderer.IsMappedModel(agent.Model, targetName) {
+		fmt.Fprintf(&sb, "model: %s\n", renderer.YAMLScalar(resolvedModel))
+	} else if agent.Model != "" && !renderer.IsMappedModel(agent.Model, targetName) {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "agent", id, "model",
+			renderer.CodeAgentModelUnmapped,
+			fmt.Sprintf("literal model %q is unmapped for cursor \u2014 must be omitted", agent.Model),
+			"Use a mapped alias defined in xcaffold model aliases",
+		))
 	}
 	if agent.Background != nil && *agent.Background {
 		sb.WriteString("is_background: true\n")

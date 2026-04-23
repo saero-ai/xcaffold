@@ -48,19 +48,25 @@ func (r *Renderer) OutputDir() string {
 // Capabilities declares the resource kinds this renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
-		Agents:              true,
-		Skills:              true,
-		Rules:               true,
-		Workflows:           true,
-		Hooks:               true,
-		Settings:            true,
-		MCP:                 true,
-		Memory:              false,
-		ProjectInstructions: true,
-		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
-		ModelField:          true,
-		RuleActivations:     []string{"always", "path-glob"},
-		SecurityFields:      renderer.SecurityFieldSupport{},
+		Agents:               true,
+		Skills:               true,
+		Rules:                true,
+		Workflows:            true,
+		Hooks:                true,
+		Settings:             true,
+		MCP:                  true,
+		Memory:               false,
+		ProjectInstructions:  true,
+		AgentToolsField:      true,
+		AgentNativeToolsOnly: false,
+		SkillSubdirs:         []string{"references", "scripts", "assets", "examples"},
+		ModelField:           true,
+		RuleActivations:      []string{"always", "path-glob"},
+		RuleEncoding: renderer.RuleEncodingCapabilities{
+			Description: "frontmatter",
+			Activation:  "frontmatter",
+		},
+		SecurityFields: renderer.SecurityFieldSupport{},
 	}
 }
 
@@ -68,7 +74,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
 	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Agents: agents}}
-	notes := r.renderAgents(cfg, baseDir, files)
+	notes := r.renderAgents(cfg, baseDir, files, r.Capabilities())
 	return files, notes, nil
 }
 
@@ -85,7 +91,7 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 	for id, rule := range rules {
-		md, ruleNotes, err := compileCopilotRule(id, rule, baseDir)
+		md, ruleNotes, err := compileCopilotRule(id, rule, r.Capabilities(), baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("copilot: failed to compile rule %q: %w", id, err)
 		}
@@ -141,11 +147,15 @@ func (r *Renderer) CompileSettings(settings ast.SettingsConfig) (map[string]stri
 
 // CompileMCP emits a fidelity note for MCP servers that require manual placement.
 func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
-	mcpNotes, err := compileCopilotMCP(servers)
+	mcpJSON, mcpNotes, err := compileCopilotMCP(servers)
 	if err != nil {
 		return nil, nil, err
 	}
-	return make(map[string]string), mcpNotes, nil
+	files := make(map[string]string)
+	if mcpJSON != "" {
+		files[".vscode/mcp.json"] = mcpJSON
+	}
+	return files, mcpNotes, nil
 }
 
 // CompileProjectInstructions emits copilot-instructions.md (flat) or AGENTS.md
@@ -364,7 +374,7 @@ func copilotResolveScopeContent(scope ast.InstructionsScope, baseDir string) str
 // user-invocable, mcp-servers) with a markdown body as the system prompt.
 // Provider pass-through keys (target, metadata) are sourced from
 // targets.copilot.provider. Unsupported fields emit fidelity notes.
-func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, files map[string]string, caps renderer.CapabilitySet) []renderer.FidelityNote {
 	if len(config.Agents) == 0 {
 		return nil
 	}
@@ -386,25 +396,22 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		if agent.Description != "" {
 			fmt.Fprintf(&sb, "description: %s\n", agent.Description)
 		}
-		if len(agent.Tools) > 0 {
+
+		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, targetName, id)
+		notes = append(notes, toolNotes...)
+		if len(sanitizedTools) > 0 {
 			sb.WriteString("tools:\n")
-			for _, tool := range agent.Tools {
+			for _, tool := range sanitizedTools {
 				fmt.Fprintf(&sb, "  - %s\n", tool)
 			}
 		}
-		if agent.Model != "" {
-			if resolved, ok := renderer.ResolveModel(agent.Model, targetName); ok && resolved != "" {
-				fmt.Fprintf(&sb, "model: %s\n", resolved)
-			} else if !ok {
-				// Target does not support per-agent model; emit a fidelity note.
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "agent", id, "model",
-					renderer.CodeAgentModelUnmapped,
-					fmt.Sprintf("agent %q model %q has no mapping for target %q and was omitted", id, agent.Model, targetName),
-					"Specify a target-native model string in targets.copilot.provider.",
-				))
-			}
+
+		resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)
+		notes = append(notes, modelNotes...)
+		if resolvedModel != "" {
+			fmt.Fprintf(&sb, "model: %s\n", resolvedModel)
 		}
+
 		if agent.DisableModelInvocation != nil {
 			fmt.Fprintf(&sb, "disable-model-invocation: %v\n", *agent.DisableModelInvocation)
 		}
@@ -620,23 +627,13 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 }
 
 // compileCopilotRule renders a single RuleConfig as a Copilot .instructions.md file.
-func compileCopilotRule(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) (string, []renderer.FidelityNote, error) {
 	var notes []renderer.FidelityNote
 
 	activation := renderer.ResolvedActivation(rule)
 
 	var applyTo string
-	switch activation {
-	case ast.RuleActivationAlways:
-		applyTo = `"**"`
-	case ast.RuleActivationPathGlob:
-		if len(rule.Paths) > 0 {
-			applyTo = fmt.Sprintf("%q", strings.Join(rule.Paths, ", "))
-		} else {
-			applyTo = `"**"`
-		}
-	case ast.RuleActivationManualMention, ast.RuleActivationModelDecided, ast.RuleActivationExplicitInvoke:
-		applyTo = `"**"`
+	if !renderer.ValidateRuleActivation(rule, caps) {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning,
 			targetName,
@@ -647,16 +644,25 @@ func compileCopilotRule(id string, rule ast.RuleConfig, baseDir string) (string,
 			fmt.Sprintf("rule %q: activation %q has no Copilot-native equivalent; emitted as applyTo: \"**\"", id, activation),
 			"Use activation: always or activation: path-glob for full Copilot compatibility.",
 		))
-	default:
 		applyTo = `"**"`
+	} else {
+		switch activation {
+		case ast.RuleActivationAlways:
+			applyTo = `"**"`
+		case ast.RuleActivationPathGlob:
+			if len(rule.Paths) > 0 {
+				applyTo = fmt.Sprintf("%q", strings.Join(rule.Paths, ", "))
+			} else {
+				applyTo = `"**"`
+			}
+		default:
+			applyTo = `"**"`
+		}
 	}
 
 	var sb strings.Builder
 	sb.WriteString("---\n")
-
-	if rule.Description != "" {
-		sb.WriteString(fmt.Sprintf("description: %s\n", rule.Description))
-	}
+	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 
 	sb.WriteString(fmt.Sprintf("applyTo: %s\n", applyTo))
 

@@ -34,6 +34,11 @@ type geminiMCPEntry struct {
 // xcaffoldToGeminiEvent maps xcaffold hook event names to their Gemini equivalents.
 // Events not in this map pass through unchanged.
 var xcaffoldToGeminiEvent = map[string]string{
+	// xcaffold-native (Claude Code source names)
+	"PreToolUse":       "BeforeTool",
+	"PostToolUse":      "AfterTool",
+	"UserPromptSubmit": "BeforeAgent",
+	// Existing mappings (keep — Gemini-style names may appear in xcf files too)
 	"PreToolExecution":  "BeforeTool",
 	"PostToolExecution": "AfterTool",
 }
@@ -119,7 +124,7 @@ func compileGeminiHooks(hooks ast.HookConfig) (map[string][]geminiHookEvent, []r
 			for _, h := range group.Hooks {
 				entry := geminiHookEntry{
 					Type:    "command",
-					Command: h.Command,
+					Command: renderer.TranslateHookCommand(h.Command, "$GEMINI_PROJECT_DIR", ".gemini/hooks/"),
 				}
 				if h.Timeout != nil {
 					entry.Timeout = *h.Timeout

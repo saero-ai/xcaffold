@@ -795,11 +795,16 @@ func TestCompile_Hooks_FlatStructure_NoNestedHooksArray(t *testing.T) {
 	require.NotEmpty(t, raw)
 
 	// Parse and verify flat structure
-	var parsed map[string][]map[string]interface{}
-	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
+	var envelope map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(raw), &envelope))
 
-	handlers, ok := parsed["preToolUse"]
+	handlersRaw, ok := envelope["preToolUse"]
 	require.True(t, ok)
+
+	handlersBytes, _ := json.Marshal(handlersRaw)
+	var handlers []map[string]interface{}
+	json.Unmarshal(handlersBytes, &handlers)
+
 	assert.Len(t, handlers, 2, "both handlers should be at top level, not nested")
 
 	// Each handler should have command and matcher inline, NOT a nested "hooks" array
@@ -833,10 +838,12 @@ func TestCompile_Hooks_MatcherInjectedInline(t *testing.T) {
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	var parsed map[string][]map[string]interface{}
-	require.NoError(t, json.Unmarshal([]byte(out.Files["hooks.json"]), &parsed))
+	var envelope map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(out.Files["hooks.json"]), &envelope))
 
-	handlers := parsed["postToolUse"]
+	handlersBytes, _ := json.Marshal(envelope["postToolUse"])
+	var handlers []map[string]interface{}
+	json.Unmarshal(handlersBytes, &handlers)
 	require.Len(t, handlers, 1)
 	assert.Equal(t, "Edit", handlers[0]["matcher"])
 }
@@ -864,10 +871,12 @@ func TestCompile_Hooks_EmptyMatcher_NotInjected(t *testing.T) {
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	var parsed map[string][]map[string]interface{}
-	require.NoError(t, json.Unmarshal([]byte(out.Files["hooks.json"]), &parsed))
+	var envelope map[string]interface{}
+	require.NoError(t, json.Unmarshal([]byte(out.Files["hooks.json"]), &envelope))
 
-	handlers := parsed["sessionStart"]
+	handlersBytes, _ := json.Marshal(envelope["sessionStart"])
+	var handlers []map[string]interface{}
+	json.Unmarshal(handlersBytes, &handlers)
 	require.Len(t, handlers, 1)
 	_, hasMatcher := handlers[0]["matcher"]
 	assert.False(t, hasMatcher, "empty matcher must not be injected as key")
