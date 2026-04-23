@@ -104,7 +104,7 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 // being imported.
 func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	c.Warnings = c.Warnings[:0]
-	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
+	err := importer.WalkProviderDir(dir, func(rel string, data []byte) error {
 		kind, _ := c.Classify(rel, false)
 		if kind == importer.KindUnknown {
 			if config.ProviderExtras == nil {
@@ -128,6 +128,22 @@ func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Cross-reference memory against known agents (B-12).
+	for memPath := range config.Memory {
+		agentID := strings.SplitN(memPath, "/", 2)[0]
+		if len(config.Agents) > 0 {
+			if _, ok := config.Agents[agentID]; !ok {
+				delete(config.Memory, memPath)
+				c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: agent %q not found in xcf/agents", "agent-memory/"+memPath, agentID))
+			}
+		}
+	}
+
+	return nil
 }
 
 // --- per-kind extractors ---
