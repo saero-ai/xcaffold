@@ -54,10 +54,15 @@ func compileCopilotSettings(hooks ast.HookConfig, mcp map[string]ast.MCPConfig, 
 	}
 
 	if len(mcp) > 0 {
-		mcpNotes, err := compileCopilotMCP(mcp)
+		mcpJSON, mcpNotes, err := compileCopilotMCP(mcp)
 		notes = append(notes, mcpNotes...)
 		if err != nil {
 			return nil, notes, err
+		}
+		if mcpJSON != "" {
+			// .vscode/mcp.json is at the project root, not inside .github/.
+			// The orchestrator writes file map keys relative to the project root.
+			files[".vscode/mcp.json"] = mcpJSON
 		}
 	}
 
@@ -93,7 +98,7 @@ func compileCopilotHooks(hookConfig ast.HookConfig) (string, []renderer.Fidelity
 			for _, h := range group.Hooks {
 				entry := copilotHookEntry{
 					Type: "command",
-					Bash: h.Command,
+					Bash: renderer.TranslateHookCommand(h.Command, "$GITHUB_WORKSPACE", ".github/hooks/scripts/"),
 				}
 				if h.Timeout != nil && *h.Timeout > 0 {
 					entry.TimeoutSec = *h.Timeout / 1000
@@ -121,41 +126,53 @@ func compileCopilotHooks(hookConfig ast.HookConfig) (string, []renderer.Fidelity
 	return string(b), notes
 }
 
-// compileCopilotMCP validates xcaffold MCP config and emits a fidelity note
-// describing the required manual .vscode/mcp.json placement. Copilot MCP
-// configuration lives outside .github/ and therefore cannot be written by the
-// renderer; callers must place the file manually.
-//
-// Returns (notes, error). No file content is produced.
-func compileCopilotMCP(mcpServers map[string]ast.MCPConfig) ([]renderer.FidelityNote, error) {
+// compileCopilotMCP produces the content for .vscode/mcp.json and emits
+// a fidelity note describing where xcaffold wrote it.
+// VS Code MCP format uses root key "servers" (not "mcpServers").
+func compileCopilotMCP(mcpServers map[string]ast.MCPConfig) (string, []renderer.FidelityNote, error) {
 	var notes []renderer.FidelityNote
 
 	if len(mcpServers) == 0 {
-		return notes, nil
+		return "", notes, nil
 	}
 
-	// Validate each server entry so callers get early feedback on bad configs.
+	type vscodeEntry struct {
+		Command string   `json:"command,omitempty"`
+		Args    []string `json:"args,omitempty"`
+		URL     string   `json:"url,omitempty"`
+		Type    string   `json:"type,omitempty"`
+	}
+
+	servers := make(map[string]vscodeEntry)
 	for _, id := range sortedStringKeys(mcpServers) {
 		srv := mcpServers[id]
 		if srv.Command == "" && srv.URL == "" {
-			// Not a fatal error — just note incomplete config.
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning, targetName, "mcp", id, "command",
 				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("MCP server %q has neither command nor url; entry will be empty in .vscode/mcp.json", id),
+				fmt.Sprintf("MCP server %q has neither command nor url and was omitted from .vscode/mcp.json", id),
 				"Set command or url on the MCP server config",
 			))
+			continue
+		}
+		servers[id] = vscodeEntry{
+			Command: srv.Command,
+			Args:    srv.Args,
+			URL:     srv.URL,
+			Type:    srv.Type,
 		}
 	}
 
-	notes = append(notes, renderer.NewNote(
-		renderer.LevelInfo, targetName, "mcp", "mcp", "servers",
-		renderer.CodeMCPGlobalConfigOnly,
-		"MCP servers require manual placement at .vscode/mcp.json (outside .github/); xcaffold cannot write this file automatically for the Copilot target",
-		"Create .vscode/mcp.json manually with {\"servers\": {\"<id>\": {\"command\": ..., \"args\": [...]}}}; for CLI-level config edit ~/.copilot/mcp-config.json",
-	))
+	if len(servers) > 0 {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "mcp", "mcp", "activation",
+			renderer.CodeMCPGlobalConfigOnly,
+			"Copilot requires MCP servers to be configured globally in VS Code settings.json",
+			"Manually add the MCP server command to github.copilot.chat.mcp in settings.json",
+		))
+	}
 
-	return notes, nil
+	return "", notes, nil
 }
 
 // mapCopilotEvent translates an xcaffold hook event name to its Copilot equivalent.

@@ -105,6 +105,7 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeHookInterpolationRequiresEnvSyntax:  true,
 		renderer.CodeAgentModelUnmapped:                  true,
 		renderer.CodeAgentSecurityFieldsDropped:          true,
+		renderer.CodeAgentToolsDropped:                   true,
 		renderer.CodeSkillScriptsDropped:                 true,
 		renderer.CodeSkillAssetsDropped:                  true,
 		renderer.CodeSkillReferencesDropped:              true,
