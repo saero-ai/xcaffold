@@ -62,7 +62,11 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		SkillSubdirs:    []string{"references", "scripts", "assets"},
 		ModelField:      true,
 		RuleActivations: []string{"always", "path-glob"},
-		SecurityFields:  renderer.SecurityFieldSupport{},
+		RuleEncoding: renderer.RuleEncodingCapabilities{
+			Description: "prose",
+			Activation:  "omit",
+		},
+		SecurityFields: renderer.SecurityFieldSupport{},
 	}
 }
 
@@ -311,7 +315,7 @@ func (r *Renderer) renderRulesToMap(config *ast.XcaffoldConfig, files map[string
 			))
 		}
 
-		body := buildRuleBody(rule, baseDir)
+		body := buildRuleBody(rule, r.Capabilities(), baseDir)
 		rulePath := fmt.Sprintf("rules/%s.md", id)
 		safePath := filepath.Clean(rulePath)
 		files[safePath] = body
@@ -612,11 +616,9 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 // buildRuleBody constructs the markdown content for a rule file.
 // baseDir is used to resolve instructions-file paths; pass "" when no
 // file resolution is needed.
-func buildRuleBody(rule ast.RuleConfig, baseDir string) string {
+func buildRuleBody(rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) string {
 	var sb strings.Builder
-	if rule.Description != "" {
-		fmt.Fprintf(&sb, "%s\n\n", rule.Description)
-	}
+	sb.WriteString(renderer.BuildRuleProsePrefix(rule, caps))
 	instructions := rule.Instructions
 	if instructions == "" && rule.InstructionsFile != "" && baseDir != "" {
 		instructions = renderer.ResolveInstructionsContent("", rule.InstructionsFile, baseDir)

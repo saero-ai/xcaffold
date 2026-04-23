@@ -12,6 +12,20 @@ type SecurityFieldSupport struct {
 	Effort          bool
 }
 
+// RuleEncodingCapabilities declares how the renderer encodes rule metadata.
+type RuleEncodingCapabilities struct {
+	// Description declares how the description field is encoded.
+	//   "frontmatter" → inside YAML block
+	//   "prose"       → first plain paragraph of body
+	//   "omit"        → dropped entirely
+	Description string
+
+	// Activation declares how the rule applicability conditions are encoded.
+	//   "frontmatter" → inside YAML block
+	//   "omit"        → not encodable; emitting fidelity notes
+	Activation string
+}
+
 // CapabilitySet declares which resource kinds a renderer supports.
 // The compiler orchestrator uses this to auto-emit RENDERER_KIND_UNSUPPORTED
 // fidelity notes for unsupported kinds, eliminating silent drops.
@@ -28,5 +42,6 @@ type CapabilitySet struct {
 	SkillSubdirs        []string // e.g., ["references", "scripts", "assets"]
 	ModelField          bool
 	RuleActivations     []string // e.g., ["always", "path-glob"]
+	RuleEncoding        RuleEncodingCapabilities
 	SecurityFields      SecurityFieldSupport
 }

@@ -62,7 +62,11 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		ProjectInstructions: true,
 		ModelField:          false,
 		RuleActivations:     []string{"always", "path-glob", "manual-mention"},
-		SkillSubdirs:        []string{"references", "scripts", "assets"},
+		RuleEncoding: renderer.RuleEncodingCapabilities{
+			Description: "frontmatter",
+			Activation:  "frontmatter",
+		},
+		SkillSubdirs: []string{"references", "scripts", "assets"},
 		SecurityFields: renderer.SecurityFieldSupport{
 			Effort: true,
 		},
@@ -118,7 +122,7 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 	for id, rule := range rules {
-		mdc, ruleNotes, err := compileCursorRule(id, rule, baseDir)
+		mdc, ruleNotes, err := compileCursorRule(id, rule, r.Capabilities(), baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cursor: failed to compile rule %q: %w", id, err)
 		}
@@ -385,7 +389,7 @@ func compileCursorHooks(hooks ast.HookConfig) (string, []renderer.FidelityNote, 
 
 // compileCursorRule renders a single RuleConfig to a Cursor .mdc file.
 // It returns the rendered content, any fidelity notes, and an error.
-func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+func compileCursorRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
@@ -399,10 +403,7 @@ func compileCursorRule(id string, rule ast.RuleConfig, baseDir string) (string, 
 	var notes []renderer.FidelityNote
 
 	sb.WriteString("---\n")
-
-	if rule.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", rule.Description)
-	}
+	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 
 	activation := renderer.ResolvedActivation(rule)
 
