@@ -88,14 +88,19 @@ func TestAntigravityRenderer_FullConfig(t *testing.T) {
 	fmtContent, ok := out.Files["rules/formatting.md"]
 	require.True(t, ok, "expected rules/formatting.md in output")
 
-	// No frontmatter delimiters
-	assert.False(t, strings.HasPrefix(fmtContent, "---"), "AG rule must not start with --- delimiter")
+	// Has frontmatter delimiter because of Description + Paths
+	assert.True(t, strings.HasPrefix(fmtContent, "---\n"), "AG rule with description/paths must start with ---")
 
-	// Description as heading
-	assert.Contains(t, fmtContent, "# Code style rules")
+	// Description as frontmatter
+	assert.Contains(t, fmtContent, "description: Code style rules")
+	assert.NotContains(t, fmtContent, "# Code style rules")
 
-	// No globs/paths/alwaysApply
-	assert.NotContains(t, fmtContent, "globs:")
+	// Glob emitted
+	assert.Contains(t, fmtContent, "trigger: glob\n")
+	assert.Contains(t, fmtContent, "globs: **/*.go\n")
+
+	// Old JSON array/paths must be dropped
+	assert.NotContains(t, fmtContent, `["**/*.go"]`)
 	assert.NotContains(t, fmtContent, "paths:")
 	assert.NotContains(t, fmtContent, "alwaysApply:")
 
@@ -169,8 +174,9 @@ func TestAntigravityRenderer_Rule_InstructionsFile_ReadsFromDisk(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/from-file.md"]
-	// Frontmatter in the source file must be stripped; only body remains
-	assert.NotContains(t, content, "---")
+	// Frontmatter generated for description
+	assert.True(t, strings.HasPrefix(content, "---\n"), "rule must have frontmatter because description is set")
+	assert.Contains(t, content, "description: File-sourced rule")
 	assert.Contains(t, content, "Always write clean code.")
 }
 

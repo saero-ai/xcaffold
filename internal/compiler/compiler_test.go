@@ -197,7 +197,7 @@ func TestCompile_AntigravityTarget_Supported(t *testing.T) {
 	assert.NotEmpty(t, out.Files)
 }
 
-func TestCompile_AntigravityTarget_RulesNoFrontmatter(t *testing.T) {
+func TestCompile_AntigravityTarget_RulesEmitFrontmatter(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
@@ -209,7 +209,8 @@ func TestCompile_AntigravityTarget_RulesNoFrontmatter(t *testing.T) {
 	require.NoError(t, err)
 	content, ok := out.Files["rules/style.md"]
 	assert.True(t, ok)
-	assert.NotContains(t, content, "---")
+	assert.Contains(t, content, "---\n")
+	assert.Contains(t, content, "description: Style\n")
 }
 
 func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {

@@ -1,10 +1,13 @@
 // Package antigravity compiles an XcaffoldConfig AST into Antigravity output files.
-// Rules are written as plain Markdown files under rules/ — no YAML frontmatter.
+// Rules are written as Markdown files under rules/ with optional YAML frontmatter.
 // Skills are written to skills/<id>/SKILL.md with minimal frontmatter (name + description only).
 //
 // Key normalizations applied during compilation:
-//   - Rules: NO --- frontmatter; description becomes a # heading; 12K char limit enforced with warning
-//   - Rules: paths/globs fields are dropped — AG handles activation via UI
+//   - Rules: optional --- frontmatter; description in frontmatter (not a # heading)
+//   - Rules: PathGlob activation → trigger: glob + globs: <patterns> in frontmatter
+//   - Rules: ModelDecided activation → trigger: model_decision in frontmatter
+//   - Rules: AlwaysOn / absent → no trigger field (always-on by default)
+//   - Rules: ManualMention / ExplicitInvoke → fidelity note; no frontmatter encoding
 //   - Skills: only name and description emitted in frontmatter; all other fields dropped
 //   - Agents are not supported; RENDERER_KIND_UNSUPPORTED notes plus per-field security notes are emitted
 //   - Hooks are not supported by this renderer; the orchestrator emits RENDERER_KIND_UNSUPPORTED
@@ -12,7 +15,6 @@
 package antigravity
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -162,22 +164,24 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 	return files, nil, nil
 }
 
-// CompileRules renders all rules to rules/<id>.md files. Rules use no YAML
-// frontmatter; description becomes a # heading. Bodies exceeding 12,000
+// CompileRules renders all rules to rules/<id>.md files. Rules use optional YAML
+// frontmatter for description and activation. Bodies exceeding 12,000
 // characters receive a leading warning HTML comment.
 func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	var notes []renderer.FidelityNote
 
 	for id, rule := range rules {
-		md, err := compileAntigravityRule(id, rule, baseDir)
+		md, ruleNotes, err := compileAntigravityRule(id, rule, baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("antigravity: failed to compile rule %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", id))
 		files[safePath] = md
+		notes = append(notes, ruleNotes...)
 	}
 
-	return files, nil, nil
+	return files, notes, nil
 }
 
 // CompileWorkflows renders all workflows to workflows/<id>.md files. When
@@ -415,65 +419,91 @@ func agResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string
 	return agResolveInstructions(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
-// compileAntigravityRule renders a single RuleConfig to a plain Markdown file.
+// compileAntigravityRule renders a single RuleConfig to a Markdown file with
+// optional YAML frontmatter.
 //
-// Antigravity rules have NO YAML frontmatter. Key normalizations:
-//   - Description becomes a # heading at the top of the file (not frontmatter)
-//   - paths/globs are dropped — AG handles activation via UI
-//   - Bodies exceeding 12,000 characters receive a leading warning HTML comment
-func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (string, error) {
+// Antigravity rules support YAML frontmatter with the following fields:
+//   - description: human-readable trigger description shown in the Customizations panel UI
+//   - trigger: model_decision | glob (absent = always-on default)
+//   - globs: comma-separated glob patterns (only when trigger: glob)
+//
+// Key normalizations:
+//   - description emitted in YAML frontmatter (not as a # heading)
+//   - PathGlob activation → trigger: glob + globs: <comma-joined paths>
+//   - ModelDecided activation → trigger: model_decision
+//   - AlwaysOn / absent → no trigger field (always-on by default)
+//   - ManualMention / ExplicitInvoke → no frontmatter encoding; fidelity note returned
+//   - frontmatter block only emitted when needed (empty description + AlwaysOn → no --- block)
+//   - Bodies exceeding 12,000 characters receive a warning HTML comment (after frontmatter)
+func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("rule id must not be empty")
+		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
 
 	body, err := resolver.ResolveInstructions(rule.Instructions, rule.InstructionsFile, "", baseDir)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	var sb strings.Builder
+	var notes []renderer.FidelityNote
 
 	body = renderer.StripAllFrontmatter(body)
 
-	// Prepend 12K warning comment before any other content if body is too long.
+	// Resolve effective activation.
+	activation := renderer.ResolvedActivation(rule)
+
+	// Emit YAML frontmatter only when there is something to encode.
+	// IMPORTANT: frontmatter must be written FIRST — before any body or warning comment.
+	// Empty description + AlwaysOn → skip frontmatter entirely (no ---\n---\n noise).
+	needsFrontmatter := rule.Description != "" ||
+		activation == ast.RuleActivationPathGlob ||
+		activation == ast.RuleActivationModelDecided
+
+	if needsFrontmatter {
+		sb.WriteString("---\n")
+		if rule.Description != "" {
+			fmt.Fprintf(&sb, "description: %s\n", rule.Description)
+		}
+		switch activation {
+		case ast.RuleActivationPathGlob:
+			sb.WriteString("trigger: glob\n")
+			if len(rule.Paths) > 0 {
+				fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths, ","))
+			}
+		case ast.RuleActivationModelDecided:
+			sb.WriteString("trigger: model_decision\n")
+			// ast.RuleActivationAlways: no trigger field — always-on is the default.
+		}
+		sb.WriteString("---\n\n")
+	}
+
+	// Emit 12K warning comment AFTER frontmatter (so frontmatter stays at byte 0).
 	if len(body) > ruleCharLimit {
 		fmt.Fprintf(&sb, "<!-- WARNING: rule body exceeds the %d-character limit recommended for Antigravity rules. Consider splitting this rule into smaller, focused rules. -->\n\n", ruleCharLimit)
 	}
 
-	// Description becomes a markdown heading — no --- frontmatter delimiters.
-	if rule.Description != "" {
-		fmt.Fprintf(&sb, "# %s\n", rule.Description)
-	}
-
-	// Emit activation provenance comment(s) immediately after the heading (or at
-	// top of file when no description is set). These allow the importer to recover
-	// activation semantics on re-import.
-	activation := renderer.ResolvedActivation(rule)
-	switch activation {
-	case ast.RuleActivationAlways:
-		sb.WriteString("<!-- xcaffold:activation AlwaysOn -->\n")
-	case ast.RuleActivationPathGlob:
-		sb.WriteString("<!-- xcaffold:activation Glob -->\n")
-		pathsJSON, err := json.Marshal(rule.Paths)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal rule paths: %w", err)
-		}
-		fmt.Fprintf(&sb, "<!-- xcaffold:paths %s -->\n", string(pathsJSON))
-	default:
-		// ManualMention, ModelDecided, ExplicitInvoke all map to Manual in
-		// Antigravity. ModelDecided could map to AG's native "Model Decision"
-		// mode, but Manual is the conservative choice until AG's model-decision
-		// semantics are verified to match xcaffold's definition.
-		sb.WriteString("<!-- xcaffold:activation Manual -->\n")
+	// ManualMention and ExplicitInvoke have no frontmatter encoding in Antigravity.
+	// Emit a fidelity note directing the user to the Customizations panel.
+	if activation == ast.RuleActivationManualMention || activation == ast.RuleActivationExplicitInvoke {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning,
+			targetName,
+			"rule",
+			id,
+			"activation",
+			renderer.CodeRuleActivationUnsupported,
+			fmt.Sprintf("rule %q activation %q has no native frontmatter encoding for Antigravity; configure via the Customizations panel", id, activation),
+			"Set activation via the Customizations panel in Antigravity",
+		))
 	}
 
 	if body != "" {
-		sb.WriteString("\n")
 		sb.WriteString(strings.TrimRight(body, "\n"))
 		sb.WriteString("\n")
 	}
 
-	return sb.String(), nil
+	return sb.String(), notes, nil
 }
 
 // compileAntigravitySkill renders a single SkillConfig to a skills/<id>/SKILL.md file.
