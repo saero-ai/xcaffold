@@ -426,13 +426,27 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 				keys = append(keys, k)
 			}
 			sort.Strings(keys)
+			var destRoot string
+			if provider == "xcf" {
+				// Canonical passthrough for hooks
+				destRoot = filepath.Join(rootDir, "xcf")
+			} else {
+				destRoot = filepath.Join(rootDir, "xcf", "provider", provider)
+			}
+
 			for _, rel := range keys {
 				data := files[rel]
-				outPath := filepath.Join(xcfDir, "provider", provider, filepath.FromSlash(rel))
+				outPath := filepath.Join(destRoot, filepath.FromSlash(rel))
 				if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 					return err
 				}
-				if err := os.WriteFile(filepath.Clean(outPath), data, 0644); err != nil {
+
+				perm := os.FileMode(0644)
+				if strings.HasSuffix(rel, ".sh") {
+					perm = 0755
+				}
+
+				if err := os.WriteFile(filepath.Clean(outPath), data, perm); err != nil {
 					return err
 				}
 			}
