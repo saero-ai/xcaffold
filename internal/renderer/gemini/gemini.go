@@ -323,7 +323,13 @@ func (r *Renderer) renderRulesToMap(config *ast.XcaffoldConfig, files map[string
 		files[safePath] = body
 		// @-import lines use the project-relative path so the Gemini CLI can
 		// locate rule files from the project root (OutputDir is .gemini).
-		importLines = append(importLines, fmt.Sprintf("@.gemini/%s", safePath))
+		var importText string
+		if len(rule.Paths) > 0 {
+			importText = fmt.Sprintf("Apply this rule when accessing %s:\n@.gemini/%s", strings.Join(rule.Paths, ", "), safePath)
+		} else {
+			importText = fmt.Sprintf("Always apply @.gemini/%s", safePath)
+		}
+		importLines = append(importLines, importText)
 	}
 
 	if len(importLines) > 0 {
