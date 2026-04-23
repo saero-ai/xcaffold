@@ -207,11 +207,11 @@ func (r *Renderer) Finalize(files map[string]string) (map[string]string, []rende
 	// 1. Merge rule @-import lines into GEMINI.md.
 	if imports, ok := files[geminiRuleImportsKey]; ok {
 		if imports != "" {
-			existing := files["GEMINI.md"]
+			existing := files["../GEMINI.md"]
 			if existing != "" && !strings.HasSuffix(existing, "\n") {
 				existing += "\n"
 			}
-			files["GEMINI.md"] = existing + imports
+			files["../GEMINI.md"] = existing + imports
 		}
 		delete(files, geminiRuleImportsKey)
 	}
@@ -272,7 +272,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		fmt.Fprintf(&sb, "@%s\n", imp)
 	}
 
-	files["GEMINI.md"] = sb.String()
+	files["../GEMINI.md"] = sb.String()
 
 	// Emit per-scope GEMINI.md files.
 	for _, scope := range p.InstructionsScopes {
@@ -280,7 +280,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		if scopeContent == "" {
 			continue
 		}
-		scopePath := filepath.Join(scope.Path, "GEMINI.md")
+		scopePath := filepath.Join("../"+scope.Path, "GEMINI.md")
 		safePath := filepath.Clean(scopePath)
 		files[safePath] = scopeContent
 	}

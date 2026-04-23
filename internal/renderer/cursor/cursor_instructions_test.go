@@ -32,7 +32,7 @@ func TestCursorRenderer_ProjectInstructions_PreFlattensConcat(t *testing.T) {
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	// Pre-flattening: worker AGENTS.md must contain root + worker content.
-	worker, ok := out.Files["packages/worker/AGENTS.md"]
+	worker, ok := out.Files["../packages/worker/AGENTS.md"]
 	require.True(t, ok, "packages/worker/AGENTS.md must be present in output")
 	require.Contains(t, worker, "Root context.")
 	require.Contains(t, worker, "Worker context.")
@@ -90,7 +90,7 @@ func TestCursorRenderer_ProjectInstructions_InlinesImports(t *testing.T) {
 	out, notes, err := renderer.Orchestrate(r, config, dir)
 	require.NoError(t, err)
 
-	rootMD, ok := out.Files["AGENTS.md"]
+	rootMD, ok := out.Files["../AGENTS.md"]
 	require.True(t, ok, "AGENTS.md must be present in output")
 
 	// Must NOT contain raw @-import syntax — Cursor does not support it.
@@ -111,4 +111,68 @@ func TestCursorRenderer_ProjectInstructions_InlinesImports(t *testing.T) {
 	}
 	require.True(t, foundIt, "expected INSTRUCTIONS_IMPORT_INLINED note")
 	require.Equal(t, renderer.LevelInfo, found.Level)
+}
+
+func TestRenderProjectInstructions_Cursor_XCFInstructionsFile_ExtractsBody(t *testing.T) {
+	dir := t.TempDir()
+	xcfContent := `kind: project
+instructions: |
+  This is the extracted body.`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "instructions.xcf"), []byte(xcfContent), 0600))
+
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:             "test-project",
+			InstructionsFile: "instructions.xcf",
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, dir)
+	require.NoError(t, err)
+
+	rootMD, ok := out.Files["../AGENTS.md"]
+	require.True(t, ok, "AGENTS.md must be present in output")
+	require.Contains(t, rootMD, "This is the extracted body.", "Must extract body")
+	require.NotContains(t, rootMD, "kind: project", "Must strip XCF frontmatter")
+}
+
+func TestRenderProjectInstructions_Cursor_InlineInstructions_Unchanged(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:         "test-project",
+			Instructions: "Inline body.",
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	rootMD, ok := out.Files["../AGENTS.md"]
+	require.True(t, ok, "AGENTS.md must be present in output")
+	require.Contains(t, rootMD, "Inline body.", "Must pass inline instructions as is")
+}
+
+func TestRenderProjectInstructions_Cursor_ScopeFiles_AtProjectRoot(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:         "test-project",
+			Instructions: "Root",
+			InstructionsScopes: []ast.InstructionsScope{
+				{
+					Path:         "dummy_platform",
+					Instructions: "Platform specific.",
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	scopeMD, ok := out.Files["../dummy_platform/AGENTS.md"]
+	require.True(t, ok, "../dummy_platform/AGENTS.md must be present in output")
+	require.Contains(t, scopeMD, "Platform specific.", "Must contain scope body")
 }

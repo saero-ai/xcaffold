@@ -227,7 +227,7 @@ func (r *Renderer) renderProjectInstructionsFlat(config *ast.XcaffoldConfig, bas
 
 	var notes []renderer.FidelityNote
 
-	rootContent := copilotResolveInstructions(p.Instructions, p.InstructionsFile, baseDir)
+	rootContent := renderer.ResolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
 
 	// Inline @-imports — Copilot has no native @-import mechanism.
 	for _, imp := range p.InstructionsImports {
@@ -254,6 +254,18 @@ func (r *Renderer) renderProjectInstructionsFlat(config *ast.XcaffoldConfig, bas
 
 	for _, scope := range scopes {
 		scopeContent := copilotResolveScopeContent(scope, baseDir)
+
+		if scopeContent != "" {
+			name := strings.ReplaceAll(filepath.Clean(scope.Path), string(filepath.Separator), "-")
+			filename := fmt.Sprintf("instructions/%s.instructions.md", name)
+
+			var scb strings.Builder
+			scb.WriteString("---\n")
+			fmt.Fprintf(&scb, "applyTo: %q\n", scope.Path+"/**")
+			scb.WriteString("---\n\n")
+			scb.WriteString(scopeContent)
+			files[filename] = scb.String()
+		}
 
 		// Build provenance marker attributes — the A-6 parser uses
 		// `(\w[\w-]*)="([^"]*)"`, so any double quote inside an attribute value
@@ -308,7 +320,7 @@ func (r *Renderer) renderProjectInstructionsNested(config *ast.XcaffoldConfig, b
 
 	var notes []renderer.FidelityNote
 
-	rootContent := copilotResolveInstructions(p.Instructions, p.InstructionsFile, baseDir)
+	rootContent := renderer.ResolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
 
 	// Inline @-imports — AGENTS.md has no native @-import mechanism.
 	for _, imp := range p.InstructionsImports {
@@ -344,29 +356,11 @@ func (r *Renderer) renderProjectInstructionsNested(config *ast.XcaffoldConfig, b
 	return notes
 }
 
-// copilotResolveInstructions returns inline instructions or reads InstructionsFile
-// relative to baseDir. Returns empty string on any read error.
-func copilotResolveInstructions(inline, file, baseDir string) string {
-	if inline != "" {
-		return inline
-	}
-	if file == "" {
-		return ""
-	}
-	data, err := os.ReadFile(filepath.Join(baseDir, file))
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
-
-// copilotResolveScopeContent returns the effective content for a scope, preferring
-// a copilot-specific variant when one is declared.
 func copilotResolveScopeContent(scope ast.InstructionsScope, baseDir string) string {
 	if v, ok := scope.Variants[targetName]; ok {
-		return copilotResolveInstructions("", v.InstructionsFile, baseDir)
+		return renderer.ResolveInstructionsContent("", v.InstructionsFile, baseDir)
 	}
-	return copilotResolveInstructions(scope.Instructions, scope.InstructionsFile, baseDir)
+	return renderer.ResolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
 // renderAgents writes each agent to .github/agents/<id>.agent.md using YAML

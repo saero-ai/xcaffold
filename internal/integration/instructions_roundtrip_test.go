@@ -40,7 +40,7 @@ func TestInstructionsRoundTrip_ClaudeToCursor(t *testing.T) {
 	require.NoError(t, err)
 
 	// Pre-flatten: worker AGENTS.md must contain BOTH root and worker content.
-	workerFile := out.Files["packages/worker/AGENTS.md"]
+	workerFile := out.Files["../packages/worker/AGENTS.md"]
 	require.Contains(t, workerFile, "Root context.")
 	require.Contains(t, workerFile, "Worker context.")
 

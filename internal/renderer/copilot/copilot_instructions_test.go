@@ -155,3 +155,51 @@ target-options:
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "instructions-mode")
 }
+
+func TestCopilotRenderer_ProjectInstructions_XCFExtractsBody(t *testing.T) {
+	dir := t.TempDir()
+	xcfContent := `kind: project
+instructions: |
+  This is Copilot root extracted from XCF.`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "root.xcf"), []byte(xcfContent), 0600))
+
+	r := copilot.New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:             "test-project",
+			InstructionsFile: "root.xcf",
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, dir)
+	require.NoError(t, err)
+
+	rootMD, ok := out.Files["copilot-instructions.md"]
+	require.True(t, ok, "copilot-instructions.md must be present in output")
+	require.Contains(t, rootMD, "This is Copilot root extracted from XCF.", "Must extract body")
+	require.NotContains(t, rootMD, "kind: project", "Must strip XCF frontmatter")
+}
+
+func TestRenderProjectInstructions_Copilot_ScopeFiles_WithApplyTo(t *testing.T) {
+	r := copilot.New()
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name:         "test-project",
+			Instructions: "Root",
+			InstructionsScopes: []ast.InstructionsScope{
+				{
+					Path:         "dummy_platform",
+					Instructions: "Dummy scope content.",
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	scopeFile, ok := out.Files["instructions/dummy_platform.instructions.md"]
+	require.True(t, ok, "instructions/dummy_platform.instructions.md must be present")
+	require.Contains(t, scopeFile, "applyTo: \"dummy_platform/**\"", "Must contain applyTo frontmatter")
+	require.Contains(t, scopeFile, "Dummy scope content.", "Must contain extracted content")
+}
