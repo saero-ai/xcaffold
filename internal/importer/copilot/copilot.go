@@ -42,6 +42,8 @@ func (c *CopilotImporter) InputDir() string { return ".github" }
 // renderer-emitted extension takes priority while plain .md still matches
 // for backward compatibility.
 var copilotMappings = []importer.KindMapping{
+	{Pattern: "hooks/*.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
+	{Pattern: "hooks/scripts/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.agent.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*.md", Kind: importer.KindSkill, Layout: importer.FlatFile},
@@ -77,6 +79,10 @@ func (c *CopilotImporter) Extract(rel string, data []byte, config *ast.XcaffoldC
 		return extractSkill(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
+	case importer.KindHook:
+		return extractHooksStandalone(rel, data, config)
+	case importer.KindHookScript:
+		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindMCP:
 		return extractMCP(rel, data, config)
 	case importer.KindWorkflow:
@@ -318,5 +324,14 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		Steps:          front.Steps,
 		SourceProvider: "copilot",
 	}
+	return nil
+}
+
+func extractHooksStandalone(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var hooks ast.HookConfig
+	if err := json.Unmarshal(data, &hooks); err != nil {
+		return fmt.Errorf("copilot: hooks.json parse: %w", err)
+	}
+	config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
 	return nil
 }

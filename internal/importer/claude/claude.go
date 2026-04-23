@@ -41,6 +41,7 @@ func (c *ClaudeImporter) InputDir() string { return ".claude" }
 // Skill companion patterns (references/**, scripts/**, assets/**) must appear
 // before the catch-all agent-memory/** so they are matched first.
 var claudeMappings = []importer.KindMapping{
+	{Pattern: "hooks/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
@@ -79,6 +80,8 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractSkill(rel, data, config)
 	case importer.KindSkillAsset:
 		return extractSkillAsset(rel, data, config)
+	case importer.KindHookScript:
+		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
 	case importer.KindWorkflow:

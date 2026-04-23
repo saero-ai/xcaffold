@@ -40,6 +40,7 @@ func (g *GeminiImporter) InputDir() string { return ".gemini" }
 // settings.json appears first for the container-level KindSettings match;
 // embedded mcpServers and hooks keys are handled inside Extract().
 var geminiMappings = []importer.KindMapping{
+	{Pattern: "hooks/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*.md", Kind: importer.KindSkill, Layout: importer.FlatFile},
 	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
@@ -72,6 +73,8 @@ func (g *GeminiImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractAgent(rel, data, config)
 	case importer.KindSkill:
 		return extractSkill(rel, data, config)
+	case importer.KindHookScript:
+		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
 	case importer.KindSettings:

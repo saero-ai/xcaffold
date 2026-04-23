@@ -37,6 +37,7 @@ func (c *CursorImporter) InputDir() string { return ".cursor" }
 
 // cursorMappings maps path patterns to AST kinds. First match wins.
 var cursorMappings = []importer.KindMapping{
+	{Pattern: "hooks/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
@@ -72,6 +73,8 @@ func (c *CursorImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractSkill(rel, data, config)
 	case importer.KindSkillAsset:
 		return extractSkillAsset(rel, data, config)
+	case importer.KindHookScript:
+		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
 	case importer.KindMCP:
