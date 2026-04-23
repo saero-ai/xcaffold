@@ -48,6 +48,7 @@ var copilotMappings = []importer.KindMapping{
 	{Pattern: "instructions/*.instructions.md", Kind: importer.KindRule, Layout: importer.FlatFile, Extension: ".instructions.md"},
 	{Pattern: "copilot/mcp-config.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "workflows/copilot-setup-steps.yml", Kind: importer.KindWorkflow, Layout: importer.FlatFile},
+	{Pattern: "hooks/scripts/**", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 }
 
 // Classify returns the Kind and Layout for a given relative path.
@@ -81,6 +82,8 @@ func (c *CopilotImporter) Extract(rel string, data []byte, config *ast.XcaffoldC
 		return extractMCP(rel, data, config)
 	case importer.KindWorkflow:
 		return extractWorkflow(rel, data, config)
+	case importer.KindHookScript:
+		return extractHookScript(rel, data, config)
 	default:
 		return fmt.Errorf("copilot: no extractor for kind %q at path %q", kind, rel)
 	}
@@ -318,5 +321,25 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		Steps:          front.Steps,
 		SourceProvider: "copilot",
 	}
+	return nil
+}
+
+func extractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	if config.ProviderExtras == nil {
+		config.ProviderExtras = make(map[string]map[string][]byte)
+	}
+	if config.ProviderExtras["copilot"] == nil {
+		config.ProviderExtras["copilot"] = make(map[string][]byte)
+	}
+	// For Copilot, we strip the 'hooks/scripts/' prefix to canonicalize to 'hooks/' in xcf/
+	// because WriteSplitFiles expects 'hooks/'.
+	// rel like 'hooks/scripts/post-update.sh' -> 'hooks/post-update.sh'
+	canonical := rel
+	suffix := strings.TrimPrefix(rel, "hooks/scripts/")
+	if suffix != rel {
+		canonical = "hooks/" + suffix
+	}
+
+	config.ProviderExtras["copilot"][canonical] = data
 	return nil
 }

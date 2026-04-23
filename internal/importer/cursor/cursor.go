@@ -45,6 +45,7 @@ var cursorMappings = []importer.KindMapping{
 	{Pattern: "rules/*.mdc", Kind: importer.KindRule, Layout: importer.FlatFile, Extension: ".mdc"},
 	{Pattern: "mcp.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "hooks.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
+	{Pattern: "hooks/**", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 }
 
 // Classify returns the Kind and Layout for a given relative path.
@@ -78,6 +79,8 @@ func (c *CursorImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractMCPStandalone(rel, data, config)
 	case importer.KindHook:
 		return extractHooksStandalone(rel, data, config)
+	case importer.KindHookScript:
+		return extractHookScript(rel, data, config)
 	default:
 		return fmt.Errorf("cursor: no extractor for kind %q at path %q", kind, rel)
 	}
@@ -329,5 +332,16 @@ func extractHooksStandalone(rel string, data []byte, config *ast.XcaffoldConfig)
 		return fmt.Errorf("cursor: hooks.json parse: %w", err)
 	}
 	config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
+	return nil
+}
+
+func extractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	if config.ProviderExtras == nil {
+		config.ProviderExtras = make(map[string]map[string][]byte)
+	}
+	if config.ProviderExtras["cursor"] == nil {
+		config.ProviderExtras["cursor"] = make(map[string][]byte)
+	}
+	config.ProviderExtras["cursor"][rel] = data
 	return nil
 }

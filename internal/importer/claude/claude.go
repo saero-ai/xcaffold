@@ -51,6 +51,7 @@ var claudeMappings = []importer.KindMapping{
 	{Pattern: "mcp.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "settings.json", Kind: importer.KindSettings, Layout: importer.EmbeddedJSONKey},
 	{Pattern: "settings.local.json", Kind: importer.KindSettings, Layout: importer.StandaloneJSON},
+	{Pattern: "hooks/**", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agent-memory/**", Kind: importer.KindMemory, Layout: importer.FlatFile},
 }
 
@@ -87,6 +88,8 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractMCPStandalone(rel, data, config)
 	case importer.KindSettings:
 		return extractSettings(rel, data, config)
+	case importer.KindHookScript:
+		return extractHookScript(rel, data, config)
 	case importer.KindMemory:
 		return extractMemory(rel, data, config)
 	default:
@@ -143,6 +146,17 @@ func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 		}
 	}
 
+	return nil
+}
+
+func extractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	if config.ProviderExtras == nil {
+		config.ProviderExtras = make(map[string]map[string][]byte)
+	}
+	if config.ProviderExtras["claude"] == nil {
+		config.ProviderExtras["claude"] = make(map[string][]byte)
+	}
+	config.ProviderExtras["claude"][rel] = data
 	return nil
 }
 

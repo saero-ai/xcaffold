@@ -47,6 +47,7 @@ var geminiMappings = []importer.KindMapping{
 	// Classify returns KindSettings (first match); extractSettings() handles the
 	// two-phase decomposition of mcpServers → config.MCP and hooks → config.Hooks.
 	{Pattern: "settings.json", Kind: importer.KindSettings, Layout: importer.EmbeddedJSONKey, JSONKey: ""},
+	{Pattern: "hooks/**", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 }
 
 // Classify returns the Kind and Layout for a given relative path.
@@ -76,6 +77,8 @@ func (g *GeminiImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractRule(rel, data, config)
 	case importer.KindSettings:
 		return extractSettings(rel, data, config)
+	case importer.KindHookScript:
+		return extractHookScript(rel, data, config)
 	default:
 		return fmt.Errorf("gemini: no extractor for kind %q at path %q", kind, rel)
 	}
@@ -300,5 +303,16 @@ func extractSettings(rel string, data []byte, config *ast.XcaffoldConfig) error 
 	}
 	settings.SourceProvider = "gemini"
 	config.Settings = map[string]ast.SettingsConfig{"default": settings}
+	return nil
+}
+
+func extractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	if config.ProviderExtras == nil {
+		config.ProviderExtras = make(map[string]map[string][]byte)
+	}
+	if config.ProviderExtras["gemini"] == nil {
+		config.ProviderExtras["gemini"] = make(map[string][]byte)
+	}
+	config.ProviderExtras["gemini"][rel] = data
 	return nil
 }

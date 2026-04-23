@@ -14,6 +14,7 @@ const (
 	KindMemory     Kind = "memory"
 	KindWorkflow   Kind = "workflow"
 	KindPolicy     Kind = "policy"
+	KindHookScript Kind = "hook-script"
 	KindUnknown    Kind = ""
 )
 
