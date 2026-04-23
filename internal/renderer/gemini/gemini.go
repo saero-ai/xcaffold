@@ -615,7 +615,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 func buildRuleBody(rule ast.RuleConfig, baseDir string) string {
 	var sb strings.Builder
 	if rule.Description != "" {
-		fmt.Fprintf(&sb, "# %s\n\n", rule.Description)
+		fmt.Fprintf(&sb, "%s\n\n", rule.Description)
 	}
 	instructions := rule.Instructions
 	if instructions == "" && rule.InstructionsFile != "" && baseDir != "" {

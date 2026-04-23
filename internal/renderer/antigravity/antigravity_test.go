@@ -98,9 +98,10 @@ func TestCompile_Rule_DescriptionAsHeading(t *testing.T) {
 	content := out.Files["rules/desc-rule.md"]
 	require.NotEmpty(t, content)
 
-	// Description becomes a markdown heading, not frontmatter
-	assert.Contains(t, content, "# My Rule Description", "description must appear as # heading")
-	assert.NotContains(t, content, "description:", "description must not appear as YAML frontmatter key")
+	// Description must appear ONLY in YAML frontmatter, not as a # heading.
+	assert.True(t, strings.HasPrefix(content, "---\n"), "AG rule with description must start with frontmatter delimiter")
+	assert.Contains(t, content, "description: My Rule Description", "description must appear as YAML frontmatter field")
+	assert.NotContains(t, content, "# My Rule Description", "description must NOT appear as a markdown heading")
 }
 
 func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
@@ -123,9 +124,13 @@ func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
 	content := out.Files["rules/path-rule.md"]
 	require.NotEmpty(t, content)
 
-	// AG handles activation via UI — no globs or paths in file
-	assert.NotContains(t, content, "globs:", "globs must not appear in AG rules")
-	assert.NotContains(t, content, "paths:", "paths must not appear in AG rules")
+	// PathGlob activation must emit trigger + globs in frontmatter.
+	assert.Contains(t, content, "trigger: glob", "PathGlob activation must emit trigger: glob")
+	assert.Contains(t, content, "globs: **/*.go", "PathGlob activation must emit globs field")
+	// No JSON array format — comma-separated string only.
+	assert.NotContains(t, content, "[\"**/*.go\"]", "globs must not be a JSON array")
+	// No old-style HTML comments.
+	assert.NotContains(t, content, "<!-- xcaffold:paths", "old HTML-comment paths must not appear")
 	assert.NotContains(t, content, "alwaysApply:", "alwaysApply must not appear in AG rules")
 }
 
@@ -167,9 +172,14 @@ func TestCompile_Rule_DescriptionHeadingPrecedesBody(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/order-rule.md"]
-	headingPos := strings.Index(content, "# Title")
+	// Frontmatter block must precede body content.
+	frontmatterEnd := strings.Index(content, "---\n\n")
 	bodyPos := strings.Index(content, "Body content.")
-	assert.True(t, headingPos < bodyPos, "# heading must precede body content")
+	require.True(t, frontmatterEnd >= 0, "must have closing frontmatter delimiter")
+	assert.True(t, frontmatterEnd < bodyPos, "frontmatter block must precede body content")
+	// Description in frontmatter, not as heading.
+	assert.Contains(t, content, "description: Title")
+	assert.NotContains(t, content, "# Title")
 }
 
 func TestCompile_Rule_NoDescription_NoHeading(t *testing.T) {
@@ -248,6 +258,186 @@ func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 
 	_, _, err := renderer.Orchestrate(r, config, "")
 	assert.Error(t, err)
+}
+
+func TestCompileRules_Antigravity_AlwaysOn_NoHtmlComments(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"policy": {
+					Description:  "Enforces security policy.",
+					Instructions: "Always check permissions.",
+					Activation:   ast.RuleActivationAlways,
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/policy.md"]
+	require.NotEmpty(t, content)
+
+	// Must have YAML frontmatter with description.
+	assert.True(t, strings.HasPrefix(content, "---\n"), "AlwaysOn rule with description must start with frontmatter")
+	assert.Contains(t, content, "description: Enforces security policy.")
+	// Must NOT have trigger field — AlwaysOn is the default.
+	assert.NotContains(t, content, "trigger:")
+	// Must NOT have any HTML comment activation markers.
+	assert.NotContains(t, content, "<!-- xcaffold:activation")
+	assert.NotContains(t, content, "<!-- xcaffold:")
+}
+
+func TestCompileRules_Antigravity_AlwaysOn_NoTriggerField(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"always-rule": {
+					Description:  "Always active.",
+					Instructions: "Be consistent.",
+					Activation:   ast.RuleActivationAlways,
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/always-rule.md"]
+	assert.NotContains(t, content, "trigger:", "AlwaysOn activation must not emit trigger field")
+}
+
+func TestCompileRules_Antigravity_AlwaysOn_EmptyDescription_NoFrontmatter(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"bare-rule": {
+					Instructions: "Just the body. No description.",
+					Activation:   ast.RuleActivationAlways,
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/bare-rule.md"]
+	require.NotEmpty(t, content)
+
+	// No description + AlwaysOn → needsFrontmatter=false → no --- block.
+	assert.False(t, strings.HasPrefix(content, "---"), "AlwaysOn with empty description must not emit frontmatter")
+	assert.NotContains(t, content, "---", "no frontmatter delimiters when needsFrontmatter=false")
+	assert.Contains(t, content, "Just the body.")
+}
+
+func TestCompileRules_Antigravity_Glob_EmitsTriggerAndGlobs(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"go-files": {
+					Description:  "Go-specific rule.",
+					Instructions: "Use gofmt.",
+					Activation:   ast.RuleActivationPathGlob,
+					Paths:        []string{"xcaffold/**", "xcaffold/internal/**"},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/go-files.md"]
+	require.NotEmpty(t, content)
+
+	assert.Contains(t, content, "trigger: glob\n", "PathGlob activation must emit 'trigger: glob'")
+	assert.Contains(t, content, "globs: xcaffold/**,xcaffold/internal/**\n", "paths must be comma-joined in globs field")
+	// No old HTML comment format.
+	assert.NotContains(t, content, "<!-- xcaffold:activation Glob -->")
+	assert.NotContains(t, content, "<!-- xcaffold:paths")
+}
+
+func TestCompileRules_Antigravity_ModelDecided_EmitsTrigger(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"smart-rule": {
+					Description:  "Applied when relevant.",
+					Instructions: "Be context-aware.",
+					Activation:   ast.RuleActivationModelDecided,
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["rules/smart-rule.md"]
+	assert.Contains(t, content, "trigger: model_decision\n", "ModelDecided activation must emit 'trigger: model_decision'")
+	assert.NotContains(t, content, "trigger: glob", "ModelDecided must not emit glob trigger")
+}
+
+func TestCompileRules_Antigravity_ManualMention_FidelityNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"manual-rule": {
+					Description:  "Only when mentioned.",
+					Instructions: "Only on explicit request.",
+					Activation:   ast.RuleActivationManualMention,
+				},
+			},
+		},
+	}
+
+	_, notes, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeRuleActivationUnsupported && n.Resource == "manual-rule" {
+			found = true
+			assert.Equal(t, renderer.LevelWarning, n.Level)
+			assert.Equal(t, "antigravity", n.Target)
+			assert.Equal(t, "rule", n.Kind)
+		}
+	}
+	assert.True(t, found, "ManualMention must emit CodeRuleActivationUnsupported fidelity note")
+}
+
+func TestCompileRules_Antigravity_ExplicitInvoke_FidelityNote(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"invoke-rule": {
+					Instructions: "Explicit invocation only.",
+					Activation:   ast.RuleActivationExplicitInvoke,
+				},
+			},
+		},
+	}
+
+	_, notes, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeRuleActivationUnsupported && n.Resource == "invoke-rule" {
+			found = true
+		}
+	}
+	assert.True(t, found, "ExplicitInvoke must emit CodeRuleActivationUnsupported fidelity note")
 }
 
 // ─── Skill tests ──────────────────────────────────────────────────────────────
@@ -888,7 +1078,9 @@ func TestCompileAntigravityRule_Activation_AlwaysOn(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/security.md"]
-	require.Contains(t, content, "<!-- xcaffold:activation AlwaysOn -->")
+	// AlwaysOn has description -> should have frontmatter with description but NO trigger.
+	require.NotContains(t, content, "trigger:")
+	require.NotContains(t, content, "<!-- xcaffold:activation")
 }
 
 func TestCompileAntigravityRule_Activation_Manual(t *testing.T) {
@@ -907,7 +1099,9 @@ func TestCompileAntigravityRule_Activation_Manual(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/commit-style.md"]
-	require.Contains(t, content, "<!-- xcaffold:activation Manual -->")
+	// ManualMention has no description -> should have NO frontmatter.
+	require.NotContains(t, content, "---")
+	require.NotContains(t, content, "<!-- xcaffold:activation")
 }
 
 func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
@@ -927,8 +1121,10 @@ func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["rules/api-style.md"]
-	require.Contains(t, content, "<!-- xcaffold:activation Glob -->")
-	require.Contains(t, content, `<!-- xcaffold:paths ["src/**","packages/api/**"] -->`)
+	// Glob should have trigger: glob and globs: src/**,packages/api/**
+	require.Contains(t, content, "trigger: glob")
+	require.Contains(t, content, "globs: src/**,packages/api/**")
+	require.NotContains(t, content, "<!-- xcaffold:activation")
 }
 
 func TestCompile_Agents_EmitsKindUnsupported(t *testing.T) {
@@ -1031,8 +1227,9 @@ func TestCompileAntigravityRule_NoProvenance_ExistingBehaviorPreserved(t *testin
 	require.NoError(t, err)
 
 	content := out.Files["rules/legacy.md"]
-	// No explicit activation → AlwaysOn (the default) is still emitted.
-	require.Contains(t, content, "<!-- xcaffold:activation AlwaysOn -->")
-	// Description must appear as heading.
-	require.Contains(t, content, "# Legacy rule.")
+	// No explicit activation → AlwaysOn (the default) → description in frontmatter only.
+	assert.True(t, strings.HasPrefix(content, "---\n"), "AlwaysOn rule with description must start with frontmatter")
+	assert.Contains(t, content, "description: Legacy rule.", "description must appear as YAML frontmatter field")
+	assert.NotContains(t, content, "<!-- xcaffold:activation AlwaysOn -->", "HTML comment activation must be removed")
+	assert.NotContains(t, content, "# Legacy rule.", "description must not appear as # heading")
 }
