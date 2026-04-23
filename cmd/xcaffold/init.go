@@ -684,7 +684,11 @@ func tryAutoRegister(xcfFile string) {
 // injectXcaffoldSkillAfterImport parses the imported project.xcf, adds the xcaffold skill to the
 // skills list if not present, and statically writes the xcf/skills/xcaffold.xcf template.
 func injectXcaffoldSkillAfterImport(baseDir string) error {
-	xcfFile := filepath.Join(baseDir, "project.xcf")
+	// project.xcf lives inside .xcaffold/ after the manifest relocation.
+	// baseDir is the project root ("." from the caller) and is never re-derived
+	// from this path, so all downstream paths (WriteProjectFile, skillsDir)
+	// remain rooted at the project root.
+	xcfFile := filepath.Join(baseDir, ".xcaffold", "project.xcf")
 	config, err := parser.ParseFileExact(xcfFile)
 	if err != nil {
 		return fmt.Errorf("parsing imported scaffold: %w", err)
