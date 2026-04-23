@@ -201,12 +201,12 @@ func TestCompile_Copilot_Skills_WithSubdirs(t *testing.T) {
 	files, _, err := r.CompileSkills(skills, tmpDir)
 	require.NoError(t, err)
 
-	// Copilot: all files co-located alongside SKILL.md
-	if _, ok := files["skills/my-skill/guide.md"]; !ok {
-		t.Error("expected references flattened to skills/my-skill/guide.md")
+	// Copilot: files are kept in standard subdirectories under skill root
+	if _, ok := files["skills/my-skill/references/guide.md"]; !ok {
+		t.Error("expected references copied to skills/my-skill/references/guide.md")
 	}
-	if _, ok := files["skills/my-skill/run.sh"]; !ok {
-		t.Error("expected scripts flattened to skills/my-skill/run.sh")
+	if _, ok := files["skills/my-skill/scripts/run.sh"]; !ok {
+		t.Error("expected scripts copied to skills/my-skill/scripts/run.sh")
 	}
 }
 

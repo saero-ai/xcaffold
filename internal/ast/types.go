@@ -350,7 +350,7 @@ type MCPConfig struct {
 	Headers          map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 	Disabled         *bool             `yaml:"disabled,omitempty"         json:"disabled,omitempty"`
 	OAuth            map[string]string `yaml:"oauth,omitempty"            json:"oauth,omitempty"`
-	Name             string            `yaml:"name,omitempty"             json:"name,omitempty"`
+	Name             string            `yaml:"name,omitempty"             json:"-"`
 	Type             string            `yaml:"type,omitempty"    json:"type,omitempty"`
 	Command          string            `yaml:"command,omitempty" json:"command,omitempty"`
 	URL              string            `yaml:"url,omitempty"     json:"url,omitempty"`
