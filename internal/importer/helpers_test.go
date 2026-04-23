@@ -144,4 +144,3 @@ func TestExtractHookScript(t *testing.T) {
 		t.Errorf("expected 'echo hello', got %s", string(data))
 	}
 }
-
