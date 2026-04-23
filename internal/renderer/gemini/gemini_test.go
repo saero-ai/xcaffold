@@ -63,6 +63,28 @@ func TestCompile_Gemini_Rules_AlwaysActivation(t *testing.T) {
 	assert.Empty(t, notes)
 }
 
+func TestCompile_Gemini_Rule_DescriptionAsProse(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"prose-rule": {
+					Description:  "This is a prose description.",
+					Instructions: "Rule content here.",
+				},
+			},
+		},
+	}
+	out, _, err := renderer.Orchestrate(r, config, t.TempDir())
+	require.NoError(t, err)
+
+	content := out.Files["rules/prose-rule.md"]
+	// Verify description is emitted as plain prose, NOT as a heading.
+	assert.NotContains(t, content, "# This is a prose description.", "description must not be rendered as an H1 heading")
+	assert.Contains(t, content, "This is a prose description.\n\n", "description must be rendered as a plain prose paragraph followed by an empty line")
+	assert.Contains(t, content, "Rule content here.", "instructions must be preserved")
+}
+
 func TestCompile_Gemini_Rules_PathGlob(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
