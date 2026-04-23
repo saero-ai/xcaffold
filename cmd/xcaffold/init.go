@@ -82,12 +82,16 @@ func runInit(cmd *cobra.Command, _ []string) error {
 
 // initProject runs the interactive project-level init wizard.
 func initProject(cmd *cobra.Command) error {
-	const xcfFile = "project.xcf"
+	xcfFile := filepath.Join(".xcaffold", "project.xcf")
 
 	var currentConfig *ast.XcaffoldConfig
 	hasExistingScaffold := false
 	if _, err := os.Stat(xcfFile); err == nil {
 		hasExistingScaffold = true
+		currentConfig, _ = parser.ParseFile(xcfFile)
+	} else if _, err := os.Stat("project.xcf"); err == nil {
+		hasExistingScaffold = true
+		xcfFile = "project.xcf"
 		currentConfig, _ = parser.ParseFile(xcfFile)
 	}
 
@@ -552,7 +556,9 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 
 	// project.xcf
 	projectContent := templates.RenderProjectXCF(ans.name, ans.targets)
-	if err := os.WriteFile(filepath.Join(baseDir, "project.xcf"), []byte(projectContent), 0o600); err != nil {
+	outDir := filepath.Join(baseDir, ".xcaffold")
+	_ = os.MkdirAll(outDir, 0755)
+	if err := os.WriteFile(filepath.Join(outDir, "project.xcf"), []byte(projectContent), 0o600); err != nil {
 		return err
 	}
 

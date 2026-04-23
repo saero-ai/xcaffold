@@ -12,6 +12,9 @@ import (
 // dirContainsXCF returns true if the directory contains at least one *.xcf file
 // at the top level (not recursively). Hidden directories are ignored.
 func dirContainsXCF(dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, ".xcaffold", "project.xcf")); err == nil {
+		return true
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return false

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"gopkg.in/yaml.v3"
 )
 
@@ -57,25 +58,25 @@ type memoryDoc struct {
 // It does NOT contain resource maps — only metadata, targets, ref lists pointing
 // to child files under xcf/, and project-level instruction references.
 type projectSplitDoc struct {
-	Kind                string                  `yaml:"kind"`
-	Version             string                  `yaml:"version"`
-	Name                string                  `yaml:"name"`
-	Description         string                  `yaml:"description,omitempty"`
-	Author              string                  `yaml:"author,omitempty"`
-	Homepage            string                  `yaml:"homepage,omitempty"`
-	Repository          string                  `yaml:"repository,omitempty"`
-	License             string                  `yaml:"license,omitempty"`
-	BackupDir           string                  `yaml:"backup-dir,omitempty"`
-	Targets             []string                `yaml:"targets,omitempty"`
-	AgentRefs           []string                `yaml:"agents,omitempty"`
-	SkillRefs           []string                `yaml:"skills,omitempty"`
-	RuleRefs            []string                `yaml:"rules,omitempty"`
-	WorkflowRefs        []string                `yaml:"workflows,omitempty"`
-	MCPRefs             []string                `yaml:"mcp,omitempty"`
-	Instructions        string                  `yaml:"instructions,omitempty"`
-	InstructionsFile    string                  `yaml:"instructions-file,omitempty"`
-	InstructionsImports []string                `yaml:"instructions-imports,omitempty"`
-	InstructionsScopes  []ast.InstructionsScope `yaml:"instructions-scopes,omitempty"`
+	Kind                string                   `yaml:"kind"`
+	Version             string                   `yaml:"version"`
+	Name                string                   `yaml:"name"`
+	Description         string                   `yaml:"description,omitempty"`
+	Author              string                   `yaml:"author,omitempty"`
+	Homepage            string                   `yaml:"homepage,omitempty"`
+	Repository          string                   `yaml:"repository,omitempty"`
+	License             string                   `yaml:"license,omitempty"`
+	BackupDir           string                   `yaml:"backup-dir,omitempty"`
+	Targets             []string                 `yaml:"targets,omitempty"`
+	AgentRefs           []ast.AgentManifestEntry `yaml:"agents,omitempty"`
+	SkillRefs           []string                 `yaml:"skills,omitempty"`
+	RuleRefs            []string                 `yaml:"rules,omitempty"`
+	WorkflowRefs        []string                 `yaml:"workflows,omitempty"`
+	MCPRefs             []string                 `yaml:"mcp,omitempty"`
+	Instructions        string                   `yaml:"instructions,omitempty"`
+	InstructionsFile    string                   `yaml:"instructions-file,omitempty"`
+	InstructionsImports []string                 `yaml:"instructions-imports,omitempty"`
+	InstructionsScopes  []ast.InstructionsScope  `yaml:"instructions-scopes,omitempty"`
 }
 
 // hooksSplitDoc is the serialization envelope for kind: hooks in split-file mode.
@@ -106,8 +107,21 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 		proj = &ast.ProjectConfig{}
 	}
 	agentRefs := proj.AgentRefs
+	agentMemMap := compiler.ResolveAgentMemory(config, rootDir)
 	if len(agentRefs) == 0 && len(config.Agents) > 0 {
-		agentRefs = sortedMapKeys(config.Agents)
+		sortedAgents := sortedMapKeys(config.Agents)
+		for _, sa := range sortedAgents {
+			agentRefs = append(agentRefs, ast.AgentManifestEntry{
+				ID:     sa,
+				Memory: agentMemMap[sa],
+			})
+		}
+	} else {
+		for i, ref := range agentRefs {
+			if mem, ok := agentMemMap[ref.ID]; ok && len(ref.Memory) == 0 {
+				agentRefs[i].Memory = mem
+			}
+		}
 	}
 	skillRefs := proj.SkillRefs
 	if len(skillRefs) == 0 && len(config.Skills) > 0 {
@@ -146,7 +160,11 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 		InstructionsImports: proj.InstructionsImports,
 		InstructionsScopes:  proj.InstructionsScopes,
 	}
-	return writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc)
+	outDir := filepath.Join(rootDir, ".xcaffold")
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return err
+	}
+	return writeYAMLFile(filepath.Join(outDir, "project.xcf"), projDoc)
 }
 
 // WriteSplitFiles writes an XcaffoldConfig to rootDir as individual .xcf files:
@@ -179,8 +197,21 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 
 	// Derive ref lists from the config maps when the explicit ref fields are empty.
 	agentRefs := proj.AgentRefs
+	agentMemMap := compiler.ResolveAgentMemory(config, rootDir)
 	if len(agentRefs) == 0 && len(config.Agents) > 0 {
-		agentRefs = sortedMapKeys(config.Agents)
+		sortedAgents := sortedMapKeys(config.Agents)
+		for _, sa := range sortedAgents {
+			agentRefs = append(agentRefs, ast.AgentManifestEntry{
+				ID:     sa,
+				Memory: agentMemMap[sa],
+			})
+		}
+	} else {
+		for i, ref := range agentRefs {
+			if mem, ok := agentMemMap[ref.ID]; ok && len(ref.Memory) == 0 {
+				agentRefs[i].Memory = mem
+			}
+		}
 	}
 	skillRefs := proj.SkillRefs
 	if len(skillRefs) == 0 && len(config.Skills) > 0 {
@@ -200,7 +231,11 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	}
 
 	// Build filter sets from the explicit ref lists. A nil map means "write all".
-	agentFilter := refSet(proj.AgentRefs)
+	agentRefIds := make([]string, 0, len(proj.AgentRefs))
+	for _, ref := range proj.AgentRefs {
+		agentRefIds = append(agentRefIds, ref.ID)
+	}
+	agentFilter := refSet(agentRefIds)
 	skillFilter := refSet(proj.SkillRefs)
 	ruleFilter := refSet(proj.RuleRefs)
 	workflowFilter := refSet(proj.WorkflowRefs)
@@ -227,7 +262,11 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		InstructionsImports: proj.InstructionsImports,
 		InstructionsScopes:  proj.InstructionsScopes,
 	}
-	if err := writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc); err != nil {
+	outDir := filepath.Join(rootDir, ".xcaffold")
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return err
+	}
+	if err := writeYAMLFile(filepath.Join(outDir, "project.xcf"), projDoc); err != nil {
 		return err
 	}
 

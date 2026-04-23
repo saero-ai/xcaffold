@@ -14,13 +14,14 @@ import (
 
 func TestRunSchemaVersionMigrations_AlreadyCurrent(t *testing.T) {
 	dir := t.TempDir()
-	xcfFile := filepath.Join(dir, "project.xcf")
+	xcfFile := filepath.Join(dir, filepath.Join(".xcaffold", "project.xcf"))
 
 	// Write a v1.0 config (already current)
 	content := `kind: project
 version: "1.0"
 name: "test-project"
 `
+	require.NoError(t, os.MkdirAll(filepath.Dir(xcfFile), 0755))
 	require.NoError(t, os.WriteFile(xcfFile, []byte(content), 0600))
 
 	origDir, err := os.Getwd()
@@ -32,7 +33,7 @@ name: "test-project"
 	cmd := &cobra.Command{}
 	cmd.SetOut(&buf)
 
-	err = runSchemaVersionMigrations(cmd, "project.xcf")
+	err = runSchemaVersionMigrations(cmd, filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
 	// No bak file should have been written
@@ -44,13 +45,14 @@ name: "test-project"
 
 func TestRunSchemaVersionMigrations_NoMigrations(t *testing.T) {
 	dir := t.TempDir()
-	xcfFile := filepath.Join(dir, "project.xcf")
+	xcfFile := filepath.Join(dir, filepath.Join(".xcaffold", "project.xcf"))
 
 	// Write a v1.0 config — with empty migrations slice no migration runs
 	content := `kind: project
 version: "1.0"
 name: "test-project"
 `
+	require.NoError(t, os.MkdirAll(filepath.Dir(xcfFile), 0755))
 	require.NoError(t, os.WriteFile(xcfFile, []byte(content), 0600))
 
 	origDir, err := os.Getwd()
@@ -58,7 +60,7 @@ name: "test-project"
 	require.NoError(t, os.Chdir(dir))
 	defer func() { _ = os.Chdir(origDir) }()
 
-	err = runSchemaVersionMigrations(nil, "project.xcf")
+	err = runSchemaVersionMigrations(nil, filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
 	// No backup should be created when no migrations run
@@ -85,7 +87,7 @@ func TestMigrate_WritesSplitFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	// project.xcf must contain kind: project and the agent ref
-	projData, readErr := os.ReadFile(filepath.Join(dir, "project.xcf"))
+	projData, readErr := os.ReadFile(filepath.Join(dir, filepath.Join(".xcaffold", "project.xcf")))
 	require.NoError(t, readErr)
 	assert.Contains(t, string(projData), "kind: project")
 	assert.Contains(t, string(projData), "dev")

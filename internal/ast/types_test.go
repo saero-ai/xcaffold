@@ -104,7 +104,7 @@ func TestProjectConfig_MutualExclusivity_BothSet_IsNotParseable(t *testing.T) {
 func TestProjectConfig_AdvisoryRefFields(t *testing.T) {
 	pc := &ProjectConfig{
 		Name:         "my-proj",
-		AgentRefs:    []string{"developer"},
+		AgentRefs:    []AgentManifestEntry{{ID: "developer"}},
 		SkillRefs:    []string{"tdd"},
 		RuleRefs:     []string{"testing"},
 		WorkflowRefs: []string{"ci"},
@@ -112,7 +112,7 @@ func TestProjectConfig_AdvisoryRefFields(t *testing.T) {
 		PolicyRefs:   []string{"require-model"},
 	}
 
-	require.Equal(t, []string{"developer"}, pc.AgentRefs)
+	require.Equal(t, []AgentManifestEntry{{ID: "developer"}}, pc.AgentRefs)
 	require.Equal(t, []string{"tdd"}, pc.SkillRefs)
 	require.Equal(t, []string{"testing"}, pc.RuleRefs)
 	require.Equal(t, []string{"ci"}, pc.WorkflowRefs)
@@ -141,7 +141,7 @@ func TestProjectConfig_AdvisoryRefFields(t *testing.T) {
 func TestProjectConfig_AdvisoryRefFields_DoNotConflictWithResourceScope(t *testing.T) {
 	pc := &ProjectConfig{
 		Name:      "my-proj",
-		AgentRefs: []string{"developer"},
+		AgentRefs: []AgentManifestEntry{{ID: "developer"}},
 		ResourceScope: ResourceScope{
 			Agents: map[string]AgentConfig{
 				"developer": {Name: "developer", Model: "claude-sonnet-4-5"},

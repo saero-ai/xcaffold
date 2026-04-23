@@ -15,8 +15,9 @@ func TestFindConfigDir_FindsScaffoldXcf(t *testing.T) {
 	project := filepath.Join(home, "project")
 	sub := filepath.Join(project, "sub")
 	require.NoError(t, os.MkdirAll(sub, 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(project, ".xcaffold"), 0755))
 
-	xcf := filepath.Join(project, "project.xcf")
+	xcf := filepath.Join(project, ".xcaffold", "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte("version: \"1\"\n"), 0600))
 
 	got, err := FindConfigDir(sub, home)

@@ -54,11 +54,11 @@ func TestImportScope_Claude_ReadsMCPJson(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".mcp.json"), mcpJSON)
 
-	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
+	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
 	// In split-file format, MCP servers go to xcf/mcp/<name>.xcf.
 	// The root project.xcf only lists the MCP server ID in its 'mcp:' field.
-	scaffoldData, err := os.ReadFile("project.xcf")
+	scaffoldData, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(scaffoldData), "playwright", "project.xcf must list the MCP server ID")
 
@@ -86,7 +86,7 @@ func TestImportScope_Claude_AgentMemoryAutoSnapshot(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".claude", "agent-memory", "dev", "MEMORY.md"), memIndexContent)
 	writeFile(t, filepath.Join(tmp, ".claude", "agent-memory", "dev", "note.md"), "some useful note")
 
-	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
+	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
 	// xcf/memory/dev/ must have been created
 	assert.DirExists(t, filepath.Join(tmp, "xcf", "memory", "dev"),
@@ -110,7 +110,7 @@ func TestImportScope_Claude_ProjectInstructions(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"), "# Dev\n")
 	writeFile(t, filepath.Join(tmp, "CLAUDE.md"), "# Project Rules\n\nDo not expose secrets.\n")
 
-	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
+	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
 	// xcf/instructions/root.xcf must exist with CLAUDE.md content
 	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.xcf"))
@@ -119,7 +119,7 @@ func TestImportScope_Claude_ProjectInstructions(t *testing.T) {
 
 	// project.xcf is rewritten by runProjectInstructionsDiscovery with WriteProjectFile,
 	// which includes instructions-file in the project block.
-	xcf, err := os.ReadFile("project.xcf")
+	xcf, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(xcf), "instructions-file", "project.xcf must contain instructions-file reference")
 }
@@ -148,11 +148,11 @@ func TestImportScope_Gemini_SettingsAndMCP(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".gemini", "settings.json"), geminiSettings)
 
-	require.NoError(t, importScope(".gemini", "project.xcf", "project", "gemini"))
+	require.NoError(t, importScope(".gemini", filepath.Join(".xcaffold", "project.xcf"), "project", "gemini"))
 
 	// In split-file format, MCP servers go to xcf/mcp/<name>.xcf.
 	// project.xcf lists only the server ID.
-	scaffoldData, err := os.ReadFile("project.xcf")
+	scaffoldData, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(scaffoldData), "github", "project.xcf must list the MCP server ID")
 
@@ -172,7 +172,7 @@ func TestImportScope_Gemini_ProjectInstructions(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".gemini", "rules", "style.md"), "# Style\n")
 	writeFile(t, filepath.Join(tmp, "GEMINI.md"), "# Gemini Project Instructions\n\nAlways use structured output.\n")
 
-	require.NoError(t, importScope(".gemini", "project.xcf", "project", "gemini"))
+	require.NoError(t, importScope(".gemini", filepath.Join(".xcaffold", "project.xcf"), "project", "gemini"))
 
 	// xcf/instructions/root.xcf from GEMINI.md
 	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.xcf"))
@@ -180,7 +180,7 @@ func TestImportScope_Gemini_ProjectInstructions(t *testing.T) {
 	assert.Contains(t, string(sidecar), "structured output")
 
 	// project.xcf rewritten with instructions-file
-	xcf, err := os.ReadFile("project.xcf")
+	xcf, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(xcf), "instructions-file")
 }
@@ -207,10 +207,10 @@ func TestImportScope_Cursor_MCPJson(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".cursor", "mcp.json"), cursorMCP)
 
-	require.NoError(t, importScope(".cursor", "project.xcf", "project", "cursor"))
+	require.NoError(t, importScope(".cursor", filepath.Join(".xcaffold", "project.xcf"), "project", "cursor"))
 
 	// In split-file format, MCP servers go to xcf/mcp/<name>.xcf.
-	scaffoldData, err := os.ReadFile("project.xcf")
+	scaffoldData, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(scaffoldData), "filesystem", "project.xcf must list the MCP server ID")
 
@@ -241,7 +241,7 @@ func TestImportScope_Cursor_HooksJson(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".cursor", "hooks.json"), cursorHooks)
 
-	require.NoError(t, importScope(".cursor", "project.xcf", "project", "cursor"))
+	require.NoError(t, importScope(".cursor", filepath.Join(".xcaffold", "project.xcf"), "project", "cursor"))
 
 	// Hooks are written to xcf/hooks.xcf in split-file format.
 	hooksXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "hooks.xcf"))
@@ -259,7 +259,7 @@ func TestImportScope_Cursor_ProjectInstructions(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".cursor", "rules", "style.mdc"), "Use 2-space indent.\n")
 	writeFile(t, filepath.Join(tmp, "AGENTS.md"), "# Cursor Project Instructions\n\nFollow the style guide.\n")
 
-	require.NoError(t, importScope(".cursor", "project.xcf", "project", "cursor"))
+	require.NoError(t, importScope(".cursor", filepath.Join(".xcaffold", "project.xcf"), "project", "cursor"))
 
 	// xcf/instructions/root.xcf from AGENTS.md
 	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.xcf"))
@@ -267,7 +267,7 @@ func TestImportScope_Cursor_ProjectInstructions(t *testing.T) {
 	assert.Contains(t, string(sidecar), "style guide")
 
 	// project.xcf rewritten with instructions-file
-	xcf, err := os.ReadFile("project.xcf")
+	xcf, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(xcf), "instructions-file")
 }
@@ -287,7 +287,7 @@ func TestImportScope_Copilot_ProjectInstructions(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".github", "copilot-instructions.md"),
 		"# Copilot Project Instructions\n\nWrite idiomatic code.\n")
 
-	require.NoError(t, importScope(".github", "project.xcf", "project", "copilot"))
+	require.NoError(t, importScope(".github", filepath.Join(".xcaffold", "project.xcf"), "project", "copilot"))
 
 	// xcf/instructions/root.xcf from copilot-instructions.md
 	sidecar, err := os.ReadFile(filepath.Join(tmp, "xcf", "instructions", "root.xcf"))
@@ -295,7 +295,7 @@ func TestImportScope_Copilot_ProjectInstructions(t *testing.T) {
 	assert.Contains(t, string(sidecar), "idiomatic code")
 
 	// project.xcf rewritten with instructions-file
-	xcf, err := os.ReadFile("project.xcf")
+	xcf, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(xcf), "instructions-file")
 }
@@ -312,7 +312,7 @@ func TestImportScope_Antigravity_NoMemoryCrash(t *testing.T) {
 
 	writeFile(t, filepath.Join(tmp, ".agents", "rules", "style.md"), "# Style\n")
 
-	require.NoError(t, importScope(".agents", "project.xcf", "project", "antigravity"))
+	require.NoError(t, importScope(".agents", filepath.Join(".xcaffold", "project.xcf"), "project", "antigravity"))
 
 	// xcf/memory/ must NOT exist (no file-system access to Antigravity KIs)
 	_, err := os.Stat(filepath.Join(tmp, "xcf", "memory"))
@@ -336,9 +336,9 @@ func TestImportScope_ClaudeWithProvider_DoesNotBreakExistingBehavior(t *testing.
 	writeFile(t, filepath.Join(tmp, ".claude", "settings.json"), `{"hooks": {}}`)
 
 	// 4-arg call with "claude" must behave identically to old 3-arg behavior
-	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
+	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
-	data, err := os.ReadFile("project.xcf")
+	data, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "kind: project")
 	assert.Contains(t, string(data), "dev")
@@ -371,7 +371,7 @@ func TestImportScope_GitignoreFilter(t *testing.T) {
 	// Create a valid nested CLAUDE.md that SHOULD be included
 	writeFile(t, filepath.Join(tmp, "src", "CLAUDE.md"), "# Valid Nested\n")
 
-	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
+	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
 	// Check the sidecars created
 	instructionsDir := filepath.Join(tmp, "xcf", "instructions")

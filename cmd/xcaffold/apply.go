@@ -884,24 +884,6 @@ func geminiMemoryDir() (string, error) {
 	return filepath.Join(home, ".gemini"), nil
 }
 
-// convertClaudeSeeds copies the Claude renderer's local MemorySeed slice into
-// the state.MemorySeed shape for lock manifest persistence. The two types have
-// identical fields but live in different packages to avoid an import cycle.
-func convertClaudeSeeds(in []claude.MemorySeed) []state.MemorySeed {
-	out := make([]state.MemorySeed, len(in))
-	for i, s := range in {
-		out[i] = state.MemorySeed{
-			Name:      s.Name,
-			Target:    s.Target,
-			Path:      s.Path,
-			Hash:      s.Hash,
-			SeededAt:  s.SeededAt,
-			Lifecycle: s.Lifecycle,
-		}
-	}
-	return out
-}
-
 // writeAntigravityKnowledgeItems writes each in-memory knowledge file produced
 // by the Antigravity memory renderer to disk under outputDir. Returns one
 // state.MemorySeed per file with lifecycle "seed-once".

@@ -174,13 +174,16 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 		configDir = dir
 	}
 
-	// Use project.xcf as the canonical entry point. If it does not exist,
-	// use the config directory itself (multi-file xcf/ layout).
-	candidate := filepath.Join(configDir, "project.xcf")
-	if _, err := os.Stat(candidate); err == nil {
-		xcfPath = candidate
-	} else {
-		xcfPath = configDir
+	candidates := []string{
+		filepath.Join(configDir, ".xcaffold", "project.xcf"),
+		filepath.Join(configDir, "project.xcf"),
+	}
+	xcfPath = configDir
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			xcfPath = c
+			break
+		}
 	}
 
 	projectRoot = configDir
