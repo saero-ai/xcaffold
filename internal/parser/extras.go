@@ -24,10 +24,57 @@ import (
 // If neither directory exists the function returns nil — absence of extras is
 // not an error.
 func loadExtras(dir string, config *ast.XcaffoldConfig) error {
+	// Load hook scripts as implicit claude provider extras mapped to hooks/.
+	if err := walkExtrasDirRoot(filepath.Join(dir, "xcf", "hooks"), "claude", config); err != nil {
+		return err
+	}
+
 	if err := walkExtrasDir(filepath.Join(dir, "xcf", "provider"), config, false); err != nil {
 		return err
 	}
 	return walkExtrasDir(filepath.Join(dir, "xcf", "extras"), config, true)
+}
+
+func walkExtrasDirRoot(extrasDir string, fixedProvider string, config *ast.XcaffoldConfig) error {
+	info, err := os.Stat(extrasDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("stat dir %q: %w", extrasDir, err)
+	}
+	if !info.IsDir() {
+		return nil
+	}
+
+	return filepath.WalkDir(extrasDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		rel, relErr := filepath.Rel(filepath.Dir(extrasDir), path)
+		if relErr != nil {
+			return relErr
+		}
+
+		if config.ProviderExtras == nil {
+			config.ProviderExtras = make(map[string]map[string][]byte)
+		}
+		if config.ProviderExtras[fixedProvider] == nil {
+			config.ProviderExtras[fixedProvider] = make(map[string][]byte)
+		}
+
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return fmt.Errorf("read file %q: %w", path, readErr)
+		}
+
+		config.ProviderExtras[fixedProvider][filepath.ToSlash(rel)] = data
+		return nil
+	})
 }
 
 // walkExtrasDir walks a single extras-style directory and populates
