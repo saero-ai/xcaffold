@@ -102,7 +102,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		fmt.Fprintf(&sb, "@%s\n", imp)
 	}
 
-	files["GEMINI.md"] = sb.String()
+	files["../GEMINI.md"] = sb.String()
 
 	// Emit per-scope GEMINI.md files.
 	for _, scope := range p.InstructionsScopes {
@@ -110,7 +110,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		if scopeContent == "" {
 			continue
 		}
-		scopePath := filepath.Join(scope.Path, "GEMINI.md")
+		scopePath := filepath.Join("../"+scope.Path, "GEMINI.md")
 		safePath := filepath.Clean(scopePath)
 		files[safePath] = scopeContent
 	}
@@ -156,11 +156,11 @@ func (r *Renderer) renderRules(config *ast.XcaffoldConfig, files map[string]stri
 	}
 
 	if len(importLines) > 0 {
-		existing := files["GEMINI.md"]
+		existing := files["../GEMINI.md"]
 		if existing != "" && !strings.HasSuffix(existing, "\n") {
 			existing += "\n"
 		}
-		files["GEMINI.md"] = existing + strings.Join(importLines, "\n") + "\n"
+		files["../GEMINI.md"] = existing + strings.Join(importLines, "\n") + "\n"
 	}
 
 	return notes, nil

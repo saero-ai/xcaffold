@@ -35,7 +35,7 @@ func TestCompile_Gemini_EmptyConfig(t *testing.T) {
 func TestCompile_Gemini_Render(t *testing.T) {
 	r := New()
 	files := map[string]string{
-		"GEMINI.md":           "# Project\n",
+		"../GEMINI.md":        "# Project\n",
 		".gemini/rules/go.md": "Use gofmt.\n",
 	}
 	out := r.Render(files)
@@ -67,7 +67,7 @@ func TestCompile_Gemini_Rules_AlwaysActivation(t *testing.T) {
 	assert.Contains(t, ruleContent, "Use gofmt.")
 
 	// GEMINI.md must contain @-import.
-	geminiContent := out.Files["GEMINI.md"]
+	geminiContent := out.Files["../GEMINI.md"]
 	assert.Contains(t, geminiContent, "@.gemini/rules/go-style.md")
 
 	// No fidelity notes for always activation.
@@ -94,7 +94,7 @@ func TestCompile_Gemini_Rules_PathGlob(t *testing.T) {
 	_, ok := out.Files[".gemini/rules/api-style.md"]
 	assert.True(t, ok, "expected .gemini/rules/api-style.md")
 
-	geminiContent := out.Files["GEMINI.md"]
+	geminiContent := out.Files["../GEMINI.md"]
 	assert.Contains(t, geminiContent, "@.gemini/rules/api-style.md")
 
 	// path-glob is supported — no fidelity note.
@@ -144,7 +144,7 @@ func TestCompile_Gemini_Rules_NoProjectInstructions(t *testing.T) {
 	assert.Empty(t, notes)
 
 	// No project — no GEMINI.md content except from rules.
-	geminiContent := out.Files["GEMINI.md"]
+	geminiContent := out.Files["../GEMINI.md"]
 	assert.Contains(t, geminiContent, "@.gemini/rules/lint.md")
 }
 
@@ -183,14 +183,14 @@ func TestCompile_Gemini_FullConfig_InstructionsAndRules(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, notes, "no fidelity notes expected for supported activations")
 
-	root := out.Files["GEMINI.md"]
+	root := out.Files["../GEMINI.md"]
 	assert.Contains(t, root, "Root project instructions.")
 	assert.Contains(t, root, "@./docs/contributing.md")
 	assert.Contains(t, root, "@.gemini/rules/code-style.md")
 	assert.Contains(t, root, "@.gemini/rules/testing.md")
 
-	assert.Contains(t, out.Files, "packages/api/GEMINI.md")
-	assert.Contains(t, out.Files["packages/api/GEMINI.md"], "API scope instructions.")
+	assert.Contains(t, out.Files, "../packages/api/GEMINI.md")
+	assert.Contains(t, out.Files["../packages/api/GEMINI.md"], "API scope instructions.")
 
 	assert.Contains(t, out.Files[".gemini/rules/code-style.md"], "Style guide content.")
 	assert.Contains(t, out.Files[".gemini/rules/testing.md"], "Always write tests.")
@@ -211,7 +211,9 @@ func TestCompile_Gemini_PathTraversal(t *testing.T) {
 	out, _, err := r.Compile(config, "/tmp/test")
 	require.NoError(t, err)
 	for path := range out.Files {
-		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
+		if path != "../GEMINI.md" {
+			assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
+		}
 	}
 }
 
@@ -262,14 +264,14 @@ func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
 	require.NoError(t, err)
 
 	// Instructions
-	assert.Contains(t, out.Files, "GEMINI.md")
-	assert.Contains(t, out.Files["GEMINI.md"], "Root project instructions.")
-	assert.Contains(t, out.Files["GEMINI.md"], "@./docs/contributing.md")
-	assert.Contains(t, out.Files, "packages/api/GEMINI.md")
+	assert.Contains(t, out.Files, "../GEMINI.md")
+	assert.Contains(t, out.Files["../GEMINI.md"], "Root project instructions.")
+	assert.Contains(t, out.Files["../GEMINI.md"], "@./docs/contributing.md")
+	assert.Contains(t, out.Files, "../packages/api/GEMINI.md")
 
 	// Rules
 	assert.Contains(t, out.Files, ".gemini/rules/code-style.md")
-	assert.Contains(t, out.Files["GEMINI.md"], "@.gemini/rules/code-style.md")
+	assert.Contains(t, out.Files["../GEMINI.md"], "@.gemini/rules/code-style.md")
 
 	// Skills
 	assert.Contains(t, out.Files, ".gemini/skills/tdd/SKILL.md")
