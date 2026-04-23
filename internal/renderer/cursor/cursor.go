@@ -185,7 +185,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 
 	var notes []renderer.FidelityNote
 
-	rootContent := cursorResolveInstructions(p.Instructions, p.InstructionsFile, baseDir)
+	rootContent := renderer.ResolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
 
 	// Inline @-imports — Cursor has no native @-import mechanism.
 	if len(p.InstructionsImports) > 0 {
@@ -208,11 +208,11 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		))
 	}
 
-	files["AGENTS.md"] = rootContent
+	files["../AGENTS.md"] = rootContent
 
 	for _, scope := range p.InstructionsScopes {
 		scopeContent := cursorResolveScopeContent(scope, targetName, baseDir)
-		safePath := filepath.Clean(scope.Path + "/AGENTS.md")
+		safePath := filepath.Clean("../" + scope.Path + "/AGENTS.md")
 
 		if scope.MergeStrategy == "concat" {
 			// Pre-flatten: child AGENTS.md = root content + scope content.
@@ -236,29 +236,11 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	return notes
 }
 
-// cursorResolveInstructions returns inline instructions or reads InstructionsFile
-// relative to baseDir. Returns empty string on any read error.
-func cursorResolveInstructions(inline, file, baseDir string) string {
-	if inline != "" {
-		return inline
-	}
-	if file == "" {
-		return ""
-	}
-	data, err := os.ReadFile(filepath.Join(baseDir, file))
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
-
-// cursorResolveScopeContent returns the effective content for a scope, preferring
-// a cursor-specific variant when one is declared.
 func cursorResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) string {
 	if v, ok := scope.Variants[provider]; ok {
-		return cursorResolveInstructions("", v.InstructionsFile, baseDir)
+		return renderer.ResolveInstructionsContent("", v.InstructionsFile, baseDir)
 	}
-	return cursorResolveInstructions(scope.Instructions, scope.InstructionsFile, baseDir)
+	return renderer.ResolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
 }
 
 // toCamelCase lowercases the first character of a string (PreToolUse -> preToolUse)

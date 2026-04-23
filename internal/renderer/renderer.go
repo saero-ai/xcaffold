@@ -3,8 +3,10 @@
 package renderer
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
@@ -25,7 +27,29 @@ func ResolveInstructionsContent(inline, file, baseDir string) string {
 	if err != nil {
 		return ""
 	}
-	return string(data)
+	content := string(data)
+	if strings.HasSuffix(file, ".xcf") {
+		content = ExtractXCFInstructions(data)
+	}
+	return content
+}
+
+// ExtractXCFInstructions removes YAML frontmatter delimited by "---" from the start
+// of a byte slice, returning only the body content with leading whitespace trimmed.
+func ExtractXCFInstructions(data []byte) string {
+	b := data
+	if !bytes.HasPrefix(b, []byte("---\n")) && !bytes.HasPrefix(b, []byte("---\r\n")) {
+		return string(b)
+	}
+
+	// Find the end of the frontmatter block
+	endIdx := bytes.Index(b[4:], []byte("\n---"))
+	if endIdx == -1 {
+		return string(b)
+	}
+
+	startOfContent := 4 + endIdx + 4
+	return string(bytes.TrimSpace(b[startOfContent:]))
 }
 
 // ResolveScopeContent returns the effective content for an InstructionsScope,
