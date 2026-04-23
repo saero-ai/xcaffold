@@ -86,3 +86,101 @@ func TestResolveModel_UnknownAlias_PassesThrough(t *testing.T) {
 		t.Errorf("expected literal passthrough for unknown model, got %q", model)
 	}
 }
+
+func TestIsKnownClaudeAlias(t *testing.T) {
+	tests := []struct {
+		name     string
+		alias    string
+		expected bool
+	}{
+		{"Sonnet Exact", "sonnet", true},
+		{"Opus Cap", "Opus", true},
+		{"Haiku Mixed", "HaikU", true},
+		{"Mapped Alias Fails", "sonnet-4", false},
+		{"Unknown Model", "gpt-4", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, renderer.IsKnownClaudeAlias(tt.alias))
+		})
+	}
+}
+
+func TestSanitizeAgentModel(t *testing.T) {
+	tests := []struct {
+		name          string
+		model         string
+		caps          renderer.CapabilitySet
+		targetName    string
+		expectedModel string
+		expectedNotes int
+		expectedCode  string
+	}{
+		{
+			name:  "ModelFieldFalse_Empty",
+			model: "sonnet",
+			caps: renderer.CapabilitySet{
+				ModelField: false,
+			},
+			targetName:    "cursor",
+			expectedModel: "",
+			expectedNotes: 0,
+		},
+		{
+			name:  "MappedAlias_TranslatesCleanly",
+			model: "sonnet-4",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "gemini",
+			expectedModel: "gemini-2.5-flash",
+			expectedNotes: 0,
+		},
+		{
+			name:  "BareClaudeAlias_EmitsWarning",
+			model: "sonnet",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "gemini",
+			expectedModel: "",
+			expectedNotes: 1,
+			expectedCode:  renderer.CodeAgentModelUnmapped,
+		},
+		{
+			name:  "NativeLiteral_PassesThroughWithInfo",
+			model: "gemini-2.5-pro",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "gemini",
+			expectedModel: "gemini-2.5-pro",
+			expectedNotes: 1,
+			expectedCode:  renderer.CodeFieldTransformed,
+		},
+		{
+			name:  "EmptyModel_QuickReturn",
+			model: "",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "gemini",
+			expectedModel: "",
+			expectedNotes: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotModel, gotNotes := renderer.SanitizeAgentModel(tt.model, tt.caps, tt.targetName, "test_agent")
+
+			assert.Equal(t, tt.expectedModel, gotModel)
+			assert.Equal(t, tt.expectedNotes, len(gotNotes))
+
+			if tt.expectedNotes > 0 && len(gotNotes) > 0 {
+				assert.Equal(t, tt.expectedCode, gotNotes[0].Code)
+			}
+		})
+	}
+}

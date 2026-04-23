@@ -44,4 +44,15 @@ type CapabilitySet struct {
 	RuleActivations     []string // e.g., ["always", "path-glob"]
 	RuleEncoding        RuleEncodingCapabilities
 	SecurityFields      SecurityFieldSupport
+
+	// AgentToolsField declares whether this provider supports a tools: field
+	// in agent frontmatter. When false, the tools block is silently dropped.
+	// When true, tools are emitted — but Claude-native tool names are validated
+	// unless AgentNativeToolsOnly is also true.
+	AgentToolsField bool
+
+	// AgentNativeToolsOnly declares that this provider's native tool vocabulary
+	// IS the Claude Core tool set. Only Claude should set this true. All other
+	// providers that set AgentToolsField: true must validate against Claude-native names.
+	AgentNativeToolsOnly bool
 }

@@ -97,6 +97,11 @@ const (
 	// and were dropped. Security constraints will NOT be enforced on this target.
 	CodeAgentSecurityFieldsDropped = "AGENT_SECURITY_FIELDS_DROPPED"
 
+	// CodeAgentToolsDropped is emitted when an agent's tools list contains
+	// Claude-native tools (e.g. "Bash", "Read") but the target renderer is not Claude.
+	// Only MCP tools (mcp_*) and explicitly wildcarded/supported tools are kept.
+	CodeAgentToolsDropped = "AGENT_TOOLS_DROPPED"
+
 	// CodeSkillScriptsDropped is emitted when a skill's scripts/ directory
 	// reference has no equivalent in the target and was dropped.
 	CodeSkillScriptsDropped = "SKILL_SCRIPTS_DROPPED"
@@ -173,6 +178,7 @@ func AllCodes() []string {
 		CodeHookInterpolationRequiresEnvSyntax,
 		CodeAgentModelUnmapped,
 		CodeAgentSecurityFieldsDropped,
+		CodeAgentToolsDropped,
 		CodeSkillScriptsDropped,
 		CodeSkillAssetsDropped,
 		CodeSkillReferencesDropped,

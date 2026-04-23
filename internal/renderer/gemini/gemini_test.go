@@ -373,6 +373,94 @@ func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
 	assert.Empty(t, notes, "full-parity config with only supported fields should produce zero fidelity notes")
 }
 
+func TestCompileAgents_Gemini_ClaudeToolsDropped(t *testing.T) {
+	r := New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"tester": {
+					Name: "tester", Tools: []string{"Read", "Edit", "Bash"},
+				},
+			},
+		},
+	}
+	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
+	require.NoError(t, err)
+
+	content := out.Files["agents/tester.md"]
+	assert.NotContains(t, content, "tools:")
+
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeAgentToolsDropped {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected CodeAgentToolsDropped")
+}
+
+func TestCompileAgents_Gemini_WildcardTools_Emitted(t *testing.T) {
+	r := New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"tester": {
+					Name: "tester", Tools: []string{"*"},
+				},
+			},
+		},
+	}
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
+	require.NoError(t, err)
+
+	content := out.Files["agents/tester.md"]
+	assert.Contains(t, content, "tools:\n  - *")
+}
+
+func TestCompileAgents_Gemini_ClaudeAliasModel_Omitted(t *testing.T) {
+	r := New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"tester": {
+					Name: "tester", Model: "sonnet",
+				},
+			},
+		},
+	}
+	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
+	require.NoError(t, err)
+
+	content := out.Files["agents/tester.md"]
+	assert.NotContains(t, content, "model:")
+
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeAgentModelUnmapped && n.Level == renderer.LevelWarning {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected LevelWarning CodeAgentModelUnmapped")
+}
+
+func TestCompileAgents_Gemini_MappedAlias_Translated(t *testing.T) {
+	r := New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"tester": {
+					Name: "tester", Model: "sonnet-4",
+				},
+			},
+		},
+	}
+	out, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
+	require.NoError(t, err)
+
+	content := out.Files["agents/tester.md"]
+	assert.Contains(t, content, "model: gemini-2.5-flash")
+}
+
 func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{

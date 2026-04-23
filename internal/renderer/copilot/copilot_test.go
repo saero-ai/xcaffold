@@ -282,6 +282,58 @@ func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
 	assert.Contains(t, out.Files, "skills/tdd/SKILL.md", "skill")
 }
 
+func TestCompileAgents_Copilot_ClaudeToolsDropped(t *testing.T) {
+	r := copilot.New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"tester": {
+					Name: "tester", Tools: []string{"Read", "Write"},
+				},
+			},
+		},
+	}
+	out, notes, err := renderer.Orchestrate(r, cfg, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/tester.agent.md"]
+	assert.NotContains(t, content, "tools:")
+
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeAgentToolsDropped {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected CodeAgentToolsDropped note")
+}
+
+func TestCompileAgents_Copilot_ClaudeAliasModel_Omitted(t *testing.T) {
+	r := copilot.New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"tester": {
+					Name: "tester", Model: "sonnet",
+				},
+			},
+		},
+	}
+	out, notes, err := renderer.Orchestrate(r, cfg, "")
+	require.NoError(t, err)
+
+	content := out.Files["agents/tester.agent.md"]
+	assert.NotContains(t, content, "model:")
+
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeAgentModelUnmapped && n.Level == renderer.LevelWarning {
+			found = true
+		}
+	}
+	assert.True(t, found, "expected LevelWarning CodeAgentModelUnmapped")
+}
+
 func TestCompileCopilotRule_InstructionsFile_Resolved(t *testing.T) {
 	tmpDir := t.TempDir()
 	ruleContent := "# This is my rule\n\nFollow these guidelines."

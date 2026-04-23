@@ -49,15 +49,17 @@ func (r *Renderer) OutputDir() string { return ".gemini" }
 // Capabilities declares the resource kinds the Gemini renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
-		Agents:              true,
-		Skills:              true,
-		Rules:               true,
-		Workflows:           true,
-		Hooks:               true,
-		Settings:            true,
-		MCP:                 true,
-		Memory:              false,
-		ProjectInstructions: true,
+		Agents:               true,
+		Skills:               true,
+		Rules:                true,
+		Workflows:            true,
+		Hooks:                true,
+		Settings:             true,
+		MCP:                  true,
+		Memory:               false,
+		ProjectInstructions:  true,
+		AgentToolsField:      true,
+		AgentNativeToolsOnly: false,
 		// examples is intentionally absent — Gemini collapses examples into references/ at compile time.
 		SkillSubdirs:    []string{"references", "scripts", "assets"},
 		ModelField:      true,
@@ -74,7 +76,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
 	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Agents: agents}}
-	notes := r.renderAgents(cfg, baseDir, files)
+	notes := r.renderAgents(cfg, baseDir, files, r.Capabilities())
 	return files, notes, nil
 }
 
@@ -445,7 +447,8 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 // a markdown body as the system prompt. Gemini-specific fields (timeout_mins,
 // temperature, kind) are sourced from targets.gemini.provider pass-through.
 // Unsupported fields emit fidelity notes.
-func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
+// unsupported fields emit fidelity notes.
+func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, files map[string]string, caps renderer.CapabilitySet) []renderer.FidelityNote {
 	agents := config.Agents
 	if len(agents) == 0 {
 		return nil
@@ -471,26 +474,21 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		}
 
 		// Optional supported fields.
-		if len(agent.Tools) > 0 {
+		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, targetName, id)
+		notes = append(notes, toolNotes...)
+		if len(sanitizedTools) > 0 {
 			sb.WriteString("tools:\n")
-			for _, tool := range agent.Tools {
+			for _, tool := range sanitizedTools {
 				fmt.Fprintf(&sb, "  - %s\n", tool)
 			}
 		}
-		if agent.Model != "" {
-			resolved, ok := renderer.ResolveModel(agent.Model, targetName)
-			if ok && resolved != "" {
-				fmt.Fprintf(&sb, "model: %s\n", resolved)
-				if !renderer.IsMappedModel(agent.Model, targetName) {
-					notes = append(notes, renderer.NewNote(
-						renderer.LevelInfo, targetName, "agent", id, "model",
-						renderer.CodeAgentModelUnmapped,
-						fmt.Sprintf("agent %q model %q passed through as literal; not a known xcaffold alias", id, agent.Model),
-						"Use a known alias (sonnet-4, opus-4, haiku-3.5) or a Gemini-native model ID",
-					))
-				}
-			}
+
+		resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)
+		notes = append(notes, modelNotes...)
+		if resolvedModel != "" {
+			fmt.Fprintf(&sb, "model: %s\n", resolvedModel)
 		}
+
 		if agent.MaxTurns > 0 {
 			fmt.Fprintf(&sb, "max_turns: %d\n", agent.MaxTurns)
 		}

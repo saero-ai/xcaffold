@@ -36,18 +36,20 @@ func (r *Renderer) OutputDir() string {
 // Capabilities declares the full set of resource kinds this renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
-		Agents:              true,
-		Skills:              true,
-		Rules:               true,
-		Workflows:           true,
-		Hooks:               true,
-		Settings:            true,
-		MCP:                 true,
-		Memory:              true,
-		ProjectInstructions: true,
-		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
-		ModelField:          true,
-		RuleActivations:     []string{"always", "path-glob"},
+		Agents:               true,
+		Skills:               true,
+		Rules:                true,
+		Workflows:            true,
+		Hooks:                true,
+		Settings:             true,
+		MCP:                  true,
+		Memory:               true,
+		ProjectInstructions:  true,
+		SkillSubdirs:         []string{"references", "scripts", "assets", "examples"},
+		AgentToolsField:      true,
+		AgentNativeToolsOnly: true,
+		ModelField:           true,
+		RuleActivations:      []string{"always", "path-glob"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "frontmatter",
 			Activation:  "frontmatter",
@@ -66,15 +68,18 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 // CompileAgents compiles all agent configs to agents/<id>.md files.
 func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	caps := r.Capabilities()
+	var notes []renderer.FidelityNote
 	for id, agent := range agents {
-		md, err := compileAgentMarkdown(id, agent, baseDir)
+		md, agentNotes, err := compileAgentMarkdown(id, agent, baseDir, caps)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile agent %q: %w", id, err)
 		}
 		safePath := filepath.Clean(fmt.Sprintf("agents/%s.md", id))
 		files[safePath] = md
+		notes = append(notes, agentNotes...)
 	}
-	return files, nil, nil
+	return files, notes, nil
 }
 
 // CompileSkills compiles all skill configs to skills/<id>/SKILL.md plus subdirs.
@@ -359,25 +364,51 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 }
 
 // compileAgentMarkdown renders a single AgentConfig to Claude Code markdown.
-func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (string, error) {
+func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps renderer.CapabilitySet) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("agent id must not be empty")
+		return "", nil, fmt.Errorf("agent id must not be empty")
 	}
 
 	body, err := resolver.ResolveInstructions(agent.Instructions, agent.InstructionsFile, fmt.Sprintf("agents/%s.md", id), baseDir)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	var sb strings.Builder
+	var notes []renderer.FidelityNote
+
 	sb.WriteString("---\n")
 
 	appendAgentCoreMeta(&sb, agent)
-	appendAgentToolsMeta(&sb, agent)
+
+	sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, "claude", id)
+	notes = append(notes, toolNotes...)
+
+	if agent.Readonly != nil && *agent.Readonly && len(sanitizedTools) == 0 {
+		sb.WriteString("tools: [Read, Grep, Glob]\n")
+	} else if len(sanitizedTools) > 0 {
+		fmt.Fprintf(&sb, "tools: [%s]\n", strings.Join(sanitizedTools, ", "))
+	}
+	if len(agent.DisallowedTools) > 0 {
+		fmt.Fprintf(&sb, "disallowed-tools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
+	}
+	if len(agent.Skills) > 0 {
+		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
+	}
+	if len(agent.Rules) > 0 {
+		fmt.Fprintf(&sb, "rules: [%s]\n", strings.Join(agent.Rules, ", "))
+	}
+
+	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, "claude", id)
+	notes = append(notes, modelNotes...)
+	if resolvedModel != "" {
+		fmt.Fprintf(&sb, "model: %s\n", resolvedModel)
+	}
+
 	appendAgentConfigMeta(&sb, agent)
 
 	if err := appendAgentYAMLMeta(&sb, agent); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	sb.WriteString("---\n")
@@ -388,7 +419,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (str
 		sb.WriteString("\n")
 	}
 
-	return sb.String(), nil
+	return sb.String(), notes, nil
 }
 
 func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
@@ -398,35 +429,11 @@ func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	if agent.Description != "" {
 		fmt.Fprintf(sb, "description: %s\n", agent.Description)
 	}
-	if agent.Model != "" {
-		if resolved, ok := renderer.ResolveModel(agent.Model, "claude"); ok && resolved != "" {
-			fmt.Fprintf(sb, "model: %s\n", resolved)
-		} else {
-			fmt.Fprintf(sb, "model: %s\n", agent.Model) // fallback if something fails
-		}
-	}
 	if agent.Effort != "" {
 		fmt.Fprintf(sb, "effort: %s\n", agent.Effort)
 	}
 	if agent.MaxTurns > 0 {
 		fmt.Fprintf(sb, "max-turns: %d\n", agent.MaxTurns)
-	}
-}
-
-func appendAgentToolsMeta(sb *strings.Builder, agent ast.AgentConfig) {
-	if agent.Readonly != nil && *agent.Readonly && len(agent.Tools) == 0 {
-		sb.WriteString("tools: [Read, Grep, Glob]\n")
-	} else if len(agent.Tools) > 0 {
-		fmt.Fprintf(sb, "tools: [%s]\n", strings.Join(agent.Tools, ", "))
-	}
-	if len(agent.DisallowedTools) > 0 {
-		fmt.Fprintf(sb, "disallowed-tools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
-	}
-	if len(agent.Skills) > 0 {
-		fmt.Fprintf(sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
-	}
-	if len(agent.Rules) > 0 {
-		fmt.Fprintf(sb, "rules: [%s]\n", strings.Join(agent.Rules, ", "))
 	}
 }
 
