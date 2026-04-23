@@ -154,7 +154,7 @@ func OutputDir(target string) string {
 func ResolveAgentMemory(config *ast.XcaffoldConfig, baseDir string) map[string][]string {
 	agentMemory := make(map[string][]string)
 	memDir := filepath.Join(baseDir, "xcf", "memory")
-	
+
 	entries, err := os.ReadDir(memDir)
 	if err != nil {
 		// If the directory does not exist, return the empty map.
@@ -166,12 +166,12 @@ func ResolveAgentMemory(config *ast.XcaffoldConfig, baseDir string) map[string][
 			continue
 		}
 		agentID := entry.Name()
-		
+
 		memFiles, err := os.ReadDir(filepath.Join(memDir, agentID))
 		if err != nil {
 			continue
 		}
-		
+
 		var memories []string
 		for _, memFile := range memFiles {
 			if !memFile.IsDir() && strings.HasSuffix(memFile.Name(), ".xcf") {

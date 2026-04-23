@@ -58,25 +58,25 @@ type memoryDoc struct {
 // It does NOT contain resource maps — only metadata, targets, ref lists pointing
 // to child files under xcf/, and project-level instruction references.
 type projectSplitDoc struct {
-	Kind                string                  `yaml:"kind"`
-	Version             string                  `yaml:"version"`
-	Name                string                  `yaml:"name"`
-	Description         string                  `yaml:"description,omitempty"`
-	Author              string                  `yaml:"author,omitempty"`
-	Homepage            string                  `yaml:"homepage,omitempty"`
-	Repository          string                  `yaml:"repository,omitempty"`
-	License             string                  `yaml:"license,omitempty"`
-	BackupDir           string                  `yaml:"backup-dir,omitempty"`
-	Targets             []string                `yaml:"targets,omitempty"`
+	Kind                string                   `yaml:"kind"`
+	Version             string                   `yaml:"version"`
+	Name                string                   `yaml:"name"`
+	Description         string                   `yaml:"description,omitempty"`
+	Author              string                   `yaml:"author,omitempty"`
+	Homepage            string                   `yaml:"homepage,omitempty"`
+	Repository          string                   `yaml:"repository,omitempty"`
+	License             string                   `yaml:"license,omitempty"`
+	BackupDir           string                   `yaml:"backup-dir,omitempty"`
+	Targets             []string                 `yaml:"targets,omitempty"`
 	AgentRefs           []ast.AgentManifestEntry `yaml:"agents,omitempty"`
-	SkillRefs           []string                `yaml:"skills,omitempty"`
-	RuleRefs            []string                `yaml:"rules,omitempty"`
-	WorkflowRefs        []string                `yaml:"workflows,omitempty"`
-	MCPRefs             []string                `yaml:"mcp,omitempty"`
-	Instructions        string                  `yaml:"instructions,omitempty"`
-	InstructionsFile    string                  `yaml:"instructions-file,omitempty"`
-	InstructionsImports []string                `yaml:"instructions-imports,omitempty"`
-	InstructionsScopes  []ast.InstructionsScope `yaml:"instructions-scopes,omitempty"`
+	SkillRefs           []string                 `yaml:"skills,omitempty"`
+	RuleRefs            []string                 `yaml:"rules,omitempty"`
+	WorkflowRefs        []string                 `yaml:"workflows,omitempty"`
+	MCPRefs             []string                 `yaml:"mcp,omitempty"`
+	Instructions        string                   `yaml:"instructions,omitempty"`
+	InstructionsFile    string                   `yaml:"instructions-file,omitempty"`
+	InstructionsImports []string                 `yaml:"instructions-imports,omitempty"`
+	InstructionsScopes  []ast.InstructionsScope  `yaml:"instructions-scopes,omitempty"`
 }
 
 // hooksSplitDoc is the serialization envelope for kind: hooks in split-file mode.

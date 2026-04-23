@@ -62,24 +62,24 @@ type mcpDocument struct {
 // It does NOT embed ResourceScope, so "agents" maps to []string (ref list)
 // without colliding with ResourceScope's map[string]AgentConfig.
 type projectDocFields struct {
-	Kind         string             `yaml:"kind"`
-	Version      string             `yaml:"version"`
-	Name         string             `yaml:"name"`
-	Description  string             `yaml:"description,omitempty"`
-	Author       string             `yaml:"author,omitempty"`
-	Homepage     string             `yaml:"homepage,omitempty"`
-	Repository   string             `yaml:"repository,omitempty"`
-	License      string             `yaml:"license,omitempty"`
-	BackupDir    string             `yaml:"backup-dir,omitempty"`
-	Targets      []string               `yaml:"targets,omitempty"`
+	Kind         string                   `yaml:"kind"`
+	Version      string                   `yaml:"version"`
+	Name         string                   `yaml:"name"`
+	Description  string                   `yaml:"description,omitempty"`
+	Author       string                   `yaml:"author,omitempty"`
+	Homepage     string                   `yaml:"homepage,omitempty"`
+	Repository   string                   `yaml:"repository,omitempty"`
+	License      string                   `yaml:"license,omitempty"`
+	BackupDir    string                   `yaml:"backup-dir,omitempty"`
+	Targets      []string                 `yaml:"targets,omitempty"`
 	AgentRefs    []ast.AgentManifestEntry `yaml:"agents,omitempty"`
-	SkillRefs    []string               `yaml:"skills,omitempty"`
-	RuleRefs     []string           `yaml:"rules,omitempty"`
-	WorkflowRefs []string           `yaml:"workflows,omitempty"`
-	MCPRefs      []string           `yaml:"mcp,omitempty"`
-	PolicyRefs   []string           `yaml:"policies,omitempty"`
-	Test         ast.TestConfig     `yaml:"test,omitempty"`
-	Local        ast.SettingsConfig `yaml:"local,omitempty"`
+	SkillRefs    []string                 `yaml:"skills,omitempty"`
+	RuleRefs     []string                 `yaml:"rules,omitempty"`
+	WorkflowRefs []string                 `yaml:"workflows,omitempty"`
+	MCPRefs      []string                 `yaml:"mcp,omitempty"`
+	PolicyRefs   []string                 `yaml:"policies,omitempty"`
+	Test         ast.TestConfig           `yaml:"test,omitempty"`
+	Local        ast.SettingsConfig       `yaml:"local,omitempty"`
 
 	// Instructions fields — A-3: KnownFields entries.
 	// yaml.KnownFields(true) enforces these recursively through nested types.

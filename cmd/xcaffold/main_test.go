@@ -100,22 +100,22 @@ func TestWalkUp_FindsXcfDirectory(t *testing.T) {
 
 func TestResolveProjectConfig_PrefersXcaffoldDir(t *testing.T) {
 	configDir := t.TempDir()
-	
+
 	scaffoldDir := filepath.Join(configDir, ".xcaffold")
 	require.NoError(t, os.MkdirAll(scaffoldDir, 0755))
-	
+
 	scaffoldXcf := filepath.Join(scaffoldDir, "project.xcf")
 	require.NoError(t, os.WriteFile(scaffoldXcf, []byte("version: \"1\""), 0600))
-	
+
 	rootXcf := filepath.Join(configDir, "project.xcf")
 	require.NoError(t, os.WriteFile(rootXcf, []byte("version: \"2\""), 0600))
-	
+
 	configFlag = configDir
 	defer func() { configFlag = "" }()
-	
+
 	originalXcf := xcfPath
 	defer func() { xcfPath = originalXcf }()
-	
+
 	cmd := &cobra.Command{Use: "apply"}
 	err := resolveProjectConfig(cmd)
 	require.NoError(t, err)
@@ -124,16 +124,16 @@ func TestResolveProjectConfig_PrefersXcaffoldDir(t *testing.T) {
 
 func TestResolveProjectConfig_FallbackToRoot(t *testing.T) {
 	configDir := t.TempDir()
-	
+
 	rootXcf := filepath.Join(configDir, "project.xcf")
 	require.NoError(t, os.WriteFile(rootXcf, []byte("version: \"1\""), 0600))
-	
+
 	configFlag = configDir
 	defer func() { configFlag = "" }()
-	
+
 	originalXcf := xcfPath
 	defer func() { xcfPath = originalXcf }()
-	
+
 	cmd := &cobra.Command{Use: "apply"}
 	err := resolveProjectConfig(cmd)
 	require.NoError(t, err)

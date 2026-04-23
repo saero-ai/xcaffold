@@ -2,7 +2,7 @@ package ast
 
 import (
 	"gopkg.in/yaml.v3"
-)// ResourceScope contains all agentic primitives that can appear at both
+) // ResourceScope contains all agentic primitives that can appear at both
 // global scope (root of XcaffoldConfig) and workspace scope (inside ProjectConfig).
 // Embedded with yaml:",inline" so fields appear at the same YAML level as the parent.
 type ResourceScope struct {
@@ -59,11 +59,11 @@ type ProjectConfig struct {
 	// Populated by the parser when decoding kind: project documents.
 	AgentRefs     []AgentManifestEntry `yaml:"agent-refs,omitempty"`
 	SkillRefs     []string             `yaml:"skill-refs,omitempty"`
-	RuleRefs      []string `yaml:"rule-refs,omitempty"`
-	WorkflowRefs  []string `yaml:"workflow-refs,omitempty"`
-	MCPRefs       []string `yaml:"mcp-refs,omitempty"`
-	PolicyRefs    []string `yaml:"policy-refs,omitempty"`
-	BlueprintRefs []string `yaml:"-"`
+	RuleRefs      []string             `yaml:"rule-refs,omitempty"`
+	WorkflowRefs  []string             `yaml:"workflow-refs,omitempty"`
+	MCPRefs       []string             `yaml:"mcp-refs,omitempty"`
+	PolicyRefs    []string             `yaml:"policy-refs,omitempty"`
+	BlueprintRefs []string             `yaml:"-"`
 
 	Test  TestConfig     `yaml:"test,omitempty"`
 	Local SettingsConfig `yaml:"local,omitempty"`
@@ -104,7 +104,7 @@ func (a *AgentManifestEntry) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind == yaml.MappingNode {
 		if len(value.Content) >= 2 {
 			a.ID = value.Content[0].Value
-			
+
 			var inner struct {
 				Memory []string `yaml:"memory"`
 			}
