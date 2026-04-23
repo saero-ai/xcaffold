@@ -60,7 +60,11 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
-		SecurityFields:      renderer.SecurityFieldSupport{},
+		RuleEncoding: renderer.RuleEncodingCapabilities{
+			Description: "frontmatter",
+			Activation:  "frontmatter",
+		},
+		SecurityFields: renderer.SecurityFieldSupport{},
 	}
 }
 
@@ -85,7 +89,7 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 	for id, rule := range rules {
-		md, ruleNotes, err := compileCopilotRule(id, rule, baseDir)
+		md, ruleNotes, err := compileCopilotRule(id, rule, r.Capabilities(), baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("copilot: failed to compile rule %q: %w", id, err)
 		}
@@ -620,7 +624,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 }
 
 // compileCopilotRule renders a single RuleConfig as a Copilot .instructions.md file.
-func compileCopilotRule(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) (string, []renderer.FidelityNote, error) {
 	var notes []renderer.FidelityNote
 
 	activation := renderer.ResolvedActivation(rule)
@@ -653,10 +657,7 @@ func compileCopilotRule(id string, rule ast.RuleConfig, baseDir string) (string,
 
 	var sb strings.Builder
 	sb.WriteString("---\n")
-
-	if rule.Description != "" {
-		sb.WriteString(fmt.Sprintf("description: %s\n", rule.Description))
-	}
+	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 
 	sb.WriteString(fmt.Sprintf("applyTo: %s\n", applyTo))
 

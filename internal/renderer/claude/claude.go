@@ -48,6 +48,10 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 		ModelField:          true,
 		RuleActivations:     []string{"always", "path-glob"},
+		RuleEncoding: renderer.RuleEncodingCapabilities{
+			Description: "frontmatter",
+			Activation:  "frontmatter",
+		},
 		SecurityFields: renderer.SecurityFieldSupport{
 			Permissions:     true,
 			Sandbox:         true,
@@ -108,7 +112,7 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 	for id, rule := range rules {
-		md, ruleNotes, err := compileRuleMarkdown(id, rule, baseDir)
+		md, ruleNotes, err := compileClaudeRule(id, rule, r.Capabilities(), baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile rule %q: %w", id, err)
 		}
@@ -354,19 +358,6 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	return nil // concat-nested: zero fidelity notes
 }
 
-// resolveInstructions returns the effective body content for an agent/skill/rule.
-//
-// Priority (highest to lowest):
-//  1. inline          — the "instructions:" YAML field
-//  2. filePath        — the "instructions_file:" YAML field (read from disk)
-//  3. conventionPath  — auto-discovered by convention (agents/<id>.md etc.); silent no-op if missing
-//
-// The file is read relative to baseDir. Its frontmatter (--- blocks) is stripped
-// so that referencing an existing .md file with frontmatter works transparently.
-
-// stripFrontmatter removes YAML frontmatter delimited by "---" from the start
-// of a markdown file, returning only the body content with leading whitespace trimmed.
-
 // compileAgentMarkdown renders a single AgentConfig to Claude Code markdown.
 func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
@@ -570,18 +561,8 @@ func emitClaudeProviderKeys(sb *strings.Builder, provider map[string]any) {
 	}
 }
 
-// compileRuleMarkdown renders a single RuleConfig to Claude Code markdown.
-// It returns the rendered content, zero or more fidelity notes, and any error.
-//
-// Activation handling:
-//   - path-glob: emits paths: frontmatter from rule.Paths.
-//   - always:    no paths: frontmatter.
-//   - model-decided, manual-mention, explicit-invoke: Claude has no native
-//     equivalent; rule is emitted as always-loaded with a warning FidelityNote.
-//
-// exclude-agents: Claude has no native equivalent; the field is silently dropped
-// and an info FidelityNote is emitted.
-func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+// compileClaudeRule compiles a single rule to markdown.
+func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
@@ -635,9 +616,7 @@ func compileRuleMarkdown(id string, rule ast.RuleConfig, baseDir string) (string
 	var sb strings.Builder
 
 	sb.WriteString("---\n")
-	if rule.Description != "" {
-		fmt.Fprintf(&sb, "description: %s\n", rule.Description)
-	}
+	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 	// Emit paths: only when activation resolves to path-glob.
 	if activation == ast.RuleActivationPathGlob && len(rule.Paths) > 0 {
 		fmt.Fprintf(&sb, "paths: [%s]\n", strings.Join(rule.Paths, ", "))

@@ -73,6 +73,10 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		ProjectInstructions: true,
 		SkillSubdirs:        []string{"references", "scripts", "assets", "examples"},
 		RuleActivations:     []string{"always", "path-glob", "manual"},
+		RuleEncoding: renderer.RuleEncodingCapabilities{
+			Description: "frontmatter",
+			Activation:  "frontmatter",
+		},
 		SecurityFields: renderer.SecurityFieldSupport{
 			Effort: true,
 		},
@@ -172,7 +176,7 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	var notes []renderer.FidelityNote
 
 	for id, rule := range rules {
-		md, ruleNotes, err := compileAntigravityRule(id, rule, baseDir)
+		md, ruleNotes, err := compileAntigravityRule(id, rule, r.Capabilities(), baseDir)
 		if err != nil {
 			return nil, nil, fmt.Errorf("antigravity: failed to compile rule %q: %w", id, err)
 		}
@@ -435,7 +439,7 @@ func agResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string
 //   - ManualMention / ExplicitInvoke → no frontmatter encoding; fidelity note returned
 //   - frontmatter block only emitted when needed (empty description + AlwaysOn → no --- block)
 //   - Bodies exceeding 12,000 characters receive a warning HTML comment (after frontmatter)
-func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+func compileAntigravityRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
@@ -462,9 +466,7 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, baseDir string) (str
 
 	if needsFrontmatter {
 		sb.WriteString("---\n")
-		if rule.Description != "" {
-			fmt.Fprintf(&sb, "description: %s\n", rule.Description)
-		}
+		sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 		switch activation {
 		case ast.RuleActivationPathGlob:
 			sb.WriteString("trigger: glob\n")
