@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Copilot renderer path-doubling bug: OutputDir() now returns ".github" and all emitted file paths are relative
+- Fixed leakage of global-scope agent memory files during `xcaffold import` by pruning orphaned files not explicitly owned by declared project agents (cli/import)
 
 ### Removed
 
