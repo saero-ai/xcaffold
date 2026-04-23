@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -122,3 +123,25 @@ func TestWalkProviderDir_ReadsFileContent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "hello world", string(content))
 }
+
+func TestExtractHookScript(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	err := importer.ExtractHookScript("hooks/test.sh", []byte("echo hello"), config)
+	if err != nil {
+		t.Fatalf("ExtractHookScript failed: %v", err)
+	}
+
+	if config.ProviderExtras == nil || config.ProviderExtras["xcf"] == nil {
+		t.Fatalf("ProviderExtras[\"xcf\"] not initialized")
+	}
+
+	data, ok := config.ProviderExtras["xcf"]["hooks/test.sh"]
+	if !ok {
+		t.Fatalf("hook script not found in ProviderExtras")
+	}
+
+	if string(data) != "echo hello" {
+		t.Errorf("expected 'echo hello', got %s", string(data))
+	}
+}
+

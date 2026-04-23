@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"gopkg.in/yaml.v3"
 )
 
@@ -141,4 +142,19 @@ func walkProviderDir(root, current string, visitor FileVisitor, visited map[stri
 		}
 		return visitor(rel, data)
 	})
+}
+
+// ExtractHookScript stores a hook shell script for passthrough to xcf/hooks/.
+// Scripts are stored in config.ProviderExtras["xcf"]["hooks/<basename>"]
+// and emitted to xcf/hooks/<basename> by WriteSplitFiles.
+func ExtractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	dest := "hooks/" + filepath.Base(rel)
+	if config.ProviderExtras == nil {
+		config.ProviderExtras = make(map[string]map[string][]byte)
+	}
+	if config.ProviderExtras["xcf"] == nil {
+		config.ProviderExtras["xcf"] = make(map[string][]byte)
+	}
+	config.ProviderExtras["xcf"][dest] = data
+	return nil
 }

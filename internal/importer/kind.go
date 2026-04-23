@@ -10,6 +10,7 @@ const (
 	KindRule       Kind = "rule"
 	KindMCP        Kind = "mcp"
 	KindHook       Kind = "hook"
+	KindHookScript Kind = "hook-script"
 	KindSettings   Kind = "settings"
 	KindMemory     Kind = "memory"
 	KindWorkflow   Kind = "workflow"
