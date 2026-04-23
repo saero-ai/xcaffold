@@ -51,6 +51,7 @@ var claudeMappings = []importer.KindMapping{
 	{Pattern: "mcp.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "settings.json", Kind: importer.KindSettings, Layout: importer.EmbeddedJSONKey},
 	{Pattern: "settings.local.json", Kind: importer.KindSettings, Layout: importer.StandaloneJSON},
+	{Pattern: "hooks/**", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agent-memory/**", Kind: importer.KindMemory, Layout: importer.FlatFile},
 }
 
@@ -87,6 +88,8 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractMCPStandalone(rel, data, config)
 	case importer.KindSettings:
 		return extractSettings(rel, data, config)
+	case importer.KindHookScript:
+		return extractHookScript(rel, data, config)
 	case importer.KindMemory:
 		return extractMemory(rel, data, config)
 	default:
@@ -104,7 +107,7 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 // being imported.
 func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	c.Warnings = c.Warnings[:0]
-	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
+	err := importer.WalkProviderDir(dir, func(rel string, data []byte) error {
 		kind, _ := c.Classify(rel, false)
 		if kind == importer.KindUnknown {
 			if config.ProviderExtras == nil {
@@ -128,6 +131,33 @@ func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Cross-reference memory against known agents (B-12).
+	for memPath := range config.Memory {
+		agentID := strings.SplitN(memPath, "/", 2)[0]
+		if len(config.Agents) > 0 {
+			if _, ok := config.Agents[agentID]; !ok {
+				delete(config.Memory, memPath)
+				c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: agent %q not found in xcf/agents", "agent-memory/"+memPath, agentID))
+			}
+		}
+	}
+
+	return nil
+}
+
+func extractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	if config.ProviderExtras == nil {
+		config.ProviderExtras = make(map[string]map[string][]byte)
+	}
+	if config.ProviderExtras["claude"] == nil {
+		config.ProviderExtras["claude"] = make(map[string][]byte)
+	}
+	config.ProviderExtras["claude"][rel] = data
+	return nil
 }
 
 // --- per-kind extractors ---

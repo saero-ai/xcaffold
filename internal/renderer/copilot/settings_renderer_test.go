@@ -175,9 +175,8 @@ func TestCompile_Copilot_Hooks_TimeoutConversion(t *testing.T) {
 	assert.Equal(t, float64(5), timeoutSec, "5000ms must convert to 5 seconds")
 }
 
-// TestCompile_Copilot_MCP_StdioServer verifies that an MCP server config does NOT
-// produce a .vscode/mcp.json file (it lives outside .github/ and requires manual
-// placement) but DOES emit a CodeMCPGlobalConfigOnly fidelity note.
+// TestCompile_Copilot_MCP_StdioServer verifies that an MCP server config produces
+// a .vscode/mcp.json file and emits a CodeMCPGlobalConfigOnly fidelity note.
 func TestCompile_Copilot_MCP_StdioServer(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -194,9 +193,9 @@ func TestCompile_Copilot_MCP_StdioServer(t *testing.T) {
 	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
-	// .vscode/mcp.json is outside .github/ — renderer must NOT write it.
-	_, hasMCP := out.Files[".vscode/mcp.json"]
-	assert.False(t, hasMCP, ".vscode/mcp.json must not appear in output map; requires manual placement")
+	raw, hasMCP := out.Files[".vscode/mcp.json"]
+	assert.True(t, hasMCP, ".vscode/mcp.json must appear in output map")
+	assert.Contains(t, raw, `"servers":`)
 
 	// A CodeMCPGlobalConfigOnly note must be emitted to guide the user.
 	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
@@ -204,7 +203,7 @@ func TestCompile_Copilot_MCP_StdioServer(t *testing.T) {
 }
 
 // TestCompile_Copilot_MCP_EnvVars verifies that an MCP server with env vars
-// does NOT produce a .vscode/mcp.json file and emits a CodeMCPGlobalConfigOnly note.
+// produces a .vscode/mcp.json file and emits a CodeMCPGlobalConfigOnly note.
 func TestCompile_Copilot_MCP_EnvVars(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -225,9 +224,9 @@ func TestCompile_Copilot_MCP_EnvVars(t *testing.T) {
 	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
-	// .vscode/mcp.json is outside .github/ — renderer must NOT write it.
-	_, hasMCP := out.Files[".vscode/mcp.json"]
-	assert.False(t, hasMCP, ".vscode/mcp.json must not appear in output map; requires manual placement")
+	raw, hasMCP := out.Files[".vscode/mcp.json"]
+	assert.True(t, hasMCP, ".vscode/mcp.json must appear in output map")
+	assert.Contains(t, raw, `"API_KEY": "secret"`)
 
 	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
 	assert.NotEmpty(t, mcpNotes, "expected CodeMCPGlobalConfigOnly fidelity note")
@@ -253,8 +252,7 @@ func TestCompile_Copilot_MCP_GlobalConfigNote(t *testing.T) {
 }
 
 // TestCompile_Copilot_Settings_MergedOutput verifies that hooks compile to
-// hooks/xcaffold-hooks.json (relative to OutputDir) and MCP emits a fidelity
-// note rather than a file (because .vscode/mcp.json lives outside .github/).
+// hooks/xcaffold-hooks.json (relative to OutputDir) and MCP emits .vscode/mcp.json.
 func TestCompile_Copilot_Settings_MergedOutput(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		Hooks: map[string]ast.NamedHookConfig{
@@ -281,9 +279,8 @@ func TestCompile_Copilot_Settings_MergedOutput(t *testing.T) {
 	_, hasHooks := out.Files["hooks/xcaffold-hooks.json"]
 	assert.True(t, hasHooks, "expected hooks/xcaffold-hooks.json in output map")
 
-	// .vscode/mcp.json is outside .github/ — must not be in output map.
 	_, hasMCP := out.Files[".vscode/mcp.json"]
-	assert.False(t, hasMCP, ".vscode/mcp.json must not appear in output map")
+	assert.True(t, hasMCP, ".vscode/mcp.json must appear in output map")
 
 	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
 	assert.NotEmpty(t, mcpNotes, "MCP must emit CodeMCPGlobalConfigOnly fidelity note")

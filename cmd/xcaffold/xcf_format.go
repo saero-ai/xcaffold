@@ -428,7 +428,12 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			sort.Strings(keys)
 			for _, rel := range keys {
 				data := files[rel]
-				outPath := filepath.Join(xcfDir, "provider", provider, filepath.FromSlash(rel))
+				var outPath string
+				if strings.HasPrefix(filepath.ToSlash(rel), "hooks/") {
+					outPath = filepath.Join(xcfDir, filepath.FromSlash(rel))
+				} else {
+					outPath = filepath.Join(xcfDir, "provider", provider, filepath.FromSlash(rel))
+				}
 				if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 					return err
 				}

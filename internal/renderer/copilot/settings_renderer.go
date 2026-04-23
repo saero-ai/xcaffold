@@ -137,10 +137,11 @@ func compileCopilotMCP(mcpServers map[string]ast.MCPConfig) (string, []renderer.
 	}
 
 	type vscodeEntry struct {
-		Command string   `json:"command,omitempty"`
-		Args    []string `json:"args,omitempty"`
-		URL     string   `json:"url,omitempty"`
-		Type    string   `json:"type,omitempty"`
+		Command string            `json:"command,omitempty"`
+		Args    []string          `json:"args,omitempty"`
+		Env     map[string]string `json:"env,omitempty"`
+		URL     string            `json:"url,omitempty"`
+		Type    string            `json:"type,omitempty"`
 	}
 
 	servers := make(map[string]vscodeEntry)
@@ -158,6 +159,7 @@ func compileCopilotMCP(mcpServers map[string]ast.MCPConfig) (string, []renderer.
 		servers[id] = vscodeEntry{
 			Command: srv.Command,
 			Args:    srv.Args,
+			Env:     srv.Env,
 			URL:     srv.URL,
 			Type:    srv.Type,
 		}
@@ -172,7 +174,16 @@ func compileCopilotMCP(mcpServers map[string]ast.MCPConfig) (string, []renderer.
 		))
 	}
 
-	return "", notes, nil
+	out := map[string]any{
+		"servers": servers,
+	}
+
+	b, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return "", notes, fmt.Errorf("copilot mcp marshal: %w", err)
+	}
+
+	return string(b), notes, nil
 }
 
 // mapCopilotEvent translates an xcaffold hook event name to its Copilot equivalent.
