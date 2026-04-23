@@ -230,3 +230,43 @@ func TestCompile_Copilot_Skills_Multiple(t *testing.T) {
 	assert.Contains(t, out.Files, "skills/beta-skill/SKILL.md",
 		"expected .github/skills/beta-skill/SKILL.md")
 }
+
+// TestCompileSkills_Copilot_ClaudeDirPresent_EmitsPassthroughNotes verifies that
+// when a .claude/ directory is present, CompileSkills returns no output files and
+// emits one CLAUDE_NATIVE_PASSTHROUGH info note per skill.
+func TestCompileSkills_Copilot_ClaudeDirPresent_EmitsPassthroughNotes(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0o755))
+
+	r := copilot.New()
+	skills := map[string]ast.SkillConfig{
+		"document-feature": {Name: "document-feature", Description: "Generates docs."},
+	}
+	files, notes, err := r.CompileSkills(skills, dir)
+	require.NoError(t, err)
+	assert.Empty(t, files, "no .github/skills/ files should be written when .claude/ is present")
+	require.Len(t, notes, 1)
+	assert.Equal(t, renderer.CodeClaudeNativePassthrough, notes[0].Code)
+	assert.Equal(t, renderer.LevelInfo, notes[0].Level)
+	assert.Equal(t, "document-feature", notes[0].Resource)
+	assert.Contains(t, notes[0].Reason, ".claude/skills/document-feature/SKILL.md")
+}
+
+// TestCompileSkills_Copilot_NoClaude_FullTranslation verifies that when no
+// .claude/ directory exists, CompileSkills writes .github/skills/<id>/SKILL.md.
+func TestCompileSkills_Copilot_NoClaude_FullTranslation(t *testing.T) {
+	dir := t.TempDir()
+
+	r := copilot.New()
+	skills := map[string]ast.SkillConfig{
+		"my-skill": {Name: "my-skill", Description: "A skill."},
+	}
+	files, notes, err := r.CompileSkills(skills, dir)
+	require.NoError(t, err)
+	assert.Contains(t, files, "skills/my-skill/SKILL.md",
+		"full translation must write .github/skills/ when .claude/ is absent")
+	for _, n := range notes {
+		assert.NotEqual(t, renderer.CodeClaudeNativePassthrough, n.Code,
+			"no CLAUDE_NATIVE_PASSTHROUGH notes expected when .claude/ is absent")
+	}
+}

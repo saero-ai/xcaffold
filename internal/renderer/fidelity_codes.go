@@ -151,6 +151,14 @@ const (
 	// project-local MCP config file is written. The user must configure MCP
 	// servers via the provider UI or by editing the global config file directly.
 	CodeMCPGlobalConfigOnly = "MCP_GLOBAL_CONFIG_ONLY"
+
+	// CodeClaudeNativePassthrough is emitted by the Copilot renderer when a
+	// resource (agent, skill, rule, or root project instruction) is skipped
+	// because a .claude/ directory is detected in baseDir at apply time.
+	// GitHub Copilot natively loads .claude/agents/, .claude/skills/,
+	// .claude/rules/, and root CLAUDE.md automatically, making re-translation
+	// into .github/ redundant when .claude/ is already present.
+	CodeClaudeNativePassthrough = "CLAUDE_NATIVE_PASSTHROUGH"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -191,5 +199,6 @@ func AllCodes() []string {
 		CodeReconciliationDriftDetected,
 		CodeOptimizerPassReordered,
 		CodeMCPGlobalConfigOnly,
+		CodeClaudeNativePassthrough,
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -202,4 +203,73 @@ func TestRenderProjectInstructions_Copilot_ScopeFiles_WithApplyTo(t *testing.T) 
 	require.True(t, ok, "instructions/dummy_platform.instructions.md must be present")
 	require.Contains(t, scopeFile, "applyTo: \"dummy_platform/**\"", "Must contain applyTo frontmatter")
 	require.Contains(t, scopeFile, "Dummy scope content.", "Must contain extracted content")
+}
+
+// TestCompileProjectInstructions_Copilot_ClaudeDirPresent_SkipsRoot_WritesNestedScopes
+// verifies that when .claude/ is present the root copilot-instructions.md is NOT
+// written (root CLAUDE.md auto-loads), but nested scope instruction files ARE still
+// written because Copilot does not auto-load subdirectory CLAUDE.md files.
+func TestCompileProjectInstructions_Copilot_ClaudeDirPresent_SkipsRoot_WritesNestedScopes(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0o755))
+
+	r := copilot.New()
+	project := &ast.ProjectConfig{
+		Name:         "test-project",
+		Instructions: "Root content.",
+		InstructionsScopes: []ast.InstructionsScope{
+			{Path: "dummy_platform", Instructions: "Platform scope content."},
+		},
+	}
+	files, notes, err := r.CompileProjectInstructions(project, dir)
+	require.NoError(t, err)
+
+	// Root copilot-instructions.md must NOT be written.
+	_, hasRoot := files["copilot-instructions.md"]
+	assert.False(t, hasRoot, "root copilot-instructions.md must NOT be written when .claude/ is present")
+
+	// Nested scope file MUST still be written.
+	scopeFile, hasScopeFile := files["instructions/dummy_platform.instructions.md"]
+	assert.True(t, hasScopeFile, "instructions/dummy_platform.instructions.md must be written in passthrough mode")
+	assert.Contains(t, scopeFile, `applyTo: "dummy_platform/**"`, "scope file must include applyTo frontmatter")
+	assert.Contains(t, scopeFile, "Platform scope content.")
+
+	// A CLAUDE_NATIVE_PASSTHROUGH info note must be emitted for the root.
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeClaudeNativePassthrough && n.Resource == "root" {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected CLAUDE_NATIVE_PASSTHROUGH note for root instructions")
+}
+
+// TestCompileProjectInstructions_Copilot_NoClaude_WritesAll verifies that when
+// no .claude/ directory is present, both the root copilot-instructions.md and
+// any nested scope instruction files are written normally.
+func TestCompileProjectInstructions_Copilot_NoClaude_WritesAll(t *testing.T) {
+	dir := t.TempDir() // no .claude/
+
+	r := copilot.New()
+	project := &ast.ProjectConfig{
+		Name:         "test-project",
+		Instructions: "Root content.",
+		InstructionsScopes: []ast.InstructionsScope{
+			{Path: "dummy_platform", Instructions: "Platform scope content."},
+		},
+	}
+	files, notes, err := r.CompileProjectInstructions(project, dir)
+	require.NoError(t, err)
+
+	_, hasRoot := files["copilot-instructions.md"]
+	assert.True(t, hasRoot, "copilot-instructions.md must be written when .claude/ is absent")
+
+	_, hasScopeFile := files["instructions/dummy_platform.instructions.md"]
+	assert.True(t, hasScopeFile, "instructions/dummy_platform.instructions.md must still be written")
+
+	for _, n := range notes {
+		assert.NotEqual(t, renderer.CodeClaudeNativePassthrough, n.Code,
+			"no CLAUDE_NATIVE_PASSTHROUGH notes expected when .claude/ is absent")
+	}
 }

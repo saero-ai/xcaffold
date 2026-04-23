@@ -118,6 +118,7 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeMemoryDriftDetected:                 true,
 		renderer.CodeOptimizerPassReordered:              true,
 		renderer.CodeMCPGlobalConfigOnly:                 true,
+		renderer.CodeClaudeNativePassthrough:             true,
 	}
 
 	got := make(map[string]bool)

@@ -1,6 +1,8 @@
 package copilot_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -218,4 +220,45 @@ func TestCompile_Copilot_Agents_WithBody(t *testing.T) {
 	assert.Contains(t, content, "description:")
 	assert.Contains(t, content, "Always prefer idiomatic Go.",
 		"instructions must appear in the markdown body after frontmatter")
+}
+
+// TestCompileAgents_Copilot_ClaudeDirPresent_EmitsPassthroughNotes verifies that
+// when a .claude/ directory is present, CompileAgents returns no output files and
+// emits one CLAUDE_NATIVE_PASSTHROUGH info note per agent.
+func TestCompileAgents_Copilot_ClaudeDirPresent_EmitsPassthroughNotes(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0o755))
+
+	r := copilot.New()
+	agents := map[string]ast.AgentConfig{
+		"auth-specialist": {Name: "Auth Specialist", Description: "Handles auth."},
+	}
+	files, notes, err := r.CompileAgents(agents, dir)
+	require.NoError(t, err)
+	assert.Empty(t, files, "no .github/agents/ files should be written when .claude/ is present")
+	require.Len(t, notes, 1)
+	assert.Equal(t, renderer.CodeClaudeNativePassthrough, notes[0].Code)
+	assert.Equal(t, renderer.LevelInfo, notes[0].Level)
+	assert.Equal(t, "auth-specialist", notes[0].Resource)
+	assert.Contains(t, notes[0].Reason, ".claude/agents/auth-specialist.md")
+}
+
+// TestCompileAgents_Copilot_NoClaude_FullTranslation verifies that when no
+// .claude/ directory exists, CompileAgents falls through to full translation
+// and writes the .github/agents/<id>.agent.md file.
+func TestCompileAgents_Copilot_NoClaude_FullTranslation(t *testing.T) {
+	dir := t.TempDir() // no .claude/ subdirectory
+
+	r := copilot.New()
+	agents := map[string]ast.AgentConfig{
+		"my-agent": {Name: "My Agent", Description: "A test agent."},
+	}
+	files, notes, err := r.CompileAgents(agents, dir)
+	require.NoError(t, err)
+	assert.Contains(t, files, "agents/my-agent.agent.md",
+		"full translation must write .github/agents/ when .claude/ is absent")
+	for _, n := range notes {
+		assert.NotEqual(t, renderer.CodeClaudeNativePassthrough, n.Code,
+			"no CLAUDE_NATIVE_PASSTHROUGH notes expected when .claude/ is absent")
+	}
 }

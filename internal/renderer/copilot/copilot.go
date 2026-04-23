@@ -71,24 +71,67 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 }
 
 // CompileAgents compiles each agent to agents/<id>.agent.md.
+// If a .claude/ directory is detected in baseDir, all agents are skipped and
+// a CLAUDE_NATIVE_PASSTHROUGH info note is emitted per agent — GitHub Copilot
+// natively loads .claude/agents/ and re-translation is redundant.
 func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	if claudeDirExists(baseDir) {
+		var notes []renderer.FidelityNote
+		for _, id := range renderer.SortedKeys(agents) {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelInfo, targetName, "agent", id, "",
+				renderer.CodeClaudeNativePassthrough,
+				fmt.Sprintf("agent %q skipped; .claude/agents/%s.md detected and natively loaded by GitHub Copilot", id, id),
+				"No action needed — GitHub Copilot reads .claude/agents/ automatically",
+			))
+		}
+		return files, notes, nil
+	}
 	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Agents: agents}}
 	notes := r.renderAgents(cfg, baseDir, files, r.Capabilities())
 	return files, notes, nil
 }
 
 // CompileSkills compiles each skill to skills/<id>/SKILL.md.
+// If a .claude/ directory is detected in baseDir, all skills are skipped and
+// a CLAUDE_NATIVE_PASSTHROUGH info note is emitted per skill.
 func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	if claudeDirExists(baseDir) {
+		var notes []renderer.FidelityNote
+		for _, id := range renderer.SortedKeys(skills) {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelInfo, targetName, "skill", id, "",
+				renderer.CodeClaudeNativePassthrough,
+				fmt.Sprintf("skill %q skipped; .claude/skills/%s/SKILL.md detected and natively loaded by GitHub Copilot", id, id),
+				"No action needed — GitHub Copilot reads .claude/skills/ automatically",
+			))
+		}
+		return files, notes, nil
+	}
 	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Skills: skills}}
 	notes := r.renderSkills(cfg, baseDir, files)
 	return files, notes, nil
 }
 
 // CompileRules compiles each rule to instructions/<id>.instructions.md.
+// If a .claude/ directory is detected in baseDir, all rules are skipped and
+// a CLAUDE_NATIVE_PASSTHROUGH info note is emitted per rule.
 func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	if claudeDirExists(baseDir) {
+		var notes []renderer.FidelityNote
+		for _, id := range renderer.SortedKeys(rules) {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelInfo, targetName, "rule", id, "",
+				renderer.CodeClaudeNativePassthrough,
+				fmt.Sprintf("rule %q skipped; .claude/rules/ detected and natively loaded by GitHub Copilot", id),
+				"No action needed — GitHub Copilot reads .claude/rules/ automatically",
+			))
+		}
+		return files, notes, nil
+	}
 	var notes []renderer.FidelityNote
 	for id, rule := range rules {
 		md, ruleNotes, err := compileCopilotRule(id, rule, r.Capabilities(), baseDir)
@@ -104,7 +147,8 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 
 // CompileWorkflows lowers workflow configs to rule+skill primitives and compiles
 // them. Rules are emitted as instructions/<id>.instructions.md files; skills
-// are emitted as skills/<id>/SKILL.md files.
+// are emitted as skills/<id>/SKILL.md files. If a .claude/ directory is
+// present, the lowered rules will be seamlessly skipped by CompileRules.
 func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Workflows: workflows}}
 	lowered, workflowNotes := rendshared.LowerWorkflows(cfg, targetName)
@@ -160,8 +204,42 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 
 // CompileProjectInstructions emits copilot-instructions.md (flat) or AGENTS.md
 // files (nested) based on the effective instructions-mode.
+//
+// If a .claude/ directory is detected in baseDir, the root project instruction
+// file is skipped (root CLAUDE.md is natively loaded by Copilot) and a
+// CLAUDE_NATIVE_PASSTHROUGH info note is emitted. Nested InstructionsScopes
+// are still written as .github/instructions/<scope>.instructions.md with
+// applyTo: frontmatter because Copilot does NOT natively load subdirectory
+// CLAUDE.md files.
 func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	if claudeDirExists(baseDir) {
+		var notes []renderer.FidelityNote
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelInfo, targetName, "instructions", "root", "",
+			renderer.CodeClaudeNativePassthrough,
+			"root project instructions skipped; CLAUDE.md detected and natively loaded by GitHub Copilot",
+			"No action needed — GitHub Copilot reads root CLAUDE.md automatically",
+		))
+		// Still write nested scope instruction files — Copilot does NOT
+		// auto-load subdirectory CLAUDE.md variants.
+		if project != nil {
+			for _, scope := range project.InstructionsScopes {
+				scopeContent := copilotResolveScopeContent(scope, baseDir)
+				if scopeContent != "" {
+					name := strings.ReplaceAll(filepath.Clean(scope.Path), string(filepath.Separator), "-")
+					filename := fmt.Sprintf("instructions/%s.instructions.md", name)
+					var scb strings.Builder
+					scb.WriteString("---\n")
+					fmt.Fprintf(&scb, "applyTo: %q\n", scope.Path+"/**")
+					scb.WriteString("---\n\n")
+					scb.WriteString(scopeContent)
+					files[filename] = scb.String()
+				}
+			}
+		}
+		return files, notes, nil
+	}
 	cfg := &ast.XcaffoldConfig{Project: project}
 	notes := r.renderProjectInstructions(cfg, baseDir, files)
 	return files, notes, nil
@@ -200,6 +278,15 @@ func instructionsMode(config *ast.XcaffoldConfig) string {
 		}
 	}
 	return "flat"
+}
+
+// claudeDirExists reports whether a .claude/ directory exists in baseDir.
+// It is used to determine whether to skip full translation and emit passthrough
+// fidelity notes instead. GitHub Copilot natively loads .claude/agents/,
+// .claude/skills/, .claude/rules/, and root CLAUDE.md automatically.
+func claudeDirExists(baseDir string) bool {
+	_, err := os.Stat(filepath.Join(baseDir, ".claude"))
+	return err == nil
 }
 
 // renderProjectInstructions dispatches to the flat or nested implementation

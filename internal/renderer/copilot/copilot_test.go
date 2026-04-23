@@ -368,3 +368,43 @@ func TestCompileCopilotRule_InstructionsFile_Resolved(t *testing.T) {
 		t.Fatal("expected a rule file containing 'test-rule' in output")
 	}
 }
+
+// TestCompileRules_Copilot_ClaudeDirPresent_EmitsPassthroughNotes verifies that
+// when a .claude/ directory is present, CompileRules returns no output files and
+// emits one CLAUDE_NATIVE_PASSTHROUGH info note per rule.
+func TestCompileRules_Copilot_ClaudeDirPresent_EmitsPassthroughNotes(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0o755))
+
+	r := copilot.New()
+	rules := map[string]ast.RuleConfig{
+		"adr-governance": {Instructions: "Follow ADR governance.", Activation: "always"},
+	}
+	files, notes, err := r.CompileRules(rules, dir)
+	require.NoError(t, err)
+	assert.Empty(t, files, "no .github/instructions/ files should be written when .claude/ is present")
+	require.Len(t, notes, 1)
+	assert.Equal(t, renderer.CodeClaudeNativePassthrough, notes[0].Code)
+	assert.Equal(t, renderer.LevelInfo, notes[0].Level)
+	assert.Equal(t, "adr-governance", notes[0].Resource)
+	assert.Contains(t, notes[0].Reason, ".claude/rules/ detected")
+}
+
+// TestCompileRules_Copilot_NoClaude_FullTranslation verifies that when no
+// .claude/ directory exists, CompileRules writes the instruction file.
+func TestCompileRules_Copilot_NoClaude_FullTranslation(t *testing.T) {
+	dir := t.TempDir()
+
+	r := copilot.New()
+	rules := map[string]ast.RuleConfig{
+		"my-rule": {Instructions: "Follow the rule.", Activation: "always"},
+	}
+	files, notes, err := r.CompileRules(rules, dir)
+	require.NoError(t, err)
+	assert.Contains(t, files, "instructions/my-rule.instructions.md",
+		"full translation must write .github/instructions/ when .claude/ is absent")
+	for _, n := range notes {
+		assert.NotEqual(t, renderer.CodeClaudeNativePassthrough, n.Code,
+			"no CLAUDE_NATIVE_PASSTHROUGH notes expected when .claude/ is absent")
+	}
+}
