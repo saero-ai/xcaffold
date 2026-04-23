@@ -583,10 +583,7 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 
 	// Claude natively supports always and path-glob. Everything else is
 	// emitted as always-loaded with a warning note.
-	switch activation {
-	case ast.RuleActivationAlways, ast.RuleActivationPathGlob:
-		// supported — no note needed
-	default:
+	if !renderer.ValidateRuleActivation(rule, caps) {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning,
 			"claude",

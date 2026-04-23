@@ -87,28 +87,27 @@ func TestBuildRuleProsePrefix(t *testing.T) {
 }
 
 func TestValidateRuleActivation(t *testing.T) {
+	rule := ast.RuleConfig{Activation: string(ast.RuleActivationManualMention)}
+
 	capsOmit := renderer.CapabilitySet{RuleEncoding: renderer.RuleEncodingCapabilities{Activation: "omit"}}
 	capsFront := renderer.CapabilitySet{
 		RuleEncoding:    renderer.RuleEncodingCapabilities{Activation: "frontmatter"},
 		RuleActivations: []string{ast.RuleActivationAlways, ast.RuleActivationPathGlob},
 	}
 
-	t.Run("omit handles skipped activation", func(t *testing.T) {
-		rule := ast.RuleConfig{Activation: ast.RuleActivationAlways}
-		notes := renderer.ValidateRuleActivation(rule, capsOmit, "target", "r1")
-		assert.Empty(t, notes)
+	t.Run("omit capability without supported activation returns false", func(t *testing.T) {
+		valid := renderer.ValidateRuleActivation(rule, capsOmit)
+		assert.False(t, valid, "expected false because manual-mention is not in capsOmit supported list")
 	})
 
-	t.Run("supported activation yields no notes", func(t *testing.T) {
-		rule := ast.RuleConfig{Activation: ast.RuleActivationAlways}
-		notes := renderer.ValidateRuleActivation(rule, capsFront, "target", "r1")
-		assert.Empty(t, notes)
+	t.Run("unsupported activation returns false", func(t *testing.T) {
+		valid := renderer.ValidateRuleActivation(rule, capsFront)
+		assert.False(t, valid, "expected false when activation is unsupported")
 	})
 
-	t.Run("unsupported activation yields fidelity note", func(t *testing.T) {
-		rule := ast.RuleConfig{Activation: ast.RuleActivationModelDecided}
-		notes := renderer.ValidateRuleActivation(rule, capsFront, "target", "r1")
-		assert.Len(t, notes, 1)
-		assert.Equal(t, renderer.CodeRuleActivationUnsupported, notes[0].Code)
+	t.Run("supported activation returns true", func(t *testing.T) {
+		rule.Activation = string(ast.RuleActivationAlways)
+		valid := renderer.ValidateRuleActivation(rule, capsFront)
+		assert.True(t, valid, "expected true when activation is supported")
 	})
 }

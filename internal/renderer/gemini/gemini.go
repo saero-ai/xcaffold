@@ -300,9 +300,9 @@ func (r *Renderer) renderRulesToMap(config *ast.XcaffoldConfig, files map[string
 
 	for _, id := range renderer.SortedKeys(config.Rules) {
 		rule := config.Rules[id]
-
 		activation := renderer.ResolvedActivation(rule)
-		if activation != ast.RuleActivationAlways && activation != ast.RuleActivationPathGlob {
+
+		if !renderer.ValidateRuleActivation(rule, r.Capabilities()) {
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning,
 				targetName,

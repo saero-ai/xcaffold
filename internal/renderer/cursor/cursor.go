@@ -406,34 +406,25 @@ func compileCursorRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 
 	activation := renderer.ResolvedActivation(rule)
-
-	switch activation {
-	case ast.RuleActivationAlways:
-		sb.WriteString("always-apply: true\n")
-	case ast.RuleActivationPathGlob:
-		if len(rule.Paths) > 0 {
-			fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
+	if !renderer.ValidateRuleActivation(rule, caps) {
+		sb.WriteString("always-apply: false\n")
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "rule", id, "activation",
+			renderer.CodeActivationDegraded,
+			fmt.Sprintf("rule %q activation %q has no Cursor equivalent; lowered to always-apply: false", id, activation),
+			"Use a supported activation (always, path-glob) or add a targets.cursor.provider override",
+		))
+	} else {
+		switch activation {
+		case ast.RuleActivationAlways:
+			sb.WriteString("always-apply: true\n")
+		case ast.RuleActivationPathGlob:
+			if len(rule.Paths) > 0 {
+				fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
+			}
+		case ast.RuleActivationManualMention:
+			sb.WriteString("always-apply: false\n")
 		}
-	case ast.RuleActivationManualMention:
-		sb.WriteString("always-apply: false\n")
-	case ast.RuleActivationModelDecided:
-		sb.WriteString("always-apply: false\n")
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "rule", id, "activation",
-			renderer.CodeActivationDegraded,
-			fmt.Sprintf("rule %q activation \"model-decided\" has no Cursor equivalent; lowered to always-apply: false", id),
-			"Use a supported activation (always, path-glob, manual-mention) or add a targets.cursor.provider override",
-		))
-	case ast.RuleActivationExplicitInvoke:
-		sb.WriteString("always-apply: false\n")
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "rule", id, "activation",
-			renderer.CodeActivationDegraded,
-			fmt.Sprintf("rule %q activation \"explicit-invoke\" has no Cursor equivalent; lowered to always-apply: false", id),
-			"Use a supported activation (always, path-glob, manual-mention) or add a targets.cursor.provider override",
-		))
-	default:
-		sb.WriteString("always-apply: true\n")
 	}
 
 	sb.WriteString("---\n")
