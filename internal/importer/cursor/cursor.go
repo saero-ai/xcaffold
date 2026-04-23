@@ -37,6 +37,7 @@ func (c *CursorImporter) InputDir() string { return ".cursor" }
 
 // cursorMappings maps path patterns to AST kinds. First match wins.
 var cursorMappings = []importer.KindMapping{
+	{Pattern: "hooks/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
@@ -73,14 +74,14 @@ func (c *CursorImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractSkill(rel, data, config)
 	case importer.KindSkillAsset:
 		return extractSkillAsset(rel, data, config)
+	case importer.KindHookScript:
+		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
 	case importer.KindMCP:
 		return extractMCPStandalone(rel, data, config)
 	case importer.KindHook:
 		return extractHooksStandalone(rel, data, config)
-	case importer.KindHookScript:
-		return extractHookScript(rel, data, config)
 	default:
 		return fmt.Errorf("cursor: no extractor for kind %q at path %q", kind, rel)
 	}
@@ -332,16 +333,5 @@ func extractHooksStandalone(rel string, data []byte, config *ast.XcaffoldConfig)
 		return fmt.Errorf("cursor: hooks.json parse: %w", err)
 	}
 	config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
-	return nil
-}
-
-func extractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	if config.ProviderExtras == nil {
-		config.ProviderExtras = make(map[string]map[string][]byte)
-	}
-	if config.ProviderExtras["cursor"] == nil {
-		config.ProviderExtras["cursor"] = make(map[string][]byte)
-	}
-	config.ProviderExtras["cursor"][rel] = data
 	return nil
 }

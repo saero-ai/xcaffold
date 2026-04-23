@@ -618,6 +618,11 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		return fmt.Errorf("[%s] failed to write split xcf files: %w", scopeName, err)
 	}
 
+	// Prune orphan memory imported from raw provider sidecars
+	if err := pruneOrphanMemory(config, "."); err != nil {
+		return fmt.Errorf("prune memory: %w", err)
+	}
+
 	// ── 3. Project instruction file (CLAUDE.md / GEMINI.md / AGENTS.md / etc.) ─
 	// Run discovery if ANY instruction file exists — root OR in subdirectories.
 	// Checking only the root file missed sub-directory scopes (e.g. packages/CLAUDE.md)
@@ -2932,6 +2937,50 @@ func findImporterByProvider(provider string) importer.ProviderImporter {
 	for _, imp := range importer.DefaultImporters() {
 		if imp.Provider() == provider {
 			return imp
+		}
+	}
+	return nil
+}
+
+// pruneOrphanMemory removes files in xcf/memory/ that do not correspond
+// to an agent imported in the current scope.
+func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
+	memDir := filepath.Join(rootDir, "xcf", "memory")
+	// If memDir doesn't exist, nothing to prune
+	if _, err := os.Stat(memDir); os.IsNotExist(err) {
+		return nil
+	}
+
+	validAgents := make(map[string]bool)
+	for id := range config.Agents {
+		validAgents[id] = true
+	}
+
+	entries, err := os.ReadDir(memDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		// Memory filenames might be <id>.xcf or <id>.md depending on format
+		name := entry.Name()
+		if !entry.IsDir() {
+			ext := filepath.Ext(name)
+			id := strings.TrimSuffix(name, ext)
+
+			if !validAgents[id] {
+				if err := os.RemoveAll(filepath.Join(memDir, name)); err != nil {
+					return err
+				}
+			}
+		} else {
+			// Also prune orphan nested subdirectories if they don't match an agent ID exactly
+			// (Wait, are memory nested directories allowed? Yes, but usually files.)
+			if !validAgents[name] {
+				if err := os.RemoveAll(filepath.Join(memDir, name)); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

@@ -42,6 +42,8 @@ func (c *CopilotImporter) InputDir() string { return ".github" }
 // renderer-emitted extension takes priority while plain .md still matches
 // for backward compatibility.
 var copilotMappings = []importer.KindMapping{
+	{Pattern: "hooks/*.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
+	{Pattern: "hooks/scripts/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.agent.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*.md", Kind: importer.KindSkill, Layout: importer.FlatFile},
@@ -78,12 +80,14 @@ func (c *CopilotImporter) Extract(rel string, data []byte, config *ast.XcaffoldC
 		return extractSkill(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
+	case importer.KindHook:
+		return extractHooksStandalone(rel, data, config)
+	case importer.KindHookScript:
+		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindMCP:
 		return extractMCP(rel, data, config)
 	case importer.KindWorkflow:
 		return extractWorkflow(rel, data, config)
-	case importer.KindHookScript:
-		return extractHookScript(rel, data, config)
 	default:
 		return fmt.Errorf("copilot: no extractor for kind %q at path %q", kind, rel)
 	}
@@ -324,22 +328,11 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 	return nil
 }
 
-func extractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	if config.ProviderExtras == nil {
-		config.ProviderExtras = make(map[string]map[string][]byte)
+func extractHooksStandalone(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var hooks ast.HookConfig
+	if err := json.Unmarshal(data, &hooks); err != nil {
+		return fmt.Errorf("copilot: hooks.json parse: %w", err)
 	}
-	if config.ProviderExtras["copilot"] == nil {
-		config.ProviderExtras["copilot"] = make(map[string][]byte)
-	}
-	// For Copilot, we strip the 'hooks/scripts/' prefix to canonicalize to 'hooks/' in xcf/
-	// because WriteSplitFiles expects 'hooks/'.
-	// rel like 'hooks/scripts/post-update.sh' -> 'hooks/post-update.sh'
-	canonical := rel
-	suffix := strings.TrimPrefix(rel, "hooks/scripts/")
-	if suffix != rel {
-		canonical = "hooks/" + suffix
-	}
-
-	config.ProviderExtras["copilot"][canonical] = data
+	config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
 	return nil
 }

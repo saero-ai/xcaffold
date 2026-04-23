@@ -41,6 +41,7 @@ func (c *ClaudeImporter) InputDir() string { return ".claude" }
 // Skill companion patterns (references/**, scripts/**, assets/**) must appear
 // before the catch-all agent-memory/** so they are matched first.
 var claudeMappings = []importer.KindMapping{
+	{Pattern: "hooks/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
@@ -80,6 +81,8 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractSkill(rel, data, config)
 	case importer.KindSkillAsset:
 		return extractSkillAsset(rel, data, config)
+	case importer.KindHookScript:
+		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
 	case importer.KindWorkflow:
@@ -88,8 +91,6 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractMCPStandalone(rel, data, config)
 	case importer.KindSettings:
 		return extractSettings(rel, data, config)
-	case importer.KindHookScript:
-		return extractHookScript(rel, data, config)
 	case importer.KindMemory:
 		return extractMemory(rel, data, config)
 	default:
@@ -146,17 +147,6 @@ func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 		}
 	}
 
-	return nil
-}
-
-func extractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	if config.ProviderExtras == nil {
-		config.ProviderExtras = make(map[string]map[string][]byte)
-	}
-	if config.ProviderExtras["claude"] == nil {
-		config.ProviderExtras["claude"] = make(map[string][]byte)
-	}
-	config.ProviderExtras["claude"][rel] = data
 	return nil
 }
 
