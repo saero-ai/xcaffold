@@ -633,17 +633,7 @@ func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.Capability
 	activation := renderer.ResolvedActivation(rule)
 
 	var applyTo string
-	switch activation {
-	case ast.RuleActivationAlways:
-		applyTo = `"**"`
-	case ast.RuleActivationPathGlob:
-		if len(rule.Paths) > 0 {
-			applyTo = fmt.Sprintf("%q", strings.Join(rule.Paths, ", "))
-		} else {
-			applyTo = `"**"`
-		}
-	case ast.RuleActivationManualMention, ast.RuleActivationModelDecided, ast.RuleActivationExplicitInvoke:
-		applyTo = `"**"`
+	if !renderer.ValidateRuleActivation(rule, caps) {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning,
 			targetName,
@@ -654,8 +644,20 @@ func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.Capability
 			fmt.Sprintf("rule %q: activation %q has no Copilot-native equivalent; emitted as applyTo: \"**\"", id, activation),
 			"Use activation: always or activation: path-glob for full Copilot compatibility.",
 		))
-	default:
 		applyTo = `"**"`
+	} else {
+		switch activation {
+		case ast.RuleActivationAlways:
+			applyTo = `"**"`
+		case ast.RuleActivationPathGlob:
+			if len(rule.Paths) > 0 {
+				applyTo = fmt.Sprintf("%q", strings.Join(rule.Paths, ", "))
+			} else {
+				applyTo = `"**"`
+			}
+		default:
+			applyTo = `"**"`
+		}
 	}
 
 	var sb strings.Builder

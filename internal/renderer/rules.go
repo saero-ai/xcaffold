@@ -24,25 +24,13 @@ func BuildRuleProsePrefix(rule ast.RuleConfig, caps CapabilitySet) string {
 	return fmt.Sprintf("%s\n\n", rule.Description)
 }
 
-// ValidateRuleActivation checks if the rule's activation is supported by the target.
-// Returns a slice containing a FidelityNote if unsupported.
-func ValidateRuleActivation(rule ast.RuleConfig, caps CapabilitySet, target, id string) []FidelityNote {
-	if caps.RuleEncoding.Activation == "omit" {
-		return nil // No encoding required / handled gracefully by omission
-	}
+// ValidateRuleActivation checks if the rule's activation is natively supported by the target.
+func ValidateRuleActivation(rule ast.RuleConfig, caps CapabilitySet) bool {
 	activation := ResolvedActivation(rule)
 	for _, supported := range caps.RuleActivations {
-		if activation == supported {
-			return nil
+		if string(activation) == supported {
+			return true
 		}
 	}
-
-	// If activation isn't explicitly supported, issue a warning.
-	note := NewNote(
-		LevelWarning, target, "rule", id, "activation",
-		CodeRuleActivationUnsupported,
-		fmt.Sprintf("rule %q activation %q has no native encoding for %s; rule evaluates to default visibility", id, activation, target),
-		"Configure activation via the provider's Customizations panel/UI directly",
-	)
-	return []FidelityNote{note}
+	return false
 }

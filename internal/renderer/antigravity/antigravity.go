@@ -75,7 +75,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		AgentNativeToolsOnly: false,
 		SkillSubdirs:         []string{"references", "scripts", "assets", "examples"},
 		ModelField:           false,
-		RuleActivations:      []string{"always", "path-glob", "manual"},
+		RuleActivations:      []string{"always", "path-glob", "model-decided"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "frontmatter",
 			Activation:  "frontmatter",
@@ -470,15 +470,23 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, caps renderer.Capabi
 	if needsFrontmatter {
 		sb.WriteString("---\n")
 		sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
-		switch activation {
-		case ast.RuleActivationPathGlob:
-			sb.WriteString("trigger: glob\n")
-			if len(rule.Paths) > 0 {
-				fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths, ","))
+		if !renderer.ValidateRuleActivation(rule, caps) {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "rule", id, "activation",
+				renderer.CodeActivationDegraded,
+				fmt.Sprintf("activation %q lowers to standard rule injection for antigravity", activation),
+				"",
+			))
+		} else {
+			switch activation {
+			case ast.RuleActivationModelDecided:
+				sb.WriteString("trigger: model_decision\n")
+			case ast.RuleActivationPathGlob:
+				sb.WriteString("trigger: glob\n")
+				if len(rule.Paths) > 0 {
+					fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths, ","))
+				}
 			}
-		case ast.RuleActivationModelDecided:
-			sb.WriteString("trigger: model_decision\n")
-			// ast.RuleActivationAlways: no trigger field — always-on is the default.
 		}
 		sb.WriteString("---\n\n")
 	}
