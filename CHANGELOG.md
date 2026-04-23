@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (Provider-Agnostic Renderer)
 
+- Relocated project manifest from `./project.xcf` to `.xcaffold/project.xcf` — the manifest is a tool-generated file (compiler/init/import/migrate)
+- Transitioned `kind: memory` rendering to provider-agnostic system respecting per-provider ground truth: Claude (full render), Gemini & Antigravity (partial render with note), Cursor & Copilot (dropped with note) (compiler/renderer)
+- Schema: Updated `ProjectConfig.AgentRefs` to use `AgentManifestEntry` to support deterministic memory linkage within manifest files (schema)
 - Changed `TargetRenderer` interface from monolithic `Compile()`/`Render()` to per-resource methods (`CompileAgents`, `CompileSkills`, `CompileRules`, `CompileWorkflows`, `CompileHooks`, `CompileSettings`, `CompileMCP`, `CompileProjectInstructions`) with `Capabilities()` and `Finalize()` hooks (renderer)
 - Changed `compiler.Compile()` to use `resolveRenderer()` + `renderer.Orchestrate()` instead of a target switch with direct renderer construction (compiler)
 - Changed `compiler.OutputDir()` to return empty string for unknown targets instead of defaulting to `.claude` (compiler)
