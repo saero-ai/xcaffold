@@ -2,6 +2,8 @@ package compiler
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -145,4 +147,41 @@ func OutputDir(target string) string {
 		return ""
 	}
 	return r.OutputDir()
+}
+
+// ResolveAgentMemory walks the xcf/memory directory to link memory files to their respective agents.
+// It returns a mapping of agentID -> []memoryName.
+func ResolveAgentMemory(config *ast.XcaffoldConfig, baseDir string) map[string][]string {
+	agentMemory := make(map[string][]string)
+	memDir := filepath.Join(baseDir, "xcf", "memory")
+	
+	entries, err := os.ReadDir(memDir)
+	if err != nil {
+		// If the directory does not exist, return the empty map.
+		return agentMemory
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		agentID := entry.Name()
+		
+		memFiles, err := os.ReadDir(filepath.Join(memDir, agentID))
+		if err != nil {
+			continue
+		}
+		
+		var memories []string
+		for _, memFile := range memFiles {
+			if !memFile.IsDir() && strings.HasSuffix(memFile.Name(), ".xcf") {
+				name := strings.TrimSuffix(memFile.Name(), ".xcf")
+				memories = append(memories, name)
+			}
+		}
+		if len(memories) > 0 {
+			agentMemory[agentID] = memories
+		}
+	}
+	return agentMemory
 }

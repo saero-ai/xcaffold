@@ -171,7 +171,7 @@ func runProjectInstructionsDiscovery(projectDir, primaryProvider, xcfPath string
 				cfg.Project.InstructionsScopes = scopes
 				_ = rootContent // rootContent used downstream if needed
 				// Write updated xcf back to disk with reconstructed scopes.
-				_ = WriteProjectFile(cfg, filepath.Dir(xcfPath))
+				_ = WriteProjectFile(cfg, projectDir)
 				return nil
 			}
 		}
@@ -192,7 +192,7 @@ func runProjectInstructionsDiscovery(projectDir, primaryProvider, xcfPath string
 	}
 
 	// Persist the updated config.
-	return WriteProjectFile(cfg, filepath.Dir(xcfPath))
+	return WriteProjectFile(cfg, projectDir)
 }
 
 // providerInstructionsFilename returns the canonical root instruction filename
@@ -467,7 +467,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcfDest)
 	}
-	if err := checkXcfDirPreexistence(xcfDest, scopeName); err != nil {
+	if err := checkXcfDirPreexistence(".", scopeName); err != nil {
 		return err
 	}
 
@@ -605,7 +605,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	// Detect compilation targets from the scanned platform directory.
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(platformDir)
-		config.Project.AgentRefs = sortedMapKeysStr(config.Agents)
+		config.Project.AgentRefs = sortedMapKeysAgentManifestEntry(config.Agents)
 		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
 		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
 		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
@@ -629,7 +629,8 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	// when the project had no root-level instruction file.
 	if instrFile := providerInstructionsFilename(provider); instrFile != "" {
 		if anyInstructionFileExists(projectDir, instrFile) {
-			if discoverErr := runProjectInstructionsDiscovery(projectDir, provider, xcfDest); discoverErr != nil {
+			actualPath := filepath.Join(projectDir, ".xcaffold", "project.xcf")
+			if discoverErr := runProjectInstructionsDiscovery(projectDir, provider, actualPath); discoverErr != nil {
 				warnings = append(warnings, fmt.Sprintf("project instructions discovery (%s): %v", provider, discoverErr))
 			}
 		}
@@ -815,7 +816,7 @@ func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, er
 
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(sourceDir)
-		config.Project.AgentRefs = sortedMapKeysStr(config.Agents)
+		config.Project.AgentRefs = sortedMapKeysAgentManifestEntry(config.Agents)
 		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
 		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
 		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
@@ -1992,6 +1993,15 @@ func sortedMapKeysStr[V any](m map[string]V) []string {
 	return keys
 }
 
+func sortedMapKeysAgentManifestEntry[V any](m map[string]V) []ast.AgentManifestEntry {
+	keys := sortedMapKeysStr(m)
+	res := make([]ast.AgentManifestEntry, 0, len(keys))
+	for _, k := range keys {
+		res = append(res, ast.AgentManifestEntry{ID: k})
+	}
+	return res
+}
+
 // extractFrontmatter isolates the YAML section between `---` markers at the start of a markdown file.
 func extractFrontmatter(data []byte) ([]byte, bool) {
 	if !bytes.HasPrefix(data, []byte("---\n")) && !bytes.HasPrefix(data, []byte("---\r\n")) {
@@ -2419,7 +2429,7 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[project] %s already exists. Remove it first to import", xcfDest)
 	}
-	if err := checkXcfDirPreexistence(xcfDest, "project"); err != nil {
+	if err := checkXcfDirPreexistence(".", "project"); err != nil {
 		return err
 	}
 
@@ -2579,7 +2589,7 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 	// Detect compilation targets from all scanned platform directories.
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(dirs...)
-		config.Project.AgentRefs = sortedMapKeysStr(config.Agents)
+		config.Project.AgentRefs = sortedMapKeysAgentManifestEntry(config.Agents)
 		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
 		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
 		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)

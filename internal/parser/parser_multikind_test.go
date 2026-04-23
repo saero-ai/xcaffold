@@ -565,7 +565,7 @@ rules:
 	require.NotNil(t, config.Project, "config.Project must not be nil for kind:project")
 	assert.Equal(t, "my-project", config.Project.Name)
 	assert.Equal(t, []string{"claude", "antigravity"}, config.Project.Targets)
-	assert.Equal(t, []string{"backend-engineer", "qa-engineer"}, config.Project.AgentRefs)
+	assert.Equal(t, []ast.AgentManifestEntry{{ID: "backend-engineer"}, {ID: "qa-engineer"}}, config.Project.AgentRefs)
 	assert.Equal(t, []string{"tdd"}, config.Project.SkillRefs)
 	assert.Equal(t, []string{"testing-framework"}, config.Project.RuleRefs)
 }
@@ -661,7 +661,7 @@ events:
 	require.NoError(t, err)
 	require.NotNil(t, config.Project, "config.Project must not be nil")
 	assert.Equal(t, "multi-doc-project", config.Project.Name)
-	assert.Equal(t, []string{"backend-engineer"}, config.Project.AgentRefs)
+	assert.Equal(t, []ast.AgentManifestEntry{{ID: "backend-engineer"}}, config.Project.AgentRefs)
 	assert.Contains(t, config.Agents, "backend-engineer")
 	require.NotNil(t, config.Hooks)
 	assert.Contains(t, config.Hooks["default"].Events, "PreToolUse")

@@ -32,7 +32,8 @@ func TestInitWizard_Targets_IsSlice(t *testing.T) {
 func TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF(t *testing.T) {
 	// Create a temp dir with a project.xcf already present.
 	dir := t.TempDir()
-	xcfPath := filepath.Join(dir, "project.xcf")
+	xcfPath := filepath.Join(dir, ".xcaffold", "project.xcf")
+	require.NoError(t, os.MkdirAll(filepath.Dir(xcfPath), 0755))
 	require.NoError(t, os.WriteFile(xcfPath, []byte("kind: project\nname: existing\n"), 0600))
 
 	// Change to the temp dir so the idempotency check finds project.xcf.
@@ -162,7 +163,7 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify top-level project.xcf
-	scaffoldBytes, err := os.ReadFile(filepath.Join(tmpDir, "project.xcf"))
+	scaffoldBytes, err := os.ReadFile(filepath.Join(tmpDir, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	content := string(scaffoldBytes)
 	assert.Contains(t, content, "kind: project")
@@ -214,7 +215,7 @@ func TestWriteXCFDirectory_NoAgent_StillCreatesScaffold(t *testing.T) {
 	require.NoError(t, err)
 
 	// project.xcf should exist
-	assert.FileExists(t, filepath.Join(tmpDir, "project.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, ".xcaffold", "project.xcf"))
 
 	// but xcf/ should NOT contain an agents/developer.xcf
 	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer.xcf"))
@@ -235,7 +236,7 @@ func TestInit_GeneratesProjectXcf(t *testing.T) {
 	err := writeXCFDirectory(tmpDir, ans)
 	require.NoError(t, err)
 
-	_, projectXcfErr := os.Stat(filepath.Join(tmpDir, "project.xcf"))
+	_, projectXcfErr := os.Stat(filepath.Join(tmpDir, ".xcaffold", "project.xcf"))
 
 	assert.NoError(t, projectXcfErr, "project.xcf should be generated")
 }

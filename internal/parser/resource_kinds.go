@@ -71,9 +71,9 @@ type projectDocFields struct {
 	Repository   string             `yaml:"repository,omitempty"`
 	License      string             `yaml:"license,omitempty"`
 	BackupDir    string             `yaml:"backup-dir,omitempty"`
-	Targets      []string           `yaml:"targets,omitempty"`
-	AgentRefs    []string           `yaml:"agents,omitempty"`
-	SkillRefs    []string           `yaml:"skills,omitempty"`
+	Targets      []string               `yaml:"targets,omitempty"`
+	AgentRefs    []ast.AgentManifestEntry `yaml:"agents,omitempty"`
+	SkillRefs    []string               `yaml:"skills,omitempty"`
 	RuleRefs     []string           `yaml:"rules,omitempty"`
 	WorkflowRefs []string           `yaml:"workflows,omitempty"`
 	MCPRefs      []string           `yaml:"mcp,omitempty"`

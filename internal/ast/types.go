@@ -1,6 +1,8 @@
 package ast
 
-// ResourceScope contains all agentic primitives that can appear at both
+import (
+	"gopkg.in/yaml.v3"
+)// ResourceScope contains all agentic primitives that can appear at both
 // global scope (root of XcaffoldConfig) and workspace scope (inside ProjectConfig).
 // Embedded with yaml:",inline" so fields appear at the same YAML level as the parent.
 type ResourceScope struct {
@@ -55,8 +57,8 @@ type ProjectConfig struct {
 
 	// Reference lists: bare names linking to child resources in xcf/ subdirectories.
 	// Populated by the parser when decoding kind: project documents.
-	AgentRefs     []string `yaml:"agent-refs,omitempty"`
-	SkillRefs     []string `yaml:"skill-refs,omitempty"`
+	AgentRefs     []AgentManifestEntry `yaml:"agent-refs,omitempty"`
+	SkillRefs     []string             `yaml:"skill-refs,omitempty"`
 	RuleRefs      []string `yaml:"rule-refs,omitempty"`
 	WorkflowRefs  []string `yaml:"workflow-refs,omitempty"`
 	MCPRefs       []string `yaml:"mcp-refs,omitempty"`
@@ -85,6 +87,46 @@ type ProjectConfig struct {
 	TargetOptions map[string]TargetOverride `yaml:"target-options,omitempty"`
 
 	ResourceScope `yaml:",inline"` // Workspace-level resources
+}
+
+// AgentManifestEntry represents an agent reference in a project manifest,
+// which may be a simple string ID or a structured object containing memory hooks.
+type AgentManifestEntry struct {
+	ID     string   `yaml:"-"`
+	Memory []string `yaml:"-"`
+}
+
+func (a *AgentManifestEntry) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind == yaml.ScalarNode {
+		a.ID = value.Value
+		return nil
+	}
+	if value.Kind == yaml.MappingNode {
+		if len(value.Content) >= 2 {
+			a.ID = value.Content[0].Value
+			
+			var inner struct {
+				Memory []string `yaml:"memory"`
+			}
+			if err := value.Content[1].Decode(&inner); err != nil {
+				return err
+			}
+			a.Memory = inner.Memory
+			return nil
+		}
+	}
+	return nil
+}
+
+func (a AgentManifestEntry) MarshalYAML() (interface{}, error) {
+	if len(a.Memory) == 0 {
+		return a.ID, nil
+	}
+	return map[string]interface{}{
+		a.ID: map[string]interface{}{
+			"memory": a.Memory,
+		},
+	}, nil
 }
 
 // InstructionsScope defines instructions for a specific directory path within the project.

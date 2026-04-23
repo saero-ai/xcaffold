@@ -38,7 +38,7 @@ func TestImportScope_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = importScope(".claude", "project.xcf", "project", "claude")
+	err = importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
 	if err == nil {
 		t.Fatal("expected error when xcf/ directory already exists, got nil")
 	}
@@ -369,7 +369,7 @@ func TestImportScope_Messaging_NoReferencedInPlace(t *testing.T) {
 	}
 	os.Stdout = w
 
-	importErr := importScope(".claude", "project.xcf", "project", "claude")
+	importErr := importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -462,17 +462,17 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	}
 
 	// Run importScope
-	if err := importScope(".claude", "project.xcf", "project", "claude"); err != nil {
+	if err := importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"); err != nil {
 		t.Fatalf("importScope returned unexpected error: %v", err)
 	}
 
 	// project.xcf must exist
-	if _, err := os.Stat(filepath.Join(tmp, "project.xcf")); err != nil {
+	if _, err := os.Stat(filepath.Join(tmp, filepath.Join(".xcaffold", "project.xcf"))); err != nil {
 		t.Fatalf("project.xcf was not created: %v", err)
 	}
 
 	// Read project.xcf — must contain kind: project
-	scaffoldData, err := os.ReadFile(filepath.Join(tmp, "project.xcf"))
+	scaffoldData, err := os.ReadFile(filepath.Join(tmp, filepath.Join(".xcaffold", "project.xcf")))
 	require.NoError(t, err)
 	scaffoldStr := string(scaffoldData)
 	assert.Contains(t, scaffoldStr, "kind: project", "project.xcf must use kind: project (split-file format)")
@@ -549,7 +549,7 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = mergeImportDirs([]string{".claude"}, "project.xcf")
+	err = mergeImportDirs([]string{".claude"}, filepath.Join(".xcaffold", "project.xcf"))
 	if err == nil {
 		t.Fatal("expected error when xcf/ directory already exists, got nil")
 	}
@@ -574,10 +574,10 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	require.NoError(t, os.WriteFile(".claude/skills/tdd/SKILL.md",
 		[]byte("---\nname: tdd\ndescription: TDD\n---\n\nTDD instructions"), 0644))
 
-	err = importScope(".claude", "project.xcf", "project", "claude")
+	err = importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
 	require.NoError(t, err)
 
-	content, err := os.ReadFile("project.xcf")
+	content, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
 	s := string(content)
@@ -1110,14 +1110,14 @@ REST conventions only.
 	))
 
 	// Run importScope to write project.xcf.
-	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
+	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
 	// Now run the project instructions discovery which should detect markers.
-	require.NoError(t, runProjectInstructionsDiscovery(tmp, "claude", "project.xcf"))
+	require.NoError(t, runProjectInstructionsDiscovery(tmp, "claude", filepath.Join(".xcaffold", "project.xcf")))
 
 	// Read the updated project.xcf raw content — avoid parser.ParseFile which
 	// merges global config and would pick up the user's real ~/.xcaffold/project.xcf.
-	xcfData, err := os.ReadFile("project.xcf")
+	xcfData, err := os.ReadFile(filepath.Join(tmp, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	xcfStr := string(xcfData)
 

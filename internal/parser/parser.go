@@ -694,6 +694,11 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 		return nil, fmt.Errorf("failed to scan directory %q: %w", dir, err)
 	}
 
+	projectManifest := filepath.Join(dir, ".xcaffold", "project.xcf")
+	if _, statErr := os.Stat(projectManifest); statErr == nil && isParseableFile(projectManifest) {
+		files = append(files, projectManifest)
+	}
+
 	if len(files) == 0 {
 		return nil, fmt.Errorf("no *.xcf files found in directory %q", dir)
 	}
@@ -758,6 +763,11 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan directory %q: %w", dir, err)
+	}
+
+	projectManifest := filepath.Join(dir, ".xcaffold", "project.xcf")
+	if _, statErr := os.Stat(projectManifest); statErr == nil && isParseableFile(projectManifest) {
+		files = append(files, projectManifest)
 	}
 
 	if len(files) == 0 {

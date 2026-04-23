@@ -1,0 +1,5170 @@
+=== RUN   TestAnalyzeCmd_DoesNotRequireXcfFile
+--- PASS: TestAnalyzeCmd_DoesNotRequireXcfFile (0.00s)
+=== RUN   TestApplyProviderExtras_RestoresSameProviderExtras
+--- PASS: TestApplyProviderExtras_RestoresSameProviderExtras (0.00s)
+=== RUN   TestApplyProviderExtras_EmitsFidelityNoteForCrossProviderExtras
+--- PASS: TestApplyProviderExtras_EmitsFidelityNoteForCrossProviderExtras (0.00s)
+=== RUN   TestApplyProviderExtras_MultiProvider
+--- PASS: TestApplyProviderExtras_MultiProvider (0.00s)
+=== RUN   TestApplyProviderExtras_NilExtras_NoOp
+--- PASS: TestApplyProviderExtras_NilExtras_NoOp (0.00s)
+=== RUN   TestApplyProviderExtras_RejectsPathTraversal
+--- PASS: TestApplyProviderExtras_RejectsPathTraversal (0.00s)
+=== RUN   TestApplyProviderExtras_NoteOrderIsDeterministic
+--- PASS: TestApplyProviderExtras_NoteOrderIsDeterministic (0.00s)
+=== RUN   TestApply_CheckPermissions_FlagRegistered
+--- PASS: TestApply_CheckPermissions_FlagRegistered (0.00s)
+=== RUN   TestApply_CheckPermissions_CursorTarget_ReportsDroppedFields
+--- PASS: TestApply_CheckPermissions_CursorTarget_ReportsDroppedFields (0.00s)
+=== RUN   TestApply_CheckPermissions_GeminiTarget_ReportsDroppedFields
+--- PASS: TestApply_CheckPermissions_GeminiTarget_ReportsDroppedFields (0.00s)
+=== RUN   TestApply_CheckPermissions_ContradictionExitsOne
+--- PASS: TestApply_CheckPermissions_ContradictionExitsOne (0.00s)
+=== RUN   TestApply_CheckPermissions_Global_UsesGlobalXcfHome
+[INFO]    claude: all security fields are supported
+--- PASS: TestApply_CheckPermissions_Global_UsesGlobalXcfHome (0.00s)
+=== RUN   TestRunApply_PolicyError_BlocksWrite
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: dev
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: dev
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [error] needs-desc
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+--- PASS: TestRunApply_PolicyError_BlocksWrite (0.00s)
+=== RUN   TestRunApply_PolicyWarning_AllowsWrite
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: dev
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: dev
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] needs-desc
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+  [test] ✓ wrote /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestRunApply_PolicyWarning_AllowsWrite3533337237/001/.claude/agents/dev.md  (sha256:0e65facffb20d0344c1b803ab17afa2ee8847780fad11785430ce0e53da16d4c)
+
+[test] ✓ Apply complete. State updated.
+--- PASS: TestRunApply_PolicyWarning_AllowsWrite (0.01s)
+=== RUN   TestApply_StateFilePath_UsesXcaffoldDir
+--- PASS: TestApply_StateFilePath_UsesXcaffoldDir (0.00s)
+=== RUN   TestEnsureGitignoreEntry_CreatesNewFile
+--- PASS: TestEnsureGitignoreEntry_CreatesNewFile (0.00s)
+=== RUN   TestEnsureGitignoreEntry_AppendsToExisting
+--- PASS: TestEnsureGitignoreEntry_AppendsToExisting (0.00s)
+=== RUN   TestEnsureGitignoreEntry_NoDuplicate
+--- PASS: TestEnsureGitignoreEntry_NoDuplicate (0.00s)
+=== RUN   TestHasDriftFromState_NilState
+--- PASS: TestHasDriftFromState_NilState (0.00s)
+=== RUN   TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal
+--- PASS: TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal (0.00s)
+=== RUN   TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic
+--- PASS: TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic (0.00s)
+=== RUN   TestApplyScope_Project
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestApplyScope_Project (0.00s)
+=== RUN   TestApplyScope_MissingXCF
+--- PASS: TestApplyScope_MissingXCF (0.00s)
+=== RUN   TestRunApply_ScopeProject
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestRunApply_ScopeProject (0.01s)
+=== RUN   TestRunApply_ScopeGlobal
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[global] ✓ Apply complete. State updated.
+--- PASS: TestRunApply_ScopeGlobal (0.00s)
+=== RUN   TestRunApply_GlobalFlagFalse_CompilesProject
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestRunApply_GlobalFlagFalse_CompilesProject (0.01s)
+=== RUN   TestApplyScope_SkipsWhenSourceUnchanged
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+[project] Sources unchanged — skipping compilation. Use --force to recompile.
+--- PASS: TestApplyScope_SkipsWhenSourceUnchanged (0.01s)
+=== RUN   TestApplyScope_RecompilesWhenSourceChanged
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestApplyScope_RecompilesWhenSourceChanged (1.02s)
+=== RUN   TestApplyScope_ForceRecompiles
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestApplyScope_ForceRecompiles (1.02s)
+=== RUN   TestApplyScope_PurgesOrphanedFiles
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+  [project] ✓ wrote /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestApplyScope_PurgesOrphanedFiles3938612935/001/.claude/agents/dev.md  (sha256:b1c69439bbcdc0fb07127022d6d28c89d9f0a9ac0053ea7cddd10b39949e9156)
+
+[project] ✓ Apply complete. State updated.
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+  [project] ✓ deleted /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestApplyScope_PurgesOrphanedFiles3938612935/001/.claude/agents/dev.md
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestApplyScope_PurgesOrphanedFiles (0.02s)
+=== RUN   TestRunApply_MultiTarget
+INFO (claude): native literal "claude-sonnet-4-5" passed through for agent "dev"
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+  [project] ✓ wrote /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestRunApply_MultiTarget2242630496/001/.claude/agents/dev.md  (sha256:bfb41a613ecb105b301182afe48cfe84afeb6a424f81b78be647917d65105579)
+
+[project] ✓ Apply complete. State updated.
+INFO (cursor): native literal "claude-sonnet-4-5" passed through for agent "dev"
+WARNING (cursor): literal model "claude-sonnet-4-5" is unmapped for cursor — must be omitted
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+  [project] ✓ wrote /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestRunApply_MultiTarget2242630496/001/.cursor/agents/dev.md  (sha256:366722d56c6bdd1241cf76ab4e074e2c86edbf35518744e3a3e310e3f1fd7141)
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestRunApply_MultiTarget (0.02s)
+=== RUN   TestRunApply_ExplicitTargetFlag
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestRunApply_ExplicitTargetFlag (0.01s)
+=== RUN   TestRunApply_NoTargetsInConfig_DefaultsToClaude
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestRunApply_NoTargetsInConfig_DefaultsToClaude (0.01s)
+=== RUN   TestApplyScope_DryRun_ListsOrphans
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+  [project] ✓ wrote /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestApplyScope_DryRun_ListsOrphans2479712820/001/.claude/agents/dev.md  (sha256:b1c69439bbcdc0fb07127022d6d28c89d9f0a9ac0053ea7cddd10b39949e9156)
+
+[project] ✓ Apply complete. State updated.
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+[project] Dry-run preview (no files will be written):
+
+[project] ✓ No changes predicted. Current files are up to date.
+--- PASS: TestApplyScope_DryRun_ListsOrphans (0.01s)
+=== RUN   TestApplyScope_RegistryXCF_ExcludedFromSourceTracking
+POLICY VIOLATION [warning] agent-has-description
+  resource: brand-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: ceo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cfo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: clo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cmo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: coo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cpo
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: cto
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: database-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: devops-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: platform-architect
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: product-analyst
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: quality-engineer
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: svg-animator
+  field "description" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: adr-management
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brainstorming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-audit
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-landing-page
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-messaging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-naming
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: brand-visual-identity
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: character-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: claude-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: commit-changes
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: competitive-strategy
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: dispatching-parallel-agents
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: document-feature
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: executing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: finishing-a-development-branch
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: flutter-integration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: fundraising
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: gemini-cli-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: go-to-market
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: migration-planning
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: operations-scaling
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: ph-corporate-law
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: product-discovery
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: query-optimization
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: receiving-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: requesting-code-review
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: schema-design
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: session-handoff
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: subagent-driven-development
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-animation
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: svg-illustration
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: systematic-debugging
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tdd
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: tech-stack-selection
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: unit-economics
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: verification-before-completion
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-plans
+  field "instructions" must be present and non-empty
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: writing-skills
+  field "instructions" must be present and non-empty
+
+
+[project] ✓ Apply complete. State updated.
+--- PASS: TestApplyScope_RegistryXCF_ExcludedFromSourceTracking (0.00s)
+=== RUN   TestApplyCmd_IncludeMemoryFlag_Registered
+--- PASS: TestApplyCmd_IncludeMemoryFlag_Registered (0.00s)
+=== RUN   TestApplyCmd_ReseedFlag_Registered
+--- PASS: TestApplyCmd_ReseedFlag_Registered (0.00s)
+=== RUN   TestApplyCmd_ReseedImpliesIncludeMemory
+--- PASS: TestApplyCmd_ReseedImpliesIncludeMemory (0.00s)
+=== RUN   TestRunMemoryPass_Cursor_EmitsFidelityNote
+--- PASS: TestRunMemoryPass_Cursor_EmitsFidelityNote (0.00s)
+=== RUN   TestRunMemoryPass_Antigravity_WritesKnowledgeFiles
+--- PASS: TestRunMemoryPass_Antigravity_WritesKnowledgeFiles (0.00s)
+=== RUN   TestRunMemoryPass_DryRun_SkipsWrites
+[DRY-RUN] would compile 1 memory entries for antigravity (dir: /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestRunMemoryPass_DryRun_SkipsWrites2195804010/001)
+--- PASS: TestRunMemoryPass_DryRun_SkipsWrites (0.00s)
+=== RUN   TestRunMemoryPass_NoMemoryEntries_NoOp
+--- PASS: TestRunMemoryPass_NoMemoryEntries_NoOp (0.00s)
+=== RUN   TestRunMemoryPass_DryRun_Claude_LogsIntent
+--- PASS: TestRunMemoryPass_DryRun_Claude_LogsIntent (0.00s)
+=== RUN   TestRunMemoryPass_Gemini_WritesGeminiMD
+--- PASS: TestRunMemoryPass_Gemini_WritesGeminiMD (0.00s)
+=== RUN   TestRunMemoryPass_Gemini_UnsupportedTarget_NoLongerErrors
+--- PASS: TestRunMemoryPass_Gemini_UnsupportedTarget_NoLongerErrors (0.00s)
+=== RUN   TestClaudeProjectMemoryDir_ConsistentBetweenImportAndApply
+--- PASS: TestClaudeProjectMemoryDir_ConsistentBetweenImportAndApply (0.00s)
+=== RUN   TestDiffScope_ReadsV3StateManifest
+  [project] clean    /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestDiffScope_ReadsV3StateManifest3492988772/001/.claude/agents/dev.md
+--- PASS: TestDiffScope_ReadsV3StateManifest (0.00s)
+=== RUN   TestDiffScope_DetectsDriftedArtifact
+  [project] DRIFTED  /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestDiffScope_DetectsDriftedArtifact540354616/001/.claude/agents/dev.md
+    expected: sha256:originalHash
+    actual:   sha256:1a89ce9441870404524a419f4129938af8cee88778e59bfb5d6bd607dd3e7f40
+--- PASS: TestDiffScope_DetectsDriftedArtifact (0.00s)
+=== RUN   TestDiffScope_MissingStateFile
+--- PASS: TestDiffScope_MissingStateFile (0.00s)
+=== RUN   TestDiffScope_MissingTarget
+--- PASS: TestDiffScope_MissingTarget (0.00s)
+=== RUN   TestRunDiff_BlueprintFlag_MutualExclusion_WithGlobal
+--- PASS: TestRunDiff_BlueprintFlag_MutualExclusion_WithGlobal (0.00s)
+=== RUN   TestDiffScope_ReportsSourceChanges
+  [project] clean    /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestDiffScope_ReportsSourceChanges2844481776/001/.claude/agents/dev.md
+  [project] clean    /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestDiffScope_ReportsSourceChanges2844481776/001/.claude/agents/dev.md
+  [project] SRC DRIFTED project.xcf
+    expected: sha256:23d3858d3d7bd5a76678fc9496bf2c2f756a1676e44f7532ea47476983eaf944
+    actual:   sha256:1ed2220ef3448d69a1c5720a5d17eea0c08d5beac146e26638c25ee31f57b1b3
+--- PASS: TestDiffScope_ReportsSourceChanges (0.00s)
+=== RUN   TestExportCmd_OutputFlagRegistered
+--- PASS: TestExportCmd_OutputFlagRegistered (0.00s)
+=== RUN   TestExportCmd_OutputFlagIsRequired
+--- PASS: TestExportCmd_OutputFlagIsRequired (0.00s)
+=== RUN   TestPrintFidelityNotes_Suppressed
+--- PASS: TestPrintFidelityNotes_Suppressed (0.00s)
+=== RUN   TestPrintFidelityNotes_StrictMode_PromotesWarningToError
+--- PASS: TestPrintFidelityNotes_StrictMode_PromotesWarningToError (0.00s)
+=== RUN   TestPrintFidelityNotes_WarnMode_DefaultPrefix
+--- PASS: TestPrintFidelityNotes_WarnMode_DefaultPrefix (0.00s)
+=== RUN   TestBuildSuppressedResourcesMap_PicksUpAgentOverride
+--- PASS: TestBuildSuppressedResourcesMap_PicksUpAgentOverride (0.00s)
+=== RUN   TestBuildSuppressedResourcesMap_PicksUpSkillOverride
+--- PASS: TestBuildSuppressedResourcesMap_PicksUpSkillOverride (0.00s)
+=== RUN   TestBuildSuppressedResourcesMap_PicksUpRuleOverride
+--- PASS: TestBuildSuppressedResourcesMap_PicksUpRuleOverride (0.00s)
+=== RUN   TestBuildSuppressedResourcesMap_PicksUpWorkflowOverride
+--- PASS: TestBuildSuppressedResourcesMap_PicksUpWorkflowOverride (0.00s)
+=== RUN   TestBuildSuppressedResourcesMap_MixedResourceKinds
+--- PASS: TestBuildSuppressedResourcesMap_MixedResourceKinds (0.00s)
+=== RUN   TestGraphAll_MutualExclusion_WithGlobal
+--- PASS: TestGraphAll_MutualExclusion_WithGlobal (0.00s)
+=== RUN   TestGraph_BlueprintFlag_MutualExclusion_WithGlobal
+--- PASS: TestGraph_BlueprintFlag_MutualExclusion_WithGlobal (0.00s)
+=== RUN   TestGraphAll_MutualExclusion_WithProject
+--- PASS: TestGraphAll_MutualExclusion_WithProject (0.00s)
+=== RUN   TestBuildGraph_HooksAndWorkflows
+--- PASS: TestBuildGraph_HooksAndWorkflows (0.00s)
+=== RUN   TestBuildGraph_ExcludesInheritedAgents
+--- PASS: TestBuildGraph_ExcludesInheritedAgents (0.00s)
+=== RUN   TestBuildGraph_PolicyNodes
+--- PASS: TestBuildGraph_PolicyNodes (0.00s)
+=== RUN   TestRenderTerminalHeader_PolicyCount
+--- PASS: TestRenderTerminalHeader_PolicyCount (0.00s)
+=== RUN   TestRenderDOT_PolicyColor
+--- PASS: TestRenderDOT_PolicyColor (0.00s)
+=== RUN   TestImport_HookScriptPassthrough
+[project] ✓ Import complete. Created project.xcf with 0 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImport_HookScriptPassthrough (0.00s)
+=== RUN   TestImportScope_Claude_ReadsMCPJson
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 2 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImportScope_Claude_ReadsMCPJson (0.00s)
+=== RUN   TestImportScope_Claude_AgentMemoryAutoSnapshot
+  Agent memory: 2 entry(ies) → xcf/memory/
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImportScope_Claude_AgentMemoryAutoSnapshot (0.00s)
+=== RUN   TestImportScope_Claude_ProjectInstructions
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+    import_providers_test.go:124: 
+        	Error Trace:	/Volumes/Projects/xcaffold-project/xcaffold/.worktrees/feat-manifest-relocation-memory/cmd/xcaffold/import_providers_test.go:124
+        	Error:      	"kind: project\nversion: \"1.0\"\nname: \"002\"\ntargets:\n  - claude\nagents:\n  - dev\n" does not contain "instructions-file"
+        	Test:       	TestImportScope_Claude_ProjectInstructions
+        	Messages:   	project.xcf must contain instructions-file reference
+--- FAIL: TestImportScope_Claude_ProjectInstructions (0.00s)
+=== RUN   TestImportScope_Gemini_SettingsAndMCP
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 2 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImportScope_Gemini_SettingsAndMCP (0.00s)
+=== RUN   TestImportScope_Gemini_ProjectInstructions
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+    import_providers_test.go:185: 
+        	Error Trace:	/Volumes/Projects/xcaffold-project/xcaffold/.worktrees/feat-manifest-relocation-memory/cmd/xcaffold/import_providers_test.go:185
+        	Error:      	"kind: project\nversion: \"1.0\"\nname: \"002\"\ntargets:\n  - gemini\nrules:\n  - style\n" does not contain "instructions-file"
+        	Test:       	TestImportScope_Gemini_ProjectInstructions
+--- FAIL: TestImportScope_Gemini_ProjectInstructions (0.00s)
+=== RUN   TestImportScope_Cursor_MCPJson
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 2 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImportScope_Cursor_MCPJson (0.00s)
+=== RUN   TestImportScope_Cursor_HooksJson
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImportScope_Cursor_HooksJson (0.00s)
+=== RUN   TestImportScope_Cursor_ProjectInstructions
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+    import_providers_test.go:272: 
+        	Error Trace:	/Volumes/Projects/xcaffold-project/xcaffold/.worktrees/feat-manifest-relocation-memory/cmd/xcaffold/import_providers_test.go:272
+        	Error:      	"kind: project\nversion: \"1.0\"\nname: \"002\"\ntargets:\n  - cursor\nrules:\n  - style\n" does not contain "instructions-file"
+        	Test:       	TestImportScope_Cursor_ProjectInstructions
+--- FAIL: TestImportScope_Cursor_ProjectInstructions (0.00s)
+=== RUN   TestImportScope_Copilot_ProjectInstructions
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+    import_providers_test.go:300: 
+        	Error Trace:	/Volumes/Projects/xcaffold-project/xcaffold/.worktrees/feat-manifest-relocation-memory/cmd/xcaffold/import_providers_test.go:300
+        	Error:      	"kind: project\nversion: \"1.0\"\nname: \"002\"\ntargets:\n  - copilot\nrules:\n  - style\n" does not contain "instructions-file"
+        	Test:       	TestImportScope_Copilot_ProjectInstructions
+--- FAIL: TestImportScope_Copilot_ProjectInstructions (0.00s)
+=== RUN   TestImportScope_Antigravity_NoMemoryCrash
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+
+Warnings:
+ ⚠ Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem
+--- PASS: TestImportScope_Antigravity_NoMemoryCrash (0.00s)
+=== RUN   TestImportScope_ClaudeWithProvider_DoesNotBreakExistingBehavior
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImportScope_ClaudeWithProvider_DoesNotBreakExistingBehavior (0.00s)
+=== RUN   TestImportScope_GitignoreFilter
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImportScope_GitignoreFilter (0.00s)
+=== RUN   TestImportScope_PrunesOrphanMemory
+  Agent memory: 1 entry(ies) → xcf/memory/
+[project] ✓ Import complete. Created project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+
+Warnings:
+ ⚠ claude: skipped "agent-memory/global": agent "global" not found in xcf/agents
+ ⚠ claude: skipped "agent-memory/sub/task": agent "sub" not found in xcf/agents
+--- PASS: TestImportScope_PrunesOrphanMemory (0.00s)
+=== RUN   TestImportScope_XcfDirAlreadyExists
+--- PASS: TestImportScope_XcfDirAlreadyExists (0.00s)
+=== RUN   TestExtractBodyAfterFrontmatter
+=== RUN   TestExtractBodyAfterFrontmatter/with_frontmatter_and_body
+=== RUN   TestExtractBodyAfterFrontmatter/no_frontmatter_returns_full_content
+=== RUN   TestExtractBodyAfterFrontmatter/frontmatter_with_empty_body
+=== RUN   TestExtractBodyAfterFrontmatter/frontmatter_with_leading_newline_in_body
+--- PASS: TestExtractBodyAfterFrontmatter (0.00s)
+    --- PASS: TestExtractBodyAfterFrontmatter/with_frontmatter_and_body (0.00s)
+    --- PASS: TestExtractBodyAfterFrontmatter/no_frontmatter_returns_full_content (0.00s)
+    --- PASS: TestExtractBodyAfterFrontmatter/frontmatter_with_empty_body (0.00s)
+    --- PASS: TestExtractBodyAfterFrontmatter/frontmatter_with_leading_newline_in_body (0.00s)
+=== RUN   TestExtractAgents_InlinesInstructions
+--- PASS: TestExtractAgents_InlinesInstructions (0.00s)
+=== RUN   TestExtractRules_InlinesInstructions
+--- PASS: TestExtractRules_InlinesInstructions (0.00s)
+=== RUN   TestExtractSkills_InlinesInstructionsButCopiesRefs
+--- PASS: TestExtractSkills_InlinesInstructionsButCopiesRefs (0.00s)
+=== RUN   TestExtractWorkflows_InlinesInstructions
+--- PASS: TestExtractWorkflows_InlinesInstructions (0.00s)
+=== RUN   TestImportScope_Messaging_NoReferencedInPlace
+--- PASS: TestImportScope_Messaging_NoReferencedInPlace (0.00s)
+=== RUN   TestImport_RoundTrip_SplitFiles
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 5 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImport_RoundTrip_SplitFiles (0.00s)
+=== RUN   TestMergeImportDirs_XcfDirAlreadyExists
+--- PASS: TestMergeImportDirs_XcfDirAlreadyExists (0.00s)
+=== RUN   TestImportScope_EmitsSplitFileFormat
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 2 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+--- PASS: TestImportScope_EmitsSplitFileFormat (0.00s)
+=== RUN   TestDetectAllGlobalPlatformDirs_Empty
+--- PASS: TestDetectAllGlobalPlatformDirs_Empty (0.00s)
+=== RUN   TestDetectAllGlobalPlatformDirs_SingleProvider
+--- PASS: TestDetectAllGlobalPlatformDirs_SingleProvider (0.00s)
+=== RUN   TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize
+--- PASS: TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize (0.00s)
+=== RUN   TestImportCmd_WithMemoryFlag_Registered
+--- PASS: TestImportCmd_WithMemoryFlag_Registered (0.00s)
+=== RUN   TestRunImport_WithMemory_UsesSourceDir
+--- PASS: TestRunImport_WithMemory_UsesSourceDir (0.00s)
+=== RUN   TestImport_WithMemory_Gemini_ExtractsBlocks
+--- PASS: TestImport_WithMemory_Gemini_ExtractsBlocks (0.00s)
+=== RUN   TestDetectTargets
+=== RUN   TestDetectTargets/claude_dir
+=== RUN   TestDetectTargets/agents_dir
+=== RUN   TestDetectTargets/cursor_dir
+=== RUN   TestDetectTargets/multiple_dirs_sorted
+=== RUN   TestDetectTargets/unknown_dir_ignored
+=== RUN   TestDetectTargets/empty
+--- PASS: TestDetectTargets (0.00s)
+    --- PASS: TestDetectTargets/claude_dir (0.00s)
+    --- PASS: TestDetectTargets/agents_dir (0.00s)
+    --- PASS: TestDetectTargets/cursor_dir (0.00s)
+    --- PASS: TestDetectTargets/multiple_dirs_sorted (0.00s)
+    --- PASS: TestDetectTargets/unknown_dir_ignored (0.00s)
+    --- PASS: TestDetectTargets/empty (0.00s)
+=== RUN   TestExtractProjectInstructions_ClaudeRoot
+--- PASS: TestExtractProjectInstructions_ClaudeRoot (0.00s)
+=== RUN   TestExtractProjectInstructions_ClaudeNestedScopes
+--- PASS: TestExtractProjectInstructions_ClaudeNestedScopes (0.00s)
+=== RUN   TestExtractProjectInstructions_CopilotFlatMode
+--- PASS: TestExtractProjectInstructions_CopilotFlatMode (0.00s)
+=== RUN   TestExtractProjectInstructions_NeverSetsProviderFilename
+--- PASS: TestExtractProjectInstructions_NeverSetsProviderFilename (0.00s)
+=== RUN   TestDetectDivergence_IdenticalContent_Collapsed
+--- PASS: TestDetectDivergence_IdenticalContent_Collapsed (0.00s)
+=== RUN   TestDetectDivergence_DifferentContent_VariantsSet
+--- PASS: TestDetectDivergence_DifferentContent_VariantsSet (0.00s)
+=== RUN   TestDetectDivergence_AutoMergeUnion
+--- PASS: TestDetectDivergence_AutoMergeUnion (0.00s)
+=== RUN   TestParseProvenanceMarkers_ReconstructsScopes
+--- PASS: TestParseProvenanceMarkers_ReconstructsScopes (0.00s)
+=== RUN   TestParseProvenanceMarkers_MalformedMarker_SkippedWithWarning
+--- PASS: TestParseProvenanceMarkers_MalformedMarker_SkippedWithWarning (0.00s)
+=== RUN   TestParseProvenanceMarkers_NoMarkers_ReturnsEmptyScopes
+--- PASS: TestParseProvenanceMarkers_NoMarkers_ReturnsEmptyScopes (0.00s)
+=== RUN   TestDetectDivergence_ExistingSidecarMissing_ReturnsError
+--- PASS: TestDetectDivergence_ExistingSidecarMissing_ReturnsError (0.00s)
+=== RUN   TestParseProvenanceMarkers_CRLFLineEndings
+--- PASS: TestParseProvenanceMarkers_CRLFLineEndings (0.00s)
+=== RUN   TestImport_ClaudeAndCursor_DetectsDivergence
+--- PASS: TestImport_ClaudeAndCursor_DetectsDivergence (0.00s)
+=== RUN   TestImport_FlatFileWithProvenanceMarkers_ReconstructsScopes
+[project] ✓ Import complete. Created .xcaffold/project.xcf with 1 resources.
+  Split xcf/ files written to xcf/ directory.
+  Run 'xcaffold apply' when ready to assume management.
+    import_test.go:1126: 
+        	Error Trace:	/Volumes/Projects/xcaffold-project/xcaffold/.worktrees/feat-manifest-relocation-memory/cmd/xcaffold/import_test.go:1126
+        	Error:      	"kind: project\nversion: \"1.0\"\nname: \"002\"\ntargets:\n  - claude\nagents:\n  - dev\n" does not contain "packages/worker"
+        	Test:       	TestImport_FlatFileWithProvenanceMarkers_ReconstructsScopes
+        	Messages:   	xcf must contain the reconstructed packages/worker scope
+--- FAIL: TestImport_FlatFileWithProvenanceMarkers_ReconstructsScopes (0.00s)
+=== RUN   TestImport_FromGemini_ExtractsRules
+--- PASS: TestImport_FromGemini_ExtractsRules (0.00s)
+=== RUN   TestImport_FromGemini_ExtractsSkills
+--- PASS: TestImport_FromGemini_ExtractsSkills (0.00s)
+=== RUN   TestImport_FromGemini_ExtractsAgents
+--- PASS: TestImport_FromGemini_ExtractsAgents (0.00s)
+=== RUN   TestImport_FromGemini_ExtractsSettingsHooksAndMCP
+--- PASS: TestImport_FromGemini_ExtractsSettingsHooksAndMCP (0.00s)
+=== RUN   TestImport_FromGemini_ExtractsInstructions
+--- PASS: TestImport_FromGemini_ExtractsInstructions (0.00s)
+=== RUN   TestImport_Copilot_Agents
+--- PASS: TestImport_Copilot_Agents (0.00s)
+=== RUN   TestImport_Copilot_Skills
+--- PASS: TestImport_Copilot_Skills (0.00s)
+=== RUN   TestImport_Copilot_Hooks_Roundtrip
+--- PASS: TestImport_Copilot_Hooks_Roundtrip (0.00s)
+=== RUN   TestImport_Copilot_MCP
+--- PASS: TestImport_Copilot_MCP (0.00s)
+=== RUN   TestExtractRules_NestedSubdirectories
+--- PASS: TestExtractRules_NestedSubdirectories (0.00s)
+=== RUN   TestResolveSourceFiles_WalksNestedDirs
+--- PASS: TestResolveSourceFiles_WalksNestedDirs (0.00s)
+=== RUN   TestExtractSkillSubdirs_AntigravityResources
+--- PASS: TestExtractSkillSubdirs_AntigravityResources (0.00s)
+=== RUN   TestExtractSkillSubdirs_ClaudeFlatMdFiles
+--- PASS: TestExtractSkillSubdirs_ClaudeFlatMdFiles (0.00s)
+=== RUN   TestExtractSkillSubdirs_UnknownProviderPassthrough
+--- PASS: TestExtractSkillSubdirs_UnknownProviderPassthrough (0.00s)
+=== RUN   TestInitWizard_Targets_IsSlice
+--- PASS: TestInitWizard_Targets_IsSlice (0.00s)
+=== RUN   TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF
+    init_test.go:36: 
+        	Error Trace:	/Volumes/Projects/xcaffold-project/xcaffold/.worktrees/feat-manifest-relocation-memory/cmd/xcaffold/init_test.go:36
+        	Error:      	Received unexpected error:
+        	            	open /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF349909488/001/.xcaffold/project.xcf: no such file or directory
+        	Test:       	TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF
+--- FAIL: TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF (0.00s)
+=== RUN   TestInit_WritesAgentReferenceByDefault
+--- PASS: TestInit_WritesAgentReferenceByDefault (0.00s)
+=== RUN   TestWriteReferenceTemplates_GeneratesSkillReference
+--- PASS: TestWriteReferenceTemplates_GeneratesSkillReference (0.00s)
+=== RUN   TestInit_E2E_SkillReferenceArtifact
+--- PASS: TestInit_E2E_SkillReferenceArtifact (0.00s)
+=== RUN   TestInit_ReferencesFieldInSkillXCF
+--- PASS: TestInit_ReferencesFieldInSkillXCF (0.00s)
+=== RUN   TestInit_SkillXCF_PathsUpdated
+--- PASS: TestInit_SkillXCF_PathsUpdated (0.00s)
+=== RUN   TestWriteReferenceTemplates_WritesToDotXcaffoldSchemas
+--- PASS: TestWriteReferenceTemplates_WritesToDotXcaffoldSchemas (0.00s)
+=== RUN   TestWriteXCFDirectory_CreatesLayout
+--- PASS: TestWriteXCFDirectory_CreatesLayout (0.00s)
+=== RUN   TestWriteXCFDirectory_NoAgent_StillCreatesScaffold
+--- PASS: TestWriteXCFDirectory_NoAgent_StillCreatesScaffold (0.00s)
+=== RUN   TestInit_GeneratesProjectXcf
+--- PASS: TestInit_GeneratesProjectXcf (0.00s)
+=== RUN   TestListCmd_FlagsRegistered
+--- PASS: TestListCmd_FlagsRegistered (0.00s)
+=== RUN   TestRunList_NoXcfDir_ReturnsError
+--- PASS: TestRunList_NoXcfDir_ReturnsError (0.00s)
+=== RUN   TestRunList_EmptyProject_ShowsHeaders
+--- PASS: TestRunList_EmptyProject_ShowsHeaders (0.00s)
+=== RUN   TestRunList_WithAgentsAndSkills_ShowsResources
+--- PASS: TestRunList_WithAgentsAndSkills_ShowsResources (0.00s)
+=== RUN   TestRunList_WithBlueprint_FiltersOutput
+--- PASS: TestRunList_WithBlueprint_FiltersOutput (0.00s)
+=== RUN   TestRunList_UnknownBlueprint_ReturnsError
+--- PASS: TestRunList_UnknownBlueprint_ReturnsError (0.00s)
+=== RUN   TestRegistryCmd_IsRegistered
+--- PASS: TestRegistryCmd_IsRegistered (0.00s)
+=== RUN   TestListCmd_IsRegistered
+--- PASS: TestListCmd_IsRegistered (0.00s)
+=== RUN   TestWalkUp_FindsFileWithinHome
+--- PASS: TestWalkUp_FindsFileWithinHome (0.00s)
+=== RUN   TestWalkUp_StopsAtHome
+--- PASS: TestWalkUp_StopsAtHome (0.00s)
+=== RUN   TestWalkUp_FindsAtHome
+--- PASS: TestWalkUp_FindsAtHome (0.00s)
+=== RUN   TestWalkUp_CwdIsHome_NoXcf
+--- PASS: TestWalkUp_CwdIsHome_NoXcf (0.00s)
+=== RUN   TestWalkUp_FindsAnyXcfFile
+--- PASS: TestWalkUp_FindsAnyXcfFile (0.00s)
+=== RUN   TestWalkUp_FindsXcfDirectory
+--- PASS: TestWalkUp_FindsXcfDirectory (0.00s)
+=== RUN   TestResolveProjectConfig_PrefersXcaffoldDir
+--- PASS: TestResolveProjectConfig_PrefersXcaffoldDir (0.00s)
+=== RUN   TestResolveProjectConfig_FallbackToRoot
+--- PASS: TestResolveProjectConfig_FallbackToRoot (0.00s)
+=== RUN   TestRunSchemaVersionMigrations_AlreadyCurrent
+    migrate_test.go:24: 
+        	Error Trace:	/Volumes/Projects/xcaffold-project/xcaffold/.worktrees/feat-manifest-relocation-memory/cmd/xcaffold/migrate_test.go:24
+        	Error:      	Received unexpected error:
+        	            	open /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestRunSchemaVersionMigrations_AlreadyCurrent1338136702/001/.xcaffold/project.xcf: no such file or directory
+        	Test:       	TestRunSchemaVersionMigrations_AlreadyCurrent
+--- FAIL: TestRunSchemaVersionMigrations_AlreadyCurrent (0.00s)
+=== RUN   TestRunSchemaVersionMigrations_NoMigrations
+    migrate_test.go:54: 
+        	Error Trace:	/Volumes/Projects/xcaffold-project/xcaffold/.worktrees/feat-manifest-relocation-memory/cmd/xcaffold/migrate_test.go:54
+        	Error:      	Received unexpected error:
+        	            	open /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestRunSchemaVersionMigrations_NoMigrations326356091/001/.xcaffold/project.xcf: no such file or directory
+        	Test:       	TestRunSchemaVersionMigrations_NoMigrations
+--- FAIL: TestRunSchemaVersionMigrations_NoMigrations (0.00s)
+=== RUN   TestMigrate_WritesSplitFiles
+--- PASS: TestMigrate_WritesSplitFiles (0.00s)
+=== RUN   TestReviewXCF_AllResourceSections
+DEPRECATION: rule "" uses always-apply without activation; migrate to activation: always
+--- PASS: TestReviewXCF_AllResourceSections (0.00s)
+=== RUN   TestReviewXCF_NoEmoji
+--- PASS: TestReviewXCF_NoEmoji (0.00s)
+=== RUN   TestReviewXCF_EmptySectionsOmitted
+--- PASS: TestReviewXCF_EmptySectionsOmitted (0.00s)
+=== RUN   TestRunStatus_NoStateFile
+--- PASS: TestRunStatus_NoStateFile (0.00s)
+=== RUN   TestRunStatus_AllClean
+--- PASS: TestRunStatus_AllClean (0.00s)
+=== RUN   TestRunStatus_ArtifactDrifted
+--- PASS: TestRunStatus_ArtifactDrifted (0.00s)
+=== RUN   TestRunStatus_SourceChanged
+--- PASS: TestRunStatus_SourceChanged (0.00s)
+=== RUN   TestRunStatus_BlueprintFlag
+--- PASS: TestRunStatus_BlueprintFlag (0.00s)
+=== RUN   TestExtractToolCallsFromResponse_StructuredContentArray
+--- PASS: TestExtractToolCallsFromResponse_StructuredContentArray (0.00s)
+=== RUN   TestExtractToolCallsFromResponse_Empty
+--- PASS: TestExtractToolCallsFromResponse_Empty (0.00s)
+=== RUN   TestExtractToolCallsFromResponse_MultipleTools
+--- PASS: TestExtractToolCallsFromResponse_MultipleTools (0.00s)
+=== RUN   TestExtractToolCallsFromResponse_InlineObjects
+--- PASS: TestExtractToolCallsFromResponse_InlineObjects (0.00s)
+=== RUN   TestExtractToolCallsFromResponse_NoJSON
+--- PASS: TestExtractToolCallsFromResponse_NoJSON (0.00s)
+=== RUN   TestExtractToolCallsFromResponse_EmptyString
+--- PASS: TestExtractToolCallsFromResponse_EmptyString (0.00s)
+=== RUN   TestBuildTestPrompt_ContainsSystemAndTask
+--- PASS: TestBuildTestPrompt_ContainsSystemAndTask (0.00s)
+=== RUN   TestBuildTestPrompt_ContainsToolUseInstruction
+--- PASS: TestBuildTestPrompt_ContainsToolUseInstruction (0.00s)
+=== RUN   TestTranslateCmd_RequiresFrom
+--- PASS: TestTranslateCmd_RequiresFrom (0.00s)
+=== RUN   TestTranslateCmd_RequiresTo
+--- PASS: TestTranslateCmd_RequiresTo (0.00s)
+=== RUN   TestTranslateCmd_InvalidFromProvider
+--- PASS: TestTranslateCmd_InvalidFromProvider (0.00s)
+=== RUN   TestTranslateCmd_InvalidToProvider
+--- PASS: TestTranslateCmd_InvalidToProvider (0.00s)
+=== RUN   TestTranslateCmd_FidelityModeValidation
+--- PASS: TestTranslateCmd_FidelityModeValidation (0.00s)
+=== RUN   TestTranslateCmd_DiffFormatValidation
+--- PASS: TestTranslateCmd_DiffFormatValidation (0.00s)
+=== RUN   TestTranslateCmd_SaveXcf_WritesFile
+translate dry-run: 1 file(s), 0 note(s)
+  rules/style.md
+--- PASS: TestTranslateCmd_SaveXcf_WritesFile (0.00s)
+=== RUN   TestTranslateCmd_DryRun_NoFilesWritten
+translate dry-run: 1 file(s), 0 note(s)
+  .agents/rules/style.md
+--- PASS: TestTranslateCmd_DryRun_NoFilesWritten (0.00s)
+=== RUN   TestTranslateCmd_IdempotentCheck_ExitZeroOnNoChange
+--- PASS: TestTranslateCmd_IdempotentCheck_ExitZeroOnNoChange (0.00s)
+=== RUN   TestTranslateCmd_AuditOut_WritesJSON
+--- PASS: TestTranslateCmd_AuditOut_WritesJSON (0.00s)
+=== RUN   TestTranslateCmd_XcfFlag_SkipsImport
+translate dry-run: 0 file(s), 0 note(s)
+--- PASS: TestTranslateCmd_XcfFlag_SkipsImport (0.00s)
+=== RUN   TestValidateCmd_ValidConfig
+syntax and cross-references: ok
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: deploy
+  field "instructions" must be present and non-empty
+
+policies: ok
+
+validation passed
+--- PASS: TestValidateCmd_ValidConfig (0.00s)
+=== RUN   TestValidateCmd_InvalidCrossRef
+validation failed: error in "/var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestValidateCmd_InvalidCrossRef3255154574/001/project.xcf": multi-document .xcf files are no longer supported; each .xcf file must contain exactly one resource (found document 2, kind: global); split into separate files under xcf/
+--- PASS: TestValidateCmd_InvalidCrossRef (0.00s)
+=== RUN   TestValidate_GlobalFlag_FileNotFound
+validation failed: failed to scan directory "/var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestValidate_GlobalFlag_FileNotFound4264226683/001/.xcaffold": lstat /var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestValidate_GlobalFlag_FileNotFound4264226683/001/.xcaffold: no such file or directory
+--- PASS: TestValidate_GlobalFlag_FileNotFound (0.00s)
+=== RUN   TestValidate_GlobalFlag_InvalidYAML
+validation failed: no *.xcf files found in directory "/var/folders/kd/zzc6j4sj1gx225ztb9zdkwrh0000gn/T/TestValidate_GlobalFlag_InvalidYAML667053137/001/.xcaffold"
+--- PASS: TestValidate_GlobalFlag_InvalidYAML (0.00s)
+=== RUN   TestValidate_GlobalFlag_ValidFile
+syntax and cross-references: ok
+
+POLICY VIOLATION [warning] agent-has-description
+  resource: reviewer
+  field "description" must be present and non-empty
+
+policies: ok
+
+validation passed
+--- PASS: TestValidate_GlobalFlag_ValidFile (0.00s)
+=== RUN   TestValidate_BlueprintFlag_MutualExclusion_WithGlobal
+--- PASS: TestValidate_BlueprintFlag_MutualExclusion_WithGlobal (0.00s)
+=== RUN   TestCheckBashWithoutHook_ProjectHook_NoWarn
+--- PASS: TestCheckBashWithoutHook_ProjectHook_NoWarn (0.00s)
+=== RUN   TestCheckBashWithoutHook_NoHook_Warns
+--- PASS: TestCheckBashWithoutHook_NoHook_Warns (0.00s)
+=== RUN   TestValidateCmd_StructuralChecks
+syntax and cross-references: ok
+
+structural warnings:
+  - skill "orphan" is defined but not referenced by any agent
+  - agent "developer" has no instructions or instructions-file
+
+POLICY VIOLATION [warning] no-empty-skills
+  resource: orphan
+  field "instructions" must be present and non-empty
+
+policies: ok
+
+validation passed
+--- PASS: TestValidateCmd_StructuralChecks (0.00s)
+=== RUN   TestWriteSplitFiles_DirectoryStructure
+--- PASS: TestWriteSplitFiles_DirectoryStructure (0.00s)
+=== RUN   TestWriteSplitFiles_RoundTrip
+--- PASS: TestWriteSplitFiles_RoundTrip (0.00s)
+=== RUN   TestWriteSplitFiles_Deterministic
+--- PASS: TestWriteSplitFiles_Deterministic (0.00s)
+=== RUN   TestWriteSplitFiles_EmptyResources
+--- PASS: TestWriteSplitFiles_EmptyResources (0.00s)
+=== RUN   TestWriteSplitFiles_NoHooks_NoHooksFile
+--- PASS: TestWriteSplitFiles_NoHooks_NoHooksFile (0.00s)
+=== RUN   TestWriteFrontmatterFile_AgentWithBody
+--- PASS: TestWriteFrontmatterFile_AgentWithBody (0.00s)
+=== RUN   TestWriteSplitFiles_ProviderPassthrough
+--- PASS: TestWriteSplitFiles_ProviderPassthrough (0.00s)
+=== RUN   TestWriteSplitFiles_AgentFrontmatter
+--- PASS: TestWriteSplitFiles_AgentFrontmatter (0.00s)
+=== RUN   TestWriteSplitFiles_AgentInstructionsFile_PureYAML
+--- PASS: TestWriteSplitFiles_AgentInstructionsFile_PureYAML (0.00s)
+=== RUN   TestWriteSplitFiles_SkillFrontmatter
+--- PASS: TestWriteSplitFiles_SkillFrontmatter (0.00s)
+=== RUN   TestWriteSplitFiles_RuleFrontmatter
+--- PASS: TestWriteSplitFiles_RuleFrontmatter (0.00s)
+=== RUN   TestWriteSplitFiles_ScopeFilter_OnlyDeclaredAgents
+--- PASS: TestWriteSplitFiles_ScopeFilter_OnlyDeclaredAgents (0.00s)
+=== RUN   TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll
+--- PASS: TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll (0.00s)
+=== RUN   TestWriteSplitFiles_ScopeFilter_SkillsAndRules
+--- PASS: TestWriteSplitFiles_ScopeFilter_SkillsAndRules (0.00s)
+=== RUN   TestWriteSplitFiles_SkillSubdirFields
+--- PASS: TestWriteSplitFiles_SkillSubdirFields (0.00s)
+=== RUN   TestWriteFrontmatterFile_EmptyBody_FallsBackToYAML
+--- PASS: TestWriteFrontmatterFile_EmptyBody_FallsBackToYAML (0.00s)
+FAIL
+FAIL	github.com/saero-ai/xcaffold/cmd/xcaffold	2.859s
+FAIL
