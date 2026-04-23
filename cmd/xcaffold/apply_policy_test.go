@@ -43,7 +43,7 @@ require:
 	targetFlag = targetClaude
 	defer func() { applyForce = false }()
 
-	err := applyScope(xcf, outputDir, "test")
+	err := applyScope(xcf, outputDir, filepath.Dir(xcf), "test")
 	require.Error(t, err, "applyScope must return an error when a policy error is triggered")
 	assert.True(t, strings.Contains(err.Error(), "policy error") || strings.Contains(err.Error(), "policy"),
 		"error message should reference policy, got: %s", err.Error())
@@ -103,7 +103,7 @@ require:
 	targetFlag = targetClaude
 	defer func() { applyForce = false }()
 
-	err := applyScope(xcf, outputDir, "test")
+	err := applyScope(xcf, outputDir, filepath.Dir(xcf), "test")
 	require.NoError(t, err, "applyScope must succeed when the only violations are warnings")
 
 	// Output directory must have been written.

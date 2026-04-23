@@ -78,7 +78,7 @@ func TestApplyScope_Project(t *testing.T) {
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	err := applyScope(xcf, claudeDirPath, "project")
+	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	stateFile := state.StateFilePath(dir, "")
@@ -94,7 +94,7 @@ func TestApplyScope_MissingXCF(t *testing.T) {
 	dir := t.TempDir()
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	err := applyScope(filepath.Join(dir, "nonexistent.xcf"), claudeDirPath, "project")
+	err := applyScope(filepath.Join(dir, "nonexistent.xcf"), claudeDirPath, dir, "project")
 	assert.Error(t, err, "should fail when xcf file does not exist")
 }
 
@@ -121,14 +121,17 @@ func TestRunApply_ScopeGlobal(t *testing.T) {
 	xcf := filepath.Join(dir, "global.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
+	// globalXcfHome is the source directory containing global.xcf (~/.xcaffold/).
+	// Output goes one level up from globalXcfHome into the home dir's .claude/.
 	globalXcfPath = xcf
-	globalXcfHome = filepath.Join(dir, ".claude")
+	globalXcfHome = dir
 	globalFlag = true
 	defer func() { globalFlag = false }()
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
 
+	// State is written inside globalXcfHome/.xcaffold/
 	stateFile := state.StateFilePath(dir, "")
 	_, err = os.Stat(stateFile)
 	assert.NoError(t, err, "state file should be written for global scope")
@@ -162,7 +165,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	// First apply — should compile
 	applyForce = false
 	targetFlag = targetClaude
-	err := applyScope(xcf, claudeDirPath, "project")
+	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	stateFile := state.StateFilePath(dir, "")
@@ -175,7 +178,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	ts1 := m1.Targets[targetClaude].LastApplied
 
 	// Second apply — should skip (same sources)
-	err = applyScope(xcf, claudeDirPath, "project")
+	err = applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	// State timestamp should NOT change (compilation was skipped)
@@ -195,7 +198,7 @@ func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
 	targetFlag = targetClaude
 
 	// First apply
-	err := applyScope(xcf, claudeDirPath, "project")
+	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	stateFile := state.StateFilePath(dir, "")
@@ -212,7 +215,7 @@ name: apply-test-modified
 	time.Sleep(1 * time.Second)
 
 	// Second apply — should recompile
-	err = applyScope(xcf, claudeDirPath, "project")
+	err = applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	m2, err := state.ReadState(stateFile)
@@ -231,7 +234,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 
 	// First apply (non-force)
 	applyForce = false
-	err := applyScope(xcf, claudeDirPath, "project")
+	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	stateFile := state.StateFilePath(dir, "")
@@ -242,7 +245,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 	// Second apply with --force — should recompile despite no changes
 	applyForce = true
 	time.Sleep(1 * time.Second)
-	err = applyScope(xcf, claudeDirPath, "project")
+	err = applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	m2, err := state.ReadState(stateFile)
@@ -276,7 +279,7 @@ agents:
 
 	targetFlag = targetClaude
 	applyForce = true
-	err := applyScope(xcf, claudeDirPath, "project")
+	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	// Verify agent file exists
@@ -293,7 +296,7 @@ name: orphan-test
 	require.NoError(t, os.Remove(filepath.Join(dir, "global.xcf")))
 
 	// Second apply — should purge the orphaned agent file
-	err = applyScope(xcf, claudeDirPath, "project")
+	err = applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	_, err = os.Stat(agentFile)
@@ -450,7 +453,7 @@ agents:
 	targetFlag = targetClaude
 	applyForce = true
 	applyDryRun = false
-	err := applyScope(xcf, claudeDirPath, "project")
+	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	agentFile := filepath.Join(dir, ".claude", "agents", "dev.md")
@@ -465,7 +468,7 @@ name: orphan-test
 
 	// Dry run — should NOT delete the file
 	applyDryRun = true
-	err = applyScope(xcf, claudeDirPath, "project")
+	err = applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	_, err = os.Stat(agentFile)
@@ -497,7 +500,7 @@ version: "1"
 
 	applyForce = true
 	targetFlag = targetClaude
-	err := applyScope(xcf, claudeDirPath, "project")
+	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
 	stateFile := state.StateFilePath(dir, "")

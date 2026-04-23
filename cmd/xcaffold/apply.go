@@ -130,7 +130,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 				}
 			}
 		} else {
-			if _, err := parser.ParseDirectory(filepath.Dir(xcfPath)); err != nil {
+			// Use projectRoot (not filepath.Dir(xcfPath)) — xcfPath may live
+			// inside .xcaffold/ and filepath.Dir would give the wrong directory.
+			baseDir := projectRoot
+			if baseDir == "" {
+				baseDir = filepath.Dir(xcfPath)
+			}
+			if _, err := parser.ParseDirectory(baseDir); err != nil {
 				return fmt.Errorf("[project] parse error: %w", err)
 			}
 			fmt.Println("[project] ✓ Syntax is valid")
@@ -153,7 +159,12 @@ func runApply(cmd *cobra.Command, args []string) error {
 		if globalFlag {
 			parseDir = globalXcfHome
 		} else {
-			parseDir = filepath.Dir(xcfPath)
+			// Use projectRoot (not filepath.Dir(xcfPath)) — xcfPath may live
+			// inside .xcaffold/ and filepath.Dir would give the wrong directory.
+			parseDir = projectRoot
+			if parseDir == "" {
+				parseDir = filepath.Dir(xcfPath)
+			}
 		}
 		config, err := parser.ParseDirectory(parseDir)
 		if err != nil {
@@ -184,24 +195,35 @@ func runApply(cmd *cobra.Command, args []string) error {
 	}
 
 	if globalFlag {
-		return applyScope(globalXcfPath, globalXcfHome, "global")
+		// globalXcfHome is ~/.xcaffold/ — the source directory.
+		// Global artifacts are written one level up (~/), into ~/.claude/ etc.
+		globalOutDir := filepath.Join(filepath.Dir(globalXcfHome), compiler.OutputDir(targetFlag))
+		return applyScope(globalXcfPath, globalOutDir, globalXcfHome, "global")
+	}
+
+	// projectRoot is the canonical CWD-level project directory, always set by
+	// resolveProjectConfig before any subcommand runs. It is the single source
+	// of truth for the project root — never derive it from filepath.Dir(xcfPath)
+	// because xcfPath may live inside .xcaffold/.
+	if projectRoot == "" {
+		// Defensive fallback: should never happen post-resolveProjectConfig.
+		return fmt.Errorf("internal error: project root not resolved; run from a directory containing a project.xcf or .xcaffold/project.xcf")
 	}
 
 	// Determine which targets to compile.
 	// When --target is explicitly set by the user, honour it exclusively.
 	// Otherwise, read the declared targets from the project config and compile
 	// for each one. Fall back to "claude" for configs that predate targets:.
-	targets := resolveTargets(cmd, xcfPath)
+	targets := resolveTargets(cmd, projectRoot)
 
-	baseDir := filepath.Dir(xcfPath)
 	for _, t := range targets {
 		targetFlag = t
-		outDir := filepath.Join(baseDir, compiler.OutputDir(t))
-		if err := applyScope(xcfPath, outDir, "project"); err != nil {
+		outDir := filepath.Join(projectRoot, compiler.OutputDir(t))
+		if err := applyScope(xcfPath, outDir, projectRoot, "project"); err != nil {
 			return err
 		}
 	}
-	_ = registry.UpdateLastApplied(baseDir)
+	_ = registry.UpdateLastApplied(projectRoot)
 	return nil
 }
 
@@ -210,12 +232,14 @@ func runApply(cmd *cobra.Command, args []string) error {
 // single value is returned. Otherwise the declared targets list from the
 // project config is used, falling back to ["claude"] when no targets are
 // declared.
-func resolveTargets(cmd *cobra.Command, xcfFilePath string) []string {
+//
+// baseDir must be the project root directory (not filepath.Dir(xcfPath)) —
+// xcfPath may live inside .xcaffold/ and filepath.Dir would give the wrong dir.
+func resolveTargets(cmd *cobra.Command, baseDir string) []string {
 	if cmd != nil && cmd.Flag("target") != nil && cmd.Flag("target").Changed {
 		return []string{targetFlag}
 	}
 
-	baseDir := filepath.Dir(xcfFilePath)
 	config, err := parser.ParseDirectory(baseDir)
 	if err == nil && config.Project != nil && len(config.Project.Targets) > 0 {
 		return config.Project.Targets
@@ -235,16 +259,17 @@ func printDiagnostics(diags []parser.Diagnostic) {
 	}
 }
 
-// applyScope compiles a single xcf file into outputDir. scopeName is used as a
-// prefix in terminal output so the user can distinguish global from project
-// compilation.
+// applyScope compiles the xcf configuration at configPath into outputDir.
+// baseDir is the project root directory — the canonical source of truth passed
+// in by the caller (runApply uses projectRoot; global apply uses globalXcfHome).
+// It must never be derived from filepath.Dir(configPath) because configPath may
+// live inside .xcaffold/ and filepath.Dir would give the wrong directory.
+//
+// scopeName is used as a prefix in terminal output so the user can distinguish
+// global from project compilation.
 //
 //nolint:gocyclo
-func applyScope(configPath, outputDir, scopeName string) error {
-	// baseDir is the directory containing the xcf file — used by the compiler
-	// to resolve instructions-file: and references: paths.
-	baseDir := filepath.Dir(configPath)
-
+func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	config, err := parser.ParseDirectory(baseDir)
 	if err != nil {
 		return fmt.Errorf("[%s] parse error: %w", scopeName, err)
@@ -299,8 +324,9 @@ func applyScope(configPath, outputDir, scopeName string) error {
 	}
 	// --- End smart skip ---
 
-	configSnapshot := deepCopyConfig(config)
-
+	// compiler.Compile mutates config in-place — it calls StripInherited() to
+	// remove globally-inherited resources before rendering. After Compile returns,
+	// config reflects exactly what was compiled (no global-scope bleed-through).
 	out, notes, err := compiler.Compile(config, baseDir, targetFlag, applyBlueprintFlag)
 	if err != nil {
 		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
@@ -320,8 +346,11 @@ func applyScope(configPath, outputDir, scopeName string) error {
 
 	printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, targetFlag)), false)
 
-	// Policy evaluation
-	violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, out)
+	// Policy evaluation. Run against config post-Compile() — compiler.Compile
+	// has already called StripInherited() so globally-inherited resources (e.g.
+	// from ~/.xcaffold/global.xcf) are absent. Policies only evaluate what was
+	// actually compiled, preventing spurious violations on user-wide globals.
+	violations := policy.Evaluate(config.Policies, config, out)
 	policyErrors := policy.FilterBySeverity(violations, policy.SeverityError)
 	policyWarnings := policy.FilterBySeverity(violations, policy.SeverityWarning)
 
@@ -332,9 +361,6 @@ func applyScope(configPath, outputDir, scopeName string) error {
 		fmt.Fprint(os.Stderr, policy.FormatViolations(policyErrors))
 		return fmt.Errorf("[%s] apply blocked: %d policy error(s) found", scopeName, len(policyErrors))
 	}
-
-	// Resolve the target-specific output directory instead of the hardcoded default
-	outputDir = filepath.Join(filepath.Dir(outputDir), compiler.OutputDir(targetFlag))
 
 	oldManifest, _ := state.ReadState(stateFilePath)
 
