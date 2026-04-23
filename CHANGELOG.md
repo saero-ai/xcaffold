@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed data loss in copilot `InstructionsFile` rendering and copilot/gemini model resolution (renderer)
 - Fixed `graph` command hardcoded `.claude` fallback to use `compiler.OutputDir()` (graph)
 - Fixed `diff` command inconsistent target normalization between global and project scope (diff)
+- Fixed Copilot MCP config generation layout, correctly emitting standard layout JSON objects out to `.vscode/mcp.json` (renderer)
 
 ### Added
 - `xcaffold init` automatically generates a self-referential `/xcaffold` skill (`xcf/skills/xcaffold.xcf`) out of the box, teaching AI assistants local schema constraints and provider support matrices natively.
@@ -44,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SourceProvider` annotation field on all AST resource types for import provenance tracking
 - `parser.ReclassifyExtras`: auto-graduates ProviderExtras files when importers recognize them
 - Apply-time fidelity notes for cross-provider extras that cannot be translated
+- `importer.KindHookScript` and canonical routing mapping `hooks/**` retaining raw hook script files dynamically across Claude, Cursor, Copilot and Gemini providers (importer)
 
 ### Fixed
 - Copilot renderer path-doubling bug: OutputDir() now returns ".github" and all emitted file paths are relative
