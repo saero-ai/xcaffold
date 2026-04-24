@@ -5,6 +5,8 @@ description: "Standalone .xcf snippet files demonstrating different features and
 
 # Configuration Examples
 
+> For comprehensive field references that exercise every field per kind, see `schema/golden/`.
+
 This directory provides standalone snippet files demonstrating different `.xcf` features and topology patterns. Each file contains exactly one resource document, matching the format the parser requires.
 
 ## Project

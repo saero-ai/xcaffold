@@ -580,6 +580,11 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 				ref.Content = trimmedBody
 				config.References[lastName] = ref
 			}
+		case "memory":
+			if m, ok := config.Memory[lastName]; ok && m.Instructions == "" {
+				m.Instructions = trimmedBody
+				config.Memory[lastName] = m
+			}
 		}
 	}
 

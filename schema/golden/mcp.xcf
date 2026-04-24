@@ -1,0 +1,20 @@
+kind: mcp
+version: "1.0"
+name: golden-mcp
+type: stdio
+command: node
+args: [./server.js, --port, "3000"]
+cwd: ./mcp-servers/golden
+env:
+  API_KEY: "example-key"
+  LOG_LEVEL: debug
+headers:
+  Authorization: "Bearer example-token"
+  X-Custom-Header: "example-value"
+disabled: false
+disabled-tools: [dangerous-tool, restricted-op]
+oauth:
+  client-id: "example-client-id"
+  scope: "read write"
+auth-provider-type: oauth2
+url: ""

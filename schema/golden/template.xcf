@@ -1,0 +1,6 @@
+# Preview — parser support pending. This file is NOT validated by the CI
+# test (golden_test.go skips it).
+kind: template
+version: "1.0"
+name: golden-template-preview
+description: "Preview — parser support pending."

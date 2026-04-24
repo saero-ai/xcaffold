@@ -1,0 +1,29 @@
+# Preview — parser supports this kind but full field coverage is pending.
+# Documentation and tooling are not yet finalized. Fields may change.
+kind: policy
+version: "1.0"
+name: golden-policy-preview
+description: "Preview — parser supports this kind but full field coverage is pending."
+severity: warning
+target: agent
+match:
+  has-tool: Bash
+  has-field: model
+  name-matches: "golden-*"
+  target-includes: claude
+require:
+  - field: description
+    is-present: true
+    min-length: 10
+  - field: model
+    one-of:
+      - claude-opus-4-5
+      - claude-sonnet-4-5
+      - claude-haiku-4-5
+    max-count: 1
+deny:
+  - content-contains:
+      - "FIXME"
+      - "TODO: remove"
+    content-matches: "secret_key=.*"
+    path-contains: ".deprecated"

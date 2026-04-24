@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed `xcaffold apply` to run optimizer required passes (e.g. `flatten-scopes`, `inline-imports`) after compilation and before policy evaluation (apply)
 - Changed internal `claudeDir` variable to `projectRoot` across all CLI commands for provider-agnostic path resolution (cmd)
 
+### Added (Schema)
+
+- Added golden manifest reference files in `schema/golden/` exercising every field per resource kind (schema)
+- Added CI test validating all golden manifests parse without error (schema)
+
+### Fixed (Parser)
+
+- Fixed missing `case "memory":` in frontmatter body assignment — memory `.xcf` files with frontmatter + body now correctly assign body to Instructions field (parser)
+
 ### Fixed (Provider-Agnostic Renderer)
 
 - Enforced path-safe slugification for imported agent-scoped memory files across all renderers to ensure high-fidelity synchronization (compiler)

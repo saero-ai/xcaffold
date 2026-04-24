@@ -241,3 +241,56 @@ func TestParse_Fixture_MemoryEntries(t *testing.T) {
 	require.True(t, hasSeedOnce, "fixture must have a seed-once (or default) memory entry")
 	require.True(t, hasTracked, "fixture must have a tracked memory entry")
 }
+
+// TestParse_Memory_FrontmatterBody verifies that the markdown body of a
+// frontmatter-format kind: memory file is assigned to Instructions when the
+// YAML instructions: field is not set.
+func TestParse_Memory_FrontmatterBody(t *testing.T) {
+	xcf := `---
+kind: memory
+version: "1.0"
+name: body-test
+type: project
+---
+This is the memory body content.
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "body-test.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
+
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	config, err := ParseFile(path)
+	require.NoError(t, err)
+
+	m, ok := config.Memory["body-test"]
+	require.True(t, ok, "body-test memory entry must be present")
+	require.Equal(t, "This is the memory body content.", m.Instructions,
+		"markdown body must be assigned to Instructions when yaml instructions: is empty")
+}
+
+// TestParse_Memory_FrontmatterBody_YAMLWins verifies that when both the YAML
+// instructions: field and a markdown body are present, the YAML field wins and
+// the body is discarded.
+func TestParse_Memory_FrontmatterBody_YAMLWins(t *testing.T) {
+	xcf := `---
+kind: memory
+version: "1.0"
+name: yaml-wins
+type: project
+instructions: "YAML wins"
+---
+This body should be discarded.
+`
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "yaml-wins.xcf")
+	require.NoError(t, os.WriteFile(path, []byte(xcf), 0o600))
+
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	config, err := ParseFile(path)
+	require.NoError(t, err)
+
+	m, ok := config.Memory["yaml-wins"]
+	require.True(t, ok, "yaml-wins memory entry must be present")
+	require.Equal(t, "YAML wins", m.Instructions,
+		"yaml instructions: field must win over markdown body")
+}
