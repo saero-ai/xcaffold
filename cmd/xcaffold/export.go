@@ -19,8 +19,9 @@ var (
 )
 
 var exportCmd = &cobra.Command{
-	Use:   "export",
-	Short: "Package compiled output as a distributable plugin",
+	Use:    "export",
+	Hidden: true,
+	Short:  "Package compiled output as a distributable plugin",
 	Long: `xcaffold export repackages your compiled output into a standard
 plugin directory that can be shared and distributed.
 

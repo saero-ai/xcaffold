@@ -76,8 +76,9 @@ func runSchemaVersionMigrations(cmd *cobra.Command, configPath string) error {
 }
 
 var migrateCmd = &cobra.Command{
-	Use:   "migrate",
-	Short: "Migrate legacy xcaffold layouts to the centralized architecture",
+	Use:    "migrate",
+	Hidden: true,
+	Short:  "Upgrade legacy xcaffold layouts to current schema",
 	Long: `Migrate upgrades project.xcf file layouts and schema versions:
 
   - Schema version migrations (applies any pending version upgrades)

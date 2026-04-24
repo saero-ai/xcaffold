@@ -42,43 +42,27 @@ var rootCmd = &cobra.Command{
 	Short: "xcaffold — deterministic agent configuration compiler",
 	Long: `xcaffold is an open-source, deterministic agent configuration compiler.
 
- ┌───────────────────────────────────────────────────────────────────┐
- │                       COMMAND REFERENCE                           │
- └───────────────────────────────────────────────────────────────────┘
-  • Bootstrap   [xcaffold init]      Creates base project scaffolding
-  • Ingestion   [xcaffold import]    Migrates dirs & translates via --source
-  • Audit       [xcaffold analyze]   Inspects repo & builds XCF config
-  • Topology    [xcaffold graph]     Visualizes agent topology maps
-  • Compilation [xcaffold apply]     Compiles XCF (use --check to validate syntax)
-  • Drift Check [xcaffold diff]      Detects manual config tampering
-  • Validation  [xcaffold test]      Runs an LLM-in-the-loop proxy
-  • Export      [xcaffold export]    Packages output as a distributable plugin
-
- ┌───────────────────────────────────────────────────────────────────┐
- │                            UTILITIES                              │
- └───────────────────────────────────────────────────────────────────┘
-  • Translate   [xcaffold translate] Converts configs between providers with fidelity control
-  • Validate    [xcaffold validate]  Checks syntax, cross-refs, and structural invariants
-  • Review      [xcaffold review]    Universally parses state files
-    ↳ Supports: project.xcf, audit.json, plan.json, trace.jsonl
-    ↳ Try: 'xcaffold review all'
-  • List        [xcaffold list]      Lists local resources and blueprints
-  • Registry    [xcaffold registry]  Lists all managed projects
-  • Migration   [xcaffold migrate]   Upgrades legacy layouts
-
- ┌───────────────────────────────────────────────────────────────────┐
- │                           SCOPES                                  │
- └───────────────────────────────────────────────────────────────────┘
-  • Project  [default]         project.xcf            -> .claude/ | .cursor/ | .agents/
-  • Global   [--global / -g]   ~/.xcaffold/global.xcf -> ~/.claude/ | ~/.cursor/ | ~/.agents/
-
-Use 'xcaffold --help' for more information on available commands.`,
+Scopes:
+  Project  [default]         project.xcf            -> .claude/ | .cursor/ | .agents/
+  Global   [--global / -g]   ~/.xcaffold/global.xcf -> ~/.claude/ | ~/.cursor/ | ~/.agents/`,
 	PersistentPreRunE: resolveConfig,
 }
 
 func init() {
 	state.XcaffoldVersion = version
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, date: %s)", version, commit, date)
+
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
+
+	orig := rootCmd.HelpTemplate()
+	rootCmd.SetHelpTemplate(orig + `{{if eq .Name "xcaffold"}}
+Preview (coming in R2):
+  export      Package resources into a distributable blueprint
+  translate   Cross-compile .xcf resources to a different provider format
+  test        Run LLM-as-Judge quality assessments
+  registry    Pull and push blueprints from a remote registry
+  migrate     Upgrade legacy xcaffold layouts to current schema
+{{end}}`)
 
 	rootCmd.PersistentFlags().StringVar(
 		&configFlag,
@@ -99,10 +83,6 @@ func init() {
 // It resolves the --config and --global flags into a stable set of absolute paths
 // that all subcommands can use without re-implementing CWD logic.
 func resolveConfig(cmd *cobra.Command, args []string) error {
-	if cmd.Name() == "review" {
-		return nil
-	}
-
 	if err := registry.EnsureGlobalHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not initialize global home: %v\n", err)
 	}
@@ -142,7 +122,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "registry" || cmd.Name() == "migrate" || cmd.Name() == "analyze" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "registry" || cmd.Name() == "migrate" {
 		return nil
 	}
 	var configDir string
