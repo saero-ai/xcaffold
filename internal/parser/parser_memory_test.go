@@ -186,6 +186,41 @@ memory:
 	}
 }
 
+// TestParse_Memory_StandaloneKindFile verifies that a kind: memory .xcf
+// file located under xcf/memory/<agentID>/ is (a) parsed into config.Memory
+// and (b) annotated with AgentRef derived from the parent directory name.
+func TestParse_Memory_StandaloneKindFile(t *testing.T) {
+	dir := t.TempDir()
+	memDir := filepath.Join(dir, "xcf", "memory", "auth-specialist")
+	require.NoError(t, os.MkdirAll(memDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`---
+kind: project
+version: "1.0"
+name: demo
+targets:
+  - claude
+---
+`), 0o644))
+	body := []byte(`---
+kind: memory
+version: "1.0"
+name: project_audit_log_owner
+description: "who owns the audit log"
+instructions: "Audit log is owned by the security team."
+---
+`)
+	require.NoError(t, os.WriteFile(filepath.Join(memDir, "project_audit_log_owner.xcf"), body, 0o644))
+
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+
+	entry, ok := cfg.Memory["project_audit_log_owner"]
+	require.True(t, ok, "expected config.Memory[project_audit_log_owner] to be present")
+	require.Equal(t, "auth-specialist", entry.AgentRef, "AgentRef must be derived from xcf/memory/<agentID>/ directory")
+	require.NotEmpty(t, entry.Instructions)
+}
+
 func TestParse_Fixture_MemoryEntries(t *testing.T) {
 	path := "../../testing/fixtures/full.xcf"
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")

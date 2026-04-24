@@ -626,6 +626,11 @@ type MemoryConfig struct {
 	Instructions     string `yaml:"instructions,omitempty"`
 	InstructionsFile string `yaml:"instructions-file,omitempty"`
 
+	// AgentRef encodes the owning agent derived from xcf/memory/<agentID>/
+	// directory placement at parse time. Populated by the parser, never
+	// serialized. Used by renderers to group memory output per agent.
+	AgentRef string `yaml:"-"`
+
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`

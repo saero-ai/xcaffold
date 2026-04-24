@@ -2729,7 +2729,7 @@ func runMemorySnapshot(cmd *cobra.Command, source string, fromPlatform string, p
 // resolveClaudeMemoryDir determines the memory directory to import from.
 // If source is a valid directory, it is used directly.
 // Otherwise, the function derives ~/.claude/projects/<encoded-cwd>/memory/
-// via claudeProjectMemoryDir (shared with apply.go).
+// via claudeProjectMemoryDir.
 func resolveClaudeMemoryDir(source, fromPlatform string) (string, error) {
 	if source != "" {
 		info, err := os.Stat(source)
@@ -2771,7 +2771,7 @@ func printMemorySnapshotSummary(cmd *cobra.Command, s *bir.ImportSummary, planOn
 		}
 	}
 	if s.Imported > 0 {
-		fmt.Fprintln(out, "\nadd --include-memory to your next xcaffold apply to seed these into a target provider")
+		fmt.Fprintln(out, "\nrun xcaffold apply to compile these memory entries into the target provider")
 	}
 }
 
@@ -2994,4 +2994,48 @@ func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
 		}
 	}
 	return nil
+}
+
+// claudeProjectMemoryDir returns the Claude project memory directory for a
+// given project root: ~/.claude/projects/<encoded-projectRoot>/memory/.
+//
+// Path encoding follows Claude's own convention: forward slashes are replaced
+// with hyphens. If projectRoot is empty or ".", os.Getwd() is used as a fallback.
+func claudeProjectMemoryDir(projectRoot string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolving home directory: %w", err)
+	}
+	if projectRoot == "" || projectRoot == "." {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("resolving working directory: %w", err)
+		}
+		projectRoot = cwd
+	}
+	projectRoot = filepath.Clean(projectRoot)
+	if !filepath.IsAbs(projectRoot) {
+		abs, err := filepath.Abs(projectRoot)
+		if err != nil {
+			return "", fmt.Errorf("resolving absolute project root: %w", err)
+		}
+		projectRoot = abs
+	}
+	encoded := strings.ReplaceAll(projectRoot, "/", "-")
+	return filepath.Join(home, ".claude", "projects", encoded, "memory"), nil
+}
+
+// geminiMemoryDir returns the directory where Gemini's GEMINI.md context file
+// lives. The default is ~/.gemini/ following Gemini CLI conventions. The
+// XCAFFOLD_GEMINI_DIR environment variable overrides this for testing and
+// non-standard installations.
+func geminiMemoryDir() (string, error) {
+	if override := os.Getenv("XCAFFOLD_GEMINI_DIR"); override != "" {
+		return filepath.Clean(override), nil
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolving home directory for gemini target: %w", err)
+	}
+	return filepath.Join(home, ".gemini"), nil
 }

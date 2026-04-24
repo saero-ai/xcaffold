@@ -1,15 +1,12 @@
 package main
 
 import (
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -515,197 +512,136 @@ version: "1"
 	applyForce = false
 }
 
-// TestApplyCmd_IncludeMemoryFlag_Registered verifies the --include-memory flag
-// is registered on applyCmd with the correct default.
-func TestApplyCmd_IncludeMemoryFlag_Registered(t *testing.T) {
+// TestApplyCmd_NoIncludeMemoryFlag verifies that --include-memory is no longer
+// registered on applyCmd now that memory rendering is always-on via the orchestrator.
+func TestApplyCmd_NoIncludeMemoryFlag(t *testing.T) {
 	flag := applyCmd.Flags().Lookup("include-memory")
-	require.NotNil(t, flag, "--include-memory flag must be registered")
-	require.Equal(t, "false", flag.DefValue)
+	require.Nil(t, flag, "--include-memory must not be registered; memory rendering is always-on")
 }
 
-// TestApplyCmd_ReseedFlag_Registered verifies the --reseed flag is registered
-// on applyCmd with the correct default.
-func TestApplyCmd_ReseedFlag_Registered(t *testing.T) {
+// TestApplyCmd_NoReseedFlag verifies that --reseed is no longer registered on
+// applyCmd. Use --force to bypass drift detection and overwrite all outputs.
+func TestApplyCmd_NoReseedFlag(t *testing.T) {
 	flag := applyCmd.Flags().Lookup("reseed")
-	require.NotNil(t, flag, "--reseed flag must be registered")
-	require.Equal(t, "false", flag.DefValue)
+	require.Nil(t, flag, "--reseed must not be registered; use --force to overwrite outputs")
 }
 
-// TestApplyCmd_ReseedImpliesIncludeMemory verifies the memoryPassEnabled
-// helper treats --reseed as implying --include-memory.
-func TestApplyCmd_ReseedImpliesIncludeMemory(t *testing.T) {
-	require.True(t, memoryPassEnabled(false, true), "reseed=true must enable memory pass even when include-memory is false")
-	require.True(t, memoryPassEnabled(true, false), "include-memory=true must enable memory pass")
-	require.True(t, memoryPassEnabled(true, true), "both flags set must enable memory pass")
-	require.False(t, memoryPassEnabled(false, false), "neither flag set must not enable memory pass")
-}
+// TestApplyScope_OrchestratorMemory_Claude verifies that the always-on
+// orchestrator path emits memory files keyed at
+// agent-memory/default/<name>.md inside .claude/ when no agent-ref directory
+// is used (entry lives directly under xcf/memory/).
+func TestApplyScope_OrchestratorMemory_Claude(t *testing.T) {
+	dir := t.TempDir()
 
-// TestRunMemoryPass_Cursor_EmitsFidelityNote verifies that running the memory
-// pass against the cursor target emits a MEMORY_NO_NATIVE_TARGET fidelity note.
-func TestRunMemoryPass_Cursor_EmitsFidelityNote(t *testing.T) {
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "test body"},
-			},
-		},
-	}
-	cursorR, _ := rendererForTarget("cursor")
-	seeds, notes, err := runMemoryPass(config, cursorR, t.TempDir(), t.TempDir(), nil, false, false)
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+version: "1.0"
+name: memory-render-test
+`), 0600))
+
+	// Memory entry at the root of xcf/memory/ — no agent-ref directory, so
+	// AgentRef will be empty string and the renderer defaults to "default".
+	memDir := filepath.Join(dir, "xcf", "memory")
+	require.NoError(t, os.MkdirAll(memDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(memDir, "user-role.xcf"), []byte(`kind: memory
+version: "1.0"
+name: user-role
+type: user
+instructions: "Robert is the founder."
+`), 0600))
+
+	claudeDir := filepath.Join(dir, ".claude")
+	targetFlag = targetClaude
+	applyForce = true
+	defer func() { applyForce = false }()
+
+	err := applyScope(xcf, claudeDir, dir, "project")
 	require.NoError(t, err)
-	require.Empty(t, seeds, "cursor memory pass must not produce lock seeds")
-	require.Len(t, notes, 1)
-	require.Equal(t, renderer.CodeMemoryNoNativeTarget, notes[0].Code)
-}
 
-// TestRunMemoryPass_Antigravity_WritesKnowledgeFiles verifies that the
-// antigravity memory pass writes knowledge/<name>.md files to outputDir and
-// returns a state.MemorySeed per file.
-func TestRunMemoryPass_Antigravity_WritesKnowledgeFiles(t *testing.T) {
-	outputDir := t.TempDir()
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"team-context": {Name: "team-context", Type: "project", Instructions: "we ship weekly"},
-			},
-		},
-	}
-	antigravityR, _ := rendererForTarget("antigravity")
-	seeds, _, err := runMemoryPass(config, antigravityR, t.TempDir(), outputDir, nil, false, false)
-	require.NoError(t, err)
-	require.Len(t, seeds, 1)
-	require.Equal(t, "antigravity", seeds[0].Target)
+	// The orchestrator always compiles memory entries when the renderer supports it.
+	memFile := filepath.Join(claudeDir, "agent-memory", "default", "user-role.md")
+	_, err = os.Stat(memFile)
+	require.NoError(t, err, "agent-memory file must exist at .claude/agent-memory/default/user-role.md")
 
-	// Verify the knowledge file was actually written to disk.
-	written := filepath.Join(outputDir, "knowledge", "team-context.md")
-	_, err = os.Stat(written)
-	require.NoError(t, err, "antigravity knowledge file must be written to disk")
-}
-
-// TestRunMemoryPass_DryRun_SkipsWrites verifies dry-run mode does not write
-// files or return seeds.
-func TestRunMemoryPass_DryRun_SkipsWrites(t *testing.T) {
-	outputDir := t.TempDir()
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"ctx": {Name: "ctx", Type: "project", Instructions: "x"},
-			},
-		},
-	}
-	antigravityR, _ := rendererForTarget("antigravity")
-	seeds, _, err := runMemoryPass(config, antigravityR, t.TempDir(), outputDir, nil, true, false)
-	require.NoError(t, err)
-	require.Empty(t, seeds, "dry-run must not produce seeds")
-
-	// Knowledge dir must not exist after dry-run.
-	_, err = os.Stat(filepath.Join(outputDir, "knowledge"))
-	require.True(t, os.IsNotExist(err), "dry-run must not create knowledge/ directory")
-}
-
-// TestRunMemoryPass_NoMemoryEntries_NoOp verifies the memory pass is a no-op
-// when the config declares no memory entries.
-func TestRunMemoryPass_NoMemoryEntries_NoOp(t *testing.T) {
-	config := &ast.XcaffoldConfig{}
-	claudeR, _ := rendererForTarget("claude")
-	seeds, notes, err := runMemoryPass(config, claudeR, t.TempDir(), t.TempDir(), nil, false, false)
-	require.NoError(t, err)
-	require.Empty(t, seeds)
-	require.Empty(t, notes)
-}
-
-// TestRunMemoryPass_DryRun_Claude_LogsIntent verifies that dry-run mode for
-// the claude target logs a DRY-RUN intent message to stderr and produces no seeds.
-func TestRunMemoryPass_DryRun_Claude_LogsIntent(t *testing.T) {
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "test"},
-			},
-		},
-	}
-	// Capture stderr.
-	origStderr := os.Stderr
-	rPipe, wPipe, _ := os.Pipe()
-	os.Stderr = wPipe
-
-	claudeR, _ := rendererForTarget("claude")
-	seeds, _, err := runMemoryPass(config, claudeR, t.TempDir(), t.TempDir(), nil, true, false)
-	wPipe.Close()
-	os.Stderr = origStderr
-
-	require.NoError(t, err)
-	require.Empty(t, seeds, "dry-run must produce no seeds")
-
-	captured, _ := io.ReadAll(rPipe)
-	require.Contains(t, string(captured), "DRY-RUN", "dry-run must log intent to stderr")
-}
-
-// TestRunMemoryPass_Gemini_WritesGeminiMD verifies that runMemoryPass dispatches
-// correctly to the Gemini memory renderer when target == "gemini" and writes
-// GEMINI.md under the resolved gemini directory.
-func TestRunMemoryPass_Gemini_WritesGeminiMD(t *testing.T) {
-	geminiDir := t.TempDir()
-	t.Setenv("XCAFFOLD_GEMINI_DIR", geminiDir)
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "Robert is the founder."},
-			},
-		},
-	}
-
-	geminiR, _ := rendererForTarget(targetGemini)
-	seeds, notes, err := runMemoryPass(config, geminiR, t.TempDir(), t.TempDir(), nil, false, false)
-	require.NoError(t, err)
-	// Gemini does not record seeds in the state file.
-	require.Empty(t, seeds)
-	// Gemini emits MEMORY_PARTIAL_FIDELITY notes.
-	require.NotEmpty(t, notes)
-	require.Equal(t, renderer.CodeMemoryPartialFidelity, notes[0].Code)
-
-	data, err := os.ReadFile(filepath.Join(geminiDir, "GEMINI.md"))
+	data, err := os.ReadFile(memFile)
 	require.NoError(t, err)
 	require.Contains(t, string(data), "Robert is the founder.")
 }
 
-// TestRunMemoryPass_Gemini_UnsupportedTarget_NoLongerErrors verifies that the
-// gemini target no longer falls through to the default unsupported-target branch.
-func TestRunMemoryPass_Gemini_UnsupportedTarget_NoLongerErrors(t *testing.T) {
-	geminiDir := t.TempDir()
-	t.Setenv("XCAFFOLD_GEMINI_DIR", geminiDir)
+// TestApplyScope_OrchestratorMemory_AgentRef verifies that a memory entry placed
+// under xcf/memory/<agentID>/ is routed to agent-memory/<agentID>/<name>.md.
+// AgentRef is derived from the directory layout at parse time, not from YAML.
+func TestApplyScope_OrchestratorMemory_AgentRef(t *testing.T) {
+	dir := t.TempDir()
 
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"entry": {Name: "entry", Type: "feedback", Instructions: "Some feedback."},
-			},
-		},
-	}
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+version: "1.0"
+name: memory-agentref-test
+`), 0600))
 
-	geminiR, _ := rendererForTarget(targetGemini)
-	_, _, err := runMemoryPass(config, geminiR, t.TempDir(), t.TempDir(), nil, false, false)
-	require.NoError(t, err, "gemini target must not return unsupported-target error")
+	// Place the memory file under xcf/memory/go-cli-developer/ so the parser
+	// sets AgentRef = "go-cli-developer" from the directory name.
+	agentMemDir := filepath.Join(dir, "xcf", "memory", "go-cli-developer")
+	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "arch-decisions.xcf"), []byte(`kind: memory
+version: "1.0"
+name: arch-decisions
+type: reference
+instructions: "Use cobra for all commands."
+`), 0600))
+
+	claudeDir := filepath.Join(dir, ".claude")
+	targetFlag = targetClaude
+	applyForce = true
+	defer func() { applyForce = false }()
+
+	err := applyScope(xcf, claudeDir, dir, "project")
+	require.NoError(t, err)
+
+	memFile := filepath.Join(claudeDir, "agent-memory", "go-cli-developer", "arch-decisions.md")
+	_, err = os.Stat(memFile)
+	require.NoError(t, err, "agent-memory file must exist at .claude/agent-memory/go-cli-developer/arch-decisions.md")
+
+	data, err := os.ReadFile(memFile)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "Use cobra for all commands.")
 }
 
-// TestClaudeProjectMemoryDir_ConsistentBetweenImportAndApply verifies that
+// TestApplyScope_OrchestratorMemory_NoEntries_NoDir verifies that when a
+// config declares no memory entries, no agent-memory/ directory is created.
+func TestApplyScope_OrchestratorMemory_NoEntries_NoDir(t *testing.T) {
+	dir := t.TempDir()
+
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
+
+	claudeDir := filepath.Join(dir, ".claude")
+	targetFlag = targetClaude
+	applyForce = true
+	defer func() { applyForce = false }()
+
+	err := applyScope(xcf, claudeDir, dir, "project")
+	require.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(claudeDir, "agent-memory"))
+	require.True(t, os.IsNotExist(err), "agent-memory/ must not be created when config has no memory entries")
+}
+
+// TestClaudeProjectMemoryDir_DeterministicEncoding verifies that
 // claudeProjectMemoryDir returns the same directory for the same project root
 // on repeated calls, and falls back to the working directory without error
 // when given an empty projectRoot.
-func TestClaudeProjectMemoryDir_ConsistentBetweenImportAndApply(t *testing.T) {
+func TestClaudeProjectMemoryDir_DeterministicEncoding(t *testing.T) {
 	tmp := t.TempDir()
 
 	dir, err := claudeProjectMemoryDir(tmp)
 	require.NoError(t, err)
 
-	// Same input must produce the same directory regardless of which caller
-	// (apply or import) invokes it.
 	dirAgain, err := claudeProjectMemoryDir(tmp)
 	require.NoError(t, err)
 	require.Equal(t, dir, dirAgain)
 
-	// The encoded path must contain the project root's directory name.
 	require.Contains(t, dir, ".claude/projects")
 	require.True(t, strings.HasSuffix(dir, "memory"))
 

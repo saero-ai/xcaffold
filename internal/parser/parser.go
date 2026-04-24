@@ -17,6 +17,7 @@ import (
 // parseOption controls parsing behaviour per invocation.
 type parseOption struct {
 	globalScope bool
+	sourcePath  string
 }
 
 // parseOptionFunc configures a parseOption.
@@ -26,6 +27,13 @@ type parseOptionFunc func(*parseOption)
 // instructions-file paths (global configs reference files like ~/.claude/agents/*.md).
 func withGlobalScope() parseOptionFunc {
 	return func(o *parseOption) { o.globalScope = true }
+}
+
+// withSourcePath carries the originating file path into parse-time routines
+// that need it — currently used by kind: memory parsing to derive AgentRef
+// from the xcf/memory/<agentID>/ directory name.
+func withSourcePath(path string) parseOptionFunc {
+	return func(o *parseOption) { o.sourcePath = path }
 }
 
 func resolveParseOptions(opts []parseOptionFunc) parseOption {
@@ -418,6 +426,7 @@ func looksLikeYAMLDocument(data []byte) bool {
 }
 
 func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
+	resolved := resolveParseOptions(opts)
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read .xcf input: %w", err)
@@ -483,13 +492,13 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 					"See https://xcaffold.com/docs/migration/config-removal",
 			)
 
-		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy":
+		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy", "memory":
 			// Resource-kind document: route to the kind-aware parser.
 			// Propagate the resource version to config.Version if not already set.
 			if config.Version == "" {
 				config.Version = extractVersion(docNode)
 			}
-			if parseErr := parseResourceDocument(docNode, kind, config, ""); parseErr != nil {
+			if parseErr := parseResourceDocument(docNode, kind, config, resolved.sourcePath); parseErr != nil {
 				return nil, parseErr
 			}
 			lastKind = kind
@@ -618,6 +627,7 @@ var parseableKinds = map[string]bool{
 	"policy":    true,
 	"reference": true,
 	"blueprint": true,
+	"memory":    true,
 }
 
 // isParseableFile reads the kind: field from an .xcf file to determine if it
@@ -801,6 +811,11 @@ func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, 
 		return nil, fmt.Errorf("could not open config %q: %w", path, err)
 	}
 	defer f.Close()
+
+	// Prepend source path so kind-specific parsers can derive contextual
+	// metadata from the file's on-disk location (e.g., xcf/memory/<agentID>/).
+	// Caller-supplied opts override this by appearing later in the slice.
+	opts = append([]parseOptionFunc{withSourcePath(path)}, opts...)
 
 	config, err := parsePartial(f, opts...)
 	if err != nil {
@@ -1781,6 +1796,18 @@ func validateMerged(c *ast.XcaffoldConfig) error {
 // Lifecycle defaults to "seed-once" when empty (documented behavior).
 // Type is optional; when set it must be one of the four canonical values.
 func validateMemoryFields(c *ast.XcaffoldConfig) error {
+	for name, m := range c.Memory {
+		if err := validateMemoryEntry(name, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateMemoryEntry validates a single memory entry's lifecycle and type
+// fields. Shared by both the map-form (kind: global embedded memory:) and
+// the standalone (kind: memory) parsing paths.
+func validateMemoryEntry(name string, m ast.MemoryConfig) error {
 	validLifecycles := map[string]bool{
 		"seed-once": true,
 		"tracked":   true,
@@ -1791,17 +1818,11 @@ func validateMemoryFields(c *ast.XcaffoldConfig) error {
 		"project":   true,
 		"reference": true,
 	}
-	for name, m := range c.Memory {
-		if m.Lifecycle != "" {
-			if !validLifecycles[m.Lifecycle] {
-				return fmt.Errorf("memory %q: lifecycle must be one of [seed-once, tracked], got %q", name, m.Lifecycle)
-			}
-		}
-		if m.Type != "" {
-			if !validTypes[m.Type] {
-				return fmt.Errorf("memory %q: type must be one of [user, feedback, project, reference], got %q", name, m.Type)
-			}
-		}
+	if m.Lifecycle != "" && !validLifecycles[m.Lifecycle] {
+		return fmt.Errorf("memory %q: lifecycle must be one of [seed-once, tracked], got %q", name, m.Lifecycle)
+	}
+	if m.Type != "" && !validTypes[m.Type] {
+		return fmt.Errorf("memory %q: type must be one of [user, feedback, project, reference], got %q", name, m.Type)
 	}
 	return nil
 }

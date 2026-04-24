@@ -48,6 +48,17 @@ func TestMemoryConfig_InheritedNotSerialized(t *testing.T) {
 	require.NotContains(t, string(data), "inherited")
 }
 
+func TestMemoryConfig_AgentRef_NotSerialized(t *testing.T) {
+	m := MemoryConfig{Name: "project_audit_log_owner", AgentRef: "auth-specialist"}
+	if m.AgentRef != "auth-specialist" {
+		t.Fatalf("expected AgentRef=auth-specialist, got %q", m.AgentRef)
+	}
+	data, err := yaml.Marshal(m)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "agent-ref")
+	assert.NotContains(t, string(data), "agentref")
+}
+
 func TestStripInherited_Memory(t *testing.T) {
 	cfg := &XcaffoldConfig{}
 	cfg.Memory = map[string]MemoryConfig{

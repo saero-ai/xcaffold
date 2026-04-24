@@ -69,7 +69,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		Hooks:                false,
 		Settings:             true,
 		MCP:                  true,
-		Memory:               true,
+		Memory:               false,
 		ProjectInstructions:  true,
 		AgentToolsField:      false,
 		AgentNativeToolsOnly: false,
