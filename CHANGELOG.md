@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed (Provider-Agnostic Renderer)
 
+- Enforced path-safe slugification for imported agent-scoped memory files across all renderers to ensure high-fidelity synchronization (compiler)
+- Prevented compounding `project_` prefixes during recursive memory import derivations (bir)
+- Derived accurate project roots when manifests reside in the nested `.xcaffold/` namespace (validator)
+
 - Fixed model alias resolution for gemini, copilot, and cursor agent rendering — raw aliases like `sonnet-4` are now mapped to provider-specific model identifiers (renderer)
 - Fixed antigravity renderer silently dropping agents without emitting a `RENDERER_KIND_UNSUPPORTED` fidelity note (renderer)
 - Fixed data loss in copilot `InstructionsFile` rendering and copilot/gemini model resolution (renderer)
