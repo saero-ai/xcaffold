@@ -1,0 +1,30 @@
+---
+kind: rule
+version: "1.0"
+name: golden-rule
+description: "Reference rule exercising every RuleConfig field."
+
+# Activation — path-glob requires paths to be non-empty
+activation: path-glob
+paths: ["src/**/*.go", "internal/**/*.go"]
+always-apply: false
+
+# Copilot-specific agent exclusion
+exclude-agents: [code-review]
+
+# Multi-target overrides
+targets:
+  claude:
+    suppress-fidelity-warnings: false
+    skip-synthesis: false
+    instructions-override: ""
+    provider:
+      custom-key: "claude-rule-value"
+  antigravity:
+    suppress-fidelity-warnings: true
+---
+# Golden Rule
+
+This body becomes the rule's instructions at compile time.
+
+Always write tests before implementation. Use table-driven tests in Go.

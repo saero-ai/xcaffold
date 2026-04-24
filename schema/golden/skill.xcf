@@ -1,0 +1,42 @@
+---
+kind: skill
+version: "1.0"
+name: golden-skill
+description: "Reference skill exercising every SkillConfig field."
+
+# Group 1: Identity (continued)
+when-to-use: "Invoke this skill when you need a reference for every skill field."
+license: MIT
+
+# Group 3: Tool Access
+allowed-tools: [Read, Write, Edit, Bash, Glob, Grep]
+
+# Group 4: Permissions & Invocation Control
+disable-model-invocation: false
+user-invocable: true
+argument-hint: "Provide a task description as the argument."
+
+# Group 7: Composition / Supporting Files
+references: [docs/reference.md, docs/glossary.md]
+scripts: [scripts/helper.sh]
+assets: [assets/template.txt]
+examples: [examples/output.md]
+
+# Group 9: Multi-Target overrides
+targets:
+  claude:
+    suppress-fidelity-warnings: false
+    skip-synthesis: false
+    instructions-override: ""
+    provider:
+      custom-key: "claude-skill-value"
+  antigravity:
+    suppress-fidelity-warnings: true
+---
+# Golden Skill
+
+This body becomes the skill's instructions at compile time.
+
+1. Step one: read the input.
+2. Step two: transform it.
+3. Step three: return the result.

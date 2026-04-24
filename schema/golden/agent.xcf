@@ -1,0 +1,94 @@
+---
+kind: agent
+version: "1.0"
+name: golden-agent
+description: "Reference agent exercising every AgentConfig field."
+
+# Group 2: Model & Execution
+model: claude-sonnet-4-5
+effort: high
+max-turns: 25
+mode: auto
+
+# Group 3: Tool Access
+tools: [Read, Write, Edit, Bash, Glob, Grep]
+disallowed-tools: [WebFetch, WebSearch]
+readonly: false
+
+# Group 4: Permissions & Invocation
+permission-mode: default
+disable-model-invocation: false
+user-invocable: true
+
+# Group 5: Lifecycle
+background: false
+isolation: none
+when: always
+
+# Group 6: Memory & Context
+memory: agent
+color: "#00ff88"
+initial-prompt: "You are a reference agent with every field set."
+
+# Group 7: Composition references (no cross-refs — standalone golden manifest)
+skills: []
+rules: []
+mcp: []
+assertions: []
+
+# Group 8: Inline MCP server
+mcp-servers:
+  golden-mcp-inline:
+    name: golden-mcp-inline
+    type: stdio
+    command: node
+    args: [./server.js]
+    env:
+      API_KEY: "example-key"
+    cwd: ./mcp
+    disabled: false
+    disabled-tools: [dangerous-tool]
+    auth-provider-type: none
+
+# Group 8: Inline hooks
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: echo "pre-tool-use hook fired"
+          async: false
+          timeout: 10
+          once: false
+          if: "true"
+          shell: /bin/sh
+          status-message: "Running pre-tool check"
+          allowed-env-vars: [PATH, HOME]
+  PostToolUse:
+    - matcher: ""
+      hooks:
+        - type: command
+          command: echo "post-tool-use hook fired"
+          async: true
+          timeout: 30
+  SessionStart:
+    - matcher: ""
+      hooks:
+        - type: command
+          command: echo "session started"
+
+# Group 9: Multi-target overrides
+targets:
+  claude:
+    suppress-fidelity-warnings: false
+    skip-synthesis: false
+    instructions-override: ""
+    provider:
+      custom-key: "claude-specific-value"
+  antigravity:
+    suppress-fidelity-warnings: true
+    skip-synthesis: true
+---
+You are a golden reference agent. This body text becomes the agent's instructions when no `instructions:` key is set in frontmatter.
+
+Follow the golden rule: exercise every field.
