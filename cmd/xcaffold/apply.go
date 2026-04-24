@@ -41,7 +41,7 @@ var targetFlag string
 
 var applyCmd = &cobra.Command{
 	Use:   "apply",
-	Short: "Compile project.xcf into .claude/ agent files",
+	Short: "Compile .xcf resources into provider-native agent files",
 	Long: `xcaffold apply deterministically compiles your YAML logic into native target outputs.
 
 ┌───────────────────────────────────────────────────────────────────┐

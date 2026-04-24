@@ -35,7 +35,7 @@ const (
 
 var graphCmd = &cobra.Command{
 	Use:   "graph [file]",
-	Short: "Visualize the agent topology of a project.xcf file.",
+	Short: "Visualize the resource dependency graph",
 	Long: `xcaffold graph renders a visual map of your agent team and how it connects.
 
 ┌───────────────────────────────────────────────────────────────────┐
@@ -67,6 +67,7 @@ func init() {
 	graphCmd.Flags().BoolVar(&graphScanOutput, "scan-output", false, "Scan compiled output directories for undeclared artifacts")
 	graphCmd.Flags().BoolVar(&graphAll, "all", false, "Show global topology and all registered projects")
 	graphCmd.Flags().StringVar(&graphBlueprintFlag, "blueprint", "", "Show graph for the named blueprint only")
+	_ = graphCmd.Flags().MarkHidden("blueprint")
 	rootCmd.AddCommand(graphCmd)
 }
 

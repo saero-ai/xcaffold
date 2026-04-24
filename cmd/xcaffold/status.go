@@ -12,32 +12,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/state"
-	"github.com/spf13/cobra"
 )
-
-var statusBlueprintFlag string
-
-var statusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show compilation state and source drift",
-	Long: `Reads .xcaffold/ state files and reports last compilation time,
-artifact health, and source file drift per target.
-
-Use --blueprint to scope to a specific blueprint.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		dir := projectRoot
-		if globalFlag {
-			dir = globalXcfHome
-		}
-		return runStatusWithWriter(dir, statusBlueprintFlag, os.Stdout)
-	},
-}
-
-func init() {
-	statusCmd.Flags().StringVar(&statusBlueprintFlag, "blueprint", "",
-		"Show status for the named blueprint (default: project state)")
-	rootCmd.AddCommand(statusCmd)
-}
 
 func runStatusWithWriter(dir, profileName string, w io.Writer) error {
 	statePath := state.StateFilePath(dir, profileName)
@@ -50,12 +25,10 @@ func runStatusWithWriter(dir, profileName string, w io.Writer) error {
 		return fmt.Errorf("could not read state: %w", err)
 	}
 
-	// Blueprint header
 	if manifest.Blueprint != "" {
 		fmt.Fprintf(w, "Blueprint: %s\n", manifest.Blueprint)
 	}
 
-	// Target summary
 	targetNames := sortedTargetKeys(manifest.Targets)
 	for _, name := range targetNames {
 		ts := manifest.Targets[name]
@@ -77,7 +50,6 @@ func runStatusWithWriter(dir, profileName string, w io.Writer) error {
 			name, elapsed, artifactCount, noun, statusMsg)
 	}
 
-	// Source drift
 	if len(manifest.SourceFiles) > 0 {
 		fmt.Fprintf(w, "\nSources: %d files\n", len(manifest.SourceFiles))
 		for _, sf := range manifest.SourceFiles {

@@ -27,8 +27,9 @@ var (
 )
 
 var testCmd = &cobra.Command{
-	Use:   "test",
-	Short: "Run a sandboxed local simulation of a Claude agent",
+	Use:    "test",
+	Hidden: true,
+	Short:  "Run a sandboxed local simulation of a Claude agent",
 	Long: `xcaffold test simulates your compiled agent by sending a task to the LLM
 directly and recording every tool call the model declares.
 

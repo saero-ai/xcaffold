@@ -27,6 +27,8 @@ var listCmd = &cobra.Command{
 func init() {
 	listCmd.Flags().StringVar(&listBlueprintFlag, "blueprint", "", "Filter to named blueprint")
 	listCmd.Flags().BoolVar(&listResolvedFlag, "resolved", false, "Show transitive deps (use with --blueprint)")
+	_ = listCmd.Flags().MarkHidden("blueprint")
+	_ = listCmd.Flags().MarkHidden("resolved")
 	rootCmd.AddCommand(listCmd)
 }
 

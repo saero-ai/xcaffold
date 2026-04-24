@@ -17,21 +17,12 @@ var diffBlueprintFlag string
 
 var diffCmd = &cobra.Command{
 	Use:   "diff",
-	Short: "Detect drift between state manifest and compilation targets on disk",
-	Long: `xcaffold diff flags manual tampering and shadow-edits in your workspace.
+	Short: "Show compilation state, source drift, and per-file changes",
+	Long: `Shows compilation state and detects drift in your workspace.
 
-┌───────────────────────────────────────────────────────────────────┐
-│                          DRIFT CHECK PHASE                        │
-└───────────────────────────────────────────────────────────────────┘
- • Recomputes SHA-256 hashes for all output files natively
- • Compares current file hashes against the state manifest truth state
- • Warns you if humans or external agents have mutated the generated files
-
-Usage:
-  $ xcaffold diff
-  $ xcaffold diff --global
-  $ xcaffold diff --target cursor
-  $ xcaffold diff --target antigravity`,
+Without --target, displays a summary of all targets: last apply time,
+artifact count, and drift status. With --target, compares SHA-256 hashes
+per file and reports CLEAN, DRIFTED, or MISSING for each output file.`,
 	Example: "  $ xcaffold diff --target cursor",
 	RunE:    runDiff,
 }
@@ -39,6 +30,12 @@ Usage:
 func init() {
 	diffCmd.Flags().StringVar(&diffTargetFlag, "target", "", "compilation target platform (claude, cursor, antigravity, copilot, gemini)")
 	diffCmd.Flags().StringVar(&diffBlueprintFlag, "blueprint", "", "Show drift for a specific blueprint (default: all resources)")
+	_ = diffCmd.Flags().MarkHidden("blueprint")
+	orig := diffCmd.HelpTemplate()
+	diffCmd.SetHelpTemplate(orig + `
+Preview (coming in R2):
+  --blueprint string   Show drift for a specific blueprint
+`)
 	rootCmd.AddCommand(diffCmd)
 }
 
@@ -47,10 +44,14 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
 	}
 
-	effectiveTarget := diffTargetFlag
-	if effectiveTarget == "" {
-		return fmt.Errorf("--target is required; specify a target or declare targets in project.xcf")
+	if diffTargetFlag == "" {
+		dir := projectRoot
+		if globalFlag {
+			dir = globalXcfHome
+		}
+		return runStatusWithWriter(dir, diffBlueprintFlag, os.Stdout)
 	}
+	effectiveTarget := diffTargetFlag
 
 	if globalFlag {
 		targetDir := filepath.Join(filepath.Dir(globalXcfHome), compiler.OutputDir(effectiveTarget))

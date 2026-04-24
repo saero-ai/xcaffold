@@ -42,7 +42,7 @@ var htmlCommentAttrRE = regexp.MustCompile(`(\w[\w-]*)="([^"]*)"`)
 
 var importCmd = &cobra.Command{
 	Use:   "import",
-	Short: "Migrate an existing directory or translate cross-platform workflows into project.xcf",
+	Short: "Import existing provider config into project.xcf",
 	Long: `xcaffold import manages adopting existing configurations into xcaffold.
 
 ┌───────────────────────────────────────────────────────────────────┐

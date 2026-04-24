@@ -45,8 +45,9 @@ var (
 )
 
 var translateCmd = &cobra.Command{
-	Use:   "translate",
-	Short: "Translate agent configurations between provider formats",
+	Use:    "translate",
+	Hidden: true,
+	Short:  "Translate agent configurations between provider formats",
 	Long: `xcaffold translate converts agent configurations between different provider formats
 while maintaining fidelity and structural integrity.
 

@@ -14,10 +14,11 @@ import (
 )
 
 var registryCmd = &cobra.Command{
-	Use:   "registry",
-	Short: "List projects registered in the global registry",
-	Long:  "Displays a list of all projects managed by xcaffold across your system.",
-	RunE:  runRegistry,
+	Use:    "registry",
+	Hidden: true,
+	Short:  "List projects registered in the global registry",
+	Long:   "Displays a list of all projects managed by xcaffold across your system.",
+	RunE:   runRegistry,
 }
 
 func init() {

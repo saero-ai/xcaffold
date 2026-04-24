@@ -18,7 +18,7 @@ var validateBlueprintFlag string
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
-	Short: "Validate a project.xcf configuration",
+	Short: "Check .xcf syntax, cross-references, and structural invariants",
 	Long: `Validate checks the project.xcf file for correctness:
 
   - YAML syntax and known fields
@@ -39,6 +39,12 @@ Exit code 0 means valid. Non-zero means errors found.`,
 func init() {
 	validateCmd.Flags().BoolVar(&validateStructural, "structural", false, "run structural invariant checks (orphan resources, missing instructions)")
 	validateCmd.Flags().StringVar(&validateBlueprintFlag, "blueprint", "", "Validate only the named blueprint")
+	_ = validateCmd.Flags().MarkHidden("blueprint")
+	orig := validateCmd.HelpTemplate()
+	validateCmd.SetHelpTemplate(orig + `
+Preview (coming in R2):
+  --blueprint string   Validate only the named blueprint
+`)
 	rootCmd.AddCommand(validateCmd)
 }
 
