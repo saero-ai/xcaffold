@@ -141,7 +141,7 @@ func TestIntegration_Memory_InheritedEntry_NotSeeded(t *testing.T) {
 	// Verifies that inherited memory entries are stripped before the seed pass
 	// and therefore do not produce seed records or on-disk files.
 	// This mirrors the structural guarantee provided by StripInherited(): inherited
-	// entries are removed before runMemoryPass is called, so they never reach any
+	// entries are removed before any renderer is invoked, so they never reach any
 	// renderer. The test makes the invariant explicit and test-verified.
 	dir := t.TempDir()
 	r := claude.NewMemoryRenderer(dir)
@@ -260,9 +260,9 @@ func TestIntegration_Memory_Antigravity_WritesKnowledgeItems(t *testing.T) {
 }
 
 func TestIntegration_Memory_Gemini_AppendsToGeminiMD(t *testing.T) {
-	// This test validates the runMemoryPass Gemini dispatch by calling the
-	// Gemini memory renderer directly with a temp dir as the target. It asserts
-	// that GEMINI.md is written with the seeded entries under the expected section.
+	// Validates the Gemini memory renderer by calling it directly with a temp dir
+	// as the target. Asserts that GEMINI.md is written with the seeded entries
+	// under the expected section.
 	dir := t.TempDir()
 	r := gemini.NewMemoryRenderer(dir)
 
