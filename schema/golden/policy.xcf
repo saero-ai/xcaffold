@@ -1,9 +1,9 @@
-# Preview — coming in R2. Parser supports this kind but documentation
-# and tooling are not yet finalized. Fields may change.
+# Preview — parser supports this kind but full field coverage is pending.
+# Documentation and tooling are not yet finalized. Fields may change.
 kind: policy
 version: "1.0"
 name: golden-policy-preview
-description: "Preview example — full field coverage coming in R2."
+description: "Preview — parser supports this kind but full field coverage is pending."
 severity: warning
 target: agent
 match:

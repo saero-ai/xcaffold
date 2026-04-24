@@ -8,10 +8,11 @@ Reference `.xcf` files that exercise every field for each resource kind.
 2. **CI validation** — `golden_test.go` validates all files parse without error
 3. **Schema drift detection** — when a field is removed or renamed in `types.go`, CI breaks here
 
-## R1 vs R2
+## Coverage
 
-- **R1 kinds** (agent, skill, rule, workflow, mcp, hooks, memory, project, global, settings): full field coverage
-- **R2 kinds** (blueprint, policy, template, system): preview stubs with minimal fields
+- **Full coverage** kinds (agent, skill, rule, workflow, mcp, hooks, memory, project, global, settings): every valid field is exercised
+- **Preview** kinds (blueprint, policy): parser support is complete but full field documentation is pending
+- **Preview — parser pending** kinds (template, system): parser support for these kinds is not yet implemented; CI skips them
 
 ## Maintenance
 

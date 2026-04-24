@@ -941,3 +941,15 @@ During `xcaffold apply`:
 
 > [!NOTE]
 > **Cursor-unique hook events** — `beforeMCPExecution`, `afterMCPExecution`, `beforeShellExecution`, `afterShellExecution`, `afterAgentResponse`, `afterAgentThought`, `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt` — can be authored in `.xcf` hooks blocks and will compile correctly to `.cursor/hooks.json`. They are silently ignored when the target is Claude.
+
+---
+
+## Golden Manifests
+
+`schema/golden/` contains reference `.xcf` files that exercise every field for each resource kind. These files serve three purposes:
+
+1. **Authoritative examples** — browse them to see every valid field for a given kind
+2. **CI validation** — `schema/golden/golden_test.go` validates that all supported kinds parse without error
+3. **Schema drift detection** — when a field is renamed or removed in `internal/ast/types.go`, CI breaks on the golden manifest, making regressions immediately visible
+
+Use these files as the primary reference when authoring `.xcf` files. Each file contains exactly one resource document.
