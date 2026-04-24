@@ -1,0 +1,130 @@
+kind: global
+version: "1.0"
+
+extends: ""
+
+# Global settings block
+settings:
+  name: default
+  model: claude-sonnet-4-5
+  effort-level: high
+  language: en
+  output-style: concise
+  default-shell: /bin/zsh
+  include-git-instructions: true
+  skip-dangerous-mode-permission-prompt: false
+  auto-memory-enabled: true
+  auto-memory-directory: .xcf/memory
+  always-thinking-enabled: false
+  cleanup-period-days: 30
+  respect-gitignore: true
+  disable-all-hooks: false
+  disable-skill-shell-execution: false
+  attribution: true
+  plans-directory: docs/plans
+  otel-headers-helper: ""
+  env:
+    XCAFFOLD_ENV: global
+  permissions:
+    allow:
+      - "Bash(go test ./...)"
+    deny:
+      - "Bash(rm -rf /)"
+    ask: []
+    default-mode: default
+    additional-directories: []
+    disable-bypass-permissions-mode: ""
+  sandbox:
+    enabled: false
+    auto-allow-bash-if-sandboxed: false
+    fail-if-unavailable: false
+    allow-unsandboxed-commands: true
+    excluded-commands:
+      - sudo
+    filesystem:
+      allow-write:
+        - /tmp
+      deny-write: []
+      allow-read: []
+      deny-read: []
+    network:
+      allow-managed-domains-only: false
+      allow-unix-sockets: []
+      allow-local-binding: false
+      allowed-domains:
+        - api.anthropic.com
+  status-line:
+    type: command
+    command: echo "global ready"
+  mcp-servers: {}
+  available-models:
+    - claude-opus-4-5
+    - claude-sonnet-4-5
+    - claude-haiku-4-5
+  claude-md-excludes:
+    - node_modules/**
+    - .git/**
+
+# Global lifecycle hooks (HookConfig — map of event → []HookMatcherGroup)
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: echo "global pre-tool-use"
+          async: false
+          timeout: 10
+
+# Inline agent definitions
+agents:
+  global-ref-agent:
+    name: global-ref-agent
+    description: "A minimal agent defined at global scope."
+    model: claude-haiku-4-5
+    tools: [Read, Glob]
+    permission-mode: default
+
+# Inline skill definitions
+skills:
+  global-ref-skill:
+    name: global-ref-skill
+    description: "A minimal skill defined at global scope."
+    allowed-tools: [Read]
+    instructions: "Use this skill to demonstrate global-scope skill definition."
+
+# Inline rule definitions
+rules:
+  global-ref-rule:
+    name: global-ref-rule
+    description: "A minimal rule defined at global scope."
+    activation: always
+    instructions: "Apply this rule everywhere."
+
+# Inline workflow definitions
+workflows:
+  global-ref-workflow:
+    name: global-ref-workflow
+    description: "A minimal workflow defined at global scope."
+    api-version: workflow/v1
+    steps:
+      - name: step-one
+        description: "First step."
+        instructions: "Do the first thing."
+
+# Inline MCP server definitions
+mcp:
+  global-ref-mcp:
+    name: global-ref-mcp
+    type: stdio
+    command: node
+    args: [./global-server.js]
+    disabled: false
+
+# Inline memory definitions
+memory:
+  global-ref-memory:
+    name: global-ref-memory
+    type: feedback
+    description: "A minimal memory entry defined at global scope."
+    lifecycle: tracked
+    instructions: "Remember this globally."

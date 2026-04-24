@@ -1,0 +1,157 @@
+kind: settings
+version: "1.0"
+
+# Identity
+name: golden-settings
+
+# Model & execution
+model: claude-sonnet-4-5
+effort-level: high
+language: en
+output-style: concise
+default-shell: /bin/zsh
+
+# Memory
+auto-memory-enabled: true
+auto-memory-directory: .xcf/memory
+always-thinking-enabled: false
+
+# Maintenance
+cleanup-period-days: 30
+include-git-instructions: true
+skip-dangerous-mode-permission-prompt: false
+respect-gitignore: true
+
+# Hooks & execution control
+disable-all-hooks: false
+disable-skill-shell-execution: false
+attribution: true
+
+# Directories
+plans-directory: docs/plans
+
+# Observability
+otel-headers-helper: ""
+
+# Agent/worktree/auto-mode: accept any value (any type in Go)
+agent: claude
+worktree: true
+auto-mode: supervised
+
+# Environment variables
+env:
+  XCAFFOLD_ENV: golden
+  LOG_LEVEL: debug
+
+# Inline MCP servers
+mcp-servers:
+  golden-inline-mcp:
+    name: golden-inline-mcp
+    type: stdio
+    command: node
+    args: [./mcp/server.js, --port, "3000"]
+    cwd: ./mcp
+    env:
+      API_KEY: "example-key"
+    headers:
+      Authorization: "Bearer example-token"
+    disabled: false
+    disabled-tools: [dangerous-op]
+    oauth:
+      client-id: "example-client"
+    auth-provider-type: oauth2
+
+# Inline hooks
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: echo "pre-tool hook"
+          async: false
+          timeout: 10
+          once: false
+          if: "true"
+          shell: /bin/sh
+          status-message: "Running pre-tool check"
+          allowed-env-vars: [PATH, HOME]
+  PostToolUse:
+    - matcher: ""
+      hooks:
+        - type: command
+          command: echo "post-tool hook"
+          async: true
+          timeout: 30
+  SessionStart:
+    - matcher: ""
+      hooks:
+        - type: command
+          command: echo "session started"
+
+# Permissions
+permissions:
+  allow:
+    - "Bash(npm test *)"
+    - "Bash(go test ./...)"
+    - "Bash(make build)"
+  deny:
+    - "Bash(rm -rf /)"
+  ask:
+    - "Bash(git push *)"
+  default-mode: default
+  additional-directories:
+    - /tmp/golden
+  disable-bypass-permissions-mode: "always"
+
+# Sandbox
+sandbox:
+  enabled: false
+  auto-allow-bash-if-sandboxed: true
+  fail-if-unavailable: false
+  allow-unsandboxed-commands: false
+  excluded-commands:
+    - sudo
+    - su
+  filesystem:
+    allow-write:
+      - /tmp
+      - ./build
+    deny-write:
+      - /etc
+      - /usr
+    allow-read:
+      - /usr/local/bin
+    deny-read:
+      - /root
+  network:
+    http-proxy-port: 8080
+    socks-proxy-port: 1080
+    allow-managed-domains-only: false
+    allow-unix-sockets:
+      - /var/run/docker.sock
+    allow-local-binding: true
+    allowed-domains:
+      - api.anthropic.com
+      - github.com
+
+# Status line
+status-line:
+  type: command
+  command: echo "xcaffold status"
+
+# Plugins
+enabled-plugins:
+  superpowers: true
+  my-plugin: false
+
+# Model list
+available-models:
+  - claude-opus-4-5
+  - claude-sonnet-4-5
+  - claude-haiku-4-5
+
+# Exclude patterns for CLAUDE.md
+claude-md-excludes:
+  - node_modules/**
+  - .git/**
+  - dist/**

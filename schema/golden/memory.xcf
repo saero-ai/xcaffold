@@ -1,0 +1,26 @@
+kind: memory
+version: "1.0"
+name: golden-memory
+
+# Group 1: Identity
+type: project
+description: "Reference memory entry exercising every MemoryConfig field."
+
+# Group 2: Lifecycle
+lifecycle: tracked
+
+# Group 3: Multi-Target
+targets:
+  claude:
+    suppress-fidelity-warnings: false
+    skip-synthesis: false
+    instructions-override: ""
+  antigravity:
+    suppress-fidelity-warnings: true
+    skip-synthesis: true
+
+# Group 4: Body
+instructions: |
+  This golden memory entry records a key project-level fact.
+
+  Use it as a reference for how memory entries are structured.

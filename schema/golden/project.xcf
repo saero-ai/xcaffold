@@ -1,0 +1,144 @@
+kind: project
+version: "1.0"
+name: golden-project
+description: "Reference project exercising every ProjectConfig field."
+author: "Golden Author"
+homepage: "https://example.com/golden-project"
+repository: "https://github.com/example/golden-project"
+license: "MIT"
+backup-dir: ".xcf-backup"
+
+# Reference lists: agents supports both simple string IDs and structured
+# {id: {memory: [...]}} entries.
+agents:
+  - golden-agent
+  - golden-agent-2:
+      memory:
+        - recall-context
+        - recent-activity
+
+skills:
+  - golden-skill
+
+rules:
+  - golden-rule
+
+workflows:
+  - golden-workflow
+
+mcp:
+  - golden-mcp
+
+
+# Test configuration for xcaffold test
+test:
+  cli-path: /usr/local/bin/claude
+  judge-model: claude-opus-4-5
+  task: "Demonstrate all capabilities and confirm every feature works end-to-end."
+  max-turns: 10
+
+# Local settings override — applied to this project only
+local:
+  model: claude-sonnet-4-5
+  effort-level: high
+  language: en
+  output-style: concise
+  default-shell: /bin/zsh
+  include-git-instructions: true
+  skip-dangerous-mode-permission-prompt: false
+  auto-memory-enabled: true
+  auto-memory-directory: .xcf/memory
+  always-thinking-enabled: false
+  cleanup-period-days: 30
+  respect-gitignore: true
+  disable-all-hooks: false
+  disable-skill-shell-execution: false
+  attribution: true
+  plans-directory: docs/plans
+  env:
+    XCAFFOLD_ENV: development
+    LOG_LEVEL: debug
+  permissions:
+    allow:
+      - "Bash(npm test *)"
+      - "Bash(go test ./...)"
+    deny:
+      - "Bash(rm -rf /)"
+    ask:
+      - "Bash(git push *)"
+    default-mode: default
+    additional-directories:
+      - /tmp/golden-project
+    disable-bypass-permissions-mode: "always"
+  sandbox:
+    enabled: false
+    auto-allow-bash-if-sandboxed: true
+    fail-if-unavailable: false
+    allow-unsandboxed-commands: false
+    excluded-commands:
+      - sudo
+      - su
+    filesystem:
+      allow-write:
+        - /tmp
+        - ./build
+      deny-write:
+        - /etc
+      allow-read:
+        - /usr/local/bin
+      deny-read:
+        - /root
+    network:
+      http-proxy-port: 8080
+      socks-proxy-port: 1080
+      allow-managed-domains-only: false
+      allow-unix-sockets:
+        - /var/run/docker.sock
+      allow-local-binding: true
+      allowed-domains:
+        - api.anthropic.com
+        - github.com
+  status-line:
+    type: command
+    command: echo "xcaffold ready"
+
+# Root instructions for the project (inline)
+instructions: |
+  This is the golden project. It exercises every field in the ProjectConfig struct.
+
+  Use this file as a reference when adding new fields to the schema.
+
+# @-import paths preserved for providers that support them
+instructions-imports:
+  - docs/architecture.md
+  - docs/conventions.md
+
+# Per-directory nested instruction scopes
+instructions-scopes:
+  - path: src/
+    instructions: "Follow strict Go conventions in this directory."
+    merge-strategy: concat
+    source-provider: claude
+    source-filename: src/CLAUDE.md
+    variants:
+      cursor:
+        instructions-file: xcf/scopes/src-cursor.md
+        source-filename: src/.cursorrules
+    reconciliation:
+      strategy: per-target
+      last-reconciled: "2026-04-24T00:00:00Z"
+      notes: "Cursor and Claude diverge on Go formatting rules."
+  - path: internal/
+    instructions-file: xcf/scopes/internal.md
+    merge-strategy: closest-wins
+
+# Per-provider compile-time options
+target-options:
+  copilot:
+    instructions-mode: nested
+    provider:
+      groups:
+        - copilot-chat
+  cursor:
+    suppress-fidelity-warnings: false
+    skip-synthesis: false
