@@ -34,6 +34,8 @@ graph LR
     RC[claude renderer]
     RCU[cursor renderer]
     RA[antigravity renderer]
+    RCP[copilot renderer]
+    RGM[gemini renderer]
   end
 
   subgraph Outputs
@@ -74,6 +76,8 @@ graph LR
   RG --> RC --> C1
   RG --> RCU --> CU1
   RG --> RA --> A1
+  RG --> RCP
+  RG --> RGM
   C -->|Tracks SHA-256| D
   D --> F
 ```
@@ -97,6 +101,8 @@ The output root is determined by the `--target` flag on `xcaffold apply`:
 | `claude` (default) | `.claude/` |
 | `cursor` | `.cursor/` |
 | `antigravity` | `.agents/` |
+| `copilot` | `.github/` |
+| `gemini` | `.gemini/` |
 
 State files follow a naming convention:
 - Default blueprint → `.xcaffold/project.xcf.state`
