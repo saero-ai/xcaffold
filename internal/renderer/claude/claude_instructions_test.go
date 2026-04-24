@@ -19,8 +19,8 @@ func TestClaudeRenderer_ProjectInstructions_RootFile(t *testing.T) {
 	}
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
-	require.Contains(t, out.Files, "../CLAUDE.md")
-	require.Contains(t, out.Files["../CLAUDE.md"], "Use pnpm. PostgreSQL 16.")
+	require.Contains(t, out.RootFiles, "CLAUDE.md")
+	require.Contains(t, out.RootFiles["CLAUDE.md"], "Use pnpm. PostgreSQL 16.")
 }
 
 func TestClaudeRenderer_ProjectInstructions_PerScopeFiles(t *testing.T) {
@@ -45,10 +45,10 @@ func TestClaudeRenderer_ProjectInstructions_PerScopeFiles(t *testing.T) {
 	}
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
-	require.Contains(t, out.Files, "../CLAUDE.md")
-	require.Contains(t, out.Files, "../packages/worker/CLAUDE.md")
-	require.Contains(t, out.Files, "../packages/api/CLAUDE.md")
-	require.Contains(t, out.Files["../packages/worker/CLAUDE.md"], "Worker context.")
+	require.Contains(t, out.RootFiles, "CLAUDE.md")
+	require.Contains(t, out.RootFiles, "packages/worker/CLAUDE.md")
+	require.Contains(t, out.RootFiles, "packages/api/CLAUDE.md")
+	require.Contains(t, out.RootFiles["packages/worker/CLAUDE.md"], "Worker context.")
 }
 
 func TestClaudeRenderer_ProjectInstructions_ImportsAsAtLines(t *testing.T) {
@@ -62,7 +62,7 @@ func TestClaudeRenderer_ProjectInstructions_ImportsAsAtLines(t *testing.T) {
 	}
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
-	require.Contains(t, out.Files["../CLAUDE.md"], "@xcf/instructions/style-guide.md")
+	require.Contains(t, out.RootFiles["CLAUDE.md"], "@xcf/instructions/style-guide.md")
 }
 
 func TestClaudeRenderer_ProjectInstructions_ZeroFidelityNotes(t *testing.T) {

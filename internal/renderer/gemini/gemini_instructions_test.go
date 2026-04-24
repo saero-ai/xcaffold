@@ -23,7 +23,7 @@ func TestCompile_Gemini_Instructions_RootOnly(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
-	content, ok := out.Files["../GEMINI.md"]
+	content, ok := out.RootFiles["GEMINI.md"]
 	require.True(t, ok, "expected ../GEMINI.md to be produced")
 	assert.Contains(t, content, "Build with go build.")
 }
@@ -41,7 +41,7 @@ func TestCompile_Gemini_Instructions_WithImports(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
-	content, ok := out.Files["../GEMINI.md"]
+	content, ok := out.RootFiles["GEMINI.md"]
 	require.True(t, ok, "expected ../GEMINI.md")
 	assert.Contains(t, content, "Main instructions.")
 	assert.Contains(t, content, "@./rules/style.md")
@@ -66,12 +66,12 @@ func TestCompile_Gemini_Instructions_WithScopes(t *testing.T) {
 	assert.Empty(t, notes)
 
 	// Root GEMINI.md.
-	rootContent, ok := out.Files["../GEMINI.md"]
+	rootContent, ok := out.RootFiles["GEMINI.md"]
 	require.True(t, ok, "expected ../GEMINI.md")
 	assert.Contains(t, rootContent, "Root instructions.")
 
 	// Scope GEMINI.md.
-	scopeContent, ok := out.Files["../packages/api/GEMINI.md"]
+	scopeContent, ok := out.RootFiles["packages/api/GEMINI.md"]
 	require.True(t, ok, "expected ../packages/api/GEMINI.md")
 	assert.Contains(t, scopeContent, "API-specific instructions.")
 }
@@ -92,7 +92,7 @@ func TestCompile_Gemini_Instructions_FromFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
-	content, ok := out.Files["../GEMINI.md"]
+	content, ok := out.RootFiles["GEMINI.md"]
 	require.True(t, ok, "expected ../GEMINI.md")
 	assert.Contains(t, content, "File-sourced instructions.")
 }
@@ -123,7 +123,7 @@ func TestCompile_Gemini_Instructions_ScopeVariant(t *testing.T) {
 	out, _, err := renderer.Orchestrate(r, config, tmpDir)
 	require.NoError(t, err)
 
-	scopeContent, ok := out.Files["../packages/backend/GEMINI.md"]
+	scopeContent, ok := out.RootFiles["packages/backend/GEMINI.md"]
 	require.True(t, ok, "expected ../packages/backend/GEMINI.md to be produced")
 	assert.Contains(t, scopeContent, "Gemini-specific scope content.")
 	assert.NotContains(t, scopeContent, "default scope instructions")
@@ -136,6 +136,6 @@ func TestCompile_Gemini_Instructions_NoProject(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, notes)
 
-	_, ok := out.Files["../GEMINI.md"]
+	_, ok := out.RootFiles["GEMINI.md"]
 	assert.False(t, ok, "no project config should produce no GEMINI.md")
 }

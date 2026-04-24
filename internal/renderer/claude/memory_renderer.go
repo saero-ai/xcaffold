@@ -141,10 +141,6 @@ func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseD
 		lifecycle = memoryLifecycleSeedOnce
 	}
 
-	// Issue 1: path-safety — reject names that could escape the target directory.
-	if strings.ContainsAny(name, "/\\") {
-		return nil, fmt.Errorf("memory %q: entry name must not contain path separators", name)
-	}
 	if name == ".." || strings.Contains(name, "..") {
 		return nil, fmt.Errorf("memory %q: entry name must not contain traversal sequences", name)
 	}
@@ -152,7 +148,8 @@ func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseD
 		return nil, fmt.Errorf("memory %q: entry name must not be absolute", name)
 	}
 
-	targetPath := filepath.Join(r.targetDir, name+".md")
+	safeName := renderer.SlugifyFilename(name)
+	targetPath := filepath.Join(r.targetDir, safeName+".md")
 	exists, err := fileExists(targetPath)
 	if err != nil {
 		return nil, fmt.Errorf("memory %q: stat target: %w", name, err)

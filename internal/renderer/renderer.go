@@ -99,10 +99,24 @@ type TargetRenderer interface {
 	CompileHooks(hooks ast.HookConfig, baseDir string) (map[string]string, []FidelityNote, error)
 	CompileSettings(settings ast.SettingsConfig) (map[string]string, []FidelityNote, error)
 	CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []FidelityNote, error)
-	CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []FidelityNote, error)
+	CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (outputDirFiles map[string]string, rootFiles map[string]string, notes []FidelityNote, err error)
 	CompileMemory(config *ast.XcaffoldConfig, baseDir string, opts MemoryOptions) (map[string]string, []FidelityNote, error)
 
 	// Finalize is a post-processing pass called after all per-resource methods
 	// have run (path normalization, deduplication, etc.).
-	Finalize(files map[string]string) (map[string]string, []FidelityNote, error)
+	Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []FidelityNote, error)
+}
+
+// SlugifyFilename maps a raw memory resource ID to a canonical, path-safe filename
+// by replacing slashes and spaces with underscores, downcasing the string,
+// and optionally prepending "project_" if not already present.
+func SlugifyFilename(raw string) string {
+	slug := strings.ToLower(raw)
+	slug = strings.ReplaceAll(slug, "/", "_")
+	slug = strings.ReplaceAll(slug, " ", "_")
+	slug = strings.ReplaceAll(slug, "\\", "_")
+	if !strings.HasPrefix(slug, "project_") {
+		return "project_" + slug
+	}
+	return slug
 }

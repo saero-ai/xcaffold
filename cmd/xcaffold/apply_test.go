@@ -62,6 +62,52 @@ agents:
 	assert.Error(t, err, "--check must return non-zero when diagnostics contain errors")
 }
 
+func TestApply_Claude_CLAUDE_MD_WrittenAtProjectRoot(t *testing.T) {
+	// Use a minimal in-memory xcf with project instructions
+	dir := t.TempDir()
+
+	xcaffoldDir := filepath.Join(dir, ".xcaffold")
+	if err := os.MkdirAll(xcaffoldDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	projectXcf := filepath.Join(xcaffoldDir, "project.xcf")
+	content := `kind: project
+version: "1.0"
+name: test
+instructions: |
+  Use pnpm. PostgreSQL 16.
+`
+	if err := os.WriteFile(projectXcf, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	outputDir := filepath.Join(dir, ".claude")
+	stateFile := filepath.Join(xcaffoldDir, "project.xcf.state")
+
+	// Act
+	err := applyScope(projectXcf, outputDir, dir, "project")
+	if err != nil {
+		t.Fatalf("applyScope failed: %v", err)
+	}
+
+	// Assert: CLAUDE.md is at project root, not inside .claude/
+	claudeMDPath := filepath.Join(dir, "CLAUDE.md")
+	if _, err := os.Stat(claudeMDPath); os.IsNotExist(err) {
+		t.Errorf("expected CLAUDE.md at %s, not found", claudeMDPath)
+	}
+
+	// Assert: CLAUDE.md is NOT inside .claude/
+	claudeMDInDotClaude := filepath.Join(outputDir, "CLAUDE.md")
+	if _, err := os.Stat(claudeMDInDotClaude); err == nil {
+		t.Errorf("CLAUDE.md must NOT exist inside .claude/: %s", claudeMDInDotClaude)
+	}
+
+	// Assert: state file exists
+	if _, err := os.Stat(stateFile); os.IsNotExist(err) {
+		t.Error("expected state file to exist after apply")
+	}
+}
+
 // minimalXCF is a minimal valid project.xcf for apply tests.
 const minimalXCF = `kind: project
 version: "1.0"
@@ -559,9 +605,9 @@ instructions: "Robert is the founder."
 	require.NoError(t, err)
 
 	// The orchestrator always compiles memory entries when the renderer supports it.
-	memFile := filepath.Join(claudeDir, "agent-memory", "default", "user-role.md")
+	memFile := filepath.Join(claudeDir, "agent-memory", "default", "project_user-role.md")
 	_, err = os.Stat(memFile)
-	require.NoError(t, err, "agent-memory file must exist at .claude/agent-memory/default/user-role.md")
+	require.NoError(t, err, "agent-memory file must exist at .claude/agent-memory/default/project_user-role.md")
 
 	data, err := os.ReadFile(memFile)
 	require.NoError(t, err)
@@ -599,7 +645,7 @@ instructions: "Use cobra for all commands."
 	err := applyScope(xcf, claudeDir, dir, "project")
 	require.NoError(t, err)
 
-	memFile := filepath.Join(claudeDir, "agent-memory", "go-cli-developer", "arch-decisions.md")
+	memFile := filepath.Join(claudeDir, "agent-memory", "go-cli-developer", "project_arch-decisions.md")
 	_, err = os.Stat(memFile)
 	require.NoError(t, err, "agent-memory file must exist at .claude/agent-memory/go-cli-developer/arch-decisions.md")
 

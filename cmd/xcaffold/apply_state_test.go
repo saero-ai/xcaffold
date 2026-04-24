@@ -50,7 +50,7 @@ func TestEnsureGitignoreEntry_NoDuplicate(t *testing.T) {
 }
 
 func TestHasDriftFromState_NilState(t *testing.T) {
-	drift, err := hasDriftFromState("/nonexistent", "/nonexistent/state", "claude")
+	drift, err := hasDriftFromState("/nonexistent", "/nonexistent/state", "/nonexistent/base", "claude")
 	assert.NoError(t, err)
 	assert.False(t, drift)
 }

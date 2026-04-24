@@ -222,23 +222,24 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 
 // CompileProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per
 // scope, plus settings.local.json when a project.local block is present.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	rootFiles := make(map[string]string)
 
 	// Synthesize a minimal config so renderProjectInstructions can read it.
 	cfg := &ast.XcaffoldConfig{Project: project}
-	notes := r.renderProjectInstructions(cfg, baseDir, files)
+	notes := r.renderProjectInstructions(cfg, baseDir, rootFiles)
 
 	// Emit settings.local.json when a local block is present.
 	localJSON, err := compileSettingsJSON(project.Local, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to compile local settings: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to compile local settings: %w", err)
 	}
 	if localJSON != "" {
 		files["settings.local.json"] = localJSON
 	}
 
-	return files, notes, nil
+	return files, rootFiles, notes, nil
 }
 
 // CompileMemory delegates to MemoryRenderer, respecting lifecycle and drift
@@ -285,7 +286,8 @@ func (r *Renderer) compileMemoryToMap(config *ast.XcaffoldConfig, baseDir string
 		if agentRef == "" {
 			agentRef = "default"
 		}
-		relPath := filepath.Join("agent-memory", agentRef, name+".md")
+		safeFilename := renderer.SlugifyFilename(name) + ".md"
+		relPath := filepath.Join("agent-memory", agentRef, safeFilename)
 		files[relPath] = renderMemoryMarkdown(entry, body)
 	}
 	return files, nil, nil
@@ -299,20 +301,20 @@ func (r *Renderer) compileMemoryToMap(config *ast.XcaffoldConfig, baseDir string
 //
 // MCPServers (claudeMCPSettingsKey): staged by CompileSettings and merged into
 // mcp.json alongside any top-level config.MCP entries compiled by CompileMCP.
-func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	// Merge staged hooks into settings.json.
 	if hooksRaw, ok := files[claudeHooksKey]; ok {
 		delete(files, claudeHooksKey)
 		var hooks ast.HookConfig
 		if err := json.Unmarshal([]byte(hooksRaw), &hooks); err != nil {
-			return nil, nil, fmt.Errorf("Finalize: failed to unmarshal staged hooks: %w", err)
+			return nil, nil, nil, fmt.Errorf("Finalize: failed to unmarshal staged hooks: %w", err)
 		}
 		if len(hooks) > 0 {
 			// Parse existing settings.json (if any) and inject hooks.
 			existing := make(map[string]any)
 			if s, has := files["settings.json"]; has {
 				if err := json.Unmarshal([]byte(s), &existing); err != nil {
-					return nil, nil, fmt.Errorf("Finalize: failed to parse settings.json for hook merge: %w", err)
+					return nil, nil, nil, fmt.Errorf("Finalize: failed to parse settings.json for hook merge: %w", err)
 				}
 			} else {
 				existing["$schema"] = "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json"
@@ -320,7 +322,7 @@ func (r *Renderer) Finalize(files map[string]string) (map[string]string, []rende
 			existing["hooks"] = hooks
 			b, err := json.MarshalIndent(existing, "", "  ")
 			if err != nil {
-				return nil, nil, fmt.Errorf("Finalize: failed to re-serialize settings.json with hooks: %w", err)
+				return nil, nil, nil, fmt.Errorf("Finalize: failed to re-serialize settings.json with hooks: %w", err)
 			}
 			files["settings.json"] = string(b)
 		}
@@ -331,7 +333,7 @@ func (r *Renderer) Finalize(files map[string]string) (map[string]string, []rende
 		delete(files, claudeMCPSettingsKey)
 		var settingsMCPServers map[string]ast.MCPConfig
 		if err := json.Unmarshal([]byte(mcpRaw), &settingsMCPServers); err != nil {
-			return nil, nil, fmt.Errorf("Finalize: failed to unmarshal staged MCPServers: %w", err)
+			return nil, nil, nil, fmt.Errorf("Finalize: failed to unmarshal staged MCPServers: %w", err)
 		}
 		if len(settingsMCPServers) > 0 {
 			// Parse existing mcp.json (if any) and merge.
@@ -341,7 +343,7 @@ func (r *Renderer) Finalize(files map[string]string) (map[string]string, []rende
 					MCPServers map[string]ast.MCPConfig `json:"mcpServers"`
 				}
 				if err := json.Unmarshal([]byte(m), &envelope); err != nil {
-					return nil, nil, fmt.Errorf("Finalize: failed to parse mcp.json for merge: %w", err)
+					return nil, nil, nil, fmt.Errorf("Finalize: failed to parse mcp.json for merge: %w", err)
 				}
 				for k, v := range envelope.MCPServers {
 					mcpServers[k] = v
@@ -353,13 +355,13 @@ func (r *Renderer) Finalize(files map[string]string) (map[string]string, []rende
 			}
 			b, err := json.MarshalIndent(map[string]any{"mcpServers": mcpServers}, "", "  ")
 			if err != nil {
-				return nil, nil, fmt.Errorf("Finalize: failed to re-serialize mcp.json: %w", err)
+				return nil, nil, nil, fmt.Errorf("Finalize: failed to re-serialize mcp.json: %w", err)
 			}
 			files["mcp.json"] = string(b)
 		}
 	}
 
-	return files, nil, nil
+	return files, rootFiles, nil, nil
 }
 
 // renderProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per scope.
@@ -380,12 +382,12 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	// "../" prefix emits these at the project root alongside the .xcaffold/
 	// manifest, matching cursor/gemini renderers (../AGENTS.md, ../GEMINI.md).
 	// apply.go normalizes with filepath.Clean(filepath.Join(outputDir, key)).
-	files["../CLAUDE.md"] = rootContent
+	files["CLAUDE.md"] = rootContent
 
-	// Emit one file per scope, also rooted at the project root via "../" prefix.
+	// Emit one file per scope, anchored at project root.
 	for _, scope := range p.InstructionsScopes {
 		content := renderer.ResolveScopeContent(scope, "claude", baseDir)
-		files[filepath.Clean("../"+scope.Path+"/CLAUDE.md")] = content
+		files[filepath.Clean(scope.Path+"/CLAUDE.md")] = content
 	}
 	return nil // concat-nested: zero fidelity notes
 }

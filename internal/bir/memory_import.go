@@ -46,6 +46,11 @@ func DeriveMemoryKey(filename string) string {
 		base = strings.TrimSuffix(filename, ext)
 	}
 
+	// Strip "project_" prefix if present to prevent compounding on re-import.
+	if strings.HasPrefix(base, "project_") {
+		base = strings.TrimPrefix(base, "project_")
+	}
+
 	// Lowercase.
 	base = strings.ToLower(base)
 

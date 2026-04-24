@@ -211,13 +211,13 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 }
 
 // CompileProjectInstructions emits AGENTS.md at root and one AGENTS.md per scope.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	// Build a minimal config shell to reuse renderProjectInstructions.
 	cfg := &ast.XcaffoldConfig{}
 	cfg.Project = project
-	files := make(map[string]string)
-	notes := r.renderProjectInstructions(cfg, baseDir, files)
-	return files, notes, nil
+	rootFiles := make(map[string]string)
+	notes := r.renderProjectInstructions(cfg, baseDir, rootFiles)
+	return nil, rootFiles, notes, nil
 }
 
 // CompileMemory delegates to MemoryRenderer. Cursor has no native per-file
@@ -236,8 +236,8 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 
 // Finalize is a no-op post-processing pass for the Cursor renderer.
 // Path normalization is already applied per-resource during compilation.
-func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
-	return files, nil, nil
+func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	return files, rootFiles, nil, nil
 }
 
 // renderProjectInstructions emits AGENTS.md at root and one AGENTS.md per scope.
@@ -280,11 +280,11 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		))
 	}
 
-	files["../AGENTS.md"] = rootContent
+	files["AGENTS.md"] = rootContent
 
 	for _, scope := range p.InstructionsScopes {
 		scopeContent := cursorResolveScopeContent(scope, targetName, baseDir)
-		safePath := filepath.Clean("../" + scope.Path + "/AGENTS.md")
+		safePath := filepath.Clean(scope.Path + "/AGENTS.md")
 
 		if scope.MergeStrategy == "concat" {
 			// Pre-flatten: child AGENTS.md = root content + scope content.

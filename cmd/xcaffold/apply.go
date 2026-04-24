@@ -355,7 +355,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	oldManifest, _ := state.ReadState(stateFilePath)
 
 	if !applyDryRun && !applyForce {
-		drift, err := hasDriftFromState(outputDir, stateFilePath, targetFlag)
+		drift, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
 		if err == nil && drift {
 			return fmt.Errorf("[%s] drift detected! Target directory contains unrecorded changes. Use --force to overwrite", scopeName)
 		}
@@ -385,10 +385,17 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	// Write (or preview) each compiled file.
 	hasChanges := false
 
-	cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, scopeName, &hasChanges)
+	cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, baseDir, scopeName, &hasChanges)
 
 	for relPath, content := range out.Files {
 		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
+		if err := applyFile(absPath, content, scopeName, &hasChanges); err != nil {
+			return err
+		}
+	}
+
+	for relPath, content := range out.RootFiles {
+		absPath := filepath.Clean(filepath.Join(baseDir, relPath))
 		if err := applyFile(absPath, content, scopeName, &hasChanges); err != nil {
 			return err
 		}
@@ -687,10 +694,16 @@ func copyDir(src, dst string) error {
 
 // cleanOrphansFromState removes files from outputDir that were recorded in old
 // for the given target but are absent from the new compiler output.
-func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out *compiler.Output, outputDir, scopeName string, hasChanges *bool) {
-	orphans := state.FindOrphansFromState(oldManifest, target, out.Files)
+func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out *compiler.Output, outputDir, baseDir, scopeName string, hasChanges *bool) {
+	orphans := state.FindOrphansFromState(oldManifest, target, out.Files, out.RootFiles)
 	for _, orphanPath := range orphans {
-		absPath := filepath.Clean(filepath.Join(outputDir, orphanPath))
+		var absPath string
+		if strings.HasPrefix(orphanPath, "root:") {
+			relPath := strings.TrimPrefix(orphanPath, "root:")
+			absPath = filepath.Clean(filepath.Join(baseDir, relPath))
+		} else {
+			absPath = filepath.Clean(filepath.Join(outputDir, orphanPath))
+		}
 		if applyDryRun {
 			fmt.Printf("  [%s] \033[31m[- DELETE]\033[0m %s\n", scopeName, absPath)
 			*hasChanges = true
@@ -708,7 +721,7 @@ func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out 
 
 // hasDriftFromState checks whether any artifact recorded for target in the
 // StateManifest at stateFile has been modified on disk since the last apply.
-func hasDriftFromState(outputDir, stateFile, target string) (bool, error) {
+func hasDriftFromState(outputDir, stateFile, baseDir, target string) (bool, error) {
 	manifest, err := state.ReadState(stateFile)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -723,7 +736,13 @@ func hasDriftFromState(outputDir, stateFile, target string) (bool, error) {
 	}
 
 	for _, artifact := range ts.Artifacts {
-		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
+		var absPath string
+		if strings.HasPrefix(artifact.Path, "root:") {
+			relPath := strings.TrimPrefix(artifact.Path, "root:")
+			absPath = filepath.Clean(filepath.Join(baseDir, relPath))
+		} else {
+			absPath = filepath.Clean(filepath.Join(outputDir, artifact.Path))
+		}
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			return true, nil // missing file is drift

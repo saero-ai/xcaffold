@@ -56,7 +56,7 @@ func TestCompile_Gemini_Rules_AlwaysActivation(t *testing.T) {
 	assert.Contains(t, ruleContent, "Use gofmt.")
 
 	// GEMINI.md must contain targeted @-import with the project-relative path.
-	geminiContent := out.Files["../GEMINI.md"]
+	geminiContent := out.RootFiles["GEMINI.md"]
 	assert.Contains(t, geminiContent, "Always apply @.gemini/rules/go-style.md")
 
 	// No fidelity notes for always activation.
@@ -105,7 +105,7 @@ func TestCompile_Gemini_Rules_PathGlob(t *testing.T) {
 	_, ok := out.Files["rules/api-style.md"]
 	assert.True(t, ok, "expected rules/api-style.md (relative to OutputDir)")
 
-	geminiContent := out.Files["../GEMINI.md"]
+	geminiContent := out.RootFiles["GEMINI.md"]
 	assert.Contains(t, geminiContent, "Apply this rule when accessing api/**:\n@.gemini/rules/api-style.md")
 
 	// path-glob is supported — no fidelity note.
@@ -155,7 +155,7 @@ func TestCompile_Gemini_Rules_NoProjectInstructions(t *testing.T) {
 	assert.Empty(t, notes)
 
 	// No project — GEMINI.md content comes from rules @-imports only.
-	geminiContent := out.Files["../GEMINI.md"]
+	geminiContent := out.RootFiles["GEMINI.md"]
 	assert.Contains(t, geminiContent, "Always apply @.gemini/rules/lint.md")
 }
 
@@ -194,14 +194,14 @@ func TestCompile_Gemini_FullConfig_InstructionsAndRules(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, notes, "no fidelity notes expected for supported activations")
 
-	root := out.Files["../GEMINI.md"]
+	root := out.RootFiles["GEMINI.md"]
 	assert.Contains(t, root, "Root project instructions.")
 	assert.Contains(t, root, "@./docs/contributing.md")
 	assert.Contains(t, root, "Always apply @.gemini/rules/code-style.md")
 	assert.Contains(t, root, "Always apply @.gemini/rules/testing.md")
 
-	assert.Contains(t, out.Files, "../packages/api/GEMINI.md")
-	assert.Contains(t, out.Files["../packages/api/GEMINI.md"], "API scope instructions.")
+	assert.Contains(t, out.RootFiles, "packages/api/GEMINI.md")
+	assert.Contains(t, out.RootFiles["packages/api/GEMINI.md"], "API scope instructions.")
 
 	assert.Contains(t, out.Files["rules/code-style.md"], "Style guide content.")
 	assert.Contains(t, out.Files["rules/testing.md"], "Always write tests.")
@@ -291,7 +291,7 @@ func TestCompile_Gemini_OutputPathsRelativeToOutputDir(t *testing.T) {
 
 	// @-import lines in GEMINI.md must use the project-relative path so the
 	// Gemini CLI resolves the file correctly from the project root.
-	geminiMD := out.Files["../GEMINI.md"]
+	geminiMD := out.RootFiles["GEMINI.md"]
 	assert.Contains(t, geminiMD, "Always apply @.gemini/rules/style.md",
 		"@-import lines must use the project-relative .gemini/ prefix")
 }
@@ -346,14 +346,14 @@ func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
 	require.NoError(t, err)
 
 	// Instructions
-	assert.Contains(t, out.Files, "../GEMINI.md")
-	assert.Contains(t, out.Files["../GEMINI.md"], "Root project instructions.")
-	assert.Contains(t, out.Files["../GEMINI.md"], "@./docs/contributing.md")
-	assert.Contains(t, out.Files, "../packages/api/GEMINI.md")
+	assert.Contains(t, out.RootFiles, "GEMINI.md")
+	assert.Contains(t, out.RootFiles["GEMINI.md"], "Root project instructions.")
+	assert.Contains(t, out.RootFiles["GEMINI.md"], "@./docs/contributing.md")
+	assert.Contains(t, out.RootFiles, "packages/api/GEMINI.md")
 
 	// Rules — key relative to OutputDir; @-import uses project-relative path.
 	assert.Contains(t, out.Files, "rules/code-style.md")
-	assert.Contains(t, out.Files["../GEMINI.md"], "Always apply @.gemini/rules/code-style.md")
+	assert.Contains(t, out.RootFiles["GEMINI.md"], "Always apply @.gemini/rules/code-style.md")
 
 	// Skills — key relative to OutputDir.
 	assert.Contains(t, out.Files, "skills/tdd/SKILL.md")

@@ -27,8 +27,8 @@ func TestCompileMemory_Antigravity_WritesKnowledgeItem(t *testing.T) {
 	out, notes, err := r.Compile(config, dir)
 	require.NoError(t, err)
 	require.Empty(t, notes, "native mapping emits no notes")
-	require.Contains(t, out.Files, "knowledge/user-role.md")
-	content := out.Files["knowledge/user-role.md"]
+	require.Contains(t, out.Files, "knowledge/project_user-role.md")
+	content := out.Files["knowledge/project_user-role.md"]
 	require.Contains(t, content, "title: user-role")
 	require.Contains(t, content, "type: user")
 	require.Contains(t, content, "- user")
@@ -52,11 +52,11 @@ func TestCompileMemory_Antigravity_TypeTagDerivation(t *testing.T) {
 
 	out, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
-	require.Contains(t, out.Files["knowledge/ref.md"], "- reference")
-	require.Contains(t, out.Files["knowledge/ref.md"], "- docs")
-	require.Contains(t, out.Files["knowledge/fb.md"], "- feedback")
-	require.Contains(t, out.Files["knowledge/proj.md"], "- project")
-	require.Contains(t, out.Files["knowledge/proj.md"], "- context")
+	require.Contains(t, out.Files["knowledge/project_ref.md"], "- reference")
+	require.Contains(t, out.Files["knowledge/project_ref.md"], "- docs")
+	require.Contains(t, out.Files["knowledge/project_fb.md"], "- feedback")
+	require.Contains(t, out.Files["knowledge/project_proj.md"], "- project")
+	require.Contains(t, out.Files["knowledge/project_proj.md"], "- context")
 }
 
 func TestCompileMemory_Antigravity_ProviderKiTagsOverride(t *testing.T) {
@@ -84,7 +84,7 @@ func TestCompileMemory_Antigravity_ProviderKiTagsOverride(t *testing.T) {
 
 	out, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
-	content := out.Files["knowledge/custom.md"]
+	content := out.Files["knowledge/project_custom.md"]
 	require.Contains(t, content, "- a")
 	require.Contains(t, content, "- b")
 	require.Contains(t, content, "- c")
@@ -117,7 +117,7 @@ func TestCompileMemory_Antigravity_FallbackTag_UnknownType(t *testing.T) {
 
 	out, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
-	require.Contains(t, out.Files["knowledge/misc.md"], "- memory")
+	require.Contains(t, out.Files["knowledge/project_misc.md"], "- memory")
 }
 
 func TestCompileMemory_Antigravity_InvalidName_ReturnsError(t *testing.T) {

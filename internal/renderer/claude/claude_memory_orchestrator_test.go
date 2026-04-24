@@ -51,5 +51,5 @@ func TestCompileMemory_Claude_OrchestratorPath_MissingAgentRefFallsBackToDefault
 	r := claude.New()
 	files, _, err := r.CompileMemory(cfg, t.TempDir(), renderer.MemoryOptions{})
 	require.NoError(t, err)
-	require.Contains(t, files, filepath.Join("agent-memory", "default", "orphaned.md"))
+	require.Contains(t, files, filepath.Join("agent-memory", "default", "project_orphaned.md"))
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/output"
@@ -167,11 +168,18 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 	// Build artifacts for the current target
 	target := opts.Target
 
-	artifacts := make([]Artifact, 0, len(out.Files))
+	artifacts := make([]Artifact, 0, len(out.Files)+len(out.RootFiles))
 	for path, content := range out.Files {
 		hash := sha256.Sum256([]byte(content))
 		artifacts = append(artifacts, Artifact{
 			Path: path,
+			Hash: fmt.Sprintf("sha256:%x", hash),
+		})
+	}
+	for path, content := range out.RootFiles {
+		hash := sha256.Sum256([]byte(content))
+		artifacts = append(artifacts, Artifact{
+			Path: "root:" + path,
 			Hash: fmt.Sprintf("sha256:%x", hash),
 		})
 	}
@@ -264,9 +272,8 @@ func SourcesChanged(previous []SourceFile, currentPaths []string, baseDir string
 }
 
 // FindOrphansFromState returns artifact paths that exist in the old StateManifest
-// for the given target but are absent from newFiles. Results are sorted
-// alphabetically. Returns nil if old is nil or the target has no prior state.
-func FindOrphansFromState(old *StateManifest, target string, newFiles map[string]string) []string {
+// for the given target but are absent from newFiles or newRootFiles.
+func FindOrphansFromState(old *StateManifest, target string, newFiles map[string]string, newRootFiles map[string]string) []string {
 	if old == nil {
 		return nil
 	}
@@ -276,8 +283,15 @@ func FindOrphansFromState(old *StateManifest, target string, newFiles map[string
 	}
 	var orphans []string
 	for _, artifact := range ts.Artifacts {
-		if _, exists := newFiles[artifact.Path]; !exists {
-			orphans = append(orphans, artifact.Path)
+		if strings.HasPrefix(artifact.Path, "root:") {
+			relPath := strings.TrimPrefix(artifact.Path, "root:")
+			if _, exists := newRootFiles[relPath]; !exists {
+				orphans = append(orphans, artifact.Path)
+			}
+		} else {
+			if _, exists := newFiles[artifact.Path]; !exists {
+				orphans = append(orphans, artifact.Path)
+			}
 		}
 	}
 	sort.Strings(orphans)

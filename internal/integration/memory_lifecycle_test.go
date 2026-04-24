@@ -60,7 +60,7 @@ func TestIntegration_Memory_Claude_Tracked_DetectsDrift(t *testing.T) {
 	priorHash := r1.Seeds()[0].Hash
 
 	// Simulate agent modification.
-	targetPath := filepath.Join(dir, "arch.md")
+	targetPath := filepath.Join(dir, "project_arch.md")
 	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
 
 	// Second apply with prior hash: must detect drift.
@@ -72,7 +72,7 @@ func TestIntegration_Memory_Claude_Tracked_DetectsDrift(t *testing.T) {
 
 func TestIntegration_Memory_Claude_Reseed_OverridesDrift(t *testing.T) {
 	dir := t.TempDir()
-	targetPath := filepath.Join(dir, "user-role.md")
+	targetPath := filepath.Join(dir, "project_user-role.md")
 	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
 
 	r := claude.NewMemoryRenderer(dir).WithReseed(true)
@@ -96,7 +96,7 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 	// Source: mock Claude project memory directory.
 	providerDir := t.TempDir()
 	require.NoError(t, os.WriteFile(
-		filepath.Join(providerDir, "user-role.md"),
+		filepath.Join(providerDir, "project_user-role.md"),
 		[]byte("---\ntype: user\ndescription: Developer role.\n---\nRobert is the founder.\n"),
 		0o600,
 	))
@@ -134,7 +134,7 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 	_, _, err = r.Compile(config, applyDir)
 	require.NoError(t, err)
 	require.Len(t, r.Seeds(), 1)
-	require.FileExists(t, filepath.Join(applyDir, "user-role.md"))
+	require.FileExists(t, filepath.Join(applyDir, "project_user-role.md"))
 }
 
 func TestIntegration_Memory_InheritedEntry_NotSeeded(t *testing.T) {
@@ -178,10 +178,10 @@ func TestIntegration_Memory_InheritedEntry_NotSeeded(t *testing.T) {
 	require.Equal(t, "local-entry", seeds[0].Name)
 
 	// The local file must exist on disk.
-	require.FileExists(t, filepath.Join(dir, "local-entry.md"))
+	require.FileExists(t, filepath.Join(dir, "project_local-entry.md"))
 
 	// The inherited file must NOT exist on disk.
-	inheritedPath := filepath.Join(dir, "inherited-entry.md")
+	inheritedPath := filepath.Join(dir, "project_inherited-entry.md")
 	_, statErr := os.Stat(inheritedPath)
 	require.True(t, os.IsNotExist(statErr), "inherited entry must not be written to disk")
 }
@@ -252,8 +252,8 @@ func TestIntegration_Memory_Antigravity_WritesKnowledgeItems(t *testing.T) {
 	out, notes, err := r.Compile(config, t.TempDir())
 	require.NoError(t, err)
 	require.Empty(t, notes)
-	require.Contains(t, out.Files, "knowledge/user-role.md")
-	content := out.Files["knowledge/user-role.md"]
+	require.Contains(t, out.Files, "knowledge/project_user-role.md")
+	content := out.Files["knowledge/project_user-role.md"]
 	require.Contains(t, content, "type: user")
 	require.Contains(t, content, "- user")
 	require.Contains(t, content, "Robert is the founder.")
