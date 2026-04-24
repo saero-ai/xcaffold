@@ -101,14 +101,14 @@ func (m *mockRenderer) CompileSettings(_ ast.SettingsConfig) (map[string]string,
 func (m *mockRenderer) CompileMCP(_ map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
 	return nil, nil, nil
 }
-func (m *mockRenderer) CompileProjectInstructions(_ *ast.ProjectConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
-	return nil, nil, nil
+func (m *mockRenderer) CompileProjectInstructions(_ *ast.ProjectConfig, _ string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	return nil, nil, nil, nil
 }
 func (m *mockRenderer) CompileMemory(_ *ast.XcaffoldConfig, _ string, _ renderer.MemoryOptions) (map[string]string, []renderer.FidelityNote, error) {
 	return map[string]string{}, nil, nil
 }
-func (m *mockRenderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
-	return files, nil, nil
+func (m *mockRenderer) Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	return files, rootFiles, nil, nil
 }
 
 // TestOrchestrate_PerResourceDispatch verifies that Orchestrate dispatches to

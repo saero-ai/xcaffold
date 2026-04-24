@@ -32,7 +32,7 @@ func TestCursorRenderer_ProjectInstructions_PreFlattensConcat(t *testing.T) {
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	// Pre-flattening: worker AGENTS.md must contain root + worker content.
-	worker, ok := out.Files["../packages/worker/AGENTS.md"]
+	worker, ok := out.RootFiles["packages/worker/AGENTS.md"]
 	require.True(t, ok, "packages/worker/AGENTS.md must be present in output")
 	require.Contains(t, worker, "Root context.")
 	require.Contains(t, worker, "Worker context.")
@@ -90,7 +90,7 @@ func TestCursorRenderer_ProjectInstructions_InlinesImports(t *testing.T) {
 	out, notes, err := renderer.Orchestrate(r, config, dir)
 	require.NoError(t, err)
 
-	rootMD, ok := out.Files["../AGENTS.md"]
+	rootMD, ok := out.RootFiles["AGENTS.md"]
 	require.True(t, ok, "AGENTS.md must be present in output")
 
 	// Must NOT contain raw @-import syntax — Cursor does not support it.
@@ -131,7 +131,7 @@ instructions: |
 	out, _, err := renderer.Orchestrate(r, config, dir)
 	require.NoError(t, err)
 
-	rootMD, ok := out.Files["../AGENTS.md"]
+	rootMD, ok := out.RootFiles["AGENTS.md"]
 	require.True(t, ok, "AGENTS.md must be present in output")
 	require.Contains(t, rootMD, "This is the extracted body.", "Must extract body")
 	require.NotContains(t, rootMD, "kind: project", "Must strip XCF frontmatter")
@@ -149,7 +149,7 @@ func TestRenderProjectInstructions_Cursor_InlineInstructions_Unchanged(t *testin
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	rootMD, ok := out.Files["../AGENTS.md"]
+	rootMD, ok := out.RootFiles["AGENTS.md"]
 	require.True(t, ok, "AGENTS.md must be present in output")
 	require.Contains(t, rootMD, "Inline body.", "Must pass inline instructions as is")
 }
@@ -172,7 +172,7 @@ func TestRenderProjectInstructions_Cursor_ScopeFiles_AtProjectRoot(t *testing.T)
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	scopeMD, ok := out.Files["../dummy_platform/AGENTS.md"]
+	scopeMD, ok := out.RootFiles["dummy_platform/AGENTS.md"]
 	require.True(t, ok, "../dummy_platform/AGENTS.md must be present in output")
 	require.Contains(t, scopeMD, "Platform specific.", "Must contain scope body")
 }

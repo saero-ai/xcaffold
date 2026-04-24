@@ -33,12 +33,12 @@ func TestCompileMemory_SeedOnce_FileAbsent(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, output)
 	require.Empty(t, notes, "no fidelity notes for new file")
-	require.FileExists(t, filepath.Join(dir, "user-role.md"))
+	require.FileExists(t, filepath.Join(dir, "project_user-role.md"))
 }
 
 func TestCompileMemory_SeedOnce_FilePresent_NoOp(t *testing.T) {
 	dir := t.TempDir()
-	targetPath := filepath.Join(dir, "user-role.md")
+	targetPath := filepath.Join(dir, "project_user-role.md")
 	require.NoError(t, os.WriteFile(targetPath, []byte("existing content"), 0o600))
 
 	r := NewMemoryRenderer(dir)
@@ -66,7 +66,7 @@ func TestCompileMemory_SeedOnce_FilePresent_NoOp(t *testing.T) {
 
 func TestCompileMemory_Reseed_Overwrites(t *testing.T) {
 	dir := t.TempDir()
-	targetPath := filepath.Join(dir, "user-role.md")
+	targetPath := filepath.Join(dir, "project_user-role.md")
 	require.NoError(t, os.WriteFile(targetPath, []byte("old content"), 0o600))
 
 	r := NewMemoryRenderer(dir).WithReseed(true)
@@ -109,12 +109,12 @@ func TestCompileMemory_Tracked_FirstApply(t *testing.T) {
 	output, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 	require.NotNil(t, output)
-	require.FileExists(t, filepath.Join(dir, "arch-decisions.md"))
+	require.FileExists(t, filepath.Join(dir, "project_arch-decisions.md"))
 }
 
 func TestCompileMemory_Tracked_DriftDetected(t *testing.T) {
 	dir := t.TempDir()
-	targetPath := filepath.Join(dir, "arch-decisions.md")
+	targetPath := filepath.Join(dir, "project_arch-decisions.md")
 	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
 
 	r := NewMemoryRenderer(dir)
@@ -141,7 +141,7 @@ func TestCompileMemory_Tracked_DriftDetected(t *testing.T) {
 
 func TestCompileMemory_Tracked_ReseedOverridesDrift(t *testing.T) {
 	dir := t.TempDir()
-	targetPath := filepath.Join(dir, "arch-decisions.md")
+	targetPath := filepath.Join(dir, "project_arch-decisions.md")
 	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
 
 	r := NewMemoryRenderer(dir).WithReseed(true)
@@ -186,7 +186,7 @@ func TestCompileMemory_FrontmatterFormat(t *testing.T) {
 	_, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 
-	data, _ := os.ReadFile(filepath.Join(dir, "user-role.md"))
+	data, _ := os.ReadFile(filepath.Join(dir, "project_user-role.md"))
 	content := string(data)
 	require.Contains(t, content, "---")
 	require.Contains(t, content, "type: user")
@@ -217,25 +217,6 @@ func TestCompileMemory_MemoryIndexAppend(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(data), "## xcaffold seeds")
 	require.Contains(t, string(data), "user-role")
-}
-
-func TestCompileMemory_EntryNameWithSlash_Rejected(t *testing.T) {
-	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"bad/name": {
-					Name:         "bad/name",
-					Instructions: "some content",
-				},
-			},
-		},
-	}
-
-	_, _, err := r.Compile(config, dir)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "must not contain path separators")
 }
 
 func TestCompileMemory_InstructionsFileTraversal_Rejected(t *testing.T) {
@@ -295,7 +276,7 @@ func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
 	_, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 
-	data, readErr := os.ReadFile(filepath.Join(dir, "colon-desc.md"))
+	data, readErr := os.ReadFile(filepath.Join(dir, "project_colon-desc.md"))
 	require.NoError(t, readErr)
 	content := string(data)
 	require.Contains(t, content, `description: "has: a colon"`)
@@ -327,7 +308,7 @@ func TestCompileMemory_Tracked_DriftEmitsFidelityNote(t *testing.T) {
 	priorHash := r1.Seeds()[0].Hash
 
 	// Simulate agent modification.
-	targetPath := filepath.Join(dir, "arch.md")
+	targetPath := filepath.Join(dir, "project_arch.md")
 	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
 
 	// Apply with prior hash: must return an error AND emit a CodeMemoryDriftDetected note.

@@ -211,7 +211,7 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 // are still written as .github/instructions/<scope>.instructions.md with
 // applyTo: frontmatter because Copilot does NOT natively load subdirectory
 // CLAUDE.md files.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
 	if claudeDirExists(baseDir) {
 		var notes []renderer.FidelityNote
@@ -238,11 +238,11 @@ func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDi
 				}
 			}
 		}
-		return files, notes, nil
+		return files, nil, notes, nil
 	}
 	cfg := &ast.XcaffoldConfig{Project: project}
 	notes := r.renderProjectInstructions(cfg, baseDir, files)
-	return files, notes, nil
+	return files, nil, notes, nil
 }
 
 // CompileMemory delegates to MemoryRenderer. Copilot has no native per-file
@@ -261,8 +261,8 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 }
 
 // Finalize is a no-op for the Copilot renderer — no post-processing is required.
-func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
-	return files, nil, nil
+func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	return files, rootFiles, nil, nil
 }
 
 // instructionsMode returns the effective instructions-mode for the Copilot renderer.

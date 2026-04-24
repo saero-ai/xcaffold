@@ -12,7 +12,10 @@ import (
 // kinds the renderer does not support according to its Capabilities declaration.
 func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (*output.Output, []FidelityNote, error) {
 	caps := r.Capabilities()
-	out := &output.Output{Files: make(map[string]string)}
+	out := &output.Output{
+		Files:     make(map[string]string),
+		RootFiles: make(map[string]string),
+	}
 	var notes []FidelityNote
 
 	// Agents
@@ -170,11 +173,12 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	// Project instructions
 	if config.Project != nil {
 		if caps.ProjectInstructions {
-			files, n, err := r.CompileProjectInstructions(config.Project, baseDir)
+			files, rootFiles, n, err := r.CompileProjectInstructions(config.Project, baseDir)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileProjectInstructions: %w", err)
 			}
 			mergeFiles(out, files)
+			mergeRootFiles(out, rootFiles)
 			notes = append(notes, n...)
 		} else {
 			notes = append(notes, NewNote(
@@ -208,11 +212,12 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	}
 
 	// Finalize: post-processing pass (path normalization, dedup, etc.)
-	finalized, finalNotes, err := r.Finalize(out.Files)
+	finalized, finalizedRoot, finalNotes, err := r.Finalize(out.Files, out.RootFiles)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Finalize: %w", err)
 	}
 	out.Files = finalized
+	out.RootFiles = finalizedRoot
 	notes = append(notes, finalNotes...)
 
 	return out, notes, nil
@@ -223,5 +228,13 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 func mergeFiles(out *output.Output, files map[string]string) {
 	for k, v := range files {
 		out.Files[k] = v
+	}
+}
+
+// mergeRootFiles copies all entries from rootFiles into out.RootFiles. Existing
+// keys are overwritten; callers must ensure method ordering is deterministic.
+func mergeRootFiles(out *output.Output, rootFiles map[string]string) {
+	for k, v := range rootFiles {
+		out.RootFiles[k] = v
 	}
 }

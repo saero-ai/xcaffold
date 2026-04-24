@@ -209,7 +209,7 @@ func TestGenerateState_MergesTargets(t *testing.T) {
 }
 
 func TestFindOrphansFromState_NilOldState(t *testing.T) {
-	orphans := FindOrphansFromState(nil, "claude", map[string]string{"agents/dev.md": "# dev"})
+	orphans := FindOrphansFromState(nil, "claude", map[string]string{"agents/dev.md": "# dev"}, nil)
 	assert.Nil(t, orphans)
 }
 
@@ -219,7 +219,7 @@ func TestFindOrphansFromState_TargetNotInOldState(t *testing.T) {
 			"cursor": {Artifacts: []Artifact{{Path: "agents/dev.md", Hash: "sha256:aaa"}}},
 		},
 	}
-	orphans := FindOrphansFromState(old, "claude", map[string]string{})
+	orphans := FindOrphansFromState(old, "claude", map[string]string{}, nil)
 	assert.Nil(t, orphans)
 }
 
@@ -236,7 +236,7 @@ func TestFindOrphansFromState_NoOrphans(t *testing.T) {
 		"agents/dev.md":       "# dev",
 		"skills/tdd/SKILL.md": "# tdd",
 	}
-	orphans := FindOrphansFromState(old, "claude", newFiles)
+	orphans := FindOrphansFromState(old, "claude", newFiles, nil)
 	assert.Empty(t, orphans)
 }
 
@@ -253,7 +253,7 @@ func TestFindOrphansFromState_OrphansFound(t *testing.T) {
 	newFiles := map[string]string{
 		"agents/dev.md": "# dev",
 	}
-	orphans := FindOrphansFromState(old, "claude", newFiles)
+	orphans := FindOrphansFromState(old, "claude", newFiles, nil)
 	assert.Equal(t, []string{"agents/old.md", "skills/tdd/SKILL.md"}, orphans)
 }
 

@@ -48,7 +48,7 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 		entry := config.Memory[name]
 
 		// Path-safety: reject names that could escape the knowledge directory.
-		if strings.ContainsAny(name, "/\\") || strings.Contains(name, "..") || filepath.IsAbs(name) {
+		if strings.Contains(name, "..") || filepath.IsAbs(name) {
 			return nil, nil, fmt.Errorf("memory %q: invalid entry name", name)
 		}
 
@@ -60,7 +60,8 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 		tags := deriveKITags(entry)
 		content := renderKnowledgeItem(name, entry, tags, body)
 
-		relPath := filepath.Clean(fmt.Sprintf("knowledge/%s.md", name))
+		safeName := renderer.SlugifyFilename(name)
+		relPath := filepath.Clean(fmt.Sprintf("knowledge/%s.md", safeName))
 		out.Files[relPath] = content
 	}
 

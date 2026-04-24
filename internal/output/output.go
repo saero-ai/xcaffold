@@ -8,4 +8,7 @@ type Output struct {
 	// Files maps a clean, relative output path to its rendered content.
 	// Keys are guaranteed to be cleaned with filepath.Clean before insertion.
 	Files map[string]string
+	// RootFiles maps a clean, relative project-root path to its rendered content.
+	// These files bypass the path-safety directory confinement.
+	RootFiles map[string]string
 }

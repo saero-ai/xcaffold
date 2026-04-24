@@ -1165,3 +1165,26 @@ instructions-scopes:
 	require.NoError(t, err)
 	require.Len(t, cfg.Project.InstructionsScopes, 1)
 }
+
+// --- validateID: memory kind slash tests ---
+
+func TestValidateID_Memory_SlashAllowed(t *testing.T) {
+	err := validateID("memory", "auth-specialist/MEMORY")
+	if err != nil {
+		t.Errorf("expected no error for memory ID with slash, got: %v", err)
+	}
+}
+
+func TestValidateID_Memory_TraversalRejected(t *testing.T) {
+	err := validateID("memory", "auth/../MEMORY")
+	if err == nil {
+		t.Error("expected error for memory ID with path traversal '..', got nil")
+	}
+}
+
+func TestValidateID_Memory_BackslashRejected(t *testing.T) {
+	err := validateID("memory", `auth\MEMORY`)
+	if err == nil {
+		t.Error("expected error for memory ID with backslash, got nil")
+	}
+}

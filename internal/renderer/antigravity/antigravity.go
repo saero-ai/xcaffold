@@ -290,12 +290,12 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 // CompileProjectInstructions renders the project-level instructions into a
 // flat singleton rules file (rules/project-instructions.md) with xcaffold:scope
 // provenance markers for each InstructionsScope entry.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	cfg := &ast.XcaffoldConfig{}
 	cfg.Project = project
 	files := make(map[string]string)
 	notes := r.renderProjectInstructions(cfg, baseDir, files)
-	return files, notes, nil
+	return files, nil, notes, nil
 }
 
 // CompileMemory delegates to MemoryRenderer, emitting Antigravity Knowledge
@@ -314,8 +314,8 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 
 // Finalize is a no-op post-processing pass for the Antigravity renderer.
 // Path normalization is already applied per-resource during compilation.
-func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
-	return files, nil, nil
+func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	return files, rootFiles, nil, nil
 }
 
 // renderProjectInstructions emits a single flat-singleton rules file containing

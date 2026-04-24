@@ -172,11 +172,11 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 
 // CompileProjectInstructions writes GEMINI.md with project root instructions and
 // emits per-scope GEMINI.md files.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
-	files := make(map[string]string)
+func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	rootFiles := make(map[string]string)
 	cfg := &ast.XcaffoldConfig{Project: project}
-	notes := r.renderProjectInstructions(cfg, baseDir, files)
-	return files, notes, nil
+	notes := r.renderProjectInstructions(cfg, baseDir, rootFiles)
+	return nil, rootFiles, notes, nil
 }
 
 // CompileMemory delegates to MemoryRenderer, writing entries into GEMINI.md
@@ -203,15 +203,15 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 //     via compileGeminiSettings so hooks and MCP are always combined in one file.
 //
 // All sentinel keys are removed before returning.
-func (r *Renderer) Finalize(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	// 1. Merge rule @-import lines into GEMINI.md.
 	if imports, ok := files[geminiRuleImportsKey]; ok {
 		if imports != "" {
-			existing := files["../GEMINI.md"]
+			existing := rootFiles["GEMINI.md"]
 			if existing != "" && !strings.HasSuffix(existing, "\n") {
 				existing += "\n"
 			}
-			files["../GEMINI.md"] = existing + imports
+			rootFiles["GEMINI.md"] = existing + imports
 		}
 		delete(files, geminiRuleImportsKey)
 	}
@@ -241,13 +241,13 @@ func (r *Renderer) Finalize(files map[string]string) (map[string]string, []rende
 	// Regenerate the combined settings.json with all three data sources.
 	settingsJSON, settingsNotes, err := compileGeminiSettings(hooks, mcp, settings)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Finalize: gemini settings: %w", err)
+		return nil, nil, nil, fmt.Errorf("Finalize: gemini settings: %w", err)
 	}
 	if settingsJSON != "" {
 		files["settings.json"] = settingsJSON
 	}
 
-	return files, settingsNotes, nil
+	return files, rootFiles, settingsNotes, nil
 }
 
 // renderProjectInstructions writes project root instructions to GEMINI.md and
@@ -272,7 +272,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		fmt.Fprintf(&sb, "@%s\n", imp)
 	}
 
-	files["../GEMINI.md"] = sb.String()
+	files["GEMINI.md"] = sb.String()
 
 	// Emit per-scope GEMINI.md files.
 	for _, scope := range p.InstructionsScopes {
@@ -280,7 +280,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		if scopeContent == "" {
 			continue
 		}
-		scopePath := filepath.Join("../"+scope.Path, "GEMINI.md")
+		scopePath := filepath.Join(scope.Path, "GEMINI.md")
 		safePath := filepath.Clean(scopePath)
 		files[safePath] = scopeContent
 	}

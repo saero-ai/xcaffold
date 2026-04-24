@@ -89,9 +89,6 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 		entry := config.Memory[name]
 
 		// Path-safety: reject names that could escape the target directory.
-		if strings.ContainsAny(name, "/\\") {
-			return nil, nil, fmt.Errorf("gemini memory %q: entry name must not contain path separators", name)
-		}
 		if name == ".." || strings.Contains(name, "..") {
 			return nil, nil, fmt.Errorf("gemini memory %q: entry name must not contain traversal sequences", name)
 		}

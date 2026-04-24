@@ -221,8 +221,11 @@ func TestCompileProjectInstructions_Copilot_ClaudeDirPresent_SkipsRoot_WritesNes
 			{Path: "dummy_platform", Instructions: "Platform scope content."},
 		},
 	}
-	files, notes, err := r.CompileProjectInstructions(project, dir)
+	files, rootFiles, notes, err := r.CompileProjectInstructions(project, dir)
 	require.NoError(t, err)
+
+	// Since Copilot does not emit root files, verify it's empty
+	assert.Empty(t, rootFiles)
 
 	// Root copilot-instructions.md must NOT be written.
 	_, hasRoot := files["copilot-instructions.md"]
@@ -259,8 +262,11 @@ func TestCompileProjectInstructions_Copilot_NoClaude_WritesAll(t *testing.T) {
 			{Path: "dummy_platform", Instructions: "Platform scope content."},
 		},
 	}
-	files, notes, err := r.CompileProjectInstructions(project, dir)
+	files, rootFiles, notes, err := r.CompileProjectInstructions(project, dir)
 	require.NoError(t, err)
+
+	// Since Copilot does not emit root files, verify it's empty
+	assert.Empty(t, rootFiles)
 
 	_, hasRoot := files["copilot-instructions.md"]
 	assert.True(t, hasRoot, "copilot-instructions.md must be written when .claude/ is absent")
