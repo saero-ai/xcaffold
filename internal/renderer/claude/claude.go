@@ -249,9 +249,9 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 	}
 	memDir := opts.OutputDir
 	if memDir == "" {
-		// No output directory — caller is in compile-only mode (e.g., the
-		// orchestrator dry path). Return empty output; no disk writes occur.
-		return map[string]string{}, nil, nil
+		// No output directory — caller is in compile-only (orchestrator) mode.
+		// Emit files keyed by agent-memory/<agentRef>/<name>.md without disk writes.
+		return r.compileMemoryToMap(config, baseDir)
 	}
 	mr := NewMemoryRenderer(memDir).WithReseed(opts.Reseed)
 	var out *output.Output
@@ -266,6 +266,29 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 		return nil, notes, err
 	}
 	return out.Files, notes, nil
+}
+
+// compileMemoryToMap builds a file map keyed by agent-memory/<agentRef>/<name>.md
+// for each memory entry in config. It is called when no OutputDir is specified
+// (orchestrator path) so that no disk writes occur.
+func (r *Renderer) compileMemoryToMap(config *ast.XcaffoldConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
+	for name, entry := range config.Memory {
+		body, err := resolveMemoryBody(name, entry, baseDir)
+		if err != nil {
+			return nil, nil, err
+		}
+		if strings.TrimSpace(body) == "" {
+			continue
+		}
+		agentRef := entry.AgentRef
+		if agentRef == "" {
+			agentRef = "default"
+		}
+		relPath := filepath.Join("agent-memory", agentRef, name+".md")
+		files[relPath] = renderMemoryMarkdown(entry, body)
+	}
+	return files, nil, nil
 }
 
 // Finalize merges staged hooks and settings.MCPServers into their target output
