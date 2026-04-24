@@ -213,3 +213,44 @@ skills:
 	// Structural checks warn but don't fail
 	assert.NoError(t, err)
 }
+
+func TestValidate_ManifestInXcaffoldDir_ParsesFullProjectRoot(t *testing.T) {
+	// TC-17: When validate.go uses filepath.Dir(".xcaffold/project.xcf") = ".xcaffold/"
+	// as the ParseDirectory root, files at xcf/agents/ are NOT found.
+	// This causes invalid xcf/agents/ files to silently pass validation.
+	// Fix: derive parseRoot by walking up past .xcaffold/ to the true project root.
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	xcaffoldDir := filepath.Join(dir, ".xcaffold")
+	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(xcaffoldDir, "project.xcf"), []byte(`kind: project
+name: test
+version: "1.0"
+`), 0644))
+
+	// Agent at the TRUE project root with an invalid cross-reference.
+	// skill "nonexistent" does NOT exist. If ParseDirectory scans the correct root,
+	// this cross-reference is caught and validation FAILS.
+	// If ParseDirectory scans .xcaffold/ (the bug), this file is never parsed,
+	// cross-reference is never checked, and validation falsely PASSES.
+	agentsDir := filepath.Join(dir, "xcf", "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "bad-agent.xcf"), []byte(`kind: agent
+version: "1.0"
+name: Bad Agent
+description: "Agent with a broken skill ref"
+instructions: "do stuff"
+skills: [nonexistent]
+`), 0644))
+
+	oldPath := xcfPath
+	xcfPath = filepath.Join(xcaffoldDir, "project.xcf")
+	t.Cleanup(func() { xcfPath = oldPath })
+
+	err := runValidate(validateCmd, []string{})
+
+	// Before fix: validation PASSES (bad-agent.xcf not found → cross-ref unchecked)
+	// After fix:  validation FAILS  (bad-agent.xcf found → cross-ref caught → error)
+	require.Error(t, err, "validate must detect cross-ref error in xcf/agents/ when manifest is in .xcaffold/")
+}

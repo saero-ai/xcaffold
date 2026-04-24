@@ -53,7 +53,17 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		validatePath = globalXcfPath
 	}
 
-	cfg, err := parser.ParseDirectory(filepath.Dir(validatePath))
+	// Derive the true project root. When the manifest lives in .xcaffold/
+	// (standard project layout), filepath.Dir returns that subdir — walk up one
+	// level to the actual project root so xcf/ siblings are scanned correctly.
+	// Skip this adjustment for --global mode; globalXcfPath always lives inside
+	// ~/.xcaffold/ and that directory IS the correct scan root for global configs.
+	parseRoot := filepath.Dir(validatePath)
+	if !globalFlag && filepath.Base(parseRoot) == ".xcaffold" {
+		parseRoot = filepath.Dir(parseRoot)
+	}
+
+	cfg, err := parser.ParseDirectory(parseRoot)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "validation failed: %v\n", err)
 		return err
@@ -77,7 +87,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Validate skill directory structures (if xcf/skills/ exists)
-	xcfSkillsDir := filepath.Join(filepath.Dir(validatePath), "xcf", "skills")
+	xcfSkillsDir := filepath.Join(parseRoot, "xcf", "skills")
 	if entries, dirErr := os.ReadDir(xcfSkillsDir); dirErr == nil {
 		skillDirCount := 0
 		skillDirHasIssues := false
@@ -122,7 +132,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	// Policy evaluation (requires compilation)
 	if !hasErrors {
 		configSnapshot := deepCopyConfig(cfg)
-		compiled, notes, compileErr := compiler.Compile(cfg, filepath.Dir(validatePath), targetFlag, validateBlueprintFlag)
+		compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, targetFlag, validateBlueprintFlag)
 		if compileErr != nil {
 			fmt.Fprintf(os.Stdout, "\npolicy check skipped: compilation error: %v\n", compileErr)
 		} else {
