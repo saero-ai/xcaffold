@@ -10,6 +10,7 @@ Understanding-oriented explanations of xcaffold's architectural and philosophica
 ## Documents
 
 - [Architecture](architecture.md) — The one-way deterministic compiler architecture, multi-target pipelines, and GitOps state.
+- [Agent Memory](agent-memory.md) — Understanding the durable, agent-scoped context model and execution lifecycle across targets.
 - [Configuration Theory](configuration-scopes.md) — Understanding configuration contexts, scopes, implicit global inheritance, and boundaries.
 - [Sandboxing](sandboxing.md) — Runtime sandbox configuration and compile-time evaluation sandbox.
 
