@@ -353,12 +353,16 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	for _, imp := range p.InstructionsImports {
 		rootContent += "\n@" + imp
 	}
-	files["CLAUDE.md"] = rootContent
+	// Keys are relative to the Claude target output dir (.claude/). Using
+	// "../" prefix emits these at the project root alongside the .xcaffold/
+	// manifest, matching cursor/gemini renderers (../AGENTS.md, ../GEMINI.md).
+	// apply.go normalizes with filepath.Clean(filepath.Join(outputDir, key)).
+	files["../CLAUDE.md"] = rootContent
 
-	// Emit one file per scope.
+	// Emit one file per scope, also rooted at the project root via "../" prefix.
 	for _, scope := range p.InstructionsScopes {
 		content := renderer.ResolveScopeContent(scope, "claude", baseDir)
-		files[filepath.Clean(scope.Path+"/CLAUDE.md")] = content
+		files[filepath.Clean("../"+scope.Path+"/CLAUDE.md")] = content
 	}
 	return nil // concat-nested: zero fidelity notes
 }
