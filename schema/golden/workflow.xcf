@@ -1,0 +1,35 @@
+---
+kind: workflow
+version: "1.0"
+name: golden-workflow
+description: "Reference workflow exercising every WorkflowConfig field."
+
+# api-version: must be "workflow/v1" if set
+api-version: "workflow/v1"
+
+# Steps are mutually exclusive with top-level instructions / instructions-file.
+steps:
+  - name: plan
+    description: "Analyze the task and produce a plan."
+    instructions: "Read the codebase. Identify the files that need to change. Write a step-by-step plan."
+
+  - name: implement
+    description: "Execute the plan."
+    instructions: "Apply the planned changes. Write tests before writing implementation code."
+
+  - name: verify
+    description: "Verify correctness."
+    instructions: "Run the test suite. Fix any failures. Confirm all assertions pass."
+
+# Multi-target overrides
+targets:
+  claude:
+    suppress-fidelity-warnings: false
+    skip-synthesis: false
+    instructions-override: ""
+    provider:
+      lowering-strategy: rule-plus-skill
+  antigravity:
+    suppress-fidelity-warnings: true
+    skip-synthesis: true
+---

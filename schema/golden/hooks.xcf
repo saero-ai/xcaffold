@@ -1,0 +1,67 @@
+kind: hooks
+version: "1.0"
+name: golden-hooks
+events:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: "echo 'pre-tool-use: bash about to run'"
+          async: false
+          timeout: 10
+          once: false
+          if: "true"
+          shell: /bin/sh
+          status-message: "Validating bash command"
+          allowed-env-vars: [PATH, HOME, TERM]
+        - type: command
+          command: ./scripts/pre-bash-check.sh
+          async: true
+          timeout: 5
+
+  PostToolUse:
+    - matcher: "Edit"
+      hooks:
+        - type: command
+          command: "echo 'post-tool-use: edit complete'"
+          async: false
+          timeout: 15
+          once: false
+          if: "true"
+          shell: /bin/sh
+          status-message: "Formatting after edit"
+          allowed-env-vars: [PATH]
+    - matcher: "Write"
+      hooks:
+        - type: command
+          command: ./scripts/post-write.sh
+          async: true
+          timeout: 30
+
+  SessionStart:
+    - matcher: ""
+      hooks:
+        - type: command
+          command: echo "session started"
+          async: false
+          timeout: 5
+          once: true
+          status-message: "Initializing session"
+          allowed-env-vars: [HOME, USER, PATH]
+
+  Stop:
+    - matcher: ""
+      hooks:
+        - type: command
+          command: echo "session stopping"
+          async: false
+          timeout: 5
+
+  Notification:
+    - matcher: ""
+      hooks:
+        - type: command
+          command: ./scripts/notify.sh
+          async: true
+          timeout: 10
+          status-message: "Sending notification"
