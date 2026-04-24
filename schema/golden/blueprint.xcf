@@ -1,0 +1,22 @@
+# Preview — coming in R2. Parser supports this kind but documentation
+# and tooling are not yet finalized. Fields may change.
+kind: blueprint
+version: "1.0"
+name: golden-blueprint-preview
+description: "Preview example — full field coverage coming in R2."
+extends: ""
+active: false
+agents:
+  - golden-agent
+skills:
+  - golden-skill
+rules:
+  - golden-rule
+workflows:
+  - golden-workflow
+mcp:
+  - golden-mcp
+policies: []
+memory: []
+settings: ""
+hooks: ""

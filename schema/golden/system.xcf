@@ -1,0 +1,6 @@
+# Preview — coming in R2. Parser support pending — this file is NOT
+# validated by the CI test (golden_test.go skips it).
+kind: system
+version: "1.0"
+name: golden-system-preview
+description: "Preview example — parser support and full field coverage coming in R2."
