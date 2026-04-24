@@ -111,7 +111,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			hooks:               false,
 			settings:            true,
 			mcp:                 true,
-			memory:              true,
+			memory:              false, // deferred — native format not yet implemented
 			projectInstructions: true,
 			modelField:          false,
 			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
