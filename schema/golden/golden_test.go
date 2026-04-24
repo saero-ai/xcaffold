@@ -1,0 +1,59 @@
+package golden_test
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/saero-ai/xcaffold/internal/parser"
+)
+
+func TestGoldenManifests_AllParse(t *testing.T) {
+	goldenDir := "."
+	if _, err := os.Stat(filepath.Join(goldenDir, "agent.xcf")); err != nil {
+		// Running from repo root — adjust path.
+		goldenDir = "schema/golden"
+	}
+
+	entries, err := os.ReadDir(goldenDir)
+	if err != nil {
+		t.Fatalf("failed to read golden manifest directory: %v", err)
+	}
+
+	// Kinds whose parser support is not yet implemented.
+	unparseable := map[string]bool{
+		"template.xcf": true,
+		"system.xcf":   true,
+	}
+
+	xcfCount := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".xcf") {
+			continue
+		}
+		if unparseable[entry.Name()] {
+			t.Logf("SKIP (parser support pending): %s", entry.Name())
+			continue
+		}
+		xcfCount++
+		t.Run(entry.Name(), func(t *testing.T) {
+			path := filepath.Join(goldenDir, entry.Name())
+			f, err := os.Open(path)
+			if err != nil {
+				t.Fatalf("failed to open %s: %v", path, err)
+			}
+			defer f.Close()
+
+			_, parseErr := parser.Parse(f)
+			if parseErr != nil {
+				t.Errorf("golden manifest %s failed to parse: %v", entry.Name(), parseErr)
+			}
+		})
+	}
+
+	if xcfCount == 0 {
+		t.Fatal("no .xcf golden manifests found — test is misconfigured")
+	}
+	t.Logf("validated %d golden manifests", xcfCount)
+}
