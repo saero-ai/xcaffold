@@ -148,7 +148,7 @@ description: Downgrade settings-schema to warning during initial setup
 severity: warning
 target: settings
 deny:
-  - content_contains: ["\"permissions\": null"]
+  - content-contains: ["\"permissions\": null"]
 ```
 
 This replaces the built-in `settings-schema` policy. Because the full policy definition is replaced (not merged), you must re-declare the `deny` rules if you want the same checks to run at the new severity level.
@@ -209,13 +209,13 @@ description: Compiled agent files must not contain TODO or FIXME markers
 severity: error
 target: output
 deny:
-  - content_contains:
+  - content-contains:
       - "TODO"
       - "FIXME"
       - "HACK"
 ```
 
-`content_contains` is case-insensitive. A match against any file in the compiled output triggers a violation.
+`content-contains` is case-insensitive. A match against any file in the compiled output triggers a violation.
 
 **Example: block API key patterns.**
 
@@ -226,11 +226,11 @@ description: Compiled output must not contain API key patterns
 severity: error
 target: output
 deny:
-  - content_matches: "sk-[a-zA-Z0-9]{20,}"
-  - content_matches: "AKIA[0-9A-Z]{16}"
+  - content-matches: "sk-[a-zA-Z0-9]{20,}"
+  - content-matches: "AKIA[0-9A-Z]{16}"
 ```
 
-`content_matches` accepts a Go regular expression. Each `deny` entry is evaluated independently.
+`content-matches` accepts a Go regular expression. Each `deny` entry is evaluated independently.
 
 **Example: block path traversal in output file paths.**
 
@@ -241,14 +241,14 @@ description: Output paths must not contain directory traversal
 severity: error
 target: output
 deny:
-  - path_contains: ".."
+  - path-contains: ".."
 ```
 
 This is the same check performed by the built-in `path-safety` policy.
 
 For the full deny rule field reference, see [Schema Reference](../reference/schema.md#policydeny).
 
-A single `deny` entry can combine `content_contains`, `content_matches`, and `path_contains`. Each check runs independently — any match produces a separate violation.
+A single `deny` entry can combine `content-contains`, `content-matches`, and `path-contains`. Each check runs independently — any match produces a separate violation.
 
 ---
 
@@ -270,7 +270,7 @@ require:
   - field: description
     min-length: 20
 deny:
-  - content_contains:
+  - content-contains:
       - "rm -rf"
       - "sudo"
 ```

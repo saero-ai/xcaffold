@@ -12,7 +12,8 @@ Exhaustive reference for the `.xcf` YAML configuration schema. Every field is ve
 
 ## Schema Architecture
 
-The following diagram shows the structural relationships between the major types in the `.xcf` schema. Cardinality is shown as `||--o{` (one to zero-or-many) and `||--o|` (one to zero-or-one).
+> [!NOTE]
+> The field names in the diagram below show the **YAML key names** used when authoring `.xcf` files (all kebab-case). These are not Go struct field names.
 
 ```mermaid
 erDiagram
@@ -29,49 +30,49 @@ erDiagram
         string homepage
         string repository
         string license
-        string backup_dir
-        string_list targets
-        string_list agentRefs
-        string_list skillRefs
-        string_list ruleRefs
-        string_list workflowRefs
-        string_list memoryRefs
-        string_list mcpRefs
+        string backup-dir
+        string_list agent-refs
+        string_list skill-refs
+        string_list rule-refs
+        string_list workflow-refs
+        string_list mcp-refs
+        string_list policy-refs
     }
     AgentConfig {
         string name
         string description
         string instructions
-        string instructions_file
+        string instructions-file
         string model
         string effort
         string memory
-        int maxTurns
-        string permissionMode
+        int max-turns
+        string permission-mode
         string isolation
         string mode
         string when
         string color
-        string initialPrompt
+        string initial-prompt
     }
     SkillConfig {
         string name
         string description
-        string whenToUse
+        string when-to-use
         string license
-        stringArray allowedTools
-        boolPtr disableModelInvocation
-        boolPtr userInvocable
-        string argumentHint
+        stringArray allowed-tools
+        boolPtr disable-model-invocation
+        boolPtr user-invocable
+        string argument-hint
         targetMap targets
         string instructions
-        string instructions_file
+        string instructions-file
     }
     RuleConfig {
         string description
+        string activation
+        boolPtr always-apply
         string instructions
-        string instructions_file
-        bool alwaysApply
+        string instructions-file
     }
     HookConfig {
         string event_key
@@ -86,7 +87,7 @@ erDiagram
         string prompt
         string model
         string shell
-        string if_condition
+        string if
         string statusMessage
         bool async
         int timeout
@@ -97,63 +98,64 @@ erDiagram
         string command
         string url
         string cwd
-        string authProviderType
+        string auth-provider-type
         bool disabled
     }
     SettingsConfig {
         string model
-        string effortLevel
-        string defaultShell
+        string effort-level
+        string default-shell
         string language
-        string outputStyle
-        bool includeGitInstructions
-        bool autoMemoryEnabled
-        bool disableAllHooks
-        bool respectGitignore
+        string output-style
+        bool include-git-instructions
+        bool auto-memory-enabled
+        bool disable-all-hooks
+        bool respect-gitignore
     }
     PermissionsConfig {
-        string defaultMode
-        string disableBypassPermissionsMode
+        string default-mode
+        string disable-bypass-permissions-mode
     }
     SandboxConfig {
         bool enabled
-        bool autoAllowBashIfSandboxed
-        bool failIfUnavailable
-        bool allowUnsandboxedCommands
+        bool auto-allow-bash-if-sandboxed
+        bool fail-if-unavailable
+        bool allow-unsandboxed-commands
     }
     SandboxFilesystem {
-        string allowWrite
-        string denyWrite
-        string allowRead
-        string denyRead
+        string allow-write
+        string deny-write
+        string allow-read
+        string deny-read
     }
     SandboxNetwork {
-        int httpProxyPort
-        int socksProxyPort
-        bool allowManagedDomainsOnly
-        bool allowLocalBinding
+        int http-proxy-port
+        int socks-proxy-port
+        bool allow-managed-domains-only
+        bool allow-local-binding
     }
     StatusLineConfig {
         string type
         string command
     }
     TargetOverride {
-        string instructions_override
-        bool suppress_fidelity_warnings
-        bool skip_synthesis
+        string instructions-override
+        bool suppress-fidelity-warnings
+        bool skip-synthesis
+        string instructions-mode
     }
     TestConfig {
-        string cli_path
-        string claude_path
-        string judge_model
+        string cli-path
+        string claude-path
+        string judge-model
         string task
-        int max_turns
+        int max-turns
     }
     WorkflowConfig {
         string name
         string description
         string instructions
-        string instructions_file
+        string instructions-file
     }
     MemoryConfig {
         string name
@@ -161,7 +163,7 @@ erDiagram
         string description
         string lifecycle
         string instructions
-        string instructions_file
+        string instructions-file
     }
     PolicyConfig {
         string name
@@ -170,18 +172,22 @@ erDiagram
         string target
     }
     PolicyMatch {
-        string name_glob
-        string has_field
+        string name-matches
+        string has-field
+        string has-tool
+        string target-includes
     }
     PolicyRequire {
         string field
-        string_list one_of
-        int min_length
+        string_list one-of
+        int min-length
+        int max-count
+        boolPtr is-present
     }
     PolicyDeny {
-        string field_matches
-        string_list content_contains
-        string path_glob
+        string content-matches
+        string_list content-contains
+        string path-contains
     }
 
     XcaffoldConfig ||--o| ProjectConfig : "project"
@@ -212,7 +218,7 @@ erDiagram
     PolicyConfig ||--o{ PolicyDeny : "deny"
 
     AgentConfig ||--o{ TargetOverride : "targets"
-    AgentConfig ||--o{ MCPConfig : "mcpServers"
+    AgentConfig ||--o{ MCPConfig : "mcp-servers"
     AgentConfig ||--o| HookConfig : "hooks"
 
     HookConfig ||--o{ HookMatcherGroup : "event_handlers"
@@ -220,9 +226,9 @@ erDiagram
 
     SettingsConfig ||--o| PermissionsConfig : "permissions"
     SettingsConfig ||--o| SandboxConfig : "sandbox"
-    SettingsConfig ||--o| StatusLineConfig : "statusLine"
+    SettingsConfig ||--o| StatusLineConfig : "status-line"
     SettingsConfig ||--o| HookConfig : "hooks"
-    SettingsConfig ||--o{ MCPConfig : "mcpServers"
+    SettingsConfig ||--o{ MCPConfig : "mcp-servers"
 
     SandboxConfig ||--o| SandboxFilesystem : "filesystem"
     SandboxConfig ||--o| SandboxNetwork : "network"
@@ -375,15 +381,19 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `homepage` | `string` | Optional | Project URL. |
 | `repository` | `string` | Optional | Source control URL. |
 | `license` | `string` | Optional | SPDX license identifier. |
-| `backup_dir` | `string` | Optional | Directory for `xcaffold apply --backup` output. Defaults to `.<target>_bak_<timestamp>` in the project root. |
 | `targets` | `[]string` | Optional | Compilation targets (e.g., `["claude", "antigravity"]`). Only populated via `kind: project` documents — tagged `yaml:"-"`. |
-| `agentRefs` | `[]string` | Optional | Advisory only. Bare name references to agent resources. Not used by `ParseDirectory` for resource loading; serves as documentation and triggers `validate` warnings if out of sync with the filesystem. |
-| `skillRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
-| `ruleRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
-| `workflowRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
-| `memoryRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
-| `mcpRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
-| `policyRefs` | `[]string` | Optional | Advisory only. Same semantics as `agentRefs`. |
+| `agent-refs` | `[]AgentManifestEntry` | Optional | Advisory only. Bare name references (or structured entries with `memory` lists) to agent resources. Not used by `ParseDirectory` for resource loading; serves as documentation and triggers `validate` warnings if out of sync with the filesystem. |
+| `skill-refs` | `[]string` | Optional | Advisory only. Same semantics as `agent-refs`. |
+| `rule-refs` | `[]string` | Optional | Advisory only. Same semantics as `agent-refs`. |
+| `workflow-refs` | `[]string` | Optional | Advisory only. Same semantics as `agent-refs`. |
+| `mcp-refs` | `[]string` | Optional | Advisory only. Same semantics as `agent-refs`. |
+| `policy-refs` | `[]string` | Optional | Advisory only. Same semantics as `agent-refs`. |
+| `instructions` | `string` | Optional | Inline Markdown project-level instructions. Compiled to the project instruction file (`CLAUDE.md`, `GEMINI.md`, etc.) for each target. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file containing project-level instructions. Mutually exclusive with `instructions`. |
+| `instructions-imports` | `[]string` | Optional | `@`-import targets preserved verbatim for providers that support them (Claude, Gemini). Emitted as-is into the rendered project instruction file. |
+| `instructions-scopes` | `[]InstructionsScope` | Optional | Per-directory nested instruction files. See [`InstructionsScope`](#instructionsscope). |
+| `target-options` | `map[string]TargetOverride` | Optional | Per-provider compile-time options for the project. Keys are provider names (`copilot`, `cursor`, etc.). |
+| `backup-dir` | `string` | Optional | Directory for `xcaffold apply --backup` output. Defaults to `.<target>_bak_<timestamp>` in the project root. |
 | `test` | `TestConfig` | Optional | Configuration for `xcaffold test`. See [TestConfig](#testconfig). |
 | `local` | `SettingsConfig` | Optional | Local override settings compiled to `settings.local.json` (gitignored). |
 | `agents` | `map[string]AgentConfig` | Optional | Workspace-scoped agent declarations. Override global agents with the same ID. |
@@ -417,8 +427,10 @@ Narrows which resources a policy applies to. All specified conditions must match
 
 | Field | Type | Description |
 |---|---|---|
-| `name_glob` | `string` | Glob pattern matched against the resource name (e.g., `"*-prod"` matches `agent-prod`). |
-| `has_field` | `string` | Field that must be present (non-zero) on the resource for the policy to apply. |
+| `has-tool` | `string` | Tool name that must be present in the resource's `tools` list for the policy to apply. |
+| `has-field` | `string` | Field name that must be present (non-zero) on the resource for the policy to apply. |
+| `name-matches` | `string` | Glob pattern matched against the resource name (e.g., `"*-prod"` matches `agent-prod`). |
+| `target-includes` | `string` | Target name that must appear in the resource's `targets` map for the policy to apply. |
 
 ### `PolicyRequire`
 
@@ -427,8 +439,10 @@ Asserts a field meets a value constraint.
 | Field | Type | Description |
 |---|---|---|
 | `field` | `string` | Dot-path to the field to check (e.g., `"model"`, `"permissions.defaultMode"`). |
-| `one_of` | `[]string` | Allowed values. The policy passes if the field value appears in this list. |
-| `min_length` | `int` | Minimum string length or minimum list length. Fails if the field is shorter. |
+| `is-present` | `*bool` | When `true`, the policy passes only if the field is non-zero. When `false`, the policy passes only if the field is zero/empty. |
+| `min-length` | `*int` | Minimum string length or minimum list length. Fails if the field is shorter. |
+| `max-count` | `*int` | Maximum number of list items allowed. Fails if the field has more. |
+| `one-of` | `[]string` | Allowed values. The policy passes if the field value appears in this list. |
 
 ### `PolicyDeny`
 
@@ -436,9 +450,9 @@ Asserts forbidden content does not appear in a resource or its compiled output.
 
 | Field | Type | Description |
 |---|---|---|
-| `field_matches` | `string` | Regex matched against a field value. A match causes the policy to fail. |
-| `content_contains` | `[]string` | Substrings that must not appear in the compiled output file (applies when `target: output`). |
-| `path_glob` | `string` | File path pattern that must not exist in the compiled output. |
+| `content-contains` | `[]string` | Substrings that must not appear in the compiled output file (applies when `target: output`). |
+| `content-matches` | `string` | Regex matched against a compiled output file's content. A match causes the policy to fail. |
+| `path-contains` | `string` | Substring that must not appear in any compiled output file path. |
 
 ---
 
@@ -467,7 +481,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 |---|---|---|---|
 | `model` | `string` | Optional | LLM model identifier. Supports aliases (`sonnet-4`, `opus-4`, `haiku-3.5`) which are resolved per-target by the model resolver. |
 | `effort` | `string` | Optional | Resource utilization level (`"low"`, `"medium"`, `"high"`, `"max"`). |
-| `maxTurns` | `int` | Optional | Maximum conversation turns before the agent stops. |
+| `max-turns` | `int` | Optional | Maximum conversation turns before the agent stops. |
 | `mode` | `string` | Optional | Agent execution mode. |
 
 **Tool Access**
@@ -475,16 +489,16 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `tools` | `[]string` | Optional | Runtime tools granted to the agent (e.g., `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`). Omit to inherit all available tools. |
-| `disallowedTools` | `[]string` | Optional | Tools the agent is explicitly forbidden from using. Applied before `tools` resolution. |
+| `disallowed-tools` | `[]string` | Optional | Tools the agent is explicitly forbidden from using. Applied before `tools` resolution. |
 | `readonly` | `*bool` | Optional | When `true` and `tools` is empty, the Claude renderer emits `tools: [Read, Grep, Glob]`; Cursor emits `readonly: true` natively. |
 
 **Permissions & Invocation Control**
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `permissionMode` | `string` | Optional | Default execution permission mode. Values: `default`, `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, `plan`. |
-| `disableModelInvocation` | `*bool` | Optional | When `true`, the host model must not auto-invoke this agent. Users can still invoke it explicitly. |
-| `userInvocable` | `*bool` | Optional | When `false`, the agent is accessible only programmatically (not from a UI picker). |
+| `permission-mode` | `string` | Optional | Default execution permission mode. Values: `default`, `acceptEdits`, `auto`, `dontAsk`, `bypassPermissions`, `plan`. |
+| `disable-model-invocation` | `*bool` | Optional | When `true`, the host model must not auto-invoke this agent. Users can still invoke it explicitly. |
+| `user-invocable` | `*bool` | Optional | When `false`, the agent is accessible only programmatically (not from a UI picker). |
 
 **Lifecycle**
 
@@ -500,7 +514,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 |---|---|---|---|
 | `memory` | `string` | Optional | Agent memory scope. Values: `user`, `project`, `local`. |
 | `color` | `string` | Optional | Terminal UI color attribute. |
-| `initialPrompt` | `string` | Optional | Default message auto-submitted as the first turn. |
+| `initial-prompt` | `string` | Optional | Default message auto-submitted as the first turn. |
 
 **Composition References**
 
@@ -515,7 +529,7 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `mcpServers` | `map[string]MCPConfig` | Optional | Agent-scoped MCP server definitions (not merged with top-level `mcp:`). |
+| `mcp-servers` | `map[string]MCPConfig` | Optional | Agent-scoped MCP server definitions (not merged with top-level `mcp:`). |
 | `hooks` | `HookConfig` | Optional | Agent-scoped lifecycle hooks. |
 
 **Multi-Target**
@@ -528,11 +542,11 @@ Fields are declared (and serialized) in a canonical order grouped by purpose. Th
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a Markdown file containing the prompt body. Resolved relative to `project.xcf` directory. Mutually exclusive with `instructions`. |
+| `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file containing the prompt body. Resolved relative to `project.xcf` directory. Mutually exclusive with `instructions`. |
 
 > [!WARNING]
-> **Cursor**: Only `name`, `description`, `model`, `readonly`, and `background` (renamed to `is_background`) are emitted. All other fields — `effort`, `tools`, `disallowedTools`, `skills`, `rules`, `permissionMode`, `isolation`, `color`, `initialPrompt`, `memory`, `maxTurns`, `hooks`, `mcpServers` — are silently dropped. Unmapped `model` values emit a stderr warning and are omitted.
+> **Cursor**: Only `name`, `description`, `model`, `readonly`, and `background` (renamed to `is_background`) are emitted. All other fields — `effort`, `tools`, `disallowed-tools`, `skills`, `rules`, `permission-mode`, `isolation`, `color`, `initial-prompt`, `memory`, `max-turns`, `hooks`, `mcp-servers` — are silently dropped. Unmapped `model` values emit a stderr warning and are omitted.
 >
 > **Antigravity**: Antigravity has **no file-based agent configuration**. Agent behavior is controlled entirely via UI settings and conversation-level mode selection. xcaffold **cannot compile agents for Antigravity** — the target is skipped with a warning.
 >
@@ -551,9 +565,10 @@ Two concerns live here: xcaffold's own override mechanics (strictly validated) a
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `hooks` | `map[string]string` | Optional | Target-specific hook overrides. |
-| `suppress_fidelity_warnings` | `*bool` | Optional | When `true`, suppresses stderr warnings about dropped fields for this target. |
-| `skip_synthesis` | `*bool` | Optional | When `true`, skips synthesis for this target. |
-| `instructions_override` | `string` | Optional | Replacement instruction prompt used instead of the agent's default `instructions`. |
+| `suppress-fidelity-warnings` | `*bool` | Optional | When `true`, suppresses stderr warnings about dropped fields for this target. |
+| `skip-synthesis` | `*bool` | Optional | When `true`, skips synthesis for this target. |
+| `instructions-override` | `string` | Optional | Replacement instruction prompt used instead of the agent's default `instructions`. |
+| `instructions-mode` | `string` | Optional | How to emit project `instructions-scopes`. Values: `flat` (default — all scopes merged into one file) \| `nested` (per-directory instruction files). Currently used only by the Copilot renderer. |
 
 **Provider-native pass-through**
 
@@ -588,11 +603,9 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 |---|---|---|---|
 | `name` | `string` | Optional | Display name for the skill. |
 | `description` | `string` | Optional | Human-readable description. Shown in listings and help text. |
-| `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
-| `whenToUse` | `string` | Optional | Detailed activation guidance. Claude appends to `description`; renderer emits `when_to_use:` (Claude's documented snake_case for this one field). |
+| `when-to-use` | `string` | Optional | Detailed activation guidance. Claude appends to `description`; renderer emits `when_to_use:` in the compiled frontmatter (Claude Code's native snake_case key for this field). |
 | `license` | `string` | Optional | SPDX identifier. Emitted as `license:` for Cursor/Copilot; ignored by other renderers. |
-| `allowed-tools` | `[]string` | Optional | Pre-approved tool list. Renderer emits as `allowed-tools` for Claude/Copilot. (Renamed from `tools` for cross-provider canonical naming.) |
+| `allowed-tools` | `[]string` | Optional | Pre-approved tool list. Renderer emits as `allowed-tools` for Claude/Copilot. **Note:** Skills use `allowed-tools`; agents use `tools`. Mixing these is the most common xcf authoring error. |
 | `disable-model-invocation` | `*bool` | Optional | If `true`, the skill is user-invocable only (no model selection). Honored by Claude and Cursor. |
 | `user-invocable` | `*bool` | Optional | If `false`, the skill is model-only (no slash command). Claude-only. |
 | `argument-hint` | `string` | Optional | Autocomplete hint shown on the slash command. Claude-only. |
@@ -600,6 +613,8 @@ Defines a reusable prompt package. Compiled to `skills/<id>/SKILL.md`.
 | `scripts` | `[]string` | Optional | Executable helper files. Resolved relative to `project.xcf`. Copied to `skills/<id>/scripts/` during compilation. |
 | `assets` | `[]string` | Optional | Output artifact files like templates or icons. Resolved relative to `project.xcf`. Copied to `skills/<id>/assets/` during compilation. |
 | `examples` | `[]string` | Optional | Demonstration files showing correct output patterns. Resolved relative to `project.xcf`. Provider behavior varies: Claude and Antigravity copy to `examples/`, Gemini and Cursor collapse into `references/`, Copilot flattens alongside SKILL.md. |
+| `instructions` | `string` | Optional | Inline Markdown prompt body. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
 
 > [!WARNING]
 > **Cursor**: Skills support optional `scripts/`, `references/`, and `assets/` directories. These are emitted as-is during skill directory compilation.
@@ -618,11 +633,15 @@ Path-gated formatting guideline. Compiled to `rules/<id>.md` (Claude), `rules/<i
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `name` | `string` | Optional | Display name for the rule. |
 | `description` | `string` | Optional | Summary of the rule. |
-| `instructions` | `string` | Optional | Inline rule content. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
+| `activation` | `string` | Optional | Cross-provider activation mode. Values: `always`, `path-glob`, `model-decided`, `manual-mention`, `explicit-invoke`. Renderers map this to provider-native expressions. |
+| `always-apply` | `*bool` | Optional | When `true`, the rule applies globally regardless of `paths`. Legacy activation shorthand; prefer `activation: always`. |
 | `paths` | `[]string` | Optional | Glob patterns restricting where the rule applies (e.g., `["src/**/*.go"]`). |
-| `alwaysApply` | `*bool` | Optional | When `true`, the rule applies globally regardless of `paths`. |
+| `exclude-agents` | `[]string` | Optional | Copilot-specific list of agent types that should NOT receive this rule. Valid values: `code-review` \| `cloud-agent`. Silently ignored by all non-Copilot renderers. |
+| `targets` | `map[string]TargetOverride` | Optional | Per-target overrides including provider-native pass-through fields. |
+| `instructions` | `string` | Optional | Inline rule content. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
 
 > [!NOTE]
 > **Cursor normalization**: `paths` is emitted as `globs:` in `.mdc` frontmatter. Rules without `paths` automatically receive `alwaysApply: true`.
@@ -727,9 +746,9 @@ Defines a local or remote MCP (Model Context Protocol) server.
 | `command` | `string` | Optional | Binary to spawn (for `stdio` transport). |
 | `url` | `string` | Optional | Server endpoint URL (for `sse` transport). |
 | `cwd` | `string` | Optional | Working directory for the spawned process. |
-| `authProviderType` | `string` | Optional | Authentication method. |
+| `auth-provider-type` | `string` | Optional | Authentication method. |
 | `args` | `[]string` | Optional | Command-line arguments for the spawned process. |
-| `disabledTools` | `[]string` | Optional | Server-provided tools to mask. |
+| `disabled-tools` | `[]string` | Optional | Server-provided tools to mask. |
 | `env` | `map[string]string` | Optional | Environment variables for the spawned process. |
 | `headers` | `map[string]string` | Optional | HTTP headers for SSE connections. |
 | `oauth` | `map[string]string` | Optional | OAuth authentication configuration. |
@@ -760,34 +779,34 @@ Platform settings compiled to the target's settings file. The `local:` variant w
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `model` | `string` | Optional | Default LLM model for the project. Resolved through the model alias system per-target. |
-| `effortLevel` | `string` | Optional | Default effort level: `"high"`, `"medium"`, `"low"`. |
-| `defaultShell` | `string` | Optional | Shell binary for command execution (e.g., `/bin/bash`). |
+| `effort-level` | `string` | Optional | Default effort level: `"high"`, `"medium"`, `"low"`. |
+| `default-shell` | `string` | Optional | Shell binary for command execution (e.g., `/bin/bash`). |
 | `language` | `string` | Optional | UI language code (e.g., `"en"`, `"ja"`). |
-| `outputStyle` | `string` | Optional | Terminal output format (e.g., `"markdown"`, `"plain"`). |
-| `plansDirectory` | `string` | Optional | Directory for persistent plan files. |
-| `autoMemoryDirectory` | `string` | Optional | Directory for auto-memory context persistence. |
-| `otelHeadersHelper` | `string` | Optional | OpenTelemetry header mapping helper command. |
+| `output-style` | `string` | Optional | Terminal output format (e.g., `"markdown"`, `"plain"`). |
+| `plans-directory` | `string` | Optional | Directory for persistent plan files. |
+| `auto-memory-directory` | `string` | Optional | Directory for auto-memory context persistence. |
+| `otel-headers-helper` | `string` | Optional | OpenTelemetry header mapping helper command. |
 | `agent` | `any` | Optional | Default agent configuration. Passed through unchanged. |
 | `worktree` | `any` | Optional | Worktree settings. Passed through unchanged. |
-| `autoMode` | `any` | Optional | Autonomous mode settings. Passed through unchanged. |
-| `cleanupPeriodDays` | `*int` | Optional | Days before orphaned data is garbage-collected. |
-| `includeGitInstructions` | `*bool` | Optional | When `true`, injects standard Git workflow instructions. |
-| `skipDangerousModePermissionPrompt` | `*bool` | Optional | When `true`, suppresses the dangerous-mode confirmation dialog. Claude Code–specific UX concept. |
-| `autoMemoryEnabled` | `*bool` | Optional | When `true`, enables automatic context memory. |
-| `disableAllHooks` | `*bool` | Optional | When `true`, globally disables all hook execution. |
+| `auto-mode` | `any` | Optional | Autonomous mode settings. Passed through unchanged. |
+| `cleanup-period-days` | `*int` | Optional | Days before orphaned data is garbage-collected. |
+| `include-git-instructions` | `*bool` | Optional | When `true`, injects standard Git workflow instructions. |
+| `skip-dangerous-mode-permission-prompt` | `*bool` | Optional | When `true`, suppresses the dangerous-mode confirmation dialog. Claude Code–specific UX concept. |
+| `auto-memory-enabled` | `*bool` | Optional | When `true`, enables automatic context memory. |
+| `disable-all-hooks` | `*bool` | Optional | When `true`, globally disables all hook execution. |
 | `attribution` | `*bool` | Optional | When `true`, adds attribution comments to generated code. |
-| `disableSkillShellExecution` | `*bool` | Optional | When `true`, prevents skills from executing shell commands via `` !`cmd` `` syntax. Claude Code–specific. |
-| `alwaysThinkingEnabled` | `*bool` | Optional | When `true`, forces extended thinking mode for all interactions. |
-| `respectGitignore` | `*bool` | Optional | When `true`, excludes `.gitignore`-matched files from scanning. |
+| `disable-skill-shell-execution` | `*bool` | Optional | When `true`, prevents skills from executing shell commands via `` !`cmd` `` syntax. Claude Code–specific. |
+| `always-thinking-enabled` | `*bool` | Optional | When `true`, forces extended thinking mode for all interactions. |
+| `respect-gitignore` | `*bool` | Optional | When `true`, excludes `.gitignore`-matched files from scanning. |
 | `permissions` | `*PermissionsConfig` | Optional | Permission rules for tool access. |
 | `sandbox` | `*SandboxConfig` | Optional | OS-level process isolation for Bash commands. |
-| `statusLine` | `*StatusLineConfig` | Optional | Custom status bar configuration. Claude Code CLI–specific. |
+| `status-line` | `*StatusLineConfig` | Optional | Custom status bar configuration. Claude Code CLI–specific. |
 | `hooks` | `HookConfig` | Optional | Settings-level lifecycle hooks. |
-| `mcpServers` | `map[string]MCPConfig` | Optional | MCP server definitions (takes precedence over top-level `mcp:` on key conflicts). |
+| `mcp-servers` | `map[string]MCPConfig` | Optional | MCP server definitions (takes precedence over top-level `mcp:` on key conflicts). |
 | `env` | `map[string]string` | Optional | Global environment variables. |
-| `enabledPlugins` | `map[string]bool` | Optional | Plugin enable/disable toggles. Claude Code Plugin system–specific. |
-| `availableModels` | `[]string` | Optional | Models available for user selection. |
-| `claudeMdExcludes` | `[]string` | Optional | File patterns excluded from CLAUDE.md context file loading. Claude Code–specific. |
+| `enabled-plugins` | `map[string]bool` | Optional | Plugin enable/disable toggles. Claude Code Plugin system–specific. |
+| `available-models` | `[]string` | Optional | Models available for user selection. |
+| `claude-md-excludes` | `[]string` | Optional | File patterns excluded from CLAUDE.md context file loading. Claude Code–specific. |
 
 
 > [!IMPORTANT]
@@ -806,9 +825,9 @@ Permission rules for tool access within `settings.permissions`. All three provid
 | `allow` | `[]string` | Optional | Permitted tool operations (e.g., `"Bash(npm test *)"`, `"Read"`). |
 | `deny` | `[]string` | Optional | Denied operations. Overrides `allow` when both match. |
 | `ask` | `[]string` | Optional | Operations requiring interactive user confirmation. |
-| `defaultMode` | `string` | Optional | Default permission mode for the session (e.g., `"default"`, `"acceptEdits"`, `"plan"`, `"auto"`). |
-| `additionalDirectories` | `[]string` | Optional | Extra working directories the agent may access beyond the project root. |
-| `disableBypassPermissionsMode` | `string` | Optional | When set to `"disable"`, blocks the bypass permissions mode org-wide. |
+| `default-mode` | `string` | Optional | Default permission mode for the session (e.g., `"default"`, `"acceptEdits"`, `"plan"`, `"auto"`). |
+| `additional-directories` | `[]string` | Optional | Extra working directories the agent may access beyond the project root. |
+| `disable-bypass-permissions-mode` | `string` | Optional | When set to `"disable"`, blocks the bypass permissions mode org-wide. |
 
 ---
 
@@ -819,12 +838,12 @@ OS-level process isolation within `settings.sandbox`. Sandboxing is a universal 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `enabled` | `*bool` | Optional | Master toggle for sandbox enforcement. |
-| `autoAllowBashIfSandboxed` | `*bool` | Optional | When `true`, auto-approves bash commands when sandboxed, without prompting. |
-| `failIfUnavailable` | `*bool` | Optional | When `true`, commands fail if the sandbox daemon is unreachable. |
-| `allowUnsandboxedCommands` | `*bool` | Optional | When `true`, permits unsandboxed execution as a fallback. |
+| `auto-allow-bash-if-sandboxed` | `*bool` | Optional | When `true`, auto-approves bash commands when sandboxed, without prompting. |
+| `fail-if-unavailable` | `*bool` | Optional | When `true`, commands fail if the sandbox daemon is unreachable. |
+| `allow-unsandboxed-commands` | `*bool` | Optional | When `true`, permits unsandboxed execution as a fallback. |
 | `filesystem` | `*SandboxFilesystem` | Optional | Filesystem isolation boundaries. |
 | `network` | `*SandboxNetwork` | Optional | Network isolation boundaries. |
-| `excludedCommands` | `[]string` | Optional | Shell commands that bypass sandbox restrictions. |
+| `excluded-commands` | `[]string` | Optional | Shell commands that bypass sandbox restrictions. |
 
 ### `SandboxFilesystem`
 
@@ -832,10 +851,10 @@ Filesystem read/write boundaries within `sandbox.filesystem`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `allowWrite` | `[]string` | Optional | Paths where write access is permitted. |
-| `denyWrite` | `[]string` | Optional | Paths where write access is denied (overrides `allowWrite`). |
-| `allowRead` | `[]string` | Optional | Paths where read access is permitted. |
-| `denyRead` | `[]string` | Optional | Paths where read access is denied (overrides `allowRead`). |
+| `allow-write` | `[]string` | Optional | Paths where write access is permitted. |
+| `deny-write` | `[]string` | Optional | Paths where write access is denied (overrides `allow-write`). |
+| `allow-read` | `[]string` | Optional | Paths where read access is permitted. |
+| `deny-read` | `[]string` | Optional | Paths where read access is denied (overrides `allow-read`). |
 
 ### `SandboxNetwork`
 
@@ -843,12 +862,12 @@ Network isolation boundaries within `sandbox.network`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `httpProxyPort` | `*int` | Optional | HTTP proxy port for network interception. |
-| `socksProxyPort` | `*int` | Optional | SOCKS proxy port for network interception. |
-| `allowManagedDomainsOnly` | `*bool` | Optional | When `true`, restricts connections to managed domains only. |
-| `allowUnixSockets` | `[]string` | Optional | List of Unix domain socket paths permitted for outbound connections. Use `["*"]` to allow all. |
-| `allowLocalBinding` | `*bool` | Optional | When `true`, permits the sandboxed process to bind to localhost ports. |
-| `allowedDomains` | `[]string` | Optional | Domains permitted for outbound connections. |
+| `http-proxy-port` | `*int` | Optional | HTTP proxy port for network interception. |
+| `socks-proxy-port` | `*int` | Optional | SOCKS proxy port for network interception. |
+| `allow-managed-domains-only` | `*bool` | Optional | When `true`, restricts connections to managed domains only. |
+| `allow-unix-sockets` | `[]string` | Optional | List of Unix domain socket paths permitted for outbound connections. Use `["*"]` to allow all. |
+| `allow-local-binding` | `*bool` | Optional | When `true`, permits the sandboxed process to bind to localhost ports. |
+| `allowed-domains` | `[]string` | Optional | Domains permitted for outbound connections. |
 
 ---
 
@@ -869,11 +888,11 @@ Configuration for `xcaffold test`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `cli_path` | `string` | Optional | Path to the CLI binary used as a judge subscription fallback when no API key is set. Defaults to `claude` on `$PATH`. |
-| `claude_path` | `string` | Optional | **Deprecated.** Alias for `cli_path`. Renamed from `claude_path` to `cli_path` to support multi-provider test execution beyond the Claude CLI. Migrated automatically by `xcaffold migrate` (schema `1.0` → `1.1`). |
-| `judge_model` | `string` | Optional | LLM model used for `--judge` evaluation. Defaults to `claude-haiku-4-5-20251001`. |
+| `cli-path` | `string` | Optional | Path to the CLI binary used as a judge subscription fallback when no API key is set. Defaults to `claude` on `$PATH`. |
+| `claude-path` | `string` | Optional | **Deprecated.** Alias for `cli-path`. Renamed from `claude-path` to `cli-path` to support multi-provider test execution beyond the Claude CLI. |
+| `judge-model` | `string` | Optional | LLM model used for `--judge` evaluation. Defaults to `claude-haiku-4-5-20251001`. |
 | `task` | `string` | Optional | User prompt sent to the agent during simulation. Defaults to `"Describe what tools you have available and what you would do first."` if unset. |
-| `max_turns` | `int` | Optional | Maximum number of simulated conversation turns. Defaults to a single turn if unset. |
+| `max-turns` | `int` | Optional | Maximum number of simulated conversation turns. Defaults to a single turn if unset. |
 
 ---
 
@@ -883,10 +902,24 @@ Defines a named, reusable workflow. Compiled to `workflows/<id>.md`.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `api-version` | `string` | Optional | Schema discriminator. Default: `"workflow/v1"`. Future: `workflow/v2` will add parameterized steps. |
 | `name` | `string` | Optional | Workflow title. Used as fallback `description` in Antigravity frontmatter. |
 | `description` | `string` | Optional | Human-readable description of the workflow. |
-| `instructions` | `string` | Optional | Inline Markdown workflow content. Mutually exclusive with `instructions_file`. |
-| `instructions_file` | `string` | Optional | Path to a Markdown file. Mutually exclusive with `instructions`. |
+| `steps` | `[]WorkflowStep` | Optional | Ordered procedural body. Each step has `name` (required), `description`, `instructions`, and `instructions-file`. Mutually exclusive with top-level `instructions`/`instructions-file` when more than one step is needed. |
+| `targets` | `map[string]TargetOverride` | Optional | Per-target overrides and lowering-strategy directives. |
+| `instructions` | `string` | Optional | Inline Markdown workflow content for single-step workflows. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file for single-step workflows. Mutually exclusive with `instructions`. |
+
+### `WorkflowStep`
+
+One named step in a workflow's ordered body.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | **Required** | Step identifier. |
+| `description` | `string` | Optional | Human-readable step description. |
+| `instructions` | `string` | Optional | Inline Markdown content for this step. Mutually exclusive with `instructions-file`. |
+| `instructions-file` | `string` | Optional | Path to a Markdown file for this step. Mutually exclusive with `instructions`. |
 
 > [!IMPORTANT]
 > **Antigravity-only.** Workflows are compiled to `workflows/<id>.md` with YAML frontmatter containing only `description`. All other renderers silently ignore workflow definitions.

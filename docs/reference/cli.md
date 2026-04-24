@@ -65,10 +65,10 @@ Parses workflow Markdown files from another platform, detects functional intents
 | Flag | Default | Description |
 |---|---|---|
 | `--source <path>` | `""` | File or directory of workflow `.md` files to translate. Activates cross-platform translation mode. |
-| `--from <platform>` | `auto` | Source platform format. Values: `antigravity`, `cursor`, `auto`. |
+| `--from <platform>` | `auto` | Source platform format. Values: `antigravity`, `claude`, `cursor`, `gemini`, `copilot`, `auto`. |
 | `--plan` | `false` | Dry-run: print the decomposition plan without writing any files. |
 | `--with-memory` | `false` | Include memory sections in the extracted IR. |
-| `--auto-merge` | `false` | Automatically merge compatible configurations when multiple provider directories are detected. |
+| `--auto-merge` | `""` | Merge strategy when multiple provider directories are detected. Currently supports: `union`. |
 
 ---
 
@@ -105,6 +105,7 @@ Renders the agent dependency graph parsed from `project.xcf`. Default terminal o
 | `--full` | `-f` | `false` | Show the fully expanded topology tree. Default view is a summary. |
 | `--scan-output` | — | `false` | Also scan compiled output directories for artifacts not tracked in `project.xcf`. |
 | `--all` | — | `false` | Show global topology and all registered projects in one view. Mutually exclusive with `--global` and `--project`. |
+| `--blueprint <name>` | — | `""` | Show the graph for the named blueprint's resources only. |
 
 The topology includes agents, skills, rules, MCP servers, hooks, and workflows. Hook nodes are labeled by event name; workflow nodes are labeled by workflow ID.
 
@@ -150,8 +151,6 @@ Compiles `project.xcf` (or a directory of `.xcf` files) into a target platform's
 | `--force` | `false` | Overwrite even if drift is detected or sources are unchanged. |
 | `--backup` | `false` | Copy the existing output directory to a timestamped backup before overwriting. Backup directory name: `.<target>_bak_<timestamp>`. Custom location via `project.backup-dir` in `project.xcf`. |
 | `--project <name>` | `""` | Apply to a different project registered in the global registry by name. Resolves the project's path and uses it as the config root. |
-| `--include-memory` | `false` | Snapshot memory seeds from the source and write them to the target provider's memory directory during compilation. |
-| `--reseed` | `false` | Force re-seeding of memory entries marked `lifecycle: seed-once` even if they were already seeded. |
 
 ---
 
@@ -329,11 +328,17 @@ No command-specific flags.
 
 **File:** `cmd/xcaffold/list.go`
 
-Lists all projects registered in the global registry (`~/.xcaffold/registry.json`). Registry entries are created automatically by `xcaffold apply` and `xcaffold init`.
+Scans the current project and displays all discovered resources grouped by type, plus all defined blueprints. Does not require flags to use.
 
-For each project, displays: name, path, targets, resource counts (agents, skills, rules), and last applied timestamp.
+**Output sections:**
 
-No flags.
+- **Resources** — all agents, skills, rules, workflows, MCP servers, policies, and memory units discovered in `xcf/`.
+- **Blueprints** — all `kind: blueprint` definitions found in `xcf/`, with their resource counts and active status.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--blueprint <name>` | `""` | (Hidden) Filter output to the named blueprint's resources. |
+| `--resolved` | `false` | (Hidden, use with `--blueprint`) Expand transitive `extends:` dependencies before listing. |
 
 ---
 
