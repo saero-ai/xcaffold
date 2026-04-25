@@ -84,6 +84,8 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 		}
 	}
 
+	config.Memory = DiscoverAgentMemory(baseDir)
+
 	config.StripInherited()
 
 	r, err := resolveRenderer(target)
