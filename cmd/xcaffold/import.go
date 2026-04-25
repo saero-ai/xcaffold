@@ -2702,10 +2702,12 @@ func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, c
 // in the resolved gemini directory. For all other platforms (and "auto") it
 // imports from the Claude project memory directory.
 //
-// NOTE: bir.ImportClaudeMemory and bir.ImportGeminiMemory write flat .md files
-// to SidecarDir/ without per-agent subdirectories. Full per-agent layout
-// (xcf/agents/<id>/memory/) is handled by snapshotAgentMemoryDir and the
-// WriteSplitFiles path. The sidecarDir here covers the --with-memory raw snapshot.
+// NOTE: The --with-memory BIR snapshot path writes flat .md files to
+// xcf/agents/ without per-agent subdirectories. This is a known limitation:
+// BIR import functions have no agent-to-entry mapping. The primary import
+// path (WriteSplitFiles from parsed config.Memory) writes to the correct
+// per-agent layout xcf/agents/<id>/memory/. The --with-memory flag is a
+// raw snapshot escape hatch and does not produce the canonical layout.
 func runMemorySnapshot(cmd *cobra.Command, source string, fromPlatform string, planOnly bool) (*bir.ImportSummary, error) {
 	sidecarDir := filepath.Join("xcf", "agents")
 
@@ -2982,8 +2984,11 @@ func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
 		}
 		agentID := entry.Name()
 		memDir := filepath.Join(agentsDir, agentID, "memory")
-		if _, err := os.Stat(memDir); os.IsNotExist(err) {
-			continue
+		if _, err := os.Stat(memDir); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
 		}
 		// Prune the memory dir if the agent is no longer in scope.
 		if !validAgents[agentID] {
