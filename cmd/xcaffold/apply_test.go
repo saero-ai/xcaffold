@@ -575,9 +575,9 @@ func TestApplyCmd_NoReseedFlag(t *testing.T) {
 // TestApplyScope_OrchestratorMemory_Claude verifies that the convention-based
 // memory compiler discovers .md files under xcf/agents/<id>/memory/ and seeds
 // them into .claude/agent-memory/<agentID>/MEMORY.md.
-// Requires Task 3 (convention-based compiler scan) to be complete.
+// Requires convention-based compiler scan to be complete.
 func TestApplyScope_OrchestratorMemory_Claude(t *testing.T) {
-	t.Skip("requires convention-based compiler (Task 3): .md discovery not yet implemented")
+	t.Skip("requires convention-based compiler: .md discovery not yet wired into apply")
 	dir := t.TempDir()
 
 	xcf := filepath.Join(dir, "project.xcf")
@@ -617,9 +617,9 @@ instructions: "Robert is the founder."
 // TestApplyScope_OrchestratorMemory_AgentRef verifies that a memory entry placed
 // under xcf/agents/<agentID>/memory/ is routed to agent-memory/<agentID>/MEMORY.md.
 // AgentRef is derived from the directory layout at compile time, not from YAML.
-// Requires Task 3 (convention-based compiler scan) to be complete.
+// Requires convention-based compiler scan to be complete.
 func TestApplyScope_OrchestratorMemory_AgentRef(t *testing.T) {
-	t.Skip("requires convention-based compiler (Task 3): .md discovery not yet implemented")
+	t.Skip("requires convention-based compiler: .md discovery not yet wired into apply")
 	dir := t.TempDir()
 
 	xcf := filepath.Join(dir, "project.xcf")
