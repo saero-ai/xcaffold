@@ -1783,26 +1783,9 @@ func validateMerged(c *ast.XcaffoldConfig) error {
 	if err := validatePermissions(c); err != nil {
 		return err
 	}
-	if err := validateMemoryFields(c); err != nil {
-		return err
-	}
 	if err := validateActiveBlueprint(c.Blueprints); err != nil {
 		return err
 	}
-	return nil
-}
-
-// validateMemoryFields is a no-op stub retained for call-site compatibility.
-// Type, lifecycle, and targets were removed from MemoryConfig in the
-// agent-scoped memory refactor; field-level validation for those keys is now
-// handled by KnownFields(true) at decode time.
-func validateMemoryFields(_ *ast.XcaffoldConfig) error {
-	return nil
-}
-
-// validateMemoryEntry is a no-op stub retained for call-site compatibility.
-// See validateMemoryFields.
-func validateMemoryEntry(_ string, _ ast.MemoryConfig) error {
 	return nil
 }
 

@@ -626,9 +626,6 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if err := validateEnvelope(doc.Version, doc.Name, kind); err != nil {
 			return err
 		}
-		if err := validateMemoryEntry(doc.Name, doc.MemoryConfig); err != nil {
-			return err
-		}
 		// Derive AgentRef from xcf/memory/<agentID>/<name>.xcf directory layout.
 		// sourceFile is the absolute path to the .xcf file. The penultimate
 		// directory segment is the owning agent ID.
