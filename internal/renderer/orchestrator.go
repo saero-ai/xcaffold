@@ -18,6 +18,17 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	}
 	var notes []FidelityNote
 
+	// Pre-compute memory agent refs for renderers that support MemoryAwareRenderer.
+	if mar, ok := r.(MemoryAwareRenderer); ok && len(config.Memory) > 0 {
+		refs := make(map[string]bool)
+		for _, m := range config.Memory {
+			if m.AgentRef != "" {
+				refs[m.AgentRef] = true
+			}
+		}
+		mar.SetMemoryRefs(refs)
+	}
+
 	// Agents
 	if len(config.Agents) > 0 {
 		if caps.Agents {

@@ -603,12 +603,13 @@ instructions: "Robert is the founder."
 	require.NoError(t, err)
 
 	// The orchestrator always compiles memory entries when the renderer supports it.
-	memFile := filepath.Join(claudeDir, "agent-memory", "default", "project_user-role.md")
+	memFile := filepath.Join(claudeDir, "agent-memory", "default", "MEMORY.md")
 	_, err = os.Stat(memFile)
-	require.NoError(t, err, "agent-memory file must exist at .claude/agent-memory/default/project_user-role.md")
+	require.NoError(t, err, "agent-memory file must exist at .claude/agent-memory/default/MEMORY.md")
 
 	data, err := os.ReadFile(memFile)
 	require.NoError(t, err)
+	require.Contains(t, string(data), "## user-role")
 	require.Contains(t, string(data), "Robert is the founder.")
 }
 
@@ -642,12 +643,13 @@ instructions: "Use cobra for all commands."
 	err := applyScope(xcf, claudeDir, dir, "project")
 	require.NoError(t, err)
 
-	memFile := filepath.Join(claudeDir, "agent-memory", "go-cli-developer", "project_arch-decisions.md")
+	memFile := filepath.Join(claudeDir, "agent-memory", "go-cli-developer", "MEMORY.md")
 	_, err = os.Stat(memFile)
-	require.NoError(t, err, "agent-memory file must exist at .claude/agent-memory/go-cli-developer/arch-decisions.md")
+	require.NoError(t, err, "agent-memory file must exist at .claude/agent-memory/go-cli-developer/MEMORY.md")
 
 	data, err := os.ReadFile(memFile)
 	require.NoError(t, err)
+	require.Contains(t, string(data), "## arch-decisions")
 	require.Contains(t, string(data), "Use cobra for all commands.")
 }
 

@@ -75,6 +75,14 @@ type MemoryOptions struct {
 	DryRun bool
 }
 
+// MemoryAwareRenderer is an optional interface that renderers may implement
+// to receive the set of agent IDs that have associated memory entries. The
+// orchestrator calls SetMemoryRefs before CompileAgents so that agent
+// frontmatter can reference memory configuration.
+type MemoryAwareRenderer interface {
+	SetMemoryRefs(agentRefs map[string]bool)
+}
+
 // TargetRenderer is the contract for all output-target renderers. It declares
 // per-resource compilation methods and Capabilities/Finalize hooks. The
 // orchestrator calls these methods directly via Orchestrate(); there is no
