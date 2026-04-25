@@ -338,21 +338,17 @@ Running `xcaffold apply` from this manifest compiles provider-specific output fo
 
 ---
 
-## Memory Lifecycle Selection
+## Agent Memory
 
-Define memory `lifecycle: seed-once` for user personalization profiles or knowledge entries where the agent is expected to learn and update the content over time. The compiler will not overwrite those entries on subsequent `xcaffold apply` runs:
+Memory entries are plain `.md` files placed under `xcf/agents/<agent-id>/memory/`. They are not `.xcf` resources — no `kind:`, `version:`, or `instructions:` fields. The compiler discovers them at compile time and always overwrites on `xcaffold apply`.
 
-```yaml
-kind: agent
-name: developer
-memory:
-  - name: user-preferences
-    lifecycle: seed-once
-    content: |
-      Initial preferences — the agent will update this over time.
+```
+xcf/agents/developer/memory/
+  user-preferences.md
+  project-context.md
 ```
 
-Use `lifecycle: tracked` only for memories that represent strictly managed documentation where the repository is the source of truth. Tracked memories are overwritten on every apply.
+Each file can optionally include YAML frontmatter with `name` and `description`. When frontmatter is absent, the filename stem is used as the name. See [Agent Memory](../concepts/agent-memory.md) for the full format reference.
 
 ---
 
@@ -372,4 +368,4 @@ Use `lifecycle: tracked` only for memories that represent strictly managed docum
 - [Split Configs](../how-to/multi-file-projects.md) — step-by-step guide to splitting a single-file project into the taxonomic or domain layout
 - [Import Existing Config](../how-to/import-existing-config.md) — converting an existing provider config (`.claude/`, `.cursor/`, etc.) to a managed project
 - [Policy Enforcement](../how-to/policy-enforcement.md) — configuring and overriding built-in policies
-- [Schema Reference](../reference/schema.md) — `kind: project`, `kind: policy`, and `lifecycle:` field definitions
+- [Schema Reference](../reference/schema.md) — `kind: project` and `kind: policy` field definitions

@@ -64,12 +64,6 @@ type MemoryOptions struct {
 	// OutputDir is the resolved path to the provider's memory directory.
 	// Required for providers that write memory to disk (claude, gemini).
 	OutputDir string
-	// PriorHashes maps memory entry names to the SHA-256 hash recorded on the
-	// last apply. Used by the claude renderer for drift detection.
-	PriorHashes map[string]string
-	// Reseed instructs tracked and seed-once renderers to overwrite existing
-	// memory files regardless of lifecycle or drift state.
-	Reseed bool
 	// DryRun, when true, causes the renderer to compute output without writing
 	// any files to disk.
 	DryRun bool

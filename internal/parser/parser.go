@@ -30,8 +30,7 @@ func withGlobalScope() parseOptionFunc {
 }
 
 // withSourcePath carries the originating file path into parse-time routines
-// that need it — currently used by kind: memory parsing to derive AgentRef
-// from the xcf/agents/<agentID>/memory/ directory name.
+// that need it.
 func withSourcePath(path string) parseOptionFunc {
 	return func(o *parseOption) { o.sourcePath = path }
 }
@@ -492,7 +491,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 					"See https://xcaffold.com/docs/migration/config-removal",
 			)
 
-		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy", "memory":
+		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy":
 			// Resource-kind document: route to the kind-aware parser.
 			// Propagate the resource version to config.Version if not already set.
 			if config.Version == "" {
@@ -580,11 +579,6 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 				ref.Content = trimmedBody
 				config.References[lastName] = ref
 			}
-		case "memory":
-			if m, ok := config.Memory[lastName]; ok && m.Instructions == "" {
-				m.Instructions = trimmedBody
-				config.Memory[lastName] = m
-			}
 		}
 	}
 
@@ -632,7 +626,6 @@ var parseableKinds = map[string]bool{
 	"policy":    true,
 	"reference": true,
 	"blueprint": true,
-	"memory":    true,
 }
 
 // isParseableFile reads the kind: field from an .xcf file to determine if it
@@ -985,7 +978,6 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	mcpOrigins := map[string]string{}
 	workflowOrigins := map[string]string{}
 	policyOrigins := map[string]string{}
-	memoryOrigins := map[string]string{}
 	referenceOrigins := map[string]string{}
 	blueprintOrigins := map[string]string{}
 	settingsOrigin := ""
@@ -1100,11 +1092,6 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		}
 
 		merged.Policies, policyOrigins, err = mergeMapStrict(merged.Policies, p.Policies, "policy", policyOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		merged.Memory, memoryOrigins, err = mergeMapStrict(merged.Memory, p.Memory, "memory", memoryOrigins, f)
 		if err != nil {
 			return nil, err
 		}
@@ -1379,7 +1366,6 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.MCP = mergeMCPOverrideInherited(base.MCP, child.MCP)
 	merged.Workflows = mergeWorkflowsOverrideInherited(base.Workflows, child.Workflows)
 	merged.Policies = mergeMapOverride(base.Policies, child.Policies)
-	merged.Memory = mergeMemoryOverrideInherited(base.Memory, child.Memory)
 	merged.References = mergeReferencesOverrideInherited(base.References, child.References)
 	merged.Blueprints = mergeMapOverride(base.Blueprints, child.Blueprints)
 	merged.Hooks = mergeNamedHooksAdditive(base.Hooks, child.Hooks)
@@ -1488,22 +1474,6 @@ func mergeWorkflowsOverrideInherited(base, child map[string]ast.WorkflowConfig) 
 	return merged
 }
 
-func mergeMemoryOverrideInherited(base, child map[string]ast.MemoryConfig) map[string]ast.MemoryConfig {
-	if base == nil && child == nil {
-		return nil
-	}
-	merged := make(map[string]ast.MemoryConfig, len(base)+len(child))
-	for k, v := range base {
-		v.Inherited = true
-		merged[k] = v
-	}
-	for k, v := range child {
-		v.Inherited = false
-		merged[k] = v
-	}
-	return merged
-}
-
 func mergeReferencesOverrideInherited(base, child map[string]ast.ReferenceConfig) map[string]ast.ReferenceConfig {
 	if base == nil && child == nil {
 		return nil
@@ -1562,7 +1532,7 @@ func validateID(kind, id string) error {
 	if strings.ContainsAny(id, "\\") || strings.Contains(id, "..") {
 		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
 	}
-	if strings.Contains(id, "/") && kind != "rule" && kind != "memory" {
+	if strings.Contains(id, "/") && kind != "rule" {
 		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
 	}
 	return nil
@@ -2021,9 +1991,6 @@ func validateIDs(c *ast.XcaffoldConfig) error {
 	if err := validateResourceIDs(c.Policies, "policy"); err != nil {
 		return err
 	}
-	if err := validateResourceIDs(c.Memory, "memory"); err != nil {
-		return err
-	}
 	if err := validateResourceIDs(c.References, "reference"); err != nil {
 		return err
 	}
@@ -2057,11 +2024,6 @@ func validateInstructions(c *ast.XcaffoldConfig, globalScope bool) error {
 	}
 	for id, wf := range c.Workflows {
 		if err := validateInstructionOrFile("workflow", id, wf.Instructions, wf.InstructionsFile, globalScope); err != nil {
-			return err
-		}
-	}
-	for id, mem := range c.Memory {
-		if err := validateInstructionOrFile("memory", id, mem.Instructions, mem.InstructionsFile, globalScope); err != nil {
 			return err
 		}
 	}

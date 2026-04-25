@@ -28,15 +28,13 @@ type Artifact struct {
 }
 
 // MemorySeed tracks a single seeded memory file, including its content hash
-// at seed time and its lifecycle value. Used for drift detection on tracked
-// memory entries.
+// at seed time. Used for drift detection on tracked memory entries.
 type MemorySeed struct {
-	Name      string `yaml:"name"`
-	Target    string `yaml:"target"`
-	Path      string `yaml:"path"`
-	Hash      string `yaml:"hash"`
-	SeededAt  string `yaml:"seeded-at"`
-	Lifecycle string `yaml:"lifecycle"`
+	Name     string `yaml:"name"`
+	Target   string `yaml:"target"`
+	Path     string `yaml:"path"`
+	Hash     string `yaml:"hash"`
+	SeededAt string `yaml:"seeded-at"`
 }
 
 const stateFileVersion = 1

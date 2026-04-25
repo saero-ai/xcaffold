@@ -67,7 +67,7 @@ Parses workflow Markdown files from another platform, detects functional intents
 | `--source <path>` | `""` | File or directory of workflow `.md` files to translate. Activates cross-platform translation mode. |
 | `--from <platform>` | `auto` | Source platform format. Values: `antigravity`, `claude`, `cursor`, `gemini`, `copilot`, `auto`. |
 | `--plan` | `false` | Dry-run: print the decomposition plan without writing any files. |
-| `--with-memory` | `false` | Include memory sections in the extracted IR. |
+| `--with-memory` | `false` | Include memory `.md` files found in the platform directory. Copies them to `xcf/agents/<id>/memory/`. |
 | `--auto-merge` | `""` | Merge strategy when multiple provider directories are detected. Currently supports: `union`. |
 
 ---
@@ -332,7 +332,7 @@ Scans the current project and displays all discovered resources grouped by type,
 
 **Output sections:**
 
-- **Resources** — all agents, skills, rules, workflows, MCP servers, policies, and memory units discovered in `xcf/`.
+- **Resources** — all agents, skills, rules, workflows, MCP servers, policies, and memory entries discovered in `xcf/`. Memory entries are discovered via filesystem scan of `xcf/agents/<id>/memory/` directories.
 - **Blueprints** — all `kind: blueprint` definitions found in `xcf/`, with their resource counts and active status.
 
 | Flag | Default | Description |
@@ -383,7 +383,7 @@ Converts agent configurations between provider formats in a single command witho
 | `--save-xcf` | — | `string` | `""` | Write the imported IR to this path as `project.xcf` YAML before compiling. |
 | `--fidelity` | — | `string` | `"warn"` | Fidelity mode: `strict`, `warn`, or `lossy`. |
 | `--instructions-mode` | — | `string` | `""` | How to handle instructions: `inline`, `file`, or `mixed`. |
-| `--include-memory` | — | `bool` | `false` | Include memory sections in translation. |
+| `--include-memory` | — | `bool` | `false` | Include memory `.md` files in translation. Copies them to `xcf/agents/<id>/memory/`. |
 | `--with-memory` | — | `bool` | `false` | Alias for `--include-memory`. |
 | `--scope` | — | `string` | `""` | Scope of translation: `project`, `global`, or `both`. |
 | `--variant` | — | `string` | `""` | Configuration variant to translate. |
@@ -393,7 +393,7 @@ Converts agent configurations between provider formats in a single command witho
 | `--diff-format` | — | `string` | `"unified"` | Diff output format: `unified`, `json`, or `markdown`. |
 | `--diff-only` | — | `bool` | `false` | Only show diff; do not write files. Implies `--diff`. |
 | `--regenerate` | — | `bool` | `false` | Regenerate all metadata during translation. |
-| `--reseed` | — | `bool` | `false` | Reseed deterministic IDs. |
+| `--reseed` | — | `bool` | `false` | **Deprecated.** Previously reseeded memory entries. No longer has any effect. |
 | `--idempotent-check` | — | `bool` | `false` | Verify translation is idempotent with current on-disk state. Exits non-zero if any file would change. |
 | `--audit-out` | — | `string` | `""` | Write a JSON audit report to this file. Report includes `from`, `to`, fidelity notes, file count, and timestamp. |
 | `--optimize` | — | `[]string` | `nil` | Named optimization pass to apply after compilation (repeatable). See Optimizer Passes below. |

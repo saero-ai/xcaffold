@@ -19,9 +19,9 @@ func TestCompileMemory_Gemini_Append(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Description:  "Developer role.",
-					Instructions: "Robert is the founder.",
+					Name:        "user-role",
+					Description: "Developer role.",
+					Content:     "Robert is the founder.",
 				},
 			},
 		},
@@ -50,8 +50,8 @@ func TestCompileMemory_Gemini_MarkerIdempotent(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Instructions: "First version.",
+					Name:    "user-role",
+					Content: "First version.",
 				},
 			},
 		},
@@ -78,9 +78,9 @@ func TestCompileMemory_Gemini_ProvenanceMarker(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"arch": {
-					Name:         "arch",
-					Description:  "Architecture context.",
-					Instructions: "One-way compiler.",
+					Name:        "arch",
+					Description: "Architecture context.",
+					Content:     "One-way compiler.",
 				},
 			},
 		},
@@ -103,8 +103,8 @@ func TestCompileMemory_Gemini_FidelityNoteCode(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"entry1": {Name: "entry1", Instructions: "a"},
-				"entry2": {Name: "entry2", Instructions: "b"},
+				"entry1": {Name: "entry1", Content: "a"},
+				"entry2": {Name: "entry2", Content: "b"},
 			},
 		},
 	}
@@ -117,7 +117,7 @@ func TestCompileMemory_Gemini_FidelityNoteCode(t *testing.T) {
 	}
 }
 
-func TestCompileMemory_Gemini_EmptyBody_EmitsBothNotes(t *testing.T) {
+func TestCompileMemory_Gemini_EmptyBody_Skipped(t *testing.T) {
 	dir := t.TempDir()
 	r := NewMemoryRenderer(dir)
 
@@ -134,23 +134,7 @@ func TestCompileMemory_Gemini_EmptyBody_EmitsBothNotes(t *testing.T) {
 
 	_, notes, err := r.Compile(config, dir)
 	require.NoError(t, err)
-	require.Len(t, notes, 2, "empty-body entry must emit exactly 2 notes")
-
-	codes := make([]string, 0, 2)
-	for _, n := range notes {
-		codes = append(codes, n.Code)
-	}
-	require.Contains(t, codes, "MEMORY_PARTIAL_FIDELITY", "must emit MEMORY_PARTIAL_FIDELITY info note")
-	require.Contains(t, codes, "MEMORY_BODY_EMPTY", "must emit MEMORY_BODY_EMPTY warning note")
-
-	for _, n := range notes {
-		if n.Code == renderer.CodeMemoryPartialFidelity {
-			require.Equal(t, renderer.LevelInfo, n.Level)
-		}
-		if n.Code == renderer.CodeMemoryBodyEmpty {
-			require.Equal(t, renderer.LevelWarning, n.Level)
-		}
-	}
+	require.Empty(t, notes, "empty-body entry is silently skipped — no fidelity notes")
 }
 
 func TestCompileMemory_Gemini_ReplacesStaleBlock(t *testing.T) {
@@ -161,7 +145,7 @@ func TestCompileMemory_Gemini_ReplacesStaleBlock(t *testing.T) {
 	config1 := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "Old body."},
+				"user-role": {Name: "user-role", Content: "Old body."},
 			},
 		},
 	}
@@ -172,7 +156,7 @@ func TestCompileMemory_Gemini_ReplacesStaleBlock(t *testing.T) {
 	config2 := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "New body."},
+				"user-role": {Name: "user-role", Content: "New body."},
 			},
 		},
 	}

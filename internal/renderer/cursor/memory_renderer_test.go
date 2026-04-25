@@ -13,7 +13,7 @@ func TestCompileMemory_Cursor_NoOp(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "test"},
+				"user-role": {Name: "user-role", Content: "test"},
 			},
 		},
 	}
@@ -33,8 +33,8 @@ func TestCompileMemory_Cursor_MultipleEntries_OneNotePerEntry(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"a": {Name: "a", Instructions: "a"},
-				"b": {Name: "b", Instructions: "b"},
+				"a": {Name: "a", Content: "a"},
+				"b": {Name: "b", Content: "b"},
 			},
 		},
 	}

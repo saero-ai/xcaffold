@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
 // defaultMEMORY returns the expected path for the default agent's MEMORY.md.
@@ -22,9 +21,8 @@ func agentMEMORY(dir, agentRef string) string {
 	return filepath.Join(dir, agentRef, "MEMORY.md")
 }
 
-// TestMemoryRenderer_ConcatenatesIntoMEMORY verifies the primary new behavior:
-// two entries for the same agent produce a single concatenated MEMORY.md with
-// ## <name> headings, and no per-entry .md files are written.
+// TestMemoryRenderer_ConcatenatesIntoMEMORY verifies the link-list index
+// format and individual .md file generation.
 func TestMemoryRenderer_ConcatenatesIntoMEMORY(t *testing.T) {
 	dir := t.TempDir()
 	r := NewMemoryRenderer(dir)
@@ -32,15 +30,17 @@ func TestMemoryRenderer_ConcatenatesIntoMEMORY(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {
-					Name:         "user-role",
-					Instructions: "Robert is the founder.",
-					AgentRef:     "backend-dev",
+				"backend-dev/user-role": {
+					Name:        "user-role",
+					Description: "User role info",
+					Content:     "Robert is the founder.",
+					AgentRef:    "backend-dev",
 				},
-				"arch-decisions": {
-					Name:         "arch-decisions",
-					Instructions: "One-way compiler model.",
-					AgentRef:     "backend-dev",
+				"backend-dev/arch-decisions": {
+					Name:        "arch-decisions",
+					Description: "Architecture decisions",
+					Content:     "One-way compiler model.",
+					AgentRef:    "backend-dev",
 				},
 			},
 		},
@@ -58,16 +58,14 @@ func TestMemoryRenderer_ConcatenatesIntoMEMORY(t *testing.T) {
 	require.NoError(t, err)
 	content := string(data)
 
-	require.Contains(t, content, "## user-role")
-	require.Contains(t, content, "Robert is the founder.")
-	require.Contains(t, content, "## arch-decisions")
-	require.Contains(t, content, "One-way compiler model.")
+	// Link-list format, not ## headings.
+	assert.Contains(t, content, "- [arch-decisions](arch-decisions.md)")
+	assert.Contains(t, content, "- [user-role](user-role.md)")
+	assert.NotContains(t, content, "## ", "should use link-list format, not ## headings")
 
-	// No individual per-entry files should be written.
-	entries, err := os.ReadDir(filepath.Join(dir, "backend-dev"))
-	require.NoError(t, err)
-	require.Len(t, entries, 1, "only MEMORY.md must exist in agent dir")
-	require.Equal(t, "MEMORY.md", entries[0].Name())
+	// Individual files must exist.
+	require.FileExists(t, filepath.Join(dir, "backend-dev", "user-role.md"))
+	require.FileExists(t, filepath.Join(dir, "backend-dev", "arch-decisions.md"))
 }
 
 // TestMemoryRenderer_MultiAgent writes to separate per-agent directories.
@@ -78,15 +76,17 @@ func TestMemoryRenderer_MultiAgent(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"backend-pref": {
-					Name:         "backend-pref",
-					Instructions: "Backend pref body.",
-					AgentRef:     "backend-dev",
+				"backend-dev/backend-pref": {
+					Name:        "backend-pref",
+					Description: "Backend preferences",
+					Content:     "Backend pref body.",
+					AgentRef:    "backend-dev",
 				},
-				"frontend-pref": {
-					Name:         "frontend-pref",
-					Instructions: "Frontend pref body.",
-					AgentRef:     "frontend-dev",
+				"frontend-dev/frontend-pref": {
+					Name:        "frontend-pref",
+					Description: "Frontend preferences",
+					Content:     "Frontend pref body.",
+					AgentRef:    "frontend-dev",
 				},
 			},
 		},
@@ -99,12 +99,12 @@ func TestMemoryRenderer_MultiAgent(t *testing.T) {
 	require.FileExists(t, agentMEMORY(dir, "frontend-dev"))
 
 	backendData, _ := os.ReadFile(agentMEMORY(dir, "backend-dev"))
-	require.Contains(t, string(backendData), "## backend-pref")
-	require.NotContains(t, string(backendData), "## frontend-pref")
+	assert.Contains(t, string(backendData), "[backend-pref]")
+	assert.NotContains(t, string(backendData), "[frontend-pref]")
 
 	frontendData, _ := os.ReadFile(agentMEMORY(dir, "frontend-dev"))
-	require.Contains(t, string(frontendData), "## frontend-pref")
-	require.NotContains(t, string(frontendData), "## backend-pref")
+	assert.Contains(t, string(frontendData), "[frontend-pref]")
+	assert.NotContains(t, string(frontendData), "[backend-pref]")
 }
 
 // TestMemoryRenderer_DefaultAgentRef uses "default" when AgentRef is empty.
@@ -116,8 +116,9 @@ func TestMemoryRenderer_DefaultAgentRef(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Instructions: "Robert is the founder.",
+					Name:        "user-role",
+					Description: "User role",
+					Content:     "Robert is the founder.",
 					// AgentRef intentionally left empty.
 				},
 			},
@@ -127,302 +128,6 @@ func TestMemoryRenderer_DefaultAgentRef(t *testing.T) {
 	_, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 	require.FileExists(t, defaultMEMORY(dir))
-}
-
-func TestCompileMemory_SeedOnce_FileAbsent(t *testing.T) {
-	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {
-					Name:         "user-role",
-					Description:  "Developer role.",
-					Instructions: "Robert is the founder.",
-				},
-			},
-		},
-	}
-
-	output, notes, err := r.Compile(config, dir)
-	require.NoError(t, err)
-	require.NotNil(t, output)
-	require.Empty(t, notes, "no fidelity notes for new file")
-	require.FileExists(t, defaultMEMORY(dir))
-}
-
-func TestCompileMemory_SeedOnce_FilePresent_NoOp(t *testing.T) {
-	dir := t.TempDir()
-	agentDir := filepath.Join(dir, "default")
-	require.NoError(t, os.MkdirAll(agentDir, 0o700))
-	memPath := filepath.Join(agentDir, "MEMORY.md")
-	require.NoError(t, os.WriteFile(memPath, []byte("existing content"), 0o600))
-
-	r := NewMemoryRenderer(dir)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {
-					Name:         "user-role",
-					Instructions: "Robert is the founder.",
-				},
-			},
-		},
-	}
-
-	output, notes, err := r.Compile(config, dir)
-	require.NoError(t, err)
-	require.NotNil(t, output)
-	require.NotEmpty(t, notes, "fidelity note must be emitted on no-op")
-
-	// File must not have been overwritten.
-	data, _ := os.ReadFile(memPath)
-	require.Equal(t, "existing content", string(data))
-}
-
-func TestCompileMemory_Reseed_Overwrites(t *testing.T) {
-	dir := t.TempDir()
-	agentDir := filepath.Join(dir, "default")
-	require.NoError(t, os.MkdirAll(agentDir, 0o700))
-	memPath := filepath.Join(agentDir, "MEMORY.md")
-	require.NoError(t, os.WriteFile(memPath, []byte("old content"), 0o600))
-
-	r := NewMemoryRenderer(dir).WithReseed(true)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {
-					Name:         "user-role",
-					Instructions: "New content.",
-				},
-			},
-		},
-	}
-
-	_, _, err := r.Compile(config, dir)
-	require.NoError(t, err)
-
-	data, _ := os.ReadFile(memPath)
-	require.Contains(t, string(data), "New content.")
-}
-
-// TestCompileMemory_SeedOnce_ReseedRequired verifies seed-once semantics skip
-// existing MEMORY.md unless --reseed.
-func TestCompileMemory_SeedOnce_ReseedRequired(t *testing.T) {
-	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"arch-decisions": {
-					Name:         "arch-decisions",
-					Instructions: "One-way compiler model.",
-				},
-			},
-		},
-	}
-
-	output, _, err := r.Compile(config, dir)
-	require.NoError(t, err)
-	require.NotNil(t, output)
-	require.FileExists(t, defaultMEMORY(dir))
-}
-
-// TestCompileMemory_PriorSeeds_SeedOnce verifies that CompileWithPriorSeeds
-// still applies seed-once logic (skips existing MEMORY.md).
-func TestCompileMemory_PriorSeeds_SeedOnce(t *testing.T) {
-	dir := t.TempDir()
-	agentDir := filepath.Join(dir, "default")
-	require.NoError(t, os.MkdirAll(agentDir, 0o700))
-	memPath := filepath.Join(agentDir, "MEMORY.md")
-	require.NoError(t, os.WriteFile(memPath, []byte("existing content"), 0o600))
-
-	r := NewMemoryRenderer(dir)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"arch-decisions": {
-					Name:         "arch-decisions",
-					Instructions: "New xcf content.",
-				},
-			},
-		},
-	}
-
-	priorHash := "sha256:abc123notmatching"
-	output, notes, err := r.CompileWithPriorSeeds(config, dir, map[string]string{"arch-decisions": priorHash})
-	require.NoError(t, err, "seed-once: existing file must not cause an error")
-	require.NotNil(t, output)
-	require.NotEmpty(t, notes, "seed-once: skip note must be emitted")
-
-	// File must be untouched.
-	data, _ := os.ReadFile(memPath)
-	require.Equal(t, "existing content", string(data))
-}
-
-// TestCompileMemory_PriorSeeds_ReseedOverrides verifies that WithReseed(true)
-// overwrites even when MEMORY.md exists.
-func TestCompileMemory_PriorSeeds_ReseedOverrides(t *testing.T) {
-	dir := t.TempDir()
-	agentDir := filepath.Join(dir, "default")
-	require.NoError(t, os.MkdirAll(agentDir, 0o700))
-	memPath := filepath.Join(agentDir, "MEMORY.md")
-	require.NoError(t, os.WriteFile(memPath, []byte("existing content"), 0o600))
-
-	r := NewMemoryRenderer(dir).WithReseed(true)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"arch-decisions": {
-					Name:         "arch-decisions",
-					Instructions: "Authoritative xcf content.",
-				},
-			},
-		},
-	}
-
-	priorHash := "sha256:abc123notmatching"
-	output, _, err := r.CompileWithPriorSeeds(config, dir, map[string]string{"arch-decisions": priorHash})
-	require.NoError(t, err)
-	require.NotNil(t, output)
-
-	data, _ := os.ReadFile(memPath)
-	require.Contains(t, string(data), "Authoritative xcf content.")
-}
-
-func TestCompileMemory_FrontmatterFormat(t *testing.T) {
-	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {
-					Name:         "user-role",
-					Description:  "Developer role.",
-					Instructions: "Robert is the founder.",
-				},
-			},
-		},
-	}
-
-	_, _, err := r.Compile(config, dir)
-	require.NoError(t, err)
-
-	data, _ := os.ReadFile(defaultMEMORY(dir))
-	content := string(data)
-	require.Contains(t, content, "## user-role")
-	require.Contains(t, content, "Robert is the founder.")
-	// type: field must not appear.
-	require.NotContains(t, content, "type:")
-}
-
-func TestCompileMemory_InstructionsFileTraversal_Rejected(t *testing.T) {
-	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"traversal": {
-					InstructionsFile: "../../etc/passwd",
-				},
-			},
-		},
-	}
-
-	_, _, err := r.Compile(config, dir)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "escapes base dir")
-}
-
-func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
-	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"colon-desc": {
-					Name:         "colon-desc",
-					Description:  "has: a colon",
-					Instructions: "Some body text.",
-				},
-			},
-		},
-	}
-
-	_, _, err := r.Compile(config, dir)
-	require.NoError(t, err)
-
-	data, readErr := os.ReadFile(defaultMEMORY(dir))
-	require.NoError(t, readErr)
-	content := string(data)
-
-	// The description is embedded in the ## heading section, not frontmatter.
-	// Verify the body text appears.
-	require.Contains(t, content, "Some body text.")
-	require.Contains(t, content, "## colon-desc")
-
-	// No YAML frontmatter block in the new concatenated format.
-	require.NotContains(t, content, "---")
-}
-
-func TestRenderMemoryMarkdown_NoType(t *testing.T) {
-	entry := ast.MemoryConfig{Description: "User preferences"}
-	out := renderMemoryMarkdown(entry, "Always be concise.")
-	require.NotContains(t, out, "type:")
-	require.Contains(t, out, `description: "User preferences"`)
-	require.Contains(t, out, "Always be concise.")
-}
-
-func TestRenderMemoryMarkdown_NoDescription_NoFrontmatter(t *testing.T) {
-	entry := ast.MemoryConfig{}
-	out := renderMemoryMarkdown(entry, "Plain body text.")
-	require.NotContains(t, out, "---")
-	require.Equal(t, "Plain body text.\n", out)
-}
-
-// TestCompileMemory_Seeds_Recorded verifies that Seeds() returns a MemorySeed
-// for each written agent MEMORY.md after Compile.
-func TestCompileMemory_Seeds_Recorded(t *testing.T) {
-	dir := t.TempDir()
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"arch": {Name: "arch", Instructions: "Original xcf content."},
-			},
-		},
-	}
-
-	r1 := NewMemoryRenderer(dir)
-	_, _, err := r1.Compile(config, dir)
-	require.NoError(t, err)
-
-	seeds := r1.Seeds()
-	require.Len(t, seeds, 1, "one seed per agent must be recorded")
-	require.Equal(t, "default", seeds[0].Name)
-	require.Equal(t, "claude", seeds[0].Target)
-
-	// Simulate a re-apply with the prior hash: seed-once skips, so Seeds() is empty.
-	priorHash := seeds[0].Hash
-	agentDir := filepath.Join(dir, "default")
-	memPath := filepath.Join(agentDir, "MEMORY.md")
-	require.NoError(t, os.WriteFile(memPath, []byte("agent modified this"), 0o600))
-
-	r2 := NewMemoryRenderer(dir)
-	_, notes, err := r2.CompileWithPriorSeeds(config, dir, map[string]string{"arch": priorHash})
-	require.NoError(t, err, "seed-once: existing file must not error")
-	require.NotEmpty(t, notes)
-
-	// Verify the FidelityNote code is seed-skipped.
-	var hasSkipCode bool
-	for _, n := range notes {
-		if n.Code == renderer.CodeMemorySeedSkipped {
-			hasSkipCode = true
-		}
-	}
-	require.True(t, hasSkipCode, "notes must include a MEMORY_SEED_SKIPPED note")
 }
 
 // TestCompileMemory_EmptyBody_Skipped verifies that entries with empty bodies
@@ -435,22 +140,14 @@ func TestCompileMemory_EmptyBody_Skipped(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"empty": {
 					Name: "empty",
-					// No instructions or instructions-file.
+					// No content.
 				},
 			},
 		},
 	}
 
-	_, notes, err := r.Compile(config, dir)
+	_, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
-	require.NotEmpty(t, notes)
-	var hasEmpty bool
-	for _, n := range notes {
-		if n.Code == renderer.CodeMemoryBodyEmpty {
-			hasEmpty = true
-		}
-	}
-	require.True(t, hasEmpty, "must emit MEMORY_BODY_EMPTY note")
 
 	// No agent dir should be created for all-empty entries.
 	_, statErr := os.Stat(filepath.Join(dir, "default"))
@@ -466,9 +163,9 @@ func TestCompileMemory_AgentRefTraversal_Rejected(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"evil": {
-					Name:         "evil",
-					Instructions: "bad content",
-					AgentRef:     "../escaped",
+					Name:     "evil",
+					Content:  "bad content",
+					AgentRef: "../escaped",
 				},
 			},
 		},
@@ -488,12 +185,14 @@ func TestCompileMemory_DeterministicOrder(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"zzz-last": {
-					Name:         "zzz-last",
-					Instructions: "Z body.",
+					Name:        "zzz-last",
+					Description: "Z desc",
+					Content:     "Z body.",
 				},
 				"aaa-first": {
-					Name:         "aaa-first",
-					Instructions: "A body.",
+					Name:        "aaa-first",
+					Description: "A desc",
+					Content:     "A body.",
 				},
 			},
 		},
@@ -505,17 +204,135 @@ func TestCompileMemory_DeterministicOrder(t *testing.T) {
 	data, _ := os.ReadFile(defaultMEMORY(dir))
 	content := string(data)
 
-	posFirst := strings.Index(content, "## aaa-first")
-	posLast := strings.Index(content, "## zzz-last")
-	require.Greater(t, posLast, posFirst, "aaa-first must appear before zzz-last")
+	posFirst := strings.Index(content, "aaa-first")
+	posLast := strings.Index(content, "zzz-last")
+	assert.Greater(t, posLast, posFirst, "aaa-first must appear before zzz-last")
 }
 
-// TestCompileMemory_YAML_unused ensures yaml import is used (keeps the import
-// intact for TestCompileMemory_DescriptionWithColon_QuotedSafely usage).
-func TestCompileMemory_YAML_unused(t *testing.T) {
-	// yaml.Unmarshal is used in TestCompileMemory_DescriptionWithColon_QuotedSafely;
-	// this test is a no-op placeholder to satisfy static analysis if that test
-	// is removed in the future.
-	var m map[string]interface{}
-	require.NoError(t, yaml.Unmarshal([]byte("key: value"), &m))
+// TestCompileMemory_Seeds_Recorded verifies that Seeds() returns a MemorySeed
+// for each written agent MEMORY.md after Compile.
+func TestCompileMemory_Seeds_Recorded(t *testing.T) {
+	dir := t.TempDir()
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"arch": {Name: "arch", Description: "Architecture", Content: "Original xcf content."},
+			},
+		},
+	}
+
+	r := NewMemoryRenderer(dir)
+	_, _, err := r.Compile(config, dir)
+	require.NoError(t, err)
+
+	seeds := r.Seeds()
+	require.Len(t, seeds, 1, "one seed per agent must be recorded")
+	assert.Equal(t, "default", seeds[0].Name)
+	assert.Equal(t, "claude", seeds[0].Target)
+	assert.Contains(t, seeds[0].Hash, "sha256:")
+}
+
+// TestCompileMemory_GeneratesLinkListIndex verifies the link-list index format.
+func TestCompileMemory_GeneratesLinkListIndex(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"dev/orm-decision": {
+					Name: "ORM Decision", Description: "Always use Drizzle",
+					Content: "We chose Drizzle ORM.", AgentRef: "dev",
+				},
+				"dev/api-patterns": {
+					Name: "API Patterns", Description: "REST conventions",
+					Content: "All endpoints use JSON:API.", AgentRef: "dev",
+				},
+			},
+		},
+	}
+	dir := t.TempDir()
+	mr := NewMemoryRenderer(dir)
+	_, _, err := mr.Compile(config, "")
+	require.NoError(t, err)
+
+	memPath := filepath.Join(dir, "dev", "MEMORY.md")
+	data, err := os.ReadFile(memPath)
+	require.NoError(t, err)
+	content := string(data)
+	assert.Contains(t, content, "- [API Patterns](api-patterns.md) — REST conventions")
+	assert.Contains(t, content, "- [ORM Decision](orm-decision.md) — Always use Drizzle")
+	assert.NotContains(t, content, "## ", "should use link-list format, not ## headings")
+}
+
+// TestCompileMemory_CopiesIndividualFiles verifies individual .md files are written.
+func TestCompileMemory_CopiesIndividualFiles(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"dev/orm-decision": {
+					Name: "ORM Decision", Description: "Always use Drizzle",
+					Content: "We chose Drizzle ORM.", AgentRef: "dev",
+				},
+			},
+		},
+	}
+	dir := t.TempDir()
+	mr := NewMemoryRenderer(dir)
+	_, _, err := mr.Compile(config, "")
+	require.NoError(t, err)
+
+	indivPath := filepath.Join(dir, "dev", "orm-decision.md")
+	data, err := os.ReadFile(indivPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "We chose Drizzle ORM.")
+}
+
+// TestCompileMemory_AlwaysOverwrites verifies that apply always overwrites
+// existing MEMORY.md (no seed-once behavior).
+func TestCompileMemory_AlwaysOverwrites(t *testing.T) {
+	dir := t.TempDir()
+	agentDir := filepath.Join(dir, "dev")
+	require.NoError(t, os.MkdirAll(agentDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "MEMORY.md"), []byte("old content"), 0o644))
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"dev/new-entry": {
+					Name: "New", Description: "New entry",
+					Content: "New content.", AgentRef: "dev",
+				},
+			},
+		},
+	}
+	mr := NewMemoryRenderer(dir)
+	_, _, err := mr.Compile(config, "")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(dir, "dev", "MEMORY.md"))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "New")
+	assert.NotContains(t, string(data), "old content")
+}
+
+// TestCompileMemory_SortedDeterministic verifies alphabetical sorting of entries.
+func TestCompileMemory_SortedDeterministic(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"dev/zebra": {Name: "Zebra", Description: "Z desc", Content: "Z content", AgentRef: "dev"},
+				"dev/alpha": {Name: "Alpha", Description: "A desc", Content: "A content", AgentRef: "dev"},
+			},
+		},
+	}
+	dir := t.TempDir()
+	mr := NewMemoryRenderer(dir)
+	_, _, err := mr.Compile(config, "")
+	require.NoError(t, err)
+
+	data, err := os.ReadFile(filepath.Join(dir, "dev", "MEMORY.md"))
+	require.NoError(t, err)
+	content := string(data)
+	alphaIdx := strings.Index(content, "Alpha")
+	zebraIdx := strings.Index(content, "Zebra")
+	assert.Less(t, alphaIdx, zebraIdx, "entries should be sorted alphabetically")
 }

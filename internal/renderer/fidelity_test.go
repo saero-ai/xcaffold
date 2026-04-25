@@ -92,8 +92,6 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeInstructionsClosestWinsForcedConcat: true,
 		renderer.CodeMemoryNoNativeTarget:                true,
 		renderer.CodeMemoryPartialFidelity:               true,
-		renderer.CodeMemoryBodyEmpty:                     true,
-		renderer.CodeMemorySeedSkipped:                   true,
 		renderer.CodeMemoryIndexUpdateFailed:             true,
 		renderer.CodeWorkflowLoweredToRulePlusSkill:      true,
 		renderer.CodeWorkflowLoweredToPromptFile:         true,

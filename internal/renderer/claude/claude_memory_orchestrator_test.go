@@ -16,10 +16,11 @@ func TestCompileMemory_Claude_OrchestratorPath_EmitsAgentScopedFiles(t *testing.
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"project_audit_log_owner": {
-					Name:         "project_audit_log_owner",
-					AgentRef:     "auth-specialist",
-					Instructions: "Security team owns audit log.",
+				"auth-specialist/project_audit_log_owner": {
+					Name:        "project_audit_log_owner",
+					Description: "Who owns the audit log.",
+					AgentRef:    "auth-specialist",
+					Content:     "Security team owns audit log.",
 				},
 			},
 		},
@@ -27,9 +28,12 @@ func TestCompileMemory_Claude_OrchestratorPath_EmitsAgentScopedFiles(t *testing.
 	r := claude.New()
 	files, notes, err := r.CompileMemory(cfg, t.TempDir(), renderer.MemoryOptions{})
 	require.NoError(t, err)
-	want := filepath.Join("agent-memory", "auth-specialist", "MEMORY.md")
-	require.Contains(t, files, want)
-	assert.Contains(t, files[want], "## project_audit_log_owner")
+	indexPath := filepath.Join("agent-memory", "auth-specialist", "MEMORY.md")
+	entryPath := filepath.Join("agent-memory", "auth-specialist", "project_audit_log_owner.md")
+	require.Contains(t, files, indexPath)
+	require.Contains(t, files, entryPath)
+	assert.Contains(t, files[indexPath], "[project_audit_log_owner](project_audit_log_owner.md)")
+	assert.Contains(t, files[entryPath], "Security team owns audit log.")
 	require.Empty(t, notes)
 }
 
@@ -46,7 +50,7 @@ func TestCompileMemory_Claude_OrchestratorPath_MissingAgentRefFallsBackToDefault
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"orphaned": {Name: "orphaned", Instructions: "no owner"},
+				"orphaned": {Name: "orphaned", Content: "no owner"},
 			},
 		},
 	}
@@ -60,17 +64,23 @@ func TestCompileMemoryToMap_GroupsByAgentRef(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-prefs": {
-					AgentRef:     "reviewer",
-					Instructions: "Always be concise.",
+				"reviewer/user-prefs": {
+					Name:        "user-prefs",
+					Description: "Conciseness preference.",
+					AgentRef:    "reviewer",
+					Content:     "Always be concise.",
 				},
-				"project-ctx": {
-					AgentRef:     "reviewer",
-					Instructions: "This is the xcaffold project.",
+				"reviewer/project-ctx": {
+					Name:        "project-ctx",
+					Description: "Project context.",
+					AgentRef:    "reviewer",
+					Content:     "This is the xcaffold project.",
 				},
-				"feedback-style": {
-					AgentRef:     "developer",
-					Instructions: "Use kebab-case for YAML keys.",
+				"developer/feedback-style": {
+					Name:        "feedback-style",
+					Description: "YAML key style preference.",
+					AgentRef:    "developer",
+					Content:     "Use kebab-case for YAML keys.",
 				},
 			},
 		},
@@ -80,27 +90,32 @@ func TestCompileMemoryToMap_GroupsByAgentRef(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, notes)
 
-	// Two agent dirs, not three individual files.
-	require.Len(t, files, 2)
+	// Two MEMORY.md index files + three individual entry files = 5.
+	require.Len(t, files, 5)
 
-	reviewerMem, ok := files["agent-memory/reviewer/MEMORY.md"]
+	reviewerIndex, ok := files["agent-memory/reviewer/MEMORY.md"]
 	require.True(t, ok, "expected agent-memory/reviewer/MEMORY.md")
-	assert.Contains(t, reviewerMem, "## project-ctx")
-	assert.Contains(t, reviewerMem, "## user-prefs")
-	assert.Contains(t, reviewerMem, "This is the xcaffold project.")
-	assert.Contains(t, reviewerMem, "Always be concise.")
+	assert.Contains(t, reviewerIndex, "[project-ctx](project-ctx.md)")
+	assert.Contains(t, reviewerIndex, "[user-prefs](user-prefs.md)")
 
-	devMem, ok := files["agent-memory/developer/MEMORY.md"]
+	require.Contains(t, files, "agent-memory/reviewer/project-ctx.md")
+	assert.Contains(t, files["agent-memory/reviewer/project-ctx.md"], "This is the xcaffold project.")
+	require.Contains(t, files, "agent-memory/reviewer/user-prefs.md")
+	assert.Contains(t, files["agent-memory/reviewer/user-prefs.md"], "Always be concise.")
+
+	devIndex, ok := files["agent-memory/developer/MEMORY.md"]
 	require.True(t, ok, "expected agent-memory/developer/MEMORY.md")
-	assert.Contains(t, devMem, "## feedback-style")
-	assert.Contains(t, devMem, "Use kebab-case for YAML keys.")
+	assert.Contains(t, devIndex, "[feedback-style](feedback-style.md)")
+
+	require.Contains(t, files, "agent-memory/developer/feedback-style.md")
+	assert.Contains(t, files["agent-memory/developer/feedback-style.md"], "Use kebab-case for YAML keys.")
 }
 
 func TestCompileMemoryToMap_EmptyBodySkipped(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"empty-entry": {AgentRef: "dev", Instructions: "   "},
+				"dev/empty-entry": {Name: "empty-entry", AgentRef: "dev", Content: "   "},
 			},
 		},
 	}
@@ -114,7 +129,7 @@ func TestCompileMemoryToMap_DefaultAgentRef(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"orphan": {Instructions: "No agent ref set."},
+				"orphan": {Name: "orphan", Content: "No agent ref set."},
 			},
 		},
 	}
@@ -123,6 +138,9 @@ func TestCompileMemoryToMap_DefaultAgentRef(t *testing.T) {
 	require.NoError(t, err)
 	_, ok := files["agent-memory/default/MEMORY.md"]
 	require.True(t, ok, "expected agent-memory/default/MEMORY.md for zero AgentRef")
+	// key has no "/" so fname is "orphan.md"
+	_, ok = files["agent-memory/default/orphan.md"]
+	require.True(t, ok, "expected agent-memory/default/orphan.md for key without /")
 }
 
 func TestCompileAgentMarkdown_MemoryUserInjected(t *testing.T) {
@@ -135,7 +153,7 @@ func TestCompileAgentMarkdown_MemoryUserInjected(t *testing.T) {
 				},
 			},
 			Memory: map[string]ast.MemoryConfig{
-				"user-prefs": {AgentRef: "reviewer", Instructions: "Be concise."},
+				"user-prefs": {AgentRef: "reviewer", Content: "Be concise."},
 			},
 		},
 	}
@@ -169,7 +187,7 @@ func TestCompileAgentMarkdown_ExplicitMemoryFieldNotOverwritten(t *testing.T) {
 				"dev": {Name: "dev", Memory: "project"},
 			},
 			Memory: map[string]ast.MemoryConfig{
-				"ctx": {AgentRef: "dev", Instructions: "Context."},
+				"ctx": {AgentRef: "dev", Content: "Context."},
 			},
 		},
 	}

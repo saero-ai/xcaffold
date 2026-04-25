@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"gopkg.in/yaml.v3"
@@ -58,14 +57,6 @@ type mcpDocument struct {
 	Kind          string `yaml:"kind"`
 	Version       string `yaml:"version"`
 	ast.MCPConfig `yaml:",inline"`
-}
-
-// memoryDocument wraps MemoryConfig with envelope fields.
-// Name is promoted from MemoryConfig.Name.
-type memoryDocument struct {
-	Kind             string `yaml:"kind"`
-	Version          string `yaml:"version"`
-	ast.MemoryConfig `yaml:",inline"`
 }
 
 // projectDocFields is the deserialization target for kind: project documents.
@@ -132,7 +123,6 @@ type globalDocument struct {
 	Hooks     ast.HookConfig                `yaml:"hooks,omitempty"`
 	MCP       map[string]ast.MCPConfig      `yaml:"mcp,omitempty"`
 	Workflows map[string]ast.WorkflowConfig `yaml:"workflows,omitempty"`
-	Memory    map[string]ast.MemoryConfig   `yaml:"memory,omitempty"`
 }
 
 // policyDocument wraps PolicyConfig with envelope fields for multi-kind parsing.
@@ -593,16 +583,6 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			}
 			config.MCP[k] = v
 		}
-		for k, v := range doc.Memory {
-			if config.Memory == nil {
-				config.Memory = make(map[string]ast.MemoryConfig)
-			}
-			if _, exists := config.Memory[k]; exists {
-				return fmt.Errorf("duplicate memory ID %q", k)
-			}
-			config.Memory[k] = v
-		}
-
 	case "policy":
 		var doc policyDocument
 		dec := yaml.NewDecoder(bytes.NewReader(b))
@@ -623,33 +603,6 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			return fmt.Errorf("duplicate policy ID %q", doc.Name)
 		}
 		config.Policies[doc.Name] = doc.PolicyConfig
-
-	case "memory":
-		var doc memoryDocument
-		dec := yaml.NewDecoder(bytes.NewReader(b))
-		dec.KnownFields(true)
-		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid memory document: %w", err)
-		}
-		if err := validateEnvelope(doc.Version, doc.Name, kind); err != nil {
-			return err
-		}
-		if sourceFile != "" {
-			dirParts := strings.Split(filepath.ToSlash(filepath.Dir(sourceFile)), "/")
-			for i := len(dirParts) - 1; i >= 1; i-- {
-				if dirParts[i] == "memory" {
-					doc.MemoryConfig.AgentRef = dirParts[i-1]
-					break
-				}
-			}
-		}
-		if config.Memory == nil {
-			config.Memory = make(map[string]ast.MemoryConfig)
-		}
-		if _, exists := config.Memory[doc.Name]; exists {
-			return fmt.Errorf("duplicate memory ID %q", doc.Name)
-		}
-		config.Memory[doc.Name] = doc.MemoryConfig
 
 	default:
 		return fmt.Errorf("unknown resource kind %q", kind)

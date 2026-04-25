@@ -21,10 +21,13 @@ func TestGoldenManifests_AllParse(t *testing.T) {
 		t.Fatalf("failed to read golden manifest directory: %v", err)
 	}
 
-	// Kinds whose parser support is not yet implemented.
+	// Kinds whose parser support is not yet implemented or has been removed.
 	unparseable := map[string]bool{
 		"template.xcf": true,
 		"system.xcf":   true,
+		// memory.xcf: kind:memory is no longer a parsed resource kind.
+		// Memory is convention-based (.md files in xcf/agents/<id>/memory/).
+		"memory.xcf": true,
 	}
 
 	xcfCount := 0

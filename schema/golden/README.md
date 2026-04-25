@@ -10,7 +10,7 @@ Reference `.xcf` files that exercise every field for each resource kind.
 
 ## Coverage
 
-- **Full coverage** kinds (agent, skill, rule, workflow, mcp, hooks, memory, project, global, settings): every valid field is exercised
+- **Full coverage** kinds (agent, skill, rule, workflow, mcp, hooks, project, global, settings): every valid field is exercised
 - **Preview** kinds (blueprint, policy): parser support is complete but full field documentation is pending
 - **Preview — parser pending** kinds (template, system): parser support for these kinds is not yet implemented; CI skips them
 

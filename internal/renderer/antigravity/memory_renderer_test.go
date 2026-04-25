@@ -15,9 +15,9 @@ func TestCompileMemory_Antigravity_WritesKnowledgeItem(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Description:  "Developer role.",
-					Instructions: "Robert is the founder.",
+					Name:        "user-role",
+					Description: "Developer role.",
+					Content:     "Robert is the founder.",
 				},
 			},
 		},
@@ -45,9 +45,9 @@ func TestCompileMemory_Antigravity_DefaultTagAfterTypeRemoval(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"ref":  {Name: "ref", Instructions: "x"},
-				"fb":   {Name: "fb", Instructions: "y"},
-				"proj": {Name: "proj", Instructions: "z"},
+				"ref":  {Name: "ref", Content: "x"},
+				"fb":   {Name: "fb", Content: "y"},
+				"proj": {Name: "proj", Content: "z"},
 			},
 		},
 	}
@@ -78,7 +78,7 @@ func TestCompileMemory_Antigravity_DefaultTag(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"misc": {Name: "misc", Instructions: "x"},
+				"misc": {Name: "misc", Content: "x"},
 			},
 		},
 	}
@@ -95,7 +95,7 @@ func TestCompileMemory_Antigravity_InvalidName_ReturnsError(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"../escape": {Instructions: "x"},
+				"../escape": {Content: "x"},
 			},
 		},
 	}

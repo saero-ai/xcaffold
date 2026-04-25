@@ -190,3 +190,38 @@ func TestListCmd_IsRegistered(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "list", cmd.Use)
 }
+
+// TestRunList_MemoryDiscoveredFromFilesystem verifies that memory entries found
+// under xcf/agents/<id>/memory/*.md are listed even though config.Memory is empty.
+func TestRunList_MemoryDiscoveredFromFilesystem(t *testing.T) {
+	dir := t.TempDir()
+
+	// Minimal project manifest — no memory declared in YAML.
+	projectXcf := "kind: project\nversion: \"1.0\"\nname: list-memory-test\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(projectXcf), 0600))
+
+	// Create xcf/agents/developer/memory/coding-style.md
+	memDir := filepath.Join(dir, "xcf", "agents", "developer", "memory")
+	require.NoError(t, os.MkdirAll(memDir, 0700))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(memDir, "coding-style.md"),
+		[]byte("# Coding style\nAlways use gofmt."),
+		0600,
+	))
+
+	// Point xcfPath at the project.xcf inside dir; the project root IS dir.
+	origXcfPath := xcfPath
+	xcfPath = filepath.Join(dir, "project.xcf")
+	defer func() { xcfPath = origXcfPath }()
+
+	var buf bytes.Buffer
+	listCmd.SetOut(&buf)
+	defer listCmd.SetOut(nil)
+
+	err := runList(listCmd, []string{})
+	require.NoError(t, err)
+
+	out := buf.String()
+	assert.Contains(t, out, "memory:")
+	assert.Contains(t, out, "coding-style")
+}

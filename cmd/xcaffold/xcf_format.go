@@ -12,6 +12,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func agentMemoryIndex(rootDir string) map[string][]string {
+	discovered := compiler.DiscoverAgentMemory(rootDir)
+	idx := make(map[string][]string)
+	for key := range discovered {
+		parts := strings.SplitN(key, "/", 2)
+		if len(parts) == 2 {
+			idx[parts[0]] = append(idx[parts[0]], parts[1])
+		}
+	}
+	for id := range idx {
+		sort.Strings(idx[id])
+	}
+	return idx
+}
+
 // agentDoc is the serialization envelope for a kind: agent document.
 type agentDoc struct {
 	Kind            string `yaml:"kind"`
@@ -45,13 +60,6 @@ type mcpDoc struct {
 	Kind          string `yaml:"kind"`
 	Version       string `yaml:"version"`
 	ast.MCPConfig `yaml:",inline"`
-}
-
-// memoryDoc is the serialization envelope for a kind: memory document.
-type memoryDoc struct {
-	Kind             string `yaml:"kind"`
-	Version          string `yaml:"version"`
-	ast.MemoryConfig `yaml:",inline"`
 }
 
 // projectSplitDoc is the serialization envelope for kind: project in split-file mode.
@@ -107,7 +115,7 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 		proj = &ast.ProjectConfig{}
 	}
 	agentRefs := proj.AgentRefs
-	agentMemMap := compiler.ResolveAgentMemory(config, rootDir)
+	agentMemMap := agentMemoryIndex(rootDir)
 	if len(agentRefs) == 0 && len(config.Agents) > 0 {
 		sortedAgents := sortedMapKeys(config.Agents)
 		for _, sa := range sortedAgents {
@@ -197,18 +205,18 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 
 	// Derive ref lists from the config maps when the explicit ref fields are empty.
 	agentRefs := proj.AgentRefs
-	agentMemMap := compiler.ResolveAgentMemory(config, rootDir)
+	agentMemMap2 := agentMemoryIndex(rootDir)
 	if len(agentRefs) == 0 && len(config.Agents) > 0 {
 		sortedAgents := sortedMapKeys(config.Agents)
 		for _, sa := range sortedAgents {
 			agentRefs = append(agentRefs, ast.AgentManifestEntry{
 				ID:     sa,
-				Memory: agentMemMap[sa],
+				Memory: agentMemMap2[sa],
 			})
 		}
 	} else {
 		for i, ref := range agentRefs {
-			if mem, ok := agentMemMap[ref.ID]; ok && len(ref.Memory) == 0 {
+			if mem, ok := agentMemMap2[ref.ID]; ok && len(ref.Memory) == 0 {
 				agentRefs[i].Memory = mem
 			}
 		}
@@ -429,42 +437,6 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		}
 		if err := writeYAMLFile(filepath.Join(xcfDir, "settings.xcf"), doc); err != nil {
 			return err
-		}
-	}
-
-	// ── kind: memory ─────────────────────────────────────────────────────────
-	// Memory keys are "<agentID>/<memName>" (e.g. "dev/MEMORY"). Each entry is
-	// written to xcf/agents/<agentID>/memory/<memName>.xcf to match the
-	// agent-scoped directory layout consumed by the compiler and renderers.
-	if len(config.Memory) > 0 {
-		for _, k := range sortedMapKeys(config.Memory) {
-			mem := config.Memory[k]
-			if mem.Name == "" {
-				mem.Name = k
-			}
-			doc := memoryDoc{Kind: "memory", Version: version, MemoryConfig: mem}
-			// Derive the output path: split key on first "/" to get agent ID.
-			// Keys without a "/" have the agent ID equal to the key itself
-			// (e.g. "dev" from agent-memory/dev.md → xcf/agents/dev/memory/dev.xcf).
-			parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
-			var agentID, memName string
-			if len(parts) == 2 {
-				agentID = parts[0]
-				memName = parts[1]
-			} else {
-				agentID = mem.AgentRef
-				if agentID == "" {
-					agentID = k // fallback for truly unscoped memory
-				}
-				memName = k
-			}
-			outPath := filepath.Join(xcfDir, "agents", agentID, "memory", filepath.FromSlash(memName)+".xcf")
-			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-				return err
-			}
-			if err := writeYAMLFile(outPath, doc); err != nil {
-				return err
-			}
 		}
 	}
 

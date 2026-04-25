@@ -136,13 +136,13 @@ func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 		return err
 	}
 
-	// Cross-reference memory against known agents (B-12).
+	// Cross-reference memory against known agents: warn if the parent agent is absent,
+	// but keep the entry so it can still be imported to xcf/agents/<id>/memory/.
 	for memPath := range config.Memory {
 		agentID := strings.SplitN(memPath, "/", 2)[0]
 		if len(config.Agents) > 0 {
 			if _, ok := config.Agents[agentID]; !ok {
-				delete(config.Memory, memPath)
-				c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: agent %q not found in xcf/agents", "agent-memory/"+memPath, agentID))
+				c.Warnings = append(c.Warnings, fmt.Sprintf("memory for agent %q has no matching agent definition; will import to xcf/agents/%s/memory/", agentID, agentID))
 			}
 		}
 	}
@@ -425,6 +425,12 @@ func extractMemory(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	// ID is the relative path from agent-memory/ prefix, with extension stripped.
 	// e.g. "agent-memory/go-cli/context.md" → "go-cli/context"
 	trimmed := strings.TrimPrefix(rel, "agent-memory/")
+
+	// Skip auto-generated memory index files.
+	if strings.HasSuffix(trimmed, "/MEMORY.md") || trimmed == "MEMORY.md" {
+		return nil
+	}
+
 	id := strings.TrimSuffix(trimmed, filepath.Ext(trimmed))
 
 	// Attempt to parse YAML frontmatter; fall back to raw content as instructions.
@@ -446,7 +452,7 @@ func extractMemory(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	config.Memory[id] = ast.MemoryConfig{
 		Name:           front.Name,
 		Description:    front.Description,
-		Instructions:   body,
+		Content:        body,
 		SourceProvider: "claude",
 	}
 	return nil
