@@ -14,9 +14,9 @@ import (
 
 func TestMemorySeed_SortedByName(t *testing.T) {
 	seeds := []MemorySeed{
-		{Name: "z-entry", Target: "claude", Lifecycle: "seed-once"},
-		{Name: "a-entry", Target: "claude", Lifecycle: "tracked"},
-		{Name: "m-entry", Target: "claude", Lifecycle: "seed-once"},
+		{Name: "z-entry", Target: "claude"},
+		{Name: "a-entry", Target: "claude"},
+		{Name: "m-entry", Target: "claude"},
 	}
 	sortMemorySeeds(seeds)
 
@@ -44,7 +44,7 @@ func TestStateManifest_Fields(t *testing.T) {
 		},
 		MemorySeeds: []MemorySeed{
 			{Name: "arch", Target: "claude", Path: "arch.md", Hash: "sha256:333",
-				SeededAt: "2026-04-20T00:00:00Z", Lifecycle: "managed"},
+				SeededAt: "2026-04-20T00:00:00Z"},
 		},
 	}
 
