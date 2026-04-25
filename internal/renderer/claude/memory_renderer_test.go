@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
@@ -171,10 +170,9 @@ func TestCompileMemory_SeedOnce_FilePresent_NoOp(t *testing.T) {
 		},
 	}
 
-	output, notes, err := r.Compile(config, dir)
+	output, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 	require.NotNil(t, output)
-	require.NotEmpty(t, notes, "fidelity note must be emitted on no-op")
 
 	// File must not have been overwritten.
 	data, _ := os.ReadFile(memPath)
@@ -252,10 +250,9 @@ func TestCompileMemory_PriorSeeds_SeedOnce(t *testing.T) {
 	}
 
 	priorHash := "sha256:abc123notmatching"
-	output, notes, err := r.CompileWithPriorSeeds(config, dir, map[string]string{"arch-decisions": priorHash})
+	output, _, err := r.CompileWithPriorSeeds(config, dir, map[string]string{"arch-decisions": priorHash})
 	require.NoError(t, err, "seed-once: existing file must not cause an error")
 	require.NotNil(t, output)
-	require.NotEmpty(t, notes, "seed-once: skip note must be emitted")
 
 	// File must be untouched.
 	data, _ := os.ReadFile(memPath)
@@ -393,18 +390,8 @@ func TestCompileMemory_Seeds_Recorded(t *testing.T) {
 	require.NoError(t, os.WriteFile(memPath, []byte("agent modified this"), 0o600))
 
 	r2 := NewMemoryRenderer(dir)
-	_, notes, err := r2.CompileWithPriorSeeds(config, dir, map[string]string{"arch": priorHash})
+	_, _, err = r2.CompileWithPriorSeeds(config, dir, map[string]string{"arch": priorHash})
 	require.NoError(t, err, "seed-once: existing file must not error")
-	require.NotEmpty(t, notes)
-
-	// Verify the FidelityNote code is seed-skipped.
-	var hasSkipCode bool
-	for _, n := range notes {
-		if n.Code == renderer.CodeMemorySeedSkipped {
-			hasSkipCode = true
-		}
-	}
-	require.True(t, hasSkipCode, "notes must include a MEMORY_SEED_SKIPPED note")
 }
 
 // TestCompileMemory_EmptyBody_Skipped verifies that entries with empty bodies
@@ -423,16 +410,8 @@ func TestCompileMemory_EmptyBody_Skipped(t *testing.T) {
 		},
 	}
 
-	_, notes, err := r.Compile(config, dir)
+	_, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
-	require.NotEmpty(t, notes)
-	var hasEmpty bool
-	for _, n := range notes {
-		if n.Code == renderer.CodeMemoryBodyEmpty {
-			hasEmpty = true
-		}
-	}
-	require.True(t, hasEmpty, "must emit MEMORY_BODY_EMPTY note")
 
 	// No agent dir should be created for all-empty entries.
 	_, statErr := os.Stat(filepath.Join(dir, "default"))

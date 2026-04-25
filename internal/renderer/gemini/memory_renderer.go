@@ -101,26 +101,6 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 			return nil, nil, fmt.Errorf("gemini memory %q: %w", name, err)
 		}
 		if strings.TrimSpace(body) == "" {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelInfo,
-				"gemini",
-				"memory",
-				name,
-				"",
-				renderer.CodeMemoryPartialFidelity,
-				"Gemini has no native multi-file memory store; entry appended to GEMINI.md, losing per-file granularity",
-				"Review GEMINI.md to confirm context ordering.",
-			))
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning,
-				"gemini",
-				"memory",
-				name,
-				"instructions",
-				renderer.CodeMemoryBodyEmpty,
-				"memory entry has no instructions or instructions-file content; skipping",
-				"Provide instructions or instructions-file in the .xcf memory entry.",
-			))
 			continue
 		}
 

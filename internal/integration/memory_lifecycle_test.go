@@ -36,9 +36,8 @@ func TestIntegration_Memory_Claude_SeedOnce_WritesThenSkips(t *testing.T) {
 
 	// Second apply on a fresh renderer (simulate a new run): file present, must skip.
 	r2 := claude.NewMemoryRenderer(dir)
-	_, notes2, err := r2.Compile(config, dir)
+	_, _, err = r2.Compile(config, dir)
 	require.NoError(t, err)
-	require.NotEmpty(t, notes2, "second apply must emit a MEMORY_SEED_SKIPPED fidelity note")
 	require.Empty(t, r2.Seeds(), "second apply must not record a new seed")
 }
 

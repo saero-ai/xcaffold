@@ -117,7 +117,7 @@ func TestCompileMemory_Gemini_FidelityNoteCode(t *testing.T) {
 	}
 }
 
-func TestCompileMemory_Gemini_EmptyBody_EmitsBothNotes(t *testing.T) {
+func TestCompileMemory_Gemini_EmptyBody_Skipped(t *testing.T) {
 	dir := t.TempDir()
 	r := NewMemoryRenderer(dir)
 
@@ -134,23 +134,7 @@ func TestCompileMemory_Gemini_EmptyBody_EmitsBothNotes(t *testing.T) {
 
 	_, notes, err := r.Compile(config, dir)
 	require.NoError(t, err)
-	require.Len(t, notes, 2, "empty-body entry must emit exactly 2 notes")
-
-	codes := make([]string, 0, 2)
-	for _, n := range notes {
-		codes = append(codes, n.Code)
-	}
-	require.Contains(t, codes, "MEMORY_PARTIAL_FIDELITY", "must emit MEMORY_PARTIAL_FIDELITY info note")
-	require.Contains(t, codes, "MEMORY_BODY_EMPTY", "must emit MEMORY_BODY_EMPTY warning note")
-
-	for _, n := range notes {
-		if n.Code == renderer.CodeMemoryPartialFidelity {
-			require.Equal(t, renderer.LevelInfo, n.Level)
-		}
-		if n.Code == renderer.CodeMemoryBodyEmpty {
-			require.Equal(t, renderer.LevelWarning, n.Level)
-		}
-	}
+	require.Empty(t, notes, "empty-body entry is silently skipped — no fidelity notes")
 }
 
 func TestCompileMemory_Gemini_ReplacesStaleBlock(t *testing.T) {

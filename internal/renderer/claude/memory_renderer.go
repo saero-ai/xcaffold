@@ -110,16 +110,6 @@ func (r *MemoryRenderer) CompileWithPriorSeeds(config *ast.XcaffoldConfig, baseD
 			return nil, notes, fmt.Errorf("memory %q: %w", name, err)
 		}
 		if strings.TrimSpace(body) == "" {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning,
-				"claude",
-				"memory",
-				name,
-				"instructions",
-				renderer.CodeMemoryBodyEmpty,
-				"memory entry has no instructions or instructions-file content; skipping",
-				"Provide instructions or instructions-file in the .xcf memory entry.",
-			))
 			continue
 		}
 
@@ -171,16 +161,6 @@ func (r *MemoryRenderer) CompileWithPriorSeeds(config *ast.XcaffoldConfig, baseD
 		}
 
 		if exists && !r.reseed {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelInfo,
-				"claude",
-				"memory",
-				agentRef,
-				"",
-				renderer.CodeMemorySeedSkipped,
-				"file exists; seed-once lifecycle preserves existing content",
-				"use --reseed to overwrite",
-			))
 			continue
 		}
 

@@ -37,14 +37,6 @@ const (
 	// single flat file (e.g. GEMINI.md), losing per-entry file granularity.
 	CodeMemoryPartialFidelity = "MEMORY_PARTIAL_FIDELITY"
 
-	// CodeMemoryBodyEmpty is emitted when a memory entry has neither
-	// instructions nor a resolvable instructions-file body.
-	CodeMemoryBodyEmpty = "MEMORY_BODY_EMPTY"
-
-	// CodeMemorySeedSkipped is emitted when a seed-once memory file already
-	// exists on disk and --reseed was not set; the existing file is preserved.
-	CodeMemorySeedSkipped = "MEMORY_SEED_SKIPPED"
-
 	// CodeMemoryIndexUpdateFailed is emitted when writing the MEMORY.md
 	// project index fails but the memory file itself was written successfully.
 	CodeMemoryIndexUpdateFailed = "MEMORY_INDEX_UPDATE_FAILED"
@@ -173,8 +165,6 @@ func AllCodes() []string {
 		CodeInstructionsClosestWinsForcedConcat,
 		CodeMemoryNoNativeTarget,
 		CodeMemoryPartialFidelity,
-		CodeMemoryBodyEmpty,
-		CodeMemorySeedSkipped,
 		CodeMemoryIndexUpdateFailed,
 		CodeWorkflowLoweredToRulePlusSkill,
 		CodeWorkflowLoweredToPromptFile,
