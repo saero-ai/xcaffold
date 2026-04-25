@@ -575,7 +575,7 @@ func TestApplyCmd_NoReseedFlag(t *testing.T) {
 // TestApplyScope_OrchestratorMemory_Claude verifies that the always-on
 // orchestrator path emits memory files keyed at
 // agent-memory/xcf/<name>.md inside .claude/ when the memory file lives
-// directly under xcf/memory/ (AgentRef derived as the segment before "memory").
+// directly under xcf/agents/<id>/memory/ (AgentRef derived as the segment before "memory").
 func TestApplyScope_OrchestratorMemory_Claude(t *testing.T) {
 	dir := t.TempDir()
 

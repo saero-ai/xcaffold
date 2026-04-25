@@ -71,7 +71,7 @@ func TestImportScope_Claude_ReadsMCPJson(t *testing.T) {
 // ─── Gap 2: Claude Code — agent-memory auto-snapshot ────────────────────────
 
 // TestImportScope_Claude_AgentMemoryAutoSnapshot verifies that importScope
-// automatically snapshots .claude/agent-memory/<agent>/ into xcf/memory/
+// automatically snapshots .claude/agent-memory/<agent>/ into xcf/agents/<id>/memory/
 // without requiring the --with-memory flag.
 func TestImportScope_Claude_AgentMemoryAutoSnapshot(t *testing.T) {
 	t.Setenv("XCAFFOLD_HOME", t.TempDir())
@@ -88,13 +88,13 @@ func TestImportScope_Claude_AgentMemoryAutoSnapshot(t *testing.T) {
 
 	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
-	// xcf/memory/dev/ must have been created
-	assert.DirExists(t, filepath.Join(tmp, "xcf", "memory", "dev"),
-		"xcf/memory/dev/ must be created from .claude/agent-memory/dev/")
-	assert.FileExists(t, filepath.Join(tmp, "xcf", "memory", "dev", "MEMORY.xcf"),
-		"MEMORY.xcf must be written into xcf/memory/dev/")
-	assert.FileExists(t, filepath.Join(tmp, "xcf", "memory", "dev", "note.xcf"),
-		"note.xcf must be written into xcf/memory/dev/")
+	// xcf/agents/dev/memory/ must have been created
+	assert.DirExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory"),
+		"xcf/agents/dev/memory/ must be created from .claude/agent-memory/dev/")
+	assert.FileExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory", "MEMORY.xcf"),
+		"MEMORY.xcf must be written into xcf/agents/dev/memory/")
+	assert.FileExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory", "note.xcf"),
+		"note.xcf must be written into xcf/agents/dev/memory/")
 }
 
 // ─── Gap 3: Claude Code — CLAUDE.md project instructions ────────────────────
@@ -303,8 +303,9 @@ func TestImportScope_Copilot_ProjectInstructions(t *testing.T) {
 // ─── Gap 7: Antigravity — no memory crash ────────────────────────────────────
 
 // TestImportScope_Antigravity_NoMemoryCrash verifies that importScope for a
-// .agents/ directory completes without error and does NOT create xcf/memory/
-// (Antigravity KIs are stored in the AI's app data, not the filesystem).
+// .agents/ directory completes without error and does NOT create any
+// xcf/agents/<id>/memory/ dirs (Antigravity KIs are stored in the AI's app
+// data, not the filesystem).
 func TestImportScope_Antigravity_NoMemoryCrash(t *testing.T) {
 	t.Setenv("XCAFFOLD_HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -314,10 +315,11 @@ func TestImportScope_Antigravity_NoMemoryCrash(t *testing.T) {
 
 	require.NoError(t, importScope(".agents", filepath.Join(".xcaffold", "project.xcf"), "project", "antigravity"))
 
-	// xcf/memory/ must NOT exist (no file-system access to Antigravity KIs)
-	_, err := os.Stat(filepath.Join(tmp, "xcf", "memory"))
+	// xcf/agents/ must NOT exist (Antigravity imports rules only, no agent
+	// memory dirs should be created).
+	_, err := os.Stat(filepath.Join(tmp, "xcf", "agents"))
 	assert.True(t, os.IsNotExist(err),
-		"xcf/memory/ must NOT be created for Antigravity (KIs are app-managed, not filesystem)")
+		"xcf/agents/ must NOT be created for Antigravity (KIs are app-managed, not filesystem)")
 }
 
 // ─── Backward compatibility ───────────────────────────────────────────────────

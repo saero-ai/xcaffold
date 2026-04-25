@@ -433,18 +433,26 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	}
 
 	// ── kind: memory ─────────────────────────────────────────────────────────
+	// Memory keys are "<agentID>/<memName>" (e.g. "dev/MEMORY"). Each entry is
+	// written to xcf/agents/<agentID>/memory/<memName>.xcf to match the
+	// agent-scoped directory layout consumed by the compiler and renderers.
 	if len(config.Memory) > 0 {
-		dir := filepath.Join(xcfDir, "memory")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
-		}
 		for _, k := range sortedMapKeys(config.Memory) {
 			mem := config.Memory[k]
 			if mem.Name == "" {
 				mem.Name = k
 			}
 			doc := memoryDoc{Kind: "memory", Version: version, MemoryConfig: mem}
-			outPath := filepath.Join(dir, filepath.FromSlash(k)+".xcf")
+			// Derive the output path: split key on first "/" to get agent ID.
+			// Keys without a "/" have the agent ID equal to the key itself
+			// (e.g. "dev" from agent-memory/dev.md → xcf/agents/dev/memory/dev.xcf).
+			parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
+			var outPath string
+			if len(parts) == 2 {
+				outPath = filepath.Join(xcfDir, "agents", parts[0], "memory", filepath.FromSlash(parts[1])+".xcf")
+			} else {
+				outPath = filepath.Join(xcfDir, "agents", parts[0], "memory", filepath.FromSlash(k)+".xcf")
+			}
 			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 				return err
 			}
