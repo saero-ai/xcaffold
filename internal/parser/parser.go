@@ -31,7 +31,7 @@ func withGlobalScope() parseOptionFunc {
 
 // withSourcePath carries the originating file path into parse-time routines
 // that need it — currently used by kind: memory parsing to derive AgentRef
-// from the xcf/memory/<agentID>/ directory name.
+// from the xcf/agents/<agentID>/memory/ directory name.
 func withSourcePath(path string) parseOptionFunc {
 	return func(o *parseOption) { o.sourcePath = path }
 }

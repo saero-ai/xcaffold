@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -523,4 +525,27 @@ func TestCompile_BlueprintValidation_RunsAfterExtends(t *testing.T) {
 
 	_, _, err := Compile(cfg, t.TempDir(), "claude", "child")
 	require.NoError(t, err, "child blueprint inheriting base-agent via extends must compile without error")
+}
+
+func TestResolveAgentMemory_AgentScopedLayout(t *testing.T) {
+	dir := t.TempDir()
+	memDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	require.NoError(t, os.MkdirAll(memDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(memDir, "stack.xcf"), []byte(""), 0o644))
+
+	cfg := &ast.XcaffoldConfig{}
+	result := ResolveAgentMemory(cfg, dir)
+	require.Equal(t, []string{"stack"}, result["dev"],
+		"ResolveAgentMemory must scan xcf/agents/<id>/memory/")
+}
+
+func TestResolveAgentMemory_OldLayoutIgnored(t *testing.T) {
+	dir := t.TempDir()
+	oldDir := filepath.Join(dir, "xcf", "memory", "dev")
+	require.NoError(t, os.MkdirAll(oldDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(oldDir, "stack.xcf"), []byte(""), 0o644))
+
+	cfg := &ast.XcaffoldConfig{}
+	result := ResolveAgentMemory(cfg, dir)
+	require.Empty(t, result, "xcf/memory/ layout must no longer be scanned")
 }
