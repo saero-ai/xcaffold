@@ -21,18 +21,12 @@ import (
 // (e.g. runApply) translate these into state.MemorySeed by direct field copy
 // before handing them to state.GenerateWithOpts.
 type MemorySeed struct {
-	Name      string
-	Target    string
-	Path      string
-	Hash      string
-	SeededAt  string
-	Lifecycle string
+	Name     string
+	Target   string
+	Path     string
+	Hash     string
+	SeededAt string
 }
-
-// Memory lifecycle values.
-const (
-	memoryLifecycleSeedOnce = "seed-once"
-)
 
 // memoryIndexSection is the MEMORY.md heading under which xcaffold-seeded
 // entries are listed. Keeping the section scoped prevents us from interfering
@@ -55,7 +49,7 @@ func NewMemoryRenderer(targetDir string) *MemoryRenderer {
 }
 
 // WithReseed returns a copy of the renderer configured to overwrite existing
-// memory files regardless of lifecycle or drift state. Used by
+// memory files regardless of drift state. Used by
 // `xcaffold apply --include-memory --reseed`.
 func (r *MemoryRenderer) WithReseed(reseed bool) *MemoryRenderer {
 	cp := *r
@@ -71,7 +65,7 @@ func (r *MemoryRenderer) Seeds() []MemorySeed {
 	return out
 }
 
-// Compile writes each memory entry according to its lifecycle, returning
+// Compile writes each memory entry using seed-once semantics, returning
 // fidelity notes for no-op seeds.
 func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
 	return r.CompileWithPriorSeeds(config, baseDir, nil)
@@ -135,10 +129,6 @@ func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseD
 	content := renderMemoryMarkdown(entry, body)
 	newHash := hashSHA256(content)
 
-	// Agent-scoped memory entries always use seed-once semantics; the lifecycle
-	// field was removed from MemoryConfig in the agent-scoped memory refactor.
-	lifecycle := memoryLifecycleSeedOnce
-
 	if name == ".." || strings.Contains(name, "..") {
 		return nil, fmt.Errorf("memory %q: entry name must not contain traversal sequences", name)
 	}
@@ -153,14 +143,14 @@ func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseD
 		return nil, fmt.Errorf("memory %q: stat target: %w", name, err)
 	}
 
-	return r.applySeedOnce(name, targetPath, content, newHash, lifecycle, exists)
+	return r.applySeedOnce(name, targetPath, content, newHash, exists)
 }
 
 // applySeedOnce writes the entry only when the target file is absent, unless
 // reseed is enabled. A FidelityNote is emitted for the no-op case.
-func (r *MemoryRenderer) applySeedOnce(name, targetPath, content, newHash, lifecycle string, exists bool) ([]renderer.FidelityNote, error) {
+func (r *MemoryRenderer) applySeedOnce(name, targetPath, content, newHash string, exists bool) ([]renderer.FidelityNote, error) {
 	if !exists || r.reseed {
-		notes, err := r.writeEntry(name, targetPath, content, newHash, lifecycle)
+		notes, err := r.writeEntry(name, targetPath, content, newHash)
 		if err != nil {
 			return nil, err
 		}
@@ -183,7 +173,7 @@ func (r *MemoryRenderer) applySeedOnce(name, targetPath, content, newHash, lifec
 // manifest, then appends the entry to the MEMORY.md index. The seed is recorded
 // before the index update so that drift detection is never compromised by an
 // index-append failure. A failed index update is downgraded to a warning note.
-func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash, lifecycle string) ([]renderer.FidelityNote, error) {
+func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash string) ([]renderer.FidelityNote, error) {
 	if err := os.MkdirAll(r.targetDir, 0o700); err != nil {
 		return nil, fmt.Errorf("memory %q: create target dir: %w", name, err)
 	}
@@ -194,12 +184,11 @@ func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash, lifecycl
 	// Issue 2: record seed immediately after successful write so drift detection
 	// is not affected by a subsequent index-append failure.
 	r.seeds = append(r.seeds, MemorySeed{
-		Name:      name,
-		Target:    "claude",
-		Path:      targetPath,
-		Hash:      newHash,
-		SeededAt:  time.Now().UTC().Format(time.RFC3339),
-		Lifecycle: lifecycle,
+		Name:     name,
+		Target:   "claude",
+		Path:     targetPath,
+		Hash:     newHash,
+		SeededAt: time.Now().UTC().Format(time.RFC3339),
 	})
 
 	var notes []renderer.FidelityNote
@@ -249,18 +238,18 @@ func resolveMemoryBody(name string, entry ast.MemoryConfig, baseDir string) (str
 	return string(data), nil
 }
 
-// renderMemoryMarkdown composes the final memory file content: YAML frontmatter
-// followed by the body. Output always ends with a trailing newline.
-// Type was removed from MemoryConfig in the agent-scoped memory refactor.
+// renderMemoryMarkdown composes the final memory file content. When description
+// is set, YAML frontmatter is emitted before the body. Output always ends with
+// a trailing newline.
 func renderMemoryMarkdown(entry ast.MemoryConfig, body string) string {
 	var sb strings.Builder
-	sb.WriteString("---\n")
 	if entry.Description != "" {
+		sb.WriteString("---\n")
 		// Use %q (Go double-quoted scalar) which is a valid YAML double-quoted
 		// string, safely escaping colons, newlines, and other YAML-special characters.
 		fmt.Fprintf(&sb, "description: %q\n", entry.Description)
+		sb.WriteString("---\n\n")
 	}
-	sb.WriteString("---\n\n")
 	sb.WriteString(strings.TrimRight(body, "\n"))
 	sb.WriteString("\n")
 	return sb.String()

@@ -268,6 +268,21 @@ func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
 	require.Equal(t, "has: a colon", parsed["description"])
 }
 
+func TestRenderMemoryMarkdown_NoType(t *testing.T) {
+	entry := ast.MemoryConfig{Description: "User preferences"}
+	out := renderMemoryMarkdown(entry, "Always be concise.")
+	require.NotContains(t, out, "type:")
+	require.Contains(t, out, `description: "User preferences"`)
+	require.Contains(t, out, "Always be concise.")
+}
+
+func TestRenderMemoryMarkdown_NoDescription_NoFrontmatter(t *testing.T) {
+	entry := ast.MemoryConfig{}
+	out := renderMemoryMarkdown(entry, "Plain body text.")
+	require.NotContains(t, out, "---")
+	require.Equal(t, "Plain body text.\n", out)
+}
+
 // TestCompileMemory_Seeds_Recorded verifies that Seeds() returns a MemorySeed
 // for each written entry after Compile.
 func TestCompileMemory_Seeds_Recorded(t *testing.T) {
@@ -289,7 +304,6 @@ func TestCompileMemory_Seeds_Recorded(t *testing.T) {
 	require.Len(t, seeds, 1, "one seed must be recorded for one written entry")
 	require.Equal(t, "arch", seeds[0].Name)
 	require.Equal(t, "claude", seeds[0].Target)
-	require.Equal(t, memoryLifecycleSeedOnce, seeds[0].Lifecycle)
 
 	// Simulate a re-apply with the prior hash: seed-once skips, so Seeds() is empty.
 	priorHash := seeds[0].Hash
