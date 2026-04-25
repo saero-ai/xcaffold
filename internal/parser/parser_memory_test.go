@@ -91,7 +91,7 @@ memory:
   user-role:
     name: user-role
     instructions: "inline"
-    instructions-file: xcf/memory/user-role.md
+    instructions-file: xcf/agents/dev/memory/user-role.md
 `
 	tmp := t.TempDir()
 	path := filepath.Join(tmp, "project.xcf")

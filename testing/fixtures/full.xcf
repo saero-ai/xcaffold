@@ -32,7 +32,7 @@ memory:
   architecture-decisions:
     name: architecture-decisions
     description: "Key architectural decisions for the CLI compiler."
-    instructions-file: xcf/memory/architecture-decisions.md
+    instructions-file: xcf/agents/developer/memory/architecture-decisions.md
 
 workflows:
   code-review:
