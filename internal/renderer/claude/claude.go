@@ -252,8 +252,8 @@ func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDi
 	return files, rootFiles, notes, nil
 }
 
-// CompileMemory delegates to MemoryRenderer, respecting lifecycle and drift
-// detection options carried in opts.
+// CompileMemory delegates to MemoryRenderer for disk writes when opts.OutputDir
+// is set, or falls back to map-based compilation with no disk writes.
 func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opts renderer.MemoryOptions) (map[string]string, []renderer.FidelityNote, error) {
 	if len(config.Memory) == 0 {
 		return map[string]string{}, nil, nil
@@ -261,8 +261,8 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 	memDir := opts.OutputDir
 	if memDir == "" {
 		// No output directory — caller is in compile-only (orchestrator) mode.
-		// Emit files keyed by agent-memory/<agentRef>/<name>.md without disk writes.
-		return r.compileMemoryToMap(config, baseDir)
+		// Produce link-list index + individual files without disk writes.
+		return r.compileMemoryToMap(config)
 	}
 	mr := NewMemoryRenderer(memDir)
 	out, notes, err := mr.Compile(config, baseDir)
@@ -272,48 +272,49 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 	return out.Files, notes, nil
 }
 
-// compileMemoryToMap groups memory entries by AgentRef and writes a single
-// agent-memory/<agentRef>/MEMORY.md per agent. Entries within each file are
-// sorted by name for deterministic output.
-func (r *Renderer) compileMemoryToMap(config *ast.XcaffoldConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+// compileMemoryToMap produces a link-list index (MEMORY.md) and individual
+// content files per memory entry, grouped by AgentRef. No disk writes occur.
+// Keys are split on "/" to derive filenames: "dev/orm-decision" → "orm-decision.md";
+// keys without "/" use the full key as the filename stem.
+func (r *Renderer) compileMemoryToMap(config *ast.XcaffoldConfig) (map[string]string, []renderer.FidelityNote, error) {
 	type entry struct {
-		name string
-		body string
+		key, fname, name, desc, body string
 	}
 	grouped := make(map[string][]entry)
 
-	names := make([]string, 0, len(config.Memory))
-	for name := range config.Memory {
-		names = append(names, name)
+	keys := make([]string, 0, len(config.Memory))
+	for k := range config.Memory {
+		keys = append(keys, k)
 	}
-	sort.Strings(names)
+	sort.Strings(keys)
 
-	for _, name := range names {
-		e := config.Memory[name]
-		body := e.Content
-		if strings.TrimSpace(body) == "" {
+	for _, key := range keys {
+		e := config.Memory[key]
+		if strings.TrimSpace(e.Content) == "" {
 			continue
 		}
 		agentRef := e.AgentRef
 		if agentRef == "" {
 			agentRef = "default"
 		}
-		grouped[agentRef] = append(grouped[agentRef], entry{name: name, body: body})
+		parts := strings.SplitN(key, "/", 2)
+		fname := key + ".md"
+		if len(parts) == 2 {
+			fname = parts[1] + ".md"
+		}
+		grouped[agentRef] = append(grouped[agentRef], entry{
+			key: key, fname: fname, name: e.Name, desc: e.Description, body: e.Content,
+		})
 	}
 
 	files := make(map[string]string)
 	for agentRef, entries := range grouped {
-		var sb strings.Builder
-		for i, e := range entries {
-			if i > 0 {
-				sb.WriteString("\n")
-			}
-			fmt.Fprintf(&sb, "## %s\n\n", e.name)
-			sb.WriteString(strings.TrimRight(e.body, "\n"))
-			sb.WriteString("\n")
+		var indexBuf strings.Builder
+		for _, e := range entries {
+			fmt.Fprintf(&indexBuf, "- [%s](%s) — %s\n", e.name, e.fname, e.desc)
+			files[filepath.Join("agent-memory", agentRef, e.fname)] = e.body
 		}
-		relPath := filepath.Join("agent-memory", agentRef, "MEMORY.md")
-		files[relPath] = sb.String()
+		files[filepath.Join("agent-memory", agentRef, "MEMORY.md")] = indexBuf.String()
 	}
 	return files, nil, nil
 }
