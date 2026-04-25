@@ -447,12 +447,18 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			// Keys without a "/" have the agent ID equal to the key itself
 			// (e.g. "dev" from agent-memory/dev.md → xcf/agents/dev/memory/dev.xcf).
 			parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
-			var outPath string
+			var agentID, memName string
 			if len(parts) == 2 {
-				outPath = filepath.Join(xcfDir, "agents", parts[0], "memory", filepath.FromSlash(parts[1])+".xcf")
+				agentID = parts[0]
+				memName = parts[1]
 			} else {
-				outPath = filepath.Join(xcfDir, "agents", parts[0], "memory", filepath.FromSlash(k)+".xcf")
+				agentID = mem.AgentRef
+				if agentID == "" {
+					agentID = k // fallback for truly unscoped memory
+				}
+				memName = k
 			}
+			outPath := filepath.Join(xcfDir, "agents", agentID, "memory", filepath.FromSlash(memName)+".xcf")
 			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 				return err
 			}
