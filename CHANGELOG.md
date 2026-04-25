@@ -36,9 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added golden manifest reference files in `schema/golden/` exercising every field per resource kind (schema)
 - Added CI test validating all golden manifests parse without error (schema)
 
+### Removed (Convention-Based Memory)
+
+- Removed `kind: memory` from parser — memory entries are now plain `.md` files in `xcf/agents/<id>/memory/`, discovered by the compiler at compile time (parser/compiler)
+- Removed `MemoryConfig.Instructions`, `MemoryConfig.InstructionsFile`, `MemoryConfig.Inherited` fields — replaced by `MemoryConfig.Content` populated from `.md` file body (ast)
+- Removed `MemorySeed.Lifecycle` field from state tracking (state)
+- Removed seed-once lifecycle and `--reseed` flag — `apply` always overwrites memory output, matching all other resource kinds (renderer/cli)
+- Removed `resolveMemoryBody`, `renderMemoryMarkdown`, `CompileWithPriorSeeds`, `WithReseed` from Claude renderer (renderer)
+- Removed `CodeMemorySeedSkipped` and `CodeMemoryBodyEmpty` fidelity codes (renderer)
+- Removed `MemoryOptions.Reseed` and `MemoryOptions.PriorHashes` from renderer interface (renderer)
+- Removed `memoryDoc` struct and `WriteSplitFiles` memory block — import writes `.md` files directly (cli)
+- Removed `xcaffold translate` command and all associated flags (cli)
+
 ### Fixed (Parser)
 
-- Fixed missing `case "memory":` in frontmatter body assignment — memory `.xcf` files with frontmatter + body now correctly assign body to Instructions field (parser)
+- Fixed missing `case "memory":` in frontmatter body assignment — memory `.xcf` files with frontmatter + body now correctly assign body to Instructions field (parser) — *subsequently removed in Convention-Based Memory migration*
 
 ### Fixed (Provider-Agnostic Renderer)
 
