@@ -120,7 +120,7 @@ Output:
 
 | Flag | Default | Description |
 |---|---|---|
-| `--with-memory` | `false` | Include any agent-written memory files found in the platform directory in the extracted IR. Memory entries are stored in the `memory:` block of the generated `project.xcf`. |
+| `--with-memory` | `false` | Include any agent-written memory files found in the platform directory. Memory `.md` files are copied directly to `xcf/agents/<id>/memory/`. |
 | `--auto-merge` | `false` | When multiple provider directories are detected, automatically merge without interactive prompts. |
 
 ### Import via init

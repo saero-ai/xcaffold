@@ -157,12 +157,6 @@ erDiagram
         string instructions
         string instructions-file
     }
-    MemoryConfig {
-        string name
-        string description
-        string instructions
-        string instructions-file
-    }
     PolicyConfig {
         string name
         string description
@@ -195,7 +189,6 @@ erDiagram
     XcaffoldConfig ||--o| HookConfig : "hooks"
     XcaffoldConfig ||--o{ MCPConfig : "mcp"
     XcaffoldConfig ||--o{ WorkflowConfig : "workflows"
-    XcaffoldConfig ||--o{ MemoryConfig : "memory"
     XcaffoldConfig ||--o| SettingsConfig : "settings"
 
     ProjectConfig ||--o| TestConfig : "test"
@@ -206,8 +199,6 @@ erDiagram
     ProjectConfig ||--o| HookConfig : "hooks"
     ProjectConfig ||--o{ MCPConfig : "mcp"
     ProjectConfig ||--o{ WorkflowConfig : "workflows"
-    ProjectConfig ||--o{ MemoryConfig : "memory"
-
     XcaffoldConfig ||--o{ PolicyConfig : "policies"
     ProjectConfig ||--o{ PolicyConfig : "policies"
 
@@ -256,14 +247,13 @@ These configurations are passed down to target AI platforms.
 | `rule` | Standalone rule definition. All `RuleConfig` fields at the top level. | `RuleConfig` | `version`, `name` |
 | `workflow` | Standalone workflow definition. All `WorkflowConfig` fields at the top level. | `WorkflowConfig` | `version`, `name` |
 | `mcp` | Standalone MCP server definition. All `MCPConfig` fields at the top level. | `MCPConfig` | `version`, `name` |
-| `memory` | Standalone memory definition. All `MemoryConfig` fields at the top level. | `MemoryConfig` | `version`, `name` |
 | `hooks` | Standalone hooks definition. Uses an `events:` wrapper containing the `HookConfig` map. | `hooksDocument` | `version` |
 | `settings` | Standalone settings definition. All `SettingsConfig` fields at the top level (inlined). | `settingsDocument` | `version` |
 
 
 ### `kind: project` semantics
 
-In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `memory`, `mcp`, and `policies` keys are decoded as `[]string` (bare name lists). These are **advisory documentation only** — `ParseDirectory` discovers resources by scanning `xcf/` recursively, not by reading these lists. If present, `xcaffold validate` emits advisory warnings when a list entry has no corresponding `.xcf` file, or when a `.xcf` file has no corresponding list entry. Resource loading is not affected.
+In `kind: project` documents, the `agents`, `skills`, `rules`, `workflows`, `mcp`, and `policies` keys are decoded as `[]string` (bare name lists). These are **advisory documentation only** — `ParseDirectory` discovers resources by scanning `xcf/` recursively, not by reading these lists. If present, `xcaffold validate` emits advisory warnings when a list entry has no corresponding `.xcf` file, or when a `.xcf` file has no corresponding list entry. Resource loading is not affected.
 
 The `targets` key on `kind: project` is also a `[]string` listing compilation targets (e.g., `["claude", "antigravity"]`). It is stored on `ProjectConfig.Targets` (tagged `yaml:"-"` — only populated by the parser for `kind: project` documents).
 
@@ -357,7 +347,6 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./project.x
 | `hooks` | `HookConfig` | Optional | Lifecycle event handlers. Provided via embedded `ResourceScope`. |
 | `mcp` | `map[string]MCPConfig` | Optional | MCP server definitions. Merged into `settings.mcpServers` during compilation; `settings.mcpServers` wins on key conflicts. Provided via embedded `ResourceScope`. |
 | `workflows` | `map[string]WorkflowConfig` | Optional | Reusable workflows keyed by ID. **Antigravity-only**: silently ignored by Claude and Cursor renderers. Provided via embedded `ResourceScope`. |
-| `memory` | `map[string]MemoryConfig` | Optional | Declarative memory definitions keyed by ID. Provided via embedded `ResourceScope`. |
 | `policies` | `map[string]PolicyConfig` | Optional | Declarative constraints keyed by ID. Evaluated during `apply` and `validate`. Provided via embedded `ResourceScope`. |
 | `settings` | `SettingsConfig` | Optional | Platform settings compiled to `settings.json`. At global scope, these become user-level defaults. |
 
@@ -365,7 +354,7 @@ Root structure of a parsed `.xcf` file. Used at both project scope (`./project.x
 
 ## `ProjectConfig`
 
-Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`project.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`, `memory`, `policies`) and project-only settings (`test`, `local`) that are not valid at global scope.
+Project-level metadata and workspace-scoped resources. Present **only** in project-scope configs (`project.xcf`). Global config (`global.xcf`) is a user profile, not a project — it has no `project:` block. In addition to metadata, `project:` holds workspace-scoped resource declarations (`agents`, `skills`, `rules`, `hooks`, `mcp`, `workflows`, `policies`) and project-only settings (`test`, `local`) that are not valid at global scope.
 
 > [!NOTE]
 > `project.name` is required in `project.xcf`. It is used to register the project in `~/.xcaffold/registry.xcf`, label state file entries, and identify the project in graph and plan output. It has no equivalent at global scope.
@@ -380,7 +369,7 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `repository` | `string` | Optional | Source control URL. |
 | `license` | `string` | Optional | SPDX license identifier. |
 | `targets` | `[]string` | Optional | Compilation targets (e.g., `["claude", "antigravity"]`). Only populated via `kind: project` documents — tagged `yaml:"-"`. |
-| `agent-refs` | `[]AgentManifestEntry` | Optional | Advisory only. Bare name references (or structured entries with `memory` lists) to agent resources. Not used by `ParseDirectory` for resource loading; serves as documentation and triggers `validate` warnings if out of sync with the filesystem. |
+| `agent-refs` | `[]AgentManifestEntry` | Optional | Advisory only. Bare name references to agent resources. Not used by `ParseDirectory` for resource loading; serves as documentation and triggers `validate` warnings if out of sync with the filesystem. |
 | `skill-refs` | `[]string` | Optional | Advisory only. Same semantics as `agent-refs`. |
 | `rule-refs` | `[]string` | Optional | Advisory only. Same semantics as `agent-refs`. |
 | `workflow-refs` | `[]string` | Optional | Advisory only. Same semantics as `agent-refs`. |
@@ -400,7 +389,6 @@ Project-level metadata and workspace-scoped resources. Present **only** in proje
 | `hooks` | `HookConfig` | Optional | Workspace-scoped lifecycle hooks. Additive with global hooks. |
 | `mcp` | `map[string]MCPConfig` | Optional | Workspace-scoped MCP server definitions. |
 | `workflows` | `map[string]WorkflowConfig` | Optional | Workspace-scoped workflow declarations. |
-| `memory` | `map[string]MemoryConfig` | Optional | Workspace-scoped declarative memory definitions. |
 | `policies` | `map[string]PolicyConfig` | Optional | Workspace-scoped policy declarations. Evaluated during `apply` and `validate`. |
 
 ---

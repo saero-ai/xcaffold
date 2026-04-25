@@ -235,7 +235,7 @@ Writes a machine-readable JSON report to `audit.json` containing:
 xcaffold translate --from antigravity --to claude --include-memory
 ```
 
-Translates memory entries from the source provider's memory store and seeds them into the target provider's memory directory. Use `--reseed` to force re-seeding of entries marked `lifecycle: seed-once` even if they were already seeded.
+Translates memory entries from the source provider's memory store and copies them as plain `.md` files into `xcf/agents/<id>/memory/` in the target provider's memory directory.
 
 ---
 
@@ -291,5 +291,5 @@ Exit code `0` means no information was dropped during translation.
 
 - [CLI Reference: xcaffold translate](../reference/cli.md#xcaffold-translate)
 - [Schema Reference: WorkflowConfig](../reference/schema.md#workflowconfig)
-- [Schema Reference: MemoryConfig](../reference/schema.md#memoryconfig)
+- [Agent Memory](../concepts/agent-memory.md)
 - [Import Existing Config](import-existing-config.md)

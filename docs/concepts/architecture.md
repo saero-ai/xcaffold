@@ -255,7 +255,7 @@ Export       → xcaffold export    (packages compiled output as a distributable
 
 ## Intermediate Representation (IR)
 
-The **Intermediate Representation (IR)** is the provider-agnostic, in-memory form of an agent configuration — a fully parsed `ast.XcaffoldConfig` struct that contains all agents, skills, rules, workflows, hooks, memory entries, and MCP servers without any output-format concerns.
+The **Intermediate Representation (IR)** is the provider-agnostic, in-memory form of an agent configuration — a fully parsed `ast.XcaffoldConfig` struct that contains all agents, skills, rules, workflows, hooks, and MCP servers without any output-format concerns. Memory entries are convention-based `.md` files discovered at compile time, not part of the parsed IR.
 
 The IR is the bridge between every import, translation, and compilation phase:
 
