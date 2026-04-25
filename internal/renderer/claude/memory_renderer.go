@@ -136,10 +136,9 @@ func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseD
 	content := renderMemoryMarkdown(entry, body)
 	newHash := hashSHA256(content)
 
-	lifecycle := entry.Lifecycle
-	if lifecycle == "" {
-		lifecycle = memoryLifecycleSeedOnce
-	}
+	// Agent-scoped memory entries always use seed-once semantics; the lifecycle
+	// field was removed from MemoryConfig in the agent-scoped memory refactor.
+	lifecycle := memoryLifecycleSeedOnce
 
 	if name == ".." || strings.Contains(name, "..") {
 		return nil, fmt.Errorf("memory %q: entry name must not contain traversal sequences", name)
@@ -155,22 +154,7 @@ func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseD
 		return nil, fmt.Errorf("memory %q: stat target: %w", name, err)
 	}
 
-	// Issue 4: reject unknown lifecycle values rather than silently treating them as seed-once.
-	switch lifecycle {
-	case "", memoryLifecycleSeedOnce:
-		lifecycle = memoryLifecycleSeedOnce
-	case memoryLifecycleTracked:
-		// ok
-	default:
-		return nil, fmt.Errorf("memory %q: unknown lifecycle %q (expected seed-once or tracked)", name, entry.Lifecycle)
-	}
-
-	switch lifecycle {
-	case memoryLifecycleSeedOnce:
-		return r.applySeedOnce(name, targetPath, content, newHash, lifecycle, exists)
-	default: // memoryLifecycleTracked
-		return r.applyTracked(name, targetPath, content, newHash, lifecycle, exists, priorHashes)
-	}
+	return r.applySeedOnce(name, targetPath, content, newHash, lifecycle, exists)
 }
 
 // applySeedOnce writes the entry only when the target file is absent, unless
@@ -329,16 +313,13 @@ func resolveMemoryBody(name string, entry ast.MemoryConfig, baseDir string) (str
 
 // renderMemoryMarkdown composes the final memory file content: YAML frontmatter
 // followed by the body. Output always ends with a trailing newline.
+// Type was removed from MemoryConfig in the agent-scoped memory refactor.
 func renderMemoryMarkdown(entry ast.MemoryConfig, body string) string {
 	var sb strings.Builder
 	sb.WriteString("---\n")
-	if entry.Type != "" {
-		fmt.Fprintf(&sb, "type: %s\n", entry.Type)
-	}
 	if entry.Description != "" {
-		// Issue 5: use %q (Go double-quoted scalar) which is a valid YAML
-		// double-quoted string, safely escaping colons, newlines, and other
-		// YAML-special characters.
+		// Use %q (Go double-quoted scalar) which is a valid YAML double-quoted
+		// string, safely escaping colons, newlines, and other YAML-special characters.
 		fmt.Fprintf(&sb, "description: %q\n", entry.Description)
 	}
 	sb.WriteString("---\n\n")

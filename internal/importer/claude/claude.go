@@ -428,11 +428,11 @@ func extractMemory(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	id := strings.TrimSuffix(trimmed, filepath.Ext(trimmed))
 
 	// Attempt to parse YAML frontmatter; fall back to raw content as instructions.
+	// Type and Lifecycle were removed from MemoryConfig in the agent-scoped
+	// memory refactor; only Name and Description survive import.
 	var front struct {
 		Name        string `yaml:"name"`
-		Type        string `yaml:"type"`
 		Description string `yaml:"description"`
-		Lifecycle   string `yaml:"lifecycle"`
 	}
 	body, err := importer.ParseFrontmatterLenient(data, &front)
 	if err != nil {
@@ -445,9 +445,7 @@ func extractMemory(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	}
 	config.Memory[id] = ast.MemoryConfig{
 		Name:           front.Name,
-		Type:           front.Type,
 		Description:    front.Description,
-		Lifecycle:      front.Lifecycle,
 		Instructions:   body,
 		SourceProvider: "claude",
 	}

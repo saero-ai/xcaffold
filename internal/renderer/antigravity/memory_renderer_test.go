@@ -16,7 +16,6 @@ func TestCompileMemory_Antigravity_WritesKnowledgeItem(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Description:  "Developer role.",
 					Instructions: "Robert is the founder.",
 				},
@@ -30,66 +29,34 @@ func TestCompileMemory_Antigravity_WritesKnowledgeItem(t *testing.T) {
 	require.Contains(t, out.Files, "knowledge/project_user-role.md")
 	content := out.Files["knowledge/project_user-role.md"]
 	require.Contains(t, content, "title: user-role")
-	require.Contains(t, content, "type: user")
-	require.Contains(t, content, "- user")
-	require.Contains(t, content, "- preferences")
+	// type: field was removed from MemoryConfig; must not appear in output.
+	require.NotContains(t, content, "type:")
+	// Default tag after type removal is "memory".
+	require.Contains(t, content, "- memory")
 	require.Contains(t, content, "Robert is the founder.")
 }
 
-func TestCompileMemory_Antigravity_TypeTagDerivation(t *testing.T) {
+// TestCompileMemory_Antigravity_DefaultTagAfterTypeRemoval verifies that all
+// entries get the generic "memory" tag now that type: has been removed.
+func TestCompileMemory_Antigravity_DefaultTagAfterTypeRemoval(t *testing.T) {
 	dir := t.TempDir()
 	r := NewMemoryRenderer()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"ref":  {Name: "ref", Type: "reference", Instructions: "x"},
-				"fb":   {Name: "fb", Type: "feedback", Instructions: "y"},
-				"proj": {Name: "proj", Type: "project", Instructions: "z"},
+				"ref":  {Name: "ref", Instructions: "x"},
+				"fb":   {Name: "fb", Instructions: "y"},
+				"proj": {Name: "proj", Instructions: "z"},
 			},
 		},
 	}
 
 	out, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
-	require.Contains(t, out.Files["knowledge/project_ref.md"], "- reference")
-	require.Contains(t, out.Files["knowledge/project_ref.md"], "- docs")
-	require.Contains(t, out.Files["knowledge/project_fb.md"], "- feedback")
-	require.Contains(t, out.Files["knowledge/project_proj.md"], "- project")
-	require.Contains(t, out.Files["knowledge/project_proj.md"], "- context")
-}
-
-func TestCompileMemory_Antigravity_ProviderKiTagsOverride(t *testing.T) {
-	dir := t.TempDir()
-	r := NewMemoryRenderer()
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"custom": {
-					Name:         "custom",
-					Type:         "user",
-					Instructions: "x",
-					Targets: map[string]ast.TargetOverride{
-						"antigravity": {
-							Provider: map[string]any{
-								"ki-tags": []interface{}{"a", "b", "c"},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	out, _, err := r.Compile(config, dir)
-	require.NoError(t, err)
-	content := out.Files["knowledge/project_custom.md"]
-	require.Contains(t, content, "- a")
-	require.Contains(t, content, "- b")
-	require.Contains(t, content, "- c")
-	// Default user tags must NOT appear when provider override is specified.
-	require.NotContains(t, content, "- preferences")
+	require.Contains(t, out.Files["knowledge/project_ref.md"], "- memory")
+	require.Contains(t, out.Files["knowledge/project_fb.md"], "- memory")
+	require.Contains(t, out.Files["knowledge/project_proj.md"], "- memory")
 }
 
 func TestCompileMemory_Antigravity_EmptyMemory_NoFiles(t *testing.T) {
@@ -103,14 +70,15 @@ func TestCompileMemory_Antigravity_EmptyMemory_NoFiles(t *testing.T) {
 	require.Empty(t, out.Files)
 }
 
-func TestCompileMemory_Antigravity_FallbackTag_UnknownType(t *testing.T) {
+// TestCompileMemory_Antigravity_DefaultTag verifies all entries get "memory" tag.
+func TestCompileMemory_Antigravity_DefaultTag(t *testing.T) {
 	dir := t.TempDir()
 	r := NewMemoryRenderer()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"misc": {Name: "misc", Type: "custom-unknown", Instructions: "x"},
+				"misc": {Name: "misc", Instructions: "x"},
 			},
 		},
 	}

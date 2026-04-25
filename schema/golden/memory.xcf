@@ -2,17 +2,7 @@
 kind: memory
 version: "1.0"
 name: golden-memory
-type: project
-description: "Reference memory entry exercising every MemoryConfig field."
-lifecycle: tracked
-targets:
-  claude:
-    suppress-fidelity-warnings: false
-    skip-synthesis: false
-    instructions-override: ""
-  antigravity:
-    suppress-fidelity-warnings: true
-    skip-synthesis: true
+description: "Reference memory entry exercising the current MemoryConfig fields."
 ---
 This golden memory entry records a key project-level fact.
 

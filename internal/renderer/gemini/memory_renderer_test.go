@@ -20,7 +20,6 @@ func TestCompileMemory_Gemini_Append(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Description:  "Developer role.",
 					Instructions: "Robert is the founder.",
 				},
@@ -39,6 +38,8 @@ func TestCompileMemory_Gemini_Append(t *testing.T) {
 	require.Contains(t, content, `xcaffold:memory name="user-role"`)
 	require.Contains(t, content, "Robert is the founder.")
 	require.Contains(t, content, "xcaffold:/memory")
+	// type= attribute must not appear after type field removal.
+	require.NotContains(t, content, `type="`)
 }
 
 func TestCompileMemory_Gemini_MarkerIdempotent(t *testing.T) {
@@ -50,7 +51,6 @@ func TestCompileMemory_Gemini_MarkerIdempotent(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Instructions: "First version.",
 				},
 			},
@@ -79,7 +79,6 @@ func TestCompileMemory_Gemini_ProvenanceMarker(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"arch": {
 					Name:         "arch",
-					Type:         "reference",
 					Description:  "Architecture context.",
 					Instructions: "One-way compiler.",
 				},
@@ -92,8 +91,9 @@ func TestCompileMemory_Gemini_ProvenanceMarker(t *testing.T) {
 
 	data, _ := os.ReadFile(filepath.Join(dir, "GEMINI.md"))
 	content := string(data)
-	require.Contains(t, content, `type="reference"`)
+	// type= attribute removed; only name= and seeded-at= remain.
 	require.Contains(t, content, `seeded-at="`)
+	require.NotContains(t, content, `type="`)
 }
 
 func TestCompileMemory_Gemini_FidelityNoteCode(t *testing.T) {
@@ -103,8 +103,8 @@ func TestCompileMemory_Gemini_FidelityNoteCode(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"entry1": {Name: "entry1", Type: "user", Instructions: "a"},
-				"entry2": {Name: "entry2", Type: "project", Instructions: "b"},
+				"entry1": {Name: "entry1", Instructions: "a"},
+				"entry2": {Name: "entry2", Instructions: "b"},
 			},
 		},
 	}
@@ -126,7 +126,6 @@ func TestCompileMemory_Gemini_EmptyBody_EmitsBothNotes(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"empty-entry": {
 					Name: "empty-entry",
-					Type: "user",
 					// No instructions or instructions-file — body will be empty.
 				},
 			},
@@ -162,7 +161,7 @@ func TestCompileMemory_Gemini_ReplacesStaleBlock(t *testing.T) {
 	config1 := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "Old body."},
+				"user-role": {Name: "user-role", Instructions: "Old body."},
 			},
 		},
 	}
@@ -173,7 +172,7 @@ func TestCompileMemory_Gemini_ReplacesStaleBlock(t *testing.T) {
 	config2 := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "New body."},
+				"user-role": {Name: "user-role", Instructions: "New body."},
 			},
 		},
 	}

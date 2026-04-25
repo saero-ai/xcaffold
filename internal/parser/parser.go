@@ -1792,43 +1792,17 @@ func validateMerged(c *ast.XcaffoldConfig) error {
 	return nil
 }
 
-// validateMemoryFields checks that lifecycle and type fields on memory entries
-// contain only known enum values. Unknown values fail immediately — they would
-// either be silently ignored at render time or cause a hard error only when
-// --include-memory is active. Failing at parse time catches misconfigurations
-// early, during xcaffold apply and xcaffold validate.
-//
-// Lifecycle defaults to "seed-once" when empty (documented behavior).
-// Type is optional; when set it must be one of the four canonical values.
-func validateMemoryFields(c *ast.XcaffoldConfig) error {
-	for name, m := range c.Memory {
-		if err := validateMemoryEntry(name, m); err != nil {
-			return err
-		}
-	}
+// validateMemoryFields is a no-op stub retained for call-site compatibility.
+// Type, lifecycle, and targets were removed from MemoryConfig in the
+// agent-scoped memory refactor; field-level validation for those keys is now
+// handled by KnownFields(true) at decode time.
+func validateMemoryFields(_ *ast.XcaffoldConfig) error {
 	return nil
 }
 
-// validateMemoryEntry validates a single memory entry's lifecycle and type
-// fields. Shared by both the map-form (kind: global embedded memory:) and
-// the standalone (kind: memory) parsing paths.
-func validateMemoryEntry(name string, m ast.MemoryConfig) error {
-	validLifecycles := map[string]bool{
-		"seed-once": true,
-		"tracked":   true,
-	}
-	validTypes := map[string]bool{
-		"user":      true,
-		"feedback":  true,
-		"project":   true,
-		"reference": true,
-	}
-	if m.Lifecycle != "" && !validLifecycles[m.Lifecycle] {
-		return fmt.Errorf("memory %q: lifecycle must be one of [seed-once, tracked], got %q", name, m.Lifecycle)
-	}
-	if m.Type != "" && !validTypes[m.Type] {
-		return fmt.Errorf("memory %q: type must be one of [user, feedback, project, reference], got %q", name, m.Type)
-	}
+// validateMemoryEntry is a no-op stub retained for call-site compatibility.
+// See validateMemoryFields.
+func validateMemoryEntry(_ string, _ ast.MemoryConfig) error {
 	return nil
 }
 

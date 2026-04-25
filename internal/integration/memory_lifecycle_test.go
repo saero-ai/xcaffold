@@ -23,7 +23,7 @@ func TestIntegration_Memory_Claude_SeedOnce_WritesThenSkips(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "Robert is the founder."},
+				"user-role": {Name: "user-role", Instructions: "Robert is the founder."},
 			},
 		},
 	}
@@ -42,44 +42,18 @@ func TestIntegration_Memory_Claude_SeedOnce_WritesThenSkips(t *testing.T) {
 	require.Empty(t, r2.Seeds(), "second apply must not record a new seed")
 }
 
-func TestIntegration_Memory_Claude_Tracked_DetectsDrift(t *testing.T) {
-	dir := t.TempDir()
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"arch": {Name: "arch", Type: "reference", Lifecycle: "tracked", Instructions: "Original xcf content."},
-			},
-		},
-	}
-
-	// First apply: seed the file.
-	r1 := claude.NewMemoryRenderer(dir)
-	_, _, err := r1.Compile(config, dir)
-	require.NoError(t, err)
-	require.Len(t, r1.Seeds(), 1)
-	priorHash := r1.Seeds()[0].Hash
-
-	// Simulate agent modification.
-	targetPath := filepath.Join(dir, "project_arch.md")
-	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
-
-	// Second apply with prior hash: must detect drift.
-	r2 := claude.NewMemoryRenderer(dir)
-	_, _, err = r2.CompileWithPriorSeeds(config, dir, map[string]string{"arch": priorHash})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "memory drift detected")
-}
-
-func TestIntegration_Memory_Claude_Reseed_OverridesDrift(t *testing.T) {
+// TestIntegration_Memory_Claude_SeedOnce_ReseedOverrides verifies that
+// WithReseed(true) overwrites existing seed-once files (now the only lifecycle).
+func TestIntegration_Memory_Claude_SeedOnce_ReseedOverrides(t *testing.T) {
 	dir := t.TempDir()
 	targetPath := filepath.Join(dir, "project_user-role.md")
-	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
+	require.NoError(t, os.WriteFile(targetPath, []byte("existing content"), 0o600))
 
 	r := claude.NewMemoryRenderer(dir).WithReseed(true)
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "Authoritative xcf content."},
+				"user-role": {Name: "user-role", Instructions: "Authoritative xcf content."},
 			},
 		},
 	}
@@ -97,7 +71,7 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 	providerDir := t.TempDir()
 	require.NoError(t, os.WriteFile(
 		filepath.Join(providerDir, "project_user-role.md"),
-		[]byte("---\ntype: user\ndescription: Developer role.\n---\nRobert is the founder.\n"),
+		[]byte("---\ndescription: Developer role.\n---\nRobert is the founder.\n"),
 		0o600,
 	))
 
@@ -123,7 +97,6 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Description:  "Developer role.",
 					Instructions: string(sidecarRaw),
 				},
@@ -140,9 +113,6 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 func TestIntegration_Memory_InheritedEntry_NotSeeded(t *testing.T) {
 	// Verifies that inherited memory entries are stripped before the seed pass
 	// and therefore do not produce seed records or on-disk files.
-	// This mirrors the structural guarantee provided by StripInherited(): inherited
-	// entries are removed before any renderer is invoked, so they never reach any
-	// renderer. The test makes the invariant explicit and test-verified.
 	dir := t.TempDir()
 	r := claude.NewMemoryRenderer(dir)
 
@@ -152,13 +122,11 @@ func TestIntegration_Memory_InheritedEntry_NotSeeded(t *testing.T) {
 				// A locally owned entry: must be seeded.
 				"local-entry": {
 					Name:         "local-entry",
-					Type:         "user",
 					Instructions: "Local content owned by this project.",
 				},
 				// An inherited entry: must NOT be seeded.
 				"inherited-entry": {
 					Name:         "inherited-entry",
-					Type:         "reference",
 					Instructions: "Inherited from global base.",
 					Inherited:    true,
 				},
@@ -193,7 +161,7 @@ func TestIntegration_Memory_Gemini_AppendWithMarkers(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "Robert is the founder."},
+				"user-role": {Name: "user-role", Instructions: "Robert is the founder."},
 			},
 		},
 	}
@@ -206,6 +174,8 @@ func TestIntegration_Memory_Gemini_AppendWithMarkers(t *testing.T) {
 	content := string(data)
 	require.Contains(t, content, `xcaffold:memory name="user-role"`)
 	require.Contains(t, content, "Robert is the founder.")
+	// type= attribute removed from markers.
+	require.NotContains(t, content, `type="`)
 }
 
 func TestIntegration_Memory_Cursor_EmitsNoNativeTargetNote(t *testing.T) {
@@ -213,7 +183,7 @@ func TestIntegration_Memory_Cursor_EmitsNoNativeTargetNote(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "test"},
+				"user-role": {Name: "user-role", Instructions: "test"},
 			},
 		},
 	}
@@ -229,7 +199,7 @@ func TestIntegration_Memory_Copilot_EmitsNoNativeTargetNote(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Instructions: "test"},
+				"user-role": {Name: "user-role", Instructions: "test"},
 			},
 		},
 	}
@@ -245,7 +215,7 @@ func TestIntegration_Memory_Antigravity_WritesKnowledgeItems(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Description: "Developer role.", Instructions: "Robert is the founder."},
+				"user-role": {Name: "user-role", Description: "Developer role.", Instructions: "Robert is the founder."},
 			},
 		},
 	}
@@ -254,15 +224,13 @@ func TestIntegration_Memory_Antigravity_WritesKnowledgeItems(t *testing.T) {
 	require.Empty(t, notes)
 	require.Contains(t, out.Files, "knowledge/project_user-role.md")
 	content := out.Files["knowledge/project_user-role.md"]
-	require.Contains(t, content, "type: user")
-	require.Contains(t, content, "- user")
+	// type: removed from MemoryConfig; all entries get generic "memory" tag.
+	require.NotContains(t, content, "type:")
+	require.Contains(t, content, "- memory")
 	require.Contains(t, content, "Robert is the founder.")
 }
 
 func TestIntegration_Memory_Gemini_AppendsToGeminiMD(t *testing.T) {
-	// Validates the Gemini memory renderer by calling it directly with a temp dir
-	// as the target. Asserts that GEMINI.md is written with the seeded entries
-	// under the expected section.
 	dir := t.TempDir()
 	r := gemini.NewMemoryRenderer(dir)
 
@@ -271,7 +239,6 @@ func TestIntegration_Memory_Gemini_AppendsToGeminiMD(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Description:  "Developer role.",
 					Instructions: "Robert is the founder.",
 				},
@@ -305,7 +272,7 @@ func TestIntegration_Memory_GeminiImportExtract_RoundTrip(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Type: "user", Description: "Dev role.", Instructions: "Body."},
+				"user-role": {Name: "user-role", Description: "Dev role.", Instructions: "Body."},
 			},
 		},
 	}
@@ -319,6 +286,7 @@ func TestIntegration_Memory_GeminiImportExtract_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, blocks, 1)
 	require.Equal(t, "user-role", blocks[0].Key)
-	require.Equal(t, "user", blocks[0].Type)
+	// Type field removed from MemoryConfig; blocks no longer carry it.
+	require.Equal(t, "", blocks[0].Type)
 	require.Contains(t, blocks[0].Body, "Body.")
 }

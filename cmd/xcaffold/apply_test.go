@@ -592,7 +592,6 @@ name: memory-render-test
 	require.NoError(t, os.WriteFile(filepath.Join(memDir, "user-role.xcf"), []byte(`kind: memory
 version: "1.0"
 name: user-role
-type: user
 instructions: "Robert is the founder."
 `), 0600))
 
@@ -633,7 +632,6 @@ name: memory-agentref-test
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "arch-decisions.xcf"), []byte(`kind: memory
 version: "1.0"
 name: arch-decisions
-type: reference
 instructions: "Use cobra for all commands."
 `), 0600))
 

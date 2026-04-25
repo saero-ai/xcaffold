@@ -602,31 +602,21 @@ type PolicyDeny struct {
 	PathContains    string   `yaml:"path-contains,omitempty"`
 }
 
-// MemoryConfig defines a named memory entry that is snapshot-imported from a
-// provider's agent-written memory store and seeded into a target provider on apply.
+// MemoryConfig defines a named memory entry scoped to an agent.
 // Field ordering mirrors the MemoryConfig canonical group ordering:
 //
-//  1. Identity (name, type, description)
-//  2. Lifecycle (lifecycle)
-//  3. Multi-Target (targets)
-//  4. Body (instructions, instructions-file)
+//  1. Identity (name, description)
+//  2. Body (instructions, instructions-file)
 type MemoryConfig struct {
 	// Group 1: Identity
 	Name        string `yaml:"name,omitempty"`
-	Type        string `yaml:"type,omitempty"` // user | feedback | project | reference
 	Description string `yaml:"description,omitempty"`
 
-	// Group 2: Lifecycle
-	Lifecycle string `yaml:"lifecycle,omitempty"` // seed-once (default) | tracked
-
-	// Group 3: Multi-Target
-	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
-
-	// Group 4: Body (mutually exclusive)
+	// Group 2: Body (mutually exclusive)
 	Instructions     string `yaml:"instructions,omitempty"`
 	InstructionsFile string `yaml:"instructions-file,omitempty"`
 
-	// AgentRef encodes the owning agent derived from xcf/memory/<agentID>/
+	// AgentRef encodes the owning agent derived from xcf/agents/<agentID>/memory/
 	// directory placement at parse time. Populated by the parser, never
 	// serialized. Used by renderers to group memory output per agent.
 	AgentRef string `yaml:"-"`
