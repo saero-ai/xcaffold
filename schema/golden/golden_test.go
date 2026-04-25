@@ -25,7 +25,7 @@ func TestGoldenManifests_AllParse(t *testing.T) {
 	unparseable := map[string]bool{
 		"template.xcf": true,
 		"system.xcf":   true,
-		// memory.xcf: kind:memory was removed from the parser.
+		// memory.xcf: kind:memory is no longer a parsed resource kind.
 		// Memory is convention-based (.md files in xcf/agents/<id>/memory/).
 		"memory.xcf": true,
 	}

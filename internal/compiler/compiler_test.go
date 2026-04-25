@@ -527,25 +527,63 @@ func TestCompile_BlueprintValidation_RunsAfterExtends(t *testing.T) {
 	require.NoError(t, err, "child blueprint inheriting base-agent via extends must compile without error")
 }
 
-func TestResolveAgentMemory_AgentScopedLayout(t *testing.T) {
+func TestDiscoverAgentMemory_FindsMdFiles(t *testing.T) {
 	dir := t.TempDir()
-	memDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
-	require.NoError(t, os.MkdirAll(memDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(memDir, "stack.xcf"), []byte(""), 0o644))
+	agentMemDir := filepath.Join(dir, "xcf", "agents", "backend-dev", "memory")
+	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
 
-	cfg := &ast.XcaffoldConfig{}
-	result := ResolveAgentMemory(cfg, dir)
-	require.Equal(t, []string{"stack"}, result["dev"],
-		"ResolveAgentMemory must scan xcf/agents/<id>/memory/")
+	content := "---\nname: ORM Decision\ndescription: \"Always use Drizzle\"\n---\n\nWe chose Drizzle ORM.\n"
+	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "orm-decision.md"), []byte(content), 0o644))
+
+	result := DiscoverAgentMemory(dir)
+	require.Contains(t, result, "backend-dev/orm-decision")
+	entry := result["backend-dev/orm-decision"]
+	assert.Equal(t, "ORM Decision", entry.Name)
+	assert.Equal(t, "Always use Drizzle", entry.Description)
+	assert.Contains(t, entry.Content, "We chose Drizzle ORM.")
+	assert.Equal(t, "backend-dev", entry.AgentRef)
 }
 
-func TestResolveAgentMemory_OldLayoutIgnored(t *testing.T) {
+func TestDiscoverAgentMemory_SkipsMemoryMd(t *testing.T) {
 	dir := t.TempDir()
-	oldDir := filepath.Join(dir, "xcf", "memory", "dev")
-	require.NoError(t, os.MkdirAll(oldDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(oldDir, "stack.xcf"), []byte(""), 0o644))
+	agentMemDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "MEMORY.md"), []byte("index"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "real-entry.md"), []byte("content"), 0o644))
 
-	cfg := &ast.XcaffoldConfig{}
-	result := ResolveAgentMemory(cfg, dir)
-	require.Empty(t, result, "xcf/memory/ layout must no longer be scanned")
+	result := DiscoverAgentMemory(dir)
+	assert.NotContains(t, result, "dev/MEMORY")
+	assert.Contains(t, result, "dev/real-entry")
+}
+
+func TestDiscoverAgentMemory_FallbackNameDescription(t *testing.T) {
+	dir := t.TempDir()
+	agentMemDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "simple.md"), []byte("First line of content.\nSecond line."), 0o644))
+
+	result := DiscoverAgentMemory(dir)
+	entry := result["dev/simple"]
+	assert.Equal(t, "simple", entry.Name)
+	assert.Equal(t, "First line of content.", entry.Description)
+	assert.Equal(t, "First line of content.\nSecond line.", entry.Content)
+}
+
+func TestDiscoverAgentMemory_IgnoresXcfFiles(t *testing.T) {
+	dir := t.TempDir()
+	agentMemDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "old.xcf"), []byte("kind: memory"), 0o644))
+
+	result := DiscoverAgentMemory(dir)
+	assert.Empty(t, result)
+}
+
+func TestDiscoverAgentMemory_NoMemoryDir(t *testing.T) {
+	dir := t.TempDir()
+	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(agentDir, 0o755))
+
+	result := DiscoverAgentMemory(dir)
+	assert.Empty(t, result)
 }

@@ -107,7 +107,17 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 		proj = &ast.ProjectConfig{}
 	}
 	agentRefs := proj.AgentRefs
-	agentMemMap := compiler.ResolveAgentMemory(config, rootDir)
+	discovered := compiler.DiscoverAgentMemory(rootDir)
+	agentMemMap := make(map[string][]string)
+	for key := range discovered {
+		parts := strings.SplitN(key, "/", 2)
+		if len(parts) == 2 {
+			agentMemMap[parts[0]] = append(agentMemMap[parts[0]], parts[1])
+		}
+	}
+	for id := range agentMemMap {
+		sort.Strings(agentMemMap[id])
+	}
 	if len(agentRefs) == 0 && len(config.Agents) > 0 {
 		sortedAgents := sortedMapKeys(config.Agents)
 		for _, sa := range sortedAgents {
@@ -197,18 +207,28 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 
 	// Derive ref lists from the config maps when the explicit ref fields are empty.
 	agentRefs := proj.AgentRefs
-	agentMemMap := compiler.ResolveAgentMemory(config, rootDir)
+	discovered2 := compiler.DiscoverAgentMemory(rootDir)
+	agentMemMap2 := make(map[string][]string)
+	for key := range discovered2 {
+		parts := strings.SplitN(key, "/", 2)
+		if len(parts) == 2 {
+			agentMemMap2[parts[0]] = append(agentMemMap2[parts[0]], parts[1])
+		}
+	}
+	for id := range agentMemMap2 {
+		sort.Strings(agentMemMap2[id])
+	}
 	if len(agentRefs) == 0 && len(config.Agents) > 0 {
 		sortedAgents := sortedMapKeys(config.Agents)
 		for _, sa := range sortedAgents {
 			agentRefs = append(agentRefs, ast.AgentManifestEntry{
 				ID:     sa,
-				Memory: agentMemMap[sa],
+				Memory: agentMemMap2[sa],
 			})
 		}
 	} else {
 		for i, ref := range agentRefs {
-			if mem, ok := agentMemMap[ref.ID]; ok && len(ref.Memory) == 0 {
+			if mem, ok := agentMemMap2[ref.ID]; ok && len(ref.Memory) == 0 {
 				agentRefs[i].Memory = mem
 			}
 		}

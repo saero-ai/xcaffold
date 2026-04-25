@@ -16,6 +16,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
 	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
 	"github.com/saero-ai/xcaffold/internal/resolver"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -149,15 +150,18 @@ func OutputDir(target string) string {
 	return r.OutputDir()
 }
 
-// ResolveAgentMemory walks xcf/agents/<id>/memory/ directories to link
-// memory files to their respective agents. Returns a mapping of agentID -> []memoryName.
-func ResolveAgentMemory(config *ast.XcaffoldConfig, baseDir string) map[string][]string {
-	agentMemory := make(map[string][]string)
+// DiscoverAgentMemory walks xcf/agents/<id>/memory/ directories to discover
+// memory entries from .md files. Returns a mapping of "agentID/memName" -> MemoryConfig.
+// MEMORY.md index files and non-.md files are skipped. Optional YAML frontmatter
+// (name, description) is parsed; missing fields fall back to the filename and
+// first line of content respectively.
+func DiscoverAgentMemory(baseDir string) map[string]ast.MemoryConfig {
+	result := make(map[string]ast.MemoryConfig)
 	agentsDir := filepath.Join(baseDir, "xcf", "agents")
 
 	agentEntries, err := os.ReadDir(agentsDir)
 	if err != nil {
-		return agentMemory
+		return result
 	}
 
 	for _, agentEntry := range agentEntries {
@@ -172,16 +176,74 @@ func ResolveAgentMemory(config *ast.XcaffoldConfig, baseDir string) map[string][
 			continue
 		}
 
-		var memories []string
 		for _, memFile := range memFiles {
-			if !memFile.IsDir() && strings.HasSuffix(memFile.Name(), ".xcf") {
-				name := strings.TrimSuffix(memFile.Name(), ".xcf")
-				memories = append(memories, name)
+			if memFile.IsDir() {
+				continue
+			}
+			fname := memFile.Name()
+			if !strings.HasSuffix(fname, ".md") || fname == "MEMORY.md" {
+				continue
+			}
+
+			data, err := os.ReadFile(filepath.Join(memDir, fname))
+			if err != nil {
+				continue
+			}
+
+			stem := strings.TrimSuffix(fname, ".md")
+			name := stem
+			desc := ""
+			content := string(data)
+
+			var front struct {
+				Name        string `yaml:"name"`
+				Description string `yaml:"description"`
+			}
+			if body, fmErr := parseFrontmatter(data, &front); fmErr == nil && front.Name != "" {
+				name = front.Name
+				desc = front.Description
+				content = body
+			} else {
+				lines := strings.SplitN(strings.TrimSpace(content), "\n", 2)
+				if len(lines) > 0 {
+					desc = strings.TrimSpace(lines[0])
+					if len(desc) > 120 {
+						desc = desc[:120]
+					}
+				}
+			}
+
+			key := agentID + "/" + stem
+			result[key] = ast.MemoryConfig{
+				Name:        name,
+				Description: desc,
+				Content:     content,
+				AgentRef:    agentID,
 			}
 		}
-		if len(memories) > 0 {
-			agentMemory[agentID] = memories
-		}
 	}
-	return agentMemory
+	return result
+}
+
+// parseFrontmatter splits optional YAML frontmatter (delimited by "---\n") from
+// the body of data, unmarshalling the frontmatter into v. Returns the trimmed
+// body and nil on success. Returns an error when no frontmatter is present or
+// when the YAML cannot be parsed.
+func parseFrontmatter(data []byte, v interface{}) (string, error) {
+	const delim = "---\n"
+	s := string(data)
+	if !strings.HasPrefix(s, delim) {
+		return "", fmt.Errorf("no frontmatter")
+	}
+	rest := s[len(delim):]
+	end := strings.Index(rest, delim)
+	if end < 0 {
+		return "", fmt.Errorf("unclosed frontmatter")
+	}
+	fm := rest[:end]
+	body := strings.TrimSpace(rest[end+len(delim):])
+	if err := yaml.Unmarshal([]byte(fm), v); err != nil {
+		return "", err
+	}
+	return body, nil
 }
