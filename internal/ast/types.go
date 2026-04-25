@@ -603,27 +603,20 @@ type PolicyDeny struct {
 }
 
 // MemoryConfig defines a named memory entry scoped to an agent.
-// Field ordering mirrors the MemoryConfig canonical group ordering:
-//
-//  1. Identity (name, description)
-//  2. Body (instructions, instructions-file)
+// Memory is convention-based: the compiler discovers .md files under
+// xcf/agents/<agentID>/memory/ and populates Content from the file body.
 type MemoryConfig struct {
-	// Group 1: Identity
 	Name        string `yaml:"name,omitempty"`
 	Description string `yaml:"description,omitempty"`
 
-	// Group 2: Body (mutually exclusive)
-	Instructions     string `yaml:"instructions,omitempty"`
-	InstructionsFile string `yaml:"instructions-file,omitempty"`
+	// Content holds the markdown body read from the .md file at compile time.
+	// Not serialized — populated by the compiler's filesystem scan.
+	Content string `yaml:"-"`
 
 	// AgentRef encodes the owning agent derived from xcf/agents/<agentID>/memory/
 	// directory placement at parse time. Populated by the parser, never
 	// serialized. Used by renderers to group memory output per agent.
 	AgentRef string `yaml:"-"`
-
-	// Inherited is set by the parser when this resource originates from an
-	// extends: global base config. It is never serialized.
-	Inherited bool `yaml:"-"`
 
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
@@ -712,11 +705,8 @@ func (c *XcaffoldConfig) StripInherited() {
 			delete(c.Workflows, k)
 		}
 	}
-	for k, m := range c.Memory {
-		if m.Inherited {
-			delete(c.Memory, k)
-		}
-	}
+	// Memory is convention-based (filesystem scan), not parser-inherited.
+	// No inherited filtering needed.
 	for k, v := range c.References {
 		if v.Inherited {
 			delete(c.References, k)
