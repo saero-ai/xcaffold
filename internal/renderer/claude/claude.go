@@ -17,11 +17,20 @@ import (
 
 // Renderer compiles an XcaffoldConfig AST into Claude Code output files.
 // It targets the ".claude/" directory structure understood by Claude Code.
-type Renderer struct{}
+type Renderer struct {
+	memoryAgents map[string]bool
+}
 
 // New returns a new Renderer instance.
 func New() *Renderer {
 	return &Renderer{}
+}
+
+// SetMemoryRefs satisfies renderer.MemoryAwareRenderer. The orchestrator calls
+// this before CompileAgents so that agent frontmatter can carry memory: user
+// when the agent has associated memory entries.
+func (r *Renderer) SetMemoryRefs(agentRefs map[string]bool) {
+	r.memoryAgents = agentRefs
 }
 
 // Target returns the identifier for this renderer's target platform.
@@ -72,7 +81,7 @@ func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir stri
 	caps := r.Capabilities()
 	var notes []renderer.FidelityNote
 	for id, agent := range agents {
-		md, agentNotes, err := compileAgentMarkdown(id, agent, baseDir, caps)
+		md, agentNotes, err := compileAgentMarkdown(id, agent, baseDir, caps, r.memoryAgents)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile agent %q: %w", id, err)
 		}
@@ -419,7 +428,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 }
 
 // compileAgentMarkdown renders a single AgentConfig to Claude Code markdown.
-func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps renderer.CapabilitySet) (string, []renderer.FidelityNote, error) {
+func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps renderer.CapabilitySet, memoryAgents map[string]bool) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
 		return "", nil, fmt.Errorf("agent id must not be empty")
 	}
@@ -460,7 +469,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps
 		fmt.Fprintf(&sb, "model: %s\n", resolvedModel)
 	}
 
-	appendAgentConfigMeta(&sb, agent)
+	appendAgentConfigMeta(&sb, id, agent, memoryAgents)
 
 	if err := appendAgentYAMLMeta(&sb, agent); err != nil {
 		return "", nil, err
@@ -492,7 +501,7 @@ func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	}
 }
 
-func appendAgentConfigMeta(sb *strings.Builder, agent ast.AgentConfig) {
+func appendAgentConfigMeta(sb *strings.Builder, agentID string, agent ast.AgentConfig, memoryAgents map[string]bool) {
 	if agent.PermissionMode != "" {
 		fmt.Fprintf(sb, "permission-mode: %s\n", agent.PermissionMode)
 	}
@@ -507,6 +516,8 @@ func appendAgentConfigMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	}
 	if agent.Memory != "" {
 		fmt.Fprintf(sb, "memory: %s\n", agent.Memory)
+	} else if memoryAgents[agentID] {
+		fmt.Fprintf(sb, "memory: user\n")
 	}
 	if agent.Color != "" {
 		fmt.Fprintf(sb, "color: %s\n", agent.Color)

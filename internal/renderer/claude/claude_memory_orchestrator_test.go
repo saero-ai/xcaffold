@@ -2,6 +2,7 @@ package claude_test
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -122,4 +123,60 @@ func TestCompileMemoryToMap_DefaultAgentRef(t *testing.T) {
 	require.NoError(t, err)
 	_, ok := files["agent-memory/default/MEMORY.md"]
 	require.True(t, ok, "expected agent-memory/default/MEMORY.md for zero AgentRef")
+}
+
+func TestCompileAgentMarkdown_MemoryUserInjected(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"reviewer": {
+					Name:  "reviewer",
+					Model: "sonnet",
+				},
+			},
+			Memory: map[string]ast.MemoryConfig{
+				"user-prefs": {AgentRef: "reviewer", Instructions: "Be concise."},
+			},
+		},
+	}
+	r := claude.New()
+	files, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
+	require.NoError(t, err)
+	content, ok := files.Files["agents/reviewer.md"]
+	require.True(t, ok)
+	assert.Contains(t, content, "memory: user")
+}
+
+func TestCompileAgentMarkdown_MemoryUserNotInjectedWhenNoMemory(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"reviewer": {Name: "reviewer", Model: "sonnet"},
+			},
+		},
+	}
+	r := claude.New()
+	files, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
+	require.NoError(t, err)
+	content := files.Files["agents/reviewer.md"]
+	assert.NotContains(t, content, "memory:")
+}
+
+func TestCompileAgentMarkdown_ExplicitMemoryFieldNotOverwritten(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Name: "dev", Memory: "project"},
+			},
+			Memory: map[string]ast.MemoryConfig{
+				"ctx": {AgentRef: "dev", Instructions: "Context."},
+			},
+		},
+	}
+	r := claude.New()
+	files, _, err := renderer.Orchestrate(r, cfg, t.TempDir())
+	require.NoError(t, err)
+	content := files.Files["agents/dev.md"]
+	assert.Equal(t, 1, strings.Count(content, "memory:"))
+	assert.Contains(t, content, "memory: project")
 }
