@@ -818,7 +818,7 @@ func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, 
 	defer f.Close()
 
 	// Prepend source path so kind-specific parsers can derive contextual
-	// metadata from the file's on-disk location (e.g., xcf/memory/<agentID>/).
+	// metadata from the file's on-disk location (e.g., xcf/agents/<agentID>/memory/).
 	// Caller-supplied opts override this by appearing later in the slice.
 	opts = append([]parseOptionFunc{withSourcePath(path)}, opts...)
 
