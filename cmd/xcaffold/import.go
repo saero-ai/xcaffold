@@ -74,7 +74,7 @@ func init() {
 	importCmd.Flags().StringVar(&importSource, "source", "", "File or directory of workflow markdown files to translate")
 	importCmd.Flags().StringVar(&importFromPlatform, "from", "auto", "Source platform of input files (antigravity, claude, cursor, gemini, copilot)")
 	importCmd.Flags().BoolVar(&importPlan, "plan", false, "Dry-run: print decomposition plan without writing files")
-	importCmd.Flags().BoolVar(&importWithMemory, "with-memory", false, "Snapshot agent-written memory into xcf/memory/ sidecars")
+	importCmd.Flags().BoolVar(&importWithMemory, "with-memory", false, "Snapshot agent-written memory into xcf/agents/<id>/memory/ sidecars")
 	importCmd.Flags().StringVar(&autoMergeFlag, "auto-merge", "", "Merge divergent variants: union")
 	rootCmd.AddCommand(importCmd)
 }
@@ -583,18 +583,18 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	// ── 4. Agent memory ─────────────────────────────────────────────────────────
 	// Memory is extracted into config.Memory by the ProviderImporter during
 	// Import() (e.g. claude extracts agent-memory/**). WriteSplitFiles writes
-	// them as kind: memory .xcf files to xcf/memory/. No separate raw-copy
+	// them as kind: memory .xcf files to xcf/agents/<id>/memory/. No separate raw-copy
 	// snapshot step is needed.
 	if len(config.Memory) > 0 {
-		fmt.Printf("  Agent memory: %d entry(ies) → xcf/memory/\n", len(config.Memory))
+		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", len(config.Memory))
 	}
 	switch provider {
 	case "gemini":
 		if gDir, err := geminiMemoryDir(); err == nil {
 			if memSum, err := bir.ImportGeminiMemory(gDir, bir.ImportOpts{
-				SidecarDir: filepath.Join("xcf", "memory"),
+				SidecarDir: filepath.Join("xcf", "agents"),
 			}); err == nil && memSum.Imported > 0 {
-				fmt.Printf("  Gemini memory: snapshotted %d entry(ies) → xcf/memory/\n", memSum.Imported)
+				fmt.Printf("  Gemini memory: snapshotted %d entry(ies) → xcf/agents/<id>/memory/\n", memSum.Imported)
 			}
 		}
 	case "antigravity":
@@ -655,9 +655,9 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 }
 
 // snapshotAgentMemoryDir copies the contents of an in-project agent-memory
-// directory (e.g. .claude/agent-memory/) into xcf/memory/ so they are
-// preserved alongside the xcf configuration files. Each sub-directory
-// (agent name) becomes a matching sub-directory under xcf/memory/.
+// directory (e.g. .claude/agent-memory/) into xcf/agents/<id>/memory/ so they
+// are preserved alongside the xcf configuration files. Each sub-directory
+// (agent name) becomes xcf/agents/<agentName>/memory/.
 // Returns the number of agent memory directories successfully snapshotted.
 func snapshotAgentMemoryDir(agentMemDir string) (int, error) {
 	entries, err := os.ReadDir(agentMemDir)
@@ -671,7 +671,7 @@ func snapshotAgentMemoryDir(agentMemDir string) (int, error) {
 		}
 		agentName := entry.Name()
 		srcDir := filepath.Join(agentMemDir, agentName)
-		dstDir := filepath.Join("xcf", "memory", agentName)
+		dstDir := filepath.Join("xcf", "agents", agentName, "memory")
 		if err := copyDirContents(srcDir, dstDir); err != nil {
 			return snapshotted, fmt.Errorf("copying agent memory for %q: %w", agentName, err)
 		}
@@ -2701,8 +2701,13 @@ func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, c
 // When fromPlatform is "gemini" it reads xcaffold-seeded blocks from GEMINI.md
 // in the resolved gemini directory. For all other platforms (and "auto") it
 // imports from the Claude project memory directory.
+//
+// NOTE: bir.ImportClaudeMemory and bir.ImportGeminiMemory write flat .md files
+// to SidecarDir/ without per-agent subdirectories. Full per-agent layout
+// (xcf/agents/<id>/memory/) is handled by snapshotAgentMemoryDir and the
+// WriteSplitFiles path. The sidecarDir here covers the --with-memory raw snapshot.
 func runMemorySnapshot(cmd *cobra.Command, source string, fromPlatform string, planOnly bool) (*bir.ImportSummary, error) {
-	sidecarDir := filepath.Join("xcf", "memory")
+	sidecarDir := filepath.Join("xcf", "agents")
 
 	if fromPlatform == "gemini" {
 		gDir, err := geminiMemoryDir()
@@ -2952,12 +2957,12 @@ func findImporterByProvider(provider string) importer.ProviderImporter {
 	return nil
 }
 
-// pruneOrphanMemory removes files in xcf/memory/ that do not correspond
-// to an agent imported in the current scope.
+// pruneOrphanMemory removes xcf/agents/<id>/memory/ directories for agents
+// that are not present in the current import scope.
 func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
-	memDir := filepath.Join(rootDir, "xcf", "memory")
-	// If memDir doesn't exist, nothing to prune
-	if _, err := os.Stat(memDir); os.IsNotExist(err) {
+	agentsDir := filepath.Join(rootDir, "xcf", "agents")
+	// If agentsDir doesn't exist, nothing to prune.
+	if _, err := os.Stat(agentsDir); os.IsNotExist(err) {
 		return nil
 	}
 
@@ -2966,30 +2971,24 @@ func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
 		validAgents[id] = true
 	}
 
-	entries, err := os.ReadDir(memDir)
+	entries, err := os.ReadDir(agentsDir)
 	if err != nil {
 		return err
 	}
 
 	for _, entry := range entries {
-		// Memory filenames might be <id>.xcf or <id>.md depending on format
-		name := entry.Name()
 		if !entry.IsDir() {
-			ext := filepath.Ext(name)
-			id := strings.TrimSuffix(name, ext)
-
-			if !validAgents[id] {
-				if err := os.RemoveAll(filepath.Join(memDir, name)); err != nil {
-					return err
-				}
-			}
-		} else {
-			// Also prune orphan nested subdirectories if they don't match an agent ID exactly
-			// (Wait, are memory nested directories allowed? Yes, but usually files.)
-			if !validAgents[name] {
-				if err := os.RemoveAll(filepath.Join(memDir, name)); err != nil {
-					return err
-				}
+			continue
+		}
+		agentID := entry.Name()
+		memDir := filepath.Join(agentsDir, agentID, "memory")
+		if _, err := os.Stat(memDir); os.IsNotExist(err) {
+			continue
+		}
+		// Prune the memory dir if the agent is no longer in scope.
+		if !validAgents[agentID] {
+			if err := os.RemoveAll(memDir); err != nil {
+				return err
 			}
 		}
 	}

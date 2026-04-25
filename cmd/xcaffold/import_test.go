@@ -717,7 +717,7 @@ func TestRunImport_WithMemory_UsesSourceDir(t *testing.T) {
 	summary, err := runMemorySnapshot(importCmd, memDir, "claude", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, summary.Imported)
-	require.FileExists(t, filepath.Join(tmp, "xcf", "memory", "user-role.md"))
+	require.FileExists(t, filepath.Join(tmp, "xcf", "agents", "user-role.md"))
 }
 
 func TestImport_WithMemory_Gemini_ExtractsBlocks(t *testing.T) {
@@ -743,7 +743,7 @@ Robert is the founder.
 	summary, err := runMemorySnapshot(importCmd, "", "gemini", false)
 	require.NoError(t, err)
 	require.Equal(t, 1, summary.Imported, "one Gemini memory block must be imported")
-	require.FileExists(t, filepath.Join(tmp, "xcf", "memory", "user-role.md"))
+	require.FileExists(t, filepath.Join(tmp, "xcf", "agents", "user-role.md"))
 }
 
 func TestDetectTargets(t *testing.T) {
