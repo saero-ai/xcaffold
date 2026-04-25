@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/spf13/cobra"
 )
@@ -51,12 +53,13 @@ func runList(cmd *cobra.Command, args []string) error {
 		return printBlueprintResources(cmd, config, listBlueprintFlag, listResolvedFlag)
 	}
 
-	printAllResources(cmd, config)
+	printAllResources(cmd, config, configDir)
 	return nil
 }
 
 // printAllResources prints a summary of every resource type and every blueprint.
-func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig) {
+// baseDir is the project root (the directory containing the .xcaffold/ folder and xcf/).
+func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir string) {
 	cmd.Println("Resources:")
 	printResourceLine(cmd, "agents", sortedMapKeys(config.Agents))
 	printResourceLine(cmd, "skills", sortedMapKeys(config.Skills))
@@ -64,7 +67,15 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 	printResourceLine(cmd, "workflows", sortedMapKeys(config.Workflows))
 	printResourceLine(cmd, "mcp", sortedMapKeys(config.MCP))
 	printResourceLine(cmd, "policies", sortedMapKeys(config.Policies))
-	printResourceLine(cmd, "memory", sortedMapKeys(config.Memory))
+
+	// Memory is convention-based: discover from xcf/agents/*/memory/*.md.
+	discovered := compiler.DiscoverAgentMemory(baseDir)
+	memoryNames := make([]string, 0, len(discovered))
+	for k := range discovered {
+		memoryNames = append(memoryNames, k)
+	}
+	sort.Strings(memoryNames)
+	printResourceLine(cmd, "memory", memoryNames)
 
 	cmd.Println()
 	cmd.Println("Blueprints:")
