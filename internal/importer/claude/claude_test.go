@@ -49,6 +49,22 @@ func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
 	assert.Equal(t, "# Just markdown\n\nNo frontmatter here.", body)
 }
 
+func TestExtractMemory_SkipsMemoryMd(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+
+	// MEMORY.md at root of agent-memory/
+	require.NoError(t, extractMemory("agent-memory/MEMORY.md", []byte("index"), config))
+	assert.Empty(t, config.Memory, "MEMORY.md at root should be skipped")
+
+	// MEMORY.md nested under an agent dir
+	require.NoError(t, extractMemory("agent-memory/dev/MEMORY.md", []byte("index"), config))
+	assert.Empty(t, config.Memory, "MEMORY.md under agent dir should be skipped")
+
+	// Regular .md should NOT be skipped
+	require.NoError(t, extractMemory("agent-memory/dev/real.md", []byte("content"), config))
+	assert.Contains(t, config.Memory, "dev/real", "regular memory file should be imported")
+}
+
 func TestImport_Memory_OnlyProjectAgents(t *testing.T) {
 	c := New()
 	dir := t.TempDir()
@@ -74,14 +90,14 @@ func TestImport_Memory_OnlyProjectAgents(t *testing.T) {
 	assert.True(t, okA, "memory a/context should be kept since agent 'a' exists")
 
 	_, okB := config.Memory["b/context"]
-	assert.False(t, okB, "memory b/context should be dropped since agent 'b' does not exist")
+	assert.True(t, okB, "memory b/context should be kept even when agent 'b' has no agent definition")
 
 	foundWarning := false
 	for _, w := range c.Warnings {
-		if strings.Contains(w, "skipped \"agent-memory/b/context\": agent \"b\" not found in xcf/agents") {
+		if strings.Contains(w, `memory for agent "b" has no matching agent definition`) {
 			foundWarning = true
 			break
 		}
 	}
-	assert.True(t, foundWarning, "expected a warning about skipped memory for agent b")
+	assert.True(t, foundWarning, "expected a warning about missing agent definition for agent b")
 }

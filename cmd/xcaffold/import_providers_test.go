@@ -88,11 +88,12 @@ func TestImportScope_Claude_AgentMemoryAutoSnapshot(t *testing.T) {
 
 	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
-	// xcf/agents/dev/memory/ must have been created with plain .md files
+	// xcf/agents/dev/memory/ must have been created with plain .md files.
+	// MEMORY.md is an auto-generated index and must be skipped on import.
 	assert.DirExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory"),
 		"xcf/agents/dev/memory/ must be created from .claude/agent-memory/dev/")
-	assert.FileExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory", "MEMORY.md"),
-		"MEMORY.md must be written into xcf/agents/dev/memory/")
+	assert.NoFileExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory", "MEMORY.md"),
+		"MEMORY.md is auto-generated and must NOT be imported as a memory entry")
 	assert.FileExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory", "note.md"),
 		"note.md must be written into xcf/agents/dev/memory/")
 }
