@@ -19,9 +19,9 @@ func TestCompileMemory_Gemini_Append(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Description:  "Developer role.",
-					Instructions: "Robert is the founder.",
+					Name:        "user-role",
+					Description: "Developer role.",
+					Content:     "Robert is the founder.",
 				},
 			},
 		},
@@ -50,8 +50,8 @@ func TestCompileMemory_Gemini_MarkerIdempotent(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Instructions: "First version.",
+					Name:    "user-role",
+					Content: "First version.",
 				},
 			},
 		},
@@ -78,9 +78,9 @@ func TestCompileMemory_Gemini_ProvenanceMarker(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"arch": {
-					Name:         "arch",
-					Description:  "Architecture context.",
-					Instructions: "One-way compiler.",
+					Name:        "arch",
+					Description: "Architecture context.",
+					Content:     "One-way compiler.",
 				},
 			},
 		},
@@ -103,8 +103,8 @@ func TestCompileMemory_Gemini_FidelityNoteCode(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"entry1": {Name: "entry1", Instructions: "a"},
-				"entry2": {Name: "entry2", Instructions: "b"},
+				"entry1": {Name: "entry1", Content: "a"},
+				"entry2": {Name: "entry2", Content: "b"},
 			},
 		},
 	}
@@ -161,7 +161,7 @@ func TestCompileMemory_Gemini_ReplacesStaleBlock(t *testing.T) {
 	config1 := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "Old body."},
+				"user-role": {Name: "user-role", Content: "Old body."},
 			},
 		},
 	}
@@ -172,7 +172,7 @@ func TestCompileMemory_Gemini_ReplacesStaleBlock(t *testing.T) {
 	config2 := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "New body."},
+				"user-role": {Name: "user-role", Content: "New body."},
 			},
 		},
 	}

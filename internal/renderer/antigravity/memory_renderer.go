@@ -2,7 +2,6 @@ package antigravity
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -69,30 +68,10 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 }
 
 // resolveKnowledgeBody returns the effective body for a memory entry.
-// instructions takes precedence over instructions-file. An empty body is
-// allowed (caller may choose to emit an empty Knowledge Item).
-func resolveKnowledgeBody(name string, entry ast.MemoryConfig, baseDir string) (string, error) {
-	if entry.Instructions != "" {
-		return entry.Instructions, nil
-	}
-	if entry.InstructionsFile == "" {
-		return "", nil
-	}
-
-	if filepath.IsAbs(entry.InstructionsFile) {
-		return "", fmt.Errorf("memory %q: instructions-file %q must be relative", name, entry.InstructionsFile)
-	}
-	cleaned := filepath.Clean(entry.InstructionsFile)
-	abs := filepath.Join(baseDir, cleaned)
-	rel, relErr := filepath.Rel(baseDir, abs)
-	if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("memory %q: instructions-file %q escapes base dir", name, entry.InstructionsFile)
-	}
-	data, err := os.ReadFile(abs)
-	if err != nil {
-		return "", fmt.Errorf("memory %q: read instructions-file: %w", name, err)
-	}
-	return string(data), nil
+// Content is populated by the compiler's filesystem scan of xcf/agents/<id>/memory/
+// .md files — the renderer simply returns it.
+func resolveKnowledgeBody(_ string, entry ast.MemoryConfig, _ string) (string, error) {
+	return entry.Content, nil
 }
 
 // deriveKITags returns the default tags for a Knowledge Item.

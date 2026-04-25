@@ -23,7 +23,7 @@ func TestIntegration_Memory_Claude_SeedOnce_WritesThenSkips(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "Robert is the founder."},
+				"user-role": {Name: "user-role", Content: "Robert is the founder."},
 			},
 		},
 	}
@@ -56,7 +56,7 @@ func TestIntegration_Memory_Claude_SeedOnce_ReseedOverrides(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "Authoritative xcf content."},
+				"user-role": {Name: "user-role", Content: "Authoritative xcf content."},
 			},
 		},
 	}
@@ -99,9 +99,9 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Description:  "Developer role.",
-					Instructions: string(sidecarRaw),
+					Name:        "user-role",
+					Description: "Developer role.",
+					Content:     string(sidecarRaw),
 				},
 			},
 		},
@@ -114,51 +114,42 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 	require.FileExists(t, filepath.Join(applyDir, "default", "MEMORY.md"))
 }
 
-func TestIntegration_Memory_InheritedEntry_NotSeeded(t *testing.T) {
-	// Verifies that inherited memory entries are stripped before the seed pass
-	// and therefore do not produce seed records or on-disk files.
+func TestIntegration_Memory_MultipleEntries_AllSeeded(t *testing.T) {
+	// Verifies that all memory entries are seeded. Memory is convention-based
+	// (filesystem scan), so there is no inherited-vs-local distinction.
 	dir := t.TempDir()
 	r := claude.NewMemoryRenderer(dir)
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				// A locally owned entry: must be seeded.
-				"local-entry": {
-					Name:         "local-entry",
-					Instructions: "Local content owned by this project.",
+				"entry-a": {
+					Name:    "entry-a",
+					Content: "Content A.",
 				},
-				// An inherited entry: must NOT be seeded.
-				"inherited-entry": {
-					Name:         "inherited-entry",
-					Instructions: "Inherited from global base.",
-					Inherited:    true,
+				"entry-b": {
+					Name:    "entry-b",
+					Content: "Content B.",
 				},
 			},
 		},
 	}
 
-	// Strip inherited entries as the compiler would before calling the renderer.
-	config.StripInherited()
-
 	_, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 
-	// Only the local entry must produce a seed record. In the concatenated model
-	// the seed is keyed by AgentRef ("default" since no AgentRef is set).
+	// Both entries have no AgentRef so they land in "default" — one seed record
+	// per agent group, not per entry.
 	seeds := r.Seeds()
-	require.Len(t, seeds, 1, "only the local entry must be seeded")
-	require.Equal(t, "default", seeds[0].Name)
+	require.Len(t, seeds, 1, "one seed per agent group (default)")
 
-	// The local entry must be present in the per-agent MEMORY.md.
+	// Both entries must be present in the per-agent MEMORY.md.
 	memPath := filepath.Join(dir, "default", "MEMORY.md")
 	require.FileExists(t, memPath)
 	data, err := os.ReadFile(memPath)
 	require.NoError(t, err)
-	require.Contains(t, string(data), "## local-entry")
-
-	// The inherited entry must NOT appear in the output.
-	require.NotContains(t, string(data), "## inherited-entry")
+	require.Contains(t, string(data), "## entry-a")
+	require.Contains(t, string(data), "## entry-b")
 }
 
 func TestIntegration_Memory_Gemini_AppendWithMarkers(t *testing.T) {
@@ -168,7 +159,7 @@ func TestIntegration_Memory_Gemini_AppendWithMarkers(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "Robert is the founder."},
+				"user-role": {Name: "user-role", Content: "Robert is the founder."},
 			},
 		},
 	}
@@ -190,7 +181,7 @@ func TestIntegration_Memory_Cursor_EmitsNoNativeTargetNote(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "test"},
+				"user-role": {Name: "user-role", Content: "test"},
 			},
 		},
 	}
@@ -206,7 +197,7 @@ func TestIntegration_Memory_Copilot_EmitsNoNativeTargetNote(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Instructions: "test"},
+				"user-role": {Name: "user-role", Content: "test"},
 			},
 		},
 	}
@@ -222,7 +213,7 @@ func TestIntegration_Memory_Antigravity_WritesKnowledgeItems(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Description: "Developer role.", Instructions: "Robert is the founder."},
+				"user-role": {Name: "user-role", Description: "Developer role.", Content: "Robert is the founder."},
 			},
 		},
 	}
@@ -245,9 +236,9 @@ func TestIntegration_Memory_Gemini_AppendsToGeminiMD(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Description:  "Developer role.",
-					Instructions: "Robert is the founder.",
+					Name:        "user-role",
+					Description: "Developer role.",
+					Content:     "Robert is the founder.",
 				},
 			},
 		},
@@ -279,7 +270,7 @@ func TestIntegration_Memory_GeminiImportExtract_RoundTrip(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Description: "Dev role.", Instructions: "Body."},
+				"user-role": {Name: "user-role", Description: "Dev role.", Content: "Body."},
 			},
 		},
 	}

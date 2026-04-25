@@ -446,7 +446,7 @@ func extractMemory(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	config.Memory[id] = ast.MemoryConfig{
 		Name:           front.Name,
 		Description:    front.Description,
-		Instructions:   body,
+		Content:        body,
 		SourceProvider: "claude",
 	}
 	return nil

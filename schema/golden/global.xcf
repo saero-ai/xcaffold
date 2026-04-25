@@ -119,10 +119,3 @@ mcp:
     command: node
     args: [./global-server.js]
     disabled: false
-
-# Inline memory definitions
-memory:
-  global-ref-memory:
-    name: global-ref-memory
-    description: "A minimal memory entry defined at global scope."
-    instructions: "Remember this globally."

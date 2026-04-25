@@ -228,27 +228,8 @@ func removeMemoryBlock(content, name string) string {
 }
 
 // resolveBody returns the effective body content for a memory entry.
-// It mirrors the pattern used in the Claude memory renderer.
-func resolveBody(name string, entry ast.MemoryConfig, baseDir string) (string, error) {
-	if entry.Instructions != "" {
-		return entry.Instructions, nil
-	}
-	if entry.InstructionsFile == "" {
-		return "", nil
-	}
-
-	if filepath.IsAbs(entry.InstructionsFile) {
-		return "", fmt.Errorf("instructions-file %q must be relative", entry.InstructionsFile)
-	}
-	cleaned := filepath.Clean(entry.InstructionsFile)
-	abs := filepath.Join(baseDir, cleaned)
-	rel, relErr := filepath.Rel(baseDir, abs)
-	if relErr != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("memory %q: instructions-file %q escapes base dir", name, entry.InstructionsFile)
-	}
-	data, err := os.ReadFile(abs)
-	if err != nil {
-		return "", fmt.Errorf("read instructions-file: %w", err)
-	}
-	return string(data), nil
+// Content is populated by the compiler's filesystem scan of xcf/agents/<id>/memory/
+// .md files — the renderer simply returns it.
+func resolveBody(_ string, entry ast.MemoryConfig, _ string) (string, error) {
+	return entry.Content, nil
 }

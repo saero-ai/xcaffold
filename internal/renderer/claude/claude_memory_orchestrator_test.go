@@ -17,9 +17,9 @@ func TestCompileMemory_Claude_OrchestratorPath_EmitsAgentScopedFiles(t *testing.
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"project_audit_log_owner": {
-					Name:         "project_audit_log_owner",
-					AgentRef:     "auth-specialist",
-					Instructions: "Security team owns audit log.",
+					Name:     "project_audit_log_owner",
+					AgentRef: "auth-specialist",
+					Content:  "Security team owns audit log.",
 				},
 			},
 		},
@@ -46,7 +46,7 @@ func TestCompileMemory_Claude_OrchestratorPath_MissingAgentRefFallsBackToDefault
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"orphaned": {Name: "orphaned", Instructions: "no owner"},
+				"orphaned": {Name: "orphaned", Content: "no owner"},
 			},
 		},
 	}
@@ -61,16 +61,16 @@ func TestCompileMemoryToMap_GroupsByAgentRef(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-prefs": {
-					AgentRef:     "reviewer",
-					Instructions: "Always be concise.",
+					AgentRef: "reviewer",
+					Content:  "Always be concise.",
 				},
 				"project-ctx": {
-					AgentRef:     "reviewer",
-					Instructions: "This is the xcaffold project.",
+					AgentRef: "reviewer",
+					Content:  "This is the xcaffold project.",
 				},
 				"feedback-style": {
-					AgentRef:     "developer",
-					Instructions: "Use kebab-case for YAML keys.",
+					AgentRef: "developer",
+					Content:  "Use kebab-case for YAML keys.",
 				},
 			},
 		},
@@ -100,7 +100,7 @@ func TestCompileMemoryToMap_EmptyBodySkipped(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"empty-entry": {AgentRef: "dev", Instructions: "   "},
+				"empty-entry": {AgentRef: "dev", Content: "   "},
 			},
 		},
 	}
@@ -114,7 +114,7 @@ func TestCompileMemoryToMap_DefaultAgentRef(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"orphan": {Instructions: "No agent ref set."},
+				"orphan": {Content: "No agent ref set."},
 			},
 		},
 	}
@@ -135,7 +135,7 @@ func TestCompileAgentMarkdown_MemoryUserInjected(t *testing.T) {
 				},
 			},
 			Memory: map[string]ast.MemoryConfig{
-				"user-prefs": {AgentRef: "reviewer", Instructions: "Be concise."},
+				"user-prefs": {AgentRef: "reviewer", Content: "Be concise."},
 			},
 		},
 	}
@@ -169,7 +169,7 @@ func TestCompileAgentMarkdown_ExplicitMemoryFieldNotOverwritten(t *testing.T) {
 				"dev": {Name: "dev", Memory: "project"},
 			},
 			Memory: map[string]ast.MemoryConfig{
-				"ctx": {AgentRef: "dev", Instructions: "Context."},
+				"ctx": {AgentRef: "dev", Content: "Context."},
 			},
 		},
 	}

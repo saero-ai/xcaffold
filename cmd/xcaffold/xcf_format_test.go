@@ -512,8 +512,8 @@ func TestWriteSplitFiles_Memory_SlashKey(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"developer/architecture-decisions": {
-					Name:         "architecture-decisions",
-					Instructions: "Keep decisions short.",
+					Name:    "architecture-decisions",
+					Content: "Keep decisions short.",
 				},
 			},
 		},
@@ -539,9 +539,9 @@ func TestWriteSplitFiles_Memory_AgentRef(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"architecture-decisions": {
-					Name:         "architecture-decisions",
-					AgentRef:     "developer",
-					Instructions: "Keep decisions short.",
+					Name:     "architecture-decisions",
+					AgentRef: "developer",
+					Content:  "Keep decisions short.",
 				},
 			},
 		},

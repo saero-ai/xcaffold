@@ -33,14 +33,14 @@ func TestMemoryRenderer_ConcatenatesIntoMEMORY(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Instructions: "Robert is the founder.",
-					AgentRef:     "backend-dev",
+					Name:     "user-role",
+					Content:  "Robert is the founder.",
+					AgentRef: "backend-dev",
 				},
 				"arch-decisions": {
-					Name:         "arch-decisions",
-					Instructions: "One-way compiler model.",
-					AgentRef:     "backend-dev",
+					Name:     "arch-decisions",
+					Content:  "One-way compiler model.",
+					AgentRef: "backend-dev",
 				},
 			},
 		},
@@ -79,14 +79,14 @@ func TestMemoryRenderer_MultiAgent(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"backend-pref": {
-					Name:         "backend-pref",
-					Instructions: "Backend pref body.",
-					AgentRef:     "backend-dev",
+					Name:     "backend-pref",
+					Content:  "Backend pref body.",
+					AgentRef: "backend-dev",
 				},
 				"frontend-pref": {
-					Name:         "frontend-pref",
-					Instructions: "Frontend pref body.",
-					AgentRef:     "frontend-dev",
+					Name:     "frontend-pref",
+					Content:  "Frontend pref body.",
+					AgentRef: "frontend-dev",
 				},
 			},
 		},
@@ -116,8 +116,8 @@ func TestMemoryRenderer_DefaultAgentRef(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Instructions: "Robert is the founder.",
+					Name:    "user-role",
+					Content: "Robert is the founder.",
 					// AgentRef intentionally left empty.
 				},
 			},
@@ -137,9 +137,9 @@ func TestCompileMemory_SeedOnce_FileAbsent(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Description:  "Developer role.",
-					Instructions: "Robert is the founder.",
+					Name:        "user-role",
+					Description: "Developer role.",
+					Content:     "Robert is the founder.",
 				},
 			},
 		},
@@ -164,8 +164,8 @@ func TestCompileMemory_SeedOnce_FilePresent_NoOp(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Instructions: "Robert is the founder.",
+					Name:    "user-role",
+					Content: "Robert is the founder.",
 				},
 			},
 		},
@@ -193,8 +193,8 @@ func TestCompileMemory_Reseed_Overwrites(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Instructions: "New content.",
+					Name:    "user-role",
+					Content: "New content.",
 				},
 			},
 		},
@@ -217,8 +217,8 @@ func TestCompileMemory_SeedOnce_ReseedRequired(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"arch-decisions": {
-					Name:         "arch-decisions",
-					Instructions: "One-way compiler model.",
+					Name:    "arch-decisions",
+					Content: "One-way compiler model.",
 				},
 			},
 		},
@@ -244,8 +244,8 @@ func TestCompileMemory_PriorSeeds_SeedOnce(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"arch-decisions": {
-					Name:         "arch-decisions",
-					Instructions: "New xcf content.",
+					Name:    "arch-decisions",
+					Content: "New xcf content.",
 				},
 			},
 		},
@@ -276,8 +276,8 @@ func TestCompileMemory_PriorSeeds_ReseedOverrides(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"arch-decisions": {
-					Name:         "arch-decisions",
-					Instructions: "Authoritative xcf content.",
+					Name:    "arch-decisions",
+					Content: "Authoritative xcf content.",
 				},
 			},
 		},
@@ -299,9 +299,9 @@ func TestCompileMemory_FrontmatterFormat(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
-					Name:         "user-role",
-					Description:  "Developer role.",
-					Instructions: "Robert is the founder.",
+					Name:        "user-role",
+					Description: "Developer role.",
+					Content:     "Robert is the founder.",
 				},
 			},
 		},
@@ -318,24 +318,6 @@ func TestCompileMemory_FrontmatterFormat(t *testing.T) {
 	require.NotContains(t, content, "type:")
 }
 
-func TestCompileMemory_InstructionsFileTraversal_Rejected(t *testing.T) {
-	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"traversal": {
-					InstructionsFile: "../../etc/passwd",
-				},
-			},
-		},
-	}
-
-	_, _, err := r.Compile(config, dir)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "escapes base dir")
-}
-
 func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
 	dir := t.TempDir()
 	r := NewMemoryRenderer(dir)
@@ -343,9 +325,9 @@ func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"colon-desc": {
-					Name:         "colon-desc",
-					Description:  "has: a colon",
-					Instructions: "Some body text.",
+					Name:        "colon-desc",
+					Description: "has: a colon",
+					Content:     "Some body text.",
 				},
 			},
 		},
@@ -390,7 +372,7 @@ func TestCompileMemory_Seeds_Recorded(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"arch": {Name: "arch", Instructions: "Original xcf content."},
+				"arch": {Name: "arch", Content: "Original xcf content."},
 			},
 		},
 	}
@@ -466,9 +448,9 @@ func TestCompileMemory_AgentRefTraversal_Rejected(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"evil": {
-					Name:         "evil",
-					Instructions: "bad content",
-					AgentRef:     "../escaped",
+					Name:     "evil",
+					Content:  "bad content",
+					AgentRef: "../escaped",
 				},
 			},
 		},
@@ -488,12 +470,12 @@ func TestCompileMemory_DeterministicOrder(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"zzz-last": {
-					Name:         "zzz-last",
-					Instructions: "Z body.",
+					Name:    "zzz-last",
+					Content: "Z body.",
 				},
 				"aaa-first": {
-					Name:         "aaa-first",
-					Instructions: "A body.",
+					Name:    "aaa-first",
+					Content: "A body.",
 				},
 			},
 		},
