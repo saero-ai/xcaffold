@@ -7,6 +7,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/bir"
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
@@ -262,4 +263,59 @@ func TestIntegration_Memory_GeminiImportExtract_RoundTrip(t *testing.T) {
 	// Type field removed from MemoryConfig; blocks no longer carry it.
 	require.Equal(t, "", blocks[0].Type)
 	require.Contains(t, blocks[0].Body, "Body.")
+}
+
+func TestIntegration_Memory_ConventionDiscovery_EndToEnd(t *testing.T) {
+	// Set up convention-based memory files on disk.
+	baseDir := t.TempDir()
+	memDir := filepath.Join(baseDir, "xcf", "agents", "dev", "memory")
+	require.NoError(t, os.MkdirAll(memDir, 0o755))
+
+	// Write a memory file with frontmatter.
+	require.NoError(t, os.WriteFile(
+		filepath.Join(memDir, "orm-decision.md"),
+		[]byte("---\nname: ORM Decision\ndescription: Always use Drizzle\n---\nWe chose Drizzle ORM.\n"),
+		0o644,
+	))
+	// Write a memory file without frontmatter (name derived from filename).
+	require.NoError(t, os.WriteFile(
+		filepath.Join(memDir, "api-patterns.md"),
+		[]byte("All endpoints use JSON:API format.\n"),
+		0o644,
+	))
+
+	// Step 1: Discover memory entries.
+	discovered := compiler.DiscoverAgentMemory(baseDir)
+	require.Len(t, discovered, 2, "should discover 2 memory entries")
+
+	// Step 2: Feed to Claude renderer.
+	outputDir := t.TempDir()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: discovered,
+		},
+	}
+	r := claude.NewMemoryRenderer(outputDir)
+	_, _, err := r.Compile(config, baseDir)
+	require.NoError(t, err)
+
+	// Step 3: Verify output.
+	// MEMORY.md should use link-list format.
+	indexPath := filepath.Join(outputDir, "dev", "MEMORY.md")
+	require.FileExists(t, indexPath)
+	indexData, err := os.ReadFile(indexPath)
+	require.NoError(t, err)
+	indexContent := string(indexData)
+	require.Contains(t, indexContent, "- [ORM Decision](orm-decision.md)")
+	require.Contains(t, indexContent, "api-patterns")
+	require.NotContains(t, indexContent, "## ", "must use link-list, not ## headings")
+
+	// Individual files should exist.
+	require.FileExists(t, filepath.Join(outputDir, "dev", "orm-decision.md"))
+	require.FileExists(t, filepath.Join(outputDir, "dev", "api-patterns.md"))
+
+	// Verify individual file content.
+	ormData, err := os.ReadFile(filepath.Join(outputDir, "dev", "orm-decision.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(ormData), "We chose Drizzle ORM.")
 }
