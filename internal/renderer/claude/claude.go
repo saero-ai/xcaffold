@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -269,26 +270,51 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 	return out.Files, notes, nil
 }
 
-// compileMemoryToMap builds a file map keyed by agent-memory/<agentRef>/<name>.md
-// for each memory entry in config. It is called when no OutputDir is specified
-// (orchestrator path) so that no disk writes occur.
+// compileMemoryToMap groups memory entries by AgentRef and writes a single
+// agent-memory/<agentRef>/MEMORY.md per agent. Entries within each file are
+// sorted by name for deterministic output.
 func (r *Renderer) compileMemoryToMap(config *ast.XcaffoldConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
-	files := make(map[string]string)
-	for name, entry := range config.Memory {
-		body, err := resolveMemoryBody(name, entry, baseDir)
+	type entry struct {
+		name string
+		body string
+	}
+	grouped := make(map[string][]entry)
+
+	names := make([]string, 0, len(config.Memory))
+	for name := range config.Memory {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		e := config.Memory[name]
+		body, err := resolveMemoryBody(name, e, baseDir)
 		if err != nil {
 			return nil, nil, err
 		}
 		if strings.TrimSpace(body) == "" {
 			continue
 		}
-		agentRef := entry.AgentRef
+		agentRef := e.AgentRef
 		if agentRef == "" {
 			agentRef = "default"
 		}
-		safeFilename := renderer.SlugifyFilename(name) + ".md"
-		relPath := filepath.Join("agent-memory", agentRef, safeFilename)
-		files[relPath] = renderMemoryMarkdown(entry, body)
+		grouped[agentRef] = append(grouped[agentRef], entry{name: name, body: body})
+	}
+
+	files := make(map[string]string)
+	for agentRef, entries := range grouped {
+		var sb strings.Builder
+		for i, e := range entries {
+			if i > 0 {
+				sb.WriteString("\n")
+			}
+			fmt.Fprintf(&sb, "## %s\n\n", e.name)
+			sb.WriteString(strings.TrimRight(e.body, "\n"))
+			sb.WriteString("\n")
+		}
+		relPath := filepath.Join("agent-memory", agentRef, "MEMORY.md")
+		files[relPath] = sb.String()
 	}
 	return files, nil, nil
 }
