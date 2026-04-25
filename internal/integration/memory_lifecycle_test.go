@@ -46,8 +46,11 @@ func TestIntegration_Memory_Claude_SeedOnce_WritesThenSkips(t *testing.T) {
 // WithReseed(true) overwrites existing seed-once files (now the only lifecycle).
 func TestIntegration_Memory_Claude_SeedOnce_ReseedOverrides(t *testing.T) {
 	dir := t.TempDir()
-	targetPath := filepath.Join(dir, "project_user-role.md")
-	require.NoError(t, os.WriteFile(targetPath, []byte("existing content"), 0o600))
+	// Pre-create the per-agent MEMORY.md as it would exist from a prior apply.
+	agentDir := filepath.Join(dir, "default")
+	require.NoError(t, os.MkdirAll(agentDir, 0o700))
+	memPath := filepath.Join(agentDir, "MEMORY.md")
+	require.NoError(t, os.WriteFile(memPath, []byte("existing content"), 0o600))
 
 	r := claude.NewMemoryRenderer(dir).WithReseed(true)
 	config := &ast.XcaffoldConfig{
@@ -61,7 +64,7 @@ func TestIntegration_Memory_Claude_SeedOnce_ReseedOverrides(t *testing.T) {
 	_, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(targetPath)
+	data, err := os.ReadFile(memPath)
 	require.NoError(t, err)
 	require.Contains(t, string(data), "Authoritative xcf content.")
 }
@@ -107,7 +110,8 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 	_, _, err = r.Compile(config, applyDir)
 	require.NoError(t, err)
 	require.Len(t, r.Seeds(), 1)
-	require.FileExists(t, filepath.Join(applyDir, "project_user-role.md"))
+	// In the concatenated model, the output is agent-scoped: default/MEMORY.md.
+	require.FileExists(t, filepath.Join(applyDir, "default", "MEMORY.md"))
 }
 
 func TestIntegration_Memory_InheritedEntry_NotSeeded(t *testing.T) {
@@ -140,18 +144,21 @@ func TestIntegration_Memory_InheritedEntry_NotSeeded(t *testing.T) {
 	_, _, err := r.Compile(config, dir)
 	require.NoError(t, err)
 
-	// Only the local entry must produce a seed record.
+	// Only the local entry must produce a seed record. In the concatenated model
+	// the seed is keyed by AgentRef ("default" since no AgentRef is set).
 	seeds := r.Seeds()
 	require.Len(t, seeds, 1, "only the local entry must be seeded")
-	require.Equal(t, "local-entry", seeds[0].Name)
+	require.Equal(t, "default", seeds[0].Name)
 
-	// The local file must exist on disk.
-	require.FileExists(t, filepath.Join(dir, "project_local-entry.md"))
+	// The local entry must be present in the per-agent MEMORY.md.
+	memPath := filepath.Join(dir, "default", "MEMORY.md")
+	require.FileExists(t, memPath)
+	data, err := os.ReadFile(memPath)
+	require.NoError(t, err)
+	require.Contains(t, string(data), "## local-entry")
 
-	// The inherited file must NOT exist on disk.
-	inheritedPath := filepath.Join(dir, "project_inherited-entry.md")
-	_, statErr := os.Stat(inheritedPath)
-	require.True(t, os.IsNotExist(statErr), "inherited entry must not be written to disk")
+	// The inherited entry must NOT appear in the output.
+	require.NotContains(t, string(data), "## inherited-entry")
 }
 
 func TestIntegration_Memory_Gemini_AppendWithMarkers(t *testing.T) {
