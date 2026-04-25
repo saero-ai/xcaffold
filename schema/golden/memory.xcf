@@ -1,9 +1,0 @@
----
-kind: memory
-version: "1.0"
-name: golden-memory
-description: "Reference memory entry exercising the current MemoryConfig fields."
----
-This golden memory entry records a key project-level fact.
-
-Use it as a reference for how memory entries are structured.
