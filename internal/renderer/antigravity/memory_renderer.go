@@ -95,38 +95,11 @@ func resolveKnowledgeBody(name string, entry ast.MemoryConfig, baseDir string) (
 	return string(data), nil
 }
 
-// deriveKITags returns the tags for a Knowledge Item.
-// If a targets["antigravity"].Provider["ki-tags"] slice is present, those tags
-// are used verbatim. Otherwise tags are derived from the entry's type field.
-func deriveKITags(entry ast.MemoryConfig) []string {
-	if override, ok := entry.Targets[targetName]; ok {
-		if raw, ok := override.Provider["ki-tags"]; ok {
-			if slice, ok := raw.([]interface{}); ok {
-				tags := make([]string, 0, len(slice))
-				for _, v := range slice {
-					if s, ok := v.(string); ok {
-						tags = append(tags, s)
-					}
-				}
-				if len(tags) > 0 {
-					return tags
-				}
-			}
-		}
-	}
-
-	switch entry.Type {
-	case "user":
-		return []string{"user", "preferences"}
-	case "feedback":
-		return []string{"feedback"}
-	case "project":
-		return []string{"project", "context"}
-	case "reference":
-		return []string{"reference", "docs"}
-	default:
-		return []string{"memory"}
-	}
+// deriveKITags returns the default tags for a Knowledge Item.
+// Type and targets were removed from MemoryConfig in the agent-scoped memory
+// refactor, so all entries receive the generic "memory" tag.
+func deriveKITags(_ ast.MemoryConfig) []string {
+	return []string{"memory"}
 }
 
 // renderKnowledgeItem composes the Knowledge Item markdown content:
@@ -142,10 +115,6 @@ func renderKnowledgeItem(name string, entry ast.MemoryConfig, tags []string, bod
 		title = name
 	}
 	fmt.Fprintf(&sb, "title: %s\n", renderer.YAMLScalar(title))
-
-	if entry.Type != "" {
-		fmt.Fprintf(&sb, "type: %s\n", entry.Type)
-	}
 
 	if entry.Description != "" {
 		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(entry.Description))

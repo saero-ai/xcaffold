@@ -31,7 +31,7 @@ func withGlobalScope() parseOptionFunc {
 
 // withSourcePath carries the originating file path into parse-time routines
 // that need it — currently used by kind: memory parsing to derive AgentRef
-// from the xcf/memory/<agentID>/ directory name.
+// from the xcf/agents/<agentID>/memory/ directory name.
 func withSourcePath(path string) parseOptionFunc {
 	return func(o *parseOption) { o.sourcePath = path }
 }
@@ -818,7 +818,7 @@ func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, 
 	defer f.Close()
 
 	// Prepend source path so kind-specific parsers can derive contextual
-	// metadata from the file's on-disk location (e.g., xcf/memory/<agentID>/).
+	// metadata from the file's on-disk location (e.g., xcf/agents/<agentID>/memory/).
 	// Caller-supplied opts override this by appearing later in the slice.
 	opts = append([]parseOptionFunc{withSourcePath(path)}, opts...)
 
@@ -1783,51 +1783,8 @@ func validateMerged(c *ast.XcaffoldConfig) error {
 	if err := validatePermissions(c); err != nil {
 		return err
 	}
-	if err := validateMemoryFields(c); err != nil {
-		return err
-	}
 	if err := validateActiveBlueprint(c.Blueprints); err != nil {
 		return err
-	}
-	return nil
-}
-
-// validateMemoryFields checks that lifecycle and type fields on memory entries
-// contain only known enum values. Unknown values fail immediately — they would
-// either be silently ignored at render time or cause a hard error only when
-// --include-memory is active. Failing at parse time catches misconfigurations
-// early, during xcaffold apply and xcaffold validate.
-//
-// Lifecycle defaults to "seed-once" when empty (documented behavior).
-// Type is optional; when set it must be one of the four canonical values.
-func validateMemoryFields(c *ast.XcaffoldConfig) error {
-	for name, m := range c.Memory {
-		if err := validateMemoryEntry(name, m); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// validateMemoryEntry validates a single memory entry's lifecycle and type
-// fields. Shared by both the map-form (kind: global embedded memory:) and
-// the standalone (kind: memory) parsing paths.
-func validateMemoryEntry(name string, m ast.MemoryConfig) error {
-	validLifecycles := map[string]bool{
-		"seed-once": true,
-		"tracked":   true,
-	}
-	validTypes := map[string]bool{
-		"user":      true,
-		"feedback":  true,
-		"project":   true,
-		"reference": true,
-	}
-	if m.Lifecycle != "" && !validLifecycles[m.Lifecycle] {
-		return fmt.Errorf("memory %q: lifecycle must be one of [seed-once, tracked], got %q", name, m.Lifecycle)
-	}
-	if m.Type != "" && !validTypes[m.Type] {
-		return fmt.Errorf("memory %q: type must be one of [user, feedback, project, reference], got %q", name, m.Type)
 	}
 	return nil
 }

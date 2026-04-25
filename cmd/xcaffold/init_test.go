@@ -171,8 +171,8 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	assert.Contains(t, content, "rules:")
 	assert.Contains(t, content, "policies:")
 
-	// Verify xcf/ agents directory and file
-	agentFile := filepath.Join(tmpDir, "xcf", "agents", "developer.xcf")
+	// Verify xcf/ agents directory and file — agents live in xcf/agents/<id>/<id>.xcf
+	agentFile := filepath.Join(tmpDir, "xcf", "agents", "developer", "developer.xcf")
 	assert.FileExists(t, agentFile)
 	agentBytes, _ := os.ReadFile(agentFile)
 	assert.Contains(t, string(agentBytes), "kind: agent")
@@ -217,8 +217,8 @@ func TestWriteXCFDirectory_NoAgent_StillCreatesScaffold(t *testing.T) {
 	// project.xcf should exist
 	assert.FileExists(t, filepath.Join(tmpDir, ".xcaffold", "project.xcf"))
 
-	// but xcf/ should NOT contain an agents/developer.xcf
-	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer.xcf"))
+	// but xcf/ should NOT contain an agents/developer/developer.xcf
+	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer", "developer.xcf"))
 }
 
 // --- Target Flag & Flow Tests ---

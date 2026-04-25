@@ -149,25 +149,25 @@ func OutputDir(target string) string {
 	return r.OutputDir()
 }
 
-// ResolveAgentMemory walks the xcf/memory directory to link memory files to their respective agents.
-// It returns a mapping of agentID -> []memoryName.
+// ResolveAgentMemory walks xcf/agents/<id>/memory/ directories to link
+// memory files to their respective agents. Returns a mapping of agentID -> []memoryName.
 func ResolveAgentMemory(config *ast.XcaffoldConfig, baseDir string) map[string][]string {
 	agentMemory := make(map[string][]string)
-	memDir := filepath.Join(baseDir, "xcf", "memory")
+	agentsDir := filepath.Join(baseDir, "xcf", "agents")
 
-	entries, err := os.ReadDir(memDir)
+	agentEntries, err := os.ReadDir(agentsDir)
 	if err != nil {
-		// If the directory does not exist, return the empty map.
 		return agentMemory
 	}
 
-	for _, entry := range entries {
-		if !entry.IsDir() {
+	for _, agentEntry := range agentEntries {
+		if !agentEntry.IsDir() {
 			continue
 		}
-		agentID := entry.Name()
+		agentID := agentEntry.Name()
+		memDir := filepath.Join(agentsDir, agentID, "memory")
 
-		memFiles, err := os.ReadDir(filepath.Join(memDir, agentID))
+		memFiles, err := os.ReadDir(memDir)
 		if err != nil {
 			continue
 		}

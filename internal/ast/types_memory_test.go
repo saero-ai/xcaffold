@@ -11,30 +11,24 @@ import (
 func TestMemoryConfig_Parse_MinimalValid(t *testing.T) {
 	input := `
 name: user-role
-type: user
 instructions: "Robert is the founder."
 `
 	var m MemoryConfig
 	require.NoError(t, yaml.Unmarshal([]byte(input), &m))
 	assert.Equal(t, "user-role", m.Name)
-	assert.Equal(t, "user", m.Type)
 	assert.Equal(t, "Robert is the founder.", m.Instructions)
 }
 
 func TestMemoryConfig_Parse_FullFields(t *testing.T) {
 	input := `
 name: arch-decisions
-type: reference
 description: "Key architectural decisions."
-lifecycle: tracked
 instructions-file: xcf/memory/arch-decisions.md
 `
 	var m MemoryConfig
 	require.NoError(t, yaml.Unmarshal([]byte(input), &m))
 	assert.Equal(t, "arch-decisions", m.Name)
-	assert.Equal(t, "reference", m.Type)
 	assert.Equal(t, "Key architectural decisions.", m.Description)
-	assert.Equal(t, "tracked", m.Lifecycle)
 	assert.Equal(t, "xcf/memory/arch-decisions.md", m.InstructionsFile)
 }
 

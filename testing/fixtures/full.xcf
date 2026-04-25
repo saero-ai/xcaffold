@@ -25,17 +25,14 @@ rules:
 memory:
   user-role:
     name: user-role
-    type: user
     description: "Developer role and working preferences."
     instructions: |
       The developer is the sole contributor. Prefer concise responses.
       Always confirm approach before multi-file changes.
   architecture-decisions:
     name: architecture-decisions
-    type: reference
     description: "Key architectural decisions for the CLI compiler."
-    lifecycle: tracked
-    instructions-file: xcf/memory/architecture-decisions.md
+    instructions-file: xcf/agents/developer/memory/architecture-decisions.md
 
 workflows:
   code-review:

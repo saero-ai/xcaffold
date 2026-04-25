@@ -92,8 +92,8 @@ func TestMigrate_WritesSplitFiles(t *testing.T) {
 	assert.Contains(t, string(projData), "kind: project")
 	assert.Contains(t, string(projData), "dev")
 
-	// Agent must be written to its own file
-	agentData, readErr := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev.xcf"))
+	// Agent must be written to its own subdirectory: xcf/agents/<id>/<id>.xcf
+	agentData, readErr := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev", "dev.xcf"))
 	require.NoError(t, readErr)
 	assert.Contains(t, string(agentData), "kind: agent")
 	assert.Contains(t, string(agentData), "name: dev")

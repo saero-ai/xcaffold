@@ -170,7 +170,7 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 // WriteSplitFiles writes an XcaffoldConfig to rootDir as individual .xcf files:
 //
 //   - rootDir/project.xcf        — kind: project (metadata + ref lists)
-//   - rootDir/xcf/agents/<n>.xcf  — kind: agent   (one per agent)
+//   - rootDir/xcf/agents/<n>/<n>.xcf — kind: agent (one per agent, in its own subdirectory)
 //   - rootDir/xcf/skills/<n>.xcf  — kind: skill   (one per skill)
 //   - rootDir/xcf/rules/<n>.xcf   — kind: rule    (one per rule)
 //   - rootDir/xcf/workflows/<n>.xcf — kind: workflow
@@ -273,14 +273,16 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	xcfDir := filepath.Join(rootDir, "xcf")
 
 	// ── kind: agent ──────────────────────────────────────────────────────────
+	// Each agent lives in its own subdirectory: xcf/agents/<id>/<id>.xcf
+	// Flat files under xcf/agents/<id>.xcf are rejected by the parser.
 	if len(config.Agents) > 0 {
-		dir := filepath.Join(xcfDir, "agents")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
-		}
 		for _, k := range sortedMapKeys(config.Agents) {
 			if agentFilter != nil && !agentFilter[k] {
 				continue
+			}
+			agentSubDir := filepath.Join(xcfDir, "agents", k)
+			if err := os.MkdirAll(agentSubDir, 0755); err != nil {
+				return err
 			}
 			agent := config.Agents[k]
 			if agent.Name == "" {
@@ -291,7 +293,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			// the body is written as markdown content after the --- delimiter.
 			agent.Instructions = ""
 			doc := agentDoc{Kind: "agent", Version: version, AgentConfig: agent}
-			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
+			if err := writeFrontmatterFile(filepath.Join(agentSubDir, k+".xcf"), doc, body); err != nil {
 				return err
 			}
 		}

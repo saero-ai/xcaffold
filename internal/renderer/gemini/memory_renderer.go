@@ -168,11 +168,13 @@ func (r *MemoryRenderer) Render(files map[string]string) (*output.Output, error)
 }
 
 // buildBlock constructs the provenance-marked memory block for a single entry.
+// The type attribute was removed from MemoryConfig in the agent-scoped memory
+// refactor; the marker now omits it and the header line uses a generic label.
 //
 // Format:
 //
-//	<!-- xcaffold:memory name="<name>" type="<type>" seeded-at="<RFC3339>" -->
-//	**<name>** (<type>): <description>
+//	<!-- xcaffold:memory name="<name>" seeded-at="<RFC3339>" -->
+//	**<name>**: <description>
 //
 //	<instructions body>
 //	<!-- xcaffold:/memory -->
@@ -180,14 +182,14 @@ func buildBlock(name string, entry ast.MemoryConfig, body, seededAt string) stri
 	var sb strings.Builder
 
 	// Open marker.
-	fmt.Fprintf(&sb, "<!-- xcaffold:memory name=%q type=%q seeded-at=%q -->\n",
-		name, entry.Type, seededAt)
+	fmt.Fprintf(&sb, "<!-- xcaffold:memory name=%q seeded-at=%q -->\n",
+		name, seededAt)
 
 	// Header line.
 	if entry.Description != "" {
-		fmt.Fprintf(&sb, "**%s** (%s): %s\n", name, entry.Type, entry.Description)
+		fmt.Fprintf(&sb, "**%s**: %s\n", name, entry.Description)
 	} else {
-		fmt.Fprintf(&sb, "**%s** (%s):\n", name, entry.Type)
+		fmt.Fprintf(&sb, "**%s**:\n", name)
 	}
 
 	// Body.

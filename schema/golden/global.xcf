@@ -124,7 +124,5 @@ mcp:
 memory:
   global-ref-memory:
     name: global-ref-memory
-    type: feedback
     description: "A minimal memory entry defined at global scope."
-    lifecycle: tracked
     instructions: "Remember this globally."

@@ -21,7 +21,6 @@ func TestCompileMemory_SeedOnce_FileAbsent(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Description:  "Developer role.",
 					Instructions: "Robert is the founder.",
 				},
@@ -47,7 +46,6 @@ func TestCompileMemory_SeedOnce_FilePresent_NoOp(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Instructions: "Robert is the founder.",
 				},
 			},
@@ -75,7 +73,6 @@ func TestCompileMemory_Reseed_Overwrites(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Instructions: "New content.",
 				},
 			},
@@ -89,7 +86,9 @@ func TestCompileMemory_Reseed_Overwrites(t *testing.T) {
 	require.Contains(t, string(data), "New content.")
 }
 
-func TestCompileMemory_Tracked_FirstApply(t *testing.T) {
+// TestCompileMemory_SeedOnce_ReseedRequired verifies that seed-once semantics
+// (now the only mode after lifecycle removal) skip existing files unless --reseed.
+func TestCompileMemory_SeedOnce_ReseedRequired(t *testing.T) {
 	dir := t.TempDir()
 	r := NewMemoryRenderer(dir)
 
@@ -98,8 +97,6 @@ func TestCompileMemory_Tracked_FirstApply(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"arch-decisions": {
 					Name:         "arch-decisions",
-					Type:         "reference",
-					Lifecycle:    "tracked",
 					Instructions: "One-way compiler model.",
 				},
 			},
@@ -112,10 +109,12 @@ func TestCompileMemory_Tracked_FirstApply(t *testing.T) {
 	require.FileExists(t, filepath.Join(dir, "project_arch-decisions.md"))
 }
 
-func TestCompileMemory_Tracked_DriftDetected(t *testing.T) {
+// TestCompileMemory_PriorSeeds_SeedOnce verifies that CompileWithPriorSeeds
+// still applies seed-once logic (skips existing files) after lifecycle removal.
+func TestCompileMemory_PriorSeeds_SeedOnce(t *testing.T) {
 	dir := t.TempDir()
 	targetPath := filepath.Join(dir, "project_arch-decisions.md")
-	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
+	require.NoError(t, os.WriteFile(targetPath, []byte("existing content"), 0o600))
 
 	r := NewMemoryRenderer(dir)
 	config := &ast.XcaffoldConfig{
@@ -123,26 +122,29 @@ func TestCompileMemory_Tracked_DriftDetected(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"arch-decisions": {
 					Name:         "arch-decisions",
-					Type:         "reference",
-					Lifecycle:    "tracked",
-					Instructions: "Original xcf content.",
+					Instructions: "New xcf content.",
 				},
 			},
 		},
 	}
 
-	// Prior seed hash does not match the current on-disk content
 	priorHash := "sha256:abc123notmatching"
+	output, notes, err := r.CompileWithPriorSeeds(config, dir, map[string]string{"arch-decisions": priorHash})
+	require.NoError(t, err, "seed-once: existing file must not cause an error")
+	require.NotNil(t, output)
+	require.NotEmpty(t, notes, "seed-once: skip note must be emitted")
 
-	_, _, err := r.CompileWithPriorSeeds(config, dir, map[string]string{"arch-decisions": priorHash})
-	require.Error(t, err, "drift must produce an error")
-	require.Contains(t, err.Error(), "memory drift detected")
+	// File must be untouched.
+	data, _ := os.ReadFile(targetPath)
+	require.Equal(t, "existing content", string(data))
 }
 
-func TestCompileMemory_Tracked_ReseedOverridesDrift(t *testing.T) {
+// TestCompileMemory_PriorSeeds_ReseedOverrides verifies that WithReseed(true)
+// overwrites even when the file exists.
+func TestCompileMemory_PriorSeeds_ReseedOverrides(t *testing.T) {
 	dir := t.TempDir()
 	targetPath := filepath.Join(dir, "project_arch-decisions.md")
-	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
+	require.NoError(t, os.WriteFile(targetPath, []byte("existing content"), 0o600))
 
 	r := NewMemoryRenderer(dir).WithReseed(true)
 	config := &ast.XcaffoldConfig{
@@ -150,8 +152,6 @@ func TestCompileMemory_Tracked_ReseedOverridesDrift(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"arch-decisions": {
 					Name:         "arch-decisions",
-					Type:         "reference",
-					Lifecycle:    "tracked",
 					Instructions: "Authoritative xcf content.",
 				},
 			},
@@ -175,7 +175,6 @@ func TestCompileMemory_FrontmatterFormat(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Description:  "Developer role.",
 					Instructions: "Robert is the founder.",
 				},
@@ -189,9 +188,10 @@ func TestCompileMemory_FrontmatterFormat(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dir, "project_user-role.md"))
 	content := string(data)
 	require.Contains(t, content, "---")
-	require.Contains(t, content, "type: user")
 	require.Contains(t, content, `description: "Developer role."`)
 	require.Contains(t, content, "Robert is the founder.")
+	// type: field must not appear — it was removed from MemoryConfig.
+	require.NotContains(t, content, "type:")
 }
 
 func TestCompileMemory_MemoryIndexAppend(t *testing.T) {
@@ -202,7 +202,6 @@ func TestCompileMemory_MemoryIndexAppend(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"user-role": {
 					Name:         "user-role",
-					Type:         "user",
 					Instructions: "Robert is the founder.",
 				},
 			},
@@ -237,26 +236,6 @@ func TestCompileMemory_InstructionsFileTraversal_Rejected(t *testing.T) {
 	require.Contains(t, err.Error(), "escapes base dir")
 }
 
-func TestCompileMemory_UnknownLifecycle_Rejected(t *testing.T) {
-	dir := t.TempDir()
-	r := NewMemoryRenderer(dir)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"bad-lifecycle": {
-					Name:         "bad-lifecycle",
-					Lifecycle:    "weird",
-					Instructions: "some content",
-				},
-			},
-		},
-	}
-
-	_, _, err := r.Compile(config, dir)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "unknown lifecycle")
-}
-
 func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
 	dir := t.TempDir()
 	r := NewMemoryRenderer(dir)
@@ -265,7 +244,6 @@ func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
 			Memory: map[string]ast.MemoryConfig{
 				"colon-desc": {
 					Name:         "colon-desc",
-					Type:         "user",
 					Description:  "has: a colon",
 					Instructions: "Some body text.",
 				},
@@ -290,40 +268,45 @@ func TestCompileMemory_DescriptionWithColon_QuotedSafely(t *testing.T) {
 	require.Equal(t, "has: a colon", parsed["description"])
 }
 
-func TestCompileMemory_Tracked_DriftEmitsFidelityNote(t *testing.T) {
+// TestCompileMemory_Seeds_Recorded verifies that Seeds() returns a MemorySeed
+// for each written entry after Compile.
+func TestCompileMemory_Seeds_Recorded(t *testing.T) {
 	dir := t.TempDir()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"arch": {Name: "arch", Type: "reference", Lifecycle: "tracked", Instructions: "Original xcf content."},
+				"arch": {Name: "arch", Instructions: "Original xcf content."},
 			},
 		},
 	}
 
-	// Seed the file.
 	r1 := NewMemoryRenderer(dir)
 	_, _, err := r1.Compile(config, dir)
 	require.NoError(t, err)
-	priorHash := r1.Seeds()[0].Hash
 
-	// Simulate agent modification.
+	seeds := r1.Seeds()
+	require.Len(t, seeds, 1, "one seed must be recorded for one written entry")
+	require.Equal(t, "arch", seeds[0].Name)
+	require.Equal(t, "claude", seeds[0].Target)
+	require.Equal(t, memoryLifecycleSeedOnce, seeds[0].Lifecycle)
+
+	// Simulate a re-apply with the prior hash: seed-once skips, so Seeds() is empty.
+	priorHash := seeds[0].Hash
 	targetPath := filepath.Join(dir, "project_arch.md")
 	require.NoError(t, os.WriteFile(targetPath, []byte("agent modified this"), 0o600))
 
-	// Apply with prior hash: must return an error AND emit a CodeMemoryDriftDetected note.
 	r2 := NewMemoryRenderer(dir)
 	_, notes, err := r2.CompileWithPriorSeeds(config, dir, map[string]string{"arch": priorHash})
-	require.Error(t, err, "drift must return an error")
-	require.Contains(t, err.Error(), "memory drift detected")
-	require.NotEmpty(t, notes, "drift must emit at least one FidelityNote")
+	require.NoError(t, err, "seed-once: existing file must not error")
+	require.NotEmpty(t, notes)
 
-	var hasDriftCode bool
+	// Verify the FidelityNote code is seed-skipped.
+	var hasSkipCode bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeMemoryDriftDetected {
-			hasDriftCode = true
-			require.Equal(t, renderer.LevelError, n.Level)
+		if n.Code == renderer.CodeMemorySeedSkipped {
+			hasSkipCode = true
 		}
 	}
-	require.True(t, hasDriftCode, "notes must include a MEMORY_DRIFT_DETECTED note")
+	require.True(t, hasSkipCode, "notes must include a MEMORY_SEED_SKIPPED note")
 }
