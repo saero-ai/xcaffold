@@ -88,13 +88,13 @@ func TestImportScope_Claude_AgentMemoryAutoSnapshot(t *testing.T) {
 
 	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
-	// xcf/agents/dev/memory/ must have been created
+	// xcf/agents/dev/memory/ must have been created with plain .md files
 	assert.DirExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory"),
 		"xcf/agents/dev/memory/ must be created from .claude/agent-memory/dev/")
-	assert.FileExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory", "MEMORY.xcf"),
-		"MEMORY.xcf must be written into xcf/agents/dev/memory/")
-	assert.FileExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory", "note.xcf"),
-		"note.xcf must be written into xcf/agents/dev/memory/")
+	assert.FileExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory", "MEMORY.md"),
+		"MEMORY.md must be written into xcf/agents/dev/memory/")
+	assert.FileExists(t, filepath.Join(tmp, "xcf", "agents", "dev", "memory", "note.md"),
+		"note.md must be written into xcf/agents/dev/memory/")
 }
 
 // ─── Gap 3: Claude Code — CLAUDE.md project instructions ────────────────────

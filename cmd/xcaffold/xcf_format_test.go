@@ -504,59 +504,6 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 	assert.NotContains(t, content, "instructions:")
 }
 
-func TestWriteSplitFiles_Memory_SlashKey(t *testing.T) {
-	dir := t.TempDir()
-	config := &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{Name: "test"},
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"developer/architecture-decisions": {
-					Name:    "architecture-decisions",
-					Content: "Keep decisions short.",
-				},
-			},
-		},
-	}
-	err := WriteSplitFiles(config, dir)
-	require.NoError(t, err)
-
-	expected := filepath.Join(dir, "xcf", "agents", "developer", "memory", "architecture-decisions.xcf")
-	assert.FileExists(t, expected, "slash-key memory must go to xcf/agents/<agentID>/memory/<name>.xcf")
-
-	data, err := os.ReadFile(expected)
-	require.NoError(t, err)
-	assert.Contains(t, string(data), "kind: memory")
-}
-
-// TestWriteSplitFiles_Memory_AgentRef verifies that when a memory key has no slash,
-// AgentRef on MemoryConfig is used to determine the agent directory.
-func TestWriteSplitFiles_Memory_AgentRef(t *testing.T) {
-	dir := t.TempDir()
-	config := &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{Name: "test"},
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"architecture-decisions": {
-					Name:     "architecture-decisions",
-					AgentRef: "developer",
-					Content:  "Keep decisions short.",
-				},
-			},
-		},
-	}
-	err := WriteSplitFiles(config, dir)
-	require.NoError(t, err)
-
-	expected := filepath.Join(dir, "xcf", "agents", "developer", "memory", "architecture-decisions.xcf")
-	assert.FileExists(t, expected, "AgentRef must determine xcf/agents/<agentID>/memory/<name>.xcf when key has no slash")
-
-	data, err := os.ReadFile(expected)
-	require.NoError(t, err)
-	assert.Contains(t, string(data), "kind: memory")
-}
-
 func TestWriteFrontmatterFile_EmptyBody_FallsBackToYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "ceo.xcf")

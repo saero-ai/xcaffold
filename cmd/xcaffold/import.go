@@ -582,10 +582,32 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 
 	// ── 4. Agent memory ─────────────────────────────────────────────────────────
 	// Memory is extracted into config.Memory by the ProviderImporter during
-	// Import() (e.g. claude extracts agent-memory/**). WriteSplitFiles writes
-	// them as kind: memory .xcf files to xcf/agents/<id>/memory/. No separate raw-copy
-	// snapshot step is needed.
+	// Import() (e.g. claude extracts agent-memory/**). Write each entry as a
+	// plain .md file to xcf/agents/<agentID>/memory/<name>.md so the compiler
+	// discovers them via convention-based filesystem scanning.
 	if len(config.Memory) > 0 {
+		for _, k := range sortedMapKeys(config.Memory) {
+			mem := config.Memory[k]
+			parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
+			var agentID, memName string
+			if len(parts) == 2 {
+				agentID = parts[0]
+				memName = parts[1]
+			} else {
+				agentID = mem.AgentRef
+				if agentID == "" {
+					agentID = k
+				}
+				memName = k
+			}
+			outPath := filepath.Join("xcf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
+			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+				return fmt.Errorf("create memory dir: %w", err)
+			}
+			if err := os.WriteFile(filepath.Clean(outPath), []byte(mem.Content), 0644); err != nil {
+				return fmt.Errorf("write memory file: %w", err)
+			}
+		}
 		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", len(config.Memory))
 	}
 	switch provider {

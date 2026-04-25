@@ -62,13 +62,6 @@ type mcpDoc struct {
 	ast.MCPConfig `yaml:",inline"`
 }
 
-// memoryDoc is the serialization envelope for a kind: memory document.
-type memoryDoc struct {
-	Kind             string `yaml:"kind"`
-	Version          string `yaml:"version"`
-	ast.MemoryConfig `yaml:",inline"`
-}
-
 // projectSplitDoc is the serialization envelope for kind: project in split-file mode.
 // It does NOT contain resource maps — only metadata, targets, ref lists pointing
 // to child files under xcf/, and project-level instruction references.
@@ -444,42 +437,6 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		}
 		if err := writeYAMLFile(filepath.Join(xcfDir, "settings.xcf"), doc); err != nil {
 			return err
-		}
-	}
-
-	// ── kind: memory ─────────────────────────────────────────────────────────
-	// Memory keys are "<agentID>/<memName>" (e.g. "dev/MEMORY"). Each entry is
-	// written to xcf/agents/<agentID>/memory/<memName>.xcf to match the
-	// agent-scoped directory layout consumed by the compiler and renderers.
-	if len(config.Memory) > 0 {
-		for _, k := range sortedMapKeys(config.Memory) {
-			mem := config.Memory[k]
-			if mem.Name == "" {
-				mem.Name = k
-			}
-			doc := memoryDoc{Kind: "memory", Version: version, MemoryConfig: mem}
-			// Derive the output path: split key on first "/" to get agent ID.
-			// Keys without a "/" have the agent ID equal to the key itself
-			// (e.g. "dev" from agent-memory/dev.md → xcf/agents/dev/memory/dev.xcf).
-			parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
-			var agentID, memName string
-			if len(parts) == 2 {
-				agentID = parts[0]
-				memName = parts[1]
-			} else {
-				agentID = mem.AgentRef
-				if agentID == "" {
-					agentID = k // fallback for truly unscoped memory
-				}
-				memName = k
-			}
-			outPath := filepath.Join(xcfDir, "agents", agentID, "memory", filepath.FromSlash(memName)+".xcf")
-			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-				return err
-			}
-			if err := writeYAMLFile(outPath, doc); err != nil {
-				return err
-			}
 		}
 	}
 
