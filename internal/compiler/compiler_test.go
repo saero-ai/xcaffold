@@ -569,6 +569,18 @@ func TestDiscoverAgentMemory_FallbackNameDescription(t *testing.T) {
 	assert.Equal(t, "First line of content.\nSecond line.", entry.Content)
 }
 
+func TestDiscoverAgentMemory_FallbackDescriptionTruncated(t *testing.T) {
+	dir := t.TempDir()
+	agentMemDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
+	longLine := strings.Repeat("a", 200)
+	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "long.md"), []byte(longLine), 0o644))
+
+	result := DiscoverAgentMemory(dir)
+	entry := result["dev/long"]
+	assert.Len(t, []rune(entry.Description), 120)
+}
+
 func TestDiscoverAgentMemory_IgnoresXcfFiles(t *testing.T) {
 	dir := t.TempDir()
 	agentMemDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")

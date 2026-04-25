@@ -207,8 +207,9 @@ func DiscoverAgentMemory(baseDir string) map[string]ast.MemoryConfig {
 				lines := strings.SplitN(strings.TrimSpace(content), "\n", 2)
 				if len(lines) > 0 {
 					desc = strings.TrimSpace(lines[0])
-					if len(desc) > 120 {
-						desc = desc[:120]
+					runes := []rune(desc)
+					if len(runes) > 120 {
+						desc = string(runes[:120])
 					}
 				}
 			}

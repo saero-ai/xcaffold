@@ -12,6 +12,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func agentMemoryIndex(rootDir string) map[string][]string {
+	discovered := compiler.DiscoverAgentMemory(rootDir)
+	idx := make(map[string][]string)
+	for key := range discovered {
+		parts := strings.SplitN(key, "/", 2)
+		if len(parts) == 2 {
+			idx[parts[0]] = append(idx[parts[0]], parts[1])
+		}
+	}
+	for id := range idx {
+		sort.Strings(idx[id])
+	}
+	return idx
+}
+
 // agentDoc is the serialization envelope for a kind: agent document.
 type agentDoc struct {
 	Kind            string `yaml:"kind"`
@@ -107,17 +122,7 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 		proj = &ast.ProjectConfig{}
 	}
 	agentRefs := proj.AgentRefs
-	discovered := compiler.DiscoverAgentMemory(rootDir)
-	agentMemMap := make(map[string][]string)
-	for key := range discovered {
-		parts := strings.SplitN(key, "/", 2)
-		if len(parts) == 2 {
-			agentMemMap[parts[0]] = append(agentMemMap[parts[0]], parts[1])
-		}
-	}
-	for id := range agentMemMap {
-		sort.Strings(agentMemMap[id])
-	}
+	agentMemMap := agentMemoryIndex(rootDir)
 	if len(agentRefs) == 0 && len(config.Agents) > 0 {
 		sortedAgents := sortedMapKeys(config.Agents)
 		for _, sa := range sortedAgents {
@@ -207,17 +212,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 
 	// Derive ref lists from the config maps when the explicit ref fields are empty.
 	agentRefs := proj.AgentRefs
-	discovered2 := compiler.DiscoverAgentMemory(rootDir)
-	agentMemMap2 := make(map[string][]string)
-	for key := range discovered2 {
-		parts := strings.SplitN(key, "/", 2)
-		if len(parts) == 2 {
-			agentMemMap2[parts[0]] = append(agentMemMap2[parts[0]], parts[1])
-		}
-	}
-	for id := range agentMemMap2 {
-		sort.Strings(agentMemMap2[id])
-	}
+	agentMemMap2 := agentMemoryIndex(rootDir)
 	if len(agentRefs) == 0 && len(config.Agents) > 0 {
 		sortedAgents := sortedMapKeys(config.Agents)
 		for _, sa := range sortedAgents {
