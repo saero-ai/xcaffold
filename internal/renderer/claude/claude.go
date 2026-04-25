@@ -290,10 +290,7 @@ func (r *Renderer) compileMemoryToMap(config *ast.XcaffoldConfig, baseDir string
 
 	for _, name := range names {
 		e := config.Memory[name]
-		body, err := resolveMemoryBody(name, e, baseDir)
-		if err != nil {
-			return nil, nil, err
-		}
+		body := e.Content
 		if strings.TrimSpace(body) == "" {
 			continue
 		}

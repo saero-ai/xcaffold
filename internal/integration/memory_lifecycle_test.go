@@ -16,56 +16,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIntegration_Memory_Claude_SeedOnce_WritesThenSkips(t *testing.T) {
+func TestIntegration_Memory_Claude_AlwaysOverwrites(t *testing.T) {
 	dir := t.TempDir()
-	r := claude.NewMemoryRenderer(dir)
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Content: "Robert is the founder."},
+				"user-role": {Name: "user-role", Description: "User role", Content: "Robert is the founder."},
 			},
 		},
 	}
 
 	// First apply: file absent, must write + record a seed.
+	r := claude.NewMemoryRenderer(dir)
 	_, notes1, err := r.Compile(config, dir)
 	require.NoError(t, err)
 	require.Empty(t, notes1, "first apply must not emit fidelity notes")
 	require.Len(t, r.Seeds(), 1)
 
-	// Second apply on a fresh renderer (simulate a new run): file present, must skip.
+	// Second apply on a fresh renderer: must still write and record a seed.
 	r2 := claude.NewMemoryRenderer(dir)
 	_, _, err = r2.Compile(config, dir)
 	require.NoError(t, err)
-	require.Empty(t, r2.Seeds(), "second apply must not record a new seed")
-}
-
-// TestIntegration_Memory_Claude_SeedOnce_ReseedOverrides verifies that
-// WithReseed(true) overwrites existing seed-once files (now the only lifecycle).
-func TestIntegration_Memory_Claude_SeedOnce_ReseedOverrides(t *testing.T) {
-	dir := t.TempDir()
-	// Pre-create the per-agent MEMORY.md as it would exist from a prior apply.
-	agentDir := filepath.Join(dir, "default")
-	require.NoError(t, os.MkdirAll(agentDir, 0o700))
-	memPath := filepath.Join(agentDir, "MEMORY.md")
-	require.NoError(t, os.WriteFile(memPath, []byte("existing content"), 0o600))
-
-	r := claude.NewMemoryRenderer(dir).WithReseed(true)
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Content: "Authoritative xcf content."},
-			},
-		},
-	}
-
-	_, _, err := r.Compile(config, dir)
-	require.NoError(t, err)
-
-	data, err := os.ReadFile(memPath)
-	require.NoError(t, err)
-	require.Contains(t, string(data), "Authoritative xcf content.")
+	require.Len(t, r2.Seeds(), 1, "apply always overwrites, must record seed")
 }
 
 func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
@@ -109,8 +82,9 @@ func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
 	_, _, err = r.Compile(config, applyDir)
 	require.NoError(t, err)
 	require.Len(t, r.Seeds(), 1)
-	// In the concatenated model, the output is agent-scoped: default/MEMORY.md.
+	// Output is agent-scoped: default/MEMORY.md index + individual files.
 	require.FileExists(t, filepath.Join(applyDir, "default", "MEMORY.md"))
+	require.FileExists(t, filepath.Join(applyDir, "default", "user-role.md"))
 }
 
 func TestIntegration_Memory_MultipleEntries_AllSeeded(t *testing.T) {
@@ -123,12 +97,14 @@ func TestIntegration_Memory_MultipleEntries_AllSeeded(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
 				"entry-a": {
-					Name:    "entry-a",
-					Content: "Content A.",
+					Name:        "entry-a",
+					Description: "Entry A",
+					Content:     "Content A.",
 				},
 				"entry-b": {
-					Name:    "entry-b",
-					Content: "Content B.",
+					Name:        "entry-b",
+					Description: "Entry B",
+					Content:     "Content B.",
 				},
 			},
 		},
@@ -142,13 +118,13 @@ func TestIntegration_Memory_MultipleEntries_AllSeeded(t *testing.T) {
 	seeds := r.Seeds()
 	require.Len(t, seeds, 1, "one seed per agent group (default)")
 
-	// Both entries must be present in the per-agent MEMORY.md.
+	// Both entries must be present in the per-agent MEMORY.md index.
 	memPath := filepath.Join(dir, "default", "MEMORY.md")
 	require.FileExists(t, memPath)
 	data, err := os.ReadFile(memPath)
 	require.NoError(t, err)
-	require.Contains(t, string(data), "## entry-a")
-	require.Contains(t, string(data), "## entry-b")
+	require.Contains(t, string(data), "[entry-a]")
+	require.Contains(t, string(data), "[entry-b]")
 }
 
 func TestIntegration_Memory_Gemini_AppendWithMarkers(t *testing.T) {
