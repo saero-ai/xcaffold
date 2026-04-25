@@ -76,7 +76,7 @@ validation passed
 
 ## Step 2 — Build the shared library
 
-Rules and skills are defined alongside agents inside the `project:` block — as sibling maps to `agents:`. They form a shared library that agents reference by ID. They are compiled into separate files under `.claude/rules/` and `.claude/skills/` respectively.
+Rules and skills are defined in their own `.xcf` files as top-level resources (`kind: rule`, `kind: skill`). They form a shared library that agents reference by ID. They are compiled into separate files under `.claude/rules/` and `.claude/skills/` respectively.
 
 **Rules** enforce behavioral constraints. A rule with `paths:` activates only when the agent reads or writes matching file patterns. A rule with `always-apply: true` is injected regardless of context.
 
@@ -192,7 +192,7 @@ my-team/
 
 `ParseDirectory` discovers all `.xcf` files recursively, parses each one, and merges the results into a single AST before compilation. The parser uses file discovery to find resources — no explicit ref lists needed in `project.xcf`.
 
-See [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md) for best practices on directory organization as projects grow.
+See [Organizing Project Resources](../how-to/multi-file-projects.md) for best practices on directory organization as projects grow.
 
 ---
 
@@ -421,6 +421,6 @@ You configured a two-agent workspace with distinct tool permissions, defined sha
 ## Next Steps
 
 - **Drift remediation** — detect and restore managed files when compiled output has been modified directly: [Drift Remediation](drift-remediation.md)
-- **Split configurations** — break a large `project.xcf` into per-resource files under `xcf/`: [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md)
+- **Organize configurations** — structure resources into domain-scoped files under `xcf/`: [Organizing Project Resources](../how-to/multi-file-projects.md)
 - **Policy enforcement** — add `require` and `deny` constraints that block compilation when violated: [Policy Enforcement](../how-to/policy-enforcement.md)
 - **CLI reference** — full command reference including all flags for `apply`, `diff`, `validate`, and `graph`: [CLI Reference](../reference/cli.md)

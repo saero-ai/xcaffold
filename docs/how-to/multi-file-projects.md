@@ -1,21 +1,21 @@
 ---
-title: "Splitting a Project Into Multiple .xcf Files"
-description: "Break a monolithic project.xcf into domain-scoped files with automatic merge and duplicate detection"
+title: "Organizing Project Resources"
+description: "How to organize .xcf files into domain-scoped directories with automatic merge and duplicate detection"
 ---
 
-# Splitting a Project Into Multiple .xcf Files
+# Organizing Project Resources
 
 xcaffold uses one file per resource: a `project.xcf` manifest plus individual `.xcf` files for agents, skills, rules, and other resources under `xcf/`. As projects grow, spreading resources across domain subdirectories keeps each file focused and easy to review and diff. The parser scans all `.xcf` files recursively, merges them, and validates the result as a single configuration.
 
-The recommended split layout uses `project.xcf` (`kind: project`) at the project root and individual resource `.xcf` files under an `xcf/` subdirectory. All xcaffold commands should be run from the directory containing `project.xcf`.
+The standard layout uses `project.xcf` (`kind: project`) at the project root and individual resource `.xcf` files under an `xcf/` subdirectory. All xcaffold commands should be run from the directory containing `project.xcf`.
 
-**When to use this:** When a monolithic `project.xcf` exceeds a few hundred lines, or when different team members own distinct resource domains and need isolated files for review and diffing.
+**When to use this:** This is the default structure natively bootstrapped by `xcaffold init`. You can further organize your team's resources into domain subdirectories for better isolation and ownership.
 
 **Prerequisites:**
 - Completed [Getting Started](../tutorials/getting-started.md) tutorial
 - An existing `project.xcf` in your project
 
-This how-to covers when and how to split, what merge rules apply per resource type, how duplicate IDs are caught, and what the compiled output looks like for each target.
+This how-to covers directory scanning, what merge rules apply per resource type, how duplicate IDs are caught, and what the compiled output looks like for each target.
 
 ---
 
@@ -428,7 +428,7 @@ xcaffold apply --target cursor --config /path/to/myproject
 
 ## Verification
 
-After splitting, verify the merged configuration compiles without errors:
+After creating your resource files, verify the merged configuration compiles without errors:
 
 ```bash
 xcaffold validate
@@ -471,4 +471,4 @@ All agent files declared across your split `.xcf` files should appear in the out
 - [Schema Reference](../reference/schema.md) — full field tables for each `kind:` document type
 - [CLI Reference: xcaffold diff](../reference/cli.md#xcaffold-diff)
 - [CLI Reference: xcaffold validate](../reference/cli.md#xcaffold-validate)
-- [Import Existing Config](import-existing-config.md) — generate split files from an existing provider directory
+- [Import Existing Config](import-existing-config.md) — extract separated `.xcf` files from an existing provider directory

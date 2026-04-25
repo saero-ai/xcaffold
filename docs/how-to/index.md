@@ -9,7 +9,7 @@ Task-oriented guides for engineers who already understand xcaffold's core model 
 
 ## Guides
 
-- [Splitting a Project Into Multiple .xcf Files](multi-file-projects.md) — Split a monolithic `project.xcf` into domain-scoped files with automatic merge, duplicate detection, and per-target lock tracking.
+- [Organizing Project Resources](multi-file-projects.md) — Organize your `.xcf` files into domain-scoped directories with automatic merge, duplicate detection, and per-target state tracking.
 
 
 

@@ -238,7 +238,7 @@ xcaffold apply --target claude
 [project] ✓ Apply complete. .xcaffold/project.xcf.state updated.
 ```
 
-The new instruction line appears in `.claude/agents/developer.md`. The lock's artifact hash updates. The source `project.xcf` remains the only file you edited.
+The new instruction line appears in `.claude/agents/developer.md`. The state file's artifact hash updates. The source `project.xcf` remains the only file you edited.
 
 ---
 
@@ -252,7 +252,7 @@ You created a `project.xcf` file with a project manifest and one agent definitio
 
 - **Drift remediation** — learn how `xcaffold diff` detects and resolves manual edits in compiled output: [`drift-remediation.md`](drift-remediation.md)
 - **Multi-agent workspaces** — define multiple agents, skills, and rules: [`multi-agent-workspace.md`](multi-agent-workspace.md)
-- **Split configurations** — break a growing project into `project.xcf` + `xcf/` subdirectories: [`multi-file-projects.md`](../how-to/multi-file-projects.md)
+- **Organize configurations** — structure resources into domain-scoped files under `xcf/`: [`multi-file-projects.md`](../how-to/multi-file-projects.md)
 - **Import existing config** — adopt xcaffold on an existing `.claude/` project: [`import-existing-config.md`](../how-to/import-existing-config.md)
-- **Skill subdirectories** — Skills can include `references/`, `scripts/`, `assets/`, and `examples/` subdirectories for supporting files like API specs, helper scripts, and output demonstrations. See [Splitting a Project Into Multiple .xcf Files](../how-to/multi-file-projects.md#skill-directory-layout) for the full directory layout and validation rules.
+- **Skill subdirectories** — Skills can include `references/`, `scripts/`, `assets/`, and `examples/` subdirectories for supporting files like API specs, helper scripts, and output demonstrations. See [Organizing Project Resources](../how-to/multi-file-projects.md#skill-directory-layout) for the full directory layout and validation rules.
 - **Other targets** — compile the same configuration to `.cursor/` (`--target cursor`), `.gemini/` (`--target gemini`), `.github/` (`--target copilot`), or `.agents/` (`--target antigravity`) without changing `project.xcf`.
