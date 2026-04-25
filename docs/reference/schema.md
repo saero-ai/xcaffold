@@ -159,9 +159,7 @@ erDiagram
     }
     MemoryConfig {
         string name
-        string type
         string description
-        string lifecycle
         string instructions
         string instructions-file
     }

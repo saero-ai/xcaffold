@@ -23,13 +23,13 @@ func TestMemoryConfig_Parse_FullFields(t *testing.T) {
 	input := `
 name: arch-decisions
 description: "Key architectural decisions."
-instructions-file: xcf/memory/arch-decisions.md
+instructions-file: xcf/agents/reviewer/memory/arch-decisions.md
 `
 	var m MemoryConfig
 	require.NoError(t, yaml.Unmarshal([]byte(input), &m))
 	assert.Equal(t, "arch-decisions", m.Name)
 	assert.Equal(t, "Key architectural decisions.", m.Description)
-	assert.Equal(t, "xcf/memory/arch-decisions.md", m.InstructionsFile)
+	assert.Equal(t, "xcf/agents/reviewer/memory/arch-decisions.md", m.InstructionsFile)
 }
 
 func TestMemoryConfig_InheritedNotSerialized(t *testing.T) {

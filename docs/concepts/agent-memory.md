@@ -13,16 +13,18 @@ When you run `xcaffold apply`, memory entries are rendered into each target prov
 
 ## Example Usage
 
-Place each memory file under `xcf/memory/<agent-id>/`:
+Place each memory file under `xcf/agents/<agent-id>/memory/`:
 
 ```
 xcf/
-  memory/
+  agents/
     security-reviewer/
-      audit_log_owner.xcf
+      security-reviewer.xcf
+      memory/
+        audit_log_owner.xcf
 ```
 
-`xcf/memory/security-reviewer/audit_log_owner.xcf`:
+`xcf/agents/security-reviewer/memory/audit_log_owner.xcf`:
 
 ```yaml
 ---
@@ -30,15 +32,12 @@ kind: memory
 version: "1.0"
 name: audit_log_owner
 description: "Who owns the project audit log."
-type: project
-lifecycle: seed-once
-instructions: |
-  The security team owns the audit log. Route all audit-log
-  questions to them rather than the feature team.
 ---
+The security team owns the audit log. Route all audit-log
+questions to them rather than the feature team.
 ```
 
-Directory placement encodes agent affiliation. A file at `xcf/memory/<agent-id>/<name>.xcf` binds the memory entry to `<agent-id>`. At compile time the parser sets `AgentRef` to the directory segment immediately containing the file. Memory files placed directly under `xcf/memory/` (no agent subdirectory) fall back to the `default` agent ref.
+Directory placement encodes agent affiliation. A file at `xcf/agents/<agent-id>/memory/<name>.xcf` binds the memory entry to `<agent-id>`. At compile time the parser sets `AgentRef` to the agent directory that contains the `memory/` subdirectory.
 
 ### Inline body vs. `instructions-file`
 
@@ -50,7 +49,6 @@ kind: memory
 version: "1.0"
 name: audit_log_owner
 description: "Who owns the project audit log."
-type: project
 ---
 The security team owns the audit log. Route all audit-log
 questions to them rather than the feature team.
@@ -68,25 +66,8 @@ Both forms are equivalent. When `instructions:` is set in the YAML frontmatter, 
 | `version` | yes | string | Schema version. Use `"1.0"`. |
 | `name` | yes | string | Unique identifier for this memory entry within the project. Used as the output filename (`<name>.md`). |
 | `description` | no | string | Human-readable summary of what this entry records. |
-| `type` | no | enum | Semantic category of the memory. One of `user`, `feedback`, `project`, `reference`. Has no effect on compilation today; reserved for agent-side filtering. |
-| `lifecycle` | no | enum | Controls seeding behavior. One of `seed-once` (default) or `tracked`. See [Lifecycle](#lifecycle) below. |
 | `instructions` | no | string | Inline markdown body. Mutually exclusive with `instructions-file`. |
 | `instructions-file` | no | string | Relative path to an external markdown file whose contents become the memory body. Mutually exclusive with `instructions`. |
-| `targets` | no | map | Per-target overrides. Keys are provider names (`claude`, `gemini`, etc.). Values follow the `TargetOverride` schema. |
-
-### Lifecycle
-
-- **`seed-once`** (default): xcaffold writes the file on the first `apply` and does not overwrite it on subsequent runs if the file already exists on disk. This preserves any edits an agent has written back to the file since the last seed.
-- **`tracked`**: xcaffold overwrites the file on every `apply`, discarding any agent-written edits. Use this for memory entries that must remain exactly as declared in the `.xcf` source.
-
-### `type` values
-
-| Value | Intended use |
-|---|---|
-| `user` | Context about the user: role, preferences, skill level. |
-| `feedback` | Guidance the agent has received: corrections, confirmed approaches. |
-| `project` | Ongoing work, goals, decisions, and incidents. |
-| `reference` | Pointers to external resources — dashboards, issue trackers, runbooks. |
 
 ---
 
@@ -99,9 +80,9 @@ After `xcaffold apply`, each memory entry produces one markdown file:
 | `xcaffold apply` | `.claude/agent-memory/<agent-id>/project_<name>.md` |
 | `xcaffold apply --global` | `~/.claude/agent-memory/<agent-id>/project_<name>.md` |
 
-`<agent-id>` is derived from the `xcf/memory/<agent-id>/` directory that contains the `.xcf` file. When no agent subdirectory is present (file lives directly under `xcf/memory/`), `<agent-id>` falls back to `default`.
+`<agent-id>` is derived from the `xcf/agents/<agent-id>/memory/` path that contains the `.xcf` file.
 
-Example: `xcf/memory/security-reviewer/audit_log_owner.xcf` compiles to `.claude/agent-memory/security-reviewer/project_audit_log_owner.md`.
+Example: `xcf/agents/security-reviewer/memory/audit_log_owner.xcf` compiles to `.claude/agent-memory/security-reviewer/project_audit_log_owner.md`.
 
 ---
 

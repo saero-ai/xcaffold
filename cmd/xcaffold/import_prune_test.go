@@ -33,12 +33,12 @@ func TestImportScope_PrunesOrphanMemory(t *testing.T) {
 	err = importScope(".claude", "project.xcf", "project", "claude")
 	require.NoError(t, err)
 
-	devXcf := filepath.Join(dir, "xcf", "memory", "dev.xcf")
+	devXcf := filepath.Join(dir, "xcf", "agents", "dev", "memory", "dev.xcf")
 	require.FileExists(t, devXcf)
 
-	orphanXcf := filepath.Join(dir, "xcf", "memory", "global.xcf")
+	orphanXcf := filepath.Join(dir, "xcf", "agents", "global", "memory", "global.xcf")
 	assert.NoFileExists(t, orphanXcf, "orphan memory should be pruned")
 
-	orphanSubXcf := filepath.Join(dir, "xcf", "memory", "sub", "task.xcf")
+	orphanSubXcf := filepath.Join(dir, "xcf", "agents", "sub", "memory", "task.xcf")
 	assert.NoFileExists(t, orphanSubXcf, "nested orphan memory should be pruned")
 }

@@ -15,11 +15,14 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer"
 )
 
-// MemorySeed records a single seeded memory entry. Its shape mirrors
+// MemorySeed records a single seeded memory agent directory. Its shape mirrors
 // state.MemorySeed, but the type is declared locally to avoid an import cycle
 // (internal/state → internal/compiler → internal/renderer/claude). Callers
 // (e.g. runApply) translate these into state.MemorySeed by direct field copy
 // before handing them to state.GenerateWithOpts.
+//
+// In the concatenated model, one MemorySeed is recorded per agent directory
+// (keyed by AgentRef). Name holds the AgentRef value.
 type MemorySeed struct {
 	Name     string
 	Target   string
@@ -28,14 +31,11 @@ type MemorySeed struct {
 	SeededAt string
 }
 
-// memoryIndexSection is the MEMORY.md heading under which xcaffold-seeded
-// entries are listed. Keeping the section scoped prevents us from interfering
-// with any user-authored headings elsewhere in the file.
-const memoryIndexSection = "## xcaffold seeds"
-
 // MemoryRenderer writes memory entries into a Claude project memory directory.
-// It writes memory entries using seed-once semantics: each entry is written on
-// first apply and skipped on subsequent applies unless --reseed is set.
+// Entries are grouped by AgentRef and concatenated into a single
+// <targetDir>/<agentRef>/MEMORY.md file per agent using ## <name> headings.
+// Seed-once semantics apply to the MEMORY.md file: it is written on first
+// apply and skipped on subsequent applies unless --reseed is set.
 type MemoryRenderer struct {
 	targetDir string
 	seeds     []MemorySeed
@@ -49,7 +49,7 @@ func NewMemoryRenderer(targetDir string) *MemoryRenderer {
 }
 
 // WithReseed returns a copy of the renderer configured to overwrite existing
-// memory files regardless of drift state. Used by
+// MEMORY.md files regardless of drift state. Used by
 // `xcaffold apply --include-memory --reseed`.
 func (r *MemoryRenderer) WithReseed(reseed bool) *MemoryRenderer {
 	cp := *r
@@ -65,17 +65,21 @@ func (r *MemoryRenderer) Seeds() []MemorySeed {
 	return out
 }
 
-// Compile writes each memory entry using seed-once semantics, returning
+// Compile writes each agent's MEMORY.md using seed-once semantics, returning
 // fidelity notes for no-op seeds.
 func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*output.Output, []renderer.FidelityNote, error) {
 	return r.CompileWithPriorSeeds(config, baseDir, nil)
 }
 
-// CompileWithPriorSeeds is Compile + drift detection. priorHashes is a map from
-// memory entry name to the SHA-256 hash recorded in the state file on the last
-// apply. For tracked entries, the current on-disk hash is compared to
-// priorHashes[name]; any mismatch produces a drift error unless WithReseed(true)
-// is set.
+// CompileWithPriorSeeds is Compile + signature compatibility for callers that
+// previously passed per-entry drift hashes. In the concatenated model, drift
+// detection is handled at the file level (seed-once); priorHashes is accepted
+// for API compatibility but is not consulted for per-entry hash comparison.
+//
+// Groups all non-empty memory entries by AgentRef (defaulting to "default"),
+// concatenates them into a single MEMORY.md per agent directory with ## <name>
+// headings (sorted for deterministic output), and writes that file with
+// seed-once semantics.
 func (r *MemoryRenderer) CompileWithPriorSeeds(config *ast.XcaffoldConfig, baseDir string, priorHashes map[string]string) (*output.Output, []renderer.FidelityNote, error) {
 	out := &output.Output{Files: make(map[string]string)}
 	var notes []renderer.FidelityNote
@@ -85,126 +89,119 @@ func (r *MemoryRenderer) CompileWithPriorSeeds(config *ast.XcaffoldConfig, baseD
 		return out, notes, nil
 	}
 
+	// Collect and sort entry names for deterministic output.
 	names := make([]string, 0, len(config.Memory))
 	for name := range config.Memory {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
+	type entryBody struct {
+		name string
+		body string
+	}
+	grouped := make(map[string][]entryBody)
+
 	for _, name := range names {
 		entry := config.Memory[name]
-		entryNotes, err := r.compileEntry(name, entry, baseDir, priorHashes)
-		// Always collect notes even when err != nil: drift detection returns
-		// both a structured FidelityNote and a hard error simultaneously so
-		// callers (e.g. audit.json writers) see the structured event.
-		notes = append(notes, entryNotes...)
+
+		body, err := resolveMemoryBody(name, entry, baseDir)
 		if err != nil {
-			return nil, notes, err
+			return nil, notes, fmt.Errorf("memory %q: %w", name, err)
 		}
+		if strings.TrimSpace(body) == "" {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning,
+				"claude",
+				"memory",
+				name,
+				"instructions",
+				renderer.CodeMemoryBodyEmpty,
+				"memory entry has no instructions or instructions-file content; skipping",
+				"Provide instructions or instructions-file in the .xcf memory entry.",
+			))
+			continue
+		}
+
+		agentRef := entry.AgentRef
+		if agentRef == "" {
+			agentRef = "default"
+		}
+
+		// Validate agentRef for path traversal.
+		if agentRef == ".." || strings.Contains(agentRef, "..") {
+			return nil, notes, fmt.Errorf("memory %q: agent-ref %q must not contain traversal sequences", name, agentRef)
+		}
+		if filepath.IsAbs(agentRef) {
+			return nil, notes, fmt.Errorf("memory %q: agent-ref %q must not be absolute", name, agentRef)
+		}
+
+		grouped[agentRef] = append(grouped[agentRef], entryBody{name: name, body: body})
+	}
+
+	// Process each agent in sorted order for deterministic MemorySeed output.
+	agentRefs := make([]string, 0, len(grouped))
+	for agentRef := range grouped {
+		agentRefs = append(agentRefs, agentRef)
+	}
+	sort.Strings(agentRefs)
+
+	for _, agentRef := range agentRefs {
+		entries := grouped[agentRef]
+
+		// Concatenate entries with ## <name> headings (already sorted).
+		var sb strings.Builder
+		for i, e := range entries {
+			if i > 0 {
+				sb.WriteString("\n")
+			}
+			fmt.Fprintf(&sb, "## %s\n\n", e.name)
+			sb.WriteString(strings.TrimRight(e.body, "\n"))
+			sb.WriteString("\n")
+		}
+		content := sb.String()
+		newHash := hashSHA256(content)
+
+		agentDir := filepath.Join(r.targetDir, agentRef)
+		memPath := filepath.Join(agentDir, "MEMORY.md")
+
+		exists, err := fileExists(memPath)
+		if err != nil {
+			return nil, notes, fmt.Errorf("memory agent-ref %q: stat target: %w", agentRef, err)
+		}
+
+		if exists && !r.reseed {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelInfo,
+				"claude",
+				"memory",
+				agentRef,
+				"",
+				renderer.CodeMemorySeedSkipped,
+				"file exists; seed-once lifecycle preserves existing content",
+				"use --reseed to overwrite",
+			))
+			continue
+		}
+
+		// Write MEMORY.md.
+		if err := os.MkdirAll(agentDir, 0o700); err != nil {
+			return nil, notes, fmt.Errorf("memory agent-ref %q: create dir: %w", agentRef, err)
+		}
+		if err := os.WriteFile(memPath, []byte(content), 0o600); err != nil {
+			return nil, notes, fmt.Errorf("memory agent-ref %q: write MEMORY.md: %w", agentRef, err)
+		}
+
+		r.seeds = append(r.seeds, MemorySeed{
+			Name:     agentRef,
+			Target:   "claude",
+			Path:     memPath,
+			Hash:     newHash,
+			SeededAt: time.Now().UTC().Format(time.RFC3339),
+		})
 	}
 
 	return out, notes, nil
-}
-
-// compileEntry handles a single memory entry end-to-end. It returns any
-// fidelity notes produced and a fatal error if drift is detected.
-func (r *MemoryRenderer) compileEntry(name string, entry ast.MemoryConfig, baseDir string, priorHashes map[string]string) ([]renderer.FidelityNote, error) {
-	body, err := resolveMemoryBody(name, entry, baseDir)
-	if err != nil {
-		return nil, fmt.Errorf("memory %q: %w", name, err)
-	}
-	if strings.TrimSpace(body) == "" {
-		return []renderer.FidelityNote{renderer.NewNote(
-			renderer.LevelWarning,
-			"claude",
-			"memory",
-			name,
-			"instructions",
-			renderer.CodeMemoryBodyEmpty,
-			"memory entry has no instructions or instructions-file content; skipping",
-			"Provide instructions or instructions-file in the .xcf memory entry.",
-		)}, nil
-	}
-
-	content := renderMemoryMarkdown(entry, body)
-	newHash := hashSHA256(content)
-
-	if name == ".." || strings.Contains(name, "..") {
-		return nil, fmt.Errorf("memory %q: entry name must not contain traversal sequences", name)
-	}
-	if filepath.IsAbs(name) {
-		return nil, fmt.Errorf("memory %q: entry name must not be absolute", name)
-	}
-
-	safeName := renderer.SlugifyFilename(name)
-	targetPath := filepath.Join(r.targetDir, safeName+".md")
-	exists, err := fileExists(targetPath)
-	if err != nil {
-		return nil, fmt.Errorf("memory %q: stat target: %w", name, err)
-	}
-
-	return r.applySeedOnce(name, targetPath, content, newHash, exists)
-}
-
-// applySeedOnce writes the entry only when the target file is absent, unless
-// reseed is enabled. A FidelityNote is emitted for the no-op case.
-func (r *MemoryRenderer) applySeedOnce(name, targetPath, content, newHash string, exists bool) ([]renderer.FidelityNote, error) {
-	if !exists || r.reseed {
-		notes, err := r.writeEntry(name, targetPath, content, newHash)
-		if err != nil {
-			return nil, err
-		}
-		return notes, nil
-	}
-
-	return []renderer.FidelityNote{renderer.NewNote(
-		renderer.LevelInfo,
-		"claude",
-		"memory",
-		name,
-		"",
-		renderer.CodeMemorySeedSkipped,
-		"file exists; seed-once lifecycle preserves existing content",
-		"use --reseed to overwrite",
-	)}, nil
-}
-
-// writeEntry persists the memory file, records a MemorySeed for the lock
-// manifest, then appends the entry to the MEMORY.md index. The seed is recorded
-// before the index update so that drift detection is never compromised by an
-// index-append failure. A failed index update is downgraded to a warning note.
-func (r *MemoryRenderer) writeEntry(name, targetPath, content, newHash string) ([]renderer.FidelityNote, error) {
-	if err := os.MkdirAll(r.targetDir, 0o700); err != nil {
-		return nil, fmt.Errorf("memory %q: create target dir: %w", name, err)
-	}
-	if err := os.WriteFile(targetPath, []byte(content), 0o600); err != nil {
-		return nil, fmt.Errorf("memory %q: write file: %w", name, err)
-	}
-
-	// Issue 2: record seed immediately after successful write so drift detection
-	// is not affected by a subsequent index-append failure.
-	r.seeds = append(r.seeds, MemorySeed{
-		Name:     name,
-		Target:   "claude",
-		Path:     targetPath,
-		Hash:     newHash,
-		SeededAt: time.Now().UTC().Format(time.RFC3339),
-	})
-
-	var notes []renderer.FidelityNote
-	if err := appendMemoryIndex(r.targetDir, name); err != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning,
-			"claude",
-			"memory",
-			name,
-			"",
-			renderer.CodeMemoryIndexUpdateFailed,
-			fmt.Sprintf("failed to update MEMORY.md index: %v", err),
-			"MEMORY.md index is advisory; drift detection unaffected",
-		))
-	}
-	return notes, nil
 }
 
 // resolveMemoryBody returns the effective body content for a memory entry.
@@ -218,7 +215,7 @@ func resolveMemoryBody(name string, entry ast.MemoryConfig, baseDir string) (str
 		return "", nil
 	}
 
-	// Issue 3: reject absolute paths or any traversal that escapes baseDir.
+	// Reject absolute paths or any traversal that escapes baseDir.
 	// filepath.Clean + filepath.Rel is the only correct escape check because
 	// HasPrefix("..") false-matches names like "..config" and misses nested
 	// traversal like "sub/../../etc/passwd".
@@ -238,9 +235,14 @@ func resolveMemoryBody(name string, entry ast.MemoryConfig, baseDir string) (str
 	return string(data), nil
 }
 
-// renderMemoryMarkdown composes the final memory file content. When description
-// is set, YAML frontmatter is emitted before the body. Output always ends with
-// a trailing newline.
+// renderMemoryMarkdown composes the final memory file content for a single
+// entry. When description is set, YAML frontmatter is emitted before the body.
+// Output always ends with a trailing newline.
+//
+// Note: in the concatenated MEMORY.md model this function is used by callers
+// that need per-entry frontmatter rendering (e.g. tests of the render helper
+// in isolation). The CompileWithPriorSeeds path emits ## <name> headings
+// directly without calling renderMemoryMarkdown.
 func renderMemoryMarkdown(entry ast.MemoryConfig, body string) string {
 	var sb strings.Builder
 	if entry.Description != "" {
@@ -253,101 +255,6 @@ func renderMemoryMarkdown(entry ast.MemoryConfig, body string) string {
 	sb.WriteString(strings.TrimRight(body, "\n"))
 	sb.WriteString("\n")
 	return sb.String()
-}
-
-// appendMemoryIndex ensures MEMORY.md in targetDir contains a "## xcaffold
-// seeds" section listing the given entry name. The operation is idempotent:
-// running twice does not duplicate the entry.
-func appendMemoryIndex(targetDir, name string) error {
-	indexPath := filepath.Join(targetDir, "MEMORY.md")
-	existing, err := os.ReadFile(indexPath)
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-
-	content := string(existing)
-	listItem := "- " + name
-
-	if !strings.Contains(content, memoryIndexSection) {
-		var sb strings.Builder
-		sb.WriteString(content)
-		if content != "" && !strings.HasSuffix(content, "\n") {
-			sb.WriteString("\n")
-		}
-		if content != "" {
-			sb.WriteString("\n")
-		}
-		sb.WriteString(memoryIndexSection)
-		sb.WriteString("\n\n")
-		sb.WriteString(listItem)
-		sb.WriteString("\n")
-		return os.WriteFile(indexPath, []byte(sb.String()), 0o600)
-	}
-
-	// Section exists — append list item if not already present within the
-	// xcaffold seeds section (bounded by the next "## " heading or EOF).
-	if memoryIndexContainsItem(content, name) {
-		return nil
-	}
-
-	updated := insertIntoMemorySection(content, listItem)
-	return os.WriteFile(indexPath, []byte(updated), 0o600)
-}
-
-// memoryIndexContainsItem reports whether the xcaffold seeds section of the
-// index already lists `- <name>`.
-func memoryIndexContainsItem(content, name string) bool {
-	section := extractMemorySection(content)
-	for _, line := range strings.Split(section, "\n") {
-		if strings.TrimSpace(line) == "- "+name {
-			return true
-		}
-	}
-	return false
-}
-
-// extractMemorySection returns the body of the xcaffold seeds section (without
-// the heading), bounded by the next "## " heading or EOF.
-func extractMemorySection(content string) string {
-	idx := strings.Index(content, memoryIndexSection)
-	if idx < 0 {
-		return ""
-	}
-	rest := content[idx+len(memoryIndexSection):]
-	// Find the next top-level section heading.
-	next := strings.Index(rest, "\n## ")
-	if next < 0 {
-		return rest
-	}
-	return rest[:next]
-}
-
-// insertIntoMemorySection appends listItem to the xcaffold seeds section,
-// immediately before the next "## " heading (or at EOF).
-func insertIntoMemorySection(content, listItem string) string {
-	idx := strings.Index(content, memoryIndexSection)
-	if idx < 0 {
-		return content
-	}
-	headingEnd := idx + len(memoryIndexSection)
-	rest := content[headingEnd:]
-	next := strings.Index(rest, "\n## ")
-
-	var insertAt int
-	if next < 0 {
-		insertAt = len(content)
-	} else {
-		insertAt = headingEnd + next
-	}
-
-	before := content[:insertAt]
-	after := content[insertAt:]
-
-	// Ensure separator newline before the list item.
-	if !strings.HasSuffix(before, "\n") {
-		before += "\n"
-	}
-	return before + listItem + "\n" + after
 }
 
 // hashSHA256 returns the "sha256:<hex>" hash of the given content.
