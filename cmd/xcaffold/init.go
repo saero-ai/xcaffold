@@ -409,7 +409,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 			files = append(files, "xcf/policies/require-agent-description.xcf", "xcf/policies/require-agent-instructions.xcf")
 		}
 		if ans.wantAgent {
-			files = append(files, "xcf/agents/developer.xcf")
+			files = append(files, "xcf/agents/developer/developer.xcf")
 		}
 
 		b, err := json.MarshalIndent(Manifest{Project: ans.name, Targets: ans.targets, Files: files}, "", "  ")
@@ -579,10 +579,12 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-instructions.xcf"), []byte(instrPolicy), 0o600)
 	}
 
-	// starter agent
+	// starter agent — lives in its own subdirectory: xcf/agents/developer/developer.xcf
 	if ans.wantAgent {
 		agentContent := templates.RenderAgentXCF("developer", model, ans.targets)
-		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "agents", "developer.xcf"), []byte(agentContent), 0o600)
+		agentDir := filepath.Join(baseDir, "xcf", "agents", "developer")
+		_ = os.MkdirAll(agentDir, 0o755)
+		_ = os.WriteFile(filepath.Join(agentDir, "developer.xcf"), []byte(agentContent), 0o600)
 	}
 
 	// xcaffold skill

@@ -67,14 +67,14 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 	assert.Contains(t, scaffoldContent, "tdd")
 	assert.Contains(t, scaffoldContent, "security")
 
-	// Agent files
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer.xcf"))
-	developerBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "agents", "developer.xcf"))
+	// Agent files — each lives in its own subdirectory: xcf/agents/<id>/<id>.xcf
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer", "developer.xcf"))
+	developerBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "agents", "developer", "developer.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(developerBytes), "kind: agent")
 	assert.Contains(t, string(developerBytes), "name: developer")
 
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "reviewer.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "reviewer", "reviewer.xcf"))
 
 	// Skill file
 	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "skills", "tdd.xcf"))
@@ -170,9 +170,9 @@ func TestWriteSplitFiles_Deterministic(t *testing.T) {
 	assert.Equal(t, b1, b2, ".xcaffold/project.xcf must be byte-identical")
 
 	// Compare an agent file
-	a1, err := os.ReadFile(filepath.Join(tmpDir1, "xcf", "agents", "alpha.xcf"))
+	a1, err := os.ReadFile(filepath.Join(tmpDir1, "xcf", "agents", "alpha", "alpha.xcf"))
 	require.NoError(t, err)
-	a2, err := os.ReadFile(filepath.Join(tmpDir2, "xcf", "agents", "alpha.xcf"))
+	a2, err := os.ReadFile(filepath.Join(tmpDir2, "xcf", "agents", "alpha", "alpha.xcf"))
 	require.NoError(t, err)
 	assert.Equal(t, a1, a2, "agent file must be byte-identical")
 }
@@ -288,7 +288,7 @@ func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "developer.xcf"))
+	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -316,7 +316,7 @@ func TestWriteSplitFiles_AgentInstructionsFile_PureYAML(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "ceo.xcf"))
+	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "ceo", "ceo.xcf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -400,13 +400,13 @@ func TestWriteSplitFiles_ScopeFilter_OnlyDeclaredAgents(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer.xcf"))
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf"))
 	require.NoError(t, err, "declared agent must be written")
 
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "ceo.xcf"))
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "ceo", "ceo.xcf"))
 	assert.True(t, os.IsNotExist(err), "undeclared agent must NOT be written")
 
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "cfo.xcf"))
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "cfo", "cfo.xcf"))
 	assert.True(t, os.IsNotExist(err), "undeclared agent must NOT be written")
 }
 
@@ -425,9 +425,9 @@ func TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer.xcf"))
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf"))
 	require.NoError(t, err)
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "reviewer.xcf"))
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "reviewer", "reviewer.xcf"))
 	require.NoError(t, err)
 }
 

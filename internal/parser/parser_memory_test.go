@@ -356,3 +356,60 @@ memory:
 		})
 	}
 }
+
+func TestParse_Agent_FlatFileRejected(t *testing.T) {
+	dir := t.TempDir()
+	agentsDir := filepath.Join(dir, "xcf", "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`---
+kind: project
+version: "1.0"
+name: demo
+targets:
+  - claude
+---
+`), 0o644))
+	// Flat agent file: xcf/agents/dev.xcf — must be rejected
+	body := []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: "Developer agent."
+---
+`)
+	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "dev.xcf"), body, 0o644))
+
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	_, err := ParseDirectory(dir)
+	require.Error(t, err, "flat kind:agent file under xcf/agents/ must be rejected")
+	require.Contains(t, err.Error(), "subdirectory")
+}
+
+func TestParse_Agent_SubdirFileAccepted(t *testing.T) {
+	dir := t.TempDir()
+	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(agentDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`---
+kind: project
+version: "1.0"
+name: demo
+targets:
+  - claude
+---
+`), 0o644))
+	body := []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: "Developer agent."
+instructions: "You are a developer."
+---
+`)
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcf"), body, 0o644))
+
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err, "kind:agent in xcf/agents/<id>/<id>.xcf must be accepted")
+	_, ok := cfg.Agents["dev"]
+	require.True(t, ok, "agent must be present in config.Agents")
+}

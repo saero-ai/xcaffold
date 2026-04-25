@@ -478,9 +478,10 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	assert.Contains(t, scaffoldStr, "kind: project", "project.xcf must use kind: project (split-file format)")
 
 	// Split .xcf files must exist for each resource
+	// Agents live in their own subdirectory: xcf/agents/<id>/<id>.xcf
 	expectedXcfFiles := []string{
-		filepath.Join(tmp, "xcf", "agents", "dev.xcf"),
-		filepath.Join(tmp, "xcf", "agents", "reviewer.xcf"),
+		filepath.Join(tmp, "xcf", "agents", "dev", "dev.xcf"),
+		filepath.Join(tmp, "xcf", "agents", "reviewer", "reviewer.xcf"),
 		filepath.Join(tmp, "xcf", "skills", "tdd.xcf"),
 		filepath.Join(tmp, "xcf", "rules", "security.xcf"),
 		filepath.Join(tmp, "xcf", "workflows", "deploy.xcf"),
@@ -499,8 +500,8 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 
 	// .md files must NOT be copied (inline mode — no instructions-file references)
 	unexpectedMdFiles := []string{
-		filepath.Join(tmp, "xcf", "agents", "dev.md"),
-		filepath.Join(tmp, "xcf", "agents", "reviewer.md"),
+		filepath.Join(tmp, "xcf", "agents", "dev", "dev.md"),
+		filepath.Join(tmp, "xcf", "agents", "reviewer", "reviewer.md"),
 		filepath.Join(tmp, "xcf", "rules", "security.md"),
 		filepath.Join(tmp, "xcf", "workflows", "deploy.md"),
 	}
@@ -512,7 +513,7 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 
 	// Agent .xcf files must use frontmatter format for inline instructions, not instructions-file.
 	// Instructions content moves into the markdown body (after the closing ---), not as a YAML field.
-	devXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "agents", "dev.xcf"))
+	devXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "agents", "dev", "dev.xcf"))
 	require.NoError(t, err)
 	devXcfStr := string(devXcf)
 	assert.Contains(t, devXcfStr, "kind: agent")
@@ -586,17 +587,17 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	assert.Contains(t, s, "kind: project")
 
 	// Must NOT contain multi-kind documents inline in project.xcf
-	// (they are split into xcf/agents/*.xcf, xcf/skills/*.xcf, etc.)
-	assert.NotContains(t, s, "kind: agent", "agent must be in xcf/agents/dev.xcf, not project.xcf")
+	// (they are split into xcf/agents/<id>/<id>.xcf, xcf/skills/*.xcf, etc.)
+	assert.NotContains(t, s, "kind: agent", "agent must be in xcf/agents/dev/dev.xcf, not project.xcf")
 	assert.NotContains(t, s, "kind: skill", "skill must be in xcf/skills/tdd.xcf, not project.xcf")
 
-	// Split files must exist
-	assert.FileExists(t, filepath.Join(dir, "xcf", "agents", "dev.xcf"))
+	// Split files must exist — agents live in their own subdirectory
+	assert.FileExists(t, filepath.Join(dir, "xcf", "agents", "dev", "dev.xcf"))
 	assert.FileExists(t, filepath.Join(dir, "xcf", "skills", "tdd.xcf"))
 
 	// Agent split file must use frontmatter format for inline instructions.
 	// Instructions content moves into the markdown body, not as a YAML field.
-	devXcf, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev.xcf"))
+	devXcf, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev", "dev.xcf"))
 	require.NoError(t, err)
 	devXcfContent := string(devXcf)
 	assert.True(t, strings.HasPrefix(devXcfContent, "---\n"), "agent xcf must use frontmatter format")

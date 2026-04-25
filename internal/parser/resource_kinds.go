@@ -332,6 +332,14 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 
 	switch kind {
 	case "agent":
+		// Guard: reject kind:agent files placed directly under xcf/agents/.
+		// They must be in a subdirectory: xcf/agents/<id>/<file>.xcf.
+		if sourceFile != "" {
+			parentDir := filepath.Base(filepath.Dir(sourceFile))
+			if parentDir == "agents" {
+				return fmt.Errorf("agent file %q must be in a subdirectory under xcf/agents/<id>/; flat files are not supported", filepath.Base(sourceFile))
+			}
+		}
 		var doc agentDocument
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
