@@ -264,15 +264,8 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 		// Emit files keyed by agent-memory/<agentRef>/<name>.md without disk writes.
 		return r.compileMemoryToMap(config, baseDir)
 	}
-	mr := NewMemoryRenderer(memDir).WithReseed(opts.Reseed)
-	var out *output.Output
-	var notes []renderer.FidelityNote
-	var err error
-	if len(opts.PriorHashes) > 0 {
-		out, notes, err = mr.CompileWithPriorSeeds(config, baseDir, opts.PriorHashes)
-	} else {
-		out, notes, err = mr.Compile(config, baseDir)
-	}
+	mr := NewMemoryRenderer(memDir)
+	out, notes, err := mr.Compile(config, baseDir)
 	if err != nil {
 		return nil, notes, err
 	}
