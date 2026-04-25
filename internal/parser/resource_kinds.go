@@ -626,14 +626,11 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if err := validateEnvelope(doc.Version, doc.Name, kind); err != nil {
 			return err
 		}
-		// Derive AgentRef from xcf/memory/<agentID>/<name>.xcf directory layout.
-		// sourceFile is the absolute path to the .xcf file. The penultimate
-		// directory segment is the owning agent ID.
 		if sourceFile != "" {
 			dirParts := strings.Split(filepath.ToSlash(filepath.Dir(sourceFile)), "/")
-			for i := len(dirParts) - 2; i >= 0; i-- {
-				if dirParts[i] == "memory" && i+1 < len(dirParts) {
-					doc.MemoryConfig.AgentRef = dirParts[i+1]
+			for i := len(dirParts) - 1; i >= 1; i-- {
+				if dirParts[i] == "memory" {
+					doc.MemoryConfig.AgentRef = dirParts[i-1]
 					break
 				}
 			}

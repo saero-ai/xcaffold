@@ -574,8 +574,8 @@ func TestApplyCmd_NoReseedFlag(t *testing.T) {
 
 // TestApplyScope_OrchestratorMemory_Claude verifies that the always-on
 // orchestrator path emits memory files keyed at
-// agent-memory/default/<name>.md inside .claude/ when no agent-ref directory
-// is used (entry lives directly under xcf/memory/).
+// agent-memory/xcf/<name>.md inside .claude/ when the memory file lives
+// directly under xcf/memory/ (AgentRef derived as the segment before "memory").
 func TestApplyScope_OrchestratorMemory_Claude(t *testing.T) {
 	dir := t.TempDir()
 
@@ -585,9 +585,8 @@ version: "1.0"
 name: memory-render-test
 `), 0600))
 
-	// Memory entry at the root of xcf/memory/ — no agent-ref directory, so
-	// AgentRef will be empty string and the renderer defaults to "default".
-	memDir := filepath.Join(dir, "xcf", "memory")
+	// Memory entry under xcf/agents/default/memory/ — AgentRef will be "default".
+	memDir := filepath.Join(dir, "xcf", "agents", "default", "memory")
 	require.NoError(t, os.MkdirAll(memDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(memDir, "user-role.xcf"), []byte(`kind: memory
 version: "1.0"
@@ -614,7 +613,7 @@ instructions: "Robert is the founder."
 }
 
 // TestApplyScope_OrchestratorMemory_AgentRef verifies that a memory entry placed
-// under xcf/memory/<agentID>/ is routed to agent-memory/<agentID>/<name>.md.
+// under xcf/agents/<agentID>/memory/ is routed to agent-memory/<agentID>/<name>.md.
 // AgentRef is derived from the directory layout at parse time, not from YAML.
 func TestApplyScope_OrchestratorMemory_AgentRef(t *testing.T) {
 	dir := t.TempDir()
@@ -625,9 +624,9 @@ version: "1.0"
 name: memory-agentref-test
 `), 0600))
 
-	// Place the memory file under xcf/memory/go-cli-developer/ so the parser
-	// sets AgentRef = "go-cli-developer" from the directory name.
-	agentMemDir := filepath.Join(dir, "xcf", "memory", "go-cli-developer")
+	// Place the memory file under xcf/agents/go-cli-developer/memory/ so the parser
+	// sets AgentRef = "go-cli-developer" from the segment before "memory".
+	agentMemDir := filepath.Join(dir, "xcf", "agents", "go-cli-developer", "memory")
 	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "arch-decisions.xcf"), []byte(`kind: memory
 version: "1.0"
