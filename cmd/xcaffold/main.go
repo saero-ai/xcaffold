@@ -170,6 +170,24 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 	return nil
 }
 
+// projectParseRoot returns the base directory to scan for .xcf files.
+// getParseRoot returns the base directory to scan for .xcf files.
+// It handles the case where the manifest is in .xcaffold/*.xcf.
+func getParseRoot(manifestPath string) string {
+	dir := filepath.Dir(manifestPath)
+	if filepath.Base(dir) == ".xcaffold" {
+		return filepath.Dir(dir)
+	}
+	return dir
+}
+
+func projectParseRoot() string {
+	if projectRoot != "" {
+		return projectRoot
+	}
+	return getParseRoot(xcfPath)
+}
+
 func main() {
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)

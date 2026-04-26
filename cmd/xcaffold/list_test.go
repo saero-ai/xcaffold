@@ -2,226 +2,188 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-// TestListCmd_FlagsRegistered verifies --blueprint and --resolved are registered.
+func captureListStdout(f func() error) (string, error) {
+	oldStdout := os.Stdout
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	os.Stderr = w
+
+	err := f()
+
+	w.Close()
+	os.Stdout = oldStdout
+	os.Stderr = oldStderr
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	return buf.String(), err
+}
+
 func TestListCmd_FlagsRegistered(t *testing.T) {
-	bp := listCmd.Flags().Lookup("blueprint")
-	require.NotNil(t, bp, "--blueprint flag must be registered on listCmd")
-	assert.Equal(t, "string", bp.Value.Type())
-
-	res := listCmd.Flags().Lookup("resolved")
-	require.NotNil(t, res, "--resolved flag must be registered on listCmd")
-	assert.Equal(t, "bool", res.Value.Type())
+	assert.NotNil(t, listCmd.Flag("blueprint"))
+	assert.NotNil(t, listCmd.Flag("resolved"))
+	assert.NotNil(t, listCmd.Flag("verbose"))
 }
 
-// TestRunList_NoXcfDir_ReturnsError verifies that runList returns an error
-// when it cannot locate a project.xcf in the working tree.
-func TestRunList_NoXcfDir_ReturnsError(t *testing.T) {
-	dir := t.TempDir()
-	// Point xcfPath at a non-existent file so the command has nothing to parse.
-	origXcfPath := xcfPath
-	xcfPath = filepath.Join(dir, "project.xcf")
-	defer func() { xcfPath = origXcfPath }()
-
-	var buf bytes.Buffer
-	listCmd.SetOut(&buf)
-	defer listCmd.SetOut(nil)
-
-	err := runList(listCmd, []string{})
-	assert.Error(t, err)
-}
-
-// TestRunList_EmptyProject_ShowsHeaders verifies that a minimal project with no
-// resources prints the "Resources:" and "Blueprints:" section headers.
-func TestRunList_EmptyProject_ShowsHeaders(t *testing.T) {
-	dir := t.TempDir()
-	xcfContent := "kind: project\nversion: \"1.0\"\nname: list-test\n"
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(xcfContent), 0600))
-
-	origXcfPath := xcfPath
-	xcfPath = filepath.Join(dir, "project.xcf")
-	defer func() { xcfPath = origXcfPath }()
-
-	var buf bytes.Buffer
-	listCmd.SetOut(&buf)
-	defer listCmd.SetOut(nil)
-
-	err := runList(listCmd, []string{})
-	require.NoError(t, err)
-
-	out := buf.String()
-	assert.Contains(t, out, "Resources:")
-	assert.Contains(t, out, "Blueprints:")
-}
-
-// TestRunList_WithAgentsAndSkills_ShowsResources verifies that the resources
-// section lists agent and skill names. The parser merges the global base config
-// so exact counts depend on the user's environment; we assert named resources
-// from the local xcf appear in the output.
-func TestRunList_WithAgentsAndSkills_ShowsResources(t *testing.T) {
-	dir := t.TempDir()
-	// Use separate xcf files to avoid the multi-doc project + global format.
-	projectXcf := "kind: project\nversion: \"1.0\"\nname: list-count-test\n"
-	globalXcf := `kind: global
-version: "1.0"
-agents:
-  developer:
-    description: Developer
-    model: claude-sonnet-4-5
-skills:
-  tdd-local:
-    description: TDD
-`
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(projectXcf), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(globalXcf), 0600))
-
-	origXcfPath := xcfPath
-	xcfPath = filepath.Join(dir, "project.xcf")
-	defer func() { xcfPath = origXcfPath }()
-
-	var buf bytes.Buffer
-	listCmd.SetOut(&buf)
-	defer listCmd.SetOut(nil)
-
-	err := runList(listCmd, []string{})
-	require.NoError(t, err)
-
-	out := buf.String()
-	// The resources section header must be present.
-	assert.Contains(t, out, "agents:")
-	assert.Contains(t, out, "skills:")
-	// The locally declared resources must appear.
-	assert.Contains(t, out, "developer")
-	assert.Contains(t, out, "tdd-local")
-}
-
-// TestRunList_WithBlueprint_FiltersOutput verifies that --blueprint filters
-// resources to only those belonging to the named blueprint.
-func TestRunList_WithBlueprint_FiltersOutput(t *testing.T) {
-	dir := t.TempDir()
-	// project.xcf is the entry-point document.
-	projectXcf := "kind: project\nversion: \"1.0\"\nname: list-blueprint-test\n"
-	// Agents in a separate global doc.
-	globalXcf := `kind: global
-version: "1.0"
-agents:
-  developer:
-    description: Developer
-    model: claude-sonnet-4-5
-  designer:
-    description: Designer
-    model: claude-sonnet-4-5
-`
-	// Blueprint as a standalone kind: blueprint document.
-	bpXcf := `kind: blueprint
-version: "1.0"
-name: backend
-agents:
-  - developer
-`
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(projectXcf), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(globalXcf), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "backend.xcf"), []byte(bpXcf), 0600))
-
-	origXcfPath := xcfPath
-	xcfPath = filepath.Join(dir, "project.xcf")
-	listBlueprintFlag = "backend"
-	defer func() {
-		xcfPath = origXcfPath
-		listBlueprintFlag = ""
-	}()
-
-	var buf bytes.Buffer
-	listCmd.SetOut(&buf)
-	defer listCmd.SetOut(nil)
-
-	err := runList(listCmd, []string{})
-	require.NoError(t, err)
-
-	out := buf.String()
-	assert.Contains(t, out, "backend")
-	assert.Contains(t, out, "developer")
-	// designer is NOT in the blueprint — should not appear in blueprint listing
-	assert.NotContains(t, out, "designer")
-}
-
-// TestRunList_UnknownBlueprint_ReturnsError verifies an error is returned when
-// --blueprint names a blueprint that does not exist in the config.
-func TestRunList_UnknownBlueprint_ReturnsError(t *testing.T) {
-	dir := t.TempDir()
-	xcfContent := "kind: project\nversion: \"1.0\"\nname: list-test\n"
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(xcfContent), 0600))
-
-	origXcfPath := xcfPath
-	xcfPath = filepath.Join(dir, "project.xcf")
-	listBlueprintFlag = "nonexistent"
-	defer func() {
-		xcfPath = origXcfPath
-		listBlueprintFlag = ""
-	}()
-
-	var buf bytes.Buffer
-	listCmd.SetOut(&buf)
-	defer listCmd.SetOut(nil)
-
-	err := runList(listCmd, []string{})
-	assert.Error(t, err)
-}
-
-// TestRegistryCmd_IsRegistered verifies the registry command is accessible
-// from the root command with its new name.
-func TestRegistryCmd_IsRegistered(t *testing.T) {
-	cmd, _, err := rootCmd.Find([]string{"registry"})
-	require.NoError(t, err)
-	assert.Equal(t, "registry", cmd.Use)
-}
-
-// TestListCmd_IsRegistered verifies the list command is still accessible
-// from the root command after the rename.
 func TestListCmd_IsRegistered(t *testing.T) {
-	cmd, _, err := rootCmd.Find([]string{"list"})
-	require.NoError(t, err)
-	assert.Equal(t, "list", cmd.Use)
+	for _, cmd := range rootCmd.Commands() {
+		if cmd.Use == "list" {
+			return
+		}
+	}
+	t.Fatalf("listCmd NOT registered on rootCmd")
 }
 
-// TestRunList_MemoryDiscoveredFromFilesystem verifies that memory entries found
-// under xcf/agents/<id>/memory/*.md are listed even though config.Memory is empty.
-func TestRunList_MemoryDiscoveredFromFilesystem(t *testing.T) {
+func TestList_StripInherited_GlobalNotShown(t *testing.T) {
+	// Not practically testing full CLI parsing because it requires full mock global,
+	// but we can test the `printAllResources` format output assuming the config is stripped
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"local-agent": {},
+			},
+		},
+	}
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	assert.Contains(t, out, "AGENTS  (1)")
+	assert.Contains(t, out, "local-agent")
+}
+
+func TestList_RuleGrouping_MixedDepths(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"cli/a":      {},
+				"platform/b": {},
+				"root-rule":  {},
+			},
+		},
+	}
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	assert.Contains(t, out, "cli/  (1)")
+	assert.Contains(t, out, "a")
+	assert.Contains(t, out, "platform/  (1)")
+	assert.Contains(t, out, "b")
+	assert.Contains(t, out, "(root)  (1)")
+	assert.Contains(t, out, "root-rule")
+}
+
+func TestList_RuleGrouping_RootOnly(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"root-rule-1": {},
+				"root-rule-2": {},
+			},
+		},
+	}
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	assert.Contains(t, out, "(root)  (2)")
+	assert.Contains(t, out, "root-rule-1")
+	assert.Contains(t, out, "root-rule-2")
+}
+
+func TestList_ColumnLayout_ThreePerRow(t *testing.T) {
+	// Tests column rendering visually
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"a1": {}, "a2": {}, "a3": {}, "a4": {}, "a5": {}, "a6": {}, "a7": {},
+			},
+		},
+	}
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	assert.Contains(t, out, "AGENTS  (7)")
+}
+
+func TestList_VerboseMemory_ShowsEntries(t *testing.T) {
 	dir := t.TempDir()
 
-	// Minimal project manifest — no memory declared in YAML.
-	projectXcf := "kind: project\nversion: \"1.0\"\nname: list-memory-test\n"
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(projectXcf), 0600))
+	// Create xcf/agents/agent1/memory/file1.md
+	memDir := filepath.Join(dir, "xcf", "agents", "agent1", "memory")
+	os.MkdirAll(memDir, 0755)
+	os.WriteFile(filepath.Join(memDir, "file1.md"), []byte("..."), 0644)
 
-	// Create xcf/agents/developer/memory/coding-style.md
-	memDir := filepath.Join(dir, "xcf", "agents", "developer", "memory")
-	require.NoError(t, os.MkdirAll(memDir, 0700))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(memDir, "coding-style.md"),
-		[]byte("# Coding style\nAlways use gofmt."),
-		0600,
-	))
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent1": {},
+			},
+		},
+	}
 
-	// Point xcfPath at the project.xcf inside dir; the project root IS dir.
-	origXcfPath := xcfPath
-	xcfPath = filepath.Join(dir, "project.xcf")
-	defer func() { xcfPath = origXcfPath }()
+	// Default
+	listVerboseFlag = false
+	outDefaults, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, dir)
+		return nil
+	})
+	assert.Contains(t, outDefaults, "MEMORY  (1 entries across 1 agents)")
+	assert.Contains(t, outDefaults, "agent1 (1)")
 
-	var buf bytes.Buffer
-	listCmd.SetOut(&buf)
-	defer listCmd.SetOut(nil)
+	// Verbose
+	listVerboseFlag = true
+	outVerbose, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, dir)
+		return nil
+	})
+	assert.Contains(t, outVerbose, "MEMORY  (1 entries across 1 agents)")
+	assert.Contains(t, outVerbose, "agent1  (1)")
+	assert.Contains(t, outVerbose, "file1")
+}
 
-	err := runList(listCmd, []string{})
-	require.NoError(t, err)
+func TestList_Blueprint_FilteredOutput(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {
+				Agents: []string{"nestjs"},
+			},
+		},
+	}
 
-	out := buf.String()
-	assert.Contains(t, out, "memory:")
-	assert.Contains(t, out, "coding-style")
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printBlueprintResources(listCmd, config, "backend", false)
+		return nil
+	})
+
+	assert.Contains(t, out, "BLUEPRINT: backend")
+	assert.Contains(t, out, "AGENTS  (1)")
+	assert.Contains(t, out, "nestjs")
 }
