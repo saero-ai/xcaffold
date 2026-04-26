@@ -564,17 +564,10 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		}
 	}
 
-	// ── 2. Claude-specific: read root .mcp.json (sibling to .claude/).
-	// Claude Code stores project-scope MCP servers in a root-level .mcp.json
-	// that lives outside .claude/. The ProviderImporter only walks .claude/, so
-	// we handle this cross-boundary file here.
-	if provider == "claude" || provider == "" {
-		rootMCPPath := filepath.Join(projectDir, ".mcp.json")
-		if data, err := os.ReadFile(rootMCPPath); err == nil {
-			if err := importSettings(data, config, &importCount, &warnings); err != nil {
-				warnings = append(warnings, fmt.Sprintf(".mcp.json partially imported: %v", err))
-			}
-		}
+	// ── 2. Provider-specific post-import steps (cross-boundary files, out-of-tree
+	// memory sources, unsupported-provider warnings).
+	if err := runProviderPostImport(provider, platformDir, projectDir, config, &warnings); err != nil {
+		return err
 	}
 
 	// ── 3. Project instruction file discovery is deferred to after WriteSplitFiles.
@@ -590,20 +583,6 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	} else if memCount > 0 {
 		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
 	}
-	switch provider {
-	case "gemini":
-		if gDir, err := geminiMemoryDir(); err == nil {
-			if memSum, err := bir.ImportGeminiMemory(gDir, bir.ImportOpts{
-				SidecarDir: filepath.Join("xcf", "agents"),
-			}); err == nil && memSum.Imported > 0 {
-				fmt.Printf("  Gemini memory: snapshotted %d entry(ies) → xcf/agents/<id>/memory/\n", memSum.Imported)
-			}
-		}
-	case "antigravity":
-		warnings = append(warnings,
-			"Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem")
-	}
-
 	// Detect compilation targets from the scanned platform directory.
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(platformDir)
@@ -3082,4 +3061,36 @@ func geminiMemoryDir() (string, error) {
 		return "", fmt.Errorf("resolving home directory for gemini target: %w", err)
 	}
 	return filepath.Join(home, ".gemini"), nil
+}
+
+// runProviderPostImport executes provider-specific post-import steps that fall
+// outside the scope of the ProviderImporter interface (cross-boundary files,
+// out-of-tree memory sources, unsupported-provider warnings).
+func runProviderPostImport(provider, _ string, projectDir string, config *ast.XcaffoldConfig, warnings *[]string) error {
+	// Claude: root .mcp.json lives outside .claude/ — import it here.
+	if provider == "claude" || provider == "" {
+		rootMCPPath := filepath.Join(projectDir, ".mcp.json")
+		if data, err := os.ReadFile(rootMCPPath); err == nil {
+			count := 0
+			if err := importSettings(data, config, &count, warnings); err != nil {
+				*warnings = append(*warnings, fmt.Sprintf(".mcp.json partially imported: %v", err))
+			}
+		}
+	}
+	// Gemini: snapshot memory from ~/.gemini/.
+	if provider == "gemini" {
+		if gDir, err := geminiMemoryDir(); err == nil {
+			if memSum, err := bir.ImportGeminiMemory(gDir, bir.ImportOpts{
+				SidecarDir: filepath.Join("xcf", "agents"),
+			}); err == nil && memSum.Imported > 0 {
+				fmt.Printf("  Gemini memory: snapshotted %d entry(ies) → xcf/agents/<id>/memory/\n", memSum.Imported)
+			}
+		}
+	}
+	// Antigravity: KIs are app-managed and cannot be imported from the filesystem.
+	if provider == "antigravity" {
+		*warnings = append(*warnings,
+			"Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem")
+	}
+	return nil
 }
