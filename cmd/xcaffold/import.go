@@ -547,20 +547,6 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		// Count resources extracted by the importer.
 		importCount += len(config.Agents) + len(config.Skills) + len(config.Rules) +
 			len(config.Workflows) + len(config.MCP)
-	} else {
-		// Fallback to legacy extractors for unknown providers.
-		if err := extractAgents(platformDir, scopeName, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractSkills(platformDir, scopeName, provider, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractRules(platformDir, scopeName, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractWorkflows(platformDir, scopeName, config, &importCount, &warnings); err != nil {
-			return err
-		}
 	}
 
 	// ── 2. Provider-specific post-import steps (cross-boundary files, out-of-tree
@@ -786,84 +772,6 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 	}
 }
 
-func extractAgents(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	agentFiles, _ := filepath.Glob(filepath.Join(claudeDir, "agents", "*.md"))
-	for _, f := range agentFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping agent %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		if id == "" {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		agentCfg := ast.AgentConfig{Description: "Imported agent"}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := lenientUnmarshal(fm, &agentCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			agentCfg.InstructionsFile = ""
-		}
-		agentCfg.Instructions = body
-
-		config.Agents[id] = agentCfg
-		*count++
-	}
-	return nil
-}
-
-func extractSkills(claudeDir, scopeName, provider string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	skillFiles, _ := filepath.Glob(filepath.Join(claudeDir, "skills", "*", "SKILL.md"))
-	for _, f := range skillFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping skill %s: %v", f, err))
-			continue
-		}
-		id := filepath.Base(filepath.Dir(f))
-		if id == "" || id == "." {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		// Supporting files are copied to xcf/skills/<id>/ using canonical subdirectories.
-		refs, scripts, fileAssets, fileExamples, err := extractSkillSubdirs(f, id, provider, "", warnings)
-		if err != nil {
-			return err
-		}
-
-		skillCfg := ast.SkillConfig{Description: "Imported skill", References: refs}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := lenientUnmarshal(fm, &skillCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			skillCfg.InstructionsFile = ""
-			if len(refs) > 0 {
-				skillCfg.References = refs // use copied refs, not frontmatter refs
-			}
-		}
-		if len(scripts) > 0 {
-			skillCfg.Scripts = scripts
-		}
-		if len(fileAssets) > 0 {
-			skillCfg.Assets = fileAssets
-		}
-		if len(fileExamples) > 0 {
-			skillCfg.Examples = fileExamples
-		}
-		skillCfg.Instructions = body
-
-		config.Skills[id] = skillCfg
-		*count++
-	}
-	return nil
-}
-
 // providerSubdirMap maps provider-native subdirectory names to the canonical
 // xcaffold subdir names (references, scripts, assets, examples). An empty
 // string value means the subdir has no canonical mapping and its files are
@@ -995,124 +903,6 @@ func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]str
 	}
 
 	return refs, scripts, assets, examples, nil
-}
-
-func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	rulesRoot := filepath.Join(claudeDir, "rules")
-	// Collect all .md files recursively so that nested subdirectories (e.g.
-	// rules/cli/, rules/platform/) are fully imported. Subdirectory paths are
-	// preserved in the rule ID using forward-slash notation (e.g. "cli/build-go-cli")
-	// so that rules from different folders cannot collide.
-	var ruleFiles []string
-	_ = filepath.WalkDir(rulesRoot, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
-			ruleFiles = append(ruleFiles, path)
-		}
-		return nil
-	})
-	sort.Strings(ruleFiles)
-	for _, f := range ruleFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping rule %s: %v", f, err))
-			continue
-		}
-		// Derive the rule ID from only the filename stem — no path prefix — so that
-		// the ID is always a simple slug the parser accepts (e.g. "build-go-cli",
-		// not "cli/build-go-cli" which the validateID security guard rejects).
-		// The xcf file is still emitted under the subdirectory (xcf/rules/cli/)
-		// for human-readable organisation; WriteSplitFiles uses the map key as a
-		// relative path under xcf/rules/, so we attach the subdir prefix there
-		// instead — see the note below.
-		//
-		// Store the key as "<subdir>/<stem>" so WriteSplitFiles emits the file in
-		// the right subdirectory while the config name field carries only the stem.
-		rel, relErr := filepath.Rel(rulesRoot, f)
-		if relErr != nil {
-			rel = filepath.Base(f)
-		}
-		slashRel := filepath.ToSlash(strings.TrimSuffix(rel, ".md")) // e.g. "cli/build-go-cli"
-		stem := filepath.Base(slashRel)                              // e.g. "build-go-cli"
-		id := slashRel                                               // use full rel path as map key so WriteSplitFiles places files in subdirs
-		if stem == "" || id == "" {
-			continue
-		}
-
-		// If this rule file carries an x-xcaffold workflow provenance marker, reassemble
-		// the WorkflowConfig from the marker and its companion skill files instead of
-		// importing it as a standalone rule. The workflow name is the stem with the
-		// "-workflow" suffix stripped (e.g. "code-review-workflow" → "code-review").
-		if strings.HasSuffix(stem, "-workflow") {
-			workflowName := strings.TrimSuffix(stem, "-workflow")
-			// claudeDir is the .claude directory; parent is the project root passed to
-			// bir.ReassembleWorkflow which expects the project root (it appends .claude/).
-			projectDir := filepath.Dir(claudeDir)
-			wf, _, reassembleErr := bir.ReassembleWorkflow(projectDir, workflowName)
-			if reassembleErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("workflow reassembly failed for %s: %v", workflowName, reassembleErr))
-			} else if wf != nil {
-				if config.Workflows == nil {
-					config.Workflows = make(map[string]ast.WorkflowConfig)
-				}
-				config.Workflows[workflowName] = *wf
-				// Remove companion skill files from config.Skills; they are now encoded
-				// as workflow steps and should not be emitted as standalone skills.
-				for _, step := range wf.Steps {
-					// Derive the skill ID from the step name following the translator
-					// naming convention: <workflowName>-<NN>-<stepName>. Since we only
-					// have the step names here, we match by prefix scan.
-					for skillID := range config.Skills {
-						if isWorkflowStepSkill(skillID, workflowName) {
-							delete(config.Skills, skillID)
-						}
-					}
-					_ = step // step used for range; skill removal is by ID prefix
-				}
-				*count++
-				continue
-			}
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		ruleCfg := ast.RuleConfig{Description: "Imported rule"}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := lenientUnmarshal(fm, &ruleCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			ruleCfg.InstructionsFile = ""
-		}
-		// Ensure the name field is always a plain slug the parser accepts.
-		// Frontmatter may have set a name already; if not, fall back to the file
-		// stem (e.g. "build-go-cli"), never to the slash-separated path.
-		if ruleCfg.Name == "" {
-			ruleCfg.Name = stem
-		}
-		ruleCfg.Instructions = body
-
-		// Populate Activation from path-presence heuristic when not set explicitly.
-		if ruleCfg.Activation == "" {
-			if len(ruleCfg.Paths) > 0 {
-				ruleCfg.Activation = ast.RuleActivationPathGlob
-			} else {
-				ruleCfg.Activation = ast.RuleActivationAlways
-			}
-		}
-
-		config.Rules[id] = ruleCfg
-		*count++
-	}
-	return nil
-}
-
-// isWorkflowStepSkill reports whether skillID looks like it was generated by
-// translator.TranslateWorkflow for the given workflowName. The naming convention is
-// "<workflowName>-<NN>-<stepName>" (e.g. "code-review-01-analyze").
-func isWorkflowStepSkill(skillID, workflowName string) bool {
-	return strings.HasPrefix(skillID, workflowName+"-")
 }
 
 // extractBodyAfterFrontmatter returns the markdown body that follows the YAML frontmatter block.
@@ -1934,39 +1724,6 @@ func fileSize(path string) int64 {
 		return 0
 	}
 	return info.Size()
-}
-
-func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	workflowFiles, _ := filepath.Glob(filepath.Join(claudeDir, "workflows", "*.md"))
-	for _, f := range workflowFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping workflow %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		if id == "" {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		workflowCfg := ast.WorkflowConfig{Description: "Imported workflow"}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := yaml.Unmarshal(fm, &workflowCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			workflowCfg.InstructionsFile = ""
-		}
-		workflowCfg.Instructions = body
-
-		if config.Workflows == nil {
-			config.Workflows = make(map[string]ast.WorkflowConfig)
-		}
-		config.Workflows[id] = workflowCfg
-		*count++
-	}
-	return nil
 }
 
 // runMemorySnapshot performs the memory import pass for --with-memory.
