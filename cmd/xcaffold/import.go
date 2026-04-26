@@ -585,30 +585,10 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	// Import() (e.g. claude extracts agent-memory/**). Write each entry as a
 	// plain .md file to xcf/agents/<agentID>/memory/<name>.md so the compiler
 	// discovers them via convention-based filesystem scanning.
-	if len(config.Memory) > 0 {
-		for _, k := range sortedMapKeys(config.Memory) {
-			mem := config.Memory[k]
-			parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
-			var agentID, memName string
-			if len(parts) == 2 {
-				agentID = parts[0]
-				memName = parts[1]
-			} else {
-				agentID = mem.AgentRef
-				if agentID == "" {
-					agentID = k
-				}
-				memName = k
-			}
-			outPath := filepath.Join("xcf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
-			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-				return fmt.Errorf("create memory dir: %w", err)
-			}
-			if err := os.WriteFile(filepath.Clean(outPath), []byte(mem.Content), 0644); err != nil {
-				return fmt.Errorf("write memory file: %w", err)
-			}
-		}
-		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", len(config.Memory))
+	if memCount, err := writeMemoryFiles(config); err != nil {
+		return err
+	} else if memCount > 0 {
+		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
 	}
 	switch provider {
 	case "gemini":
@@ -3053,6 +3033,40 @@ func claudeProjectMemoryDir(projectRoot string) (string, error) {
 	}
 	encoded := strings.ReplaceAll(projectRoot, "/", "-")
 	return filepath.Join(home, ".claude", "projects", encoded, "memory"), nil
+}
+
+// writeMemoryFiles writes each memory entry in config to a plain .md file under
+// xcf/agents/<agentID>/memory/<name>.md, mirroring the convention the compiler
+// uses to discover memory at build time. Returns the number of files written.
+func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
+	if len(config.Memory) == 0 {
+		return 0, nil
+	}
+	count := 0
+	for _, k := range sortedMapKeys(config.Memory) {
+		mem := config.Memory[k]
+		parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
+		var agentID, memName string
+		if len(parts) == 2 {
+			agentID = parts[0]
+			memName = parts[1]
+		} else {
+			agentID = mem.AgentRef
+			if agentID == "" {
+				agentID = k
+			}
+			memName = k
+		}
+		outPath := filepath.Join("xcf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
+		if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+			return count, fmt.Errorf("create memory dir: %w", err)
+		}
+		if err := os.WriteFile(filepath.Clean(outPath), []byte(mem.Content), 0644); err != nil {
+			return count, fmt.Errorf("write memory file: %w", err)
+		}
+		count++
+	}
+	return count, nil
 }
 
 // geminiMemoryDir returns the directory where Gemini's GEMINI.md context file

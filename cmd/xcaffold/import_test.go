@@ -1708,3 +1708,31 @@ func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
 		t.Errorf("expected warning about unknown provider, got: %v", warnings)
 	}
 }
+
+func TestWriteMemoryFiles_WritesMarkdownToDisk(t *testing.T) {
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"dev/context": {
+					Name:        "context",
+					Description: "Project context",
+					Content:     "---\nname: context\ndescription: Project context\n---\n\nThis is memory content.",
+					AgentRef:    "dev",
+				},
+			},
+		},
+	}
+
+	n, err := writeMemoryFiles(config)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+
+	data, err := os.ReadFile(filepath.Join("xcf", "agents", "dev", "memory", "context.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(data), "This is memory content.")
+}
