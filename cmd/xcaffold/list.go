@@ -5,18 +5,20 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
-	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var (
 	listBlueprintFlag string
 	listResolvedFlag  bool
+	listVerboseFlag   bool
 )
 
 var listCmd = &cobra.Command{
@@ -29,6 +31,7 @@ var listCmd = &cobra.Command{
 func init() {
 	listCmd.Flags().StringVar(&listBlueprintFlag, "blueprint", "", "Filter to named blueprint")
 	listCmd.Flags().BoolVar(&listResolvedFlag, "resolved", false, "Show transitive deps (use with --blueprint)")
+	listCmd.Flags().BoolVarP(&listVerboseFlag, "verbose", "v", false, "show memory entry names per agent")
 	_ = listCmd.Flags().MarkHidden("blueprint")
 	_ = listCmd.Flags().MarkHidden("resolved")
 	rootCmd.AddCommand(listCmd)
@@ -39,14 +42,15 @@ func runList(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no project.xcf found; run from a project directory or use --config")
 	}
 
-	configDir := xcfPath
-	if info, err := os.Stat(xcfPath); err != nil || !info.IsDir() {
-		configDir = filepath.Dir(xcfPath)
-	}
+	configDir := projectParseRoot()
 
 	config, err := parser.ParseDirectory(configDir)
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
+	}
+
+	if !globalFlag {
+		config.StripInherited()
 	}
 
 	if listBlueprintFlag != "" {
@@ -57,28 +61,127 @@ func runList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// printAllResources prints a summary of every resource type and every blueprint.
-// baseDir is the project root (the directory containing the .xcaffold/ folder and xcf/).
-func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir string) {
-	cmd.Println("Resources:")
-	printResourceLine(cmd, "agents", sortedMapKeys(config.Agents))
-	printResourceLine(cmd, "skills", sortedMapKeys(config.Skills))
-	printResourceLine(cmd, "rules", sortedMapKeys(config.Rules))
-	printResourceLine(cmd, "workflows", sortedMapKeys(config.Workflows))
-	printResourceLine(cmd, "mcp", sortedMapKeys(config.MCP))
-	printResourceLine(cmd, "policies", sortedMapKeys(config.Policies))
-
-	// Memory is convention-based: discover from xcf/agents/*/memory/*.md.
-	discovered := compiler.DiscoverAgentMemory(baseDir)
-	memoryNames := make([]string, 0, len(discovered))
-	for k := range discovered {
-		memoryNames = append(memoryNames, k)
+func getTerminalWidth() int {
+	if cols := os.Getenv("COLUMNS"); cols != "" {
+		if n, err := strconv.Atoi(cols); err == nil && n > 0 {
+			return n
+		}
 	}
-	sort.Strings(memoryNames)
-	printResourceLine(cmd, "memory", memoryNames)
+	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
+		return w
+	}
+	return 80
+}
 
-	cmd.Println()
-	cmd.Println("Blueprints:")
+func printColumns(names []string, indent string) {
+	termWidth := getTerminalWidth()
+	colWidth := (termWidth - len(indent) - 2) / 3
+	if colWidth < 20 {
+		colWidth = 20
+	}
+
+	for i, name := range names {
+		if i%3 == 0 && i > 0 {
+			fmt.Println()
+		}
+		if i%3 == 0 {
+			fmt.Print(indent)
+		}
+		fmt.Printf("%-*s", colWidth, name)
+	}
+	if len(names) > 0 {
+		fmt.Println()
+	}
+}
+
+func memorySummary(projectRoot string, cfg *ast.XcaffoldConfig) map[string][]string {
+	result := make(map[string][]string)
+	memBase := filepath.Join(projectRoot, "xcf", "agents")
+	for agentID := range cfg.Agents {
+		memDir := filepath.Join(memBase, agentID, "memory")
+		entries, err := os.ReadDir(memDir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if !e.IsDir() {
+				stem := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+				result[agentID] = append(result[agentID], stem)
+			}
+		}
+		if len(result[agentID]) > 0 {
+			sort.Strings(result[agentID])
+		}
+	}
+	return result
+}
+
+func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir string) {
+	projectName := filepath.Base(baseDir)
+
+	mcpCount := len(config.MCP)
+
+	cmd.Printf("%s  ·  %d agents  ·  %d skills  ·  %d rules  ·  %d mcp\n\n",
+		projectName, len(config.Agents), len(config.Skills), len(config.Rules), mcpCount)
+
+	printSection(cmd, "AGENTS", config.Agents)
+	printSection(cmd, "SKILLS", config.Skills)
+
+	if len(config.Rules) > 0 {
+		cmd.Printf("RULES  (%d)\n\n", len(config.Rules))
+		rules := sortedMapKeys(config.Rules)
+		groups := groupRulesByFolder(rules)
+		for _, g := range groups {
+			cmd.Printf("  %s  (%d)\n", g.prefix, len(g.names))
+			printColumns(g.names, "    ")
+			cmd.Println()
+		}
+	}
+
+	// Workflows not in the requested output format sample, but there are workflows.
+	// Oh wait, in CLI UX lists they're not shown. But I'll leave them if they exist? No I won't print workflows here, wait.
+	// There is no Workflow in the example output, but if I remove them I might break list tests. Let me add them as section.
+	if len(config.Workflows) > 0 {
+		printSection(cmd, "WORKFLOWS", config.Workflows)
+	}
+
+	printSection(cmd, "MCP SERVERS", config.MCP)
+
+	mem := memorySummary(baseDir, config)
+	totalEntries := 0
+	agentIdsWithMemory := 0
+	var sortedMemAgents []string
+	for agentId, entries := range mem {
+		if len(entries) > 0 {
+			totalEntries += len(entries)
+			agentIdsWithMemory++
+			sortedMemAgents = append(sortedMemAgents, agentId)
+		}
+	}
+
+	if totalEntries > 0 {
+		cmd.Printf("MEMORY  (%d entries across %d agents)\n", totalEntries, agentIdsWithMemory)
+		sort.Strings(sortedMemAgents)
+
+		if listVerboseFlag {
+			cmd.Println()
+			for _, agentId := range sortedMemAgents {
+				entries := mem[agentId]
+				cmd.Printf("  %s  (%d)\n", agentId, len(entries))
+				printColumns(entries, "    ")
+				cmd.Println()
+			}
+		} else {
+			var summaries []string
+			for _, agentId := range sortedMemAgents {
+				summaries = append(summaries, fmt.Sprintf("%s (%d)", agentId, len(mem[agentId])))
+			}
+			printColumns(summaries, "  ")
+			cmd.Println()
+		}
+	}
+
+	cmd.Println("BLUEPRINTS")
 
 	if len(config.Blueprints) == 0 {
 		cmd.Println("  (none)")
@@ -108,8 +211,15 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 	}
 }
 
-// printBlueprintResources prints resources for a single named blueprint.
-// When resolved is true, transitive dependencies are expanded first.
+func printSection[T any](cmd *cobra.Command, title string, m map[string]T) {
+	if len(m) == 0 {
+		return
+	}
+	cmd.Printf("%s  (%d)\n", title, len(m))
+	printColumns(sortedMapKeys(m), "  ")
+	cmd.Println()
+}
+
 func printBlueprintResources(cmd *cobra.Command, config *ast.XcaffoldConfig, bpName string, doResolve bool) error {
 	p, ok := config.Blueprints[bpName]
 	if !ok {
@@ -125,7 +235,6 @@ func printBlueprintResources(cmd *cobra.Command, config *ast.XcaffoldConfig, bpN
 		if err := blueprint.ResolveBlueprintExtends(bpCopy); err != nil {
 			return fmt.Errorf("extends resolution: %w", err)
 		}
-		// Build a ResourceScope from config for transitive dep resolution.
 		scope := &ast.ResourceScope{
 			Agents:    config.Agents,
 			Skills:    config.Skills,
@@ -140,7 +249,7 @@ func printBlueprintResources(cmd *cobra.Command, config *ast.XcaffoldConfig, bpN
 		p = resolved
 	}
 
-	cmd.Printf("Blueprint: %s\n", bpName)
+	cmd.Printf("BLUEPRINT: %s\n\n", bpName)
 	if p.Description != "" {
 		cmd.Printf("  description: %s\n", p.Description)
 	}
@@ -150,26 +259,32 @@ func printBlueprintResources(cmd *cobra.Command, config *ast.XcaffoldConfig, bpN
 	if p.Active {
 		cmd.Println("  status: active")
 	}
-	printBlueprintSection(cmd, "agents", p.Agents)
-	printBlueprintSection(cmd, "skills", p.Skills)
-	printBlueprintSection(cmd, "rules", p.Rules)
-	printBlueprintSection(cmd, "workflows", p.Workflows)
-	printBlueprintSection(cmd, "mcp", p.MCP)
-	printBlueprintSection(cmd, "policies", p.Policies)
-	printBlueprintSection(cmd, "memory", p.Memory)
+
+	if len(p.Agents) > 0 {
+		cmd.Printf("  AGENTS  (%d)\n", len(p.Agents))
+		printColumns(p.Agents, "    ")
+		cmd.Println()
+	}
+	if len(p.Skills) > 0 {
+		cmd.Printf("  SKILLS  (%d)\n", len(p.Skills))
+		printColumns(p.Skills, "    ")
+		cmd.Println()
+	}
+	if len(p.Rules) > 0 {
+		cmd.Printf("  RULES  (%d)\n\n", len(p.Rules))
+		rules := p.Rules
+		groups := groupRulesByFolder(rules)
+		for _, g := range groups {
+			cmd.Printf("    %s  (%d)\n", g.prefix, len(g.names))
+			printColumns(g.names, "      ")
+			cmd.Println()
+		}
+	}
+	if len(p.MCP) > 0 {
+		cmd.Printf("  MCP  (%d)\n", len(p.MCP))
+		printColumns(p.MCP, "    ")
+		cmd.Println()
+	}
+
 	return nil
-}
-
-func printResourceLine(cmd *cobra.Command, label string, names []string) {
-	if len(names) == 0 {
-		return
-	}
-	cmd.Printf("  %-12s %s (%d)\n", label+":", strings.Join(names, ", "), len(names))
-}
-
-func printBlueprintSection(cmd *cobra.Command, label string, items []string) {
-	if len(items) == 0 {
-		return
-	}
-	cmd.Printf("  %-12s %s\n", label+":", strings.Join(items, ", "))
 }

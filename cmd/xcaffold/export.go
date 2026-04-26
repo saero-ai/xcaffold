@@ -43,12 +43,12 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unsupported export format %q; only 'plugin' is supported", exportFormat)
 	}
 
-	config, err := parser.ParseDirectory(filepath.Dir(xcfPath))
+	config, err := parser.ParseDirectory(projectParseRoot())
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
 	}
 
-	baseDir := filepath.Dir(xcfPath)
+	baseDir := projectParseRoot()
 	compiled, notes, err := compiler.Compile(config, baseDir, exportTarget, "")
 	if err != nil {
 		return fmt.Errorf("compilation error: %w", err)

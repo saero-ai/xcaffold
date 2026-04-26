@@ -116,6 +116,9 @@ func TestResolveProjectConfig_PrefersXcaffoldDir(t *testing.T) {
 	originalXcf := xcfPath
 	defer func() { xcfPath = originalXcf }()
 
+	oldProjectRoot := projectRoot
+	defer func() { projectRoot = oldProjectRoot }()
+
 	cmd := &cobra.Command{Use: "apply"}
 	err := resolveProjectConfig(cmd)
 	require.NoError(t, err)
@@ -138,4 +141,24 @@ func TestResolveProjectConfig_FallbackToRoot(t *testing.T) {
 	err := resolveProjectConfig(cmd)
 	require.NoError(t, err)
 	assert.Equal(t, rootXcf, xcfPath)
+}
+
+func TestProjectParseRoot_StandardLayout(t *testing.T) {
+	oldXcfPath := xcfPath
+	defer func() { xcfPath = oldXcfPath }()
+	oldProjectRoot := projectRoot
+	defer func() { projectRoot = oldProjectRoot }()
+	projectRoot = ""
+	xcfPath = "/foo/bar/.xcaffold/project.xcf"
+	assert.Equal(t, "/foo/bar", projectParseRoot())
+}
+
+func TestProjectParseRoot_LegacyRootLayout(t *testing.T) {
+	oldXcfPath := xcfPath
+	defer func() { xcfPath = oldXcfPath }()
+	oldProjectRoot := projectRoot
+	defer func() { projectRoot = oldProjectRoot }()
+	projectRoot = ""
+	xcfPath = "/foo/bar/project.xcf"
+	assert.Equal(t, "/foo/bar", projectParseRoot())
 }

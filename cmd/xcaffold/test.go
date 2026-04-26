@@ -66,7 +66,7 @@ func init() {
 
 func runTest(cmd *cobra.Command, args []string) error {
 	// 1. Load and validate the project config.
-	config, err := parser.ParseDirectory(filepath.Dir(xcfPath))
+	config, err := parser.ParseDirectory(projectParseRoot())
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
 	}

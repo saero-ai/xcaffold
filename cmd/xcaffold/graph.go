@@ -181,21 +181,7 @@ func runGraph(cmd *cobra.Command, args []string) error {
 func printGraphOutput(scopes []*graphData) error {
 	switch strings.ToLower(graphFormat) {
 	case "terminal", "":
-		if graphFull || graphAgent != "" {
-			for _, g := range scopes {
-				fmt.Print(renderTerminal(g))
-			}
-		} else {
-			fmt.Print(renderTerminalSummary(scopes))
-		}
-
-		if graphScanOutput {
-			for _, g := range scopes {
-				if len(g.DiskEntries) > 0 {
-					fmt.Print(renderTerminalDiskEntries(g))
-				}
-			}
-		}
+		return runGraphTerminalMode()
 	case "mermaid":
 		for _, g := range scopes {
 			fmt.Print(renderMermaid(g))
@@ -218,7 +204,7 @@ func printGraphOutput(scopes []*graphData) error {
 
 //nolint:gocyclo
 func parseGraphData(configPath, scopeName string) (*graphData, error) {
-	config, err := parser.ParseDirectory(filepath.Dir(configPath))
+	config, err := parser.ParseDirectory(projectParseRoot())
 	if err != nil {
 		if scopeName != "" {
 			return nil, fmt.Errorf("[%s] parse error: %w", scopeName, err)
