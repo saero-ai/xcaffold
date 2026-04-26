@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1735,6 +1736,100 @@ func TestWriteMemoryFiles_WritesMarkdownToDisk(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("xcf", "agents", "dev", "memory", "context.md"))
 	require.NoError(t, err)
 	require.Contains(t, string(data), "This is memory content.")
+}
+
+func TestAllProviders_HaveRegisteredImporters(t *testing.T) {
+	providers := []string{"claude", "cursor", "gemini", "copilot", "antigravity"}
+	for _, p := range providers {
+		imp := findImporterByProvider(p)
+		require.NotNilf(t, imp, "provider %q must have a registered importer", p)
+	}
+}
+
+func TestMergeImportDirs_DedupRicherWins(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	// Claude: dev agent with short instructions
+	claudeDir := filepath.Join(tmp, ".claude")
+	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "agents", "dev.md"),
+		[]byte("---\nname: dev\ndescription: Short\n---\n\nShort."),
+		0o644,
+	))
+
+	// Cursor: dev agent with longer instructions
+	cursorDir := filepath.Join(tmp, ".cursor")
+	require.NoError(t, os.MkdirAll(filepath.Join(cursorDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cursorDir, "agents", "dev.md"),
+		[]byte("---\nname: dev\ndescription: Detailed developer\n---\n\nYou are a senior developer. Follow TDD strictly. Always write tests before implementation. Review code carefully."),
+		0o644,
+	))
+
+	dirs := []platformDirInfo{
+		{dirName: ".claude", platform: "claude", exists: true},
+		{dirName: ".cursor", platform: "cursor", exists: true},
+	}
+
+	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	require.NoError(t, err)
+
+	// The cursor version is longer — it should win
+	config, parseErr := parser.ParseDirectory(".")
+	require.NoError(t, parseErr)
+	dev, ok := config.Agents["dev"]
+	require.True(t, ok)
+	require.Contains(t, dev.Instructions, "Follow TDD strictly")
+}
+
+func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	// Claude: agents + settings.json with MCP + hooks
+	claudeDir := filepath.Join(tmp, ".claude")
+	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "agents", "dev.md"),
+		[]byte("---\nname: dev\ndescription: Developer\n---\n\nDevelop."),
+		0o644,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "settings.json"),
+		[]byte(`{"mcpServers":{"my-server":{"command":"node","args":["srv.js"]}}}`),
+		0o644,
+	))
+
+	// Cursor: agents dir
+	cursorDir := filepath.Join(tmp, ".cursor")
+	require.NoError(t, os.MkdirAll(filepath.Join(cursorDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cursorDir, "agents", "reviewer.md"),
+		[]byte("---\nname: reviewer\n---\n\nReview."),
+		0o644,
+	))
+
+	dirs := []platformDirInfo{
+		{dirName: ".claude", platform: "claude", exists: true},
+		{dirName: ".cursor", platform: "cursor", exists: true},
+	}
+
+	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	require.NoError(t, err)
+
+	// MCP from .claude/ must be present
+	config, parseErr := parser.ParseDirectory(".")
+	require.NoError(t, parseErr)
+	_, hasMCP := config.MCP["my-server"]
+	require.True(t, hasMCP, "MCP server from .claude/ must be imported in multi-dir mode")
 }
 
 func TestMergeImportDirs_ImportsMemory(t *testing.T) {
