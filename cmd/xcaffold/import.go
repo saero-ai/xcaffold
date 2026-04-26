@@ -571,11 +571,11 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	// Detect compilation targets from the scanned platform directory.
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(platformDir)
-		config.Project.AgentRefs = sortedMapKeysAgentManifestEntry(config.Agents)
-		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
-		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
-		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
-		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
+		config.Project.AgentRefs = sortedAgentRefs(config.Agents)
+		config.Project.SkillRefs = sortedMapKeys(config.Skills)
+		config.Project.RuleRefs = sortedMapKeys(config.Rules)
+		config.Project.WorkflowRefs = sortedMapKeys(config.Workflows)
+		config.Project.MCPRefs = sortedMapKeys(config.MCP)
 		// Propagate instructions-file from project-instruction discovery.
 	}
 
@@ -954,29 +954,6 @@ func detectTargets(baseDirs ...string) []string {
 	}
 	sort.Strings(targets)
 	return targets
-}
-
-// sortedMapKeysStr returns sorted keys from any string-keyed map. Used to build
-// ref lists for the kind: project document.
-func sortedMapKeysStr[V any](m map[string]V) []string {
-	if len(m) == 0 {
-		return nil
-	}
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func sortedMapKeysAgentManifestEntry[V any](m map[string]V) []ast.AgentManifestEntry {
-	keys := sortedMapKeysStr(m)
-	res := make([]ast.AgentManifestEntry, 0, len(keys))
-	for _, k := range keys {
-		res = append(res, ast.AgentManifestEntry{ID: k})
-	}
-	return res
 }
 
 // extractFrontmatter isolates the YAML section between `---` markers at the start of a markdown file.
@@ -1620,11 +1597,11 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 	}
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(dirNames...)
-		config.Project.AgentRefs = sortedMapKeysAgentManifestEntry(config.Agents)
-		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
-		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
-		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
-		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
+		config.Project.AgentRefs = sortedAgentRefs(config.Agents)
+		config.Project.SkillRefs = sortedMapKeys(config.Skills)
+		config.Project.RuleRefs = sortedMapKeys(config.Rules)
+		config.Project.WorkflowRefs = sortedMapKeys(config.Workflows)
+		config.Project.MCPRefs = sortedMapKeys(config.MCP)
 	}
 
 	// Write memory files to xcf/agents/<id>/memory/

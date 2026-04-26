@@ -19,11 +19,6 @@ import (
 	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
-	"github.com/saero-ai/xcaffold/internal/renderer/claude"
-	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
-	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
-	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
@@ -161,7 +156,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("parse error: %w", err)
 		}
 
-		secRenderer, err := rendererForTarget(targetFlag)
+		secRenderer, err := compiler.ResolveRenderer(targetFlag)
 		if err != nil {
 			return fmt.Errorf("unknown target for security check: %w", err)
 		}
@@ -652,23 +647,6 @@ func securityFieldReport(config *ast.XcaffoldConfig, r renderer.TargetRenderer) 
 	}
 
 	return errorsOut, warnings
-}
-
-func rendererForTarget(target string) (renderer.TargetRenderer, error) {
-	switch target {
-	case targetClaude:
-		return claude.New(), nil
-	case targetCursor:
-		return cursor.New(), nil
-	case targetGemini:
-		return gemini.New(), nil
-	case targetCopilot:
-		return copilot.New(), nil
-	case targetAntigravity:
-		return antigravity.New(), nil
-	default:
-		return nil, fmt.Errorf("unknown target %q", target)
-	}
 }
 
 func copyDir(src, dst string) error {
