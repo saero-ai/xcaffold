@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `xcaffold status` command to replace `xcaffold diff`, providing high-level sync/drift metrics across all applied targets with inline file status reporting.
+- Added adaptive 3-column terminal output for `xcaffold list`, intelligently scoping and grouping registered Rules and Memory items natively.
+
+### Changed
+
+- Command `xcaffold graph` overhauled dependency rendering to naturally group rules by folder prefixes and nest active agent memory dynamically.
+- `xcaffold diff` is now officially deprecated, safely delegating any active usage directly to `xcaffold status` with migration hints natively.
+
 ### Removed
 
 - Removed `xcaffold translate` command — cross-provider translation now happens automatically during `xcaffold apply`, and explicit cross-provider import is handled by `xcaffold import --source`. The `internal/translator` package and all workflow lowering logic remain unchanged.
