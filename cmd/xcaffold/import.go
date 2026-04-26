@@ -1467,10 +1467,6 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 			return err
 		}
 
-		tmpCount := len(tmpConfig.Agents) + len(tmpConfig.Skills) + len(tmpConfig.Rules) +
-			len(tmpConfig.Workflows) + len(tmpConfig.MCP)
-		_ = tmpCount
-
 		// Merge agents — richer instructions win on conflict
 		for id, ac := range tmpConfig.Agents {
 			if _, exists := config.Agents[id]; exists {
@@ -2086,7 +2082,7 @@ func geminiMemoryDir() (string, error) {
 // runProviderPostImport executes provider-specific post-import steps that fall
 // outside the scope of the ProviderImporter interface (cross-boundary files,
 // out-of-tree memory sources, unsupported-provider warnings).
-func runProviderPostImport(provider, _ string, projectDir string, config *ast.XcaffoldConfig, warnings *[]string) error {
+func runProviderPostImport(provider, _ /* platformDir */ string, projectDir string, config *ast.XcaffoldConfig, warnings *[]string) error {
 	// Claude: root .mcp.json lives outside .claude/ — import it here.
 	if provider == "claude" || provider == "" {
 		rootMCPPath := filepath.Join(projectDir, ".mcp.json")

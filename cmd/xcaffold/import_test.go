@@ -1225,6 +1225,7 @@ func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
 }
 
 func TestMergeImportDirs_ImportsMemory(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
