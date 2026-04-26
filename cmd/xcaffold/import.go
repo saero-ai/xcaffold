@@ -93,11 +93,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
 			}
 			if len(dirs) > 1 {
-				var dirNames []string
-				for _, d := range dirs {
-					dirNames = append(dirNames, d.dirName)
-				}
-				importErr = mergeImportDirs(dirNames, globalXcfPath)
+				importErr = mergeImportDirs(dirs, globalXcfPath)
 			} else {
 				importErr = importScope(dirs[0].dirName, globalXcfPath, "global", dirs[0].platform)
 			}
@@ -105,11 +101,15 @@ func runImport(cmd *cobra.Command, args []string) error {
 			// project (default) — detect providers via ProviderImporter registry.
 			detected := importer.DetectProviders(".", importer.DefaultImporters())
 			if len(detected) > 1 {
-				var dirs []string
+				var provDirs []platformDirInfo
 				for _, imp := range detected {
-					dirs = append(dirs, imp.InputDir())
+					provDirs = append(provDirs, platformDirInfo{
+						dirName:  imp.InputDir(),
+						platform: imp.Provider(),
+						exists:   true,
+					})
 				}
-				importErr = mergeImportDirs(dirs, "project.xcf")
+				importErr = mergeImportDirs(provDirs, "project.xcf")
 			} else if len(detected) == 1 {
 				imp := detected[0]
 				importErr = importScope(imp.InputDir(), "project.xcf", "project", imp.Provider())
@@ -2410,7 +2410,7 @@ func resolveAllowEntries(body string) []string {
 // file (richer content) is kept and the conflict is logged.
 //
 //nolint:gocyclo
-func mergeImportDirs(dirs []string, xcfDest string) error {
+func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[project] %s already exists. Remove it first to import", xcfDest)
 	}
@@ -2440,10 +2440,11 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 	ruleSources := make(map[string]string)
 	workflowSources := make(map[string]string)
 
-	for _, dir := range dirs {
+	for _, pdi := range providerDirs {
+		dir := pdi.dirName
+		provider := pdi.platform
 		fmt.Printf("  Scanning %s ...\n", dir)
 
-		// Extract into a temporary config to compare before merging
 		tmpConfig := &ast.XcaffoldConfig{
 			ResourceScope: ast.ResourceScope{
 				Agents:    make(map[string]ast.AgentConfig),
@@ -2453,38 +2454,54 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 				MCP:       make(map[string]ast.MCPConfig),
 			},
 		}
-		tmpCount := 0
 
-		if err := extractAgents(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
-			return err
+		// Use ProviderImporter instead of legacy extractors
+		imp := findImporterByProvider(provider)
+		if imp == nil {
+			warnings = append(warnings, fmt.Sprintf("no registered importer for provider %q, skipping %s", provider, dir))
+			continue
 		}
-		if err := extractSkills(dir, "project", "claude", tmpConfig, &tmpCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractRules(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractWorkflows(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
-			return err
+		if err := imp.Import(dir, tmpConfig); err != nil {
+			warnings = append(warnings, fmt.Sprintf("%s import: %v", provider, err))
 		}
 
-		// Parse settings from this dir
-		settingsPath := filepath.Join(dir, "settings.json")
-		if data, err := os.ReadFile(settingsPath); err == nil {
-			if err := importSettings(data, config, &importCount, &warnings); err != nil {
-				warnings = append(warnings, fmt.Sprintf("%s/settings.json partially imported: %v", dir, err))
+		// Skill subdirs (same pattern as importScope)
+		for id := range tmpConfig.Skills {
+			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
+			if _, err := os.Stat(skillFile); err == nil {
+				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", &warnings)
+				sc := tmpConfig.Skills[id]
+				if len(refs) > 0 {
+					sc.References = refs
+				}
+				if len(scripts) > 0 {
+					sc.Scripts = scripts
+				}
+				if len(fileAssets) > 0 {
+					sc.Assets = fileAssets
+				}
+				if len(fileExamples) > 0 {
+					sc.Examples = fileExamples
+				}
+				tmpConfig.Skills[id] = sc
 			}
 		}
 
-		// Parse hooks.json from this dir
-		hooksPath := filepath.Join(dir, "hooks.json")
-		if data, err := os.ReadFile(hooksPath); err == nil {
-			if err := json.Unmarshal(data, &config.Hooks); err != nil {
-				warnings = append(warnings, fmt.Sprintf("%s/hooks.json failed to parse: %v", dir, err))
-			} else {
-				importCount++
-			}
+		// Reclassify extras
+		if err := parser.ReclassifyExtras(tmpConfig, importer.DefaultImporters()); err != nil {
+			warnings = append(warnings, fmt.Sprintf("reclassify extras (%s): %v", provider, err))
 		}
+
+		// Provider-specific post-import
+		dirAbs, _ := filepath.Abs(dir)
+		projectDir := filepath.Dir(dirAbs)
+		if err := runProviderPostImport(provider, dir, projectDir, tmpConfig, &warnings); err != nil {
+			return err
+		}
+
+		tmpCount := len(tmpConfig.Agents) + len(tmpConfig.Skills) + len(tmpConfig.Rules) +
+			len(tmpConfig.Workflows) + len(tmpConfig.MCP)
+		_ = tmpCount
 
 		// Merge agents — richer instructions win on conflict
 		for id, ac := range tmpConfig.Agents {
@@ -2569,11 +2586,48 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 				importCount++
 			}
 		}
-	}
+
+		// Merge memory (union — first-seen wins on key collision)
+		if tmpConfig.Memory != nil {
+			if config.Memory == nil {
+				config.Memory = make(map[string]ast.MemoryConfig)
+			}
+			for k, mc := range tmpConfig.Memory {
+				if _, exists := config.Memory[k]; !exists {
+					config.Memory[k] = mc
+					importCount++
+				}
+			}
+		}
+
+		// Merge hooks (union per event, not overwrite)
+		for hookName, namedHook := range tmpConfig.Hooks {
+			if config.Hooks == nil {
+				config.Hooks = make(map[string]ast.NamedHookConfig)
+			}
+			if _, exists := config.Hooks[hookName]; !exists {
+				config.Hooks[hookName] = namedHook
+			}
+		}
+
+		// Merge settings (first-seen wins)
+		for name, sc := range tmpConfig.Settings {
+			if config.Settings == nil {
+				config.Settings = make(map[string]ast.SettingsConfig)
+			}
+			if _, exists := config.Settings[name]; !exists {
+				config.Settings[name] = sc
+			}
+		}
+	} // end for loop
 
 	// Detect compilation targets from all scanned platform directories.
+	var dirNames []string
+	for _, pdi := range providerDirs {
+		dirNames = append(dirNames, pdi.dirName)
+	}
 	if config.Project != nil {
-		config.Project.Targets = detectTargets(dirs...)
+		config.Project.Targets = detectTargets(dirNames...)
 		config.Project.AgentRefs = sortedMapKeysAgentManifestEntry(config.Agents)
 		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
 		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
@@ -2581,13 +2635,44 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
 	}
 
+	// Write memory files to xcf/agents/<id>/memory/
+	if memCount, err := writeMemoryFiles(config); err != nil {
+		return fmt.Errorf("write memory files: %w", err)
+	} else if memCount > 0 {
+		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
+	}
+
 	// Write split .xcf files: project.xcf (kind: project) + xcf/**/*.xcf
 	if err := WriteSplitFiles(config, "."); err != nil {
 		return fmt.Errorf("[project] failed to write split xcf files: %w", err)
 	}
 
+	// Prune orphan memory
+	if err := pruneOrphanMemory(config, "."); err != nil {
+		return fmt.Errorf("prune memory: %w", err)
+	}
+
+	// Project instructions discovery — run for each unique provider
+	seen := make(map[string]bool)
+	for _, pdi := range providerDirs {
+		if seen[pdi.platform] {
+			continue
+		}
+		seen[pdi.platform] = true
+		if instrFile := providerInstructionsFilename(pdi.platform); instrFile != "" {
+			dirAbs, _ := filepath.Abs(pdi.dirName)
+			projectDir := filepath.Dir(dirAbs)
+			if anyInstructionFileExists(projectDir, instrFile) {
+				actualPath := filepath.Join(projectDir, ".xcaffold", "project.xcf")
+				if discoverErr := runProjectInstructionsDiscovery(projectDir, pdi.platform, actualPath); discoverErr != nil {
+					warnings = append(warnings, fmt.Sprintf("project instructions (%s): %v", pdi.platform, discoverErr))
+				}
+			}
+		}
+	}
+
 	fmt.Printf("\n[project] ✓ Merge complete. Created %s with %d resources from %d directories.\n",
-		xcfDest, importCount, len(dirs))
+		xcfDest, importCount, len(providerDirs))
 	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
 	fmt.Println("  Run 'xcaffold apply' when ready to compile to your target platforms.")
 

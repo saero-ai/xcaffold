@@ -181,11 +181,7 @@ func initProject(cmd *cobra.Command) error {
 				importErr = importScope(infos[0].dirName, xcfFile, "project", infos[0].platform)
 			} else {
 				if yesFlag {
-					var dirs []string
-					for _, info := range infos {
-						dirs = append(dirs, info.dirName)
-					}
-					importErr = mergeImportDirs(dirs, xcfFile)
+					importErr = mergeImportDirs(infos, xcfFile)
 				} else {
 					var options []prompt.SelectOption
 					for _, info := range infos {
@@ -214,7 +210,15 @@ func initProject(cmd *cobra.Command) error {
 							importErr = importScope(selected[0], xcfFile, "project", selectedPlatform(infos, selected[0]))
 						} else {
 							cmd.Println()
-							importErr = mergeImportDirs(selected, xcfFile)
+							var selectedInfos []platformDirInfo
+							for _, s := range selected {
+								selectedInfos = append(selectedInfos, platformDirInfo{
+									dirName:  s,
+									platform: selectedPlatform(infos, s),
+									exists:   true,
+								})
+							}
+							importErr = mergeImportDirs(selectedInfos, xcfFile)
 						}
 					}
 				}

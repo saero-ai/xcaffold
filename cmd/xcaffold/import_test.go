@@ -569,7 +569,7 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = mergeImportDirs([]string{".claude"}, filepath.Join(".xcaffold", "project.xcf"))
+	err = mergeImportDirs([]platformDirInfo{{dirName: ".claude", platform: "claude", exists: true}}, filepath.Join(".xcaffold", "project.xcf"))
 	if err == nil {
 		t.Fatal("expected error when xcf/ directory already exists, got nil")
 	}
@@ -1735,4 +1735,51 @@ func TestWriteMemoryFiles_WritesMarkdownToDisk(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("xcf", "agents", "dev", "memory", "context.md"))
 	require.NoError(t, err)
 	require.Contains(t, string(data), "This is memory content.")
+}
+
+func TestMergeImportDirs_ImportsMemory(t *testing.T) {
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	// Create .claude/ with agent + memory
+	claudeDir := filepath.Join(tmp, ".claude")
+	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "agents", "dev.md"),
+		[]byte("---\nname: dev\ndescription: Developer agent\n---\n\nYou are a developer."),
+		0o644,
+	))
+	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agent-memory", "dev"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "agent-memory", "dev", "context.md"),
+		[]byte("---\nname: context\ndescription: Project context\n---\n\nAlways use Go 1.24."),
+		0o644,
+	))
+
+	// Create .cursor/ with an agent
+	cursorDir := filepath.Join(tmp, ".cursor")
+	require.NoError(t, os.MkdirAll(filepath.Join(cursorDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cursorDir, "agents", "reviewer.md"),
+		[]byte("---\nname: reviewer\ndescription: Code reviewer\n---\n\nReview code carefully."),
+		0o644,
+	))
+
+	dirs := []platformDirInfo{
+		{dirName: ".claude", platform: "claude", exists: true},
+		{dirName: ".cursor", platform: "cursor", exists: true},
+	}
+
+	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	require.NoError(t, err)
+
+	// Memory must be written to disk
+	memPath := filepath.Join("xcf", "agents", "dev", "memory", "context.md")
+	_, statErr := os.Stat(memPath)
+	require.NoError(t, statErr, "memory file must exist at %s", memPath)
+
+	data, _ := os.ReadFile(memPath)
+	require.Contains(t, string(data), "Always use Go 1.24.")
 }
