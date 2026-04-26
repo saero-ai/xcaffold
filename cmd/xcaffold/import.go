@@ -88,16 +88,16 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	if importSource == "" {
 		if globalFlag {
-			dirs := detectAllGlobalPlatformDirs()
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("cannot determine home directory: %w", err)
+			}
+			dirs := detectPlatformDirs(home, true)
 			if len(dirs) == 0 {
 				return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
 			}
 			if len(dirs) > 1 {
-				var dirNames []string
-				for _, d := range dirs {
-					dirNames = append(dirNames, d.dirName)
-				}
-				importErr = mergeImportDirs(dirNames, globalXcfPath)
+				importErr = mergeImportDirs(dirs, globalXcfPath)
 			} else {
 				importErr = importScope(dirs[0].dirName, globalXcfPath, "global", dirs[0].platform)
 			}
@@ -105,11 +105,15 @@ func runImport(cmd *cobra.Command, args []string) error {
 			// project (default) — detect providers via ProviderImporter registry.
 			detected := importer.DetectProviders(".", importer.DefaultImporters())
 			if len(detected) > 1 {
-				var dirs []string
+				var provDirs []platformDirInfo
 				for _, imp := range detected {
-					dirs = append(dirs, imp.InputDir())
+					provDirs = append(provDirs, platformDirInfo{
+						dirName:  imp.InputDir(),
+						platform: imp.Provider(),
+						exists:   true,
+					})
 				}
-				importErr = mergeImportDirs(dirs, "project.xcf")
+				importErr = mergeImportDirs(provDirs, "project.xcf")
 			} else if len(detected) == 1 {
 				imp := detected[0]
 				importErr = importScope(imp.InputDir(), "project.xcf", "project", imp.Provider())
@@ -335,15 +339,11 @@ func fileExistsInTree(rootDir, name string) bool {
 	return found
 }
 
-// detectAllGlobalPlatformDirs scans known provider directories under the user's home directory
-// (~/.claude/, ~/.cursor/, ~/.agents/) and returns all that contain agent/skill/rule resources,
-// sorted by total resource count descending.
-func detectAllGlobalPlatformDirs() []platformDirInfo {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil
-	}
-
+// detectPlatformDirs scans known provider directories under baseDir and returns
+// all found entries, sorted by total resource count descending. When skipEmpty
+// is true, directories with no detected resources are excluded from the result.
+// dirName in each returned entry is the absolute path to the provider directory.
+func detectPlatformDirs(baseDir string, skipEmpty bool) []platformDirInfo {
 	platformDirs := []struct{ dir, platform string }{
 		{".claude", "claude"},
 		{".cursor", "cursor"},
@@ -354,7 +354,7 @@ func detectAllGlobalPlatformDirs() []platformDirInfo {
 	var results []platformDirInfo
 
 	for _, pt := range platformDirs {
-		targetPath := filepath.Join(home, pt.dir)
+		targetPath := filepath.Join(baseDir, pt.dir)
 		if _, err := os.Stat(targetPath); err != nil {
 			continue
 		}
@@ -382,8 +382,7 @@ func detectAllGlobalPlatformDirs() []platformDirInfo {
 			info.workflows += len(workflows)
 		}
 
-		// Only include directories that actually have resources
-		if info.agents+info.skills+info.rules+info.workflows == 0 {
+		if skipEmpty && info.agents+info.skills+info.rules+info.workflows == 0 {
 			continue
 		}
 
@@ -498,8 +497,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 
 	// ── 1. Delegate resource extraction to the registered ProviderImporter. ──────
 	// Each provider importer handles its own file layout, frontmatter parsing, and
-	// JSON key splitting. The legacy per-provider switch blocks below remain only
-	// for the translate path (buildConfigFromDir) and backward-compat with tests.
+	// JSON key splitting.
 	providerImp := findImporterByProvider(provider)
 	if providerImp != nil {
 		if err := providerImp.Import(platformDir, config); err != nil {
@@ -548,33 +546,12 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		// Count resources extracted by the importer.
 		importCount += len(config.Agents) + len(config.Skills) + len(config.Rules) +
 			len(config.Workflows) + len(config.MCP)
-	} else {
-		// Fallback to legacy extractors for unknown providers.
-		if err := extractAgents(platformDir, scopeName, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractSkills(platformDir, scopeName, provider, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractRules(platformDir, scopeName, config, &importCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractWorkflows(platformDir, scopeName, config, &importCount, &warnings); err != nil {
-			return err
-		}
 	}
 
-	// ── 2. Claude-specific: read root .mcp.json (sibling to .claude/).
-	// Claude Code stores project-scope MCP servers in a root-level .mcp.json
-	// that lives outside .claude/. The ProviderImporter only walks .claude/, so
-	// we handle this cross-boundary file here.
-	if provider == "claude" || provider == "" {
-		rootMCPPath := filepath.Join(projectDir, ".mcp.json")
-		if data, err := os.ReadFile(rootMCPPath); err == nil {
-			if err := importSettings(data, config, &importCount, &warnings); err != nil {
-				warnings = append(warnings, fmt.Sprintf(".mcp.json partially imported: %v", err))
-			}
-		}
+	// ── 2. Provider-specific post-import steps (cross-boundary files, out-of-tree
+	// memory sources, unsupported-provider warnings).
+	if err := runProviderPostImport(provider, platformDir, projectDir, config, &warnings); err != nil {
+		return err
 	}
 
 	// ── 3. Project instruction file discovery is deferred to after WriteSplitFiles.
@@ -585,53 +562,19 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	// Import() (e.g. claude extracts agent-memory/**). Write each entry as a
 	// plain .md file to xcf/agents/<agentID>/memory/<name>.md so the compiler
 	// discovers them via convention-based filesystem scanning.
-	if len(config.Memory) > 0 {
-		for _, k := range sortedMapKeys(config.Memory) {
-			mem := config.Memory[k]
-			parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
-			var agentID, memName string
-			if len(parts) == 2 {
-				agentID = parts[0]
-				memName = parts[1]
-			} else {
-				agentID = mem.AgentRef
-				if agentID == "" {
-					agentID = k
-				}
-				memName = k
-			}
-			outPath := filepath.Join("xcf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
-			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-				return fmt.Errorf("create memory dir: %w", err)
-			}
-			if err := os.WriteFile(filepath.Clean(outPath), []byte(mem.Content), 0644); err != nil {
-				return fmt.Errorf("write memory file: %w", err)
-			}
-		}
-		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", len(config.Memory))
+	if memCount, err := writeMemoryFiles(config); err != nil {
+		return err
+	} else if memCount > 0 {
+		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
 	}
-	switch provider {
-	case "gemini":
-		if gDir, err := geminiMemoryDir(); err == nil {
-			if memSum, err := bir.ImportGeminiMemory(gDir, bir.ImportOpts{
-				SidecarDir: filepath.Join("xcf", "agents"),
-			}); err == nil && memSum.Imported > 0 {
-				fmt.Printf("  Gemini memory: snapshotted %d entry(ies) → xcf/agents/<id>/memory/\n", memSum.Imported)
-			}
-		}
-	case "antigravity":
-		warnings = append(warnings,
-			"Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem")
-	}
-
 	// Detect compilation targets from the scanned platform directory.
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(platformDir)
-		config.Project.AgentRefs = sortedMapKeysAgentManifestEntry(config.Agents)
-		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
-		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
-		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
-		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
+		config.Project.AgentRefs = sortedAgentRefs(config.Agents)
+		config.Project.SkillRefs = sortedMapKeys(config.Skills)
+		config.Project.RuleRefs = sortedMapKeys(config.Rules)
+		config.Project.WorkflowRefs = sortedMapKeys(config.Workflows)
+		config.Project.MCPRefs = sortedMapKeys(config.MCP)
 		// Propagate instructions-file from project-instruction discovery.
 	}
 
@@ -732,237 +675,6 @@ func copyDirContents(src, dst string) error {
 	})
 }
 
-// importCursorMCP reads a Cursor .cursor/mcp.json file (shape: {mcpServers:{...}})
-// and imports the server entries into config.MCP. Cursor uses the same
-// mcpServers key as Claude Code per ground truth.
-func importCursorMCP(data []byte, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	var raw map[string]interface{}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	importMCPServers(raw, config, count)
-	return nil
-}
-
-// buildConfigFromDir scans a provider source directory and returns an in-memory
-// xcaffold config without writing any files to disk. It mirrors the extraction
-// logic inside importScope but skips the WriteSplitFiles call, making it safe
-// to use as a building block for translate pipelines.
-//
-// fromProvider selects provider-specific extraction logic when available (e.g.
-// "antigravity" uses extractAntigravityRules instead of the generic extractor).
-// Pass an empty string to use the generic extractors for all resource types.
-func buildConfigFromDir(sourceDir, fromProvider string) (*ast.XcaffoldConfig, error) {
-	projectName := inferProjectName()
-	config := &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{Name: projectName},
-		ResourceScope: ast.ResourceScope{
-			Agents: make(map[string]ast.AgentConfig),
-			Skills: make(map[string]ast.SkillConfig),
-			Rules:  make(map[string]ast.RuleConfig),
-			MCP:    make(map[string]ast.MCPConfig),
-		},
-	}
-
-	importCount := 0
-	var warnings []string
-
-	// Use provider-specific agent/skill extractors when available.
-	switch fromProvider {
-	case "copilot":
-		if err := extractCopilotAgents(sourceDir, config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-		if err := extractCopilotSkills(sourceDir, config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-	default:
-		if err := extractAgents(sourceDir, "translate", config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-		if err := extractSkills(sourceDir, "translate", fromProvider, config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-	}
-
-	// Use provider-specific rule extractor when available.
-	switch fromProvider {
-	case "antigravity":
-		if err := extractAntigravityRules(sourceDir, config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-	case "gemini":
-		if err := extractGeminiRules(sourceDir, config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-	case "copilot":
-		if err := extractCopilotRules(sourceDir, config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-	default:
-		if err := extractRules(sourceDir, "translate", config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-	}
-
-	// Extract workflows; for antigravity, parse multi-step markdown sections.
-	switch fromProvider {
-	case "antigravity":
-		if err := extractAntigravityWorkflows(sourceDir, config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-	default:
-		if err := extractWorkflows(sourceDir, "translate", config, &importCount, &warnings); err != nil {
-			return nil, err
-		}
-	}
-
-	// Use provider-specific settings extractor when available.
-	switch fromProvider {
-	case "copilot":
-		if err := importCopilotSettings(sourceDir, filepath.Dir(sourceDir), config, &importCount, &warnings); err != nil {
-			warnings = append(warnings, fmt.Sprintf("copilot settings partially imported: %v", err))
-		}
-	default:
-		settingsPath := filepath.Join(sourceDir, "settings.json")
-		if data, err := os.ReadFile(settingsPath); err == nil {
-			if err := importSettings(data, config, &importCount, &warnings); err != nil {
-				warnings = append(warnings, fmt.Sprintf("settings.json partially imported: %v", err))
-			}
-		}
-
-		hooksPath := filepath.Join(sourceDir, "hooks.json")
-		if data, err := os.ReadFile(hooksPath); err == nil {
-			if err := json.Unmarshal(data, &config.Hooks); err != nil {
-				warnings = append(warnings, fmt.Sprintf("hooks.json failed to parse: %v", err))
-			}
-		}
-	}
-
-	if config.Project != nil {
-		config.Project.Targets = detectTargets(sourceDir)
-		config.Project.AgentRefs = sortedMapKeysAgentManifestEntry(config.Agents)
-		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
-		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
-		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
-		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
-	}
-
-	if len(warnings) > 0 {
-		for _, w := range warnings {
-			fmt.Fprintf(os.Stderr, "warn: %s\n", w)
-		}
-	}
-
-	return config, nil
-}
-
-// copilotToXcaffoldEvent maps Copilot-native hook event names back to xcaffold
-// event names for the import roundtrip.
-var copilotToXcaffoldEvent = map[string]string{
-	"preToolUse":          "PreToolUse",
-	"postToolUse":         "PostToolUse",
-	"sessionStart":        "SessionStart",
-	"sessionEnd":          "SessionEnd",
-	"agentStop":           "Stop",
-	"subagentStop":        "SubagentStop",
-	"userPromptSubmitted": "UserPromptSubmit",
-}
-
-// geminiToXcaffoldEvent maps Gemini-native hook event names back to xcaffold
-// event names for the import roundtrip.
-var geminiToXcaffoldEvent = map[string]string{
-	"BeforeTool": "PreToolExecution",
-	"AfterTool":  "PostToolExecution",
-}
-
-// importGeminiSettings parses a .gemini/settings.json file and populates MCP
-// servers and hooks in config. Hook event names are mapped from Gemini-native
-// names (BeforeTool, AfterTool) back to xcaffold names (PreToolExecution,
-// PostToolExecution). Gemini-native events with no xcaffold equivalent are
-// preserved under their Gemini name. The hooks JSON shape in .gemini/settings.json
-// is: {"EventName": [{"matcher":"...", "hooks":[{"type":"command","command":"...","timeout":N}]}]}
-func importGeminiSettings(data []byte, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-
-	// Extract MCP servers using the shared helper.
-	var rawMap map[string]interface{}
-	if err := json.Unmarshal(data, &rawMap); err != nil {
-		return err
-	}
-	importMCPServers(rawMap, config, count)
-
-	// Extract hooks from the Gemini-specific structure.
-	hooksRaw, ok := raw["hooks"]
-	if !ok {
-		return nil
-	}
-
-	// Gemini hook shape: map[eventName][]geminiHookEvent
-	// where geminiHookEvent = {matcher: string, hooks: [{type, command, timeout}]}
-	type geminiImportHookEntry struct {
-		Type    string `json:"type"`
-		Command string `json:"command"`
-		Timeout *int   `json:"timeout,omitempty"`
-	}
-	type geminiImportHookEvent struct {
-		Matcher string                  `json:"matcher,omitempty"`
-		Hooks   []geminiImportHookEntry `json:"hooks"`
-	}
-
-	var hooksMap map[string][]geminiImportHookEvent
-	if err := json.Unmarshal(hooksRaw, &hooksMap); err != nil {
-		*warnings = append(*warnings, fmt.Sprintf("gemini settings.json hooks failed to parse: %v", err))
-		return nil
-	}
-
-	if config.Hooks == nil {
-		config.Hooks = make(map[string]ast.NamedHookConfig)
-	}
-	defaultHook := config.Hooks["default"]
-	if defaultHook.Events == nil {
-		defaultHook.Name = "default"
-		defaultHook.Events = make(ast.HookConfig)
-	}
-
-	for geminiEvent, eventGroups := range hooksMap {
-		xcaffoldEvent := geminiEvent
-		if mapped, ok := geminiToXcaffoldEvent[geminiEvent]; ok {
-			xcaffoldEvent = mapped
-		}
-
-		var matcherGroups []ast.HookMatcherGroup
-		for _, eg := range eventGroups {
-			var handlers []ast.HookHandler
-			for _, h := range eg.Hooks {
-				handler := ast.HookHandler{
-					Type:    h.Type,
-					Command: h.Command,
-					Timeout: h.Timeout,
-				}
-				handlers = append(handlers, handler)
-			}
-			if len(handlers) > 0 {
-				matcherGroups = append(matcherGroups, ast.HookMatcherGroup{
-					Matcher: eg.Matcher,
-					Hooks:   handlers,
-				})
-			}
-		}
-		if len(matcherGroups) > 0 {
-			defaultHook.Events[xcaffoldEvent] = append(defaultHook.Events[xcaffoldEvent], matcherGroups...)
-			*count++
-		}
-	}
-	config.Hooks["default"] = defaultHook
-
-	return nil
-}
-
 // importSettings parses settings.json and populates MCP, rules, and settings.
 func importSettings(data []byte, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
 	var raw map[string]interface{}
@@ -1057,84 +769,6 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 	if changed {
 		config.Settings = map[string]ast.SettingsConfig{"default": settings}
 	}
-}
-
-func extractAgents(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	agentFiles, _ := filepath.Glob(filepath.Join(claudeDir, "agents", "*.md"))
-	for _, f := range agentFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping agent %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		if id == "" {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		agentCfg := ast.AgentConfig{Description: "Imported agent"}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := lenientUnmarshal(fm, &agentCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			agentCfg.InstructionsFile = ""
-		}
-		agentCfg.Instructions = body
-
-		config.Agents[id] = agentCfg
-		*count++
-	}
-	return nil
-}
-
-func extractSkills(claudeDir, scopeName, provider string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	skillFiles, _ := filepath.Glob(filepath.Join(claudeDir, "skills", "*", "SKILL.md"))
-	for _, f := range skillFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping skill %s: %v", f, err))
-			continue
-		}
-		id := filepath.Base(filepath.Dir(f))
-		if id == "" || id == "." {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		// Supporting files are copied to xcf/skills/<id>/ using canonical subdirectories.
-		refs, scripts, fileAssets, fileExamples, err := extractSkillSubdirs(f, id, provider, "", warnings)
-		if err != nil {
-			return err
-		}
-
-		skillCfg := ast.SkillConfig{Description: "Imported skill", References: refs}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := lenientUnmarshal(fm, &skillCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			skillCfg.InstructionsFile = ""
-			if len(refs) > 0 {
-				skillCfg.References = refs // use copied refs, not frontmatter refs
-			}
-		}
-		if len(scripts) > 0 {
-			skillCfg.Scripts = scripts
-		}
-		if len(fileAssets) > 0 {
-			skillCfg.Assets = fileAssets
-		}
-		if len(fileExamples) > 0 {
-			skillCfg.Examples = fileExamples
-		}
-		skillCfg.Instructions = body
-
-		config.Skills[id] = skillCfg
-		*count++
-	}
-	return nil
 }
 
 // providerSubdirMap maps provider-native subdirectory names to the canonical
@@ -1270,690 +904,6 @@ func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]str
 	return refs, scripts, assets, examples, nil
 }
 
-func extractRules(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	rulesRoot := filepath.Join(claudeDir, "rules")
-	// Collect all .md files recursively so that nested subdirectories (e.g.
-	// rules/cli/, rules/platform/) are fully imported. Subdirectory paths are
-	// preserved in the rule ID using forward-slash notation (e.g. "cli/build-go-cli")
-	// so that rules from different folders cannot collide.
-	var ruleFiles []string
-	_ = filepath.WalkDir(rulesRoot, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
-			ruleFiles = append(ruleFiles, path)
-		}
-		return nil
-	})
-	sort.Strings(ruleFiles)
-	for _, f := range ruleFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping rule %s: %v", f, err))
-			continue
-		}
-		// Derive the rule ID from only the filename stem — no path prefix — so that
-		// the ID is always a simple slug the parser accepts (e.g. "build-go-cli",
-		// not "cli/build-go-cli" which the validateID security guard rejects).
-		// The xcf file is still emitted under the subdirectory (xcf/rules/cli/)
-		// for human-readable organisation; WriteSplitFiles uses the map key as a
-		// relative path under xcf/rules/, so we attach the subdir prefix there
-		// instead — see the note below.
-		//
-		// Store the key as "<subdir>/<stem>" so WriteSplitFiles emits the file in
-		// the right subdirectory while the config name field carries only the stem.
-		rel, relErr := filepath.Rel(rulesRoot, f)
-		if relErr != nil {
-			rel = filepath.Base(f)
-		}
-		slashRel := filepath.ToSlash(strings.TrimSuffix(rel, ".md")) // e.g. "cli/build-go-cli"
-		stem := filepath.Base(slashRel)                              // e.g. "build-go-cli"
-		id := slashRel                                               // use full rel path as map key so WriteSplitFiles places files in subdirs
-		if stem == "" || id == "" {
-			continue
-		}
-
-		// If this rule file carries an x-xcaffold workflow provenance marker, reassemble
-		// the WorkflowConfig from the marker and its companion skill files instead of
-		// importing it as a standalone rule. The workflow name is the stem with the
-		// "-workflow" suffix stripped (e.g. "code-review-workflow" → "code-review").
-		if strings.HasSuffix(stem, "-workflow") {
-			workflowName := strings.TrimSuffix(stem, "-workflow")
-			// claudeDir is the .claude directory; parent is the project root passed to
-			// bir.ReassembleWorkflow which expects the project root (it appends .claude/).
-			projectDir := filepath.Dir(claudeDir)
-			wf, _, reassembleErr := bir.ReassembleWorkflow(projectDir, workflowName)
-			if reassembleErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("workflow reassembly failed for %s: %v", workflowName, reassembleErr))
-			} else if wf != nil {
-				if config.Workflows == nil {
-					config.Workflows = make(map[string]ast.WorkflowConfig)
-				}
-				config.Workflows[workflowName] = *wf
-				// Remove companion skill files from config.Skills; they are now encoded
-				// as workflow steps and should not be emitted as standalone skills.
-				for _, step := range wf.Steps {
-					// Derive the skill ID from the step name following the translator
-					// naming convention: <workflowName>-<NN>-<stepName>. Since we only
-					// have the step names here, we match by prefix scan.
-					for skillID := range config.Skills {
-						if isWorkflowStepSkill(skillID, workflowName) {
-							delete(config.Skills, skillID)
-						}
-					}
-					_ = step // step used for range; skill removal is by ID prefix
-				}
-				*count++
-				continue
-			}
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		ruleCfg := ast.RuleConfig{Description: "Imported rule"}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := lenientUnmarshal(fm, &ruleCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			ruleCfg.InstructionsFile = ""
-		}
-		// Ensure the name field is always a plain slug the parser accepts.
-		// Frontmatter may have set a name already; if not, fall back to the file
-		// stem (e.g. "build-go-cli"), never to the slash-separated path.
-		if ruleCfg.Name == "" {
-			ruleCfg.Name = stem
-		}
-		ruleCfg.Instructions = body
-
-		// Populate Activation from path-presence heuristic when not set explicitly.
-		if ruleCfg.Activation == "" {
-			if len(ruleCfg.Paths) > 0 {
-				ruleCfg.Activation = ast.RuleActivationPathGlob
-			} else {
-				ruleCfg.Activation = ast.RuleActivationAlways
-			}
-		}
-
-		config.Rules[id] = ruleCfg
-		*count++
-	}
-	return nil
-}
-
-// isWorkflowStepSkill reports whether skillID looks like it was generated by
-// translator.TranslateWorkflow for the given workflowName. The naming convention is
-// "<workflowName>-<NN>-<stepName>" (e.g. "code-review-01-analyze").
-func isWorkflowStepSkill(skillID, workflowName string) bool {
-	return strings.HasPrefix(skillID, workflowName+"-")
-}
-
-// extractCursorRules reads .cursor/rules/*.mdc files and maps Cursor frontmatter
-// fields to RuleConfig. Activation is derived from globs and always-apply fields.
-func extractCursorRules(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	ruleFiles, _ := filepath.Glob(filepath.Join(dir, "rules", "*.mdc"))
-	for _, f := range ruleFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping cursor rule %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".mdc")
-		if id == "" {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		// Parse Cursor-specific frontmatter fields.
-		var cursorFM struct {
-			Description string   `yaml:"description"`
-			Globs       []string `yaml:"globs"`
-			AlwaysApply *bool    `yaml:"alwaysApply"`
-		}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := yaml.Unmarshal(fm, &cursorFM); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-		}
-
-		ruleCfg := ast.RuleConfig{
-			Description:  cursorFM.Description,
-			Instructions: body,
-		}
-		if ruleCfg.Description == "" {
-			ruleCfg.Description = "Imported cursor rule"
-		}
-
-		// Derive activation per spec Section 9.2.
-		hasGlobs := len(cursorFM.Globs) > 0
-		alwaysApplyTrue := cursorFM.AlwaysApply != nil && *cursorFM.AlwaysApply
-		alwaysApplyFalse := cursorFM.AlwaysApply != nil && !*cursorFM.AlwaysApply
-
-		switch {
-		case hasGlobs && alwaysApplyTrue:
-			// globs take precedence over always-apply
-			ruleCfg.Activation = ast.RuleActivationPathGlob
-			ruleCfg.Paths = cursorFM.Globs
-		case hasGlobs:
-			ruleCfg.Activation = ast.RuleActivationPathGlob
-			ruleCfg.Paths = cursorFM.Globs
-		case alwaysApplyFalse:
-			ruleCfg.Activation = ast.RuleActivationManualMention
-		case alwaysApplyTrue:
-			ruleCfg.Activation = ast.RuleActivationAlways
-		default:
-			// Neither globs nor always-apply: Cursor default is always-on.
-			ruleCfg.Activation = ast.RuleActivationAlways
-		}
-
-		config.Rules[id] = ruleCfg
-		*count++
-	}
-	return nil
-}
-
-// extractCopilotRules reads .github/instructions/*.instructions.md files and maps
-// Copilot frontmatter fields to RuleConfig.
-func extractCopilotRules(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	ruleFiles, _ := filepath.Glob(filepath.Join(dir, "instructions", "*.instructions.md"))
-	for _, f := range ruleFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping copilot rule %s: %v", f, err))
-			continue
-		}
-		// Strip the double suffix ".instructions.md"
-		base := filepath.Base(f)
-		id := strings.TrimSuffix(base, ".instructions.md")
-		if id == "" || id == base {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		// Parse Copilot-specific frontmatter fields.
-		var copilotFM struct {
-			Description  string      `yaml:"description"`
-			ApplyTo      string      `yaml:"applyTo"`
-			ExcludeAgent interface{} `yaml:"excludeAgent"`
-		}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := yaml.Unmarshal(fm, &copilotFM); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-		}
-
-		ruleCfg := ast.RuleConfig{
-			Description:  copilotFM.Description,
-			Instructions: body,
-		}
-		if ruleCfg.Description == "" {
-			ruleCfg.Description = "Imported copilot rule"
-		}
-
-		// Derive activation per spec Section 9.3.
-		applyTo := strings.TrimSpace(copilotFM.ApplyTo)
-		// Strip surrounding quotes from scalar values like `"**"`.
-		applyTo = strings.Trim(applyTo, `"'`)
-		if applyTo == "" || applyTo == "**" {
-			ruleCfg.Activation = ast.RuleActivationAlways
-		} else {
-			ruleCfg.Activation = ast.RuleActivationPathGlob
-			// Split comma-separated paths, trim whitespace from each.
-			parts := strings.Split(applyTo, ",")
-			for _, p := range parts {
-				p = strings.TrimSpace(p)
-				if p != "" {
-					ruleCfg.Paths = append(ruleCfg.Paths, p)
-				}
-			}
-		}
-
-		// Map excludeAgent (scalar or list) → ExcludeAgents.
-		switch v := copilotFM.ExcludeAgent.(type) {
-		case string:
-			if v != "" {
-				ruleCfg.ExcludeAgents = []string{v}
-			}
-		case []interface{}:
-			for _, item := range v {
-				if s, ok := item.(string); ok && s != "" {
-					ruleCfg.ExcludeAgents = append(ruleCfg.ExcludeAgents, s)
-				}
-			}
-		}
-
-		config.Rules[id] = ruleCfg
-		*count++
-	}
-	return nil
-}
-
-// extractCopilotAgents reads .github/agents/*.agent.md and .github/agents/*.md
-// files and maps them to AgentConfig entries. ID is derived from the filename by
-// stripping the ".agent.md" double-suffix or the plain ".md" suffix.
-func extractCopilotAgents(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	agentsDir := filepath.Join(dir, "agents")
-	// Collect both *.agent.md and plain *.md files, de-duplicating by ID.
-	seenIDs := make(map[string]bool)
-	patterns := []string{
-		filepath.Join(agentsDir, "*.agent.md"),
-		filepath.Join(agentsDir, "*.md"),
-	}
-	for _, pattern := range patterns {
-		files, _ := filepath.Glob(pattern)
-		for _, f := range files {
-			base := filepath.Base(f)
-			var id string
-			if strings.HasSuffix(base, ".agent.md") {
-				id = strings.TrimSuffix(base, ".agent.md")
-			} else {
-				id = strings.TrimSuffix(base, ".md")
-			}
-			if id == "" || seenIDs[id] {
-				continue
-			}
-			seenIDs[id] = true
-
-			data, err := os.ReadFile(f)
-			if err != nil {
-				*warnings = append(*warnings, fmt.Sprintf("skipping copilot agent %s: %v", f, err))
-				continue
-			}
-
-			body := extractBodyAfterFrontmatter(data)
-
-			agentCfg := ast.AgentConfig{Description: "Imported copilot agent"}
-			if fm, ok := extractFrontmatter(data); ok {
-				if unmarshalErr := lenientUnmarshal(fm, &agentCfg); unmarshalErr != nil {
-					*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-				}
-				agentCfg.InstructionsFile = ""
-			}
-			agentCfg.Instructions = body
-
-			config.Agents[id] = agentCfg
-			*count++
-		}
-	}
-	return nil
-}
-
-// extractCopilotSkills reads .github/skills/*/SKILL.md files and maps them to
-// SkillConfig entries. ID is the parent directory name.
-func extractCopilotSkills(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	skillFiles, _ := filepath.Glob(filepath.Join(dir, "skills", "*", "SKILL.md"))
-	for _, f := range skillFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping copilot skill %s: %v", f, err))
-			continue
-		}
-		id := filepath.Base(filepath.Dir(f))
-		if id == "" || id == "." {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		skillCfg := ast.SkillConfig{Description: "Imported copilot skill"}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := lenientUnmarshal(fm, &skillCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			skillCfg.InstructionsFile = ""
-		}
-		skillCfg.Instructions = body
-
-		config.Skills[id] = skillCfg
-		*count++
-	}
-	return nil
-}
-
-// importCopilotSettings reads .github/hooks/*.json (shape: {"version":N,"hooks":{event:[entries]}})
-// and .vscode/mcp.json (shape: {"servers":{name:{command,args,env}}}) and populates
-// config.Hooks and config.MCP. Hook event names are mapped from Copilot-native names
-// back to xcaffold names using copilotToXcaffoldEvent. Unknown events are preserved
-// under their Copilot name.
-//
-// dir is the .github directory. projectRoot is the root of the project (parent of .github),
-// used to locate .vscode/mcp.json without path traversal.
-func importCopilotSettings(dir string, projectRoot string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	// Parse hooks from .github/hooks/*.json
-	hookFiles, _ := filepath.Glob(filepath.Join(dir, "hooks", "*.json"))
-	for _, hookFile := range hookFiles {
-		data, err := os.ReadFile(hookFile)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping copilot hook file %s: %v", hookFile, err))
-			continue
-		}
-
-		type copilotHookEntry struct {
-			Type       string `json:"type"`
-			Bash       string `json:"bash"`
-			TimeoutSec *int   `json:"timeoutSec,omitempty"`
-		}
-		type copilotHookEventShape struct {
-			Matcher string             `json:"matcher,omitempty"`
-			Hooks   []copilotHookEntry `json:"hooks"`
-		}
-		var hookPayload struct {
-			Version int                                `json:"version"`
-			Hooks   map[string][]copilotHookEventShape `json:"hooks"`
-		}
-		if err := json.Unmarshal(data, &hookPayload); err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("failed to parse copilot hook file %s: %v", hookFile, err))
-			continue
-		}
-
-		if config.Hooks == nil {
-			config.Hooks = make(map[string]ast.NamedHookConfig)
-		}
-		defaultHook := config.Hooks["default"]
-		if defaultHook.Events == nil {
-			defaultHook.Name = "default"
-			defaultHook.Events = make(ast.HookConfig)
-		}
-
-		for copilotEvent, eventGroups := range hookPayload.Hooks {
-			xcaffoldEvent := copilotEvent
-			if mapped, ok := copilotToXcaffoldEvent[copilotEvent]; ok {
-				xcaffoldEvent = mapped
-			}
-
-			var matcherGroups []ast.HookMatcherGroup
-			for _, eg := range eventGroups {
-				var handlers []ast.HookHandler
-				for _, h := range eg.Hooks {
-					handler := ast.HookHandler{
-						Type:    h.Type,
-						Command: h.Bash,
-					}
-					if h.TimeoutSec != nil {
-						ms := *h.TimeoutSec * 1000
-						handler.Timeout = &ms
-					}
-					handlers = append(handlers, handler)
-				}
-				if len(handlers) > 0 {
-					matcherGroups = append(matcherGroups, ast.HookMatcherGroup{
-						Matcher: eg.Matcher,
-						Hooks:   handlers,
-					})
-				}
-			}
-			if len(matcherGroups) > 0 {
-				defaultHook.Events[xcaffoldEvent] = append(defaultHook.Events[xcaffoldEvent], matcherGroups...)
-				*count++
-			}
-		}
-		config.Hooks["default"] = defaultHook
-	}
-
-	// Parse MCP servers from .vscode/mcp.json
-	mcpPath := filepath.Join(projectRoot, ".vscode", "mcp.json")
-	if data, err := os.ReadFile(mcpPath); err == nil {
-		var mcpFile struct {
-			Servers map[string]struct {
-				Command string            `json:"command"`
-				Args    []string          `json:"args"`
-				Env     map[string]string `json:"env"`
-			} `json:"servers"`
-		}
-		if err := json.Unmarshal(data, &mcpFile); err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("failed to parse .vscode/mcp.json: %v", err))
-		} else {
-			for name, srv := range mcpFile.Servers {
-				mc := ast.MCPConfig{
-					Command: srv.Command,
-					Args:    srv.Args,
-				}
-				if len(srv.Env) > 0 {
-					mc.Env = srv.Env
-				}
-				config.MCP[name] = mc
-				*count++
-			}
-		}
-	}
-
-	return nil
-}
-
-// extractGeminiRules reads .gemini/rules/*.md files and maps them to RuleConfig
-// entries. Frontmatter is stripped if present; the body becomes Instructions.
-// Activation defaults to always since Gemini loads all rules unconditionally.
-func extractGeminiRules(projectDir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	rulesDir := filepath.Join(projectDir, ".gemini", "rules")
-	ruleFiles, _ := filepath.Glob(filepath.Join(rulesDir, "*.md"))
-	for _, f := range ruleFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping gemini rule %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		if id == "" {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		ruleCfg := ast.RuleConfig{Description: "Imported gemini rule"}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := lenientUnmarshal(fm, &ruleCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			ruleCfg.InstructionsFile = ""
-		}
-		ruleCfg.Instructions = body
-
-		if ruleCfg.Activation == "" {
-			ruleCfg.Activation = ast.RuleActivationAlways
-		}
-
-		config.Rules[id] = ruleCfg
-		*count++
-	}
-	return nil
-}
-
-// extractAntigravityRules reads .agents/rules/*.md files and maps Antigravity
-// provenance comments to RuleConfig. If no provenance comments are present,
-// activation defaults to always.
-func extractAntigravityRules(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	ruleFiles, _ := filepath.Glob(filepath.Join(dir, "rules", "*.md"))
-	for _, f := range ruleFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping antigravity rule %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		if id == "" {
-			continue
-		}
-
-		content := string(data)
-
-		// Extract activation from provenance comments.
-		activation, paths := parseAntigravityProvenance(content)
-
-		// Extract description from first H1 heading (after any HTML comments).
-		description := extractH1Description(content)
-		if description == "" {
-			description = "Imported antigravity rule"
-		}
-
-		// Body is the full content stripped of provenance comments.
-		body := strings.TrimSpace(removeAntigravityProvenanceComments(content))
-
-		ruleCfg := ast.RuleConfig{
-			Description:  description,
-			Activation:   activation,
-			Paths:        paths,
-			Instructions: body,
-		}
-
-		config.Rules[id] = ruleCfg
-		*count++
-	}
-	return nil
-}
-
-// extractAntigravityWorkflows reads .agents/workflows/*.md files and imports
-// them as WorkflowConfig entries in the xcaffold IR.
-//
-// Each file may contain multiple steps delimited by level-2 headings ("## name").
-// When step headings are present, each heading becomes a named WorkflowStep whose
-// body is the content between that heading and the next. If no step headings are
-// found, the entire file body is treated as a single step, preserving any
-// existing whole-file workflow definition without information loss.
-func extractAntigravityWorkflows(dir string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	wfFiles, _ := filepath.Glob(filepath.Join(dir, "workflows", "*.md"))
-	for _, f := range wfFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping antigravity workflow %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		if id == "" {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-		steps := splitMarkdownH2Sections(body)
-
-		wfCfg := ast.WorkflowConfig{Description: "Imported antigravity workflow"}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := yaml.Unmarshal(fm, &wfCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			wfCfg.InstructionsFile = ""
-		}
-
-		if len(steps) > 0 {
-			wfCfg.Steps = steps
-			wfCfg.Instructions = ""
-		} else {
-			wfCfg.Instructions = body
-		}
-
-		if config.Workflows == nil {
-			config.Workflows = make(map[string]ast.WorkflowConfig)
-		}
-		config.Workflows[id] = wfCfg
-		*count++
-	}
-	return nil
-}
-
-// splitMarkdownH2Sections splits a markdown body on level-2 headings ("## title")
-// and returns a slice of WorkflowStep values. If the body contains no H2
-// headings, nil is returned so callers can fall back to treating the file as a
-// single-step workflow.
-func splitMarkdownH2Sections(body string) []ast.WorkflowStep {
-	lines := strings.Split(body, "\n")
-	var steps []ast.WorkflowStep
-	var currentName string
-	var currentLines []string
-
-	flush := func() {
-		if currentName == "" {
-			return
-		}
-		stepBody := strings.TrimSpace(strings.Join(currentLines, "\n"))
-		steps = append(steps, ast.WorkflowStep{
-			Name:         currentName,
-			Instructions: stepBody,
-		})
-	}
-
-	for _, line := range lines {
-		if strings.HasPrefix(line, "## ") {
-			flush()
-			currentName = strings.TrimSpace(strings.TrimPrefix(line, "## "))
-			currentLines = nil
-			continue
-		}
-		if currentName != "" {
-			currentLines = append(currentLines, line)
-		}
-	}
-	flush()
-	return steps
-}
-
-// parseAntigravityProvenance extracts activation and optional paths from
-// xcaffold provenance HTML comments in the file content.
-func parseAntigravityProvenance(content string) (activation string, paths []string) {
-	lines := strings.Split(content, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "<!-- xcaffold:activation ") {
-			value := strings.TrimPrefix(line, "<!-- xcaffold:activation ")
-			value = strings.TrimSuffix(value, " -->")
-			value = strings.TrimSpace(value)
-			switch value {
-			case "AlwaysOn":
-				activation = ast.RuleActivationAlways
-			case "Manual":
-				activation = ast.RuleActivationManualMention
-			case "ModelDecision":
-				activation = ast.RuleActivationModelDecided
-			case "Glob":
-				activation = ast.RuleActivationPathGlob
-			}
-		}
-		if strings.HasPrefix(line, "<!-- xcaffold:paths ") {
-			raw := strings.TrimPrefix(line, "<!-- xcaffold:paths ")
-			raw = strings.TrimSuffix(raw, " -->")
-			raw = strings.TrimSpace(raw)
-			var parsed []string
-			if err := json.Unmarshal([]byte(raw), &parsed); err == nil {
-				paths = parsed
-			}
-		}
-	}
-	if activation == "" {
-		activation = ast.RuleActivationAlways
-	}
-	return activation, paths
-}
-
-// extractH1Description returns the text of the first H1 heading found after
-// HTML comments in the markdown content.
-func extractH1Description(content string) string {
-	lines := strings.Split(content, "\n")
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "<!--") {
-			continue
-		}
-		if strings.HasPrefix(trimmed, "# ") {
-			return strings.TrimPrefix(trimmed, "# ")
-		}
-	}
-	return ""
-}
-
-// removeAntigravityProvenanceComments strips xcaffold HTML comment lines from content.
-func removeAntigravityProvenanceComments(content string) string {
-	lines := strings.Split(content, "\n")
-	var out []string
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "<!-- xcaffold:") {
-			continue
-		}
-		out = append(out, line)
-	}
-	return strings.Join(out, "\n")
-}
-
 // extractBodyAfterFrontmatter returns the markdown body that follows the YAML frontmatter block.
 // If the data has no frontmatter (does not start with "---\n"), the entire content is returned.
 // Leading and trailing whitespace is trimmed from the returned body.
@@ -2003,29 +953,6 @@ func detectTargets(baseDirs ...string) []string {
 	}
 	sort.Strings(targets)
 	return targets
-}
-
-// sortedMapKeysStr returns sorted keys from any string-keyed map. Used to build
-// ref lists for the kind: project document.
-func sortedMapKeysStr[V any](m map[string]V) []string {
-	if len(m) == 0 {
-		return nil
-	}
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func sortedMapKeysAgentManifestEntry[V any](m map[string]V) []ast.AgentManifestEntry {
-	keys := sortedMapKeysStr(m)
-	res := make([]ast.AgentManifestEntry, 0, len(keys))
-	for _, k := range keys {
-		res = append(res, ast.AgentManifestEntry{ID: k})
-	}
-	return res
 }
 
 // extractFrontmatter isolates the YAML section between `---` markers at the start of a markdown file.
@@ -2451,7 +1378,7 @@ func resolveAllowEntries(body string) []string {
 // file (richer content) is kept and the conflict is logged.
 //
 //nolint:gocyclo
-func mergeImportDirs(dirs []string, xcfDest string) error {
+func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[project] %s already exists. Remove it first to import", xcfDest)
 	}
@@ -2481,10 +1408,11 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 	ruleSources := make(map[string]string)
 	workflowSources := make(map[string]string)
 
-	for _, dir := range dirs {
+	for _, pdi := range providerDirs {
+		dir := pdi.dirName
+		provider := pdi.platform
 		fmt.Printf("  Scanning %s ...\n", dir)
 
-		// Extract into a temporary config to compare before merging
 		tmpConfig := &ast.XcaffoldConfig{
 			ResourceScope: ast.ResourceScope{
 				Agents:    make(map[string]ast.AgentConfig),
@@ -2494,37 +1422,49 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 				MCP:       make(map[string]ast.MCPConfig),
 			},
 		}
-		tmpCount := 0
 
-		if err := extractAgents(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
-			return err
+		// Use ProviderImporter instead of legacy extractors
+		imp := findImporterByProvider(provider)
+		if imp == nil {
+			warnings = append(warnings, fmt.Sprintf("no registered importer for provider %q, skipping %s", provider, dir))
+			continue
 		}
-		if err := extractSkills(dir, "project", "claude", tmpConfig, &tmpCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractRules(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
-			return err
-		}
-		if err := extractWorkflows(dir, "project", tmpConfig, &tmpCount, &warnings); err != nil {
-			return err
+		if err := imp.Import(dir, tmpConfig); err != nil {
+			warnings = append(warnings, fmt.Sprintf("%s import: %v", provider, err))
 		}
 
-		// Parse settings from this dir
-		settingsPath := filepath.Join(dir, "settings.json")
-		if data, err := os.ReadFile(settingsPath); err == nil {
-			if err := importSettings(data, config, &importCount, &warnings); err != nil {
-				warnings = append(warnings, fmt.Sprintf("%s/settings.json partially imported: %v", dir, err))
+		// Skill subdirs (same pattern as importScope)
+		for id := range tmpConfig.Skills {
+			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
+			if _, err := os.Stat(skillFile); err == nil {
+				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", &warnings)
+				sc := tmpConfig.Skills[id]
+				if len(refs) > 0 {
+					sc.References = refs
+				}
+				if len(scripts) > 0 {
+					sc.Scripts = scripts
+				}
+				if len(fileAssets) > 0 {
+					sc.Assets = fileAssets
+				}
+				if len(fileExamples) > 0 {
+					sc.Examples = fileExamples
+				}
+				tmpConfig.Skills[id] = sc
 			}
 		}
 
-		// Parse hooks.json from this dir
-		hooksPath := filepath.Join(dir, "hooks.json")
-		if data, err := os.ReadFile(hooksPath); err == nil {
-			if err := json.Unmarshal(data, &config.Hooks); err != nil {
-				warnings = append(warnings, fmt.Sprintf("%s/hooks.json failed to parse: %v", dir, err))
-			} else {
-				importCount++
-			}
+		// Reclassify extras
+		if err := parser.ReclassifyExtras(tmpConfig, importer.DefaultImporters()); err != nil {
+			warnings = append(warnings, fmt.Sprintf("reclassify extras (%s): %v", provider, err))
+		}
+
+		// Provider-specific post-import
+		dirAbs, _ := filepath.Abs(dir)
+		projectDir := filepath.Dir(dirAbs)
+		if err := runProviderPostImport(provider, dir, projectDir, tmpConfig, &warnings); err != nil {
+			return err
 		}
 
 		// Merge agents — richer instructions win on conflict
@@ -2610,16 +1550,60 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 				importCount++
 			}
 		}
-	}
+
+		// Merge memory (union — first-seen wins on key collision)
+		if tmpConfig.Memory != nil {
+			if config.Memory == nil {
+				config.Memory = make(map[string]ast.MemoryConfig)
+			}
+			for k, mc := range tmpConfig.Memory {
+				if _, exists := config.Memory[k]; !exists {
+					config.Memory[k] = mc
+					importCount++
+				}
+			}
+		}
+
+		// Merge hooks (union per event, not overwrite)
+		for hookName, namedHook := range tmpConfig.Hooks {
+			if config.Hooks == nil {
+				config.Hooks = make(map[string]ast.NamedHookConfig)
+			}
+			if _, exists := config.Hooks[hookName]; !exists {
+				config.Hooks[hookName] = namedHook
+			}
+		}
+
+		// Merge settings (first-seen wins)
+		for name, sc := range tmpConfig.Settings {
+			if config.Settings == nil {
+				config.Settings = make(map[string]ast.SettingsConfig)
+			}
+			if _, exists := config.Settings[name]; !exists {
+				config.Settings[name] = sc
+			}
+		}
+	} // end for loop
 
 	// Detect compilation targets from all scanned platform directories.
+	var dirNames []string
+	for _, pdi := range providerDirs {
+		dirNames = append(dirNames, pdi.dirName)
+	}
 	if config.Project != nil {
-		config.Project.Targets = detectTargets(dirs...)
-		config.Project.AgentRefs = sortedMapKeysAgentManifestEntry(config.Agents)
-		config.Project.SkillRefs = sortedMapKeysStr(config.Skills)
-		config.Project.RuleRefs = sortedMapKeysStr(config.Rules)
-		config.Project.WorkflowRefs = sortedMapKeysStr(config.Workflows)
-		config.Project.MCPRefs = sortedMapKeysStr(config.MCP)
+		config.Project.Targets = detectTargets(dirNames...)
+		config.Project.AgentRefs = sortedAgentRefs(config.Agents)
+		config.Project.SkillRefs = sortedMapKeys(config.Skills)
+		config.Project.RuleRefs = sortedMapKeys(config.Rules)
+		config.Project.WorkflowRefs = sortedMapKeys(config.Workflows)
+		config.Project.MCPRefs = sortedMapKeys(config.MCP)
+	}
+
+	// Write memory files to xcf/agents/<id>/memory/
+	if memCount, err := writeMemoryFiles(config); err != nil {
+		return fmt.Errorf("write memory files: %w", err)
+	} else if memCount > 0 {
+		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
 	}
 
 	// Write split .xcf files: project.xcf (kind: project) + xcf/**/*.xcf
@@ -2627,8 +1611,32 @@ func mergeImportDirs(dirs []string, xcfDest string) error {
 		return fmt.Errorf("[project] failed to write split xcf files: %w", err)
 	}
 
+	// Prune orphan memory
+	if err := pruneOrphanMemory(config, "."); err != nil {
+		return fmt.Errorf("prune memory: %w", err)
+	}
+
+	// Project instructions discovery — run for each unique provider
+	seen := make(map[string]bool)
+	for _, pdi := range providerDirs {
+		if seen[pdi.platform] {
+			continue
+		}
+		seen[pdi.platform] = true
+		if instrFile := providerInstructionsFilename(pdi.platform); instrFile != "" {
+			dirAbs, _ := filepath.Abs(pdi.dirName)
+			projectDir := filepath.Dir(dirAbs)
+			if anyInstructionFileExists(projectDir, instrFile) {
+				actualPath := filepath.Join(projectDir, ".xcaffold", "project.xcf")
+				if discoverErr := runProjectInstructionsDiscovery(projectDir, pdi.platform, actualPath); discoverErr != nil {
+					warnings = append(warnings, fmt.Sprintf("project instructions (%s): %v", pdi.platform, discoverErr))
+				}
+			}
+		}
+	}
+
 	fmt.Printf("\n[project] ✓ Merge complete. Created %s with %d resources from %d directories.\n",
-		xcfDest, importCount, len(dirs))
+		xcfDest, importCount, len(providerDirs))
 	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
 	fmt.Println("  Run 'xcaffold apply' when ready to compile to your target platforms.")
 
@@ -2688,39 +1696,6 @@ func fileSize(path string) int64 {
 		return 0
 	}
 	return info.Size()
-}
-
-func extractWorkflows(claudeDir, scopeName string, config *ast.XcaffoldConfig, count *int, warnings *[]string) error {
-	workflowFiles, _ := filepath.Glob(filepath.Join(claudeDir, "workflows", "*.md"))
-	for _, f := range workflowFiles {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("skipping workflow %s: %v", f, err))
-			continue
-		}
-		id := strings.TrimSuffix(filepath.Base(f), ".md")
-		if id == "" {
-			continue
-		}
-
-		body := extractBodyAfterFrontmatter(data)
-
-		workflowCfg := ast.WorkflowConfig{Description: "Imported workflow"}
-		if fm, ok := extractFrontmatter(data); ok {
-			if unmarshalErr := yaml.Unmarshal(fm, &workflowCfg); unmarshalErr != nil {
-				*warnings = append(*warnings, fmt.Sprintf("malformed frontmatter in %s: %v", f, unmarshalErr))
-			}
-			workflowCfg.InstructionsFile = ""
-		}
-		workflowCfg.Instructions = body
-
-		if config.Workflows == nil {
-			config.Workflows = make(map[string]ast.WorkflowConfig)
-		}
-		config.Workflows[id] = workflowCfg
-		*count++
-	}
-	return nil
 }
 
 // runMemorySnapshot performs the memory import pass for --with-memory.
@@ -3055,6 +2030,40 @@ func claudeProjectMemoryDir(projectRoot string) (string, error) {
 	return filepath.Join(home, ".claude", "projects", encoded, "memory"), nil
 }
 
+// writeMemoryFiles writes each memory entry in config to a plain .md file under
+// xcf/agents/<agentID>/memory/<name>.md, mirroring the convention the compiler
+// uses to discover memory at build time. Returns the number of files written.
+func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
+	if len(config.Memory) == 0 {
+		return 0, nil
+	}
+	count := 0
+	for _, k := range sortedMapKeys(config.Memory) {
+		mem := config.Memory[k]
+		parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
+		var agentID, memName string
+		if len(parts) == 2 {
+			agentID = parts[0]
+			memName = parts[1]
+		} else {
+			agentID = mem.AgentRef
+			if agentID == "" {
+				agentID = k
+			}
+			memName = k
+		}
+		outPath := filepath.Join("xcf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
+		if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+			return count, fmt.Errorf("create memory dir: %w", err)
+		}
+		if err := os.WriteFile(filepath.Clean(outPath), []byte(mem.Content), 0644); err != nil {
+			return count, fmt.Errorf("write memory file: %w", err)
+		}
+		count++
+	}
+	return count, nil
+}
+
 // geminiMemoryDir returns the directory where Gemini's GEMINI.md context file
 // lives. The default is ~/.gemini/ following Gemini CLI conventions. The
 // XCAFFOLD_GEMINI_DIR environment variable overrides this for testing and
@@ -3068,4 +2077,36 @@ func geminiMemoryDir() (string, error) {
 		return "", fmt.Errorf("resolving home directory for gemini target: %w", err)
 	}
 	return filepath.Join(home, ".gemini"), nil
+}
+
+// runProviderPostImport executes provider-specific post-import steps that fall
+// outside the scope of the ProviderImporter interface (cross-boundary files,
+// out-of-tree memory sources, unsupported-provider warnings).
+func runProviderPostImport(provider, _ /* platformDir */ string, projectDir string, config *ast.XcaffoldConfig, warnings *[]string) error {
+	// Claude: root .mcp.json lives outside .claude/ — import it here.
+	if provider == "claude" || provider == "" {
+		rootMCPPath := filepath.Join(projectDir, ".mcp.json")
+		if data, err := os.ReadFile(rootMCPPath); err == nil {
+			count := 0
+			if err := importSettings(data, config, &count, warnings); err != nil {
+				*warnings = append(*warnings, fmt.Sprintf(".mcp.json partially imported: %v", err))
+			}
+		}
+	}
+	// Gemini: snapshot memory from ~/.gemini/.
+	if provider == "gemini" {
+		if gDir, err := geminiMemoryDir(); err == nil {
+			if memSum, err := bir.ImportGeminiMemory(gDir, bir.ImportOpts{
+				SidecarDir: filepath.Join("xcf", "agents"),
+			}); err == nil && memSum.Imported > 0 {
+				fmt.Printf("  Gemini memory: snapshotted %d entry(ies) → xcf/agents/<id>/memory/\n", memSum.Imported)
+			}
+		}
+	}
+	// Antigravity: KIs are app-managed and cannot be imported from the filesystem.
+	if provider == "antigravity" {
+		*warnings = append(*warnings,
+			"Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem")
+	}
+	return nil
 }

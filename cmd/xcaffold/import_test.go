@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -102,259 +103,6 @@ func TestExtractBodyAfterFrontmatter(t *testing.T) {
 				t.Errorf("extractBodyAfterFrontmatter(%q) = %q, want %q", tc.input, got, tc.expected)
 			}
 		})
-	}
-}
-
-// TestExtractAgents_InlinesInstructions verifies agents use instructions: inline
-// instead of copying .md files and setting instructions-file:.
-func TestExtractAgents_InlinesInstructions(t *testing.T) {
-	tmp := t.TempDir()
-
-	// Create .claude/agents/dev.md
-	agentsDir := filepath.Join(tmp, ".claude", "agents")
-	if err := os.MkdirAll(agentsDir, 0755); err != nil {
-		t.Fatalf("failed to create .claude/agents/: %v", err)
-	}
-	agentContent := "---\nname: dev\ndescription: Dev agent\nmodel: sonnet\n---\n\nDev instructions here"
-	if err := os.WriteFile(filepath.Join(agentsDir, "dev.md"), []byte(agentContent), 0600); err != nil {
-		t.Fatalf("failed to write dev.md: %v", err)
-	}
-
-	orig, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer func() { _ = os.Chdir(orig) }()
-	if err := os.Chdir(tmp); err != nil {
-		t.Fatalf("failed to chdir to tmp: %v", err)
-	}
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Agents: make(map[string]ast.AgentConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	if err := extractAgents(".claude", "project", config, &count, &warnings); err != nil {
-		t.Fatalf("extractAgents returned error: %v", err)
-	}
-
-	agentCfg, ok := config.Agents["dev"]
-	if !ok {
-		t.Fatal("expected agent 'dev' to be in config.Agents")
-	}
-
-	// Instructions must be inlined — not an instructions-file reference
-	if agentCfg.InstructionsFile != "" {
-		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", agentCfg.InstructionsFile)
-	}
-
-	// Body content must be embedded in Instructions
-	if !strings.Contains(agentCfg.Instructions, "Dev instructions here") {
-		t.Errorf("expected Instructions to contain body text, got %q", agentCfg.Instructions)
-	}
-
-	// The .md file must NOT be copied to xcf/agents/
-	xcfPath := filepath.Join(tmp, "xcf", "agents", "dev.md")
-	if _, err := os.Stat(xcfPath); err == nil {
-		t.Errorf("xcf/agents/dev.md should NOT exist on disk (no file copy in inline mode)")
-	}
-}
-
-func TestExtractRules_InlinesInstructions(t *testing.T) {
-	tmp := t.TempDir()
-
-	// Create .claude/rules/security.md
-	rulesDir := filepath.Join(tmp, ".claude", "rules")
-	if err := os.MkdirAll(rulesDir, 0755); err != nil {
-		t.Fatalf("failed to create .claude/rules/: %v", err)
-	}
-	ruleContent := "---\nname: security\ndescription: Security rules\n---\n\nNever leak secrets."
-	if err := os.WriteFile(filepath.Join(rulesDir, "security.md"), []byte(ruleContent), 0600); err != nil {
-		t.Fatalf("failed to write security.md: %v", err)
-	}
-
-	orig, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer func() { _ = os.Chdir(orig) }()
-	if err := os.Chdir(tmp); err != nil {
-		t.Fatalf("failed to chdir to tmp: %v", err)
-	}
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Rules: make(map[string]ast.RuleConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	if err := extractRules(".claude", "project", config, &count, &warnings); err != nil {
-		t.Fatalf("extractRules returned error: %v", err)
-	}
-
-	ruleCfg, ok := config.Rules["security"]
-	if !ok {
-		t.Fatal("expected rule 'security' to be in config.Rules")
-	}
-
-	// Instructions must be inlined
-	if ruleCfg.InstructionsFile != "" {
-		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", ruleCfg.InstructionsFile)
-	}
-
-	if !strings.Contains(ruleCfg.Instructions, "Never leak secrets.") {
-		t.Errorf("expected Instructions to contain body text, got %q", ruleCfg.Instructions)
-	}
-
-	// The .md file must NOT be copied to xcf/rules/
-	xcfPath := filepath.Join(tmp, "xcf", "rules", "security.md")
-	if _, err := os.Stat(xcfPath); err == nil {
-		t.Errorf("xcf/rules/security.md should NOT exist on disk (no file copy in inline mode)")
-	}
-}
-
-func TestExtractSkills_InlinesInstructionsButCopiesRefs(t *testing.T) {
-	tmp := t.TempDir()
-
-	// Create .claude/skills/tdd/SKILL.md
-	skillDir := filepath.Join(tmp, ".claude", "skills", "tdd")
-	if err := os.MkdirAll(skillDir, 0755); err != nil {
-		t.Fatalf("failed to create skill dir: %v", err)
-	}
-	skillContent := "---\nname: tdd\ndescription: Test-driven development\n---\n\n# TDD Skill\n\nWrite tests first."
-	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0600); err != nil {
-		t.Fatalf("failed to write SKILL.md: %v", err)
-	}
-
-	// Create .claude/skills/tdd/references/example.txt
-	refsDir := filepath.Join(skillDir, "references")
-	if err := os.MkdirAll(refsDir, 0755); err != nil {
-		t.Fatalf("failed to create references dir: %v", err)
-	}
-	refContent := "example reference content"
-	if err := os.WriteFile(filepath.Join(refsDir, "example.txt"), []byte(refContent), 0600); err != nil {
-		t.Fatalf("failed to write example.txt: %v", err)
-	}
-
-	orig, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer func() { _ = os.Chdir(orig) }()
-	if err := os.Chdir(tmp); err != nil {
-		t.Fatalf("failed to chdir to tmp: %v", err)
-	}
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Skills: make(map[string]ast.SkillConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	if err := extractSkills(".claude", "project", "claude", config, &count, &warnings); err != nil {
-		t.Fatalf("extractSkills returned error: %v", err)
-	}
-
-	skillCfg, ok := config.Skills["tdd"]
-	if !ok {
-		t.Fatal("expected skill 'tdd' to be in config.Skills")
-	}
-
-	// Instructions must be inlined — not an instructions-file reference
-	if skillCfg.InstructionsFile != "" {
-		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", skillCfg.InstructionsFile)
-	}
-
-	if !strings.Contains(skillCfg.Instructions, "TDD Skill") {
-		t.Errorf("expected Instructions to contain body text, got %q", skillCfg.Instructions)
-	}
-
-	// SKILL.md must NOT be copied to xcf/skills/tdd/SKILL.md
-	xcfSkillPath := filepath.Join(tmp, "xcf", "skills", "tdd", "SKILL.md")
-	if _, err := os.Stat(xcfSkillPath); err == nil {
-		t.Errorf("xcf/skills/tdd/SKILL.md should NOT exist on disk (no file copy for SKILL.md)")
-	}
-
-	// references/example.txt MUST still be copied to xcf/skills/tdd/references/example.txt
-	xcfRefPath := filepath.Join(tmp, "xcf", "skills", "tdd", "references", "example.txt")
-	refData, err := os.ReadFile(xcfRefPath)
-	if err != nil {
-		t.Fatalf("expected xcf/skills/tdd/references/example.txt to exist on disk: %v", err)
-	}
-	if string(refData) != refContent {
-		t.Errorf("xcf/skills/tdd/references/example.txt content mismatch: got %q, want %q", string(refData), refContent)
-	}
-
-	// References in config must point to xcf/ paths
-	for _, ref := range skillCfg.References {
-		if strings.HasPrefix(ref, ".claude/") {
-			t.Errorf("reference %q should not start with .claude/", ref)
-		}
-		if !strings.HasPrefix(ref, "xcf/") {
-			t.Errorf("reference %q should start with xcf/", ref)
-		}
-	}
-}
-
-func TestExtractWorkflows_InlinesInstructions(t *testing.T) {
-	tmp := t.TempDir()
-
-	// Create .claude/workflows/deploy.md
-	workflowsDir := filepath.Join(tmp, ".claude", "workflows")
-	if err := os.MkdirAll(workflowsDir, 0755); err != nil {
-		t.Fatalf("failed to create .claude/workflows/: %v", err)
-	}
-	workflowContent := "---\nname: deploy\ndescription: Deploy workflow\n---\n\n# Deploy\n\nRun deploy steps."
-	if err := os.WriteFile(filepath.Join(workflowsDir, "deploy.md"), []byte(workflowContent), 0600); err != nil {
-		t.Fatalf("failed to write deploy.md: %v", err)
-	}
-
-	orig, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd: %v", err)
-	}
-	defer func() { _ = os.Chdir(orig) }()
-	if err := os.Chdir(tmp); err != nil {
-		t.Fatalf("failed to chdir to tmp: %v", err)
-	}
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Workflows: make(map[string]ast.WorkflowConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	if err := extractWorkflows(".claude", "project", config, &count, &warnings); err != nil {
-		t.Fatalf("extractWorkflows returned error: %v", err)
-	}
-
-	workflowCfg, ok := config.Workflows["deploy"]
-	if !ok {
-		t.Fatal("expected workflow 'deploy' to be in config.Workflows")
-	}
-
-	// Instructions must be inlined
-	if workflowCfg.InstructionsFile != "" {
-		t.Errorf("expected InstructionsFile to be empty (inlined), got %q", workflowCfg.InstructionsFile)
-	}
-
-	if !strings.Contains(workflowCfg.Instructions, "Run deploy steps.") {
-		t.Errorf("expected Instructions to contain body text, got %q", workflowCfg.Instructions)
-	}
-
-	// The .md file must NOT be copied to xcf/workflows/
-	xcfPath := filepath.Join(tmp, "xcf", "workflows", "deploy.md")
-	if _, err := os.Stat(xcfPath); err == nil {
-		t.Errorf("xcf/workflows/deploy.md should NOT exist on disk (no file copy in inline mode)")
 	}
 }
 
@@ -569,7 +317,7 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = mergeImportDirs([]string{".claude"}, filepath.Join(".xcaffold", "project.xcf"))
+	err = mergeImportDirs([]platformDirInfo{{dirName: ".claude", platform: "claude", exists: true}}, filepath.Join(".xcaffold", "project.xcf"))
 	if err == nil {
 		t.Fatal("expected error when xcf/ directory already exists, got nil")
 	}
@@ -625,38 +373,36 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	assert.NotContains(t, devXcfContent, "instructions-file:")
 }
 
-func TestDetectAllGlobalPlatformDirs_Empty(t *testing.T) {
-	// Point HOME to a temp dir with no provider directories
+func TestDetectPlatformDirs_Empty(t *testing.T) {
+	// Point to a temp dir with no provider directories
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
 
-	dirs := detectAllGlobalPlatformDirs()
+	dirs := detectPlatformDirs(tmp, true)
 	if len(dirs) != 0 {
 		t.Errorf("expected 0 dirs when no provider dirs exist, got %d: %v", len(dirs), dirs)
 	}
 }
 
-func TestDetectAllGlobalPlatformDirs_SingleProvider(t *testing.T) {
+func TestDetectPlatformDirs_SingleProvider(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
 
-	// Create ~/.claude/agents/dev.md and ~/.claude/rules/sec.md
+	// Create <tmp>/.claude/agents/dev.md and <tmp>/.claude/rules/sec.md
 	claudeAgents := filepath.Join(tmp, ".claude", "agents")
 	if err := os.MkdirAll(claudeAgents, 0755); err != nil {
-		t.Fatalf("failed to create ~/.claude/agents/: %v", err)
+		t.Fatalf("failed to create .claude/agents/: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(claudeAgents, "dev.md"), []byte("# Dev\n"), 0600); err != nil {
 		t.Fatalf("failed to write dev.md: %v", err)
 	}
 	claudeRules := filepath.Join(tmp, ".claude", "rules")
 	if err := os.MkdirAll(claudeRules, 0755); err != nil {
-		t.Fatalf("failed to create ~/.claude/rules/: %v", err)
+		t.Fatalf("failed to create .claude/rules/: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(claudeRules, "sec.md"), []byte("# Sec\n"), 0600); err != nil {
 		t.Fatalf("failed to write sec.md: %v", err)
 	}
 
-	dirs := detectAllGlobalPlatformDirs()
+	dirs := detectPlatformDirs(tmp, true)
 	if len(dirs) != 1 {
 		t.Fatalf("expected 1 dir, got %d: %v", len(dirs), dirs)
 	}
@@ -669,30 +415,29 @@ func TestDetectAllGlobalPlatformDirs_SingleProvider(t *testing.T) {
 	if dirs[0].rules != 1 {
 		t.Errorf("expected 1 rule, got %d", dirs[0].rules)
 	}
-	// dirName must be the absolute path to ~/.claude
+	// dirName must be the absolute path to <tmp>/.claude
 	expected := filepath.Join(tmp, ".claude")
 	if dirs[0].dirName != expected {
 		t.Errorf("expected dirName %q, got %q", expected, dirs[0].dirName)
 	}
 }
 
-func TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
+func TestDetectPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
 
-	// ~/.claude — 1 agent
+	// <tmp>/.claude — 1 agent
 	claudeAgents := filepath.Join(tmp, ".claude", "agents")
 	if err := os.MkdirAll(claudeAgents, 0755); err != nil {
-		t.Fatalf("failed to create ~/.claude/agents/: %v", err)
+		t.Fatalf("failed to create .claude/agents/: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(claudeAgents, "dev.md"), []byte("# Dev\n"), 0600); err != nil {
 		t.Fatalf("failed to write dev.md: %v", err)
 	}
 
-	// ~/.cursor — 2 rules (richer)
+	// <tmp>/.cursor — 2 rules (richer)
 	cursorRules := filepath.Join(tmp, ".cursor", "rules")
 	if err := os.MkdirAll(cursorRules, 0755); err != nil {
-		t.Fatalf("failed to create ~/.cursor/rules/: %v", err)
+		t.Fatalf("failed to create .cursor/rules/: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(cursorRules, "r1.mdc"), []byte("rule1"), 0600); err != nil {
 		t.Fatalf("failed to write r1.mdc: %v", err)
@@ -701,7 +446,7 @@ func TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
 		t.Fatalf("failed to write r2.mdc: %v", err)
 	}
 
-	dirs := detectAllGlobalPlatformDirs()
+	dirs := detectPlatformDirs(tmp, true)
 	if len(dirs) != 2 {
 		t.Fatalf("expected 2 dirs, got %d: %v", len(dirs), dirs)
 	}
@@ -711,6 +456,30 @@ func TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
 	}
 	if dirs[1].platform != "claude" {
 		t.Errorf("expected second provider to be claude, got %q", dirs[1].platform)
+	}
+}
+
+func TestDetectPlatformDirs_SkipEmpty_False_IncludesEmptyDirs(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Create <tmp>/.claude with no resources (directory exists but empty)
+	if err := os.MkdirAll(filepath.Join(tmp, ".claude"), 0755); err != nil {
+		t.Fatalf("failed to create .claude/: %v", err)
+	}
+
+	// skipEmpty=false must include the empty dir
+	dirs := detectPlatformDirs(tmp, false)
+	if len(dirs) != 1 {
+		t.Fatalf("expected 1 dir with skipEmpty=false, got %d", len(dirs))
+	}
+	if dirs[0].platform != "claude" {
+		t.Errorf("expected platform claude, got %q", dirs[0].platform)
+	}
+
+	// skipEmpty=true must exclude the empty dir
+	dirs = detectPlatformDirs(tmp, true)
+	if len(dirs) != 0 {
+		t.Errorf("expected 0 dirs with skipEmpty=true, got %d", len(dirs))
 	}
 }
 
@@ -1149,187 +918,6 @@ REST conventions only.
 		"xcf must contain the reconstructed packages/api scope")
 }
 
-// TestImport_FromGemini_ExtractsRules verifies that rules in .gemini/rules/*.md
-// are imported as RuleConfig entries with inlined instructions.
-func TestImport_FromGemini_ExtractsRules(t *testing.T) {
-	tmp := t.TempDir()
-
-	rulesDir := filepath.Join(tmp, ".gemini", "rules")
-	require.NoError(t, os.MkdirAll(rulesDir, 0755))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(rulesDir, "code-style.md"),
-		[]byte("# Code Style\n\nAlways use tabs for indentation."),
-		0o600,
-	))
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Rules: make(map[string]ast.RuleConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	require.NoError(t, extractGeminiRules(tmp, config, &count, &warnings))
-
-	rule, ok := config.Rules["code-style"]
-	require.True(t, ok, "expected rule 'code-style' to be present")
-	require.Equal(t, 1, count)
-	require.Empty(t, rule.InstructionsFile, "instructions must be inlined, not file-referenced")
-	require.Contains(t, rule.Instructions, "Always use tabs for indentation.")
-	require.Empty(t, warnings)
-}
-
-// TestImport_FromGemini_ExtractsSkills verifies that .gemini/skills/*/SKILL.md
-// files are imported as SkillConfig entries via the generic extractor.
-func TestImport_FromGemini_ExtractsSkills(t *testing.T) {
-	tmp := t.TempDir()
-
-	skillDir := filepath.Join(tmp, ".gemini", "skills", "tdd")
-	require.NoError(t, os.MkdirAll(skillDir, 0755))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(skillDir, "SKILL.md"),
-		[]byte("---\nname: tdd\ndescription: Test-driven development\n---\n\nWrite tests first."),
-		0o600,
-	))
-
-	origWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(origWd)
-	require.NoError(t, os.Chdir(tmp))
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Skills: make(map[string]ast.SkillConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	require.NoError(t, extractSkills(".gemini", "project", "gemini", config, &count, &warnings))
-
-	skill, ok := config.Skills["tdd"]
-	require.True(t, ok, "expected skill 'tdd' to be present")
-	require.Equal(t, 1, count)
-	require.Empty(t, skill.InstructionsFile, "instructions must be inlined")
-	require.Contains(t, skill.Instructions, "Write tests first.")
-	require.Equal(t, "tdd", skill.Name)
-}
-
-// TestImport_FromGemini_ExtractsAgents verifies that .gemini/agents/*.md files
-// are imported as AgentConfig entries via the generic extractor.
-func TestImport_FromGemini_ExtractsAgents(t *testing.T) {
-	tmp := t.TempDir()
-
-	agentsDir := filepath.Join(tmp, ".gemini", "agents")
-	require.NoError(t, os.MkdirAll(agentsDir, 0755))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(agentsDir, "helper.md"),
-		[]byte("---\nname: helper\ndescription: A helpful agent\nmodel: gemini-2.5-flash\n---\n\nHelp the user."),
-		0o600,
-	))
-
-	origWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(origWd)
-	require.NoError(t, os.Chdir(tmp))
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Agents: make(map[string]ast.AgentConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	require.NoError(t, extractAgents(".gemini", "project", config, &count, &warnings))
-
-	agent, ok := config.Agents["helper"]
-	require.True(t, ok, "expected agent 'helper' to be present")
-	require.Equal(t, 1, count)
-	require.Empty(t, agent.InstructionsFile, "instructions must be inlined")
-	require.Contains(t, agent.Instructions, "Help the user.")
-	require.Equal(t, "A helpful agent", agent.Description)
-}
-
-// TestImport_FromGemini_ExtractsSettingsHooksAndMCP verifies that hooks and
-// MCP servers in .gemini/settings.json are correctly imported: BeforeTool maps
-// back to PreToolExecution, AfterTool maps back to PostToolExecution, and MCP
-// server entries are extracted into config.MCP.
-func TestImport_FromGemini_ExtractsSettingsHooksAndMCP(t *testing.T) {
-	tmp := t.TempDir()
-
-	geminiDir := filepath.Join(tmp, ".gemini")
-	require.NoError(t, os.MkdirAll(geminiDir, 0755))
-
-	settingsJSON := `{
-  "hooks": {
-    "BeforeTool": [
-      {
-        "matcher": "write_file|replace",
-        "hooks": [
-          {"type": "command", "command": "scripts/security-check.sh", "timeout": 5000}
-        ]
-      }
-    ],
-    "AfterTool": [
-      {
-        "hooks": [
-          {"type": "command", "command": "scripts/post.sh"}
-        ]
-      }
-    ]
-  },
-  "mcpServers": {
-    "my-server": {
-      "command": "node",
-      "args": ["server.js"],
-      "env": {"API_KEY": "secret"}
-    }
-  }
-}`
-	require.NoError(t, os.WriteFile(filepath.Join(geminiDir, "settings.json"), []byte(settingsJSON), 0o600))
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			MCP: make(map[string]ast.MCPConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	data, err := os.ReadFile(filepath.Join(geminiDir, "settings.json"))
-	require.NoError(t, err)
-	require.NoError(t, importGeminiSettings(data, config, &count, &warnings))
-	require.Empty(t, warnings)
-
-	// Hooks must be mapped back to xcaffold event names via config.Hooks["default"].
-	var effectiveHooks ast.HookConfig
-	if dh, ok := config.Hooks["default"]; ok {
-		effectiveHooks = dh.Events
-	}
-	preTool, ok := effectiveHooks["PreToolExecution"]
-	require.True(t, ok, "BeforeTool must map to PreToolExecution")
-	require.Len(t, preTool, 1)
-	require.Equal(t, "write_file|replace", preTool[0].Matcher)
-	require.Len(t, preTool[0].Hooks, 1)
-	require.Equal(t, "scripts/security-check.sh", preTool[0].Hooks[0].Command)
-	require.NotNil(t, preTool[0].Hooks[0].Timeout)
-	require.Equal(t, 5000, *preTool[0].Hooks[0].Timeout)
-
-	postTool, ok := effectiveHooks["PostToolExecution"]
-	require.True(t, ok, "AfterTool must map to PostToolExecution")
-	require.Len(t, postTool, 1)
-	require.Equal(t, "scripts/post.sh", postTool[0].Hooks[0].Command)
-
-	// MCP server must be extracted.
-	srv, ok := config.MCP["my-server"]
-	require.True(t, ok, "my-server must be present in config.MCP")
-	require.Equal(t, "node", srv.Command)
-	require.Equal(t, []string{"server.js"}, srv.Args)
-	require.Equal(t, "secret", srv.Env["API_KEY"])
-}
-
 // TestImport_FromGemini_ExtractsInstructions verifies that GEMINI.md is
 // discovered by extractProjectInstructions and written to a sidecar.
 func TestImport_FromGemini_ExtractsInstructions(t *testing.T) {
@@ -1349,201 +937,6 @@ func TestImport_FromGemini_ExtractsInstructions(t *testing.T) {
 	data, err := os.ReadFile(sidecar)
 	require.NoError(t, err)
 	require.Contains(t, string(data), "Use Go 1.24.")
-}
-
-// TestImport_Copilot_Agents verifies that .github/agents/*.agent.md files are
-// imported as AgentConfig entries with frontmatter parsed and body inlined.
-func TestImport_Copilot_Agents(t *testing.T) {
-	tmp := t.TempDir()
-
-	agentsDir := filepath.Join(tmp, "agents")
-	require.NoError(t, os.MkdirAll(agentsDir, 0o755))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(agentsDir, "reviewer.agent.md"),
-		[]byte("---\nname: reviewer\ndescription: Code reviewer agent\nmodel: gpt-4o\n---\n\nReview all pull requests carefully."),
-		0o600,
-	))
-	// Plain .md agent (no .agent.md suffix)
-	require.NoError(t, os.WriteFile(
-		filepath.Join(agentsDir, "helper.md"),
-		[]byte("---\ndescription: A helper\n---\n\nHelp the user with tasks."),
-		0o600,
-	))
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Agents: make(map[string]ast.AgentConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	require.NoError(t, extractCopilotAgents(tmp, config, &count, &warnings))
-
-	require.Equal(t, 2, count)
-	require.Empty(t, warnings)
-
-	reviewer, ok := config.Agents["reviewer"]
-	require.True(t, ok, "expected agent 'reviewer' to be present")
-	require.Empty(t, reviewer.InstructionsFile, "instructions must be inlined")
-	require.Contains(t, reviewer.Instructions, "Review all pull requests carefully.")
-	require.Equal(t, "Code reviewer agent", reviewer.Description)
-
-	helper, ok := config.Agents["helper"]
-	require.True(t, ok, "expected agent 'helper' to be present")
-	require.Contains(t, helper.Instructions, "Help the user with tasks.")
-}
-
-// TestImport_Copilot_Skills verifies that .github/skills/*/SKILL.md files are
-// imported as SkillConfig entries with frontmatter parsed and body inlined.
-func TestImport_Copilot_Skills(t *testing.T) {
-	tmp := t.TempDir()
-
-	skillDir := filepath.Join(tmp, "skills", "code-review")
-	require.NoError(t, os.MkdirAll(skillDir, 0o755))
-	require.NoError(t, os.WriteFile(
-		filepath.Join(skillDir, "SKILL.md"),
-		[]byte("---\nname: code-review\ndescription: Systematic code review skill\n---\n\nReview code for bugs and style."),
-		0o600,
-	))
-
-	origWd, err := os.Getwd()
-	require.NoError(t, err)
-	defer os.Chdir(origWd)
-	require.NoError(t, os.Chdir(tmp))
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Skills: make(map[string]ast.SkillConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	require.NoError(t, extractCopilotSkills(tmp, config, &count, &warnings))
-
-	skill, ok := config.Skills["code-review"]
-	require.True(t, ok, "expected skill 'code-review' to be present")
-	require.Equal(t, 1, count)
-	require.Empty(t, skill.InstructionsFile, "instructions must be inlined")
-	require.Contains(t, skill.Instructions, "Review code for bugs and style.")
-	require.Equal(t, "Systematic code review skill", skill.Description)
-	require.Empty(t, warnings)
-}
-
-// TestImport_Copilot_Hooks_Roundtrip verifies that hook entries exported with
-// "bash" and "timeoutSec" fields are correctly re-imported into HookHandler
-// with Command and Timeout (milliseconds).
-func TestImport_Copilot_Hooks_Roundtrip(t *testing.T) {
-	dir := t.TempDir()
-	hooksDir := filepath.Join(dir, ".github", "hooks")
-	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
-
-	hookJSON := `{"version":1,"hooks":{"preToolUse":[{"hooks":[{"type":"command","bash":"echo pre","timeoutSec":5}]}]}}`
-	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "xcaffold-hooks.json"), []byte(hookJSON), 0o644))
-
-	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			MCP: make(map[string]ast.MCPConfig),
-		},
-	}
-	var count int
-	var warnings []string
-	err := importCopilotSettings(filepath.Join(dir, ".github"), dir, cfg, &count, &warnings)
-	require.NoError(t, err)
-
-	var effectiveHooks ast.HookConfig
-	if dh, ok := cfg.Hooks["default"]; ok {
-		effectiveHooks = dh.Events
-	}
-	require.Contains(t, effectiveHooks, "PreToolUse")
-	handlers := effectiveHooks["PreToolUse"]
-	require.Len(t, handlers, 1)
-	require.Len(t, handlers[0].Hooks, 1)
-	assert.Equal(t, "echo pre", handlers[0].Hooks[0].Command)
-	require.NotNil(t, handlers[0].Hooks[0].Timeout)
-	assert.Equal(t, 5000, *handlers[0].Hooks[0].Timeout)
-}
-
-// TestImport_Copilot_MCP verifies that .vscode/mcp.json servers are imported
-// into config.MCP without using path traversal.
-func TestImport_Copilot_MCP(t *testing.T) {
-	dir := t.TempDir()
-	vscodeDir := filepath.Join(dir, ".vscode")
-	require.NoError(t, os.MkdirAll(vscodeDir, 0o755))
-
-	mcpJSON := `{"servers":{"test-server":{"command":"node","args":["server.js"],"env":{"KEY":"value"}}}}`
-	require.NoError(t, os.WriteFile(filepath.Join(vscodeDir, "mcp.json"), []byte(mcpJSON), 0o644))
-
-	cfg := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			MCP: make(map[string]ast.MCPConfig),
-		},
-	}
-	var count int
-	var warnings []string
-	err := importCopilotSettings(filepath.Join(dir, ".github"), dir, cfg, &count, &warnings)
-	require.NoError(t, err)
-
-	require.Contains(t, cfg.MCP, "test-server")
-	assert.Equal(t, "node", cfg.MCP["test-server"].Command)
-	assert.Equal(t, []string{"server.js"}, cfg.MCP["test-server"].Args)
-}
-
-// TestExtractRules_NestedSubdirectories verifies that rules stored in subdirectories
-// of .claude/rules/ are recursively discovered and imported with slash-namespaced IDs
-// (e.g. rules/cli/build-go-cli.md → rule ID "cli/build-go-cli").
-func TestExtractRules_NestedSubdirectories(t *testing.T) {
-	tmp := t.TempDir()
-
-	// rules/security.md — flat rule at root level
-	rulesDir := filepath.Join(tmp, ".claude", "rules")
-	require.NoError(t, os.MkdirAll(rulesDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(rulesDir, "security.md"),
-		[]byte("---\ndescription: Security rules\n---\n\nNever leak secrets."), 0o600))
-
-	// rules/cli/build-go-cli.md — nested under cli/
-	cliDir := filepath.Join(rulesDir, "cli")
-	require.NoError(t, os.MkdirAll(cliDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(cliDir, "build-go-cli.md"),
-		[]byte("---\ndescription: Go CLI build constraints\n---\n\nAlways use make build."), 0o600))
-
-	// rules/platform/api-conventions.md — nested under platform/
-	platformDir := filepath.Join(rulesDir, "platform")
-	require.NoError(t, os.MkdirAll(platformDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(platformDir, "api-conventions.md"),
-		[]byte("---\ndescription: API conventions\n---\n\nFollow REST conventions."), 0o600))
-
-	origWd, _ := os.Getwd()
-	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origWd)
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Rules: make(map[string]ast.RuleConfig),
-		},
-	}
-	count := 0
-	var warnings []string
-
-	require.NoError(t, extractRules(".claude", "project", config, &count, &warnings))
-
-	// Flat rule must be imported under its filename stem.
-	assert.Contains(t, config.Rules, "security", "flat root rule must be imported")
-	assert.Contains(t, config.Rules["security"].Instructions, "Never leak secrets.")
-
-	// Nested rule under cli/ must be imported with namespaced ID.
-	assert.Contains(t, config.Rules, "cli/build-go-cli",
-		"nested rule under cli/ must be imported with namespaced ID")
-	assert.Contains(t, config.Rules["cli/build-go-cli"].Instructions, "Always use make build.")
-
-	// Nested rule under platform/ must be imported with namespaced ID.
-	assert.Contains(t, config.Rules, "platform/api-conventions",
-		"nested rule under platform/ must be imported with namespaced ID")
-	assert.Contains(t, config.Rules["platform/api-conventions"].Instructions, "Follow REST conventions.")
-
-	assert.Equal(t, 3, count, "all three rules (flat + 2 nested) must be counted")
-	assert.Empty(t, warnings, "no warnings expected for valid rule files")
 }
 
 // TestResolveSourceFiles_WalksNestedDirs verifies that resolveSourceFiles recurses
@@ -1707,4 +1100,174 @@ func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
 	if !found {
 		t.Errorf("expected warning about unknown provider, got: %v", warnings)
 	}
+}
+
+func TestWriteMemoryFiles_WritesMarkdownToDisk(t *testing.T) {
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Memory: map[string]ast.MemoryConfig{
+				"dev/context": {
+					Name:        "context",
+					Description: "Project context",
+					Content:     "---\nname: context\ndescription: Project context\n---\n\nThis is memory content.",
+					AgentRef:    "dev",
+				},
+			},
+		},
+	}
+
+	n, err := writeMemoryFiles(config)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+
+	data, err := os.ReadFile(filepath.Join("xcf", "agents", "dev", "memory", "context.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(data), "This is memory content.")
+}
+
+func TestAllProviders_HaveRegisteredImporters(t *testing.T) {
+	providers := []string{"claude", "cursor", "gemini", "copilot", "antigravity"}
+	for _, p := range providers {
+		imp := findImporterByProvider(p)
+		require.NotNilf(t, imp, "provider %q must have a registered importer", p)
+	}
+}
+
+func TestMergeImportDirs_DedupRicherWins(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	// Claude: dev agent with short instructions
+	claudeDir := filepath.Join(tmp, ".claude")
+	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "agents", "dev.md"),
+		[]byte("---\nname: dev\ndescription: Short\n---\n\nShort."),
+		0o644,
+	))
+
+	// Cursor: dev agent with longer instructions
+	cursorDir := filepath.Join(tmp, ".cursor")
+	require.NoError(t, os.MkdirAll(filepath.Join(cursorDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cursorDir, "agents", "dev.md"),
+		[]byte("---\nname: dev\ndescription: Detailed developer\n---\n\nYou are a senior developer. Follow TDD strictly. Always write tests before implementation. Review code carefully."),
+		0o644,
+	))
+
+	dirs := []platformDirInfo{
+		{dirName: ".claude", platform: "claude", exists: true},
+		{dirName: ".cursor", platform: "cursor", exists: true},
+	}
+
+	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	require.NoError(t, err)
+
+	// The cursor version is longer — it should win
+	config, parseErr := parser.ParseDirectory(".")
+	require.NoError(t, parseErr)
+	dev, ok := config.Agents["dev"]
+	require.True(t, ok)
+	require.Contains(t, dev.Instructions, "Follow TDD strictly")
+}
+
+func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	// Claude: agents + settings.json with MCP + hooks
+	claudeDir := filepath.Join(tmp, ".claude")
+	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "agents", "dev.md"),
+		[]byte("---\nname: dev\ndescription: Developer\n---\n\nDevelop."),
+		0o644,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "settings.json"),
+		[]byte(`{"mcpServers":{"my-server":{"command":"node","args":["srv.js"]}}}`),
+		0o644,
+	))
+
+	// Cursor: agents dir
+	cursorDir := filepath.Join(tmp, ".cursor")
+	require.NoError(t, os.MkdirAll(filepath.Join(cursorDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cursorDir, "agents", "reviewer.md"),
+		[]byte("---\nname: reviewer\n---\n\nReview."),
+		0o644,
+	))
+
+	dirs := []platformDirInfo{
+		{dirName: ".claude", platform: "claude", exists: true},
+		{dirName: ".cursor", platform: "cursor", exists: true},
+	}
+
+	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	require.NoError(t, err)
+
+	// MCP from .claude/ must be present
+	config, parseErr := parser.ParseDirectory(".")
+	require.NoError(t, parseErr)
+	_, hasMCP := config.MCP["my-server"]
+	require.True(t, hasMCP, "MCP server from .claude/ must be imported in multi-dir mode")
+}
+
+func TestMergeImportDirs_ImportsMemory(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	// Create .claude/ with agent + memory
+	claudeDir := filepath.Join(tmp, ".claude")
+	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "agents", "dev.md"),
+		[]byte("---\nname: dev\ndescription: Developer agent\n---\n\nYou are a developer."),
+		0o644,
+	))
+	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agent-memory", "dev"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(claudeDir, "agent-memory", "dev", "context.md"),
+		[]byte("---\nname: context\ndescription: Project context\n---\n\nAlways use Go 1.24."),
+		0o644,
+	))
+
+	// Create .cursor/ with an agent
+	cursorDir := filepath.Join(tmp, ".cursor")
+	require.NoError(t, os.MkdirAll(filepath.Join(cursorDir, "agents"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(cursorDir, "agents", "reviewer.md"),
+		[]byte("---\nname: reviewer\ndescription: Code reviewer\n---\n\nReview code carefully."),
+		0o644,
+	))
+
+	dirs := []platformDirInfo{
+		{dirName: ".claude", platform: "claude", exists: true},
+		{dirName: ".cursor", platform: "cursor", exists: true},
+	}
+
+	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	require.NoError(t, err)
+
+	// Memory must be written to disk
+	memPath := filepath.Join("xcf", "agents", "dev", "memory", "context.md")
+	_, statErr := os.Stat(memPath)
+	require.NoError(t, statErr, "memory file must exist at %s", memPath)
+
+	data, _ := os.ReadFile(memPath)
+	require.Contains(t, string(data), "Always use Go 1.24.")
 }

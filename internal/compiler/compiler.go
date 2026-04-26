@@ -88,15 +88,15 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 
 	config.StripInherited()
 
-	r, err := resolveRenderer(target)
+	r, err := ResolveRenderer(target)
 	if err != nil {
 		return nil, nil, err
 	}
 	return renderer.Orchestrate(r, config, baseDir)
 }
 
-// resolveRenderer returns the TargetRenderer for the given target name.
-func resolveRenderer(target string) (renderer.TargetRenderer, error) {
+// ResolveRenderer returns the TargetRenderer for the given target name.
+func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
 	switch target {
 	case TargetClaude:
 		return claude.New(), nil
@@ -145,7 +145,7 @@ func OutputDir(target string) string {
 	if target == "" {
 		return ""
 	}
-	r, err := resolveRenderer(target)
+	r, err := ResolveRenderer(target)
 	if err != nil {
 		return ""
 	}

@@ -543,6 +543,17 @@ func sortedMapKeys[V any](m map[string]V) []string {
 	return keys
 }
 
+// sortedAgentRefs returns AgentManifestEntry values sorted by ID for any
+// string-keyed agent map. Used to build the AgentRefs list in kind: project.
+func sortedAgentRefs[V any](m map[string]V) []ast.AgentManifestEntry {
+	keys := sortedMapKeys(m)
+	res := make([]ast.AgentManifestEntry, 0, len(keys))
+	for _, k := range keys {
+		res = append(res, ast.AgentManifestEntry{ID: k})
+	}
+	return res
+}
+
 // refSet builds a lookup set from a list of resource reference names.
 // Returns nil when refs is empty, which callers interpret as "no filter — write all".
 func refSet(refs []string) map[string]bool {

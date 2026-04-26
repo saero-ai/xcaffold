@@ -3,11 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -98,7 +96,7 @@ func initProject(cmd *cobra.Command) error {
 		currentConfig, _ = parser.ParseFile(xcfFile)
 	}
 
-	infos := detectAllPlatformDirs(".")
+	infos := detectPlatformDirs(".", false)
 
 	// ── Phase 1: Existing scaffold, NO native dirs ────────────────────────
 	if hasExistingScaffold && len(infos) == 0 {
@@ -181,11 +179,7 @@ func initProject(cmd *cobra.Command) error {
 				importErr = importScope(infos[0].dirName, xcfFile, "project", infos[0].platform)
 			} else {
 				if yesFlag {
-					var dirs []string
-					for _, info := range infos {
-						dirs = append(dirs, info.dirName)
-					}
-					importErr = mergeImportDirs(dirs, xcfFile)
+					importErr = mergeImportDirs(infos, xcfFile)
 				} else {
 					var options []prompt.SelectOption
 					for _, info := range infos {
@@ -214,7 +208,15 @@ func initProject(cmd *cobra.Command) error {
 							importErr = importScope(selected[0], xcfFile, "project", selectedPlatform(infos, selected[0]))
 						} else {
 							cmd.Println()
-							importErr = mergeImportDirs(selected, xcfFile)
+							var selectedInfos []platformDirInfo
+							for _, s := range selected {
+								selectedInfos = append(selectedInfos, platformDirInfo{
+									dirName:  s,
+									platform: selectedPlatform(infos, s),
+									exists:   true,
+								})
+							}
+							importErr = mergeImportDirs(selectedInfos, xcfFile)
 						}
 					}
 				}
@@ -278,59 +280,6 @@ func (c platformDirInfo) summary() string {
 		return "no recognized resources"
 	}
 	return strings.Join(parts, ", ")
-}
-
-// detectAllPlatformDirs scans known platform directories under dir and returns all found, sorted by size.
-func detectAllPlatformDirs(dir string) []platformDirInfo {
-	platformDirs := []struct{ dir, platform string }{
-		{".claude", "claude"},
-		{".cursor", "cursor"},
-		{".agents", "antigravity"},
-		{".gemini", "gemini"},
-	}
-
-	var results []platformDirInfo
-
-	for _, pt := range platformDirs {
-		targetPath := filepath.Join(dir, pt.dir)
-		if _, err := os.Stat(targetPath); err != nil {
-			continue
-		}
-
-		info := platformDirInfo{exists: true, platform: pt.platform, dirName: pt.dir}
-
-		if agents, _ := filepath.Glob(filepath.Join(targetPath, "agents", "*.md")); agents != nil {
-			info.agents += len(agents)
-		}
-		if skills, _ := filepath.Glob(filepath.Join(targetPath, "skills", "*", "SKILL.md")); skills != nil {
-			info.skills += len(skills)
-		}
-		// Count rules recursively to include nested subdirectory rules.
-		_ = filepath.WalkDir(filepath.Join(targetPath, "rules"), func(_ string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				return nil
-			}
-			name := strings.ToLower(d.Name())
-			if strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".mdc") {
-				info.rules++
-			}
-			return nil
-		})
-		if workflows, _ := filepath.Glob(filepath.Join(targetPath, "workflows", "*.md")); workflows != nil {
-			info.workflows += len(workflows)
-		}
-
-		results = append(results, info)
-	}
-
-	// Sort by total items descending so the richest configuration is first
-	sort.Slice(results, func(i, j int) bool {
-		totalI := results[i].agents + results[i].skills + results[i].rules + results[i].workflows
-		totalJ := results[j].agents + results[j].skills + results[j].rules + results[j].workflows
-		return totalI > totalJ
-	})
-
-	return results
 }
 
 // selectedPlatform returns the platform name for the given dirName from infos.
