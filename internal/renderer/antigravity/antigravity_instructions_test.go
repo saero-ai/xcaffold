@@ -25,7 +25,7 @@ func TestAntigravityRenderer_ProjectInstructions_FlatSingleton(t *testing.T) {
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 	// Root rules file must contain root + all scopes with provenance markers.
-	root := out.Files[antigravity.RulesFile]
+	root := out.RootFiles[antigravity.ProjectContextFile]
 	require.Contains(t, root, "Root content.")
 	require.Contains(t, root, `<!-- xcaffold:scope path="packages/worker"`)
 	require.Contains(t, root, "Worker content.")
@@ -49,7 +49,7 @@ func TestAntigravityRenderer_ProjectInstructions_ScopeOrderDepthAscAlpha(t *test
 	}
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
-	root := out.Files[antigravity.RulesFile]
+	root := out.RootFiles[antigravity.ProjectContextFile]
 	apiIdx := strings.Index(root, "packages/api")
 	srcIdx := strings.Index(root, "packages/worker/src")
 	require.Less(t, apiIdx, srcIdx, "shallower scope must appear before deeper scope")

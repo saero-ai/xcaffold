@@ -37,10 +37,6 @@ const (
 	// xcaffold:scope provenance markers preserving origin metadata.
 	// Antigravity reads GEMINI.md from the project root for project context.
 	ProjectContextFile = "GEMINI.md"
-
-	// RulesFile is deprecated: use ProjectContextFile.
-	// Retained for compilation compatibility during the migration; Task 3 removes all references.
-	RulesFile = ProjectContextFile
 )
 
 // Renderer compiles an XcaffoldConfig AST into Antigravity (Antigravity) output files.
@@ -323,9 +319,9 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 	return files, rootFiles, nil, nil
 }
 
-// renderProjectInstructions emits a single flat-singleton rules file containing
-// the project root instructions followed by each InstructionsScope entry, each
-// wrapped in xcaffold:scope HTML provenance markers (path, merge-strategy, origin).
+// renderProjectInstructions emits a single flat-singleton context file (GEMINI.md)
+// containing the project root instructions followed by each InstructionsScope entry,
+// each wrapped in xcaffold:scope HTML provenance markers (path, merge-strategy, origin).
 //
 // Antigravity has no multi-file nesting model, so all scopes are merged into one
 // file. Structural distinction is preserved via provenance markers only. One
