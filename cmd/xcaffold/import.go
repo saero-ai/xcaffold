@@ -88,7 +88,11 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	if importSource == "" {
 		if globalFlag {
-			dirs := detectAllGlobalPlatformDirs()
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("cannot determine home directory: %w", err)
+			}
+			dirs := detectPlatformDirs(home, true)
 			if len(dirs) == 0 {
 				return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
 			}
@@ -335,15 +339,11 @@ func fileExistsInTree(rootDir, name string) bool {
 	return found
 }
 
-// detectAllGlobalPlatformDirs scans known provider directories under the user's home directory
-// (~/.claude/, ~/.cursor/, ~/.agents/) and returns all that contain agent/skill/rule resources,
-// sorted by total resource count descending.
-func detectAllGlobalPlatformDirs() []platformDirInfo {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil
-	}
-
+// detectPlatformDirs scans known provider directories under baseDir and returns
+// all found entries, sorted by total resource count descending. When skipEmpty
+// is true, directories with no detected resources are excluded from the result.
+// dirName in each returned entry is the absolute path to the provider directory.
+func detectPlatformDirs(baseDir string, skipEmpty bool) []platformDirInfo {
 	platformDirs := []struct{ dir, platform string }{
 		{".claude", "claude"},
 		{".cursor", "cursor"},
@@ -354,7 +354,7 @@ func detectAllGlobalPlatformDirs() []platformDirInfo {
 	var results []platformDirInfo
 
 	for _, pt := range platformDirs {
-		targetPath := filepath.Join(home, pt.dir)
+		targetPath := filepath.Join(baseDir, pt.dir)
 		if _, err := os.Stat(targetPath); err != nil {
 			continue
 		}
@@ -382,8 +382,7 @@ func detectAllGlobalPlatformDirs() []platformDirInfo {
 			info.workflows += len(workflows)
 		}
 
-		// Only include directories that actually have resources
-		if info.agents+info.skills+info.rules+info.workflows == 0 {
+		if skipEmpty && info.agents+info.skills+info.rules+info.workflows == 0 {
 			continue
 		}
 

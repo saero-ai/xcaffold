@@ -373,38 +373,36 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	assert.NotContains(t, devXcfContent, "instructions-file:")
 }
 
-func TestDetectAllGlobalPlatformDirs_Empty(t *testing.T) {
-	// Point HOME to a temp dir with no provider directories
+func TestDetectPlatformDirs_Empty(t *testing.T) {
+	// Point to a temp dir with no provider directories
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
 
-	dirs := detectAllGlobalPlatformDirs()
+	dirs := detectPlatformDirs(tmp, true)
 	if len(dirs) != 0 {
 		t.Errorf("expected 0 dirs when no provider dirs exist, got %d: %v", len(dirs), dirs)
 	}
 }
 
-func TestDetectAllGlobalPlatformDirs_SingleProvider(t *testing.T) {
+func TestDetectPlatformDirs_SingleProvider(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
 
-	// Create ~/.claude/agents/dev.md and ~/.claude/rules/sec.md
+	// Create <tmp>/.claude/agents/dev.md and <tmp>/.claude/rules/sec.md
 	claudeAgents := filepath.Join(tmp, ".claude", "agents")
 	if err := os.MkdirAll(claudeAgents, 0755); err != nil {
-		t.Fatalf("failed to create ~/.claude/agents/: %v", err)
+		t.Fatalf("failed to create .claude/agents/: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(claudeAgents, "dev.md"), []byte("# Dev\n"), 0600); err != nil {
 		t.Fatalf("failed to write dev.md: %v", err)
 	}
 	claudeRules := filepath.Join(tmp, ".claude", "rules")
 	if err := os.MkdirAll(claudeRules, 0755); err != nil {
-		t.Fatalf("failed to create ~/.claude/rules/: %v", err)
+		t.Fatalf("failed to create .claude/rules/: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(claudeRules, "sec.md"), []byte("# Sec\n"), 0600); err != nil {
 		t.Fatalf("failed to write sec.md: %v", err)
 	}
 
-	dirs := detectAllGlobalPlatformDirs()
+	dirs := detectPlatformDirs(tmp, true)
 	if len(dirs) != 1 {
 		t.Fatalf("expected 1 dir, got %d: %v", len(dirs), dirs)
 	}
@@ -417,30 +415,29 @@ func TestDetectAllGlobalPlatformDirs_SingleProvider(t *testing.T) {
 	if dirs[0].rules != 1 {
 		t.Errorf("expected 1 rule, got %d", dirs[0].rules)
 	}
-	// dirName must be the absolute path to ~/.claude
+	// dirName must be the absolute path to <tmp>/.claude
 	expected := filepath.Join(tmp, ".claude")
 	if dirs[0].dirName != expected {
 		t.Errorf("expected dirName %q, got %q", expected, dirs[0].dirName)
 	}
 }
 
-func TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
+func TestDetectPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
 	tmp := t.TempDir()
-	t.Setenv("HOME", tmp)
 
-	// ~/.claude — 1 agent
+	// <tmp>/.claude — 1 agent
 	claudeAgents := filepath.Join(tmp, ".claude", "agents")
 	if err := os.MkdirAll(claudeAgents, 0755); err != nil {
-		t.Fatalf("failed to create ~/.claude/agents/: %v", err)
+		t.Fatalf("failed to create .claude/agents/: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(claudeAgents, "dev.md"), []byte("# Dev\n"), 0600); err != nil {
 		t.Fatalf("failed to write dev.md: %v", err)
 	}
 
-	// ~/.cursor — 2 rules (richer)
+	// <tmp>/.cursor — 2 rules (richer)
 	cursorRules := filepath.Join(tmp, ".cursor", "rules")
 	if err := os.MkdirAll(cursorRules, 0755); err != nil {
-		t.Fatalf("failed to create ~/.cursor/rules/: %v", err)
+		t.Fatalf("failed to create .cursor/rules/: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(cursorRules, "r1.mdc"), []byte("rule1"), 0600); err != nil {
 		t.Fatalf("failed to write r1.mdc: %v", err)
@@ -449,7 +446,7 @@ func TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
 		t.Fatalf("failed to write r2.mdc: %v", err)
 	}
 
-	dirs := detectAllGlobalPlatformDirs()
+	dirs := detectPlatformDirs(tmp, true)
 	if len(dirs) != 2 {
 		t.Fatalf("expected 2 dirs, got %d: %v", len(dirs), dirs)
 	}
@@ -459,6 +456,30 @@ func TestDetectAllGlobalPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
 	}
 	if dirs[1].platform != "claude" {
 		t.Errorf("expected second provider to be claude, got %q", dirs[1].platform)
+	}
+}
+
+func TestDetectPlatformDirs_SkipEmpty_False_IncludesEmptyDirs(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Create <tmp>/.claude with no resources (directory exists but empty)
+	if err := os.MkdirAll(filepath.Join(tmp, ".claude"), 0755); err != nil {
+		t.Fatalf("failed to create .claude/: %v", err)
+	}
+
+	// skipEmpty=false must include the empty dir
+	dirs := detectPlatformDirs(tmp, false)
+	if len(dirs) != 1 {
+		t.Fatalf("expected 1 dir with skipEmpty=false, got %d", len(dirs))
+	}
+	if dirs[0].platform != "claude" {
+		t.Errorf("expected platform claude, got %q", dirs[0].platform)
+	}
+
+	// skipEmpty=true must exclude the empty dir
+	dirs = detectPlatformDirs(tmp, true)
+	if len(dirs) != 0 {
+		t.Errorf("expected 0 dirs with skipEmpty=true, got %d", len(dirs))
 	}
 }
 
