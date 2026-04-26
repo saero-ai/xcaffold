@@ -340,19 +340,4 @@ Scans the current project and displays all discovered resources grouped by type,
 | `--blueprint <name>` | `""` | (Hidden) Filter output to the named blueprint's resources. |
 | `--resolved` | `false` | (Hidden, use with `--blueprint`) Expand transitive `extends:` dependencies before listing. |
 
----
-
-### `xcaffold migrate`
-
-**File:** `cmd/xcaffold/migrate.go`
-
-Restructures project layouts to align with xcaffold conventions. Safe to run repeatedly (idempotent).
-
-**Operations performed:**
-
-1. **Project manifest rename:** Detects `scaffold.xcf` and renames to `project.xcf` (creates a `.backup` copy first)
-2. **State file migration:** Converts `scaffold.<target>.lock` files in the project root to `.xcaffold/project.xcf.state` (original files renamed to `*.lock.migrated`)
-3. **Schema version upgrade:** Updates project configuration to the current schema version
-
-No flags. Run from a directory containing xcaffold configuration files.
 

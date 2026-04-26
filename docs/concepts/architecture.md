@@ -240,7 +240,6 @@ Translation  → xcaffold translate (provider-to-provider; three-phase: Import �
 Audit        → xcaffold analyze   (LLM-based repo audit)
 Topology     → xcaffold graph     (ASCII / mermaid / DOT / JSON output)
 Listing      → xcaffold list      (View registered projects)
-Migration    → xcaffold migrate   (Upgrade project layouts)
 Compilation  → xcaffold apply     (XCF → policy evaluation → target output files + .xcaffold/project.xcf.state)
 Drift Check  → xcaffold diff      (compares .xcaffold/project.xcf.state against live output files)
 Validation   → xcaffold validate  (Syntax/structural check)

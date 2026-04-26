@@ -61,7 +61,6 @@ Preview (coming in R2):
   translate   Cross-compile .xcf resources to a different provider format
   test        Run LLM-as-Judge quality assessments
   registry    Pull and push blueprints from a remote registry
-  migrate     Upgrade legacy xcaffold layouts to current schema
 {{end}}`)
 
 	rootCmd.PersistentFlags().StringVar(
@@ -110,7 +109,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 		globalXcfPath = filepath.Join(globalXcfHome, "global.xcf")
 	}
 
-	if cmd.Name() != "init" && cmd.Name() != "import" && cmd.Name() != "migrate" {
+	if cmd.Name() != "init" && cmd.Name() != "import" {
 		if _, err := os.Stat(globalXcfPath); err != nil {
 			if os.IsNotExist(err) {
 				return fmt.Errorf("global.xcf not found at %q\n\nHint: run 'xcaffold init --global' to create one", globalXcfPath)
@@ -122,7 +121,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "registry" || cmd.Name() == "migrate" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "registry" {
 		return nil
 	}
 	var configDir string

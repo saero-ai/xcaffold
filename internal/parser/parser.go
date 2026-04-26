@@ -926,7 +926,7 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 
 		legacyPath := filepath.Join(home, ".claude", "global.xcf")
 		if _, err := os.Stat(legacyPath); err == nil {
-			fmt.Fprintf(os.Stderr, "WARNING: extends: global resolved from legacy path %s -- run 'xcaffold migrate' to move to %s\n", legacyPath, xcaffoldDir)
+			fmt.Fprintf(os.Stderr, "WARNING: extends: global resolved from legacy path %s -- expected location is %s\n", legacyPath, xcaffoldDir)
 			basePath = legacyPath
 		} else {
 			return nil, fmt.Errorf("could not resolve 'extends: global': no global config found")

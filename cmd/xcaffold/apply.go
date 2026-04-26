@@ -87,7 +87,7 @@ const (
 )
 
 // currentSchemaVersion is the schema version this build of xcaffold targets.
-// Configs with older versions produce a warning prompting the user to migrate.
+// Configs with older versions produce an error requiring the user to update the version field.
 const currentSchemaVersion = "1.0"
 
 //nolint:gocyclo
@@ -266,7 +266,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	}
 
 	if config.Version != "" && config.Version < currentSchemaVersion {
-		fmt.Fprintf(os.Stderr, "WARNING: project.xcf uses schema version %s; current schema is %s. Run \"xcaffold migrate\" to upgrade.\n", config.Version, currentSchemaVersion)
+		return fmt.Errorf("project.xcf uses schema version %s but xcaffold requires %s — please update the version field in your project.xcf", config.Version, currentSchemaVersion)
 	}
 
 	// --- Smart compilation skip: compare source hashes ---

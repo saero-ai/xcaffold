@@ -28,7 +28,7 @@ This how-to covers directory scanning, what merge rules apply per resource type,
 
 - `project.xcf` is the recommended filename for the project manifest (`kind: project`). The parser identifies it by `kind: project`, not by filename — any name works, but `project.xcf` is the convention.
 - Resource files under `xcf/` can use any name. Convention: `xcf/agents/developer.xcf`, `xcf/rules/code-style.xcf`.
-- `xcaffold init` natively bootstraps a full `xcf/` multi-file layout by default. You do not need to manually migrate if you start with `init`.
+- `xcaffold init` natively bootstraps a full `xcf/` multi-file layout by default. You do not need to run any additional setup if you start with `init`.
 - All xcaffold commands (`apply`, `diff`, `validate`, `graph`) run from the directory containing `project.xcf`.
 
 ---

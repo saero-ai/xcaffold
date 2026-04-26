@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed `xcaffold translate` command — cross-provider translation now happens automatically during `xcaffold apply`, and explicit cross-provider import is handled by `xcaffold import --source`. The `internal/translator` package and all workflow lowering logic remain unchanged.
+- `xcaffold migrate` command removed — schema version migration infrastructure had no consumers; legacy layout transitions have no external audience
 
 ### Added (Provider-Agnostic Renderer)
 
@@ -32,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (Provider-Agnostic Renderer)
 
-- Relocated project manifest from `./project.xcf` to `.xcaffold/project.xcf` — the manifest is a tool-generated file (compiler/init/import/migrate)
+- Relocated project manifest from `./project.xcf` to `.xcaffold/project.xcf` — the manifest is a tool-generated file (compiler/init/import)
 - Transitioned `kind: memory` rendering to provider-agnostic system respecting per-provider ground truth: Claude (full render), Gemini & Antigravity (partial render with note), Cursor & Copilot (dropped with note) (compiler/renderer)
 - Schema: Updated `ProjectConfig.AgentRefs` to use `AgentManifestEntry` to support deterministic memory linkage within manifest files (schema)
 - Changed `TargetRenderer` interface from monolithic `Compile()`/`Render()` to per-resource methods (`CompileAgents`, `CompileSkills`, `CompileRules`, `CompileWorkflows`, `CompileHooks`, `CompileSettings`, `CompileMCP`, `CompileProjectInstructions`) with `Capabilities()` and `Finalize()` hooks (renderer)
@@ -206,7 +207,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `diff` now surfaces `FindXCFFiles` errors instead of reporting false-positive `SRC DELETED` for valid source files (diff)
 - `apply` excludes `registry.xcf` from source file tracking, preventing unnecessary recompilation on every run (apply)
 - `graph` no longer includes inherited global resources in project-scope topology output (graph)
-- `migrate --global` no longer fails when `global.xcf` does not yet exist (migrate)
 
 ### Removed
 - Removed `plan` command — use `apply --dry-run` instead (cli)
@@ -232,7 +232,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `xcaffold graph --project <name>` queries any registered project's topology from any location.
 - `xcaffold apply` safely resolves project paths from the global registry when invoked using `--project <name>`.
 - `xcaffold plan` command for static parsing and pre-deployment execution dry-runs.
-- `xcaffold migrate` command detects legacy flat-layout projects, upgrades them to reference-in-place paths (including skills, rules, and references), and registers them in the central registry.
 - Reference-in-place import: `xcaffold import` generates `project.xcf` entries pointing to existing instruction files without duplication.
 - `xcaffold import` natively extracts `hooks.json` mapping parameters and workflow assets directly into the merged definitions.
 - Walk-up configuration search: CLI commands work from project subdirectories by walking up to find the nearest `project.xcf` (bounded by `$HOME`).
