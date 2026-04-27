@@ -95,11 +95,11 @@ name: test
 	if err := os.MkdirAll(contextDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	contextXcf := filepath.Join(contextDir, "main.xcf")
+	contextXcf := filepath.Join(contextDir, "claude.xcf")
 	contextContent := `---
 kind: context
 version: "1.0"
-name: main
+name: claude
 ---
 Use pnpm. PostgreSQL 16.
 `

@@ -1727,7 +1727,7 @@ func discoverRootContextFiles(projectDir string, config *ast.XcaffoldConfig) {
 		name   string
 		target string
 	}{
-		{"CLAUDE.md", "main", "claude"},
+		{"CLAUDE.md", "claude", "claude"},
 		{"GEMINI.md", "gemini", "gemini"},
 		{".github/copilot-instructions.md", "copilot", "copilot"},
 	}
