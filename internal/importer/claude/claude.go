@@ -174,6 +174,8 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		MCP                    []string                      `yaml:"mcp"`
 		Assertions             []string                      `yaml:"assertions"`
 		Targets                map[string]ast.TargetOverride `yaml:"targets"`
+		Hooks                  ast.HookConfig                `yaml:"hooks"`
+		MCPServers             map[string]ast.MCPConfig      `yaml:"mcp-servers"`
 		DisableModelInvocation *bool                         `yaml:"disable-model-invocation"`
 		UserInvocable          *bool                         `yaml:"user-invocable"`
 		Readonly               *bool                         `yaml:"readonly"`
@@ -212,6 +214,8 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		MCP:                    front.MCP,
 		Assertions:             front.Assertions,
 		Targets:                front.Targets,
+		Hooks:                  front.Hooks,
+		MCPServers:             front.MCPServers,
 		Instructions:           body,
 		SourceProvider:         "claude",
 	}

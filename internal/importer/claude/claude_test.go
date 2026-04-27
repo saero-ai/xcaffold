@@ -65,6 +65,65 @@ func TestExtractMemory_SkipsMemoryMd(t *testing.T) {
 	assert.Contains(t, config.Memory, "dev/real", "regular memory file should be imported")
 }
 
+func TestClaudeExtract_AgentHooks_Preserved(t *testing.T) {
+	data := []byte(`---
+name: my-agent
+description: Agent with hooks
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: echo pre-tool
+---
+Agent body.
+`)
+	config := &ast.XcaffoldConfig{}
+	err := extractAgent("agents/my-agent.md", data, config)
+	require.NoError(t, err)
+
+	agent, ok := config.Agents["my-agent"]
+	require.True(t, ok, "agent 'my-agent' should be present")
+
+	require.NotNil(t, agent.Hooks, "hooks should not be nil")
+	preToolGroups, ok := agent.Hooks["PreToolUse"]
+	require.True(t, ok, "hooks should contain PreToolUse event")
+	require.Len(t, preToolGroups, 1, "expected one matcher group")
+	assert.Equal(t, "Bash", preToolGroups[0].Matcher)
+	require.Len(t, preToolGroups[0].Hooks, 1)
+	assert.Equal(t, "command", preToolGroups[0].Hooks[0].Type)
+	assert.Equal(t, "echo pre-tool", preToolGroups[0].Hooks[0].Command)
+}
+
+func TestClaudeExtract_AgentMCPServers_Preserved(t *testing.T) {
+	data := []byte(`---
+name: my-agent
+description: Agent with MCP servers
+mcp-servers:
+  my-server:
+    type: stdio
+    command: /usr/local/bin/my-mcp
+    args:
+      - --flag
+---
+Agent body.
+`)
+	config := &ast.XcaffoldConfig{}
+	err := extractAgent("agents/my-agent.md", data, config)
+	require.NoError(t, err)
+
+	agent, ok := config.Agents["my-agent"]
+	require.True(t, ok, "agent 'my-agent' should be present")
+
+	require.NotNil(t, agent.MCPServers, "mcp-servers should not be nil")
+	srv, ok := agent.MCPServers["my-server"]
+	require.True(t, ok, "mcp-servers should contain 'my-server'")
+	assert.Equal(t, "stdio", srv.Type)
+	assert.Equal(t, "/usr/local/bin/my-mcp", srv.Command)
+	require.Len(t, srv.Args, 1)
+	assert.Equal(t, "--flag", srv.Args[0])
+}
+
 func TestImport_Memory_OnlyProjectAgents(t *testing.T) {
 	c := New()
 	dir := t.TempDir()
