@@ -83,7 +83,7 @@ func TestInstructionsRoundTrip_CursorToAntigravity(t *testing.T) {
 
 	// Flat output must contain provenance markers.
 	var flatContent string
-	for _, content := range out.Files {
+	for _, content := range out.RootFiles {
 		if strings.Contains(content, "xcaffold:scope") {
 			flatContent = content
 			break

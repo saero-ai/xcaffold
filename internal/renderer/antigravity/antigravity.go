@@ -32,10 +32,11 @@ const (
 	ruleCharLimit = 12000
 	targetName    = "antigravity"
 
-	// RulesFile is the output path for the project-level flat-singleton rules file.
+	// ProjectContextFile is the output path for project-level instructions.
 	// All project instructions and scopes are merged into this single file with
 	// xcaffold:scope provenance markers preserving origin metadata.
-	RulesFile = "rules/project-instructions.md"
+	// Antigravity reads GEMINI.md from the project root for project context.
+	ProjectContextFile = "GEMINI.md"
 )
 
 // Renderer compiles an XcaffoldConfig AST into Antigravity (Antigravity) output files.
@@ -287,15 +288,15 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 	return nil, []renderer.FidelityNote{note}, nil
 }
 
-// CompileProjectInstructions renders the project-level instructions into a
-// flat singleton rules file (rules/project-instructions.md) with xcaffold:scope
-// provenance markers for each InstructionsScope entry.
+// CompileProjectInstructions renders the project-level instructions into
+// GEMINI.md (root file), with xcaffold:scope provenance markers for each
+// InstructionsScope entry. Antigravity reads GEMINI.md for project context.
 func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	cfg := &ast.XcaffoldConfig{}
 	cfg.Project = project
-	files := make(map[string]string)
-	notes := r.renderProjectInstructions(cfg, baseDir, files)
-	return files, nil, notes, nil
+	rootFiles := make(map[string]string)
+	notes := r.renderProjectInstructions(cfg, baseDir, rootFiles)
+	return nil, rootFiles, notes, nil
 }
 
 // CompileMemory delegates to MemoryRenderer, emitting Antigravity Knowledge
@@ -318,9 +319,9 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 	return files, rootFiles, nil, nil
 }
 
-// renderProjectInstructions emits a single flat-singleton rules file containing
-// the project root instructions followed by each InstructionsScope entry, each
-// wrapped in xcaffold:scope HTML provenance markers (path, merge-strategy, origin).
+// renderProjectInstructions emits a single flat-singleton context file (GEMINI.md)
+// containing the project root instructions followed by each InstructionsScope entry,
+// each wrapped in xcaffold:scope HTML provenance markers (path, merge-strategy, origin).
 //
 // Antigravity has no multi-file nesting model, so all scopes are merged into one
 // file. Structural distinction is preserved via provenance markers only. One
@@ -396,7 +397,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		))
 	}
 
-	safePath := filepath.Clean(RulesFile)
+	safePath := ProjectContextFile
 	files[safePath] = sb.String()
 	return notes
 }

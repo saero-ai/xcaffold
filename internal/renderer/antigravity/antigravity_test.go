@@ -1233,3 +1233,39 @@ func TestCompileAntigravityRule_NoProvenance_ExistingBehaviorPreserved(t *testin
 	assert.NotContains(t, content, "<!-- xcaffold:activation AlwaysOn -->", "HTML comment activation must be removed")
 	assert.NotContains(t, content, "# Legacy rule.", "description must not appear as # heading")
 }
+
+// ─── Project instructions tests ───────────────────────────────────────────────
+
+func TestCompile_ProjectInstructions_EmitsGeminiMdAsRootFile(t *testing.T) {
+	r := antigravity.New()
+	project := &ast.ProjectConfig{
+		Name:         "test-project",
+		Instructions: "You are a test project.",
+	}
+
+	outputDirFiles, rootFiles, notes, err := r.CompileProjectInstructions(project, "/tmp/test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Root files should contain GEMINI.md
+	content, ok := rootFiles["GEMINI.md"]
+	if !ok {
+		t.Fatal("expected GEMINI.md in rootFiles, got none")
+	}
+	if !strings.Contains(content, "You are a test project.") {
+		t.Errorf("GEMINI.md content missing project instructions, got: %s", content)
+	}
+
+	// Output-dir files should NOT contain the old path
+	if _, ok := outputDirFiles["rules/project-instructions.md"]; ok {
+		t.Error("rules/project-instructions.md should no longer be in outputDirFiles")
+	}
+
+	// Should not have error-level notes
+	for _, n := range notes {
+		if n.Level == renderer.LevelError {
+			t.Errorf("unexpected error note: %s", n.Reason)
+		}
+	}
+}
