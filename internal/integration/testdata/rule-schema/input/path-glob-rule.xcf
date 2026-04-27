@@ -1,3 +1,4 @@
+---
 kind: rule
 version: "1.0"
 name: path-glob-rule
@@ -6,4 +7,6 @@ activation: path-glob
 paths:
   - "src/**"
   - "packages/api/**"
-instructions: "Body."
+---
+
+Body.

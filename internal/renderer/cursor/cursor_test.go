@@ -40,9 +40,9 @@ func TestCompile_Rule_WithPaths_OutputExtensionIsMdc(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"my-rule": {
-					Description:  "A rule with paths",
-					Paths:        []string{"**/*.go"},
-					Instructions: "Always format with gofmt.",
+					Description: "A rule with paths",
+					Paths:       []string{"**/*.go"},
+					Body:        "Always format with gofmt.",
 				},
 			},
 		},
@@ -64,9 +64,9 @@ func TestCompile_Rule_WithPaths_FrontmatterHasGlobs(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"go-fmt": {
-					Description:  "Go formatting rule",
-					Paths:        []string{"**/*.go", "**/*.mod"},
-					Instructions: "Run gofmt.",
+					Description: "Go formatting rule",
+					Paths:       []string{"**/*.go", "**/*.mod"},
+					Body:        "Run gofmt.",
 				},
 			},
 		},
@@ -93,8 +93,8 @@ func TestCompile_Rule_WithoutPaths_HasAlwaysApply(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"global-rule": {
-					Description:  "Always active rule",
-					Instructions: "Be concise.",
+					Description: "Always active rule",
+					Body:        "Be concise.",
 				},
 			},
 		},
@@ -118,7 +118,7 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"test-rule": {
-					Instructions: body,
+					Body: body,
 				},
 			},
 		},
@@ -138,8 +138,8 @@ func TestCompile_Rule_DescriptionInFrontmatter(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"desc-rule": {
-					Description:  "My rule description",
-					Instructions: "Do something.",
+					Description: "My rule description",
+					Body:        "Do something.",
 				},
 			},
 		},
@@ -160,7 +160,7 @@ func TestCompile_Rule_FrontmatterDelimiters(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"delim-rule": {
-					Instructions: "Body text.",
+					Body: "Body text.",
 				},
 			},
 		},
@@ -188,7 +188,7 @@ func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"   ": {
-					Instructions: "Bad rule.",
+					Body: "Bad rule.",
 				},
 			},
 		},
@@ -206,9 +206,9 @@ func TestCompile_Agent_OutputAtCorrectPath(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"my-agent": {
-					Name:         "My Agent",
-					Description:  "A test agent",
-					Instructions: "Do something useful.",
+					Name:        "My Agent",
+					Description: "A test agent",
+					Body:        "Do something useful.",
 				},
 			},
 		},
@@ -228,9 +228,9 @@ func TestCompile_Agent_BackgroundRenamedToIsBackground(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"bg-agent": {
-					Name:         "Background Agent",
-					Instructions: "Run in background.",
-					Background:   &bg,
+					Name:       "Background Agent",
+					Body:       "Run in background.",
+					Background: &bg,
 				},
 			},
 		},
@@ -254,9 +254,9 @@ func TestCompile_Agent_BackgroundFalse_NotEmitted(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"normal-agent": {
-					Name:         "Normal Agent",
-					Instructions: "Run normally.",
-					Background:   &bg,
+					Name:       "Normal Agent",
+					Body:       "Run normally.",
+					Background: &bg,
 				},
 			},
 		},
@@ -279,7 +279,7 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 				"full-agent": {
 					Name:            "Full Agent",
 					Description:     "Has many fields.",
-					Instructions:    "Do work.",
+					Body:            "Do work.",
 					Model:           "claude-opus-4-5",
 					Effort:          "high",
 					PermissionMode:  "acceptEdits",
@@ -321,9 +321,9 @@ func TestCompile_Agent_UnmappedModel_Omitted(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"model-agent": {
-					Name:         "Model Agent",
-					Model:        "claude-sonnet-4-5",
-					Instructions: "Use this model.",
+					Name:  "Model Agent",
+					Model: "claude-sonnet-4-5",
+					Body:  "Use this model.",
 				},
 			},
 		},
@@ -347,9 +347,9 @@ func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"aliased-agent": {
-					Name:         "Aliased Agent",
-					Model:        "sonnet-4",
-					Instructions: "Uses an alias.",
+					Name:  "Aliased Agent",
+					Model: "sonnet-4",
+					Body:  "Uses an alias.",
 				},
 			},
 		},
@@ -374,9 +374,9 @@ func TestCompile_Agent_UnmappedModel_NoteReturnedRegardlessOfSuppress(t *testing
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"quiet-agent": {
-					Name:         "Quiet Agent",
-					Model:        "claude-sonnet-4-5",
-					Instructions: "Silence warnings.",
+					Name:  "Quiet Agent",
+					Model: "claude-sonnet-4-5",
+					Body:  "Silence warnings.",
 					Targets: map[string]ast.TargetOverride{
 						"cursor": {
 							SuppressFidelityWarnings: &suppress,
@@ -403,8 +403,8 @@ func TestCompile_Agent_BodyContentPreserved(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"body-agent": {
-					Name:         "Body Agent",
-					Instructions: "Always write tests.\nNever skip lint.",
+					Name: "Body Agent",
+					Body: "Always write tests.\nNever skip lint.",
 				},
 			},
 		},
@@ -426,9 +426,9 @@ func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"my-skill": {
-					Name:         "My Skill",
-					Description:  "A test skill",
-					Instructions: "Do the skill thing.",
+					Name:        "My Skill",
+					Description: "A test skill",
+					Body:        "Do the skill thing.",
 				},
 			},
 		},
@@ -447,9 +447,9 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"fmt-skill": {
-					Name:         "Format Skill",
-					Description:  "Formats code",
-					Instructions: "Run gofmt first.",
+					Name:        "Format Skill",
+					Description: "Formats code",
+					Body:        "Run gofmt first.",
 				},
 			},
 		},
@@ -480,7 +480,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 				"rich-skill": {
 					Name:         "Rich Skill",
 					Description:  "Has many fields.",
-					Instructions: "Do something.",
+					Body:         "Do something.",
 					AllowedTools: []string{"Bash"},
 					References:   []string{"main.go"},
 					Scripts:      []string{"setup.sh"},
@@ -512,8 +512,8 @@ func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"body-skill": {
-					Name:         "Body Skill",
-					Instructions: "Step 1: do this.\nStep 2: do that.",
+					Name: "Body Skill",
+					Body: "Step 1: do this.\nStep 2: do that.",
 				},
 			},
 		},
@@ -891,9 +891,9 @@ func TestCompile_Rule_AlwaysApplyExplicitFalse_EmitsFalse(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"opt-out-rule": {
-					Description:  "Explicit opt-out",
-					Instructions: "Not always.",
-					AlwaysApply:  &f,
+					Description: "Explicit opt-out",
+					Body:        "Not always.",
+					AlwaysApply: &f,
 				},
 			},
 		},
@@ -916,10 +916,10 @@ func TestCompile_Rule_PathsWithAlwaysApplyTrue_AlwaysTakesPrecedence(t *testing.
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"combo-rule": {
-					Description:  "Has both",
-					Paths:        []string{"**/*.ts"},
-					Instructions: "Lint TypeScript.",
-					AlwaysApply:  &t2,
+					Description: "Has both",
+					Paths:       []string{"**/*.ts"},
+					Body:        "Lint TypeScript.",
+					AlwaysApply: &t2,
 				},
 			},
 		},
@@ -942,9 +942,9 @@ func TestCompile_Agent_Readonly_EmitsReadonlyTrue(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"ro-agent": {
-					Name:         "Readonly Agent",
-					Instructions: "Only read files.",
-					Readonly:     &ro,
+					Name:     "Readonly Agent",
+					Body:     "Only read files.",
+					Readonly: &ro,
 				},
 			},
 		},
@@ -964,9 +964,9 @@ func TestCompile_Agent_ReadonlyFalse_NotEmitted(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"rw-agent": {
-					Name:         "ReadWrite Agent",
-					Instructions: "Full access.",
-					Readonly:     &ro,
+					Name:     "ReadWrite Agent",
+					Body:     "Full access.",
+					Readonly: &ro,
 				},
 			},
 		},
@@ -1046,7 +1046,7 @@ func TestCursorRenderer_AgentPermissionMode_EmitsNote(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {Instructions: "Build things.", PermissionMode: "plan"},
+				"dev": {Body: "Build things.", PermissionMode: "plan"},
 			},
 		},
 	}
@@ -1069,7 +1069,7 @@ func TestCursorRenderer_AgentDisallowedTools_EmitsNote(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {Instructions: "Build things.", DisallowedTools: []string{"Write"}},
+				"dev": {Body: "Build things.", DisallowedTools: []string{"Write"}},
 			},
 		},
 	}
@@ -1091,7 +1091,7 @@ func TestCursorRenderer_AgentIsolation_EmitsNote(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {Instructions: "Build things.", Isolation: "container"},
+				"dev": {Body: "Build things.", Isolation: "container"},
 			},
 		},
 	}
@@ -1117,7 +1117,7 @@ func TestCursorRenderer_SuppressFidelityWarnings_NotesStillReturned(t *testing.T
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"dev": {
-					Instructions:   "Build things.",
+					Body:           "Build things.",
 					PermissionMode: "plan",
 					Isolation:      "container",
 					Targets: map[string]ast.TargetOverride{
@@ -1252,8 +1252,8 @@ func TestCompileCursorRule_Activation_Always(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"security": {
-					Activation:   ast.RuleActivationAlways,
-					Instructions: "Body.",
+					Activation: ast.RuleActivationAlways,
+					Body:       "Body.",
 				},
 			},
 		},
@@ -1272,9 +1272,9 @@ func TestCompileCursorRule_Activation_PathGlob(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
-					Activation:   ast.RuleActivationPathGlob,
-					Paths:        []string{"src/**"},
-					Instructions: "Body.",
+					Activation: ast.RuleActivationPathGlob,
+					Paths:      []string{"src/**"},
+					Body:       "Body.",
 				},
 			},
 		},
@@ -1294,8 +1294,8 @@ func TestCompileCursorRule_Activation_ManualMention(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"commit-style": {
-					Activation:   ast.RuleActivationManualMention,
-					Instructions: "Body.",
+					Activation: ast.RuleActivationManualMention,
+					Body:       "Body.",
 				},
 			},
 		},
@@ -1314,8 +1314,8 @@ func TestCompileCursorRule_Activation_ModelDecided_FidelityNote(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"arch-review": {
-					Activation:   ast.RuleActivationModelDecided,
-					Instructions: "Body.",
+					Activation: ast.RuleActivationModelDecided,
+					Body:       "Body.",
 				},
 			},
 		},
@@ -1337,8 +1337,8 @@ func TestCompileCursorRule_Activation_ExplicitInvoke_FidelityNote(t *testing.T) 
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"deploy-gate": {
-					Activation:   ast.RuleActivationExplicitInvoke,
-					Instructions: "Body.",
+					Activation: ast.RuleActivationExplicitInvoke,
+					Body:       "Body.",
 				},
 			},
 		},
@@ -1361,8 +1361,8 @@ func TestCompileCursorRule_LegacyAlwaysApply_True(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"style": {
-					AlwaysApply:  &truthy,
-					Instructions: "Body.",
+					AlwaysApply: &truthy,
+					Body:        "Body.",
 				},
 			},
 		},
@@ -1381,8 +1381,8 @@ func TestCompileCursorRule_LegacyAlwaysApply_False(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"manual": {
-					AlwaysApply:  &falsy,
-					Instructions: "Body.",
+					AlwaysApply: &falsy,
+					Body:        "Body.",
 				},
 			},
 		},
@@ -1401,9 +1401,9 @@ func TestCompile_SkillWithExamples_Cursor(t *testing.T) {
 
 	skills := map[string]ast.SkillConfig{
 		"my-skill": {
-			Description:  "test",
-			Instructions: "Do the thing.",
-			Examples:     []string{"examples/sample.md"},
+			Description: "test",
+			Body:        "Do the thing.",
+			Examples:    []string{"examples/sample.md"},
 		},
 	}
 

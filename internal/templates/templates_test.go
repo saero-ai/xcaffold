@@ -34,7 +34,7 @@ func TestRenderTemplate_RESTAPI(t *testing.T) {
 	assert.Equal(t, "my-service", config.Project.Name)
 	require.Contains(t, config.Agents, "backend")
 	assert.Equal(t, "claude-sonnet-4-6", config.Agents["backend"].Model)
-	assert.NotEmpty(t, config.Agents["backend"].Instructions)
+	assert.NotEmpty(t, config.Agents["backend"].Body)
 	assert.NotEmpty(t, config.Skills)
 	assert.NotEmpty(t, config.Rules)
 }
@@ -47,7 +47,7 @@ func TestRenderTemplate_CLITool(t *testing.T) {
 	assert.Equal(t, "my-cli", config.Project.Name)
 	require.Contains(t, config.Agents, "developer")
 	assert.Equal(t, "claude-sonnet-4-6", config.Agents["developer"].Model)
-	assert.NotEmpty(t, config.Agents["developer"].Instructions)
+	assert.NotEmpty(t, config.Agents["developer"].Body)
 }
 
 func TestRenderTemplate_FrontendApp(t *testing.T) {
@@ -58,7 +58,7 @@ func TestRenderTemplate_FrontendApp(t *testing.T) {
 	assert.Equal(t, "my-app", config.Project.Name)
 	require.Contains(t, config.Agents, "frontend")
 	assert.Equal(t, "claude-sonnet-4-6", config.Agents["frontend"].Model)
-	assert.NotEmpty(t, config.Agents["frontend"].Instructions)
+	assert.NotEmpty(t, config.Agents["frontend"].Body)
 }
 
 func TestRenderTemplate_Unknown(t *testing.T) {
@@ -83,11 +83,11 @@ func TestRenderTemplate_RESTAPI_Resources(t *testing.T) {
 
 	// Skill must exist at scope level
 	require.Contains(t, config.Skills, "api-testing")
-	assert.NotEmpty(t, config.Skills["api-testing"].Instructions)
+	assert.NotEmpty(t, config.Skills["api-testing"].Body)
 
 	// Rule must exist at scope level
 	require.Contains(t, config.Rules, "api-conventions")
-	assert.NotEmpty(t, config.Rules["api-conventions"].Instructions)
+	assert.NotEmpty(t, config.Rules["api-conventions"].Body)
 }
 
 // TestRenderTemplate_CLITool_Resources verifies the CLI Tool template includes
@@ -102,7 +102,7 @@ func TestRenderTemplate_CLITool_Resources(t *testing.T) {
 	assert.Equal(t, "high", dev.Effort)
 
 	require.Contains(t, config.Rules, "cli-conventions")
-	assert.NotEmpty(t, config.Rules["cli-conventions"].Instructions)
+	assert.NotEmpty(t, config.Rules["cli-conventions"].Body)
 }
 
 // TestRenderTemplate_FrontendApp_Resources verifies the frontend-app template
@@ -118,10 +118,10 @@ func TestRenderTemplate_FrontendApp_Resources(t *testing.T) {
 	assert.Equal(t, "high", fe.Effort)
 
 	require.Contains(t, config.Skills, "component-testing")
-	assert.NotEmpty(t, config.Skills["component-testing"].Instructions)
+	assert.NotEmpty(t, config.Skills["component-testing"].Body)
 
 	require.Contains(t, config.Rules, "frontend-conventions")
-	assert.NotEmpty(t, config.Rules["frontend-conventions"].Instructions)
+	assert.NotEmpty(t, config.Rules["frontend-conventions"].Body)
 }
 
 // TestRenderTemplate_Version verifies all topology templates set Version: "1.0".

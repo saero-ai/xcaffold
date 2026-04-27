@@ -1,6 +1,9 @@
+---
 kind: rule
 version: "1.0"
 name: manual-mention-rule
 description: "Manual invocation only."
 activation: manual-mention
-instructions: "Body."
+---
+
+Body.

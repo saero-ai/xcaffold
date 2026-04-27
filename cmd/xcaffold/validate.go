@@ -217,8 +217,8 @@ func checkOrphanRules(cfg *ast.XcaffoldConfig) []string {
 func checkMissingInstructions(cfg *ast.XcaffoldConfig) []string {
 	var warnings []string
 	for agentID, agent := range cfg.Agents {
-		if agent.Instructions == "" && agent.InstructionsFile == "" {
-			warnings = append(warnings, fmt.Sprintf("agent %q has no instructions or instructions-file", agentID))
+		if agent.Body == "" {
+			warnings = append(warnings, fmt.Sprintf("agent %q has no body content", agentID))
 		}
 	}
 	return warnings

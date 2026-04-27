@@ -85,8 +85,8 @@ func ReassembleWorkflow(dir, workflowName string) (*ast.WorkflowConfig, []render
 		}
 		body := stripFrontmatter(string(skillData))
 		steps = append(steps, ast.WorkflowStep{
-			Name:         stepName,
-			Instructions: strings.TrimSpace(body),
+			Name: stepName,
+			Body: strings.TrimSpace(body),
 		})
 	}
 

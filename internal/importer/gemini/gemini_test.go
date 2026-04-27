@@ -78,7 +78,7 @@ func TestGeminiExtract_AgentFrontmatter(t *testing.T) {
 	assert.Equal(t, "Assistant Agent", agent.Name)
 	assert.Equal(t, "General helper", agent.Description)
 	assert.Equal(t, "gemini-2.5-pro", agent.Model)
-	assert.Contains(t, agent.Instructions, "You are a helpful assistant.")
+	assert.Contains(t, agent.Body, "You are a helpful assistant.")
 	assert.Equal(t, "gemini", agent.SourceProvider)
 }
 
@@ -93,7 +93,7 @@ func TestGeminiExtract_SkillFrontmatter(t *testing.T) {
 	require.True(t, ok, "expected skill 'search' in config")
 	assert.Equal(t, "web-search", skill.Name)
 	assert.Equal(t, []string{"WebSearch"}, skill.AllowedTools)
-	assert.Contains(t, skill.Instructions, "Use for external lookups.")
+	assert.Contains(t, skill.Body, "Use for external lookups.")
 	assert.Equal(t, "gemini", skill.SourceProvider)
 }
 
@@ -106,7 +106,7 @@ func TestGeminiExtract_RuleFrontmatter(t *testing.T) {
 	rule, ok := config.Rules["style"]
 	require.True(t, ok, "expected rule 'style' in config")
 	assert.Equal(t, "Style guide", rule.Description)
-	assert.Contains(t, rule.Instructions, "Use gofmt.")
+	assert.Contains(t, rule.Body, "Use gofmt.")
 	assert.Equal(t, "gemini", rule.SourceProvider)
 }
 
@@ -180,7 +180,7 @@ func TestGeminiImporter_FullWorkspace(t *testing.T) {
 	require.True(t, ok, "expected agent 'assistant'")
 	assert.Equal(t, "Assistant Agent", assistant.Name)
 	assert.Equal(t, "gemini", assistant.SourceProvider)
-	assert.NotEmpty(t, assistant.Instructions)
+	assert.NotEmpty(t, assistant.Body)
 
 	// Skills (flat file — id is filename stem)
 	search, ok := config.Skills["search"]

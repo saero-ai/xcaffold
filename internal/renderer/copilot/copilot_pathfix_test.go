@@ -26,8 +26,8 @@ func TestCopilotRenderer_RulePaths_PathFix(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"go-style": {
-					Activation:   ast.RuleActivationAlways,
-					Instructions: "Follow Go conventions.",
+					Activation: ast.RuleActivationAlways,
+					Body:       "Follow Go conventions.",
 				},
 			},
 		},
@@ -74,9 +74,9 @@ func TestCopilotRenderer_SkillPaths_PathFix(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {
-					Name:         "tdd",
-					Description:  "Test-driven development.",
-					Instructions: "Write tests first.",
+					Name:        "tdd",
+					Description: "Test-driven development.",
+					Body:        "Write tests first.",
 				},
 			},
 		},
@@ -122,8 +122,11 @@ func TestCopilotRenderer_HookPaths_PathFix(t *testing.T) {
 func TestCopilotRenderer_InstructionPath_PathFix(t *testing.T) {
 	r := copilot.New()
 	config := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{
-			Instructions: "Project-wide instructions.",
+		Project: &ast.ProjectConfig{Name: "test-proj"},
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root": {Body: "Project-wide instructions."},
+			},
 		},
 	}
 	out, _, err := renderer.Orchestrate(r, config, "")

@@ -78,7 +78,7 @@ func renderRESTAPI(projectName, model string) *ast.XcaffoldConfig {
 					Tools:       []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"},
 					Skills:      []string{"api-testing"},
 					Rules:       []string{"api-conventions"},
-					Instructions: "You are a backend developer.\n" +
+					Body: "You are a backend developer.\n" +
 						"Follow RESTful conventions. Write integration tests for every endpoint.\n" +
 						"Use parameterized queries. Never use string interpolation for SQL.",
 				},
@@ -87,7 +87,7 @@ func renderRESTAPI(projectName, model string) *ast.XcaffoldConfig {
 				"api-testing": {
 					Name:        "api-testing",
 					Description: "REST API testing patterns",
-					Instructions: "Write integration tests that verify HTTP status codes, response shapes,\n" +
+					Body: "Write integration tests that verify HTTP status codes, response shapes,\n" +
 						"and error handling. Test both success and failure paths.",
 				},
 			},
@@ -96,7 +96,7 @@ func renderRESTAPI(projectName, model string) *ast.XcaffoldConfig {
 					Name:        "api-conventions",
 					Description: "REST API design conventions",
 					AlwaysApply: &alwaysApply,
-					Instructions: "Use plural nouns for resource endpoints.\n" +
+					Body: "Use plural nouns for resource endpoints.\n" +
 						"Return appropriate HTTP status codes (201 for creation, 404 for not found).\n" +
 						"Version APIs via URL prefix (/v1/).",
 				},
@@ -122,7 +122,7 @@ func renderCLITool(projectName, model string) *ast.XcaffoldConfig {
 					Effort:      "high",
 					Tools:       []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"},
 					Rules:       []string{"cli-conventions"},
-					Instructions: "You are a CLI developer.\n" +
+					Body: "You are a CLI developer.\n" +
 						"Use stdout for output, stderr for errors. Support --help on every command.\n" +
 						"Write unit tests for command logic and integration tests for CLI invocation.",
 				},
@@ -132,7 +132,7 @@ func renderCLITool(projectName, model string) *ast.XcaffoldConfig {
 					Name:        "cli-conventions",
 					Description: "CLI design conventions",
 					AlwaysApply: &alwaysApply,
-					Instructions: "Use meaningful exit codes (0 success, 1 user error, 2 system error).\n" +
+					Body: "Use meaningful exit codes (0 success, 1 user error, 2 system error).\n" +
 						"Support --json flag for machine-readable output where applicable.\n" +
 						"Never prompt for input when stdin is not a TTY.",
 				},
@@ -159,7 +159,7 @@ func renderFrontendApp(projectName, model string) *ast.XcaffoldConfig {
 					Tools:       []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"},
 					Skills:      []string{"component-testing"},
 					Rules:       []string{"frontend-conventions"},
-					Instructions: "You are a frontend developer.\n" +
+					Body: "You are a frontend developer.\n" +
 						"Write accessible, semantic HTML. Use components for reusable UI.\n" +
 						"Write component tests. Never use inline styles for layout.",
 				},
@@ -168,7 +168,7 @@ func renderFrontendApp(projectName, model string) *ast.XcaffoldConfig {
 				"component-testing": {
 					Name:        "component-testing",
 					Description: "Component testing patterns",
-					Instructions: "Test components in isolation. Verify render output, user interactions,\n" +
+					Body: "Test components in isolation. Verify render output, user interactions,\n" +
 						"and accessibility attributes. Mock API calls at the network layer.",
 				},
 			},
@@ -177,7 +177,7 @@ func renderFrontendApp(projectName, model string) *ast.XcaffoldConfig {
 					Name:        "frontend-conventions",
 					Description: "Frontend coding conventions",
 					AlwaysApply: &alwaysApply,
-					Instructions: "Use semantic HTML elements. Ensure all interactive elements are keyboard accessible.\n" +
+					Body: "Use semantic HTML elements. Ensure all interactive elements are keyboard accessible.\n" +
 						"Keep components focused -- one responsibility per component.",
 				},
 			},

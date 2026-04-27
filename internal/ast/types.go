@@ -14,6 +14,7 @@ type ResourceScope struct {
 	Policies   map[string]PolicyConfig    `yaml:"policies,omitempty"`
 	Memory     map[string]MemoryConfig    `yaml:"memory,omitempty"`
 	References map[string]ReferenceConfig `yaml:"references,omitempty"`
+	Contexts   map[string]ContextConfig   `yaml:"contexts,omitempty"`
 }
 
 // XcaffoldConfig is the root structure of a parsed .xcf YAML file.
@@ -68,18 +69,15 @@ type ProjectConfig struct {
 	Test  TestConfig     `yaml:"test,omitempty"`
 	Local SettingsConfig `yaml:"local,omitempty"`
 
-	// Instructions fields — Group A: Root instructions.
-	// Instructions and InstructionsFile are mutually exclusive.
-	Instructions     string `yaml:"instructions,omitempty"`
-	InstructionsFile string `yaml:"instructions-file,omitempty"`
+	// Body holds markdown content parsed from the frontmatter+body format.
+	// For kind:project, this content is placed into Contexts["root"] by the parser.
+	Body string `yaml:"-"`
 
 	// InstructionsImports lists @-import targets preserved verbatim for providers
 	// that support them (Claude, Gemini). Emitted as-is into the rendered output.
-	InstructionsImports []string `yaml:"instructions-imports,omitempty"`
 
 	// InstructionsScopes defines per-directory nested instruction files.
 	// Order in this slice is authoritative (depth ascending, then alphabetical).
-	InstructionsScopes []InstructionsScope `yaml:"instructions-scopes,omitempty"`
 
 	// TargetOptions holds per-provider compile-time options for the project.
 	// Keys are provider names (e.g. "copilot", "cursor"). Values are TargetOverride
@@ -127,54 +125,6 @@ func (a AgentManifestEntry) MarshalYAML() (interface{}, error) {
 			"memory": a.Memory,
 		},
 	}, nil
-}
-
-// InstructionsScope defines instructions for a specific directory path within the project.
-type InstructionsScope struct {
-	// Path is the directory this scope applies to, relative to the project root.
-	// Required. Duplicate paths are a parse error.
-	Path string `yaml:"path"`
-
-	// Instructions and InstructionsFile are mutually exclusive.
-	Instructions     string `yaml:"instructions,omitempty"`
-	InstructionsFile string `yaml:"instructions-file,omitempty"`
-
-	// MergeStrategy is load-bearing: preserves runtime nesting semantic across round-trips.
-	// Valid values: concat | closest-wins | flat. Defaults to "concat" if omitted.
-	MergeStrategy string `yaml:"merge-strategy,omitempty"`
-
-	// SourceProvider and SourceFilename are provenance metadata only.
-	// xcaffold never reads these fields after import.
-	SourceProvider string `yaml:"source-provider,omitempty"`
-	SourceFilename string `yaml:"source-filename,omitempty"`
-
-	// Variants holds divergent content for the same path across providers.
-	Variants map[string]InstructionsVariant `yaml:"variants,omitempty"`
-
-	// Reconciliation records the strategy and state for divergent variants.
-	Reconciliation *ReconciliationConfig `yaml:"reconciliation,omitempty"`
-
-	// Inherited is set by the parser when this scope originates from an
-	// extends: global base config. It is never serialized and causes StripInherited
-	// to remove it from the local project during compilation.
-	Inherited bool `yaml:"-"`
-}
-
-// InstructionsVariant holds the per-provider sidecar path when two providers
-// have divergent content for the same scope path.
-type InstructionsVariant struct {
-	InstructionsFile string `yaml:"instructions-file,omitempty"`
-	SourceFilename   string `yaml:"source-filename,omitempty"`
-}
-
-// ReconciliationConfig records the strategy and state for divergent variants.
-type ReconciliationConfig struct {
-	// Strategy: per-target | union | manual
-	Strategy string `yaml:"strategy,omitempty"`
-	// LastReconciled is an RFC3339 timestamp set by the importer.
-	LastReconciled string `yaml:"last-reconciled,omitempty"`
-	// Notes is a human-readable explanation set by the importer.
-	Notes string `yaml:"notes,omitempty"`
 }
 
 // AgentConfig defines an AI coding agent persona.
@@ -235,8 +185,7 @@ type AgentConfig struct {
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
 	// Group 10: Instructions (always last)
-	Instructions     string `yaml:"instructions,omitempty"`
-	InstructionsFile string `yaml:"instructions-file,omitempty"`
+	Body string `yaml:"-"`
 
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized and causes renderers
@@ -253,13 +202,8 @@ type TargetOverride struct {
 	Hooks                    map[string]string `yaml:"hooks,omitempty"`
 	SuppressFidelityWarnings *bool             `yaml:"suppress-fidelity-warnings,omitempty"`
 	SkipSynthesis            *bool             `yaml:"skip-synthesis,omitempty"`
-	InstructionsOverride     string            `yaml:"instructions-override,omitempty"`
-	Provider                 map[string]any    `yaml:"provider,omitempty"`
-	// InstructionsMode controls how project instructions-scopes are emitted.
-	// Valid values: flat (default) | nested. Only used by the Copilot renderer.
-	// flat: all scopes merged into a single .github/copilot-instructions.md file.
-	// nested: scopes emitted as per-directory AGENTS.md files (closest-wins class).
-	InstructionsMode string `yaml:"instructions-mode,omitempty"`
+
+	Provider map[string]any `yaml:"provider,omitempty"`
 }
 
 // SkillConfig defines a reusable prompt package.
@@ -302,8 +246,7 @@ type SkillConfig struct {
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
 	// Group 10 — Instructions (mutually exclusive — enforced by parser)
-	Instructions     string `yaml:"instructions,omitempty"`
-	InstructionsFile string `yaml:"instructions-file,omitempty"`
+	Body string `yaml:"-"`
 
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
@@ -326,13 +269,13 @@ const (
 
 // RuleConfig defines a path-gated formatting guideline.
 type RuleConfig struct {
-	AlwaysApply      *bool    `yaml:"always-apply,omitempty"`
-	Description      string   `yaml:"description,omitempty"`
-	Activation       string   `yaml:"activation,omitempty"`
-	Name             string   `yaml:"name,omitempty"`
-	Instructions     string   `yaml:"instructions,omitempty"`
-	InstructionsFile string   `yaml:"instructions-file,omitempty"`
-	Paths            []string `yaml:"paths,omitempty"`
+	AlwaysApply *bool  `yaml:"always-apply,omitempty"`
+	Description string `yaml:"description,omitempty"`
+	Activation  string `yaml:"activation,omitempty"`
+	Name        string `yaml:"name,omitempty"`
+	Body        string `yaml:"-"`
+
+	Paths []string `yaml:"paths,omitempty"`
 	// ExcludeAgents is a Copilot-specific list of agent types that should NOT
 	// receive this rule. Valid values: code-review | cloud-agent.
 	// Silently ignored by all non-Copilot renderers.
@@ -545,8 +488,7 @@ type WorkflowConfig struct {
 	// Instructions and InstructionsFile are the top-level body for single-step
 	// or legacy workflows. Mutually exclusive with each other; deprecated in
 	// favor of Steps when more than one step is needed.
-	Instructions     string `yaml:"instructions,omitempty"`
-	InstructionsFile string `yaml:"instructions-file,omitempty"`
+	Body string `yaml:"-"`
 
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. Never serialized.
@@ -559,10 +501,9 @@ type WorkflowConfig struct {
 
 // WorkflowStep is one named step in a workflow's ordered body.
 type WorkflowStep struct {
-	Name             string `yaml:"name"`
-	Description      string `yaml:"description,omitempty"`
-	Instructions     string `yaml:"instructions,omitempty"`
-	InstructionsFile string `yaml:"instructions-file,omitempty"`
+	Name        string `yaml:"name"`
+	Description string `yaml:"description,omitempty"`
+	Body        string `yaml:"-"`
 }
 
 // PolicyConfig defines a declarative constraint evaluated against the AST
@@ -712,13 +653,16 @@ func (c *XcaffoldConfig) StripInherited() {
 			delete(c.References, k)
 		}
 	}
-	if c.Project != nil {
-		filtered := c.Project.InstructionsScopes[:0]
-		for _, scope := range c.Project.InstructionsScopes {
-			if !scope.Inherited {
-				filtered = append(filtered, scope)
-			}
-		}
-		c.Project.InstructionsScopes = filtered
-	}
+}
+
+// ContextConfig holds workspace-level ambient context compiled to
+// CLAUDE.md, GEMINI.md, AGENTS.md, and copilot-instructions.md.
+// A project may have multiple context files — one per target or
+// one shared across several targets.
+type ContextConfig struct {
+	Name        string   `yaml:"name,omitempty"`
+	Description string   `yaml:"description,omitempty"`
+	Targets     []string `yaml:"targets,omitempty"`
+	Body        string   `yaml:"-"`
+	Inherited   bool     `yaml:"-"`
 }

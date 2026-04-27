@@ -42,8 +42,8 @@ func TestCompile_Rule_OutputPathIsMarkdown(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"my-rule": {
-					Description:  "A rule",
-					Instructions: "Always format with gofmt.",
+					Description: "A rule",
+					Body:        "Always format with gofmt.",
 				},
 			},
 		},
@@ -62,7 +62,7 @@ func TestCompile_Rule_NoFrontmatterDelimiters(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"plain-rule": {
-					Instructions: "Be concise.",
+					Body: "Be concise.",
 				},
 			},
 		},
@@ -85,8 +85,8 @@ func TestCompile_Rule_DescriptionAsHeading(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"desc-rule": {
-					Description:  "My Rule Description",
-					Instructions: "Do something important.",
+					Description: "My Rule Description",
+					Body:        "Do something important.",
 				},
 			},
 		},
@@ -110,9 +110,9 @@ func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"path-rule": {
-					Description:  "A rule with paths",
-					Paths:        []string{"**/*.go"},
-					Instructions: "Check Go files.",
+					Description: "A rule with paths",
+					Paths:       []string{"**/*.go"},
+					Body:        "Check Go files.",
 				},
 			},
 		},
@@ -141,7 +141,7 @@ func TestCompile_Rule_BodyContentPreserved(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"test-rule": {
-					Instructions: body,
+					Body: body,
 				},
 			},
 		},
@@ -161,8 +161,8 @@ func TestCompile_Rule_DescriptionHeadingPrecedesBody(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"order-rule": {
-					Description:  "Title",
-					Instructions: "Body content.",
+					Description: "Title",
+					Body:        "Body content.",
 				},
 			},
 		},
@@ -188,7 +188,7 @@ func TestCompile_Rule_NoDescription_NoHeading(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"no-desc-rule": {
-					Instructions: "Just the body.",
+					Body: "Just the body.",
 				},
 			},
 		},
@@ -209,7 +209,7 @@ func TestCompile_Rule_12KCharacterLimitWarning(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"long-rule": {
-					Instructions: longBody,
+					Body: longBody,
 				},
 			},
 		},
@@ -231,7 +231,7 @@ func TestCompile_Rule_Under12K_NoWarning(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"short-rule": {
-					Instructions: body,
+					Body: body,
 				},
 			},
 		},
@@ -250,7 +250,7 @@ func TestCompile_Rule_EmptyID_ReturnsError(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"   ": {
-					Instructions: "Bad rule.",
+					Body: "Bad rule.",
 				},
 			},
 		},
@@ -266,9 +266,9 @@ func TestCompileRules_Antigravity_AlwaysOn_NoHtmlComments(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"policy": {
-					Description:  "Enforces security policy.",
-					Instructions: "Always check permissions.",
-					Activation:   ast.RuleActivationAlways,
+					Description: "Enforces security policy.",
+					Body:        "Always check permissions.",
+					Activation:  ast.RuleActivationAlways,
 				},
 			},
 		},
@@ -296,9 +296,9 @@ func TestCompileRules_Antigravity_AlwaysOn_NoTriggerField(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"always-rule": {
-					Description:  "Always active.",
-					Instructions: "Be consistent.",
-					Activation:   ast.RuleActivationAlways,
+					Description: "Always active.",
+					Body:        "Be consistent.",
+					Activation:  ast.RuleActivationAlways,
 				},
 			},
 		},
@@ -317,8 +317,8 @@ func TestCompileRules_Antigravity_AlwaysOn_EmptyDescription_NoFrontmatter(t *tes
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"bare-rule": {
-					Instructions: "Just the body. No description.",
-					Activation:   ast.RuleActivationAlways,
+					Body:       "Just the body. No description.",
+					Activation: ast.RuleActivationAlways,
 				},
 			},
 		},
@@ -342,10 +342,10 @@ func TestCompileRules_Antigravity_Glob_EmitsTriggerAndGlobs(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"go-files": {
-					Description:  "Go-specific rule.",
-					Instructions: "Use gofmt.",
-					Activation:   ast.RuleActivationPathGlob,
-					Paths:        []string{"xcaffold/**", "xcaffold/internal/**"},
+					Description: "Go-specific rule.",
+					Body:        "Use gofmt.",
+					Activation:  ast.RuleActivationPathGlob,
+					Paths:       []string{"xcaffold/**", "xcaffold/internal/**"},
 				},
 			},
 		},
@@ -370,9 +370,9 @@ func TestCompileRules_Antigravity_ModelDecided_EmitsTrigger(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"smart-rule": {
-					Description:  "Applied when relevant.",
-					Instructions: "Be context-aware.",
-					Activation:   ast.RuleActivationModelDecided,
+					Description: "Applied when relevant.",
+					Body:        "Be context-aware.",
+					Activation:  ast.RuleActivationModelDecided,
 				},
 			},
 		},
@@ -392,9 +392,9 @@ func TestCompileRules_Antigravity_ManualMention_FidelityNote(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"manual-rule": {
-					Description:  "Only when mentioned.",
-					Instructions: "Only on explicit request.",
-					Activation:   ast.RuleActivationManualMention,
+					Description: "Only when mentioned.",
+					Body:        "Only on explicit request.",
+					Activation:  ast.RuleActivationManualMention,
 				},
 			},
 		},
@@ -421,8 +421,8 @@ func TestCompileRules_Antigravity_ExplicitInvoke_FidelityNote(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"invoke-rule": {
-					Instructions: "Explicit invocation only.",
-					Activation:   ast.RuleActivationExplicitInvoke,
+					Body:       "Explicit invocation only.",
+					Activation: ast.RuleActivationExplicitInvoke,
 				},
 			},
 		},
@@ -448,9 +448,9 @@ func TestCompile_Skill_OutputAtCorrectPath(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"my-skill": {
-					Name:         "My Skill",
-					Description:  "A test skill",
-					Instructions: "Do the skill thing.",
+					Name:        "My Skill",
+					Description: "A test skill",
+					Body:        "Do the skill thing.",
 				},
 			},
 		},
@@ -469,9 +469,9 @@ func TestCompile_Skill_FrontmatterHasNameAndDescription(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"fmt-skill": {
-					Name:         "Format Skill",
-					Description:  "Formats code",
-					Instructions: "Run gofmt first.",
+					Name:        "Format Skill",
+					Description: "Formats code",
+					Body:        "Run gofmt first.",
 				},
 			},
 		},
@@ -493,8 +493,8 @@ func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"delim-skill": {
-					Name:         "Delim Skill",
-					Instructions: "Some body.",
+					Name: "Delim Skill",
+					Body: "Some body.",
 				},
 			},
 		},
@@ -523,7 +523,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 				"rich-skill": {
 					Name:         "Rich Skill",
 					Description:  "Has many fields.",
-					Instructions: "Do something.",
+					Body:         "Do something.",
 					AllowedTools: []string{"Bash"},
 					References:   []string{"refs/guide.go"},
 					Scripts:      []string{"setup.sh"},
@@ -562,10 +562,10 @@ func TestCompile_Skill_References_CompiledToExamples(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"test-skill": {
-					Name:         "test-skill",
-					Description:  "A skill with references",
-					Instructions: "Do things.",
-					References:   []string{"refs/doc.md"},
+					Name:        "test-skill",
+					Description: "A skill with references",
+					Body:        "Do things.",
+					References:  []string{"refs/doc.md"},
 				},
 			},
 		},
@@ -589,8 +589,8 @@ func TestCompile_Skill_BodyContentPreserved(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"body-skill": {
-					Name:         "Body Skill",
-					Instructions: "Step 1: do this.\nStep 2: do that.",
+					Name: "Body Skill",
+					Body: "Step 1: do this.\nStep 2: do that.",
 				},
 			},
 		},
@@ -610,7 +610,7 @@ func TestCompile_Skill_EmptyID_ReturnsError(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"   ": {
-					Instructions: "Bad skill.",
+					Body: "Bad skill.",
 				},
 			},
 		},
@@ -643,19 +643,19 @@ func TestCompile_AgentsAndHooks_AreNotEmitted(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"my-agent": {
-					Name:         "My Agent",
-					Instructions: "Do work.",
+					Name: "My Agent",
+					Body: "Do work.",
 				},
 			},
 			Rules: map[string]ast.RuleConfig{
 				"a-rule": {
-					Instructions: "A rule body.",
+					Body: "A rule body.",
 				},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"a-skill": {
-					Name:         "A Skill",
-					Instructions: "A skill body.",
+					Name: "A Skill",
+					Body: "A skill body.",
 				},
 			},
 		},
@@ -759,9 +759,9 @@ func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"commit-changes": {
-					Name:         "Commit Changes",
-					Description:  "How to commit changes",
-					Instructions: "1. Stage files\n2. Commit",
+					Name:        "Commit Changes",
+					Description: "How to commit changes",
+					Body:        "1. Stage files\n2. Commit",
 				},
 			},
 		},
@@ -780,8 +780,8 @@ func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"deploy": {
-					Description:  "Deploy to production",
-					Instructions: "Run deploy script.",
+					Description: "Deploy to production",
+					Body:        "Run deploy script.",
 				},
 			},
 		},
@@ -803,8 +803,8 @@ func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"build": {
-					Name:         "Build Project",
-					Instructions: "Run make build.",
+					Name: "Build Project",
+					Body: "Run make build.",
 				},
 			},
 		},
@@ -823,8 +823,8 @@ func TestCompile_Workflow_BodyPreserved(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"test": {
-					Description:  "Run tests",
-					Instructions: "1. Run unit tests\n2. Run integration tests\n3. Check coverage",
+					Description: "Run tests",
+					Body:        "1. Run unit tests\n2. Run integration tests\n3. Check coverage",
 				},
 			},
 		},
@@ -861,7 +861,7 @@ func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"   ": {
-					Instructions: "Bad workflow.",
+					Body: "Bad workflow.",
 				},
 			},
 		},
@@ -933,7 +933,7 @@ func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"dev": {
-					Instructions:    "Build things.",
+					Body:            "Build things.",
 					PermissionMode:  "plan",
 					DisallowedTools: []string{"Write"},
 					Isolation:       "container",
@@ -962,7 +962,7 @@ func TestAntigravityRenderer_SuppressFidelityWarnings_NotesStillReturned(t *test
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"dev": {
-					Instructions:   "Build things.",
+					Body:           "Build things.",
 					PermissionMode: "plan",
 					Isolation:      "container",
 					Targets: map[string]ast.TargetOverride{
@@ -1067,9 +1067,9 @@ func TestCompileAntigravityRule_Activation_AlwaysOn(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"security": {
-					Description:  "Security checklist.",
-					Activation:   ast.RuleActivationAlways,
-					Instructions: "Follow OWASP.",
+					Description: "Security checklist.",
+					Activation:  ast.RuleActivationAlways,
+					Body:        "Follow OWASP.",
 				},
 			},
 		},
@@ -1089,8 +1089,8 @@ func TestCompileAntigravityRule_Activation_Manual(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"commit-style": {
-					Activation:   ast.RuleActivationManualMention,
-					Instructions: "Body.",
+					Activation: ast.RuleActivationManualMention,
+					Body:       "Body.",
 				},
 			},
 		},
@@ -1110,9 +1110,9 @@ func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
-					Activation:   ast.RuleActivationPathGlob,
-					Paths:        []string{"src/**", "packages/api/**"},
-					Instructions: "REST conventions.",
+					Activation: ast.RuleActivationPathGlob,
+					Paths:      []string{"src/**", "packages/api/**"},
+					Body:       "REST conventions.",
 				},
 			},
 		},
@@ -1132,9 +1132,9 @@ func TestCompile_Agents_EmitsKindUnsupported(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"test-agent": {
-					Name:         "test-agent",
-					Description:  "A test agent",
-					Instructions: "Do things.",
+					Name:        "test-agent",
+					Description: "A test agent",
+					Body:        "Do things.",
 				},
 			},
 		},
@@ -1174,10 +1174,10 @@ func TestCompile_SkillWithSubdirs_Antigravity(t *testing.T) {
 
 	skills := map[string]ast.SkillConfig{
 		"my-skill": {
-			Description:  "test",
-			Instructions: "Do the thing.",
-			Assets:       []string{"assets/TEMPLATE.md"},
-			References:   []string{"refs/guide.md"},
+			Description: "test",
+			Body:        "Do the thing.",
+			Assets:      []string{"assets/TEMPLATE.md"},
+			References:  []string{"refs/guide.md"},
 		},
 	}
 
@@ -1217,8 +1217,8 @@ func TestCompileAntigravityRule_NoProvenance_ExistingBehaviorPreserved(t *testin
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"legacy": {
-					Description:  "Legacy rule.",
-					Instructions: "No activation field set.",
+					Description: "Legacy rule.",
+					Body:        "No activation field set.",
 				},
 			},
 		},
@@ -1238,12 +1238,18 @@ func TestCompileAntigravityRule_NoProvenance_ExistingBehaviorPreserved(t *testin
 
 func TestCompile_ProjectInstructions_EmitsGeminiMdAsRootFile(t *testing.T) {
 	r := antigravity.New()
-	project := &ast.ProjectConfig{
-		Name:         "test-project",
-		Instructions: "You are a test project.",
+	config := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{
+			Name: "test-project",
+		},
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root": {Body: "You are a test project."},
+			},
+		},
 	}
 
-	outputDirFiles, rootFiles, notes, err := r.CompileProjectInstructions(project, "/tmp/test")
+	outputDirFiles, rootFiles, notes, err := r.CompileProjectInstructions(config, "/tmp/test")
 	if err != nil {
 		t.Fatal(err)
 	}

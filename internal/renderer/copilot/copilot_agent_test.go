@@ -202,9 +202,9 @@ func TestCompile_Copilot_Agents_WithBody(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"body-agent": {
-					Name:         "Body Agent",
-					Description:  "Agent with a body.",
-					Instructions: "Always prefer idiomatic Go.",
+					Name:        "Body Agent",
+					Description: "Agent with a body.",
+					Body:        "Always prefer idiomatic Go.",
 				},
 			},
 		},

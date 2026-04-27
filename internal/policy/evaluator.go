@@ -35,7 +35,7 @@ func (a agentAccessor) fieldValue(name string) string {
 	case "model":
 		return a.cfg.Model
 	case "instructions":
-		return a.cfg.Instructions
+		return a.cfg.Body
 	default:
 		return ""
 	}
@@ -74,7 +74,7 @@ func (s skillAccessor) fieldValue(name string) string {
 	case "description":
 		return s.cfg.Description
 	case "instructions":
-		return s.cfg.Instructions
+		return s.cfg.Body
 	default:
 		return ""
 	}
@@ -109,7 +109,7 @@ func (r ruleAccessor) fieldValue(name string) string {
 	case "description":
 		return r.cfg.Description
 	case "instructions":
-		return r.cfg.Instructions
+		return r.cfg.Body
 	default:
 		return ""
 	}

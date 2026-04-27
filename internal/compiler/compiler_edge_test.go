@@ -33,7 +33,7 @@ func TestCompile_AgentInstructionsTrailingNewlines(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"trimtest": {
-					Instructions: "Do the thing.\n\n\n",
+					Body: "Do the thing.\n\n\n",
 				},
 			},
 		},
@@ -56,8 +56,8 @@ func TestCompile_SkillWithAllFields(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"deploy": {
-					Description:  "Deploy the app",
-					Instructions: "Run the deploy script.",
+					Description: "Deploy the app",
+					Body:        "Run the deploy script.",
 				},
 			},
 		},
@@ -93,7 +93,7 @@ func TestCompile_RuleEmptyID(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"": {
-					Instructions: "Some rule",
+					Body: "Some rule",
 				},
 			},
 		},
@@ -109,8 +109,8 @@ func TestCompile_RuleWithPaths(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"formatting": {
-					Paths:        []string{"**/*.go", "**/*.ts"},
-					Instructions: "Always use gofmt.",
+					Paths: []string{"**/*.go", "**/*.ts"},
+					Body:  "Always use gofmt.",
 				},
 			},
 		},
@@ -260,7 +260,7 @@ func TestCompile_UnicodeInstructions(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"unicode-agent": {
-					Instructions: unicodeInstructions,
+					Body: unicodeInstructions,
 				},
 			},
 		},

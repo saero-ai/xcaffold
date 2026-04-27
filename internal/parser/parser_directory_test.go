@@ -30,14 +30,14 @@ version: "1.0"
 agents:
   developer:
     description: "First developer"
-    instructions: "Do stuff"
+
 `)
 	writeTestXCF(t, dir, "tools.xcf", `kind: global
 version: "1.0"
 agents:
   developer:
     description: "Duplicate developer"
-    instructions: "Do other stuff"
+
 `)
 
 	_, err := ParseDirectory(dir)

@@ -1,3 +1,4 @@
+---
 kind: rule
 version: "1.0"
 name: exclude-agents-rule
@@ -6,4 +7,6 @@ activation: always
 exclude-agents:
   - code-review
   - cloud-agent
-instructions: "Body."
+---
+
+Body.

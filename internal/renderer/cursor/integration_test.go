@@ -22,11 +22,11 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"worker": {
-					Name:         "Worker Agent",
-					Description:  "Handles background tasks.",
-					Instructions: "Process jobs efficiently.",
-					Model:        "claude-opus-4-5",
-					Background:   &bg,
+					Name:        "Worker Agent",
+					Description: "Handles background tasks.",
+					Body:        "Process jobs efficiently.",
+					Model:       "claude-opus-4-5",
+					Background:  &bg,
 					// CC-only fields that must be dropped
 					Effort:         "high",
 					PermissionMode: "acceptEdits",
@@ -35,20 +35,20 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 			},
 			Skills: map[string]ast.SkillConfig{
 				"deploy": {
-					Name:         "Deploy Skill",
-					Description:  "Handles deployment steps.",
-					Instructions: "Run the deploy pipeline.",
+					Name:        "Deploy Skill",
+					Description: "Handles deployment steps.",
+					Body:        "Run the deploy pipeline.",
 				},
 			},
 			Rules: map[string]ast.RuleConfig{
 				"formatting": {
-					Description:  "Code style rules",
-					Instructions: "Always use gofmt.",
-					Paths:        []string{"**/*.go"},
+					Description: "Code style rules",
+					Body:        "Always use gofmt.",
+					Paths:       []string{"**/*.go"},
 				},
 				"global-safety": {
-					Description:  "Always-active safety rule",
-					Instructions: "Never delete production data.",
+					Description: "Always-active safety rule",
+					Body:        "Never delete production data.",
 				},
 			},
 			MCP: map[string]ast.MCPConfig{

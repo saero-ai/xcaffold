@@ -23,9 +23,9 @@ func threeStepCodeReview() *ast.XcaffoldConfig {
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{
-						{Name: "analyze", Instructions: "Read the diff and summarize changed modules."},
-						{Name: "lint", Instructions: "Check style violations in changed files."},
-						{Name: "summarize", Instructions: "Write the final review comment."},
+						{Name: "analyze", Body: "Read the diff and summarize changed modules."},
+						{Name: "lint", Body: "Check style violations in changed files."},
+						{Name: "summarize", Body: "Write the final review comment."},
 					},
 				},
 			},
@@ -83,9 +83,9 @@ func TestCompile_Workflow_AntigravityNative(t *testing.T) {
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{
-						{Name: "analyze", Instructions: "Read the diff and summarize changed modules."},
-						{Name: "lint", Instructions: "Check style violations in changed files."},
-						{Name: "summarize", Instructions: "Write the final review comment."},
+						{Name: "analyze", Body: "Read the diff and summarize changed modules."},
+						{Name: "lint", Body: "Check style violations in changed files."},
+						{Name: "summarize", Body: "Write the final review comment."},
 					},
 					Targets: map[string]ast.TargetOverride{
 						"antigravity": {

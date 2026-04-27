@@ -1,3 +1,4 @@
+---
 kind: project
 version: "1.0"
 name: golden-project
@@ -10,21 +11,9 @@ backup-dir: ".xcf-backup"
 
 # Reference lists: agents supports both simple string IDs and structured
 # {id: {memory: [...]}} entries.
-agents:
-  - golden-agent
-  - golden-agent-2:
-      memory:
-        - recall-context
-        - recent-activity
 
-skills:
-  - golden-skill
 
-rules:
-  - golden-rule
 
-workflows:
-  - golden-workflow
 
 mcp:
   - golden-mcp
@@ -103,34 +92,14 @@ local:
     command: echo "xcaffold ready"
 
 # Root instructions for the project (inline)
-instructions: |
-  This is the golden project. It exercises every field in the ProjectConfig struct.
+---
+This is the golden project. It exercises every field in the ProjectConfig struct.
 
-  Use this file as a reference when adding new fields to the schema.
+Use this file as a reference when adding new fields to the schema.
 
 # @-import paths preserved for providers that support them
-instructions-imports:
-  - docs/architecture.md
-  - docs/conventions.md
 
 # Per-directory nested instruction scopes
-instructions-scopes:
-  - path: src/
-    instructions: "Follow strict Go conventions in this directory."
-    merge-strategy: concat
-    source-provider: claude
-    source-filename: src/CLAUDE.md
-    variants:
-      cursor:
-        instructions-file: xcf/scopes/src-cursor.md
-        source-filename: src/.cursorrules
-    reconciliation:
-      strategy: per-target
-      last-reconciled: "2026-04-24T00:00:00Z"
-      notes: "Cursor and Claude diverge on Go formatting rules."
-  - path: internal/
-    instructions-file: xcf/scopes/internal.md
-    merge-strategy: closest-wins
 
 # Per-provider compile-time options
 target-options:

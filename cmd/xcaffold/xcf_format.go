@@ -62,29 +62,32 @@ type mcpDoc struct {
 	ast.MCPConfig `yaml:",inline"`
 }
 
+// contextDoc is the serialization envelope for a kind: context document.
+type contextDoc struct {
+	Kind              string `yaml:"kind"`
+	Version           string `yaml:"version"`
+	ast.ContextConfig `yaml:",inline"`
+}
+
 // projectSplitDoc is the serialization envelope for kind: project in split-file mode.
 // It does NOT contain resource maps — only metadata, targets, ref lists pointing
 // to child files under xcf/, and project-level instruction references.
 type projectSplitDoc struct {
-	Kind                string                   `yaml:"kind"`
-	Version             string                   `yaml:"version"`
-	Name                string                   `yaml:"name"`
-	Description         string                   `yaml:"description,omitempty"`
-	Author              string                   `yaml:"author,omitempty"`
-	Homepage            string                   `yaml:"homepage,omitempty"`
-	Repository          string                   `yaml:"repository,omitempty"`
-	License             string                   `yaml:"license,omitempty"`
-	BackupDir           string                   `yaml:"backup-dir,omitempty"`
-	Targets             []string                 `yaml:"targets,omitempty"`
-	AgentRefs           []ast.AgentManifestEntry `yaml:"agents,omitempty"`
-	SkillRefs           []string                 `yaml:"skills,omitempty"`
-	RuleRefs            []string                 `yaml:"rules,omitempty"`
-	WorkflowRefs        []string                 `yaml:"workflows,omitempty"`
-	MCPRefs             []string                 `yaml:"mcp,omitempty"`
-	Instructions        string                   `yaml:"instructions,omitempty"`
-	InstructionsFile    string                   `yaml:"instructions-file,omitempty"`
-	InstructionsImports []string                 `yaml:"instructions-imports,omitempty"`
-	InstructionsScopes  []ast.InstructionsScope  `yaml:"instructions-scopes,omitempty"`
+	Kind         string                   `yaml:"kind"`
+	Version      string                   `yaml:"version"`
+	Name         string                   `yaml:"name"`
+	Description  string                   `yaml:"description,omitempty"`
+	Author       string                   `yaml:"author,omitempty"`
+	Homepage     string                   `yaml:"homepage,omitempty"`
+	Repository   string                   `yaml:"repository,omitempty"`
+	License      string                   `yaml:"license,omitempty"`
+	BackupDir    string                   `yaml:"backup-dir,omitempty"`
+	Targets      []string                 `yaml:"targets,omitempty"`
+	AgentRefs    []ast.AgentManifestEntry `yaml:"agents,omitempty"`
+	SkillRefs    []string                 `yaml:"skills,omitempty"`
+	RuleRefs     []string                 `yaml:"rules,omitempty"`
+	WorkflowRefs []string                 `yaml:"workflows,omitempty"`
+	MCPRefs      []string                 `yaml:"mcp,omitempty"`
 }
 
 // hooksSplitDoc is the serialization envelope for kind: hooks in split-file mode.
@@ -148,25 +151,21 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 		mcpRefs = sortedMapKeys(config.MCP)
 	}
 	projDoc := projectSplitDoc{
-		Kind:                "project",
-		Version:             version,
-		Name:                proj.Name,
-		Description:         proj.Description,
-		Author:              proj.Author,
-		Homepage:            proj.Homepage,
-		Repository:          proj.Repository,
-		License:             proj.License,
-		BackupDir:           proj.BackupDir,
-		Targets:             proj.Targets,
-		AgentRefs:           agentRefs,
-		SkillRefs:           skillRefs,
-		RuleRefs:            ruleRefs,
-		WorkflowRefs:        workflowRefs,
-		MCPRefs:             mcpRefs,
-		Instructions:        proj.Instructions,
-		InstructionsFile:    proj.InstructionsFile,
-		InstructionsImports: proj.InstructionsImports,
-		InstructionsScopes:  proj.InstructionsScopes,
+		Kind:         "project",
+		Version:      version,
+		Name:         proj.Name,
+		Description:  proj.Description,
+		Author:       proj.Author,
+		Homepage:     proj.Homepage,
+		Repository:   proj.Repository,
+		License:      proj.License,
+		BackupDir:    proj.BackupDir,
+		Targets:      proj.Targets,
+		AgentRefs:    agentRefs,
+		SkillRefs:    skillRefs,
+		RuleRefs:     ruleRefs,
+		WorkflowRefs: workflowRefs,
+		MCPRefs:      mcpRefs,
 	}
 	outDir := filepath.Join(rootDir, ".xcaffold")
 	if err := os.MkdirAll(outDir, 0755); err != nil {
@@ -250,25 +249,21 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	mcpFilter := refSet(proj.MCPRefs)
 
 	projDoc := projectSplitDoc{
-		Kind:                "project",
-		Version:             version,
-		Name:                proj.Name,
-		Description:         proj.Description,
-		Author:              proj.Author,
-		Homepage:            proj.Homepage,
-		Repository:          proj.Repository,
-		License:             proj.License,
-		BackupDir:           proj.BackupDir,
-		Targets:             proj.Targets,
-		AgentRefs:           agentRefs,
-		SkillRefs:           skillRefs,
-		RuleRefs:            ruleRefs,
-		WorkflowRefs:        workflowRefs,
-		MCPRefs:             mcpRefs,
-		Instructions:        proj.Instructions,
-		InstructionsFile:    proj.InstructionsFile,
-		InstructionsImports: proj.InstructionsImports,
-		InstructionsScopes:  proj.InstructionsScopes,
+		Kind:         "project",
+		Version:      version,
+		Name:         proj.Name,
+		Description:  proj.Description,
+		Author:       proj.Author,
+		Homepage:     proj.Homepage,
+		Repository:   proj.Repository,
+		License:      proj.License,
+		BackupDir:    proj.BackupDir,
+		Targets:      proj.Targets,
+		AgentRefs:    agentRefs,
+		SkillRefs:    skillRefs,
+		RuleRefs:     ruleRefs,
+		WorkflowRefs: workflowRefs,
+		MCPRefs:      mcpRefs,
 	}
 	outDir := filepath.Join(rootDir, ".xcaffold")
 	if err := os.MkdirAll(outDir, 0755); err != nil {
@@ -296,10 +291,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if agent.Name == "" {
 				agent.Name = k
 			}
-			body := strings.TrimSpace(agent.Instructions)
-			// Zero out Instructions so it does not appear as a YAML field when
-			// the body is written as markdown content after the --- delimiter.
-			agent.Instructions = ""
+			body := strings.TrimSpace(agent.Body)
 			doc := agentDoc{Kind: "agent", Version: version, AgentConfig: agent}
 			if err := writeFrontmatterFile(filepath.Join(agentSubDir, k+".xcf"), doc, body); err != nil {
 				return err
@@ -321,10 +313,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if skill.Name == "" {
 				skill.Name = k
 			}
-			body := strings.TrimSpace(skill.Instructions)
-			// Zero out Instructions so it does not appear as a YAML field when
-			// the body is written as markdown content after the --- delimiter.
-			skill.Instructions = ""
+			body := strings.TrimSpace(skill.Body)
 			doc := skillDoc{Kind: "skill", Version: version, SkillConfig: skill}
 			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
 				return err
@@ -346,10 +335,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if rule.Name == "" {
 				rule.Name = k
 			}
-			body := strings.TrimSpace(rule.Instructions)
-			// Zero out Instructions so it does not appear as a YAML field when
-			// the body is written as markdown content after the --- delimiter.
-			rule.Instructions = ""
+			body := strings.TrimSpace(rule.Body)
 			doc := ruleDoc{Kind: "rule", Version: version, RuleConfig: rule}
 			outPath := filepath.Join(dir, filepath.FromSlash(k)+".xcf")
 			// Rule IDs may contain forward-slash namespacing for subdirectory rules
@@ -400,6 +386,26 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			}
 			doc := mcpDoc{Kind: "mcp", Version: version, MCPConfig: mcp}
 			if err := writeYAMLFile(filepath.Join(dir, k+".xcf"), doc); err != nil {
+				return err
+			}
+		}
+	}
+
+	// ── kind: context ────────────────────────────────────────────────────────
+	if len(config.Contexts) > 0 {
+		dir := filepath.Join(xcfDir, "context")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		for _, k := range sortedMapKeys(config.Contexts) {
+			ctx := config.Contexts[k]
+			if ctx.Name == "" {
+				ctx.Name = k
+			}
+			body := strings.TrimSpace(ctx.Body)
+			ctx.Body = "" // zero before YAML serialization
+			doc := contextDoc{Kind: "context", Version: version, ContextConfig: ctx}
+			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
 				return err
 			}
 		}

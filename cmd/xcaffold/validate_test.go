@@ -104,7 +104,7 @@ func TestValidate_GlobalFlag_ValidFile(t *testing.T) {
 version: "1.0"
 agents:
   reviewer:
-    instructions: "Review code."
+    name: Reviewer
 `
 	require.NoError(t, os.WriteFile(globalXCF, []byte(content), 0600))
 
@@ -139,10 +139,10 @@ func TestCheckBashWithoutHook_ProjectHook_NoWarn(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"dev": {
-					Name:         "Dev",
-					Instructions: "instructions",
-					Tools:        []string{"Bash"},
-					Hooks:        ast.HookConfig{},
+					Name:  "Dev",
+					Body:  "instructions",
+					Tools: []string{"Bash"},
+					Hooks: ast.HookConfig{},
 				},
 			},
 		},
@@ -169,10 +169,10 @@ func TestCheckBashWithoutHook_NoHook_Warns(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"dev": {
-					Name:         "Dev",
-					Instructions: "instructions",
-					Tools:        []string{"Bash"},
-					Hooks:        ast.HookConfig{},
+					Name:  "Dev",
+					Body:  "instructions",
+					Tools: []string{"Bash"},
+					Hooks: ast.HookConfig{},
 				},
 			},
 		},
@@ -240,8 +240,9 @@ version: "1.0"
 version: "1.0"
 name: Bad Agent
 description: "Agent with a broken skill ref"
-instructions: "do stuff"
 skills: [nonexistent]
+---
+do stuff
 `), 0644))
 
 	oldPath := xcfPath

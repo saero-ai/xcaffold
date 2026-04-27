@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -491,7 +492,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 					"See https://xcaffold.com/docs/migration/config-removal",
 			)
 
-		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy":
+		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy", "context":
 			// Resource-kind document: route to the kind-aware parser.
 			// Propagate the resource version to config.Version if not already set.
 			if config.Version == "" {
@@ -544,35 +545,47 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 		return nil, fmt.Errorf("failed to parse .xcf YAML: EOF")
 	}
 
-	// Assign markdown body to the parsed resource's Instructions or Content field.
+	// Assign markdown body to the parsed resource's Body or Content field.
 	// Only applies to frontmatter-format files (body != nil) with non-empty body text.
-	// The YAML instructions: field wins — body is silently discarded when already set.
 	if body != nil && len(strings.TrimSpace(string(body))) > 0 {
 		trimmedBody := strings.TrimSpace(string(body))
 		switch lastKind {
 		case "agent":
-			if a, ok := config.Agents[lastName]; ok && a.Instructions == "" {
-				a.Instructions = trimmedBody
+			if a, ok := config.Agents[lastName]; ok {
+				a.Body = trimmedBody
 				config.Agents[lastName] = a
 			}
 		case "skill":
-			if s, ok := config.Skills[lastName]; ok && s.Instructions == "" {
-				s.Instructions = trimmedBody
+			if s, ok := config.Skills[lastName]; ok {
+				s.Body = trimmedBody
 				config.Skills[lastName] = s
 			}
 		case "rule":
-			if r, ok := config.Rules[lastName]; ok && r.Instructions == "" {
-				r.Instructions = trimmedBody
+			if r, ok := config.Rules[lastName]; ok {
+				r.Body = trimmedBody
 				config.Rules[lastName] = r
 			}
 		case "workflow":
-			if w, ok := config.Workflows[lastName]; ok && w.Instructions == "" {
-				w.Instructions = trimmedBody
+			if w, ok := config.Workflows[lastName]; ok {
+				if len(w.Steps) > 0 {
+					assignWorkflowStepBodies(&w, trimmedBody)
+				} else {
+					w.Body = trimmedBody
+				}
 				config.Workflows[lastName] = w
 			}
+		case "context":
+			if ctx, ok := config.Contexts[lastName]; ok {
+				ctx.Body = trimmedBody
+				config.Contexts[lastName] = ctx
+			}
 		case "project":
-			if config.Project != nil && config.Project.Instructions == "" {
-				config.Project.Instructions = trimmedBody
+			if config.Contexts == nil {
+				config.Contexts = make(map[string]ast.ContextConfig)
+			}
+			config.Contexts["root"] = ast.ContextConfig{
+				Name: "root",
+				Body: trimmedBody,
 			}
 		case "reference":
 			if ref, ok := config.References[lastName]; ok && ref.Content == "" {
@@ -587,6 +600,41 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 		return nil, fmt.Errorf("invalid .xcf configuration part: %w", err)
 	}
 	return config, nil
+}
+
+var workflowStepHeading = regexp.MustCompile(`(?m)^##\s+([a-zA-Z0-9_-]+)\s*$`)
+
+// assignWorkflowStepBodies processes the raw markdown workflow body, slicing it into step-specific
+// blocks based on ## <step-name> headings and assigning those blocks to their respective WorkflowStep.
+func assignWorkflowStepBodies(w *ast.WorkflowConfig, body string) {
+	if body == "" {
+		return
+	}
+
+	matches := workflowStepHeading.FindAllStringSubmatchIndex(body, -1)
+	if len(matches) == 0 {
+		return
+	}
+
+	stepMap := make(map[string]string)
+	for i, match := range matches {
+		nameStart := match[2]
+		nameEnd := match[3]
+		name := body[nameStart:nameEnd]
+
+		bodyStart := match[1]
+		bodyEnd := len(body)
+		if i+1 < len(matches) {
+			bodyEnd = matches[i+1][0]
+		}
+		stepMap[name] = strings.TrimSpace(body[bodyStart:bodyEnd])
+	}
+
+	for i, step := range w.Steps {
+		if content, ok := stepMap[step.Name]; ok {
+			w.Steps[i].Body = content
+		}
+	}
 }
 
 // ParsedFile pairs a parsed partial config with its source file path.
@@ -626,6 +674,7 @@ var parseableKinds = map[string]bool{
 	"policy":    true,
 	"reference": true,
 	"blueprint": true,
+	"context":   true,
 }
 
 // isParseableFile reads the kind: field from an .xcf file to determine if it
@@ -980,6 +1029,7 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	policyOrigins := map[string]string{}
 	referenceOrigins := map[string]string{}
 	blueprintOrigins := map[string]string{}
+	contextOrigins := map[string]string{}
 	settingsOrigin := ""
 	localOrigin := ""
 
@@ -1051,11 +1101,8 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			if len(p.Project.PolicyRefs) > 0 {
 				merged.Project.PolicyRefs = p.Project.PolicyRefs
 			}
-			if p.Project.Instructions != "" {
-				merged.Project.Instructions = p.Project.Instructions
-			}
-			if p.Project.InstructionsFile != "" {
-				merged.Project.InstructionsFile = p.Project.InstructionsFile
+			if p.Project.Body != "" {
+				merged.Project.Body = p.Project.Body
 			}
 		}
 
@@ -1102,6 +1149,11 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		}
 
 		merged.Blueprints, blueprintOrigins, err = mergeMapStrict(merged.Blueprints, p.Blueprints, "blueprint name", blueprintOrigins, f)
+		if err != nil {
+			return nil, err
+		}
+
+		merged.Contexts, contextOrigins, err = mergeMapStrict(merged.Contexts, p.Contexts, "context", contextOrigins, f)
 		if err != nil {
 			return nil, err
 		}
@@ -1332,26 +1384,8 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 			// Project instructions fields. A set field on the child wins; an empty
 			// field on the child preserves the base value (matches the same
 			// convention applied to Name, Description, and other scalar fields above).
-			if child.Project.Instructions != "" {
-				merged.Project.Instructions = child.Project.Instructions
-			}
-			if child.Project.InstructionsFile != "" {
-				merged.Project.InstructionsFile = child.Project.InstructionsFile
-			}
-			if len(child.Project.InstructionsImports) > 0 {
-				merged.Project.InstructionsImports = child.Project.InstructionsImports
-			}
-			// InstructionsScopes: child scopes win over base; base-only scopes
-			// are tagged Inherited=true for StripInherited() to remove.
-			{
-				var baseScopes []ast.InstructionsScope
-				if base.Project != nil {
-					baseScopes = base.Project.InstructionsScopes
-				}
-				merged.Project.InstructionsScopes = mergeInstructionsScopesOverrideInherited(baseScopes, child.Project.InstructionsScopes)
-			}
-			if len(child.Project.TargetOptions) > 0 {
-				merged.Project.TargetOptions = child.Project.TargetOptions
+			if child.Project.Body != "" {
+				merged.Project.Body = child.Project.Body
 			}
 		}
 	}
@@ -1368,6 +1402,7 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.Policies = mergeMapOverride(base.Policies, child.Policies)
 	merged.References = mergeReferencesOverrideInherited(base.References, child.References)
 	merged.Blueprints = mergeMapOverride(base.Blueprints, child.Blueprints)
+	merged.Contexts = mergeContextsOverrideInherited(base.Contexts, child.Contexts)
 	merged.Hooks = mergeNamedHooksAdditive(base.Hooks, child.Hooks)
 
 	merged.Settings = mergeSettingsMapOverride(base.Settings, child.Settings)
@@ -1399,6 +1434,22 @@ func mergeAgentsOverrideInherited(base, child map[string]ast.AgentConfig) map[st
 		return nil
 	}
 	merged := make(map[string]ast.AgentConfig, len(base)+len(child))
+	for k, v := range base {
+		v.Inherited = true
+		merged[k] = v
+	}
+	for k, v := range child {
+		v.Inherited = false
+		merged[k] = v
+	}
+	return merged
+}
+
+func mergeContextsOverrideInherited(base, child map[string]ast.ContextConfig) map[string]ast.ContextConfig {
+	if base == nil && child == nil {
+		return nil
+	}
+	merged := make(map[string]ast.ContextConfig, len(base)+len(child))
 	for k, v := range base {
 		v.Inherited = true
 		merged[k] = v
@@ -1494,37 +1545,6 @@ func mergeReferencesOverrideInherited(base, child map[string]ast.ReferenceConfig
 // base scopes are tagged Inherited=true. Child scopes (same path) take precedence
 // and are NOT tagged. Scopes unique to the base are tagged Inherited=true and appended.
 // When base is empty, child scopes are returned verbatim (existing Inherited tags preserved).
-func mergeInstructionsScopesOverrideInherited(base, child []ast.InstructionsScope) []ast.InstructionsScope {
-	if len(base) == 0 && len(child) == 0 {
-		return nil
-	}
-	// When there is no base to merge, preserve child scopes without touching Inherited.
-	// This handles the case where mergeConfigOverride is called for the global overlay
-	// (empty base) and the child already carries Inherited tags from extends resolution.
-	if len(base) == 0 {
-		result := make([]ast.InstructionsScope, len(child))
-		copy(result, child)
-		return result
-	}
-	childPaths := make(map[string]bool, len(child))
-	for _, s := range child {
-		childPaths[s.Path] = true
-	}
-	result := make([]ast.InstructionsScope, 0, len(base)+len(child))
-	// Append child scopes first (not inherited).
-	for _, s := range child {
-		s.Inherited = false
-		result = append(result, s)
-	}
-	// Append base scopes not overridden by the child (tagged inherited).
-	for _, s := range base {
-		if !childPaths[s.Path] {
-			s.Inherited = true
-			result = append(result, s)
-		}
-	}
-	return result
-}
 
 // Validations
 
@@ -1652,9 +1672,9 @@ func validateWorkflows(c *ast.XcaffoldConfig) error {
 			return fmt.Errorf("workflow %q: api-version %q is not supported; only \"workflow/v1\" is accepted", id, wf.ApiVersion)
 		}
 
-		// steps vs instructions/instructions-file mutex
-		if len(wf.Steps) > 0 && (wf.Instructions != "" || wf.InstructionsFile != "") {
-			return fmt.Errorf("workflow %q: steps and instructions/instructions-file are mutually exclusive; use steps for multi-step workflows or instructions for single-body workflows", id)
+		// steps vs frontmatter+body mutex
+		if len(wf.Steps) > 0 && wf.Body != "" {
+			return fmt.Errorf("workflow %q: steps and inline body are mutually exclusive; use steps for multi-step workflows or the markdown body for single-body workflows", id)
 		}
 
 		// per-step validations
@@ -1662,29 +1682,9 @@ func validateWorkflows(c *ast.XcaffoldConfig) error {
 			if step.Name == "" {
 				return fmt.Errorf("workflow %q: step[%d] is missing a required name field", id, i)
 			}
-			// step-level instructions / instructions-file mutex
-			if step.Instructions != "" && step.InstructionsFile != "" {
-				return fmt.Errorf("workflow %q step %q: instructions and instructions-file are mutually exclusive", id, step.Name)
-			}
 			// step body is required
-			if step.Instructions == "" && step.InstructionsFile == "" {
-				return fmt.Errorf("workflow %q step %q: must set instructions or instructions-file", id, step.Name)
-			}
-			// reserved-prefix check on step instructions-file
-			if step.InstructionsFile != "" {
-				cleaned := filepath.Clean(step.InstructionsFile)
-				for _, prefix := range reservedOutputPrefixes {
-					cleanedPrefix := filepath.Clean(prefix)
-					if strings.HasPrefix(cleaned, cleanedPrefix+string(filepath.Separator)) || cleaned == cleanedPrefix {
-						return fmt.Errorf("workflow %q step %q: instructions-file %q references reserved output directory %s", id, step.Name, step.InstructionsFile, prefix)
-					}
-				}
-				for _, reserved := range reservedOutputPaths {
-					cleanedReserved := filepath.Clean(reserved)
-					if cleaned == cleanedReserved || strings.HasPrefix(cleaned, cleanedReserved+string(filepath.Separator)) {
-						return fmt.Errorf("workflow %q step %q: instructions-file %q references reserved output directory %s", id, step.Name, step.InstructionsFile, reserved)
-					}
-				}
+			if step.Body == "" {
+				return fmt.Errorf("workflow %q step %q: must define step instructions in markdown body under ## %s", id, step.Name, step.Name)
 			}
 		}
 
@@ -1715,9 +1715,7 @@ func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 	if err := validateHookEvents(hookEvents); err != nil {
 		return err
 	}
-	if err := validateInstructions(c, globalScope); err != nil {
-		return err
-	}
+
 	if err := validateRuleActivations(c); err != nil {
 		return err
 	}
@@ -1875,90 +1873,11 @@ func validateBase(c *ast.XcaffoldConfig) error {
 		}
 	}
 
-	if c.Project != nil {
-		if err := validateProjectInstructions(c.Project); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
 // validateProjectInstructions checks mutual exclusivity, duplicate paths, and
 // enum values for ProjectConfig instructions fields.
-func validateProjectInstructions(p *ast.ProjectConfig) error {
-	// Mutual exclusivity: instructions vs instructions-file on ProjectConfig.
-	if p.Instructions != "" && p.InstructionsFile != "" {
-		return fmt.Errorf("project %q: instructions and instructions-file are mutually exclusive", p.Name)
-	}
-	// Reserved-path check on project-level instructions-file.
-	if p.InstructionsFile != "" {
-		if err := validateInstructionsFile("project", p.Name, p.InstructionsFile, false); err != nil {
-			return err
-		}
-	}
-
-	// Validate each InstructionsScope entry.
-	seenScopePaths := map[string]bool{}
-	for i, scope := range p.InstructionsScopes {
-		// Path-traversal guard: scope.Path becomes part of a renderer output
-		// directory (e.g. "<scope.Path>/CLAUDE.md"). A "../" segment would let
-		// the renderer write outside the project root.
-		if scope.Path == "" {
-			return fmt.Errorf("project %q: instructions-scope[%d]: path is required", p.Name, i)
-		}
-		cleanedScopePath := filepath.Clean(scope.Path)
-		if strings.HasPrefix(cleanedScopePath, "..") || strings.Contains(cleanedScopePath, "/../") || filepath.IsAbs(cleanedScopePath) {
-			return fmt.Errorf("project %q: instructions-scope[%d] path %q: path traversal and absolute paths are not allowed", p.Name, i, scope.Path)
-		}
-		// Mutual exclusivity on scope.
-		if scope.Instructions != "" && scope.InstructionsFile != "" {
-			return fmt.Errorf("project %q: instructions-scope[%d] path %q: instructions and instructions-file are mutually exclusive", p.Name, i, scope.Path)
-		}
-		// Reserved-path check on scope-level instructions-file.
-		if scope.InstructionsFile != "" {
-			if err := validateInstructionsFile(fmt.Sprintf("project %q instructions-scope", p.Name), scope.Path, scope.InstructionsFile, false); err != nil {
-				return err
-			}
-		}
-		// Duplicate path check.
-		if seenScopePaths[scope.Path] {
-			return fmt.Errorf("project %q: duplicate instructions-scope path %q", p.Name, scope.Path)
-		}
-		seenScopePaths[scope.Path] = true
-		// MS-REQ: when variants are non-empty and no merge-strategy and no source-provider
-		// are set, the scope is ambiguous — reject immediately.
-		if len(scope.Variants) > 0 && scope.MergeStrategy == "" && scope.SourceProvider == "" {
-			return fmt.Errorf("project %q: instructions-scope path %q: merge-strategy is required when variants are present (no implicit default for divergent variants)", p.Name, scope.Path)
-		}
-		// Merge-strategy enum check.
-		switch scope.MergeStrategy {
-		case "", "concat", "closest-wins", "flat":
-			// valid
-		default:
-			return fmt.Errorf("project %q: instructions-scope path %q: invalid merge-strategy %q; valid values: concat, closest-wins, flat", p.Name, scope.Path, scope.MergeStrategy)
-		}
-		// reconciliation.strategy enum check.
-		if scope.Reconciliation != nil {
-			switch scope.Reconciliation.Strategy {
-			case "", "per-target", "union", "manual":
-				// valid
-			default:
-				return fmt.Errorf("project %q: instructions-scope path %q: invalid reconciliation.strategy %q", p.Name, scope.Path, scope.Reconciliation.Strategy)
-			}
-		}
-	}
-	// Validate per-provider target-options.
-	for provider, opts := range p.TargetOptions {
-		switch opts.InstructionsMode {
-		case "", "flat", "nested":
-			// valid
-		default:
-			return fmt.Errorf("project %q: target-options[%q]: invalid instructions-mode %q; valid values: flat, nested", p.Name, provider, opts.InstructionsMode)
-		}
-	}
-	return nil
-}
 
 func validateResourceIDs[T any](resources map[string]T, kind string) error {
 	for id := range resources {
@@ -2004,37 +1923,6 @@ func validateHookEvents(hooks ast.HookConfig) error {
 		}
 	}
 	return nil
-}
-
-func validateInstructions(c *ast.XcaffoldConfig, globalScope bool) error {
-	for id, agent := range c.Agents {
-		if err := validateInstructionOrFile("agent", id, agent.Instructions, agent.InstructionsFile, globalScope); err != nil {
-			return err
-		}
-	}
-	for id, skill := range c.Skills {
-		if err := validateInstructionOrFile("skill", id, skill.Instructions, skill.InstructionsFile, globalScope); err != nil {
-			return err
-		}
-	}
-	for id, rule := range c.Rules {
-		if err := validateInstructionOrFile("rule", id, rule.Instructions, rule.InstructionsFile, globalScope); err != nil {
-			return err
-		}
-	}
-	for id, wf := range c.Workflows {
-		if err := validateInstructionOrFile("workflow", id, wf.Instructions, wf.InstructionsFile, globalScope); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateInstructionOrFile(kind, id, inst, file string, globalScope bool) error {
-	if inst != "" && file != "" {
-		return fmt.Errorf("%s %q: instructions and instructions-file are mutually exclusive; set one or the other", kind, id)
-	}
-	return validateInstructionsFile(kind, id, file, globalScope)
 }
 
 func validateCrossReferences(c *ast.XcaffoldConfig) error {
@@ -2131,33 +2019,6 @@ func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 		}
 	}
 
-	// instructions-file existence: error on missing files
-	checkInstrFile := func(kind, id, instrFile string) {
-		if instrFile == "" {
-			return
-		}
-		abs := filepath.Join(baseDir, instrFile)
-		if _, err := os.Stat(abs); os.IsNotExist(err) {
-			diags = append(diags, Diagnostic{
-				Severity: "error",
-				Message:  fmt.Sprintf("%s %q instructions-file not found: %q", kind, id, instrFile),
-			})
-		}
-	}
-
-	for id, agent := range c.Agents {
-		checkInstrFile("agent", id, agent.InstructionsFile)
-	}
-	for id, skill := range c.Skills {
-		checkInstrFile("skill", id, skill.InstructionsFile)
-	}
-	for id, rule := range c.Rules {
-		checkInstrFile("rule", id, rule.InstructionsFile)
-	}
-	for id, wf := range c.Workflows {
-		checkInstrFile("workflow", id, wf.InstructionsFile)
-	}
-
 	// Duplicate ID check across resource types
 	seen := make(map[string][]string) // id -> []resourceType
 	for id := range c.Agents {
@@ -2237,46 +2098,4 @@ var reservedOutputPaths = []string{
 	".github/copilot-instructions.md",
 	".github/instructions/",
 	".github/prompts/",
-}
-
-func validateInstructionsFile(kind, id, path string, globalScope bool) error {
-	if path == "" {
-		return nil
-	}
-	if filepath.IsAbs(path) && !globalScope {
-		return fmt.Errorf("%s %q: instructions-file must be a relative path, got absolute path %q", kind, id, path)
-	}
-	if strings.ContainsAny(path, "\\") || strings.Contains(path, "..") {
-		return fmt.Errorf("%s %q: instructions-file contains invalid path characters: %q", kind, id, path)
-	}
-	// Check tilde-prefixed paths against the reserved list before any IsAbs
-	// guard, since filepath.IsAbs returns false for "~/" on Unix. We match
-	// raw string prefixes here — no tilde expansion is performed.
-	for _, prefix := range reservedOutputPrefixes {
-		if strings.HasPrefix(path, prefix) {
-			return fmt.Errorf("%s %q: instructions-file %q references compiler output directory %s — this creates a circular dependency", kind, id, path, prefix)
-		}
-	}
-	// Skip reserved-output-prefix check for absolute paths (they are outside project dir).
-	if filepath.IsAbs(path) {
-		return nil
-	}
-	cleaned := filepath.Clean(path)
-	for _, prefix := range reservedOutputPrefixes {
-		if strings.HasPrefix(cleaned, filepath.Clean(prefix)) {
-			return fmt.Errorf("%s %q: instructions-file %q references compiler output directory %s — this creates a circular dependency", kind, id, path, prefix)
-		}
-	}
-	for _, name := range reservedOutputFilenames {
-		if cleaned == name {
-			return fmt.Errorf("%s %q: instructions-file %q references compiler output file %s — use xcf/instructions/ instead", kind, id, path, name)
-		}
-	}
-	for _, reserved := range reservedOutputPaths {
-		cleanedReserved := filepath.Clean(reserved)
-		if cleaned == cleanedReserved || strings.HasPrefix(cleaned, cleanedReserved+string(filepath.Separator)) {
-			return fmt.Errorf("%s %q: instructions-file %q references compiler output path %s — use xcf/instructions/ instead", kind, id, path, reserved)
-		}
-	}
-	return nil
 }

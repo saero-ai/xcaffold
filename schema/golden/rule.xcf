@@ -17,7 +17,6 @@ targets:
   claude:
     suppress-fidelity-warnings: false
     skip-synthesis: false
-    instructions-override: ""
     provider:
       custom-key: "claude-rule-value"
   antigravity:

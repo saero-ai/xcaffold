@@ -154,10 +154,10 @@ func TestRenderAgents_ModelAlias_Translated(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"test-agent": {
-					Name:         "test-agent",
-					Description:  "A test agent",
-					Model:        "sonnet-4",
-					Instructions: "Do things.",
+					Name:        "test-agent",
+					Description: "A test agent",
+					Model:       "sonnet-4",
+					Body:        "Do things.",
 				},
 			},
 		},
@@ -184,9 +184,9 @@ func TestCompile_Gemini_Agents_WithBody(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"auditor": {
-					Name:         "auditor",
-					Description:  "Security auditor.",
-					Instructions: "You are a security auditor.",
+					Name:        "auditor",
+					Description: "Security auditor.",
+					Body:        "You are a security auditor.",
 				},
 			},
 		},

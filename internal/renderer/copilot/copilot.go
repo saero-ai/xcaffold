@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -211,7 +210,7 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 // are still written as .github/instructions/<scope>.instructions.md with
 // applyTo: frontmatter because Copilot does NOT natively load subdirectory
 // CLAUDE.md files.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) CompileProjectInstructions(config *ast.XcaffoldConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
 	if claudeDirExists(baseDir) {
 		var notes []renderer.FidelityNote
@@ -221,27 +220,11 @@ func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDi
 			"root project instructions skipped; CLAUDE.md detected and natively loaded by GitHub Copilot",
 			"No action needed — GitHub Copilot reads root CLAUDE.md automatically",
 		))
-		// Still write nested scope instruction files — Copilot does NOT
-		// auto-load subdirectory CLAUDE.md variants.
-		if project != nil {
-			for _, scope := range project.InstructionsScopes {
-				scopeContent := copilotResolveScopeContent(scope, baseDir)
-				if scopeContent != "" {
-					name := strings.ReplaceAll(filepath.Clean(scope.Path), string(filepath.Separator), "-")
-					filename := fmt.Sprintf("instructions/%s.instructions.md", name)
-					var scb strings.Builder
-					scb.WriteString("---\n")
-					fmt.Fprintf(&scb, "applyTo: %q\n", scope.Path+"/**")
-					scb.WriteString("---\n\n")
-					scb.WriteString(scopeContent)
-					files[filename] = scb.String()
-				}
-			}
-		}
+		// Nested scope instruction files are no longer supported natively via scope objects;
+		// use targeted Rule configurations instead.
 		return files, nil, notes, nil
 	}
-	cfg := &ast.XcaffoldConfig{Project: project}
-	notes := r.renderProjectInstructions(cfg, baseDir, files)
+	notes := r.renderProjectInstructions(config, baseDir, files)
 	return files, nil, notes, nil
 }
 
@@ -266,17 +249,8 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 }
 
 // instructionsMode returns the effective instructions-mode for the Copilot renderer.
-// Reads project.target-options.copilot.instructions-mode; defaults to "flat".
+// Always returns "flat" now that InstructionsMode has been deprecated.
 func instructionsMode(config *ast.XcaffoldConfig) string {
-	if config.Project == nil {
-		return "flat"
-	}
-	if opts, ok := config.Project.TargetOptions[targetName]; ok {
-		switch opts.InstructionsMode {
-		case "nested":
-			return "nested"
-		}
-	}
 	return "flat"
 }
 
@@ -289,165 +263,21 @@ func claudeDirExists(baseDir string) bool {
 	return err == nil
 }
 
-// renderProjectInstructions dispatches to the flat or nested implementation
-// based on the effective instructions-mode for this compilation.
+// renderProjectInstructions emits a single copilot-instructions.md file.
 func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	if instructionsMode(config) == "nested" {
-		return r.renderProjectInstructionsNested(config, baseDir, files)
-	}
-	return r.renderProjectInstructionsFlat(config, baseDir, files)
-}
+	rootContent := renderer.ResolveContextBody(config, targetName)
 
-// renderProjectInstructionsFlat emits a single flat-singleton file at
-// .github/copilot-instructions.md containing the project root instructions
-// followed by each InstructionsScope entry, each wrapped in
-// xcaffold:scope HTML provenance markers (path, merge-strategy, origin).
-//
-// Copilot has no multi-file nesting model, so all scopes are merged into one
-// file. Structural distinction is preserved via provenance markers only. One
-// INSTRUCTIONS_FLATTENED info note is emitted per scope.
-func (r *Renderer) renderProjectInstructionsFlat(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	p := config.Project
-	if p.Instructions == "" && p.InstructionsFile == "" {
+	if rootContent == "" {
 		return nil
 	}
 
-	var notes []renderer.FidelityNote
-
-	rootContent := renderer.ResolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
-
-	// Inline @-imports — Copilot has no native @-import mechanism.
-	for _, imp := range p.InstructionsImports {
-		data, err := os.ReadFile(filepath.Join(baseDir, imp))
-		if err == nil {
-			rootContent += "\n\n" + string(data)
-		}
+	mode := instructionsMode(config)
+	if mode == "nested" {
+		files[filepath.Clean("AGENTS.md")] = resolver.StripFrontmatter(rootContent)
+	} else {
+		files[filepath.Clean("copilot-instructions.md")] = resolver.StripFrontmatter(rootContent)
 	}
-
-	var sb strings.Builder
-	sb.WriteString(rootContent)
-
-	// Sort scopes: depth ascending (fewer path separators first), then alphabetical.
-	scopes := make([]ast.InstructionsScope, len(p.InstructionsScopes))
-	copy(scopes, p.InstructionsScopes)
-	sort.SliceStable(scopes, func(i, j int) bool {
-		di := strings.Count(scopes[i].Path, "/")
-		dj := strings.Count(scopes[j].Path, "/")
-		if di != dj {
-			return di < dj
-		}
-		return scopes[i].Path < scopes[j].Path
-	})
-
-	for _, scope := range scopes {
-		scopeContent := copilotResolveScopeContent(scope, baseDir)
-
-		if scopeContent != "" {
-			name := strings.ReplaceAll(filepath.Clean(scope.Path), string(filepath.Separator), "-")
-			filename := fmt.Sprintf("instructions/%s.instructions.md", name)
-
-			var scb strings.Builder
-			scb.WriteString("---\n")
-			fmt.Fprintf(&scb, "applyTo: %q\n", scope.Path+"/**")
-			scb.WriteString("---\n\n")
-			scb.WriteString(scopeContent)
-			files[filename] = scb.String()
-		}
-
-		// Build provenance marker attributes — the A-6 parser uses
-		// `(\w[\w-]*)="([^"]*)"`, so any double quote inside an attribute value
-		// would terminate the match early. Replace all double quotes with single
-		// quotes before embedding.
-		safePath := strings.ReplaceAll(scope.Path, `"`, `'`)
-		mergeStrategy := scope.MergeStrategy
-		if mergeStrategy == "" {
-			mergeStrategy = "concat"
-		}
-
-		origin := ""
-		if scope.SourceProvider != "" || scope.SourceFilename != "" {
-			safeProvider := strings.ReplaceAll(scope.SourceProvider, `"`, `'`)
-			safeFilename := strings.ReplaceAll(scope.SourceFilename, `"`, `'`)
-			origin = fmt.Sprintf(` origin="%s:%s"`, safeProvider, safeFilename)
-		}
-
-		fmt.Fprintf(&sb, "\n\n<!-- xcaffold:scope path=\"%s\" merge=\"%s\"%s -->\n",
-			safePath, mergeStrategy, origin)
-		sb.WriteString(scopeContent)
-		sb.WriteString("\n<!-- xcaffold:/scope -->\n")
-
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo,
-			targetName,
-			"instructions",
-			scope.Path,
-			"merge-strategy",
-			renderer.CodeInstructionsFlattened,
-			fmt.Sprintf("scope %q flattened into single copilot-instructions.md file with provenance marker", scope.Path),
-			"Use a target that supports nested instruction files (e.g. claude) if scope isolation is required",
-		))
-	}
-
-	safePath := filepath.Clean("copilot-instructions.md")
-	files[safePath] = sb.String()
-	return notes
-}
-
-// renderProjectInstructionsNested emits per-directory AGENTS.md files instead
-// of the flat singleton. This mirrors the closest-wins-nested class used by
-// the cursor renderer. Root instructions go to AGENTS.md;
-// each InstructionsScope produces <scope.Path>/AGENTS.md.
-// concat-tagged scopes are pre-flattened (root + scope), emitting a
-// INSTRUCTIONS_CLOSEST_WINS_FORCED_CONCAT warning.
-func (r *Renderer) renderProjectInstructionsNested(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	p := config.Project
-	if p.Instructions == "" && p.InstructionsFile == "" {
-		return nil
-	}
-
-	var notes []renderer.FidelityNote
-
-	rootContent := renderer.ResolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
-
-	// Inline @-imports — AGENTS.md has no native @-import mechanism.
-	for _, imp := range p.InstructionsImports {
-		data, err := os.ReadFile(filepath.Join(baseDir, imp))
-		if err == nil {
-			rootContent += "\n\n" + string(data)
-		}
-	}
-
-	files[filepath.Clean("AGENTS.md")] = rootContent
-
-	for _, scope := range p.InstructionsScopes {
-		scopeContent := copilotResolveScopeContent(scope, baseDir)
-		safePath := filepath.Clean(scope.Path + "/AGENTS.md")
-
-		if scope.MergeStrategy == "concat" {
-			files[safePath] = rootContent + "\n\n" + scopeContent
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning,
-				targetName,
-				"instructions",
-				scope.Path,
-				"merge-strategy",
-				renderer.CodeInstructionsClosestWinsForcedConcat,
-				fmt.Sprintf("concat scope %q pre-flattened into closest-wins AGENTS.md", scope.Path),
-				"Use merge-strategy: closest-wins or flat for Copilot nested mode",
-			))
-		} else {
-			files[safePath] = scopeContent
-		}
-	}
-
-	return notes
-}
-
-func copilotResolveScopeContent(scope ast.InstructionsScope, baseDir string) string {
-	if v, ok := scope.Variants[targetName]; ok {
-		return renderer.ResolveInstructionsContent("", v.InstructionsFile, baseDir)
-	}
-	return renderer.ResolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
+	return nil
 }
 
 // renderAgents writes each agent to .github/agents/<id>.agent.md using YAML
@@ -542,7 +372,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		sb.WriteString("---\n")
 
 		// Markdown body — system prompt.
-		body := renderer.ResolveInstructionsContent(agent.Instructions, agent.InstructionsFile, baseDir)
+		body := resolver.StripFrontmatter(agent.Body)
 		if body != "" {
 			sb.WriteString("\n")
 			sb.WriteString(strings.TrimRight(body, "\n"))
@@ -643,7 +473,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 		}
 		sb.WriteString("---\n")
 
-		body := renderer.ResolveInstructionsContent(skill.Instructions, skill.InstructionsFile, baseDir)
+		body := resolver.StripFrontmatter(skill.Body)
 		if body != "" {
 			sb.WriteString("\n")
 			sb.WriteString(strings.TrimRight(body, "\n"))
@@ -756,9 +586,7 @@ func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.Capability
 
 	sb.WriteString("---\n")
 
-	body, _ := resolver.ResolveInstructions(
-		rule.Instructions, rule.InstructionsFile, "", baseDir,
-	)
+	body := resolver.StripFrontmatter(rule.Body)
 	if body != "" {
 		sb.WriteString("\n")
 		sb.WriteString(body)

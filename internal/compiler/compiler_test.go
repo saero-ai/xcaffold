@@ -18,11 +18,11 @@ func TestCompile_SingleAgent(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"developer": {
-					Description:  "An expert developer.",
-					Instructions: "You are a software developer.\nWrite clean code.\n",
-					Model:        "claude-3-7-sonnet-20250219",
-					Effort:       "high",
-					Tools:        []string{"Bash", "Read", "Write"},
+					Description: "An expert developer.",
+					Body:        "You are a software developer.\nWrite clean code.\n",
+					Model:       "claude-3-7-sonnet-20250219",
+					Effort:      "high",
+					Tools:       []string{"Bash", "Read", "Write"},
 				},
 			},
 		},
@@ -110,13 +110,13 @@ func TestCompile_FullSchema(t *testing.T) {
 			},
 			Skills: map[string]ast.SkillConfig{
 				"git": {
-					Description:  "Git workflows",
-					Instructions: "Always use rebase.",
+					Description: "Git workflows",
+					Body:        "Always use rebase.",
 				},
 			},
 			Rules: map[string]ast.RuleConfig{
 				"go": {
-					Instructions: "Use gofmt.",
+					Body: "Use gofmt.",
 				},
 			},
 			MCP: map[string]ast.MCPConfig{
@@ -163,7 +163,7 @@ func TestCompile_CursorTarget_Supported(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
-				"test": {Description: "Test", Instructions: "Test rule."},
+				"test": {Description: "Test", Body: "Test rule."},
 			},
 		},
 	}
@@ -176,7 +176,7 @@ func TestCompile_CursorTarget_RulesUseMdc(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
-				"style": {Description: "Style", Instructions: "Format code."},
+				"style": {Description: "Style", Body: "Format code."},
 			},
 		},
 	}
@@ -190,7 +190,7 @@ func TestCompile_AntigravityTarget_Supported(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
-				"test": {Description: "Test", Instructions: "Test rule."},
+				"test": {Description: "Test", Body: "Test rule."},
 			},
 		},
 	}
@@ -203,7 +203,7 @@ func TestCompile_AntigravityTarget_RulesEmitFrontmatter(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
-				"style": {Description: "Style", Instructions: "Format code."},
+				"style": {Description: "Style", Body: "Format code."},
 			},
 		},
 	}
@@ -219,10 +219,10 @@ func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"reviewer": {Name: "Reviewer", Instructions: "Review."},
+				"reviewer": {Name: "Reviewer", Body: "Review."},
 			},
 			Rules: map[string]ast.RuleConfig{
-				"test": {Instructions: "Test."},
+				"test": {Body: "Test."},
 			},
 		},
 	}
@@ -257,16 +257,16 @@ func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
 				"tdd": {
 					Description:  "TDD workflow",
 					AllowedTools: []string{"Bash", "Read", "Write"},
-					Instructions: "Follow TDD",
+					Body:         "Follow TDD",
 				},
 			},
 			Agents: map[string]ast.AgentConfig{
 				"developer": {
-					Description:  "Dev agent",
-					Model:        "sonnet",
-					Tools:        []string{"${skill.tdd.allowed-tools}"},
-					Skills:       []string{"tdd"},
-					Instructions: "You are a developer",
+					Description: "Dev agent",
+					Model:       "sonnet",
+					Tools:       []string{"${skill.tdd.allowed-tools}"},
+					Skills:      []string{"tdd"},
+					Body:        "You are a developer",
 				},
 			},
 		},
@@ -289,10 +289,10 @@ func TestCompile_ResolveAttributes_NoRefsPassthrough(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"developer": {
-					Description:  "Dev agent",
-					Model:        "sonnet",
-					Tools:        []string{"Bash", "Read"},
-					Instructions: "You are a developer",
+					Description: "Dev agent",
+					Model:       "sonnet",
+					Tools:       []string{"Bash", "Read"},
+					Body:        "You are a developer",
 				},
 			},
 		},
@@ -330,7 +330,7 @@ func TestCompile_Gemini_DispatchesGeminiRenderer(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
-				"style": {Description: "Style guide", Instructions: "Format code."},
+				"style": {Description: "Style guide", Body: "Format code."},
 			},
 		},
 	}
@@ -377,8 +377,8 @@ func TestCompile_Blueprint_FiltersResources(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"developer": {Name: "Developer", Description: "A developer", Instructions: "dev instructions"},
-				"designer":  {Name: "Designer", Description: "A designer", Instructions: "design instructions"},
+				"developer": {Name: "Developer", Description: "A developer", Body: "dev instructions"},
+				"designer":  {Name: "Designer", Description: "A designer", Body: "design instructions"},
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
@@ -404,8 +404,8 @@ func TestCompile_NoBlueprint_CompilesAll(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"developer": {Name: "Developer", Description: "d", Instructions: "x"},
-				"designer":  {Name: "Designer", Description: "d", Instructions: "x"},
+				"developer": {Name: "Developer", Description: "d", Body: "x"},
+				"designer":  {Name: "Designer", Description: "d", Body: "x"},
 			},
 		},
 	}
@@ -439,8 +439,8 @@ func TestCompile_BlueprintExtends_InheritedResources(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"base-agent":  {Name: "BaseAgent", Description: "base", Instructions: "base instructions"},
-				"child-agent": {Name: "ChildAgent", Description: "child", Instructions: "child instructions"},
+				"base-agent":  {Name: "BaseAgent", Description: "base", Body: "base instructions"},
+				"child-agent": {Name: "ChildAgent", Description: "child", Body: "child instructions"},
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
@@ -472,14 +472,14 @@ func TestCompile_BlueprintTransitiveDeps_AutoExpandsSkills(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"dev": {
-					Name:         "Dev",
-					Description:  "developer",
-					Instructions: "dev instructions",
-					Skills:       []string{"tdd"},
+					Name:        "Dev",
+					Description: "developer",
+					Body:        "dev instructions",
+					Skills:      []string{"tdd"},
 				},
 			},
 			Skills: map[string]ast.SkillConfig{
-				"tdd": {Name: "tdd", Description: "TDD skill", Instructions: "follow tdd"},
+				"tdd": {Name: "tdd", Description: "TDD skill", Body: "follow tdd"},
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
@@ -514,7 +514,7 @@ func TestCompile_BlueprintValidation_RunsAfterExtends(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"base-agent": {Name: "BaseAgent", Description: "base", Instructions: "base instructions"},
+				"base-agent": {Name: "BaseAgent", Description: "base", Body: "base instructions"},
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{

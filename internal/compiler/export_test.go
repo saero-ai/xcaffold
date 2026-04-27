@@ -23,7 +23,7 @@ func TestExportPlugin_GeneratesManifest(t *testing.T) {
 				"helper": {Description: "A helper agent"},
 			},
 			Skills: map[string]ast.SkillConfig{
-				"deploy": {Description: "Deploy skill", Instructions: "Deploy it."},
+				"deploy": {Description: "Deploy skill", Body: "Deploy it."},
 			},
 		},
 	}

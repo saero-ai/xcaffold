@@ -19,9 +19,9 @@ func TestOrchestrate_PerResource_ProducesFiles(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"tester": {
-					Name:         "Tester",
-					Description:  "A test agent",
-					Instructions: "Do the test.",
+					Name:        "Tester",
+					Description: "A test agent",
+					Body:        "Do the test.",
 				},
 			},
 		},
@@ -101,7 +101,7 @@ func (m *mockRenderer) CompileSettings(_ ast.SettingsConfig) (map[string]string,
 func (m *mockRenderer) CompileMCP(_ map[string]ast.MCPConfig) (map[string]string, []renderer.FidelityNote, error) {
 	return nil, nil, nil
 }
-func (m *mockRenderer) CompileProjectInstructions(_ *ast.ProjectConfig, _ string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+func (m *mockRenderer) CompileProjectInstructions(_ *ast.XcaffoldConfig, _ string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	return nil, nil, nil, nil
 }
 func (m *mockRenderer) CompileMemory(_ *ast.XcaffoldConfig, _ string, _ renderer.MemoryOptions) (map[string]string, []renderer.FidelityNote, error) {

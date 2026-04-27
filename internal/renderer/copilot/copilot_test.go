@@ -19,9 +19,9 @@ func TestCompileCopilotRule_Activation_Always(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"security": {
-					Description:  "Security guide.",
-					Activation:   ast.RuleActivationAlways,
-					Instructions: "Follow OWASP.",
+					Description: "Security guide.",
+					Activation:  ast.RuleActivationAlways,
+					Body:        "Follow OWASP.",
 				},
 			},
 		},
@@ -39,9 +39,9 @@ func TestCompileCopilotRule_Activation_PathGlob(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
-					Activation:   ast.RuleActivationPathGlob,
-					Paths:        []string{"src/api/**", "packages/api/**"},
-					Instructions: "REST conventions.",
+					Activation: ast.RuleActivationPathGlob,
+					Paths:      []string{"src/api/**", "packages/api/**"},
+					Body:       "REST conventions.",
 				},
 			},
 		},
@@ -61,7 +61,7 @@ func TestCompileCopilotRule_ExcludeAgents_Single(t *testing.T) {
 				"pr-review": {
 					Activation:    ast.RuleActivationAlways,
 					ExcludeAgents: []string{"code-review"},
-					Instructions:  "Review standards.",
+					Body:          "Review standards.",
 				},
 			},
 		},
@@ -82,7 +82,7 @@ func TestCompileCopilotRule_ExcludeAgents_Multiple(t *testing.T) {
 				"security": {
 					Activation:    ast.RuleActivationAlways,
 					ExcludeAgents: []string{"code-review", "cloud-agent"},
-					Instructions:  "Security.",
+					Body:          "Security.",
 				},
 			},
 		},
@@ -101,8 +101,8 @@ func TestCompileCopilotRule_OutputPath(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"my-rule": {
-					Activation:   ast.RuleActivationAlways,
-					Instructions: "Body.",
+					Activation: ast.RuleActivationAlways,
+					Body:       "Body.",
 				},
 			},
 		},
@@ -120,8 +120,8 @@ func TestCompileCopilotRule_Activation_ManualMention_FidelityNote(t *testing.T) 
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"manual-rule": {
-					Activation:   ast.RuleActivationManualMention,
-					Instructions: "Only when mentioned.",
+					Activation: ast.RuleActivationManualMention,
+					Body:       "Only when mentioned.",
 				},
 			},
 		},
@@ -144,8 +144,8 @@ func TestCompile_Copilot_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 					Name:        "deploy-flow",
 					Description: "Deployment workflow",
 					Steps: []ast.WorkflowStep{
-						{Name: "step-1", Instructions: "Run tests"},
-						{Name: "step-2", Instructions: "Deploy to staging"},
+						{Name: "step-1", Body: "Run tests"},
+						{Name: "step-2", Body: "Deploy to staging"},
 					},
 				},
 			},
@@ -175,9 +175,7 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 	r := copilot.New()
 	timeout := 3000
 	cfg := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{
-			Instructions: "Full Copilot integration test",
-		},
+		Project: &ast.ProjectConfig{Name: "test-proj"},
 		Settings: map[string]ast.SettingsConfig{"default": {
 			Sandbox: &ast.SandboxConfig{},
 		}},
@@ -194,11 +192,14 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 			},
 		},
 		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root": {Body: "Full Copilot integration test"},
+			},
 			Rules: map[string]ast.RuleConfig{
 				"go-style": {
-					Description:  "Go style guide",
-					Instructions: "Follow Go conventions",
-					Activation:   "always",
+					Description: "Go style guide",
+					Body:        "Follow Go conventions",
+					Activation:  "always",
 				},
 			},
 			Agents: map[string]ast.AgentConfig{
@@ -213,7 +214,7 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 					Name:         "review",
 					Description:  "Code review skill",
 					AllowedTools: []string{"shell"},
-					Instructions: "Review code carefully.",
+					Body:         "Review code carefully.",
 				},
 			},
 			MCP: map[string]ast.MCPConfig{
@@ -243,15 +244,16 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
 	r := copilot.New()
 	cfg := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{
-			Instructions: "Project instructions for Copilot",
-		},
+		Project: &ast.ProjectConfig{Name: "test-proj"},
 		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root": {Body: "Project instructions for Copilot"},
+			},
 			Rules: map[string]ast.RuleConfig{
 				"style-guide": {
-					Description:  "Style guide",
-					Instructions: "Follow the Go style guide",
-					Activation:   "always",
+					Description: "Style guide",
+					Body:        "Follow the Go style guide",
+					Activation:  "always",
 				},
 			},
 			Agents: map[string]ast.AgentConfig{
@@ -267,7 +269,7 @@ func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
 					Name:         "tdd",
 					Description:  "Test-driven development workflow",
 					AllowedTools: []string{"shell"},
-					Instructions: "Write failing test first.",
+					Body:         "Write failing test first.",
 				},
 			},
 		},
@@ -333,52 +335,13 @@ func TestCompileAgents_Copilot_ClaudeAliasModel_Omitted(t *testing.T) {
 	assert.True(t, found, "expected LevelWarning CodeAgentModelUnmapped")
 }
 
-func TestCompileCopilotRule_InstructionsFile_Resolved(t *testing.T) {
-	tmpDir := t.TempDir()
-	ruleContent := "# This is my rule\n\nFollow these guidelines."
-	os.MkdirAll(filepath.Join(tmpDir, "rules"), 0o755)
-	os.WriteFile(filepath.Join(tmpDir, "rules", "test-rule.md"), []byte(ruleContent), 0o644)
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Rules: map[string]ast.RuleConfig{
-				"test-rule": {
-					Description:      "A test rule",
-					InstructionsFile: "rules/test-rule.md",
-					Activation:       ast.RuleActivationAlways,
-				},
-			},
-		},
-	}
-
-	r := copilot.New()
-	out, _, err := renderer.Orchestrate(r, config, tmpDir)
-	require.NoError(t, err)
-
-	found := false
-	for path, content := range out.Files {
-		if strings.Contains(path, "test-rule") {
-			found = true
-			if !strings.Contains(content, "This is my rule") {
-				t.Errorf("rule file at %q has empty body; InstructionsFile was not resolved.\nContent:\n%s", path, content)
-			}
-		}
-	}
-	if !found {
-		t.Fatal("expected a rule file containing 'test-rule' in output")
-	}
-}
-
-// TestCompileRules_Copilot_ClaudeDirPresent_EmitsPassthroughNotes verifies that
-// when a .claude/ directory is present, CompileRules returns no output files and
-// emits one CLAUDE_NATIVE_PASSTHROUGH info note per rule.
 func TestCompileRules_Copilot_ClaudeDirPresent_EmitsPassthroughNotes(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0o755))
 
 	r := copilot.New()
 	rules := map[string]ast.RuleConfig{
-		"adr-governance": {Instructions: "Follow ADR governance.", Activation: "always"},
+		"adr-governance": {Body: "Follow ADR governance.", Activation: "always"},
 	}
 	files, notes, err := r.CompileRules(rules, dir)
 	require.NoError(t, err)
@@ -397,7 +360,7 @@ func TestCompileRules_Copilot_NoClaude_FullTranslation(t *testing.T) {
 
 	r := copilot.New()
 	rules := map[string]ast.RuleConfig{
-		"my-rule": {Instructions: "Follow the rule.", Activation: "always"},
+		"my-rule": {Body: "Follow the rule.", Activation: "always"},
 	}
 	files, notes, err := r.CompileRules(rules, dir)
 	require.NoError(t, err)

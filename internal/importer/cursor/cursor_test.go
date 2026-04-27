@@ -117,7 +117,7 @@ func TestCursorExtract_AgentFrontmatter(t *testing.T) {
 	assert.Equal(t, "Code Reviewer", agent.Name)
 	assert.Equal(t, "Reviews PRs", agent.Description)
 	assert.Equal(t, "claude-opus-4-5", agent.Model)
-	assert.Contains(t, agent.Instructions, "Review body.")
+	assert.Contains(t, agent.Body, "Review body.")
 	assert.Equal(t, "cursor", agent.SourceProvider)
 }
 
@@ -130,7 +130,7 @@ func TestCursorExtract_RuleFrontmatterWithGlobs(t *testing.T) {
 	rule, ok := config.Rules["formatting"]
 	require.True(t, ok, "expected rule 'formatting' in config")
 	assert.Equal(t, "Formatting standards", rule.Description)
-	assert.Contains(t, rule.Instructions, "Use gofmt for Go files.")
+	assert.Contains(t, rule.Body, "Use gofmt for Go files.")
 	assert.Equal(t, []string{"**/*.go", "**/*.ts"}, rule.Paths)
 	assert.Equal(t, "cursor", rule.SourceProvider)
 }
@@ -156,7 +156,7 @@ func TestCursorExtract_SkillFrontmatter(t *testing.T) {
 	skill, ok := config.Skills["code-review"]
 	require.True(t, ok, "expected skill 'code-review' in config")
 	assert.Equal(t, "code-review", skill.Name)
-	assert.Contains(t, skill.Instructions, "Review code systematically.")
+	assert.Contains(t, skill.Body, "Review code systematically.")
 	assert.Equal(t, "cursor", skill.SourceProvider)
 }
 
@@ -224,7 +224,7 @@ func TestCursorImporter_FullWorkspace(t *testing.T) {
 	require.True(t, ok, "expected agent 'reviewer'")
 	assert.Equal(t, "Code Reviewer", reviewer.Name)
 	assert.Equal(t, "cursor", reviewer.SourceProvider)
-	assert.NotEmpty(t, reviewer.Instructions)
+	assert.NotEmpty(t, reviewer.Body)
 
 	// Skills
 	cr, ok := config.Skills["code-review"]

@@ -13,7 +13,6 @@ package cursor
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -211,12 +210,10 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 }
 
 // CompileProjectInstructions emits AGENTS.md at root and one AGENTS.md per scope.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) CompileProjectInstructions(config *ast.XcaffoldConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	// Build a minimal config shell to reuse renderProjectInstructions.
-	cfg := &ast.XcaffoldConfig{}
-	cfg.Project = project
 	rootFiles := make(map[string]string)
-	notes := r.renderProjectInstructions(cfg, baseDir, rootFiles)
+	notes := r.renderProjectInstructions(config, baseDir, rootFiles)
 	return nil, rootFiles, notes, nil
 }
 
@@ -250,69 +247,13 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 //   - InstructionsImports are inlined because Cursor has no native @-import support.
 //     A single INSTRUCTIONS_IMPORT_INLINED info note is emitted when any imports exist.
 func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	p := config.Project
-	if p.Instructions == "" && p.InstructionsFile == "" {
+	rootContent := renderer.ResolveContextBody(config, targetName)
+	if rootContent == "" {
 		return nil
 	}
 
-	var notes []renderer.FidelityNote
-
-	rootContent := renderer.ResolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
-
-	// Inline @-imports — Cursor has no native @-import mechanism.
-	if len(p.InstructionsImports) > 0 {
-		for _, imp := range p.InstructionsImports {
-			data, err := os.ReadFile(filepath.Join(baseDir, imp))
-			if err == nil {
-				rootContent += "\n\n" + string(data)
-			}
-			// On read failure, skip silently; the note still fires below.
-		}
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo,
-			targetName,
-			"instructions",
-			"<root>",
-			"instructions-imports",
-			renderer.CodeInstructionsImportInlined,
-			"@-imports inlined; cursor lacks native @-import support",
-			"Remove InstructionsImports or use a target that supports @-imports (e.g. claude)",
-		))
-	}
-
 	files["AGENTS.md"] = rootContent
-
-	for _, scope := range p.InstructionsScopes {
-		scopeContent := cursorResolveScopeContent(scope, targetName, baseDir)
-		safePath := filepath.Clean(scope.Path + "/AGENTS.md")
-
-		if scope.MergeStrategy == "concat" {
-			// Pre-flatten: child AGENTS.md = root content + scope content.
-			files[safePath] = rootContent + "\n\n" + scopeContent
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning,
-				targetName,
-				"instructions",
-				scope.Path,
-				"merge-strategy",
-				renderer.CodeInstructionsClosestWinsForcedConcat,
-				fmt.Sprintf("concat scope %q pre-flattened into closest-wins child file", scope.Path),
-				"Use merge-strategy: closest-wins or flat for Cursor targets",
-			))
-		} else {
-			// closest-wins or flat: child AGENTS.md = scope content only.
-			files[safePath] = scopeContent
-		}
-	}
-
-	return notes
-}
-
-func cursorResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) string {
-	if v, ok := scope.Variants[provider]; ok {
-		return renderer.ResolveInstructionsContent("", v.InstructionsFile, baseDir)
-	}
-	return renderer.ResolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
+	return nil
 }
 
 // xcaffoldToCursorEvent maps xcaffold hook event names to their Cursor equivalents.
@@ -416,10 +357,7 @@ func compileCursorRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
 
-	body, err := resolver.ResolveInstructions(rule.Instructions, rule.InstructionsFile, "", baseDir)
-	if err != nil {
-		return "", nil, err
-	}
+	body := resolver.StripFrontmatter(rule.Body)
 
 	var sb strings.Builder
 	var notes []renderer.FidelityNote
@@ -468,10 +406,7 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string, caps r
 		return "", nil, fmt.Errorf("agent id must not be empty")
 	}
 
-	body, err := resolver.ResolveInstructions(agent.Instructions, agent.InstructionsFile, "", baseDir)
-	if err != nil {
-		return "", nil, err
-	}
+	body := resolver.StripFrontmatter(agent.Body)
 
 	var sb strings.Builder
 	var notes []renderer.FidelityNote
@@ -550,10 +485,7 @@ func compileCursorSkill(id string, skill ast.SkillConfig, baseDir string) (strin
 		return "", fmt.Errorf("skill id must not be empty")
 	}
 
-	body, err := resolver.ResolveInstructions(skill.Instructions, skill.InstructionsFile, "", baseDir)
-	if err != nil {
-		return "", err
-	}
+	body := resolver.StripFrontmatter(skill.Body)
 
 	var sb strings.Builder
 

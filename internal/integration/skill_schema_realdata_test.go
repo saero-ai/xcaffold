@@ -40,9 +40,9 @@ func TestSkillSchema_RealData_RoundTrip_CanonicalOrder(t *testing.T) {
 		// — full bidirectional parse of SKILL.md is out of scope; we only need
 		// to confirm the renderer handles real-world body content.
 		skill := ast.SkillConfig{
-			Name:         e.Name(),
-			Description:  extractField(string(raw), "description"),
-			Instructions: string(raw),
+			Name:        e.Name(),
+			Description: extractField(string(raw), "description"),
+			Body:        string(raw),
 		}
 
 		config := &ast.XcaffoldConfig{
@@ -80,7 +80,7 @@ func TestSkillSchema_RealData_ProviderIsolation(t *testing.T) {
 			"cursor": {Provider: map[string]any{"compatibility": "cursor >= 2.4"}},
 			"claude": {Provider: map[string]any{"context": "fork", "agent": "Explore"}},
 		},
-		Instructions: "body",
+		Body: "body",
 	}
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{

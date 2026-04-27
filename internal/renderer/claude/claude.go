@@ -232,16 +232,19 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 
 // CompileProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per
 // scope, plus settings.local.json when a project.local block is present.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) CompileProjectInstructions(config *ast.XcaffoldConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
 	rootFiles := make(map[string]string)
 
 	// Synthesize a minimal config so renderProjectInstructions can read it.
-	cfg := &ast.XcaffoldConfig{Project: project}
-	notes := r.renderProjectInstructions(cfg, baseDir, rootFiles)
+	notes := r.renderProjectInstructions(config, baseDir, rootFiles)
 
 	// Emit settings.local.json when a local block is present.
-	localJSON, err := compileSettingsJSON(project.Local, nil)
+	var local ast.SettingsConfig
+	if config.Project != nil {
+		local = config.Project.Local
+	}
+	localJSON, err := compileSettingsJSON(local, nil)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to compile local settings: %w", err)
 	}
@@ -393,28 +396,12 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 // renderProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per scope.
 // This is the concat-nested class — the reference implementation with zero fidelity loss.
 func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	p := config.Project
-	if p.Instructions == "" && p.InstructionsFile == "" {
+	rootContent := renderer.ResolveContextBody(config, "claude")
+	if rootContent == "" {
 		return nil
 	}
 
-	rootContent := renderer.ResolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
-
-	// Append @-import lines for each import entry.
-	for _, imp := range p.InstructionsImports {
-		rootContent += "\n@" + imp
-	}
-	// Keys are relative to the Claude target output dir (.claude/). Using
-	// "../" prefix emits these at the project root alongside the .xcaffold/
-	// manifest, matching cursor/gemini renderers (../AGENTS.md, ../GEMINI.md).
-	// apply.go normalizes with filepath.Clean(filepath.Join(outputDir, key)).
 	files["CLAUDE.md"] = rootContent
-
-	// Emit one file per scope, anchored at project root.
-	for _, scope := range p.InstructionsScopes {
-		content := renderer.ResolveScopeContent(scope, "claude", baseDir)
-		files[filepath.Clean(scope.Path+"/CLAUDE.md")] = content
-	}
 	return nil // concat-nested: zero fidelity notes
 }
 
@@ -424,10 +411,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps
 		return "", nil, fmt.Errorf("agent id must not be empty")
 	}
 
-	body, err := resolver.ResolveInstructions(agent.Instructions, agent.InstructionsFile, fmt.Sprintf("agents/%s.md", id), baseDir)
-	if err != nil {
-		return "", nil, err
-	}
+	body := resolver.StripFrontmatter(agent.Body)
 
 	var sb strings.Builder
 	var notes []renderer.FidelityNote
@@ -542,10 +526,7 @@ func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (str
 		return "", fmt.Errorf("skill id must not be empty")
 	}
 
-	body, err := resolver.ResolveInstructions(skill.Instructions, skill.InstructionsFile, fmt.Sprintf("skills/%s/SKILL.md", id), baseDir)
-	if err != nil {
-		return "", err
-	}
+	body := resolver.StripFrontmatter(skill.Body)
 
 	var sb strings.Builder
 	sb.WriteString("---\n")
@@ -631,15 +612,7 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
 
-	body, err := resolver.ResolveInstructions(
-		rule.Instructions,
-		rule.InstructionsFile,
-		fmt.Sprintf("rules/%s.md", id), // convention: rules/<id>.md
-		baseDir,
-	)
-	if err != nil {
-		return "", nil, err
-	}
+	body := resolver.StripFrontmatter(rule.Body)
 
 	activation := renderer.ResolvedActivation(rule)
 

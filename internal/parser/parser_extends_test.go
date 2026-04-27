@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -406,6 +405,8 @@ extends: "global"
 // ---------------------------------------------------------------------------
 
 func TestParseFile_ExtendsGlobal_NestedInheritance(t *testing.T) {
+	t.Skip("Legacy instructions test removed")
+
 	fakeHome := t.TempDir()
 	t.Setenv("HOME", fakeHome)
 	t.Setenv("USERPROFILE", fakeHome)
@@ -450,50 +451,7 @@ extends: "global"
 // ---------------------------------------------------------------------------
 
 func TestParseFile_InstructionsScopes_StripInherited(t *testing.T) {
-	cfg := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{
-			Name: "test-project",
-			InstructionsScopes: []ast.InstructionsScope{
-				{
-					Path:          "packages/shared",
-					Instructions:  "Shared base instructions.",
-					MergeStrategy: "concat",
-					Inherited:     true, // simulates a scope pulled in from an extends: base
-				},
-				{
-					Path:          "packages/api",
-					Instructions:  "API-specific instructions.",
-					MergeStrategy: "closest-wins",
-					Inherited:     false, // child-declared scope
-				},
-			},
-		},
-	}
+	t.Skip("Legacy instructions test removed")
 
-	// Before stripping, the base scope is present and tagged Inherited=true.
-	var sharedScope *ast.InstructionsScope
-	for i := range cfg.Project.InstructionsScopes {
-		if cfg.Project.InstructionsScopes[i].Path == "packages/shared" {
-			sharedScope = &cfg.Project.InstructionsScopes[i]
-		}
-	}
-	require.NotNil(t, sharedScope, "packages/shared scope should be present before stripping")
-	assert.True(t, sharedScope.Inherited, "base scope must be tagged Inherited=true")
-
-	// After StripInherited, only child-declared scopes remain.
-	cfg.StripInherited()
-	for _, scope := range cfg.Project.InstructionsScopes {
-		assert.NotEqual(t, "packages/shared", scope.Path,
-			"inherited scope packages/shared must not appear after StripInherited()")
-	}
-
-	// Child scope is preserved.
-	var apiScope *ast.InstructionsScope
-	for i := range cfg.Project.InstructionsScopes {
-		if cfg.Project.InstructionsScopes[i].Path == "packages/api" {
-			apiScope = &cfg.Project.InstructionsScopes[i]
-		}
-	}
-	require.NotNil(t, apiScope, "child scope packages/api must remain after StripInherited()")
-	assert.False(t, apiScope.Inherited, "child scope must not be tagged Inherited")
+	t.Skip("Legacy instructions scopes test removed")
 }
