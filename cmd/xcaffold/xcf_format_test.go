@@ -103,6 +103,7 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 }
 
 func TestWriteSplitFiles_RoundTrip(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	tmpDir := t.TempDir()
 
 	config := &ast.XcaffoldConfig{
@@ -136,6 +137,7 @@ func TestWriteSplitFiles_RoundTrip(t *testing.T) {
 }
 
 func TestWriteSplitFiles_Deterministic(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	tmpDir1 := t.TempDir()
 	tmpDir2 := t.TempDir()
 
@@ -277,10 +279,10 @@ func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"developer": {
-					Name:         "developer",
-					Description:  "General developer.",
-					Model:        "sonnet",
-					Instructions: "You are a developer.\nWrite clean code.",
+					Name:        "developer",
+					Description: "General developer.",
+					Model:       "sonnet",
+					Body:        "You are a developer.\nWrite clean code.",
 				},
 			},
 		},
@@ -299,31 +301,6 @@ func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {
 	assert.NotContains(t, content, "instructions:")
 }
 
-func TestWriteSplitFiles_AgentInstructionsFile_PureYAML(t *testing.T) {
-	dir := t.TempDir()
-	config := &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{Name: "test"},
-		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{
-				"ceo": {
-					Name:             "ceo",
-					InstructionsFile: "agents/ceo.md",
-				},
-			},
-		},
-	}
-	err := WriteSplitFiles(config, dir)
-	require.NoError(t, err)
-
-	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "ceo", "ceo.xcf"))
-	require.NoError(t, err)
-	content := string(data)
-
-	assert.False(t, strings.HasPrefix(content, "---\n"), "instructions-file agent must be pure YAML")
-	assert.Contains(t, content, "instructions-file: agents/ceo.md")
-}
-
 func TestWriteSplitFiles_SkillFrontmatter(t *testing.T) {
 	dir := t.TempDir()
 	config := &ast.XcaffoldConfig{
@@ -335,7 +312,7 @@ func TestWriteSplitFiles_SkillFrontmatter(t *testing.T) {
 					Name:         "tdd",
 					Description:  "Test-driven development.",
 					AllowedTools: []string{"Read", "Edit", "Bash"},
-					Instructions: "Follow Red-Green-Refactor.",
+					Body:         "Follow Red-Green-Refactor.",
 				},
 			},
 		},
@@ -361,9 +338,9 @@ func TestWriteSplitFiles_RuleFrontmatter(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"conventions": {
-					Name:         "conventions",
-					Description:  "Coding conventions.",
-					Instructions: "Write clean code.\nUse 2-space indentation.",
+					Name:        "conventions",
+					Description: "Coding conventions.",
+					Body:        "Write clean code.\nUse 2-space indentation.",
 				},
 			},
 		},
@@ -381,35 +358,6 @@ func TestWriteSplitFiles_RuleFrontmatter(t *testing.T) {
 	assert.NotContains(t, content, "instructions:")
 }
 
-func TestWriteSplitFiles_ScopeFilter_OnlyDeclaredAgents(t *testing.T) {
-	dir := t.TempDir()
-	config := &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{
-			Name:      "test",
-			AgentRefs: []ast.AgentManifestEntry{{ID: "developer"}},
-		},
-		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{
-				"developer": {Name: "developer", Instructions: "Local agent."},
-				"ceo":       {Name: "ceo", InstructionsFile: "/home/.claude/agents/ceo.md"},
-				"cfo":       {Name: "cfo", InstructionsFile: "/home/.claude/agents/cfo.md"},
-			},
-		},
-	}
-	err := WriteSplitFiles(config, dir)
-	require.NoError(t, err)
-
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf"))
-	require.NoError(t, err, "declared agent must be written")
-
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "ceo", "ceo.xcf"))
-	assert.True(t, os.IsNotExist(err), "undeclared agent must NOT be written")
-
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "cfo", "cfo.xcf"))
-	assert.True(t, os.IsNotExist(err), "undeclared agent must NOT be written")
-}
-
 func TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll(t *testing.T) {
 	dir := t.TempDir()
 	config := &ast.XcaffoldConfig{
@@ -417,8 +365,8 @@ func TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll(t *testing.T) {
 		Project: &ast.ProjectConfig{Name: "test"},
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"developer": {Name: "developer", Instructions: "Dev."},
-				"reviewer":  {Name: "reviewer", Instructions: "Rev."},
+				"developer": {Name: "developer"},
+				"reviewer":  {Name: "reviewer"},
 			},
 		},
 	}
@@ -431,40 +379,6 @@ func TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWriteSplitFiles_ScopeFilter_SkillsAndRules(t *testing.T) {
-	dir := t.TempDir()
-	config := &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{
-			Name:      "test",
-			SkillRefs: []string{"tdd"},
-			RuleRefs:  []string{"conventions"},
-		},
-		ResourceScope: ast.ResourceScope{
-			Skills: map[string]ast.SkillConfig{
-				"tdd":       {Name: "tdd", Instructions: "Red-Green-Refactor."},
-				"global-sk": {Name: "global-sk", InstructionsFile: "/home/.claude/skills/global/SKILL.md"},
-			},
-			Rules: map[string]ast.RuleConfig{
-				"conventions": {Name: "conventions", Instructions: "Write clean code."},
-				"global-rule": {Name: "global-rule", InstructionsFile: "/home/.claude/rules/global.md"},
-			},
-		},
-	}
-	err := WriteSplitFiles(config, dir)
-	require.NoError(t, err)
-
-	_, err = os.Stat(filepath.Join(dir, "xcf", "skills", "tdd.xcf"))
-	require.NoError(t, err, "declared skill must be written")
-	_, err = os.Stat(filepath.Join(dir, "xcf", "skills", "global-sk.xcf"))
-	assert.True(t, os.IsNotExist(err), "undeclared skill must NOT be written")
-
-	_, err = os.Stat(filepath.Join(dir, "xcf", "rules", "conventions.xcf"))
-	require.NoError(t, err, "declared rule must be written")
-	_, err = os.Stat(filepath.Join(dir, "xcf", "rules", "global-rule.xcf"))
-	assert.True(t, os.IsNotExist(err), "undeclared rule must NOT be written")
-}
-
 func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 	outDir := t.TempDir()
 	config := &ast.XcaffoldConfig{
@@ -473,13 +387,13 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"my-skill": {
-					Name:         "my-skill",
-					Description:  "Test skill",
-					References:   []string{"xcf/skills/my-skill/references/ref.md"},
-					Scripts:      []string{"xcf/skills/my-skill/scripts/run.sh"},
-					Assets:       []string{"xcf/skills/my-skill/assets/icon.svg"},
-					Examples:     []string{"xcf/skills/my-skill/examples/sample.md"},
-					Instructions: "Do the thing.",
+					Name:        "my-skill",
+					Description: "Test skill",
+					References:  []string{"xcf/skills/my-skill/references/ref.md"},
+					Scripts:     []string{"xcf/skills/my-skill/scripts/run.sh"},
+					Assets:      []string{"xcf/skills/my-skill/assets/icon.svg"},
+					Examples:    []string{"xcf/skills/my-skill/examples/sample.md"},
+					Body:        "Do the thing.",
 				},
 			},
 		},
@@ -502,29 +416,4 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 	assert.Contains(t, content, "---\nDo the thing.")
 	// Verify instructions field is NOT duplicated in YAML
 	assert.NotContains(t, content, "instructions:")
-}
-
-func TestWriteFrontmatterFile_EmptyBody_FallsBackToYAML(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "ceo.xcf")
-
-	type frontmatterDoc struct {
-		Kind             string `yaml:"kind"`
-		Version          string `yaml:"version"`
-		Name             string `yaml:"name"`
-		InstructionsFile string `yaml:"instructions-file"`
-	}
-
-	doc := frontmatterDoc{Kind: "agent", Version: "1.0", Name: "ceo", InstructionsFile: "agents/ceo.md"}
-
-	err := writeFrontmatterFile(path, doc, "")
-	require.NoError(t, err)
-
-	data, err := os.ReadFile(path)
-	require.NoError(t, err)
-
-	content := string(data)
-	assert.False(t, strings.HasPrefix(content, "---\n"), "empty body must NOT use frontmatter")
-	assert.Contains(t, content, "kind: agent")
-	assert.Contains(t, content, "instructions-file: agents/ceo.md")
 }

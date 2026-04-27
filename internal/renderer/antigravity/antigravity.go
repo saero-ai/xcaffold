@@ -16,9 +16,7 @@ package antigravity
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -291,11 +289,9 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 // CompileProjectInstructions renders the project-level instructions into
 // GEMINI.md (root file), with xcaffold:scope provenance markers for each
 // InstructionsScope entry. Antigravity reads GEMINI.md for project context.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
-	cfg := &ast.XcaffoldConfig{}
-	cfg.Project = project
+func (r *Renderer) CompileProjectInstructions(config *ast.XcaffoldConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	rootFiles := make(map[string]string)
-	notes := r.renderProjectInstructions(cfg, baseDir, rootFiles)
+	notes := r.renderProjectInstructions(config, baseDir, rootFiles)
 	return nil, rootFiles, notes, nil
 }
 
@@ -327,104 +323,13 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 // file. Structural distinction is preserved via provenance markers only. One
 // INSTRUCTIONS_FLATTENED info note is emitted per scope.
 func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	p := config.Project
-	if p.Instructions == "" && p.InstructionsFile == "" {
+	rootContent := renderer.ResolveContextBody(config, targetName)
+	if rootContent == "" {
 		return nil
 	}
 
-	var notes []renderer.FidelityNote
-
-	rootContent := agResolveInstructions(p.Instructions, p.InstructionsFile, baseDir)
-
-	// Inline @-imports — Antigravity has no native @-import mechanism.
-	for _, imp := range p.InstructionsImports {
-		data, err := os.ReadFile(filepath.Join(baseDir, imp))
-		if err == nil {
-			rootContent += "\n\n" + string(data)
-		}
-	}
-
-	var sb strings.Builder
-	sb.WriteString(rootContent)
-
-	// Sort scopes: depth ascending (fewer path separators first), then alphabetical.
-	scopes := make([]ast.InstructionsScope, len(p.InstructionsScopes))
-	copy(scopes, p.InstructionsScopes)
-	sort.SliceStable(scopes, func(i, j int) bool {
-		di := strings.Count(scopes[i].Path, "/")
-		dj := strings.Count(scopes[j].Path, "/")
-		if di != dj {
-			return di < dj
-		}
-		return scopes[i].Path < scopes[j].Path
-	})
-
-	for _, scope := range scopes {
-		scopeContent := agResolveScopeContent(scope, targetName, baseDir)
-
-		// Build provenance marker attributes — the A-6 parser uses
-		// `(\w[\w-]*)="([^"]*)"`, so any double quote inside an attribute value
-		// would terminate the match early. Replace all double quotes with single
-		// quotes before embedding — identical treatment across path, source
-		// provider, and source filename keeps round-trip re-import consistent.
-		safePath := strings.ReplaceAll(scope.Path, `"`, `'`)
-		mergeStrategy := scope.MergeStrategy
-		if mergeStrategy == "" {
-			mergeStrategy = "concat"
-		}
-
-		origin := ""
-		if scope.SourceProvider != "" || scope.SourceFilename != "" {
-			safeProvider := strings.ReplaceAll(scope.SourceProvider, `"`, `'`)
-			safeFilename := strings.ReplaceAll(scope.SourceFilename, `"`, `'`)
-			origin = fmt.Sprintf(` origin="%s:%s"`, safeProvider, safeFilename)
-		}
-
-		fmt.Fprintf(&sb, "\n\n<!-- xcaffold:scope path=\"%s\" merge=\"%s\"%s -->\n",
-			safePath, mergeStrategy, origin)
-		sb.WriteString(scopeContent)
-		sb.WriteString("\n<!-- xcaffold:/scope -->\n")
-
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo,
-			targetName,
-			"instructions",
-			scope.Path,
-			"merge-strategy",
-			renderer.CodeInstructionsFlattened,
-			fmt.Sprintf("scope %q flattened into single rules file with provenance marker", scope.Path),
-			"Use a target that supports nested instruction files (e.g. claude) if scope isolation is required",
-		))
-	}
-
-	safePath := ProjectContextFile
-	files[safePath] = sb.String()
-	return notes
-}
-
-// agResolveInstructions returns inline instructions or reads InstructionsFile
-// relative to baseDir. Returns empty string on any read error.
-func agResolveInstructions(inline, file, baseDir string) string {
-	if inline != "" {
-		return inline
-	}
-	if file == "" {
-		return ""
-	}
-	data, err := os.ReadFile(filepath.Join(baseDir, file))
-	if err != nil {
-		return ""
-	}
-	return string(data)
-}
-
-// agResolveScopeContent returns the effective content for a scope, preferring
-// an antigravity-specific variant when one is declared.
-func agResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) string {
-	if v, ok := scope.Variants[provider]; ok {
-		return agResolveInstructions("", v.InstructionsFile, baseDir)
-	}
-	return agResolveInstructions(scope.Instructions, scope.InstructionsFile, baseDir)
+	files[ProjectContextFile] = rootContent
+	return nil
 }
 
 // compileAntigravityRule renders a single RuleConfig to a Markdown file with
@@ -448,10 +353,7 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, caps renderer.Capabi
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
 
-	body, err := resolver.ResolveInstructions(rule.Instructions, rule.InstructionsFile, "", baseDir)
-	if err != nil {
-		return "", nil, err
-	}
+	body := resolver.StripFrontmatter(rule.Body)
 
 	var sb strings.Builder
 	var notes []renderer.FidelityNote
@@ -528,10 +430,7 @@ func compileAntigravitySkill(id string, skill ast.SkillConfig, baseDir string) (
 		return "", fmt.Errorf("skill id must not be empty")
 	}
 
-	body, err := resolver.ResolveInstructions(skill.Instructions, skill.InstructionsFile, "", baseDir)
-	if err != nil {
-		return "", err
-	}
+	body := resolver.StripFrontmatter(skill.Body)
 
 	var sb strings.Builder
 
@@ -561,10 +460,7 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 		return "", fmt.Errorf("workflow id must not be empty")
 	}
 
-	body, err := resolver.ResolveInstructions(wf.Instructions, wf.InstructionsFile, "", baseDir)
-	if err != nil {
-		return "", err
-	}
+	body := resolver.StripFrontmatter(wf.Body)
 
 	var sb strings.Builder
 

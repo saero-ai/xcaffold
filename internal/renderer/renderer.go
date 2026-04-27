@@ -3,60 +3,42 @@
 package renderer
 
 import (
-	"os"
-	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"gopkg.in/yaml.v3"
 )
 
-// ResolveInstructionsContent returns inline instructions or reads InstructionsFile
-// relative to baseDir. Returns an empty string on any read error or when both
-// are empty. This is the shared low-level helper used by all renderers; it
-// intentionally swallows file read errors (missing files are treated as empty).
-func ResolveInstructionsContent(inline, file, baseDir string) string {
-	if inline != "" {
-		return inline
-	}
-	if file == "" {
-		return ""
-	}
-	data, err := os.ReadFile(filepath.Join(baseDir, file))
-	if err != nil {
-		return ""
-	}
-	if strings.HasSuffix(file, ".xcf") {
-		return extractXCFInstructions(data)
-	}
-	return string(data)
-}
+// ResolveContextBody aggregates context bodies for the specified target by
+// deterministically visiting all matched Contexts and concatenating their content.
+func ResolveContextBody(config *ast.XcaffoldConfig, targetName string) string {
+	var bodies []string
 
-// extractXCFInstructions parses a .xcf instructions sidecar and returns the
-// value of the top-level "instructions" field. If the YAML is malformed or
-// the field is absent, the raw bytes are returned unchanged.
-func extractXCFInstructions(data []byte) string {
-	var doc struct {
-		Instructions string `yaml:"instructions"`
+	var names []string
+	for name := range config.Contexts {
+		names = append(names, name)
 	}
-	if err := yaml.Unmarshal(data, &doc); err != nil {
-		return string(data)
-	}
-	if doc.Instructions == "" {
-		return string(data)
-	}
-	return doc.Instructions
-}
+	sort.Strings(names)
 
-// ResolveScopeContent returns the effective content for an InstructionsScope,
-// preferring a provider-specific variant when one is declared under
-// scope.Variants[provider]. Falls back to the scope's own Instructions /
-// InstructionsFile pair.
-func ResolveScopeContent(scope ast.InstructionsScope, provider, baseDir string) string {
-	if v, ok := scope.Variants[provider]; ok {
-		return ResolveInstructionsContent("", v.InstructionsFile, baseDir)
+	for _, name := range names {
+		ctx := config.Contexts[name]
+
+		applies := len(ctx.Targets) == 0
+		if !applies {
+			for _, t := range ctx.Targets {
+				if t == targetName {
+					applies = true
+					break
+				}
+			}
+		}
+
+		if applies && ctx.Body != "" {
+			bodies = append(bodies, strings.TrimSpace(ctx.Body))
+		}
 	}
-	return ResolveInstructionsContent(scope.Instructions, scope.InstructionsFile, baseDir)
+
+	return strings.Join(bodies, "\n\n")
 }
 
 // MemoryOptions controls how CompileMemory writes memory entries.
@@ -101,7 +83,7 @@ type TargetRenderer interface {
 	CompileHooks(hooks ast.HookConfig, baseDir string) (map[string]string, []FidelityNote, error)
 	CompileSettings(settings ast.SettingsConfig) (map[string]string, []FidelityNote, error)
 	CompileMCP(servers map[string]ast.MCPConfig) (map[string]string, []FidelityNote, error)
-	CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (outputDirFiles map[string]string, rootFiles map[string]string, notes []FidelityNote, err error)
+	CompileProjectInstructions(config *ast.XcaffoldConfig, baseDir string) (outputDirFiles map[string]string, rootFiles map[string]string, notes []FidelityNote, err error)
 	CompileMemory(config *ast.XcaffoldConfig, baseDir string, opts MemoryOptions) (map[string]string, []FidelityNote, error)
 
 	// Finalize is a post-processing pass called after all per-resource methods

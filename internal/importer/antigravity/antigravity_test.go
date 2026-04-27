@@ -86,7 +86,7 @@ func TestAntigravityExtract_AgentFromPrompts(t *testing.T) {
 	assert.Equal(t, "Explorer Agent", agent.Name)
 	assert.Equal(t, "Navigates codebases", agent.Description)
 	assert.Equal(t, "claude-opus-4-5", agent.Model)
-	assert.Contains(t, agent.Instructions, "Explore the codebase thoroughly.")
+	assert.Contains(t, agent.Body, "Explore the codebase thoroughly.")
 	assert.Equal(t, "antigravity", agent.SourceProvider)
 }
 
@@ -102,7 +102,7 @@ func TestAntigravityExtract_Skill(t *testing.T) {
 	assert.Equal(t, "search", skill.Name)
 	assert.Equal(t, "Deep search", skill.Description)
 	assert.Equal(t, []string{"Grep"}, skill.AllowedTools)
-	assert.Contains(t, skill.Instructions, "Search across files.")
+	assert.Contains(t, skill.Body, "Search across files.")
 	assert.Equal(t, "antigravity", skill.SourceProvider)
 }
 
@@ -116,7 +116,7 @@ func TestAntigravityExtract_Rule(t *testing.T) {
 	rule, ok := config.Rules["safety"]
 	require.True(t, ok, "expected rule 'safety'")
 	assert.Equal(t, "Safety constraints", rule.Description)
-	assert.Contains(t, rule.Instructions, "Never delete without confirmation.")
+	assert.Contains(t, rule.Body, "Never delete without confirmation.")
 	assert.Equal(t, "antigravity", rule.SourceProvider)
 }
 
@@ -131,7 +131,7 @@ func TestAntigravityExtract_Workflow(t *testing.T) {
 	require.True(t, ok, "expected workflow 'weekly-audit'")
 	assert.Equal(t, "weekly-audit", wf.Name)
 	assert.Equal(t, "Weekly audit workflow", wf.Description)
-	assert.Contains(t, wf.Instructions, "Run analysis and produce a report.")
+	assert.Contains(t, wf.Body, "Run analysis and produce a report.")
 	assert.Equal(t, "antigravity", wf.SourceProvider)
 }
 
@@ -170,7 +170,7 @@ func TestAntigravityImporter_FullWorkspace(t *testing.T) {
 	require.True(t, ok, "expected agent 'explorer' from prompts/explorer.md")
 	assert.Equal(t, "Explorer Agent", agent.Name)
 	assert.Equal(t, "antigravity", agent.SourceProvider)
-	assert.NotEmpty(t, agent.Instructions)
+	assert.NotEmpty(t, agent.Body)
 
 	// Skill
 	skill, ok := config.Skills["search"]

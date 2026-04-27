@@ -21,6 +21,12 @@ type kindHeader struct {
 // KnownFields(true) validates both envelope and agent-specific fields.
 // Name is not redeclared here — it is promoted from AgentConfig.Name to avoid
 // a duplicate yaml:"name" tag conflict with yaml.v3.
+type contextDocument struct {
+	Kind              string `yaml:"kind"`
+	Version           string `yaml:"version"`
+	ast.ContextConfig `yaml:",inline"`
+}
+
 type agentDocument struct {
 	Kind            string `yaml:"kind"`
 	Version         string `yaml:"version"`
@@ -63,32 +69,25 @@ type mcpDocument struct {
 // It does NOT embed ResourceScope, so "agents" maps to []string (ref list)
 // without colliding with ResourceScope's map[string]AgentConfig.
 type projectDocFields struct {
-	Kind         string                   `yaml:"kind"`
-	Version      string                   `yaml:"version"`
-	Name         string                   `yaml:"name"`
-	Description  string                   `yaml:"description,omitempty"`
-	Author       string                   `yaml:"author,omitempty"`
-	Homepage     string                   `yaml:"homepage,omitempty"`
-	Repository   string                   `yaml:"repository,omitempty"`
-	License      string                   `yaml:"license,omitempty"`
-	BackupDir    string                   `yaml:"backup-dir,omitempty"`
-	Targets      []string                 `yaml:"targets,omitempty"`
-	AgentRefs    []ast.AgentManifestEntry `yaml:"agents,omitempty"`
-	SkillRefs    []string                 `yaml:"skills,omitempty"`
-	RuleRefs     []string                 `yaml:"rules,omitempty"`
-	WorkflowRefs []string                 `yaml:"workflows,omitempty"`
-	MCPRefs      []string                 `yaml:"mcp,omitempty"`
-	PolicyRefs   []string                 `yaml:"policies,omitempty"`
-	Test         ast.TestConfig           `yaml:"test,omitempty"`
-	Local        ast.SettingsConfig       `yaml:"local,omitempty"`
-
-	// Instructions fields — A-3: KnownFields entries.
-	// yaml.KnownFields(true) enforces these recursively through nested types.
-	Instructions        string                  `yaml:"instructions,omitempty"`
-	InstructionsFile    string                  `yaml:"instructions-file,omitempty"`
-	InstructionsImports []string                `yaml:"instructions-imports,omitempty"`
-	InstructionsScopes  []ast.InstructionsScope `yaml:"instructions-scopes,omitempty"`
-	// TargetOptions holds per-provider compile-time options.
+	Kind          string                        `yaml:"kind"`
+	Version       string                        `yaml:"version"`
+	Extends       string                        `yaml:"extends,omitempty"`
+	Name          string                        `yaml:"name"`
+	Description   string                        `yaml:"description,omitempty"`
+	Author        string                        `yaml:"author,omitempty"`
+	Homepage      string                        `yaml:"homepage,omitempty"`
+	Repository    string                        `yaml:"repository,omitempty"`
+	License       string                        `yaml:"license,omitempty"`
+	BackupDir     string                        `yaml:"backup-dir,omitempty"`
+	Targets       []string                      `yaml:"targets,omitempty"`
+	AgentRefs     []ast.AgentManifestEntry      `yaml:"agents,omitempty"`
+	SkillRefs     []string                      `yaml:"skills,omitempty"`
+	RuleRefs      []string                      `yaml:"rules,omitempty"`
+	WorkflowRefs  []string                      `yaml:"workflows,omitempty"`
+	MCPRefs       []string                      `yaml:"mcp,omitempty"`
+	PolicyRefs    []string                      `yaml:"policies,omitempty"`
+	Test          ast.TestConfig                `yaml:"test,omitempty"`
+	Local         ast.SettingsConfig            `yaml:"local,omitempty"`
 	TargetOptions map[string]ast.TargetOverride `yaml:"target-options,omitempty"`
 }
 
@@ -419,6 +418,24 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		config.MCP[doc.Name] = doc.MCPConfig
 
+	case "context":
+		var doc contextDocument
+		dec := yaml.NewDecoder(bytes.NewReader(b))
+		dec.KnownFields(true)
+		if err := dec.Decode(&doc); err != nil {
+			return fmt.Errorf("invalid context document: %w", err)
+		}
+		if err := validateEnvelope(doc.Version, doc.Name, kind); err != nil {
+			return err
+		}
+		if config.Contexts == nil {
+			config.Contexts = make(map[string]ast.ContextConfig)
+		}
+		if _, exists := config.Contexts[doc.Name]; exists {
+			return fmt.Errorf("duplicate context ID %q", doc.Name)
+		}
+		config.Contexts[doc.Name] = doc.ContextConfig
+
 	case "project":
 		var doc projectDocFields
 		dec := yaml.NewDecoder(bytes.NewReader(b))
@@ -432,6 +449,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if config.Project == nil {
 			config.Project = &ast.ProjectConfig{}
 		}
+		config.Extends = doc.Extends
 		config.Project.Name = doc.Name
 		config.Project.Description = doc.Description
 		config.Project.Author = doc.Author
@@ -448,10 +466,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.PolicyRefs = doc.PolicyRefs
 		config.Project.Test = doc.Test
 		config.Project.Local = doc.Local
-		config.Project.Instructions = doc.Instructions
-		config.Project.InstructionsFile = doc.InstructionsFile
-		config.Project.InstructionsImports = doc.InstructionsImports
-		config.Project.InstructionsScopes = doc.InstructionsScopes
+
 		config.Project.TargetOptions = doc.TargetOptions
 
 	case "hooks":

@@ -50,9 +50,9 @@ func TestCompile_Copilot_Skills_WithBody(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {
-					Name:         "tdd",
-					Description:  "Test-driven development workflow.",
-					Instructions: "Write the test first. Watch it fail. Write minimal code.",
+					Name:        "tdd",
+					Description: "Test-driven development workflow.",
+					Body:        "Write the test first. Watch it fail. Write minimal code.",
 				},
 			},
 		},
@@ -78,7 +78,7 @@ func TestCompile_Copilot_Skills_WithAllowedTools(t *testing.T) {
 				"search-skill": {
 					Name:         "search-skill",
 					Description:  "Skill with tool access.",
-					Instructions: "Use the read tool.",
+					Body:         "Use the read tool.",
 					AllowedTools: []string{"Read", "Grep"},
 				},
 			},
@@ -110,7 +110,7 @@ func TestCompile_Copilot_Skills_UnsupportedFields(t *testing.T) {
 				"full-skill": {
 					Name:                   "full-skill",
 					Description:            "Skill with all fields.",
-					Instructions:           "Do the thing.",
+					Body:                   "Do the thing.",
 					WhenToUse:              "When reviewing code.",
 					Scripts:                []string{"scripts/run.sh"},
 					Assets:                 []string{"assets/template.md"},
@@ -151,10 +151,10 @@ func TestCompile_Copilot_Skills_ReferencesDropped(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"test-skill": {
-					Name:         "test-skill",
-					Description:  "A skill with references",
-					Instructions: "Do things.",
-					References:   []string{"refs/doc.md"},
+					Name:        "test-skill",
+					Description: "A skill with references",
+					Body:        "Do things.",
+					References:  []string{"refs/doc.md"},
 				},
 			},
 		},
@@ -190,10 +190,10 @@ func TestCompile_Copilot_Skills_WithSubdirs(t *testing.T) {
 
 	skills := map[string]ast.SkillConfig{
 		"my-skill": {
-			Description:  "test",
-			Instructions: "Do the thing.",
-			References:   []string{"refs/guide.md"},
-			Scripts:      []string{"scripts/run.sh"},
+			Description: "test",
+			Body:        "Do the thing.",
+			References:  []string{"refs/guide.md"},
+			Scripts:     []string{"scripts/run.sh"},
 		},
 	}
 

@@ -19,9 +19,9 @@ func TestLowerWorkflows_EmptyWorkflows(t *testing.T) {
 
 func TestLowerWorkflows_DoesNotMutateInput(t *testing.T) {
 	wf := ast.WorkflowConfig{
-		Name:         "my-workflow",
-		Description:  "A workflow",
-		Instructions: "Do the thing.",
+		Name:        "my-workflow",
+		Description: "A workflow",
+		Body:        "Do the thing.",
 	}
 	config := &ast.XcaffoldConfig{}
 	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
@@ -36,11 +36,11 @@ func TestLowerWorkflows_DoesNotMutateInput(t *testing.T) {
 }
 
 func TestLowerWorkflows_PreservesExistingRules(t *testing.T) {
-	existing := ast.RuleConfig{Instructions: "existing rule"}
+	existing := ast.RuleConfig{Body: "existing rule"}
 	config := &ast.XcaffoldConfig{}
 	config.ResourceScope.Rules = map[string]ast.RuleConfig{"keep-me": existing}
 	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
-		"wf1": {Name: "wf1", Instructions: "workflow body"},
+		"wf1": {Name: "wf1", Body: "workflow body"},
 	}
 
 	out, _ := LowerWorkflows(config, "gemini")

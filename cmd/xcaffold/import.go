@@ -10,8 +10,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
-	"unicode"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/bir"
@@ -155,90 +153,14 @@ func runImport(cmd *cobra.Command, args []string) error {
 // If the xcf config file cannot be parsed (e.g., it doesn't exist yet or has no
 // project block), the function returns nil without error — project instructions
 // discovery is best-effort and must not block the import.
-func runProjectInstructionsDiscovery(projectDir, primaryProvider, xcfPath string) error {
-	cfg, err := parser.ParseFileExact(xcfPath)
-	if err != nil {
-		// Not a fatal error — xcf may not have a project block yet.
-		return nil
-	}
-	if cfg.Project == nil {
-		return nil
-	}
-
-	// Check if the source file contains provenance markers. If so, reconstruct
-	// scopes from the markers rather than walking the file tree (re-import path).
-	primaryFilename := providerInstructionsFilename(primaryProvider)
-	if primaryFilename != "" {
-		rootPath := filepath.Join(projectDir, primaryFilename)
-		if data, err := os.ReadFile(rootPath); err == nil {
-			if scopes, rootContent, parseErr := parseProvenanceMarkers(string(data)); parseErr == nil && len(scopes) > 0 {
-				cfg.Project.InstructionsScopes = scopes
-				_ = rootContent // rootContent used downstream if needed
-				// Write updated xcf back to disk with reconstructed scopes.
-				_ = WriteProjectFile(cfg, projectDir)
-				return nil
-			}
-		}
-	}
-
-	// Primary extraction: discover and sidecar the primary provider's files.
-	if err := extractProjectInstructions(projectDir, primaryProvider, cfg); err != nil {
-		return fmt.Errorf("extracting project instructions (%s): %w", primaryProvider, err)
-	}
-
-	// Secondary provider detection.
-	secondaryProvider := detectSecondaryProvider(projectDir, primaryProvider)
-	if secondaryProvider != "" {
-		autoMergeUnion := autoMergeFlag == "union"
-		if err := detectAndMergeVariants(projectDir, secondaryProvider, cfg, autoMergeUnion); err != nil {
-			return fmt.Errorf("merging variants (%s + %s): %w", primaryProvider, secondaryProvider, err)
-		}
-	}
-
-	// Persist the updated config.
-	return WriteProjectFile(cfg, projectDir)
-}
 
 // providerInstructionsFilename returns the canonical root instruction filename
 // for the given provider, or "" if the provider does not have one.
-func providerInstructionsFilename(provider string) string {
-	switch provider {
-	case "claude":
-		return "CLAUDE.md"
-	case "cursor":
-		return "AGENTS.md"
-	case "gemini":
-		return "GEMINI.md"
-	case "copilot":
-		return ".github/copilot-instructions.md"
-	default:
-		return ""
-	}
-}
 
 // anyInstructionFileExists reports whether filename exists anywhere under root —
 // either as a direct child (root instruction file) or within a subdirectory.
 // This is used to gate project-instruction discovery: we run discovery whenever
 // ANY scoped instruction file exists, not only when the root-level file exists.
-func anyInstructionFileExists(root, filename string) bool {
-	found := false
-	base := filepath.Base(filename)
-	filter := newDirectoryFilter(root)
-	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || found {
-			return filepath.SkipDir
-		}
-		if d.IsDir() && path != root && filter.shouldSkip(d.Name()) {
-			return filepath.SkipDir
-		}
-		if !d.IsDir() && d.Name() == base {
-			found = true
-			return filepath.SkipDir
-		}
-		return nil
-	})
-	return found
-}
 
 // detectSecondaryProvider returns the secondary provider name when a second
 // provider's instruction files are present alongside the primary provider's tree.
@@ -411,10 +333,7 @@ func runTranslateMode() error {
 	}
 	baseDir := filepath.Dir(xcfAbs)
 
-	sources, err := resolveSourceFiles(importSource)
-	if err != nil {
-		return fmt.Errorf("--source %q: %w", importSource, err)
-	}
+	sources := []string{importSource}
 
 	if len(sources) == 0 {
 		return fmt.Errorf("no .md files found at %q", importSource)
@@ -554,8 +473,8 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		return err
 	}
 
-	// ── 3. Project instruction file discovery is deferred to after WriteSplitFiles.
-	// (see runProjectInstructionsDiscovery call below)
+	// ── 3. Root context file discovery ──────────────────────────────────────────
+	discoverRootContextFiles(projectDir, config)
 
 	// ── 4. Agent memory ─────────────────────────────────────────────────────────
 	// Memory is extracted into config.Memory by the ProviderImporter during
@@ -588,18 +507,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		return fmt.Errorf("prune memory: %w", err)
 	}
 
-	// ── 3. Project instruction file (CLAUDE.md / GEMINI.md / AGENTS.md / etc.) ─
-	// Run discovery if ANY instruction file exists — root OR in subdirectories.
-	// Checking only the root file missed sub-directory scopes (e.g. packages/CLAUDE.md)
-	// when the project had no root-level instruction file.
-	if instrFile := providerInstructionsFilename(provider); instrFile != "" {
-		if anyInstructionFileExists(projectDir, instrFile) {
-			actualPath := filepath.Join(projectDir, ".xcaffold", "project.xcf")
-			if discoverErr := runProjectInstructionsDiscovery(projectDir, provider, actualPath); discoverErr != nil {
-				warnings = append(warnings, fmt.Sprintf("project instructions discovery (%s): %v", provider, discoverErr))
-			}
-		}
-	}
+	// Removed invalid project instructions block
 
 	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcfDest, importCount)
 	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
@@ -988,159 +896,18 @@ type instructionsXCFDoc struct {
 	Instructions string `yaml:"instructions"`
 }
 
-func writeInstructionsXCF(path, name, content string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("creating instructions directory: %w", err)
-	}
-	doc := instructionsXCFDoc{
-		Kind:         "instructions",
-		Version:      "1.0",
-		Name:         name,
-		Instructions: content,
-	}
-	return writeYAMLFile(path, doc)
-}
-
 // extractProjectInstructions discovers provider instruction files in projectDir,
 // writes sidecars under xcf/instructions/, and populates cfg.Project with
 // InstructionsFile and InstructionsScopes entries.
 // provider is one of: claude, gemini, cursor, copilot, antigravity.
-func extractProjectInstructions(projectDir, provider string, cfg *ast.XcaffoldConfig) error {
-	// Ensure cfg.Project is initialised before writing to it.
-	if cfg.Project == nil {
-		cfg.Project = &ast.ProjectConfig{}
-	}
-
-	// Derive the provider's instruction filename and nesting strategy.
-	var instructionsFilename string
-	var mergeStrategy string
-	switch provider {
-	case "claude":
-		instructionsFilename = "CLAUDE.md"
-		mergeStrategy = "concat"
-	case "gemini":
-		instructionsFilename = "GEMINI.md"
-		mergeStrategy = "concat"
-	case "cursor":
-		instructionsFilename = "AGENTS.md"
-		mergeStrategy = "closest-wins"
-	case "copilot":
-		// Copilot flat mode: single fixed file.
-		return extractCopilotInstructions(projectDir, cfg)
-	case "antigravity":
-		// Antigravity: handled separately via root rules block.
-		return nil
-	default:
-		return fmt.Errorf("unsupported instructions provider: %s", provider)
-	}
-
-	// Phase 1: Walk tree and collect instruction files sorted by depth, then alpha.
-	var files []string
-	filter := newDirectoryFilter(projectDir)
-
-	err := filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if path != projectDir && filter.shouldSkip(d.Name()) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if d.Name() == instructionsFilename {
-			files = append(files, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("walking project directory: %w", err)
-	}
-	sort.Slice(files, func(i, j int) bool {
-		di := strings.Count(files[i], string(os.PathSeparator))
-		dj := strings.Count(files[j], string(os.PathSeparator))
-		if di != dj {
-			return di < dj
-		}
-		return files[i] < files[j]
-	})
-
-	sidecarBase := filepath.Join(projectDir, "xcf", "instructions")
-
-	// Phase 2: IR construction.
-	for _, file := range files {
-		content, err := os.ReadFile(file)
-		if err != nil {
-			return fmt.Errorf("reading %s: %w", file, err)
-		}
-		rel, err := filepath.Rel(projectDir, filepath.Dir(file))
-		if err != nil {
-			return err
-		}
-		isRoot := rel == "."
-
-		if isRoot {
-			// Root file → project.instructions-file.
-			sidecar := filepath.Join(sidecarBase, "root.xcf")
-			if err := writeInstructionsXCF(sidecar, "root", string(content)); err != nil {
-				return err
-			}
-			cfg.Project.InstructionsFile = "xcf/instructions/root.xcf"
-		} else {
-			// Scope file → InstructionsScope entry.
-			slug := pathToSlug(rel)
-			sidecar := filepath.Join(sidecarBase, "scopes", slug+".xcf")
-			if err := writeInstructionsXCF(sidecar, slug, string(content)); err != nil {
-				return err
-			}
-			sidecarRel := "xcf/instructions/scopes/" + slug + ".xcf"
-			cfg.Project.InstructionsScopes = append(cfg.Project.InstructionsScopes, ast.InstructionsScope{
-				Path:             filepath.ToSlash(rel),
-				InstructionsFile: sidecarRel,
-				MergeStrategy:    mergeStrategy,
-				SourceProvider:   provider,
-				SourceFilename:   instructionsFilename,
-			})
-		}
-	}
-	return nil
-}
 
 // pathToSlug converts a relative directory path to a sidecar filename slug.
 // "packages/worker" → "packages-worker"
-func pathToSlug(path string) string {
-	slug := strings.ReplaceAll(filepath.ToSlash(path), "/", "-")
-	// Remove non-alphanumeric characters except hyphens.
-	var b strings.Builder
-	for _, r := range slug {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
 
 // extractCopilotInstructions handles Copilot's dual-mode instruction discovery.
 // If .github/copilot-instructions.md exists, flat mode is used: the file is written
 // as a sidecar and set as cfg.Project.InstructionsFile.
 // Otherwise, falls back to cursor-style nested AGENTS.md discovery.
-func extractCopilotInstructions(projectDir string, cfg *ast.XcaffoldConfig) error {
-	flatPath := filepath.Join(projectDir, ".github", "copilot-instructions.md")
-	if _, err := os.Stat(flatPath); err == nil {
-		content, err := os.ReadFile(flatPath)
-		if err != nil {
-			return fmt.Errorf("reading copilot-instructions.md: %w", err)
-		}
-		sidecar := filepath.Join(projectDir, "xcf", "instructions", "root.xcf")
-		if err := writeInstructionsXCF(sidecar, "root", string(content)); err != nil {
-			return err
-		}
-		cfg.Project.InstructionsFile = "xcf/instructions/root.xcf"
-		return nil
-	}
-	// AGENTS.md nested mode: delegate to cursor-style extraction.
-	return extractProjectInstructions(projectDir, "cursor", cfg)
-}
 
 // lenientUnmarshal attempts to unmarshal YAML, and if it fails, applies a sanitizer
 // to auto-quote string values that contain colons (which otherwise break yaml mappings)
@@ -1225,10 +992,10 @@ func injectPrimitive(p *translator.TargetPrimitive, config *ast.XcaffoldConfig, 
 		if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
 			return fmt.Errorf("failed to write %s: %w", destPath, err)
 		}
-		relPath := filepath.Join("skills", p.ID, "SKILL.md")
+
 		config.Skills[p.ID] = ast.SkillConfig{
-			Description:      fmt.Sprintf("Translated from workflow %s", p.ID),
-			InstructionsFile: relPath,
+			Description: fmt.Sprintf("Translated from workflow %s", p.ID),
+			Body:        p.Body,
 		}
 		fmt.Printf("  wrote %s\n", destPath)
 
@@ -1240,10 +1007,10 @@ func injectPrimitive(p *translator.TargetPrimitive, config *ast.XcaffoldConfig, 
 		if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
 			return fmt.Errorf("failed to write %s: %w", destPath, err)
 		}
-		relPath := filepath.Join("rules", p.ID+".md")
+
 		config.Rules[p.ID] = ast.RuleConfig{
-			Description:      fmt.Sprintf("Constraints from workflow %s", p.ID),
-			InstructionsFile: relPath,
+			Description: fmt.Sprintf("Constraints from workflow %s", p.ID),
+			Body:        p.Body,
 		}
 		fmt.Printf("  wrote %s\n", destPath)
 
@@ -1305,45 +1072,6 @@ func printTranslatePlan(results []translator.TranslationResult, baseDir string) 
 // resolveSourceFiles returns the list of .md files to process.
 // If path is a directory, it returns all .md files directly within it (non-recursive).
 // If path is a file, it returns a single-element slice containing that file.
-func resolveSourceFiles(source string) ([]string, error) {
-	abs, err := filepath.Abs(source)
-	if err != nil {
-		return nil, fmt.Errorf("could not resolve path: %w", err)
-	}
-
-	info, err := os.Stat(abs)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("path does not exist: %s", abs)
-		}
-		return nil, err
-	}
-
-	if !info.IsDir() {
-		if !strings.HasSuffix(strings.ToLower(abs), ".md") {
-			return nil, fmt.Errorf("source file must be a .md file, got: %s", filepath.Base(abs))
-		}
-		return []string{abs}, nil
-	}
-
-	// Walk the directory recursively so that nested subdirectories
-	// (e.g. .claude/rules/cli/, .agents/rules/platform/) are included.
-	var files []string
-	if walkErr := filepath.WalkDir(abs, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(strings.ToLower(d.Name()), ".md") {
-			files = append(files, path)
-		}
-		return nil
-	}); walkErr != nil {
-		return nil, fmt.Errorf("could not walk directory: %w", walkErr)
-	}
-	sort.Strings(files)
-
-	return files, nil
-}
 
 // formatIntents returns a human-readable summary of detected intent types.
 func formatIntents(intents []bir.FunctionalIntent) string {
@@ -1470,8 +1198,8 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		// Merge agents — richer instructions win on conflict
 		for id, ac := range tmpConfig.Agents {
 			if _, exists := config.Agents[id]; exists {
-				newSize := int64(len(ac.Instructions))
-				oldSize := int64(len(config.Agents[id].Instructions))
+				newSize := int64(len(ac.Body))
+				oldSize := int64(len(config.Agents[id].Body))
 				if newSize > oldSize {
 					config.Agents[id] = ac
 					fmt.Printf("    ⚠ Duplicate agent '%s' — keeping %s version (larger)\n", id, dir)
@@ -1489,8 +1217,8 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		// Merge skills
 		for id, sc := range tmpConfig.Skills {
 			if _, exists := config.Skills[id]; exists {
-				newSize := int64(len(sc.Instructions))
-				oldSize := int64(len(config.Skills[id].Instructions))
+				newSize := int64(len(sc.Body))
+				oldSize := int64(len(config.Skills[id].Body))
 				if newSize > oldSize {
 					config.Skills[id] = sc
 					fmt.Printf("    ⚠ Duplicate skill '%s' — keeping %s version (larger)\n", id, dir)
@@ -1508,8 +1236,8 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		// Merge rules
 		for id, rc := range tmpConfig.Rules {
 			if _, exists := config.Rules[id]; exists {
-				newSize := int64(len(rc.Instructions))
-				oldSize := int64(len(config.Rules[id].Instructions))
+				newSize := int64(len(rc.Body))
+				oldSize := int64(len(config.Rules[id].Body))
 				if newSize > oldSize {
 					config.Rules[id] = rc
 					fmt.Printf("    ⚠ Duplicate rule '%s' — keeping %s version (larger)\n", id, dir)
@@ -1527,8 +1255,8 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		// Merge workflows
 		for id, wc := range tmpConfig.Workflows {
 			if _, exists := config.Workflows[id]; exists {
-				newSize := int64(len(wc.Instructions))
-				oldSize := int64(len(config.Workflows[id].Instructions))
+				newSize := int64(len(wc.Body))
+				oldSize := int64(len(config.Workflows[id].Body))
 				if newSize > oldSize {
 					config.Workflows[id] = wc
 					fmt.Printf("    ⚠ Duplicate workflow '%s' — keeping %s version (larger)\n", id, dir)
@@ -1616,24 +1344,8 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		return fmt.Errorf("prune memory: %w", err)
 	}
 
-	// Project instructions discovery — run for each unique provider
-	seen := make(map[string]bool)
-	for _, pdi := range providerDirs {
-		if seen[pdi.platform] {
-			continue
-		}
-		seen[pdi.platform] = true
-		if instrFile := providerInstructionsFilename(pdi.platform); instrFile != "" {
-			dirAbs, _ := filepath.Abs(pdi.dirName)
-			projectDir := filepath.Dir(dirAbs)
-			if anyInstructionFileExists(projectDir, instrFile) {
-				actualPath := filepath.Join(projectDir, ".xcaffold", "project.xcf")
-				if discoverErr := runProjectInstructionsDiscovery(projectDir, pdi.platform, actualPath); discoverErr != nil {
-					warnings = append(warnings, fmt.Sprintf("project instructions (%s): %v", pdi.platform, discoverErr))
-				}
-			}
-		}
-	}
+	// Root context file discovery
+	discoverRootContextFiles(".", config)
 
 	fmt.Printf("\n[project] ✓ Merge complete. Created %s with %d resources from %d directories.\n",
 		xcfDest, importCount, len(providerDirs))
@@ -1793,152 +1505,10 @@ func printMemorySnapshotSummary(cmd *cobra.Command, s *bir.ImportSummary, planOn
 // Scopes present only in the secondary provider's tree are intentionally not
 // added to the primary config; this function reconciles overlapping paths only.
 // New scopes from a secondary provider should be added via a separate import pass.
-func detectAndMergeVariants(projectDir, provider string, cfg *ast.XcaffoldConfig, autoMergeUnion bool) error {
-	// Build a secondary config from the second provider.
-	// extractProjectInstructions writes sidecars under xcf/instructions/scopes/
-	// using the slug derived from the scope path — provider-agnostic. To avoid
-	// overwriting the first provider's sidecars, snapshot the existing sidecar
-	// content before the secondary extraction runs.
-	exContentByPath := map[string][]byte{}
-	for i := range cfg.Project.InstructionsScopes {
-		sc := &cfg.Project.InstructionsScopes[i]
-		if sc.InstructionsFile != "" {
-			data, err := os.ReadFile(filepath.Join(projectDir, sc.InstructionsFile))
-			if err != nil {
-				return fmt.Errorf("read existing sidecar %q: %w", sc.InstructionsFile, err)
-			}
-			exContentByPath[sc.Path] = data
-		}
-	}
-
-	secondary := &ast.XcaffoldConfig{}
-	if err := extractProjectInstructions(projectDir, provider, secondary); err != nil {
-		return err
-	}
-
-	// Index existing scopes by path.
-	existing := map[string]*ast.InstructionsScope{}
-	for i := range cfg.Project.InstructionsScopes {
-		existing[cfg.Project.InstructionsScopes[i].Path] = &cfg.Project.InstructionsScopes[i]
-	}
-
-	// Compare.
-	for _, newScope := range secondary.Project.InstructionsScopes {
-		ex, ok := existing[newScope.Path]
-		if !ok {
-			continue
-		}
-		// Use snapshotted existing content and the freshly written new sidecar.
-		exContent := exContentByPath[ex.Path]
-		newContent, err := os.ReadFile(filepath.Join(projectDir, newScope.InstructionsFile))
-		if err != nil {
-			return fmt.Errorf("read new sidecar %q: %w", newScope.InstructionsFile, err)
-		}
-		if bytes.Equal(exContent, newContent) {
-			// Identical — collapse. Keep existing entry unchanged.
-			continue
-		}
-		// Divergent — write provider-specific sidecars and record variants.
-		exSlug := pathToSlug(ex.Path)
-		exVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + ex.SourceProvider + ".xcf"
-		newVariantSidecar := "xcf/instructions/scopes/" + exSlug + "-" + newScope.SourceProvider + ".xcf"
-		if err := writeInstructionsXCF(filepath.Join(projectDir, exVariantSidecar), exSlug+"-"+ex.SourceProvider, string(exContent)); err != nil {
-			return err
-		}
-		if err := writeInstructionsXCF(filepath.Join(projectDir, newVariantSidecar), exSlug+"-"+newScope.SourceProvider, string(newContent)); err != nil {
-			return err
-		}
-		if ex.Variants == nil {
-			ex.Variants = map[string]ast.InstructionsVariant{}
-		}
-		ex.Variants[ex.SourceProvider] = ast.InstructionsVariant{
-			InstructionsFile: exVariantSidecar,
-			SourceFilename:   ex.SourceFilename,
-		}
-		ex.Variants[newScope.SourceProvider] = ast.InstructionsVariant{
-			InstructionsFile: newVariantSidecar,
-			SourceFilename:   newScope.SourceFilename,
-		}
-		ex.Reconciliation = &ast.ReconciliationConfig{
-			Strategy:       "per-target",
-			LastReconciled: time.Now().UTC().Format(time.RFC3339),
-			Notes:          fmt.Sprintf("%s variant has %d bytes; %s variant has %d bytes", ex.SourceProvider, len(exContent), newScope.SourceProvider, len(newContent)),
-		}
-		if autoMergeUnion {
-			// Union merge: concatenate existing and new content, reuse existing sidecar.
-			merged := string(exContent) + "\n" + string(newContent)
-			if err := writeSidecar(filepath.Join(projectDir, ex.InstructionsFile), []byte(merged)); err != nil {
-				return err
-			}
-			ex.Variants = nil
-			ex.Reconciliation.Strategy = "union"
-		}
-	}
-	return nil
-}
 
 // parseProvenanceMarkers splits a flat-singleton file into root content and
 // individual scope entries using xcaffold:scope HTML comments.
 // Returns (scopes, rootContent, error).
-func parseProvenanceMarkers(content string) ([]ast.InstructionsScope, string, error) {
-	const openPrefix = "<!-- xcaffold:scope "
-	const closeMarker = "<!-- xcaffold:/scope -->"
-
-	var scopes []ast.InstructionsScope
-	var rootBuilder strings.Builder
-	lines := strings.Split(content, "\n")
-	inScope := false
-	var currentScope ast.InstructionsScope
-	var scopeContentBuilder strings.Builder
-
-	for _, line := range lines {
-		if strings.HasPrefix(line, openPrefix) {
-			// Parse attributes.
-			attrs := parseHTMLCommentAttrs(line)
-			path, hasPath := attrs["path"]
-			if !hasPath || path == "" {
-				// Malformed — treat as regular content.
-				if !inScope {
-					rootBuilder.WriteString(line)
-					rootBuilder.WriteByte('\n')
-				}
-				continue
-			}
-			inScope = true
-			currentScope = ast.InstructionsScope{
-				Path:          path,
-				MergeStrategy: attrs["merge"],
-			}
-			if origin := attrs["origin"]; origin != "" {
-				parts := strings.SplitN(origin, ":", 2)
-				if len(parts) == 2 {
-					currentScope.SourceProvider = parts[0]
-					currentScope.SourceFilename = parts[1]
-				}
-			}
-			scopeContentBuilder.Reset()
-			continue
-		}
-		if inScope && strings.Contains(strings.TrimSpace(line), "xcaffold:/scope") {
-			currentScope.Instructions = strings.TrimRight(scopeContentBuilder.String(), "\n")
-			scopes = append(scopes, currentScope)
-			inScope = false
-			continue
-		}
-		if inScope {
-			scopeContentBuilder.WriteString(line)
-			scopeContentBuilder.WriteByte('\n')
-		} else {
-			rootBuilder.WriteString(line)
-			rootBuilder.WriteByte('\n')
-		}
-	}
-	rootContent := strings.TrimRight(rootBuilder.String(), "\n")
-	if rootContent != "" {
-		rootContent += "\n"
-	}
-	return scopes, rootContent, nil
-}
 
 // parseHTMLCommentAttrs extracts key="value" pairs from an HTML comment line.
 func parseHTMLCommentAttrs(line string) map[string]string {
@@ -2109,4 +1679,48 @@ func runProviderPostImport(provider, _ /* platformDir */ string, projectDir stri
 			"Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem")
 	}
 	return nil
+}
+
+// discoverRootContextFiles scans the project root for known root context files
+// and populates config.Contexts.
+func discoverRootContextFiles(projectDir string, config *ast.XcaffoldConfig) {
+	if config.Contexts == nil {
+		config.Contexts = make(map[string]ast.ContextConfig)
+	}
+
+	files := []struct {
+		path   string
+		name   string
+		target string
+	}{
+		{"CLAUDE.md", "main", "claude"},
+		{"GEMINI.md", "gemini", "gemini"},
+		{".github/copilot-instructions.md", "copilot", "copilot"},
+	}
+
+	for _, f := range files {
+		fullPath := filepath.Join(projectDir, filepath.FromSlash(f.path))
+		if data, err := os.ReadFile(fullPath); err == nil {
+			config.Contexts[f.name] = ast.ContextConfig{
+				Name:    f.name,
+				Targets: []string{f.target},
+				Body:    string(data),
+			}
+		}
+	}
+
+	// Handle AGENTS.md which is shared by Cursor and Antigravity
+	if data, err := os.ReadFile(filepath.Join(projectDir, "AGENTS.md")); err == nil {
+		name := "antigravity"
+		target := "antigravity"
+		if _, err := os.Stat(filepath.Join(projectDir, ".cursor")); err == nil {
+			name = "cursor"
+			target = "cursor"
+		}
+		config.Contexts[name] = ast.ContextConfig{
+			Name:    name,
+			Targets: []string{target},
+			Body:    string(data),
+		}
+	}
 }

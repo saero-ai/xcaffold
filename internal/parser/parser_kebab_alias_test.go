@@ -266,7 +266,7 @@ agents:
   dev:
     max-turns: 3
     disallowed-tools: [Bash]
-    instructions-file: "dev.md"
+
 `)
 	out := rewriteLegacyKeys(in)
 	require.True(t, bytes.Equal(in, out), "kebab-case input must be unchanged by the rewriter")

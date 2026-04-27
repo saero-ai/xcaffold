@@ -53,8 +53,8 @@ func LowerWorkflows(config *ast.XcaffoldConfig, target string) (*ast.XcaffoldCon
 					body = p.Body
 				}
 				mergedRules[p.ID] = ast.RuleConfig{
-					Description:  wf.Description,
-					Instructions: body,
+					Description: wf.Description,
+					Body:        body,
 				}
 			case "skill":
 				body := p.Content
@@ -62,8 +62,8 @@ func LowerWorkflows(config *ast.XcaffoldConfig, target string) (*ast.XcaffoldCon
 					body = p.Body
 				}
 				mergedSkills[p.ID] = ast.SkillConfig{
-					Name:         p.ID,
-					Instructions: body,
+					Name: p.ID,
+					Body: body,
 				}
 			}
 		}

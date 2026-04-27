@@ -95,7 +95,7 @@ func TestCopilotExtract_Agent(t *testing.T) {
 	assert.Equal(t, "Code Auditor", agent.Name)
 	assert.Equal(t, "Reviews code", agent.Description)
 	assert.Equal(t, "gpt-4o", agent.Model)
-	assert.Contains(t, agent.Instructions, "You are an auditor.")
+	assert.Contains(t, agent.Body, "You are an auditor.")
 	assert.Equal(t, "copilot", agent.SourceProvider)
 }
 
@@ -135,7 +135,7 @@ func TestCopilotExtract_Rule_DoubleExtensionStripped(t *testing.T) {
 	rule, ok := config.Rules["security"]
 	require.True(t, ok, "expected rule id 'security' (double extension stripped)")
 	assert.Equal(t, "Security guidelines", rule.Description)
-	assert.Contains(t, rule.Instructions, "Never hardcode secrets.")
+	assert.Contains(t, rule.Body, "Never hardcode secrets.")
 	assert.Equal(t, "copilot", rule.SourceProvider)
 }
 
@@ -177,7 +177,7 @@ func TestCopilotImporter_FullWorkspace(t *testing.T) {
 	require.True(t, ok, "expected agent 'auditor'")
 	assert.Equal(t, "Code Auditor", auditor.Name)
 	assert.Equal(t, "copilot", auditor.SourceProvider)
-	assert.NotEmpty(t, auditor.Instructions)
+	assert.NotEmpty(t, auditor.Body)
 
 	// Skill (flat file — id is filename without .md)
 	review, ok := config.Skills["review"]

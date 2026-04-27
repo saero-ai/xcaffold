@@ -1,0 +1,16 @@
+---
+kind: context
+version: "1.0"
+name: golden-context
+description: "Reference context exercising every ContextConfig field."
+
+# Group 1: Targeting — omit to compile for all providers
+targets: [claude, gemini, antigravity, cursor, copilot]
+---
+# Golden Context
+
+This body text is compiled verbatim into the provider's root instruction file
+(e.g. CLAUDE.md for Claude, GEMINI.md for Gemini, AGENTS.md for Antigravity).
+
+Use `kind: context` to supply workspace-level ambient instructions shared
+across all agents — project conventions, coding standards, tool policies, etc.

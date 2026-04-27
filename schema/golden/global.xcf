@@ -76,40 +76,12 @@ hooks:
           timeout: 10
 
 # Inline agent definitions
-agents:
-  global-ref-agent:
-    name: global-ref-agent
-    description: "A minimal agent defined at global scope."
-    model: claude-haiku-4-5
-    tools: [Read, Glob]
-    permission-mode: default
 
 # Inline skill definitions
-skills:
-  global-ref-skill:
-    name: global-ref-skill
-    description: "A minimal skill defined at global scope."
-    allowed-tools: [Read]
-    instructions: "Use this skill to demonstrate global-scope skill definition."
 
 # Inline rule definitions
-rules:
-  global-ref-rule:
-    name: global-ref-rule
-    description: "A minimal rule defined at global scope."
-    activation: always
-    instructions: "Apply this rule everywhere."
 
 # Inline workflow definitions
-workflows:
-  global-ref-workflow:
-    name: global-ref-workflow
-    description: "A minimal workflow defined at global scope."
-    api-version: workflow/v1
-    steps:
-      - name: step-one
-        description: "First step."
-        instructions: "Do the first thing."
 
 # Inline MCP server definitions
 mcp:

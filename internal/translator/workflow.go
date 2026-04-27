@@ -135,7 +135,7 @@ func lowerRulePlusSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 
 	// One skill per step.
 	for i, step := range wf.Steps {
-		body := step.Instructions
+		body := step.Body
 		if body == "" {
 			body = step.Description
 		}
@@ -165,8 +165,8 @@ func lowerAntigravityNative(wf *ast.WorkflowConfig, name, target string) ([]Targ
 	var body strings.Builder
 	for _, step := range wf.Steps {
 		fmt.Fprintf(&body, "## %s\n\n", step.Name)
-		if step.Instructions != "" {
-			body.WriteString(step.Instructions)
+		if step.Body != "" {
+			body.WriteString(step.Body)
 			body.WriteString("\n\n")
 		}
 	}
@@ -206,8 +206,8 @@ func lowerPromptFile(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimi
 
 	// Step bodies concatenated.
 	for _, step := range wf.Steps {
-		if step.Instructions != "" {
-			content.WriteString(step.Instructions)
+		if step.Body != "" {
+			content.WriteString(step.Body)
 			content.WriteString("\n\n")
 		}
 	}
@@ -238,8 +238,8 @@ func lowerCustomCommand(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 
 	var content strings.Builder
 	for _, step := range wf.Steps {
-		if step.Instructions != "" {
-			content.WriteString(step.Instructions)
+		if step.Body != "" {
+			content.WriteString(step.Body)
 			content.WriteString("\n\n")
 		}
 	}

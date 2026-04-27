@@ -38,9 +38,9 @@ func TestClaudeRenderer_Compile_MinimalAgent(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"reviewer": {
-					Description:  "Code review specialist.",
-					Instructions: "Review code for correctness and style.\n",
-					Model:        "claude-opus-4-5",
+					Description: "Code review specialist.",
+					Body:        "Review code for correctness and style.\n",
+					Model:       "claude-opus-4-5",
 				},
 			},
 		},
@@ -67,8 +67,8 @@ func TestClaudeRenderer_Compile_MinimalRule(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"security": {
-					Description:  "Security hardening rules.",
-					Instructions: "Never expose secrets in logs.\n",
+					Description: "Security hardening rules.",
+					Body:        "Never expose secrets in logs.\n",
 				},
 			},
 		},
@@ -117,9 +117,9 @@ func TestClaudeRenderer_Compile_RuleWithPaths(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"go-style": {
-					Description:  "Go coding conventions.",
-					Instructions: "Follow effective Go.\n",
-					Paths:        []string{"**/*.go"},
+					Description: "Go coding conventions.",
+					Body:        "Follow effective Go.\n",
+					Paths:       []string{"**/*.go"},
 				},
 			},
 		},
@@ -161,9 +161,9 @@ func TestClaudeRenderer_Compile_SkillMinimal(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {
-					Name:         "tdd-driven-development",
-					Description:  "Test-driven development workflow.",
-					Instructions: "Write tests before implementation.\n",
+					Name:        "tdd-driven-development",
+					Description: "Test-driven development workflow.",
+					Body:        "Write tests before implementation.\n",
 				},
 			},
 		},
@@ -189,10 +189,10 @@ func TestClaudeRenderer_Compile_Agent_Readonly_EmitsToolsReadGrepGlob(t *testing
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"auditor": {
-					Name:         "Auditor",
-					Description:  "Read-only code auditor.",
-					Instructions: "Audit the code.",
-					Readonly:     &ro,
+					Name:        "Auditor",
+					Description: "Read-only code auditor.",
+					Body:        "Audit the code.",
+					Readonly:    &ro,
 				},
 			},
 		},
@@ -215,10 +215,10 @@ func TestClaudeRenderer_Compile_Agent_Readonly_ExplicitToolsTakePrecedence(t *te
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"custom": {
-					Name:         "Custom",
-					Instructions: "Custom tools.",
-					Readonly:     &ro,
-					Tools:        []string{"Bash", "Read"},
+					Name:     "Custom",
+					Body:     "Custom tools.",
+					Readonly: &ro,
+					Tools:    []string{"Bash", "Read"},
 				},
 			},
 		},
@@ -240,9 +240,9 @@ func TestClaudeRenderer_Compile_Agent_ReadonlyFalse_NoToolsSynthesized(t *testin
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"writer": {
-					Name:         "Writer",
-					Instructions: "Write code.",
-					Readonly:     &ro,
+					Name:     "Writer",
+					Body:     "Write code.",
+					Readonly: &ro,
 				},
 			},
 		},
@@ -334,7 +334,7 @@ func TestClaudeRenderer_Compile_Skill_NewFrontmatterFields(t *testing.T) {
 					DisableModelInvocation: &truthy,
 					UserInvocable:          &falsy,
 					ArgumentHint:           "[env]",
-					Instructions:           "Run the deploy script.",
+					Body:                   "Run the deploy script.",
 				},
 			},
 		},
@@ -376,7 +376,7 @@ func TestClaudeRenderer_Compile_Skill_ClaudeProviderPassthrough(t *testing.T) {
 							},
 						},
 					},
-					Instructions: "Research deeply.",
+					Body: "Research deeply.",
 				},
 			},
 		},
@@ -412,7 +412,7 @@ func TestClaudeRenderer_Compile_Skill_ProviderIsolation(t *testing.T) {
 							},
 						},
 					},
-					Instructions: "body",
+					Body: "body",
 				},
 			},
 		},
@@ -440,7 +440,7 @@ func TestClaudeRenderer_Compile_Skill_ProviderInjectionSafety(t *testing.T) {
 							},
 						},
 					},
-					Instructions: "body",
+					Body: "body",
 				},
 			},
 		},
@@ -463,10 +463,10 @@ func TestCompileRuleMarkdown_Activation_PathGlob(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
-					Description:  "API style guide.",
-					Activation:   ast.RuleActivationPathGlob,
-					Paths:        []string{"src/**"},
-					Instructions: "Use REST conventions.",
+					Description: "API style guide.",
+					Activation:  ast.RuleActivationPathGlob,
+					Paths:       []string{"src/**"},
+					Body:        "Use REST conventions.",
 				},
 			},
 		},
@@ -485,9 +485,9 @@ func TestCompileRuleMarkdown_Activation_Always(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"security": {
-					Description:  "Security checklist.",
-					Activation:   ast.RuleActivationAlways,
-					Instructions: "Follow OWASP.",
+					Description: "Security checklist.",
+					Activation:  ast.RuleActivationAlways,
+					Body:        "Follow OWASP.",
 				},
 			},
 		},
@@ -505,9 +505,9 @@ func TestCompileRuleMarkdown_Activation_ManualMention_FidelityNote(t *testing.T)
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"commit-style": {
-					Description:  "Commit formatting.",
-					Activation:   ast.RuleActivationManualMention,
-					Instructions: "Use Conventional Commits.",
+					Description: "Commit formatting.",
+					Activation:  ast.RuleActivationManualMention,
+					Body:        "Use Conventional Commits.",
 				},
 			},
 		},
@@ -533,9 +533,9 @@ func TestCompile_SkillWithExamples_Claude(t *testing.T) {
 
 	skills := map[string]ast.SkillConfig{
 		"my-skill": {
-			Description:  "test skill",
-			Instructions: "Do the thing.",
-			Examples:     []string{"examples/sample.md"},
+			Description: "test skill",
+			Body:        "Do the thing.",
+			Examples:    []string{"examples/sample.md"},
 		},
 	}
 
@@ -564,7 +564,7 @@ func TestCompileRuleMarkdown_ExcludeAgents_FidelityNote(t *testing.T) {
 					Description:   "PR review standards.",
 					Activation:    ast.RuleActivationAlways,
 					ExcludeAgents: []string{"code-review"},
-					Instructions:  "Review carefully.",
+					Body:          "Review carefully.",
 				},
 			},
 		},

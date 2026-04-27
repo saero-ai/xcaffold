@@ -47,10 +47,21 @@ agents:
   dev:
     description: Developer
     model: claude-sonnet-4-5
-    instructions-file: missing-instructions.md
+    references:
+      - missing-instructions.md
 `
 	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+
+	agentDir := filepath.Join(dir, ".xcaffold", "agents")
+	os.MkdirAll(agentDir, 0755)
+	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+---
+You are a developer.
+`), 0644)
 
 	xcfPath = xcf
 	projectRoot = dir
@@ -71,13 +82,28 @@ func TestApply_Claude_CLAUDE_MD_WrittenAtProjectRoot(t *testing.T) {
 		t.Fatal(err)
 	}
 	projectXcf := filepath.Join(xcaffoldDir, "project.xcf")
-	content := `kind: project
+	content := `---
+kind: project
 version: "1.0"
 name: test
-instructions: |
-  Use pnpm. PostgreSQL 16.
 `
 	if err := os.WriteFile(projectXcf, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	contextDir := filepath.Join(dir, "xcf", "context")
+	if err := os.MkdirAll(contextDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	contextXcf := filepath.Join(contextDir, "main.xcf")
+	contextContent := `---
+kind: context
+version: "1.0"
+name: main
+---
+Use pnpm. PostgreSQL 16.
+`
+	if err := os.WriteFile(contextXcf, []byte(contextContent), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -109,7 +135,8 @@ instructions: |
 }
 
 // minimalXCF is a minimal valid project.xcf for apply tests.
-const minimalXCF = `kind: project
+const minimalXCF = `---
+kind: project
 version: "1.0"
 name: apply-test
 `
@@ -302,21 +329,23 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 func TestApplyScope_PurgesOrphanedFiles(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create initial config with an agent — split into two single-doc files.
+	// Create initial config with an agent
 	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`---
+kind: project
 version: "1.0"
 name: orphan-test
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
+
+	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
+	os.MkdirAll(agentDir, 0755)
+	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
+kind: agent
 version: "1.0"
-agents:
-  dev:
-    description: Developer
-    model: sonnet-4
-    instructions: |
-      You are a developer.
-`), 0600))
+name: dev
+---
+You are a developer.
+`), 0644)
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
@@ -330,13 +359,9 @@ agents:
 	_, err = os.Stat(agentFile)
 	require.NoError(t, err, "agent file should exist after first apply")
 
-	// Remove the agent from config: update project.xcf and remove global.xcf so
+	// Remove the agent from config by removing its file so
 	// the second apply finds no agents and must purge the orphaned agent file.
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
-version: "1.0"
-name: orphan-test
-`), 0600))
-	require.NoError(t, os.Remove(filepath.Join(dir, "global.xcf")))
+	require.NoError(t, os.RemoveAll(agentDir))
 
 	// Second apply — should purge the orphaned agent file
 	err = applyScope(xcf, claudeDirPath, dir, "project")
@@ -354,43 +379,41 @@ name: orphan-test
 func TestRunApply_MultiTarget(t *testing.T) {
 	dir := t.TempDir()
 
-	// kind: project document with two targets and an agent so both renderers
-	// produce output files (empty compile → no output dir created).
 	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`---
+kind: project
 version: "1.0"
 name: multi-target-test
 targets:
   - claude
   - cursor
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcf"), []byte(`kind: agent
+	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
+	os.MkdirAll(agentDir, 0755)
+	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
+kind: agent
 version: "1.0"
 name: dev
-description: "Developer agent."
-instructions: |
-  You are a developer.
-model: "claude-sonnet-4-5"
-`), 0600))
+---
+You are a developer.
+`), 0600)
 
 	xcfPath = xcf
 	projectRoot = dir
 	globalFlag = false
 	applyForce = true
-	targetFlag = targetClaude // default value — not Changed
+	targetFlag = targetClaude
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	err := runApply(applyCmd, nil)
 	require.NoError(t, err)
 
-	// Both target output directories must exist after compilation with content.
-	_, err = os.Stat(filepath.Join(dir, ".claude"))
-	assert.NoError(t, err, ".claude/ should be created for claude target")
+	_, err = os.Stat(filepath.Join(dir, ".claude", "agents", "dev.md"))
+	assert.NoError(t, err, ".claude/agents/dev.md should be created for claude target")
 
-	_, err = os.Stat(filepath.Join(dir, ".cursor"))
-	assert.NoError(t, err, ".cursor/ should be created for cursor target")
+	_, err = os.Stat(filepath.Join(dir, ".cursor", "agents", "dev.md"))
+	assert.NoError(t, err, ".cursor/agents/dev.md should be created for cursor target")
 
-	// State file must exist (both targets are recorded in the single state file)
 	stateFile := state.StateFilePath(dir, "")
 	_, err = os.Stat(stateFile)
 	assert.NoError(t, err, "state file should exist")
@@ -419,6 +442,16 @@ targets:
 `
 	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
+
+	agentDir := filepath.Join(dir, ".xcaffold", "agents")
+	os.MkdirAll(agentDir, 0755)
+	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+---
+You are a developer.
+`), 0644)
 
 	xcfPath = xcf
 	projectRoot = dir
@@ -455,6 +488,16 @@ name: no-targets-test
 	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
 
+	agentDir := filepath.Join(dir, ".xcaffold", "agents")
+	os.MkdirAll(agentDir, 0755)
+	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+---
+You are a developer.
+`), 0644)
+
 	xcfPath = xcf
 	projectRoot = dir
 	globalFlag = false
@@ -477,19 +520,20 @@ func TestApplyScope_DryRun_ListsOrphans(t *testing.T) {
 	dir := t.TempDir()
 
 	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`---
+kind: project
 version: "1.0"
 name: orphan-test
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
+	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
+	os.MkdirAll(agentDir, 0755)
+	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
+kind: agent
 version: "1.0"
-agents:
-  dev:
-    description: Developer
-    model: sonnet-4
-    instructions: |
-      You are a developer.
-`), 0600))
+name: dev
+---
+You are a developer.
+`), 0600)
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
@@ -503,13 +547,8 @@ agents:
 	_, err = os.Stat(agentFile)
 	require.NoError(t, err)
 
-	// Remove agent from config
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
-version: "1.0"
-name: orphan-test
-`), 0600))
+	require.NoError(t, os.RemoveAll(agentDir))
 
-	// Dry run — should NOT delete the file
 	applyDryRun = true
 	err = applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
@@ -581,7 +620,8 @@ func TestApplyScope_OrchestratorMemory_Claude(t *testing.T) {
 	dir := t.TempDir()
 
 	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`---
+kind: project
 version: "1.0"
 name: memory-render-test
 `), 0600))
@@ -589,10 +629,12 @@ name: memory-render-test
 	// Memory entry under xcf/agents/default/memory/ — AgentRef will be "default".
 	memDir := filepath.Join(dir, "xcf", "agents", "default", "memory")
 	require.NoError(t, os.MkdirAll(memDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(memDir, "user-role.xcf"), []byte(`kind: memory
+	require.NoError(t, os.WriteFile(filepath.Join(memDir, "user-role.xcf"), []byte(`---
+kind: memory
 version: "1.0"
 name: user-role
-instructions: "Robert is the founder."
+---
+Robert is the founder.
 `), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
@@ -623,7 +665,8 @@ func TestApplyScope_OrchestratorMemory_AgentRef(t *testing.T) {
 	dir := t.TempDir()
 
 	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`---
+kind: project
 version: "1.0"
 name: memory-agentref-test
 `), 0600))
@@ -632,10 +675,12 @@ name: memory-agentref-test
 	// sets AgentRef = "go-cli-developer" from the segment before "memory".
 	agentMemDir := filepath.Join(dir, "xcf", "agents", "go-cli-developer", "memory")
 	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "arch-decisions.xcf"), []byte(`kind: memory
+	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "arch-decisions.xcf"), []byte(`---
+kind: memory
 version: "1.0"
 name: arch-decisions
-instructions: "Use cobra for all commands."
+---
+Use cobra for all commands.
 `), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")

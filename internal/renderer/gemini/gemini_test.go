@@ -1,8 +1,6 @@
 package gemini
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -40,9 +38,9 @@ func TestCompile_Gemini_Rules_AlwaysActivation(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"go-style": {
-					Description:  "Go style guide",
-					Instructions: "Use gofmt.",
-					Activation:   ast.RuleActivationAlways,
+					Description: "Go style guide",
+					Body:        "Use gofmt.",
+					Activation:  ast.RuleActivationAlways,
 				},
 			},
 		},
@@ -69,8 +67,8 @@ func TestCompile_Gemini_Rule_DescriptionAsProse(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"prose-rule": {
-					Description:  "This is a prose description.",
-					Instructions: "Rule content here.",
+					Description: "This is a prose description.",
+					Body:        "Rule content here.",
 				},
 			},
 		},
@@ -91,10 +89,10 @@ func TestCompile_Gemini_Rules_PathGlob(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
-					Description:  "API style guide",
-					Instructions: "Follow REST conventions.",
-					Activation:   ast.RuleActivationPathGlob,
-					Paths:        []string{"api/**"},
+					Description: "API style guide",
+					Body:        "Follow REST conventions.",
+					Activation:  ast.RuleActivationPathGlob,
+					Paths:       []string{"api/**"},
 				},
 			},
 		},
@@ -118,9 +116,9 @@ func TestCompile_Gemini_Rules_UnsupportedActivation(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"secret-rule": {
-					Description:  "Manual rule",
-					Instructions: "Only on demand.",
-					Activation:   ast.RuleActivationManualMention,
+					Description: "Manual rule",
+					Body:        "Only on demand.",
+					Activation:  ast.RuleActivationManualMention,
 				},
 			},
 		},
@@ -145,7 +143,7 @@ func TestCompile_Gemini_Rules_NoProjectInstructions(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"lint": {
-					Instructions: "Run golangci-lint.",
+					Body: "Run golangci-lint.",
 				},
 			},
 		},
@@ -159,62 +157,14 @@ func TestCompile_Gemini_Rules_NoProjectInstructions(t *testing.T) {
 	assert.Contains(t, geminiContent, "Always apply @.gemini/rules/lint.md")
 }
 
-func TestCompile_Gemini_FullConfig_InstructionsAndRules(t *testing.T) {
-	tmpDir := t.TempDir()
-	err := os.WriteFile(filepath.Join(tmpDir, "style.md"), []byte("Style guide content."), 0o644)
-	require.NoError(t, err)
-
-	r := New()
-	config := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{
-			Name:                "integration-test",
-			Instructions:        "Root project instructions.",
-			InstructionsImports: []string{"./docs/contributing.md"},
-			InstructionsScopes: []ast.InstructionsScope{
-				{
-					Path:         "packages/api",
-					Instructions: "API scope instructions.",
-				},
-			},
-		},
-		ResourceScope: ast.ResourceScope{
-			Rules: map[string]ast.RuleConfig{
-				"code-style": {
-					Description:      "Code style.",
-					InstructionsFile: "style.md",
-				},
-				"testing": {
-					Description:  "Testing rules.",
-					Instructions: "Always write tests.",
-				},
-			},
-		},
-	}
-	out, notes, err := renderer.Orchestrate(r, config, tmpDir)
-	require.NoError(t, err)
-	assert.Empty(t, notes, "no fidelity notes expected for supported activations")
-
-	root := out.RootFiles["GEMINI.md"]
-	assert.Contains(t, root, "Root project instructions.")
-	assert.Contains(t, root, "@./docs/contributing.md")
-	assert.Contains(t, root, "Always apply @.gemini/rules/code-style.md")
-	assert.Contains(t, root, "Always apply @.gemini/rules/testing.md")
-
-	assert.Contains(t, out.RootFiles, "packages/api/GEMINI.md")
-	assert.Contains(t, out.RootFiles["packages/api/GEMINI.md"], "API scope instructions.")
-
-	assert.Contains(t, out.Files["rules/code-style.md"], "Style guide content.")
-	assert.Contains(t, out.Files["rules/testing.md"], "Always write tests.")
-}
-
 func TestCompile_Gemini_PathTraversal(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"../evil": {
-					Description:  "Malicious rule.",
-					Instructions: "Bad content.",
+					Description: "Malicious rule.",
+					Body:        "Bad content.",
 				},
 			},
 		},
@@ -239,19 +189,19 @@ func intPtr(i int) *int { return &i }
 func TestCompile_Gemini_OutputPathsRelativeToOutputDir(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{
-			Name:         "path-test",
-			Instructions: "Root instructions.",
-		},
+		Project: &ast.ProjectConfig{Name: "path-test"},
 		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"root": {Body: "Root instructions."},
+			},
 			Rules: map[string]ast.RuleConfig{
-				"style": {Description: "Style.", Instructions: "Use gofmt."},
+				"style": {Description: "Style.", Body: "Use gofmt."},
 			},
 			Skills: map[string]ast.SkillConfig{
-				"tdd": {Name: "tdd", Description: "TDD workflow.", Instructions: "Test first."},
+				"tdd": {Name: "tdd", Description: "TDD workflow.", Body: "Test first."},
 			},
 			Agents: map[string]ast.AgentConfig{
-				"helper": {Name: "helper", Description: "Helper agent.", Instructions: "You help."},
+				"helper": {Name: "helper", Description: "Helper agent.", Body: "You help."},
 			},
 			MCP: map[string]ast.MCPConfig{
 				"github": {Command: "docker", Args: []string{"run", "ghcr.io/github/github-mcp-server"}},
@@ -294,85 +244,6 @@ func TestCompile_Gemini_OutputPathsRelativeToOutputDir(t *testing.T) {
 	geminiMD := out.RootFiles["GEMINI.md"]
 	assert.Contains(t, geminiMD, "Always apply @.gemini/rules/style.md",
 		"@-import lines must use the project-relative .gemini/ prefix")
-}
-
-func TestCompile_Gemini_FullParity_AllKinds(t *testing.T) {
-	tmpDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "agent-body.md"), []byte("Agent system prompt."), 0o644))
-
-	r := New()
-	config := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{
-			Name:                "full-parity-test",
-			Instructions:        "Root project instructions.",
-			InstructionsImports: []string{"./docs/contributing.md"},
-			InstructionsScopes: []ast.InstructionsScope{
-				{Path: "packages/api", Instructions: "API scope."},
-			},
-		},
-		ResourceScope: ast.ResourceScope{
-			Rules: map[string]ast.RuleConfig{
-				"code-style": {Description: "Style rules.", Instructions: "Use gofmt."},
-			},
-			Skills: map[string]ast.SkillConfig{
-				"tdd": {Name: "tdd", Description: "TDD workflow.", Instructions: "Test first."},
-			},
-			Agents: map[string]ast.AgentConfig{
-				"helper": {
-					Name: "helper", Description: "Helper agent.",
-					Tools: []string{"read_file"}, Model: "opus-4",
-					InstructionsFile: "agent-body.md",
-				},
-			},
-			MCP: map[string]ast.MCPConfig{
-				"github": {Command: "docker", Args: []string{"run", "-i", "ghcr.io/github/github-mcp-server"}},
-			},
-		},
-		Hooks: map[string]ast.NamedHookConfig{
-			"default": {
-				Name: "default",
-				Events: ast.HookConfig{
-					"PreToolExecution": {
-						{Matcher: "write_file", Hooks: []ast.HookHandler{
-							{Type: "command", Command: "./hooks/check.sh", Timeout: intPtr(5000)},
-						}},
-					},
-				},
-			},
-		},
-	}
-
-	out, notes, err := renderer.Orchestrate(r, config, tmpDir)
-	require.NoError(t, err)
-
-	// Instructions
-	assert.Contains(t, out.RootFiles, "GEMINI.md")
-	assert.Contains(t, out.RootFiles["GEMINI.md"], "Root project instructions.")
-	assert.Contains(t, out.RootFiles["GEMINI.md"], "@./docs/contributing.md")
-	assert.Contains(t, out.RootFiles, "packages/api/GEMINI.md")
-
-	// Rules — key relative to OutputDir; @-import uses project-relative path.
-	assert.Contains(t, out.Files, "rules/code-style.md")
-	assert.Contains(t, out.RootFiles["GEMINI.md"], "Always apply @.gemini/rules/code-style.md")
-
-	// Skills — key relative to OutputDir.
-	assert.Contains(t, out.Files, "skills/tdd/SKILL.md")
-	assert.Contains(t, out.Files["skills/tdd/SKILL.md"], "name: tdd")
-
-	// Agents — key relative to OutputDir.
-	assert.Contains(t, out.Files, "agents/helper.md")
-	assert.Contains(t, out.Files["agents/helper.md"], "name: helper")
-	assert.Contains(t, out.Files["agents/helper.md"], "Agent system prompt.")
-
-	// Settings (hooks + MCP) — key relative to OutputDir.
-	assert.Contains(t, out.Files, "settings.json")
-	settingsJSON := out.Files["settings.json"]
-	assert.Contains(t, settingsJSON, "BeforeTool")
-	assert.Contains(t, settingsJSON, "github")
-
-	// Should have zero fidelity notes for this supported config
-	// (no unsupported fields used)
-	assert.Empty(t, notes, "full-parity config with only supported fields should produce zero fidelity notes")
 }
 
 func TestCompileAgents_Gemini_ClaudeToolsDropped(t *testing.T) {
@@ -472,8 +343,8 @@ func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 					Name:        "deploy",
 					Description: "Deploy to production.",
 					Steps: []ast.WorkflowStep{
-						{Name: "build", Instructions: "Run go build."},
-						{Name: "test", Instructions: "Run go test."},
+						{Name: "build", Body: "Run go build."},
+						{Name: "test", Body: "Run go test."},
 					},
 				},
 			},

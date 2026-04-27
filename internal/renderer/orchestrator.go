@@ -184,7 +184,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	// Project instructions
 	if config.Project != nil {
 		if caps.ProjectInstructions {
-			files, rootFiles, n, err := r.CompileProjectInstructions(config.Project, baseDir)
+			files, rootFiles, n, err := r.CompileProjectInstructions(config, baseDir)
 			if err != nil {
 				return nil, nil, fmt.Errorf("CompileProjectInstructions: %w", err)
 			}

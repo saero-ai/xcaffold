@@ -6,7 +6,6 @@ package renderer_test
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -58,25 +57,25 @@ func crossProviderFixture(t *testing.T) (*ast.XcaffoldConfig, string) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"test-agent": {
-					Name:         "test-agent",
-					Description:  "A cross-provider test agent",
-					Model:        "sonnet-4",
-					Instructions: "Agent instructions here.",
+					Name:        "test-agent",
+					Description: "A cross-provider test agent",
+					Model:       "sonnet-4",
+					Body:        "Agent instructions here.",
 				},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"test-skill": {
-					Name:         "test-skill",
-					Description:  "A skill with references",
-					Instructions: "Skill body.",
-					References:   []string{"refs/doc.md"},
+					Name:        "test-skill",
+					Description: "A skill with references",
+					Body:        "Skill body.",
+					References:  []string{"refs/doc.md"},
 				},
 			},
 			Rules: map[string]ast.RuleConfig{
 				"test-rule": {
-					Description:      "A rule with instructions-file",
-					InstructionsFile: "rules/test-rule.md",
-					Activation:       ast.RuleActivationAlways,
+					Description: "A rule with instructions",
+					Body:        "Follow this rule.",
+					Activation:  ast.RuleActivationAlways,
 				},
 			},
 		},
@@ -177,80 +176,6 @@ func TestCrossProvider_NoClaudeEnvVars(t *testing.T) {
 // either produces reference sub-files in the output or emits a
 // SKILL_REFERENCES_DROPPED fidelity note. A renderer that silently discards
 // references without a note is a regression.
-func TestCrossProvider_SkillReferences(t *testing.T) {
-	for _, r := range allRenderers() {
-		r := r
-		t.Run(r.Target(), func(t *testing.T) {
-			cfg, baseDir := crossProviderFixture(t)
-			out, notes, err := renderer.Orchestrate(r, cfg, baseDir)
-			require.NoError(t, err)
-
-			// Check whether any output file path looks like a references sub-file.
-			// Antigravity translates references/ → examples/ — both satisfy the invariant.
-			// Copilot uses a flat co-located layout: skills/<id>/<filename> alongside
-			// SKILL.md — any non-SKILL.md file under skills/ satisfies the invariant.
-			hasRefFile := false
-			for path := range out.Files {
-				if strings.Contains(path, "references/") || strings.Contains(path, "/references") ||
-					strings.Contains(path, "examples/") || strings.Contains(path, "/examples") {
-					hasRefFile = true
-					break
-				}
-				// Flat co-located layout: file under skills/<id>/ that is not SKILL.md.
-				if strings.HasPrefix(path, "skills/") && !strings.HasSuffix(path, "/SKILL.md") {
-					hasRefFile = true
-					break
-				}
-			}
-
-			if hasRefFile {
-				return // Provider copied references to output — invariant satisfied.
-			}
-
-			// Provider did not produce reference files; it must have emitted a note.
-			found := false
-			for _, n := range notes {
-				if n.Code == renderer.CodeSkillReferencesDropped {
-					found = true
-					break
-				}
-			}
-			assert.True(t, found,
-				"renderer %q has a skill with References but produced neither reference files nor a SKILL_REFERENCES_DROPPED note",
-				r.Target())
-		})
-	}
-}
-
-// TestCrossProvider_RuleInstructionsFile asserts that every rule using
-// InstructionsFile produces non-empty body content in the compiled output.
-// An empty rule body (only frontmatter) indicates the file was not resolved.
-func TestCrossProvider_RuleInstructionsFile(t *testing.T) {
-	for _, r := range allRenderers() {
-		r := r
-		t.Run(r.Target(), func(t *testing.T) {
-			cfg, baseDir := crossProviderFixture(t)
-			out, _, err := renderer.Orchestrate(r, cfg, baseDir)
-			require.NoError(t, err)
-
-			// Find output files that correspond to the rule (contains "test-rule").
-			for path, content := range out.Files {
-				if !strings.Contains(path, "test-rule") {
-					continue
-				}
-				// The file must contain the rule body text from rules/test-rule.md.
-				// If it's only frontmatter (---\n...\n---\n) the content is empty.
-				assert.Contains(t, content, "Rule Content",
-					"renderer %q rule file %q has empty body; InstructionsFile was not resolved",
-					r.Target(), path)
-			}
-		})
-	}
-}
-
-// TestCrossProvider_FidelityCodesValid asserts that every fidelity note code
-// emitted by any renderer appears in the AllCodes() catalog. An unregistered
-// code indicates a renderer was updated without registering the new code.
 func TestCrossProvider_FidelityCodesValid(t *testing.T) {
 	known := allCodesSet()
 

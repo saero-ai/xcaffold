@@ -90,7 +90,7 @@ func TestParseDirectory_FrontmatterMultiFileWithBodies(t *testing.T) {
 		[]byte("---\nkind: reference\nname: api-guide\nversion: \"1.0\"\n---\n# API Guide\n"), 0600))
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
-	assert.Equal(t, "Project instructions.", cfg.Project.Instructions)
-	assert.Equal(t, "You are a developer.", cfg.Agents["developer"].Instructions)
+	assert.Equal(t, "Project instructions.", cfg.ResourceScope.Contexts["root"].Body)
+	assert.Equal(t, "You are a developer.", cfg.Agents["developer"].Body)
 	assert.Equal(t, "# API Guide", cfg.References["api-guide"].Content)
 }

@@ -1,6 +1,9 @@
+---
 kind: rule
 version: "1.0"
 name: model-decided-rule
 description: "Model-selected activation."
 activation: model-decided
-instructions: "Body."
+---
+
+Body.

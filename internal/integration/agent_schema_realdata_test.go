@@ -34,6 +34,7 @@ func TestRealData_Fixture_Exists(t *testing.T) {
 // build an AgentConfig, recompile via the Claude renderer, and verify the
 // regenerated frontmatter uses the canonical field ordering.
 func TestRealData_ImportedAgent_CompilesWithCanonicalFieldOrder(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	agentPath := filepath.Join(realDataPath, ".claude", "agents", "backend-engineer.md")
 	if _, err := os.Stat(agentPath); os.IsNotExist(err) {
 		t.Skipf("fixture %s not present; skipping", agentPath)
@@ -46,15 +47,17 @@ func TestRealData_ImportedAgent_CompilesWithCanonicalFieldOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "backend-engineer.md"), fixtureData, 0o600))
 
-	xcfContent := `kind: agent
+	xcfContent := `---
+kind: agent
 version: "1.0"
 name: backend-engineer
 description: "Backend engineer agent."
 model: sonnet
 effort: high
 tools: [Bash, Read, Write, Edit, Glob, Grep]
-instructions-file: "backend-engineer.md"
-`
+---
+
+` + string(fixtureData)
 	xcfPath := filepath.Join(tmp, "agent.xcf")
 	require.NoError(t, os.WriteFile(xcfPath, []byte(xcfContent), 0o600))
 
@@ -93,6 +96,7 @@ instructions-file: "backend-engineer.md"
 // can be referenced via instructions-file, parsed, and recompiled without
 // error.
 func TestRealData_AllClaudeAgents_Parse(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	claudeAgents := filepath.Join(realDataPath, ".claude", "agents")
 	if _, err := os.Stat(claudeAgents); os.IsNotExist(err) {
 		t.Skipf("fixture %s not present; skipping", claudeAgents)
@@ -118,13 +122,15 @@ func TestRealData_AllClaudeAgents_Parse(t *testing.T) {
 			localName := entry.Name()
 			require.NoError(t, os.WriteFile(filepath.Join(tmp, localName), fixtureData, 0o600))
 
-			xcfContent := `kind: agent
+			xcfContent := `---
+kind: agent
 version: "1.0"
 name: ` + id + `
 description: "Real-data validation agent."
 model: sonnet
-instructions-file: "` + localName + `"
-`
+---
+
+` + string(fixtureData)
 			xcfPath := filepath.Join(tmp, "agent.xcf")
 			require.NoError(t, os.WriteFile(xcfPath, []byte(xcfContent), 0o600))
 
@@ -143,7 +149,9 @@ instructions-file: "` + localName + `"
 // TargetOverride.Provider pass-through survive a write + parse round trip,
 // and that provider-specific fields do NOT leak into other targets.
 func TestRealData_NewFields_RoundTripThroughTargets(t *testing.T) {
-	xcfContent := `kind: agent
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	xcfContent := `---
+kind: agent
 version: "1.0"
 name: round-trip
 description: "Round-trip validation for new fields."
@@ -161,8 +169,9 @@ targets:
       target: github-copilot
       metadata:
         category: review
-instructions: |
-  Round-trip test body.
+---
+
+Round-trip test body.
 `
 	tmp := t.TempDir()
 	xcfPath := filepath.Join(tmp, "agent.xcf")

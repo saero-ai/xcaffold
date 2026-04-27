@@ -16,18 +16,22 @@ func TestRunApply_PolicyError_BlocksWrite(t *testing.T) {
 	dir := t.TempDir()
 
 	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`---
+kind: project
 version: "1.0"
 name: policy-error-test
 targets:
   - claude
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`---
+kind: agent
 version: "1.0"
 name: dev
-instructions: "You are a developer"
+---
+You are a developer
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`kind: policy
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`---
+kind: policy
 version: "1.0"
 name: needs-desc
 severity: error
@@ -76,18 +80,22 @@ func TestRunApply_PolicyWarning_AllowsWrite(t *testing.T) {
 	dir := t.TempDir()
 
 	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	require.NoError(t, os.WriteFile(xcf, []byte(`---
+kind: project
 version: "1.0"
 name: policy-warning-test
 targets:
   - claude
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`---
+kind: agent
 version: "1.0"
 name: dev
-instructions: "You are a developer"
+---
+You are a developer
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`kind: policy
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`---
+kind: policy
 version: "1.0"
 name: needs-desc
 severity: warning

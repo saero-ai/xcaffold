@@ -38,9 +38,9 @@ func TestCompile_Gemini_Skills_WithBody(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {
-					Name:         "tdd",
-					Description:  "Test-driven development workflow.",
-					Instructions: "Write the test first. Watch it fail. Write minimal code.",
+					Name:        "tdd",
+					Description: "Test-driven development workflow.",
+					Body:        "Write the test first. Watch it fail. Write minimal code.",
 				},
 			},
 		},
@@ -52,29 +52,6 @@ func TestCompile_Gemini_Skills_WithBody(t *testing.T) {
 	assert.Contains(t, content, "Write the test first.")
 }
 
-func TestCompile_Gemini_Skills_FromFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	err := os.WriteFile(filepath.Join(tmpDir, "skill-body.md"), []byte("Skill instructions from file."), 0o644)
-	require.NoError(t, err)
-
-	r := New()
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Skills: map[string]ast.SkillConfig{
-				"file-skill": {
-					Name:             "file-skill",
-					Description:      "A skill loaded from file.",
-					InstructionsFile: "skill-body.md",
-				},
-			},
-		},
-	}
-	out, _, err := renderer.Orchestrate(r, config, tmpDir)
-	require.NoError(t, err)
-	content := out.Files["skills/file-skill/SKILL.md"]
-	assert.Contains(t, content, "Skill instructions from file.")
-}
-
 func TestCompile_Gemini_Skills_UnsupportedFields(t *testing.T) {
 	r := New()
 	config := &ast.XcaffoldConfig{
@@ -83,7 +60,7 @@ func TestCompile_Gemini_Skills_UnsupportedFields(t *testing.T) {
 				"full-skill": {
 					Name:                   "full-skill",
 					Description:            "Skill with all fields.",
-					Instructions:           "Do the thing.",
+					Body:                   "Do the thing.",
 					AllowedTools:           []string{"Read", "Grep"},
 					WhenToUse:              "When reviewing code.",
 					Scripts:                []string{"scripts/run.sh"},
@@ -115,10 +92,10 @@ func TestCompile_Gemini_Skills_ReferencesDropped(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"test-skill": {
-					Name:         "test-skill",
-					Description:  "A skill with references",
-					Instructions: "Do things.",
-					References:   []string{"refs/doc.md"},
+					Name:        "test-skill",
+					Description: "A skill with references",
+					Body:        "Do things.",
+					References:  []string{"refs/doc.md"},
 				},
 			},
 		},
@@ -144,10 +121,10 @@ func TestCompile_Gemini_Skills_WithSubdirs(t *testing.T) {
 
 	skills := map[string]ast.SkillConfig{
 		"my-skill": {
-			Description:  "test",
-			Instructions: "Do the thing.",
-			References:   []string{"refs/guide.md"},
-			Examples:     []string{"examples/sample.md"},
+			Description: "test",
+			Body:        "Do the thing.",
+			References:  []string{"refs/guide.md"},
+			Examples:    []string{"examples/sample.md"},
 		},
 	}
 

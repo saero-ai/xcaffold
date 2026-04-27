@@ -16,9 +16,9 @@ func threeStepWorkflow() *ast.WorkflowConfig {
 		Name:        "code-review",
 		Description: "Multi-step PR review procedure.",
 		Steps: []ast.WorkflowStep{
-			{Name: "analyze", Instructions: "Read the diff."},
-			{Name: "lint", Instructions: "Check style."},
-			{Name: "summarize", Instructions: "Write the review comment."},
+			{Name: "analyze", Body: "Read the diff."},
+			{Name: "lint", Body: "Check style."},
+			{Name: "summarize", Body: "Write the review comment."},
 		},
 	}
 }

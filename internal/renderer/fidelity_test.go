@@ -351,7 +351,7 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 					Targets: map[string]ast.TargetOverride{
 						"cursor": {},
 					},
-					Instructions: "Do the thing.",
+					Body: "Do the thing.",
 				},
 			},
 			Skills: map[string]ast.SkillConfig{
@@ -362,14 +362,14 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 					References:   []string{"docs/ref.md"},
 					Scripts:      []string{"scripts/helper.sh"},
 					Assets:       []string{"assets/logo.png"},
-					Instructions: "Use this skill.",
+					Body:         "Use this skill.",
 				},
 			},
 			Rules: map[string]ast.RuleConfig{
 				"fidelity-rule": {
-					Description:  "triggers alwaysApply fidelity note",
-					AlwaysApply:  &trueVal,
-					Instructions: "Follow this rule.",
+					Description: "triggers alwaysApply fidelity note",
+					AlwaysApply: &trueVal,
+					Body:        "Follow this rule.",
 				},
 			},
 			MCP: map[string]ast.MCPConfig{

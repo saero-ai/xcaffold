@@ -5,7 +5,6 @@ name: developer
 description: "General software developer."
 model: sonnet
 tools: [Bash, Read, Write, Edit, Glob, Grep]
-skills: [tdd]
 ---
 You are a software developer.
 Write clean, maintainable code.

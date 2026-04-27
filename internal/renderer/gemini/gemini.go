@@ -172,10 +172,9 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 
 // CompileProjectInstructions writes GEMINI.md with project root instructions and
 // emits per-scope GEMINI.md files.
-func (r *Renderer) CompileProjectInstructions(project *ast.ProjectConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+func (r *Renderer) CompileProjectInstructions(config *ast.XcaffoldConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	rootFiles := make(map[string]string)
-	cfg := &ast.XcaffoldConfig{Project: project}
-	notes := r.renderProjectInstructions(cfg, baseDir, rootFiles)
+	notes := r.renderProjectInstructions(config, baseDir, rootFiles)
 	return nil, rootFiles, notes, nil
 }
 
@@ -254,37 +253,12 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 // emits per-scope nested GEMINI.md files. @-import lines are preserved verbatim
 // since Gemini natively supports them.
 func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir string, files map[string]string) []renderer.FidelityNote {
-	p := config.Project
-	if p.Instructions == "" && p.InstructionsFile == "" {
+	rootContent := renderer.ResolveContextBody(config, targetName)
+	if rootContent == "" {
 		return nil
 	}
 
-	rootContent := renderer.ResolveInstructionsContent(p.Instructions, p.InstructionsFile, baseDir)
-
-	var sb strings.Builder
-	sb.WriteString(rootContent)
-
-	// Append @-import lines — Gemini supports native @-imports.
-	for _, imp := range p.InstructionsImports {
-		if !strings.HasSuffix(sb.String(), "\n") {
-			sb.WriteString("\n")
-		}
-		fmt.Fprintf(&sb, "@%s\n", imp)
-	}
-
-	files["GEMINI.md"] = sb.String()
-
-	// Emit per-scope GEMINI.md files.
-	for _, scope := range p.InstructionsScopes {
-		scopeContent := renderer.ResolveScopeContent(scope, targetName, baseDir)
-		if scopeContent == "" {
-			continue
-		}
-		scopePath := filepath.Join(scope.Path, "GEMINI.md")
-		safePath := filepath.Clean(scopePath)
-		files[safePath] = scopeContent
-	}
-
+	files["GEMINI.md"] = rootContent
 	return nil
 }
 
@@ -355,10 +329,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 	for _, id := range renderer.SortedKeys(config.Skills) {
 		skill := config.Skills[id]
 
-		body, _ := resolver.ResolveInstructions(
-			skill.Instructions, skill.InstructionsFile,
-			fmt.Sprintf("skills/%s/SKILL.md", id), baseDir,
-		)
+		body := resolver.StripFrontmatter(skill.Body)
 
 		var sb strings.Builder
 		sb.WriteString("---\n")
@@ -547,10 +518,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		sb.WriteString("---\n")
 
 		// Markdown body — system prompt.
-		body, _ := resolver.ResolveInstructions(
-			agent.Instructions, agent.InstructionsFile,
-			fmt.Sprintf("agents/%s.md", id), baseDir,
-		)
+		body := resolver.StripFrontmatter(agent.Body)
 		if body != "" {
 			sb.WriteString("\n")
 			sb.WriteString(strings.TrimRight(body, "\n"))
@@ -623,11 +591,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 func buildRuleBody(rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) string {
 	var sb strings.Builder
 	sb.WriteString(renderer.BuildRuleProsePrefix(rule, caps))
-	instructions := rule.Instructions
-	if instructions == "" && rule.InstructionsFile != "" && baseDir != "" {
-		instructions = renderer.ResolveInstructionsContent("", rule.InstructionsFile, baseDir)
-	}
-	body := strings.TrimRight(instructions, "\n")
+	body := strings.TrimRight(resolver.StripFrontmatter(rule.Body), "\n")
 	if body != "" {
 		sb.WriteString(body)
 		sb.WriteString("\n")

@@ -194,7 +194,7 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		MCP:                    front.MCP,
 		Assertions:             front.Assertions,
 		Targets:                front.Targets,
-		Instructions:           body,
+		Body:                   body,
 		SourceProvider:         "copilot",
 	}
 	return nil
@@ -239,7 +239,7 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Scripts:                front.Scripts,
 		Assets:                 front.Assets,
 		Targets:                front.Targets,
-		Instructions:           body,
+		Body:                   body,
 		SourceProvider:         "copilot",
 	}
 	return nil
@@ -274,7 +274,7 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Paths:          front.Paths,
 		ExcludeAgents:  front.ExcludeAgents,
 		Targets:        front.Targets,
-		Instructions:   body,
+		Body:           body,
 		SourceProvider: "copilot",
 	}
 	return nil

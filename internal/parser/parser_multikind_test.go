@@ -19,7 +19,7 @@ rules:
   security:
     name: security
     description: "Security conventions"
-    instructions: "Follow security best practices"
+
 `
 	config, err := Parse(strings.NewReader(yaml))
 	require.NoError(t, err)
@@ -370,14 +370,15 @@ model: sonnet
 }
 
 func TestParseFile_MultiKind_MutuallyExclusiveInstructions_Error(t *testing.T) {
-	// A kind:agent document that sets both instructions and instructions-file
-	// must fail: they are mutually exclusive per validateInstructionOrFile.
-	input := `kind: agent
+	// A kind:agent document that sets both instructions-file and has a markdown body
+	// must fail: they are mutually exclusive.
+	input := `---
+kind: agent
 version: "1.0"
 name: developer
-description: "Dev"
-instructions: "inline text"
-instructions-file: "agents/dev.md"
+instructions-file: "dev.md"
+---
+Inline instructions.
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -477,13 +478,13 @@ skills: [tdd]
 version: "1.0"
 name: tdd
 description: "TDD workflow"
-instructions: "Follow TDD"
+
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcf"), []byte(`kind: rule
 version: "1.0"
 name: security
 description: "Security rules"
-instructions: "Be secure"
+
 `), 0600))
 
 	config, err := ParseDirectory(dir)
@@ -507,19 +508,19 @@ name: validation-test
 version: "1.0"
 name: tdd
 description: "TDD"
-instructions: "Follow TDD"
+
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill-cr.xcf"), []byte(`kind: skill
 version: "1.0"
 name: code-review
 description: "Code review"
-instructions: "Review code"
+
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcf"), []byte(`kind: rule
 version: "1.0"
 name: security
 description: "Security"
-instructions: "Be secure"
+
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
 version: "1.0"
@@ -528,7 +529,7 @@ description: "Dev"
 model: sonnet
 skills: [tdd, code-review]
 rules: [security]
-instructions: "You are a developer"
+
 `), 0600))
 
 	config, err := ParseDirectory(dir)
@@ -725,7 +726,7 @@ func TestParseFile_EmptyKind_Error(t *testing.T) {
 	input := `version: "1.0"
 agents:
   dev:
-    instructions: "Hello."
+
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -737,7 +738,7 @@ func TestParseFile_ConfigKind_Error(t *testing.T) {
 version: "1.0"
 agents:
   dev:
-    instructions: "Hello."
+
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -764,7 +765,7 @@ version: "1.0"
 agents:
   shared-dev:
     description: "Global developer"
-    instructions: "Write clean code."
+
 settings:
   model: sonnet
 `
@@ -780,12 +781,12 @@ func TestParseFile_GlobalKind_DuplicateAgent_Error(t *testing.T) {
 version: "1.0"
 agents:
   dev:
-    instructions: "First."
+
 ---
 kind: agent
 version: "1.0"
 name: dev
-instructions: "Second."
+
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
@@ -861,7 +862,7 @@ policies:
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
 version: "1.0"
 name: developer
-instructions: "Write code."
+
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`kind: policy
 version: "1.0"

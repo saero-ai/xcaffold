@@ -68,9 +68,9 @@ func TestReassembleWorkflow_ThreeSteps_ProducesWorkflowConfig(t *testing.T) {
 	assert.Equal(t, "analyze", wf.Steps[0].Name)
 	assert.Equal(t, "lint", wf.Steps[1].Name)
 	assert.Equal(t, "summarize", wf.Steps[2].Name)
-	assert.Equal(t, "Analyze the code for issues.", wf.Steps[0].Instructions)
-	assert.Equal(t, "Run lint checks.", wf.Steps[1].Instructions)
-	assert.Equal(t, "Summarize findings.", wf.Steps[2].Instructions)
+	assert.Equal(t, "Analyze the code for issues.", wf.Steps[0].Body)
+	assert.Equal(t, "Run lint checks.", wf.Steps[1].Body)
+	assert.Equal(t, "Summarize findings.", wf.Steps[2].Body)
 
 	// Should produce at least one info note.
 	require.NotEmpty(t, notes)
@@ -132,7 +132,7 @@ func TestReassembleWorkflow_Idempotent(t *testing.T) {
 	require.Equal(t, len(wf1.Steps), len(wf2.Steps))
 	for i := range wf1.Steps {
 		assert.Equal(t, wf1.Steps[i].Name, wf2.Steps[i].Name)
-		assert.Equal(t, wf1.Steps[i].Instructions, wf2.Steps[i].Instructions)
+		assert.Equal(t, wf1.Steps[i].Body, wf2.Steps[i].Body)
 	}
 	assert.Equal(t, len(notes1), len(notes2))
 }

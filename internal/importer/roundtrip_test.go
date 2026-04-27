@@ -81,7 +81,7 @@ func TestRoundTrip_ClaudeImportCompile_AgentFields(t *testing.T) {
 	assert.Equal(t, "Backend Agent", agent.Name)
 	assert.Equal(t, "claude-opus-4-5", agent.Model)
 	assert.NotEmpty(t, agent.Tools, "tools must be imported")
-	assert.NotEmpty(t, agent.Instructions, "instructions body must be imported")
+	assert.NotEmpty(t, agent.Body, "instructions body must be imported")
 
 	out, _, err := compiler.Compile(config, ".", "claude", "")
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestRoundTrip_ClaudeImportCompile_SkillFields(t *testing.T) {
 
 	assert.Equal(t, "tdd-driven-development", skill.Name)
 	assert.NotEmpty(t, skill.AllowedTools, "allowed-tools must be imported")
-	assert.NotEmpty(t, skill.Instructions, "instructions body must be imported")
+	assert.NotEmpty(t, skill.Body, "instructions body must be imported")
 
 	out, _, err := compiler.Compile(config, ".", "claude", "")
 	require.NoError(t, err)
@@ -176,7 +176,7 @@ func TestRoundTrip_CursorImportCompile_AgentFields(t *testing.T) {
 	assert.Equal(t, "Code Reviewer", agent.Name)
 	assert.Equal(t, "claude-opus-4-5", agent.Model)
 	assert.NotEmpty(t, agent.Tools, "tools must be imported into the AST")
-	assert.NotEmpty(t, agent.Instructions, "instructions body must be imported")
+	assert.NotEmpty(t, agent.Body, "instructions body must be imported")
 
 	out, _, err := compiler.Compile(config, ".", "cursor", "")
 	require.NoError(t, err)

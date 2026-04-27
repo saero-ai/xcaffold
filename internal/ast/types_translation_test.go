@@ -12,10 +12,9 @@ import (
 // with correct yaml tags.
 func TestWorkflowConfig_StructExists(t *testing.T) {
 	wf := WorkflowConfig{
-		Name:             "my-workflow",
-		Description:      "A test workflow",
-		Instructions:     "Do something useful",
-		InstructionsFile: "workflows/my-workflow.md",
+		Name:        "my-workflow",
+		Description: "A test workflow",
+		Body:        "Do something useful",
 	}
 
 	if wf.Name != "my-workflow" {
@@ -24,18 +23,15 @@ func TestWorkflowConfig_StructExists(t *testing.T) {
 	if wf.Description != "A test workflow" {
 		t.Errorf("Description: got %q, want %q", wf.Description, "A test workflow")
 	}
-	if wf.Instructions != "Do something useful" {
-		t.Errorf("Instructions: got %q, want %q", wf.Instructions, "Do something useful")
-	}
-	if wf.InstructionsFile != "workflows/my-workflow.md" {
-		t.Errorf("InstructionsFile: got %q, want %q", wf.InstructionsFile, "workflows/my-workflow.md")
+	if wf.Body != "Do something useful" {
+		t.Errorf("Body: got %q, want %q", wf.Body, "Do something useful")
 	}
 }
 
 // TestWorkflowConfig_ZeroValue verifies that the zero value is usable (all omitempty fields).
 func TestWorkflowConfig_ZeroValue(t *testing.T) {
 	var wf WorkflowConfig
-	if wf.Name != "" || wf.Description != "" || wf.Instructions != "" || wf.InstructionsFile != "" {
+	if wf.Name != "" || wf.Description != "" || wf.Body != "" {
 		t.Error("zero WorkflowConfig should have empty string fields")
 	}
 }
@@ -104,15 +100,11 @@ func TestTargetOverride_HasSkipSynthesis(t *testing.T) {
 // TestTargetOverride_ExistingFieldsUnchanged verifies that pre-existing fields still work.
 func TestTargetOverride_ExistingFieldsUnchanged(t *testing.T) {
 	tr := TargetOverride{
-		Hooks:                map[string]string{"pre": "echo pre"},
-		InstructionsOverride: "use this instead",
+		Hooks: map[string]string{"pre": "echo pre"},
 	}
 
 	if tr.Hooks["pre"] != "echo pre" {
 		t.Errorf("Hooks[pre]: got %q, want %q", tr.Hooks["pre"], "echo pre")
-	}
-	if tr.InstructionsOverride != "use this instead" {
-		t.Errorf("InstructionsOverride: got %q, want %q", tr.InstructionsOverride, "use this instead")
 	}
 }
 
@@ -123,16 +115,12 @@ func TestTargetOverride_AllFieldsCombined(t *testing.T) {
 
 	tr := TargetOverride{
 		Hooks:                    map[string]string{"post": "echo done"},
-		InstructionsOverride:     "alternate instructions",
 		SuppressFidelityWarnings: &suppressTrue,
 		SkipSynthesis:            &skipFalse,
 	}
 
 	if tr.Hooks["post"] != "echo done" {
 		t.Errorf("Hooks[post]: got %q, want %q", tr.Hooks["post"], "echo done")
-	}
-	if tr.InstructionsOverride != "alternate instructions" {
-		t.Errorf("InstructionsOverride: got %q, want %q", tr.InstructionsOverride, "alternate instructions")
 	}
 	if tr.SuppressFidelityWarnings == nil || !*tr.SuppressFidelityWarnings {
 		t.Error("SuppressFidelityWarnings: expected true")
@@ -161,7 +149,6 @@ func TestAgentConfig_InvocationControlFields(t *testing.T) {
 
 func TestTargetOverride_ProviderPassthrough(t *testing.T) {
 	override := TargetOverride{
-		InstructionsOverride: "Use Google style.",
 		Provider: map[string]any{
 			"temperature":  0.7,
 			"timeout_mins": 15,
@@ -173,7 +160,6 @@ func TestTargetOverride_ProviderPassthrough(t *testing.T) {
 	require.NoError(t, err)
 
 	content := string(data)
-	require.Contains(t, content, "instructions-override: Use Google style.")
 	require.Contains(t, content, "provider:")
 	require.Contains(t, content, "temperature: 0.7")
 	require.Contains(t, content, "timeout_mins: 15")
@@ -201,7 +187,7 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 		Skills:                 []string{"tdd"},
 		Rules:                  []string{"coding-standards"},
 		MCP:                    []string{"github"},
-		Instructions:           "Do the work.",
+		Body:                   "Do the work.",
 	}
 
 	data, err := yaml.Marshal(agent)
@@ -216,7 +202,6 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 		"background:", "isolation:",
 		"memory:", "color:", "initial-prompt:",
 		"skills:", "rules:", "mcp:",
-		"instructions:",
 	}
 
 	lastIdx := -1
@@ -293,7 +278,7 @@ func TestRuleConfig_ExcludeAgents_Serializes(t *testing.T) {
 		Name:          "security",
 		Activation:    RuleActivationAlways,
 		ExcludeAgents: []string{"code-review", "cloud-agent"},
-		Instructions:  "Body.",
+		Body:          "Body.",
 	}
 
 	data, err := yaml.Marshal(rule)
@@ -316,7 +301,7 @@ func TestRuleConfig_Targets_Serializes(t *testing.T) {
 				},
 			},
 		},
-		Instructions: "Body.",
+		Body: "Body.",
 	}
 
 	data, err := yaml.Marshal(rule)
