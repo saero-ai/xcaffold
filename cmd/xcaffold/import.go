@@ -1531,7 +1531,11 @@ func findImporterByProvider(provider string) importer.ProviderImporter {
 }
 
 // pruneOrphanMemory removes xcf/agents/<id>/memory/ directories for agents
-// that are not present in the current import scope.
+// that are not present in the current import scope. Agents referenced only via
+// config.Memory (e.g. global agents whose project-scoped memory was imported)
+// are preserved even when they have no entry in config.Agents.
+// After pruning, any now-empty agent directory (no .xcf file, no memory/) is
+// also removed.
 func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
 	agentsDir := filepath.Join(rootDir, "xcf", "agents")
 	// If agentsDir doesn't exist, nothing to prune.
@@ -1542,6 +1546,16 @@ func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
 	validAgents := make(map[string]bool)
 	for id := range config.Agents {
 		validAgents[id] = true
+	}
+
+	// Build a set of agents that have explicitly imported memory entries.
+	// These are preserved even if they have no agent definition (e.g. global
+	// agents like ~/.claude/agents/ceo.md whose project-scoped memory was
+	// imported from .claude/agent-memory/ceo/).
+	memoryAgents := make(map[string]bool)
+	for memPath := range config.Memory {
+		agentID := strings.SplitN(filepath.ToSlash(memPath), "/", 2)[0]
+		memoryAgents[agentID] = true
 	}
 
 	entries, err := os.ReadDir(agentsDir)
@@ -1561,13 +1575,33 @@ func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
 			}
 			return err
 		}
-		// Prune the memory dir if the agent is no longer in scope.
-		if !validAgents[agentID] {
+		// Prune the memory dir only when the agent is absent from both the
+		// declared agents and the explicitly imported memory entries.
+		if !validAgents[agentID] && !memoryAgents[agentID] {
 			if err := os.RemoveAll(memDir); err != nil {
 				return err
 			}
 		}
 	}
+
+	// Remove any agent directories that are now empty (no .xcf file and no
+	// memory/ subdirectory). These are artifacts left when the memory dir was
+	// pruned above or was never populated.
+	entries, err = os.ReadDir(agentsDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		agentDir := filepath.Join(agentsDir, entry.Name())
+		dirEntries, err := os.ReadDir(agentDir)
+		if err == nil && len(dirEntries) == 0 {
+			_ = os.Remove(agentDir)
+		}
+	}
+
 	return nil
 }
 
