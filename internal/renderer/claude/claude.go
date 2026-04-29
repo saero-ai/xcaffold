@@ -489,8 +489,8 @@ func appendAgentConfigMeta(sb *strings.Builder, agentID string, agent ast.AgentC
 	if agent.Isolation != "" {
 		fmt.Fprintf(sb, "isolation: %s\n", agent.Isolation)
 	}
-	if agent.Memory != "" {
-		fmt.Fprintf(sb, "memory: %s\n", agent.Memory)
+	if len(agent.Memory) > 0 {
+		fmt.Fprintf(sb, "memory: %s\n", strings.Join([]string(agent.Memory), ", "))
 	} else if memoryAgents[agentID] {
 		fmt.Fprintf(sb, "memory: user\n")
 	}

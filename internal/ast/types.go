@@ -2,6 +2,7 @@ package ast
 
 import (
 	"gopkg.in/yaml.v3"
+	"sort"
 ) // ResourceScope contains all agentic primitives that can appear at both
 // global scope (root of XcaffoldConfig) and workspace scope (inside ProjectConfig).
 // Embedded with yaml:",inline" so fields appear at the same YAML level as the parent.
@@ -35,6 +36,11 @@ type XcaffoldConfig struct {
 	// within that provider's output directory. It is populated by the import
 	// pipeline and is never serialized to YAML or JSON.
 	ProviderExtras map[string]map[string][]byte `yaml:"-" json:"-"`
+
+	// Overrides stores parsed .<provider>.xcf partial configs keyed by [kind][name][provider].
+	// Populated by the import pipeline; never serialized to YAML or JSON.
+	// The compiler merges these with base resources during compilation.
+	Overrides *ResourceOverrides `yaml:"-" json:"-"`
 
 	ResourceScope `yaml:",inline"` // Global-level resources
 
@@ -127,6 +133,33 @@ func (a AgentManifestEntry) MarshalYAML() (interface{}, error) {
 	}, nil
 }
 
+// FlexStringSlice is a custom type that accepts both YAML scalar strings and list sequences.
+// It unmarshals a scalar string into a single-element slice for backward compatibility.
+type FlexStringSlice []string
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface for FlexStringSlice.
+func (f *FlexStringSlice) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind == yaml.ScalarNode {
+		*f = FlexStringSlice{value.Value}
+		return nil
+	}
+	var list []string
+	if err := value.Decode(&list); err != nil {
+		return err
+	}
+	*f = FlexStringSlice(list)
+	return nil
+}
+
+// NewFlexStringSlice constructs a FlexStringSlice from a single string value.
+// If the string is empty, it returns nil; otherwise, it returns a slice containing that value.
+func NewFlexStringSlice(s string) FlexStringSlice {
+	if s == "" {
+		return nil
+	}
+	return FlexStringSlice{s}
+}
+
 // AgentConfig defines an AI coding agent persona.
 //
 // Field ordering is canonical and mirrors the compiled markdown frontmatter:
@@ -167,9 +200,9 @@ type AgentConfig struct {
 	When       string `yaml:"when,omitempty"`
 
 	// Group 6: Memory & Context
-	Memory        string `yaml:"memory,omitempty"`
-	Color         string `yaml:"color,omitempty"`
-	InitialPrompt string `yaml:"initial-prompt,omitempty"`
+	Memory        FlexStringSlice `yaml:"memory,omitempty"`
+	Color         string          `yaml:"color,omitempty"`
+	InitialPrompt string          `yaml:"initial-prompt,omitempty"`
 
 	// Group 7: Composition references
 	Skills     []string `yaml:"skills,omitempty"`
@@ -644,6 +677,198 @@ type BlueprintConfig struct {
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
+}
+
+// ResourceOverrides stores parsed .<provider>.xcf partial configs for all 5 kinds.
+// Keyed as [kind][name][provider] → config struct. Populated by the import pipeline
+// during filesystem scanning of <config-dir>.<provider>.xcf files.
+// Never serialized; used by the compiler for provider-specific config merging.
+type ResourceOverrides struct {
+	Agent    map[string]map[string]AgentConfig    `json:"-"`
+	Skill    map[string]map[string]SkillConfig    `json:"-"`
+	Rule     map[string]map[string]RuleConfig     `json:"-"`
+	Workflow map[string]map[string]WorkflowConfig `json:"-"`
+	MCP      map[string]map[string]MCPConfig      `json:"-"`
+}
+
+// AddAgent stores an AgentConfig override keyed by [name][provider].
+func (r *ResourceOverrides) AddAgent(name, provider string, cfg AgentConfig) {
+	if r.Agent == nil {
+		r.Agent = make(map[string]map[string]AgentConfig)
+	}
+	if r.Agent[name] == nil {
+		r.Agent[name] = make(map[string]AgentConfig)
+	}
+	r.Agent[name][provider] = cfg
+}
+
+// GetAgent retrieves an AgentConfig override by [name][provider].
+func (r *ResourceOverrides) GetAgent(name, provider string) (AgentConfig, bool) {
+	if r == nil || r.Agent == nil {
+		return AgentConfig{}, false
+	}
+	if r.Agent[name] == nil {
+		return AgentConfig{}, false
+	}
+	cfg, ok := r.Agent[name][provider]
+	return cfg, ok
+}
+
+// AgentProviders returns a sorted list of provider names for a given agent.
+func (r *ResourceOverrides) AgentProviders(name string) []string {
+	if r == nil || r.Agent == nil || r.Agent[name] == nil {
+		return nil
+	}
+	var providers []string
+	for p := range r.Agent[name] {
+		providers = append(providers, p)
+	}
+	sort.Strings(providers)
+	return providers
+}
+
+// AddSkill stores a SkillConfig override keyed by [name][provider].
+func (r *ResourceOverrides) AddSkill(name, provider string, cfg SkillConfig) {
+	if r.Skill == nil {
+		r.Skill = make(map[string]map[string]SkillConfig)
+	}
+	if r.Skill[name] == nil {
+		r.Skill[name] = make(map[string]SkillConfig)
+	}
+	r.Skill[name][provider] = cfg
+}
+
+// GetSkill retrieves a SkillConfig override by [name][provider].
+func (r *ResourceOverrides) GetSkill(name, provider string) (SkillConfig, bool) {
+	if r == nil || r.Skill == nil {
+		return SkillConfig{}, false
+	}
+	if r.Skill[name] == nil {
+		return SkillConfig{}, false
+	}
+	cfg, ok := r.Skill[name][provider]
+	return cfg, ok
+}
+
+// SkillProviders returns a sorted list of provider names for a given skill.
+func (r *ResourceOverrides) SkillProviders(name string) []string {
+	if r == nil || r.Skill == nil || r.Skill[name] == nil {
+		return nil
+	}
+	var providers []string
+	for p := range r.Skill[name] {
+		providers = append(providers, p)
+	}
+	sort.Strings(providers)
+	return providers
+}
+
+// AddRule stores a RuleConfig override keyed by [name][provider].
+func (r *ResourceOverrides) AddRule(name, provider string, cfg RuleConfig) {
+	if r.Rule == nil {
+		r.Rule = make(map[string]map[string]RuleConfig)
+	}
+	if r.Rule[name] == nil {
+		r.Rule[name] = make(map[string]RuleConfig)
+	}
+	r.Rule[name][provider] = cfg
+}
+
+// GetRule retrieves a RuleConfig override by [name][provider].
+func (r *ResourceOverrides) GetRule(name, provider string) (RuleConfig, bool) {
+	if r == nil || r.Rule == nil {
+		return RuleConfig{}, false
+	}
+	if r.Rule[name] == nil {
+		return RuleConfig{}, false
+	}
+	cfg, ok := r.Rule[name][provider]
+	return cfg, ok
+}
+
+// RuleProviders returns a sorted list of provider names for a given rule.
+func (r *ResourceOverrides) RuleProviders(name string) []string {
+	if r == nil || r.Rule == nil || r.Rule[name] == nil {
+		return nil
+	}
+	var providers []string
+	for p := range r.Rule[name] {
+		providers = append(providers, p)
+	}
+	sort.Strings(providers)
+	return providers
+}
+
+// AddWorkflow stores a WorkflowConfig override keyed by [name][provider].
+func (r *ResourceOverrides) AddWorkflow(name, provider string, cfg WorkflowConfig) {
+	if r.Workflow == nil {
+		r.Workflow = make(map[string]map[string]WorkflowConfig)
+	}
+	if r.Workflow[name] == nil {
+		r.Workflow[name] = make(map[string]WorkflowConfig)
+	}
+	r.Workflow[name][provider] = cfg
+}
+
+// GetWorkflow retrieves a WorkflowConfig override by [name][provider].
+func (r *ResourceOverrides) GetWorkflow(name, provider string) (WorkflowConfig, bool) {
+	if r == nil || r.Workflow == nil {
+		return WorkflowConfig{}, false
+	}
+	if r.Workflow[name] == nil {
+		return WorkflowConfig{}, false
+	}
+	cfg, ok := r.Workflow[name][provider]
+	return cfg, ok
+}
+
+// WorkflowProviders returns a sorted list of provider names for a given workflow.
+func (r *ResourceOverrides) WorkflowProviders(name string) []string {
+	if r == nil || r.Workflow == nil || r.Workflow[name] == nil {
+		return nil
+	}
+	var providers []string
+	for p := range r.Workflow[name] {
+		providers = append(providers, p)
+	}
+	sort.Strings(providers)
+	return providers
+}
+
+// AddMCP stores an MCPConfig override keyed by [name][provider].
+func (r *ResourceOverrides) AddMCP(name, provider string, cfg MCPConfig) {
+	if r.MCP == nil {
+		r.MCP = make(map[string]map[string]MCPConfig)
+	}
+	if r.MCP[name] == nil {
+		r.MCP[name] = make(map[string]MCPConfig)
+	}
+	r.MCP[name][provider] = cfg
+}
+
+// GetMCP retrieves an MCPConfig override by [name][provider].
+func (r *ResourceOverrides) GetMCP(name, provider string) (MCPConfig, bool) {
+	if r == nil || r.MCP == nil {
+		return MCPConfig{}, false
+	}
+	if r.MCP[name] == nil {
+		return MCPConfig{}, false
+	}
+	cfg, ok := r.MCP[name][provider]
+	return cfg, ok
+}
+
+// MCPProviders returns a sorted list of provider names for a given MCP server.
+func (r *ResourceOverrides) MCPProviders(name string) []string {
+	if r == nil || r.MCP == nil || r.MCP[name] == nil {
+		return nil
+	}
+	var providers []string
+	for p := range r.MCP[name] {
+		providers = append(providers, p)
+	}
+	sort.Strings(providers)
+	return providers
 }
 
 // StripInherited removes all top-level resources that are marked as Inherited=true.

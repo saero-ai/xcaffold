@@ -328,7 +328,7 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 					PermissionMode:  permMode,
 					Background:      &trueVal,
 					Isolation:       isolation,
-					Memory:          "compact",
+					Memory:          ast.FlexStringSlice{"compact"},
 					Color:           "blue",
 					InitialPrompt:   "hello",
 					Skills:          []string{"fidelity-skill"},

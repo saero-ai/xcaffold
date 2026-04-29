@@ -285,7 +285,7 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 					PermissionMode:  "acceptEdits",
 					Isolation:       "worktree",
 					Color:           "blue",
-					Memory:          "project",
+					Memory:          ast.FlexStringSlice{"project"},
 					MaxTurns:        10,
 					Tools:           []string{"Bash", "Read"},
 					DisallowedTools: []string{"Write"},

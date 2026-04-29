@@ -43,6 +43,47 @@ func resolveParseOptions(opts []parseOptionFunc) parseOption {
 	return o
 }
 
+// reservedDirToKind maps xcf directory names to their corresponding resource kind.
+// Used for filesystem-as-schema inference when kind: is omitted from YAML.
+var reservedDirToKind = map[string]string{
+	"agents":     "agent",
+	"skills":     "skill",
+	"rules":      "rule",
+	"workflows":  "workflow",
+	"mcp":        "mcp",
+	"hooks":      "hooks",
+	"settings":   "settings",
+	"memory":     "memory",
+	"blueprints": "blueprint",
+	"context":    "context",
+	"policy":     "policy",
+	"template":   "template",
+}
+
+// inferKindAndName extracts kind and name from a file path when not explicit in YAML.
+// Pattern: xcf/<resource-kind>/<resource-id>/... returns (kind, name).
+// Returns ("", "") if the path does not match the pattern.
+func inferKindAndName(filePath string) (kind, name string) {
+	parts := strings.Split(filepath.ToSlash(filePath), "/")
+	xcfIdx := -1
+	for i, p := range parts {
+		if p == "xcf" {
+			xcfIdx = i
+			break
+		}
+	}
+	if xcfIdx < 0 || xcfIdx+2 >= len(parts) {
+		return "", ""
+	}
+	kindDir := parts[xcfIdx+1]
+	kind, ok := reservedDirToKind[kindDir]
+	if !ok {
+		return "", ""
+	}
+	name = parts[xcfIdx+2]
+	return kind, name
+}
+
 // Parse reads a .xcf YAML configuration from the given reader and returns a
 // validated XcaffoldConfig. It treats the configuration as a complete, standalone file.
 func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
@@ -475,6 +516,26 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 
 		kind := extractKind(docNode)
 
+		// Infer kind and name from file path if not explicit in YAML.
+		// If kind is empty, infer both kind and name.
+		// If kind is provided but name is not, infer only the name.
+		var inferredKind, inferredName string
+		if resolved.sourcePath != "" {
+			inferredKind, inferredName = inferKindAndName(resolved.sourcePath)
+			// If kind was empty in YAML, use the inferred kind
+			if kind == "" && inferredKind != "" {
+				kind = inferredKind
+			}
+			// If kind is now known (either explicit or inferred), we can use the inferred name
+			// The name will be applied during resource document parsing if YAML name is empty.
+		}
+
+		// Warn if YAML kind differs from inferred kind (when both are present)
+		if kind != "" && inferredKind != "" && kind != inferredKind {
+			fmt.Fprintf(os.Stderr, "warning: %s declares kind: %s but path implies kind: %s\n",
+				resolved.sourcePath, kind, inferredKind)
+		}
+
 		switch kind {
 		case "":
 			return nil, fmt.Errorf(
@@ -491,13 +552,13 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 					"See https://xcaffold.com/docs/migration/config-removal",
 			)
 
-		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy", "context":
+		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy", "context", "memory":
 			// Resource-kind document: route to the kind-aware parser.
 			// Propagate the resource version to config.Version if not already set.
 			if config.Version == "" {
 				config.Version = extractVersion(docNode)
 			}
-			if parseErr := parseResourceDocument(docNode, kind, config, resolved.sourcePath); parseErr != nil {
+			if parseErr := parseResourceDocument(docNode, kind, config, resolved.sourcePath, inferredName); parseErr != nil {
 				return nil, parseErr
 			}
 			lastKind = kind
@@ -674,6 +735,7 @@ var parseableKinds = map[string]bool{
 	"reference": true,
 	"blueprint": true,
 	"context":   true,
+	"memory":    true,
 }
 
 // isParseableFile reads the kind: field from an .xcf file to determine if it
@@ -691,6 +753,50 @@ func isParseableFile(path string) bool {
 		return false
 	}
 	return parseableKinds[header.Kind]
+}
+
+// validProviders is the closed set of allowed provider tokens in override filenames.
+var validProviders = map[string]bool{
+	"claude":      true,
+	"gemini":      true,
+	"cursor":      true,
+	"antigravity": true,
+	"copilot":     true,
+}
+
+// canonicalKindFilenames lists the resource kinds that can appear as prefixes in override filenames.
+var canonicalKindFilenames = map[string]bool{
+	"agent":    true,
+	"skill":    true,
+	"rule":     true,
+	"workflow": true,
+	"mcp":      true,
+	"hooks":    true,
+	"settings": true,
+	"policy":   true,
+	"template": true,
+	"memory":   true,
+}
+
+// overrideFileEntry represents a detected override file with its parsed metadata.
+type overrideFileEntry struct {
+	Path     string
+	Kind     string
+	Provider string
+}
+
+// classifyOverrideFile parses a filename to detect <kind>.<provider>.xcf pattern.
+// Returns (kind, provider, isOverride). If not an override file, isOverride is false.
+func classifyOverrideFile(filename string) (kind, provider string, isOverride bool) {
+	name := strings.TrimSuffix(filename, ".xcf")
+	parts := strings.SplitN(name, ".", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	if !canonicalKindFilenames[parts[0]] {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 // newParseFilter creates a map of directory names to skip during xcf scanning.
@@ -725,8 +831,106 @@ func newParseFilter(dir string) map[string]bool {
 	return ignored
 }
 
+// parseOverrideFile parses a single override file (.provider.xcf) and stores
+// the partial resource config in XcaffoldConfig.Overrides.
+func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig) error {
+	data, err := os.ReadFile(entry.Path)
+	if err != nil {
+		return fmt.Errorf("read override %s: %w", entry.Path, err)
+	}
+
+	frontmatter, body, err := extractFrontmatterAndBody(data)
+	if err != nil {
+		return fmt.Errorf("parse override %s: %w", entry.Path, err)
+	}
+
+	// Infer resource name from directory: xcf/agents/<name>/agent.claude.xcf -> name
+	resourceName := filepath.Base(filepath.Dir(entry.Path))
+	trimmedBody := strings.TrimSpace(string(body))
+
+	// Initialize Overrides if nil
+	if config.Overrides == nil {
+		config.Overrides = &ast.ResourceOverrides{}
+	}
+
+	switch entry.Kind {
+	case "agent":
+		var cfg ast.AgentConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode agent override %s: %w", entry.Path, err)
+		}
+		cfg.Body = trimmedBody
+		config.Overrides.AddAgent(resourceName, entry.Provider, cfg)
+	case "skill":
+		var cfg ast.SkillConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode skill override %s: %w", entry.Path, err)
+		}
+		cfg.Body = trimmedBody
+		config.Overrides.AddSkill(resourceName, entry.Provider, cfg)
+	case "rule":
+		var cfg ast.RuleConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode rule override %s: %w", entry.Path, err)
+		}
+		cfg.Body = trimmedBody
+		config.Overrides.AddRule(resourceName, entry.Provider, cfg)
+	case "workflow":
+		var cfg ast.WorkflowConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode workflow override %s: %w", entry.Path, err)
+		}
+		cfg.Body = trimmedBody
+		config.Overrides.AddWorkflow(resourceName, entry.Provider, cfg)
+	case "mcp":
+		var cfg ast.MCPConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode mcp override %s: %w", entry.Path, err)
+		}
+		config.Overrides.AddMCP(resourceName, entry.Provider, cfg)
+	default:
+		return fmt.Errorf("override file %s: unsupported kind %q for overrides", entry.Path, entry.Kind)
+	}
+	return nil
+}
+
+// validateOverrideBasesExist ensures that every override file has a corresponding
+// base resource. Override files without bases cannot be applied.
+func validateOverrideBasesExist(config *ast.XcaffoldConfig) error {
+	if config.Overrides == nil {
+		return nil
+	}
+	for name := range config.Overrides.Agent {
+		if _, ok := config.Agents[name]; !ok {
+			return fmt.Errorf("override file for agent %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.Skill {
+		if _, ok := config.Skills[name]; !ok {
+			return fmt.Errorf("override file for skill %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.Rule {
+		if _, ok := config.Rules[name]; !ok {
+			return fmt.Errorf("override file for rule %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.Workflow {
+		if _, ok := config.Workflows[name]; !ok {
+			return fmt.Errorf("override file for workflow %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.MCP {
+		if _, ok := config.MCP[name]; !ok {
+			return fmt.Errorf("override file for mcp %q has no base resource", name)
+		}
+	}
+	return nil
+}
+
 func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	var files []string
+	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -740,7 +944,16 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
-			if isParseableFile(path) {
+			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
+				if !validProviders[provider] {
+					return fmt.Errorf("override file %s: unknown provider %q; valid providers: claude, gemini, cursor, antigravity, copilot", d.Name(), provider)
+				}
+				overrideFiles = append(overrideFiles, overrideFileEntry{
+					Path:     path,
+					Kind:     kind,
+					Provider: provider,
+				})
+			} else if isParseableFile(path) {
 				files = append(files, path)
 			}
 		}
@@ -788,6 +1001,18 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	// Implicitly overlay the project configuration on top of the global base
 	merged = mergeConfigOverride(globalConfig, merged)
 
+	// Parse override files
+	for _, of := range overrideFiles {
+		if err := parseOverrideFile(of, merged); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate that every override has a corresponding base
+	if err := validateOverrideBasesExist(merged); err != nil {
+		return nil, err
+	}
+
 	if err := loadExtras(dir, merged); err != nil {
 		return nil, fmt.Errorf("failed to load extras: %w", err)
 	}
@@ -797,6 +1022,7 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 
 func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	var files []string
+	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
 
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -811,7 +1037,16 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
-			if isParseableFile(path) {
+			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
+				if !validProviders[provider] {
+					return fmt.Errorf("override file %s: unknown provider %q; valid providers: claude, gemini, cursor, antigravity, copilot", d.Name(), provider)
+				}
+				overrideFiles = append(overrideFiles, overrideFileEntry{
+					Path:     path,
+					Kind:     kind,
+					Provider: provider,
+				})
+			} else if isParseableFile(path) {
 				files = append(files, path)
 			}
 		}
@@ -842,6 +1077,18 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 	merged, err := mergeAllStrict(parsedFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge config files in %q: %w", dir, err)
+	}
+
+	// Parse override files
+	for _, of := range overrideFiles {
+		if err := parseOverrideFile(of, merged); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate that every override has a corresponding base
+	if err := validateOverrideBasesExist(merged); err != nil {
+		return nil, err
 	}
 
 	if err := loadExtras(dir, merged); err != nil {

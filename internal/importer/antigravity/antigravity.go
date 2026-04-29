@@ -167,7 +167,7 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Background:             front.Background,
 		Isolation:              front.Isolation,
 		When:                   front.When,
-		Memory:                 front.Memory,
+		Memory:                 ast.NewFlexStringSlice(front.Memory),
 		Color:                  front.Color,
 		InitialPrompt:          front.InitialPrompt,
 		Skills:                 front.Skills,

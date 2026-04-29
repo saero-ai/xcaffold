@@ -1007,6 +1007,56 @@ name: global
 	assert.Contains(t, errMsg, "ctx2.xcf")
 }
 
+func TestParse_AgentMemory_AcceptsList(t *testing.T) {
+	input := `
+kind: agent
+version: "1.0"
+name: developer
+memory:
+  - user-prefs
+  - project-context
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	agent := cfg.Agents["developer"]
+	require.Equal(t, 2, len(agent.Memory), "expected 2 memory refs, got %d", len(agent.Memory))
+	assert.Equal(t, "user-prefs", agent.Memory[0])
+	assert.Equal(t, "project-context", agent.Memory[1])
+}
+
+func TestParse_AgentMemory_AcceptsScalarBackwardCompat(t *testing.T) {
+	input := `
+kind: agent
+version: "1.0"
+name: developer
+memory: user-prefs
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	agent := cfg.Agents["developer"]
+	require.Equal(t, 1, len(agent.Memory), "expected 1 memory ref, got %d", len(agent.Memory))
+	assert.Equal(t, "user-prefs", agent.Memory[0])
+}
+
+func TestParse_MemoryKind_ParsesDocument(t *testing.T) {
+	input := `kind: memory
+version: "1.0"
+name: user-prefs
+description: "User preferences and context"
+`
+	cfg, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	mem, ok := cfg.Memory["user-prefs"]
+	if !ok {
+		t.Fatal("expected memory entry 'user-prefs' in config")
+	}
+	if mem.Description != "User preferences and context" {
+		t.Fatalf("unexpected description: %s", mem.Description)
+	}
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }
