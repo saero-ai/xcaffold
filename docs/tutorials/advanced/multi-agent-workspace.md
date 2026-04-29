@@ -42,7 +42,7 @@ targets:
   - claude
 ```
 
-`xcf/agents/frontend-dev.xcf`:
+`xcf/agents/frontend-dev/agent.xcf`:
 
 ```
 ---
@@ -94,7 +94,7 @@ targets:
   - claude
 ```
 
-`xcf/agents/frontend-dev.xcf`:
+`xcf/agents/frontend-dev/agent.xcf`:
 
 ```
 ---
@@ -112,7 +112,7 @@ You write React components and TypeScript.
 Do not modify backend code.
 ```
 
-`xcf/agents/security-reviewer.xcf`:
+`xcf/agents/security-reviewer/agent.xcf`:
 
 ```
 ---
@@ -130,7 +130,7 @@ You review code for security vulnerabilities.
 Never modify files. Only read and report.
 ```
 
-`xcf/rules/frontend-only.xcf`:
+`xcf/rules/frontend-only/rule.xcf`:
 
 ```
 ---
@@ -142,7 +142,7 @@ paths: ["src/components/**", "src/pages/**"]
 Only modify files in src/components/ and src/pages/.
 ```
 
-`xcf/rules/security-review-protocol.xcf`:
+`xcf/rules/security-review-protocol/rule.xcf`:
 
 ```
 ---
@@ -155,7 +155,7 @@ Always output a structured JSON report.
 [CRITICAL], [HIGH], [MEDIUM], [LOW] severity must be explicitly labeled.
 ```
 
-`xcf/skills/component-patterns.xcf`:
+`xcf/skills/component-patterns/skill.xcf`:
 
 ```
 ---
@@ -181,13 +181,18 @@ my-team/
   project.xcf                      # kind: project — metadata only
   xcf/
     agents/
-      frontend-dev.xcf              # kind: agent
-      security-reviewer.xcf         # kind: agent
+      frontend-dev/
+        agent.xcf                  # kind: agent
+      security-reviewer/
+        agent.xcf                  # kind: agent
     rules/
-      frontend-only.xcf             # kind: rule
-      security-review-protocol.xcf  # kind: rule
+      frontend-only/
+        rule.xcf                   # kind: rule
+      security-review-protocol/
+        rule.xcf                   # kind: rule
     skills/
-      component-patterns.xcf        # kind: skill
+      component-patterns/
+        skill.xcf                  # kind: skill
 ```
 
 `ParseDirectory` discovers all `.xcf` files recursively, parses each one, and merges the results into a single AST before compilation. The parser uses file discovery to find resources — no explicit ref lists needed in `project.xcf`.
@@ -214,7 +219,7 @@ syntax and cross-references: ok
 validation passed
 ```
 
-Now add a rule that has no `paths:`, no `always-apply: true`, and is not referenced by any agent, to see what a structural warning looks like. Create `xcf/rules/orphan-rule.xcf`:
+Now add a rule that has no `paths:`, no `always-apply: true`, and is not referenced by any agent, to see what a structural warning looks like. Create `xcf/rules/orphan-rule/rule.xcf`:
 
 ```
 ---

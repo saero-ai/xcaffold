@@ -51,10 +51,13 @@ my-project/
   project.xcf              # kind: project
   xcf/
     agents/
-      developer.xcf         # kind: agent
+      developer/
+        agent.xcf           # kind: agent
     rules/
-      conventions.xcf       # kind: rule
-    settings.xcf            # kind: settings
+      conventions/
+        rule.xcf            # kind: rule
+    settings/
+      settings.xcf          # kind: settings
 ```
 
 Open `project.xcf` in your editor. It acts as the project manifest:
@@ -77,7 +80,7 @@ targets:
 
 `project.xcf` declares the project identity and compilation targets. Resources — agents, rules, skills — are defined in separate files under `xcf/` and discovered automatically when you run `xcaffold apply`. You do not list them here.
 
-Your actual agent definitions are scaffolded securely inside `xcf/agents/developer.xcf`.
+Your actual agent definitions are scaffolded securely inside `xcf/agents/developer/agent.xcf`.
 
 This structure is the source of truth. Every file xcaffold produces traces back to this `xcf/` configuration layout. You never edit generated output directly.
 
@@ -171,7 +174,7 @@ blueprint: ""
 source-files:
   - path: project.xcf
     hash: "sha256:abc123..."
-  - path: xcf/agents/developer.xcf
+  - path: xcf/agents/developer/agent.xcf
     hash: "sha256:def456..."
 targets:
   claude:
@@ -201,7 +204,7 @@ To inspect drift between source and compiled output, run `xcaffold diff` instead
 
 ## Step 5 — Make a change and re-apply
 
-Open `xcf/agents/developer.xcf` and update the instruction body:
+Open `xcf/agents/developer/agent.xcf` and update the instruction body:
 
 ```
 ---

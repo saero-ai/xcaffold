@@ -52,10 +52,13 @@ my-project/
   project.xcf              # kind: project
   xcf/
     agents/
-      developer.xcf         # kind: agent (with provider matrix)
+      developer/
+        agent.xcf           # kind: agent (with provider matrix)
     rules/
-      conventions.xcf       # kind: rule (with provider matrix)
-    settings.xcf            # kind: settings (MCP, permissions)
+      conventions/
+        rule.xcf            # kind: rule (with provider matrix)
+    settings/
+      settings.xcf          # kind: settings (MCP, permissions)
     references/
       agent.xcf.reference   # full annotated field catalog
       skill.xcf.reference   # full annotated field catalog
@@ -146,9 +149,9 @@ This returns a machine-readable manifest of every generated file:
   "targets": ["claude", "gemini"],
   "files": [
     "project.xcf",
-    "xcf/agents/developer.xcf",
-    "xcf/rules/conventions.xcf",
-    "xcf/settings.xcf",
+    "xcf/agents/developer/agent.xcf",
+    "xcf/rules/conventions/rule.xcf",
+    "xcf/settings/settings.xcf",
     "xcf/skills/xcaffold/references/agent.xcf.reference",
     "xcf/skills/xcaffold/references/skill.xcf.reference"
   ],
@@ -201,12 +204,14 @@ If your project already has a `.claude/` or `.cursor/` directory, use the AI to 
 xcaffold init --target claude,cursor --yes
 
 # 2. Preview import plan
-xcaffold import --from claude --plan
+xcaffold import --target claude --plan
 
 # The AI reports the plan to the user. Once approved:
 
 # 3. Import
-xcaffold import --from claude
+xcaffold import --target claude
+# Imported resources are tagged with targets: [claude].
+# Remove the targets field to make resources universal.
 
 # 4. Verify the imported output
 xcaffold validate
