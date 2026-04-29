@@ -179,7 +179,7 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 //   - rootDir/project.xcf        — kind: project (metadata + ref lists)
 //   - rootDir/xcf/agents/<n>/<n>.xcf — kind: agent (one per agent, in its own subdirectory)
 //   - rootDir/xcf/skills/<n>.xcf  — kind: skill   (one per skill)
-//   - rootDir/xcf/rules/<n>.xcf   — kind: rule    (one per rule)
+//   - rootDir/xcf/rules/<n>/rule.xcf — kind: rule  (one per rule, in its own subdirectory)
 //   - rootDir/xcf/workflows/<n>.xcf — kind: workflow
 //   - rootDir/xcf/mcp/<n>.xcf     — kind: mcp
 //   - rootDir/xcf/hooks.xcf       — kind: hooks   (only when non-empty)
