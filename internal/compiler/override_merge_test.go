@@ -293,6 +293,56 @@ func TestMergeAgentConfig_TargetsDeepMerge(t *testing.T) {
 	}
 }
 
+// TestMergeAgentConfig_BodyOnlyOverride verifies that when the override contains
+// only a Body (all other fields are zero), the Body is replaced while all other
+// base fields — Model, Tools, etc. — are preserved unchanged.
+func TestMergeAgentConfig_BodyOnlyOverride(t *testing.T) {
+	base := ast.AgentConfig{
+		Name:  "developer",
+		Model: "sonnet",
+		Tools: []string{"Bash", "Read", "Write"},
+		Body:  "Universal instructions.",
+	}
+	override := ast.AgentConfig{
+		Body: "Provider-specific instructions.",
+	}
+
+	got := mergeAgentConfig(base, override)
+
+	if got.Model != "sonnet" {
+		t.Errorf("Model: want %q, got %q", "sonnet", got.Model)
+	}
+	if len(got.Tools) != 3 {
+		t.Errorf("Tools: want 3 elements, got %d: %v", len(got.Tools), got.Tools)
+	}
+	if got.Body != "Provider-specific instructions." {
+		t.Errorf("Body: want %q, got %q", "Provider-specific instructions.", got.Body)
+	}
+}
+
+// TestMergeAgentConfig_FrontmatterOnlyOverride verifies that when the override
+// contains only a frontmatter scalar (Model) with an empty Body, the Model is
+// replaced while the base Body is inherited unchanged.
+func TestMergeAgentConfig_FrontmatterOnlyOverride(t *testing.T) {
+	base := ast.AgentConfig{
+		Name:  "developer",
+		Model: "sonnet",
+		Body:  "Universal instructions.",
+	}
+	override := ast.AgentConfig{
+		Model: "opus",
+	}
+
+	got := mergeAgentConfig(base, override)
+
+	if got.Model != "opus" {
+		t.Errorf("Model: want %q, got %q", "opus", got.Model)
+	}
+	if got.Body != "Universal instructions." {
+		t.Errorf("Body: want %q, got %q", "Universal instructions.", got.Body)
+	}
+}
+
 // TestMergeSkillConfig_ScalarReplace verifies that a non-zero override scalar
 // replaces the base value, while base scalars not present in the override are
 // preserved.
