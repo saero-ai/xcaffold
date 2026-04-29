@@ -28,6 +28,15 @@ import (
 var (
 	importPlan       bool
 	importTargetFlag string
+
+	importFilterAgent    string
+	importFilterSkill    string
+	importFilterRule     string
+	importFilterWorkflow string
+	importFilterMCP      string
+	importFilterHooks    bool
+	importFilterSettings bool
+	importFilterMemory   bool
 )
 
 // htmlCommentAttrRE matches key="value" pairs inside HTML comment lines.
@@ -54,9 +63,109 @@ Usage:
 }
 
 func init() {
-	importCmd.Flags().BoolVar(&importPlan, "plan", false, "Dry-run: print import plan without writing files")
-	importCmd.Flags().StringVar(&importTargetFlag, "target", "", "Import from specific provider: claude, gemini, cursor, antigravity, copilot")
+	f := importCmd.Flags()
+	f.BoolVar(&importPlan, "plan", false, "Dry-run: print import plan without writing files")
+	f.StringVar(&importTargetFlag, "target", "", "Import from specific provider: claude, gemini, cursor, antigravity, copilot")
+
+	// Per-kind resource filtering flags
+	f.StringVar(&importFilterAgent, "agent", "", "Import agents (optionally filter by name)")
+	f.Lookup("agent").NoOptDefVal = "*"
+
+	f.StringVar(&importFilterSkill, "skill", "", "Import skills (optionally filter by name)")
+	f.Lookup("skill").NoOptDefVal = "*"
+
+	f.StringVar(&importFilterRule, "rule", "", "Import rules (optionally filter by name)")
+	f.Lookup("rule").NoOptDefVal = "*"
+
+	f.StringVar(&importFilterWorkflow, "workflow", "", "Import workflows (optionally filter by name)")
+	f.Lookup("workflow").NoOptDefVal = "*"
+
+	f.StringVar(&importFilterMCP, "mcp", "", "Import MCP servers (optionally filter by name)")
+	f.Lookup("mcp").NoOptDefVal = "*"
+
+	f.BoolVar(&importFilterHooks, "hooks", false, "Import hooks")
+	f.BoolVar(&importFilterSettings, "settings", false, "Import settings")
+	f.BoolVar(&importFilterMemory, "memory", false, "Import memory")
+
 	rootCmd.AddCommand(importCmd)
+}
+
+// applyKindFilters filters the config to include only the resource kinds specified by flags.
+// When no filter flags are set, all resources are preserved. When any filter is set, only
+// the specified kinds are kept. Named filters (--agent <name>) narrow to a single resource.
+func applyKindFilters(config *ast.XcaffoldConfig) {
+	// Check if any filter is set by examining the filter variables
+	anyFilterSet := importFilterAgent != "" || importFilterSkill != "" ||
+		importFilterRule != "" || importFilterWorkflow != "" ||
+		importFilterMCP != "" || importFilterHooks ||
+		importFilterSettings || importFilterMemory
+
+	if !anyFilterSet {
+		return
+	}
+
+	// Zero out kinds not requested
+	if importFilterAgent == "" {
+		config.Agents = nil
+	}
+	if importFilterSkill == "" {
+		config.Skills = nil
+	}
+	if importFilterRule == "" {
+		config.Rules = nil
+	}
+	if importFilterWorkflow == "" {
+		config.Workflows = nil
+	}
+	if importFilterMCP == "" {
+		config.MCP = nil
+	}
+	if !importFilterHooks {
+		config.Hooks = nil
+	}
+	if !importFilterSettings {
+		config.Settings = nil
+	}
+	if !importFilterMemory {
+		config.Memory = nil
+	}
+
+	// Name filters: narrow to specific resource
+	if importFilterAgent != "" && importFilterAgent != "*" && config.Agents != nil {
+		if agent, ok := config.Agents[importFilterAgent]; ok {
+			config.Agents = map[string]ast.AgentConfig{importFilterAgent: agent}
+		} else {
+			config.Agents = nil
+		}
+	}
+	if importFilterSkill != "" && importFilterSkill != "*" && config.Skills != nil {
+		if skill, ok := config.Skills[importFilterSkill]; ok {
+			config.Skills = map[string]ast.SkillConfig{importFilterSkill: skill}
+		} else {
+			config.Skills = nil
+		}
+	}
+	if importFilterRule != "" && importFilterRule != "*" && config.Rules != nil {
+		if rule, ok := config.Rules[importFilterRule]; ok {
+			config.Rules = map[string]ast.RuleConfig{importFilterRule: rule}
+		} else {
+			config.Rules = nil
+		}
+	}
+	if importFilterWorkflow != "" && importFilterWorkflow != "*" && config.Workflows != nil {
+		if wf, ok := config.Workflows[importFilterWorkflow]; ok {
+			config.Workflows = map[string]ast.WorkflowConfig{importFilterWorkflow: wf}
+		} else {
+			config.Workflows = nil
+		}
+	}
+	if importFilterMCP != "" && importFilterMCP != "*" && config.MCP != nil {
+		if mcp, ok := config.MCP[importFilterMCP]; ok {
+			config.MCP = map[string]ast.MCPConfig{importFilterMCP: mcp}
+		} else {
+			config.MCP = nil
+		}
+	}
 }
 
 func runImport(cmd *cobra.Command, args []string) error {
@@ -401,6 +510,9 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		config.Project.MCPRefs = sortedMapKeys(config.MCP)
 		// Propagate instructions-file from project-instruction discovery.
 	}
+
+	// Apply kind filters before writing
+	applyKindFilters(config)
 
 	// Write split .xcf files: project.xcf (kind: project) + xcf/**/*.xcf
 	if err := WriteSplitFiles(config, "."); err != nil {
@@ -1071,6 +1183,9 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		config.Project.WorkflowRefs = sortedMapKeys(config.Workflows)
 		config.Project.MCPRefs = sortedMapKeys(config.MCP)
 	}
+
+	// Apply kind filters before writing
+	applyKindFilters(config)
 
 	// Write memory files to xcf/agents/<id>/memory/
 	if memCount, err := writeMemoryFiles(config); err != nil {

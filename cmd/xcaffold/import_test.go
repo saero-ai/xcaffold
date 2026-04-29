@@ -897,3 +897,167 @@ func TestImport_TargetFlag_ValidProvider_Accepted(t *testing.T) {
 		t.Fatalf("valid target 'claude' should not produce unknown target error, got: %v", err)
 	}
 }
+
+func TestImport_KindFilterFlags_Registered(t *testing.T) {
+	flags := importCmd.Flags()
+	for _, name := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "settings", "memory"} {
+		if flags.Lookup(name) == nil {
+			t.Errorf("--%s flag should be registered", name)
+		}
+	}
+}
+
+func TestApplyKindFilters_NoFilters_KeepsEverything(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{"dev": {}},
+			Skills: map[string]ast.SkillConfig{"tdd": {}},
+			Rules:  map[string]ast.RuleConfig{"security": {}},
+		},
+	}
+	applyKindFilters(config)
+	if config.Agents == nil || config.Skills == nil || config.Rules == nil {
+		t.Error("with no filters set, all resources should be preserved")
+	}
+}
+
+func TestApplyKindFilters_AgentOnly_NilOtherKinds(t *testing.T) {
+	// Save original filter state
+	originalAgent := importFilterAgent
+	originalSkill := importFilterSkill
+	originalRule := importFilterRule
+	defer func() {
+		importFilterAgent = originalAgent
+		importFilterSkill = originalSkill
+		importFilterRule = originalRule
+	}()
+
+	// Simulate --agent flag being set
+	importFilterAgent = "*"
+	importFilterSkill = ""
+	importFilterRule = ""
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{"dev": {}},
+			Skills: map[string]ast.SkillConfig{"tdd": {}},
+			Rules:  map[string]ast.RuleConfig{"security": {}},
+		},
+	}
+	applyKindFilters(config)
+	if config.Agents == nil {
+		t.Error("agents should be preserved when --agent is set")
+	}
+	if config.Skills != nil {
+		t.Error("skills should be nil when --agent is set without --skill")
+	}
+	if config.Rules != nil {
+		t.Error("rules should be nil when --agent is set without --rule")
+	}
+}
+
+func TestApplyKindFilters_NameFilter_NarrowsResource(t *testing.T) {
+	// Save original filter state
+	originalAgent := importFilterAgent
+	defer func() { importFilterAgent = originalAgent }()
+
+	// Simulate --agent dev flag
+	importFilterAgent = "dev"
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev":      {},
+				"reviewer": {},
+			},
+		},
+	}
+	applyKindFilters(config)
+	if len(config.Agents) != 1 {
+		t.Errorf("expected 1 agent after filter, got %d", len(config.Agents))
+	}
+	if _, ok := config.Agents["dev"]; !ok {
+		t.Error("dev agent should be preserved")
+	}
+	if _, ok := config.Agents["reviewer"]; ok {
+		t.Error("reviewer agent should be filtered out")
+	}
+}
+
+func TestApplyKindFilters_NameFilter_Nonexistent_Nils(t *testing.T) {
+	// Save original filter state
+	originalAgent := importFilterAgent
+	defer func() { importFilterAgent = originalAgent }()
+
+	// Simulate --agent nonexistent flag
+	importFilterAgent = "nonexistent"
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {},
+			},
+		},
+	}
+	applyKindFilters(config)
+	if config.Agents != nil {
+		t.Error("agents should be nil when named resource does not exist")
+	}
+}
+
+func TestApplyKindFilters_HooksOnly(t *testing.T) {
+	// Save original filter state
+	originalHooks := importFilterHooks
+	defer func() { importFilterHooks = originalHooks }()
+
+	importFilterHooks = true
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{"dev": {}},
+		},
+		Hooks: map[string]ast.NamedHookConfig{"default": {}},
+	}
+	applyKindFilters(config)
+	if config.Agents != nil {
+		t.Error("agents should be nil when only --hooks is set")
+	}
+	if config.Hooks == nil {
+		t.Error("hooks should be preserved when --hooks is set")
+	}
+}
+
+func TestApplyKindFilters_MultipleKinds(t *testing.T) {
+	// Save original filter state
+	originalAgent := importFilterAgent
+	originalSkill := importFilterSkill
+	originalRule := importFilterRule
+	originalHooks := importFilterHooks
+	defer func() {
+		importFilterAgent = originalAgent
+		importFilterSkill = originalSkill
+		importFilterRule = originalRule
+		importFilterHooks = originalHooks
+	}()
+
+	importFilterAgent = "*"
+	importFilterSkill = "*"
+	importFilterRule = ""
+	importFilterHooks = true
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{"dev": {}},
+			Skills: map[string]ast.SkillConfig{"tdd": {}},
+			Rules:  map[string]ast.RuleConfig{"security": {}},
+		},
+		Hooks: map[string]ast.NamedHookConfig{"default": {}},
+	}
+	applyKindFilters(config)
+	if config.Agents == nil || config.Skills == nil || config.Hooks == nil {
+		t.Error("agents, skills, and hooks should be preserved")
+	}
+	if config.Rules != nil {
+		t.Error("rules should be nil when --rule is not set")
+	}
+}
