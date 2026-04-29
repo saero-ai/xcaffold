@@ -25,7 +25,7 @@ targets:
   - cursor
 agents:
   - id: react-developer
-    path: xcf/agents/react-developer/react-developer.xcf
+    path: xcf/agents/react-developer/agent.xcf
 ---
 ```
 
@@ -50,7 +50,7 @@ targets:
   - antigravity
 agents:
   - id: react-developer
-    path: xcf/agents/react-developer/react-developer.xcf
+    path: xcf/agents/react-developer/agent.xcf
 skills:
   - component-patterns
 rules:
@@ -92,6 +92,14 @@ Each entry in the `agents` list supports:
 - `id` — (Required) Agent identifier. Must match the `name` in the referenced `.xcf` file.
 - `path` — (Required) Relative path to the agent's `.xcf` file from the project root.
 
+> **Note:** When using filesystem-as-schema inference, agents discovered from `xcf/agents/<name>/agent.xcf` do not need explicit entries in the `agents:` list. The parser discovers them automatically from the directory structure.
+
+### `targets` on resources vs. project
+
+The `targets:` field appears in two contexts:
+- **On the project manifest**: Lists which providers to compile output for. Required.
+- **On individual resources**: Controls compilation filtering — a resource with `targets: [claude]` is compiled only for Claude. When absent, the resource is universal (compiled for all project targets).
+
 ## Behavior
 
 The project manifest body (content after the closing `---`) is compiled to project-level instructions:
@@ -107,7 +115,7 @@ The project manifest body (content after the closing `---`) is compiled to proje
 ## Import
 
 ```bash
-xcaffold import --provider claude
+xcaffold import --target claude
 ```
 
 `xcaffold import` reverse-engineers existing provider directories into `.xcf` source files and reconstructs a `project.xcf` with discovered resources.

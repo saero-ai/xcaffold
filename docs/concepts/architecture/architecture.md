@@ -20,14 +20,14 @@ graph LR
 
   subgraph User Codebase
     A[.xcaffold/project.xcf]
-    XCF["`xcf/agents/<agent-id>.xcf
-    xcf/agents/memory/<memory-id>.xcf
-    xcf/skills/<skill-id>.xcf
-    xcf/rules/<rule-id>.xcf
-    xcf/workflows/<workflow-id>.xcf
-    xcf/hooks/<hook-id>.xcf
-    xcf/mcp/<mcp-id>.xcf
-    xcf/project-instructions/<id>.xcf`"]
+    XCF["`xcf/agents/<name>/agent.xcf
+    xcf/agents/<name>/memory/
+    xcf/skills/<name>/skill.xcf
+    xcf/rules/<name>/rule.xcf
+    xcf/workflows/<name>/workflow.xcf
+    xcf/hooks/hooks.xcf
+    xcf/mcp/<name>/mcp.xcf
+    xcf/settings/settings.xcf`"]
   end
 
   subgraph xcaffold Engine
@@ -227,7 +227,7 @@ Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognize
 
 ```
 Bootstrap    → xcaffold init
-Ingestion    → xcaffold import    (native or --source cross-platform translation)
+Ingestion    → xcaffold import    (import provider configs into xcf project)
 Topology     → xcaffold graph     (ASCII / mermaid / DOT / JSON output)
 Listing      → xcaffold list      (View registered projects)
 Compilation  → xcaffold apply     (XCF → policy evaluation → target output files + .xcaffold/project.xcf.state)
@@ -238,7 +238,6 @@ Validation   → xcaffold validate  (Syntax/structural check)
 > **Preview.** The following commands are available as previews and may change before the stable release:
 
 ```
-Translation  → xcaffold translate (provider-to-provider; three-phase: Import → Compile+Optimize → Apply)
 Audit        → xcaffold analyze   (LLM-based repo audit)
 Migration    → xcaffold migrate   (Upgrade project layouts)
 Review       → xcaffold review    (Terminal-based diagnostic viewing)
@@ -251,7 +250,7 @@ Export       → xcaffold export    (packages compiled output as a distributable
 ## Related
 
 - [Intermediate Representation (IR)](intermediate-representation.md) — What the AST looks like between parse and compile
-- [Cross-Platform Translation (BIR)](translation-pipeline.md) — How semantic ingestion operates
+- [Internal: BIR Architecture](translation-pipeline.md) — Internal compiler intermediate representation (not user-facing)
 - [Declarative Compilation](../configuration/declarative-compilation.md) — Why one-way output is enforced
 - [Multi-Target Rendering](multi-target-rendering.md) — Detailed explanation of the renderer interface and per-target output differences
 - [Drift Detection and State](state-and-drift.md) — State file generation, SHA-256 hashing, and drift repair

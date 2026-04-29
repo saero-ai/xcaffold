@@ -9,6 +9,14 @@ Declares a Model Context Protocol (MCP) server. Compiled to provider-native JSON
 
 > **Required:** `kind`, `version`, `name`, `type`, `command`
 
+## Source Directory
+
+```
+xcf/mcp/<name>/mcp.xcf
+```
+
+Each MCP server declaration is a directory-per-resource under `xcf/mcp/`. The `.xcf` file contains the frontmatter for that server.
+
 ## Example Usage
 
 ### stdio MCP server
@@ -63,7 +71,7 @@ The following arguments are supported:
 - `args` — (Optional) `[]string`. Arguments passed to `command`.
 - `url` — (Required for `type: sse`) The SSE server endpoint URL.
 - `env` — (Optional) `map[string]string`. Environment variables injected into the server process. Supports `${VAR_NAME}` references to host environment variables.
-- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides.
+- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides. Resources with a `targets:` field are compiled only for the listed providers. When absent, the resource is compiled for all providers that support MCP configuration.
 
 ## Compiled Output
 

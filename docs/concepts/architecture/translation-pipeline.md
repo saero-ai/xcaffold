@@ -1,11 +1,13 @@
 ---
-title: "Cross-Platform Translation Pipeline (BIR)"
-description: "How xcaffold imports and translates provider source files into a format-neutral structural graph"
+title: "Internal: BIR Architecture"
+description: "Internal compiler intermediate representation for semantic analysis and cross-platform optimization"
 ---
 
-# Cross-Platform Translation Pipeline (BIR)
+# Internal: BIR Architecture
 
-When `xcaffold import --source` is used, the engine runs a semantic translation pipeline that builds the IR from provider source files:
+> **Internal architecture.** The BIR pipeline is used internally by the compiler for semantic analysis and optimization. It is not part of the user-facing `import` command. For import documentation, see [xcaffold import](../../reference/commands/lifecycle/import.md).
+
+The compiler's semantic translation pipeline builds the IR from provider source files:
 
 ```
 Source .md files
@@ -18,7 +20,7 @@ Source .md files
       IntentProcedure  → TargetPrimitive{Kind: "skill",      ID: <id>}
       IntentConstraint → TargetPrimitive{Kind: "rule",       ID: <id>-constraints}
       IntentAutomation → TargetPrimitive{Kind: "permission", ID: <id>-permissions}
-  → injectIntoConfig()           (--source mode only) inlines instructions + writes split .xcf files
+  → injectIntoConfig()           inlines instructions + writes split .xcf files
 ```
 
 If a `SemanticUnit` has no detected intents, it falls back to a single `skill` primitive containing the full body.
@@ -32,4 +34,4 @@ If a `SemanticUnit` has no detected intents, it falls back to a single `skill` p
 
 Provenance markers in `rule-plus-skill` output are consumed by `bir.ReassembleWorkflow()` during round-trip import to reconstruct the original `WorkflowConfig` with step fidelity.
 
-> **Note:** `injectIntoConfig()` is used exclusively by the `--source` cross-platform translation mode. The main `xcaffold import` command uses `WriteSplitFiles` to produce `kind: project` manifests with inline instructions and individual `.xcf` resource files under `xcf/`.
+> **Note:** The main `xcaffold import` command uses `WriteSplitFiles` to produce `kind: project` manifests with inline instructions and individual `.xcf` resource files under `xcf/`. The BIR pipeline operates as an internal compiler stage.

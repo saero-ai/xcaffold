@@ -130,6 +130,24 @@ xcaffold apply --global
 
 When a configuration hierarchy is resolved (whether through implicit global resolution or explicit `extends:` directives), xcaffold's internal parser applies the overriding file on top of the base file.
 
+### Provider Override Files
+
+Provider-specific overrides use `<kind>.<provider>.xcf` files alongside base resources:
+
+```
+xcf/agents/developer/
+  agent.xcf                # base definition (universal)
+  agent.claude.xcf         # Claude-specific overrides
+  agent.gemini.xcf         # Gemini-specific overrides
+```
+
+Override merge uses Terraform-style semantics:
+- Scalars and lists: override REPLACES base
+- Maps: DEEP MERGE (override keys win)
+- Body: override REPLACES if present, INHERITS if absent
+
+The compiler applies overrides between `ApplyBlueprint()` and `DiscoverAgentMemory()`.
+
 ### Directory Scan Deduplication (File vs File in Same Scope)
 
 When discovering multiple `.xcf` files recursively within the *same* scope (e.g., across `xcf/agents/*.xcf`), resources are safely aggregated.
@@ -176,6 +194,14 @@ When a project config defines resources at both root level (global scope, from `
 > **Format note:** In `kind: project` format, workspace-scoped resources are defined as bare name lists at the top level (e.g. `agents:` lists agent names, with definitions in separate `kind: agent` files).
 
 After merging, inherited resources (those originating from `extends:` chains) are stripped from the compilation output to prevent duplication.
+
+### Target Filtering
+
+Resources with a `targets:` field are compiled only for listed providers:
+- `targets:` absent → universal (compiled for all targets)
+- `targets:` present → restricted (compiled only for listed providers)
+
+Resources excluded by target filtering produce a fidelity warning.
 
 ### Additive Hook Pipelines
 

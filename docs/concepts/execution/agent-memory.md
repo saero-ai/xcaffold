@@ -58,6 +58,15 @@ Memory binds directly to the **Compilation Targets** execution graph. Since it s
 
 Multi-directory imports (when two or more provider directories are detected) now correctly import memory entries from each provider. Previously, multi-directory imports silently dropped memory. Memory entries from all providers are merged using a union strategy, with first-seen winning on key collision within a single agent's memory scope.
 
+### Discovery Timing
+
+Memory discovery (`DiscoverAgentMemory`) runs after override merge and target filtering in the compilation pipeline. This means:
+
+- Override files can add or modify memory references before discovery runs.
+- Target-filtered agents still have their memory discovered — memory directories are not filtered by `targets:`.
+
+With filesystem-as-schema, memory directories can exist at `xcf/agents/<name>/memory/` without a corresponding `.xcf` agent file. The agent is inferred from the directory structure, and its memory is compiled normally.
+
 ### Global Agent Memory
 
 Global agents — agents defined at user scope (e.g., `~/.claude/agents/`) rather than project scope (`.claude/agents/`) — may use `memory: project` to write project-scoped memory. When these agents operate within a project, the provider creates memory entries in the project's agent-memory directory (e.g., `.claude/agent-memory/principal-architect/`).

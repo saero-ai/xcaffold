@@ -1,6 +1,6 @@
 ---
 title: "kind: rule"
-description: "Defines a constraint compiled to rules/<id>.md for each target provider. Can be always-active or scoped to specific file paths."
+description: "Defines a constraint. Source: xcf/rules/<name>/rule.xcf. Compiled to rules/<name>.md (or .mdc) per provider."
 ---
 
 # `kind: rule`
@@ -86,6 +86,14 @@ The following arguments are supported:
   - `explicit-invoke` — rule only activates when directly invoked (e.g., `@rule-name`)
 - `paths` — (Optional) `[]string`. Glob patterns used when `activation: path-glob`. Each pattern is matched against the agent's currently open or modified files.
 - `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides.
+
+## Filesystem-as-Schema
+
+When a rule `.xcf` file lives at `xcf/rules/<name>/rule.xcf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
+- `kind: rule` from the parent directory name (`rules/`)
+- `name:` from the grandparent directory name (e.g., `react-conventions` from `rules/react-conventions/rule.xcf`)
+
+When `kind:` or `name:` are present in the YAML, they must match the inferred values.
 
 ## Compiled Output
 

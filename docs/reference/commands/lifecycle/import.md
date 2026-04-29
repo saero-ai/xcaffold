@@ -22,18 +22,18 @@ xcaffold import [flags]
 
 ## Options
 
-| Flag | Default | Description |
-|---|---|---|
-| `--target <provider>` | `""` | Import from a specific provider: `claude`, `gemini`, `cursor`, `antigravity`, `copilot`. Without this flag, auto-detects all available providers. |
-| `--agent [name]` | unset | Import agents. Optionally filter by name pattern. |
-| `--skill [name]` | unset | Import skills. Optionally filter by name pattern. |
-| `--rule [name]` | unset | Import rules. Optionally filter by name pattern. |
-| `--workflow [name]` | unset | Import workflows. Optionally filter by name pattern. |
-| `--mcp [name]` | unset | Import MCP server definitions. Optionally filter by name pattern. |
-| `--hooks` | `false` | Import hook definitions. |
-| `--settings` | `false` | Import settings configuration. |
-| `--memory` | `false` | Import agent-written memory snapshots to `xcf/agents/<id>/memory/` sidecars. |
-| `--plan` | `false` | Dry-run: print import plan without writing files. |
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `--target` | string | (auto-detect) | Import from a specific provider: `claude`, `gemini`, `cursor`, `antigravity`, `copilot`. Without this flag, auto-detects all available providers. |
+| `--agent` | string | (all) | Import agents. Optionally filter by name. |
+| `--skill` | string | (all) | Import skills. Optionally filter by name. |
+| `--rule` | string | (all) | Import rules. Optionally filter by name. |
+| `--workflow` | string | (all) | Import workflows. Optionally filter by name. |
+| `--mcp` | string | (all) | Import MCP server definitions. Optionally filter by name. |
+| `--hooks` | bool | false | Import hook definitions. |
+| `--settings` | bool | false | Import settings configuration. |
+| `--memory` | bool | false | Import agent-written memory snapshots to `xcf/agents/<id>/memory/` sidecars. |
+| `--plan` | bool | false | Dry-run: print import plan without writing files. |
 
 ## Behavior
 
@@ -61,9 +61,9 @@ When `--target` is not specified:
   - **Hooks, MCP, Settings**: All variants merged; provider-specific differences preserved in `target-options` where applicable
 
 **Example:** `xcaffold import` (no flags) detects `.claude/`, `.cursor/`, and `.gemini/` directories, imports all resources from each, and produces:
-- `xcf/agents/researcher.xcf` (base, common to multiple providers)
-- `xcf/agents/researcher.claude.xcf` (Claude-specific overrides)
-- `xcf/agents/researcher.cursor.xcf` (Cursor-specific overrides)
+- `xcf/agents/researcher/agent.xcf` (base, common to multiple providers)
+- `xcf/agents/researcher/agent.claude.xcf` (Claude-specific overrides)
+- `xcf/agents/researcher/agent.cursor.xcf` (Cursor-specific overrides)
 
 ### Resource Filtering
 
@@ -75,69 +75,70 @@ Per-kind flags (`--agent`, `--skill`, etc.) control which resource types are imp
 
 ## Directory Layout
 
-After import, the project structure is organized as directory-per-resource:
+After import, the project structure is organized as directory-per-resource with canonical filenames:
 
 ```
-project.xcf
 xcf/
 ├── agents/
-│   ├── researcher.xcf
-│   ├── researcher.claude.xcf    # override for Claude
-│   ├── researcher.cursor.xcf    # override for Cursor
-│   └── researcher/memory/       # agent memory sidecars
+│   └── researcher/
+│       ├── agent.xcf              # base definition
+│       ├── agent.claude.xcf       # Claude-specific overrides
+│       ├── agent.cursor.xcf       # Cursor-specific overrides
+│       └── memory/                # agent memory sidecars
 ├── skills/
-│   ├── code-review/
-│   │   ├── SKILL.md
-│   │   └── code-review.claude.xcf
-│   └── documentation/SKILL.md
+│   └── code-review/
+│       ├── skill.xcf
+│       └── skill.claude.xcf
 ├── rules/
-│   ├── security.xcf
-│   └── testing.xcf
+│   └── security/
+│       └── rule.xcf
 ├── workflows/
-│   └── ci-pipeline.xcf
+│   └── ci-pipeline/
+│       └── workflow.xcf
 ├── hooks/
 │   └── hooks.xcf
 ├── mcp/
-│   ├── github-mcp.xcf
-│   └── github-mcp.claude.xcf
+│   └── github-mcp/
+│       ├── mcp.xcf
+│       └── mcp.claude.xcf
 └── settings/
     └── settings.xcf
 ```
 
 ## Examples
 
-**Import all agents and skills from Claude only:**
-```bash
-xcaffold import --target claude --agent --skill
-```
-
-**Import agents matching a pattern from all providers:**
-```bash
-xcaffold import --agent "dev*"
-```
-
-**Dry-run import from Gemini:**
-```bash
-xcaffold import --target gemini --plan
-```
-
-**Import everything from all detected providers (auto-merge):**
+**Import from all detected providers:**
 ```bash
 xcaffold import
 ```
 
-**Import all agents with memory snapshots:**
+**Import only from Gemini:**
 ```bash
-xcaffold import --agent --memory
+xcaffold import --target gemini
+```
+
+**Import only agents from Claude:**
+```bash
+xcaffold import --target claude --agent
+```
+
+**Import a specific agent from Claude:**
+```bash
+xcaffold import --target claude --agent developer
+```
+
+**Dry-run preview (no files written):**
+```bash
+xcaffold import --plan
 ```
 
 ## Output
 
 After a successful import, `xcaffold import` prints:
 - Resource summary (count by kind)
-- **Targets explanation** for single-provider imports: "Resources tagged with targets: [claude]. Remove the targets field to make universal."
-- **Conflict details** for multi-provider imports: lists divergent resources and their provider-specific overrides
-- Next steps: "Run 'xcaffold apply' when ready to assume management."
+- **Targets tagging** for single-provider imports: "Resources tagged with `targets: [claude]`. Remove the `targets` field to make universal."
+- **Conflict reporting** for multi-provider imports: "N conflicts detected. Run `xcaffold validate` to review."
+- Next steps: "Run `xcaffold apply` when ready to assume management."
 
 ## Merge Semantics
 

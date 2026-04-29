@@ -11,6 +11,14 @@ Defines a named, reusable multi-step procedure. Compiled exclusively to `.agents
 >
 > **Antigravity-only.** Claude, Cursor, Copilot, and Gemini silently ignore workflow definitions. Declaring a workflow with those providers in `targets` produces no output and no error.
 
+## Source Directory
+
+```
+xcf/workflows/<name>/workflow.xcf
+```
+
+Each workflow is a directory-per-resource under `xcf/workflows/`. The `.xcf` file contains the frontmatter and optional body for that workflow.
+
 ## Example Usage
 
 ### Single-step workflow (body form)
@@ -75,7 +83,7 @@ The following arguments are supported:
 - `api-version` — (Optional) `string`. Schema discriminator. Default: `"workflow/v1"`.
 - `description` — (Optional) `string`. What this workflow accomplishes.
 - `steps` — (Optional) `[]WorkflowStep`. Ordered procedural steps. Use when the workflow has multiple phases. Mutually exclusive with a top-level instruction body.
-- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides.
+- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides. Resources with a `targets:` field are compiled only for the listed providers. When absent, the resource is compiled for all applicable providers.
 
 ### `steps` entry
 

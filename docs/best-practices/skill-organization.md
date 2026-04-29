@@ -36,7 +36,7 @@ A skill that provides inline guidance needs only the `.xcf` file:
 ```
 xcf/skills/
 └── git-workflow/
-    └── git-workflow.xcf
+    └── skill.xcf
 ```
 
 ### Stage 2 — With supporting files
@@ -46,7 +46,7 @@ When the skill needs reference documents, executable scripts, output templates, 
 ```
 xcf/skills/
 └── code-review/
-    ├── code-review.xcf       ← the orchestrator
+    ├── skill.xcf             ← the orchestrator
     ├── references/
     │   └── team-standards.md ← read-only background knowledge
     ├── scripts/
