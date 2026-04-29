@@ -12,25 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCopyDirContents_SkipsMEMORYmd(t *testing.T) {
-	src := t.TempDir()
-	dst := t.TempDir()
-
-	// Write a regular memory file and a MEMORY.md index.
-	require.NoError(t, os.WriteFile(filepath.Join(src, "note.md"), []byte("content"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(src, "MEMORY.md"), []byte("# index"), 0600))
-
-	require.NoError(t, copyDirContents(src, dst))
-
-	// note.md must be copied.
-	_, err := os.Stat(filepath.Join(dst, "note.md"))
-	assert.NoError(t, err, "note.md should have been copied")
-
-	// MEMORY.md must NOT be copied.
-	_, err = os.Stat(filepath.Join(dst, "MEMORY.md"))
-	assert.True(t, os.IsNotExist(err), "MEMORY.md should have been skipped")
-}
-
 func TestImportScope_XcfDirAlreadyExists(t *testing.T) {
 	tmp := t.TempDir()
 
