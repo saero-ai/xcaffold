@@ -67,7 +67,7 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 	assert.Contains(t, scaffoldContent, "tdd")
 	assert.Contains(t, scaffoldContent, "security")
 
-	// Agent files — each lives in its own subdirectory: xcf/agents/<id>/<id>.xcf
+	// Agent files — each lives in its own subdirectory: xcf/agents/<id>/agent.xcf
 	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer", "agent.xcf"))
 	developerBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "agents", "developer", "agent.xcf"))
 	require.NoError(t, err)
@@ -810,4 +810,32 @@ func TestWriteSplitFiles_OverrideFiles_MCPWritten(t *testing.T) {
 	if strings.Contains(content, "kind:") {
 		t.Error("override should not contain kind field")
 	}
+}
+
+func TestWriteSplitFiles_Rules_NamespacedPath(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"cli/build-go-cli": {Name: "build-go-cli", Description: "Build Go CLI.", Body: "Build rules."},
+			},
+		},
+	}
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Namespaced rule produces directory: xcf/rules/cli/build-go-cli/rule.xcf
+	expected := filepath.Join(dir, "xcf", "rules", "cli", "build-go-cli", "rule.xcf")
+	if _, err := os.Stat(expected); os.IsNotExist(err) {
+		t.Fatalf("expected namespaced rule at %s", expected)
+	}
+
+	data, err := os.ReadFile(expected)
+	require.NoError(t, err)
+	content := string(data)
+	assert.Contains(t, content, "kind: rule")
+	assert.Contains(t, content, "---\nBuild rules.")
 }
