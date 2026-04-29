@@ -121,6 +121,47 @@ func TestResolveTargetOverrides_OverrideMerged(t *testing.T) {
 	}
 }
 
+// TestResolveTargetOverrides_AfterBlueprintFilter_OnlyFilteredResources validates
+// the architectural invariant that resolveTargetOverrides operates correctly on an
+// already-narrowed config (as it would be after blueprint filtering). When the
+// config contains only a single agent that declares the current target and carries
+// a per-provider model override, the agent must be present after the call with the
+// override merged in, and no fidelity notes must be emitted.
+func TestResolveTargetOverrides_AfterBlueprintFilter_OnlyFilteredResources(t *testing.T) {
+	// Simulate a config that has already been narrowed by a blueprint filter:
+	// only one agent remains — "developer" — which is scoped to "claude".
+	config := &ast.XcaffoldConfig{}
+	config.Agents = map[string]ast.AgentConfig{
+		"developer": {
+			Name:  "developer",
+			Model: "sonnet",
+			Targets: map[string]ast.TargetOverride{
+				"claude": {},
+			},
+		},
+	}
+	config.Overrides = &ast.ResourceOverrides{}
+	config.Overrides.AddAgent("developer", "claude", ast.AgentConfig{Model: "opus"})
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	// No fidelity notes: developer is listed for claude.
+	if len(notes) != 0 {
+		t.Fatalf("expected 0 notes, got %d: %+v", len(notes), notes)
+	}
+
+	// Developer must still be present after the call.
+	agent, ok := config.Agents["developer"]
+	if !ok {
+		t.Fatal("expected 'developer' agent to remain in config")
+	}
+
+	// The claude override (Model="opus") must have been merged in.
+	if agent.Model != "opus" {
+		t.Errorf("expected merged model %q, got %q", "opus", agent.Model)
+	}
+}
+
 // TestResolveTargetOverrides_NilOverrides verifies that a nil config.Overrides
 // does not panic and that universal resources pass through unchanged.
 func TestResolveTargetOverrides_NilOverrides(t *testing.T) {
