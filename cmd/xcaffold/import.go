@@ -84,36 +84,14 @@ func runImport(cmd *cobra.Command, args []string) error {
 			})
 		}
 		return mergeImportDirs(provDirs, "project.xcf")
-	} else if len(detected) == 1 {
+	}
+	if len(detected) == 1 {
 		imp := detected[0]
 		return importScope(imp.InputDir(), "project.xcf", "project", imp.Provider())
 	}
 
-	// No provider directories found
 	return fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
 }
-
-// runProjectInstructionsDiscovery runs extractProjectInstructions for the primary
-// provider, then checks for a secondary provider's instruction files and invokes
-// detectAndMergeVariants if found.
-//
-// Secondary provider detection:
-//   - primary=claude and AGENTS.md found in tree → secondary=cursor
-//   - primary=cursor and CLAUDE.md found in tree → secondary=claude
-//   - Other combinations are not yet implemented; they are logged and skipped.
-//
-// The autoMergeFlag ("union") is forwarded to detectAndMergeVariants.
-// If the xcf config file cannot be parsed (e.g., it doesn't exist yet or has no
-// project block), the function returns nil without error — project instructions
-// discovery is best-effort and must not block the import.
-
-// providerInstructionsFilename returns the canonical root instruction filename
-// for the given provider, or "" if the provider does not have one.
-
-// anyInstructionFileExists reports whether filename exists anywhere under root —
-// either as a direct child (root instruction file) or within a subdirectory.
-// This is used to gate project-instruction discovery: we run discovery whenever
-// ANY scoped instruction file exists, not only when the root-level file exists.
 
 // detectSecondaryProvider returns the secondary provider name when a second
 // provider's instruction files are present alongside the primary provider's tree.
@@ -1147,27 +1125,6 @@ func fileSize(path string) int64 {
 	}
 	return info.Size()
 }
-
-// runMemorySnapshot performs the memory import pass for --with-memory.
-// When fromPlatform is "gemini" it reads xcaffold-seeded blocks from GEMINI.md
-// in the resolved gemini directory. For all other platforms (and "auto") it
-// imports from the Claude project memory directory.
-//
-// NOTE: The --with-memory BIR snapshot path writes flat .md files to
-// detectAndMergeVariants runs the multi-provider divergence algorithm.
-// It discovers instruction files for the second provider and compares their
-// content with existing scope entries byte-for-byte. Identical content is
-// collapsed to a single entry; divergent content populates Variants with
-// per-provider sidecar paths and Reconciliation metadata.
-// autoMergeUnion concatenates both content blobs into the existing sidecar.
-//
-// Scopes present only in the secondary provider's tree are intentionally not
-// added to the primary config; this function reconciles overlapping paths only.
-// New scopes from a secondary provider should be added via a separate import pass.
-
-// parseProvenanceMarkers splits a flat-singleton file into root content and
-// individual scope entries using xcaffold:scope HTML comments.
-// Returns (scopes, rootContent, error).
 
 // parseHTMLCommentAttrs extracts key="value" pairs from an HTML comment line.
 func parseHTMLCommentAttrs(line string) map[string]string {
