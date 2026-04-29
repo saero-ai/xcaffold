@@ -374,8 +374,8 @@ func appendGraphAgents(config *ast.XcaffoldConfig, g *graphData) {
 		if agent.Effort != "" {
 			meta["effort"] = agent.Effort
 		}
-		if agent.Memory != "" {
-			meta["memory"] = agent.Memory
+		if len(agent.Memory) > 0 {
+			meta["memory"] = strings.Join([]string(agent.Memory), ", ")
 		}
 
 		label := id

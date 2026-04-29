@@ -133,7 +133,7 @@ func TestCompile_Copilot_Agents_UnsupportedFields(t *testing.T) {
 					DisallowedTools: []string{"bash"},
 					Isolation:       "sandbox",
 					Skills:          []string{"my-skill"},
-					Memory:          "long-term",
+					Memory:          ast.FlexStringSlice{"long-term"},
 					MaxTurns:        10,
 					Background:      &background,
 					Color:           "blue",

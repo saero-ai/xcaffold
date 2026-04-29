@@ -127,6 +127,33 @@ func (a AgentManifestEntry) MarshalYAML() (interface{}, error) {
 	}, nil
 }
 
+// FlexStringSlice is a custom type that accepts both YAML scalar strings and list sequences.
+// It unmarshals a scalar string into a single-element slice for backward compatibility.
+type FlexStringSlice []string
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface for FlexStringSlice.
+func (f *FlexStringSlice) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind == yaml.ScalarNode {
+		*f = FlexStringSlice{value.Value}
+		return nil
+	}
+	var list []string
+	if err := value.Decode(&list); err != nil {
+		return err
+	}
+	*f = FlexStringSlice(list)
+	return nil
+}
+
+// NewFlexStringSlice constructs a FlexStringSlice from a single string value.
+// If the string is empty, it returns nil; otherwise, it returns a slice containing that value.
+func NewFlexStringSlice(s string) FlexStringSlice {
+	if s == "" {
+		return nil
+	}
+	return FlexStringSlice{s}
+}
+
 // AgentConfig defines an AI coding agent persona.
 //
 // Field ordering is canonical and mirrors the compiled markdown frontmatter:
@@ -167,9 +194,9 @@ type AgentConfig struct {
 	When       string `yaml:"when,omitempty"`
 
 	// Group 6: Memory & Context
-	Memory        string `yaml:"memory,omitempty"`
-	Color         string `yaml:"color,omitempty"`
-	InitialPrompt string `yaml:"initial-prompt,omitempty"`
+	Memory        FlexStringSlice `yaml:"memory,omitempty"`
+	Color         string          `yaml:"color,omitempty"`
+	InitialPrompt string          `yaml:"initial-prompt,omitempty"`
 
 	// Group 7: Composition references
 	Skills     []string `yaml:"skills,omitempty"`

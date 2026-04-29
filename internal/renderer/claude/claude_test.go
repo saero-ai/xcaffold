@@ -294,7 +294,7 @@ func TestClaudeRenderer_Compile_Agent_MemoryInGroup6(t *testing.T) {
 					Model:       "sonnet",
 					Effort:      "high",
 					MaxTurns:    10,
-					Memory:      "project",
+					Memory:      ast.FlexStringSlice{"project"},
 					Isolation:   "worktree",
 				},
 			},

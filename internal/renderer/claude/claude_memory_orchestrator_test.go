@@ -184,7 +184,7 @@ func TestCompileAgentMarkdown_ExplicitMemoryFieldNotOverwritten(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {Name: "dev", Memory: "project"},
+				"dev": {Name: "dev", Memory: ast.FlexStringSlice{"project"}},
 			},
 			Memory: map[string]ast.MemoryConfig{
 				"ctx": {AgentRef: "dev", Content: "Context."},

@@ -181,7 +181,7 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 		UserInvocable:          &truthy,
 		Background:             &truthy,
 		Isolation:              "worktree",
-		Memory:                 "project",
+		Memory:                 FlexStringSlice{"project"},
 		Color:                  "blue",
 		InitialPrompt:          "Hello.",
 		Skills:                 []string{"tdd"},

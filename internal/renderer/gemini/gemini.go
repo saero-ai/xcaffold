@@ -565,7 +565,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			{"user-invocable", agent.UserInvocable != nil},
 			{"skills", len(agent.Skills) > 0},
 			{"hooks", len(agent.Hooks) > 0},
-			{"memory", agent.Memory != ""},
+			{"memory", len(agent.Memory) > 0},
 			{"disable-model-invocation", agent.DisableModelInvocation != nil},
 			{"when", agent.When != ""},
 			{"mode", agent.Mode != ""},

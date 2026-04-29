@@ -1007,6 +1007,37 @@ name: global
 	assert.Contains(t, errMsg, "ctx2.xcf")
 }
 
+func TestParse_AgentMemory_AcceptsList(t *testing.T) {
+	input := `
+kind: agent
+version: "1.0"
+name: developer
+memory:
+  - user-prefs
+  - project-context
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	agent := cfg.Agents["developer"]
+	require.Equal(t, 2, len(agent.Memory), "expected 2 memory refs, got %d", len(agent.Memory))
+	assert.Equal(t, "user-prefs", agent.Memory[0])
+	assert.Equal(t, "project-context", agent.Memory[1])
+}
+
+func TestParse_AgentMemory_AcceptsScalarBackwardCompat(t *testing.T) {
+	input := `
+kind: agent
+version: "1.0"
+name: developer
+memory: user-prefs
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	agent := cfg.Agents["developer"]
+	require.Equal(t, 1, len(agent.Memory), "expected 1 memory ref, got %d", len(agent.Memory))
+	assert.Equal(t, "user-prefs", agent.Memory[0])
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }
