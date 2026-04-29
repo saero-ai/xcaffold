@@ -88,16 +88,16 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(ruleBytes), "kind: rule")
 
-	// Hooks file
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "hooks.xcf"))
-	hooksBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "hooks.xcf"))
+	// Hooks file — each named hook lives in its own subdirectory: xcf/hooks/<name>/hooks.xcf
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "hooks", "default", "hooks.xcf"))
+	hooksBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "hooks", "default", "hooks.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(hooksBytes), "kind: hooks")
 	assert.Contains(t, string(hooksBytes), "events:")
 
-	// Settings file
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "settings.xcf"))
-	settingsBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "settings.xcf"))
+	// Settings file — each named settings lives in its own subdirectory: xcf/settings/<name>/settings.xcf
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "settings", "default", "settings.xcf"))
+	settingsBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "settings", "default", "settings.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(settingsBytes), "kind: settings")
 }
@@ -218,8 +218,9 @@ func TestWriteSplitFiles_NoHooks_NoHooksFile(t *testing.T) {
 	err := WriteSplitFiles(config, tmpDir)
 	require.NoError(t, err)
 
-	_, statErr := os.Stat(filepath.Join(tmpDir, "xcf", "hooks.xcf"))
-	assert.True(t, os.IsNotExist(statErr), "xcf/hooks.xcf should not be created when config has no hooks")
+	// No hooks directory should exist when config has no hooks
+	_, statErr := os.Stat(filepath.Join(tmpDir, "xcf", "hooks"))
+	assert.True(t, os.IsNotExist(statErr), "xcf/hooks/ directory should not be created when config has no hooks")
 }
 
 func TestWriteFrontmatterFile_AgentWithBody(t *testing.T) {
@@ -442,4 +443,104 @@ func TestWriteSplitFiles_Rules_DirectoryLayout(t *testing.T) {
 	if _, err := os.Stat(flat); !os.IsNotExist(err) {
 		t.Fatal("rule should NOT be in flat layout")
 	}
+}
+
+func TestWriteSplitFiles_AllKinds_DirectoryLayout(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name: "all-kinds-test",
+		},
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"deploy": {Name: "deploy", Description: "Deploy workflow"},
+			},
+			MCP: map[string]ast.MCPConfig{
+				"server-a": {Name: "server-a", Type: "stdio"},
+			},
+			Policies: map[string]ast.PolicyConfig{
+				"security": {
+					Name:        "security",
+					Description: "Security policy",
+					Severity:    "high",
+					Target:      "agents",
+				},
+			},
+		},
+		Hooks: map[string]ast.NamedHookConfig{
+			"pre-compile": {
+				Name: "pre-compile",
+				Events: ast.HookConfig{
+					"PreCompile": {
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "echo pre"}}},
+					},
+				},
+			},
+			"post-compile": {
+				Name: "post-compile",
+				Events: ast.HookConfig{
+					"PostCompile": {
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "echo post"}}},
+					},
+				},
+			},
+		},
+		Settings: map[string]ast.SettingsConfig{
+			"default": {Model: "claude-sonnet-4-5"},
+			"compact": {Model: "claude-haiku"},
+		},
+	}
+
+	err := WriteSplitFiles(config, tmpDir)
+	require.NoError(t, err)
+
+	// Workflows: xcf/workflows/<name>/workflow.xcf
+	workflowPath := filepath.Join(tmpDir, "xcf", "workflows", "deploy", "workflow.xcf")
+	assert.FileExists(t, workflowPath)
+	workflowBytes, err := os.ReadFile(workflowPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(workflowBytes), "kind: workflow")
+	assert.Contains(t, string(workflowBytes), "name: deploy")
+
+	// MCP: xcf/mcp/<name>/mcp.xcf
+	mcpPath := filepath.Join(tmpDir, "xcf", "mcp", "server-a", "mcp.xcf")
+	assert.FileExists(t, mcpPath)
+	mcpBytes, err := os.ReadFile(mcpPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(mcpBytes), "kind: mcp")
+	assert.Contains(t, string(mcpBytes), "name: server-a")
+
+	// Policy: xcf/policy/<name>/policy.xcf
+	policyPath := filepath.Join(tmpDir, "xcf", "policy", "security", "policy.xcf")
+	assert.FileExists(t, policyPath)
+	policyBytes, err := os.ReadFile(policyPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(policyBytes), "kind: policy")
+	assert.Contains(t, string(policyBytes), "name: security")
+
+	// Hooks: xcf/hooks/<name>/hooks.xcf (each named hook gets a subdirectory)
+	preCompilePath := filepath.Join(tmpDir, "xcf", "hooks", "pre-compile", "hooks.xcf")
+	assert.FileExists(t, preCompilePath)
+	preCompileBytes, err := os.ReadFile(preCompilePath)
+	require.NoError(t, err)
+	assert.Contains(t, string(preCompileBytes), "kind: hooks")
+	assert.Contains(t, string(preCompileBytes), "events:")
+
+	postCompilePath := filepath.Join(tmpDir, "xcf", "hooks", "post-compile", "hooks.xcf")
+	assert.FileExists(t, postCompilePath)
+	postCompileBytes, err := os.ReadFile(postCompilePath)
+	require.NoError(t, err)
+	assert.Contains(t, string(postCompileBytes), "kind: hooks")
+
+	// Settings: xcf/settings/<name>/settings.xcf (each named settings gets a subdirectory)
+	defaultSettingsPath := filepath.Join(tmpDir, "xcf", "settings", "default", "settings.xcf")
+	assert.FileExists(t, defaultSettingsPath)
+	defaultSettingsBytes, err := os.ReadFile(defaultSettingsPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(defaultSettingsBytes), "kind: settings")
+
+	compactSettingsPath := filepath.Join(tmpDir, "xcf", "settings", "compact", "settings.xcf")
+	assert.FileExists(t, compactSettingsPath)
 }

@@ -227,12 +227,13 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 
 	// Split .xcf files must exist for each resource
 	// Agents live in their own subdirectory: xcf/agents/<id>/<id>.xcf
+	// Workflows live in their own subdirectory: xcf/workflows/<name>/workflow.xcf
 	expectedXcfFiles := []string{
 		filepath.Join(tmp, "xcf", "agents", "dev", "dev.xcf"),
 		filepath.Join(tmp, "xcf", "agents", "reviewer", "reviewer.xcf"),
 		filepath.Join(tmp, "xcf", "skills", "tdd.xcf"),
 		filepath.Join(tmp, "xcf", "rules", "security", "rule.xcf"),
-		filepath.Join(tmp, "xcf", "workflows", "deploy.xcf"),
+		filepath.Join(tmp, "xcf", "workflows", "deploy", "workflow.xcf"),
 	}
 	for _, f := range expectedXcfFiles {
 		if _, err := os.Stat(f); err != nil {

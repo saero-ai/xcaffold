@@ -62,6 +62,13 @@ type mcpDoc struct {
 	ast.MCPConfig `yaml:",inline"`
 }
 
+// policyDoc is the serialization envelope for a kind: policy document.
+type policyDoc struct {
+	Kind              string `yaml:"kind"`
+	Version           string `yaml:"version"`
+	ast.PolicyConfig  `yaml:",inline"`
+}
+
 // contextDoc is the serialization envelope for a kind: context document.
 type contextDoc struct {
 	Kind              string `yaml:"kind"`
@@ -352,6 +359,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	}
 
 	// ── kind: workflow ───────────────────────────────────────────────────────
+	// Each workflow lives in its own subdirectory: xcf/workflows/<name>/workflow.xcf
 	if len(config.Workflows) > 0 {
 		dir := filepath.Join(xcfDir, "workflows")
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -366,13 +374,22 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 				wf.Name = k
 			}
 			doc := workflowDoc{Kind: "workflow", Version: version, WorkflowConfig: wf}
-			if err := writeYAMLFile(filepath.Join(dir, k+".xcf"), doc); err != nil {
+
+			// Directory layout: xcf/workflows/<name>/workflow.xcf
+			workflowSubDir := filepath.Join(dir, k)
+			if err := os.MkdirAll(workflowSubDir, 0755); err != nil {
+				return err
+			}
+			outPath := filepath.Join(workflowSubDir, "workflow.xcf")
+
+			if err := writeYAMLFile(outPath, doc); err != nil {
 				return err
 			}
 		}
 	}
 
 	// ── kind: mcp ────────────────────────────────────────────────────────────
+	// Each MCP server lives in its own subdirectory: xcf/mcp/<name>/mcp.xcf
 	if len(config.MCP) > 0 {
 		dir := filepath.Join(xcfDir, "mcp")
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -387,7 +404,42 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 				mcp.Name = k
 			}
 			doc := mcpDoc{Kind: "mcp", Version: version, MCPConfig: mcp}
-			if err := writeYAMLFile(filepath.Join(dir, k+".xcf"), doc); err != nil {
+
+			// Directory layout: xcf/mcp/<name>/mcp.xcf
+			mcpSubDir := filepath.Join(dir, k)
+			if err := os.MkdirAll(mcpSubDir, 0755); err != nil {
+				return err
+			}
+			outPath := filepath.Join(mcpSubDir, "mcp.xcf")
+
+			if err := writeYAMLFile(outPath, doc); err != nil {
+				return err
+			}
+		}
+	}
+
+	// ── kind: policy ────────────────────────────────────────────────────────
+	// Each policy lives in its own subdirectory: xcf/policy/<name>/policy.xcf
+	if len(config.Policies) > 0 {
+		dir := filepath.Join(xcfDir, "policy")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		for _, k := range sortedMapKeys(config.Policies) {
+			policy := config.Policies[k]
+			if policy.Name == "" {
+				policy.Name = k
+			}
+			doc := policyDoc{Kind: "policy", Version: version, PolicyConfig: policy}
+
+			// Directory layout: xcf/policy/<name>/policy.xcf
+			policySubDir := filepath.Join(dir, k)
+			if err := os.MkdirAll(policySubDir, 0755); err != nil {
+				return err
+			}
+			outPath := filepath.Join(policySubDir, "policy.xcf")
+
+			if err := writeYAMLFile(outPath, doc); err != nil {
 				return err
 			}
 		}
@@ -414,37 +466,66 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	}
 
 	// ── kind: hooks ──────────────────────────────────────────────────────────
-	var fileHooks ast.HookConfig
-	if dh, ok := config.Hooks["default"]; ok {
-		fileHooks = dh.Events
-	}
-	if len(fileHooks) > 0 {
-		if err := os.MkdirAll(xcfDir, 0755); err != nil {
+	// Each named hook config lives in its own subdirectory: xcf/hooks/<name>/hooks.xcf
+	if len(config.Hooks) > 0 {
+		dir := filepath.Join(xcfDir, "hooks")
+		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
 		}
-		doc := hooksSplitDoc{
-			Kind:    "hooks",
-			Version: version,
-			Events:  fileHooks,
-		}
-		if err := writeYAMLFile(filepath.Join(xcfDir, "hooks.xcf"), doc); err != nil {
-			return err
+		for _, k := range sortedMapKeys(config.Hooks) {
+			hook := config.Hooks[k]
+			if len(hook.Events) == 0 {
+				continue
+			}
+
+			doc := hooksSplitDoc{
+				Kind:    "hooks",
+				Version: version,
+				Events:  hook.Events,
+			}
+
+			// Directory layout: xcf/hooks/<name>/hooks.xcf
+			hookSubDir := filepath.Join(dir, k)
+			if err := os.MkdirAll(hookSubDir, 0755); err != nil {
+				return err
+			}
+			outPath := filepath.Join(hookSubDir, "hooks.xcf")
+
+			if err := writeYAMLFile(outPath, doc); err != nil {
+				return err
+			}
 		}
 	}
 
 	// ── kind: settings ───────────────────────────────────────────────────────
-	fileSettings := config.Settings["default"]
-	if !isZeroSettings(fileSettings) {
-		if err := os.MkdirAll(xcfDir, 0755); err != nil {
+	// Each named settings config lives in its own subdirectory: xcf/settings/<name>/settings.xcf
+	if len(config.Settings) > 0 {
+		dir := filepath.Join(xcfDir, "settings")
+		if err := os.MkdirAll(dir, 0755); err != nil {
 			return err
 		}
-		doc := settingsSplitDoc{
-			Kind:           "settings",
-			Version:        version,
-			SettingsConfig: fileSettings,
-		}
-		if err := writeYAMLFile(filepath.Join(xcfDir, "settings.xcf"), doc); err != nil {
-			return err
+		for _, k := range sortedMapKeys(config.Settings) {
+			settings := config.Settings[k]
+			if isZeroSettings(settings) {
+				continue
+			}
+
+			doc := settingsSplitDoc{
+				Kind:           "settings",
+				Version:        version,
+				SettingsConfig: settings,
+			}
+
+			// Directory layout: xcf/settings/<name>/settings.xcf
+			settingsSubDir := filepath.Join(dir, k)
+			if err := os.MkdirAll(settingsSubDir, 0755); err != nil {
+				return err
+			}
+			outPath := filepath.Join(settingsSubDir, "settings.xcf")
+
+			if err := writeYAMLFile(outPath, doc); err != nil {
+				return err
+			}
 		}
 	}
 
