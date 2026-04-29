@@ -292,3 +292,99 @@ func TestMergeAgentConfig_TargetsDeepMerge(t *testing.T) {
 		t.Errorf("Targets: want 2 entries, got %d", len(got.Targets))
 	}
 }
+
+// TestMergeSkillConfig_ScalarReplace verifies that a non-zero override scalar
+// replaces the base value, while base scalars not present in the override are
+// preserved.
+func TestMergeSkillConfig_ScalarReplace(t *testing.T) {
+	base := ast.SkillConfig{
+		Name:      "my-skill",
+		WhenToUse: "base description of when to use",
+	}
+	override := ast.SkillConfig{
+		WhenToUse: "override description of when to use",
+	}
+
+	got := mergeSkillConfig(base, override)
+
+	if got.WhenToUse != "override description of when to use" {
+		t.Errorf("WhenToUse: want %q, got %q", "override description of when to use", got.WhenToUse)
+	}
+	if got.Name != "my-skill" {
+		t.Errorf("Name: want %q, got %q", "my-skill", got.Name)
+	}
+}
+
+// TestMergeRuleConfig_BodyReplace verifies that a non-empty override Body
+// replaces the base Body.
+func TestMergeRuleConfig_BodyReplace(t *testing.T) {
+	base := ast.RuleConfig{
+		Body: "base rule body",
+	}
+	override := ast.RuleConfig{
+		Body: "override rule body",
+	}
+
+	got := mergeRuleConfig(base, override)
+
+	if got.Body != "override rule body" {
+		t.Errorf("Body: want %q, got %q", "override rule body", got.Body)
+	}
+}
+
+// TestMergeWorkflowConfig_StepsReplace verifies that a non-empty override Steps
+// list replaces the base Steps list entirely (list semantics, not append).
+func TestMergeWorkflowConfig_StepsReplace(t *testing.T) {
+	base := ast.WorkflowConfig{
+		Steps: []ast.WorkflowStep{
+			{Name: "step-a"},
+			{Name: "step-b"},
+		},
+	}
+	override := ast.WorkflowConfig{
+		Steps: []ast.WorkflowStep{
+			{Name: "step-override"},
+		},
+	}
+
+	got := mergeWorkflowConfig(base, override)
+
+	if len(got.Steps) != 1 {
+		t.Fatalf("Steps: want 1 step, got %d", len(got.Steps))
+	}
+	if got.Steps[0].Name != "step-override" {
+		t.Errorf("Steps[0].Name: want %q, got %q", "step-override", got.Steps[0].Name)
+	}
+}
+
+// TestMergeMCPConfig_EnvDeepMerge verifies that base.Env and override.Env are
+// deep merged: both keys are preserved, and on conflict the override value wins.
+func TestMergeMCPConfig_EnvDeepMerge(t *testing.T) {
+	base := ast.MCPConfig{
+		Env: map[string]string{
+			"BASE_KEY":   "base-val",
+			"SHARED_KEY": "base-shared",
+		},
+	}
+	override := ast.MCPConfig{
+		Env: map[string]string{
+			"OVERRIDE_KEY": "override-val",
+			"SHARED_KEY":   "override-shared",
+		},
+	}
+
+	got := mergeMCPConfig(base, override)
+
+	if got.Env["BASE_KEY"] != "base-val" {
+		t.Errorf("Env[BASE_KEY]: want %q, got %q", "base-val", got.Env["BASE_KEY"])
+	}
+	if got.Env["OVERRIDE_KEY"] != "override-val" {
+		t.Errorf("Env[OVERRIDE_KEY]: want %q, got %q", "override-val", got.Env["OVERRIDE_KEY"])
+	}
+	if got.Env["SHARED_KEY"] != "override-shared" {
+		t.Errorf("Env[SHARED_KEY]: want %q (override wins), got %q", "override-shared", got.Env["SHARED_KEY"])
+	}
+	if len(got.Env) != 3 {
+		t.Errorf("Env: want 3 entries, got %d", len(got.Env))
+	}
+}

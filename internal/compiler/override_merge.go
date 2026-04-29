@@ -138,3 +138,244 @@ func mergeAgentConfig(base, override ast.AgentConfig) ast.AgentConfig {
 
 	return result
 }
+
+// mergeSkillConfig merges override into base using provider-override semantics.
+// See mergeAgentConfig for the full description of merge rules.
+func mergeSkillConfig(base, override ast.SkillConfig) ast.SkillConfig {
+	result := base
+
+	// --- Scalars (replace on non-zero) ---
+	if override.Name != "" {
+		result.Name = override.Name
+	}
+	if override.Description != "" {
+		result.Description = override.Description
+	}
+	if override.WhenToUse != "" {
+		result.WhenToUse = override.WhenToUse
+	}
+	if override.License != "" {
+		result.License = override.License
+	}
+	if override.ArgumentHint != "" {
+		result.ArgumentHint = override.ArgumentHint
+	}
+
+	// --- Bool pointers (replace on non-nil) ---
+	if override.DisableModelInvocation != nil {
+		v := *override.DisableModelInvocation
+		result.DisableModelInvocation = &v
+	}
+	if override.UserInvocable != nil {
+		v := *override.UserInvocable
+		result.UserInvocable = &v
+	}
+
+	// --- Lists (replace entire list on non-empty) ---
+	if len(override.AllowedTools) > 0 {
+		result.AllowedTools = append([]string(nil), override.AllowedTools...)
+	}
+	if len(override.References) > 0 {
+		result.References = append([]string(nil), override.References...)
+	}
+	if len(override.Scripts) > 0 {
+		result.Scripts = append([]string(nil), override.Scripts...)
+	}
+	if len(override.Assets) > 0 {
+		result.Assets = append([]string(nil), override.Assets...)
+	}
+	if len(override.Examples) > 0 {
+		result.Examples = append([]string(nil), override.Examples...)
+	}
+
+	// --- Maps (deep merge — override keys win, base keys preserved) ---
+	if len(override.Targets) > 0 {
+		merged := make(map[string]ast.TargetOverride, len(base.Targets)+len(override.Targets))
+		for k, v := range base.Targets {
+			merged[k] = v
+		}
+		for k, v := range override.Targets {
+			merged[k] = v
+		}
+		result.Targets = merged
+	}
+
+	// --- Body (replace when non-empty, inherit when absent) ---
+	if override.Body != "" {
+		result.Body = override.Body
+	}
+
+	// Internal provenance fields are intentionally NOT merged.
+	return result
+}
+
+// mergeRuleConfig merges override into base using provider-override semantics.
+// See mergeAgentConfig for the full description of merge rules.
+func mergeRuleConfig(base, override ast.RuleConfig) ast.RuleConfig {
+	result := base
+
+	// --- Scalars (replace on non-zero) ---
+	if override.Name != "" {
+		result.Name = override.Name
+	}
+	if override.Description != "" {
+		result.Description = override.Description
+	}
+	if override.Activation != "" {
+		result.Activation = override.Activation
+	}
+
+	// --- Bool pointers (replace on non-nil) ---
+	if override.AlwaysApply != nil {
+		v := *override.AlwaysApply
+		result.AlwaysApply = &v
+	}
+
+	// --- Lists (replace entire list on non-empty) ---
+	if len(override.Paths) > 0 {
+		result.Paths = append([]string(nil), override.Paths...)
+	}
+	if len(override.ExcludeAgents) > 0 {
+		result.ExcludeAgents = append([]string(nil), override.ExcludeAgents...)
+	}
+
+	// --- Maps (deep merge — override keys win, base keys preserved) ---
+	if len(override.Targets) > 0 {
+		merged := make(map[string]ast.TargetOverride, len(base.Targets)+len(override.Targets))
+		for k, v := range base.Targets {
+			merged[k] = v
+		}
+		for k, v := range override.Targets {
+			merged[k] = v
+		}
+		result.Targets = merged
+	}
+
+	// --- Body (replace when non-empty, inherit when absent) ---
+	if override.Body != "" {
+		result.Body = override.Body
+	}
+
+	// Internal provenance fields are intentionally NOT merged.
+	return result
+}
+
+// mergeWorkflowConfig merges override into base using provider-override semantics.
+// See mergeAgentConfig for the full description of merge rules.
+func mergeWorkflowConfig(base, override ast.WorkflowConfig) ast.WorkflowConfig {
+	result := base
+
+	// --- Scalars (replace on non-zero) ---
+	if override.ApiVersion != "" {
+		result.ApiVersion = override.ApiVersion
+	}
+	if override.Name != "" {
+		result.Name = override.Name
+	}
+	if override.Description != "" {
+		result.Description = override.Description
+	}
+
+	// --- Lists (replace entire list on non-empty) ---
+	// Steps is a slice of structs: override replaces the entire base slice.
+	if len(override.Steps) > 0 {
+		result.Steps = append([]ast.WorkflowStep(nil), override.Steps...)
+	}
+
+	// --- Maps (deep merge — override keys win, base keys preserved) ---
+	if len(override.Targets) > 0 {
+		merged := make(map[string]ast.TargetOverride, len(base.Targets)+len(override.Targets))
+		for k, v := range base.Targets {
+			merged[k] = v
+		}
+		for k, v := range override.Targets {
+			merged[k] = v
+		}
+		result.Targets = merged
+	}
+
+	// --- Body (replace when non-empty, inherit when absent) ---
+	if override.Body != "" {
+		result.Body = override.Body
+	}
+
+	// Internal provenance fields are intentionally NOT merged.
+	return result
+}
+
+// mergeMCPConfig merges override into base using provider-override semantics.
+// MCPConfig has no Body or Targets field. Maps (Env, Headers, OAuth) are
+// deep-merged; all other fields follow standard scalar/list/bool-pointer rules.
+// See mergeAgentConfig for the full description of merge rules.
+func mergeMCPConfig(base, override ast.MCPConfig) ast.MCPConfig {
+	result := base
+
+	// --- Scalars (replace on non-zero) ---
+	if override.Name != "" {
+		result.Name = override.Name
+	}
+	if override.Type != "" {
+		result.Type = override.Type
+	}
+	if override.Command != "" {
+		result.Command = override.Command
+	}
+	if override.URL != "" {
+		result.URL = override.URL
+	}
+	if override.Cwd != "" {
+		result.Cwd = override.Cwd
+	}
+	if override.AuthProviderType != "" {
+		result.AuthProviderType = override.AuthProviderType
+	}
+
+	// --- Bool pointers (replace on non-nil) ---
+	if override.Disabled != nil {
+		v := *override.Disabled
+		result.Disabled = &v
+	}
+
+	// --- Lists (replace entire list on non-empty) ---
+	if len(override.Args) > 0 {
+		result.Args = append([]string(nil), override.Args...)
+	}
+	if len(override.DisabledTools) > 0 {
+		result.DisabledTools = append([]string(nil), override.DisabledTools...)
+	}
+
+	// --- Maps (deep merge — override keys win, base keys preserved) ---
+	if len(override.Env) > 0 {
+		merged := make(map[string]string, len(base.Env)+len(override.Env))
+		for k, v := range base.Env {
+			merged[k] = v
+		}
+		for k, v := range override.Env {
+			merged[k] = v
+		}
+		result.Env = merged
+	}
+	if len(override.Headers) > 0 {
+		merged := make(map[string]string, len(base.Headers)+len(override.Headers))
+		for k, v := range base.Headers {
+			merged[k] = v
+		}
+		for k, v := range override.Headers {
+			merged[k] = v
+		}
+		result.Headers = merged
+	}
+	if len(override.OAuth) > 0 {
+		merged := make(map[string]string, len(base.OAuth)+len(override.OAuth))
+		for k, v := range base.OAuth {
+			merged[k] = v
+		}
+		for k, v := range override.OAuth {
+			merged[k] = v
+		}
+		result.OAuth = merged
+	}
+
+	// Internal provenance fields are intentionally NOT merged.
+	return result
+}
