@@ -544,3 +544,199 @@ func TestWriteSplitFiles_AllKinds_DirectoryLayout(t *testing.T) {
 	compactSettingsPath := filepath.Join(tmpDir, "xcf", "settings", "compact", "settings.xcf")
 	assert.FileExists(t, compactSettingsPath)
 }
+
+func TestWriteSplitFiles_OverrideFiles_AgentWritten(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {Name: "developer", Model: "sonnet", Body: "Universal agent."},
+			},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddAgent("developer", "claude", ast.AgentConfig{
+		Model: "opus", Body: "Claude-specific.",
+	})
+
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Base file should exist
+	basePath := filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf")
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		t.Fatal("expected base agent file")
+	}
+
+	// Override file: agent.claude.xcf
+	overridePath := filepath.Join(dir, "xcf", "agents", "developer", "agent.claude.xcf")
+	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
+		t.Fatal("expected claude override file at " + overridePath)
+	}
+
+	// Override should contain overridden fields
+	data, _ := os.ReadFile(overridePath)
+	content := string(data)
+	if !strings.Contains(content, "model: opus") {
+		t.Error("override should contain overridden model")
+	}
+	if !strings.Contains(content, "Claude-specific.") {
+		t.Error("override should contain override body")
+	}
+	// Override should NOT contain kind or version (partial config)
+	if strings.Contains(content, "kind:") {
+		t.Error("override should not contain kind field")
+	}
+	if strings.Contains(content, "version:") {
+		t.Error("override should not contain version field")
+	}
+}
+
+func TestWriteSplitFiles_OverrideFiles_SkillWritten(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {Name: "tdd", Body: "Base TDD."},
+			},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddSkill("tdd", "cursor", ast.SkillConfig{
+		Body: "Cursor-specific TDD.",
+	})
+
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Override file for skills: skill.cursor.xcf
+	// Since skills are still flat layout, override goes next to the flat file
+	overridePath := filepath.Join(dir, "xcf", "skills", "skill.cursor.xcf")
+	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
+		t.Fatal("expected cursor skill override file at " + overridePath)
+	}
+
+	data, _ := os.ReadFile(overridePath)
+	content := string(data)
+	if !strings.Contains(content, "Cursor-specific TDD.") {
+		t.Error("override should contain override body")
+	}
+	// Should NOT have kind/version
+	if strings.Contains(content, "kind:") {
+		t.Error("override should not contain kind field")
+	}
+}
+
+func TestWriteSplitFiles_OverrideFiles_RuleWritten(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"secure": {Name: "secure", Body: "No secrets."},
+			},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddRule("secure", "gemini", ast.RuleConfig{
+		Body: "Gemini-specific rules.",
+	})
+
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Override file: rule.gemini.xcf (in the rule's directory)
+	overridePath := filepath.Join(dir, "xcf", "rules", "secure", "rule.gemini.xcf")
+	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
+		t.Fatal("expected gemini rule override file at " + overridePath)
+	}
+
+	data, _ := os.ReadFile(overridePath)
+	content := string(data)
+	if !strings.Contains(content, "Gemini-specific rules.") {
+		t.Error("override should contain override body")
+	}
+	if strings.Contains(content, "kind:") {
+		t.Error("override should not contain kind field")
+	}
+}
+
+func TestWriteSplitFiles_OverrideFiles_WorkflowWritten(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"deploy": {Name: "deploy", Description: "Base deploy."},
+			},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddWorkflow("deploy", "antigravity", ast.WorkflowConfig{
+		Description: "Antigravity-specific deploy.",
+	})
+
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Override file: workflow.antigravity.xcf
+	overridePath := filepath.Join(dir, "xcf", "workflows", "deploy", "workflow.antigravity.xcf")
+	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
+		t.Fatal("expected antigravity workflow override file at " + overridePath)
+	}
+
+	data, _ := os.ReadFile(overridePath)
+	content := string(data)
+	if !strings.Contains(content, "Antigravity-specific deploy.") {
+		t.Error("override should contain override description")
+	}
+	if strings.Contains(content, "kind:") {
+		t.Error("override should not contain kind field")
+	}
+}
+
+func TestWriteSplitFiles_OverrideFiles_MCPWritten(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{
+				"server": {Name: "server", Type: "stdio"},
+			},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddMCP("server", "claude", ast.MCPConfig{
+		Type: "sse",
+	})
+
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Override file: mcp.claude.xcf
+	overridePath := filepath.Join(dir, "xcf", "mcp", "server", "mcp.claude.xcf")
+	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
+		t.Fatal("expected claude mcp override file at " + overridePath)
+	}
+
+	data, _ := os.ReadFile(overridePath)
+	content := string(data)
+	if !strings.Contains(content, "type: sse") {
+		t.Error("override should contain overridden type")
+	}
+	if strings.Contains(content, "kind:") {
+		t.Error("override should not contain kind field")
+	}
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -64,9 +65,9 @@ type mcpDoc struct {
 
 // policyDoc is the serialization envelope for a kind: policy document.
 type policyDoc struct {
-	Kind              string `yaml:"kind"`
-	Version           string `yaml:"version"`
-	ast.PolicyConfig  `yaml:",inline"`
+	Kind             string `yaml:"kind"`
+	Version          string `yaml:"version"`
+	ast.PolicyConfig `yaml:",inline"`
 }
 
 // contextDoc is the serialization envelope for a kind: context document.
@@ -303,6 +304,22 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if err := writeFrontmatterFile(filepath.Join(agentSubDir, k+".xcf"), doc, body); err != nil {
 				return err
 			}
+
+			// Write agent overrides: agent.<provider>.xcf
+			if config.Overrides != nil {
+				if providers := config.Overrides.AgentProviders(k); len(providers) > 0 {
+					for _, provider := range providers {
+						overrideCfg, _ := config.Overrides.GetAgent(k, provider)
+						overrideBody := strings.TrimSpace(overrideCfg.Body)
+						overrideCfg.Body = "" // zero before YAML serialization
+						overrideCfg.Name = "" // name is inferred from directory
+						overridePath := filepath.Join(agentSubDir, fmt.Sprintf("agent.%s.xcf", provider))
+						if err := writeFrontmatterFile(overridePath, overrideCfg, overrideBody); err != nil {
+							return err
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -324,6 +341,22 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			doc := skillDoc{Kind: "skill", Version: version, SkillConfig: skill}
 			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
 				return err
+			}
+
+			// Write skill overrides: skill.<provider>.xcf (same directory as flat skill file)
+			if config.Overrides != nil {
+				if providers := config.Overrides.SkillProviders(k); len(providers) > 0 {
+					for _, provider := range providers {
+						overrideCfg, _ := config.Overrides.GetSkill(k, provider)
+						overrideBody := strings.TrimSpace(overrideCfg.Body)
+						overrideCfg.Body = ""
+						overrideCfg.Name = ""
+						overridePath := filepath.Join(dir, fmt.Sprintf("skill.%s.xcf", provider))
+						if err := writeFrontmatterFile(overridePath, overrideCfg, overrideBody); err != nil {
+							return err
+						}
+					}
+				}
 			}
 		}
 	}
@@ -355,6 +388,22 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 				return err
 			}
+
+			// Write rule overrides: rule.<provider>.xcf
+			if config.Overrides != nil {
+				if providers := config.Overrides.RuleProviders(k); len(providers) > 0 {
+					for _, provider := range providers {
+						overrideCfg, _ := config.Overrides.GetRule(k, provider)
+						overrideBody := strings.TrimSpace(overrideCfg.Body)
+						overrideCfg.Body = ""
+						overrideCfg.Name = ""
+						overridePath := filepath.Join(ruleSubDir, fmt.Sprintf("rule.%s.xcf", provider))
+						if err := writeFrontmatterFile(overridePath, overrideCfg, overrideBody); err != nil {
+							return err
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -385,6 +434,20 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			if err := writeYAMLFile(outPath, doc); err != nil {
 				return err
 			}
+
+			// Write workflow overrides: workflow.<provider>.xcf
+			if config.Overrides != nil {
+				if providers := config.Overrides.WorkflowProviders(k); len(providers) > 0 {
+					for _, provider := range providers {
+						overrideCfg, _ := config.Overrides.GetWorkflow(k, provider)
+						overrideCfg.Name = ""
+						overridePath := filepath.Join(workflowSubDir, fmt.Sprintf("workflow.%s.xcf", provider))
+						if err := writeYAMLFile(overridePath, overrideCfg); err != nil {
+							return err
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -414,6 +477,20 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 
 			if err := writeYAMLFile(outPath, doc); err != nil {
 				return err
+			}
+
+			// Write MCP overrides: mcp.<provider>.xcf
+			if config.Overrides != nil {
+				if providers := config.Overrides.MCPProviders(k); len(providers) > 0 {
+					for _, provider := range providers {
+						overrideCfg, _ := config.Overrides.GetMCP(k, provider)
+						overrideCfg.Name = ""
+						overridePath := filepath.Join(mcpSubDir, fmt.Sprintf("mcp.%s.xcf", provider))
+						if err := writeYAMLFile(overridePath, overrideCfg); err != nil {
+							return err
+						}
+					}
+				}
 			}
 		}
 	}
