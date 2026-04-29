@@ -335,7 +335,7 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	assert.Contains(t, s, "kind: project")
 
 	// Must NOT contain multi-kind documents inline in project.xcf
-	assert.NotContains(t, s, "kind: agent", "agent must be in xcf/agents/dev/dev.xcf, not project.xcf")
+	assert.NotContains(t, s, "kind: agent", "agent must be in xcf/agents/dev/agent.xcf, not project.xcf")
 	assert.NotContains(t, s, "kind: skill", "skill must be in xcf/skills/tdd/skill.xcf, not project.xcf")
 
 	// Split files must exist — each kind in its own subdirectory
