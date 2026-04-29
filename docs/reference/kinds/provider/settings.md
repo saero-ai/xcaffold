@@ -11,6 +11,14 @@ Uses **pure YAML format** (no frontmatter `---` delimiters).
 
 > **Required:** `kind`, `version`, `name`
 
+## Source Directory
+
+```
+xcf/settings/settings.xcf
+```
+
+`kind: settings` is a singleton — there is no `<name>` directory. All provider settings for a project are defined in a single `xcf/settings/settings.xcf` file.
+
 ## Example Usage
 
 ### Minimal: set a default model
@@ -70,6 +78,7 @@ The following arguments are supported:
 - `claude-md-excludes` — (Optional) `[]string`. Glob patterns for files excluded from `CLAUDE.md` auto-inclusion.
 - `mcp-servers` — (Optional) `map[string]MCPConfig`. Inline MCP server declarations. Merged with `kind: mcp` declarations; settings wins on conflict.
 - `permissions` — (Optional) `PermissionsConfig` (see [permissions block](#permissions-block)).
+- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides. Settings rarely use `targets:` since most settings fields are provider-universal; the field is available for cases where a setting applies only to specific providers.
 
 ### `permissions` block
 

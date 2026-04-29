@@ -11,6 +11,14 @@ Uses **pure YAML format** (no frontmatter `---` delimiters).
 
 > **Required:** `kind`, `version`, `name`
 
+## Source Directory
+
+```
+xcf/hooks/hooks.xcf
+```
+
+`kind: hooks` is a singleton — there is no `<name>` directory. All hook declarations for a project are defined in a single `xcf/hooks/hooks.xcf` file.
+
 ## Example Usage
 
 ### Lint after every file edit
@@ -47,6 +55,7 @@ The following arguments are supported:
 - `name` — (Required) Unique hooks identifier. Must match `[a-z0-9-]+`.
 - `pre-tool-call` — (Optional) `[]HookEntry`. Scripts run before any matching tool invocation.
 - `post-tool-call` — (Optional) `[]HookEntry`. Scripts run after any matching tool invocation.
+- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides. Hooks rarely use `targets:` since lifecycle scripts are typically provider-universal, but the field is available for cases where hook behavior differs across providers.
 
 ### `HookEntry`
 
