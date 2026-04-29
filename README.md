@@ -10,7 +10,7 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/dl/)
 
-**Your agents, by design.** Agent-as-Code — design, compile, and manage agent blueprints across every AI coding platform. Declare your agents once in a `.xcf` YAML file. `xcaffold` compiles deterministically into native configurations for Claude Code, Cursor, GitHub Copilot, Gemini CLI, and Antigravity — with drift detection, policy enforcement, and behavioral testing.
+**Your agents, by design.** Declare your agents once in a `.xcf` YAML file. `xcaffold` compiles deterministically into native configurations for Claude Code, Cursor, GitHub Copilot, Gemini CLI, and Antigravity — with drift detection, policy enforcement, and behavioral testing.
 
 ```
                                    ──► claude        ──►  .claude/
@@ -30,9 +30,8 @@ The agentic development ecosystem is fragmented. Every AI coding tool ships its 
 
 - **Blueprint-based agent configuration** — Define agents, skills, rules, and hooks once in `.xcf` YAML. Target-specific details emerge at compile time, not in your source tree.
 - **Multi-provider compilation** — Single source, native output. Compile to Claude Code, Cursor, GitHub Copilot, Gemini CLI, Antigravity — all from one `.xcf` file.
-- **Drift detection via SHA-256 state** — Track compiled state in `project.lock`. Detect when `.claude/`, `.cursor/`, or other output directories have been manually edited. `xcaffold diff` shows exactly what changed and why.
+- **Drift detection via SHA-256 state** — Track compiled state in `.xcaffold/<name>.xcf.state`. Detect when `.claude/`, `.cursor/`, or other output directories have been manually edited. `xcaffold diff` shows exactly what changed and why.
 - **Policy enforcement at compile time** — Define policies (require, deny, match constraints). Violations block compilation with precise error messages. No unsafe agent configurations reach production.
-- **Behavioral testing with `xcaffold test`** — Simulate agent behavior against declared test cases. Use `--judge` to evaluate behavior against assertions with LLM-backed reasoning.
 - **Cross-provider translation with fidelity reporting** — When a capability cannot be expressed in a target's native format, `xcaffold` reports the translation loss. Migrate between providers with full visibility into behavioral gaps.
 - **Import existing configs** — Have agents already configured in Claude Code, Cursor, or GitHub Copilot? `xcaffold import` reads existing agent/skill/rule directories and reconstructs the `.xcf` blueprint.
 
@@ -73,30 +72,26 @@ make install           # Install globally to $GOPATH/bin
 Define your agents in `project.xcf`:
 
 ```yaml
+# project.xcf
 kind: project
 version: "1.0"
-name: my-agents
-agents:
-  - name: backend
-    description: Backend development agent
-    instructions: |
-      You are a Golang backend engineer. 
-      Write production-grade code.
-    model: claude-opus-4-1-20250805
-    tools: [Bash, Read, Write, Edit, Glob, Grep]
-    targets:
-      - claude
-      - cursor
-      
-  - name: frontend
-    description: Frontend development agent
-    instructions: |
-      You are a TypeScript/React engineer.
-      Prioritize accessibility and performance.
-    model: claude-opus-4-1-20250805
-    tools: [Bash, Read, Write, Edit, Glob, Grep]
-    targets:
-      - claude
+name: my-app
+targets:
+  - claude
+  - cursor
+```
+
+```yaml
+# xcf/agents/backend.xcf
+---
+kind: agent
+version: "1.0"
+name: backend
+description: "Backend API developer"
+model: sonnet
+tools: [Read, Write, Edit, Bash, Glob, Grep]
+---
+You are a backend developer specializing in Go APIs.
 ```
 
 Run the lifecycle:
@@ -106,9 +101,21 @@ xcaffold init                      # Initialize a new project.xcf
 xcaffold apply                     # Compile to .claude/, .cursor/, etc.
 xcaffold diff                      # Detect manual drift in output directories
 xcaffold validate                  # Check syntax without compiling
-xcaffold test --agent backend      # Simulate agent behavior
 xcaffold import --provider claude  # Read existing .claude/ and generate .xcf
 ```
+
+## What xcaffold Compiles
+
+| Resource | Claude Code | Cursor | GitHub Copilot | Gemini CLI | Antigravity |
+|----------|-------------|--------|----------------|------------|-------------|
+| Agents | Yes | Yes | Yes | Yes | Yes |
+| Skills | Yes | Yes | Yes | Yes | Yes |
+| Rules | Yes | Yes | Yes | Yes | Yes |
+| Workflows | Yes | Yes | Yes | Yes | Yes |
+| Hooks | Yes | Yes | Yes | Yes | -- |
+| MCP Servers | Yes | Yes | -- | Yes | Yes |
+| Memory | Yes | -- | -- | -- | -- |
+| Settings | Yes | -- | -- | -- | -- |
 
 ## Documentation
 
@@ -123,3 +130,7 @@ To learn more about how to use `xcaffold`, explore our documentation:
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE).
