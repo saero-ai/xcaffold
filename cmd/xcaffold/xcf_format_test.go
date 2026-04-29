@@ -68,13 +68,13 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 	assert.Contains(t, scaffoldContent, "security")
 
 	// Agent files — each lives in its own subdirectory: xcf/agents/<id>/<id>.xcf
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer", "developer.xcf"))
-	developerBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "agents", "developer", "developer.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer", "agent.xcf"))
+	developerBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "agents", "developer", "agent.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(developerBytes), "kind: agent")
 	assert.Contains(t, string(developerBytes), "name: developer")
 
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "reviewer", "reviewer.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "reviewer", "agent.xcf"))
 
 	// Skill file — directory layout: xcf/skills/<name>/skill.xcf
 	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "skills", "tdd", "skill.xcf"))
@@ -172,9 +172,9 @@ func TestWriteSplitFiles_Deterministic(t *testing.T) {
 	assert.Equal(t, b1, b2, ".xcaffold/project.xcf must be byte-identical")
 
 	// Compare an agent file
-	a1, err := os.ReadFile(filepath.Join(tmpDir1, "xcf", "agents", "alpha", "alpha.xcf"))
+	a1, err := os.ReadFile(filepath.Join(tmpDir1, "xcf", "agents", "alpha", "agent.xcf"))
 	require.NoError(t, err)
-	a2, err := os.ReadFile(filepath.Join(tmpDir2, "xcf", "agents", "alpha", "alpha.xcf"))
+	a2, err := os.ReadFile(filepath.Join(tmpDir2, "xcf", "agents", "alpha", "agent.xcf"))
 	require.NoError(t, err)
 	assert.Equal(t, a1, a2, "agent file must be byte-identical")
 }
@@ -291,7 +291,7 @@ func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf"))
+	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "developer", "agent.xcf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -374,9 +374,9 @@ func TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf"))
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer", "agent.xcf"))
 	require.NoError(t, err)
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "reviewer", "reviewer.xcf"))
+	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "reviewer", "agent.xcf"))
 	require.NoError(t, err)
 }
 
@@ -490,6 +490,30 @@ func TestWriteSplitFiles_Context_DirectoryLayout(t *testing.T) {
 	flat := filepath.Join(dir, "xcf", "context", "project-readme.xcf")
 	if _, err := os.Stat(flat); !os.IsNotExist(err) {
 		t.Fatal("context should NOT be in flat layout")
+	}
+}
+
+func TestWriteSplitFiles_Agent_CanonicalFilename(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {Name: "developer", Model: "sonnet", Body: "Dev."},
+			},
+		},
+	}
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	canonical := filepath.Join(dir, "xcf", "agents", "developer", "agent.xcf")
+	if _, err := os.Stat(canonical); os.IsNotExist(err) {
+		t.Fatal("expected canonical filename agent.xcf")
+	}
+
+	old := filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf")
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Fatal("should not use resource name as filename")
 	}
 }
 
@@ -614,7 +638,7 @@ func TestWriteSplitFiles_OverrideFiles_AgentWritten(t *testing.T) {
 	}
 
 	// Base file should exist
-	basePath := filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf")
+	basePath := filepath.Join(dir, "xcf", "agents", "developer", "agent.xcf")
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
 		t.Fatal("expected base agent file")
 	}

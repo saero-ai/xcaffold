@@ -284,8 +284,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	xcfDir := filepath.Join(rootDir, "xcf")
 
 	// ── kind: agent ──────────────────────────────────────────────────────────
-	// Each agent lives in its own subdirectory: xcf/agents/<id>/<id>.xcf
-	// Flat files under xcf/agents/<id>.xcf are rejected by the parser.
+	// Each agent lives in its own subdirectory: xcf/agents/<name>/agent.xcf
 	if len(config.Agents) > 0 {
 		for _, k := range sortedMapKeys(config.Agents) {
 			if agentFilter != nil && !agentFilter[k] {
@@ -301,7 +300,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			}
 			body := strings.TrimSpace(agent.Body)
 			doc := agentDoc{Kind: "agent", Version: version, AgentConfig: agent}
-			if err := writeFrontmatterFile(filepath.Join(agentSubDir, k+".xcf"), doc, body); err != nil {
+			if err := writeFrontmatterFile(filepath.Join(agentSubDir, "agent.xcf"), doc, body); err != nil {
 				return err
 			}
 

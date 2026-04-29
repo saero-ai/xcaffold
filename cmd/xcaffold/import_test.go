@@ -226,11 +226,10 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	assert.Contains(t, scaffoldStr, "kind: project", "project.xcf must use kind: project (split-file format)")
 
 	// Split .xcf files must exist for each resource
-	// Agents live in their own subdirectory: xcf/agents/<id>/<id>.xcf
-	// Workflows live in their own subdirectory: xcf/workflows/<name>/workflow.xcf
+	// Agents live in their own subdirectory: xcf/agents/<name>/agent.xcf
 	expectedXcfFiles := []string{
-		filepath.Join(tmp, "xcf", "agents", "dev", "dev.xcf"),
-		filepath.Join(tmp, "xcf", "agents", "reviewer", "reviewer.xcf"),
+		filepath.Join(tmp, "xcf", "agents", "dev", "agent.xcf"),
+		filepath.Join(tmp, "xcf", "agents", "reviewer", "agent.xcf"),
 		filepath.Join(tmp, "xcf", "skills", "tdd", "skill.xcf"),
 		filepath.Join(tmp, "xcf", "rules", "security", "rule.xcf"),
 		filepath.Join(tmp, "xcf", "workflows", "deploy", "workflow.xcf"),
@@ -262,7 +261,7 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 
 	// Agent .xcf files must use frontmatter format for inline instructions, not instructions-file.
 	// Instructions content moves into the markdown body (after the closing ---), not as a YAML field.
-	devXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "agents", "dev", "dev.xcf"))
+	devXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "agents", "dev", "agent.xcf"))
 	require.NoError(t, err)
 	devXcfStr := string(devXcf)
 	assert.Contains(t, devXcfStr, "kind: agent")
@@ -340,12 +339,12 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	assert.NotContains(t, s, "kind: skill", "skill must be in xcf/skills/tdd/skill.xcf, not project.xcf")
 
 	// Split files must exist — each kind in its own subdirectory
-	assert.FileExists(t, filepath.Join(dir, "xcf", "agents", "dev", "dev.xcf"))
+	assert.FileExists(t, filepath.Join(dir, "xcf", "agents", "dev", "agent.xcf"))
 	assert.FileExists(t, filepath.Join(dir, "xcf", "skills", "tdd", "skill.xcf"))
 
 	// Agent split file must use frontmatter format for inline instructions.
 	// Instructions content moves into the markdown body, not as a YAML field.
-	devXcf, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev", "dev.xcf"))
+	devXcf, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev", "agent.xcf"))
 	require.NoError(t, err)
 	devXcfContent := string(devXcf)
 	assert.True(t, strings.HasPrefix(devXcfContent, "---\n"), "agent xcf must use frontmatter format")
