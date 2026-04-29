@@ -1240,3 +1240,30 @@ func TestAssembleMultiProvider_SingleProviderAgent(t *testing.T) {
 		t.Error("reviewer should be tagged with gemini")
 	}
 }
+
+func TestImport_Output_ExplainsTargetsTagging(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"),
+		"---\nname: dev\ndescription: Dev\n---\n\nDev agent.")
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
+
+	w.Close()
+	os.Stdout = oldStdout
+	buf := make([]byte, 8192)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	require.NoError(t, err)
+	assert.Contains(t, output, "targets:", "import output should explain targets tagging")
+	assert.Contains(t, output, "claude", "output should mention the source provider")
+}

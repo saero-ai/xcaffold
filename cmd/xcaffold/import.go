@@ -168,6 +168,15 @@ func applyKindFilters(config *ast.XcaffoldConfig) {
 	}
 }
 
+func sortedProviderNames(dirs []platformDirInfo) []string {
+	names := make([]string, 0, len(dirs))
+	for _, d := range dirs {
+		names = append(names, d.platform)
+	}
+	sort.Strings(names)
+	return names
+}
+
 func tagResourcesWithProvider(config *ast.XcaffoldConfig, provider string) {
 	to := ast.TargetOverride{}
 	for name, agent := range config.Agents {
@@ -560,6 +569,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 
 	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcfDest, importCount)
 	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
+	fmt.Printf("  Resources tagged with targets: [%s]. Remove the targets field to make universal.\n", provider)
 	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
 
 	cwd, _ := os.Getwd()
@@ -1116,9 +1126,28 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 
 	importCount := len(config.Agents) + len(config.Skills) + len(config.Rules) +
 		len(config.Workflows) + len(config.MCP)
+	overrideCount := 0
+	if config.Overrides != nil {
+		for name := range config.Agents {
+			overrideCount += len(config.Overrides.AgentProviders(name))
+		}
+		for name := range config.Skills {
+			overrideCount += len(config.Overrides.SkillProviders(name))
+		}
+		for name := range config.Rules {
+			overrideCount += len(config.Overrides.RuleProviders(name))
+		}
+		for name := range config.Workflows {
+			overrideCount += len(config.Overrides.WorkflowProviders(name))
+		}
+	}
 	fmt.Printf("\n[project] ✓ Import complete. Created %s with %d resources from %d directories.\n",
 		xcfDest, importCount, len(providerDirs))
 	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
+	fmt.Printf("  Resources tagged with targets: [%s].\n", strings.Join(sortedProviderNames(providerDirs), ", "))
+	if overrideCount > 0 {
+		fmt.Printf("  %d conflicts detected — override files created. Run 'xcaffold validate' to review.\n", overrideCount)
+	}
 	fmt.Println("  Run 'xcaffold apply' when ready to compile to your target platforms.")
 
 	cwd, _ := os.Getwd()
