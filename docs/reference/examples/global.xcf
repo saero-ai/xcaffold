@@ -1,5 +1,0 @@
-kind: global
-version: "1.0"
-settings:
-  disableSkillShellExecution: true
-  cleanupPeriodDays: 7

@@ -203,11 +203,7 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 		}
 		summary := strings.Join(parts, ", ")
 
-		if p.Active {
-			cmd.Printf("  %-20s (active)  %s\n", name, summary)
-		} else {
-			cmd.Printf("  %-20s           %s\n", name, summary)
-		}
+		cmd.Printf("  %-20s  %s\n", name, summary)
 	}
 }
 
@@ -256,10 +252,6 @@ func printBlueprintResources(cmd *cobra.Command, config *ast.XcaffoldConfig, bpN
 	if p.Extends != "" {
 		cmd.Printf("  extends: %s\n", p.Extends)
 	}
-	if p.Active {
-		cmd.Println("  status: active")
-	}
-
 	if len(p.Agents) > 0 {
 		cmd.Printf("  AGENTS  (%d)\n", len(p.Agents))
 		printColumns(p.Agents, "    ")

@@ -1,7 +1,0 @@
-kind: settings
-version: "1.0"
-mcp-servers:
-  filesystem:
-    type: stdio
-    command: "npx"
-    args: ["-y", "@modelcontextprotocol/server-filesystem", "/workspace"]

@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -1725,22 +1724,6 @@ func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 	return nil
 }
 
-// validateActiveBlueprint checks that at most one blueprint has Active set to true.
-// Multiple active blueprints are ambiguous and are rejected at parse time.
-func validateActiveBlueprint(blueprints map[string]ast.BlueprintConfig) error {
-	var activeNames []string
-	for name, bp := range blueprints {
-		if bp.Active {
-			activeNames = append(activeNames, name)
-		}
-	}
-	if len(activeNames) > 1 {
-		sort.Strings(activeNames)
-		return fmt.Errorf("multiple blueprints marked as active: %s (at most one allowed)", strings.Join(activeNames, ", "))
-	}
-	return nil
-}
-
 func validateMerged(c *ast.XcaffoldConfig) error {
 	if err := validateBase(c); err != nil {
 		return err
@@ -1749,9 +1732,6 @@ func validateMerged(c *ast.XcaffoldConfig) error {
 		return err
 	}
 	if err := validatePermissions(c); err != nil {
-		return err
-	}
-	if err := validateActiveBlueprint(c.Blueprints); err != nil {
 		return err
 	}
 	return nil

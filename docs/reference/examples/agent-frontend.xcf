@@ -1,6 +1,0 @@
----
-kind: agent
-version: "1.0"
-name: frontend
----
-Frontend dev

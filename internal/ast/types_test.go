@@ -85,7 +85,6 @@ func TestBlueprintConfig_Fields_Exist(t *testing.T) {
 		Name:        "backend",
 		Description: "Backend engineering",
 		Extends:     "base",
-		Active:      true,
 		Agents:      []string{"developer"},
 		Skills:      []string{"tdd"},
 		Rules:       []string{"testing"},
@@ -98,7 +97,6 @@ func TestBlueprintConfig_Fields_Exist(t *testing.T) {
 		Inherited:   false,
 	}
 	require.Equal(t, "backend", p.Name)
-	require.True(t, p.Active)
 }
 
 func TestXcaffoldConfig_BlueprintsMap_Exists(t *testing.T) {

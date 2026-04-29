@@ -11,17 +11,17 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 ## Capability Matrix
 
-| Feature / Primitive | Claude Code <br>`(.claude/)` | Cursor <br>`(.cursor/)` | Antigravity <br>`(.agents/)` | GitHub Copilot <br>`(.github/)` | Gemini CLI <br>`(~/.gemini/)` |
+| Feature / Primitive | Claude Code <br>`(.claude/)` | Cursor <br>`(.cursor/)` | Gemini CLI <br>`(.gemini/)` | GitHub Copilot <br>`(.github/)` | Antigravity <br>`(.agents/)` |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Agents** | `agents/*.md` | `agents/*.md` | *N/A* | `agents/*.md` or `agents/*.agent.md` | `agents/*.md` |
+| **Agents** | `agents/*.md` | `agents/*.md` | `agents/*.md` | `agents/*.md` or `agents/*.agent.md` | *N/A* |
 | **Skills** | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` |
 | **Rules** | `rules/*.md` | `rules/*.md` or `rules/*.mdc` | `GEMINI.md` | `.github/copilot-instructions.md` | `GEMINI.md` |
-| **Workflows** | *via Rules & Skills* | *via Rules* | `workflows/*.md` | *N/A* | *N/A* |
-| **Shell Hooks** | `settings.json` ¹ | `hooks.json` | *N/A* | *N/A* | *N/A* |
-| **MCP Servers** | `.mcp.json` ² | `.cursor/mcp.json` | `~/.gemini/antigravity/mcp_config.json` | *N/A* | `settings.json` |
+| **Workflows** | *via Rules & Skills* | *via Rules* | *via Rules & Skills* | *via Rules & Skills* | `workflows/*.md` |
+| **Shell Hooks** | `settings.json` ¹ | `hooks.json` | `settings.json` | `hooks/xcaffold-hooks.json` | *N/A* |
+| **MCP Servers** | `.mcp.json` ² | `.cursor/mcp.json` | `settings.json` | `.vscode/mcp.json` | `~/.gemini/antigravity/mcp_config.json` ³ |
 | **Settings & Sandbox** | `settings.json` | Cursor Settings UI | `settings.json` | IDE settings | `settings.json` |
-| **Project Instructions** | `CLAUDE.md` (nested) | `AGENTS.md` (nested) | `.agents/rules/*.md` | `.github/copilot-instructions.md` | `GEMINI.md` |
-| **Memory Context** | Auto Memory (persistent) | Not supported | Knowledge Items | Not supported | `save_memory` tool |
+| **Project Instructions** | `CLAUDE.md` (nested) | `AGENTS.md` (nested) | `GEMINI.md` | `.github/copilot-instructions.md` | `.agents/rules/*.md` |
+| **Memory Context** | Auto Memory (persistent) | Not supported | Not supported | Not supported | Not supported |
 
 ---
 
@@ -30,6 +30,8 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 ¹ **Claude Code hooks** are compiled into the `hooks` key inside `settings.json` (`.claude/settings.json`), not as standalone shell scripts.
 
 ² **Claude Code MCP** — The native project-scoped convention is `.mcp.json` at the repository root. `xcaffold apply` currently emits `mcp.json` inside the `.claude/` output directory (i.e., `.claude/mcp.json`), which Claude Code also recognises as a valid MCP configuration location.
+
+³ **Antigravity MCP** — Antigravity reads MCP configuration exclusively from the global file `~/.gemini/antigravity/mcp_config.json`. No project-local MCP file is written. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted. Configure MCP servers via the Antigravity MCP Store UI or edit the global config directly.
 
 > [!NOTE]
 > Target capabilities are continuously expanding. For a granular block-by-block breakdown of per-field fidelity mappings per target, consult the [Schema Reference](../reference/schema.md).
@@ -47,8 +49,8 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 | **agent** | `.claude/agents/*.md` | `.cursor/agents/*.md` | `.gemini/agents/*.md` | `.github/agents/*.{md,agent.md}` | — |
 | **skill** | `.claude/skills/*/SKILL.md` | `.cursor/skills/*/SKILL.md` | `.gemini/skills/*/SKILL.md` | `.github/skills/*/SKILL.md` | `.agents/skills/*/SKILL.md` |
 | **rule** | `.claude/rules/*.md` | `.cursor/rules/*.{md,mdc}` | `.gemini/rules/*.md` | `.github/copilot-instructions.md` | `.agents/rules/*.md` |
-| **hook** | `.claude/settings.json` (`hooks` key) | `.cursor/hooks.json` | — | — | — |
-| **mcp** | `.mcp.json` | `.cursor/mcp.json` | `.gemini/settings.json` | — | — |
+| **hook** | `.claude/settings.json` (`hooks` key) | `.cursor/hooks.json` | `.gemini/settings.json` | `.github/hooks/xcaffold-hooks.json` | — |
+| **mcp** | `.mcp.json` | `.cursor/mcp.json` | `.gemini/settings.json` | `.vscode/mcp.json` | — |
 | **settings** | `.claude/settings.json` | Cursor Settings UI | `.gemini/settings.json` | — | `.agents/settings.json` |
 | **provider-extras** | unrecognised `.claude/` files | unrecognised `.cursor/` files | unrecognised `.gemini/` files | unrecognised `.github/` files | unrecognised `.agents/` files |
 
@@ -71,3 +73,17 @@ Skills may declare `references/`, `scripts/`, `assets/`, and `examples/` subdire
 - **&rarr;** — Directory name is translated to the provider-native equivalent.
 - **FidelityNote** — Provider does not support this concept; a `FIELD_UNSUPPORTED` fidelity note is emitted.
 - **flat** — Files are placed alongside `SKILL.md` without a subdirectory wrapper.
+
+---
+
+## Internal Registry
+
+For developers contributing to `xcaffold`, the internal routing logic explicitly connects target scopes to their respective compiler packages:
+
+| Provider | InputDir | OutputDir | Importer | Renderer |
+|----------|----------|-----------|----------|----------|
+| claude | `.claude` | `.claude` | `internal/importer/claude/` | `internal/renderer/claude/` |
+| cursor | `.cursor` | `.cursor` | `internal/importer/cursor/` | `internal/renderer/cursor/` |
+| gemini | `.gemini` | `.gemini` | `internal/importer/gemini/` | `internal/renderer/gemini/` |
+| copilot | `.github` | `.github` | `internal/importer/copilot/` | `internal/renderer/copilot/` |
+| antigravity | `.agents` | `.agents` | `internal/importer/antigravity/` | `internal/renderer/antigravity/` |

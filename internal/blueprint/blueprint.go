@@ -13,8 +13,8 @@ const maxExtendsDepth = 5
 // ResolveBlueprintExtends resolves the extends chain for all blueprints.
 // Each blueprint's ref-lists are merged with its parent's resolved ref-lists
 // using set-union semantics: parent entries appear first, then child entries
-// not already present in the parent. The merge is applied to all seven
-// ref-list fields (agents, skills, rules, workflows, mcp, policies, memory).
+// not already present in the parent. The merge is applied to all eight
+// ref-list fields (agents, skills, rules, workflows, mcp, policies, memory, contexts).
 //
 // Modifies the blueprints map in place. Errors on circular extends,
 // a missing parent, or a chain length exceeding maxExtendsDepth (5).
@@ -51,6 +51,7 @@ func ResolveBlueprintExtends(blueprints map[string]ast.BlueprintConfig) error {
 			p.MCP = unionStrings(parent.MCP, p.MCP)
 			p.Policies = unionStrings(parent.Policies, p.Policies)
 			p.Memory = unionStrings(parent.Memory, p.Memory)
+			p.Contexts = unionStrings(parent.Contexts, p.Contexts)
 			blueprints[name] = p
 		}
 
@@ -109,59 +110,73 @@ func validateChain(blueprints map[string]ast.BlueprintConfig, start string) erro
 }
 
 // ResolveTransitiveDeps expands a blueprint's ref-lists by walking the
-// dependency graph from each selected agent. Only ref-list types that are
-// empty in the blueprint are expanded — a non-empty list is treated as an
-// explicit override and left unchanged.
+// dependency graph from each selected agent. Agent-referenced Skills, Rules,
+// and MCP are always collected and merged with the blueprint's explicit lists.
 //
-// Agent → auto-includes referenced Skills, Rules, and MCP when the
-// corresponding blueprint list is empty. Agents with no entry in scope
-// are silently skipped. Duplicate entries across multiple agents are
-// deduplicated (first occurrence wins).
-func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) {
+// If a resource appears in BOTH the blueprint's explicit list AND an agent's
+// dependency list, an error is returned telling the user to remove the
+// duplicate from the blueprint — it is already included via the agent.
+//
+// Agents with no entry in scope are silently skipped. Duplicate entries
+// across multiple agents are deduplicated (first occurrence wins).
+func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) error {
 	if len(p.Agents) == 0 || scope == nil {
-		return
+		return nil
 	}
 
-	autoSkills := len(p.Skills) == 0
-	autoRules := len(p.Rules) == 0
-	autoMCP := len(p.MCP) == 0
-
-	if !autoSkills && !autoRules && !autoMCP {
-		return
+	// Build sets of the blueprint's explicit entries for overlap detection.
+	explicitSkills := make(map[string]bool, len(p.Skills))
+	for _, s := range p.Skills {
+		explicitSkills[s] = true
+	}
+	explicitRules := make(map[string]bool, len(p.Rules))
+	for _, r := range p.Rules {
+		explicitRules[r] = true
+	}
+	explicitMCP := make(map[string]bool, len(p.MCP))
+	for _, m := range p.MCP {
+		explicitMCP[m] = true
 	}
 
-	seen := make(map[string]bool)
+	// Seen sets track de-duplication across multiple agents (transitive pass only).
+	seenSkill := make(map[string]bool)
+	seenRule := make(map[string]bool)
+	seenMCP := make(map[string]bool)
 
 	for _, agentName := range p.Agents {
 		agent, ok := scope.Agents[agentName]
 		if !ok {
 			continue
 		}
-		if autoSkills {
-			for _, s := range agent.Skills {
-				if !seen["skill:"+s] {
-					seen["skill:"+s] = true
-					p.Skills = append(p.Skills, s)
-				}
+		for _, s := range agent.Skills {
+			if explicitSkills[s] {
+				return fmt.Errorf("blueprint %q declares skill %q which is already included via agent %q; remove it from the blueprint", p.Name, s, agentName)
+			}
+			if !seenSkill[s] {
+				seenSkill[s] = true
+				p.Skills = append(p.Skills, s)
 			}
 		}
-		if autoRules {
-			for _, r := range agent.Rules {
-				if !seen["rule:"+r] {
-					seen["rule:"+r] = true
-					p.Rules = append(p.Rules, r)
-				}
+		for _, r := range agent.Rules {
+			if explicitRules[r] {
+				return fmt.Errorf("blueprint %q declares rule %q which is already included via agent %q; remove it from the blueprint", p.Name, r, agentName)
+			}
+			if !seenRule[r] {
+				seenRule[r] = true
+				p.Rules = append(p.Rules, r)
 			}
 		}
-		if autoMCP {
-			for _, m := range agent.MCP {
-				if !seen["mcp:"+m] {
-					seen["mcp:"+m] = true
-					p.MCP = append(p.MCP, m)
-				}
+		for _, m := range agent.MCP {
+			if explicitMCP[m] {
+				return fmt.Errorf("blueprint %q declares mcp %q which is already included via agent %q; remove it from the blueprint", p.Name, m, agentName)
+			}
+			if !seenMCP[m] {
+				seenMCP[m] = true
+				p.MCP = append(p.MCP, m)
 			}
 		}
 	}
+	return nil
 }
 
 // ValidateBlueprintRefs checks that every resource name in every blueprint's
@@ -177,7 +192,7 @@ func ValidateBlueprintRefs(blueprints map[string]ast.BlueprintConfig, scope *ast
 				}
 			}
 		}
-		var scopeAgents, scopeSkills, scopeRules, scopeWorkflows, scopeMCP, scopePolicies, scopeMemory map[string]struct{}
+		var scopeAgents, scopeSkills, scopeRules, scopeWorkflows, scopeMCP, scopePolicies, scopeMemory, scopeContexts map[string]struct{}
 		if scope != nil {
 			scopeAgents = keysSet(scope.Agents)
 			scopeSkills = keysSet(scope.Skills)
@@ -186,6 +201,7 @@ func ValidateBlueprintRefs(blueprints map[string]ast.BlueprintConfig, scope *ast
 			scopeMCP = keysSet(scope.MCP)
 			scopePolicies = keysSet(scope.Policies)
 			scopeMemory = keysSet(scope.Memory)
+			scopeContexts = keysSet(scope.Contexts)
 		}
 		checkRefs("agent", p.Agents, scopeAgents)
 		checkRefs("skill", p.Skills, scopeSkills)
@@ -194,6 +210,7 @@ func ValidateBlueprintRefs(blueprints map[string]ast.BlueprintConfig, scope *ast
 		checkRefs("mcp", p.MCP, scopeMCP)
 		checkRefs("policy", p.Policies, scopePolicies)
 		checkRefs("memory", p.Memory, scopeMemory)
+		checkRefs("context", p.Contexts, scopeContexts)
 	}
 	return errs
 }
@@ -234,6 +251,7 @@ func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.Xcaf
 		MCP:       filterMap(config.MCP, p.MCP),
 		Policies:  filterMap(config.Policies, p.Policies),
 		Memory:    filterMap(config.Memory, p.Memory),
+		Contexts:  filterMap(config.Contexts, p.Contexts),
 		// References are not blueprint-filtered; preserve originals.
 		References: config.References,
 	}
@@ -302,6 +320,7 @@ func BlueprintHash(p ast.BlueprintConfig) string {
 		{"mcp", p.MCP},
 		{"policies", p.Policies},
 		{"memory", p.Memory},
+		{"contexts", p.Contexts},
 	} {
 		fmt.Fprintf(h, "%s:", entry.label)
 		sorted := make([]string, len(entry.refs))

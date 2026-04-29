@@ -1,8 +1,0 @@
----
-kind: rule
-version: "1.0"
-name: testing-framework
-description: "Testing conventions."
-activation: always
----
-All tests must pass before committing.

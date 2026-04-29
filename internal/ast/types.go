@@ -13,8 +13,8 @@ type ResourceScope struct {
 	Workflows  map[string]WorkflowConfig  `yaml:"workflows,omitempty"`
 	Policies   map[string]PolicyConfig    `yaml:"policies,omitempty"`
 	Memory     map[string]MemoryConfig    `yaml:"memory,omitempty"`
-	References map[string]ReferenceConfig `yaml:"references,omitempty"`
 	Contexts   map[string]ContextConfig   `yaml:"contexts,omitempty"`
+	References map[string]ReferenceConfig `yaml:"references,omitempty"`
 }
 
 // XcaffoldConfig is the root structure of a parsed .xcf YAML file.
@@ -564,6 +564,37 @@ type MemoryConfig struct {
 	SourceProvider string `yaml:"-" json:"-"`
 }
 
+// ContextConfig defines a named context block — shared prompt context that can be
+// selectively included in compiled output. Contexts are blueprint-selectable and
+// may be scoped to specific provider targets.
+type ContextConfig struct {
+	// Group 1: Identity
+	Name        string `yaml:"name,omitempty"`
+	Description string `yaml:"description,omitempty"`
+
+	// Default, when true, marks this context as the tie-breaker when multiple
+	// contexts match the same target. At most one context per target may have
+	// Default=true; if multiple match a target and none (or more than one) has
+	// Default=true, ValidateContextUniqueness returns an error.
+	Default bool `yaml:"default,omitempty"`
+
+	// Body holds the markdown content of the context block.
+	// Populated from the .xcf file body or instructions field at parse time.
+	Body string `yaml:"body,omitempty"`
+
+	// Targets restricts this context to specific provider targets.
+	// When empty, the context applies to all targets.
+	Targets []string `yaml:"targets,omitempty"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
+}
+
 // ReferenceConfig defines a named reference document — a docs or data file that is
 // seeded into a provider's output directory at compile time as a supporting file.
 // Field ordering follows the canonical group structure:
@@ -591,14 +622,12 @@ type ReferenceConfig struct {
 
 // BlueprintConfig defines a named resource subset selector.
 // A blueprint selects which agents, skills, rules, workflows, MCP servers,
-// policies, memory entries, settings, and hooks to compile.
+// policies, memory entries, contexts, settings, and hooks to compile.
 type BlueprintConfig struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
 
 	Extends string `yaml:"extends,omitempty"`
-
-	Active bool `yaml:"active,omitempty"`
 
 	Agents    []string `yaml:"agents,omitempty"`
 	Skills    []string `yaml:"skills,omitempty"`
@@ -607,6 +636,7 @@ type BlueprintConfig struct {
 	MCP       []string `yaml:"mcp,omitempty"`
 	Policies  []string `yaml:"policies,omitempty"`
 	Memory    []string `yaml:"memory,omitempty"`
+	Contexts  []string `yaml:"contexts,omitempty"`
 
 	Settings string `yaml:"settings,omitempty"`
 	Hooks    string `yaml:"hooks,omitempty"`
@@ -653,16 +683,4 @@ func (c *XcaffoldConfig) StripInherited() {
 			delete(c.References, k)
 		}
 	}
-}
-
-// ContextConfig holds workspace-level ambient context compiled to
-// CLAUDE.md, GEMINI.md, AGENTS.md, and copilot-instructions.md.
-// A project may have multiple context files — one per target or
-// one shared across several targets.
-type ContextConfig struct {
-	Name        string   `yaml:"name,omitempty"`
-	Description string   `yaml:"description,omitempty"`
-	Targets     []string `yaml:"targets,omitempty"`
-	Body        string   `yaml:"-"`
-	Inherited   bool     `yaml:"-"`
 }

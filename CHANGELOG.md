@@ -15,11 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Command `xcaffold graph` overhauled dependency rendering to naturally group rules by folder prefixes and nest active agent memory dynamically.
 - `xcaffold diff` is now officially deprecated, safely delegating any active usage directly to `xcaffold status` with migration hints natively.
+- **Import pipeline unified on ProviderImporter interface** — `mergeImportDirs` (multi-directory import) now uses the registered `ProviderImporter.Import()` per directory instead of legacy extraction functions. All resource types (agents, skills, rules, workflows, memory, hooks, MCP, settings, project instructions) are now imported in multi-dir mode. Previously, multi-dir imports silently dropped memory, MCP, settings, hooks, and project instructions.
 
 ### Removed
 
 - Removed `xcaffold translate` command — cross-provider translation now happens automatically during `xcaffold apply`, and explicit cross-provider import is handled by `xcaffold import --source`. The `internal/translator` package and all workflow lowering logic remain unchanged.
 - `xcaffold migrate` command removed — schema version migration infrastructure had no consumers; legacy layout transitions have no external audience
+- Removed `buildConfigFromDir` and 10 provider-specific extraction functions from `import.go` (dead code with 0 production callers).
+- Removed `extractAgents`, `extractSkills`, `extractRules`, `extractWorkflows` legacy functions (replaced by `ProviderImporter.Import()`).
+- Removed unreachable fallback branch in `importScope` (all 5 providers have registered importers).
+- Removed duplicate `rendererForTarget` in `apply.go` (consolidated into `compiler.ResolveRenderer`).
+- Removed duplicate `detectAllGlobalPlatformDirs` (import.go) and `detectAllPlatformDirs` (init.go), merged into parameterized `detectPlatformDirs`.
 
 ### Added (Provider-Agnostic Renderer)
 

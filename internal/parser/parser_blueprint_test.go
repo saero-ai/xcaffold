@@ -37,16 +37,6 @@ rules:
 	assert.Equal(t, []string{"testing"}, cfg.Blueprints["backend"].Rules)
 }
 
-func TestBlueprint_ActiveField(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test-project\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "bp.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: active-bp\nactive: true\n"), 0600))
-	cfg, err := ParseDirectory(dir)
-	require.NoError(t, err)
-	require.Contains(t, cfg.Blueprints, "active-bp")
-	assert.True(t, cfg.Blueprints["active-bp"].Active)
-}
-
 func TestBlueprint_UnknownField_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
@@ -82,16 +72,6 @@ func TestBlueprint_InvalidNameChars_ReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid")
 }
 
-func TestBlueprint_MultipleActive_ReturnsError(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: a\nactive: true\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: b\nactive: true\n"), 0600))
-	_, err := ParseDirectory(dir)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "multiple blueprints")
-}
-
 func TestBlueprint_MissingVersion_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "bp.xcf"), []byte("kind: blueprint\nname: myblueprint\n"), 0600))
@@ -119,15 +99,6 @@ mcp:
 	assert.Equal(t, "The backend blueprint", bp.Description)
 	assert.Equal(t, []string{"deploy"}, bp.Workflows)
 	assert.Equal(t, []string{"github"}, bp.MCP)
-}
-
-func TestBlueprint_SingleActive_IsValid(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: a\nactive: true\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: b\n"), 0600))
-	_, err := ParseDirectory(dir)
-	require.NoError(t, err)
 }
 
 func TestBlueprint_FixturesParse(t *testing.T) {
