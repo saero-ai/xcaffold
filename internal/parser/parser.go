@@ -491,7 +491,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 					"See https://xcaffold.com/docs/migration/config-removal",
 			)
 
-		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy", "context":
+		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy", "context", "memory":
 			// Resource-kind document: route to the kind-aware parser.
 			// Propagate the resource version to config.Version if not already set.
 			if config.Version == "" {
@@ -674,6 +674,7 @@ var parseableKinds = map[string]bool{
 	"reference": true,
 	"blueprint": true,
 	"context":   true,
+	"memory":    true,
 }
 
 // isParseableFile reads the kind: field from an .xcf file to determine if it

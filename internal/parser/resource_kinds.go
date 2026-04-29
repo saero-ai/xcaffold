@@ -27,6 +27,12 @@ type contextDocument struct {
 	ast.ContextConfig `yaml:",inline"`
 }
 
+type memoryDocument struct {
+	Kind             string `yaml:"kind"`
+	Version          string `yaml:"version"`
+	ast.MemoryConfig `yaml:",inline"`
+}
+
 type agentDocument struct {
 	Kind            string `yaml:"kind"`
 	Version         string `yaml:"version"`
@@ -435,6 +441,24 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			return fmt.Errorf("duplicate context ID %q", doc.Name)
 		}
 		config.Contexts[doc.Name] = doc.ContextConfig
+
+	case "memory":
+		var doc memoryDocument
+		dec := yaml.NewDecoder(bytes.NewReader(b))
+		dec.KnownFields(true)
+		if err := dec.Decode(&doc); err != nil {
+			return fmt.Errorf("invalid memory document: %w", err)
+		}
+		if err := validateEnvelope(doc.Version, doc.Name, kind); err != nil {
+			return err
+		}
+		if config.Memory == nil {
+			config.Memory = make(map[string]ast.MemoryConfig)
+		}
+		if _, exists := config.Memory[doc.Name]; exists {
+			return fmt.Errorf("duplicate memory ID %q", doc.Name)
+		}
+		config.Memory[doc.Name] = doc.MemoryConfig
 
 	case "project":
 		var doc projectDocFields
