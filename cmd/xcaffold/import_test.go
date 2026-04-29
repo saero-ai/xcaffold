@@ -231,7 +231,7 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	expectedXcfFiles := []string{
 		filepath.Join(tmp, "xcf", "agents", "dev", "dev.xcf"),
 		filepath.Join(tmp, "xcf", "agents", "reviewer", "reviewer.xcf"),
-		filepath.Join(tmp, "xcf", "skills", "tdd.xcf"),
+		filepath.Join(tmp, "xcf", "skills", "tdd", "skill.xcf"),
 		filepath.Join(tmp, "xcf", "rules", "security", "rule.xcf"),
 		filepath.Join(tmp, "xcf", "workflows", "deploy", "workflow.xcf"),
 	}
@@ -336,13 +336,12 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	assert.Contains(t, s, "kind: project")
 
 	// Must NOT contain multi-kind documents inline in project.xcf
-	// (they are split into xcf/agents/<id>/<id>.xcf, xcf/skills/*.xcf, etc.)
 	assert.NotContains(t, s, "kind: agent", "agent must be in xcf/agents/dev/dev.xcf, not project.xcf")
-	assert.NotContains(t, s, "kind: skill", "skill must be in xcf/skills/tdd.xcf, not project.xcf")
+	assert.NotContains(t, s, "kind: skill", "skill must be in xcf/skills/tdd/skill.xcf, not project.xcf")
 
-	// Split files must exist — agents live in their own subdirectory
+	// Split files must exist — each kind in its own subdirectory
 	assert.FileExists(t, filepath.Join(dir, "xcf", "agents", "dev", "dev.xcf"))
-	assert.FileExists(t, filepath.Join(dir, "xcf", "skills", "tdd.xcf"))
+	assert.FileExists(t, filepath.Join(dir, "xcf", "skills", "tdd", "skill.xcf"))
 
 	// Agent split file must use frontmatter format for inline instructions.
 	// Instructions content moves into the markdown body, not as a YAML field.

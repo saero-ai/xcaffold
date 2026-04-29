@@ -76,9 +76,9 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 
 	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "reviewer", "reviewer.xcf"))
 
-	// Skill file
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "skills", "tdd.xcf"))
-	skillBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "skills", "tdd.xcf"))
+	// Skill file — directory layout: xcf/skills/<name>/skill.xcf
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "skills", "tdd", "skill.xcf"))
+	skillBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "skills", "tdd", "skill.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(skillBytes), "kind: skill")
 
@@ -321,7 +321,7 @@ func TestWriteSplitFiles_SkillFrontmatter(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(dir, "xcf", "skills", "tdd.xcf"))
+	data, err := os.ReadFile(filepath.Join(dir, "xcf", "skills", "tdd", "skill.xcf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -402,7 +402,7 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 	err := WriteSplitFiles(config, outDir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(outDir, "xcf", "skills", "my-skill.xcf"))
+	data, err := os.ReadFile(filepath.Join(outDir, "xcf", "skills", "my-skill", "skill.xcf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -442,6 +442,30 @@ func TestWriteSplitFiles_Rules_DirectoryLayout(t *testing.T) {
 	flat := filepath.Join(dir, "xcf", "rules", "secure-coding.xcf")
 	if _, err := os.Stat(flat); !os.IsNotExist(err) {
 		t.Fatal("rule should NOT be in flat layout")
+	}
+}
+
+func TestWriteSplitFiles_Skill_DirectoryLayout(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"tdd": {Name: "tdd", Body: "Do TDD."},
+			},
+		},
+	}
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	expected := filepath.Join(dir, "xcf", "skills", "tdd", "skill.xcf")
+	if _, err := os.Stat(expected); os.IsNotExist(err) {
+		t.Fatal("expected skill at directory layout path")
+	}
+
+	flat := filepath.Join(dir, "xcf", "skills", "tdd.xcf")
+	if _, err := os.Stat(flat); !os.IsNotExist(err) {
+		t.Fatal("skill should NOT be in flat layout")
 	}
 }
 
@@ -615,9 +639,8 @@ func TestWriteSplitFiles_OverrideFiles_SkillWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Override file for skills: skill.cursor.xcf
-	// Since skills are still flat layout, override goes next to the flat file
-	overridePath := filepath.Join(dir, "xcf", "skills", "skill.cursor.xcf")
+	// Override file for skills: xcf/skills/<name>/skill.<provider>.xcf
+	overridePath := filepath.Join(dir, "xcf", "skills", "tdd", "skill.cursor.xcf")
 	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
 		t.Fatal("expected cursor skill override file at " + overridePath)
 	}

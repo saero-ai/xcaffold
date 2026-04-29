@@ -324,6 +324,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	}
 
 	// ── kind: skill ──────────────────────────────────────────────────────────
+	// Each skill lives in its own subdirectory: xcf/skills/<name>/skill.xcf
 	if len(config.Skills) > 0 {
 		dir := filepath.Join(xcfDir, "skills")
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -339,11 +340,18 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			}
 			body := strings.TrimSpace(skill.Body)
 			doc := skillDoc{Kind: "skill", Version: version, SkillConfig: skill}
-			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
+
+			skillSubDir := filepath.Join(dir, k)
+			if err := os.MkdirAll(skillSubDir, 0755); err != nil {
+				return err
+			}
+			outPath := filepath.Join(skillSubDir, "skill.xcf")
+
+			if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 				return err
 			}
 
-			// Write skill overrides: skill.<provider>.xcf (same directory as flat skill file)
+			// Write skill overrides: xcf/skills/<name>/skill.<provider>.xcf
 			if config.Overrides != nil {
 				if providers := config.Overrides.SkillProviders(k); len(providers) > 0 {
 					for _, provider := range providers {
@@ -351,7 +359,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 						overrideBody := strings.TrimSpace(overrideCfg.Body)
 						overrideCfg.Body = ""
 						overrideCfg.Name = ""
-						overridePath := filepath.Join(dir, fmt.Sprintf("skill.%s.xcf", provider))
+						overridePath := filepath.Join(skillSubDir, fmt.Sprintf("skill.%s.xcf", provider))
 						if err := writeFrontmatterFile(overridePath, overrideCfg, overrideBody); err != nil {
 							return err
 						}
