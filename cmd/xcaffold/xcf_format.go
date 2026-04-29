@@ -337,12 +337,14 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			}
 			body := strings.TrimSpace(rule.Body)
 			doc := ruleDoc{Kind: "rule", Version: version, RuleConfig: rule}
-			outPath := filepath.Join(dir, filepath.FromSlash(k)+".xcf")
-			// Rule IDs may contain forward-slash namespacing for subdirectory rules
-			// (e.g. "cli/build-go-cli"). Ensure the parent directory exists before writing.
-			if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
+
+			// Directory layout: xcf/rules/<name>/rule.xcf
+			ruleSubDir := filepath.Join(dir, k)
+			if err := os.MkdirAll(ruleSubDir, 0755); err != nil {
 				return err
 			}
+			outPath := filepath.Join(ruleSubDir, "rule.xcf")
+
 			if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 				return err
 			}

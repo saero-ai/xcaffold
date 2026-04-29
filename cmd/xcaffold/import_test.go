@@ -231,7 +231,7 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 		filepath.Join(tmp, "xcf", "agents", "dev", "dev.xcf"),
 		filepath.Join(tmp, "xcf", "agents", "reviewer", "reviewer.xcf"),
 		filepath.Join(tmp, "xcf", "skills", "tdd.xcf"),
-		filepath.Join(tmp, "xcf", "rules", "security.xcf"),
+		filepath.Join(tmp, "xcf", "rules", "security", "rule.xcf"),
 		filepath.Join(tmp, "xcf", "workflows", "deploy.xcf"),
 	}
 	for _, f := range expectedXcfFiles {

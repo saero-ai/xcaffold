@@ -83,8 +83,8 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 	assert.Contains(t, string(skillBytes), "kind: skill")
 
 	// Rule file
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "rules", "security.xcf"))
-	ruleBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "rules", "security.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "rules", "security", "rule.xcf"))
+	ruleBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "rules", "security", "rule.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(ruleBytes), "kind: rule")
 
@@ -348,7 +348,7 @@ func TestWriteSplitFiles_RuleFrontmatter(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(dir, "xcf", "rules", "conventions.xcf"))
+	data, err := os.ReadFile(filepath.Join(dir, "xcf", "rules", "conventions", "rule.xcf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -416,4 +416,30 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 	assert.Contains(t, content, "---\nDo the thing.")
 	// Verify instructions field is NOT duplicated in YAML
 	assert.NotContains(t, content, "instructions:")
+}
+
+func TestWriteSplitFiles_Rules_DirectoryLayout(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"secure-coding": {Name: "secure-coding", Body: "No secrets."},
+			},
+		},
+	}
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should be in directory layout: xcf/rules/secure-coding/rule.xcf
+	expected := filepath.Join(dir, "xcf", "rules", "secure-coding", "rule.xcf")
+	if _, err := os.Stat(expected); os.IsNotExist(err) {
+		t.Fatalf("expected rule at %s", expected)
+	}
+
+	// Should NOT be flat: xcf/rules/secure-coding.xcf
+	flat := filepath.Join(dir, "xcf", "rules", "secure-coding.xcf")
+	if _, err := os.Stat(flat); !os.IsNotExist(err) {
+		t.Fatal("rule should NOT be in flat layout")
+	}
 }
