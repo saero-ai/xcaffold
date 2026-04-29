@@ -162,6 +162,73 @@ func TestResolveTargetOverrides_AfterBlueprintFilter_OnlyFilteredResources(t *te
 	}
 }
 
+// TestResolveTargetOverrides_SkillSkippedWhenNoMatch verifies that a skill whose
+// Targets map does not include the current target is removed and one warning note
+// is emitted with kind "skill".
+func TestResolveTargetOverrides_SkillSkippedWhenNoMatch(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Skills = map[string]ast.SkillConfig{
+		"my-skill": {
+			Name: "my-skill",
+			Targets: map[string]ast.TargetOverride{
+				"gemini": {},
+			},
+		},
+	}
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if len(notes) != 1 {
+		t.Fatalf("expected 1 note, got %d: %+v", len(notes), notes)
+	}
+	note := notes[0]
+	if note.Level != renderer.LevelWarning {
+		t.Errorf("expected warning level, got %q", note.Level)
+	}
+	if note.Kind != "skill" {
+		t.Errorf("expected kind 'skill', got %q", note.Kind)
+	}
+	if note.Resource != "my-skill" {
+		t.Errorf("expected resource 'my-skill', got %q", note.Resource)
+	}
+	if note.Target != "claude" {
+		t.Errorf("expected target 'claude', got %q", note.Target)
+	}
+	if note.Code != CodeResourceTargetSkipped {
+		t.Errorf("expected code %q, got %q", CodeResourceTargetSkipped, note.Code)
+	}
+	if _, ok := config.Skills["my-skill"]; ok {
+		t.Fatal("expected 'my-skill' skill to be removed from config")
+	}
+}
+
+// TestResolveTargetOverrides_RuleOverrideMerged verifies that a per-provider
+// override for a rule is merged into the base rule config.
+func TestResolveTargetOverrides_RuleOverrideMerged(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Rules = map[string]ast.RuleConfig{
+		"security": {
+			Name: "security",
+			Body: "universal rules",
+		},
+	}
+	config.Overrides = &ast.ResourceOverrides{}
+	config.Overrides.AddRule("security", "claude", ast.RuleConfig{Body: "claude-specific rules"})
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if len(notes) != 0 {
+		t.Fatalf("expected 0 notes, got %d: %+v", len(notes), notes)
+	}
+	rule, ok := config.Rules["security"]
+	if !ok {
+		t.Fatal("expected 'security' rule to remain in config")
+	}
+	if rule.Body != "claude-specific rules" {
+		t.Errorf("expected merged Body %q, got %q", "claude-specific rules", rule.Body)
+	}
+}
+
 // TestResolveTargetOverrides_NilOverrides verifies that a nil config.Overrides
 // does not panic and that universal resources pass through unchanged.
 func TestResolveTargetOverrides_NilOverrides(t *testing.T) {

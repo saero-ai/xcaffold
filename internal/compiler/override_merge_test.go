@@ -407,6 +407,85 @@ func TestMergeWorkflowConfig_StepsReplace(t *testing.T) {
 	}
 }
 
+// TestMergeSkillConfig_AllowedToolsReplace verifies that a non-empty override
+// AllowedTools list replaces the base AllowedTools list entirely (list semantics,
+// not append).
+func TestMergeSkillConfig_AllowedToolsReplace(t *testing.T) {
+	base := ast.SkillConfig{
+		Name:         "my-skill",
+		AllowedTools: []string{"Read", "Write", "Bash"},
+	}
+	override := ast.SkillConfig{
+		AllowedTools: []string{"Read"},
+	}
+
+	got := mergeSkillConfig(base, override)
+
+	if len(got.AllowedTools) != 1 || got.AllowedTools[0] != "Read" {
+		t.Errorf("AllowedTools: want [Read], got %v", got.AllowedTools)
+	}
+	if got.Name != "my-skill" {
+		t.Errorf("Name: want %q, got %q", "my-skill", got.Name)
+	}
+}
+
+// TestMergeRuleConfig_AlwaysApplyBoolPointer verifies that a non-nil override
+// AlwaysApply bool pointer replaces the base value.
+func TestMergeRuleConfig_AlwaysApplyBoolPointer(t *testing.T) {
+	base := ast.RuleConfig{
+		Name:        "security",
+		AlwaysApply: boolPtr(false),
+	}
+	override := ast.RuleConfig{
+		AlwaysApply: boolPtr(true),
+	}
+
+	got := mergeRuleConfig(base, override)
+
+	if got.AlwaysApply == nil {
+		t.Fatal("AlwaysApply: want non-nil pointer, got nil")
+	}
+	if !*got.AlwaysApply {
+		t.Errorf("AlwaysApply: want true, got false")
+	}
+	if got.Name != "security" {
+		t.Errorf("Name: want %q, got %q", "security", got.Name)
+	}
+}
+
+// TestMergeMCPConfig_HeadersDeepMerge verifies that base.Headers and
+// override.Headers are deep merged: both keys are preserved, and on conflict
+// the override value wins.
+func TestMergeMCPConfig_HeadersDeepMerge(t *testing.T) {
+	base := ast.MCPConfig{
+		Headers: map[string]string{
+			"X-Base-Header":   "base-val",
+			"X-Shared-Header": "base-shared",
+		},
+	}
+	override := ast.MCPConfig{
+		Headers: map[string]string{
+			"X-Override-Header": "override-val",
+			"X-Shared-Header":   "override-shared",
+		},
+	}
+
+	got := mergeMCPConfig(base, override)
+
+	if got.Headers["X-Base-Header"] != "base-val" {
+		t.Errorf("Headers[X-Base-Header]: want %q, got %q", "base-val", got.Headers["X-Base-Header"])
+	}
+	if got.Headers["X-Override-Header"] != "override-val" {
+		t.Errorf("Headers[X-Override-Header]: want %q, got %q", "override-val", got.Headers["X-Override-Header"])
+	}
+	if got.Headers["X-Shared-Header"] != "override-shared" {
+		t.Errorf("Headers[X-Shared-Header]: want %q (override wins), got %q", "override-shared", got.Headers["X-Shared-Header"])
+	}
+	if len(got.Headers) != 3 {
+		t.Errorf("Headers: want 3 entries, got %d", len(got.Headers))
+	}
+}
+
 // TestMergeMCPConfig_EnvDeepMerge verifies that base.Env and override.Env are
 // deep merged: both keys are preserved, and on conflict the override value wins.
 func TestMergeMCPConfig_EnvDeepMerge(t *testing.T) {
