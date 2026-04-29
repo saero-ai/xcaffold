@@ -991,8 +991,9 @@ func sanitizeFrontmatter(data []byte) []byte {
 }
 
 // mergeImportDirs consolidates multiple platform directories into a single project.xcf.
-// When the same resource ID exists in multiple directories, the version with the larger
-// file (richer content) is kept and the conflict is logged.
+// Resources present in multiple providers are compared field-by-field: identical content
+// produces a universal base tagged with all providers; different content produces a base
+// with the first provider's values plus per-provider override files.
 //
 //nolint:gocyclo
 func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
@@ -1016,14 +1017,10 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		},
 	}
 
-	importCount := 0
 	var warnings []string
 
-	// Track which directory each resource came from for dedup logging
-	agentSources := make(map[string]string)
-	skillSources := make(map[string]string)
-	ruleSources := make(map[string]string)
-	workflowSources := make(map[string]string)
+	// Collect per-provider configs
+	providerConfigs := make(map[string]*ast.XcaffoldConfig)
 
 	for _, pdi := range providerDirs {
 		dir := pdi.dirName
@@ -1040,7 +1037,6 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 			},
 		}
 
-		// Use ProviderImporter instead of legacy extractors
 		imp := findImporterByProvider(provider)
 		if imp == nil {
 			warnings = append(warnings, fmt.Sprintf("no registered importer for provider %q, skipping %s", provider, dir))
@@ -1050,7 +1046,6 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 			warnings = append(warnings, fmt.Sprintf("%s import: %v", provider, err))
 		}
 
-		// Skill subdirs (same pattern as importScope)
 		for id := range tmpConfig.Skills {
 			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
@@ -1072,135 +1067,20 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 			}
 		}
 
-		// Reclassify extras
 		if err := parser.ReclassifyExtras(tmpConfig, importer.DefaultImporters()); err != nil {
 			warnings = append(warnings, fmt.Sprintf("reclassify extras (%s): %v", provider, err))
 		}
 
-		// Provider-specific post-import
 		dirAbs, _ := filepath.Abs(dir)
 		projectDir := filepath.Dir(dirAbs)
 		if err := runProviderPostImport(provider, dir, projectDir, tmpConfig, &warnings); err != nil {
 			return err
 		}
 
-		// Merge agents — richer instructions win on conflict
-		for id, ac := range tmpConfig.Agents {
-			if _, exists := config.Agents[id]; exists {
-				newSize := int64(len(ac.Body))
-				oldSize := int64(len(config.Agents[id].Body))
-				if newSize > oldSize {
-					config.Agents[id] = ac
-					fmt.Printf("    ⚠ Duplicate agent '%s' — keeping %s version (larger)\n", id, dir)
-					agentSources[id] = dir
-				} else {
-					fmt.Printf("    ⚠ Duplicate agent '%s' — keeping %s version (larger)\n", id, agentSources[id])
-				}
-			} else {
-				config.Agents[id] = ac
-				agentSources[id] = dir
-				importCount++
-			}
-		}
+		providerConfigs[provider] = tmpConfig
+	}
 
-		// Merge skills
-		for id, sc := range tmpConfig.Skills {
-			if _, exists := config.Skills[id]; exists {
-				newSize := int64(len(sc.Body))
-				oldSize := int64(len(config.Skills[id].Body))
-				if newSize > oldSize {
-					config.Skills[id] = sc
-					fmt.Printf("    ⚠ Duplicate skill '%s' — keeping %s version (larger)\n", id, dir)
-					skillSources[id] = dir
-				} else {
-					fmt.Printf("    ⚠ Duplicate skill '%s' — keeping %s version (larger)\n", id, skillSources[id])
-				}
-			} else {
-				config.Skills[id] = sc
-				skillSources[id] = dir
-				importCount++
-			}
-		}
-
-		// Merge rules
-		for id, rc := range tmpConfig.Rules {
-			if _, exists := config.Rules[id]; exists {
-				newSize := int64(len(rc.Body))
-				oldSize := int64(len(config.Rules[id].Body))
-				if newSize > oldSize {
-					config.Rules[id] = rc
-					fmt.Printf("    ⚠ Duplicate rule '%s' — keeping %s version (larger)\n", id, dir)
-					ruleSources[id] = dir
-				} else {
-					fmt.Printf("    ⚠ Duplicate rule '%s' — keeping %s version (larger)\n", id, ruleSources[id])
-				}
-			} else {
-				config.Rules[id] = rc
-				ruleSources[id] = dir
-				importCount++
-			}
-		}
-
-		// Merge workflows
-		for id, wc := range tmpConfig.Workflows {
-			if _, exists := config.Workflows[id]; exists {
-				newSize := int64(len(wc.Body))
-				oldSize := int64(len(config.Workflows[id].Body))
-				if newSize > oldSize {
-					config.Workflows[id] = wc
-					fmt.Printf("    ⚠ Duplicate workflow '%s' — keeping %s version (larger)\n", id, dir)
-					workflowSources[id] = dir
-				} else {
-					fmt.Printf("    ⚠ Duplicate workflow '%s' — keeping %s version (larger)\n", id, workflowSources[id])
-				}
-			} else {
-				config.Workflows[id] = wc
-				workflowSources[id] = dir
-				importCount++
-			}
-		}
-
-		// Merge MCP servers (no dedup needed — unique server IDs are typical)
-		for id, mc := range tmpConfig.MCP {
-			if _, exists := config.MCP[id]; !exists {
-				config.MCP[id] = mc
-				importCount++
-			}
-		}
-
-		// Merge memory (union — first-seen wins on key collision)
-		if tmpConfig.Memory != nil {
-			if config.Memory == nil {
-				config.Memory = make(map[string]ast.MemoryConfig)
-			}
-			for k, mc := range tmpConfig.Memory {
-				if _, exists := config.Memory[k]; !exists {
-					config.Memory[k] = mc
-					importCount++
-				}
-			}
-		}
-
-		// Merge hooks (union per event, not overwrite)
-		for hookName, namedHook := range tmpConfig.Hooks {
-			if config.Hooks == nil {
-				config.Hooks = make(map[string]ast.NamedHookConfig)
-			}
-			if _, exists := config.Hooks[hookName]; !exists {
-				config.Hooks[hookName] = namedHook
-			}
-		}
-
-		// Merge settings (first-seen wins)
-		for name, sc := range tmpConfig.Settings {
-			if config.Settings == nil {
-				config.Settings = make(map[string]ast.SettingsConfig)
-			}
-			if _, exists := config.Settings[name]; !exists {
-				config.Settings[name] = sc
-			}
-		}
-	} // end for loop
+	assembleMultiProviderResources(providerConfigs, config)
 
 	// Detect compilation targets from all scanned platform directories.
 	var dirNames []string
@@ -1216,30 +1096,27 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		config.Project.MCPRefs = sortedMapKeys(config.MCP)
 	}
 
-	// Apply kind filters before writing
 	applyKindFilters(config)
 
-	// Write memory files to xcf/agents/<id>/memory/
 	if memCount, err := writeMemoryFiles(config); err != nil {
 		return fmt.Errorf("write memory files: %w", err)
 	} else if memCount > 0 {
 		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
 	}
 
-	// Write split .xcf files: project.xcf (kind: project) + xcf/**/*.xcf
 	if err := WriteSplitFiles(config, "."); err != nil {
 		return fmt.Errorf("[project] failed to write split xcf files: %w", err)
 	}
 
-	// Prune orphan memory
 	if err := pruneOrphanMemory(config, "."); err != nil {
 		return fmt.Errorf("prune memory: %w", err)
 	}
 
-	// Root context file discovery
 	discoverRootContextFiles(".", config)
 
-	fmt.Printf("\n[project] ✓ Merge complete. Created %s with %d resources from %d directories.\n",
+	importCount := len(config.Agents) + len(config.Skills) + len(config.Rules) +
+		len(config.Workflows) + len(config.MCP)
+	fmt.Printf("\n[project] ✓ Import complete. Created %s with %d resources from %d directories.\n",
 		xcfDest, importCount, len(providerDirs))
 	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
 	fmt.Println("  Run 'xcaffold apply' when ready to compile to your target platforms.")
@@ -1256,6 +1133,346 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		}
 	}
 	return nil
+}
+
+func assembleMultiProviderResources(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.XcaffoldConfig) {
+	assembleAgents(providerConfigs, result)
+	assembleSkills(providerConfigs, result)
+	assembleRules(providerConfigs, result)
+	assembleWorkflows(providerConfigs, result)
+
+	// MCP, memory, hooks, settings: union (first-seen wins)
+	for provider, cfg := range providerConfigs {
+		for id, mc := range cfg.MCP {
+			if _, exists := result.MCP[id]; !exists {
+				result.MCP[id] = mc
+				_ = provider
+			}
+		}
+		if cfg.Memory != nil {
+			if result.Memory == nil {
+				result.Memory = make(map[string]ast.MemoryConfig)
+			}
+			for k, mc := range cfg.Memory {
+				if _, exists := result.Memory[k]; !exists {
+					result.Memory[k] = mc
+				}
+			}
+		}
+		for hookName, namedHook := range cfg.Hooks {
+			if result.Hooks == nil {
+				result.Hooks = make(map[string]ast.NamedHookConfig)
+			}
+			if _, exists := result.Hooks[hookName]; !exists {
+				result.Hooks[hookName] = namedHook
+			}
+		}
+		for name, sc := range cfg.Settings {
+			if result.Settings == nil {
+				result.Settings = make(map[string]ast.SettingsConfig)
+			}
+			if _, exists := result.Settings[name]; !exists {
+				result.Settings[name] = sc
+			}
+		}
+	}
+}
+
+func assembleAgents(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.XcaffoldConfig) {
+	byName := make(map[string]map[string]ast.AgentConfig)
+	for provider, cfg := range providerConfigs {
+		for name, agent := range cfg.Agents {
+			if byName[name] == nil {
+				byName[name] = make(map[string]ast.AgentConfig)
+			}
+			byName[name][provider] = agent
+		}
+	}
+	for name, providerAgents := range byName {
+		if len(providerAgents) == 1 {
+			for provider, agent := range providerAgents {
+				if agent.Targets == nil {
+					agent.Targets = make(map[string]ast.TargetOverride)
+				}
+				agent.Targets[provider] = ast.TargetOverride{}
+				result.Agents[name] = agent
+			}
+			continue
+		}
+		if agentConfigsIdentical(providerAgents) {
+			for _, agent := range providerAgents {
+				agent.Targets = buildTargetsMap(providerAgents)
+				result.Agents[name] = agent
+				break
+			}
+			continue
+		}
+		// Different: first provider becomes base, others become overrides
+		base, overrides := splitAgentOverrides(providerAgents)
+		base.Targets = buildTargetsMap(providerAgents)
+		result.Agents[name] = base
+		if result.Overrides == nil {
+			result.Overrides = &ast.ResourceOverrides{}
+		}
+		for provider, override := range overrides {
+			result.Overrides.AddAgent(name, provider, override)
+		}
+	}
+}
+
+func assembleSkills(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.XcaffoldConfig) {
+	byName := make(map[string]map[string]ast.SkillConfig)
+	for provider, cfg := range providerConfigs {
+		for name, skill := range cfg.Skills {
+			if byName[name] == nil {
+				byName[name] = make(map[string]ast.SkillConfig)
+			}
+			byName[name][provider] = skill
+		}
+	}
+	for name, providerSkills := range byName {
+		if len(providerSkills) == 1 {
+			for provider, skill := range providerSkills {
+				if skill.Targets == nil {
+					skill.Targets = make(map[string]ast.TargetOverride)
+				}
+				skill.Targets[provider] = ast.TargetOverride{}
+				result.Skills[name] = skill
+			}
+			continue
+		}
+		if skillConfigsIdentical(providerSkills) {
+			for _, skill := range providerSkills {
+				skill.Targets = buildTargetsMap(providerSkills)
+				result.Skills[name] = skill
+				break
+			}
+			continue
+		}
+		base, overrides := splitSkillOverrides(providerSkills)
+		base.Targets = buildTargetsMap(providerSkills)
+		result.Skills[name] = base
+		if result.Overrides == nil {
+			result.Overrides = &ast.ResourceOverrides{}
+		}
+		for provider, override := range overrides {
+			result.Overrides.AddSkill(name, provider, override)
+		}
+	}
+}
+
+func assembleRules(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.XcaffoldConfig) {
+	byName := make(map[string]map[string]ast.RuleConfig)
+	for provider, cfg := range providerConfigs {
+		for name, rule := range cfg.Rules {
+			if byName[name] == nil {
+				byName[name] = make(map[string]ast.RuleConfig)
+			}
+			byName[name][provider] = rule
+		}
+	}
+	for name, providerRules := range byName {
+		if len(providerRules) == 1 {
+			for provider, rule := range providerRules {
+				if rule.Targets == nil {
+					rule.Targets = make(map[string]ast.TargetOverride)
+				}
+				rule.Targets[provider] = ast.TargetOverride{}
+				result.Rules[name] = rule
+			}
+			continue
+		}
+		if ruleConfigsIdentical(providerRules) {
+			for _, rule := range providerRules {
+				rule.Targets = buildTargetsMap(providerRules)
+				result.Rules[name] = rule
+				break
+			}
+			continue
+		}
+		base, overrides := splitRuleOverrides(providerRules)
+		base.Targets = buildTargetsMap(providerRules)
+		result.Rules[name] = base
+		if result.Overrides == nil {
+			result.Overrides = &ast.ResourceOverrides{}
+		}
+		for provider, override := range overrides {
+			result.Overrides.AddRule(name, provider, override)
+		}
+	}
+}
+
+func assembleWorkflows(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.XcaffoldConfig) {
+	byName := make(map[string]map[string]ast.WorkflowConfig)
+	for provider, cfg := range providerConfigs {
+		for name, wf := range cfg.Workflows {
+			if byName[name] == nil {
+				byName[name] = make(map[string]ast.WorkflowConfig)
+			}
+			byName[name][provider] = wf
+		}
+	}
+	for name, providerWFs := range byName {
+		if len(providerWFs) == 1 {
+			for provider, wf := range providerWFs {
+				if wf.Targets == nil {
+					wf.Targets = make(map[string]ast.TargetOverride)
+				}
+				wf.Targets[provider] = ast.TargetOverride{}
+				result.Workflows[name] = wf
+			}
+			continue
+		}
+		if workflowConfigsIdentical(providerWFs) {
+			for _, wf := range providerWFs {
+				wf.Targets = buildTargetsMap(providerWFs)
+				result.Workflows[name] = wf
+				break
+			}
+			continue
+		}
+		base, overrides := splitWorkflowOverrides(providerWFs)
+		base.Targets = buildTargetsMap(providerWFs)
+		result.Workflows[name] = base
+		if result.Overrides == nil {
+			result.Overrides = &ast.ResourceOverrides{}
+		}
+		for provider, override := range overrides {
+			result.Overrides.AddWorkflow(name, provider, override)
+		}
+	}
+}
+
+func buildTargetsMap[T any](providers map[string]T) map[string]ast.TargetOverride {
+	targets := make(map[string]ast.TargetOverride, len(providers))
+	for provider := range providers {
+		targets[provider] = ast.TargetOverride{}
+	}
+	return targets
+}
+
+func agentConfigsIdentical(configs map[string]ast.AgentConfig) bool {
+	var ref ast.AgentConfig
+	first := true
+	for _, cfg := range configs {
+		if first {
+			ref = cfg
+			first = false
+			continue
+		}
+		if cfg.Description != ref.Description || cfg.Model != ref.Model || cfg.Body != ref.Body {
+			return false
+		}
+	}
+	return true
+}
+
+func skillConfigsIdentical(configs map[string]ast.SkillConfig) bool {
+	var ref ast.SkillConfig
+	first := true
+	for _, cfg := range configs {
+		if first {
+			ref = cfg
+			first = false
+			continue
+		}
+		if cfg.Description != ref.Description || cfg.Body != ref.Body {
+			return false
+		}
+	}
+	return true
+}
+
+func ruleConfigsIdentical(configs map[string]ast.RuleConfig) bool {
+	var ref ast.RuleConfig
+	first := true
+	for _, cfg := range configs {
+		if first {
+			ref = cfg
+			first = false
+			continue
+		}
+		if cfg.Description != ref.Description || cfg.Body != ref.Body {
+			return false
+		}
+	}
+	return true
+}
+
+func workflowConfigsIdentical(configs map[string]ast.WorkflowConfig) bool {
+	var ref ast.WorkflowConfig
+	first := true
+	for _, cfg := range configs {
+		if first {
+			ref = cfg
+			first = false
+			continue
+		}
+		if cfg.Description != ref.Description || cfg.Body != ref.Body {
+			return false
+		}
+	}
+	return true
+}
+
+func splitAgentOverrides(configs map[string]ast.AgentConfig) (ast.AgentConfig, map[string]ast.AgentConfig) {
+	var base ast.AgentConfig
+	overrides := make(map[string]ast.AgentConfig)
+	first := true
+	for provider, cfg := range configs {
+		if first {
+			base = cfg
+			first = false
+			continue
+		}
+		overrides[provider] = cfg
+	}
+	return base, overrides
+}
+
+func splitSkillOverrides(configs map[string]ast.SkillConfig) (ast.SkillConfig, map[string]ast.SkillConfig) {
+	var base ast.SkillConfig
+	overrides := make(map[string]ast.SkillConfig)
+	first := true
+	for provider, cfg := range configs {
+		if first {
+			base = cfg
+			first = false
+			continue
+		}
+		overrides[provider] = cfg
+	}
+	return base, overrides
+}
+
+func splitRuleOverrides(configs map[string]ast.RuleConfig) (ast.RuleConfig, map[string]ast.RuleConfig) {
+	var base ast.RuleConfig
+	overrides := make(map[string]ast.RuleConfig)
+	first := true
+	for provider, cfg := range configs {
+		if first {
+			base = cfg
+			first = false
+			continue
+		}
+		overrides[provider] = cfg
+	}
+	return base, overrides
+}
+
+func splitWorkflowOverrides(configs map[string]ast.WorkflowConfig) (ast.WorkflowConfig, map[string]ast.WorkflowConfig) {
+	var base ast.WorkflowConfig
+	overrides := make(map[string]ast.WorkflowConfig)
+	first := true
+	for provider, cfg := range configs {
+		if first {
+			base = cfg
+			first = false
+			continue
+		}
+		overrides[provider] = cfg
+	}
+	return base, overrides
 }
 
 // checkXcfDirPreexistence returns an error if a xcf/ directory already exists

@@ -698,14 +698,13 @@ func TestAllProviders_HaveRegisteredImporters(t *testing.T) {
 	}
 }
 
-func TestMergeImportDirs_DedupRicherWins(t *testing.T) {
+func TestMergeImportDirs_SmartAssembly_DifferentAgents(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
 	defer os.Chdir(origDir)
 
-	// Claude: dev agent with short instructions
 	claudeDir := filepath.Join(tmp, ".claude")
 	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agents"), 0o755))
 	require.NoError(t, os.WriteFile(
@@ -714,12 +713,11 @@ func TestMergeImportDirs_DedupRicherWins(t *testing.T) {
 		0o644,
 	))
 
-	// Cursor: dev agent with longer instructions
 	cursorDir := filepath.Join(tmp, ".cursor")
 	require.NoError(t, os.MkdirAll(filepath.Join(cursorDir, "agents"), 0o755))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(cursorDir, "agents", "dev.md"),
-		[]byte("---\nname: dev\ndescription: Detailed developer\n---\n\nYou are a senior developer. Follow TDD strictly. Always write tests before implementation. Review code carefully."),
+		[]byte("---\nname: dev\ndescription: Detailed developer\n---\n\nYou are a senior developer. Follow TDD strictly."),
 		0o644,
 	))
 
@@ -731,12 +729,12 @@ func TestMergeImportDirs_DedupRicherWins(t *testing.T) {
 	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
-	// The cursor version is longer — it should win
 	config, parseErr := parser.ParseDirectory(".")
 	require.NoError(t, parseErr)
 	dev, ok := config.Agents["dev"]
-	require.True(t, ok)
-	require.Contains(t, dev.Body, "Follow TDD strictly")
+	require.True(t, ok, "dev agent must exist in base config")
+	require.NotNil(t, dev.Targets, "dev agent should have targets")
+	require.Equal(t, 2, len(dev.Targets), "dev agent should list both providers in targets")
 }
 
 func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
@@ -1120,4 +1118,125 @@ func TestTagResourcesWithProvider_PreservesExistingTargets(t *testing.T) {
 func TestTagResourcesWithProvider_EmptyConfig(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	tagResourcesWithProvider(config, "claude")
+}
+
+func TestAssembleMultiProvider_IdenticalAgents(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "sonnet", Body: "You are a developer."},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "sonnet", Body: "You are a developer."},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+
+	dev := result.Agents["dev"]
+	if _, ok := dev.Targets["claude"]; !ok {
+		t.Error("identical agent should list claude in targets")
+	}
+	if _, ok := dev.Targets["gemini"]; !ok {
+		t.Error("identical agent should list gemini in targets")
+	}
+	if result.Overrides != nil {
+		if _, ok := result.Overrides.GetAgent("dev", "claude"); ok {
+			t.Error("identical agents should not produce overrides")
+		}
+		if _, ok := result.Overrides.GetAgent("dev", "gemini"); ok {
+			t.Error("identical agents should not produce overrides")
+		}
+	}
+}
+
+func TestAssembleMultiProvider_DifferentAgents(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "opus", Body: "Claude developer."},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "gemini-pro", Body: "Gemini developer."},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+
+	dev := result.Agents["dev"]
+	if len(dev.Targets) != 2 {
+		t.Errorf("different agent should list both providers in targets, got %d", len(dev.Targets))
+	}
+	if result.Overrides == nil {
+		t.Fatal("different agents should produce overrides")
+	}
+}
+
+func TestAssembleMultiProvider_SingleProviderAgent(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer"},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"reviewer": {Description: "Reviewer"},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+
+	if len(result.Agents) != 2 {
+		t.Fatalf("expected 2 agents, got %d", len(result.Agents))
+	}
+	if _, ok := result.Agents["dev"].Targets["claude"]; !ok {
+		t.Error("dev should be tagged with claude")
+	}
+	if _, ok := result.Agents["reviewer"].Targets["gemini"]; !ok {
+		t.Error("reviewer should be tagged with gemini")
+	}
 }
