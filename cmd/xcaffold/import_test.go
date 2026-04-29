@@ -1248,3 +1248,128 @@ func TestImport_Output_ExplainsTargetsTagging(t *testing.T) {
 	assert.Contains(t, output, "targets:", "import output should explain targets tagging")
 	assert.Contains(t, output, "claude", "output should mention the source provider")
 }
+
+func TestImportScope_PlanFlag_DryRun(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	// Set up test provider directories with agents and skills
+	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"),
+		"---\nname: dev\ndescription: Dev Agent\n---\n\nDev instructions.")
+	writeFile(t, filepath.Join(tmp, ".claude", "skills", "testing", "SKILL.md"),
+		"---\nname: testing\ndescription: Testing Skill\n---\n\nTesting steps.")
+
+	// Enable --plan flag
+	oldImportPlan := importPlan
+	importPlan = true
+	defer func() { importPlan = oldImportPlan }()
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
+
+	w.Close()
+	os.Stdout = oldStdout
+	buf := make([]byte, 8192)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	// With --plan, no error should occur
+	require.NoError(t, err)
+
+	// Output should show plan summary
+	assert.Contains(t, output, "Import plan (dry-run)", "output should indicate dry-run mode")
+	assert.Contains(t, output, "1 agents", "output should show agents count")
+	assert.Contains(t, output, "1 skills", "output should show skills count")
+
+	// Verify NO files were written
+	assert.NoFileExists(t, filepath.Join(tmp, ".xcaffold", "project.xcf"), "project.xcf should not exist in plan mode")
+	assert.NoFileExists(t, filepath.Join(tmp, "xcf", "agents", "dev.xcf"), "xcf files should not exist in plan mode")
+}
+
+func TestMergeImportDirs_PlanFlag_DryRun(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	// Set up two provider directories
+	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"),
+		"---\nname: dev\ndescription: Dev\n---\n\nDev.")
+	writeFile(t, filepath.Join(tmp, ".gemini", "agents", "reviewer.md"),
+		"---\nname: reviewer\ndescription: Reviewer\n---\n\nReviewer.")
+
+	// Enable --plan flag
+	oldImportPlan := importPlan
+	importPlan = true
+	defer func() { importPlan = oldImportPlan }()
+
+	providerDirs := []platformDirInfo{
+		{dirName: filepath.Join(tmp, ".claude"), platform: "claude", exists: true},
+		{dirName: filepath.Join(tmp, ".gemini"), platform: "gemini", exists: true},
+	}
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := mergeImportDirs(providerDirs, "project.xcf")
+
+	w.Close()
+	os.Stdout = oldStdout
+	buf := make([]byte, 8192)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	require.NoError(t, err)
+	assert.Contains(t, output, "Import plan (dry-run)")
+	assert.Contains(t, output, "2 provider directories")
+
+	// Verify NO files were written
+	assert.NoFileExists(t, filepath.Join(tmp, "project.xcf"))
+	assert.NoFileExists(t, filepath.Join(tmp, "xcf"))
+}
+
+func TestMergeImportDirs_MultiProvider_ConflictCount(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", t.TempDir())
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	// Create two agents with the same name but different content
+	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"),
+		"---\nname: dev\nmodel: claude-sonnet\n---\n\nClaude dev agent.")
+	writeFile(t, filepath.Join(tmp, ".gemini", "agents", "dev.md"),
+		"---\nname: dev\nmodel: gemini-2.5-flash\n---\n\nGemini dev agent.")
+
+	providerDirs := []platformDirInfo{
+		{dirName: filepath.Join(tmp, ".claude"), platform: "claude", exists: true},
+		{dirName: filepath.Join(tmp, ".gemini"), platform: "gemini", exists: true},
+	}
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := mergeImportDirs(providerDirs, "project.xcf")
+
+	w.Close()
+	os.Stdout = oldStdout
+	buf := make([]byte, 8192)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	require.NoError(t, err)
+	// When there are conflicts, the output should mention override files or conflicts
+	assert.Contains(t, output, "conflict", "output should indicate conflicts detected")
+}

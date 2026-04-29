@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -361,82 +362,27 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		},
 	}
 
-	importCount := 0
 	var warnings []string
 
-	// ── 1. Delegate resource extraction to the registered ProviderImporter. ──────
-	// Each provider importer handles its own file layout, frontmatter parsing, and
-	// JSON key splitting.
-	providerImp := findImporterByProvider(provider)
-	if providerImp != nil {
-		if err := providerImp.Import(platformDir, config); err != nil {
-			warnings = append(warnings, fmt.Sprintf("%s import: %v", provider, err))
-		}
-		// Surface per-file extraction warnings from importers that support it.
-		// Importers that expose a Warnings []string field satisfy this interface.
-		type warningImporter interface {
-			GetWarnings() []string
-		}
-		if wi, ok := providerImp.(warningImporter); ok {
-			for _, w := range wi.GetWarnings() {
-				warnings = append(warnings, fmt.Sprintf("%s: %s", provider, w))
-			}
-		}
-		// Copy skill supporting files — ProviderImporter populates AST only; side-car
-		// files under known subdirectories must still be copied to xcf/skills/<id>/.
-		for id := range config.Skills {
-			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
-			if _, err := os.Stat(skillFile); err == nil {
-				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", &warnings)
-				sc := config.Skills[id]
-				if len(refs) > 0 {
-					sc.References = refs
-				}
-				if len(scripts) > 0 {
-					sc.Scripts = scripts
-				}
-				if len(fileAssets) > 0 {
-					sc.Assets = fileAssets
-				}
-				if len(fileExamples) > 0 {
-					sc.Examples = fileExamples
-				}
-				config.Skills[id] = sc
-			}
-		}
-		// Attempt to graduate any extras the importer stashed in ProviderExtras.
-		// A file placed in extras during Import() (e.g. because it was unrecognised
-		// at scan time) may now be classifiable — ReclassifyExtras runs a second
-		// pass and promotes those files into the typed AST.
-		if err := parser.ReclassifyExtras(config, importer.DefaultImporters()); err != nil {
-			warnings = append(warnings, fmt.Sprintf("reclassify extras: %v", err))
-		}
+	// Extract resources and run post-import steps
+	extractAndPostProcess(platformDir, provider, config, &warnings)
 
-		// Count resources extracted by the importer.
-		importCount += len(config.Agents) + len(config.Skills) + len(config.Rules) +
-			len(config.Workflows) + len(config.MCP)
-	}
-
-	// ── 2. Provider-specific post-import steps (cross-boundary files, out-of-tree
-	// memory sources, unsupported-provider warnings).
+	// Provider-specific post-import steps
 	if err := runProviderPostImport(provider, platformDir, projectDir, config, &warnings); err != nil {
 		return err
 	}
 
-	// ── 3. Root context file discovery ──────────────────────────────────────────
+	// Root context file discovery
 	discoverRootContextFiles(projectDir, config)
 
-	// ── 4. Agent memory ─────────────────────────────────────────────────────────
-	// Memory is extracted into config.Memory by the ProviderImporter during
-	// Import() (e.g. claude extracts agent-memory/**). Write each entry as a
-	// plain .md file to xcf/agents/<agentID>/memory/<name>.md so the compiler
-	// discovers them via convention-based filesystem scanning.
+	// Write agent memory files
 	if memCount, err := writeMemoryFiles(config); err != nil {
 		return err
 	} else if memCount > 0 {
 		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
 	}
-	// Detect compilation targets from the scanned platform directory.
+
+	// Detect compilation targets and populate project references
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(platformDir)
 		config.Project.AgentRefs = sortedAgentRefs(config.Agents)
@@ -444,41 +390,9 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		config.Project.RuleRefs = sortedMapKeys(config.Rules)
 		config.Project.WorkflowRefs = sortedMapKeys(config.Workflows)
 		config.Project.MCPRefs = sortedMapKeys(config.MCP)
-		// Propagate instructions-file from project-instruction discovery.
 	}
 
-	tagResourcesWithProvider(config, provider)
-	applyKindFilters(config)
-
-	// Write split .xcf files: project.xcf (kind: project) + xcf/**/*.xcf
-	if err := WriteSplitFiles(config, "."); err != nil {
-		return fmt.Errorf("[%s] failed to write split xcf files: %w", scopeName, err)
-	}
-
-	// Prune orphan memory imported from raw provider sidecars
-	if err := pruneOrphanMemory(config, "."); err != nil {
-		return fmt.Errorf("prune memory: %w", err)
-	}
-
-	// Removed invalid project instructions block
-
-	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcfDest, importCount)
-	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
-	fmt.Printf("  Resources tagged with targets: [%s]. Remove the targets field to make universal.\n", provider)
-	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
-
-	cwd, _ := os.Getwd()
-	if config.Project != nil {
-		_ = registry.Register(cwd, config.Project.Name, nil, ".")
-	}
-
-	if len(warnings) > 0 {
-		fmt.Println("\nWarnings:")
-		for _, w := range warnings {
-			fmt.Println(" ⚠", w)
-		}
-	}
-	return nil
+	return finalizeImportScope(xcfDest, scopeName, provider, config, &warnings)
 }
 
 // importSettings parses settings.json and populates MCP, rules, and settings.
@@ -761,12 +675,172 @@ func detectTargets(baseDirs ...string) []string {
 	return targets
 }
 
+// finalizeImportScope handles memory file writing, resource tagging, filtering, and success messages.
+func finalizeImportScope(xcfDest, scopeName, provider string, config *ast.XcaffoldConfig, warnings *[]string) error {
+	tagResourcesWithProvider(config, provider)
+	applyKindFilters(config)
+
+	if importPlan {
+		fmt.Printf("Import plan (dry-run):\n")
+		fmt.Printf("  Would create %d agents, %d skills, %d rules, %d workflows, %d MCP servers\n",
+			len(config.Agents), len(config.Skills), len(config.Rules), len(config.Workflows), len(config.MCP))
+		fmt.Printf("  Target directory: %s\n", xcfDest)
+		return nil
+	}
+
+	if err := WriteSplitFiles(config, "."); err != nil {
+		return fmt.Errorf("[%s] failed to write split xcf files: %w", scopeName, err)
+	}
+
+	if err := pruneOrphanMemory(config, "."); err != nil {
+		return fmt.Errorf("prune memory: %w", err)
+	}
+
+	importCount := len(config.Agents) + len(config.Skills) + len(config.Rules) +
+		len(config.Workflows) + len(config.MCP)
+	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcfDest, importCount)
+	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
+	fmt.Printf("  Resources tagged with targets: [%s]. Remove the targets field to make universal.\n", provider)
+	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
+
+	cwd, _ := os.Getwd()
+	if config.Project != nil {
+		_ = registry.Register(cwd, config.Project.Name, nil, ".")
+	}
+
+	if len(*warnings) > 0 {
+		fmt.Println("\nWarnings:")
+		for _, w := range *warnings {
+			fmt.Println(" ⚠", w)
+		}
+	}
+	return nil
+}
+
+// extractAndPostProcess handles resource extraction and post-import steps for a single provider.
+// It returns the number of resources extracted and mutates the config and warnings in place.
+func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldConfig, warnings *[]string) int {
+	importCount := 0
+
+	providerImp := findImporterByProvider(provider)
+	if providerImp != nil {
+		if err := providerImp.Import(platformDir, config); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("%s import: %v", provider, err))
+		}
+		// Surface per-file extraction warnings from importers that support it.
+		type warningImporter interface {
+			GetWarnings() []string
+		}
+		if wi, ok := providerImp.(warningImporter); ok {
+			for _, w := range wi.GetWarnings() {
+				*warnings = append(*warnings, fmt.Sprintf("%s: %s", provider, w))
+			}
+		}
+		// Copy skill supporting files
+		for id := range config.Skills {
+			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
+			if _, err := os.Stat(skillFile); err == nil {
+				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
+				sc := config.Skills[id]
+				if len(refs) > 0 {
+					sc.References = refs
+				}
+				if len(scripts) > 0 {
+					sc.Scripts = scripts
+				}
+				if len(fileAssets) > 0 {
+					sc.Assets = fileAssets
+				}
+				if len(fileExamples) > 0 {
+					sc.Examples = fileExamples
+				}
+				config.Skills[id] = sc
+			}
+		}
+		// Attempt to graduate extras
+		if err := parser.ReclassifyExtras(config, importer.DefaultImporters()); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("reclassify extras: %v", err))
+		}
+
+		importCount = len(config.Agents) + len(config.Skills) + len(config.Rules) +
+			len(config.Workflows) + len(config.MCP)
+	}
+
+	return importCount
+}
+
+// scanProviderConfigs scans each provider directory and populates a map of provider -> XcaffoldConfig.
+// It handles importer lookup, skill subdirectory extraction, extras reclassification, and post-import steps.
+func scanProviderConfigs(providerDirs []platformDirInfo, warnings *[]string) map[string]*ast.XcaffoldConfig {
+	providerConfigs := make(map[string]*ast.XcaffoldConfig)
+
+	for _, pdi := range providerDirs {
+		dir := pdi.dirName
+		provider := pdi.platform
+		fmt.Printf("  Scanning %s ...\n", dir)
+
+		tmpConfig := &ast.XcaffoldConfig{
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+		}
+
+		imp := findImporterByProvider(provider)
+		if imp == nil {
+			*warnings = append(*warnings, fmt.Sprintf("no registered importer for provider %q, skipping %s", provider, dir))
+			continue
+		}
+		if err := imp.Import(dir, tmpConfig); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("%s import: %v", provider, err))
+		}
+
+		for id := range tmpConfig.Skills {
+			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
+			if _, err := os.Stat(skillFile); err == nil {
+				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
+				sc := tmpConfig.Skills[id]
+				if len(refs) > 0 {
+					sc.References = refs
+				}
+				if len(scripts) > 0 {
+					sc.Scripts = scripts
+				}
+				if len(fileAssets) > 0 {
+					sc.Assets = fileAssets
+				}
+				if len(fileExamples) > 0 {
+					sc.Examples = fileExamples
+				}
+				tmpConfig.Skills[id] = sc
+			}
+		}
+
+		if err := parser.ReclassifyExtras(tmpConfig, importer.DefaultImporters()); err != nil {
+			*warnings = append(*warnings, fmt.Sprintf("reclassify extras (%s): %v", provider, err))
+		}
+
+		dirAbs, _ := filepath.Abs(dir)
+		projectDir := filepath.Dir(dirAbs)
+		if err := runProviderPostImport(provider, dir, projectDir, tmpConfig, warnings); err != nil {
+			// Note: caller must handle this error
+			*warnings = append(*warnings, fmt.Sprintf("post-import error: %v", err))
+			continue
+		}
+
+		providerConfigs[provider] = tmpConfig
+	}
+
+	return providerConfigs
+}
+
 // mergeImportDirs consolidates multiple platform directories into a single project.xcf.
 // Resources present in multiple providers are compared field-by-field: identical content
 // produces a universal base tagged with all providers; different content produces a base
 // with the first provider's values plus per-provider override files.
-//
-//nolint:gocyclo
 func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[project] %s already exists. Remove it first to import", xcfDest)
@@ -791,65 +865,7 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 	var warnings []string
 
 	// Collect per-provider configs
-	providerConfigs := make(map[string]*ast.XcaffoldConfig)
-
-	for _, pdi := range providerDirs {
-		dir := pdi.dirName
-		provider := pdi.platform
-		fmt.Printf("  Scanning %s ...\n", dir)
-
-		tmpConfig := &ast.XcaffoldConfig{
-			ResourceScope: ast.ResourceScope{
-				Agents:    make(map[string]ast.AgentConfig),
-				Skills:    make(map[string]ast.SkillConfig),
-				Rules:     make(map[string]ast.RuleConfig),
-				Workflows: make(map[string]ast.WorkflowConfig),
-				MCP:       make(map[string]ast.MCPConfig),
-			},
-		}
-
-		imp := findImporterByProvider(provider)
-		if imp == nil {
-			warnings = append(warnings, fmt.Sprintf("no registered importer for provider %q, skipping %s", provider, dir))
-			continue
-		}
-		if err := imp.Import(dir, tmpConfig); err != nil {
-			warnings = append(warnings, fmt.Sprintf("%s import: %v", provider, err))
-		}
-
-		for id := range tmpConfig.Skills {
-			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
-			if _, err := os.Stat(skillFile); err == nil {
-				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", &warnings)
-				sc := tmpConfig.Skills[id]
-				if len(refs) > 0 {
-					sc.References = refs
-				}
-				if len(scripts) > 0 {
-					sc.Scripts = scripts
-				}
-				if len(fileAssets) > 0 {
-					sc.Assets = fileAssets
-				}
-				if len(fileExamples) > 0 {
-					sc.Examples = fileExamples
-				}
-				tmpConfig.Skills[id] = sc
-			}
-		}
-
-		if err := parser.ReclassifyExtras(tmpConfig, importer.DefaultImporters()); err != nil {
-			warnings = append(warnings, fmt.Sprintf("reclassify extras (%s): %v", provider, err))
-		}
-
-		dirAbs, _ := filepath.Abs(dir)
-		projectDir := filepath.Dir(dirAbs)
-		if err := runProviderPostImport(provider, dir, projectDir, tmpConfig, &warnings); err != nil {
-			return err
-		}
-
-		providerConfigs[provider] = tmpConfig
-	}
+	providerConfigs := scanProviderConfigs(providerDirs, &warnings)
 
 	assembleMultiProviderResources(providerConfigs, config)
 
@@ -868,6 +884,15 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 	}
 
 	applyKindFilters(config)
+
+	// Apply --plan guard before writing files
+	if importPlan {
+		fmt.Printf("Import plan (dry-run):\n")
+		fmt.Printf("  Would create %d agents, %d skills, %d rules, %d workflows, %d MCP servers\n",
+			len(config.Agents), len(config.Skills), len(config.Rules), len(config.Workflows), len(config.MCP))
+		fmt.Printf("  From %d provider directories\n", len(providerDirs))
+		return nil
+	}
 
 	if memCount, err := writeMemoryFiles(config); err != nil {
 		return fmt.Errorf("write memory files: %w", err)
@@ -1150,7 +1175,10 @@ func agentConfigsIdentical(configs map[string]ast.AgentConfig) bool {
 			first = false
 			continue
 		}
-		if cfg.Description != ref.Description || cfg.Model != ref.Model || cfg.Body != ref.Body {
+		// Zero out Name since it's expected to differ
+		cfg.Name = ""
+		ref.Name = ""
+		if !reflect.DeepEqual(cfg, ref) {
 			return false
 		}
 	}
@@ -1166,7 +1194,10 @@ func skillConfigsIdentical(configs map[string]ast.SkillConfig) bool {
 			first = false
 			continue
 		}
-		if cfg.Description != ref.Description || cfg.Body != ref.Body {
+		// Zero out Name since it's expected to differ
+		cfg.Name = ""
+		ref.Name = ""
+		if !reflect.DeepEqual(cfg, ref) {
 			return false
 		}
 	}
@@ -1182,7 +1213,10 @@ func ruleConfigsIdentical(configs map[string]ast.RuleConfig) bool {
 			first = false
 			continue
 		}
-		if cfg.Description != ref.Description || cfg.Body != ref.Body {
+		// Zero out Name since it's expected to differ
+		cfg.Name = ""
+		ref.Name = ""
+		if !reflect.DeepEqual(cfg, ref) {
 			return false
 		}
 	}
@@ -1198,7 +1232,10 @@ func workflowConfigsIdentical(configs map[string]ast.WorkflowConfig) bool {
 			first = false
 			continue
 		}
-		if cfg.Description != ref.Description || cfg.Body != ref.Body {
+		// Zero out Name since it's expected to differ
+		cfg.Name = ""
+		ref.Name = ""
+		if !reflect.DeepEqual(cfg, ref) {
 			return false
 		}
 	}
