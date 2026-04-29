@@ -516,7 +516,6 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 
 		kind := extractKind(docNode)
 
-		// Filesystem-as-schema inference (filesystem-as-schema inference)
 		// Infer kind and name from file path if not explicit in YAML.
 		// If kind is empty, infer both kind and name.
 		// If kind is provided but name is not, infer only the name.
@@ -529,6 +528,12 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			}
 			// If kind is now known (either explicit or inferred), we can use the inferred name
 			// The name will be applied during resource document parsing if YAML name is empty.
+		}
+
+		// Warn if YAML kind differs from inferred kind (when both are present)
+		if kind != "" && inferredKind != "" && kind != inferredKind {
+			fmt.Fprintf(os.Stderr, "warning: %s declares kind: %s but path implies kind: %s\n",
+				resolved.sourcePath, kind, inferredKind)
 		}
 
 		switch kind {

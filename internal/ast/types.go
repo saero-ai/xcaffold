@@ -39,7 +39,7 @@ type XcaffoldConfig struct {
 
 	// Overrides stores parsed .<provider>.xcf partial configs keyed by [kind][name][provider].
 	// Populated by the import pipeline; never serialized to YAML or JSON.
-	// The compiler uses this for Terraform-style override merge.
+	// The compiler merges these with base resources during compilation.
 	Overrides *ResourceOverrides `yaml:"-" json:"-"`
 
 	ResourceScope `yaml:",inline"` // Global-level resources

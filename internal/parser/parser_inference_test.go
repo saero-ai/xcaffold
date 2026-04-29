@@ -187,3 +187,26 @@ func TestParse_FilesystemInference_AllResourceKinds(t *testing.T) {
 		})
 	}
 }
+
+// TestParse_FilesystemInference_WarnsOnMismatch tests that when YAML kind/name differ
+// from filesystem-inferred values, a warning is logged but parsing succeeds.
+// The YAML values take precedence.
+func TestParse_FilesystemInference_WarnsOnMismatch(t *testing.T) {
+	dir := t.TempDir()
+	xcfDir := filepath.Join(dir, "xcf", "agents", "developer")
+	require.NoError(t, os.MkdirAll(xcfDir, 0755))
+
+	// Agent file with explicit name that does NOT match directory
+	content := "---\nkind: agent\nversion: \"1.0\"\nname: reviewer\nmodel: sonnet\n---\nYou are a reviewer.\n"
+	filePath := filepath.Join(xcfDir, "agent.xcf")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	cfg, err := ParseDirectory(dir)
+	// Should NOT error — mismatch is a warning, not an error
+	require.NoError(t, err, "expected no error (name mismatch is a warning only)")
+
+	// The YAML name wins (explicit takes precedence over inferred)
+	agent, ok := cfg.Agents["reviewer"]
+	require.True(t, ok, "expected agent keyed by YAML name 'reviewer', not inferred name 'developer'")
+	require.NotNil(t, agent)
+}

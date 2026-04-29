@@ -3,6 +3,7 @@ package parser
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -319,7 +320,7 @@ func validateEnvelope(version, name, kind string) error {
 // struct with KnownFields validation, validates envelope fields (name and
 // version required), and inserts the resource into the appropriate
 // ResourceScope map on config.
-// inferredName is the name inferred from the filesystem path.
+// inferredName is the name inferred from the filesystem path when omitted from YAML.
 func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldConfig, sourceFile string, inferredName string) error {
 	b, err := nodeToBytes(node)
 	if err != nil {
@@ -341,6 +342,11 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
 			return fmt.Errorf("invalid agent document: %w", err)
+		}
+		// Warn if YAML name differs from inferred name (when both are present)
+		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
+			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
+				sourceFile, doc.Name, inferredName)
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
@@ -373,6 +379,11 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if err := dec.Decode(&doc); err != nil {
 			return fmt.Errorf("invalid skill document: %w", err)
 		}
+		// Warn if YAML name differs from inferred name (when both are present)
+		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
+			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
+				sourceFile, doc.Name, inferredName)
+		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
 		if doc.Name == "" && inferredName != "" {
@@ -403,6 +414,11 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
 			return fmt.Errorf("invalid rule document: %w", err)
+		}
+		// Warn if YAML name differs from inferred name (when both are present)
+		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
+			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
+				sourceFile, doc.Name, inferredName)
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
@@ -435,6 +451,11 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if err := dec.Decode(&doc); err != nil {
 			return fmt.Errorf("invalid workflow document: %w", err)
 		}
+		// Warn if YAML name differs from inferred name (when both are present)
+		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
+			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
+				sourceFile, doc.Name, inferredName)
+		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
 		if doc.Name == "" && inferredName != "" {
@@ -465,6 +486,11 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
 			return fmt.Errorf("invalid mcp document: %w", err)
+		}
+		// Warn if YAML name differs from inferred name (when both are present)
+		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
+			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
+				sourceFile, doc.Name, inferredName)
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
@@ -497,6 +523,11 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if err := dec.Decode(&doc); err != nil {
 			return fmt.Errorf("invalid context document: %w", err)
 		}
+		// Warn if YAML name differs from inferred name (when both are present)
+		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
+			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
+				sourceFile, doc.Name, inferredName)
+		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
 		if doc.Name == "" && inferredName != "" {
@@ -527,6 +558,11 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
 			return fmt.Errorf("invalid memory document: %w", err)
+		}
+		// Warn if YAML name differs from inferred name (when both are present)
+		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
+			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
+				sourceFile, doc.Name, inferredName)
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
