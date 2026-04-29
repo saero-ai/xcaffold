@@ -21,17 +21,12 @@ import (
 	_ "github.com/saero-ai/xcaffold/internal/importer/gemini"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
-	"github.com/saero-ai/xcaffold/internal/translator"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
 var (
-	importSource       string
-	importFromPlatform string
-	importPlan         bool
-	importWithMemory   bool
-	autoMergeFlag      string
+	importPlan bool
 )
 
 // htmlCommentAttrRE matches key="value" pairs inside HTML comment lines.
@@ -41,103 +36,61 @@ var htmlCommentAttrRE = regexp.MustCompile(`(\w[\w-]*)="([^"]*)"`)
 var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "Import existing provider config into project.xcf",
-	Long: `xcaffold import manages adopting existing configurations into xcaffold.
+	Long: `xcaffold import adopts existing provider configurations into xcaffold.
 
-┌───────────────────────────────────────────────────────────────────┐
-│                          IMPORT PHASE                             │
-└───────────────────────────────────────────────────────────────────┘
-Native Import Mode (Default):
- • Scans .claude/agents/*.md   → extracts to agents/<id>.md
- • Scans .claude/skills/*/SKILL.md → extracts to skills/<id>/SKILL.md
- • Scans .claude/rules/*.md    → extracts to rules/<id>.md
+Detection (Default):
+ • Scans .claude/agents/*.md   → extracts to xcf/agents/<id>.md
+ • Scans .claude/skills/*/SKILL.md → extracts to xcf/skills/<id>/SKILL.md
+ • Scans .claude/rules/*.md    → extracts to xcf/rules/<id>.md
  • Reads .claude/settings.json for MCP and settings context
- • Generates a project.xcf with instructions-file: references
-
-Cross-Platform Translation Mode (--source):
- • Imports agent workflow files from other platforms and decomposes
-   them into xcaffold primitives (skills, rules, permissions).
- • Detected intents determine primitive mappings.
- • Results are injected into project.xcf using instructions-file: references.
- • Use --plan to preview the decomposition without writing any files.
+ • Generates project.xcf with instructions-file: references
 
 Usage:
   $ xcaffold import
-  $ xcaffold import --source ./workflows/ --from antigravity
-  $ xcaffold import --source .cursor/rules/ --from cursor --plan
-  $ xcaffold import --source .gemini/ --from gemini`,
+  $ xcaffold import --plan`,
 	RunE: runImport,
 }
 
 func init() {
-	importCmd.Flags().StringVar(&importSource, "source", "", "File or directory of workflow markdown files to translate")
-	importCmd.Flags().StringVar(&importFromPlatform, "from", "auto", "Source platform of input files (antigravity, claude, cursor, gemini, copilot)")
-	importCmd.Flags().BoolVar(&importPlan, "plan", false, "Dry-run: print decomposition plan without writing files")
-	importCmd.Flags().BoolVar(&importWithMemory, "with-memory", false, "Snapshot agent-written memory into xcf/agents/<id>/memory/ sidecars")
-	importCmd.Flags().StringVar(&autoMergeFlag, "auto-merge", "", "Merge divergent variants: union")
+	importCmd.Flags().BoolVar(&importPlan, "plan", false, "Dry-run: print import plan without writing files")
 	rootCmd.AddCommand(importCmd)
 }
 
 func runImport(cmd *cobra.Command, args []string) error {
-	if importSource != "" && !importWithMemory {
-		return runTranslateMode()
-	}
-
-	var importErr error
-
-	if importSource == "" {
-		if globalFlag {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return fmt.Errorf("cannot determine home directory: %w", err)
-			}
-			dirs := detectPlatformDirs(home, true)
-			if len(dirs) == 0 {
-				return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
-			}
-			if len(dirs) > 1 {
-				importErr = mergeImportDirs(dirs, globalXcfPath)
-			} else {
-				importErr = importScope(dirs[0].dirName, globalXcfPath, "global", dirs[0].platform)
-			}
-		} else {
-			// project (default) — detect providers via ProviderImporter registry.
-			detected := importer.DetectProviders(".", importer.DefaultImporters())
-			if len(detected) > 1 {
-				var provDirs []platformDirInfo
-				for _, imp := range detected {
-					provDirs = append(provDirs, platformDirInfo{
-						dirName:  imp.InputDir(),
-						platform: imp.Provider(),
-						exists:   true,
-					})
-				}
-				importErr = mergeImportDirs(provDirs, "project.xcf")
-			} else if len(detected) == 1 {
-				imp := detected[0]
-				importErr = importScope(imp.InputDir(), "project.xcf", "project", imp.Provider())
-			} else {
-				// No provider directories found
-				importErr = fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
-			}
-		}
-	} else {
-		// --source is set together with --with-memory: run translate mode first.
-		importErr = runTranslateMode()
-	}
-
-	if importErr != nil {
-		return importErr
-	}
-
-	if importWithMemory {
-		memSummary, err := runMemorySnapshot(cmd, importSource, importFromPlatform, importPlan)
+	if globalFlag {
+		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("memory snapshot: %w", err)
+			return fmt.Errorf("cannot determine home directory: %w", err)
 		}
-		printMemorySnapshotSummary(cmd, memSummary, importPlan)
+		dirs := detectPlatformDirs(home, true)
+		if len(dirs) == 0 {
+			return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
+		}
+		if len(dirs) > 1 {
+			return mergeImportDirs(dirs, globalXcfPath)
+		}
+		return importScope(dirs[0].dirName, globalXcfPath, "global", dirs[0].platform)
 	}
 
-	return nil
+	// project (default) — detect providers via ProviderImporter registry.
+	detected := importer.DetectProviders(".", importer.DefaultImporters())
+	if len(detected) > 1 {
+		var provDirs []platformDirInfo
+		for _, imp := range detected {
+			provDirs = append(provDirs, platformDirInfo{
+				dirName:  imp.InputDir(),
+				platform: imp.Provider(),
+				exists:   true,
+			})
+		}
+		return mergeImportDirs(provDirs, "project.xcf")
+	} else if len(detected) == 1 {
+		imp := detected[0]
+		return importScope(imp.InputDir(), "project.xcf", "project", imp.Provider())
+	}
+
+	// No provider directories found
+	return fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
 }
 
 // runProjectInstructionsDiscovery runs extractProjectInstructions for the primary
@@ -318,61 +271,6 @@ func detectPlatformDirs(baseDir string, skipEmpty bool) []platformDirInfo {
 	})
 
 	return results
-}
-
-func runTranslateMode() error {
-	xcfPath := "project.xcf"
-	config, err := parser.ParseFileExact(xcfPath)
-	if err != nil {
-		return fmt.Errorf("no project.xcf found — run 'xcaffold init' first, then 'xcaffold import --source': %w", err)
-	}
-
-	xcfAbs, err := filepath.Abs(xcfPath)
-	if err != nil {
-		return fmt.Errorf("could not resolve project.xcf path: %w", err)
-	}
-	baseDir := filepath.Dir(xcfAbs)
-
-	sources := []string{importSource}
-
-	if len(sources) == 0 {
-		return fmt.Errorf("no .md files found at %q", importSource)
-	}
-
-	var allResults []translator.TranslationResult
-	totalPrimitives := 0
-	targetFlag := targetClaude
-
-	for _, src := range sources {
-		unit, err := bir.ImportWorkflow(src, importFromPlatform)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warn: skipping %s: %v\n", src, err)
-			continue
-		}
-
-		result := translator.Translate(unit, targetFlag)
-		allResults = append(allResults, result)
-
-		fmt.Printf("\n%s\n", filepath.Base(src))
-		fmt.Printf("  intents detected: %s\n", formatIntents(unit.Intents))
-		fmt.Printf("  primitives:\n")
-
-		for _, p := range result.Primitives {
-			fmt.Printf("    [%s] %s\n", p.Kind, p.ID)
-			totalPrimitives++
-		}
-	}
-
-	fmt.Printf("\n%d file(s), %d primitive(s) total\n",
-		len(sources), totalPrimitives)
-
-	if importPlan {
-		printTranslatePlan(allResults, baseDir)
-		fmt.Println("(dry-run — no files written)")
-		return nil
-	}
-
-	return injectIntoConfig(config, allResults, xcfPath, baseDir)
 }
 
 // importScope scans a platform directory and writes a xcf file to xcfDest.
@@ -889,13 +787,6 @@ func writeSidecar(path string, content []byte) error {
 	return nil
 }
 
-type instructionsXCFDoc struct {
-	Kind         string `yaml:"kind"`
-	Version      string `yaml:"version"`
-	Name         string `yaml:"name"`
-	Instructions string `yaml:"instructions"`
-}
-
 // extractProjectInstructions discovers provider instruction files in projectDir,
 // writes sidecars under xcf/instructions/, and populates cfg.Project with
 // InstructionsFile and InstructionsScopes entries.
@@ -946,159 +837,6 @@ func sanitizeFrontmatter(data []byte) []byte {
 		}
 	}
 	return []byte(strings.Join(lines, "\n"))
-}
-
-// injectIntoConfig writes external .md files for each primitive and updates
-// project.xcf with instructions-file: references, following the import.go pattern.
-func injectIntoConfig(config *ast.XcaffoldConfig, results []translator.TranslationResult, xcfPath, baseDir string) error {
-	if config.Skills == nil {
-		config.Skills = make(map[string]ast.SkillConfig)
-	}
-	if config.Rules == nil {
-		config.Rules = make(map[string]ast.RuleConfig)
-	}
-
-	seen := make(map[string]bool)
-	var allowEntries []string
-
-	for _, result := range results {
-		for _, p := range result.Primitives {
-			if strings.TrimSpace(p.Body) == "" {
-				continue
-			}
-			if err := injectPrimitive(&p, config, baseDir, &allowEntries, seen); err != nil {
-				return err
-			}
-		}
-	}
-
-	injectAllowEntries(config, allowEntries)
-
-	if err := WriteSplitFiles(config, filepath.Dir(xcfPath)); err != nil {
-		return fmt.Errorf("failed to write project.xcf: %w", err)
-	}
-
-	fmt.Printf("\nproject.xcf updated. Run 'xcaffold apply' to render output\n")
-	return nil
-}
-
-func injectPrimitive(p *translator.TargetPrimitive, config *ast.XcaffoldConfig, baseDir string, allowEntries *[]string, seen map[string]bool) error {
-	switch p.Kind {
-	case "skill":
-		destPath := filepath.Join(baseDir, "skills", p.ID, "SKILL.md")
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return fmt.Errorf("failed to create skills/%s/ directory: %w", p.ID, err)
-		}
-		if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
-			return fmt.Errorf("failed to write %s: %w", destPath, err)
-		}
-
-		config.Skills[p.ID] = ast.SkillConfig{
-			Description: fmt.Sprintf("Translated from workflow %s", p.ID),
-			Body:        p.Body,
-		}
-		fmt.Printf("  wrote %s\n", destPath)
-
-	case "rule":
-		destPath := filepath.Join(baseDir, "rules", p.ID+".md")
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			return fmt.Errorf("failed to create rules/ directory: %w", err)
-		}
-		if err := os.WriteFile(destPath, []byte(p.Body), 0600); err != nil {
-			return fmt.Errorf("failed to write %s: %w", destPath, err)
-		}
-
-		config.Rules[p.ID] = ast.RuleConfig{
-			Description: fmt.Sprintf("Constraints from workflow %s", p.ID),
-			Body:        p.Body,
-		}
-		fmt.Printf("  wrote %s\n", destPath)
-
-	case "permission":
-		for _, entry := range resolveAllowEntries(p.Body) {
-			if !seen[entry] {
-				seen[entry] = true
-				*allowEntries = append(*allowEntries, entry)
-			}
-		}
-	}
-	return nil
-}
-
-func injectAllowEntries(config *ast.XcaffoldConfig, allowEntries []string) {
-	if len(allowEntries) == 0 {
-		return
-	}
-	// Retrieve (or create) the "default" settings entry.
-	settings := config.Settings["default"]
-	if settings.Permissions == nil {
-		settings.Permissions = &ast.PermissionsConfig{}
-	}
-	existing := make(map[string]bool, len(settings.Permissions.Allow))
-	for _, e := range settings.Permissions.Allow {
-		existing[e] = true
-	}
-	for _, entry := range allowEntries {
-		if !existing[entry] {
-			settings.Permissions.Allow = append(settings.Permissions.Allow, entry)
-		}
-	}
-	if config.Settings == nil {
-		config.Settings = make(map[string]ast.SettingsConfig)
-	}
-	config.Settings["default"] = settings
-	fmt.Printf("  merged %d permission allow entries into settings.permissions\n", len(allowEntries))
-}
-
-// printTranslatePlan prints what would be injected without writing any files.
-func printTranslatePlan(results []translator.TranslationResult, baseDir string) {
-	fmt.Println("\n-- plan --")
-	for _, result := range results {
-		for _, p := range result.Primitives {
-			switch p.Kind {
-			case "skill":
-				fmt.Printf("  skill  %q → skills/%s/SKILL.md\n", p.ID, p.ID)
-			case "rule":
-				fmt.Printf("  rule   %q → rules/%s.md\n", p.ID, p.ID)
-			case "permission":
-				entries := resolveAllowEntries(p.Body)
-				fmt.Printf("  perm   %q → settings.permissions.allow: %v\n", p.ID, entries)
-			}
-		}
-	}
-	_ = baseDir // used for context, not needed in plan output
-}
-
-// resolveSourceFiles returns the list of .md files to process.
-// If path is a directory, it returns all .md files directly within it (non-recursive).
-// If path is a file, it returns a single-element slice containing that file.
-
-// formatIntents returns a human-readable summary of detected intent types.
-func formatIntents(intents []bir.FunctionalIntent) string {
-	if len(intents) == 0 {
-		return "none (fallback: skill)"
-	}
-
-	seen := make(map[bir.IntentType]bool)
-	var parts []string
-	for _, intent := range intents {
-		if !seen[intent.Type] {
-			seen[intent.Type] = true
-			parts = append(parts, string(intent.Type))
-		}
-	}
-
-	return strings.Join(parts, ", ")
-}
-
-// resolveAllowEntries derives Bash permission entries from the primitive body.
-// "turbo-all" and generic "turbo" annotations produce broad defaults.
-func resolveAllowEntries(body string) []string {
-	lower := strings.ToLower(body)
-	if strings.Contains(lower, "turbo-all") || strings.Contains(lower, "turbo") {
-		return []string{"Bash(git *)", "Bash(go *)"}
-	}
-	return []string{"Bash(*)"}
 }
 
 // mergeImportDirs consolidates multiple platform directories into a single project.xcf.
@@ -1416,85 +1154,6 @@ func fileSize(path string) int64 {
 // imports from the Claude project memory directory.
 //
 // NOTE: The --with-memory BIR snapshot path writes flat .md files to
-// xcf/agents/ without per-agent subdirectories. This is a known limitation:
-// BIR import functions have no agent-to-entry mapping. The primary import
-// path (WriteSplitFiles from parsed config.Memory) writes to the correct
-// per-agent layout xcf/agents/<id>/memory/. The --with-memory flag is a
-// raw snapshot escape hatch and does not produce the canonical layout.
-func runMemorySnapshot(cmd *cobra.Command, source string, fromPlatform string, planOnly bool) (*bir.ImportSummary, error) {
-	sidecarDir := filepath.Join("xcf", "agents")
-
-	if fromPlatform == "gemini" {
-		gDir, err := geminiMemoryDir()
-		if err != nil {
-			return nil, fmt.Errorf("resolving gemini directory: %w", err)
-		}
-		return bir.ImportGeminiMemory(gDir, bir.ImportOpts{
-			PlanOnly:   planOnly,
-			SidecarDir: sidecarDir,
-		})
-	}
-
-	memDir, err := resolveClaudeMemoryDir(source, fromPlatform)
-	if err != nil {
-		return nil, err
-	}
-
-	return bir.ImportClaudeMemory(memDir, bir.ImportOpts{
-		PlanOnly:   planOnly,
-		SidecarDir: sidecarDir,
-	})
-}
-
-// resolveClaudeMemoryDir determines the memory directory to import from.
-// If source is a valid directory, it is used directly.
-// Otherwise, the function derives ~/.claude/projects/<encoded-cwd>/memory/
-// via claudeProjectMemoryDir.
-func resolveClaudeMemoryDir(source, fromPlatform string) (string, error) {
-	if source != "" {
-		info, err := os.Stat(source)
-		if err == nil && info.IsDir() {
-			return source, nil
-		}
-	}
-
-	// Derive ~/.claude/projects/<encoded-cwd>/memory/ using the shared helper.
-	// Empty string causes claudeProjectMemoryDir to fall back to os.Getwd().
-	memDir, err := claudeProjectMemoryDir("")
-	if err != nil {
-		return "", err
-	}
-
-	info, err := os.Stat(memDir)
-	if err != nil || !info.IsDir() {
-		return "", fmt.Errorf("claude memory directory not found at %s; pass --source <dir> to specify a location", memDir)
-	}
-
-	return memDir, nil
-}
-
-// printMemorySnapshotSummary writes the outcome of a memory snapshot pass.
-func printMemorySnapshotSummary(cmd *cobra.Command, s *bir.ImportSummary, planOnly bool) {
-	out := cmd.OutOrStdout()
-	if planOnly {
-		fmt.Fprintf(out, "memory snapshot plan\n  would import: %d entries\n", s.WouldImport)
-		return
-	}
-	fmt.Fprintf(out, "memory snapshot complete\n  imported: %d entries\n", s.Imported)
-	if s.Skipped > 0 {
-		fmt.Fprintf(out, "  skipped (already exists): %d\n", s.Skipped)
-	}
-	if len(s.Written) > 0 {
-		fmt.Fprintln(out, "  written:")
-		for _, w := range s.Written {
-			fmt.Fprintf(out, "           %s\n", w)
-		}
-	}
-	if s.Imported > 0 {
-		fmt.Fprintln(out, "\nrun xcaffold apply to compile these memory entries into the target provider")
-	}
-}
-
 // detectAndMergeVariants runs the multi-provider divergence algorithm.
 // It discovers instruction files for the second provider and compares their
 // content with existing scope entries byte-for-byte. Identical content is

@@ -483,57 +483,6 @@ func TestDetectPlatformDirs_SkipEmpty_False_IncludesEmptyDirs(t *testing.T) {
 	}
 }
 
-func TestImportCmd_WithMemoryFlag_Registered(t *testing.T) {
-	flag := importCmd.Flags().Lookup("with-memory")
-	require.NotNil(t, flag, "--with-memory flag must be registered on importCmd")
-	require.Equal(t, "false", flag.DefValue)
-}
-
-func TestRunImport_WithMemory_UsesSourceDir(t *testing.T) {
-	memDir := t.TempDir()
-	require.NoError(t, os.WriteFile(
-		filepath.Join(memDir, "user-role.md"),
-		[]byte("---\ntype: user\n---\nRobert."),
-		0o600,
-	))
-
-	tmp := t.TempDir()
-	origWd, _ := os.Getwd()
-	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origWd)
-
-	summary, err := runMemorySnapshot(importCmd, memDir, "claude", false)
-	require.NoError(t, err)
-	require.Equal(t, 1, summary.Imported)
-	require.FileExists(t, filepath.Join(tmp, "xcf", "agents", "user-role.md"))
-}
-
-func TestImport_WithMemory_Gemini_ExtractsBlocks(t *testing.T) {
-	// Prepare a GEMINI.md file with an xcaffold-seeded memory block.
-	geminiDir := t.TempDir()
-	geminiMD := `## Gemini Added Memories
-
-<!-- xcaffold:memory name="user-role" type="user" seeded-at="2026-04-15T00:00:00Z" -->
-**user-role** (user): Developer role.
-
-Robert is the founder.
-<!-- xcaffold:/memory -->
-`
-	require.NoError(t, os.WriteFile(filepath.Join(geminiDir, "GEMINI.md"), []byte(geminiMD), 0o600))
-	t.Setenv("XCAFFOLD_GEMINI_DIR", geminiDir)
-
-	// Set up a temp working directory for the sidecar output.
-	tmp := t.TempDir()
-	origWd, _ := os.Getwd()
-	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origWd)
-
-	summary, err := runMemorySnapshot(importCmd, "", "gemini", false)
-	require.NoError(t, err)
-	require.Equal(t, 1, summary.Imported, "one Gemini memory block must be imported")
-	require.FileExists(t, filepath.Join(tmp, "xcf", "agents", "user-role.md"))
-}
-
 func TestDetectTargets(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -881,4 +830,20 @@ func TestMergeImportDirs_ImportsMemory(t *testing.T) {
 
 	data, _ := os.ReadFile(memPath)
 	require.Contains(t, string(data), "Always use Go 1.24.")
+}
+
+func TestImport_RemovedFlags_NotRegistered(t *testing.T) {
+	flags := importCmd.Flags()
+	for _, name := range []string{"source", "from", "auto-merge", "with-memory"} {
+		if flags.Lookup(name) != nil {
+			t.Errorf("flag --%s should be removed", name)
+		}
+	}
+}
+
+func TestImport_PreservedFlags_StillRegistered(t *testing.T) {
+	flags := importCmd.Flags()
+	if flags.Lookup("plan") == nil {
+		t.Error("--plan flag should be preserved")
+	}
 }
