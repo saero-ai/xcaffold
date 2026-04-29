@@ -13,6 +13,10 @@ Understanding-oriented explanations of xcaffold's architectural and philosophica
 - [Agent Memory](agent-memory.md) — Understanding the durable, agent-scoped context model and execution lifecycle across targets.
 - [Configuration Theory](configuration-scopes.md) — Understanding configuration contexts, scopes, implicit global inheritance, and boundaries.
 - [Sandboxing](sandboxing.md) — Runtime sandbox configuration and compile-time evaluation sandbox.
+- [State Files and Drift Detection](state-and-drift.md) — How xcaffold tracks compilation output and detects manual edits.
+- [Multi-Target Rendering](multi-target-rendering.md) — How the AST compiles to different provider formats.
+- [Provider Architecture](provider-architecture.md) — The ProviderImporter and TargetRenderer interfaces.
+- [Blueprints](blueprints.md) — Named compilation scopes (Preview).
 
 ## Next Steps
 

@@ -1,8 +1,0 @@
----
-kind: agent
-version: "1.0"
-name: tester
-assertions:
-  - "Never use shell tools"
----
-Say hello

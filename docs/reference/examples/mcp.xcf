@@ -1,6 +1,0 @@
-kind: project
-version: "1.0"
-name: mcp-example
-mcp:
-  - local-db
-  - remote-api

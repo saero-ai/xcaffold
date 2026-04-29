@@ -58,6 +58,27 @@ Memory binds directly to the **Compilation Targets** execution graph. Since it s
 
 Multi-directory imports (when two or more provider directories are detected) now correctly import memory entries from each provider. Previously, multi-directory imports silently dropped memory. Memory entries from all providers are merged using a union strategy, with first-seen winning on key collision within a single agent's memory scope.
 
+### Global Agent Memory
+
+Global agents — agents defined at user scope (e.g., `~/.claude/agents/`) rather than project scope (`.claude/agents/`) — may use `memory: project` to write project-scoped memory. When these agents operate within a project, the provider creates memory entries in the project's agent-memory directory (e.g., `.claude/agent-memory/principal-architect/`).
+
+During import, xcaffold preserves this memory even though the agent definition is not present in the project's provider directory. The memory files are written to `xcf/agents/<agent-id>/memory/` without a corresponding `<agent-id>.xcf` file. The compiler's filesystem discovery does not require a `.xcf` file to discover memory — it scans all `xcf/agents/*/memory/` directories unconditionally.
+
+On `xcaffold apply`, the renderer writes these memory entries back to the provider's agent-memory directory, maintaining the round-trip contract:
+
+```text
+~/.claude/agents/ceo.md (memory: project)
+       ↓ agent writes memory
+.claude/agent-memory/principal-architect/*.md
+       ↓ xcaffold import
+xcf/agents/principal-architect/memory/*.md (no principal-architect.xcf needed)
+       ↓ xcaffold apply
+.claude/agent-memory/principal-architect/*.md (global agent can use it)
+```
+
+> [!NOTE]
+> Only explicitly imported memory is preserved. Memory directories for agents that were neither imported from the provider directory nor defined in the project are pruned during import to prevent stale data.
+
 ---
 
 ## When This Matters

@@ -1,7 +1,0 @@
-kind: project
-version: "1.0"
-name: test-example
-agents:
-  - tester
-test:
-  judge-model: claude-haiku-4-5-20251001

@@ -1,6 +1,0 @@
----
-kind: agent
-version: "1.0"
-name: demo
----
-You are a minimal agent.

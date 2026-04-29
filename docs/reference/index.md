@@ -9,13 +9,10 @@ Information-oriented documentation that provides exhaustive, definitive facts ab
 
 ## Documents
 
-- [Schema Reference](schema.md) — Comprehensive reference of all `.xcf` YAML fields, valid types, and provider-specific normalization behavior.
-- [CLI Reference](cli.md) — Detailed breakdown of every `xcaffold` command, argument, and flag.
-- [Resource File Format](multi-kind.md) — Reference for per-kind file formats: frontmatter for body-bearing kinds, pure YAML for structural kinds.
+- [Resource Kinds](kinds/index.md) — Comprehensive reference of all `.xcf` YAML fields, valid types, and schemas organized by kind taxonomy.
+- [CLI Reference](commands/index.md) — Detailed breakdown of every `xcaffold` command, argument, and flag.
+- [Supported Providers](supported-providers.md) — Registered providers, compilation scopes, input/output directories, and kind support matrix.
 
-## Examples
-
-- [Configuration Examples](examples/README.md) — A collection of raw `.xcf` snippet files demonstrating various topological structures (e.g. multi-agent, base profiles, isolated).
 
 ## Next Steps
 

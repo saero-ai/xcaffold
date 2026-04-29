@@ -1,5 +1,0 @@
-kind: project
-version: "1.0"
-name: minimal-example
-agents:
-  - demo
