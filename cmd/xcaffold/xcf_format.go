@@ -531,6 +531,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	}
 
 	// ── kind: context ────────────────────────────────────────────────────────
+	// Each context lives in its own subdirectory: xcf/context/<name>/context.xcf
 	if len(config.Contexts) > 0 {
 		dir := filepath.Join(xcfDir, "context")
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -544,7 +545,14 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 			body := strings.TrimSpace(ctx.Body)
 			ctx.Body = "" // zero before YAML serialization
 			doc := contextDoc{Kind: "context", Version: version, ContextConfig: ctx}
-			if err := writeFrontmatterFile(filepath.Join(dir, k+".xcf"), doc, body); err != nil {
+
+			ctxSubDir := filepath.Join(dir, k)
+			if err := os.MkdirAll(ctxSubDir, 0755); err != nil {
+				return err
+			}
+			outPath := filepath.Join(ctxSubDir, "context.xcf")
+
+			if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 				return err
 			}
 		}

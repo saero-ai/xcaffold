@@ -469,6 +469,30 @@ func TestWriteSplitFiles_Skill_DirectoryLayout(t *testing.T) {
 	}
 }
 
+func TestWriteSplitFiles_Context_DirectoryLayout(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"project-readme": {Name: "project-readme", Body: "README content."},
+			},
+		},
+	}
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	expected := filepath.Join(dir, "xcf", "context", "project-readme", "context.xcf")
+	if _, err := os.Stat(expected); os.IsNotExist(err) {
+		t.Fatalf("expected context at %s", expected)
+	}
+
+	flat := filepath.Join(dir, "xcf", "context", "project-readme.xcf")
+	if _, err := os.Stat(flat); !os.IsNotExist(err) {
+		t.Fatal("context should NOT be in flat layout")
+	}
+}
+
 func TestWriteSplitFiles_AllKinds_DirectoryLayout(t *testing.T) {
 	tmpDir := t.TempDir()
 
