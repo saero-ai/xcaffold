@@ -694,6 +694,50 @@ func isParseableFile(path string) bool {
 	return parseableKinds[header.Kind]
 }
 
+// validProviders is the closed set of allowed provider tokens in override filenames.
+var validProviders = map[string]bool{
+	"claude":      true,
+	"gemini":      true,
+	"cursor":      true,
+	"antigravity": true,
+	"copilot":     true,
+}
+
+// canonicalKindFilenames lists the resource kinds that can appear as prefixes in override filenames.
+var canonicalKindFilenames = map[string]bool{
+	"agent":    true,
+	"skill":    true,
+	"rule":     true,
+	"workflow": true,
+	"mcp":      true,
+	"hooks":    true,
+	"settings": true,
+	"policy":   true,
+	"template": true,
+	"memory":   true,
+}
+
+// overrideFileEntry represents a detected override file with its parsed metadata.
+type overrideFileEntry struct {
+	Path     string
+	Kind     string
+	Provider string
+}
+
+// classifyOverrideFile parses a filename to detect <kind>.<provider>.xcf pattern.
+// Returns (kind, provider, isOverride). If not an override file, isOverride is false.
+func classifyOverrideFile(filename string) (kind, provider string, isOverride bool) {
+	name := strings.TrimSuffix(filename, ".xcf")
+	parts := strings.SplitN(name, ".", 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	if !canonicalKindFilenames[parts[0]] {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
 // newParseFilter creates a map of directory names to skip during xcf scanning.
 func newParseFilter(dir string) map[string]bool {
 	ignored := map[string]bool{
@@ -728,6 +772,7 @@ func newParseFilter(dir string) map[string]bool {
 
 func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	var files []string
+	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -741,7 +786,16 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
-			if isParseableFile(path) {
+			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
+				if !validProviders[provider] {
+					return fmt.Errorf("override file %s: unknown provider %q; valid providers: claude, gemini, cursor, antigravity, copilot", d.Name(), provider)
+				}
+				overrideFiles = append(overrideFiles, overrideFileEntry{
+					Path:     path,
+					Kind:     kind,
+					Provider: provider,
+				})
+			} else if isParseableFile(path) {
 				files = append(files, path)
 			}
 		}
@@ -798,6 +852,7 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 
 func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	var files []string
+	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
 
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
@@ -812,7 +867,16 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
-			if isParseableFile(path) {
+			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
+				if !validProviders[provider] {
+					return fmt.Errorf("override file %s: unknown provider %q; valid providers: claude, gemini, cursor, antigravity, copilot", d.Name(), provider)
+				}
+				overrideFiles = append(overrideFiles, overrideFileEntry{
+					Path:     path,
+					Kind:     kind,
+					Provider: provider,
+				})
+			} else if isParseableFile(path) {
 				files = append(files, path)
 			}
 		}
