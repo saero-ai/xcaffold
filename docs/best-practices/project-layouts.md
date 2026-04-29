@@ -65,16 +65,17 @@ my-project/
 └── xcf/
     ├── agents/
     │   └── developer/
-    │       └── developer.xcf
+    │       └── agent.xcf
     ├── skills/
     │   └── git-workflow/
-    │       └── git-workflow.xcf
+    │       └── skill.xcf
     └── rules/
-        └── testing.xcf
+        └── testing/
+            └── rule.xcf
 ```
 
 > [!NOTE]
-> Agents and skills **must** live in a subdirectory under their respective kind folder. A file at `xcf/agents/developer.xcf` (flat) causes a parse error. The correct path is `xcf/agents/developer/developer.xcf`. Rules and policies do not have this constraint.
+> Agents and skills **must** live in a subdirectory under their respective kind folder. A file at `xcf/agents/developer.xcf` (flat) causes a parse error. The correct path is `xcf/agents/developer/agent.xcf`. All resource kinds support directory-per-resource layout with canonical filenames (`agent.xcf`, `skill.xcf`, `rule.xcf`, `workflow.xcf`, `mcp.xcf`).
 
 ## Layout 3 — Organized by Domain
 
@@ -89,15 +90,17 @@ my-project/
     ├── frontend/
     │   ├── agents/
     │   │   └── ui-developer/
-    │   │       └── ui-developer.xcf
+    │   │       └── agent.xcf
     │   └── rules/
-    │       └── accessibility.xcf
+    │       └── accessibility/
+    │           └── rule.xcf
     ├── backend/
     │   ├── agents/
     │   │   └── api-developer/
-    │   │       └── api-developer.xcf
+    │   │       └── agent.xcf
     │   └── rules/
-    │       └── api-conventions.xcf
+    │       └── api-conventions/
+    │           └── rule.xcf
     ├── policies/
     │   └── require-descriptions.xcf
     └── blueprints/
@@ -121,8 +124,8 @@ Once you have a domain-split layout with multiple teams, `kind: blueprint` files
 
 | Rule | Why |
 |---|---|
-| Agents must be in `xcf/agents/<id>/<file>.xcf` | Parser guard in `resource_kinds.go` rejects flat agent files |
-| Skills must be in `xcf/skills/<id>/<file>.xcf` | Same parser guard applies to skills |
+| Agents use `xcf/agents/<name>/agent.xcf` | Canonical filename; parser rejects flat agent files |
+| Skills use `xcf/skills/<name>/skill.xcf` | Canonical filename; parser rejects flat skill files |
 | Duplicate resource IDs across files are rejected | `mergeAllStrict` enforces uniqueness — reorganize, don't rename |
 | `.xcaffold/` is gitignored and tool-managed | State files are not source files |
 | Never edit compiled output directories | `xcaffold status` flags manual edits as drift |
