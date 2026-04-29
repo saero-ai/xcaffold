@@ -86,6 +86,8 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 		}
 	}
 
+	overrideNotes := resolveTargetOverrides(config, target)
+
 	config.Memory = DiscoverAgentMemory(baseDir)
 
 	config.StripInherited()
@@ -94,7 +96,11 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 	if err != nil {
 		return nil, nil, err
 	}
-	return renderer.Orchestrate(r, config, baseDir)
+	out, fidelityNotes, err := renderer.Orchestrate(r, config, baseDir)
+	if err != nil {
+		return nil, nil, err
+	}
+	return out, append(overrideNotes, fidelityNotes...), nil
 }
 
 // ResolveRenderer returns the TargetRenderer for the given target name.
