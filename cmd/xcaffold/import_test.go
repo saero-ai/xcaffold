@@ -847,3 +847,53 @@ func TestImport_PreservedFlags_StillRegistered(t *testing.T) {
 		t.Error("--plan flag should be preserved")
 	}
 }
+
+func TestImport_TargetFlag_Registered(t *testing.T) {
+	f := importCmd.Flags().Lookup("target")
+	if f == nil {
+		t.Fatal("--target flag should be registered")
+	}
+	if f.Value.String() != "" {
+		t.Errorf("--target flag default should be empty string, got %q", f.Value.String())
+	}
+}
+
+func TestImport_TargetFlag_ValidatesProvider(t *testing.T) {
+	original := importTargetFlag
+	defer func() { importTargetFlag = original }()
+
+	tmp := t.TempDir()
+	oldDir, _ := os.Getwd()
+	defer os.Chdir(oldDir)
+	os.Chdir(tmp)
+
+	importTargetFlag = "invalid-provider"
+	err := runImport(importCmd, nil)
+	if err == nil || !strings.Contains(err.Error(), "unknown target") {
+		t.Fatalf("expected error for invalid target, got: %v", err)
+	}
+}
+
+func TestImport_TargetFlag_ValidProvider_Accepted(t *testing.T) {
+	original := importTargetFlag
+	defer func() { importTargetFlag = original }()
+
+	tmp := t.TempDir()
+	oldDir, _ := os.Getwd()
+	defer os.Chdir(oldDir)
+	os.Chdir(tmp)
+
+	// Create a mock .claude directory to avoid "no providers found" error
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".claude", "agents"), 0755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(tmp, ".claude", "agents", "test.md"),
+		[]byte("# Test Agent"),
+		0600,
+	))
+
+	importTargetFlag = "claude"
+	err := runImport(importCmd, nil)
+	if err != nil && strings.Contains(err.Error(), "unknown target") {
+		t.Fatalf("valid target 'claude' should not produce unknown target error, got: %v", err)
+	}
+}

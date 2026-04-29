@@ -26,7 +26,8 @@ import (
 )
 
 var (
-	importPlan bool
+	importPlan       bool
+	importTargetFlag string
 )
 
 // htmlCommentAttrRE matches key="value" pairs inside HTML comment lines.
@@ -47,12 +48,14 @@ Detection (Default):
 
 Usage:
   $ xcaffold import
+  $ xcaffold import --target claude
   $ xcaffold import --plan`,
 	RunE: runImport,
 }
 
 func init() {
 	importCmd.Flags().BoolVar(&importPlan, "plan", false, "Dry-run: print import plan without writing files")
+	importCmd.Flags().StringVar(&importTargetFlag, "target", "", "Import from specific provider: claude, gemini, cursor, antigravity, copilot")
 	rootCmd.AddCommand(importCmd)
 }
 
@@ -72,8 +75,34 @@ func runImport(cmd *cobra.Command, args []string) error {
 		return importScope(dirs[0].dirName, globalXcfPath, "global", dirs[0].platform)
 	}
 
+	// Validate --target if set
+	if importTargetFlag != "" {
+		validTargets := map[string]bool{
+			"claude":      true,
+			"gemini":      true,
+			"cursor":      true,
+			"antigravity": true,
+			"copilot":     true,
+		}
+		if !validTargets[importTargetFlag] {
+			return fmt.Errorf("unknown target %q; valid targets: claude, gemini, cursor, antigravity, copilot", importTargetFlag)
+		}
+	}
+
 	// project (default) — detect providers via ProviderImporter registry.
 	detected := importer.DetectProviders(".", importer.DefaultImporters())
+
+	// Filter to specific provider if --target is set
+	if importTargetFlag != "" {
+		var filtered []importer.ProviderImporter
+		for _, imp := range detected {
+			if imp.Provider() == importTargetFlag {
+				filtered = append(filtered, imp)
+			}
+		}
+		detected = filtered
+	}
+
 	if len(detected) > 1 {
 		var provDirs []platformDirInfo
 		for _, imp := range detected {
