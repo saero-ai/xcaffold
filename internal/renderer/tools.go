@@ -16,13 +16,6 @@ var claudeNativeTools = map[string]bool{
 	"Task": true, "exit_plan_mode": true,
 }
 
-// init ensures all map keys are explicitly known to prevent accidental regressions.
-func init() {
-	if len(claudeNativeTools) != 16 {
-		panic("claudeNativeTools length mismatch - update implementation")
-	}
-}
-
 // containsClaudeNativeTools checks if a tool slice contains any Claude-native tools.
 func containsClaudeNativeTools(tools []string) bool {
 	for _, t := range tools {

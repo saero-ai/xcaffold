@@ -5,6 +5,12 @@ import (
 	"testing"
 )
 
+func TestClaudeNativeTools_LengthInvariant(t *testing.T) {
+	if len(claudeNativeTools) != 16 {
+		t.Fatalf("claudeNativeTools has %d entries, expected 16 — update the map and this test together", len(claudeNativeTools))
+	}
+}
+
 func TestIsClaudeNativeTool(t *testing.T) {
 	tests := []struct {
 		name     string
