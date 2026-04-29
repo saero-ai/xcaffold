@@ -1,6 +1,6 @@
 ---
 title: "AI-Assisted Agent Authoring"
-description: "Use xcaffold with an AI assistant  to generate deterministic, provider-native agent configurations without hallucination"
+description: "Use xcaffold with an AI coding assistant to generate deterministic, provider-native agent configurations without hallucination"
 ---
 
 # AI-Assisted Agent Authoring
@@ -49,7 +49,8 @@ This generates:
 
 ```
 my-project/
-  project.xcf              # kind: project
+  .xcaffold/
+    project.xcf              # kind: project
   xcf/
     agents/
       developer/
@@ -148,12 +149,12 @@ This returns a machine-readable manifest of every generated file:
 {
   "targets": ["claude", "gemini"],
   "files": [
-    "project.xcf",
+    ".xcaffold/project.xcf",
     "xcf/agents/developer/agent.xcf",
     "xcf/rules/conventions/rule.xcf",
     "xcf/settings/settings.xcf",
-    "xcf/skills/xcaffold/references/agent.xcf.reference",
-    "xcf/skills/xcaffold/references/skill.xcf.reference"
+    "xcf/skills/xcaffold/xcf.reference",
+    "xcf/skills/xcaffold/SKILL.md"
   ],
   "provider_notes": {
     "claude": "full feature set",
@@ -162,7 +163,7 @@ This returns a machine-readable manifest of every generated file:
 }
 ```
 
-The AI reads this manifest to know exactly which files to edit. It reads `xcf/skills/xcaffold/references/agent.xcf.reference` for the complete field catalog, and `xcf/agents/developer.xcf` for the provider matrix.
+The AI reads this manifest to know exactly which files to edit. It reads `xcf/skills/xcaffold/xcf.reference` for the complete field catalog, and `xcf/agents/developer.xcf` for the provider matrix.
 
 ```bash
 # Step 2: The AI edits xcf/agents/developer.xcf and creates xcf/agents/reviewer.xcf
@@ -223,7 +224,7 @@ Once imported, the AI can now modify the configurations through the `.xcf` files
 
 ## The `/xcaffold` AI skill
 
-Every time you run `xcaffold init`, it automatically generates a self-referential skill in `xcf/skills/xcaffold.xcf`. This file includes a built-in schema reference, workflow cheat sheets, and provider matrices.
+Every time you run `xcaffold init`, it automatically generates a self-referential skill in `xcf/skills/xcaffold/SKILL.md`. This file includes a built-in schema reference, workflow cheat sheets, and provider matrices.
 
 When you run `xcaffold apply`, this skill compiles to your project's `.claude/skills/xcaffold/` (or Cursor equivalent) directory. 
 

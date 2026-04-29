@@ -117,7 +117,7 @@ The following arguments are supported:
 
 ### `hooks` block
 
-Agent-scoped lifecycle hooks. Same structure as [`kind: hooks`](/docs/cli/reference/kinds/xcaffold/hooks).
+Agent-scoped lifecycle hooks. Same structure as [`kind: hooks`](hooks.md).
 
 - `pre-tool-call` — Scripts run before any tool invocation.
 - `post-tool-call` — Scripts run after any tool invocation.
