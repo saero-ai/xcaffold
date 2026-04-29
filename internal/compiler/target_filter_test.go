@@ -229,6 +229,57 @@ func TestResolveTargetOverrides_RuleOverrideMerged(t *testing.T) {
 	}
 }
 
+// TestResolveTargetOverrides_Workflow_SkippedWhenTargetNotMatched verifies that a
+// workflow whose Targets map does not include the current target is removed and
+// one warning note is emitted with kind "workflow".
+func TestResolveTargetOverrides_Workflow_SkippedWhenTargetNotMatched(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Workflows = map[string]ast.WorkflowConfig{
+		"deploy": {
+			Name:    "deploy",
+			Targets: map[string]ast.TargetOverride{"claude": {}},
+		},
+	}
+	notes := resolveTargetOverrides(config, "gemini")
+	if _, ok := config.Workflows["deploy"]; ok {
+		t.Fatal("deploy workflow should be removed — target gemini not in targets")
+	}
+	if len(notes) != 1 {
+		t.Fatalf("expected 1 fidelity note, got %d", len(notes))
+	}
+	note := notes[0]
+	if note.Level != renderer.LevelWarning {
+		t.Errorf("expected warning level, got %q", note.Level)
+	}
+	if note.Kind != "workflow" {
+		t.Errorf("expected kind 'workflow', got %q", note.Kind)
+	}
+	if note.Resource != "deploy" {
+		t.Errorf("expected resource 'deploy', got %q", note.Resource)
+	}
+	if note.Target != "gemini" {
+		t.Errorf("expected target 'gemini', got %q", note.Target)
+	}
+}
+
+// TestResolveTargetOverrides_MCP_OverrideMerged verifies that a per-provider
+// override for an MCP server is merged into the base MCP config.
+func TestResolveTargetOverrides_MCP_OverrideMerged(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.MCP = map[string]ast.MCPConfig{
+		"server": {Name: "server", Command: "base-cmd"},
+	}
+	config.Overrides = &ast.ResourceOverrides{}
+	config.Overrides.AddMCP("server", "claude", ast.MCPConfig{Command: "claude-cmd"})
+	notes := resolveTargetOverrides(config, "claude")
+	if config.MCP["server"].Command != "claude-cmd" {
+		t.Fatalf("expected override command 'claude-cmd', got %q", config.MCP["server"].Command)
+	}
+	if len(notes) != 0 {
+		t.Fatalf("expected 0 notes for matched override, got %d", len(notes))
+	}
+}
+
 // TestResolveTargetOverrides_NilOverrides verifies that a nil config.Overrides
 // does not panic and that universal resources pass through unchanged.
 func TestResolveTargetOverrides_NilOverrides(t *testing.T) {

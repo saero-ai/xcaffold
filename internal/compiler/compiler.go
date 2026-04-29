@@ -33,7 +33,7 @@ type Output = output.Output
 
 // Compile translates an XcaffoldConfig AST into platform-native files.
 // target selects the output platform: "claude", "cursor", "antigravity", "copilot", "gemini".
-// An empty target defaults to "claude" for backward compatibility.
+// An empty target returns an error.
 // blueprintName narrows compilation to the named blueprint's resource subset.
 // If blueprintName is empty, all resources are compiled.
 //
@@ -86,16 +86,17 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 		}
 	}
 
+	r, err := ResolveRenderer(target)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	overrideNotes := resolveTargetOverrides(config, target)
 
 	config.Memory = DiscoverAgentMemory(baseDir)
 
 	config.StripInherited()
 
-	r, err := ResolveRenderer(target)
-	if err != nil {
-		return nil, nil, err
-	}
 	out, fidelityNotes, err := renderer.Orchestrate(r, config, baseDir)
 	if err != nil {
 		return nil, nil, err

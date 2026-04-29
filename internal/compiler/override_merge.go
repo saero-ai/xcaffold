@@ -14,8 +14,17 @@ import "github.com/saero-ai/xcaffold/internal/ast"
 // carried from base to preserve provenance metadata.
 func mergeAgentConfig(base, override ast.AgentConfig) ast.AgentConfig {
 	result := base
+	mergeAgentScalars(&result, override)
+	mergeAgentBoolPtrs(&result, override)
+	mergeAgentLists(&result, override)
+	mergeAgentMaps(&result, base, override)
+	mergeAgentBody(&result, override)
+	// Internal provenance fields are intentionally NOT merged.
+	// result.Inherited and result.SourceProvider carry base values.
+	return result
+}
 
-	// --- Scalars (replace on non-zero) ---
+func mergeAgentScalars(result *ast.AgentConfig, override ast.AgentConfig) {
 	if override.Name != "" {
 		result.Name = override.Name
 	}
@@ -49,8 +58,9 @@ func mergeAgentConfig(base, override ast.AgentConfig) ast.AgentConfig {
 	if override.InitialPrompt != "" {
 		result.InitialPrompt = override.InitialPrompt
 	}
+}
 
-	// --- Bool pointers (replace on non-nil) ---
+func mergeAgentBoolPtrs(result *ast.AgentConfig, override ast.AgentConfig) {
 	if override.Readonly != nil {
 		v := *override.Readonly
 		result.Readonly = &v
@@ -67,8 +77,9 @@ func mergeAgentConfig(base, override ast.AgentConfig) ast.AgentConfig {
 		v := *override.Background
 		result.Background = &v
 	}
+}
 
-	// --- Lists (replace entire list on non-empty) ---
+func mergeAgentLists(result *ast.AgentConfig, override ast.AgentConfig) {
 	if len(override.Tools) > 0 {
 		result.Tools = append([]string(nil), override.Tools...)
 	}
@@ -90,8 +101,9 @@ func mergeAgentConfig(base, override ast.AgentConfig) ast.AgentConfig {
 	if len(override.Assertions) > 0 {
 		result.Assertions = append([]string(nil), override.Assertions...)
 	}
+}
 
-	// --- Maps (deep merge — override keys win, base keys preserved) ---
+func mergeAgentMaps(result *ast.AgentConfig, base, override ast.AgentConfig) {
 	if len(override.MCPServers) > 0 {
 		merged := make(map[string]ast.MCPConfig, len(base.MCPServers)+len(override.MCPServers))
 		for k, v := range base.MCPServers {
@@ -127,16 +139,12 @@ func mergeAgentConfig(base, override ast.AgentConfig) ast.AgentConfig {
 		}
 		result.Targets = merged
 	}
+}
 
-	// --- Body (replace when non-empty, inherit when absent) ---
+func mergeAgentBody(result *ast.AgentConfig, override ast.AgentConfig) {
 	if override.Body != "" {
 		result.Body = override.Body
 	}
-
-	// Internal provenance fields are intentionally NOT merged.
-	// result.Inherited and result.SourceProvider carry base values.
-
-	return result
 }
 
 // mergeSkillConfig merges override into base using provider-override semantics.
