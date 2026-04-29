@@ -54,16 +54,16 @@ func TestImportScope_Claude_ReadsMCPJson(t *testing.T) {
 
 	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
 
-	// In split-file format, MCP servers go to xcf/mcp/<name>.xcf.
+	// In split-file format, MCP servers go to xcf/mcp/<name>/mcp.xcf.
 	// The root project.xcf only lists the MCP server ID in its 'mcp:' field.
 	scaffoldData, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(scaffoldData), "playwright", "project.xcf must list the MCP server ID")
 
-	// The full server config (command, args) goes in xcf/mcp/playwright.xcf.
-	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "playwright.xcf"))
-	require.NoError(t, err, "xcf/mcp/playwright.xcf must be created")
-	assert.Contains(t, string(mcpXcf), "npx", "MCP server command must appear in xcf/mcp/playwright.xcf")
+	// The full server config (command, args) goes in xcf/mcp/playwright/mcp.xcf.
+	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "playwright", "mcp.xcf"))
+	require.NoError(t, err, "xcf/mcp/playwright/mcp.xcf must be created")
+	assert.Contains(t, string(mcpXcf), "npx", "MCP server command must appear in xcf/mcp/playwright/mcp.xcf")
 }
 
 // ─── Gap 2: Claude Code — agent-memory auto-snapshot ────────────────────────
@@ -123,16 +123,16 @@ func TestImportScope_Gemini_SettingsAndMCP(t *testing.T) {
 
 	require.NoError(t, importScope(".gemini", filepath.Join(".xcaffold", "project.xcf"), "project", "gemini"))
 
-	// In split-file format, MCP servers go to xcf/mcp/<name>.xcf.
+	// In split-file format, MCP servers go to xcf/mcp/<name>/mcp.xcf.
 	// project.xcf lists only the server ID.
 	scaffoldData, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(scaffoldData), "github", "project.xcf must list the MCP server ID")
 
-	// Full config in xcf/mcp/github.xcf.
-	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "github.xcf"))
-	require.NoError(t, err, "xcf/mcp/github.xcf must be created")
-	assert.Contains(t, string(mcpXcf), "-y", "MCP server args must appear in xcf/mcp/github.xcf")
+	// Full config in xcf/mcp/github/mcp.xcf.
+	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "github", "mcp.xcf"))
+	require.NoError(t, err, "xcf/mcp/github/mcp.xcf must be created")
+	assert.Contains(t, string(mcpXcf), "-y", "MCP server args must appear in xcf/mcp/github/mcp.xcf")
 }
 
 // TestImportScope_Gemini_ProjectContexts verifies that importScope for a
@@ -157,14 +157,14 @@ func TestImportScope_Cursor_MCPJson(t *testing.T) {
 
 	require.NoError(t, importScope(".cursor", filepath.Join(".xcaffold", "project.xcf"), "project", "cursor"))
 
-	// In split-file format, MCP servers go to xcf/mcp/<name>.xcf.
+	// In split-file format, MCP servers go to xcf/mcp/<name>/mcp.xcf.
 	scaffoldData, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(scaffoldData), "filesystem", "project.xcf must list the MCP server ID")
 
-	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "filesystem.xcf"))
-	require.NoError(t, err, "xcf/mcp/filesystem.xcf must be created")
-	assert.Contains(t, string(mcpXcf), "server-filesystem", "MCP server command must appear in xcf/mcp/filesystem.xcf")
+	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "filesystem", "mcp.xcf"))
+	require.NoError(t, err, "xcf/mcp/filesystem/mcp.xcf must be created")
+	assert.Contains(t, string(mcpXcf), "server-filesystem", "MCP server command must appear in xcf/mcp/filesystem/mcp.xcf")
 }
 
 // TestImportScope_Cursor_HooksJson verifies that importScope for a .cursor/
@@ -191,9 +191,9 @@ func TestImportScope_Cursor_HooksJson(t *testing.T) {
 
 	require.NoError(t, importScope(".cursor", filepath.Join(".xcaffold", "project.xcf"), "project", "cursor"))
 
-	// Hooks are written to xcf/hooks.xcf in split-file format.
-	hooksXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "hooks.xcf"))
-	require.NoError(t, err, "xcf/hooks.xcf must be created from .cursor/hooks.json")
+	// Hooks are written to xcf/hooks/<name>/hooks.xcf in split-file format.
+	hooksXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "hooks", "default", "hooks.xcf"))
+	require.NoError(t, err, "xcf/hooks/default/hooks.xcf must be created from .cursor/hooks.json")
 	assert.Contains(t, string(hooksXcf), "PreToolUse", "hooks must be imported from .cursor/hooks.json")
 }
 
