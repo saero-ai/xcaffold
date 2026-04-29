@@ -1,6 +1,6 @@
 ---
 title: "kind: skill"
-description: "Defines a reusable procedure compiled to skills/<id>/SKILL.md for all target providers."
+description: "Defines a reusable procedure. Source: xcf/skills/<name>/skill.xcf. Compiled to skills/<name>/SKILL.md per provider."
 ---
 
 # `kind: skill`
@@ -129,6 +129,14 @@ The following arguments are supported:
 - `scripts` — (Optional) `[]string`. Relative paths to executable scripts seeded in a `scripts/` subdirectory.
 - `assets` — (Optional) `[]string`. Relative paths to binary or data assets seeded alongside `SKILL.md`.
 - `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides.
+
+## Filesystem-as-Schema
+
+When a skill `.xcf` file lives at `xcf/skills/<name>/skill.xcf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
+- `kind: skill` from the parent directory name (`skills/`)
+- `name:` from the grandparent directory name (e.g., `component-patterns` from `skills/component-patterns/skill.xcf`)
+
+When `kind:` or `name:` are present in the YAML, they must match the inferred values.
 
 ## Compiled Output
 

@@ -1,6 +1,6 @@
 ---
 title: "kind: agent"
-description: "Defines a named AI persona compiled to agents/<id>.md with YAML frontmatter for each target provider."
+description: "Defines a named AI persona. Source: xcf/agents/<name>/agent.xcf. Compiled to agents/<name>.md per provider."
 ---
 
 # `kind: agent`
@@ -49,7 +49,9 @@ tools:
   - Bash
   - Glob
   - Grep
-memory: project
+memory:
+  - user-prefs
+  - project-context
 skills:
   - component-patterns
 rules:
@@ -104,7 +106,7 @@ The following arguments are supported:
 - `background` — (Optional) `bool`. Executes without blocking the UI. Claude emits `background`; Cursor emits `is_background`.
 - `isolation` — (Optional) `string`. Worktree or environment isolation preference.
 - `when` — (Optional) `string`. Compile-time conditional for inclusion.
-- `memory` — (Optional) `string`. Agent memory scope: `user`, `project`, `local`. See [`kind: memory`](./memory).
+- `memory` — (Optional) `[]string`. Agent memory references. A single string value is accepted for backward compatibility. See [`kind: memory`](./memory).
 - `color` — (Optional) `string`. Terminal UI color attribute (Claude-specific).
 - `initial-prompt` — (Optional) `string`. Default message auto-submitted as the first turn.
 - `skills` — (Optional) `[]string`. Skill IDs to grant. Must match top-level `skills:` map keys.
@@ -124,11 +126,11 @@ Agent-scoped lifecycle hooks. Same structure as [`kind: hooks`](/docs/cli/refere
 
 Agent-scoped MCP server definitions. Not merged with project-level `mcp:`. Same field schema as [`kind: mcp`](./mcp).
 
-### `targets` block (Experimental)
+### `targets` block
 
-Declare renderer-specific behavior on agents using the `targets:` block for multi-platform compilation. 
-
-> **EXPERIMENTAL**: The `targets:` block is parsed and stored in the AST but is **not fully compiled**. Defining `targets:` overrides in your `.xcf` file will not change compiler output for most fields. A warning is emitted to stderr on every `xcaffold apply` run when any agent defines a `targets:` block.
+The `targets:` field serves two purposes:
+1. **Compilation filtering**: When the `targets` key is present on a resource (e.g., `targets: [claude, gemini]` at the top level), the resource is compiled only for listed providers. When absent, the resource is universal.
+2. **Provider overrides**: The `targets:` map under the agent definition holds provider-native pass-through fields via `TargetOverride`.
 
 Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct. Valid target keys are: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`.
 
@@ -138,6 +140,14 @@ Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct.
 | `hooks` | `map[string]string` | Parsed, not compiled |
 | `skip-synthesis` | `*bool` | Parsed, not compiled |
 | `instructions-override` | `string` | Parsed, not compiled |
+
+## Filesystem-as-Schema
+
+When an agent `.xcf` file lives at `xcf/agents/<name>/agent.xcf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
+- `kind: agent` from the parent directory name (`agents/`)
+- `name:` from the grandparent directory name (e.g., `researcher` from `agents/researcher/agent.xcf`)
+
+When `kind:` or `name:` are present in the YAML, they must match the inferred values.
 
 ## Compiled Output
 
