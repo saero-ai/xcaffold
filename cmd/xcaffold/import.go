@@ -168,6 +168,38 @@ func applyKindFilters(config *ast.XcaffoldConfig) {
 	}
 }
 
+func tagResourcesWithProvider(config *ast.XcaffoldConfig, provider string) {
+	to := ast.TargetOverride{}
+	for name, agent := range config.Agents {
+		if agent.Targets == nil {
+			agent.Targets = make(map[string]ast.TargetOverride)
+		}
+		agent.Targets[provider] = to
+		config.Agents[name] = agent
+	}
+	for name, skill := range config.Skills {
+		if skill.Targets == nil {
+			skill.Targets = make(map[string]ast.TargetOverride)
+		}
+		skill.Targets[provider] = to
+		config.Skills[name] = skill
+	}
+	for name, rule := range config.Rules {
+		if rule.Targets == nil {
+			rule.Targets = make(map[string]ast.TargetOverride)
+		}
+		rule.Targets[provider] = to
+		config.Rules[name] = rule
+	}
+	for name, wf := range config.Workflows {
+		if wf.Targets == nil {
+			wf.Targets = make(map[string]ast.TargetOverride)
+		}
+		wf.Targets[provider] = to
+		config.Workflows[name] = wf
+	}
+}
+
 func runImport(cmd *cobra.Command, args []string) error {
 	if globalFlag {
 		home, err := os.UserHomeDir()
@@ -511,7 +543,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		// Propagate instructions-file from project-instruction discovery.
 	}
 
-	// Apply kind filters before writing
+	tagResourcesWithProvider(config, provider)
 	applyKindFilters(config)
 
 	// Write split .xcf files: project.xcf (kind: project) + xcf/**/*.xcf

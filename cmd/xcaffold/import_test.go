@@ -1061,3 +1061,63 @@ func TestApplyKindFilters_MultipleKinds(t *testing.T) {
 		t.Error("rules should be nil when --rule is not set")
 	}
 }
+
+func TestTagResourcesWithProvider_TagsAllKinds(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    map[string]ast.AgentConfig{"dev": {Description: "Dev agent"}},
+			Skills:    map[string]ast.SkillConfig{"tdd": {Description: "TDD skill"}},
+			Rules:     map[string]ast.RuleConfig{"security": {Description: "Security rule"}},
+			Workflows: map[string]ast.WorkflowConfig{"deploy": {Description: "Deploy workflow"}},
+		},
+	}
+	tagResourcesWithProvider(config, "claude")
+
+	for name, agent := range config.Agents {
+		if _, ok := agent.Targets["claude"]; !ok {
+			t.Errorf("agent %q should have targets[claude]", name)
+		}
+	}
+	for name, skill := range config.Skills {
+		if _, ok := skill.Targets["claude"]; !ok {
+			t.Errorf("skill %q should have targets[claude]", name)
+		}
+	}
+	for name, rule := range config.Rules {
+		if _, ok := rule.Targets["claude"]; !ok {
+			t.Errorf("rule %q should have targets[claude]", name)
+		}
+	}
+	for name, wf := range config.Workflows {
+		if _, ok := wf.Targets["claude"]; !ok {
+			t.Errorf("workflow %q should have targets[claude]", name)
+		}
+	}
+}
+
+func TestTagResourcesWithProvider_PreservesExistingTargets(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {
+					Description: "Dev agent",
+					Targets:     map[string]ast.TargetOverride{"gemini": {}},
+				},
+			},
+		},
+	}
+	tagResourcesWithProvider(config, "claude")
+
+	agent := config.Agents["dev"]
+	if _, ok := agent.Targets["claude"]; !ok {
+		t.Error("should add claude to targets")
+	}
+	if _, ok := agent.Targets["gemini"]; !ok {
+		t.Error("should preserve existing gemini target")
+	}
+}
+
+func TestTagResourcesWithProvider_EmptyConfig(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	tagResourcesWithProvider(config, "claude")
+}
