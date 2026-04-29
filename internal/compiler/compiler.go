@@ -70,7 +70,9 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 	}
 	if blueprintName != "" {
 		if p, ok := config.Blueprints[blueprintName]; ok {
-			blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope)
+			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
+				return nil, nil, fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
+			}
 			config.Blueprints[blueprintName] = p
 		}
 	}

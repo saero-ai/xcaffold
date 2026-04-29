@@ -3,8 +3,10 @@
 package renderer
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -121,4 +123,101 @@ func SlugifyFilename(raw string) string {
 		return "project_" + slug
 	}
 	return slug
+}
+
+// matchedContext is an internal record used by ResolveContextBody to track
+// which contexts matched a given target during resolution.
+type matchedContext struct {
+	name      string
+	body      string
+	isDefault bool
+}
+
+// ValidateContextUniqueness checks that at most one context matches each
+// target in the provided list. When multiple contexts match a target, exactly
+// one must have Default=true to act as the tie-breaker. Returns an error if
+// the ambiguity cannot be resolved (no default, or more than one default).
+func ValidateContextUniqueness(contexts map[string]ast.ContextConfig, targets []string) error {
+	for _, target := range targets {
+		var matching []string
+		var defaults []string
+		for name, ctx := range contexts {
+			applies := len(ctx.Targets) == 0
+			if !applies {
+				for _, t := range ctx.Targets {
+					if t == target {
+						applies = true
+						break
+					}
+				}
+			}
+			if applies {
+				matching = append(matching, name)
+				if ctx.Default {
+					defaults = append(defaults, name)
+				}
+			}
+		}
+		sort.Strings(matching)
+		sort.Strings(defaults)
+		if len(matching) > 1 {
+			if len(defaults) == 0 {
+				return fmt.Errorf("multiple contexts target %q: [%s]; mark one as default or use --blueprint to select",
+					target, strings.Join(matching, ", "))
+			}
+			if len(defaults) > 1 {
+				return fmt.Errorf("multiple contexts marked as default for target %q: [%s]",
+					target, strings.Join(defaults, ", "))
+			}
+		}
+	}
+	return nil
+}
+
+// ResolveContextBody returns the body for the single context that applies to
+// targetName. When multiple contexts match, the one with Default=true is
+// selected. When no contexts match, an empty string is returned.
+//
+// Callers should invoke ValidateContextUniqueness before rendering to surface
+// ambiguous configurations as actionable errors before output is written.
+func ResolveContextBody(config *ast.XcaffoldConfig, targetName string) string {
+	// Collect names in sorted order to guarantee deterministic iteration.
+	names := make([]string, 0, len(config.Contexts))
+	for name := range config.Contexts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var matching []matchedContext
+	for _, name := range names {
+		ctx := config.Contexts[name]
+		applies := len(ctx.Targets) == 0
+		if !applies {
+			for _, t := range ctx.Targets {
+				if t == targetName {
+					applies = true
+					break
+				}
+			}
+		}
+		if applies && ctx.Body != "" {
+			matching = append(matching, matchedContext{name: name, body: ctx.Body, isDefault: ctx.Default})
+		}
+	}
+
+	if len(matching) == 0 {
+		return ""
+	}
+	if len(matching) == 1 {
+		return strings.TrimSpace(matching[0].body)
+	}
+	// Multiple match — select the one marked as default.
+	for _, m := range matching {
+		if m.isDefault {
+			return strings.TrimSpace(m.body)
+		}
+	}
+	// No default found — ValidateContextUniqueness should have caught this.
+	// Fall back to the first sorted match to avoid an empty result.
+	return strings.TrimSpace(matching[0].body)
 }

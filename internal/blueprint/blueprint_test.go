@@ -182,14 +182,15 @@ func TestResolveTransitiveDeps_AgentPullsSkillsRulesMCP(t *testing.T) {
 		Agents: []string{"backend"},
 	}
 
-	ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope)
+	require.NoError(t, err)
 
 	assert.Equal(t, []string{"skill-db", "skill-http"}, p.Skills)
 	assert.Equal(t, []string{"rule-security"}, p.Rules)
 	assert.Equal(t, []string{"mcp-postgres"}, p.MCP)
 }
 
-func TestResolveTransitiveDeps_ExplicitSkillsNotOverridden(t *testing.T) {
+func TestResolveTransitiveDeps_ExplicitSkillsMergedWithAgentDeps(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"backend": {
@@ -200,18 +201,19 @@ func TestResolveTransitiveDeps_ExplicitSkillsNotOverridden(t *testing.T) {
 		},
 	}
 
-	// Blueprint already has explicit skills — those must not be replaced
+	// Blueprint has explicit skills with NO overlap — should merge with agent deps
 	p := &ast.BlueprintConfig{
 		Name:   "test",
 		Agents: []string{"backend"},
 		Skills: []string{"my-explicit-skill"},
 	}
 
-	ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope)
+	require.NoError(t, err)
 
-	// Skills unchanged (explicit override)
-	assert.Equal(t, []string{"my-explicit-skill"}, p.Skills)
-	// Rules and MCP still auto-resolved
+	// Explicit skill + agent skill merged
+	assert.Equal(t, []string{"my-explicit-skill", "skill-db"}, p.Skills)
+	// Rules and MCP auto-resolved
 	assert.Equal(t, []string{"rule-a"}, p.Rules)
 	assert.Equal(t, []string{"mcp-x"}, p.MCP)
 }
@@ -228,7 +230,8 @@ func TestResolveTransitiveDeps_NoAgents_NoOp(t *testing.T) {
 		Agents: nil, // no agents selected
 	}
 
-	ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope)
+	require.NoError(t, err)
 
 	assert.Empty(t, p.Skills)
 	assert.Empty(t, p.Rules)
@@ -242,7 +245,8 @@ func TestResolveTransitiveDeps_NilScope_NoOp(t *testing.T) {
 	}
 
 	// Must not panic
-	ResolveTransitiveDeps(p, nil)
+	err := ResolveTransitiveDeps(p, nil)
+	require.NoError(t, err)
 
 	assert.Empty(t, p.Skills)
 }
@@ -258,7 +262,8 @@ func TestResolveTransitiveDeps_AgentNotInScope_Skipped(t *testing.T) {
 	}
 
 	// Must not panic
-	ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope)
+	require.NoError(t, err)
 
 	assert.Empty(t, p.Skills)
 	assert.Empty(t, p.Rules)
@@ -285,7 +290,8 @@ func TestResolveTransitiveDeps_MultipleAgents_Union(t *testing.T) {
 		Agents: []string{"frontend", "backend"},
 	}
 
-	ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope)
+	require.NoError(t, err)
 
 	// skill-shared appears in both agents, must appear once
 	assert.Equal(t, 3, len(p.Skills), "expected 3 unique skills, got: %v", p.Skills)
@@ -296,7 +302,7 @@ func TestResolveTransitiveDeps_MultipleAgents_Union(t *testing.T) {
 	assert.Equal(t, []string{"mcp-postgres"}, p.MCP)
 }
 
-func TestResolveTransitiveDeps_AllExplicit_NoAutoResolve(t *testing.T) {
+func TestResolveTransitiveDeps_AllExplicitMergedWithAgentDeps(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"backend": {
@@ -307,7 +313,7 @@ func TestResolveTransitiveDeps_AllExplicit_NoAutoResolve(t *testing.T) {
 		},
 	}
 
-	// All three lists are explicitly set — nothing should be auto-added
+	// All three lists are explicitly set with NO overlaps — should merge with agent deps
 	p := &ast.BlueprintConfig{
 		Name:   "test",
 		Agents: []string{"backend"},
@@ -316,11 +322,75 @@ func TestResolveTransitiveDeps_AllExplicit_NoAutoResolve(t *testing.T) {
 		MCP:    []string{"my-mcp"},
 	}
 
-	ResolveTransitiveDeps(p, scope)
+	err := ResolveTransitiveDeps(p, scope)
+	require.NoError(t, err)
 
-	assert.Equal(t, []string{"my-skill"}, p.Skills)
-	assert.Equal(t, []string{"my-rule"}, p.Rules)
-	assert.Equal(t, []string{"my-mcp"}, p.MCP)
+	assert.Equal(t, []string{"my-skill", "skill-db"}, p.Skills)
+	assert.Equal(t, []string{"my-rule", "rule-a"}, p.Rules)
+	assert.Equal(t, []string{"my-mcp", "mcp-x"}, p.MCP)
+}
+
+func TestResolveTransitiveDeps_DuplicateSkill_ReturnsError(t *testing.T) {
+	scope := &ast.ResourceScope{
+		Agents: map[string]ast.AgentConfig{
+			"developer": {
+				Skills: []string{"tdd", "schema-design"},
+			},
+		},
+	}
+
+	p := &ast.BlueprintConfig{
+		Name:   "test",
+		Agents: []string{"developer"},
+		Skills: []string{"tdd", "security-audit"},
+	}
+
+	err := ResolveTransitiveDeps(p, scope)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "tdd")
+	assert.Contains(t, err.Error(), "developer")
+}
+
+func TestResolveTransitiveDeps_DuplicateRule_ReturnsError(t *testing.T) {
+	scope := &ast.ResourceScope{
+		Agents: map[string]ast.AgentConfig{
+			"developer": {
+				Rules: []string{"secure-code"},
+			},
+		},
+	}
+
+	p := &ast.BlueprintConfig{
+		Name:   "test",
+		Agents: []string{"developer"},
+		Rules:  []string{"secure-code", "extra-rule"},
+	}
+
+	err := ResolveTransitiveDeps(p, scope)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "secure-code")
+	assert.Contains(t, err.Error(), "developer")
+}
+
+func TestResolveTransitiveDeps_DuplicateMCP_ReturnsError(t *testing.T) {
+	scope := &ast.ResourceScope{
+		Agents: map[string]ast.AgentConfig{
+			"developer": {
+				MCP: []string{"database-tools"},
+			},
+		},
+	}
+
+	p := &ast.BlueprintConfig{
+		Name:   "test",
+		Agents: []string{"developer"},
+		MCP:    []string{"database-tools"},
+	}
+
+	err := ResolveTransitiveDeps(p, scope)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "database-tools")
+	assert.Contains(t, err.Error(), "developer")
 }
 
 // ── ValidateBlueprintRefs ───────────────────────────────────────────────────
@@ -576,4 +646,37 @@ func TestApplyBlueprint_EmptyRefList_ReturnsNilMap(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, filtered.Agents, "developer")
 	require.Nil(t, filtered.Skills) // not listed in blueprint = nil
+}
+
+func TestApplyBlueprint_FiltersContexts(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"main":       {Name: "main", Body: "shared context"},
+				"claude-dev": {Name: "claude-dev", Targets: []string{"claude"}, Body: "claude specific"},
+				"gemini-dev": {Name: "gemini-dev", Targets: []string{"gemini"}, Body: "gemini specific"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {Name: "backend", Contexts: []string{"main", "claude-dev"}},
+		},
+	}
+	filtered, err := ApplyBlueprint(config, "backend")
+	require.NoError(t, err)
+	require.Len(t, filtered.Contexts, 2)
+	require.Contains(t, filtered.Contexts, "main")
+	require.Contains(t, filtered.Contexts, "claude-dev")
+	require.NotContains(t, filtered.Contexts, "gemini-dev")
+}
+
+func TestValidateBlueprintRefs_MissingContext(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"test": {Name: "test", Contexts: []string{"nonexistent"}},
+	}
+	scope := &ast.ResourceScope{
+		Contexts: map[string]ast.ContextConfig{"main": {}},
+	}
+	errs := ValidateBlueprintRefs(blueprints, scope)
+	require.Len(t, errs, 1)
+	assert.Contains(t, errs[0].Error(), "nonexistent")
 }
