@@ -770,6 +770,103 @@ func newParseFilter(dir string) map[string]bool {
 	return ignored
 }
 
+// parseOverrideFile parses a single override file (.provider.xcf) and stores
+// the partial resource config in XcaffoldConfig.Overrides.
+func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig) error {
+	data, err := os.ReadFile(entry.Path)
+	if err != nil {
+		return fmt.Errorf("read override %s: %w", entry.Path, err)
+	}
+
+	frontmatter, body, err := extractFrontmatterAndBody(data)
+	if err != nil {
+		return fmt.Errorf("parse override %s: %w", entry.Path, err)
+	}
+
+	// Infer resource name from directory: xcf/agents/<name>/agent.claude.xcf -> name
+	resourceName := filepath.Base(filepath.Dir(entry.Path))
+	trimmedBody := strings.TrimSpace(string(body))
+
+	// Initialize Overrides if nil
+	if config.Overrides == nil {
+		config.Overrides = &ast.ResourceOverrides{}
+	}
+
+	switch entry.Kind {
+	case "agent":
+		var cfg ast.AgentConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode agent override %s: %w", entry.Path, err)
+		}
+		cfg.Body = trimmedBody
+		config.Overrides.AddAgent(resourceName, entry.Provider, cfg)
+	case "skill":
+		var cfg ast.SkillConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode skill override %s: %w", entry.Path, err)
+		}
+		cfg.Body = trimmedBody
+		config.Overrides.AddSkill(resourceName, entry.Provider, cfg)
+	case "rule":
+		var cfg ast.RuleConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode rule override %s: %w", entry.Path, err)
+		}
+		cfg.Body = trimmedBody
+		config.Overrides.AddRule(resourceName, entry.Provider, cfg)
+	case "workflow":
+		var cfg ast.WorkflowConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode workflow override %s: %w", entry.Path, err)
+		}
+		cfg.Body = trimmedBody
+		config.Overrides.AddWorkflow(resourceName, entry.Provider, cfg)
+	case "mcp":
+		var cfg ast.MCPConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode mcp override %s: %w", entry.Path, err)
+		}
+		config.Overrides.AddMCP(resourceName, entry.Provider, cfg)
+	default:
+		return fmt.Errorf("override file %s: unsupported kind %q for overrides", entry.Path, entry.Kind)
+	}
+	return nil
+}
+
+// validateOverrideBasesExist ensures that every override file has a corresponding
+// base resource. Override files without bases cannot be applied.
+func validateOverrideBasesExist(config *ast.XcaffoldConfig) error {
+	if config.Overrides == nil {
+		return nil
+	}
+	for name := range config.Overrides.Agent {
+		if _, ok := config.Agents[name]; !ok {
+			return fmt.Errorf("override file for agent %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.Skill {
+		if _, ok := config.Skills[name]; !ok {
+			return fmt.Errorf("override file for skill %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.Rule {
+		if _, ok := config.Rules[name]; !ok {
+			return fmt.Errorf("override file for rule %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.Workflow {
+		if _, ok := config.Workflows[name]; !ok {
+			return fmt.Errorf("override file for workflow %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.MCP {
+		if _, ok := config.MCP[name]; !ok {
+			return fmt.Errorf("override file for mcp %q has no base resource", name)
+		}
+	}
+	return nil
+}
+
 func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	var files []string
 	var overrideFiles []overrideFileEntry
@@ -843,6 +940,18 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	// Implicitly overlay the project configuration on top of the global base
 	merged = mergeConfigOverride(globalConfig, merged)
 
+	// Parse override files
+	for _, of := range overrideFiles {
+		if err := parseOverrideFile(of, merged); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate that every override has a corresponding base
+	if err := validateOverrideBasesExist(merged); err != nil {
+		return nil, err
+	}
+
 	if err := loadExtras(dir, merged); err != nil {
 		return nil, fmt.Errorf("failed to load extras: %w", err)
 	}
@@ -907,6 +1016,18 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 	merged, err := mergeAllStrict(parsedFiles)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge config files in %q: %w", dir, err)
+	}
+
+	// Parse override files
+	for _, of := range overrideFiles {
+		if err := parseOverrideFile(of, merged); err != nil {
+			return nil, err
+		}
+	}
+
+	// Validate that every override has a corresponding base
+	if err := validateOverrideBasesExist(merged); err != nil {
+		return nil, err
 	}
 
 	if err := loadExtras(dir, merged); err != nil {
