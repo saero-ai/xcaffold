@@ -591,6 +591,41 @@ func TestDiscoverAgentMemory_IgnoresXcfFiles(t *testing.T) {
 	assert.Empty(t, result)
 }
 
+func TestCompile_OverrideMerge_AppliesForTarget(t *testing.T) {
+	// Base agent uses the sonnet-4 alias. The claude-target override swaps it to
+	// opus-4, which maps to "claude-opus-4-7" in the Claude renderer's model table.
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"developer": {
+					Description: "A developer.",
+					Model:       "sonnet-4",
+					Body:        "You write code.",
+				},
+			},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddAgent("developer", "claude", ast.AgentConfig{Model: "opus-4"})
+
+	out, notes, err := Compile(config, t.TempDir(), "claude", "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	// The override model (opus-4 → claude-opus-4-7) must appear in the compiled output.
+	agentContent, ok := out.Files["agents/developer.md"]
+	require.True(t, ok, "expected agents/developer.md to be compiled")
+	assert.Contains(t, agentContent, "claude-opus-4-7", "override model must appear in compiled agent")
+	assert.NotContains(t, agentContent, "claude-sonnet-4-5", "base model must be replaced by override")
+
+	// No RESOURCE_TARGET_SKIPPED notes: the agent has no Targets restriction.
+	for _, n := range notes {
+		assert.NotEqual(t, CodeResourceTargetSkipped, n.Code,
+			"universal (no Targets) agent must never emit RESOURCE_TARGET_SKIPPED")
+	}
+}
+
 func TestDiscoverAgentMemory_NoMemoryDir(t *testing.T) {
 	dir := t.TempDir()
 	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
