@@ -43,6 +43,47 @@ func resolveParseOptions(opts []parseOptionFunc) parseOption {
 	return o
 }
 
+// reservedDirToKind maps xcf directory names to their corresponding resource kind.
+// Used for filesystem-as-schema inference when kind: is omitted from YAML.
+var reservedDirToKind = map[string]string{
+	"agents":     "agent",
+	"skills":     "skill",
+	"rules":      "rule",
+	"workflows":  "workflow",
+	"mcp":        "mcp",
+	"hooks":      "hooks",
+	"settings":   "settings",
+	"memory":     "memory",
+	"blueprints": "blueprint",
+	"context":    "context",
+	"policy":     "policy",
+	"template":   "template",
+}
+
+// inferKindAndName extracts kind and name from a file path when not explicit in YAML.
+// Pattern: xcf/<resource-kind>/<resource-id>/... returns (kind, name).
+// Returns ("", "") if the path does not match the pattern.
+func inferKindAndName(filePath string) (kind, name string) {
+	parts := strings.Split(filepath.ToSlash(filePath), "/")
+	xcfIdx := -1
+	for i, p := range parts {
+		if p == "xcf" {
+			xcfIdx = i
+			break
+		}
+	}
+	if xcfIdx < 0 || xcfIdx+2 >= len(parts) {
+		return "", ""
+	}
+	kindDir := parts[xcfIdx+1]
+	kind, ok := reservedDirToKind[kindDir]
+	if !ok {
+		return "", ""
+	}
+	name = parts[xcfIdx+2]
+	return kind, name
+}
+
 // Parse reads a .xcf YAML configuration from the given reader and returns a
 // validated XcaffoldConfig. It treats the configuration as a complete, standalone file.
 func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
@@ -475,6 +516,21 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 
 		kind := extractKind(docNode)
 
+		// Filesystem-as-schema inference (filesystem-as-schema inference)
+		// Infer kind and name from file path if not explicit in YAML.
+		// If kind is empty, infer both kind and name.
+		// If kind is provided but name is not, infer only the name.
+		var inferredKind, inferredName string
+		if resolved.sourcePath != "" {
+			inferredKind, inferredName = inferKindAndName(resolved.sourcePath)
+			// If kind was empty in YAML, use the inferred kind
+			if kind == "" && inferredKind != "" {
+				kind = inferredKind
+			}
+			// If kind is now known (either explicit or inferred), we can use the inferred name
+			// The name will be applied during resource document parsing if YAML name is empty.
+		}
+
 		switch kind {
 		case "":
 			return nil, fmt.Errorf(
@@ -497,7 +553,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			if config.Version == "" {
 				config.Version = extractVersion(docNode)
 			}
-			if parseErr := parseResourceDocument(docNode, kind, config, resolved.sourcePath); parseErr != nil {
+			if parseErr := parseResourceDocument(docNode, kind, config, resolved.sourcePath, inferredName); parseErr != nil {
 				return nil, parseErr
 			}
 			lastKind = kind
