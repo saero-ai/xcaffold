@@ -13,7 +13,15 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer/claude"
 )
 
-const skillFixtureDir = "/Volumes/Projects/xcaffold-project/xcaffold-test/.claude/skills"
+var skillFixtureDir string
+
+func init() {
+	testFixtures := os.Getenv("XCAFFOLD_TEST_FIXTURES")
+	if testFixtures == "" {
+		testFixtures = filepath.Join(os.Getenv("HOME"), ".xcaffold", "test-fixtures")
+	}
+	skillFixtureDir = filepath.Join(testFixtures, ".claude", "skills")
+}
 
 func TestSkillSchema_RealData_RoundTrip_CanonicalOrder(t *testing.T) {
 	if _, err := os.Stat(skillFixtureDir); os.IsNotExist(err) {

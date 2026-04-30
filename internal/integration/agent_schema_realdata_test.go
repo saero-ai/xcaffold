@@ -12,7 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const realDataPath = "/Volumes/Projects/xcaffold-project/xcaffold-test"
+var realDataPath = os.Getenv("XCAFFOLD_TEST_FIXTURES")
+
+func init() {
+	if realDataPath == "" {
+		realDataPath = filepath.Join(os.Getenv("HOME"), ".xcaffold", "test-fixtures")
+	}
+}
 
 // TestRealData_Fixture_Exists guards later tests with a clear failure if the
 // fixture repo is not present. Skipping on missing fixtures is intentional —

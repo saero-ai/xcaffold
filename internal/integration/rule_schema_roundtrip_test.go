@@ -63,7 +63,13 @@ func TestRuleSchema_LegacyAlwaysApply_NormalizedToActivation(t *testing.T) {
 	}
 }
 
-const realDataRulePath = "/Volumes/Projects/xcaffold-project/xcaffold-test"
+var realDataRulePath = os.Getenv("XCAFFOLD_TEST_FIXTURES")
+
+func init() {
+	if realDataRulePath == "" {
+		realDataRulePath = filepath.Join(os.Getenv("HOME"), ".xcaffold", "test-fixtures")
+	}
+}
 
 func TestRealData_Rules_Fixture_Exists(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
