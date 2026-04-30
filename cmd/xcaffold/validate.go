@@ -23,7 +23,7 @@ var validateCmd = &cobra.Command{
 
   - YAML syntax and known fields
   - Cross-reference integrity (agent -> skill/rule/MCP IDs exist)
-  - File existence (instructions-file and skill references resolve on disk)
+  - File existence (skill references resolve on disk)
   - Plugin validation (enabledPlugins checked against known registry)
   - Structural invariants (with --structural flag)
 

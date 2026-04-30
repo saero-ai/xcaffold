@@ -102,7 +102,7 @@ func initProject(cmd *cobra.Command) error {
 	if hasExistingScaffold && len(infos) == 0 {
 		cmd.Println()
 		cmd.Println("  project.xcf already exists, but no provider directories were found.")
-		cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold diff' to check for drift.")
+		cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold status' to check for drift.")
 		tryAutoRegister(xcfFile)
 		return nil
 	}
@@ -158,7 +158,7 @@ func initProject(cmd *cobra.Command) error {
 
 		if !doImport {
 			if hasExistingScaffold {
-				cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold diff' to check for drift.")
+				cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold status' to check for drift.")
 				tryAutoRegister(xcfFile)
 				return nil
 			} else {

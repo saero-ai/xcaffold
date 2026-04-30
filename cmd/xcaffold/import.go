@@ -48,7 +48,7 @@ Detection (Default):
  • Scans .claude/skills/*/SKILL.md → extracts to xcf/skills/<id>/SKILL.md
  • Scans .claude/rules/*.md    → extracts to xcf/rules/<id>.md
  • Reads .claude/settings.json for MCP and settings context
- • Generates project.xcf with instructions-file: references
+ • Generates project.xcf manifest referencing discovered resources
 
 Usage:
   $ xcaffold import

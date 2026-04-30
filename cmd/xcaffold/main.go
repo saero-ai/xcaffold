@@ -65,15 +65,6 @@ func init() {
 
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 
-	orig := rootCmd.HelpTemplate()
-	rootCmd.SetHelpTemplate(orig + `{{if eq .Name "xcaffold"}}
-Experimental:
-  export      Package resources into a distributable blueprint
-  translate   Cross-compile .xcf resources to a different provider format
-  test        Run LLM-as-Judge quality assessments
-  registry    Pull and push blueprints from a remote registry
-{{end}}`)
-
 	rootCmd.PersistentFlags().StringVar(
 		&configFlag,
 		"config",

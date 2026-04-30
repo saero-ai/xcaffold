@@ -220,11 +220,3 @@ func TestStatus_RootPrefixHandling(t *testing.T) {
 	assert.Contains(t, out, "CLAUDE.md  (root)", "should display root file with (root) annotation, not root: prefix")
 	assert.NotContains(t, out, "root:CLAUDE.md", "should not display root: prefix in output")
 }
-
-func TestStatus_DeprecatedDiffAlias(t *testing.T) {
-	out, _ := captureStatusStdout(func() error {
-		return diffCmd.RunE(diffCmd, nil)
-	})
-
-	assert.Contains(t, out, "Note: 'xcaffold diff' is deprecated — use 'xcaffold status' instead.")
-}
