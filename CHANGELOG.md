@@ -97,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `importer.KindHookScript` and canonical routing mapping `hooks/**` retaining raw hook script files dynamically across Claude, Cursor, Copilot and Gemini providers (importer)
 
 ### Fixed
+- `xcaffold status` command now exits with code 1 when drift is detected (artifact drift or source drift), enabling scriptable drift checks in CI/CD. Previously exited with code 0 even when drift was present (cli/status)
 - Copilot renderer path-doubling bug: OutputDir() now returns ".github" and all emitted file paths are relative
 - Fixed leakage of global-scope agent memory files during `xcaffold import` by pruning orphaned files not explicitly owned by declared project agents (cli/import)
 

@@ -85,6 +85,106 @@ func TestStatus_OneTargetModified(t *testing.T) {
 	_ = out
 }
 
+func TestStatus_OverviewWithDriftedArtifact_ReturnsDriftError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create output directory with an artifact that has a modified hash
+	outputDir := filepath.Join(tmpDir, "agents")
+	os.MkdirAll(outputDir, 0755)
+
+	artifactPath := filepath.Join(outputDir, "reviewer.md")
+	os.WriteFile(artifactPath, []byte("modified content"), 0644)
+
+	manifest := &state.StateManifest{
+		Targets: map[string]state.TargetState{
+			"claude": {
+				Artifacts: []state.Artifact{
+					{
+						Path: "agents/reviewer.md",
+						Hash: "sha256:expected0000000000000000000000000000000000000000000000000000",
+					},
+				},
+				LastApplied: time.Now().Format(time.RFC3339),
+			},
+		},
+		SourceFiles: []state.SourceFile{},
+	}
+
+	out, err := captureStatusStdout(func() error {
+		return runStatusOverview(tmpDir, manifest)
+	})
+
+	assert.Error(t, err, "should return error when drift is detected")
+	assert.IsType(t, &driftDetectedError{}, err, "should return driftDetectedError type")
+	assert.Contains(t, out, "Modified files:", "should display drift details")
+	assert.Contains(t, out, "modified", "should show modified status")
+}
+
+func TestStatus_TargetWithDriftedArtifact_ReturnsDriftError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create output directory with artifact file present
+	outputDir := filepath.Join(tmpDir, "agents")
+	os.MkdirAll(outputDir, 0755)
+
+	artifactPath := filepath.Join(outputDir, "test.md")
+	os.WriteFile(artifactPath, []byte("modified"), 0644)
+
+	manifest := &state.StateManifest{
+		Targets: map[string]state.TargetState{
+			"claude": {
+				Artifacts: []state.Artifact{
+					{
+						Path: "agents/test.md",
+						Hash: "sha256:original0000000000000000000000000000000000000000000000000000",
+					},
+				},
+				LastApplied: time.Now().Format(time.RFC3339),
+			},
+		},
+		SourceFiles: []state.SourceFile{},
+	}
+
+	out, err := captureStatusStdout(func() error {
+		return runStatusTarget(tmpDir, manifest, "claude", false)
+	})
+
+	assert.Error(t, err, "should return error when target has drift")
+	assert.IsType(t, &driftDetectedError{}, err, "should return driftDetectedError type")
+	assert.Contains(t, out, "modified", "should show modified files")
+}
+
+func TestStatus_TargetWithMissingArtifact_ReturnsDriftError(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create output directory (empty, missing the tracked artifact)
+	outputDir := filepath.Join(tmpDir, "agents")
+	os.MkdirAll(outputDir, 0755)
+
+	manifest := &state.StateManifest{
+		Targets: map[string]state.TargetState{
+			"claude": {
+				Artifacts: []state.Artifact{
+					{
+						Path: "agents/missing.md",
+						Hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+					},
+				},
+				LastApplied: time.Now().Format(time.RFC3339),
+			},
+		},
+		SourceFiles: []state.SourceFile{},
+	}
+
+	out, err := captureStatusStdout(func() error {
+		return runStatusTarget(tmpDir, manifest, "claude", false)
+	})
+
+	assert.Error(t, err, "should return error when artifact is missing")
+	assert.IsType(t, &driftDetectedError{}, err, "should return driftDetectedError type")
+	assert.Contains(t, out, "not on disk", "should indicate missing artifact")
+}
+
 func TestStatus_DeprecatedDiffAlias(t *testing.T) {
 	out, _ := captureStatusStdout(func() error {
 		return diffCmd.RunE(diffCmd, nil)

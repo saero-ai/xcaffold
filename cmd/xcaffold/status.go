@@ -139,16 +139,17 @@ func runStatusOverview(dir string, manifest *state.StateManifest) error {
 		}
 		fmt.Println("\nRun 'xcaffold apply' to restore.")
 		fmt.Println("Run 'xcaffold status --target <name>' to inspect a specific target.")
-	} else {
-		if srcChanged > 0 {
-			fmt.Println("\nSource changes:")
-			printSourceChanges(dir, manifest.SourceFiles)
-			fmt.Println("\nRun 'xcaffold apply' to sync.")
-		} else {
-			fmt.Println("\nEverything is in sync.")
-		}
+		return &driftDetectedError{msg: "drift detected"}
 	}
 
+	if srcChanged > 0 {
+		fmt.Println("\nSource changes:")
+		printSourceChanges(dir, manifest.SourceFiles)
+		fmt.Println("\nRun 'xcaffold apply' to sync.")
+		return &driftDetectedError{msg: "drift detected"}
+	}
+
+	fmt.Println("\nEverything is in sync.")
 	return nil
 }
 
@@ -191,6 +192,9 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 		fmt.Printf("Run 'xcaffold status --target %s --all' to see all files.\n", target)
 	}
 
+	if drifted > 0 || srcChanged > 0 {
+		return &driftDetectedError{msg: "drift detected"}
+	}
 	return nil
 }
 

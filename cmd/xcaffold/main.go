@@ -37,6 +37,17 @@ var globalXcfPath string
 // globalXcfHome is where global.xcf lives ~/.xcaffold/ by convention.
 var globalXcfHome string
 
+// noColorFlag disables colored output in TTY.
+var noColorFlag bool
+
+type driftDetectedError struct {
+	msg string
+}
+
+func (e *driftDetectedError) Error() string {
+	return e.msg
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "xcaffold",
 	Short: "xcaffold — deterministic agent configuration compiler",
@@ -75,6 +86,12 @@ Experimental:
 		"g",
 		false,
 		"Operate on user-wide global config (~/.xcaffold/global.xcf)",
+	)
+	rootCmd.PersistentFlags().BoolVar(
+		&noColorFlag,
+		"no-color",
+		false,
+		"disable color output",
 	)
 }
 
@@ -190,7 +207,11 @@ func projectParseRoot() string {
 func main() {
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetErr(os.Stderr)
-	if err := rootCmd.Execute(); err != nil {
+	err := rootCmd.Execute()
+	if err != nil {
+		if _, ok := err.(*driftDetectedError); ok {
+			os.Exit(1)
+		}
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
