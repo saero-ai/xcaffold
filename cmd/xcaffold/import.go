@@ -900,6 +900,8 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
 	}
 
+	discoverRootContextFiles(".", config)
+
 	if err := WriteSplitFiles(config, "."); err != nil {
 		return fmt.Errorf("[project] failed to write split xcf files: %w", err)
 	}
@@ -907,8 +909,6 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 	if err := pruneOrphanMemory(config, "."); err != nil {
 		return fmt.Errorf("prune memory: %w", err)
 	}
-
-	discoverRootContextFiles(".", config)
 
 	importCount := len(config.Agents) + len(config.Skills) + len(config.Rules) +
 		len(config.Workflows) + len(config.MCP)
