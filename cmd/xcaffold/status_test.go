@@ -185,6 +185,42 @@ func TestStatus_TargetWithMissingArtifact_ReturnsDriftError(t *testing.T) {
 	assert.Contains(t, out, "missing", "should indicate missing artifact")
 }
 
+func TestStatus_RootPrefixHandling(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create output directory with a root-prefixed artifact
+	os.MkdirAll(tmpDir, 0755)
+
+	// Create the root file (CLAUDE.md at project root)
+	rootFilePath := filepath.Join(tmpDir, "CLAUDE.md")
+	os.WriteFile(rootFilePath, []byte("test content"), 0644)
+
+	manifest := &state.StateManifest{
+		Targets: map[string]state.TargetState{
+			"claude": {
+				Artifacts: []state.Artifact{
+					{
+						Path: "root:CLAUDE.md",
+						Hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+					},
+				},
+				LastApplied: time.Now().Format(time.RFC3339),
+			},
+		},
+		SourceFiles: []state.SourceFile{},
+	}
+
+	out, err := captureStatusStdout(func() error {
+		return runStatusOverview(tmpDir, manifest)
+	})
+
+	// Should detect drift and display with (root) annotation, not root:CLAUDE.md
+	assert.Error(t, err, "should return error when drift is detected")
+	assert.Contains(t, out, "modified", "should show modified status")
+	assert.Contains(t, out, "CLAUDE.md  (root)", "should display root file with (root) annotation, not root: prefix")
+	assert.NotContains(t, out, "root:CLAUDE.md", "should not display root: prefix in output")
+}
+
 func TestStatus_DeprecatedDiffAlias(t *testing.T) {
 	out, _ := captureStatusStdout(func() error {
 		return diffCmd.RunE(diffCmd, nil)

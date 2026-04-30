@@ -117,7 +117,7 @@ func runStatusOverview(dir string, manifest *state.StateManifest) error {
 		ts := manifest.Targets[name]
 		outputDir := filepath.Join(dir, compiler.OutputDir(name))
 		outputDirByProvider[name] = outputDir
-		drifted, entries := collectDriftedFiles(outputDir, ts)
+		drifted, entries := collectDriftedFiles(dir, outputDir, ts)
 		rows = append(rows, targetRow{name: name, count: len(ts.Artifacts), drifted: drifted})
 		if drifted > 0 {
 			allDriftedFiles[name] = entries
@@ -160,15 +160,18 @@ func runStatusOverview(dir string, manifest *state.StateManifest) error {
 			}
 			fmt.Printf("\n  %s\n", bold(name))
 			for _, e := range entries {
-				display, _ := formatArtifactPath(e.path)
-				absPath := filepath.Join(outputDirByProvider[name], display)
+				display, isRoot := formatArtifactPath(e.path)
+				annotation := ""
+				if isRoot {
+					annotation = "  " + dim("(root)")
+				}
 				var label string
 				if e.status == "missing" {
 					label = colorRed("missing")
 				} else {
 					label = colorYellow("modified")
 				}
-				fmt.Printf("    %s  %-8s  %s\n", colorRed(glyphErr()), label, absPath)
+				fmt.Printf("    %s  %-8s  %s%s\n", colorRed(glyphErr()), label, display, annotation)
 			}
 		}
 	}
@@ -208,7 +211,7 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 
 	projectName := filepath.Base(dir)
 	outputDir := filepath.Join(dir, compiler.OutputDir(target))
-	drifted, driftedEntries := collectDriftedFiles(outputDir, ts)
+	drifted, driftedEntries := collectDriftedFiles(dir, outputDir, ts)
 	synced := len(ts.Artifacts) - drifted
 	srcChanged := countChangedSources(dir, manifest.SourceFiles)
 
@@ -235,15 +238,18 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 		)
 		fmt.Println()
 		for _, e := range driftedEntries {
-			display, _ := formatArtifactPath(e.path)
-			absPath := filepath.Join(outputDir, display)
+			display, isRoot := formatArtifactPath(e.path)
+			annotation := ""
+			if isRoot {
+				annotation = "  " + dim("(root)")
+			}
 			var label string
 			if e.status == "missing" {
 				label = colorRed("missing")
 			} else {
 				label = colorYellow("modified")
 			}
-			fmt.Printf("  %s  %-8s  %s\n", colorRed(glyphErr()), label, absPath)
+			fmt.Printf("  %s  %-8s  %s%s\n", colorRed(glyphErr()), label, display, annotation)
 		}
 	}
 
@@ -258,7 +264,7 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 	// --all grouped listing.
 	if showAll {
 		fmt.Println()
-		printAllFilesGrouped(outputDir, ts)
+		printAllFilesGrouped(dir, outputDir, ts)
 	}
 
 	// CTA or success line.
@@ -295,10 +301,22 @@ type driftEntry struct {
 	path   string
 }
 
-func collectDriftedFiles(outputDir string, ts state.TargetState) (int, []driftEntry) {
+func collectDriftedFiles(baseDir, outputDir string, ts state.TargetState) (int, []driftEntry) {
 	var entries []driftEntry
 	for _, artifact := range ts.Artifacts {
-		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
+		// Handle root: prefix — strip it and use baseDir instead of outputDir
+		var absPath string
+		var storagePath string
+		if strings.HasPrefix(artifact.Path, "root:") {
+			// Root-level file: strip "root:" and resolve from baseDir
+			storagePath = strings.TrimPrefix(artifact.Path, "root:")
+			absPath = filepath.Clean(filepath.Join(baseDir, storagePath))
+		} else {
+			// Provider-scoped file: use outputDir
+			storagePath = artifact.Path
+			absPath = filepath.Clean(filepath.Join(outputDir, storagePath))
+		}
+
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			entries = append(entries, driftEntry{"missing", artifact.Path})
@@ -386,7 +404,7 @@ func findChangedSources(baseDir string, sourceFiles []state.SourceFile) ([]drift
 	return entries, currByPath, driftCount
 }
 
-func printAllFilesGrouped(outputDir string, ts state.TargetState) {
+func printAllFilesGrouped(baseDir, outputDir string, ts state.TargetState) {
 	type group struct {
 		name    string
 		total   int
@@ -396,8 +414,18 @@ func printAllFilesGrouped(outputDir string, ts state.TargetState) {
 
 	groupsMap := make(map[string]*group)
 	for _, artifact := range ts.Artifacts {
-		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
-		display, isRoot := formatArtifactPath(artifact.Path)
+		// Handle root: prefix
+		var absPath string
+		var displayPath string
+		if strings.HasPrefix(artifact.Path, "root:") {
+			displayPath = strings.TrimPrefix(artifact.Path, "root:")
+			absPath = filepath.Clean(filepath.Join(baseDir, displayPath))
+		} else {
+			displayPath = artifact.Path
+			absPath = filepath.Clean(filepath.Join(outputDir, displayPath))
+		}
+
+		display, isRoot := formatArtifactPath(displayPath)
 
 		var groupName string
 		if isRoot {
@@ -420,13 +448,13 @@ func printAllFilesGrouped(outputDir string, ts state.TargetState) {
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			g.drifted++
-			g.entries = append(g.entries, driftEntry{"missing", artifact.Path})
+			g.entries = append(g.entries, driftEntry{"missing", displayPath})
 			continue
 		}
 		h := sha256.Sum256(data)
 		if fmt.Sprintf("sha256:%x", h) != artifact.Hash {
 			g.drifted++
-			g.entries = append(g.entries, driftEntry{"modified", artifact.Path})
+			g.entries = append(g.entries, driftEntry{"modified", displayPath})
 		}
 	}
 
