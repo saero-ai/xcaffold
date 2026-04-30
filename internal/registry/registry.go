@@ -85,12 +85,9 @@ func EnsureGlobalHome() error {
 		_ = os.WriteFile(projectsPath, out, 0600)
 	}
 
-	// Auto-bootstrap global.xcf only when it doesn't exist yet.
-	globalXcfPath := filepath.Join(home, "global.xcf")
-	if _, err := os.Stat(globalXcfPath); os.IsNotExist(err) {
-		data := buildGlobalXCF()
-		_ = os.WriteFile(globalXcfPath, data, 0600)
-	}
+	// TODO(release-2): auto-generate global.xcf from detected provider directories.
+	// Global scope is under development; bootstrap deferred to avoid emitting
+	// fields the current parser cannot consume.
 
 	return nil
 }

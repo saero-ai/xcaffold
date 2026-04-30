@@ -43,16 +43,9 @@ func TestEnsureGlobalHome_CreatesDirectory(t *testing.T) {
 		t.Fatal("registry.xcf was not created")
 	}
 
-	globalData, err := os.ReadFile(filepath.Join(xcfHome, "global.xcf"))
-	if err != nil {
-		t.Fatalf("global.xcf was not created: %v", err)
-	}
-	globalContent := string(globalData)
-	if !strings.Contains(globalContent, "kind: global") {
-		t.Errorf("global.xcf should contain 'kind: global', got:\n%s", globalContent)
-	}
-	if strings.Contains(globalContent, "project:") {
-		t.Errorf("global.xcf should NOT contain 'project:' block, got:\n%s", globalContent)
+	// global.xcf bootstrap is deferred until release 2; must NOT be created.
+	if _, err := os.Stat(filepath.Join(xcfHome, "global.xcf")); err == nil {
+		t.Fatal("global.xcf should not be created (bootstrap deferred)")
 	}
 
 	registryData, err := os.ReadFile(filepath.Join(xcfHome, "registry.xcf"))

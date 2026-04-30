@@ -1152,14 +1152,16 @@ func loadGlobalBase() (*ast.XcaffoldConfig, error) {
 		// parseDirectoryRaw natively parses a dir without applying global base.
 		cfg, err := parseDirectoryRaw(xcaffoldDir, withGlobalScope())
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
+			// TODO(release-2): surface global scope parse errors once schema is finalized.
+			return &ast.XcaffoldConfig{}, nil
 		}
 		// If the global config itself extends something, resolve it!
 		if cfg.Extends != "" {
 			visited := map[string]bool{xcaffoldDir: true}
 			cfg, err = resolveExtendsRecursive(xcaffoldDir, cfg, visited)
 			if err != nil {
-				return nil, err
+				// TODO(release-2): surface extends resolution errors once global scope ships.
+				return &ast.XcaffoldConfig{}, nil
 			}
 		}
 		return cfg, nil
