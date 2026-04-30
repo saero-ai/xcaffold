@@ -1,7 +1,6 @@
 ---
 title: "Blueprint Design"
 description: "Best practices for designing blueprints that segment agent configurations by team role, environment, or workflow."
-r2: true
 ---
 
 # Blueprint Design
