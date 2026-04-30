@@ -93,9 +93,22 @@ func SanitizeAgentModel(model string, caps CapabilitySet, targetName, agentID st
 
 	// We kept the field. But if it was NOT properly mapped...
 	if !IsMappedModel(model, targetName) {
-		// Is it a bare Claude alias?
+		// Is it a bare Claude alias (e.g. "sonnet", "opus", "haiku")?
 		if IsKnownClaudeAlias(model) {
-			// Bare Claude alias with no explicit version map (e.g. "sonnet" instead of "sonnet-4").
+			if targetName == "claude" {
+				// Claude Code resolves bare tier aliases at runtime to the current
+				// recommended version. Pass through as-is and emit an info note.
+				// Ground truth: models.json verified 2026-04-30 — "sonnet", "opus",
+				// and "haiku" are documented Claude Code aliases.
+				notes = append(notes, NewNote(
+					LevelInfo, targetName, "agent", agentID, "model",
+					CodeFieldTransformed,
+					fmt.Sprintf("bare alias %q passed through for agent %q on claude target; resolved at runtime", model, agentID),
+					"Use a versioned alias (e.g. sonnet-4) for deterministic resolution across targets",
+				))
+				return model, notes
+			}
+			// Bare Claude alias on a non-Claude target — meaningless outside Claude Code.
 			notes = append(notes, NewNote(
 				LevelWarning, targetName, "agent", agentID, "model",
 				CodeAgentModelUnmapped,
@@ -103,15 +116,14 @@ func SanitizeAgentModel(model string, caps CapabilitySet, targetName, agentID st
 				fmt.Sprintf("Use a mapped alias (e.g. sonnet-4) or a native literal for %s", targetName),
 			))
 			return "", notes
-		} else {
-			// It's not a known alias, meaning it's a native literal. Pass it through safely.
-			notes = append(notes, NewNote(
-				LevelInfo, targetName, "agent", agentID, "model",
-				CodeFieldTransformed,
-				fmt.Sprintf("native literal %q passed through for agent %q", model, agentID),
-				"",
-			))
 		}
+		// It's not a known alias, meaning it's a native literal. Pass it through safely.
+		notes = append(notes, NewNote(
+			LevelInfo, targetName, "agent", agentID, "model",
+			CodeFieldTransformed,
+			fmt.Sprintf("native literal %q passed through for agent %q", model, agentID),
+			"",
+		))
 	}
 
 	return resolved, notes

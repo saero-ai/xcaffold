@@ -148,6 +148,80 @@ func TestSanitizeAgentModel(t *testing.T) {
 			expectedNotes: 1,
 			expectedCode:  renderer.CodeAgentModelUnmapped,
 		},
+		// Bare Claude aliases are valid Claude Code native aliases and must pass
+		// through as-is when the target is "claude". Ground truth (models.json,
+		// verified 2026-04-30): "sonnet", "opus", "haiku" are documented aliases.
+		{
+			name:  "BareClaudeAlias_ClaudeTarget_PassesThrough",
+			model: "sonnet",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "claude",
+			expectedModel: "sonnet",
+			expectedNotes: 1,
+			expectedCode:  renderer.CodeFieldTransformed,
+		},
+		{
+			name:  "BareOpusAlias_ClaudeTarget_PassesThrough",
+			model: "opus",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "claude",
+			expectedModel: "opus",
+			expectedNotes: 1,
+			expectedCode:  renderer.CodeFieldTransformed,
+		},
+		{
+			name:  "BareHaikuAlias_ClaudeTarget_PassesThrough",
+			model: "haiku",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "claude",
+			expectedModel: "haiku",
+			expectedNotes: 1,
+			expectedCode:  renderer.CodeFieldTransformed,
+		},
+		// A mapped xcaffold alias (e.g. "sonnet-4") must still resolve to the
+		// target-specific literal and emit no note.
+		{
+			name:  "MappedAlias_ClaudeTarget_TranslatesToLiteral",
+			model: "sonnet-4",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "claude",
+			expectedModel: "claude-sonnet-4-5",
+			expectedNotes: 0,
+		},
+		// A native literal passed directly must pass through with an info note
+		// regardless of target.
+		{
+			name:  "NativeLiteral_ClaudeTarget_PassesThrough",
+			model: "claude-sonnet-4-5",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "claude",
+			expectedModel: "claude-sonnet-4-5",
+			expectedNotes: 1,
+			expectedCode:  renderer.CodeFieldTransformed,
+		},
+		// Bare Claude alias on a non-Claude target must still be dropped with a
+		// warning (existing behavior must not regress).
+		{
+			name:  "BareClaudeAlias_CursorTarget_Dropped",
+			model: "sonnet",
+			caps: renderer.CapabilitySet{
+				ModelField: true,
+			},
+			targetName:    "cursor",
+			expectedModel: "",
+			expectedNotes: 1,
+			expectedCode:  renderer.CodeAgentModelUnmapped,
+		},
 		{
 			name:  "NativeLiteral_PassesThroughWithInfo",
 			model: "gemini-2.5-pro",
