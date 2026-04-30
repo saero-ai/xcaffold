@@ -42,7 +42,7 @@ func init() {
 	_ = validateCmd.Flags().MarkHidden("blueprint")
 	orig := validateCmd.HelpTemplate()
 	validateCmd.SetHelpTemplate(orig + `
-Preview (coming in R2):
+Experimental:
   --blueprint string   Validate only the named blueprint
 `)
 	rootCmd.AddCommand(validateCmd)

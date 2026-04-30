@@ -56,7 +56,7 @@ func init() {
 
 	orig := rootCmd.HelpTemplate()
 	rootCmd.SetHelpTemplate(orig + `{{if eq .Name "xcaffold"}}
-Preview (coming in R2):
+Experimental:
   export      Package resources into a distributable blueprint
   translate   Cross-compile .xcf resources to a different provider format
   test        Run LLM-as-Judge quality assessments
