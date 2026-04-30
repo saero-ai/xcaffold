@@ -91,7 +91,18 @@ local:
     type: command
     command: echo "xcaffold ready"
 
-# Root instructions for the project (inline)
+# Per-provider compile-time options
+target-options:
+  copilot:
+    hooks:
+      copilot-instructions: ".copilot/instructions.md"
+    provider:
+      groups:
+        - copilot-chat
+  cursor:
+    suppress-fidelity-warnings: false
+    skip-synthesis: false
+
 ---
 This is the golden project. It exercises every field in the ProjectConfig struct.
 
@@ -100,14 +111,3 @@ Use this file as a reference when adding new fields to the schema.
 # @-import paths preserved for providers that support them
 
 # Per-directory nested instruction scopes
-
-# Per-provider compile-time options
-target-options:
-  copilot:
-    instructions-mode: nested
-    provider:
-      groups:
-        - copilot-chat
-  cursor:
-    suppress-fidelity-warnings: false
-    skip-synthesis: false
