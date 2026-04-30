@@ -22,24 +22,25 @@ var statusAllFlag bool
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Show compilation state and check for drift across all targets",
-	Long: `Shows the current state of all compiled targets.
+	Short: "Show compilation state and check for drift across all providers",
+	Long: `Shows the current state of all compiled providers.
 
-Without --target, displays an overview of all targets: last apply time,
-artifact count, and sync status. Drifted files are listed inline below
+Without --target, displays an overview of all providers: last apply time,
+file count, and sync status. Drifted files are listed inline below
 the summary table.
 
-With --target, shows only the files that have drifted for that target.
+With --target, shows only the files that have drifted for that provider.
 Use --all to see every tracked file.`,
 	Example: `  $ xcaffold status
   $ xcaffold status --target claude
   $ xcaffold status --target claude --all`,
-	SilenceUsage: true,
-	RunE:         runStatus,
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	RunE:          runStatus,
 }
 
 func init() {
-	statusCmd.Flags().StringVar(&statusTargetFlag, "target", "", "focus on a single target")
+	statusCmd.Flags().StringVar(&statusTargetFlag, "target", "", "focus on a single provider")
 	statusCmd.Flags().StringVar(&statusBlueprintFlag, "blueprint", "", "filter by blueprint")
 	statusCmd.Flags().BoolVar(&statusAllFlag, "all", false, "show all files (default: drifted only)")
 	rootCmd.AddCommand(statusCmd)
@@ -59,7 +60,12 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	manifest, err := state.ReadState(statePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			fmt.Println("No state found. Run 'xcaffold apply' to compile.")
+			projectName := filepath.Base(dir)
+			fmt.Println(formatHeader(projectName, statusBlueprintFlag, globalFlag, "", ""))
+			fmt.Println()
+			fmt.Printf("  %s  No compilation state found.\n", glyphNever())
+			fmt.Println()
+			fmt.Printf("%s Run 'xcaffold apply' to compile all providers.\n", glyphArrow())
 			return nil
 		}
 		return fmt.Errorf("could not read state: %w", err)
@@ -73,6 +79,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 func runStatusOverview(dir string, manifest *state.StateManifest) error {
 	projectName := filepath.Base(dir)
+
+	// Find the most recent apply timestamp across all providers.
 	var lastApplied string
 	var mostRecent time.Time
 	for _, ts := range manifest.Targets {
@@ -83,8 +91,10 @@ func runStatusOverview(dir string, manifest *state.StateManifest) error {
 		}
 	}
 
-	fmt.Printf("%s  ·  last applied %s\n\n", projectName, formatElapsed(lastApplied))
+	fmt.Println(formatHeader(projectName, statusBlueprintFlag, globalFlag, "", lastApplied))
+	fmt.Println()
 
+	// Collect per-provider rows and drifted file entries.
 	type targetRow struct {
 		name    string
 		count   int
@@ -93,109 +103,191 @@ func runStatusOverview(dir string, manifest *state.StateManifest) error {
 	}
 	var rows []targetRow
 	allDriftedFiles := make(map[string][]driftEntry)
+	outputDirByProvider := make(map[string]string)
 
-	nameWidth := 0
+	nameWidth := len("PROVIDER")
 	for _, name := range sortedTargetKeys(manifest.Targets) {
-		ts := manifest.Targets[name]
-		outputDir := filepath.Join(dir, compiler.OutputDir(name))
-		drifted, entries := collectDriftedFiles(outputDir, ts)
-		rows = append(rows, targetRow{name: name, count: len(ts.Artifacts), drifted: drifted})
-		if drifted > 0 {
-			allDriftedFiles[name] = entries
-		}
 		if len(name) > nameWidth {
 			nameWidth = len(name)
 		}
 	}
 	nameWidth += 2
 
+	for _, name := range sortedTargetKeys(manifest.Targets) {
+		ts := manifest.Targets[name]
+		outputDir := filepath.Join(dir, compiler.OutputDir(name))
+		outputDirByProvider[name] = outputDir
+		drifted, entries := collectDriftedFiles(outputDir, ts)
+		rows = append(rows, targetRow{name: name, count: len(ts.Artifacts), drifted: drifted})
+		if drifted > 0 {
+			allDriftedFiles[name] = entries
+		}
+	}
+
+	// Provider table.
+	fmt.Printf("  %-*s  %5s   %s\n", nameWidth, "PROVIDER", "FILES", "STATUS")
 	for _, r := range rows {
-		status := "synced"
+		var statusStr string
 		if r.noState {
-			status = "not applied yet"
+			statusStr = dim(glyphNever() + " never applied")
 		} else if r.drifted > 0 {
-			status = fmt.Sprintf("%d modified", r.drifted)
+			statusStr = colorRed(fmt.Sprintf("%s %d modified", glyphErr(), r.drifted))
+		} else {
+			statusStr = colorGreen(glyphOK() + " synced")
 		}
-		fmt.Printf("  %-*s  %d artifacts    %s\n", nameWidth, r.name, r.count, status)
+		fmt.Printf("  %-*s  %5d   %s\n", nameWidth, r.name, r.count, statusStr)
 	}
 
-	fmt.Printf("\nSources  %d .xcf files  ·  ", len(manifest.SourceFiles))
+	// Sources line.
 	srcChanged := countChangedSources(dir, manifest.SourceFiles)
-	if srcChanged == 0 {
-		fmt.Println("no changes since last apply")
-	} else {
-		fmt.Printf("%d changed\n", srcChanged)
-	}
-
-	if len(allDriftedFiles) > 0 {
-		fmt.Println("\nModified files:")
-		for _, name := range sortedTargetKeys(manifest.Targets) {
-			if entries, ok := allDriftedFiles[name]; ok {
-				fmt.Printf("\n  %s\n", name)
-				for _, e := range entries {
-					fmt.Printf("    %-16s  %s\n", e.status, e.path)
-				}
-			}
-		}
-		fmt.Println("\nRun 'xcaffold apply' to restore.")
-		fmt.Println("Run 'xcaffold status --target <name>' to inspect a specific target.")
-		return &driftDetectedError{msg: "drift detected"}
-	}
-
-	if srcChanged > 0 {
-		fmt.Println("\nSource changes:")
-		printSourceChanges(dir, manifest.SourceFiles)
-		fmt.Println("\nRun 'xcaffold apply' to sync.")
-		return &driftDetectedError{msg: "drift detected"}
-	}
-
-	fmt.Println("\nEverything is in sync.")
-	return nil
-}
-
-func runStatusTarget(dir string, manifest *state.StateManifest, target string, showAll bool) error {
-	ts, ok := manifest.Targets[target]
-	if !ok {
-		return fmt.Errorf("no state found for target %q — run 'xcaffold apply --target %s' first", target, target)
-	}
-
-	outputDir := filepath.Join(dir, compiler.OutputDir(target))
-	projectName := filepath.Base(dir)
-	drifted, driftedEntries := collectDriftedFiles(outputDir, ts)
-	synced := len(ts.Artifacts) - drifted
-
-	fmt.Printf("%s  ·  %s  ·  applied %s  ·  %d artifacts\n\n",
-		projectName, target, formatElapsed(ts.LastApplied), len(ts.Artifacts))
-
-	if drifted == 0 {
-		fmt.Printf("  %d synced  ·  everything in sync\n", synced)
-	} else {
-		fmt.Printf("  %d synced  ·  %d modified\n\n", synced, drifted)
-		for _, e := range driftedEntries {
-			fmt.Printf("  %-16s  %s\n", e.status, e.path)
-		}
-	}
-
-	fmt.Printf("\nSources  %d .xcf files  ·  ", len(manifest.SourceFiles))
-	srcChanged := countChangedSources(dir, manifest.SourceFiles)
+	fmt.Printf("\n  Sources  %d .xcf files  %s  ", len(manifest.SourceFiles), glyphDot())
 	if srcChanged == 0 {
 		fmt.Println("no changes since last apply")
 	} else {
 		fmt.Printf("%d changed since last apply\n", srcChanged)
 	}
 
+	// Drift block.
+	hasDrift := len(allDriftedFiles) > 0
+	if hasDrift {
+		driftProviders := len(allDriftedFiles)
+		fmt.Printf("\nDrift detected in %d %s:\n",
+			driftProviders, plural(driftProviders, "provider", "providers"))
+		for _, name := range sortedTargetKeys(manifest.Targets) {
+			entries, ok := allDriftedFiles[name]
+			if !ok {
+				continue
+			}
+			fmt.Printf("\n  %s\n", bold(name))
+			for _, e := range entries {
+				display, _ := formatArtifactPath(e.path)
+				absPath := filepath.Join(outputDirByProvider[name], display)
+				var label string
+				if e.status == "missing" {
+					label = colorRed("missing")
+				} else {
+					label = colorYellow("modified")
+				}
+				fmt.Printf("    %s  %-8s  %s\n", colorRed(glyphErr()), label, absPath)
+			}
+		}
+	}
+
+	// Source-change block — always shown when sources changed, even alongside artifact drift.
+	if srcChanged > 0 {
+		fmt.Println("\nSource changes:")
+		printSourceChanges(dir, manifest.SourceFiles)
+	}
+
+	// CTA or success line.
+	if hasDrift || srcChanged > 0 {
+		applyArgs := buildApplyCmd("", statusBlueprintFlag, globalFlag)
+		fmt.Printf("\n%s Run '%s' to restore.\n", glyphArrow(), applyArgs)
+		fmt.Printf("  Run 'xcaffold status --target <name>' for details.\n")
+		return &driftDetectedError{msg: "drift detected"}
+	}
+
+	scopeLabel := "providers"
+	if globalFlag {
+		scopeLabel = "global providers"
+	}
+	fmt.Printf("\n%s All %s are in sync.\n", colorGreen(glyphOK()), scopeLabel)
+	return nil
+}
+
+func runStatusTarget(dir string, manifest *state.StateManifest, target string, showAll bool) error {
+	ts, ok := manifest.Targets[target]
+	if !ok {
+		known := sortedTargetKeys(manifest.Targets)
+		fmt.Fprintf(os.Stderr, "%s No state for provider %q.\n\n", colorRed(glyphErr()), target)
+		fmt.Fprintf(os.Stderr, "  Known providers:  %s\n\n", strings.Join(known, ", "))
+		fmt.Fprintf(os.Stderr, "%s Run 'xcaffold apply --target %s' to compile it first.\n",
+			glyphArrow(), target)
+		return &driftDetectedError{msg: "no state for provider " + target}
+	}
+
+	projectName := filepath.Base(dir)
+	outputDir := filepath.Join(dir, compiler.OutputDir(target))
+	drifted, driftedEntries := collectDriftedFiles(outputDir, ts)
+	synced := len(ts.Artifacts) - drifted
+	srcChanged := countChangedSources(dir, manifest.SourceFiles)
+
+	fmt.Println(formatHeader(projectName, statusBlueprintFlag, globalFlag, target, ts.LastApplied))
+	fmt.Println()
+
+	// Summary line.
+	srcLabel := fmt.Sprintf("%d %s unchanged",
+		len(manifest.SourceFiles),
+		plural(len(manifest.SourceFiles), "source", "sources"))
+	if drifted == 0 {
+		fmt.Printf("  %s  %s  %s\n",
+			bold(fmt.Sprintf("%d synced", synced)),
+			glyphDot(),
+			srcLabel,
+		)
+	} else {
+		fmt.Printf("  %s  %s  %s  %s  %s\n",
+			bold(fmt.Sprintf("%d synced", synced)),
+			glyphDot(),
+			colorRed(fmt.Sprintf("%d modified", drifted)),
+			glyphDot(),
+			srcLabel,
+		)
+		fmt.Println()
+		for _, e := range driftedEntries {
+			display, _ := formatArtifactPath(e.path)
+			absPath := filepath.Join(outputDir, display)
+			var label string
+			if e.status == "missing" {
+				label = colorRed("missing")
+			} else {
+				label = colorYellow("modified")
+			}
+			fmt.Printf("  %s  %-8s  %s\n", colorRed(glyphErr()), label, absPath)
+		}
+	}
+
+	// Sources line.
+	fmt.Printf("\n  Sources  %d .xcf files  %s  ", len(manifest.SourceFiles), glyphDot())
+	if srcChanged == 0 {
+		fmt.Println("no changes since last apply")
+	} else {
+		fmt.Printf("%d changed since last apply\n", srcChanged)
+	}
+
+	// --all grouped listing.
 	if showAll {
 		fmt.Println()
 		printAllFilesGrouped(outputDir, ts)
-	} else if drifted > 0 {
-		fmt.Printf("\nRun 'xcaffold apply --target %s' to restore.\n", target)
-		fmt.Printf("Run 'xcaffold status --target %s --all' to see all files.\n", target)
 	}
 
+	// CTA or success line.
 	if drifted > 0 || srcChanged > 0 {
+		applyArgs := buildApplyCmd(target, statusBlueprintFlag, globalFlag)
+		fmt.Printf("\n%s Run '%s' to restore.\n", glyphArrow(), applyArgs)
+		if !showAll {
+			fmt.Printf("  Run 'xcaffold status --target %s --all' to see all files.\n", target)
+		}
 		return &driftDetectedError{msg: "drift detected"}
 	}
+
+	fmt.Printf("\n%s Everything in sync.\n", colorGreen(glyphOK()))
 	return nil
+}
+
+// buildApplyCmd constructs the apply command string with all active flags included.
+func buildApplyCmd(target, blueprint string, isGlobal bool) string {
+	cmd := "xcaffold apply"
+	if isGlobal {
+		cmd += " --global"
+	}
+	if blueprint != "" {
+		cmd += " --blueprint " + blueprint
+	}
+	if target != "" {
+		cmd += " --target " + target
+	}
+	return cmd
 }
 
 type driftEntry struct {
@@ -209,7 +301,7 @@ func collectDriftedFiles(outputDir string, ts state.TargetState) (int, []driftEn
 		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
 		data, err := os.ReadFile(absPath)
 		if err != nil {
-			entries = append(entries, driftEntry{"not on disk", artifact.Path})
+			entries = append(entries, driftEntry{"missing", artifact.Path})
 			continue
 		}
 		h := sha256.Sum256(data)
@@ -228,7 +320,18 @@ func countChangedSources(baseDir string, sourceFiles []state.SourceFile) int {
 func printSourceChanges(baseDir string, sourceFiles []state.SourceFile) {
 	entries, _, _ := findChangedSources(baseDir, sourceFiles)
 	for _, e := range entries {
-		fmt.Printf("    %-16s  %s\n", e.status, e.path)
+		var prefix string
+		switch e.status {
+		case "source changed":
+			prefix = colorYellow(glyphSrc()) + "  source changed"
+		case "new source":
+			prefix = colorYellow(glyphSrc()) + "  new source    "
+		case "source removed":
+			prefix = colorRed(glyphSrc()) + "  source removed"
+		default:
+			prefix = e.status
+		}
+		fmt.Printf("  %s    %s\n", prefix, e.path)
 	}
 }
 
@@ -294,10 +397,18 @@ func printAllFilesGrouped(outputDir string, ts state.TargetState) {
 	groupsMap := make(map[string]*group)
 	for _, artifact := range ts.Artifacts {
 		absPath := filepath.Clean(filepath.Join(outputDir, artifact.Path))
-		idx := strings.Index(artifact.Path, string(filepath.Separator))
-		groupName := "(root)"
-		if idx != -1 {
-			groupName = artifact.Path[:idx+1]
+		display, isRoot := formatArtifactPath(artifact.Path)
+
+		var groupName string
+		if isRoot {
+			groupName = "(root)"
+		} else {
+			idx := strings.Index(display, string(filepath.Separator))
+			if idx != -1 {
+				groupName = display[:idx+1]
+			} else {
+				groupName = "(root)"
+			}
 		}
 
 		if groupsMap[groupName] == nil {
@@ -309,7 +420,7 @@ func printAllFilesGrouped(outputDir string, ts state.TargetState) {
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			g.drifted++
-			g.entries = append(g.entries, driftEntry{"not on disk", artifact.Path})
+			g.entries = append(g.entries, driftEntry{"missing", artifact.Path})
 			continue
 		}
 		h := sha256.Sum256(data)
@@ -327,37 +438,29 @@ func printAllFilesGrouped(outputDir string, ts state.TargetState) {
 		return ordered[i].name < ordered[j].name
 	})
 
+	fmt.Printf("  %-16s  %5s   %s\n", "GROUP", "FILES", "STATUS")
 	for _, g := range ordered {
-		status := "synced"
+		var statusStr string
 		if g.drifted > 0 {
-			status = fmt.Sprintf("%d modified", g.drifted)
+			statusStr = colorRed(fmt.Sprintf("%s %d modified", glyphErr(), g.drifted))
+		} else {
+			statusStr = colorGreen(glyphOK() + " synced")
 		}
-		fileWord := "file"
-		if g.total != 1 {
-			fileWord = "files"
-		}
-		fmt.Printf("  %-16s %2d %-7s  %s\n", g.name, g.total, fileWord, status)
+		fmt.Printf("  %-16s  %5d   %s\n", g.name, g.total, statusStr)
 		for _, e := range g.entries {
-			fmt.Printf("    %-15s %s\n", e.status, e.path)
+			display, isRoot := formatArtifactPath(e.path)
+			annotation := ""
+			if isRoot {
+				annotation = "  " + dim("(root)")
+			}
+			var label string
+			if e.status == "missing" {
+				label = colorRed("missing")
+			} else {
+				label = colorYellow("modified")
+			}
+			fmt.Printf("    %s  %-8s  %s%s\n", colorRed(glyphErr()), label, display, annotation)
 		}
-	}
-}
-
-func formatElapsed(lastApplied string) string {
-	t, err := time.Parse(time.RFC3339, lastApplied)
-	if err != nil {
-		return "unknown"
-	}
-	d := time.Since(t)
-	switch {
-	case d < time.Minute:
-		return "just now"
-	case d < time.Hour:
-		return fmt.Sprintf("%d minutes ago", int(d.Minutes()))
-	case d < 24*time.Hour:
-		return fmt.Sprintf("%d hours ago", int(d.Hours()))
-	default:
-		return fmt.Sprintf("%d days ago", int(d.Hours()/24))
 	}
 }
 

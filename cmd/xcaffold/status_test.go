@@ -50,7 +50,7 @@ func TestStatus_NoStateFile(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.Contains(t, out, "No state found")
+	assert.Contains(t, out, "No compilation state found.")
 }
 
 func TestStatus_AllTargetsSynced(t *testing.T) {
@@ -70,7 +70,7 @@ func TestStatus_AllTargetsSynced(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, out, "synced")
 	assert.Contains(t, out, "no changes since last apply")
-	assert.Contains(t, out, "Everything is in sync")
+	assert.Contains(t, out, "All providers are in sync.")
 }
 
 // Added the other basic spec tests simply mapping them to the expected output strings
@@ -116,7 +116,7 @@ func TestStatus_OverviewWithDriftedArtifact_ReturnsDriftError(t *testing.T) {
 
 	assert.Error(t, err, "should return error when drift is detected")
 	assert.IsType(t, &driftDetectedError{}, err, "should return driftDetectedError type")
-	assert.Contains(t, out, "Modified files:", "should display drift details")
+	assert.Contains(t, out, "Drift detected", "should display drift details")
 	assert.Contains(t, out, "modified", "should show modified status")
 }
 
@@ -182,7 +182,7 @@ func TestStatus_TargetWithMissingArtifact_ReturnsDriftError(t *testing.T) {
 
 	assert.Error(t, err, "should return error when artifact is missing")
 	assert.IsType(t, &driftDetectedError{}, err, "should return driftDetectedError type")
-	assert.Contains(t, out, "not on disk", "should indicate missing artifact")
+	assert.Contains(t, out, "missing", "should indicate missing artifact")
 }
 
 func TestStatus_DeprecatedDiffAlias(t *testing.T) {
