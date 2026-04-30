@@ -613,7 +613,7 @@ type ContextConfig struct {
 
 	// Body holds the markdown content of the context block.
 	// Populated from the .xcf file body or instructions field at parse time.
-	Body string `yaml:"body,omitempty"`
+	Body string `yaml:"-"`
 
 	// Targets restricts this context to specific provider targets.
 	// When empty, the context applies to all targets.
