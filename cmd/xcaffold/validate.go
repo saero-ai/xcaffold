@@ -40,11 +40,6 @@ func init() {
 	validateCmd.Flags().BoolVar(&validateStructural, "structural", false, "run structural invariant checks (orphan resources, missing instructions)")
 	validateCmd.Flags().StringVar(&validateBlueprintFlag, "blueprint", "", "Validate only the named blueprint")
 	_ = validateCmd.Flags().MarkHidden("blueprint")
-	orig := validateCmd.HelpTemplate()
-	validateCmd.SetHelpTemplate(orig + `
-Experimental:
-  --blueprint string   Validate only the named blueprint
-`)
 	rootCmd.AddCommand(validateCmd)
 }
 

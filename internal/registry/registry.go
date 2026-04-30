@@ -85,7 +85,7 @@ func EnsureGlobalHome() error {
 		_ = os.WriteFile(projectsPath, out, 0600)
 	}
 
-	// TODO(release-2): auto-generate global.xcf from detected provider directories.
+	// TODO: auto-generate global.xcf from detected provider directories.
 	// Global scope is under development; bootstrap deferred to avoid emitting
 	// fields the current parser cannot consume.
 

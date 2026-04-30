@@ -43,7 +43,7 @@ func TestEnsureGlobalHome_CreatesDirectory(t *testing.T) {
 		t.Fatal("registry.xcf was not created")
 	}
 
-	// global.xcf bootstrap is deferred until release 2; must NOT be created.
+	// global.xcf bootstrap is deferred; must NOT be created.
 	if _, err := os.Stat(filepath.Join(xcfHome, "global.xcf")); err == nil {
 		t.Fatal("global.xcf should not be created (bootstrap deferred)")
 	}
