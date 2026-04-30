@@ -1,9 +1,0 @@
----
-description: API conventions
-globs:
-  - src/**
-  - packages/api/**
----
-# API Conventions
-
-Use REST verbs.

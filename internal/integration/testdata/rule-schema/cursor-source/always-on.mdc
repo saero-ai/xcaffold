@@ -1,7 +1,0 @@
----
-description: Security
-always-apply: true
----
-# Security
-
-Always apply OWASP.

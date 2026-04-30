@@ -1,8 +1,0 @@
----
-kind: rule
-name: testing
-version: "1.0"
-description: Testing standards
-always-apply: true
----
-Always write tests before implementation. Use table-driven tests in Go.

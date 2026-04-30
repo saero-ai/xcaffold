@@ -1,8 +1,0 @@
----
-kind: agent
-name: developer
-version: "1.0"
-description: Full-stack developer agent
-model: claude-sonnet-4-5
----
-You are a full-stack developer. Follow TDD principles.

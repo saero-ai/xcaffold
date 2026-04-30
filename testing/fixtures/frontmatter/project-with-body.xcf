@@ -1,7 +1,0 @@
----
-kind: project
-name: example-project
-version: "1.0"
-description: Example project for testing
----
-This project uses TDD and clean architecture principles.

@@ -1,9 +1,0 @@
----
-kind: rule
-version: "1.0"
-name: always-rule
-description: "Always active rule."
-always-apply: false
----
-
-Body.
