@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "matcher": "write_file|shell",
+        "command": "echo check"
+      }
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+- [Project Context](project_context.md) — Architecture decisions and project structure context

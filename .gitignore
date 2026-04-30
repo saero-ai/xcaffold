@@ -24,3 +24,4 @@ scaffold.lock
 *.swp
 .DS_Store
 .worktrees/
+.saero

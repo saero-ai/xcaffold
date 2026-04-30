@@ -28,7 +28,7 @@ func TestStress_100Agents(t *testing.T) {
 	assert.Len(t, config.Agents, 100)
 
 	start := time.Now()
-	out, err := compiler.Compile(config, "", "")
+	out, _, err := compiler.Compile(config, "", "", "")
 	elapsed := time.Since(start)
 
 	require.NoError(t, err)
@@ -48,7 +48,7 @@ func TestStress_500Agents(t *testing.T) {
 	assert.Len(t, config.Agents, 500)
 
 	start := time.Now()
-	out, err := compiler.Compile(config, "", "")
+	out, _, err := compiler.Compile(config, "", "", "")
 	elapsed := time.Since(start)
 
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func TestStress_LargeInstructions(t *testing.T) {
 	config, err := parser.Parse(strings.NewReader(yaml))
 	require.NoError(t, err)
 
-	out, err := compiler.Compile(config, "", "")
+	out, _, err := compiler.Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	content := out.Files["agents/big-agent.md"]
@@ -86,7 +86,7 @@ func TestStress_FullLifecycle_100Agents(t *testing.T) {
 	config, err := parser.ParseFile(xcfPath)
 	require.NoError(t, err)
 
-	out, err := compiler.Compile(config, "", "")
+	out, _, err := compiler.Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	claudeDir := filepath.Join(dir, ".claude")
@@ -136,7 +136,7 @@ func TestStress_FullSchema_AllBlockTypes(t *testing.T) {
 	config, err := parser.Parse(strings.NewReader(sb.String()))
 	require.NoError(t, err)
 
-	out, err := compiler.Compile(config, "", "")
+	out, _, err := compiler.Compile(config, "", "", "")
 	require.NoError(t, err)
 
 	assert.Len(t, out.Files, 40) // 20 agents + 10 skills + 10 rules

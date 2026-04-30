@@ -1,4 +1,4 @@
-.PHONY: setup lint test build install clean
+.PHONY: setup lint test test-e2e build install clean
 
 setup:
 	@echo "=> Installing global dependencies & git hooks..."
@@ -28,6 +28,10 @@ build:
 install:
 	@echo "=> Installing global binary..."
 	@go install -ldflags="$(LDFLAGS)" ./cmd/xcaffold/...
+
+test-e2e:
+	@echo "=> Running E2E tests..."
+	@go test -tags=e2e -v -count=1 ./test/e2e/
 
 clean:
 	@echo "=> Cleaning up build artifacts..."
