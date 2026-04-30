@@ -103,10 +103,14 @@ type FileVisitor func(rel string, data []byte) error
 // skipped. rel paths use forward slashes.
 func WalkProviderDir(dir string, visitor FileVisitor) error {
 	visited := make(map[string]bool)
-	return walkProviderDir(dir, dir, visitor, visited)
+	return walkProviderDir(dir, dir, "", visitor, visited)
 }
 
-func walkProviderDir(root, current string, visitor FileVisitor, visited map[string]bool) error {
+// walkProviderDir walks current, computing relative paths from root.
+// prefix is prepended when walking a symlinked directory that resolves
+// outside root — it maps files back to the symlink's position in the
+// original tree.
+func walkProviderDir(root, current, prefix string, visitor FileVisitor, visited map[string]bool) error {
 	return filepath.WalkDir(current, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -128,12 +132,30 @@ func walkProviderDir(root, current string, visitor FileVisitor, visited map[stri
 					return nil
 				}
 				visited[target] = true
-				return walkProviderDir(root, target, visitor, visited)
+				symlinkRel, relErr := filepath.Rel(root, path)
+				if relErr != nil {
+					symlinkRel = filepath.Base(path)
+				}
+				if prefix != "" {
+					symlinkRel = filepath.Join(prefix, symlinkRel)
+				}
+				return walkProviderDir(target, target, symlinkRel, visitor, visited)
 			}
+			path = target
 		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return fmt.Errorf("rel path: %w", err)
+		var rel string
+		if prefix != "" {
+			fileRel, relErr := filepath.Rel(current, path)
+			if relErr != nil {
+				return fmt.Errorf("rel path: %w", relErr)
+			}
+			rel = filepath.Join(prefix, fileRel)
+		} else {
+			var relErr error
+			rel, relErr = filepath.Rel(root, path)
+			if relErr != nil {
+				return fmt.Errorf("rel path: %w", relErr)
+			}
 		}
 		rel = filepath.ToSlash(rel)
 		data, err := os.ReadFile(path)

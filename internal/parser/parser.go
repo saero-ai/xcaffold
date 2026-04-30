@@ -746,10 +746,17 @@ func isParseableFile(path string) bool {
 	if err != nil {
 		return false
 	}
+	// Extract only the frontmatter portion. Markdown body after the closing
+	// --- may contain YAML-invalid syntax (e.g., tables with |) that would
+	// cause yaml.Unmarshal on the full file to fail.
+	fm, _, _ := extractFrontmatterAndBody(data)
+	if len(fm) == 0 {
+		fm = data
+	}
 	var header struct {
 		Kind string `yaml:"kind"`
 	}
-	if err := yaml.Unmarshal(data, &header); err != nil {
+	if err := yaml.Unmarshal(fm, &header); err != nil {
 		return false
 	}
 	return parseableKinds[header.Kind]
@@ -932,6 +939,7 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 	var files []string
 	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
+	providerDir := filepath.Join("xcf", "provider")
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -939,6 +947,9 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 		if d.IsDir() {
 			name := d.Name()
 			if path != dir && (strings.HasPrefix(name, ".") || ignored[name]) {
+				return filepath.SkipDir
+			}
+			if rel, relErr := filepath.Rel(dir, path); relErr == nil && rel == providerDir {
 				return filepath.SkipDir
 			}
 			return nil
@@ -1024,6 +1035,7 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 	var files []string
 	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
+	providerDir := filepath.Join("xcf", "provider")
 
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -1032,6 +1044,9 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 		if d.IsDir() {
 			name := d.Name()
 			if path != dir && (strings.HasPrefix(name, ".") || ignored[name]) {
+				return filepath.SkipDir
+			}
+			if rel, relErr := filepath.Rel(dir, path); relErr == nil && rel == providerDir {
 				return filepath.SkipDir
 			}
 			return nil

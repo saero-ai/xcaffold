@@ -124,6 +124,38 @@ func TestWalkProviderDir_ReadsFileContent(t *testing.T) {
 	assert.Equal(t, "hello world", string(content))
 }
 
+func TestWalkProviderDir_SymlinkToExternalDir(t *testing.T) {
+	// Simulate a symlink pointing to a directory outside the walk root,
+	// e.g. .claude/skills/shared-skill -> /some/other/path/shared-skill
+	root := t.TempDir()
+	external := t.TempDir()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "skills", "local-skill"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "skills", "local-skill", "SKILL.md"), []byte("local"), 0o644))
+
+	require.NoError(t, os.MkdirAll(filepath.Join(external, "shared-skill"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(external, "shared-skill", "SKILL.md"), []byte("shared"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(external, "shared-skill", "ref.md"), []byte("reference"), 0o644))
+
+	require.NoError(t, os.Symlink(filepath.Join(external, "shared-skill"), filepath.Join(root, "skills", "shared-skill")))
+
+	var visited []string
+	contents := make(map[string]string)
+	err := importer.WalkProviderDir(root, func(rel string, data []byte) error {
+		visited = append(visited, rel)
+		contents[rel] = string(data)
+		return nil
+	})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{
+		"skills/local-skill/SKILL.md",
+		"skills/shared-skill/SKILL.md",
+		"skills/shared-skill/ref.md",
+	}, visited)
+	assert.Equal(t, "shared", contents["skills/shared-skill/SKILL.md"])
+	assert.Equal(t, "reference", contents["skills/shared-skill/ref.md"])
+}
+
 func TestExtractHookScript(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	err := importer.ExtractHookScript("hooks/test.sh", []byte("echo hello"), config)

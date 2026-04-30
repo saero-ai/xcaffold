@@ -41,7 +41,7 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 		return result
 	}
 
-	xcfFile := skillID + ".xcf"
+	legacyXcfFile := skillID + ".xcf"
 
 	for _, entry := range entries {
 		name := entry.Name()
@@ -66,11 +66,13 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 			continue
 		}
 
-		if !strings.EqualFold(name, xcfFile) {
-			result.Errors = append(result.Errors, fmt.Errorf(
-				"unrecognized file %q at skill root %q; move to references/, scripts/, assets/, or examples/ based on its purpose",
-				name, skillID))
+		// Accept both canonical "skill.xcf" and legacy "{skillID}.xcf"
+		if name == "skill.xcf" || strings.EqualFold(name, legacyXcfFile) {
+			continue
 		}
+		result.Errors = append(result.Errors, fmt.Errorf(
+			"unrecognized file %q at skill root %q; move to references/, scripts/, assets/, or examples/ based on its purpose",
+			name, skillID))
 	}
 
 	return result
