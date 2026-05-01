@@ -27,52 +27,6 @@ func TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
 	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
 }
 
-// TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic verifies that
-// --check returns a non-zero exit (non-nil error) when ValidateFile produces
-// an error-severity diagnostic.  The xcf file points to a non-existent
-// instructions-file to trigger the error diagnostic.
-func TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic(t *testing.T) {
-	dir := t.TempDir()
-
-	// instructions-file pointing to a missing file → validateFileRefs emits
-	// a Severity:"error" diagnostic.
-	xcfContent := `---
-kind: project
-version: "1.0"
-name: check-error-test
----
-kind: global
-version: "1.0"
-agents:
-  dev:
-    description: Developer
-    model: claude-sonnet-4-5
-    references:
-      - missing-instructions.md
-`
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
-
-	agentDir := filepath.Join(dir, ".xcaffold", "agents")
-	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
-kind: agent
-version: "1.0"
-name: dev
----
-You are a developer.
-`), 0644)
-
-	xcfPath = xcf
-	projectRoot = dir
-	globalFlag = false
-	applyCheckOnly = true
-	defer func() { applyCheckOnly = false }()
-
-	err := runApply(nil, nil)
-	assert.Error(t, err, "--check must return non-zero when diagnostics contain errors")
-}
-
 func TestApply_Claude_CLAUDE_MD_WrittenAtProjectRoot(t *testing.T) {
 	// Use a minimal in-memory xcf with project instructions
 	dir := t.TempDir()

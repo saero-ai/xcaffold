@@ -26,8 +26,6 @@ import (
 )
 
 var applyDryRun bool
-var applyCheckOnly bool
-var applyCheckPermissions bool
 var applyForce bool
 var applyBackup bool
 var applyProjectFlag string
@@ -50,21 +48,17 @@ var applyCmd = &cobra.Command{
  • Generates a cryptographic SHA-256 state manifest (.xcaffold/)
  • Automatically purges orphaned target files
 
-Any manually edited files inside the target directory will be overwritten.
-
-Validation:
- Use the --check flag to validate your YAML syntax without compiling.`,
+Any manually edited files inside the target directory will be overwritten.`,
 	Example: `  $ xcaffold apply
-  $ xcaffold apply --check
   $ xcaffold apply --global
-  $ xcaffold apply --dry-run    (replaces the former 'plan' command)`,
-	RunE: runApply,
+  $ xcaffold apply --dry-run`,
+	RunE:          runApply,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
-	applyCmd.Flags().BoolVar(&applyCheckOnly, "check", false, "Check configuration syntax without compiling")
-	applyCmd.Flags().BoolVar(&applyCheckPermissions, "check-permissions", false, "Report security field drops and permission contradictions, then exit")
 	applyCmd.Flags().BoolVar(&applyForce, "force", false, "Overwrite customized local files and bypass drift safeguard")
 	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
@@ -99,84 +93,6 @@ func runApply(cmd *cobra.Command, args []string) error {
 		globalXcfPath = filepath.Join(proj.Path, "project.xcf")
 		xcfPath = globalXcfPath
 		projectRoot = proj.Path
-	}
-
-	if applyCheckOnly {
-		if globalFlag {
-			if _, err := parser.ParseDirectory(globalXcfHome); err != nil {
-				return fmt.Errorf("[global] parse error: %w", err)
-			}
-			fmt.Println("[global] ✓ Syntax is valid")
-			diags := parser.ValidateFile(globalXcfPath)
-			printDiagnostics(diags)
-			for _, d := range diags {
-				if d.Severity == "error" {
-					return fmt.Errorf("[global] validation failed with errors")
-				}
-			}
-		} else {
-			// Use projectRoot (not filepath.Dir(xcfPath)) — xcfPath may live
-			// inside .xcaffold/ and filepath.Dir would give the wrong directory.
-			baseDir := projectRoot
-			if baseDir == "" {
-				baseDir = filepath.Dir(xcfPath)
-			}
-			if _, err := parser.ParseDirectory(baseDir); err != nil {
-				return fmt.Errorf("[project] parse error: %w", err)
-			}
-			fmt.Println("[project] ✓ Syntax is valid")
-			diags := parser.ValidateFile(xcfPath)
-			printDiagnostics(diags)
-			for _, d := range diags {
-				if d.Severity == "error" {
-					return fmt.Errorf("[project] validation failed with errors")
-				}
-			}
-		}
-		return nil
-	}
-
-	if applyCheckPermissions {
-		// Parse runs validatePermissions — any contradiction surfaces as a parse
-		// error before we reach this block. The structured report only shows target
-		// fidelity findings for configs that already pass parsing.
-		var parseDir string
-		if globalFlag {
-			parseDir = globalXcfHome
-		} else {
-			// Use projectRoot (not filepath.Dir(xcfPath)) — xcfPath may live
-			// inside .xcaffold/ and filepath.Dir would give the wrong directory.
-			parseDir = projectRoot
-			if parseDir == "" {
-				parseDir = filepath.Dir(xcfPath)
-			}
-		}
-		config, err := parser.ParseDirectory(parseDir)
-		if err != nil {
-			return fmt.Errorf("parse error: %w", err)
-		}
-
-		secRenderer, err := compiler.ResolveRenderer(targetFlag)
-		if err != nil {
-			return fmt.Errorf("unknown target for security check: %w", err)
-		}
-		errors, warnings := securityFieldReport(config, secRenderer)
-
-		for _, w := range warnings {
-			fmt.Printf("[WARNING] %s\n", w)
-		}
-		for _, e := range errors {
-			fmt.Printf("[ERROR]   %s\n", e)
-		}
-
-		if len(errors) == 0 && len(warnings) == 0 {
-			fmt.Printf("[INFO]    %s: all security fields are supported\n", targetFlag)
-		}
-
-		if len(errors) > 0 {
-			return fmt.Errorf("check-permissions: %d error(s) found", len(errors))
-		}
-		return nil
 	}
 
 	if globalFlag {
@@ -581,72 +497,6 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 
 	fmt.Printf("[%s] Backing up %s -> %s\n", scopeName, outputDir, destDir)
 	return copyDir(outputDir, destDir)
-}
-
-// securityFieldReport returns [ERROR] and [WARNING] findings for the given
-// renderer by inspecting which security fields in the config would be dropped.
-// It is read-only and never modifies any files.
-func securityFieldReport(config *ast.XcaffoldConfig, r renderer.TargetRenderer) (errorsOut, warnings []string) {
-	caps := r.Capabilities()
-	sf := caps.SecurityFields
-	target := r.Target()
-
-	// Get the active settings (first available key after blueprint filtering).
-	var es ast.SettingsConfig
-	for _, s := range config.Settings {
-		es = s
-		break
-	}
-
-	// If all security fields are supported, no findings.
-	if sf.Permissions && sf.Sandbox && sf.PermissionMode && sf.DisallowedTools && sf.Isolation && sf.Effort {
-		return nil, nil
-	}
-
-	if !sf.Permissions && es.Permissions != nil {
-		warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", target))
-	}
-	if !sf.Sandbox && es.Sandbox != nil {
-		warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", target))
-	}
-
-	agentIDs := make([]string, 0, len(config.Agents))
-	for id := range config.Agents {
-		agentIDs = append(agentIDs, id)
-	}
-	sort.Strings(agentIDs)
-
-	for _, id := range agentIDs {
-		agent := config.Agents[id]
-		if !sf.Effort && agent.Effort != "" {
-			warnings = append(warnings, fmt.Sprintf("%s: agent %q effort %q will be dropped", target, id, agent.Effort))
-		}
-		if !sf.PermissionMode && agent.PermissionMode != "" {
-			warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", target, id, agent.PermissionMode))
-		}
-		if !sf.DisallowedTools && len(agent.DisallowedTools) > 0 {
-			warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowed-tools will be dropped — tool restrictions will NOT be enforced", target, id))
-		}
-		if !sf.Isolation && agent.Isolation != "" {
-			warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", target, id, agent.Isolation))
-		}
-	}
-
-	// Agent vs deny conflicts
-	if es.Permissions != nil {
-		for _, id := range agentIDs {
-			agent := config.Agents[id]
-			for _, tool := range agent.Tools {
-				for _, denyRule := range es.Permissions.Deny {
-					if denyRule == tool {
-						errorsOut = append(errorsOut, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, id))
-					}
-				}
-			}
-		}
-	}
-
-	return errorsOut, warnings
 }
 
 func copyDir(src, dst string) error {
