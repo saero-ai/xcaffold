@@ -20,7 +20,6 @@ import (
 var yesFlag bool
 
 var targetsFlag []string
-var noPoliciesFlag bool
 var jsonManifestFlag bool
 
 var initCmd = &cobra.Command{
@@ -45,7 +44,6 @@ Ready to get started? Run:
 func init() {
 	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Accept all defaults non-interactively (CI/CD mode)")
 	initCmd.Flags().StringSliceVar(&targetsFlag, "target", nil, "Compilation target(s): claude, cursor, gemini, copilot, antigravity")
-	initCmd.Flags().BoolVar(&noPoliciesFlag, "no-policies", false, "Skip generation of starter policies")
 	initCmd.Flags().BoolVar(&jsonManifestFlag, "json", false, "Output machine-readable JSON manifest instead of interactive logs")
 	rootCmd.AddCommand(initCmd)
 }
@@ -60,6 +58,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 
 	fmt.Println(formatHeader(projectName, "", false, "", ""))
 	fmt.Println()
+	fmt.Println("  Scaffolding your xcaffold authoring toolkit.")
 
 	if globalFlag {
 		return initGlobal()
@@ -332,14 +331,10 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		}
 		files = append(files,
 			"xcf/skills/xcaffold/xcaffold.xcf",
+			"xcf/skills/xcaffold/references/operating-guide.md",
+			"xcf/skills/xcaffold/references/authoring-guide.md",
 			"xcf/rules/xcf-conventions/xcf-conventions.xcf",
 		)
-		if !noPoliciesFlag {
-			files = append(files,
-				"xcf/policies/require-agent-description.xcf",
-				"xcf/policies/require-agent-instructions.xcf",
-			)
-		}
 		files = append(files, "xcf/settings.xcf")
 		for _, ref := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "memory"} {
 			files = append(files, fmt.Sprintf(".xcaffold/schemas/%s.xcf.reference", ref))
@@ -359,16 +354,12 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		colorGreen(glyphOK()), dim(fmt.Sprintf("base + %d %s", len(ans.targets), plural(len(ans.targets), "override", "overrides"))))
 	fmt.Printf("  %s xcf/skills/xcaffold/\n", colorGreen(glyphOK()))
 	fmt.Printf("  %s xcf/rules/xcf-conventions/\n", colorGreen(glyphOK()))
-	if !noPoliciesFlag {
-		fmt.Printf("  %s xcf/policies/                         %s\n",
-			colorGreen(glyphOK()), dim("2 policies"))
-	}
 	fmt.Printf("  %s xcf/settings.xcf\n", colorGreen(glyphOK()))
 	fmt.Printf("  %s .xcaffold/schemas/                    %s\n",
 		colorGreen(glyphOK()), dim("8 references"))
 	fmt.Println()
 	fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
-	fmt.Printf("  Xaff will teach your AI assistant how to use xcaffold.\n")
+	fmt.Printf("  Xaff is your xcaffold authoring agent.\n")
 
 	return nil
 }
@@ -443,6 +434,9 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 		}
 		if len(selected) > 0 {
 			ans.targets = selected
+		} else {
+			err = fmt.Errorf("no target platforms selected — at least one is required")
+			return
 		}
 	}
 	return
@@ -454,9 +448,6 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		filepath.Join(baseDir, "xcf", "agents", "xaff"),
 		filepath.Join(baseDir, "xcf", "skills", "xcaffold"),
 		filepath.Join(baseDir, "xcf", "rules", "xcf-conventions"),
-	}
-	if !noPoliciesFlag {
-		dirs = append(dirs, filepath.Join(baseDir, "xcf", "policies"))
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0o755); err != nil {
@@ -497,6 +488,18 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		return err
 	}
 
+	// xcf/skills/xcaffold/references/ (operating guide and authoring guide)
+	refsDir := filepath.Join(baseDir, "xcf", "skills", "xcaffold", "references")
+	if err := os.MkdirAll(refsDir, 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(refsDir, "operating-guide.md"), []byte(templates.RenderOperatingGuide()), 0o600); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(refsDir, "authoring-guide.md"), []byte(templates.RenderAuthoringGuide()), 0o600); err != nil {
+		return err
+	}
+
 	// xcf/rules/xcf-conventions/xcf-conventions.xcf
 	ruleContent := templates.RenderXcfConventionsRuleXCF(ans.targets)
 	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "rules", "xcf-conventions", "xcf-conventions.xcf"), []byte(ruleContent), 0o600); err != nil {
@@ -507,14 +510,6 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 	settingsContent := templates.RenderSettingsXCF(ans.targets)
 	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "settings.xcf"), []byte(settingsContent), 0o600); err != nil {
 		return err
-	}
-
-	// xcf/policies/
-	if !noPoliciesFlag {
-		descPolicy := templates.RenderPolicyDescriptionXCF()
-		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-description.xcf"), []byte(descPolicy), 0o600)
-		instrPolicy := templates.RenderPolicyInstructionsXCF()
-		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-instructions.xcf"), []byte(instrPolicy), 0o600)
 	}
 
 	return nil
@@ -548,32 +543,9 @@ func writeReferenceTemplates(baseDir string) error {
 }
 
 // initGlobal reports that global scope is not yet available.
-// The implementation is preserved as initGlobalImpl for future enablement.
 func initGlobal() error {
 	fmt.Printf("\n  %s Global scope is not available yet.\n", glyphErr())
 	fmt.Printf("\n%s Run 'xcaffold init' to initialize a project-level scaffold.\n", glyphArrow())
-	return nil
-}
-
-// initGlobalImpl contains the original global init logic, preserved for future use.
-func initGlobalImpl() error {
-	home, err := registry.GlobalHome()
-	if err != nil {
-		return err
-	}
-	target := filepath.Join(home, "global.xcf")
-
-	if err := registry.RebuildGlobalXCF(); err != nil {
-		return fmt.Errorf("failed to rebuild global.xcf: %w", err)
-	}
-
-	if _, err := os.Stat(target); err == nil {
-		fmt.Printf("%s %s rebuilt from global platform directories.\n", colorGreen(glyphOK()), target)
-	} else {
-		fmt.Printf("%s %s created.\n", colorGreen(glyphOK()), target)
-	}
-	fmt.Println("  Edit it to define your global agents, then run 'xcaffold apply --global'.")
-	fmt.Printf("  Output: ~/.claude/ | ~/.cursor/ | ~/.agents/ (depending on --target)\n")
 	return nil
 }
 
@@ -631,6 +603,18 @@ func injectXaffToolkitAfterImport(baseDir string) error {
 	}
 	skillContent := templates.RenderXcaffoldSkillXCF(targets)
 	if err := os.WriteFile(filepath.Join(skillDir, "xcaffold.xcf"), []byte(skillContent), 0o600); err != nil {
+		return err
+	}
+
+	// Write skill reference files (operating guide and authoring guide)
+	refsDir := filepath.Join(skillDir, "references")
+	if err := os.MkdirAll(refsDir, 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(refsDir, "operating-guide.md"), []byte(templates.RenderOperatingGuide()), 0o600); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(refsDir, "authoring-guide.md"), []byte(templates.RenderAuthoringGuide()), 0o600); err != nil {
 		return err
 	}
 
