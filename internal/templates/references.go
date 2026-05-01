@@ -5,13 +5,13 @@ package templates
 //
 // The generated content is written to .xcaffold/schemas/agent.xcf.reference
 // and is NOT parsed by xcaffold. Users copy fields from this file into their
-// project.xcf as needed.
+// xcf/agents/<name>/agent.xcf as needed.
 func RenderAgentReference() string {
 	return `# ============================================================
 # Agent Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
-# Copy fields from here into your project.xcf as needed.
+# Copy fields from here into your xcf/agents/<name>/agent.xcf
 # Field definitions follow the xcaffold schema specification.
 # ============================================================
 

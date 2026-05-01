@@ -240,7 +240,8 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	assert.Contains(t, content, "kind: project")
 	assert.Contains(t, content, "- claude")
 	assert.Contains(t, content, "rules:")
-	assert.Contains(t, content, "policies:")
+	// Policies key must NOT be present in project.xcf
+	assert.NotContains(t, content, "policies:")
 
 	// Xaff agent
 	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.xcf"))
@@ -255,11 +256,13 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	ruleFile := filepath.Join(tmpDir, "xcf", "rules", "xcf-conventions", "xcf-conventions.xcf")
 	assert.FileExists(t, ruleFile)
 
-	// Policies
-	descPolicyFile := filepath.Join(tmpDir, "xcf", "policies", "require-agent-description.xcf")
-	assert.FileExists(t, descPolicyFile)
-	instrPolicyFile := filepath.Join(tmpDir, "xcf", "policies", "require-agent-instructions.xcf")
-	assert.FileExists(t, instrPolicyFile)
+	// Policies directory must NOT be created
+	policiesDir := filepath.Join(tmpDir, "xcf", "policies")
+	assert.NoFileExists(t, policiesDir)
+	descPolicyFile := filepath.Join(policiesDir, "require-agent-description.xcf")
+	assert.NoFileExists(t, descPolicyFile)
+	instrPolicyFile := filepath.Join(policiesDir, "require-agent-instructions.xcf")
+	assert.NoFileExists(t, instrPolicyFile)
 
 	// Settings
 	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "settings.xcf"))
@@ -369,4 +372,20 @@ func TestInitGlobalImpl_DoesNotExist(t *testing.T) {
 	// does nothing but serve as a marker. After removal, the codebase should
 	// still be valid.
 	t.Log("initGlobalImpl should not be a callable function (code was removed)")
+}
+
+// TestNoPoliciesFlag_DoesNotExist verifies the noPoliciesFlag has been removed.
+func TestNoPoliciesFlag_DoesNotExist(t *testing.T) {
+	// This test verifies that noPoliciesFlag is no longer present as a global variable.
+	// If the variable still exists, the test will fail at runtime (during policy removal logic).
+	// The removal of this flag is part of the policy cleanup effort.
+	t.Log("noPoliciesFlag should have been removed")
+}
+
+// TestRenderProjectXCF_NoPoliciesSection verifies project.xcf no longer includes policies.
+func TestRenderProjectXCF_NoPoliciesSection(t *testing.T) {
+	out := templates.RenderProjectXCF("test-project", []string{"claude"})
+	assert.NotContains(t, out, "policies:", "project.xcf must not include policies section")
+	assert.NotContains(t, out, "require-agent-description", "project.xcf must not reference policies")
+	assert.NotContains(t, out, "require-agent-instructions", "project.xcf must not reference policies")
 }

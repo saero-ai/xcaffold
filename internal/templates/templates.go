@@ -25,9 +25,6 @@ func RenderProjectXCF(projectName string, targets []string) string {
 	sb.WriteString("  - xcaffold\n")
 	sb.WriteString("rules:\n")
 	sb.WriteString("  - xcf-conventions\n")
-	sb.WriteString("policies:\n")
-	sb.WriteString("  - require-agent-description\n")
-	sb.WriteString("  - require-agent-instructions\n")
 
 	return sb.String()
 }

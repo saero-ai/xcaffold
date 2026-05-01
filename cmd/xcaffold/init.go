@@ -20,7 +20,6 @@ import (
 var yesFlag bool
 
 var targetsFlag []string
-var noPoliciesFlag bool
 var jsonManifestFlag bool
 
 var initCmd = &cobra.Command{
@@ -45,7 +44,6 @@ Ready to get started? Run:
 func init() {
 	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Accept all defaults non-interactively (CI/CD mode)")
 	initCmd.Flags().StringSliceVar(&targetsFlag, "target", nil, "Compilation target(s): claude, cursor, gemini, copilot, antigravity")
-	initCmd.Flags().BoolVar(&noPoliciesFlag, "no-policies", false, "Skip generation of starter policies")
 	initCmd.Flags().BoolVar(&jsonManifestFlag, "json", false, "Output machine-readable JSON manifest instead of interactive logs")
 	rootCmd.AddCommand(initCmd)
 }
@@ -335,12 +333,6 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 			"xcf/skills/xcaffold/xcaffold.xcf",
 			"xcf/rules/xcf-conventions/xcf-conventions.xcf",
 		)
-		if !noPoliciesFlag {
-			files = append(files,
-				"xcf/policies/require-agent-description.xcf",
-				"xcf/policies/require-agent-instructions.xcf",
-			)
-		}
 		files = append(files, "xcf/settings.xcf")
 		for _, ref := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "memory"} {
 			files = append(files, fmt.Sprintf(".xcaffold/schemas/%s.xcf.reference", ref))
@@ -360,10 +352,6 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		colorGreen(glyphOK()), dim(fmt.Sprintf("base + %d %s", len(ans.targets), plural(len(ans.targets), "override", "overrides"))))
 	fmt.Printf("  %s xcf/skills/xcaffold/\n", colorGreen(glyphOK()))
 	fmt.Printf("  %s xcf/rules/xcf-conventions/\n", colorGreen(glyphOK()))
-	if !noPoliciesFlag {
-		fmt.Printf("  %s xcf/policies/                         %s\n",
-			colorGreen(glyphOK()), dim("2 policies"))
-	}
 	fmt.Printf("  %s xcf/settings.xcf\n", colorGreen(glyphOK()))
 	fmt.Printf("  %s .xcaffold/schemas/                    %s\n",
 		colorGreen(glyphOK()), dim("8 references"))
@@ -459,9 +447,6 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		filepath.Join(baseDir, "xcf", "skills", "xcaffold"),
 		filepath.Join(baseDir, "xcf", "rules", "xcf-conventions"),
 	}
-	if !noPoliciesFlag {
-		dirs = append(dirs, filepath.Join(baseDir, "xcf", "policies"))
-	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", d, err)
@@ -511,14 +496,6 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 	settingsContent := templates.RenderSettingsXCF(ans.targets)
 	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "settings.xcf"), []byte(settingsContent), 0o600); err != nil {
 		return err
-	}
-
-	// xcf/policies/
-	if !noPoliciesFlag {
-		descPolicy := templates.RenderPolicyDescriptionXCF()
-		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-description.xcf"), []byte(descPolicy), 0o600)
-		instrPolicy := templates.RenderPolicyInstructionsXCF()
-		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-instructions.xcf"), []byte(instrPolicy), 0o600)
 	}
 
 	return nil
