@@ -240,3 +240,24 @@ func TestInferKindAndName_FlatContextFile(t *testing.T) {
 	assert.Equal(t, "context", kind)
 	assert.Equal(t, "main", name, "expected .xcf extension to be stripped from filename")
 }
+
+// TestParse_NameMismatch_WarningCollected verifies that when a resource's declared name
+// differs from the filesystem-inferred name, the warning is collected in ParseWarnings
+// rather than printed directly to stderr.
+func TestParse_NameMismatch_WarningCollected(t *testing.T) {
+	dir := t.TempDir()
+	xcfDir := filepath.Join(dir, "xcf", "agents", "developer")
+	require.NoError(t, os.MkdirAll(xcfDir, 0755))
+
+	// Agent at xcf/agents/developer/ but declares name: reviewer (mismatch)
+	content := "---\nkind: agent\nversion: \"1.0\"\nname: reviewer\nmodel: sonnet\n---\nYou are a reviewer.\n"
+	filePath := filepath.Join(xcfDir, "agent.xcf")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err, "name mismatch must not cause a parse error")
+
+	require.Len(t, cfg.ParseWarnings, 1, "expected exactly one warning collected in ParseWarnings")
+	assert.Contains(t, cfg.ParseWarnings[0], "reviewer", "warning must include declared name")
+	assert.Contains(t, cfg.ParseWarnings[0], "developer", "warning must include inferred name")
+}
