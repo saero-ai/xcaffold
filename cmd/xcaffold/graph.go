@@ -100,8 +100,6 @@ type graphData struct {
 }
 
 func runGraph(cmd *cobra.Command, args []string) error {
-	var scopes []*graphData
-
 	// Mutual exclusion checks
 	if graphBlueprintFlag != "" && globalFlag {
 		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
@@ -112,6 +110,13 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	if graphAll && graphProject != "" {
 		return fmt.Errorf("--all and --project are mutually exclusive")
 	}
+
+	// Terminal mode handles its own parsing to avoid duplicate warnings.
+	if strings.ToLower(graphFormat) == "terminal" || graphFormat == "" {
+		return runGraphTerminalMode()
+	}
+
+	var scopes []*graphData
 
 	if graphAll {
 		// Global topology
@@ -180,8 +185,6 @@ func runGraph(cmd *cobra.Command, args []string) error {
 //nolint:gocyclo
 func printGraphOutput(scopes []*graphData) error {
 	switch strings.ToLower(graphFormat) {
-	case "terminal", "":
-		return runGraphTerminalMode()
 	case "mermaid":
 		for _, g := range scopes {
 			fmt.Print(renderMermaid(g))

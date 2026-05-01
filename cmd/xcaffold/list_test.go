@@ -110,12 +110,12 @@ func TestList_RuleGrouping_RootOnly(t *testing.T) {
 	assert.Contains(t, out, "root-rule-2")
 }
 
-func TestList_ColumnLayout_ThreePerRow(t *testing.T) {
-	// Tests column rendering visually
+func TestList_SingleColumn_EachNameOnOwnLine(t *testing.T) {
+	// Tests single-column rendering where each name is on its own line
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"a1": {}, "a2": {}, "a3": {}, "a4": {}, "a5": {}, "a6": {}, "a7": {},
+				"agent-1": {}, "agent-2": {}, "agent-3": {},
 			},
 		},
 	}
@@ -126,7 +126,99 @@ func TestList_ColumnLayout_ThreePerRow(t *testing.T) {
 		return nil
 	})
 
-	assert.Contains(t, out, "AGENTS  (7)")
+	assert.Contains(t, out, "AGENTS  (3)")
+	// Verify each agent is on its own line with indent
+	assert.Contains(t, out, "  agent-1")
+	assert.Contains(t, out, "  agent-2")
+	assert.Contains(t, out, "  agent-3")
+}
+
+func TestList_Header_OmitsZeroCounts(t *testing.T) {
+	// Config with only agents, no skills/rules/mcp/etc
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-1": {},
+			},
+		},
+	}
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	// Should contain agent count but no mention of zero skills/rules/mcp
+	assert.Contains(t, out, "1 agents")
+	assert.NotContains(t, out, "0 skills")
+	assert.NotContains(t, out, "0 rules")
+	assert.NotContains(t, out, "0 mcp")
+}
+
+func TestList_KindFilter_Agent(t *testing.T) {
+	// Config with multiple kinds
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-1": {},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"skill-1": {},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"rule-1": {},
+			},
+		},
+	}
+
+	// Set filter to agents only
+	listFilterAgent = "agent-1"
+	defer func() { listFilterAgent = "" }()
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	// Should only show AGENTS section
+	assert.Contains(t, out, "AGENTS  (1)")
+	assert.Contains(t, out, "agent-1")
+	assert.NotContains(t, out, "SKILLS")
+	assert.NotContains(t, out, "RULES")
+}
+
+func TestList_AddedSections_Contexts_Hooks_Settings(t *testing.T) {
+	// Config with new resource types
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-1": {},
+			},
+			Contexts: map[string]ast.ContextConfig{
+				"context-1": {},
+			},
+		},
+		Hooks: map[string]ast.NamedHookConfig{
+			"hook-1": {},
+		},
+		Settings: map[string]ast.SettingsConfig{
+			"setting-1": {},
+		},
+	}
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	// Should show new sections
+	assert.Contains(t, out, "AGENTS  (1)")
+	assert.Contains(t, out, "CONTEXTS  (1)")
+	assert.Contains(t, out, "HOOKS  (1)")
+	assert.Contains(t, out, "SETTINGS  (1)")
 }
 
 func TestList_VerboseMemory_ShowsEntries(t *testing.T) {

@@ -14,5 +14,41 @@ func deepCopyConfig(config *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	if err := yaml.Unmarshal(data, &cp); err != nil {
 		return config
 	}
+	restoreBodyFields(config, &cp)
 	return &cp
+}
+
+// restoreBodyFields copies Body fields that are lost during YAML
+// round-trip because they are tagged yaml:"-".
+func restoreBodyFields(src, dst *ast.XcaffoldConfig) {
+	for k, s := range src.Agents {
+		if d, ok := dst.Agents[k]; ok {
+			d.Body = s.Body
+			dst.Agents[k] = d
+		}
+	}
+	for k, s := range src.Skills {
+		if d, ok := dst.Skills[k]; ok {
+			d.Body = s.Body
+			dst.Skills[k] = d
+		}
+	}
+	for k, s := range src.Rules {
+		if d, ok := dst.Rules[k]; ok {
+			d.Body = s.Body
+			dst.Rules[k] = d
+		}
+	}
+	for k, s := range src.Workflows {
+		if d, ok := dst.Workflows[k]; ok {
+			d.Body = s.Body
+			dst.Workflows[k] = d
+		}
+	}
+	for k, s := range src.Contexts {
+		if d, ok := dst.Contexts[k]; ok {
+			d.Body = s.Body
+			dst.Contexts[k] = d
+		}
+	}
 }
