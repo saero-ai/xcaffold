@@ -47,18 +47,17 @@ func runGraphProject() error {
 
 	sep := "  " + glyphDot() + "  "
 	parts := []string{projectName}
-	if len(cfg.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents", len(cfg.Agents)))
+	if n := len(cfg.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "agent", "agents")))
 	}
-	if len(cfg.Skills) > 0 {
-		parts = append(parts, fmt.Sprintf("%d skills", len(cfg.Skills)))
+	if n := len(cfg.Skills); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "skill", "skills")))
 	}
-	if len(cfg.Rules) > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", len(cfg.Rules)))
+	if n := len(cfg.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
-	if len(cfg.MCP) > 0 {
-		label := plural(len(cfg.MCP), "mcp server", "mcp servers")
-		parts = append(parts, fmt.Sprintf("%d %s", len(cfg.MCP), label))
+	if n := len(cfg.MCP); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "mcp server", "mcp servers")))
 	}
 	fmt.Printf("%s\n", strings.Join(parts, sep))
 
@@ -80,18 +79,17 @@ func runGraphGlobal() error {
 
 	sep := "  " + glyphDot() + "  "
 	parts := []string{"global"}
-	if len(cfg.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents", len(cfg.Agents)))
+	if n := len(cfg.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "agent", "agents")))
 	}
-	if len(cfg.Skills) > 0 {
-		parts = append(parts, fmt.Sprintf("%d skills", len(cfg.Skills)))
+	if n := len(cfg.Skills); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "skill", "skills")))
 	}
-	if len(cfg.Rules) > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", len(cfg.Rules)))
+	if n := len(cfg.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
-	if len(cfg.MCP) > 0 {
-		label := plural(len(cfg.MCP), "mcp server", "mcp servers")
-		parts = append(parts, fmt.Sprintf("%d %s", len(cfg.MCP), label))
+	if n := len(cfg.MCP); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "mcp server", "mcp servers")))
 	}
 	fmt.Printf("%s\n", strings.Join(parts, sep))
 
@@ -128,14 +126,14 @@ func runGraphFull() error {
 
 	sep := "  " + glyphDot() + "  "
 	parts := []string{projectName}
-	if len(globalCfg.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents (global)", len(globalCfg.Agents)))
+	if n := len(globalCfg.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s (global)", n, plural(n, "agent", "agents")))
 	}
-	if len(projectCfg.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents (project)", len(projectCfg.Agents)))
+	if n := len(projectCfg.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s (project)", n, plural(n, "agent", "agents")))
 	}
-	if len(projectCfg.Rules) > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", len(projectCfg.Rules)))
+	if n := len(projectCfg.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
 	if len(projectCfg.MCP) > 0 {
 		label := plural(len(projectCfg.MCP), "mcp server", "mcp servers")
@@ -169,14 +167,14 @@ func runGraphBlueprint(bpName string) error {
 
 	sep := "  " + glyphDot() + "  "
 	parts := []string{fmt.Sprintf("blueprint: %s", bpName)}
-	if len(filtered.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents", len(filtered.Agents)))
+	if n := len(filtered.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "agent", "agents")))
 	}
-	if len(filtered.Skills) > 0 {
-		parts = append(parts, fmt.Sprintf("%d skills", len(filtered.Skills)))
+	if n := len(filtered.Skills); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "skill", "skills")))
 	}
-	if len(filtered.Rules) > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", len(filtered.Rules)))
+	if n := len(filtered.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
 	fmt.Printf("%s\n", strings.Join(parts, sep))
 

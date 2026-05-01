@@ -279,7 +279,7 @@ func TestGraph_Header_OmitsZeroMCP(t *testing.T) {
 	g := buildGraph(cfg)
 	header := renderTerminalHeader(g)
 	assert.NotContains(t, header, "mcp", "zero MCP should be omitted from header")
-	assert.Contains(t, header, "1 agents")
+	assert.Contains(t, header, "1 agent")
 }
 
 func TestGraph_Header_PluralizeMCP(t *testing.T) {
