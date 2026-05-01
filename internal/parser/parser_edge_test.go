@@ -532,3 +532,25 @@ agents:
 	require.Error(t, err, "parseDirectoryRaw without global scope must reject absolute instructions-file")
 	assert.Contains(t, err.Error(), "relative path")
 }
+
+// TestParseFile_CommentBeforeFrontmatter_HelpfulError verifies that a .xcf file
+// with content (like a comment) before the opening --- delimiter produces a
+// helpful error message instead of an opaque YAML unmarshal error.
+func TestParseFile_CommentBeforeFrontmatter_HelpfulError(t *testing.T) {
+	dir := t.TempDir()
+	xcfDir := filepath.Join(dir, "xcf", "agents", "test")
+	require.NoError(t, os.MkdirAll(xcfDir, 0o755))
+
+	content := "# This is a comment\n---\nkind: agent\nversion: \"1.0\"\nname: test\ndescription: \"Test\"\ntools: [Read]\n---\nYou are a test agent.\n"
+	require.NoError(t, os.WriteFile(filepath.Join(xcfDir, "agent.xcf"), []byte(content), 0o600))
+
+	projectDir := filepath.Join(dir, ".xcaffold")
+	require.NoError(t, os.MkdirAll(projectDir, 0o755))
+	projectContent := "kind: project\nversion: \"1.0\"\nname: test\ntargets:\n  - claude\nagents:\n  - test\n"
+	require.NoError(t, os.WriteFile(filepath.Join(projectDir, "project.xcf"), []byte(projectContent), 0o600))
+
+	_, err := ParseDirectory(dir)
+	require.Error(t, err)
+	errMsg := err.Error()
+	assert.Contains(t, errMsg, "content before the opening '---' delimiter", "error must explain the actual problem")
+}

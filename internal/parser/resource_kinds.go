@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"gopkg.in/yaml.v3"
@@ -173,7 +174,7 @@ func parseBlueprintDocument(node *yaml.Node, config *ast.XcaffoldConfig) error {
 	dec := yaml.NewDecoder(bytes.NewReader(b))
 	dec.KnownFields(true)
 	if err := dec.Decode(&doc); err != nil {
-		return fmt.Errorf("invalid blueprint document: %w", err)
+		return wrapDecodeError("blueprint", err)
 	}
 	if err := validateEnvelope(doc.Version, doc.Name, "blueprint"); err != nil {
 		return err
@@ -281,6 +282,18 @@ func validateEnvelope(version, name, kind string) error {
 	return nil
 }
 
+// wrapDecodeError improves YAML decoding errors with context about
+// malformed frontmatter. If the error indicates a string was found where
+// YAML structure was expected, it suggests the user may have content
+// before the opening --- delimiter.
+func wrapDecodeError(kind string, err error) error {
+	if strings.Contains(err.Error(), "cannot unmarshal !!str") {
+		return fmt.Errorf("invalid %s document: file contains text where YAML was expected — "+
+			"check that the file starts with '---' and body text appears after the closing '---': %w", kind, err)
+	}
+	return fmt.Errorf("invalid %s document: %w", kind, err)
+}
+
 // parseResourceDocument decodes a yaml.Node into a kind-specific wrapper
 // struct with KnownFields validation, validates envelope fields (name and
 // version required), and inserts the resource into the appropriate
@@ -306,7 +319,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid agent document: %w", err)
+			return wrapDecodeError("agent", err)
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
@@ -342,7 +355,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid skill document: %w", err)
+			return wrapDecodeError("skill", err)
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
@@ -378,7 +391,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid rule document: %w", err)
+			return wrapDecodeError("rule", err)
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
@@ -414,7 +427,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid workflow document: %w", err)
+			return wrapDecodeError("workflow", err)
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
@@ -450,7 +463,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid mcp document: %w", err)
+			return wrapDecodeError("mcp", err)
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
@@ -486,7 +499,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid context document: %w", err)
+			return wrapDecodeError("context", err)
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
@@ -522,7 +535,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid memory document: %w", err)
+			return wrapDecodeError("memory", err)
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
@@ -558,7 +571,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid project document: %w", err)
+			return wrapDecodeError("project", err)
 		}
 		if err := validateEnvelope(doc.Version, doc.Name, kind); err != nil {
 			return err
@@ -591,7 +604,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid hooks document: %w", err)
+			return wrapDecodeError("hooks", err)
 		}
 		if err := validateEnvelope(doc.Version, "", kind); err != nil {
 			return err
@@ -620,7 +633,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid settings document: %w", err)
+			return wrapDecodeError("settings", err)
 		}
 		if err := validateEnvelope(doc.Version, "", kind); err != nil {
 			return err
@@ -640,7 +653,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid global document: %w", err)
+			return wrapDecodeError("global", err)
 		}
 		if err := validateEnvelope(doc.Version, "", kind); err != nil {
 			return err
@@ -720,7 +733,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		dec := yaml.NewDecoder(bytes.NewReader(b))
 		dec.KnownFields(true)
 		if err := dec.Decode(&doc); err != nil {
-			return fmt.Errorf("invalid policy document: %w", err)
+			return wrapDecodeError("policy", err)
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false

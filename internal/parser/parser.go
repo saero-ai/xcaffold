@@ -428,6 +428,30 @@ func isRuleDocument(doc []byte) bool {
 func extractFrontmatterAndBody(data []byte) (frontmatter []byte, body []byte, err error) {
 	const delim = "---\n"
 	if !bytes.HasPrefix(data, []byte(delim)) {
+		// Detect frontmatter file with preamble content before ---
+		// Only trigger if:
+		// 1. There's a --- delimiter somewhere in the file
+		// 2. The preamble (text before ---) is NOT valid YAML
+		// 3. The content after --- IS valid YAML
+		// This avoids false positives on multi-document YAML (kind: global ... --- kind: agent ...)
+		if idx := bytes.Index(data, []byte(delim)); idx > 0 {
+			preamble := data[:idx]
+			rest := data[idx+len(delim):]
+			if !looksLikeYAMLDocument(preamble) && looksLikeYAMLDocument(rest) {
+				preambleStr := strings.TrimSpace(string(preamble))
+				firstLine := preambleStr
+				if nl := strings.IndexByte(preambleStr, '\n'); nl > 0 {
+					firstLine = preambleStr[:nl]
+				}
+				if len(firstLine) > 60 {
+					firstLine = firstLine[:57] + "..."
+				}
+				return nil, nil, fmt.Errorf(
+					"content before the opening '---' delimiter is not allowed in .xcf files (found: %q). "+
+						"Remove any text or comments before the first '---' line",
+					firstLine)
+			}
+		}
 		// Pure YAML mode — no frontmatter/body split.
 		return data, nil, nil
 	}
