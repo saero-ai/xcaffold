@@ -11,4 +11,4 @@ Advanced commands bridging Xcaffold compiler structures with external validation
 | --- | --- |
 | [\`export\`](/docs/cli/reference/commands/utility/export) | *(Preview)* Repackage natively compiled artifacts into portable standard distributions. |
 | [\`test\`](/docs/cli/reference/commands/utility/test) | *(Preview)* Simulate active agent pipelines routing zero-shot requests to provider APIs. |
-| [\`validate\`](/docs/cli/reference/commands/utility/validate) | Execute syntax, dependency, and structural schema validations avoiding system drift checks. |
+| [\`validate\`](/docs/cli/reference/commands/utility/validate) | Check .xcf syntax, cross-references, structural invariants, and policy compliance. |
