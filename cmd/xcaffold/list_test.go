@@ -9,6 +9,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func captureListStdout(f func() error) (string, error) {
@@ -150,7 +151,7 @@ func TestList_Header_OmitsZeroCounts(t *testing.T) {
 	})
 
 	// Should contain agent count but no mention of zero skills/rules/mcp
-	assert.Contains(t, out, "1 agents")
+	assert.Contains(t, out, "1 agent")
 	assert.NotContains(t, out, "0 skills")
 	assert.NotContains(t, out, "0 rules")
 	assert.NotContains(t, out, "0 mcp")
@@ -278,4 +279,64 @@ func TestList_Blueprint_FilteredOutput(t *testing.T) {
 	assert.Contains(t, out, "BLUEPRINT: backend")
 	assert.Contains(t, out, "AGENTS  (1)")
 	assert.Contains(t, out, "nestjs")
+}
+
+func TestList_ArgsValidator_RejectsPositionalArgs(t *testing.T) {
+	err := listCmd.Args(listCmd, []string{"dev"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected argument")
+	assert.Contains(t, err.Error(), "--flag=dev")
+}
+
+func TestList_ArgsValidator_AcceptsNoArgs(t *testing.T) {
+	err := listCmd.Args(listCmd, []string{})
+	assert.NoError(t, err)
+}
+
+func TestList_ZeroMatchFilter_ShowsMessage(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-1": {},
+			},
+		},
+	}
+
+	listFilterAgent = "nonexistent"
+	defer func() { listFilterAgent = "" }()
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	assert.Contains(t, out, `No agents matching "nonexistent"`)
+	assert.NotContains(t, out, "SKILLS")
+}
+
+func TestList_Header_SingularCounts(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:   map[string]ast.AgentConfig{"a": {}},
+			Contexts: map[string]ast.ContextConfig{"c": {}},
+		},
+		Hooks:    map[string]ast.NamedHookConfig{"h": {}},
+		Settings: map[string]ast.SettingsConfig{"s": {}},
+	}
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	assert.Contains(t, out, "1 agent")
+	assert.NotContains(t, out, "1 agents")
+	assert.Contains(t, out, "1 context")
+	assert.NotContains(t, out, "1 contexts")
+	assert.Contains(t, out, "1 hook")
+	assert.NotContains(t, out, "1 hooks")
+	assert.Contains(t, out, "1 setting")
+	assert.NotContains(t, out, "1 settings")
 }

@@ -493,23 +493,22 @@ func renderTerminalHeader(g *graphData) string {
 
 	var parts []string
 	if agents > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents", agents))
+		parts = append(parts, fmt.Sprintf("%d %s", agents, plural(agents, "agent", "agents")))
 	}
 	if skills > 0 {
-		parts = append(parts, fmt.Sprintf("%d skills", skills))
+		parts = append(parts, fmt.Sprintf("%d %s", skills, plural(skills, "skill", "skills")))
 	}
 	if rules > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", rules))
+		parts = append(parts, fmt.Sprintf("%d %s", rules, plural(rules, "rule", "rules")))
 	}
 	if mcps > 0 {
-		label := plural(mcps, "mcp server", "mcp servers")
-		parts = append(parts, fmt.Sprintf("%d %s", mcps, label))
+		parts = append(parts, fmt.Sprintf("%d %s", mcps, plural(mcps, "mcp server", "mcp servers")))
 	}
 	if policies > 0 {
-		parts = append(parts, fmt.Sprintf("%d policies", policies))
+		parts = append(parts, fmt.Sprintf("%d %s", policies, plural(policies, "policy", "policies")))
 	}
 	if hooks > 0 {
-		parts = append(parts, fmt.Sprintf("%d hooks", hooks))
+		parts = append(parts, fmt.Sprintf("%d %s", hooks, plural(hooks, "hook", "hooks")))
 	}
 
 	sep := "  " + glyphDot() + "  "

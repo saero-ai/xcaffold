@@ -22,8 +22,8 @@ var (
 	listFilterRule     string
 	listFilterWorkflow string
 	listFilterMCP      string
-	listFilterHooks    bool
-	listFilterSettings bool
+	listFilterHook     bool
+	listFilterSetting  bool
 	listFilterContext  string
 )
 
@@ -31,7 +31,13 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List discovered resources and blueprints",
 	Long:  "Scans the current project and displays all discovered resources and blueprints.",
-	RunE:  runList,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return nil
+		}
+		return fmt.Errorf("unexpected argument %q (to filter by name, use --flag=%s syntax)", args[0], args[0])
+	},
+	RunE: runList,
 }
 
 func init() {
@@ -49,8 +55,8 @@ func init() {
 	f.Lookup("workflow").NoOptDefVal = "*"
 	f.StringVar(&listFilterMCP, "mcp", "", "List MCP servers (optionally filter by name)")
 	f.Lookup("mcp").NoOptDefVal = "*"
-	f.BoolVar(&listFilterHooks, "hooks", false, "List hooks")
-	f.BoolVar(&listFilterSettings, "settings", false, "List settings")
+	f.BoolVar(&listFilterHook, "hook", false, "List hooks")
+	f.BoolVar(&listFilterSetting, "setting", false, "List settings")
 	f.StringVar(&listFilterContext, "context", "", "List contexts (optionally filter by name)")
 	f.Lookup("context").NoOptDefVal = "*"
 	_ = listCmd.Flags().MarkHidden("blueprint")
@@ -84,8 +90,8 @@ func runList(cmd *cobra.Command, args []string) error {
 
 func listHasFilter() bool {
 	return listFilterAgent != "" || listFilterSkill != "" || listFilterRule != "" ||
-		listFilterWorkflow != "" || listFilterMCP != "" || listFilterHooks ||
-		listFilterSettings || listFilterContext != ""
+		listFilterWorkflow != "" || listFilterMCP != "" || listFilterHook ||
+		listFilterSetting || listFilterContext != ""
 }
 
 // filterMapByName returns a map with only entries matching the filter string.
@@ -132,29 +138,29 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 	// Build header with only non-zero kind counts
 	sep := "  " + glyphDot() + "  "
 	parts := []string{projectName}
-	if len(config.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents", len(config.Agents)))
+	if n := len(config.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "agent", "agents")))
 	}
-	if len(config.Skills) > 0 {
-		parts = append(parts, fmt.Sprintf("%d skills", len(config.Skills)))
+	if n := len(config.Skills); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "skill", "skills")))
 	}
-	if len(config.Rules) > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", len(config.Rules)))
+	if n := len(config.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
-	if len(config.Workflows) > 0 {
-		parts = append(parts, fmt.Sprintf("%d workflows", len(config.Workflows)))
+	if n := len(config.Workflows); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "workflow", "workflows")))
 	}
-	if len(config.MCP) > 0 {
-		parts = append(parts, fmt.Sprintf("%d mcp", len(config.MCP)))
+	if n := len(config.MCP); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "mcp server", "mcp servers")))
 	}
-	if len(config.Contexts) > 0 {
-		parts = append(parts, fmt.Sprintf("%d contexts", len(config.Contexts)))
+	if n := len(config.Contexts); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "context", "contexts")))
 	}
-	if len(config.Hooks) > 0 {
-		parts = append(parts, fmt.Sprintf("%d hooks", len(config.Hooks)))
+	if n := len(config.Hooks); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "hook", "hooks")))
 	}
-	if len(config.Settings) > 0 {
-		parts = append(parts, fmt.Sprintf("%d settings", len(config.Settings)))
+	if n := len(config.Settings); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "setting", "settings")))
 	}
 	cmd.Printf("%s\n\n", strings.Join(parts, sep))
 
@@ -162,11 +168,11 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 	if listHasFilter() {
 		if listFilterAgent != "" {
 			filtered := filterMapByName(config.Agents, listFilterAgent)
-			printSection(cmd, "AGENTS", filtered)
+			printFilteredSection(cmd, "AGENTS", "agents", listFilterAgent, filtered)
 		}
 		if listFilterSkill != "" {
 			filtered := filterMapByName(config.Skills, listFilterSkill)
-			printSection(cmd, "SKILLS", filtered)
+			printFilteredSection(cmd, "SKILLS", "skills", listFilterSkill, filtered)
 		}
 		if listFilterRule != "" {
 			filtered := filterMapByName(config.Rules, listFilterRule)
@@ -181,24 +187,26 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 					}
 					cmd.Println()
 				}
+			} else if listFilterRule != "*" {
+				cmd.Printf("No rules matching %q\n\n", listFilterRule)
 			}
 		}
 		if listFilterWorkflow != "" {
 			filtered := filterMapByName(config.Workflows, listFilterWorkflow)
-			printSection(cmd, "WORKFLOWS", filtered)
+			printFilteredSection(cmd, "WORKFLOWS", "workflows", listFilterWorkflow, filtered)
 		}
 		if listFilterMCP != "" {
 			filtered := filterMapByName(config.MCP, listFilterMCP)
-			printSection(cmd, "MCP SERVERS", filtered)
+			printFilteredSection(cmd, "MCP SERVERS", "mcp servers", listFilterMCP, filtered)
 		}
 		if listFilterContext != "" {
 			filtered := filterMapByName(config.Contexts, listFilterContext)
-			printSection(cmd, "CONTEXTS", filtered)
+			printFilteredSection(cmd, "CONTEXTS", "contexts", listFilterContext, filtered)
 		}
-		if listFilterHooks {
+		if listFilterHook {
 			printSection(cmd, "HOOKS", config.Hooks)
 		}
-		if listFilterSettings {
+		if listFilterSetting {
 			printSection(cmd, "SETTINGS", config.Settings)
 		}
 		return
@@ -303,6 +311,16 @@ func printSection[T any](cmd *cobra.Command, title string, m map[string]T) {
 		cmd.Printf("  %s\n", name)
 	}
 	cmd.Println()
+}
+
+func printFilteredSection[T any](cmd *cobra.Command, title, kindLabel, filter string, m map[string]T) {
+	if len(m) > 0 {
+		printSection(cmd, title, m)
+		return
+	}
+	if filter != "*" {
+		cmd.Printf("No %s matching %q\n\n", kindLabel, filter)
+	}
 }
 
 func printBlueprintResources(cmd *cobra.Command, config *ast.XcaffoldConfig, bpName string, doResolve bool) error {

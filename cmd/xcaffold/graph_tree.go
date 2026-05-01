@@ -36,6 +36,10 @@ func runGraphProject() error {
 	}
 	cfg.StripInherited()
 
+	if err := filterAgentIfRequested(cfg); err != nil {
+		return err
+	}
+
 	projectName := "project"
 	if cfg.Project != nil {
 		projectName = cfg.Project.Name
@@ -43,18 +47,17 @@ func runGraphProject() error {
 
 	sep := "  " + glyphDot() + "  "
 	parts := []string{projectName}
-	if len(cfg.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents", len(cfg.Agents)))
+	if n := len(cfg.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "agent", "agents")))
 	}
-	if len(cfg.Skills) > 0 {
-		parts = append(parts, fmt.Sprintf("%d skills", len(cfg.Skills)))
+	if n := len(cfg.Skills); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "skill", "skills")))
 	}
-	if len(cfg.Rules) > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", len(cfg.Rules)))
+	if n := len(cfg.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
-	if len(cfg.MCP) > 0 {
-		label := plural(len(cfg.MCP), "mcp server", "mcp servers")
-		parts = append(parts, fmt.Sprintf("%d %s", len(cfg.MCP), label))
+	if n := len(cfg.MCP); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "mcp server", "mcp servers")))
 	}
 	fmt.Printf("%s\n", strings.Join(parts, sep))
 
@@ -70,20 +73,23 @@ func runGraphGlobal() error {
 		return fmt.Errorf("global parse error: %w", err)
 	}
 
+	if err := filterAgentIfRequested(cfg); err != nil {
+		return err
+	}
+
 	sep := "  " + glyphDot() + "  "
 	parts := []string{"global"}
-	if len(cfg.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents", len(cfg.Agents)))
+	if n := len(cfg.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "agent", "agents")))
 	}
-	if len(cfg.Skills) > 0 {
-		parts = append(parts, fmt.Sprintf("%d skills", len(cfg.Skills)))
+	if n := len(cfg.Skills); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "skill", "skills")))
 	}
-	if len(cfg.Rules) > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", len(cfg.Rules)))
+	if n := len(cfg.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
-	if len(cfg.MCP) > 0 {
-		label := plural(len(cfg.MCP), "mcp server", "mcp servers")
-		parts = append(parts, fmt.Sprintf("%d %s", len(cfg.MCP), label))
+	if n := len(cfg.MCP); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "mcp server", "mcp servers")))
 	}
 	fmt.Printf("%s\n", strings.Join(parts, sep))
 
@@ -106,6 +112,13 @@ func runGraphFull() error {
 	}
 	projectCfg.StripInherited()
 
+	if err := filterAgentIfRequested(globalCfg); err != nil {
+		return err
+	}
+	if err := filterAgentIfRequested(projectCfg); err != nil {
+		return err
+	}
+
 	projectName := "project"
 	if projectCfg.Project != nil {
 		projectName = projectCfg.Project.Name
@@ -113,14 +126,14 @@ func runGraphFull() error {
 
 	sep := "  " + glyphDot() + "  "
 	parts := []string{projectName}
-	if len(globalCfg.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents (global)", len(globalCfg.Agents)))
+	if n := len(globalCfg.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s (global)", n, plural(n, "agent", "agents")))
 	}
-	if len(projectCfg.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents (project)", len(projectCfg.Agents)))
+	if n := len(projectCfg.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s (project)", n, plural(n, "agent", "agents")))
 	}
-	if len(projectCfg.Rules) > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", len(projectCfg.Rules)))
+	if n := len(projectCfg.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
 	if len(projectCfg.MCP) > 0 {
 		label := plural(len(projectCfg.MCP), "mcp server", "mcp servers")
@@ -154,14 +167,14 @@ func runGraphBlueprint(bpName string) error {
 
 	sep := "  " + glyphDot() + "  "
 	parts := []string{fmt.Sprintf("blueprint: %s", bpName)}
-	if len(filtered.Agents) > 0 {
-		parts = append(parts, fmt.Sprintf("%d agents", len(filtered.Agents)))
+	if n := len(filtered.Agents); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "agent", "agents")))
 	}
-	if len(filtered.Skills) > 0 {
-		parts = append(parts, fmt.Sprintf("%d skills", len(filtered.Skills)))
+	if n := len(filtered.Skills); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "skill", "skills")))
 	}
-	if len(filtered.Rules) > 0 {
-		parts = append(parts, fmt.Sprintf("%d rules", len(filtered.Rules)))
+	if n := len(filtered.Rules); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
 	fmt.Printf("%s\n", strings.Join(parts, sep))
 
@@ -175,6 +188,9 @@ func runGraphAll() error {
 	globalCfg, _ := parser.ParseDirectory(globalXcfHome)
 	if globalCfg == nil {
 		globalCfg = &ast.XcaffoldConfig{}
+	}
+	if err := filterAgentIfRequested(globalCfg); err != nil {
+		return err
 	}
 
 	fmt.Printf("══════════════════════════════════════════\n  GLOBAL\n══════════════════════════════════════════\n")
@@ -200,12 +216,27 @@ func runGraphAll() error {
 				cfg, err := parser.ParseDirectory(getParseRoot(xcfProjectPath))
 				if err == nil {
 					cfg.StripInherited()
+					_ = filterAgentIfRequested(cfg)
 					fmt.Printf("\n══════════════════════════════════════════\n  PROJECT: %s\n══════════════════════════════════════════\n", p.Name)
 					renderAgentTree(cfg, getParseRoot(xcfProjectPath))
 				}
 			}
 		}
 	}
+	return nil
+}
+
+func filterAgentIfRequested(cfg *ast.XcaffoldConfig) error {
+	if graphAgent == "" {
+		return nil
+	}
+	if _, ok := cfg.Agents[graphAgent]; !ok {
+		if len(cfg.Agents) == 0 {
+			return nil
+		}
+		return fmt.Errorf("agent %q not found; available: %s", graphAgent, strings.Join(sortedAgentIDs(cfg), ", "))
+	}
+	cfg.Agents = map[string]ast.AgentConfig{graphAgent: cfg.Agents[graphAgent]}
 	return nil
 }
 

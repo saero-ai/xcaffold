@@ -878,7 +878,7 @@ func TestImport_TargetFlag_ValidProvider_Accepted(t *testing.T) {
 
 func TestImport_KindFilterFlags_Registered(t *testing.T) {
 	flags := importCmd.Flags()
-	for _, name := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "settings", "memory"} {
+	for _, name := range []string{"agent", "skill", "rule", "workflow", "mcp", "hook", "setting", "memory"} {
 		if flags.Lookup(name) == nil {
 			t.Errorf("--%s flag should be registered", name)
 		}
@@ -985,10 +985,10 @@ func TestApplyKindFilters_NameFilter_Nonexistent_Nils(t *testing.T) {
 
 func TestApplyKindFilters_HooksOnly(t *testing.T) {
 	// Save original filter state
-	originalHooks := importFilterHooks
-	defer func() { importFilterHooks = originalHooks }()
+	originalHooks := importFilterHook
+	defer func() { importFilterHook = originalHooks }()
 
-	importFilterHooks = true
+	importFilterHook = true
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -1010,18 +1010,18 @@ func TestApplyKindFilters_MultipleKinds(t *testing.T) {
 	originalAgent := importFilterAgent
 	originalSkill := importFilterSkill
 	originalRule := importFilterRule
-	originalHooks := importFilterHooks
+	originalHooks := importFilterHook
 	defer func() {
 		importFilterAgent = originalAgent
 		importFilterSkill = originalSkill
 		importFilterRule = originalRule
-		importFilterHooks = originalHooks
+		importFilterHook = originalHooks
 	}()
 
 	importFilterAgent = "*"
 	importFilterSkill = "*"
 	importFilterRule = ""
-	importFilterHooks = true
+	importFilterHook = true
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{

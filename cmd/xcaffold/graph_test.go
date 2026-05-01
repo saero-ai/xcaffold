@@ -279,7 +279,7 @@ func TestGraph_Header_OmitsZeroMCP(t *testing.T) {
 	g := buildGraph(cfg)
 	header := renderTerminalHeader(g)
 	assert.NotContains(t, header, "mcp", "zero MCP should be omitted from header")
-	assert.Contains(t, header, "1 agents")
+	assert.Contains(t, header, "1 agent")
 }
 
 func TestGraph_Header_PluralizeMCP(t *testing.T) {
@@ -302,4 +302,57 @@ func TestGraph_Header_PluralizeMCP(t *testing.T) {
 
 	h2 := renderTerminalHeader(buildGraph(cfgMany))
 	assert.Contains(t, h2, "2 mcp servers")
+}
+
+func TestFilterAgentIfRequested_FiltersToSingleAgent(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-a": {Skills: []string{"s1"}},
+				"agent-b": {},
+			},
+		},
+	}
+
+	graphAgent = "agent-a"
+	defer func() { graphAgent = "" }()
+
+	err := filterAgentIfRequested(cfg)
+	require.NoError(t, err)
+	assert.Len(t, cfg.Agents, 1)
+	assert.Contains(t, cfg.Agents, "agent-a")
+}
+
+func TestFilterAgentIfRequested_ErrorOnNotFound(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-a": {},
+			},
+		},
+	}
+
+	graphAgent = "nonexistent"
+	defer func() { graphAgent = "" }()
+
+	err := filterAgentIfRequested(cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonexistent")
+	assert.Contains(t, err.Error(), "agent-a")
+}
+
+func TestFilterAgentIfRequested_NoopWhenEmpty(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-a": {},
+				"agent-b": {},
+			},
+		},
+	}
+
+	graphAgent = ""
+	err := filterAgentIfRequested(cfg)
+	require.NoError(t, err)
+	assert.Len(t, cfg.Agents, 2)
 }
