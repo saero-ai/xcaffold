@@ -1,62 +1,153 @@
 ---
 title: "xcaffold graph"
-description: "Visualize dependency topologies and execution chains across your agents and resources."
+description: "Render a dependency graph of agents and their linked resources."
 ---
 
 # xcaffold graph
 
-Parses `.xcf` manifests and renders a visual dependency topology.
+Parses `.xcf` manifests and renders a visual dependency graph.
 
-The `graph` command builds a directed acyclic graph (DAG) of the current configuration scope, analyzing how agents link to core skills, global rules, active workflows, and contextual memory fragments.
+The `graph` command builds a directed acyclic graph (DAG) of the current configuration scope, showing how agents relate to skills, rules, workflows, MCP servers, and memory. Output can be rendered as a terminal tree, Mermaid diagram, Graphviz DOT file, or JSON edge list.
 
-It natively outputs to standard visual formats (`mermaid`, `dot`), `json` for programmable inspection, and a stylized expanded terminal tree view.
+**Usage:**
 
-## Usage
-
-```bash
-xcaffold graph [file] [flags]
+```
+xcaffold graph [flags]
 ```
 
-## Options
+## Flags
 
-| Flag | Default | Description |
-|---|---|---|
-| `-a, --agent <string>` | `""` | Isolate the graph topology to a single agent (and its downstream dependencies). |
-| `--all` | `false` | Show the combined global topology along with all registered projects. |
-| `-f, --format <string>` | `"terminal"` | Output format. Available options: `terminal`, `mermaid`, `dot`, `json`. |
-| `--full` | `false` | Expand all nested relations completely in the terminal tree. Always true if using `--agent`. |
-| `-p, --project <string>` | `""` | Target a specific managed project stored in the global registry (by name or path). |
-| `--scan-output` | `false` | Scan the active `.xcaffold/` output directory for undeclared, provider-native artifacts that are bypassing AST definitions. |
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--agent [name]` | — | `string` | `""` | Filter graph to agents matching name (or all agents if no value). |
+| `--skill [name]` | — | `string` | `""` | Filter to skills. |
+| `--rule [name]` | — | `string` | `""` | Filter to rules. |
+| `--workflow [name]` | — | `string` | `""` | Filter to workflows. |
+| `--mcp [name]` | — | `string` | `""` | Filter to MCP servers. |
+| `--context [name]` | — | `string` | `""` | Filter to contexts. |
+| `--hooks` | — | `bool` | `false` | Include hooks in output. |
+| `--settings` | — | `bool` | `false` | Include settings in output. |
+| `--format` | `-f` | `string` | `"terminal"` | Output format: `terminal`, `mermaid`, `dot`, `json`. |
+| `--full` | — | `bool` | `false` | Expand all nested relations in the terminal tree. Always true when `--agent` names a specific agent. |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcf`). |
+| `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 
 ## Behavior
 
-### Scoped Topologies
+### Terminal tree
 
-By default, `xcaffold graph` displays the active project scope tree. 
-It analyzes the local configuration and renders all agents, mapping their respective `tools` list to defined skills, inherited memory units, required policies, and execution hooks.
+The default `terminal` format renders each agent as a tree node with its tools, linked skills, rules, and memory entries nested beneath it. Branch glyphs use `│`, `├──`, and `└──` aligned at column 2:
 
-To see the global scope (resources available to all projects within the user environment), append the `-g, --global` flag.
+```
+  ● agent-name
+  │   tools    Read  Edit  Write  Bash  Glob  Grep
+  │
+  ├── skills
+  │     ├── skill-a
+  │     └── skill-b
+  │
+  └── memory  (2 entries)
+        ├── entry-a
+        └── entry-b
+```
 
-### Output Formats
+The header breadcrumb uses `·` as a separator (falls back to `.` when `--no-color` is set or `NO_COLOR` is set). Kinds with zero resources are omitted from the header count.
 
-- **Terminal Tree (`terminal`)**: Default. Produces an ASCII, expanded tree view mapping the core structural entity relationships. 
-- **Mermaid (`mermaid`)**: Outputs Mermaid.js compatible markdown blocks natively. Excellent for piping directly into architecture or workflow documentation.
-- **Graphviz (`dot`)**: Outputs standard Graphviz DOT files. Best combined with `dot -Tsvg` to yield complex network visualizations.
-- **JSON (`json`)**: Outputs a machine-readable array of nodes and edges connecting resources, which can be ingested by CI/CD compliance or internal QA pipelines.
+### Kind-filter mode
+
+When one or more kind-filter flags are provided, only nodes of those kinds appear in the graph. Without kind filters, all resource types are included.
+
+### Output formats
+
+- **`terminal`** — Default. Stylized tree view suitable for interactive inspection.
+- **`mermaid`** — Mermaid.js compatible markdown block. Pipe to a file or include in docs.
+- **`dot`** — Graphviz DOT format. Combine with `dot -Tsvg` to produce network diagrams.
+- **`json`** — Machine-readable array of nodes and edges. Suitable for CI/CD integration.
+
+### Scope
+
+By default, `xcaffold graph` operates on the project-level manifest. Using `--global` switches to the user-wide global scope.
+
+## Sample output
+
+### Terminal — project graph
+
+```
+sandbox  ·  12 agents  ·  14 skills  ·  23 rules
+
+  ● auth-specialist
+  │   tools    Read  Bash  Glob  Grep
+  │
+  ├── skills
+  │     ├── feature-lifecycle
+  │     └── commit-changes
+  │
+  └── memory  (3 entries)
+        ├── corrections.md
+        ├── feedback-notes.md
+        └── user-profile.md
+
+  ● database-engineer
+  │   tools    Read  Write  Edit  Bash  Glob  Grep
+  │
+  └── skills
+        └── tdd
+```
+
+### No-color mode
+
+```
+sandbox  .  12 agents  .  14 skills  .  23 rules
+```
+
+### Mermaid output
+
+```bash
+xcaffold graph --format mermaid
+```
+
+```
+graph LR
+  auth-specialist --> feature-lifecycle
+  auth-specialist --> commit-changes
+  database-engineer --> tdd
+```
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success. |
+| `1` | Parse error or no project manifest found. |
 
 ## Examples
 
-**Display the topology of the current working project in terminal:**
+**Display the full project dependency graph:**
 ```bash
 xcaffold graph
 ```
 
-**Generate an architectural mermaid graphic into an artifact:**
+**Inspect a single agent's dependency tree:**
+```bash
+xcaffold graph --agent auth-specialist
+```
+
+**Export a Mermaid diagram:**
 ```bash
 xcaffold graph --format mermaid > architecture.md
 ```
 
-**Trace the behavior of a single agent (e.g., frontend engineer):**
+**Export a Graphviz DOT file:**
 ```bash
-xcaffold graph --agent "frontend-engineer" --full
+xcaffold graph --format dot | dot -Tsvg > graph.svg
+```
+
+**Show only agents and their linked skills:**
+```bash
+xcaffold graph --agent --skill
+```
+
+**Inspect the global scope graph:**
+```bash
+xcaffold graph --global
 ```

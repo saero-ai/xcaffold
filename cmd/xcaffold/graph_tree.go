@@ -41,8 +41,22 @@ func runGraphProject() error {
 		projectName = cfg.Project.Name
 	}
 
-	fmt.Printf("%s  ·  %d agents  ·  %d skills  ·  %d rules  ·  %d mcp server\n",
-		projectName, len(cfg.Agents), len(cfg.Skills), len(cfg.Rules), len(cfg.MCP))
+	sep := "  " + glyphDot() + "  "
+	parts := []string{projectName}
+	if len(cfg.Agents) > 0 {
+		parts = append(parts, fmt.Sprintf("%d agents", len(cfg.Agents)))
+	}
+	if len(cfg.Skills) > 0 {
+		parts = append(parts, fmt.Sprintf("%d skills", len(cfg.Skills)))
+	}
+	if len(cfg.Rules) > 0 {
+		parts = append(parts, fmt.Sprintf("%d rules", len(cfg.Rules)))
+	}
+	if len(cfg.MCP) > 0 {
+		label := plural(len(cfg.MCP), "mcp server", "mcp servers")
+		parts = append(parts, fmt.Sprintf("%d %s", len(cfg.MCP), label))
+	}
+	fmt.Printf("%s\n", strings.Join(parts, sep))
 
 	renderAgentTree(cfg, projectParseRoot())
 	printMCPFooter(cfg)
@@ -56,8 +70,22 @@ func runGraphGlobal() error {
 		return fmt.Errorf("global parse error: %w", err)
 	}
 
-	fmt.Printf("global  ·  %d agents  ·  %d skills  ·  %d rules  ·  %d mcp server\n",
-		len(cfg.Agents), len(cfg.Skills), len(cfg.Rules), len(cfg.MCP))
+	sep := "  " + glyphDot() + "  "
+	parts := []string{"global"}
+	if len(cfg.Agents) > 0 {
+		parts = append(parts, fmt.Sprintf("%d agents", len(cfg.Agents)))
+	}
+	if len(cfg.Skills) > 0 {
+		parts = append(parts, fmt.Sprintf("%d skills", len(cfg.Skills)))
+	}
+	if len(cfg.Rules) > 0 {
+		parts = append(parts, fmt.Sprintf("%d rules", len(cfg.Rules)))
+	}
+	if len(cfg.MCP) > 0 {
+		label := plural(len(cfg.MCP), "mcp server", "mcp servers")
+		parts = append(parts, fmt.Sprintf("%d %s", len(cfg.MCP), label))
+	}
+	fmt.Printf("%s\n", strings.Join(parts, sep))
 
 	renderAgentTree(cfg, globalXcfHome)
 	printMCPFooter(cfg)
@@ -83,8 +111,22 @@ func runGraphFull() error {
 		projectName = projectCfg.Project.Name
 	}
 
-	fmt.Printf("%s  ·  %d agents (global)  ·  %d agents (project)  ·  %d rules  ·  %d mcp server\n\n",
-		projectName, len(globalCfg.Agents), len(projectCfg.Agents), len(projectCfg.Rules), len(projectCfg.MCP))
+	sep := "  " + glyphDot() + "  "
+	parts := []string{projectName}
+	if len(globalCfg.Agents) > 0 {
+		parts = append(parts, fmt.Sprintf("%d agents (global)", len(globalCfg.Agents)))
+	}
+	if len(projectCfg.Agents) > 0 {
+		parts = append(parts, fmt.Sprintf("%d agents (project)", len(projectCfg.Agents)))
+	}
+	if len(projectCfg.Rules) > 0 {
+		parts = append(parts, fmt.Sprintf("%d rules", len(projectCfg.Rules)))
+	}
+	if len(projectCfg.MCP) > 0 {
+		label := plural(len(projectCfg.MCP), "mcp server", "mcp servers")
+		parts = append(parts, fmt.Sprintf("%d %s", len(projectCfg.MCP), label))
+	}
+	fmt.Printf("%s\n\n", strings.Join(parts, sep))
 
 	fmt.Printf("══════════════════════════════════════════\n  GLOBAL\n══════════════════════════════════════════\n")
 	renderAgentTree(globalCfg, globalXcfHome)
@@ -110,8 +152,18 @@ func runGraphBlueprint(bpName string) error {
 		return fmt.Errorf("blueprint error: %w", err)
 	}
 
-	fmt.Printf("blueprint: %s  ·  %d agents  ·  %d skills  ·  %d rules\n",
-		bpName, len(filtered.Agents), len(filtered.Skills), len(filtered.Rules))
+	sep := "  " + glyphDot() + "  "
+	parts := []string{fmt.Sprintf("blueprint: %s", bpName)}
+	if len(filtered.Agents) > 0 {
+		parts = append(parts, fmt.Sprintf("%d agents", len(filtered.Agents)))
+	}
+	if len(filtered.Skills) > 0 {
+		parts = append(parts, fmt.Sprintf("%d skills", len(filtered.Skills)))
+	}
+	if len(filtered.Rules) > 0 {
+		parts = append(parts, fmt.Sprintf("%d rules", len(filtered.Rules)))
+	}
+	fmt.Printf("%s\n", strings.Join(parts, sep))
 
 	renderAgentTree(filtered, projectParseRoot())
 	printMCPFooter(filtered)
@@ -194,10 +246,10 @@ func renderAgentTree(cfg *ast.XcaffoldConfig, parseRoot string) {
 			hasAssociations = true
 			isLastBlock := bIdx == len(blocks)-1
 			blockConnector := "├──"
-			childPrefix := "  │    "
+			childPrefix := "│    "
 			if isLastBlock {
 				blockConnector = "└──"
-				childPrefix = "       "
+				childPrefix = "     "
 			}
 
 			fmt.Printf("  │\n  %s %s", blockConnector, block)
@@ -334,8 +386,6 @@ func groupRulesByFolder(ruleIDs []string) []ruleGroup {
 		groups = append(groups, ruleGroup{prefix: p, names: names})
 	}
 	sort.Slice(groups, func(i, j int) bool {
-		// Ensure (root) is placed last, though normally smaller alphabetically. Wait, (root) has '(' which is smaller than 'a'.
-		// Actually the spec said to sort "(root)" last.
 		if groups[i].prefix == "(root)" {
 			return false
 		}

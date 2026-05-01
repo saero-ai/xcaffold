@@ -5,20 +5,26 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 var (
-	listBlueprintFlag string
-	listResolvedFlag  bool
-	listVerboseFlag   bool
+	listBlueprintFlag  string
+	listResolvedFlag   bool
+	listVerboseFlag    bool
+	listFilterAgent    string
+	listFilterSkill    string
+	listFilterRule     string
+	listFilterWorkflow string
+	listFilterMCP      string
+	listFilterHooks    bool
+	listFilterSettings bool
+	listFilterContext  string
 )
 
 var listCmd = &cobra.Command{
@@ -32,6 +38,21 @@ func init() {
 	listCmd.Flags().StringVar(&listBlueprintFlag, "blueprint", "", "Filter to named blueprint")
 	listCmd.Flags().BoolVar(&listResolvedFlag, "resolved", false, "Show transitive deps (use with --blueprint)")
 	listCmd.Flags().BoolVarP(&listVerboseFlag, "verbose", "v", false, "show memory entry names per agent")
+	f := listCmd.Flags()
+	f.StringVar(&listFilterAgent, "agent", "", "List agents (optionally filter by name)")
+	f.Lookup("agent").NoOptDefVal = "*"
+	f.StringVar(&listFilterSkill, "skill", "", "List skills (optionally filter by name)")
+	f.Lookup("skill").NoOptDefVal = "*"
+	f.StringVar(&listFilterRule, "rule", "", "List rules (optionally filter by name)")
+	f.Lookup("rule").NoOptDefVal = "*"
+	f.StringVar(&listFilterWorkflow, "workflow", "", "List workflows (optionally filter by name)")
+	f.Lookup("workflow").NoOptDefVal = "*"
+	f.StringVar(&listFilterMCP, "mcp", "", "List MCP servers (optionally filter by name)")
+	f.Lookup("mcp").NoOptDefVal = "*"
+	f.BoolVar(&listFilterHooks, "hooks", false, "List hooks")
+	f.BoolVar(&listFilterSettings, "settings", false, "List settings")
+	f.StringVar(&listFilterContext, "context", "", "List contexts (optionally filter by name)")
+	f.Lookup("context").NoOptDefVal = "*"
 	_ = listCmd.Flags().MarkHidden("blueprint")
 	_ = listCmd.Flags().MarkHidden("resolved")
 	rootCmd.AddCommand(listCmd)
@@ -61,37 +82,26 @@ func runList(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func getTerminalWidth() int {
-	if cols := os.Getenv("COLUMNS"); cols != "" {
-		if n, err := strconv.Atoi(cols); err == nil && n > 0 {
-			return n
-		}
-	}
-	if w, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && w > 0 {
-		return w
-	}
-	return 80
+func listHasFilter() bool {
+	return listFilterAgent != "" || listFilterSkill != "" || listFilterRule != "" ||
+		listFilterWorkflow != "" || listFilterMCP != "" || listFilterHooks ||
+		listFilterSettings || listFilterContext != ""
 }
 
-func printColumns(names []string, indent string) {
-	termWidth := getTerminalWidth()
-	colWidth := (termWidth - len(indent) - 2) / 3
-	if colWidth < 20 {
-		colWidth = 20
+// filterMapByName returns a map with only entries matching the filter string.
+// If filter is "*", returns the entire map.
+// Otherwise, returns entries where the key contains the filter string.
+func filterMapByName[T any](m map[string]T, filter string) map[string]T {
+	if filter == "*" {
+		return m
 	}
-
-	for i, name := range names {
-		if i%3 == 0 && i > 0 {
-			fmt.Println()
+	result := make(map[string]T)
+	for k, v := range m {
+		if strings.Contains(k, filter) {
+			result[k] = v
 		}
-		if i%3 == 0 {
-			fmt.Print(indent)
-		}
-		fmt.Printf("%-*s", colWidth, name)
 	}
-	if len(names) > 0 {
-		fmt.Println()
-	}
+	return result
 }
 
 func memorySummary(projectRoot string, cfg *ast.XcaffoldConfig) map[string][]string {
@@ -119,11 +129,82 @@ func memorySummary(projectRoot string, cfg *ast.XcaffoldConfig) map[string][]str
 func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir string) {
 	projectName := filepath.Base(baseDir)
 
-	mcpCount := len(config.MCP)
+	// Build header with only non-zero kind counts
+	sep := "  " + glyphDot() + "  "
+	parts := []string{projectName}
+	if len(config.Agents) > 0 {
+		parts = append(parts, fmt.Sprintf("%d agents", len(config.Agents)))
+	}
+	if len(config.Skills) > 0 {
+		parts = append(parts, fmt.Sprintf("%d skills", len(config.Skills)))
+	}
+	if len(config.Rules) > 0 {
+		parts = append(parts, fmt.Sprintf("%d rules", len(config.Rules)))
+	}
+	if len(config.Workflows) > 0 {
+		parts = append(parts, fmt.Sprintf("%d workflows", len(config.Workflows)))
+	}
+	if len(config.MCP) > 0 {
+		parts = append(parts, fmt.Sprintf("%d mcp", len(config.MCP)))
+	}
+	if len(config.Contexts) > 0 {
+		parts = append(parts, fmt.Sprintf("%d contexts", len(config.Contexts)))
+	}
+	if len(config.Hooks) > 0 {
+		parts = append(parts, fmt.Sprintf("%d hooks", len(config.Hooks)))
+	}
+	if len(config.Settings) > 0 {
+		parts = append(parts, fmt.Sprintf("%d settings", len(config.Settings)))
+	}
+	cmd.Printf("%s\n\n", strings.Join(parts, sep))
 
-	cmd.Printf("%s  ·  %d agents  ·  %d skills  ·  %d rules  ·  %d mcp\n\n",
-		projectName, len(config.Agents), len(config.Skills), len(config.Rules), mcpCount)
+	// If a kind filter is active, show only that kind
+	if listHasFilter() {
+		if listFilterAgent != "" {
+			filtered := filterMapByName(config.Agents, listFilterAgent)
+			printSection(cmd, "AGENTS", filtered)
+		}
+		if listFilterSkill != "" {
+			filtered := filterMapByName(config.Skills, listFilterSkill)
+			printSection(cmd, "SKILLS", filtered)
+		}
+		if listFilterRule != "" {
+			filtered := filterMapByName(config.Rules, listFilterRule)
+			if len(filtered) > 0 {
+				cmd.Printf("RULES  (%d)\n\n", len(filtered))
+				rules := sortedMapKeys(filtered)
+				groups := groupRulesByFolder(rules)
+				for _, g := range groups {
+					cmd.Printf("  %s  (%d)\n", g.prefix, len(g.names))
+					for _, name := range g.names {
+						cmd.Printf("    %s\n", name)
+					}
+					cmd.Println()
+				}
+			}
+		}
+		if listFilterWorkflow != "" {
+			filtered := filterMapByName(config.Workflows, listFilterWorkflow)
+			printSection(cmd, "WORKFLOWS", filtered)
+		}
+		if listFilterMCP != "" {
+			filtered := filterMapByName(config.MCP, listFilterMCP)
+			printSection(cmd, "MCP SERVERS", filtered)
+		}
+		if listFilterContext != "" {
+			filtered := filterMapByName(config.Contexts, listFilterContext)
+			printSection(cmd, "CONTEXTS", filtered)
+		}
+		if listFilterHooks {
+			printSection(cmd, "HOOKS", config.Hooks)
+		}
+		if listFilterSettings {
+			printSection(cmd, "SETTINGS", config.Settings)
+		}
+		return
+	}
 
+	// Show all sections
 	printSection(cmd, "AGENTS", config.Agents)
 	printSection(cmd, "SKILLS", config.Skills)
 
@@ -133,19 +214,21 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 		groups := groupRulesByFolder(rules)
 		for _, g := range groups {
 			cmd.Printf("  %s  (%d)\n", g.prefix, len(g.names))
-			printColumns(g.names, "    ")
+			for _, name := range g.names {
+				cmd.Printf("    %s\n", name)
+			}
 			cmd.Println()
 		}
 	}
 
-	// Workflows not in the requested output format sample, but there are workflows.
-	// Oh wait, in CLI UX lists they're not shown. But I'll leave them if they exist? No I won't print workflows here, wait.
-	// There is no Workflow in the example output, but if I remove them I might break list tests. Let me add them as section.
 	if len(config.Workflows) > 0 {
 		printSection(cmd, "WORKFLOWS", config.Workflows)
 	}
 
 	printSection(cmd, "MCP SERVERS", config.MCP)
+	printSection(cmd, "CONTEXTS", config.Contexts)
+	printSection(cmd, "HOOKS", config.Hooks)
+	printSection(cmd, "SETTINGS", config.Settings)
 
 	mem := memorySummary(baseDir, config)
 	totalEntries := 0
@@ -168,7 +251,9 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 			for _, agentId := range sortedMemAgents {
 				entries := mem[agentId]
 				cmd.Printf("  %s  (%d)\n", agentId, len(entries))
-				printColumns(entries, "    ")
+				for _, entry := range entries {
+					cmd.Printf("    %s\n", entry)
+				}
 				cmd.Println()
 			}
 		} else {
@@ -176,7 +261,9 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 			for _, agentId := range sortedMemAgents {
 				summaries = append(summaries, fmt.Sprintf("%s (%d)", agentId, len(mem[agentId])))
 			}
-			printColumns(summaries, "  ")
+			for _, summary := range summaries {
+				cmd.Printf("  %s\n", summary)
+			}
 			cmd.Println()
 		}
 	}
@@ -212,7 +299,9 @@ func printSection[T any](cmd *cobra.Command, title string, m map[string]T) {
 		return
 	}
 	cmd.Printf("%s  (%d)\n", title, len(m))
-	printColumns(sortedMapKeys(m), "  ")
+	for _, name := range sortedMapKeys(m) {
+		cmd.Printf("  %s\n", name)
+	}
 	cmd.Println()
 }
 
@@ -254,12 +343,16 @@ func printBlueprintResources(cmd *cobra.Command, config *ast.XcaffoldConfig, bpN
 	}
 	if len(p.Agents) > 0 {
 		cmd.Printf("  AGENTS  (%d)\n", len(p.Agents))
-		printColumns(p.Agents, "    ")
+		for _, name := range p.Agents {
+			cmd.Printf("    %s\n", name)
+		}
 		cmd.Println()
 	}
 	if len(p.Skills) > 0 {
 		cmd.Printf("  SKILLS  (%d)\n", len(p.Skills))
-		printColumns(p.Skills, "    ")
+		for _, name := range p.Skills {
+			cmd.Printf("    %s\n", name)
+		}
 		cmd.Println()
 	}
 	if len(p.Rules) > 0 {
@@ -268,13 +361,17 @@ func printBlueprintResources(cmd *cobra.Command, config *ast.XcaffoldConfig, bpN
 		groups := groupRulesByFolder(rules)
 		for _, g := range groups {
 			cmd.Printf("    %s  (%d)\n", g.prefix, len(g.names))
-			printColumns(g.names, "      ")
+			for _, name := range g.names {
+				cmd.Printf("      %s\n", name)
+			}
 			cmd.Println()
 		}
 	}
 	if len(p.MCP) > 0 {
 		cmd.Printf("  MCP  (%d)\n", len(p.MCP))
-		printColumns(p.MCP, "    ")
+		for _, name := range p.MCP {
+			cmd.Printf("    %s\n", name)
+		}
 		cmd.Println()
 	}
 

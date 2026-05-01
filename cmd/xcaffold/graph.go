@@ -100,8 +100,6 @@ type graphData struct {
 }
 
 func runGraph(cmd *cobra.Command, args []string) error {
-	var scopes []*graphData
-
 	// Mutual exclusion checks
 	if graphBlueprintFlag != "" && globalFlag {
 		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
@@ -112,6 +110,13 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	if graphAll && graphProject != "" {
 		return fmt.Errorf("--all and --project are mutually exclusive")
 	}
+
+	// Terminal mode handles its own parsing to avoid duplicate warnings.
+	if strings.ToLower(graphFormat) == "terminal" || graphFormat == "" {
+		return runGraphTerminalMode()
+	}
+
+	var scopes []*graphData
 
 	if graphAll {
 		// Global topology
@@ -180,8 +185,6 @@ func runGraph(cmd *cobra.Command, args []string) error {
 //nolint:gocyclo
 func printGraphOutput(scopes []*graphData) error {
 	switch strings.ToLower(graphFormat) {
-	case "terminal", "":
-		return runGraphTerminalMode()
 	case "mermaid":
 		for _, g := range scopes {
 			fmt.Print(renderMermaid(g))
@@ -488,7 +491,10 @@ func renderTerminalHeader(g *graphData) string {
 		}
 	}
 
-	parts := []string{fmt.Sprintf("%d agents", agents)}
+	var parts []string
+	if agents > 0 {
+		parts = append(parts, fmt.Sprintf("%d agents", agents))
+	}
 	if skills > 0 {
 		parts = append(parts, fmt.Sprintf("%d skills", skills))
 	}
@@ -496,7 +502,8 @@ func renderTerminalHeader(g *graphData) string {
 		parts = append(parts, fmt.Sprintf("%d rules", rules))
 	}
 	if mcps > 0 {
-		parts = append(parts, fmt.Sprintf("%d mcp servers", mcps))
+		label := plural(mcps, "mcp server", "mcp servers")
+		parts = append(parts, fmt.Sprintf("%d %s", mcps, label))
 	}
 	if policies > 0 {
 		parts = append(parts, fmt.Sprintf("%d policies", policies))
@@ -505,7 +512,8 @@ func renderTerminalHeader(g *graphData) string {
 		parts = append(parts, fmt.Sprintf("%d hooks", hooks))
 	}
 
-	header := fmt.Sprintf("  %s  •  %s  ", g.Project, strings.Join(parts, "  •  "))
+	sep := "  " + glyphDot() + "  "
+	header := fmt.Sprintf("  %s%s%s  ", g.Project, sep, strings.Join(parts, sep))
 	width := len(header) + 2
 	border := strings.Repeat("─", width)
 

@@ -33,7 +33,6 @@ These kinds govern the compiler itself — they configure compilation targets, e
 | [`settings`](./xcaffold/settings) | Global and workspace-scoped provider settings |
 | [`hooks`](./xcaffold/hooks) | Build-time lifecycle scripts run before or after tool invocations |
 | [`blueprint`](./xcaffold/blueprint) | Named resource subset for conditional compilation |
-| [`reference`](./xcaffold/reference) | Supporting files seeded into provider output directories |
 | [`global`](./xcaffold/global) | Shared resource definitions inherited across the project |
 
 ---

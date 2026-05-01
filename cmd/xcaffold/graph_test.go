@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"io"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -199,3 +203,103 @@ func TestBuildGraph_PolicyNodes(t *testing.T) {
 
 // TestRenderDOT_PolicyColor verifies that policy nodes are rendered with a
 // distinct color in DOT output.
+
+func captureGraphStdout(f func()) string {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	f()
+	w.Close()
+	os.Stdout = old
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	return buf.String()
+}
+
+func TestGraph_TreeAlignment_NonLastBlock(t *testing.T) {
+	dir := t.TempDir()
+	memDir := dir + "/xcf/agents/test-agent/memory"
+	os.MkdirAll(memDir, 0755)
+	os.WriteFile(memDir+"/note.md", []byte("x"), 0644)
+
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"test-agent": {
+					Skills: []string{"skill-a"},
+				},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"skill-a": {},
+			},
+		},
+	}
+
+	out := captureGraphStdout(func() { renderAgentTree(cfg, dir) })
+
+	assert.Contains(t, out, "├── skills", "skills should use ├── when memory follows")
+	assert.Contains(t, out, "└── memory", "memory should use └── as last block")
+
+	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimRight(line, " \t")
+		if trimmed == "" {
+			continue
+		}
+		if len(trimmed) > 2 && (trimmed[2] == 0xe2 || trimmed[2] == '|') {
+			assert.Equal(t, "  ", trimmed[:2], "tree connector must be at column 2: %q", trimmed)
+		}
+	}
+}
+
+func TestGraph_TreeAlignment_LastBlock(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"solo": {Skills: []string{"s1"}},
+			},
+			Skills: map[string]ast.SkillConfig{"s1": {}},
+		},
+	}
+
+	dir := t.TempDir()
+	out := captureGraphStdout(func() { renderAgentTree(cfg, dir) })
+
+	assert.Contains(t, out, "└── skills", "sole block should use └──")
+	assert.NotContains(t, out, "├── skills")
+}
+
+func TestGraph_Header_OmitsZeroMCP(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "myproj"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{"a": {}},
+		},
+	}
+
+	g := buildGraph(cfg)
+	header := renderTerminalHeader(g)
+	assert.NotContains(t, header, "mcp", "zero MCP should be omitted from header")
+	assert.Contains(t, header, "1 agents")
+}
+
+func TestGraph_Header_PluralizeMCP(t *testing.T) {
+	cfgOne := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "p"},
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{"s1": {Type: "stdio"}},
+		},
+	}
+	cfgMany := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "p"},
+		ResourceScope: ast.ResourceScope{
+			MCP: map[string]ast.MCPConfig{"s1": {Type: "stdio"}, "s2": {Type: "stdio"}},
+		},
+	}
+
+	h1 := renderTerminalHeader(buildGraph(cfgOne))
+	assert.Contains(t, h1, "1 mcp server")
+	assert.NotContains(t, h1, "mcp servers")
+
+	h2 := renderTerminalHeader(buildGraph(cfgMany))
+	assert.Contains(t, h2, "2 mcp servers")
+}
