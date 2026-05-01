@@ -102,7 +102,7 @@ func runStatusOverview(dir string, manifest *state.StateManifest) error {
 		noState bool
 	}
 	var rows []targetRow
-	allDriftedFiles := make(map[string][]driftEntry)
+	allDriftedFiles := make(map[string][]state.DriftEntry)
 	outputDirByProvider := make(map[string]string)
 
 	nameWidth := len("PROVIDER")
@@ -117,7 +117,8 @@ func runStatusOverview(dir string, manifest *state.StateManifest) error {
 		ts := manifest.Targets[name]
 		outputDir := filepath.Join(dir, compiler.OutputDir(name))
 		outputDirByProvider[name] = outputDir
-		drifted, entries := collectDriftedFiles(dir, outputDir, ts)
+		entries := state.CollectDriftedFiles(dir, outputDir, ts)
+		drifted := len(entries)
 		rows = append(rows, targetRow{name: name, count: len(ts.Artifacts), drifted: drifted})
 		if drifted > 0 {
 			allDriftedFiles[name] = entries
@@ -160,13 +161,13 @@ func runStatusOverview(dir string, manifest *state.StateManifest) error {
 			}
 			fmt.Printf("\n  %s\n", bold(name))
 			for _, e := range entries {
-				display, isRoot := formatArtifactPath(e.path)
+				display, isRoot := formatArtifactPath(e.Path)
 				annotation := ""
 				if isRoot {
 					annotation = "  " + dim("(root)")
 				}
 				var label string
-				if e.status == "missing" {
+				if e.Status == "missing" {
 					label = colorRed("missing")
 				} else {
 					label = colorYellow("modified")
@@ -211,7 +212,8 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 
 	projectName := filepath.Base(dir)
 	outputDir := filepath.Join(dir, compiler.OutputDir(target))
-	drifted, driftedEntries := collectDriftedFiles(dir, outputDir, ts)
+	driftedEntries := state.CollectDriftedFiles(dir, outputDir, ts)
+	drifted := len(driftedEntries)
 	synced := len(ts.Artifacts) - drifted
 	srcChanged := countChangedSources(dir, manifest.SourceFiles)
 
@@ -238,13 +240,13 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 		)
 		fmt.Println()
 		for _, e := range driftedEntries {
-			display, isRoot := formatArtifactPath(e.path)
+			display, isRoot := formatArtifactPath(e.Path)
 			annotation := ""
 			if isRoot {
 				annotation = "  " + dim("(root)")
 			}
 			var label string
-			if e.status == "missing" {
+			if e.Status == "missing" {
 				label = colorRed("missing")
 			} else {
 				label = colorYellow("modified")
@@ -299,35 +301,6 @@ func buildApplyCmd(target, blueprint string, isGlobal bool) string {
 type driftEntry struct {
 	status string
 	path   string
-}
-
-func collectDriftedFiles(baseDir, outputDir string, ts state.TargetState) (int, []driftEntry) {
-	var entries []driftEntry
-	for _, artifact := range ts.Artifacts {
-		// Handle root: prefix — strip it and use baseDir instead of outputDir
-		var absPath string
-		var storagePath string
-		if strings.HasPrefix(artifact.Path, "root:") {
-			// Root-level file: strip "root:" and resolve from baseDir
-			storagePath = strings.TrimPrefix(artifact.Path, "root:")
-			absPath = filepath.Clean(filepath.Join(baseDir, storagePath))
-		} else {
-			// Provider-scoped file: use outputDir
-			storagePath = artifact.Path
-			absPath = filepath.Clean(filepath.Join(outputDir, storagePath))
-		}
-
-		data, err := os.ReadFile(absPath)
-		if err != nil {
-			entries = append(entries, driftEntry{"missing", artifact.Path})
-			continue
-		}
-		h := sha256.Sum256(data)
-		if fmt.Sprintf("sha256:%x", h) != artifact.Hash {
-			entries = append(entries, driftEntry{"modified", artifact.Path})
-		}
-	}
-	return len(entries), entries
 }
 
 func countChangedSources(baseDir string, sourceFiles []state.SourceFile) int {
@@ -409,7 +382,7 @@ func printAllFilesGrouped(baseDir, outputDir string, ts state.TargetState) {
 		name    string
 		total   int
 		drifted int
-		entries []driftEntry
+		entries []state.DriftEntry
 	}
 
 	groupsMap := make(map[string]*group)
@@ -448,13 +421,13 @@ func printAllFilesGrouped(baseDir, outputDir string, ts state.TargetState) {
 		data, err := os.ReadFile(absPath)
 		if err != nil {
 			g.drifted++
-			g.entries = append(g.entries, driftEntry{"missing", displayPath})
+			g.entries = append(g.entries, state.DriftEntry{Status: "missing", Path: displayPath})
 			continue
 		}
 		h := sha256.Sum256(data)
 		if fmt.Sprintf("sha256:%x", h) != artifact.Hash {
 			g.drifted++
-			g.entries = append(g.entries, driftEntry{"modified", displayPath})
+			g.entries = append(g.entries, state.DriftEntry{Status: "modified", Path: displayPath})
 		}
 	}
 
@@ -476,13 +449,13 @@ func printAllFilesGrouped(baseDir, outputDir string, ts state.TargetState) {
 		}
 		fmt.Printf("  %-16s  %5d   %s\n", g.name, g.total, statusStr)
 		for _, e := range g.entries {
-			display, isRoot := formatArtifactPath(e.path)
+			display, isRoot := formatArtifactPath(e.Path)
 			annotation := ""
 			if isRoot {
 				annotation = "  " + dim("(root)")
 			}
 			var label string
-			if e.status == "missing" {
+			if e.Status == "missing" {
 				label = colorRed("missing")
 			} else {
 				label = colorYellow("modified")

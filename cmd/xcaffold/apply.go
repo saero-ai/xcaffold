@@ -276,9 +276,19 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	oldManifest, _ := state.ReadState(stateFilePath)
 
 	if !applyDryRun && !applyForce {
-		drift, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
-		if err == nil && drift {
-			return fmt.Errorf("[%s] drift detected! Target directory contains unrecorded changes. Use --force to overwrite", scopeName)
+		driftEntries, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
+		if err == nil && len(driftEntries) > 0 {
+			fmt.Fprintf(os.Stderr, "[%s] drift detected in %d %s:\n", scopeName, len(driftEntries), plural(len(driftEntries), "file", "files"))
+			for _, d := range driftEntries {
+				display, isRoot := formatArtifactPath(d.Path)
+				label := d.Status
+				if isRoot {
+					display += "  (root)"
+				}
+				fmt.Fprintf(os.Stderr, "    %s  %-10s  %s\n", glyphErr(), label, display)
+			}
+			fmt.Fprintln(os.Stderr)
+			return fmt.Errorf("[%s] drift detected! Use --force to overwrite, or 'xcaffold import' to sync edits back", scopeName)
 		}
 	}
 
@@ -547,41 +557,21 @@ func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out 
 	}
 }
 
-// hasDriftFromState checks whether any artifact recorded for target in the
-// StateManifest at stateFile has been modified on disk since the last apply.
-func hasDriftFromState(outputDir, stateFile, baseDir, target string) (bool, error) {
+func hasDriftFromState(outputDir, stateFile, baseDir, target string) ([]state.DriftEntry, error) {
 	manifest, err := state.ReadState(stateFile)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
+			return nil, nil
 		}
-		return false, err
+		return nil, err
 	}
 
 	ts, ok := manifest.Targets[target]
 	if !ok {
-		return false, nil
+		return nil, nil
 	}
 
-	for _, artifact := range ts.Artifacts {
-		var absPath string
-		if strings.HasPrefix(artifact.Path, "root:") {
-			relPath := strings.TrimPrefix(artifact.Path, "root:")
-			absPath = filepath.Clean(filepath.Join(baseDir, relPath))
-		} else {
-			absPath = filepath.Clean(filepath.Join(outputDir, artifact.Path))
-		}
-		data, err := os.ReadFile(absPath)
-		if err != nil {
-			return true, nil // missing file is drift
-		}
-		actualHash := sha256.Sum256(data)
-		actual := fmt.Sprintf("sha256:%x", actualHash)
-		if actual != artifact.Hash {
-			return true, nil
-		}
-	}
-	return false, nil
+	return state.CollectDriftedFiles(baseDir, outputDir, ts), nil
 }
 
 // ensureGitignoreEntry appends entry to dir/.gitignore if not already present.
