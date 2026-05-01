@@ -25,7 +25,7 @@ All top-level commands accept the following persistent flags inherited across th
 
 ### Lifecycle Commands
 [**`init`**](./lifecycle/init.md) — Initialize a new repository with default schemas or templates.
-[**`apply`**](./lifecycle/apply.md) — Deterministically compile internal AST definitions toward external native outputs.
+[**`apply`**](./lifecycle/apply.md) — Compile .xcf resources into provider-native agent configuration files.
 [**`import`**](./lifecycle/import.md) — Snapshot native legacy workspaces seamlessly translating configurations into Xcaffold abstractions.
 
 ### Inspection & State
