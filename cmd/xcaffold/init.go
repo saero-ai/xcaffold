@@ -9,10 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/saero-ai/xcaffold/internal/analyzer"
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/auth"
-	"github.com/saero-ai/xcaffold/internal/generator"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/registry"
@@ -20,12 +17,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var analyzeModel = "claude-3-7-sonnet-20250219"
-
 var yesFlag bool
-
-// templateFlag is set by --template to use a pre-built topology template.
-var templateFlag string
 
 var targetsFlag []string
 var noPoliciesFlag bool
@@ -34,29 +26,25 @@ var jsonManifestFlag bool
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Bootstrap a new project.xcf configuration",
-	Long: `xcaffold init bootstraps the environment.
+	Long: `xcaffold init bootstraps a new project.
 
-+-------------------------------------------------------------------+
-|                          BOOTSTRAP PHASE                          |
-+-------------------------------------------------------------------+
  • Detects existing platform config (.claude/, .cursor/, .agents/) and offers to run 'xcaffold import'.
  • Guides you through an interactive wizard for new projects.
- • Infers project name from the current directory (like npm init).
+ • Generates the Xaff authoring toolkit: agent, xcaffold skill, xcf-conventions rule, and schema references.
+ • Infers project name from the current directory.
  • Use --yes / -y to accept all defaults non-interactively (CI/CD).
- • Use --global to create a user-wide global.xcf in ~/.xcaffold/ (xcaffold home).
 
 Ready to get started? Run:
   $ xcaffold init`,
 	Example: `  $ xcaffold init
   $ xcaffold init --yes
-  $ xcaffold init --global`,
+  $ xcaffold init --target claude`,
 	RunE: runInit,
 }
 
 func init() {
 	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Accept all defaults non-interactively (CI/CD mode)")
-	initCmd.Flags().StringSliceVar(&targetsFlag, "target", nil, "Generate output tailored to specific target(s) (comma-separated)")
-	initCmd.Flags().StringVar(&templateFlag, "template", "", "use a topology template (rest-api, cli-tool, frontend-app)")
+	initCmd.Flags().StringSliceVar(&targetsFlag, "target", nil, "Compilation target(s): claude, cursor, gemini, copilot, antigravity")
 	initCmd.Flags().BoolVar(&noPoliciesFlag, "no-policies", false, "Skip generation of starter policies")
 	initCmd.Flags().BoolVar(&jsonManifestFlag, "json", false, "Output machine-readable JSON manifest instead of interactive logs")
 	rootCmd.AddCommand(initCmd)
@@ -64,20 +52,19 @@ func init() {
 
 // runInit executes the core logic of the init command.
 func runInit(cmd *cobra.Command, _ []string) error {
-	// ── Phase 0: Welcome Banner ────────────────────────────────────────────
-	cmd.Println()
-	cmd.Printf("  \033[1mxcaffold\033[0m v%s\n", version)
-	cmd.Println("  The deterministic agent configuration compiler.")
-	cmd.Println("  ──────────────────────────────────────────────────")
-	cmd.Println()
-	cmd.Println("  Welcome! Let's scaffold your agents.")
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not determine working directory: %w", err)
+	}
+	projectName := filepath.Base(cwd)
 
-	// ── Phase 1: Global flag takes priority ───────────────────────────────
+	fmt.Println(formatHeader(projectName, "", false, "", ""))
+	fmt.Println()
+
 	if globalFlag {
 		return initGlobal()
 	}
 
-	// ── Phase 2: Existing project.xcf — offer re-import ─────────────────
 	return initProject(cmd)
 }
 
@@ -98,34 +85,39 @@ func initProject(cmd *cobra.Command) error {
 
 	infos := detectPlatformDirs(".", false)
 
-	// ── Phase 1: Existing scaffold, NO native dirs ────────────────────────
+	// ── Case B: Existing scaffold, no provider dirs ───────────────────────────
 	if hasExistingScaffold && len(infos) == 0 {
-		cmd.Println()
-		cmd.Println("  project.xcf already exists, but no provider directories were found.")
-		cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold status' to check for drift.")
+		cwd, _ := os.Getwd()
+		projectName := filepath.Base(cwd)
+		fmt.Println(formatHeader(projectName, "", false, "", "already initialized"))
+		fmt.Println()
+		fmt.Printf("  %s .xcaffold/project.xcf exists.\n", glyphNever())
+		fmt.Println()
+		fmt.Printf("%s Run 'xcaffold apply' to compile your xcf/ sources.\n", glyphArrow())
+		fmt.Printf("  Run 'xcaffold import' to sync provider changes back to xcf/.\n")
 		tryAutoRegister(xcfFile)
 		return nil
 	}
 
-	// ── Phase 2: Native Dirs detected (Offer Import) ──────────────────────
+	// ── Case C: Provider dirs detected (offer import) ─────────────────────────
 	if len(infos) > 0 {
-		cmd.Println()
+		fmt.Println()
 		if hasExistingScaffold {
-			cmd.Println("  project.xcf already exists, but existing compiled configurations were detected.")
+			fmt.Println("  project.xcf already exists, but existing compiled configurations were detected.")
 		} else {
-			cmd.Println("  ⚡ Detected existing agent configuration(s):")
+			fmt.Printf("  %s Detected existing agent configuration(s):\n", glyphOK())
 		}
-		cmd.Println()
+		fmt.Println()
 
 		if currentConfig != nil {
 			renderCurrentStateTable(cmd, currentConfig)
-			cmd.Println()
+			fmt.Println()
 		}
 		renderCompiledOutputTable(cmd, infos)
 
 		var doImport bool
 		if hasExistingScaffold {
-			cmd.Println()
+			fmt.Println()
 			if yesFlag {
 				doImport = true
 			} else {
@@ -136,13 +128,13 @@ func initProject(cmd *cobra.Command) error {
 				}
 			}
 		} else {
-			cmd.Println()
+			fmt.Println()
 			if yesFlag {
 				doImport = true
 			} else {
 				fmtStr := "Import %s into project.xcf?"
 				if len(infos) > 1 {
-					cmd.Println("  xcaffold consolidates multiple configs into one project.xcf.")
+					fmt.Println("  xcaffold consolidates multiple configs into one project.xcf.")
 					fmtStr = "Import these directories into project.xcf?"
 				} else {
 					fmtStr = fmt.Sprintf(fmtStr, infos[0].dirName)
@@ -158,21 +150,19 @@ func initProject(cmd *cobra.Command) error {
 
 		if !doImport {
 			if hasExistingScaffold {
-				cmd.Println("  Run 'xcaffold apply' to compile, or 'xcaffold status' to check for drift.")
+				fmt.Printf("%s Run 'xcaffold apply' to compile, or 'xcaffold status' to check for drift.\n", glyphArrow())
 				tryAutoRegister(xcfFile)
 				return nil
-			} else {
-				cmd.Println("\n  ⚠  Skipping import. Continuing with fresh project.xcf.")
-				cmd.Println("     Note: 'xcaffold apply' will overlay your existing target files.")
-				cmd.Println()
-				// Proceed to Phase 3
 			}
+			fmt.Printf("\n  %s Skipping import. Continuing with fresh scaffold.\n", glyphNever())
+			fmt.Println()
+			// Proceed to wizard (Case D)
 		} else {
 			if hasExistingScaffold {
 				_ = os.Remove(xcfFile)
 				_ = os.RemoveAll("xcf")
 			}
-			cmd.Println()
+			fmt.Println()
 
 			var importErr error
 			if len(infos) == 1 {
@@ -184,7 +174,7 @@ func initProject(cmd *cobra.Command) error {
 					var options []prompt.SelectOption
 					for _, info := range infos {
 						options = append(options, prompt.SelectOption{
-							Label:    fmt.Sprintf("%s", info.dirName),
+							Label:    info.dirName,
 							Value:    info.dirName,
 							Selected: true,
 						})
@@ -195,19 +185,17 @@ func initProject(cmd *cobra.Command) error {
 					}
 					if len(selected) == 0 {
 						if hasExistingScaffold {
-							cmd.Println("\n  ⚠  No directories selected. Aborting.")
+							fmt.Printf("\n  %s No directories selected. Aborting.\n", glyphNever())
 							return nil
-						} else {
-							cmd.Println("\n  ⚠  No directories selected. Continuing with fresh project.xcf.")
-							// Proceed to Phase 3 instead of aborting
-							doImport = false
 						}
+						fmt.Printf("\n  %s No directories selected. Continuing with fresh scaffold.\n", glyphNever())
+						doImport = false
 					} else {
 						if len(selected) == 1 {
-							cmd.Println()
+							fmt.Println()
 							importErr = importScope(selected[0], xcfFile, "project", selectedPlatform(infos, selected[0]))
 						} else {
-							cmd.Println()
+							fmt.Println()
 							var selectedInfos []platformDirInfo
 							for _, s := range selected {
 								selectedInfos = append(selectedInfos, platformDirInfo{
@@ -229,22 +217,24 @@ func initProject(cmd *cobra.Command) error {
 
 				_ = writeReferenceTemplates(".")
 
-				if injectErr := injectXcaffoldSkillAfterImport("."); injectErr != nil {
-					cmd.Printf("  ⚠ Failed to inject /xcaffold skill: %v\n", injectErr)
+				if injectErr := injectXaffToolkitAfterImport("."); injectErr != nil {
+					fmt.Printf("  %s Failed to inject xcaffold toolkit: %v\n", glyphErr(), injectErr)
 				} else {
-					cmd.Println("\n💡 AI Assistant Integration:")
-					cmd.Println("  A complementary /xcaffold AI skill was generated in xcf/skills/xcaffold.xcf.")
-					cmd.Println("  Run 'xcaffold apply' to instantly teach AI assistants in this project how to use xcaffold.")
-					cmd.Println("  To install this skill globally for your preferred provider, run:")
-					cmd.Println("    $ xcaffold init --global")
-					cmd.Println("    $ xcaffold apply --global")
+					fmt.Println()
+					fmt.Printf("  %s xcf/agents/xaff/\n", colorGreen(glyphOK()))
+					fmt.Printf("  %s xcf/skills/xcaffold/\n", colorGreen(glyphOK()))
+					fmt.Printf("  %s xcf/rules/xcf-conventions/\n", colorGreen(glyphOK()))
+					fmt.Printf("  %s .xcaffold/schemas/                    %s\n",
+						colorGreen(glyphOK()), dim("8 references"))
+					fmt.Println()
+					fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
 				}
 				return nil
 			}
 		}
 	}
 
-	// ── Phase 3: Interactive wizard ─────────────────────────────────────────
+	// ── Case D: New project (wizard) ──────────────────────────────────────────
 	if hasExistingScaffold {
 		return nil
 	}
@@ -283,7 +273,6 @@ func (c platformDirInfo) summary() string {
 }
 
 // selectedPlatform returns the platform name for the given dirName from infos.
-// Falls back to "claude" if not found (safe default).
 func selectedPlatform(infos []platformDirInfo, dirName string) string {
 	for _, info := range infos {
 		if info.dirName == dirName {
@@ -293,7 +282,7 @@ func selectedPlatform(infos []platformDirInfo, dirName string) string {
 	return "claude"
 }
 
-// runWizard runs the interactive new-project wizard and writes project.xcf.
+// runWizard runs the interactive new-project wizard.
 func runWizard(cmd *cobra.Command, xcfFile string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -301,49 +290,30 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 	}
 	defaultName := filepath.Base(cwd)
 
-	// ── Collect answers ────────────────────────────────────────────────────
 	ans, err := collectWizardAnswers(defaultName)
 	if err != nil {
 		return err
 	}
 
 	if jsonManifestFlag {
-		yesFlag = true // silent mode implicitly accepts defaults if questions not answered
+		yesFlag = true
 		ans.targets = []string{detectDefaultTarget()}
 		if len(targetsFlag) > 0 {
 			ans.targets = targetsFlag
 		}
 	}
 
-	// ── Build project.xcf content ──────────────────────────────────────────
-	if templateFlag != "" {
-		model, _ := resolveTargetMeta(ans.targets[0])
-		config, err := templates.Render(templateFlag, ans.name, model)
-		if err != nil {
-			return err
-		}
-		// Propagate wizard-selected targets into the config.
-		if config.Project != nil {
-			config.Project.Targets = ans.targets
-		}
-		if err := WriteSplitFiles(config, cwd); err != nil {
-			return fmt.Errorf("failed to scaffold directory: %w", err)
-		}
-	} else {
-		if err := writeXCFDirectory(cwd, ans); err != nil {
-			return fmt.Errorf("failed to scaffold directory: %w", err)
-		}
+	if err := writeXCFDirectory(cwd, ans); err != nil {
+		return fmt.Errorf("failed to scaffold directory: %w", err)
 	}
 
 	if err := writeReferenceTemplates(cwd); err != nil && !jsonManifestFlag {
-		cmd.Printf("  ⚠ Failed to write reference templates: %v\n", err)
-		// Non-fatal: continue with init.
-	} else if !jsonManifestFlag {
-		cmd.Println("  Created .xcaffold/schemas/ — field reference companion files")
+		fmt.Printf("  %s Failed to write reference templates: %v\n", glyphErr(), err)
+		// Non-fatal: continue.
 	}
 
 	if err := registry.Register(cwd, ans.name, ans.targets, "."); err != nil && !jsonManifestFlag {
-		cmd.Printf("  ⚠ Failed to register project: %v\n", err)
+		fmt.Printf("  %s Failed to register project: %v\n", glyphErr(), err)
 	}
 
 	if jsonManifestFlag {
@@ -353,13 +323,28 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 			Files   []string `json:"files"`
 		}
 
-		files := []string{"project.xcf", "xcf/rules/conventions.xcf", "xcf/settings.xcf"}
+		files := []string{
+			".xcaffold/project.xcf",
+			"xcf/agents/xaff/agent.xcf",
+		}
+		for _, t := range ans.targets {
+			files = append(files, fmt.Sprintf("xcf/agents/xaff/agent.%s.xcf", t))
+		}
+		files = append(files,
+			"xcf/skills/xcaffold/xcaffold.xcf",
+			"xcf/rules/xcf-conventions/xcf-conventions.xcf",
+		)
 		if !noPoliciesFlag {
-			files = append(files, "xcf/policies/require-agent-description.xcf", "xcf/policies/require-agent-instructions.xcf")
+			files = append(files,
+				"xcf/policies/require-agent-description.xcf",
+				"xcf/policies/require-agent-instructions.xcf",
+			)
 		}
-		if ans.wantAgent {
-			files = append(files, "xcf/agents/developer/developer.xcf")
+		files = append(files, "xcf/settings.xcf")
+		for _, ref := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "memory"} {
+			files = append(files, fmt.Sprintf(".xcaffold/schemas/%s.xcf.reference", ref))
 		}
+		files = append(files, ".xcaffold/schemas/cli-cheatsheet.reference")
 
 		b, err := json.MarshalIndent(Manifest{Project: ans.name, Targets: ans.targets, Files: files}, "", "  ")
 		if err == nil {
@@ -368,43 +353,34 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		return nil
 	}
 
-	cmd.Printf("\n✓ Created project.xcf\n")
-	cmd.Printf("  Project: %s | Targets: %s\n", ans.name, strings.Join(ans.targets, ", "))
-
-	if ans.wantAgent {
-		model, _ := resolveTargetMeta(ans.targets[0])
-		cmd.Printf("  Starter agent: developer (model: %s)\n", model)
+	fmt.Println()
+	fmt.Printf("  %s .xcaffold/project.xcf\n", colorGreen(glyphOK()))
+	fmt.Printf("  %s xcf/agents/xaff/                     %s\n",
+		colorGreen(glyphOK()), dim(fmt.Sprintf("base + %d %s", len(ans.targets), plural(len(ans.targets), "override", "overrides"))))
+	fmt.Printf("  %s xcf/skills/xcaffold/\n", colorGreen(glyphOK()))
+	fmt.Printf("  %s xcf/rules/xcf-conventions/\n", colorGreen(glyphOK()))
+	if !noPoliciesFlag {
+		fmt.Printf("  %s xcf/policies/                         %s\n",
+			colorGreen(glyphOK()), dim("2 policies"))
 	}
-	cmd.Println("\n  Edit your agents, then run 'xcaffold apply'.")
-
-	cmd.Println("\n💡 AI Assistant Integration:")
-	cmd.Println("  A complementary /xcaffold AI skill was generated in xcf/skills/xcaffold.xcf.")
-	cmd.Println("  Run 'xcaffold apply' to instantly teach AI assistants in this project how to use xcaffold.")
-	cmd.Println("  To install this skill globally for your preferred provider, run:")
-	cmd.Println("    $ xcaffold init --global")
-	cmd.Println("    $ xcaffold apply --global")
-
-	// ── Optional: offer xcaffold analyze ──────────────────────────────────
-	if ans.wantAnalyze && len(ans.targets) > 0 {
-		if err := offerAnalyze(cmd, ans.targets[0]); err != nil {
-			return err
-		}
-	}
+	fmt.Printf("  %s xcf/settings.xcf\n", colorGreen(glyphOK()))
+	fmt.Printf("  %s .xcaffold/schemas/                    %s\n",
+		colorGreen(glyphOK()), dim("8 references"))
+	fmt.Println()
+	fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
+	fmt.Printf("  Xaff will teach your AI assistant how to use xcaffold.\n")
 
 	return nil
 }
 
-// wizardAnswers holds all answers collected during the interactive wizard.
+// wizardAnswers holds answers collected during the interactive wizard.
 type wizardAnswers struct {
-	name        string
-	desc        string
-	targets     []string // list of providers, e.g. ["claude", "cursor"]
-	wantAgent   bool
-	wantAnalyze bool
+	name    string
+	desc    string
+	targets []string
 }
 
 // knownCLIs lists the AI coding CLIs xcaffold knows about, in detection order.
-// The first one found on PATH becomes the suggested default target.
 var knownCLIs = []struct {
 	binary string
 	label  string
@@ -416,15 +392,14 @@ var knownCLIs = []struct {
 	{targetCursor, "Cursor", targetCursor, "cursor-default"},
 }
 
-// detectDefaultTarget returns the target label for the first CLI binary
-// found on PATH, or an empty string if none are found.
+// detectDefaultTarget returns the target for the first CLI binary found on PATH.
 func detectDefaultTarget() string {
 	for _, cli := range knownCLIs {
 		if _, err := exec.LookPath(cli.binary); err == nil {
 			return cli.target
 		}
 	}
-	return targetClaude // safe fallback
+	return targetClaude
 }
 
 // resolveTargetMeta returns the suggested model and binary name for a target.
@@ -434,16 +409,12 @@ func resolveTargetMeta(target string) (model, binary string) {
 			return cli.model, cli.binary
 		}
 	}
-	return "claude-sonnet-4-6", targetClaude // fallback
+	return "claude-sonnet-4-6", targetClaude
 }
 
-// collectWizardAnswers populates wizard answers. The project name is always
-// derived from the CWD folder — no prompt needed. Description is left blank
-// so the user can fill it in later. Only three questions are asked:
-// target platform (auto-detected, user can override), starter agent, and
-// whether to run xcaffold analyze.
+// collectWizardAnswers populates wizard answers from flags and optional prompts.
+// Only one question is asked: target platforms. Project name is derived from CWD.
 func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
-	// Name and description are set automatically — never prompted.
 	ans.name = defaultName
 	ans.desc = ""
 	if len(targetsFlag) > 0 {
@@ -451,7 +422,6 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 	} else {
 		ans.targets = []string{detectDefaultTarget()}
 	}
-	ans.wantAgent = true
 
 	if yesFlag {
 		return
@@ -475,25 +445,15 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 			ans.targets = selected
 		}
 	}
-
-	time.Sleep(300 * time.Millisecond)
-	ans.wantAgent, err = prompt.Confirm("Add a starter agent?", true)
-	if err != nil {
-		return
-	}
-
-	time.Sleep(300 * time.Millisecond)
-	ans.wantAnalyze, err = prompt.Confirm("Run 'xcaffold analyze' to generate config from your repo?", false)
 	return
 }
 
-// writeXCFDirectory generates the multi-file scaffold structure.
+// writeXCFDirectory generates the xcaffold authoring toolkit scaffold structure.
 func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
-	// Ensure xcf/ directories exist
 	dirs := []string{
-		filepath.Join(baseDir, "xcf", "agents"),
-		filepath.Join(baseDir, "xcf", "skills"),
-		filepath.Join(baseDir, "xcf", "rules"),
+		filepath.Join(baseDir, "xcf", "agents", "xaff"),
+		filepath.Join(baseDir, "xcf", "skills", "xcaffold"),
+		filepath.Join(baseDir, "xcf", "rules", "xcf-conventions"),
 	}
 	if !noPoliciesFlag {
 		dirs = append(dirs, filepath.Join(baseDir, "xcf", "policies"))
@@ -506,21 +466,50 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 
 	model, _ := resolveTargetMeta(ans.targets[0])
 
-	// project.xcf
+	// .xcaffold/project.xcf
 	projectContent := templates.RenderProjectXCF(ans.name, ans.targets)
 	outDir := filepath.Join(baseDir, ".xcaffold")
-	_ = os.MkdirAll(outDir, 0755)
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create .xcaffold/: %w", err)
+	}
 	if err := os.WriteFile(filepath.Join(outDir, "project.xcf"), []byte(projectContent), 0o600); err != nil {
 		return err
 	}
 
-	// rules & policies & settings
-	ruleContent := templates.RenderRuleXCF(ans.targets)
-	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "rules", "conventions.xcf"), []byte(ruleContent), 0o600)
+	// xcf/agents/xaff/agent.xcf (base)
+	agentBase := templates.RenderXaffAgentXCF(model, ans.targets)
+	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "agents", "xaff", "agent.xcf"), []byte(agentBase), 0o600); err != nil {
+		return err
+	}
 
+	// xcf/agents/xaff/agent.<provider>.xcf (one per target)
+	for _, target := range ans.targets {
+		override := templates.RenderXaffOverrideXCF(target)
+		filename := fmt.Sprintf("agent.%s.xcf", target)
+		if err := os.WriteFile(filepath.Join(baseDir, "xcf", "agents", "xaff", filename), []byte(override), 0o600); err != nil {
+			return err
+		}
+	}
+
+	// xcf/skills/xcaffold/xcaffold.xcf
+	skillContent := templates.RenderXcaffoldSkillXCF(ans.targets)
+	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "skills", "xcaffold", "xcaffold.xcf"), []byte(skillContent), 0o600); err != nil {
+		return err
+	}
+
+	// xcf/rules/xcf-conventions/xcf-conventions.xcf
+	ruleContent := templates.RenderXcfConventionsRuleXCF(ans.targets)
+	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "rules", "xcf-conventions", "xcf-conventions.xcf"), []byte(ruleContent), 0o600); err != nil {
+		return err
+	}
+
+	// xcf/settings.xcf
 	settingsContent := templates.RenderSettingsXCF(ans.targets)
-	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "settings.xcf"), []byte(settingsContent), 0o600)
+	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "settings.xcf"), []byte(settingsContent), 0o600); err != nil {
+		return err
+	}
 
+	// xcf/policies/
 	if !noPoliciesFlag {
 		descPolicy := templates.RenderPolicyDescriptionXCF()
 		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-description.xcf"), []byte(descPolicy), 0o600)
@@ -528,97 +517,62 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		_ = os.WriteFile(filepath.Join(baseDir, "xcf", "policies", "require-agent-instructions.xcf"), []byte(instrPolicy), 0o600)
 	}
 
-	// starter agent — lives in its own subdirectory: xcf/agents/developer/developer.xcf
-	if ans.wantAgent {
-		agentContent := templates.RenderAgentXCF("developer", model, ans.targets)
-		agentDir := filepath.Join(baseDir, "xcf", "agents", "developer")
-		_ = os.MkdirAll(agentDir, 0o755)
-		_ = os.WriteFile(filepath.Join(agentDir, "developer.xcf"), []byte(agentContent), 0o600)
-	}
-
-	// xcaffold skill
-	skillContent := templates.RenderXcaffoldSkillXCF(ans.targets)
-	_ = os.WriteFile(filepath.Join(baseDir, "xcf", "skills", "xcaffold.xcf"), []byte(skillContent), 0o600)
-
 	return nil
 }
 
-// offerAnalyze runs xcaffold analyze inline when a supported LLM is available
-// (any API key env var OR a known CLI binary on PATH), or prints the command
-// for the user to run later if nothing is configured.
-func offerAnalyze(cmd *cobra.Command, target string) error {
-	// Check API key env vars first.
-	hasAPIKey := os.Getenv("ANTHROPIC_API_KEY") != "" ||
-		os.Getenv("XCAFFOLD_LLM_API_KEY") != ""
-
-	// Then check if the target CLI (or any known CLI) is on PATH.
-	_, targetBinary := resolveTargetMeta(target)
-	_, cliErr := exec.LookPath(targetBinary)
-	hasCLI := cliErr == nil
-
-	if !hasAPIKey && !hasCLI {
-		// Nothing available — tell the user what to set up.
-		cmd.Println("\n  To generate config from your repo, run:")
-		cmd.Println("    $ xcaffold analyze")
-		cmd.Println("  Requires one of:")
-		cmd.Println("    • ANTHROPIC_API_KEY or XCAFFOLD_LLM_API_KEY env var (direct API)")
-		cmd.Println("    • claude / antigravity / cursor CLI installed and on your PATH (subscription)")
-		return nil
-	}
-
-	// Something is available — run inline.
-	if hasCLI && !hasAPIKey {
-		cmd.Printf("\n🧠 Running 'xcaffold analyze' via %s CLI subscription...\n", targetBinary)
-	} else {
-		cmd.Println("\n🧠 Running 'xcaffold analyze' via API key...")
-	}
-	return runAnalyze(cmd, nil)
-}
-
-// writeReferenceTemplates creates .xcaffold/schemas/<kind>.xcf.reference
-// files inside baseDir. The files are documentation artifacts and are NOT parsed
-// by xcaffold. They document the full field reference for each resource kind.
+// writeReferenceTemplates writes all 8 .xcaffold/schemas/*.reference files.
 func writeReferenceTemplates(baseDir string) error {
 	refDir := filepath.Join(baseDir, ".xcaffold", "schemas")
 	if err := os.MkdirAll(refDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create references directory: %w", err)
+		return fmt.Errorf("failed to create schemas directory: %w", err)
 	}
 
-	agentRef := filepath.Join(refDir, "agent.xcf.reference")
-	if err := os.WriteFile(agentRef, []byte(templates.RenderAgentReference()), 0o600); err != nil {
-		return fmt.Errorf("failed to write agent reference: %w", err)
+	refs := map[string]func() string{
+		"agent.xcf.reference":      templates.RenderAgentReference,
+		"skill.xcf.reference":      templates.RenderSkillReference,
+		"rule.xcf.reference":       templates.RenderRuleReference,
+		"workflow.xcf.reference":   templates.RenderWorkflowReference,
+		"mcp.xcf.reference":        templates.RenderMCPReference,
+		"hooks.xcf.reference":      templates.RenderHooksReference,
+		"memory.xcf.reference":     templates.RenderMemoryReference,
+		"cli-cheatsheet.reference": templates.RenderCLICheatsheet,
 	}
 
-	skillRef := filepath.Join(refDir, "skill.xcf.reference")
-	if err := os.WriteFile(skillRef, []byte(templates.RenderSkillReference()), 0o600); err != nil {
-		return fmt.Errorf("failed to write skill reference: %w", err)
+	for filename, renderFn := range refs {
+		path := filepath.Join(refDir, filename)
+		if err := os.WriteFile(path, []byte(renderFn()), 0o600); err != nil {
+			return fmt.Errorf("failed to write %s: %w", filename, err)
+		}
 	}
-
 	return nil
 }
 
-// ── Global scope ────────────────────────────────────────
-
+// initGlobal reports that global scope is not yet available.
+// The implementation is preserved as initGlobalImpl for future enablement.
 func initGlobal() error {
+	fmt.Printf("\n  %s Global scope is not available yet.\n", glyphErr())
+	fmt.Printf("\n%s Run 'xcaffold init' to initialize a project-level scaffold.\n", glyphArrow())
+	return nil
+}
+
+// initGlobalImpl contains the original global init logic, preserved for future use.
+func initGlobalImpl() error {
 	home, err := registry.GlobalHome()
 	if err != nil {
 		return err
 	}
 	target := filepath.Join(home, "global.xcf")
 
-	// Re-scan global platform dirs every time --global is used.
-	// This lets users refresh global.xcf after adding new agents to ~/.claude/ etc.
 	if err := registry.RebuildGlobalXCF(); err != nil {
 		return fmt.Errorf("failed to rebuild global.xcf: %w", err)
 	}
 
 	if _, err := os.Stat(target); err == nil {
-		fmt.Printf("✓ %s rebuilt from global platform directories.\n", target)
+		fmt.Printf("%s %s rebuilt from global platform directories.\n", colorGreen(glyphOK()), target)
 	} else {
-		fmt.Printf("✓ %s created.\n", target)
+		fmt.Printf("%s %s created.\n", colorGreen(glyphOK()), target)
 	}
 	fmt.Println("  Edit it to define your global agents, then run 'xcaffold apply --global'.")
-	fmt.Println("  Projects can inherit with 'extends: global' in their project.xcf.")
 	fmt.Printf("  Output: ~/.claude/ | ~/.cursor/ | ~/.agents/ (depending on --target)\n")
 	return nil
 }
@@ -635,26 +589,62 @@ func tryAutoRegister(xcfFile string) {
 	}
 }
 
-// injectXcaffoldSkillAfterImport parses the imported project.xcf, adds the xcaffold skill to the
-// skills list if not present, and statically writes the xcf/skills/xcaffold.xcf template.
-func injectXcaffoldSkillAfterImport(baseDir string) error {
-	// project.xcf lives inside .xcaffold/ after the manifest relocation.
-	// baseDir is the project root ("." from the caller) and is never re-derived
-	// from this path, so all downstream paths (WriteProjectFile, skillsDir)
-	// remain rooted at the project root.
+// injectXaffToolkitAfterImport writes the full Xaff authoring toolkit after an import.
+// It replaces injectXcaffoldSkillAfterImport, which only wrote the skill.
+func injectXaffToolkitAfterImport(baseDir string) error {
 	xcfFile := filepath.Join(baseDir, ".xcaffold", "project.xcf")
 	config, err := parser.ParseFileExact(xcfFile)
 	if err != nil {
 		return fmt.Errorf("parsing imported scaffold: %w", err)
 	}
 
-	targets := []string{"claude"} // fallback
+	targets := []string{"claude"}
 	if config.Project != nil && len(config.Project.Targets) > 0 {
 		targets = config.Project.Targets
 	} else if config.Project == nil {
 		config.Project = &ast.ProjectConfig{Name: filepath.Base(baseDir), Targets: targets}
 	}
 
+	model, _ := resolveTargetMeta(targets[0])
+
+	// Write Xaff agent (base + overrides)
+	xaffDir := filepath.Join(baseDir, "xcf", "agents", "xaff")
+	if err := os.MkdirAll(xaffDir, 0o755); err != nil {
+		return err
+	}
+	agentBase := templates.RenderXaffAgentXCF(model, targets)
+	if err := os.WriteFile(filepath.Join(xaffDir, "agent.xcf"), []byte(agentBase), 0o600); err != nil {
+		return err
+	}
+	for _, target := range targets {
+		override := templates.RenderXaffOverrideXCF(target)
+		filename := fmt.Sprintf("agent.%s.xcf", target)
+		if err := os.WriteFile(filepath.Join(xaffDir, filename), []byte(override), 0o600); err != nil {
+			return err
+		}
+	}
+
+	// Write xcaffold skill (directory-per-resource)
+	skillDir := filepath.Join(baseDir, "xcf", "skills", "xcaffold")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		return err
+	}
+	skillContent := templates.RenderXcaffoldSkillXCF(targets)
+	if err := os.WriteFile(filepath.Join(skillDir, "xcaffold.xcf"), []byte(skillContent), 0o600); err != nil {
+		return err
+	}
+
+	// Write xcf-conventions rule (directory-per-resource)
+	ruleDir := filepath.Join(baseDir, "xcf", "rules", "xcf-conventions")
+	if err := os.MkdirAll(ruleDir, 0o755); err != nil {
+		return err
+	}
+	ruleContent := templates.RenderXcfConventionsRuleXCF(targets)
+	if err := os.WriteFile(filepath.Join(ruleDir, "xcf-conventions.xcf"), []byte(ruleContent), 0o600); err != nil {
+		return err
+	}
+
+	// Update project.xcf skill refs if needed
 	hasSkill := false
 	for _, s := range config.Project.SkillRefs {
 		if s == "xcaffold" {
@@ -669,67 +659,5 @@ func injectXcaffoldSkillAfterImport(baseDir string) error {
 		}
 	}
 
-	// Always ensure the xcf/skills/xcaffold.xcf is written
-	skillsDir := filepath.Join(baseDir, "xcf", "skills")
-	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
-		return err
-	}
-	skillContent := templates.RenderXcaffoldSkillXCF(targets)
-	return os.WriteFile(filepath.Join(skillsDir, "xcaffold.xcf"), []byte(skillContent), 0o600)
-}
-
-func runAnalyze(cmd *cobra.Command, args []string) error {
-	dir := "."
-	if len(args) > 0 {
-		dir = args[0]
-	}
-
-	cmd.Printf("Scanning directory: %s\n", dir)
-	fsys := os.DirFS(dir)
-	sig, err := analyzer.ScanProject(fsys)
-	if err != nil {
-		return fmt.Errorf("failed to scan project: %w", err)
-	}
-
-	cmd.Printf("   Found %d core structure files and %d dependency manifests.\n", len(sig.Files), len(sig.DependencyManifests))
-
-	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
-	genericAPIKey := os.Getenv("XCAFFOLD_LLM_API_KEY")
-	genericAPIBase := os.Getenv("XCAFFOLD_LLM_BASE_URL")
-
-	gen, err := generator.New(anthropicKey, genericAPIKey, genericAPIBase, analyzeModel, "", nil)
-	if err != nil {
-		return fmt.Errorf("failed to initialize generator: %w", err)
-	}
-
-	authMsg := "Generative LLM API Key"
-	if gen.AuthMode() == auth.AuthModeGenericAPI {
-		authMsg = "Platform-Agnostic LLM API"
-	} else if gen.AuthMode() == auth.AuthModeAPIKey {
-		authMsg = "Target Provider API Key"
-	} else if gen.AuthMode() == auth.AuthModeSubscription {
-		authMsg = "Platform Subscription (fallback via local CLI config)"
-		cmd.Println("   Note: Generation may display an external CLI spinner briefly.")
-	}
-
-	cmd.Printf("Generating project.xcf using %s via %s...\n", analyzeModel, authMsg)
-
-	res, err := gen.Generate(cmd.Context(), sig)
-	if err != nil {
-		return fmt.Errorf("generation failed: %w", err)
-	}
-
-	outPath := "project.xcf" // nolint:goconst
-	if err := os.WriteFile(outPath, []byte(res.YAMLConfig), 0600); err != nil {
-		return fmt.Errorf("failed to write project.xcf: %w", err)
-	}
-
-	auditPath := "audit.json"
-	if err := os.WriteFile(auditPath, []byte(res.AuditJSON), 0600); err != nil {
-		return fmt.Errorf("failed to write audit.json: %w", err)
-	}
-
-	cmd.Printf("Successfully wrote %s\n", outPath)
-	cmd.Printf("Successfully wrote %s\n", auditPath)
 	return nil
 }

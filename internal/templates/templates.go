@@ -3,187 +3,7 @@ package templates
 import (
 	"fmt"
 	"strings"
-
-	"github.com/saero-ai/xcaffold/internal/ast"
 )
-
-// Template defines a topology template for xcaffold init.
-type Template struct {
-	render      func(projectName, model string) *ast.XcaffoldConfig
-	ID          string
-	Label       string
-	Description string
-}
-
-var registry = []Template{
-	{
-		ID:          "rest-api",
-		Label:       "REST API Service",
-		Description: "Backend service exposing data via REST endpoints",
-		render:      renderRESTAPI,
-	},
-	{
-		ID:          "cli-tool",
-		Label:       "CLI Tool",
-		Description: "Command-line tool with subcommands",
-		render:      renderCLITool,
-	},
-	{
-		ID:          "frontend-app",
-		Label:       "Frontend Application",
-		Description: "Web application with component architecture",
-		render:      renderFrontendApp,
-	},
-}
-
-// List returns all available templates.
-func List() []Template {
-	return registry
-}
-
-// Render returns a populated *ast.XcaffoldConfig for the given template, project
-// name, and model. The caller is responsible for writing the config to disk.
-func Render(templateID, projectName, model string) (*ast.XcaffoldConfig, error) {
-	for _, tmpl := range registry {
-		if tmpl.ID == templateID {
-			return tmpl.render(projectName, model), nil
-		}
-	}
-	return nil, fmt.Errorf("unknown template %q; available: %s", templateID, availableIDs())
-}
-
-func availableIDs() string {
-	ids := make([]string, len(registry))
-	for i, t := range registry {
-		ids[i] = t.ID
-	}
-	return strings.Join(ids, ", ")
-}
-
-func renderRESTAPI(projectName, model string) *ast.XcaffoldConfig {
-	alwaysApply := true
-	return &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{
-			Name:        projectName,
-			Description: "REST API service",
-		},
-		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{
-				"backend": {
-					Name:        "backend",
-					Description: "Backend developer for API endpoints, database queries, and business logic.",
-					Model:       model,
-					Effort:      "high",
-					Tools:       []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"},
-					Skills:      []string{"api-testing"},
-					Rules:       []string{"api-conventions"},
-					Body: "You are a backend developer.\n" +
-						"Follow RESTful conventions. Write integration tests for every endpoint.\n" +
-						"Use parameterized queries. Never use string interpolation for SQL.",
-				},
-			},
-			Skills: map[string]ast.SkillConfig{
-				"api-testing": {
-					Name:        "api-testing",
-					Description: "REST API testing patterns",
-					Body: "Write integration tests that verify HTTP status codes, response shapes,\n" +
-						"and error handling. Test both success and failure paths.",
-				},
-			},
-			Rules: map[string]ast.RuleConfig{
-				"api-conventions": {
-					Name:        "api-conventions",
-					Description: "REST API design conventions",
-					AlwaysApply: &alwaysApply,
-					Body: "Use plural nouns for resource endpoints.\n" +
-						"Return appropriate HTTP status codes (201 for creation, 404 for not found).\n" +
-						"Version APIs via URL prefix (/v1/).",
-				},
-			},
-		},
-	}
-}
-
-func renderCLITool(projectName, model string) *ast.XcaffoldConfig {
-	alwaysApply := true
-	return &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{
-			Name:        projectName,
-			Description: "Command-line tool",
-		},
-		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{
-				"developer": {
-					Name:        "developer",
-					Description: "CLI developer for commands, flags, and user-facing output.",
-					Model:       model,
-					Effort:      "high",
-					Tools:       []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"},
-					Rules:       []string{"cli-conventions"},
-					Body: "You are a CLI developer.\n" +
-						"Use stdout for output, stderr for errors. Support --help on every command.\n" +
-						"Write unit tests for command logic and integration tests for CLI invocation.",
-				},
-			},
-			Rules: map[string]ast.RuleConfig{
-				"cli-conventions": {
-					Name:        "cli-conventions",
-					Description: "CLI design conventions",
-					AlwaysApply: &alwaysApply,
-					Body: "Use meaningful exit codes (0 success, 1 user error, 2 system error).\n" +
-						"Support --json flag for machine-readable output where applicable.\n" +
-						"Never prompt for input when stdin is not a TTY.",
-				},
-			},
-		},
-	}
-}
-
-func renderFrontendApp(projectName, model string) *ast.XcaffoldConfig {
-	alwaysApply := true
-	return &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{
-			Name:        projectName,
-			Description: "Frontend web application",
-		},
-		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{
-				"frontend": {
-					Name:        "frontend",
-					Description: "Frontend developer for components, pages, and styling.",
-					Model:       model,
-					Effort:      "high",
-					Tools:       []string{"Bash", "Read", "Write", "Edit", "Glob", "Grep"},
-					Skills:      []string{"component-testing"},
-					Rules:       []string{"frontend-conventions"},
-					Body: "You are a frontend developer.\n" +
-						"Write accessible, semantic HTML. Use components for reusable UI.\n" +
-						"Write component tests. Never use inline styles for layout.",
-				},
-			},
-			Skills: map[string]ast.SkillConfig{
-				"component-testing": {
-					Name:        "component-testing",
-					Description: "Component testing patterns",
-					Body: "Test components in isolation. Verify render output, user interactions,\n" +
-						"and accessibility attributes. Mock API calls at the network layer.",
-				},
-			},
-			Rules: map[string]ast.RuleConfig{
-				"frontend-conventions": {
-					Name:        "frontend-conventions",
-					Description: "Frontend coding conventions",
-					AlwaysApply: &alwaysApply,
-					Body: "Use semantic HTML elements. Ensure all interactive elements are keyboard accessible.\n" +
-						"Keep components focused -- one responsibility per component.",
-				},
-			},
-		},
-	}
-}
 
 // RenderProjectXCF generates the kind: project project.xcf content.
 // targets is the list of provider names selected by the user.
@@ -191,7 +11,7 @@ func RenderProjectXCF(projectName string, targets []string) string {
 	var sb strings.Builder
 
 	sb.WriteString("# project.xcf - generated by xcaffold init\n")
-	sb.WriteString("# Edit agents/rules/settings in xcf/ then run 'xcaffold apply'.\n")
+	sb.WriteString("# Edit xcf/ sources then run 'xcaffold apply'.\n")
 	sb.WriteString("kind: project\n")
 	sb.WriteString("version: \"1.0\"\n")
 	sb.WriteString(fmt.Sprintf("name: %q\n", projectName))
@@ -203,10 +23,10 @@ func RenderProjectXCF(projectName string, targets []string) string {
 		sb.WriteString(fmt.Sprintf("  - %s\n", t))
 	}
 	sb.WriteString("\n")
-	sb.WriteString("# Resources are split into xcf/ subdirectories for readability.\n")
-	sb.WriteString("agents:\n  - developer          # xcf/agents/developer.xcf\n")
-	sb.WriteString("skills:\n  - xcaffold           # xcf/skills/xcaffold.xcf\n")
-	sb.WriteString("rules:\n  - conventions        # xcf/rules/conventions.xcf\n")
+	sb.WriteString("# Resources discovered from xcf/ subdirectories.\n")
+	sb.WriteString("agents:\n  - xaff               # xcf/agents/xaff/agent.xcf\n")
+	sb.WriteString("skills:\n  - xcaffold           # xcf/skills/xcaffold/xcaffold.xcf\n")
+	sb.WriteString("rules:\n  - xcf-conventions    # xcf/rules/xcf-conventions/xcf-conventions.xcf\n")
 	sb.WriteString("policies:\n  - require-agent-description  # xcf/policies/require-agent-description.xcf\n  - require-agent-instructions  # xcf/policies/require-agent-instructions.xcf\n")
 	sb.WriteString("\n")
 	sb.WriteString("# Uncomment to configure the 'xcaffold test' simulator.\n")
@@ -217,10 +37,179 @@ func RenderProjectXCF(projectName string, targets []string) string {
 	return sb.String()
 }
 
-// RenderAgentXCF generates the xcf/agents/developer.xcf content with a
-// provider support matrix comment for the given selectedTargets.
-// The output uses frontmatter format: YAML metadata between --- delimiters,
-// followed by the instruction body as plain text.
+// RenderXaffAgentXCF generates the base xcf/agents/xaff/agent.xcf content.
+// This is the universal base agent — provider override files supplement it.
+func RenderXaffAgentXCF(model string, selectedTargets []string) string {
+	var sb strings.Builder
+
+	matrix := RenderMatrix("agent", selectedTargets)
+	if matrix != "" {
+		sb.WriteString(matrix)
+	}
+	sb.WriteString("\n")
+	sb.WriteString("---\n")
+	sb.WriteString("kind: agent\n")
+	sb.WriteString("version: \"1.0\"\n")
+	sb.WriteString("name: xaff\n")
+	sb.WriteString("description: \"xcaffold authoring agent. Knows the xcaffold schema, CLI commands, and provider field support.\"\n")
+	sb.WriteString("\n")
+	sb.WriteString("# model: used by claude, gemini, antigravity. Ignored by cursor and copilot.\n")
+	sb.WriteString(fmt.Sprintf("model: %q\n", model))
+	sb.WriteString("\n")
+	sb.WriteString("tools: [Read, Write, Edit, Bash, Glob, Grep]\n")
+	sb.WriteString("skills: [xcaffold]\n")
+	sb.WriteString("rules: [xcf-conventions]\n")
+	sb.WriteString("---\n")
+	sb.WriteString("You are Xaff, the xcaffold authoring agent.\n")
+	sb.WriteString("\n")
+	sb.WriteString("xcaffold is a deterministic agent configuration compiler. It compiles `.xcf` source\n")
+	sb.WriteString("files into native AI provider output (.claude/, .cursor/, .gemini/, etc.).\n")
+	sb.WriteString("\n")
+	sb.WriteString("## Your responsibilities\n")
+	sb.WriteString("\n")
+	sb.WriteString("- Author and maintain `.xcf` files in the `xcf/` directory\n")
+	sb.WriteString("- Run `xcaffold validate` before `xcaffold apply`\n")
+	sb.WriteString("- Read `.xcaffold/schemas/*.reference` before setting any field\n")
+	sb.WriteString("- Never write directly to `.claude/`, `.cursor/`, or other provider output dirs\n")
+	sb.WriteString("- Use `xcaffold status` to check for drift after changes\n")
+	sb.WriteString("- Use `xcaffold import` to pull provider changes back into xcf/\n")
+	sb.WriteString("\n")
+	sb.WriteString("## xcf/ directory conventions\n")
+	sb.WriteString("\n")
+	sb.WriteString("- One resource per file\n")
+	sb.WriteString("- Directory-per-resource layout: `xcf/<kind>/<name>/<name>.xcf`\n")
+	sb.WriteString("- Field names use kebab-case (e.g. `allowed-tools`, not `allowedTools`)\n")
+	sb.WriteString("- version is always a quoted string: `version: \"1.0\"` (not `version: 1.0`)\n")
+	sb.WriteString("- name uses lowercase + hyphens only: `^[a-z0-9-]+$`\n")
+	sb.WriteString("\n")
+	sb.WriteString("## Provider field support\n")
+	sb.WriteString("\n")
+	sb.WriteString("Fields vary by provider. The provider matrix comment at the top of each `.xcf`\n")
+	sb.WriteString("file shows which fields are supported. Fields marked 'dropped' are silently\n")
+	sb.WriteString("removed at compile time — leave them in source, xcaffold manages the drop.\n")
+	sb.WriteString("\n")
+	sb.WriteString("Always read `.xcaffold/schemas/<kind>.xcf.reference` before authoring a new resource.\n")
+
+	return sb.String()
+}
+
+// RenderXaffOverrideXCF generates a per-provider override file for the Xaff agent.
+// The override file supplements the base agent.xcf with provider-specific settings.
+func RenderXaffOverrideXCF(target string) string {
+	var sb strings.Builder
+
+	sb.WriteString(fmt.Sprintf("# agent.%s.xcf — provider override for %s\n", target, target))
+	sb.WriteString("# This file supplements xcf/agents/xaff/agent.xcf for the ")
+	sb.WriteString(target)
+	sb.WriteString(" provider.\n")
+	sb.WriteString("# Fields here override or extend the base agent definition.\n")
+	sb.WriteString("\n")
+	sb.WriteString("---\n")
+	sb.WriteString("kind: agent\n")
+	sb.WriteString("version: \"1.0\"\n")
+	sb.WriteString("name: xaff\n")
+	sb.WriteString("\n")
+
+	switch target {
+	case "claude":
+		sb.WriteString("# Claude-specific settings\n")
+		sb.WriteString("effort: \"high\"\n")
+		sb.WriteString("permission-mode: default\n")
+		sb.WriteString("---\n")
+		sb.WriteString("# Claude override: full xcaffold toolkit with extended permissions.\n")
+		sb.WriteString("# The effort: high setting enables extended thinking for complex authoring tasks.\n")
+	case "cursor":
+		sb.WriteString("# Cursor-specific settings\n")
+		sb.WriteString("readonly: false\n")
+		sb.WriteString("---\n")
+		sb.WriteString("# Cursor override: xcaffold authoring in Cursor.\n")
+		sb.WriteString("# Note: model, effort, and permission-mode are dropped for Cursor targets.\n")
+		sb.WriteString("# Use .mdc frontmatter conventions when authoring Cursor-specific rules.\n")
+	case "gemini":
+		sb.WriteString("---\n")
+		sb.WriteString("# Gemini override: xcaffold authoring via Gemini.\n")
+		sb.WriteString("# Note: effort and permission-mode are dropped for Gemini targets.\n")
+		sb.WriteString("# Gemini default max-turns is 30; adjust in targets: if needed.\n")
+	case "copilot":
+		sb.WriteString("# Copilot-specific settings\n")
+		sb.WriteString("disable-model-invocation: false\n")
+		sb.WriteString("---\n")
+		sb.WriteString("# Copilot override: xcaffold authoring via GitHub Copilot.\n")
+		sb.WriteString("# Note: model and effort are dropped for Copilot targets.\n")
+		sb.WriteString("# Skills and rules have limited support in Copilot agents.\n")
+	case "antigravity":
+		sb.WriteString("---\n")
+		sb.WriteString("# Antigravity override: xcaffold authoring via Antigravity.\n")
+		sb.WriteString("# Antigravity uses gemini-2.5-pro by default for xcaffold targets.\n")
+	default:
+		sb.WriteString("---\n")
+		sb.WriteString(fmt.Sprintf("# %s override: xcaffold authoring agent.\n", target))
+	}
+
+	return sb.String()
+}
+
+// RenderXcfConventionsRuleXCF generates the xcf/rules/xcf-conventions/xcf-conventions.xcf content.
+// This replaces the old generic "conventions" rule with xcaffold-specific authoring conventions.
+func RenderXcfConventionsRuleXCF(selectedTargets []string) string {
+	var sb strings.Builder
+
+	matrix := RenderMatrix("rule", selectedTargets)
+	if matrix != "" {
+		sb.WriteString(matrix)
+	}
+	sb.WriteString("\n")
+	sb.WriteString("---\n")
+	sb.WriteString("kind: rule\n")
+	sb.WriteString("version: \"1.0\"\n")
+	sb.WriteString("name: xcf-conventions\n")
+	sb.WriteString("description: \"xcaffold authoring conventions. Apply when creating or editing .xcf files.\"\n")
+	sb.WriteString("\n")
+	sb.WriteString("activation: always\n")
+	sb.WriteString("---\n")
+	sb.WriteString("When authoring or editing xcaffold `.xcf` files, follow these conventions:\n")
+	sb.WriteString("\n")
+	sb.WriteString("## Field naming\n")
+	sb.WriteString("\n")
+	sb.WriteString("- Use kebab-case for all field names: `allowed-tools`, `always-apply`, `permission-mode`\n")
+	sb.WriteString("- Never use camelCase or snake_case in xcf files\n")
+	sb.WriteString("\n")
+	sb.WriteString("## Version quoting\n")
+	sb.WriteString("\n")
+	sb.WriteString("- Always quote version: `version: \"1.0\"` not `version: 1.0`\n")
+	sb.WriteString("- Bare numbers are parsed as floats and will fail validation\n")
+	sb.WriteString("\n")
+	sb.WriteString("## Name pattern\n")
+	sb.WriteString("\n")
+	sb.WriteString("- name must match `^[a-z0-9-]+$` — lowercase letters, digits, hyphens only\n")
+	sb.WriteString("- No uppercase, no underscores, no spaces\n")
+	sb.WriteString("\n")
+	sb.WriteString("## Directory layout\n")
+	sb.WriteString("\n")
+	sb.WriteString("- One resource per file\n")
+	sb.WriteString("- Use directory-per-resource: `xcf/<kind>/<name>/<name>.xcf`\n")
+	sb.WriteString("- Example: `xcf/agents/my-agent/my-agent.xcf`\n")
+	sb.WriteString("- Per-provider overrides: `xcf/agents/<name>/agent.<provider>.xcf`\n")
+	sb.WriteString("\n")
+	sb.WriteString("## Field correctness by kind\n")
+	sb.WriteString("\n")
+	sb.WriteString("- agent: use `tools:` (not `allowed-tools:`)\n")
+	sb.WriteString("- skill: use `allowed-tools:` (not `tools:`)\n")
+	sb.WriteString("- hooks: pure YAML format — no `---` frontmatter delimiters\n")
+	sb.WriteString("- memory: content comes from file body, not a `content:` field\n")
+	sb.WriteString("- mcp: no body and no targets (per-provider overrides not supported)\n")
+	sb.WriteString("\n")
+	sb.WriteString("## Never do\n")
+	sb.WriteString("\n")
+	sb.WriteString("- Never write directly to `.claude/`, `.cursor/`, `.gemini/`, `.github/`, or `.agents/`\n")
+	sb.WriteString("- Those directories are xcaffold output — owned by `xcaffold apply`\n")
+	sb.WriteString("- Always edit `xcf/` files and compile with `xcaffold apply`\n")
+
+	return sb.String()
+}
+
+// RenderAgentXCF generates xcf/agents/<name>/<name>.xcf content.
+// Kept for backwards compatibility with import pipeline.
 func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 	var sb strings.Builder
 
@@ -233,7 +222,7 @@ func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 	sb.WriteString("kind: agent\n")
 	sb.WriteString("version: \"1.0\"\n")
 	sb.WriteString(fmt.Sprintf("name: %s\n", agentName))
-	sb.WriteString(fmt.Sprintf("description: \"General software developer agent.\"\n"))
+	sb.WriteString("description: \"General software developer agent.\"\n")
 	sb.WriteString("\n")
 	sb.WriteString("# model: used by claude, gemini, antigravity. Ignored by cursor and copilot.\n")
 	sb.WriteString(fmt.Sprintf("model: %q\n", model))
@@ -245,49 +234,6 @@ func RenderAgentXCF(agentName, model string, selectedTargets []string) string {
 	sb.WriteString("---\n")
 	sb.WriteString("You are a software developer.\n")
 	sb.WriteString("Write clean, maintainable code.\n")
-	sb.WriteString("\n")
-	sb.WriteString("# Optional: per-provider instruction overrides\n")
-	sb.WriteString("# targets:\n")
-	sb.WriteString("#   cursor:\n")
-	sb.WriteString("#     instructions-override: |\n")
-	sb.WriteString("#       You are a software developer. Keep rules concise.\n")
-	sb.WriteString("\n")
-	sb.WriteString("# Optional: assertions for 'xcaffold test --judge'\n")
-	sb.WriteString("# assertions:\n")
-	sb.WriteString("#   - \"The agent must not write files outside the project directory.\"\n")
-	sb.WriteString("#   - \"The agent must run tests before marking a task complete.\"\n")
-
-	return sb.String()
-}
-
-// RenderRuleXCF generates the xcf/rules/conventions.xcf content.
-// The output uses frontmatter format: YAML metadata between --- delimiters,
-// followed by the rule body as plain text.
-func RenderRuleXCF(selectedTargets []string) string {
-	var sb strings.Builder
-
-	matrix := RenderMatrix("rule", selectedTargets)
-	if matrix != "" {
-		sb.WriteString(matrix)
-	}
-	sb.WriteString("\n")
-	sb.WriteString("---\n")
-	sb.WriteString("kind: rule\n")
-	sb.WriteString("version: \"1.0\"\n")
-	sb.WriteString("name: conventions\n")
-	sb.WriteString("description: \"Core coding conventions for this project.\"\n")
-	sb.WriteString("\n")
-	sb.WriteString("# activation: always | path-glob | model-decided | manual-mention | explicit-invoke\n")
-	sb.WriteString("activation: always\n")
-	sb.WriteString("---\n")
-	sb.WriteString("Follow standard coding conventions for this project.\n")
-	sb.WriteString("Write clean, readable, well-documented code.\n")
-	sb.WriteString("Prefer explicit over implicit.\n")
-	sb.WriteString("\n")
-	sb.WriteString("# Optional: path-scoped activation\n")
-	sb.WriteString("# paths:\n")
-	sb.WriteString("#   - \"src/**\"\n")
-	sb.WriteString("#   - \"lib/**\"\n")
 
 	return sb.String()
 }
@@ -331,7 +277,6 @@ func RenderSettingsXCF(selectedTargets []string) string {
 }
 
 // RenderPolicyDescriptionXCF generates the xcf/policies/require-agent-description.xcf content.
-// Returns a single-document YAML policy that enforces agent descriptions.
 func RenderPolicyDescriptionXCF() string {
 	return `# kind: policy - guardrails enforced at 'xcaffold apply' time.
 # Violations are caught before any files are written.
@@ -348,7 +293,6 @@ require:
 }
 
 // RenderPolicyInstructionsXCF generates the xcf/policies/require-agent-instructions.xcf content.
-// Returns a single-document YAML policy that enforces agent instructions.
 func RenderPolicyInstructionsXCF() string {
 	return `kind: policy
 version: "1.0"

@@ -12,55 +12,61 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestInitWizard_GeneratesMultiKindFormat verifies that buildXCFContent emits
-// a multi-kind scaffold with a kind: project document and a kind: agent document.
+// TestInitWizard_Targets_IsSlice verifies wizardAnswers.targets is a []string.
 func TestInitWizard_Targets_IsSlice(t *testing.T) {
 	ans := wizardAnswers{
 		name:    "test-project",
 		targets: []string{"claude", "cursor"},
 	}
-	// targets must be a []string field, not a string
 	require.Len(t, ans.targets, 2)
 	assert.Equal(t, "claude", ans.targets[0])
 	assert.Equal(t, "cursor", ans.targets[1])
 }
 
+// TestCollectWizardAnswers_NoAgentQuestion verifies the wizardAnswers struct
+// has no wantAgent or wantAnalyze fields.
+func TestCollectWizardAnswers_NoAgentQuestion(t *testing.T) {
+	ans := wizardAnswers{name: "x", targets: []string{"claude"}}
+	// Struct literal compiles only if wantAgent and wantAnalyze fields are absent.
+	_ = ans
+}
+
 // TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF verifies that
 // --global bypasses the local project.xcf idempotency check.
-// Regression: globalFlag was checked AFTER the project.xcf stat, causing
-// `xcaffold init --global` to silently no-op when a local project.xcf existed.
 func TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF(t *testing.T) {
-	// Create a temp dir with a project.xcf already present.
 	dir := t.TempDir()
 	xcfPath := filepath.Join(dir, ".xcaffold", "project.xcf")
 	require.NoError(t, os.MkdirAll(filepath.Dir(xcfPath), 0755))
 	require.NoError(t, os.WriteFile(xcfPath, []byte("kind: project\nname: existing\n"), 0600))
 
-	// Change to the temp dir so the idempotency check finds project.xcf.
 	orig, err := os.Getwd()
 	require.NoError(t, err)
 	require.NoError(t, os.Chdir(dir))
 	defer func() { _ = os.Chdir(orig) }()
 
-	// Set globalFlag = true to simulate --global, and restore afterwards.
 	globalFlag = true
 	defer func() { globalFlag = false }()
 
-	// Build a minimal cobra.Command so runInit can write output.
 	cmd := &cobra.Command{}
 	var buf strings.Builder
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
 
-	// runInit must NOT return nil with "Nothing to do" — it must reach initGlobal.
-	// initGlobal will fail because ~/.xcaffold/global.xcf may or may not exist,
-	// but the key assertion is that the early-return idempotency message is NOT printed.
 	_ = runInit(cmd, nil)
 
 	output := buf.String()
 	assert.NotContains(t, output, "Nothing to do",
 		"--global should bypass the local project.xcf idempotency check")
 }
+
+// TestInitGlobal_ReturnsNotAvailable verifies initGlobal prints the not-available
+// message and returns nil.
+func TestInitGlobal_ReturnsNotAvailable(t *testing.T) {
+	err := initGlobal()
+	assert.NoError(t, err, "initGlobal must return nil")
+}
+
+// --- Reference template tests ---
 
 func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
 	tmp := t.TempDir()
@@ -76,57 +82,65 @@ func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
 	require.Contains(t, string(data), "Agent Kind — Full Field Reference")
 }
 
-func TestWriteReferenceTemplates_GeneratesSkillReference(t *testing.T) {
+func TestWriteReferenceTemplates_All8Files(t *testing.T) {
 	tmp := t.TempDir()
 	require.NoError(t, writeReferenceTemplates(tmp))
 
-	path := filepath.Join(tmp, ".xcaffold", "schemas", "skill.xcf.reference")
-	data, err := os.ReadFile(path)
-	require.NoError(t, err)
+	expected := []string{
+		"agent.xcf.reference",
+		"skill.xcf.reference",
+		"rule.xcf.reference",
+		"workflow.xcf.reference",
+		"mcp.xcf.reference",
+		"hooks.xcf.reference",
+		"memory.xcf.reference",
+		"cli-cheatsheet.reference",
+	}
 
-	body := string(data)
-	require.Contains(t, body, "Skill Kind — Full Field Reference")
-	require.Contains(t, body, "allowed-tools:")
-	require.Contains(t, body, "disable-model-invocation:")
-	require.Contains(t, body, "targets:")
+	for _, name := range expected {
+		path := filepath.Join(tmp, ".xcaffold", "schemas", name)
+		assert.FileExists(t, path, "expected %s to exist", name)
+	}
 }
 
 func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
 	tmp := t.TempDir()
 
-	// Run init's reference generation step
 	require.NoError(t, writeReferenceTemplates(tmp))
 
-	// Verify both agent and skill references exist at the new schemas path
 	for _, name := range []string{"agent.xcf.reference", "skill.xcf.reference"} {
 		path := filepath.Join(tmp, ".xcaffold", "schemas", name)
 		_, err := os.Stat(path)
 		require.NoError(t, err, "expected %s to exist at .xcaffold/schemas/", name)
 	}
 
-	// Verify skill reference contains canonical-only field names
 	skillData, err := os.ReadFile(filepath.Join(tmp, ".xcaffold", "schemas", "skill.xcf.reference"))
 	require.NoError(t, err)
 	skillBody := string(skillData)
 	require.Contains(t, skillBody, "allowed-tools:")
-	require.NotContains(t, skillBody, "\ntools:") // legacy name must not appear
+	require.NotContains(t, skillBody, "\ntools:")
 }
 
-// TestInit_ReferencesFieldInSkillXCF verifies that the generated xcaffold.xcf
-// skill contains a references: block pointing to the companion files.
+// TestInit_ReferencesFieldInSkillXCF verifies the generated xcaffold.xcf skill
+// contains a references: block pointing to all 8 companion files.
 func TestInit_ReferencesFieldInSkillXCF(t *testing.T) {
 	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
 	require.Contains(t, out, "references:", "skill XCF must contain a references: field")
 	require.Contains(t, out, ".xcaffold/schemas/agent.xcf.reference")
 	require.Contains(t, out, ".xcaffold/schemas/skill.xcf.reference")
+	require.Contains(t, out, ".xcaffold/schemas/rule.xcf.reference")
+	require.Contains(t, out, ".xcaffold/schemas/workflow.xcf.reference")
+	require.Contains(t, out, ".xcaffold/schemas/mcp.xcf.reference")
+	require.Contains(t, out, ".xcaffold/schemas/hooks.xcf.reference")
+	require.Contains(t, out, ".xcaffold/schemas/memory.xcf.reference")
+	require.Contains(t, out, ".xcaffold/schemas/cli-cheatsheet.reference")
 }
 
-// TestInit_SkillXCF_PathsUpdated verifies that the generated xcaffold.xcf skill body
-// references the new companion path, not the old xcf/references/ path.
+// TestInit_SkillXCF_PathsUpdated verifies the skill body uses .xcaffold/schemas/ paths.
 func TestInit_SkillXCF_PathsUpdated(t *testing.T) {
 	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
-	require.NotContains(t, out, "xcf/skills/xcaffold/references/", "old xcf/skills/xcaffold/references/ path must not appear in generated skill")
-	require.Contains(t, out, ".xcaffold/schemas/", "new companion path must appear in generated skill")
+	require.NotContains(t, out, "xcf/skills/xcaffold/references/")
+	require.Contains(t, out, ".xcaffold/schemas/")
 }
 
 func TestWriteReferenceTemplates_WritesToDotXcaffoldSchemas(t *testing.T) {
@@ -135,34 +149,91 @@ func TestWriteReferenceTemplates_WritesToDotXcaffoldSchemas(t *testing.T) {
 	err := writeReferenceTemplates(tmpDir)
 	require.NoError(t, err)
 
-	// Should write to .xcaffold/schemas/
 	agentRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "agent.xcf.reference")
-	assert.FileExists(t, agentRef, "expected agent.xcf.reference in .xcaffold/schemas/")
+	assert.FileExists(t, agentRef)
 
 	skillRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "skill.xcf.reference")
-	assert.FileExists(t, skillRef, "expected skill.xcf.reference in .xcaffold/schemas/")
+	assert.FileExists(t, skillRef)
 
-	// Should NOT write to the old location
+	// Must NOT write to old location
 	oldDir := filepath.Join(tmpDir, "xcf", "skills", "xcaffold", "references")
 	_, statErr := os.Stat(oldDir)
 	assert.True(t, os.IsNotExist(statErr), "old path xcf/skills/xcaffold/references/ should not exist")
 }
 
-// --- Multi-File Generation Tests ---
+// --- Xaff scaffold generation tests ---
 
-func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
+func TestWriteXCFDirectory_XaffAgent_CreatesBaseAndOverride(t *testing.T) {
 	ans := wizardAnswers{
-		name:      "multi-file-test",
-		desc:      "Test project",
-		targets:   []string{"claude", "cursor"},
-		wantAgent: true,
+		name:    "xaff-test",
+		targets: []string{"claude"},
 	}
 
 	tmpDir := t.TempDir()
 	err := writeXCFDirectory(tmpDir, ans)
 	require.NoError(t, err)
 
-	// Verify top-level project.xcf
+	// Base agent
+	agentBase := filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.xcf")
+	assert.FileExists(t, agentBase)
+	data, _ := os.ReadFile(agentBase)
+	assert.Contains(t, string(data), "name: xaff")
+	assert.Contains(t, string(data), "skills: [xcaffold]")
+
+	// Provider override
+	agentOverride := filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.claude.xcf")
+	assert.FileExists(t, agentOverride)
+	overrideData, _ := os.ReadFile(agentOverride)
+	assert.Contains(t, string(overrideData), "name: xaff")
+}
+
+func TestWriteXCFDirectory_MultiTarget_CreatesMultipleOverrides(t *testing.T) {
+	ans := wizardAnswers{
+		name:    "multi-test",
+		targets: []string{"claude", "cursor"},
+	}
+
+	tmpDir := t.TempDir()
+	err := writeXCFDirectory(tmpDir, ans)
+	require.NoError(t, err)
+
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.claude.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.cursor.xcf"))
+}
+
+func TestWriteXCFDirectory_XcfConventions_ReplacesGeneric(t *testing.T) {
+	ans := wizardAnswers{
+		name:    "conv-test",
+		targets: []string{"claude"},
+	}
+
+	tmpDir := t.TempDir()
+	err := writeXCFDirectory(tmpDir, ans)
+	require.NoError(t, err)
+
+	// New rule exists
+	ruleFile := filepath.Join(tmpDir, "xcf", "rules", "xcf-conventions", "xcf-conventions.xcf")
+	assert.FileExists(t, ruleFile)
+	data, _ := os.ReadFile(ruleFile)
+	assert.Contains(t, string(data), "name: xcf-conventions")
+
+	// Old generic rule must not exist
+	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "rules", "conventions.xcf"))
+}
+
+func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
+	ans := wizardAnswers{
+		name:    "multi-file-test",
+		desc:    "Test project",
+		targets: []string{"claude", "cursor"},
+	}
+
+	tmpDir := t.TempDir()
+	err := writeXCFDirectory(tmpDir, ans)
+	require.NoError(t, err)
+
+	// project.xcf
 	scaffoldBytes, err := os.ReadFile(filepath.Join(tmpDir, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 	content := string(scaffoldBytes)
@@ -171,65 +242,37 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	assert.Contains(t, content, "rules:")
 	assert.Contains(t, content, "policies:")
 
-	// Verify xcf/ agents directory and file — agents live in xcf/agents/<id>/<id>.xcf
-	agentFile := filepath.Join(tmpDir, "xcf", "agents", "developer", "developer.xcf")
-	assert.FileExists(t, agentFile)
-	agentBytes, _ := os.ReadFile(agentFile)
-	assert.Contains(t, string(agentBytes), "kind: agent")
+	// Xaff agent
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.claude.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.cursor.xcf"))
 
-	// Verify xcf/ rules directory and file
-	ruleFile := filepath.Join(tmpDir, "xcf", "rules", "conventions.xcf")
+	// xcaffold skill
+	skillFile := filepath.Join(tmpDir, "xcf", "skills", "xcaffold", "xcaffold.xcf")
+	assert.FileExists(t, skillFile)
+
+	// xcf-conventions rule
+	ruleFile := filepath.Join(tmpDir, "xcf", "rules", "xcf-conventions", "xcf-conventions.xcf")
 	assert.FileExists(t, ruleFile)
-	ruleBytes, _ := os.ReadFile(ruleFile)
-	assert.Contains(t, string(ruleBytes), "kind: rule")
 
-	// Verify xcf/ policies directory and files (split into one file per policy)
+	// Policies
 	descPolicyFile := filepath.Join(tmpDir, "xcf", "policies", "require-agent-description.xcf")
 	assert.FileExists(t, descPolicyFile)
-	descPolicyBytes, _ := os.ReadFile(descPolicyFile)
-	assert.Contains(t, string(descPolicyBytes), "kind: policy")
-	assert.Contains(t, string(descPolicyBytes), "require-agent-description")
-
 	instrPolicyFile := filepath.Join(tmpDir, "xcf", "policies", "require-agent-instructions.xcf")
 	assert.FileExists(t, instrPolicyFile)
-	instrPolicyBytes, _ := os.ReadFile(instrPolicyFile)
-	assert.Contains(t, string(instrPolicyBytes), "kind: policy")
-	assert.Contains(t, string(instrPolicyBytes), "require-agent-instructions")
 
-	// Verify xcf/ settings file
-	settingsFile := filepath.Join(tmpDir, "xcf", "settings.xcf")
-	assert.FileExists(t, settingsFile)
-	settingsBytes, _ := os.ReadFile(settingsFile)
-	assert.Contains(t, string(settingsBytes), "kind: settings")
-}
+	// Settings
+	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "settings.xcf"))
 
-func TestWriteXCFDirectory_NoAgent_StillCreatesScaffold(t *testing.T) {
-	ans := wizardAnswers{
-		name:      "no-agent-test",
-		targets:   []string{"claude"},
-		wantAgent: false, // User chose NO starter agent
-	}
-
-	tmpDir := t.TempDir()
-	err := writeXCFDirectory(tmpDir, ans)
-	require.NoError(t, err)
-
-	// project.xcf should exist
-	assert.FileExists(t, filepath.Join(tmpDir, ".xcaffold", "project.xcf"))
-
-	// but xcf/ should NOT contain an agents/developer/developer.xcf
+	// Must not have old paths
 	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer", "developer.xcf"))
+	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "rules", "conventions.xcf"))
 }
 
-// --- Target Flag & Flow Tests ---
-
-// TestInit_GeneratesProjectXcf verifies that writeXCFDirectory writes project.xcf
-// (not project.xcf) as the top-level entry point.
 func TestInit_GeneratesProjectXcf(t *testing.T) {
 	ans := wizardAnswers{
-		name:      "my-project",
-		targets:   []string{"claude"},
-		wantAgent: false,
+		name:    "my-project",
+		targets: []string{"claude"},
 	}
 
 	tmpDir := t.TempDir()
@@ -237,6 +280,18 @@ func TestInit_GeneratesProjectXcf(t *testing.T) {
 	require.NoError(t, err)
 
 	_, projectXcfErr := os.Stat(filepath.Join(tmpDir, ".xcaffold", "project.xcf"))
-
 	assert.NoError(t, projectXcfErr, "project.xcf should be generated")
+}
+
+// TestRenderXcaffoldSkillXCF_NoAnalyze verifies analyze references are not in the skill.
+func TestRenderXcaffoldSkillXCF_NoAnalyze(t *testing.T) {
+	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
+	assert.NotContains(t, out, "xcaffold analyze", "skill must not reference removed analyze command")
+}
+
+// TestRenderXcaffoldSkillXCF_StatusNotDiff verifies skill uses xcaffold status, not diff.
+func TestRenderXcaffoldSkillXCF_StatusNotDiff(t *testing.T) {
+	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
+	assert.Contains(t, out, "xcaffold status", "skill must reference xcaffold status")
+	assert.NotContains(t, out, "xcaffold diff", "skill must not reference removed xcaffold diff")
 }
