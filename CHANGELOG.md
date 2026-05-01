@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `xcaffold apply --backup` skipping backup for 2nd and subsequent targets in multi-target projects; backup now runs for every target regardless of source-change detection.
+
 ### Added
 
 - Added `xcaffold status` command to replace `xcaffold diff`, providing high-level sync/drift metrics across all applied targets with inline file status reporting.

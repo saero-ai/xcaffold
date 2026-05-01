@@ -209,6 +209,16 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	}
 	sourceFiles = configSources
 
+	if applyBackup && !applyDryRun {
+		var backupDir string
+		if config.Project != nil {
+			backupDir = config.Project.BackupDir
+		}
+		if err := performBackup(outputDir, targetFlag, backupDir, scopeName); err != nil {
+			return fmt.Errorf("[%s] backup failed: %w", scopeName, err)
+		}
+	}
+
 	if !applyForce {
 		prevManifest, readErr := state.ReadState(stateFilePath)
 		if readErr == nil && len(prevManifest.SourceFiles) > 0 {
@@ -269,16 +279,6 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		drift, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
 		if err == nil && drift {
 			return fmt.Errorf("[%s] drift detected! Target directory contains unrecorded changes. Use --force to overwrite", scopeName)
-		}
-	}
-
-	if applyBackup && !applyDryRun {
-		var backupDir string
-		if config.Project != nil {
-			backupDir = config.Project.BackupDir
-		}
-		if err := performBackup(outputDir, targetFlag, backupDir, scopeName); err != nil {
-			return fmt.Errorf("[%s] backup failed: %w", scopeName, err)
 		}
 	}
 
