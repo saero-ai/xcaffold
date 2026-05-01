@@ -252,8 +252,6 @@ func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.Xcaf
 		Policies:  filterMap(config.Policies, p.Policies),
 		Memory:    filterMap(config.Memory, p.Memory),
 		Contexts:  filterMap(config.Contexts, p.Contexts),
-		// References are not blueprint-filtered; preserve originals.
-		References: config.References,
 	}
 
 	// Named settings selection: if the blueprint specifies a settings key,

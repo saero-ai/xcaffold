@@ -56,14 +56,11 @@ func TestParseDirectory_MultiFileProject(t *testing.T) {
 		[]byte("kind: skill\nname: tdd\nversion: \"1.0\"\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "testing.xcf"),
 		[]byte("kind: rule\nname: testing\nversion: \"1.0\"\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "guide.xcf"),
-		[]byte("kind: reference\nname: guide\nversion: \"1.0\"\n"), 0600))
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	assert.NotNil(t, cfg.Agents["developer"])
 	assert.NotNil(t, cfg.Skills["tdd"])
 	assert.NotNil(t, cfg.Rules["testing"])
-	assert.NotNil(t, cfg.References["guide"])
 }
 
 func TestParseDirectory_FilterExcludesOutputDirs(t *testing.T) {
@@ -86,11 +83,8 @@ func TestParseDirectory_FrontmatterMultiFileWithBodies(t *testing.T) {
 		[]byte("---\nkind: project\nname: my-app\nversion: \"1.0\"\n---\nProject instructions.\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcf"),
 		[]byte("---\nkind: agent\nname: developer\nversion: \"1.0\"\n---\nYou are a developer.\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "guide.xcf"),
-		[]byte("---\nkind: reference\nname: api-guide\nversion: \"1.0\"\n---\n# API Guide\n"), 0600))
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "Project instructions.", cfg.ResourceScope.Contexts["root"].Body)
 	assert.Equal(t, "You are a developer.", cfg.Agents["developer"].Body)
-	assert.Equal(t, "# API Guide", cfg.References["api-guide"].Content)
 }

@@ -7,15 +7,14 @@ import (
 // global scope (root of XcaffoldConfig) and workspace scope (inside ProjectConfig).
 // Embedded with yaml:",inline" so fields appear at the same YAML level as the parent.
 type ResourceScope struct {
-	Agents     map[string]AgentConfig     `yaml:"agents,omitempty"`
-	Skills     map[string]SkillConfig     `yaml:"skills,omitempty"`
-	Rules      map[string]RuleConfig      `yaml:"rules,omitempty"`
-	MCP        map[string]MCPConfig       `yaml:"mcp,omitempty"`
-	Workflows  map[string]WorkflowConfig  `yaml:"workflows,omitempty"`
-	Policies   map[string]PolicyConfig    `yaml:"policies,omitempty"`
-	Memory     map[string]MemoryConfig    `yaml:"memory,omitempty"`
-	Contexts   map[string]ContextConfig   `yaml:"contexts,omitempty"`
-	References map[string]ReferenceConfig `yaml:"references,omitempty"`
+	Agents    map[string]AgentConfig    `yaml:"agents,omitempty"`
+	Skills    map[string]SkillConfig    `yaml:"skills,omitempty"`
+	Rules     map[string]RuleConfig     `yaml:"rules,omitempty"`
+	MCP       map[string]MCPConfig      `yaml:"mcp,omitempty"`
+	Workflows map[string]WorkflowConfig `yaml:"workflows,omitempty"`
+	Policies  map[string]PolicyConfig   `yaml:"policies,omitempty"`
+	Memory    map[string]MemoryConfig   `yaml:"memory,omitempty"`
+	Contexts  map[string]ContextConfig  `yaml:"contexts,omitempty"`
 }
 
 // XcaffoldConfig is the root structure of a parsed .xcf YAML file.
@@ -628,31 +627,6 @@ type ContextConfig struct {
 	SourceProvider string `yaml:"-" json:"-"`
 }
 
-// ReferenceConfig defines a named reference document — a docs or data file that is
-// seeded into a provider's output directory at compile time as a supporting file.
-// Field ordering follows the canonical group structure:
-//
-//  1. Identity (name, description)
-//  2. Body (content — runtime only; not serialized)
-//  3. Provenance (source-provider — runtime only; not serialized)
-type ReferenceConfig struct {
-	// Group 1: Identity
-	Name        string `yaml:"name,omitempty"`
-	Description string `yaml:"description,omitempty"`
-
-	// Content holds the raw file content when loaded from disk.
-	// It is never decoded from or serialized to YAML.
-	Content string `yaml:"-"`
-
-	// Inherited is set by the parser when this resource originates from an
-	// extends: global base config. It is never serialized.
-	Inherited bool `yaml:"-"`
-
-	// SourceProvider identifies the provider this resource was imported from.
-	// Set by the import pipeline; never serialized.
-	SourceProvider string `yaml:"-" json:"-"`
-}
-
 // BlueprintConfig defines a named resource subset selector.
 // A blueprint selects which agents, skills, rules, workflows, MCP servers,
 // policies, memory entries, contexts, settings, and hooks to compile.
@@ -903,9 +877,4 @@ func (c *XcaffoldConfig) StripInherited() {
 	}
 	// Memory is convention-based (filesystem scan), not parser-inherited.
 	// No inherited filtering needed.
-	for k, v := range c.References {
-		if v.Inherited {
-			delete(c.References, k)
-		}
-	}
 }

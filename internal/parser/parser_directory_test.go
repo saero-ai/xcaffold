@@ -362,21 +362,6 @@ local:
 	assert.Equal(t, "abc", cfg.Project.Local.Env["SECRET"])
 }
 
-// TestParse_Reference_IsParseableFile verifies that a kind: reference document
-// is accepted by the parser, assigned a name, and surfaced in cfg.References.
-func TestParse_Reference_IsParseableFile(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "guide.xcf")
-	require.NoError(t, os.WriteFile(f, []byte("kind: reference\nname: guide\nversion: \"1.0\"\n"), 0600))
-	proj := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(proj, []byte("kind: project\nname: myproject\nversion: \"1.0\"\n"), 0600))
-	cfg, err := ParseDirectory(dir)
-	require.NoError(t, err)
-	ref, ok := cfg.References["guide"]
-	require.True(t, ok, "reference 'guide' must appear in cfg.References")
-	assert.Equal(t, "guide", ref.Name)
-}
-
 // TestParse_Profile_IsParseableFile verifies that a kind: profile document
 // is accepted by the parser without error (profile routing is handled separately).
 func TestParse_Profile_IsParseableFile(t *testing.T) {

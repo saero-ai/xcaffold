@@ -139,14 +139,6 @@ type policyDocument struct {
 	ast.PolicyConfig `yaml:",inline"`
 }
 
-// referenceDocument wraps ReferenceConfig with envelope fields for kind: reference parsing.
-// Name is promoted from ReferenceConfig.Name.
-type referenceDocument struct {
-	Kind                string `yaml:"kind"`
-	Version             string `yaml:"version"`
-	ast.ReferenceConfig `yaml:",inline"`
-}
-
 // blueprintDocument wraps BlueprintConfig with envelope fields for kind: blueprint parsing.
 // Name is promoted from BlueprintConfig.Name.
 type blueprintDocument struct {
@@ -196,33 +188,6 @@ func parseBlueprintDocument(node *yaml.Node, config *ast.XcaffoldConfig) error {
 		return fmt.Errorf("duplicate blueprint name %q", doc.Name)
 	}
 	config.Blueprints[doc.Name] = doc.BlueprintConfig
-	return nil
-}
-
-// parseReferenceDocument decodes a yaml.Node into a referenceDocument with
-// KnownFields validation, validates envelope fields, and inserts the resource
-// into config.References.
-func parseReferenceDocument(node *yaml.Node, config *ast.XcaffoldConfig) error {
-	b, err := nodeToBytes(node)
-	if err != nil {
-		return fmt.Errorf("failed to marshal reference document: %w", err)
-	}
-	var doc referenceDocument
-	dec := yaml.NewDecoder(bytes.NewReader(b))
-	dec.KnownFields(true)
-	if err := dec.Decode(&doc); err != nil {
-		return fmt.Errorf("invalid reference document: %w", err)
-	}
-	if err := validateEnvelope(doc.Version, doc.Name, "reference"); err != nil {
-		return err
-	}
-	if config.References == nil {
-		config.References = make(map[string]ast.ReferenceConfig)
-	}
-	if _, exists := config.References[doc.Name]; exists {
-		return fmt.Errorf("duplicate reference ID %q", doc.Name)
-	}
-	config.References[doc.Name] = doc.ReferenceConfig
 	return nil
 }
 

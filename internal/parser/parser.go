@@ -564,16 +564,6 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			lastKind = kind
 			lastName = extractScalarField(docNode, "name")
 
-		case "reference":
-			if config.Version == "" {
-				config.Version = extractVersion(docNode)
-			}
-			if parseErr := parseReferenceDocument(docNode, config); parseErr != nil {
-				return nil, parseErr
-			}
-			lastKind = "reference"
-			lastName = extractScalarField(docNode, "name")
-
 		case "blueprint":
 			if config.Version == "" {
 				config.Version = extractVersion(docNode)
@@ -646,11 +636,6 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			config.Contexts["root"] = ast.ContextConfig{
 				Name: "root",
 				Body: trimmedBody,
-			}
-		case "reference":
-			if ref, ok := config.References[lastName]; ok && ref.Content == "" {
-				ref.Content = trimmedBody
-				config.References[lastName] = ref
 			}
 		}
 	}
@@ -732,7 +717,6 @@ var parseableKinds = map[string]bool{
 	"settings":  true,
 	"global":    true,
 	"policy":    true,
-	"reference": true,
 	"blueprint": true,
 	"context":   true,
 	"memory":    true,
@@ -1290,7 +1274,6 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	mcpOrigins := map[string]string{}
 	workflowOrigins := map[string]string{}
 	policyOrigins := map[string]string{}
-	referenceOrigins := map[string]string{}
 	blueprintOrigins := map[string]string{}
 	contextOrigins := map[string]string{}
 	settingsOrigin := ""
@@ -1402,11 +1385,6 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		}
 
 		merged.Policies, policyOrigins, err = mergeMapStrict(merged.Policies, p.Policies, "policy", policyOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		merged.References, referenceOrigins, err = mergeMapStrict(merged.References, p.References, "reference", referenceOrigins, f)
 		if err != nil {
 			return nil, err
 		}
@@ -1663,7 +1641,6 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.MCP = mergeMCPOverrideInherited(base.MCP, child.MCP)
 	merged.Workflows = mergeWorkflowsOverrideInherited(base.Workflows, child.Workflows)
 	merged.Policies = mergeMapOverride(base.Policies, child.Policies)
-	merged.References = mergeReferencesOverrideInherited(base.References, child.References)
 	merged.Blueprints = mergeMapOverride(base.Blueprints, child.Blueprints)
 	merged.Contexts = mergeContextsOverrideInherited(base.Contexts, child.Contexts)
 	merged.Hooks = mergeNamedHooksAdditive(base.Hooks, child.Hooks)
@@ -1777,22 +1754,6 @@ func mergeWorkflowsOverrideInherited(base, child map[string]ast.WorkflowConfig) 
 		return nil
 	}
 	merged := make(map[string]ast.WorkflowConfig, len(base)+len(child))
-	for k, v := range base {
-		v.Inherited = true
-		merged[k] = v
-	}
-	for k, v := range child {
-		v.Inherited = false
-		merged[k] = v
-	}
-	return merged
-}
-
-func mergeReferencesOverrideInherited(base, child map[string]ast.ReferenceConfig) map[string]ast.ReferenceConfig {
-	if base == nil && child == nil {
-		return nil
-	}
-	merged := make(map[string]ast.ReferenceConfig, len(base)+len(child))
 	for k, v := range base {
 		v.Inherited = true
 		merged[k] = v
@@ -2152,9 +2113,6 @@ func validateIDs(c *ast.XcaffoldConfig) error {
 		return err
 	}
 	if err := validateResourceIDs(c.Policies, "policy"); err != nil {
-		return err
-	}
-	if err := validateResourceIDs(c.References, "reference"); err != nil {
 		return err
 	}
 	return nil

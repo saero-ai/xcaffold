@@ -95,16 +95,6 @@ func TestParse_Frontmatter_RuleBodyAsInstructions(t *testing.T) {
 	assert.Equal(t, "Rule body content.", cfg.Rules["my-rule"].Body)
 }
 
-func TestParse_Frontmatter_ReferenceBodyAsContent(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "my-ref.xcf")
-	require.NoError(t, os.WriteFile(f, []byte(
-		"---\nkind: reference\nname: my-ref\nversion: \"1.0\"\n---\nReference body content.\n"), 0600))
-	cfg, err := ParseFileExact(f)
-	require.NoError(t, err)
-	assert.Equal(t, "Reference body content.", cfg.References["my-ref"].Content)
-}
-
 func TestParse_Frontmatter_SkillWithBody(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "tdd.xcf")
@@ -142,19 +132,6 @@ func TestParse_Frontmatter_ProjectWithBody(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cfg.Project)
 	assert.Equal(t, "Project-level instructions here.", cfg.ResourceScope.Contexts["root"].Body)
-}
-
-func TestParse_Frontmatter_ReferenceWithBody(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "guide.xcf")
-	content := "---\nkind: reference\nname: tdd-cheatsheet\nversion: \"1.0\"\ndescription: TDD patterns\n---\n## Red-Green-Refactor\n\nWrite tests first.\n"
-	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
-	cfg, err := ParseFileExact(f)
-	require.NoError(t, err)
-	ref, ok := cfg.References["tdd-cheatsheet"]
-	require.True(t, ok)
-	assert.Equal(t, "## Red-Green-Refactor\n\nWrite tests first.", ref.Content)
-	assert.Equal(t, "TDD patterns", ref.Description)
 }
 
 func TestParse_Frontmatter_BodyDoesNotOverrideYAMLInstructions(t *testing.T) {
