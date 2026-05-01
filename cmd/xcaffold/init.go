@@ -331,6 +331,8 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		}
 		files = append(files,
 			"xcf/skills/xcaffold/xcaffold.xcf",
+			"xcf/skills/xcaffold/references/operating-guide.md",
+			"xcf/skills/xcaffold/references/authoring-guide.md",
 			"xcf/rules/xcf-conventions/xcf-conventions.xcf",
 		)
 		files = append(files, "xcf/settings.xcf")
@@ -486,6 +488,18 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		return err
 	}
 
+	// xcf/skills/xcaffold/references/ (operating guide and authoring guide)
+	refsDir := filepath.Join(baseDir, "xcf", "skills", "xcaffold", "references")
+	if err := os.MkdirAll(refsDir, 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(refsDir, "operating-guide.md"), []byte(templates.RenderOperatingGuide()), 0o600); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(refsDir, "authoring-guide.md"), []byte(templates.RenderAuthoringGuide()), 0o600); err != nil {
+		return err
+	}
+
 	// xcf/rules/xcf-conventions/xcf-conventions.xcf
 	ruleContent := templates.RenderXcfConventionsRuleXCF(ans.targets)
 	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "rules", "xcf-conventions", "xcf-conventions.xcf"), []byte(ruleContent), 0o600); err != nil {
@@ -589,6 +603,18 @@ func injectXaffToolkitAfterImport(baseDir string) error {
 	}
 	skillContent := templates.RenderXcaffoldSkillXCF(targets)
 	if err := os.WriteFile(filepath.Join(skillDir, "xcaffold.xcf"), []byte(skillContent), 0o600); err != nil {
+		return err
+	}
+
+	// Write skill reference files (operating guide and authoring guide)
+	refsDir := filepath.Join(skillDir, "references")
+	if err := os.MkdirAll(refsDir, 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(refsDir, "operating-guide.md"), []byte(templates.RenderOperatingGuide()), 0o600); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(refsDir, "authoring-guide.md"), []byte(templates.RenderAuthoringGuide()), 0o600); err != nil {
 		return err
 	}
 

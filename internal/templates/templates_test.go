@@ -259,3 +259,66 @@ func TestRenderAgentXCF_StartsWithFrontmatter(t *testing.T) {
 		t.Errorf("must start with --- delimiter, got: %.40s", out)
 	}
 }
+
+// --- RenderOperatingGuide ---
+
+func TestRenderOperatingGuide_Content(t *testing.T) {
+	out := RenderOperatingGuide()
+
+	for _, cmd := range []string{"xcaffold init", "xcaffold apply", "xcaffold validate", "xcaffold status", "xcaffold import"} {
+		assert.Contains(t, out, cmd, "operating guide must contain %q", cmd)
+	}
+
+	assert.Contains(t, out, "## Starting a new project")
+	assert.Contains(t, out, "## Checking compilation state")
+	assert.Contains(t, out, "## Importing existing provider config")
+}
+
+func TestRenderOperatingGuide_ContainsFlags(t *testing.T) {
+	out := RenderOperatingGuide()
+
+	flags := []string{"--target", "--yes", "--dry-run", "--plan"}
+	for _, flag := range flags {
+		assert.Contains(t, out, flag, "operating guide must document %q flag", flag)
+	}
+}
+
+// --- RenderAuthoringGuide ---
+
+func TestRenderAuthoringGuide_Content(t *testing.T) {
+	out := RenderAuthoringGuide()
+
+	for _, kind := range []string{"kind: agent", "kind: skill", "kind: rule", "kind: workflow", "kind: mcp", "kind: hooks", "kind: memory"} {
+		assert.Contains(t, out, kind, "authoring guide must contain %q", kind)
+	}
+
+	assert.Contains(t, out, "xcf/agents/", "authoring guide must show directory structure")
+	assert.Contains(t, out, "xcf/skills/", "authoring guide must show directory structure")
+}
+
+func TestRenderAuthoringGuide_ContainsFieldMatrix(t *testing.T) {
+	out := RenderAuthoringGuide()
+
+	assert.Contains(t, out, "description", "authoring guide must document field names")
+	assert.Contains(t, out, "allowed-tools", "authoring guide must document allowed-tools field")
+}
+
+// --- Xcaffold Skill Body Size ---
+
+func TestRenderXcaffoldSkillXCF_SlimBody(t *testing.T) {
+	out := RenderXcaffoldSkillXCF([]string{"claude"})
+
+	parts := strings.SplitN(out, "---\n", 3)
+	require.Len(t, parts, 3, "output must have exactly two --- delimiters")
+	body := parts[2]
+	bodyLines := len(strings.Split(strings.TrimSpace(body), "\n"))
+
+	assert.LessOrEqual(t, bodyLines, 60, "skill body should be slim (<60 lines), got %d", bodyLines)
+}
+
+func TestRenderXcaffoldSkillXCF_ReferencesIncludeGuides(t *testing.T) {
+	out := RenderXcaffoldSkillXCF([]string{"claude"})
+
+	assert.Contains(t, out, "xcf/skills/xcaffold/references/operating-guide.md", "references must include operating-guide.md")
+	assert.Contains(t, out, "xcf/skills/xcaffold/references/authoring-guide.md", "references must include authoring-guide.md")
+}

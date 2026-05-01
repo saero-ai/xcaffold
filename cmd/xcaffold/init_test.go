@@ -136,10 +136,13 @@ func TestInit_ReferencesFieldInSkillXCF(t *testing.T) {
 	require.Contains(t, out, ".xcaffold/schemas/cli-cheatsheet.reference")
 }
 
-// TestInit_SkillXCF_PathsUpdated verifies the skill body uses .xcaffold/schemas/ paths.
+// TestInit_SkillXCF_PathsUpdated verifies the skill frontmatter references are in the correct sections.
 func TestInit_SkillXCF_PathsUpdated(t *testing.T) {
 	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
-	require.NotContains(t, out, "xcf/skills/xcaffold/references/")
+	// Operating and authoring guides are in the frontmatter references field
+	require.Contains(t, out, "xcf/skills/xcaffold/references/operating-guide.md")
+	require.Contains(t, out, "xcf/skills/xcaffold/references/authoring-guide.md")
+	// Schema references are also in the frontmatter
 	require.Contains(t, out, ".xcaffold/schemas/")
 }
 
@@ -292,11 +295,13 @@ func TestRenderXcaffoldSkillXCF_NoAnalyze(t *testing.T) {
 	assert.NotContains(t, out, "xcaffold analyze", "skill must not reference removed analyze command")
 }
 
-// TestRenderXcaffoldSkillXCF_StatusNotDiff verifies skill uses xcaffold status, not diff.
+// TestRenderXcaffoldSkillXCF_StatusNotDiff verifies operating guide uses xcaffold status.
 func TestRenderXcaffoldSkillXCF_StatusNotDiff(t *testing.T) {
-	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
-	assert.Contains(t, out, "xcaffold status", "skill must reference xcaffold status")
-	assert.NotContains(t, out, "xcaffold diff", "skill must not reference removed xcaffold diff")
+	// Operating guide contains the command reference (moved out of slim skill body)
+	guide := templates.RenderOperatingGuide()
+	assert.Contains(t, guide, "xcaffold status", "operating guide must reference xcaffold status")
+	// Ensure diff is not mentioned (it was removed as a command)
+	assert.NotContains(t, guide, "xcaffold diff", "operating guide must not reference removed xcaffold diff")
 }
 
 // TestCollectWizardAnswers_EmptyTargetSelection_ReturnsError verifies that
