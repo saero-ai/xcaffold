@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -257,4 +258,67 @@ do stuff
 	// Before fix: validation PASSES (bad-agent.xcf not found → cross-ref unchecked)
 	// After fix:  validation FAILS  (bad-agent.xcf found → cross-ref caught → error)
 	require.Error(t, err, "validate must detect cross-ref error in xcf/agents/ when manifest is in .xcaffold/")
+}
+
+func TestValidateCmd_OutputContainsHeader(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+version: "1.0"
+name: "test"
+`), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
+version: "1.0"
+agents:
+  developer:
+    description: "Dev agent"
+    skills: [deploy]
+skills:
+  deploy:
+    description: "Deploy skill"
+`), 0600))
+
+	// Create xcf directory with at least one .xcf file
+	xcfDir := filepath.Join(dir, "xcf")
+	require.NoError(t, os.MkdirAll(xcfDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(xcfDir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: "test"
+`), 0600))
+
+	oldPath := xcfPath
+	xcfPath = xcf
+	defer func() { xcfPath = oldPath }()
+
+	// Capture stdout
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+	oldStdout := os.Stdout
+	os.Stdout = w
+
+	defer func() {
+		os.Stdout = oldStdout
+		_ = w.Close()
+	}()
+
+	err = runValidate(validateCmd, []string{})
+	assert.NoError(t, err)
+
+	_ = w.Close()
+	os.Stdout = oldStdout
+
+	output, err := io.ReadAll(r)
+	require.NoError(t, err)
+	outputStr := string(output)
+
+	// Output should contain header line (first non-empty line after header)
+	// The header format is: <project>  ·  <context>
+	assert.Regexp(t, `\S+\s+.*never applied|last applied`, outputStr, "output must contain header with last applied timestamp")
+	// Should contain glyph or "ok" for at least one check
+	assert.Regexp(t, `(✓|ok).*syntax`, outputStr, "output must indicate syntax check passed")
+	// Should contain "files checked" in footer
+	assert.Contains(t, outputStr, ".xcf files checked", "output must contain file count")
+	// Should contain "Validation passed"
+	assert.Contains(t, outputStr, "Validation passed", "output must contain validation result")
 }
