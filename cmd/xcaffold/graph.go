@@ -491,7 +491,10 @@ func renderTerminalHeader(g *graphData) string {
 		}
 	}
 
-	parts := []string{fmt.Sprintf("%d agents", agents)}
+	var parts []string
+	if agents > 0 {
+		parts = append(parts, fmt.Sprintf("%d agents", agents))
+	}
 	if skills > 0 {
 		parts = append(parts, fmt.Sprintf("%d skills", skills))
 	}
@@ -499,7 +502,8 @@ func renderTerminalHeader(g *graphData) string {
 		parts = append(parts, fmt.Sprintf("%d rules", rules))
 	}
 	if mcps > 0 {
-		parts = append(parts, fmt.Sprintf("%d mcp servers", mcps))
+		label := plural(mcps, "mcp server", "mcp servers")
+		parts = append(parts, fmt.Sprintf("%d %s", mcps, label))
 	}
 	if policies > 0 {
 		parts = append(parts, fmt.Sprintf("%d policies", policies))
@@ -508,7 +512,8 @@ func renderTerminalHeader(g *graphData) string {
 		parts = append(parts, fmt.Sprintf("%d hooks", hooks))
 	}
 
-	header := fmt.Sprintf("  %s  •  %s  ", g.Project, strings.Join(parts, "  •  "))
+	sep := "  " + glyphDot() + "  "
+	header := fmt.Sprintf("  %s%s%s  ", g.Project, sep, strings.Join(parts, sep))
 	width := len(header) + 2
 	border := strings.Repeat("─", width)
 

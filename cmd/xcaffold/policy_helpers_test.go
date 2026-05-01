@@ -34,6 +34,16 @@ func TestDeepCopyConfig_PreservesBody(t *testing.T) {
 	assert.Equal(t, "Project context.", cp.Contexts["main"].Body)
 }
 
+func TestDeepCopyConfig_PreservesProjectBody(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Project = &ast.ProjectConfig{Name: "myproj", Body: "Project instructions."}
+
+	cp := deepCopyConfig(config)
+
+	assert.NotNil(t, cp.Project)
+	assert.Equal(t, "Project instructions.", cp.Project.Body)
+}
+
 func TestDeepCopyConfig_EmptyBody_StaysEmpty(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.Skills = map[string]ast.SkillConfig{

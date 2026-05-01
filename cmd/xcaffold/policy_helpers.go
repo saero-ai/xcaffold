@@ -51,4 +51,7 @@ func restoreBodyFields(src, dst *ast.XcaffoldConfig) {
 			dst.Contexts[k] = d
 		}
 	}
+	if src.Project != nil && dst.Project != nil {
+		dst.Project.Body = src.Project.Body
+	}
 }

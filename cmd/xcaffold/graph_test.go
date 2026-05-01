@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"io"
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -200,101 +204,102 @@ func TestBuildGraph_PolicyNodes(t *testing.T) {
 // TestRenderDOT_PolicyColor verifies that policy nodes are rendered with a
 // distinct color in DOT output.
 
-// TestGraph_TreeAlignment_NonLastBlock verifies that the continuation character
-// (│) is aligned at column 2 for non-last block children, not column 4.
+func captureGraphStdout(f func()) string {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	f()
+	w.Close()
+	os.Stdout = old
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	return buf.String()
+}
+
 func TestGraph_TreeAlignment_NonLastBlock(t *testing.T) {
+	dir := t.TempDir()
+	memDir := dir + "/xcf/agents/test-agent/memory"
+	os.MkdirAll(memDir, 0755)
+	os.WriteFile(memDir+"/note.md", []byte("x"), 0644)
+
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"test-agent": {
-					Description: "test",
-					Tools:       []string{"Bash", "Read"},
-					Skills:      []string{"skill1", "skill2"},
-					Rules:       []string{"rule1"},
+					Skills: []string{"skill-a"},
 				},
 			},
 			Skills: map[string]ast.SkillConfig{
-				"skill1": {Description: "skill 1"},
-				"skill2": {Description: "skill 2"},
-			},
-			Rules: map[string]ast.RuleConfig{
-				"rule1": {Description: "rule 1"},
+				"skill-a": {},
 			},
 		},
 	}
 
-	// Capture output of renderAgentTree to verify alignment.
-	// The tree structure for test-agent should be:
-	//   ● test-agent
-	//   │   tools    Bash  Read
-	//   │
-	//   ├── skills
-	//   │   ├── skill1
-	//   │   └── skill2
-	//   │
-	//   └── rules
-	//       └── rule1
-	//
-	// The key is that the │ continuation for children of ├── skills
-	// should be at column 2 (after "  " prefix), not column 4.
+	out := captureGraphStdout(func() { renderAgentTree(cfg, dir) })
 
-	// Since renderAgentTree prints to stdout, we verify the logic through
-	// the actual function behavior. We'll test by checking that childPrefix
-	// for non-last blocks is 5 chars (│ + 4 spaces), not 7 chars.
+	assert.Contains(t, out, "├── skills", "skills should use ├── when memory follows")
+	assert.Contains(t, out, "└── memory", "memory should use └── as last block")
 
-	// This is validated by inspecting the actual output formatting logic
-	// and ensuring the tree connectors align properly.
-
-	// For now, we create a simple test that the tree renders without panic
-	// and the structure is logically correct.
-	assert.NotEmpty(t, cfg.Agents["test-agent"].Skills)
-	assert.Len(t, cfg.Agents["test-agent"].Skills, 2)
+	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimRight(line, " \t")
+		if trimmed == "" {
+			continue
+		}
+		if len(trimmed) > 2 && (trimmed[2] == 0xe2 || trimmed[2] == '|') {
+			assert.Equal(t, "  ", trimmed[:2], "tree connector must be at column 2: %q", trimmed)
+		}
+	}
 }
 
-// TestGraph_Header_OmitsZeroMCP verifies that the header excludes MCP count
-// when there are no MCP servers.
-func TestGraph_Header_OmitsZeroMCP(t *testing.T) {
+func TestGraph_TreeAlignment_LastBlock(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{Name: "test-proj"},
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent1": {Description: "test"},
+				"solo": {Skills: []string{"s1"}},
 			},
+			Skills: map[string]ast.SkillConfig{"s1": {}},
 		},
 	}
 
-	// If the header includes "0 mcp server", this test would fail.
-	// The expected format should omit zero counts entirely.
-	// We cannot directly test header output here, but we verify
-	// that the config is properly structured for header rendering.
-	assert.Len(t, cfg.MCP, 0, "expected no MCP entries")
-	assert.Len(t, cfg.Agents, 1, "expected one agent")
+	dir := t.TempDir()
+	out := captureGraphStdout(func() { renderAgentTree(cfg, dir) })
+
+	assert.Contains(t, out, "└── skills", "sole block should use └──")
+	assert.NotContains(t, out, "├── skills")
 }
 
-// TestGraph_Header_PluralizeMCP verifies that MCP count is pluralized correctly:
-// 1 → "mcp server", 2+ → "mcp servers".
+func TestGraph_Header_OmitsZeroMCP(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "myproj"},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{"a": {}},
+		},
+	}
+
+	g := buildGraph(cfg)
+	header := renderTerminalHeader(g)
+	assert.NotContains(t, header, "mcp", "zero MCP should be omitted from header")
+	assert.Contains(t, header, "1 agents")
+}
+
 func TestGraph_Header_PluralizeMCP(t *testing.T) {
 	cfgOne := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "p"},
 		ResourceScope: ast.ResourceScope{
-			MCP: map[string]ast.MCPConfig{
-				"server1": {Type: "stdio"},
-			},
+			MCP: map[string]ast.MCPConfig{"s1": {Type: "stdio"}},
 		},
 	}
-
 	cfgMany := &ast.XcaffoldConfig{
+		Project: &ast.ProjectConfig{Name: "p"},
 		ResourceScope: ast.ResourceScope{
-			MCP: map[string]ast.MCPConfig{
-				"server1": {Type: "stdio"},
-				"server2": {Type: "stdio"},
-			},
+			MCP: map[string]ast.MCPConfig{"s1": {Type: "stdio"}, "s2": {Type: "stdio"}},
 		},
 	}
 
-	// Test the pluralize logic.
-	singular := plural(len(cfgOne.MCP), "mcp server", "mcp servers")
-	assert.Equal(t, "mcp server", singular)
+	h1 := renderTerminalHeader(buildGraph(cfgOne))
+	assert.Contains(t, h1, "1 mcp server")
+	assert.NotContains(t, h1, "mcp servers")
 
-	pluralVal := plural(len(cfgMany.MCP), "mcp server", "mcp servers")
-	assert.Equal(t, "mcp servers", pluralVal)
+	h2 := renderTerminalHeader(buildGraph(cfgMany))
+	assert.Contains(t, h2, "2 mcp servers")
 }
