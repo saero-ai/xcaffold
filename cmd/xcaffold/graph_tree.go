@@ -36,6 +36,10 @@ func runGraphProject() error {
 	}
 	cfg.StripInherited()
 
+	if err := filterAgentIfRequested(cfg); err != nil {
+		return err
+	}
+
 	projectName := "project"
 	if cfg.Project != nil {
 		projectName = cfg.Project.Name
@@ -68,6 +72,10 @@ func runGraphGlobal() error {
 	cfg, err := parser.ParseDirectory(globalXcfHome)
 	if err != nil {
 		return fmt.Errorf("global parse error: %w", err)
+	}
+
+	if err := filterAgentIfRequested(cfg); err != nil {
+		return err
 	}
 
 	sep := "  " + glyphDot() + "  "
@@ -105,6 +113,13 @@ func runGraphFull() error {
 		return fmt.Errorf("project parse error: %w", err)
 	}
 	projectCfg.StripInherited()
+
+	if err := filterAgentIfRequested(globalCfg); err != nil {
+		return err
+	}
+	if err := filterAgentIfRequested(projectCfg); err != nil {
+		return err
+	}
 
 	projectName := "project"
 	if projectCfg.Project != nil {
@@ -176,6 +191,9 @@ func runGraphAll() error {
 	if globalCfg == nil {
 		globalCfg = &ast.XcaffoldConfig{}
 	}
+	if err := filterAgentIfRequested(globalCfg); err != nil {
+		return err
+	}
 
 	fmt.Printf("══════════════════════════════════════════\n  GLOBAL\n══════════════════════════════════════════\n")
 	renderAgentTree(globalCfg, globalXcfHome)
@@ -200,12 +218,27 @@ func runGraphAll() error {
 				cfg, err := parser.ParseDirectory(getParseRoot(xcfProjectPath))
 				if err == nil {
 					cfg.StripInherited()
+					_ = filterAgentIfRequested(cfg)
 					fmt.Printf("\n══════════════════════════════════════════\n  PROJECT: %s\n══════════════════════════════════════════\n", p.Name)
 					renderAgentTree(cfg, getParseRoot(xcfProjectPath))
 				}
 			}
 		}
 	}
+	return nil
+}
+
+func filterAgentIfRequested(cfg *ast.XcaffoldConfig) error {
+	if graphAgent == "" {
+		return nil
+	}
+	if _, ok := cfg.Agents[graphAgent]; !ok {
+		if len(cfg.Agents) == 0 {
+			return nil
+		}
+		return fmt.Errorf("agent %q not found; available: %s", graphAgent, strings.Join(sortedAgentIDs(cfg), ", "))
+	}
+	cfg.Agents = map[string]ast.AgentConfig{graphAgent: cfg.Agents[graphAgent]}
 	return nil
 }
 
