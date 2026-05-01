@@ -169,7 +169,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		fmt.Printf("  %s  %v\n", colorRed(glyphErr()), err)
 		fmt.Println()
 		fmt.Printf("%s Run 'xcaffold validate' for detailed diagnostics.\n", glyphArrow())
-		return err
+		return &silentError{msg: err.Error()}
 	}
 
 	fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
@@ -242,7 +242,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	out, notes, err := compiler.Compile(config, baseDir, targetFlag, applyBlueprintFlag)
 	if err != nil {
 		fmt.Printf("  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
-		return fmt.Errorf("compilation error: %w", err)
+		return &silentError{msg: err.Error()}
 	}
 
 	// Renderers resolve @-imports natively; the optimizer handles targets that don't.
@@ -272,7 +272,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	}
 	if len(policyErrors) > 0 {
 		fmt.Fprint(os.Stderr, policy.FormatViolations(policyErrors))
-		return fmt.Errorf("apply blocked: %d policy error(s) found", len(policyErrors))
+		return &silentError{msg: fmt.Sprintf("apply blocked: %d policy error(s) found", len(policyErrors))}
 	}
 
 	oldManifest, _ := state.ReadState(stateFilePath)
@@ -291,7 +291,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 			}
 			fmt.Fprintf(os.Stderr, "  To preserve manual edits, run 'xcaffold import' first.\n\n")
 			fmt.Fprintf(os.Stderr, "%s Run 'xcaffold apply --force' to overwrite.\n", glyphArrow())
-			return fmt.Errorf("drift detected: use --force to overwrite, or 'xcaffold import' to sync edits back")
+			return &silentError{msg: "drift detected"}
 		}
 	}
 
