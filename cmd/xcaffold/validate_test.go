@@ -73,7 +73,7 @@ func TestValidate_GlobalFlag_FileNotFound(t *testing.T) {
 
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to scan directory")
+	assert.Contains(t, err.Error(), "global scope is not yet available")
 }
 
 func TestValidate_GlobalFlag_InvalidYAML(t *testing.T) {
@@ -91,6 +91,7 @@ func TestValidate_GlobalFlag_InvalidYAML(t *testing.T) {
 
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
+	assert.Contains(t, err.Error(), "global scope is not yet available")
 }
 
 func TestValidate_GlobalFlag_ValidFile(t *testing.T) {
@@ -114,7 +115,8 @@ agents:
 	defer func() { globalFlag = false }()
 
 	err := runValidate(validateCmd, []string{})
-	assert.NoError(t, err)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "global scope is not yet available")
 }
 
 func TestValidate_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
@@ -127,7 +129,8 @@ func TestValidate_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
 
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
+	// Global scope guard fires before mutual exclusion check
+	assert.Contains(t, err.Error(), "global scope is not yet available")
 }
 
 // TestCheckBashWithoutHook_ProjectHook_NoWarn verifies that a project-level

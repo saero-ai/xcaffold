@@ -107,6 +107,17 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 	}
 	globalXcfHome = filepath.Join(home, ".xcaffold")
 
+	// Global scope is not yet available for most commands.
+	if cmd.Name() != "init" && cmd.Name() != "import" {
+		fmt.Println(formatHeader("~", "", true, "", ""))
+		fmt.Println()
+		fmt.Printf("  %s  Global scope is not yet available.\n", glyphErr())
+		fmt.Println()
+		fmt.Printf("%s Run 'xcaffold %s' for project-scoped operation.\n", glyphArrow(), cmd.Name())
+		return fmt.Errorf("global scope is not yet available")
+	}
+
+	// Resolve paths for init/import only.
 	if configFlag != "" && globalFlag {
 		abs, err := filepath.Abs(configFlag)
 		if err != nil {
@@ -117,14 +128,6 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 		globalXcfPath = filepath.Join(globalXcfHome, "global.xcf")
 	}
 
-	if cmd.Name() != "init" && cmd.Name() != "import" {
-		if _, err := os.Stat(globalXcfPath); err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("global.xcf not found at %q\n\nHint: run 'xcaffold init --global' to create one", globalXcfPath)
-			}
-			return fmt.Errorf("could not access %q: %w", globalXcfPath, err)
-		}
-	}
 	return nil
 }
 
