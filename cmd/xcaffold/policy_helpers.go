@@ -1,17 +1,21 @@
 package main
 
 import (
+	"encoding/json"
+
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"gopkg.in/yaml.v3"
 )
 
 func deepCopyConfig(config *ast.XcaffoldConfig) *ast.XcaffoldConfig {
-	data, err := yaml.Marshal(config)
+	// Use JSON round-trip instead of YAML to preserve Body fields
+	// (Body fields are tagged yaml:"-" so YAML round-trip drops them).
+	// Body fields do NOT have json:"-", so they survive JSON marshaling.
+	data, err := json.Marshal(config)
 	if err != nil {
 		return config
 	}
 	var cp ast.XcaffoldConfig
-	if err := yaml.Unmarshal(data, &cp); err != nil {
+	if err := json.Unmarshal(data, &cp); err != nil {
 		return config
 	}
 	return &cp
