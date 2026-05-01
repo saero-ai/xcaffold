@@ -63,61 +63,16 @@ agents:
 	assert.Error(t, err)
 }
 
-func TestValidate_GlobalFlag_FileNotFound(t *testing.T) {
-	home := t.TempDir() // no .xcaffold/global.xcf inside
-	t.Setenv("HOME", home)
-
+func TestValidate_GlobalFlag_ReturnsGuardError(t *testing.T) {
 	globalFlag = true
-	globalXcfPath = filepath.Join(home, ".xcaffold", "global.xcf")
 	defer func() { globalFlag = false }()
 
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to scan directory")
+	assert.Contains(t, err.Error(), "global scope is not yet available")
 }
 
-func TestValidate_GlobalFlag_InvalidYAML(t *testing.T) {
-	home := t.TempDir()
-	xcaffoldDir := filepath.Join(home, ".xcaffold")
-	require.NoError(t, os.MkdirAll(xcaffoldDir, 0700))
-
-	globalXCF := filepath.Join(xcaffoldDir, "global.xcf")
-	require.NoError(t, os.WriteFile(globalXCF, []byte(":\tinvalid: yaml: :::\n"), 0600))
-
-	t.Setenv("HOME", home)
-	globalFlag = true
-	globalXcfPath = globalXCF
-	defer func() { globalFlag = false }()
-
-	err := runValidate(validateCmd, []string{})
-	require.Error(t, err)
-}
-
-func TestValidate_GlobalFlag_ValidFile(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
-	home := t.TempDir()
-	xcaffoldDir := filepath.Join(home, ".xcaffold")
-	require.NoError(t, os.MkdirAll(xcaffoldDir, 0700))
-
-	globalXCF := filepath.Join(xcaffoldDir, "global.xcf")
-	content := `kind: global
-version: "1.0"
-agents:
-  reviewer:
-    name: Reviewer
-`
-	require.NoError(t, os.WriteFile(globalXCF, []byte(content), 0600))
-
-	t.Setenv("HOME", home)
-	globalFlag = true
-	globalXcfPath = globalXCF
-	defer func() { globalFlag = false }()
-
-	err := runValidate(validateCmd, []string{})
-	assert.NoError(t, err)
-}
-
-func TestValidate_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
+func TestValidate_GlobalFlag_WithBlueprint_ReturnsGuardError(t *testing.T) {
 	validateBlueprintFlag = "my-blueprint"
 	globalFlag = true
 	defer func() {
@@ -127,7 +82,7 @@ func TestValidate_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
 
 	err := runValidate(validateCmd, []string{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
+	assert.Contains(t, err.Error(), "global scope is not yet available")
 }
 
 // TestCheckBashWithoutHook_ProjectHook_NoWarn verifies that a project-level

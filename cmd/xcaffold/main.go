@@ -48,6 +48,14 @@ func (e *driftDetectedError) Error() string {
 	return e.msg
 }
 
+type silentError struct {
+	msg string
+}
+
+func (e *silentError) Error() string {
+	return e.msg
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "xcaffold",
 	Short: "xcaffold — deterministic agent configuration compiler",
@@ -57,6 +65,7 @@ Scopes:
   Project  [default]         project.xcf            -> .claude/ | .cursor/ | .agents/
   Global   [--global / -g]   ~/.xcaffold/global.xcf -> ~/.claude/ | ~/.cursor/ | ~/.agents/`,
 	PersistentPreRunE: resolveConfig,
+	SilenceErrors:     true,
 }
 
 func init() {
@@ -107,6 +116,15 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 	}
 	globalXcfHome = filepath.Join(home, ".xcaffold")
 
+	if cmd.Name() != "init" && cmd.Name() != "import" {
+		fmt.Println(formatHeader("~", "", true, "", ""))
+		fmt.Println()
+		fmt.Printf("  %s  Global scope is not yet available.\n", glyphErr())
+		fmt.Println()
+		fmt.Printf("%s Run 'xcaffold %s' for project-scoped operation.\n", glyphArrow(), cmd.Name())
+		return &silentError{msg: "global scope is not yet available"}
+	}
+
 	if configFlag != "" && globalFlag {
 		abs, err := filepath.Abs(configFlag)
 		if err != nil {
@@ -115,15 +133,6 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 		globalXcfPath = abs
 	} else {
 		globalXcfPath = filepath.Join(globalXcfHome, "global.xcf")
-	}
-
-	if cmd.Name() != "init" && cmd.Name() != "import" {
-		if _, err := os.Stat(globalXcfPath); err != nil {
-			if os.IsNotExist(err) {
-				return fmt.Errorf("global.xcf not found at %q\n\nHint: run 'xcaffold init --global' to create one", globalXcfPath)
-			}
-			return fmt.Errorf("could not access %q: %w", globalXcfPath, err)
-		}
 	}
 	return nil
 }
@@ -200,6 +209,9 @@ func main() {
 	rootCmd.SetErr(os.Stderr)
 	err := rootCmd.Execute()
 	if err != nil {
+		if _, ok := err.(*silentError); ok {
+			os.Exit(1)
+		}
 		if _, ok := err.(*driftDetectedError); ok {
 			os.Exit(1)
 		}

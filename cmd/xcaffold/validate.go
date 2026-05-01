@@ -41,23 +41,17 @@ func init() {
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	if validateBlueprintFlag != "" && globalFlag {
-		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
+	if globalFlag {
+		return fmt.Errorf("global scope is not yet available")
 	}
 
 	validatePath := xcfPath
-	if globalFlag {
-		// globalXcfPath is already resolved by resolveGlobalConfig in PersistentPreRunE.
-		validatePath = globalXcfPath
-	}
 
 	// Derive the true project root. When the manifest lives in .xcaffold/
 	// (standard project layout), filepath.Dir returns that subdir — walk up one
 	// level to the actual project root so xcf/ siblings are scanned correctly.
-	// Skip this adjustment for --global mode; globalXcfPath always lives inside
-	// ~/.xcaffold/ and that directory IS the correct scan root for global configs.
 	parseRoot := filepath.Dir(validatePath)
-	if !globalFlag && filepath.Base(parseRoot) == ".xcaffold" {
+	if filepath.Base(parseRoot) == ".xcaffold" {
 		parseRoot = filepath.Dir(parseRoot)
 	}
 
