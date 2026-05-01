@@ -34,6 +34,6 @@ All top-level commands accept the following persistent flags inherited across th
 [**`list`**](./diagnostic/list.md) — Audit and list strictly defined execution entities resolving structural paths directly.
 
 ### Utilities & Preview
-[**`validate`**](./utility/validate.md) — Rigorously lint source configuration parameters safely skipping output persistence.
+[**`validate`**](./utility/validate.md) — Check .xcf syntax, cross-references, structural invariants, and policy compliance.
 [**`test`**](./utility/test.md) _(Preview)_ — Execute explicit behavioral traces simulating execution boundaries programmatically via an LLM.
 [**`export`**](./utility/export.md) _(Preview)_ — Wrap independently scaffolded resources into distributable artifact plugin bundles.

@@ -3,6 +3,7 @@ package policy
 import (
 	"embed"
 	"sort"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
@@ -138,13 +139,17 @@ func evaluateSettings(p ast.PolicyConfig, compiled *output.Output) []Violation {
 	if compiled == nil {
 		return nil
 	}
-	var violations []Violation
-	// Settings target only checks known settings file paths.
-	for _, filePath := range []string{"settings.json", ".claude/settings.json"} {
-		content, ok := compiled.Files[filePath]
-		if !ok {
-			continue
+	paths := make([]string, 0, len(compiled.Files))
+	for fp := range compiled.Files {
+		if strings.HasSuffix(fp, "settings.json") || strings.HasSuffix(fp, "settings.local.json") {
+			paths = append(paths, fp)
 		}
+	}
+	sort.Strings(paths)
+
+	var violations []Violation
+	for _, filePath := range paths {
+		content := compiled.Files[filePath]
 		for _, deny := range p.Deny {
 			violations = append(violations, evaluateDenyOnFile(p.Name, filePath, content, deny)...)
 		}

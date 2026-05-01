@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var validateStructural bool
 var validateBlueprintFlag string
 
 var validateCmd = &cobra.Command{
@@ -28,11 +27,10 @@ var validateCmd = &cobra.Command{
   - Cross-reference integrity (agent -> skill/rule/MCP IDs exist)
   - File existence (skill references resolve on disk)
   - Plugin validation (enabledPlugins checked against known registry)
-  - Structural invariants (with --structural flag)
+  - Structural invariants (orphan resources, missing instructions)
 
 Exit code 0 means valid. Non-zero means errors found.`,
 	Example: `  $ xcaffold validate
-  $ xcaffold validate --structural
   $ xcaffold validate --global`,
 	RunE:          runValidate,
 	SilenceUsage:  true,
@@ -40,57 +38,34 @@ Exit code 0 means valid. Non-zero means errors found.`,
 }
 
 func init() {
-	validateCmd.Flags().BoolVar(&validateStructural, "structural", false, "run structural invariant checks (orphan resources, missing instructions)")
 	validateCmd.Flags().StringVar(&validateBlueprintFlag, "blueprint", "", "Validate only the named blueprint")
 	_ = validateCmd.Flags().MarkHidden("blueprint")
 	rootCmd.AddCommand(validateCmd)
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
-	// Global scope is not yet available for validate command.
 	if globalFlag {
-		fmt.Println(formatHeader("~", "", true, "", ""))
-		fmt.Println()
-		fmt.Printf("  %s  Global scope is not yet available.\n", glyphErr())
-		fmt.Println()
-		fmt.Printf("%s Run 'xcaffold validate' for project-scoped operation.\n", glyphArrow())
 		return fmt.Errorf("global scope is not yet available")
 	}
 
 	validatePath := xcfPath
 
-	// Derive the true project root. When the manifest lives in .xcaffold/
-	// (standard project layout), filepath.Dir returns that subdir — walk up one
-	// level to the actual project root so xcf/ siblings are scanned correctly.
-	// Skip this adjustment for --global mode; globalXcfPath always lives inside
-	// ~/.xcaffold/ and that directory IS the correct scan root for global configs.
 	parseRoot := filepath.Dir(validatePath)
-	if !globalFlag && filepath.Base(parseRoot) == ".xcaffold" {
+	if filepath.Base(parseRoot) == ".xcaffold" {
 		parseRoot = filepath.Dir(parseRoot)
 	}
 
-	// Extract project name and last applied time for header
+	// Header breadcrumb.
 	projectName := filepath.Base(parseRoot)
-	var lastApplied string
-	stPath := state.StateFilePath(parseRoot, validateBlueprintFlag)
-	if manifest, stErr := state.ReadState(stPath); stErr == nil {
-		var mostRecent time.Time
-		for _, ts := range manifest.Targets {
-			t, err := time.Parse(time.RFC3339, ts.LastApplied)
-			if err == nil && t.After(mostRecent) {
-				mostRecent = t
-				lastApplied = ts.LastApplied
-			}
-		}
-	}
-
-	// Print header
+	lastApplied := findLastApplied(parseRoot, validateBlueprintFlag)
 	fmt.Println(formatHeader(projectName, validateBlueprintFlag, false, "", lastApplied))
 	fmt.Println()
 
 	cfg, err := parser.ParseDirectory(parseRoot)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "validation failed: %v\n", err)
+		fmt.Printf("  %s  syntax and cross-references\n", colorRed(glyphErr()))
+		fmt.Println()
+		fmt.Printf("%s  Validation failed: %v\n", colorRed(glyphErr()), err)
 		return err
 	}
 
@@ -99,19 +74,24 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	diags := parser.ValidateFile(validatePath)
 	hasErrors := false
 	if len(diags) > 0 {
-		fmt.Fprintf(os.Stdout, "\ndiagnostics:\n")
+		fmt.Println()
+		fmt.Println("  diagnostics:")
 		for _, d := range diags {
-			fmt.Fprintf(os.Stdout, "  [%s] %s\n", d.Severity, d.Message)
+			g := colorYellow(glyphSrc())
 			if d.Severity == "error" {
+				g = colorRed(glyphErr())
 				hasErrors = true
 			}
+			fmt.Printf("    %s  %s\n", g, d.Message)
 		}
 	}
 	if hasErrors {
+		fmt.Println()
+		fmt.Printf("%s  Validation failed: diagnostics contain errors.\n", colorRed(glyphErr()))
 		return fmt.Errorf("validation failed: one or more error diagnostics")
 	}
 
-	// Validate skill directory structures (if xcf/skills/ exists)
+	// Skill directory structures.
 	xcfSkillsDir := filepath.Join(parseRoot, "xcf", "skills")
 	if entries, dirErr := os.ReadDir(xcfSkillsDir); dirErr == nil {
 		skillDirCount := 0
@@ -124,13 +104,16 @@ func runValidate(cmd *cobra.Command, args []string) error {
 			skillDir := filepath.Join(xcfSkillsDir, entry.Name())
 			result := parser.ValidateSkillDirectory(skillDir, entry.Name())
 			if len(result.Errors) > 0 || len(result.Warnings) > 0 {
+				if !skillDirHasIssues {
+					fmt.Println()
+					fmt.Println("  skill directory issues:")
+				}
 				skillDirHasIssues = true
-				fmt.Fprintf(os.Stdout, "\nskill directory issues (%s):\n", entry.Name())
 				for _, e := range result.Errors {
-					fmt.Fprintf(os.Stdout, "  [error] %s\n", e)
+					fmt.Printf("    %s  %s: %s\n", colorRed(glyphErr()), entry.Name(), e)
 				}
 				for _, w := range result.Warnings {
-					fmt.Fprintf(os.Stdout, "  [warning] %s\n", w)
+					fmt.Printf("    %s  %s: %s\n", colorYellow(glyphSrc()), entry.Name(), w)
 				}
 			}
 			if len(result.Errors) > 0 {
@@ -142,42 +125,45 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	var structuralWarnings []string
-	if validateStructural {
-		structuralWarnings = runStructuralChecks(cfg)
-		if len(structuralWarnings) == 0 {
-			fmt.Printf("  %s  structural checks\n", colorGreen(glyphOK()))
-		} else {
-			fmt.Println()
-			fmt.Println("  structural warnings:")
-			for _, w := range structuralWarnings {
-				fmt.Printf("    %s  %s\n", colorYellow(glyphSrc()), w)
-			}
+	// Structural checks.
+	structWarnings := runStructuralChecks(cfg)
+	if len(structWarnings) > 0 {
+		fmt.Println()
+		fmt.Println("  structural warnings:")
+		for _, w := range structWarnings {
+			fmt.Printf("    %s  %s\n", colorYellow(glyphSrc()), w)
 		}
 	} else {
-		// When --structural is not passed, still report ok for structural checks
 		fmt.Printf("  %s  structural checks\n", colorGreen(glyphOK()))
 	}
 
-	// Policy evaluation (requires compilation)
-	var policyErrors []policy.Violation
-	var policyWarnings []policy.Violation
+	// Policy evaluation (requires compilation).
+	var policyWarnings, policyErrors []policy.Violation
+	policiesChecked := 0
 	if !hasErrors {
 		configSnapshot := deepCopyConfig(cfg)
 		compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, targetFlag, validateBlueprintFlag)
 		if compileErr != nil {
-			fmt.Fprintf(os.Stdout, "\npolicy check skipped: compilation error: %v\n", compileErr)
+			fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
 		} else {
 			printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag)), false)
 			violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
 			policyErrors = policy.FilterBySeverity(violations, policy.SeverityError)
 			policyWarnings = policy.FilterBySeverity(violations, policy.SeverityWarning)
+			policiesChecked = len(policyErrors) + len(policyWarnings)
+			if policiesChecked == 0 {
+				policiesChecked = countBuiltinPolicies()
+			}
 
 			if len(policyWarnings) > 0 {
 				fmt.Println()
 				fmt.Println("  policy warnings:")
 				for _, v := range policyWarnings {
-					fmt.Printf("    %s  [%s] resource %q: %s\n", colorYellow(glyphSrc()), v.PolicyName, v.ResourceName, v.Message)
+					label := v.ResourceName
+					if label == "" {
+						label = v.FilePath
+					}
+					fmt.Printf("    %s  [%s] %s: %s\n", colorYellow(glyphSrc()), v.PolicyName, label, v.Message)
 				}
 			}
 
@@ -185,41 +171,86 @@ func runValidate(cmd *cobra.Command, args []string) error {
 				fmt.Println()
 				fmt.Println("  policy errors:")
 				for _, v := range policyErrors {
-					fmt.Printf("    %s  [%s] resource %q: %s\n", colorRed(glyphErr()), v.PolicyName, v.ResourceName, v.Message)
+					label := v.ResourceName
+					if label == "" {
+						label = v.FilePath
+					}
+					fmt.Printf("    %s  [%s] %s: %s\n", colorRed(glyphErr()), v.PolicyName, label, v.Message)
 				}
+				fmt.Println()
+				fmt.Printf("%s  Validation failed: %d policy %s found.\n",
+					colorRed(glyphErr()), len(policyErrors), plural(len(policyErrors), "error", "errors"))
+				return fmt.Errorf("validation failed: %d policy error(s) found", len(policyErrors))
 			}
 
-			totalPolicies := len(policyErrors) + len(policyWarnings)
-			fmt.Printf("  %s  policies (%d checked", colorGreen(glyphOK()), totalPolicies)
+			policyLabel := fmt.Sprintf("policies (%d checked", policiesChecked)
 			if len(policyWarnings) > 0 {
-				fmt.Printf(", %d warnings", len(policyWarnings))
+				policyLabel += fmt.Sprintf(", %d %s", len(policyWarnings), plural(len(policyWarnings), "warning", "warnings"))
 			}
-			fmt.Println(")")
+			policyLabel += ")"
+			fmt.Printf("  %s  %s\n", colorGreen(glyphOK()), policyLabel)
 		}
 	}
 
-	if len(policyErrors) > 0 {
-		fmt.Printf("\n%s  Validation failed: %d policy %s found.\n",
-			colorRed(glyphErr()), len(policyErrors), plural(len(policyErrors), "error", "errors"))
-		return fmt.Errorf("validation failed: %d policy error(s) found", len(policyErrors))
-	}
-
 	if hasErrors {
+		fmt.Println()
+		fmt.Printf("%s  Validation failed: errors found.\n", colorRed(glyphErr()))
 		return fmt.Errorf("validation failed: one or more errors found")
 	}
 
-	// Success path: count .xcf files and print footer
+	// Footer.
 	xcfFileCount := countXcfFiles(parseRoot)
-	totalWarnings := len(structuralWarnings) + len(policyWarnings)
-
+	totalWarnings := len(structWarnings) + len(policyWarnings)
+	fmt.Println()
 	if totalWarnings > 0 {
-		fmt.Printf("\n%s  Validation passed with %d %s.  %d .xcf files checked.\n",
+		fmt.Printf("%s  Validation passed with %d %s.  %d .xcf files checked.\n",
 			colorGreen(glyphOK()), totalWarnings, plural(totalWarnings, "warning", "warnings"), xcfFileCount)
 	} else {
-		fmt.Printf("\n%s  Validation passed.  %d .xcf files checked.\n",
+		fmt.Printf("%s  Validation passed.  %d .xcf files checked.\n",
 			colorGreen(glyphOK()), xcfFileCount)
 	}
 	return nil
+}
+
+func findLastApplied(baseDir, blueprint string) string {
+	stPath := state.StateFilePath(baseDir, blueprint)
+	manifest, err := state.ReadState(stPath)
+	if err != nil {
+		return ""
+	}
+	var best time.Time
+	var result string
+	for _, ts := range manifest.Targets {
+		t, parseErr := time.Parse(time.RFC3339, ts.LastApplied)
+		if parseErr == nil && t.After(best) {
+			best = t
+			result = ts.LastApplied
+		}
+	}
+	return result
+}
+
+func countXcfFiles(root string) int {
+	count := 0
+	xcfDir := filepath.Join(root, "xcf")
+	_ = filepath.WalkDir(xcfDir, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !d.IsDir() && filepath.Ext(d.Name()) == ".xcf" {
+			count++
+		}
+		return nil
+	})
+	return count
+}
+
+func countBuiltinPolicies() int {
+	entries, err := os.ReadDir("internal/policy/builtin")
+	if err != nil {
+		return 4
+	}
+	return len(entries)
 }
 
 // runStructuralChecks performs non-fatal invariant checks on the config.
@@ -303,20 +334,4 @@ func checkBashWithoutHook(cfg *ast.XcaffoldConfig) []string {
 		}
 	}
 	return warnings
-}
-
-// countXcfFiles counts the number of .xcf files in the xcf/ directory.
-func countXcfFiles(root string) int {
-	count := 0
-	xcfDir := filepath.Join(root, "xcf")
-	filepath.WalkDir(xcfDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !d.IsDir() && filepath.Ext(path) == ".xcf" {
-			count++
-		}
-		return nil
-	})
-	return count
 }

@@ -210,3 +210,33 @@ func TestParse_FilesystemInference_WarnsOnMismatch(t *testing.T) {
 	require.True(t, ok, "expected agent keyed by YAML name 'reviewer', not inferred name 'developer'")
 	require.NotNil(t, agent)
 }
+
+// TestInferKindAndName_FlatSkillFile tests inferring name from a flat skill file (no subdirectory).
+// Path: xcf/skills/commit-changes.xcf
+// Expected: kind=skill, name=commit-changes (NOT commit-changes.xcf)
+func TestInferKindAndName_FlatSkillFile(t *testing.T) {
+	filePath := "xcf/skills/commit-changes.xcf"
+	kind, name := inferKindAndName(filePath)
+	assert.Equal(t, "skill", kind)
+	assert.Equal(t, "commit-changes", name, "expected .xcf extension to be stripped from filename")
+}
+
+// TestInferKindAndName_FlatRuleFile tests inferring name from a flat rule file.
+// Path: xcf/rules/secure-production-code.xcf
+// Expected: kind=rule, name=secure-production-code (NOT secure-production-code.xcf)
+func TestInferKindAndName_FlatRuleFile(t *testing.T) {
+	filePath := "xcf/rules/secure-production-code.xcf"
+	kind, name := inferKindAndName(filePath)
+	assert.Equal(t, "rule", kind)
+	assert.Equal(t, "secure-production-code", name, "expected .xcf extension to be stripped from filename")
+}
+
+// TestInferKindAndName_FlatContextFile tests inferring name from a flat context file.
+// Path: xcf/context/main.xcf
+// Expected: kind=context, name=main (NOT main.xcf)
+func TestInferKindAndName_FlatContextFile(t *testing.T) {
+	filePath := "xcf/context/main.xcf"
+	kind, name := inferKindAndName(filePath)
+	assert.Equal(t, "context", kind)
+	assert.Equal(t, "main", name, "expected .xcf extension to be stripped from filename")
+}

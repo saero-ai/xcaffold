@@ -1,54 +1,176 @@
 ---
 title: "xcaffold validate"
-description: "Ensure your definitions are structurally sound and error-free."
+description: "Check .xcf syntax, cross-references, structural invariants, and policy compliance."
 ---
 
 # xcaffold validate
 
-Executes deep linting checks against your configuration without triggering compilation or drift detection locks. 
+Check .xcf syntax, cross-references, structural invariants, and policy compliance.
 
-The `validate` command acts as your primary quality-gate against YAML syntax issues, missing properties across resources, unresolved foreign references, and structural invariants. If validation fails, compilation halts identically.
+The `validate` command parses every `.xcf` file in the project, verifies cross-reference integrity, checks structural invariants, and evaluates policy rules — all without modifying any output on disk. Use it as a pre-commit gate or in CI to confirm the project is compilable before running `xcaffold apply`.
 
-## Usage
+**Usage:**
 
-```bash
+```
 xcaffold validate [flags]
 ```
 
-## Options
+## Flags
 
-| Flag | Default | Description |
-|---|---|---|
-| `--structural` | `false` | Evaluate deep structural invariants beyond AST validity (e.g., checks for orphaned resources that are defined but never mapped to agents, or missing native instruction pathways). |
-| `-g, --global` | `false` | Re-target execution and operate purely against the global configuration manifest instead of the local project scope. |
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--blueprint <name>` | — | `string` | `""` | Validate only the named blueprint's resources. Internal use. |
+| `--global` | `-g` | `bool` | `false` | Operate on the global config (`~/.xcaffold/global.xcf`). Not yet available — prints an error and exits. |
+| `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
+
+> `--blueprint` is a hidden flag intended for internal use. It does not appear in `--help` output.
 
 ## Behavior
 
-### Check Levels 
-`xcaffold validate` analyzes your codebase through a 6-pass verification pipeline:
-1. **YAML Validity & Known Fields:** Rejects typos or malformed structures in the manifest instantly using strict mapping.
-2. **Cross-Reference Integrity:** If an `agent` requires a `skill` (or `rule`/`mcp`), the execution graph ensures the target entity was natively defined to eliminate "not found" dead-ends.
-3. **File Path Viability:** External files defined through `instructions-file` or nested skill references must provably exist on disk.
-4. **Plugin Adherence:** Third-party extensions defined by the `enabledPlugins` map must be recognized by the global registry constraints.
-5. **Targets Field Validation:** Warns when resources declare a `targets` field, explaining that target-filtered resources will only be compiled for listed providers.
-6. **Conflict File Handling:** Reads `.xcaffold/project.xcf.conflict` if present and displays unresolved import conflicts. Conflicts are created by `xcaffold import` when multi-provider assembly produces ambiguous field values.
+### Default mode
 
-### Structural Verification
-Running with `--structural` elevates the check beyond referential integrity toward best practice enforcement. It emits non-fatal warnings (or errors depending on your local policy definition) when you have resources defined within `.xcf` files that are _never mathematically utilized or reachable_ by an active agent in your topology.
+Running `xcaffold validate` without flags prints a breadcrumb header followed by the result of each check phase:
+
+1. **Syntax and cross-references** — parses every `.xcf` file using strict known-fields mode. Reports YAML errors and unknown keys. Verifies that agent `skills`, `rules`, and `mcp` references resolve to defined resources.
+2. **Skill directories** — walks `xcf/skills/` and validates that each skill subdirectory has the expected structure (presence of a `SKILL.md` body file, no unexpected files).
+3. **Structural checks** — runs invariant checks on the parsed config. See [Structural checks](#structural-checks) for the full list.
+4. **Policy evaluation** — compiles the project in-memory and evaluates all active policy rules against the compiled output. See [Policy evaluation](#policy-evaluation) for details.
+
+A footer line reports the total warning count and the number of `.xcf` files checked.
+
+### Policy evaluation
+
+Policy rules are evaluated after a successful in-memory compilation pass. Built-in policies cover:
+
+- **path-safety** — flags file paths containing `..` or other unsafe sequences.
+- Additional built-in policies shipped with the binary.
+
+You can define project-level policy overrides in `.xcf` files with `kind: policy`. Policy violations are classified as `error` or `warning` by the rule definition. Errors cause a non-zero exit; warnings are reported but do not fail validation.
+
+### Structural checks
+
+Structural checks emit warnings for the following conditions:
+
+| Check | Condition |
+|-------|-----------|
+| Orphan skill | A skill is defined but not referenced by any agent. |
+| Orphan rule | A rule is defined but not referenced by any agent and has neither `paths` nor `always-apply: true`. |
+| Missing instructions | An agent has no body content. |
+| Bash without hook | An agent has the `Bash` tool but no `PreToolUse` hook (neither project-level nor agent-level) to validate commands before execution. |
+
+Structural warnings do not cause a non-zero exit on their own. They are counted toward the footer warning total.
+
+## Output labels
+
+| Glyph | Meaning |
+|-------|---------|
+| `✓` | Phase passed with no issues. |
+| `△` | Warning — phase completed but issues were found. |
+| `✗` | Error — phase failed. |
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | All checks passed. Warnings may be present. |
+| `1` | One or more errors found (parse error, cross-reference error, policy error, or `--global` used). |
+| `2` | Internal error — compilation failed during policy evaluation. |
+
+## Sample output
+
+### Clean validation
+
+```
+sandbox  ·  last applied 3 days ago
+
+  ✓  syntax and cross-references
+  ✓  skill directories
+  ✓  structural checks
+  ✓  policies (4 checked)
+
+✓  Validation passed.  52 .xcf files checked.
+```
+
+### Validation with structural warnings
+
+```
+sandbox  ·  last applied 3 days ago
+
+  ✓  syntax and cross-references
+  ✓  skill directories
+
+  structural warnings:
+    △  skill "orphan-skill" is defined but not referenced by any agent
+    △  rule "unused-rule" is defined but not referenced by any agent and has no paths or always-apply
+
+  ✓  policies (4 checked)
+
+✓  Validation passed with 2 warnings.  52 .xcf files checked.
+```
+
+### Validation with policy warnings
+
+```
+sandbox  ·  last applied 3 days ago
+
+  ✓  syntax and cross-references
+  ✓  skill directories
+  ✓  structural checks
+
+  policy warnings:
+    △  [model-pinning] developer: no model field set; will use provider default
+
+  ✓  policies (4 checked, 1 warning)
+
+✓  Validation passed with 1 warning.  52 .xcf files checked.
+```
+
+### Validation with policy errors
+
+```
+sandbox  ·  last applied 3 days ago
+
+  ✓  syntax and cross-references
+  ✓  skill directories
+  ✓  structural checks
+
+  policy errors:
+    ✗  [path-safety] ../etc/passwd: forbidden string ".." found in file path
+
+✗  Validation failed: 1 policy error found.
+```
+
+### Parse error
+
+```
+sandbox  ·  last applied 3 days ago
+
+  ✗  syntax and cross-references
+
+✗  Validation failed: xcf/agents/developer.xcf:12: unknown field "allowedTools"
+```
 
 ## Examples
 
-**Standard schema validation for your project configurations:**
+**Validate the project in the current directory:**
 ```bash
 xcaffold validate
 ```
 
-**Assess your local code for orphaned elements or broken dependencies:**
+**Validate without color output (useful in CI):**
 ```bash
-xcaffold validate --structural
+xcaffold validate --no-color
+# or
+NO_COLOR=1 xcaffold validate
 ```
 
-**Audit the integrity of your Global `.xcf` workspace settings:**
+**Validate a project in a specific directory:**
 ```bash
-xcaffold validate --global
+xcaffold validate --config /path/to/project
 ```
+
+## Notes
+
+- `--global` is accepted as a flag but prints `Global scope is not yet available` and exits `1`. Global validation will be supported in a future release.
+- Policy rules are evaluated against an in-memory compilation result. If compilation itself fails, the policy phase is skipped and reported as `policies (skipped: compilation error)`.
+- For guidance on organizing and authoring policy resources, see [Policy Best Practices](../../best-practices/policy-organization.md).

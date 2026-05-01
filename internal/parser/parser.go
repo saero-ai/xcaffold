@@ -81,6 +81,7 @@ func inferKindAndName(filePath string) (kind, name string) {
 		return "", ""
 	}
 	name = parts[xcfIdx+2]
+	name = strings.TrimSuffix(name, ".xcf")
 	return kind, name
 }
 
