@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -64,7 +66,7 @@ func TestStatus_AllTargetsSynced(t *testing.T) {
 	}
 
 	out, err := captureStatusStdout(func() error {
-		return runStatusOverview("test", manifest)
+		return runStatusOverview("test", manifest, false)
 	})
 
 	assert.NoError(t, err)
@@ -111,7 +113,7 @@ func TestStatus_OverviewWithDriftedArtifact_ReturnsDriftError(t *testing.T) {
 	}
 
 	out, err := captureStatusStdout(func() error {
-		return runStatusOverview(tmpDir, manifest)
+		return runStatusOverview(tmpDir, manifest, false)
 	})
 
 	assert.Error(t, err, "should return error when drift is detected")
@@ -185,6 +187,60 @@ func TestStatus_TargetWithMissingArtifact_ReturnsDriftError(t *testing.T) {
 	assert.Contains(t, out, "missing", "should indicate missing artifact")
 }
 
+func TestRunStatus_AllFlag_WithoutTarget_ShowsGroupedFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create output dirs for both providers.
+	claudeDir := filepath.Join(tmpDir, ".claude")
+	cursorDir := filepath.Join(tmpDir, ".cursor")
+	os.MkdirAll(filepath.Join(claudeDir, "agents"), 0755)
+	os.MkdirAll(filepath.Join(cursorDir, "rules"), 0755)
+
+	// Write artifacts and compute their actual hashes.
+	claudeContent := []byte("claude agent content")
+	cursorContent := []byte("cursor rule content")
+
+	claudeAgent := filepath.Join(claudeDir, "agents", "reviewer.md")
+	cursorRule := filepath.Join(cursorDir, "rules", "security.md")
+	os.WriteFile(claudeAgent, claudeContent, 0644)
+	os.WriteFile(cursorRule, cursorContent, 0644)
+
+	claudeSum := sha256.Sum256(claudeContent)
+	cursorSum := sha256.Sum256(cursorContent)
+	claudeHash := fmt.Sprintf("sha256:%x", claudeSum)
+	cursorHash := fmt.Sprintf("sha256:%x", cursorSum)
+
+	manifest := &state.StateManifest{
+		Targets: map[string]state.TargetState{
+			"claude": {
+				Artifacts: []state.Artifact{
+					{Path: "agents/reviewer.md", Hash: claudeHash},
+				},
+				LastApplied: time.Now().Format(time.RFC3339),
+			},
+			"cursor": {
+				Artifacts: []state.Artifact{
+					{Path: "rules/security.md", Hash: cursorHash},
+				},
+				LastApplied: time.Now().Format(time.RFC3339),
+			},
+		},
+		SourceFiles: []state.SourceFile{},
+	}
+
+	out, err := captureStatusStdout(func() error {
+		return runStatusOverview(tmpDir, manifest, true)
+	})
+
+	// No drift — should succeed.
+	assert.NoError(t, err)
+	// Should contain GROUP header from printAllFilesGrouped.
+	assert.Contains(t, out, "GROUP", "should display GROUP header for each provider")
+	// Should contain provider names as section headers.
+	assert.Contains(t, out, "claude", "should display claude provider section")
+	assert.Contains(t, out, "cursor", "should display cursor provider section")
+}
+
 func TestStatus_RootPrefixHandling(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -211,7 +267,7 @@ func TestStatus_RootPrefixHandling(t *testing.T) {
 	}
 
 	out, err := captureStatusStdout(func() error {
-		return runStatusOverview(tmpDir, manifest)
+		return runStatusOverview(tmpDir, manifest, false)
 	})
 
 	// Should detect drift and display with (root) annotation, not root:CLAUDE.md

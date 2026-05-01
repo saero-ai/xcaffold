@@ -74,10 +74,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	if statusTargetFlag != "" {
 		return runStatusTarget(dir, manifest, statusTargetFlag, statusAllFlag)
 	}
-	return runStatusOverview(dir, manifest)
+	return runStatusOverview(dir, manifest, statusAllFlag)
 }
 
-func runStatusOverview(dir string, manifest *state.StateManifest) error {
+func runStatusOverview(dir string, manifest *state.StateManifest, showAll bool) error {
 	projectName := filepath.Base(dir)
 
 	// Find the most recent apply timestamp across all providers.
@@ -181,6 +181,16 @@ func runStatusOverview(dir string, manifest *state.StateManifest) error {
 	if srcChanged > 0 {
 		fmt.Println("\nSource changes:")
 		printSourceChanges(dir, manifest.SourceFiles)
+	}
+
+	// Per-provider grouped file listing when --all is set without --target.
+	if showAll {
+		for _, name := range sortedTargetKeys(manifest.Targets) {
+			ts := manifest.Targets[name]
+			outputDir := filepath.Join(dir, compiler.OutputDir(name))
+			fmt.Printf("\n  %s\n\n", bold(name))
+			printAllFilesGrouped(dir, outputDir, ts)
+		}
 	}
 
 	// CTA or success line.

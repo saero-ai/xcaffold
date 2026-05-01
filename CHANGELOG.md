@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed `xcaffold apply --backup` skipping backup for 2nd and subsequent targets in multi-target projects; backup now runs for every target regardless of source-change detection.
+- Fixed `xcaffold status --all` being silently ignored when used without `--target`; `--all` now appends a per-provider grouped file listing in overview mode.
 
 ### Added
 
