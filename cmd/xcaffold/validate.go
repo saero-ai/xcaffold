@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var validateStructural bool
 var validateBlueprintFlag string
 
 var validateCmd = &cobra.Command{
@@ -25,11 +24,10 @@ var validateCmd = &cobra.Command{
   - Cross-reference integrity (agent -> skill/rule/MCP IDs exist)
   - File existence (skill references resolve on disk)
   - Plugin validation (enabledPlugins checked against known registry)
-  - Structural invariants (with --structural flag)
+  - Structural invariants (orphan resources, missing instructions)
 
 Exit code 0 means valid. Non-zero means errors found.`,
 	Example: `  $ xcaffold validate
-  $ xcaffold validate --structural
   $ xcaffold validate --global`,
 	RunE:          runValidate,
 	SilenceUsage:  true,
@@ -37,7 +35,6 @@ Exit code 0 means valid. Non-zero means errors found.`,
 }
 
 func init() {
-	validateCmd.Flags().BoolVar(&validateStructural, "structural", false, "run structural invariant checks (orphan resources, missing instructions)")
 	validateCmd.Flags().StringVar(&validateBlueprintFlag, "blueprint", "", "Validate only the named blueprint")
 	_ = validateCmd.Flags().MarkHidden("blueprint")
 	rootCmd.AddCommand(validateCmd)
@@ -118,16 +115,14 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if validateStructural {
-		warnings := runStructuralChecks(cfg)
-		if len(warnings) > 0 {
-			fmt.Fprintf(os.Stdout, "\nstructural warnings:\n")
-			for _, w := range warnings {
-				fmt.Fprintf(os.Stdout, "  - %s\n", w)
-			}
-		} else {
-			fmt.Fprintf(os.Stdout, "structural checks: ok\n")
+	warnings := runStructuralChecks(cfg)
+	if len(warnings) > 0 {
+		fmt.Fprintf(os.Stdout, "\nstructural warnings:\n")
+		for _, w := range warnings {
+			fmt.Fprintf(os.Stdout, "  - %s\n", w)
 		}
+	} else {
+		fmt.Fprintf(os.Stdout, "structural checks: ok\n")
 	}
 
 	// Policy evaluation (requires compilation)

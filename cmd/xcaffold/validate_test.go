@@ -206,9 +206,6 @@ skills:
 	xcfPath = xcf
 	defer func() { xcfPath = oldPath }()
 
-	validateStructural = true
-	defer func() { validateStructural = false }()
-
 	err := runValidate(validateCmd, []string{})
 	// Structural checks warn but don't fail
 	assert.NoError(t, err)
