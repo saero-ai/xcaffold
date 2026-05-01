@@ -60,6 +60,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 
 	fmt.Println(formatHeader(projectName, "", false, "", ""))
 	fmt.Println()
+	fmt.Println("  Scaffolding your xcaffold authoring toolkit.")
 
 	if globalFlag {
 		return initGlobal()
@@ -368,7 +369,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		colorGreen(glyphOK()), dim("8 references"))
 	fmt.Println()
 	fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
-	fmt.Printf("  Xaff will teach your AI assistant how to use xcaffold.\n")
+	fmt.Printf("  Xaff is your xcaffold authoring agent.\n")
 
 	return nil
 }
@@ -443,6 +444,9 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 		}
 		if len(selected) > 0 {
 			ans.targets = selected
+		} else {
+			err = fmt.Errorf("no target platforms selected — at least one is required")
+			return
 		}
 	}
 	return
@@ -548,32 +552,9 @@ func writeReferenceTemplates(baseDir string) error {
 }
 
 // initGlobal reports that global scope is not yet available.
-// The implementation is preserved as initGlobalImpl for future enablement.
 func initGlobal() error {
 	fmt.Printf("\n  %s Global scope is not available yet.\n", glyphErr())
 	fmt.Printf("\n%s Run 'xcaffold init' to initialize a project-level scaffold.\n", glyphArrow())
-	return nil
-}
-
-// initGlobalImpl contains the original global init logic, preserved for future use.
-func initGlobalImpl() error {
-	home, err := registry.GlobalHome()
-	if err != nil {
-		return err
-	}
-	target := filepath.Join(home, "global.xcf")
-
-	if err := registry.RebuildGlobalXCF(); err != nil {
-		return fmt.Errorf("failed to rebuild global.xcf: %w", err)
-	}
-
-	if _, err := os.Stat(target); err == nil {
-		fmt.Printf("%s %s rebuilt from global platform directories.\n", colorGreen(glyphOK()), target)
-	} else {
-		fmt.Printf("%s %s created.\n", colorGreen(glyphOK()), target)
-	}
-	fmt.Println("  Edit it to define your global agents, then run 'xcaffold apply --global'.")
-	fmt.Printf("  Output: ~/.claude/ | ~/.cursor/ | ~/.agents/ (depending on --target)\n")
 	return nil
 }
 
