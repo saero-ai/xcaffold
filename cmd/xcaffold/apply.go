@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -149,17 +148,6 @@ func resolveTargets(cmd *cobra.Command, baseDir string) []string {
 	return []string{targetClaude}
 }
 
-// printDiagnostics prints ValidateFile diagnostics to stderr. Warnings do not
-// change the exit code; this helper is informational only.
-func printDiagnostics(diags []parser.Diagnostic) {
-	if len(diags) == 0 {
-		return
-	}
-	for _, d := range diags {
-		fmt.Fprintf(os.Stderr, "  [%s] %s\n", d.Severity, d.Message)
-	}
-}
-
 // applyScope compiles the xcf configuration at configPath into outputDir.
 // baseDir is the project root directory — the canonical source of truth passed
 // in by the caller (runApply uses projectRoot; global apply uses globalXcfHome).
@@ -171,10 +159,21 @@ func printDiagnostics(diags []parser.Diagnostic) {
 //
 //nolint:gocyclo
 func applyScope(configPath, outputDir, baseDir, scopeName string) error {
+	projectName := filepath.Base(baseDir)
+	lastApplied := findLastApplied(baseDir, applyBlueprintFlag)
+
 	config, err := parser.ParseDirectory(baseDir)
 	if err != nil {
-		return fmt.Errorf("[%s] parse error: %w", scopeName, err)
+		fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
+		fmt.Println()
+		fmt.Printf("  %s  %v\n", colorRed(glyphErr()), err)
+		fmt.Println()
+		fmt.Printf("%s Run 'xcaffold validate' for detailed diagnostics.\n", glyphArrow())
+		return err
 	}
+
+	fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
+	fmt.Println()
 
 	if config.Version != "" && config.Version < currentSchemaVersion {
 		return fmt.Errorf("project.xcf uses schema version %s but xcaffold requires %s — please update the version field in your project.xcf", config.Version, currentSchemaVersion)
@@ -187,7 +186,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 
 	sourceFiles, findErr := resolver.FindXCFFiles(baseDir)
 	if findErr != nil {
-		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to scan source files: %v\n", scopeName, findErr)
+		fmt.Fprintf(os.Stderr, "  Warning: failed to scan source files: %v\n", findErr)
 	}
 
 	// Filter out non-config XCF files (e.g. kind: registry) to prevent
@@ -215,7 +214,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 			backupDir = config.Project.BackupDir
 		}
 		if err := performBackup(outputDir, targetFlag, backupDir, scopeName); err != nil {
-			return fmt.Errorf("[%s] backup failed: %w", scopeName, err)
+			return fmt.Errorf("backup failed: %w", err)
 		}
 	}
 
@@ -225,9 +224,11 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 			changed, _ := state.SourcesChanged(prevManifest.SourceFiles, sourceFiles, baseDir)
 			if !changed {
 				if applyDryRun {
-					fmt.Printf("[%s] No source files changed. Nothing to compile.\n", scopeName)
+					fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
 				} else {
-					fmt.Printf("[%s] Sources unchanged — skipping compilation. Use --force to recompile.\n", scopeName)
+					fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+					fmt.Println()
+					fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
 				}
 				return nil
 			}
@@ -240,14 +241,15 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	// config reflects exactly what was compiled (no global-scope bleed-through).
 	out, notes, err := compiler.Compile(config, baseDir, targetFlag, applyBlueprintFlag)
 	if err != nil {
-		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
+		fmt.Printf("  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
+		return fmt.Errorf("compilation error: %w", err)
 	}
 
 	// Renderers resolve @-imports natively; the optimizer handles targets that don't.
 	opt := optimizer.New(targetFlag)
 	optimized, optNotes, optErr := opt.Run(out.Files)
 	if optErr != nil {
-		return fmt.Errorf("[%s] optimizer error: %w", scopeName, optErr)
+		return fmt.Errorf("optimizer error: %w", optErr)
 	}
 	out.Files = optimized
 	notes = append(notes, optNotes...)
@@ -270,7 +272,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	}
 	if len(policyErrors) > 0 {
 		fmt.Fprint(os.Stderr, policy.FormatViolations(policyErrors))
-		return fmt.Errorf("[%s] apply blocked: %d policy error(s) found", scopeName, len(policyErrors))
+		return fmt.Errorf("apply blocked: %d policy error(s) found", len(policyErrors))
 	}
 
 	oldManifest, _ := state.ReadState(stateFilePath)
@@ -278,7 +280,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	if !applyDryRun && !applyForce {
 		driftEntries, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
 		if err == nil && len(driftEntries) > 0 {
-			fmt.Fprintf(os.Stderr, "[%s] drift detected in %d %s:\n", scopeName, len(driftEntries), plural(len(driftEntries), "file", "files"))
+			fmt.Fprintf(os.Stderr, "\n  %s  Drift detected in %d %s:\n\n", colorRed(glyphErr()), len(driftEntries), plural(len(driftEntries), "file", "files"))
 			for _, d := range driftEntries {
 				display, isRoot := formatArtifactPath(d.Path)
 				label := d.Status
@@ -287,44 +289,47 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 				}
 				fmt.Fprintf(os.Stderr, "    %s  %-10s  %s\n", glyphErr(), label, display)
 			}
-			fmt.Fprintln(os.Stderr)
-			return fmt.Errorf("[%s] drift detected! Use --force to overwrite, or 'xcaffold import' to sync edits back", scopeName)
+			fmt.Fprintf(os.Stderr, "  To preserve manual edits, run 'xcaffold import' first.\n\n")
+			fmt.Fprintf(os.Stderr, "%s Run 'xcaffold apply --force' to overwrite.\n", glyphArrow())
+			return fmt.Errorf("drift detected: use --force to overwrite, or 'xcaffold import' to sync edits back")
 		}
 	}
 
 	for _, agent := range config.Agents {
 		if len(agent.Targets) > 0 {
-			fmt.Fprintf(os.Stderr, "[%s] Warning: 'targets' block is experimental and currently uncompiled.\n", scopeName)
+			fmt.Fprintf(os.Stderr, "  %s  'targets' block on agents is experimental and currently uncompiled.\n", colorYellow(glyphSrc()))
 			break
 		}
 	}
 
 	if applyDryRun {
-		fmt.Printf("[%s] Dry-run preview (no files will be written):\n\n", scopeName)
+		fmt.Println("  Dry-run preview:")
+		fmt.Println()
 	}
 
 	// Write (or preview) each compiled file.
 	hasChanges := false
+	filesWritten := 0
 
 	cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, baseDir, scopeName, &hasChanges)
 
 	for relPath, content := range out.Files {
 		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
-		if err := applyFile(absPath, content, scopeName, &hasChanges); err != nil {
+		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
 			return err
 		}
 	}
 
 	for relPath, content := range out.RootFiles {
 		absPath := filepath.Clean(filepath.Join(baseDir, relPath))
-		if err := applyFile(absPath, content, scopeName, &hasChanges); err != nil {
+		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
 			return err
 		}
 	}
 
 	if applyDryRun {
 		if !hasChanges {
-			fmt.Printf("[%s] ✓ No changes predicted. Current files are up to date.\n", scopeName)
+			fmt.Printf("  %s  No changes predicted. Current files are up to date.\n", colorGreen(glyphOK()))
 		}
 		return nil
 	}
@@ -346,13 +351,17 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		SourceFiles:   sourceFiles,
 	}, oldManifest)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to generate state: %v\n", scopeName, err)
+		fmt.Fprintf(os.Stderr, "  Warning: failed to generate state: %v\n", err)
 	}
 	if err := state.WriteState(newManifest, stateFilePath); err != nil {
-		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to write state: %v\n", scopeName, err)
+		fmt.Fprintf(os.Stderr, "  Warning: failed to write state: %v\n", err)
 	}
 
-	fmt.Printf("\n[%s] ✓ Apply complete. State updated.\n", scopeName)
+	fmt.Println()
+	outDirName := compiler.OutputDir(targetFlag)
+	fmt.Printf("%s  Apply complete. %d %s written to %s/\n",
+		colorGreen(glyphOK()), filesWritten, plural(filesWritten, "file", "files"), outDirName)
+	fmt.Printf("  Run 'xcaffold import' to sync manual edits back to .xcf sources.\n")
 
 	// Ensure the project is registered and the timestamp is updated.
 	cwd, _ := os.Getwd()
@@ -360,11 +369,11 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	if configRelDir == "" {
 		configRelDir = "."
 	}
-	var projectName string
+	registryName := projectName
 	if config.Project != nil {
-		projectName = config.Project.Name
+		registryName = config.Project.Name
 	}
-	_ = registry.Register(cwd, projectName, nil, configRelDir)
+	_ = registry.Register(cwd, registryName, nil, configRelDir)
 	_ = registry.UpdateLastApplied(cwd)
 
 	return nil
@@ -464,7 +473,7 @@ func previewDiff(absPath, content string) bool {
 	return false
 }
 
-func applyFile(absPath, content, scopeName string, hasChanges *bool) error {
+func applyFile(absPath, content, scopeName string, hasChanges *bool, filesWritten *int) error {
 	if applyDryRun {
 		if previewDiff(absPath, content) {
 			*hasChanges = true
@@ -473,13 +482,12 @@ func applyFile(absPath, content, scopeName string, hasChanges *bool) error {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
-		return fmt.Errorf("[%s] failed to create directory for %q: %w", scopeName, absPath, err)
+		return fmt.Errorf("failed to create directory for %q: %w", absPath, err)
 	}
 	if err := os.WriteFile(absPath, []byte(content), 0600); err != nil {
-		return fmt.Errorf("[%s] failed to write %q: %w", scopeName, absPath, err)
+		return fmt.Errorf("failed to write %q: %w", absPath, err)
 	}
-	hash := sha256.Sum256([]byte(content))
-	fmt.Printf("  [%s] ✓ wrote %s  (sha256:%x)\n", scopeName, absPath, hash)
+	*filesWritten++
 	return nil
 }
 
@@ -505,7 +513,7 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 		return err
 	}
 
-	fmt.Printf("[%s] Backing up %s -> %s\n", scopeName, outputDir, destDir)
+	fmt.Printf("  %s  Backed up %s\n", colorGreen(glyphOK()), filepath.Base(destDir))
 	return copyDir(outputDir, destDir)
 }
 
@@ -543,11 +551,11 @@ func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out 
 			absPath = filepath.Clean(filepath.Join(outputDir, orphanPath))
 		}
 		if applyDryRun {
-			fmt.Printf("  [%s] \033[31m[- DELETE]\033[0m %s\n", scopeName, absPath)
+			fmt.Printf("    %s  would delete  %s\n", colorYellow(glyphSrc()), filepath.Base(absPath))
 			*hasChanges = true
 		} else {
 			if err := os.Remove(absPath); err == nil {
-				fmt.Printf("  [%s] ✓ deleted %s\n", scopeName, absPath)
+				fmt.Printf("    %s  deleted  %s\n", colorRed(glyphErr()), filepath.Base(absPath))
 				*hasChanges = true
 				cleanEmptyDirsUpToTarget(filepath.Dir(absPath), outputDir)
 			} else if os.IsNotExist(err) {

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `xcaffold apply` output now matches the output standards of `status` and `validate`: header breadcrumb at the top, glyph helpers for all status lines, file count summary on success instead of per-file write lines, and an import hint footer.
 - `xcaffold apply` now lists each drifted file (path and status: missing or modified) before aborting, instead of reporting a generic "drift detected" message.
 - Command `xcaffold graph` overhauled dependency rendering to naturally group rules by folder prefixes and nest active agent memory dynamically.
 - `xcaffold diff` is now officially deprecated, safely delegating any active usage directly to `xcaffold status` with migration hints natively.
