@@ -33,8 +33,8 @@ var (
 	importFilterRule     string
 	importFilterWorkflow string
 	importFilterMCP      string
-	importFilterHooks    bool
-	importFilterSettings bool
+	importFilterHook     bool
+	importFilterSetting  bool
 	importFilterMemory   bool
 )
 
@@ -54,6 +54,12 @@ Usage:
   $ xcaffold import
   $ xcaffold import --target claude
   $ xcaffold import --plan`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return nil
+		}
+		return fmt.Errorf("unexpected argument %q (to filter by name, use --flag=%s syntax)", args[0], args[0])
+	},
 	RunE: runImport,
 }
 
@@ -78,8 +84,8 @@ func init() {
 	f.StringVar(&importFilterMCP, "mcp", "", "Import MCP servers (optionally filter by name)")
 	f.Lookup("mcp").NoOptDefVal = "*"
 
-	f.BoolVar(&importFilterHooks, "hooks", false, "Import hooks")
-	f.BoolVar(&importFilterSettings, "settings", false, "Import settings")
+	f.BoolVar(&importFilterHook, "hook", false, "Import hooks")
+	f.BoolVar(&importFilterSetting, "setting", false, "Import settings")
 	f.BoolVar(&importFilterMemory, "memory", false, "Import memory")
 
 	rootCmd.AddCommand(importCmd)
@@ -92,8 +98,8 @@ func applyKindFilters(config *ast.XcaffoldConfig) {
 	// Check if any filter is set by examining the filter variables
 	anyFilterSet := importFilterAgent != "" || importFilterSkill != "" ||
 		importFilterRule != "" || importFilterWorkflow != "" ||
-		importFilterMCP != "" || importFilterHooks ||
-		importFilterSettings || importFilterMemory
+		importFilterMCP != "" || importFilterHook ||
+		importFilterSetting || importFilterMemory
 
 	if !anyFilterSet {
 		return
@@ -115,10 +121,10 @@ func applyKindFilters(config *ast.XcaffoldConfig) {
 	if importFilterMCP == "" {
 		config.MCP = nil
 	}
-	if !importFilterHooks {
+	if !importFilterHook {
 		config.Hooks = nil
 	}
-	if !importFilterSettings {
+	if !importFilterSetting {
 		config.Settings = nil
 	}
 	if !importFilterMemory {

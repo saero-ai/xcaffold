@@ -9,6 +9,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func captureListStdout(f func() error) (string, error) {
@@ -278,4 +279,16 @@ func TestList_Blueprint_FilteredOutput(t *testing.T) {
 	assert.Contains(t, out, "BLUEPRINT: backend")
 	assert.Contains(t, out, "AGENTS  (1)")
 	assert.Contains(t, out, "nestjs")
+}
+
+func TestList_ArgsValidator_RejectsPositionalArgs(t *testing.T) {
+	err := listCmd.Args(listCmd, []string{"dev"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected argument")
+	assert.Contains(t, err.Error(), "--flag=dev")
+}
+
+func TestList_ArgsValidator_AcceptsNoArgs(t *testing.T) {
+	err := listCmd.Args(listCmd, []string{})
+	assert.NoError(t, err)
 }

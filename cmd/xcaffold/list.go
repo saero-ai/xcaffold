@@ -22,8 +22,8 @@ var (
 	listFilterRule     string
 	listFilterWorkflow string
 	listFilterMCP      string
-	listFilterHooks    bool
-	listFilterSettings bool
+	listFilterHook     bool
+	listFilterSetting  bool
 	listFilterContext  string
 )
 
@@ -31,7 +31,13 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List discovered resources and blueprints",
 	Long:  "Scans the current project and displays all discovered resources and blueprints.",
-	RunE:  runList,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return nil
+		}
+		return fmt.Errorf("unexpected argument %q (to filter by name, use --flag=%s syntax)", args[0], args[0])
+	},
+	RunE: runList,
 }
 
 func init() {
@@ -49,8 +55,8 @@ func init() {
 	f.Lookup("workflow").NoOptDefVal = "*"
 	f.StringVar(&listFilterMCP, "mcp", "", "List MCP servers (optionally filter by name)")
 	f.Lookup("mcp").NoOptDefVal = "*"
-	f.BoolVar(&listFilterHooks, "hooks", false, "List hooks")
-	f.BoolVar(&listFilterSettings, "settings", false, "List settings")
+	f.BoolVar(&listFilterHook, "hook", false, "List hooks")
+	f.BoolVar(&listFilterSetting, "setting", false, "List settings")
 	f.StringVar(&listFilterContext, "context", "", "List contexts (optionally filter by name)")
 	f.Lookup("context").NoOptDefVal = "*"
 	_ = listCmd.Flags().MarkHidden("blueprint")
@@ -84,8 +90,8 @@ func runList(cmd *cobra.Command, args []string) error {
 
 func listHasFilter() bool {
 	return listFilterAgent != "" || listFilterSkill != "" || listFilterRule != "" ||
-		listFilterWorkflow != "" || listFilterMCP != "" || listFilterHooks ||
-		listFilterSettings || listFilterContext != ""
+		listFilterWorkflow != "" || listFilterMCP != "" || listFilterHook ||
+		listFilterSetting || listFilterContext != ""
 }
 
 // filterMapByName returns a map with only entries matching the filter string.
@@ -195,10 +201,10 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 			filtered := filterMapByName(config.Contexts, listFilterContext)
 			printSection(cmd, "CONTEXTS", filtered)
 		}
-		if listFilterHooks {
+		if listFilterHook {
 			printSection(cmd, "HOOKS", config.Hooks)
 		}
-		if listFilterSettings {
+		if listFilterSetting {
 			printSection(cmd, "SETTINGS", config.Settings)
 		}
 		return
