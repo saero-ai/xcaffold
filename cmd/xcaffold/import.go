@@ -431,6 +431,7 @@ var providerSubdirMap = map[string]map[string]string{
 	"claude": {
 		"references": "references",
 		"scripts":    "scripts",
+		"examples":   "examples",
 	},
 	"gemini": {
 		"references": "references",
@@ -461,7 +462,7 @@ var providerSubdirMap = map[string]map[string]string{
 // is treated as a reference.
 //
 // Files from subdirectories that have no canonical mapping are copied to
-// xcf/provider/<provider>/skills/<id>/<subdir>/.
+// xcf/skills/<id>/<subdir>/ alongside canonical subdirectories.
 func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]string) (refs, scripts, assets, examples []string, err error) {
 	skillDir := filepath.Dir(skillFile)
 
@@ -507,16 +508,16 @@ func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]str
 		}
 	}
 
-	// Helper: copy a file to the provider passthrough directory.
+	// Helper: copy a file to the skill directory with unknown subdirs.
 	appendPassthrough := func(src, subdir, filename string) {
 		var dest string
 		if base != "" {
-			dest = filepath.Join(base, "xcf", "provider", provider, "skills", id, subdir, filename)
+			dest = filepath.Join(base, "xcf", "skills", id, subdir, filename)
 		} else {
-			dest = filepath.Join("xcf", "provider", provider, "skills", id, subdir, filename)
+			dest = filepath.Join("xcf", "skills", id, subdir, filename)
 		}
 		if copyErr := copyFile(src, dest); copyErr != nil {
-			*warnings = append(*warnings, fmt.Sprintf("failed to copy provider file %s: %v", src, copyErr))
+			*warnings = append(*warnings, fmt.Sprintf("failed to copy skill file %s: %v", src, copyErr))
 		}
 	}
 

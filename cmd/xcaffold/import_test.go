@@ -570,8 +570,8 @@ func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
 			refs, scripts, assets, examples)
 	}
 
-	// File should appear in the passthrough directory.
-	passthroughFile := filepath.Join(outDir, "xcf", "provider", "unknown-provider", "skills", "my-skill", "extras", "data.json")
+	// File should appear in the skill directory with unknown subdirs.
+	passthroughFile := filepath.Join(outDir, "xcf", "skills", "my-skill", "extras", "data.json")
 	if _, err := os.Stat(passthroughFile); os.IsNotExist(err) {
 		t.Errorf("expected passthrough file at %s", passthroughFile)
 	}
