@@ -210,7 +210,17 @@ func renderMultiProvider(
 	totalW := kindW + len(providers)*countW
 	sep := "  " + strings.Repeat("─", totalW)
 
-	fmt.Println("  ┌─── COMPILED OUTPUT ─────────────┐")
+	title := " COMPILED OUTPUT "
+	remaining := totalW - len(title) - 2 // 2 for ┌ and ┐ (visual width)
+	if remaining < 0 {
+		remaining = 0
+	}
+	left := 3
+	right := remaining - left
+	if right < 0 {
+		right = 0
+	}
+	fmt.Printf("  ┌%s%s%s┐\n", strings.Repeat("─", left), title, strings.Repeat("─", right))
 	fmt.Println(header)
 	fmt.Println(sep)
 
