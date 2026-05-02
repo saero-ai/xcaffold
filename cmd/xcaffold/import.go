@@ -370,14 +370,9 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		return err
 	}
 
-	// Root context file discovery
-	discoverRootContextFiles(projectDir, config)
-
-	// Write agent memory files
-	if memCount, err := writeMemoryFiles(config); err != nil {
+	// Post-import steps: memory files, root context discovery, orphan pruning
+	if err := runPostImportSteps(config, projectDir, false); err != nil {
 		return err
-	} else if memCount > 0 {
-		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
 	}
 
 	// Detect compilation targets and populate project references
@@ -688,10 +683,6 @@ func finalizeImportScope(xcfDest, scopeName, provider string, config *ast.Xcaffo
 
 	if err := WriteSplitFiles(config, "."); err != nil {
 		return fmt.Errorf("[%s] failed to write split xcf files: %w", scopeName, err)
-	}
-
-	if err := pruneOrphanMemory(config, "."); err != nil {
-		return fmt.Errorf("prune memory: %w", err)
 	}
 
 	importCount := len(config.Agents) + len(config.Skills) + len(config.Rules) +
@@ -1572,4 +1563,26 @@ func discoverRootContextFiles(projectDir string, config *ast.XcaffoldConfig) {
 			Body:    string(data),
 		}
 	}
+}
+
+func runPostImportSteps(config *ast.XcaffoldConfig, projectDir string, injectToolkit bool) error {
+	if memCount, err := writeMemoryFiles(config); err != nil {
+		return fmt.Errorf("write memory: %w", err)
+	} else if memCount > 0 {
+		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
+	}
+
+	discoverRootContextFiles(projectDir, config)
+
+	if err := pruneOrphanMemory(config, projectDir); err != nil {
+		return fmt.Errorf("prune memory: %w", err)
+	}
+
+	if injectToolkit {
+		_ = writeReferenceTemplates(projectDir)
+		if err := injectXaffToolkitAfterImport(projectDir); err != nil {
+			return err
+		}
+	}
+	return nil
 }
