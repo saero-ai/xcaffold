@@ -483,9 +483,9 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		}
 	}
 
-	// xcf/skills/xcaffold/xcaffold.xcf
+	// xcf/skills/xcaffold/skill.xcf
 	skillContent := templates.RenderXcaffoldSkillXCF(ans.targets)
-	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "skills", "xcaffold", "xcaffold.xcf"), []byte(skillContent), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "skills", "xcaffold", "skill.xcf"), []byte(skillContent), 0o600); err != nil {
 		return err
 	}
 
@@ -501,9 +501,9 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		return err
 	}
 
-	// xcf/rules/xcf-conventions/xcf-conventions.xcf
+	// xcf/rules/xcf-conventions/rule.xcf
 	ruleContent := templates.RenderXcfConventionsRuleXCF(ans.targets)
-	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "rules", "xcf-conventions", "xcf-conventions.xcf"), []byte(ruleContent), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "rules", "xcf-conventions", "rule.xcf"), []byte(ruleContent), 0o600); err != nil {
 		return err
 	}
 
@@ -603,7 +603,7 @@ func injectXaffToolkitAfterImport(baseDir string) error {
 		return err
 	}
 	skillContent := templates.RenderXcaffoldSkillXCF(targets)
-	if err := os.WriteFile(filepath.Join(skillDir, "xcaffold.xcf"), []byte(skillContent), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(skillDir, "skill.xcf"), []byte(skillContent), 0o600); err != nil {
 		return err
 	}
 
@@ -625,7 +625,7 @@ func injectXaffToolkitAfterImport(baseDir string) error {
 		return err
 	}
 	ruleContent := templates.RenderXcfConventionsRuleXCF(targets)
-	if err := os.WriteFile(filepath.Join(ruleDir, "xcf-conventions.xcf"), []byte(ruleContent), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(ruleDir, "rule.xcf"), []byte(ruleContent), 0o600); err != nil {
 		return err
 	}
 

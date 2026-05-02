@@ -80,6 +80,26 @@ func inferKindAndName(filePath string) (kind, name string) {
 	if !ok {
 		return "", ""
 	}
+
+	// Check if filename is a canonical kind filename (<kind>.xcf or <kind>.<provider>.xcf)
+	filename := parts[len(parts)-1]
+	baseFilename := strings.TrimSuffix(filename, ".xcf")
+	// Strip provider suffix: "rule.claude" → "rule"
+	if dotIdx := strings.LastIndex(baseFilename, "."); dotIdx >= 0 {
+		baseFilename = baseFilename[:dotIdx]
+	}
+
+	if baseFilename == kind {
+		// Canonical convention: name from segments between kind-dir and filename
+		nameSegments := parts[xcfIdx+2 : len(parts)-1]
+		if len(nameSegments) == 0 {
+			return "", ""
+		}
+		name = strings.Join(nameSegments, "/")
+		return kind, name
+	}
+
+	// Legacy: name is parts[xcfIdx+2] with .xcf stripped
 	name = parts[xcfIdx+2]
 	name = strings.TrimSuffix(name, ".xcf")
 	return kind, name

@@ -216,7 +216,7 @@ func TestWriteXCFDirectory_XcfConventions_ReplacesGeneric(t *testing.T) {
 	require.NoError(t, err)
 
 	// New rule exists
-	ruleFile := filepath.Join(tmpDir, "xcf", "rules", "xcf-conventions", "xcf-conventions.xcf")
+	ruleFile := filepath.Join(tmpDir, "xcf", "rules", "xcf-conventions", "rule.xcf")
 	assert.FileExists(t, ruleFile)
 	data, _ := os.ReadFile(ruleFile)
 	assert.Contains(t, string(data), "name: xcf-conventions")
@@ -252,11 +252,11 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.cursor.xcf"))
 
 	// xcaffold skill
-	skillFile := filepath.Join(tmpDir, "xcf", "skills", "xcaffold", "xcaffold.xcf")
+	skillFile := filepath.Join(tmpDir, "xcf", "skills", "xcaffold", "skill.xcf")
 	assert.FileExists(t, skillFile)
 
 	// xcf-conventions rule
-	ruleFile := filepath.Join(tmpDir, "xcf", "rules", "xcf-conventions", "xcf-conventions.xcf")
+	ruleFile := filepath.Join(tmpDir, "xcf", "rules", "xcf-conventions", "rule.xcf")
 	assert.FileExists(t, ruleFile)
 
 	// Policies directory must NOT be created
