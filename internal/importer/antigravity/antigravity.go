@@ -37,9 +37,13 @@ func (a *AntigravityImporter) InputDir() string { return ".agents" }
 
 // antigravityMappings maps path patterns to AST kinds. First match wins.
 // Agents are stored in prompts/ (not agents/) — this is the key Antigravity difference.
+// Skills use DirectoryPerEntry layout: skills/<id>/SKILL.md plus assets.
 var antigravityMappings = []importer.KindMapping{
 	{Pattern: "prompts/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
-	{Pattern: "skills/*.md", Kind: importer.KindSkill, Layout: importer.FlatFile},
+	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/examples/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
 	{Pattern: "mcp_config.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
 	{Pattern: "workflows/*.md", Kind: importer.KindWorkflow, Layout: importer.FlatFile},
@@ -202,8 +206,16 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		return fmt.Errorf("antigravity: skill %q: %w", rel, err)
 	}
 
-	// FlatFile layout: id is the filename stem.
-	id := strings.TrimSuffix(filepath.Base(rel), ".md")
+	// DirectoryPerEntry layout: id is the directory name (parent of SKILL.md)
+	// rel is "skills/<id>/SKILL.md", so extract the directory name.
+	parts := strings.Split(filepath.ToSlash(filepath.Clean(rel)), "/")
+	var id string
+	if len(parts) >= 2 && parts[0] == "skills" {
+		id = parts[1]
+	} else {
+		id = strings.TrimSuffix(filepath.Base(rel), ".md")
+	}
+
 	if config.Skills == nil {
 		config.Skills = make(map[string]ast.SkillConfig)
 	}

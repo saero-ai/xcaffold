@@ -36,13 +36,16 @@ func (g *GeminiImporter) Provider() string { return "gemini" }
 func (g *GeminiImporter) InputDir() string { return ".gemini" }
 
 // geminiMappings maps path patterns to AST kinds. First match wins.
-// Skills are FlatFile layout — one .md per skill, no directory-per-entry.
+// Skills use DirectoryPerEntry layout: skills/<id>/SKILL.md plus assets.
 // settings.json appears first for the container-level KindSettings match;
 // embedded mcpServers and hooks keys are handled inside Extract().
 var geminiMappings = []importer.KindMapping{
 	{Pattern: "hooks/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
-	{Pattern: "skills/*.md", Kind: importer.KindSkill, Layout: importer.FlatFile},
+	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
+	{Pattern: "skills/*/assets/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
 	// settings.json is a container file holding settings, mcpServers, AND hooks.
 	// Classify returns KindSettings (first match); extractSettings() handles the
@@ -208,8 +211,16 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		return fmt.Errorf("gemini: skill %q: %w", rel, err)
 	}
 
-	// FlatFile layout: id is the filename stem (not directory name)
-	id := strings.TrimSuffix(filepath.Base(rel), ".md")
+	// DirectoryPerEntry layout: id is the directory name (parent of SKILL.md)
+	// rel is "skills/<id>/SKILL.md", so extract the directory name.
+	parts := strings.Split(filepath.ToSlash(filepath.Clean(rel)), "/")
+	var id string
+	if len(parts) >= 2 && parts[0] == "skills" {
+		id = parts[1]
+	} else {
+		id = strings.TrimSuffix(filepath.Base(rel), ".md")
+	}
+
 	if config.Skills == nil {
 		config.Skills = make(map[string]ast.SkillConfig)
 	}

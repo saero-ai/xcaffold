@@ -21,12 +21,36 @@ func TestGeminiClassify_AgentPattern(t *testing.T) {
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
-func TestGeminiClassify_SkillPattern(t *testing.T) {
-	// Gemini skills are FLAT files — skills/search.md, not skills/search/SKILL.md
+func TestGeminiClassify_SkillPattern_DirectoryPerEntry(t *testing.T) {
+	// Gemini skills use directory-per-entry layout
 	imp := geminimp.New()
-	kind, layout := imp.Classify("skills/search.md", false)
+	kind, layout := imp.Classify("skills/search/SKILL.md", false)
 	assert.Equal(t, importer.KindSkill, kind)
-	assert.Equal(t, importer.FlatFile, layout)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestGeminiClassify_SkillReferences(t *testing.T) {
+	imp := geminimp.New()
+	// Skill asset files in references/ subdirectory
+	kind, layout := imp.Classify("skills/search/references/example.md", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestGeminiClassify_SkillScripts(t *testing.T) {
+	imp := geminimp.New()
+	// Skill asset files in scripts/ subdirectory
+	kind, layout := imp.Classify("skills/search/scripts/setup.sh", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestGeminiClassify_SkillAssets(t *testing.T) {
+	imp := geminimp.New()
+	// Skill asset files in assets/ subdirectory (Gemini-native)
+	kind, layout := imp.Classify("skills/search/assets/icon.png", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
 }
 
 func TestGeminiClassify_RulePattern(t *testing.T) {
@@ -50,10 +74,10 @@ func TestGeminiClassify_UnknownFile(t *testing.T) {
 	assert.Equal(t, importer.LayoutUnknown, layout)
 }
 
-func TestGeminiClassify_SkillDirectoryNotMatched(t *testing.T) {
-	// Gemini has no directory-per-entry skill layout — skills/search/SKILL.md is unknown
+func TestGeminiClassify_SkillFlatFileNotMatched(t *testing.T) {
+	// Gemini flat file patterns no longer match — only directory-per-entry skills/* / SKILL.md
 	imp := geminimp.New()
-	kind, _ := imp.Classify("skills/search/SKILL.md", false)
+	kind, _ := imp.Classify("skills/search.md", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 }
 
@@ -83,11 +107,11 @@ func TestGeminiExtract_AgentFrontmatter(t *testing.T) {
 }
 
 func TestGeminiExtract_SkillFrontmatter(t *testing.T) {
-	// Gemini skill: id is the filename stem, not the directory name
+	// Gemini skill: id is the directory name, SKILL.md contains frontmatter
 	data := []byte("---\nname: web-search\ndescription: Search the web\nallowed-tools:\n  - WebSearch\n---\n\nUse for external lookups.\n")
 	config := &ast.XcaffoldConfig{}
 	imp := geminimp.New()
-	err := imp.Extract("skills/search.md", data, config)
+	err := imp.Extract("skills/search/SKILL.md", data, config)
 	require.NoError(t, err)
 	skill, ok := config.Skills["search"]
 	require.True(t, ok, "expected skill 'search' in config")

@@ -21,11 +21,36 @@ func TestAntigravityClassify_AgentInPrompts(t *testing.T) {
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
-func TestAntigravityClassify_SkillPattern(t *testing.T) {
+func TestAntigravityClassify_SkillPattern_DirectoryPerEntry(t *testing.T) {
 	imp := antimp.New()
-	kind, layout := imp.Classify("skills/search.md", false)
+	// Antigravity skills use directory-per-entry layout
+	kind, layout := imp.Classify("skills/search/SKILL.md", false)
 	assert.Equal(t, importer.KindSkill, kind)
-	assert.Equal(t, importer.FlatFile, layout)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestAntigravityClassify_SkillReferences(t *testing.T) {
+	imp := antimp.New()
+	// Skill asset files in references/ subdirectory
+	kind, layout := imp.Classify("skills/search/references/example.md", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestAntigravityClassify_SkillScripts(t *testing.T) {
+	imp := antimp.New()
+	// Skill asset files in scripts/ subdirectory
+	kind, layout := imp.Classify("skills/search/scripts/setup.sh", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
+}
+
+func TestAntigravityClassify_SkillExamples(t *testing.T) {
+	imp := antimp.New()
+	// Skill asset files in examples/ subdirectory (Antigravity-native)
+	kind, layout := imp.Classify("skills/search/examples/usage.md", false)
+	assert.Equal(t, importer.KindSkillAsset, kind)
+	assert.Equal(t, importer.DirectoryPerEntry, layout)
 }
 
 func TestAntigravityClassify_RulePattern(t *testing.T) {
@@ -94,7 +119,7 @@ func TestAntigravityExtract_Skill(t *testing.T) {
 	data := []byte("---\nname: search\ndescription: Deep search\nallowed-tools:\n  - Grep\n---\n\nSearch across files.\n")
 	config := &ast.XcaffoldConfig{}
 	imp := antimp.New()
-	err := imp.Extract("skills/search.md", data, config)
+	err := imp.Extract("skills/search/SKILL.md", data, config)
 	require.NoError(t, err)
 
 	skill, ok := config.Skills["search"]
