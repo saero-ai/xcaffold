@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/templates"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -119,31 +120,6 @@ func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
 	skillBody := string(skillData)
 	require.Contains(t, skillBody, "allowed-tools:")
 	require.NotContains(t, skillBody, "\ntools:")
-}
-
-// TestInit_ReferencesFieldInSkillXCF verifies the generated xcaffold.xcf skill
-// contains a references: block pointing to all 8 companion files.
-func TestInit_ReferencesFieldInSkillXCF(t *testing.T) {
-	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
-	require.Contains(t, out, "references:", "skill XCF must contain a references: field")
-	require.Contains(t, out, ".xcaffold/schemas/agent-reference.md")
-	require.Contains(t, out, ".xcaffold/schemas/skill-reference.md")
-	require.Contains(t, out, ".xcaffold/schemas/rule-reference.md")
-	require.Contains(t, out, ".xcaffold/schemas/workflow-reference.md")
-	require.Contains(t, out, ".xcaffold/schemas/mcp-reference.md")
-	require.Contains(t, out, ".xcaffold/schemas/hooks-reference.md")
-	require.Contains(t, out, ".xcaffold/schemas/memory-reference.md")
-	require.Contains(t, out, ".xcaffold/schemas/cli-cheatsheet.md")
-}
-
-// TestInit_SkillXCF_PathsUpdated verifies the skill frontmatter references are in the correct sections.
-func TestInit_SkillXCF_PathsUpdated(t *testing.T) {
-	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
-	// Operating and authoring guides are in the frontmatter references field
-	require.Contains(t, out, "xcf/skills/xcaffold/references/operating-guide.md")
-	require.Contains(t, out, "xcf/skills/xcaffold/references/authoring-guide.md")
-	// Schema references are also in the frontmatter
-	require.Contains(t, out, ".xcaffold/schemas/")
 }
 
 func TestWriteReferenceTemplates_WritesToDotXcaffoldSchemas(t *testing.T) {
@@ -289,21 +265,6 @@ func TestInit_GeneratesProjectXcf(t *testing.T) {
 	assert.NoError(t, projectXcfErr, "project.xcf should be generated")
 }
 
-// TestRenderXcaffoldSkillXCF_NoAnalyze verifies analyze references are not in the skill.
-func TestRenderXcaffoldSkillXCF_NoAnalyze(t *testing.T) {
-	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
-	assert.NotContains(t, out, "xcaffold analyze", "skill must not reference removed analyze command")
-}
-
-// TestRenderXcaffoldSkillXCF_StatusNotDiff verifies operating guide uses xcaffold status.
-func TestRenderXcaffoldSkillXCF_StatusNotDiff(t *testing.T) {
-	// Operating guide contains the command reference (moved out of slim skill body)
-	guide := templates.RenderOperatingGuide()
-	assert.Contains(t, guide, "xcaffold status", "operating guide must reference xcaffold status")
-	// Ensure diff is not mentioned (it was removed as a command)
-	assert.NotContains(t, guide, "xcaffold diff", "operating guide must not reference removed xcaffold diff")
-}
-
 // TestCollectWizardAnswers_EmptyTargetSelection_ReturnsError verifies that
 // selecting no targets in the multi-select returns an error instead of silently
 // keeping the pre-set default.
@@ -387,10 +348,27 @@ func TestNoPoliciesFlag_DoesNotExist(t *testing.T) {
 	t.Log("noPoliciesFlag should have been removed")
 }
 
-// TestRenderProjectXCF_NoPoliciesSection verifies project.xcf no longer includes policies.
-func TestRenderProjectXCF_NoPoliciesSection(t *testing.T) {
-	out := templates.RenderProjectXCF("test-project", []string{"claude"})
-	assert.NotContains(t, out, "policies:", "project.xcf must not include policies section")
-	assert.NotContains(t, out, "require-agent-description", "project.xcf must not reference policies")
-	assert.NotContains(t, out, "require-agent-instructions", "project.xcf must not reference policies")
+// TestToolkit_EmbeddedFiles_ParseCorrectly validates the embedded toolkit files
+// parse correctly through the parser. This ensures toolkit manifests are well-formed
+// and ready for use by the init wizard.
+func TestToolkit_EmbeddedFiles_ParseCorrectly(t *testing.T) {
+	toolkitFiles := []string{
+		"toolkit/agents/xaff/agent.xcf",
+		"toolkit/skills/xcaffold/skill.xcf",
+		"toolkit/rules/xcf-conventions/rule.xcf",
+	}
+
+	for _, f := range toolkitFiles {
+		data, err := templates.ToolkitFS.ReadFile(f)
+		require.NoError(t, err, "embedded file %s must be readable", f)
+		require.NotEmpty(t, data, "embedded file %s must not be empty", f)
+
+		// Parse through the actual parser to validate format
+		tmpDir := t.TempDir()
+		tmpFile := filepath.Join(tmpDir, filepath.Base(f))
+		require.NoError(t, os.WriteFile(tmpFile, data, 0644))
+
+		_, parseErr := parser.ParseFileExact(tmpFile)
+		require.NoError(t, parseErr, "embedded file %s must parse without errors", f)
+	}
 }
