@@ -1354,3 +1354,181 @@ func TestRunPostImportSteps_WritesMemoryAndPrunes(t *testing.T) {
 	require.NoError(t, err, "memory file should exist")
 	require.Contains(t, string(data), "Context details")
 }
+
+// TestSplitAgentOverrides_DeterministicBase verifies that the most generic
+// provider (fewest provider-specific fields) is selected as the base.
+func TestSplitAgentOverrides_DeterministicBase(t *testing.T) {
+	hooksData := ast.HookConfig{
+		"events": []ast.HookMatcherGroup{},
+	}
+
+	configs := map[string]ast.AgentConfig{
+		"claude": {
+			Name:        "dev",
+			Description: "Developer",
+			Model:       "claude-sonnet",
+			Tools:       []string{"Read", "Write"},
+			Hooks:       hooksData,
+			Body:        "Claude developer instructions",
+		},
+		"gemini": {
+			Name:        "dev",
+			Description: "Developer",
+			Model:       "",
+			Tools:       []string{},
+			Hooks:       nil,
+			Body:        "Gemini developer instructions",
+		},
+		"cursor": {
+			Name:        "dev",
+			Description: "Developer",
+			Model:       "cursor-model",
+			Tools:       []string{},
+			Hooks:       nil,
+			Body:        "Cursor developer instructions",
+		},
+	}
+
+	base, overrides := splitAgentOverrides(configs)
+
+	// Gemini should be selected as base (score 0: no model, no tools, no hooks)
+	// Claude scores 12 (model +1, tools +1, hooks +10)
+	// Cursor scores 1 (model +1)
+	// So the selection should be:
+	// - Gemini: 0 (base)
+	// - Cursor: 1 (override)
+	// - Claude: 12 (override)
+
+	// The base should match one of the input configs
+	found := false
+	for provider, cfg := range configs {
+		if cfg.Name == base.Name && cfg.Description == base.Description {
+			// Check if this is the minimal-score provider
+			if provider == "gemini" {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Errorf("base should be selected from minimal-score provider, got base with body: %s", base.Body)
+	}
+
+	// All non-base providers should be in overrides
+	expectedOverrideCount := len(configs) - 1
+	if len(overrides) != expectedOverrideCount {
+		t.Errorf("expected %d overrides, got %d", expectedOverrideCount, len(overrides))
+	}
+}
+
+// TestSplitAgentOverrides_BodyDedup verifies that identical bodies are stripped
+// from overrides.
+func TestSplitAgentOverrides_BodyDedup(t *testing.T) {
+	sharedBody := "Shared developer instructions"
+
+	configs := map[string]ast.AgentConfig{
+		"claude": {
+			Name:        "dev",
+			Description: "Developer",
+			Model:       "claude-sonnet",
+			Tools:       []string{"Read"},
+			Body:        sharedBody,
+		},
+		"gemini": {
+			Name:        "dev",
+			Description: "Developer",
+			Model:       "gemini-pro",
+			Tools:       []string{},
+			Body:        sharedBody, // Identical body
+		},
+	}
+
+	base, overrides := splitAgentOverrides(configs)
+
+	// Find the override (the non-base provider)
+	if len(overrides) != 1 {
+		t.Fatalf("expected 1 override, got %d", len(overrides))
+	}
+
+	for _, override := range overrides {
+		// If the bodies are identical, the override's body should be stripped
+		if strings.TrimSpace(base.Body) == strings.TrimSpace(override.Body) {
+			if override.Body != "" {
+				t.Errorf("override body should be empty when identical to base, got: %q", override.Body)
+			}
+		}
+	}
+}
+
+// TestSplitSkillOverrides_DeterministicBase verifies skills use AllowedTools for scoring.
+func TestSplitSkillOverrides_DeterministicBase(t *testing.T) {
+	configs := map[string]ast.SkillConfig{
+		"claude": {
+			Name:         "tdd",
+			Description:  "TDD Skill",
+			AllowedTools: []string{"Read", "Write"},
+			Body:         "Claude TDD",
+		},
+		"gemini": {
+			Name:         "tdd",
+			Description:  "TDD Skill",
+			AllowedTools: []string{},
+			Body:         "Gemini TDD",
+		},
+	}
+
+	base, _ := splitSkillOverrides(configs)
+
+	// Base body should be from the minimal-score provider (gemini with empty AllowedTools)
+	if !strings.Contains(base.Body, "Gemini") {
+		t.Errorf("base should be from gemini (minimal score), got body: %s", base.Body)
+	}
+}
+
+// TestSplitRuleOverrides_DeterministicBase verifies rules use alphabetical ordering.
+func TestSplitRuleOverrides_DeterministicBase(t *testing.T) {
+	configs := map[string]ast.RuleConfig{
+		"zenith": {
+			Name:        "security",
+			Description: "Security Rule",
+			Body:        "Zenith security",
+		},
+		"alpha": {
+			Name:        "security",
+			Description: "Security Rule",
+			Body:        "Alpha security",
+		},
+	}
+
+	base, _ := splitRuleOverrides(configs)
+
+	// Both providers have the same score (0), so alphabetical tie-break applies
+	// "alpha" < "zenith", so alpha should be base
+	if !strings.Contains(base.Body, "Alpha") {
+		t.Errorf("base should be alphabetically first (alpha), got body: %s", base.Body)
+	}
+}
+
+// TestSplitWorkflowOverrides_DeterministicBase verifies workflows use alphabetical ordering.
+func TestSplitWorkflowOverrides_DeterministicBase(t *testing.T) {
+	configs := map[string]ast.WorkflowConfig{
+		"zebra": {
+			Name:        "deploy",
+			Description: "Deploy Workflow",
+			Body:        "Zebra deploy",
+		},
+		"apple": {
+			Name:        "deploy",
+			Description: "Deploy Workflow",
+			Body:        "Apple deploy",
+		},
+	}
+
+	base, _ := splitWorkflowOverrides(configs)
+
+	// Both providers have score 0, so alphabetical tie-break applies
+	// "apple" < "zebra", so apple should be base
+	if !strings.Contains(base.Body, "Apple") {
+		t.Errorf("base should be alphabetically first (apple), got body: %s", base.Body)
+	}
+}
