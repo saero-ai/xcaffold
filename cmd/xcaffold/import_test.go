@@ -1372,3 +1372,35 @@ func TestMergeImportDirs_MultiProvider_ConflictCount(t *testing.T) {
 	// When there are conflicts, the output should mention override files or conflicts
 	assert.Contains(t, output, "conflict", "output should indicate conflicts detected")
 }
+
+func TestRunPostImportSteps_WritesMemoryAndPrunes(t *testing.T) {
+	tmp := t.TempDir()
+	origDir, _ := os.Getwd()
+	require.NoError(t, os.Chdir(tmp))
+	defer os.Chdir(origDir)
+
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Description: "Developer"},
+			},
+			Memory: map[string]ast.MemoryConfig{
+				"dev/context": {
+					Name:        "context",
+					Description: "Project context",
+					Content:     "Context details",
+					AgentRef:    "dev",
+				},
+			},
+		},
+	}
+
+	err := runPostImportSteps(config, tmp, false)
+	require.NoError(t, err)
+
+	// Memory file should be written
+	memPath := filepath.Join(tmp, "xcf", "agents", "dev", "memory", "context.md")
+	data, err := os.ReadFile(memPath)
+	require.NoError(t, err, "memory file should exist")
+	require.Contains(t, string(data), "Context details")
+}

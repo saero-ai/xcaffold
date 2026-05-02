@@ -378,14 +378,9 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		return err
 	}
 
-	// Root context file discovery
-	discoverRootContextFiles(projectDir, config)
-
-	// Write agent memory files
-	if memCount, err := writeMemoryFiles(config); err != nil {
+	// Shared post-import steps: memory, context, pruning
+	if err := runPostImportSteps(config, projectDir, false); err != nil {
 		return err
-	} else if memCount > 0 {
-		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
 	}
 
 	// Detect compilation targets and populate project references
@@ -1435,6 +1430,32 @@ func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
 		}
 	}
 
+	return nil
+}
+
+// runPostImportSteps executes the shared post-import steps: memory writing,
+// root context discovery, and memory pruning. The injectToolkit parameter
+// controls whether toolkit reference templates and xaff toolkit are injected
+// (typically false for import, true for init).
+func runPostImportSteps(config *ast.XcaffoldConfig, projectDir string, injectToolkit bool) error {
+	if memCount, err := writeMemoryFiles(config); err != nil {
+		return fmt.Errorf("write memory: %w", err)
+	} else if memCount > 0 {
+		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
+	}
+
+	discoverRootContextFiles(projectDir, config)
+
+	if err := pruneOrphanMemory(config, projectDir); err != nil {
+		return fmt.Errorf("prune memory: %w", err)
+	}
+
+	if injectToolkit {
+		_ = writeReferenceTemplates(projectDir)
+		if err := injectXaffToolkitAfterImport(projectDir); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
