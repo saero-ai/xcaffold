@@ -173,9 +173,16 @@ func writeGroupFields(sb *strings.Builder, fields []schema.Field) {
 		}
 		sb.WriteString(fmt.Sprintf("# %s (%s, %s): %s\n", f.YAMLKey, f.XCFType, req, f.Description))
 		sb.WriteString(buildMarkerComment(f))
-		sb.WriteString(fmt.Sprintf("%s: %s\n", f.YAMLKey, emptyValue(f.GoType)))
+		sb.WriteString(fmt.Sprintf("%s: %s\n", f.YAMLKey, fieldPlaceholder(f)))
 		sb.WriteString("\n")
 	}
+}
+
+func fieldPlaceholder(f schema.Field) string {
+	if !f.Optional && f.XCFType == "string" {
+		return "\"my-" + f.YAMLKey + "\""
+	}
+	return emptyValue(f.XCFType)
 }
 
 func buildMarkerComment(f schema.Field) string {
@@ -197,16 +204,18 @@ func buildMarkerComment(f schema.Field) string {
 	return "# " + strings.Join(parts, " ") + "\n"
 }
 
-func emptyValue(goType string) string {
+func emptyValue(xcfType string) string {
 	switch {
-	case strings.HasPrefix(goType, "[]"):
+	case strings.HasPrefix(xcfType, "[]"):
 		return "[]"
-	case strings.HasPrefix(goType, "map"):
+	case strings.HasPrefix(xcfType, "map") || strings.HasSuffix(xcfType, "Config"):
 		return "{}"
-	case goType == "*bool" || goType == "bool":
+	case xcfType == "boolean":
 		return "false"
-	case goType == "*int" || goType == "int":
+	case xcfType == "integer" || xcfType == "int":
 		return "0"
+	case xcfType == "string":
+		return "\"\""
 	default:
 		return "\"\""
 	}
