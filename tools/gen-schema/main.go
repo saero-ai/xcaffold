@@ -13,7 +13,6 @@ import (
 )
 
 var (
-	outputFormat = flag.String("output-format", "go", "output format (go)")
 	outputPath   = flag.String("output", "", "output file path (default: stdout)")
 	packageName  = flag.String("package", "schema", "generated package name")
 	validateOnly = flag.Bool("validate-only", false, "validate markers only, do not generate")
@@ -33,6 +32,20 @@ var kindStructMap = map[string]string{
 	"hooks":     "NamedHookConfig",
 }
 
+var kindFormatMap = map[string]string{
+	"agent":     "frontmatter+body",
+	"skill":     "frontmatter+body",
+	"rule":      "frontmatter+body",
+	"workflow":  "frontmatter+body",
+	"mcp":       "pure-yaml",
+	"policy":    "pure-yaml",
+	"blueprint": "pure-yaml",
+	"memory":    "frontmatter+body",
+	"context":   "frontmatter+body",
+	"settings":  "pure-yaml",
+	"hooks":     "pure-yaml",
+}
+
 type MarkerSet struct {
 	Optional  bool
 	Required  bool
@@ -41,6 +54,9 @@ type MarkerSet struct {
 	Provider  map[string]string
 	Key       string
 	FieldType string
+	Pattern   string
+	Example   string
+	Default   string
 }
 
 type FieldInfo struct {
@@ -70,12 +86,10 @@ func main() {
 		log.Fatalf("ast package not found in %s", astDir)
 	}
 
-	allViolations := []string{}
-
 	if *validateOnly {
-		allViolations = validateMarkers(pkg)
-		if len(allViolations) > 0 {
-			for _, v := range allViolations {
+		violations := validateMarkers(pkg)
+		if len(violations) > 0 {
+			for _, v := range violations {
 				fmt.Fprintf(os.Stderr, "%s\n", v)
 			}
 			os.Exit(1)
@@ -85,12 +99,6 @@ func main() {
 	}
 
 	fields := extractFields(pkg)
-	if len(allViolations) > 0 {
-		for _, v := range allViolations {
-			fmt.Fprintf(os.Stderr, "%s\n", v)
-		}
-	}
-
 	output := generateGo(*packageName, fields)
 
 	if *outputPath != "" {
@@ -105,7 +113,9 @@ func main() {
 func validateMarkers(pkg *ast.Package) []string {
 	var violations []string
 
-	for _, file := range pkg.Files {
+	filenames := sortedFileNames(pkg)
+	for _, fname := range filenames {
+		file := pkg.Files[fname]
 		for _, decl := range file.Decls {
 			genDecl, ok := decl.(*ast.GenDecl)
 			if !ok {
@@ -164,7 +174,9 @@ func validateMarkers(pkg *ast.Package) []string {
 func extractFields(pkg *ast.Package) map[string][]FieldInfo {
 	result := make(map[string][]FieldInfo)
 
-	for _, file := range pkg.Files {
+	filenames := sortedFileNames(pkg)
+	for _, fname := range filenames {
+		file := pkg.Files[fname]
 		for _, decl := range file.Decls {
 			genDecl, ok := decl.(*ast.GenDecl)
 			if !ok {
@@ -304,10 +316,25 @@ func parseMarkers(comment *ast.CommentGroup) MarkerSet {
 			}
 		} else if strings.HasPrefix(marker, "type=") {
 			result.FieldType = strings.TrimPrefix(marker, "type=")
+		} else if strings.HasPrefix(marker, "pattern=") {
+			result.Pattern = strings.TrimPrefix(marker, "pattern=")
+		} else if strings.HasPrefix(marker, "example=") {
+			result.Example = strings.TrimPrefix(marker, "example=")
+		} else if strings.HasPrefix(marker, "default=") {
+			result.Default = strings.TrimPrefix(marker, "default=")
 		}
 	}
 
 	return result
+}
+
+func sortedFileNames(pkg *ast.Package) []string {
+	names := make([]string, 0, len(pkg.Files))
+	for name := range pkg.Files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func getFieldName(f *ast.Field) string {
@@ -353,44 +380,11 @@ func generateGo(pkgName string, fields map[string][]FieldInfo) string {
 		buf.WriteString(fmt.Sprintf("\tRegistry[\"%s\"] = KindSchema{\n", kind))
 		buf.WriteString(fmt.Sprintf("\t\tKind: \"%s\",\n", kind))
 		buf.WriteString("\t\tVersion: \"1.0\",\n")
-		buf.WriteString("\t\tFormat: \"frontmatter+body\",\n")
+		buf.WriteString(fmt.Sprintf("\t\tFormat: \"%s\",\n", kindFormatMap[kind]))
 		buf.WriteString("\t\tFields: []Field{\n")
 
 		for _, f := range fields[kind] {
-			buf.WriteString("\t\t\t{\n")
-			buf.WriteString(fmt.Sprintf("\t\t\t\tName: \"%s\",\n", f.Name))
-			buf.WriteString(fmt.Sprintf("\t\t\t\tYAMLKey: \"%s\",\n", f.YAMLKey))
-			buf.WriteString(fmt.Sprintf("\t\t\t\tGoType: \"%s\",\n", f.GoType))
-			buf.WriteString(fmt.Sprintf("\t\t\t\tXCFType: \"%s\",\n", mapToXCFType(f.GoType)))
-			buf.WriteString(fmt.Sprintf("\t\t\t\tOptional: %v,\n", f.Markers.Optional))
-			buf.WriteString(fmt.Sprintf("\t\t\t\tDescription: %q,\n", f.Description))
-			buf.WriteString(fmt.Sprintf("\t\t\t\tGroup: \"%s\",\n", f.Markers.Group))
-
-			if len(f.Markers.Enum) > 0 {
-				buf.WriteString("\t\t\t\tEnum: []string{")
-				for i, e := range f.Markers.Enum {
-					if i > 0 {
-						buf.WriteString(", ")
-					}
-					buf.WriteString(fmt.Sprintf("%q", strings.TrimSpace(e)))
-				}
-				buf.WriteString("},\n")
-			}
-
-			if len(f.Markers.Provider) > 0 {
-				provKeys := make([]string, 0, len(f.Markers.Provider))
-				for k := range f.Markers.Provider {
-					provKeys = append(provKeys, k)
-				}
-				sort.Strings(provKeys)
-				buf.WriteString("\t\t\t\tProvider: map[string]string{\n")
-				for _, prov := range provKeys {
-					buf.WriteString(fmt.Sprintf("\t\t\t\t\t\"%s\": \"%s\",\n", prov, f.Markers.Provider[prov]))
-				}
-				buf.WriteString("\t\t\t\t},\n")
-			}
-
-			buf.WriteString("\t\t\t},\n")
+			writeFieldEntry(&buf, f)
 		}
 
 		buf.WriteString("\t\t},\n")
@@ -398,8 +392,58 @@ func generateGo(pkgName string, fields map[string][]FieldInfo) string {
 	}
 
 	buf.WriteString("}\n")
-
 	return buf.String()
+}
+
+func writeFieldEntry(buf *strings.Builder, f FieldInfo) {
+	buf.WriteString("\t\t\t{\n")
+	buf.WriteString(fmt.Sprintf("\t\t\t\tName: \"%s\",\n", f.Name))
+	buf.WriteString(fmt.Sprintf("\t\t\t\tYAMLKey: \"%s\",\n", f.YAMLKey))
+	buf.WriteString(fmt.Sprintf("\t\t\t\tGoType: \"%s\",\n", f.GoType))
+	xcfType := f.Markers.FieldType
+	if xcfType == "" {
+		xcfType = mapToXCFType(f.GoType)
+	}
+	buf.WriteString(fmt.Sprintf("\t\t\t\tXCFType: \"%s\",\n", xcfType))
+	buf.WriteString(fmt.Sprintf("\t\t\t\tOptional: %v,\n", f.Markers.Optional))
+	buf.WriteString(fmt.Sprintf("\t\t\t\tDescription: %q,\n", f.Description))
+	buf.WriteString(fmt.Sprintf("\t\t\t\tGroup: \"%s\",\n", f.Markers.Group))
+
+	if len(f.Markers.Enum) > 0 {
+		buf.WriteString("\t\t\t\tEnum: []string{")
+		for i, e := range f.Markers.Enum {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(fmt.Sprintf("%q", strings.TrimSpace(e)))
+		}
+		buf.WriteString("},\n")
+	}
+
+	if len(f.Markers.Provider) > 0 {
+		provKeys := make([]string, 0, len(f.Markers.Provider))
+		for k := range f.Markers.Provider {
+			provKeys = append(provKeys, k)
+		}
+		sort.Strings(provKeys)
+		buf.WriteString("\t\t\t\tProvider: map[string]string{\n")
+		for _, prov := range provKeys {
+			buf.WriteString(fmt.Sprintf("\t\t\t\t\t\"%s\": \"%s\",\n", prov, f.Markers.Provider[prov]))
+		}
+		buf.WriteString("\t\t\t\t},\n")
+	}
+
+	if f.Markers.Pattern != "" {
+		buf.WriteString(fmt.Sprintf("\t\t\t\tPattern: %q,\n", f.Markers.Pattern))
+	}
+	if f.Markers.Default != "" {
+		buf.WriteString(fmt.Sprintf("\t\t\t\tDefault: %q,\n", f.Markers.Default))
+	}
+	if f.Markers.Example != "" {
+		buf.WriteString(fmt.Sprintf("\t\t\t\tExample: %q,\n", f.Markers.Example))
+	}
+
+	buf.WriteString("\t\t\t},\n")
 }
 
 func mapToXCFType(goType string) string {

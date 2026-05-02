@@ -16,6 +16,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this agent within the project.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Description",
@@ -34,6 +35,7 @@ func init() {
 				Optional:    true,
 				Description: "LLM model identifier or alias resolved at compile time.",
 				Group:       "Model & Execution",
+				Example:     "sonnet",
 			},
 			{
 				Name:        "Effort",
@@ -151,7 +153,7 @@ func init() {
 				Name:        "Memory",
 				YAMLKey:     "memory",
 				GoType:      "FlexStringSlice",
-				XCFType:     "FlexStringSlice",
+				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Named memory banks attached to this agent.",
 				Group:       "Memory & Context",
@@ -242,7 +244,7 @@ func init() {
 	Registry["blueprint"] = KindSchema{
 		Kind:    "blueprint",
 		Version: "1.0",
-		Format:  "frontmatter+body",
+		Format:  "pure-yaml",
 		Fields: []Field{
 			{
 				Name:        "Name",
@@ -252,6 +254,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this blueprint.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Description",
@@ -376,6 +379,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this context block.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Description",
@@ -409,7 +413,7 @@ func init() {
 	Registry["hooks"] = KindSchema{
 		Kind:    "hooks",
 		Version: "1.0",
-		Format:  "frontmatter+body",
+		Format:  "pure-yaml",
 		Fields: []Field{
 			{
 				Name:        "Name",
@@ -419,6 +423,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this hook block.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Events",
@@ -434,7 +439,7 @@ func init() {
 	Registry["mcp"] = KindSchema{
 		Kind:    "mcp",
 		Version: "1.0",
-		Format:  "frontmatter+body",
+		Format:  "pure-yaml",
 		Fields: []Field{
 			{
 				Name:        "Env",
@@ -480,6 +485,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this MCP server.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Type",
@@ -559,6 +565,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this memory entry.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Description",
@@ -574,7 +581,7 @@ func init() {
 	Registry["policy"] = KindSchema{
 		Kind:    "policy",
 		Version: "1.0",
-		Format:  "frontmatter+body",
+		Format:  "pure-yaml",
 		Fields: []Field{
 			{
 				Name:        "Name",
@@ -584,6 +591,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this policy.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Description",
@@ -684,6 +692,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this rule within the project.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Paths",
@@ -721,7 +730,7 @@ func init() {
 	Registry["settings"] = KindSchema{
 		Kind:    "settings",
 		Version: "1.0",
-		Format:  "frontmatter+body",
+		Format:  "pure-yaml",
 		Fields: []Field{
 			{
 				Name:        "Name",
@@ -1008,6 +1017,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this skill within the project.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Description",
@@ -1138,6 +1148,7 @@ func init() {
 				Description: "Schema shape discriminator for workflow versioning.",
 				Group:       "Identity",
 				Enum:        []string{"workflow/v1"},
+				Default:     "workflow/v1",
 			},
 			{
 				Name:        "Name",
@@ -1147,6 +1158,7 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this workflow within the project.",
 				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Description",
