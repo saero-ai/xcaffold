@@ -178,50 +178,144 @@ func NewFlexStringSlice(s string) FlexStringSlice {
 //  9. Multi-Target (targets)
 //  10. Instructions (always last)
 type AgentConfig struct {
-	// Group 1: Identity
-	Name        string `yaml:"name,omitempty"`
+	// Unique identifier for this agent within the project.
+	// +xcf:required
+	// +xcf:group=Identity
+	// +xcf:pattern=^[a-z0-9-]+$
+	Name string `yaml:"name,omitempty"`
+
+	// Human-readable purpose of this agent.
+	// +xcf:optional
+	// +xcf:group=Identity
 	Description string `yaml:"description,omitempty"`
 
-	// Group 2: Model & Execution
-	Model    string `yaml:"model,omitempty"`
-	Effort   string `yaml:"effort,omitempty"`
-	MaxTurns int    `yaml:"max-turns,omitempty"`
-	Mode     string `yaml:"mode,omitempty"`
+	// LLM model identifier or alias resolved at compile time.
+	// +xcf:optional
+	// +xcf:group=Model & Execution
+	// +xcf:example=sonnet
+	Model string `yaml:"model,omitempty"`
 
-	// Group 3: Tool Access
-	Tools           []string `yaml:"tools,omitempty"`
+	// Reasoning effort level hint for the model provider.
+	// +xcf:optional
+	// +xcf:group=Model & Execution
+	Effort string `yaml:"effort,omitempty"`
+
+	// Maximum conversation turns before the agent exits.
+	// +xcf:optional
+	// +xcf:group=Model & Execution
+	MaxTurns int `yaml:"max-turns,omitempty"`
+
+	// Operational mode for the agent session.
+	// +xcf:optional
+	// +xcf:group=Model & Execution
+	Mode string `yaml:"mode,omitempty"`
+
+	// Ordered list of tools this agent may invoke.
+	// +xcf:optional
+	// +xcf:group=Tool Access
+	// +xcf:type=[]string
+	// +xcf:provider=cursor:ignored,antigravity:ignored
+	Tools []string `yaml:"tools,omitempty"`
+
+	// Tools explicitly denied to this agent.
+	// +xcf:optional
+	// +xcf:group=Tool Access
+	// +xcf:type=[]string
 	DisallowedTools []string `yaml:"disallowed-tools,omitempty"`
-	Readonly        *bool    `yaml:"readonly,omitempty"`
 
-	// Group 4: Permissions & Invocation
-	PermissionMode         string `yaml:"permission-mode,omitempty"`
-	DisableModelInvocation *bool  `yaml:"disable-model-invocation,omitempty"`
-	UserInvocable          *bool  `yaml:"user-invocable,omitempty"`
+	// When true, restricts the agent to read-only tool access.
+	// +xcf:optional
+	// +xcf:group=Tool Access
+	Readonly *bool `yaml:"readonly,omitempty"`
 
-	// Group 5: Lifecycle
-	Background *bool  `yaml:"background,omitempty"`
-	Isolation  string `yaml:"isolation,omitempty"`
-	When       string `yaml:"when,omitempty"`
+	// Security mode controlling tool authorization behavior.
+	// +xcf:optional
+	// +xcf:group=Permissions & Invocation
+	PermissionMode string `yaml:"permission-mode,omitempty"`
 
-	// Group 6: Memory & Context
-	Memory        FlexStringSlice `yaml:"memory,omitempty"`
-	Color         string          `yaml:"color,omitempty"`
-	InitialPrompt string          `yaml:"initial-prompt,omitempty"`
+	// Prevents the agent from spawning sub-agents.
+	// +xcf:optional
+	// +xcf:group=Permissions & Invocation
+	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
-	// Group 7: Composition references
-	Skills     []string `yaml:"skills,omitempty"`
-	Rules      []string `yaml:"rules,omitempty"`
-	MCP        []string `yaml:"mcp,omitempty"`
+	// Whether users can invoke this agent directly via slash command.
+	// +xcf:optional
+	// +xcf:group=Permissions & Invocation
+	UserInvocable *bool `yaml:"user-invocable,omitempty"`
+
+	// Runs the agent in background mode without interactive prompts.
+	// +xcf:optional
+	// +xcf:group=Lifecycle
+	Background *bool `yaml:"background,omitempty"`
+
+	// Process isolation level for the agent session.
+	// +xcf:optional
+	// +xcf:group=Lifecycle
+	Isolation string `yaml:"isolation,omitempty"`
+
+	// Conditional expression evaluated before agent activation.
+	// +xcf:optional
+	// +xcf:group=Lifecycle
+	When string `yaml:"when,omitempty"`
+
+	// Named memory banks attached to this agent.
+	// +xcf:optional
+	// +xcf:group=Memory & Context
+	// +xcf:type=[]string
+	Memory FlexStringSlice `yaml:"memory,omitempty"`
+
+	// Display color for terminal output differentiation.
+	// +xcf:optional
+	// +xcf:group=Memory & Context
+	Color string `yaml:"color,omitempty"`
+
+	// System prompt prepended to every conversation.
+	// +xcf:optional
+	// +xcf:group=Memory & Context
+	InitialPrompt string `yaml:"initial-prompt,omitempty"`
+
+	// Skill resource IDs attached to this agent.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
+	Skills []string `yaml:"skills,omitempty"`
+
+	// Rule resource IDs governing this agent.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
+	Rules []string `yaml:"rules,omitempty"`
+
+	// MCP server resource IDs available to this agent.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
+	MCP []string `yaml:"mcp,omitempty"`
+
+	// Policy assertion IDs evaluated post-compilation.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
 	Assertions []string `yaml:"assertions,omitempty"`
 
-	// Group 8: Inline composition
+	// Inline MCP server definitions keyed by server name.
+	// +xcf:optional
+	// +xcf:group=Inline Composition
+	// +xcf:type=map
 	MCPServers map[string]MCPConfig `yaml:"mcp-servers,omitempty"`
-	Hooks      HookConfig           `yaml:"hooks,omitempty"`
 
-	// Group 9: Multi-Target
+	// Inline lifecycle hook definitions for this agent.
+	// +xcf:optional
+	// +xcf:group=Inline Composition
+	Hooks HookConfig `yaml:"hooks,omitempty"`
+
+	// Per-provider override configuration keyed by provider name.
+	// +xcf:optional
+	// +xcf:group=Multi-Target
+	// +xcf:type=map
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
-	// Group 10: Instructions (always last)
+	// Populated by the parser from the frontmatter body section.
 	Body string `yaml:"-"`
 
 	// Inherited is set by the parser when this resource originates from an
