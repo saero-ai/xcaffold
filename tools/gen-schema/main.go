@@ -1,0 +1,408 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"log"
+	"os"
+	"strings"
+)
+
+var (
+	outputFormat = flag.String("output-format", "go", "output format (go)")
+	outputPath   = flag.String("output", "", "output file path (default: stdout)")
+	packageName  = flag.String("package", "schema", "generated package name")
+	validateOnly = flag.Bool("validate-only", false, "validate markers only, do not generate")
+)
+
+var kindStructMap = map[string]string{
+	"agent":     "AgentConfig",
+	"skill":     "SkillConfig",
+	"rule":      "RuleConfig",
+	"workflow":  "WorkflowConfig",
+	"mcp":       "MCPConfig",
+	"policy":    "PolicyConfig",
+	"blueprint": "BlueprintConfig",
+	"memory":    "MemoryConfig",
+	"context":   "ContextConfig",
+	"settings":  "SettingsConfig",
+	"hooks":     "NamedHookConfig",
+}
+
+type MarkerSet struct {
+	Optional  bool
+	Required  bool
+	Group     string
+	Enum      []string
+	Provider  map[string]string
+	Key       string
+	FieldType string
+}
+
+type FieldInfo struct {
+	Name        string
+	YAMLKey     string
+	GoType      string
+	Description string
+	Markers     MarkerSet
+}
+
+func main() {
+	flag.Parse()
+
+	astDir := "internal/ast"
+	if _, err := os.Stat(astDir); os.IsNotExist(err) {
+		log.Fatalf("internal/ast directory not found: %v", err)
+	}
+
+	fset := token.NewFileSet()
+	pkgs, err := parser.ParseDir(fset, astDir, nil, parser.ParseComments)
+	if err != nil {
+		log.Fatalf("failed to parse ast package: %v", err)
+	}
+
+	pkg, ok := pkgs["ast"]
+	if !ok {
+		log.Fatalf("ast package not found in %s", astDir)
+	}
+
+	allViolations := []string{}
+
+	if *validateOnly {
+		allViolations = validateMarkers(pkg)
+		if len(allViolations) > 0 {
+			for _, v := range allViolations {
+				fmt.Fprintf(os.Stderr, "%s\n", v)
+			}
+			os.Exit(1)
+		}
+		fmt.Println("Valid markers on all fields")
+		return
+	}
+
+	fields := extractFields(pkg)
+	if len(allViolations) > 0 {
+		for _, v := range allViolations {
+			fmt.Fprintf(os.Stderr, "%s\n", v)
+		}
+	}
+
+	output := generateGo(*packageName, fields)
+
+	if *outputPath != "" {
+		if err := os.WriteFile(*outputPath, []byte(output), 0644); err != nil {
+			log.Fatalf("failed to write output: %v", err)
+		}
+	} else {
+		fmt.Print(output)
+	}
+}
+
+func validateMarkers(pkg *ast.Package) []string {
+	var violations []string
+
+	for _, file := range pkg.Files {
+		for _, decl := range file.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+
+			for _, spec := range genDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+
+				kind := lookupKindForStruct(typeSpec.Name.Name)
+				if kind == "" {
+					continue
+				}
+
+				structType, ok := typeSpec.Type.(*ast.StructType)
+				if !ok {
+					continue
+				}
+
+				for _, f := range structType.Fields.List {
+					if f.Doc == nil || len(f.Doc.List) == 0 {
+						fieldName := getFieldName(f)
+						violations = append(violations, fmt.Sprintf(
+							"%s.%s: missing description", kind, fieldName))
+						continue
+					}
+
+					markers := parseMarkers(f.Doc)
+					if !markers.Optional && !markers.Required {
+						fieldName := getFieldName(f)
+						violations = append(violations, fmt.Sprintf(
+							"%s.%s: missing +xcf:optional or +xcf:required", kind, fieldName))
+					}
+
+					if markers.Group == "" {
+						fieldName := getFieldName(f)
+						violations = append(violations, fmt.Sprintf(
+							"%s.%s: missing +xcf:group=...", kind, fieldName))
+					}
+				}
+			}
+		}
+	}
+
+	return violations
+}
+
+func extractFields(pkg *ast.Package) map[string][]FieldInfo {
+	result := make(map[string][]FieldInfo)
+
+	for _, file := range pkg.Files {
+		for _, decl := range file.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok {
+				continue
+			}
+
+			for _, spec := range genDecl.Specs {
+				typeSpec, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+
+				kind := lookupKindForStruct(typeSpec.Name.Name)
+				if kind == "" {
+					continue
+				}
+
+				structType, ok := typeSpec.Type.(*ast.StructType)
+				if !ok {
+					continue
+				}
+
+				var fields []FieldInfo
+				for _, f := range structType.Fields.List {
+					for _, name := range f.Names {
+						ymlTag := extractYAMLTag(f)
+						if ymlTag == "-" {
+							continue
+						}
+
+						desc := ""
+						if f.Doc != nil {
+							desc = extractDescription(f.Doc)
+						}
+
+						markers := parseMarkers(f.Doc)
+
+						fields = append(fields, FieldInfo{
+							Name:        name.Name,
+							YAMLKey:     ymlTag,
+							GoType:      typeString(f.Type),
+							Description: desc,
+							Markers:     markers,
+						})
+					}
+				}
+
+				result[kind] = fields
+			}
+		}
+	}
+
+	return result
+}
+
+func lookupKindForStruct(structName string) string {
+	for kind, struct_ := range kindStructMap {
+		if struct_ == structName {
+			return kind
+		}
+	}
+	return ""
+}
+
+func extractYAMLTag(f *ast.Field) string {
+	if f.Tag == nil {
+		return ""
+	}
+
+	tag := f.Tag.Value
+	tag = strings.Trim(tag, "`")
+
+	for _, part := range strings.Split(tag, " ") {
+		if strings.HasPrefix(part, "yaml:") {
+			val := strings.TrimPrefix(part, "yaml:")
+			val = strings.Trim(val, "\"")
+
+			if idx := strings.Index(val, ","); idx != -1 {
+				return val[:idx]
+			}
+			return val
+		}
+	}
+	return ""
+}
+
+func extractDescription(comment *ast.CommentGroup) string {
+	var lines []string
+	for _, c := range comment.List {
+		text := strings.TrimPrefix(c.Text, "//")
+		text = strings.TrimSpace(text)
+
+		if !strings.HasPrefix(text, "+xcf:") {
+			lines = append(lines, text)
+		}
+	}
+
+	desc := strings.Join(lines, " ")
+	return strings.TrimSpace(desc)
+}
+
+func parseMarkers(comment *ast.CommentGroup) MarkerSet {
+	result := MarkerSet{
+		Provider: make(map[string]string),
+	}
+
+	if comment == nil {
+		return result
+	}
+
+	for _, c := range comment.List {
+		text := strings.TrimPrefix(c.Text, "//")
+		text = strings.TrimSpace(text)
+
+		if !strings.HasPrefix(text, "+xcf:") {
+			continue
+		}
+
+		marker := strings.TrimPrefix(text, "+xcf:")
+
+		if marker == "optional" {
+			result.Optional = true
+		} else if marker == "required" {
+			result.Required = true
+		} else if strings.HasPrefix(marker, "group=") {
+			result.Group = strings.TrimPrefix(marker, "group=")
+		} else if strings.HasPrefix(marker, "enum=") {
+			enumStr := strings.TrimPrefix(marker, "enum=")
+			result.Enum = strings.Split(enumStr, ",")
+		} else if strings.HasPrefix(marker, "provider=") {
+			provStr := strings.TrimPrefix(marker, "provider=")
+			for _, kv := range strings.Split(provStr, ",") {
+				parts := strings.Split(kv, ":")
+				if len(parts) == 2 {
+					result.Provider[parts[0]] = parts[1]
+				}
+			}
+		} else if strings.HasPrefix(marker, "type=") {
+			result.FieldType = strings.TrimPrefix(marker, "type=")
+		}
+	}
+
+	return result
+}
+
+func getFieldName(f *ast.Field) string {
+	if len(f.Names) > 0 {
+		return f.Names[0].Name
+	}
+	return ""
+}
+
+func typeString(expr ast.Expr) string {
+	switch t := expr.(type) {
+	case *ast.Ident:
+		return t.Name
+	case *ast.StarExpr:
+		return "*" + typeString(t.X)
+	case *ast.ArrayType:
+		return "[]" + typeString(t.Elt)
+	case *ast.MapType:
+		return "map[" + typeString(t.Key) + "]" + typeString(t.Value)
+	default:
+		return ""
+	}
+}
+
+func generateGo(pkgName string, fields map[string][]FieldInfo) string {
+	var buf strings.Builder
+
+	buf.WriteString("// Code generated by gen-schema; DO NOT EDIT.\n\n")
+	buf.WriteString("package " + pkgName + "\n\n")
+	buf.WriteString("func init() {\n")
+
+	for kind := range kindStructMap {
+		if _, ok := fields[kind]; !ok {
+			continue
+		}
+
+		buf.WriteString(fmt.Sprintf("\tRegistry[\"%s\"] = KindSchema{\n", kind))
+		buf.WriteString(fmt.Sprintf("\t\tKind: \"%s\",\n", kind))
+		buf.WriteString("\t\tVersion: \"1.0\",\n")
+		buf.WriteString("\t\tFormat: \"frontmatter+body\",\n")
+		buf.WriteString("\t\tFields: []Field{\n")
+
+		for _, f := range fields[kind] {
+			buf.WriteString("\t\t\t{\n")
+			buf.WriteString(fmt.Sprintf("\t\t\t\tName: \"%s\",\n", f.Name))
+			buf.WriteString(fmt.Sprintf("\t\t\t\tYAMLKey: \"%s\",\n", f.YAMLKey))
+			buf.WriteString(fmt.Sprintf("\t\t\t\tGoType: \"%s\",\n", f.GoType))
+			buf.WriteString(fmt.Sprintf("\t\t\t\tXCFType: \"%s\",\n", mapToXCFType(f.GoType)))
+			buf.WriteString(fmt.Sprintf("\t\t\t\tOptional: %v,\n", f.Markers.Optional))
+			buf.WriteString(fmt.Sprintf("\t\t\t\tDescription: %q,\n", f.Description))
+			buf.WriteString(fmt.Sprintf("\t\t\t\tGroup: \"%s\",\n", f.Markers.Group))
+
+			if len(f.Markers.Enum) > 0 {
+				buf.WriteString("\t\t\t\tEnum: []string{")
+				for i, e := range f.Markers.Enum {
+					if i > 0 {
+						buf.WriteString(", ")
+					}
+					buf.WriteString(fmt.Sprintf("%q", strings.TrimSpace(e)))
+				}
+				buf.WriteString("},\n")
+			}
+
+			if len(f.Markers.Provider) > 0 {
+				buf.WriteString("\t\t\t\tProvider: map[string]string{\n")
+				for prov, behavior := range f.Markers.Provider {
+					buf.WriteString(fmt.Sprintf("\t\t\t\t\t\"%s\": \"%s\",\n", prov, behavior))
+				}
+				buf.WriteString("\t\t\t\t},\n")
+			}
+
+			buf.WriteString("\t\t\t},\n")
+		}
+
+		buf.WriteString("\t\t},\n")
+		buf.WriteString("\t}\n")
+	}
+
+	buf.WriteString("}\n")
+
+	return buf.String()
+}
+
+func mapToXCFType(goType string) string {
+	goType = strings.TrimSpace(goType)
+
+	if strings.HasPrefix(goType, "*bool") {
+		return "boolean"
+	}
+	if strings.HasPrefix(goType, "*int") {
+		return "integer"
+	}
+	if goType == "string" {
+		return "string"
+	}
+	if strings.HasPrefix(goType, "[]") {
+		return goType
+	}
+	if strings.HasPrefix(goType, "map") {
+		return "map"
+	}
+
+	return goType
+}
