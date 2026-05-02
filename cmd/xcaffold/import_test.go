@@ -7,10 +7,70 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// testProviderImporter is a test adapter that wraps platformDirInfo
+// and delegates to the real ProviderImporter for the given platform.
+type testProviderImporter struct {
+	dirName  string
+	platform string
+	delegate importer.ProviderImporter
+}
+
+func (t testProviderImporter) InputDir() string {
+	return t.dirName
+}
+
+func (t testProviderImporter) Provider() string {
+	return t.platform
+}
+
+func (t testProviderImporter) Classify(rel string, isDir bool) (importer.Kind, importer.Layout) {
+	if t.delegate != nil {
+		return t.delegate.Classify(rel, isDir)
+	}
+	return importer.KindUnknown, importer.LayoutUnknown
+}
+
+func (t testProviderImporter) Extract(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	if t.delegate != nil {
+		return t.delegate.Extract(rel, data, config)
+	}
+	return nil
+}
+
+func (t testProviderImporter) Import(dir string, config *ast.XcaffoldConfig) error {
+	if t.delegate != nil {
+		return t.delegate.Import(dir, config)
+	}
+	return nil
+}
+
+// platformDirInfoToImporters converts legacy platformDirInfo to ProviderImporter for testing.
+// It looks up the real importer for each platform.
+func platformDirInfoToImporters(infos []platformDirInfo) []importer.ProviderImporter {
+	realImporters := importer.DefaultImporters()
+	var result []importer.ProviderImporter
+	for _, info := range infos {
+		var delegate importer.ProviderImporter
+		for _, real := range realImporters {
+			if real.Provider() == info.platform {
+				delegate = real
+				break
+			}
+		}
+		result = append(result, testProviderImporter{
+			dirName:  info.dirName,
+			platform: info.platform,
+			delegate: delegate,
+		})
+	}
+	return result
+}
 
 func TestImportScope_XcfDirAlreadyExists(t *testing.T) {
 	tmp := t.TempDir()
@@ -298,7 +358,7 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = mergeImportDirs([]platformDirInfo{{dirName: ".claude", platform: "claude", exists: true}}, filepath.Join(".xcaffold", "project.xcf"))
+	err = mergeImportDirs(platformDirInfoToImporters([]platformDirInfo{{dirName: ".claude", platform: "claude", exists: true}}), filepath.Join(".xcaffold", "project.xcf"))
 	if err == nil {
 		t.Fatal("expected error when xcf/ directory already exists, got nil")
 	}
@@ -706,7 +766,7 @@ func TestMergeImportDirs_SmartAssembly_DifferentAgents(t *testing.T) {
 		{dirName: ".cursor", platform: "cursor", exists: true},
 	}
 
-	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	err := mergeImportDirs(platformDirInfoToImporters(dirs), filepath.Join(tmp, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
 	config, parseErr := parser.ParseDirectory(".")
@@ -752,7 +812,7 @@ func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
 		{dirName: ".cursor", platform: "cursor", exists: true},
 	}
 
-	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	err := mergeImportDirs(platformDirInfoToImporters(dirs), filepath.Join(tmp, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
 	// MCP from .claude/ must be present
@@ -798,7 +858,7 @@ func TestMergeImportDirs_ImportsMemory(t *testing.T) {
 		{dirName: ".cursor", platform: "cursor", exists: true},
 	}
 
-	err := mergeImportDirs(dirs, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	err := mergeImportDirs(platformDirInfoToImporters(dirs), filepath.Join(tmp, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
 	// Memory must be written to disk
@@ -1320,7 +1380,7 @@ func TestMergeImportDirs_PlanFlag_DryRun(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := mergeImportDirs(providerDirs, "project.xcf")
+	err := mergeImportDirs(platformDirInfoToImporters(providerDirs), "project.xcf")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1360,7 +1420,7 @@ func TestMergeImportDirs_MultiProvider_ConflictCount(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := mergeImportDirs(providerDirs, "project.xcf")
+	err := mergeImportDirs(platformDirInfoToImporters(providerDirs), "project.xcf")
 
 	w.Close()
 	os.Stdout = oldStdout

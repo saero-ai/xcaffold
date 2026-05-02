@@ -169,10 +169,10 @@ func applyKindFilters(config *ast.XcaffoldConfig) {
 	}
 }
 
-func sortedProviderNames(dirs []platformDirInfo) []string {
-	names := make([]string, 0, len(dirs))
-	for _, d := range dirs {
-		names = append(names, d.platform)
+func sortedProviderNames(providers []importer.ProviderImporter) []string {
+	names := make([]string, 0, len(providers))
+	for _, imp := range providers {
+		names = append(names, imp.Provider())
 	}
 	sort.Strings(names)
 	return names
@@ -216,14 +216,14 @@ func runImport(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("cannot determine home directory: %w", err)
 		}
-		dirs := detectPlatformDirs(home, true)
-		if len(dirs) == 0 {
+		globalDetected := importer.DetectProviders(home, importer.DefaultImporters())
+		if len(globalDetected) == 0 {
 			return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
 		}
-		if len(dirs) > 1 {
-			return mergeImportDirs(dirs, globalXcfPath)
+		if len(globalDetected) > 1 {
+			return mergeImportDirs(globalDetected, globalXcfPath)
 		}
-		return importScope(dirs[0].dirName, globalXcfPath, "global", dirs[0].platform)
+		return importScope(globalDetected[0].InputDir(), globalXcfPath, "global", globalDetected[0].Provider())
 	}
 
 	// Validate --target if set
@@ -255,15 +255,7 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(detected) > 1 {
-		var provDirs []platformDirInfo
-		for _, imp := range detected {
-			provDirs = append(provDirs, platformDirInfo{
-				dirName:  imp.InputDir(),
-				platform: imp.Provider(),
-				exists:   true,
-			})
-		}
-		return mergeImportDirs(provDirs, "project.xcf")
+		return mergeImportDirs(detected, "project.xcf")
 	}
 	if len(detected) == 1 {
 		imp := detected[0]
@@ -775,14 +767,14 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 	return importCount
 }
 
-// scanProviderConfigs scans each provider directory and populates a map of provider -> XcaffoldConfig.
-// It handles importer lookup, skill subdirectory extraction, extras reclassification, and post-import steps.
-func scanProviderConfigs(providerDirs []platformDirInfo, warnings *[]string) map[string]*ast.XcaffoldConfig {
+// scanProviderConfigs scans each provider via ProviderImporter and populates a map of provider -> XcaffoldConfig.
+// It handles importer invocation, skill subdirectory extraction, extras reclassification, and post-import steps.
+func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]string) map[string]*ast.XcaffoldConfig {
 	providerConfigs := make(map[string]*ast.XcaffoldConfig)
 
-	for _, pdi := range providerDirs {
-		dir := pdi.dirName
-		provider := pdi.platform
+	for _, imp := range providers {
+		dir := imp.InputDir()
+		provider := imp.Provider()
 		fmt.Printf("  Scanning %s ...\n", dir)
 
 		tmpConfig := &ast.XcaffoldConfig{
@@ -795,11 +787,6 @@ func scanProviderConfigs(providerDirs []platformDirInfo, warnings *[]string) map
 			},
 		}
 
-		imp := findImporterByProvider(provider)
-		if imp == nil {
-			*warnings = append(*warnings, fmt.Sprintf("no registered importer for provider %q, skipping %s", provider, dir))
-			continue
-		}
 		if err := imp.Import(dir, tmpConfig); err != nil {
 			*warnings = append(*warnings, fmt.Sprintf("%s import: %v", provider, err))
 		}
@@ -847,7 +834,7 @@ func scanProviderConfigs(providerDirs []platformDirInfo, warnings *[]string) map
 // Resources present in multiple providers are compared field-by-field: identical content
 // produces a universal base tagged with all providers; different content produces a base
 // with the first provider's values plus per-provider override files.
-func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
+func mergeImportDirs(providers []importer.ProviderImporter, xcfDest string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[project] %s already exists. Remove it first to import", xcfDest)
 	}
@@ -871,14 +858,14 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 	var warnings []string
 
 	// Collect per-provider configs
-	providerConfigs := scanProviderConfigs(providerDirs, &warnings)
+	providerConfigs := scanProviderConfigs(providers, &warnings)
 
 	assembleMultiProviderResources(providerConfigs, config)
 
 	// Detect compilation targets from all scanned platform directories.
 	var dirNames []string
-	for _, pdi := range providerDirs {
-		dirNames = append(dirNames, pdi.dirName)
+	for _, imp := range providers {
+		dirNames = append(dirNames, imp.InputDir())
 	}
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(dirNames...)
@@ -896,7 +883,7 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		fmt.Printf("Import plan (dry-run):\n")
 		fmt.Printf("  Would create %d agents, %d skills, %d rules, %d workflows, %d MCP servers\n",
 			len(config.Agents), len(config.Skills), len(config.Rules), len(config.Workflows), len(config.MCP))
-		fmt.Printf("  From %d provider directories\n", len(providerDirs))
+		fmt.Printf("  From %d provider directories\n", len(providers))
 		return nil
 	}
 
@@ -934,9 +921,9 @@ func mergeImportDirs(providerDirs []platformDirInfo, xcfDest string) error {
 		}
 	}
 	fmt.Printf("\n[project] ✓ Import complete. Created %s with %d resources from %d directories.\n",
-		xcfDest, importCount, len(providerDirs))
+		xcfDest, importCount, len(providers))
 	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
-	fmt.Printf("  Resources tagged with targets: [%s].\n", strings.Join(sortedProviderNames(providerDirs), ", "))
+	fmt.Printf("  Resources tagged with targets: [%s].\n", strings.Join(sortedProviderNames(providers), ", "))
 	if overrideCount > 0 {
 		fmt.Printf("  %d conflicts detected — override files created. Run 'xcaffold validate' to review.\n", overrideCount)
 	}

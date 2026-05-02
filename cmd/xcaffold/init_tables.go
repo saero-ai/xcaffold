@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/spf13/cobra"
 )
 
@@ -25,27 +27,39 @@ func renderCurrentStateTable(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 }
 
 // renderCompiledOutputTable prints a summary of detected compiled output directories.
-func renderCompiledOutputTable(cmd *cobra.Command, infos []platformDirInfo) {
-	if len(infos) == 0 {
+func renderCompiledOutputTable(cmd *cobra.Command, providers []importer.ProviderImporter) {
+	if len(providers) == 0 {
 		return
 	}
 	_ = cmd
 
 	fmt.Println("  ┌──────────────────────────── COMPILED OUTPUT ────────────────────────────┐")
 
-	if len(infos) == 1 {
-		info := infos[0]
-		fmt.Printf("  │ Detected: %-61s │\n", info.dirName)
+	if len(providers) == 1 {
+		imp := providers[0]
+		dir := imp.InputDir()
+		counts := importer.ScanDir(imp, dir)
+		agents := counts[importer.KindAgent]
+		skills := counts[importer.KindSkill]
+		rules := counts[importer.KindRule]
+		workflows := counts[importer.KindWorkflow]
+		fmt.Printf("  │ Detected: %-61s │\n", dir)
 		fmt.Println("  ├─────────────────────────────────────────────────────────────────────────┤")
 		row := fmt.Sprintf("  │  %2d agent(s)  │  %2d skill(s)  │  %2d rule(s)  │  %2d workflow(s)       │",
-			info.agents, info.skills, info.rules, info.workflows)
+			agents, skills, rules, workflows)
 		fmt.Println(row)
 	} else {
 		fmt.Println("  │ Provider             Agents       Skills       Rules        Workflows   │")
 		fmt.Println("  ├─────────────────────────────────────────────────────────────────────────┤")
-		for _, info := range infos {
+		for _, imp := range providers {
+			dir := imp.InputDir()
+			counts := importer.ScanDir(imp, dir)
+			agents := counts[importer.KindAgent]
+			skills := counts[importer.KindSkill]
+			rules := counts[importer.KindRule]
+			workflows := counts[importer.KindWorkflow]
 			row := fmt.Sprintf("  │ %-18s    %3d          %3d          %3d          %3d        │",
-				info.dirName, info.agents, info.skills, info.rules, info.workflows)
+				filepath.Base(dir), agents, skills, rules, workflows)
 			fmt.Println(row)
 		}
 	}
