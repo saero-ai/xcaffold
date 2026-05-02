@@ -1,4 +1,4 @@
-.PHONY: setup lint test test-e2e build install clean
+.PHONY: setup lint test test-e2e build install clean generate verify-generate verify-markers
 
 setup:
 	@echo "=> Installing global dependencies & git hooks..."
@@ -32,6 +32,21 @@ install:
 test-e2e:
 	@echo "=> Running E2E tests..."
 	@go test -tags=e2e -v -count=1 ./test/e2e/
+
+generate:
+	@echo "=> Generating schema registry..."
+	@go run tools/gen-schema/main.go -output internal/schema/registry_gen.go
+
+verify-generate:
+	@echo "=> Verifying generated schema is fresh..."
+	@go run tools/gen-schema/main.go -output /tmp/registry_gen_check.go
+	@diff -q internal/schema/registry_gen.go /tmp/registry_gen_check.go || \
+		(echo "ERROR: registry_gen.go is stale. Run 'make generate' to update." && exit 1)
+	@echo "=> Generated schema is up to date."
+
+verify-markers:
+	@echo "=> Verifying +xcf markers are complete..."
+	@go run tools/gen-schema/main.go -validate-only
 
 clean:
 	@echo "=> Cleaning up build artifacts..."

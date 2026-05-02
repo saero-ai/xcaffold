@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"log"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -128,6 +129,11 @@ func validateMarkers(pkg *ast.Package) []string {
 				}
 
 				for _, f := range structType.Fields.List {
+					ymlTag := extractYAMLTag(f)
+					if ymlTag == "-" {
+						continue
+					}
+
 					if f.Doc == nil || len(f.Doc.List) == 0 {
 						fieldName := getFieldName(f)
 						violations = append(violations, fmt.Sprintf(
@@ -333,7 +339,13 @@ func generateGo(pkgName string, fields map[string][]FieldInfo) string {
 	buf.WriteString("package " + pkgName + "\n\n")
 	buf.WriteString("func init() {\n")
 
-	for kind := range kindStructMap {
+	kinds := make([]string, 0, len(kindStructMap))
+	for k := range kindStructMap {
+		kinds = append(kinds, k)
+	}
+	sort.Strings(kinds)
+
+	for _, kind := range kinds {
 		if _, ok := fields[kind]; !ok {
 			continue
 		}
@@ -366,9 +378,14 @@ func generateGo(pkgName string, fields map[string][]FieldInfo) string {
 			}
 
 			if len(f.Markers.Provider) > 0 {
+				provKeys := make([]string, 0, len(f.Markers.Provider))
+				for k := range f.Markers.Provider {
+					provKeys = append(provKeys, k)
+				}
+				sort.Strings(provKeys)
 				buf.WriteString("\t\t\t\tProvider: map[string]string{\n")
-				for prov, behavior := range f.Markers.Provider {
-					buf.WriteString(fmt.Sprintf("\t\t\t\t\t\"%s\": \"%s\",\n", prov, behavior))
+				for _, prov := range provKeys {
+					buf.WriteString(fmt.Sprintf("\t\t\t\t\t\"%s\": \"%s\",\n", prov, f.Markers.Provider[prov]))
 				}
 				buf.WriteString("\t\t\t\t},\n")
 			}
