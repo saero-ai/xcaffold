@@ -36,18 +36,13 @@ const (
 var graphCmd = &cobra.Command{
 	Use:   "graph [file]",
 	Short: "Visualize the resource dependency graph",
-	Long: `xcaffold graph renders a visual map of your agent team and how it connects.
+	Long: `Renders a visual map of your agent team and resource dependencies.
 
-┌───────────────────────────────────────────────────────────────────┐
-│                         TOPOLOGY PHASE                            │
-└───────────────────────────────────────────────────────────────────┘
- • Shows all agents with their model, effort, tools, skills, rules, and MCP
- • Use --format mermaid for Mermaid markdown (embed in README or docs)
- • Use --format dot    for Graphviz DOT (pipe to dot -Tsvg for images)
- • Use --format json   for machine-readable output (used by the platform)
+  - Shows agents with their model, tools, skills, rules, and MCP servers
+  - Supports multiple output formats: terminal, mermaid, dot, json
 
 Formats:
-  terminal  Default. ASCII art topology printed to stdout.
+  terminal  Default. ASCII topology printed to stdout.
   mermaid   Mermaid graph syntax for embedding in markdown.
   dot       Graphviz DOT language for rendering with graphviz.
   json      Machine-readable JSON graph for programmatic use.`,

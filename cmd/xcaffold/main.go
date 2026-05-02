@@ -59,11 +59,8 @@ func (e *silentError) Error() string {
 var rootCmd = &cobra.Command{
 	Use:   "xcaffold",
 	Short: "xcaffold — deterministic agent configuration compiler",
-	Long: `xcaffold is an open-source, deterministic agent configuration compiler.
-
-Scopes:
-  Project  [default]         project.xcf            -> .claude/ | .cursor/ | .agents/
-  Global   [--global / -g]   ~/.xcaffold/global.xcf -> ~/.claude/ | ~/.cursor/ | ~/.agents/`,
+	Long: `Deterministic agent configuration compiler.
+Compiles .xcf YAML into provider-native agent files (.claude/, .cursor/, .agents/).`,
 	PersistentPreRunE: resolveConfig,
 	SilenceErrors:     true,
 }
@@ -93,6 +90,39 @@ func init() {
 		false,
 		"disable color output",
 	)
+	_ = rootCmd.PersistentFlags().MarkHidden("global")
+	rootCmd.SetHelpFunc(rootHelpFunc)
+}
+
+func rootHelpFunc(cmd *cobra.Command, args []string) {
+	if cmd.Name() != "xcaffold" {
+		if cmd.Long != "" {
+			fmt.Fprintln(cmd.OutOrStdout(), cmd.Long)
+			fmt.Fprintln(cmd.OutOrStdout())
+		}
+		fmt.Fprint(cmd.OutOrStdout(), cmd.UsageString())
+		return
+	}
+
+	fmt.Printf("%s %s deterministic agent configuration compiler\n", bold("xcaffold"), glyphDot())
+	fmt.Println()
+	fmt.Printf("  %s  xcaffold [command]\n", dim("Usage:"))
+	fmt.Println()
+	fmt.Printf("  %s\n", dim("Commands:"))
+	for _, c := range cmd.Commands() {
+		if c.Hidden || c.Name() == "help" {
+			continue
+		}
+		fmt.Printf("    %-12s%s\n", c.Name(), c.Short)
+	}
+	fmt.Println()
+	fmt.Printf("  %s\n", dim("Flags:"))
+	fmt.Printf("    --config <path>   Path to project.xcf (default: ./project.xcf)\n")
+	fmt.Printf("    --no-color        Disable color output\n")
+	fmt.Printf("    -h, --help        Show this help\n")
+	fmt.Printf("    -v, --version     Show version\n")
+	fmt.Println()
+	fmt.Printf("%s Run 'xcaffold [command] --help' for details on any command.\n", glyphArrow())
 }
 
 // resolveConfig is a PersistentPreRunE hook that runs before every subcommand.

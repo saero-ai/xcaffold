@@ -34,23 +34,16 @@ var targetFlag string
 var applyCmd = &cobra.Command{
 	Use:   "apply",
 	Short: "Compile .xcf resources into provider-native agent files",
-	Long: `xcaffold apply deterministically compiles your YAML logic into native target outputs.
+	Long: `Deterministically compiles .xcf resources into provider-native agent files.
 
-┌───────────────────────────────────────────────────────────────────┐
-│                          COMPILATION PHASE                        │
-└───────────────────────────────────────────────────────────────────┘
- [project.xcf] ──(Compiles)──▶ [.claude/agents/*.md]
-       │
-   (State)──▶ [.xcaffold/project.xcf.state]
-
- • Strict one-way generation (YAML -> MD)
- • Generates a cryptographic SHA-256 state manifest (.xcaffold/)
- • Automatically purges orphaned target files
+  - Strict one-way generation (YAML -> provider-native markdown/JSON)
+  - Generates a SHA-256 state manifest for drift detection (.xcaffold/)
+  - Automatically purges orphaned target files
 
 Any manually edited files inside the target directory will be overwritten.`,
 	Example: `  $ xcaffold apply
-  $ xcaffold apply --global
-  $ xcaffold apply --dry-run`,
+  $ xcaffold apply --dry-run
+  $ xcaffold apply --target cursor`,
 	RunE:          runApply,
 	SilenceUsage:  true,
 	SilenceErrors: true,
