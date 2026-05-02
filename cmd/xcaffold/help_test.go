@@ -123,3 +123,34 @@ func TestHelpXcf_FieldsMatchParser(t *testing.T) {
 	_, parseErr := parser.Parse(f)
 	assert.NoError(t, parseErr, "parser rejected generated template")
 }
+
+func TestHelpXcf_GoldenOutput(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	noColorFlag = true
+	defer func() { noColorFlag = false }()
+
+	ks, ok := schema.LookupKind("agent")
+	require.True(t, ok)
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	defer rootCmd.SetOut(os.Stdout)
+
+	displayKindSchema(rootCmd, ks)
+	actual := buf.String()
+
+	golden, err := os.ReadFile("testdata/help_xcf_agent.golden")
+	require.NoError(t, err)
+
+	if actual != string(golden) {
+		t.Errorf("output differs from golden file.\nTo update: NO_COLOR=1 ./xcaffold help --xcf agent > cmd/xcaffold/testdata/help_xcf_agent.golden")
+		lines := strings.Split(actual, "\n")
+		goldenLines := strings.Split(string(golden), "\n")
+		for i := 0; i < len(lines) && i < len(goldenLines); i++ {
+			if lines[i] != goldenLines[i] {
+				t.Logf("first diff at line %d:\n  got:  %q\n  want: %q", i+1, lines[i], goldenLines[i])
+				break
+			}
+		}
+	}
+}
