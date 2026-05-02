@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testProviderImporter is a test adapter that wraps platformDirInfo
-// and delegates to the real ProviderImporter for the given platform.
+// testProviderImporter wraps a directory name and platform string and delegates
+// to the real ProviderImporter for the given platform.
 type testProviderImporter struct {
 	dirName  string
 	platform string
@@ -50,22 +50,22 @@ func (t testProviderImporter) Import(dir string, config *ast.XcaffoldConfig) err
 	return nil
 }
 
-// platformDirInfoToImporters converts legacy platformDirInfo to ProviderImporter for testing.
-// It looks up the real importer for each platform.
-func platformDirInfoToImporters(infos []platformDirInfo) []importer.ProviderImporter {
+// makeTestImporters builds a slice of test importers for the given (dirName, platform) pairs,
+// looking up the real importer delegate for each platform.
+func makeTestImporters(pairs ...struct{ dir, platform string }) []importer.ProviderImporter {
 	realImporters := importer.DefaultImporters()
 	var result []importer.ProviderImporter
-	for _, info := range infos {
+	for _, p := range pairs {
 		var delegate importer.ProviderImporter
 		for _, real := range realImporters {
-			if real.Provider() == info.platform {
+			if real.Provider() == p.platform {
 				delegate = real
 				break
 			}
 		}
 		result = append(result, testProviderImporter{
-			dirName:  info.dirName,
-			platform: info.platform,
+			dirName:  p.dir,
+			platform: p.platform,
 			delegate: delegate,
 		})
 	}
@@ -358,7 +358,7 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = mergeImportDirs(platformDirInfoToImporters([]platformDirInfo{{dirName: ".claude", platform: "claude", exists: true}}), filepath.Join(".xcaffold", "project.xcf"))
+	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), filepath.Join(".xcaffold", "project.xcf"))
 	if err == nil {
 		t.Fatal("expected error when xcf/ directory already exists, got nil")
 	}
@@ -411,116 +411,6 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	assert.NotContains(t, devXcfContent, "instructions:", "instructions must be in the markdown body, not as a YAML field")
 	assert.Contains(t, devXcfContent, "Dev instructions")
 	assert.NotContains(t, devXcfContent, "instructions-file:")
-}
-
-func TestDetectPlatformDirs_Empty(t *testing.T) {
-	// Point to a temp dir with no provider directories
-	tmp := t.TempDir()
-
-	dirs := detectPlatformDirs(tmp, true)
-	if len(dirs) != 0 {
-		t.Errorf("expected 0 dirs when no provider dirs exist, got %d: %v", len(dirs), dirs)
-	}
-}
-
-func TestDetectPlatformDirs_SingleProvider(t *testing.T) {
-	tmp := t.TempDir()
-
-	// Create <tmp>/.claude/agents/dev.md and <tmp>/.claude/rules/sec.md
-	claudeAgents := filepath.Join(tmp, ".claude", "agents")
-	if err := os.MkdirAll(claudeAgents, 0755); err != nil {
-		t.Fatalf("failed to create .claude/agents/: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(claudeAgents, "dev.md"), []byte("# Dev\n"), 0600); err != nil {
-		t.Fatalf("failed to write dev.md: %v", err)
-	}
-	claudeRules := filepath.Join(tmp, ".claude", "rules")
-	if err := os.MkdirAll(claudeRules, 0755); err != nil {
-		t.Fatalf("failed to create .claude/rules/: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(claudeRules, "sec.md"), []byte("# Sec\n"), 0600); err != nil {
-		t.Fatalf("failed to write sec.md: %v", err)
-	}
-
-	dirs := detectPlatformDirs(tmp, true)
-	if len(dirs) != 1 {
-		t.Fatalf("expected 1 dir, got %d: %v", len(dirs), dirs)
-	}
-	if dirs[0].platform != "claude" {
-		t.Errorf("expected platform %q, got %q", "claude", dirs[0].platform)
-	}
-	if dirs[0].agents != 1 {
-		t.Errorf("expected 1 agent, got %d", dirs[0].agents)
-	}
-	if dirs[0].rules != 1 {
-		t.Errorf("expected 1 rule, got %d", dirs[0].rules)
-	}
-	// dirName must be the absolute path to <tmp>/.claude
-	expected := filepath.Join(tmp, ".claude")
-	if dirs[0].dirName != expected {
-		t.Errorf("expected dirName %q, got %q", expected, dirs[0].dirName)
-	}
-}
-
-func TestDetectPlatformDirs_MultiProvider_SortedBySize(t *testing.T) {
-	tmp := t.TempDir()
-
-	// <tmp>/.claude — 1 agent
-	claudeAgents := filepath.Join(tmp, ".claude", "agents")
-	if err := os.MkdirAll(claudeAgents, 0755); err != nil {
-		t.Fatalf("failed to create .claude/agents/: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(claudeAgents, "dev.md"), []byte("# Dev\n"), 0600); err != nil {
-		t.Fatalf("failed to write dev.md: %v", err)
-	}
-
-	// <tmp>/.cursor — 2 rules (richer)
-	cursorRules := filepath.Join(tmp, ".cursor", "rules")
-	if err := os.MkdirAll(cursorRules, 0755); err != nil {
-		t.Fatalf("failed to create .cursor/rules/: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(cursorRules, "r1.mdc"), []byte("rule1"), 0600); err != nil {
-		t.Fatalf("failed to write r1.mdc: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(cursorRules, "r2.mdc"), []byte("rule2"), 0600); err != nil {
-		t.Fatalf("failed to write r2.mdc: %v", err)
-	}
-
-	dirs := detectPlatformDirs(tmp, true)
-	if len(dirs) != 2 {
-		t.Fatalf("expected 2 dirs, got %d: %v", len(dirs), dirs)
-	}
-	// cursor has 2 rules vs claude's 1 agent — cursor must be first
-	if dirs[0].platform != "cursor" {
-		t.Errorf("expected richest provider first (cursor), got %q", dirs[0].platform)
-	}
-	if dirs[1].platform != "claude" {
-		t.Errorf("expected second provider to be claude, got %q", dirs[1].platform)
-	}
-}
-
-func TestDetectPlatformDirs_SkipEmpty_False_IncludesEmptyDirs(t *testing.T) {
-	tmp := t.TempDir()
-
-	// Create <tmp>/.claude with no resources (directory exists but empty)
-	if err := os.MkdirAll(filepath.Join(tmp, ".claude"), 0755); err != nil {
-		t.Fatalf("failed to create .claude/: %v", err)
-	}
-
-	// skipEmpty=false must include the empty dir
-	dirs := detectPlatformDirs(tmp, false)
-	if len(dirs) != 1 {
-		t.Fatalf("expected 1 dir with skipEmpty=false, got %d", len(dirs))
-	}
-	if dirs[0].platform != "claude" {
-		t.Errorf("expected platform claude, got %q", dirs[0].platform)
-	}
-
-	// skipEmpty=true must exclude the empty dir
-	dirs = detectPlatformDirs(tmp, true)
-	if len(dirs) != 0 {
-		t.Errorf("expected 0 dirs with skipEmpty=true, got %d", len(dirs))
-	}
 }
 
 func TestDetectTargets(t *testing.T) {
@@ -761,12 +651,12 @@ func TestMergeImportDirs_SmartAssembly_DifferentAgents(t *testing.T) {
 		0o644,
 	))
 
-	dirs := []platformDirInfo{
-		{dirName: ".claude", platform: "claude", exists: true},
-		{dirName: ".cursor", platform: "cursor", exists: true},
-	}
+	importers := makeTestImporters(
+		struct{ dir, platform string }{".claude", "claude"},
+		struct{ dir, platform string }{".cursor", "cursor"},
+	)
 
-	err := mergeImportDirs(platformDirInfoToImporters(dirs), filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
 	config, parseErr := parser.ParseDirectory(".")
@@ -807,12 +697,12 @@ func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
 		0o644,
 	))
 
-	dirs := []platformDirInfo{
-		{dirName: ".claude", platform: "claude", exists: true},
-		{dirName: ".cursor", platform: "cursor", exists: true},
-	}
+	importers := makeTestImporters(
+		struct{ dir, platform string }{".claude", "claude"},
+		struct{ dir, platform string }{".cursor", "cursor"},
+	)
 
-	err := mergeImportDirs(platformDirInfoToImporters(dirs), filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
 	// MCP from .claude/ must be present
@@ -853,12 +743,12 @@ func TestMergeImportDirs_ImportsMemory(t *testing.T) {
 		0o644,
 	))
 
-	dirs := []platformDirInfo{
-		{dirName: ".claude", platform: "claude", exists: true},
-		{dirName: ".cursor", platform: "cursor", exists: true},
-	}
+	importers := makeTestImporters(
+		struct{ dir, platform string }{".claude", "claude"},
+		struct{ dir, platform string }{".cursor", "cursor"},
+	)
 
-	err := mergeImportDirs(platformDirInfoToImporters(dirs), filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, ".xcaffold", "project.xcf"))
 	require.NoError(t, err)
 
 	// Memory must be written to disk
@@ -1370,17 +1260,17 @@ func TestMergeImportDirs_PlanFlag_DryRun(t *testing.T) {
 	importPlan = true
 	defer func() { importPlan = oldImportPlan }()
 
-	providerDirs := []platformDirInfo{
-		{dirName: filepath.Join(tmp, ".claude"), platform: "claude", exists: true},
-		{dirName: filepath.Join(tmp, ".gemini"), platform: "gemini", exists: true},
-	}
+	providerImporters := makeTestImporters(
+		struct{ dir, platform string }{filepath.Join(tmp, ".claude"), "claude"},
+		struct{ dir, platform string }{filepath.Join(tmp, ".gemini"), "gemini"},
+	)
 
 	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := mergeImportDirs(platformDirInfoToImporters(providerDirs), "project.xcf")
+	err := mergeImportDirs(providerImporters, "project.xcf")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1410,17 +1300,17 @@ func TestMergeImportDirs_MultiProvider_ConflictCount(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".gemini", "agents", "dev.md"),
 		"---\nname: dev\nmodel: gemini-2.5-flash\n---\n\nGemini dev agent.")
 
-	providerDirs := []platformDirInfo{
-		{dirName: filepath.Join(tmp, ".claude"), platform: "claude", exists: true},
-		{dirName: filepath.Join(tmp, ".gemini"), platform: "gemini", exists: true},
-	}
+	providerImporters := makeTestImporters(
+		struct{ dir, platform string }{filepath.Join(tmp, ".claude"), "claude"},
+		struct{ dir, platform string }{filepath.Join(tmp, ".gemini"), "gemini"},
+	)
 
 	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := mergeImportDirs(platformDirInfoToImporters(providerDirs), "project.xcf")
+	err := mergeImportDirs(providerImporters, "project.xcf")
 
 	w.Close()
 	os.Stdout = oldStdout

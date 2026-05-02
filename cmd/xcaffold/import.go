@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -265,71 +264,11 @@ func runImport(cmd *cobra.Command, args []string) error {
 	return fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
 }
 
-// detectPlatformDirs scans known provider directories under baseDir and returns
-// all found entries, sorted by total resource count descending. When skipEmpty
-// is true, directories with no detected resources are excluded from the result.
-// dirName in each returned entry is the absolute path to the provider directory.
-func detectPlatformDirs(baseDir string, skipEmpty bool) []platformDirInfo {
-	platformDirs := []struct{ dir, platform string }{
-		{".claude", "claude"},
-		{".cursor", "cursor"},
-		{".agents", "antigravity"},
-		{".gemini", "gemini"},
-	}
-
-	var results []platformDirInfo
-
-	for _, pt := range platformDirs {
-		targetPath := filepath.Join(baseDir, pt.dir)
-		if _, err := os.Stat(targetPath); err != nil {
-			continue
-		}
-
-		info := platformDirInfo{exists: true, platform: pt.platform, dirName: targetPath}
-
-		if agents, _ := filepath.Glob(filepath.Join(targetPath, "agents", "*.md")); agents != nil {
-			info.agents += len(agents)
-		}
-		if skills, _ := filepath.Glob(filepath.Join(targetPath, "skills", "*", "SKILL.md")); skills != nil {
-			info.skills += len(skills)
-		}
-		// Count rules recursively to include nested subdirectory rules.
-		_ = filepath.WalkDir(filepath.Join(targetPath, "rules"), func(_ string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				return nil
-			}
-			name := strings.ToLower(d.Name())
-			if strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".mdc") {
-				info.rules++
-			}
-			return nil
-		})
-		if workflows, _ := filepath.Glob(filepath.Join(targetPath, "workflows", "*.md")); workflows != nil {
-			info.workflows += len(workflows)
-		}
-
-		if skipEmpty && info.agents+info.skills+info.rules+info.workflows == 0 {
-			continue
-		}
-
-		results = append(results, info)
-	}
-
-	sort.Slice(results, func(i, j int) bool {
-		totalI := results[i].agents + results[i].skills + results[i].rules + results[i].workflows
-		totalJ := results[j].agents + results[j].skills + results[j].rules + results[j].workflows
-		return totalI > totalJ
-	})
-
-	return results
-}
-
 // importScope scans a platform directory and writes a xcf file to xcfDest.
 // provider selects provider-specific extraction logic for settings, MCP,
-// hooks, project-instruction files, and memory. Supported values match the
-// platform field from platformDirInfo: "claude", "gemini", "cursor",
-// "copilot", "antigravity". An empty string or unknown value falls back to
-// Claude-style extraction (settings.json + hooks.json).
+// hooks, project-instruction files, and memory. Supported values: "claude",
+// "gemini", "cursor", "copilot", "antigravity". An empty string or unknown
+// value falls back to Claude-style extraction (settings.json + hooks.json).
 func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcfDest)

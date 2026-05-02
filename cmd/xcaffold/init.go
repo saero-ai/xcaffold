@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -250,47 +249,6 @@ func initProject(cmd *cobra.Command) error {
 		return nil
 	}
 	return runWizard(cmd, xcfFile)
-}
-
-// platformDirInfo holds summary counts of resources found in a platform dir.
-type platformDirInfo struct {
-	platform  string
-	dirName   string
-	agents    int
-	skills    int
-	rules     int
-	workflows int
-	exists    bool
-}
-
-func (c platformDirInfo) summary() string {
-	parts := []string{}
-	if c.agents > 0 {
-		parts = append(parts, fmt.Sprintf("%d agent(s)", c.agents))
-	}
-	if c.skills > 0 {
-		parts = append(parts, fmt.Sprintf("%d skill(s)", c.skills))
-	}
-	if c.rules > 0 {
-		parts = append(parts, fmt.Sprintf("%d rule(s)", c.rules))
-	}
-	if c.workflows > 0 {
-		parts = append(parts, fmt.Sprintf("%d workflow(s)", c.workflows))
-	}
-	if len(parts) == 0 {
-		return "no recognized resources"
-	}
-	return strings.Join(parts, ", ")
-}
-
-// selectedPlatform returns the platform name for the given dirName from infos.
-func selectedPlatform(infos []platformDirInfo, dirName string) string {
-	for _, info := range infos {
-		if info.dirName == dirName {
-			return info.platform
-		}
-	}
-	return "claude"
 }
 
 // copyToolkitFiles copies files from the embedded toolkit FS to disk.
