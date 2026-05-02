@@ -1,16 +1,4 @@
-package templates
-
-// RenderMemoryReference returns an annotated template showing every field
-// of the memory kind with descriptions, types, and usage conventions.
-//
-// The generated content is written to .xcaffold/schemas/memory.xcf.reference
-// and is NOT parsed by xcaffold. Users create memory entries as plain .md files
-// under xcf/agents/<agent-id>/memory/<id>.md — the compiler discovers them.
-//
-// Note: memory has no targets (per-provider overrides) and no Inherited field.
-// Content is populated by the compiler's filesystem scan, not the parser.
-func RenderMemoryReference() string {
-	return `# ============================================================
+# ============================================================
 # Memory Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
@@ -52,5 +40,3 @@ Use memory entries to store:
 - Project-specific context the agent should always remember
 - Persistent facts about the codebase or team conventions
 - Long-lived instructions that should survive context compaction
-`
-}

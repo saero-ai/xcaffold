@@ -1,13 +1,4 @@
-package templates
-
-// RenderWorkflowReference returns an annotated template showing every field
-// of the workflow kind with descriptions, types, defaults, and provider support notes.
-//
-// The generated content is written to .xcaffold/schemas/workflow.xcf.reference
-// and is NOT parsed by xcaffold. Users copy fields from this file into their
-// xcf/workflows/<name>/<name>.xcf as needed.
-func RenderWorkflowReference() string {
-	return `# ============================================================
+# ============================================================
 # Workflow Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
@@ -57,5 +48,3 @@ The heading name must match the step name exactly.
 
 ## step-two
 Instructions for step two go here.
-`
-}

@@ -1,13 +1,4 @@
-package templates
-
-// RenderSkillReference returns an annotated template showing every field
-// of the skill kind with descriptions, types, defaults, and provider notes.
-//
-// The generated content is written to .xcaffold/schemas/skill.xcf.reference
-// and is NOT parsed by xcaffold. Users copy fields from this file into their
-// xcf/skills/<name>/<name>.xcf as needed.
-func RenderSkillReference() string {
-	return `# ============================================================
+# ============================================================
 # Skill Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
@@ -65,5 +56,3 @@ Inline SKILL.md body content goes here.
 
 # OR reference an external file (mutually exclusive with body):
 # instructions-file: "./SKILL.md"
-`
-}

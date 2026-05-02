@@ -1,16 +1,4 @@
-package templates
-
-// RenderHooksReference returns an annotated template showing every field
-// of the hooks kind with descriptions, types, defaults, and provider support notes.
-//
-// The generated content is written to .xcaffold/schemas/hooks.xcf.reference
-// and is NOT parsed by xcaffold. Users copy fields from this file into their
-// xcf/hooks/<name>/hooks.xcf as needed.
-//
-// Note: hooks uses pure YAML format (no frontmatter --- delimiters).
-// Parser uses strict mode — unknown YAML keys are rejected.
-func RenderHooksReference() string {
-	return `# ============================================================
+# ============================================================
 # Hooks Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
@@ -114,5 +102,3 @@ events:
 #   url: "https://webhook.example.com/hook"
 #   headers:
 #     Authorization: "Bearer ${TOKEN}"
-`
-}

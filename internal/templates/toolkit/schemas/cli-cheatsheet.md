@@ -1,12 +1,4 @@
-package templates
-
-// RenderCLICheatsheet returns a concise command reference for the xcaffold CLI.
-//
-// The generated content is written to .xcaffold/schemas/cli-cheatsheet.reference
-// and is NOT parsed by xcaffold. It serves as a quick-reference for all
-// xcaffold commands, flags, and global options.
-func RenderCLICheatsheet() string {
-	return `# ============================================================
+# ============================================================
 # xcaffold CLI — Command Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
@@ -135,5 +127,3 @@ func RenderCLICheatsheet() string {
 #         require-agent-description.xcf
 #         require-agent-instructions.xcf
 #       settings.xcf                  # kind: settings (MCP, permissions, hooks)
-`
-}

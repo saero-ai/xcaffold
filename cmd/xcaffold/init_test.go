@@ -372,3 +372,97 @@ func TestToolkit_EmbeddedFiles_ParseCorrectly(t *testing.T) {
 		require.NoError(t, parseErr, "embedded file %s must parse without errors", f)
 	}
 }
+
+// --- copyToolkitFiles tests ---
+
+// TestCopyToolkitFiles_Basic verifies copyToolkitFiles copies embedded files to disk.
+func TestCopyToolkitFiles_Basic(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	paths := map[string]string{
+		"toolkit/agents/xaff/agent.xcf": "xcf/agents/xaff/agent.xcf",
+	}
+
+	err := copyToolkitFiles(tmpDir, paths)
+	require.NoError(t, err)
+
+	outFile := filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.xcf")
+	assert.FileExists(t, outFile)
+
+	data, err := os.ReadFile(outFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), "kind: agent")
+	assert.Contains(t, string(data), "name: xaff")
+}
+
+// TestCopyToolkitFiles_Multiple verifies copyToolkitFiles handles multiple files.
+func TestCopyToolkitFiles_Multiple(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	paths := map[string]string{
+		"toolkit/agents/xaff/agent.xcf":          "xcf/agents/xaff/agent.xcf",
+		"toolkit/skills/xcaffold/skill.xcf":      "xcf/skills/xcaffold/skill.xcf",
+		"toolkit/rules/xcf-conventions/rule.xcf": "xcf/rules/xcf-conventions/rule.xcf",
+	}
+
+	err := copyToolkitFiles(tmpDir, paths)
+	require.NoError(t, err)
+
+	for _, diskPath := range paths {
+		outFile := filepath.Join(tmpDir, diskPath)
+		assert.FileExists(t, outFile, "expected %s to exist", diskPath)
+	}
+}
+
+// TestCopyToolkitFiles_CreatesDirectories verifies copyToolkitFiles creates parent dirs.
+func TestCopyToolkitFiles_CreatesDirectories(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	paths := map[string]string{
+		"toolkit/agents/xaff/agent.xcf": "xcf/agents/xaff/agent.xcf",
+	}
+
+	err := copyToolkitFiles(tmpDir, paths)
+	require.NoError(t, err)
+
+	// Verify all parent directories were created
+	outDir := filepath.Join(tmpDir, "xcf", "agents", "xaff")
+	assert.DirExists(t, outDir)
+}
+
+// TestCopyToolkitFiles_NonexistentSource verifies copyToolkitFiles returns error
+// when source file does not exist in ToolkitFS.
+func TestCopyToolkitFiles_NonexistentSource(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	paths := map[string]string{
+		"toolkit/nonexistent/file.txt": "output/file.txt",
+	}
+
+	err := copyToolkitFiles(tmpDir, paths)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "reading embedded")
+}
+
+// TestCopyToolkitFiles_ReferenceFiles verifies copyToolkitFiles copies schema
+// reference files with nested directories.
+func TestCopyToolkitFiles_ReferenceFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	paths := map[string]string{
+		"toolkit/schemas/agent-reference.md": ".xcaffold/schemas/agent-reference.md",
+		"toolkit/schemas/skill-reference.md": ".xcaffold/schemas/skill-reference.md",
+	}
+
+	err := copyToolkitFiles(tmpDir, paths)
+	require.NoError(t, err)
+
+	for _, diskPath := range paths {
+		outFile := filepath.Join(tmpDir, diskPath)
+		assert.FileExists(t, outFile)
+
+		data, err := os.ReadFile(outFile)
+		require.NoError(t, err)
+		assert.NotEmpty(t, data, "expected %s to have content", diskPath)
+	}
+}

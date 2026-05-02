@@ -1,13 +1,4 @@
-package templates
-
-// RenderRuleReference returns an annotated template showing every field
-// of the rule kind with descriptions, types, defaults, and provider support notes.
-//
-// The generated content is written to .xcaffold/schemas/rule.xcf.reference
-// and is NOT parsed by xcaffold. Users copy fields from this file into their
-// xcf/rules/<name>/<name>.xcf as needed.
-func RenderRuleReference() string {
-	return `# ============================================================
+# ============================================================
 # Rule Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
@@ -65,5 +56,3 @@ agent context when the activation condition is met.
 
 All providers that support this rule will receive this body verbatim,
 unless overridden via targets: above.
-`
-}

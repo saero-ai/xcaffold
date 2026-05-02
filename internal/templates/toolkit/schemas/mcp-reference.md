@@ -1,16 +1,4 @@
-package templates
-
-// RenderMCPReference returns an annotated template showing every field
-// of the mcp kind with descriptions, types, defaults, and provider support notes.
-//
-// The generated content is written to .xcaffold/schemas/mcp.xcf.reference
-// and is NOT parsed by xcaffold. Users copy fields from this file into their
-// xcf/mcp/<name>/<name>.xcf as needed.
-//
-// Note: MCP kind has no body field and no targets (per-provider overrides).
-// Use agent-level mcp-servers: inline map for agent-scoped MCP.
-func RenderMCPReference() string {
-	return `# ============================================================
+# ============================================================
 # MCP Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
@@ -75,5 +63,3 @@ args:                       # Optional.
 # disabled-tools:
 #   - "dangerous-tool"
 #   - "another-tool"
-`
-}

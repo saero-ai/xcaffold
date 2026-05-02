@@ -1,0 +1,8 @@
+---
+kind: agent
+version: "1.0"
+name: xaff
+
+effort: "high"
+permission-mode: default
+---

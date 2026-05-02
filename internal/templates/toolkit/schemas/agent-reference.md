@@ -1,13 +1,4 @@
-package templates
-
-// RenderAgentReference returns an annotated template showing every field
-// of the agent kind with descriptions, types, defaults, and provider support notes.
-//
-// The generated content is written to .xcaffold/schemas/agent.xcf.reference
-// and is NOT parsed by xcaffold. Users copy fields from this file into their
-// xcf/agents/<name>/agent.xcf as needed.
-func RenderAgentReference() string {
-	return `# ============================================================
+# ============================================================
 # Agent Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
@@ -92,5 +83,3 @@ markdown file (e.g., .claude/agents/my-agent.md).
 
 # OR reference an external file (mutually exclusive with body):
 # instructions-file: "agents/my-agent.md"
-`
-}
