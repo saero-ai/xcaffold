@@ -1,0 +1,44 @@
+---
+kind: rule
+version: "1.0"
+description: xcaffold authoring conventions. Apply when creating or editing .xcf files.
+activation: always
+name: xcf-conventions
+---
+When authoring or editing xcaffold `.xcf` files, follow these conventions:
+
+## Field naming
+
+- Use kebab-case for all field names: `allowed-tools`, `always-apply`, `permission-mode`
+- Never use camelCase or snake_case in xcf files
+
+## Version quoting
+
+- Always quote version: `version: "1.0"` not `version: 1.0`
+- Bare numbers are parsed as floats and will fail validation
+
+## Name pattern
+
+- name must match `^[a-z0-9-]+$` — lowercase letters, digits, hyphens only
+- No uppercase, no underscores, no spaces
+
+## Directory layout
+
+- One resource per file
+- Use directory-per-resource: `xcf/<kind>/<name>/<name>.xcf`
+- Example: `xcf/agents/my-agent/my-agent.xcf`
+- Per-provider overrides: `xcf/agents/<name>/agent.<provider>.xcf`
+
+## Field correctness by kind
+
+- agent: use `tools:` (not `allowed-tools:`)
+- skill: use `allowed-tools:` (not `tools:`)
+- hooks: pure YAML format — no `---` frontmatter delimiters
+- memory: content comes from file body, not a `content:` field
+- mcp: no body and no targets (per-provider overrides not supported)
+
+## Never do
+
+- Never write directly to `.claude/`, `.cursor/`, `.gemini/`, `.github/`, or `.agents/`
+- Those directories are xcaffold output — owned by `xcaffold apply`
+- Always edit `xcf/` files and compile with `xcaffold apply`

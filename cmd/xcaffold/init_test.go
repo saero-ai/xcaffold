@@ -176,12 +176,12 @@ func TestWriteXCFDirectory_XaffAgent_CreatesBaseAndOverride(t *testing.T) {
 	err := writeXCFDirectory(tmpDir, ans)
 	require.NoError(t, err)
 
-	// Base agent
+	// Base agent from embedded toolkit
 	agentBase := filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.xcf")
 	assert.FileExists(t, agentBase)
 	data, _ := os.ReadFile(agentBase)
 	assert.Contains(t, string(data), "name: xaff")
-	assert.Contains(t, string(data), "skills: [xcaffold]")
+	assert.Contains(t, string(data), "kind: agent")
 
 	// Provider override
 	agentOverride := filepath.Join(tmpDir, "xcf", "agents", "xaff", "agent.claude.xcf")
@@ -267,8 +267,8 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	instrPolicyFile := filepath.Join(policiesDir, "require-agent-instructions.xcf")
 	assert.NoFileExists(t, instrPolicyFile)
 
-	// Settings
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "settings.xcf"))
+	// Settings must NOT be created (removed, embedded toolkit only)
+	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "settings.xcf"))
 
 	// Must not have old paths
 	assert.NoFileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer", "developer.xcf"))
