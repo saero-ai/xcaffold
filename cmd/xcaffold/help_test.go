@@ -55,7 +55,7 @@ func TestHelpXcf_UnknownKind_ReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "Available:")
 }
 
-func TestHelpXcf_NoKind_ShowsNormalHelp(t *testing.T) {
+func TestHelpXcf_EmptyKind_ReturnsError(t *testing.T) {
 	err := runHelpXcf(rootCmd, "", "", false)
 	assert.Error(t, err, "empty kind should return error")
 	assert.Contains(t, err.Error(), "unknown kind")
@@ -66,7 +66,7 @@ func TestHelpXcf_Out_WritesTemplate(t *testing.T) {
 	dest := filepath.Join(dir, "agent.xcf")
 
 	ks, _ := schema.LookupKind("agent")
-	err := generateTemplate(ks, "agent", dest)
+	err := generateTemplate(rootCmd, ks, "agent", dest)
 	require.NoError(t, err)
 
 	content, err := os.ReadFile(dest)
@@ -84,7 +84,7 @@ func TestHelpXcf_Out_ExistingDir_AppendsKind(t *testing.T) {
 	dir := t.TempDir()
 
 	ks, _ := schema.LookupKind("skill")
-	err := generateTemplate(ks, "skill", dir)
+	err := generateTemplate(rootCmd, ks, "skill", dir)
 	require.NoError(t, err)
 
 	expected := filepath.Join(dir, "skill.xcf")
@@ -93,7 +93,7 @@ func TestHelpXcf_Out_ExistingDir_AppendsKind(t *testing.T) {
 
 func TestHelpXcf_Out_MissingDir_Errors(t *testing.T) {
 	ks, _ := schema.LookupKind("agent")
-	err := generateTemplate(ks, "agent", "/tmp/xcf-nonexistent-dir-12345/test.xcf")
+	err := generateTemplate(rootCmd, ks, "agent", "/tmp/xcf-nonexistent-dir-12345/test.xcf")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "directory does not exist")
 }
@@ -103,7 +103,7 @@ func TestHelpXcf_Out_InvalidExtension_Errors(t *testing.T) {
 	dest := filepath.Join(dir, "agent.yaml")
 
 	ks, _ := schema.LookupKind("agent")
-	err := generateTemplate(ks, "agent", dest)
+	err := generateTemplate(rootCmd, ks, "agent", dest)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must end in .xcf")
 }
@@ -113,7 +113,7 @@ func TestHelpXcf_FieldsMatchParser(t *testing.T) {
 	dest := filepath.Join(dir, "agent.xcf")
 
 	ks, _ := schema.LookupKind("agent")
-	err := generateTemplate(ks, "agent", dest)
+	err := generateTemplate(rootCmd, ks, "agent", dest)
 	require.NoError(t, err)
 
 	f, err := os.Open(dest)

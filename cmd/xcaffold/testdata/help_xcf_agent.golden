@@ -2,12 +2,12 @@ kind: agent . version 1.0 . format: frontmatter+body
 
   Identity
     name                      string          required  Unique identifier for this agent within the project.
-                                              Pattern: ^[a-z0-9-]+$
+                                                        Pattern: ^[a-z0-9-]+$
     description               string          optional  Human-readable purpose of this agent.
 
   Model & Execution
     model                     string          optional  LLM model identifier or alias resolved at compile time.
-                                              Examples: sonnet
+                                                        Examples: sonnet
     effort                    string          optional  Reasoning effort level hint for the model provider.
     max-turns                 int             optional  Maximum conversation turns before the agent exits.
     mode                      string          optional  Operational mode for the agent session.

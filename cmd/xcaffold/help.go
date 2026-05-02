@@ -18,7 +18,7 @@ func runHelpXcf(cmd *cobra.Command, kind string, outPath string, outChanged bool
 	}
 
 	if outChanged {
-		return generateTemplate(ks, kind, outPath)
+		return generateTemplate(cmd, ks, kind, outPath)
 	}
 
 	displayKindSchema(cmd, ks)
@@ -49,7 +49,7 @@ func displayKindSchema(cmd *cobra.Command, ks schema.KindSchema) {
 }
 
 func printFieldConstraints(w io.Writer, f schema.Field) {
-	indent := "                                              "
+	indent := "                                                        "
 	if f.Pattern != "" {
 		fmt.Fprintf(w, "%sPattern: %s\n", indent, f.Pattern)
 	}
@@ -87,7 +87,7 @@ func groupFields(fields []schema.Field) []fieldGroup {
 	return groups
 }
 
-func generateTemplate(ks schema.KindSchema, kind, outPath string) error {
+func generateTemplate(cmd *cobra.Command, ks schema.KindSchema, kind, outPath string) error {
 	dest, err := resolveOutPath(kind, outPath)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func generateTemplate(ks schema.KindSchema, kind, outPath string) error {
 	}
 
 	if _, err := os.Stat(dest); err == nil {
-		fmt.Fprintf(os.Stderr, "overwriting: %s\n", dest)
+		fmt.Fprintf(cmd.ErrOrStderr(), "overwriting: %s\n", dest)
 	}
 
 	content := buildTemplateContent(ks)
@@ -107,7 +107,7 @@ func generateTemplate(ks schema.KindSchema, kind, outPath string) error {
 		return fmt.Errorf("could not write template: %w", err)
 	}
 
-	fmt.Fprintf(os.Stdout, "wrote %s\n", dest)
+	fmt.Fprintf(cmd.OutOrStdout(), "wrote %s\n", dest)
 	return nil
 }
 
