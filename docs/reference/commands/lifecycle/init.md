@@ -37,6 +37,23 @@ xcaffold init [flags]
 ### Templates
 You can bypass the interactive wizard fully by specifying a `--template`. This option will automatically pre-populate your `.xcf` configuration with a battle-tested architecture corresponding to your project type.
 
+## Output
+
+When existing provider directories are detected, `init` displays a compiled output table summarizing the resources found:
+
+```
+  ┌─── COMPILED OUTPUT ─────────────┐
+  Kind               .claude/  .agents/   .gemini/
+  ──────────────────────────────────────────────────
+  Agents                   17        17          0
+  Skills                   21        21          3
+  Rules                    13        13          5
+  Workflows                 0         8          0
+  MCP                       1         0          1
+```
+
+Kinds are listed as rows; detected providers as columns. Only kinds with at least one resource across any provider are shown. After displaying the table, `init` prompts to run `xcaffold import` to adopt the detected configurations.
+
 ## Examples
 
 **Start the interactive initialization wizard:**
