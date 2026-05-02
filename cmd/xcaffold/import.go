@@ -431,6 +431,7 @@ var providerSubdirMap = map[string]map[string]string{
 	"claude": {
 		"references": "references",
 		"scripts":    "scripts",
+		"examples":   "examples",
 	},
 	"gemini": {
 		"references": "references",
@@ -461,7 +462,7 @@ var providerSubdirMap = map[string]map[string]string{
 // is treated as a reference.
 //
 // Files from subdirectories that have no canonical mapping are copied to
-// xcf/provider/<provider>/skills/<id>/<subdir>/.
+// xcf/skills/<id>/<subdir>/ alongside canonical subdirectories.
 func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]string) (refs, scripts, assets, examples []string, err error) {
 	skillDir := filepath.Dir(skillFile)
 
@@ -507,16 +508,16 @@ func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]str
 		}
 	}
 
-	// Helper: copy a file to the provider passthrough directory.
+	// Helper: copy a file to the skill directory with unknown subdirs.
 	appendPassthrough := func(src, subdir, filename string) {
 		var dest string
 		if base != "" {
-			dest = filepath.Join(base, "xcf", "provider", provider, "skills", id, subdir, filename)
+			dest = filepath.Join(base, "xcf", "skills", id, subdir, filename)
 		} else {
-			dest = filepath.Join("xcf", "provider", provider, "skills", id, subdir, filename)
+			dest = filepath.Join("xcf", "skills", id, subdir, filename)
 		}
 		if copyErr := copyFile(src, dest); copyErr != nil {
-			*warnings = append(*warnings, fmt.Sprintf("failed to copy provider file %s: %v", src, copyErr))
+			*warnings = append(*warnings, fmt.Sprintf("failed to copy skill file %s: %v", src, copyErr))
 		}
 	}
 
@@ -1165,15 +1166,50 @@ func workflowConfigsIdentical(configs map[string]ast.WorkflowConfig) bool {
 	return true
 }
 
+// selectBaseProvider selects the provider with the lowest score from the score map.
+// Ties are broken alphabetically (provider name sort order).
+func selectBaseProvider(scores map[string]int) string {
+	var selected string
+	var minScore int = -1
+
+	for provider, score := range scores {
+		if minScore == -1 || score < minScore || (score == minScore && provider < selected) {
+			selected = provider
+			minScore = score
+		}
+	}
+	return selected
+}
+
 func splitAgentOverrides(configs map[string]ast.AgentConfig) (ast.AgentConfig, map[string]ast.AgentConfig) {
-	var base ast.AgentConfig
-	overrides := make(map[string]ast.AgentConfig)
-	first := true
+	// Score each provider by provider-specificity: Hooks (+10), Model (+1), Tools (+1)
+	scores := make(map[string]int, len(configs))
 	for provider, cfg := range configs {
-		if first {
-			base = cfg
-			first = false
+		s := 0
+		if len(cfg.Hooks) > 0 {
+			s += 10
+		}
+		if cfg.Model != "" {
+			s++
+		}
+		if len(cfg.Tools) > 0 {
+			s++
+		}
+		scores[provider] = s
+	}
+
+	// Select base provider (lowest score, alphabetical tie-break)
+	baseProv := selectBaseProvider(scores)
+
+	base := configs[baseProv]
+	overrides := make(map[string]ast.AgentConfig, len(configs)-1)
+	for provider, cfg := range configs {
+		if provider == baseProv {
 			continue
+		}
+		// Strip body if identical to base
+		if strings.TrimSpace(cfg.Body) == strings.TrimSpace(base.Body) {
+			cfg.Body = ""
 		}
 		overrides[provider] = cfg
 	}
@@ -1181,14 +1217,28 @@ func splitAgentOverrides(configs map[string]ast.AgentConfig) (ast.AgentConfig, m
 }
 
 func splitSkillOverrides(configs map[string]ast.SkillConfig) (ast.SkillConfig, map[string]ast.SkillConfig) {
-	var base ast.SkillConfig
-	overrides := make(map[string]ast.SkillConfig)
-	first := true
+	// Score each provider by provider-specificity: AllowedTools (+1)
+	scores := make(map[string]int, len(configs))
 	for provider, cfg := range configs {
-		if first {
-			base = cfg
-			first = false
+		s := 0
+		if len(cfg.AllowedTools) > 0 {
+			s++
+		}
+		scores[provider] = s
+	}
+
+	// Select base provider (lowest score, alphabetical tie-break)
+	baseProv := selectBaseProvider(scores)
+
+	base := configs[baseProv]
+	overrides := make(map[string]ast.SkillConfig, len(configs)-1)
+	for provider, cfg := range configs {
+		if provider == baseProv {
 			continue
+		}
+		// Strip body if identical to base
+		if strings.TrimSpace(cfg.Body) == strings.TrimSpace(base.Body) {
+			cfg.Body = ""
 		}
 		overrides[provider] = cfg
 	}
@@ -1196,14 +1246,25 @@ func splitSkillOverrides(configs map[string]ast.SkillConfig) (ast.SkillConfig, m
 }
 
 func splitRuleOverrides(configs map[string]ast.RuleConfig) (ast.RuleConfig, map[string]ast.RuleConfig) {
-	var base ast.RuleConfig
-	overrides := make(map[string]ast.RuleConfig)
-	first := true
+	// Rules have no provider-specific fields; all scores are 0
+	// Use alphabetical tie-break for deterministic selection
+	scores := make(map[string]int, len(configs))
+	for provider := range configs {
+		scores[provider] = 0
+	}
+
+	// Select base provider (alphabetical)
+	baseProv := selectBaseProvider(scores)
+
+	base := configs[baseProv]
+	overrides := make(map[string]ast.RuleConfig, len(configs)-1)
 	for provider, cfg := range configs {
-		if first {
-			base = cfg
-			first = false
+		if provider == baseProv {
 			continue
+		}
+		// Strip body if identical to base
+		if strings.TrimSpace(cfg.Body) == strings.TrimSpace(base.Body) {
+			cfg.Body = ""
 		}
 		overrides[provider] = cfg
 	}
@@ -1211,14 +1272,25 @@ func splitRuleOverrides(configs map[string]ast.RuleConfig) (ast.RuleConfig, map[
 }
 
 func splitWorkflowOverrides(configs map[string]ast.WorkflowConfig) (ast.WorkflowConfig, map[string]ast.WorkflowConfig) {
-	var base ast.WorkflowConfig
-	overrides := make(map[string]ast.WorkflowConfig)
-	first := true
+	// Workflows have no provider-specific fields; all scores are 0
+	// Use alphabetical tie-break for deterministic selection
+	scores := make(map[string]int, len(configs))
+	for provider := range configs {
+		scores[provider] = 0
+	}
+
+	// Select base provider (alphabetical)
+	baseProv := selectBaseProvider(scores)
+
+	base := configs[baseProv]
+	overrides := make(map[string]ast.WorkflowConfig, len(configs)-1)
 	for provider, cfg := range configs {
-		if first {
-			base = cfg
-			first = false
+		if provider == baseProv {
 			continue
+		}
+		// Strip body if identical to base
+		if strings.TrimSpace(cfg.Body) == strings.TrimSpace(base.Body) {
+			cfg.Body = ""
 		}
 		overrides[provider] = cfg
 	}

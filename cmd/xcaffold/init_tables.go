@@ -190,32 +190,44 @@ func renderSingleProvider(
 }
 
 // renderMultiProvider formats the table for two or more providers.
+// Transposed layout: kinds as rows, providers as columns.
 func renderMultiProvider(
 	providers []importer.ProviderImporter,
 	allCounts []map[importer.Kind]int,
 	cols []colDef,
 ) {
-	const provW = 20  // width for provider name column
-	const countW = 10 // width for each count column
+	const kindW = 20  // width for kind name column
+	const countW = 10 // width for each provider count column
 
-	// Header row.
+	// Header row: "Kind" followed by provider names.
 	header := fmt.Sprintf(
-		"  %-*s", provW, "Provider")
-	for _, c := range cols {
-		header += fmt.Sprintf("%*s", countW, c.label)
+		"  %-*s", kindW, "Kind")
+	for _, imp := range providers {
+		name := filepath.Base(imp.InputDir())
+		header += fmt.Sprintf("%*s", countW, name)
 	}
 
-	totalW := provW + len(cols)*countW
+	totalW := kindW + len(providers)*countW
 	sep := "  " + strings.Repeat("─", totalW)
 
-	fmt.Println("  ┌─── COMPILED OUTPUT ─────────────┐")
+	title := " COMPILED OUTPUT "
+	remaining := totalW - len(title) - 2 // 2 for ┌ and ┐ (visual width)
+	if remaining < 0 {
+		remaining = 0
+	}
+	left := 3
+	right := remaining - left
+	if right < 0 {
+		right = 0
+	}
+	fmt.Printf("  ┌%s%s%s┐\n", strings.Repeat("─", left), title, strings.Repeat("─", right))
 	fmt.Println(header)
 	fmt.Println(sep)
 
-	for i, imp := range providers {
-		name := filepath.Base(imp.InputDir())
-		row := fmt.Sprintf("  %-*s", provW, name)
-		for _, c := range cols {
+	// Rows: one per kind, with counts across all providers.
+	for _, c := range cols {
+		row := fmt.Sprintf("  %-*s", kindW, c.label)
+		for i := range providers {
 			row += fmt.Sprintf("%*d", countW, allCounts[i][c.kind])
 		}
 		fmt.Println(row)

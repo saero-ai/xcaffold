@@ -1,11 +1,14 @@
 package main
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/templates"
 	"github.com/spf13/cobra"
@@ -465,4 +468,107 @@ func TestCopyToolkitFiles_ReferenceFiles(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, data, "expected %s to have content", diskPath)
 	}
+}
+
+// TestRenderMultiProvider_TransposedLayout verifies the table shows kinds as rows
+// and providers as columns (transposed from the original layout).
+func TestRenderMultiProvider_TransposedLayout(t *testing.T) {
+	// Create mock providers: .claude/ and .agents/
+	mockProviders := []importer.ProviderImporter{
+		&mockImporter{dir: ".claude"},
+		&mockImporter{dir: ".agents"},
+	}
+
+	// Create mock counts: kinds x providers
+	// .claude/ has 17 agents, 21 skills, 13 rules
+	// .agents/ has 17 agents, 21 skills, 13 rules
+	allCounts := []map[importer.Kind]int{
+		{
+			importer.KindAgent:      17,
+			importer.KindSkill:      21,
+			importer.KindRule:       13,
+			importer.KindWorkflow:   0,
+			importer.KindMCP:        0,
+			importer.KindHookScript: 0,
+			importer.KindSettings:   0,
+			importer.KindMemory:     0,
+		},
+		{
+			importer.KindAgent:      17,
+			importer.KindSkill:      21,
+			importer.KindRule:       13,
+			importer.KindWorkflow:   0,
+			importer.KindMCP:        0,
+			importer.KindHookScript: 0,
+			importer.KindSettings:   0,
+			importer.KindMemory:     0,
+		},
+	}
+
+	cols := []colDef{
+		{importer.KindAgent, "Agents"},
+		{importer.KindSkill, "Skills"},
+		{importer.KindRule, "Rules"},
+	}
+
+	// Capture output using os.Pipe
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	renderMultiProvider(mockProviders, allCounts, cols)
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	outputBytes, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("failed to read captured output: %v", err)
+	}
+	output := string(outputBytes)
+
+	// Verify transposed layout: kinds should appear as row headers
+	assert.Contains(t, output, "Kind", "output should have 'Kind' as first column header")
+	assert.Contains(t, output, ".claude", "output should have '.claude' as provider column header")
+	assert.Contains(t, output, ".agents", "output should have '.agents' as provider column header")
+	assert.Contains(t, output, "Agents", "output should have 'Agents' as kind row header")
+	assert.Contains(t, output, "Skills", "output should have 'Skills' as kind row header")
+	assert.Contains(t, output, "Rules", "output should have 'Rules' as kind row header")
+
+	// Verify the table structure: providers should be in header, kinds in rows
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	// Line 2 should be the header line with providers as columns
+	if len(lines) > 1 {
+		headerLine := lines[1]
+		// Header line should start with "Kind" and contain provider names
+		assert.Contains(t, headerLine, "Kind")
+		assert.Contains(t, headerLine, ".claude")
+		assert.Contains(t, headerLine, ".agents")
+	}
+}
+
+// mockImporter is a test implementation of importer.ProviderImporter.
+type mockImporter struct {
+	dir string
+}
+
+func (m *mockImporter) Provider() string {
+	return "mock"
+}
+
+func (m *mockImporter) InputDir() string {
+	return m.dir
+}
+
+func (m *mockImporter) Classify(rel string, isDir bool) (importer.Kind, importer.Layout) {
+	return importer.KindAgent, importer.FlatFile
+}
+
+func (m *mockImporter) Extract(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	return nil
+}
+
+func (m *mockImporter) Import(dir string, config *ast.XcaffoldConfig) error {
+	return nil
 }

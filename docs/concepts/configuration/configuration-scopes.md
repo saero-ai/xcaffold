@@ -146,6 +146,16 @@ Override merge uses Terraform-style semantics:
 - Maps: DEEP MERGE (override keys win)
 - Body: override REPLACES if present, INHERITS if absent
 
+**Example:** An agent base file defines the full instructions body. The Claude override adds only a model and hooks:
+
+```
+xcf/agents/developer/
+  agent.xcf                # base: full instructions + shared fields
+  agent.claude.xcf         # override: model: opus, hooks: {...} (no body — inherits from base)
+```
+
+Override files that share the same body as the base should omit the body entirely. The compiler inherits the base body automatically during merge.
+
 The compiler applies overrides between `ApplyBlueprint()` and `DiscoverAgentMemory()`.
 
 ### Directory Scan Deduplication (File vs File in Same Scope)

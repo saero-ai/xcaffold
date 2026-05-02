@@ -58,7 +58,9 @@ xcf/skills/
 ```
 
 > [!NOTE]
-> The parser validates skill subdirectories at parse time. Only `references/`, `scripts/`, `assets/`, and `examples/` are recognized. Unknown subdirectory names produce a parse error. Maximum depth is 1 level — nesting inside `references/references/` is not supported.
+> When **authoring** skill directories, the parser validates subdirectory names at parse time. Only `references/`, `scripts/`, `assets/`, and `examples/` are recognized as canonical subdirectories. Maximum depth is 1 level — nesting inside `references/references/` is not supported.
+>
+> During **import**, non-standard subdirectories found in provider skill directories are preserved under `xcf/skills/<id>/<subdir>/` alongside canonical subdirectories, rather than being rejected.
 
 ## Choosing the Right Subdirectory
 

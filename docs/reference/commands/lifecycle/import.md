@@ -56,6 +56,7 @@ When `--target` is not specified:
   - **Agents, Skills, Rules, Workflows**: Field-by-field comparison across providers
     - Identical resources (same name, frontmatter, body) from multiple providers are merged into a single base file
     - Divergent fields (e.g., same agent with different instructions) are extracted into provider-specific override files
+    - The provider with the fewest provider-specific fields (hooks, model, tools) becomes the base. Override files contain only the fields that differ from the base — when body content is identical across providers, override files omit the body and inherit it from the base at compile time.
     - Override files use `<kind>.<provider>.xcf` naming (e.g., `agent.claude.xcf`, `agent.cursor.xcf`)
   - **Memory**: Union merge across all provider-specific memory directories. Within a single agent's memory, first-seen document wins on key collision.
   - **Hooks, MCP, Settings**: All variants merged; provider-specific differences preserved in `target-options` where applicable
@@ -148,7 +149,7 @@ When multi-provider resources conflict:
 |---|---|
 | Same resource name, identical content across providers | Single base file, no overrides needed |
 | Same resource name, divergent frontmatter fields | Base file + provider-specific override files |
-| Same resource name, divergent body text | Base file with common content + provider-specific override files |
+| Same resource name, divergent body text | Base file with common content + provider-specific override files (identical body omitted from overrides) |
 | Resource exists in only one provider | Single file tagged with that provider in `targets` |
 
 ## Limitations
