@@ -557,8 +557,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 
 		// Warn if YAML kind differs from inferred kind (when both are present)
 		if kind != "" && inferredKind != "" && kind != inferredKind {
-			fmt.Fprintf(os.Stderr, "warning: %s declares kind: %s but path implies kind: %s\n",
-				resolved.sourcePath, kind, inferredKind)
+			config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares kind: %s but path implies kind: %s", resolved.sourcePath, kind, inferredKind))
 		}
 
 		switch kind {
@@ -1427,6 +1426,9 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		// Hooks are additive (merge named hook blocks).
 		merged.Hooks = mergeNamedHooksAdditive(merged.Hooks, p.Hooks)
 
+		// Accumulate parse warnings from each individual file parse.
+		merged.ParseWarnings = append(merged.ParseWarnings, p.ParseWarnings...)
+
 		// Overwrite test blocks (assuming only one file declares test config).
 		// Test now lives in ProjectConfig.
 		if p.Project != nil {
@@ -1671,6 +1673,9 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.Hooks = mergeNamedHooksAdditive(base.Hooks, child.Hooks)
 
 	merged.Settings = mergeSettingsMapOverride(base.Settings, child.Settings)
+
+	// Preserve parse warnings from the child (project-level); base (global) warnings are discarded.
+	merged.ParseWarnings = append(merged.ParseWarnings, child.ParseWarnings...)
 
 	return merged
 }

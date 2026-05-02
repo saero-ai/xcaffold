@@ -3,7 +3,6 @@ package parser
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -323,8 +322,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
-			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
-				sourceFile, doc.Name, inferredName)
+			config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares name: %q but path implies name: %q", sourceFile, doc.Name, inferredName))
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
@@ -359,8 +357,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
-			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
-				sourceFile, doc.Name, inferredName)
+			config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares name: %q but path implies name: %q", sourceFile, doc.Name, inferredName))
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
@@ -395,8 +392,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
-			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
-				sourceFile, doc.Name, inferredName)
+			config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares name: %q but path implies name: %q", sourceFile, doc.Name, inferredName))
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
@@ -431,8 +427,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
-			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
-				sourceFile, doc.Name, inferredName)
+			config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares name: %q but path implies name: %q", sourceFile, doc.Name, inferredName))
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
@@ -467,8 +462,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
-			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
-				sourceFile, doc.Name, inferredName)
+			config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares name: %q but path implies name: %q", sourceFile, doc.Name, inferredName))
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
@@ -503,8 +497,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
-			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
-				sourceFile, doc.Name, inferredName)
+			config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares name: %q but path implies name: %q", sourceFile, doc.Name, inferredName))
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false
@@ -539,8 +532,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		// Warn if YAML name differs from inferred name (when both are present)
 		if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
-			fmt.Fprintf(os.Stderr, "warning: %s declares name: %q but path implies name: %q\n",
-				sourceFile, doc.Name, inferredName)
+			config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares name: %q but path implies name: %q", sourceFile, doc.Name, inferredName))
 		}
 		// Filesystem-as-schema inference: use inferred name if YAML name is empty
 		wasInferred := false

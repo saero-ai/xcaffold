@@ -21,7 +21,7 @@ xcaffold status [flags]
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--all` | — | `bool` | `false` | Show all tracked files when using `--target` (default: drifted files only). |
+| `--all` | — | `bool` | `false` | Show all tracked files grouped by subdirectory. Works with or without `--target` (default: drifted files only). |
 | `--blueprint <name>` | — | `string` | `""` | Read state from the named blueprint's state file. Mutually exclusive with `--global`. |
 | `--global` | — | `bool` | `false` | Read from the global config state (`~/.xcaffold/`). Mutually exclusive with `--blueprint`. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
@@ -41,9 +41,13 @@ When `--target <name>` is given, the command prints the breadcrumb header, a one
 
 If `--target` names a provider with no recorded state, the command prints the list of known providers and exits `1`.
 
-### Full file listing (`--target --all`)
+### Full file listing (`--all`)
 
-Combining `--target` and `--all` appends a `GROUP / FILES / STATUS` sub-table that lists every tracked artifact for the provider, grouped by subdirectory. Drifted entries are flagged inline within their group.
+`--all` appends a `GROUP / FILES / STATUS` sub-table listing every tracked artifact grouped by subdirectory, with drifted entries flagged inline.
+
+When used with `--target`, the table appears below that provider's drift summary.
+
+When used without `--target` (overview mode), a per-provider `GROUP` table is appended for every compiled provider after the overview table and drift block, giving a single-command view of all files across all providers.
 
 ### Flag constraints
 
@@ -147,6 +151,34 @@ sandbox  ·  claude  ·  applied 3 days ago
   Run 'xcaffold status --target claude --all' to see all files.
 ```
 
+### Overview with `--all`
+
+```
+sandbox  ·  last applied 3 days ago
+
+  PROVIDER       FILES   STATUS
+  claude            90   ✓ synced
+  cursor            54   ✓ synced
+
+  Sources  52 .xcf files  ·  no changes since last apply
+
+  claude
+
+  GROUP             FILES   STATUS
+  agent-memory/        29   ✓ synced
+  agents/              12   ✓ synced
+  hooks/                4   ✓ synced
+  rules/               20   ✓ synced
+  skills/              22   ✓ synced
+
+  cursor
+
+  GROUP             FILES   STATUS
+  rules/               54   ✓ synced
+
+✓ All providers are in sync.
+```
+
 ### Single-provider with `--all`
 
 ```
@@ -205,6 +237,11 @@ xcaffold status --target claude
 **List all tracked files for a provider, including clean ones:**
 ```bash
 xcaffold status --target claude --all
+```
+
+**List all tracked files across every provider in one command:**
+```bash
+xcaffold status --all
 ```
 
 **Check status for a named blueprint:**

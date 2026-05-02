@@ -1,61 +1,130 @@
 ---
 title: "xcaffold apply"
-description: "Deterministically compile your AST definitions into provider-native artifacts."
+description: "Compile .xcf resources into provider-native agent configuration files."
 ---
 
 # xcaffold apply
 
-Compiles your `.xcf` logic into native target outputs (`.claude/`, `.cursor/`, etc.).
+Compile .xcf resources into provider-native agent configuration files.
 
-The `apply` command reads your centralized configuration (AST), cross-references agents with their defined tools, enforces required structural policies, and invokes the specific renderer API tied to the compilation target. 
+The `apply` command compiles every `.xcf` file in the project into provider-native output files (`.claude/`, `.cursor/`, `.gemini/`, etc.). It is a strict one-way generation — manual edits in the output directory are overwritten on the next apply. Use `xcaffold import` to sync manual edits back to `.xcf` sources before applying.
 
-This is a strictly one-way generation process. Any manual modifications making their way directly into the compiled output directory will be violently overwritten.
+**Usage:**
 
-## Usage
-
-```bash
+```
 xcaffold apply [flags]
 ```
 
-## Options
+## Flags
 
-| Flag | Default | Description |
-|---|---|---|
-| `--target <string>` | `"claude"` | The compilation target platform. Valid options: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`. |
-| `--blueprint <string>` | `""` | Compile only a subset of resources specified by the designated blueprint logic. |
-| `--backup` | `false` | Take a differential backup of the existing output directory to a timestamped archive before writing compiled output. |
-| `--check` | `false` | Validate the configuration syntax and logic without rendering physical formats. |
-| `--check-permissions` | `false` | Validate the specific platform capabilities. It will report dropped capabilities and emit error exits if explicit policy contradictions are detected. |
-| `--dry-run` | `false` | Prints a simulated execution plan to standard output without persisting any artifacts to disk. |
-| `--force` | `false` | Force an overwrite of the native directories, bypassing the safety mechanisms that prevent compilation when downstream physical artifacts have drifted. |
-| `--project <name>` | `""` | Provide the namespace or exact path to external project configuration maintained by the global configuration registry. |
-| `-g, --global` | `false` | Compile the user-wide environment global registry (`~/.xcaffold/global.xcf`). |
+| Flag | Short | Type | Default | Description |
+|------|-------|------|---------|-------------|
+| `--backup` | — | `bool` | `false` | Back up the output directory to a timestamped archive before writing. |
+| `--blueprint <name>` | — | `string` | `""` | Compile only the named blueprint's resources. |
+| `--dry-run` | — | `bool` | `false` | Preview changes without writing to disk. Shows a diff of what would change. |
+| `--force` | — | `bool` | `false` | Overwrite output files even when drift is detected. |
+| `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/global.xcf`). Not yet available. |
+| `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
+| `--project <name>` | — | `string` | `""` | Apply to a project registered in the global registry. |
+| `--target <name>` | — | `string` | `"claude"` | Compilation target platform (`claude`, `cursor`, `antigravity`, `copilot`, `gemini`). |
 
 ## Behavior
 
-### Compilation Phases
-1. **Parsing:** Evaluates all root level declarations via the `internal/parser`. Enforces Xcaffold strict structural schemas alongside recursive dependency checks. Unrecognized keys throw immediately.
-2. **Translation:** Builds the provider-neutral Graph AST representations. Cross pollinates instructions with corresponding resources.
-3. **Validation Checkpoints:** Ensures the current generated tree passes local project guidelines along with internal governance `Policies`.
-4. **Rendering Execution:** Transmutes standard AST objects into formatted provider artifacts. Generates markdown schemas for text inputs, `.json` descriptors natively supported by LLM providers, and hooks scripts.
-5. **State Ledger:** Triggers drift detection routines and subsequently writes the `.xcaffold/project.xcf.state` snapshot referencing exactly what was scaffolded alongside active cryptography signatures. Orphaned files remaining from a previous AST are purged.
+### Compilation sequence
 
-### Output Constraints
-Xcaffold acts as the single source of truth for your configuration. To prevent configuration silos and fragmentation, running `xcaffold apply` explicitly enforces parity. A direct implication means that manually edited configuration files native to your specific agentic workspace (e.g., tweaking `clauderc.json` within `.claude/`) will be eradicated cleanly during the subsequent update loop to fulfill declarative definitions.
+1. **Parsing** — reads all `.xcf` files, validates syntax, and checks cross-references. Unknown fields cause an immediate error.
+2. **Smart skip** — compares source file hashes against the last recorded state. If sources are unchanged, apply exits early with no writes. Use `--force` to skip this check and recompile.
+3. **Compilation** — transforms resources into the provider-native format selected by `--target`.
+4. **Policy evaluation** — checks compiled output against built-in and any project-defined `kind: policy` rules. Policy errors block the write phase; warnings are printed to stderr and do not block.
+5. **Drift detection** — compares the output directory against the recorded state. If manual edits are found, apply lists the affected files and exits without writing. Use `--force` to overwrite, or run `xcaffold import` first to preserve edits.
+6. **Write** — writes compiled files to the output directory, purges files from previous compilations that are no longer in scope, and records a new state snapshot.
+
+### Drift detection
+
+When drift is detected, apply lists each affected file with its status (`missing` or `modified`) and exits `1`. Two options are available:
+
+- `xcaffold import` — reads the drifted files and syncs them back to `.xcf` sources. Run apply again after importing.
+- `xcaffold apply --force` — overwrites the output directory, discarding any manual edits.
+
+### Multi-target projects
+
+When `--target` is not provided and the `project.xcf` declares a `targets:` list, apply compiles for each declared target in sequence. Passing `--target` explicitly limits compilation to that single platform.
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Apply succeeded, or sources unchanged (skip). |
+| `1` | Error: parse failure, compilation error, policy violation, drift detected, or unknown target. |
+| `2` | Internal error. |
+
+## Sample output
+
+### Successful apply
+
+```
+sandbox  ·  claude  ·  last applied just now
+
+ok  Apply complete. 90 files written to .claude/
+  Run 'xcaffold import' to sync manual edits back to .xcf sources.
+```
+
+### Sources unchanged
+
+```
+sandbox  ·  claude  ·  last applied 2 hours ago
+
+  ok  Sources unchanged. Nothing to compile.
+
+-> Run 'xcaffold apply --force' to recompile.
+```
+
+### Drift detected
+
+```
+sandbox  ·  claude  ·  last applied 2 hours ago
+
+  !!  Drift detected in 2 files:
+
+    !!  missing     CLAUDE.md  (root)
+    !!  modified    agents/reviewer.md
+
+  To preserve manual edits, run 'xcaffold import' first.
+
+-> Run 'xcaffold apply --force' to overwrite.
+```
 
 ## Examples
 
-**Compile your AST to target the Claude Code platform:**
+**Compile the project in the current directory:**
 ```bash
-xcaffold apply --target claude
+xcaffold apply
 ```
 
-**Validate syntactical compliance without execution:**
+**Compile for a specific target platform:**
 ```bash
-xcaffold apply --check
+xcaffold apply --target cursor
 ```
 
-**Run a preview against the Cursor implementation mapping, skipping outputs:**
+**Preview what would change without writing:**
 ```bash
-xcaffold apply --target cursor --dry-run
+xcaffold apply --dry-run
 ```
+
+**Overwrite output even when drift is detected:**
+```bash
+xcaffold apply --force
+```
+
+**Back up the output directory before writing:**
+```bash
+xcaffold apply --backup
+```
+
+## Notes
+
+- `--global` is accepted as a flag but prints `Global scope is not yet available` and exits `1`. Global compilation will be supported in a future release.
+- `--blueprint` and `--global` cannot be combined. Blueprints are project-scoped.
+- The state file is written to `.xcaffold/project.xcf.state` and is machine-local. It should be gitignored (apply adds the entry automatically). See [State Files and Drift Detection](../../concepts/execution/state-and-drift.md) for schema details.
+- Policy rules are evaluated after successful compilation. If compilation fails, the policy phase is skipped.
+- For guidance on authoring policy resources, see [Policy Best Practices](../../best-practices/policy-organization.md).

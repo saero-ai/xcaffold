@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -26,8 +25,6 @@ import (
 )
 
 var applyDryRun bool
-var applyCheckOnly bool
-var applyCheckPermissions bool
 var applyForce bool
 var applyBackup bool
 var applyProjectFlag string
@@ -50,21 +47,17 @@ var applyCmd = &cobra.Command{
  • Generates a cryptographic SHA-256 state manifest (.xcaffold/)
  • Automatically purges orphaned target files
 
-Any manually edited files inside the target directory will be overwritten.
-
-Validation:
- Use the --check flag to validate your YAML syntax without compiling.`,
+Any manually edited files inside the target directory will be overwritten.`,
 	Example: `  $ xcaffold apply
-  $ xcaffold apply --check
   $ xcaffold apply --global
-  $ xcaffold apply --dry-run    (replaces the former 'plan' command)`,
-	RunE: runApply,
+  $ xcaffold apply --dry-run`,
+	RunE:          runApply,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
-	applyCmd.Flags().BoolVar(&applyCheckOnly, "check", false, "Check configuration syntax without compiling")
-	applyCmd.Flags().BoolVar(&applyCheckPermissions, "check-permissions", false, "Report security field drops and permission contradictions, then exit")
 	applyCmd.Flags().BoolVar(&applyForce, "force", false, "Overwrite customized local files and bypass drift safeguard")
 	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
@@ -99,84 +92,6 @@ func runApply(cmd *cobra.Command, args []string) error {
 		globalXcfPath = filepath.Join(proj.Path, "project.xcf")
 		xcfPath = globalXcfPath
 		projectRoot = proj.Path
-	}
-
-	if applyCheckOnly {
-		if globalFlag {
-			if _, err := parser.ParseDirectory(globalXcfHome); err != nil {
-				return fmt.Errorf("[global] parse error: %w", err)
-			}
-			fmt.Println("[global] ✓ Syntax is valid")
-			diags := parser.ValidateFile(globalXcfPath)
-			printDiagnostics(diags)
-			for _, d := range diags {
-				if d.Severity == "error" {
-					return fmt.Errorf("[global] validation failed with errors")
-				}
-			}
-		} else {
-			// Use projectRoot (not filepath.Dir(xcfPath)) — xcfPath may live
-			// inside .xcaffold/ and filepath.Dir would give the wrong directory.
-			baseDir := projectRoot
-			if baseDir == "" {
-				baseDir = filepath.Dir(xcfPath)
-			}
-			if _, err := parser.ParseDirectory(baseDir); err != nil {
-				return fmt.Errorf("[project] parse error: %w", err)
-			}
-			fmt.Println("[project] ✓ Syntax is valid")
-			diags := parser.ValidateFile(xcfPath)
-			printDiagnostics(diags)
-			for _, d := range diags {
-				if d.Severity == "error" {
-					return fmt.Errorf("[project] validation failed with errors")
-				}
-			}
-		}
-		return nil
-	}
-
-	if applyCheckPermissions {
-		// Parse runs validatePermissions — any contradiction surfaces as a parse
-		// error before we reach this block. The structured report only shows target
-		// fidelity findings for configs that already pass parsing.
-		var parseDir string
-		if globalFlag {
-			parseDir = globalXcfHome
-		} else {
-			// Use projectRoot (not filepath.Dir(xcfPath)) — xcfPath may live
-			// inside .xcaffold/ and filepath.Dir would give the wrong directory.
-			parseDir = projectRoot
-			if parseDir == "" {
-				parseDir = filepath.Dir(xcfPath)
-			}
-		}
-		config, err := parser.ParseDirectory(parseDir)
-		if err != nil {
-			return fmt.Errorf("parse error: %w", err)
-		}
-
-		secRenderer, err := compiler.ResolveRenderer(targetFlag)
-		if err != nil {
-			return fmt.Errorf("unknown target for security check: %w", err)
-		}
-		errors, warnings := securityFieldReport(config, secRenderer)
-
-		for _, w := range warnings {
-			fmt.Printf("[WARNING] %s\n", w)
-		}
-		for _, e := range errors {
-			fmt.Printf("[ERROR]   %s\n", e)
-		}
-
-		if len(errors) == 0 && len(warnings) == 0 {
-			fmt.Printf("[INFO]    %s: all security fields are supported\n", targetFlag)
-		}
-
-		if len(errors) > 0 {
-			return fmt.Errorf("check-permissions: %d error(s) found", len(errors))
-		}
-		return nil
 	}
 
 	if globalFlag {
@@ -233,17 +148,6 @@ func resolveTargets(cmd *cobra.Command, baseDir string) []string {
 	return []string{targetClaude}
 }
 
-// printDiagnostics prints ValidateFile diagnostics to stderr. Warnings do not
-// change the exit code; this helper is informational only.
-func printDiagnostics(diags []parser.Diagnostic) {
-	if len(diags) == 0 {
-		return
-	}
-	for _, d := range diags {
-		fmt.Fprintf(os.Stderr, "  [%s] %s\n", d.Severity, d.Message)
-	}
-}
-
 // applyScope compiles the xcf configuration at configPath into outputDir.
 // baseDir is the project root directory — the canonical source of truth passed
 // in by the caller (runApply uses projectRoot; global apply uses globalXcfHome).
@@ -255,10 +159,21 @@ func printDiagnostics(diags []parser.Diagnostic) {
 //
 //nolint:gocyclo
 func applyScope(configPath, outputDir, baseDir, scopeName string) error {
+	projectName := filepath.Base(baseDir)
+	lastApplied := findLastApplied(baseDir, applyBlueprintFlag)
+
 	config, err := parser.ParseDirectory(baseDir)
 	if err != nil {
-		return fmt.Errorf("[%s] parse error: %w", scopeName, err)
+		fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
+		fmt.Println()
+		fmt.Printf("  %s  %v\n", colorRed(glyphErr()), err)
+		fmt.Println()
+		fmt.Printf("%s Run 'xcaffold validate' for detailed diagnostics.\n", glyphArrow())
+		return &silentError{msg: err.Error()}
 	}
+
+	fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
+	fmt.Println()
 
 	if config.Version != "" && config.Version < currentSchemaVersion {
 		return fmt.Errorf("project.xcf uses schema version %s but xcaffold requires %s — please update the version field in your project.xcf", config.Version, currentSchemaVersion)
@@ -271,7 +186,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 
 	sourceFiles, findErr := resolver.FindXCFFiles(baseDir)
 	if findErr != nil {
-		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to scan source files: %v\n", scopeName, findErr)
+		fmt.Fprintf(os.Stderr, "  Warning: failed to scan source files: %v\n", findErr)
 	}
 
 	// Filter out non-config XCF files (e.g. kind: registry) to prevent
@@ -293,15 +208,27 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	}
 	sourceFiles = configSources
 
+	if applyBackup && !applyDryRun {
+		var backupDir string
+		if config.Project != nil {
+			backupDir = config.Project.BackupDir
+		}
+		if err := performBackup(outputDir, targetFlag, backupDir, scopeName); err != nil {
+			return fmt.Errorf("backup failed: %w", err)
+		}
+	}
+
 	if !applyForce {
 		prevManifest, readErr := state.ReadState(stateFilePath)
 		if readErr == nil && len(prevManifest.SourceFiles) > 0 {
 			changed, _ := state.SourcesChanged(prevManifest.SourceFiles, sourceFiles, baseDir)
 			if !changed {
 				if applyDryRun {
-					fmt.Printf("[%s] No source files changed. Nothing to compile.\n", scopeName)
+					fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
 				} else {
-					fmt.Printf("[%s] Sources unchanged — skipping compilation. Use --force to recompile.\n", scopeName)
+					fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+					fmt.Println()
+					fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
 				}
 				return nil
 			}
@@ -314,14 +241,15 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	// config reflects exactly what was compiled (no global-scope bleed-through).
 	out, notes, err := compiler.Compile(config, baseDir, targetFlag, applyBlueprintFlag)
 	if err != nil {
-		return fmt.Errorf("[%s] compilation error: %w", scopeName, err)
+		fmt.Printf("  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
+		return &silentError{msg: err.Error()}
 	}
 
 	// Renderers resolve @-imports natively; the optimizer handles targets that don't.
 	opt := optimizer.New(targetFlag)
 	optimized, optNotes, optErr := opt.Run(out.Files)
 	if optErr != nil {
-		return fmt.Errorf("[%s] optimizer error: %w", scopeName, optErr)
+		return fmt.Errorf("optimizer error: %w", optErr)
 	}
 	out.Files = optimized
 	notes = append(notes, optNotes...)
@@ -344,61 +272,64 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	}
 	if len(policyErrors) > 0 {
 		fmt.Fprint(os.Stderr, policy.FormatViolations(policyErrors))
-		return fmt.Errorf("[%s] apply blocked: %d policy error(s) found", scopeName, len(policyErrors))
+		return &silentError{msg: fmt.Sprintf("apply blocked: %d policy error(s) found", len(policyErrors))}
 	}
 
 	oldManifest, _ := state.ReadState(stateFilePath)
 
 	if !applyDryRun && !applyForce {
-		drift, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
-		if err == nil && drift {
-			return fmt.Errorf("[%s] drift detected! Target directory contains unrecorded changes. Use --force to overwrite", scopeName)
-		}
-	}
-
-	if applyBackup && !applyDryRun {
-		var backupDir string
-		if config.Project != nil {
-			backupDir = config.Project.BackupDir
-		}
-		if err := performBackup(outputDir, targetFlag, backupDir, scopeName); err != nil {
-			return fmt.Errorf("[%s] backup failed: %w", scopeName, err)
+		driftEntries, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
+		if err == nil && len(driftEntries) > 0 {
+			fmt.Fprintf(os.Stderr, "\n  %s  Drift detected in %d %s:\n\n", colorRed(glyphErr()), len(driftEntries), plural(len(driftEntries), "file", "files"))
+			for _, d := range driftEntries {
+				display, isRoot := formatArtifactPath(d.Path)
+				label := d.Status
+				if isRoot {
+					display += "  (root)"
+				}
+				fmt.Fprintf(os.Stderr, "    %s  %-10s  %s\n", glyphErr(), label, display)
+			}
+			fmt.Fprintf(os.Stderr, "  To preserve manual edits, run 'xcaffold import' first.\n\n")
+			fmt.Fprintf(os.Stderr, "%s Run 'xcaffold apply --force' to overwrite.\n", glyphArrow())
+			return &silentError{msg: "drift detected"}
 		}
 	}
 
 	for _, agent := range config.Agents {
 		if len(agent.Targets) > 0 {
-			fmt.Fprintf(os.Stderr, "[%s] Warning: 'targets' block is experimental and currently uncompiled.\n", scopeName)
+			fmt.Fprintf(os.Stderr, "  %s  'targets' block on agents is experimental and currently uncompiled.\n", colorYellow(glyphSrc()))
 			break
 		}
 	}
 
 	if applyDryRun {
-		fmt.Printf("[%s] Dry-run preview (no files will be written):\n\n", scopeName)
+		fmt.Println("  Dry-run preview:")
+		fmt.Println()
 	}
 
 	// Write (or preview) each compiled file.
 	hasChanges := false
+	filesWritten := 0
 
 	cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, baseDir, scopeName, &hasChanges)
 
 	for relPath, content := range out.Files {
 		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
-		if err := applyFile(absPath, content, scopeName, &hasChanges); err != nil {
+		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
 			return err
 		}
 	}
 
 	for relPath, content := range out.RootFiles {
 		absPath := filepath.Clean(filepath.Join(baseDir, relPath))
-		if err := applyFile(absPath, content, scopeName, &hasChanges); err != nil {
+		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
 			return err
 		}
 	}
 
 	if applyDryRun {
 		if !hasChanges {
-			fmt.Printf("[%s] ✓ No changes predicted. Current files are up to date.\n", scopeName)
+			fmt.Printf("  %s  No changes predicted. Current files are up to date.\n", colorGreen(glyphOK()))
 		}
 		return nil
 	}
@@ -420,13 +351,17 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		SourceFiles:   sourceFiles,
 	}, oldManifest)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to generate state: %v\n", scopeName, err)
+		fmt.Fprintf(os.Stderr, "  Warning: failed to generate state: %v\n", err)
 	}
 	if err := state.WriteState(newManifest, stateFilePath); err != nil {
-		fmt.Fprintf(os.Stderr, "[%s] Warning: failed to write state: %v\n", scopeName, err)
+		fmt.Fprintf(os.Stderr, "  Warning: failed to write state: %v\n", err)
 	}
 
-	fmt.Printf("\n[%s] ✓ Apply complete. State updated.\n", scopeName)
+	fmt.Println()
+	outDirName := compiler.OutputDir(targetFlag)
+	fmt.Printf("%s  Apply complete. %d %s written to %s/\n",
+		colorGreen(glyphOK()), filesWritten, plural(filesWritten, "file", "files"), outDirName)
+	fmt.Printf("  Run 'xcaffold import' to sync manual edits back to .xcf sources.\n")
 
 	// Ensure the project is registered and the timestamp is updated.
 	cwd, _ := os.Getwd()
@@ -434,11 +369,11 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	if configRelDir == "" {
 		configRelDir = "."
 	}
-	var projectName string
+	registryName := projectName
 	if config.Project != nil {
-		projectName = config.Project.Name
+		registryName = config.Project.Name
 	}
-	_ = registry.Register(cwd, projectName, nil, configRelDir)
+	_ = registry.Register(cwd, registryName, nil, configRelDir)
 	_ = registry.UpdateLastApplied(cwd)
 
 	return nil
@@ -538,7 +473,7 @@ func previewDiff(absPath, content string) bool {
 	return false
 }
 
-func applyFile(absPath, content, scopeName string, hasChanges *bool) error {
+func applyFile(absPath, content, scopeName string, hasChanges *bool, filesWritten *int) error {
 	if applyDryRun {
 		if previewDiff(absPath, content) {
 			*hasChanges = true
@@ -547,13 +482,12 @@ func applyFile(absPath, content, scopeName string, hasChanges *bool) error {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
-		return fmt.Errorf("[%s] failed to create directory for %q: %w", scopeName, absPath, err)
+		return fmt.Errorf("failed to create directory for %q: %w", absPath, err)
 	}
 	if err := os.WriteFile(absPath, []byte(content), 0600); err != nil {
-		return fmt.Errorf("[%s] failed to write %q: %w", scopeName, absPath, err)
+		return fmt.Errorf("failed to write %q: %w", absPath, err)
 	}
-	hash := sha256.Sum256([]byte(content))
-	fmt.Printf("  [%s] ✓ wrote %s  (sha256:%x)\n", scopeName, absPath, hash)
+	*filesWritten++
 	return nil
 }
 
@@ -579,74 +513,8 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 		return err
 	}
 
-	fmt.Printf("[%s] Backing up %s -> %s\n", scopeName, outputDir, destDir)
+	fmt.Printf("  %s  Backed up %s\n", colorGreen(glyphOK()), filepath.Base(destDir))
 	return copyDir(outputDir, destDir)
-}
-
-// securityFieldReport returns [ERROR] and [WARNING] findings for the given
-// renderer by inspecting which security fields in the config would be dropped.
-// It is read-only and never modifies any files.
-func securityFieldReport(config *ast.XcaffoldConfig, r renderer.TargetRenderer) (errorsOut, warnings []string) {
-	caps := r.Capabilities()
-	sf := caps.SecurityFields
-	target := r.Target()
-
-	// Get the active settings (first available key after blueprint filtering).
-	var es ast.SettingsConfig
-	for _, s := range config.Settings {
-		es = s
-		break
-	}
-
-	// If all security fields are supported, no findings.
-	if sf.Permissions && sf.Sandbox && sf.PermissionMode && sf.DisallowedTools && sf.Isolation && sf.Effort {
-		return nil, nil
-	}
-
-	if !sf.Permissions && es.Permissions != nil {
-		warnings = append(warnings, fmt.Sprintf("%s: settings.permissions will be dropped — no enforcement equivalent", target))
-	}
-	if !sf.Sandbox && es.Sandbox != nil {
-		warnings = append(warnings, fmt.Sprintf("%s: settings.sandbox will be dropped — no sandbox model", target))
-	}
-
-	agentIDs := make([]string, 0, len(config.Agents))
-	for id := range config.Agents {
-		agentIDs = append(agentIDs, id)
-	}
-	sort.Strings(agentIDs)
-
-	for _, id := range agentIDs {
-		agent := config.Agents[id]
-		if !sf.Effort && agent.Effort != "" {
-			warnings = append(warnings, fmt.Sprintf("%s: agent %q effort %q will be dropped", target, id, agent.Effort))
-		}
-		if !sf.PermissionMode && agent.PermissionMode != "" {
-			warnings = append(warnings, fmt.Sprintf("%s: agent %q permission-mode %q will be dropped", target, id, agent.PermissionMode))
-		}
-		if !sf.DisallowedTools && len(agent.DisallowedTools) > 0 {
-			warnings = append(warnings, fmt.Sprintf("%s: agent %q disallowed-tools will be dropped — tool restrictions will NOT be enforced", target, id))
-		}
-		if !sf.Isolation && agent.Isolation != "" {
-			warnings = append(warnings, fmt.Sprintf("%s: agent %q isolation %q will be dropped", target, id, agent.Isolation))
-		}
-	}
-
-	// Agent vs deny conflicts
-	if es.Permissions != nil {
-		for _, id := range agentIDs {
-			agent := config.Agents[id]
-			for _, tool := range agent.Tools {
-				for _, denyRule := range es.Permissions.Deny {
-					if denyRule == tool {
-						errorsOut = append(errorsOut, fmt.Sprintf("permissions.deny: rule %q conflicts with agent %q tools list", tool, id))
-					}
-				}
-			}
-		}
-	}
-
-	return errorsOut, warnings
 }
 
 func copyDir(src, dst string) error {
@@ -683,11 +551,11 @@ func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out 
 			absPath = filepath.Clean(filepath.Join(outputDir, orphanPath))
 		}
 		if applyDryRun {
-			fmt.Printf("  [%s] \033[31m[- DELETE]\033[0m %s\n", scopeName, absPath)
+			fmt.Printf("    %s  would delete  %s\n", colorYellow(glyphSrc()), filepath.Base(absPath))
 			*hasChanges = true
 		} else {
 			if err := os.Remove(absPath); err == nil {
-				fmt.Printf("  [%s] ✓ deleted %s\n", scopeName, absPath)
+				fmt.Printf("    %s  deleted  %s\n", colorRed(glyphErr()), filepath.Base(absPath))
 				*hasChanges = true
 				cleanEmptyDirsUpToTarget(filepath.Dir(absPath), outputDir)
 			} else if os.IsNotExist(err) {
@@ -697,41 +565,21 @@ func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out 
 	}
 }
 
-// hasDriftFromState checks whether any artifact recorded for target in the
-// StateManifest at stateFile has been modified on disk since the last apply.
-func hasDriftFromState(outputDir, stateFile, baseDir, target string) (bool, error) {
+func hasDriftFromState(outputDir, stateFile, baseDir, target string) ([]state.DriftEntry, error) {
 	manifest, err := state.ReadState(stateFile)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return false, nil
+			return nil, nil
 		}
-		return false, err
+		return nil, err
 	}
 
 	ts, ok := manifest.Targets[target]
 	if !ok {
-		return false, nil
+		return nil, nil
 	}
 
-	for _, artifact := range ts.Artifacts {
-		var absPath string
-		if strings.HasPrefix(artifact.Path, "root:") {
-			relPath := strings.TrimPrefix(artifact.Path, "root:")
-			absPath = filepath.Clean(filepath.Join(baseDir, relPath))
-		} else {
-			absPath = filepath.Clean(filepath.Join(outputDir, artifact.Path))
-		}
-		data, err := os.ReadFile(absPath)
-		if err != nil {
-			return true, nil // missing file is drift
-		}
-		actualHash := sha256.Sum256(data)
-		actual := fmt.Sprintf("sha256:%x", actualHash)
-		if actual != artifact.Hash {
-			return true, nil
-		}
-	}
-	return false, nil
+	return state.CollectDriftedFiles(baseDir, outputDir, ts), nil
 }
 
 // ensureGitignoreEntry appends entry to dir/.gitignore if not already present.

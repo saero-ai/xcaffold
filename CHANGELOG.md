@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed `xcaffold apply --backup` skipping backup for 2nd and subsequent targets in multi-target projects; backup now runs for every target regardless of source-change detection.
+- Fixed `xcaffold status --all` being silently ignored when used without `--target`; `--all` now appends a per-provider grouped file listing in overview mode.
+
 ### Added
 
 - Added `xcaffold status` command to replace `xcaffold diff`, providing high-level sync/drift metrics across all applied targets with inline file status reporting.
@@ -13,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Parser name/kind mismatch warnings (e.g. YAML `name:` differs from directory-inferred name) are no longer printed directly to stderr. They are now collected in `XcaffoldConfig.ParseWarnings` and surfaced by commands that have structured diagnostic output.
+- `xcaffold apply` output now matches the output standards of `status` and `validate`: header breadcrumb at the top, glyph helpers for all status lines, file count summary on success instead of per-file write lines, and an import hint footer.
+- `xcaffold apply` now lists each drifted file (path and status: missing or modified) before aborting, instead of reporting a generic "drift detected" message.
 - Command `xcaffold graph` overhauled dependency rendering to naturally group rules by folder prefixes and nest active agent memory dynamically.
 - `xcaffold diff` is now officially deprecated, safely delegating any active usage directly to `xcaffold status` with migration hints natively.
 - **Import pipeline unified on ProviderImporter interface** — `mergeImportDirs` (multi-directory import) now uses the registered `ProviderImporter.Import()` per directory instead of legacy extraction functions. All resource types (agents, skills, rules, workflows, memory, hooks, MCP, settings, project instructions) are now imported in multi-dir mode. Previously, multi-dir imports silently dropped memory, MCP, settings, hooks, and project instructions.

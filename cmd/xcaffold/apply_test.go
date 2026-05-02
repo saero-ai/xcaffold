@@ -27,52 +27,6 @@ func TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
 	assert.Contains(t, err.Error(), "--blueprint cannot be used with --global")
 }
 
-// TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic verifies that
-// --check returns a non-zero exit (non-nil error) when ValidateFile produces
-// an error-severity diagnostic.  The xcf file points to a non-existent
-// instructions-file to trigger the error diagnostic.
-func TestRunApply_CheckOnly_ReturnsErrorOnErrorDiagnostic(t *testing.T) {
-	dir := t.TempDir()
-
-	// instructions-file pointing to a missing file → validateFileRefs emits
-	// a Severity:"error" diagnostic.
-	xcfContent := `---
-kind: project
-version: "1.0"
-name: check-error-test
----
-kind: global
-version: "1.0"
-agents:
-  dev:
-    description: Developer
-    model: claude-sonnet-4-5
-    references:
-      - missing-instructions.md
-`
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(xcfContent), 0600))
-
-	agentDir := filepath.Join(dir, ".xcaffold", "agents")
-	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
-kind: agent
-version: "1.0"
-name: dev
----
-You are a developer.
-`), 0644)
-
-	xcfPath = xcf
-	projectRoot = dir
-	globalFlag = false
-	applyCheckOnly = true
-	defer func() { applyCheckOnly = false }()
-
-	err := runApply(nil, nil)
-	assert.Error(t, err, "--check must return non-zero when diagnostics contain errors")
-}
-
 func TestApply_Claude_CLAUDE_MD_WrittenAtProjectRoot(t *testing.T) {
 	// Use a minimal in-memory xcf with project instructions
 	dir := t.TempDir()
@@ -594,6 +548,71 @@ version: "1"
 			"registry.xcf must not appear in state manifest source files")
 	}
 
+	applyForce = false
+}
+
+// TestRunApply_Backup_MultiTarget verifies that --backup creates a backup for
+// every declared target, including targets whose sources have not changed since
+// the previous apply (i.e. targets that would otherwise hit the smart-skip path).
+func TestRunApply_Backup_MultiTarget(t *testing.T) {
+	dir := t.TempDir()
+
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(`---
+kind: project
+version: "1.0"
+name: backup-multi-target-test
+targets:
+  - claude
+  - cursor
+`), 0600))
+
+	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(agentDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+---
+You are a developer.
+`), 0600))
+
+	xcfPath = xcf
+	projectRoot = dir
+	globalFlag = false
+	applyForce = true
+	applyBackup = false
+	applyDryRun = false
+	targetFlag = targetClaude
+	applyCmd.Flags().Lookup("target").Changed = false
+
+	// First apply: compile both targets and write state so the smart-skip path
+	// will fire for both targets on the second apply.
+	require.NoError(t, runApply(applyCmd, nil))
+
+	_, err := os.Stat(filepath.Join(dir, ".claude", "agents", "dev.md"))
+	require.NoError(t, err, ".claude/agents/dev.md must exist after first apply")
+	_, err = os.Stat(filepath.Join(dir, ".cursor", "agents", "dev.md"))
+	require.NoError(t, err, ".cursor/agents/dev.md must exist after first apply")
+
+	// Second apply: sources are unchanged, but --backup is set.
+	// Both target directories must be backed up even though compilation is skipped.
+	applyForce = false
+	applyBackup = true
+
+	require.NoError(t, runApply(applyCmd, nil))
+
+	// Verify a backup exists for the claude target.
+	claudeBackups, err := filepath.Glob(filepath.Join(dir, ".claude_bak_*"))
+	require.NoError(t, err)
+	assert.NotEmpty(t, claudeBackups, "backup directory must be created for claude target")
+
+	// Verify a backup exists for the cursor target.
+	cursorBackups, err := filepath.Glob(filepath.Join(dir, ".cursor_bak_*"))
+	require.NoError(t, err)
+	assert.NotEmpty(t, cursorBackups, "backup directory must be created for cursor target")
+
+	applyBackup = false
 	applyForce = false
 }
 

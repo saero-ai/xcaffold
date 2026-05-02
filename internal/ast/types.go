@@ -41,6 +41,11 @@ type XcaffoldConfig struct {
 	// The compiler merges these with base resources during compilation.
 	Overrides *ResourceOverrides `yaml:"-" json:"-"`
 
+	// ParseWarnings collects non-fatal diagnostic messages produced during parsing,
+	// such as name/kind mismatches between YAML declarations and filesystem paths.
+	// Never serialized; callers decide how (or whether) to display these.
+	ParseWarnings []string `yaml:"-" json:"-"`
+
 	ResourceScope `yaml:",inline"` // Global-level resources
 
 	Project *ProjectConfig `yaml:"project,omitempty"` // nil for global configs
