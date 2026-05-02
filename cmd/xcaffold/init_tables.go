@@ -3,65 +3,222 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/spf13/cobra"
 )
 
+// kindDisplay defines the canonical display order and labels for resource kinds.
+var kindDisplay = []struct {
+	kind  importer.Kind
+	label string
+}{
+	{importer.KindAgent, "Agents"},
+	{importer.KindSkill, "Skills"},
+	{importer.KindRule, "Rules"},
+	{importer.KindWorkflow, "Workflows"},
+	{importer.KindMCP, "MCP"},
+	{importer.KindHookScript, "Hooks"},
+	{importer.KindSettings, "Settings"},
+	{importer.KindMemory, "Memory"},
+}
+
+// configKindCount returns the count of resources in an XcaffoldConfig
+// for a given importer.Kind.
+func configKindCount(
+	config *ast.XcaffoldConfig,
+	k importer.Kind,
+) int {
+	switch k {
+	case importer.KindAgent:
+		return len(config.Agents)
+	case importer.KindSkill:
+		return len(config.Skills)
+	case importer.KindRule:
+		return len(config.Rules)
+	case importer.KindWorkflow:
+		return len(config.Workflows)
+	case importer.KindMCP:
+		return len(config.MCP)
+	case importer.KindHookScript:
+		return len(config.Hooks)
+	case importer.KindSettings:
+		return len(config.Settings)
+	case importer.KindMemory:
+		return len(config.Memory)
+	default:
+		return 0
+	}
+}
+
 // renderCurrentStateTable prints a summary of the current project.xcf state.
-// Uses two-space indent and the standard glyph/output helpers.
 func renderCurrentStateTable(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 	if config == nil {
 		return
 	}
-	_ = cmd // output goes to stdout via fmt to match init output standard
-	fmt.Println("  ┌───────────────────────────── CURRENT STATE ─────────────────────────────┐")
-	fmt.Println("  │ Source: .xcaffold/project.xcf                                          │")
-	fmt.Println("  ├─────────────────────────────────────────────────────────────────────────┤")
+	_ = cmd
 
-	row := fmt.Sprintf("  │  %2d agent(s)  │  %2d skill(s)  │  %2d rule(s)  │  %2d workflow(s)       │",
-		len(config.Agents), len(config.Skills), len(config.Rules), len(config.Workflows))
-	fmt.Println(row)
-	fmt.Println("  └─────────────────────────────────────────────────────────────────────────┘")
+	// Collect kinds with non-zero counts.
+	type entry struct {
+		label string
+		count int
+	}
+	var active []entry
+	for _, kd := range kindDisplay {
+		c := configKindCount(config, kd.kind)
+		if c > 0 {
+			active = append(active, entry{label: kd.label, count: c})
+		}
+	}
+	if len(active) == 0 {
+		return
+	}
+
+	// Build summary: "17 agents, 21 skills, 13 rules"
+	parts := make([]string, len(active))
+	for i, a := range active {
+		parts[i] = fmt.Sprintf(
+			"%d %s", a.count, strings.ToLower(a.label))
+	}
+	summary := strings.Join(parts, ", ")
+
+	// Box width adapts to content (minimum 60 inner chars).
+	inner := len(summary) + 4
+	if inner < 60 {
+		inner = 60
+	}
+	border := strings.Repeat("─", inner)
+
+	fmt.Printf("  ┌─── CURRENT STATE ─%s┐\n",
+		border[19:])
+	srcLine := "Source: .xcaffold/project.xcf"
+	fmt.Printf("  │ %-*s │\n", inner-2, srcLine)
+	fmt.Printf("  ├─%s─┤\n", border)
+	fmt.Printf("  │ %-*s │\n", inner-2, summary)
+	fmt.Printf("  └─%s─┘\n", border)
 }
 
-// renderCompiledOutputTable prints a summary of detected compiled output directories.
-func renderCompiledOutputTable(cmd *cobra.Command, providers []importer.ProviderImporter) {
+// colDef pairs an importer.Kind with its display label for table columns.
+type colDef struct {
+	kind  importer.Kind
+	label string
+}
+
+// activeColumns returns the subset of kindDisplay entries that have at least
+// one non-zero count across all providers.
+func activeColumns(
+	allCounts []map[importer.Kind]int,
+) []colDef {
+	var cols []colDef
+	for _, kd := range kindDisplay {
+		for _, counts := range allCounts {
+			if counts[kd.kind] > 0 {
+				cols = append(cols, colDef{
+					kind:  kd.kind,
+					label: kd.label,
+				})
+				break
+			}
+		}
+	}
+	return cols
+}
+
+// renderCompiledOutputTable prints a summary of detected compiled output.
+func renderCompiledOutputTable(
+	cmd *cobra.Command,
+	providers []importer.ProviderImporter,
+) {
 	if len(providers) == 0 {
 		return
 	}
 	_ = cmd
 
-	fmt.Println("  ┌──────────────────────────── COMPILED OUTPUT ────────────────────────────┐")
+	// Scan all providers and collect counts.
+	allCounts := make([]map[importer.Kind]int, len(providers))
+	for i, imp := range providers {
+		allCounts[i] = importer.ScanDir(imp, imp.InputDir())
+	}
+
+	cols := activeColumns(allCounts)
+	if len(cols) == 0 {
+		return
+	}
 
 	if len(providers) == 1 {
-		imp := providers[0]
-		dir := imp.InputDir()
-		counts := importer.ScanDir(imp, dir)
-		agents := counts[importer.KindAgent]
-		skills := counts[importer.KindSkill]
-		rules := counts[importer.KindRule]
-		workflows := counts[importer.KindWorkflow]
-		fmt.Printf("  │ Detected: %-61s │\n", dir)
-		fmt.Println("  ├─────────────────────────────────────────────────────────────────────────┤")
-		row := fmt.Sprintf("  │  %2d agent(s)  │  %2d skill(s)  │  %2d rule(s)  │  %2d workflow(s)       │",
-			agents, skills, rules, workflows)
-		fmt.Println(row)
-	} else {
-		fmt.Println("  │ Provider             Agents       Skills       Rules        Workflows   │")
-		fmt.Println("  ├─────────────────────────────────────────────────────────────────────────┤")
-		for _, imp := range providers {
-			dir := imp.InputDir()
-			counts := importer.ScanDir(imp, dir)
-			agents := counts[importer.KindAgent]
-			skills := counts[importer.KindSkill]
-			rules := counts[importer.KindRule]
-			workflows := counts[importer.KindWorkflow]
-			row := fmt.Sprintf("  │ %-18s    %3d          %3d          %3d          %3d        │",
-				filepath.Base(dir), agents, skills, rules, workflows)
-			fmt.Println(row)
-		}
+		renderSingleProvider(providers[0], allCounts[0], cols)
+		return
 	}
-	fmt.Println("  └─────────────────────────────────────────────────────────────────────────┘")
+	renderMultiProvider(providers, allCounts, cols)
+}
+
+// renderSingleProvider formats the table for exactly one provider.
+func renderSingleProvider(
+	imp importer.ProviderImporter,
+	counts map[importer.Kind]int,
+	cols []colDef,
+) {
+	// Build summary: "17 agents, 21 skills, 13 rules"
+	parts := make([]string, len(cols))
+	for i, c := range cols {
+		parts[i] = fmt.Sprintf(
+			"%d %s", counts[c.kind], strings.ToLower(c.label))
+	}
+	summary := strings.Join(parts, ", ")
+
+	dir := imp.InputDir()
+	detected := fmt.Sprintf("Detected: %s", dir)
+
+	// Box width adapts to content.
+	inner := len(detected) + 4
+	if w := len(summary) + 4; w > inner {
+		inner = w
+	}
+	if inner < 60 {
+		inner = 60
+	}
+	border := strings.Repeat("─", inner)
+
+	fmt.Printf("  ┌─── COMPILED OUTPUT ─%s┐\n",
+		border[21:])
+	fmt.Printf("  │ %-*s │\n", inner-2, detected)
+	fmt.Printf("  ├─%s─┤\n", border)
+	fmt.Printf("  │ %-*s │\n", inner-2, summary)
+	fmt.Printf("  └─%s─┘\n", border)
+}
+
+// renderMultiProvider formats the table for two or more providers.
+func renderMultiProvider(
+	providers []importer.ProviderImporter,
+	allCounts []map[importer.Kind]int,
+	cols []colDef,
+) {
+	const provW = 20  // width for provider name column
+	const countW = 10 // width for each count column
+
+	// Header row.
+	header := fmt.Sprintf(
+		"  %-*s", provW, "Provider")
+	for _, c := range cols {
+		header += fmt.Sprintf("%*s", countW, c.label)
+	}
+
+	totalW := provW + len(cols)*countW
+	sep := "  " + strings.Repeat("─", totalW)
+
+	fmt.Println("  ┌─── COMPILED OUTPUT ─────────────┐")
+	fmt.Println(header)
+	fmt.Println(sep)
+
+	for i, imp := range providers {
+		name := filepath.Base(imp.InputDir())
+		row := fmt.Sprintf("  %-*s", provW, name)
+		for _, c := range cols {
+			row += fmt.Sprintf("%*d", countW, allCounts[i][c.kind])
+		}
+		fmt.Println(row)
+	}
+	fmt.Println()
 }
