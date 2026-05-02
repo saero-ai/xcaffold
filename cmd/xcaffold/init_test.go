@@ -505,6 +505,20 @@ func TestRenderMultiProvider_TransposedLayout(t *testing.T) {
 		},
 	}
 
+	// Both providers support agents, skills, and rules
+	allSupported := []map[importer.Kind]bool{
+		{
+			importer.KindAgent: true,
+			importer.KindSkill: true,
+			importer.KindRule:  true,
+		},
+		{
+			importer.KindAgent: true,
+			importer.KindSkill: true,
+			importer.KindRule:  true,
+		},
+	}
+
 	cols := []colDef{
 		{importer.KindAgent, "Agents"},
 		{importer.KindSkill, "Skills"},
@@ -516,7 +530,7 @@ func TestRenderMultiProvider_TransposedLayout(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	renderMultiProvider(mockProviders, allCounts, cols)
+	renderMultiProvider(mockProviders, allCounts, allSupported, cols)
 
 	w.Close()
 	os.Stdout = oldStdout

@@ -138,8 +138,10 @@ func renderCompiledOutputTable(
 
 	// Scan all providers and collect counts.
 	allCounts := make([]map[importer.Kind]int, len(providers))
+	allSupported := make([]map[importer.Kind]bool, len(providers))
 	for i, imp := range providers {
 		allCounts[i] = importer.ScanDir(imp, imp.InputDir())
+		allSupported[i] = importer.SupportedKinds(imp)
 	}
 
 	cols := activeColumns(allCounts)
@@ -151,7 +153,7 @@ func renderCompiledOutputTable(
 		renderSingleProvider(providers[0], allCounts[0], cols)
 		return
 	}
-	renderMultiProvider(providers, allCounts, cols)
+	renderMultiProvider(providers, allCounts, allSupported, cols)
 }
 
 // renderSingleProvider formats the table for exactly one provider.
@@ -191,9 +193,11 @@ func renderSingleProvider(
 
 // renderMultiProvider formats the table for two or more providers.
 // Transposed layout: kinds as rows, providers as columns.
+// Shows "-" for unsupported kinds, counts for supported kinds.
 func renderMultiProvider(
 	providers []importer.ProviderImporter,
 	allCounts []map[importer.Kind]int,
+	allSupported []map[importer.Kind]bool,
 	cols []colDef,
 ) {
 	const kindW = 20  // width for kind name column
@@ -210,25 +214,20 @@ func renderMultiProvider(
 	totalW := kindW + len(providers)*countW
 	sep := "  " + strings.Repeat("─", totalW)
 
-	title := " COMPILED OUTPUT "
-	remaining := totalW - len(title) - 2 // 2 for ┌ and ┐ (visual width)
-	if remaining < 0 {
-		remaining = 0
-	}
-	left := 3
-	right := remaining - left
-	if right < 0 {
-		right = 0
-	}
-	fmt.Printf("  ┌%s%s%s┐\n", strings.Repeat("─", left), title, strings.Repeat("─", right))
+	fmt.Printf("  ─── COMPILED OUTPUT %s\n", strings.Repeat("─", totalW-21))
 	fmt.Println(header)
 	fmt.Println(sep)
 
 	// Rows: one per kind, with counts across all providers.
+	// Show "-" for unsupported kinds, count for supported kinds.
 	for _, c := range cols {
 		row := fmt.Sprintf("  %-*s", kindW, c.label)
 		for i := range providers {
-			row += fmt.Sprintf("%*d", countW, allCounts[i][c.kind])
+			if !allSupported[i][c.kind] {
+				row += fmt.Sprintf("%*s", countW, "-")
+			} else {
+				row += fmt.Sprintf("%*d", countW, allCounts[i][c.kind])
+			}
 		}
 		fmt.Println(row)
 	}

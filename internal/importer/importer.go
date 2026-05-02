@@ -68,3 +68,34 @@ func ScanDir(imp ProviderImporter, dir string) map[Kind]int {
 	})
 	return counts
 }
+
+// SupportedKinds returns the set of Kinds that a provider's classifier recognizes.
+// It probes Classify with representative paths for each kind.
+func SupportedKinds(imp ProviderImporter) map[Kind]bool {
+	probes := []struct {
+		path string
+		kind Kind
+	}{
+		{"agents/test.md", KindAgent},
+		{"prompts/test.md", KindAgent},
+		{"skills/test/SKILL.md", KindSkill},
+		{"rules/test.md", KindRule},
+		{"rules/sub/test.md", KindRule},
+		{"workflows/test.md", KindWorkflow},
+		{"mcp.json", KindMCP},
+		{"mcp_config.json", KindMCP},
+		{"hooks/test.sh", KindHookScript},
+		{"settings.json", KindSettings},
+		{"settings.local.json", KindSettings},
+		{"agent-memory/test/test.md", KindMemory},
+	}
+
+	supported := make(map[Kind]bool)
+	for _, p := range probes {
+		kind, _ := imp.Classify(p.path, false)
+		if kind != KindUnknown && kind != "" {
+			supported[p.kind] = true
+		}
+	}
+	return supported
+}
