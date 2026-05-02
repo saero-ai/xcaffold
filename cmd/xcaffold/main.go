@@ -91,10 +91,23 @@ func init() {
 		"disable color output",
 	)
 	_ = rootCmd.PersistentFlags().MarkHidden("global")
+	rootCmd.PersistentFlags().String("xcf", "", "Display schema for a resource kind")
+	rootCmd.PersistentFlags().String("out", "", "Generate template .xcf file (use with --xcf)")
+	rootCmd.Flag("out").NoOptDefVal = "."
 	rootCmd.SetHelpFunc(rootHelpFunc)
 }
 
 func rootHelpFunc(cmd *cobra.Command, args []string) {
+	xcfKind, _ := cmd.Flags().GetString("xcf")
+	if xcfKind != "" {
+		outPath, _ := cmd.Flags().GetString("out")
+		outChanged := cmd.Flags().Changed("out")
+		if err := runHelpXcf(cmd, xcfKind, outPath, outChanged); err != nil {
+			fmt.Fprintln(cmd.ErrOrStderr(), err)
+		}
+		return
+	}
+
 	if cmd.Name() != "xcaffold" {
 		if cmd.Long != "" {
 			fmt.Fprintln(cmd.OutOrStdout(), cmd.Long)
@@ -168,7 +181,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "registry" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "registry" || cmd.Name() == "help" {
 		return nil
 	}
 	var configDir string
