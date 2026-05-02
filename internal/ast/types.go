@@ -349,34 +349,80 @@ type TargetOverride struct {
 //	Group 9 — Multi-Target (targets — per-provider overrides and provider: pass-through)
 //	Group 10 — Instructions (instructions, instructions_file) — ALWAYS last
 type SkillConfig struct {
-	// Group 1 — Identity
-	Name        string `yaml:"name,omitempty"`
-	Description string `yaml:"description,omitempty"`
-	WhenToUse   string `yaml:"when-to-use,omitempty"`
-	License     string `yaml:"license,omitempty"`
+	// Unique identifier for this skill within the project.
+	// +xcf:required
+	// +xcf:group=Identity
+	// +xcf:pattern=^[a-z0-9-]+$
+	Name string `yaml:"name,omitempty"`
 
-	// Group 3 — Tool Access
+	// Human-readable purpose of this skill.
+	// +xcf:optional
+	// +xcf:group=Identity
+	Description string `yaml:"description,omitempty"`
+
+	// Guidance for the model on when to invoke this skill.
+	// +xcf:optional
+	// +xcf:group=Identity
+	WhenToUse string `yaml:"when-to-use,omitempty"`
+
+	// SPDX license identifier for open-source skills.
+	// +xcf:optional
+	// +xcf:group=Identity
+	License string `yaml:"license,omitempty"`
+
+	// Tools this skill is permitted to use. Skill-specific field.
+	// +xcf:optional
+	// +xcf:group=Tool Access
+	// +xcf:type=[]string
+	// +xcf:provider=gemini:ignored,cursor:ignored,antigravity:ignored
 	AllowedTools []string `yaml:"allowed-tools,omitempty"`
 
-	// Group 4 — Permissions & Invocation Control
-	DisableModelInvocation *bool  `yaml:"disable-model-invocation,omitempty"`
-	UserInvocable          *bool  `yaml:"user-invocable,omitempty"`
-	ArgumentHint           string `yaml:"argument-hint,omitempty"`
+	// Prevents the skill from spawning sub-agents.
+	// +xcf:optional
+	// +xcf:group=Permissions & Invocation
+	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
-	// Group 7 — Composition / Supporting Files (agentskills.io folder convention)
-	// References are docs/data files copied to skills/<id>/references/ at compile time.
+	// Whether users can invoke this skill directly via slash command.
+	// +xcf:optional
+	// +xcf:group=Permissions & Invocation
+	UserInvocable *bool `yaml:"user-invocable,omitempty"`
+
+	// Hint text shown to the user when invoking the skill.
+	// +xcf:optional
+	// +xcf:group=Permissions & Invocation
+	ArgumentHint string `yaml:"argument-hint,omitempty"`
+
+	// Docs and data files copied to skills/<id>/references/ at compile time.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
 	References []string `yaml:"references,omitempty"`
-	// Scripts are executable helper files copied to skills/<id>/scripts/ at compile time.
+
+	// Executable helper files copied to skills/<id>/scripts/ at compile time.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
 	Scripts []string `yaml:"scripts,omitempty"`
-	// Assets are output artifact files (templates, fonts, icons) copied to skills/<id>/assets/.
+
+	// Output artifact files copied to skills/<id>/assets/ at compile time.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
 	Assets []string `yaml:"assets,omitempty"`
-	// Examples are demonstration files showing correct output, copied to skills/<id>/examples/ at compile time.
+
+	// Demonstration files copied to skills/<id>/examples/ at compile time.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
 	Examples []string `yaml:"examples,omitempty"`
 
-	// Group 9 — Multi-Target (per-provider overrides + provider: pass-through)
+	// Per-provider override configuration keyed by provider name.
+	// +xcf:optional
+	// +xcf:group=Multi-Target
+	// +xcf:type=map
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
-	// Group 10 — Instructions (mutually exclusive — enforced by parser)
+	// Populated by the parser from the frontmatter body section.
 	Body string `yaml:"-"`
 
 	// Inherited is set by the parser when this resource originates from an
@@ -400,19 +446,51 @@ const (
 
 // RuleConfig defines a path-gated formatting guideline.
 type RuleConfig struct {
-	AlwaysApply *bool  `yaml:"always-apply,omitempty"`
-	Description string `yaml:"description,omitempty"`
-	Activation  string `yaml:"activation,omitempty"`
-	Name        string `yaml:"name,omitempty"`
-	Body        string `yaml:"-"`
+	// When true, applies this rule to all files unconditionally.
+	// +xcf:optional
+	// +xcf:group=Activation
+	AlwaysApply *bool `yaml:"always-apply,omitempty"`
 
+	// Human-readable purpose of this rule.
+	// +xcf:optional
+	// +xcf:group=Identity
+	Description string `yaml:"description,omitempty"`
+
+	// Cross-provider activation mode for this rule.
+	// +xcf:optional
+	// +xcf:group=Activation
+	// +xcf:enum=always,path-glob,model-decided,manual-mention,explicit-invoke
+	Activation string `yaml:"activation,omitempty"`
+
+	// Unique identifier for this rule within the project.
+	// +xcf:required
+	// +xcf:group=Identity
+	// +xcf:pattern=^[a-z0-9-]+$
+	Name string `yaml:"name,omitempty"`
+
+	// Populated by the parser from the frontmatter body section.
+	Body string `yaml:"-"`
+
+	// Glob patterns for path-based activation.
+	// +xcf:optional
+	// +xcf:group=Activation
+	// +xcf:type=[]string
 	Paths []string `yaml:"paths,omitempty"`
-	// ExcludeAgents is a Copilot-specific list of agent types that should NOT
-	// receive this rule. Valid values: code-review | cloud-agent.
-	// Silently ignored by all non-Copilot renderers.
+
+	// Agent types excluded from receiving this rule.
+	// +xcf:optional
+	// +xcf:group=Provider-Specific
+	// +xcf:type=[]string
+	// +xcf:enum=code-review,cloud-agent
+	// +xcf:provider=copilot:exclusive
 	ExcludeAgents []string `yaml:"exclude-agents,omitempty"`
-	// Targets holds per-provider overrides including provider-native pass-through fields.
+
+	// Per-provider override configuration keyed by provider name.
+	// +xcf:optional
+	// +xcf:group=Multi-Target
+	// +xcf:type=map
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
+
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
