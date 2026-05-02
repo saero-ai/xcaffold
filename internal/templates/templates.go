@@ -42,7 +42,7 @@ func RenderXaffAgentXCF(model string, selectedTargets []string) string {
 	sb.WriteString("\n")
 	sb.WriteString(fmt.Sprintf("model: %q\n", model))
 	sb.WriteString("\n")
-	sb.WriteString("tools: [Read, Write, Edit, Bash, Glob, Grep]\n")
+	sb.WriteString("tools: [Read, Write, Edit, Glob, Grep]\n")
 	sb.WriteString("skills: [xcaffold]\n")
 	sb.WriteString("rules: [xcf-conventions]\n")
 	sb.WriteString("---\n")
@@ -55,7 +55,7 @@ func RenderXaffAgentXCF(model string, selectedTargets []string) string {
 	sb.WriteString("\n")
 	sb.WriteString("- Author and maintain `.xcf` files in the `xcf/` directory\n")
 	sb.WriteString("- Run `xcaffold validate` before `xcaffold apply`\n")
-	sb.WriteString("- Read `.xcaffold/schemas/*.reference` before setting any field\n")
+	sb.WriteString("- Read `.xcaffold/schemas/*-reference.md` before setting any field\n")
 	sb.WriteString("- Never write directly to `.claude/`, `.cursor/`, or other provider output dirs\n")
 	sb.WriteString("- Use `xcaffold status` to check for drift after changes\n")
 	sb.WriteString("- Use `xcaffold import` to pull provider changes back into xcf/\n")
@@ -74,7 +74,7 @@ func RenderXaffAgentXCF(model string, selectedTargets []string) string {
 	sb.WriteString("file shows which fields are supported. Fields marked 'dropped' are silently\n")
 	sb.WriteString("removed at compile time — leave them in source, xcaffold manages the drop.\n")
 	sb.WriteString("\n")
-	sb.WriteString("Always read `.xcaffold/schemas/<kind>.xcf.reference` before authoring a new resource.\n")
+	sb.WriteString("Always read `.xcaffold/schemas/<kind>-reference.md` before authoring a new resource.\n")
 
 	return sb.String()
 }

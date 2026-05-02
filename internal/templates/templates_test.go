@@ -47,7 +47,7 @@ func TestRenderXaffAgentXCF_ContainsMatrix(t *testing.T) {
 	assert.Contains(t, out, "kind: agent")
 	assert.Contains(t, out, "name: xaff")
 	assert.Contains(t, out, "model:")
-	assert.Contains(t, out, "tools: [Read, Write, Edit, Bash, Glob, Grep]")
+	assert.Contains(t, out, "tools: [Read, Write, Edit, Glob, Grep]")
 	assert.Contains(t, out, "skills: [xcaffold]")
 	assert.Contains(t, out, "rules: [xcf-conventions]")
 }
