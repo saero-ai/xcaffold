@@ -6,10 +6,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/registry"
@@ -83,10 +83,10 @@ func initProject(cmd *cobra.Command) error {
 		currentConfig, _ = parser.ParseFile(xcfFile)
 	}
 
-	infos := detectPlatformDirs(".", false)
+	detected := importer.DetectProviders(".", importer.DefaultImporters())
 
 	// ── Case B: Existing scaffold, no provider dirs ───────────────────────────
-	if hasExistingScaffold && len(infos) == 0 {
+	if hasExistingScaffold && len(detected) == 0 {
 		cwd, _ := os.Getwd()
 		projectName := filepath.Base(cwd)
 		fmt.Println(formatHeader(projectName, "", false, "", "already initialized"))
@@ -100,7 +100,7 @@ func initProject(cmd *cobra.Command) error {
 	}
 
 	// ── Case C: Provider dirs detected (offer import) ─────────────────────────
-	if len(infos) > 0 {
+	if len(detected) > 0 {
 		fmt.Println()
 		if hasExistingScaffold {
 			fmt.Println("  project.xcf already exists, but existing compiled configurations were detected.")
@@ -113,7 +113,7 @@ func initProject(cmd *cobra.Command) error {
 			renderCurrentStateTable(cmd, currentConfig)
 			fmt.Println()
 		}
-		renderCompiledOutputTable(cmd, infos)
+		renderCompiledOutputTable(cmd, detected)
 
 		var doImport bool
 		if hasExistingScaffold {
@@ -133,11 +133,11 @@ func initProject(cmd *cobra.Command) error {
 				doImport = true
 			} else {
 				fmtStr := "Import %s into project.xcf?"
-				if len(infos) > 1 {
+				if len(detected) > 1 {
 					fmt.Println("  xcaffold consolidates multiple configs into one project.xcf.")
 					fmtStr = "Import these directories into project.xcf?"
 				} else {
-					fmtStr = fmt.Sprintf(fmtStr, infos[0].dirName)
+					fmtStr = fmt.Sprintf(fmtStr, detected[0].InputDir())
 				}
 
 				var err error
@@ -165,17 +165,17 @@ func initProject(cmd *cobra.Command) error {
 			fmt.Println()
 
 			var importErr error
-			if len(infos) == 1 {
-				importErr = importScope(infos[0].dirName, xcfFile, "project", infos[0].platform)
+			if len(detected) == 1 {
+				importErr = importScope(detected[0].InputDir(), xcfFile, "project", detected[0].Provider())
 			} else {
 				if yesFlag {
-					importErr = mergeImportDirs(infos, xcfFile)
+					importErr = mergeImportDirs(detected, xcfFile)
 				} else {
 					var options []prompt.SelectOption
-					for _, info := range infos {
+					for _, imp := range detected {
 						options = append(options, prompt.SelectOption{
-							Label:    info.dirName,
-							Value:    info.dirName,
+							Label:    imp.InputDir(),
+							Value:    imp.InputDir(),
 							Selected: true,
 						})
 					}
@@ -193,18 +193,27 @@ func initProject(cmd *cobra.Command) error {
 					} else {
 						if len(selected) == 1 {
 							fmt.Println()
-							importErr = importScope(selected[0], xcfFile, "project", selectedPlatform(infos, selected[0]))
+							// Find the importer for the selected directory
+							var selectedProvider string
+							for _, imp := range detected {
+								if imp.InputDir() == selected[0] {
+									selectedProvider = imp.Provider()
+									break
+								}
+							}
+							importErr = importScope(selected[0], xcfFile, "project", selectedProvider)
 						} else {
 							fmt.Println()
-							var selectedInfos []platformDirInfo
+							var selectedImps []importer.ProviderImporter
 							for _, s := range selected {
-								selectedInfos = append(selectedInfos, platformDirInfo{
-									dirName:  s,
-									platform: selectedPlatform(infos, s),
-									exists:   true,
-								})
+								for _, imp := range detected {
+									if imp.InputDir() == s {
+										selectedImps = append(selectedImps, imp)
+										break
+									}
+								}
 							}
-							importErr = mergeImportDirs(selectedInfos, xcfFile)
+							importErr = mergeImportDirs(selectedImps, xcfFile)
 						}
 					}
 				}
@@ -214,11 +223,12 @@ func initProject(cmd *cobra.Command) error {
 				if importErr != nil {
 					return importErr
 				}
-
-				_ = writeReferenceTemplates(".")
-
-				if injectErr := injectXaffToolkitAfterImport("."); injectErr != nil {
-					fmt.Printf("  %s Failed to inject xcaffold toolkit: %v\n", glyphErr(), injectErr)
+				importedConfig, parseErr := parser.ParseFile(xcfFile)
+				if parseErr != nil {
+					return fmt.Errorf("parsing imported scaffold: %w", parseErr)
+				}
+				if err := runPostImportSteps(importedConfig, ".", true); err != nil {
+					fmt.Printf("  %s Failed to inject xcaffold toolkit: %v\n", glyphErr(), err)
 				} else {
 					fmt.Println()
 					fmt.Printf("  %s xcf/agents/xaff/\n", colorGreen(glyphOK()))
@@ -239,47 +249,6 @@ func initProject(cmd *cobra.Command) error {
 		return nil
 	}
 	return runWizard(cmd, xcfFile)
-}
-
-// platformDirInfo holds summary counts of resources found in a platform dir.
-type platformDirInfo struct {
-	platform  string
-	dirName   string
-	agents    int
-	skills    int
-	rules     int
-	workflows int
-	exists    bool
-}
-
-func (c platformDirInfo) summary() string {
-	parts := []string{}
-	if c.agents > 0 {
-		parts = append(parts, fmt.Sprintf("%d agent(s)", c.agents))
-	}
-	if c.skills > 0 {
-		parts = append(parts, fmt.Sprintf("%d skill(s)", c.skills))
-	}
-	if c.rules > 0 {
-		parts = append(parts, fmt.Sprintf("%d rule(s)", c.rules))
-	}
-	if c.workflows > 0 {
-		parts = append(parts, fmt.Sprintf("%d workflow(s)", c.workflows))
-	}
-	if len(parts) == 0 {
-		return "no recognized resources"
-	}
-	return strings.Join(parts, ", ")
-}
-
-// selectedPlatform returns the platform name for the given dirName from infos.
-func selectedPlatform(infos []platformDirInfo, dirName string) string {
-	for _, info := range infos {
-		if info.dirName == dirName {
-			return info.platform
-		}
-	}
-	return "claude"
 }
 
 // copyToolkitFiles copies files from the embedded toolkit FS to disk.
