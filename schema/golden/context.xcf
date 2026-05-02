@@ -4,7 +4,10 @@ version: "1.0"
 name: golden-context
 description: "Reference context exercising every ContextConfig field."
 
-# Group 1: Targeting — omit to compile for all providers
+# Group: Behavior
+default: false
+
+# Group: Targeting — omit to compile for all providers
 targets: [claude, gemini, antigravity, cursor, copilot]
 ---
 # Golden Context
