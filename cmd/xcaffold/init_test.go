@@ -73,9 +73,9 @@ func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
 
 	require.NoError(t, writeReferenceTemplates(tmp))
 
-	refPath := filepath.Join(tmp, ".xcaffold", "schemas", "agent.xcf.reference")
+	refPath := filepath.Join(tmp, ".xcaffold", "schemas", "agent-reference.md")
 	_, err := os.Stat(refPath)
-	require.NoError(t, err, "agent.xcf.reference must exist at %s", refPath)
+	require.NoError(t, err, "agent-reference.md must exist at %s", refPath)
 
 	data, err := os.ReadFile(refPath)
 	require.NoError(t, err)
@@ -87,14 +87,14 @@ func TestWriteReferenceTemplates_All8Files(t *testing.T) {
 	require.NoError(t, writeReferenceTemplates(tmp))
 
 	expected := []string{
-		"agent.xcf.reference",
-		"skill.xcf.reference",
-		"rule.xcf.reference",
-		"workflow.xcf.reference",
-		"mcp.xcf.reference",
-		"hooks.xcf.reference",
-		"memory.xcf.reference",
-		"cli-cheatsheet.reference",
+		"agent-reference.md",
+		"skill-reference.md",
+		"rule-reference.md",
+		"workflow-reference.md",
+		"mcp-reference.md",
+		"hooks-reference.md",
+		"memory-reference.md",
+		"cli-cheatsheet.md",
 	}
 
 	for _, name := range expected {
@@ -108,13 +108,13 @@ func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
 
 	require.NoError(t, writeReferenceTemplates(tmp))
 
-	for _, name := range []string{"agent.xcf.reference", "skill.xcf.reference"} {
+	for _, name := range []string{"agent-reference.md", "skill-reference.md"} {
 		path := filepath.Join(tmp, ".xcaffold", "schemas", name)
 		_, err := os.Stat(path)
 		require.NoError(t, err, "expected %s to exist at .xcaffold/schemas/", name)
 	}
 
-	skillData, err := os.ReadFile(filepath.Join(tmp, ".xcaffold", "schemas", "skill.xcf.reference"))
+	skillData, err := os.ReadFile(filepath.Join(tmp, ".xcaffold", "schemas", "skill-reference.md"))
 	require.NoError(t, err)
 	skillBody := string(skillData)
 	require.Contains(t, skillBody, "allowed-tools:")
@@ -126,14 +126,14 @@ func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
 func TestInit_ReferencesFieldInSkillXCF(t *testing.T) {
 	out := templates.RenderXcaffoldSkillXCF([]string{"claude"})
 	require.Contains(t, out, "references:", "skill XCF must contain a references: field")
-	require.Contains(t, out, ".xcaffold/schemas/agent.xcf.reference")
-	require.Contains(t, out, ".xcaffold/schemas/skill.xcf.reference")
-	require.Contains(t, out, ".xcaffold/schemas/rule.xcf.reference")
-	require.Contains(t, out, ".xcaffold/schemas/workflow.xcf.reference")
-	require.Contains(t, out, ".xcaffold/schemas/mcp.xcf.reference")
-	require.Contains(t, out, ".xcaffold/schemas/hooks.xcf.reference")
-	require.Contains(t, out, ".xcaffold/schemas/memory.xcf.reference")
-	require.Contains(t, out, ".xcaffold/schemas/cli-cheatsheet.reference")
+	require.Contains(t, out, ".xcaffold/schemas/agent-reference.md")
+	require.Contains(t, out, ".xcaffold/schemas/skill-reference.md")
+	require.Contains(t, out, ".xcaffold/schemas/rule-reference.md")
+	require.Contains(t, out, ".xcaffold/schemas/workflow-reference.md")
+	require.Contains(t, out, ".xcaffold/schemas/mcp-reference.md")
+	require.Contains(t, out, ".xcaffold/schemas/hooks-reference.md")
+	require.Contains(t, out, ".xcaffold/schemas/memory-reference.md")
+	require.Contains(t, out, ".xcaffold/schemas/cli-cheatsheet.md")
 }
 
 // TestInit_SkillXCF_PathsUpdated verifies the skill frontmatter references are in the correct sections.
@@ -152,10 +152,10 @@ func TestWriteReferenceTemplates_WritesToDotXcaffoldSchemas(t *testing.T) {
 	err := writeReferenceTemplates(tmpDir)
 	require.NoError(t, err)
 
-	agentRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "agent.xcf.reference")
+	agentRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "agent-reference.md")
 	assert.FileExists(t, agentRef)
 
-	skillRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "skill.xcf.reference")
+	skillRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "skill-reference.md")
 	assert.FileExists(t, skillRef)
 
 	// Must NOT write to old location

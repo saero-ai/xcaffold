@@ -38,7 +38,8 @@ Ready to get started? Run:
 	Example: `  $ xcaffold init
   $ xcaffold init --yes
   $ xcaffold init --target claude`,
-	RunE: runInit,
+	RunE:         runInit,
+	SilenceUsage: true,
 }
 
 func init() {
@@ -337,9 +338,9 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		)
 		files = append(files, "xcf/settings.xcf")
 		for _, ref := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "memory"} {
-			files = append(files, fmt.Sprintf(".xcaffold/schemas/%s.xcf.reference", ref))
+			files = append(files, fmt.Sprintf(".xcaffold/schemas/%s-reference.md", ref))
 		}
-		files = append(files, ".xcaffold/schemas/cli-cheatsheet.reference")
+		files = append(files, ".xcaffold/schemas/cli-cheatsheet.md")
 
 		b, err := json.MarshalIndent(Manifest{Project: ans.name, Targets: ans.targets, Files: files}, "", "  ")
 		if err == nil {
@@ -359,7 +360,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		colorGreen(glyphOK()), dim("8 references"))
 	fmt.Println()
 	fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
-	fmt.Printf("  Xaff is your xcaffold authoring agent.\n")
+	fmt.Printf("  Includes Xaff agent, xcaffold skill, and xcf-conventions rule.\n")
 
 	return nil
 }
@@ -515,7 +516,7 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 	return nil
 }
 
-// writeReferenceTemplates writes all 8 .xcaffold/schemas/*.reference files.
+// writeReferenceTemplates writes all 8 .xcaffold/schemas/ reference files.
 func writeReferenceTemplates(baseDir string) error {
 	refDir := filepath.Join(baseDir, ".xcaffold", "schemas")
 	if err := os.MkdirAll(refDir, 0o755); err != nil {
@@ -523,14 +524,14 @@ func writeReferenceTemplates(baseDir string) error {
 	}
 
 	refs := map[string]func() string{
-		"agent.xcf.reference":      templates.RenderAgentReference,
-		"skill.xcf.reference":      templates.RenderSkillReference,
-		"rule.xcf.reference":       templates.RenderRuleReference,
-		"workflow.xcf.reference":   templates.RenderWorkflowReference,
-		"mcp.xcf.reference":        templates.RenderMCPReference,
-		"hooks.xcf.reference":      templates.RenderHooksReference,
-		"memory.xcf.reference":     templates.RenderMemoryReference,
-		"cli-cheatsheet.reference": templates.RenderCLICheatsheet,
+		"agent-reference.md":    templates.RenderAgentReference,
+		"skill-reference.md":    templates.RenderSkillReference,
+		"rule-reference.md":     templates.RenderRuleReference,
+		"workflow-reference.md": templates.RenderWorkflowReference,
+		"mcp-reference.md":      templates.RenderMCPReference,
+		"hooks-reference.md":    templates.RenderHooksReference,
+		"memory-reference.md":   templates.RenderMemoryReference,
+		"cli-cheatsheet.md":     templates.RenderCLICheatsheet,
 	}
 
 	for filename, renderFn := range refs {
