@@ -53,3 +53,18 @@ func DefaultImporters() []ProviderImporter {
 	copy(out, registry)
 	return out
 }
+
+// ScanDir walks a provider directory and counts resources by Kind using the
+// provider's Classify method. It reuses WalkProviderDir for consistent file
+// discovery across all providers. The returned map only contains non-zero counts.
+func ScanDir(imp ProviderImporter, dir string) map[Kind]int {
+	counts := make(map[Kind]int)
+	_ = WalkProviderDir(dir, func(rel string, data []byte) error {
+		kind, _ := imp.Classify(rel, false)
+		if kind != KindUnknown && kind != "" {
+			counts[kind]++
+		}
+		return nil
+	})
+	return counts
+}
