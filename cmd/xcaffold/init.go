@@ -331,12 +331,11 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 			files = append(files, fmt.Sprintf("xcf/agents/xaff/agent.%s.xcf", t))
 		}
 		files = append(files,
-			"xcf/skills/xcaffold/xcaffold.xcf",
+			"xcf/skills/xcaffold/skill.xcf",
 			"xcf/skills/xcaffold/references/operating-guide.md",
 			"xcf/skills/xcaffold/references/authoring-guide.md",
-			"xcf/rules/xcf-conventions/xcf-conventions.xcf",
+			"xcf/rules/xcf-conventions/rule.xcf",
 		)
-		files = append(files, "xcf/settings.xcf")
 		for _, ref := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "memory"} {
 			files = append(files, fmt.Sprintf(".xcaffold/schemas/%s-reference.md", ref))
 		}
@@ -355,7 +354,6 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		colorGreen(glyphOK()), dim(fmt.Sprintf("base + %d %s", len(ans.targets), plural(len(ans.targets), "override", "overrides"))))
 	fmt.Printf("  %s xcf/skills/xcaffold/\n", colorGreen(glyphOK()))
 	fmt.Printf("  %s xcf/rules/xcf-conventions/\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcf/settings.xcf\n", colorGreen(glyphOK()))
 	fmt.Printf("  %s .xcaffold/schemas/                    %s\n",
 		colorGreen(glyphOK()), dim("8 references"))
 	fmt.Println()
@@ -445,51 +443,56 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 
 // writeXCFDirectory generates the xcaffold authoring toolkit scaffold structure.
 func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
-	dirs := []string{
-		filepath.Join(baseDir, "xcf", "agents", "xaff"),
-		filepath.Join(baseDir, "xcf", "skills", "xcaffold"),
-		filepath.Join(baseDir, "xcf", "rules", "xcf-conventions"),
+	// Copy embedded toolkit files to xcf/
+	toolkitFiles := []struct {
+		embedPath string
+		diskPath  string
+	}{
+		{"toolkit/agents/xaff/agent.xcf", "xcf/agents/xaff/agent.xcf"},
+		{"toolkit/skills/xcaffold/skill.xcf", "xcf/skills/xcaffold/skill.xcf"},
+		{"toolkit/rules/xcf-conventions/rule.xcf", "xcf/rules/xcf-conventions/rule.xcf"},
 	}
-	for _, d := range dirs {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", d, err)
+
+	for _, f := range toolkitFiles {
+		data, err := templates.ToolkitFS.ReadFile(f.embedPath)
+		if err != nil {
+			return fmt.Errorf("reading embedded %s: %w", f.embedPath, err)
+		}
+		outPath := filepath.Join(baseDir, f.diskPath)
+		if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+			return fmt.Errorf("creating directory for %s: %w", f.diskPath, err)
+		}
+		if err := os.WriteFile(outPath, data, 0o644); err != nil {
+			return fmt.Errorf("writing %s: %w", f.diskPath, err)
 		}
 	}
 
-	model, _ := resolveTargetMeta(ans.targets[0])
-
-	// .xcaffold/project.xcf
-	projectContent := templates.RenderProjectXCF(ans.name, ans.targets)
-	outDir := filepath.Join(baseDir, ".xcaffold")
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create .xcaffold/: %w", err)
-	}
-	if err := os.WriteFile(filepath.Join(outDir, "project.xcf"), []byte(projectContent), 0o600); err != nil {
-		return err
-	}
-
-	// xcf/agents/xaff/agent.xcf (base)
-	agentBase := templates.RenderXaffAgentXCF(model, ans.targets)
-	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "agents", "xaff", "agent.xcf"), []byte(agentBase), 0o600); err != nil {
-		return err
-	}
-
-	// xcf/agents/xaff/agent.<provider>.xcf (one per target)
+	// Write provider override files for the xaff agent
 	for _, target := range ans.targets {
 		override := templates.RenderXaffOverrideXCF(target)
 		filename := fmt.Sprintf("agent.%s.xcf", target)
-		if err := os.WriteFile(filepath.Join(baseDir, "xcf", "agents", "xaff", filename), []byte(override), 0o600); err != nil {
-			return err
+		outPath := filepath.Join(baseDir, "xcf", "agents", "xaff", filename)
+		if err := os.WriteFile(outPath, []byte(override), 0o644); err != nil {
+			return fmt.Errorf("writing %s: %w", filename, err)
 		}
 	}
 
-	// xcf/skills/xcaffold/skill.xcf
-	skillContent := templates.RenderXcaffoldSkillXCF(ans.targets)
-	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "skills", "xcaffold", "skill.xcf"), []byte(skillContent), 0o600); err != nil {
-		return err
+	// Write .xcaffold/project.xcf
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{
+			Name:      ans.name,
+			Targets:   ans.targets,
+			AgentRefs: []ast.AgentManifestEntry{{ID: "xaff"}},
+			SkillRefs: []string{"xcaffold"},
+			RuleRefs:  []string{"xcf-conventions"},
+		},
+	}
+	if err := WriteProjectFile(config, baseDir); err != nil {
+		return fmt.Errorf("writing project.xcf: %w", err)
 	}
 
-	// xcf/skills/xcaffold/references/ (operating guide and authoring guide)
+	// Write skill reference files (operating guide and authoring guide)
 	refsDir := filepath.Join(baseDir, "xcf", "skills", "xcaffold", "references")
 	if err := os.MkdirAll(refsDir, 0o755); err != nil {
 		return err
@@ -498,18 +501,6 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(refsDir, "authoring-guide.md"), []byte(templates.RenderAuthoringGuide()), 0o600); err != nil {
-		return err
-	}
-
-	// xcf/rules/xcf-conventions/rule.xcf
-	ruleContent := templates.RenderXcfConventionsRuleXCF(ans.targets)
-	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "rules", "xcf-conventions", "rule.xcf"), []byte(ruleContent), 0o600); err != nil {
-		return err
-	}
-
-	// xcf/settings.xcf
-	settingsContent := templates.RenderSettingsXCF(ans.targets)
-	if err := os.WriteFile(filepath.Join(baseDir, "xcf", "settings.xcf"), []byte(settingsContent), 0o600); err != nil {
 		return err
 	}
 
@@ -578,37 +569,42 @@ func injectXaffToolkitAfterImport(baseDir string) error {
 		config.Project = &ast.ProjectConfig{Name: filepath.Base(baseDir), Targets: targets}
 	}
 
-	model, _ := resolveTargetMeta(targets[0])
+	// Copy embedded toolkit files to xcf/
+	toolkitFiles := []struct {
+		embedPath string
+		diskPath  string
+	}{
+		{"toolkit/agents/xaff/agent.xcf", "xcf/agents/xaff/agent.xcf"},
+		{"toolkit/skills/xcaffold/skill.xcf", "xcf/skills/xcaffold/skill.xcf"},
+		{"toolkit/rules/xcf-conventions/rule.xcf", "xcf/rules/xcf-conventions/rule.xcf"},
+	}
 
-	// Write Xaff agent (base + overrides)
-	xaffDir := filepath.Join(baseDir, "xcf", "agents", "xaff")
-	if err := os.MkdirAll(xaffDir, 0o755); err != nil {
-		return err
-	}
-	agentBase := templates.RenderXaffAgentXCF(model, targets)
-	if err := os.WriteFile(filepath.Join(xaffDir, "agent.xcf"), []byte(agentBase), 0o600); err != nil {
-		return err
-	}
-	for _, target := range targets {
-		override := templates.RenderXaffOverrideXCF(target)
-		filename := fmt.Sprintf("agent.%s.xcf", target)
-		if err := os.WriteFile(filepath.Join(xaffDir, filename), []byte(override), 0o600); err != nil {
-			return err
+	for _, f := range toolkitFiles {
+		data, err := templates.ToolkitFS.ReadFile(f.embedPath)
+		if err != nil {
+			return fmt.Errorf("reading embedded %s: %w", f.embedPath, err)
+		}
+		outPath := filepath.Join(baseDir, f.diskPath)
+		if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+			return fmt.Errorf("creating directory for %s: %w", f.diskPath, err)
+		}
+		if err := os.WriteFile(outPath, data, 0o644); err != nil {
+			return fmt.Errorf("writing %s: %w", f.diskPath, err)
 		}
 	}
 
-	// Write xcaffold skill (directory-per-resource)
-	skillDir := filepath.Join(baseDir, "xcf", "skills", "xcaffold")
-	if err := os.MkdirAll(skillDir, 0o755); err != nil {
-		return err
-	}
-	skillContent := templates.RenderXcaffoldSkillXCF(targets)
-	if err := os.WriteFile(filepath.Join(skillDir, "skill.xcf"), []byte(skillContent), 0o600); err != nil {
-		return err
+	// Write provider override files for the xaff agent
+	for _, target := range targets {
+		override := templates.RenderXaffOverrideXCF(target)
+		filename := fmt.Sprintf("agent.%s.xcf", target)
+		outPath := filepath.Join(baseDir, "xcf", "agents", "xaff", filename)
+		if err := os.WriteFile(outPath, []byte(override), 0o644); err != nil {
+			return fmt.Errorf("writing %s: %w", filename, err)
+		}
 	}
 
 	// Write skill reference files (operating guide and authoring guide)
-	refsDir := filepath.Join(skillDir, "references")
+	refsDir := filepath.Join(baseDir, "xcf", "skills", "xcaffold", "references")
 	if err := os.MkdirAll(refsDir, 0o755); err != nil {
 		return err
 	}
@@ -616,16 +612,6 @@ func injectXaffToolkitAfterImport(baseDir string) error {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(refsDir, "authoring-guide.md"), []byte(templates.RenderAuthoringGuide()), 0o600); err != nil {
-		return err
-	}
-
-	// Write xcf-conventions rule (directory-per-resource)
-	ruleDir := filepath.Join(baseDir, "xcf", "rules", "xcf-conventions")
-	if err := os.MkdirAll(ruleDir, 0o755); err != nil {
-		return err
-	}
-	ruleContent := templates.RenderXcfConventionsRuleXCF(targets)
-	if err := os.WriteFile(filepath.Join(ruleDir, "rule.xcf"), []byte(ruleContent), 0o600); err != nil {
 		return err
 	}
 
