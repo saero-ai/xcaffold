@@ -168,10 +168,10 @@ func NewFlexStringSlice(s string) FlexStringSlice {
 //
 // Field ordering is canonical and mirrors the compiled markdown frontmatter:
 //  1. Identity (name, description)
-//  2. Model & Execution (model, effort, maxTurns, mode)
+//  2. Model & Execution (model, effort, maxTurns)
 //  3. Tool Access (tools, disallowedTools, readonly)
 //  4. Permissions & Invocation (permissionMode, disableModelInvocation, userInvocable)
-//  5. Lifecycle (background, isolation, when)
+//  5. Lifecycle (background, isolation)
 //  6. Memory & Context (memory, color, initialPrompt)
 //  7. Composition references (skills, rules, mcp, assertions)
 //  8. Inline composition (mcpServers, hooks)
@@ -208,11 +208,6 @@ type AgentConfig struct {
 	// +xcf:group=Model & Execution
 	// +xcf:provider=claude:optional,gemini:optional
 	MaxTurns int `yaml:"max-turns,omitempty"`
-
-	// Operational mode for the agent session.
-	// +xcf:optional
-	// +xcf:group=Model & Execution
-	Mode string `yaml:"mode,omitempty"`
 
 	// Ordered list of tools this agent may invoke.
 	// +xcf:optional
@@ -263,11 +258,6 @@ type AgentConfig struct {
 	// +xcf:group=Lifecycle
 	// +xcf:provider=claude:optional
 	Isolation string `yaml:"isolation,omitempty"`
-
-	// Conditional expression evaluated before agent activation.
-	// +xcf:optional
-	// +xcf:group=Lifecycle
-	When string `yaml:"when,omitempty"`
 
 	// Named memory banks attached to this agent.
 	// +xcf:optional

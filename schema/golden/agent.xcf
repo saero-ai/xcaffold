@@ -8,7 +8,6 @@ description: "Reference agent exercising every AgentConfig field."
 model: claude-sonnet-4-5
 effort: high
 max-turns: 25
-mode: auto
 
 # Group 3: Tool Access
 tools: [Read, Write, Edit, Bash, Glob, Grep]
@@ -23,7 +22,6 @@ user-invocable: true
 # Group 5: Lifecycle
 background: false
 isolation: none
-when: always
 
 # Group 6: Memory & Context
 memory: agent

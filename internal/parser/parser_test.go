@@ -1123,6 +1123,38 @@ Legacy skill.
 	}
 }
 
+func TestParse_Agent_RejectsWhenField(t *testing.T) {
+	input := `---
+kind: agent
+version: "1.0"
+name: test
+description: "Test agent"
+when: "some condition"
+---
+Test.
+`
+	_, err := Parse(strings.NewReader(input))
+	if err == nil {
+		t.Error("expected error for removed 'when' field")
+	}
+}
+
+func TestParse_Agent_RejectsModeField(t *testing.T) {
+	input := `---
+kind: agent
+version: "1.0"
+name: test
+description: "Test agent"
+mode: "interactive"
+---
+Test.
+`
+	_, err := Parse(strings.NewReader(input))
+	if err == nil {
+		t.Error("expected error for removed 'mode' field")
+	}
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }

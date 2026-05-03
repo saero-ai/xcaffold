@@ -420,8 +420,6 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			{"memory", len(agent.Memory) > 0},
 			{"skills", len(agent.Skills) > 0},
 			{"hooks", len(agent.Hooks) > 0},
-			{"mode", agent.Mode != ""},
-			{"when", agent.When != ""},
 		}
 		for _, f := range unsupported {
 			if f.present {
