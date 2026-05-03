@@ -1134,6 +1134,33 @@ func TestGenSchema_ValidateFieldsYAML_SkipsNonOverlappingKinds(t *testing.T) {
 	}
 }
 
+func TestGenSchema_CompletenessGate_MissingKind(t *testing.T) {
+	canonicalFields := map[string][]FieldInfo{
+		"agent": {{Name: "Name", YAMLKey: "name"}},
+		"skill": {{Name: "Name", YAMLKey: "name"}},
+		"rule":  {{Name: "Name", YAMLKey: "name"}},
+	}
+
+	yamlData := map[string]FieldsYAML{
+		"claude": {
+			Provider: "claude",
+			Kinds: map[string]map[string]FieldDecl{
+				"agent": {"name": {Support: "xcaffold-only"}},
+				"skill": {"name": {Support: "xcaffold-only"}},
+				// rule missing entirely
+			},
+		},
+	}
+
+	err := validateFieldsYAML(yamlData, canonicalFields)
+	if err == nil {
+		t.Fatal("expected error for missing kind, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing kind rule entirely") {
+		t.Errorf("expected error about missing kind rule, got: %v", err)
+	}
+}
+
 // TestGenSchema_GeneratesPresenceExtractors verifies that generatePresenceExtractors
 // produces valid Go code containing the 3 expected exported functions.
 func TestGenSchema_GeneratesPresenceExtractors(t *testing.T) {

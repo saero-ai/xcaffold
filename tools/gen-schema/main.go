@@ -116,45 +116,38 @@ func readFieldsYAML(rootDir string) (map[string]FieldsYAML, error) {
 
 // validateFieldsYAML checks completeness: every canonical field must appear
 // in each provider's YAML (missing = error), and no unknown fields may appear
-// (unknown = error). Only validates kinds present in BOTH yamlData and
-// canonicalFields.
+// (unknown = error). Also verifies that every provider declares all required
+// kinds (agent, skill, rule).
 func validateFieldsYAML(
 	yamlData map[string]FieldsYAML,
 	canonicalFields map[string][]FieldInfo,
 ) error {
 	var errs []string
 
+	requiredKinds := []string{"agent", "rule", "skill"}
+
 	providers := sortedMapKeys(yamlData)
 	for _, provName := range providers {
 		fy := yamlData[provName]
+
+		for _, kind := range requiredKinds {
+			if _, ok := fy.Kinds[kind]; !ok {
+				if _, canonical := canonicalFields[kind]; canonical {
+					errs = append(errs, fmt.Sprintf(
+						"provider %s missing kind %s entirely",
+						provName, kind))
+				}
+			}
+		}
+
 		kinds := sortedMapKeys(fy.Kinds)
 		for _, kind := range kinds {
 			canonical, ok := canonicalFields[kind]
 			if !ok {
-				continue // kind not in AST; skip
+				continue
 			}
-
-			yamlFields := fy.Kinds[kind]
-			canonicalKeys := buildYAMLKeySet(canonical)
-
-			// Check for missing: canonical field not in YAML
-			for _, key := range sortedCanonicalKeys(canonical) {
-				if _, found := yamlFields[key]; !found {
-					errs = append(errs, fmt.Sprintf(
-						"provider %s kind %s missing field %s",
-						provName, kind, key))
-				}
-			}
-
-			// Check for unknown: YAML field not in canonical
-			yamlKeys := sortedMapKeys(yamlFields)
-			for _, key := range yamlKeys {
-				if !canonicalKeys[key] {
-					errs = append(errs, fmt.Sprintf(
-						"provider %s kind %s unknown field %s",
-						provName, kind, key))
-				}
-			}
+			errs = append(errs,
+				validateKindFields(provName, kind, canonical, fy.Kinds[kind])...)
 		}
 	}
 
@@ -163,6 +156,26 @@ func validateFieldsYAML(
 			strings.Join(errs, "\n  "))
 	}
 	return nil
+}
+
+// validateKindFields checks field-level completeness for one provider+kind.
+func validateKindFields(provName, kind string, canonical []FieldInfo, yamlFields map[string]FieldDecl) []string {
+	var errs []string
+	canonicalKeys := buildYAMLKeySet(canonical)
+
+	for _, key := range sortedCanonicalKeys(canonical) {
+		if _, found := yamlFields[key]; !found {
+			errs = append(errs, fmt.Sprintf(
+				"provider %s kind %s missing field %s", provName, kind, key))
+		}
+	}
+	for _, key := range sortedMapKeys(yamlFields) {
+		if !canonicalKeys[key] {
+			errs = append(errs, fmt.Sprintf(
+				"provider %s kind %s unknown field %s", provName, kind, key))
+		}
+	}
+	return errs
 }
 
 // mergeProviderData merges YAML provider data into the fields map.
@@ -256,6 +269,9 @@ func main() {
 	yamlData, err := readFieldsYAML(".")
 	if err != nil {
 		log.Fatalf("failed to read fields.yaml: %v", err)
+	}
+	if len(yamlData) == 0 {
+		log.Fatalf("no fields.yaml files found under internal/renderer/*/fields.yaml")
 	}
 	if err := validateFieldsYAML(yamlData, fields); err != nil {
 		log.Fatalf("fields.yaml validation failed:\n%v", err)
