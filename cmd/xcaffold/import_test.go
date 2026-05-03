@@ -1734,3 +1734,154 @@ func TestImport_AssembleSettings_DifferentMultiProvider(t *testing.T) {
 	_, hasGeminiOverride := result.Overrides.GetSettings("default", "gemini")
 	assert.False(t, hasGeminiOverride, "gemini should be base (lower score)")
 }
+
+func TestImport_AssembleMultiProvider_HooksOverrideSplit(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+			Hooks: map[string]ast.NamedHookConfig{
+				"pre-commit": {
+					Name:      "pre-commit",
+					Artifacts: []string{"lint.sh", "format.sh"},
+					Events:    ast.HookConfig{"pre-push": []ast.HookMatcherGroup{}},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+			Hooks: map[string]ast.NamedHookConfig{
+				"pre-commit": {
+					Name:      "pre-commit",
+					Artifacts: []string{"lint.sh"},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+	_, exists := result.Hooks["pre-commit"]
+	require.True(t, exists, "base hook must be stored after full assembly")
+	require.NotNil(t, result.Overrides, "overrides must be populated for different hooks")
+}
+
+func TestImport_AssembleMultiProvider_SettingsOverrideSplit(t *testing.T) {
+	boolTrue := true
+	boolFalse := false
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+			Settings: map[string]ast.SettingsConfig{
+				"default": {
+					Name:              "default",
+					AutoMemoryEnabled: &boolTrue,
+					DisableAllHooks:   &boolFalse,
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+			Settings: map[string]ast.SettingsConfig{
+				"default": {
+					Name:              "default",
+					AutoMemoryEnabled: &boolFalse,
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+	_, exists := result.Settings["default"]
+	require.True(t, exists, "base settings must be stored after full assembly")
+	require.NotNil(t, result.Overrides, "overrides must be populated for different settings")
+}
+
+func TestImport_AssembleMultiProvider_UnionBlockRetainsMCPAndMemory(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP: map[string]ast.MCPConfig{
+					"playwright": {Command: "npx", Args: []string{"@playwright/mcp"}},
+				},
+				Memory: map[string]ast.MemoryConfig{
+					"session": {Name: "session"},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP: map[string]ast.MCPConfig{
+					"search": {Command: "search-server"},
+				},
+				Memory: map[string]ast.MemoryConfig{
+					"context": {Name: "context"},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+	_, playwrightExists := result.MCP["playwright"]
+	assert.True(t, playwrightExists, "playwright MCP must exist")
+	_, searchExists := result.MCP["search"]
+	assert.True(t, searchExists, "search MCP must exist")
+	_, sessionExists := result.Memory["session"]
+	assert.True(t, sessionExists, "session memory must exist")
+	_, contextExists := result.Memory["context"]
+	assert.True(t, contextExists, "context memory must exist")
+}

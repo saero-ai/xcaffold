@@ -12,8 +12,9 @@ func assembleMultiProviderResources(providerConfigs map[string]*ast.XcaffoldConf
 	assembleSkills(providerConfigs, result)
 	assembleRules(providerConfigs, result)
 	assembleWorkflows(providerConfigs, result)
+	assembleHooks(providerConfigs, result)
+	assembleSettings(providerConfigs, result)
 
-	// MCP, memory, hooks, settings: union (first-seen wins)
 	for provider, cfg := range providerConfigs {
 		for id, mc := range cfg.MCP {
 			if _, exists := result.MCP[id]; !exists {
@@ -29,22 +30,6 @@ func assembleMultiProviderResources(providerConfigs map[string]*ast.XcaffoldConf
 				if _, exists := result.Memory[k]; !exists {
 					result.Memory[k] = mc
 				}
-			}
-		}
-		for hookName, namedHook := range cfg.Hooks {
-			if result.Hooks == nil {
-				result.Hooks = make(map[string]ast.NamedHookConfig)
-			}
-			if _, exists := result.Hooks[hookName]; !exists {
-				result.Hooks[hookName] = namedHook
-			}
-		}
-		for name, sc := range cfg.Settings {
-			if result.Settings == nil {
-				result.Settings = make(map[string]ast.SettingsConfig)
-			}
-			if _, exists := result.Settings[name]; !exists {
-				result.Settings[name] = sc
 			}
 		}
 	}
