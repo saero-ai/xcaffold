@@ -569,6 +569,7 @@ type NamedHookConfig struct {
 	// Lifecycle event handlers keyed by event name.
 	// +xcf:optional
 	// +xcf:group=Events
+	// +xcf:provider=claude:optional
 	Events HookConfig `yaml:"events,omitempty"`
 }
 
@@ -578,23 +579,27 @@ type MCPConfig struct {
 	// +xcf:optional
 	// +xcf:group=Environment & Headers
 	// +xcf:type=map
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	Env map[string]string `yaml:"env,omitempty" json:"env,omitempty"`
 
 	// HTTP headers for remote server connections.
 	// +xcf:optional
 	// +xcf:group=Environment & Headers
 	// +xcf:type=map
+	// +xcf:provider=claude:optional
 	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 
 	// When true, the server is registered but not started.
 	// +xcf:optional
 	// +xcf:group=Control
+	// +xcf:provider=claude:optional
 	Disabled *bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 
 	// OAuth configuration key-value pairs for authentication.
 	// +xcf:optional
 	// +xcf:group=Authentication
 	// +xcf:type=map
+	// +xcf:provider=claude:optional
 	OAuth map[string]string `yaml:"oauth,omitempty" json:"oauth,omitempty"`
 
 	// Unique identifier for this MCP server.
@@ -606,38 +611,45 @@ type MCPConfig struct {
 	// Server type (stdio or sse).
 	// +xcf:optional
 	// +xcf:group=Connection
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	Type string `yaml:"type,omitempty" json:"type,omitempty"`
 
 	// Shell command to start the MCP server process.
 	// +xcf:optional
 	// +xcf:group=Connection
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	Command string `yaml:"command,omitempty" json:"command,omitempty"`
 
 	// URL for remote MCP servers.
 	// +xcf:optional
 	// +xcf:group=Connection
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	URL string `yaml:"url,omitempty" json:"url,omitempty"`
 
 	// Working directory for the MCP server process.
 	// +xcf:optional
 	// +xcf:group=Connection
+	// +xcf:provider=claude:optional
 	Cwd string `yaml:"cwd,omitempty" json:"cwd,omitempty"`
 
 	// Authentication provider type for remote servers.
 	// +xcf:optional
 	// +xcf:group=Authentication
+	// +xcf:provider=claude:optional
 	AuthProviderType string `yaml:"auth-provider-type,omitempty" json:"authProviderType,omitempty"`
 
 	// Arguments passed to the server command.
 	// +xcf:optional
 	// +xcf:group=Connection
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	Args []string `yaml:"args,omitempty" json:"args,omitempty"`
 
 	// Tool names to disable on this MCP server.
 	// +xcf:optional
 	// +xcf:group=Control
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional
 	DisabledTools []string `yaml:"disabled-tools,omitempty" json:"disabledTools,omitempty"`
 
 	// Inherited is set by the parser when this resource originates from an
@@ -896,6 +908,7 @@ type WorkflowConfig struct {
 	// +xcf:group=Identity
 	// +xcf:enum=workflow/v1
 	// +xcf:default=workflow/v1
+	// +xcf:provider=antigravity:optional
 	ApiVersion string `yaml:"api-version,omitempty"`
 
 	// Unique identifier for this workflow within the project.
@@ -907,12 +920,14 @@ type WorkflowConfig struct {
 	// Human-readable purpose of this workflow.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=antigravity:optional
 	Description string `yaml:"description,omitempty"`
 
 	// Ordered procedural steps for multi-step workflows.
 	// +xcf:optional
 	// +xcf:group=Steps
 	// +xcf:type=[]WorkflowStep
+	// +xcf:provider=antigravity:optional
 	Steps []WorkflowStep `yaml:"steps,omitempty"`
 
 	// Per-provider overrides and lowering-strategy directives.
@@ -1048,11 +1063,13 @@ type ContextConfig struct {
 	// Human-readable purpose of this context block.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=cursor:optional
 	Description string `yaml:"description,omitempty"`
 
 	// Marks this context as tie-breaker when multiple match the same target.
 	// +xcf:optional
 	// +xcf:group=Behavior
+	// +xcf:provider=cursor:optional
 	Default bool `yaml:"default,omitempty"`
 
 	// Markdown content of the context block.

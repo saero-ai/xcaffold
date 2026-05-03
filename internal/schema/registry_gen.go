@@ -454,6 +454,9 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this context block.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Default",
@@ -463,6 +466,9 @@ func init() {
 				Optional:    true,
 				Description: "Marks this context as tie-breaker when multiple match the same target.",
 				Group:       "Behavior",
+				Provider: map[string]string{
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Targets",
@@ -498,6 +504,9 @@ func init() {
 				Optional:    true,
 				Description: "Lifecycle event handlers keyed by event name.",
 				Group:       "Events",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 		},
 	}
@@ -514,6 +523,11 @@ func init() {
 				Optional:    true,
 				Description: "Environment variables passed to the server process.",
 				Group:       "Environment & Headers",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "Headers",
@@ -523,6 +537,9 @@ func init() {
 				Optional:    true,
 				Description: "HTTP headers for remote server connections.",
 				Group:       "Environment & Headers",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Disabled",
@@ -532,6 +549,9 @@ func init() {
 				Optional:    true,
 				Description: "When true, the server is registered but not started.",
 				Group:       "Control",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "OAuth",
@@ -541,6 +561,9 @@ func init() {
 				Optional:    true,
 				Description: "OAuth configuration key-value pairs for authentication.",
 				Group:       "Authentication",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Name",
@@ -560,6 +583,11 @@ func init() {
 				Optional:    true,
 				Description: "Server type (stdio or sse).",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "Command",
@@ -569,6 +597,11 @@ func init() {
 				Optional:    true,
 				Description: "Shell command to start the MCP server process.",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "URL",
@@ -578,6 +611,11 @@ func init() {
 				Optional:    true,
 				Description: "URL for remote MCP servers.",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "Cwd",
@@ -587,6 +625,9 @@ func init() {
 				Optional:    true,
 				Description: "Working directory for the MCP server process.",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "AuthProviderType",
@@ -596,6 +637,9 @@ func init() {
 				Optional:    true,
 				Description: "Authentication provider type for remote servers.",
 				Group:       "Authentication",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Args",
@@ -605,6 +649,11 @@ func init() {
 				Optional:    true,
 				Description: "Arguments passed to the server command.",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "DisabledTools",
@@ -614,6 +663,9 @@ func init() {
 				Optional:    true,
 				Description: "Tool names to disable on this MCP server.",
 				Group:       "Control",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 		},
 	}
@@ -1253,7 +1305,10 @@ func init() {
 				Description: "Schema shape discriminator for workflow versioning.",
 				Group:       "Identity",
 				Enum:        []string{"workflow/v1"},
-				Default:     "workflow/v1",
+				Provider: map[string]string{
+					"antigravity": "optional",
+				},
+				Default: "workflow/v1",
 			},
 			{
 				Name:        "Name",
@@ -1273,6 +1328,9 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this workflow.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"antigravity": "optional",
+				},
 			},
 			{
 				Name:        "Steps",
@@ -1282,6 +1340,9 @@ func init() {
 				Optional:    true,
 				Description: "Ordered procedural steps for multi-step workflows.",
 				Group:       "Steps",
+				Provider: map[string]string{
+					"antigravity": "optional",
+				},
 			},
 			{
 				Name:        "Targets",
