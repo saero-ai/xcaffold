@@ -114,9 +114,10 @@ func TestCompile_Copilot_Agents_ProviderPassthrough(t *testing.T) {
 // TestCompile_Copilot_Agents_UnsupportedFields verifies that agent fields with
 // no Copilot equivalent — effort, permission-mode, disallowed-tools, isolation,
 // skills, memory, max-turns, background, color, initial-prompt, and readonly —
-// are silently dropped and produce fidelity notes.
-// Security fields (permission-mode, disallowed-tools, isolation) must produce a
-// AGENT_SECURITY_FIELDS_DROPPED note. All others produce FIELD_UNSUPPORTED.
+// are silently dropped and produce FIELD_UNSUPPORTED fidelity notes.
+// Security fields (permission-mode, disallowed-tools, isolation) are now checked
+// by the orchestrator's CheckFieldSupport and emit FIELD_UNSUPPORTED like all
+// other unsupported fields.
 func TestCompile_Copilot_Agents_UnsupportedFields(t *testing.T) {
 	r := copilot.New()
 	readonly := true
@@ -149,15 +150,22 @@ func TestCompile_Copilot_Agents_UnsupportedFields(t *testing.T) {
 	_, ok := out.Files[wantPath]
 	require.True(t, ok, "expected output file %s", wantPath)
 
-	// Security fields must produce AGENT_SECURITY_FIELDS_DROPPED.
-	securityNotes := filterNotes(notes, renderer.CodeAgentSecurityFieldsDropped)
-	require.NotEmpty(t, securityNotes,
-		"expected AGENT_SECURITY_FIELDS_DROPPED for permission-mode, disallowed-tools, isolation")
-
-	// Other unsupported fields must produce FIELD_UNSUPPORTED.
+	// All unsupported fields — including security fields — must produce
+	// FIELD_UNSUPPORTED now that checks are centralized in the orchestrator.
 	unsupportedNotes := filterNotes(notes, renderer.CodeFieldUnsupported)
 	require.NotEmpty(t, unsupportedNotes,
-		"expected FIELD_UNSUPPORTED for effort, skills, memory, max-turns, background, color, initial-prompt, readonly")
+		"expected FIELD_UNSUPPORTED for permission-mode, disallowed-tools, isolation, effort, skills, memory, max-turns, background, color, initial-prompt, readonly")
+
+	// Verify security fields specifically appear in the FIELD_UNSUPPORTED notes.
+	securityFields := map[string]bool{"permission-mode": false, "disallowed-tools": false, "isolation": false}
+	for _, n := range unsupportedNotes {
+		if _, ok := securityFields[n.Field]; ok {
+			securityFields[n.Field] = true
+		}
+	}
+	for field, found := range securityFields {
+		assert.True(t, found, "FIELD_UNSUPPORTED note must be emitted for security field %q", field)
+	}
 }
 
 // TestCompile_Copilot_Agents_InlineMCP verifies that inline mcp-servers declared

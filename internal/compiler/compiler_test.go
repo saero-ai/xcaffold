@@ -361,16 +361,19 @@ func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, notes, "cursor compile with permissionMode must produce fidelity notes")
 
+	// Security field checks are now centralized in the orchestrator via
+	// CheckFieldSupport, which emits FIELD_UNSUPPORTED (error-level) with
+	// the YAML key name "permission-mode".
 	var found bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeAgentSecurityFieldsDropped && n.Resource == "reviewer" {
+		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" && n.Resource == "reviewer" {
 			found = true
-			assert.Equal(t, renderer.LevelWarning, n.Level)
+			assert.Equal(t, renderer.LevelError, n.Level)
 			assert.Equal(t, "cursor", n.Target)
 			assert.Equal(t, "agent", n.Kind)
 		}
 	}
-	assert.True(t, found, "AGENT_SECURITY_FIELDS_DROPPED note must be in the returned slice")
+	assert.True(t, found, "FIELD_UNSUPPORTED note for permission-mode must be in the returned slice")
 }
 
 func TestCompile_Blueprint_FiltersResources(t *testing.T) {

@@ -92,43 +92,18 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 
 // CompileAgents returns no output files — Antigravity does not support agent
 // definitions. It emits a RENDERER_KIND_UNSUPPORTED fidelity note for each
-// agent, and additional per-field notes for any security fields (permissionMode,
-// disallowedTools, isolation) that would be silently lost.
+// agent. Security fields (permission-mode, disallowed-tools, isolation) are
+// reported via CheckFieldSupport in the orchestrator rather than here.
 func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	var notes []renderer.FidelityNote
 
 	for _, id := range renderer.SortedKeys(agents) {
-		agent := agents[id]
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelWarning, targetName, "agent", id, "",
 			renderer.CodeRendererKindUnsupported,
 			fmt.Sprintf("agent %q dropped; Antigravity does not support agent definitions", id),
 			"Use a target that supports agents (claude, cursor, gemini, copilot)",
 		))
-		if agent.PermissionMode != "" {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "agent", id, "permissionMode",
-				renderer.CodeAgentSecurityFieldsDropped,
-				fmt.Sprintf("agent %q permissionMode dropped; Antigravity has no permission mode equivalent", id),
-				"Remove permissionMode from the antigravity target override",
-			))
-		}
-		if len(agent.DisallowedTools) > 0 {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "agent", id, "disallowedTools",
-				renderer.CodeAgentSecurityFieldsDropped,
-				fmt.Sprintf("agent %q disallowedTools dropped; tool restrictions will NOT be enforced by Antigravity", id),
-				"Enforce tool restrictions via a different target or accept the loss",
-			))
-		}
-		if agent.Isolation != "" {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "agent", id, "isolation",
-				renderer.CodeAgentSecurityFieldsDropped,
-				fmt.Sprintf("agent %q isolation dropped; Antigravity has no process isolation model", id),
-				"Remove isolation from the antigravity target override",
-			))
-		}
 	}
 
 	return nil, notes, nil

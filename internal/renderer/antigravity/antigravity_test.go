@@ -945,16 +945,18 @@ func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	_, pm := findAgNote(notes, renderer.CodeAgentSecurityFieldsDropped, "permissionMode")
-	_, dt := findAgNote(notes, renderer.CodeAgentSecurityFieldsDropped, "disallowedTools")
-	_, iso := findAgNote(notes, renderer.CodeAgentSecurityFieldsDropped, "isolation")
-	assert.True(t, pm, "permissionMode note must be emitted")
-	assert.True(t, dt, "disallowedTools note must be emitted")
+	// Security field checks are now centralized in the orchestrator via
+	// CheckFieldSupport, which emits FIELD_UNSUPPORTED with YAML key names.
+	_, pm := findAgNote(notes, renderer.CodeFieldUnsupported, "permission-mode")
+	_, dt := findAgNote(notes, renderer.CodeFieldUnsupported, "disallowed-tools")
+	_, iso := findAgNote(notes, renderer.CodeFieldUnsupported, "isolation")
+	assert.True(t, pm, "permission-mode note must be emitted")
+	assert.True(t, dt, "disallowed-tools note must be emitted")
 	assert.True(t, iso, "isolation note must be emitted")
 }
 
-// Suppression is enforced at the command layer; the renderer returns notes
-// regardless of the suppress-fidelity-warnings override.
+// The RENDERER_KIND_UNSUPPORTED note for the dropped agent is always emitted
+// by CompileAgents regardless of suppress-fidelity-warnings.
 func TestAntigravityRenderer_SuppressFidelityWarnings_NotesStillReturned(t *testing.T) {
 	r := antigravity.New()
 	suppress := true
