@@ -57,13 +57,11 @@ func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive
 		name = "unnamed"
 	}
 
-	// Antigravity: check for native workflow promotion.
-	if target == "antigravity" {
-		if override, ok := wf.Targets["antigravity"]; ok {
-			if v, ok := override.Provider["promote-rules-to-workflows"]; ok {
-				if promote, _ := v.(bool); promote {
-					return lowerAntigravityNative(wf, name, target)
-				}
+	// Check for native workflow promotion via target override (any provider can opt in).
+	if override, ok := wf.Targets[target]; ok {
+		if v, ok := override.Provider["promote-rules-to-workflows"]; ok {
+			if promote, _ := v.(bool); promote {
+				return lowerAntigravityNative(wf, name, target)
 			}
 		}
 	}
@@ -77,21 +75,9 @@ func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive
 		return lowerCustomCommand(wf, name, target)
 	case strategy == "rule-plus-skill":
 		return lowerRulePlusSkill(wf, name, target)
-	case target == "claude", target == "gemini", target == "copilot":
-		// Claude, Gemini, and Copilot default to rule-plus-skill when no strategy is set.
-		return lowerRulePlusSkill(wf, name, target)
 	default:
-		note := renderer.NewNote(
-			renderer.LevelWarning,
-			target,
-			"workflow",
-			name,
-			"",
-			renderer.CodeWorkflowNoNativeTarget,
-			fmt.Sprintf("workflow %q: no native lowering strategy for target %q", name, target),
-			"Add a targets.<target>.provider.lowering-strategy to the workflow config.",
-		)
-		return nil, []renderer.FidelityNote{note}
+		// All registered providers without an explicit lowering strategy default to rule-plus-skill.
+		return lowerRulePlusSkill(wf, name, target)
 	}
 }
 
