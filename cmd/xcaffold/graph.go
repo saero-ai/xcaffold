@@ -460,8 +460,8 @@ func renderTerminal(g *graphData) string {
 		fmt.Fprintf(&sb, "%s\n", library)
 	}
 
-	if orphans := renderTerminalOrphans(g); orphans != "" {
-		fmt.Fprintf(&sb, "%s\n", orphans)
+	if projectScoped := renderProjectScoped(g); projectScoped != "" {
+		fmt.Fprintf(&sb, "%s\n", projectScoped)
 	}
 
 	return sb.String()
@@ -565,38 +565,38 @@ func renderTerminalLibrary(g *graphData) string {
 	return ""
 }
 
-func renderTerminalOrphans(g *graphData) string {
+func renderProjectScoped(g *graphData) string {
 	referenced := map[string]bool{}
 	for _, e := range g.Edges {
 		referenced[e.To] = true
 	}
-	orphanSkills, orphanRules, orphanMCP, orphanPolicies := []string{}, []string{}, []string{}, []string{}
+	projectSkills, projectRules, projectMCP, projectPolicies := []string{}, []string{}, []string{}, []string{}
 	for _, n := range g.Nodes {
 		if n.Kind == kindSkill && !referenced[n.ID] {
-			orphanSkills = append(orphanSkills, n.Label)
+			projectSkills = append(projectSkills, n.Label)
 		}
 		if n.Kind == kindRule && !referenced[n.ID] {
-			orphanRules = append(orphanRules, n.Label)
+			projectRules = append(projectRules, n.Label)
 		}
 		if n.Kind == kindMCP && !referenced[n.ID] {
-			orphanMCP = append(orphanMCP, n.Label)
+			projectMCP = append(projectMCP, n.Label)
 		}
 		if n.Kind == kindPolicy && !referenced[n.ID] {
-			orphanPolicies = append(orphanPolicies, n.Label)
+			projectPolicies = append(projectPolicies, n.Label)
 		}
 	}
 	var sb strings.Builder
-	if len(orphanSkills) > 0 {
-		fmt.Fprintf(&sb, "  Unreferenced skills:    %s\n", strings.Join(orphanSkills, ", "))
+	if len(projectSkills) > 0 {
+		fmt.Fprintf(&sb, "  Project-scoped skills:    %s\n", strings.Join(projectSkills, ", "))
 	}
-	if len(orphanRules) > 0 {
-		fmt.Fprintf(&sb, "  Unreferenced rules:     %s\n", strings.Join(orphanRules, ", "))
+	if len(projectRules) > 0 {
+		fmt.Fprintf(&sb, "  Project-scoped rules:     %s\n", strings.Join(projectRules, ", "))
 	}
-	if len(orphanMCP) > 0 {
-		fmt.Fprintf(&sb, "  Unreferenced mcp:       %s\n", strings.Join(orphanMCP, ", "))
+	if len(projectMCP) > 0 {
+		fmt.Fprintf(&sb, "  Project-scoped mcp:       %s\n", strings.Join(projectMCP, ", "))
 	}
-	if len(orphanPolicies) > 0 {
-		fmt.Fprintf(&sb, "  Unreferenced policies:  %s\n", strings.Join(orphanPolicies, ", "))
+	if len(projectPolicies) > 0 {
+		fmt.Fprintf(&sb, "  Project-scoped policies:  %s\n", strings.Join(projectPolicies, ", "))
 	}
 	return sb.String()
 }
