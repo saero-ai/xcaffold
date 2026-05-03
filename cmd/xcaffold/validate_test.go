@@ -493,3 +493,57 @@ agents:
 	// Output should show tiered validation with cross-ref warnings
 	assert.True(t, strings.Contains(out, "cross-references") || strings.Contains(out, "developer"), "output must mention cross-reference issues")
 }
+
+func TestValidate_NoOrphanChecks_SkillNotReferencedByAgent(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: map[string]ast.SkillConfig{
+				"standalone": {Name: "standalone", Description: "Not referenced by any agent"},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"worker": {Name: "worker", Skills: []string{"other-skill"}},
+			},
+		},
+	}
+	warnings := runStructuralChecks(cfg)
+	for _, w := range warnings {
+		if strings.Contains(w, "not referenced") {
+			t.Errorf("unexpected orphan warning: %s", w)
+		}
+	}
+}
+
+func TestValidate_NoOrphanChecks_RuleWithoutAlwaysApply(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"code-style": {Name: "code-style", Description: "Style guide"},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"worker": {Name: "worker", Rules: []string{}},
+			},
+		},
+	}
+	warnings := runStructuralChecks(cfg)
+	for _, w := range warnings {
+		if strings.Contains(w, "not referenced") {
+			t.Errorf("unexpected orphan warning: %s", w)
+		}
+	}
+}
+
+func TestValidate_NoOrphanChecks_AgentWithoutBody(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"minimal": {Name: "minimal", Description: "No body"},
+			},
+		},
+	}
+	warnings := runStructuralChecks(cfg)
+	for _, w := range warnings {
+		if strings.Contains(w, "has no body") {
+			t.Errorf("unexpected missing-instructions warning: %s", w)
+		}
+	}
+}
