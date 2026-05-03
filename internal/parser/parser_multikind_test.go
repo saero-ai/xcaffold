@@ -553,22 +553,14 @@ description: "Test project"
 targets:
   - claude
   - antigravity
-agents:
-  - backend-engineer
-  - qa-engineer
-skills:
-  - tdd
-rules:
-  - testing-framework
 `
 	config, err := parsePartial(strings.NewReader(input))
 	require.NoError(t, err)
 	require.NotNil(t, config.Project, "config.Project must not be nil for kind:project")
 	assert.Equal(t, "my-project", config.Project.Name)
 	assert.Equal(t, []string{"claude", "antigravity"}, config.Project.Targets)
-	assert.Equal(t, []ast.AgentManifestEntry{{ID: "backend-engineer"}, {ID: "qa-engineer"}}, config.Project.AgentRefs)
-	assert.Equal(t, []string{"tdd"}, config.Project.SkillRefs)
-	assert.Equal(t, []string{"testing-framework"}, config.Project.RuleRefs)
+	// Ref lists are no longer populated by the parser; resources come from xcf/ directory scanning
+	assert.Len(t, config.Agents, 0, "ref lists no longer used; agents come from filesystem")
 }
 
 func TestParsePartial_KindHooks_Basic(t *testing.T) {
@@ -631,10 +623,6 @@ model: sonnet
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 version: "1.0"
 name: multi-doc-project
-agents:
-  - backend-engineer
-skills:
-  - tdd
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
 version: "1.0"
@@ -662,7 +650,7 @@ events:
 	require.NoError(t, err)
 	require.NotNil(t, config.Project, "config.Project must not be nil")
 	assert.Equal(t, "multi-doc-project", config.Project.Name)
-	assert.Equal(t, []ast.AgentManifestEntry{{ID: "backend-engineer"}}, config.Project.AgentRefs)
+	// Ref lists are no longer populated by the parser
 	assert.Contains(t, config.Agents, "backend-engineer")
 	require.NotNil(t, config.Hooks)
 	assert.Contains(t, config.Hooks["default"].Events, "PreToolUse")
@@ -854,10 +842,6 @@ func TestParseFile_MultiKind_ProjectWithPolicies(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 version: "1.0"
 name: my-api
-agents:
-  - developer
-policies:
-  - require-approved-model
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
 version: "1.0"
@@ -878,7 +862,7 @@ require:
 	config, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	require.NotNil(t, config.Project)
-	assert.Equal(t, []string{"require-approved-model"}, config.Project.PolicyRefs)
+	// Ref lists are no longer populated by the parser
 	require.NotNil(t, config.Policies)
 	_, ok := config.Policies["require-approved-model"]
 	assert.True(t, ok)
@@ -893,7 +877,8 @@ policies:
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "references policy \"nonexistent-policy\"")
+	// Ref lists are no longer supported; policies field should not be in projectDocFields
+	assert.Contains(t, err.Error(), "field policies not found")
 }
 
 func TestParseFile_MultiKind_PolicyCrossRef_Valid(t *testing.T) {
@@ -902,8 +887,6 @@ func TestParseFile_MultiKind_PolicyCrossRef_Valid(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 version: "1.0"
 name: my-api
-policies:
-  - my-policy
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`kind: policy
 version: "1.0"
@@ -915,21 +898,19 @@ require:
     is-present: true
 `), 0600))
 
-	config, err := ParseDirectory(dir)
+	_, err := ParseDirectory(dir)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"my-policy"}, config.Project.PolicyRefs)
+	// Ref lists are no longer populated by the parser
 }
 
 func TestParseDirectory_PolicyInSubdir(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
-	// main.xcf: project referencing a policy
+	// main.xcf: project
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcf"), []byte(`kind: project
 version: "1.0"
 name: test-project
-policies:
-  - approved-model
 `), 0644))
 
 	// xcf/policies/approved-model.xcf: policy in subdirectory
@@ -953,7 +934,7 @@ require:
 	require.True(t, ok, "policy should be discovered from xcf/policies/ subdirectory")
 	assert.Equal(t, "error", p.Severity)
 	assert.Equal(t, "agent", p.Target)
-	assert.Equal(t, []string{"approved-model"}, config.Project.PolicyRefs)
+	// Ref lists are no longer populated by the parser
 }
 
 func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {

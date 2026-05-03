@@ -221,8 +221,10 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	content := string(scaffoldBytes)
 	assert.Contains(t, content, "kind: project")
 	assert.Contains(t, content, "- claude")
-	assert.Contains(t, content, "rules:")
-	// Policies key must NOT be present in project.xcf
+	// Ref lists are no longer in project.xcf
+	assert.NotContains(t, content, "agents:")
+	assert.NotContains(t, content, "rules:")
+	assert.NotContains(t, content, "skills:")
 	assert.NotContains(t, content, "policies:")
 
 	// Xaff agent

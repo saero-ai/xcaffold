@@ -81,21 +81,16 @@ type contextDoc struct {
 // It does NOT contain resource maps — only metadata, targets, ref lists pointing
 // to child files under xcf/, and project-level instruction references.
 type projectSplitDoc struct {
-	Kind         string                   `yaml:"kind"`
-	Version      string                   `yaml:"version"`
-	Name         string                   `yaml:"name"`
-	Description  string                   `yaml:"description,omitempty"`
-	Author       string                   `yaml:"author,omitempty"`
-	Homepage     string                   `yaml:"homepage,omitempty"`
-	Repository   string                   `yaml:"repository,omitempty"`
-	License      string                   `yaml:"license,omitempty"`
-	BackupDir    string                   `yaml:"backup-dir,omitempty"`
-	Targets      []string                 `yaml:"targets,omitempty"`
-	AgentRefs    []ast.AgentManifestEntry `yaml:"agents,omitempty"`
-	SkillRefs    []string                 `yaml:"skills,omitempty"`
-	RuleRefs     []string                 `yaml:"rules,omitempty"`
-	WorkflowRefs []string                 `yaml:"workflows,omitempty"`
-	MCPRefs      []string                 `yaml:"mcp,omitempty"`
+	Kind        string   `yaml:"kind"`
+	Version     string   `yaml:"version"`
+	Name        string   `yaml:"name"`
+	Description string   `yaml:"description,omitempty"`
+	Author      string   `yaml:"author,omitempty"`
+	Homepage    string   `yaml:"homepage,omitempty"`
+	Repository  string   `yaml:"repository,omitempty"`
+	License     string   `yaml:"license,omitempty"`
+	BackupDir   string   `yaml:"backup-dir,omitempty"`
+	Targets     []string `yaml:"targets,omitempty"`
 }
 
 // hooksSplitDoc is the serialization envelope for kind: hooks in split-file mode.
@@ -126,55 +121,17 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 	if proj == nil {
 		proj = &ast.ProjectConfig{}
 	}
-	agentRefs := proj.AgentRefs
-	agentMemMap := agentMemoryIndex(rootDir)
-	if len(agentRefs) == 0 && len(config.Agents) > 0 {
-		sortedAgents := sortedMapKeys(config.Agents)
-		for _, sa := range sortedAgents {
-			agentRefs = append(agentRefs, ast.AgentManifestEntry{
-				ID:     sa,
-				Memory: agentMemMap[sa],
-			})
-		}
-	} else {
-		for i, ref := range agentRefs {
-			if mem, ok := agentMemMap[ref.ID]; ok && len(ref.Memory) == 0 {
-				agentRefs[i].Memory = mem
-			}
-		}
-	}
-	skillRefs := proj.SkillRefs
-	if len(skillRefs) == 0 && len(config.Skills) > 0 {
-		skillRefs = sortedMapKeys(config.Skills)
-	}
-	ruleRefs := proj.RuleRefs
-	if len(ruleRefs) == 0 && len(config.Rules) > 0 {
-		ruleRefs = sortedMapKeys(config.Rules)
-	}
-	workflowRefs := proj.WorkflowRefs
-	if len(workflowRefs) == 0 && len(config.Workflows) > 0 {
-		workflowRefs = sortedMapKeys(config.Workflows)
-	}
-	mcpRefs := proj.MCPRefs
-	if len(mcpRefs) == 0 && len(config.MCP) > 0 {
-		mcpRefs = sortedMapKeys(config.MCP)
-	}
 	projDoc := projectSplitDoc{
-		Kind:         "project",
-		Version:      version,
-		Name:         proj.Name,
-		Description:  proj.Description,
-		Author:       proj.Author,
-		Homepage:     proj.Homepage,
-		Repository:   proj.Repository,
-		License:      proj.License,
-		BackupDir:    proj.BackupDir,
-		Targets:      proj.Targets,
-		AgentRefs:    agentRefs,
-		SkillRefs:    skillRefs,
-		RuleRefs:     ruleRefs,
-		WorkflowRefs: workflowRefs,
-		MCPRefs:      mcpRefs,
+		Kind:        "project",
+		Version:     version,
+		Name:        proj.Name,
+		Description: proj.Description,
+		Author:      proj.Author,
+		Homepage:    proj.Homepage,
+		Repository:  proj.Repository,
+		License:     proj.License,
+		BackupDir:   proj.BackupDir,
+		Targets:     proj.Targets,
 	}
 	// Write project.xcf to root level (preferred location)
 	return writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc)
@@ -208,69 +165,27 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		proj = &ast.ProjectConfig{}
 	}
 
-	// Derive ref lists from the config maps when the explicit ref fields are empty.
-	agentRefs := proj.AgentRefs
-	agentMemMap2 := agentMemoryIndex(rootDir)
-	if len(agentRefs) == 0 && len(config.Agents) > 0 {
-		sortedAgents := sortedMapKeys(config.Agents)
-		for _, sa := range sortedAgents {
-			agentRefs = append(agentRefs, ast.AgentManifestEntry{
-				ID:     sa,
-				Memory: agentMemMap2[sa],
-			})
-		}
-	} else {
-		for i, ref := range agentRefs {
-			if mem, ok := agentMemMap2[ref.ID]; ok && len(ref.Memory) == 0 {
-				agentRefs[i].Memory = mem
-			}
-		}
-	}
-	skillRefs := proj.SkillRefs
-	if len(skillRefs) == 0 && len(config.Skills) > 0 {
-		skillRefs = sortedMapKeys(config.Skills)
-	}
-	ruleRefs := proj.RuleRefs
-	if len(ruleRefs) == 0 && len(config.Rules) > 0 {
-		ruleRefs = sortedMapKeys(config.Rules)
-	}
-	workflowRefs := proj.WorkflowRefs
-	if len(workflowRefs) == 0 && len(config.Workflows) > 0 {
-		workflowRefs = sortedMapKeys(config.Workflows)
-	}
-	mcpRefs := proj.MCPRefs
-	if len(mcpRefs) == 0 && len(config.MCP) > 0 {
-		mcpRefs = sortedMapKeys(config.MCP)
-	}
-
-	// Build filter sets from the explicit ref lists. A nil map means "write all".
-	agentRefIds := make([]string, 0, len(proj.AgentRefs))
-	for _, ref := range proj.AgentRefs {
-		agentRefIds = append(agentRefIds, ref.ID)
-	}
-	agentFilter := refSet(agentRefIds)
-	skillFilter := refSet(proj.SkillRefs)
-	ruleFilter := refSet(proj.RuleRefs)
-	workflowFilter := refSet(proj.WorkflowRefs)
-	mcpFilter := refSet(proj.MCPRefs)
-
 	projDoc := projectSplitDoc{
-		Kind:         "project",
-		Version:      version,
-		Name:         proj.Name,
-		Description:  proj.Description,
-		Author:       proj.Author,
-		Homepage:     proj.Homepage,
-		Repository:   proj.Repository,
-		License:      proj.License,
-		BackupDir:    proj.BackupDir,
-		Targets:      proj.Targets,
-		AgentRefs:    agentRefs,
-		SkillRefs:    skillRefs,
-		RuleRefs:     ruleRefs,
-		WorkflowRefs: workflowRefs,
-		MCPRefs:      mcpRefs,
+		Kind:        "project",
+		Version:     version,
+		Name:        proj.Name,
+		Description: proj.Description,
+		Author:      proj.Author,
+		Homepage:    proj.Homepage,
+		Repository:  proj.Repository,
+		License:     proj.License,
+		BackupDir:   proj.BackupDir,
+		Targets:     proj.Targets,
 	}
+
+	// Since ref lists are no longer used, write all resources (nil filters mean "write all")
+	var (
+		agentFilter    map[string]bool
+		skillFilter    map[string]bool
+		ruleFilter     map[string]bool
+		workflowFilter map[string]bool
+		mcpFilter      map[string]bool
+	)
 	// Write project.xcf to root level (preferred location)
 	if err := writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc); err != nil {
 		return err
@@ -371,17 +286,6 @@ func sortedMapKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-// sortedAgentRefs returns AgentManifestEntry values sorted by ID for any
-// string-keyed agent map. Used to build the AgentRefs list in kind: project.
-func sortedAgentRefs[V any](m map[string]V) []ast.AgentManifestEntry {
-	keys := sortedMapKeys(m)
-	res := make([]ast.AgentManifestEntry, 0, len(keys))
-	for _, k := range keys {
-		res = append(res, ast.AgentManifestEntry{ID: k})
-	}
-	return res
 }
 
 // refSet builds a lookup set from a list of resource reference names.

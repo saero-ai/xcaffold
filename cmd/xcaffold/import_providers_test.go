@@ -55,10 +55,10 @@ func TestImportScope_Claude_ReadsMCPJson(t *testing.T) {
 	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
 
 	// In split-file format, MCP servers go to xcf/mcp/<name>/mcp.xcf.
-	// The root project.xcf only lists the MCP server ID in its 'mcp:' field.
+	// Ref lists are no longer maintained in project.xcf; resources are discovered from xcf/ directory.
 	scaffoldData, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)
-	assert.Contains(t, string(scaffoldData), "playwright", "project.xcf must list the MCP server ID")
+	assert.NotContains(t, string(scaffoldData), "mcp:", "mcp ref lists are no longer in project.xcf")
 
 	// The full server config (command, args) goes in xcf/mcp/playwright/mcp.xcf.
 	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "playwright", "mcp.xcf"))
@@ -124,10 +124,10 @@ func TestImportScope_Gemini_SettingsAndMCP(t *testing.T) {
 	require.NoError(t, importScope(".gemini", "project.xcf", "project", "gemini"))
 
 	// In split-file format, MCP servers go to xcf/mcp/<name>/mcp.xcf.
-	// project.xcf lists only the server ID.
+	// Ref lists are no longer maintained in project.xcf; resources are discovered from xcf/ directory.
 	scaffoldData, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)
-	assert.Contains(t, string(scaffoldData), "github", "project.xcf must list the MCP server ID")
+	assert.NotContains(t, string(scaffoldData), "mcp:", "mcp ref lists are no longer in project.xcf")
 
 	// Full config in xcf/mcp/github/mcp.xcf.
 	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "github", "mcp.xcf"))
@@ -158,9 +158,10 @@ func TestImportScope_Cursor_MCPJson(t *testing.T) {
 	require.NoError(t, importScope(".cursor", "project.xcf", "project", "cursor"))
 
 	// In split-file format, MCP servers go to xcf/mcp/<name>/mcp.xcf.
+	// Ref lists are no longer maintained in project.xcf; resources are discovered from xcf/ directory.
 	scaffoldData, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)
-	assert.Contains(t, string(scaffoldData), "filesystem", "project.xcf must list the MCP server ID")
+	assert.NotContains(t, string(scaffoldData), "mcp:", "mcp ref lists are no longer in project.xcf")
 
 	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "filesystem", "mcp.xcf"))
 	require.NoError(t, err, "xcf/mcp/filesystem/mcp.xcf must be created")
@@ -236,7 +237,9 @@ func TestImportScope_ClaudeWithProvider_DoesNotBreakExistingBehavior(t *testing.
 	data, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "kind: project")
-	assert.Contains(t, string(data), "dev")
+	// Agent 'dev' will be created in xcf/agents/dev/agent.xcf, not listed in project.xcf ref list
+	// Ref lists are no longer maintained in project.xcf
+	assert.NotContains(t, string(data), "agents:")
 }
 
 // ─── Gitignore directory filtering ───────────────────────────────────────────

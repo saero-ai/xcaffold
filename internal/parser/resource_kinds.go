@@ -74,8 +74,6 @@ type mcpDocument struct {
 }
 
 // projectDocFields is the deserialization target for kind: project documents.
-// It does NOT embed ResourceScope, so "agents" maps to []string (ref list)
-// without colliding with ResourceScope's map[string]AgentConfig.
 type projectDocFields struct {
 	Kind          string                        `yaml:"kind"`
 	Version       string                        `yaml:"version"`
@@ -88,12 +86,6 @@ type projectDocFields struct {
 	License       string                        `yaml:"license,omitempty"`
 	BackupDir     string                        `yaml:"backup-dir,omitempty"`
 	Targets       []string                      `yaml:"targets,omitempty"`
-	AgentRefs     []ast.AgentManifestEntry      `yaml:"agents,omitempty"`
-	SkillRefs     []string                      `yaml:"skills,omitempty"`
-	RuleRefs      []string                      `yaml:"rules,omitempty"`
-	WorkflowRefs  []string                      `yaml:"workflows,omitempty"`
-	MCPRefs       []string                      `yaml:"mcp,omitempty"`
-	PolicyRefs    []string                      `yaml:"policies,omitempty"`
 	Test          ast.TestConfig                `yaml:"test,omitempty"`
 	Local         ast.SettingsConfig            `yaml:"local,omitempty"`
 	TargetOptions map[string]ast.TargetOverride `yaml:"target-options,omitempty"`
@@ -599,12 +591,6 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.License = doc.License
 		config.Project.BackupDir = doc.BackupDir
 		config.Project.Targets = doc.Targets
-		config.Project.AgentRefs = doc.AgentRefs
-		config.Project.SkillRefs = doc.SkillRefs
-		config.Project.RuleRefs = doc.RuleRefs
-		config.Project.WorkflowRefs = doc.WorkflowRefs
-		config.Project.MCPRefs = doc.MCPRefs
-		config.Project.PolicyRefs = doc.PolicyRefs
 		config.Project.Test = doc.Test
 		config.Project.Local = doc.Local
 

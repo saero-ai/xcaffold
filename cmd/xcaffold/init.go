@@ -455,11 +455,8 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
 		Project: &ast.ProjectConfig{
-			Name:      ans.name,
-			Targets:   ans.targets,
-			AgentRefs: []ast.AgentManifestEntry{{ID: "xaff"}},
-			SkillRefs: []string{"xcaffold"},
-			RuleRefs:  []string{"xcf-conventions"},
+			Name:    ans.name,
+			Targets: ans.targets,
 		},
 	}
 	return WriteProjectFile(config, baseDir)
@@ -541,21 +538,6 @@ func injectXaffToolkitAfterImport(baseDir string) error {
 
 	if err := copyToolkitFiles(baseDir, files); err != nil {
 		return err
-	}
-
-	// Update project.xcf skill refs if needed
-	hasSkill := false
-	for _, s := range config.Project.SkillRefs {
-		if s == "xcaffold" {
-			hasSkill = true
-			break
-		}
-	}
-	if !hasSkill {
-		config.Project.SkillRefs = append(config.Project.SkillRefs, "xcaffold")
-		if err := WriteProjectFile(config, baseDir); err != nil {
-			return fmt.Errorf("writing updated project.xcf: %w", err)
-		}
 	}
 
 	return nil

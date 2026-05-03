@@ -62,10 +62,11 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 	assert.Contains(t, scaffoldContent, "name: my-project")
 	assert.Contains(t, scaffoldContent, "claude")
 	assert.Contains(t, scaffoldContent, "antigravity")
-	assert.Contains(t, scaffoldContent, "developer")
-	assert.Contains(t, scaffoldContent, "reviewer")
-	assert.Contains(t, scaffoldContent, "tdd")
-	assert.Contains(t, scaffoldContent, "security")
+	// Ref lists are no longer in project.xcf; resources are discovered from xcf/ directory
+	assert.NotContains(t, scaffoldContent, "developer")
+	assert.NotContains(t, scaffoldContent, "reviewer")
+	assert.NotContains(t, scaffoldContent, "tdd")
+	assert.NotContains(t, scaffoldContent, "security")
 
 	// Agent files — each lives in its own subdirectory: xcf/agents/<id>/agent.xcf
 	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer", "agent.xcf"))

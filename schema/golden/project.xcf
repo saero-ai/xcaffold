@@ -9,16 +9,6 @@ repository: "https://github.com/example/golden-project"
 license: "MIT"
 backup-dir: ".xcf-backup"
 
-# Reference lists: agents supports both simple string IDs and structured
-# {id: {memory: [...]}} entries.
-
-
-
-
-mcp:
-  - golden-mcp
-
-
 # Test configuration for xcaffold test
 test:
   cli-path: /usr/local/bin/claude

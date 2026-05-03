@@ -314,14 +314,9 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		return err
 	}
 
-	// Detect compilation targets and populate project references
+	// Detect compilation targets
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(platformDir)
-		config.Project.AgentRefs = sortedAgentRefs(config.Agents)
-		config.Project.SkillRefs = sortedMapKeys(config.Skills)
-		config.Project.RuleRefs = sortedMapKeys(config.Rules)
-		config.Project.WorkflowRefs = sortedMapKeys(config.Workflows)
-		config.Project.MCPRefs = sortedMapKeys(config.MCP)
 	}
 
 	return finalizeImportScope(xcfDest, scopeName, provider, config, &warnings)
@@ -800,11 +795,6 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcfDest string) erro
 	}
 	if config.Project != nil {
 		config.Project.Targets = detectTargets(dirNames...)
-		config.Project.AgentRefs = sortedAgentRefs(config.Agents)
-		config.Project.SkillRefs = sortedMapKeys(config.Skills)
-		config.Project.RuleRefs = sortedMapKeys(config.Rules)
-		config.Project.WorkflowRefs = sortedMapKeys(config.Workflows)
-		config.Project.MCPRefs = sortedMapKeys(config.MCP)
 	}
 
 	applyKindFilters(config)
