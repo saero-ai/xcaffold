@@ -23,8 +23,8 @@ var nativeKindSupport = map[string]map[importer.Kind]bool{
 	},
 	"gemini": {
 		importer.KindAgent: true, importer.KindSkill: true,
-		importer.KindRule: true, importer.KindHookScript: true,
-		importer.KindSettings: true,
+		importer.KindRule: true, importer.KindMCP: true,
+		importer.KindHookScript: true, importer.KindSettings: true,
 	},
 	"cursor": {
 		importer.KindAgent: true, importer.KindSkill: true,
@@ -37,8 +37,8 @@ var nativeKindSupport = map[string]map[importer.Kind]bool{
 		importer.KindHookScript: true,
 	},
 	"antigravity": {
-		importer.KindAgent: true, importer.KindSkill: true,
-		importer.KindRule: true, importer.KindWorkflow: true,
+		importer.KindSkill: true,
+		importer.KindRule:  true, importer.KindWorkflow: true,
 		importer.KindMCP: true,
 	},
 }
