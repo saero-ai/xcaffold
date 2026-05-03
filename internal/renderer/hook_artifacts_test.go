@@ -61,6 +61,16 @@ func TestCompileHookArtifacts(t *testing.T) {
 	}
 }
 
+func TestCompileHookArtifacts_RejectsPathTraversal(t *testing.T) {
+	tmp := t.TempDir()
+	for _, dir := range []string{"../../.ssh", "../etc", "/absolute/path"} {
+		_, err := CompileHookArtifacts("test", []string{dir}, tmp, ".out")
+		if err == nil {
+			t.Errorf("expected error for traversal path %q, got nil", dir)
+		}
+	}
+}
+
 func TestCompileHookArtifacts_MissingDir(t *testing.T) {
 	tmp := t.TempDir()
 	files, err := CompileHookArtifacts("test", []string{"nonexistent"}, tmp, ".out")

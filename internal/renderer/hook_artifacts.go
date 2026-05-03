@@ -29,7 +29,11 @@ func RewriteHookCommandPath(command, srcBase, dstBase string) string {
 func CompileHookArtifacts(hookName string, artifacts []string, srcDir, dstDir string) (map[string]string, error) {
 	files := make(map[string]string)
 	for _, artifactDir := range artifacts {
-		srcPath := filepath.Join(srcDir, artifactDir)
+		cleanedDir := filepath.Clean(artifactDir)
+		if strings.HasPrefix(cleanedDir, "..") || filepath.IsAbs(cleanedDir) {
+			return nil, fmt.Errorf("hook artifact dir %q must be a relative path within the hook directory", artifactDir)
+		}
+		srcPath := filepath.Join(srcDir, cleanedDir)
 		entries, err := os.ReadDir(srcPath)
 		if err != nil {
 			if os.IsNotExist(err) {
