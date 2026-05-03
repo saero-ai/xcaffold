@@ -241,7 +241,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 
 	// Footer.
 	xcfFileCount := countXcfFiles(parseRoot)
-	totalWarnings := len(structWarnings) + len(policyWarnings)
+	totalWarnings := len(structWarnings) + len(policyWarnings) + len(crossRefIssues)
 	fmt.Println()
 	fieldSuffix := ""
 	if fieldValidationRan {

@@ -16,7 +16,7 @@ import (
 const ruleFixtureBase = "testdata/rule-schema"
 
 func TestRuleSchema_RoundTrip_ClaudeToCursor(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	t.Setenv("HOME", t.TempDir())
 
 	xcfPath := filepath.Join(ruleFixtureBase, "input", "path-glob-rule.xcf")
 	config, err := parser.ParseFile(xcfPath)
@@ -34,7 +34,7 @@ func TestRuleSchema_RoundTrip_ClaudeToCursor(t *testing.T) {
 }
 
 func TestRuleSchema_LegacyAlwaysApply_NormalizedToActivation(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	t.Setenv("HOME", t.TempDir())
 
 	legacyPath := filepath.Join(ruleFixtureBase, "input", "legacy-always-apply-true.xcf")
 	activationPath := filepath.Join(ruleFixtureBase, "input", "always-rule.xcf")
@@ -72,7 +72,7 @@ func init() {
 }
 
 func TestRealData_Rules_Fixture_Exists(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	t.Setenv("HOME", t.TempDir())
 	claudeRules := filepath.Join(realDataRulePath, ".claude", "rules")
 	if _, err := os.Stat(claudeRules); os.IsNotExist(err) {
 		t.Skipf("fixture %s not present; skipping real-data rule tests", claudeRules)
@@ -83,7 +83,7 @@ func TestRealData_Rules_Fixture_Exists(t *testing.T) {
 }
 
 func TestRealData_AllClaudeRules_ParseAndCompile(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	t.Setenv("HOME", t.TempDir())
 	claudeRules := filepath.Join(realDataRulePath, ".claude", "rules")
 	if _, err := os.Stat(claudeRules); os.IsNotExist(err) {
 		t.Skipf("fixture %s not present; skipping", claudeRules)

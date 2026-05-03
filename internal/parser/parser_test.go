@@ -253,7 +253,6 @@ permissions:
 }
 
 func TestValidatePermissions_AgentDisallowedConflict(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
@@ -274,7 +273,6 @@ permissions:
 }
 
 func TestValidatePermissions_AgentToolsDenyConflict(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
@@ -403,8 +401,6 @@ agents:
 
 func TestValidateFileRefs_PresentInstructionsFile(t *testing.T) {
 	t.Skip("Legacy instructions test removed")
-
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	// Create the actual instructions file
 	instrFile := filepath.Join(dir, "real.md")
@@ -558,7 +554,6 @@ enabled-plugins:
 }
 
 func TestParseDirectory_SkipsNonConfigFiles(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	// Write a valid config file
@@ -587,7 +582,6 @@ default_target: claude
 }
 
 func TestParseDirectory_SkipsNonConfigFiles_OnlyNonConfig(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	// Write only non-config files
@@ -1514,6 +1508,12 @@ func TestParseDirectory_SkipGlobal_DoesNotLoadGlobalBase(t *testing.T) {
 	assert.Contains(t, cfg.Agents, "worker")
 }
 
-func init() {
-	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+func TestMain(m *testing.M) {
+	tmpHome, err := os.MkdirTemp("", "parser-test-*")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(tmpHome)
+	os.Setenv("HOME", tmpHome)
+	os.Exit(m.Run())
 }

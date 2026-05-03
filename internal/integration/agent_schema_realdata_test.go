@@ -40,7 +40,7 @@ func TestRealData_Fixture_Exists(t *testing.T) {
 // build an AgentConfig, recompile via the Claude renderer, and verify the
 // regenerated frontmatter uses the canonical field ordering.
 func TestRealData_ImportedAgent_CompilesWithCanonicalFieldOrder(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	t.Setenv("HOME", t.TempDir())
 	agentPath := filepath.Join(realDataPath, ".claude", "agents", "backend-engineer.md")
 	if _, err := os.Stat(agentPath); os.IsNotExist(err) {
 		t.Skipf("fixture %s not present; skipping", agentPath)
@@ -102,7 +102,7 @@ tools: [Bash, Read, Write, Edit, Glob, Grep]
 // can be referenced via instructions-file, parsed, and recompiled without
 // error.
 func TestRealData_AllClaudeAgents_Parse(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	t.Setenv("HOME", t.TempDir())
 	claudeAgents := filepath.Join(realDataPath, ".claude", "agents")
 	if _, err := os.Stat(claudeAgents); os.IsNotExist(err) {
 		t.Skipf("fixture %s not present; skipping", claudeAgents)
@@ -155,7 +155,7 @@ model: sonnet
 // TargetOverride.Provider pass-through survive a write + parse round trip,
 // and that provider-specific fields do NOT leak into other targets.
 func TestRealData_NewFields_RoundTripThroughTargets(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	t.Setenv("HOME", t.TempDir())
 	xcfContent := `---
 kind: agent
 version: "1.0"
