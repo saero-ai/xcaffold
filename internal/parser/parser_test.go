@@ -1155,6 +1155,27 @@ Test.
 	}
 }
 
+func TestParse_Agent_TargetInstructionsOverride(t *testing.T) {
+	input := `---
+kind: agent
+version: "1.0"
+name: test
+description: "Test agent"
+targets:
+  claude:
+    instructions-override: "Custom Claude instructions"
+---
+Default instructions.
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	agent := config.Agents["test"]
+	override := agent.Targets["claude"]
+	if override.InstructionsOverride != "Custom Claude instructions" {
+		t.Errorf("instructions-override = %q, want %q", override.InstructionsOverride, "Custom Claude instructions")
+	}
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }
