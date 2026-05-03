@@ -1057,6 +1057,72 @@ description: "User preferences and context"
 	}
 }
 
+func TestParse_Skill_ArtifactsField(t *testing.T) {
+	input := `---
+kind: skill
+version: "1.0"
+name: my-skill
+artifacts: [references, scripts, custom-data]
+---
+Do things.
+`
+	config, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	skill := config.Skills["my-skill"]
+	if len(skill.Artifacts) != 3 {
+		t.Fatalf("expected 3 artifacts, got %d", len(skill.Artifacts))
+	}
+	if skill.Artifacts[0] != "references" {
+		t.Errorf("artifacts[0] = %q, want %q", skill.Artifacts[0], "references")
+	}
+	if skill.Artifacts[1] != "scripts" {
+		t.Errorf("artifacts[1] = %q, want %q", skill.Artifacts[1], "scripts")
+	}
+	if skill.Artifacts[2] != "custom-data" {
+		t.Errorf("artifacts[2] = %q, want %q", skill.Artifacts[2], "custom-data")
+	}
+}
+
+func TestParse_Skill_LegacyFieldsMigrateToArtifacts(t *testing.T) {
+	input := `---
+kind: skill
+version: "1.0"
+name: legacy-skill
+references:
+  - doc.md
+scripts:
+  - run.sh
+---
+Legacy skill.
+`
+	config, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	skill := config.Skills["legacy-skill"]
+	if len(skill.Artifacts) < 2 {
+		t.Fatalf("expected legacy fields migrated to artifacts, got %d artifacts", len(skill.Artifacts))
+	}
+	// Verify "references" and "scripts" are in artifacts
+	hasRef, hasScript := false, false
+	for _, a := range skill.Artifacts {
+		if a == "references" {
+			hasRef = true
+		}
+		if a == "scripts" {
+			hasScript = true
+		}
+	}
+	if !hasRef {
+		t.Error("expected 'references' in artifacts after migration")
+	}
+	if !hasScript {
+		t.Error("expected 'scripts' in artifacts after migration")
+	}
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }

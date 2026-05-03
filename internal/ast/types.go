@@ -414,6 +414,13 @@ type SkillConfig struct {
 	// +xcf:provider=claude:optional
 	ArgumentHint string `yaml:"argument-hint,omitempty"`
 
+	// Named subdirectories to copy from xcf/skills/<id>/ to provider output.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
+	// +xcf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
+	Artifacts []string `yaml:"artifacts,omitempty"`
+
 	// Docs and data files copied to skills/<id>/references/ at compile time.
 	// +xcf:optional
 	// +xcf:group=Composition

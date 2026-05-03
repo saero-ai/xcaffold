@@ -1245,6 +1245,22 @@ func init() {
 				},
 			},
 			{
+				Name:        "Artifacts",
+				YAMLKey:     "artifacts",
+				GoType:      "[]string",
+				XCFType:     "[]string",
+				Optional:    true,
+				Description: "Named subdirectories to copy from xcf/skills/<id>/ to provider output.",
+				Group:       "Composition",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+					"gemini":      "optional",
+				},
+			},
+			{
 				Name:        "References",
 				YAMLKey:     "references",
 				GoType:      "[]string",
