@@ -482,7 +482,6 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps
 		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
 	}
 
-
 	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, "claude", id)
 	notes = append(notes, modelNotes...)
 	if resolvedModel != "" {

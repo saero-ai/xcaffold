@@ -289,7 +289,6 @@ type TargetOverride struct {
 	Hooks                    map[string]string `yaml:"hooks,omitempty"`
 	SuppressFidelityWarnings *bool             `yaml:"suppress-fidelity-warnings,omitempty"`
 	SkipSynthesis            *bool             `yaml:"skip-synthesis,omitempty"`
-	InstructionsOverride     string            `yaml:"instructions-override,omitempty"`
 
 	Provider map[string]any `yaml:"provider,omitempty"`
 }
