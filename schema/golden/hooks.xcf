@@ -1,6 +1,7 @@
 kind: hooks
 version: "1.0"
 name: golden-hooks
+artifacts: [scripts, templates]
 events:
   PreToolUse:
     - matcher: "Bash"

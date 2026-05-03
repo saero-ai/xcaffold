@@ -1176,6 +1176,25 @@ Default instructions.
 	}
 }
 
+func TestParse_Hooks_ArtifactsField(t *testing.T) {
+	input := `kind: hooks
+version: "1.0"
+name: enforce
+artifacts: [scripts]
+events:
+  PreToolUse:
+    - hooks:
+        - type: command
+          command: bash scripts/enforce-standards.sh
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	hook := config.Hooks["enforce"]
+	require.NotNil(t, hook)
+	require.Len(t, hook.Artifacts, 1)
+	assert.Equal(t, "scripts", hook.Artifacts[0])
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }

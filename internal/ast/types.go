@@ -564,6 +564,12 @@ type NamedHookConfig struct {
 	// +xcf:pattern=^[a-z0-9-]+$
 	Name string `yaml:"name,omitempty"`
 
+	// Named subdirectories to copy from xcf/hooks/<name>/ to provider hook dirs.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
+	Artifacts []string `yaml:"artifacts,omitempty"`
+
 	// Lifecycle event handlers keyed by event name.
 	// +xcf:optional
 	// +xcf:group=Events

@@ -103,10 +103,11 @@ type projectDocFields struct {
 // HookConfig is a map type, so it cannot be inlined; the "events" field
 // wraps it at the YAML level.
 type hooksDocument struct {
-	Kind    string         `yaml:"kind"`
-	Version string         `yaml:"version"`
-	Name    string         `yaml:"name,omitempty"`
-	Events  ast.HookConfig `yaml:"events"`
+	Kind      string         `yaml:"kind"`
+	Version   string         `yaml:"version"`
+	Name      string         `yaml:"name,omitempty"`
+	Artifacts []string       `yaml:"artifacts,omitempty"`
+	Events    ast.HookConfig `yaml:"events"`
 }
 
 // settingsDocument wraps SettingsConfig with envelope fields for kind: settings.
@@ -632,6 +633,9 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		if existing.Events == nil {
 			existing.Events = make(ast.HookConfig)
+		}
+		if len(doc.Artifacts) > 0 {
+			existing.Artifacts = append(existing.Artifacts, doc.Artifacts...)
 		}
 		for event, groups := range doc.Events {
 			existing.Events[event] = append(existing.Events[event], groups...)
