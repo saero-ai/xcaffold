@@ -1,0 +1,105 @@
+package providers
+
+import (
+	"fmt"
+	"sync"
+
+	"github.com/saero-ai/xcaffold/internal/renderer"
+)
+
+var (
+	mu  sync.RWMutex
+	reg []ProviderManifest
+)
+
+// Register adds m to the global provider registry. It is safe for concurrent
+// use and is typically called from a provider package's init() function.
+func Register(m ProviderManifest) {
+	mu.Lock()
+	defer mu.Unlock()
+	reg = append(reg, m)
+}
+
+// Manifests returns a deep snapshot of all registered manifests. The returned
+// slice is independent of the registry — mutations (including map fields like
+// KindSupport) do not affect future calls.
+func Manifests() []ProviderManifest {
+	mu.RLock()
+	defer mu.RUnlock()
+	out := make([]ProviderManifest, len(reg))
+	for i, m := range reg {
+		out[i] = m
+		if m.KindSupport != nil {
+			ks := make(map[string]bool, len(m.KindSupport))
+			for k, v := range m.KindSupport {
+				ks[k] = v
+			}
+			out[i].KindSupport = ks
+		}
+	}
+	return out
+}
+
+// ManifestFor looks up a provider by its canonical name or any alias listed in
+// ValidNames. The second return value is false when no match is found.
+func ManifestFor(name string) (ProviderManifest, bool) {
+	mu.RLock()
+	defer mu.RUnlock()
+	for _, m := range reg {
+		for _, v := range m.ValidNames {
+			if v == name {
+				return m, true
+			}
+		}
+	}
+	return ProviderManifest{}, false
+}
+
+// RegisteredNames returns every valid name token (primary names and aliases)
+// across all registered providers in registration order.
+func RegisteredNames() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	var names []string
+	for _, m := range reg {
+		names = append(names, m.ValidNames...)
+	}
+	return names
+}
+
+// IsRegistered reports whether name matches any registered provider name or alias.
+func IsRegistered(name string) bool {
+	_, ok := ManifestFor(name)
+	return ok
+}
+
+// ResolveRenderer returns a new TargetRenderer for the given target name or
+// alias. It returns an error when the target is unknown or its NewRenderer
+// factory is nil.
+func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
+	m, ok := ManifestFor(target)
+	if !ok {
+		return nil, fmt.Errorf("providers: unknown target %q", target)
+	}
+	if m.NewRenderer == nil {
+		return nil, fmt.Errorf("providers: %q has no renderer factory", m.Name)
+	}
+	return m.NewRenderer(), nil
+}
+
+// SwapRegistryForTest atomically replaces the global registry with next and
+// returns the previous contents. This is exported only for testing — call it
+// only inside test files via the _test package. Callers should defer the
+// restore call returned by their test helper.
+func SwapRegistryForTest(next []ProviderManifest) []ProviderManifest {
+	mu.Lock()
+	defer mu.Unlock()
+	prev := reg
+	if next == nil {
+		reg = nil
+	} else {
+		reg = make([]ProviderManifest, len(next))
+		copy(reg, next)
+	}
+	return prev
+}
