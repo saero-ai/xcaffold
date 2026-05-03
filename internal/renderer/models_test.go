@@ -117,15 +117,19 @@ func TestSanitizeAgentModel(t *testing.T) {
 		expectedNotes int
 		expectedCode  string
 	}{
+		// The registry gates model support; caps.ModelField is no longer the gate.
+		// "cursor" has model: optional in the registry, so it passes through.
+		// A bare Claude alias on a non-Claude target emits a warning and is dropped.
 		{
-			name:  "ModelFieldFalse_Empty",
+			name:  "RegistryOptional_CursorTarget_BareAliasDrop",
 			model: "sonnet",
 			caps: renderer.CapabilitySet{
-				ModelField: false,
+				ModelField: true,
 			},
 			targetName:    "cursor",
 			expectedModel: "",
-			expectedNotes: 0,
+			expectedNotes: 1,
+			expectedCode:  renderer.CodeAgentModelUnmapped,
 		},
 		{
 			name:  "MappedAlias_TranslatesCleanly",
@@ -257,4 +261,24 @@ func TestSanitizeAgentModel(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSanitizeAgentModel_RegistryLookup verifies that SanitizeAgentModel processes
+// the model normally for targets where the registry marks model as "optional".
+func TestSanitizeAgentModel_RegistryLookup(t *testing.T) {
+	caps := renderer.CapabilitySet{ModelField: true}
+
+	// claude has model: optional in the schema registry — mapped alias resolves cleanly.
+	gotModel, gotNotes := renderer.SanitizeAgentModel("sonnet-4", caps, "claude", "my-agent")
+	assert.Equal(t, "claude-sonnet-4-5", gotModel,
+		"registry lookup: claude target with mapped alias must resolve to provider literal")
+	assert.Empty(t, gotNotes,
+		"registry lookup: clean alias resolution must emit no fidelity notes")
+
+	// gemini has model: optional in the schema registry — mapped alias resolves cleanly.
+	gotModel, gotNotes = renderer.SanitizeAgentModel("sonnet-4", caps, "gemini", "my-agent")
+	assert.Equal(t, "gemini-2.5-flash", gotModel,
+		"registry lookup: gemini target with mapped alias must resolve to provider literal")
+	assert.Empty(t, gotNotes,
+		"registry lookup: clean alias resolution must emit no fidelity notes")
 }

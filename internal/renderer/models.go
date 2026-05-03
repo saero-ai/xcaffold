@@ -3,6 +3,8 @@ package renderer
 import (
 	"fmt"
 	"strings"
+
+	"github.com/saero-ai/xcaffold/internal/schema"
 )
 
 // modelAliases translates a user-friendly alias from an .xcf file into
@@ -81,8 +83,9 @@ func SanitizeAgentModel(model string, caps CapabilitySet, targetName, agentID st
 
 	var notes []FidelityNote
 
-	// If the provider does not support the model field via configuration, drop it.
-	if !caps.ModelField {
+	// If the provider does not support the model field, drop it.
+	modelSupport := schema.FieldSupportForTarget("agent", "model", targetName)
+	if modelSupport == "unsupported" || modelSupport == "" {
 		return "", nil
 	}
 
