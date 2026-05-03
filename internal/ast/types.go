@@ -374,38 +374,44 @@ type SkillConfig struct {
 	// Human-readable purpose of this skill.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
 	Description string `yaml:"description,omitempty"`
 
 	// Guidance for the model on when to invoke this skill.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:optional
 	WhenToUse string `yaml:"when-to-use,omitempty"`
 
 	// SPDX license identifier for open-source skills.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:optional,copilot:optional
 	License string `yaml:"license,omitempty"`
 
 	// Tools this skill is permitted to use. Skill-specific field.
 	// +xcf:optional
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
-	// +xcf:provider=gemini:ignored,cursor:ignored,antigravity:ignored
+	// +xcf:provider=claude:optional,copilot:optional
 	AllowedTools []string `yaml:"allowed-tools,omitempty"`
 
 	// Prevents the skill from spawning sub-agents.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
 	// Whether users can invoke this skill directly via slash command.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	UserInvocable *bool `yaml:"user-invocable,omitempty"`
 
 	// Hint text shown to the user when invoking the skill.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	ArgumentHint string `yaml:"argument-hint,omitempty"`
 
 	// Docs and data files copied to skills/<id>/references/ at compile time.
@@ -465,17 +471,20 @@ type RuleConfig struct {
 	// When true, applies this rule to all files unconditionally.
 	// +xcf:optional
 	// +xcf:group=Activation
+	// +xcf:provider=cursor:optional
 	AlwaysApply *bool `yaml:"always-apply,omitempty"`
 
 	// Human-readable purpose of this rule.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:optional,cursor:optional,copilot:optional,antigravity:optional
 	Description string `yaml:"description,omitempty"`
 
 	// Cross-provider activation mode for this rule.
 	// +xcf:optional
 	// +xcf:group=Activation
 	// +xcf:enum=always,path-glob,model-decided,manual-mention,explicit-invoke
+	// +xcf:provider=cursor:optional
 	Activation string `yaml:"activation,omitempty"`
 
 	// Unique identifier for this rule within the project.
@@ -491,6 +500,7 @@ type RuleConfig struct {
 	// +xcf:optional
 	// +xcf:group=Activation
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional,cursor:optional,copilot:optional,antigravity:optional
 	Paths []string `yaml:"paths,omitempty"`
 
 	// Agent types excluded from receiving this rule.
@@ -498,7 +508,7 @@ type RuleConfig struct {
 	// +xcf:group=Provider-Specific
 	// +xcf:type=[]string
 	// +xcf:enum=code-review,cloud-agent
-	// +xcf:provider=copilot:exclusive
+	// +xcf:provider=copilot:optional
 	ExcludeAgents []string `yaml:"exclude-agents,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.

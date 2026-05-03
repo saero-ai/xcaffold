@@ -735,3 +735,51 @@ func TestAgentProviderMarkers_DescriptionRequired(t *testing.T) {
 		t.Errorf("description: cursor provider = %q, want %q", descField.Provider["cursor"], "optional")
 	}
 }
+
+// TestSkillProviderMarkers_AllowedToolsProviders verifies that allowed-tools field
+// has the correct provider markers in the schema registry.
+func TestSkillProviderMarkers_AllowedToolsProviders(t *testing.T) {
+	ks, ok := schema.LookupKind("skill")
+	if !ok {
+		t.Fatal("skill kind not in registry")
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "allowed-tools" {
+			if f.Provider == nil {
+				t.Fatal("allowed-tools has no provider markers")
+			}
+			if f.Provider["claude"] != "optional" {
+				t.Errorf("allowed-tools: claude = %q, want %q", f.Provider["claude"], "optional")
+			}
+			if f.Provider["copilot"] != "optional" {
+				t.Errorf("allowed-tools: copilot = %q, want %q", f.Provider["copilot"], "optional")
+			}
+			return
+		}
+	}
+	t.Fatal("allowed-tools field not found in skill schema")
+}
+
+// TestRuleProviderMarkers_DescriptionProviders verifies that description field
+// has the correct provider markers in the schema registry.
+func TestRuleProviderMarkers_DescriptionProviders(t *testing.T) {
+	ks, ok := schema.LookupKind("rule")
+	if !ok {
+		t.Fatal("rule kind not in registry")
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "description" {
+			if f.Provider == nil {
+				t.Fatal("description has no provider markers")
+			}
+			if f.Provider["claude"] != "optional" {
+				t.Errorf("description: claude = %q, want %q", f.Provider["claude"], "optional")
+			}
+			if f.Provider["cursor"] != "optional" {
+				t.Errorf("description: cursor = %q, want %q", f.Provider["cursor"], "optional")
+			}
+			return
+		}
+	}
+	t.Fatal("description field not found in rule schema")
+}

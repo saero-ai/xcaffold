@@ -729,6 +729,9 @@ func init() {
 				Optional:    true,
 				Description: "When true, applies this rule to all files unconditionally.",
 				Group:       "Activation",
+				Provider: map[string]string{
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Description",
@@ -738,6 +741,12 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this rule.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+				},
 			},
 			{
 				Name:        "Activation",
@@ -748,6 +757,9 @@ func init() {
 				Description: "Cross-provider activation mode for this rule.",
 				Group:       "Activation",
 				Enum:        []string{"always", "path-glob", "model-decided", "manual-mention", "explicit-invoke"},
+				Provider: map[string]string{
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Name",
@@ -767,6 +779,12 @@ func init() {
 				Optional:    true,
 				Description: "Glob patterns for path-based activation.",
 				Group:       "Activation",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+				},
 			},
 			{
 				Name:        "ExcludeAgents",
@@ -778,7 +796,7 @@ func init() {
 				Group:       "Provider-Specific",
 				Enum:        []string{"code-review", "cloud-agent"},
 				Provider: map[string]string{
-					"copilot": "exclusive",
+					"copilot": "optional",
 				},
 			},
 			{
@@ -1092,6 +1110,13 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this skill.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+					"gemini":      "optional",
+				},
 			},
 			{
 				Name:        "WhenToUse",
@@ -1101,6 +1126,9 @@ func init() {
 				Optional:    true,
 				Description: "Guidance for the model on when to invoke this skill.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "License",
@@ -1110,6 +1138,10 @@ func init() {
 				Optional:    true,
 				Description: "SPDX license identifier for open-source skills.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+				},
 			},
 			{
 				Name:        "AllowedTools",
@@ -1120,9 +1152,8 @@ func init() {
 				Description: "Tools this skill is permitted to use. Skill-specific field.",
 				Group:       "Tool Access",
 				Provider: map[string]string{
-					"antigravity": "ignored",
-					"cursor":      "ignored",
-					"gemini":      "ignored",
+					"claude":  "optional",
+					"copilot": "optional",
 				},
 			},
 			{
@@ -1133,6 +1164,9 @@ func init() {
 				Optional:    true,
 				Description: "Prevents the skill from spawning sub-agents.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "UserInvocable",
@@ -1142,6 +1176,9 @@ func init() {
 				Optional:    true,
 				Description: "Whether users can invoke this skill directly via slash command.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "ArgumentHint",
@@ -1151,6 +1188,9 @@ func init() {
 				Optional:    true,
 				Description: "Hint text shown to the user when invoking the skill.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "References",
