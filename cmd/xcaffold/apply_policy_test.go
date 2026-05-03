@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,7 +45,7 @@ require:
 	outputDir := filepath.Join(dir, ".claude")
 
 	applyForce = true
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	defer func() { applyForce = false }()
 
 	err := applyScope(xcf, outputDir, filepath.Dir(xcf), "test")
@@ -109,7 +110,7 @@ require:
 	outputDir := filepath.Join(dir, ".claude")
 
 	applyForce = true
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	defer func() { applyForce = false }()
 
 	err := applyScope(xcf, outputDir, filepath.Dir(xcf), "test")

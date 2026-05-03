@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/judge"
 	"github.com/saero-ai/xcaffold/internal/llmclient"
 	"github.com/saero-ai/xcaffold/internal/parser"
@@ -285,7 +286,7 @@ func resolveCliPath(cliPath, claudePath string) string {
 	if claudePath != "" {
 		return claudePath
 	}
-	return targetClaude
+	return compiler.TargetClaude
 }
 
 // resolveJudgeModel returns the effective judge model.

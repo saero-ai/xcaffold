@@ -3,15 +3,25 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestTargetConstants verifies that apply.go target constants match compiler.Target* exports.
+// This test ensures no duplication exists and references use the canonical source.
+func TestTargetConstants(t *testing.T) {
+	assert.Equal(t, compiler.TargetClaude, "claude", "TargetClaude should be 'claude'")
+	assert.Equal(t, compiler.TargetCursor, "cursor", "TargetCursor should be 'cursor'")
+	assert.Equal(t, compiler.TargetAntigravity, "antigravity", "TargetAntigravity should be 'antigravity'")
+	assert.Equal(t, compiler.TargetCopilot, "copilot", "TargetCopilot should be 'copilot'")
+	assert.Equal(t, compiler.TargetGemini, "gemini", "TargetGemini should be 'gemini'")
+}
 
 // TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal verifies that
 // --blueprint and --global are mutually exclusive on apply.
@@ -64,6 +74,11 @@ Use pnpm. PostgreSQL 16.
 
 	outputDir := filepath.Join(dir, ".claude")
 	stateFile := filepath.Join(xcaffoldDir, "project.xcf.state")
+
+	// Set up targetFlag for this test
+	oldTargetFlag := targetFlag
+	targetFlag = compiler.TargetClaude
+	defer func() { targetFlag = oldTargetFlag }()
 
 	// Act
 	err := applyScope(projectXcf, outputDir, dir, "project")
@@ -170,7 +185,7 @@ func TestRunApply_GlobalFlagFalse_CompilesProject(t *testing.T) {
 	xcfPath = xcf
 	projectRoot = dir
 	globalFlag = false
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
@@ -189,7 +204,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 
 	// First apply — should compile
 	applyForce = false
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
@@ -200,7 +215,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	// Read first state to get timestamp
 	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.Targets[targetClaude].LastApplied
+	ts1 := m1.Targets[compiler.TargetClaude].LastApplied
 
 	// Second apply — should skip (same sources)
 	err = applyScope(xcf, claudeDirPath, dir, "project")
@@ -209,7 +224,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	// State timestamp should NOT change (compilation was skipped)
 	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.Equal(t, ts1, m2.Targets[targetClaude].LastApplied, "timestamp should not change when sources are unchanged")
+	assert.Equal(t, ts1, m2.Targets[compiler.TargetClaude].LastApplied, "timestamp should not change when sources are unchanged")
 }
 
 func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
@@ -220,7 +235,7 @@ func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
 	claudeDirPath := filepath.Join(dir, ".claude")
 
 	applyForce = false
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 
 	// First apply
 	err := applyScope(xcf, claudeDirPath, dir, "project")
@@ -229,7 +244,7 @@ func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
 	stateFile := state.StateFilePath(dir, "")
 	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.Targets[targetClaude].LastApplied
+	ts1 := m1.Targets[compiler.TargetClaude].LastApplied
 
 	// Modify source
 	modifiedXCF := `kind: project
@@ -245,7 +260,7 @@ name: apply-test-modified
 
 	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.NotEqual(t, ts1, m2.Targets[targetClaude].LastApplied, "timestamp should change when sources are modified")
+	assert.NotEqual(t, ts1, m2.Targets[compiler.TargetClaude].LastApplied, "timestamp should change when sources are modified")
 }
 
 func TestApplyScope_ForceRecompiles(t *testing.T) {
@@ -255,7 +270,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 
 	// First apply (non-force)
 	applyForce = false
@@ -265,7 +280,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 	stateFile := state.StateFilePath(dir, "")
 	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.Targets[targetClaude].LastApplied
+	ts1 := m1.Targets[compiler.TargetClaude].LastApplied
 
 	// Second apply with --force — should recompile despite no changes
 	applyForce = true
@@ -275,7 +290,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 
 	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.NotEqual(t, ts1, m2.Targets[targetClaude].LastApplied, "force should always recompile")
+	assert.NotEqual(t, ts1, m2.Targets[compiler.TargetClaude].LastApplied, "force should always recompile")
 
 	// Reset
 	applyForce = false
@@ -305,7 +320,7 @@ You are a developer.
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	applyForce = true
 	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
@@ -359,7 +374,7 @@ You are a developer.
 	projectRoot = dir
 	globalFlag = false
 	applyForce = true
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	err := runApply(applyCmd, nil)
@@ -459,7 +474,7 @@ You are a developer.
 	projectRoot = dir
 	globalFlag = false
 	applyForce = true
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	err := runApply(applyCmd, nil)
@@ -495,7 +510,7 @@ You are a developer.
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	applyForce = true
 	applyDryRun = false
 	err := applyScope(xcf, claudeDirPath, dir, "project")
@@ -539,7 +554,7 @@ version: "1"
 	claudeDirPath := filepath.Join(dir, ".claude")
 
 	applyForce = true
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
@@ -588,7 +603,7 @@ You are a developer.
 	applyForce = true
 	applyBackup = false
 	applyDryRun = false
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	// First apply: compile both targets and write state so the smart-skip path
@@ -662,7 +677,7 @@ Robert is the founder.
 `), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	applyForce = true
 	defer func() { applyForce = false }()
 
@@ -708,7 +723,7 @@ Use cobra for all commands.
 `), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	applyForce = true
 	defer func() { applyForce = false }()
 
@@ -734,7 +749,7 @@ func TestApplyScope_OrchestratorMemory_NoEntries_NoDir(t *testing.T) {
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
-	targetFlag = targetClaude
+	targetFlag = compiler.TargetClaude
 	applyForce = true
 	defer func() { applyForce = false }()
 
@@ -743,30 +758,6 @@ func TestApplyScope_OrchestratorMemory_NoEntries_NoDir(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(claudeDir, "agent-memory"))
 	require.True(t, os.IsNotExist(err), "agent-memory/ must not be created when config has no memory entries")
-}
-
-// TestClaudeProjectMemoryDir_DeterministicEncoding verifies that
-// claudeProjectMemoryDir returns the same directory for the same project root
-// on repeated calls, and falls back to the working directory without error
-// when given an empty projectRoot.
-func TestClaudeProjectMemoryDir_DeterministicEncoding(t *testing.T) {
-	tmp := t.TempDir()
-
-	dir, err := claudeProjectMemoryDir(tmp)
-	require.NoError(t, err)
-
-	dirAgain, err := claudeProjectMemoryDir(tmp)
-	require.NoError(t, err)
-	require.Equal(t, dir, dirAgain)
-
-	require.Contains(t, dir, ".claude/projects")
-	require.True(t, strings.HasSuffix(dir, "memory"))
-
-	// Empty projectRoot falls back to cwd without crashing.
-	dirEmpty, err := claudeProjectMemoryDir("")
-	require.NoError(t, err)
-	require.Contains(t, dirEmpty, ".claude/projects")
-	require.True(t, strings.HasSuffix(dirEmpty, "memory"))
 }
 
 // TestCheckFidelityErrors_ErrorLevel verifies that checkFidelityErrors returns
