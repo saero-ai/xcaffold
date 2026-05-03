@@ -59,7 +59,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 
 	fmt.Println(formatHeader(projectName, "", false, "", ""))
 	fmt.Println()
-	fmt.Println("  Scaffolding your xcaffold authoring toolkit.")
+	fmt.Println("  Initializing xcaffold project.")
 
 	if globalFlag {
 		return initGlobal()
