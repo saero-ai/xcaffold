@@ -913,66 +913,72 @@ func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig) erro
 		config.Overrides = &ast.ResourceOverrides{}
 	}
 
+	return decodeAndStoreOverride(entry, frontmatter, trimmedBody, resourceName, config.Overrides)
+}
+
+// decodeAndStoreOverride decodes the frontmatter into the appropriate config type
+// and stores it in the ResourceOverrides map based on the resource kind.
+func decodeAndStoreOverride(entry overrideFileEntry, frontmatter []byte, body, name string, overrides *ast.ResourceOverrides) error {
 	switch entry.Kind {
 	case "agent":
 		var cfg ast.AgentConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode agent override %s: %w", entry.Path, err)
 		}
-		cfg.Body = trimmedBody
-		config.Overrides.AddAgent(resourceName, entry.Provider, cfg)
+		cfg.Body = body
+		overrides.AddAgent(name, entry.Provider, cfg)
 	case "skill":
 		var cfg ast.SkillConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode skill override %s: %w", entry.Path, err)
 		}
-		cfg.Body = trimmedBody
-		config.Overrides.AddSkill(resourceName, entry.Provider, cfg)
+		cfg.Body = body
+		overrides.AddSkill(name, entry.Provider, cfg)
 	case "rule":
 		var cfg ast.RuleConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode rule override %s: %w", entry.Path, err)
 		}
-		cfg.Body = trimmedBody
-		config.Overrides.AddRule(resourceName, entry.Provider, cfg)
+		cfg.Body = body
+		overrides.AddRule(name, entry.Provider, cfg)
 	case "workflow":
 		var cfg ast.WorkflowConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode workflow override %s: %w", entry.Path, err)
 		}
-		cfg.Body = trimmedBody
-		config.Overrides.AddWorkflow(resourceName, entry.Provider, cfg)
+		cfg.Body = body
+		overrides.AddWorkflow(name, entry.Provider, cfg)
 	case "mcp":
 		var cfg ast.MCPConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode mcp override %s: %w", entry.Path, err)
 		}
-		config.Overrides.AddMCP(resourceName, entry.Provider, cfg)
+		overrides.AddMCP(name, entry.Provider, cfg)
 	case "hooks":
 		var cfg ast.NamedHookConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode hooks override %s: %w", entry.Path, err)
 		}
-		config.Overrides.AddHooks(resourceName, entry.Provider, cfg)
+		overrides.AddHooks(name, entry.Provider, cfg)
 	case "settings":
 		var cfg ast.SettingsConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode settings override %s: %w", entry.Path, err)
 		}
-		config.Overrides.AddSettings(resourceName, entry.Provider, cfg)
+		overrides.AddSettings(name, entry.Provider, cfg)
 	case "policy":
 		var cfg ast.PolicyConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode policy override %s: %w", entry.Path, err)
 		}
-		config.Overrides.AddPolicy(resourceName, entry.Provider, cfg)
+		overrides.AddPolicy(name, entry.Provider, cfg)
 	case "template":
 		var cfg ast.TemplateConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode template override %s: %w", entry.Path, err)
 		}
-		cfg.Body = trimmedBody
-		config.Overrides.AddTemplate(resourceName, entry.Provider, cfg)
+		cfg.Body = body
+		overrides.AddTemplate(name, entry.Provider, cfg)
 	default:
 		return fmt.Errorf("override file %s: unsupported kind %q for overrides", entry.Path, entry.Kind)
 	}

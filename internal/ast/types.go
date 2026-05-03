@@ -1048,15 +1048,18 @@ type ContextConfig struct {
 // scaffolds that generate project files during init. Overrides allow
 // provider-specific template customization.
 type TemplateConfig struct {
+	// Unique identifier for this template within the project.
 	// +xcf:required
 	// +xcf:group=Identity
 	// +xcf:pattern=^[a-z0-9-]+$
 	Name string `yaml:"name"`
 
+	// Human-readable purpose of this template.
 	// +xcf:optional
 	// +xcf:group=Identity
 	Description string `yaml:"description,omitempty"`
 
+	// Default compilation target provider for this template.
 	// +xcf:optional
 	// +xcf:group=Compilation
 	DefaultTarget string `yaml:"default-target,omitempty"`
@@ -1347,6 +1350,7 @@ func (r *ResourceOverrides) MCPProviders(name string) []string {
 	return providers
 }
 
+// AddHooks stores a NamedHookConfig override keyed by [name][provider].
 func (r *ResourceOverrides) AddHooks(name, provider string, cfg NamedHookConfig) {
 	if r.Hooks == nil {
 		r.Hooks = make(map[string]map[string]NamedHookConfig)
@@ -1357,6 +1361,7 @@ func (r *ResourceOverrides) AddHooks(name, provider string, cfg NamedHookConfig)
 	r.Hooks[name][provider] = cfg
 }
 
+// GetHooks retrieves a NamedHookConfig override by [name][provider].
 func (r *ResourceOverrides) GetHooks(name, provider string) (NamedHookConfig, bool) {
 	if r == nil || r.Hooks == nil {
 		return NamedHookConfig{}, false
@@ -1368,6 +1373,7 @@ func (r *ResourceOverrides) GetHooks(name, provider string) (NamedHookConfig, bo
 	return cfg, ok
 }
 
+// HooksProviders returns a sorted list of provider names for a given hooks block.
 func (r *ResourceOverrides) HooksProviders(name string) []string {
 	if r == nil || r.Hooks == nil || r.Hooks[name] == nil {
 		return nil
@@ -1380,6 +1386,7 @@ func (r *ResourceOverrides) HooksProviders(name string) []string {
 	return providers
 }
 
+// AddSettings stores a SettingsConfig override keyed by [name][provider].
 func (r *ResourceOverrides) AddSettings(name, provider string, cfg SettingsConfig) {
 	if r.Settings == nil {
 		r.Settings = make(map[string]map[string]SettingsConfig)
@@ -1390,6 +1397,7 @@ func (r *ResourceOverrides) AddSettings(name, provider string, cfg SettingsConfi
 	r.Settings[name][provider] = cfg
 }
 
+// GetSettings retrieves a SettingsConfig override by [name][provider].
 func (r *ResourceOverrides) GetSettings(name, provider string) (SettingsConfig, bool) {
 	if r == nil || r.Settings == nil {
 		return SettingsConfig{}, false
@@ -1401,6 +1409,7 @@ func (r *ResourceOverrides) GetSettings(name, provider string) (SettingsConfig, 
 	return cfg, ok
 }
 
+// SettingsProviders returns a sorted list of provider names for a given settings block.
 func (r *ResourceOverrides) SettingsProviders(name string) []string {
 	if r == nil || r.Settings == nil || r.Settings[name] == nil {
 		return nil
@@ -1413,6 +1422,7 @@ func (r *ResourceOverrides) SettingsProviders(name string) []string {
 	return providers
 }
 
+// AddPolicy stores a PolicyConfig override keyed by [name][provider].
 func (r *ResourceOverrides) AddPolicy(name, provider string, cfg PolicyConfig) {
 	if r.Policy == nil {
 		r.Policy = make(map[string]map[string]PolicyConfig)
@@ -1423,6 +1433,7 @@ func (r *ResourceOverrides) AddPolicy(name, provider string, cfg PolicyConfig) {
 	r.Policy[name][provider] = cfg
 }
 
+// GetPolicy retrieves a PolicyConfig override by [name][provider].
 func (r *ResourceOverrides) GetPolicy(name, provider string) (PolicyConfig, bool) {
 	if r == nil || r.Policy == nil {
 		return PolicyConfig{}, false
@@ -1434,6 +1445,7 @@ func (r *ResourceOverrides) GetPolicy(name, provider string) (PolicyConfig, bool
 	return cfg, ok
 }
 
+// PolicyProviders returns a sorted list of provider names for a given policy.
 func (r *ResourceOverrides) PolicyProviders(name string) []string {
 	if r == nil || r.Policy == nil || r.Policy[name] == nil {
 		return nil
@@ -1446,6 +1458,7 @@ func (r *ResourceOverrides) PolicyProviders(name string) []string {
 	return providers
 }
 
+// AddTemplate stores a TemplateConfig override keyed by [name][provider].
 func (r *ResourceOverrides) AddTemplate(name, provider string, cfg TemplateConfig) {
 	if r.Template == nil {
 		r.Template = make(map[string]map[string]TemplateConfig)
@@ -1456,6 +1469,7 @@ func (r *ResourceOverrides) AddTemplate(name, provider string, cfg TemplateConfi
 	r.Template[name][provider] = cfg
 }
 
+// GetTemplate retrieves a TemplateConfig override by [name][provider].
 func (r *ResourceOverrides) GetTemplate(name, provider string) (TemplateConfig, bool) {
 	if r == nil || r.Template == nil {
 		return TemplateConfig{}, false
@@ -1467,6 +1481,7 @@ func (r *ResourceOverrides) GetTemplate(name, provider string) (TemplateConfig, 
 	return cfg, ok
 }
 
+// TemplateProviders returns a sorted list of provider names for a given template.
 func (r *ResourceOverrides) TemplateProviders(name string) []string {
 	if r == nil || r.Template == nil || r.Template[name] == nil {
 		return nil
