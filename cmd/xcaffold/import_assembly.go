@@ -515,3 +515,146 @@ func splitWorkflowOverrides(configs map[string]ast.WorkflowConfig) (ast.Workflow
 	}
 	return base, overrides
 }
+
+func settingsConfigsIdentical(configs map[string]ast.SettingsConfig) bool {
+	var ref ast.SettingsConfig
+	first := true
+	for _, cfg := range configs {
+		if first {
+			ref = cfg
+			first = false
+			continue
+		}
+		cfg.Name = ""
+		ref.Name = ""
+		if !reflect.DeepEqual(cfg, ref) {
+			return false
+		}
+	}
+	return true
+}
+
+func splitSettingsOverrides(configs map[string]ast.SettingsConfig) (ast.SettingsConfig, map[string]ast.SettingsConfig) {
+	scores := make(map[string]int, len(configs))
+	for provider, cfg := range configs {
+		s := 0
+		if cfg.Agent != nil {
+			s++
+		}
+		if cfg.Worktree != nil {
+			s++
+		}
+		if cfg.AutoMode != nil {
+			s++
+		}
+		if cfg.CleanupPeriodDays != nil {
+			s++
+		}
+		if cfg.IncludeGitInstructions != nil {
+			s++
+		}
+		if cfg.SkipDangerousModePermissionPrompt != nil {
+			s++
+		}
+		if cfg.Permissions != nil {
+			s++
+		}
+		if cfg.Sandbox != nil {
+			s++
+		}
+		if cfg.AutoMemoryEnabled != nil {
+			s++
+		}
+		if cfg.DisableAllHooks != nil {
+			s++
+		}
+		if cfg.Attribution != nil {
+			s++
+		}
+		if cfg.MCPServers != nil && len(cfg.MCPServers) > 0 {
+			s++
+		}
+		if cfg.Hooks != nil && len(cfg.Hooks) > 0 {
+			s++
+		}
+		if cfg.StatusLine != nil {
+			s++
+		}
+		if cfg.RespectGitignore != nil {
+			s++
+		}
+		if cfg.Env != nil && len(cfg.Env) > 0 {
+			s++
+		}
+		if cfg.EnabledPlugins != nil && len(cfg.EnabledPlugins) > 0 {
+			s++
+		}
+		if cfg.DisableSkillShellExecution != nil {
+			s++
+		}
+		if cfg.AlwaysThinkingEnabled != nil {
+			s++
+		}
+		if cfg.AvailableModels != nil && len(cfg.AvailableModels) > 0 {
+			s++
+		}
+		if cfg.ClaudeMdExcludes != nil && len(cfg.ClaudeMdExcludes) > 0 {
+			s++
+		}
+		scores[provider] = s
+	}
+	baseProv := selectBaseProvider(scores)
+	base := configs[baseProv]
+	overrides := make(map[string]ast.SettingsConfig, len(configs)-1)
+	for provider, cfg := range configs {
+		if provider == baseProv {
+			continue
+		}
+		overrides[provider] = cfg
+	}
+	return base, overrides
+}
+
+func assembleSettings(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.XcaffoldConfig) {
+	byName := make(map[string]map[string]ast.SettingsConfig)
+	for provider, cfg := range providerConfigs {
+		for name, sc := range cfg.Settings {
+			if byName[name] == nil {
+				byName[name] = make(map[string]ast.SettingsConfig)
+			}
+			byName[name][provider] = sc
+		}
+	}
+	for name, providerSettings := range byName {
+		if len(providerSettings) == 1 {
+			for _, sc := range providerSettings {
+				if result.Settings == nil {
+					result.Settings = make(map[string]ast.SettingsConfig)
+				}
+				result.Settings[name] = sc
+			}
+			continue
+		}
+		if settingsConfigsIdentical(providerSettings) {
+			for _, sc := range providerSettings {
+				if result.Settings == nil {
+					result.Settings = make(map[string]ast.SettingsConfig)
+				}
+				result.Settings[name] = sc
+				break
+			}
+			continue
+		}
+		base, overrides := splitSettingsOverrides(providerSettings)
+		if result.Settings == nil {
+			result.Settings = make(map[string]ast.SettingsConfig)
+		}
+		result.Settings[name] = base
+		if result.Overrides == nil {
+			result.Overrides = &ast.ResourceOverrides{}
+		}
+		for provider, override := range overrides {
+			result.Overrides.AddSettings(name, provider, override)
+		}
+	}
+}

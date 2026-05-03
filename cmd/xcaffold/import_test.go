@@ -1652,3 +1652,85 @@ func TestImport_AssembleHooks_DifferentMultiProvider(t *testing.T) {
 		t.Errorf("override should preserve Events")
 	}
 }
+
+func TestImport_SettingsConfigsIdentical_ReturnsTrueForMatchingConfigs(t *testing.T) {
+	boolTrue := true
+	configs := map[string]ast.SettingsConfig{
+		"claude": {Name: "default", AutoMemoryEnabled: &boolTrue},
+		"gemini": {Name: "default", AutoMemoryEnabled: &boolTrue},
+	}
+	if !settingsConfigsIdentical(configs) {
+		t.Error("identical settings configs should return true")
+	}
+}
+
+func TestImport_SettingsConfigsIdentical_ReturnsFalseForDifferentConfigs(t *testing.T) {
+	boolTrue := true
+	boolFalse := false
+	configs := map[string]ast.SettingsConfig{
+		"claude": {Name: "default", AutoMemoryEnabled: &boolTrue, DisableAllHooks: &boolFalse},
+		"gemini": {Name: "default", AutoMemoryEnabled: &boolFalse},
+	}
+	if settingsConfigsIdentical(configs) {
+		t.Error("different settings configs should return false")
+	}
+}
+
+func TestImport_AssembleSettings_SingleProvider(t *testing.T) {
+	boolTrue := true
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			Settings: map[string]ast.SettingsConfig{
+				"default": {Name: "default", AutoMemoryEnabled: &boolTrue},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		Settings: make(map[string]ast.SettingsConfig),
+	}
+	assembleSettings(providerConfigs, result)
+	sc, exists := result.Settings["default"]
+	require.True(t, exists, "settings must be stored")
+	assert.Equal(t, &boolTrue, sc.AutoMemoryEnabled)
+	if result.Overrides != nil {
+		_, ok := result.Overrides.GetSettings("default", "claude")
+		assert.False(t, ok, "single-provider should not produce overrides")
+	}
+}
+
+func TestImport_AssembleSettings_DifferentMultiProvider(t *testing.T) {
+	boolTrue := true
+	boolFalse := false
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			Settings: map[string]ast.SettingsConfig{
+				"default": {
+					Name:              "default",
+					AutoMemoryEnabled: &boolTrue,
+					DisableAllHooks:   &boolFalse,
+					Permissions:       &ast.PermissionsConfig{},
+					Hooks:             ast.HookConfig{"events": []ast.HookMatcherGroup{}},
+				},
+			},
+		},
+		"gemini": {
+			Settings: map[string]ast.SettingsConfig{
+				"default": {
+					Name:              "default",
+					AutoMemoryEnabled: &boolFalse,
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		Settings: make(map[string]ast.SettingsConfig),
+	}
+	assembleSettings(providerConfigs, result)
+	_, exists := result.Settings["default"]
+	require.True(t, exists, "base settings must be stored")
+	require.NotNil(t, result.Overrides, "overrides must be populated")
+	_, hasClaudeOverride := result.Overrides.GetSettings("default", "claude")
+	assert.True(t, hasClaudeOverride, "claude should be override (higher score)")
+	_, hasGeminiOverride := result.Overrides.GetSettings("default", "gemini")
+	assert.False(t, hasGeminiOverride, "gemini should be base (lower score)")
+}
