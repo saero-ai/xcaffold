@@ -111,13 +111,13 @@ xcaffold import --target claude    # Read existing .claude/ and generate .xcf
 | Agents | Yes | Yes | Yes | Yes | -- |
 | Skills | Yes | Yes | Yes | Yes | Yes |
 | Rules | Yes | Yes | Yes | Yes | Yes |
-| Workflows | Lowered | Lowered | Lowered | Lowered | Yes |
+| Workflows | Yes* | Yes* | Yes* | Yes* | Yes |
 | Hooks | Yes | Yes | Yes | Yes | -- |
 | MCP Servers | Yes | Yes | Yes | Yes | Yes |
 | Memory | Yes | -- | -- | -- | -- |
 | Settings | Yes | Yes | Yes | Yes | Yes |
 
-**Lowered** — xcaffold translates workflows into the provider's native primitives (rules + skills) since the provider has no native workflow format. A fidelity note is emitted during compilation.
+*Compiled as rules + skills for providers without a native workflow format.
 
 ## Documentation
 
