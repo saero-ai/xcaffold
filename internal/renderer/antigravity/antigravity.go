@@ -70,7 +70,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                  true,
 		Memory:               false,
 		ProjectInstructions:  true,
-		AgentToolsField:      false,
 		AgentNativeToolsOnly: false,
 		SkillArtifactDirs: map[string]string{
 			"references": "examples",
@@ -78,14 +77,10 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 			"assets":     "resources",
 			"examples":   "examples",
 		},
-		ModelField:      false,
 		RuleActivations: []string{"always", "path-glob", "model-decided"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "frontmatter",
 			Activation:  "frontmatter",
-		},
-		SecurityFields: renderer.SecurityFieldSupport{
-			Effort: true,
 		},
 	}
 }

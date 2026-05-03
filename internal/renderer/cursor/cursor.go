@@ -58,9 +58,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                  true,
 		Memory:               false,
 		ProjectInstructions:  true,
-		AgentToolsField:      false,
 		AgentNativeToolsOnly: false,
-		ModelField:           true,
 		RuleActivations:      []string{"always", "path-glob", "manual-mention"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "frontmatter",
@@ -71,9 +69,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 			"scripts":    "scripts",
 			"assets":     "assets",
 			"examples":   "references",
-		},
-		SecurityFields: renderer.SecurityFieldSupport{
-			Effort: true,
 		},
 	}
 }

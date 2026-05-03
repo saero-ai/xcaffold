@@ -58,7 +58,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                  true,
 		Memory:               false,
 		ProjectInstructions:  true,
-		AgentToolsField:      true,
 		AgentNativeToolsOnly: false,
 		// examples collapses into references/ for Gemini.
 		SkillArtifactDirs: map[string]string{
@@ -67,13 +66,11 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 			"assets":     "assets",
 			"examples":   "references",
 		},
-		ModelField:      true,
 		RuleActivations: []string{"always", "path-glob"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "prose",
 			Activation:  "omit",
 		},
-		SecurityFields: renderer.SecurityFieldSupport{},
 	}
 }
 

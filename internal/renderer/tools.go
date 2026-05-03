@@ -55,7 +55,7 @@ func SanitizeAgentTools(tools []string, caps CapabilitySet, targetName, agentID 
 		return append([]string{}, tools...), nil
 	}
 
-	// For other providers (AgentToolsField: true, AgentNativeToolsOnly: false),
+	// For other providers (AgentNativeToolsOnly: false),
 	// Claude-native tools are unsupported and must be stripped.
 	var sanitized []string
 	var dropped []string
