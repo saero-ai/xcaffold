@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/providers"
 	"gopkg.in/yaml.v3"
 )
 
@@ -833,15 +834,6 @@ func isParseableFile(path string) bool {
 	return parseableKinds[header.Kind]
 }
 
-// validProviders is the closed set of allowed provider tokens in override filenames.
-var validProviders = map[string]bool{
-	"claude":      true,
-	"gemini":      true,
-	"cursor":      true,
-	"antigravity": true,
-	"copilot":     true,
-}
-
 // canonicalKindFilenames lists the resource kinds that can appear as prefixes in override filenames.
 var canonicalKindFilenames = map[string]bool{
 	"agent":    true,
@@ -1075,8 +1067,8 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig) (*ast.Xcaffol
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
 			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
-				if !validProviders[provider] {
-					return fmt.Errorf("override file %s: unknown provider %q; valid providers: claude, gemini, cursor, antigravity, copilot", d.Name(), provider)
+				if !providers.IsRegistered(provider) {
+					return fmt.Errorf("override file %s: unknown provider %q; valid providers: %s", d.Name(), provider, strings.Join(providers.RegisteredNames(), ", "))
 				}
 				overrideFiles = append(overrideFiles, overrideFileEntry{
 					Path:     path,
@@ -1178,8 +1170,8 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
 			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
-				if !validProviders[provider] {
-					return fmt.Errorf("override file %s: unknown provider %q; valid providers: claude, gemini, cursor, antigravity, copilot", d.Name(), provider)
+				if !providers.IsRegistered(provider) {
+					return fmt.Errorf("override file %s: unknown provider %q; valid providers: %s", d.Name(), provider, strings.Join(providers.RegisteredNames(), ", "))
 				}
 				overrideFiles = append(overrideFiles, overrideFileEntry{
 					Path:     path,
