@@ -39,20 +39,19 @@ func TestCompile_Copilot_Agents_Minimal(t *testing.T) {
 }
 
 // TestCompile_Copilot_Agents_FullSchema verifies that supported agent fields —
-// tools, model, disable-model-invocation, and user-invocable — are rendered
-// into the agent frontmatter without fidelity notes.
+// tools and model — are rendered into the agent frontmatter without fidelity
+// notes. Fields unsupported by copilot (disable-model-invocation,
+// user-invocable) are excluded from this test.
 func TestCompile_Copilot_Agents_FullSchema(t *testing.T) {
 	r := copilot.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"full-agent": {
-					Name:                   "Full Agent",
-					Description:            "Agent with full schema.",
-					Model:                  "gpt-4o",
-					Tools:                  []string{"read_file", "write_file"},
-					DisableModelInvocation: boolPtr(true),
-					UserInvocable:          boolPtr(true),
+					Name:        "Full Agent",
+					Description: "Agent with full schema.",
+					Model:       "gpt-4o",
+					Tools:       []string{"read_file", "write_file"},
 				},
 			},
 		},

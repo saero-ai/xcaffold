@@ -6,11 +6,10 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 )
 
-// TestPresenceExtractor_Agent_MatchesManual creates a fully-populated AgentConfig,
-// runs both the manual extractAgentPresentFields() and the generated
-// ExtractAgentPresentFields(), and verifies the generated output is a superset
-// of the manual output (all manual keys present with identical values).
-func TestPresenceExtractor_Agent_MatchesManual(t *testing.T) {
+// TestPresenceExtractor_Agent_PopulatedFields verifies that the generated
+// ExtractAgentPresentFields returns the expected keys for a fully-populated
+// AgentConfig.
+func TestPresenceExtractor_Agent_PopulatedFields(t *testing.T) {
 	tr := true
 	agent := ast.AgentConfig{
 		Name:                   "test-agent",
@@ -34,26 +33,25 @@ func TestPresenceExtractor_Agent_MatchesManual(t *testing.T) {
 		Body:                   "Agent instructions body.",
 	}
 
-	manual := extractAgentPresentFields(agent)
-	generated := ExtractAgentPresentFields(agent)
+	got := ExtractAgentPresentFields(agent)
 
-	// Every key in the manual output must exist in the generated output
-	// with the same value.
-	for key, mVal := range manual {
-		gVal, ok := generated[key]
-		if !ok {
-			t.Errorf("generated output missing key %q (manual has value %q)", key, mVal)
-			continue
-		}
-		if gVal != mVal {
-			t.Errorf("key %q: manual=%q generated=%q", key, mVal, gVal)
+	expected := []string{
+		"name", "description", "model", "effort", "max-turns",
+		"tools", "disallowed-tools", "readonly", "permission-mode",
+		"disable-model-invocation", "user-invocable", "background",
+		"isolation", "memory", "initial-prompt", "skills",
+		"mcp-servers", "hooks", "body",
+	}
+	for _, key := range expected {
+		if _, ok := got[key]; !ok {
+			t.Errorf("missing expected key %q in generated output", key)
 		}
 	}
 }
 
-// TestPresenceExtractor_Skill_MatchesManual verifies the generated skill extractor
-// matches the manual implementation for all fields the manual one checks.
-func TestPresenceExtractor_Skill_MatchesManual(t *testing.T) {
+// TestPresenceExtractor_Skill_PopulatedFields verifies the generated skill
+// extractor returns expected keys for a fully-populated SkillConfig.
+func TestPresenceExtractor_Skill_PopulatedFields(t *testing.T) {
 	tr := true
 	skill := ast.SkillConfig{
 		Name:                   "test-skill",
@@ -67,24 +65,23 @@ func TestPresenceExtractor_Skill_MatchesManual(t *testing.T) {
 		Body:                   "Skill body.",
 	}
 
-	manual := extractSkillPresentFields(skill)
-	generated := ExtractSkillPresentFields(skill)
+	got := ExtractSkillPresentFields(skill)
 
-	for key, mVal := range manual {
-		gVal, ok := generated[key]
-		if !ok {
-			t.Errorf("generated output missing key %q (manual has value %q)", key, mVal)
-			continue
-		}
-		if gVal != mVal {
-			t.Errorf("key %q: manual=%q generated=%q", key, mVal, gVal)
+	expected := []string{
+		"name", "description", "when-to-use", "license",
+		"allowed-tools", "disable-model-invocation",
+		"user-invocable", "argument-hint", "body",
+	}
+	for _, key := range expected {
+		if _, ok := got[key]; !ok {
+			t.Errorf("missing expected key %q in generated output", key)
 		}
 	}
 }
 
-// TestPresenceExtractor_Rule_MatchesManual verifies the generated rule extractor
-// matches the manual implementation for all fields the manual one checks.
-func TestPresenceExtractor_Rule_MatchesManual(t *testing.T) {
+// TestPresenceExtractor_Rule_PopulatedFields verifies the generated rule
+// extractor returns expected keys for a fully-populated RuleConfig.
+func TestPresenceExtractor_Rule_PopulatedFields(t *testing.T) {
 	tr := true
 	rule := ast.RuleConfig{
 		Name:          "test-rule",
@@ -96,17 +93,15 @@ func TestPresenceExtractor_Rule_MatchesManual(t *testing.T) {
 		Body:          "Rule body.",
 	}
 
-	manual := extractRulePresentFields(rule)
-	generated := ExtractRulePresentFields(rule)
+	got := ExtractRulePresentFields(rule)
 
-	for key, mVal := range manual {
-		gVal, ok := generated[key]
-		if !ok {
-			t.Errorf("generated output missing key %q (manual has value %q)", key, mVal)
-			continue
-		}
-		if gVal != mVal {
-			t.Errorf("key %q: manual=%q generated=%q", key, mVal, gVal)
+	expected := []string{
+		"name", "description", "always-apply", "activation",
+		"paths", "exclude-agents", "body",
+	}
+	for _, key := range expected {
+		if _, ok := got[key]; !ok {
+			t.Errorf("missing expected key %q in generated output", key)
 		}
 	}
 }

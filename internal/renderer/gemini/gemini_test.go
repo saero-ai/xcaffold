@@ -57,8 +57,14 @@ func TestCompile_Gemini_Rules_AlwaysActivation(t *testing.T) {
 	geminiContent := out.RootFiles["GEMINI.md"]
 	assert.Contains(t, geminiContent, "Always apply @.gemini/rules/go-style.md")
 
-	// No fidelity notes for always activation.
-	assert.Empty(t, notes)
+	// No activation-related fidelity notes for always activation. FIELD_UNSUPPORTED
+	// notes for description/activation are expected since those fields are not
+	// natively supported by Gemini.
+	for _, n := range notes {
+		if n.Code == renderer.CodeRuleActivationUnsupported {
+			t.Errorf("unexpected activation fidelity note: %+v", n)
+		}
+	}
 }
 
 func TestCompile_Gemini_Rule_DescriptionAsProse(t *testing.T) {
@@ -106,8 +112,13 @@ func TestCompile_Gemini_Rules_PathGlob(t *testing.T) {
 	geminiContent := out.RootFiles["GEMINI.md"]
 	assert.Contains(t, geminiContent, "Apply this rule when accessing api/**:\n@.gemini/rules/api-style.md")
 
-	// path-glob is supported — no fidelity note.
-	assert.Empty(t, notes)
+	// path-glob is supported — no activation-related fidelity note.
+	// FIELD_UNSUPPORTED notes for description/activation/paths are expected.
+	for _, n := range notes {
+		if n.Code == renderer.CodeRuleActivationUnsupported {
+			t.Errorf("unexpected activation fidelity note: %+v", n)
+		}
+	}
 }
 
 func TestCompile_Gemini_Rules_UnsupportedActivation(t *testing.T) {
@@ -130,11 +141,17 @@ func TestCompile_Gemini_Rules_UnsupportedActivation(t *testing.T) {
 	_, ok := out.Files["rules/secret-rule.md"]
 	assert.True(t, ok, "expected rules/secret-rule.md (relative to OutputDir) even for unsupported activation")
 
-	// Fidelity note must be emitted.
-	require.Len(t, notes, 1)
-	assert.Equal(t, renderer.CodeRuleActivationUnsupported, notes[0].Code)
-	assert.Equal(t, renderer.LevelWarning, notes[0].Level)
-	assert.Equal(t, "secret-rule", notes[0].Resource)
+	// Activation unsupported fidelity note must be emitted. Additional
+	// FIELD_UNSUPPORTED notes for description/activation are expected.
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeRuleActivationUnsupported {
+			found = true
+			assert.Equal(t, renderer.LevelWarning, n.Level)
+			assert.Equal(t, "secret-rule", n.Resource)
+		}
+	}
+	assert.True(t, found, "expected RULE_ACTIVATION_UNSUPPORTED fidelity note")
 }
 
 func TestCompile_Gemini_Rules_NoProjectInstructions(t *testing.T) {
