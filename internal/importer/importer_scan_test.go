@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/importer"
-	_ "github.com/saero-ai/xcaffold/internal/importer/claude"
+	_ "github.com/saero-ai/xcaffold/providers/claude"
 )
 
 func TestScanDir_Claude_CountsAllKinds(t *testing.T) {

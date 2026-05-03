@@ -9,11 +9,11 @@ import (
 	"github.com/saero-ai/xcaffold/internal/bir"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
-	"github.com/saero-ai/xcaffold/internal/renderer/claude"
-	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
-	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
-	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
+	antigravity "github.com/saero-ai/xcaffold/providers/antigravity"
+	"github.com/saero-ai/xcaffold/providers/claude"
+	copilot "github.com/saero-ai/xcaffold/providers/copilot"
+	"github.com/saero-ai/xcaffold/providers/cursor"
+	gemini "github.com/saero-ai/xcaffold/providers/gemini"
 	"github.com/stretchr/testify/require"
 )
 

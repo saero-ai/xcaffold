@@ -9,51 +9,51 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
-	copilotimp "github.com/saero-ai/xcaffold/internal/importer/copilot"
+	copilotimp "github.com/saero-ai/xcaffold/providers/copilot"
 )
 
 // --- Provider metadata ---
 
 func TestCopilotImporter_Provider(t *testing.T) {
-	assert.Equal(t, "copilot", copilotimp.New().Provider())
+	assert.Equal(t, "copilot", copilotimp.NewImporter().Provider())
 }
 
 func TestCopilotImporter_InputDir(t *testing.T) {
-	assert.Equal(t, ".github", copilotimp.New().InputDir())
+	assert.Equal(t, ".github", copilotimp.NewImporter().InputDir())
 }
 
 // --- Classify tests ---
 
 func TestCopilotClassify_AgentPattern(t *testing.T) {
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	kind, layout := imp.Classify("agents/auditor.agent.md", false)
 	assert.Equal(t, importer.KindAgent, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
 func TestCopilotClassify_SkillPattern(t *testing.T) {
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	kind, layout := imp.Classify("skills/review.md", false)
 	assert.Equal(t, importer.KindSkill, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
 func TestCopilotClassify_RulePattern(t *testing.T) {
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	kind, layout := imp.Classify("instructions/security.instructions.md", false)
 	assert.Equal(t, importer.KindRule, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
 func TestCopilotClassify_MCPPattern(t *testing.T) {
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	kind, layout := imp.Classify("copilot/mcp-config.json", false)
 	assert.Equal(t, importer.KindMCP, kind)
 	assert.Equal(t, importer.StandaloneJSON, layout)
 }
 
 func TestCopilotClassify_WorkflowPattern(t *testing.T) {
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	kind, layout := imp.Classify("workflows/copilot-setup-steps.yml", false)
 	assert.Equal(t, importer.KindWorkflow, kind)
 	assert.Equal(t, importer.FlatFile, layout)
@@ -62,14 +62,14 @@ func TestCopilotClassify_WorkflowPattern(t *testing.T) {
 // copilot-instructions.md is the orchestrator's job (project instructions).
 // The importer MUST classify it as KindUnknown so it ends up in extras.
 func TestCopilotClassify_CopilotInstructionsMdIsUnknown(t *testing.T) {
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	kind, layout := imp.Classify("copilot-instructions.md", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 	assert.Equal(t, importer.LayoutUnknown, layout)
 }
 
 func TestCopilotClassify_UnknownFile(t *testing.T) {
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	kind, layout := imp.Classify("unknown-file", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 	assert.Equal(t, importer.LayoutUnknown, layout)
@@ -77,7 +77,7 @@ func TestCopilotClassify_UnknownFile(t *testing.T) {
 
 func TestCopilotClassify_NonMatchingRuleExtension(t *testing.T) {
 	// A plain .md in instructions/ without .instructions.md double extension is unknown.
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	kind, _ := imp.Classify("instructions/security.md", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 }
@@ -87,7 +87,7 @@ func TestCopilotClassify_NonMatchingRuleExtension(t *testing.T) {
 func TestCopilotExtract_Agent(t *testing.T) {
 	data := []byte("---\nname: Code Auditor\ndescription: Reviews code\nmodel: gpt-4o\n---\n\nYou are an auditor.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	err := imp.Extract("agents/auditor.agent.md", data, config)
 	require.NoError(t, err)
 	agent, ok := config.Agents["auditor"]
@@ -104,7 +104,7 @@ func TestCopilotExtract_Agent(t *testing.T) {
 func TestCopilotExtract_Agent_PlainMd(t *testing.T) {
 	data := []byte("---\nname: Legacy Agent\ndescription: Old style\nmodel: gpt-4o\n---\n\nLegacy instructions.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	err := imp.Extract("agents/legacy.md", data, config)
 	require.NoError(t, err)
 	agent, ok := config.Agents["legacy"]
@@ -116,7 +116,7 @@ func TestCopilotExtract_Agent_PlainMd(t *testing.T) {
 func TestCopilotExtract_Skill(t *testing.T) {
 	data := []byte("---\nname: code-review\ndescription: Review code\n---\n\nReview the code carefully.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	err := imp.Extract("skills/review.md", data, config)
 	require.NoError(t, err)
 	skill, ok := config.Skills["review"]
@@ -129,7 +129,7 @@ func TestCopilotExtract_Skill(t *testing.T) {
 func TestCopilotExtract_Rule_DoubleExtensionStripped(t *testing.T) {
 	data := []byte("---\ndescription: Security guidelines\n---\n\nNever hardcode secrets.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	err := imp.Extract("instructions/security.instructions.md", data, config)
 	require.NoError(t, err)
 	rule, ok := config.Rules["security"]
@@ -142,7 +142,7 @@ func TestCopilotExtract_Rule_DoubleExtensionStripped(t *testing.T) {
 func TestCopilotExtract_MCP(t *testing.T) {
 	data := []byte(`{"mcpServers":{"github":{"type":"stdio","command":"gh-mcp","args":["serve"]}}}`)
 	config := &ast.XcaffoldConfig{}
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	err := imp.Extract("copilot/mcp-config.json", data, config)
 	require.NoError(t, err)
 	mc, ok := config.MCP["github"]
@@ -155,7 +155,7 @@ func TestCopilotExtract_MCP(t *testing.T) {
 func TestCopilotExtract_Workflow(t *testing.T) {
 	data := []byte("name: Setup\ndescription: Project setup steps\n")
 	config := &ast.XcaffoldConfig{}
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	err := imp.Extract("workflows/copilot-setup-steps.yml", data, config)
 	require.NoError(t, err)
 	wf, ok := config.Workflows["copilot-setup-steps"]
@@ -166,7 +166,7 @@ func TestCopilotExtract_Workflow(t *testing.T) {
 // --- Full workspace golden test ---
 
 func TestCopilotImporter_FullWorkspace(t *testing.T) {
-	imp := copilotimp.New()
+	imp := copilotimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	inputDir := filepath.Join("testdata", "input")
 	err := imp.Import(inputDir, config)

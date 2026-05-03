@@ -10,12 +10,12 @@ import (
 	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
-	"github.com/saero-ai/xcaffold/internal/renderer/claude"
-	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
-	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
-	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
 	"github.com/saero-ai/xcaffold/internal/resolver"
+	antigravity "github.com/saero-ai/xcaffold/providers/antigravity"
+	"github.com/saero-ai/xcaffold/providers/claude"
+	copilot "github.com/saero-ai/xcaffold/providers/copilot"
+	"github.com/saero-ai/xcaffold/providers/cursor"
+	gemini "github.com/saero-ai/xcaffold/providers/gemini"
 	"gopkg.in/yaml.v3"
 )
 

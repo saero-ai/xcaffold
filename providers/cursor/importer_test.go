@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	cursorimp "github.com/saero-ai/xcaffold/internal/importer/cursor"
+	cursorimp "github.com/saero-ai/xcaffold/providers/cursor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,21 +15,21 @@ import (
 // --- Classify tests ---
 
 func TestCursorClassify_AgentPattern(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, layout := imp.Classify("agents/reviewer.md", false)
 	assert.Equal(t, importer.KindAgent, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
 func TestCursorClassify_SkillPattern(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, layout := imp.Classify("skills/code-review/SKILL.md", false)
 	assert.Equal(t, importer.KindSkill, kind)
 	assert.Equal(t, importer.DirectoryPerEntry, layout)
 }
 
 func TestCursorClassify_RulePattern(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, layout := imp.Classify("rules/formatting.mdc", false)
 	assert.Equal(t, importer.KindRule, kind)
 	assert.Equal(t, importer.FlatFile, layout)
@@ -37,48 +37,48 @@ func TestCursorClassify_RulePattern(t *testing.T) {
 
 func TestCursorClassify_RuleMdNotMatched(t *testing.T) {
 	// Cursor rules use .mdc extension; plain .md should not match
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, _ := imp.Classify("rules/formatting.md", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 }
 
 func TestCursorClassify_McpJson(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, layout := imp.Classify("mcp.json", false)
 	assert.Equal(t, importer.KindMCP, kind)
 	assert.Equal(t, importer.StandaloneJSON, layout)
 }
 
 func TestCursorClassify_HooksJson(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, layout := imp.Classify("hooks.json", false)
 	assert.Equal(t, importer.KindHook, kind)
 	assert.Equal(t, importer.StandaloneJSON, layout)
 }
 
 func TestCursorClassify_UnknownFile(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, layout := imp.Classify("some-unknown-file", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 	assert.Equal(t, importer.LayoutUnknown, layout)
 }
 
 func TestCursorClassify_SkillReferenceFile(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, layout := imp.Classify("skills/code-review/references/guide.md", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
 	assert.Equal(t, importer.DirectoryPerEntry, layout)
 }
 
 func TestCursorClassify_SkillScriptFile(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, layout := imp.Classify("skills/code-review/scripts/helper.sh", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
 	assert.Equal(t, importer.DirectoryPerEntry, layout)
 }
 
 func TestCursorClassify_SkillAssetFile(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	kind, layout := imp.Classify("skills/code-review/assets/icon.svg", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
 	assert.Equal(t, importer.DirectoryPerEntry, layout)
@@ -89,7 +89,7 @@ func TestCursorExtract_SkillCompanionFilePopulatesReferences(t *testing.T) {
 	config.Skills = map[string]ast.SkillConfig{
 		"code-review": {Name: "code-review", SourceProvider: "cursor"},
 	}
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	err := imp.Extract("skills/code-review/references/guide.md", []byte("# Guide"), config)
 	require.NoError(t, err)
 	skill := config.Skills["code-review"]
@@ -97,11 +97,11 @@ func TestCursorExtract_SkillCompanionFilePopulatesReferences(t *testing.T) {
 }
 
 func TestCursorImporter_Provider(t *testing.T) {
-	assert.Equal(t, "cursor", cursorimp.New().Provider())
+	assert.Equal(t, "cursor", cursorimp.NewImporter().Provider())
 }
 
 func TestCursorImporter_InputDir(t *testing.T) {
-	assert.Equal(t, ".cursor", cursorimp.New().InputDir())
+	assert.Equal(t, ".cursor", cursorimp.NewImporter().InputDir())
 }
 
 // --- Extract tests ---
@@ -109,7 +109,7 @@ func TestCursorImporter_InputDir(t *testing.T) {
 func TestCursorExtract_AgentFrontmatter(t *testing.T) {
 	data := []byte("---\nname: Code Reviewer\ndescription: Reviews PRs\nmodel: claude-opus-4-5\n---\n\nReview body.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	err := imp.Extract("agents/reviewer.md", data, config)
 	require.NoError(t, err)
 	agent, ok := config.Agents["reviewer"]
@@ -124,7 +124,7 @@ func TestCursorExtract_AgentFrontmatter(t *testing.T) {
 func TestCursorExtract_RuleFrontmatterWithGlobs(t *testing.T) {
 	data := []byte("---\ndescription: Formatting standards\nglobs:\n  - \"**/*.go\"\n  - \"**/*.ts\"\n---\n\nUse gofmt for Go files.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	err := imp.Extract("rules/formatting.mdc", data, config)
 	require.NoError(t, err)
 	rule, ok := config.Rules["formatting"]
@@ -138,7 +138,7 @@ func TestCursorExtract_RuleFrontmatterWithGlobs(t *testing.T) {
 func TestCursorExtract_RuleFrontmatterWithoutGlobs(t *testing.T) {
 	data := []byte("---\ndescription: No globs rule\n---\n\nRule body.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	err := imp.Extract("rules/no-globs.mdc", data, config)
 	require.NoError(t, err)
 	rule, ok := config.Rules["no-globs"]
@@ -150,7 +150,7 @@ func TestCursorExtract_RuleFrontmatterWithoutGlobs(t *testing.T) {
 func TestCursorExtract_SkillFrontmatter(t *testing.T) {
 	data := []byte("---\nname: code-review\ndescription: Code review workflow\nallowed-tools:\n  - Read\n  - Grep\n---\n\nReview code systematically.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	err := imp.Extract("skills/code-review/SKILL.md", data, config)
 	require.NoError(t, err)
 	skill, ok := config.Skills["code-review"]
@@ -163,7 +163,7 @@ func TestCursorExtract_SkillFrontmatter(t *testing.T) {
 func TestCursorExtract_McpStandaloneJSON(t *testing.T) {
 	data := []byte(`{"mcpServers":{"github":{"type":"stdio","command":"gh-mcp","args":["serve"]}}}`)
 	config := &ast.XcaffoldConfig{}
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	err := imp.Extract("mcp.json", data, config)
 	require.NoError(t, err)
 	mc, ok := config.MCP["github"]
@@ -180,7 +180,7 @@ func TestCursorExtract_HooksStandaloneJSON(t *testing.T) {
 		]
 	}`)
 	config := &ast.XcaffoldConfig{}
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	err := imp.Extract("hooks.json", data, config)
 	require.NoError(t, err)
 	var effectiveHooks ast.HookConfig
@@ -194,7 +194,7 @@ func TestCursorExtract_HooksStandaloneJSON(t *testing.T) {
 }
 
 func TestCursorExtract_ExtrasCollection(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	inputDir := filepath.Join("testdata", "input")
 	err := imp.Import(inputDir, config)
@@ -213,7 +213,7 @@ func TestCursorExtract_ExtrasCollection(t *testing.T) {
 // --- Full workspace golden test ---
 
 func TestCursorImporter_FullWorkspace(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	inputDir := filepath.Join("testdata", "input")
 	err := imp.Import(inputDir, config)

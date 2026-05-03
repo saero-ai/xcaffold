@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	geminimp "github.com/saero-ai/xcaffold/internal/importer/gemini"
+	geminimp "github.com/saero-ai/xcaffold/providers/gemini"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,7 +15,7 @@ import (
 // --- Classify tests ---
 
 func TestGeminiClassify_AgentPattern(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	kind, layout := imp.Classify("agents/assistant.md", false)
 	assert.Equal(t, importer.KindAgent, kind)
 	assert.Equal(t, importer.FlatFile, layout)
@@ -23,14 +23,14 @@ func TestGeminiClassify_AgentPattern(t *testing.T) {
 
 func TestGeminiClassify_SkillPattern_DirectoryPerEntry(t *testing.T) {
 	// Gemini skills use directory-per-entry layout
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	kind, layout := imp.Classify("skills/search/SKILL.md", false)
 	assert.Equal(t, importer.KindSkill, kind)
 	assert.Equal(t, importer.DirectoryPerEntry, layout)
 }
 
 func TestGeminiClassify_SkillReferences(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	// Skill asset files in references/ subdirectory
 	kind, layout := imp.Classify("skills/search/references/example.md", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
@@ -38,7 +38,7 @@ func TestGeminiClassify_SkillReferences(t *testing.T) {
 }
 
 func TestGeminiClassify_SkillScripts(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	// Skill asset files in scripts/ subdirectory
 	kind, layout := imp.Classify("skills/search/scripts/setup.sh", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
@@ -46,7 +46,7 @@ func TestGeminiClassify_SkillScripts(t *testing.T) {
 }
 
 func TestGeminiClassify_SkillAssets(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	// Skill asset files in assets/ subdirectory (Gemini-native)
 	kind, layout := imp.Classify("skills/search/assets/icon.png", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
@@ -54,21 +54,21 @@ func TestGeminiClassify_SkillAssets(t *testing.T) {
 }
 
 func TestGeminiClassify_RulePattern(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	kind, layout := imp.Classify("rules/style.md", false)
 	assert.Equal(t, importer.KindRule, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
 func TestGeminiClassify_SettingsFile(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	kind, layout := imp.Classify("settings.json", false)
 	assert.Equal(t, importer.KindSettings, kind)
 	assert.Equal(t, importer.EmbeddedJSONKey, layout)
 }
 
 func TestGeminiClassify_UnknownFile(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	kind, layout := imp.Classify("unknown-file", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 	assert.Equal(t, importer.LayoutUnknown, layout)
@@ -76,17 +76,17 @@ func TestGeminiClassify_UnknownFile(t *testing.T) {
 
 func TestGeminiClassify_SkillFlatFileNotMatched(t *testing.T) {
 	// Gemini flat file patterns no longer match — only directory-per-entry skills/* / SKILL.md
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	kind, _ := imp.Classify("skills/search.md", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 }
 
 func TestGeminiImporter_Provider(t *testing.T) {
-	assert.Equal(t, "gemini", geminimp.New().Provider())
+	assert.Equal(t, "gemini", geminimp.NewImporter().Provider())
 }
 
 func TestGeminiImporter_InputDir(t *testing.T) {
-	assert.Equal(t, ".gemini", geminimp.New().InputDir())
+	assert.Equal(t, ".gemini", geminimp.NewImporter().InputDir())
 }
 
 // --- Extract tests ---
@@ -94,7 +94,7 @@ func TestGeminiImporter_InputDir(t *testing.T) {
 func TestGeminiExtract_AgentFrontmatter(t *testing.T) {
 	data := []byte("---\nname: Assistant Agent\ndescription: General helper\nmodel: gemini-2.5-pro\n---\n\nYou are a helpful assistant.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	err := imp.Extract("agents/assistant.md", data, config)
 	require.NoError(t, err)
 	agent, ok := config.Agents["assistant"]
@@ -110,7 +110,7 @@ func TestGeminiExtract_SkillFrontmatter(t *testing.T) {
 	// Gemini skill: id is the directory name, SKILL.md contains frontmatter
 	data := []byte("---\nname: web-search\ndescription: Search the web\nallowed-tools:\n  - WebSearch\n---\n\nUse for external lookups.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	err := imp.Extract("skills/search/SKILL.md", data, config)
 	require.NoError(t, err)
 	skill, ok := config.Skills["search"]
@@ -124,7 +124,7 @@ func TestGeminiExtract_SkillFrontmatter(t *testing.T) {
 func TestGeminiExtract_RuleFrontmatter(t *testing.T) {
 	data := []byte("---\ndescription: Style guide\n---\n\nUse gofmt. Keep functions small.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	err := imp.Extract("rules/style.md", data, config)
 	require.NoError(t, err)
 	rule, ok := config.Rules["style"]
@@ -147,7 +147,7 @@ func TestGeminiExtract_SettingsDecomposition(t *testing.T) {
 		}
 	}`)
 	config := &ast.XcaffoldConfig{}
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	err := imp.Extract("settings.json", data, config)
 	require.NoError(t, err)
 	// Hooks extracted
@@ -167,7 +167,7 @@ func TestGeminiExtract_SettingsDecomposition(t *testing.T) {
 }
 
 func TestGeminiExtract_UnknownKindReturnsError(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	err := imp.Extract("unknown-file", []byte("data"), config)
 	require.Error(t, err)
@@ -176,7 +176,7 @@ func TestGeminiExtract_UnknownKindReturnsError(t *testing.T) {
 // --- Import (full workspace) tests ---
 
 func TestGeminiExtract_ExtrasCollection(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	inputDir := filepath.Join("testdata", "input")
 	err := imp.Import(inputDir, config)
@@ -193,7 +193,7 @@ func TestGeminiExtract_ExtrasCollection(t *testing.T) {
 }
 
 func TestGeminiImporter_FullWorkspace(t *testing.T) {
-	imp := geminimp.New()
+	imp := geminimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	inputDir := filepath.Join("testdata", "input")
 	err := imp.Import(inputDir, config)

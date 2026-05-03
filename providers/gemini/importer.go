@@ -1,4 +1,4 @@
-package cursor
+package gemini
 
 import (
 	"encoding/json"
@@ -10,50 +10,51 @@ import (
 	"github.com/saero-ai/xcaffold/internal/importer"
 )
 
-func init() {
-	importer.Register(New())
-}
-
-// CursorImporter imports resources from a .cursor/ directory tree.
+// GeminiImporter imports resources from a .gemini/ directory tree.
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
-type CursorImporter struct {
+type GeminiImporter struct {
 	Warnings []string
 }
 
-// New returns a new CursorImporter.
-func New() *CursorImporter {
-	return &CursorImporter{}
+// NewImporter returns a new GeminiImporter.
+func NewImporter() *GeminiImporter {
+	return &GeminiImporter{}
 }
 
 // GetWarnings returns non-fatal per-file extraction errors collected during the last Import() call.
-func (c *CursorImporter) GetWarnings() []string { return c.Warnings }
+func (g *GeminiImporter) GetWarnings() []string { return g.Warnings }
 
 // Provider returns the canonical provider name.
-func (c *CursorImporter) Provider() string { return "cursor" }
+func (g *GeminiImporter) Provider() string { return "gemini" }
 
 // InputDir returns the root directory relative to the workspace root.
-func (c *CursorImporter) InputDir() string { return ".cursor" }
+func (g *GeminiImporter) InputDir() string { return ".gemini" }
 
-// cursorMappings maps path patterns to AST kinds. First match wins.
-var cursorMappings = []importer.KindMapping{
+// geminiMappings maps path patterns to AST kinds. First match wins.
+// Skills use DirectoryPerEntry layout: skills/<id>/SKILL.md plus assets.
+// settings.json appears first for the container-level KindSettings match;
+// embedded mcpServers and hooks keys are handled inside Extract().
+var geminiMappings = []importer.KindMapping{
 	{Pattern: "hooks/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/assets/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
-	{Pattern: "rules/*.mdc", Kind: importer.KindRule, Layout: importer.FlatFile, Extension: ".mdc"},
-	{Pattern: "mcp.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
-	{Pattern: "hooks.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
+	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
+	// settings.json is a container file holding settings, mcpServers, AND hooks.
+	// Classify returns KindSettings (first match); extractSettings() handles the
+	// two-phase decomposition of mcpServers → config.MCP and hooks → config.Hooks.
+	{Pattern: "settings.json", Kind: importer.KindSettings, Layout: importer.EmbeddedJSONKey, JSONKey: ""},
 	{Pattern: "hooks/**", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 }
 
 // Classify returns the Kind and Layout for a given relative path.
-// rel is relative to InputDir(). First matching entry in cursorMappings wins.
-func (c *CursorImporter) Classify(rel string, isDir bool) (importer.Kind, importer.Layout) {
+// rel is relative to InputDir(). First matching entry in geminiMappings wins.
+func (g *GeminiImporter) Classify(rel string, isDir bool) (importer.Kind, importer.Layout) {
 	rel = filepath.ToSlash(filepath.Clean(rel))
-	for _, m := range cursorMappings {
+	for _, m := range geminiMappings {
 		if importer.MatchGlob(m.Pattern, rel) {
 			return m.Kind, m.Layout
 		}
@@ -63,59 +64,55 @@ func (c *CursorImporter) Classify(rel string, isDir bool) (importer.Kind, import
 
 // Extract reads a single file and populates the appropriate section of config.
 // rel is relative to InputDir().
-func (c *CursorImporter) Extract(rel string, data []byte, config *ast.XcaffoldConfig) error {
+func (g *GeminiImporter) Extract(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	rel = filepath.ToSlash(filepath.Clean(rel))
-	kind, _ := c.Classify(rel, false)
+	kind, _ := g.Classify(rel, false)
 
 	switch kind {
 	case importer.KindAgent:
 		return extractAgent(rel, data, config)
 	case importer.KindSkill:
 		return extractSkill(rel, data, config)
-	case importer.KindSkillAsset:
-		return extractSkillAsset(rel, data, config)
 	case importer.KindHookScript:
 		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
-	case importer.KindMCP:
-		return extractMCPStandalone(rel, data, config)
-	case importer.KindHook:
-		return extractHooksStandalone(rel, data, config)
+	case importer.KindSettings:
+		return extractSettings(rel, data, config)
 	default:
-		return fmt.Errorf("cursor: no extractor for kind %q at path %q", kind, rel)
+		return fmt.Errorf("gemini: no extractor for kind %q at path %q", kind, rel)
 	}
 }
 
 // Import walks dir, classifies each entry, extracts classified files, and
-// appends unclassified files to config.ProviderExtras["cursor"].
+// appends unclassified files to config.ProviderExtras["gemini"].
 //
 // Extraction errors for individual files are non-fatal: they are collected in
-// c.Warnings and the walk continues. Only I/O errors (unreadable directory or
+// g.Warnings and the walk continues. Only I/O errors (unreadable directory or
 // file) abort the walk.
-func (c *CursorImporter) Import(dir string, config *ast.XcaffoldConfig) error {
-	c.Warnings = c.Warnings[:0]
+func (g *GeminiImporter) Import(dir string, config *ast.XcaffoldConfig) error {
+	g.Warnings = g.Warnings[:0]
 	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
-		kind, _ := c.Classify(rel, false)
+		kind, _ := g.Classify(rel, false)
 		if kind == importer.KindUnknown {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["cursor"] == nil {
-				config.ProviderExtras["cursor"] = make(map[string][]byte)
+			if config.ProviderExtras["gemini"] == nil {
+				config.ProviderExtras["gemini"] = make(map[string][]byte)
 			}
-			config.ProviderExtras["cursor"][rel] = data
+			config.ProviderExtras["gemini"][rel] = data
 			return nil
 		}
-		if extractErr := c.Extract(rel, data, config); extractErr != nil {
+		if extractErr := g.Extract(rel, data, config); extractErr != nil {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["cursor"] == nil {
-				config.ProviderExtras["cursor"] = make(map[string][]byte)
+			if config.ProviderExtras["gemini"] == nil {
+				config.ProviderExtras["gemini"] = make(map[string][]byte)
 			}
-			config.ProviderExtras["cursor"][rel] = data
-			c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
+			config.ProviderExtras["gemini"][rel] = data
+			g.Warnings = append(g.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
 		}
 		return nil
 	})
@@ -152,7 +149,7 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 
 	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
-		return fmt.Errorf("cursor: agent %q: %w", rel, err)
+		return fmt.Errorf("gemini: agent %q: %w", rel, err)
 	}
 
 	id := strings.TrimSuffix(filepath.Base(rel), ".md")
@@ -182,7 +179,7 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Assertions:             front.Assertions,
 		Targets:                front.Targets,
 		Body:                   body,
-		SourceProvider:         "cursor",
+		SourceProvider:         "gemini",
 	}
 	return nil
 }
@@ -205,11 +202,19 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 
 	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
-		return fmt.Errorf("cursor: skill %q: %w", rel, err)
+		return fmt.Errorf("gemini: skill %q: %w", rel, err)
 	}
 
-	// For DirectoryPerEntry layout: id is the directory name
-	id := filepath.Base(filepath.Dir(rel))
+	// DirectoryPerEntry layout: id is the directory name (parent of SKILL.md)
+	// rel is "skills/<id>/SKILL.md", so extract the directory name.
+	parts := strings.Split(filepath.ToSlash(filepath.Clean(rel)), "/")
+	var id string
+	if len(parts) >= 2 && parts[0] == "skills" {
+		id = parts[1]
+	} else {
+		id = strings.TrimSuffix(filepath.Base(rel), ".md")
+	}
+
 	if config.Skills == nil {
 		config.Skills = make(map[string]ast.SkillConfig)
 	}
@@ -227,36 +232,8 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Assets:                 front.Assets,
 		Targets:                front.Targets,
 		Body:                   body,
-		SourceProvider:         "cursor",
+		SourceProvider:         "gemini",
 	}
-	return nil
-}
-
-// extractSkillAsset records a skill companion file (references/*, scripts/*, assets/*)
-// in the parent skill's corresponding slice. rel is the path relative to InputDir()
-// and must match the pattern "skills/<id>/<sub>/<file>".
-func extractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) error {
-	parts := strings.SplitN(rel, "/", 4)
-	if len(parts) < 4 {
-		return fmt.Errorf("cursor: skill asset path too short: %q", rel)
-	}
-	skillID := parts[1]
-	subDir := parts[2]
-	relWithinSkill := subDir + "/" + parts[3]
-
-	if config.Skills == nil {
-		config.Skills = make(map[string]ast.SkillConfig)
-	}
-	skill := config.Skills[skillID]
-	switch subDir {
-	case "references":
-		skill.References = importer.AppendUnique(skill.References, relWithinSkill)
-	case "scripts":
-		skill.Scripts = importer.AppendUnique(skill.Scripts, relWithinSkill)
-	case "assets":
-		skill.Assets = importer.AppendUnique(skill.Assets, relWithinSkill)
-	}
-	config.Skills[skillID] = skill
 	return nil
 }
 
@@ -267,27 +244,16 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		AlwaysApply   *bool                         `yaml:"always-apply"`
 		Activation    string                        `yaml:"activation"`
 		Paths         []string                      `yaml:"paths"`
-		Globs         []string                      `yaml:"globs"`
 		ExcludeAgents []string                      `yaml:"exclude-agents"`
 		Targets       map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
 	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
-		return fmt.Errorf("cursor: rule %q: %w", rel, err)
+		return fmt.Errorf("gemini: rule %q: %w", rel, err)
 	}
 
-	// Cursor uses globs: as the path-gating field; map it to the canonical Paths field.
-	// If both paths: and globs: are present, merge them (globs: takes precedence by appending).
-	paths := front.Paths
-	if len(front.Globs) > 0 {
-		paths = append(paths, front.Globs...)
-	}
-
-	// Strip .mdc extension from rule id
-	base := filepath.Base(rel)
-	id := strings.TrimSuffix(base, ".mdc")
-
+	id := strings.TrimSuffix(filepath.Base(rel), ".md")
 	if config.Rules == nil {
 		config.Rules = make(map[string]ast.RuleConfig)
 	}
@@ -296,40 +262,52 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Description:    front.Description,
 		AlwaysApply:    front.AlwaysApply,
 		Activation:     front.Activation,
-		Paths:          paths,
+		Paths:          front.Paths,
 		ExcludeAgents:  front.ExcludeAgents,
 		Targets:        front.Targets,
 		Body:           body,
-		SourceProvider: "cursor",
+		SourceProvider: "gemini",
 	}
 	return nil
 }
 
-// mcpFileWrapper is the outer JSON envelope for mcp.json.
-type mcpFileWrapper struct {
-	MCPServers map[string]ast.MCPConfig `json:"mcpServers"`
-}
+func extractSettings(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	// Phase 1: parse into raw message map to extract embedded keys separately.
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return fmt.Errorf("gemini: %s parse: %w", rel, err)
+	}
 
-func extractMCPStandalone(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	var wrapper mcpFileWrapper
-	if err := json.Unmarshal(data, &wrapper); err != nil {
-		return fmt.Errorf("cursor: mcp.json parse: %w", err)
+	// Extract mcpServers → config.MCP
+	if mcpRaw, ok := raw["mcpServers"]; ok {
+		var servers map[string]ast.MCPConfig
+		if err := json.Unmarshal(mcpRaw, &servers); err != nil {
+			return fmt.Errorf("gemini: %s mcpServers: %w", rel, err)
+		}
+		if config.MCP == nil {
+			config.MCP = make(map[string]ast.MCPConfig)
+		}
+		for k, v := range servers {
+			v.SourceProvider = "gemini"
+			config.MCP[k] = v
+		}
 	}
-	if config.MCP == nil {
-		config.MCP = make(map[string]ast.MCPConfig)
-	}
-	for k, v := range wrapper.MCPServers {
-		v.SourceProvider = "cursor"
-		config.MCP[k] = v
-	}
-	return nil
-}
 
-func extractHooksStandalone(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	var hooks ast.HookConfig
-	if err := json.Unmarshal(data, &hooks); err != nil {
-		return fmt.Errorf("cursor: hooks.json parse: %w", err)
+	// Extract hooks → config.Hooks
+	if hooksRaw, ok := raw["hooks"]; ok {
+		var hooks ast.HookConfig
+		if err := json.Unmarshal(hooksRaw, &hooks); err != nil {
+			return fmt.Errorf("gemini: %s hooks: %w", rel, err)
+		}
+		config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
 	}
-	config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
+
+	// Extract full settings into config.Settings
+	var settings ast.SettingsConfig
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return fmt.Errorf("gemini: %s settings: %w", rel, err)
+	}
+	settings.SourceProvider = "gemini"
+	config.Settings = map[string]ast.SettingsConfig{"default": settings}
 	return nil
 }

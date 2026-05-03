@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	antimp "github.com/saero-ai/xcaffold/internal/importer/antigravity"
+	antimp "github.com/saero-ai/xcaffold/providers/antigravity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -15,14 +15,14 @@ import (
 // --- Classify tests ---
 
 func TestAntigravityClassify_AgentInPrompts(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	kind, layout := imp.Classify("prompts/explorer.md", false)
 	assert.Equal(t, importer.KindAgent, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
 func TestAntigravityClassify_SkillPattern_DirectoryPerEntry(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	// Antigravity skills use directory-per-entry layout
 	kind, layout := imp.Classify("skills/search/SKILL.md", false)
 	assert.Equal(t, importer.KindSkill, kind)
@@ -30,7 +30,7 @@ func TestAntigravityClassify_SkillPattern_DirectoryPerEntry(t *testing.T) {
 }
 
 func TestAntigravityClassify_SkillReferences(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	// Skill asset files in references/ subdirectory
 	kind, layout := imp.Classify("skills/search/references/example.md", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
@@ -38,7 +38,7 @@ func TestAntigravityClassify_SkillReferences(t *testing.T) {
 }
 
 func TestAntigravityClassify_SkillScripts(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	// Skill asset files in scripts/ subdirectory
 	kind, layout := imp.Classify("skills/search/scripts/setup.sh", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
@@ -46,7 +46,7 @@ func TestAntigravityClassify_SkillScripts(t *testing.T) {
 }
 
 func TestAntigravityClassify_SkillExamples(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	// Skill asset files in examples/ subdirectory (Antigravity-native)
 	kind, layout := imp.Classify("skills/search/examples/usage.md", false)
 	assert.Equal(t, importer.KindSkillAsset, kind)
@@ -54,28 +54,28 @@ func TestAntigravityClassify_SkillExamples(t *testing.T) {
 }
 
 func TestAntigravityClassify_RulePattern(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	kind, layout := imp.Classify("rules/safety.md", false)
 	assert.Equal(t, importer.KindRule, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
 func TestAntigravityClassify_WorkflowPattern(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	kind, layout := imp.Classify("workflows/weekly-audit.md", false)
 	assert.Equal(t, importer.KindWorkflow, kind)
 	assert.Equal(t, importer.FlatFile, layout)
 }
 
 func TestAntigravityClassify_MCPConfig(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	kind, layout := imp.Classify("mcp_config.json", false)
 	assert.Equal(t, importer.KindMCP, kind)
 	assert.Equal(t, importer.StandaloneJSON, layout)
 }
 
 func TestAntigravityClassify_UnknownFile(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	kind, layout := imp.Classify("unknown-file", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 	assert.Equal(t, importer.LayoutUnknown, layout)
@@ -83,17 +83,17 @@ func TestAntigravityClassify_UnknownFile(t *testing.T) {
 
 func TestAntigravityClassify_AgentsDir_NotMatched(t *testing.T) {
 	// Antigravity does NOT have an agents/ directory — prompts/ is the agent directory.
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	kind, _ := imp.Classify("agents/ceo.md", false)
 	assert.Equal(t, importer.KindUnknown, kind)
 }
 
 func TestAntigravityImporter_Provider(t *testing.T) {
-	assert.Equal(t, "antigravity", antimp.New().Provider())
+	assert.Equal(t, "antigravity", antimp.NewImporter().Provider())
 }
 
 func TestAntigravityImporter_InputDir(t *testing.T) {
-	assert.Equal(t, ".agents", antimp.New().InputDir())
+	assert.Equal(t, ".agents", antimp.NewImporter().InputDir())
 }
 
 // --- Extract tests ---
@@ -101,7 +101,7 @@ func TestAntigravityImporter_InputDir(t *testing.T) {
 func TestAntigravityExtract_AgentFromPrompts(t *testing.T) {
 	data := []byte("---\nname: Explorer Agent\ndescription: Navigates codebases\nmodel: claude-opus-4-5\n---\n\nExplore the codebase thoroughly.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	err := imp.Extract("prompts/explorer.md", data, config)
 	require.NoError(t, err)
 
@@ -118,7 +118,7 @@ func TestAntigravityExtract_AgentFromPrompts(t *testing.T) {
 func TestAntigravityExtract_Skill(t *testing.T) {
 	data := []byte("---\nname: search\ndescription: Deep search\nallowed-tools:\n  - Grep\n---\n\nSearch across files.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	err := imp.Extract("skills/search/SKILL.md", data, config)
 	require.NoError(t, err)
 
@@ -134,7 +134,7 @@ func TestAntigravityExtract_Skill(t *testing.T) {
 func TestAntigravityExtract_Rule(t *testing.T) {
 	data := []byte("---\ndescription: Safety constraints\n---\n\nNever delete without confirmation.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	err := imp.Extract("rules/safety.md", data, config)
 	require.NoError(t, err)
 
@@ -148,7 +148,7 @@ func TestAntigravityExtract_Rule(t *testing.T) {
 func TestAntigravityExtract_Workflow(t *testing.T) {
 	data := []byte("---\nname: weekly-audit\ndescription: Weekly audit workflow\n---\n\nRun analysis and produce a report.\n")
 	config := &ast.XcaffoldConfig{}
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	err := imp.Extract("workflows/weekly-audit.md", data, config)
 	require.NoError(t, err)
 
@@ -163,7 +163,7 @@ func TestAntigravityExtract_Workflow(t *testing.T) {
 func TestAntigravityExtract_MCPConfig(t *testing.T) {
 	data := []byte(`{"mcpServers":{"filesystem":{"type":"stdio","command":"mcp-filesystem","args":["--root","."]}}}`)
 	config := &ast.XcaffoldConfig{}
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	err := imp.Extract("mcp_config.json", data, config)
 	require.NoError(t, err)
 
@@ -175,7 +175,7 @@ func TestAntigravityExtract_MCPConfig(t *testing.T) {
 }
 
 func TestAntigravityExtract_UnknownKindErrors(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	err := imp.Extract("unknown-file", []byte("content"), config)
 	require.Error(t, err)
@@ -184,7 +184,7 @@ func TestAntigravityExtract_UnknownKindErrors(t *testing.T) {
 // --- Full workspace golden test ---
 
 func TestAntigravityImporter_FullWorkspace(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	inputDir := filepath.Join("testdata", "input")
 	err := imp.Import(inputDir, config)
@@ -226,7 +226,7 @@ func TestAntigravityImporter_FullWorkspace(t *testing.T) {
 // --- Extras collection test ---
 
 func TestAntigravityImporter_ExtrasCollection(t *testing.T) {
-	imp := antimp.New()
+	imp := antimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	inputDir := filepath.Join("testdata", "input")
 	err := imp.Import(inputDir, config)

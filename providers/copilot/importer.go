@@ -1,4 +1,4 @@
-package gemini
+package copilot
 
 import (
 	"encoding/json"
@@ -6,59 +6,56 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
 )
 
-func init() {
-	importer.Register(New())
-}
-
-// GeminiImporter imports resources from a .gemini/ directory tree.
+// CopilotImporter imports resources from a .github/ directory tree.
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
-type GeminiImporter struct {
+type CopilotImporter struct {
 	Warnings []string
 }
 
-// New returns a new GeminiImporter.
-func New() *GeminiImporter {
-	return &GeminiImporter{}
+// NewImporter returns a new CopilotImporter.
+func NewImporter() *CopilotImporter {
+	return &CopilotImporter{}
 }
 
 // GetWarnings returns non-fatal per-file extraction errors collected during the last Import() call.
-func (g *GeminiImporter) GetWarnings() []string { return g.Warnings }
+func (c *CopilotImporter) GetWarnings() []string { return c.Warnings }
 
 // Provider returns the canonical provider name.
-func (g *GeminiImporter) Provider() string { return "gemini" }
+func (c *CopilotImporter) Provider() string { return "copilot" }
 
 // InputDir returns the root directory relative to the workspace root.
-func (g *GeminiImporter) InputDir() string { return ".gemini" }
+func (c *CopilotImporter) InputDir() string { return ".github" }
 
-// geminiMappings maps path patterns to AST kinds. First match wins.
-// Skills use DirectoryPerEntry layout: skills/<id>/SKILL.md plus assets.
-// settings.json appears first for the container-level KindSettings match;
-// embedded mcpServers and hooks keys are handled inside Extract().
-var geminiMappings = []importer.KindMapping{
-	{Pattern: "hooks/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
+// copilotMappings maps path patterns to AST kinds. First match wins.
+// agents/*.agent.md is listed before agents/*.md so the more specific
+// renderer-emitted extension takes priority while plain .md still matches
+// for backward compatibility.
+var copilotMappings = []importer.KindMapping{
+	{Pattern: "hooks/*.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
+	{Pattern: "hooks/scripts/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
+	{Pattern: "agents/*.agent.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
-	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
-	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
-	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
-	{Pattern: "skills/*/assets/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
-	{Pattern: "rules/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
-	// settings.json is a container file holding settings, mcpServers, AND hooks.
-	// Classify returns KindSettings (first match); extractSettings() handles the
-	// two-phase decomposition of mcpServers → config.MCP and hooks → config.Hooks.
-	{Pattern: "settings.json", Kind: importer.KindSettings, Layout: importer.EmbeddedJSONKey, JSONKey: ""},
-	{Pattern: "hooks/**", Kind: importer.KindHookScript, Layout: importer.FlatFile},
+	{Pattern: "skills/*.md", Kind: importer.KindSkill, Layout: importer.FlatFile},
+	{Pattern: "instructions/*.instructions.md", Kind: importer.KindRule, Layout: importer.FlatFile, Extension: ".instructions.md"},
+	{Pattern: "copilot/mcp-config.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
+	{Pattern: "workflows/copilot-setup-steps.yml", Kind: importer.KindWorkflow, Layout: importer.FlatFile},
+	{Pattern: "hooks/scripts/**", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 }
 
 // Classify returns the Kind and Layout for a given relative path.
-// rel is relative to InputDir(). First matching entry in geminiMappings wins.
-func (g *GeminiImporter) Classify(rel string, isDir bool) (importer.Kind, importer.Layout) {
+// rel is relative to InputDir(). First matching entry in copilotMappings wins.
+// Note: copilot-instructions.md is NOT handled here — it belongs to the
+// orchestrator's project instructions pipeline and must remain KindUnknown.
+func (c *CopilotImporter) Classify(rel string, isDir bool) (importer.Kind, importer.Layout) {
 	rel = filepath.ToSlash(filepath.Clean(rel))
-	for _, m := range geminiMappings {
+	for _, m := range copilotMappings {
 		if importer.MatchGlob(m.Pattern, rel) {
 			return m.Kind, m.Layout
 		}
@@ -68,55 +65,59 @@ func (g *GeminiImporter) Classify(rel string, isDir bool) (importer.Kind, import
 
 // Extract reads a single file and populates the appropriate section of config.
 // rel is relative to InputDir().
-func (g *GeminiImporter) Extract(rel string, data []byte, config *ast.XcaffoldConfig) error {
+func (c *CopilotImporter) Extract(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	rel = filepath.ToSlash(filepath.Clean(rel))
-	kind, _ := g.Classify(rel, false)
+	kind, _ := c.Classify(rel, false)
 
 	switch kind {
 	case importer.KindAgent:
 		return extractAgent(rel, data, config)
 	case importer.KindSkill:
 		return extractSkill(rel, data, config)
-	case importer.KindHookScript:
-		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
-	case importer.KindSettings:
-		return extractSettings(rel, data, config)
+	case importer.KindHook:
+		return extractHooksStandalone(rel, data, config)
+	case importer.KindHookScript:
+		return importer.ExtractHookScript(rel, data, config)
+	case importer.KindMCP:
+		return extractMCP(rel, data, config)
+	case importer.KindWorkflow:
+		return extractWorkflow(rel, data, config)
 	default:
-		return fmt.Errorf("gemini: no extractor for kind %q at path %q", kind, rel)
+		return fmt.Errorf("copilot: no extractor for kind %q at path %q", kind, rel)
 	}
 }
 
 // Import walks dir, classifies each entry, extracts classified files, and
-// appends unclassified files to config.ProviderExtras["gemini"].
+// appends unclassified files to config.ProviderExtras["copilot"].
 //
 // Extraction errors for individual files are non-fatal: they are collected in
-// g.Warnings and the walk continues. Only I/O errors (unreadable directory or
+// c.Warnings and the walk continues. Only I/O errors (unreadable directory or
 // file) abort the walk.
-func (g *GeminiImporter) Import(dir string, config *ast.XcaffoldConfig) error {
-	g.Warnings = g.Warnings[:0]
+func (c *CopilotImporter) Import(dir string, config *ast.XcaffoldConfig) error {
+	c.Warnings = c.Warnings[:0]
 	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
-		kind, _ := g.Classify(rel, false)
+		kind, _ := c.Classify(rel, false)
 		if kind == importer.KindUnknown {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["gemini"] == nil {
-				config.ProviderExtras["gemini"] = make(map[string][]byte)
+			if config.ProviderExtras["copilot"] == nil {
+				config.ProviderExtras["copilot"] = make(map[string][]byte)
 			}
-			config.ProviderExtras["gemini"][rel] = data
+			config.ProviderExtras["copilot"][rel] = data
 			return nil
 		}
-		if extractErr := g.Extract(rel, data, config); extractErr != nil {
+		if extractErr := c.Extract(rel, data, config); extractErr != nil {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["gemini"] == nil {
-				config.ProviderExtras["gemini"] = make(map[string][]byte)
+			if config.ProviderExtras["copilot"] == nil {
+				config.ProviderExtras["copilot"] = make(map[string][]byte)
 			}
-			config.ProviderExtras["gemini"][rel] = data
-			g.Warnings = append(g.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
+			config.ProviderExtras["copilot"][rel] = data
+			c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
 		}
 		return nil
 	})
@@ -153,10 +154,15 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 
 	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
-		return fmt.Errorf("gemini: agent %q: %w", rel, err)
+		return fmt.Errorf("copilot: agent %q: %w", rel, err)
 	}
 
-	id := strings.TrimSuffix(filepath.Base(rel), ".md")
+	base := filepath.Base(rel)
+	id := strings.TrimSuffix(base, ".agent.md")
+	if id == base {
+		// Fall back to plain .md for backward compatibility.
+		id = strings.TrimSuffix(base, ".md")
+	}
 	if config.Agents == nil {
 		config.Agents = make(map[string]ast.AgentConfig)
 	}
@@ -183,7 +189,7 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Assertions:             front.Assertions,
 		Targets:                front.Targets,
 		Body:                   body,
-		SourceProvider:         "gemini",
+		SourceProvider:         "copilot",
 	}
 	return nil
 }
@@ -206,19 +212,11 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 
 	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
-		return fmt.Errorf("gemini: skill %q: %w", rel, err)
+		return fmt.Errorf("copilot: skill %q: %w", rel, err)
 	}
 
-	// DirectoryPerEntry layout: id is the directory name (parent of SKILL.md)
-	// rel is "skills/<id>/SKILL.md", so extract the directory name.
-	parts := strings.Split(filepath.ToSlash(filepath.Clean(rel)), "/")
-	var id string
-	if len(parts) >= 2 && parts[0] == "skills" {
-		id = parts[1]
-	} else {
-		id = strings.TrimSuffix(filepath.Base(rel), ".md")
-	}
-
+	// For FlatFile layout: id is the filename without .md extension.
+	id := strings.TrimSuffix(filepath.Base(rel), ".md")
 	if config.Skills == nil {
 		config.Skills = make(map[string]ast.SkillConfig)
 	}
@@ -236,7 +234,7 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Assets:                 front.Assets,
 		Targets:                front.Targets,
 		Body:                   body,
-		SourceProvider:         "gemini",
+		SourceProvider:         "copilot",
 	}
 	return nil
 }
@@ -254,10 +252,11 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 
 	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
-		return fmt.Errorf("gemini: rule %q: %w", rel, err)
+		return fmt.Errorf("copilot: rule %q: %w", rel, err)
 	}
 
-	id := strings.TrimSuffix(filepath.Base(rel), ".md")
+	// Strip the double extension: "security.instructions.md" → "security"
+	id := strings.TrimSuffix(filepath.Base(rel), ".instructions.md")
 	if config.Rules == nil {
 		config.Rules = make(map[string]ast.RuleConfig)
 	}
@@ -270,48 +269,64 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		ExcludeAgents:  front.ExcludeAgents,
 		Targets:        front.Targets,
 		Body:           body,
-		SourceProvider: "gemini",
+		SourceProvider: "copilot",
 	}
 	return nil
 }
 
-func extractSettings(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	// Phase 1: parse into raw message map to extract embedded keys separately.
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return fmt.Errorf("gemini: %s parse: %w", rel, err)
+// mcpFileWrapper is the outer JSON envelope for mcp-config.json.
+type mcpFileWrapper struct {
+	MCPServers map[string]ast.MCPConfig `json:"mcpServers"`
+}
+
+func extractMCP(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var wrapper mcpFileWrapper
+	if err := json.Unmarshal(data, &wrapper); err != nil {
+		return fmt.Errorf("copilot: mcp-config.json parse: %w", err)
+	}
+	if config.MCP == nil {
+		config.MCP = make(map[string]ast.MCPConfig)
+	}
+	for k, v := range wrapper.MCPServers {
+		v.SourceProvider = "copilot"
+		config.MCP[k] = v
+	}
+	return nil
+}
+
+func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var front struct {
+		ApiVersion  string             `yaml:"api-version"`
+		Name        string             `yaml:"name"`
+		Description string             `yaml:"description"`
+		Steps       []ast.WorkflowStep `yaml:"steps"`
 	}
 
-	// Extract mcpServers → config.MCP
-	if mcpRaw, ok := raw["mcpServers"]; ok {
-		var servers map[string]ast.MCPConfig
-		if err := json.Unmarshal(mcpRaw, &servers); err != nil {
-			return fmt.Errorf("gemini: %s mcpServers: %w", rel, err)
-		}
-		if config.MCP == nil {
-			config.MCP = make(map[string]ast.MCPConfig)
-		}
-		for k, v := range servers {
-			v.SourceProvider = "gemini"
-			config.MCP[k] = v
-		}
+	// Workflows are YAML (not markdown frontmatter), so parse directly.
+	if err := yaml.Unmarshal(data, &front); err != nil {
+		return fmt.Errorf("copilot: workflow %q: %w", rel, err)
 	}
 
-	// Extract hooks → config.Hooks
-	if hooksRaw, ok := raw["hooks"]; ok {
-		var hooks ast.HookConfig
-		if err := json.Unmarshal(hooksRaw, &hooks); err != nil {
-			return fmt.Errorf("gemini: %s hooks: %w", rel, err)
-		}
-		config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
+	// id is the filename without .yml extension
+	id := strings.TrimSuffix(filepath.Base(rel), ".yml")
+	if config.Workflows == nil {
+		config.Workflows = make(map[string]ast.WorkflowConfig)
 	}
+	config.Workflows[id] = ast.WorkflowConfig{
+		ApiVersion:     front.ApiVersion,
+		Name:           front.Name,
+		Description:    front.Description,
+		Steps:          front.Steps,
+		SourceProvider: "copilot",
+	}
+	return nil
+}
 
-	// Extract full settings into config.Settings
-	var settings ast.SettingsConfig
-	if err := json.Unmarshal(data, &settings); err != nil {
-		return fmt.Errorf("gemini: %s settings: %w", rel, err)
+func extractHooksStandalone(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var hooks ast.HookConfig
+	if err := json.Unmarshal(data, &hooks); err != nil {
+		return fmt.Errorf("copilot: hooks.json parse: %w", err)
 	}
-	settings.SourceProvider = "gemini"
-	config.Settings = map[string]ast.SettingsConfig{"default": settings}
+	config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
 	return nil
 }

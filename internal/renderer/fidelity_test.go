@@ -8,9 +8,9 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
-	"github.com/saero-ai/xcaffold/internal/renderer/claude"
-	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
+	antigravity "github.com/saero-ai/xcaffold/providers/antigravity"
+	"github.com/saero-ai/xcaffold/providers/claude"
+	"github.com/saero-ai/xcaffold/providers/cursor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

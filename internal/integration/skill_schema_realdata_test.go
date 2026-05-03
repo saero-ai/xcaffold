@@ -10,7 +10,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/claude"
+	"github.com/saero-ai/xcaffold/providers/claude"
 )
 
 var skillFixtureDir string

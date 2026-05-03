@@ -10,10 +10,6 @@ import (
 	"github.com/saero-ai/xcaffold/internal/importer"
 )
 
-func init() {
-	importer.Register(New())
-}
-
 // AntigravityImporter imports resources from a .agents/ directory tree.
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
@@ -21,8 +17,8 @@ type AntigravityImporter struct {
 	Warnings []string
 }
 
-// New returns a new AntigravityImporter.
-func New() *AntigravityImporter {
+// NewImporter returns a new AntigravityImporter.
+func NewImporter() *AntigravityImporter {
 	return &AntigravityImporter{}
 }
 

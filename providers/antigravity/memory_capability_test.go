@@ -3,7 +3,7 @@ package antigravity_test
 import (
 	"testing"
 
-	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
+	"github.com/saero-ai/xcaffold/providers/antigravity"
 	"github.com/stretchr/testify/require"
 )
 

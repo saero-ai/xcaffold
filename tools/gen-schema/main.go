@@ -84,17 +84,27 @@ type FieldDecl struct {
 	Support string `yaml:"support"`
 }
 
-// readFieldsYAML globs internal/renderer/*/fields.yaml under rootDir,
-// parses each file, and returns a map keyed by provider name.
+// readFieldsYAML globs fields.yaml files from both internal/renderer/*/fields.yaml
+// and providers/*/fields.yaml under rootDir, parses each file, and returns a map
+// keyed by provider name. Consolidated providers live under providers/; legacy
+// providers remain under internal/renderer/ until fully migrated.
 func readFieldsYAML(rootDir string) (map[string]FieldsYAML, error) {
-	pattern := filepath.Join(rootDir, "internal", "renderer", "*", "fields.yaml")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("glob fields.yaml: %w", err)
+	patterns := []string{
+		filepath.Join(rootDir, "internal", "renderer", "*", "fields.yaml"),
+		filepath.Join(rootDir, "providers", "*", "fields.yaml"),
 	}
 
-	result := make(map[string]FieldsYAML, len(matches))
-	for _, path := range matches {
+	var allMatches []string
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			return nil, fmt.Errorf("glob fields.yaml: %w", err)
+		}
+		allMatches = append(allMatches, matches...)
+	}
+
+	result := make(map[string]FieldsYAML, len(allMatches))
+	for _, path := range allMatches {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", path, err)
@@ -271,7 +281,7 @@ func main() {
 		log.Fatalf("failed to read fields.yaml: %v", err)
 	}
 	if len(yamlData) == 0 {
-		log.Fatalf("no fields.yaml files found under internal/renderer/*/fields.yaml")
+		log.Fatalf("no fields.yaml files found under internal/renderer/*/fields.yaml or providers/*/fields.yaml")
 	}
 	if err := validateFieldsYAML(yamlData, fields); err != nil {
 		log.Fatalf("fields.yaml validation failed:\n%v", err)

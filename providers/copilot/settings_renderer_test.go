@@ -6,7 +6,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
+	"github.com/saero-ai/xcaffold/providers/copilot"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

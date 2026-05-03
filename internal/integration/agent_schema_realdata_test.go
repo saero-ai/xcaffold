@@ -8,7 +8,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/claude"
+	"github.com/saero-ai/xcaffold/providers/claude"
 	"github.com/stretchr/testify/require"
 )
 

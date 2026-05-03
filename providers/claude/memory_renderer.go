@@ -17,7 +17,7 @@ import (
 
 // MemorySeed records a single seeded memory agent directory. Its shape mirrors
 // state.MemorySeed, but the type is declared locally to avoid an import cycle
-// (internal/state -> internal/compiler -> internal/renderer/claude). Callers
+// (internal/state -> internal/compiler -> providers/claude). Callers
 // (e.g. runApply) translate these into state.MemorySeed by direct field copy
 // before handing them to state.GenerateWithOpts.
 //

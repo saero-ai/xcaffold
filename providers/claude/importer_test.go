@@ -125,7 +125,7 @@ Agent body.
 }
 
 func TestImport_Memory_OnlyProjectAgents(t *testing.T) {
-	c := New()
+	c := NewImporter()
 	dir := t.TempDir()
 
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "agents"), 0755))

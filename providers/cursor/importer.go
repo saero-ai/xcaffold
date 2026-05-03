@@ -1,4 +1,4 @@
-package claude
+package cursor
 
 import (
 	"encoding/json"
@@ -10,57 +10,46 @@ import (
 	"github.com/saero-ai/xcaffold/internal/importer"
 )
 
-func init() {
-	importer.Register(New())
-}
-
-// ClaudeImporter imports resources from a .claude/ directory tree.
+// CursorImporter imports resources from a .cursor/ directory tree.
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
-type ClaudeImporter struct {
+type CursorImporter struct {
 	Warnings []string
 }
 
-// New returns a new ClaudeImporter.
-func New() *ClaudeImporter {
-	return &ClaudeImporter{}
+// NewImporter returns a new CursorImporter.
+func NewImporter() *CursorImporter {
+	return &CursorImporter{}
 }
 
-// Provider returns the canonical provider name.
-func (c *ClaudeImporter) Provider() string { return "claude" }
-
 // GetWarnings returns non-fatal per-file extraction errors collected during the last Import() call.
-func (c *ClaudeImporter) GetWarnings() []string { return c.Warnings }
+func (c *CursorImporter) GetWarnings() []string { return c.Warnings }
+
+// Provider returns the canonical provider name.
+func (c *CursorImporter) Provider() string { return "cursor" }
 
 // InputDir returns the root directory relative to the workspace root.
-func (c *ClaudeImporter) InputDir() string { return ".claude" }
+func (c *CursorImporter) InputDir() string { return ".cursor" }
 
-// claudeMappings maps path patterns to AST kinds. First match wins.
-// settings.json appears first for the container-level KindSettings match;
-// the embedded mcpServers and hooks keys are handled inside Extract().
-// Skill companion patterns (references/**, scripts/**, assets/**) must appear
-// before the catch-all agent-memory/** so they are matched first.
-var claudeMappings = []importer.KindMapping{
+// cursorMappings maps path patterns to AST kinds. First match wins.
+var cursorMappings = []importer.KindMapping{
 	{Pattern: "hooks/*.sh", Kind: importer.KindHookScript, Layout: importer.FlatFile},
 	{Pattern: "agents/*.md", Kind: importer.KindAgent, Layout: importer.FlatFile},
 	{Pattern: "skills/*/SKILL.md", Kind: importer.KindSkill, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/references/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/scripts/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
 	{Pattern: "skills/*/assets/**", Kind: importer.KindSkillAsset, Layout: importer.DirectoryPerEntry},
-	{Pattern: "rules/**/*.md", Kind: importer.KindRule, Layout: importer.FlatFile},
-	{Pattern: "workflows/*.md", Kind: importer.KindWorkflow, Layout: importer.FlatFile},
+	{Pattern: "rules/*.mdc", Kind: importer.KindRule, Layout: importer.FlatFile, Extension: ".mdc"},
 	{Pattern: "mcp.json", Kind: importer.KindMCP, Layout: importer.StandaloneJSON},
-	{Pattern: "settings.json", Kind: importer.KindSettings, Layout: importer.EmbeddedJSONKey},
-	{Pattern: "settings.local.json", Kind: importer.KindSettings, Layout: importer.StandaloneJSON},
+	{Pattern: "hooks.json", Kind: importer.KindHook, Layout: importer.StandaloneJSON},
 	{Pattern: "hooks/**", Kind: importer.KindHookScript, Layout: importer.FlatFile},
-	{Pattern: "agent-memory/**", Kind: importer.KindMemory, Layout: importer.FlatFile},
 }
 
 // Classify returns the Kind and Layout for a given relative path.
-// rel is relative to InputDir(). First matching entry in claudeMappings wins.
-func (c *ClaudeImporter) Classify(rel string, isDir bool) (importer.Kind, importer.Layout) {
+// rel is relative to InputDir(). First matching entry in cursorMappings wins.
+func (c *CursorImporter) Classify(rel string, isDir bool) (importer.Kind, importer.Layout) {
 	rel = filepath.ToSlash(filepath.Clean(rel))
-	for _, m := range claudeMappings {
+	for _, m := range cursorMappings {
 		if importer.MatchGlob(m.Pattern, rel) {
 			return m.Kind, m.Layout
 		}
@@ -70,7 +59,7 @@ func (c *ClaudeImporter) Classify(rel string, isDir bool) (importer.Kind, import
 
 // Extract reads a single file and populates the appropriate section of config.
 // rel is relative to InputDir().
-func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldConfig) error {
+func (c *CursorImporter) Extract(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	rel = filepath.ToSlash(filepath.Clean(rel))
 	kind, _ := c.Classify(rel, false)
 
@@ -85,69 +74,47 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return importer.ExtractHookScript(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
-	case importer.KindWorkflow:
-		return extractWorkflow(rel, data, config)
 	case importer.KindMCP:
 		return extractMCPStandalone(rel, data, config)
-	case importer.KindSettings:
-		return extractSettings(rel, data, config)
-	case importer.KindMemory:
-		return extractMemory(rel, data, config)
+	case importer.KindHook:
+		return extractHooksStandalone(rel, data, config)
 	default:
-		return fmt.Errorf("claude: no extractor for kind %q at path %q", kind, rel)
+		return fmt.Errorf("cursor: no extractor for kind %q at path %q", kind, rel)
 	}
 }
 
 // Import walks dir, classifies each entry, extracts classified files, and
-// appends unclassified files to config.ProviderExtras["claude"].
+// appends unclassified files to config.ProviderExtras["cursor"].
 //
 // Extraction errors for individual files are non-fatal: they are collected in
 // c.Warnings and the walk continues. Only I/O errors (unreadable directory or
-// file) abort the walk. This ensures that a single malformed file (e.g. a rule
-// with unparseable YAML frontmatter) does not prevent all subsequent files from
-// being imported.
-func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
+// file) abort the walk.
+func (c *CursorImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	c.Warnings = c.Warnings[:0]
-	err := importer.WalkProviderDir(dir, func(rel string, data []byte) error {
+	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
 		kind, _ := c.Classify(rel, false)
 		if kind == importer.KindUnknown {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["claude"] == nil {
-				config.ProviderExtras["claude"] = make(map[string][]byte)
+			if config.ProviderExtras["cursor"] == nil {
+				config.ProviderExtras["cursor"] = make(map[string][]byte)
 			}
-			config.ProviderExtras["claude"][rel] = data
+			config.ProviderExtras["cursor"][rel] = data
 			return nil
 		}
 		if extractErr := c.Extract(rel, data, config); extractErr != nil {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["claude"] == nil {
-				config.ProviderExtras["claude"] = make(map[string][]byte)
+			if config.ProviderExtras["cursor"] == nil {
+				config.ProviderExtras["cursor"] = make(map[string][]byte)
 			}
-			config.ProviderExtras["claude"][rel] = data
+			config.ProviderExtras["cursor"][rel] = data
 			c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	// Cross-reference memory against known agents: warn if the parent agent is absent,
-	// but keep the entry so it can still be imported to xcf/agents/<id>/memory/.
-	for memPath := range config.Memory {
-		agentID := strings.SplitN(memPath, "/", 2)[0]
-		if len(config.Agents) > 0 {
-			if _, ok := config.Agents[agentID]; !ok {
-				c.Warnings = append(c.Warnings, fmt.Sprintf("memory for agent %q has no matching agent definition; will import to xcf/agents/%s/memory/", agentID, agentID))
-			}
-		}
-	}
-
-	return nil
 }
 
 // --- per-kind extractors ---
@@ -174,16 +141,14 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		MCP                    []string                      `yaml:"mcp"`
 		Assertions             []string                      `yaml:"assertions"`
 		Targets                map[string]ast.TargetOverride `yaml:"targets"`
-		Hooks                  ast.HookConfig                `yaml:"hooks"`
-		MCPServers             map[string]ast.MCPConfig      `yaml:"mcp-servers"`
 		DisableModelInvocation *bool                         `yaml:"disable-model-invocation"`
 		UserInvocable          *bool                         `yaml:"user-invocable"`
 		Readonly               *bool                         `yaml:"readonly"`
 	}
 
-	body, err := importer.ParseFrontmatterLenient(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
-		return fmt.Errorf("claude: agent %q: %w", rel, err)
+		return fmt.Errorf("cursor: agent %q: %w", rel, err)
 	}
 
 	id := strings.TrimSuffix(filepath.Base(rel), ".md")
@@ -212,10 +177,8 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		MCP:                    front.MCP,
 		Assertions:             front.Assertions,
 		Targets:                front.Targets,
-		Hooks:                  front.Hooks,
-		MCPServers:             front.MCPServers,
 		Body:                   body,
-		SourceProvider:         "claude",
+		SourceProvider:         "cursor",
 	}
 	return nil
 }
@@ -236,9 +199,9 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets                map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
-	body, err := importer.ParseFrontmatterLenient(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
-		return fmt.Errorf("claude: skill %q: %w", rel, err)
+		return fmt.Errorf("cursor: skill %q: %w", rel, err)
 	}
 
 	// For DirectoryPerEntry layout: id is the directory name
@@ -260,7 +223,7 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Assets:                 front.Assets,
 		Targets:                front.Targets,
 		Body:                   body,
-		SourceProvider:         "claude",
+		SourceProvider:         "cursor",
 	}
 	return nil
 }
@@ -268,17 +231,14 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 // extractSkillAsset records a skill companion file (references/*, scripts/*, assets/*)
 // in the parent skill's corresponding slice. rel is the path relative to InputDir()
 // and must match the pattern "skills/<id>/<sub>/<file>".
-// If the parent skill does not yet exist in config, it is created with a minimal entry
-// so that the path reference is preserved even when SKILL.md is walked after the asset.
 func extractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) error {
-	// rel looks like: skills/tdd/references/schema.sql
 	parts := strings.SplitN(rel, "/", 4)
 	if len(parts) < 4 {
-		return fmt.Errorf("claude: skill asset path too short: %q", rel)
+		return fmt.Errorf("cursor: skill asset path too short: %q", rel)
 	}
 	skillID := parts[1]
-	subDir := parts[2]                        // "references", "scripts", or "assets"
-	relWithinSkill := subDir + "/" + parts[3] // e.g. "references/schema.sql"
+	subDir := parts[2]
+	relWithinSkill := subDir + "/" + parts[3]
 
 	if config.Skills == nil {
 		config.Skills = make(map[string]ast.SkillConfig)
@@ -303,22 +263,27 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		AlwaysApply   *bool                         `yaml:"always-apply"`
 		Activation    string                        `yaml:"activation"`
 		Paths         []string                      `yaml:"paths"`
+		Globs         []string                      `yaml:"globs"`
 		ExcludeAgents []string                      `yaml:"exclude-agents"`
 		Targets       map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
-	body, err := importer.ParseFrontmatterLenient(data, &front)
+	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
-		return fmt.Errorf("claude: rule %q: %w", rel, err)
+		return fmt.Errorf("cursor: rule %q: %w", rel, err)
 	}
 
-	// Derive the rule ID as the path relative to "rules/", with extension stripped.
-	// For flat rules (rules/security.md) this is "security".
-	// For nested rules (rules/cli/testing-framework.md) this is "cli/testing-framework",
-	// which preserves uniqueness and mirrors the directory structure.
-	rulesPrefix := "rules/"
-	relFromRules := strings.TrimPrefix(filepath.ToSlash(rel), rulesPrefix)
-	id := strings.TrimSuffix(relFromRules, ".md")
+	// Cursor uses globs: as the path-gating field; map it to the canonical Paths field.
+	// If both paths: and globs: are present, merge them (globs: takes precedence by appending).
+	paths := front.Paths
+	if len(front.Globs) > 0 {
+		paths = append(paths, front.Globs...)
+	}
+
+	// Strip .mdc extension from rule id
+	base := filepath.Base(rel)
+	id := strings.TrimSuffix(base, ".mdc")
+
 	if config.Rules == nil {
 		config.Rules = make(map[string]ast.RuleConfig)
 	}
@@ -327,41 +292,16 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Description:    front.Description,
 		AlwaysApply:    front.AlwaysApply,
 		Activation:     front.Activation,
-		Paths:          front.Paths,
+		Paths:          paths,
 		ExcludeAgents:  front.ExcludeAgents,
 		Targets:        front.Targets,
 		Body:           body,
-		SourceProvider: "claude",
-	}
-	return nil
-}
-
-func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	var front struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-	}
-
-	body, err := importer.ParseFrontmatterLenient(data, &front)
-	if err != nil {
-		return fmt.Errorf("claude: workflow %q: %w", rel, err)
-	}
-
-	id := strings.TrimSuffix(filepath.Base(rel), ".md")
-	if config.Workflows == nil {
-		config.Workflows = make(map[string]ast.WorkflowConfig)
-	}
-	config.Workflows[id] = ast.WorkflowConfig{
-		Name:           front.Name,
-		Description:    front.Description,
-		Body:           body,
-		SourceProvider: "claude",
+		SourceProvider: "cursor",
 	}
 	return nil
 }
 
 // mcpFileWrapper is the outer JSON envelope for mcp.json.
-// Claude writes {"mcpServers": {...}} as the top-level shape.
 type mcpFileWrapper struct {
 	MCPServers map[string]ast.MCPConfig `json:"mcpServers"`
 }
@@ -369,93 +309,23 @@ type mcpFileWrapper struct {
 func extractMCPStandalone(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	var wrapper mcpFileWrapper
 	if err := json.Unmarshal(data, &wrapper); err != nil {
-		return fmt.Errorf("claude: mcp.json parse: %w", err)
+		return fmt.Errorf("cursor: mcp.json parse: %w", err)
 	}
 	if config.MCP == nil {
 		config.MCP = make(map[string]ast.MCPConfig)
 	}
 	for k, v := range wrapper.MCPServers {
-		v.SourceProvider = "claude"
+		v.SourceProvider = "cursor"
 		config.MCP[k] = v
 	}
 	return nil
 }
 
-func extractSettings(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	// Phase 1: parse into raw message map to extract embedded keys separately.
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return fmt.Errorf("claude: %s parse: %w", rel, err)
+func extractHooksStandalone(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var hooks ast.HookConfig
+	if err := json.Unmarshal(data, &hooks); err != nil {
+		return fmt.Errorf("cursor: hooks.json parse: %w", err)
 	}
-
-	// Extract mcpServers → config.MCP
-	if mcpRaw, ok := raw["mcpServers"]; ok {
-		var servers map[string]ast.MCPConfig
-		if err := json.Unmarshal(mcpRaw, &servers); err != nil {
-			return fmt.Errorf("claude: %s mcpServers: %w", rel, err)
-		}
-		if config.MCP == nil {
-			config.MCP = make(map[string]ast.MCPConfig)
-		}
-		for k, v := range servers {
-			v.SourceProvider = "claude"
-			config.MCP[k] = v
-		}
-	}
-
-	// Extract hooks → config.Hooks
-	if hooksRaw, ok := raw["hooks"]; ok {
-		var hooks ast.HookConfig
-		if err := json.Unmarshal(hooksRaw, &hooks); err != nil {
-			return fmt.Errorf("claude: %s hooks: %w", rel, err)
-		}
-		config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
-	}
-
-	// Extract full settings into config.Settings (overlapping keys are fine —
-	// Settings keeps its own copy for provider-specific fields like model, permissions, etc.)
-	var settings ast.SettingsConfig
-	if err := json.Unmarshal(data, &settings); err != nil {
-		return fmt.Errorf("claude: %s settings: %w", rel, err)
-	}
-	settings.SourceProvider = "claude"
-	config.Settings = map[string]ast.SettingsConfig{"default": settings}
-	return nil
-}
-
-func extractMemory(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	// ID is the relative path from agent-memory/ prefix, with extension stripped.
-	// e.g. "agent-memory/go-cli/context.md" → "go-cli/context"
-	trimmed := strings.TrimPrefix(rel, "agent-memory/")
-
-	// Skip auto-generated memory index files.
-	if strings.HasSuffix(trimmed, "/MEMORY.md") || trimmed == "MEMORY.md" {
-		return nil
-	}
-
-	id := strings.TrimSuffix(trimmed, filepath.Ext(trimmed))
-
-	// Attempt to parse YAML frontmatter; fall back to raw content as instructions.
-	// Type and Lifecycle were removed from MemoryConfig in the agent-scoped
-	// memory refactor; only Name and Description survive import.
-	var front struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-	}
-	body, err := importer.ParseFrontmatterLenient(data, &front)
-	if err != nil {
-		// Not valid frontmatter — treat entire content as instructions.
-		body = string(data)
-	}
-
-	if config.Memory == nil {
-		config.Memory = make(map[string]ast.MemoryConfig)
-	}
-	config.Memory[id] = ast.MemoryConfig{
-		Name:           front.Name,
-		Description:    front.Description,
-		Content:        body,
-		SourceProvider: "claude",
-	}
+	config.Hooks = map[string]ast.NamedHookConfig{"default": {Name: "default", Events: hooks}}
 	return nil
 }

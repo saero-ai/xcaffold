@@ -12,13 +12,13 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/bir"
 	"github.com/saero-ai/xcaffold/internal/importer"
-	_ "github.com/saero-ai/xcaffold/internal/importer/antigravity"
-	_ "github.com/saero-ai/xcaffold/internal/importer/claude"
-	_ "github.com/saero-ai/xcaffold/internal/importer/copilot"
-	_ "github.com/saero-ai/xcaffold/internal/importer/cursor"
-	_ "github.com/saero-ai/xcaffold/internal/importer/gemini"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
+	_ "github.com/saero-ai/xcaffold/providers/antigravity"
+	_ "github.com/saero-ai/xcaffold/providers/claude"
+	_ "github.com/saero-ai/xcaffold/providers/copilot"
+	_ "github.com/saero-ai/xcaffold/providers/cursor"
+	_ "github.com/saero-ai/xcaffold/providers/gemini"
 	"github.com/spf13/cobra"
 )
 
