@@ -38,6 +38,7 @@ Exit code 0 means valid. Non-zero means errors found.`,
 }
 
 func init() {
+	validateCmd.Flags().StringVar(&targetFlag, "target", "", "Validate field support for a specific provider target")
 	validateCmd.Flags().StringVar(&validateBlueprintFlag, "blueprint", "", "Validate only the named blueprint")
 	_ = validateCmd.Flags().MarkHidden("blueprint")
 	rootCmd.AddCommand(validateCmd)
@@ -146,7 +147,16 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		if compileErr != nil {
 			fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
 		} else {
-			printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag)), false)
+			filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag))
+			printFidelityNotes(os.Stderr, filteredNotes, false)
+			if targetFlag != "" {
+				if err := checkFidelityErrors(filteredNotes); err != nil {
+					fmt.Println()
+					fmt.Printf("%s  Validation failed: %v\n", colorRed(glyphErr()), err)
+					return fmt.Errorf("validation failed: %s", err)
+				}
+				fmt.Printf("  %s  field validation (%s)\n", colorGreen(glyphOK()), targetFlag)
+			}
 			violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
 			policyErrors = policy.FilterBySeverity(violations, policy.SeverityError)
 			policyWarnings = policy.FilterBySeverity(violations, policy.SeverityWarning)

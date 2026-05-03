@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `--target <provider>` flag to `xcaffold validate`. When set, the command performs a compile-time field validation pass that fails on unsupported or missing required fields for the specified provider target.
 - Added `xcaffold status` command to replace `xcaffold diff`, providing high-level sync/drift metrics across all applied targets with inline file status reporting.
 - Added adaptive 3-column terminal output for `xcaffold list`, intelligently scoping and grouping registered Rules and Memory items natively.
 

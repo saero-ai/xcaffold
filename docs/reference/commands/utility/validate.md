@@ -19,6 +19,7 @@ xcaffold validate [flags]
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
+| `--target <provider>` | — | `string` | `""` | Validate field support for a specific provider target (`claude`, `cursor`, `antigravity`, `copilot`, `gemini`). |
 | `--blueprint <name>` | — | `string` | `""` | Validate only the named blueprint's resources. Internal use. |
 | `--global` | `-g` | `bool` | `false` | Operate on the global config (`~/.xcaffold/global.xcf`). Not yet available — prints an error and exits. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
@@ -37,6 +38,18 @@ Running `xcaffold validate` without flags prints a breadcrumb header followed by
 4. **Policy evaluation** — compiles the project in-memory and evaluates all active policy rules against the compiled output. See [Policy evaluation](#policy-evaluation) for details.
 
 A footer line reports the total warning count and the number of `.xcf` files checked.
+
+### Field validation (--target)
+
+When `--target <provider>` is specified, `validate` performs an additional compile-time field validation pass after policy evaluation:
+
+- **Unsupported fields** — any resource field not supported by the target provider produces an error and fails validation.
+- **Required fields** — any field required by the target provider but absent from a resource produces an error and fails validation.
+- **Suppressed resources** — resources with a `target-options.<provider>.suppress-fidelity-warnings: true` override are excluded from the field check.
+
+On success, the output includes a `field validation (<provider>)` line. On failure, the specific unsupported or missing fields are reported before the `Validation failed` footer.
+
+This flag is useful as a pre-commit gate to catch provider incompatibilities before running `xcaffold apply`.
 
 ### Policy evaluation
 
@@ -140,6 +153,20 @@ sandbox  ·  last applied 3 days ago
 ✗  Validation failed: 1 policy error found.
 ```
 
+### Validation with --target field errors
+
+```
+sandbox  ·  last applied 3 days ago
+
+  ✓  syntax and cross-references
+  ✓  skill directories
+  ✓  structural checks
+ERROR (antigravity): field "effort" is unsupported by antigravity; use a agent.antigravity.xcf override or remove from base manifest
+
+✗  Validation failed: compilation failed with 1 error(s):
+  FIELD_UNSUPPORTED agent/dev: field "effort" is unsupported by antigravity; ...
+```
+
 ### Parse error
 
 ```
@@ -155,6 +182,12 @@ sandbox  ·  last applied 3 days ago
 **Validate the project in the current directory:**
 ```bash
 xcaffold validate
+```
+
+**Validate field support for a specific provider:**
+```bash
+xcaffold validate --target antigravity
+xcaffold validate --target cursor
 ```
 
 **Validate without color output (useful in CI):**

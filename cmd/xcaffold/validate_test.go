@@ -166,6 +166,83 @@ skills:
 	assert.NoError(t, err)
 }
 
+// TestValidate_TargetFlag_EmitsFidelityErrors verifies that --target causes
+// validate to fail when the project contains a resource with fields that are
+// unsupported by the specified target provider.
+func TestValidate_TargetFlag_EmitsFidelityErrors(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: "field-test"
+`), 0600))
+
+	// effort: low is unsupported by antigravity — produces a LevelError fidelity note.
+	// Agents must be in xcf/agents/<id>/<file>.xcf (directory-per-resource layout).
+	devDir := filepath.Join(dir, "xcf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(devDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(devDir, "agent.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: "Dev agent"
+effort: low
+---
+You are a developer.
+`), 0600))
+
+	oldPath := xcfPath
+	oldTarget := targetFlag
+	xcfPath = filepath.Join(dir, "project.xcf")
+	targetFlag = "antigravity"
+	defer func() {
+		xcfPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	err := runValidate(validateCmd, []string{})
+	require.Error(t, err, "validate must fail when target has unsupported fields")
+	assert.Contains(t, err.Error(), "validation failed")
+}
+
+// TestValidate_NoTarget_NoFieldCheck verifies that omitting --target skips
+// the compile-time field validation check entirely.
+func TestValidate_NoTarget_NoFieldCheck(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: "field-test"
+`), 0600))
+
+	// effort: low is unsupported by antigravity, but without --target no check runs.
+	devDir := filepath.Join(dir, "xcf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(devDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(devDir, "agent.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: "Dev agent"
+effort: low
+---
+You are a developer.
+`), 0600))
+
+	oldPath := xcfPath
+	oldTarget := targetFlag
+	xcfPath = filepath.Join(dir, "project.xcf")
+	targetFlag = ""
+	defer func() {
+		xcfPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	err := runValidate(validateCmd, []string{})
+	assert.NoError(t, err, "validate without --target must not fail on unsupported fields")
+}
+
 func TestValidate_ManifestInXcaffoldDir_ParsesFullProjectRoot(t *testing.T) {
 	// TC-17: When validate.go uses filepath.Dir(".xcaffold/project.xcf") = ".xcaffold/"
 	// as the ParseDirectory root, files at xcf/agents/ are NOT found.
