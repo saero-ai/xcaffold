@@ -412,3 +412,29 @@ func TestGraph_ProjectScoped_EmptyWhenAllReferenced(t *testing.T) {
 	out := renderProjectScoped(g)
 	assert.Empty(t, out)
 }
+
+// TestGraph_ScopeSummary_NoOrphanCounter verifies that renderScopeSummary
+// does not emit an "Unreferenced Skills" line.
+func TestGraph_ScopeSummary_NoOrphanCounter(t *testing.T) {
+	g := &graphData{
+		Project:    "test-project",
+		ConfigPath: "xcf/project.xcf",
+		Scope:      "project",
+		Nodes: []graphNode{
+			{ID: "agent:main", Kind: kindAgent, Label: "main"},
+			{ID: "skill:orphan", Kind: kindSkill, Label: "orphan"},
+		},
+		Edges: []graphEdge{}, // skill is unreferenced
+	}
+
+	var sb strings.Builder
+	renderScopeSummary(&sb, g)
+	out := sb.String()
+
+	// Summary must NOT contain orphan/unreferenced counter
+	assert.NotContains(t, out, "Unreferenced")
+	assert.NotContains(t, out, "orphan")
+
+	// Should still show Agents line
+	assert.Contains(t, out, "Agents")
+}

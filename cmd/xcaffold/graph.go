@@ -969,7 +969,7 @@ func renderTerminalSummary(scopes []*graphData) string {
 
 //nolint:gocyclo
 func renderScopeSummary(sb *strings.Builder, g *graphData) {
-	var agents, skills, rules, mcp, policies, orphans int
+	var agents, skills, rules, mcp, policies int
 	for _, n := range g.Nodes {
 		switch n.Kind {
 		case kindAgent:
@@ -982,16 +982,6 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 			mcp++
 		case kindPolicy:
 			policies++
-		}
-	}
-
-	referenced := make(map[string]bool)
-	for _, e := range g.Edges {
-		referenced[e.To] = true
-	}
-	for _, n := range g.Nodes {
-		if n.Kind == kindSkill && !referenced[n.ID] {
-			orphans++
 		}
 	}
 
@@ -1027,9 +1017,6 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 	}
 	if policies > 0 {
 		lines = append(lines, summaryLine{"Policies", kindPolicy, policies})
-	}
-	if orphans > 0 {
-		lines = append(lines, summaryLine{"Unreferenced Skills", kindSkill, orphans})
 	}
 
 	for idx, ln := range lines {
