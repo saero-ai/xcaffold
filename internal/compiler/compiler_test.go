@@ -134,7 +134,7 @@ func TestCompile_FullSchema(t *testing.T) {
 	// Agents
 	assert.Contains(t, out.Files, "agents/dev.md")
 
-	// Skills — now compiled as skills/<id>/SKILL.md directories (Bug 10)
+	// Skills — compiled as skills/<id>/SKILL.md directories
 	skillContent, ok := out.Files["skills/git/SKILL.md"]
 	require.True(t, ok, "expected skills/git/SKILL.md to be compiled")
 	assert.Contains(t, skillContent, "description: Git workflows")

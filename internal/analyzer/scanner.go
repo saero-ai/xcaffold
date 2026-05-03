@@ -95,7 +95,7 @@ func ScanProject(fsys fs.FS) (*ProjectSignature, error) {
 		if base == "CLAUDE.md" {
 			// Only capture the first (shallowest) CLAUDE.md encountered.
 			// The walker visits root before subdirectories, so this preserves
-			// the project-root file and ignores any src/CLAUDE.md etc. (Bug 13)
+			// the project-root file and ignores any src/CLAUDE.md etc.
 			if sig.ClaudeConfig == "" {
 				sig.ClaudeConfig = readTruncated(fsys, path, 5000)
 			}
