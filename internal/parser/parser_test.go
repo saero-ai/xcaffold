@@ -1424,6 +1424,78 @@ func TestValidateOverrideBasesExist_Template_WithoutBase_Fails(t *testing.T) {
 	assert.Contains(t, err.Error(), "no base resource")
 }
 
+func TestValidateCrossReferencesAsList_UnresolvedSkill_ReturnsWarning(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"worker": {Name: "worker", Skills: []string{"nonexistent-skill"}},
+			},
+			Skills: map[string]ast.SkillConfig{},
+		},
+	}
+
+	issues := validateCrossReferencesAsList(cfg)
+	require.Len(t, issues, 1)
+	assert.Contains(t, issues[0].Message, "nonexistent-skill")
+	assert.Contains(t, issues[0].Message, "not found in project scope")
+	assert.Equal(t, "skill", issues[0].ResourceType)
+}
+
+func TestValidateCrossReferencesAsList_UnresolvedRule_ReturnsWarning(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"reviewer": {Name: "reviewer", Rules: []string{"missing-rule"}},
+			},
+			Rules: map[string]ast.RuleConfig{},
+		},
+	}
+
+	issues := validateCrossReferencesAsList(cfg)
+	require.Len(t, issues, 1)
+	assert.Contains(t, issues[0].Message, "missing-rule")
+	assert.Contains(t, issues[0].Message, "not found in project scope")
+	assert.Equal(t, "rule", issues[0].ResourceType)
+}
+
+func TestValidateCrossReferencesAsList_UnresolvedMCP_ReturnsWarning(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"helper": {Name: "helper", MCP: []string{"missing-mcp"}},
+			},
+			MCP: map[string]ast.MCPConfig{},
+		},
+	}
+
+	issues := validateCrossReferencesAsList(cfg)
+	require.Len(t, issues, 1)
+	assert.Contains(t, issues[0].Message, "missing-mcp")
+	assert.Contains(t, issues[0].Message, "not found in project scope")
+	assert.Equal(t, "mcp", issues[0].ResourceType)
+}
+
+func TestValidateCrossReferencesAsList_AllResolved_NoIssues(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"worker": {
+					Name:   "worker",
+					Skills: []string{"tdd"},
+					Rules:  []string{"style"},
+					MCP:    []string{"postgres"},
+				},
+			},
+			Skills: map[string]ast.SkillConfig{"tdd": {Name: "tdd"}},
+			Rules:  map[string]ast.RuleConfig{"style": {Name: "style"}},
+			MCP:    map[string]ast.MCPConfig{"postgres": {}},
+		},
+	}
+
+	issues := validateCrossReferencesAsList(cfg)
+	require.Empty(t, issues)
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }

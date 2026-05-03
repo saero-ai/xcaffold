@@ -2244,7 +2244,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 					AgentID:      agentID,
 					ResourceType: "skill",
 					ResourceID:   skillID,
-					Message:      fmt.Sprintf("agent %q references undefined skill %q", agentID, skillID),
+					Message:      fmt.Sprintf("agent %q references skill %q: not found in project scope (global scope not yet available)", agentID, skillID),
 				})
 			}
 		}
@@ -2254,7 +2254,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 					AgentID:      agentID,
 					ResourceType: "rule",
 					ResourceID:   ruleID,
-					Message:      fmt.Sprintf("agent %q references undefined rule %q", agentID, ruleID),
+					Message:      fmt.Sprintf("agent %q references rule %q: not found in project scope (global scope not yet available)", agentID, ruleID),
 				})
 			}
 		}
@@ -2264,7 +2264,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 					AgentID:      agentID,
 					ResourceType: "mcp",
 					ResourceID:   mcpID,
-					Message:      fmt.Sprintf("agent %q references undefined mcp server %q", agentID, mcpID),
+					Message:      fmt.Sprintf("agent %q references mcp server %q: not found in project scope (global scope not yet available)", agentID, mcpID),
 				})
 			}
 		}

@@ -309,20 +309,21 @@ name: test
 version: "1.0"
 `), 0644))
 
-	// Agent at the TRUE project root with an invalid cross-reference.
+	// Agent at the TRUE project root with an unresolved cross-reference.
 	// skill "nonexistent" does NOT exist. If ParseDirectory scans the correct root,
-	// this cross-reference is caught and validation FAILS.
+	// this cross-reference is found but reported as a warning (not an error).
 	// If ParseDirectory scans .xcaffold/ (the bug), this file is never parsed,
 	// cross-reference is never checked, and validation falsely PASSES.
-	agentsDir := filepath.Join(dir, "xcf", "agents")
+	agentsDir := filepath.Join(dir, "xcf", "agents", "bad-agent")
 	require.NoError(t, os.MkdirAll(agentsDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "bad-agent.xcf"), []byte(`kind: agent
+	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "agent.xcf"), []byte(`---
+kind: agent
 version: "1.0"
-name: Bad Agent
+name: bad-agent
 description: "Agent with a broken skill ref"
 skills: [nonexistent]
 ---
-do stuff
+Agent body text.
 `), 0644))
 
 	oldPath := xcfPath
@@ -331,9 +332,9 @@ do stuff
 
 	err := runValidate(validateCmd, []string{})
 
-	// Before fix: validation PASSES (bad-agent.xcf not found → cross-ref unchecked)
-	// After fix:  validation FAILS  (bad-agent.xcf found → cross-ref caught → error)
-	require.Error(t, err, "validate must detect cross-ref error in xcf/agents/ when manifest is in .xcaffold/")
+	// Cross-references are now warnings, not errors. The test verifies
+	// that ParseDirectory scans the correct root (not just .xcaffold/).
+	require.NoError(t, err, "cross-references are warnings, not errors — validate should succeed")
 }
 
 // TestValidate_TargetFlag_HeaderIncludesTarget verifies that --target causes the
