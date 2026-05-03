@@ -118,8 +118,10 @@ func TestCompile_Gemini_Agents_UnsupportedFields(t *testing.T) {
 	for _, n := range notes {
 		codes[n.Code] = true
 	}
-	assert.True(t, codes[renderer.CodeAgentSecurityFieldsDropped], "expected CodeAgentSecurityFieldsDropped for effort/permission-mode/disallowed-tools/isolation")
-	assert.True(t, codes[renderer.CodeFieldUnsupported], "expected CodeFieldUnsupported for background/color")
+	// All unsupported fields — including security fields — now emit FIELD_UNSUPPORTED
+	// via the orchestrator's CheckFieldSupport. AGENT_SECURITY_FIELDS_DROPPED is
+	// no longer emitted by the renderer.
+	assert.True(t, codes[renderer.CodeFieldUnsupported], "expected CodeFieldUnsupported for background/color/permission-mode/disallowed-tools/isolation/effort")
 }
 
 func TestCompile_Gemini_Agents_InlineMCP(t *testing.T) {

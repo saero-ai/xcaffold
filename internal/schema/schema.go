@@ -44,6 +44,22 @@ func KindNames() []string {
 	return names
 }
 
+// FieldSupportForTarget returns the provider support value for a specific field
+// on a given kind. Returns "" if the kind or field is not found.
+// Common return values: "optional", "required", "unsupported", "xcaffold-only".
+func FieldSupportForTarget(kind, yamlKey, target string) string {
+	ks, ok := Registry[kind]
+	if !ok {
+		return ""
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == yamlKey {
+			return f.Provider[target]
+		}
+	}
+	return ""
+}
+
 // Registry is populated by the generated registry_gen.go file.
 // It maps kind names to their schema metadata.
 var Registry = map[string]KindSchema{}

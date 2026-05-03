@@ -55,7 +55,6 @@ func TestSanitizeAgentTools(t *testing.T) {
 			name:  "Provider Without Tools Support Silently Drops",
 			tools: []string{"Bash", "Read"},
 			caps: CapabilitySet{
-				AgentToolsField:      false,
 				AgentNativeToolsOnly: false,
 			},
 			targetName:    "cursor",
@@ -66,7 +65,6 @@ func TestSanitizeAgentTools(t *testing.T) {
 			name:  "Claude Provider Passes Through",
 			tools: []string{"Bash", "Read", "mcp_test"},
 			caps: CapabilitySet{
-				AgentToolsField:      true,
 				AgentNativeToolsOnly: true,
 			},
 			targetName:    "claude",
@@ -77,7 +75,6 @@ func TestSanitizeAgentTools(t *testing.T) {
 			name:  "Provider With Tools Support Drops Claude Natives",
 			tools: []string{"Bash", "Read", "mcp_github_read", "custom_tool"},
 			caps: CapabilitySet{
-				AgentToolsField:      true,
 				AgentNativeToolsOnly: false,
 			},
 			targetName:    "gemini",
@@ -89,7 +86,6 @@ func TestSanitizeAgentTools(t *testing.T) {
 			name:  "Provider With Tools Support Retains Fully Allowed List",
 			tools: []string{"mcp_github_read", "custom_tool"},
 			caps: CapabilitySet{
-				AgentToolsField:      true,
 				AgentNativeToolsOnly: false,
 			},
 			targetName:    "gemini",
@@ -100,7 +96,6 @@ func TestSanitizeAgentTools(t *testing.T) {
 			name:  "Empty List Returns Nil",
 			tools: []string{},
 			caps: CapabilitySet{
-				AgentToolsField:      true,
 				AgentNativeToolsOnly: false,
 			},
 			targetName:    "gemini",
@@ -127,5 +122,24 @@ func TestSanitizeAgentTools(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestSanitizeAgentTools_RegistryLookup verifies that SanitizeAgentTools uses
+// the schema registry to determine field support. Cursor has tools marked
+// "unsupported" in the registry, so tools must be dropped (nil returned).
+func TestSanitizeAgentTools_RegistryLookup(t *testing.T) {
+	tools := []string{"Bash", "Read", "mcp_custom"}
+	caps := CapabilitySet{
+		AgentNativeToolsOnly: false,
+	}
+
+	gotTools, gotNotes := SanitizeAgentTools(tools, caps, "cursor", "test_agent")
+
+	if gotTools != nil {
+		t.Errorf("expected nil tools for cursor (tools unsupported in registry), got %v", gotTools)
+	}
+	if len(gotNotes) != 0 {
+		t.Errorf("expected 0 notes for silent drop, got %d", len(gotNotes))
 	}
 }

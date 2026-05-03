@@ -82,7 +82,7 @@ func formatProviderSupport(providers map[string]string) string {
 	var parts []string
 	for _, name := range order {
 		support, ok := providers[name]
-		if !ok || support == "unsupported" {
+		if !ok || support == "unsupported" || support == "xcaffold-only" {
 			continue
 		}
 

@@ -47,7 +47,6 @@ func (r *Renderer) OutputDir() string {
 // Capabilities returns the CapabilitySet for the Cursor renderer.
 // Cursor supports agents, skills (with references/scripts/assets subdirs), rules,
 // workflows (via rule-plus-skill lowering), hooks, MCP, and project instructions.
-// Model selection in Cursor is UI-only, so ModelField is false.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
 		Agents:               true,
@@ -59,9 +58,7 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                  true,
 		Memory:               false,
 		ProjectInstructions:  true,
-		AgentToolsField:      false,
 		AgentNativeToolsOnly: false,
-		ModelField:           true,
 		RuleActivations:      []string{"always", "path-glob", "manual-mention"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "frontmatter",
@@ -72,9 +69,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 			"scripts":    "scripts",
 			"assets":     "assets",
 			"examples":   "references",
-		},
-		SecurityFields: renderer.SecurityFieldSupport{
-			Effort: true,
 		},
 	}
 }
@@ -491,31 +485,6 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string, caps r
 		sb.WriteString("\n")
 		sb.WriteString(strings.TrimRight(body, "\n"))
 		sb.WriteString("\n")
-	}
-
-	if agent.PermissionMode != "" {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "agent", id, "permissionMode",
-			renderer.CodeAgentSecurityFieldsDropped,
-			fmt.Sprintf("agent %q permissionMode %q dropped; Cursor has no permission mode equivalent", id, agent.PermissionMode),
-			"Remove permissionMode from the cursor target override",
-		))
-	}
-	if len(agent.DisallowedTools) > 0 {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "agent", id, "disallowedTools",
-			renderer.CodeAgentSecurityFieldsDropped,
-			fmt.Sprintf("agent %q disallowedTools dropped; tool restrictions will NOT be enforced by Cursor", id),
-			"Enforce tool restrictions via a different target or accept the loss",
-		))
-	}
-	if agent.Isolation != "" {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "agent", id, "isolation",
-			renderer.CodeAgentSecurityFieldsDropped,
-			fmt.Sprintf("agent %q isolation %q dropped; Cursor has no process isolation model", id, agent.Isolation),
-			"Remove isolation from the cursor target override",
-		))
 	}
 
 	return sb.String(), notes, nil

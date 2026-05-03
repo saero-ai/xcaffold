@@ -56,7 +56,6 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		MCP:                  true,
 		Memory:               false,
 		ProjectInstructions:  true,
-		AgentToolsField:      true,
 		AgentNativeToolsOnly: false,
 		SkillArtifactDirs: map[string]string{
 			"references": "references",
@@ -64,13 +63,11 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 			"assets":     "assets",
 			"examples":   "examples",
 		},
-		ModelField:      true,
 		RuleActivations: []string{"always", "path-glob"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "frontmatter",
 			Activation:  "frontmatter",
 		},
-		SecurityFields: renderer.SecurityFieldSupport{},
 	}
 }
 
@@ -386,29 +383,6 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 
 		filePath := fmt.Sprintf("agents/%s.agent.md", id)
 		files[filepath.Clean(filePath)] = sb.String()
-
-		// Fidelity notes for security fields with no Copilot equivalent.
-		hasSecurityDrop := agent.PermissionMode != "" ||
-			len(agent.DisallowedTools) > 0 || agent.Isolation != ""
-		if hasSecurityDrop {
-			var dropped []string
-			if agent.PermissionMode != "" {
-				dropped = append(dropped, "permission-mode")
-			}
-			if len(agent.DisallowedTools) > 0 {
-				dropped = append(dropped, "disallowed-tools")
-			}
-			if agent.Isolation != "" {
-				dropped = append(dropped, "isolation")
-			}
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "agent", id,
-				strings.Join(dropped, ","),
-				renderer.CodeAgentSecurityFieldsDropped,
-				fmt.Sprintf("agent %q fields [%s] have no Copilot equivalent and were dropped; security constraints will NOT be enforced", id, strings.Join(dropped, ", ")),
-				"Review agent security requirements manually for this target",
-			))
-		}
 
 		// Fidelity notes for other unsupported fields.
 		type unsupportedField struct {

@@ -2,8 +2,10 @@ package main
 
 import (
 	"go/ast"
+	goformat "go/format"
 	"go/parser"
 	"go/token"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -868,4 +870,391 @@ func TestHooksProviderMarkers(t *testing.T) {
 		}
 	}
 	t.Fatal("events field not found in hooks schema")
+}
+
+// TestGenSchema_ReadsFieldsYAML verifies that readFieldsYAML correctly parses
+// mock fields.yaml files from a temporary directory structure.
+func TestGenSchema_ReadsFieldsYAML(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create mock renderer directories with fields.yaml
+	claudeDir := dir + "/internal/renderer/claude"
+	cursorDir := dir + "/internal/renderer/cursor"
+	if err := os.MkdirAll(claudeDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(cursorDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	claudeYAML := `provider: claude
+version: "1.0"
+kinds:
+  agent:
+    name: { support: xcaffold-only }
+    description: { support: required }
+  skill:
+    name: { support: xcaffold-only }
+    description: { support: optional }
+`
+	cursorYAML := `provider: cursor
+version: "1.0"
+kinds:
+  agent:
+    name: { support: xcaffold-only }
+    description: { support: optional }
+  skill:
+    name: { support: xcaffold-only }
+    description: { support: optional }
+`
+	if err := os.WriteFile(claudeDir+"/fields.yaml", []byte(claudeYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cursorDir+"/fields.yaml", []byte(cursorYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := readFieldsYAML(dir)
+	if err != nil {
+		t.Fatalf("readFieldsYAML failed: %v", err)
+	}
+
+	if len(data) != 2 {
+		t.Fatalf("expected 2 providers, got %d", len(data))
+	}
+
+	claude, ok := data["claude"]
+	if !ok {
+		t.Fatal("expected claude in result")
+	}
+	if claude.Provider != "claude" {
+		t.Errorf("expected Provider='claude', got '%s'", claude.Provider)
+	}
+	if claude.Kinds["agent"]["description"].Support != "required" {
+		t.Errorf("expected claude agent description=required, got '%s'",
+			claude.Kinds["agent"]["description"].Support)
+	}
+
+	cursor, ok := data["cursor"]
+	if !ok {
+		t.Fatal("expected cursor in result")
+	}
+	if cursor.Kinds["agent"]["description"].Support != "optional" {
+		t.Errorf("expected cursor agent description=optional, got '%s'",
+			cursor.Kinds["agent"]["description"].Support)
+	}
+}
+
+// TestGenSchema_CompletenessGate_MissingField verifies that validateFieldsYAML
+// returns an error when a provider's fields.yaml is missing a canonical field.
+func TestGenSchema_CompletenessGate_MissingField(t *testing.T) {
+	canonicalFields := map[string][]FieldInfo{
+		"agent": {
+			{Name: "Name", YAMLKey: "name"},
+			{Name: "Description", YAMLKey: "description"},
+			{Name: "Model", YAMLKey: "model"},
+		},
+	}
+
+	yamlData := map[string]FieldsYAML{
+		"claude": {
+			Provider: "claude",
+			Version:  "1.0",
+			Kinds: map[string]map[string]FieldDecl{
+				"agent": {
+					"name":        {Support: "xcaffold-only"},
+					"description": {Support: "required"},
+					// "model" is missing
+				},
+			},
+		},
+	}
+
+	err := validateFieldsYAML(yamlData, canonicalFields)
+	if err == nil {
+		t.Fatal("expected error for missing field, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing field") {
+		t.Errorf("expected 'missing field' in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "model") {
+		t.Errorf("expected 'model' in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "claude") {
+		t.Errorf("expected 'claude' in error, got: %v", err)
+	}
+}
+
+// TestGenSchema_CompletenessGate_UnknownField verifies that validateFieldsYAML
+// returns an error when a provider's fields.yaml contains a field not in the AST.
+func TestGenSchema_CompletenessGate_UnknownField(t *testing.T) {
+	canonicalFields := map[string][]FieldInfo{
+		"agent": {
+			{Name: "Name", YAMLKey: "name"},
+			{Name: "Description", YAMLKey: "description"},
+		},
+	}
+
+	yamlData := map[string]FieldsYAML{
+		"gemini": {
+			Provider: "gemini",
+			Version:  "1.0",
+			Kinds: map[string]map[string]FieldDecl{
+				"agent": {
+					"name":        {Support: "xcaffold-only"},
+					"description": {Support: "required"},
+					"bogus-field": {Support: "optional"},
+				},
+			},
+		},
+	}
+
+	err := validateFieldsYAML(yamlData, canonicalFields)
+	if err == nil {
+		t.Fatal("expected error for unknown field, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Errorf("expected 'unknown field' in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "bogus-field") {
+		t.Errorf("expected 'bogus-field' in error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "gemini") {
+		t.Errorf("expected 'gemini' in error, got: %v", err)
+	}
+}
+
+// TestGenSchema_MergeProviderData verifies that mergeProviderData correctly
+// merges YAML provider data into the fields map, with YAML taking precedence.
+func TestGenSchema_MergeProviderData(t *testing.T) {
+	fields := map[string][]FieldInfo{
+		"agent": {
+			{
+				Name:    "Description",
+				YAMLKey: "description",
+				Markers: MarkerSet{
+					Provider: map[string]string{
+						"claude": "optional", // marker says optional
+					},
+				},
+			},
+		},
+	}
+
+	yamlData := map[string]FieldsYAML{
+		"claude": {
+			Provider: "claude",
+			Kinds: map[string]map[string]FieldDecl{
+				"agent": {
+					"description": {Support: "required"}, // YAML says required
+				},
+			},
+		},
+		"cursor": {
+			Provider: "cursor",
+			Kinds: map[string]map[string]FieldDecl{
+				"agent": {
+					"description": {Support: "unsupported"},
+				},
+			},
+		},
+	}
+
+	mergeProviderData(fields, yamlData)
+
+	desc := fields["agent"][0]
+	if desc.Markers.Provider["claude"] != "required" {
+		t.Errorf("expected claude=required (YAML precedence), got '%s'",
+			desc.Markers.Provider["claude"])
+	}
+	if desc.Markers.Provider["cursor"] != "unsupported" {
+		t.Errorf("expected cursor=unsupported (new from YAML), got '%s'",
+			desc.Markers.Provider["cursor"])
+	}
+}
+
+// TestGenSchema_ValidateFieldsYAML_ValidInput verifies that valid fields.yaml
+// data passes validation without errors.
+func TestGenSchema_ValidateFieldsYAML_ValidInput(t *testing.T) {
+	canonicalFields := map[string][]FieldInfo{
+		"agent": {
+			{Name: "Name", YAMLKey: "name"},
+			{Name: "Description", YAMLKey: "description"},
+		},
+		"skill": {
+			{Name: "Name", YAMLKey: "name"},
+		},
+	}
+
+	yamlData := map[string]FieldsYAML{
+		"claude": {
+			Provider: "claude",
+			Version:  "1.0",
+			Kinds: map[string]map[string]FieldDecl{
+				"agent": {
+					"name":        {Support: "xcaffold-only"},
+					"description": {Support: "required"},
+				},
+				"skill": {
+					"name": {Support: "xcaffold-only"},
+				},
+			},
+		},
+	}
+
+	err := validateFieldsYAML(yamlData, canonicalFields)
+	if err != nil {
+		t.Errorf("expected no error for valid input, got: %v", err)
+	}
+}
+
+// TestGenSchema_ValidateFieldsYAML_SkipsNonOverlappingKinds verifies that
+// kinds only present in canonical or only in YAML (but not both) are skipped.
+func TestGenSchema_ValidateFieldsYAML_SkipsNonOverlappingKinds(t *testing.T) {
+	canonicalFields := map[string][]FieldInfo{
+		"agent": {{Name: "Name", YAMLKey: "name"}},
+		"mcp":   {{Name: "Name", YAMLKey: "name"}}, // not in YAML
+	}
+
+	yamlData := map[string]FieldsYAML{
+		"claude": {
+			Provider: "claude",
+			Kinds: map[string]map[string]FieldDecl{
+				"agent": {
+					"name": {Support: "xcaffold-only"},
+				},
+				// mcp not present in YAML — should not cause error
+			},
+		},
+	}
+
+	err := validateFieldsYAML(yamlData, canonicalFields)
+	if err != nil {
+		t.Errorf("expected no error when kinds don't overlap, got: %v", err)
+	}
+}
+
+func TestGenSchema_CompletenessGate_MissingKind(t *testing.T) {
+	canonicalFields := map[string][]FieldInfo{
+		"agent": {{Name: "Name", YAMLKey: "name"}},
+		"skill": {{Name: "Name", YAMLKey: "name"}},
+		"rule":  {{Name: "Name", YAMLKey: "name"}},
+	}
+
+	yamlData := map[string]FieldsYAML{
+		"claude": {
+			Provider: "claude",
+			Kinds: map[string]map[string]FieldDecl{
+				"agent": {"name": {Support: "xcaffold-only"}},
+				"skill": {"name": {Support: "xcaffold-only"}},
+				// rule missing entirely
+			},
+		},
+	}
+
+	err := validateFieldsYAML(yamlData, canonicalFields)
+	if err == nil {
+		t.Fatal("expected error for missing kind, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing kind rule entirely") {
+		t.Errorf("expected error about missing kind rule, got: %v", err)
+	}
+}
+
+// TestGenSchema_GeneratesPresenceExtractors verifies that generatePresenceExtractors
+// produces valid Go code containing the 3 expected exported functions.
+func TestGenSchema_GeneratesPresenceExtractors(t *testing.T) {
+	fields := map[string][]FieldInfo{
+		"agent": {
+			{Name: "Name", YAMLKey: "name", GoType: "string"},
+			{Name: "Model", YAMLKey: "model", GoType: "string"},
+			{Name: "MaxTurns", YAMLKey: "max-turns", GoType: "int"},
+			{Name: "Tools", YAMLKey: "tools", GoType: "[]string"},
+			{Name: "Readonly", YAMLKey: "readonly", GoType: "*bool"},
+			{Name: "Hooks", YAMLKey: "hooks", GoType: "HookConfig"},
+			{Name: "MCPServers", YAMLKey: "mcp-servers", GoType: "map[string]MCPConfig"},
+			{Name: "Memory", YAMLKey: "memory", GoType: "FlexStringSlice"},
+		},
+		"skill": {
+			{Name: "Name", YAMLKey: "name", GoType: "string"},
+			{Name: "AllowedTools", YAMLKey: "allowed-tools", GoType: "[]string"},
+			{Name: "DisableModelInvocation", YAMLKey: "disable-model-invocation", GoType: "*bool"},
+		},
+		"rule": {
+			{Name: "Name", YAMLKey: "name", GoType: "string"},
+			{Name: "AlwaysApply", YAMLKey: "always-apply", GoType: "*bool"},
+			{Name: "Paths", YAMLKey: "paths", GoType: "[]string"},
+		},
+		// workflow should be ignored — only agent, skill, rule get extractors
+		"workflow": {
+			{Name: "Name", YAMLKey: "name", GoType: "string"},
+		},
+	}
+
+	raw := generatePresenceExtractors(fields)
+
+	// Must produce valid Go after formatting.
+	formatted, err := goformat.Source([]byte(raw))
+	if err != nil {
+		t.Fatalf("generated code is not valid Go: %v\n\nRaw output:\n%s", err, raw)
+	}
+	src := string(formatted)
+
+	// Must contain all 3 exported functions.
+	for _, fn := range []string{
+		"func ExtractAgentPresentFields(",
+		"func ExtractSkillPresentFields(",
+		"func ExtractRulePresentFields(",
+	} {
+		if !strings.Contains(src, fn) {
+			t.Errorf("expected generated code to contain %q", fn)
+		}
+	}
+
+	// Must NOT contain a workflow extractor.
+	if strings.Contains(src, "ExtractWorkflowPresentFields") {
+		t.Error("generated code should not contain ExtractWorkflowPresentFields")
+	}
+
+	// Must contain the generated file header.
+	if !strings.Contains(src, "Code generated by gen-schema; DO NOT EDIT.") {
+		t.Error("expected generated file header")
+	}
+
+	// Must import the ast package.
+	if !strings.Contains(src, `"github.com/saero-ai/xcaffold/internal/ast"`) {
+		t.Error("expected import of ast package")
+	}
+
+	// Verify specific zero-value checks are present.
+	checks := []string{
+		`a.Name != ""`,      // string check
+		`a.MaxTurns != 0`,   // int check
+		`a.Readonly != nil`, // *bool check
+		`len(a.Tools) > 0`,  // slice check
+		`len(a.Hooks) > 0`,  // HookConfig (map type) check
+		`len(a.Memory) > 0`, // FlexStringSlice check
+		`a.Body != ""`,      // special Body field
+	}
+	for _, check := range checks {
+		if !strings.Contains(src, check) {
+			t.Errorf("expected generated code to contain check %q", check)
+		}
+	}
+
+	// String fields should use the value, not "set".
+	if !strings.Contains(src, `m["name"] = a.Name`) {
+		t.Error(`expected string field to use value: m["name"] = a.Name`)
+	}
+	if !strings.Contains(src, `m["model"] = a.Model`) {
+		t.Error(`expected string field to use value: m["model"] = a.Model`)
+	}
+
+	// Non-string fields should use "set".
+	if !strings.Contains(src, `m["max-turns"] = "set"`) {
+		t.Error(`expected int field to use "set"`)
+	}
+	if !strings.Contains(src, `m["readonly"] = "set"`) {
+		t.Error(`expected *bool field to use "set"`)
+	}
 }

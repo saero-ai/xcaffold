@@ -84,9 +84,8 @@ const (
 	// mapped to a known target-specific string and was omitted.
 	CodeAgentModelUnmapped = "AGENT_MODEL_UNMAPPED"
 
-	// CodeAgentSecurityFieldsDropped is emitted when one or more security-related
-	// agent fields (permissionMode, disallowedTools, isolation) have no equivalent
-	// and were dropped. Security constraints will NOT be enforced on this target.
+	// Deprecated: CodeAgentSecurityFieldsDropped is superseded by per-field
+	// FIELD_UNSUPPORTED notes from CheckFieldSupport. Retained for code stability.
 	CodeAgentSecurityFieldsDropped = "AGENT_SECURITY_FIELDS_DROPPED"
 
 	// CodeAgentToolsDropped is emitted when an agent's tools list contains

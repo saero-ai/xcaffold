@@ -1,14 +1,35 @@
 package main
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// captureValidateOutput captures both stdout and stderr produced by f.
+func captureValidateOutput(f func() error) (string, error) {
+	oldStdout := os.Stdout
+	oldStderr := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	os.Stderr = w
+
+	err := f()
+
+	w.Close()
+	os.Stdout = oldStdout
+	os.Stderr = oldStderr
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	return buf.String(), err
+}
 
 func TestValidateCmd_ValidConfig(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
@@ -166,6 +187,83 @@ skills:
 	assert.NoError(t, err)
 }
 
+// TestValidate_TargetFlag_EmitsFidelityErrors verifies that --target causes
+// validate to fail when the project contains a resource with fields that are
+// unsupported by the specified target provider.
+func TestValidate_TargetFlag_EmitsFidelityErrors(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: "field-test"
+`), 0600))
+
+	// effort: low is unsupported by antigravity — produces a LevelError fidelity note.
+	// Agents must be in xcf/agents/<id>/<file>.xcf (directory-per-resource layout).
+	devDir := filepath.Join(dir, "xcf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(devDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(devDir, "agent.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: "Dev agent"
+effort: low
+---
+You are a developer.
+`), 0600))
+
+	oldPath := xcfPath
+	oldTarget := targetFlag
+	xcfPath = filepath.Join(dir, "project.xcf")
+	targetFlag = "antigravity"
+	defer func() {
+		xcfPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	err := runValidate(validateCmd, []string{})
+	require.Error(t, err, "validate must fail when target has unsupported fields")
+	assert.Contains(t, err.Error(), "validation failed")
+}
+
+// TestValidate_NoTarget_NoFieldCheck verifies that omitting --target skips
+// the compile-time field validation check entirely.
+func TestValidate_NoTarget_NoFieldCheck(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: "field-test"
+`), 0600))
+
+	// effort: low is unsupported by antigravity, but without --target no check runs.
+	devDir := filepath.Join(dir, "xcf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(devDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(devDir, "agent.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: "Dev agent"
+effort: low
+---
+You are a developer.
+`), 0600))
+
+	oldPath := xcfPath
+	oldTarget := targetFlag
+	xcfPath = filepath.Join(dir, "project.xcf")
+	targetFlag = ""
+	defer func() {
+		xcfPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	err := runValidate(validateCmd, []string{})
+	assert.NoError(t, err, "validate without --target must not fail on unsupported fields")
+}
+
 func TestValidate_ManifestInXcaffoldDir_ParsesFullProjectRoot(t *testing.T) {
 	// TC-17: When validate.go uses filepath.Dir(".xcaffold/project.xcf") = ".xcaffold/"
 	// as the ParseDirectory root, files at xcf/agents/ are NOT found.
@@ -206,4 +304,128 @@ do stuff
 	// Before fix: validation PASSES (bad-agent.xcf not found → cross-ref unchecked)
 	// After fix:  validation FAILS  (bad-agent.xcf found → cross-ref caught → error)
 	require.Error(t, err, "validate must detect cross-ref error in xcf/agents/ when manifest is in .xcaffold/")
+}
+
+// TestValidate_TargetFlag_HeaderIncludesTarget verifies that --target causes the
+// header breadcrumb to include the provider name.
+func TestValidate_TargetFlag_HeaderIncludesTarget(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: "myproject"
+`), 0600))
+
+	oldPath := xcfPath
+	oldTarget := targetFlag
+	xcfPath = filepath.Join(dir, "project.xcf")
+	targetFlag = "claude"
+	defer func() {
+		xcfPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err)
+
+	// The header is the first non-empty line. It must contain the provider name.
+	var firstLine string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.TrimSpace(line) != "" {
+			firstLine = line
+			break
+		}
+	}
+	assert.True(t, strings.Contains(firstLine, "claude"), "header (first line) must contain provider name when --target is set")
+}
+
+// TestValidate_NoTarget_HeaderExcludesProvider verifies that omitting --target
+// keeps the provider name out of the header.
+func TestValidate_NoTarget_HeaderExcludesProvider(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: "myproject"
+`), 0600))
+
+	oldPath := xcfPath
+	oldTarget := targetFlag
+	xcfPath = filepath.Join(dir, "project.xcf")
+	targetFlag = ""
+	defer func() {
+		xcfPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err)
+
+	// Spot-check: neither "claude" nor "antigravity" should appear in a no-target run.
+	assert.False(t, strings.Contains(out, "antigravity"), "header must not contain provider name when --target is not set")
+}
+
+// TestValidate_TargetFlag_FooterIncludesFieldValidation verifies that when
+// --target is set and validation passes, the footer includes a field validation
+// summary with the provider name.
+func TestValidate_TargetFlag_FooterIncludesFieldValidation(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: "myproject"
+`), 0600))
+
+	oldPath := xcfPath
+	oldTarget := targetFlag
+	xcfPath = filepath.Join(dir, "project.xcf")
+	targetFlag = "claude"
+	defer func() {
+		xcfPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err)
+
+	// Footer must include field validation summary.
+	assert.True(t, strings.Contains(out, "Field validation:"), "footer must include 'Field validation:' when --target is set")
+	assert.True(t, strings.Contains(out, "claude"), "footer must include provider name in field validation summary")
+}
+
+// TestValidate_NoTarget_FooterExcludesFieldValidation verifies that omitting
+// --target keeps field validation out of the footer summary.
+func TestValidate_NoTarget_FooterExcludesFieldValidation(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+version: "1.0"
+name: "myproject"
+`), 0600))
+
+	oldPath := xcfPath
+	oldTarget := targetFlag
+	xcfPath = filepath.Join(dir, "project.xcf")
+	targetFlag = ""
+	defer func() {
+		xcfPath = oldPath
+		targetFlag = oldTarget
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err)
+
+	assert.False(t, strings.Contains(out, "Field validation:"), "footer must not include field validation when --target is not set")
 }

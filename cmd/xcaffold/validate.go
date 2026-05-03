@@ -38,6 +38,7 @@ Exit code 0 means valid. Non-zero means errors found.`,
 }
 
 func init() {
+	validateCmd.Flags().StringVar(&targetFlag, "target", "", "Validate field support for a specific provider target")
 	validateCmd.Flags().StringVar(&validateBlueprintFlag, "blueprint", "", "Validate only the named blueprint")
 	_ = validateCmd.Flags().MarkHidden("blueprint")
 	rootCmd.AddCommand(validateCmd)
@@ -58,7 +59,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	// Header breadcrumb.
 	projectName := filepath.Base(parseRoot)
 	lastApplied := findLastApplied(parseRoot, validateBlueprintFlag)
-	fmt.Println(formatHeader(projectName, validateBlueprintFlag, false, "", lastApplied))
+	fmt.Println(formatHeader(projectName, validateBlueprintFlag, false, targetFlag, lastApplied))
 	fmt.Println()
 
 	cfg, err := parser.ParseDirectory(parseRoot)
@@ -140,13 +141,30 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	// Policy evaluation (requires compilation).
 	var policyWarnings, policyErrors []policy.Violation
 	policiesChecked := 0
+	fieldValidationRan := false
+	fieldValidationErrors := 0
 	if !hasErrors {
 		configSnapshot := deepCopyConfig(cfg)
 		compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, targetFlag, validateBlueprintFlag)
 		if compileErr != nil {
 			fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
 		} else {
-			printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag)), false)
+			filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag))
+			printFidelityNotes(os.Stderr, filteredNotes, false)
+			if targetFlag != "" {
+				if err := checkFidelityErrors(filteredNotes); err != nil {
+					fmt.Println()
+					fmt.Printf("%s  Validation failed: %v\n", colorRed(glyphErr()), err)
+					return fmt.Errorf("validation failed: %s", err)
+				}
+				fieldValidationRan = true
+				for _, n := range filteredNotes {
+					if n.Level == renderer.LevelError {
+						fieldValidationErrors++
+					}
+				}
+				fmt.Printf("  %s  field validation (%s)\n", colorGreen(glyphOK()), targetFlag)
+			}
 			violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
 			policyErrors = policy.FilterBySeverity(violations, policy.SeverityError)
 			policyWarnings = policy.FilterBySeverity(violations, policy.SeverityWarning)
@@ -202,12 +220,18 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	xcfFileCount := countXcfFiles(parseRoot)
 	totalWarnings := len(structWarnings) + len(policyWarnings)
 	fmt.Println()
+	fieldSuffix := ""
+	if fieldValidationRan {
+		fieldSuffix = fmt.Sprintf("  Field validation: %s (%d %s).",
+			targetFlag, fieldValidationErrors,
+			plural(fieldValidationErrors, "error", "errors"))
+	}
 	if totalWarnings > 0 {
-		fmt.Printf("%s  Validation passed with %d %s.  %d .xcf files checked.\n",
-			colorGreen(glyphOK()), totalWarnings, plural(totalWarnings, "warning", "warnings"), xcfFileCount)
+		fmt.Printf("%s  Validation passed with %d %s.  %d .xcf files checked.%s\n",
+			colorGreen(glyphOK()), totalWarnings, plural(totalWarnings, "warning", "warnings"), xcfFileCount, fieldSuffix)
 	} else {
-		fmt.Printf("%s  Validation passed.  %d .xcf files checked.\n",
-			colorGreen(glyphOK()), xcfFileCount)
+		fmt.Printf("%s  Validation passed.  %d .xcf files checked.%s\n",
+			colorGreen(glyphOK()), xcfFileCount, fieldSuffix)
 	}
 	return nil
 }

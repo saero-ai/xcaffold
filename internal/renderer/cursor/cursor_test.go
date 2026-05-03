@@ -1041,6 +1041,41 @@ func TestCursorRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 	assert.True(t, found, "SETTINGS_FIELD_UNSUPPORTED note for sandbox must be emitted")
 }
 
+// TestSecurityFieldCheck_Centralized verifies that security fields on cursor
+// agents emit FIELD_UNSUPPORTED (from the orchestrator's CheckFieldSupport),
+// not AGENT_SECURITY_FIELDS_DROPPED (which was the old renderer-inline code).
+func TestSecurityFieldCheck_Centralized(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Body: "Build things.", PermissionMode: "plan"},
+			},
+		},
+	}
+
+	_, notes, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	// Must NOT emit the old renderer-inline code.
+	for _, n := range notes {
+		if n.Code == renderer.CodeAgentSecurityFieldsDropped && n.Field == "permission-mode" {
+			t.Error("AGENT_SECURITY_FIELDS_DROPPED must not be emitted; security checks are centralized in the orchestrator")
+		}
+	}
+
+	// Must emit FIELD_UNSUPPORTED from CheckFieldSupport with the YAML key name.
+	var found bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
+			found = true
+			assert.Equal(t, "dev", n.Resource)
+			assert.Equal(t, renderer.LevelError, n.Level)
+		}
+	}
+	assert.True(t, found, "FIELD_UNSUPPORTED note for permission-mode must be emitted by the orchestrator")
+}
+
 func TestCursorRenderer_AgentPermissionMode_EmitsNote(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
@@ -1056,12 +1091,12 @@ func TestCursorRenderer_AgentPermissionMode_EmitsNote(t *testing.T) {
 
 	var found bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeAgentSecurityFieldsDropped && n.Field == "permissionMode" {
+		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
 			found = true
 			assert.Equal(t, "dev", n.Resource)
 		}
 	}
-	assert.True(t, found, "AGENT_SECURITY_FIELDS_DROPPED note for permissionMode must be emitted")
+	assert.True(t, found, "FIELD_UNSUPPORTED note for permission-mode must be emitted")
 }
 
 func TestCursorRenderer_AgentDisallowedTools_EmitsNote(t *testing.T) {
@@ -1079,7 +1114,7 @@ func TestCursorRenderer_AgentDisallowedTools_EmitsNote(t *testing.T) {
 
 	var found bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeAgentSecurityFieldsDropped && n.Field == "disallowedTools" {
+		if n.Code == renderer.CodeFieldUnsupported && n.Field == "disallowed-tools" {
 			found = true
 		}
 	}
@@ -1101,16 +1136,16 @@ func TestCursorRenderer_AgentIsolation_EmitsNote(t *testing.T) {
 
 	var found bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeAgentSecurityFieldsDropped && n.Field == "isolation" {
+		if n.Code == renderer.CodeFieldUnsupported && n.Field == "isolation" {
 			found = true
 		}
 	}
 	assert.True(t, found)
 }
 
-// Suppression lives at the command layer now; the renderer returns notes
-// regardless of the suppress-fidelity-warnings override.
-func TestCursorRenderer_SuppressFidelityWarnings_NotesStillReturned(t *testing.T) {
+// Suppression is handled by the orchestrator's CheckFieldSupport — when
+// suppress-fidelity-warnings is set, FIELD_UNSUPPORTED notes are suppressed.
+func TestCursorRenderer_SuppressFidelityWarnings_SecurityFieldsSuppressed(t *testing.T) {
 	r := cursor.New()
 	suppress := true
 	config := &ast.XcaffoldConfig{
@@ -1130,7 +1165,12 @@ func TestCursorRenderer_SuppressFidelityWarnings_NotesStillReturned(t *testing.T
 
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
-	assert.NotEmpty(t, notes, "renderer returns notes; suppression is filtered at the command layer")
+	for _, n := range notes {
+		if n.Code == renderer.CodeFieldUnsupported &&
+			(n.Field == "permission-mode" || n.Field == "isolation") {
+			t.Errorf("security field note %q should be suppressed when suppress-fidelity-warnings is set", n.Field)
+		}
+	}
 }
 
 func TestCursorRenderer_SkillScriptsEmitted(t *testing.T) {

@@ -61,21 +61,11 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 			"assets":     "assets",
 			"examples":   "", // empty string = flatten to skill root alongside SKILL.md
 		},
-		AgentToolsField:      true,
 		AgentNativeToolsOnly: true,
-		ModelField:           true,
 		RuleActivations:      []string{"always", "path-glob"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "frontmatter",
 			Activation:  "frontmatter",
-		},
-		SecurityFields: renderer.SecurityFieldSupport{
-			Permissions:     true,
-			Sandbox:         true,
-			PermissionMode:  true,
-			DisallowedTools: true,
-			Isolation:       true,
-			Effort:          true,
 		},
 	}
 }

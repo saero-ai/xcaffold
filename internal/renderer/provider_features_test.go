@@ -30,7 +30,6 @@ type capabilityExpectation struct {
 	mcp                 bool
 	memory              bool
 	projectInstructions bool
-	modelField          bool
 	skillArtifactDirs   map[string]string
 	ruleActivations     []string
 }
@@ -49,7 +48,6 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			mcp:                 true,
 			memory:              true,
 			projectInstructions: true,
-			modelField:          true,
 			skillArtifactDirs: map[string]string{
 				"references": "references",
 				"scripts":    "scripts",
@@ -70,7 +68,6 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			mcp:                 true,
 			memory:              false,
 			projectInstructions: true,
-			modelField:          true,
 			skillArtifactDirs: map[string]string{
 				"references": "references",
 				"scripts":    "scripts",
@@ -91,7 +88,6 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			mcp:                 true,
 			memory:              false,
 			projectInstructions: true,
-			modelField:          true,
 			skillArtifactDirs: map[string]string{
 				"references": "references",
 				"scripts":    "scripts",
@@ -112,7 +108,6 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			mcp:                 true,
 			memory:              false,
 			projectInstructions: true,
-			modelField:          true,
 			skillArtifactDirs: map[string]string{
 				"references": "references",
 				"scripts":    "scripts",
@@ -133,7 +128,6 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			mcp:                 true,
 			memory:              false, // deferred — native format not yet implemented
 			projectInstructions: true,
-			modelField:          false,
 			skillArtifactDirs: map[string]string{
 				"references": "examples",
 				"scripts":    "scripts",
@@ -158,7 +152,6 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			assert.Equal(t, exp.mcp, caps.MCP, "MCP")
 			assert.Equal(t, exp.memory, caps.Memory, "Memory")
 			assert.Equal(t, exp.projectInstructions, caps.ProjectInstructions, "ProjectInstructions")
-			assert.Equal(t, exp.modelField, caps.ModelField, "ModelField")
 			assert.Equal(t, exp.skillArtifactDirs, caps.SkillArtifactDirs, "SkillArtifactDirs")
 			assert.Equal(t, exp.ruleActivations, caps.RuleActivations, "RuleActivations")
 		})
@@ -259,37 +252,6 @@ func groundTruthDir(t *testing.T) string {
 // ResolveModel for a known alias actually exists in the verified ground truth
 // models database. If the ground truth files are absent (e.g. in CI without the
 // full monorepo checkout), the test is skipped rather than failed.
-func TestProviderFeatures_SecurityFields(t *testing.T) {
-	cases := []struct {
-		target          string
-		renderer        renderer.TargetRenderer
-		permissions     bool
-		sandbox         bool
-		permissionMode  bool
-		disallowedTools bool
-		isolation       bool
-		effort          bool
-	}{
-		{"claude", claude.New(), true, true, true, true, true, true},
-		{"cursor", cursor.New(), false, false, false, false, false, true},
-		{"gemini", gemini.New(), false, false, false, false, false, false},
-		{"copilot", copilot.New(), false, false, false, false, false, false},
-		{"antigravity", antigravity.New(), false, false, false, false, false, true},
-	}
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.target, func(t *testing.T) {
-			sf := tc.renderer.Capabilities().SecurityFields
-			assert.Equal(t, tc.permissions, sf.Permissions, "Permissions")
-			assert.Equal(t, tc.sandbox, sf.Sandbox, "Sandbox")
-			assert.Equal(t, tc.permissionMode, sf.PermissionMode, "PermissionMode")
-			assert.Equal(t, tc.disallowedTools, sf.DisallowedTools, "DisallowedTools")
-			assert.Equal(t, tc.isolation, sf.Isolation, "Isolation")
-			assert.Equal(t, tc.effort, sf.Effort, "Effort")
-		})
-	}
-}
-
 func TestResolveModel_GroundTruthBinding(t *testing.T) {
 	dir := groundTruthDir(t)
 	dbPath := filepath.Join(dir, "models.json")

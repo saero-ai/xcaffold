@@ -17,7 +17,6 @@ func TestCapabilitySet_Fields(t *testing.T) {
 			"references": "references",
 			"scripts":    "scripts",
 		},
-		ModelField:      true,
 		RuleActivations: []string{"always", "path-glob"},
 	}
 	if !caps.Agents {
@@ -31,13 +30,9 @@ func TestCapabilitySet_Fields(t *testing.T) {
 	}
 }
 
-func TestCapabilitySet_AgentTools(t *testing.T) {
+func TestCapabilitySet_AgentNativeToolsOnly(t *testing.T) {
 	caps := CapabilitySet{
-		AgentToolsField:      true,
 		AgentNativeToolsOnly: false,
-	}
-	if !caps.AgentToolsField {
-		t.Error("expected AgentToolsField supported")
 	}
 	if caps.AgentNativeToolsOnly {
 		t.Error("expected AgentNativeToolsOnly unsupported")
