@@ -229,17 +229,27 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 
 	if !applyForce {
 		prevManifest, readErr := state.ReadState(stateFilePath)
-		if readErr == nil && len(prevManifest.SourceFiles) > 0 {
-			changed, _ := state.SourcesChanged(prevManifest.SourceFiles, sourceFiles, baseDir)
-			if !changed {
-				if applyDryRun {
-					fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
-				} else {
-					fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
-					fmt.Println()
-					fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
+		if readErr == nil {
+			// Read source files from target-specific state (new behavior)
+			// with fallback to top-level for backward compat (old state files)
+			prevSourceFiles := prevManifest.Targets[targetFlag].SourceFiles
+			if len(prevSourceFiles) == 0 && len(prevManifest.SourceFiles) > 0 {
+				// Backward compat: old state files stored sources at top level
+				prevSourceFiles = prevManifest.SourceFiles
+			}
+
+			if len(prevSourceFiles) > 0 {
+				changed, _ := state.SourcesChanged(prevSourceFiles, sourceFiles, baseDir)
+				if !changed {
+					if applyDryRun {
+						fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+					} else {
+						fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+						fmt.Println()
+						fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
+					}
+					return nil
 				}
-				return nil
 			}
 		}
 	}
@@ -291,6 +301,13 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	}
 
 	oldManifest, _ := state.ReadState(stateFilePath)
+
+	// Clean up orphans from other scopes if switching blueprints/scopes
+	if !applyDryRun {
+		if err := cleanCrossScope(baseDir, outputDir, stateFilePath, targetFlag, applyForce); err != nil {
+			return err
+		}
+	}
 
 	if !applyDryRun && !applyForce {
 		driftEntries, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
@@ -614,6 +631,62 @@ func ensureGitignoreEntry(dir, entry string) {
 		f.WriteString("\n")
 	}
 	f.WriteString(entry + "\n")
+}
+
+// cleanCrossScope removes artifacts from other scopes when switching blueprints.
+// Searches all state files in baseDir/.xcaffold/ for artifacts of the current target.
+// If drift is found and !force, returns an error. If no drift or force, deletes orphans.
+func cleanCrossScope(baseDir, outputDir, currentStatePath, target string, force bool) error {
+	stateDir := state.StateDir(baseDir)
+	stateFiles, err := state.ListStateFiles(stateDir)
+	if err != nil {
+		return err
+	}
+
+	// Skip the current scope's state file
+	currentStatePath = filepath.Clean(currentStatePath)
+	for _, otherPath := range stateFiles {
+		otherPath = filepath.Clean(otherPath)
+		if otherPath == currentStatePath {
+			continue // Skip current scope
+		}
+
+		// Read the other scope's manifest
+		otherManifest, readErr := state.ReadState(otherPath)
+		if readErr != nil {
+			continue // Skip if can't read
+		}
+
+		// Check if this scope has artifacts for our target
+		targetState, ok := otherManifest.Targets[target]
+		if !ok {
+			continue // This scope doesn't have our target
+		}
+
+		// Detect drift in the other scope's artifacts
+		driftEntries := state.CollectDriftedFiles(baseDir, outputDir, targetState)
+		if len(driftEntries) > 0 && !force {
+			return fmt.Errorf("cannot switch scope: %d files were manually edited since last apply\n\nRun 'xcaffold import' to sync edits, or use --backup --force to overwrite", len(driftEntries))
+		}
+
+		// Delete the other scope's artifacts for this target
+		for _, artifact := range targetState.Artifacts {
+			var absPath string
+			if strings.HasPrefix(artifact.Path, "root:") {
+				relPath := strings.TrimPrefix(artifact.Path, "root:")
+				absPath = filepath.Clean(filepath.Join(baseDir, relPath))
+			} else {
+				absPath = filepath.Clean(filepath.Join(outputDir, artifact.Path))
+			}
+			_ = os.Remove(absPath)
+			cleanEmptyDirsUpToTarget(filepath.Dir(absPath), outputDir)
+		}
+
+		// Delete the other scope's state file
+		_ = os.Remove(otherPath)
+	}
+
+	return nil
 }
 
 // cleanEmptyDirsUpToTarget recursively deletes empty parent directories

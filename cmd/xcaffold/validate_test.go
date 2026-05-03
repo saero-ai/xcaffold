@@ -60,6 +60,8 @@ skills:
 }
 
 func TestValidateCmd_InvalidCrossRef(t *testing.T) {
+	// This old test is kept for backward compat, but it should now pass
+	// because cross-reference validation no longer fails (TC-20)
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "project.xcf")
 	content := `---
@@ -80,8 +82,37 @@ agents:
 	xcfPath = xcf
 	defer func() { xcfPath = oldPath }()
 
+	// Multi-doc .xcf will still cause syntax error, not a cross-ref error
 	err := runValidate(validateCmd, []string{})
-	assert.Error(t, err)
+	assert.Error(t, err) // But it's syntax error, not cross-ref
+}
+
+func TestValidateCmd_InvalidCrossRef_ExitsZero(t *testing.T) {
+	// TC-20: Cross-reference issues should exit 0 (only warnings), not 1 (errors)
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+version: "1.0"
+name: "test"
+`), 0600))
+
+	// Global config with agent referencing undefined skill
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcf"), []byte(`kind: global
+version: "1.0"
+agents:
+  developer:
+    description: "Dev agent"
+    skills: [nonexistent]
+`), 0600))
+
+	oldPath := xcfPath
+	xcfPath = xcf
+	defer func() { xcfPath = oldPath }()
+
+	err := runValidate(validateCmd, []string{})
+	assert.NoError(t, err, "cross-reference warnings should not fail validation")
 }
 
 func TestValidate_GlobalFlag_ReturnsGuardError(t *testing.T) {
@@ -428,4 +459,38 @@ name: "myproject"
 	require.NoError(t, err)
 
 	assert.False(t, strings.Contains(out, "Field validation:"), "footer must not include field validation when --target is not set")
+}
+
+// TestValidate_CrossRefWarnings_TieredOutput verifies that cross-reference
+// warnings are shown separately from syntax/schema errors in tiered output.
+func TestValidate_CrossRefWarnings_TieredOutput(t *testing.T) {
+	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+	dir := t.TempDir()
+
+	xcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+version: "1.0"
+name: "test"
+`), 0600))
+
+	// Global config with agent referencing undefined skill
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcf"), []byte(`kind: global
+version: "1.0"
+agents:
+  developer:
+    description: "Dev agent"
+    skills: [nonexistent-skill]
+`), 0600))
+
+	oldPath := xcfPath
+	xcfPath = xcf
+	defer func() { xcfPath = oldPath }()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err, "cross-reference warnings must not fail validation")
+
+	// Output should show tiered validation with cross-ref warnings
+	assert.True(t, strings.Contains(out, "cross-references") || strings.Contains(out, "developer"), "output must mention cross-reference issues")
 }

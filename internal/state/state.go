@@ -52,11 +52,12 @@ type StateManifest struct {
 	MemorySeeds     []MemorySeed           `yaml:"memory-seeds,omitempty"`
 }
 
-// TargetState records the last-applied timestamp and artifact list for a single
-// compilation target (e.g. "claude", "cursor") within a StateManifest.
+// TargetState records the last-applied timestamp, artifact list, and source files
+// for a single compilation target (e.g. "claude", "cursor") within a StateManifest.
 type TargetState struct {
-	LastApplied string     `yaml:"last-applied"`
-	Artifacts   []Artifact `yaml:"artifacts"`
+	LastApplied string       `yaml:"last-applied"`
+	Artifacts   []Artifact   `yaml:"artifacts"`
+	SourceFiles []SourceFile `yaml:"source-files,omitempty"`
 }
 
 // StateOpts holds the inputs needed to build a StateManifest from compiler
@@ -85,6 +86,28 @@ func StateFilePath(baseDir, blueprintName string) string {
 		name = filepath.Base(blueprintName)
 	}
 	return filepath.Clean(filepath.Join(baseDir, ".xcaffold", name+".xcf.state"))
+}
+
+// ListStateFiles returns a sorted list of all .xcf.state files in the given
+// state directory. Returns an empty slice if the directory doesn't exist or
+// contains no state files.
+func ListStateFiles(stateDir string) ([]string, error) {
+	entries, err := os.ReadDir(stateDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".xcf.state") {
+			files = append(files, filepath.Join(stateDir, entry.Name()))
+		}
+	}
+	sort.Strings(files)
+	return files, nil
 }
 
 // sortMemorySeeds sorts a slice of MemorySeed in ascending order by Name.
@@ -185,7 +208,8 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 		return artifacts[i].Path < artifacts[j].Path
 	})
 
-	manifest.Targets[target] = TargetState{
+	// Build target state with source files
+	targetState := TargetState{
 		LastApplied: now,
 		Artifacts:   artifacts,
 	}
@@ -211,8 +235,12 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 		sort.Slice(sourceFiles, func(i, j int) bool {
 			return sourceFiles[i].Path < sourceFiles[j].Path
 		})
+		targetState.SourceFiles = sourceFiles
+		// Also store at top level for backward compat (old state files)
 		manifest.SourceFiles = sourceFiles
 	}
+
+	manifest.Targets[target] = targetState
 
 	// Copy and sort memory seeds
 	if len(opts.MemorySeeds) > 0 {

@@ -748,6 +748,26 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 	return merged, nil
 }
 
+// ParseDirectoryWithCrossRefWarnings parses a directory and returns the config plus
+// any cross-reference validation issues separately. Structural errors still return
+// as errors. Cross-reference issues are returned as a separate list for caller handling.
+func ParseDirectoryWithCrossRefWarnings(dir string) (*ast.XcaffoldConfig, []CrossReferenceIssue, error) {
+	merged, err := parseDirectoryUnvalidated(dir)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Validate structural rules (base + permissions), but not cross-references
+	if err := validateMergedStructural(merged); err != nil {
+		return nil, nil, fmt.Errorf("validation failed for project configuration: %w", err)
+	}
+
+	// Collect cross-reference issues separately
+	issues := validateCrossReferencesAsList(merged)
+
+	return merged, issues, nil
+}
+
 // parseableKinds lists the kind values accepted by isParseableFile.
 // Every .xcf document must declare an explicit kind field.
 var parseableKinds = map[string]bool{
@@ -1968,14 +1988,23 @@ func validatePartial(c *ast.XcaffoldConfig, globalScope bool) error {
 	return nil
 }
 
-func validateMerged(c *ast.XcaffoldConfig) error {
+// validateMergedStructural validates base and permission rules but skips cross-reference checks.
+// Used by the validate command to allow separate handling of cross-reference warnings.
+func validateMergedStructural(c *ast.XcaffoldConfig) error {
 	if err := validateBase(c); err != nil {
 		return err
 	}
-	if err := validateCrossReferences(c); err != nil {
+	if err := validatePermissions(c); err != nil {
 		return err
 	}
-	if err := validatePermissions(c); err != nil {
+	return nil
+}
+
+func validateMerged(c *ast.XcaffoldConfig) error {
+	if err := validateMergedStructural(c); err != nil {
+		return err
+	}
+	if err := validateCrossReferences(c); err != nil {
 		return err
 	}
 	return nil
@@ -2146,25 +2175,62 @@ func validateHookEvents(hooks ast.HookConfig) error {
 	return nil
 }
 
-func validateCrossReferences(c *ast.XcaffoldConfig) error {
+// CrossReferenceIssue represents a single cross-reference validation issue.
+// These are collected separately from structural errors so they can be warnings.
+type CrossReferenceIssue struct {
+	AgentID      string
+	ResourceType string // "skill", "rule", "mcp"
+	ResourceID   string
+	Message      string
+}
+
+// validateCrossReferencesAsList collects all cross-reference issues without stopping
+// on the first one. Returns all issues found (may be empty).
+func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue {
+	var issues []CrossReferenceIssue
+
 	for agentID, agent := range c.Agents {
 		for _, skillID := range agent.Skills {
 			if _, ok := c.Skills[skillID]; !ok {
-				return fmt.Errorf("agent %q references undefined skill %q", agentID, skillID)
+				issues = append(issues, CrossReferenceIssue{
+					AgentID:      agentID,
+					ResourceType: "skill",
+					ResourceID:   skillID,
+					Message:      fmt.Sprintf("agent %q references undefined skill %q", agentID, skillID),
+				})
 			}
 		}
 		for _, ruleID := range agent.Rules {
 			if _, ok := c.Rules[ruleID]; !ok {
-				return fmt.Errorf("agent %q references undefined rule %q", agentID, ruleID)
+				issues = append(issues, CrossReferenceIssue{
+					AgentID:      agentID,
+					ResourceType: "rule",
+					ResourceID:   ruleID,
+					Message:      fmt.Sprintf("agent %q references undefined rule %q", agentID, ruleID),
+				})
 			}
 		}
 		for _, mcpID := range agent.MCP {
 			if _, ok := c.MCP[mcpID]; !ok {
-				return fmt.Errorf("agent %q references undefined mcp server %q", agentID, mcpID)
+				issues = append(issues, CrossReferenceIssue{
+					AgentID:      agentID,
+					ResourceType: "mcp",
+					ResourceID:   mcpID,
+					Message:      fmt.Sprintf("agent %q references undefined mcp server %q", agentID, mcpID),
+				})
 			}
 		}
 	}
 
+	return issues
+}
+
+// validateCrossReferences is the legacy error-on-first version. For new code, use validateCrossReferencesAsList.
+func validateCrossReferences(c *ast.XcaffoldConfig) error {
+	issues := validateCrossReferencesAsList(c)
+	if len(issues) > 0 {
+		return fmt.Errorf("%s", issues[0].Message)
+	}
 	return nil
 }
 

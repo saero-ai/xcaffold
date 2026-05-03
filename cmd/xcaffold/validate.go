@@ -62,15 +62,25 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	fmt.Println(formatHeader(projectName, validateBlueprintFlag, false, targetFlag, lastApplied))
 	fmt.Println()
 
-	cfg, err := parser.ParseDirectory(parseRoot)
+	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot)
 	if err != nil {
-		fmt.Printf("  %s  syntax and cross-references\n", colorRed(glyphErr()))
+		fmt.Printf("  %s  syntax and schema\n", colorRed(glyphErr()))
 		fmt.Println()
 		fmt.Printf("%s  Validation failed: %v\n", colorRed(glyphErr()), err)
 		return err
 	}
 
-	fmt.Printf("  %s  syntax and cross-references\n", colorGreen(glyphOK()))
+	// Tiered output: syntax and schema pass
+	fmt.Printf("  %s  syntax and schema\n", colorGreen(glyphOK()))
+
+	// Cross-references: show as warnings, not errors
+	if len(crossRefIssues) > 0 {
+		fmt.Println()
+		fmt.Println("  cross-references:")
+		for _, issue := range crossRefIssues {
+			fmt.Printf("    %s  %s\n", colorYellow(glyphSrc()), issue.Message)
+		}
+	}
 
 	diags := parser.ValidateFile(validatePath)
 	hasErrors := false

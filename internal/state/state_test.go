@@ -275,3 +275,141 @@ func TestGenerateState_SourceFilesHashed(t *testing.T) {
 	assert.Equal(t, "project.xcf", m.SourceFiles[0].Path)
 	assert.True(t, strings.HasPrefix(m.SourceFiles[0].Hash, "sha256:"))
 }
+
+func TestGenerateState_TargetKeyedSources(t *testing.T) {
+	base := t.TempDir()
+	src := filepath.Join(base, "project.xcf")
+	require.NoError(t, os.WriteFile(src, []byte("kind: project\n"), 0644))
+
+	out := &output.Output{Files: map[string]string{"agents/dev.md": "# dev"}}
+	opts := StateOpts{
+		Target:      "claude",
+		BaseDir:     base,
+		SourceFiles: []string{src},
+	}
+	m, err := GenerateState(out, opts, nil)
+	require.NoError(t, err)
+
+	// Source files should be stored in the target-specific state
+	claudeTarget := m.Targets["claude"]
+	require.Len(t, claudeTarget.SourceFiles, 1)
+	assert.Equal(t, "project.xcf", claudeTarget.SourceFiles[0].Path)
+	assert.True(t, strings.HasPrefix(claudeTarget.SourceFiles[0].Hash, "sha256:"))
+}
+
+func TestGenerateState_IndependentSourcesPerTarget(t *testing.T) {
+	base := t.TempDir()
+	src1 := filepath.Join(base, "claude.xcf")
+	src2 := filepath.Join(base, "cursor.xcf")
+	require.NoError(t, os.WriteFile(src1, []byte("kind: project\nname: claude\n"), 0644))
+	require.NoError(t, os.WriteFile(src2, []byte("kind: project\nname: cursor\n"), 0644))
+
+	out1 := &output.Output{Files: map[string]string{"agents/dev.md": "# claude"}}
+	opts1 := StateOpts{
+		Target:      "claude",
+		BaseDir:     base,
+		SourceFiles: []string{src1},
+	}
+	m1, err := GenerateState(out1, opts1, nil)
+	require.NoError(t, err)
+
+	// Apply cursor target with different sources
+	out2 := &output.Output{Files: map[string]string{"agents/dev.md": "# cursor"}}
+	opts2 := StateOpts{
+		Target:      "cursor",
+		BaseDir:     base,
+		SourceFiles: []string{src2},
+	}
+	m2, err := GenerateState(out2, opts2, m1)
+	require.NoError(t, err)
+
+	// Each target should have independent source tracking
+	claudeSources := m2.Targets["claude"].SourceFiles
+	cursorSources := m2.Targets["cursor"].SourceFiles
+
+	require.Len(t, claudeSources, 1)
+	require.Len(t, cursorSources, 1)
+	assert.Equal(t, "claude.xcf", claudeSources[0].Path)
+	assert.Equal(t, "cursor.xcf", cursorSources[0].Path)
+	assert.NotEqual(t, claudeSources[0].Hash, cursorSources[0].Hash)
+}
+
+func TestSourcesChanged_UsesTargetSpecificSources(t *testing.T) {
+	base := t.TempDir()
+	src1 := filepath.Join(base, "claude.xcf")
+	src2 := filepath.Join(base, "cursor.xcf")
+	require.NoError(t, os.WriteFile(src1, []byte("kind: project\nname: claude\n"), 0644))
+	require.NoError(t, os.WriteFile(src2, []byte("kind: project\nname: cursor\n"), 0644))
+
+	// Initial state for claude
+	out1 := &output.Output{Files: map[string]string{}}
+	opts1 := StateOpts{
+		Target:      "claude",
+		BaseDir:     base,
+		SourceFiles: []string{src1},
+	}
+	m1, _ := GenerateState(out1, opts1, nil)
+
+	// Now add cursor target
+	out2 := &output.Output{Files: map[string]string{}}
+	opts2 := StateOpts{
+		Target:      "cursor",
+		BaseDir:     base,
+		SourceFiles: []string{src2},
+	}
+	m2, _ := GenerateState(out2, opts2, m1)
+
+	// Modifying src1 should be detected by claude's check
+	require.NoError(t, os.WriteFile(src1, []byte("kind: project\nname: claude\nchanged: yes\n"), 0644))
+	changed, _ := SourcesChanged(m2.Targets["claude"].SourceFiles, []string{src1}, base)
+	assert.True(t, changed, "claude should detect src1 change")
+
+	// src2 should be unchanged for cursor
+	changed2, _ := SourcesChanged(m2.Targets["cursor"].SourceFiles, []string{src2}, base)
+	assert.False(t, changed2, "cursor should not detect change in src2")
+}
+
+func TestListStateFiles(t *testing.T) {
+	base := t.TempDir()
+	stateDir := filepath.Join(base, ".xcaffold")
+	require.NoError(t, os.MkdirAll(stateDir, 0755))
+
+	// Create multiple state files
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "project.xcf.state"), []byte("version: 1\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "backend.xcf.state"), []byte("version: 1\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "frontend.xcf.state"), []byte("version: 1\n"), 0600))
+
+	files, err := ListStateFiles(stateDir)
+	require.NoError(t, err)
+	require.Len(t, files, 3)
+
+	// Verify they're in the state dir
+	for _, f := range files {
+		assert.True(t, strings.HasPrefix(f, stateDir))
+	}
+}
+
+func TestListStateFiles_Empty(t *testing.T) {
+	base := t.TempDir()
+	stateDir := filepath.Join(base, ".xcaffold")
+	require.NoError(t, os.MkdirAll(stateDir, 0755))
+
+	files, err := ListStateFiles(stateDir)
+	require.NoError(t, err)
+	assert.Empty(t, files)
+}
+
+func TestListStateFiles_IgnoresNonStateFiles(t *testing.T) {
+	base := t.TempDir()
+	stateDir := filepath.Join(base, ".xcaffold")
+	require.NoError(t, os.MkdirAll(stateDir, 0755))
+
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "project.xcf.state"), []byte("version: 1\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "readme.txt"), []byte("not a state file\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "project.xcf"), []byte("kind: project\n"), 0644))
+
+	files, err := ListStateFiles(stateDir)
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	assert.True(t, strings.HasSuffix(files[0], "project.xcf.state"))
+}
