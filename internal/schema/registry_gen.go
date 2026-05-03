@@ -16,7 +16,14 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this agent within the project.",
 				Group:       "Identity",
-				Pattern:     "^[a-z0-9-]+$",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
+				Pattern: "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Description",
@@ -60,8 +67,11 @@ func init() {
 				Description: "Reasoning effort level hint for the model provider.",
 				Group:       "Model & Execution",
 				Provider: map[string]string{
-					"claude": "optional",
-					"cursor": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "optional",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -73,8 +83,11 @@ func init() {
 				Description: "Maximum conversation turns before the agent exits.",
 				Group:       "Model & Execution",
 				Provider: map[string]string{
-					"claude": "optional",
-					"gemini": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "optional",
 				},
 			},
 			{
@@ -102,7 +115,11 @@ func init() {
 				Description: "Tools explicitly denied to this agent.",
 				Group:       "Tool Access",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -114,8 +131,11 @@ func init() {
 				Description: "When true, restricts the agent to read-only tool access.",
 				Group:       "Tool Access",
 				Provider: map[string]string{
-					"claude": "optional",
-					"cursor": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "optional",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -127,7 +147,11 @@ func init() {
 				Description: "Security mode controlling tool authorization behavior.",
 				Group:       "Permissions & Invocation",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -139,7 +163,11 @@ func init() {
 				Description: "Prevents the agent from spawning sub-agents.",
 				Group:       "Permissions & Invocation",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -151,7 +179,11 @@ func init() {
 				Description: "Whether users can invoke this agent directly via slash command.",
 				Group:       "Permissions & Invocation",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -163,8 +195,11 @@ func init() {
 				Description: "Runs the agent in background mode without interactive prompts.",
 				Group:       "Lifecycle",
 				Provider: map[string]string{
-					"claude": "optional",
-					"cursor": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "optional",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -176,7 +211,11 @@ func init() {
 				Description: "Process isolation level for the agent session.",
 				Group:       "Lifecycle",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -188,7 +227,11 @@ func init() {
 				Description: "Named memory banks attached to this agent.",
 				Group:       "Memory & Context",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -199,6 +242,13 @@ func init() {
 				Optional:    true,
 				Description: "Display color for terminal output differentiation.",
 				Group:       "Memory & Context",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 			{
 				Name:        "InitialPrompt",
@@ -209,7 +259,11 @@ func init() {
 				Description: "System prompt prepended to every conversation.",
 				Group:       "Memory & Context",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -221,7 +275,11 @@ func init() {
 				Description: "Skill resource IDs attached to this agent.",
 				Group:       "Composition",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -232,6 +290,13 @@ func init() {
 				Optional:    true,
 				Description: "Rule resource IDs governing this agent.",
 				Group:       "Composition",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 			{
 				Name:        "MCP",
@@ -241,6 +306,13 @@ func init() {
 				Optional:    true,
 				Description: "MCP server resource IDs available to this agent.",
 				Group:       "Composition",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 			{
 				Name:        "Assertions",
@@ -250,6 +322,13 @@ func init() {
 				Optional:    true,
 				Description: "Policy assertion IDs evaluated post-compilation.",
 				Group:       "Composition",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 			{
 				Name:        "MCPServers",
@@ -260,9 +339,11 @@ func init() {
 				Description: "Inline MCP server definitions keyed by server name.",
 				Group:       "Inline Composition",
 				Provider: map[string]string{
-					"claude":  "optional",
-					"copilot": "optional",
-					"gemini":  "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "unsupported",
+					"gemini":      "optional",
 				},
 			},
 			{
@@ -274,7 +355,11 @@ func init() {
 				Description: "Inline lifecycle hook definitions for this agent.",
 				Group:       "Inline Composition",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -285,6 +370,13 @@ func init() {
 				Optional:    true,
 				Description: "Per-provider override configuration keyed by provider name.",
 				Group:       "Multi-Target",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 		},
 	}
@@ -773,7 +865,11 @@ func init() {
 				Description: "When true, applies this rule to all files unconditionally.",
 				Group:       "Activation",
 				Provider: map[string]string{
-					"cursor": "optional",
+					"antigravity": "unsupported",
+					"claude":      "unsupported",
+					"copilot":     "unsupported",
+					"cursor":      "optional",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -789,6 +885,7 @@ func init() {
 					"claude":      "optional",
 					"copilot":     "optional",
 					"cursor":      "optional",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -801,7 +898,11 @@ func init() {
 				Group:       "Activation",
 				Enum:        []string{"always", "path-glob", "model-decided", "manual-mention", "explicit-invoke"},
 				Provider: map[string]string{
-					"cursor": "optional",
+					"antigravity": "unsupported",
+					"claude":      "unsupported",
+					"copilot":     "unsupported",
+					"cursor":      "optional",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -812,7 +913,14 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this rule within the project.",
 				Group:       "Identity",
-				Pattern:     "^[a-z0-9-]+$",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
+				Pattern: "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Paths",
@@ -827,6 +935,7 @@ func init() {
 					"claude":      "optional",
 					"copilot":     "optional",
 					"cursor":      "optional",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -839,7 +948,11 @@ func init() {
 				Group:       "Provider-Specific",
 				Enum:        []string{"code-review", "cloud-agent"},
 				Provider: map[string]string{
-					"copilot": "optional",
+					"antigravity": "unsupported",
+					"claude":      "unsupported",
+					"copilot":     "optional",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -850,6 +963,13 @@ func init() {
 				Optional:    true,
 				Description: "Per-provider override configuration keyed by provider name.",
 				Group:       "Multi-Target",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 		},
 	}
@@ -1143,7 +1263,14 @@ func init() {
 				Optional:    false,
 				Description: "Unique identifier for this skill within the project.",
 				Group:       "Identity",
-				Pattern:     "^[a-z0-9-]+$",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
+				Pattern: "^[a-z0-9-]+$",
 			},
 			{
 				Name:        "Description",
@@ -1170,7 +1297,11 @@ func init() {
 				Description: "Guidance for the model on when to invoke this skill.",
 				Group:       "Identity",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -1182,8 +1313,11 @@ func init() {
 				Description: "SPDX license identifier for open-source skills.",
 				Group:       "Identity",
 				Provider: map[string]string{
-					"claude":  "optional",
-					"copilot": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -1195,8 +1329,11 @@ func init() {
 				Description: "Tools this skill is permitted to use. Skill-specific field.",
 				Group:       "Tool Access",
 				Provider: map[string]string{
-					"claude":  "optional",
-					"copilot": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -1208,7 +1345,11 @@ func init() {
 				Description: "Prevents the skill from spawning sub-agents.",
 				Group:       "Permissions & Invocation",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -1220,7 +1361,11 @@ func init() {
 				Description: "Whether users can invoke this skill directly via slash command.",
 				Group:       "Permissions & Invocation",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -1232,7 +1377,11 @@ func init() {
 				Description: "Hint text shown to the user when invoking the skill.",
 				Group:       "Permissions & Invocation",
 				Provider: map[string]string{
-					"claude": "optional",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "unsupported",
+					"cursor":      "unsupported",
+					"gemini":      "unsupported",
 				},
 			},
 			{
@@ -1259,6 +1408,13 @@ func init() {
 				Optional:    true,
 				Description: "Docs and data files copied to skills/<id>/references/ at compile time.",
 				Group:       "Composition",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 			{
 				Name:        "Scripts",
@@ -1268,6 +1424,13 @@ func init() {
 				Optional:    true,
 				Description: "Executable helper files copied to skills/<id>/scripts/ at compile time.",
 				Group:       "Composition",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 			{
 				Name:        "Assets",
@@ -1277,6 +1440,13 @@ func init() {
 				Optional:    true,
 				Description: "Output artifact files copied to skills/<id>/assets/ at compile time.",
 				Group:       "Composition",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 			{
 				Name:        "Examples",
@@ -1286,6 +1456,13 @@ func init() {
 				Optional:    true,
 				Description: "Demonstration files copied to skills/<id>/examples/ at compile time.",
 				Group:       "Composition",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 			{
 				Name:        "Targets",
@@ -1295,6 +1472,13 @@ func init() {
 				Optional:    true,
 				Description: "Per-provider override configuration keyed by provider name.",
 				Group:       "Multi-Target",
+				Provider: map[string]string{
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
+					"cursor":      "xcaffold-only",
+					"gemini":      "xcaffold-only",
+				},
 			},
 		},
 	}

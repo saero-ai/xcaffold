@@ -4,12 +4,16 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
+	goformat "go/format"
 	"go/parser"
 	"go/token"
 	"log"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -67,6 +71,154 @@ type FieldInfo struct {
 	Markers     MarkerSet
 }
 
+// FieldsYAML represents a parsed fields.yaml file for a single provider.
+type FieldsYAML struct {
+	Provider string                          `yaml:"provider"`
+	Version  string                          `yaml:"version"`
+	Kinds    map[string]map[string]FieldDecl `yaml:"kinds"`
+}
+
+// FieldDecl represents a single field declaration inside fields.yaml.
+type FieldDecl struct {
+	Support string `yaml:"support"`
+}
+
+// readFieldsYAML globs internal/renderer/*/fields.yaml under rootDir,
+// parses each file, and returns a map keyed by provider name.
+func readFieldsYAML(rootDir string) (map[string]FieldsYAML, error) {
+	pattern := filepath.Join(rootDir, "internal", "renderer", "*", "fields.yaml")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, fmt.Errorf("glob fields.yaml: %w", err)
+	}
+
+	result := make(map[string]FieldsYAML, len(matches))
+	for _, path := range matches {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", path, err)
+		}
+
+		var fy FieldsYAML
+		if err := yaml.Unmarshal(data, &fy); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+
+		if fy.Provider == "" {
+			return nil, fmt.Errorf("%s: missing provider field", path)
+		}
+		result[fy.Provider] = fy
+	}
+
+	return result, nil
+}
+
+// validateFieldsYAML checks completeness: every canonical field must appear
+// in each provider's YAML (missing = error), and no unknown fields may appear
+// (unknown = error). Only validates kinds present in BOTH yamlData and
+// canonicalFields.
+func validateFieldsYAML(
+	yamlData map[string]FieldsYAML,
+	canonicalFields map[string][]FieldInfo,
+) error {
+	var errs []string
+
+	providers := sortedMapKeys(yamlData)
+	for _, provName := range providers {
+		fy := yamlData[provName]
+		kinds := sortedMapKeys(fy.Kinds)
+		for _, kind := range kinds {
+			canonical, ok := canonicalFields[kind]
+			if !ok {
+				continue // kind not in AST; skip
+			}
+
+			yamlFields := fy.Kinds[kind]
+			canonicalKeys := buildYAMLKeySet(canonical)
+
+			// Check for missing: canonical field not in YAML
+			for _, key := range sortedCanonicalKeys(canonical) {
+				if _, found := yamlFields[key]; !found {
+					errs = append(errs, fmt.Sprintf(
+						"provider %s kind %s missing field %s",
+						provName, kind, key))
+				}
+			}
+
+			// Check for unknown: YAML field not in canonical
+			yamlKeys := sortedMapKeys(yamlFields)
+			for _, key := range yamlKeys {
+				if !canonicalKeys[key] {
+					errs = append(errs, fmt.Sprintf(
+						"provider %s kind %s unknown field %s",
+						provName, kind, key))
+				}
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("fields.yaml validation errors:\n  %s",
+			strings.Join(errs, "\n  "))
+	}
+	return nil
+}
+
+// mergeProviderData merges YAML provider data into the fields map.
+// YAML values take precedence over +xcf:provider= marker values.
+func mergeProviderData(
+	fields map[string][]FieldInfo,
+	yamlData map[string]FieldsYAML,
+) {
+	for provName, fy := range yamlData {
+		for kind, yamlFields := range fy.Kinds {
+			fieldSlice, ok := fields[kind]
+			if !ok {
+				continue
+			}
+			for i := range fieldSlice {
+				decl, found := yamlFields[fieldSlice[i].YAMLKey]
+				if !found {
+					continue
+				}
+				if fieldSlice[i].Markers.Provider == nil {
+					fieldSlice[i].Markers.Provider = make(map[string]string)
+				}
+				fieldSlice[i].Markers.Provider[provName] = decl.Support
+			}
+		}
+	}
+}
+
+// buildYAMLKeySet builds a set of YAML keys from canonical fields.
+func buildYAMLKeySet(fields []FieldInfo) map[string]bool {
+	set := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		set[f.YAMLKey] = true
+	}
+	return set
+}
+
+// sortedCanonicalKeys returns YAML keys from fields in sorted order.
+func sortedCanonicalKeys(fields []FieldInfo) []string {
+	keys := make([]string, 0, len(fields))
+	for _, f := range fields {
+		keys = append(keys, f.YAMLKey)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// sortedMapKeys returns sorted keys from a string-keyed map.
+func sortedMapKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func main() {
 	flag.Parse()
 
@@ -99,14 +251,28 @@ func main() {
 	}
 
 	fields := extractFields(pkg)
-	output := generateGo(*packageName, fields)
+
+	yamlData, err := readFieldsYAML(".")
+	if err != nil {
+		log.Fatalf("failed to read fields.yaml: %v", err)
+	}
+	if err := validateFieldsYAML(yamlData, fields); err != nil {
+		log.Fatalf("fields.yaml validation failed:\n%v", err)
+	}
+	mergeProviderData(fields, yamlData)
+
+	raw := generateGo(*packageName, fields)
+	formatted, err := goformat.Source([]byte(raw))
+	if err != nil {
+		log.Fatalf("gofmt generated code: %v", err)
+	}
 
 	if *outputPath != "" {
-		if err := os.WriteFile(*outputPath, []byte(output), 0644); err != nil {
+		if err := os.WriteFile(*outputPath, formatted, 0644); err != nil {
 			log.Fatalf("failed to write output: %v", err)
 		}
 	} else {
-		fmt.Print(output)
+		fmt.Print(string(formatted))
 	}
 }
 
