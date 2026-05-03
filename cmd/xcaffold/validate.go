@@ -136,6 +136,19 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Hook directory structure.
+	hookErrors := validateHooksDirectory(cfg, parseRoot)
+	if len(hookErrors) > 0 {
+		fmt.Println()
+		fmt.Println("  hook directory issues:")
+		for _, e := range hookErrors {
+			fmt.Printf("    %s  %s\n", colorRed(glyphErr()), e)
+		}
+		hasErrors = true
+	} else if len(cfg.Hooks) > 0 {
+		fmt.Printf("  %s  hook directories\n", colorGreen(glyphOK()))
+	}
+
 	// Structural checks.
 	structWarnings := runStructuralChecks(cfg)
 	if len(structWarnings) > 0 {
