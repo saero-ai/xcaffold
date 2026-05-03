@@ -1856,6 +1856,11 @@ var validHookEvents = map[string]bool{
 	"WorktreeCreate": true, "WorktreeRemove": true,
 	"Elicitation": true, "ElicitationResult": true,
 	"Notification": true,
+	// Gemini-native events (accepted at parse time; compile-time handles per-target enforcement)
+	"BeforeAgent": true, "AfterAgent": true,
+	"BeforeModel": true, "AfterModel": true,
+	"BeforeToolSelection": true, "PreCompress": true,
+	"BeforeTool": true, "AfterTool": true,
 }
 
 // validRuleActivations is the set of accepted activation values for rule kind.
