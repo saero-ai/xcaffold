@@ -2,6 +2,7 @@ package renderer
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
@@ -149,6 +150,26 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 					"",
 				))
 			}
+		}
+	}
+
+	// Hook artifacts — copy script files from xcf/hooks/<name>/ to provider output.
+	if caps.Hooks {
+		for hookKey, hook := range config.Hooks {
+			if len(hook.Artifacts) == 0 {
+				continue
+			}
+			name := hook.Name
+			if name == "" {
+				name = hookKey
+			}
+			hookSrcDir := filepath.Join(baseDir, "xcf", "hooks", name)
+			hookDstDir := filepath.Join(r.OutputDir(), "hooks")
+			artifactFiles, err := CompileHookArtifacts(name, hook.Artifacts, hookSrcDir, hookDstDir)
+			if err != nil {
+				return nil, nil, fmt.Errorf("hook artifacts %s: %w", name, err)
+			}
+			mergeFiles(out, artifactFiles)
 		}
 	}
 
