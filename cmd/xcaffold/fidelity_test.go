@@ -21,9 +21,9 @@ func TestPrintFidelityNotes_Suppressed(t *testing.T) {
 			"cursor",
 			"agent",
 			"reviewer",
-			"permissionMode",
-			renderer.CodeAgentSecurityFieldsDropped,
-			"permissionMode dropped",
+			"permission-mode",
+			renderer.CodeFieldUnsupported,
+			"permission-mode unsupported",
 			"",
 		),
 	}
@@ -45,8 +45,8 @@ func TestPrintFidelityNotes_StrictMode_PromotesWarningToError(t *testing.T) {
 			"agent",
 			"analyst",
 			"isolation",
-			renderer.CodeAgentSecurityFieldsDropped,
-			"isolation dropped",
+			renderer.CodeFieldUnsupported,
+			"isolation unsupported",
 			"",
 		),
 	}
