@@ -1885,3 +1885,57 @@ func TestImport_AssembleMultiProvider_UnionBlockRetainsMCPAndMemory(t *testing.T
 	_, contextExists := result.Memory["context"]
 	assert.True(t, contextExists, "context memory must exist")
 }
+
+func TestAssembleMultiProvider_IdenticalAgents_ThreeProviders(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "sonnet", Body: "You are a developer."},
+				},
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "sonnet", Body: "You are a developer."},
+				},
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+		},
+		"cursor": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "sonnet", Body: "You are a developer."},
+				},
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+	dev := result.Agents["dev"]
+	assert.Len(t, dev.Targets, 3, "all three providers should appear in targets")
+	if result.Overrides != nil {
+		_, ok := result.Overrides.GetAgent("dev", "claude")
+		assert.False(t, ok, "identical agents should not produce overrides")
+	}
+}

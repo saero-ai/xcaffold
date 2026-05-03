@@ -15,11 +15,10 @@ func assembleMultiProviderResources(providerConfigs map[string]*ast.XcaffoldConf
 	assembleHooks(providerConfigs, result)
 	assembleSettings(providerConfigs, result)
 
-	for provider, cfg := range providerConfigs {
+	for _, cfg := range providerConfigs {
 		for id, mc := range cfg.MCP {
 			if _, exists := result.MCP[id]; !exists {
 				result.MCP[id] = mc
-				_ = provider
 			}
 		}
 		if cfg.Memory != nil {
@@ -293,6 +292,7 @@ func hookConfigsIdentical(configs map[string]ast.NamedHookConfig) bool {
 			first = false
 			continue
 		}
+		// Zero out Name since it's expected to differ
 		cfg.Name = ""
 		ref.Name = ""
 		if !reflect.DeepEqual(cfg, ref) {
@@ -302,7 +302,7 @@ func hookConfigsIdentical(configs map[string]ast.NamedHookConfig) bool {
 	return true
 }
 
-// splitHookOverrides scores hooks: Events non-nil+non-empty (+5), each Artifact (+1).
+// splitHookOverrides scores hooks: Events non-nil+non-empty (+5); +1 per Artifact entry.
 func splitHookOverrides(configs map[string]ast.NamedHookConfig) (ast.NamedHookConfig, map[string]ast.NamedHookConfig) {
 	scores := make(map[string]int, len(configs))
 	for provider, cfg := range configs {
@@ -336,30 +336,24 @@ func assembleHooks(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.X
 			byName[name][provider] = hook
 		}
 	}
+	if result.Hooks == nil {
+		result.Hooks = make(map[string]ast.NamedHookConfig)
+	}
 	for name, providerHooks := range byName {
 		if len(providerHooks) == 1 {
 			for _, hook := range providerHooks {
-				if result.Hooks == nil {
-					result.Hooks = make(map[string]ast.NamedHookConfig)
-				}
 				result.Hooks[name] = hook
 			}
 			continue
 		}
 		if hookConfigsIdentical(providerHooks) {
 			for _, hook := range providerHooks {
-				if result.Hooks == nil {
-					result.Hooks = make(map[string]ast.NamedHookConfig)
-				}
 				result.Hooks[name] = hook
 				break
 			}
 			continue
 		}
 		base, overrides := splitHookOverrides(providerHooks)
-		if result.Hooks == nil {
-			result.Hooks = make(map[string]ast.NamedHookConfig)
-		}
 		result.Hooks[name] = base
 		if result.Overrides == nil {
 			result.Overrides = &ast.ResourceOverrides{}
@@ -519,74 +513,105 @@ func settingsConfigsIdentical(configs map[string]ast.SettingsConfig) bool {
 	return true
 }
 
+func scoreSettingsConfig(cfg ast.SettingsConfig) int {
+	s := 0
+	// pointer fields
+	if cfg.Agent != nil {
+		s++
+	}
+	if cfg.Worktree != nil {
+		s++
+	}
+	if cfg.AutoMode != nil {
+		s++
+	}
+	if cfg.CleanupPeriodDays != nil {
+		s++
+	}
+	if cfg.IncludeGitInstructions != nil {
+		s++
+	}
+	if cfg.SkipDangerousModePermissionPrompt != nil {
+		s++
+	}
+	if cfg.Permissions != nil {
+		s++
+	}
+	if cfg.Sandbox != nil {
+		s++
+	}
+	if cfg.AutoMemoryEnabled != nil {
+		s++
+	}
+	if cfg.DisableAllHooks != nil {
+		s++
+	}
+	if cfg.Attribution != nil {
+		s++
+	}
+	if cfg.StatusLine != nil {
+		s++
+	}
+	if cfg.RespectGitignore != nil {
+		s++
+	}
+	if cfg.DisableSkillShellExecution != nil {
+		s++
+	}
+	if cfg.AlwaysThinkingEnabled != nil {
+		s++
+	}
+	// map/slice fields
+	if cfg.MCPServers != nil && len(cfg.MCPServers) > 0 {
+		s++
+	}
+	if cfg.Hooks != nil && len(cfg.Hooks) > 0 {
+		s++
+	}
+	if cfg.Env != nil && len(cfg.Env) > 0 {
+		s++
+	}
+	if cfg.EnabledPlugins != nil && len(cfg.EnabledPlugins) > 0 {
+		s++
+	}
+	if cfg.AvailableModels != nil && len(cfg.AvailableModels) > 0 {
+		s++
+	}
+	if cfg.ClaudeMdExcludes != nil && len(cfg.ClaudeMdExcludes) > 0 {
+		s++
+	}
+	// string fields
+	if cfg.EffortLevel != "" {
+		s++
+	}
+	if cfg.DefaultShell != "" {
+		s++
+	}
+	if cfg.Language != "" {
+		s++
+	}
+	if cfg.OutputStyle != "" {
+		s++
+	}
+	if cfg.PlansDirectory != "" {
+		s++
+	}
+	if cfg.Model != "" {
+		s++
+	}
+	if cfg.OtelHeadersHelper != "" {
+		s++
+	}
+	if cfg.AutoMemoryDirectory != "" {
+		s++
+	}
+	return s
+}
+
 func splitSettingsOverrides(configs map[string]ast.SettingsConfig) (ast.SettingsConfig, map[string]ast.SettingsConfig) {
 	scores := make(map[string]int, len(configs))
 	for provider, cfg := range configs {
-		s := 0
-		if cfg.Agent != nil {
-			s++
-		}
-		if cfg.Worktree != nil {
-			s++
-		}
-		if cfg.AutoMode != nil {
-			s++
-		}
-		if cfg.CleanupPeriodDays != nil {
-			s++
-		}
-		if cfg.IncludeGitInstructions != nil {
-			s++
-		}
-		if cfg.SkipDangerousModePermissionPrompt != nil {
-			s++
-		}
-		if cfg.Permissions != nil {
-			s++
-		}
-		if cfg.Sandbox != nil {
-			s++
-		}
-		if cfg.AutoMemoryEnabled != nil {
-			s++
-		}
-		if cfg.DisableAllHooks != nil {
-			s++
-		}
-		if cfg.Attribution != nil {
-			s++
-		}
-		if cfg.MCPServers != nil && len(cfg.MCPServers) > 0 {
-			s++
-		}
-		if cfg.Hooks != nil && len(cfg.Hooks) > 0 {
-			s++
-		}
-		if cfg.StatusLine != nil {
-			s++
-		}
-		if cfg.RespectGitignore != nil {
-			s++
-		}
-		if cfg.Env != nil && len(cfg.Env) > 0 {
-			s++
-		}
-		if cfg.EnabledPlugins != nil && len(cfg.EnabledPlugins) > 0 {
-			s++
-		}
-		if cfg.DisableSkillShellExecution != nil {
-			s++
-		}
-		if cfg.AlwaysThinkingEnabled != nil {
-			s++
-		}
-		if cfg.AvailableModels != nil && len(cfg.AvailableModels) > 0 {
-			s++
-		}
-		if cfg.ClaudeMdExcludes != nil && len(cfg.ClaudeMdExcludes) > 0 {
-			s++
-		}
-		scores[provider] = s
+		scores[provider] = scoreSettingsConfig(cfg)
 	}
 	baseProv := selectBaseProvider(scores)
 	base := configs[baseProv]
@@ -610,30 +635,24 @@ func assembleSettings(providerConfigs map[string]*ast.XcaffoldConfig, result *as
 			byName[name][provider] = sc
 		}
 	}
+	if result.Settings == nil {
+		result.Settings = make(map[string]ast.SettingsConfig)
+	}
 	for name, providerSettings := range byName {
 		if len(providerSettings) == 1 {
 			for _, sc := range providerSettings {
-				if result.Settings == nil {
-					result.Settings = make(map[string]ast.SettingsConfig)
-				}
 				result.Settings[name] = sc
 			}
 			continue
 		}
 		if settingsConfigsIdentical(providerSettings) {
 			for _, sc := range providerSettings {
-				if result.Settings == nil {
-					result.Settings = make(map[string]ast.SettingsConfig)
-				}
 				result.Settings[name] = sc
 				break
 			}
 			continue
 		}
 		base, overrides := splitSettingsOverrides(providerSettings)
-		if result.Settings == nil {
-			result.Settings = make(map[string]ast.SettingsConfig)
-		}
 		result.Settings[name] = base
 		if result.Overrides == nil {
 			result.Overrides = &ast.ResourceOverrides{}

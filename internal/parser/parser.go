@@ -985,55 +985,47 @@ func decodeAndStoreOverride(entry overrideFileEntry, frontmatter []byte, body, n
 	return nil
 }
 
+// mapKeys extracts the keys from a map[string]map[string]T, returning them as a slice.
+// This helper converts typed maps in ResourceOverrides to a uniform key list for
+// table-driven validation.
+func mapKeys[K comparable, V any](m map[string]map[K]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // validateOverrideBasesExist ensures that every override file has a corresponding
 // base resource. Override files without bases cannot be applied.
 func validateOverrideBasesExist(config *ast.XcaffoldConfig) error {
 	if config.Overrides == nil {
 		return nil
 	}
-	for name := range config.Overrides.Agent {
-		if _, ok := config.Agents[name]; !ok {
-			return fmt.Errorf("override file for agent %q has no base resource", name)
-		}
+
+	type overrideCheck struct {
+		kind    string
+		names   []string
+		hasBase func(string) bool
 	}
-	for name := range config.Overrides.Skill {
-		if _, ok := config.Skills[name]; !ok {
-			return fmt.Errorf("override file for skill %q has no base resource", name)
-		}
+
+	checks := []overrideCheck{
+		{"agent", mapKeys(config.Overrides.Agent), func(n string) bool { _, ok := config.Agents[n]; return ok }},
+		{"skill", mapKeys(config.Overrides.Skill), func(n string) bool { _, ok := config.Skills[n]; return ok }},
+		{"rule", mapKeys(config.Overrides.Rule), func(n string) bool { _, ok := config.Rules[n]; return ok }},
+		{"workflow", mapKeys(config.Overrides.Workflow), func(n string) bool { _, ok := config.Workflows[n]; return ok }},
+		{"mcp", mapKeys(config.Overrides.MCP), func(n string) bool { _, ok := config.MCP[n]; return ok }},
+		{"hooks", mapKeys(config.Overrides.Hooks), func(n string) bool { _, ok := config.Hooks[n]; return ok }},
+		{"settings", mapKeys(config.Overrides.Settings), func(n string) bool { _, ok := config.Settings[n]; return ok }},
+		{"policy", mapKeys(config.Overrides.Policy), func(n string) bool { _, ok := config.Policies[n]; return ok }},
+		{"template", mapKeys(config.Overrides.Template), func(n string) bool { _, ok := config.Templates[n]; return ok }},
 	}
-	for name := range config.Overrides.Rule {
-		if _, ok := config.Rules[name]; !ok {
-			return fmt.Errorf("override file for rule %q has no base resource", name)
-		}
-	}
-	for name := range config.Overrides.Workflow {
-		if _, ok := config.Workflows[name]; !ok {
-			return fmt.Errorf("override file for workflow %q has no base resource", name)
-		}
-	}
-	for name := range config.Overrides.MCP {
-		if _, ok := config.MCP[name]; !ok {
-			return fmt.Errorf("override file for mcp %q has no base resource", name)
-		}
-	}
-	for name := range config.Overrides.Hooks {
-		if _, ok := config.Hooks[name]; !ok {
-			return fmt.Errorf("override file for hooks %q has no base resource", name)
-		}
-	}
-	for name := range config.Overrides.Settings {
-		if _, ok := config.Settings[name]; !ok {
-			return fmt.Errorf("override file for settings %q has no base resource", name)
-		}
-	}
-	for name := range config.Overrides.Policy {
-		if _, ok := config.Policies[name]; !ok {
-			return fmt.Errorf("override file for policy %q has no base resource", name)
-		}
-	}
-	for name := range config.Overrides.Template {
-		if _, ok := config.Templates[name]; !ok {
-			return fmt.Errorf("override file for template %q has no base resource", name)
+
+	for _, c := range checks {
+		for _, name := range c.names {
+			if !c.hasBase(name) {
+				return fmt.Errorf("override file for %s %q has no base resource", c.kind, name)
+			}
 		}
 	}
 	return nil
