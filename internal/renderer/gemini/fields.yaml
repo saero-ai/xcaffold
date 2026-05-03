@@ -41,9 +41,9 @@ kinds:
     examples: { support: xcaffold-only }
     targets: { support: xcaffold-only }
   rule:
-    always-apply: { support: unsupported }
+    always-apply: { support: xcaffold-only }
     description: { support: unsupported }
-    activation: { support: unsupported }
+    activation: { support: xcaffold-only }
     name: { support: xcaffold-only }
     paths: { support: unsupported }
     exclude-agents: { support: unsupported }

@@ -889,3 +889,67 @@ func TestCompile_LocalSettings_EmitsSettingsLocalJSON(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "sk-test-key", env["ANTHROPIC_API_KEY"])
 }
+
+// ---------------------------------------------------------------------------
+// Context uniqueness validation wired into the compile path
+// ---------------------------------------------------------------------------
+
+// TestCompile_ContextUniqueness_AmbiguousNoDefault_ReturnsError verifies that
+// Compile returns an error when multiple contexts match the target and none is
+// marked as default (and no blueprint is active).
+func TestCompile_ContextUniqueness_AmbiguousNoDefault_ReturnsError(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"ctx-a": {Name: "ctx-a", Body: "body a", Targets: []string{"claude"}},
+				"ctx-b": {Name: "ctx-b", Body: "body b", Targets: []string{"claude"}},
+			},
+		},
+	}
+	_, _, err := Compile(config, "", "claude", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "context validation failed")
+}
+
+// TestCompile_ContextUniqueness_AmbiguousWithDefault_OK verifies that Compile
+// succeeds when multiple contexts match the target and exactly one is marked
+// as default.
+func TestCompile_ContextUniqueness_AmbiguousWithDefault_OK(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"ctx-a": {Name: "ctx-a", Body: "body a", Targets: []string{"claude"}},
+				"ctx-b": {Name: "ctx-b", Body: "body b", Targets: []string{"claude"}, Default: true},
+			},
+		},
+	}
+	_, _, err := Compile(config, "", "claude", "")
+	require.NoError(t, err)
+}
+
+// TestCompile_ContextUniqueness_BlueprintActive_SkipsValidation verifies that
+// the context uniqueness check is skipped when a blueprint name is provided,
+// even when multiple contexts would otherwise be ambiguous.
+func TestCompile_ContextUniqueness_BlueprintActive_SkipsValidation(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"ctx-a": {Name: "ctx-a", Body: "body a", Targets: []string{"claude"}},
+				"ctx-b": {Name: "ctx-b", Body: "body b", Targets: []string{"claude"}},
+			},
+			Agents: map[string]ast.AgentConfig{
+				"dev": {Name: "dev", Description: "developer"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"my-bp": {
+				Name:     "my-bp",
+				Agents:   []string{"dev"},
+				Contexts: []string{"ctx-a"},
+			},
+		},
+	}
+	// Compile with an active blueprint — ambiguous contexts must not error.
+	_, _, err := Compile(config, "", "claude", "my-bp")
+	require.NoError(t, err)
+}

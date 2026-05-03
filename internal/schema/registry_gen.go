@@ -865,11 +865,11 @@ func init() {
 				Description: "When true, applies this rule to all files unconditionally.",
 				Group:       "Activation",
 				Provider: map[string]string{
-					"antigravity": "unsupported",
-					"claude":      "unsupported",
-					"copilot":     "unsupported",
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
 					"cursor":      "optional",
-					"gemini":      "unsupported",
+					"gemini":      "xcaffold-only",
 				},
 			},
 			{
@@ -898,11 +898,11 @@ func init() {
 				Group:       "Activation",
 				Enum:        []string{"always", "path-glob", "model-decided", "manual-mention", "explicit-invoke"},
 				Provider: map[string]string{
-					"antigravity": "unsupported",
-					"claude":      "unsupported",
-					"copilot":     "unsupported",
+					"antigravity": "xcaffold-only",
+					"claude":      "xcaffold-only",
+					"copilot":     "xcaffold-only",
 					"cursor":      "optional",
-					"gemini":      "unsupported",
+					"gemini":      "xcaffold-only",
 				},
 			},
 			{

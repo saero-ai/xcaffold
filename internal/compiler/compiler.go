@@ -91,6 +91,15 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 		return nil, nil, err
 	}
 
+	// Context uniqueness validation: only when no blueprint is active. When a
+	// blueprint is provided, its contexts: selector already narrows the set
+	// to an explicit composition list and no ambiguity check is needed.
+	if blueprintName == "" {
+		if err := renderer.ValidateContextUniqueness(config.Contexts, []string{target}); err != nil {
+			return nil, nil, fmt.Errorf("context validation failed: %w", err)
+		}
+	}
+
 	overrideNotes := resolveTargetOverrides(config, target)
 
 	config.Memory = DiscoverAgentMemory(baseDir)

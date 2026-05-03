@@ -86,7 +86,10 @@ func TestValidateContextUniqueness_MultipleDefaults_Error(t *testing.T) {
 
 // ── ResolveContextBody ────────────────────────────────────────────────────────
 
-func TestResolveContextBody_MultipleMatchSelectsDefault(t *testing.T) {
+// TestResolveContextBody_MultipleMatchComposesAll verifies that when multiple
+// contexts match, the resolver concatenates all their bodies: default first,
+// then remaining contexts in sorted name order.
+func TestResolveContextBody_MultipleMatchComposesAll(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Contexts: map[string]ast.ContextConfig{
@@ -96,5 +99,41 @@ func TestResolveContextBody_MultipleMatchSelectsDefault(t *testing.T) {
 		},
 	}
 	got := ResolveContextBody(config, "claude")
-	assert.Equal(t, "extra body", got)
+	// Default comes first, then remaining in sorted order ("ctx-main").
+	assert.Equal(t, "extra body\n\nmain body", got)
+}
+
+// TestResolveContextBody_MultipleMatch_NoDefault_SortedOrder verifies that
+// when no context is marked as default, all matching bodies are joined in
+// sorted name order.
+func TestResolveContextBody_MultipleMatch_NoDefault_SortedOrder(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"ctx-b": {Name: "ctx-b", Body: "body b", Targets: []string{"claude"}},
+				"ctx-a": {Name: "ctx-a", Body: "body a", Targets: []string{"claude"}},
+			},
+		},
+	}
+	got := ResolveContextBody(config, "claude")
+	assert.Equal(t, "body a\n\nbody b", got)
+}
+
+// TestResolveContextBody_GlobalContext_MatchesAllTargets verifies that a
+// context with no Targets set is included for every target.
+func TestResolveContextBody_GlobalContext_MatchesAllTargets(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Contexts: map[string]ast.ContextConfig{
+				"global-ctx":  {Name: "global-ctx", Body: "global"},
+				"claude-only": {Name: "claude-only", Body: "claude specific", Targets: []string{"claude"}},
+			},
+		},
+	}
+	got := ResolveContextBody(config, "claude")
+	// Both match claude; "claude-only" < "global-ctx" alphabetically.
+	assert.Equal(t, "claude specific\n\nglobal", got)
+
+	gotGemini := ResolveContextBody(config, "gemini")
+	assert.Equal(t, "global", gotGemini)
 }

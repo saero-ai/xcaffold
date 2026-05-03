@@ -123,12 +123,14 @@ func ValidateContextUniqueness(contexts map[string]ast.ContextConfig, targets []
 	return nil
 }
 
-// ResolveContextBody returns the body for the single context that applies to
-// targetName. When multiple contexts match, the one with Default=true is
-// selected. When no contexts match, an empty string is returned.
+// ResolveContextBody composes bodies of all contexts that match targetName.
+// When multiple contexts match, the default context (if any) is placed first,
+// followed by the remaining contexts in sorted name order. All bodies are joined
+// with "\n\n". When no contexts match, an empty string is returned.
 //
-// Callers should invoke ValidateContextUniqueness before rendering to surface
-// ambiguous configurations as actionable errors before output is written.
+// Filtering (e.g. blueprint selection) should happen upstream before calling
+// this function. ValidateContextUniqueness may be called before rendering to
+// surface configurations where disambiguation is required.
 func ResolveContextBody(config *ast.XcaffoldConfig, targetName string) string {
 	// Collect names in sorted order to guarantee deterministic iteration.
 	names := make([]string, 0, len(config.Contexts))
@@ -137,7 +139,9 @@ func ResolveContextBody(config *ast.XcaffoldConfig, targetName string) string {
 	}
 	sort.Strings(names)
 
-	var matching []matchedContext
+	var defaultMatch *matchedContext
+	var rest []matchedContext
+
 	for _, name := range names {
 		ctx := config.Contexts[name]
 		applies := len(ctx.Targets) == 0
@@ -149,24 +153,28 @@ func ResolveContextBody(config *ast.XcaffoldConfig, targetName string) string {
 				}
 			}
 		}
-		if applies && ctx.Body != "" {
-			matching = append(matching, matchedContext{name: name, body: ctx.Body, isDefault: ctx.Default})
+		if !applies || ctx.Body == "" {
+			continue
+		}
+		mc := matchedContext{name: name, body: ctx.Body, isDefault: ctx.Default}
+		if ctx.Default && defaultMatch == nil {
+			defaultMatch = &mc
+		} else {
+			rest = append(rest, mc)
 		}
 	}
 
-	if len(matching) == 0 {
+	if defaultMatch == nil && len(rest) == 0 {
 		return ""
 	}
-	if len(matching) == 1 {
-		return strings.TrimSpace(matching[0].body)
+
+	// Build ordered slice: default first (if any), then rest in sorted order.
+	ordered := make([]string, 0, 1+len(rest))
+	if defaultMatch != nil {
+		ordered = append(ordered, strings.TrimSpace(defaultMatch.body))
 	}
-	// Multiple match — select the one marked as default.
-	for _, m := range matching {
-		if m.isDefault {
-			return strings.TrimSpace(m.body)
-		}
+	for _, m := range rest {
+		ordered = append(ordered, strings.TrimSpace(m.body))
 	}
-	// No default found — ValidateContextUniqueness should have caught this.
-	// Fall back to the first sorted match to avoid an empty result.
-	return strings.TrimSpace(matching[0].body)
+	return strings.Join(ordered, "\n\n")
 }
