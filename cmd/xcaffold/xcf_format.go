@@ -115,6 +115,7 @@ type settingsSplitDoc struct {
 // WriteProjectFile writes only the project.xcf file for rootDir from config.
 // Use this instead of WriteSplitFiles when only the project metadata block needs
 // updating (e.g. on re-import) and resource files should be left untouched.
+// Project metadata is written to rootDir/project.xcf (root level).
 func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 	rootDir = filepath.Clean(rootDir)
 	version := config.Version
@@ -175,16 +176,13 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 		WorkflowRefs: workflowRefs,
 		MCPRefs:      mcpRefs,
 	}
-	outDir := filepath.Join(rootDir, ".xcaffold")
-	if err := os.MkdirAll(outDir, 0755); err != nil {
-		return err
-	}
-	return writeYAMLFile(filepath.Join(outDir, "project.xcf"), projDoc)
+	// Write project.xcf to root level (preferred location)
+	return writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc)
 }
 
 // WriteSplitFiles writes an XcaffoldConfig to rootDir as individual .xcf files:
 //
-//   - rootDir/.xcaffold/project.xcf    — kind: project (metadata + ref lists)
+//   - rootDir/project.xcf              — kind: project (metadata + ref lists)
 //   - rootDir/xcf/agents/<name>/agent.xcf      — kind: agent (one per agent, in its own subdirectory)
 //   - rootDir/xcf/skills/<name>/skill.xcf      — kind: skill (one per skill, in its own subdirectory)
 //   - rootDir/xcf/rules/<name>/rule.xcf        — kind: rule (one per rule, in its own subdirectory)
@@ -273,11 +271,8 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		WorkflowRefs: workflowRefs,
 		MCPRefs:      mcpRefs,
 	}
-	outDir := filepath.Join(rootDir, ".xcaffold")
-	if err := os.MkdirAll(outDir, 0755); err != nil {
-		return err
-	}
-	if err := writeYAMLFile(filepath.Join(outDir, "project.xcf"), projDoc); err != nil {
+	// Write project.xcf to root level (preferred location)
+	if err := writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc); err != nil {
 		return err
 	}
 

@@ -312,7 +312,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		}
 
 		files := []string{
-			".xcaffold/project.xcf",
+			"project.xcf",
 			"xcf/agents/xaff/agent.xcf",
 		}
 		for _, t := range ans.targets {
@@ -337,7 +337,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("  %s .xcaffold/project.xcf\n", colorGreen(glyphOK()))
+	fmt.Printf("  %s project.xcf\n", colorGreen(glyphOK()))
 	fmt.Printf("  %s xcf/agents/xaff/                     %s\n",
 		colorGreen(glyphOK()), dim(fmt.Sprintf("base + %d %s", len(ans.targets), plural(len(ans.targets), "override", "overrides"))))
 	fmt.Printf("  %s xcf/skills/xcaffold/\n", colorGreen(glyphOK()))
@@ -506,7 +506,11 @@ func tryAutoRegister(xcfFile string) {
 // injectXaffToolkitAfterImport writes the full Xaff authoring toolkit after an import.
 // It replaces injectXcaffoldSkillAfterImport, which only wrote the skill.
 func injectXaffToolkitAfterImport(baseDir string) error {
-	xcfFile := filepath.Join(baseDir, ".xcaffold", "project.xcf")
+	// Check for project.xcf in root first, then .xcaffold/ for backward compatibility
+	xcfFile := filepath.Join(baseDir, "project.xcf")
+	if _, err := os.Stat(xcfFile); err != nil {
+		xcfFile = filepath.Join(baseDir, ".xcaffold", "project.xcf")
+	}
 	config, err := parser.ParseFileExact(xcfFile)
 	if err != nil {
 		return fmt.Errorf("parsing imported scaffold: %w", err)

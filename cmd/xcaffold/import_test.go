@@ -99,7 +99,7 @@ func TestImportScope_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
+	err = importScope(".claude", "project.xcf", "project", "claude")
 	if err == nil {
 		t.Fatal("expected error when xcf/ directory already exists, got nil")
 	}
@@ -177,7 +177,7 @@ func TestImportScope_Messaging_NoReferencedInPlace(t *testing.T) {
 	}
 	os.Stdout = w
 
-	importErr := importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
+	importErr := importScope(".claude", "project.xcf", "project", "claude")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -270,17 +270,17 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	}
 
 	// Run importScope
-	if err := importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"); err != nil {
+	if err := importScope(".claude", "project.xcf", "project", "claude"); err != nil {
 		t.Fatalf("importScope returned unexpected error: %v", err)
 	}
 
 	// project.xcf must exist
-	if _, err := os.Stat(filepath.Join(tmp, filepath.Join(".xcaffold", "project.xcf"))); err != nil {
+	if _, err := os.Stat(filepath.Join(tmp, "project.xcf")); err != nil {
 		t.Fatalf("project.xcf was not created: %v", err)
 	}
 
 	// Read project.xcf — must contain kind: project
-	scaffoldData, err := os.ReadFile(filepath.Join(tmp, filepath.Join(".xcaffold", "project.xcf")))
+	scaffoldData, err := os.ReadFile(filepath.Join(tmp, "project.xcf"))
 	require.NoError(t, err)
 	scaffoldStr := string(scaffoldData)
 	assert.Contains(t, scaffoldStr, "kind: project", "project.xcf must use kind: project (split-file format)")
@@ -358,7 +358,7 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), filepath.Join(".xcaffold", "project.xcf"))
+	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcf")
 	if err == nil {
 		t.Fatal("expected error when xcf/ directory already exists, got nil")
 	}
@@ -383,10 +383,10 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	require.NoError(t, os.WriteFile(".claude/skills/tdd/SKILL.md",
 		[]byte("---\nname: tdd\ndescription: TDD\n---\n\nTDD instructions"), 0644))
 
-	err = importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
+	err = importScope(".claude", "project.xcf", "project", "claude")
 	require.NoError(t, err)
 
-	content, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
+	content, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)
 
 	s := string(content)
@@ -1185,7 +1185,7 @@ func TestImport_Output_ExplainsTargetsTagging(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
+	err := importScope(".claude", "project.xcf", "project", "claude")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1221,7 +1221,7 @@ func TestImportScope_PlanFlag_DryRun(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude")
+	err := importScope(".claude", "project.xcf", "project", "claude")
 
 	w.Close()
 	os.Stdout = oldStdout
