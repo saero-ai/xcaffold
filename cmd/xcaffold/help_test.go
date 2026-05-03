@@ -154,3 +154,50 @@ func TestHelpXcf_GoldenOutput(t *testing.T) {
 		}
 	}
 }
+
+func TestHelpXCF_ShowsProviderSupport(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	noColorFlag = true
+	defer func() { noColorFlag = false }()
+
+	ks, ok := schema.LookupKind("agent")
+	require.True(t, ok)
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	defer rootCmd.SetOut(os.Stdout)
+
+	displayKindSchema(rootCmd, ks)
+	output := buf.String()
+
+	// Description field should show provider annotations if it has provider data
+	hasProviderData := false
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "description" && len(f.Provider) > 0 {
+			hasProviderData = true
+			break
+		}
+	}
+
+	if hasProviderData {
+		assert.Contains(t, output, "Providers:", "output should show Providers annotation for fields with provider data")
+		// Check that provider names appear with proper capitalization
+		assert.Regexp(t, `\b[A-Z][a-z]+\(`, output, "provider names should be capitalized with optional (required) suffix")
+	}
+
+	// Envelope fields (like name, kind) should NOT show Providers even if they're required
+	lines := strings.Split(output, "\n")
+	for i, line := range lines {
+		if strings.Contains(line, "name") && strings.Contains(line, "required") {
+			// Check that the next line(s) don't have "Providers:" for the envelope field
+			nextLineHasProviders := false
+			if i+1 < len(lines) && strings.HasPrefix(lines[i+1], "                                                        Providers:") {
+				nextLineHasProviders = true
+			}
+			if nextLineHasProviders {
+				t.Errorf("envelope field 'name' should not show Providers annotation")
+			}
+			break
+		}
+	}
+}
