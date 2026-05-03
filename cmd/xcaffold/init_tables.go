@@ -7,40 +7,21 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
+	"github.com/saero-ai/xcaffold/providers"
 	"github.com/spf13/cobra"
 )
 
-// nativeKindSupport declares which resource kinds each provider natively
-// stores on disk. Verified from provider ground truth (2026-05-03).
-// This is distinct from renderer capabilities (which declare what the
-// compiler can translate TO a provider, including cross-kind lowering).
-var nativeKindSupport = map[string]map[importer.Kind]bool{
-	"claude": {
-		importer.KindAgent: true, importer.KindSkill: true,
-		importer.KindRule: true, importer.KindMCP: true,
-		importer.KindHookScript: true, importer.KindSettings: true,
-		importer.KindMemory: true,
-	},
-	"gemini": {
-		importer.KindAgent: true, importer.KindSkill: true,
-		importer.KindRule: true, importer.KindMCP: true,
-		importer.KindHookScript: true, importer.KindSettings: true,
-	},
-	"cursor": {
-		importer.KindAgent: true, importer.KindSkill: true,
-		importer.KindRule: true, importer.KindMCP: true,
-		importer.KindHookScript: true,
-	},
-	"copilot": {
-		importer.KindAgent: true, importer.KindSkill: true,
-		importer.KindRule: true, importer.KindMCP: true,
-		importer.KindHookScript: true,
-	},
-	"antigravity": {
-		importer.KindSkill: true,
-		importer.KindRule:  true, importer.KindWorkflow: true,
-		importer.KindMCP: true,
-	},
+// nativeKindSupportFor returns the kind support map for a provider from its manifest.
+func nativeKindSupportFor(target string) map[importer.Kind]bool {
+	m, ok := providers.ManifestFor(target)
+	if !ok {
+		return nil
+	}
+	result := make(map[importer.Kind]bool, len(m.KindSupport))
+	for kind, supported := range m.KindSupport {
+		result[importer.Kind(kind)] = supported
+	}
+	return result
 }
 
 // kindDisplay defines the canonical display order and labels for resource kinds.
@@ -174,7 +155,7 @@ func renderCompiledOutputTable(
 	allSupported := make([]map[importer.Kind]bool, len(providers))
 	for i, imp := range providers {
 		allCounts[i] = importer.ScanDir(imp, imp.InputDir())
-		if s, ok := nativeKindSupport[imp.Provider()]; ok {
+		if s := nativeKindSupportFor(imp.Provider()); s != nil {
 			allSupported[i] = s
 		} else {
 			allSupported[i] = make(map[importer.Kind]bool)
