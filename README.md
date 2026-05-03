@@ -101,21 +101,23 @@ xcaffold init                      # Initialize a new project.xcf
 xcaffold apply                     # Compile to .claude/, .cursor/, etc.
 xcaffold diff                      # Detect manual drift in output directories
 xcaffold validate                  # Check syntax without compiling
-xcaffold import --provider claude  # Read existing .claude/ and generate .xcf
+xcaffold import --target claude    # Read existing .claude/ and generate .xcf
 ```
 
 ## What xcaffold Compiles
 
 | Resource | Claude Code | Cursor | GitHub Copilot | Gemini CLI | Antigravity |
 |----------|-------------|--------|----------------|------------|-------------|
-| Agents | Yes | Yes | Yes | Yes | Yes |
+| Agents | Yes | Yes | Yes | Yes | -- |
 | Skills | Yes | Yes | Yes | Yes | Yes |
 | Rules | Yes | Yes | Yes | Yes | Yes |
-| Workflows | Yes | Yes | Yes | Yes | Yes |
+| Workflows | Lowered | Lowered | Lowered | Lowered | Yes |
 | Hooks | Yes | Yes | Yes | Yes | -- |
-| MCP Servers | Yes | Yes | -- | Yes | Yes |
+| MCP Servers | Yes | Yes | Yes | Yes | Yes |
 | Memory | Yes | -- | -- | -- | -- |
-| Settings | Yes | -- | -- | -- | -- |
+| Settings | Yes | Yes | Yes | Yes | Yes |
+
+**Lowered** — xcaffold translates workflows into the provider's native primitives (rules + skills) since the provider has no native workflow format. A fidelity note is emitted during compilation.
 
 ## Documentation
 
