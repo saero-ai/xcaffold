@@ -71,17 +71,9 @@ func init() {
 	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
 	applyCmd.Flags().StringVar(&applyBlueprintFlag, "blueprint", "", "Compile a specific blueprint (default: all resources)")
-	applyCmd.Flags().StringVar(&targetFlag, "target", targetClaude, "compilation target platform (claude, cursor, antigravity, copilot, gemini; default: claude)")
+	applyCmd.Flags().StringVar(&targetFlag, "target", compiler.TargetClaude, "compilation target platform (claude, cursor, antigravity, copilot, gemini; default: claude)")
 	rootCmd.AddCommand(applyCmd)
 }
-
-const (
-	targetClaude      = "claude"
-	targetAntigravity = "antigravity"
-	targetCursor      = "cursor"
-	targetCopilot     = "copilot"
-	targetGemini      = "gemini"
-)
 
 // currentSchemaVersion is the schema version this build of xcaffold targets.
 // Configs with older versions produce an error requiring the user to update the version field.
@@ -154,7 +146,7 @@ func resolveTargets(cmd *cobra.Command, baseDir string) []string {
 		return config.Project.Targets
 	}
 
-	return []string{targetClaude}
+	return []string{compiler.TargetClaude}
 }
 
 // applyScope compiles the xcf configuration at configPath into outputDir.
@@ -531,7 +523,7 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 	timestamp := time.Now().Format("20060102_150405")
 	bakName := fmt.Sprintf(".%s_bak_%s", target, timestamp)
 	if target == "" {
-		bakName = fmt.Sprintf(".%s_bak_%s", targetClaude, timestamp)
+		bakName = fmt.Sprintf(".%s_bak_%s", compiler.TargetClaude, timestamp)
 	}
 
 	var destDir string

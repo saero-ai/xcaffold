@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/prompt"
@@ -365,9 +366,9 @@ var knownCLIs = []struct {
 	target string
 	model  string
 }{
-	{targetClaude, "Claude Code", targetClaude, "claude-sonnet-4-6"},
-	{"gemini", "Gemini (Antigravity)", targetAntigravity, "gemini-2.5-pro"},
-	{targetCursor, "Cursor", targetCursor, "cursor-default"},
+	{compiler.TargetClaude, "Claude Code", compiler.TargetClaude, "claude-sonnet-4-6"},
+	{"gemini", "Gemini (Antigravity)", compiler.TargetAntigravity, "gemini-2.5-pro"},
+	{compiler.TargetCursor, "Cursor", compiler.TargetCursor, "cursor-default"},
 }
 
 // detectDefaultTarget returns the target for the first CLI binary found on PATH.
@@ -377,7 +378,7 @@ func detectDefaultTarget() string {
 			return cli.target
 		}
 	}
-	return targetClaude
+	return compiler.TargetClaude
 }
 
 // resolveTargetMeta returns the suggested model and binary name for a target.
@@ -387,7 +388,7 @@ func resolveTargetMeta(target string) (model, binary string) {
 			return cli.model, cli.binary
 		}
 	}
-	return "claude-sonnet-4-6", targetClaude
+	return "claude-sonnet-4-6", compiler.TargetClaude
 }
 
 // collectWizardAnswers populates wizard answers from flags and optional prompts.
