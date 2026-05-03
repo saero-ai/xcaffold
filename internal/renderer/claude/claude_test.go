@@ -599,6 +599,9 @@ func TestCompileAgents_RulesNotInFrontmatter(t *testing.T) {
 	require.True(t, ok, "expected agents/test.md in output")
 
 	assert.NotContains(t, content, "rules:")
-	assert.NotContains(t, content, "security") // rule names must not appear in frontmatter
+	assert.NotContains(t, content, "security")
 	assert.NotContains(t, content, "coding-standards")
+
+	assert.Contains(t, content, "name: test")
+	assert.Contains(t, content, "You are a test agent.")
 }
