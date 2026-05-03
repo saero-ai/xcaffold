@@ -3,6 +3,8 @@ package renderer
 import (
 	"fmt"
 	"strings"
+
+	"github.com/saero-ai/xcaffold/internal/schema"
 )
 
 // claudeNativeTools contains the exact string literals used by Claude Code
@@ -41,9 +43,10 @@ func SanitizeAgentTools(tools []string, caps CapabilitySet, targetName, agentID 
 
 	var notes []FidelityNote
 
-	// If the provider does not support the tools field at all, silently drop.
-	// This matches the baseline design logic.
-	if !caps.AgentToolsField {
+	// Consult the schema registry to determine whether this provider supports
+	// the agent tools field. "unsupported" or a missing entry means silently drop.
+	toolsSupport := schema.FieldSupportForTarget("agent", "tools", targetName)
+	if toolsSupport == "unsupported" || toolsSupport == "" {
 		return nil, nil
 	}
 

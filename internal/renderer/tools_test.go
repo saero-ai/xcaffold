@@ -129,3 +129,26 @@ func TestSanitizeAgentTools(t *testing.T) {
 		})
 	}
 }
+
+// TestSanitizeAgentTools_RegistryLookup verifies that SanitizeAgentTools uses
+// the schema registry to determine field support rather than the CapabilitySet
+// AgentToolsField boolean. Cursor has tools marked "unsupported" in the
+// registry, so tools must be dropped (nil returned) regardless of caps.
+func TestSanitizeAgentTools_RegistryLookup(t *testing.T) {
+	tools := []string{"Bash", "Read", "mcp_custom"}
+	caps := CapabilitySet{
+		// AgentToolsField is intentionally left false — the registry lookup
+		// must now be the authoritative gate, not this boolean.
+		AgentToolsField:      false,
+		AgentNativeToolsOnly: false,
+	}
+
+	gotTools, gotNotes := SanitizeAgentTools(tools, caps, "cursor", "test_agent")
+
+	if gotTools != nil {
+		t.Errorf("expected nil tools for cursor (tools unsupported in registry), got %v", gotTools)
+	}
+	if len(gotNotes) != 0 {
+		t.Errorf("expected 0 notes for silent drop, got %d", len(gotNotes))
+	}
+}
