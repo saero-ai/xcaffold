@@ -969,13 +969,11 @@ func renderTerminalSummary(scopes []*graphData) string {
 
 //nolint:gocyclo
 func renderScopeSummary(sb *strings.Builder, g *graphData) {
-	var agents, skills, rules, mcp, policies int
+	var agents, rules, mcp, policies int
 	for _, n := range g.Nodes {
 		switch n.Kind {
 		case kindAgent:
 			agents++
-		case kindSkill:
-			skills++
 		case kindRule:
 			rules++
 		case kindMCP:

@@ -433,7 +433,7 @@ func TestGraph_ScopeSummary_NoOrphanCounter(t *testing.T) {
 
 	// Summary must NOT contain orphan/unreferenced counter
 	assert.NotContains(t, out, "Unreferenced")
-	assert.NotContains(t, out, "orphan")
+	assert.NotContains(t, out, "Skills")
 
 	// Should still show Agents line
 	assert.Contains(t, out, "Agents")
