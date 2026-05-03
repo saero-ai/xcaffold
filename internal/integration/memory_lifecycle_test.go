@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/bir"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	antigravity "github.com/saero-ai/xcaffold/providers/antigravity"
@@ -40,52 +39,6 @@ func TestIntegration_Memory_Claude_AlwaysOverwrites(t *testing.T) {
 	_, _, err = r2.Compile(config, dir)
 	require.NoError(t, err)
 	require.Len(t, r2.Seeds(), 1, "apply always overwrites, must record seed")
-}
-
-func TestIntegration_Memory_ImportClaudeApply_RoundTrip(t *testing.T) {
-	// Source: mock Claude project memory directory.
-	providerDir := t.TempDir()
-	require.NoError(t, os.WriteFile(
-		filepath.Join(providerDir, "project_user-role.md"),
-		[]byte("---\ndescription: Developer role.\n---\nRobert is the founder.\n"),
-		0o600,
-	))
-
-	// Step 1: import to sidecar dir.
-	sidecarDir := filepath.Join(t.TempDir(), "xcf", "memory")
-	summary, err := bir.ImportClaudeMemory(providerDir, bir.ImportOpts{SidecarDir: sidecarDir})
-	require.NoError(t, err)
-	require.Equal(t, 1, summary.Imported)
-
-	sidecarPath := filepath.Join(sidecarDir, "user-role.md")
-	require.FileExists(t, sidecarPath)
-
-	// Step 2: apply (seed) to a fresh target directory.
-	applyDir := t.TempDir()
-	r := claude.NewMemoryRenderer(applyDir)
-
-	// Read the sidecar content and use it inline for the simplified round-trip test.
-	sidecarRaw, err := os.ReadFile(sidecarPath)
-	require.NoError(t, err)
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {
-					Name:        "user-role",
-					Description: "Developer role.",
-					Content:     string(sidecarRaw),
-				},
-			},
-		},
-	}
-
-	_, _, err = r.Compile(config, applyDir)
-	require.NoError(t, err)
-	require.Len(t, r.Seeds(), 1)
-	// Output is agent-scoped: default/MEMORY.md index + individual files.
-	require.FileExists(t, filepath.Join(applyDir, "default", "MEMORY.md"))
-	require.FileExists(t, filepath.Join(applyDir, "default", "user-role.md"))
 }
 
 func TestIntegration_Memory_MultipleEntries_AllSeeded(t *testing.T) {
@@ -237,32 +190,6 @@ func TestIntegration_Memory_Gemini_AppendsToGeminiMD(t *testing.T) {
 	// The seeded entry must be present under the section.
 	require.Contains(t, content, `xcaffold:memory name="user-role"`)
 	require.Contains(t, content, "Robert is the founder.")
-}
-
-func TestIntegration_Memory_GeminiImportExtract_RoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	r := gemini.NewMemoryRenderer(dir)
-
-	config := &ast.XcaffoldConfig{
-		ResourceScope: ast.ResourceScope{
-			Memory: map[string]ast.MemoryConfig{
-				"user-role": {Name: "user-role", Description: "Dev role.", Content: "Body."},
-			},
-		},
-	}
-	_, _, err := r.Compile(config, dir)
-	require.NoError(t, err)
-
-	data, err := os.ReadFile(filepath.Join(dir, "GEMINI.md"))
-	require.NoError(t, err)
-
-	blocks, err := bir.ExtractGeminiMemoryBlocks(string(data))
-	require.NoError(t, err)
-	require.Len(t, blocks, 1)
-	require.Equal(t, "user-role", blocks[0].Key)
-	// Type field removed from MemoryConfig; blocks no longer carry it.
-	require.Equal(t, "", blocks[0].Type)
-	require.Contains(t, blocks[0].Body, "Body.")
 }
 
 func TestIntegration_Memory_ConventionDiscovery_EndToEnd(t *testing.T) {

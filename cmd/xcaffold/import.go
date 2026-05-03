@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/bir"
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
@@ -1077,21 +1076,6 @@ func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
 	return count, nil
 }
 
-// geminiMemoryDir returns the directory where Gemini's GEMINI.md context file
-// lives. The default is ~/.gemini/ following Gemini CLI conventions. The
-// XCAFFOLD_GEMINI_DIR environment variable overrides this for testing and
-// non-standard installations.
-func geminiMemoryDir() (string, error) {
-	if override := os.Getenv("XCAFFOLD_GEMINI_DIR"); override != "" {
-		return filepath.Clean(override), nil
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolving home directory for gemini target: %w", err)
-	}
-	return filepath.Join(home, ".gemini"), nil
-}
-
 // runProviderPostImport executes provider-specific post-import steps that fall
 // outside the scope of the ProviderImporter interface (cross-boundary files,
 // out-of-tree memory sources, unsupported-provider warnings).
@@ -1103,16 +1087,6 @@ func runProviderPostImport(provider, _ /* platformDir */ string, projectDir stri
 			count := 0
 			if err := importSettings(data, config, &count, warnings); err != nil {
 				*warnings = append(*warnings, fmt.Sprintf(".mcp.json partially imported: %v", err))
-			}
-		}
-	}
-	// Gemini: snapshot memory from ~/.gemini/.
-	if provider == "gemini" {
-		if gDir, err := geminiMemoryDir(); err == nil {
-			if memSum, err := bir.ImportGeminiMemory(gDir, bir.ImportOpts{
-				SidecarDir: filepath.Join("xcf", "agents"),
-			}); err == nil && memSum.Imported > 0 {
-				fmt.Printf("  Gemini memory: snapshotted %d entry(ies) → xcf/agents/<id>/memory/\n", memSum.Imported)
 			}
 		}
 	}
