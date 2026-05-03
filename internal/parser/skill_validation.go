@@ -17,7 +17,7 @@ var canonicalSkillSubdirs = map[string]bool{
 var subdirAllowedExtensions = map[string][]string{
 	"references": {".md", ".mdx", ".json", ".yaml", ".yml", ".toml", ".txt"},
 	"scripts":    {".sh", ".bash", ".py", ".js", ".ts", ".ps1"},
-	"examples":   {".md", ".txt"},
+	"examples":   {".md", ".txt", ".xcf"},
 }
 
 // SkillValidationResult separates hard errors from advisory warnings produced
@@ -70,6 +70,10 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 		if name == "skill.xcf" || strings.EqualFold(name, legacyXcfFile) {
 			continue
 		}
+		// Accept override files: <kind>.<provider>.xcf pattern
+		if isOverrideFilename(name) {
+			continue
+		}
 		result.Errors = append(result.Errors, fmt.Errorf(
 			"unrecognized file %q at skill root %q; move to references/, scripts/, assets/, or examples/ based on its purpose",
 			name, skillID))
@@ -113,4 +117,37 @@ func validateSubdir(subdirPath, skillID, subdirName string) ([]error, []error) {
 		}
 	}
 	return errs, warns
+}
+
+var validOverrideKinds = map[string]bool{
+	"agent":    true,
+	"skill":    true,
+	"rule":     true,
+	"workflow": true,
+	"mcp":      true,
+	"hooks":    true,
+	"settings": true,
+	"policy":   true,
+	"template": true,
+	"memory":   true,
+}
+
+var validOverrideProviders = map[string]bool{
+	"claude":      true,
+	"gemini":      true,
+	"cursor":      true,
+	"copilot":     true,
+	"antigravity": true,
+}
+
+func isOverrideFilename(name string) bool {
+	if !strings.HasSuffix(name, ".xcf") {
+		return false
+	}
+	base := strings.TrimSuffix(name, ".xcf")
+	parts := strings.Split(base, ".")
+	if len(parts) != 2 {
+		return false
+	}
+	return validOverrideKinds[parts[0]] && validOverrideProviders[parts[1]]
 }
