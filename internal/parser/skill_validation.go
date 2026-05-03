@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/saero-ai/xcaffold/providers"
 )
 
 var canonicalSkillSubdirs = map[string]bool{
@@ -132,14 +134,6 @@ var validOverrideKinds = map[string]bool{
 	"memory":   true,
 }
 
-var validOverrideProviders = map[string]bool{
-	"claude":      true,
-	"gemini":      true,
-	"cursor":      true,
-	"copilot":     true,
-	"antigravity": true,
-}
-
 func isOverrideFilename(name string) bool {
 	if !strings.HasSuffix(name, ".xcf") {
 		return false
@@ -149,5 +143,5 @@ func isOverrideFilename(name string) bool {
 	if len(parts) != 2 {
 		return false
 	}
-	return validOverrideKinds[parts[0]] && validOverrideProviders[parts[1]]
+	return validOverrideKinds[parts[0]] && providers.IsRegistered(parts[1])
 }

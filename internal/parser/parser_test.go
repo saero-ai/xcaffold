@@ -8,6 +8,11 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	_ "github.com/saero-ai/xcaffold/providers/antigravity"
+	_ "github.com/saero-ai/xcaffold/providers/claude"
+	_ "github.com/saero-ai/xcaffold/providers/copilot"
+	_ "github.com/saero-ai/xcaffold/providers/cursor"
+	_ "github.com/saero-ai/xcaffold/providers/gemini"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
