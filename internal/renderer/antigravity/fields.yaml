@@ -1,0 +1,50 @@
+provider: antigravity
+version: "1.0"
+kinds:
+  agent:
+    name: { support: xcaffold-only }
+    description: { support: optional }
+    model: { support: optional }
+    effort: { support: unsupported }
+    max-turns: { support: unsupported }
+    tools: { support: unsupported }
+    disallowed-tools: { support: unsupported }
+    readonly: { support: unsupported }
+    permission-mode: { support: unsupported }
+    disable-model-invocation: { support: unsupported }
+    user-invocable: { support: unsupported }
+    background: { support: unsupported }
+    isolation: { support: unsupported }
+    memory: { support: unsupported }
+    color: { support: xcaffold-only }
+    initial-prompt: { support: unsupported }
+    skills: { support: unsupported }
+    rules: { support: xcaffold-only }
+    mcp: { support: xcaffold-only }
+    assertions: { support: xcaffold-only }
+    mcp-servers: { support: unsupported }
+    hooks: { support: unsupported }
+    targets: { support: xcaffold-only }
+  skill:
+    name: { support: xcaffold-only }
+    description: { support: optional }
+    when-to-use: { support: unsupported }
+    license: { support: unsupported }
+    allowed-tools: { support: unsupported }
+    disable-model-invocation: { support: unsupported }
+    user-invocable: { support: unsupported }
+    argument-hint: { support: unsupported }
+    artifacts: { support: optional }
+    references: { support: xcaffold-only }
+    scripts: { support: xcaffold-only }
+    assets: { support: xcaffold-only }
+    examples: { support: xcaffold-only }
+    targets: { support: xcaffold-only }
+  rule:
+    always-apply: { support: unsupported }
+    description: { support: optional }
+    activation: { support: unsupported }
+    name: { support: xcaffold-only }
+    paths: { support: optional }
+    exclude-agents: { support: unsupported }
+    targets: { support: xcaffold-only }
