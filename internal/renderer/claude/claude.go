@@ -434,9 +434,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps
 	if len(agent.Skills) > 0 {
 		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
 	}
-	if len(agent.Rules) > 0 {
-		fmt.Fprintf(&sb, "rules: [%s]\n", strings.Join(agent.Rules, ", "))
-	}
+
 
 	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, "claude", id)
 	notes = append(notes, modelNotes...)

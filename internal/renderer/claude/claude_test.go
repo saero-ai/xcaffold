@@ -581,3 +581,24 @@ func TestCompileRuleMarkdown_ExcludeAgents_FidelityNote(t *testing.T) {
 	require.Equal(t, renderer.LevelInfo, notes[0].Level)
 	require.Contains(t, notes[0].Reason, "exclude-agents")
 }
+
+func TestCompileAgents_RulesNotInFrontmatter(t *testing.T) {
+	agents := map[string]ast.AgentConfig{
+		"test": {
+			Name:        "test",
+			Description: "Test agent",
+			Rules:       []string{"security", "coding-standards"},
+			Body:        "You are a test agent.",
+		},
+	}
+	r := New()
+	files, _, err := r.CompileAgents(agents, ".")
+	require.NoError(t, err)
+
+	content, ok := files["agents/test.md"]
+	require.True(t, ok, "expected agents/test.md in output")
+
+	assert.NotContains(t, content, "rules:")
+	assert.NotContains(t, content, "security") // rule names must not appear in frontmatter
+	assert.NotContains(t, content, "coding-standards")
+}
