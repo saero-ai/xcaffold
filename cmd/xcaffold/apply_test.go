@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -743,30 +742,6 @@ func TestApplyScope_OrchestratorMemory_NoEntries_NoDir(t *testing.T) {
 
 	_, err = os.Stat(filepath.Join(claudeDir, "agent-memory"))
 	require.True(t, os.IsNotExist(err), "agent-memory/ must not be created when config has no memory entries")
-}
-
-// TestClaudeProjectMemoryDir_DeterministicEncoding verifies that
-// claudeProjectMemoryDir returns the same directory for the same project root
-// on repeated calls, and falls back to the working directory without error
-// when given an empty projectRoot.
-func TestClaudeProjectMemoryDir_DeterministicEncoding(t *testing.T) {
-	tmp := t.TempDir()
-
-	dir, err := claudeProjectMemoryDir(tmp)
-	require.NoError(t, err)
-
-	dirAgain, err := claudeProjectMemoryDir(tmp)
-	require.NoError(t, err)
-	require.Equal(t, dir, dirAgain)
-
-	require.Contains(t, dir, ".claude/projects")
-	require.True(t, strings.HasSuffix(dir, "memory"))
-
-	// Empty projectRoot falls back to cwd without crashing.
-	dirEmpty, err := claudeProjectMemoryDir("")
-	require.NoError(t, err)
-	require.Contains(t, dirEmpty, ".claude/projects")
-	require.True(t, strings.HasSuffix(dirEmpty, "memory"))
 }
 
 // TestCheckFidelityErrors_ErrorLevel verifies that checkFidelityErrors returns

@@ -1018,30 +1018,6 @@ func runPostImportSteps(config *ast.XcaffoldConfig, projectDir string, injectToo
 	return nil
 }
 
-func claudeProjectMemoryDir(projectRoot string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolving home directory: %w", err)
-	}
-	if projectRoot == "" || projectRoot == "." {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return "", fmt.Errorf("resolving working directory: %w", err)
-		}
-		projectRoot = cwd
-	}
-	projectRoot = filepath.Clean(projectRoot)
-	if !filepath.IsAbs(projectRoot) {
-		abs, err := filepath.Abs(projectRoot)
-		if err != nil {
-			return "", fmt.Errorf("resolving absolute project root: %w", err)
-		}
-		projectRoot = abs
-	}
-	encoded := strings.ReplaceAll(projectRoot, "/", "-")
-	return filepath.Join(home, ".claude", "projects", encoded, "memory"), nil
-}
-
 // writeMemoryFiles writes each memory entry in config to a plain .md file under
 // xcf/agents/<agentID>/memory/<name>.md, mirroring the convention the compiler
 // uses to discover memory at build time. Returns the number of files written.
