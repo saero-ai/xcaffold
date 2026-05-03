@@ -10,6 +10,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// nativeKindSupport declares which resource kinds each provider natively
+// stores on disk. Verified from provider ground truth (2026-05-03).
+// This is distinct from renderer capabilities (which declare what the
+// compiler can translate TO a provider, including cross-kind lowering).
+var nativeKindSupport = map[string]map[importer.Kind]bool{
+	"claude": {
+		importer.KindAgent: true, importer.KindSkill: true,
+		importer.KindRule: true, importer.KindMCP: true,
+		importer.KindHookScript: true, importer.KindSettings: true,
+		importer.KindMemory: true,
+	},
+	"gemini": {
+		importer.KindAgent: true, importer.KindSkill: true,
+		importer.KindRule: true, importer.KindHookScript: true,
+		importer.KindSettings: true,
+	},
+	"cursor": {
+		importer.KindAgent: true, importer.KindSkill: true,
+		importer.KindRule: true, importer.KindMCP: true,
+		importer.KindHookScript: true,
+	},
+	"copilot": {
+		importer.KindAgent: true, importer.KindSkill: true,
+		importer.KindRule: true, importer.KindMCP: true,
+		importer.KindHookScript: true,
+	},
+	"antigravity": {
+		importer.KindAgent: true, importer.KindSkill: true,
+		importer.KindRule: true, importer.KindWorkflow: true,
+		importer.KindMCP: true,
+	},
+}
+
 // kindDisplay defines the canonical display order and labels for resource kinds.
 var kindDisplay = []struct {
 	kind  importer.Kind
@@ -141,7 +174,11 @@ func renderCompiledOutputTable(
 	allSupported := make([]map[importer.Kind]bool, len(providers))
 	for i, imp := range providers {
 		allCounts[i] = importer.ScanDir(imp, imp.InputDir())
-		allSupported[i] = importer.SupportedKinds(imp)
+		if s, ok := nativeKindSupport[imp.Provider()]; ok {
+			allSupported[i] = s
+		} else {
+			allSupported[i] = make(map[importer.Kind]bool)
+		}
 	}
 
 	cols := activeColumns(allCounts)
