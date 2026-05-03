@@ -1322,6 +1322,108 @@ func TestParseOverrideFile_UnsupportedKind_ReturnsError(t *testing.T) {
 	assert.Contains(t, err.Error(), "bogus")
 }
 
+func TestValidateOverrideBasesExist_Hooks_WithBase_Passes(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Hooks: map[string]ast.NamedHookConfig{
+			"pre-commit": {Name: "pre-commit"},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddHooks("pre-commit", "claude", ast.NamedHookConfig{Name: "pre-commit"})
+
+	err := validateOverrideBasesExist(config)
+	require.NoError(t, err)
+}
+
+func TestValidateOverrideBasesExist_Hooks_WithoutBase_Fails(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Hooks:     map[string]ast.NamedHookConfig{},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddHooks("missing-hook", "claude", ast.NamedHookConfig{Name: "missing-hook"})
+
+	err := validateOverrideBasesExist(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "hooks")
+	assert.Contains(t, err.Error(), "missing-hook")
+	assert.Contains(t, err.Error(), "no base resource")
+}
+
+func TestValidateOverrideBasesExist_Settings_WithBase_Passes(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Settings:  map[string]ast.SettingsConfig{"default": {Name: "default"}},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddSettings("default", "claude", ast.SettingsConfig{Name: "default"})
+
+	err := validateOverrideBasesExist(config)
+	require.NoError(t, err)
+}
+
+func TestValidateOverrideBasesExist_Settings_WithoutBase_Fails(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Settings:  map[string]ast.SettingsConfig{},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddSettings("missing-settings", "claude", ast.SettingsConfig{Name: "missing-settings"})
+
+	err := validateOverrideBasesExist(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "settings")
+	assert.Contains(t, err.Error(), "missing-settings")
+	assert.Contains(t, err.Error(), "no base resource")
+}
+
+func TestValidateOverrideBasesExist_Policy_WithBase_Passes(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Policies = map[string]ast.PolicyConfig{"require-desc": {Name: "require-desc"}}
+	config.Overrides.AddPolicy("require-desc", "claude", ast.PolicyConfig{Name: "require-desc"})
+
+	err := validateOverrideBasesExist(config)
+	require.NoError(t, err)
+}
+
+func TestValidateOverrideBasesExist_Policy_WithoutBase_Fails(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Policies = map[string]ast.PolicyConfig{}
+	config.Overrides.AddPolicy("missing-policy", "claude", ast.PolicyConfig{Name: "missing-policy"})
+
+	err := validateOverrideBasesExist(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "policy")
+	assert.Contains(t, err.Error(), "missing-policy")
+	assert.Contains(t, err.Error(), "no base resource")
+}
+
+func TestValidateOverrideBasesExist_Template_WithBase_Passes(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Templates = map[string]ast.TemplateConfig{"scaffold": {Name: "scaffold"}}
+	config.Overrides.AddTemplate("scaffold", "claude", ast.TemplateConfig{Name: "scaffold"})
+
+	err := validateOverrideBasesExist(config)
+	require.NoError(t, err)
+}
+
+func TestValidateOverrideBasesExist_Template_WithoutBase_Fails(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Templates = map[string]ast.TemplateConfig{}
+	config.Overrides.AddTemplate("missing-tpl", "claude", ast.TemplateConfig{Name: "missing-tpl"})
+
+	err := validateOverrideBasesExist(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "template")
+	assert.Contains(t, err.Error(), "missing-tpl")
+	assert.Contains(t, err.Error(), "no base resource")
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }

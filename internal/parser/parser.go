@@ -1010,6 +1010,26 @@ func validateOverrideBasesExist(config *ast.XcaffoldConfig) error {
 			return fmt.Errorf("override file for mcp %q has no base resource", name)
 		}
 	}
+	for name := range config.Overrides.Hooks {
+		if _, ok := config.Hooks[name]; !ok {
+			return fmt.Errorf("override file for hooks %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.Settings {
+		if _, ok := config.Settings[name]; !ok {
+			return fmt.Errorf("override file for settings %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.Policy {
+		if _, ok := config.Policies[name]; !ok {
+			return fmt.Errorf("override file for policy %q has no base resource", name)
+		}
+	}
+	for name := range config.Overrides.Template {
+		if _, ok := config.Templates[name]; !ok {
+			return fmt.Errorf("override file for template %q has no base resource", name)
+		}
+	}
 	return nil
 }
 
