@@ -552,10 +552,8 @@ func TestRenderMultiProvider_TransposedLayout(t *testing.T) {
 
 	// Verify the table structure: providers should be in header, kinds in rows
 	lines := strings.Split(strings.TrimSpace(output), "\n")
-	// Line 2 should be the header line with providers as columns
-	if len(lines) > 1 {
-		headerLine := lines[1]
-		// Header line should start with "Kind" and contain provider names
+	if len(lines) > 0 {
+		headerLine := lines[0]
 		assert.Contains(t, headerLine, "Kind")
 		assert.Contains(t, headerLine, ".claude")
 		assert.Contains(t, headerLine, ".agents")

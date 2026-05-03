@@ -251,7 +251,6 @@ func renderMultiProvider(
 	totalW := kindW + len(providers)*countW
 	sep := "  " + strings.Repeat("─", totalW)
 
-	fmt.Printf("  ─── COMPILED OUTPUT %s\n", strings.Repeat("─", totalW-21))
 	fmt.Println(header)
 	fmt.Println(sep)
 
