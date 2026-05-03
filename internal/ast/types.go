@@ -187,22 +187,26 @@ type AgentConfig struct {
 	// Human-readable purpose of this agent.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:required,gemini:required,copilot:required,cursor:optional,antigravity:optional
 	Description string `yaml:"description,omitempty"`
 
 	// LLM model identifier or alias resolved at compile time.
 	// +xcf:optional
 	// +xcf:group=Model & Execution
 	// +xcf:example=sonnet
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional,cursor:optional,antigravity:optional
 	Model string `yaml:"model,omitempty"`
 
 	// Reasoning effort level hint for the model provider.
 	// +xcf:optional
 	// +xcf:group=Model & Execution
+	// +xcf:provider=claude:optional,cursor:optional
 	Effort string `yaml:"effort,omitempty"`
 
 	// Maximum conversation turns before the agent exits.
 	// +xcf:optional
 	// +xcf:group=Model & Execution
+	// +xcf:provider=claude:optional,gemini:optional
 	MaxTurns int `yaml:"max-turns,omitempty"`
 
 	// Operational mode for the agent session.
@@ -214,43 +218,50 @@ type AgentConfig struct {
 	// +xcf:optional
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
-	// +xcf:provider=cursor:ignored,antigravity:ignored
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional,cursor:unsupported,antigravity:unsupported
 	Tools []string `yaml:"tools,omitempty"`
 
 	// Tools explicitly denied to this agent.
 	// +xcf:optional
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional
 	DisallowedTools []string `yaml:"disallowed-tools,omitempty"`
 
 	// When true, restricts the agent to read-only tool access.
 	// +xcf:optional
 	// +xcf:group=Tool Access
+	// +xcf:provider=claude:optional,cursor:optional
 	Readonly *bool `yaml:"readonly,omitempty"`
 
 	// Security mode controlling tool authorization behavior.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	PermissionMode string `yaml:"permission-mode,omitempty"`
 
 	// Prevents the agent from spawning sub-agents.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
 	// Whether users can invoke this agent directly via slash command.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	UserInvocable *bool `yaml:"user-invocable,omitempty"`
 
 	// Runs the agent in background mode without interactive prompts.
 	// +xcf:optional
 	// +xcf:group=Lifecycle
+	// +xcf:provider=claude:optional,cursor:optional
 	Background *bool `yaml:"background,omitempty"`
 
 	// Process isolation level for the agent session.
 	// +xcf:optional
 	// +xcf:group=Lifecycle
+	// +xcf:provider=claude:optional
 	Isolation string `yaml:"isolation,omitempty"`
 
 	// Conditional expression evaluated before agent activation.
@@ -262,6 +273,7 @@ type AgentConfig struct {
 	// +xcf:optional
 	// +xcf:group=Memory & Context
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional
 	Memory FlexStringSlice `yaml:"memory,omitempty"`
 
 	// Display color for terminal output differentiation.
@@ -272,12 +284,14 @@ type AgentConfig struct {
 	// System prompt prepended to every conversation.
 	// +xcf:optional
 	// +xcf:group=Memory & Context
+	// +xcf:provider=claude:optional
 	InitialPrompt string `yaml:"initial-prompt,omitempty"`
 
 	// Skill resource IDs attached to this agent.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional
 	Skills []string `yaml:"skills,omitempty"`
 
 	// Rule resource IDs governing this agent.
@@ -302,11 +316,13 @@ type AgentConfig struct {
 	// +xcf:optional
 	// +xcf:group=Inline Composition
 	// +xcf:type=map
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	MCPServers map[string]MCPConfig `yaml:"mcp-servers,omitempty"`
 
 	// Inline lifecycle hook definitions for this agent.
 	// +xcf:optional
 	// +xcf:group=Inline Composition
+	// +xcf:provider=claude:optional
 	Hooks HookConfig `yaml:"hooks,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.

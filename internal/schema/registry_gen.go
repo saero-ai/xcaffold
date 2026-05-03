@@ -26,6 +26,13 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this agent.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "required",
+					"copilot":     "required",
+					"cursor":      "optional",
+					"gemini":      "required",
+				},
 			},
 			{
 				Name:        "Model",
@@ -35,7 +42,14 @@ func init() {
 				Optional:    true,
 				Description: "LLM model identifier or alias resolved at compile time.",
 				Group:       "Model & Execution",
-				Example:     "sonnet",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+					"gemini":      "optional",
+				},
+				Example: "sonnet",
 			},
 			{
 				Name:        "Effort",
@@ -45,6 +59,10 @@ func init() {
 				Optional:    true,
 				Description: "Reasoning effort level hint for the model provider.",
 				Group:       "Model & Execution",
+				Provider: map[string]string{
+					"claude": "optional",
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "MaxTurns",
@@ -54,6 +72,10 @@ func init() {
 				Optional:    true,
 				Description: "Maximum conversation turns before the agent exits.",
 				Group:       "Model & Execution",
+				Provider: map[string]string{
+					"claude": "optional",
+					"gemini": "optional",
+				},
 			},
 			{
 				Name:        "Mode",
@@ -73,8 +95,11 @@ func init() {
 				Description: "Ordered list of tools this agent may invoke.",
 				Group:       "Tool Access",
 				Provider: map[string]string{
-					"antigravity": "ignored",
-					"cursor":      "ignored",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "unsupported",
+					"gemini":      "optional",
 				},
 			},
 			{
@@ -85,6 +110,9 @@ func init() {
 				Optional:    true,
 				Description: "Tools explicitly denied to this agent.",
 				Group:       "Tool Access",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Readonly",
@@ -94,6 +122,10 @@ func init() {
 				Optional:    true,
 				Description: "When true, restricts the agent to read-only tool access.",
 				Group:       "Tool Access",
+				Provider: map[string]string{
+					"claude": "optional",
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "PermissionMode",
@@ -103,6 +135,9 @@ func init() {
 				Optional:    true,
 				Description: "Security mode controlling tool authorization behavior.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "DisableModelInvocation",
@@ -112,6 +147,9 @@ func init() {
 				Optional:    true,
 				Description: "Prevents the agent from spawning sub-agents.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "UserInvocable",
@@ -121,6 +159,9 @@ func init() {
 				Optional:    true,
 				Description: "Whether users can invoke this agent directly via slash command.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Background",
@@ -130,6 +171,10 @@ func init() {
 				Optional:    true,
 				Description: "Runs the agent in background mode without interactive prompts.",
 				Group:       "Lifecycle",
+				Provider: map[string]string{
+					"claude": "optional",
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Isolation",
@@ -139,6 +184,9 @@ func init() {
 				Optional:    true,
 				Description: "Process isolation level for the agent session.",
 				Group:       "Lifecycle",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "When",
@@ -157,6 +205,9 @@ func init() {
 				Optional:    true,
 				Description: "Named memory banks attached to this agent.",
 				Group:       "Memory & Context",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Color",
@@ -175,6 +226,9 @@ func init() {
 				Optional:    true,
 				Description: "System prompt prepended to every conversation.",
 				Group:       "Memory & Context",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Skills",
@@ -184,6 +238,9 @@ func init() {
 				Optional:    true,
 				Description: "Skill resource IDs attached to this agent.",
 				Group:       "Composition",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Rules",
@@ -220,6 +277,11 @@ func init() {
 				Optional:    true,
 				Description: "Inline MCP server definitions keyed by server name.",
 				Group:       "Inline Composition",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "Hooks",
@@ -229,6 +291,9 @@ func init() {
 				Optional:    true,
 				Description: "Inline lifecycle hook definitions for this agent.",
 				Group:       "Inline Composition",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Targets",

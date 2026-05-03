@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/saero-ai/xcaffold/internal/schema"
 )
 
 // TestParseMarkers_Optional verifies that +xcf:optional marker sets Optional=true
@@ -700,5 +702,36 @@ func TestParseMarkers_WhitespaceHandling(t *testing.T) {
 	// Group value includes the whitespace as provided
 	if !strings.Contains(markers.Group, "Test") {
 		t.Errorf("Expected Group to contain 'Test', got '%s'", markers.Group)
+	}
+}
+
+// TestAgentProviderMarkers_DescriptionRequired verifies that description field
+// has the correct provider markers in the schema registry.
+func TestAgentProviderMarkers_DescriptionRequired(t *testing.T) {
+	ks, ok := schema.LookupKind("agent")
+	if !ok {
+		t.Fatal("agent kind not in registry")
+	}
+	var descField schema.Field
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "description" {
+			descField = f
+			break
+		}
+	}
+	if descField.Provider == nil {
+		t.Fatal("description field has no provider markers")
+	}
+	if descField.Provider["claude"] != "required" {
+		t.Errorf("description: claude provider = %q, want %q", descField.Provider["claude"], "required")
+	}
+	if descField.Provider["gemini"] != "required" {
+		t.Errorf("description: gemini provider = %q, want %q", descField.Provider["gemini"], "required")
+	}
+	if descField.Provider["copilot"] != "required" {
+		t.Errorf("description: copilot provider = %q, want %q", descField.Provider["copilot"], "required")
+	}
+	if descField.Provider["cursor"] != "optional" {
+		t.Errorf("description: cursor provider = %q, want %q", descField.Provider["cursor"], "optional")
 	}
 }
