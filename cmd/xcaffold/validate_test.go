@@ -60,8 +60,7 @@ skills:
 }
 
 func TestValidateCmd_InvalidCrossRef(t *testing.T) {
-	// This old test is kept for backward compat, but it should now pass
-	// because cross-reference validation no longer fails (TC-20)
+	// Cross-reference validation no longer fails — exits 0 with warnings
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "project.xcf")
 	content := `---
@@ -88,7 +87,7 @@ agents:
 }
 
 func TestValidateCmd_InvalidCrossRef_ExitsZero(t *testing.T) {
-	// TC-20: Cross-reference issues should exit 0 (only warnings), not 1 (errors)
+	// Cross-reference issues exit 0 (warnings only), not 1
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
@@ -296,7 +295,7 @@ You are a developer.
 }
 
 func TestValidate_ManifestInXcaffoldDir_ParsesFullProjectRoot(t *testing.T) {
-	// TC-17: When validate.go uses filepath.Dir(".xcaffold/project.xcf") = ".xcaffold/"
+	// When validate.go uses filepath.Dir(".xcaffold/project.xcf") = ".xcaffold/"
 	// as the ParseDirectory root, files at xcf/agents/ are NOT found.
 	// This causes invalid xcf/agents/ files to silently pass validation.
 	// Fix: derive parseRoot by walking up past .xcaffold/ to the true project root.
