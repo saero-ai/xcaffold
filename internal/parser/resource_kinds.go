@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -73,8 +74,6 @@ type mcpDocument struct {
 }
 
 // projectDocFields is the deserialization target for kind: project documents.
-// It does NOT embed ResourceScope, so "agents" maps to []string (ref list)
-// without colliding with ResourceScope's map[string]AgentConfig.
 type projectDocFields struct {
 	Kind          string                        `yaml:"kind"`
 	Version       string                        `yaml:"version"`
@@ -87,12 +86,6 @@ type projectDocFields struct {
 	License       string                        `yaml:"license,omitempty"`
 	BackupDir     string                        `yaml:"backup-dir,omitempty"`
 	Targets       []string                      `yaml:"targets,omitempty"`
-	AgentRefs     []ast.AgentManifestEntry      `yaml:"agents,omitempty"`
-	SkillRefs     []string                      `yaml:"skills,omitempty"`
-	RuleRefs      []string                      `yaml:"rules,omitempty"`
-	WorkflowRefs  []string                      `yaml:"workflows,omitempty"`
-	MCPRefs       []string                      `yaml:"mcp,omitempty"`
-	PolicyRefs    []string                      `yaml:"policies,omitempty"`
 	Test          ast.TestConfig                `yaml:"test,omitempty"`
 	Local         ast.SettingsConfig            `yaml:"local,omitempty"`
 	TargetOptions map[string]ast.TargetOverride `yaml:"target-options,omitempty"`
@@ -102,10 +95,11 @@ type projectDocFields struct {
 // HookConfig is a map type, so it cannot be inlined; the "events" field
 // wraps it at the YAML level.
 type hooksDocument struct {
-	Kind    string         `yaml:"kind"`
-	Version string         `yaml:"version"`
-	Name    string         `yaml:"name,omitempty"`
-	Events  ast.HookConfig `yaml:"events"`
+	Kind      string         `yaml:"kind"`
+	Version   string         `yaml:"version"`
+	Name      string         `yaml:"name,omitempty"`
+	Artifacts []string       `yaml:"artifacts,omitempty"`
+	Events    ast.HookConfig `yaml:"events"`
 }
 
 // settingsDocument wraps SettingsConfig with envelope fields for kind: settings.
@@ -381,7 +375,24 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		if _, exists := config.Skills[doc.Name]; exists {
 			return fmt.Errorf("duplicate skill ID %q", doc.Name)
 		}
-		config.Skills[doc.Name] = doc.SkillConfig
+
+		// Post-parse: migrate legacy subdirectory fields to artifacts
+		skill := doc.SkillConfig
+		for _, legacy := range []struct {
+			field []string
+			name  string
+		}{
+			{skill.References, "references"},
+			{skill.Scripts, "scripts"},
+			{skill.Assets, "assets"},
+			{skill.Examples, "examples"},
+		} {
+			if len(legacy.field) > 0 && !slices.Contains(skill.Artifacts, legacy.name) {
+				skill.Artifacts = append(skill.Artifacts, legacy.name)
+			}
+		}
+
+		config.Skills[doc.Name] = skill
 
 	case "rule":
 		var doc ruleDocument
@@ -580,12 +591,6 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.License = doc.License
 		config.Project.BackupDir = doc.BackupDir
 		config.Project.Targets = doc.Targets
-		config.Project.AgentRefs = doc.AgentRefs
-		config.Project.SkillRefs = doc.SkillRefs
-		config.Project.RuleRefs = doc.RuleRefs
-		config.Project.WorkflowRefs = doc.WorkflowRefs
-		config.Project.MCPRefs = doc.MCPRefs
-		config.Project.PolicyRefs = doc.PolicyRefs
 		config.Project.Test = doc.Test
 		config.Project.Local = doc.Local
 
@@ -614,6 +619,9 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		}
 		if existing.Events == nil {
 			existing.Events = make(ast.HookConfig)
+		}
+		if len(doc.Artifacts) > 0 {
+			existing.Artifacts = append(existing.Artifacts, doc.Artifacts...)
 		}
 		for event, groups := range doc.Events {
 			existing.Events[event] = append(existing.Events[event], groups...)

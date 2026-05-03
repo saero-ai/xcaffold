@@ -68,4 +68,3 @@ func ScanDir(imp ProviderImporter, dir string) map[Kind]int {
 	})
 	return counts
 }
-

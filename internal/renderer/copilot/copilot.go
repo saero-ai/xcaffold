@@ -58,9 +58,14 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		ProjectInstructions:  true,
 		AgentToolsField:      true,
 		AgentNativeToolsOnly: false,
-		SkillSubdirs:         []string{"references", "scripts", "assets", "examples"},
-		ModelField:           true,
-		RuleActivations:      []string{"always", "path-glob"},
+		SkillArtifactDirs: map[string]string{
+			"references": "references",
+			"scripts":    "scripts",
+			"assets":     "assets",
+			"examples":   "examples",
+		},
+		ModelField:      true,
+		RuleActivations: []string{"always", "path-glob"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "frontmatter",
 			Activation:  "frontmatter",
@@ -420,8 +425,6 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			{"memory", len(agent.Memory) > 0},
 			{"skills", len(agent.Skills) > 0},
 			{"hooks", len(agent.Hooks) > 0},
-			{"mode", agent.Mode != ""},
-			{"when", agent.When != ""},
 		}
 		for _, f := range unsupported {
 			if f.present {

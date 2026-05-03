@@ -1057,6 +1057,144 @@ description: "User preferences and context"
 	}
 }
 
+func TestParse_Skill_ArtifactsField(t *testing.T) {
+	input := `---
+kind: skill
+version: "1.0"
+name: my-skill
+artifacts: [references, scripts, custom-data]
+---
+Do things.
+`
+	config, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	skill := config.Skills["my-skill"]
+	if len(skill.Artifacts) != 3 {
+		t.Fatalf("expected 3 artifacts, got %d", len(skill.Artifacts))
+	}
+	if skill.Artifacts[0] != "references" {
+		t.Errorf("artifacts[0] = %q, want %q", skill.Artifacts[0], "references")
+	}
+	if skill.Artifacts[1] != "scripts" {
+		t.Errorf("artifacts[1] = %q, want %q", skill.Artifacts[1], "scripts")
+	}
+	if skill.Artifacts[2] != "custom-data" {
+		t.Errorf("artifacts[2] = %q, want %q", skill.Artifacts[2], "custom-data")
+	}
+}
+
+func TestParse_Skill_LegacyFieldsMigrateToArtifacts(t *testing.T) {
+	input := `---
+kind: skill
+version: "1.0"
+name: legacy-skill
+references:
+  - doc.md
+scripts:
+  - run.sh
+---
+Legacy skill.
+`
+	config, err := Parse(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	skill := config.Skills["legacy-skill"]
+	if len(skill.Artifacts) < 2 {
+		t.Fatalf("expected legacy fields migrated to artifacts, got %d artifacts", len(skill.Artifacts))
+	}
+	// Verify "references" and "scripts" are in artifacts
+	hasRef, hasScript := false, false
+	for _, a := range skill.Artifacts {
+		if a == "references" {
+			hasRef = true
+		}
+		if a == "scripts" {
+			hasScript = true
+		}
+	}
+	if !hasRef {
+		t.Error("expected 'references' in artifacts after migration")
+	}
+	if !hasScript {
+		t.Error("expected 'scripts' in artifacts after migration")
+	}
+}
+
+func TestParse_Agent_RejectsWhenField(t *testing.T) {
+	input := `---
+kind: agent
+version: "1.0"
+name: test
+description: "Test agent"
+when: "some condition"
+---
+Test.
+`
+	_, err := Parse(strings.NewReader(input))
+	if err == nil {
+		t.Error("expected error for removed 'when' field")
+	}
+}
+
+func TestParse_Agent_RejectsModeField(t *testing.T) {
+	input := `---
+kind: agent
+version: "1.0"
+name: test
+description: "Test agent"
+mode: "interactive"
+---
+Test.
+`
+	_, err := Parse(strings.NewReader(input))
+	if err == nil {
+		t.Error("expected error for removed 'mode' field")
+	}
+}
+
+func TestParse_Agent_TargetInstructionsOverride(t *testing.T) {
+	input := `---
+kind: agent
+version: "1.0"
+name: test
+description: "Test agent"
+targets:
+  claude:
+    instructions-override: "Custom Claude instructions"
+---
+Default instructions.
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	agent := config.Agents["test"]
+	override := agent.Targets["claude"]
+	if override.InstructionsOverride != "Custom Claude instructions" {
+		t.Errorf("instructions-override = %q, want %q", override.InstructionsOverride, "Custom Claude instructions")
+	}
+}
+
+func TestParse_Hooks_ArtifactsField(t *testing.T) {
+	input := `kind: hooks
+version: "1.0"
+name: enforce
+artifacts: [scripts]
+events:
+  PreToolUse:
+    - hooks:
+        - type: command
+          command: bash scripts/enforce-standards.sh
+`
+	config, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	hook := config.Hooks["enforce"]
+	require.NotNil(t, hook)
+	require.Len(t, hook.Artifacts, 1)
+	assert.Equal(t, "scripts", hook.Artifacts[0])
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }

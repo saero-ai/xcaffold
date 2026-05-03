@@ -17,6 +17,7 @@ user-invocable: true
 argument-hint: "Provide a task description as the argument."
 
 # Group 7: Composition / Supporting Files
+artifacts: [references, scripts, assets, examples]
 references: [docs/reference.md, docs/glossary.md]
 scripts: [scripts/helper.sh]
 assets: [assets/template.txt]

@@ -67,7 +67,12 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 			Description: "frontmatter",
 			Activation:  "frontmatter",
 		},
-		SkillSubdirs: []string{"references", "scripts", "assets"},
+		SkillArtifactDirs: map[string]string{
+			"references": "references",
+			"scripts":    "scripts",
+			"assets":     "assets",
+			"examples":   "references",
+		},
 		SecurityFields: renderer.SecurityFieldSupport{
 			Effort: true,
 		},
@@ -95,6 +100,7 @@ func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir stri
 // including references, scripts, and assets subdirectories.
 func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	out := &output.Output{Files: make(map[string]string)}
+	caps := r.Capabilities()
 	for id, skill := range skills {
 		md, err := compileCursorSkill(id, skill, baseDir)
 		if err != nil {
@@ -103,20 +109,56 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
-		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("cursor: skill %q references: %w", id, err)
-		}
-		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("cursor: skill %q scripts: %w", id, err)
-		}
-		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("cursor: skill %q assets: %w", id, err)
-		}
-		if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("failed to compile examples for skill %q: %w", id, err)
+		if len(skill.Artifacts) > 0 {
+			if err := compileSkillArtifacts(id, skill, caps, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("cursor: skill %q: %w", id, err)
+			}
+		} else {
+			// Legacy path: individual fields for skills that predate the artifacts field.
+			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("cursor: skill %q references: %w", id, err)
+			}
+			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("cursor: skill %q scripts: %w", id, err)
+			}
+			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("cursor: skill %q assets: %w", id, err)
+			}
+			if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("cursor: skill %q examples: %w", id, err)
+			}
 		}
 	}
 	return out.Files, nil, nil
+}
+
+// compileSkillArtifacts iterates skill.Artifacts and dispatches each artifact
+// to the correct output subdirectory using the renderer's SkillArtifactDirs map.
+func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.CapabilitySet, baseDir string, out *output.Output) error {
+	for _, artifactName := range skill.Artifacts {
+		outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
+		if !ok {
+			outputSubdir = artifactName
+		}
+		var paths []string
+		switch artifactName {
+		case "references":
+			paths = skill.References
+		case "scripts":
+			paths = skill.Scripts
+		case "assets":
+			paths = skill.Assets
+		case "examples":
+			paths = skill.Examples
+		}
+		if len(paths) == 0 {
+			continue
+		}
+		if err := renderer.CompileSkillSubdir(id, artifactName, outputSubdir, paths, baseDir, out); err != nil {
+			return fmt.Errorf("artifact %s: %w", artifactName, err)
+		}
+	}
+	return nil
 }
 
 // CompileRules renders all rules to Cursor rules/<id>.mdc files.

@@ -49,8 +49,8 @@ require:
 
 	err := applyScope(xcf, outputDir, filepath.Dir(xcf), "test")
 	require.Error(t, err, "applyScope must return an error when a policy error is triggered")
-	assert.True(t, strings.Contains(err.Error(), "policy error") || strings.Contains(err.Error(), "policy"),
-		"error message should reference policy, got: %s", err.Error())
+	assert.True(t, strings.Contains(err.Error(), "policy error") || strings.Contains(err.Error(), "policy") || strings.Contains(err.Error(), "FIELD_REQUIRED_FOR_TARGET"),
+		"error message should reference policy or fidelity error, got: %s", err.Error())
 
 	// Output directory must not have been written.
 	entries, statErr := os.ReadDir(outputDir)
@@ -91,6 +91,7 @@ targets:
 kind: agent
 version: "1.0"
 name: dev
+description: A developer agent
 ---
 You are a developer
 `), 0600))

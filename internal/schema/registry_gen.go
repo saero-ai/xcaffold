@@ -26,6 +26,13 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this agent.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "required",
+					"copilot":     "required",
+					"cursor":      "optional",
+					"gemini":      "required",
+				},
 			},
 			{
 				Name:        "Model",
@@ -35,7 +42,14 @@ func init() {
 				Optional:    true,
 				Description: "LLM model identifier or alias resolved at compile time.",
 				Group:       "Model & Execution",
-				Example:     "sonnet",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+					"gemini":      "optional",
+				},
+				Example: "sonnet",
 			},
 			{
 				Name:        "Effort",
@@ -45,6 +59,10 @@ func init() {
 				Optional:    true,
 				Description: "Reasoning effort level hint for the model provider.",
 				Group:       "Model & Execution",
+				Provider: map[string]string{
+					"claude": "optional",
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "MaxTurns",
@@ -54,15 +72,10 @@ func init() {
 				Optional:    true,
 				Description: "Maximum conversation turns before the agent exits.",
 				Group:       "Model & Execution",
-			},
-			{
-				Name:        "Mode",
-				YAMLKey:     "mode",
-				GoType:      "string",
-				XCFType:     "string",
-				Optional:    true,
-				Description: "Operational mode for the agent session.",
-				Group:       "Model & Execution",
+				Provider: map[string]string{
+					"claude": "optional",
+					"gemini": "optional",
+				},
 			},
 			{
 				Name:        "Tools",
@@ -73,8 +86,11 @@ func init() {
 				Description: "Ordered list of tools this agent may invoke.",
 				Group:       "Tool Access",
 				Provider: map[string]string{
-					"antigravity": "ignored",
-					"cursor":      "ignored",
+					"antigravity": "unsupported",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "unsupported",
+					"gemini":      "optional",
 				},
 			},
 			{
@@ -85,6 +101,9 @@ func init() {
 				Optional:    true,
 				Description: "Tools explicitly denied to this agent.",
 				Group:       "Tool Access",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Readonly",
@@ -94,6 +113,10 @@ func init() {
 				Optional:    true,
 				Description: "When true, restricts the agent to read-only tool access.",
 				Group:       "Tool Access",
+				Provider: map[string]string{
+					"claude": "optional",
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "PermissionMode",
@@ -103,6 +126,9 @@ func init() {
 				Optional:    true,
 				Description: "Security mode controlling tool authorization behavior.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "DisableModelInvocation",
@@ -112,6 +138,9 @@ func init() {
 				Optional:    true,
 				Description: "Prevents the agent from spawning sub-agents.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "UserInvocable",
@@ -121,6 +150,9 @@ func init() {
 				Optional:    true,
 				Description: "Whether users can invoke this agent directly via slash command.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Background",
@@ -130,6 +162,10 @@ func init() {
 				Optional:    true,
 				Description: "Runs the agent in background mode without interactive prompts.",
 				Group:       "Lifecycle",
+				Provider: map[string]string{
+					"claude": "optional",
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Isolation",
@@ -139,15 +175,9 @@ func init() {
 				Optional:    true,
 				Description: "Process isolation level for the agent session.",
 				Group:       "Lifecycle",
-			},
-			{
-				Name:        "When",
-				YAMLKey:     "when",
-				GoType:      "string",
-				XCFType:     "string",
-				Optional:    true,
-				Description: "Conditional expression evaluated before agent activation.",
-				Group:       "Lifecycle",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Memory",
@@ -157,6 +187,9 @@ func init() {
 				Optional:    true,
 				Description: "Named memory banks attached to this agent.",
 				Group:       "Memory & Context",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Color",
@@ -175,6 +208,9 @@ func init() {
 				Optional:    true,
 				Description: "System prompt prepended to every conversation.",
 				Group:       "Memory & Context",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Skills",
@@ -184,6 +220,9 @@ func init() {
 				Optional:    true,
 				Description: "Skill resource IDs attached to this agent.",
 				Group:       "Composition",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Rules",
@@ -220,6 +259,11 @@ func init() {
 				Optional:    true,
 				Description: "Inline MCP server definitions keyed by server name.",
 				Group:       "Inline Composition",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "Hooks",
@@ -229,6 +273,9 @@ func init() {
 				Optional:    true,
 				Description: "Inline lifecycle hook definitions for this agent.",
 				Group:       "Inline Composition",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Targets",
@@ -389,6 +436,9 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this context block.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Default",
@@ -398,6 +448,9 @@ func init() {
 				Optional:    true,
 				Description: "Marks this context as tie-breaker when multiple match the same target.",
 				Group:       "Behavior",
+				Provider: map[string]string{
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Targets",
@@ -426,6 +479,15 @@ func init() {
 				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
+				Name:        "Artifacts",
+				YAMLKey:     "artifacts",
+				GoType:      "[]string",
+				XCFType:     "[]string",
+				Optional:    true,
+				Description: "Named subdirectories to copy from xcf/hooks/<name>/ to provider hook dirs.",
+				Group:       "Composition",
+			},
+			{
 				Name:        "Events",
 				YAMLKey:     "events",
 				GoType:      "HookConfig",
@@ -433,6 +495,9 @@ func init() {
 				Optional:    true,
 				Description: "Lifecycle event handlers keyed by event name.",
 				Group:       "Events",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 		},
 	}
@@ -449,6 +514,11 @@ func init() {
 				Optional:    true,
 				Description: "Environment variables passed to the server process.",
 				Group:       "Environment & Headers",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "Headers",
@@ -458,6 +528,9 @@ func init() {
 				Optional:    true,
 				Description: "HTTP headers for remote server connections.",
 				Group:       "Environment & Headers",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Disabled",
@@ -467,6 +540,9 @@ func init() {
 				Optional:    true,
 				Description: "When true, the server is registered but not started.",
 				Group:       "Control",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "OAuth",
@@ -476,6 +552,9 @@ func init() {
 				Optional:    true,
 				Description: "OAuth configuration key-value pairs for authentication.",
 				Group:       "Authentication",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Name",
@@ -495,6 +574,11 @@ func init() {
 				Optional:    true,
 				Description: "Server type (stdio or sse).",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "Command",
@@ -504,6 +588,11 @@ func init() {
 				Optional:    true,
 				Description: "Shell command to start the MCP server process.",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "URL",
@@ -513,6 +602,11 @@ func init() {
 				Optional:    true,
 				Description: "URL for remote MCP servers.",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "Cwd",
@@ -522,6 +616,9 @@ func init() {
 				Optional:    true,
 				Description: "Working directory for the MCP server process.",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "AuthProviderType",
@@ -531,6 +628,9 @@ func init() {
 				Optional:    true,
 				Description: "Authentication provider type for remote servers.",
 				Group:       "Authentication",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "Args",
@@ -540,6 +640,11 @@ func init() {
 				Optional:    true,
 				Description: "Arguments passed to the server command.",
 				Group:       "Connection",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+					"gemini":  "optional",
+				},
 			},
 			{
 				Name:        "DisabledTools",
@@ -549,6 +654,9 @@ func init() {
 				Optional:    true,
 				Description: "Tool names to disable on this MCP server.",
 				Group:       "Control",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 		},
 	}
@@ -664,6 +772,9 @@ func init() {
 				Optional:    true,
 				Description: "When true, applies this rule to all files unconditionally.",
 				Group:       "Activation",
+				Provider: map[string]string{
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Description",
@@ -673,6 +784,12 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this rule.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+				},
 			},
 			{
 				Name:        "Activation",
@@ -683,6 +800,9 @@ func init() {
 				Description: "Cross-provider activation mode for this rule.",
 				Group:       "Activation",
 				Enum:        []string{"always", "path-glob", "model-decided", "manual-mention", "explicit-invoke"},
+				Provider: map[string]string{
+					"cursor": "optional",
+				},
 			},
 			{
 				Name:        "Name",
@@ -702,6 +822,12 @@ func init() {
 				Optional:    true,
 				Description: "Glob patterns for path-based activation.",
 				Group:       "Activation",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+				},
 			},
 			{
 				Name:        "ExcludeAgents",
@@ -713,7 +839,7 @@ func init() {
 				Group:       "Provider-Specific",
 				Enum:        []string{"code-review", "cloud-agent"},
 				Provider: map[string]string{
-					"copilot": "exclusive",
+					"copilot": "optional",
 				},
 			},
 			{
@@ -1027,6 +1153,13 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this skill.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+					"gemini":      "optional",
+				},
 			},
 			{
 				Name:        "WhenToUse",
@@ -1036,6 +1169,9 @@ func init() {
 				Optional:    true,
 				Description: "Guidance for the model on when to invoke this skill.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "License",
@@ -1045,6 +1181,10 @@ func init() {
 				Optional:    true,
 				Description: "SPDX license identifier for open-source skills.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"claude":  "optional",
+					"copilot": "optional",
+				},
 			},
 			{
 				Name:        "AllowedTools",
@@ -1055,9 +1195,8 @@ func init() {
 				Description: "Tools this skill is permitted to use. Skill-specific field.",
 				Group:       "Tool Access",
 				Provider: map[string]string{
-					"antigravity": "ignored",
-					"cursor":      "ignored",
-					"gemini":      "ignored",
+					"claude":  "optional",
+					"copilot": "optional",
 				},
 			},
 			{
@@ -1068,6 +1207,9 @@ func init() {
 				Optional:    true,
 				Description: "Prevents the skill from spawning sub-agents.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "UserInvocable",
@@ -1077,6 +1219,9 @@ func init() {
 				Optional:    true,
 				Description: "Whether users can invoke this skill directly via slash command.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
 			},
 			{
 				Name:        "ArgumentHint",
@@ -1086,6 +1231,25 @@ func init() {
 				Optional:    true,
 				Description: "Hint text shown to the user when invoking the skill.",
 				Group:       "Permissions & Invocation",
+				Provider: map[string]string{
+					"claude": "optional",
+				},
+			},
+			{
+				Name:        "Artifacts",
+				YAMLKey:     "artifacts",
+				GoType:      "[]string",
+				XCFType:     "[]string",
+				Optional:    true,
+				Description: "Named subdirectories to copy from xcf/skills/<id>/ to provider output.",
+				Group:       "Composition",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+					"gemini":      "optional",
+				},
 			},
 			{
 				Name:        "References",
@@ -1148,7 +1312,10 @@ func init() {
 				Description: "Schema shape discriminator for workflow versioning.",
 				Group:       "Identity",
 				Enum:        []string{"workflow/v1"},
-				Default:     "workflow/v1",
+				Provider: map[string]string{
+					"antigravity": "optional",
+				},
+				Default: "workflow/v1",
 			},
 			{
 				Name:        "Name",
@@ -1168,6 +1335,9 @@ func init() {
 				Optional:    true,
 				Description: "Human-readable purpose of this workflow.",
 				Group:       "Identity",
+				Provider: map[string]string{
+					"antigravity": "optional",
+				},
 			},
 			{
 				Name:        "Steps",
@@ -1177,6 +1347,9 @@ func init() {
 				Optional:    true,
 				Description: "Ordered procedural steps for multi-step workflows.",
 				Group:       "Steps",
+				Provider: map[string]string{
+					"antigravity": "optional",
+				},
 			},
 			{
 				Name:        "Targets",

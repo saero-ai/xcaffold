@@ -131,6 +131,36 @@ func TestOrchestrate_PerResourceDispatch(t *testing.T) {
 	assert.Equal(t, "mock content", out.Files["mock.txt"])
 }
 
+// TestOrchestrate_ErrorsOnMissingRequiredField verifies that Orchestrate emits a
+// FIELD_REQUIRED_FOR_TARGET error-level note when a required field (description)
+// is absent from an agent targeting claude.
+func TestOrchestrate_ErrorsOnMissingRequiredField(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"test": {Name: "test"},
+			},
+		},
+	}
+	r := claude.New()
+	_, notes, err := renderer.Orchestrate(r, config, ".")
+	if err != nil {
+		t.Fatalf("Orchestrate failed: %v", err)
+	}
+	found := false
+	for _, n := range notes {
+		if n.Code == renderer.CodeFieldRequiredForTarget && n.Field == "description" {
+			found = true
+			if n.Level != renderer.LevelError {
+				t.Errorf("expected LevelError, got %s", n.Level)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected FIELD_REQUIRED_FOR_TARGET for missing description on agent")
+	}
+}
+
 // TestOrchestrate_UnsupportedCapability_EmitsNote verifies that when a renderer
 // does not support a resource kind, Orchestrate emits a RENDERER_KIND_UNSUPPORTED
 // fidelity note for each resource of that kind.

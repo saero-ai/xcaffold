@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -297,6 +298,7 @@ name: orphan-test
 kind: agent
 version: "1.0"
 name: dev
+description: A developer agent
 ---
 You are a developer.
 `), 0644)
@@ -348,6 +350,7 @@ targets:
 kind: agent
 version: "1.0"
 name: dev
+description: A developer agent
 ---
 You are a developer.
 `), 0600)
@@ -485,6 +488,7 @@ name: orphan-test
 kind: agent
 version: "1.0"
 name: dev
+description: A developer agent
 ---
 You are a developer.
 `), 0600)
@@ -573,6 +577,7 @@ targets:
 kind: agent
 version: "1.0"
 name: dev
+description: A developer agent
 ---
 You are a developer.
 `), 0600))
@@ -762,4 +767,50 @@ func TestClaudeProjectMemoryDir_DeterministicEncoding(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, dirEmpty, ".claude/projects")
 	require.True(t, strings.HasSuffix(dirEmpty, "memory"))
+}
+
+// TestCheckFidelityErrors_ErrorLevel verifies that checkFidelityErrors returns
+// an error when fidelity notes contain error-level entries.
+func TestCheckFidelityErrors_ErrorLevel(t *testing.T) {
+	notes := []renderer.FidelityNote{
+		{Level: renderer.LevelError, Code: renderer.CodeFieldRequiredForTarget, Kind: "agent", Resource: "test", Reason: "missing description"},
+	}
+	err := checkFidelityErrors(notes)
+	require.Error(t, err, "expected error for error-level fidelity notes")
+	assert.Contains(t, err.Error(), "compilation failed")
+	assert.Contains(t, err.Error(), "1 error(s)")
+}
+
+// TestCheckFidelityErrors_WarningOnly verifies that checkFidelityErrors returns
+// nil when notes contain only warning-level entries.
+func TestCheckFidelityErrors_WarningOnly(t *testing.T) {
+	notes := []renderer.FidelityNote{
+		{Level: renderer.LevelWarning, Code: "SOME_WARNING", Reason: "just a warning"},
+	}
+	err := checkFidelityErrors(notes)
+	assert.NoError(t, err, "should not error for warning-level notes")
+}
+
+// TestCheckFidelityErrors_Empty verifies that checkFidelityErrors returns
+// nil when given an empty notes slice.
+func TestCheckFidelityErrors_Empty(t *testing.T) {
+	err := checkFidelityErrors(nil)
+	assert.NoError(t, err, "should not error for empty notes")
+}
+
+// TestCheckFidelityErrors_Mixed verifies that checkFidelityErrors collects
+// all error-level notes and includes them in the error message.
+func TestCheckFidelityErrors_Mixed(t *testing.T) {
+	notes := []renderer.FidelityNote{
+		{Level: renderer.LevelWarning, Code: "WARN", Kind: "skill", Resource: "warn-resource", Reason: "warning only"},
+		{Level: renderer.LevelError, Code: "ERR1", Kind: "agent", Resource: "err-resource-1", Reason: "missing field"},
+		{Level: renderer.LevelInfo, Code: "INFO", Kind: "rule", Resource: "info-resource", Reason: "informational"},
+		{Level: renderer.LevelError, Code: "ERR2", Kind: "context", Resource: "err-resource-2", Reason: "bad value"},
+	}
+	err := checkFidelityErrors(notes)
+	require.Error(t, err, "expected error for mixed notes with errors")
+	assert.Contains(t, err.Error(), "compilation failed")
+	assert.Contains(t, err.Error(), "2 error(s)")
+	assert.Contains(t, err.Error(), "ERR1")
+	assert.Contains(t, err.Error(), "ERR2")
 }

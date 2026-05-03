@@ -39,7 +39,7 @@ func TestCollectWizardAnswers_NoAgentQuestion(t *testing.T) {
 // --global bypasses the local project.xcf idempotency check.
 func TestRunInit_GlobalFlag_NotBlockedByExistingScaffoldXCF(t *testing.T) {
 	dir := t.TempDir()
-	xcfPath := filepath.Join(dir, ".xcaffold", "project.xcf")
+	xcfPath := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.MkdirAll(filepath.Dir(xcfPath), 0755))
 	require.NoError(t, os.WriteFile(xcfPath, []byte("kind: project\nname: existing\n"), 0600))
 
@@ -216,13 +216,15 @@ func TestWriteXCFDirectory_CreatesLayout(t *testing.T) {
 	require.NoError(t, err)
 
 	// project.xcf
-	scaffoldBytes, err := os.ReadFile(filepath.Join(tmpDir, ".xcaffold", "project.xcf"))
+	scaffoldBytes, err := os.ReadFile(filepath.Join(tmpDir, "project.xcf"))
 	require.NoError(t, err)
 	content := string(scaffoldBytes)
 	assert.Contains(t, content, "kind: project")
 	assert.Contains(t, content, "- claude")
-	assert.Contains(t, content, "rules:")
-	// Policies key must NOT be present in project.xcf
+	// Ref lists are no longer in project.xcf
+	assert.NotContains(t, content, "agents:")
+	assert.NotContains(t, content, "rules:")
+	assert.NotContains(t, content, "skills:")
 	assert.NotContains(t, content, "policies:")
 
 	// Xaff agent
@@ -264,7 +266,7 @@ func TestInit_GeneratesProjectXcf(t *testing.T) {
 	err := writeXCFDirectory(tmpDir, ans)
 	require.NoError(t, err)
 
-	_, projectXcfErr := os.Stat(filepath.Join(tmpDir, ".xcaffold", "project.xcf"))
+	_, projectXcfErr := os.Stat(filepath.Join(tmpDir, "project.xcf"))
 	assert.NoError(t, projectXcfErr, "project.xcf should be generated")
 }
 
@@ -293,7 +295,7 @@ func TestRunWizard_SuccessMessage_HasXaffItselfMessage(t *testing.T) {
 	// A full end-to-end test would capture stdout directly and verify the text appears.
 	// For now, we verify the code path exists and the function completes without error.
 	tmpDir := t.TempDir()
-	xcfFile := filepath.Join(tmpDir, ".xcaffold", "project.xcf")
+	xcfFile := filepath.Join(tmpDir, "project.xcf")
 
 	orig, err := os.Getwd()
 	require.NoError(t, err)

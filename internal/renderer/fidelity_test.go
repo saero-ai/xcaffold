@@ -117,6 +117,7 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeOptimizerPassReordered:              true,
 		renderer.CodeMCPGlobalConfigOnly:                 true,
 		renderer.CodeClaudeNativePassthrough:             true,
+		renderer.CodeFieldRequiredForTarget:              true,
 	}
 
 	got := make(map[string]bool)
@@ -244,6 +245,16 @@ func TestFilterNotes_PreservesOrder(t *testing.T) {
 	assert.Equal(t, "third", got[1].Resource)
 }
 
+func TestAllCodes_ContainsFieldRequiredForTarget(t *testing.T) {
+	codes := renderer.AllCodes()
+	for _, c := range codes {
+		if c == renderer.CodeFieldRequiredForTarget {
+			return
+		}
+	}
+	t.Error("AllCodes() does not contain CodeFieldRequiredForTarget")
+}
+
 // buildFidelityFixture constructs an XcaffoldConfig that exercises the maximum
 // number of fidelity emit sites across all four concrete renderers.
 //
@@ -321,7 +332,6 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 					Model:           "unknown-model-xyz-not-in-catalog",
 					Effort:          "high",
 					MaxTurns:        5,
-					Mode:            "auto",
 					Tools:           []string{"Read", "Write"},
 					DisallowedTools: []string{"Bash"},
 					Readonly:        &trueVal,

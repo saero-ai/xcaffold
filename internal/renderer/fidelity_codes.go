@@ -151,6 +151,11 @@ const (
 	// .claude/rules/, and root CLAUDE.md automatically, making re-translation
 	// into .github/ redundant when .claude/ is already present.
 	CodeClaudeNativePassthrough = "CLAUDE_NATIVE_PASSTHROUGH"
+
+	// CodeFieldRequiredForTarget is emitted when a compilation target requires
+	// a field that is absent from the source resource. The compiled output will
+	// be incomplete or rejected by the target provider.
+	CodeFieldRequiredForTarget = "FIELD_REQUIRED_FOR_TARGET"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -190,5 +195,6 @@ func AllCodes() []string {
 		CodeOptimizerPassReordered,
 		CodeMCPGlobalConfigOnly,
 		CodeClaudeNativePassthrough,
+		CodeFieldRequiredForTarget,
 	}
 }

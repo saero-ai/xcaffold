@@ -52,13 +52,13 @@ func TestImportScope_Claude_ReadsMCPJson(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".mcp.json"), mcpJSON)
 
-	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
+	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
 
 	// In split-file format, MCP servers go to xcf/mcp/<name>/mcp.xcf.
-	// The root project.xcf only lists the MCP server ID in its 'mcp:' field.
-	scaffoldData, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
+	// Ref lists are no longer maintained in project.xcf; resources are discovered from xcf/ directory.
+	scaffoldData, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)
-	assert.Contains(t, string(scaffoldData), "playwright", "project.xcf must list the MCP server ID")
+	assert.NotContains(t, string(scaffoldData), "mcp:", "mcp ref lists are no longer in project.xcf")
 
 	// The full server config (command, args) goes in xcf/mcp/playwright/mcp.xcf.
 	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "playwright", "mcp.xcf"))
@@ -84,7 +84,7 @@ func TestImportScope_Claude_AgentMemoryAutoSnapshot(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".claude", "agent-memory", "dev", "MEMORY.md"), memIndexContent)
 	writeFile(t, filepath.Join(tmp, ".claude", "agent-memory", "dev", "note.md"), "some useful note")
 
-	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
+	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
 
 	// xcf/agents/dev/memory/ must have been created with plain .md files.
 	// MEMORY.md is an auto-generated index and must be skipped on import.
@@ -121,13 +121,13 @@ func TestImportScope_Gemini_SettingsAndMCP(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".gemini", "settings.json"), geminiSettings)
 
-	require.NoError(t, importScope(".gemini", filepath.Join(".xcaffold", "project.xcf"), "project", "gemini"))
+	require.NoError(t, importScope(".gemini", "project.xcf", "project", "gemini"))
 
 	// In split-file format, MCP servers go to xcf/mcp/<name>/mcp.xcf.
-	// project.xcf lists only the server ID.
-	scaffoldData, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
+	// Ref lists are no longer maintained in project.xcf; resources are discovered from xcf/ directory.
+	scaffoldData, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)
-	assert.Contains(t, string(scaffoldData), "github", "project.xcf must list the MCP server ID")
+	assert.NotContains(t, string(scaffoldData), "mcp:", "mcp ref lists are no longer in project.xcf")
 
 	// Full config in xcf/mcp/github/mcp.xcf.
 	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "github", "mcp.xcf"))
@@ -155,12 +155,13 @@ func TestImportScope_Cursor_MCPJson(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".cursor", "mcp.json"), cursorMCP)
 
-	require.NoError(t, importScope(".cursor", filepath.Join(".xcaffold", "project.xcf"), "project", "cursor"))
+	require.NoError(t, importScope(".cursor", "project.xcf", "project", "cursor"))
 
 	// In split-file format, MCP servers go to xcf/mcp/<name>/mcp.xcf.
-	scaffoldData, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
+	// Ref lists are no longer maintained in project.xcf; resources are discovered from xcf/ directory.
+	scaffoldData, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)
-	assert.Contains(t, string(scaffoldData), "filesystem", "project.xcf must list the MCP server ID")
+	assert.NotContains(t, string(scaffoldData), "mcp:", "mcp ref lists are no longer in project.xcf")
 
 	mcpXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "mcp", "filesystem", "mcp.xcf"))
 	require.NoError(t, err, "xcf/mcp/filesystem/mcp.xcf must be created")
@@ -189,7 +190,7 @@ func TestImportScope_Cursor_HooksJson(t *testing.T) {
 }`
 	writeFile(t, filepath.Join(tmp, ".cursor", "hooks.json"), cursorHooks)
 
-	require.NoError(t, importScope(".cursor", filepath.Join(".xcaffold", "project.xcf"), "project", "cursor"))
+	require.NoError(t, importScope(".cursor", "project.xcf", "project", "cursor"))
 
 	// Hooks are written to xcf/hooks/<name>/hooks.xcf in split-file format.
 	hooksXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "hooks", "default", "hooks.xcf"))
@@ -206,7 +207,7 @@ func TestImportScope_Antigravity_NoMemoryCrash(t *testing.T) {
 
 	writeFile(t, filepath.Join(tmp, ".agents", "rules", "style.md"), "# Style\n")
 
-	require.NoError(t, importScope(".agents", filepath.Join(".xcaffold", "project.xcf"), "project", "antigravity"))
+	require.NoError(t, importScope(".agents", "project.xcf", "project", "antigravity"))
 
 	// xcf/agents/ must NOT exist (Antigravity imports rules only, no agent
 	// memory dirs should be created).
@@ -231,12 +232,14 @@ func TestImportScope_ClaudeWithProvider_DoesNotBreakExistingBehavior(t *testing.
 	writeFile(t, filepath.Join(tmp, ".claude", "settings.json"), `{"hooks": {}}`)
 
 	// 4-arg call with "claude" must behave identically to old 3-arg behavior
-	require.NoError(t, importScope(".claude", filepath.Join(".xcaffold", "project.xcf"), "project", "claude"))
+	require.NoError(t, importScope(".claude", "project.xcf", "project", "claude"))
 
-	data, err := os.ReadFile(filepath.Join(".xcaffold", "project.xcf"))
+	data, err := os.ReadFile("project.xcf")
 	require.NoError(t, err)
 	assert.Contains(t, string(data), "kind: project")
-	assert.Contains(t, string(data), "dev")
+	// Agent 'dev' will be created in xcf/agents/dev/agent.xcf, not listed in project.xcf ref list
+	// Ref lists are no longer maintained in project.xcf
+	assert.NotContains(t, string(data), "agents:")
 }
 
 // ─── Gitignore directory filtering ───────────────────────────────────────────

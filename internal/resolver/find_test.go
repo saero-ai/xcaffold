@@ -154,3 +154,55 @@ func TestFindXCFFiles_Recursive(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, files, 2)
 }
+
+func TestFindProjectRoot_RootFirst(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0644))
+	found := FindProjectRoot(tmp)
+	require.NotEmpty(t, found, "FindProjectRoot did not find project.xcf at root")
+	assert.Equal(t, tmp, found)
+}
+
+func TestFindProjectRoot_FallbackToXcaffoldDir(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".xcaffold"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, ".xcaffold", "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0644))
+	found := FindProjectRoot(tmp)
+	require.NotEmpty(t, found, "FindProjectRoot did not find .xcaffold/project.xcf as fallback")
+	assert.Equal(t, tmp, found)
+}
+
+func TestFindProjectRoot_NotFound(t *testing.T) {
+	tmp := t.TempDir()
+	found := FindProjectRoot(tmp)
+	assert.Empty(t, found, "expected empty string when no project.xcf found")
+}
+
+func TestFindProjectRoot_WalksUptoRoot(t *testing.T) {
+	tmp := t.TempDir()
+	subdir := filepath.Join(tmp, "a", "b", "c")
+	require.NoError(t, os.MkdirAll(subdir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0644))
+
+	found := FindProjectRoot(subdir)
+	require.NotEmpty(t, found, "FindProjectRoot should walk up to find project.xcf")
+	assert.Equal(t, tmp, found)
+}
+
+func TestFindProjectRoot_PrefersRootOverXcaffold(t *testing.T) {
+	tmp := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".xcaffold"), 0755))
+	// Create both root and .xcaffold versions
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: root\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, ".xcaffold", "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: xcaffold\n"), 0644))
+
+	found := FindProjectRoot(tmp)
+	require.NotEmpty(t, found, "FindProjectRoot should prefer root version")
+	assert.Equal(t, tmp, found)
+
+	// Verify the root version is returned by checking file content
+	projPath := filepath.Join(found, "project.xcf")
+	content, err := os.ReadFile(projPath)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "root")
+}

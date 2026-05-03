@@ -66,16 +66,6 @@ type ProjectConfig struct {
 	// Populated by the parser when decoding kind: project documents.
 	Targets []string `yaml:"-"`
 
-	// Reference lists: bare names linking to child resources in xcf/ subdirectories.
-	// Populated by the parser when decoding kind: project documents.
-	AgentRefs     []AgentManifestEntry `yaml:"agent-refs,omitempty"`
-	SkillRefs     []string             `yaml:"skill-refs,omitempty"`
-	RuleRefs      []string             `yaml:"rule-refs,omitempty"`
-	WorkflowRefs  []string             `yaml:"workflow-refs,omitempty"`
-	MCPRefs       []string             `yaml:"mcp-refs,omitempty"`
-	PolicyRefs    []string             `yaml:"policy-refs,omitempty"`
-	BlueprintRefs []string             `yaml:"-"`
-
 	Test  TestConfig     `yaml:"test,omitempty"`
 	Local SettingsConfig `yaml:"local,omitempty"`
 
@@ -95,46 +85,6 @@ type ProjectConfig struct {
 	TargetOptions map[string]TargetOverride `yaml:"target-options,omitempty"`
 
 	ResourceScope `yaml:",inline"` // Workspace-level resources
-}
-
-// AgentManifestEntry represents an agent reference in a project manifest,
-// which may be a simple string ID or a structured object containing memory hooks.
-type AgentManifestEntry struct {
-	ID     string   `yaml:"-"`
-	Memory []string `yaml:"-"`
-}
-
-func (a *AgentManifestEntry) UnmarshalYAML(value *yaml.Node) error {
-	if value.Kind == yaml.ScalarNode {
-		a.ID = value.Value
-		return nil
-	}
-	if value.Kind == yaml.MappingNode {
-		if len(value.Content) >= 2 {
-			a.ID = value.Content[0].Value
-
-			var inner struct {
-				Memory []string `yaml:"memory"`
-			}
-			if err := value.Content[1].Decode(&inner); err != nil {
-				return err
-			}
-			a.Memory = inner.Memory
-			return nil
-		}
-	}
-	return nil
-}
-
-func (a AgentManifestEntry) MarshalYAML() (interface{}, error) {
-	if len(a.Memory) == 0 {
-		return a.ID, nil
-	}
-	return map[string]interface{}{
-		a.ID: map[string]interface{}{
-			"memory": a.Memory,
-		},
-	}, nil
 }
 
 // FlexStringSlice is a custom type that accepts both YAML scalar strings and list sequences.
@@ -168,10 +118,10 @@ func NewFlexStringSlice(s string) FlexStringSlice {
 //
 // Field ordering is canonical and mirrors the compiled markdown frontmatter:
 //  1. Identity (name, description)
-//  2. Model & Execution (model, effort, maxTurns, mode)
+//  2. Model & Execution (model, effort, maxTurns)
 //  3. Tool Access (tools, disallowedTools, readonly)
 //  4. Permissions & Invocation (permissionMode, disableModelInvocation, userInvocable)
-//  5. Lifecycle (background, isolation, when)
+//  5. Lifecycle (background, isolation)
 //  6. Memory & Context (memory, color, initialPrompt)
 //  7. Composition references (skills, rules, mcp, assertions)
 //  8. Inline composition (mcpServers, hooks)
@@ -187,81 +137,83 @@ type AgentConfig struct {
 	// Human-readable purpose of this agent.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:required,gemini:required,copilot:required,cursor:optional,antigravity:optional
 	Description string `yaml:"description,omitempty"`
 
 	// LLM model identifier or alias resolved at compile time.
 	// +xcf:optional
 	// +xcf:group=Model & Execution
 	// +xcf:example=sonnet
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional,cursor:optional,antigravity:optional
 	Model string `yaml:"model,omitempty"`
 
 	// Reasoning effort level hint for the model provider.
 	// +xcf:optional
 	// +xcf:group=Model & Execution
+	// +xcf:provider=claude:optional,cursor:optional
 	Effort string `yaml:"effort,omitempty"`
 
 	// Maximum conversation turns before the agent exits.
 	// +xcf:optional
 	// +xcf:group=Model & Execution
+	// +xcf:provider=claude:optional,gemini:optional
 	MaxTurns int `yaml:"max-turns,omitempty"`
-
-	// Operational mode for the agent session.
-	// +xcf:optional
-	// +xcf:group=Model & Execution
-	Mode string `yaml:"mode,omitempty"`
 
 	// Ordered list of tools this agent may invoke.
 	// +xcf:optional
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
-	// +xcf:provider=cursor:ignored,antigravity:ignored
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional,cursor:unsupported,antigravity:unsupported
 	Tools []string `yaml:"tools,omitempty"`
 
 	// Tools explicitly denied to this agent.
 	// +xcf:optional
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional
 	DisallowedTools []string `yaml:"disallowed-tools,omitempty"`
 
 	// When true, restricts the agent to read-only tool access.
 	// +xcf:optional
 	// +xcf:group=Tool Access
+	// +xcf:provider=claude:optional,cursor:optional
 	Readonly *bool `yaml:"readonly,omitempty"`
 
 	// Security mode controlling tool authorization behavior.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	PermissionMode string `yaml:"permission-mode,omitempty"`
 
 	// Prevents the agent from spawning sub-agents.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
 	// Whether users can invoke this agent directly via slash command.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	UserInvocable *bool `yaml:"user-invocable,omitempty"`
 
 	// Runs the agent in background mode without interactive prompts.
 	// +xcf:optional
 	// +xcf:group=Lifecycle
+	// +xcf:provider=claude:optional,cursor:optional
 	Background *bool `yaml:"background,omitempty"`
 
 	// Process isolation level for the agent session.
 	// +xcf:optional
 	// +xcf:group=Lifecycle
+	// +xcf:provider=claude:optional
 	Isolation string `yaml:"isolation,omitempty"`
-
-	// Conditional expression evaluated before agent activation.
-	// +xcf:optional
-	// +xcf:group=Lifecycle
-	When string `yaml:"when,omitempty"`
 
 	// Named memory banks attached to this agent.
 	// +xcf:optional
 	// +xcf:group=Memory & Context
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional
 	Memory FlexStringSlice `yaml:"memory,omitempty"`
 
 	// Display color for terminal output differentiation.
@@ -272,12 +224,14 @@ type AgentConfig struct {
 	// System prompt prepended to every conversation.
 	// +xcf:optional
 	// +xcf:group=Memory & Context
+	// +xcf:provider=claude:optional
 	InitialPrompt string `yaml:"initial-prompt,omitempty"`
 
 	// Skill resource IDs attached to this agent.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional
 	Skills []string `yaml:"skills,omitempty"`
 
 	// Rule resource IDs governing this agent.
@@ -302,11 +256,13 @@ type AgentConfig struct {
 	// +xcf:optional
 	// +xcf:group=Inline Composition
 	// +xcf:type=map
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	MCPServers map[string]MCPConfig `yaml:"mcp-servers,omitempty"`
 
 	// Inline lifecycle hook definitions for this agent.
 	// +xcf:optional
 	// +xcf:group=Inline Composition
+	// +xcf:provider=claude:optional
 	Hooks HookConfig `yaml:"hooks,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.
@@ -333,6 +289,7 @@ type TargetOverride struct {
 	Hooks                    map[string]string `yaml:"hooks,omitempty"`
 	SuppressFidelityWarnings *bool             `yaml:"suppress-fidelity-warnings,omitempty"`
 	SkipSynthesis            *bool             `yaml:"skip-synthesis,omitempty"`
+	InstructionsOverride     string            `yaml:"instructions-override,omitempty"`
 
 	Provider map[string]any `yaml:"provider,omitempty"`
 }
@@ -358,39 +315,52 @@ type SkillConfig struct {
 	// Human-readable purpose of this skill.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
 	Description string `yaml:"description,omitempty"`
 
 	// Guidance for the model on when to invoke this skill.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:optional
 	WhenToUse string `yaml:"when-to-use,omitempty"`
 
 	// SPDX license identifier for open-source skills.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:optional,copilot:optional
 	License string `yaml:"license,omitempty"`
 
 	// Tools this skill is permitted to use. Skill-specific field.
 	// +xcf:optional
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
-	// +xcf:provider=gemini:ignored,cursor:ignored,antigravity:ignored
+	// +xcf:provider=claude:optional,copilot:optional
 	AllowedTools []string `yaml:"allowed-tools,omitempty"`
 
 	// Prevents the skill from spawning sub-agents.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
 	// Whether users can invoke this skill directly via slash command.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	UserInvocable *bool `yaml:"user-invocable,omitempty"`
 
 	// Hint text shown to the user when invoking the skill.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
+	// +xcf:provider=claude:optional
 	ArgumentHint string `yaml:"argument-hint,omitempty"`
+
+	// Named subdirectories to copy from xcf/skills/<id>/ to provider output.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
+	// +xcf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
+	Artifacts []string `yaml:"artifacts,omitempty"`
 
 	// Docs and data files copied to skills/<id>/references/ at compile time.
 	// +xcf:optional
@@ -449,17 +419,20 @@ type RuleConfig struct {
 	// When true, applies this rule to all files unconditionally.
 	// +xcf:optional
 	// +xcf:group=Activation
+	// +xcf:provider=cursor:optional
 	AlwaysApply *bool `yaml:"always-apply,omitempty"`
 
 	// Human-readable purpose of this rule.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=claude:optional,cursor:optional,copilot:optional,antigravity:optional
 	Description string `yaml:"description,omitempty"`
 
 	// Cross-provider activation mode for this rule.
 	// +xcf:optional
 	// +xcf:group=Activation
 	// +xcf:enum=always,path-glob,model-decided,manual-mention,explicit-invoke
+	// +xcf:provider=cursor:optional
 	Activation string `yaml:"activation,omitempty"`
 
 	// Unique identifier for this rule within the project.
@@ -475,6 +448,7 @@ type RuleConfig struct {
 	// +xcf:optional
 	// +xcf:group=Activation
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional,cursor:optional,copilot:optional,antigravity:optional
 	Paths []string `yaml:"paths,omitempty"`
 
 	// Agent types excluded from receiving this rule.
@@ -482,7 +456,7 @@ type RuleConfig struct {
 	// +xcf:group=Provider-Specific
 	// +xcf:type=[]string
 	// +xcf:enum=code-review,cloud-agent
-	// +xcf:provider=copilot:exclusive
+	// +xcf:provider=copilot:optional
 	ExcludeAgents []string `yaml:"exclude-agents,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.
@@ -540,9 +514,16 @@ type NamedHookConfig struct {
 	// +xcf:pattern=^[a-z0-9-]+$
 	Name string `yaml:"name,omitempty"`
 
+	// Named subdirectories to copy from xcf/hooks/<name>/ to provider hook dirs.
+	// +xcf:optional
+	// +xcf:group=Composition
+	// +xcf:type=[]string
+	Artifacts []string `yaml:"artifacts,omitempty"`
+
 	// Lifecycle event handlers keyed by event name.
 	// +xcf:optional
 	// +xcf:group=Events
+	// +xcf:provider=claude:optional
 	Events HookConfig `yaml:"events,omitempty"`
 }
 
@@ -552,23 +533,27 @@ type MCPConfig struct {
 	// +xcf:optional
 	// +xcf:group=Environment & Headers
 	// +xcf:type=map
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	Env map[string]string `yaml:"env,omitempty" json:"env,omitempty"`
 
 	// HTTP headers for remote server connections.
 	// +xcf:optional
 	// +xcf:group=Environment & Headers
 	// +xcf:type=map
+	// +xcf:provider=claude:optional
 	Headers map[string]string `yaml:"headers,omitempty" json:"headers,omitempty"`
 
 	// When true, the server is registered but not started.
 	// +xcf:optional
 	// +xcf:group=Control
+	// +xcf:provider=claude:optional
 	Disabled *bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 
 	// OAuth configuration key-value pairs for authentication.
 	// +xcf:optional
 	// +xcf:group=Authentication
 	// +xcf:type=map
+	// +xcf:provider=claude:optional
 	OAuth map[string]string `yaml:"oauth,omitempty" json:"oauth,omitempty"`
 
 	// Unique identifier for this MCP server.
@@ -580,38 +565,45 @@ type MCPConfig struct {
 	// Server type (stdio or sse).
 	// +xcf:optional
 	// +xcf:group=Connection
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	Type string `yaml:"type,omitempty" json:"type,omitempty"`
 
 	// Shell command to start the MCP server process.
 	// +xcf:optional
 	// +xcf:group=Connection
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	Command string `yaml:"command,omitempty" json:"command,omitempty"`
 
 	// URL for remote MCP servers.
 	// +xcf:optional
 	// +xcf:group=Connection
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	URL string `yaml:"url,omitempty" json:"url,omitempty"`
 
 	// Working directory for the MCP server process.
 	// +xcf:optional
 	// +xcf:group=Connection
+	// +xcf:provider=claude:optional
 	Cwd string `yaml:"cwd,omitempty" json:"cwd,omitempty"`
 
 	// Authentication provider type for remote servers.
 	// +xcf:optional
 	// +xcf:group=Authentication
+	// +xcf:provider=claude:optional
 	AuthProviderType string `yaml:"auth-provider-type,omitempty" json:"authProviderType,omitempty"`
 
 	// Arguments passed to the server command.
 	// +xcf:optional
 	// +xcf:group=Connection
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
 	Args []string `yaml:"args,omitempty" json:"args,omitempty"`
 
 	// Tool names to disable on this MCP server.
 	// +xcf:optional
 	// +xcf:group=Control
 	// +xcf:type=[]string
+	// +xcf:provider=claude:optional
 	DisabledTools []string `yaml:"disabled-tools,omitempty" json:"disabledTools,omitempty"`
 
 	// Inherited is set by the parser when this resource originates from an
@@ -870,6 +862,7 @@ type WorkflowConfig struct {
 	// +xcf:group=Identity
 	// +xcf:enum=workflow/v1
 	// +xcf:default=workflow/v1
+	// +xcf:provider=antigravity:optional
 	ApiVersion string `yaml:"api-version,omitempty"`
 
 	// Unique identifier for this workflow within the project.
@@ -881,12 +874,14 @@ type WorkflowConfig struct {
 	// Human-readable purpose of this workflow.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=antigravity:optional
 	Description string `yaml:"description,omitempty"`
 
 	// Ordered procedural steps for multi-step workflows.
 	// +xcf:optional
 	// +xcf:group=Steps
 	// +xcf:type=[]WorkflowStep
+	// +xcf:provider=antigravity:optional
 	Steps []WorkflowStep `yaml:"steps,omitempty"`
 
 	// Per-provider overrides and lowering-strategy directives.
@@ -1022,11 +1017,13 @@ type ContextConfig struct {
 	// Human-readable purpose of this context block.
 	// +xcf:optional
 	// +xcf:group=Identity
+	// +xcf:provider=cursor:optional
 	Description string `yaml:"description,omitempty"`
 
 	// Marks this context as tie-breaker when multiple match the same target.
 	// +xcf:optional
 	// +xcf:group=Behavior
+	// +xcf:provider=cursor:optional
 	Default bool `yaml:"default,omitempty"`
 
 	// Markdown content of the context block.

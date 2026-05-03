@@ -4,43 +4,58 @@ kind: agent . version 1.0 . format: frontmatter+body
     name                      string          required  Unique identifier for this agent within the project.
                                                         Pattern: ^[a-z0-9-]+$
     description               string          optional  Human-readable purpose of this agent.
+                                                        Providers: Claude(required) Gemini(required) Copilot(required) Cursor Antigravity
 
   Model & Execution
     model                     string          optional  LLM model identifier or alias resolved at compile time.
+                                                        Providers: Claude Gemini Copilot Cursor Antigravity
                                                         Examples: sonnet
     effort                    string          optional  Reasoning effort level hint for the model provider.
+                                                        Providers: Claude Cursor
     max-turns                 int             optional  Maximum conversation turns before the agent exits.
-    mode                      string          optional  Operational mode for the agent session.
+                                                        Providers: Claude Gemini
 
   Tool Access
     tools                     []string        optional  Ordered list of tools this agent may invoke.
+                                                        Providers: Claude Gemini Copilot
     disallowed-tools          []string        optional  Tools explicitly denied to this agent.
+                                                        Providers: Claude
     readonly                  boolean         optional  When true, restricts the agent to read-only tool access.
+                                                        Providers: Claude Cursor
 
   Permissions & Invocation
     permission-mode           string          optional  Security mode controlling tool authorization behavior.
+                                                        Providers: Claude
     disable-model-invocation  boolean         optional  Prevents the agent from spawning sub-agents.
+                                                        Providers: Claude
     user-invocable            boolean         optional  Whether users can invoke this agent directly via slash command.
+                                                        Providers: Claude
 
   Lifecycle
     background                boolean         optional  Runs the agent in background mode without interactive prompts.
+                                                        Providers: Claude Cursor
     isolation                 string          optional  Process isolation level for the agent session.
-    when                      string          optional  Conditional expression evaluated before agent activation.
+                                                        Providers: Claude
 
   Memory & Context
     memory                    []string        optional  Named memory banks attached to this agent.
+                                                        Providers: Claude
     color                     string          optional  Display color for terminal output differentiation.
     initial-prompt            string          optional  System prompt prepended to every conversation.
+                                                        Providers: Claude
 
   Composition
     skills                    []string        optional  Skill resource IDs attached to this agent.
+                                                        Providers: Claude
     rules                     []string        optional  Rule resource IDs governing this agent.
     mcp                       []string        optional  MCP server resource IDs available to this agent.
     assertions                []string        optional  Policy assertion IDs evaluated post-compilation.
 
   Inline Composition
     mcp-servers               map             optional  Inline MCP server definitions keyed by server name.
+                                                        Providers: Claude Gemini Copilot
     hooks                     HookConfig      optional  Inline lifecycle hook definitions for this agent.
+                                                        Providers: Claude
 
   Multi-Target
     targets                   map             optional  Per-provider override configuration keyed by provider name.

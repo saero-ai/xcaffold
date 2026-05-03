@@ -50,6 +50,15 @@ func displayKindSchema(cmd *cobra.Command, ks schema.KindSchema) {
 
 func printFieldConstraints(w io.Writer, f schema.Field) {
 	indent := "                                                        "
+
+	// Print provider support annotations if available
+	if len(f.Provider) > 0 {
+		providers := formatProviderSupport(f.Provider)
+		if providers != "" {
+			fmt.Fprintf(w, "%sProviders: %s\n", indent, providers)
+		}
+	}
+
 	if f.Pattern != "" {
 		fmt.Fprintf(w, "%sPattern: %s\n", indent, f.Pattern)
 	}
@@ -62,6 +71,33 @@ func printFieldConstraints(w io.Writer, f schema.Field) {
 	if f.Default != "" {
 		fmt.Fprintf(w, "%sDefault: %s\n", indent, f.Default)
 	}
+}
+
+// formatProviderSupport converts a provider map into a human-readable string.
+// Returns empty string if all providers are "unsupported".
+func formatProviderSupport(providers map[string]string) string {
+	// Provider names in desired order
+	order := []string{"claude", "gemini", "copilot", "cursor", "antigravity"}
+
+	var parts []string
+	for _, name := range order {
+		support, ok := providers[name]
+		if !ok || support == "unsupported" {
+			continue
+		}
+
+		// Capitalize first letter of provider name
+		capitalized := strings.ToUpper(name[:1]) + name[1:]
+
+		if support == "required" {
+			parts = append(parts, capitalized+"(required)")
+		} else {
+			// "optional" is the default, so just show the name
+			parts = append(parts, capitalized)
+		}
+	}
+
+	return strings.Join(parts, " ")
 }
 
 type fieldGroup struct {

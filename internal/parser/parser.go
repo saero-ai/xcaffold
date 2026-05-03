@@ -1367,29 +1367,11 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			if p.Project.BackupDir != "" {
 				merged.Project.BackupDir = p.Project.BackupDir
 			}
-			// Propagate targets and ref lists declared by kind: project documents.
-			// These fields use yaml:"-" so they are not decoded from YAML
-			// directly; only kind: project documents populate them.
+			// Propagate targets declared by kind: project documents.
+			// This field uses yaml:"-" so it is not decoded from YAML
+			// directly; only kind: project documents populate it.
 			if len(p.Project.Targets) > 0 {
 				merged.Project.Targets = p.Project.Targets
-			}
-			if len(p.Project.AgentRefs) > 0 {
-				merged.Project.AgentRefs = p.Project.AgentRefs
-			}
-			if len(p.Project.SkillRefs) > 0 {
-				merged.Project.SkillRefs = p.Project.SkillRefs
-			}
-			if len(p.Project.RuleRefs) > 0 {
-				merged.Project.RuleRefs = p.Project.RuleRefs
-			}
-			if len(p.Project.WorkflowRefs) > 0 {
-				merged.Project.WorkflowRefs = p.Project.WorkflowRefs
-			}
-			if len(p.Project.MCPRefs) > 0 {
-				merged.Project.MCPRefs = p.Project.MCPRefs
-			}
-			if len(p.Project.PolicyRefs) > 0 {
-				merged.Project.PolicyRefs = p.Project.PolicyRefs
 			}
 			if p.Project.Body != "" {
 				merged.Project.Body = p.Project.Body
@@ -1630,27 +1612,9 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 			if child.Project.BackupDir != "" {
 				merged.Project.BackupDir = child.Project.BackupDir
 			}
-			// Propagate targets and ref lists from kind: project documents.
+			// Propagate targets from kind: project documents.
 			if len(child.Project.Targets) > 0 {
 				merged.Project.Targets = child.Project.Targets
-			}
-			if len(child.Project.AgentRefs) > 0 {
-				merged.Project.AgentRefs = child.Project.AgentRefs
-			}
-			if len(child.Project.SkillRefs) > 0 {
-				merged.Project.SkillRefs = child.Project.SkillRefs
-			}
-			if len(child.Project.RuleRefs) > 0 {
-				merged.Project.RuleRefs = child.Project.RuleRefs
-			}
-			if len(child.Project.WorkflowRefs) > 0 {
-				merged.Project.WorkflowRefs = child.Project.WorkflowRefs
-			}
-			if len(child.Project.MCPRefs) > 0 {
-				merged.Project.MCPRefs = child.Project.MCPRefs
-			}
-			if len(child.Project.PolicyRefs) > 0 {
-				merged.Project.PolicyRefs = child.Project.PolicyRefs
 			}
 			// Test override
 			if child.Project.Test.CliPath != "" {
@@ -2197,14 +2161,6 @@ func validateCrossReferences(c *ast.XcaffoldConfig) error {
 		for _, mcpID := range agent.MCP {
 			if _, ok := c.MCP[mcpID]; !ok {
 				return fmt.Errorf("agent %q references undefined mcp server %q", agentID, mcpID)
-			}
-		}
-	}
-
-	if c.Project != nil {
-		for _, policyRef := range c.Project.PolicyRefs {
-			if _, ok := c.Policies[policyRef]; !ok {
-				return fmt.Errorf("project references policy %q but no policy with that name was found", policyRef)
 			}
 		}
 	}

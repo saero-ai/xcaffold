@@ -49,6 +49,22 @@ Any manually edited files inside the target directory will be overwritten.`,
 	SilenceErrors: true,
 }
 
+// checkFidelityErrors scans fidelity notes for error-level entries and returns
+// an error if any are found. Error-level notes (e.g., missing required fields)
+// are severe enough to block compilation.
+func checkFidelityErrors(notes []renderer.FidelityNote) error {
+	var errs []string
+	for _, n := range notes {
+		if n.Level == renderer.LevelError {
+			errs = append(errs, fmt.Sprintf("%s %s/%s: %s", n.Code, n.Kind, n.Resource, n.Reason))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("compilation failed with %d error(s):\n  %s", len(errs), strings.Join(errs, "\n  "))
+	}
+	return nil
+}
+
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
 	applyCmd.Flags().BoolVar(&applyForce, "force", false, "Overwrite customized local files and bypass drift safeguard")
@@ -250,7 +266,13 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	// Restore same-provider extras and emit fidelity notes for cross-provider ones.
 	notes = applyProviderExtras(config, out, targetFlag, notes)
 
-	printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, targetFlag)), false)
+	// Check for error-level fidelity notes (e.g., missing required fields).
+	// Print all notes first (so the user sees them), then fail if any are errors.
+	filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, targetFlag))
+	printFidelityNotes(os.Stderr, filteredNotes, false)
+	if err := checkFidelityErrors(filteredNotes); err != nil {
+		return &silentError{msg: err.Error()}
+	}
 
 	// Policy evaluation. Run against config post-Compile() — compiler.Compile
 	// has already called StripInherited() so globally-inherited resources (e.g.

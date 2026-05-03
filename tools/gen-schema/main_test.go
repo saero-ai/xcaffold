@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/saero-ai/xcaffold/internal/schema"
 )
 
 // TestParseMarkers_Optional verifies that +xcf:optional marker sets Optional=true
@@ -701,4 +703,169 @@ func TestParseMarkers_WhitespaceHandling(t *testing.T) {
 	if !strings.Contains(markers.Group, "Test") {
 		t.Errorf("Expected Group to contain 'Test', got '%s'", markers.Group)
 	}
+}
+
+// TestAgentProviderMarkers_DescriptionRequired verifies that description field
+// has the correct provider markers in the schema registry.
+func TestAgentProviderMarkers_DescriptionRequired(t *testing.T) {
+	ks, ok := schema.LookupKind("agent")
+	if !ok {
+		t.Fatal("agent kind not in registry")
+	}
+	var descField schema.Field
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "description" {
+			descField = f
+			break
+		}
+	}
+	if descField.Provider == nil {
+		t.Fatal("description field has no provider markers")
+	}
+	if descField.Provider["claude"] != "required" {
+		t.Errorf("description: claude provider = %q, want %q", descField.Provider["claude"], "required")
+	}
+	if descField.Provider["gemini"] != "required" {
+		t.Errorf("description: gemini provider = %q, want %q", descField.Provider["gemini"], "required")
+	}
+	if descField.Provider["copilot"] != "required" {
+		t.Errorf("description: copilot provider = %q, want %q", descField.Provider["copilot"], "required")
+	}
+	if descField.Provider["cursor"] != "optional" {
+		t.Errorf("description: cursor provider = %q, want %q", descField.Provider["cursor"], "optional")
+	}
+}
+
+// TestSkillProviderMarkers_AllowedToolsProviders verifies that allowed-tools field
+// has the correct provider markers in the schema registry.
+func TestSkillProviderMarkers_AllowedToolsProviders(t *testing.T) {
+	ks, ok := schema.LookupKind("skill")
+	if !ok {
+		t.Fatal("skill kind not in registry")
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "allowed-tools" {
+			if f.Provider == nil {
+				t.Fatal("allowed-tools has no provider markers")
+			}
+			if f.Provider["claude"] != "optional" {
+				t.Errorf("allowed-tools: claude = %q, want %q", f.Provider["claude"], "optional")
+			}
+			if f.Provider["copilot"] != "optional" {
+				t.Errorf("allowed-tools: copilot = %q, want %q", f.Provider["copilot"], "optional")
+			}
+			return
+		}
+	}
+	t.Fatal("allowed-tools field not found in skill schema")
+}
+
+// TestRuleProviderMarkers_DescriptionProviders verifies that description field
+// has the correct provider markers in the schema registry.
+func TestRuleProviderMarkers_DescriptionProviders(t *testing.T) {
+	ks, ok := schema.LookupKind("rule")
+	if !ok {
+		t.Fatal("rule kind not in registry")
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "description" {
+			if f.Provider == nil {
+				t.Fatal("description has no provider markers")
+			}
+			if f.Provider["claude"] != "optional" {
+				t.Errorf("description: claude = %q, want %q", f.Provider["claude"], "optional")
+			}
+			if f.Provider["cursor"] != "optional" {
+				t.Errorf("description: cursor = %q, want %q", f.Provider["cursor"], "optional")
+			}
+			return
+		}
+	}
+	t.Fatal("description field not found in rule schema")
+}
+
+// TestMCPProviderMarkers verifies that MCP server payload fields have correct provider markers.
+func TestMCPProviderMarkers(t *testing.T) {
+	ks, ok := schema.LookupKind("mcp")
+	if !ok {
+		t.Fatal("mcp kind not in registry")
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "command" {
+			if f.Provider == nil {
+				t.Fatal("mcp command field has no provider markers")
+			}
+			if f.Provider["claude"] != "optional" {
+				t.Errorf("command: claude = %q, want %q", f.Provider["claude"], "optional")
+			}
+			if f.Provider["gemini"] != "optional" {
+				t.Errorf("command: gemini = %q, want %q", f.Provider["gemini"], "optional")
+			}
+			if f.Provider["copilot"] != "optional" {
+				t.Errorf("command: copilot = %q, want %q", f.Provider["copilot"], "optional")
+			}
+			return
+		}
+	}
+	t.Fatal("command field not found in mcp schema")
+}
+
+// TestWorkflowProviderMarkers verifies that workflow payload fields have correct provider markers.
+func TestWorkflowProviderMarkers(t *testing.T) {
+	ks, ok := schema.LookupKind("workflow")
+	if !ok {
+		t.Fatal("workflow kind not in registry")
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "description" {
+			if f.Provider == nil {
+				t.Fatal("workflow description field has no provider markers")
+			}
+			if f.Provider["antigravity"] != "optional" {
+				t.Errorf("description: antigravity = %q, want %q", f.Provider["antigravity"], "optional")
+			}
+			return
+		}
+	}
+	t.Fatal("description field not found in workflow schema")
+}
+
+// TestContextProviderMarkers verifies that context payload fields have correct provider markers.
+func TestContextProviderMarkers(t *testing.T) {
+	ks, ok := schema.LookupKind("context")
+	if !ok {
+		t.Fatal("context kind not in registry")
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "description" {
+			if f.Provider == nil {
+				t.Fatal("context description field has no provider markers")
+			}
+			if f.Provider["cursor"] != "optional" {
+				t.Errorf("description: cursor = %q, want %q", f.Provider["cursor"], "optional")
+			}
+			return
+		}
+	}
+	t.Fatal("description field not found in context schema")
+}
+
+// TestHooksProviderMarkers verifies that hooks events field has correct provider markers.
+func TestHooksProviderMarkers(t *testing.T) {
+	ks, ok := schema.LookupKind("hooks")
+	if !ok {
+		t.Fatal("hooks kind not in registry")
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == "events" {
+			if f.Provider == nil {
+				t.Fatal("hooks events field has no provider markers")
+			}
+			if f.Provider["claude"] != "optional" {
+				t.Errorf("events: claude = %q, want %q", f.Provider["claude"], "optional")
+			}
+			return
+		}
+	}
+	t.Fatal("events field not found in hooks schema")
 }

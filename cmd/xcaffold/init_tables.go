@@ -126,7 +126,7 @@ func renderCurrentStateTable(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 
 	fmt.Printf("  ┌─── CURRENT STATE ─%s┐\n",
 		border[19:])
-	srcLine := "Source: .xcaffold/project.xcf"
+	srcLine := "Source: project.xcf"
 	fmt.Printf("  │ %-*s │\n", inner-2, srcLine)
 	fmt.Printf("  ├─%s─┤\n", border)
 	fmt.Printf("  │ %-*s │\n", inner-2, summary)
