@@ -40,17 +40,11 @@ func mergeAgentScalars(result *ast.AgentConfig, override ast.AgentConfig) {
 	if override.MaxTurns != 0 {
 		result.MaxTurns = override.MaxTurns
 	}
-	if override.Mode != "" {
-		result.Mode = override.Mode
-	}
 	if override.PermissionMode != "" {
 		result.PermissionMode = override.PermissionMode
 	}
 	if override.Isolation != "" {
 		result.Isolation = override.Isolation
-	}
-	if override.When != "" {
-		result.When = override.When
 	}
 	if override.Color != "" {
 		result.Color = override.Color

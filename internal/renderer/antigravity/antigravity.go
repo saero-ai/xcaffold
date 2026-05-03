@@ -72,9 +72,14 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 		ProjectInstructions:  true,
 		AgentToolsField:      false,
 		AgentNativeToolsOnly: false,
-		SkillSubdirs:         []string{"references", "scripts", "assets", "examples"},
-		ModelField:           false,
-		RuleActivations:      []string{"always", "path-glob", "model-decided"},
+		SkillArtifactDirs: map[string]string{
+			"references": "examples",
+			"scripts":    "scripts",
+			"assets":     "resources",
+			"examples":   "examples",
+		},
+		ModelField:      false,
+		RuleActivations: []string{"always", "path-glob", "model-decided"},
 		RuleEncoding: renderer.RuleEncodingCapabilities{
 			Description: "frontmatter",
 			Activation:  "frontmatter",
@@ -138,6 +143,7 @@ func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir stri
 //   - examples/   → examples/
 func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
+	caps := r.Capabilities()
 
 	for id, skill := range skills {
 		md, err := compileAntigravitySkill(id, skill, baseDir)
@@ -149,17 +155,24 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 
 		out := &output.Output{Files: make(map[string]string)}
 
-		if err := renderer.CompileSkillSubdir(id, "references", "examples", skill.References, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("antigravity: references for skill %q: %w", id, err)
-		}
-		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("antigravity: scripts for skill %q: %w", id, err)
-		}
-		if err := renderer.CompileSkillSubdir(id, "assets", "resources", skill.Assets, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("antigravity: assets for skill %q: %w", id, err)
-		}
-		if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("antigravity: examples for skill %q: %w", id, err)
+		if len(skill.Artifacts) > 0 {
+			if err := compileSkillArtifacts(id, skill, caps, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("antigravity: skill %q: %w", id, err)
+			}
+		} else {
+			// Legacy path: individual fields for skills that predate the artifacts field.
+			if err := renderer.CompileSkillSubdir(id, "references", "examples", skill.References, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("antigravity: references for skill %q: %w", id, err)
+			}
+			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("antigravity: scripts for skill %q: %w", id, err)
+			}
+			if err := renderer.CompileSkillSubdir(id, "assets", "resources", skill.Assets, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("antigravity: assets for skill %q: %w", id, err)
+			}
+			if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("antigravity: examples for skill %q: %w", id, err)
+			}
 		}
 
 		for k, v := range out.Files {
@@ -168,6 +181,35 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 	}
 
 	return files, nil, nil
+}
+
+// compileSkillArtifacts iterates skill.Artifacts and dispatches each artifact
+// to the correct output subdirectory using the renderer's SkillArtifactDirs map.
+func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.CapabilitySet, baseDir string, out *output.Output) error {
+	for _, artifactName := range skill.Artifacts {
+		outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
+		if !ok {
+			outputSubdir = artifactName
+		}
+		var paths []string
+		switch artifactName {
+		case "references":
+			paths = skill.References
+		case "scripts":
+			paths = skill.Scripts
+		case "assets":
+			paths = skill.Assets
+		case "examples":
+			paths = skill.Examples
+		}
+		if len(paths) == 0 {
+			continue
+		}
+		if err := renderer.CompileSkillSubdir(id, artifactName, outputSubdir, paths, baseDir, out); err != nil {
+			return fmt.Errorf("artifact %s: %w", artifactName, err)
+		}
+	}
+	return nil
 }
 
 // CompileRules renders all rules to rules/<id>.md files. Rules use optional YAML

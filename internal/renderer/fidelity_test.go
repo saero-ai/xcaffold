@@ -332,7 +332,6 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 					Model:           "unknown-model-xyz-not-in-catalog",
 					Effort:          "high",
 					MaxTurns:        5,
-					Mode:            "auto",
 					Tools:           []string{"Read", "Write"},
 					DisallowedTools: []string{"Bash"},
 					Readonly:        &trueVal,

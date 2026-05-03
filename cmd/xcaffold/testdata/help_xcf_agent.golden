@@ -14,7 +14,6 @@ kind: agent . version 1.0 . format: frontmatter+body
                                                         Providers: Claude Cursor
     max-turns                 int             optional  Maximum conversation turns before the agent exits.
                                                         Providers: Claude Gemini
-    mode                      string          optional  Operational mode for the agent session.
 
   Tool Access
     tools                     []string        optional  Ordered list of tools this agent may invoke.
@@ -37,7 +36,6 @@ kind: agent . version 1.0 . format: frontmatter+body
                                                         Providers: Claude Cursor
     isolation                 string          optional  Process isolation level for the agent session.
                                                         Providers: Claude
-    when                      string          optional  Conditional expression evaluated before agent activation.
 
   Memory & Context
     memory                    []string        optional  Named memory banks attached to this agent.

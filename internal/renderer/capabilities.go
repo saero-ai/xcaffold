@@ -39,11 +39,14 @@ type CapabilitySet struct {
 	MCP                 bool
 	Memory              bool
 	ProjectInstructions bool
-	SkillSubdirs        []string // e.g., ["references", "scripts", "assets"]
-	ModelField          bool
-	RuleActivations     []string // e.g., ["always", "path-glob"]
-	RuleEncoding        RuleEncodingCapabilities
-	SecurityFields      SecurityFieldSupport
+	// SkillArtifactDirs maps canonical artifact names to provider output subdirectory
+	// names. An empty string value means the artifact files are flattened to the
+	// skill root directory alongside SKILL.md (no subdirectory created).
+	SkillArtifactDirs map[string]string // canonical name → provider output subdir ("" = flatten to root)
+	ModelField        bool
+	RuleActivations   []string // e.g., ["always", "path-glob"]
+	RuleEncoding      RuleEncodingCapabilities
+	SecurityFields    SecurityFieldSupport
 
 	// AgentToolsField declares whether this provider supports a tools: field
 	// in agent frontmatter. When false, the tools block is silently dropped.

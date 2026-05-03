@@ -31,7 +31,7 @@ type capabilityExpectation struct {
 	memory              bool
 	projectInstructions bool
 	modelField          bool
-	skillSubdirs        []string
+	skillArtifactDirs   map[string]string
 	ruleActivations     []string
 }
 
@@ -50,8 +50,13 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              true,
 			projectInstructions: true,
 			modelField:          true,
-			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
-			ruleActivations:     []string{"always", "path-glob"},
+			skillArtifactDirs: map[string]string{
+				"references": "references",
+				"scripts":    "scripts",
+				"assets":     "assets",
+				"examples":   "",
+			},
+			ruleActivations: []string{"always", "path-glob"},
 		},
 		{
 			target:              "cursor",
@@ -66,8 +71,13 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              false,
 			projectInstructions: true,
 			modelField:          true,
-			skillSubdirs:        []string{"references", "scripts", "assets"},
-			ruleActivations:     []string{"always", "path-glob", "manual-mention"},
+			skillArtifactDirs: map[string]string{
+				"references": "references",
+				"scripts":    "scripts",
+				"assets":     "assets",
+				"examples":   "references",
+			},
+			ruleActivations: []string{"always", "path-glob", "manual-mention"},
 		},
 		{
 			target:              "gemini",
@@ -82,8 +92,13 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              false,
 			projectInstructions: true,
 			modelField:          true,
-			skillSubdirs:        []string{"references", "scripts", "assets"},
-			ruleActivations:     []string{"always", "path-glob"},
+			skillArtifactDirs: map[string]string{
+				"references": "references",
+				"scripts":    "scripts",
+				"assets":     "assets",
+				"examples":   "references",
+			},
+			ruleActivations: []string{"always", "path-glob"},
 		},
 		{
 			target:              "copilot",
@@ -98,8 +113,13 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              false,
 			projectInstructions: true,
 			modelField:          true,
-			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
-			ruleActivations:     []string{"always", "path-glob"},
+			skillArtifactDirs: map[string]string{
+				"references": "references",
+				"scripts":    "scripts",
+				"assets":     "assets",
+				"examples":   "examples",
+			},
+			ruleActivations: []string{"always", "path-glob"},
 		},
 		{
 			target:              "antigravity",
@@ -114,8 +134,13 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			memory:              false, // deferred — native format not yet implemented
 			projectInstructions: true,
 			modelField:          false,
-			skillSubdirs:        []string{"references", "scripts", "assets", "examples"},
-			ruleActivations:     []string{"always", "path-glob", "model-decided"},
+			skillArtifactDirs: map[string]string{
+				"references": "examples",
+				"scripts":    "scripts",
+				"assets":     "resources",
+				"examples":   "examples",
+			},
+			ruleActivations: []string{"always", "path-glob", "model-decided"},
 		},
 	}
 
@@ -134,7 +159,7 @@ func TestProviderFeatures_CapabilitySets(t *testing.T) {
 			assert.Equal(t, exp.memory, caps.Memory, "Memory")
 			assert.Equal(t, exp.projectInstructions, caps.ProjectInstructions, "ProjectInstructions")
 			assert.Equal(t, exp.modelField, caps.ModelField, "ModelField")
-			assert.Equal(t, exp.skillSubdirs, caps.SkillSubdirs, "SkillSubdirs")
+			assert.Equal(t, exp.skillArtifactDirs, caps.SkillArtifactDirs, "SkillArtifactDirs")
 			assert.Equal(t, exp.ruleActivations, caps.RuleActivations, "RuleActivations")
 		})
 	}

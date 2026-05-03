@@ -46,16 +46,21 @@ func (r *Renderer) OutputDir() string {
 // Capabilities declares the full set of resource kinds this renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
-		Agents:               true,
-		Skills:               true,
-		Rules:                true,
-		Workflows:            true,
-		Hooks:                true,
-		Settings:             true,
-		MCP:                  true,
-		Memory:               true,
-		ProjectInstructions:  true,
-		SkillSubdirs:         []string{"references", "scripts", "assets", "examples"},
+		Agents:              true,
+		Skills:              true,
+		Rules:               true,
+		Workflows:           true,
+		Hooks:               true,
+		Settings:            true,
+		MCP:                 true,
+		Memory:              true,
+		ProjectInstructions: true,
+		SkillArtifactDirs: map[string]string{
+			"references": "references",
+			"scripts":    "scripts",
+			"assets":     "assets",
+			"examples":   "", // empty string = flatten to skill root alongside SKILL.md
+		},
 		AgentToolsField:      true,
 		AgentNativeToolsOnly: true,
 		ModelField:           true,
@@ -95,6 +100,7 @@ func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir stri
 // CompileSkills compiles all skill configs to skills/<id>/SKILL.md plus subdirs.
 func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	out := &output.Output{Files: make(map[string]string)}
+	caps := r.Capabilities()
 	for id, skill := range skills {
 		md, err := compileSkillMarkdown(id, skill, baseDir)
 		if err != nil {
@@ -103,23 +109,64 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))
 		out.Files[safePath] = md
 
-		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
-		}
-		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
-		}
-		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
-		}
-
-		// Claude flattens examples alongside SKILL.md (no subdirectory).
-		// Claude auto-loads all .md/.mdx files from the skill directory.
-		if err := renderer.FlattenToSkillRoot(id, "examples", skill.Examples, baseDir, out); err != nil {
-			return nil, nil, fmt.Errorf("failed to compile examples for skill %q: %w", id, err)
+		if len(skill.Artifacts) > 0 {
+			if err := compileSkillArtifacts(id, skill, caps, baseDir, out); err != nil {
+				return nil, nil, err
+			}
+		} else {
+			// Legacy path: individual fields for skills that predate the artifacts field.
+			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
+			}
+			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
+			}
+			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
+			}
+			// Claude flattens examples alongside SKILL.md (no subdirectory).
+			if err := renderer.FlattenToSkillRoot(id, "examples", skill.Examples, baseDir, out); err != nil {
+				return nil, nil, fmt.Errorf("failed to compile examples for skill %q: %w", id, err)
+			}
 		}
 	}
 	return out.Files, nil, nil
+}
+
+// compileSkillArtifacts iterates skill.Artifacts and dispatches each artifact
+// to the correct output subdirectory using the renderer's SkillArtifactDirs map.
+// An empty outputSubdir means the files are flattened to the skill root.
+func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.CapabilitySet, baseDir string, out *output.Output) error {
+	for _, artifactName := range skill.Artifacts {
+		outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
+		if !ok {
+			outputSubdir = artifactName // default: use same name as canonical
+		}
+		var paths []string
+		switch artifactName {
+		case "references":
+			paths = skill.References
+		case "scripts":
+			paths = skill.Scripts
+		case "assets":
+			paths = skill.Assets
+		case "examples":
+			paths = skill.Examples
+		}
+		if len(paths) == 0 {
+			continue
+		}
+		if outputSubdir == "" {
+			if err := renderer.FlattenToSkillRoot(id, artifactName, paths, baseDir, out); err != nil {
+				return fmt.Errorf("skill %s artifact %s: %w", id, artifactName, err)
+			}
+		} else {
+			if err := renderer.CompileSkillSubdir(id, artifactName, outputSubdir, paths, baseDir, out); err != nil {
+				return fmt.Errorf("skill %s artifact %s: %w", id, artifactName, err)
+			}
+		}
+	}
+	return nil
 }
 
 // CompileRules compiles all rule configs to rules/<id>.md files.
