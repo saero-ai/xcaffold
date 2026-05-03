@@ -899,6 +899,11 @@ func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig) erro
 		return fmt.Errorf("parse override %s: %w", entry.Path, err)
 	}
 
+	// Memory does not participate in the override system.
+	if entry.Kind == "memory" {
+		return nil
+	}
+
 	// Infer resource name from directory: xcf/agents/<name>/agent.claude.xcf -> name
 	resourceName := filepath.Base(filepath.Dir(entry.Path))
 	trimmedBody := strings.TrimSpace(string(body))
@@ -943,6 +948,31 @@ func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig) erro
 			return fmt.Errorf("decode mcp override %s: %w", entry.Path, err)
 		}
 		config.Overrides.AddMCP(resourceName, entry.Provider, cfg)
+	case "hooks":
+		var cfg ast.NamedHookConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode hooks override %s: %w", entry.Path, err)
+		}
+		config.Overrides.AddHooks(resourceName, entry.Provider, cfg)
+	case "settings":
+		var cfg ast.SettingsConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode settings override %s: %w", entry.Path, err)
+		}
+		config.Overrides.AddSettings(resourceName, entry.Provider, cfg)
+	case "policy":
+		var cfg ast.PolicyConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode policy override %s: %w", entry.Path, err)
+		}
+		config.Overrides.AddPolicy(resourceName, entry.Provider, cfg)
+	case "template":
+		var cfg ast.TemplateConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode template override %s: %w", entry.Path, err)
+		}
+		cfg.Body = trimmedBody
+		config.Overrides.AddTemplate(resourceName, entry.Provider, cfg)
 	default:
 		return fmt.Errorf("override file %s: unsupported kind %q for overrides", entry.Path, entry.Kind)
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -1172,6 +1173,153 @@ events:
 	require.NotNil(t, hook)
 	require.Len(t, hook.Artifacts, 1)
 	assert.Equal(t, "scripts", hook.Artifacts[0])
+}
+
+func TestParseOverrideFile_Hooks_DecodesAndStores(t *testing.T) {
+	dir := t.TempDir()
+	hooksDir := filepath.Join(dir, "xcf", "hooks", "pre-commit")
+	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
+
+	content := "---\nname: pre-commit\nartifacts:\n  - lint.sh\n  - format.sh\n---\n"
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "hooks.claude.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(hooksDir, "hooks.claude.xcf"),
+		Kind:     "hooks",
+		Provider: "claude",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	require.NotNil(t, config.Overrides)
+
+	cfg, ok := config.Overrides.GetHooks("pre-commit", "claude")
+	require.True(t, ok)
+	assert.Equal(t, "pre-commit", cfg.Name)
+	assert.Equal(t, []string{"lint.sh", "format.sh"}, cfg.Artifacts)
+}
+
+func TestParseOverrideFile_Settings_DecodesAndStores(t *testing.T) {
+	dir := t.TempDir()
+	settingsDir := filepath.Join(dir, "xcf", "settings", "default")
+	require.NoError(t, os.MkdirAll(settingsDir, 0o755))
+
+	content := "---\nname: default\nauto-memory-enabled: true\n---\n"
+	require.NoError(t, os.WriteFile(filepath.Join(settingsDir, "settings.gemini.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(settingsDir, "settings.gemini.xcf"),
+		Kind:     "settings",
+		Provider: "gemini",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	require.NotNil(t, config.Overrides)
+
+	cfg, ok := config.Overrides.GetSettings("default", "gemini")
+	require.True(t, ok)
+	assert.Equal(t, "default", cfg.Name)
+	require.NotNil(t, cfg.AutoMemoryEnabled)
+	assert.True(t, *cfg.AutoMemoryEnabled)
+}
+
+func TestParseOverrideFile_Policy_DecodesAndStores(t *testing.T) {
+	dir := t.TempDir()
+	policyDir := filepath.Join(dir, "xcf", "policies", "require-desc")
+	require.NoError(t, os.MkdirAll(policyDir, 0o755))
+
+	content := "---\nname: require-desc\nseverity: error\ntarget: agent\n---\n"
+	require.NoError(t, os.WriteFile(filepath.Join(policyDir, "policy.cursor.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(policyDir, "policy.cursor.xcf"),
+		Kind:     "policy",
+		Provider: "cursor",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	require.NotNil(t, config.Overrides)
+
+	cfg, ok := config.Overrides.GetPolicy("require-desc", "cursor")
+	require.True(t, ok)
+	assert.Equal(t, "require-desc", cfg.Name)
+	assert.Equal(t, "error", cfg.Severity)
+	assert.Equal(t, "agent", cfg.Target)
+}
+
+func TestParseOverrideFile_Template_DecodesAndStoresWithBody(t *testing.T) {
+	dir := t.TempDir()
+	tmplDir := filepath.Join(dir, "xcf", "templates", "scaffold")
+	require.NoError(t, os.MkdirAll(tmplDir, 0o755))
+
+	content := "---\nname: scaffold\ndescription: Project scaffold template\ndefault-target: claude\n---\nThis is the template body content.\nIt supports multiple lines."
+	require.NoError(t, os.WriteFile(filepath.Join(tmplDir, "template.copilot.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(tmplDir, "template.copilot.xcf"),
+		Kind:     "template",
+		Provider: "copilot",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	require.NotNil(t, config.Overrides)
+
+	cfg, ok := config.Overrides.GetTemplate("scaffold", "copilot")
+	require.True(t, ok)
+	assert.Equal(t, "scaffold", cfg.Name)
+	assert.Equal(t, "Project scaffold template", cfg.Description)
+	assert.Equal(t, "claude", cfg.DefaultTarget)
+	assert.Contains(t, cfg.Body, "This is the template body content.")
+	assert.Contains(t, cfg.Body, "It supports multiple lines.")
+}
+
+func TestParseOverrideFile_Memory_NoOp(t *testing.T) {
+	dir := t.TempDir()
+	memDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	require.NoError(t, os.MkdirAll(memDir, 0o755))
+
+	content := "---\nname: context\n---\nSome memory content that should be ignored for overrides."
+	require.NoError(t, os.WriteFile(filepath.Join(memDir, "memory.claude.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(memDir, "memory.claude.xcf"),
+		Kind:     "memory",
+		Provider: "claude",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	assert.Nil(t, config.Overrides)
+}
+
+func TestParseOverrideFile_UnsupportedKind_ReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	badDir := filepath.Join(dir, "xcf", "bad", "thing")
+	require.NoError(t, os.MkdirAll(badDir, 0o755))
+
+	content := "---\nname: thing\n---\n"
+	fpath := filepath.Join(badDir, "bogus.claude.xcf")
+	require.NoError(t, os.WriteFile(fpath, []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     fpath,
+		Kind:     "bogus",
+		Provider: "claude",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported kind")
+	assert.Contains(t, err.Error(), "bogus")
 }
 
 func init() {
