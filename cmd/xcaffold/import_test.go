@@ -1532,3 +1532,123 @@ func TestSplitWorkflowOverrides_DeterministicBase(t *testing.T) {
 		t.Errorf("base should be alphabetically first (apple), got body: %s", base.Body)
 	}
 }
+
+func TestImport_HookConfigsIdentical_ReturnsTrueForMatchingConfigs(t *testing.T) {
+	configs := map[string]ast.NamedHookConfig{
+		"claude": {
+			Name:      "default",
+			Artifacts: []string{"lint.sh"},
+			Events: ast.HookConfig{
+				"pre-commit": []ast.HookMatcherGroup{},
+			},
+		},
+		"gemini": {
+			Name:      "default",
+			Artifacts: []string{"lint.sh"},
+			Events: ast.HookConfig{
+				"pre-commit": []ast.HookMatcherGroup{},
+			},
+		},
+	}
+
+	result := hookConfigsIdentical(configs)
+	if !result {
+		t.Errorf("hookConfigsIdentical should return true for matching configs, got false")
+	}
+}
+
+func TestImport_HookConfigsIdentical_ReturnsFalseForDifferentConfigs(t *testing.T) {
+	configs := map[string]ast.NamedHookConfig{
+		"claude": {
+			Name:      "default",
+			Artifacts: []string{"lint.sh", "format.sh"},
+		},
+		"gemini": {
+			Name:      "default",
+			Artifacts: []string{"lint.sh"},
+		},
+	}
+
+	result := hookConfigsIdentical(configs)
+	if result {
+		t.Errorf("hookConfigsIdentical should return false for different configs, got true")
+	}
+}
+
+func TestImport_AssembleHooks_SingleProvider(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			Hooks: map[string]ast.NamedHookConfig{
+				"default": {
+					Name:      "default",
+					Artifacts: []string{"lint.sh"},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		Hooks: make(map[string]ast.NamedHookConfig),
+	}
+
+	assembleHooks(providerConfigs, result)
+
+	if _, ok := result.Hooks["default"]; !ok {
+		t.Errorf("assembleHooks should add hook to result when single provider")
+	}
+	if result.Overrides != nil {
+		t.Errorf("assembleHooks should not create overrides for single provider, got non-nil")
+	}
+}
+
+func TestImport_AssembleHooks_DifferentMultiProvider(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			Hooks: map[string]ast.NamedHookConfig{
+				"pre-commit": {
+					Name:      "pre-commit",
+					Artifacts: []string{"lint.sh", "format.sh"},
+					Events: ast.HookConfig{
+						"pre-commit": []ast.HookMatcherGroup{},
+					},
+				},
+			},
+		},
+		"gemini": {
+			Hooks: map[string]ast.NamedHookConfig{
+				"pre-commit": {
+					Name:      "pre-commit",
+					Artifacts: []string{"lint.sh"},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		Hooks: make(map[string]ast.NamedHookConfig),
+	}
+
+	assembleHooks(providerConfigs, result)
+
+	// Base should be the one with lower score
+	// claude: score = 5 (Events non-nil+non-empty) + 2 (artifacts) = 7
+	// gemini: score = 0 (no Events) + 1 (artifact) = 1
+	// So gemini is base, claude is override
+	if _, ok := result.Hooks["pre-commit"]; !ok {
+		t.Errorf("assembleHooks should add hook to result")
+	}
+
+	if result.Overrides == nil {
+		t.Fatal("assembleHooks should create overrides for different configs")
+	}
+
+	// Check that override exists for the non-base provider
+	override, hasOverride := result.Overrides.GetHooks("pre-commit", "claude")
+	if !hasOverride {
+		t.Errorf("assembleHooks should add claude hook as override, got no override")
+	}
+	if override.Artifacts == nil || len(override.Artifacts) == 0 {
+		t.Errorf("override should preserve artifacts")
+	}
+	if override.Events == nil {
+		t.Errorf("override should preserve Events")
+	}
+}

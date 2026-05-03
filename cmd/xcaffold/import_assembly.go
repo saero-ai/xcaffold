@@ -299,6 +299,92 @@ func workflowConfigsIdentical(configs map[string]ast.WorkflowConfig) bool {
 	return true
 }
 
+func hookConfigsIdentical(configs map[string]ast.NamedHookConfig) bool {
+	var ref ast.NamedHookConfig
+	first := true
+	for _, cfg := range configs {
+		if first {
+			ref = cfg
+			first = false
+			continue
+		}
+		cfg.Name = ""
+		ref.Name = ""
+		if !reflect.DeepEqual(cfg, ref) {
+			return false
+		}
+	}
+	return true
+}
+
+// splitHookOverrides scores hooks: Events non-nil+non-empty (+5), each Artifact (+1).
+func splitHookOverrides(configs map[string]ast.NamedHookConfig) (ast.NamedHookConfig, map[string]ast.NamedHookConfig) {
+	scores := make(map[string]int, len(configs))
+	for provider, cfg := range configs {
+		s := 0
+		if cfg.Events != nil && len(cfg.Events) > 0 {
+			s += 5
+		}
+		s += len(cfg.Artifacts)
+		scores[provider] = s
+	}
+	baseProv := selectBaseProvider(scores)
+	base := configs[baseProv]
+	overrides := make(map[string]ast.NamedHookConfig, len(configs)-1)
+	for provider, cfg := range configs {
+		if provider == baseProv {
+			continue
+		}
+		overrides[provider] = cfg
+	}
+	return base, overrides
+}
+
+// assembleHooks performs 2-pass assembly of hooks like assembleAgents but no Targets field.
+func assembleHooks(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.XcaffoldConfig) {
+	byName := make(map[string]map[string]ast.NamedHookConfig)
+	for provider, cfg := range providerConfigs {
+		for name, hook := range cfg.Hooks {
+			if byName[name] == nil {
+				byName[name] = make(map[string]ast.NamedHookConfig)
+			}
+			byName[name][provider] = hook
+		}
+	}
+	for name, providerHooks := range byName {
+		if len(providerHooks) == 1 {
+			for _, hook := range providerHooks {
+				if result.Hooks == nil {
+					result.Hooks = make(map[string]ast.NamedHookConfig)
+				}
+				result.Hooks[name] = hook
+			}
+			continue
+		}
+		if hookConfigsIdentical(providerHooks) {
+			for _, hook := range providerHooks {
+				if result.Hooks == nil {
+					result.Hooks = make(map[string]ast.NamedHookConfig)
+				}
+				result.Hooks[name] = hook
+				break
+			}
+			continue
+		}
+		base, overrides := splitHookOverrides(providerHooks)
+		if result.Hooks == nil {
+			result.Hooks = make(map[string]ast.NamedHookConfig)
+		}
+		result.Hooks[name] = base
+		if result.Overrides == nil {
+			result.Overrides = &ast.ResourceOverrides{}
+		}
+		for provider, override := range overrides {
+			result.Overrides.AddHooks(name, provider, override)
+		}
+	}
+}
+
 // selectBaseProvider selects the provider with the lowest score from the score map.
 // Ties are broken alphabetically (provider name sort order).
 func selectBaseProvider(scores map[string]int) string {
