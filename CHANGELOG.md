@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `xcaffold validate --target <provider>` now includes the provider name in the header breadcrumb and appends a field validation summary (`Field validation: <provider> (N errors)`) to the footer on success.
 - Parser name/kind mismatch warnings (e.g. YAML `name:` differs from directory-inferred name) are no longer printed directly to stderr. They are now collected in `XcaffoldConfig.ParseWarnings` and surfaced by commands that have structured diagnostic output.
 - `xcaffold apply` output now matches the output standards of `status` and `validate`: header breadcrumb at the top, glyph helpers for all status lines, file count summary on success instead of per-file write lines, and an import hint footer.
 - `xcaffold apply` now lists each drifted file (path and status: missing or modified) before aborting, instead of reporting a generic "drift detected" message.

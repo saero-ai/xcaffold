@@ -47,7 +47,7 @@ When `--target <provider>` is specified, `validate` performs an additional compi
 - **Required fields** — any field required by the target provider but absent from a resource produces an error and fails validation.
 - **Suppressed resources** — resources with a `target-options.<provider>.suppress-fidelity-warnings: true` override are excluded from the field check.
 
-On success, the output includes a `field validation (<provider>)` line. On failure, the specific unsupported or missing fields are reported before the `Validation failed` footer.
+On success, the output includes a `field validation (<provider>)` line in the check list, and the footer appends a field validation summary: `Field validation: <provider> (0 errors)`. On failure, the specific unsupported or missing fields are reported before the `Validation failed` footer.
 
 This flag is useful as a pre-commit gate to catch provider incompatibilities before running `xcaffold apply`.
 
@@ -153,10 +153,24 @@ sandbox  ·  last applied 3 days ago
 ✗  Validation failed: 1 policy error found.
 ```
 
+### Clean validation with --target
+
+```
+sandbox  ·  antigravity  ·  last applied 3 days ago
+
+  ✓  syntax and cross-references
+  ✓  skill directories
+  ✓  structural checks
+  ✓  policies (4 checked)
+  ✓  field validation (antigravity)
+
+✓  Validation passed.  52 .xcf files checked.  Field validation: antigravity (0 errors).
+```
+
 ### Validation with --target field errors
 
 ```
-sandbox  ·  last applied 3 days ago
+sandbox  ·  antigravity  ·  last applied 3 days ago
 
   ✓  syntax and cross-references
   ✓  skill directories
