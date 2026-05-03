@@ -117,6 +117,7 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeOptimizerPassReordered:              true,
 		renderer.CodeMCPGlobalConfigOnly:                 true,
 		renderer.CodeClaudeNativePassthrough:             true,
+		renderer.CodeFieldRequiredForTarget:              true,
 	}
 
 	got := make(map[string]bool)
@@ -242,6 +243,16 @@ func TestFilterNotes_PreservesOrder(t *testing.T) {
 	require.Len(t, got, 2)
 	assert.Equal(t, "first", got[0].Resource)
 	assert.Equal(t, "third", got[1].Resource)
+}
+
+func TestAllCodes_ContainsFieldRequiredForTarget(t *testing.T) {
+	codes := renderer.AllCodes()
+	for _, c := range codes {
+		if c == renderer.CodeFieldRequiredForTarget {
+			return
+		}
+	}
+	t.Error("AllCodes() does not contain CodeFieldRequiredForTarget")
 }
 
 // buildFidelityFixture constructs an XcaffoldConfig that exercises the maximum
