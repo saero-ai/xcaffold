@@ -34,15 +34,17 @@ test-e2e:
 	@go test -tags=e2e -v -count=1 ./test/e2e/
 
 generate:
-	@echo "=> Generating schema registry..."
-	@go run tools/gen-schema/main.go -output internal/schema/registry_gen.go
+	@echo "=> Generating schema registry and presence extractors..."
+	@go run tools/gen-schema/main.go -output internal/schema/registry_gen.go -presence-output internal/renderer/presence_gen.go
 
 verify-generate:
-	@echo "=> Verifying generated schema is fresh..."
-	@go run tools/gen-schema/main.go -output /tmp/registry_gen_check.go
+	@echo "=> Verifying generated files are fresh..."
+	@go run tools/gen-schema/main.go -output /tmp/registry_gen_check.go -presence-output /tmp/presence_gen_check.go
 	@diff -q internal/schema/registry_gen.go /tmp/registry_gen_check.go || \
 		(echo "ERROR: registry_gen.go is stale. Run 'make generate' to update." && exit 1)
-	@echo "=> Generated schema is up to date."
+	@diff -q internal/renderer/presence_gen.go /tmp/presence_gen_check.go || \
+		(echo "ERROR: presence_gen.go is stale. Run 'make generate' to update." && exit 1)
+	@echo "=> Generated files are up to date."
 
 verify-markers:
 	@echo "=> Verifying +xcf markers are complete..."
