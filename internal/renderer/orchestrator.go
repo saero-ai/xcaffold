@@ -38,6 +38,10 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 			}
 			mergeFiles(out, files)
 			notes = append(notes, n...)
+			for id, agent := range config.Agents {
+				present := extractAgentPresentFields(agent)
+				notes = append(notes, CheckRequiredFields(r.Target(), "agent", id, present)...)
+			}
 		} else {
 			for _, id := range SortedKeys(config.Agents) {
 				notes = append(notes, NewNote(
@@ -59,6 +63,10 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 			}
 			mergeFiles(out, files)
 			notes = append(notes, n...)
+			for id, skill := range config.Skills {
+				present := extractSkillPresentFields(skill)
+				notes = append(notes, CheckRequiredFields(r.Target(), "skill", id, present)...)
+			}
 		} else {
 			for _, id := range SortedKeys(config.Skills) {
 				notes = append(notes, NewNote(
@@ -80,6 +88,10 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 			}
 			mergeFiles(out, files)
 			notes = append(notes, n...)
+			for id, rule := range config.Rules {
+				present := extractRulePresentFields(rule)
+				notes = append(notes, CheckRequiredFields(r.Target(), "rule", id, present)...)
+			}
 		} else {
 			for _, id := range SortedKeys(config.Rules) {
 				notes = append(notes, NewNote(
