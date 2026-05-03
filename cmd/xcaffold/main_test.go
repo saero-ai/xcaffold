@@ -1,7 +1,16 @@
 package main
 
-import "os"
+import (
+	"os"
+	"testing"
+)
 
-func init() {
-	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+func TestMain(m *testing.M) {
+	tmpHome, err := os.MkdirTemp("", "xcaffold-test-*")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(tmpHome)
+	os.Setenv("HOME", tmpHome)
+	os.Exit(m.Run())
 }

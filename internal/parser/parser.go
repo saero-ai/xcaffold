@@ -43,6 +43,27 @@ func resolveParseOptions(opts []parseOptionFunc) parseOption {
 	return o
 }
 
+// ParseDirOption configures behaviour of ParseDirectory.
+type ParseDirOption func(*parseDirConfig)
+
+type parseDirConfig struct {
+	skipGlobal bool
+}
+
+// WithSkipGlobal prevents ParseDirectory from loading the implicit global
+// configuration (~/.xcaffold/). Use this for project-scoped validation.
+func WithSkipGlobal() ParseDirOption {
+	return func(c *parseDirConfig) { c.skipGlobal = true }
+}
+
+func resolveParseDirOptions(opts []ParseDirOption) parseDirConfig {
+	var cfg parseDirConfig
+	for _, fn := range opts {
+		fn(&cfg)
+	}
+	return cfg
+}
+
 // reservedDirToKind maps xcf directory names to their corresponding resource kind.
 // Used for filesystem-as-schema inference when kind: is omitted from YAML.
 var reservedDirToKind = map[string]string{
@@ -735,8 +756,9 @@ type ParsedFile struct {
 // ParseDirectory recursively scans the given directory for all *.xcf files,
 // parses them, merges them strictly (erroring on duplicate IDs), and then
 // resolves 'extends:' chains.
-func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
-	merged, err := parseDirectoryUnvalidated(dir)
+func ParseDirectory(dir string, opts ...ParseDirOption) (*ast.XcaffoldConfig, error) {
+	dirOpts := resolveParseDirOptions(opts)
+	merged, err := parseDirectoryUnvalidated(dir, dirOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -751,8 +773,9 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 // ParseDirectoryWithCrossRefWarnings parses a directory and returns the config plus
 // any cross-reference validation issues separately. Structural errors still return
 // as errors. Cross-reference issues are returned as a separate list for caller handling.
-func ParseDirectoryWithCrossRefWarnings(dir string) (*ast.XcaffoldConfig, []CrossReferenceIssue, error) {
-	merged, err := parseDirectoryUnvalidated(dir)
+func ParseDirectoryWithCrossRefWarnings(dir string, opts ...ParseDirOption) (*ast.XcaffoldConfig, []CrossReferenceIssue, error) {
+	dirOpts := resolveParseDirOptions(opts)
+	merged, err := parseDirectoryUnvalidated(dir, dirOpts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1031,7 +1054,7 @@ func validateOverrideBasesExist(config *ast.XcaffoldConfig) error {
 	return nil
 }
 
-func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
+func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig) (*ast.XcaffoldConfig, error) {
 	var files []string
 	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
@@ -1088,9 +1111,15 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 		parsedFiles = append(parsedFiles, ParsedFile{Config: cfg, FilePath: f})
 	}
 
-	globalConfig, err := loadGlobalBase()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load implicit global configuration: %w", err)
+	var globalConfig *ast.XcaffoldConfig
+	if dirOpts.skipGlobal {
+		globalConfig = &ast.XcaffoldConfig{}
+	} else {
+		var loadErr error
+		globalConfig, loadErr = loadGlobalBase()
+		if loadErr != nil {
+			return nil, fmt.Errorf("failed to load implicit global configuration: %w", loadErr)
+		}
 	}
 
 	merged, err := mergeAllStrict(parsedFiles)
@@ -1233,10 +1262,6 @@ func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, 
 // It returns an empty config if no global config is found.
 // Resources loaded from this base are tagged as Inherited=true during merge.
 func loadGlobalBase() (*ast.XcaffoldConfig, error) {
-	if os.Getenv("XCAFFOLD_SKIP_GLOBAL") == "true" {
-		return &ast.XcaffoldConfig{}, nil
-	}
-
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return &ast.XcaffoldConfig{}, nil // ignore errors, just no global

@@ -1496,6 +1496,24 @@ func TestValidateCrossReferencesAsList_AllResolved_NoIssues(t *testing.T) {
 	require.Empty(t, issues)
 }
 
+func TestParseDirectory_SkipGlobal_DoesNotLoadGlobalBase(t *testing.T) {
+	dir := t.TempDir()
+	xcfDir := filepath.Join(dir, "xcf")
+	os.MkdirAll(xcfDir, 0755)
+
+	projectXcf := filepath.Join(xcfDir, "project.xcf")
+	os.WriteFile(projectXcf, []byte("---\nkind: project\nversion: \"1.0\"\nname: test-project\n---\n"), 0644)
+
+	agentDir := filepath.Join(xcfDir, "agents", "worker")
+	os.MkdirAll(agentDir, 0755)
+	os.WriteFile(filepath.Join(agentDir, "agent.xcf"), []byte("---\nkind: agent\nversion: \"1.0\"\nname: worker\ndescription: \"Test agent\"\ntools: [Read]\n---\nDo work.\n"), 0644)
+
+	cfg, err := ParseDirectory(dir, WithSkipGlobal())
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	assert.Contains(t, cfg.Agents, "worker")
+}
+
 func init() {
 	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 }

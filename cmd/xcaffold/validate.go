@@ -62,7 +62,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	fmt.Println(formatHeader(projectName, validateBlueprintFlag, false, targetFlag, lastApplied))
 	fmt.Println()
 
-	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot)
+	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot, parser.WithSkipGlobal())
 	if err != nil {
 		fmt.Printf("  %s  syntax and schema\n", colorRed(glyphErr()))
 		fmt.Println()

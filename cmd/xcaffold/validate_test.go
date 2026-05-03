@@ -32,7 +32,6 @@ func captureValidateOutput(f func() error) (string, error) {
 }
 
 func TestValidateCmd_ValidConfig(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
@@ -88,7 +87,6 @@ agents:
 
 func TestValidateCmd_InvalidCrossRef_ExitsZero(t *testing.T) {
 	// Cross-reference issues exit 0 (warnings only), not 1
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	xcf := filepath.Join(dir, "project.xcf")
@@ -191,7 +189,6 @@ func TestCheckBashWithoutHook_NoHook_Warns(t *testing.T) {
 }
 
 func TestValidateCmd_StructuralChecks(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	xcf := filepath.Join(dir, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
@@ -221,7 +218,6 @@ skills:
 // validate to fail when the project contains a resource with fields that are
 // unsupported by the specified target provider.
 func TestValidate_TargetFlag_EmitsFidelityErrors(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
@@ -260,7 +256,6 @@ You are a developer.
 // TestValidate_NoTarget_NoFieldCheck verifies that omitting --target skips
 // the compile-time field validation check entirely.
 func TestValidate_NoTarget_NoFieldCheck(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
@@ -299,7 +294,6 @@ func TestValidate_ManifestInXcaffoldDir_ParsesFullProjectRoot(t *testing.T) {
 	// as the ParseDirectory root, files at xcf/agents/ are NOT found.
 	// This causes invalid xcf/agents/ files to silently pass validation.
 	// Fix: derive parseRoot by walking up past .xcaffold/ to the true project root.
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	xcaffoldDir := filepath.Join(dir, ".xcaffold")
@@ -340,7 +334,6 @@ Agent body text.
 // TestValidate_TargetFlag_HeaderIncludesTarget verifies that --target causes the
 // header breadcrumb to include the provider name.
 func TestValidate_TargetFlag_HeaderIncludesTarget(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
@@ -376,7 +369,6 @@ name: "myproject"
 // TestValidate_NoTarget_HeaderExcludesProvider verifies that omitting --target
 // keeps the provider name out of the header.
 func TestValidate_NoTarget_HeaderExcludesProvider(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
@@ -406,7 +398,6 @@ name: "myproject"
 // --target is set and validation passes, the footer includes a field validation
 // summary with the provider name.
 func TestValidate_TargetFlag_FooterIncludesFieldValidation(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
@@ -436,7 +427,6 @@ name: "myproject"
 // TestValidate_NoTarget_FooterExcludesFieldValidation verifies that omitting
 // --target keeps field validation out of the footer summary.
 func TestValidate_NoTarget_FooterExcludesFieldValidation(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
@@ -464,7 +454,6 @@ name: "myproject"
 // TestValidate_CrossRefWarnings_TieredOutput verifies that cross-reference
 // warnings are shown separately from syntax/schema errors in tiered output.
 func TestValidate_CrossRefWarnings_TieredOutput(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	xcf := filepath.Join(dir, "project.xcf")
