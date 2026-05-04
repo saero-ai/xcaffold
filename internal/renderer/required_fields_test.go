@@ -153,3 +153,33 @@ func TestCheckFieldSupport_Unsupported_WithRole_Silent(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckFieldSupport_TwoLayer_SkillsOnGemini(t *testing.T) {
+	// Two-layer fidelity integration test: an agent with `skills:` targeting gemini
+	// should not produce a fidelity error (the original bug fix).
+	// "skills" is unsupported by gemini but has xcf role, so it should be silently skipped.
+	fields := map[string]string{
+		"name":        "my-agent",
+		"description": "Agent with skills",
+		"skills":      "set",
+	}
+	notes := CheckFieldSupport("gemini", "agent", "my-agent", fields, false)
+	for _, n := range notes {
+		if n.Field == "skills" && n.Code == CodeFieldUnsupported {
+			t.Errorf("skills field should be silently skipped for gemini (has xcf role), got error: %s", n.Reason)
+		}
+	}
+}
+
+func TestCheckFieldSupport_TwoLayer_CleanAgentZeroNotes(t *testing.T) {
+	// Two-layer fidelity integration test: a clean agent on gemini with all required
+	// fields should produce zero notes.
+	fields := map[string]string{
+		"name":        "clean-agent",
+		"description": "Fully specified",
+	}
+	notes := CheckFieldSupport("gemini", "agent", "clean-agent", fields, false)
+	if len(notes) != 0 {
+		t.Errorf("expected zero notes for clean agent on gemini, got %d: %v", len(notes), notes)
+	}
+}
