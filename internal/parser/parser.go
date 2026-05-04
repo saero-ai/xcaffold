@@ -2160,7 +2160,7 @@ func validatePermissions(c *ast.XcaffoldConfig) error {
 	// Agent cross-reference checks
 	for agentID, agent := range c.Agents {
 		// disallowed-tools vs settings.permissions.allow
-		for _, tool := range agent.DisallowedTools {
+		for _, tool := range agent.DisallowedTools.Values {
 			for rule := range allowSet {
 				ruleName, _, _ := parsePermissionRule(rule)
 				if ruleName == tool {
@@ -2169,7 +2169,7 @@ func validatePermissions(c *ast.XcaffoldConfig) error {
 			}
 		}
 		// agent.tools vs settings.permissions.deny (bare deny only)
-		for _, tool := range agent.Tools {
+		for _, tool := range agent.Tools.Values {
 			if denySet[tool] {
 				return fmt.Errorf("agent %q: tool %q is required by agent but is unconditionally denied in settings.permissions.deny", agentID, tool)
 			}
@@ -2255,7 +2255,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 	var issues []CrossReferenceIssue
 
 	for agentID, agent := range c.Agents {
-		for _, skillID := range agent.Skills {
+		for _, skillID := range agent.Skills.Values {
 			if _, ok := c.Skills[skillID]; !ok {
 				issues = append(issues, CrossReferenceIssue{
 					AgentID:      agentID,
@@ -2265,7 +2265,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 				})
 			}
 		}
-		for _, ruleID := range agent.Rules {
+		for _, ruleID := range agent.Rules.Values {
 			if _, ok := c.Rules[ruleID]; !ok {
 				issues = append(issues, CrossReferenceIssue{
 					AgentID:      agentID,
@@ -2275,7 +2275,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 				})
 			}
 		}
-		for _, mcpID := range agent.MCP {
+		for _, mcpID := range agent.MCP.Values {
 			if _, ok := c.MCP[mcpID]; !ok {
 				issues = append(issues, CrossReferenceIssue{
 					AgentID:      agentID,

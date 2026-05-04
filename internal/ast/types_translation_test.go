@@ -174,7 +174,7 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 		Model:                  "sonnet",
 		Effort:                 "high",
 		MaxTurns:               10,
-		Tools:                  []string{"Read", "Write"},
+		Tools:                  ClearableList{Values: []string{"Read", "Write"}},
 		Readonly:               &truthy,
 		PermissionMode:         "default",
 		DisableModelInvocation: &truthy,
@@ -184,9 +184,9 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 		Memory:                 FlexStringSlice{"project"},
 		Color:                  "blue",
 		InitialPrompt:          "Hello.",
-		Skills:                 []string{"tdd"},
-		Rules:                  []string{"coding-standards"},
-		MCP:                    []string{"github"},
+		Skills:                 ClearableList{Values: []string{"tdd"}},
+		Rules:                  ClearableList{Values: []string{"coding-standards"}},
+		MCP:                    ClearableList{Values: []string{"github"}},
 		Body:                   "Do the work.",
 	}
 

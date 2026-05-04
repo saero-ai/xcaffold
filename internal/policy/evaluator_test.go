@@ -45,7 +45,7 @@ func TestRequire_MinLength_Exact_NoViolation(t *testing.T) {
 func TestRequire_MaxCount_Over_Violation(t *testing.T) {
 	maxCount := 2
 	req := ast.PolicyRequire{Field: "tools", MaxCount: &maxCount}
-	acc := newAgentAccessor(ast.AgentConfig{Name: "dev", Tools: []string{"Bash", "Read", "Write"}})
+	acc := newAgentAccessor(ast.AgentConfig{Name: "dev", Tools: ast.ClearableList{Values: []string{"Bash", "Read", "Write"}}})
 	v := evaluateRequire("test-policy", "dev", req, acc)
 	require.NotNil(t, v)
 	assert.Contains(t, v.Message, "3 items, maximum is 2")

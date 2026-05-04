@@ -93,7 +93,7 @@ func init() {
 			{
 				Name:        "Tools",
 				YAMLKey:     "tools",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Ordered list of tools this agent may invoke.",
@@ -109,7 +109,7 @@ func init() {
 			{
 				Name:        "DisallowedTools",
 				YAMLKey:     "disallowed-tools",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Tools explicitly denied to this agent.",
@@ -269,7 +269,7 @@ func init() {
 			{
 				Name:        "Skills",
 				YAMLKey:     "skills",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Skill resource IDs attached to this agent.",
@@ -285,7 +285,7 @@ func init() {
 			{
 				Name:        "Rules",
 				YAMLKey:     "rules",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Rule resource IDs governing this agent.",
@@ -301,7 +301,7 @@ func init() {
 			{
 				Name:        "MCP",
 				YAMLKey:     "mcp",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "MCP server resource IDs available to this agent.",
@@ -317,7 +317,7 @@ func init() {
 			{
 				Name:        "Assertions",
 				YAMLKey:     "assertions",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Policy assertion IDs evaluated post-compilation.",

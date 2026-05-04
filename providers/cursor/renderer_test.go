@@ -287,9 +287,9 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 					Color:           "blue",
 					Memory:          ast.FlexStringSlice{"project"},
 					MaxTurns:        10,
-					Tools:           []string{"Bash", "Read"},
-					DisallowedTools: []string{"Write"},
-					Skills:          []string{"my-skill"},
+					Tools:           ast.ClearableList{Values: []string{"Bash", "Read"}},
+					DisallowedTools: ast.ClearableList{Values: []string{"Write"}},
+					Skills:          ast.ClearableList{Values: []string{"my-skill"}},
 					InitialPrompt:   "Hello!",
 					Background:      &bg,
 				},
@@ -1104,7 +1104,7 @@ func TestCursorRenderer_AgentDisallowedTools_EmitsNote(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {Body: "Build things.", DisallowedTools: []string{"Write"}},
+				"dev": {Body: "Build things.", DisallowedTools: ast.ClearableList{Values: []string{"Write"}}},
 			},
 		},
 	}

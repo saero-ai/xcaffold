@@ -94,8 +94,8 @@ func TestClaudeRenderer_Compile_AgentFrontmatterFields(t *testing.T) {
 					Description: "An expert developer.",
 					Model:       "claude-sonnet-4-5",
 					Effort:      "high",
-					Tools:       []string{"Bash", "Read", "Write"},
-					Skills:      []string{"tdd", "code-review"},
+					Tools:       ast.ClearableList{Values: []string{"Bash", "Read", "Write"}},
+					Skills:      ast.ClearableList{Values: []string{"tdd", "code-review"}},
 				},
 			},
 		},
@@ -218,7 +218,7 @@ func TestClaudeRenderer_Compile_Agent_Readonly_ExplicitToolsTakePrecedence(t *te
 					Name:     "Custom",
 					Body:     "Custom tools.",
 					Readonly: &ro,
-					Tools:    []string{"Bash", "Read"},
+					Tools:    ast.ClearableList{Values: []string{"Bash", "Read"}},
 				},
 			},
 		},
@@ -587,7 +587,7 @@ func TestCompileAgents_RulesNotInFrontmatter(t *testing.T) {
 		"test": {
 			Name:        "test",
 			Description: "Test agent",
-			Rules:       []string{"security", "coding-standards"},
+			Rules:       ast.ClearableList{Values: []string{"security", "coding-standards"}},
 			Body:        "You are a test agent.",
 		},
 	}

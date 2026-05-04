@@ -390,7 +390,7 @@ func splitAgentOverrides(configs map[string]ast.AgentConfig) (ast.AgentConfig, m
 		if cfg.Model != "" {
 			s++
 		}
-		if len(cfg.Tools) > 0 {
+		if len(cfg.Tools.Values) > 0 {
 			s++
 		}
 		scores[provider] = s

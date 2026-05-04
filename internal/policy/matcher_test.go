@@ -14,13 +14,13 @@ func TestMatch_NilMatch_MatchesAll(t *testing.T) {
 
 func TestMatch_HasTool_Matches(t *testing.T) {
 	match := &ast.PolicyMatch{HasTool: "Bash"}
-	acc := newAgentAccessor(ast.AgentConfig{Tools: []string{"Bash", "Read"}})
+	acc := newAgentAccessor(ast.AgentConfig{Tools: ast.ClearableList{Values: []string{"Bash", "Read"}}})
 	assert.True(t, matchResource(match, "dev", acc))
 }
 
 func TestMatch_HasTool_NoMatch(t *testing.T) {
 	match := &ast.PolicyMatch{HasTool: "Bash"}
-	acc := newAgentAccessor(ast.AgentConfig{Tools: []string{"Read", "Write"}})
+	acc := newAgentAccessor(ast.AgentConfig{Tools: ast.ClearableList{Values: []string{"Read", "Write"}}})
 	assert.False(t, matchResource(match, "dev", acc))
 }
 
@@ -46,9 +46,9 @@ func TestMatch_NameMatches_Glob(t *testing.T) {
 func TestMatch_AllConditionsAND(t *testing.T) {
 	match := &ast.PolicyMatch{HasTool: "Bash", HasField: "description"}
 	// Has Bash but no description -> false
-	acc := newAgentAccessor(ast.AgentConfig{Tools: []string{"Bash"}})
+	acc := newAgentAccessor(ast.AgentConfig{Tools: ast.ClearableList{Values: []string{"Bash"}}})
 	assert.False(t, matchResource(match, "dev", acc))
 	// Has both -> true
-	acc2 := newAgentAccessor(ast.AgentConfig{Tools: []string{"Bash"}, Description: "Has both"})
+	acc2 := newAgentAccessor(ast.AgentConfig{Tools: ast.ClearableList{Values: []string{"Bash"}}, Description: "Has both"})
 	assert.True(t, matchResource(match, "dev", acc2))
 }

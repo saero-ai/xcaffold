@@ -149,6 +149,18 @@ func collectRefs(val reflect.Value) ([][2]string, error) {
 					}
 				}
 			}
+		case reflect.Struct:
+			if cl, ok := f.Interface().(ast.ClearableList); ok {
+				for _, elem := range cl.Values {
+					for _, m := range refPattern.FindAllStringSubmatch(elem, -1) {
+						k := [2]string{m[1], m[2]}
+						if !seen[k] {
+							seen[k] = true
+							result = append(result, k)
+						}
+					}
+				}
+			}
 		}
 	}
 	return result, nil
@@ -243,6 +255,17 @@ func resolveStructFields(config *ast.XcaffoldConfig, v reflect.Value) error {
 				return err
 			}
 			field.Set(reflect.ValueOf(resolved))
+		case reflect.Struct:
+			if _, ok := field.Interface().(ast.ClearableList); ok {
+				valuesField := field.FieldByName("Values")
+				if valuesField.IsValid() && valuesField.CanSet() {
+					resolved, err := resolveStringSlice(config, valuesField)
+					if err != nil {
+						return err
+					}
+					valuesField.Set(reflect.ValueOf(resolved))
+				}
+			}
 		}
 	}
 	return nil
@@ -375,7 +398,12 @@ func getFieldByYAMLTag(v reflect.Value, tag string) (interface{}, error) {
 			continue
 		}
 		if name == tag {
-			return v.Field(i).Interface(), nil
+			fval := v.Field(i).Interface()
+			// Unwrap ClearableList to its Values slice for attribute resolution.
+			if cl, ok := fval.(ast.ClearableList); ok {
+				return cl.Values, nil
+			}
+			return fval, nil
 		}
 	}
 	return nil, fmt.Errorf("attribute reference: field %q not found in resource", tag)

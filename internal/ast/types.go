@@ -226,14 +226,14 @@ type AgentConfig struct {
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional,gemini:optional,copilot:optional,cursor:unsupported,antigravity:unsupported
-	Tools []string `yaml:"tools,omitempty"`
+	Tools ClearableList `yaml:"tools,omitempty"`
 
 	// Tools explicitly denied to this agent.
 	// +xcf:optional
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional
-	DisallowedTools []string `yaml:"disallowed-tools,omitempty"`
+	DisallowedTools ClearableList `yaml:"disallowed-tools,omitempty"`
 
 	// When true, restricts the agent to read-only tool access.
 	// +xcf:optional
@@ -294,25 +294,25 @@ type AgentConfig struct {
 	// +xcf:group=Composition
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional
-	Skills []string `yaml:"skills,omitempty"`
+	Skills ClearableList `yaml:"skills,omitempty"`
 
 	// Rule resource IDs governing this agent.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
-	Rules []string `yaml:"rules,omitempty"`
+	Rules ClearableList `yaml:"rules,omitempty"`
 
 	// MCP server resource IDs available to this agent.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
-	MCP []string `yaml:"mcp,omitempty"`
+	MCP ClearableList `yaml:"mcp,omitempty"`
 
 	// Policy assertion IDs evaluated post-compilation.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
-	Assertions []string `yaml:"assertions,omitempty"`
+	Assertions ClearableList `yaml:"assertions,omitempty"`
 
 	// Inline MCP server definitions keyed by server name.
 	// +xcf:optional

@@ -1427,7 +1427,7 @@ func TestValidateCrossReferencesAsList_UnresolvedSkill_ReturnsWarning(t *testing
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"worker": {Name: "worker", Skills: []string{"nonexistent-skill"}},
+				"worker": {Name: "worker", Skills: ast.ClearableList{Values: []string{"nonexistent-skill"}}},
 			},
 			Skills: map[string]ast.SkillConfig{},
 		},
@@ -1444,7 +1444,7 @@ func TestValidateCrossReferencesAsList_UnresolvedRule_ReturnsWarning(t *testing.
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"reviewer": {Name: "reviewer", Rules: []string{"missing-rule"}},
+				"reviewer": {Name: "reviewer", Rules: ast.ClearableList{Values: []string{"missing-rule"}}},
 			},
 			Rules: map[string]ast.RuleConfig{},
 		},
@@ -1461,7 +1461,7 @@ func TestValidateCrossReferencesAsList_UnresolvedMCP_ReturnsWarning(t *testing.T
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"helper": {Name: "helper", MCP: []string{"missing-mcp"}},
+				"helper": {Name: "helper", MCP: ast.ClearableList{Values: []string{"missing-mcp"}}},
 			},
 			MCP: map[string]ast.MCPConfig{},
 		},
@@ -1480,9 +1480,9 @@ func TestValidateCrossReferencesAsList_AllResolved_NoIssues(t *testing.T) {
 			Agents: map[string]ast.AgentConfig{
 				"worker": {
 					Name:   "worker",
-					Skills: []string{"tdd"},
-					Rules:  []string{"style"},
-					MCP:    []string{"postgres"},
+					Skills: ast.ClearableList{Values: []string{"tdd"}},
+					Rules:  ast.ClearableList{Values: []string{"style"}},
+					MCP:    ast.ClearableList{Values: []string{"postgres"}},
 				},
 			},
 			Skills: map[string]ast.SkillConfig{"tdd": {Name: "tdd"}},

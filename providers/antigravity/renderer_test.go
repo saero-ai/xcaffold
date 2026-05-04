@@ -935,7 +935,7 @@ func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T
 				"dev": {
 					Body:            "Build things.",
 					PermissionMode:  "plan",
-					DisallowedTools: []string{"Write"},
+					DisallowedTools: ast.ClearableList{Values: []string{"Write"}},
 					Isolation:       "container",
 				},
 			},

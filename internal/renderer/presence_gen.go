@@ -21,10 +21,10 @@ func ExtractAgentPresentFields(a ast.AgentConfig) map[string]string {
 	if a.MaxTurns != 0 {
 		m["max-turns"] = "set"
 	}
-	if len(a.Tools) > 0 {
+	if len(a.Tools.Values) > 0 {
 		m["tools"] = "set"
 	}
-	if len(a.DisallowedTools) > 0 {
+	if len(a.DisallowedTools.Values) > 0 {
 		m["disallowed-tools"] = "set"
 	}
 	if a.Readonly != nil {
@@ -54,16 +54,16 @@ func ExtractAgentPresentFields(a ast.AgentConfig) map[string]string {
 	if a.InitialPrompt != "" {
 		m["initial-prompt"] = a.InitialPrompt
 	}
-	if len(a.Skills) > 0 {
+	if len(a.Skills.Values) > 0 {
 		m["skills"] = "set"
 	}
-	if len(a.Rules) > 0 {
+	if len(a.Rules.Values) > 0 {
 		m["rules"] = "set"
 	}
-	if len(a.MCP) > 0 {
+	if len(a.MCP.Values) > 0 {
 		m["mcp"] = "set"
 	}
-	if len(a.Assertions) > 0 {
+	if len(a.Assertions.Values) > 0 {
 		m["assertions"] = "set"
 	}
 	if len(a.MCPServers) > 0 {

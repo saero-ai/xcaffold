@@ -145,7 +145,7 @@ func TestCheckBashWithoutHook_ProjectHook_NoWarn(t *testing.T) {
 				"dev": {
 					Name:  "Dev",
 					Body:  "instructions",
-					Tools: []string{"Bash"},
+					Tools: ast.ClearableList{Values: []string{"Bash"}},
 					Hooks: ast.HookConfig{},
 				},
 			},
@@ -175,7 +175,7 @@ func TestCheckBashWithoutHook_NoHook_Warns(t *testing.T) {
 				"dev": {
 					Name:  "Dev",
 					Body:  "instructions",
-					Tools: []string{"Bash"},
+					Tools: ast.ClearableList{Values: []string{"Bash"}},
 					Hooks: ast.HookConfig{},
 				},
 			},
@@ -491,7 +491,7 @@ func TestValidate_NoOrphanChecks_SkillNotReferencedByAgent(t *testing.T) {
 				"standalone": {Name: "standalone", Description: "Not referenced by any agent"},
 			},
 			Agents: map[string]ast.AgentConfig{
-				"worker": {Name: "worker", Skills: []string{"other-skill"}},
+				"worker": {Name: "worker", Skills: ast.ClearableList{Values: []string{"other-skill"}}},
 			},
 		},
 	}
@@ -510,7 +510,7 @@ func TestValidate_NoOrphanChecks_RuleWithoutAlwaysApply(t *testing.T) {
 				"code-style": {Name: "code-style", Description: "Style guide"},
 			},
 			Agents: map[string]ast.AgentConfig{
-				"worker": {Name: "worker", Rules: []string{}},
+				"worker": {Name: "worker", Rules: ast.ClearableList{}},
 			},
 		},
 	}

@@ -827,7 +827,7 @@ func TestCompile_Permissions_DisallowedToolsInAgentFrontmatter(t *testing.T) {
 				"dev": {
 					Description:     "Developer agent",
 					Body:            "Build things.",
-					DisallowedTools: []string{"Bash", "Write"},
+					DisallowedTools: ast.ClearableList{Values: []string{"Bash", "Write"}},
 				},
 			},
 		},
@@ -848,7 +848,7 @@ func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 				"dev": {
 					Description:     "Developer agent",
 					Body:            "Build things.",
-					DisallowedTools: []string{"Bash", "Write"},
+					DisallowedTools: ast.ClearableList{Values: []string{"Bash", "Write"}},
 				},
 			},
 		},

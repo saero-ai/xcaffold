@@ -43,7 +43,7 @@ func TestCompile_Gemini_Agents_FullSchema(t *testing.T) {
 				"analyst": {
 					Name:        "analyst",
 					Description: "Analyses code.",
-					Tools:       []string{"read_file", "grep_search"},
+					Tools:       ast.ClearableList{Values: []string{"read_file", "grep_search"}},
 					Model:       "gemini-3-flash-preview",
 					MaxTurns:    20,
 				},
@@ -103,7 +103,7 @@ func TestCompile_Gemini_Agents_UnsupportedFields(t *testing.T) {
 					Description:     "Has unsupported fields.",
 					Effort:          "high",
 					PermissionMode:  "strict",
-					DisallowedTools: []string{"Bash"},
+					DisallowedTools: ast.ClearableList{Values: []string{"Bash"}},
 					Isolation:       "worktree",
 					Background:      boolPtr(true),
 					Color:           "blue",

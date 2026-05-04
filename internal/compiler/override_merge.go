@@ -74,26 +74,26 @@ func mergeAgentBoolPtrs(result *ast.AgentConfig, override ast.AgentConfig) {
 }
 
 func mergeAgentLists(result *ast.AgentConfig, override ast.AgentConfig) {
-	if len(override.Tools) > 0 {
-		result.Tools = append([]string(nil), override.Tools...)
+	if len(override.Tools.Values) > 0 {
+		result.Tools = ast.ClearableList{Values: append([]string(nil), override.Tools.Values...)}
 	}
-	if len(override.DisallowedTools) > 0 {
-		result.DisallowedTools = append([]string(nil), override.DisallowedTools...)
+	if len(override.DisallowedTools.Values) > 0 {
+		result.DisallowedTools = ast.ClearableList{Values: append([]string(nil), override.DisallowedTools.Values...)}
 	}
 	if len(override.Memory) > 0 {
 		result.Memory = append(ast.FlexStringSlice(nil), override.Memory...)
 	}
-	if len(override.Skills) > 0 {
-		result.Skills = append([]string(nil), override.Skills...)
+	if len(override.Skills.Values) > 0 {
+		result.Skills = ast.ClearableList{Values: append([]string(nil), override.Skills.Values...)}
 	}
-	if len(override.Rules) > 0 {
-		result.Rules = append([]string(nil), override.Rules...)
+	if len(override.Rules.Values) > 0 {
+		result.Rules = ast.ClearableList{Values: append([]string(nil), override.Rules.Values...)}
 	}
-	if len(override.MCP) > 0 {
-		result.MCP = append([]string(nil), override.MCP...)
+	if len(override.MCP.Values) > 0 {
+		result.MCP = ast.ClearableList{Values: append([]string(nil), override.MCP.Values...)}
 	}
-	if len(override.Assertions) > 0 {
-		result.Assertions = append([]string(nil), override.Assertions...)
+	if len(override.Assertions.Values) > 0 {
+		result.Assertions = ast.ClearableList{Values: append([]string(nil), override.Assertions.Values...)}
 	}
 }
 

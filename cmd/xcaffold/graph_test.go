@@ -226,7 +226,7 @@ func TestGraph_TreeAlignment_NonLastBlock(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"test-agent": {
-					Skills: []string{"skill-a"},
+					Skills: ast.ClearableList{Values: []string{"skill-a"}},
 				},
 			},
 			Skills: map[string]ast.SkillConfig{
@@ -255,7 +255,7 @@ func TestGraph_TreeAlignment_LastBlock(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"solo": {Skills: []string{"s1"}},
+				"solo": {Skills: ast.ClearableList{Values: []string{"s1"}}},
 			},
 			Skills: map[string]ast.SkillConfig{"s1": {}},
 		},
@@ -308,7 +308,7 @@ func TestFilterAgentIfRequested_FiltersToSingleAgent(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-a": {Skills: []string{"s1"}},
+				"agent-a": {Skills: ast.ClearableList{Values: []string{"s1"}}},
 				"agent-b": {},
 			},
 		},

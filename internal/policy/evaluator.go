@@ -44,17 +44,17 @@ func (a agentAccessor) fieldValue(name string) string {
 func (a agentAccessor) fieldCount(name string) int {
 	switch name {
 	case "tools":
-		return len(a.cfg.Tools)
+		return len(a.cfg.Tools.Values)
 	case "skills":
-		return len(a.cfg.Skills)
+		return len(a.cfg.Skills.Values)
 	case "rules":
-		return len(a.cfg.Rules)
+		return len(a.cfg.Rules.Values)
 	default:
 		return 0
 	}
 }
 
-func (a agentAccessor) tools() []string   { return a.cfg.Tools }
+func (a agentAccessor) tools() []string   { return a.cfg.Tools.Values }
 func (a agentAccessor) targets() []string { return nil }
 
 // --- skillAccessor ---

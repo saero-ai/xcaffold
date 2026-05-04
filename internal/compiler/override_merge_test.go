@@ -34,16 +34,16 @@ func TestMergeAgentConfig_ScalarReplace(t *testing.T) {
 // replaces the base list entirely.
 func TestMergeAgentConfig_ListReplace(t *testing.T) {
 	base := ast.AgentConfig{
-		Tools: []string{"Read", "Write", "Bash"},
+		Tools: ast.ClearableList{Values: []string{"Read", "Write", "Bash"}},
 	}
 	override := ast.AgentConfig{
-		Tools: []string{"Read"},
+		Tools: ast.ClearableList{Values: []string{"Read"}},
 	}
 
 	got := mergeAgentConfig(base, override)
 
-	if len(got.Tools) != 1 || got.Tools[0] != "Read" {
-		t.Errorf("Tools: want [Read], got %v", got.Tools)
+	if len(got.Tools.Values) != 1 || got.Tools.Values[0] != "Read" {
+		t.Errorf("Tools: want [Read], got %v", got.Tools.Values)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestMergeAgentConfig_EmptyOverride(t *testing.T) {
 	base := ast.AgentConfig{
 		Model:    "sonnet",
 		Name:     "dev",
-		Tools:    []string{"Read", "Write"},
+		Tools:    ast.ClearableList{Values: []string{"Read", "Write"}},
 		Body:     "instructions",
 		Readonly: boolPtr(true),
 	}
@@ -149,8 +149,8 @@ func TestMergeAgentConfig_EmptyOverride(t *testing.T) {
 	if got.Name != "dev" {
 		t.Errorf("Name: want %q, got %q", "dev", got.Name)
 	}
-	if len(got.Tools) != 2 || got.Tools[0] != "Read" || got.Tools[1] != "Write" {
-		t.Errorf("Tools: want [Read Write], got %v", got.Tools)
+	if len(got.Tools.Values) != 2 || got.Tools.Values[0] != "Read" || got.Tools.Values[1] != "Write" {
+		t.Errorf("Tools: want [Read Write], got %v", got.Tools.Values)
 	}
 	if got.Body != "instructions" {
 		t.Errorf("Body: want %q, got %q", "instructions", got.Body)
@@ -300,7 +300,7 @@ func TestMergeAgentConfig_BodyOnlyOverride(t *testing.T) {
 	base := ast.AgentConfig{
 		Name:  "developer",
 		Model: "sonnet",
-		Tools: []string{"Bash", "Read", "Write"},
+		Tools: ast.ClearableList{Values: []string{"Bash", "Read", "Write"}},
 		Body:  "Universal instructions.",
 	}
 	override := ast.AgentConfig{
@@ -312,8 +312,8 @@ func TestMergeAgentConfig_BodyOnlyOverride(t *testing.T) {
 	if got.Model != "sonnet" {
 		t.Errorf("Model: want %q, got %q", "sonnet", got.Model)
 	}
-	if len(got.Tools) != 3 {
-		t.Errorf("Tools: want 3 elements, got %d: %v", len(got.Tools), got.Tools)
+	if len(got.Tools.Values) != 3 {
+		t.Errorf("Tools: want 3 elements, got %d: %v", len(got.Tools.Values), got.Tools.Values)
 	}
 	if got.Body != "Provider-specific instructions." {
 		t.Errorf("Body: want %q, got %q", "Provider-specific instructions.", got.Body)

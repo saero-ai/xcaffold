@@ -22,7 +22,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 					Body:        "You are a software developer.\nWrite clean code.\n",
 					Model:       "claude-3-7-sonnet-20250219",
 					Effort:      "high",
-					Tools:       []string{"Bash", "Read", "Write"},
+					Tools:       ast.ClearableList{Values: []string{"Bash", "Read", "Write"}},
 				},
 			},
 		},
@@ -67,8 +67,8 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 			Agents: map[string]ast.AgentConfig{
 				"readonly": {
 					Description:     "Read-only agent.",
-					Tools:           []string{"Read", "Grep"},
-					DisallowedTools: []string{"Bash", "Write"},
+					Tools:           ast.ClearableList{Values: []string{"Read", "Grep"}},
+					DisallowedTools: ast.ClearableList{Values: []string{"Bash", "Write"}},
 				},
 			},
 		},
@@ -264,8 +264,8 @@ func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
 				"developer": {
 					Description: "Dev agent",
 					Model:       "sonnet",
-					Tools:       []string{"${skill.tdd.allowed-tools}"},
-					Skills:      []string{"tdd"},
+					Tools:       ast.ClearableList{Values: []string{"${skill.tdd.allowed-tools}"}},
+					Skills:      ast.ClearableList{Values: []string{"tdd"}},
 					Body:        "You are a developer",
 				},
 			},
@@ -291,7 +291,7 @@ func TestCompile_ResolveAttributes_NoRefsPassthrough(t *testing.T) {
 				"developer": {
 					Description: "Dev agent",
 					Model:       "sonnet",
-					Tools:       []string{"Bash", "Read"},
+					Tools:       ast.ClearableList{Values: []string{"Bash", "Read"}},
 					Body:        "You are a developer",
 				},
 			},
@@ -478,7 +478,7 @@ func TestCompile_BlueprintTransitiveDeps_AutoExpandsSkills(t *testing.T) {
 					Name:        "Dev",
 					Description: "developer",
 					Body:        "dev instructions",
-					Skills:      []string{"tdd"},
+					Skills:      ast.ClearableList{Values: []string{"tdd"}},
 				},
 			},
 			Skills: map[string]ast.SkillConfig{

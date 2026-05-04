@@ -457,7 +457,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps
 
 	appendAgentCoreMeta(&sb, agent)
 
-	sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, "claude", id)
+	sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, "claude", id)
 	notes = append(notes, toolNotes...)
 
 	if agent.Readonly != nil && *agent.Readonly && len(sanitizedTools) == 0 {
@@ -465,11 +465,11 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps
 	} else if len(sanitizedTools) > 0 {
 		fmt.Fprintf(&sb, "tools: [%s]\n", strings.Join(sanitizedTools, ", "))
 	}
-	if len(agent.DisallowedTools) > 0 {
-		fmt.Fprintf(&sb, "disallowed-tools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
+	if len(agent.DisallowedTools.Values) > 0 {
+		fmt.Fprintf(&sb, "disallowed-tools: [%s]\n", strings.Join(agent.DisallowedTools.Values, ", "))
 	}
-	if len(agent.Skills) > 0 {
-		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
+	if len(agent.Skills.Values) > 0 {
+		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills.Values, ", "))
 	}
 
 	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, "claude", id)

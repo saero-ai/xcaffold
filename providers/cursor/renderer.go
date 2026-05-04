@@ -456,7 +456,7 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string, caps r
 		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(agent.Description))
 	}
 
-	_, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, targetName, id)
+	_, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
 	notes = append(notes, toolNotes...)
 
 	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)

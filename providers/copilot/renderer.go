@@ -310,7 +310,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			fmt.Fprintf(&sb, "description: %s\n", agent.Description)
 		}
 
-		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, targetName, id)
+		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
 		notes = append(notes, toolNotes...)
 		if len(sanitizedTools) > 0 {
 			sb.WriteString("tools:\n")
@@ -397,7 +397,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			{"initial-prompt", agent.InitialPrompt != ""},
 			{"readonly", agent.Readonly != nil},
 			{"memory", len(agent.Memory) > 0},
-			{"skills", len(agent.Skills) > 0},
+			{"skills", len(agent.Skills.Values) > 0},
 			{"hooks", len(agent.Hooks) > 0},
 		}
 		for _, f := range unsupported {
