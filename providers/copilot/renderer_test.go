@@ -40,7 +40,7 @@ func TestCompileCopilotRule_Activation_PathGlob(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
 					Activation: ast.RuleActivationPathGlob,
-					Paths:      []string{"src/api/**", "packages/api/**"},
+					Paths:      ast.ClearableList{Values: []string{"src/api/**", "packages/api/**"}},
 					Body:       "REST conventions.",
 				},
 			},
@@ -60,7 +60,7 @@ func TestCompileCopilotRule_ExcludeAgents_Single(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"pr-review": {
 					Activation:    ast.RuleActivationAlways,
-					ExcludeAgents: []string{"code-review"},
+					ExcludeAgents: ast.ClearableList{Values: []string{"code-review"}},
 					Body:          "Review standards.",
 				},
 			},
@@ -81,7 +81,7 @@ func TestCompileCopilotRule_ExcludeAgents_Multiple(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"security": {
 					Activation:    ast.RuleActivationAlways,
-					ExcludeAgents: []string{"code-review", "cloud-agent"},
+					ExcludeAgents: ast.ClearableList{Values: []string{"code-review", "cloud-agent"}},
 					Body:          "Security.",
 				},
 			},

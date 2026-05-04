@@ -1948,20 +1948,20 @@ func validateRuleActivations(c *ast.XcaffoldConfig) error {
 					rule.Name, rule.Activation,
 				)
 			}
-			if rule.Activation == ast.RuleActivationPathGlob && len(rule.Paths) == 0 {
+			if rule.Activation == ast.RuleActivationPathGlob && len(rule.Paths.Values) == 0 {
 				return fmt.Errorf(
 					"rule %q: activation %q requires at least one path in paths",
 					rule.Name, rule.Activation,
 				)
 			}
-			if pathFreeActivations[rule.Activation] && len(rule.Paths) > 0 {
+			if pathFreeActivations[rule.Activation] && len(rule.Paths.Values) > 0 {
 				return fmt.Errorf(
 					"rule %q: paths must be empty when activation is %q",
 					rule.Name, rule.Activation,
 				)
 			}
 		}
-		for _, agent := range rule.ExcludeAgents {
+		for _, agent := range rule.ExcludeAgents.Values {
 			if !validExcludeAgents[agent] {
 				return fmt.Errorf(
 					"rule %q: exclude-agents value %q must be one of: code-review, cloud-agent",

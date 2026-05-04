@@ -88,8 +88,8 @@ func TestPresenceExtractor_Rule_PopulatedFields(t *testing.T) {
 		Description:   "A test rule",
 		AlwaysApply:   &tr,
 		Activation:    "always",
-		Paths:         []string{"*.go"},
-		ExcludeAgents: []string{"code-review"},
+		Paths:         ast.ClearableList{Values: []string{"*.go"}},
+		ExcludeAgents: ast.ClearableList{Values: []string{"code-review"}},
 		Body:          "Rule body.",
 	}
 

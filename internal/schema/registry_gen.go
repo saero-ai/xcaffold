@@ -925,7 +925,7 @@ func init() {
 			{
 				Name:        "Paths",
 				YAMLKey:     "paths",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Glob patterns for path-based activation.",
@@ -941,7 +941,7 @@ func init() {
 			{
 				Name:        "ExcludeAgents",
 				YAMLKey:     "exclude-agents",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Agent types excluded from receiving this rule.",

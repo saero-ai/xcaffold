@@ -131,7 +131,7 @@ func TestCursorExtract_RuleFrontmatterWithGlobs(t *testing.T) {
 	require.True(t, ok, "expected rule 'formatting' in config")
 	assert.Equal(t, "Formatting standards", rule.Description)
 	assert.Contains(t, rule.Body, "Use gofmt for Go files.")
-	assert.Equal(t, []string{"**/*.go", "**/*.ts"}, rule.Paths)
+	assert.Equal(t, ast.ClearableList{Values: []string{"**/*.go", "**/*.ts"}}, rule.Paths)
 	assert.Equal(t, "cursor", rule.SourceProvider)
 }
 
@@ -143,7 +143,7 @@ func TestCursorExtract_RuleFrontmatterWithoutGlobs(t *testing.T) {
 	require.NoError(t, err)
 	rule, ok := config.Rules["no-globs"]
 	require.True(t, ok, "expected rule 'no-globs' in config")
-	assert.Nil(t, rule.Paths)
+	assert.Empty(t, rule.Paths.Values)
 	assert.Equal(t, "cursor", rule.SourceProvider)
 }
 
@@ -237,7 +237,7 @@ func TestCursorImporter_FullWorkspace(t *testing.T) {
 	require.True(t, ok, "expected rule 'formatting'")
 	assert.Equal(t, "cursor", fmt.SourceProvider)
 	// globs: field maps to Paths
-	assert.Equal(t, []string{"**/*.go", "**/*.ts"}, fmt.Paths)
+	assert.Equal(t, ast.ClearableList{Values: []string{"**/*.go", "**/*.ts"}}, fmt.Paths)
 
 	// Hooks from hooks.json (standalone)
 	assert.NotEmpty(t, config.Hooks["default"].Events["PreToolUse"])

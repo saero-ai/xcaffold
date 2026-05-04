@@ -119,7 +119,7 @@ func TestClaudeRenderer_Compile_RuleWithPaths(t *testing.T) {
 				"go-style": {
 					Description: "Go coding conventions.",
 					Body:        "Follow effective Go.\n",
-					Paths:       []string{"**/*.go"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go"}},
 				},
 			},
 		},
@@ -465,7 +465,7 @@ func TestCompileRuleMarkdown_Activation_PathGlob(t *testing.T) {
 				"api-style": {
 					Description: "API style guide.",
 					Activation:  ast.RuleActivationPathGlob,
-					Paths:       []string{"src/**"},
+					Paths:       ast.ClearableList{Values: []string{"src/**"}},
 					Body:        "Use REST conventions.",
 				},
 			},
@@ -563,7 +563,7 @@ func TestCompileRuleMarkdown_ExcludeAgents_FidelityNote(t *testing.T) {
 				"pr-review": {
 					Description:   "PR review standards.",
 					Activation:    ast.RuleActivationAlways,
-					ExcludeAgents: []string{"code-review"},
+					ExcludeAgents: ast.ClearableList{Values: []string{"code-review"}},
 					Body:          "Review carefully.",
 				},
 			},

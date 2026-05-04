@@ -510,7 +510,7 @@ type RuleConfig struct {
 	// +xcf:group=Activation
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional,cursor:optional,copilot:optional,antigravity:optional
-	Paths []string `yaml:"paths,omitempty"`
+	Paths ClearableList `yaml:"paths,omitempty"`
 
 	// Agent types excluded from receiving this rule.
 	// +xcf:optional
@@ -518,7 +518,7 @@ type RuleConfig struct {
 	// +xcf:type=[]string
 	// +xcf:enum=code-review,cloud-agent
 	// +xcf:provider=copilot:optional
-	ExcludeAgents []string `yaml:"exclude-agents,omitempty"`
+	ExcludeAgents ClearableList `yaml:"exclude-agents,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.
 	// +xcf:optional

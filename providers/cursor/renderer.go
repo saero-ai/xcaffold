@@ -415,8 +415,8 @@ func compileCursorRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 		case ast.RuleActivationAlways:
 			sb.WriteString("always-apply: true\n")
 		case ast.RuleActivationPathGlob:
-			if len(rule.Paths) > 0 {
-				fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
+			if len(rule.Paths.Values) > 0 {
+				fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths.Values, ", "))
 			}
 		case ast.RuleActivationManualMention:
 			sb.WriteString("always-apply: false\n")

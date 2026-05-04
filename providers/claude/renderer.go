@@ -668,7 +668,7 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 	}
 
 	// exclude-agents has no Claude equivalent; drop it and emit an info note.
-	if len(rule.ExcludeAgents) > 0 {
+	if len(rule.ExcludeAgents.Values) > 0 {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelInfo,
 			"claude",
@@ -676,7 +676,7 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 			id,
 			"exclude-agents",
 			renderer.CodeRuleExcludeAgentsDropped,
-			fmt.Sprintf("rule %q: exclude-agents %v has no Claude native equivalent and was dropped", id, rule.ExcludeAgents),
+			fmt.Sprintf("rule %q: exclude-agents %v has no Claude native equivalent and was dropped", id, rule.ExcludeAgents.Values),
 			"Remove exclude-agents or target a provider that supports it (e.g. copilot).",
 		))
 	}
@@ -686,8 +686,8 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 	sb.WriteString("---\n")
 	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 	// Emit paths: only when activation resolves to path-glob.
-	if activation == ast.RuleActivationPathGlob && len(rule.Paths) > 0 {
-		fmt.Fprintf(&sb, "paths: [%s]\n", strings.Join(rule.Paths, ", "))
+	if activation == ast.RuleActivationPathGlob && len(rule.Paths.Values) > 0 {
+		fmt.Fprintf(&sb, "paths: [%s]\n", strings.Join(rule.Paths.Values, ", "))
 	}
 	sb.WriteString("---\n")
 

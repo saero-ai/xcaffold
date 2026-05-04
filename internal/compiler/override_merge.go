@@ -234,11 +234,11 @@ func mergeRuleConfig(base, override ast.RuleConfig) ast.RuleConfig {
 	}
 
 	// --- Lists (replace entire list on non-empty) ---
-	if len(override.Paths) > 0 {
-		result.Paths = append([]string(nil), override.Paths...)
+	if len(override.Paths.Values) > 0 {
+		result.Paths = ast.ClearableList{Values: append([]string(nil), override.Paths.Values...)}
 	}
-	if len(override.ExcludeAgents) > 0 {
-		result.ExcludeAgents = append([]string(nil), override.ExcludeAgents...)
+	if len(override.ExcludeAgents.Values) > 0 {
+		result.ExcludeAgents = ast.ClearableList{Values: append([]string(nil), override.ExcludeAgents.Values...)}
 	}
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---

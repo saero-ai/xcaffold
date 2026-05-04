@@ -538,8 +538,8 @@ func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.Capability
 		case ast.RuleActivationAlways:
 			applyTo = `"**"`
 		case ast.RuleActivationPathGlob:
-			if len(rule.Paths) > 0 {
-				applyTo = fmt.Sprintf("%q", strings.Join(rule.Paths, ", "))
+			if len(rule.Paths.Values) > 0 {
+				applyTo = fmt.Sprintf("%q", strings.Join(rule.Paths.Values, ", "))
 			} else {
 				applyTo = `"**"`
 			}
@@ -554,9 +554,9 @@ func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.Capability
 
 	sb.WriteString(fmt.Sprintf("applyTo: %s\n", applyTo))
 
-	if len(rule.ExcludeAgents) > 0 {
+	if len(rule.ExcludeAgents.Values) > 0 {
 		sb.WriteString("excludeAgent:\n")
-		for _, agent := range rule.ExcludeAgents {
+		for _, agent := range rule.ExcludeAgents.Values {
 			sb.WriteString(fmt.Sprintf("  - %s\n", agent))
 		}
 	}

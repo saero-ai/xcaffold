@@ -41,7 +41,7 @@ func TestCompile_Rule_WithPaths_OutputExtensionIsMdc(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"my-rule": {
 					Description: "A rule with paths",
-					Paths:       []string{"**/*.go"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go"}},
 					Body:        "Always format with gofmt.",
 				},
 			},
@@ -65,7 +65,7 @@ func TestCompile_Rule_WithPaths_FrontmatterHasGlobs(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"go-fmt": {
 					Description: "Go formatting rule",
-					Paths:       []string{"**/*.go", "**/*.mod"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go", "**/*.mod"}},
 					Body:        "Run gofmt.",
 				},
 			},
@@ -917,7 +917,7 @@ func TestCompile_Rule_PathsWithAlwaysApplyTrue_AlwaysTakesPrecedence(t *testing.
 			Rules: map[string]ast.RuleConfig{
 				"combo-rule": {
 					Description: "Has both",
-					Paths:       []string{"**/*.ts"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.ts"}},
 					Body:        "Lint TypeScript.",
 					AlwaysApply: &t2,
 				},
@@ -1313,7 +1313,7 @@ func TestCompileCursorRule_Activation_PathGlob(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
 					Activation: ast.RuleActivationPathGlob,
-					Paths:      []string{"src/**"},
+					Paths:      ast.ClearableList{Values: []string{"src/**"}},
 					Body:       "Body.",
 				},
 			},

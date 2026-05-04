@@ -98,7 +98,7 @@ func TestCompile_Gemini_Rules_PathGlob(t *testing.T) {
 					Description: "API style guide",
 					Body:        "Follow REST conventions.",
 					Activation:  ast.RuleActivationPathGlob,
-					Paths:       []string{"api/**"},
+					Paths:       ast.ClearableList{Values: []string{"api/**"}},
 				},
 			},
 		},

@@ -111,7 +111,7 @@ func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"path-rule": {
 					Description: "A rule with paths",
-					Paths:       []string{"**/*.go"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go"}},
 					Body:        "Check Go files.",
 				},
 			},
@@ -345,7 +345,7 @@ func TestCompileRules_Antigravity_Glob_EmitsTriggerAndGlobs(t *testing.T) {
 					Description: "Go-specific rule.",
 					Body:        "Use gofmt.",
 					Activation:  ast.RuleActivationPathGlob,
-					Paths:       []string{"xcaffold/**", "xcaffold/internal/**"},
+					Paths:       ast.ClearableList{Values: []string{"xcaffold/**", "xcaffold/internal/**"}},
 				},
 			},
 		},
@@ -1113,7 +1113,7 @@ func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
 					Activation: ast.RuleActivationPathGlob,
-					Paths:      []string{"src/**", "packages/api/**"},
+					Paths:      ast.ClearableList{Values: []string{"src/**", "packages/api/**"}},
 					Body:       "REST conventions.",
 				},
 			},

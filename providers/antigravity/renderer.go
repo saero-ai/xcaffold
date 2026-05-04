@@ -398,8 +398,8 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, caps renderer.Capabi
 				sb.WriteString("trigger: model_decision\n")
 			case ast.RuleActivationPathGlob:
 				sb.WriteString("trigger: glob\n")
-				if len(rule.Paths) > 0 {
-					fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths, ","))
+				if len(rule.Paths.Values) > 0 {
+					fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths.Values, ","))
 				}
 			}
 		}

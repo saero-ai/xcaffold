@@ -145,10 +145,10 @@ func ExtractRulePresentFields(r ast.RuleConfig) map[string]string {
 	if r.Name != "" {
 		m["name"] = r.Name
 	}
-	if len(r.Paths) > 0 {
+	if len(r.Paths.Values) > 0 {
 		m["paths"] = "set"
 	}
-	if len(r.ExcludeAgents) > 0 {
+	if len(r.ExcludeAgents.Values) > 0 {
 		m["exclude-agents"] = "set"
 	}
 	if len(r.Targets) > 0 {

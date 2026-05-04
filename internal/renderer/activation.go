@@ -21,7 +21,7 @@ func ResolvedActivation(rule ast.RuleConfig) string {
 		}
 		return ast.RuleActivationManualMention
 	}
-	if len(rule.Paths) > 0 {
+	if len(rule.Paths.Values) > 0 {
 		return ast.RuleActivationPathGlob
 	}
 	return ast.RuleActivationAlways
