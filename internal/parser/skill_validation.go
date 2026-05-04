@@ -9,7 +9,7 @@ import (
 	"github.com/saero-ai/xcaffold/providers"
 )
 
-var canonicalSkillSubdirs = map[string]bool{
+var subdirExtensionRules = map[string]bool{
 	"references": true,
 	"scripts":    true,
 	"assets":     true,
@@ -30,11 +30,13 @@ type SkillValidationResult struct {
 	Warnings []error
 }
 
-// ValidateSkillDirectory checks that a skill directory conforms to the canonical
-// 4-subdirectory layout. It returns a SkillValidationResult with hard errors
-// (unknown subdirs, stray files, nested subdirs) and advisory warnings
-// (misplaced file types). Both slices are nil when the directory is fully valid.
-func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
+// ValidateSkillDirectory checks that a skill directory conforms to the
+// artifacts-based layout. The artifacts parameter lists declared subdirectories
+// that should exist and be validated. It returns a SkillValidationResult with
+// hard errors (stray files, nested subdirs, missing declared artifacts) and
+// advisory warnings (subdirs on disk not in artifacts list). Both slices are
+// nil when the directory is fully valid.
+func ValidateSkillDirectory(skillDir, skillID string, artifacts []string) *SkillValidationResult {
 	result := &SkillValidationResult{}
 
 	entries, err := os.ReadDir(skillDir)
@@ -45,20 +47,33 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 
 	legacyXcfFile := skillID + ".xcf"
 
+	// Build a map of declared artifacts for fast lookup
+	artifactsMap := make(map[string]bool)
+	for _, a := range artifacts {
+		artifactsMap[a] = true
+	}
+
+	// Track which declared artifacts we've seen on disk
+	declaredArtifactsSeen := make(map[string]bool)
+
 	for _, entry := range entries {
 		name := entry.Name()
 
 		if entry.IsDir() {
-			if !canonicalSkillSubdirs[name] {
-				result.Errors = append(result.Errors, fmt.Errorf(
-					"unknown subdirectory %q in skill %q; use references/, scripts/, assets/, or examples/",
-					name, skillID))
-				continue
+			// Check if this directory is in the artifacts list
+			if artifactsMap[name] {
+				declaredArtifactsSeen[name] = true
+				// It's declared — validate its contents
+				subdirPath := filepath.Join(skillDir, name)
+				errs, warns := validateSubdir(subdirPath, skillID, name)
+				result.Errors = append(result.Errors, errs...)
+				result.Warnings = append(result.Warnings, warns...)
+			} else {
+				// Directory exists but is not declared — warn
+				result.Warnings = append(result.Warnings, fmt.Errorf(
+					"subdirectory %q in skill %q is not declared in artifacts and will not be compiled; add it to artifacts: [%s] in the skill config",
+					name, skillID, name))
 			}
-			subdirPath := filepath.Join(skillDir, name)
-			errs, warns := validateSubdir(subdirPath, skillID, name)
-			result.Errors = append(result.Errors, errs...)
-			result.Warnings = append(result.Warnings, warns...)
 			continue
 		}
 
@@ -77,8 +92,17 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 			continue
 		}
 		result.Errors = append(result.Errors, fmt.Errorf(
-			"unrecognized file %q at skill root %q; move to references/, scripts/, assets/, or examples/ based on its purpose",
+			"unrecognized file %q at skill root %q; move it to a declared artifact subdirectory",
 			name, skillID))
+	}
+
+	// Check that all declared artifacts actually exist on disk
+	for _, declared := range artifacts {
+		if !declaredArtifactsSeen[declared] {
+			result.Errors = append(result.Errors, fmt.Errorf(
+				"declared artifact %q does not exist as subdirectory in skill %q",
+				declared, skillID))
+		}
 	}
 
 	return result
@@ -86,12 +110,13 @@ func ValidateSkillDirectory(skillDir, skillID string) *SkillValidationResult {
 
 // validateSubdir reads subdirPath once and checks both max-depth and file-type
 // constraints in a single pass. It returns (errors, warnings).
+// For canonical subdirs (in canonicalSkillSubdirs), it enforces extension checks.
+// For custom artifact dirs, any file type is allowed.
 func validateSubdir(subdirPath, skillID, subdirName string) ([]error, []error) {
 	entries, err := os.ReadDir(subdirPath)
 	if err != nil {
 		return []error{fmt.Errorf("cannot read %s/%s/: %w", skillID, subdirName, err)}, nil
 	}
-	allowed := subdirAllowedExtensions[subdirName]
 	var errs []error
 	var warns []error
 	for _, entry := range entries {
@@ -101,6 +126,12 @@ func validateSubdir(subdirPath, skillID, subdirName string) ([]error, []error) {
 				entry.Name(), skillID, subdirName))
 			continue
 		}
+		// Only check file extensions for canonical subdirs
+		// Custom artifact dirs allow any file type
+		if !subdirExtensionRules[subdirName] {
+			continue
+		}
+		allowed := subdirAllowedExtensions[subdirName]
 		if allowed == nil {
 			continue
 		}

@@ -457,7 +457,11 @@ var providerSubdirMap = map[string]map[string]string{
 //
 // Files from subdirectories that have no canonical mapping are copied to
 // xcf/skills/<id>/<subdir>/ alongside canonical subdirectories.
-func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]string) (refs, scripts, assets, examples []string, err error) {
+//
+// The discoveredDirs slice contains all discovered subdirectory names (both
+// canonical and custom) in the skill directory, suitable for populating
+// the Artifacts field of SkillConfig.
+func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]string) (refs, scripts, assets, examples, discoveredDirs []string, err error) {
 	skillDir := filepath.Dir(skillFile)
 
 	// Determine the base for output paths.
@@ -472,7 +476,7 @@ func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]str
 	entries, readErr := os.ReadDir(skillDir)
 	if readErr != nil {
 		// If the directory cannot be read at all, return empty (not an error).
-		return nil, nil, nil, nil, nil
+		return nil, nil, nil, nil, nil, nil
 	}
 
 	// Helper: copy a file and append to the appropriate slice.
@@ -519,6 +523,9 @@ func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]str
 		name := entry.Name()
 
 		if entry.IsDir() {
+			// Append to discovered directories regardless of whether it has a canonical mapping.
+			discoveredDirs = append(discoveredDirs, name)
+
 			// Determine canonical mapping for this subdir.
 			var canonicalSubdir string
 			if subdirMap != nil {
@@ -548,7 +555,7 @@ func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]str
 		}
 	}
 
-	return refs, scripts, assets, examples, nil
+	return refs, scripts, assets, examples, discoveredDirs, nil
 }
 
 // extractBodyAfterFrontmatter returns the markdown body that follows the YAML frontmatter block.
@@ -663,7 +670,7 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 		for id := range config.Skills {
 			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
+				refs, scripts, fileAssets, fileExamples, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
 				sc := config.Skills[id]
 				if len(refs) > 0 {
 					sc.References = ast.ClearableList{Values: refs}
@@ -676,6 +683,9 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 				}
 				if len(fileExamples) > 0 {
 					sc.Examples = ast.ClearableList{Values: fileExamples}
+				}
+				if len(discoveredDirs) > 0 {
+					sc.Artifacts = discoveredDirs
 				}
 				config.Skills[id] = sc
 			}
@@ -719,7 +729,7 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 		for id := range tmpConfig.Skills {
 			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
+				refs, scripts, fileAssets, fileExamples, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
 				sc := tmpConfig.Skills[id]
 				if len(refs) > 0 {
 					sc.References = ast.ClearableList{Values: refs}
@@ -732,6 +742,9 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 				}
 				if len(fileExamples) > 0 {
 					sc.Examples = ast.ClearableList{Values: fileExamples}
+				}
+				if len(discoveredDirs) > 0 {
+					sc.Artifacts = discoveredDirs
 				}
 				tmpConfig.Skills[id] = sc
 			}
