@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `targets` field on `kind: blueprint` — blueprints can declare independent compilation targets, overriding project-level targets for that blueprint's resource subset.
+- `ClearableList` type for list fields in override merging — setting a list field to `[]` explicitly clears inherited values rather than inheriting the base.
+- Two-layer field classification with `+xcf:role=` markers on all config struct fields (`identity`, `rendering`, `composition`, `metadata`, `filtering`).
+- `docs/concepts/configuration/field-model.md` — explains the two-layer field classification and `ClearableList` override semantics.
+- `docs/concepts/configuration/layer-precedence.md` — explains target resolution hierarchy and override merge rules.
+
+### Changed
+
+- `xcaffold apply` no longer defaults to `claude` when no target is configured. Set `targets:` in `project.xcf` or pass `--target`.
+- `xcaffold init --yes` requires `--target` when no known CLI is detected on `$PATH`.
+- Provider `fields.yaml` entries previously classified as `xcaffold-only` are now `unsupported`. The two-layer model silently skips core fields that a provider cannot render.
+
 ### Fixed
 
 - Fixed `xcaffold apply --backup` skipping backup for 2nd and subsequent targets in multi-target projects; backup now runs for every target regardless of source-change detection.
