@@ -9,6 +9,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/state"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -105,10 +106,10 @@ Use pnpm. PostgreSQL 16.
 }
 
 // minimalXCF is a minimal valid project.xcf for apply tests.
-const minimalXCF = `---
-kind: project
+const minimalXCF = `kind: project
 version: "1.0"
 name: apply-test
+targets: [claude]
 `
 
 func TestApplyScope_Project(t *testing.T) {
@@ -136,6 +137,69 @@ func TestApplyScope_MissingXCF(t *testing.T) {
 
 	err := applyScope(filepath.Join(dir, "nonexistent.xcf"), claudeDirPath, dir, "project")
 	assert.Error(t, err, "should fail when xcf file does not exist")
+}
+
+func TestResolveTargets_FlagOverride(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [gemini]\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+	cmd.Flags().Set("target", "cursor")
+
+	result := resolveTargets(cmd, dir, "")
+	require.Equal(t, []string{"cursor"}, result)
+}
+
+func TestResolveTargets_BlueprintTargets(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "my-bp.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: my-bp\ntargets: [gemini, antigravity]\nagents: [a]\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+
+	result := resolveTargets(cmd, dir, "my-bp")
+	require.Equal(t, []string{"gemini", "antigravity"}, result)
+}
+
+func TestResolveTargets_ProjectTargets(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [claude, cursor]\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+
+	result := resolveTargets(cmd, dir, "")
+	require.Equal(t, []string{"claude", "cursor"}, result)
+}
+
+func TestResolveTargets_NoTargets_ReturnsNil(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+
+	result := resolveTargets(cmd, dir, "")
+	require.Nil(t, result)
+}
+
+func TestResolveTargets_BlueprintNoTargets_ReturnsNil(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [claude]\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "my-bp.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: my-bp\nagents: [a]\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+
+	result := resolveTargets(cmd, dir, "my-bp")
+	require.Nil(t, result)
 }
 
 func TestRunApply_ScopeProject(t *testing.T) {
@@ -446,10 +510,10 @@ You are a developer.
 	applyForce = false
 }
 
-// TestRunApply_NoTargetsInConfig_DefaultsToClaude verifies that when the
-// project config has no declared targets and --target is not set, the
-// default "claude" target is used.
-func TestRunApply_NoTargetsInConfig_DefaultsToClaude(t *testing.T) {
+// TestRunApply_NoTargetsInConfig_NoDefault verifies that when the
+// project config has no declared targets and --target is not set, an
+// error is returned (no longer defaults to "claude").
+func TestRunApply_NoTargetsInConfig_NoDefault(t *testing.T) {
 	dir := t.TempDir()
 
 	// Config with no targets field
@@ -462,28 +526,21 @@ name: no-targets-test
 
 	agentDir := filepath.Join(dir, ".xcaffold", "agents")
 	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
-kind: agent
+	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`kind: agent
 version: "1.0"
 name: dev
----
-You are a developer.
 `), 0644)
 
 	xcfPath = xcf
 	projectRoot = dir
 	globalFlag = false
 	applyForce = true
-	targetFlag = compiler.TargetClaude
+	targetFlag = ""
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	err := runApply(applyCmd, nil)
-	require.NoError(t, err)
-
-	// State file is written even for configs with no resources to emit.
-	stateFile := state.StateFilePath(dir, "")
-	_, err = os.Stat(stateFile)
-	assert.NoError(t, err, "state file should be written for the default claude target")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no compilation targets configured")
 
 	applyForce = false
 }

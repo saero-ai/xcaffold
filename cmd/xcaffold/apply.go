@@ -71,7 +71,7 @@ func init() {
 	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
 	applyCmd.Flags().StringVar(&applyBlueprintFlag, "blueprint", "", "Compile a specific blueprint (default: all resources)")
-	applyCmd.Flags().StringVar(&targetFlag, "target", compiler.TargetClaude, "compilation target platform (claude, cursor, antigravity, copilot, gemini; default: claude)")
+	applyCmd.Flags().StringVar(&targetFlag, "target", "", "compilation target platform (claude, cursor, antigravity, copilot, gemini)")
 	rootCmd.AddCommand(applyCmd)
 }
 
@@ -112,10 +112,11 @@ func runApply(cmd *cobra.Command, args []string) error {
 	}
 
 	// Determine which targets to compile.
-	// When --target is explicitly set by the user, honour it exclusively.
-	// Otherwise, read the declared targets from the project config and compile
-	// for each one. Fall back to "claude" for configs that predate targets:.
-	targets := resolveTargets(cmd, projectRoot)
+	// Priority: --target flag > blueprint targets > project targets > error
+	targets := resolveTargets(cmd, projectRoot, applyBlueprintFlag)
+	if targets == nil {
+		return fmt.Errorf("no compilation targets configured; set targets in project.xcf or pass --target")
+	}
 
 	for _, t := range targets {
 		targetFlag = t
@@ -128,25 +129,36 @@ func runApply(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// resolveTargets returns the list of compilation targets for a project apply.
-// When cmd is non-nil and --target was explicitly changed by the user, that
-// single value is returned. Otherwise the declared targets list from the
-// project config is used, falling back to ["claude"] when no targets are
-// declared.
+// resolveTargets returns the list of compilation targets with 4-tier priority:
+// 1. --target flag (if explicitly set by the user)
+// 2. blueprint targets (if blueprintName is specified and blueprint has targets)
+// 3. project targets (from project.xcf)
+// 4. nil (no targets configured anywhere)
 //
 // baseDir must be the project root directory (not filepath.Dir(xcfPath)) —
 // xcfPath may live inside .xcaffold/ and filepath.Dir would give the wrong dir.
-func resolveTargets(cmd *cobra.Command, baseDir string) []string {
+func resolveTargets(cmd *cobra.Command, baseDir string, blueprintName string) []string {
 	if cmd != nil && cmd.Flag("target") != nil && cmd.Flag("target").Changed {
 		return []string{targetFlag}
 	}
 
 	config, err := parser.ParseDirectory(baseDir)
-	if err == nil && config.Project != nil && len(config.Project.Targets) > 0 {
+	if err != nil {
+		return nil
+	}
+
+	if blueprintName != "" {
+		if bp, ok := config.Blueprints[blueprintName]; ok && len(bp.Targets) > 0 {
+			return bp.Targets
+		}
+		return nil
+	}
+
+	if config.Project != nil && len(config.Project.Targets) > 0 {
 		return config.Project.Targets
 	}
 
-	return []string{compiler.TargetClaude}
+	return nil
 }
 
 // applyScope compiles the xcf configuration at configPath into outputDir.
