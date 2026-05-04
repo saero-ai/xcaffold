@@ -106,3 +106,38 @@ func TestValidateSkillDirectory_SkillMDAtRoot(t *testing.T) {
 	require.NotEmpty(t, result.Errors, "SKILL.md at root should be rejected — only .xcf allowed")
 	assert.Contains(t, result.Errors[0].Error(), "SKILL.md")
 }
+
+func TestValidateSkillDirectory_OverrideFiles_AcceptsKindProviderXcf(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "skill.claude.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "skill.gemini.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "skill.cursor.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
+
+	result := ValidateSkillDirectory(dir, "tdd")
+	require.Empty(t, result.Errors, "override files should not produce errors: %v", result.Errors)
+	require.Empty(t, result.Warnings, "override files should not produce warnings: %v", result.Warnings)
+}
+
+func TestValidateSkillDirectory_OverrideFiles_RejectsInvalidPattern(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "random.file.xcf"), []byte("stuff"), 0o644)
+
+	result := ValidateSkillDirectory(dir, "tdd")
+	require.NotEmpty(t, result.Errors, "invalid pattern should produce an error")
+}
+
+func TestValidateSkillDirectory_XcfInExamples_Allowed(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte("---\nkind: skill\n---\n"), 0o644)
+
+	exDir := filepath.Join(dir, "examples")
+	os.MkdirAll(exDir, 0o755)
+	os.WriteFile(filepath.Join(exDir, "sample-agent.xcf"), []byte("---\nkind: agent\n---\n"), 0o644)
+	os.WriteFile(filepath.Join(exDir, "readme.md"), []byte("# Examples\n"), 0o644)
+
+	result := ValidateSkillDirectory(dir, "tdd")
+	require.Empty(t, result.Errors, "no errors expected: %v", result.Errors)
+	require.Empty(t, result.Warnings, ".xcf in examples should not warn: %v", result.Warnings)
+}

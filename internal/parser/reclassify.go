@@ -20,7 +20,7 @@ import (
 //
 // The blank imports for provider registration (e.g.
 //
-//	_ "github.com/saero-ai/xcaffold/internal/importer/claude"
+//	_ "github.com/saero-ai/xcaffold/providers/claude"
 //
 // ) must be done by the caller, not here.
 func ReclassifyExtras(config *ast.XcaffoldConfig, importers []importer.ProviderImporter) error {

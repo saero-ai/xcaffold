@@ -877,9 +877,10 @@ func TestHooksProviderMarkers(t *testing.T) {
 func TestGenSchema_ReadsFieldsYAML(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create mock renderer directories with fields.yaml
+	// Create mock directories at both glob paths: legacy internal/renderer/
+	// and consolidated providers/. readFieldsYAML globs both.
 	claudeDir := dir + "/internal/renderer/claude"
-	cursorDir := dir + "/internal/renderer/cursor"
+	cursorDir := dir + "/providers/cursor"
 	if err := os.MkdirAll(claudeDir, 0755); err != nil {
 		t.Fatal(err)
 	}

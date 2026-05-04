@@ -278,7 +278,7 @@ func ApplyExtractCommon(files map[string]string) (map[string]string, []renderer.
 }
 
 // ApplyPruneUnused is a stub that returns the file map unchanged.
-// Full implementation removes files not referenced by any agent or rule.
+// Full implementation removes compiled files no longer produced by any source resource.
 func ApplyPruneUnused(files map[string]string) (map[string]string, []renderer.FidelityNote, error) {
 	out := copyFiles(files)
 	return out, nil, nil

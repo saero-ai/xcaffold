@@ -13,15 +13,31 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/compiler"
-	claudeimp "github.com/saero-ai/xcaffold/internal/importer/claude"
-	cursorimp "github.com/saero-ai/xcaffold/internal/importer/cursor"
+	antigravityimp "github.com/saero-ai/xcaffold/providers/antigravity"
+	claudeimp "github.com/saero-ai/xcaffold/providers/claude"
+	copilotimp "github.com/saero-ai/xcaffold/providers/copilot"
+	cursorimp "github.com/saero-ai/xcaffold/providers/cursor"
+	geminimp "github.com/saero-ai/xcaffold/providers/gemini"
 )
 
 // testdataDir returns the absolute path to a provider's testdata/input directory.
 // It resolves relative to this test file's location so tests are location-independent.
+// Consolidated providers (claude, cursor, gemini, copilot, antigravity) live in providers/<provider>/; others remain under internal/importer/<provider>/.
 func testdataDir(provider string) string {
 	_, file, _, _ := runtime.Caller(0)
 	base := filepath.Dir(file)
+	switch provider {
+	case "claude":
+		return filepath.Join(base, "..", "..", "providers", "claude", "testdata", "input")
+	case "cursor":
+		return filepath.Join(base, "..", "..", "providers", "cursor", "testdata", "input")
+	case "gemini":
+		return filepath.Join(base, "..", "..", "providers", "gemini", "testdata", "input")
+	case "copilot":
+		return filepath.Join(base, "..", "..", "providers", "copilot", "testdata", "input")
+	case "antigravity":
+		return filepath.Join(base, "..", "..", "providers", "antigravity", "testdata", "input")
+	}
 	return filepath.Join(base, provider, "testdata", "input")
 }
 
@@ -30,7 +46,7 @@ func testdataDir(provider string) string {
 // imported resource appears in the compilation output.
 func TestRoundTrip_ClaudeImportCompile(t *testing.T) {
 	// --- Red: import phase ---
-	imp := claudeimp.New()
+	imp := claudeimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	err := imp.Import(testdataDir("claude"), config)
 	require.NoError(t, err, "Import must not fail on well-formed testdata")
@@ -71,7 +87,7 @@ func TestRoundTrip_ClaudeImportCompile(t *testing.T) {
 // TestRoundTrip_ClaudeImportCompile_AgentFields verifies that agent frontmatter
 // fields (tools, description, instructions body) survive the round-trip.
 func TestRoundTrip_ClaudeImportCompile_AgentFields(t *testing.T) {
-	imp := claudeimp.New()
+	imp := claudeimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	require.NoError(t, imp.Import(testdataDir("claude"), config))
 
@@ -95,7 +111,7 @@ func TestRoundTrip_ClaudeImportCompile_AgentFields(t *testing.T) {
 // TestRoundTrip_ClaudeImportCompile_SkillFields verifies that skill frontmatter
 // fields survive the round-trip.
 func TestRoundTrip_ClaudeImportCompile_SkillFields(t *testing.T) {
-	imp := claudeimp.New()
+	imp := claudeimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	require.NoError(t, imp.Import(testdataDir("claude"), config))
 
@@ -119,7 +135,7 @@ func TestRoundTrip_ClaudeImportCompile_SkillFields(t *testing.T) {
 // imported resource appears in the compilation output.
 func TestRoundTrip_CursorImportCompile(t *testing.T) {
 	// --- Red: import phase ---
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	err := imp.Import(testdataDir("cursor"), config)
 	require.NoError(t, err, "Import must not fail on well-formed testdata")
@@ -165,7 +181,7 @@ func TestRoundTrip_CursorImportCompile(t *testing.T) {
 // Cursor does not emit tools: (no tool-gating concept) and drops unmapped
 // model strings, so only name, description, and the instruction body are checked.
 func TestRoundTrip_CursorImportCompile_AgentFields(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	require.NoError(t, imp.Import(testdataDir("cursor"), config))
 
@@ -192,7 +208,7 @@ func TestRoundTrip_CursorImportCompile_AgentFields(t *testing.T) {
 // TestRoundTrip_CursorImportCompile_RuleExtension verifies that Cursor rules
 // are emitted with the .mdc extension (not .md) after a round-trip.
 func TestRoundTrip_CursorImportCompile_RuleExtension(t *testing.T) {
-	imp := cursorimp.New()
+	imp := cursorimp.NewImporter()
 	config := &ast.XcaffoldConfig{}
 	require.NoError(t, imp.Import(testdataDir("cursor"), config))
 
@@ -204,4 +220,101 @@ func TestRoundTrip_CursorImportCompile_RuleExtension(t *testing.T) {
 		"cursor rules must use .mdc extension")
 	assert.NotContains(t, out.Files, filepath.Clean("rules/formatting.md"),
 		"cursor rules must NOT use .md extension")
+}
+
+// TestRoundTrip_CopilotImportCompile imports a Copilot .github/ directory tree
+// and compiles the AST back to the Copilot target, verifying each imported
+// resource appears in the compilation output.
+func TestRoundTrip_CopilotImportCompile(t *testing.T) {
+	// --- Red: import phase ---
+	imp := copilotimp.NewImporter()
+	config := &ast.XcaffoldConfig{}
+	err := imp.Import(testdataDir("copilot"), config)
+	require.NoError(t, err, "Import must not fail on well-formed testdata")
+
+	// Sanity-check that the importer populated the expected resources.
+	require.Contains(t, config.Agents, "auditor", "agent 'auditor' must be imported")
+	require.Contains(t, config.Rules, "security", "rule 'security' must be imported")
+	require.Contains(t, config.Skills, "review", "skill 'review' must be imported")
+
+	// --- Green: compile phase ---
+	out, _, err := compiler.Compile(config, ".", "copilot", "")
+	require.NoError(t, err, "Compile must not fail on a valid AST")
+
+	// --- Verify: same resource keys are present in the output ---
+	assert.Contains(t, out.Files, filepath.Clean("agents/auditor.agent.md"),
+		"compiled output must contain agents/auditor.agent.md")
+	assert.Contains(t, out.Files, filepath.Clean("instructions/security.instructions.md"),
+		"compiled output must contain instructions/security.instructions.md")
+	assert.Contains(t, out.Files, filepath.Clean("skills/review/SKILL.md"),
+		"compiled output must contain skills/review/SKILL.md")
+
+	// Verify field round-trip at the semantic level.
+	auditorContent := out.Files[filepath.Clean("agents/auditor.agent.md")]
+	assert.Contains(t, auditorContent, "Code Auditor",
+		"compiled agent must preserve the name field")
+}
+
+// TestRoundTrip_AntigravityImportCompile imports an Antigravity .agents/ directory tree
+// and compiles the AST back to the Antigravity target, verifying each imported
+// resource appears in the compilation output.
+func TestRoundTrip_AntigravityImportCompile(t *testing.T) {
+	// --- Red: import phase ---
+	imp := antigravityimp.NewImporter()
+	config := &ast.XcaffoldConfig{}
+	err := imp.Import(testdataDir("antigravity"), config)
+	require.NoError(t, err, "Import must not fail on well-formed testdata")
+
+	// Sanity-check that the importer populated the expected resources.
+	require.Contains(t, config.Rules, "safety", "rule 'safety' must be imported")
+	require.Contains(t, config.Skills, "search", "skill 'search' must be imported")
+
+	// --- Green: compile phase ---
+	out, _, err := compiler.Compile(config, ".", "antigravity", "")
+	require.NoError(t, err, "Compile must not fail on a valid AST")
+
+	// --- Verify: same resource keys are present in the output ---
+	assert.Contains(t, out.Files, filepath.Clean("rules/safety.md"),
+		"compiled output must contain rules/safety.md")
+	assert.Contains(t, out.Files, filepath.Clean("skills/search/SKILL.md"),
+		"compiled output must contain skills/search/SKILL.md")
+}
+
+// TestRoundTrip_GeminiImportCompile imports a Gemini .gemini/ directory tree
+// and compiles the AST back to the Gemini target, verifying each imported
+// resource appears in the compilation output.
+func TestRoundTrip_GeminiImportCompile(t *testing.T) {
+	// --- Red: import phase ---
+	imp := geminimp.NewImporter()
+	config := &ast.XcaffoldConfig{}
+	err := imp.Import(testdataDir("gemini"), config)
+	require.NoError(t, err, "Import must not fail on well-formed testdata")
+
+	// Sanity-check that the importer populated the expected resources.
+	require.Contains(t, config.Agents, "assistant", "agent 'assistant' must be imported")
+	require.Contains(t, config.Rules, "style", "rule 'style' must be imported")
+	require.Contains(t, config.Skills, "search", "skill 'search' must be imported")
+
+	// --- Green: compile phase ---
+	out, _, err := compiler.Compile(config, ".", "gemini", "")
+	require.NoError(t, err, "Compile must not fail on a valid AST")
+
+	// --- Verify: same resource keys are present in the output ---
+	assert.Contains(t, out.Files, filepath.Clean("agents/assistant.md"),
+		"compiled output must contain agents/assistant.md")
+	assert.Contains(t, out.Files, filepath.Clean("rules/style.md"),
+		"compiled output must contain rules/style.md")
+	assert.Contains(t, out.Files, filepath.Clean("skills/search/SKILL.md"),
+		"compiled output must contain skills/search/SKILL.md")
+
+	// Verify field round-trip at the semantic level.
+	assistantContent := out.Files[filepath.Clean("agents/assistant.md")]
+	assert.Contains(t, assistantContent, "Assistant Agent",
+		"compiled agent must preserve the name field")
+	assert.Contains(t, assistantContent, "gemini-2.5-pro",
+		"compiled agent must preserve the model field")
+
+	skillContent := out.Files[filepath.Clean("skills/search/SKILL.md")]
+	assert.Contains(t, skillContent, "web-search",
+		"compiled skill must preserve the name field")
 }

@@ -1532,3 +1532,410 @@ func TestSplitWorkflowOverrides_DeterministicBase(t *testing.T) {
 		t.Errorf("base should be alphabetically first (apple), got body: %s", base.Body)
 	}
 }
+
+func TestImport_HookConfigsIdentical_ReturnsTrueForMatchingConfigs(t *testing.T) {
+	configs := map[string]ast.NamedHookConfig{
+		"claude": {
+			Name:      "default",
+			Artifacts: []string{"lint.sh"},
+			Events: ast.HookConfig{
+				"pre-commit": []ast.HookMatcherGroup{},
+			},
+		},
+		"gemini": {
+			Name:      "default",
+			Artifacts: []string{"lint.sh"},
+			Events: ast.HookConfig{
+				"pre-commit": []ast.HookMatcherGroup{},
+			},
+		},
+	}
+
+	result := hookConfigsIdentical(configs)
+	if !result {
+		t.Errorf("hookConfigsIdentical should return true for matching configs, got false")
+	}
+}
+
+func TestImport_HookConfigsIdentical_ReturnsFalseForDifferentConfigs(t *testing.T) {
+	configs := map[string]ast.NamedHookConfig{
+		"claude": {
+			Name:      "default",
+			Artifacts: []string{"lint.sh", "format.sh"},
+		},
+		"gemini": {
+			Name:      "default",
+			Artifacts: []string{"lint.sh"},
+		},
+	}
+
+	result := hookConfigsIdentical(configs)
+	if result {
+		t.Errorf("hookConfigsIdentical should return false for different configs, got true")
+	}
+}
+
+func TestImport_AssembleHooks_SingleProvider(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			Hooks: map[string]ast.NamedHookConfig{
+				"default": {
+					Name:      "default",
+					Artifacts: []string{"lint.sh"},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		Hooks: make(map[string]ast.NamedHookConfig),
+	}
+
+	assembleHooks(providerConfigs, result)
+
+	if _, ok := result.Hooks["default"]; !ok {
+		t.Errorf("assembleHooks should add hook to result when single provider")
+	}
+	if result.Overrides != nil {
+		t.Errorf("assembleHooks should not create overrides for single provider, got non-nil")
+	}
+}
+
+func TestImport_AssembleHooks_DifferentMultiProvider(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			Hooks: map[string]ast.NamedHookConfig{
+				"pre-commit": {
+					Name:      "pre-commit",
+					Artifacts: []string{"lint.sh", "format.sh"},
+					Events: ast.HookConfig{
+						"pre-commit": []ast.HookMatcherGroup{},
+					},
+				},
+			},
+		},
+		"gemini": {
+			Hooks: map[string]ast.NamedHookConfig{
+				"pre-commit": {
+					Name:      "pre-commit",
+					Artifacts: []string{"lint.sh"},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		Hooks: make(map[string]ast.NamedHookConfig),
+	}
+
+	assembleHooks(providerConfigs, result)
+
+	// Base should be the one with lower score
+	// claude: score = 5 (Events non-nil+non-empty) + 2 (artifacts) = 7
+	// gemini: score = 0 (no Events) + 1 (artifact) = 1
+	// So gemini is base, claude is override
+	if _, ok := result.Hooks["pre-commit"]; !ok {
+		t.Errorf("assembleHooks should add hook to result")
+	}
+
+	if result.Overrides == nil {
+		t.Fatal("assembleHooks should create overrides for different configs")
+	}
+
+	// Check that override exists for the non-base provider
+	override, hasOverride := result.Overrides.GetHooks("pre-commit", "claude")
+	if !hasOverride {
+		t.Errorf("assembleHooks should add claude hook as override, got no override")
+	}
+	if override.Artifacts == nil || len(override.Artifacts) == 0 {
+		t.Errorf("override should preserve artifacts")
+	}
+	if override.Events == nil {
+		t.Errorf("override should preserve Events")
+	}
+}
+
+func TestImport_SettingsConfigsIdentical_ReturnsTrueForMatchingConfigs(t *testing.T) {
+	boolTrue := true
+	configs := map[string]ast.SettingsConfig{
+		"claude": {Name: "default", AutoMemoryEnabled: &boolTrue},
+		"gemini": {Name: "default", AutoMemoryEnabled: &boolTrue},
+	}
+	if !settingsConfigsIdentical(configs) {
+		t.Error("identical settings configs should return true")
+	}
+}
+
+func TestImport_SettingsConfigsIdentical_ReturnsFalseForDifferentConfigs(t *testing.T) {
+	boolTrue := true
+	boolFalse := false
+	configs := map[string]ast.SettingsConfig{
+		"claude": {Name: "default", AutoMemoryEnabled: &boolTrue, DisableAllHooks: &boolFalse},
+		"gemini": {Name: "default", AutoMemoryEnabled: &boolFalse},
+	}
+	if settingsConfigsIdentical(configs) {
+		t.Error("different settings configs should return false")
+	}
+}
+
+func TestImport_AssembleSettings_SingleProvider(t *testing.T) {
+	boolTrue := true
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			Settings: map[string]ast.SettingsConfig{
+				"default": {Name: "default", AutoMemoryEnabled: &boolTrue},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		Settings: make(map[string]ast.SettingsConfig),
+	}
+	assembleSettings(providerConfigs, result)
+	sc, exists := result.Settings["default"]
+	require.True(t, exists, "settings must be stored")
+	assert.Equal(t, &boolTrue, sc.AutoMemoryEnabled)
+	if result.Overrides != nil {
+		_, ok := result.Overrides.GetSettings("default", "claude")
+		assert.False(t, ok, "single-provider should not produce overrides")
+	}
+}
+
+func TestImport_AssembleSettings_DifferentMultiProvider(t *testing.T) {
+	boolTrue := true
+	boolFalse := false
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			Settings: map[string]ast.SettingsConfig{
+				"default": {
+					Name:              "default",
+					AutoMemoryEnabled: &boolTrue,
+					DisableAllHooks:   &boolFalse,
+					Permissions:       &ast.PermissionsConfig{},
+					Hooks:             ast.HookConfig{"events": []ast.HookMatcherGroup{}},
+				},
+			},
+		},
+		"gemini": {
+			Settings: map[string]ast.SettingsConfig{
+				"default": {
+					Name:              "default",
+					AutoMemoryEnabled: &boolFalse,
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		Settings: make(map[string]ast.SettingsConfig),
+	}
+	assembleSettings(providerConfigs, result)
+	_, exists := result.Settings["default"]
+	require.True(t, exists, "base settings must be stored")
+	require.NotNil(t, result.Overrides, "overrides must be populated")
+	_, hasClaudeOverride := result.Overrides.GetSettings("default", "claude")
+	assert.True(t, hasClaudeOverride, "claude should be override (higher score)")
+	_, hasGeminiOverride := result.Overrides.GetSettings("default", "gemini")
+	assert.False(t, hasGeminiOverride, "gemini should be base (lower score)")
+}
+
+func TestImport_AssembleMultiProvider_HooksOverrideSplit(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+			Hooks: map[string]ast.NamedHookConfig{
+				"pre-commit": {
+					Name:      "pre-commit",
+					Artifacts: []string{"lint.sh", "format.sh"},
+					Events:    ast.HookConfig{"pre-push": []ast.HookMatcherGroup{}},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+			Hooks: map[string]ast.NamedHookConfig{
+				"pre-commit": {
+					Name:      "pre-commit",
+					Artifacts: []string{"lint.sh"},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+	_, exists := result.Hooks["pre-commit"]
+	require.True(t, exists, "base hook must be stored after full assembly")
+	require.NotNil(t, result.Overrides, "overrides must be populated for different hooks")
+}
+
+func TestImport_AssembleMultiProvider_SettingsOverrideSplit(t *testing.T) {
+	boolTrue := true
+	boolFalse := false
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+			Settings: map[string]ast.SettingsConfig{
+				"default": {
+					Name:              "default",
+					AutoMemoryEnabled: &boolTrue,
+					DisableAllHooks:   &boolFalse,
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+			Settings: map[string]ast.SettingsConfig{
+				"default": {
+					Name:              "default",
+					AutoMemoryEnabled: &boolFalse,
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+	_, exists := result.Settings["default"]
+	require.True(t, exists, "base settings must be stored after full assembly")
+	require.NotNil(t, result.Overrides, "overrides must be populated for different settings")
+}
+
+func TestImport_AssembleMultiProvider_UnionBlockRetainsMCPAndMemory(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP: map[string]ast.MCPConfig{
+					"playwright": {Command: "npx", Args: []string{"@playwright/mcp"}},
+				},
+				Memory: map[string]ast.MemoryConfig{
+					"session": {Name: "session"},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents:    make(map[string]ast.AgentConfig),
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP: map[string]ast.MCPConfig{
+					"search": {Command: "search-server"},
+				},
+				Memory: map[string]ast.MemoryConfig{
+					"context": {Name: "context"},
+				},
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+	_, playwrightExists := result.MCP["playwright"]
+	assert.True(t, playwrightExists, "playwright MCP must exist")
+	_, searchExists := result.MCP["search"]
+	assert.True(t, searchExists, "search MCP must exist")
+	_, sessionExists := result.Memory["session"]
+	assert.True(t, sessionExists, "session memory must exist")
+	_, contextExists := result.Memory["context"]
+	assert.True(t, contextExists, "context memory must exist")
+}
+
+func TestAssembleMultiProvider_IdenticalAgents_ThreeProviders(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "sonnet", Body: "You are a developer."},
+				},
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "sonnet", Body: "You are a developer."},
+				},
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+		},
+		"cursor": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"dev": {Description: "Developer", Model: "sonnet", Body: "You are a developer."},
+				},
+				Skills:    make(map[string]ast.SkillConfig),
+				Rules:     make(map[string]ast.RuleConfig),
+				Workflows: make(map[string]ast.WorkflowConfig),
+				MCP:       make(map[string]ast.MCPConfig),
+			},
+		},
+	}
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    make(map[string]ast.AgentConfig),
+			Skills:    make(map[string]ast.SkillConfig),
+			Rules:     make(map[string]ast.RuleConfig),
+			Workflows: make(map[string]ast.WorkflowConfig),
+			MCP:       make(map[string]ast.MCPConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+	dev := result.Agents["dev"]
+	assert.Len(t, dev.Targets, 3, "all three providers should appear in targets")
+	if result.Overrides != nil {
+		_, ok := result.Overrides.GetAgent("dev", "claude")
+		assert.False(t, ok, "identical agents should not produce overrides")
+	}
+}

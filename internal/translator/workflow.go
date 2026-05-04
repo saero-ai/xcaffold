@@ -45,25 +45,21 @@ func loweringStrategy(wf *ast.WorkflowConfig, target string) string {
 // TranslateWorkflow lowers a WorkflowConfig into one or more TargetPrimitives
 // for the named target platform. The strategy is determined in this order:
 //
-//  1. Antigravity with promote-rules-to-workflows: true → native workflow primitive.
+//  1. Target override promote-rules-to-workflows: true → native workflow primitive.
 //  2. Target provider lowering-strategy: prompt-file   → .github/prompts/*.prompt.md
 //  3. Target provider lowering-strategy: custom-command → .gemini/commands/*.md
-//  4. Claude / Cursor (default or lowering-strategy: rule-plus-skill)
-//     → one rule primitive (with provenance marker) + one skill per step.
-//  5. No determinable strategy → empty primitives + CodeWorkflowNoNativeTarget note.
+//  4. Default (no strategy set) → rule-plus-skill.
 func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
 	name := wf.Name
 	if name == "" {
 		name = "unnamed"
 	}
 
-	// Antigravity: check for native workflow promotion.
-	if target == "antigravity" {
-		if override, ok := wf.Targets["antigravity"]; ok {
-			if v, ok := override.Provider["promote-rules-to-workflows"]; ok {
-				if promote, _ := v.(bool); promote {
-					return lowerAntigravityNative(wf, name, target)
-				}
+	// Check for native workflow promotion via target override (any provider can opt in).
+	if override, ok := wf.Targets[target]; ok {
+		if v, ok := override.Provider["promote-rules-to-workflows"]; ok {
+			if promote, _ := v.(bool); promote {
+				return lowerNativeWorkflow(wf, name, target)
 			}
 		}
 	}
@@ -77,21 +73,9 @@ func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive
 		return lowerCustomCommand(wf, name, target)
 	case strategy == "rule-plus-skill":
 		return lowerRulePlusSkill(wf, name, target)
-	case target == "claude", target == "gemini", target == "copilot":
-		// Claude, Gemini, and Copilot default to rule-plus-skill when no strategy is set.
-		return lowerRulePlusSkill(wf, name, target)
 	default:
-		note := renderer.NewNote(
-			renderer.LevelWarning,
-			target,
-			"workflow",
-			name,
-			"",
-			renderer.CodeWorkflowNoNativeTarget,
-			fmt.Sprintf("workflow %q: no native lowering strategy for target %q", name, target),
-			"Add a targets.<target>.provider.lowering-strategy to the workflow config.",
-		)
-		return nil, []renderer.FidelityNote{note}
+		// All registered providers without an explicit lowering strategy default to rule-plus-skill.
+		return lowerRulePlusSkill(wf, name, target)
 	}
 }
 
@@ -159,9 +143,9 @@ func lowerRulePlusSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 	return primitives, []renderer.FidelityNote{note}
 }
 
-// lowerAntigravityNative emits a single workflow primitive with step bodies
+// lowerNativeWorkflow emits a single workflow primitive with step bodies
 // concatenated under ## <step-name> headers.
-func lowerAntigravityNative(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
+func lowerNativeWorkflow(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
 	var body strings.Builder
 	for _, step := range wf.Steps {
 		fmt.Fprintf(&body, "## %s\n\n", step.Name)
@@ -184,7 +168,7 @@ func lowerAntigravityNative(wf *ast.WorkflowConfig, name, target string) ([]Targ
 		name,
 		"",
 		renderer.CodeWorkflowLoweredToNative,
-		fmt.Sprintf("workflow %q emitted as native antigravity workflow", name),
+		fmt.Sprintf("workflow %q emitted as native workflow for %s", name, target),
 		"",
 	)
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}

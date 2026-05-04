@@ -7,6 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
+	_ "github.com/saero-ai/xcaffold/providers/antigravity"
+	_ "github.com/saero-ai/xcaffold/providers/claude"
+	_ "github.com/saero-ai/xcaffold/providers/copilot"
+	_ "github.com/saero-ai/xcaffold/providers/cursor"
+	_ "github.com/saero-ai/xcaffold/providers/gemini"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -252,7 +258,6 @@ permissions:
 }
 
 func TestValidatePermissions_AgentDisallowedConflict(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
@@ -273,7 +278,6 @@ permissions:
 }
 
 func TestValidatePermissions_AgentToolsDenyConflict(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
 version: "1.0"
@@ -402,8 +406,6 @@ agents:
 
 func TestValidateFileRefs_PresentInstructionsFile(t *testing.T) {
 	t.Skip("Legacy instructions test removed")
-
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 	// Create the actual instructions file
 	instrFile := filepath.Join(dir, "real.md")
@@ -557,7 +559,6 @@ enabled-plugins:
 }
 
 func TestParseDirectory_SkipsNonConfigFiles(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	// Write a valid config file
@@ -586,7 +587,6 @@ default_target: claude
 }
 
 func TestParseDirectory_SkipsNonConfigFiles_OnlyNonConfig(t *testing.T) {
-	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
 	// Write only non-config files
@@ -1174,6 +1174,351 @@ events:
 	assert.Equal(t, "scripts", hook.Artifacts[0])
 }
 
-func init() {
-	os.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
+func TestParseOverrideFile_Hooks_DecodesAndStores(t *testing.T) {
+	dir := t.TempDir()
+	hooksDir := filepath.Join(dir, "xcf", "hooks", "pre-commit")
+	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
+
+	content := "---\nname: pre-commit\nartifacts:\n  - lint.sh\n  - format.sh\n---\n"
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "hooks.claude.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(hooksDir, "hooks.claude.xcf"),
+		Kind:     "hooks",
+		Provider: "claude",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	require.NotNil(t, config.Overrides)
+
+	cfg, ok := config.Overrides.GetHooks("pre-commit", "claude")
+	require.True(t, ok)
+	assert.Equal(t, "pre-commit", cfg.Name)
+	assert.Equal(t, []string{"lint.sh", "format.sh"}, cfg.Artifacts)
+}
+
+func TestParseOverrideFile_Settings_DecodesAndStores(t *testing.T) {
+	dir := t.TempDir()
+	settingsDir := filepath.Join(dir, "xcf", "settings", "default")
+	require.NoError(t, os.MkdirAll(settingsDir, 0o755))
+
+	content := "---\nname: default\nauto-memory-enabled: true\n---\n"
+	require.NoError(t, os.WriteFile(filepath.Join(settingsDir, "settings.gemini.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(settingsDir, "settings.gemini.xcf"),
+		Kind:     "settings",
+		Provider: "gemini",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	require.NotNil(t, config.Overrides)
+
+	cfg, ok := config.Overrides.GetSettings("default", "gemini")
+	require.True(t, ok)
+	assert.Equal(t, "default", cfg.Name)
+	require.NotNil(t, cfg.AutoMemoryEnabled)
+	assert.True(t, *cfg.AutoMemoryEnabled)
+}
+
+func TestParseOverrideFile_Policy_DecodesAndStores(t *testing.T) {
+	dir := t.TempDir()
+	policyDir := filepath.Join(dir, "xcf", "policies", "require-desc")
+	require.NoError(t, os.MkdirAll(policyDir, 0o755))
+
+	content := "---\nname: require-desc\nseverity: error\ntarget: agent\n---\n"
+	require.NoError(t, os.WriteFile(filepath.Join(policyDir, "policy.cursor.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(policyDir, "policy.cursor.xcf"),
+		Kind:     "policy",
+		Provider: "cursor",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	require.NotNil(t, config.Overrides)
+
+	cfg, ok := config.Overrides.GetPolicy("require-desc", "cursor")
+	require.True(t, ok)
+	assert.Equal(t, "require-desc", cfg.Name)
+	assert.Equal(t, "error", cfg.Severity)
+	assert.Equal(t, "agent", cfg.Target)
+}
+
+func TestParseOverrideFile_Template_DecodesAndStoresWithBody(t *testing.T) {
+	dir := t.TempDir()
+	tmplDir := filepath.Join(dir, "xcf", "templates", "scaffold")
+	require.NoError(t, os.MkdirAll(tmplDir, 0o755))
+
+	content := "---\nname: scaffold\ndescription: Project scaffold template\ndefault-target: claude\n---\nThis is the template body content.\nIt supports multiple lines."
+	require.NoError(t, os.WriteFile(filepath.Join(tmplDir, "template.copilot.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(tmplDir, "template.copilot.xcf"),
+		Kind:     "template",
+		Provider: "copilot",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	require.NotNil(t, config.Overrides)
+
+	cfg, ok := config.Overrides.GetTemplate("scaffold", "copilot")
+	require.True(t, ok)
+	assert.Equal(t, "scaffold", cfg.Name)
+	assert.Equal(t, "Project scaffold template", cfg.Description)
+	assert.Equal(t, "claude", cfg.DefaultTarget)
+	assert.Contains(t, cfg.Body, "This is the template body content.")
+	assert.Contains(t, cfg.Body, "It supports multiple lines.")
+}
+
+func TestParseOverrideFile_Memory_NoOp(t *testing.T) {
+	dir := t.TempDir()
+	memDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	require.NoError(t, os.MkdirAll(memDir, 0o755))
+
+	content := "---\nname: context\n---\nSome memory content that should be ignored for overrides."
+	require.NoError(t, os.WriteFile(filepath.Join(memDir, "memory.claude.xcf"), []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     filepath.Join(memDir, "memory.claude.xcf"),
+		Kind:     "memory",
+		Provider: "claude",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.NoError(t, err)
+	assert.Nil(t, config.Overrides)
+}
+
+func TestParseOverrideFile_UnsupportedKind_ReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	badDir := filepath.Join(dir, "xcf", "bad", "thing")
+	require.NoError(t, os.MkdirAll(badDir, 0o755))
+
+	content := "---\nname: thing\n---\n"
+	fpath := filepath.Join(badDir, "bogus.claude.xcf")
+	require.NoError(t, os.WriteFile(fpath, []byte(content), 0o644))
+
+	config := &ast.XcaffoldConfig{}
+	entry := overrideFileEntry{
+		Path:     fpath,
+		Kind:     "bogus",
+		Provider: "claude",
+	}
+
+	err := parseOverrideFile(entry, config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported kind")
+	assert.Contains(t, err.Error(), "bogus")
+}
+
+func TestValidateOverrideBasesExist_Hooks_WithBase_Passes(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Hooks: map[string]ast.NamedHookConfig{
+			"pre-commit": {Name: "pre-commit"},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddHooks("pre-commit", "claude", ast.NamedHookConfig{Name: "pre-commit"})
+
+	err := validateOverrideBasesExist(config)
+	require.NoError(t, err)
+}
+
+func TestValidateOverrideBasesExist_Hooks_WithoutBase_Fails(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Hooks:     map[string]ast.NamedHookConfig{},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddHooks("missing-hook", "claude", ast.NamedHookConfig{Name: "missing-hook"})
+
+	err := validateOverrideBasesExist(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "hooks")
+	assert.Contains(t, err.Error(), "missing-hook")
+	assert.Contains(t, err.Error(), "no base resource")
+}
+
+func TestValidateOverrideBasesExist_Settings_WithBase_Passes(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Settings:  map[string]ast.SettingsConfig{"default": {Name: "default"}},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddSettings("default", "claude", ast.SettingsConfig{Name: "default"})
+
+	err := validateOverrideBasesExist(config)
+	require.NoError(t, err)
+}
+
+func TestValidateOverrideBasesExist_Settings_WithoutBase_Fails(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Settings:  map[string]ast.SettingsConfig{},
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Overrides.AddSettings("missing-settings", "claude", ast.SettingsConfig{Name: "missing-settings"})
+
+	err := validateOverrideBasesExist(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "settings")
+	assert.Contains(t, err.Error(), "missing-settings")
+	assert.Contains(t, err.Error(), "no base resource")
+}
+
+func TestValidateOverrideBasesExist_Policy_WithBase_Passes(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Policies = map[string]ast.PolicyConfig{"require-desc": {Name: "require-desc"}}
+	config.Overrides.AddPolicy("require-desc", "claude", ast.PolicyConfig{Name: "require-desc"})
+
+	err := validateOverrideBasesExist(config)
+	require.NoError(t, err)
+}
+
+func TestValidateOverrideBasesExist_Policy_WithoutBase_Fails(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Policies = map[string]ast.PolicyConfig{}
+	config.Overrides.AddPolicy("missing-policy", "claude", ast.PolicyConfig{Name: "missing-policy"})
+
+	err := validateOverrideBasesExist(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "policy")
+	assert.Contains(t, err.Error(), "missing-policy")
+	assert.Contains(t, err.Error(), "no base resource")
+}
+
+func TestValidateOverrideBasesExist_Template_WithBase_Passes(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Templates = map[string]ast.TemplateConfig{"scaffold": {Name: "scaffold"}}
+	config.Overrides.AddTemplate("scaffold", "claude", ast.TemplateConfig{Name: "scaffold"})
+
+	err := validateOverrideBasesExist(config)
+	require.NoError(t, err)
+}
+
+func TestValidateOverrideBasesExist_Template_WithoutBase_Fails(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Overrides: &ast.ResourceOverrides{},
+	}
+	config.Templates = map[string]ast.TemplateConfig{}
+	config.Overrides.AddTemplate("missing-tpl", "claude", ast.TemplateConfig{Name: "missing-tpl"})
+
+	err := validateOverrideBasesExist(config)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "template")
+	assert.Contains(t, err.Error(), "missing-tpl")
+	assert.Contains(t, err.Error(), "no base resource")
+}
+
+func TestValidateCrossReferencesAsList_UnresolvedSkill_ReturnsWarning(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"worker": {Name: "worker", Skills: []string{"nonexistent-skill"}},
+			},
+			Skills: map[string]ast.SkillConfig{},
+		},
+	}
+
+	issues := validateCrossReferencesAsList(cfg)
+	require.Len(t, issues, 1)
+	assert.Contains(t, issues[0].Message, "nonexistent-skill")
+	assert.Contains(t, issues[0].Message, "not found in project scope")
+	assert.Equal(t, "skill", issues[0].ResourceType)
+}
+
+func TestValidateCrossReferencesAsList_UnresolvedRule_ReturnsWarning(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"reviewer": {Name: "reviewer", Rules: []string{"missing-rule"}},
+			},
+			Rules: map[string]ast.RuleConfig{},
+		},
+	}
+
+	issues := validateCrossReferencesAsList(cfg)
+	require.Len(t, issues, 1)
+	assert.Contains(t, issues[0].Message, "missing-rule")
+	assert.Contains(t, issues[0].Message, "not found in project scope")
+	assert.Equal(t, "rule", issues[0].ResourceType)
+}
+
+func TestValidateCrossReferencesAsList_UnresolvedMCP_ReturnsWarning(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"helper": {Name: "helper", MCP: []string{"missing-mcp"}},
+			},
+			MCP: map[string]ast.MCPConfig{},
+		},
+	}
+
+	issues := validateCrossReferencesAsList(cfg)
+	require.Len(t, issues, 1)
+	assert.Contains(t, issues[0].Message, "missing-mcp")
+	assert.Contains(t, issues[0].Message, "not found in project scope")
+	assert.Equal(t, "mcp", issues[0].ResourceType)
+}
+
+func TestValidateCrossReferencesAsList_AllResolved_NoIssues(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"worker": {
+					Name:   "worker",
+					Skills: []string{"tdd"},
+					Rules:  []string{"style"},
+					MCP:    []string{"postgres"},
+				},
+			},
+			Skills: map[string]ast.SkillConfig{"tdd": {Name: "tdd"}},
+			Rules:  map[string]ast.RuleConfig{"style": {Name: "style"}},
+			MCP:    map[string]ast.MCPConfig{"postgres": {}},
+		},
+	}
+
+	issues := validateCrossReferencesAsList(cfg)
+	require.Empty(t, issues)
+}
+
+func TestParseDirectory_SkipGlobal_DoesNotLoadGlobalBase(t *testing.T) {
+	dir := t.TempDir()
+	xcfDir := filepath.Join(dir, "xcf")
+	os.MkdirAll(xcfDir, 0755)
+
+	projectXcf := filepath.Join(xcfDir, "project.xcf")
+	os.WriteFile(projectXcf, []byte("---\nkind: project\nversion: \"1.0\"\nname: test-project\n---\n"), 0644)
+
+	agentDir := filepath.Join(xcfDir, "agents", "worker")
+	os.MkdirAll(agentDir, 0755)
+	os.WriteFile(filepath.Join(agentDir, "agent.xcf"), []byte("---\nkind: agent\nversion: \"1.0\"\nname: worker\ndescription: \"Test agent\"\ntools: [Read]\n---\nDo work.\n"), 0644)
+
+	cfg, err := ParseDirectory(dir, WithSkipGlobal())
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	assert.Contains(t, cfg.Agents, "worker")
+}
+
+func TestMain(m *testing.M) {
+	tmpHome, err := os.MkdirTemp("", "parser-test-*")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(tmpHome)
+	os.Setenv("HOME", tmpHome)
+	os.Exit(m.Run())
 }

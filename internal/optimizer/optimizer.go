@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/saero-ai/xcaffold/providers"
 )
 
 // Pass is the interface implemented by every optimization pass.
@@ -22,13 +23,13 @@ type Pass interface {
 	Apply(files map[string]string) (map[string]string, []renderer.FidelityNote, error)
 }
 
-// requiredPasses maps target names to their mandatory leading pass names, in order.
-var requiredPasses = map[string][]string{
-	"antigravity": {"flatten-scopes", "inline-imports"},
-	"copilot":     {"flatten-scopes", "inline-imports"},
-	"cursor":      {"inline-imports"},
-	"gemini":      {"inline-imports"},
-	"claude":      {},
+// RequiredPasses returns the mandatory leading passes for a target from its manifest.
+func RequiredPasses(target string) []string {
+	m, ok := providers.ManifestFor(target)
+	if !ok {
+		return nil
+	}
+	return m.RequiredPasses
 }
 
 // Optimizer holds the target and ordered list of user-requested passes.
@@ -53,7 +54,7 @@ func (o *Optimizer) AddPass(name string) {
 //     appears after inline-imports in the user list, they are swapped so that
 //     extract-common always precedes inline-imports.
 func (o *Optimizer) PassOrder() []string {
-	required := requiredPasses[o.target] // nil == no required passes
+	required := RequiredPasses(o.target) // nil == no required passes
 
 	// Copy user passes and apply the extract-common / inline-imports swap.
 	user := make([]string, len(o.userPasses))

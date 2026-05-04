@@ -27,7 +27,7 @@ var validateCmd = &cobra.Command{
   - Cross-reference integrity (agent -> skill/rule/MCP IDs exist)
   - File existence (skill references resolve on disk)
   - Plugin validation (enabledPlugins checked against known registry)
-  - Structural invariants (orphan resources, missing instructions)
+  - Structural invariants (Bash tool without hook guard)
 
 Exit code 0 means valid. Non-zero means errors found.`,
 	Example: `  $ xcaffold validate
@@ -62,7 +62,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	fmt.Println(formatHeader(projectName, validateBlueprintFlag, false, targetFlag, lastApplied))
 	fmt.Println()
 
-	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot)
+	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot, parser.WithSkipGlobal())
 	if err != nil {
 		fmt.Printf("  %s  syntax and schema\n", colorRed(glyphErr()))
 		fmt.Println()
@@ -134,6 +134,19 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		if skillDirCount > 0 && !skillDirHasIssues {
 			fmt.Printf("  %s  skill directories\n", colorGreen(glyphOK()))
 		}
+	}
+
+	// Hook directory structure.
+	hookErrors := validateHooksDirectory(cfg, parseRoot)
+	if len(hookErrors) > 0 {
+		fmt.Println()
+		fmt.Println("  hook directory issues:")
+		for _, e := range hookErrors {
+			fmt.Printf("    %s  %s\n", colorRed(glyphErr()), e)
+		}
+		hasErrors = true
+	} else if len(cfg.Hooks) > 0 {
+		fmt.Printf("  %s  hook directories\n", colorGreen(glyphOK()))
 	}
 
 	// Structural checks.
@@ -228,7 +241,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 
 	// Footer.
 	xcfFileCount := countXcfFiles(parseRoot)
-	totalWarnings := len(structWarnings) + len(policyWarnings)
+	totalWarnings := len(structWarnings) + len(policyWarnings) + len(crossRefIssues)
 	fmt.Println()
 	fieldSuffix := ""
 	if fieldValidationRan {
@@ -290,58 +303,7 @@ func countBuiltinPolicies() int {
 // runStructuralChecks performs non-fatal invariant checks on the config.
 func runStructuralChecks(cfg *ast.XcaffoldConfig) []string {
 	var warnings []string
-	warnings = append(warnings, checkOrphanSkills(cfg)...)
-	warnings = append(warnings, checkOrphanRules(cfg)...)
-	warnings = append(warnings, checkMissingInstructions(cfg)...)
 	warnings = append(warnings, checkBashWithoutHook(cfg)...)
-	return warnings
-}
-
-func checkOrphanSkills(cfg *ast.XcaffoldConfig) []string {
-	referenced := make(map[string]bool)
-	for _, agent := range cfg.Agents {
-		for _, s := range agent.Skills {
-			referenced[s] = true
-		}
-	}
-	var warnings []string
-	for skillID := range cfg.Skills {
-		if !referenced[skillID] {
-			warnings = append(warnings, fmt.Sprintf("skill %q is defined but not referenced by any agent", skillID))
-		}
-	}
-	return warnings
-}
-
-func checkOrphanRules(cfg *ast.XcaffoldConfig) []string {
-	referenced := make(map[string]bool)
-	for _, agent := range cfg.Agents {
-		for _, r := range agent.Rules {
-			referenced[r] = true
-		}
-	}
-	var warnings []string
-	for ruleID, rule := range cfg.Rules {
-		if rule.AlwaysApply != nil && *rule.AlwaysApply {
-			continue
-		}
-		if len(rule.Paths) > 0 {
-			continue
-		}
-		if !referenced[ruleID] {
-			warnings = append(warnings, fmt.Sprintf("rule %q is defined but not referenced by any agent and has no paths or always-apply", ruleID))
-		}
-	}
-	return warnings
-}
-
-func checkMissingInstructions(cfg *ast.XcaffoldConfig) []string {
-	var warnings []string
-	for agentID, agent := range cfg.Agents {
-		if agent.Body == "" {
-			warnings = append(warnings, fmt.Sprintf("agent %q has no body content", agentID))
-		}
-	}
 	return warnings
 }
 

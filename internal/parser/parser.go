@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/providers"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,6 +42,27 @@ func resolveParseOptions(opts []parseOptionFunc) parseOption {
 		fn(&o)
 	}
 	return o
+}
+
+// ParseDirOption configures behaviour of ParseDirectory.
+type ParseDirOption func(*parseDirConfig)
+
+type parseDirConfig struct {
+	skipGlobal bool
+}
+
+// WithSkipGlobal prevents ParseDirectory from loading the implicit global
+// configuration (~/.xcaffold/). Use this for project-scoped validation.
+func WithSkipGlobal() ParseDirOption {
+	return func(c *parseDirConfig) { c.skipGlobal = true }
+}
+
+func resolveParseDirOptions(opts []ParseDirOption) parseDirConfig {
+	var cfg parseDirConfig
+	for _, fn := range opts {
+		fn(&cfg)
+	}
+	return cfg
 }
 
 // reservedDirToKind maps xcf directory names to their corresponding resource kind.
@@ -735,8 +757,9 @@ type ParsedFile struct {
 // ParseDirectory recursively scans the given directory for all *.xcf files,
 // parses them, merges them strictly (erroring on duplicate IDs), and then
 // resolves 'extends:' chains.
-func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
-	merged, err := parseDirectoryUnvalidated(dir)
+func ParseDirectory(dir string, opts ...ParseDirOption) (*ast.XcaffoldConfig, error) {
+	dirOpts := resolveParseDirOptions(opts)
+	merged, err := parseDirectoryUnvalidated(dir, dirOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -751,8 +774,9 @@ func ParseDirectory(dir string) (*ast.XcaffoldConfig, error) {
 // ParseDirectoryWithCrossRefWarnings parses a directory and returns the config plus
 // any cross-reference validation issues separately. Structural errors still return
 // as errors. Cross-reference issues are returned as a separate list for caller handling.
-func ParseDirectoryWithCrossRefWarnings(dir string) (*ast.XcaffoldConfig, []CrossReferenceIssue, error) {
-	merged, err := parseDirectoryUnvalidated(dir)
+func ParseDirectoryWithCrossRefWarnings(dir string, opts ...ParseDirOption) (*ast.XcaffoldConfig, []CrossReferenceIssue, error) {
+	dirOpts := resolveParseDirOptions(opts)
+	merged, err := parseDirectoryUnvalidated(dir, dirOpts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -808,15 +832,6 @@ func isParseableFile(path string) bool {
 		return false
 	}
 	return parseableKinds[header.Kind]
-}
-
-// validProviders is the closed set of allowed provider tokens in override filenames.
-var validProviders = map[string]bool{
-	"claude":      true,
-	"gemini":      true,
-	"cursor":      true,
-	"antigravity": true,
-	"copilot":     true,
 }
 
 // canonicalKindFilenames lists the resource kinds that can appear as prefixes in override filenames.
@@ -899,6 +914,11 @@ func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig) erro
 		return fmt.Errorf("parse override %s: %w", entry.Path, err)
 	}
 
+	// Memory does not participate in the override system.
+	if entry.Kind == "memory" {
+		return nil
+	}
+
 	// Infer resource name from directory: xcf/agents/<name>/agent.claude.xcf -> name
 	resourceName := filepath.Base(filepath.Dir(entry.Path))
 	trimmedBody := strings.TrimSpace(string(body))
@@ -908,45 +928,87 @@ func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig) erro
 		config.Overrides = &ast.ResourceOverrides{}
 	}
 
+	return decodeAndStoreOverride(entry, frontmatter, trimmedBody, resourceName, config.Overrides)
+}
+
+// decodeAndStoreOverride decodes the frontmatter into the appropriate config type
+// and stores it in the ResourceOverrides map based on the resource kind.
+func decodeAndStoreOverride(entry overrideFileEntry, frontmatter []byte, body, name string, overrides *ast.ResourceOverrides) error {
 	switch entry.Kind {
 	case "agent":
 		var cfg ast.AgentConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode agent override %s: %w", entry.Path, err)
 		}
-		cfg.Body = trimmedBody
-		config.Overrides.AddAgent(resourceName, entry.Provider, cfg)
+		cfg.Body = body
+		overrides.AddAgent(name, entry.Provider, cfg)
 	case "skill":
 		var cfg ast.SkillConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode skill override %s: %w", entry.Path, err)
 		}
-		cfg.Body = trimmedBody
-		config.Overrides.AddSkill(resourceName, entry.Provider, cfg)
+		cfg.Body = body
+		overrides.AddSkill(name, entry.Provider, cfg)
 	case "rule":
 		var cfg ast.RuleConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode rule override %s: %w", entry.Path, err)
 		}
-		cfg.Body = trimmedBody
-		config.Overrides.AddRule(resourceName, entry.Provider, cfg)
+		cfg.Body = body
+		overrides.AddRule(name, entry.Provider, cfg)
 	case "workflow":
 		var cfg ast.WorkflowConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode workflow override %s: %w", entry.Path, err)
 		}
-		cfg.Body = trimmedBody
-		config.Overrides.AddWorkflow(resourceName, entry.Provider, cfg)
+		cfg.Body = body
+		overrides.AddWorkflow(name, entry.Provider, cfg)
 	case "mcp":
 		var cfg ast.MCPConfig
 		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
 			return fmt.Errorf("decode mcp override %s: %w", entry.Path, err)
 		}
-		config.Overrides.AddMCP(resourceName, entry.Provider, cfg)
+		overrides.AddMCP(name, entry.Provider, cfg)
+	case "hooks":
+		var cfg ast.NamedHookConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode hooks override %s: %w", entry.Path, err)
+		}
+		overrides.AddHooks(name, entry.Provider, cfg)
+	case "settings":
+		var cfg ast.SettingsConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode settings override %s: %w", entry.Path, err)
+		}
+		overrides.AddSettings(name, entry.Provider, cfg)
+	case "policy":
+		var cfg ast.PolicyConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode policy override %s: %w", entry.Path, err)
+		}
+		overrides.AddPolicy(name, entry.Provider, cfg)
+	case "template":
+		var cfg ast.TemplateConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode template override %s: %w", entry.Path, err)
+		}
+		cfg.Body = body
+		overrides.AddTemplate(name, entry.Provider, cfg)
 	default:
 		return fmt.Errorf("override file %s: unsupported kind %q for overrides", entry.Path, entry.Kind)
 	}
 	return nil
+}
+
+// mapKeys extracts the keys from a map[string]map[string]T, returning them as a slice.
+// This helper converts typed maps in ResourceOverrides to a uniform key list for
+// table-driven validation.
+func mapKeys[K comparable, V any](m map[string]map[K]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // validateOverrideBasesExist ensures that every override file has a corresponding
@@ -955,35 +1017,36 @@ func validateOverrideBasesExist(config *ast.XcaffoldConfig) error {
 	if config.Overrides == nil {
 		return nil
 	}
-	for name := range config.Overrides.Agent {
-		if _, ok := config.Agents[name]; !ok {
-			return fmt.Errorf("override file for agent %q has no base resource", name)
-		}
+
+	type overrideCheck struct {
+		kind    string
+		names   []string
+		hasBase func(string) bool
 	}
-	for name := range config.Overrides.Skill {
-		if _, ok := config.Skills[name]; !ok {
-			return fmt.Errorf("override file for skill %q has no base resource", name)
-		}
+
+	checks := []overrideCheck{
+		{"agent", mapKeys(config.Overrides.Agent), func(n string) bool { _, ok := config.Agents[n]; return ok }},
+		{"skill", mapKeys(config.Overrides.Skill), func(n string) bool { _, ok := config.Skills[n]; return ok }},
+		{"rule", mapKeys(config.Overrides.Rule), func(n string) bool { _, ok := config.Rules[n]; return ok }},
+		{"workflow", mapKeys(config.Overrides.Workflow), func(n string) bool { _, ok := config.Workflows[n]; return ok }},
+		{"mcp", mapKeys(config.Overrides.MCP), func(n string) bool { _, ok := config.MCP[n]; return ok }},
+		{"hooks", mapKeys(config.Overrides.Hooks), func(n string) bool { _, ok := config.Hooks[n]; return ok }},
+		{"settings", mapKeys(config.Overrides.Settings), func(n string) bool { _, ok := config.Settings[n]; return ok }},
+		{"policy", mapKeys(config.Overrides.Policy), func(n string) bool { _, ok := config.Policies[n]; return ok }},
+		{"template", mapKeys(config.Overrides.Template), func(n string) bool { _, ok := config.Templates[n]; return ok }},
 	}
-	for name := range config.Overrides.Rule {
-		if _, ok := config.Rules[name]; !ok {
-			return fmt.Errorf("override file for rule %q has no base resource", name)
-		}
-	}
-	for name := range config.Overrides.Workflow {
-		if _, ok := config.Workflows[name]; !ok {
-			return fmt.Errorf("override file for workflow %q has no base resource", name)
-		}
-	}
-	for name := range config.Overrides.MCP {
-		if _, ok := config.MCP[name]; !ok {
-			return fmt.Errorf("override file for mcp %q has no base resource", name)
+
+	for _, c := range checks {
+		for _, name := range c.names {
+			if !c.hasBase(name) {
+				return fmt.Errorf("override file for %s %q has no base resource", c.kind, name)
+			}
 		}
 	}
 	return nil
 }
 
-func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
+func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig) (*ast.XcaffoldConfig, error) {
 	var files []string
 	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
@@ -1004,8 +1067,8 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
 			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
-				if !validProviders[provider] {
-					return fmt.Errorf("override file %s: unknown provider %q; valid providers: claude, gemini, cursor, antigravity, copilot", d.Name(), provider)
+				if !providers.IsRegistered(provider) {
+					return fmt.Errorf("override file %s: unknown provider %q; valid providers: %s", d.Name(), provider, strings.Join(providers.RegisteredNames(), ", "))
 				}
 				overrideFiles = append(overrideFiles, overrideFileEntry{
 					Path:     path,
@@ -1040,9 +1103,15 @@ func parseDirectoryUnvalidated(dir string) (*ast.XcaffoldConfig, error) {
 		parsedFiles = append(parsedFiles, ParsedFile{Config: cfg, FilePath: f})
 	}
 
-	globalConfig, err := loadGlobalBase()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load implicit global configuration: %w", err)
+	var globalConfig *ast.XcaffoldConfig
+	if dirOpts.skipGlobal {
+		globalConfig = &ast.XcaffoldConfig{}
+	} else {
+		var loadErr error
+		globalConfig, loadErr = loadGlobalBase()
+		if loadErr != nil {
+			return nil, fmt.Errorf("failed to load implicit global configuration: %w", loadErr)
+		}
 	}
 
 	merged, err := mergeAllStrict(parsedFiles)
@@ -1101,8 +1170,8 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 		}
 		if strings.HasSuffix(d.Name(), ".xcf") {
 			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
-				if !validProviders[provider] {
-					return fmt.Errorf("override file %s: unknown provider %q; valid providers: claude, gemini, cursor, antigravity, copilot", d.Name(), provider)
+				if !providers.IsRegistered(provider) {
+					return fmt.Errorf("override file %s: unknown provider %q; valid providers: %s", d.Name(), provider, strings.Join(providers.RegisteredNames(), ", "))
 				}
 				overrideFiles = append(overrideFiles, overrideFileEntry{
 					Path:     path,
@@ -1185,10 +1254,6 @@ func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, 
 // It returns an empty config if no global config is found.
 // Resources loaded from this base are tagged as Inherited=true during merge.
 func loadGlobalBase() (*ast.XcaffoldConfig, error) {
-	if os.Getenv("XCAFFOLD_SKIP_GLOBAL") == "true" {
-		return &ast.XcaffoldConfig{}, nil
-	}
-
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return &ast.XcaffoldConfig{}, nil // ignore errors, just no global
@@ -2196,7 +2261,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 					AgentID:      agentID,
 					ResourceType: "skill",
 					ResourceID:   skillID,
-					Message:      fmt.Sprintf("agent %q references undefined skill %q", agentID, skillID),
+					Message:      fmt.Sprintf("agent %q references skill %q: not found in project scope (global scope not yet available)", agentID, skillID),
 				})
 			}
 		}
@@ -2206,7 +2271,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 					AgentID:      agentID,
 					ResourceType: "rule",
 					ResourceID:   ruleID,
-					Message:      fmt.Sprintf("agent %q references undefined rule %q", agentID, ruleID),
+					Message:      fmt.Sprintf("agent %q references rule %q: not found in project scope (global scope not yet available)", agentID, ruleID),
 				})
 			}
 		}
@@ -2216,7 +2281,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 					AgentID:      agentID,
 					ResourceType: "mcp",
 					ResourceID:   mcpID,
-					Message:      fmt.Sprintf("agent %q references undefined mcp server %q", agentID, mcpID),
+					Message:      fmt.Sprintf("agent %q references mcp server %q: not found in project scope (global scope not yet available)", agentID, mcpID),
 				})
 			}
 		}

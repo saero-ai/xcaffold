@@ -356,3 +356,85 @@ func TestFilterAgentIfRequested_NoopWhenEmpty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, cfg.Agents, 2)
 }
+
+// TestGraph_ProjectScoped_RendersLabelForUnreferencedResources verifies that
+// resources not referenced by any agent appear under "Project-scoped" labels
+// (not "Unreferenced").
+func TestGraph_ProjectScoped_RendersLabelForUnreferencedResources(t *testing.T) {
+	g := &graphData{
+		Project: "test-project",
+		Nodes: []graphNode{
+			{ID: "agent:main", Kind: kindAgent, Label: "main"},
+			{ID: "skill:used", Kind: kindSkill, Label: "used"},
+			{ID: "skill:standalone", Kind: kindSkill, Label: "standalone"},
+			{ID: "rule:global-rule", Kind: kindRule, Label: "global-rule"},
+			{ID: "mcp:unused-server", Kind: kindMCP, Label: "unused-server"},
+			{ID: "policy:loose", Kind: kindPolicy, Label: "loose"},
+		},
+		Edges: []graphEdge{
+			{From: "agent:main", To: "skill:used"},
+		},
+	}
+
+	out := renderProjectScoped(g)
+
+	// Must contain "Project-scoped" labels
+	assert.Contains(t, out, "Project-scoped skills:")
+	assert.Contains(t, out, "standalone")
+	assert.Contains(t, out, "Project-scoped rules:")
+	assert.Contains(t, out, "global-rule")
+	assert.Contains(t, out, "Project-scoped mcp:")
+	assert.Contains(t, out, "unused-server")
+	assert.Contains(t, out, "Project-scoped policies:")
+	assert.Contains(t, out, "loose")
+
+	// Must NOT contain old "Unreferenced" labels
+	assert.NotContains(t, out, "Unreferenced")
+
+	// "used" skill is referenced — must NOT appear
+	assert.NotContains(t, out, "  used")
+}
+
+// TestGraph_ProjectScoped_EmptyWhenAllReferenced verifies that
+// renderProjectScoped returns empty string when every resource is referenced.
+func TestGraph_ProjectScoped_EmptyWhenAllReferenced(t *testing.T) {
+	g := &graphData{
+		Project: "test-project",
+		Nodes: []graphNode{
+			{ID: "agent:main", Kind: kindAgent, Label: "main"},
+			{ID: "skill:s1", Kind: kindSkill, Label: "s1"},
+		},
+		Edges: []graphEdge{
+			{From: "agent:main", To: "skill:s1"},
+		},
+	}
+
+	out := renderProjectScoped(g)
+	assert.Empty(t, out)
+}
+
+// TestGraph_ScopeSummary_NoOrphanCounter verifies that renderScopeSummary
+// does not emit an "Unreferenced Skills" line.
+func TestGraph_ScopeSummary_NoOrphanCounter(t *testing.T) {
+	g := &graphData{
+		Project:    "test-project",
+		ConfigPath: "xcf/project.xcf",
+		Scope:      "project",
+		Nodes: []graphNode{
+			{ID: "agent:main", Kind: kindAgent, Label: "main"},
+			{ID: "skill:orphan", Kind: kindSkill, Label: "orphan"},
+		},
+		Edges: []graphEdge{}, // skill is unreferenced
+	}
+
+	var sb strings.Builder
+	renderScopeSummary(&sb, g)
+	out := sb.String()
+
+	// Summary must NOT contain orphan/unreferenced counter
+	assert.NotContains(t, out, "Unreferenced")
+	assert.NotContains(t, out, "Skills")
+
+	// Should still show Agents line
+	assert.Contains(t, out, "Agents")
+}

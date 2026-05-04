@@ -116,15 +116,16 @@ func TestTranslateWorkflow_Gemini_CustomCommand(t *testing.T) {
 	require.Equal(t, renderer.CodeWorkflowLoweredToCustomCommand, notes[0].Code)
 }
 
-func TestTranslateWorkflow_NoNativeTarget_EmitsErrorNote(t *testing.T) {
+func TestTranslateWorkflow_NoNativeTarget_DefaultsToRulePlusSkill(t *testing.T) {
 	wf := threeStepWorkflow()
 	// No targets configured — no strategy specified.
+	// All providers without an explicit strategy now default to rule-plus-skill.
 
-	_, notes := translator.TranslateWorkflow(wf, "cursor")
+	primitives, notes := translator.TranslateWorkflow(wf, "cursor")
 
+	require.NotEmpty(t, primitives)
 	require.NotEmpty(t, notes)
-	// At minimum a warning (strict mode would be error).
-	require.Equal(t, renderer.CodeWorkflowNoNativeTarget, notes[len(notes)-1].Code)
+	require.Equal(t, renderer.CodeWorkflowLoweredToRulePlusSkill, notes[len(notes)-1].Code)
 }
 
 func TestTranslateWorkflow_ProvenanceMarker_StepSkillsList(t *testing.T) {

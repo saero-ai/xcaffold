@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/saero-ai/xcaffold/providers"
 )
 
 // ArtifactEntry represents a single artifact detected in the output directory.
@@ -31,9 +33,13 @@ func (a *Analyzer) ScanOutputDir(dir string, declared map[string]bool) ([]Artifa
 	var entries []ArtifactEntry
 
 	source := "disk"
-	if strings.Contains(dir, ".claude") {
-		source = "disk-claude"
-	} else if strings.Contains(dir, ".agents") {
+	for _, m := range providers.Manifests() {
+		if m.OutputDir != "" && strings.Contains(dir, m.OutputDir) {
+			source = "disk-" + m.Name
+			break
+		}
+	}
+	if source == "disk" && strings.Contains(dir, ".agents") {
 		source = "disk-agents"
 	}
 

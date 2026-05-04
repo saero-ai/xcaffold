@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/bir"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/stretchr/testify/require"
@@ -120,35 +119,6 @@ func TestCompile_Workflow_AntigravityNative(t *testing.T) {
 	}
 	require.True(t, found,
 		"expected a LevelInfo note with CodeWorkflowLoweredToNative; got notes: %v", notes)
-}
-
-// TestRoundTrip_Workflow_ProvenanceReassembly verifies that a compiled workflow
-// can be reconstructed from the provenance marker embedded in the rule file.
-func TestRoundTrip_Workflow_ProvenanceReassembly(t *testing.T) {
-	tmp := t.TempDir()
-	config := threeStepCodeReview()
-
-	// Step 1: Compile.
-	out, _, err := compiler.Compile(config, tmp, "claude", "")
-	require.NoError(t, err)
-
-	// Step 2: Write output to disk under .claude/ (mimicking xcaffold apply).
-	for path, content := range out.Files {
-		full := filepath.Join(tmp, ".claude", path)
-		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
-		require.NoError(t, os.WriteFile(full, []byte(content), 0o600))
-	}
-
-	// Step 3: Reassemble from provenance marker.
-	wf, _, err := bir.ReassembleWorkflow(tmp, "code-review")
-	require.NoError(t, err)
-	require.NotNil(t, wf, "round-trip must produce a workflow")
-
-	require.Equal(t, "workflow/v1", wf.ApiVersion)
-	require.Len(t, wf.Steps, 3)
-	require.Equal(t, "analyze", wf.Steps[0].Name)
-	require.Equal(t, "lint", wf.Steps[1].Name)
-	require.Equal(t, "summarize", wf.Steps[2].Name)
 }
 
 // TestRealData_Workflow_Fixtures verifies the sidecar markdown files used as

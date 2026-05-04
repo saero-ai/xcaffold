@@ -10,12 +10,9 @@ import (
 	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
-	"github.com/saero-ai/xcaffold/internal/renderer/antigravity"
-	"github.com/saero-ai/xcaffold/internal/renderer/claude"
-	"github.com/saero-ai/xcaffold/internal/renderer/copilot"
-	"github.com/saero-ai/xcaffold/internal/renderer/cursor"
-	"github.com/saero-ai/xcaffold/internal/renderer/gemini"
 	"github.com/saero-ai/xcaffold/internal/resolver"
+	"github.com/saero-ai/xcaffold/providers"
+	_ "github.com/saero-ai/xcaffold/providers/all" // registers all providers
 	"gopkg.in/yaml.v3"
 )
 
@@ -115,20 +112,7 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 
 // ResolveRenderer returns the TargetRenderer for the given target name.
 func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
-	switch target {
-	case TargetClaude:
-		return claude.New(), nil
-	case TargetCursor:
-		return cursor.New(), nil
-	case TargetAntigravity:
-		return antigravity.New(), nil
-	case TargetCopilot:
-		return copilot.New(), nil
-	case TargetGemini:
-		return gemini.New(), nil
-	default:
-		return nil, fmt.Errorf("unsupported target %q: supported targets are \"claude\", \"cursor\", \"antigravity\", \"copilot\", \"gemini\"", target)
-	}
+	return providers.ResolveRenderer(target)
 }
 
 // mergeResourceScope overlays project-scoped resources onto the root scope.
