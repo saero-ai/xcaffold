@@ -13,6 +13,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
+	"github.com/saero-ai/xcaffold/providers"
 	_ "github.com/saero-ai/xcaffold/providers/antigravity"
 	_ "github.com/saero-ai/xcaffold/providers/claude"
 	_ "github.com/saero-ai/xcaffold/providers/copilot"
@@ -1075,45 +1076,23 @@ func runProviderPostImport(provider, _ /* platformDir */ string, projectDir stri
 }
 
 // discoverRootContextFiles scans the project root for known root context files
-// and populates config.Contexts.
+// using the provider manifest registry and populates config.Contexts.
 func discoverRootContextFiles(projectDir string, config *ast.XcaffoldConfig) {
 	if config.Contexts == nil {
 		config.Contexts = make(map[string]ast.ContextConfig)
 	}
 
-	files := []struct {
-		path   string
-		name   string
-		target string
-	}{
-		{"CLAUDE.md", "claude", "claude"},
-		{"GEMINI.md", "gemini", "gemini"},
-		{".github/copilot-instructions.md", "copilot", "copilot"},
-	}
-
-	for _, f := range files {
-		fullPath := filepath.Join(projectDir, filepath.FromSlash(f.path))
+	for _, m := range providers.Manifests() {
+		if m.RootContextFile == "" {
+			continue
+		}
+		fullPath := filepath.Join(projectDir, filepath.FromSlash(m.RootContextFile))
 		if data, err := os.ReadFile(fullPath); err == nil {
-			config.Contexts[f.name] = ast.ContextConfig{
-				Name:    f.name,
-				Targets: []string{f.target},
+			config.Contexts[m.Name] = ast.ContextConfig{
+				Name:    m.Name,
+				Targets: []string{m.Name},
 				Body:    string(data),
 			}
-		}
-	}
-
-	// Handle AGENTS.md which is shared by Cursor and Antigravity
-	if data, err := os.ReadFile(filepath.Join(projectDir, "AGENTS.md")); err == nil {
-		name := "antigravity"
-		target := "antigravity"
-		if _, err := os.Stat(filepath.Join(projectDir, ".cursor")); err == nil {
-			name = "cursor"
-			target = "cursor"
-		}
-		config.Contexts[name] = ast.ContextConfig{
-			Name:    name,
-			Targets: []string{target},
-			Body:    string(data),
 		}
 	}
 }

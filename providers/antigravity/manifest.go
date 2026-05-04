@@ -24,7 +24,7 @@ var Manifest = providers.ProviderManifest{
 		"workflow": true,
 		"mcp":      true,
 	},
-	RootContextFile: "",
+	RootContextFile: "GEMINI.md",
 	NewRenderer:     func() renderer.TargetRenderer { return New() },
 	NewImporter:     func() importer.ProviderImporter { return NewImporter() },
 }

@@ -25,7 +25,7 @@ var Manifest = providers.ProviderManifest{
 		"mcp":         true,
 		"hook-script": true,
 	},
-	RootContextFile: "",
+	RootContextFile: "AGENTS.md",
 	NewRenderer:     func() renderer.TargetRenderer { return New() },
 	NewImporter:     func() importer.ProviderImporter { return NewImporter() },
 }
