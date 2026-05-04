@@ -5,6 +5,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestMerge_ClearableList_Clear(t *testing.T) {
@@ -114,4 +115,27 @@ func TestMerge_ClearableList_Replace_DoesNotShareSlice(t *testing.T) {
 	result := mergeAgentConfig(base, override)
 	override.Tools.Values[0] = "CHANGED"
 	require.Equal(t, "Read", result.Tools.Values[0], "result should be independent copy")
+}
+
+// TestClearableList_NullOnValueType_IsInherit documents that yaml.v3 does NOT
+// call UnmarshalYAML for a null value when the field is a value-type ClearableList
+// (not a pointer). The field is left at its zero value, which has the same
+// semantics as absent — i.e. inherit from base. Only `[]` (empty sequence) sets
+// Cleared=true.
+func TestClearableList_NullOnValueType_IsInherit(t *testing.T) {
+	input := `---
+name: test-agent
+tools: ~
+skills:
+  - tdd
+`
+	var agent ast.AgentConfig
+	err := yaml.Unmarshal([]byte(input), &agent)
+	require.NoError(t, err)
+	// null on a value-type ClearableList field produces the zero value (inherit semantics).
+	require.False(t, agent.Tools.Cleared)
+	require.Nil(t, agent.Tools.Values)
+	require.True(t, agent.Tools.IsEmpty())
+	// A non-null populated field works normally.
+	require.Equal(t, []string{"tdd"}, agent.Skills.Values)
 }

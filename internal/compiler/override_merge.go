@@ -336,37 +336,26 @@ func mergeMCPConfig(base, override ast.MCPConfig) ast.MCPConfig {
 	}
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
-	if len(override.Env) > 0 {
-		merged := make(map[string]string, len(base.Env)+len(override.Env))
-		for k, v := range base.Env {
-			merged[k] = v
-		}
-		for k, v := range override.Env {
-			merged[k] = v
-		}
-		result.Env = merged
-	}
-	if len(override.Headers) > 0 {
-		merged := make(map[string]string, len(base.Headers)+len(override.Headers))
-		for k, v := range base.Headers {
-			merged[k] = v
-		}
-		for k, v := range override.Headers {
-			merged[k] = v
-		}
-		result.Headers = merged
-	}
-	if len(override.OAuth) > 0 {
-		merged := make(map[string]string, len(base.OAuth)+len(override.OAuth))
-		for k, v := range base.OAuth {
-			merged[k] = v
-		}
-		for k, v := range override.OAuth {
-			merged[k] = v
-		}
-		result.OAuth = merged
-	}
+	result.Env = mergeStringMap(base.Env, override.Env)
+	result.Headers = mergeStringMap(base.Headers, override.Headers)
+	result.OAuth = mergeStringMap(base.OAuth, override.OAuth)
 
 	// Internal provenance fields are intentionally NOT merged.
 	return result
+}
+
+// mergeStringMap deep-merges two string maps: override keys win, base keys not
+// present in override are preserved. Returns base unchanged when override is empty.
+func mergeStringMap(base, override map[string]string) map[string]string {
+	if len(override) == 0 {
+		return base
+	}
+	merged := make(map[string]string, len(base)+len(override))
+	for k, v := range base {
+		merged[k] = v
+	}
+	for k, v := range override {
+		merged[k] = v
+	}
+	return merged
 }
