@@ -345,6 +345,51 @@ func TestInitGlobalImpl_DoesNotExist(t *testing.T) {
 	t.Log("initGlobalImpl should not be a callable function (code was removed)")
 }
 
+// TestInit_DetectDefaultTarget_NoCLIFound_ReturnsEmpty verifies that when no
+// CLI is found on PATH, detectDefaultTarget returns an empty string (not a fallback).
+func TestInit_DetectDefaultTarget_NoCLIFound_ReturnsEmpty(t *testing.T) {
+	// Override PATH to empty so no CLI is found
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", "")
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
+
+	result := detectDefaultTarget()
+	require.Equal(t, "", result, "detectDefaultTarget should return empty string when no CLI found")
+}
+
+// TestInit_CollectWizardAnswers_YesNoTarget_Fails verifies that --yes mode
+// without --target and no CLI on PATH returns an error.
+func TestInit_CollectWizardAnswers_YesNoTarget_Fails(t *testing.T) {
+	// Simulate --yes mode with no --target and no CLI on PATH
+	oldPath := os.Getenv("PATH")
+	t.Setenv("PATH", "")
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
+
+	oldYes := yesFlag
+	oldTargets := targetsFlag
+	yesFlag = true
+	targetsFlag = nil
+	defer func() { yesFlag = oldYes; targetsFlag = oldTargets }()
+
+	_, err := collectWizardAnswers("test-project")
+	require.Error(t, err, "collectWizardAnswers should fail in --yes mode without --target and no CLI")
+	require.Contains(t, err.Error(), "--target is required")
+}
+
+// TestInit_CollectWizardAnswers_YesWithTarget_Succeeds verifies that --yes mode
+// with --target works correctly.
+func TestInit_CollectWizardAnswers_YesWithTarget_Succeeds(t *testing.T) {
+	oldYes := yesFlag
+	oldTargets := targetsFlag
+	yesFlag = true
+	targetsFlag = []string{"claude"}
+	defer func() { yesFlag = oldYes; targetsFlag = oldTargets }()
+
+	ans, err := collectWizardAnswers("test-project")
+	require.NoError(t, err, "collectWizardAnswers should succeed with --target")
+	require.Equal(t, []string{"claude"}, ans.targets)
+}
+
 // TestNoPoliciesFlag_DoesNotExist verifies the noPoliciesFlag has been removed.
 func TestNoPoliciesFlag_DoesNotExist(t *testing.T) {
 	// This test verifies that noPoliciesFlag is no longer present as a global variable.
