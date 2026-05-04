@@ -96,3 +96,15 @@ func TestHasRole_NonexistentKind(t *testing.T) {
 			"nonexistent-kind", "name", got)
 	}
 }
+
+func TestRegistryGen_NoXcaffoldOnly(t *testing.T) {
+	for kindName, ks := range Registry {
+		for _, f := range ks.Fields {
+			for prov, support := range f.Provider {
+				if support == "xcaffold-only" {
+					t.Errorf("kind=%s field=%s provider=%s still has xcaffold-only", kindName, f.YAMLKey, prov)
+				}
+			}
+		}
+	}
+}
