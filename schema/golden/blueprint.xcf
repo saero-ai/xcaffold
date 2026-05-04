@@ -5,6 +5,8 @@ version: "1.0"
 name: golden-blueprint-preview
 description: "Preview — parser supports this kind but full field coverage is pending."
 extends: ""
+targets:
+  - claude
 agents:
   - golden-agent
 skills:

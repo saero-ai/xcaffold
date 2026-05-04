@@ -526,6 +526,16 @@ func init() {
 				Description: "Name of the hooks block to use.",
 				Group:       "Singleton Selectors",
 			},
+			{
+				Name:        "Targets",
+				YAMLKey:     "targets",
+				GoType:      "[]string",
+				XCFType:     "[]string",
+				Optional:    true,
+				Description: "Compilation targets for this blueprint. When set, controls which providers this blueprint compiles for. When empty, falls through to project.targets or --target flag.",
+				Group:       "Multi-Target",
+				Role:        []string{"filtering"},
+			},
 		},
 	}
 	Registry["context"] = KindSchema{

@@ -1254,6 +1254,15 @@ type BlueprintConfig struct {
 	// +xcf:group=Singleton Selectors
 	Hooks string `yaml:"hooks,omitempty"`
 
+	// Compilation targets for this blueprint.
+	// When set, controls which providers this blueprint compiles for.
+	// When empty, falls through to project.targets or --target flag.
+	// +xcf:optional
+	// +xcf:group=Multi-Target
+	// +xcf:role=filtering
+	// +xcf:type=[]string
+	Targets []string `yaml:"targets,omitempty"`
+
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
