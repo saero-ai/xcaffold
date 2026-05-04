@@ -25,6 +25,7 @@ type Field struct {
 	Provider      map[string]string // provider name → behavior
 	Default       string
 	Example       string
+	Role          []string // xcaffold core roles (identity, rendering, composition, metadata, filtering)
 }
 
 // LookupKind retrieves schema metadata for a given kind name.
@@ -58,6 +59,22 @@ func FieldSupportForTarget(kind, yamlKey, target string) string {
 		}
 	}
 	return ""
+}
+
+// HasRole returns true if the given field on the given kind has at least one
+// +xcf:role= annotation. Fields with roles are xcaffold core fields that
+// serve the compiler regardless of provider support.
+func HasRole(kind, yamlKey string) bool {
+	ks, ok := Registry[kind]
+	if !ok {
+		return false
+	}
+	for _, f := range ks.Fields {
+		if f.YAMLKey == yamlKey {
+			return len(f.Role) > 0
+		}
+	}
+	return false
 }
 
 // Registry is populated by the generated registry_gen.go file.

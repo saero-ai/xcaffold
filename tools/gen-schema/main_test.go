@@ -1259,3 +1259,66 @@ func TestGenSchema_GeneratesPresenceExtractors(t *testing.T) {
 		t.Error(`expected *bool field to use "set"`)
 	}
 }
+
+// TestParseMarkers_Role_Single verifies that +xcf:role=rendering marker sets Role correctly
+func TestParseMarkers_Role_Single(t *testing.T) {
+	comments := &ast.CommentGroup{
+		List: []*ast.Comment{
+			{Text: "// +xcf:role=rendering"},
+		},
+	}
+	result := parseMarkers(comments)
+	if !reflect.DeepEqual(result.Role, []string{"rendering"}) {
+		t.Errorf("Expected Role=[rendering], got %v", result.Role)
+	}
+}
+
+// TestParseMarkers_Role_Multiple verifies that +xcf:role=a,b,c parses multiple roles
+func TestParseMarkers_Role_Multiple(t *testing.T) {
+	comments := &ast.CommentGroup{
+		List: []*ast.Comment{
+			{Text: "// +xcf:role=composition,rendering"},
+		},
+	}
+	result := parseMarkers(comments)
+	expected := []string{"composition", "rendering"}
+	if !reflect.DeepEqual(result.Role, expected) {
+		t.Errorf("Expected Role=%v, got %v", expected, result.Role)
+	}
+}
+
+// TestParseMarkers_Role_WithSpaces verifies role parsing handles whitespace
+func TestParseMarkers_Role_WithSpaces(t *testing.T) {
+	comments := &ast.CommentGroup{
+		List: []*ast.Comment{
+			{Text: "// +xcf:role=composition, rendering, identity"},
+		},
+	}
+	result := parseMarkers(comments)
+	expected := []string{"composition", "rendering", "identity"}
+	if !reflect.DeepEqual(result.Role, expected) {
+		t.Errorf("Expected Role=%v, got %v", expected, result.Role)
+	}
+}
+
+// TestParseMarkers_Role_MultipleLines verifies role parsing with other markers
+func TestParseMarkers_Role_MultipleLines(t *testing.T) {
+	comments := &ast.CommentGroup{
+		List: []*ast.Comment{
+			{Text: "// +xcf:optional"},
+			{Text: "// +xcf:role=rendering"},
+			{Text: "// +xcf:group=Model"},
+		},
+	}
+	result := parseMarkers(comments)
+	expected := []string{"rendering"}
+	if !reflect.DeepEqual(result.Role, expected) {
+		t.Errorf("Expected Role=%v, got %v", expected, result.Role)
+	}
+	if !result.Optional {
+		t.Error("Expected Optional=true")
+	}
+	if result.Group != "Model" {
+		t.Errorf("Expected Group='Model', got '%s'", result.Group)
+	}
+}

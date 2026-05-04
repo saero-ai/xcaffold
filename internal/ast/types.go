@@ -194,12 +194,14 @@ type AgentConfig struct {
 	// +xcf:required
 	// +xcf:group=Identity
 	// +xcf:pattern=^[a-z0-9-]+$
+	// +xcf:role=identity
 	Name string `yaml:"name,omitempty"`
 
 	// Human-readable purpose of this agent.
 	// +xcf:optional
 	// +xcf:group=Identity
 	// +xcf:provider=claude:required,gemini:required,copilot:required,cursor:optional,antigravity:optional
+	// +xcf:role=rendering
 	Description string `yaml:"description,omitempty"`
 
 	// LLM model identifier or alias resolved at compile time.
@@ -207,18 +209,21 @@ type AgentConfig struct {
 	// +xcf:group=Model & Execution
 	// +xcf:example=sonnet
 	// +xcf:provider=claude:optional,gemini:optional,copilot:optional,cursor:optional,antigravity:optional
+	// +xcf:role=rendering
 	Model string `yaml:"model,omitempty"`
 
 	// Reasoning effort level hint for the model provider.
 	// +xcf:optional
 	// +xcf:group=Model & Execution
 	// +xcf:provider=claude:optional,cursor:optional
+	// +xcf:role=rendering
 	Effort string `yaml:"effort,omitempty"`
 
 	// Maximum conversation turns before the agent exits.
 	// +xcf:optional
 	// +xcf:group=Model & Execution
 	// +xcf:provider=claude:optional,gemini:optional
+	// +xcf:role=rendering
 	MaxTurns int `yaml:"max-turns,omitempty"`
 
 	// Ordered list of tools this agent may invoke.
@@ -226,6 +231,7 @@ type AgentConfig struct {
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional,gemini:optional,copilot:optional,cursor:unsupported,antigravity:unsupported
+	// +xcf:role=rendering
 	Tools ClearableList `yaml:"tools,omitempty"`
 
 	// Tools explicitly denied to this agent.
@@ -233,42 +239,49 @@ type AgentConfig struct {
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional
+	// +xcf:role=rendering
 	DisallowedTools ClearableList `yaml:"disallowed-tools,omitempty"`
 
 	// When true, restricts the agent to read-only tool access.
 	// +xcf:optional
 	// +xcf:group=Tool Access
 	// +xcf:provider=claude:optional,cursor:optional
+	// +xcf:role=rendering
 	Readonly *bool `yaml:"readonly,omitempty"`
 
 	// Security mode controlling tool authorization behavior.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
 	// +xcf:provider=claude:optional
+	// +xcf:role=rendering
 	PermissionMode string `yaml:"permission-mode,omitempty"`
 
 	// Prevents the agent from spawning sub-agents.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
 	// +xcf:provider=claude:optional
+	// +xcf:role=rendering
 	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
 	// Whether users can invoke this agent directly via slash command.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
 	// +xcf:provider=claude:optional
+	// +xcf:role=rendering
 	UserInvocable *bool `yaml:"user-invocable,omitempty"`
 
 	// Runs the agent in background mode without interactive prompts.
 	// +xcf:optional
 	// +xcf:group=Lifecycle
 	// +xcf:provider=claude:optional,cursor:optional
+	// +xcf:role=rendering
 	Background *bool `yaml:"background,omitempty"`
 
 	// Process isolation level for the agent session.
 	// +xcf:optional
 	// +xcf:group=Lifecycle
 	// +xcf:provider=claude:optional
+	// +xcf:role=rendering
 	Isolation string `yaml:"isolation,omitempty"`
 
 	// Named memory banks attached to this agent.
@@ -276,17 +289,20 @@ type AgentConfig struct {
 	// +xcf:group=Memory & Context
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional
+	// +xcf:role=rendering
 	Memory FlexStringSlice `yaml:"memory,omitempty"`
 
 	// Display color for terminal output differentiation.
 	// +xcf:optional
 	// +xcf:group=Memory & Context
+	// +xcf:role=metadata
 	Color string `yaml:"color,omitempty"`
 
 	// System prompt prepended to every conversation.
 	// +xcf:optional
 	// +xcf:group=Memory & Context
 	// +xcf:provider=claude:optional
+	// +xcf:role=rendering
 	InitialPrompt string `yaml:"initial-prompt,omitempty"`
 
 	// Skill resource IDs attached to this agent.
@@ -294,24 +310,28 @@ type AgentConfig struct {
 	// +xcf:group=Composition
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional
+	// +xcf:role=composition,rendering
 	Skills ClearableList `yaml:"skills,omitempty"`
 
 	// Rule resource IDs governing this agent.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
+	// +xcf:role=composition
 	Rules ClearableList `yaml:"rules,omitempty"`
 
 	// MCP server resource IDs available to this agent.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
+	// +xcf:role=composition
 	MCP ClearableList `yaml:"mcp,omitempty"`
 
 	// Policy assertion IDs evaluated post-compilation.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
+	// +xcf:role=composition
 	Assertions ClearableList `yaml:"assertions,omitempty"`
 
 	// Inline MCP server definitions keyed by server name.
@@ -319,18 +339,21 @@ type AgentConfig struct {
 	// +xcf:group=Inline Composition
 	// +xcf:type=map
 	// +xcf:provider=claude:optional,gemini:optional,copilot:optional
+	// +xcf:role=rendering
 	MCPServers map[string]MCPConfig `yaml:"mcp-servers,omitempty"`
 
 	// Inline lifecycle hook definitions for this agent.
 	// +xcf:optional
 	// +xcf:group=Inline Composition
 	// +xcf:provider=claude:optional
+	// +xcf:role=rendering
 	Hooks HookConfig `yaml:"hooks,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.
 	// +xcf:optional
 	// +xcf:group=Multi-Target
 	// +xcf:type=map
+	// +xcf:role=filtering
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
 	// Populated by the parser from the frontmatter body section.
@@ -371,24 +394,28 @@ type SkillConfig struct {
 	// +xcf:required
 	// +xcf:group=Identity
 	// +xcf:pattern=^[a-z0-9-]+$
+	// +xcf:role=identity
 	Name string `yaml:"name,omitempty"`
 
 	// Human-readable purpose of this skill.
 	// +xcf:optional
 	// +xcf:group=Identity
 	// +xcf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
+	// +xcf:role=rendering
 	Description string `yaml:"description,omitempty"`
 
 	// Guidance for the model on when to invoke this skill.
 	// +xcf:optional
 	// +xcf:group=Identity
 	// +xcf:provider=claude:optional
+	// +xcf:role=metadata
 	WhenToUse string `yaml:"when-to-use,omitempty"`
 
 	// SPDX license identifier for open-source skills.
 	// +xcf:optional
 	// +xcf:group=Identity
 	// +xcf:provider=claude:optional,copilot:optional
+	// +xcf:role=metadata
 	License string `yaml:"license,omitempty"`
 
 	// Tools this skill is permitted to use. Skill-specific field.
@@ -396,24 +423,28 @@ type SkillConfig struct {
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional,copilot:optional
+	// +xcf:role=rendering
 	AllowedTools ClearableList `yaml:"allowed-tools,omitempty"`
 
 	// Prevents the skill from spawning sub-agents.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
 	// +xcf:provider=claude:optional
+	// +xcf:role=rendering
 	DisableModelInvocation *bool `yaml:"disable-model-invocation,omitempty"`
 
 	// Whether users can invoke this skill directly via slash command.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
 	// +xcf:provider=claude:optional
+	// +xcf:role=metadata
 	UserInvocable *bool `yaml:"user-invocable,omitempty"`
 
 	// Hint text shown to the user when invoking the skill.
 	// +xcf:optional
 	// +xcf:group=Permissions & Invocation
 	// +xcf:provider=claude:optional
+	// +xcf:role=metadata
 	ArgumentHint string `yaml:"argument-hint,omitempty"`
 
 	// Named subdirectories to copy from xcf/skills/<id>/ to provider output.
@@ -421,36 +452,42 @@ type SkillConfig struct {
 	// +xcf:group=Composition
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
+	// +xcf:role=composition
 	Artifacts []string `yaml:"artifacts,omitempty"`
 
 	// Docs and data files copied to skills/<id>/references/ at compile time.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
+	// +xcf:role=composition
 	References ClearableList `yaml:"references,omitempty"`
 
 	// Executable helper files copied to skills/<id>/scripts/ at compile time.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
+	// +xcf:role=composition
 	Scripts ClearableList `yaml:"scripts,omitempty"`
 
 	// Output artifact files copied to skills/<id>/assets/ at compile time.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
+	// +xcf:role=composition
 	Assets ClearableList `yaml:"assets,omitempty"`
 
 	// Demonstration files copied to skills/<id>/examples/ at compile time.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
+	// +xcf:role=composition
 	Examples ClearableList `yaml:"examples,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.
 	// +xcf:optional
 	// +xcf:group=Multi-Target
 	// +xcf:type=map
+	// +xcf:role=filtering
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
 	// Populated by the parser from the frontmatter body section.
@@ -481,12 +518,14 @@ type RuleConfig struct {
 	// +xcf:optional
 	// +xcf:group=Activation
 	// +xcf:provider=cursor:optional
+	// +xcf:role=rendering
 	AlwaysApply *bool `yaml:"always-apply,omitempty"`
 
 	// Human-readable purpose of this rule.
 	// +xcf:optional
 	// +xcf:group=Identity
 	// +xcf:provider=claude:optional,cursor:optional,copilot:optional,antigravity:optional
+	// +xcf:role=rendering
 	Description string `yaml:"description,omitempty"`
 
 	// Cross-provider activation mode for this rule.
@@ -494,12 +533,14 @@ type RuleConfig struct {
 	// +xcf:group=Activation
 	// +xcf:enum=always,path-glob,model-decided,manual-mention,explicit-invoke
 	// +xcf:provider=cursor:optional
+	// +xcf:role=rendering
 	Activation string `yaml:"activation,omitempty"`
 
 	// Unique identifier for this rule within the project.
 	// +xcf:required
 	// +xcf:group=Identity
 	// +xcf:pattern=^[a-z0-9-]+$
+	// +xcf:role=identity
 	Name string `yaml:"name,omitempty"`
 
 	// Populated by the parser from the frontmatter body section.
@@ -510,6 +551,7 @@ type RuleConfig struct {
 	// +xcf:group=Activation
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional,cursor:optional,copilot:optional,antigravity:optional
+	// +xcf:role=rendering
 	Paths ClearableList `yaml:"paths,omitempty"`
 
 	// Agent types excluded from receiving this rule.
@@ -518,12 +560,14 @@ type RuleConfig struct {
 	// +xcf:type=[]string
 	// +xcf:enum=code-review,cloud-agent
 	// +xcf:provider=copilot:optional
+	// +xcf:role=rendering
 	ExcludeAgents ClearableList `yaml:"exclude-agents,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.
 	// +xcf:optional
 	// +xcf:group=Multi-Target
 	// +xcf:type=map
+	// +xcf:role=filtering
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
 	// Inherited is set by the parser when this resource originates from an

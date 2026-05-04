@@ -24,6 +24,7 @@ func init() {
 					"gemini":      "xcaffold-only",
 				},
 				Pattern: "^[a-z0-9-]+$",
+				Role:    []string{"identity"},
 			},
 			{
 				Name:        "Description",
@@ -40,6 +41,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "required",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Model",
@@ -57,6 +59,7 @@ func init() {
 					"gemini":      "optional",
 				},
 				Example: "sonnet",
+				Role:    []string{"rendering"},
 			},
 			{
 				Name:        "Effort",
@@ -73,6 +76,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "MaxTurns",
@@ -89,6 +93,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "optional",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Tools",
@@ -105,6 +110,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "optional",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "DisallowedTools",
@@ -121,6 +127,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Readonly",
@@ -137,6 +144,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "PermissionMode",
@@ -153,6 +161,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "DisableModelInvocation",
@@ -169,6 +178,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "UserInvocable",
@@ -185,6 +195,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Background",
@@ -201,6 +212,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Isolation",
@@ -217,6 +229,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Memory",
@@ -233,6 +246,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Color",
@@ -249,6 +263,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"metadata"},
 			},
 			{
 				Name:        "InitialPrompt",
@@ -265,6 +280,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Skills",
@@ -281,6 +297,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"composition", "rendering"},
 			},
 			{
 				Name:        "Rules",
@@ -297,6 +314,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"composition"},
 			},
 			{
 				Name:        "MCP",
@@ -313,6 +331,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"composition"},
 			},
 			{
 				Name:        "Assertions",
@@ -329,6 +348,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"composition"},
 			},
 			{
 				Name:        "MCPServers",
@@ -345,6 +365,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "optional",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Hooks",
@@ -361,6 +382,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Targets",
@@ -377,6 +399,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"filtering"},
 			},
 		},
 	}
@@ -871,6 +894,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Description",
@@ -887,6 +911,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Activation",
@@ -904,6 +929,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Name",
@@ -921,6 +947,7 @@ func init() {
 					"gemini":      "xcaffold-only",
 				},
 				Pattern: "^[a-z0-9-]+$",
+				Role:    []string{"identity"},
 			},
 			{
 				Name:        "Paths",
@@ -937,6 +964,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "ExcludeAgents",
@@ -954,6 +982,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "Targets",
@@ -970,6 +999,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"filtering"},
 			},
 		},
 	}
@@ -1271,6 +1301,7 @@ func init() {
 					"gemini":      "xcaffold-only",
 				},
 				Pattern: "^[a-z0-9-]+$",
+				Role:    []string{"identity"},
 			},
 			{
 				Name:        "Description",
@@ -1287,6 +1318,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "optional",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "WhenToUse",
@@ -1303,6 +1335,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"metadata"},
 			},
 			{
 				Name:        "License",
@@ -1319,6 +1352,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"metadata"},
 			},
 			{
 				Name:        "AllowedTools",
@@ -1335,6 +1369,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "DisableModelInvocation",
@@ -1351,6 +1386,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"rendering"},
 			},
 			{
 				Name:        "UserInvocable",
@@ -1367,6 +1403,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"metadata"},
 			},
 			{
 				Name:        "ArgumentHint",
@@ -1383,6 +1420,7 @@ func init() {
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
 				},
+				Role: []string{"metadata"},
 			},
 			{
 				Name:        "Artifacts",
@@ -1399,6 +1437,7 @@ func init() {
 					"cursor":      "optional",
 					"gemini":      "optional",
 				},
+				Role: []string{"composition"},
 			},
 			{
 				Name:        "References",
@@ -1415,6 +1454,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"composition"},
 			},
 			{
 				Name:        "Scripts",
@@ -1431,6 +1471,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"composition"},
 			},
 			{
 				Name:        "Assets",
@@ -1447,6 +1488,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"composition"},
 			},
 			{
 				Name:        "Examples",
@@ -1463,6 +1505,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"composition"},
 			},
 			{
 				Name:        "Targets",
@@ -1479,6 +1522,7 @@ func init() {
 					"cursor":      "xcaffold-only",
 					"gemini":      "xcaffold-only",
 				},
+				Role: []string{"filtering"},
 			},
 		},
 	}
