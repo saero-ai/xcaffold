@@ -480,10 +480,11 @@ func TestExtractSkillSubdirs_AntigravityResources(t *testing.T) {
 	outDir := t.TempDir()
 	var warnings []string
 
-	refs, scripts, assets, examples, err := extractSkillSubdirs(
+	refs, scripts, assets, examples, discoveredDirs, err := extractSkillSubdirs(
 		filepath.Join(skillDir, "SKILL.md"), "my-skill", "antigravity", outDir, &warnings,
 	)
 	require.NoError(t, err)
+	_ = discoveredDirs // capture unused return value
 
 	// refs and scripts should be empty for this fixture
 	_ = refs
@@ -522,10 +523,11 @@ func TestExtractSkillSubdirs_ClaudeFlatMdFiles(t *testing.T) {
 	outDir := t.TempDir()
 	var warnings []string
 
-	refs, scripts, assets, examples, err := extractSkillSubdirs(
+	refs, scripts, assets, examples, discoveredDirs, err := extractSkillSubdirs(
 		filepath.Join(skillDir, "SKILL.md"), "my-skill", "claude", outDir, &warnings,
 	)
 	require.NoError(t, err)
+	_ = discoveredDirs // capture unused return value
 
 	_ = scripts
 	_ = assets
@@ -559,10 +561,11 @@ func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
 	outDir := t.TempDir()
 	var warnings []string
 
-	refs, scripts, assets, examples, err := extractSkillSubdirs(
+	refs, scripts, assets, examples, discoveredDirs, err := extractSkillSubdirs(
 		filepath.Join(skillDir, "SKILL.md"), "my-skill", "unknown-provider", outDir, &warnings,
 	)
 	require.NoError(t, err)
+	_ = discoveredDirs // capture unused return value
 
 	// All canonical slices should be empty — unknown provider has no canonical mapping.
 	if len(refs)+len(scripts)+len(assets)+len(examples) != 0 {

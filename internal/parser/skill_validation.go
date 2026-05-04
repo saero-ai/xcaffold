@@ -9,7 +9,7 @@ import (
 	"github.com/saero-ai/xcaffold/providers"
 )
 
-var canonicalSkillSubdirs = map[string]bool{
+var subdirExtensionRules = map[string]bool{
 	"references": true,
 	"scripts":    true,
 	"assets":     true,
@@ -92,7 +92,7 @@ func ValidateSkillDirectory(skillDir, skillID string, artifacts []string) *Skill
 			continue
 		}
 		result.Errors = append(result.Errors, fmt.Errorf(
-			"unrecognized file %q at skill root %q; move to references/, scripts/, assets/, or examples/ based on its purpose",
+			"unrecognized file %q at skill root %q; move it to a declared artifact subdirectory",
 			name, skillID))
 	}
 
@@ -128,7 +128,7 @@ func validateSubdir(subdirPath, skillID, subdirName string) ([]error, []error) {
 		}
 		// Only check file extensions for canonical subdirs
 		// Custom artifact dirs allow any file type
-		if !canonicalSkillSubdirs[subdirName] {
+		if !subdirExtensionRules[subdirName] {
 			continue
 		}
 		allowed := subdirAllowedExtensions[subdirName]
