@@ -254,7 +254,7 @@ func TestRuleConfig_Activation_Field(t *testing.T) {
 	rule := RuleConfig{
 		Name:       "coding-style",
 		Activation: RuleActivationAlways,
-		Paths:      []string{"src/**"},
+		Paths:      ClearableList{Values: []string{"src/**"}},
 	}
 
 	data, err := yaml.Marshal(rule)
@@ -277,7 +277,7 @@ func TestRuleConfig_ExcludeAgents_Serializes(t *testing.T) {
 	rule := RuleConfig{
 		Name:          "security",
 		Activation:    RuleActivationAlways,
-		ExcludeAgents: []string{"code-review", "cloud-agent"},
+		ExcludeAgents: ClearableList{Values: []string{"code-review", "cloud-agent"}},
 		Body:          "Body.",
 	}
 

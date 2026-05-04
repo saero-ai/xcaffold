@@ -347,7 +347,7 @@ func appendGraphRules(config *ast.XcaffoldConfig, g *graphData) {
 			ID:    "rule:" + id,
 			Kind:  kindRule,
 			Label: id,
-			Paths: rule.Paths,
+			Paths: rule.Paths.Values,
 		})
 	}
 }
