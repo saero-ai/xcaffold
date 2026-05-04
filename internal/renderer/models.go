@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/saero-ai/xcaffold/internal/schema"
+	"github.com/saero-ai/xcaffold/pkg/schema"
 )
 
 // modelAliases translates a user-friendly alias from an .xcf file into

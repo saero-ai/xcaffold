@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/saero-ai/xcaffold/internal/schema"
+	"github.com/saero-ai/xcaffold/pkg/schema"
 	"github.com/spf13/cobra"
 )
 

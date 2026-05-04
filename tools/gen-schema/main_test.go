@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/saero-ai/xcaffold/internal/schema"
+	"github.com/saero-ai/xcaffold/pkg/schema"
 )
 
 // TestParseMarkers_Optional verifies that +xcf:optional marker sets Optional=true

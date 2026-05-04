@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/schema"
+	"github.com/saero-ai/xcaffold/pkg/schema"
 )
 
 // CheckFieldSupport reads per-provider field requirements from the schema

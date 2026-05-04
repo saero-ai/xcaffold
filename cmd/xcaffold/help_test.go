@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/parser"
-	"github.com/saero-ai/xcaffold/internal/schema"
+	"github.com/saero-ai/xcaffold/pkg/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
