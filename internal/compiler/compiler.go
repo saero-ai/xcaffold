@@ -12,11 +12,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/providers"
-	_ "github.com/saero-ai/xcaffold/providers/antigravity"
-	_ "github.com/saero-ai/xcaffold/providers/claude"
-	_ "github.com/saero-ai/xcaffold/providers/copilot"
-	_ "github.com/saero-ai/xcaffold/providers/cursor"
-	_ "github.com/saero-ai/xcaffold/providers/gemini"
+	_ "github.com/saero-ai/xcaffold/providers/all" // registers all providers
 	"gopkg.in/yaml.v3"
 )
 
