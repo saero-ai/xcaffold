@@ -296,6 +296,82 @@ func TestResourceOverrides_TemplateProviders_ListsProviders(t *testing.T) {
 	require.Equal(t, []string{"claude", "gemini"}, providers)
 }
 
+// --- ClearableList tests ---
+
+func TestClearableList_UnmarshalYAML_AbsentField(t *testing.T) {
+	type wrapper struct {
+		Items *ClearableList `yaml:"items"`
+	}
+	var w wrapper
+	err := yaml.Unmarshal([]byte("name: test\n"), &w)
+	require.NoError(t, err)
+	require.Nil(t, w.Items)
+}
+
+func TestClearableList_UnmarshalYAML_ExplicitNull(t *testing.T) {
+	type wrapper struct {
+		Items *ClearableList `yaml:"items"`
+	}
+	var w wrapper
+	err := yaml.Unmarshal([]byte("items: ~\n"), &w)
+	require.NoError(t, err)
+	require.Nil(t, w.Items)
+}
+
+func TestClearableList_UnmarshalYAML_EmptySequence(t *testing.T) {
+	type wrapper struct {
+		Items *ClearableList `yaml:"items"`
+	}
+	var w wrapper
+	err := yaml.Unmarshal([]byte("items: []\n"), &w)
+	require.NoError(t, err)
+	require.NotNil(t, w.Items)
+	require.True(t, w.Items.Cleared)
+	require.Nil(t, w.Items.Values)
+	require.Equal(t, 0, w.Items.Len())
+	require.False(t, w.Items.IsEmpty())
+}
+
+func TestClearableList_UnmarshalYAML_PopulatedSequence(t *testing.T) {
+	type wrapper struct {
+		Items *ClearableList `yaml:"items"`
+	}
+	var w wrapper
+	err := yaml.Unmarshal([]byte("items: [a, b]\n"), &w)
+	require.NoError(t, err)
+	require.NotNil(t, w.Items)
+	require.False(t, w.Items.Cleared)
+	require.Equal(t, []string{"a", "b"}, w.Items.Values)
+	require.Equal(t, 2, w.Items.Len())
+	require.False(t, w.Items.IsEmpty())
+}
+
+func TestClearableList_MarshalYAML_ZeroValue(t *testing.T) {
+	c := ClearableList{}
+	iface, err := c.MarshalYAML()
+	require.NoError(t, err)
+	require.Nil(t, iface)
+}
+
+func TestClearableList_MarshalYAML_Cleared(t *testing.T) {
+	c := ClearableList{Cleared: true}
+	out, err := yaml.Marshal(struct {
+		Items *ClearableList `yaml:"items"`
+	}{Items: &c})
+	require.NoError(t, err)
+	require.Contains(t, string(out), "items:")
+}
+
+func TestClearableList_MarshalYAML_WithValues(t *testing.T) {
+	c := ClearableList{Values: []string{"x", "y"}}
+	out, err := yaml.Marshal(struct {
+		Items *ClearableList `yaml:"items"`
+	}{Items: &c})
+	require.NoError(t, err)
+	require.Contains(t, string(out), "x")
+	require.Contains(t, string(out), "y")
+}
+
 // Helper function for creating bool pointers in tests
 func boolPtr(b bool) *bool {
 	return &b

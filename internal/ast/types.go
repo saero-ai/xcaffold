@@ -115,6 +115,67 @@ func NewFlexStringSlice(s string) FlexStringSlice {
 	return FlexStringSlice{s}
 }
 
+// ClearableList is a []string wrapper that distinguishes "absent" from "explicitly
+// empty" during YAML unmarshaling. Used on list fields that participate in override
+// merging where "clear this field" must be expressible.
+//
+// Semantics:
+//   - Field absent in YAML:    nil (inherit base)
+//   - Field set to [] or ~:    Cleared=true,  Values=nil  (clear field)
+//   - Field set to [a, b]:     Cleared=false, Values=[a,b] (replace)
+type ClearableList struct {
+	Values  []string
+	Cleared bool
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler. It detects explicit null and empty
+// sequences, setting the Cleared flag accordingly. The zero-value ClearableList{}
+// (Cleared=false, Values=nil) represents an absent/inherited field.
+// Note: UnmarshalYAML requires pointer receiver per yaml.v3 interface.
+func (c *ClearableList) UnmarshalYAML(value *yaml.Node) error {
+	// Detect explicit null in YAML (!!null tag)
+	if value.Tag == "!!null" {
+		c.Cleared = true
+		c.Values = nil
+		return nil
+	}
+
+	// Detect empty sequence (no special tag, empty content)
+	if value.Kind == yaml.SequenceNode && len(value.Content) == 0 {
+		c.Cleared = true
+		c.Values = nil
+		return nil
+	}
+
+	// Non-empty sequence: decode into Values
+	c.Cleared = false
+	return value.Decode(&c.Values)
+}
+
+// MarshalYAML implements yaml.Marshaler for round-trip serialization.
+// Uses value receiver: the zero-value ClearableList means absent/inherit.
+func (c ClearableList) MarshalYAML() (interface{}, error) {
+	if c.Cleared {
+		return []string{}, nil
+	}
+	if len(c.Values) == 0 {
+		return nil, nil
+	}
+	return c.Values, nil
+}
+
+// Len returns the number of values. Convenience for migration from []string.
+// Uses value receiver; zero-value returns 0.
+func (c ClearableList) Len() int {
+	return len(c.Values)
+}
+
+// IsEmpty returns true if the list has no values and is not explicitly cleared.
+// Uses value receiver; zero-value returns true.
+func (c ClearableList) IsEmpty() bool {
+	return !c.Cleared && len(c.Values) == 0
+}
+
 // AgentConfig defines an AI coding agent persona.
 //
 // Field ordering is canonical and mirrors the compiled markdown frontmatter:
