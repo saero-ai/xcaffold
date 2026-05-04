@@ -2343,10 +2343,10 @@ func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 			subdir string
 			paths  []string
 		}{
-			{"references", skill.References},
-			{"scripts", skill.Scripts},
-			{"assets", skill.Assets},
-			{"examples", skill.Examples},
+			{"references", skill.References.Values},
+			{"scripts", skill.Scripts.Values},
+			{"assets", skill.Assets.Values},
+			{"examples", skill.Examples.Values},
 		} {
 			for _, ref := range subdirPaths.paths {
 				if ref == "" {

@@ -328,8 +328,8 @@ func appendGraphSkills(config *ast.XcaffoldConfig, g *graphData) {
 			label = skill.Name
 		}
 		var tools []string
-		if len(skill.AllowedTools) > 0 {
-			tools = skill.AllowedTools
+		if len(skill.AllowedTools.Values) > 0 {
+			tools = skill.AllowedTools.Values
 		}
 		g.Nodes = append(g.Nodes, graphNode{
 			ID:    "skill:" + id,

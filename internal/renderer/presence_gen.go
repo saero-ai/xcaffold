@@ -95,7 +95,7 @@ func ExtractSkillPresentFields(s ast.SkillConfig) map[string]string {
 	if s.License != "" {
 		m["license"] = s.License
 	}
-	if len(s.AllowedTools) > 0 {
+	if len(s.AllowedTools.Values) > 0 {
 		m["allowed-tools"] = "set"
 	}
 	if s.DisableModelInvocation != nil {
@@ -110,16 +110,16 @@ func ExtractSkillPresentFields(s ast.SkillConfig) map[string]string {
 	if len(s.Artifacts) > 0 {
 		m["artifacts"] = "set"
 	}
-	if len(s.References) > 0 {
+	if len(s.References.Values) > 0 {
 		m["references"] = "set"
 	}
-	if len(s.Scripts) > 0 {
+	if len(s.Scripts.Values) > 0 {
 		m["scripts"] = "set"
 	}
-	if len(s.Assets) > 0 {
+	if len(s.Assets.Values) > 0 {
 		m["assets"] = "set"
 	}
-	if len(s.Examples) > 0 {
+	if len(s.Examples.Values) > 0 {
 		m["examples"] = "set"
 	}
 	if len(s.Targets) > 0 {

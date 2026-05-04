@@ -413,16 +413,16 @@ func TestMergeWorkflowConfig_StepsReplace(t *testing.T) {
 func TestMergeSkillConfig_AllowedToolsReplace(t *testing.T) {
 	base := ast.SkillConfig{
 		Name:         "my-skill",
-		AllowedTools: []string{"Read", "Write", "Bash"},
+		AllowedTools: ast.ClearableList{Values: []string{"Read", "Write", "Bash"}},
 	}
 	override := ast.SkillConfig{
-		AllowedTools: []string{"Read"},
+		AllowedTools: ast.ClearableList{Values: []string{"Read"}},
 	}
 
 	got := mergeSkillConfig(base, override)
 
-	if len(got.AllowedTools) != 1 || got.AllowedTools[0] != "Read" {
-		t.Errorf("AllowedTools: want [Read], got %v", got.AllowedTools)
+	if len(got.AllowedTools.Values) != 1 || got.AllowedTools.Values[0] != "Read" {
+		t.Errorf("AllowedTools: want [Read], got %v", got.AllowedTools.Values)
 	}
 	if got.Name != "my-skill" {
 		t.Errorf("Name: want %q, got %q", "my-skill", got.Name)

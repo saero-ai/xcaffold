@@ -396,7 +396,7 @@ type SkillConfig struct {
 	// +xcf:group=Tool Access
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional,copilot:optional
-	AllowedTools []string `yaml:"allowed-tools,omitempty"`
+	AllowedTools ClearableList `yaml:"allowed-tools,omitempty"`
 
 	// Prevents the skill from spawning sub-agents.
 	// +xcf:optional
@@ -427,25 +427,25 @@ type SkillConfig struct {
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
-	References []string `yaml:"references,omitempty"`
+	References ClearableList `yaml:"references,omitempty"`
 
 	// Executable helper files copied to skills/<id>/scripts/ at compile time.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
-	Scripts []string `yaml:"scripts,omitempty"`
+	Scripts ClearableList `yaml:"scripts,omitempty"`
 
 	// Output artifact files copied to skills/<id>/assets/ at compile time.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
-	Assets []string `yaml:"assets,omitempty"`
+	Assets ClearableList `yaml:"assets,omitempty"`
 
 	// Demonstration files copied to skills/<id>/examples/ at compile time.
 	// +xcf:optional
 	// +xcf:group=Composition
 	// +xcf:type=[]string
-	Examples []string `yaml:"examples,omitempty"`
+	Examples ClearableList `yaml:"examples,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.
 	// +xcf:optional

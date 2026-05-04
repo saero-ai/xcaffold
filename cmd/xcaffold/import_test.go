@@ -1466,13 +1466,13 @@ func TestSplitSkillOverrides_DeterministicBase(t *testing.T) {
 		"claude": {
 			Name:         "tdd",
 			Description:  "TDD Skill",
-			AllowedTools: []string{"Read", "Write"},
+			AllowedTools: ast.ClearableList{Values: []string{"Read", "Write"}},
 			Body:         "Claude TDD",
 		},
 		"gemini": {
 			Name:         "tdd",
 			Description:  "TDD Skill",
-			AllowedTools: []string{},
+			AllowedTools: ast.ClearableList{Values: []string{}},
 			Body:         "Gemini TDD",
 		},
 	}

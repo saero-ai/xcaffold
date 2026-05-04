@@ -1323,7 +1323,7 @@ func init() {
 			{
 				Name:        "AllowedTools",
 				YAMLKey:     "allowed-tools",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Tools this skill is permitted to use. Skill-specific field.",
@@ -1403,7 +1403,7 @@ func init() {
 			{
 				Name:        "References",
 				YAMLKey:     "references",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Docs and data files copied to skills/<id>/references/ at compile time.",
@@ -1419,7 +1419,7 @@ func init() {
 			{
 				Name:        "Scripts",
 				YAMLKey:     "scripts",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Executable helper files copied to skills/<id>/scripts/ at compile time.",
@@ -1435,7 +1435,7 @@ func init() {
 			{
 				Name:        "Assets",
 				YAMLKey:     "assets",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Output artifact files copied to skills/<id>/assets/ at compile time.",
@@ -1451,7 +1451,7 @@ func init() {
 			{
 				Name:        "Examples",
 				YAMLKey:     "examples",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCFType:     "[]string",
 				Optional:    true,
 				Description: "Demonstration files copied to skills/<id>/examples/ at compile time.",

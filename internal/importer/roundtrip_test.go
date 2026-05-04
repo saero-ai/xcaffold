@@ -119,7 +119,7 @@ func TestRoundTrip_ClaudeImportCompile_SkillFields(t *testing.T) {
 	require.True(t, ok, "skill 'tdd' must be present after import")
 
 	assert.Equal(t, "tdd-driven-development", skill.Name)
-	assert.NotEmpty(t, skill.AllowedTools, "allowed-tools must be imported")
+	assert.NotEmpty(t, skill.AllowedTools.Values, "allowed-tools must be imported")
 	assert.NotEmpty(t, skill.Body, "instructions body must be imported")
 
 	out, _, err := compiler.Compile(config, ".", "claude", "")

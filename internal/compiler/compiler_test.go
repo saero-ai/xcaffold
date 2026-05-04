@@ -256,7 +256,7 @@ func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {
 					Description:  "TDD workflow",
-					AllowedTools: []string{"Bash", "Read", "Write"},
+					AllowedTools: ast.ClearableList{Values: []string{"Bash", "Read", "Write"}},
 					Body:         "Follow TDD",
 				},
 			},

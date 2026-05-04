@@ -51,9 +51,9 @@ func TestSkillConfig_Examples_RoundTrip(t *testing.T) {
 	dec.KnownFields(true)
 	require.NoError(t, dec.Decode(&sc), "examples: must be a known field on SkillConfig")
 
-	require.Len(t, sc.Examples, 2)
-	require.Equal(t, "xcf/skills/tdd/examples/basic.xcf", sc.Examples[0])
-	require.Equal(t, "xcf/skills/tdd/examples/advanced.xcf", sc.Examples[1])
+	require.Len(t, sc.Examples.Values, 2)
+	require.Equal(t, "xcf/skills/tdd/examples/basic.xcf", sc.Examples.Values[0])
+	require.Equal(t, "xcf/skills/tdd/examples/advanced.xcf", sc.Examples.Values[1])
 
 	data, err := yaml.Marshal(sc)
 	require.NoError(t, err)
@@ -122,9 +122,9 @@ func TestResourceOverrides_SkillProviders_ListsProviders(t *testing.T) {
 	ro := &ResourceOverrides{
 		Skill: map[string]map[string]SkillConfig{
 			"tdd": {
-				"zeta":  {Name: "tdd", AllowedTools: []string{"Read"}},
-				"alpha": {Name: "tdd", AllowedTools: []string{"Write"}},
-				"gamma": {Name: "tdd", AllowedTools: []string{"Edit"}},
+				"zeta":  {Name: "tdd", AllowedTools: ClearableList{Values: []string{"Read"}}},
+				"alpha": {Name: "tdd", AllowedTools: ClearableList{Values: []string{"Write"}}},
+				"gamma": {Name: "tdd", AllowedTools: ClearableList{Values: []string{"Edit"}}},
 			},
 		},
 	}
@@ -156,7 +156,7 @@ func TestResourceOverrides_AddAgent_StoresAndRetrievesAgentConfigs(t *testing.T)
 func TestResourceOverrides_AddSkill_StoresAndRetrievesSkillConfigs(t *testing.T) {
 	ro := &ResourceOverrides{}
 
-	skill1 := SkillConfig{Name: "test", AllowedTools: []string{"Bash"}}
+	skill1 := SkillConfig{Name: "test", AllowedTools: ClearableList{Values: []string{"Bash"}}}
 	ro.AddSkill("test", "claude", skill1)
 
 	retrieved, ok := ro.GetSkill("test", "claude")

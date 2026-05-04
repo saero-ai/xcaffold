@@ -214,13 +214,13 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Description:            front.Description,
 		WhenToUse:              front.WhenToUse,
 		License:                front.License,
-		AllowedTools:           front.AllowedTools,
+		AllowedTools:           ast.ClearableList{Values: front.AllowedTools},
 		DisableModelInvocation: front.DisableModelInvocation,
 		UserInvocable:          front.UserInvocable,
 		ArgumentHint:           front.ArgumentHint,
-		References:             front.References,
-		Scripts:                front.Scripts,
-		Assets:                 front.Assets,
+		References:             ast.ClearableList{Values: front.References},
+		Scripts:                ast.ClearableList{Values: front.Scripts},
+		Assets:                 ast.ClearableList{Values: front.Assets},
 		Targets:                front.Targets,
 		Body:                   body,
 		SourceProvider:         "cursor",
@@ -246,11 +246,11 @@ func extractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) error {
 	skill := config.Skills[skillID]
 	switch subDir {
 	case "references":
-		skill.References = importer.AppendUnique(skill.References, relWithinSkill)
+		skill.References = ast.ClearableList{Values: importer.AppendUnique(skill.References.Values, relWithinSkill)}
 	case "scripts":
-		skill.Scripts = importer.AppendUnique(skill.Scripts, relWithinSkill)
+		skill.Scripts = ast.ClearableList{Values: importer.AppendUnique(skill.Scripts.Values, relWithinSkill)}
 	case "assets":
-		skill.Assets = importer.AppendUnique(skill.Assets, relWithinSkill)
+		skill.Assets = ast.ClearableList{Values: importer.AppendUnique(skill.Assets.Values, relWithinSkill)}
 	}
 	config.Skills[skillID] = skill
 	return nil

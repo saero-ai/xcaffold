@@ -58,7 +58,7 @@ func TestPresenceExtractor_Skill_PopulatedFields(t *testing.T) {
 		Description:            "A test skill",
 		WhenToUse:              "When testing",
 		License:                "MIT",
-		AllowedTools:           []string{"Read", "Write"},
+		AllowedTools:           ast.ClearableList{Values: []string{"Read", "Write"}},
 		DisableModelInvocation: &tr,
 		UserInvocable:          &tr,
 		ArgumentHint:           "file path",

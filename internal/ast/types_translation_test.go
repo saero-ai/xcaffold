@@ -221,7 +221,7 @@ func TestSkillConfig_NewCanonicalFields(t *testing.T) {
 		Description:            "Deploy the application",
 		WhenToUse:              "When user asks to deploy",
 		License:                "MIT",
-		AllowedTools:           []string{"Bash", "Read"},
+		AllowedTools:           ClearableList{Values: []string{"Bash", "Read"}},
 		DisableModelInvocation: &truthy,
 		UserInvocable:          &falsy,
 		ArgumentHint:           "[environment]",

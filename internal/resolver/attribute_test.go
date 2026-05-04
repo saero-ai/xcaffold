@@ -24,7 +24,7 @@ func TestResolveAttributes_StringField(t *testing.T) {
 func TestResolveAttributes_StringSliceField(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.Skills = map[string]ast.SkillConfig{
-		"tdd": {AllowedTools: []string{"Bash", "Read", "Write"}},
+		"tdd": {AllowedTools: ast.ClearableList{Values: []string{"Bash", "Read", "Write"}}},
 	}
 	config.Agents = map[string]ast.AgentConfig{
 		"developer": {Tools: ast.ClearableList{Values: []string{"${skill.tdd.allowed-tools}"}}},

@@ -174,20 +174,20 @@ func mergeSkillConfig(base, override ast.SkillConfig) ast.SkillConfig {
 	}
 
 	// --- Lists (replace entire list on non-empty) ---
-	if len(override.AllowedTools) > 0 {
-		result.AllowedTools = append([]string(nil), override.AllowedTools...)
+	if len(override.AllowedTools.Values) > 0 {
+		result.AllowedTools = ast.ClearableList{Values: append([]string(nil), override.AllowedTools.Values...)}
 	}
-	if len(override.References) > 0 {
-		result.References = append([]string(nil), override.References...)
+	if len(override.References.Values) > 0 {
+		result.References = ast.ClearableList{Values: append([]string(nil), override.References.Values...)}
 	}
-	if len(override.Scripts) > 0 {
-		result.Scripts = append([]string(nil), override.Scripts...)
+	if len(override.Scripts.Values) > 0 {
+		result.Scripts = ast.ClearableList{Values: append([]string(nil), override.Scripts.Values...)}
 	}
-	if len(override.Assets) > 0 {
-		result.Assets = append([]string(nil), override.Assets...)
+	if len(override.Assets.Values) > 0 {
+		result.Assets = ast.ClearableList{Values: append([]string(nil), override.Assets.Values...)}
 	}
-	if len(override.Examples) > 0 {
-		result.Examples = append([]string(nil), override.Examples...)
+	if len(override.Examples.Values) > 0 {
+		result.Examples = ast.ClearableList{Values: append([]string(nil), override.Examples.Values...)}
 	}
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---

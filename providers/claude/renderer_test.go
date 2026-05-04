@@ -330,7 +330,7 @@ func TestClaudeRenderer_Compile_Skill_NewFrontmatterFields(t *testing.T) {
 					Description:            "Deploy the app",
 					WhenToUse:              "When asked to ship",
 					License:                "MIT",
-					AllowedTools:           []string{"Bash(git *)", "Read"},
+					AllowedTools:           ast.ClearableList{Values: []string{"Bash(git *)", "Read"}},
 					DisableModelInvocation: &truthy,
 					UserInvocable:          &falsy,
 					ArgumentHint:           "[env]",
@@ -535,7 +535,7 @@ func TestCompile_SkillWithExamples_Claude(t *testing.T) {
 		"my-skill": {
 			Description: "test skill",
 			Body:        "Do the thing.",
-			Examples:    []string{"examples/sample.md"},
+			Examples:    ast.ClearableList{Values: []string{"examples/sample.md"}},
 		},
 	}
 

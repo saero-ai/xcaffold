@@ -353,7 +353,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 		files[filepath.Clean(filePath)] = sb.String()
 
 		// Emit fidelity notes for unsupported fields.
-		if len(skill.AllowedTools) > 0 {
+		if len(skill.AllowedTools.Values) > 0 {
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning, targetName, "skill", id, "allowed-tools",
 				renderer.CodeFieldUnsupported,
@@ -382,13 +382,13 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				var paths []string
 				switch artifactName {
 				case "references":
-					paths = skill.References
+					paths = skill.References.Values
 				case "scripts":
-					paths = skill.Scripts
+					paths = skill.Scripts.Values
 				case "assets":
-					paths = skill.Assets
+					paths = skill.Assets.Values
 				case "examples":
-					paths = skill.Examples
+					paths = skill.Examples.Values
 				}
 				if len(paths) == 0 {
 					continue
@@ -404,7 +404,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 			}
 		} else {
 			// Legacy path: individual fields for skills that predate the artifacts field.
-			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, subOut); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References.Values, baseDir, subOut); err != nil {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "skill", id, "references",
 					renderer.CodeSkillReferencesDropped,
@@ -412,7 +412,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 					"Check file paths in references",
 				))
 			}
-			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, subOut); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, subOut); err != nil {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "skill", id, "scripts",
 					renderer.CodeSkillScriptsDropped,
@@ -420,7 +420,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 					"Check file paths in scripts",
 				))
 			}
-			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, subOut); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets.Values, baseDir, subOut); err != nil {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "skill", id, "assets",
 					renderer.CodeSkillAssetsDropped,
@@ -429,7 +429,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				))
 			}
 			// examples collapses into references/ for Gemini.
-			if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples, baseDir, subOut); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples.Values, baseDir, subOut); err != nil {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "skill", id, "examples",
 					renderer.CodeSkillExamplesDropped,

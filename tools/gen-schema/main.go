@@ -742,6 +742,11 @@ func writePresenceCheck(buf *strings.Builder, param string, f FieldInfo) {
 			"\tif len(%s) > 0 {\n\t\tm[\"%s\"] = \"set\"\n\t}\n",
 			accessor, f.YAMLKey,
 		))
+	case f.GoType == "ClearableList":
+		buf.WriteString(fmt.Sprintf(
+			"\tif len(%s.Values) > 0 {\n\t\tm[\"%s\"] = \"set\"\n\t}\n",
+			accessor, f.YAMLKey,
+		))
 	}
 }
 

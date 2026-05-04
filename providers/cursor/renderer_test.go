@@ -481,10 +481,10 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Name:         "Rich Skill",
 					Description:  "Has many fields.",
 					Body:         "Do something.",
-					AllowedTools: []string{"Bash"},
-					References:   []string{"main.go"},
-					Scripts:      []string{"setup.sh"},
-					Assets:       []string{"icon.png"},
+					AllowedTools: ast.ClearableList{Values: []string{"Bash"}},
+					References:   ast.ClearableList{Values: []string{"main.go"}},
+					Scripts:      ast.ClearableList{Values: []string{"setup.sh"}},
+					Assets:       ast.ClearableList{Values: []string{"icon.png"}},
 				},
 			},
 		},
@@ -1186,7 +1186,7 @@ func TestCursorRenderer_SkillScriptsEmitted(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"setup": {
 					Description: "Env setup.",
-					Scripts:     []string{"scripts/install.sh"},
+					Scripts:     ast.ClearableList{Values: []string{"scripts/install.sh"}},
 				},
 			},
 		},
@@ -1219,7 +1219,7 @@ func TestCursorRenderer_SkillAssetsEmitted(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"gen": {
 					Description: "Generator.",
-					Assets:      []string{"assets/template.txt"},
+					Assets:      ast.ClearableList{Values: []string{"assets/template.txt"}},
 				},
 			},
 		},
@@ -1250,7 +1250,7 @@ func TestCursorRenderer_SkillReferencesEmitted(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"db-setup": {
 					Description: "DB setup.",
-					References:  []string{"refs/schema.sql"},
+					References:  ast.ClearableList{Values: []string{"refs/schema.sql"}},
 				},
 			},
 		},
@@ -1273,7 +1273,7 @@ func TestCursorRenderer_SkillSubdirPathTraversal(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"evil": {
 					Description: "Bad.",
-					Scripts:     []string{"../../../etc/passwd"},
+					Scripts:     ast.ClearableList{Values: []string{"../../../etc/passwd"}},
 				},
 			},
 		},
@@ -1443,7 +1443,7 @@ func TestCompile_SkillWithExamples_Cursor(t *testing.T) {
 		"my-skill": {
 			Description: "test",
 			Body:        "Do the thing.",
-			Examples:    []string{"examples/sample.md"},
+			Examples:    ast.ClearableList{Values: []string{"examples/sample.md"}},
 		},
 	}
 

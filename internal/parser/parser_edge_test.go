@@ -333,7 +333,7 @@ skills:
 	skill, ok := config.Skills["flutter-integration"]
 	require.True(t, ok)
 	assert.Equal(t, "skills/flutter-integration/SKILL.md", skill.Description)
-	assert.Len(t, skill.References, 1)
+	assert.Len(t, skill.References.Values, 1)
 }
 
 // TestParse_InstructionsFile_CircularReference_ClaudeDir verifies that instructions-file

@@ -105,17 +105,17 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 			}
 		} else {
 			// Legacy path: individual fields for skills that predate the artifacts field.
-			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
 			}
 			// Claude flattens examples alongside SKILL.md (no subdirectory).
-			if err := renderer.FlattenToSkillRoot(id, "examples", skill.Examples, baseDir, out); err != nil {
+			if err := renderer.FlattenToSkillRoot(id, "examples", skill.Examples.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("failed to compile examples for skill %q: %w", id, err)
 			}
 		}
@@ -135,13 +135,13 @@ func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.Capab
 		var paths []string
 		switch artifactName {
 		case "references":
-			paths = skill.References
+			paths = skill.References.Values
 		case "scripts":
-			paths = skill.Scripts
+			paths = skill.Scripts.Values
 		case "assets":
-			paths = skill.Assets
+			paths = skill.Assets.Values
 		case "examples":
-			paths = skill.Examples
+			paths = skill.Examples.Values
 		}
 		if len(paths) == 0 {
 			continue
@@ -595,8 +595,8 @@ func appendSkillMeta(sb *strings.Builder, skill ast.SkillConfig) {
 	}
 
 	// Group 3 — Tool Access (Claude convention: space-separated string)
-	if len(skill.AllowedTools) > 0 {
-		fmt.Fprintf(sb, "allowed-tools: %s\n", strings.Join(skill.AllowedTools, " "))
+	if len(skill.AllowedTools.Values) > 0 {
+		fmt.Fprintf(sb, "allowed-tools: %s\n", strings.Join(skill.AllowedTools.Values, " "))
 	}
 
 	// Group 4 — Permissions & Invocation Control (hyphenated kebab-case for Claude)

@@ -68,7 +68,7 @@ func crossProviderFixture(t *testing.T) (*ast.XcaffoldConfig, string) {
 					Name:        "test-skill",
 					Description: "A skill with references",
 					Body:        "Skill body.",
-					References:  []string{"refs/doc.md"},
+					References:  ast.ClearableList{Values: []string{"refs/doc.md"}},
 				},
 			},
 			Rules: map[string]ast.RuleConfig{

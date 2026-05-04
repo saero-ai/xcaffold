@@ -524,10 +524,10 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Name:         "Rich Skill",
 					Description:  "Has many fields.",
 					Body:         "Do something.",
-					AllowedTools: []string{"Bash"},
-					References:   []string{"refs/guide.go"},
-					Scripts:      []string{"setup.sh"},
-					Assets:       []string{"icon.png"},
+					AllowedTools: ast.ClearableList{Values: []string{"Bash"}},
+					References:   ast.ClearableList{Values: []string{"refs/guide.go"}},
+					Scripts:      ast.ClearableList{Values: []string{"setup.sh"}},
+					Assets:       ast.ClearableList{Values: []string{"icon.png"}},
 				},
 			},
 		},
@@ -565,7 +565,7 @@ func TestCompile_Skill_References_CompiledToExamples(t *testing.T) {
 					Name:        "test-skill",
 					Description: "A skill with references",
 					Body:        "Do things.",
-					References:  []string{"refs/doc.md"},
+					References:  ast.ClearableList{Values: []string{"refs/doc.md"}},
 				},
 			},
 		},
@@ -1017,7 +1017,7 @@ func TestAntigravityRenderer_SkillScripts_CompiledToScripts(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"setup": {
 					Description: "Env setup.",
-					Scripts:     []string{"scripts/install.sh"},
+					Scripts:     ast.ClearableList{Values: []string{"scripts/install.sh"}},
 				},
 			},
 		},
@@ -1045,7 +1045,7 @@ func TestAntigravityRenderer_SkillAssets_CompiledToResources(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"branding": {
 					Description: "Brand assets.",
-					Assets:      []string{"assets/logo.svg"},
+					Assets:      ast.ClearableList{Values: []string{"assets/logo.svg"}},
 				},
 			},
 		},
@@ -1178,8 +1178,8 @@ func TestCompile_SkillWithSubdirs_Antigravity(t *testing.T) {
 		"my-skill": {
 			Description: "test",
 			Body:        "Do the thing.",
-			Assets:      []string{"assets/TEMPLATE.md"},
-			References:  []string{"refs/guide.md"},
+			Assets:      ast.ClearableList{Values: []string{"assets/TEMPLATE.md"}},
+			References:  ast.ClearableList{Values: []string{"refs/guide.md"}},
 		},
 	}
 

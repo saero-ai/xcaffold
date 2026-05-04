@@ -439,9 +439,9 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 		if skill.Description != "" {
 			fmt.Fprintf(&sb, "description: %s\n", skill.Description)
 		}
-		if len(skill.AllowedTools) > 0 {
+		if len(skill.AllowedTools.Values) > 0 {
 			sb.WriteString("allowed-tools:\n")
-			for _, tool := range skill.AllowedTools {
+			for _, tool := range skill.AllowedTools.Values {
 				fmt.Fprintf(&sb, "  - %s\n", tool)
 			}
 		}
@@ -494,16 +494,16 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 			))
 		}
 		subOut := &output.Output{Files: make(map[string]string)}
-		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, subOut); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References.Values, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "references", renderer.CodeSkillReferencesDropped, err.Error(), "Check file paths"))
 		}
-		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, subOut); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "scripts", renderer.CodeSkillScriptsDropped, err.Error(), "Check file paths"))
 		}
-		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, subOut); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets.Values, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "assets", renderer.CodeSkillAssetsDropped, err.Error(), "Check file paths"))
 		}
-		if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples, baseDir, subOut); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples.Values, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "examples", renderer.CodeSkillExamplesDropped, err.Error(), "Check file paths"))
 		}
 		for k, v := range subOut.Files {

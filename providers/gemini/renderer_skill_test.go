@@ -61,10 +61,10 @@ func TestCompile_Gemini_Skills_UnsupportedFields(t *testing.T) {
 					Name:                   "full-skill",
 					Description:            "Skill with all fields.",
 					Body:                   "Do the thing.",
-					AllowedTools:           []string{"Read", "Grep"},
+					AllowedTools:           ast.ClearableList{Values: []string{"Read", "Grep"}},
 					WhenToUse:              "When reviewing code.",
-					Scripts:                []string{"scripts/run.sh"},
-					Assets:                 []string{"assets/template.md"},
+					Scripts:                ast.ClearableList{Values: []string{"scripts/run.sh"}},
+					Assets:                 ast.ClearableList{Values: []string{"assets/template.md"}},
 					DisableModelInvocation: boolPtr(true),
 				},
 			},
@@ -95,7 +95,7 @@ func TestCompile_Gemini_Skills_ReferencesDropped(t *testing.T) {
 					Name:        "test-skill",
 					Description: "A skill with references",
 					Body:        "Do things.",
-					References:  []string{"refs/doc.md"},
+					References:  ast.ClearableList{Values: []string{"refs/doc.md"}},
 				},
 			},
 		},
@@ -123,8 +123,8 @@ func TestCompile_Gemini_Skills_WithSubdirs(t *testing.T) {
 		"my-skill": {
 			Description: "test",
 			Body:        "Do the thing.",
-			References:  []string{"refs/guide.md"},
-			Examples:    []string{"examples/sample.md"},
+			References:  ast.ClearableList{Values: []string{"refs/guide.md"}},
+			Examples:    ast.ClearableList{Values: []string{"examples/sample.md"}},
 		},
 	}
 
