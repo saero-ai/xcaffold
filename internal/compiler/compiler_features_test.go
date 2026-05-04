@@ -30,10 +30,10 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 				"flutter-integration": {
 					Description: "Flutter SVG and Lottie integration",
 					Body:        "Integrate SVG and Lottie into Flutter apps.",
-					References: []string{
+					References: ast.ClearableList{Values: []string{
 						"skills/flutter-integration/references/advanced-patterns.md",
 						"skills/flutter-integration/references/lottie-guide.md",
-					},
+					}},
 				},
 			},
 		},
@@ -68,7 +68,7 @@ func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"design": {
 					Body:       "Design system patterns.",
-					References: []string{"skills/design/refs/*.md"},
+					References: ast.ClearableList{Values: []string{"skills/design/refs/*.md"}},
 				},
 			},
 		},
@@ -93,7 +93,7 @@ func TestCompile_SkillReferences_PathTraversal_Rejected(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"evil": {
 					Body:       "Some skill.",
-					References: []string{"../../etc/shadow"},
+					References: ast.ClearableList{Values: []string{"../../etc/shadow"}},
 				},
 			},
 		},
@@ -827,7 +827,7 @@ func TestCompile_Permissions_DisallowedToolsInAgentFrontmatter(t *testing.T) {
 				"dev": {
 					Description:     "Developer agent",
 					Body:            "Build things.",
-					DisallowedTools: []string{"Bash", "Write"},
+					DisallowedTools: ast.ClearableList{Values: []string{"Bash", "Write"}},
 				},
 			},
 		},
@@ -848,7 +848,7 @@ func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 				"dev": {
 					Description:     "Developer agent",
 					Body:            "Build things.",
-					DisallowedTools: []string{"Bash", "Write"},
+					DisallowedTools: ast.ClearableList{Values: []string{"Bash", "Write"}},
 				},
 			},
 		},

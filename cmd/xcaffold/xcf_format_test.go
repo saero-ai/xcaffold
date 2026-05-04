@@ -313,7 +313,7 @@ func TestWriteSplitFiles_SkillFrontmatter(t *testing.T) {
 				"tdd": {
 					Name:         "tdd",
 					Description:  "Test-driven development.",
-					AllowedTools: []string{"Read", "Edit", "Bash"},
+					AllowedTools: ast.ClearableList{Values: []string{"Read", "Edit", "Bash"}},
 					Body:         "Follow Red-Green-Refactor.",
 				},
 			},
@@ -391,10 +391,10 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 				"my-skill": {
 					Name:        "my-skill",
 					Description: "Test skill",
-					References:  []string{"xcf/skills/my-skill/references/ref.md"},
-					Scripts:     []string{"xcf/skills/my-skill/scripts/run.sh"},
-					Assets:      []string{"xcf/skills/my-skill/assets/icon.svg"},
-					Examples:    []string{"xcf/skills/my-skill/examples/sample.md"},
+					References:  ast.ClearableList{Values: []string{"xcf/skills/my-skill/references/ref.md"}},
+					Scripts:     ast.ClearableList{Values: []string{"xcf/skills/my-skill/scripts/run.sh"}},
+					Assets:      ast.ClearableList{Values: []string{"xcf/skills/my-skill/assets/icon.svg"}},
+					Examples:    ast.ClearableList{Values: []string{"xcf/skills/my-skill/examples/sample.md"}},
 					Body:        "Do the thing.",
 				},
 			},

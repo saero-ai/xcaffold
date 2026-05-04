@@ -44,7 +44,7 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 				"formatting": {
 					Description: "Code style rules",
 					Body:        "Always use gofmt.",
-					Paths:       []string{"**/*.go"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go"}},
 				},
 				"global-safety": {
 					Description: "Always-active safety rule",

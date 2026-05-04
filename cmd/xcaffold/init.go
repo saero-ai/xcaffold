@@ -286,9 +286,15 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 
 	if jsonManifestFlag {
 		yesFlag = true
-		ans.targets = []string{detectDefaultTarget()}
+		detected := detectDefaultTarget()
+		if detected != "" {
+			ans.targets = []string{detected}
+		}
 		if len(targetsFlag) > 0 {
 			ans.targets = targetsFlag
+		}
+		if len(ans.targets) == 0 {
+			return fmt.Errorf("--target is required with --json when no CLI is detected on PATH")
 		}
 	}
 
@@ -372,23 +378,25 @@ var knownCLIs = []struct {
 }
 
 // detectDefaultTarget returns the target for the first CLI binary found on PATH.
+// Returns an empty string if no CLI is found.
 func detectDefaultTarget() string {
 	for _, cli := range knownCLIs {
 		if _, err := exec.LookPath(cli.binary); err == nil {
 			return cli.target
 		}
 	}
-	return compiler.TargetClaude
+	return ""
 }
 
 // resolveTargetMeta returns the suggested model and binary name for a target.
+// Returns empty strings if the target is not found.
 func resolveTargetMeta(target string) (model, binary string) {
 	for _, cli := range knownCLIs {
 		if cli.target == target {
 			return cli.model, cli.binary
 		}
 	}
-	return "claude-sonnet-4-6", compiler.TargetClaude
+	return "", ""
 }
 
 // collectWizardAnswers populates wizard answers from flags and optional prompts.
@@ -399,21 +407,32 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 	if len(targetsFlag) > 0 {
 		ans.targets = targetsFlag
 	} else {
-		ans.targets = []string{detectDefaultTarget()}
+		detected := detectDefaultTarget()
+		if detected != "" {
+			ans.targets = []string{detected}
+		}
 	}
 
 	if yesFlag {
+		if len(ans.targets) == 0 {
+			err = fmt.Errorf("--target is required with --yes when no CLI is detected on PATH")
+			return
+		}
 		return
 	}
 
 	if len(targetsFlag) == 0 {
 		time.Sleep(300 * time.Millisecond)
+		defaultTarget := ""
+		if len(ans.targets) > 0 {
+			defaultTarget = ans.targets[0]
+		}
 		options := []prompt.SelectOption{
-			{Label: "Claude Code", Value: "claude", Selected: ans.targets[0] == "claude"},
-			{Label: "Cursor", Value: "cursor", Selected: ans.targets[0] == "cursor"},
-			{Label: "Gemini", Value: "gemini", Selected: ans.targets[0] == "gemini"},
-			{Label: "GitHub Copilot", Value: "copilot", Selected: ans.targets[0] == "copilot"},
-			{Label: "Antigravity", Value: "antigravity", Selected: ans.targets[0] == "antigravity"},
+			{Label: "Claude Code", Value: "claude", Selected: defaultTarget == "claude"},
+			{Label: "Cursor", Value: "cursor", Selected: defaultTarget == "cursor"},
+			{Label: "Gemini", Value: "gemini", Selected: defaultTarget == "gemini"},
+			{Label: "GitHub Copilot", Value: "copilot", Selected: defaultTarget == "copilot"},
+			{Label: "Antigravity", Value: "antigravity", Selected: defaultTarget == "antigravity"},
 		}
 		selected, promptErr := prompt.MultiSelect("Target platforms (space to select)", options)
 		if promptErr != nil {

@@ -21,10 +21,10 @@ func ExtractAgentPresentFields(a ast.AgentConfig) map[string]string {
 	if a.MaxTurns != 0 {
 		m["max-turns"] = "set"
 	}
-	if len(a.Tools) > 0 {
+	if len(a.Tools.Values) > 0 {
 		m["tools"] = "set"
 	}
-	if len(a.DisallowedTools) > 0 {
+	if len(a.DisallowedTools.Values) > 0 {
 		m["disallowed-tools"] = "set"
 	}
 	if a.Readonly != nil {
@@ -54,16 +54,16 @@ func ExtractAgentPresentFields(a ast.AgentConfig) map[string]string {
 	if a.InitialPrompt != "" {
 		m["initial-prompt"] = a.InitialPrompt
 	}
-	if len(a.Skills) > 0 {
+	if len(a.Skills.Values) > 0 {
 		m["skills"] = "set"
 	}
-	if len(a.Rules) > 0 {
+	if len(a.Rules.Values) > 0 {
 		m["rules"] = "set"
 	}
-	if len(a.MCP) > 0 {
+	if len(a.MCP.Values) > 0 {
 		m["mcp"] = "set"
 	}
-	if len(a.Assertions) > 0 {
+	if len(a.Assertions.Values) > 0 {
 		m["assertions"] = "set"
 	}
 	if len(a.MCPServers) > 0 {
@@ -95,7 +95,7 @@ func ExtractSkillPresentFields(s ast.SkillConfig) map[string]string {
 	if s.License != "" {
 		m["license"] = s.License
 	}
-	if len(s.AllowedTools) > 0 {
+	if len(s.AllowedTools.Values) > 0 {
 		m["allowed-tools"] = "set"
 	}
 	if s.DisableModelInvocation != nil {
@@ -110,16 +110,16 @@ func ExtractSkillPresentFields(s ast.SkillConfig) map[string]string {
 	if len(s.Artifacts) > 0 {
 		m["artifacts"] = "set"
 	}
-	if len(s.References) > 0 {
+	if len(s.References.Values) > 0 {
 		m["references"] = "set"
 	}
-	if len(s.Scripts) > 0 {
+	if len(s.Scripts.Values) > 0 {
 		m["scripts"] = "set"
 	}
-	if len(s.Assets) > 0 {
+	if len(s.Assets.Values) > 0 {
 		m["assets"] = "set"
 	}
-	if len(s.Examples) > 0 {
+	if len(s.Examples.Values) > 0 {
 		m["examples"] = "set"
 	}
 	if len(s.Targets) > 0 {
@@ -145,10 +145,10 @@ func ExtractRulePresentFields(r ast.RuleConfig) map[string]string {
 	if r.Name != "" {
 		m["name"] = r.Name
 	}
-	if len(r.Paths) > 0 {
+	if len(r.Paths.Values) > 0 {
 		m["paths"] = "set"
 	}
-	if len(r.ExcludeAgents) > 0 {
+	if len(r.ExcludeAgents.Values) > 0 {
 		m["exclude-agents"] = "set"
 	}
 	if len(r.Targets) > 0 {

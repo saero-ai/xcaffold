@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `targets` field on `kind: blueprint` — blueprints can declare independent compilation targets, overriding project-level targets for that blueprint's resource subset.
+- `ClearableList` type for list fields in override merging — setting a list field to `[]` explicitly clears inherited values rather than inheriting the base.
+- Two-layer field classification with `+xcf:role=` markers on all config struct fields (`identity`, `rendering`, `composition`, `metadata`, `filtering`).
+- `docs/concepts/configuration/field-model.md` — explains the two-layer field classification and `ClearableList` override semantics.
+- `docs/concepts/configuration/layer-precedence.md` — explains target resolution hierarchy and override merge rules.
+
+### Changed
+
+- `xcaffold apply` no longer defaults to `claude` when no target is configured. Set `targets:` in `project.xcf` or pass `--target`.
+- `xcaffold init --yes` requires `--target` when no known CLI is detected on `$PATH`.
+- Provider `fields.yaml` entries previously classified as `xcaffold-only` are now `unsupported`. The two-layer model silently skips core fields that a provider cannot render.
+
 ### Fixed
 
 - Fixed `xcaffold apply --backup` skipping backup for 2nd and subsequent targets in multi-target projects; backup now runs for every target regardless of source-change detection.
@@ -13,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Provider-override list merge now supports a tri-state `cleared` signal. Setting `cleared: true` on any `ClearableList` field (e.g. `tools`, `skills`, `allowed-tools`, `paths`) in an override file explicitly empties the field rather than inheriting the base value. An absent (zero-value) list continues to inherit the base as before.
 - Added `--target <provider>` flag to `xcaffold validate`. When set, the command performs a compile-time field validation pass that fails on unsupported or missing required fields for the specified provider target.
 - Added `xcaffold status` command to replace `xcaffold diff`, providing high-level sync/drift metrics across all applied targets with inline file status reporting.
 - Added adaptive 3-column terminal output for `xcaffold list`, intelligently scoping and grouping registered Rules and Memory items natively.

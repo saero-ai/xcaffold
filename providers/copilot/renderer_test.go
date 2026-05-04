@@ -40,7 +40,7 @@ func TestCompileCopilotRule_Activation_PathGlob(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
 					Activation: ast.RuleActivationPathGlob,
-					Paths:      []string{"src/api/**", "packages/api/**"},
+					Paths:      ast.ClearableList{Values: []string{"src/api/**", "packages/api/**"}},
 					Body:       "REST conventions.",
 				},
 			},
@@ -60,7 +60,7 @@ func TestCompileCopilotRule_ExcludeAgents_Single(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"pr-review": {
 					Activation:    ast.RuleActivationAlways,
-					ExcludeAgents: []string{"code-review"},
+					ExcludeAgents: ast.ClearableList{Values: []string{"code-review"}},
 					Body:          "Review standards.",
 				},
 			},
@@ -81,7 +81,7 @@ func TestCompileCopilotRule_ExcludeAgents_Multiple(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"security": {
 					Activation:    ast.RuleActivationAlways,
-					ExcludeAgents: []string{"code-review", "cloud-agent"},
+					ExcludeAgents: ast.ClearableList{Values: []string{"code-review", "cloud-agent"}},
 					Body:          "Security.",
 				},
 			},
@@ -206,14 +206,14 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 				"auditor": {
 					Name:        "auditor",
 					Description: "Security auditor",
-					Tools:       []string{"read", "search"},
+					Tools:       ast.ClearableList{Values: []string{"read", "search"}},
 				},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"review": {
 					Name:         "review",
 					Description:  "Code review skill",
-					AllowedTools: []string{"shell"},
+					AllowedTools: ast.ClearableList{Values: []string{"shell"}},
 					Body:         "Review code carefully.",
 				},
 			},
@@ -260,7 +260,7 @@ func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
 				"reviewer": {
 					Name:        "reviewer",
 					Description: "Code reviewer agent",
-					Tools:       []string{"read", "search"},
+					Tools:       ast.ClearableList{Values: []string{"read", "search"}},
 					Model:       "gpt-4o",
 				},
 			},
@@ -268,7 +268,7 @@ func TestCompile_Copilot_FullConfig_Session1(t *testing.T) {
 				"tdd": {
 					Name:         "tdd",
 					Description:  "Test-driven development workflow",
-					AllowedTools: []string{"shell"},
+					AllowedTools: ast.ClearableList{Values: []string{"shell"}},
 					Body:         "Write failing test first.",
 				},
 			},
@@ -289,7 +289,7 @@ func TestCompileAgents_Copilot_ClaudeToolsDropped(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"tester": {
-					Name: "tester", Tools: []string{"Read", "Write"},
+					Name: "tester", Tools: ast.ClearableList{Values: []string{"Read", "Write"}},
 				},
 			},
 		},

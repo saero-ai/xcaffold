@@ -116,7 +116,7 @@ func TestGeminiExtract_SkillFrontmatter(t *testing.T) {
 	skill, ok := config.Skills["search"]
 	require.True(t, ok, "expected skill 'search' in config")
 	assert.Equal(t, "web-search", skill.Name)
-	assert.Equal(t, []string{"WebSearch"}, skill.AllowedTools)
+	assert.Equal(t, ast.ClearableList{Values: []string{"WebSearch"}}, skill.AllowedTools)
 	assert.Contains(t, skill.Body, "Use for external lookups.")
 	assert.Equal(t, "gemini", skill.SourceProvider)
 }

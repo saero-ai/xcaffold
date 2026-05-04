@@ -310,7 +310,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			fmt.Fprintf(&sb, "description: %s\n", agent.Description)
 		}
 
-		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, targetName, id)
+		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
 		notes = append(notes, toolNotes...)
 		if len(sanitizedTools) > 0 {
 			sb.WriteString("tools:\n")
@@ -397,7 +397,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			{"initial-prompt", agent.InitialPrompt != ""},
 			{"readonly", agent.Readonly != nil},
 			{"memory", len(agent.Memory) > 0},
-			{"skills", len(agent.Skills) > 0},
+			{"skills", len(agent.Skills.Values) > 0},
 			{"hooks", len(agent.Hooks) > 0},
 		}
 		for _, f := range unsupported {
@@ -439,9 +439,9 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 		if skill.Description != "" {
 			fmt.Fprintf(&sb, "description: %s\n", skill.Description)
 		}
-		if len(skill.AllowedTools) > 0 {
+		if len(skill.AllowedTools.Values) > 0 {
 			sb.WriteString("allowed-tools:\n")
-			for _, tool := range skill.AllowedTools {
+			for _, tool := range skill.AllowedTools.Values {
 				fmt.Fprintf(&sb, "  - %s\n", tool)
 			}
 		}
@@ -494,16 +494,16 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 			))
 		}
 		subOut := &output.Output{Files: make(map[string]string)}
-		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, subOut); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References.Values, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "references", renderer.CodeSkillReferencesDropped, err.Error(), "Check file paths"))
 		}
-		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, subOut); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "scripts", renderer.CodeSkillScriptsDropped, err.Error(), "Check file paths"))
 		}
-		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, subOut); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets.Values, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "assets", renderer.CodeSkillAssetsDropped, err.Error(), "Check file paths"))
 		}
-		if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples, baseDir, subOut); err != nil {
+		if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples.Values, baseDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "examples", renderer.CodeSkillExamplesDropped, err.Error(), "Check file paths"))
 		}
 		for k, v := range subOut.Files {
@@ -538,8 +538,8 @@ func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.Capability
 		case ast.RuleActivationAlways:
 			applyTo = `"**"`
 		case ast.RuleActivationPathGlob:
-			if len(rule.Paths) > 0 {
-				applyTo = fmt.Sprintf("%q", strings.Join(rule.Paths, ", "))
+			if len(rule.Paths.Values) > 0 {
+				applyTo = fmt.Sprintf("%q", strings.Join(rule.Paths.Values, ", "))
 			} else {
 				applyTo = `"**"`
 			}
@@ -554,9 +554,9 @@ func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.Capability
 
 	sb.WriteString(fmt.Sprintf("applyTo: %s\n", applyTo))
 
-	if len(rule.ExcludeAgents) > 0 {
+	if len(rule.ExcludeAgents.Values) > 0 {
 		sb.WriteString("excludeAgent:\n")
-		for _, agent := range rule.ExcludeAgents {
+		for _, agent := range rule.ExcludeAgents.Values {
 			sb.WriteString(fmt.Sprintf("  - %s\n", agent))
 		}
 	}

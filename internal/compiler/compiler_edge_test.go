@@ -109,7 +109,7 @@ func TestCompile_RuleWithPaths(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{
 				"formatting": {
-					Paths: []string{"**/*.go", "**/*.ts"},
+					Paths: ast.ClearableList{Values: []string{"**/*.go", "**/*.ts"}},
 					Body:  "Always use gofmt.",
 				},
 			},

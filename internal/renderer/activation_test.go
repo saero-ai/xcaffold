@@ -26,7 +26,7 @@ func TestResolvedActivation_LegacyAlwaysApplyFalse(t *testing.T) {
 }
 
 func TestResolvedActivation_PathsPresent_NoActivation(t *testing.T) {
-	rule := ast.RuleConfig{Paths: []string{"src/**"}}
+	rule := ast.RuleConfig{Paths: ast.ClearableList{Values: []string{"src/**"}}}
 	require.Equal(t, ast.RuleActivationPathGlob, renderer.ResolvedActivation(rule))
 }
 
@@ -40,7 +40,7 @@ func TestResolvedActivation_ExplicitActivationTakesPrecedenceOverLegacy(t *testi
 	rule := ast.RuleConfig{
 		Activation:  ast.RuleActivationPathGlob,
 		AlwaysApply: &falsy,
-		Paths:       []string{"src/**"},
+		Paths:       ast.ClearableList{Values: []string{"src/**"}},
 	}
 	require.Equal(t, ast.RuleActivationPathGlob, renderer.ResolvedActivation(rule))
 }

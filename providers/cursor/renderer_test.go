@@ -41,7 +41,7 @@ func TestCompile_Rule_WithPaths_OutputExtensionIsMdc(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"my-rule": {
 					Description: "A rule with paths",
-					Paths:       []string{"**/*.go"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go"}},
 					Body:        "Always format with gofmt.",
 				},
 			},
@@ -65,7 +65,7 @@ func TestCompile_Rule_WithPaths_FrontmatterHasGlobs(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"go-fmt": {
 					Description: "Go formatting rule",
-					Paths:       []string{"**/*.go", "**/*.mod"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go", "**/*.mod"}},
 					Body:        "Run gofmt.",
 				},
 			},
@@ -287,9 +287,9 @@ func TestCompile_Agent_CCOnlyFieldsDropped(t *testing.T) {
 					Color:           "blue",
 					Memory:          ast.FlexStringSlice{"project"},
 					MaxTurns:        10,
-					Tools:           []string{"Bash", "Read"},
-					DisallowedTools: []string{"Write"},
-					Skills:          []string{"my-skill"},
+					Tools:           ast.ClearableList{Values: []string{"Bash", "Read"}},
+					DisallowedTools: ast.ClearableList{Values: []string{"Write"}},
+					Skills:          ast.ClearableList{Values: []string{"my-skill"}},
 					InitialPrompt:   "Hello!",
 					Background:      &bg,
 				},
@@ -481,10 +481,10 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Name:         "Rich Skill",
 					Description:  "Has many fields.",
 					Body:         "Do something.",
-					AllowedTools: []string{"Bash"},
-					References:   []string{"main.go"},
-					Scripts:      []string{"setup.sh"},
-					Assets:       []string{"icon.png"},
+					AllowedTools: ast.ClearableList{Values: []string{"Bash"}},
+					References:   ast.ClearableList{Values: []string{"main.go"}},
+					Scripts:      ast.ClearableList{Values: []string{"setup.sh"}},
+					Assets:       ast.ClearableList{Values: []string{"icon.png"}},
 				},
 			},
 		},
@@ -917,7 +917,7 @@ func TestCompile_Rule_PathsWithAlwaysApplyTrue_AlwaysTakesPrecedence(t *testing.
 			Rules: map[string]ast.RuleConfig{
 				"combo-rule": {
 					Description: "Has both",
-					Paths:       []string{"**/*.ts"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.ts"}},
 					Body:        "Lint TypeScript.",
 					AlwaysApply: &t2,
 				},
@@ -1042,8 +1042,9 @@ func TestCursorRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 }
 
 // TestSecurityFieldCheck_Centralized verifies that security fields on cursor
-// agents emit FIELD_UNSUPPORTED (from the orchestrator's CheckFieldSupport),
-// not AGENT_SECURITY_FIELDS_DROPPED (which was the old renderer-inline code).
+// agents are handled by the orchestrator's two-layer fidelity check.
+// Fields with Role:["rendering"] are silently skipped — no FIELD_UNSUPPORTED
+// and no AGENT_SECURITY_FIELDS_DROPPED are emitted.
 func TestSecurityFieldCheck_Centralized(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
@@ -1064,19 +1065,17 @@ func TestSecurityFieldCheck_Centralized(t *testing.T) {
 		}
 	}
 
-	// Must emit FIELD_UNSUPPORTED from CheckFieldSupport with the YAML key name.
-	var found bool
+	// Two-layer fidelity check: permission-mode has Role:["rendering"], so it
+	// is silently skipped for cursor — no FIELD_UNSUPPORTED note is emitted.
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
-			found = true
-			assert.Equal(t, "dev", n.Resource)
-			assert.Equal(t, renderer.LevelError, n.Level)
+			t.Errorf("permission-mode has an xcf role; FIELD_UNSUPPORTED must not be emitted for cursor, got: %s", n.Reason)
 		}
 	}
-	assert.True(t, found, "FIELD_UNSUPPORTED note for permission-mode must be emitted by the orchestrator")
 }
 
-func TestCursorRenderer_AgentPermissionMode_EmitsNote(t *testing.T) {
+func TestCursorRenderer_AgentPermissionMode_Silent(t *testing.T) {
+	// permission-mode has Role:["rendering"] — silently skipped for cursor.
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -1089,22 +1088,20 @@ func TestCursorRenderer_AgentPermissionMode_EmitsNote(t *testing.T) {
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	var found bool
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
-			found = true
-			assert.Equal(t, "dev", n.Resource)
+			t.Errorf("permission-mode has an xcf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
 		}
 	}
-	assert.True(t, found, "FIELD_UNSUPPORTED note for permission-mode must be emitted")
 }
 
-func TestCursorRenderer_AgentDisallowedTools_EmitsNote(t *testing.T) {
+func TestCursorRenderer_AgentDisallowedTools_Silent(t *testing.T) {
+	// disallowed-tools has Role:["rendering"] — silently skipped for cursor.
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {Body: "Build things.", DisallowedTools: []string{"Write"}},
+				"dev": {Body: "Build things.", DisallowedTools: ast.ClearableList{Values: []string{"Write"}}},
 			},
 		},
 	}
@@ -1112,16 +1109,15 @@ func TestCursorRenderer_AgentDisallowedTools_EmitsNote(t *testing.T) {
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	var found bool
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "disallowed-tools" {
-			found = true
+			t.Errorf("disallowed-tools has an xcf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
 		}
 	}
-	assert.True(t, found)
 }
 
-func TestCursorRenderer_AgentIsolation_EmitsNote(t *testing.T) {
+func TestCursorRenderer_AgentIsolation_Silent(t *testing.T) {
+	// isolation has Role:["rendering"] — silently skipped for cursor.
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -1134,13 +1130,11 @@ func TestCursorRenderer_AgentIsolation_EmitsNote(t *testing.T) {
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	var found bool
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "isolation" {
-			found = true
+			t.Errorf("isolation has an xcf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
 		}
 	}
-	assert.True(t, found)
 }
 
 // Suppression is handled by the orchestrator's CheckFieldSupport — when
@@ -1186,7 +1180,7 @@ func TestCursorRenderer_SkillScriptsEmitted(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"setup": {
 					Description: "Env setup.",
-					Scripts:     []string{"scripts/install.sh"},
+					Scripts:     ast.ClearableList{Values: []string{"scripts/install.sh"}},
 				},
 			},
 		},
@@ -1219,7 +1213,7 @@ func TestCursorRenderer_SkillAssetsEmitted(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"gen": {
 					Description: "Generator.",
-					Assets:      []string{"assets/template.txt"},
+					Assets:      ast.ClearableList{Values: []string{"assets/template.txt"}},
 				},
 			},
 		},
@@ -1250,7 +1244,7 @@ func TestCursorRenderer_SkillReferencesEmitted(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"db-setup": {
 					Description: "DB setup.",
-					References:  []string{"refs/schema.sql"},
+					References:  ast.ClearableList{Values: []string{"refs/schema.sql"}},
 				},
 			},
 		},
@@ -1273,7 +1267,7 @@ func TestCursorRenderer_SkillSubdirPathTraversal(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"evil": {
 					Description: "Bad.",
-					Scripts:     []string{"../../../etc/passwd"},
+					Scripts:     ast.ClearableList{Values: []string{"../../../etc/passwd"}},
 				},
 			},
 		},
@@ -1313,7 +1307,7 @@ func TestCompileCursorRule_Activation_PathGlob(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
 					Activation: ast.RuleActivationPathGlob,
-					Paths:      []string{"src/**"},
+					Paths:      ast.ClearableList{Values: []string{"src/**"}},
 					Body:       "Body.",
 				},
 			},
@@ -1443,7 +1437,7 @@ func TestCompile_SkillWithExamples_Cursor(t *testing.T) {
 		"my-skill": {
 			Description: "test",
 			Body:        "Do the thing.",
-			Examples:    []string{"examples/sample.md"},
+			Examples:    ast.ClearableList{Values: []string{"examples/sample.md"}},
 		},
 	}
 

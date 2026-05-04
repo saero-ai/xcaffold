@@ -174,7 +174,7 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 		Model:                  "sonnet",
 		Effort:                 "high",
 		MaxTurns:               10,
-		Tools:                  []string{"Read", "Write"},
+		Tools:                  ClearableList{Values: []string{"Read", "Write"}},
 		Readonly:               &truthy,
 		PermissionMode:         "default",
 		DisableModelInvocation: &truthy,
@@ -184,9 +184,9 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 		Memory:                 FlexStringSlice{"project"},
 		Color:                  "blue",
 		InitialPrompt:          "Hello.",
-		Skills:                 []string{"tdd"},
-		Rules:                  []string{"coding-standards"},
-		MCP:                    []string{"github"},
+		Skills:                 ClearableList{Values: []string{"tdd"}},
+		Rules:                  ClearableList{Values: []string{"coding-standards"}},
+		MCP:                    ClearableList{Values: []string{"github"}},
 		Body:                   "Do the work.",
 	}
 
@@ -221,7 +221,7 @@ func TestSkillConfig_NewCanonicalFields(t *testing.T) {
 		Description:            "Deploy the application",
 		WhenToUse:              "When user asks to deploy",
 		License:                "MIT",
-		AllowedTools:           []string{"Bash", "Read"},
+		AllowedTools:           ClearableList{Values: []string{"Bash", "Read"}},
 		DisableModelInvocation: &truthy,
 		UserInvocable:          &falsy,
 		ArgumentHint:           "[environment]",
@@ -254,7 +254,7 @@ func TestRuleConfig_Activation_Field(t *testing.T) {
 	rule := RuleConfig{
 		Name:       "coding-style",
 		Activation: RuleActivationAlways,
-		Paths:      []string{"src/**"},
+		Paths:      ClearableList{Values: []string{"src/**"}},
 	}
 
 	data, err := yaml.Marshal(rule)
@@ -277,7 +277,7 @@ func TestRuleConfig_ExcludeAgents_Serializes(t *testing.T) {
 	rule := RuleConfig{
 		Name:          "security",
 		Activation:    RuleActivationAlways,
-		ExcludeAgents: []string{"code-review", "cloud-agent"},
+		ExcludeAgents: ClearableList{Values: []string{"code-review", "cloud-agent"}},
 		Body:          "Body.",
 	}
 

@@ -219,7 +219,7 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 		config.Agents = map[string]ast.AgentConfig{graphAgent: targetAgent}
 
 		filteredSkills := make(map[string]ast.SkillConfig)
-		for _, s := range targetAgent.Skills {
+		for _, s := range targetAgent.Skills.Values {
 			if sk, ok := config.Skills[s]; ok {
 				filteredSkills[s] = sk
 			}
@@ -227,7 +227,7 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 		config.Skills = filteredSkills
 
 		filteredRules := make(map[string]ast.RuleConfig)
-		for _, r := range targetAgent.Rules {
+		for _, r := range targetAgent.Rules.Values {
 			if ru, ok := config.Rules[r]; ok {
 				filteredRules[r] = ru
 			}
@@ -235,7 +235,7 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 		config.Rules = filteredRules
 
 		filteredMCP := make(map[string]ast.MCPConfig)
-		for _, m := range targetAgent.MCP {
+		for _, m := range targetAgent.MCP.Values {
 			if mcp, ok := config.MCP[m]; ok {
 				filteredMCP[m] = mcp
 			}
@@ -328,8 +328,8 @@ func appendGraphSkills(config *ast.XcaffoldConfig, g *graphData) {
 			label = skill.Name
 		}
 		var tools []string
-		if len(skill.AllowedTools) > 0 {
-			tools = skill.AllowedTools
+		if len(skill.AllowedTools.Values) > 0 {
+			tools = skill.AllowedTools.Values
 		}
 		g.Nodes = append(g.Nodes, graphNode{
 			ID:    "skill:" + id,
@@ -347,7 +347,7 @@ func appendGraphRules(config *ast.XcaffoldConfig, g *graphData) {
 			ID:    "rule:" + id,
 			Kind:  kindRule,
 			Label: id,
-			Paths: rule.Paths,
+			Paths: rule.Paths.Values,
 		})
 	}
 }
@@ -386,17 +386,17 @@ func appendGraphAgents(config *ast.XcaffoldConfig, g *graphData) {
 			Kind:         kindAgent,
 			Label:        label,
 			Meta:         meta,
-			Tools:        agent.Tools,
-			BlockedTools: agent.DisallowedTools,
+			Tools:        agent.Tools.Values,
+			BlockedTools: agent.DisallowedTools.Values,
 		})
 
-		for _, skillID := range agent.Skills {
+		for _, skillID := range agent.Skills.Values {
 			g.Edges = append(g.Edges, graphEdge{From: "agent:" + id, To: "skill:" + skillID, Label: "skill"})
 		}
-		for _, ruleID := range agent.Rules {
+		for _, ruleID := range agent.Rules.Values {
 			g.Edges = append(g.Edges, graphEdge{From: "agent:" + id, To: "rule:" + ruleID, Label: "rule"})
 		}
-		for _, mcpID := range agent.MCP {
+		for _, mcpID := range agent.MCP.Values {
 			g.Edges = append(g.Edges, graphEdge{From: "agent:" + id, To: "mcp:" + mcpID, Label: "mcp"})
 		}
 	}

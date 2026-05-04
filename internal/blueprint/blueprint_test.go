@@ -170,9 +170,9 @@ func TestResolveTransitiveDeps_AgentPullsSkillsRulesMCP(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"backend": {
-				Skills: []string{"skill-db", "skill-http"},
-				Rules:  []string{"rule-security"},
-				MCP:    []string{"mcp-postgres"},
+				Skills: ast.ClearableList{Values: []string{"skill-db", "skill-http"}},
+				Rules:  ast.ClearableList{Values: []string{"rule-security"}},
+				MCP:    ast.ClearableList{Values: []string{"mcp-postgres"}},
 			},
 		},
 	}
@@ -194,9 +194,9 @@ func TestResolveTransitiveDeps_ExplicitSkillsMergedWithAgentDeps(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"backend": {
-				Skills: []string{"skill-db"},
-				Rules:  []string{"rule-a"},
-				MCP:    []string{"mcp-x"},
+				Skills: ast.ClearableList{Values: []string{"skill-db"}},
+				Rules:  ast.ClearableList{Values: []string{"rule-a"}},
+				MCP:    ast.ClearableList{Values: []string{"mcp-x"}},
 			},
 		},
 	}
@@ -221,7 +221,7 @@ func TestResolveTransitiveDeps_ExplicitSkillsMergedWithAgentDeps(t *testing.T) {
 func TestResolveTransitiveDeps_NoAgents_NoOp(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
-			"backend": {Skills: []string{"skill-db"}},
+			"backend": {Skills: ast.ClearableList{Values: []string{"skill-db"}}},
 		},
 	}
 
@@ -274,13 +274,13 @@ func TestResolveTransitiveDeps_MultipleAgents_Union(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"frontend": {
-				Skills: []string{"skill-react", "skill-shared"},
-				Rules:  []string{"rule-ui"},
+				Skills: ast.ClearableList{Values: []string{"skill-react", "skill-shared"}},
+				Rules:  ast.ClearableList{Values: []string{"rule-ui"}},
 			},
 			"backend": {
-				Skills: []string{"skill-db", "skill-shared"},
-				Rules:  []string{"rule-security"},
-				MCP:    []string{"mcp-postgres"},
+				Skills: ast.ClearableList{Values: []string{"skill-db", "skill-shared"}},
+				Rules:  ast.ClearableList{Values: []string{"rule-security"}},
+				MCP:    ast.ClearableList{Values: []string{"mcp-postgres"}},
 			},
 		},
 	}
@@ -306,9 +306,9 @@ func TestResolveTransitiveDeps_AllExplicitMergedWithAgentDeps(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"backend": {
-				Skills: []string{"skill-db"},
-				Rules:  []string{"rule-a"},
-				MCP:    []string{"mcp-x"},
+				Skills: ast.ClearableList{Values: []string{"skill-db"}},
+				Rules:  ast.ClearableList{Values: []string{"rule-a"}},
+				MCP:    ast.ClearableList{Values: []string{"mcp-x"}},
 			},
 		},
 	}
@@ -334,7 +334,7 @@ func TestResolveTransitiveDeps_DuplicateSkill_ReturnsError(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"developer": {
-				Skills: []string{"tdd", "schema-design"},
+				Skills: ast.ClearableList{Values: []string{"tdd", "schema-design"}},
 			},
 		},
 	}
@@ -355,7 +355,7 @@ func TestResolveTransitiveDeps_DuplicateRule_ReturnsError(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"developer": {
-				Rules: []string{"secure-code"},
+				Rules: ast.ClearableList{Values: []string{"secure-code"}},
 			},
 		},
 	}
@@ -376,7 +376,7 @@ func TestResolveTransitiveDeps_DuplicateMCP_ReturnsError(t *testing.T) {
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{
 			"developer": {
-				MCP: []string{"database-tools"},
+				MCP: ast.ClearableList{Values: []string{"database-tools"}},
 			},
 		},
 	}

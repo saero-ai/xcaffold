@@ -390,7 +390,7 @@ func splitAgentOverrides(configs map[string]ast.AgentConfig) (ast.AgentConfig, m
 		if cfg.Model != "" {
 			s++
 		}
-		if len(cfg.Tools) > 0 {
+		if len(cfg.Tools.Values) > 0 {
 			s++
 		}
 		scores[provider] = s
@@ -419,7 +419,7 @@ func splitSkillOverrides(configs map[string]ast.SkillConfig) (ast.SkillConfig, m
 	scores := make(map[string]int, len(configs))
 	for provider, cfg := range configs {
 		s := 0
-		if len(cfg.AllowedTools) > 0 {
+		if len(cfg.AllowedTools.Values) > 0 {
 			s++
 		}
 		scores[provider] = s

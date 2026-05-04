@@ -94,8 +94,8 @@ func TestClaudeRenderer_Compile_AgentFrontmatterFields(t *testing.T) {
 					Description: "An expert developer.",
 					Model:       "claude-sonnet-4-5",
 					Effort:      "high",
-					Tools:       []string{"Bash", "Read", "Write"},
-					Skills:      []string{"tdd", "code-review"},
+					Tools:       ast.ClearableList{Values: []string{"Bash", "Read", "Write"}},
+					Skills:      ast.ClearableList{Values: []string{"tdd", "code-review"}},
 				},
 			},
 		},
@@ -119,7 +119,7 @@ func TestClaudeRenderer_Compile_RuleWithPaths(t *testing.T) {
 				"go-style": {
 					Description: "Go coding conventions.",
 					Body:        "Follow effective Go.\n",
-					Paths:       []string{"**/*.go"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go"}},
 				},
 			},
 		},
@@ -218,7 +218,7 @@ func TestClaudeRenderer_Compile_Agent_Readonly_ExplicitToolsTakePrecedence(t *te
 					Name:     "Custom",
 					Body:     "Custom tools.",
 					Readonly: &ro,
-					Tools:    []string{"Bash", "Read"},
+					Tools:    ast.ClearableList{Values: []string{"Bash", "Read"}},
 				},
 			},
 		},
@@ -330,7 +330,7 @@ func TestClaudeRenderer_Compile_Skill_NewFrontmatterFields(t *testing.T) {
 					Description:            "Deploy the app",
 					WhenToUse:              "When asked to ship",
 					License:                "MIT",
-					AllowedTools:           []string{"Bash(git *)", "Read"},
+					AllowedTools:           ast.ClearableList{Values: []string{"Bash(git *)", "Read"}},
 					DisableModelInvocation: &truthy,
 					UserInvocable:          &falsy,
 					ArgumentHint:           "[env]",
@@ -465,7 +465,7 @@ func TestCompileRuleMarkdown_Activation_PathGlob(t *testing.T) {
 				"api-style": {
 					Description: "API style guide.",
 					Activation:  ast.RuleActivationPathGlob,
-					Paths:       []string{"src/**"},
+					Paths:       ast.ClearableList{Values: []string{"src/**"}},
 					Body:        "Use REST conventions.",
 				},
 			},
@@ -535,7 +535,7 @@ func TestCompile_SkillWithExamples_Claude(t *testing.T) {
 		"my-skill": {
 			Description: "test skill",
 			Body:        "Do the thing.",
-			Examples:    []string{"examples/sample.md"},
+			Examples:    ast.ClearableList{Values: []string{"examples/sample.md"}},
 		},
 	}
 
@@ -563,7 +563,7 @@ func TestCompileRuleMarkdown_ExcludeAgents_FidelityNote(t *testing.T) {
 				"pr-review": {
 					Description:   "PR review standards.",
 					Activation:    ast.RuleActivationAlways,
-					ExcludeAgents: []string{"code-review"},
+					ExcludeAgents: ast.ClearableList{Values: []string{"code-review"}},
 					Body:          "Review carefully.",
 				},
 			},
@@ -587,7 +587,7 @@ func TestCompileAgents_RulesNotInFrontmatter(t *testing.T) {
 		"test": {
 			Name:        "test",
 			Description: "Test agent",
-			Rules:       []string{"security", "coding-standards"},
+			Rules:       ast.ClearableList{Values: []string{"security", "coding-standards"}},
 			Body:        "You are a test agent.",
 		},
 	}

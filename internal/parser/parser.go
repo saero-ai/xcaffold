@@ -1948,20 +1948,20 @@ func validateRuleActivations(c *ast.XcaffoldConfig) error {
 					rule.Name, rule.Activation,
 				)
 			}
-			if rule.Activation == ast.RuleActivationPathGlob && len(rule.Paths) == 0 {
+			if rule.Activation == ast.RuleActivationPathGlob && len(rule.Paths.Values) == 0 {
 				return fmt.Errorf(
 					"rule %q: activation %q requires at least one path in paths",
 					rule.Name, rule.Activation,
 				)
 			}
-			if pathFreeActivations[rule.Activation] && len(rule.Paths) > 0 {
+			if pathFreeActivations[rule.Activation] && len(rule.Paths.Values) > 0 {
 				return fmt.Errorf(
 					"rule %q: paths must be empty when activation is %q",
 					rule.Name, rule.Activation,
 				)
 			}
 		}
-		for _, agent := range rule.ExcludeAgents {
+		for _, agent := range rule.ExcludeAgents.Values {
 			if !validExcludeAgents[agent] {
 				return fmt.Errorf(
 					"rule %q: exclude-agents value %q must be one of: code-review, cloud-agent",
@@ -2160,7 +2160,7 @@ func validatePermissions(c *ast.XcaffoldConfig) error {
 	// Agent cross-reference checks
 	for agentID, agent := range c.Agents {
 		// disallowed-tools vs settings.permissions.allow
-		for _, tool := range agent.DisallowedTools {
+		for _, tool := range agent.DisallowedTools.Values {
 			for rule := range allowSet {
 				ruleName, _, _ := parsePermissionRule(rule)
 				if ruleName == tool {
@@ -2169,7 +2169,7 @@ func validatePermissions(c *ast.XcaffoldConfig) error {
 			}
 		}
 		// agent.tools vs settings.permissions.deny (bare deny only)
-		for _, tool := range agent.Tools {
+		for _, tool := range agent.Tools.Values {
 			if denySet[tool] {
 				return fmt.Errorf("agent %q: tool %q is required by agent but is unconditionally denied in settings.permissions.deny", agentID, tool)
 			}
@@ -2255,7 +2255,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 	var issues []CrossReferenceIssue
 
 	for agentID, agent := range c.Agents {
-		for _, skillID := range agent.Skills {
+		for _, skillID := range agent.Skills.Values {
 			if _, ok := c.Skills[skillID]; !ok {
 				issues = append(issues, CrossReferenceIssue{
 					AgentID:      agentID,
@@ -2265,7 +2265,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 				})
 			}
 		}
-		for _, ruleID := range agent.Rules {
+		for _, ruleID := range agent.Rules.Values {
 			if _, ok := c.Rules[ruleID]; !ok {
 				issues = append(issues, CrossReferenceIssue{
 					AgentID:      agentID,
@@ -2275,7 +2275,7 @@ func validateCrossReferencesAsList(c *ast.XcaffoldConfig) []CrossReferenceIssue 
 				})
 			}
 		}
-		for _, mcpID := range agent.MCP {
+		for _, mcpID := range agent.MCP.Values {
 			if _, ok := c.MCP[mcpID]; !ok {
 				issues = append(issues, CrossReferenceIssue{
 					AgentID:      agentID,
@@ -2343,10 +2343,10 @@ func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 			subdir string
 			paths  []string
 		}{
-			{"references", skill.References},
-			{"scripts", skill.Scripts},
-			{"assets", skill.Assets},
-			{"examples", skill.Examples},
+			{"references", skill.References.Values},
+			{"scripts", skill.Scripts.Values},
+			{"assets", skill.Assets.Values},
+			{"examples", skill.Examples.Values},
 		} {
 			for _, ref := range subdirPaths.paths {
 				if ref == "" {

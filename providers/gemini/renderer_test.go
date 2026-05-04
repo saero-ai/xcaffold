@@ -98,7 +98,7 @@ func TestCompile_Gemini_Rules_PathGlob(t *testing.T) {
 					Description: "API style guide",
 					Body:        "Follow REST conventions.",
 					Activation:  ast.RuleActivationPathGlob,
-					Paths:       []string{"api/**"},
+					Paths:       ast.ClearableList{Values: []string{"api/**"}},
 				},
 			},
 		},
@@ -269,7 +269,7 @@ func TestCompileAgents_Gemini_ClaudeToolsDropped(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"tester": {
-					Name: "tester", Tools: []string{"Read", "Edit", "Bash"},
+					Name: "tester", Tools: ast.ClearableList{Values: []string{"Read", "Edit", "Bash"}},
 				},
 			},
 		},
@@ -295,7 +295,7 @@ func TestCompileAgents_Gemini_WildcardTools_Emitted(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"tester": {
-					Name: "tester", Tools: []string{"*"},
+					Name: "tester", Tools: ast.ClearableList{Values: []string{"*"}},
 				},
 			},
 		},

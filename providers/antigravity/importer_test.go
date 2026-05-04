@@ -126,7 +126,7 @@ func TestAntigravityExtract_Skill(t *testing.T) {
 	require.True(t, ok, "expected skill 'search'")
 	assert.Equal(t, "search", skill.Name)
 	assert.Equal(t, "Deep search", skill.Description)
-	assert.Equal(t, []string{"Grep"}, skill.AllowedTools)
+	assert.Equal(t, ast.ClearableList{Values: []string{"Grep"}}, skill.AllowedTools)
 	assert.Contains(t, skill.Body, "Search across files.")
 	assert.Equal(t, "antigravity", skill.SourceProvider)
 }

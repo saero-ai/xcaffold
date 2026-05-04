@@ -538,8 +538,8 @@ rules: [security]
 	assert.Len(t, config.Agents, 1)
 	assert.Len(t, config.Skills, 2)
 	assert.Len(t, config.Rules, 1)
-	assert.Equal(t, []string{"tdd", "code-review"}, config.Agents["developer"].Skills)
-	assert.Equal(t, []string{"security"}, config.Agents["developer"].Rules)
+	assert.Equal(t, ast.ClearableList{Values: []string{"tdd", "code-review"}}, config.Agents["developer"].Skills)
+	assert.Equal(t, ast.ClearableList{Values: []string{"security"}}, config.Agents["developer"].Rules)
 }
 
 // Phase N: kind:project, kind:hooks, kind:settings (RED — all tests below will

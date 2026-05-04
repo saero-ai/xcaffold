@@ -109,16 +109,16 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 			}
 		} else {
 			// Legacy path: individual fields for skills that predate the artifacts field.
-			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("cursor: skill %q references: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("cursor: skill %q scripts: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("cursor: skill %q assets: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("cursor: skill %q examples: %w", id, err)
 			}
 		}
@@ -137,13 +137,13 @@ func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.Capab
 		var paths []string
 		switch artifactName {
 		case "references":
-			paths = skill.References
+			paths = skill.References.Values
 		case "scripts":
-			paths = skill.Scripts
+			paths = skill.Scripts.Values
 		case "assets":
-			paths = skill.Assets
+			paths = skill.Assets.Values
 		case "examples":
-			paths = skill.Examples
+			paths = skill.Examples.Values
 		}
 		if len(paths) == 0 {
 			continue
@@ -415,8 +415,8 @@ func compileCursorRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 		case ast.RuleActivationAlways:
 			sb.WriteString("always-apply: true\n")
 		case ast.RuleActivationPathGlob:
-			if len(rule.Paths) > 0 {
-				fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths, ", "))
+			if len(rule.Paths.Values) > 0 {
+				fmt.Fprintf(&sb, "globs: [%s]\n", strings.Join(rule.Paths.Values, ", "))
 			}
 		case ast.RuleActivationManualMention:
 			sb.WriteString("always-apply: false\n")
@@ -456,7 +456,7 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string, caps r
 		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(agent.Description))
 	}
 
-	_, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, targetName, id)
+	_, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
 	notes = append(notes, toolNotes...)
 
 	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)

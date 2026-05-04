@@ -2,7 +2,7 @@ provider: claude
 version: "1.0"
 kinds:
   agent:
-    name: { support: xcaffold-only }
+    name: { support: unsupported }
     description: { support: required }
     model: { support: optional }
     effort: { support: optional }
@@ -16,17 +16,17 @@ kinds:
     background: { support: optional }
     isolation: { support: optional }
     memory: { support: optional }
-    color: { support: xcaffold-only }
+    color: { support: unsupported }
     initial-prompt: { support: optional }
     skills: { support: optional }
-    rules: { support: xcaffold-only }
-    mcp: { support: xcaffold-only }
-    assertions: { support: xcaffold-only }
+    rules: { support: unsupported }
+    mcp: { support: unsupported }
+    assertions: { support: unsupported }
     mcp-servers: { support: optional }
     hooks: { support: optional }
-    targets: { support: xcaffold-only }
+    targets: { support: unsupported }
   skill:
-    name: { support: xcaffold-only }
+    name: { support: unsupported }
     description: { support: optional }
     when-to-use: { support: optional }
     license: { support: optional }
@@ -35,16 +35,16 @@ kinds:
     user-invocable: { support: optional }
     argument-hint: { support: optional }
     artifacts: { support: optional }
-    references: { support: xcaffold-only }
-    scripts: { support: xcaffold-only }
-    assets: { support: xcaffold-only }
-    examples: { support: xcaffold-only }
-    targets: { support: xcaffold-only }
+    references: { support: unsupported }
+    scripts: { support: unsupported }
+    assets: { support: unsupported }
+    examples: { support: unsupported }
+    targets: { support: unsupported }
   rule:
-    always-apply: { support: xcaffold-only }
+    always-apply: { support: unsupported }
     description: { support: optional }
-    activation: { support: xcaffold-only }
-    name: { support: xcaffold-only }
+    activation: { support: unsupported }
+    name: { support: unsupported }
     paths: { support: optional }
     exclude-agents: { support: unsupported }
-    targets: { support: xcaffold-only }
+    targets: { support: unsupported }

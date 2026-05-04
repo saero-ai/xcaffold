@@ -248,10 +248,10 @@ func renderAgentTree(cfg *ast.XcaffoldConfig, parseRoot string) {
 		hasAssociations := false
 
 		// Print capabilities if any
-		if len(agent.Tools) > 0 || len(agent.DisallowedTools) > 0 {
+		if len(agent.Tools.Values) > 0 || len(agent.DisallowedTools.Values) > 0 {
 			hasAssociations = true
 			fmt.Printf("  │   tools    ")
-			for _, t := range agent.Tools {
+			for _, t := range agent.Tools.Values {
 				fmt.Printf("%s  ", t)
 			}
 			fmt.Printf("\n")
@@ -260,13 +260,13 @@ func renderAgentTree(cfg *ast.XcaffoldConfig, parseRoot string) {
 		memEntries := agentMemoryEntries(parseRoot, id)
 
 		var blocks []string
-		if len(agent.Skills) > 0 {
+		if len(agent.Skills.Values) > 0 {
 			blocks = append(blocks, "skills")
 		}
-		if len(agent.Rules) > 0 {
+		if len(agent.Rules.Values) > 0 {
 			blocks = append(blocks, "rules")
 		}
-		if len(agent.MCP) > 0 {
+		if len(agent.MCP.Values) > 0 {
 			blocks = append(blocks, "mcp")
 		}
 		if len(memEntries) > 0 {
@@ -292,25 +292,25 @@ func renderAgentTree(cfg *ast.XcaffoldConfig, parseRoot string) {
 
 			switch block {
 			case "skills":
-				for i, s := range agent.Skills {
+				for i, s := range agent.Skills.Values {
 					connector := "├──"
-					if i == len(agent.Skills)-1 {
+					if i == len(agent.Skills.Values)-1 {
 						connector = "└──"
 					}
 					fmt.Printf("  %s %s %s\n", childPrefix, connector, s)
 				}
 			case "rules":
-				for i, r := range agent.Rules {
+				for i, r := range agent.Rules.Values {
 					connector := "├──"
-					if i == len(agent.Rules)-1 {
+					if i == len(agent.Rules.Values)-1 {
 						connector = "└──"
 					}
 					fmt.Printf("  %s %s %s\n", childPrefix, connector, r)
 				}
 			case "mcp":
-				for i, m := range agent.MCP {
+				for i, m := range agent.MCP.Values {
 					connector := "├──"
-					if i == len(agent.MCP)-1 {
+					if i == len(agent.MCP.Values)-1 {
 						connector = "└──"
 					}
 					fmt.Printf("  %s %s %s\n", childPrefix, connector, m)

@@ -148,7 +148,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 		if !ok {
 			continue
 		}
-		for _, s := range agent.Skills {
+		for _, s := range agent.Skills.Values {
 			if explicitSkills[s] {
 				return fmt.Errorf("blueprint %q declares skill %q which is already included via agent %q; remove it from the blueprint", p.Name, s, agentName)
 			}
@@ -157,7 +157,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 				p.Skills = append(p.Skills, s)
 			}
 		}
-		for _, r := range agent.Rules {
+		for _, r := range agent.Rules.Values {
 			if explicitRules[r] {
 				return fmt.Errorf("blueprint %q declares rule %q which is already included via agent %q; remove it from the blueprint", p.Name, r, agentName)
 			}
@@ -166,7 +166,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 				p.Rules = append(p.Rules, r)
 			}
 		}
-		for _, m := range agent.MCP {
+		for _, m := range agent.MCP.Values {
 			if explicitMCP[m] {
 				return fmt.Errorf("blueprint %q declares mcp %q which is already included via agent %q; remove it from the blueprint", p.Name, m, agentName)
 			}

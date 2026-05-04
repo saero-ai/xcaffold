@@ -111,7 +111,7 @@ func TestCompile_Rule_NoPathsOrGlobs(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"path-rule": {
 					Description: "A rule with paths",
-					Paths:       []string{"**/*.go"},
+					Paths:       ast.ClearableList{Values: []string{"**/*.go"}},
 					Body:        "Check Go files.",
 				},
 			},
@@ -345,7 +345,7 @@ func TestCompileRules_Antigravity_Glob_EmitsTriggerAndGlobs(t *testing.T) {
 					Description: "Go-specific rule.",
 					Body:        "Use gofmt.",
 					Activation:  ast.RuleActivationPathGlob,
-					Paths:       []string{"xcaffold/**", "xcaffold/internal/**"},
+					Paths:       ast.ClearableList{Values: []string{"xcaffold/**", "xcaffold/internal/**"}},
 				},
 			},
 		},
@@ -524,10 +524,10 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Name:         "Rich Skill",
 					Description:  "Has many fields.",
 					Body:         "Do something.",
-					AllowedTools: []string{"Bash"},
-					References:   []string{"refs/guide.go"},
-					Scripts:      []string{"setup.sh"},
-					Assets:       []string{"icon.png"},
+					AllowedTools: ast.ClearableList{Values: []string{"Bash"}},
+					References:   ast.ClearableList{Values: []string{"refs/guide.go"}},
+					Scripts:      ast.ClearableList{Values: []string{"setup.sh"}},
+					Assets:       ast.ClearableList{Values: []string{"icon.png"}},
 				},
 			},
 		},
@@ -565,7 +565,7 @@ func TestCompile_Skill_References_CompiledToExamples(t *testing.T) {
 					Name:        "test-skill",
 					Description: "A skill with references",
 					Body:        "Do things.",
-					References:  []string{"refs/doc.md"},
+					References:  ast.ClearableList{Values: []string{"refs/doc.md"}},
 				},
 			},
 		},
@@ -927,7 +927,7 @@ func TestAntigravityRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T) {
+func TestAntigravityRenderer_AgentSecurityFields_SilentWithRole(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -935,7 +935,7 @@ func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T
 				"dev": {
 					Body:            "Build things.",
 					PermissionMode:  "plan",
-					DisallowedTools: []string{"Write"},
+					DisallowedTools: ast.ClearableList{Values: []string{"Write"}},
 					Isolation:       "container",
 				},
 			},
@@ -945,14 +945,18 @@ func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	// Security field checks are now centralized in the orchestrator via
-	// CheckFieldSupport, which emits FIELD_UNSUPPORTED with YAML key names.
-	_, pm := findAgNote(notes, renderer.CodeFieldUnsupported, "permission-mode")
-	_, dt := findAgNote(notes, renderer.CodeFieldUnsupported, "disallowed-tools")
-	_, iso := findAgNote(notes, renderer.CodeFieldUnsupported, "isolation")
-	assert.True(t, pm, "permission-mode note must be emitted")
-	assert.True(t, dt, "disallowed-tools note must be emitted")
-	assert.True(t, iso, "isolation note must be emitted")
+	// Two-layer fidelity check: security fields are unsupported by antigravity
+	// but have Role:["rendering"] in the schema. Fields with an xcf role are
+	// silently skipped — no FIELD_UNSUPPORTED error is emitted. The renderer
+	// simply omits these fields from the output without surfacing an error.
+	for _, n := range notes {
+		if n.Code == renderer.CodeFieldUnsupported {
+			switch n.Field {
+			case "permission-mode", "disallowed-tools", "isolation":
+				t.Errorf("field %q has an xcf role; FIELD_UNSUPPORTED must not be emitted", n.Field)
+			}
+		}
+	}
 }
 
 // The RENDERER_KIND_UNSUPPORTED note for the dropped agent is always emitted
@@ -1017,7 +1021,7 @@ func TestAntigravityRenderer_SkillScripts_CompiledToScripts(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"setup": {
 					Description: "Env setup.",
-					Scripts:     []string{"scripts/install.sh"},
+					Scripts:     ast.ClearableList{Values: []string{"scripts/install.sh"}},
 				},
 			},
 		},
@@ -1045,7 +1049,7 @@ func TestAntigravityRenderer_SkillAssets_CompiledToResources(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"branding": {
 					Description: "Brand assets.",
-					Assets:      []string{"assets/logo.svg"},
+					Assets:      ast.ClearableList{Values: []string{"assets/logo.svg"}},
 				},
 			},
 		},
@@ -1113,7 +1117,7 @@ func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
 			Rules: map[string]ast.RuleConfig{
 				"api-style": {
 					Activation: ast.RuleActivationPathGlob,
-					Paths:      []string{"src/**", "packages/api/**"},
+					Paths:      ast.ClearableList{Values: []string{"src/**", "packages/api/**"}},
 					Body:       "REST conventions.",
 				},
 			},
@@ -1178,8 +1182,8 @@ func TestCompile_SkillWithSubdirs_Antigravity(t *testing.T) {
 		"my-skill": {
 			Description: "test",
 			Body:        "Do the thing.",
-			Assets:      []string{"assets/TEMPLATE.md"},
-			References:  []string{"refs/guide.md"},
+			Assets:      ast.ClearableList{Values: []string{"assets/TEMPLATE.md"}},
+			References:  ast.ClearableList{Values: []string{"refs/guide.md"}},
 		},
 	}
 

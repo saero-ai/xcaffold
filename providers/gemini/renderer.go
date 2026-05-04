@@ -300,8 +300,8 @@ func (r *Renderer) renderRulesToMap(config *ast.XcaffoldConfig, files map[string
 		// @-import lines use the project-relative path so the Gemini CLI can
 		// locate rule files from the project root (OutputDir is .gemini).
 		var importText string
-		if len(rule.Paths) > 0 {
-			importText = fmt.Sprintf("Apply this rule when accessing %s:\n@.gemini/%s", strings.Join(rule.Paths, ", "), safePath)
+		if len(rule.Paths.Values) > 0 {
+			importText = fmt.Sprintf("Apply this rule when accessing %s:\n@.gemini/%s", strings.Join(rule.Paths.Values, ", "), safePath)
 		} else {
 			importText = fmt.Sprintf("Always apply @.gemini/%s", safePath)
 		}
@@ -353,7 +353,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 		files[filepath.Clean(filePath)] = sb.String()
 
 		// Emit fidelity notes for unsupported fields.
-		if len(skill.AllowedTools) > 0 {
+		if len(skill.AllowedTools.Values) > 0 {
 			notes = append(notes, renderer.NewNote(
 				renderer.LevelWarning, targetName, "skill", id, "allowed-tools",
 				renderer.CodeFieldUnsupported,
@@ -382,13 +382,13 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				var paths []string
 				switch artifactName {
 				case "references":
-					paths = skill.References
+					paths = skill.References.Values
 				case "scripts":
-					paths = skill.Scripts
+					paths = skill.Scripts.Values
 				case "assets":
-					paths = skill.Assets
+					paths = skill.Assets.Values
 				case "examples":
-					paths = skill.Examples
+					paths = skill.Examples.Values
 				}
 				if len(paths) == 0 {
 					continue
@@ -404,7 +404,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 			}
 		} else {
 			// Legacy path: individual fields for skills that predate the artifacts field.
-			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, subOut); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References.Values, baseDir, subOut); err != nil {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "skill", id, "references",
 					renderer.CodeSkillReferencesDropped,
@@ -412,7 +412,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 					"Check file paths in references",
 				))
 			}
-			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, subOut); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, subOut); err != nil {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "skill", id, "scripts",
 					renderer.CodeSkillScriptsDropped,
@@ -420,7 +420,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 					"Check file paths in scripts",
 				))
 			}
-			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, subOut); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets.Values, baseDir, subOut); err != nil {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "skill", id, "assets",
 					renderer.CodeSkillAssetsDropped,
@@ -429,7 +429,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 				))
 			}
 			// examples collapses into references/ for Gemini.
-			if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples, baseDir, subOut); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "examples", "references", skill.Examples.Values, baseDir, subOut); err != nil {
 				notes = append(notes, renderer.NewNote(
 					renderer.LevelWarning, targetName, "skill", id, "examples",
 					renderer.CodeSkillExamplesDropped,
@@ -486,7 +486,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		}
 
 		// Optional supported fields.
-		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, targetName, id)
+		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
 		notes = append(notes, toolNotes...)
 		if len(sanitizedTools) > 0 {
 			sb.WriteString("tools:\n")
@@ -575,7 +575,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			{"initial-prompt", agent.InitialPrompt != ""},
 			{"readonly", agent.Readonly != nil},
 			{"user-invocable", agent.UserInvocable != nil},
-			{"skills", len(agent.Skills) > 0},
+			{"skills", len(agent.Skills.Values) > 0},
 			{"hooks", len(agent.Hooks) > 0},
 			{"memory", len(agent.Memory) > 0},
 			{"disable-model-invocation", agent.DisableModelInvocation != nil},

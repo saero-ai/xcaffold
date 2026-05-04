@@ -141,10 +141,14 @@ xcf/agents/developer/
   agent.gemini.xcf         # Gemini-specific overrides
 ```
 
-Override merge uses Terraform-style semantics:
-- Scalars and lists: override REPLACES base
-- Maps: DEEP MERGE (override keys win)
-- Body: override REPLACES if present, INHERITS if absent
+Override merge uses the following field-type semantics:
+- **Scalars**: override REPLACES base when non-zero
+- **Lists** (`tools`, `skills`, `rules`, `allowed-tools`, `paths`, etc.): tri-state —
+  - `cleared: true` → field is explicitly emptied (override wins)
+  - non-empty values → override REPLACES base
+  - absent (zero-value) → base value is INHERITED
+- **Maps**: DEEP MERGE (override keys win, base keys not in override are preserved)
+- **Body**: override REPLACES if present, INHERITS if absent
 
 **Example:** An agent base file defines the full instructions body. The Claude override adds only a model and hooks:
 

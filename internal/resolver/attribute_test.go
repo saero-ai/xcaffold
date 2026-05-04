@@ -24,14 +24,14 @@ func TestResolveAttributes_StringField(t *testing.T) {
 func TestResolveAttributes_StringSliceField(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.Skills = map[string]ast.SkillConfig{
-		"tdd": {AllowedTools: []string{"Bash", "Read", "Write"}},
+		"tdd": {AllowedTools: ast.ClearableList{Values: []string{"Bash", "Read", "Write"}}},
 	}
 	config.Agents = map[string]ast.AgentConfig{
-		"developer": {Tools: []string{"${skill.tdd.allowed-tools}"}},
+		"developer": {Tools: ast.ClearableList{Values: []string{"${skill.tdd.allowed-tools}"}}},
 	}
 	err := ResolveAttributes(config)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"Bash", "Read", "Write"}, config.Agents["developer"].Tools)
+	assert.Equal(t, []string{"Bash", "Read", "Write"}, config.Agents["developer"].Tools.Values)
 }
 
 func TestResolveAttributes_StringInterpolation(t *testing.T) {
@@ -50,7 +50,7 @@ func TestResolveAttributes_StringInterpolation(t *testing.T) {
 func TestResolveAttributes_MissingResource_Error(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.Agents = map[string]ast.AgentConfig{
-		"developer": {Tools: []string{"${skill.nonexistent.tools}"}},
+		"developer": {Tools: ast.ClearableList{Values: []string{"${skill.nonexistent.tools}"}}},
 	}
 	err := ResolveAttributes(config)
 	require.Error(t, err)

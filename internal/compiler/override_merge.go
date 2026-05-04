@@ -2,6 +2,20 @@ package compiler
 
 import "github.com/saero-ai/xcaffold/internal/ast"
 
+// mergeClearableList implements tri-state merge for ClearableList fields:
+//   - Cleared=true:             clear the field (override wins)
+//   - Values non-empty:         replace the field (override wins)
+//   - Zero-value (both false):  inherit the base value
+func mergeClearableList(base, override ast.ClearableList) ast.ClearableList {
+	if override.Cleared {
+		return ast.ClearableList{Cleared: true}
+	}
+	if len(override.Values) > 0 {
+		return ast.ClearableList{Values: append([]string(nil), override.Values...)}
+	}
+	return base
+}
+
 // mergeAgentConfig merges override into base using provider-override semantics:
 //
 //   - Scalars: override replaces base when the override value is non-zero.
@@ -74,26 +88,15 @@ func mergeAgentBoolPtrs(result *ast.AgentConfig, override ast.AgentConfig) {
 }
 
 func mergeAgentLists(result *ast.AgentConfig, override ast.AgentConfig) {
-	if len(override.Tools) > 0 {
-		result.Tools = append([]string(nil), override.Tools...)
-	}
-	if len(override.DisallowedTools) > 0 {
-		result.DisallowedTools = append([]string(nil), override.DisallowedTools...)
-	}
+	result.Tools = mergeClearableList(result.Tools, override.Tools)
+	result.DisallowedTools = mergeClearableList(result.DisallowedTools, override.DisallowedTools)
+	result.Skills = mergeClearableList(result.Skills, override.Skills)
+	result.Rules = mergeClearableList(result.Rules, override.Rules)
+	result.MCP = mergeClearableList(result.MCP, override.MCP)
+	result.Assertions = mergeClearableList(result.Assertions, override.Assertions)
+	// Memory stays FlexStringSlice — not part of ClearableList migration.
 	if len(override.Memory) > 0 {
 		result.Memory = append(ast.FlexStringSlice(nil), override.Memory...)
-	}
-	if len(override.Skills) > 0 {
-		result.Skills = append([]string(nil), override.Skills...)
-	}
-	if len(override.Rules) > 0 {
-		result.Rules = append([]string(nil), override.Rules...)
-	}
-	if len(override.MCP) > 0 {
-		result.MCP = append([]string(nil), override.MCP...)
-	}
-	if len(override.Assertions) > 0 {
-		result.Assertions = append([]string(nil), override.Assertions...)
 	}
 }
 
@@ -173,22 +176,12 @@ func mergeSkillConfig(base, override ast.SkillConfig) ast.SkillConfig {
 		result.UserInvocable = &v
 	}
 
-	// --- Lists (replace entire list on non-empty) ---
-	if len(override.AllowedTools) > 0 {
-		result.AllowedTools = append([]string(nil), override.AllowedTools...)
-	}
-	if len(override.References) > 0 {
-		result.References = append([]string(nil), override.References...)
-	}
-	if len(override.Scripts) > 0 {
-		result.Scripts = append([]string(nil), override.Scripts...)
-	}
-	if len(override.Assets) > 0 {
-		result.Assets = append([]string(nil), override.Assets...)
-	}
-	if len(override.Examples) > 0 {
-		result.Examples = append([]string(nil), override.Examples...)
-	}
+	// --- Lists (tri-state: Cleared wins, Values replace, zero-value inherits) ---
+	result.AllowedTools = mergeClearableList(result.AllowedTools, override.AllowedTools)
+	result.References = mergeClearableList(result.References, override.References)
+	result.Scripts = mergeClearableList(result.Scripts, override.Scripts)
+	result.Assets = mergeClearableList(result.Assets, override.Assets)
+	result.Examples = mergeClearableList(result.Examples, override.Examples)
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
 	if len(override.Targets) > 0 {
@@ -233,13 +226,9 @@ func mergeRuleConfig(base, override ast.RuleConfig) ast.RuleConfig {
 		result.AlwaysApply = &v
 	}
 
-	// --- Lists (replace entire list on non-empty) ---
-	if len(override.Paths) > 0 {
-		result.Paths = append([]string(nil), override.Paths...)
-	}
-	if len(override.ExcludeAgents) > 0 {
-		result.ExcludeAgents = append([]string(nil), override.ExcludeAgents...)
-	}
+	// --- Lists (tri-state: Cleared wins, Values replace, zero-value inherits) ---
+	result.Paths = mergeClearableList(result.Paths, override.Paths)
+	result.ExcludeAgents = mergeClearableList(result.ExcludeAgents, override.ExcludeAgents)
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
 	if len(override.Targets) > 0 {
@@ -347,37 +336,26 @@ func mergeMCPConfig(base, override ast.MCPConfig) ast.MCPConfig {
 	}
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
-	if len(override.Env) > 0 {
-		merged := make(map[string]string, len(base.Env)+len(override.Env))
-		for k, v := range base.Env {
-			merged[k] = v
-		}
-		for k, v := range override.Env {
-			merged[k] = v
-		}
-		result.Env = merged
-	}
-	if len(override.Headers) > 0 {
-		merged := make(map[string]string, len(base.Headers)+len(override.Headers))
-		for k, v := range base.Headers {
-			merged[k] = v
-		}
-		for k, v := range override.Headers {
-			merged[k] = v
-		}
-		result.Headers = merged
-	}
-	if len(override.OAuth) > 0 {
-		merged := make(map[string]string, len(base.OAuth)+len(override.OAuth))
-		for k, v := range base.OAuth {
-			merged[k] = v
-		}
-		for k, v := range override.OAuth {
-			merged[k] = v
-		}
-		result.OAuth = merged
-	}
+	result.Env = mergeStringMap(base.Env, override.Env)
+	result.Headers = mergeStringMap(base.Headers, override.Headers)
+	result.OAuth = mergeStringMap(base.OAuth, override.OAuth)
 
 	// Internal provenance fields are intentionally NOT merged.
 	return result
+}
+
+// mergeStringMap deep-merges two string maps: override keys win, base keys not
+// present in override are preserved. Returns base unchanged when override is empty.
+func mergeStringMap(base, override map[string]string) map[string]string {
+	if len(override) == 0 {
+		return base
+	}
+	merged := make(map[string]string, len(base)+len(override))
+	for k, v := range base {
+		merged[k] = v
+	}
+	for k, v := range override {
+		merged[k] = v
+	}
+	return merged
 }

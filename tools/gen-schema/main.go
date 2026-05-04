@@ -64,6 +64,7 @@ type MarkerSet struct {
 	Pattern   string
 	Example   string
 	Default   string
+	Role      []string // +xcf:role= values
 }
 
 type FieldInfo struct {
@@ -528,6 +529,14 @@ func parseMarkers(comment *ast.CommentGroup) MarkerSet {
 			result.Example = strings.TrimPrefix(marker, "example=")
 		} else if strings.HasPrefix(marker, "default=") {
 			result.Default = strings.TrimPrefix(marker, "default=")
+		} else if strings.HasPrefix(marker, "role=") {
+			roleStr := strings.TrimPrefix(marker, "role=")
+			for _, r := range strings.Split(roleStr, ",") {
+				r = strings.TrimSpace(r)
+				if r != "" {
+					result.Role = append(result.Role, r)
+				}
+			}
 		}
 	}
 
@@ -649,6 +658,17 @@ func writeFieldEntry(buf *strings.Builder, f FieldInfo) {
 		buf.WriteString(fmt.Sprintf("\t\t\t\tExample: %q,\n", f.Markers.Example))
 	}
 
+	if len(f.Markers.Role) > 0 {
+		buf.WriteString("\t\t\t\tRole: []string{")
+		for i, r := range f.Markers.Role {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(fmt.Sprintf("%q", r))
+		}
+		buf.WriteString("},\n")
+	}
+
 	buf.WriteString("\t\t\t},\n")
 }
 
@@ -740,6 +760,11 @@ func writePresenceCheck(buf *strings.Builder, param string, f FieldInfo) {
 		f.GoType == "HookConfig":
 		buf.WriteString(fmt.Sprintf(
 			"\tif len(%s) > 0 {\n\t\tm[\"%s\"] = \"set\"\n\t}\n",
+			accessor, f.YAMLKey,
+		))
+	case f.GoType == "ClearableList":
+		buf.WriteString(fmt.Sprintf(
+			"\tif len(%s.Values) > 0 {\n\t\tm[\"%s\"] = \"set\"\n\t}\n",
 			accessor, f.YAMLKey,
 		))
 	}

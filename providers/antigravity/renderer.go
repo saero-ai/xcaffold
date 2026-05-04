@@ -131,16 +131,16 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 			}
 		} else {
 			// Legacy path: individual fields for skills that predate the artifacts field.
-			if err := renderer.CompileSkillSubdir(id, "references", "examples", skill.References, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "references", "examples", skill.References.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("antigravity: references for skill %q: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("antigravity: scripts for skill %q: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "assets", "resources", skill.Assets, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "assets", "resources", skill.Assets.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("antigravity: assets for skill %q: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("antigravity: examples for skill %q: %w", id, err)
 			}
 		}
@@ -164,13 +164,13 @@ func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.Capab
 		var paths []string
 		switch artifactName {
 		case "references":
-			paths = skill.References
+			paths = skill.References.Values
 		case "scripts":
-			paths = skill.Scripts
+			paths = skill.Scripts.Values
 		case "assets":
-			paths = skill.Assets
+			paths = skill.Assets.Values
 		case "examples":
-			paths = skill.Examples
+			paths = skill.Examples.Values
 		}
 		if len(paths) == 0 {
 			continue
@@ -398,8 +398,8 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, caps renderer.Capabi
 				sb.WriteString("trigger: model_decision\n")
 			case ast.RuleActivationPathGlob:
 				sb.WriteString("trigger: glob\n")
-				if len(rule.Paths) > 0 {
-					fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths, ","))
+				if len(rule.Paths.Values) > 0 {
+					fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths.Values, ","))
 				}
 			}
 		}

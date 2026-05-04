@@ -46,6 +46,9 @@ func CheckFieldSupport(target, kind, resourceName string, presentFields map[stri
 				continue
 			}
 			if _, present := presentFields[f.YAMLKey]; present {
+				if schema.HasRole(kind, f.YAMLKey) {
+					continue
+				}
 				notes = append(notes, FidelityNote{
 					Level:    LevelError,
 					Target:   target,

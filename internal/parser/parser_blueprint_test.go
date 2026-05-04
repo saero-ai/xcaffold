@@ -10,6 +10,66 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestBlueprint_Targets_ParsedFromYAML(t *testing.T) {
+	// Create a temp dir with a blueprint xcf that has targets
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "test-bp.xcf"), []byte(`kind: blueprint
+version: "1.0"
+name: test-bp
+targets:
+  - claude
+  - gemini
+agents:
+  - my-agent
+`), 0o600))
+
+	config, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	bp, ok := config.Blueprints["test-bp"]
+	require.True(t, ok)
+	require.Equal(t, []string{"claude", "gemini"}, bp.Targets)
+}
+
+func TestBlueprint_Targets_EmptyOmitted(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "test-bp.xcf"), []byte(`kind: blueprint
+version: "1.0"
+name: test-bp
+agents:
+  - my-agent
+`), 0o600))
+
+	config, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	bp, ok := config.Blueprints["test-bp"]
+	require.True(t, ok)
+	require.Nil(t, bp.Targets)
+}
+
+func TestBlueprint_Targets_SingleTarget(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "test-bp.xcf"), []byte(`kind: blueprint
+version: "1.0"
+name: test-bp
+targets:
+  - cursor
+agents:
+  - my-agent
+`), 0o600))
+
+	config, err := ParseDirectory(dir)
+	require.NoError(t, err)
+	bp, ok := config.Blueprints["test-bp"]
+	require.True(t, ok)
+	require.Equal(t, []string{"cursor"}, bp.Targets)
+}
+
 func TestBlueprint_ParsesBasicDocument(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test-project\n"), 0600))

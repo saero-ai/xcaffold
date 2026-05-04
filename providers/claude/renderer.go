@@ -105,17 +105,17 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 			}
 		} else {
 			// Legacy path: individual fields for skills that predate the artifacts field.
-			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("failed to compile references for skill %q: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("failed to compile scripts for skill %q: %w", id, err)
 			}
-			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets, baseDir, out); err != nil {
+			if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("failed to compile assets for skill %q: %w", id, err)
 			}
 			// Claude flattens examples alongside SKILL.md (no subdirectory).
-			if err := renderer.FlattenToSkillRoot(id, "examples", skill.Examples, baseDir, out); err != nil {
+			if err := renderer.FlattenToSkillRoot(id, "examples", skill.Examples.Values, baseDir, out); err != nil {
 				return nil, nil, fmt.Errorf("failed to compile examples for skill %q: %w", id, err)
 			}
 		}
@@ -135,13 +135,13 @@ func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.Capab
 		var paths []string
 		switch artifactName {
 		case "references":
-			paths = skill.References
+			paths = skill.References.Values
 		case "scripts":
-			paths = skill.Scripts
+			paths = skill.Scripts.Values
 		case "assets":
-			paths = skill.Assets
+			paths = skill.Assets.Values
 		case "examples":
-			paths = skill.Examples
+			paths = skill.Examples.Values
 		}
 		if len(paths) == 0 {
 			continue
@@ -457,7 +457,7 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps
 
 	appendAgentCoreMeta(&sb, agent)
 
-	sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools, caps, "claude", id)
+	sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, "claude", id)
 	notes = append(notes, toolNotes...)
 
 	if agent.Readonly != nil && *agent.Readonly && len(sanitizedTools) == 0 {
@@ -465,11 +465,11 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps
 	} else if len(sanitizedTools) > 0 {
 		fmt.Fprintf(&sb, "tools: [%s]\n", strings.Join(sanitizedTools, ", "))
 	}
-	if len(agent.DisallowedTools) > 0 {
-		fmt.Fprintf(&sb, "disallowed-tools: [%s]\n", strings.Join(agent.DisallowedTools, ", "))
+	if len(agent.DisallowedTools.Values) > 0 {
+		fmt.Fprintf(&sb, "disallowed-tools: [%s]\n", strings.Join(agent.DisallowedTools.Values, ", "))
 	}
-	if len(agent.Skills) > 0 {
-		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills, ", "))
+	if len(agent.Skills.Values) > 0 {
+		fmt.Fprintf(&sb, "skills: [%s]\n", strings.Join(agent.Skills.Values, ", "))
 	}
 
 	resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, "claude", id)
@@ -595,8 +595,8 @@ func appendSkillMeta(sb *strings.Builder, skill ast.SkillConfig) {
 	}
 
 	// Group 3 — Tool Access (Claude convention: space-separated string)
-	if len(skill.AllowedTools) > 0 {
-		fmt.Fprintf(sb, "allowed-tools: %s\n", strings.Join(skill.AllowedTools, " "))
+	if len(skill.AllowedTools.Values) > 0 {
+		fmt.Fprintf(sb, "allowed-tools: %s\n", strings.Join(skill.AllowedTools.Values, " "))
 	}
 
 	// Group 4 — Permissions & Invocation Control (hyphenated kebab-case for Claude)
@@ -668,7 +668,7 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 	}
 
 	// exclude-agents has no Claude equivalent; drop it and emit an info note.
-	if len(rule.ExcludeAgents) > 0 {
+	if len(rule.ExcludeAgents.Values) > 0 {
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelInfo,
 			"claude",
@@ -676,7 +676,7 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 			id,
 			"exclude-agents",
 			renderer.CodeRuleExcludeAgentsDropped,
-			fmt.Sprintf("rule %q: exclude-agents %v has no Claude native equivalent and was dropped", id, rule.ExcludeAgents),
+			fmt.Sprintf("rule %q: exclude-agents %v has no Claude native equivalent and was dropped", id, rule.ExcludeAgents.Values),
 			"Remove exclude-agents or target a provider that supports it (e.g. copilot).",
 		))
 	}
@@ -686,8 +686,8 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 	sb.WriteString("---\n")
 	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
 	// Emit paths: only when activation resolves to path-glob.
-	if activation == ast.RuleActivationPathGlob && len(rule.Paths) > 0 {
-		fmt.Fprintf(&sb, "paths: [%s]\n", strings.Join(rule.Paths, ", "))
+	if activation == ast.RuleActivationPathGlob && len(rule.Paths.Values) > 0 {
+		fmt.Fprintf(&sb, "paths: [%s]\n", strings.Join(rule.Paths.Values, ", "))
 	}
 	sb.WriteString("---\n")
 

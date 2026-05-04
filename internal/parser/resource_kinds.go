@@ -382,10 +382,10 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			field []string
 			name  string
 		}{
-			{skill.References, "references"},
-			{skill.Scripts, "scripts"},
-			{skill.Assets, "assets"},
-			{skill.Examples, "examples"},
+			{skill.References.Values, "references"},
+			{skill.Scripts.Values, "scripts"},
+			{skill.Assets.Values, "assets"},
+			{skill.Examples.Values, "examples"},
 		} {
 			if len(legacy.field) > 0 && !slices.Contains(skill.Artifacts, legacy.name) {
 				skill.Artifacts = append(skill.Artifacts, legacy.name)

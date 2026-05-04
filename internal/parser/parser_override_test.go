@@ -87,8 +87,8 @@ func TestParse_OverrideFile_StoresInOverrides(t *testing.T) {
 	if overrideCfg.Model != "opus" {
 		t.Fatalf("expected override model opus, got %s", overrideCfg.Model)
 	}
-	if len(overrideCfg.Tools) != 2 {
-		t.Fatalf("expected 2 override tools, got %d", len(overrideCfg.Tools))
+	if len(overrideCfg.Tools.Values) != 2 {
+		t.Fatalf("expected 2 override tools, got %d", len(overrideCfg.Tools.Values))
 	}
 	if overrideCfg.Body != "Claude-specific instructions." {
 		t.Fatalf("expected override body, got %q", overrideCfg.Body)

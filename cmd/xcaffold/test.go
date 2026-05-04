@@ -156,7 +156,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 	// 10. Optional: Run LLM-as-a-Judge.
 	if testJudgeFlag {
 		cliPath := resolveCliPath(testCfg.CliPath, testCfg.ClaudePath)
-		if err := runJudge(summary, agentConfig.Assertions, testCfg.JudgeModel, cliPath); err != nil {
+		if err := runJudge(summary, agentConfig.Assertions.Values, testCfg.JudgeModel, cliPath); err != nil {
 			return fmt.Errorf("judge evaluation failed: %w", err)
 		}
 	}

@@ -666,16 +666,16 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
 				sc := config.Skills[id]
 				if len(refs) > 0 {
-					sc.References = refs
+					sc.References = ast.ClearableList{Values: refs}
 				}
 				if len(scripts) > 0 {
-					sc.Scripts = scripts
+					sc.Scripts = ast.ClearableList{Values: scripts}
 				}
 				if len(fileAssets) > 0 {
-					sc.Assets = fileAssets
+					sc.Assets = ast.ClearableList{Values: fileAssets}
 				}
 				if len(fileExamples) > 0 {
-					sc.Examples = fileExamples
+					sc.Examples = ast.ClearableList{Values: fileExamples}
 				}
 				config.Skills[id] = sc
 			}
@@ -722,16 +722,16 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 				refs, scripts, fileAssets, fileExamples, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
 				sc := tmpConfig.Skills[id]
 				if len(refs) > 0 {
-					sc.References = refs
+					sc.References = ast.ClearableList{Values: refs}
 				}
 				if len(scripts) > 0 {
-					sc.Scripts = scripts
+					sc.Scripts = ast.ClearableList{Values: scripts}
 				}
 				if len(fileAssets) > 0 {
-					sc.Assets = fileAssets
+					sc.Assets = ast.ClearableList{Values: fileAssets}
 				}
 				if len(fileExamples) > 0 {
-					sc.Examples = fileExamples
+					sc.Examples = ast.ClearableList{Values: fileExamples}
 				}
 				tmpConfig.Skills[id] = sc
 			}

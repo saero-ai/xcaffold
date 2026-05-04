@@ -315,7 +315,7 @@ func checkBashWithoutHook(cfg *ast.XcaffoldConfig) []string {
 	var warnings []string
 	for agentID, agent := range cfg.Agents {
 		hasBash := false
-		for _, tool := range agent.Tools {
+		for _, tool := range agent.Tools.Values {
 			if tool == "Bash" {
 				hasBash = true
 				break

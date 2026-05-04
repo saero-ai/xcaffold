@@ -9,6 +9,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/state"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -105,10 +106,10 @@ Use pnpm. PostgreSQL 16.
 }
 
 // minimalXCF is a minimal valid project.xcf for apply tests.
-const minimalXCF = `---
-kind: project
+const minimalXCF = `kind: project
 version: "1.0"
 name: apply-test
+targets: [claude]
 `
 
 func TestApplyScope_Project(t *testing.T) {
@@ -136,6 +137,69 @@ func TestApplyScope_MissingXCF(t *testing.T) {
 
 	err := applyScope(filepath.Join(dir, "nonexistent.xcf"), claudeDirPath, dir, "project")
 	assert.Error(t, err, "should fail when xcf file does not exist")
+}
+
+func TestResolveTargets_FlagOverride(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [gemini]\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+	cmd.Flags().Set("target", "cursor")
+
+	result := resolveTargets(cmd, dir, "")
+	require.Equal(t, []string{"cursor"}, result)
+}
+
+func TestResolveTargets_BlueprintTargets(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "my-bp.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: my-bp\ntargets: [gemini, antigravity]\nagents: [a]\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+
+	result := resolveTargets(cmd, dir, "my-bp")
+	require.Equal(t, []string{"gemini", "antigravity"}, result)
+}
+
+func TestResolveTargets_ProjectTargets(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [claude, cursor]\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+
+	result := resolveTargets(cmd, dir, "")
+	require.Equal(t, []string{"claude", "cursor"}, result)
+}
+
+func TestResolveTargets_NoTargets_ReturnsNil(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+
+	result := resolveTargets(cmd, dir, "")
+	require.Nil(t, result)
+}
+
+func TestResolveTargets_BlueprintNoTargets_ReturnsNil(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755)
+	os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [claude]\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "my-bp.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: my-bp\nagents: [a]\n"), 0o644)
+
+	cmd := &cobra.Command{}
+	cmd.Flags().StringVar(&targetFlag, "target", "", "")
+
+	result := resolveTargets(cmd, dir, "my-bp")
+	require.Nil(t, result)
 }
 
 func TestRunApply_ScopeProject(t *testing.T) {
@@ -446,10 +510,10 @@ You are a developer.
 	applyForce = false
 }
 
-// TestRunApply_NoTargetsInConfig_DefaultsToClaude verifies that when the
-// project config has no declared targets and --target is not set, the
-// default "claude" target is used.
-func TestRunApply_NoTargetsInConfig_DefaultsToClaude(t *testing.T) {
+// TestRunApply_NoTargetsInConfig_NoDefault verifies that when the
+// project config has no declared targets and --target is not set, an
+// error is returned (no longer defaults to "claude").
+func TestRunApply_NoTargetsInConfig_NoDefault(t *testing.T) {
 	dir := t.TempDir()
 
 	// Config with no targets field
@@ -462,28 +526,21 @@ name: no-targets-test
 
 	agentDir := filepath.Join(dir, ".xcaffold", "agents")
 	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`---
-kind: agent
+	os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte(`kind: agent
 version: "1.0"
 name: dev
----
-You are a developer.
 `), 0644)
 
 	xcfPath = xcf
 	projectRoot = dir
 	globalFlag = false
 	applyForce = true
-	targetFlag = compiler.TargetClaude
+	targetFlag = ""
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	err := runApply(applyCmd, nil)
-	require.NoError(t, err)
-
-	// State file is written even for configs with no resources to emit.
-	stateFile := state.StateFilePath(dir, "")
-	_, err = os.Stat(stateFile)
-	assert.NoError(t, err, "state file should be written for the default claude target")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no compilation targets configured")
 
 	applyForce = false
 }
@@ -804,4 +861,186 @@ func TestCheckFidelityErrors_Mixed(t *testing.T) {
 	assert.Contains(t, err.Error(), "2 error(s)")
 	assert.Contains(t, err.Error(), "ERR1")
 	assert.Contains(t, err.Error(), "ERR2")
+}
+
+// TestApply_Blueprint_UsesOwnTargets verifies that a blueprint with explicit
+// targets compiles only for those targets, ignoring the project's targets.
+func TestApply_Blueprint_UsesOwnTargets(t *testing.T) {
+	dir := t.TempDir()
+
+	// Project with targets: [claude]
+	projectXcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(projectXcf, []byte(`---
+kind: project
+version: "1.0"
+name: test-project
+targets: [claude]
+`), 0o644))
+
+	// Blueprint with targets: [gemini, cursor]
+	bpDir := filepath.Join(dir, "xcf", "blueprints")
+	require.NoError(t, os.MkdirAll(bpDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(bpDir, "test-bp.xcf"), []byte(`---
+kind: blueprint
+version: "1.0"
+name: test-bp
+targets: [gemini, cursor]
+agents: [my-agent]
+`), 0o644))
+
+	// Minimal agent referenced by blueprint
+	agentDir := filepath.Join(dir, "xcf", "agents", "my-agent")
+	require.NoError(t, os.MkdirAll(agentDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "my-agent.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: my-agent
+description: Test agent
+`), 0o644))
+
+	// Set up apply context: blueprint, force compile, no explicit --target flag
+	xcfPath = projectXcf
+	projectRoot = dir
+	applyBlueprintFlag = "test-bp"
+	applyForce = true
+	targetFlag = ""
+	applyCmd.Flags().Lookup("target").Changed = false
+	defer func() {
+		applyBlueprintFlag = ""
+		applyForce = false
+		targetFlag = ""
+	}()
+
+	// Run apply with blueprint
+	err := runApply(applyCmd, nil)
+	require.NoError(t, err, "apply should succeed for blueprint with targets")
+
+	// Verify gemini output exists (blueprint target)
+	_, err = os.Stat(filepath.Join(dir, ".gemini"))
+	assert.NoError(t, err, ".gemini output directory should exist for blueprint target")
+
+	// Verify cursor output exists (blueprint target)
+	_, err = os.Stat(filepath.Join(dir, ".cursor"))
+	assert.NoError(t, err, ".cursor output directory should exist for blueprint target")
+
+	// Verify claude output does NOT exist (project target, not blueprint target)
+	_, err = os.Stat(filepath.Join(dir, ".claude"))
+	assert.True(t, os.IsNotExist(err), ".claude output should NOT exist (not in blueprint targets)")
+}
+
+// TestApply_Blueprint_NoTargets_FailsWithError verifies that a blueprint without
+// targets and a project without targets returns "no compilation targets configured" error.
+func TestApply_Blueprint_NoTargets_FailsWithError(t *testing.T) {
+	dir := t.TempDir()
+
+	// Project with NO targets field
+	projectXcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(projectXcf, []byte(`---
+kind: project
+version: "1.0"
+name: test-project
+`), 0o644))
+
+	// Blueprint with NO targets field
+	bpDir := filepath.Join(dir, "xcf", "blueprints")
+	require.NoError(t, os.MkdirAll(bpDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(bpDir, "test-bp.xcf"), []byte(`---
+kind: blueprint
+version: "1.0"
+name: test-bp
+agents: [my-agent]
+`), 0o644))
+
+	// Minimal agent
+	agentDir := filepath.Join(dir, "xcf", "agents", "my-agent")
+	require.NoError(t, os.MkdirAll(agentDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "my-agent.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: my-agent
+description: Test agent
+`), 0o644))
+
+	// Set up apply context: blueprint, no explicit --target flag
+	xcfPath = projectXcf
+	projectRoot = dir
+	applyBlueprintFlag = "test-bp"
+	applyForce = true
+	targetFlag = ""
+	applyCmd.Flags().Lookup("target").Changed = false
+	defer func() {
+		applyBlueprintFlag = ""
+		applyForce = false
+		targetFlag = ""
+	}()
+
+	// Run apply — should fail with "no compilation targets configured"
+	err := runApply(applyCmd, nil)
+	require.Error(t, err, "apply should fail when blueprint and project have no targets")
+	assert.Contains(t, err.Error(), "no compilation targets configured",
+		"error should indicate missing targets")
+}
+
+// TestApply_Blueprint_FlagOverridesBlueprint verifies that --target flag
+// overrides blueprint targets, compiling only the explicitly specified target.
+func TestApply_Blueprint_FlagOverridesBlueprint(t *testing.T) {
+	dir := t.TempDir()
+
+	// Project with targets: [claude]
+	projectXcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(projectXcf, []byte(`---
+kind: project
+version: "1.0"
+name: test-project
+targets: [claude]
+`), 0o644))
+
+	// Blueprint with targets: [gemini, cursor]
+	bpDir := filepath.Join(dir, "xcf", "blueprints")
+	require.NoError(t, os.MkdirAll(bpDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(bpDir, "test-bp.xcf"), []byte(`---
+kind: blueprint
+version: "1.0"
+name: test-bp
+targets: [gemini, cursor]
+agents: [my-agent]
+`), 0o644))
+
+	// Minimal agent
+	agentDir := filepath.Join(dir, "xcf", "agents", "my-agent")
+	require.NoError(t, os.MkdirAll(agentDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "my-agent.xcf"), []byte(`---
+kind: agent
+version: "1.0"
+name: my-agent
+description: Test agent
+`), 0o644))
+
+	// Set up apply context: blueprint + explicit --target copilot
+	// (copilot supports agents, unlike antigravity)
+	xcfPath = projectXcf
+	projectRoot = dir
+	applyBlueprintFlag = "test-bp"
+	applyForce = true
+	require.NoError(t, applyCmd.Flags().Set("target", "copilot"))
+	defer func() {
+		applyBlueprintFlag = ""
+		applyForce = false
+		applyCmd.Flags().Lookup("target").Changed = false
+	}()
+
+	// Run apply with --target copilot
+	err := runApply(applyCmd, nil)
+	require.NoError(t, err, "apply should succeed with explicit --target")
+
+	// Verify ONLY copilot output exists (.github/ is copilot's target directory)
+	_, err = os.Stat(filepath.Join(dir, ".github"))
+	assert.NoError(t, err, ".github output should exist for copilot target")
+
+	// Verify blueprint targets do NOT exist
+	_, err = os.Stat(filepath.Join(dir, ".gemini"))
+	assert.True(t, os.IsNotExist(err), ".gemini should NOT exist (overridden by --target)")
+
+	_, err = os.Stat(filepath.Join(dir, ".cursor"))
+	assert.True(t, os.IsNotExist(err), ".cursor should NOT exist (overridden by --target)")
 }
