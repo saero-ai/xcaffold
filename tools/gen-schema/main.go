@@ -35,6 +35,7 @@ var kindStructMap = map[string]string{
 	"context":   "ContextConfig",
 	"settings":  "SettingsConfig",
 	"hooks":     "NamedHookConfig",
+	"template":  "TemplateConfig",
 }
 
 var kindFormatMap = map[string]string{
@@ -49,6 +50,7 @@ var kindFormatMap = map[string]string{
 	"context":   "frontmatter+body",
 	"settings":  "pure-yaml",
 	"hooks":     "pure-yaml",
+	"template":  "frontmatter+body",
 }
 
 type MarkerSet struct {

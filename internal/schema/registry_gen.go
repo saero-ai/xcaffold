@@ -1482,6 +1482,41 @@ func init() {
 			},
 		},
 	}
+	Registry["template"] = KindSchema{
+		Kind:    "template",
+		Version: "1.0",
+		Format:  "frontmatter+body",
+		Fields: []Field{
+			{
+				Name:        "Name",
+				YAMLKey:     "name",
+				GoType:      "string",
+				XCFType:     "string",
+				Optional:    false,
+				Description: "Unique identifier for this template within the project.",
+				Group:       "Identity",
+				Pattern:     "^[a-z0-9-]+$",
+			},
+			{
+				Name:        "Description",
+				YAMLKey:     "description",
+				GoType:      "string",
+				XCFType:     "string",
+				Optional:    true,
+				Description: "Human-readable purpose of this template.",
+				Group:       "Identity",
+			},
+			{
+				Name:        "DefaultTarget",
+				YAMLKey:     "default-target",
+				GoType:      "string",
+				XCFType:     "string",
+				Optional:    true,
+				Description: "Default compilation target provider for this template.",
+				Group:       "Compilation",
+			},
+		},
+	}
 	Registry["workflow"] = KindSchema{
 		Kind:    "workflow",
 		Version: "1.0",

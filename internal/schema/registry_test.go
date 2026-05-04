@@ -21,6 +21,7 @@ var kindTypeMap = map[string]reflect.Type{
 	"context":   reflect.TypeOf(ast.ContextConfig{}),
 	"settings":  reflect.TypeOf(ast.SettingsConfig{}),
 	"hooks":     reflect.TypeOf(ast.NamedHookConfig{}),
+	"template":  reflect.TypeOf(ast.TemplateConfig{}),
 }
 
 func TestRegistryMatchesStructs(t *testing.T) {
