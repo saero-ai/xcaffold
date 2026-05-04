@@ -2,6 +2,20 @@ package compiler
 
 import "github.com/saero-ai/xcaffold/internal/ast"
 
+// mergeClearableList implements tri-state merge for ClearableList fields:
+//   - Cleared=true:             clear the field (override wins)
+//   - Values non-empty:         replace the field (override wins)
+//   - Zero-value (both false):  inherit the base value
+func mergeClearableList(base, override ast.ClearableList) ast.ClearableList {
+	if override.Cleared {
+		return ast.ClearableList{Cleared: true}
+	}
+	if len(override.Values) > 0 {
+		return ast.ClearableList{Values: append([]string(nil), override.Values...)}
+	}
+	return base
+}
+
 // mergeAgentConfig merges override into base using provider-override semantics:
 //
 //   - Scalars: override replaces base when the override value is non-zero.
@@ -74,26 +88,15 @@ func mergeAgentBoolPtrs(result *ast.AgentConfig, override ast.AgentConfig) {
 }
 
 func mergeAgentLists(result *ast.AgentConfig, override ast.AgentConfig) {
-	if len(override.Tools.Values) > 0 {
-		result.Tools = ast.ClearableList{Values: append([]string(nil), override.Tools.Values...)}
-	}
-	if len(override.DisallowedTools.Values) > 0 {
-		result.DisallowedTools = ast.ClearableList{Values: append([]string(nil), override.DisallowedTools.Values...)}
-	}
+	result.Tools = mergeClearableList(result.Tools, override.Tools)
+	result.DisallowedTools = mergeClearableList(result.DisallowedTools, override.DisallowedTools)
+	result.Skills = mergeClearableList(result.Skills, override.Skills)
+	result.Rules = mergeClearableList(result.Rules, override.Rules)
+	result.MCP = mergeClearableList(result.MCP, override.MCP)
+	result.Assertions = mergeClearableList(result.Assertions, override.Assertions)
+	// Memory stays FlexStringSlice — not part of ClearableList migration.
 	if len(override.Memory) > 0 {
 		result.Memory = append(ast.FlexStringSlice(nil), override.Memory...)
-	}
-	if len(override.Skills.Values) > 0 {
-		result.Skills = ast.ClearableList{Values: append([]string(nil), override.Skills.Values...)}
-	}
-	if len(override.Rules.Values) > 0 {
-		result.Rules = ast.ClearableList{Values: append([]string(nil), override.Rules.Values...)}
-	}
-	if len(override.MCP.Values) > 0 {
-		result.MCP = ast.ClearableList{Values: append([]string(nil), override.MCP.Values...)}
-	}
-	if len(override.Assertions.Values) > 0 {
-		result.Assertions = ast.ClearableList{Values: append([]string(nil), override.Assertions.Values...)}
 	}
 }
 
@@ -173,22 +176,12 @@ func mergeSkillConfig(base, override ast.SkillConfig) ast.SkillConfig {
 		result.UserInvocable = &v
 	}
 
-	// --- Lists (replace entire list on non-empty) ---
-	if len(override.AllowedTools.Values) > 0 {
-		result.AllowedTools = ast.ClearableList{Values: append([]string(nil), override.AllowedTools.Values...)}
-	}
-	if len(override.References.Values) > 0 {
-		result.References = ast.ClearableList{Values: append([]string(nil), override.References.Values...)}
-	}
-	if len(override.Scripts.Values) > 0 {
-		result.Scripts = ast.ClearableList{Values: append([]string(nil), override.Scripts.Values...)}
-	}
-	if len(override.Assets.Values) > 0 {
-		result.Assets = ast.ClearableList{Values: append([]string(nil), override.Assets.Values...)}
-	}
-	if len(override.Examples.Values) > 0 {
-		result.Examples = ast.ClearableList{Values: append([]string(nil), override.Examples.Values...)}
-	}
+	// --- Lists (tri-state: Cleared wins, Values replace, zero-value inherits) ---
+	result.AllowedTools = mergeClearableList(result.AllowedTools, override.AllowedTools)
+	result.References = mergeClearableList(result.References, override.References)
+	result.Scripts = mergeClearableList(result.Scripts, override.Scripts)
+	result.Assets = mergeClearableList(result.Assets, override.Assets)
+	result.Examples = mergeClearableList(result.Examples, override.Examples)
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
 	if len(override.Targets) > 0 {
@@ -233,13 +226,9 @@ func mergeRuleConfig(base, override ast.RuleConfig) ast.RuleConfig {
 		result.AlwaysApply = &v
 	}
 
-	// --- Lists (replace entire list on non-empty) ---
-	if len(override.Paths.Values) > 0 {
-		result.Paths = ast.ClearableList{Values: append([]string(nil), override.Paths.Values...)}
-	}
-	if len(override.ExcludeAgents.Values) > 0 {
-		result.ExcludeAgents = ast.ClearableList{Values: append([]string(nil), override.ExcludeAgents.Values...)}
-	}
+	// --- Lists (tri-state: Cleared wins, Values replace, zero-value inherits) ---
+	result.Paths = mergeClearableList(result.Paths, override.Paths)
+	result.ExcludeAgents = mergeClearableList(result.ExcludeAgents, override.ExcludeAgents)
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
 	if len(override.Targets) > 0 {
