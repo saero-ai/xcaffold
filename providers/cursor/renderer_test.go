@@ -1042,8 +1042,9 @@ func TestCursorRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 }
 
 // TestSecurityFieldCheck_Centralized verifies that security fields on cursor
-// agents emit FIELD_UNSUPPORTED (from the orchestrator's CheckFieldSupport),
-// not AGENT_SECURITY_FIELDS_DROPPED (which was the old renderer-inline code).
+// agents are handled by the orchestrator's two-layer fidelity check.
+// Fields with Role:["rendering"] are silently skipped — no FIELD_UNSUPPORTED
+// and no AGENT_SECURITY_FIELDS_DROPPED are emitted.
 func TestSecurityFieldCheck_Centralized(t *testing.T) {
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
@@ -1064,19 +1065,17 @@ func TestSecurityFieldCheck_Centralized(t *testing.T) {
 		}
 	}
 
-	// Must emit FIELD_UNSUPPORTED from CheckFieldSupport with the YAML key name.
-	var found bool
+	// Two-layer fidelity check: permission-mode has Role:["rendering"], so it
+	// is silently skipped for cursor — no FIELD_UNSUPPORTED note is emitted.
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
-			found = true
-			assert.Equal(t, "dev", n.Resource)
-			assert.Equal(t, renderer.LevelError, n.Level)
+			t.Errorf("permission-mode has an xcf role; FIELD_UNSUPPORTED must not be emitted for cursor, got: %s", n.Reason)
 		}
 	}
-	assert.True(t, found, "FIELD_UNSUPPORTED note for permission-mode must be emitted by the orchestrator")
 }
 
-func TestCursorRenderer_AgentPermissionMode_EmitsNote(t *testing.T) {
+func TestCursorRenderer_AgentPermissionMode_Silent(t *testing.T) {
+	// permission-mode has Role:["rendering"] — silently skipped for cursor.
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -1089,17 +1088,15 @@ func TestCursorRenderer_AgentPermissionMode_EmitsNote(t *testing.T) {
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	var found bool
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
-			found = true
-			assert.Equal(t, "dev", n.Resource)
+			t.Errorf("permission-mode has an xcf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
 		}
 	}
-	assert.True(t, found, "FIELD_UNSUPPORTED note for permission-mode must be emitted")
 }
 
-func TestCursorRenderer_AgentDisallowedTools_EmitsNote(t *testing.T) {
+func TestCursorRenderer_AgentDisallowedTools_Silent(t *testing.T) {
+	// disallowed-tools has Role:["rendering"] — silently skipped for cursor.
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -1112,16 +1109,15 @@ func TestCursorRenderer_AgentDisallowedTools_EmitsNote(t *testing.T) {
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	var found bool
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "disallowed-tools" {
-			found = true
+			t.Errorf("disallowed-tools has an xcf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
 		}
 	}
-	assert.True(t, found)
 }
 
-func TestCursorRenderer_AgentIsolation_EmitsNote(t *testing.T) {
+func TestCursorRenderer_AgentIsolation_Silent(t *testing.T) {
+	// isolation has Role:["rendering"] — silently skipped for cursor.
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -1134,13 +1130,11 @@ func TestCursorRenderer_AgentIsolation_EmitsNote(t *testing.T) {
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	var found bool
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "isolation" {
-			found = true
+			t.Errorf("isolation has an xcf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
 		}
 	}
-	assert.True(t, found)
 }
 
 // Suppression is handled by the orchestrator's CheckFieldSupport — when

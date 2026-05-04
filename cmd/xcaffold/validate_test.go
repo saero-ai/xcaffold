@@ -215,8 +215,8 @@ skills:
 }
 
 // TestValidate_TargetFlag_EmitsFidelityErrors verifies that --target causes
-// validate to fail when the project contains a resource with fields that are
-// unsupported by the specified target provider.
+// validate to fail when the project contains a resource missing a field that
+// is required by the specified target provider (FIELD_REQUIRED_FOR_TARGET).
 func TestValidate_TargetFlag_EmitsFidelityErrors(t *testing.T) {
 	dir := t.TempDir()
 
@@ -225,7 +225,8 @@ version: "1.0"
 name: "field-test"
 `), 0600))
 
-	// effort: low is unsupported by antigravity — produces a LevelError fidelity note.
+	// description is required by claude. Omitting it produces a LevelError
+	// FIELD_REQUIRED_FOR_TARGET fidelity note which fails validation.
 	// Agents must be in xcf/agents/<id>/<file>.xcf (directory-per-resource layout).
 	devDir := filepath.Join(dir, "xcf", "agents", "dev")
 	require.NoError(t, os.MkdirAll(devDir, 0755))
@@ -233,8 +234,6 @@ name: "field-test"
 kind: agent
 version: "1.0"
 name: dev
-description: "Dev agent"
-effort: low
 ---
 You are a developer.
 `), 0600))
@@ -242,14 +241,14 @@ You are a developer.
 	oldPath := xcfPath
 	oldTarget := targetFlag
 	xcfPath = filepath.Join(dir, "project.xcf")
-	targetFlag = "antigravity"
+	targetFlag = "claude"
 	defer func() {
 		xcfPath = oldPath
 		targetFlag = oldTarget
 	}()
 
 	err := runValidate(validateCmd, []string{})
-	require.Error(t, err, "validate must fail when target has unsupported fields")
+	require.Error(t, err, "validate must fail when a required field is missing for the target")
 	assert.Contains(t, err.Error(), "validation failed")
 }
 

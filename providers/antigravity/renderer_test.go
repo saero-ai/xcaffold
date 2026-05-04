@@ -927,7 +927,7 @@ func TestAntigravityRenderer_SandboxSetting_EmitsNote(t *testing.T) {
 	assert.True(t, ok)
 }
 
-func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T) {
+func TestAntigravityRenderer_AgentSecurityFields_SilentWithRole(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -945,14 +945,18 @@ func TestAntigravityRenderer_AgentSecurityFields_EmitsPerFieldNotes(t *testing.T
 	_, notes, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	// Security field checks are now centralized in the orchestrator via
-	// CheckFieldSupport, which emits FIELD_UNSUPPORTED with YAML key names.
-	_, pm := findAgNote(notes, renderer.CodeFieldUnsupported, "permission-mode")
-	_, dt := findAgNote(notes, renderer.CodeFieldUnsupported, "disallowed-tools")
-	_, iso := findAgNote(notes, renderer.CodeFieldUnsupported, "isolation")
-	assert.True(t, pm, "permission-mode note must be emitted")
-	assert.True(t, dt, "disallowed-tools note must be emitted")
-	assert.True(t, iso, "isolation note must be emitted")
+	// Two-layer fidelity check: security fields are unsupported by antigravity
+	// but have Role:["rendering"] in the schema. Fields with an xcf role are
+	// silently skipped — no FIELD_UNSUPPORTED error is emitted. The renderer
+	// simply omits these fields from the output without surfacing an error.
+	for _, n := range notes {
+		if n.Code == renderer.CodeFieldUnsupported {
+			switch n.Field {
+			case "permission-mode", "disallowed-tools", "isolation":
+				t.Errorf("field %q has an xcf role; FIELD_UNSUPPORTED must not be emitted", n.Field)
+			}
+		}
+	}
 }
 
 // The RENDERER_KIND_UNSUPPORTED note for the dropped agent is always emitted

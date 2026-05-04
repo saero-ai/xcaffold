@@ -346,6 +346,10 @@ func TestOutputDir_Gemini_ReturnsDotGemini(t *testing.T) {
 }
 
 func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {
+	// Two-layer fidelity check: permission-mode has Role:["rendering"] and is
+	// unsupported by cursor. The orchestrator silently skips it — no note is
+	// emitted. Compile must succeed and must NOT emit FIELD_UNSUPPORTED for
+	// permission-mode.
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
@@ -359,21 +363,12 @@ func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {
 
 	_, notes, err := Compile(config, t.TempDir(), "cursor", "")
 	require.NoError(t, err)
-	require.NotEmpty(t, notes, "cursor compile with permissionMode must produce fidelity notes")
 
-	// Security field checks are now centralized in the orchestrator via
-	// CheckFieldSupport, which emits FIELD_UNSUPPORTED (error-level) with
-	// the YAML key name "permission-mode".
-	var found bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" && n.Resource == "reviewer" {
-			found = true
-			assert.Equal(t, renderer.LevelError, n.Level)
-			assert.Equal(t, "cursor", n.Target)
-			assert.Equal(t, "agent", n.Kind)
+		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
+			t.Errorf("permission-mode has an xcf role; FIELD_UNSUPPORTED must not be emitted for cursor, got: %s", n.Reason)
 		}
 	}
-	assert.True(t, found, "FIELD_UNSUPPORTED note for permission-mode must be in the returned slice")
 }
 
 func TestCompile_Blueprint_FiltersResources(t *testing.T) {
