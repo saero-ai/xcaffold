@@ -514,8 +514,14 @@ func settingsConfigsIdentical(configs map[string]ast.SettingsConfig) bool {
 }
 
 func scoreSettingsConfig(cfg ast.SettingsConfig) int {
+	return scoreSettingsPointerFields(cfg) +
+		scoreSettingsCollectionFields(cfg) +
+		scoreSettingsStringFields(cfg)
+}
+
+// scoreSettingsPointerFields counts non-nil boolean/struct pointer fields.
+func scoreSettingsPointerFields(cfg ast.SettingsConfig) int {
 	s := 0
-	// pointer fields
 	if cfg.Agent != nil {
 		s++
 	}
@@ -561,7 +567,12 @@ func scoreSettingsConfig(cfg ast.SettingsConfig) int {
 	if cfg.AlwaysThinkingEnabled != nil {
 		s++
 	}
-	// map/slice fields
+	return s
+}
+
+// scoreSettingsCollectionFields counts non-empty map and slice fields.
+func scoreSettingsCollectionFields(cfg ast.SettingsConfig) int {
+	s := 0
 	if cfg.MCPServers != nil && len(cfg.MCPServers) > 0 {
 		s++
 	}
@@ -580,7 +591,12 @@ func scoreSettingsConfig(cfg ast.SettingsConfig) int {
 	if cfg.ClaudeMdExcludes != nil && len(cfg.ClaudeMdExcludes) > 0 {
 		s++
 	}
-	// string fields
+	return s
+}
+
+// scoreSettingsStringFields counts non-empty string fields.
+func scoreSettingsStringFields(cfg ast.SettingsConfig) int {
+	s := 0
 	if cfg.EffortLevel != "" {
 		s++
 	}
