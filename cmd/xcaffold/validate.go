@@ -113,7 +113,12 @@ func runValidate(cmd *cobra.Command, args []string) error {
 			}
 			skillDirCount++
 			skillDir := filepath.Join(xcfSkillsDir, entry.Name())
-			result := parser.ValidateSkillDirectory(skillDir, entry.Name())
+			// Look up the skill's artifacts from the config
+			var artifacts []string
+			if skill, ok := cfg.Skills[entry.Name()]; ok {
+				artifacts = skill.Artifacts
+			}
+			result := parser.ValidateSkillDirectory(skillDir, entry.Name(), artifacts)
 			if len(result.Errors) > 0 || len(result.Warnings) > 0 {
 				if !skillDirHasIssues {
 					fmt.Println()
