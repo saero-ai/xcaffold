@@ -34,7 +34,8 @@ four-tier precedence (first match wins):
 
 Blueprints with their own `targets:` list compile for exactly those
 providers — they do **not** fall through to project targets. A blueprint
-without `targets:` falls through normally.
+without `targets:` also does not fall through to project targets; it
+errors, requiring you to add targets to the blueprint or pass `--target`.
 
 When no `--target` flag is set and no targets are configured anywhere,
 `xcaffold apply` exits with an error rather than defaulting to any

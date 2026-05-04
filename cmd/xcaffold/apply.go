@@ -533,10 +533,10 @@ func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
 	}
 
 	timestamp := time.Now().Format("20060102_150405")
-	bakName := fmt.Sprintf(".%s_bak_%s", target, timestamp)
 	if target == "" {
-		bakName = fmt.Sprintf(".%s_bak_%s", compiler.TargetClaude, timestamp)
+		target = "unknown"
 	}
+	bakName := fmt.Sprintf(".%s_bak_%s", target, timestamp)
 
 	var destDir string
 	if backupDirConfig != "" {
