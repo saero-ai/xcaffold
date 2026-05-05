@@ -1020,7 +1020,6 @@ func runPostImportSteps(config *ast.XcaffoldConfig, projectDir string, injectToo
 	}
 
 	if injectToolkit {
-		_ = writeReferenceTemplates(projectDir)
 		if err := injectXaffToolkitAfterImport(projectDir); err != nil {
 			return err
 		}

@@ -3,7 +3,6 @@ kind: agent
 version: "1.0"
 name: xaff
 description: xcaffold authoring agent. Knows the xcaffold schema, CLI commands, and provider field support.
-model: claude-sonnet-4-6
 tools:
   - Read
   - Write
@@ -24,7 +23,7 @@ files into native AI provider output (.claude/, .cursor/, .gemini/, etc.).
 
 - Author and maintain `.xcf` files in the `xcf/` directory
 - Run `xcaffold validate` before `xcaffold apply`
-- Read `.xcaffold/schemas/*-reference.md` before setting any field
+- Read `xcf/skills/xcaffold/references/*-reference.md` before setting any field
 - Never write directly to `.claude/`, `.cursor/`, or other provider output dirs
 - Use `xcaffold status` to check for drift after changes
 - Use `xcaffold import` to pull provider changes back into xcf/
@@ -43,4 +42,4 @@ Fields vary by provider. Not every `.xcf` field is supported on every target.
 Fields marked 'dropped' in the schema reference are silently removed at compile
 time — leave them in source, xcaffold manages the drop.
 
-Always read `.xcaffold/schemas/<kind>-reference.md` before authoring a new resource.
+Always read `xcf/skills/xcaffold/references/<kind>-reference.md` before authoring a new resource.

@@ -76,9 +76,13 @@ func TestInitGlobal_ReturnsNotAvailable(t *testing.T) {
 func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
 	tmp := t.TempDir()
 
-	require.NoError(t, writeReferenceTemplates(tmp))
+	ans := wizardAnswers{
+		name:    "test",
+		targets: []string{"claude"},
+	}
+	require.NoError(t, writeXCFDirectory(tmp, ans))
 
-	refPath := filepath.Join(tmp, ".xcaffold", "schemas", "agent-reference.md")
+	refPath := filepath.Join(tmp, "xcf", "skills", "xcaffold", "references", "agent-reference.md")
 	_, err := os.Stat(refPath)
 	require.NoError(t, err, "agent-reference.md must exist at %s", refPath)
 
@@ -89,7 +93,12 @@ func TestInit_WritesAgentReferenceByDefault(t *testing.T) {
 
 func TestWriteReferenceTemplates_All8Files(t *testing.T) {
 	tmp := t.TempDir()
-	require.NoError(t, writeReferenceTemplates(tmp))
+
+	ans := wizardAnswers{
+		name:    "test",
+		targets: []string{"claude"},
+	}
+	require.NoError(t, writeXCFDirectory(tmp, ans))
 
 	expected := []string{
 		"agent-reference.md",
@@ -103,7 +112,7 @@ func TestWriteReferenceTemplates_All8Files(t *testing.T) {
 	}
 
 	for _, name := range expected {
-		path := filepath.Join(tmp, ".xcaffold", "schemas", name)
+		path := filepath.Join(tmp, "xcf", "skills", "xcaffold", "references", name)
 		assert.FileExists(t, path, "expected %s to exist", name)
 	}
 }
@@ -111,37 +120,44 @@ func TestWriteReferenceTemplates_All8Files(t *testing.T) {
 func TestInit_E2E_SkillReferenceArtifact(t *testing.T) {
 	tmp := t.TempDir()
 
-	require.NoError(t, writeReferenceTemplates(tmp))
+	ans := wizardAnswers{
+		name:    "test",
+		targets: []string{"claude"},
+	}
+	require.NoError(t, writeXCFDirectory(tmp, ans))
 
 	for _, name := range []string{"agent-reference.md", "skill-reference.md"} {
-		path := filepath.Join(tmp, ".xcaffold", "schemas", name)
+		path := filepath.Join(tmp, "xcf", "skills", "xcaffold", "references", name)
 		_, err := os.Stat(path)
-		require.NoError(t, err, "expected %s to exist at .xcaffold/schemas/", name)
+		require.NoError(t, err, "expected %s to exist at xcf/skills/xcaffold/references/", name)
 	}
 
-	skillData, err := os.ReadFile(filepath.Join(tmp, ".xcaffold", "schemas", "skill-reference.md"))
+	skillData, err := os.ReadFile(filepath.Join(tmp, "xcf", "skills", "xcaffold", "references", "skill-reference.md"))
 	require.NoError(t, err)
 	skillBody := string(skillData)
 	require.Contains(t, skillBody, "allowed-tools:")
 	require.NotContains(t, skillBody, "\ntools:")
 }
 
-func TestWriteReferenceTemplates_WritesToDotXcaffoldSchemas(t *testing.T) {
+func TestWriteReferenceTemplates_WritesToXcfSkillReferences(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	err := writeReferenceTemplates(tmpDir)
-	require.NoError(t, err)
+	ans := wizardAnswers{
+		name:    "test",
+		targets: []string{"claude"},
+	}
+	require.NoError(t, writeXCFDirectory(tmpDir, ans))
 
-	agentRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "agent-reference.md")
+	agentRef := filepath.Join(tmpDir, "xcf", "skills", "xcaffold", "references", "agent-reference.md")
 	assert.FileExists(t, agentRef)
 
-	skillRef := filepath.Join(tmpDir, ".xcaffold", "schemas", "skill-reference.md")
+	skillRef := filepath.Join(tmpDir, "xcf", "skills", "xcaffold", "references", "skill-reference.md")
 	assert.FileExists(t, skillRef)
 
 	// Must NOT write to old location
-	oldDir := filepath.Join(tmpDir, "xcf", "skills", "xcaffold", "references")
+	oldDir := filepath.Join(tmpDir, ".xcaffold", "schemas")
 	_, statErr := os.Stat(oldDir)
-	assert.True(t, os.IsNotExist(statErr), "old path xcf/skills/xcaffold/references/ should not exist")
+	assert.True(t, os.IsNotExist(statErr), "old path .xcaffold/schemas/ should not exist")
 }
 
 // --- Xaff scaffold generation tests ---
@@ -495,14 +511,14 @@ func TestCopyToolkitFiles_NonexistentSource(t *testing.T) {
 	assert.Contains(t, err.Error(), "reading embedded")
 }
 
-// TestCopyToolkitFiles_ReferenceFiles verifies copyToolkitFiles copies schema
+// TestCopyToolkitFiles_ReferenceFiles verifies copyToolkitFiles copies skill
 // reference files with nested directories.
 func TestCopyToolkitFiles_ReferenceFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	paths := map[string]string{
-		"toolkit/schemas/agent-reference.md": ".xcaffold/schemas/agent-reference.md",
-		"toolkit/schemas/skill-reference.md": ".xcaffold/schemas/skill-reference.md",
+		"toolkit/skills/xcaffold/references/agent-reference.md": "xcf/skills/xcaffold/references/agent-reference.md",
+		"toolkit/skills/xcaffold/references/skill-reference.md": "xcf/skills/xcaffold/references/skill-reference.md",
 	}
 
 	err := copyToolkitFiles(tmpDir, paths)

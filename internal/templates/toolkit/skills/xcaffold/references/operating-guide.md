@@ -18,15 +18,6 @@ Generated layout:
 my-project/
   .xcaffold/
     project.xcf              # kind: project (targets, resource refs)
-    schemas/
-      agent.xcf.reference    # annotated agent field catalog
-      skill.xcf.reference    # annotated skill field catalog
-      rule.xcf.reference     # annotated rule field catalog
-      workflow.xcf.reference # annotated workflow field catalog
-      mcp.xcf.reference      # annotated MCP field catalog
-      hooks.xcf.reference    # annotated hooks field catalog
-      memory.xcf.reference   # annotated memory field catalog
-      cli-cheatsheet.reference  # CLI command reference
   xcf/
     agents/
       xaff/
@@ -35,6 +26,17 @@ my-project/
     skills/
       xcaffold/
         xcaffold.xcf         # THIS SKILL
+        references/
+          agent-reference.md        # agent field catalog
+          skill-reference.md        # skill field catalog
+          rule-reference.md         # rule field catalog
+          workflow-reference.md     # workflow field catalog
+          mcp-reference.md          # MCP field catalog
+          hooks-reference.md        # hooks field catalog
+          memory-reference.md       # memory field catalog
+          cli-cheatsheet.md         # CLI command reference
+          authoring-guide.md        # xcf manifest authoring guide
+          operating-guide.md        # xcaffold CLI operating guide
     rules/
       xcf-conventions/
         xcf-conventions.xcf  # xcaffold authoring conventions
@@ -43,6 +45,10 @@ my-project/
       require-agent-instructions.xcf
     settings.xcf             # kind: settings (MCP, permissions)
 ```
+
+## CLI reference
+
+See `xcf/skills/xcaffold/references/cli-cheatsheet.md` for the complete command and flag reference, including all flags for `init`, `apply`, `validate`, `status`, `import`, `graph`, `list`, `export`, and `test`.
 
 ## Checking compilation state
 

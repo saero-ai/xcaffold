@@ -9,13 +9,16 @@ allowed-tools:
   - Edit
   - Glob
   - Grep
+  - Bash
+artifacts:
+  - references
 ---
 # xcaffold — Agent Configuration Compiler
 
-xcaffold compiles `.xcf` YAML source files into native AI coding agent configurations
-for Claude Code, Cursor, Gemini CLI, GitHub Copilot, and Antigravity. It is the
-determinism layer between human (or AI) authoring and provider output — preventing
-hallucinated field names, incorrect directory structures, and unsupported frontmatter.
+xcaffold compiles `.xcf` YAML source files into native AI provider output
+for Claude Code, Cursor, Gemini CLI, GitHub Copilot, and Antigravity. It is
+the determinism layer between authoring and provider output — enforcing correct
+field names, directory structures, and supported frontmatter per provider.
 
 ## When to use this skill
 
@@ -27,16 +30,57 @@ Use xcaffold when:
 - The user asks to import existing provider configs (.claude/, .cursor/, etc.) into xcaffold
 - The user asks "what providers support X field?"
 
-## Critical rules
+## Mode 1 — Authoring
 
-1. **Never write directly to `.claude/`, `.cursor/`, `.gemini/`, `.github/`, or `.agents/`.**
-   Those directories are xcaffold output — owned by `xcaffold apply`. Always edit `xcf/` files.
+Use this mode when writing or editing `.xcf` manifests.
 
-2. **Always run `xcaffold validate` before `xcaffold apply`.**
-   Policy violations are caught before any files are written.
+1. **Read the field catalog** for the resource kind you are authoring:
+   - `xcf/skills/xcaffold/references/agent-reference.md` — agent fields
+   - `xcf/skills/xcaffold/references/skill-reference.md` — skill fields
+   - `xcf/skills/xcaffold/references/rule-reference.md` — rule fields
+   - `xcf/skills/xcaffold/references/workflow-reference.md` — workflow fields
+   - `xcf/skills/xcaffold/references/mcp-reference.md` — MCP server fields
+   - `xcf/skills/xcaffold/references/hooks-reference.md` — hooks fields
+   - `xcf/skills/xcaffold/references/memory-reference.md` — memory fields
 
-3. **Read the schema references before setting fields.**
-   See `.xcaffold/schemas/` for per-kind field catalogs.
+2. **Fill in fields from the catalog** that match the user's use case and target provider(s). Fields marked 'dropped' for a provider are silently removed at compile time — leave them in source.
 
-4. **Use directory-per-resource layout:**
-   Place each resource in `xcf/<kind>/<name>/<name>.xcf`. xcaffold discovers all `.xcf` files under `xcf/` at compile time.
+3. **Critical authoring rules:**
+   - Never write directly to `.claude/`, `.cursor/`, or other provider output dirs — those are xcaffold output.
+   - All YAML keys use kebab-case (`allowed-tools`, not `allowedTools`).
+   - `version` is always a quoted string: `version: "1.0"` (not `version: 1.0`).
+   - `name` uses lowercase + hyphens only: `^[a-z0-9-]+$`.
+   - One resource per file. Directory-per-resource layout: `xcf/<kind>/<name>/<name>.xcf`.
+   - See `xcf/rules/xcf-conventions/rule.xcf` for the full convention set.
+
+4. **Validate before applying:**
+   ```bash
+   xcaffold validate
+   xcaffold apply --dry-run
+   xcaffold apply
+   ```
+
+## Mode 2 — Operating
+
+Use this mode when operating the xcaffold CLI. See `xcf/skills/xcaffold/references/cli-cheatsheet.md` for the full command and flag reference.
+
+**Typical workflow:**
+```bash
+xcaffold init --target claude         # bootstrap
+# edit xcf/ files
+xcaffold validate                     # validate schema + policies
+xcaffold apply --dry-run              # preview compiled output
+xcaffold apply                        # compile to provider dirs
+xcaffold status                       # verify drift
+```
+
+**Key commands:**
+- `xcaffold init` — bootstrap a new project, generate toolkit, optionally import existing provider configs
+- `xcaffold import` — import existing provider configs into xcf/
+- `xcaffold validate` — check schema, cross-references, and policy compliance
+- `xcaffold apply` — compile xcf/ to provider-native output
+- `xcaffold status` — show compilation state and drift across providers
+- `xcaffold list` — enumerate declared resources
+- `xcaffold graph` — visualize agent/skill/rule dependency topology
+- `xcaffold export` — export compiled output as an installable provider plugin
+- `xcaffold test` — simulate agent execution with optional LLM-as-a-Judge evaluation

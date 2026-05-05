@@ -5,9 +5,19 @@
 # ============================================================
 
 # ── Global Flags ─────────────────────────────────────────────
-#   --config PATH    Path to project.xcf (default: ./.xcaffold/project.xcf)
+#   --config PATH    Path to project.xcf (default: ./project.xcf)
 #   --global         Operate on user-wide global config (~/.xcaffold/global.xcf)
 #   --no-color       Disable color output
+
+# ── init ─────────────────────────────────────────────────────
+# Bootstrap a new project.xcf configuration.
+# Scope: project, global
+#
+#   xcaffold init
+#   xcaffold init --yes                   # accept all defaults (CI/CD mode)
+#   xcaffold init --target claude         # set target explicitly
+#   xcaffold init --target claude,cursor  # multiple targets
+#   xcaffold init --json                  # machine-readable manifest output
 
 # ── apply ────────────────────────────────────────────────────
 # Compile .xcf resources into provider-native agent files.
@@ -20,10 +30,9 @@
 #   xcaffold apply --target copilot
 #   xcaffold apply --target antigravity
 #   xcaffold apply --dry-run              # preview changes without writing
-#   xcaffold apply --check                # check syntax only
-#   xcaffold apply --check-permissions    # report permission drops, then exit
 #   xcaffold apply --force                # overwrite customized files
 #   xcaffold apply --backup               # backup target directory first
+#   xcaffold apply --project NAME         # apply to a registered project
 #   xcaffold apply --blueprint NAME       # compile a specific blueprint
 
 # ── validate ─────────────────────────────────────────────────
@@ -31,7 +40,7 @@
 # Scope: project, global
 #
 #   xcaffold validate
-#   xcaffold validate --structural        # run structural invariant checks
+#   xcaffold validate --target claude     # validate field support for a specific provider
 
 # ── status ───────────────────────────────────────────────────
 # Show compilation state and check for drift across all providers.
@@ -48,25 +57,14 @@
 #   xcaffold import
 #   xcaffold import --plan                # preview without making changes
 #   xcaffold import --target claude       # import from a specific provider only
-#   xcaffold import --filter-agent NAME
-#   xcaffold import --filter-skill NAME
-#   xcaffold import --filter-rule NAME
-#   xcaffold import --filter-workflow NAME
-#   xcaffold import --filter-mcp NAME
-#   xcaffold import --filter-hooks
-#   xcaffold import --filter-settings
-#   xcaffold import --filter-memory
-
-# ── init ─────────────────────────────────────────────────────
-# Bootstrap a new project.xcf configuration.
-# Scope: project, global
-#
-#   xcaffold init
-#   xcaffold init --yes                   # accept all defaults (CI/CD mode)
-#   xcaffold init --target claude         # set target explicitly
-#   xcaffold init --target claude,cursor  # multiple targets
-#   xcaffold init --no-policies           # skip starter policies
-#   xcaffold init --json                  # machine-readable manifest output
+#   xcaffold import --agent NAME          # import agents (filter by name)
+#   xcaffold import --skill NAME          # import skills (filter by name)
+#   xcaffold import --rule NAME           # import rules (filter by name)
+#   xcaffold import --workflow NAME       # import workflows (filter by name)
+#   xcaffold import --mcp NAME            # import MCP servers (filter by name)
+#   xcaffold import --hook                # import hooks
+#   xcaffold import --setting             # import settings
+#   xcaffold import --memory              # import memory
 
 # ── graph ────────────────────────────────────────────────────
 # Visualize the resource dependency graph.
@@ -77,16 +75,34 @@
 #   xcaffold graph --format mermaid
 #   xcaffold graph --format dot
 #   xcaffold graph --format json
-#   xcaffold graph --agent NAME           # target a specific agent
+#   xcaffold graph --agent NAME           # focus on a specific agent
+#   xcaffold graph --project NAME         # focus on a registered project
 #   xcaffold graph --full                 # show fully expanded topology
+#   xcaffold graph --all                  # show global topology + all projects
 #   xcaffold graph --scan-output          # scan for undeclared artifacts
 
 # ── list ─────────────────────────────────────────────────────
-# List discovered resources and blueprints.
+# List discovered resources.
 # Scope: project, global
 #
 #   xcaffold list
 #   xcaffold list --verbose               # show memory entry names per agent
+
+# ── export ───────────────────────────────────────────────────
+# Export compiled output as an installable provider plugin.
+# Scope: project
+#
+#   xcaffold export --target claude --output ./dist
+#   xcaffold export --format plugin --target gemini
+
+# ── test ─────────────────────────────────────────────────────
+# Simulate agent execution and optionally evaluate with LLM-as-a-Judge.
+# Scope: project
+#
+#   xcaffold test --agent reviewer
+#   xcaffold test --agent reviewer --judge
+#   xcaffold test --agent reviewer --output trace.jsonl
+#   xcaffold test --agent reviewer --judge-model claude-opus-4-7
 
 # ── Workflow ─────────────────────────────────────────────────
 # Typical development loop:
@@ -103,15 +119,6 @@
 #   my-project/
 #     .xcaffold/
 #       project.xcf                   # kind: project (targets, resource refs)
-#       schemas/
-#         agent.xcf.reference         # agent field reference (this file's siblings)
-#         skill.xcf.reference
-#         rule.xcf.reference
-#         workflow.xcf.reference
-#         mcp.xcf.reference
-#         hooks.xcf.reference
-#         memory.xcf.reference
-#         cli-cheatsheet.reference    # THIS FILE
 #     xcf/
 #       agents/
 #         xaff/
@@ -119,7 +126,18 @@
 #           agent.claude.xcf          # per-provider override
 #       skills/
 #         xcaffold/
-#           xcaffold.xcf              # xcaffold authoring skill
+#           xcaffold.xcf         # THIS SKILL
+#           references/
+#             agent-reference.md      # agent field catalog
+#             skill-reference.md      # skill field catalog
+#             rule-reference.md       # rule field catalog
+#             workflow-reference.md   # workflow field catalog
+#             mcp-reference.md        # MCP field catalog
+#             hooks-reference.md      # hooks field catalog
+#             memory-reference.md     # memory field catalog
+#             cli-cheatsheet.md       # THIS FILE — CLI command reference
+#             authoring-guide.md      # xcf manifest authoring guide
+#             operating-guide.md      # xcaffold CLI operating guide
 #       rules/
 #         xcf-conventions/
 #           xcf-conventions.xcf       # xcaffold authoring conventions rule
