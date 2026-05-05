@@ -47,8 +47,8 @@ func TestScanProject(t *testing.T) {
 	assert.Equal(t, "build: go build", sig.DependencyManifests["Makefile"])
 	assert.Equal(t, "stages: test", sig.DependencyManifests[".gitlab-ci.yml"])
 
-	// Check CLAUDE context
-	assert.Equal(t, "Always run formatting", sig.ClaudeConfig)
+	// Check provider context
+	assert.Equal(t, "Always run formatting", sig.ProviderConfig)
 }
 
 func TestReadTruncated(t *testing.T) {

@@ -1,0 +1,8 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "bash",
+      "script": "echo 'Before tool use'"
+    }
+  ]
+}

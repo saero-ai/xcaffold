@@ -20,6 +20,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
+	"github.com/saero-ai/xcaffold/providers"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -71,7 +72,7 @@ func init() {
 	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
 	applyCmd.Flags().StringVar(&applyBlueprintFlag, "blueprint", "", "Compile a specific blueprint (default: all resources)")
-	applyCmd.Flags().StringVar(&targetFlag, "target", "", "compilation target platform (claude, cursor, antigravity, copilot, gemini)")
+	applyCmd.Flags().StringVar(&targetFlag, "target", "", fmt.Sprintf("compilation target platform (%s)", strings.Join(providers.PrimaryNames(), ", ")))
 	rootCmd.AddCommand(applyCmd)
 }
 
@@ -108,7 +109,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 	// because xcfPath may live inside .xcaffold/.
 	if projectRoot == "" {
 		// Defensive fallback: should never happen post-resolveProjectConfig.
-		return fmt.Errorf("internal error: project root not resolved; run from a directory containing a project.xcf or .xcaffold/project.xcf")
+		return fmt.Errorf("internal error: project root not resolved; run from a directory containing project.xcf")
 	}
 
 	// Determine which targets to compile.

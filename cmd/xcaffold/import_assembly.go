@@ -112,7 +112,9 @@ func assembleSkills(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.
 			result.Overrides = &ast.ResourceOverrides{}
 		}
 		for provider, override := range overrides {
-			result.Overrides.AddSkill(name, provider, override)
+			if !isEmptySkillOverride(override) {
+				result.Overrides.AddSkill(name, provider, override)
+			}
 		}
 	}
 }
@@ -153,7 +155,9 @@ func assembleRules(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.X
 			result.Overrides = &ast.ResourceOverrides{}
 		}
 		for provider, override := range overrides {
-			result.Overrides.AddRule(name, provider, override)
+			if !isEmptyRuleOverride(override) {
+				result.Overrides.AddRule(name, provider, override)
+			}
 		}
 	}
 }
@@ -194,7 +198,9 @@ func assembleWorkflows(providerConfigs map[string]*ast.XcaffoldConfig, result *a
 			result.Overrides = &ast.ResourceOverrides{}
 		}
 		for provider, override := range overrides {
-			result.Overrides.AddWorkflow(name, provider, override)
+			if !isEmptyWorkflowOverride(override) {
+				result.Overrides.AddWorkflow(name, provider, override)
+			}
 		}
 	}
 }
@@ -414,15 +420,41 @@ func splitAgentOverrides(configs map[string]ast.AgentConfig) (ast.AgentConfig, m
 	return base, overrides
 }
 
+// scoreSkillSpecificity calculates the specificity score for a skill across all provider-specific fields.
+func scoreSkillSpecificity(cfg ast.SkillConfig) int {
+	s := 0
+	if len(cfg.AllowedTools.Values) > 0 {
+		s++
+	}
+	if len(cfg.References.Values) > 0 {
+		s++
+	}
+	if len(cfg.Scripts.Values) > 0 {
+		s++
+	}
+	if len(cfg.Assets.Values) > 0 {
+		s++
+	}
+	if len(cfg.Examples.Values) > 0 {
+		s++
+	}
+	if cfg.DisableModelInvocation != nil {
+		s++
+	}
+	if cfg.WhenToUse != "" {
+		s++
+	}
+	if cfg.ArgumentHint != "" {
+		s++
+	}
+	return s
+}
+
 func splitSkillOverrides(configs map[string]ast.SkillConfig) (ast.SkillConfig, map[string]ast.SkillConfig) {
-	// Score each provider by provider-specificity: AllowedTools (+1)
+	// Score each provider by provider-specificity across 8 fields
 	scores := make(map[string]int, len(configs))
 	for provider, cfg := range configs {
-		s := 0
-		if len(cfg.AllowedTools.Values) > 0 {
-			s++
-		}
-		scores[provider] = s
+		scores[provider] = scoreSkillSpecificity(cfg)
 	}
 
 	// Select base provider (lowest score, alphabetical tie-break)
@@ -588,7 +620,7 @@ func scoreSettingsCollectionFields(cfg ast.SettingsConfig) int {
 	if cfg.AvailableModels != nil && len(cfg.AvailableModels) > 0 {
 		s++
 	}
-	if cfg.ClaudeMdExcludes != nil && len(cfg.ClaudeMdExcludes) > 0 {
+	if cfg.MdExcludes != nil && len(cfg.MdExcludes) > 0 {
 		s++
 	}
 	return s
@@ -677,4 +709,50 @@ func assembleSettings(providerConfigs map[string]*ast.XcaffoldConfig, result *as
 			result.Overrides.AddSettings(name, provider, override)
 		}
 	}
+}
+
+// isEmptySkillOverride returns true if the skill override contains no meaningful content.
+// An override is empty if it has no allowed tools, references, scripts, assets, examples,
+// and all optional fields are false/nil/empty, and the body is empty.
+func isEmptySkillOverride(override ast.SkillConfig) bool {
+	if len(override.AllowedTools.Values) > 0 {
+		return false
+	}
+	if len(override.References.Values) > 0 {
+		return false
+	}
+	if len(override.Scripts.Values) > 0 {
+		return false
+	}
+	if len(override.Assets.Values) > 0 {
+		return false
+	}
+	if len(override.Examples.Values) > 0 {
+		return false
+	}
+	if override.DisableModelInvocation != nil {
+		return false
+	}
+	if override.WhenToUse != "" {
+		return false
+	}
+	if override.ArgumentHint != "" {
+		return false
+	}
+	if strings.TrimSpace(override.Body) != "" {
+		return false
+	}
+	return true
+}
+
+// isEmptyRuleOverride returns true if the rule override contains no meaningful content.
+// Rules have no provider-specific fields, so an override is empty if its body is empty.
+func isEmptyRuleOverride(override ast.RuleConfig) bool {
+	return strings.TrimSpace(override.Body) == ""
+}
+
+// isEmptyWorkflowOverride returns true if the workflow override contains no meaningful content.
+// Workflows have no provider-specific fields, so an override is empty if its body is empty.
+func isEmptyWorkflowOverride(override ast.WorkflowConfig) bool {
+	return strings.TrimSpace(override.Body) == ""
 }

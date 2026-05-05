@@ -840,3 +840,107 @@ func TestWriteSplitFiles_Rules_NamespacedPath(t *testing.T) {
 	assert.Contains(t, content, "kind: rule")
 	assert.Contains(t, content, "---\nBuild rules.")
 }
+
+func TestWriteSplitFiles_HooksOverrideFiles(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		Hooks: map[string]ast.NamedHookConfig{
+			"pre-compile": {
+				Name: "pre-compile",
+				Events: ast.HookConfig{
+					"PreCompile": {
+						{Hooks: []ast.HookHandler{{Type: "command", Command: "echo base"}}},
+					},
+				},
+			},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+
+	// Add a provider-specific override for hooks
+	config.Overrides.AddHooks("pre-compile", "claude", ast.NamedHookConfig{
+		Name: "pre-compile",
+		Events: ast.HookConfig{
+			"PreCompile": {
+				{Hooks: []ast.HookHandler{{Type: "command", Command: "echo claude"}}},
+			},
+		},
+	})
+
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Base file should exist
+	basePath := filepath.Join(dir, "xcf", "hooks", "pre-compile", "hooks.xcf")
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		t.Fatal("expected base hooks file")
+	}
+
+	// Override file: hooks.claude.xcf
+	overridePath := filepath.Join(dir, "xcf", "hooks", "pre-compile", "hooks.claude.xcf")
+	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
+		t.Fatal("expected claude override file at " + overridePath)
+	}
+
+	data, _ := os.ReadFile(overridePath)
+	content := string(data)
+	if !strings.Contains(content, "events:") {
+		t.Error("override should contain events field")
+	}
+	if strings.Contains(content, "kind:") {
+		t.Error("override should not contain kind field")
+	}
+	if strings.Contains(content, "version:") {
+		t.Error("override should not contain version field")
+	}
+}
+
+func TestWriteSplitFiles_SettingsOverrideFiles(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test"},
+		Settings: map[string]ast.SettingsConfig{
+			"default": {
+				Model: "claude-sonnet-4-5",
+			},
+		},
+		Overrides: &ast.ResourceOverrides{},
+	}
+
+	// Add a provider-specific override for settings
+	config.Overrides.AddSettings("default", "gemini", ast.SettingsConfig{
+		Model: "gemini-2.5-flash",
+	})
+
+	dir := t.TempDir()
+	if err := WriteSplitFiles(config, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Base file should exist
+	basePath := filepath.Join(dir, "xcf", "settings", "default", "settings.xcf")
+	if _, err := os.Stat(basePath); os.IsNotExist(err) {
+		t.Fatal("expected base settings file")
+	}
+
+	// Override file: settings.gemini.xcf
+	overridePath := filepath.Join(dir, "xcf", "settings", "default", "settings.gemini.xcf")
+	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
+		t.Fatal("expected gemini override file at " + overridePath)
+	}
+
+	data, _ := os.ReadFile(overridePath)
+	content := string(data)
+	if !strings.Contains(content, "model: gemini-2.5-flash") {
+		t.Error("override should contain overridden model")
+	}
+	if strings.Contains(content, "kind:") {
+		t.Error("override should not contain kind field")
+	}
+	if strings.Contains(content, "version:") {
+		t.Error("override should not contain version field")
+	}
+}

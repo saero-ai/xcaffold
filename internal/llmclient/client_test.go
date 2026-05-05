@@ -99,10 +99,11 @@ func TestNew_DefaultsApplied(t *testing.T) {
 		// internal timeout is validated in integration by request behaviour.
 	})
 
-	t.Run("empty CLIPath defaults to claude", func(t *testing.T) {
+	t.Run("empty CLIPath is passed through as-is", func(t *testing.T) {
 		c, err := llmclient.New(llmclient.Config{})
 		require.NoError(t, err)
 		assert.NotNil(t, c)
+		// The client accepts empty CLIPath; callers must provide it if needed.
 	})
 }
 
@@ -183,10 +184,11 @@ func TestNew_CLIPathSanitization(t *testing.T) {
 		assert.NotNil(t, c)
 	})
 
-	t.Run("empty CLIPath defaults to claude", func(t *testing.T) {
+	t.Run("empty CLIPath is passed through as-is", func(t *testing.T) {
 		c, err := llmclient.New(llmclient.Config{})
 		require.NoError(t, err)
 		assert.NotNil(t, c)
+		// The client accepts empty CLIPath; callers must provide it if needed.
 	})
 }
 

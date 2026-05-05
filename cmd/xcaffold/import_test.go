@@ -9,6 +9,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
+	providerspkg "github.com/saero-ai/xcaffold/providers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -480,8 +481,9 @@ func TestExtractSkillSubdirs_AntigravityResources(t *testing.T) {
 	outDir := t.TempDir()
 	var warnings []string
 
+	antigravityManifest, _ := providerspkg.ManifestFor("antigravity")
 	refs, scripts, assets, examples, discoveredDirs, err := extractSkillSubdirs(
-		filepath.Join(skillDir, "SKILL.md"), "my-skill", "antigravity", outDir, &warnings,
+		filepath.Join(skillDir, "SKILL.md"), "my-skill", &antigravityManifest, outDir, &warnings,
 	)
 	require.NoError(t, err)
 	_ = discoveredDirs // capture unused return value
@@ -523,8 +525,9 @@ func TestExtractSkillSubdirs_ClaudeFlatMdFiles(t *testing.T) {
 	outDir := t.TempDir()
 	var warnings []string
 
+	claudeManifest, _ := providerspkg.ManifestFor("claude")
 	refs, scripts, assets, examples, discoveredDirs, err := extractSkillSubdirs(
-		filepath.Join(skillDir, "SKILL.md"), "my-skill", "claude", outDir, &warnings,
+		filepath.Join(skillDir, "SKILL.md"), "my-skill", &claudeManifest, outDir, &warnings,
 	)
 	require.NoError(t, err)
 	_ = discoveredDirs // capture unused return value
@@ -561,8 +564,9 @@ func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
 	outDir := t.TempDir()
 	var warnings []string
 
+	// For unknown provider, pass nil manifest
 	refs, scripts, assets, examples, discoveredDirs, err := extractSkillSubdirs(
-		filepath.Join(skillDir, "SKILL.md"), "my-skill", "unknown-provider", outDir, &warnings,
+		filepath.Join(skillDir, "SKILL.md"), "my-skill", nil, outDir, &warnings,
 	)
 	require.NoError(t, err)
 	_ = discoveredDirs // capture unused return value
@@ -659,7 +663,7 @@ func TestMergeImportDirs_SmartAssembly_DifferentAgents(t *testing.T) {
 		struct{ dir, platform string }{".cursor", "cursor"},
 	)
 
-	err := mergeImportDirs(importers, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcf"))
 	require.NoError(t, err)
 
 	config, parseErr := parser.ParseDirectory(".")
@@ -705,7 +709,7 @@ func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
 		struct{ dir, platform string }{".cursor", "cursor"},
 	)
 
-	err := mergeImportDirs(importers, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcf"))
 	require.NoError(t, err)
 
 	// MCP from .claude/ must be present
@@ -751,7 +755,7 @@ func TestMergeImportDirs_ImportsMemory(t *testing.T) {
 		struct{ dir, platform string }{".cursor", "cursor"},
 	)
 
-	err := mergeImportDirs(importers, filepath.Join(tmp, ".xcaffold", "project.xcf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcf"))
 	require.NoError(t, err)
 
 	// Memory must be written to disk
@@ -1241,7 +1245,7 @@ func TestImportScope_PlanFlag_DryRun(t *testing.T) {
 	assert.Contains(t, output, "1 skills", "output should show skills count")
 
 	// Verify NO files were written
-	assert.NoFileExists(t, filepath.Join(tmp, ".xcaffold", "project.xcf"), "project.xcf should not exist in plan mode")
+	assert.NoFileExists(t, filepath.Join(tmp, "project.xcf"), "project.xcf should not exist in plan mode")
 	assert.NoFileExists(t, filepath.Join(tmp, "xcf", "agents", "dev.xcf"), "xcf files should not exist in plan mode")
 }
 
@@ -2040,5 +2044,38 @@ func TestDiscoverRootContextFiles_MissingFiles(t *testing.T) {
 	// Should be empty — no files were present
 	if len(config.Contexts) > 0 {
 		t.Errorf("expected no contexts when files are missing, but got %d", len(config.Contexts))
+	}
+}
+
+func TestTagResourcesWithProvider_AllKinds(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents:    map[string]ast.AgentConfig{"a1": {Name: "a1"}},
+			Skills:    map[string]ast.SkillConfig{"s1": {Name: "s1"}},
+			Rules:     map[string]ast.RuleConfig{"r1": {Name: "r1"}},
+			Workflows: map[string]ast.WorkflowConfig{"w1": {Name: "w1"}},
+			MCP:       map[string]ast.MCPConfig{"m1": {Name: "m1"}},
+		},
+		Hooks:    map[string]ast.NamedHookConfig{"h1": {Name: "h1"}},
+		Settings: map[string]ast.SettingsConfig{"st1": {Name: "st1"}},
+	}
+	tagResourcesWithProvider(cfg, "test-provider")
+
+	checks := []struct {
+		kind string
+		has  bool
+	}{
+		{"agent", cfg.Agents["a1"].Targets != nil && len(cfg.Agents["a1"].Targets) > 0},
+		{"skill", cfg.Skills["s1"].Targets != nil && len(cfg.Skills["s1"].Targets) > 0},
+		{"rule", cfg.Rules["r1"].Targets != nil && len(cfg.Rules["r1"].Targets) > 0},
+		{"workflow", cfg.Workflows["w1"].Targets != nil && len(cfg.Workflows["w1"].Targets) > 0},
+		{"mcp", cfg.MCP["m1"].Targets != nil && len(cfg.MCP["m1"].Targets) > 0},
+		{"hooks", cfg.Hooks["h1"].Targets != nil && len(cfg.Hooks["h1"].Targets) > 0},
+		{"settings", cfg.Settings["st1"].Targets != nil && len(cfg.Settings["st1"].Targets) > 0},
+	}
+	for _, c := range checks {
+		if !c.has {
+			t.Errorf("tagResourcesWithProvider did not tag %s with Targets", c.kind)
+		}
 	}
 }

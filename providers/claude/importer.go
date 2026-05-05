@@ -14,22 +14,18 @@ import (
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
 type ClaudeImporter struct {
-	Warnings []string
+	importer.BaseImporter
 }
 
 // NewImporter returns a new ClaudeImporter.
 func NewImporter() *ClaudeImporter {
-	return &ClaudeImporter{}
+	return &ClaudeImporter{
+		BaseImporter: importer.BaseImporter{
+			ProviderName: "claude",
+			Dir:          ".claude",
+		},
+	}
 }
-
-// Provider returns the canonical provider name.
-func (c *ClaudeImporter) Provider() string { return "claude" }
-
-// GetWarnings returns non-fatal per-file extraction errors collected during the last Import() call.
-func (c *ClaudeImporter) GetWarnings() []string { return c.Warnings }
-
-// InputDir returns the root directory relative to the workspace root.
-func (c *ClaudeImporter) InputDir() string { return ".claude" }
 
 // claudeMappings maps path patterns to AST kinds. First match wins.
 // settings.json appears first for the container-level KindSettings match;
@@ -76,11 +72,11 @@ func (c *ClaudeImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 	case importer.KindSkill:
 		return extractSkill(rel, data, config)
 	case importer.KindSkillAsset:
-		return extractSkillAsset(rel, data, config)
+		return importer.DefaultExtractSkillAsset(rel, data, config)
 	case importer.KindHookScript:
-		return importer.ExtractHookScript(rel, data, config)
+		return importer.DefaultExtractHookScript(rel, data, config)
 	case importer.KindRule:
-		return extractRule(rel, data, config)
+		return importer.DefaultExtractRule(rel, data, c.Provider(), config)
 	case importer.KindWorkflow:
 		return extractWorkflow(rel, data, config)
 	case importer.KindMCP:
@@ -107,24 +103,26 @@ func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	err := importer.WalkProviderDir(dir, func(rel string, data []byte) error {
 		kind, _ := c.Classify(rel, false)
 		if kind == importer.KindUnknown {
+			// Store unclassified files for later inspection
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["claude"] == nil {
-				config.ProviderExtras["claude"] = make(map[string][]byte)
+			if config.ProviderExtras[c.Provider()] == nil {
+				config.ProviderExtras[c.Provider()] = make(map[string][]byte)
 			}
-			config.ProviderExtras["claude"][rel] = data
+			config.ProviderExtras[c.Provider()][rel] = data
 			return nil
 		}
 		if extractErr := c.Extract(rel, data, config); extractErr != nil {
+			// Store extraction error in ProviderExtras for later review
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["claude"] == nil {
-				config.ProviderExtras["claude"] = make(map[string][]byte)
+			if config.ProviderExtras[c.Provider()] == nil {
+				config.ProviderExtras[c.Provider()] = make(map[string][]byte)
 			}
-			config.ProviderExtras["claude"][rel] = data
-			c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
+			config.ProviderExtras[c.Provider()][rel] = data
+			c.AppendWarning(fmt.Sprintf("skipped %q: %v", rel, extractErr))
 		}
 		return nil
 	})
@@ -138,7 +136,7 @@ func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 		agentID := strings.SplitN(memPath, "/", 2)[0]
 		if len(config.Agents) > 0 {
 			if _, ok := config.Agents[agentID]; !ok {
-				c.Warnings = append(c.Warnings, fmt.Sprintf("memory for agent %q has no matching agent definition; will import to xcf/agents/%s/memory/", agentID, agentID))
+				c.AppendWarning(fmt.Sprintf("memory for agent %q has no matching agent definition; will import to xcf/agents/%s/memory/", agentID, agentID))
 			}
 		}
 	}
@@ -257,77 +255,6 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets:                front.Targets,
 		Body:                   body,
 		SourceProvider:         "claude",
-	}
-	return nil
-}
-
-// extractSkillAsset records a skill companion file (references/*, scripts/*, assets/*)
-// in the parent skill's corresponding slice. rel is the path relative to InputDir()
-// and must match the pattern "skills/<id>/<sub>/<file>".
-// If the parent skill does not yet exist in config, it is created with a minimal entry
-// so that the path reference is preserved even when SKILL.md is walked after the asset.
-func extractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) error {
-	// rel looks like: skills/tdd/references/schema.sql
-	parts := strings.SplitN(rel, "/", 4)
-	if len(parts) < 4 {
-		return fmt.Errorf("claude: skill asset path too short: %q", rel)
-	}
-	skillID := parts[1]
-	subDir := parts[2]                        // "references", "scripts", or "assets"
-	relWithinSkill := subDir + "/" + parts[3] // e.g. "references/schema.sql"
-
-	if config.Skills == nil {
-		config.Skills = make(map[string]ast.SkillConfig)
-	}
-	skill := config.Skills[skillID]
-	switch subDir {
-	case "references":
-		skill.References = ast.ClearableList{Values: importer.AppendUnique(skill.References.Values, relWithinSkill)}
-	case "scripts":
-		skill.Scripts = ast.ClearableList{Values: importer.AppendUnique(skill.Scripts.Values, relWithinSkill)}
-	case "assets":
-		skill.Assets = ast.ClearableList{Values: importer.AppendUnique(skill.Assets.Values, relWithinSkill)}
-	}
-	config.Skills[skillID] = skill
-	return nil
-}
-
-func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	var front struct {
-		Name          string                        `yaml:"name"`
-		Description   string                        `yaml:"description"`
-		AlwaysApply   *bool                         `yaml:"always-apply"`
-		Activation    string                        `yaml:"activation"`
-		Paths         []string                      `yaml:"paths"`
-		ExcludeAgents []string                      `yaml:"exclude-agents"`
-		Targets       map[string]ast.TargetOverride `yaml:"targets"`
-	}
-
-	body, err := importer.ParseFrontmatterLenient(data, &front)
-	if err != nil {
-		return fmt.Errorf("claude: rule %q: %w", rel, err)
-	}
-
-	// Derive the rule ID as the path relative to "rules/", with extension stripped.
-	// For flat rules (rules/security.md) this is "security".
-	// For nested rules (rules/cli/testing-framework.md) this is "cli/testing-framework",
-	// which preserves uniqueness and mirrors the directory structure.
-	rulesPrefix := "rules/"
-	relFromRules := strings.TrimPrefix(filepath.ToSlash(rel), rulesPrefix)
-	id := strings.TrimSuffix(relFromRules, ".md")
-	if config.Rules == nil {
-		config.Rules = make(map[string]ast.RuleConfig)
-	}
-	config.Rules[id] = ast.RuleConfig{
-		Name:           front.Name,
-		Description:    front.Description,
-		AlwaysApply:    front.AlwaysApply,
-		Activation:     front.Activation,
-		Paths:          ast.ClearableList{Values: front.Paths},
-		ExcludeAgents:  ast.ClearableList{Values: front.ExcludeAgents},
-		Targets:        front.Targets,
-		Body:           body,
-		SourceProvider: "claude",
 	}
 	return nil
 }

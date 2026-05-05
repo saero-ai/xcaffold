@@ -1,0 +1,6 @@
+---
+name: Code Formatting
+description: Code formatting standards
+globs: ["**/*.go", "**/*.ts"]
+---
+Follow Go and TypeScript formatting standards.

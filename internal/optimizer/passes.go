@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/saero-ai/xcaffold/providers"
 )
 
 // BudgetKindType names the unit of measurement for a size budget.
@@ -70,26 +71,27 @@ func ParseBudget(s string) (Budget, error) {
 	return Budget{Kind: kind, Value: value}, nil
 }
 
-// DefaultBudget returns the recommended per-target budget hint.
-//
-//	claude:      lines:200
-//	antigravity: bytes:12000
-//	copilot:     bytes:4000
-//	cursor:      lines:500
-//	gemini:      none
+// DefaultBudget returns the recommended per-target budget hint from the
+// provider manifest. Unknown providers return BudgetKindNone.
 func DefaultBudget(target string) Budget {
-	switch target {
-	case "claude":
-		return Budget{Kind: BudgetKindLines, Value: 200}
-	case "antigravity":
-		return Budget{Kind: BudgetKindBytes, Value: 12000}
-	case "copilot":
-		return Budget{Kind: BudgetKindBytes, Value: 4000}
-	case "cursor":
-		return Budget{Kind: BudgetKindLines, Value: 500}
+	m, ok := providers.ManifestFor(target)
+	if !ok || m.BudgetKind == "" {
+		return Budget{Kind: BudgetKindNone}
+	}
+
+	var kind BudgetKindType
+	switch m.BudgetKind {
+	case "lines":
+		kind = BudgetKindLines
+	case "bytes":
+		kind = BudgetKindBytes
+	case "items":
+		kind = BudgetKindItems
 	default:
 		return Budget{Kind: BudgetKindNone}
 	}
+
+	return Budget{Kind: kind, Value: m.DefaultBudget}
 }
 
 // ---------------------------------------------------------------------------

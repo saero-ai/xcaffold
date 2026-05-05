@@ -182,7 +182,7 @@ func TestIntegration_JudgeMockAPIServer(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	j, err := judge.New("test-api-key", "", "", "", "", &http.Client{
+	j, err := judge.New("test-api-key", "", "", "claude-haiku-4-5", "", &http.Client{
 		Transport: &rewriteTransport{target: ts.URL},
 	})
 	require.NoError(t, err)
@@ -215,7 +215,7 @@ func TestIntegration_JudgeSubscriptionFallback(t *testing.T) {
 	t.Logf("Found claude at: %s", claudePath)
 
 	// Verify the judge selects subscription mode with no key.
-	j, err := judge.New("", "", "", "", claudePath, nil)
+	j, err := judge.New("", "", "", "claude-haiku-4-5", claudePath, nil)
 	require.NoError(t, err)
 	assert.Equal(t, auth.AuthModeSubscription, j.AuthMode())
 	t.Log("✓ Auth mode correctly set to: subscription")

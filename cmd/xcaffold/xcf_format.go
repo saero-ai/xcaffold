@@ -95,15 +95,27 @@ type projectSplitDoc struct {
 
 // hooksSplitDoc is the serialization envelope for kind: hooks in split-file mode.
 type hooksSplitDoc struct {
-	Kind    string         `yaml:"kind"`
-	Version string         `yaml:"version"`
-	Events  ast.HookConfig `yaml:"events"`
+	Kind    string                        `yaml:"kind"`
+	Version string                        `yaml:"version"`
+	Events  ast.HookConfig                `yaml:"events"`
+	Targets map[string]ast.TargetOverride `yaml:"targets,omitempty"`
 }
 
 // settingsSplitDoc is the serialization envelope for kind: settings in split-file mode.
 type settingsSplitDoc struct {
 	Kind               string `yaml:"kind"`
 	Version            string `yaml:"version"`
+	ast.SettingsConfig `yaml:",inline"`
+}
+
+// hooksOverrideDoc is for serializing provider-specific hook overrides (no kind/version).
+type hooksOverrideDoc struct {
+	Events  ast.HookConfig                `yaml:"events"`
+	Targets map[string]ast.TargetOverride `yaml:"targets,omitempty"`
+}
+
+// settingsOverrideDoc is for serializing provider-specific settings overrides (no kind/version).
+type settingsOverrideDoc struct {
 	ast.SettingsConfig `yaml:",inline"`
 }
 
@@ -320,7 +332,7 @@ func isZeroSettings(s ast.SettingsConfig) bool {
 		len(s.Env) == 0 &&
 		len(s.EnabledPlugins) == 0 &&
 		len(s.AvailableModels) == 0 &&
-		len(s.ClaudeMdExcludes) == 0 &&
+		len(s.MdExcludes) == 0 &&
 		s.CleanupPeriodDays == nil &&
 		s.IncludeGitInstructions == nil &&
 		s.SkipDangerousModePermissionPrompt == nil &&
@@ -652,6 +664,7 @@ func writeHooksFiles(config *ast.XcaffoldConfig, xcfDir, version string) error {
 			Kind:    "hooks",
 			Version: version,
 			Events:  hook.Events,
+			Targets: hook.Targets,
 		}
 
 		// Directory layout: xcf/hooks/<name>/hooks.xcf
@@ -663,6 +676,23 @@ func writeHooksFiles(config *ast.XcaffoldConfig, xcfDir, version string) error {
 
 		if err := writeYAMLFile(outPath, doc); err != nil {
 			return err
+		}
+
+		// Write hooks overrides: hooks.<provider>.xcf
+		if config.Overrides != nil {
+			if providers := config.Overrides.HooksProviders(k); len(providers) > 0 {
+				for _, provider := range providers {
+					overrideCfg, _ := config.Overrides.GetHooks(k, provider)
+					overridePath := filepath.Join(hookSubDir, fmt.Sprintf("hooks.%s.xcf", provider))
+					overrideDoc := hooksOverrideDoc{
+						Events:  overrideCfg.Events,
+						Targets: overrideCfg.Targets,
+					}
+					if err := writeYAMLFile(overridePath, overrideDoc); err != nil {
+						return err
+					}
+				}
+			}
 		}
 	}
 	return nil
@@ -698,6 +728,23 @@ func writeSettingsFiles(config *ast.XcaffoldConfig, xcfDir, version string) erro
 
 		if err := writeYAMLFile(outPath, doc); err != nil {
 			return err
+		}
+
+		// Write settings overrides: settings.<provider>.xcf
+		if config.Overrides != nil {
+			if providers := config.Overrides.SettingsProviders(k); len(providers) > 0 {
+				for _, provider := range providers {
+					overrideCfg, _ := config.Overrides.GetSettings(k, provider)
+					overrideCfg.Name = ""
+					overridePath := filepath.Join(settingsSubDir, fmt.Sprintf("settings.%s.xcf", provider))
+					overrideDoc := settingsOverrideDoc{
+						SettingsConfig: overrideCfg,
+					}
+					if err := writeYAMLFile(overridePath, overrideDoc); err != nil {
+						return err
+					}
+				}
+			}
 		}
 	}
 	return nil

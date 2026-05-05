@@ -9,6 +9,7 @@ import (
 func init() {
 	providers.Register(Manifest)
 	importer.Register(NewImporter())
+	renderer.RegisterModelResolver("cursor", NewModelResolver())
 }
 
 // Manifest describes the Cursor provider's capabilities and factories.
@@ -17,7 +18,8 @@ var Manifest = providers.ProviderManifest{
 	OutputDir:      ".cursor",
 	ValidNames:     []string{"cursor"},
 	RequiredPasses: []string{"inline-imports"},
-	DefaultBudget:  0,
+	DefaultBudget:  500,
+	BudgetKind:     "lines",
 	KindSupport: map[string]bool{
 		"agent":       true,
 		"skill":       true,
@@ -26,6 +28,16 @@ var Manifest = providers.ProviderManifest{
 		"hook-script": true,
 	},
 	RootContextFile: "AGENTS.md",
-	NewRenderer:     func() renderer.TargetRenderer { return New() },
-	NewImporter:     func() importer.ProviderImporter { return NewImporter() },
+	SubdirMap: map[string]string{
+		"references": "references",
+		"scripts":    "scripts",
+		"assets":     "assets",
+	},
+	SkillMDAsReference: false,
+	DisplayLabel:       "Cursor",
+	CLIBinary:          "cursor",
+	DefaultModel:       "cursor-default",
+	NewRenderer:        func() renderer.TargetRenderer { return New() },
+	NewModelResolver:   func() renderer.ModelResolver { return NewModelResolver() },
+	NewImporter:        func() importer.ProviderImporter { return NewImporter() },
 }

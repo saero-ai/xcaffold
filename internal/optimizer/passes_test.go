@@ -105,3 +105,61 @@ func TestApplyInlineImports_NoDirectives_NoChange(t *testing.T) {
 	assert.Equal(t, files, result)
 	assert.Empty(t, notes)
 }
+
+// ---------------------------------------------------------------------------
+// DefaultBudget tests
+// ---------------------------------------------------------------------------
+
+func TestDefaultBudget_UsesManifest(t *testing.T) {
+	tests := []struct {
+		name     string
+		target   string
+		wantKind optimizer.BudgetKindType
+		wantVal  int
+	}{
+		{
+			name:     "claude",
+			target:   "claude",
+			wantKind: optimizer.BudgetKindLines,
+			wantVal:  200,
+		},
+		{
+			name:     "antigravity",
+			target:   "antigravity",
+			wantKind: optimizer.BudgetKindBytes,
+			wantVal:  12000,
+		},
+		{
+			name:     "copilot",
+			target:   "copilot",
+			wantKind: optimizer.BudgetKindBytes,
+			wantVal:  4000,
+		},
+		{
+			name:     "cursor",
+			target:   "cursor",
+			wantKind: optimizer.BudgetKindLines,
+			wantVal:  500,
+		},
+		{
+			name:     "gemini (no budget)",
+			target:   "gemini",
+			wantKind: optimizer.BudgetKindNone,
+			wantVal:  0,
+		},
+		{
+			name:     "unknown provider",
+			target:   "nonexistent",
+			wantKind: optimizer.BudgetKindNone,
+			wantVal:  0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := optimizer.DefaultBudget(tt.target)
+			assert.Equal(t, tt.wantKind, b.Kind, "budget kind mismatch")
+			assert.Equal(t, tt.wantVal, b.Value, "budget value mismatch")
+		})
+	}
+}

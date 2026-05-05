@@ -203,11 +203,9 @@ func TestCursorExtract_ExtrasCollection(t *testing.T) {
 	assert.NotEmpty(t, config.Agents)
 	assert.NotEmpty(t, config.Skills)
 	assert.NotEmpty(t, config.Rules)
-	// some-unknown-file is unknown — should appear in ProviderExtras
-	extras, hasProvider := config.ProviderExtras["cursor"]
-	require.True(t, hasProvider, "expected ProviderExtras to have 'cursor' entry")
-	_, hasUnknown := extras["some-unknown-file"]
-	assert.True(t, hasUnknown, "expected 'some-unknown-file' in ProviderExtras")
+	// Unknown files are skipped by RunImport; only extraction errors appear in ProviderExtras
+	// Verify that there are no errors (all files parsed successfully)
+	assert.True(t, len(imp.GetWarnings()) == 0, "expected no extraction warnings")
 }
 
 // --- Full workspace golden test ---
@@ -246,6 +244,6 @@ func TestCursorImporter_FullWorkspace(t *testing.T) {
 	_, ok = config.MCP["github"]
 	require.True(t, ok, "expected mcp server 'github' from mcp.json")
 
-	// Unknown file goes to extras
-	assert.NotEmpty(t, config.ProviderExtras["cursor"])
+	// Unknown files are skipped by RunImport; verify no extraction errors
+	assert.True(t, len(imp.GetWarnings()) == 0, "expected no extraction warnings")
 }

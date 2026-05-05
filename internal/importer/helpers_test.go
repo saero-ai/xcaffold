@@ -176,3 +176,121 @@ func TestExtractHookScript(t *testing.T) {
 		t.Errorf("expected 'echo hello', got %s", string(data))
 	}
 }
+
+func TestDefaultExtractRule_ParsesFrontmatter(t *testing.T) {
+	input := []byte("---\nname: secure-coding\ndescription: Security standards\nalways-apply: true\n---\nNo secrets in plaintext.")
+	config := &ast.XcaffoldConfig{}
+
+	err := importer.DefaultExtractRule("rules/secure-coding.md", input, "test-provider", config)
+	require.NoError(t, err)
+
+	rule, ok := config.Rules["secure-coding"]
+	require.True(t, ok, "rule secure-coding not found")
+	assert.Equal(t, "secure-coding", rule.Name)
+	assert.Equal(t, "Security standards", rule.Description)
+	assert.True(t, *rule.AlwaysApply)
+	assert.Equal(t, "No secrets in plaintext.", rule.Body)
+	assert.Equal(t, "test-provider", rule.SourceProvider)
+}
+
+func TestDefaultExtractRule_NestedPaths(t *testing.T) {
+	input := []byte("---\nname: cli-testing\n---\nTest rules for CLI.")
+	config := &ast.XcaffoldConfig{}
+
+	err := importer.DefaultExtractRule("rules/cli/testing.md", input, "test-provider", config)
+	require.NoError(t, err)
+
+	rule, ok := config.Rules["cli/testing"]
+	require.True(t, ok, "rule cli/testing not found")
+	assert.Equal(t, "cli-testing", rule.Name)
+}
+
+func TestDefaultExtractRule_WithPaths(t *testing.T) {
+	input := []byte("---\nname: test-rule\npaths:\n  - \"*.go\"\n  - \"**/*.md\"\n---\nBody.")
+	config := &ast.XcaffoldConfig{}
+
+	err := importer.DefaultExtractRule("rules/test-rule.md", input, "test-provider", config)
+	require.NoError(t, err)
+
+	rule, ok := config.Rules["test-rule"]
+	require.True(t, ok)
+	assert.Equal(t, []string{"*.go", "**/*.md"}, rule.Paths.Values)
+}
+
+func TestDefaultExtractSkillAsset_References(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Skills = make(map[string]ast.SkillConfig)
+	config.Skills["tdd"] = ast.SkillConfig{Name: "tdd"}
+
+	err := importer.DefaultExtractSkillAsset("skills/tdd/references/guide.md", []byte("guide"), config)
+	require.NoError(t, err)
+
+	skill := config.Skills["tdd"]
+	assert.Equal(t, []string{"references/guide.md"}, skill.References.Values)
+}
+
+func TestDefaultExtractSkillAsset_Scripts(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Skills = make(map[string]ast.SkillConfig)
+	config.Skills["tdd"] = ast.SkillConfig{Name: "tdd"}
+
+	err := importer.DefaultExtractSkillAsset("skills/tdd/scripts/helper.sh", []byte("script"), config)
+	require.NoError(t, err)
+
+	skill := config.Skills["tdd"]
+	assert.Equal(t, []string{"scripts/helper.sh"}, skill.Scripts.Values)
+}
+
+func TestDefaultExtractSkillAsset_Assets(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Skills = make(map[string]ast.SkillConfig)
+	config.Skills["tdd"] = ast.SkillConfig{Name: "tdd"}
+
+	err := importer.DefaultExtractSkillAsset("skills/tdd/assets/data.json", []byte("{}"), config)
+	require.NoError(t, err)
+
+	skill := config.Skills["tdd"]
+	assert.Equal(t, []string{"assets/data.json"}, skill.Assets.Values)
+}
+
+func TestDefaultExtractSkillAsset_AppendsUnique(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Skills = make(map[string]ast.SkillConfig)
+	config.Skills["tdd"] = ast.SkillConfig{
+		Name:       "tdd",
+		References: ast.ClearableList{Values: []string{"references/existing.md"}},
+	}
+
+	err := importer.DefaultExtractSkillAsset("skills/tdd/references/new.md", []byte("new"), config)
+	require.NoError(t, err)
+
+	skill := config.Skills["tdd"]
+	assert.Equal(t, []string{"references/existing.md", "references/new.md"}, skill.References.Values)
+}
+
+func TestDefaultExtractSkillAsset_InvalidPath(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	err := importer.DefaultExtractSkillAsset("skills/tdd", []byte(""), config)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "too short")
+}
+
+func TestDefaultExtractSkillAsset_UnknownSubdir(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Skills = make(map[string]ast.SkillConfig)
+	config.Skills["tdd"] = ast.SkillConfig{Name: "tdd"}
+
+	err := importer.DefaultExtractSkillAsset("skills/tdd/unknown/file.txt", []byte(""), config)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown subdirectory")
+}
+
+func TestDefaultExtractHookScript_DelegatesToExtractHookScript(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	err := importer.DefaultExtractHookScript("hooks/test.sh", []byte("echo test"), config)
+	require.NoError(t, err)
+
+	data, ok := config.ProviderExtras["xcf"]["hooks/test.sh"]
+	require.True(t, ok)
+	assert.Equal(t, "echo test", string(data))
+}

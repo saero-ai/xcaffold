@@ -213,16 +213,10 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 		configDir = dir
 	}
 
-	candidates := []string{
-		filepath.Join(configDir, ".xcaffold", "project.xcf"),
-		filepath.Join(configDir, "project.xcf"),
-	}
-	xcfPath = configDir
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			xcfPath = c
-			break
-		}
+	// Look for project.xcf at the root of configDir
+	xcfPath = filepath.Join(configDir, "project.xcf")
+	if _, err := os.Stat(xcfPath); err != nil {
+		xcfPath = configDir
 	}
 
 	projectRoot = configDir

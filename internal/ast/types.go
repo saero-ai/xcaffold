@@ -63,7 +63,7 @@ type ProjectConfig struct {
 	License     string `yaml:"license,omitempty"`
 	BackupDir   string `yaml:"backup-dir,omitempty"`
 
-	// Targets lists the compilation targets (e.g. "claude", "antigravity").
+	// Targets lists the compilation targets for this project.
 	// Populated by the parser when decoding kind: project documents.
 	Targets []string `yaml:"-"`
 
@@ -81,7 +81,7 @@ type ProjectConfig struct {
 	// Order in this slice is authoritative (depth ascending, then alphabetical).
 
 	// TargetOptions holds per-provider compile-time options for the project.
-	// Keys are provider names (e.g. "copilot", "cursor"). Values are TargetOverride
+	// Keys are registered provider names. Values are TargetOverride
 	// instances. Only fields relevant to the named provider are examined.
 	TargetOptions map[string]TargetOverride `yaml:"target-options,omitempty"`
 
@@ -619,6 +619,11 @@ type NamedHookConfig struct {
 	// +xcf:pattern=^[a-z0-9-]+$
 	Name string `yaml:"name,omitempty"`
 
+	// Human-readable purpose of this hook block.
+	// +xcf:optional
+	// +xcf:group=Identity
+	Description string `yaml:"description,omitempty"`
+
 	// Named subdirectories to copy from xcf/hooks/<name>/ to provider hook dirs.
 	// +xcf:optional
 	// +xcf:group=Composition
@@ -630,6 +635,20 @@ type NamedHookConfig struct {
 	// +xcf:group=Events
 	// +xcf:provider=claude:optional
 	Events HookConfig `yaml:"events,omitempty"`
+
+	// Per-provider behavioral overrides for this hook block.
+	// +xcf:optional
+	// +xcf:group=Multi-Target
+	// +xcf:type=map
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // MCPConfig defines a local or remote MCP server context.
@@ -666,6 +685,11 @@ type MCPConfig struct {
 	// +xcf:group=Identity
 	// +xcf:pattern=^[a-z0-9-]+$
 	Name string `yaml:"name,omitempty" json:"-"`
+
+	// Human-readable purpose of this MCP server.
+	// +xcf:optional
+	// +xcf:group=Identity
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 
 	// Server type (stdio or sse).
 	// +xcf:optional
@@ -710,6 +734,12 @@ type MCPConfig struct {
 	// +xcf:type=[]string
 	// +xcf:provider=claude:optional
 	DisabledTools []string `yaml:"disabled-tools,omitempty" json:"disabledTools,omitempty"`
+
+	// Per-provider behavioral overrides for this MCP server.
+	// +xcf:optional
+	// +xcf:group=Multi-Target
+	// +xcf:type=map
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
@@ -781,6 +811,11 @@ type SettingsConfig struct {
 	// +xcf:required
 	// +xcf:group=Identity
 	Name string `yaml:"name,omitempty" json:"-"`
+
+	// Human-readable purpose of this settings block.
+	// +xcf:optional
+	// +xcf:group=Identity
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 
 	// Agent configuration object passed through to the provider.
 	// +xcf:optional
@@ -926,11 +961,21 @@ type SettingsConfig struct {
 	// +xcf:type=[]string
 	AvailableModels []string `yaml:"available-models,omitempty" json:"availableModels,omitempty"`
 
-	// Glob patterns for paths excluded from CLAUDE.md scanning.
+	// Glob patterns for paths excluded from root context file scanning.
 	// +xcf:optional
 	// +xcf:group=Platform
 	// +xcf:type=[]string
-	ClaudeMdExcludes []string `yaml:"claude-md-excludes,omitempty" json:"claudeMdExcludes,omitempty"`
+	MdExcludes []string `yaml:"md-excludes,omitempty" json:"mdExcludes,omitempty"`
+
+	// Per-provider behavioral overrides for this settings block.
+	// +xcf:optional
+	// +xcf:group=Multi-Target
+	// +xcf:type=map
+	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
 
 	// SourceProvider identifies the provider this settings block was imported from.
 	// Set by the import pipeline; never serialized.
@@ -939,11 +984,8 @@ type SettingsConfig struct {
 
 // TestConfig holds project-level configuration for `xcaffold test`.
 type TestConfig struct {
-	// CliPath is the path to the CLI binary (e.g., claude, cursor). Defaults to "claude" on $PATH.
+	// CliPath is the path to the CLI binary (e.g., claude, cursor). Required for CLI auth mode.
 	CliPath string `yaml:"cli-path,omitempty"`
-
-	// ClaudePath is deprecated in favor of CliPath but retained for backward compatibility.
-	ClaudePath string `yaml:"claude-path,omitempty"`
 
 	// JudgeModel is the generative model used for LLM-as-a-Judge evaluation.
 	JudgeModel string `yaml:"judge-model,omitempty"`
@@ -1056,6 +1098,14 @@ type PolicyConfig struct {
 	// +xcf:group=Deny Rules
 	// +xcf:type=[]PolicyDeny
 	Deny []PolicyDeny `yaml:"deny,omitempty"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // PolicyMatch filters which resources a policy evaluates. All conditions
@@ -1103,6 +1153,10 @@ type MemoryConfig struct {
 
 	// Owning agent derived from directory placement at parse time.
 	AgentRef string `yaml:"-"`
+
+	// Inherited is set by the parser when this resource originates from an
+	// extends: global base config. It is never serialized.
+	Inherited bool `yaml:"-"`
 
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
@@ -1266,6 +1320,10 @@ type BlueprintConfig struct {
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
+
+	// SourceProvider identifies the provider this resource was imported from.
+	// Set by the import pipeline; never serialized.
+	SourceProvider string `yaml:"-" json:"-"`
 }
 
 // ResourceOverrides stores parsed .<provider>.xcf partial configs for all 9 kinds.
@@ -1638,6 +1696,21 @@ func (c *XcaffoldConfig) StripInherited() {
 			delete(c.Workflows, k)
 		}
 	}
-	// Memory is convention-based (filesystem scan), not parser-inherited.
-	// No inherited filtering needed.
+	for k, v := range c.Hooks {
+		if v.Inherited {
+			delete(c.Hooks, k)
+		}
+	}
+	for k, v := range c.Settings {
+		if v.Inherited {
+			delete(c.Settings, k)
+		}
+	}
+	// Hooks and Settings use additive/override merge semantics — the parser
+	// does not currently mark them as Inherited during extends resolution.
+	// The loops above are forward-compatible for provider import pipelines
+	// that will set Inherited on provider-sourced entries.
+	//
+	// Memory and Policies are convention-based or import-only; their Inherited
+	// fields are reserved for the import pipeline, not extends resolution.
 }

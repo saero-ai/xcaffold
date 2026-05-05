@@ -8,8 +8,31 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 )
 
-// loadGlobalBase loads the global configuration from ~/.xcaffold if it exists,
-// resolving any extends directives in the global config itself.
+// ParseFileExact reads a .xcf YAML configuration from the given path without
+// loading the global base. This is the internal entry point called by Parse* functions.
+func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not open config %q: %w", path, err)
+	}
+	defer f.Close()
+
+	// Prepend source path so kind-specific parsers can derive contextual
+	// metadata from the file's on-disk location (e.g., xcf/agents/<agentID>/memory/).
+	// Caller-supplied opts override this by appearing later in the slice.
+	opts = append([]parseOptionFunc{withSourcePath(path)}, opts...)
+
+	config, err := parsePartial(f, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("error in %q: %w", path, err)
+	}
+	return config, nil
+}
+
+// loadGlobalBase implicitly discovers and loads the global configuration
+// from ~/.xcaffold/ (or falls back to legacy ~/.claude/global.xcf).
+// It returns an empty config if no global config is found.
+// Resources loaded from this base are tagged as Inherited=true during merge.
 func loadGlobalBase() (*ast.XcaffoldConfig, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -254,7 +277,7 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		// Test now lives in ProjectConfig.
 		if p.Project != nil {
 			pTest := p.Project.Test
-			if pTest.CliPath != "" || pTest.ClaudePath != "" || pTest.JudgeModel != "" {
+			if pTest.CliPath != "" || pTest.JudgeModel != "" || pTest.Task != "" || pTest.MaxTurns != 0 {
 				if merged.Project == nil {
 					merged.Project = &ast.ProjectConfig{}
 				}
@@ -442,11 +465,14 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 			if child.Project.Test.CliPath != "" {
 				merged.Project.Test.CliPath = child.Project.Test.CliPath
 			}
-			if child.Project.Test.ClaudePath != "" {
-				merged.Project.Test.ClaudePath = child.Project.Test.ClaudePath
-			}
 			if child.Project.Test.JudgeModel != "" {
 				merged.Project.Test.JudgeModel = child.Project.Test.JudgeModel
+			}
+			if child.Project.Test.Task != "" {
+				merged.Project.Test.Task = child.Project.Test.Task
+			}
+			if child.Project.Test.MaxTurns > 0 {
+				merged.Project.Test.MaxTurns = child.Project.Test.MaxTurns
 			}
 			// Local settings override
 			var baseLocal ast.SettingsConfig
@@ -501,9 +527,10 @@ func mergeMapOverride[K comparable, V any](base, child map[K]V) map[K]V {
 	return merged
 }
 
-// mergeAgentsOverrideInherited merges two maps where base resources are tagged
+// mergeMapOverrideInherited merges two maps where base resources are tagged
 // Inherited=true. Child resources (which override base) take precedence and are
-// NOT tagged.
+// NOT tagged. This is implemented per concrete type because Go generics cannot
+// assign to struct fields through a type parameter without reflection.
 func mergeAgentsOverrideInherited(base, child map[string]ast.AgentConfig) map[string]ast.AgentConfig {
 	if base == nil && child == nil {
 		return nil
@@ -520,7 +547,6 @@ func mergeAgentsOverrideInherited(base, child map[string]ast.AgentConfig) map[st
 	return merged
 }
 
-// mergeContextsOverrideInherited merges two context maps with inherited tagging.
 func mergeContextsOverrideInherited(base, child map[string]ast.ContextConfig) map[string]ast.ContextConfig {
 	if base == nil && child == nil {
 		return nil
@@ -537,7 +563,6 @@ func mergeContextsOverrideInherited(base, child map[string]ast.ContextConfig) ma
 	return merged
 }
 
-// mergeSkillsOverrideInherited merges two skill maps with inherited tagging.
 func mergeSkillsOverrideInherited(base, child map[string]ast.SkillConfig) map[string]ast.SkillConfig {
 	if base == nil && child == nil {
 		return nil
@@ -554,7 +579,6 @@ func mergeSkillsOverrideInherited(base, child map[string]ast.SkillConfig) map[st
 	return merged
 }
 
-// mergeRulesOverrideInherited merges two rule maps with inherited tagging.
 func mergeRulesOverrideInherited(base, child map[string]ast.RuleConfig) map[string]ast.RuleConfig {
 	if base == nil && child == nil {
 		return nil
@@ -571,7 +595,6 @@ func mergeRulesOverrideInherited(base, child map[string]ast.RuleConfig) map[stri
 	return merged
 }
 
-// mergeMCPOverrideInherited merges two MCP maps with inherited tagging.
 func mergeMCPOverrideInherited(base, child map[string]ast.MCPConfig) map[string]ast.MCPConfig {
 	if base == nil && child == nil {
 		return nil
@@ -588,7 +611,6 @@ func mergeMCPOverrideInherited(base, child map[string]ast.MCPConfig) map[string]
 	return merged
 }
 
-// mergeWorkflowsOverrideInherited merges two workflow maps with inherited tagging.
 func mergeWorkflowsOverrideInherited(base, child map[string]ast.WorkflowConfig) map[string]ast.WorkflowConfig {
 	if base == nil && child == nil {
 		return nil
@@ -603,4 +625,32 @@ func mergeWorkflowsOverrideInherited(base, child map[string]ast.WorkflowConfig) 
 		merged[k] = v
 	}
 	return merged
+}
+
+// ParseFile reads a .xcf YAML configuration from the given path, resolving
+// 'extends:' references recursively. Evaluated as a strict, single file entry point.
+func ParseFile(path string) (*ast.XcaffoldConfig, error) {
+	globalConfig, err := loadGlobalBase()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load implicit global configuration: %w", err)
+	}
+
+	config, err := ParseFileExact(path)
+	if err != nil {
+		return nil, err
+	}
+	if config.Extends != "" {
+		config, err = resolveExtends(filepath.Dir(path), config)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Implicitly overlay the project configuration on top of the global base
+	merged := mergeConfigOverride(globalConfig, config)
+
+	if err := validateMerged(merged); err != nil {
+		return nil, fmt.Errorf("validation failed: %w", err)
+	}
+	return merged, nil
 }

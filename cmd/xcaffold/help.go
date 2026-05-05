@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/pkg/schema"
@@ -76,16 +77,20 @@ func printFieldConstraints(w io.Writer, f schema.Field) {
 // formatProviderSupport converts a provider map into a human-readable string.
 // Returns empty string if all providers are "unsupported".
 func formatProviderSupport(providers map[string]string) string {
-	// Provider names in desired order
-	order := []string{"claude", "gemini", "copilot", "cursor", "antigravity"}
+	// Collect supported providers in alphabetical order
+	var order []string
+	for name := range providers {
+		support := providers[name]
+		if support != "unsupported" && support != "xcaffold-only" {
+			order = append(order, name)
+		}
+	}
+	// Sort alphabetically for stable output
+	sort.Strings(order)
 
 	var parts []string
 	for _, name := range order {
-		support, ok := providers[name]
-		if !ok || support == "unsupported" || support == "xcaffold-only" {
-			continue
-		}
-
+		support := providers[name]
 		// Capitalize first letter of provider name
 		capitalized := strings.ToUpper(name[:1]) + name[1:]
 

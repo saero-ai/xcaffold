@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/judge"
 	"github.com/saero-ai/xcaffold/internal/llmclient"
 	"github.com/saero-ai/xcaffold/internal/parser"
@@ -112,7 +111,14 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	model := agentConfig.Model
 	if model == "" {
-		model = "claude-sonnet-4-20250514"
+		// Resolve default model from the first available CLI
+		detected := detectDefaultTarget()
+		if detected != "" {
+			model, _ = resolveTargetMeta(detected)
+		}
+		if model == "" {
+			return fmt.Errorf("agent %q does not specify a model in .xcf, and no CLI was detected on PATH", testAgentFlag)
+		}
 	}
 
 	client, err := llmclient.New(llmclient.Config{
@@ -120,7 +126,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 		GenericAPIKey:  genericAPIKey,
 		GenericAPIBase: genericAPIBase,
 		Model:          model,
-		CLIPath:        resolveCliPath(testCfg.CliPath, testCfg.ClaudePath),
+		CLIPath:        resolveCliPath(testCfg.CliPath),
 		MaxTokens:      4096,
 	})
 	if err != nil {
@@ -155,7 +161,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	// 10. Optional: Run LLM-as-a-Judge.
 	if testJudgeFlag {
-		cliPath := resolveCliPath(testCfg.CliPath, testCfg.ClaudePath)
+		cliPath := resolveCliPath(testCfg.CliPath)
 		if err := runJudge(summary, agentConfig.Assertions.Values, testCfg.JudgeModel, cliPath); err != nil {
 			return fmt.Errorf("judge evaluation failed: %w", err)
 		}
@@ -275,28 +281,28 @@ func runJudge(summary trace.Summary, assertions []string, configModel, cliPath s
 }
 
 // resolveCliPath returns the effective path to the underlying CLI binary.
-// Priority: CLI flag > project.xcf test.cli-path > default "claude".
-func resolveCliPath(cliPath, claudePath string) string {
+// Priority: CLI flag > project.xcf test.cli-path > empty string.
+// Callers must handle the empty string case when CLI mode is needed.
+func resolveCliPath(cliPath string) string {
 	if testCliPathFlag != "" {
 		return testCliPathFlag
 	}
 	if cliPath != "" {
 		return cliPath
 	}
-	if claudePath != "" {
-		return claudePath
-	}
-	return compiler.TargetClaude
+	return ""
 }
 
-// resolveJudgeModel returns the effective judge model.
-// Priority: CLI flag > project.xcf test.judge-model > default Haiku.
+// resolveJudgeModel returns the effective judge model for the LLM-as-a-Judge evaluation.
+// Priority: CLI flag > project.xcf test.judge-model > xcaffold's default judge model.
+// The default judge model is xcaffold's internal choice for evaluation, not a provider assumption.
 func resolveJudgeModel(xcfModel string) string {
+	const defaultJudgeModel = "claude-haiku-4-5-20251001"
 	if testJudgeModelFlag != "" {
 		return testJudgeModelFlag
 	}
 	if xcfModel != "" {
 		return xcfModel
 	}
-	return "claude-haiku-4-5-20251001"
+	return defaultJudgeModel
 }

@@ -3,75 +3,92 @@ package renderer
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/saero-ai/xcaffold/pkg/schema"
 )
 
-// modelAliases translates a user-friendly alias from an .xcf file into
-// a provider-specific actual model identifier.
-// If a target doesn't support model definition per agent, it will return an empty lookup.
-var modelAliases = map[string]map[string]string{
-	"sonnet-4": {
-		"claude":  "claude-sonnet-4-5",
-		"gemini":  "gemini-2.5-flash",
-		"copilot": "claude-sonnet-4-6",
-		"cursor":  "claude-sonnet-4-5",
-	},
-	"opus-4": {
-		"claude":  "claude-opus-4-7",
-		"gemini":  "gemini-2.5-pro",
-		"copilot": "claude-opus-4-7",
-		"cursor":  "claude-sonnet-4-5",
-	},
-	"haiku-3.5": {
-		"claude":  "claude-haiku-4-5",
-		"gemini":  "gemini-2.5-flash",
-		"copilot": "claude-haiku-4-5",
-		"cursor":  "claude-sonnet-4-5",
-	},
+var (
+	modelResolverMu sync.RWMutex
+	modelResolvers  = make(map[string]ModelResolver)
+)
+
+// RegisterModelResolver registers a ModelResolver for a provider.
+// This must be called during provider initialization (typically in manifest.go init() functions).
+func RegisterModelResolver(providerName string, resolver ModelResolver) {
+	modelResolverMu.Lock()
+	defer modelResolverMu.Unlock()
+	modelResolvers[providerName] = resolver
 }
 
-var knownClaudeAliases = map[string]bool{
-	"sonnet": true,
-	"opus":   true,
-	"haiku":  true,
+// LookupModelResolver retrieves the registered ModelResolver for a provider.
+// Returns nil if no resolver is registered for that provider.
+func LookupModelResolver(providerName string) ModelResolver {
+	modelResolverMu.RLock()
+	defer modelResolverMu.RUnlock()
+	return modelResolvers[providerName]
 }
 
-// IsKnownClaudeAlias returns true if the literal string is a naked tier name
-// typical of raw Claude Code usage.
-func IsKnownClaudeAlias(alias string) bool {
-	return knownClaudeAliases[strings.ToLower(alias)]
-}
-
-// ResolveModel takes an alias from the Xcaffold configuration and a target name (e.g. "claude", "cursor").
+// ResolveModel takes an alias from the Xcaffold configuration and a target name.
 // It returns the target-specific model string and a boolean indicating if the target expects one.
-// If the target doesn't support models (like antigravity), it returns ("", false).
+// If the target doesn't support models or the alias cannot be resolved, it returns ("", false).
+// Delegates to the provider's ModelResolver for the actual translation.
 func ResolveModel(alias, target string) (string, bool) {
-	if target == "antigravity" {
-		// Antigravity does not compile agents/skills that include the model field
+	resolver := LookupModelResolver(target)
+	if resolver == nil {
+		// Provider does not support model selection (e.g., antigravity)
 		return "", false
 	}
 
-	// If it's a known alias, return the translation
-	if mappings, ok := modelAliases[alias]; ok {
-		if val, exists := mappings[target]; exists {
-			return val, true
-		}
+	modelID, ok := resolver.ResolveAlias(alias)
+	if !ok {
+		// The alias could not be resolved by this provider's resolver
+		return "", false
 	}
 
-	// If it wasn't an alias, assume the user provided a full literal string
-	return alias, true
+	return modelID, true
 }
 
-// IsMappedModel returns true if the input alias was explicitly mapped for the given target.
-// This is used by renderers to determine if a model parameter was safely translated
-// or passed through as an unverified literal.
+// IsMappedModel returns true if the input alias is one of xcaffold's canonical
+// versioned aliases (sonnet-4, opus-4, haiku-3.5) that is explicitly mapped for
+// the given target. This is used to distinguish xcaffold-normalized aliases from
+// native provider literals or bare aliases.
+//
+// Note: This is different from whether the provider's resolver accepts the model.
+// A model might be accepted by the provider (e.g., bare "sonnet" on Claude) but
+// still not be a xcaffold-mapped alias.
 func IsMappedModel(alias, target string) bool {
-	if mappings, ok := modelAliases[alias]; ok {
-		_, exists := mappings[target]
-		return exists
+	// The xcaffold-canonical aliases that have explicit mappings per target
+	xcaffoldAliases := map[string]bool{
+		"sonnet-4":  true,
+		"opus-4":    true,
+		"haiku-3.5": true,
 	}
-	return false
+
+	// Only the canonical xcaffold aliases are "mapped"
+	if !xcaffoldAliases[alias] {
+		return false
+	}
+
+	resolver := LookupModelResolver(target)
+	if resolver == nil {
+		return false
+	}
+
+	_, ok := resolver.ResolveAlias(alias)
+	return ok
+}
+
+// IsKnownClaudeAlias returns true if the literal string is a naked tier name
+// typical of raw Claude Code usage (sonnet, opus, haiku).
+func IsKnownClaudeAlias(alias string) bool {
+	bare := strings.ToLower(alias)
+	switch bare {
+	case "sonnet", "opus", "haiku":
+		return true
+	default:
+		return false
+	}
 }
 
 // SanitizeAgentModel maps a model alias to a provider-specific literal.
@@ -89,16 +106,31 @@ func SanitizeAgentModel(model string, caps CapabilitySet, targetName, agentID st
 		return "", nil
 	}
 
+	// Check if this is a known bare alias and whether the target supports them
+	isClaudeAlias := IsKnownClaudeAlias(model)
+	isMapped := IsMappedModel(model, targetName)
+	resolver := LookupModelResolver(targetName)
+	supportsBare := resolver != nil && resolver.SupportsBareAliases()
+
 	resolved, ok := ResolveModel(model, targetName)
 	if !ok || resolved == "" {
-		return "", nil // Target does not expect one based on ResolveModel
+		// Resolution failed. If it's a bare alias on a target that doesn't support them, warn.
+		if isClaudeAlias && !supportsBare {
+			notes = append(notes, NewNote(
+				LevelWarning, targetName, "agent", agentID, "model",
+				CodeAgentModelUnmapped,
+				fmt.Sprintf("bare alias %q passed through for agent %q unmapped; this may fail on %s", model, agentID, targetName),
+				fmt.Sprintf("Use a mapped alias (e.g. sonnet-4) or a native literal for %s", targetName),
+			))
+		}
+		return "", notes
 	}
 
-	// We kept the field. But if it was NOT properly mapped...
-	if !IsMappedModel(model, targetName) {
-		// Is it a bare Claude alias (e.g. "sonnet", "opus", "haiku")?
-		if IsKnownClaudeAlias(model) {
-			if targetName == "claude" {
+	// We kept the field. Check if the model was NOT from the xcaffold alias list.
+	if !isMapped {
+		// Is it a bare alias (e.g. "sonnet", "opus", "haiku")?
+		if isClaudeAlias {
+			if supportsBare {
 				// Claude Code resolves bare tier aliases at runtime to the current
 				// recommended version. Pass through as-is and emit an info note.
 				// Ground truth: models.json verified 2026-04-30 — "sonnet", "opus",

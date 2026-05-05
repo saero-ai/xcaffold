@@ -26,6 +26,17 @@ type Diagnostic struct {
 	Message  string
 }
 
+// validateID checks that an ID contains no invalid characters.
+func validateID(kind, id string) error {
+	if strings.ContainsAny(id, "\\") || strings.Contains(id, "..") {
+		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
+	}
+	if strings.Contains(id, "/") && kind != "rule" {
+		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
+	}
+	return nil
+}
+
 // knownTools is the set of recognized tool names for permissions and agent tools.
 var knownTools = map[string]bool{
 	"Read": true, "Write": true, "Edit": true, "MultiEdit": true,
@@ -128,17 +139,6 @@ var reservedOutputPaths = []string{
 	".github/copilot-instructions.md",
 	".github/instructions/",
 	".github/prompts/",
-}
-
-// validateID checks that an ID contains no invalid characters.
-func validateID(kind, id string) error {
-	if strings.ContainsAny(id, "\\") || strings.Contains(id, "..") {
-		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
-	}
-	if strings.Contains(id, "/") && kind != "rule" {
-		return fmt.Errorf("%s id contains invalid characters: %q", kind, id)
-	}
-	return nil
 }
 
 // validateRuleActivations enforces activation enum and paths co-constraints

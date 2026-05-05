@@ -604,6 +604,15 @@ func init() {
 				Pattern:     "^[a-z0-9-]+$",
 			},
 			{
+				Name:        "Description",
+				YAMLKey:     "description",
+				GoType:      "string",
+				XCFType:     "string",
+				Optional:    true,
+				Description: "Human-readable purpose of this hook block.",
+				Group:       "Identity",
+			},
+			{
 				Name:        "Artifacts",
 				YAMLKey:     "artifacts",
 				GoType:      "[]string",
@@ -623,6 +632,15 @@ func init() {
 				Provider: map[string]string{
 					"claude": "optional",
 				},
+			},
+			{
+				Name:        "Targets",
+				YAMLKey:     "targets",
+				GoType:      "map[string]TargetOverride",
+				XCFType:     "map",
+				Optional:    true,
+				Description: "Per-provider behavioral overrides for this hook block.",
+				Group:       "Multi-Target",
 			},
 		},
 	}
@@ -690,6 +708,15 @@ func init() {
 				Description: "Unique identifier for this MCP server.",
 				Group:       "Identity",
 				Pattern:     "^[a-z0-9-]+$",
+			},
+			{
+				Name:        "Description",
+				YAMLKey:     "description",
+				GoType:      "string",
+				XCFType:     "string",
+				Optional:    true,
+				Description: "Human-readable purpose of this MCP server.",
+				Group:       "Identity",
 			},
 			{
 				Name:        "Type",
@@ -782,6 +809,15 @@ func init() {
 				Provider: map[string]string{
 					"claude": "optional",
 				},
+			},
+			{
+				Name:        "Targets",
+				YAMLKey:     "targets",
+				GoType:      "map[string]TargetOverride",
+				XCFType:     "map",
+				Optional:    true,
+				Description: "Per-provider behavioral overrides for this MCP server.",
+				Group:       "Multi-Target",
 			},
 		},
 	}
@@ -1025,6 +1061,15 @@ func init() {
 				XCFType:     "string",
 				Optional:    false,
 				Description: "Unique identifier for this settings block.",
+				Group:       "Identity",
+			},
+			{
+				Name:        "Description",
+				YAMLKey:     "description",
+				GoType:      "string",
+				XCFType:     "string",
+				Optional:    true,
+				Description: "Human-readable purpose of this settings block.",
 				Group:       "Identity",
 			},
 			{
@@ -1280,13 +1325,22 @@ func init() {
 				Group:       "Model",
 			},
 			{
-				Name:        "ClaudeMdExcludes",
-				YAMLKey:     "claude-md-excludes",
+				Name:        "MdExcludes",
+				YAMLKey:     "md-excludes",
 				GoType:      "[]string",
 				XCFType:     "[]string",
 				Optional:    true,
-				Description: "Glob patterns for paths excluded from CLAUDE.md scanning.",
+				Description: "Glob patterns for paths excluded from root context file scanning.",
 				Group:       "Platform",
+			},
+			{
+				Name:        "Targets",
+				YAMLKey:     "targets",
+				GoType:      "map[string]TargetOverride",
+				XCFType:     "map",
+				Optional:    true,
+				Description: "Per-provider behavioral overrides for this settings block.",
+				Group:       "Multi-Target",
 			},
 		},
 	}

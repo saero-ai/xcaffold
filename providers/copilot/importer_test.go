@@ -194,13 +194,7 @@ func TestCopilotImporter_FullWorkspace(t *testing.T) {
 	_, ok = config.MCP["github"]
 	require.True(t, ok, "expected mcp server 'github'")
 
-	// copilot-instructions.md is NOT classified — goes to extras
-	extras, hasProvider := config.ProviderExtras["copilot"]
-	require.True(t, hasProvider, "expected ProviderExtras to have 'copilot' entry")
-	_, hasCopilotInstructions := extras["copilot-instructions.md"]
-	assert.True(t, hasCopilotInstructions, "expected 'copilot-instructions.md' in extras")
-
-	// unknown-file also goes to extras
-	_, hasUnknown := extras["unknown-file"]
-	assert.True(t, hasUnknown, "expected 'unknown-file' in extras")
+	// copilot-instructions.md is NOT classified and is skipped by RunImport
+	// Verify that there are no extraction errors
+	assert.True(t, len(imp.GetWarnings()) == 0, "expected no extraction warnings")
 }

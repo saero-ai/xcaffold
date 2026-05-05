@@ -3,6 +3,7 @@ version: "1.0"
 
 # Identity
 name: golden-settings
+description: "Platform-wide settings and configuration defaults."
 
 # Model & execution
 model: claude-sonnet-4-5
@@ -150,8 +151,13 @@ available-models:
   - claude-sonnet-4-5
   - claude-haiku-4-5
 
-# Exclude patterns for CLAUDE.md
-claude-md-excludes:
+# Exclude patterns for root context file scanning
+md-excludes:
   - node_modules/**
   - .git/**
   - dist/**
+
+# Per-provider overrides
+targets:
+  claude:
+    suppress-fidelity-warnings: false

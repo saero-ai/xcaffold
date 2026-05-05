@@ -39,8 +39,6 @@ const (
 	maxResponseBytes = 4 * 1024 * 1024
 	// defaultHTTPTimeout is used when Config.HTTPClient is nil.
 	defaultHTTPTimeout = 60 * time.Second
-	// defaultCLIPath is the CLI binary name used when Config.CLIPath is empty.
-	defaultCLIPath = "claude"
 	// defaultGenericAPIBase is the fallback base URL for generic API requests.
 	defaultGenericAPIBase = "https://api.openai.com/v1"
 	// maxRetries is the maximum number of additional attempts after the first failure.
@@ -99,17 +97,15 @@ func New(cfg Config) (*Client, error) {
 		model = cfg.DefaultModel
 	}
 
-	// Apply CLI path default and sanitize.
+	// Sanitize CLI path if provided.
 	cliPath := cfg.CLIPath
-	if cliPath == "" {
-		cliPath = defaultCLIPath
-	} else if !strings.ContainsRune(cliPath, filepath.Separator) {
+	if cliPath != "" && !strings.ContainsRune(cliPath, filepath.Separator) {
 		// Bare name with no path separator — keep as-is for PATH lookup.
-		// filepath.Base on a bare name like "claude" is a no-op, but we apply
-		// it to satisfy the CLAUDE.md invariant.
 		cliPath = filepath.Base(cliPath)
 	}
 	// Paths that contain a separator are used as-is (absolute or relative).
+	// Empty CLI path is passed through — the caller is responsible for providing
+	// a path if CLI mode is used.
 
 	// Apply MaxTokens default.
 	maxTokens := cfg.MaxTokens

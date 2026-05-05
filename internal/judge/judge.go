@@ -12,8 +12,6 @@ import (
 	"github.com/saero-ai/xcaffold/internal/trace"
 )
 
-const defaultJudgeModel = "claude-haiku-4-5-20251001"
-
 const maxAssertionLen = 500
 
 // Report is the structured output of a Judge evaluation.
@@ -37,16 +35,17 @@ type Judge struct {
 //   - If genericAPIKey is present → AuthModeGenericAPI
 //   - If anthropicKey is present → AuthModeAPIKey
 //   - Otherwise → AuthModeSubscription (CLI fallback)
+//
+// The model parameter must not be empty.
 func New(anthropicKey, genericAPIKey, apiBaseURL, model, cliPath string, httpClient *http.Client) (*Judge, error) {
 	if model == "" {
-		model = defaultJudgeModel
+		return nil, fmt.Errorf("judge: model must be specified (cannot be empty)")
 	}
 	client, err := llmclient.New(llmclient.Config{
 		AnthropicKey:   anthropicKey,
 		GenericAPIKey:  genericAPIKey,
 		GenericAPIBase: apiBaseURL,
 		Model:          model,
-		DefaultModel:   defaultJudgeModel,
 		CLIPath:        cliPath,
 		MaxTokens:      2048,
 		HTTPClient:     httpClient,

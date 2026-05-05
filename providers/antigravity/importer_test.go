@@ -215,12 +215,6 @@ func TestAntigravityImporter_FullWorkspace(t *testing.T) {
 	// MCP from mcp_config.json
 	_, ok = config.MCP["filesystem"]
 	require.True(t, ok, "expected mcp server 'filesystem' from mcp_config.json")
-
-	// Unknown file goes to extras
-	extras, hasProvider := config.ProviderExtras["antigravity"]
-	require.True(t, hasProvider, "expected ProviderExtras to have 'antigravity' entry")
-	_, hasUnknown := extras["unknown-file"]
-	assert.True(t, hasUnknown, "expected 'unknown-file' in ProviderExtras")
 }
 
 // --- Extras collection test ---
@@ -237,8 +231,6 @@ func TestAntigravityImporter_ExtrasCollection(t *testing.T) {
 	assert.NotEmpty(t, config.Rules)
 	assert.NotEmpty(t, config.Workflows)
 
-	extras, hasProvider := config.ProviderExtras["antigravity"]
-	require.True(t, hasProvider)
-	_, hasUnknown := extras["unknown-file"]
-	assert.True(t, hasUnknown)
+	// Unknown files are silently skipped
+	assert.Empty(t, config.ProviderExtras["antigravity"])
 }

@@ -6,23 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TestTargetConstants verifies that apply.go target constants match compiler.Target* exports.
-// This test ensures no duplication exists and references use the canonical source.
-func TestTargetConstants(t *testing.T) {
-	assert.Equal(t, compiler.TargetClaude, "claude", "TargetClaude should be 'claude'")
-	assert.Equal(t, compiler.TargetCursor, "cursor", "TargetCursor should be 'cursor'")
-	assert.Equal(t, compiler.TargetAntigravity, "antigravity", "TargetAntigravity should be 'antigravity'")
-	assert.Equal(t, compiler.TargetCopilot, "copilot", "TargetCopilot should be 'copilot'")
-	assert.Equal(t, compiler.TargetGemini, "gemini", "TargetGemini should be 'gemini'")
-}
 
 // TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal verifies that
 // --blueprint and --global are mutually exclusive on apply.
@@ -43,17 +32,18 @@ func TestApply_Claude_CLAUDE_MD_WrittenAtProjectRoot(t *testing.T) {
 	// Use a minimal in-memory xcf with project instructions
 	dir := t.TempDir()
 
-	xcaffoldDir := filepath.Join(dir, ".xcaffold")
-	if err := os.MkdirAll(xcaffoldDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-	projectXcf := filepath.Join(xcaffoldDir, "project.xcf")
+	projectXcf := filepath.Join(dir, "project.xcf")
 	content := `---
 kind: project
 version: "1.0"
 name: test
 `
 	if err := os.WriteFile(projectXcf, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	xcaffoldDir := filepath.Join(dir, ".xcaffold")
+	if err := os.MkdirAll(xcaffoldDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -78,7 +68,7 @@ Use pnpm. PostgreSQL 16.
 
 	// Set up targetFlag for this test
 	oldTargetFlag := targetFlag
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	defer func() { targetFlag = oldTargetFlag }()
 
 	// Act
@@ -249,7 +239,7 @@ func TestRunApply_GlobalFlagFalse_CompilesProject(t *testing.T) {
 	xcfPath = xcf
 	projectRoot = dir
 	globalFlag = false
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
@@ -268,7 +258,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 
 	// First apply — should compile
 	applyForce = false
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
@@ -279,7 +269,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	// Read first state to get timestamp
 	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.Targets[compiler.TargetClaude].LastApplied
+	ts1 := m1.Targets["claude"].LastApplied
 
 	// Second apply — should skip (same sources)
 	err = applyScope(xcf, claudeDirPath, dir, "project")
@@ -288,7 +278,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	// State timestamp should NOT change (compilation was skipped)
 	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.Equal(t, ts1, m2.Targets[compiler.TargetClaude].LastApplied, "timestamp should not change when sources are unchanged")
+	assert.Equal(t, ts1, m2.Targets["claude"].LastApplied, "timestamp should not change when sources are unchanged")
 }
 
 func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
@@ -299,7 +289,7 @@ func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
 	claudeDirPath := filepath.Join(dir, ".claude")
 
 	applyForce = false
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 
 	// First apply
 	err := applyScope(xcf, claudeDirPath, dir, "project")
@@ -308,7 +298,7 @@ func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
 	stateFile := state.StateFilePath(dir, "")
 	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.Targets[compiler.TargetClaude].LastApplied
+	ts1 := m1.Targets["claude"].LastApplied
 
 	// Modify source
 	modifiedXCF := `kind: project
@@ -324,7 +314,7 @@ name: apply-test-modified
 
 	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.NotEqual(t, ts1, m2.Targets[compiler.TargetClaude].LastApplied, "timestamp should change when sources are modified")
+	assert.NotEqual(t, ts1, m2.Targets["claude"].LastApplied, "timestamp should change when sources are modified")
 }
 
 func TestApplyScope_ForceRecompiles(t *testing.T) {
@@ -334,7 +324,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 
 	// First apply (non-force)
 	applyForce = false
@@ -344,7 +334,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 	stateFile := state.StateFilePath(dir, "")
 	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.Targets[compiler.TargetClaude].LastApplied
+	ts1 := m1.Targets["claude"].LastApplied
 
 	// Second apply with --force — should recompile despite no changes
 	applyForce = true
@@ -354,7 +344,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 
 	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.NotEqual(t, ts1, m2.Targets[compiler.TargetClaude].LastApplied, "force should always recompile")
+	assert.NotEqual(t, ts1, m2.Targets["claude"].LastApplied, "force should always recompile")
 
 	// Reset
 	applyForce = false
@@ -384,7 +374,7 @@ You are a developer.
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	applyForce = true
 	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
@@ -438,7 +428,7 @@ You are a developer.
 	projectRoot = dir
 	globalFlag = false
 	applyForce = true
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	err := runApply(applyCmd, nil)
@@ -567,7 +557,7 @@ You are a developer.
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	applyForce = true
 	applyDryRun = false
 	err := applyScope(xcf, claudeDirPath, dir, "project")
@@ -611,7 +601,7 @@ version: "1"
 	claudeDirPath := filepath.Join(dir, ".claude")
 
 	applyForce = true
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	err := applyScope(xcf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
@@ -660,7 +650,7 @@ You are a developer.
 	applyForce = true
 	applyBackup = false
 	applyDryRun = false
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	// First apply: compile both targets and write state so the smart-skip path
@@ -734,7 +724,7 @@ Robert is the founder.
 `), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	applyForce = true
 	defer func() { applyForce = false }()
 
@@ -780,7 +770,7 @@ Use cobra for all commands.
 `), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	applyForce = true
 	defer func() { applyForce = false }()
 
@@ -806,7 +796,7 @@ func TestApplyScope_OrchestratorMemory_NoEntries_NoDir(t *testing.T) {
 	require.NoError(t, os.WriteFile(xcf, []byte(minimalXCF), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
-	targetFlag = compiler.TargetClaude
+	targetFlag = "claude"
 	applyForce = true
 	defer func() { applyForce = false }()
 

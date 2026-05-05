@@ -14,22 +14,18 @@ import (
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
 type GeminiImporter struct {
-	Warnings []string
+	importer.BaseImporter
 }
 
 // NewImporter returns a new GeminiImporter.
 func NewImporter() *GeminiImporter {
-	return &GeminiImporter{}
+	return &GeminiImporter{
+		BaseImporter: importer.BaseImporter{
+			ProviderName: "gemini",
+			Dir:          ".gemini",
+		},
+	}
 }
-
-// GetWarnings returns non-fatal per-file extraction errors collected during the last Import() call.
-func (g *GeminiImporter) GetWarnings() []string { return g.Warnings }
-
-// Provider returns the canonical provider name.
-func (g *GeminiImporter) Provider() string { return "gemini" }
-
-// InputDir returns the root directory relative to the workspace root.
-func (g *GeminiImporter) InputDir() string { return ".gemini" }
 
 // geminiMappings maps path patterns to AST kinds. First match wins.
 // Skills use DirectoryPerEntry layout: skills/<id>/SKILL.md plus assets.
@@ -73,10 +69,12 @@ func (g *GeminiImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 		return extractAgent(rel, data, config)
 	case importer.KindSkill:
 		return extractSkill(rel, data, config)
+	case importer.KindSkillAsset:
+		return importer.DefaultExtractSkillAsset(rel, data, config)
 	case importer.KindHookScript:
-		return importer.ExtractHookScript(rel, data, config)
+		return importer.DefaultExtractHookScript(rel, data, config)
 	case importer.KindRule:
-		return extractRule(rel, data, config)
+		return importer.DefaultExtractRule(rel, data, g.Provider(), config)
 	case importer.KindSettings:
 		return extractSettings(rel, data, config)
 	default:
@@ -95,24 +93,17 @@ func (g *GeminiImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
 		kind, _ := g.Classify(rel, false)
 		if kind == importer.KindUnknown {
-			if config.ProviderExtras == nil {
-				config.ProviderExtras = make(map[string]map[string][]byte)
-			}
-			if config.ProviderExtras["gemini"] == nil {
-				config.ProviderExtras["gemini"] = make(map[string][]byte)
-			}
-			config.ProviderExtras["gemini"][rel] = data
 			return nil
 		}
-		if extractErr := g.Extract(rel, data, config); extractErr != nil {
+		if err := g.Extract(rel, data, config); err != nil {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["gemini"] == nil {
-				config.ProviderExtras["gemini"] = make(map[string][]byte)
+			if config.ProviderExtras[g.Provider()] == nil {
+				config.ProviderExtras[g.Provider()] = make(map[string][]byte)
 			}
-			config.ProviderExtras["gemini"][rel] = data
-			g.Warnings = append(g.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
+			config.ProviderExtras[g.Provider()][rel] = data
+			g.AppendWarning(fmt.Sprintf("skipped %q: %v", rel, err))
 		}
 		return nil
 	})
@@ -233,40 +224,6 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets:                front.Targets,
 		Body:                   body,
 		SourceProvider:         "gemini",
-	}
-	return nil
-}
-
-func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	var front struct {
-		Name          string                        `yaml:"name"`
-		Description   string                        `yaml:"description"`
-		AlwaysApply   *bool                         `yaml:"always-apply"`
-		Activation    string                        `yaml:"activation"`
-		Paths         []string                      `yaml:"paths"`
-		ExcludeAgents []string                      `yaml:"exclude-agents"`
-		Targets       map[string]ast.TargetOverride `yaml:"targets"`
-	}
-
-	body, err := importer.ParseFrontmatter(data, &front)
-	if err != nil {
-		return fmt.Errorf("gemini: rule %q: %w", rel, err)
-	}
-
-	id := strings.TrimSuffix(filepath.Base(rel), ".md")
-	if config.Rules == nil {
-		config.Rules = make(map[string]ast.RuleConfig)
-	}
-	config.Rules[id] = ast.RuleConfig{
-		Name:           front.Name,
-		Description:    front.Description,
-		AlwaysApply:    front.AlwaysApply,
-		Activation:     front.Activation,
-		Paths:          ast.ClearableList{Values: front.Paths},
-		ExcludeAgents:  ast.ClearableList{Values: front.ExcludeAgents},
-		Targets:        front.Targets,
-		Body:           body,
-		SourceProvider: "gemini",
 	}
 	return nil
 }

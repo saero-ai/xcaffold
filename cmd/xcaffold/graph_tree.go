@@ -10,8 +10,10 @@ import (
 	"github.com/saero-ai/xcaffold/internal/analyzer"
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
+	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
+	"github.com/saero-ai/xcaffold/providers"
 )
 
 func runGraphTerminalMode() error {
@@ -202,15 +204,8 @@ func runGraphAll() error {
 	} else {
 		for _, p := range projects {
 			var xcfProjectPath string
-			candidates := []string{
-				filepath.Join(p.Path, ".xcaffold", "project.xcf"),
-				filepath.Join(p.Path, "project.xcf"),
-			}
-			for _, c := range candidates {
-				if _, err := os.Stat(c); err == nil {
-					xcfProjectPath = c
-					break
-				}
+			if _, err := os.Stat(filepath.Join(p.Path, "project.xcf")); err == nil {
+				xcfProjectPath = filepath.Join(p.Path, "project.xcf")
 			}
 			if xcfProjectPath != "" {
 				cfg, err := parser.ParseDirectory(getParseRoot(xcfProjectPath))
@@ -450,7 +445,20 @@ func printDiskEntriesIfAny(cfg *ast.XcaffoldConfig, parseRoot string) {
 		declared["policy:"+id] = true
 	}
 
-	targetDir := filepath.Join(parseRoot, ".claude") // Default target, should ideally use compiler.OutputDir(targetFlag) but we don't have access easily here.
+	outDir := compiler.OutputDir(targetFlag)
+	if outDir == "" {
+		// No target specified — use first registered provider's output dir.
+		for _, name := range providers.RegisteredNames() {
+			if d := compiler.OutputDir(name); d != "" {
+				outDir = d
+				break
+			}
+		}
+	}
+	if outDir == "" {
+		return // no providers registered, nothing to scan
+	}
+	targetDir := filepath.Join(parseRoot, outDir)
 	entries, err := a.ScanOutputDir(targetDir, declared)
 	if err == nil && len(entries) > 0 {
 		fmt.Printf("\n  [ UNDECLARED FILES ]  (!)\n")

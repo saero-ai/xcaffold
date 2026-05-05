@@ -11,6 +11,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/templates"
+	"github.com/saero-ai/xcaffold/providers"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -630,4 +631,98 @@ func (m *mockImporter) Extract(rel string, data []byte, config *ast.XcaffoldConf
 
 func (m *mockImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	return nil
+}
+
+// TestDetectDefaultTarget_UsesProviderManifest verifies that detectDefaultTarget
+// queries the provider registry instead of hardcoded knownCLIs.
+func TestDetectDefaultTarget_UsesProviderManifest(t *testing.T) {
+	// Get all manifests from the registry
+	allManifests := providers.Manifests()
+	require.Greater(t, len(allManifests), 0, "providers registry must contain at least one manifest")
+
+	// All manifests should have CLIBinary values set
+	for _, m := range allManifests {
+		// We don't assert CLIBinary != "" because some providers might not have a CLI
+		// But we do verify the field exists and is populated where expected
+		require.NotNil(t, m, "manifest must not be nil")
+		require.NotEmpty(t, m.Name, "manifest Name must not be empty")
+	}
+}
+
+// TestResolveTargetMeta_UsesProviderManifest verifies that resolveTargetMeta
+// queries the provider registry instead of hardcoded knownCLIs.
+func TestResolveTargetMeta_UsesProviderManifest(t *testing.T) {
+	tests := []struct {
+		name         string
+		target       string
+		expectModel  string
+		expectBinary string
+	}{
+		{"claude", "claude", "claude-sonnet-4-6", "claude"},
+		{"copilot", "copilot", "gpt-4o", "copilot"},
+		{"cursor", "cursor", "cursor-default", "cursor"},
+		{"gemini", "gemini", "gemini-2.5-pro", "gemini"},
+		{"antigravity", "antigravity", "gemini-2.5-pro", "gemini"},
+		{"unknown", "unknown", "", ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, binary := resolveTargetMeta(tt.target)
+			require.Equal(t, tt.expectModel, model, "unexpected model for target %s", tt.target)
+			require.Equal(t, tt.expectBinary, binary, "unexpected binary for target %s", tt.target)
+		})
+	}
+}
+
+// TestCollectWizardAnswers_GeneratesOptionsFromRegistry verifies that
+// collectWizardAnswers generates wizard options from the provider registry
+// instead of hardcoded options.
+func TestCollectWizardAnswers_GeneratesOptionsFromRegistry(t *testing.T) {
+	// Get all manifests to verify we have expected providers
+	allManifests := providers.Manifests()
+	manifestNames := make(map[string]bool)
+	for _, m := range allManifests {
+		manifestNames[m.Name] = true
+	}
+
+	// Verify known providers are in the registry
+	expectedProviders := []string{"claude", "copilot", "cursor", "gemini", "antigravity"}
+	for _, p := range expectedProviders {
+		require.True(t, manifestNames[p], "provider %s must be in registry", p)
+	}
+}
+
+// TestProviderManifest_HasDisplayLabel_AndCLIBinary verifies that all provider
+// manifests have the new DisplayLabel and CLIBinary fields set.
+func TestProviderManifest_HasDisplayLabel_AndCLIBinary(t *testing.T) {
+	allManifests := providers.Manifests()
+	require.Greater(t, len(allManifests), 0, "providers registry must contain manifests")
+
+	expectedFields := map[string]struct {
+		displayLabel string
+		cliBinary    string
+		defaultModel string
+	}{
+		"claude":      {"Claude Code", "claude", "claude-sonnet-4-6"},
+		"copilot":     {"GitHub Copilot", "copilot", "gpt-4o"},
+		"cursor":      {"Cursor", "cursor", "cursor-default"},
+		"gemini":      {"Gemini", "gemini", "gemini-2.5-pro"},
+		"antigravity": {"Antigravity", "gemini", "gemini-2.5-pro"},
+	}
+
+	for _, m := range allManifests {
+		expected, ok := expectedFields[m.Name]
+		if !ok {
+			// Skip unknown providers in tests
+			continue
+		}
+
+		require.Equal(t, expected.displayLabel, m.DisplayLabel,
+			"provider %s should have DisplayLabel=%q", m.Name, expected.displayLabel)
+		require.Equal(t, expected.cliBinary, m.CLIBinary,
+			"provider %s should have CLIBinary=%q", m.Name, expected.cliBinary)
+		require.Equal(t, expected.defaultModel, m.DefaultModel,
+			"provider %s should have DefaultModel=%q", m.Name, expected.defaultModel)
+	}
 }

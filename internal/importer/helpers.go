@@ -180,3 +180,77 @@ func ExtractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) erro
 	config.ProviderExtras["xcf"][dest] = data
 	return nil
 }
+
+// DefaultExtractRule parses a markdown file with YAML frontmatter as a rule.
+// Derives the rule ID from the path by stripping "rules/" prefix and ".md" extension.
+// Supports nested rule paths like "rules/cli/testing.md" → ID "cli/testing".
+func DefaultExtractRule(rel string, data []byte, provider string, config *ast.XcaffoldConfig) error {
+	var front struct {
+		Name          string                        `yaml:"name"`
+		Description   string                        `yaml:"description"`
+		AlwaysApply   *bool                         `yaml:"always-apply"`
+		Activation    string                        `yaml:"activation"`
+		Paths         []string                      `yaml:"paths"`
+		ExcludeAgents []string                      `yaml:"exclude-agents"`
+		Targets       map[string]ast.TargetOverride `yaml:"targets"`
+	}
+
+	body, err := ParseFrontmatterLenient(data, &front)
+	if err != nil {
+		return fmt.Errorf("rule %q: %w", rel, err)
+	}
+
+	rulesPrefix := "rules/"
+	relFromRules := strings.TrimPrefix(filepath.ToSlash(rel), rulesPrefix)
+	id := strings.TrimSuffix(relFromRules, ".md")
+
+	if config.Rules == nil {
+		config.Rules = make(map[string]ast.RuleConfig)
+	}
+	config.Rules[id] = ast.RuleConfig{
+		Name:           front.Name,
+		Description:    front.Description,
+		AlwaysApply:    front.AlwaysApply,
+		Activation:     front.Activation,
+		Paths:          ast.ClearableList{Values: front.Paths},
+		ExcludeAgents:  ast.ClearableList{Values: front.ExcludeAgents},
+		Targets:        front.Targets,
+		Body:           body,
+		SourceProvider: provider,
+	}
+	return nil
+}
+
+// DefaultExtractSkillAsset records skill companion files (references/*, scripts/*, assets/*).
+// The file path must follow the pattern: skills/<skillId>/<subDir>/<rest>.
+func DefaultExtractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) error {
+	parts := strings.SplitN(filepath.ToSlash(rel), "/", 4)
+	if len(parts) < 4 {
+		return fmt.Errorf("skill asset path too short: %q", rel)
+	}
+	skillID := parts[1]
+	subDir := parts[2]
+	relWithinSkill := subDir + "/" + parts[3]
+
+	if config.Skills == nil {
+		config.Skills = make(map[string]ast.SkillConfig)
+	}
+	skill := config.Skills[skillID]
+	switch subDir {
+	case "references":
+		skill.References = ast.ClearableList{Values: AppendUnique(skill.References.Values, relWithinSkill)}
+	case "scripts":
+		skill.Scripts = ast.ClearableList{Values: AppendUnique(skill.Scripts.Values, relWithinSkill)}
+	case "assets", "examples":
+		skill.Assets = ast.ClearableList{Values: AppendUnique(skill.Assets.Values, relWithinSkill)}
+	default:
+		return fmt.Errorf("skill asset: unknown subdirectory %q in %q", subDir, rel)
+	}
+	config.Skills[skillID] = skill
+	return nil
+}
+
+// DefaultExtractHookScript delegates to ExtractHookScript.
+func DefaultExtractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	return ExtractHookScript(rel, data, config)
+}

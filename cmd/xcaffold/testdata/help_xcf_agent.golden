@@ -4,11 +4,11 @@ kind: agent . version 1.0 . format: frontmatter+body
     name                      string          required  Unique identifier for this agent within the project.
                                                         Pattern: ^[a-z0-9-]+$
     description               string          optional  Human-readable purpose of this agent.
-                                                        Providers: Claude(required) Gemini(required) Copilot(required) Cursor Antigravity
+                                                        Providers: Antigravity Claude(required) Copilot(required) Cursor Gemini(required)
 
   Model & Execution
     model                     string          optional  LLM model identifier or alias resolved at compile time.
-                                                        Providers: Claude Gemini Copilot Cursor Antigravity
+                                                        Providers: Antigravity Claude Copilot Cursor Gemini
                                                         Examples: sonnet
     effort                    string          optional  Reasoning effort level hint for the model provider.
                                                         Providers: Claude Cursor
@@ -17,7 +17,7 @@ kind: agent . version 1.0 . format: frontmatter+body
 
   Tool Access
     tools                     []string        optional  Ordered list of tools this agent may invoke.
-                                                        Providers: Claude Gemini Copilot
+                                                        Providers: Claude Copilot Gemini
     disallowed-tools          []string        optional  Tools explicitly denied to this agent.
                                                         Providers: Claude
     readonly                  boolean         optional  When true, restricts the agent to read-only tool access.
@@ -53,7 +53,7 @@ kind: agent . version 1.0 . format: frontmatter+body
 
   Inline Composition
     mcp-servers               map             optional  Inline MCP server definitions keyed by server name.
-                                                        Providers: Claude Gemini Copilot
+                                                        Providers: Claude Copilot Gemini
     hooks                     HookConfig      optional  Inline lifecycle hook definitions for this agent.
                                                         Providers: Claude
 

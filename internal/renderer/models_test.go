@@ -17,14 +17,14 @@ func TestIsMappedModel_KnownAlias_Cursor_ReturnsTrue(t *testing.T) {
 		"sonnet-4 has a cursor mapping — translated to a canonical model string")
 }
 
-func TestIsMappedModel_LiteralModelID_ReturnsFalse(t *testing.T) {
+func TestIsMappedModel_LiteralModelID_Claude_ReturnsFalse(t *testing.T) {
 	assert.False(t, renderer.IsMappedModel("claude-sonnet-4-5", "claude"),
-		"literal model IDs are not in modelAliases — IsMappedModel must return false")
+		"literal model IDs are not xcaffold-mapped aliases — only sonnet-4, opus-4, haiku-3.5 are mapped")
 }
 
 func TestIsMappedModel_LiteralModelID_Cursor_ReturnsFalse(t *testing.T) {
 	assert.False(t, renderer.IsMappedModel("claude-sonnet-4-5", "cursor"),
-		"literal model ID on cursor target must return false")
+		"literal model ID on cursor target must return false because it's not a xcaffold alias")
 }
 
 func TestIsMappedModel_EmptyAlias_ReturnsFalse(t *testing.T) {
@@ -77,13 +77,22 @@ func TestResolveModel_CursorTarget_ReturnsMapped(t *testing.T) {
 	}
 }
 
-func TestResolveModel_UnknownAlias_PassesThrough(t *testing.T) {
+func TestResolveModel_UnknownAlias_GeminiRejectsNonGemini(t *testing.T) {
+	// Gemini resolver only accepts "gemini-*" prefixed models or mapped aliases
 	model, ok := renderer.ResolveModel("custom-model-v3", "gemini")
-	if !ok {
-		t.Fatal("expected ok=true for gemini target with unknown model literal")
+	if ok {
+		t.Fatalf("expected ok=false for gemini target with custom non-gemini model, got %q", model)
 	}
-	if model != "custom-model-v3" {
-		t.Errorf("expected literal passthrough for unknown model, got %q", model)
+}
+
+func TestResolveModel_GeminiLiteralModel_Accepted(t *testing.T) {
+	// But Gemini accepts full gemini- prefixed IDs
+	model, ok := renderer.ResolveModel("gemini-2.5-pro", "gemini")
+	if !ok {
+		t.Fatal("expected ok=true for gemini target with gemini- prefixed model")
+	}
+	if model != "gemini-2.5-pro" {
+		t.Errorf("expected literal passthrough for gemini model, got %q", model)
 	}
 }
 

@@ -198,32 +198,32 @@ func TestProviderFeatures_OutputDirs(t *testing.T) {
 	}
 }
 
-// groundTruthModelRecord mirrors the per-record shape in models.json.
-type groundTruthModelRecord struct {
+// referenceDataModelRecord mirrors the per-record shape in models.json.
+type referenceDataModelRecord struct {
 	Provider string `json:"provider"`
 	ModelID  string `json:"model_id"`
 }
 
-// groundTruthModelsDB mirrors the top-level shape of models.json.
-type groundTruthModelsDB struct {
-	Records []groundTruthModelRecord `json:"records"`
+// referenceDataModelsDB mirrors the top-level shape of models.json.
+type referenceDataModelsDB struct {
+	Records []referenceDataModelRecord `json:"records"`
 }
 
-// groundTruthDir returns the path to the ground truth database directory.
+// referenceDataDir returns the path to the provider reference database directory.
 // It walks up from this source file to find the Go module root (go.mod), then
 // goes one level further to reach the monorepo root where docs/ lives. Falls
-// back to the XCAFFOLD_GROUND_TRUTH_DIR environment variable if set.
+// back to the XCAFFOLD_REFERENCE_DATA_DIR environment variable if set.
 //
 // This approach handles both the main working tree and any worktree checkout
 // without hard-coding a fixed level count.
-func groundTruthDir(t *testing.T) string {
+func referenceDataDir(t *testing.T) string {
 	t.Helper()
-	if dir := os.Getenv("XCAFFOLD_GROUND_TRUTH_DIR"); dir != "" {
+	if dir := os.Getenv("XCAFFOLD_REFERENCE_DATA_DIR"); dir != "" {
 		return dir
 	}
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
-		t.Skip("cannot determine source file path; skipping ground truth binding test")
+		t.Skip("cannot determine source file path; skipping reference data binding test")
 	}
 	// Walk up from the source file's directory until we find go.mod (the Go
 	// module root, i.e. xcaffold/). The monorepo root (xcaffold-project/) is
@@ -235,37 +235,37 @@ func groundTruthDir(t *testing.T) string {
 			root := filepath.Dir(dir)
 			candidate := filepath.Join(root, "docs", "agentic", "data", "ground_truth", "db")
 			if _, err := os.Stat(candidate); err != nil {
-				t.Skipf("ground truth directory not found at %s; skipping binding test", candidate)
+				t.Skipf("provider reference database not found at %s; skipping binding test", candidate)
 			}
 			return candidate
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			// Reached filesystem root without finding go.mod.
-			t.Skip("could not locate go.mod walking up from source file; skipping ground truth binding test")
+			t.Skip("could not locate go.mod walking up from source file; skipping reference data binding test")
 		}
 		dir = parent
 	}
 }
 
-// TestResolveModel_GroundTruthBinding verifies that every model ID produced by
-// ResolveModel for a known alias actually exists in the verified ground truth
-// models database. If the ground truth files are absent (e.g. in CI without the
+// TestResolveModel_ReferenceDataBinding verifies that every model ID produced by
+// ResolveModel for a known alias actually exists in the verified provider reference
+// models database. If the reference data files are absent (e.g. in CI without the
 // full monorepo checkout), the test is skipped rather than failed.
-func TestResolveModel_GroundTruthBinding(t *testing.T) {
-	dir := groundTruthDir(t)
+func TestResolveModel_ReferenceDataBinding(t *testing.T) {
+	dir := referenceDataDir(t)
 	dbPath := filepath.Join(dir, "models.json")
 
 	data, err := os.ReadFile(dbPath)
 	if os.IsNotExist(err) {
-		t.Skipf("ground truth database not found at %s; skipping binding test", dbPath)
+		t.Skipf("provider reference database not found at %s; skipping binding test", dbPath)
 	}
 	require.NoError(t, err, "reading models.json")
 
-	var db groundTruthModelsDB
+	var db referenceDataModelsDB
 	require.NoError(t, json.Unmarshal(data, &db), "parsing models.json")
 
-	// providerTargetName maps the ground truth "provider" display name to the
+	// providerTargetName maps the provider "provider" display name to the
 	// xcaffold target name used in ResolveModel.
 	providerTargetName := map[string]string{
 		"Claude Code":    "claude",
@@ -303,23 +303,23 @@ func TestResolveModel_GroundTruthBinding(t *testing.T) {
 				}
 				known, hasTarget := validModels[target]
 				if !hasTarget {
-					t.Skipf("no ground truth records for target %q", target)
+					t.Skipf("no reference data records for target %q", target)
 				}
 				assert.True(t, known[resolved],
-					"ResolveModel(%q, %q) = %q is not a known model ID in the ground truth database for provider %q",
+					"ResolveModel(%q, %q) = %q is not a known model ID in the provider reference database for %q",
 					alias, target, resolved, target)
 			})
 		}
 	}
 }
 
-func TestProviderFeatures_SkillFrontmatter_GroundTruth(t *testing.T) {
-	dir := groundTruthDir(t)
+func TestProviderFeatures_SkillFrontmatter_ReferenceData(t *testing.T) {
+	dir := referenceDataDir(t)
 	dbPath := filepath.Join(dir, "skills.json")
 
 	data, err := os.ReadFile(dbPath)
 	if os.IsNotExist(err) {
-		t.Skipf("ground truth database not found at %s; skipping", dbPath)
+		t.Skipf("provider reference database not found at %s; skipping", dbPath)
 	}
 	require.NoError(t, err)
 
@@ -354,8 +354,8 @@ func TestProviderFeatures_SkillFrontmatter_GroundTruth(t *testing.T) {
 	}
 }
 
-func TestProviderFeatures_Capabilities_GroundTruthConsistency(t *testing.T) {
-	dir := groundTruthDir(t)
+func TestProviderFeatures_Capabilities_ReferenceDataConsistency(t *testing.T) {
+	dir := referenceDataDir(t)
 
 	resourceFiles := []string{"agents.json", "skills.json", "rules.json", "hooks.json", "memory.json"}
 

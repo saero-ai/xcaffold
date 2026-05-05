@@ -193,3 +193,46 @@ func TestResolveRenderer_NilNewRenderer(t *testing.T) {
 		t.Error("ResolveRenderer should return error when NewRenderer is nil")
 	}
 }
+
+func TestPrimaryNames_Sorted(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	// Register providers out of alphabetical order
+	providers.Register(providers.ProviderManifest{
+		Name:       "gemini",
+		OutputDir:  ".gemini",
+		ValidNames: []string{"gemini"},
+	})
+	providers.Register(providers.ProviderManifest{
+		Name:       "claude",
+		OutputDir:  ".claude",
+		ValidNames: []string{"claude"},
+	})
+	providers.Register(providers.ProviderManifest{
+		Name:       "cursor",
+		OutputDir:  ".cursor",
+		ValidNames: []string{"cursor"},
+	})
+
+	got := providers.PrimaryNames()
+
+	// Should return only primary names, sorted alphabetically
+	want := []string{"claude", "cursor", "gemini"}
+	if len(got) != len(want) {
+		t.Fatalf("len(PrimaryNames()) = %d, want %d", len(got), len(want))
+	}
+	for i, name := range got {
+		if name != want[i] {
+			t.Errorf("PrimaryNames()[%d] = %q, want %q", i, name, want[i])
+		}
+	}
+}
+
+func TestPrimaryNames_Empty(t *testing.T) {
+	defer resetRegistry(t, nil)()
+
+	got := providers.PrimaryNames()
+	if len(got) != 0 {
+		t.Errorf("PrimaryNames() on empty registry = %v, want []", got)
+	}
+}

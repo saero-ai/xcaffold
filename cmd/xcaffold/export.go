@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/optimizer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/saero-ai/xcaffold/providers"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +35,7 @@ plugin directory that can be shared and distributed.
 func init() {
 	exportCmd.Flags().StringVar(&exportFormat, "format", "plugin", "Export format (currently only 'plugin')")
 	exportCmd.Flags().StringVar(&exportOutput, "output", "", "Output directory for exported plugin")
-	exportCmd.Flags().StringVar(&exportTarget, "target", "", "Compilation target (claude, cursor, antigravity, copilot, gemini; default: claude)")
+	exportCmd.Flags().StringVar(&exportTarget, "target", "", fmt.Sprintf("compilation target (required: %s)", strings.Join(providers.PrimaryNames(), ", ")))
 	_ = exportCmd.MarkFlagRequired("output")
 	rootCmd.AddCommand(exportCmd)
 }

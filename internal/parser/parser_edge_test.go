@@ -103,7 +103,7 @@ version: "1.0"
 name: "full-project"
 description: "All blocks populated"
 test:
-  claude-path: "/usr/local/bin/claude"
+  cli-path: "/usr/local/bin/claude"
   judge-model: "claude-3-5-haiku-20241022"
 `), 0600))
 
@@ -142,7 +142,7 @@ mcp:
 	assert.Contains(t, cfg.Hooks["default"].Events, "PreToolUse")
 	assert.Contains(t, cfg.MCP, "my-server")
 	require.NotNil(t, cfg.Project)
-	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.ClaudePath)
+	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.CliPath)
 	assert.Equal(t, "claude-3-5-haiku-20241022", cfg.Project.Test.JudgeModel)
 }
 

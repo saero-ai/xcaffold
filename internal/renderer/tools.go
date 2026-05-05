@@ -7,9 +7,10 @@ import (
 	"github.com/saero-ai/xcaffold/pkg/schema"
 )
 
-// claudeNativeTools contains the exact string literals used by Claude Code
-// for its built-in toolkit.
-var claudeNativeTools = map[string]bool{
+// nativeTools contains the xcaffold-standard tool names that correspond to
+// Claude Code's built-in toolkit. These are stripped when compiling for
+// providers that do not support them natively.
+var nativeTools = map[string]bool{
 	"Read": true, "Write": true, "Edit": true, "MultiEdit": true,
 	"Bash": true, "Glob": true, "Grep": true,
 	"LS": true, "TodoRead": true, "TodoWrite": true,
@@ -18,23 +19,24 @@ var claudeNativeTools = map[string]bool{
 	"Task": true, "exit_plan_mode": true,
 }
 
-// containsClaudeNativeTools checks if a tool slice contains any Claude-native tools.
-func containsClaudeNativeTools(tools []string) bool {
+// ContainsNativeTools reports whether a tool slice contains any native tools.
+func ContainsNativeTools(tools []string) bool {
 	for _, t := range tools {
-		if isClaudeNativeTool(t) {
+		if IsNativeTool(t) {
 			return true
 		}
 	}
 	return false
 }
 
-// isClaudeNativeTool returns true if the tool name exactly matches a known Claude-native tool.
+// IsNativeTool returns true if the tool name exactly matches a known native tool.
 // This is case-sensitive as tool names must be exact to match provider schemas.
-func isClaudeNativeTool(name string) bool {
-	return claudeNativeTools[name]
+func IsNativeTool(name string) bool {
+	return nativeTools[name]
 }
 
 // SanitizeAgentTools filters an agent's tool list according to the provider's CapabilitySet.
+// Native tools unsupported by the target are dropped and reported as FidelityNotes.
 // Returns the sanitized tool slice and a slice of FidelityNotes detailing dropped tool warnings.
 func SanitizeAgentTools(tools []string, caps CapabilitySet, targetName, agentID string) ([]string, []FidelityNote) {
 	if len(tools) == 0 {
@@ -56,7 +58,7 @@ func SanitizeAgentTools(tools []string, caps CapabilitySet, targetName, agentID 
 	}
 
 	// For other providers (AgentNativeToolsOnly: false),
-	// Claude-native tools are unsupported and must be stripped.
+	// native tools are unsupported and must be stripped.
 	var sanitized []string
 	var dropped []string
 
@@ -68,8 +70,8 @@ func SanitizeAgentTools(tools []string, caps CapabilitySet, targetName, agentID 
 		}
 
 		// Explicit provider-native specific tools (e.g., custom integrations)
-		// we keep, but Claude native tools we drop
-		if isClaudeNativeTool(t) {
+		// we keep, but native tools unsupported on the target we drop
+		if IsNativeTool(t) {
 			dropped = append(dropped, t)
 		} else {
 			sanitized = append(sanitized, t)
@@ -80,8 +82,8 @@ func SanitizeAgentTools(tools []string, caps CapabilitySet, targetName, agentID 
 		notes = append(notes, NewNote(
 			LevelWarning, targetName, "agent", agentID, "tools",
 			CodeAgentToolsDropped,
-			fmt.Sprintf("agent %q drops Claude-native tools %v; only MCP/custom tools supported on %s", agentID, dropped, targetName),
-			fmt.Sprintf("Remove Claude tools from %s tools list or accept dropped capability", targetName),
+			fmt.Sprintf("agent %q drops native tools %v; only MCP/custom tools supported on %s", agentID, dropped, targetName),
+			fmt.Sprintf("Remove native tools from %s tools list or accept dropped capability", targetName),
 		))
 	}
 

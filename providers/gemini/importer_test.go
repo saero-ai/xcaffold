@@ -185,11 +185,8 @@ func TestGeminiExtract_ExtrasCollection(t *testing.T) {
 	assert.NotEmpty(t, config.Agents)
 	assert.NotEmpty(t, config.Skills)
 	assert.NotEmpty(t, config.Rules)
-	// unknown-file is not classified — should appear in ProviderExtras
-	extras, hasProvider := config.ProviderExtras["gemini"]
-	require.True(t, hasProvider, "expected ProviderExtras to have 'gemini' entry")
-	_, hasUnknown := extras["unknown-file"]
-	assert.True(t, hasUnknown, "expected 'unknown-file' in ProviderExtras")
+	// Unknown files are silently skipped
+	assert.Empty(t, config.ProviderExtras["gemini"])
 }
 
 func TestGeminiImporter_FullWorkspace(t *testing.T) {
@@ -227,7 +224,4 @@ func TestGeminiImporter_FullWorkspace(t *testing.T) {
 
 	// Settings
 	assert.Equal(t, "gemini-2.5-pro", config.Settings["default"].Model)
-
-	// Unknown file goes to extras
-	assert.NotEmpty(t, config.ProviderExtras["gemini"])
 }

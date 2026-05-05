@@ -11,6 +11,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// GlobalScanIterator is set by providers/registry.go during init to break
+// the import cycle. It iterates registered providers and calls each one's
+// global scanner.
+var GlobalScanIterator func(userHome string, r *GlobalScanResult)
+
 // Config represents the global user preferences.
 type Config struct {
 	DefaultTarget string `yaml:"default_target,omitempty"`
@@ -97,84 +102,51 @@ func EnsureGlobalHome() error {
 // Each type represents one manageable resource class in global.xcf.
 //
 // HOW TO ADD A NEW RESOURCE TYPE (e.g. "templates"):
-//  1. Add a struct below (e.g. globalTemplateEntry).
-//  2. Add a map field to globalScanResult (e.g. templates map[string]globalTemplateEntry).
-//  3. Initialise the map in newScanResult().
+//  1. Add a struct below (e.g. GlobalTemplateEntry).
+//  2. Add a map field to GlobalScanResult (e.g. Templates map[string]GlobalTemplateEntry).
+//  3. Initialise the map in NewScanResult().
 //  4. Scan it inside the relevant provider Scan function(s).
 //  5. Emit it in marshalGlobalXCF().
 //  No other code changes are needed.
 
-type globalAgentEntry struct{ instructionsFile string }
-type globalSkillEntry struct{ instructionsFile string }
-type globalRuleEntry struct{ instructionsFile string }
-type globalWorkflowEntry struct{ instructionsFile string }
-type globalMCPEntry struct {
-	command string // command-type server (e.g. "npx @modelcontextprotocol/…")
-	url     string // http/sse-type server URL
-	args    []string
+type GlobalAgentEntry struct{ InstructionsFile string }
+type GlobalSkillEntry struct{ InstructionsFile string }
+type GlobalRuleEntry struct{ InstructionsFile string }
+type GlobalWorkflowEntry struct{ InstructionsFile string }
+type GlobalMCPEntry struct {
+	Command string // command-type server (e.g. "npx @modelcontextprotocol/…")
+	URL     string // http/sse-type server URL
+	Args    []string
 }
 
-// globalScanResult is the aggregated output of all platform scanners.
+// GlobalScanResult is the aggregated output of all platform scanners.
 // Maps are deduplicated: the first provider to register a key for a given
 // resource type wins. Later providers that discover the same key are skipped.
-type globalScanResult struct {
-	agents    map[string]globalAgentEntry
-	skills    map[string]globalSkillEntry
-	rules     map[string]globalRuleEntry
-	workflows map[string]globalWorkflowEntry
-	mcp       map[string]globalMCPEntry
-	// memoryFile tracks the first global "memory" instructions file discovered
+type GlobalScanResult struct {
+	Agents    map[string]GlobalAgentEntry
+	Skills    map[string]GlobalSkillEntry
+	Rules     map[string]GlobalRuleEntry
+	Workflows map[string]GlobalWorkflowEntry
+	MCP       map[string]GlobalMCPEntry
+	// MemoryFile tracks the first global "memory" instructions file discovered
 	// (informational, used for display purposes only).
-	memoryFile string
+	MemoryFile string
 }
 
-func newScanResult() globalScanResult {
-	return globalScanResult{
-		agents:    make(map[string]globalAgentEntry),
-		skills:    make(map[string]globalSkillEntry),
-		rules:     make(map[string]globalRuleEntry),
-		workflows: make(map[string]globalWorkflowEntry),
-		mcp:       make(map[string]globalMCPEntry),
+func NewScanResult() GlobalScanResult {
+	return GlobalScanResult{
+		Agents:    make(map[string]GlobalAgentEntry),
+		Skills:    make(map[string]GlobalSkillEntry),
+		Rules:     make(map[string]GlobalRuleEntry),
+		Workflows: make(map[string]GlobalWorkflowEntry),
+		MCP:       make(map[string]GlobalMCPEntry),
 	}
-}
-
-// ── Provider registry ─────────────────────────────────────────────────────
-//
-// platformProvider describes the global configuration layout of one agentic
-// IDE platform. Each provider's Scan function discovers whatever global
-// resources that platform exposes on disk, then merges them into the shared
-// globalScanResult (first-seen wins for deduplication).
-//
-// HOW TO ADD A NEW PROVIDER:
-//  1. Implement a scan function: func scanProvider<Name>(userHome string, r *globalScanResult).
-//  2. Document which on-disk paths this provider uses (see existing examples).
-//  3. Append an entry to globalProviders below.
-//  No other code changes are needed.
-
-type platformProvider struct {
-	// Scan discovers global resources for this provider and merges them into r.
-	// Func field is placed first to satisfy fieldalignment requirements.
-	Scan func(userHome string, r *globalScanResult)
-	// Name is a human-readable label used in YAML comments and CLI output.
-	Name string
-}
-
-// globalProviders is the ordered registry of supported agentic platforms.
-// Providers are scanned in declaration order; first entry to claim a key wins.
-var globalProviders = []platformProvider{
-	{Scan: scanProviderClaude, Name: "Claude Code"},
-	{Scan: scanProviderAntigravity, Name: "Antigravity"},
-	// Cursor: User Rules live in the Cursor app Settings UI — not on disk.
-	// Project-scoped rules (.cursor/rules/) are handled separately per-project.
-	//
-	// Add new providers here by appending an entry:
-	// {Scan: scanProvider<Name>, Name: "<DisplayName>"},
 }
 
 // ── Core bootstrap ────────────────────────────────────────────────────────
 
-// buildGlobalXCF generates global.xcf content by iterating globalProviders.
-// Falls back to the minimal starter template when nothing is found on disk.
+// buildGlobalXCF generates global.xcf content by iterating registered provider
+// scanners. Falls back to the minimal starter template when nothing is found on disk.
 func buildGlobalXCF() []byte {
 	userHome, err := os.UserHomeDir()
 	if err != nil {
@@ -186,99 +158,28 @@ func buildGlobalXCF() []byte {
 		return data
 	}
 
-	r := newScanResult()
-	for _, p := range globalProviders {
-		p.Scan(userHome, &r)
+	r := NewScanResult()
+	if GlobalScanIterator != nil {
+		GlobalScanIterator(userHome, &r)
 	}
 
 	// Nothing found — emit the empty starter template.
-	if len(r.agents) == 0 && len(r.skills) == 0 &&
-		len(r.rules) == 0 && len(r.mcp) == 0 {
+	if len(r.Agents) == 0 && len(r.Skills) == 0 &&
+		len(r.Rules) == 0 && len(r.MCP) == 0 {
 		return []byte(DefaultGlobalXCFContent)
 	}
 
 	return marshalGlobalXCF(&r)
 }
 
-// ── Claude Code provider ──────────────────────────────────────────────────
-//
-// Global configuration layout:
-//   ~/.claude/agents/*.md                    → agents
-//   ~/.claude/skills/<name>/SKILL.md         → skills
-//   ~/.claude/rules/*.md                     → rules
-//   ~/.claude/CLAUDE.md                      → rule "claude-memory" + memoryFile
-//   ~/.claude.json  (key: mcpServers)        → mcp  (url key: "url")
-
-func scanProviderClaude(userHome string, r *globalScanResult) {
-	claudeDir := filepath.Join(userHome, ".claude")
-
-	scanMarkdownFilesAsAgents(filepath.Join(claudeDir, "agents"), r.agents)
-	scanSkillDirs(filepath.Join(claudeDir, "skills"), r.skills)
-	scanMarkdownFilesAsRules(filepath.Join(claudeDir, "rules"), r.rules)
-
-	// CLAUDE.md is the global memory/instructions file for Claude Code.
-	// We surface it as a rule so xcaffold can track and diff it.
-	claudeMD := filepath.Join(claudeDir, "CLAUDE.md")
-	if _, err := os.Stat(claudeMD); err == nil {
-		if _, exists := r.rules["claude-memory"]; !exists {
-			r.rules["claude-memory"] = globalRuleEntry{
-				instructionsFile: filepath.ToSlash(claudeMD),
-			}
-		}
-		if r.memoryFile == "" {
-			r.memoryFile = filepath.ToSlash(claudeMD)
-		}
-	}
-
-	// ~/.claude.json holds user-scoped and local-scoped MCP server configs.
-	scanMCPFromJSONFile(
-		filepath.Join(userHome, ".claude.json"),
-		"mcpServers", "command", "url",
-		r.mcp,
-	)
-}
-
-// ── Antigravity provider ──────────────────────────────────────────────────
-//
-// Global configuration layout:
-//   ~/.gemini/antigravity/skills/<name>/SKILL.md  → skills
-//   ~/.gemini/GEMINI.md                           → rule "gemini-global"
-//   ~/.gemini/antigravity/mcp_config.json
-//     (key: mcpServers, url key: "serverUrl")     → mcp
-
-func scanProviderAntigravity(userHome string, r *globalScanResult) {
-	agDir := filepath.Join(userHome, ".gemini", "antigravity")
-
-	// Antigravity global skills live at ~/.gemini/antigravity/skills/.
-	scanSkillDirs(filepath.Join(agDir, "skills"), r.skills)
-
-	// GEMINI.md is Antigravity's single global rule file (not a directory).
-	geminiMD := filepath.Join(userHome, ".gemini", "GEMINI.md")
-	if _, err := os.Stat(geminiMD); err == nil {
-		if _, exists := r.rules["gemini-global"]; !exists {
-			r.rules["gemini-global"] = globalRuleEntry{
-				instructionsFile: filepath.ToSlash(geminiMD),
-			}
-		}
-	}
-
-	// Antigravity uses "serverUrl" instead of the standard "url" key in its
-	// MCP config file at ~/.gemini/antigravity/mcp_config.json.
-	scanMCPFromJSONFile(
-		filepath.Join(agDir, "mcp_config.json"),
-		"mcpServers", "command", "serverUrl",
-		r.mcp,
-	)
-}
-
-// ── Generic scan helpers ──────────────────────────────────────────────────
+// ── Exported scan helpers ─────────────────────────────────────────────────
 //
 // Provider scan functions compose these helpers rather than duplicating logic.
 // They are intentionally generic (dir-agnostic) so any provider can reuse them.
 
-// scanMarkdownFilesAsAgents reads *.md files from dir and populates out.
+// ScanMarkdownFilesAsAgents reads *.md files from dir and populates out.
 // It is suitable for flat-file agent directories (e.g. ~/.claude/agents/).
-func scanMarkdownFilesAsAgents(dir string, out map[string]globalAgentEntry) {
+func ScanMarkdownFilesAsAgents(dir string, out map[string]GlobalAgentEntry) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
@@ -289,16 +190,16 @@ func scanMarkdownFilesAsAgents(dir string, out map[string]globalAgentEntry) {
 		}
 		id := strings.TrimSuffix(e.Name(), ".md")
 		if _, exists := out[id]; !exists {
-			out[id] = globalAgentEntry{
-				instructionsFile: filepath.ToSlash(filepath.Join(dir, e.Name())),
+			out[id] = GlobalAgentEntry{
+				InstructionsFile: filepath.ToSlash(filepath.Join(dir, e.Name())),
 			}
 		}
 	}
 }
 
-// scanMarkdownFilesAsRules reads *.md files from dir and populates out.
+// ScanMarkdownFilesAsRules reads *.md files from dir and populates out.
 // It is suitable for flat-file rule directories (e.g. ~/.claude/rules/).
-func scanMarkdownFilesAsRules(dir string, out map[string]globalRuleEntry) {
+func ScanMarkdownFilesAsRules(dir string, out map[string]GlobalRuleEntry) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
@@ -309,17 +210,17 @@ func scanMarkdownFilesAsRules(dir string, out map[string]globalRuleEntry) {
 		}
 		id := strings.TrimSuffix(e.Name(), ".md")
 		if _, exists := out[id]; !exists {
-			out[id] = globalRuleEntry{
-				instructionsFile: filepath.ToSlash(filepath.Join(dir, e.Name())),
+			out[id] = GlobalRuleEntry{
+				InstructionsFile: filepath.ToSlash(filepath.Join(dir, e.Name())),
 			}
 		}
 	}
 }
 
-// scanSkillDirs reads sub-directories from dir. Each sub-directory that
+// ScanSkillDirs reads sub-directories from dir. Each sub-directory that
 // contains a SKILL.md file is registered as a skill entry. This matches
 // xcaffold's canonical skill-as-directory model.
-func scanSkillDirs(dir string, out map[string]globalSkillEntry) {
+func ScanSkillDirs(dir string, out map[string]GlobalSkillEntry) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return
@@ -331,20 +232,20 @@ func scanSkillDirs(dir string, out map[string]globalSkillEntry) {
 		skillMD := filepath.Join(dir, e.Name(), "SKILL.md")
 		if _, err := os.Stat(skillMD); err == nil {
 			if _, exists := out[e.Name()]; !exists {
-				out[e.Name()] = globalSkillEntry{
-					instructionsFile: filepath.ToSlash(skillMD),
+				out[e.Name()] = GlobalSkillEntry{
+					InstructionsFile: filepath.ToSlash(skillMD),
 				}
 			}
 		}
 	}
 }
 
-// scanMCPFromJSONFile reads a JSON or YAML config file at path and extracts
+// ScanMCPFromJSONFile reads a JSON or YAML config file at path and extracts
 // MCP server entries from the top-level map key serversKey (typically
 // "mcpServers"). cmdKey and urlKey are the field names used for the command
 // and URL within each server object — these differ between providers
 // (Claude uses "url", Antigravity uses "serverUrl").
-func scanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string]globalMCPEntry) {
+func ScanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string]GlobalMCPEntry) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return
@@ -361,17 +262,17 @@ func scanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string
 			continue // first provider wins; skip duplicates
 		}
 		srvMap, _ := srv.(map[string]interface{})
-		entry := globalMCPEntry{}
+		entry := GlobalMCPEntry{}
 		if cmd, _ := srvMap[cmdKey].(string); cmd != "" {
-			entry.command = cmd
+			entry.Command = cmd
 		}
 		if u, _ := srvMap[urlKey].(string); u != "" {
-			entry.url = u
+			entry.URL = u
 		}
 		if argsRaw, _ := srvMap["args"].([]interface{}); len(argsRaw) > 0 {
 			for _, a := range argsRaw {
 				if s, ok := a.(string); ok {
-					entry.args = append(entry.args, s)
+					entry.Args = append(entry.Args, s)
 				}
 			}
 		}
@@ -386,7 +287,7 @@ func scanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string
 // HOW TO ADD A NEW SECTION: add an if-block for the new resource map here,
 // following the same pattern as existing sections.
 
-func marshalGlobalXCF(r *globalScanResult) []byte {
+func marshalGlobalXCF(r *GlobalScanResult) []byte {
 	var buf bytes.Buffer
 
 	buf.WriteString("kind: global\n")
@@ -395,52 +296,52 @@ func marshalGlobalXCF(r *globalScanResult) []byte {
 	buf.WriteString("# All instructions-file paths are absolute so they resolve correctly\n")
 	buf.WriteString("# regardless of the current working directory.\n")
 
-	if len(r.agents) > 0 {
+	if len(r.Agents) > 0 {
 		buf.WriteString("\nagents:\n")
-		for id, a := range r.agents {
+		for id, a := range r.Agents {
 			buf.WriteString("  " + id + ":\n")
-			buf.WriteString("    instructions-file: \"" + a.instructionsFile + "\"\n")
+			buf.WriteString("    instructions-file: \"" + a.InstructionsFile + "\"\n")
 		}
 	}
 
-	if len(r.skills) > 0 {
+	if len(r.Skills) > 0 {
 		buf.WriteString("\nskills:\n")
-		for id, s := range r.skills {
+		for id, s := range r.Skills {
 			buf.WriteString("  " + id + ":\n")
-			buf.WriteString("    instructions-file: \"" + s.instructionsFile + "\"\n")
+			buf.WriteString("    instructions-file: \"" + s.InstructionsFile + "\"\n")
 		}
 	}
 
-	if len(r.rules) > 0 {
+	if len(r.Rules) > 0 {
 		buf.WriteString("\nrules:\n")
-		for id, ru := range r.rules {
+		for id, ru := range r.Rules {
 			buf.WriteString("  " + id + ":\n")
-			buf.WriteString("    instructions-file: \"" + ru.instructionsFile + "\"\n")
+			buf.WriteString("    instructions-file: \"" + ru.InstructionsFile + "\"\n")
 		}
 	}
 
-	if len(r.workflows) > 0 {
+	if len(r.Workflows) > 0 {
 		buf.WriteString("\nworkflows:\n")
-		for id, w := range r.workflows {
+		for id, w := range r.Workflows {
 			buf.WriteString("  " + id + ":\n")
-			buf.WriteString("    instructions-file: \"" + w.instructionsFile + "\"\n")
+			buf.WriteString("    instructions-file: \"" + w.InstructionsFile + "\"\n")
 		}
 	}
 
-	if len(r.mcp) > 0 {
+	if len(r.MCP) > 0 {
 		buf.WriteString("\n# MCP servers auto-detected from platform config files.\n")
 		buf.WriteString("mcp:\n")
-		for name, m := range r.mcp {
+		for name, m := range r.MCP {
 			buf.WriteString("  " + name + ":\n")
-			if m.command != "" {
-				buf.WriteString("    command: \"" + m.command + "\"\n")
+			if m.Command != "" {
+				buf.WriteString("    command: \"" + m.Command + "\"\n")
 			}
-			if m.url != "" {
-				buf.WriteString("    url: \"" + m.url + "\"\n")
+			if m.URL != "" {
+				buf.WriteString("    url: \"" + m.URL + "\"\n")
 			}
-			if len(m.args) > 0 {
+			if len(m.Args) > 0 {
 				buf.WriteString("    args:\n")
-				for _, a := range m.args {
+				for _, a := range m.Args {
 					buf.WriteString("      - \"" + a + "\"\n")
 				}
 			}

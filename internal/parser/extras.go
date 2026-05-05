@@ -24,8 +24,8 @@ import (
 // If neither directory exists the function returns nil — absence of extras is
 // not an error.
 func loadExtras(dir string, config *ast.XcaffoldConfig) error {
-	// Load hook scripts as implicit claude provider extras mapped to hooks/.
-	if err := walkExtrasDirRoot(filepath.Join(dir, "xcf", "hooks"), "claude", config); err != nil {
+	// Load hook scripts as provider-agnostic extras mapped to hooks/.
+	if err := walkExtrasDirRoot(filepath.Join(dir, "xcf", "hooks"), "xcf", config); err != nil {
 		return err
 	}
 

@@ -10,18 +10,12 @@ import (
 )
 
 // FindProjectRoot walks up from start directory looking for a project.xcf file.
-// It checks the root level first (preferred), then .xcaffold/ as fallback for
-// backward compatibility. Returns the directory containing project.xcf, or an
-// empty string if not found.
+// Returns the directory containing project.xcf, or an empty string if not found.
 func FindProjectRoot(start string) string {
 	curr := start
 	for {
-		// Check root level first (preferred location)
+		// Check for project.xcf at root level
 		if _, err := os.Stat(filepath.Join(curr, "project.xcf")); err == nil {
-			return curr
-		}
-		// Fallback to .xcaffold/ for backward compatibility
-		if _, err := os.Stat(filepath.Join(curr, ".xcaffold", "project.xcf")); err == nil {
 			return curr
 		}
 		parent := filepath.Dir(curr)
@@ -36,12 +30,8 @@ func FindProjectRoot(start string) string {
 // dirContainsXCF returns true if the directory contains at least one *.xcf file
 // at the top level (not recursively). Hidden directories are ignored.
 func dirContainsXCF(dir string) bool {
-	// Check root level first (preferred location)
+	// Check for project.xcf at root level
 	if _, err := os.Stat(filepath.Join(dir, "project.xcf")); err == nil {
-		return true
-	}
-	// Fallback to .xcaffold/ for backward compatibility
-	if _, err := os.Stat(filepath.Join(dir, ".xcaffold", "project.xcf")); err == nil {
 		return true
 	}
 	entries, err := os.ReadDir(dir)

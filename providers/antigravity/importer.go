@@ -14,22 +14,18 @@ import (
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
 type AntigravityImporter struct {
-	Warnings []string
+	importer.BaseImporter
 }
 
 // NewImporter returns a new AntigravityImporter.
 func NewImporter() *AntigravityImporter {
-	return &AntigravityImporter{}
+	return &AntigravityImporter{
+		BaseImporter: importer.BaseImporter{
+			ProviderName: "antigravity",
+			Dir:          ".agents",
+		},
+	}
 }
-
-// GetWarnings returns non-fatal per-file extraction errors collected during the last Import() call.
-func (a *AntigravityImporter) GetWarnings() []string { return a.Warnings }
-
-// Provider returns the canonical provider name.
-func (a *AntigravityImporter) Provider() string { return "antigravity" }
-
-// InputDir returns the root directory relative to the workspace root.
-func (a *AntigravityImporter) InputDir() string { return ".agents" }
 
 // antigravityMappings maps path patterns to AST kinds. First match wins.
 // Agents are stored in prompts/ (not agents/) — this is the key Antigravity difference.
@@ -68,8 +64,12 @@ func (a *AntigravityImporter) Extract(rel string, data []byte, config *ast.Xcaff
 		return extractAgent(rel, data, config)
 	case importer.KindSkill:
 		return extractSkill(rel, data, config)
+	case importer.KindSkillAsset:
+		return importer.DefaultExtractSkillAsset(rel, data, config)
+	case importer.KindHookScript:
+		return importer.DefaultExtractHookScript(rel, data, config)
 	case importer.KindRule:
-		return extractRule(rel, data, config)
+		return importer.DefaultExtractRule(rel, data, a.Provider(), config)
 	case importer.KindMCP:
 		return extractMCPStandalone(rel, data, config)
 	case importer.KindWorkflow:
@@ -90,24 +90,17 @@ func (a *AntigravityImporter) Import(dir string, config *ast.XcaffoldConfig) err
 	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
 		kind, _ := a.Classify(rel, false)
 		if kind == importer.KindUnknown {
-			if config.ProviderExtras == nil {
-				config.ProviderExtras = make(map[string]map[string][]byte)
-			}
-			if config.ProviderExtras["antigravity"] == nil {
-				config.ProviderExtras["antigravity"] = make(map[string][]byte)
-			}
-			config.ProviderExtras["antigravity"][rel] = data
 			return nil
 		}
-		if extractErr := a.Extract(rel, data, config); extractErr != nil {
+		if err := a.Extract(rel, data, config); err != nil {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["antigravity"] == nil {
-				config.ProviderExtras["antigravity"] = make(map[string][]byte)
+			if config.ProviderExtras[a.Provider()] == nil {
+				config.ProviderExtras[a.Provider()] = make(map[string][]byte)
 			}
-			config.ProviderExtras["antigravity"][rel] = data
-			a.Warnings = append(a.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
+			config.ProviderExtras[a.Provider()][rel] = data
+			a.AppendWarning(fmt.Sprintf("skipped %q: %v", rel, err))
 		}
 		return nil
 	})
@@ -228,40 +221,6 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Targets:                front.Targets,
 		Body:                   body,
 		SourceProvider:         "antigravity",
-	}
-	return nil
-}
-
-func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	var front struct {
-		Name          string                        `yaml:"name"`
-		Description   string                        `yaml:"description"`
-		AlwaysApply   *bool                         `yaml:"always-apply"`
-		Activation    string                        `yaml:"activation"`
-		Paths         []string                      `yaml:"paths"`
-		ExcludeAgents []string                      `yaml:"exclude-agents"`
-		Targets       map[string]ast.TargetOverride `yaml:"targets"`
-	}
-
-	body, err := importer.ParseFrontmatter(data, &front)
-	if err != nil {
-		return fmt.Errorf("antigravity: rule %q: %w", rel, err)
-	}
-
-	id := strings.TrimSuffix(filepath.Base(rel), ".md")
-	if config.Rules == nil {
-		config.Rules = make(map[string]ast.RuleConfig)
-	}
-	config.Rules[id] = ast.RuleConfig{
-		Name:           front.Name,
-		Description:    front.Description,
-		AlwaysApply:    front.AlwaysApply,
-		Activation:     front.Activation,
-		Paths:          ast.ClearableList{Values: front.Paths},
-		ExcludeAgents:  ast.ClearableList{Values: front.ExcludeAgents},
-		Targets:        front.Targets,
-		Body:           body,
-		SourceProvider: "antigravity",
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 kind: mcp
 version: "1.0"
 name: golden-mcp
+description: "Example MCP server for file access."
 type: stdio
 command: node
 args: [./server.js, --port, "3000"]
@@ -18,3 +19,6 @@ oauth:
   scope: "read write"
 auth-provider-type: oauth2
 url: ""
+targets:
+  claude:
+    skip-synthesis: true

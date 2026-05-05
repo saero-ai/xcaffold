@@ -15,9 +15,8 @@ func TestFindConfigDir_FindsScaffoldXcf(t *testing.T) {
 	project := filepath.Join(home, "project")
 	sub := filepath.Join(project, "sub")
 	require.NoError(t, os.MkdirAll(sub, 0755))
-	require.NoError(t, os.MkdirAll(filepath.Join(project, ".xcaffold"), 0755))
 
-	xcf := filepath.Join(project, ".xcaffold", "project.xcf")
+	xcf := filepath.Join(project, "project.xcf")
 	require.NoError(t, os.WriteFile(xcf, []byte("version: \"1\"\n"), 0600))
 
 	got, err := FindConfigDir(sub, home)
@@ -160,15 +159,6 @@ func TestFindProjectRoot_RootFirst(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0644))
 	found := FindProjectRoot(tmp)
 	require.NotEmpty(t, found, "FindProjectRoot did not find project.xcf at root")
-	assert.Equal(t, tmp, found)
-}
-
-func TestFindProjectRoot_FallbackToXcaffoldDir(t *testing.T) {
-	tmp := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".xcaffold"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(tmp, ".xcaffold", "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0644))
-	found := FindProjectRoot(tmp)
-	require.NotEmpty(t, found, "FindProjectRoot did not find .xcaffold/project.xcf as fallback")
 	assert.Equal(t, tmp, found)
 }
 

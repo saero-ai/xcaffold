@@ -14,7 +14,7 @@ import (
 // lowered primitives merged into Rules and Skills. The original config is never
 // mutated. Fidelity notes from the lowering are also returned.
 //
-// target is the renderer's canonical name (e.g. "gemini", "copilot") and is
+// target is the renderer's canonical name and is
 // forwarded to translator.TranslateWorkflow for provider-specific lowering.
 func LowerWorkflows(config *ast.XcaffoldConfig, target string) (*ast.XcaffoldConfig, []renderer.FidelityNote) {
 	if len(config.Workflows) == 0 {

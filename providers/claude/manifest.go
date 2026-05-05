@@ -9,6 +9,7 @@ import (
 func init() {
 	providers.Register(Manifest)
 	importer.Register(NewImporter())
+	renderer.RegisterModelResolver("claude", NewModelResolver())
 }
 
 // Manifest describes the Claude Code provider's capabilities and factories.
@@ -17,7 +18,8 @@ var Manifest = providers.ProviderManifest{
 	OutputDir:      ".claude",
 	ValidNames:     []string{"claude"},
 	RequiredPasses: []string{},
-	DefaultBudget:  0,
+	DefaultBudget:  200,
+	BudgetKind:     "lines",
 	KindSupport: map[string]bool{
 		"agent":       true,
 		"skill":       true,
@@ -28,6 +30,19 @@ var Manifest = providers.ProviderManifest{
 		"memory":      true,
 	},
 	RootContextFile: "CLAUDE.md",
-	NewRenderer:     func() renderer.TargetRenderer { return New() },
-	NewImporter:     func() importer.ProviderImporter { return NewImporter() },
+	SubdirMap: map[string]string{
+		"references": "references",
+		"scripts":    "scripts",
+		"examples":   "examples",
+	},
+	SkillMDAsReference: true,
+	RootMCPPaths:       []string{".mcp.json"},
+	PluginDir:          ".claude-plugin",
+	DisplayLabel:       "Claude Code",
+	CLIBinary:          "claude",
+	DefaultModel:       "claude-sonnet-4-6",
+	NewRenderer:        func() renderer.TargetRenderer { return New() },
+	NewModelResolver:   func() renderer.ModelResolver { return NewModelResolver() },
+	NewImporter:        func() importer.ProviderImporter { return NewImporter() },
+	GlobalScanner:      scanGlobal,
 }

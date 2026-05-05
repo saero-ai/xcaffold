@@ -13,7 +13,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
-	"github.com/saero-ai/xcaffold/providers"
+	providerspkg "github.com/saero-ai/xcaffold/providers"
 	_ "github.com/saero-ai/xcaffold/providers/antigravity"
 	_ "github.com/saero-ai/xcaffold/providers/claude"
 	_ "github.com/saero-ai/xcaffold/providers/copilot"
@@ -64,7 +64,7 @@ Usage:
 func init() {
 	f := importCmd.Flags()
 	f.BoolVar(&importPlan, "plan", false, "Dry-run: print import plan without writing files")
-	f.StringVar(&importTargetFlag, "target", "", "Import from specific provider: claude, gemini, cursor, antigravity, copilot")
+	f.StringVar(&importTargetFlag, "target", "", fmt.Sprintf("import from specific provider: %s", strings.Join(providerspkg.PrimaryNames(), ", ")))
 
 	// Per-kind resource filtering flags
 	f.StringVar(&importFilterAgent, "agent", "", "Import agents (optionally filter by name)")
@@ -206,6 +206,27 @@ func tagResourcesWithProvider(config *ast.XcaffoldConfig, provider string) {
 		wf.Targets[provider] = to
 		config.Workflows[name] = wf
 	}
+	for name, mcp := range config.MCP {
+		if mcp.Targets == nil {
+			mcp.Targets = make(map[string]ast.TargetOverride)
+		}
+		mcp.Targets[provider] = to
+		config.MCP[name] = mcp
+	}
+	for name, hook := range config.Hooks {
+		if hook.Targets == nil {
+			hook.Targets = make(map[string]ast.TargetOverride)
+		}
+		hook.Targets[provider] = to
+		config.Hooks[name] = hook
+	}
+	for name, setting := range config.Settings {
+		if setting.Targets == nil {
+			setting.Targets = make(map[string]ast.TargetOverride)
+		}
+		setting.Targets[provider] = to
+		config.Settings[name] = setting
+	}
 }
 
 func runImport(cmd *cobra.Command, args []string) error {
@@ -226,15 +247,10 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 	// Validate --target if set
 	if importTargetFlag != "" {
-		validTargets := map[string]bool{
-			"claude":      true,
-			"gemini":      true,
-			"cursor":      true,
-			"antigravity": true,
-			"copilot":     true,
-		}
-		if !validTargets[importTargetFlag] {
-			return fmt.Errorf("unknown target %q; valid targets: claude, gemini, cursor, antigravity, copilot", importTargetFlag)
+		if !providerspkg.IsRegistered(importTargetFlag) {
+			validTargets := providerspkg.RegisteredNames()
+			sort.Strings(validTargets)
+			return fmt.Errorf("unknown target %q; valid targets: %s", importTargetFlag, strings.Join(validTargets, ", "))
 		}
 	}
 
@@ -265,9 +281,8 @@ func runImport(cmd *cobra.Command, args []string) error {
 
 // importScope scans a platform directory and writes a xcf file to xcfDest.
 // provider selects provider-specific extraction logic for settings, MCP,
-// hooks, project-instruction files, and memory. Supported values: "claude",
-// "gemini", "cursor", "copilot", "antigravity". An empty string or unknown
-// value falls back to Claude-style extraction (settings.json + hooks.json).
+// hooks, project-instruction files, and memory. The provider name must match
+// a registered provider (see providers.RegisteredNames()).
 func importScope(platformDir, xcfDest, scopeName, provider string) error {
 	if _, err := os.Stat(xcfDest); err == nil {
 		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcfDest)
@@ -417,43 +432,18 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 	}
 }
 
-// providerSubdirMap maps provider-native subdirectory names to the canonical
-// xcaffold subdir names (references, scripts, assets, examples). An empty
-// string value means the subdir has no canonical mapping and its files are
-// routed to the provider-native passthrough directory.
-var providerSubdirMap = map[string]map[string]string{
-	"claude": {
-		"references": "references",
-		"scripts":    "scripts",
-		"examples":   "examples",
-	},
-	"gemini": {
-		"references": "references",
-		"scripts":    "scripts",
-		"assets":     "assets",
-	},
-	"cursor": {
-		"references": "references",
-		"scripts":    "scripts",
-		"assets":     "assets",
-	},
-	"copilot": {}, // co-located — classify by extension
-	"antigravity": {
-		"examples":  "examples",
-		"scripts":   "scripts",
-		"resources": "assets",
-	},
-}
-
 // extractSkillSubdirs scans the skill directory for known canonical and
 // provider-native subdirectories, copies their files to xcf/skills/<id>/,
 // and returns slices of copied paths grouped by canonical category.
 //
+// manifest provides the provider's SubdirMap; if nil, all subdirectory files
+// are routed to passthrough.
+//
 // outDir is the base directory for output paths (xcf/skills/<id>/...).  When
 // empty, the current working directory is used.
 //
-// For Claude imports, any .md file alongside SKILL.md (not in a subdirectory)
-// is treated as a reference.
+// For providers with SkillMDAsReference=true, any .md file alongside SKILL.md
+// (not in a subdirectory) is treated as a reference.
 //
 // Files from subdirectories that have no canonical mapping are copied to
 // xcf/skills/<id>/<subdir>/ alongside canonical subdirectories.
@@ -461,15 +451,20 @@ var providerSubdirMap = map[string]map[string]string{
 // The discoveredDirs slice contains all discovered subdirectory names (both
 // canonical and custom) in the skill directory, suitable for populating
 // the Artifacts field of SkillConfig.
-func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]string) (refs, scripts, assets, examples, discoveredDirs []string, err error) {
+func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderManifest, outDir string, warnings *[]string) (refs, scripts, assets, examples, discoveredDirs []string, err error) {
 	skillDir := filepath.Dir(skillFile)
 
 	// Determine the base for output paths.
 	base := outDir
 
-	subdirMap := providerSubdirMap[provider] // nil if provider unknown
-	if subdirMap == nil {
-		*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs: unknown provider %q — all subdirectory files routed to passthrough", provider))
+	subdirMap := map[string]string{}
+	if manifest != nil {
+		subdirMap = manifest.SubdirMap
+		if len(subdirMap) == 0 {
+			*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs: provider %q has no SubdirMap — all subdirectory files routed to passthrough", manifest.Name))
+		}
+	} else {
+		*warnings = append(*warnings, "extractSkillSubdirs: unknown provider unknown-provider (nil manifest) — all subdirectory files routed to passthrough")
 	}
 
 	// Walk all direct children of the skill directory.
@@ -549,8 +544,8 @@ func extractSkillSubdirs(skillFile, id, provider, outDir string, warnings *[]str
 		}
 
 		// Non-directory entry alongside SKILL.md.
-		// For Claude: any .md file that is not SKILL.md is treated as a reference.
-		if provider == "claude" && strings.ToLower(name) != "skill.md" && strings.HasSuffix(strings.ToLower(name), ".md") {
+		// If the manifest marks SkillMDAsReference=true, any .md file that is not SKILL.md is treated as a reference.
+		if manifest != nil && manifest.SkillMDAsReference && strings.ToLower(name) != "skill.md" && strings.HasSuffix(strings.ToLower(name), ".md") {
 			appendCopied(filepath.Join(skillDir, name), "references", name)
 		}
 	}
@@ -582,25 +577,24 @@ func extractBodyAfterFrontmatter(data []byte) string {
 	return strings.TrimSpace(string(data[bodyStart:]))
 }
 
-// detectTargets derives compilation target names from platform directory base names.
-// ".claude" → "claude", ".agents" → "antigravity", ".cursor" → "cursor".
+// detectTargets derives compilation target names from platform directory base names
+// by consulting the importer registry. It maps InputDir() names to Provider() names.
 // The result is sorted for deterministic output.
 func detectTargets(baseDirs ...string) []string {
 	targetMap := map[string]bool{}
+	importers := importer.DefaultImporters()
+
 	for _, dir := range baseDirs {
-		switch filepath.Base(filepath.Clean(dir)) {
-		case ".claude":
-			targetMap["claude"] = true
-		case ".agents":
-			targetMap["antigravity"] = true
-		case ".cursor":
-			targetMap["cursor"] = true
-		case ".gemini":
-			targetMap["gemini"] = true
-		case ".github":
-			targetMap["copilot"] = true
+		dirBase := filepath.Base(filepath.Clean(dir))
+		// Reverse-lookup: find which importer has InputDir() == dirBase.
+		for _, imp := range importers {
+			if filepath.Base(filepath.Clean(imp.InputDir())) == dirBase {
+				targetMap[imp.Provider()] = true
+				break
+			}
 		}
 	}
+
 	targets := make([]string, 0, len(targetMap))
 	for t := range targetMap {
 		targets = append(targets, t)
@@ -667,10 +661,11 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 			}
 		}
 		// Copy skill supporting files
+		manifest, _ := providerspkg.ManifestFor(provider)
 		for id := range config.Skills {
 			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				refs, scripts, fileAssets, fileExamples, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
+				refs, scripts, fileAssets, fileExamples, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
 				sc := config.Skills[id]
 				if len(refs) > 0 {
 					sc.References = ast.ClearableList{Values: refs}
@@ -726,10 +721,11 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 			*warnings = append(*warnings, fmt.Sprintf("%s import: %v", provider, err))
 		}
 
+		manifest, _ := providerspkg.ManifestFor(provider)
 		for id := range tmpConfig.Skills {
 			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				refs, scripts, fileAssets, fileExamples, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, provider, "", warnings)
+				refs, scripts, fileAssets, fileExamples, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
 				sc := tmpConfig.Skills[id]
 				if len(refs) > 0 {
 					sc.References = ast.ClearableList{Values: refs}
@@ -1070,20 +1066,21 @@ func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
 // outside the scope of the ProviderImporter interface (cross-boundary files,
 // out-of-tree memory sources, unsupported-provider warnings).
 func runProviderPostImport(provider, _ /* platformDir */ string, projectDir string, config *ast.XcaffoldConfig, warnings *[]string) error {
-	// Claude: root .mcp.json lives outside .claude/ — import it here.
-	if provider == "claude" || provider == "" {
-		rootMCPPath := filepath.Join(projectDir, ".mcp.json")
-		if data, err := os.ReadFile(rootMCPPath); err == nil {
+	m, ok := providerspkg.ManifestFor(provider)
+	if !ok {
+		return nil
+	}
+	for _, mcpPath := range m.RootMCPPaths {
+		fullPath := filepath.Join(projectDir, mcpPath)
+		if data, err := os.ReadFile(fullPath); err == nil {
 			count := 0
 			if err := importSettings(data, config, &count, warnings); err != nil {
-				*warnings = append(*warnings, fmt.Sprintf(".mcp.json partially imported: %v", err))
+				*warnings = append(*warnings, fmt.Sprintf("%s partially imported: %v", mcpPath, err))
 			}
 		}
 	}
-	// Antigravity: KIs are app-managed and cannot be imported from the filesystem.
-	if provider == "antigravity" {
-		*warnings = append(*warnings,
-			"Antigravity Knowledge Items (KIs) are app-managed and cannot be imported from the filesystem")
+	if m.PostImportWarning != "" {
+		*warnings = append(*warnings, m.PostImportWarning)
 	}
 	return nil
 }
@@ -1095,7 +1092,7 @@ func discoverRootContextFiles(projectDir string, config *ast.XcaffoldConfig) {
 		config.Contexts = make(map[string]ast.ContextConfig)
 	}
 
-	for _, m := range providers.Manifests() {
+	for _, m := range providerspkg.Manifests() {
 		if m.RootContextFile == "" {
 			continue
 		}

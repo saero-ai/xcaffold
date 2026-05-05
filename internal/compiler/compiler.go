@@ -16,20 +16,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const (
-	TargetClaude      = "claude"
-	TargetCursor      = "cursor"
-	TargetAntigravity = "antigravity"
-	TargetCopilot     = "copilot"
-	TargetGemini      = "gemini"
-)
-
 // Output is an alias for output.Output, preserved for backward compatibility.
 // All callers that reference compiler.Output continue to work without changes.
 type Output = output.Output
 
 // Compile translates an XcaffoldConfig AST into platform-native files.
-// target selects the output platform: "claude", "cursor", "antigravity", "copilot", "gemini".
+// target selects the output platform (see providers.PrimaryNames() for supported values).
 // An empty target returns an error.
 // blueprintName narrows compilation to the named blueprint's resource subset.
 // If blueprintName is empty, all resources are compiled.
@@ -41,7 +33,7 @@ type Output = output.Output
 // configurations are not physically duplicated into local project directories.
 func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprintName string) (*Output, []renderer.FidelityNote, error) {
 	if target == "" {
-		return nil, nil, fmt.Errorf("target is required; supported: claude, cursor, antigravity, copilot, gemini")
+		return nil, nil, fmt.Errorf("target is required; supported: %s", strings.Join(providers.PrimaryNames(), ", "))
 	}
 
 	if config.Project != nil {

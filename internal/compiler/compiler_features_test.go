@@ -684,7 +684,7 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 			AvailableModels:            []string{"claude-sonnet-4-6", "claude-haiku-4-5-20251001"},
 			RespectGitignore:           &trueVal,
 			PlansDirectory:             "docs/plans",
-			ClaudeMdExcludes:           []string{"vendor/**"},
+			MdExcludes:                 []string{"vendor/**"},
 			AutoMemoryEnabled:          &trueVal,
 			AutoMemoryDirectory:        ".claude/memory",
 		}},
@@ -709,7 +709,7 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 	assert.Len(t, parsed["availableModels"], 2)
 	assert.Equal(t, true, parsed["respectGitignore"])
 	assert.Equal(t, "docs/plans", parsed["plansDirectory"])
-	assert.Len(t, parsed["claudeMdExcludes"], 1)
+	assert.Len(t, parsed["mdExcludes"], 1)
 	assert.Equal(t, true, parsed["autoMemoryEnabled"])
 	assert.Equal(t, ".claude/memory", parsed["autoMemoryDirectory"])
 }

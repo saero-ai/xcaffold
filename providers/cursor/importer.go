@@ -14,22 +14,18 @@ import (
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
 type CursorImporter struct {
-	Warnings []string
+	importer.BaseImporter
 }
 
 // NewImporter returns a new CursorImporter.
 func NewImporter() *CursorImporter {
-	return &CursorImporter{}
+	return &CursorImporter{
+		BaseImporter: importer.BaseImporter{
+			ProviderName: "cursor",
+			Dir:          ".cursor",
+		},
+	}
 }
-
-// GetWarnings returns non-fatal per-file extraction errors collected during the last Import() call.
-func (c *CursorImporter) GetWarnings() []string { return c.Warnings }
-
-// Provider returns the canonical provider name.
-func (c *CursorImporter) Provider() string { return "cursor" }
-
-// InputDir returns the root directory relative to the workspace root.
-func (c *CursorImporter) InputDir() string { return ".cursor" }
 
 // cursorMappings maps path patterns to AST kinds. First match wins.
 var cursorMappings = []importer.KindMapping{
@@ -69,9 +65,9 @@ func (c *CursorImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 	case importer.KindSkill:
 		return extractSkill(rel, data, config)
 	case importer.KindSkillAsset:
-		return extractSkillAsset(rel, data, config)
+		return importer.DefaultExtractSkillAsset(rel, data, config)
 	case importer.KindHookScript:
-		return importer.ExtractHookScript(rel, data, config)
+		return importer.DefaultExtractHookScript(rel, data, config)
 	case importer.KindRule:
 		return extractRule(rel, data, config)
 	case importer.KindMCP:
@@ -83,7 +79,7 @@ func (c *CursorImporter) Extract(rel string, data []byte, config *ast.XcaffoldCo
 	}
 }
 
-// Import walks dir, classifies each entry, extracts classified files, and
+// Import walks dir (the provider directory), classifies each entry, extracts classified files, and
 // appends unclassified files to config.ProviderExtras["cursor"].
 //
 // Extraction errors for individual files are non-fatal: they are collected in
@@ -94,24 +90,17 @@ func (c *CursorImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
 		kind, _ := c.Classify(rel, false)
 		if kind == importer.KindUnknown {
-			if config.ProviderExtras == nil {
-				config.ProviderExtras = make(map[string]map[string][]byte)
-			}
-			if config.ProviderExtras["cursor"] == nil {
-				config.ProviderExtras["cursor"] = make(map[string][]byte)
-			}
-			config.ProviderExtras["cursor"][rel] = data
 			return nil
 		}
-		if extractErr := c.Extract(rel, data, config); extractErr != nil {
+		if err := c.Extract(rel, data, config); err != nil {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["cursor"] == nil {
-				config.ProviderExtras["cursor"] = make(map[string][]byte)
+			if config.ProviderExtras[c.Provider()] == nil {
+				config.ProviderExtras[c.Provider()] = make(map[string][]byte)
 			}
-			config.ProviderExtras["cursor"][rel] = data
-			c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
+			config.ProviderExtras[c.Provider()][rel] = data
+			c.AppendWarning(fmt.Sprintf("skipped %q: %v", rel, err))
 		}
 		return nil
 	})
@@ -225,34 +214,6 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Body:                   body,
 		SourceProvider:         "cursor",
 	}
-	return nil
-}
-
-// extractSkillAsset records a skill companion file (references/*, scripts/*, assets/*)
-// in the parent skill's corresponding slice. rel is the path relative to InputDir()
-// and must match the pattern "skills/<id>/<sub>/<file>".
-func extractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) error {
-	parts := strings.SplitN(rel, "/", 4)
-	if len(parts) < 4 {
-		return fmt.Errorf("cursor: skill asset path too short: %q", rel)
-	}
-	skillID := parts[1]
-	subDir := parts[2]
-	relWithinSkill := subDir + "/" + parts[3]
-
-	if config.Skills == nil {
-		config.Skills = make(map[string]ast.SkillConfig)
-	}
-	skill := config.Skills[skillID]
-	switch subDir {
-	case "references":
-		skill.References = ast.ClearableList{Values: importer.AppendUnique(skill.References.Values, relWithinSkill)}
-	case "scripts":
-		skill.Scripts = ast.ClearableList{Values: importer.AppendUnique(skill.Scripts.Values, relWithinSkill)}
-	case "assets":
-		skill.Assets = ast.ClearableList{Values: importer.AppendUnique(skill.Assets.Values, relWithinSkill)}
-	}
-	config.Skills[skillID] = skill
 	return nil
 }
 

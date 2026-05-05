@@ -1,7 +1,12 @@
 kind: hooks
 version: "1.0"
 name: golden-hooks
+description: "Example hook block with lifecycle event handlers."
 artifacts: [scripts, templates]
+targets:
+  claude:
+    hooks:
+      PreToolUse: example-pre-tool
 events:
   PreToolUse:
     - matcher: "Bash"

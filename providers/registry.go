@@ -2,8 +2,10 @@ package providers
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 
+	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 )
 
@@ -11,6 +13,18 @@ var (
 	mu  sync.RWMutex
 	reg []ProviderManifest
 )
+
+func init() {
+	registry.GlobalScanIterator = func(userHome string, r *registry.GlobalScanResult) {
+		mu.RLock()
+		defer mu.RUnlock()
+		for _, m := range reg {
+			if m.GlobalScanner != nil {
+				m.GlobalScanner(userHome, r)
+			}
+		}
+	}
+}
 
 // Register adds m to the global provider registry. It is safe for concurrent
 // use and is typically called from a provider package's init() function.
@@ -67,6 +81,19 @@ func RegisteredNames() []string {
 	return names
 }
 
+// PrimaryNames returns the canonical name of each registered provider,
+// sorted alphabetically.
+func PrimaryNames() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	names := make([]string, 0, len(reg))
+	for _, m := range reg {
+		names = append(names, m.Name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // IsRegistered reports whether name matches any registered provider name or alias.
 func IsRegistered(name string) bool {
 	_, ok := ManifestFor(name)
@@ -85,6 +112,37 @@ func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
 		return nil, fmt.Errorf("providers: %q has no renderer factory", m.Name)
 	}
 	return m.NewRenderer(), nil
+}
+
+// ResolveModelResolver returns a new ModelResolver for the given target name or
+// alias. It returns nil if the target is unknown or does not support model resolution.
+func ResolveModelResolver(target string) renderer.ModelResolver {
+	m, ok := ManifestFor(target)
+	if !ok || m.NewModelResolver == nil {
+		return nil
+	}
+	return m.NewModelResolver()
+}
+
+// RegisteredInputDirs returns the input directory for each registered provider
+// that has an importer. Returns a slice of directory names (e.g. [".claude", ".cursor"]).
+// Duplicates are removed. Order matches registration order.
+func RegisteredInputDirs() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	var dirs []string
+	seen := make(map[string]bool)
+	for _, m := range reg {
+		if m.NewImporter != nil {
+			imp := m.NewImporter()
+			dir := imp.InputDir()
+			if !seen[dir] {
+				dirs = append(dirs, dir)
+				seen[dir] = true
+			}
+		}
+	}
+	return dirs
 }
 
 // SwapRegistryForTest atomically replaces the global registry with next and

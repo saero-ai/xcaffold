@@ -858,7 +858,7 @@ func populateSettingsSystem(out map[string]any, settings ast.SettingsConfig) {
 	if settings.Worktree != nil {
 		out["worktree"] = settings.Worktree
 	}
-	if len(settings.ClaudeMdExcludes) > 0 {
-		out["claudeMdExcludes"] = settings.ClaudeMdExcludes
+	if len(settings.MdExcludes) > 0 {
+		out["mdExcludes"] = settings.MdExcludes
 	}
 }

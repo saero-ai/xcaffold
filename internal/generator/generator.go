@@ -12,25 +12,22 @@ import (
 	"github.com/saero-ai/xcaffold/internal/llmclient"
 )
 
-const defaultGeneratorModel = "claude-3-7-sonnet-20250219" // Sonnet is preferred for generation speed and context
-
 type Generator struct {
 	client *llmclient.Client
 	model  string
 }
 
 // New constructs a Generator backed by llmclient. Returns an error if the
-// configuration is invalid (e.g. SSRF-unsafe GenericAPIBase URL).
+// configuration is invalid (e.g. SSRF-unsafe GenericAPIBase URL, or missing model).
 func New(anthropicKey, genericAPIKey, apiBaseURL, model, cliPath string, httpClient *http.Client) (*Generator, error) {
 	if model == "" {
-		model = defaultGeneratorModel
+		return nil, fmt.Errorf("generator: model must be specified (cannot be empty)")
 	}
 	client, err := llmclient.New(llmclient.Config{
 		AnthropicKey:   anthropicKey,
 		GenericAPIKey:  genericAPIKey,
 		GenericAPIBase: apiBaseURL,
 		Model:          model,
-		DefaultModel:   defaultGeneratorModel,
 		CLIPath:        cliPath,
 		MaxTokens:      4096,
 		HTTPClient:     httpClient,

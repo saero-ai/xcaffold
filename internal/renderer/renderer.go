@@ -33,7 +33,7 @@ type MemoryAwareRenderer interface {
 // orchestrator calls these methods directly via Orchestrate(); there is no
 // monolithic Compile/Render method on the interface.
 type TargetRenderer interface {
-	// Target returns the canonical name of this renderer (e.g. "claude").
+	// Target returns the canonical name of this renderer.
 	Target() string
 
 	// OutputDir returns the base output directory for this target

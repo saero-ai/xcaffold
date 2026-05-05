@@ -9,6 +9,7 @@ import (
 func init() {
 	providers.Register(Manifest)
 	importer.Register(NewImporter())
+	renderer.RegisterModelResolver("gemini", NewModelResolver())
 }
 
 // Manifest describes the Gemini CLI provider's capabilities and factories.
@@ -18,6 +19,7 @@ var Manifest = providers.ProviderManifest{
 	ValidNames:     []string{"gemini"},
 	RequiredPasses: []string{"inline-imports"},
 	DefaultBudget:  0,
+	BudgetKind:     "",
 	KindSupport: map[string]bool{
 		"agent":       true,
 		"skill":       true,
@@ -27,6 +29,16 @@ var Manifest = providers.ProviderManifest{
 		"settings":    true,
 	},
 	RootContextFile: "GEMINI.md",
-	NewRenderer:     func() renderer.TargetRenderer { return New() },
-	NewImporter:     func() importer.ProviderImporter { return NewImporter() },
+	SubdirMap: map[string]string{
+		"references": "references",
+		"scripts":    "scripts",
+		"assets":     "assets",
+	},
+	SkillMDAsReference: false,
+	DisplayLabel:       "Gemini",
+	CLIBinary:          "gemini",
+	DefaultModel:       "gemini-2.5-pro",
+	NewRenderer:        func() renderer.TargetRenderer { return New() },
+	NewModelResolver:   func() renderer.ModelResolver { return NewModelResolver() },
+	NewImporter:        func() importer.ProviderImporter { return NewImporter() },
 }

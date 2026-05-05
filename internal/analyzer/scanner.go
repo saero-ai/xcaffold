@@ -11,7 +11,7 @@ import (
 // ProjectSignature is the highly compressed deterministic summary of the repository.
 type ProjectSignature struct {
 	DependencyManifests map[string]string `json:"dependency_manifests"`
-	ClaudeConfig        string            `json:"claude_config,omitempty"`
+	ProviderConfig      string            `json:"provider_config,omitempty"`
 	Files               []string          `json:"files"`
 }
 
@@ -96,8 +96,8 @@ func ScanProject(fsys fs.FS) (*ProjectSignature, error) {
 			// Only capture the first (shallowest) CLAUDE.md encountered.
 			// The walker visits root before subdirectories, so this preserves
 			// the project-root file and ignores any src/CLAUDE.md etc.
-			if sig.ClaudeConfig == "" {
-				sig.ClaudeConfig = readTruncated(fsys, path, 5000)
+			if sig.ProviderConfig == "" {
+				sig.ProviderConfig = readTruncated(fsys, path, 5000)
 			}
 		}
 

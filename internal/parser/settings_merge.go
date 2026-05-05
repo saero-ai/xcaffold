@@ -152,9 +152,9 @@ func mergeSettingsStrict(base, child ast.SettingsConfig, baseFile, childFile str
 	}
 	out.MCPServers = mergedMCP
 
-	// --- []string (AvailableModels, ClaudeMdExcludes) ---
+	// --- []string (AvailableModels, MdExcludes) ---
 	out.AvailableModels = appendUnique(base.AvailableModels, child.AvailableModels)
-	out.ClaudeMdExcludes = appendUnique(base.ClaudeMdExcludes, child.ClaudeMdExcludes)
+	out.MdExcludes = appendUnique(base.MdExcludes, child.MdExcludes)
 
 	// --- HookConfig (additive) ---
 	out.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
@@ -253,7 +253,7 @@ func mergeSettingsOverride(base, child ast.SettingsConfig) ast.SettingsConfig {
 
 	// --- slices: additive (append unique) ---
 	out.AvailableModels = appendUnique(base.AvailableModels, child.AvailableModels)
-	out.ClaudeMdExcludes = appendUnique(base.ClaudeMdExcludes, child.ClaudeMdExcludes)
+	out.MdExcludes = appendUnique(base.MdExcludes, child.MdExcludes)
 
 	// --- hooks: additive ---
 	out.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)

@@ -124,6 +124,38 @@ func TestHelpXcf_FieldsMatchParser(t *testing.T) {
 	assert.NoError(t, parseErr, "parser rejected generated template")
 }
 
+func TestFormatProviderSupport_UsesAlphabeticalOrder(t *testing.T) {
+	providers := map[string]string{
+		"cursor":      "supported",
+		"claude":      "supported",
+		"gemini":      "supported",
+		"antigravity": "supported",
+		"copilot":     "supported",
+	}
+
+	output := formatProviderSupport(providers)
+	assert.NotEmpty(t, output)
+
+	// All providers should appear in output (checking for capitalized names)
+	assert.Contains(t, output, "Claude")
+	assert.Contains(t, output, "Cursor")
+	assert.Contains(t, output, "Gemini")
+	assert.Contains(t, output, "Antigravity")
+	assert.Contains(t, output, "Copilot")
+
+	// Verify they appear in alphabetical order
+	antiIdx := strings.Index(output, "Antigravity")
+	claudeIdx := strings.Index(output, "Claude")
+	copilotIdx := strings.Index(output, "Copilot")
+	cursorIdx := strings.Index(output, "Cursor")
+	geminiIdx := strings.Index(output, "Gemini")
+
+	assert.True(t, antiIdx < claudeIdx, "Antigravity should come before Claude alphabetically")
+	assert.True(t, claudeIdx < copilotIdx, "Claude should come before Copilot alphabetically")
+	assert.True(t, copilotIdx < cursorIdx, "Copilot should come before Cursor alphabetically")
+	assert.True(t, cursorIdx < geminiIdx, "Cursor should come before Gemini alphabetically")
+}
+
 func TestHelpXcf_GoldenOutput(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	noColorFlag = true

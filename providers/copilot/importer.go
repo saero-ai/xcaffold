@@ -16,22 +16,18 @@ import (
 // Warnings accumulates non-fatal per-file extraction errors encountered during Import().
 // Callers may inspect Warnings after Import() returns to surface skipped files.
 type CopilotImporter struct {
-	Warnings []string
+	importer.BaseImporter
 }
 
 // NewImporter returns a new CopilotImporter.
 func NewImporter() *CopilotImporter {
-	return &CopilotImporter{}
+	return &CopilotImporter{
+		BaseImporter: importer.BaseImporter{
+			ProviderName: "copilot",
+			Dir:          ".github",
+		},
+	}
 }
-
-// GetWarnings returns non-fatal per-file extraction errors collected during the last Import() call.
-func (c *CopilotImporter) GetWarnings() []string { return c.Warnings }
-
-// Provider returns the canonical provider name.
-func (c *CopilotImporter) Provider() string { return "copilot" }
-
-// InputDir returns the root directory relative to the workspace root.
-func (c *CopilotImporter) InputDir() string { return ".github" }
 
 // copilotMappings maps path patterns to AST kinds. First match wins.
 // agents/*.agent.md is listed before agents/*.md so the more specific
@@ -79,7 +75,7 @@ func (c *CopilotImporter) Extract(rel string, data []byte, config *ast.XcaffoldC
 	case importer.KindHook:
 		return extractHooksStandalone(rel, data, config)
 	case importer.KindHookScript:
-		return importer.ExtractHookScript(rel, data, config)
+		return importer.DefaultExtractHookScript(rel, data, config)
 	case importer.KindMCP:
 		return extractMCP(rel, data, config)
 	case importer.KindWorkflow:
@@ -89,7 +85,7 @@ func (c *CopilotImporter) Extract(rel string, data []byte, config *ast.XcaffoldC
 	}
 }
 
-// Import walks dir, classifies each entry, extracts classified files, and
+// Import walks dir (the provider directory), classifies each entry, extracts classified files, and
 // appends unclassified files to config.ProviderExtras["copilot"].
 //
 // Extraction errors for individual files are non-fatal: they are collected in
@@ -100,24 +96,17 @@ func (c *CopilotImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	return importer.WalkProviderDir(dir, func(rel string, data []byte) error {
 		kind, _ := c.Classify(rel, false)
 		if kind == importer.KindUnknown {
-			if config.ProviderExtras == nil {
-				config.ProviderExtras = make(map[string]map[string][]byte)
-			}
-			if config.ProviderExtras["copilot"] == nil {
-				config.ProviderExtras["copilot"] = make(map[string][]byte)
-			}
-			config.ProviderExtras["copilot"][rel] = data
 			return nil
 		}
-		if extractErr := c.Extract(rel, data, config); extractErr != nil {
+		if err := c.Extract(rel, data, config); err != nil {
 			if config.ProviderExtras == nil {
 				config.ProviderExtras = make(map[string]map[string][]byte)
 			}
-			if config.ProviderExtras["copilot"] == nil {
-				config.ProviderExtras["copilot"] = make(map[string][]byte)
+			if config.ProviderExtras[c.Provider()] == nil {
+				config.ProviderExtras[c.Provider()] = make(map[string][]byte)
 			}
-			config.ProviderExtras["copilot"][rel] = data
-			c.Warnings = append(c.Warnings, fmt.Sprintf("skipped %q: %v", rel, extractErr))
+			config.ProviderExtras[c.Provider()][rel] = data
+			c.AppendWarning(fmt.Sprintf("skipped %q: %v", rel, err))
 		}
 		return nil
 	})

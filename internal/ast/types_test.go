@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -36,6 +37,14 @@ func TestXcaffoldConfig_BlueprintsMap_Exists(t *testing.T) {
 		},
 	}
 	require.Len(t, cfg.Blueprints, 1)
+}
+
+func TestSkillConfig_FieldCount_OverrideScoringGuard(t *testing.T) {
+	const expected = 17
+	rt := reflect.TypeOf(SkillConfig{})
+	if rt.NumField() != expected {
+		t.Fatalf("SkillConfig has %d fields, expected %d — update override scoring if fields changed", rt.NumField(), expected)
+	}
 }
 
 // TestSkillConfig_Examples_RoundTrip verifies that the examples: field on

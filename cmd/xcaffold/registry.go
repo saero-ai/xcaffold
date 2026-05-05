@@ -48,15 +48,8 @@ func runRegistry(cmd *cobra.Command, args []string) error {
 
 		var resInfo string
 		var xcfProjectPath string
-		candidates := []string{
-			filepath.Join(p.Path, ".xcaffold", "project.xcf"),
-			filepath.Join(p.Path, "project.xcf"),
-		}
-		for _, c := range candidates {
-			if _, err := os.Stat(c); err == nil {
-				xcfProjectPath = c
-				break
-			}
+		if _, err := os.Stat(filepath.Join(p.Path, "project.xcf")); err == nil {
+			xcfProjectPath = filepath.Join(p.Path, "project.xcf")
 		}
 
 		if xcfProjectPath != "" {

@@ -41,7 +41,7 @@ func TestImportScope_Claude_ReadsMCPJson(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"), "# Dev\n")
 
 	// Root-level .mcp.json (sibling to .claude/). This is how Claude Code
-	// stores project-scoped MCP servers per ground truth.
+	// stores project-scoped MCP servers per provider documentation.
 	mcpJSON := `{
   "mcpServers": {
     "playwright": {
@@ -110,7 +110,7 @@ func TestImportScope_Gemini_SettingsAndMCP(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".gemini", "rules", "style.md"), "# Style\n\nUse 2-space indent.\n")
 
 	// .gemini/settings.json with mcpServers — this is how Gemini CLI stores
-	// project-scope MCP per ground truth.
+	// project-scope MCP per provider documentation.
 	geminiSettings := `{
   "mcpServers": {
     "github": {
@@ -144,7 +144,7 @@ func TestImportScope_Cursor_MCPJson(t *testing.T) {
 
 	writeFile(t, filepath.Join(tmp, ".cursor", "rules", "style.mdc"), "Use 2-space indent.\n")
 
-	// .cursor/mcp.json — Cursor's project-scope MCP config per ground truth.
+	// .cursor/mcp.json — Cursor's project-scope MCP config per provider documentation.
 	cursorMCP := `{
   "mcpServers": {
     "filesystem": {

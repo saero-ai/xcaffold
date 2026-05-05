@@ -16,28 +16,42 @@ func TestTranslateHookCommand(t *testing.T) {
 		expected         string
 	}{
 		{
-			name:             "Copilot translation",
+			name:             "xcf-native env var (unbraced)",
+			command:          "$XCF_PROJECT_DIR/.xcf/hooks/script.sh",
+			targetEnvVar:     "$GITHUB_WORKSPACE",
+			targetPathPrefix: ".github/hooks/scripts/",
+			expected:         "$GITHUB_WORKSPACE/.github/hooks/scripts/script.sh",
+		},
+		{
+			name:             "xcf-native env var (braced)",
+			command:          "${XCF_PROJECT_DIR}/.xcf/hooks/sync.sh",
+			targetEnvVar:     "${CURSOR_PROJECT_DIR}",
+			targetPathPrefix: ".cursor/hooks/",
+			expected:         "${CURSOR_PROJECT_DIR}/.cursor/hooks/sync.sh",
+		},
+		{
+			name:             "backward compat: Claude env var imported from .claude/ project",
 			command:          "\"$CLAUDE_PROJECT_DIR/.claude/hooks/script.sh\"",
 			targetEnvVar:     "$GITHUB_WORKSPACE",
 			targetPathPrefix: ".github/hooks/scripts/",
 			expected:         "\"$GITHUB_WORKSPACE/.github/hooks/scripts/script.sh\"",
 		},
 		{
-			name:             "Gemini translation with xcf/hooks abstract path",
-			command:          "npm run build && sh .xcf/hooks/post-build.sh",
-			targetEnvVar:     "$GEMINI_PROJECT_DIR",
-			targetPathPrefix: ".gemini/hooks/",
-			expected:         "npm run build && sh .gemini/hooks/post-build.sh",
-		},
-		{
-			name:             "Cursor translation with braced env var",
+			name:             "backward compat: braced Claude env var",
 			command:          "${CLAUDE_PROJECT_DIR}/.claude/hooks/sync.sh",
 			targetEnvVar:     "${CURSOR_PROJECT_DIR}",
 			targetPathPrefix: ".cursor/hooks/",
 			expected:         "${CURSOR_PROJECT_DIR}/.cursor/hooks/sync.sh",
 		},
 		{
-			name:             "Pass through unhandled path",
+			name:             "xcf abstract hook path without env var",
+			command:          "npm run build && sh .xcf/hooks/post-build.sh",
+			targetEnvVar:     "$GEMINI_PROJECT_DIR",
+			targetPathPrefix: ".gemini/hooks/",
+			expected:         "npm run build && sh .gemini/hooks/post-build.sh",
+		},
+		{
+			name:             "pass through unhandled command",
 			command:          "echo 'Hello' > my-file",
 			targetEnvVar:     "$CURSOR_PROJECT_DIR",
 			targetPathPrefix: ".cursor/hooks/",

@@ -121,7 +121,7 @@ version: "1.0"
 name: "child-project"
 description: "Child description."
 test:
-  claude-path: "/usr/local/bin/claude"
+  cli-path: "/usr/local/bin/claude"
   judge-model: "claude-3-opus-20240229"
 `)
 	writeFile(t, childDir, "global.xcf", `kind: global
@@ -146,9 +146,9 @@ agents:
 	assert.Equal(t, "Child version of agent.", cfg.Agents["shared-agent"].Description)
 	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["shared-agent"].Model)
 
-	// Test config: child project.xcf sets both claude-path and judge-model
+	// Test config: child project.xcf sets both cli-path and judge-model
 	require.NotNil(t, cfg.Project)
-	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.ClaudePath, "claude-path from project.xcf")
+	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.CliPath, "cli-path from project.xcf")
 	assert.Equal(t, "claude-3-opus-20240229", cfg.Project.Test.JudgeModel, "judge-model from project.xcf")
 }
 

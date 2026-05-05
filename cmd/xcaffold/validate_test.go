@@ -289,24 +289,18 @@ You are a developer.
 }
 
 func TestValidate_ManifestInXcaffoldDir_ParsesFullProjectRoot(t *testing.T) {
-	// When validate.go uses filepath.Dir(".xcaffold/project.xcf") = ".xcaffold/"
-	// as the ParseDirectory root, files at xcf/agents/ are NOT found.
-	// This causes invalid xcf/agents/ files to silently pass validation.
-	// Fix: derive parseRoot by walking up past .xcaffold/ to the true project root.
+	// Verify that validate.go correctly parses the full project root
+	// when project.xcf is at the root, including all xcf/ subdirectories.
 	dir := t.TempDir()
 
-	xcaffoldDir := filepath.Join(dir, ".xcaffold")
-	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(xcaffoldDir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
 name: test
 version: "1.0"
 `), 0644))
 
-	// Agent at the TRUE project root with an unresolved cross-reference.
-	// skill "nonexistent" does NOT exist. If ParseDirectory scans the correct root,
-	// this cross-reference is found but reported as a warning (not an error).
-	// If ParseDirectory scans .xcaffold/ (the bug), this file is never parsed,
-	// cross-reference is never checked, and validation falsely PASSES.
+	// Agent at the project root with an unresolved cross-reference.
+	// skill "nonexistent" does NOT exist. ParseDirectory should scan the project root
+	// correctly and report the cross-reference as a warning.
 	agentsDir := filepath.Join(dir, "xcf", "agents", "bad-agent")
 	require.NoError(t, os.MkdirAll(agentsDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "agent.xcf"), []byte(`---
@@ -320,7 +314,7 @@ Agent body text.
 `), 0644))
 
 	oldPath := xcfPath
-	xcfPath = filepath.Join(xcaffoldDir, "project.xcf")
+	xcfPath = filepath.Join(dir, "project.xcf")
 	t.Cleanup(func() { xcfPath = oldPath })
 
 	err := runValidate(validateCmd, []string{})

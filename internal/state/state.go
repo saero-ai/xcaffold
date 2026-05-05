@@ -53,7 +53,7 @@ type StateManifest struct {
 }
 
 // TargetState records the last-applied timestamp, artifact list, and source files
-// for a single compilation target (e.g. "claude", "cursor") within a StateManifest.
+// for a single compilation target within a StateManifest.
 type TargetState struct {
 	LastApplied string       `yaml:"last-applied"`
 	Artifacts   []Artifact   `yaml:"artifacts"`

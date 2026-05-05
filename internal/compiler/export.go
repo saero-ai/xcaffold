@@ -3,27 +3,30 @@ package compiler
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/providers"
 )
 
 // pluginDirForTarget returns the plugin output directory for the given target.
-// Only "claude" (and empty, which defaults to "claude") is currently supported.
-// All other targets return an error.
+// Returns an error if the target is unknown or does not support plugin export.
 func pluginDirForTarget(target string) (string, error) {
 	if target == "" {
-		target = TargetClaude
+		return "", fmt.Errorf("--target is required for export")
 	}
-	switch target {
-	case TargetClaude:
-		return ".claude-plugin", nil
-	default:
-		return "", fmt.Errorf("export is not supported for target %q; supported: claude", target)
+	m, ok := providers.ManifestFor(target)
+	if !ok {
+		return "", fmt.Errorf("unknown target %q; supported: %s", target, strings.Join(providers.PrimaryNames(), ", "))
 	}
+	if m.PluginDir == "" {
+		return "", fmt.Errorf("target %q does not support plugin export", target)
+	}
+	return m.PluginDir, nil
 }
 
 // ExportPlugin repackages a compiled Output into the standard plugin format.
-// target selects the output platform: "claude" (default) or empty string.
+// target selects the output platform.
 // Settings files are excluded (they are environment-specific), and the hooks
 // file is relocated under a hooks/ subdirectory.
 func ExportPlugin(config *ast.XcaffoldConfig, compiled *Output, target string) (*Output, error) {

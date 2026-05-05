@@ -5,39 +5,39 @@ import (
 	"testing"
 )
 
-func TestClaudeNativeTools_LengthInvariant(t *testing.T) {
-	if len(claudeNativeTools) != 16 {
-		t.Fatalf("claudeNativeTools has %d entries, expected 16 — update the map and this test together", len(claudeNativeTools))
+func TestNativeTools_LengthInvariant(t *testing.T) {
+	if len(nativeTools) != 16 {
+		t.Fatalf("nativeTools has %d entries, expected 16 — update the map and this test together", len(nativeTools))
 	}
 }
 
-func TestIsClaudeNativeTool(t *testing.T) {
+func TestIsNativeTool(t *testing.T) {
 	tests := []struct {
 		name     string
 		toolName string
 		expected bool
 	}{
-		{"Valid Claude Match", "Read", true},
-		{"Case Sensitive Fail", "read", false},
-		{"Invalid Claude Tool", "UnknownTool", false},
-		{"MCP Tool ignores Claude check", "mcp_github_read", false},
+		{"Valid native tool", "Read", true},
+		{"Case sensitive fail", "read", false},
+		{"Unknown tool", "UnknownTool", false},
+		{"MCP tool not native", "mcp_github_read", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isClaudeNativeTool(tt.toolName); got != tt.expected {
-				t.Errorf("isClaudeNativeTool(%q) = %v, want %v", tt.toolName, got, tt.expected)
+			if got := IsNativeTool(tt.toolName); got != tt.expected {
+				t.Errorf("IsNativeTool(%q) = %v, want %v", tt.toolName, got, tt.expected)
 			}
 		})
 	}
 }
 
-func TestContainsClaudeNativeTools(t *testing.T) {
-	if !containsClaudeNativeTools([]string{"mcp_foo", "Read", "custom"}) {
-		t.Error("expected true when list contains Claude-native tool")
+func TestContainsNativeTools(t *testing.T) {
+	if !ContainsNativeTools([]string{"mcp_foo", "Read", "custom"}) {
+		t.Error("expected true when list contains a native tool")
 	}
-	if containsClaudeNativeTools([]string{"mcp_foo", "read", "custom"}) {
-		t.Error("expected false when list has no literal Claude-native tool matches")
+	if ContainsNativeTools([]string{"mcp_foo", "read", "custom"}) {
+		t.Error("expected false when list has no native tool matches")
 	}
 }
 

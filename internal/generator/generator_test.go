@@ -38,6 +38,13 @@ func mockAnthropicServer(responseBody string, statusCode int) *httptest.Server {
 	}))
 }
 
+func TestNew_EmptyModel_ReturnsError(t *testing.T) {
+	g, err := New("test-key", "", "", "", "", nil)
+	require.Error(t, err)
+	assert.Nil(t, g)
+	assert.Contains(t, err.Error(), "model must be specified")
+}
+
 func TestParseJSONOutput(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -94,7 +101,7 @@ func TestGenerateViaAPI(t *testing.T) {
 	ts := mockAnthropicServer(string(respBytes), http.StatusOK)
 	defer ts.Close()
 
-	g, err := New("test-key", "", "", "", "", &http.Client{
+	g, err := New("test-key", "", "", "claude-sonnet-4-6", "", &http.Client{
 		Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
 	})
 	require.NoError(t, err)

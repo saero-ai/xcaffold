@@ -6,15 +6,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/templates"
+	"github.com/saero-ai/xcaffold/providers"
 	"github.com/spf13/cobra"
 )
 
@@ -45,7 +47,7 @@ Ready to get started? Run:
 
 func init() {
 	initCmd.Flags().BoolVarP(&yesFlag, "yes", "y", false, "Accept all defaults non-interactively (CI/CD mode)")
-	initCmd.Flags().StringSliceVar(&targetsFlag, "target", nil, "Compilation target(s): claude, cursor, gemini, copilot, antigravity")
+	initCmd.Flags().StringSliceVar(&targetsFlag, "target", nil, fmt.Sprintf("compilation target(s): %s", strings.Join(providers.PrimaryNames(), ", ")))
 	initCmd.Flags().BoolVar(&jsonManifestFlag, "json", false, "Output machine-readable JSON manifest instead of interactive logs")
 	rootCmd.AddCommand(initCmd)
 }
@@ -71,16 +73,12 @@ func runInit(cmd *cobra.Command, _ []string) error {
 
 // initProject runs the interactive project-level init wizard.
 func initProject(cmd *cobra.Command) error {
-	xcfFile := filepath.Join(".xcaffold", "project.xcf")
+	xcfFile := "project.xcf"
 
 	var currentConfig *ast.XcaffoldConfig
 	hasExistingScaffold := false
 	if _, err := os.Stat(xcfFile); err == nil {
 		hasExistingScaffold = true
-		currentConfig, _ = parser.ParseFile(xcfFile)
-	} else if _, err := os.Stat("project.xcf"); err == nil {
-		hasExistingScaffold = true
-		xcfFile = "project.xcf"
 		currentConfig, _ = parser.ParseFile(xcfFile)
 	}
 
@@ -92,7 +90,7 @@ func initProject(cmd *cobra.Command) error {
 		projectName := filepath.Base(cwd)
 		fmt.Println(formatHeader(projectName, "", false, "", "already initialized"))
 		fmt.Println()
-		fmt.Printf("  %s .xcaffold/project.xcf exists.\n", glyphNever())
+		fmt.Printf("  %s project.xcf exists.\n", glyphNever())
 		fmt.Println()
 		fmt.Printf("%s Run 'xcaffold apply' to compile your xcf/ sources.\n", glyphArrow())
 		fmt.Printf("  Run 'xcaffold import' to sync provider changes back to xcf/.\n")
@@ -365,24 +363,14 @@ type wizardAnswers struct {
 	targets []string
 }
 
-// knownCLIs lists the AI coding CLIs xcaffold knows about, in detection order.
-var knownCLIs = []struct {
-	binary string
-	label  string
-	target string
-	model  string
-}{
-	{compiler.TargetClaude, "Claude Code", compiler.TargetClaude, "claude-sonnet-4-6"},
-	{"gemini", "Gemini (Antigravity)", compiler.TargetAntigravity, "gemini-2.5-pro"},
-	{compiler.TargetCursor, "Cursor", compiler.TargetCursor, "cursor-default"},
-}
-
 // detectDefaultTarget returns the target for the first CLI binary found on PATH.
 // Returns an empty string if no CLI is found.
 func detectDefaultTarget() string {
-	for _, cli := range knownCLIs {
-		if _, err := exec.LookPath(cli.binary); err == nil {
-			return cli.target
+	for _, m := range providers.Manifests() {
+		if m.CLIBinary != "" {
+			if _, err := exec.LookPath(m.CLIBinary); err == nil {
+				return m.Name
+			}
 		}
 	}
 	return ""
@@ -391,12 +379,11 @@ func detectDefaultTarget() string {
 // resolveTargetMeta returns the suggested model and binary name for a target.
 // Returns empty strings if the target is not found.
 func resolveTargetMeta(target string) (model, binary string) {
-	for _, cli := range knownCLIs {
-		if cli.target == target {
-			return cli.model, cli.binary
-		}
+	m, ok := providers.ManifestFor(target)
+	if !ok {
+		return "", ""
 	}
-	return "", ""
+	return m.DefaultModel, m.CLIBinary
 }
 
 // collectWizardAnswers populates wizard answers from flags and optional prompts.
@@ -427,13 +414,23 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 		if len(ans.targets) > 0 {
 			defaultTarget = ans.targets[0]
 		}
-		options := []prompt.SelectOption{
-			{Label: "Claude Code", Value: "claude", Selected: defaultTarget == "claude"},
-			{Label: "Cursor", Value: "cursor", Selected: defaultTarget == "cursor"},
-			{Label: "Gemini", Value: "gemini", Selected: defaultTarget == "gemini"},
-			{Label: "GitHub Copilot", Value: "copilot", Selected: defaultTarget == "copilot"},
-			{Label: "Antigravity", Value: "antigravity", Selected: defaultTarget == "antigravity"},
+
+		var options []prompt.SelectOption
+		for _, m := range providers.Manifests() {
+			label := m.DisplayLabel
+			if label == "" {
+				label = m.Name
+			}
+			options = append(options, prompt.SelectOption{
+				Label:    label,
+				Value:    m.Name,
+				Selected: defaultTarget == m.Name,
+			})
 		}
+		sort.Slice(options, func(i, j int) bool {
+			return options[i].Label < options[j].Label
+		})
+
 		selected, promptErr := prompt.MultiSelect("Target platforms (space to select)", options)
 		if promptErr != nil {
 			err = promptErr
@@ -471,7 +468,7 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		return err
 	}
 
-	// Write .xcaffold/project.xcf
+	// Write project.xcf
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
 		Project: &ast.ProjectConfig{
@@ -523,17 +520,14 @@ func tryAutoRegister(xcfFile string) {
 // injectXaffToolkitAfterImport writes the full Xaff authoring toolkit after an import.
 // It replaces injectXcaffoldSkillAfterImport, which only wrote the skill.
 func injectXaffToolkitAfterImport(baseDir string) error {
-	// Check for project.xcf in root first, then .xcaffold/ for backward compatibility
+	// Check for project.xcf in root
 	xcfFile := filepath.Join(baseDir, "project.xcf")
-	if _, err := os.Stat(xcfFile); err != nil {
-		xcfFile = filepath.Join(baseDir, ".xcaffold", "project.xcf")
-	}
 	config, err := parser.ParseFileExact(xcfFile)
 	if err != nil {
 		return fmt.Errorf("parsing imported scaffold: %w", err)
 	}
 
-	targets := []string{"claude"}
+	var targets []string
 	if config.Project != nil && len(config.Project.Targets) > 0 {
 		targets = config.Project.Targets
 	} else if config.Project == nil {
