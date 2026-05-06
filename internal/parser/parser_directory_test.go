@@ -362,8 +362,6 @@ local:
 	assert.Equal(t, "abc", cfg.Project.Local.Env["SECRET"])
 }
 
-// TestParse_Profile_IsParseableFile verifies that a kind: profile document
-// is accepted by the parser without error (profile routing is handled separately).
 func TestParse_Profile_IsParseableFile(t *testing.T) {
 	dir := t.TempDir()
 	proj := filepath.Join(dir, "project.xcf")
@@ -407,4 +405,26 @@ settings:
 	assert.Equal(t, "low", cfg.Settings["default"].EffortLevel)
 	assert.Equal(t, "from-global", cfg.Settings["default"].Env["GLOBAL_KEY"])
 	assert.Equal(t, "from-project", cfg.Settings["default"].Env["PROJECT_KEY"])
+}
+
+func TestParseDirectory_VariableExpansion(t *testing.T) {
+	dir := t.TempDir()
+
+	writeTestXCF(t, dir, "xcf/project.vars", `org = acme
+`)
+	writeTestXCF(t, dir, "project.xcf", `kind: project
+version: "1.0"
+name: test-proj
+`)
+	writeTestXCF(t, dir, "xcf/agents/dev/agent.xcf", `kind: agent
+version: "1.0"
+name: "dev"
+description: "Agent for ${var.org}"
+`)
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err)
+
+	require.Contains(t, cfg.Agents, "dev")
+	assert.Equal(t, "Agent for acme", cfg.Agents["dev"].Description)
 }

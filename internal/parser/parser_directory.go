@@ -23,9 +23,27 @@ type ParsedFile struct {
 // resolves 'extends:' chains.
 func ParseDirectory(dir string, opts ...ParseDirOption) (*ast.XcaffoldConfig, error) {
 	dirOpts := resolveParseDirOptions(opts)
-	merged, err := parseDirectoryUnvalidated(dir, dirOpts)
+
+	vars, err := LoadVariableStack(dir, dirOpts.Target, dirOpts.VarFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load variables: %w", err)
+	}
+
+	merged, err := parseDirectoryUnvalidated(dir, dirOpts, vars, nil)
 	if err != nil {
 		return nil, err
+	}
+
+	// Re-load envs now that we have project config
+	if merged.Project != nil && len(merged.Project.AllowedEnvVars) > 0 {
+		envs := LoadEnv(merged.Project.AllowedEnvVars)
+		// We need to re-parse everything if there are env vars?
+		// That's expensive. Let's optimize: only re-parse if env vars were actually used.
+		// For now, simplicity: re-run unvalidated parse with envs.
+		merged, err = parseDirectoryUnvalidated(dir, dirOpts, vars, envs)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := validateMerged(merged); err != nil {
@@ -40,9 +58,24 @@ func ParseDirectory(dir string, opts ...ParseDirOption) (*ast.XcaffoldConfig, er
 // as errors. Cross-reference issues are returned as a separate list for caller handling.
 func ParseDirectoryWithCrossRefWarnings(dir string, opts ...ParseDirOption) (*ast.XcaffoldConfig, []CrossReferenceIssue, error) {
 	dirOpts := resolveParseDirOptions(opts)
-	merged, err := parseDirectoryUnvalidated(dir, dirOpts)
+
+	vars, err := LoadVariableStack(dir, dirOpts.Target, dirOpts.VarFile)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load variables: %w", err)
+	}
+
+	merged, err := parseDirectoryUnvalidated(dir, dirOpts, vars, nil)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	// Re-load envs now that we have project config
+	if merged.Project != nil && len(merged.Project.AllowedEnvVars) > 0 {
+		envs := LoadEnv(merged.Project.AllowedEnvVars)
+		merged, err = parseDirectoryUnvalidated(dir, dirOpts, vars, envs)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Validate structural rules (base + permissions), but not cross-references
@@ -112,7 +145,7 @@ var canonicalKindFilenames = map[string]bool{
 	"memory":   true,
 }
 
-func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig) (*ast.XcaffoldConfig, error) {
+func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig, vars map[string]interface{}, envs map[string]string) (*ast.XcaffoldConfig, error) {
 	var files []string
 	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
@@ -157,7 +190,7 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig) (*ast.Xcaffol
 
 	var parsedFiles []ParsedFile
 	for _, f := range files {
-		cfg, err := ParseFileExact(f)
+		cfg, err := ParseFileExact(f, withVars(vars), withEnvs(envs))
 		if err != nil {
 			return nil, err
 		}
@@ -181,7 +214,7 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig) (*ast.Xcaffol
 	}
 
 	if merged.Extends != "" {
-		merged, err = resolveExtends(dir, merged)
+		merged, err = resolveExtends(dir, merged, vars, envs)
 		if err != nil {
 			return nil, err
 		}
@@ -192,7 +225,7 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig) (*ast.Xcaffol
 
 	// Parse override files
 	for _, of := range overrideFiles {
-		if err := parseOverrideFile(of, merged); err != nil {
+		if err := parseOverrideFile(of, merged, vars, envs); err != nil {
 			return nil, err
 		}
 	}
@@ -209,12 +242,11 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig) (*ast.Xcaffol
 	return merged, nil
 }
 
-func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
+func parseDirectoryRaw(dir string, vars map[string]interface{}, envs map[string]string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	var files []string
 	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
 	providerDir := filepath.Join("xcf", "provider")
-
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -255,7 +287,7 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 
 	var parsedFiles []ParsedFile
 	for _, f := range files {
-		cfg, err := ParseFileExact(f, opts...)
+		cfg, err := ParseFileExact(f, withVars(vars), withEnvs(envs))
 		if err != nil {
 			return nil, err
 		}
@@ -269,7 +301,7 @@ func parseDirectoryRaw(dir string, opts ...parseOptionFunc) (*ast.XcaffoldConfig
 
 	// Parse override files
 	for _, of := range overrideFiles {
-		if err := parseOverrideFile(of, merged); err != nil {
+		if err := parseOverrideFile(of, merged, vars, envs); err != nil {
 			return nil, err
 		}
 	}

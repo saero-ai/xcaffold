@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"gopkg.in/yaml.v3"
 )
 
@@ -16,10 +17,20 @@ import (
 type parseOption struct {
 	globalScope bool
 	sourcePath  string
+	Vars        map[string]interface{}
+	Envs        map[string]string
 }
 
 // parseOptionFunc configures a parseOption.
 type parseOptionFunc func(*parseOption)
+
+func withVars(vars map[string]interface{}) parseOptionFunc {
+	return func(o *parseOption) { o.Vars = vars }
+}
+
+func withEnvs(envs map[string]string) parseOptionFunc {
+	return func(o *parseOption) { o.Envs = envs }
+}
 
 // withGlobalScope marks the parse as global scope, which allows absolute
 // instructions-file paths (global configs reference files like ~/.claude/agents/*.md).
@@ -46,12 +57,24 @@ type ParseDirOption func(*parseDirConfig)
 
 type parseDirConfig struct {
 	skipGlobal bool
+	Target     string
+	VarFile    string
 }
 
 // WithSkipGlobal prevents ParseDirectory from loading the implicit global
 // configuration (~/.xcaffold/). Use this for project-scoped validation.
 func WithSkipGlobal() ParseDirOption {
 	return func(c *parseDirConfig) { c.skipGlobal = true }
+}
+
+// WithTarget sets the target provider for variable resolution.
+func WithTarget(target string) ParseDirOption {
+	return func(c *parseDirConfig) { c.Target = target }
+}
+
+// WithVarFile sets a custom variable file to use.
+func WithVarFile(path string) ParseDirOption {
+	return func(c *parseDirConfig) { c.VarFile = path }
 }
 
 func resolveParseDirOptions(opts []ParseDirOption) parseDirConfig {
@@ -532,6 +555,13 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read .xcf input: %w", err)
+	}
+
+	if len(resolved.Vars) > 0 || len(resolved.Envs) > 0 {
+		data, err = resolver.ExpandVariables(data, resolved.Vars, resolved.Envs)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Split on frontmatter delimiter before any YAML processing.

@@ -43,7 +43,7 @@ func loadGlobalBase() (*ast.XcaffoldConfig, error) {
 	if stat, err := os.Stat(xcaffoldDir); err == nil && stat.IsDir() {
 		// Parse the dir, but disable global loading to avoid infinite recursion!
 		// parseDirectoryRaw natively parses a dir without applying global base.
-		cfg, err := parseDirectoryRaw(xcaffoldDir, withGlobalScope())
+		cfg, err := parseDirectoryRaw(xcaffoldDir, nil, nil, withGlobalScope())
 		if err != nil {
 			// TODO: surface global scope parse errors once the schema is finalized.
 			return &ast.XcaffoldConfig{}, nil
@@ -51,7 +51,7 @@ func loadGlobalBase() (*ast.XcaffoldConfig, error) {
 		// If the global config itself extends something, resolve it!
 		if cfg.Extends != "" {
 			visited := map[string]bool{xcaffoldDir: true}
-			cfg, err = resolveExtendsRecursive(xcaffoldDir, cfg, visited)
+			cfg, err = resolveExtendsRecursive(xcaffoldDir, cfg, nil, nil, visited)
 			if err != nil {
 				// TODO: surface extends resolution errors once global scope ships.
 				return &ast.XcaffoldConfig{}, nil
@@ -65,9 +65,9 @@ func loadGlobalBase() (*ast.XcaffoldConfig, error) {
 
 // resolveExtends resolves the extends: field in a configuration by recursively
 // loading and merging base configurations. It detects circular dependencies.
-func resolveExtends(contextDir string, config *ast.XcaffoldConfig) (*ast.XcaffoldConfig, error) {
+func resolveExtends(contextDir string, config *ast.XcaffoldConfig, vars map[string]interface{}, envs map[string]string) (*ast.XcaffoldConfig, error) {
 	visited := make(map[string]bool)
-	return resolveExtendsRecursive(contextDir, config, visited)
+	return resolveExtendsRecursive(contextDir, config, vars, envs, visited)
 }
 
 // resolveExtendsRecursive recursively resolves extends: directives, tracking visited
@@ -75,7 +75,7 @@ func resolveExtends(contextDir string, config *ast.XcaffoldConfig) (*ast.Xcaffol
 // child configuration using mergeConfigOverride.
 //
 //nolint:gocyclo
-func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visited map[string]bool) (*ast.XcaffoldConfig, error) {
+func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars map[string]interface{}, envs map[string]string, visited map[string]bool) (*ast.XcaffoldConfig, error) {
 	if config.Extends == "" {
 		return config, nil
 	}
@@ -94,12 +94,12 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 			}
 			visited[xcaffoldDir] = true
 
-			baseConfig, err := parseDirectoryRaw(xcaffoldDir, withGlobalScope())
+			baseConfig, err := parseDirectoryRaw(xcaffoldDir, vars, envs, withGlobalScope())
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
 			}
 			if baseConfig.Extends != "" {
-				baseConfig, err = resolveExtendsRecursive(xcaffoldDir, baseConfig, visited)
+				baseConfig, err = resolveExtendsRecursive(xcaffoldDir, baseConfig, vars, envs, visited)
 				if err != nil {
 					return nil, err
 				}
@@ -130,12 +130,12 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, visi
 	}
 	visited[absPath] = true
 
-	parsed, err := ParseFileExact(absPath)
+	parsed, err := ParseFileExact(absPath, withVars(vars), withEnvs(envs))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load base config %q: %w", config.Extends, err)
 	}
 
-	baseConfig, err := resolveExtendsRecursive(filepath.Dir(absPath), parsed, visited)
+	baseConfig, err := resolveExtendsRecursive(filepath.Dir(absPath), parsed, vars, envs, visited)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +293,7 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			localOrigin = f
 		}
 
-		// Deep merge settings map (conflicting scalar keys within the same named entry → error).
+		// Deep merge settings map (conflicting scalar keys within the same named entry -> error).
 		merged.Settings, err = mergeSettingsMapStrict(merged.Settings, p.Settings, settingsOrigin, f)
 		if err != nil {
 			return nil, err
@@ -432,7 +432,7 @@ func mergeSettingsMapOverride(base, child map[string]ast.SettingsConfig) map[str
 
 // mergeConfigOverride is used for extends resolution where the child overrides the base entirely.
 // Base resources (those not overridden by the child) are tagged Inherited=true so renderers
-// can skip them during project-scope compilation — they are already compiled at global scope.
+// can skip them during project-scope compilation - they are already compiled at global scope.
 func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged := &ast.XcaffoldConfig{
 		Version: child.Version, // child overrides version
@@ -640,7 +640,7 @@ func ParseFile(path string) (*ast.XcaffoldConfig, error) {
 		return nil, err
 	}
 	if config.Extends != "" {
-		config, err = resolveExtends(filepath.Dir(path), config)
+		config, err = resolveExtends(filepath.Dir(path), config, nil, nil)
 		if err != nil {
 			return nil, err
 		}

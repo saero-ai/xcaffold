@@ -1207,7 +1207,7 @@ func TestParseOverrideFile_Hooks_DecodesAndStores(t *testing.T) {
 		Provider: "claude",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, config.Overrides)
 
@@ -1232,7 +1232,7 @@ func TestParseOverrideFile_Settings_DecodesAndStores(t *testing.T) {
 		Provider: "gemini",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, config.Overrides)
 
@@ -1258,7 +1258,7 @@ func TestParseOverrideFile_Policy_DecodesAndStores(t *testing.T) {
 		Provider: "cursor",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, config.Overrides)
 
@@ -1284,7 +1284,7 @@ func TestParseOverrideFile_Template_DecodesAndStoresWithBody(t *testing.T) {
 		Provider: "copilot",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, config.Overrides)
 
@@ -1312,7 +1312,7 @@ func TestParseOverrideFile_Memory_NoOp(t *testing.T) {
 		Provider: "claude",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	assert.Nil(t, config.Overrides)
 }
@@ -1333,7 +1333,7 @@ func TestParseOverrideFile_UnsupportedKind_ReturnsError(t *testing.T) {
 		Provider: "claude",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported kind")
 	assert.Contains(t, err.Error(), "bogus")
