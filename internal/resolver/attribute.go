@@ -85,6 +85,10 @@ func ExpandVariables(data []byte, vars map[string]interface{}, envs map[string]s
 		}
 		envName := submatches[1]
 
+		if envs == nil {
+			return s // Skip resolution if envs map not provided (pass 1)
+		}
+
 		val, ok := envs[envName]
 		if !ok {
 			err = fmt.Errorf("unresolved environment variable: ${env.%s}", envName)
