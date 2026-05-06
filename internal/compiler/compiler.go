@@ -9,6 +9,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/output"
+	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/providers"
@@ -31,7 +32,7 @@ type Output = output.Output
 // the compiler merges them before rendering. Project resources override global
 // resources by ID. After merging, inherited resources are stripped so global
 // configurations are not physically duplicated into local project directories.
-func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprintName string) (*Output, []renderer.FidelityNote, error) {
+func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprintName string, varFile string) (*Output, []renderer.FidelityNote, error) {
 	if target == "" {
 		return nil, nil, fmt.Errorf("target is required; supported: %s", strings.Join(providers.PrimaryNames(), ", "))
 	}
@@ -42,6 +43,16 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 
 	if err := resolver.ResolveAttributes(config); err != nil {
 		return nil, nil, fmt.Errorf("attribute resolution failed: %w", err)
+	}
+
+	// Load variables for DiscoverAgentMemory expansion
+	vars, err := parser.LoadVariableStack(baseDir, target, varFile)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load variables: %w", err)
+	}
+	var envs map[string]string
+	if config.Project != nil {
+		envs = parser.LoadEnv(config.Project.AllowedEnvVars)
 	}
 
 	// Blueprint resolution: resolve extends chains and transitive deps before filtering.
@@ -91,7 +102,7 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 
 	overrideNotes := resolveTargetOverrides(config, target)
 
-	config.Memory = DiscoverAgentMemory(baseDir)
+	config.Memory = DiscoverAgentMemory(baseDir, vars, envs)
 
 	config.StripInherited()
 
@@ -151,7 +162,7 @@ func OutputDir(target string) string {
 // MEMORY.md index files and non-.md files are skipped. Optional YAML frontmatter
 // (name, description) is parsed; missing fields fall back to the filename and
 // first line of content respectively.
-func DiscoverAgentMemory(baseDir string) map[string]ast.MemoryConfig {
+func DiscoverAgentMemory(baseDir string, vars map[string]interface{}, envs map[string]string) map[string]ast.MemoryConfig {
 	result := make(map[string]ast.MemoryConfig)
 	agentsDir := filepath.Join(baseDir, "xcf", "agents")
 
@@ -184,6 +195,14 @@ func DiscoverAgentMemory(baseDir string) map[string]ast.MemoryConfig {
 			data, err := os.ReadFile(filepath.Join(memDir, fname))
 			if err != nil {
 				continue
+			}
+
+			// Expand variables in memory content
+			if len(vars) > 0 || len(envs) > 0 {
+				expanded, err := resolver.ExpandVariables(data, vars, envs)
+				if err == nil {
+					data = expanded
+				}
 			}
 
 			stem := strings.TrimSuffix(fname, ".md")

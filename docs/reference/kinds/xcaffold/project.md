@@ -78,6 +78,7 @@ The following arguments are supported:
 - `repository` — (Optional) `string`. Source repository URL.
 - `license` — (Optional) `string`. SPDX license identifier.
 - `targets` — (Required) `[]string`. Provider targets to compile: `claude`, `cursor`, `gemini`, `copilot`, `antigravity`. At least one required.
+- `allowed-env-vars` — (Optional) `[]string`. Allowed environment variables that can be injected via `${env.NAME}` inside `.xcf` or `.vars` files. Prevents accidental secret leakage. See [Project Variables](../../../concepts/configuration/variables.md) for details.
 - `agents` — (Optional) `[]AgentManifestEntry`. Agents to include (see [agents block](#agents-block)).
 - `skills` — (Optional) `[]string`. Skill IDs declared in `xcf/skills/`.
 - `rules` — (Optional) `[]string`. Rule IDs declared in `xcf/rules/`.

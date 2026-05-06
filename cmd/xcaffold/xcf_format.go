@@ -14,7 +14,7 @@ import (
 )
 
 func agentMemoryIndex(rootDir string) map[string][]string {
-	discovered := compiler.DiscoverAgentMemory(rootDir)
+	discovered := compiler.DiscoverAgentMemory(rootDir, nil, nil)
 	idx := make(map[string][]string)
 	for key := range discovered {
 		parts := strings.SplitN(key, "/", 2)

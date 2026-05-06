@@ -31,6 +31,7 @@ var applyBackup bool
 var applyProjectFlag string
 var applyBlueprintFlag string
 var targetFlag string
+var varFileFlag string
 
 var applyCmd = &cobra.Command{
 	Use:   "apply",
@@ -73,6 +74,7 @@ func init() {
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
 	applyCmd.Flags().StringVar(&applyBlueprintFlag, "blueprint", "", "Compile a specific blueprint (default: all resources)")
 	applyCmd.Flags().StringVar(&targetFlag, "target", "", fmt.Sprintf("compilation target platform (%s)", strings.Join(providers.PrimaryNames(), ", ")))
+	applyCmd.Flags().StringVar(&varFileFlag, "var-file", "", "Load variables from a custom file")
 	rootCmd.AddCommand(applyCmd)
 }
 
@@ -143,7 +145,7 @@ func resolveTargets(cmd *cobra.Command, baseDir string, blueprintName string) []
 		return []string{targetFlag}
 	}
 
-	config, err := parser.ParseDirectory(baseDir)
+	config, err := parser.ParseDirectory(baseDir, parser.WithVarFile(varFileFlag))
 	if err != nil {
 		return nil
 	}
@@ -176,7 +178,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	projectName := filepath.Base(baseDir)
 	lastApplied := findLastApplied(baseDir, applyBlueprintFlag)
 
-	config, err := parser.ParseDirectory(baseDir)
+	config, err := parser.ParseDirectory(baseDir, parser.WithVarFile(varFileFlag))
 	if err != nil {
 		fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
 		fmt.Println()
@@ -220,6 +222,10 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		}
 		configSources = append(configSources, f)
 	}
+
+	// Add variable files to sources for drift detection
+	configSources = append(configSources, resolver.FindVariableFiles(baseDir, targetFlag, varFileFlag)...)
+
 	sourceFiles = configSources
 
 	if applyBackup && !applyDryRun {
@@ -263,7 +269,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	// compiler.Compile mutates config in-place — it calls StripInherited() to
 	// remove globally-inherited resources before rendering. After Compile returns,
 	// config reflects exactly what was compiled (no global-scope bleed-through).
-	out, notes, err := compiler.Compile(config, baseDir, targetFlag, applyBlueprintFlag)
+	out, notes, err := compiler.Compile(config, baseDir, targetFlag, applyBlueprintFlag, varFileFlag)
 	if err != nil {
 		fmt.Printf("  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
 		return &silentError{msg: err.Error()}

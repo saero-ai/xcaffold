@@ -50,6 +50,24 @@ func TestParse_ValidConfig(t *testing.T) {
 
 	assert.Contains(t, cfg.Agents, "developer")
 	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["developer"].Model)
+
+	// Add new test for ProjectConfig.AllowedEnvVars
+	projectConfigYAML := `---
+kind: project
+version: "1.0"
+name: "test-project-with-env"
+allowed-env-vars:
+  - "MY_ENV_VAR"
+  - "ANOTHER_ENV_VAR"
+`
+	projectCfg, err := Parse(strings.NewReader(projectConfigYAML))
+	require.NoError(t, err)
+	require.NotNil(t, projectCfg)
+
+	require.NotNil(t, projectCfg.Project)
+	assert.Contains(t, projectCfg.Project.AllowedEnvVars, "MY_ENV_VAR")
+	assert.Contains(t, projectCfg.Project.AllowedEnvVars, "ANOTHER_ENV_VAR")
+	assert.Len(t, projectCfg.Project.AllowedEnvVars, 2)
 }
 
 func TestParse_MissingProjectName(t *testing.T) {
@@ -1189,7 +1207,7 @@ func TestParseOverrideFile_Hooks_DecodesAndStores(t *testing.T) {
 		Provider: "claude",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, config.Overrides)
 
@@ -1214,7 +1232,7 @@ func TestParseOverrideFile_Settings_DecodesAndStores(t *testing.T) {
 		Provider: "gemini",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, config.Overrides)
 
@@ -1240,7 +1258,7 @@ func TestParseOverrideFile_Policy_DecodesAndStores(t *testing.T) {
 		Provider: "cursor",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, config.Overrides)
 
@@ -1266,7 +1284,7 @@ func TestParseOverrideFile_Template_DecodesAndStoresWithBody(t *testing.T) {
 		Provider: "copilot",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, config.Overrides)
 
@@ -1294,7 +1312,7 @@ func TestParseOverrideFile_Memory_NoOp(t *testing.T) {
 		Provider: "claude",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.NoError(t, err)
 	assert.Nil(t, config.Overrides)
 }
@@ -1315,7 +1333,7 @@ func TestParseOverrideFile_UnsupportedKind_ReturnsError(t *testing.T) {
 		Provider: "claude",
 	}
 
-	err := parseOverrideFile(entry, config)
+	err := parseOverrideFile(entry, config, nil, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported kind")
 	assert.Contains(t, err.Error(), "bogus")

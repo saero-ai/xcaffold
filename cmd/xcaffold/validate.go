@@ -17,6 +17,7 @@ import (
 )
 
 var validateBlueprintFlag string
+var validateVarFileFlag string
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
@@ -40,6 +41,7 @@ Exit code 0 means valid. Non-zero means errors found.`,
 func init() {
 	validateCmd.Flags().StringVar(&targetFlag, "target", "", "Validate field support for a specific provider target")
 	validateCmd.Flags().StringVar(&validateBlueprintFlag, "blueprint", "", "Validate only the named blueprint")
+	validateCmd.Flags().StringVar(&validateVarFileFlag, "var-file", "", "Load variables from a custom file")
 	_ = validateCmd.Flags().MarkHidden("blueprint")
 	rootCmd.AddCommand(validateCmd)
 }
@@ -62,7 +64,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	fmt.Println(formatHeader(projectName, validateBlueprintFlag, false, targetFlag, lastApplied))
 	fmt.Println()
 
-	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot, parser.WithSkipGlobal())
+	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot, parser.WithSkipGlobal(), parser.WithVarFile(validateVarFileFlag))
 	if err != nil {
 		fmt.Printf("  %s  syntax and schema\n", colorRed(glyphErr()))
 		fmt.Println()
@@ -173,7 +175,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	fieldValidationErrors := 0
 	if !hasErrors {
 		configSnapshot := deepCopyConfig(cfg)
-		compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, targetFlag, validateBlueprintFlag)
+		compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, targetFlag, validateBlueprintFlag, validateVarFileFlag)
 		if compileErr != nil {
 			fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
 		} else {

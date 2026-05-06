@@ -75,20 +75,21 @@ type mcpDocument struct {
 
 // projectDocFields is the deserialization target for kind: project documents.
 type projectDocFields struct {
-	Kind          string                        `yaml:"kind"`
-	Version       string                        `yaml:"version"`
-	Extends       string                        `yaml:"extends,omitempty"`
-	Name          string                        `yaml:"name"`
-	Description   string                        `yaml:"description,omitempty"`
-	Author        string                        `yaml:"author,omitempty"`
-	Homepage      string                        `yaml:"homepage,omitempty"`
-	Repository    string                        `yaml:"repository,omitempty"`
-	License       string                        `yaml:"license,omitempty"`
-	BackupDir     string                        `yaml:"backup-dir,omitempty"`
-	Targets       []string                      `yaml:"targets,omitempty"`
-	Test          ast.TestConfig                `yaml:"test,omitempty"`
-	Local         ast.SettingsConfig            `yaml:"local,omitempty"`
-	TargetOptions map[string]ast.TargetOverride `yaml:"target-options,omitempty"`
+	Kind           string                        `yaml:"kind"`
+	Version        string                        `yaml:"version"`
+	Extends        string                        `yaml:"extends,omitempty"`
+	Name           string                        `yaml:"name"`
+	Description    string                        `yaml:"description,omitempty"`
+	Author         string                        `yaml:"author,omitempty"`
+	Homepage       string                        `yaml:"homepage,omitempty"`
+	Repository     string                        `yaml:"repository,omitempty"`
+	License        string                        `yaml:"license,omitempty"`
+	BackupDir      string                        `yaml:"backup-dir,omitempty"`
+	AllowedEnvVars []string                      `yaml:"allowed-env-vars,omitempty"`
+	Targets        []string                      `yaml:"targets,omitempty"`
+	Test           ast.TestConfig                `yaml:"test,omitempty"`
+	Local          ast.SettingsConfig            `yaml:"local,omitempty"`
+	TargetOptions  map[string]ast.TargetOverride `yaml:"target-options,omitempty"`
 }
 
 // hooksDocument wraps HookConfig with envelope fields for kind: hooks.
@@ -592,6 +593,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.Repository = doc.Repository
 		config.Project.License = doc.License
 		config.Project.BackupDir = doc.BackupDir
+		config.Project.AllowedEnvVars = doc.AllowedEnvVars
 		config.Project.Targets = doc.Targets
 		config.Project.Test = doc.Test
 		config.Project.Local = doc.Local

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"gopkg.in/yaml.v3"
 )
 
@@ -33,10 +34,17 @@ func classifyOverrideFile(filename string) (kind, provider string, isOverride bo
 
 // parseOverrideFile parses a single override file (.provider.xcf) and stores
 // the partial resource config in XcaffoldConfig.Overrides.
-func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig) error {
+func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig, vars map[string]interface{}, envs map[string]string) error {
 	data, err := os.ReadFile(entry.Path)
 	if err != nil {
 		return fmt.Errorf("read override %s: %w", entry.Path, err)
+	}
+
+	if len(vars) > 0 || len(envs) > 0 {
+		data, err = resolver.ExpandVariables(data, vars, envs)
+		if err != nil {
+			return fmt.Errorf("expand variables in %s: %w", entry.Path, err)
+		}
 	}
 
 	frontmatter, body, err := extractFrontmatterAndBody(data)

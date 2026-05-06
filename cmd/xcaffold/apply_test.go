@@ -1034,3 +1034,47 @@ description: Test agent
 	_, err = os.Stat(filepath.Join(dir, ".cursor"))
 	assert.True(t, os.IsNotExist(err), ".cursor should NOT exist (overridden by --target)")
 }
+
+// TestApply_WithVarFile verifies that the --var-file flag correctly injects
+// variables into the compilation process.
+func TestApply_WithVarFile(t *testing.T) {
+	dir := t.TempDir()
+
+	// 1. Setup project.xcf
+	projectXcf := filepath.Join(dir, "project.xcf")
+	require.NoError(t, os.WriteFile(projectXcf, []byte("kind: project\nversion: \"1.0\"\nname: var-test\ntargets: [claude]\n"), 0o644))
+
+	// 2. Setup an agent that uses a variable
+	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(agentDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcf"), []byte("---\nkind: agent\nversion: \"1.0\"\nname: dev\ndescription: \"Hello ${var.greeting}\"\n"), 0o644))
+
+	// 3. Setup the custom variable file
+	varFile := filepath.Join(dir, "custom.vars")
+	require.NoError(t, os.WriteFile(varFile, []byte("greeting = World\n"), 0o644))
+
+	// 4. Configure apply command
+	xcfPath = projectXcf
+	projectRoot = dir
+	globalFlag = false
+	applyForce = true
+	targetFlag = "claude"
+	varFileFlag = varFile // Inject the flag
+
+	// Reset flags after test
+	defer func() {
+		applyForce = false
+		targetFlag = ""
+		varFileFlag = ""
+	}()
+
+	// 5. Run Apply
+	err := runApply(applyCmd, nil)
+	require.NoError(t, err)
+
+	// 6. Verify Output
+	agentFile := filepath.Join(dir, ".claude", "agents", "dev.md")
+	content, err := os.ReadFile(agentFile)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "Hello World")
+}

@@ -27,6 +27,7 @@ xcaffold apply [flags]
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
 | `--project <name>` | — | `string` | `""` | Apply to a project registered in the global registry. |
 | `--target <name>` | — | `string` | `"claude"` | Compilation target platform (`claude`, `cursor`, `antigravity`, `copilot`, `gemini`). |
+| `--var-file <path>` | — | `string` | `""` | Load variables from a custom file instead of the default `xcf/project.vars`. |
 
 ## Behavior
 

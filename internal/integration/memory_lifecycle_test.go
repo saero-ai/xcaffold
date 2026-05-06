@@ -212,7 +212,7 @@ func TestIntegration_Memory_ConventionDiscovery_EndToEnd(t *testing.T) {
 	))
 
 	// Step 1: Discover memory entries.
-	discovered := compiler.DiscoverAgentMemory(baseDir)
+	discovered := compiler.DiscoverAgentMemory(baseDir, nil, nil)
 	require.Len(t, discovered, 2, "should discover 2 memory entries")
 
 	// Step 2: Feed to Claude renderer.

@@ -507,7 +507,7 @@ agents:
 
 `)
 
-	cfg, err := parseDirectoryRaw(dir, withGlobalScope())
+	cfg, err := parseDirectoryRaw(dir, nil, nil, withGlobalScope())
 	require.NoError(t, err, "parseDirectoryRaw with global scope must accept absolute instructions-file")
 	assert.Equal(t, "/Users/testuser/.claude/agents/ceo.md", cfg.Agents["ceo"].Description)
 }
@@ -528,7 +528,7 @@ agents:
 
 `)
 
-	_, err := parseDirectoryRaw(dir)
+	_, err := parseDirectoryRaw(dir, nil, nil)
 	require.Error(t, err, "parseDirectoryRaw without global scope must reject absolute instructions-file")
 	assert.Contains(t, err.Error(), "relative path")
 }

@@ -29,7 +29,7 @@ func TestExportPlugin_GeneratesManifest(t *testing.T) {
 		},
 	}
 
-	compiled, _, err := Compile(config, "", "claude", "")
+	compiled, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled, "claude")
@@ -59,7 +59,7 @@ func TestExportPlugin_SkipsSettingsJSON(t *testing.T) {
 		}},
 	}
 
-	compiled, _, err := Compile(config, "", "claude", "")
+	compiled, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled, "claude")
@@ -84,7 +84,7 @@ func TestExportPlugin_RemapsHooks(t *testing.T) {
 		},
 	}
 
-	compiled, _, err := Compile(config, "", "claude", "")
+	compiled, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled, "claude")
@@ -104,7 +104,7 @@ func TestExportPlugin_TargetClaude(t *testing.T) {
 		Project: &ast.ProjectConfig{Name: "test-plugin", Version: "0.1.0"},
 	}
 
-	compiled, _, err := Compile(config, "", "claude", "")
+	compiled, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 
 	exported, err := ExportPlugin(config, compiled, "claude")
@@ -121,7 +121,7 @@ func TestExportPlugin_EmptyTargetReturnsError(t *testing.T) {
 		Project: &ast.ProjectConfig{Name: "test-plugin"},
 	}
 
-	compiled, _, err := Compile(config, "", "claude", "")
+	compiled, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 
 	_, err = ExportPlugin(config, compiled, "")
@@ -136,7 +136,7 @@ func TestExportPlugin_UnsupportedTarget(t *testing.T) {
 		Project: &ast.ProjectConfig{Name: "test-plugin"},
 	}
 
-	compiled, _, err := Compile(config, "", "cursor", "")
+	compiled, _, err := Compile(config, "", "cursor", "", "")
 	require.NoError(t, err)
 
 	_, err = ExportPlugin(config, compiled, "cursor")
@@ -162,7 +162,7 @@ func TestExportPlugin_UnknownTarget(t *testing.T) {
 		Project: &ast.ProjectConfig{Name: "test-plugin"},
 	}
 
-	compiled, _, err := Compile(config, "", "claude", "")
+	compiled, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 
 	_, err = ExportPlugin(config, compiled, "vscode")

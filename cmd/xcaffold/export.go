@@ -15,9 +15,10 @@ import (
 )
 
 var (
-	exportFormat string
-	exportOutput string
-	exportTarget string
+	exportFormat  string
+	exportOutput  string
+	exportTarget  string
+	exportVarFile string
 )
 
 var exportCmd = &cobra.Command{
@@ -36,6 +37,7 @@ func init() {
 	exportCmd.Flags().StringVar(&exportFormat, "format", "plugin", "Export format (currently only 'plugin')")
 	exportCmd.Flags().StringVar(&exportOutput, "output", "", "Output directory for exported plugin")
 	exportCmd.Flags().StringVar(&exportTarget, "target", "", fmt.Sprintf("compilation target (required: %s)", strings.Join(providers.PrimaryNames(), ", ")))
+	exportCmd.Flags().StringVar(&exportVarFile, "var-file", "", "Load variables from a custom file")
 	_ = exportCmd.MarkFlagRequired("output")
 	rootCmd.AddCommand(exportCmd)
 }
@@ -45,13 +47,13 @@ func runExport(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("unsupported export format %q; only 'plugin' is supported", exportFormat)
 	}
 
-	config, err := parser.ParseDirectory(projectParseRoot())
+	config, err := parser.ParseDirectory(projectParseRoot(), parser.WithVarFile(exportVarFile))
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
 	}
 
 	baseDir := projectParseRoot()
-	compiled, notes, err := compiler.Compile(config, baseDir, exportTarget, "")
+	compiled, notes, err := compiler.Compile(config, baseDir, exportTarget, "", exportVarFile)
 	if err != nil {
 		return fmt.Errorf("compilation error: %w", err)
 	}

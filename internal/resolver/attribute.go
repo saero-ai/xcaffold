@@ -1,9 +1,11 @@
 package resolver
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -12,6 +14,95 @@ import (
 // refPattern matches ${resource_type.resource_name.field} tokens.
 // The field segment allows hyphens to support kebab-case YAML keys (e.g. allowed-tools).
 var refPattern = regexp.MustCompile(`\$\{(\w+)\.(\w+)\.([\w-]+)\}`)
+var varPattern = regexp.MustCompile(`\$\{var\.([a-zA-Z][_a-zA-Z0-9-]*)\}`)
+var envPattern = regexp.MustCompile(`\$\{env\.([A-Z0-9_]+)\}`)
+
+// ExpandVariables replaces ${var.*} and ${env.*} in the byte slice.
+// It returns an error if a referenced variable is missing.
+func ExpandVariables(data []byte, vars map[string]interface{}, envs map[string]string) ([]byte, error) {
+	if len(data) == 0 {
+		return data, nil
+	}
+
+	result := string(data)
+	var err error
+
+	// Process varPattern matches
+	result = varPattern.ReplaceAllStringFunc(result, func(s string) string {
+		if err != nil {
+			return s
+		}
+		submatches := varPattern.FindStringSubmatch(s)
+		if len(submatches) < 2 {
+			return s
+		}
+		varName := submatches[1]
+
+		val, ok := vars[varName]
+		if !ok {
+			err = fmt.Errorf("unresolved variable: ${var.%s}", varName)
+			return s
+		}
+
+		var replacement string
+		switch v := val.(type) {
+		case string:
+			replacement = v
+		case int:
+			replacement = strconv.Itoa(v)
+		case bool:
+			replacement = strconv.FormatBool(v)
+		case []interface{}:
+			// Format as inline YAML list [a, b]
+			var items []string
+			for _, item := range v {
+				items = append(items, fmt.Sprintf("%v", item))
+			}
+			replacement = "[" + strings.Join(items, ", ") + "]"
+		default:
+			b, marshalErr := json.Marshal(v)
+			if marshalErr != nil {
+				err = fmt.Errorf("failed to marshal variable: ${var.%s}: %w", varName, marshalErr)
+				return s
+			}
+			replacement = string(b)
+		}
+		return replacement
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Process envPattern matches
+	result = envPattern.ReplaceAllStringFunc(result, func(s string) string {
+		if err != nil {
+			return s
+		}
+		submatches := envPattern.FindStringSubmatch(s)
+		if len(submatches) < 2 {
+			return s
+		}
+		envName := submatches[1]
+
+		if envs == nil {
+			return s // Skip resolution if envs map not provided (pass 1)
+		}
+
+		val, ok := envs[envName]
+		if !ok {
+			err = fmt.Errorf("unresolved environment variable: ${env.%s}", envName)
+			return s
+		}
+		return val
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return []byte(result), nil
+}
 
 // resourceKey identifies a specific resource in the config.
 type resourceKey struct {
