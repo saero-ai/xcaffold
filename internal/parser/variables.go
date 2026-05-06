@@ -8,10 +8,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"gopkg.in/yaml.v3"
 )
 
-var varNameRegex = regexp.MustCompile("^[a-z][a-z0-9-]*$")
+var varNameRegex = regexp.MustCompile("^[a-zA-Z][_a-zA-Z0-9-]*$")
 
 func parseVarFile(path string) (map[string]interface{}, error) {
 	vars := make(map[string]interface{})
@@ -42,7 +43,7 @@ func parseVarFile(path string) (map[string]interface{}, error) {
 		valStr := strings.TrimSpace(parts[1])
 
 		if !varNameRegex.MatchString(key) {
-			return nil, fmt.Errorf("%s:%d: invalid variable name %q (must be kebab-case)", path, lineNum, key)
+			return nil, fmt.Errorf("%s:%d: invalid variable name %q", path, lineNum, key)
 		}
 
 		var val interface{}
@@ -69,7 +70,7 @@ func LoadVariableStack(baseDir, target, customFile string) (map[string]interface
 	}
 
 	if target != "" {
-		targetPath := filepath.Join(baseDir, "xcf", fmt.Sprintf("project.%s.vars", target))
+		targetPath := filepath.Join(baseDir, "xcf", "project."+target+".vars")
 		targetVars, err := parseVarFile(targetPath)
 		if err != nil {
 			return nil, err
@@ -86,6 +87,30 @@ func LoadVariableStack(baseDir, target, customFile string) (map[string]interface
 	}
 	for k, v := range localVars {
 		res[k] = v
+	}
+
+	// Resolve variable composition (variables referencing other variables)
+	maxPasses := 10
+	for pass := 0; pass < maxPasses; pass++ {
+		madeChanges := false
+		for k, v := range res {
+			if strVal, ok := v.(string); ok {
+				expanded, err := resolver.ExpandVariables([]byte(strVal), res, nil)
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve variable %q: %w", k, err)
+				}
+				if string(expanded) != strVal {
+					res[k] = string(expanded)
+					madeChanges = true
+				}
+			}
+		}
+		if !madeChanges {
+			break
+		}
+		if pass == maxPasses-1 {
+			return nil, fmt.Errorf("circular variable dependency detected")
+		}
 	}
 
 	return res, nil

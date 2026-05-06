@@ -105,7 +105,7 @@ func TestLoadVariableStack_Layering(t *testing.T) {
 			name:   "malformed key rejected",
 			target: "default",
 			files: map[string]string{
-				"project.vars": "InvalidKey = value\n",
+				"project.vars": "1variable = value\n",
 			},
 			expectedErr: true,
 		},

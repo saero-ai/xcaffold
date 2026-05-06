@@ -14,7 +14,7 @@ import (
 // refPattern matches ${resource_type.resource_name.field} tokens.
 // The field segment allows hyphens to support kebab-case YAML keys (e.g. allowed-tools).
 var refPattern = regexp.MustCompile(`\$\{(\w+)\.(\w+)\.([\w-]+)\}`)
-var varPattern = regexp.MustCompile(`\$\{var\.([a-z0-9-]+)\}`)
+var varPattern = regexp.MustCompile(`\$\{var\.([a-zA-Z][_a-zA-Z0-9-]*)\}`)
 var envPattern = regexp.MustCompile(`\$\{env\.([A-Z0-9_]+)\}`)
 
 // ExpandVariables replaces ${var.*} and ${env.*} in the byte slice.
