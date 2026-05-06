@@ -28,7 +28,7 @@ func TestCompile_SingleAgent(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "")
+	out, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -53,7 +53,7 @@ func TestCompile_MultipleAgents(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "")
+	out, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 	assert.Len(t, out.Files, 2)
 	assert.Contains(t, out.Files, "agents/frontend.md")
@@ -74,7 +74,7 @@ func TestCompile_AgentWithBlockedTools(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "")
+	out, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 	assert.Contains(t, out.Files["agents/readonly.md"], "disallowed-tools: [Bash, Write]")
 }
@@ -83,7 +83,7 @@ func TestCompile_EmptyAgents(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "empty-project"},
 	}
-	out, _, err := Compile(config, "", "claude", "")
+	out, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 	assert.Empty(t, out.Files)
 }
@@ -128,7 +128,7 @@ func TestCompile_FullSchema(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "")
+	out, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 
 	// Agents
@@ -167,7 +167,7 @@ func TestCompile_CursorTarget_Supported(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "cursor", "")
+	out, _, err := Compile(config, "", "cursor", "", "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, out.Files)
 }
@@ -180,7 +180,7 @@ func TestCompile_CursorTarget_RulesUseMdc(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "cursor", "")
+	out, _, err := Compile(config, "", "cursor", "", "")
 	require.NoError(t, err)
 	_, ok := out.Files["rules/style.mdc"]
 	assert.True(t, ok, "Cursor rules should use .mdc extension")
@@ -194,7 +194,7 @@ func TestCompile_AntigravityTarget_Supported(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "antigravity", "")
+	out, _, err := Compile(config, "", "antigravity", "", "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, out.Files)
 }
@@ -207,7 +207,7 @@ func TestCompile_AntigravityTarget_RulesEmitFrontmatter(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "antigravity", "")
+	out, _, err := Compile(config, "", "antigravity", "", "")
 	require.NoError(t, err)
 	content, ok := out.Files["rules/style.md"]
 	assert.True(t, ok)
@@ -226,7 +226,7 @@ func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "antigravity", "")
+	out, _, err := Compile(config, "", "antigravity", "", "")
 	require.NoError(t, err)
 	// Only rule should appear, not agent
 	assert.Len(t, out.Files, 1)
@@ -242,7 +242,7 @@ func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, "", "claude", "")
+	out, _, err := Compile(config, "", "claude", "", "")
 	require.NoError(t, err)
 	for path := range out.Files {
 		assert.NotContains(t, path, "..", "output path must not contain traversal sequences")
@@ -272,7 +272,7 @@ func TestCompile_ResolveAttributes_SkillToolsInherited(t *testing.T) {
 		},
 	}
 
-	output, _, err := Compile(config, t.TempDir(), "claude", "")
+	output, _, err := Compile(config, t.TempDir(), "claude", "", "")
 	require.NoError(t, err)
 
 	// The compiled agent output should have the resolved tools, not the ${...} reference
@@ -298,7 +298,7 @@ func TestCompile_ResolveAttributes_NoRefsPassthrough(t *testing.T) {
 		},
 	}
 
-	output, _, err := Compile(config, t.TempDir(), "claude", "")
+	output, _, err := Compile(config, t.TempDir(), "claude", "", "")
 	require.NoError(t, err)
 	assert.Contains(t, output.Files["agents/developer.md"], "Dev agent")
 }
@@ -334,7 +334,7 @@ func TestCompile_Gemini_DispatchesGeminiRenderer(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, t.TempDir(), "gemini", "")
+	out, _, err := Compile(config, t.TempDir(), "gemini", "", "")
 	require.NoError(t, err)
 	assert.NotNil(t, out)
 	assert.NotEmpty(t, out.Files)
@@ -361,7 +361,7 @@ func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {
 		},
 	}
 
-	_, notes, err := Compile(config, t.TempDir(), "cursor", "")
+	_, notes, err := Compile(config, t.TempDir(), "cursor", "", "")
 	require.NoError(t, err)
 
 	for _, n := range notes {
@@ -383,7 +383,7 @@ func TestCompile_Blueprint_FiltersResources(t *testing.T) {
 			"backend": {Name: "backend", Agents: []string{"developer"}},
 		},
 	}
-	out, _, err := Compile(cfg, t.TempDir(), "claude", "backend")
+	out, _, err := Compile(cfg, t.TempDir(), "claude", "backend", "")
 	require.NoError(t, err)
 
 	hasAgent := func(name string) bool {
@@ -407,7 +407,7 @@ func TestCompile_NoBlueprint_CompilesAll(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(cfg, t.TempDir(), "claude", "")
+	out, _, err := Compile(cfg, t.TempDir(), "claude", "", "")
 	require.NoError(t, err)
 
 	count := 0
@@ -425,7 +425,7 @@ func TestCompile_UnknownBlueprint_Error(t *testing.T) {
 			"backend": {Name: "backend"},
 		},
 	}
-	_, _, err := Compile(cfg, t.TempDir(), "claude", "ghost")
+	_, _, err := Compile(cfg, t.TempDir(), "claude", "ghost", "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "ghost")
 }
@@ -447,7 +447,7 @@ func TestCompile_BlueprintExtends_InheritedResources(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(cfg, t.TempDir(), "claude", "child")
+	out, _, err := Compile(cfg, t.TempDir(), "claude", "child", "")
 	require.NoError(t, err)
 
 	hasAgent := func(name string) bool {
@@ -487,7 +487,7 @@ func TestCompile_BlueprintTransitiveDeps_AutoExpandsSkills(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(cfg, t.TempDir(), "claude", "backend")
+	out, _, err := Compile(cfg, t.TempDir(), "claude", "backend", "")
 	require.NoError(t, err)
 
 	hasSkill := func(name string) bool {
@@ -521,7 +521,7 @@ func TestCompile_BlueprintValidation_RunsAfterExtends(t *testing.T) {
 		},
 	}
 
-	_, _, err := Compile(cfg, t.TempDir(), "claude", "child")
+	_, _, err := Compile(cfg, t.TempDir(), "claude", "child", "")
 	require.NoError(t, err, "child blueprint inheriting base-agent via extends must compile without error")
 }
 
@@ -533,7 +533,7 @@ func TestDiscoverAgentMemory_FindsMdFiles(t *testing.T) {
 	content := "---\nname: ORM Decision\ndescription: \"Always use Drizzle\"\n---\n\nWe chose Drizzle ORM.\n"
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "orm-decision.md"), []byte(content), 0o644))
 
-	result := DiscoverAgentMemory(dir)
+	result := DiscoverAgentMemory(dir, nil, nil)
 	require.Contains(t, result, "backend-dev/orm-decision")
 	entry := result["backend-dev/orm-decision"]
 	assert.Equal(t, "ORM Decision", entry.Name)
@@ -549,7 +549,7 @@ func TestDiscoverAgentMemory_SkipsMemoryMd(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "MEMORY.md"), []byte("index"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "real-entry.md"), []byte("content"), 0o644))
 
-	result := DiscoverAgentMemory(dir)
+	result := DiscoverAgentMemory(dir, nil, nil)
 	assert.NotContains(t, result, "dev/MEMORY")
 	assert.Contains(t, result, "dev/real-entry")
 }
@@ -560,7 +560,7 @@ func TestDiscoverAgentMemory_FallbackNameDescription(t *testing.T) {
 	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "simple.md"), []byte("First line of content.\nSecond line."), 0o644))
 
-	result := DiscoverAgentMemory(dir)
+	result := DiscoverAgentMemory(dir, nil, nil)
 	entry := result["dev/simple"]
 	assert.Equal(t, "simple", entry.Name)
 	assert.Equal(t, "First line of content.", entry.Description)
@@ -574,7 +574,7 @@ func TestDiscoverAgentMemory_FallbackDescriptionTruncated(t *testing.T) {
 	longLine := strings.Repeat("a", 200)
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "long.md"), []byte(longLine), 0o644))
 
-	result := DiscoverAgentMemory(dir)
+	result := DiscoverAgentMemory(dir, nil, nil)
 	entry := result["dev/long"]
 	assert.Len(t, []rune(entry.Description), 120)
 }
@@ -585,7 +585,7 @@ func TestDiscoverAgentMemory_IgnoresXcfFiles(t *testing.T) {
 	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "old.xcf"), []byte("kind: memory"), 0o644))
 
-	result := DiscoverAgentMemory(dir)
+	result := DiscoverAgentMemory(dir, nil, nil)
 	assert.Empty(t, result)
 }
 
@@ -607,7 +607,7 @@ func TestCompile_OverrideMerge_AppliesForTarget(t *testing.T) {
 	}
 	config.Overrides.AddAgent("developer", "claude", ast.AgentConfig{Model: "opus-4"})
 
-	out, notes, err := Compile(config, t.TempDir(), "claude", "")
+	out, notes, err := Compile(config, t.TempDir(), "claude", "", "")
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
@@ -629,6 +629,6 @@ func TestDiscoverAgentMemory_NoMemoryDir(t *testing.T) {
 	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
 	require.NoError(t, os.MkdirAll(agentDir, 0o755))
 
-	result := DiscoverAgentMemory(dir)
+	result := DiscoverAgentMemory(dir, nil, nil)
 	assert.Empty(t, result)
 }
