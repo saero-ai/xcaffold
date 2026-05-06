@@ -36,7 +36,7 @@ graph TD
 1. **Discovery & Layering**: When `xcaffold apply` (or any read command) scans the `xcf/` directory, it first searches for variable files. It loads the base `project.vars`, layers any target-specific overrides like `project.claude.vars`, and finally applies developer-specific local overrides from `project.vars.local`.
 2. **Environment Filtering**: Concurrently, the compiler reads the `allowed-env-vars` list from `project.xcf` and extracts only those specific keys from the runtime environment.
 3. **Pre-Parse Expansion**: As the parser processes each `.xcf` file, it performs a regex-based substitution on the raw byte stream, replacing `${var.name}` and `${env.NAME}` tokens with their concrete values.
-4. **Type Preservation**: Variables injected into the YAML stream retain their native YAML types (string, boolean, integer, list) during the `yaml.Unmarshal` phase, preserving structural integrity. Variable values themselves can also contain references to other variables (composition).
+4. **Type Preservation**: Variables injected into the YAML stream retain their native YAML types (string, boolean, integer, list) during the `yaml.Unmarshal` phase, preserving structural integrity. Variable values themselves can also contain references to other variables (composition), which are resolved recursively by the parser.
 
 ---
 
@@ -50,6 +50,9 @@ Variable files use a simple `key = value` assignment syntax rather than standard
 
 **Explicit Environment Allow-Lists**
 Environment variables are powerful but pose a security risk if a malicious blueprint attempts to exfiltrate system secrets via `${env.AWS_ACCESS_KEY_ID}`. We mandate that all accessible environment variables be explicitly declared in the `project.xcf` `allowed-env-vars` array, establishing a secure perimeter around the compilation context.
+
+**Flexible Naming Conventions**
+Variable names are not restricted to kebab-case. Authors are free to use `snake_case`, `camelCase`, or `PascalCase` to match their team's preferences. Names must simply start with a letter or underscore and contain only alphanumeric characters, underscores, or hyphens (`^[a-zA-Z][_a-zA-Z0-9-]*$`).
 
 ---
 
