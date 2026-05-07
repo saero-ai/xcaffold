@@ -152,26 +152,16 @@ Every `.xcaf` file must declare an explicit `kind:` field. Files with unrecogniz
 | `parser` | `internal/parser/` | Strict YAML parsing — unknown fields fail immediately |
 | `policy` | `internal/policy/` | Post-compile constraint engine -- evaluates built-in and user-defined policies against AST snapshot and compiled output |
 | `compiler` | `internal/compiler/` | Routes AST to the correct renderer; exposes `Compile()` and `OutputDir()` |
-| `renderer` | `internal/renderer/` | `TargetRenderer` interface, `Orchestrate()` per-resource dispatcher, `CapabilitySet`, `FidelityNote`, shared helpers |
+| `renderer` | `internal/renderer/` | `TargetRenderer` interface, `Orchestrate()` per-resource dispatcher, `CapabilitySet`, `FidelityNote`, model resolution, shared helpers; all per-provider render logic lives here |
 | `renderer/shared` | `internal/renderer/shared/` | Cross-renderer helpers (`LowerWorkflows`) that cannot live in the root renderer package due to import cycles |
-| `renderer/claude` | `internal/renderer/claude/` | Claude Code renderer (`→ .claude/`) |
-| `renderer/cursor` | `internal/renderer/cursor/` | Cursor renderer (`→ .cursor/`) |
-| `renderer/copilot` | `internal/renderer/copilot/` | GitHub Copilot renderer (`→ .github/`) |
-| `renderer/gemini` | `internal/renderer/gemini/` | Gemini CLI renderer (`→ .gemini/`) |
-| `renderer/antigravity` | `internal/renderer/antigravity/` | Antigravity renderer (`→ .agents/`) |
-| `importer` | `internal/importer/` | `ProviderImporter` interface — symmetric to `TargetRenderer`; thin orchestrator dispatches to per-provider sub-packages |
-| `importer/claude` | `internal/importer/claude/` | Claude Code importer (reads `.claude/`) |
-| `importer/cursor` | `internal/importer/cursor/` | Cursor importer (reads `.cursor/`) |
-| `importer/gemini` | `internal/importer/gemini/` | Gemini CLI importer (reads `.gemini/`) |
-| `importer/copilot` | `internal/importer/copilot/` | GitHub Copilot importer (reads `.github/`) |
-| `importer/antigravity` | `internal/importer/antigravity/` | Antigravity importer (reads `.agents/`) |
+| `importer` | `internal/importer/` | `ProviderImporter` interface — symmetric to `TargetRenderer`; detects and dispatches to provider implementations; all per-provider import logic lives here |
 | `output` | `internal/output/` | `Output` struct — `map[relPath]content` file map |
 | `state` | `internal/state/` | SHA-256 `.xcaffold/project.xcaf.state` generation, read, and write |
 | `registry` | `internal/registry/` | Global home bootstrap, project registry CRUD, platform provider scans |
 | `templates` | `internal/templates/` | Rendering templates for references and boilerplate generation |
 | `analyzer` | `internal/analyzer/` | Detects undeclared artifacts via `ScanOutputDir` |
-| `bir` | `internal/bir/` | Build Intermediate Representation — `SemanticUnit`, `FunctionalIntent`, `ProjectIR`; also `bir.ReassembleWorkflow()` for round-trip reconstruction from provenance markers |
-| `translator` | `internal/translator/` | Decomposes `SemanticUnit` intents into target primitives (skill/rule/permission); `TranslateWorkflow()` lowers `WorkflowConfig` to provider primitives via four strategies |
+| `blueprint` | `internal/blueprint/` | Resolves `extends:` chains for blueprints via set-union merge across all resource ref-lists; errors on circular references or chains exceeding depth limit |
+| `translator` | `internal/translator/` | `TranslateWorkflow()` lowers `WorkflowConfig` to provider primitives |
 | `optimizer` | `internal/optimizer/` | Post-compile transformation pipeline for `xcaffold translate` and `xcaffold apply` — 7 named passes (`flatten-scopes`, `inline-imports`, `dedupe`, `extract-common`, `prune-unused`, `normalize-paths`, `split-large-rules`); required passes prepended per-target |
 | `resolver` | `internal/resolver/` | Resolves `instructions-file:` and `references:` relative paths |
 | `generator` | `internal/generator/` | Anthropic API calls for scaffold generation; outputs `audit.json` |
