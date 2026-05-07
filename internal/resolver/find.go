@@ -98,10 +98,10 @@ func FindXCAFFiles(dir string) ([]string, error) {
 }
 
 // FindVariableFiles returns paths to discovered variable files (project.vars,
-// project.<target>.vars) in the project's xcf/ directory.
+// project.<target>.vars) in the project's xcaf/ directory.
 func FindVariableFiles(baseDir, target, customFile string) []string {
 	var files []string
-	xcfDir := filepath.Join(baseDir, "xcf")
+	xcafDir := filepath.Join(baseDir, "xcaf")
 
 	if customFile != "" {
 		if filepath.IsAbs(customFile) {
@@ -110,14 +110,14 @@ func FindVariableFiles(baseDir, target, customFile string) []string {
 			files = append(files, filepath.Join(baseDir, customFile))
 		}
 	} else {
-		p := filepath.Join(xcfDir, "project.vars")
+		p := filepath.Join(xcafDir, "project.vars")
 		if _, err := os.Stat(p); err == nil {
 			files = append(files, p)
 		}
 	}
 
 	if target != "" {
-		p := filepath.Join(xcfDir, fmt.Sprintf("project.%s.vars", target))
+		p := filepath.Join(xcafDir, fmt.Sprintf("project.%s.vars", target))
 		if _, err := os.Stat(p); err == nil {
 			files = append(files, p)
 		}

@@ -15,8 +15,8 @@ func SetupTestEnv(t *testing.T, files map[string]string) (string, func()) {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 
-	xcfDir := filepath.Join(tmpDir, "xcaf")
-	if err := os.MkdirAll(xcfDir, 0755); err != nil {
+	xcafDir := filepath.Join(tmpDir, "xcaf")
+	if err := os.MkdirAll(xcafDir, 0755); err != nil {
 		t.Fatalf("failed to create xcaf dir: %v", err)
 	}
 
@@ -25,7 +25,7 @@ func SetupTestEnv(t *testing.T, files map[string]string) (string, func()) {
 		if filepath.IsAbs(name) {
 			filePath = name
 		} else {
-			filePath = filepath.Join(xcfDir, name)
+			filePath = filepath.Join(xcafDir, name)
 		}
 		if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 			os.RemoveAll(tmpDir)

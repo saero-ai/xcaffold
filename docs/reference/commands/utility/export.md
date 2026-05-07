@@ -24,7 +24,7 @@ xcaffold export [flags]
 | `--format <string>` | `"plugin"` | Desired distribution format logic. Currently solely supports `plugin` repackaging mappings. |
 | `--output <string>` | `""` | Output directory destination for processing generated exported constraints. |
 | `--target <string>` | `"claude"` | Underlying compilation target provider platform for translating native artifacts into distribution wrappers. Valid ranges identically align with standard target variables (`claude`, `cursor`, `gemini`, etc.). |
-| `--var-file <path>` | `""` | Load variables from a custom file instead of the default `xcf/project.vars`. |
+| `--var-file <path>` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
 
 ## Behavior
 

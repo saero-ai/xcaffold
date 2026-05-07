@@ -23,7 +23,7 @@ xcaffold validate [flags]
 | `--blueprint <name>` | — | `string` | `""` | Validate only the named blueprint's resources. Internal use. |
 | `--global` | `-g` | `bool` | `false` | Operate on the global config (`~/.xcaffold/global.xcaf`). Not yet available — prints an error and exits. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
-| `--var-file <path>` | — | `string` | `""` | Load variables from a custom file instead of the default `xcf/project.vars`. |
+| `--var-file <path>` | — | `string` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
 
 > `--blueprint` is a hidden flag intended for internal use. It does not appear in `--help` output.
 

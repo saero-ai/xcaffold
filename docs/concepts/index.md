@@ -10,7 +10,7 @@ Understanding-oriented explanations of xcaffold's architectural and philosophica
 ## Architecture
 
 - [Core Architecture](architecture/architecture.md) — The one-way deterministic compiler architecture.
-- [Translation Pipeline](architecture/translation-pipeline.md) — How .xcf manifests move from discovery to provider output.
+- [Translation Pipeline](architecture/translation-pipeline.md) — How .xcaf manifests move from discovery to provider output.
 - [Intermediate Representation](architecture/intermediate-representation.md) — The BIR (Blueprint Intermediate Representation) graph.
 - [Multi-Target Rendering](architecture/multi-target-rendering.md) — How the AST compiles to different provider formats.
 - [Provider Architecture](architecture/provider-architecture.md) — The ProviderImporter and TargetRenderer interfaces.

@@ -64,8 +64,8 @@ type ProjectConfig struct {
 	BackupDir   string `yaml:"backup-dir,omitempty"`
 
 	// AllowedEnvVars defines which environment variables can be injected via ${env.NAME}.
-	// +xcf:optional
-	// +xcf:type=[]string
+	// +xcaf:optional
+	// +xcaf:type=[]string
 	AllowedEnvVars []string `yaml:"allowed-env-vars,omitempty" json:"allowedEnvVars,omitempty"`
 	// Targets lists the compilation targets for this project.
 	// Populated by the parser when decoding kind: project documents.
