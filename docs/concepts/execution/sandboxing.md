@@ -11,7 +11,7 @@ xcaffold deals with two distinct sandboxing concepts that serve entirely differe
 
 ## Two Sandboxes, Two Purposes
 
-The `settings.sandbox` block (`internal/ast/types.go:183-193`, type `SandboxConfig`) declares OS-level process isolation properties. When compiled to a target that supports it, this configuration is embedded in the platform's settings output. The platform — not xcaffold — is responsible for enforcing the isolation. xcaffold's role is strictly compilation: it translates the `.xcaf` declaration into whatever format the target requires. Once the output is on disk, xcaffold's involvement ends.
+The `settings.sandbox` block (`internal/ast/types.go:776-786`, type `SandboxConfig`) declares OS-level process isolation properties. When compiled to a target that supports it, this configuration is embedded in the platform's settings output. The platform — not xcaffold — is responsible for enforcing the isolation. xcaffold's role is strictly compilation: it translates the `.xcaf` declaration into whatever format the target requires. Once the output is on disk, xcaffold's involvement ends.
 
 The `xcaffold test` simulation reads the compiled agent system prompt from the target output directory (e.g., `.claude/agents/<id>.md` for the `claude` target), sends a user task to the LLM API directly via `internal/llmclient`, and extracts tool call declarations from the model's response. It records these to a JSONL trace file. The simulation does not execute tools against the host OS — it captures what the model declares it would do, not what the tools actually produce. The simulation does not enforce `settings.sandbox` configuration and has no effect on any network policy declared in `SandboxNetwork`. It exists to make agent behavior observable during authoring.
 
@@ -29,13 +29,13 @@ The distinction is consequential: `settings.sandbox` is a production guarantee d
 - **Gemini CLI** — supports tool-level sandboxing via `tools.sandboxAllowedPaths` and `tools.sandboxNetworkAccess`
 - **GitHub Copilot** — does NOT support sandbox configuration (field is dropped)
 
-This target-fidelity boundary is explicitly reported by `apply --check-permissions`. The `securityFieldReport()` function (`cmd/xcaffold/apply.go:410-451`) inspects the parsed configuration against the active target and emits a `[WARNING]` line for each security field that would be dropped:
+This target-fidelity boundary is surfaced by `xcaffold apply` via fidelity notes. `printFidelityNotes` (`cmd/xcaffold/fidelity.go`) writes a `WARNING` line for each security field that would be dropped for the active target:
 
 ```
-github-copilot: settings.sandbox will be dropped — no sandbox model
+WARNING (github-copilot): settings.sandbox will be dropped — no sandbox model
 ```
 
-The function also detects conflicts between `settings.permissions.deny` rules and per-agent `tools` lists, emitting `[ERROR]` lines for those. `--check-permissions` is read-only and never modifies any output file. It returns a non-zero exit code only when `[ERROR]`-level conflicts are found; dropped security fields are warnings, not errors.
+Error-level fidelity notes block compilation; warning-level notes about dropped security fields are informational and do not prevent output from being written. Use `xcaffold apply --dry-run` to preview fidelity notes without writing output files to disk.
 
 This design reflects a principle xcaffold applies throughout multi-target rendering: the source of truth is always the `.xcaf` file, and per-target fidelity differences are surfaced explicitly rather than silently accepted. Users who rely on sandbox isolation for security properties must understand that those properties only exist when the compiled output is consumed by a platform that supports them.
 
@@ -43,7 +43,7 @@ This design reflects a principle xcaffold applies throughout multi-target render
 
 ## Filesystem Isolation Model
 
-The `SandboxFilesystem` struct (`internal/ast/types.go:196-201`) defines four path-glob arrays:
+The `SandboxFilesystem` struct (`internal/ast/types.go:789-794`) defines four path-glob arrays:
 
 - `AllowWrite` — paths the sandboxed process may write to
 - `DenyWrite` — paths explicitly denied for writes
@@ -58,7 +58,7 @@ This separation is intentional. Glob semantics for OS-level sandbox policies are
 
 ## Network Isolation Model
 
-The `SandboxNetwork` struct (`internal/ast/types.go:204-214`) configures outbound network policy for the sandboxed process:
+The `SandboxNetwork` struct (`internal/ast/types.go:797-807`) configures outbound network policy for the sandboxed process:
 
 - `AllowedDomains` — explicit list of domains the process may connect to
 - `AllowManagedDomainsOnly` — boolean that restricts connections to a platform-managed allowlist rather than a user-defined one
@@ -119,7 +119,7 @@ If no assertions are defined in the agent's configuration, `Evaluate()` returns 
 
 - **Deciding whether `settings.sandbox` provides a security guarantee** — it does only when the compiled output is consumed by a target platform that enforces it; xcaffold compiles the declaration but does not enforce it. GitHub Copilot does not support sandbox configuration; Claude Code, Cursor, Antigravity, and Gemini CLI each have sandbox implementations with different fidelity and configuration mechanisms.
 - **Understanding what `xcaffold test` does and does not test** — the evaluation simulation captures tool call declarations from the model's response; it does not execute tools against the host OS, enforce sandbox network policies, or provide any runtime isolation.
-- **Using `--check-permissions` before applying to a new target** — `securityFieldReport()` surfaces which security fields will be silently dropped for the active target, allowing an informed decision before writing output files.
+- **Previewing fidelity notes before applying to a new target** — `xcaffold apply --dry-run` surfaces which security fields will be dropped for the active target, allowing an informed decision before writing output files.
 - **Interpreting non-deterministic judge verdicts** — the LLM-as-a-judge evaluation uses natural language reasoning; for stable pass/fail signals in CI, assertions should reference concrete trace properties (specific tool names and parameter values) rather than behavioral descriptions.
 
 ---
