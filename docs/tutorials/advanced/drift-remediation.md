@@ -62,7 +62,7 @@ xcaffold recomputes SHA-256 hashes for all artifacts listed in `.xcaffold/projec
 drift detected in 1 file(s) — run 'xcaffold apply --target claude' to restore managed state
 ```
 
-`xcaffold diff` exits with code `1` when drift is found. This is intentional — it makes the command usable as a CI gate. For the full diff status reference, see [CLI Reference](../reference/cli.md).
+`xcaffold diff` exits with code `1` when drift is found. This is intentional — it makes the command usable as a CI gate. For the full diff status reference, see [CLI Reference](../../reference/commands/index.md).
 
 ---
 
@@ -131,7 +131,7 @@ You induced drift on a managed file, used `xcaffold diff` to detect it precisely
 
 ## Next Steps
 
-- **Getting Started** — if you haven't compiled your first agent yet: [Getting Started](getting-started.md)
+- **Getting Started** — if you haven't compiled your first agent yet: [Getting Started](../basics/getting-started.md)
 - **Multi-Agent Workspace** — define multiple agents, rules, and skills: [Multi-Agent Workspace](multi-agent-workspace.md)
-- **Drift detection concepts** — how the state file, SHA-256 hashes, and source vs. artifact drift work: [Concepts: Drift Detection and State](../concepts/state-and-drift.md)
-- **CLI reference** — full flag reference for `diff`, `apply`, and `--force`: [CLI Reference](../reference/cli.md)
+- **Drift detection concepts** — how the state file, SHA-256 hashes, and source vs. artifact drift work: [Concepts: Drift Detection and State](../../concepts/execution/state-and-drift.md)
+- **CLI reference** — full flag reference for `diff`, `apply`, and `--force`: [CLI Reference](../../reference/commands/index.md)

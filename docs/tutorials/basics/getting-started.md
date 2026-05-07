@@ -251,9 +251,9 @@ You created a `project.xcaf` file with a project manifest and one agent definiti
 
 ## Next Steps
 
-- **Drift remediation** — learn how `xcaffold diff` detects and resolves manual edits in compiled output: [`drift-remediation.md`](drift-remediation.md)
-- **Multi-agent workspaces** — define multiple agents, skills, and rules: [`multi-agent-workspace.md`](multi-agent-workspace.md)
-- **Organize configurations** — structure resources into domain-scoped files under `xcaf/`: [`multi-file-projects.md`](../how-to/multi-file-projects.md)
-- **Import existing config** — adopt xcaffold on an existing `.claude/` project: [`import-existing-config.md`](../how-to/import-existing-config.md)
-- **Skill subdirectories** — Skills can include `references/`, `scripts/`, `assets/`, and `examples/` subdirectories for supporting files like API specs, helper scripts, and output demonstrations. See [Organizing Project Resources](../how-to/multi-file-projects.md#skill-directory-layout) for the full directory layout and validation rules.
+- **Drift remediation** — learn how `xcaffold diff` detects and resolves manual edits in compiled output: [`drift-remediation.md`](../advanced/drift-remediation.md)
+- **Multi-agent workspaces** — define multiple agents, skills, and rules: [`multi-agent-workspace.md`](../advanced/multi-agent-workspace.md)
+- **Organize configurations** — structure resources into domain-scoped files under `xcaf/`: [Project Layouts](../../best-practices/project-layouts.md)
+- **Import existing config** — adopt xcaffold on an existing `.claude/` project: [import command reference](../../reference/commands/lifecycle/import.md)
+- **Skill subdirectories** — Skills can include `references/`, `scripts/`, `assets/`, and `examples/` subdirectories for supporting files like API specs, helper scripts, and output demonstrations. See [Project Layouts](../../best-practices/project-layouts.md#skill-directory-layout) for the full directory layout and validation rules.
 - **Other targets** — compile the same configuration to `.cursor/` (`--target cursor`), `.gemini/` (`--target gemini`), `.github/` (`--target copilot`), or `.agents/` (`--target antigravity`) without changing `project.xcaf`.

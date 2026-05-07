@@ -308,6 +308,5 @@ You have a project where:
 
 ## Next Steps
 
-- **Multi-agent workspace** — build a team of differentiated agents with shared skills: [`multi-agent-workspace.md`](multi-agent-workspace.md)
-- **Target overrides** — fine-tune behavior per provider without duplicating resources: [`../how-to/target-overrides.md`](../how-to/target-overrides.md)
-- **CLI reference** — full flag documentation for every command: [`../reference/cli.md`](../reference/cli.md)
+- **Multi-agent workspace** — build a team of differentiated agents with shared skills: [`multi-agent-workspace.md`](../advanced/multi-agent-workspace.md)
+- **CLI reference** — full flag documentation for every command: [CLI Reference](../../reference/commands/index.md)

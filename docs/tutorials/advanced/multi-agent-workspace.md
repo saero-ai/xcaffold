@@ -197,7 +197,7 @@ my-team/
 
 `ParseDirectory` discovers all `.xcaf` files recursively, parses each one, and merges the results into a single AST before compilation. The parser uses file discovery to find resources — no explicit ref lists needed in `project.xcaf`.
 
-See [Organizing Project Resources](../how-to/multi-file-projects.md) for best practices on directory organization as projects grow.
+See [Organizing Project Resources](../../best-practices/project-layouts.md) for best practices on directory organization as projects grow.
 
 ---
 
@@ -426,6 +426,5 @@ You configured a two-agent workspace with distinct tool permissions, defined sha
 ## Next Steps
 
 - **Drift remediation** — detect and restore managed files when compiled output has been modified directly: [Drift Remediation](drift-remediation.md)
-- **Organize configurations** — structure resources into domain-scoped files under `xcaf/`: [Organizing Project Resources](../how-to/multi-file-projects.md)
-- **Policy enforcement** (Preview) — add `require` and `deny` constraints that block compilation when violated: [Policy Enforcement](../how-to/policy-enforcement.md)
-- **CLI reference** — full command reference including all flags for `apply`, `diff`, `validate`, and `graph`: [CLI Reference](../reference/cli.md)
+- **Organize configurations** — structure resources into domain-scoped files under `xcaf/`: [Organizing Project Resources](../../best-practices/project-layouts.md)
+- **CLI reference** — full command reference including all flags for `apply`, `diff`, `validate`, and `graph`: [CLI Reference](../../reference/commands/index.md)
