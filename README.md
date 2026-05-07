@@ -8,7 +8,7 @@
 [![CI](https://github.com/saero-ai/xcaffold/actions/workflows/ci.yml/badge.svg)](https://github.com/saero-ai/xcaffold/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/saero-ai/xcaffold)](https://goreportcard.com/report/github.com/saero-ai/xcaffold)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Go Version](https://img.shields.io/badge/go-1.24-blue.svg)](https://golang.org/dl/)
+[![Go Version](https://img.shields.io/badge/go-1.25-blue.svg)](https://go.dev/dl/)
 
 **Your agents, by design.** Declare your agents once in a `.xcaf` YAML file. `xcaffold` compiles deterministically into native configurations for Claude Code, Cursor, GitHub Copilot, Gemini CLI, and Antigravity — with drift detection, policy enforcement, and behavioral testing.
 
@@ -30,7 +30,7 @@ The agentic development ecosystem is fragmented. Every AI coding tool ships its 
 
 - **Blueprint-based agent configuration** — Define agents, skills, rules, and hooks once in `.xcaf` YAML. Target-specific details emerge at compile time, not in your source tree.
 - **Multi-provider compilation** — Single source, native output. Compile to Claude Code, Cursor, GitHub Copilot, Gemini CLI, Antigravity — all from one `.xcaf` file.
-- **Drift detection via SHA-256 state** — Track compiled state in `.xcaffold/<name>.xcaf.state`. Detect when `.claude/`, `.cursor/`, or other output directories have been manually edited. `xcaffold diff` shows exactly what changed and why.
+- **Drift detection via SHA-256 state** — Track compiled state in `.xcaffold/<name>.xcaf.state`. Detect when `.claude/`, `.cursor/`, or other output directories have been manually edited. `xcaffold status` shows sync state and drift across all applied targets.
 - **Policy enforcement at compile time** — Define policies (require, deny, match constraints). Violations block compilation with precise error messages. No unsafe agent configurations reach production.
 - **Cross-provider translation with fidelity reporting** — When a capability cannot be expressed in a target's native format, `xcaffold` reports the translation loss. Migrate between providers with full visibility into behavioral gaps.
 - **Import existing configs** — Have agents already configured in Claude Code, Cursor, or GitHub Copilot? `xcaffold import` reads existing agent/skill/rule directories and reconstructs the `.xcaf` blueprint.
@@ -99,8 +99,10 @@ Run the lifecycle:
 ```bash
 xcaffold init                      # Initialize a new project.xcaf
 xcaffold apply                     # Compile to .claude/, .cursor/, etc.
-xcaffold diff                      # Detect manual drift in output directories
 xcaffold validate                  # Check syntax without compiling
+xcaffold status --target claude    # Check for drift in applied output directories
+xcaffold list --agent              # List all agents across registered projects
+xcaffold graph --format terminal   # Visualize resource topology
 xcaffold import --target claude    # Read existing .claude/ and generate .xcaf
 ```
 
@@ -124,7 +126,7 @@ xcaffold import --target claude    # Read existing .claude/ and generate .xcaf
 To learn more about how to use `xcaffold`, explore our documentation:
 
 - [Tutorials](docs/tutorials/index.md) — End-to-end guides for agent configuration setups.
-- [How-To Guides](docs/how-to/index.md) — Targeted recipes for common workflows.
+- [Best Practices](docs/best-practices/index.md) — Targeted recipes for common workflows.
 - [Concepts](docs/concepts/index.md) — Deep dives into architecture, compilation scopes, and best practices.
 - [Reference](docs/reference/index.md) — Exhaustive `.xcaf` schema references, CLI flags, and diagnostics APIs.
 

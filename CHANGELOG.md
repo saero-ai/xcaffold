@@ -13,21 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Two-layer field classification with `+xcaf:role=` markers on all config struct fields (`identity`, `rendering`, `composition`, `metadata`, `filtering`).
 - `docs/concepts/configuration/field-model.md` — explains the two-layer field classification and `ClearableList` override semantics.
 - `docs/concepts/configuration/layer-precedence.md` — explains target resolution hierarchy and override merge rules.
-
-### Changed
-
-- `xcaffold apply` no longer defaults to `claude` when no target is configured. Set `targets:` in `project.xcaf` or pass `--target`.
-- `xcaffold init --yes` requires `--target` when no known CLI is detected on `$PATH`.
-- Provider `fields.yaml` entries previously classified as `xcaffold-only` are now `unsupported`. The two-layer model silently skips core fields that a provider cannot render.
-
-### Fixed
-
-- Fixed `tagResourcesWithProvider` skipping MCP, hooks, and settings during multi-provider import assembly; all 7 resource kinds (agents, skills, rules, workflows, MCP, hooks, settings) now receive provider-scoped `targets` entries.
-- Fixed `xcaffold apply --backup` skipping backup for 2nd and subsequent targets in multi-target projects; backup now runs for every target regardless of source-change detection.
-- Fixed `xcaffold status --all` being silently ignored when used without `--target`; `--all` now appends a per-provider grouped file listing in overview mode.
-
-### Added
-
 - Provider-override list merge now supports a tri-state `cleared` signal. Setting `cleared: true` on any `ClearableList` field (e.g. `tools`, `skills`, `allowed-tools`, `paths`) in an override file explicitly empties the field rather than inheriting the base value. An absent (zero-value) list continues to inherit the base as before.
 - Added `--target <provider>` flag to `xcaffold validate`. When set, the command performs a compile-time field validation pass that fails on unsupported or missing required fields for the specified provider target.
 - Added `xcaffold status` command to replace `xcaffold diff`, providing high-level sync/drift metrics across all applied targets with inline file status reporting.
@@ -35,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `xcaffold apply` no longer defaults to `claude` when no target is configured. Set `targets:` in `project.xcaf` or pass `--target`.
+- `xcaffold init --yes` requires `--target` when no known CLI is detected on `$PATH`.
+- Provider `fields.yaml` entries previously classified as `xcaffold-only` are now `unsupported`. The two-layer model silently skips core fields that a provider cannot render.
 - `xcaffold validate --target <provider>` now includes the provider name in the header breadcrumb and appends a field validation summary (`Field validation: <provider> (N errors)`) to the footer on success.
 - Parser name/kind mismatch warnings (e.g. YAML `name:` differs from directory-inferred name) are no longer printed directly to stderr. They are now collected in `XcaffoldConfig.ParseWarnings` and surfaced by commands that have structured diagnostic output.
 - `xcaffold apply` output now matches the output standards of `status` and `validate`: header breadcrumb at the top, glyph helpers for all status lines, file count summary on success instead of per-file write lines, and an import hint footer.
@@ -42,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Command `xcaffold graph` overhauled dependency rendering to naturally group rules by folder prefixes and nest active agent memory dynamically.
 - `xcaffold diff` is now officially deprecated, safely delegating any active usage directly to `xcaffold status` with migration hints natively.
 - **Import pipeline unified on ProviderImporter interface** — `mergeImportDirs` (multi-directory import) now uses the registered `ProviderImporter.Import()` per directory instead of legacy extraction functions. All resource types (agents, skills, rules, workflows, memory, hooks, MCP, settings, project instructions) are now imported in multi-dir mode. Previously, multi-dir imports silently dropped memory, MCP, settings, hooks, and project instructions.
+
+### Fixed
+
+- Fixed `tagResourcesWithProvider` skipping MCP, hooks, and settings during multi-provider import assembly; all 7 resource kinds (agents, skills, rules, workflows, MCP, hooks, settings) now receive provider-scoped `targets` entries.
+- Fixed `xcaffold apply --backup` skipping backup for 2nd and subsequent targets in multi-target projects; backup now runs for every target regardless of source-change detection.
+- Fixed `xcaffold status --all` being silently ignored when used without `--target`; `--all` now appends a per-provider grouped file listing in overview mode.
 
 ### Removed
 
@@ -311,7 +305,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `golang.org/x/sys` transitive dependency (was pulled in by `wazero`).
 - Token estimation feature (`--tokens` flag on `xcaffold graph`) — cross-provider accuracy is not feasible with a single byte-count heuristic.
 
-## [1.0.0-dev] - 2026-04-02
+## [0.1.0] - 2026-04-02
 ### Added
 - Complete rewrite of the CLI compiler replacing the deprecated TypeScript prototype with a robust Go binary.
 - One-Way Compilation architecture targeting Anthropic Claude Code configurations natively.
