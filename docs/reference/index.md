@@ -17,5 +17,5 @@ Information-oriented documentation that provides exhaustive, definitive facts ab
 ## Next Steps
 
 - [`Tutorials`](../tutorials/index.md) — learning-oriented, step-by-step guides
-- [`How-To Guides`](../how-to/index.md) — task-oriented guides for specific operations
+- [`Best Practices`](../best-practices/index.md) — task-oriented guides and recommended patterns
 - [`Concepts`](../concepts/index.md) — deep dives into architecture and compilation scopes

@@ -23,9 +23,6 @@ name: frontend-app
 targets:
   - claude
   - cursor
-agents:
-  - id: react-developer
-    path: xcaf/agents/react-developer/agent.xcaf
 ---
 ```
 
@@ -48,18 +45,20 @@ targets:
   - gemini
   - copilot
   - antigravity
-agents:
-  - id: react-developer
-    path: xcaf/agents/react-developer/agent.xcaf
-skills:
-  - component-patterns
-rules:
-  - react-conventions
-  - no-server-imports-in-ui
-mcp:
-  - browser-tools
-policies:
-  - require-approved-model
+test:
+  cli-path: /usr/local/bin/claude
+  judge-model: claude-opus-4-5
+  task: "Demonstrate all capabilities and confirm every feature works end-to-end."
+  max-turns: 10
+local:
+  model: claude-sonnet-4-6
+  effort-level: high
+target-options:
+  copilot:
+    hooks:
+      copilot-instructions: ".copilot/instructions.md"
+  cursor:
+    suppress-fidelity-warnings: false
 ---
 This project uses xcaffold to manage AI agent configuration across all providers.
 Agents must follow all declared rules at all times.
@@ -77,23 +76,70 @@ The following arguments are supported:
 - `homepage` — (Optional) `string`. Project URL.
 - `repository` — (Optional) `string`. Source repository URL.
 - `license` — (Optional) `string`. SPDX license identifier.
+- `backup-dir` — (Optional) `string`. Directory where provider output is backed up before each overwrite.
+- `allowed-env-vars` — (Optional) `[]string`. Environment variable names that may be injected via `${env.NAME}` inside `.xcaf` files. Variables not listed here are rejected at compile time to prevent accidental secret leakage. See [Project Variables](../../../concepts/configuration/variables.md) for details.
 - `targets` — (Required) `[]string`. Provider targets to compile: `claude`, `cursor`, `gemini`, `copilot`, `antigravity`. At least one required.
-- `allowed-env-vars` — (Optional) `[]string`. Allowed environment variables that can be injected via `${env.NAME}` inside `.xcf` or `.vars` files. Prevents accidental secret leakage. See [Project Variables](../../../concepts/configuration/variables.md) for details.
-- `agents` — (Optional) `[]AgentManifestEntry`. Agents to include (see [agents block](#agents-block)).
-- `skills` — (Optional) `[]string`. Skill IDs declared in `xcaf/skills/`.
-- `rules` — (Optional) `[]string`. Rule IDs declared in `xcaf/rules/`.
-- `mcp` — (Optional) `[]string`. MCP server IDs declared in `xcaf/mcp/`.
-- `policies` — (Optional) `[]string`. Policy IDs declared in `xcaf/policies/`.
-- `backup-dir` — (Optional) `string`. Directory for provider backup files before overwrite.
+- `agents` — (Optional) `map[string]AgentConfig`. Named agents defined inline (see [agents block](#agents-block)). Filesystem-discovered agents under `xcaf/agents/` are merged automatically and do not require inline declaration.
+- `skills` — (Optional) `map[string]SkillConfig`. Named skills defined inline or discovered under `xcaf/skills/`.
+- `rules` — (Optional) `map[string]RuleConfig`. Named rules defined inline or discovered under `xcaf/rules/`.
+- `mcp` — (Optional) `map[string]MCPConfig`. Named MCP server declarations.
+- `policies` — (Optional) `map[string]PolicyConfig`. Named compile-time policy constraints.
+- `test` — (Optional) `TestConfig`. Configuration for `xcaffold test` (see [test block](#test-block)).
+- `local` — (Optional) `SettingsConfig`. Local settings override applied to this project only (see [local block](#local-block)).
+- `target-options` — (Optional) `map[string]TargetOverride`. Per-provider compile-time overrides (see [target-options block](#target-options-block)).
 
 ### `agents` block
 
-Each entry in the `agents` list supports:
+Agents can be declared inline in the project manifest or discovered automatically from `xcaf/agents/<name>/agent.xcaf`. Both forms are merged during parsing.
 
-- `id` — (Required) Agent identifier. Must match the `name` in the referenced `.xcaf` file.
-- `path` — (Required) Relative path to the agent's `.xcaf` file from the project root.
+Inline declaration uses a map keyed by agent name:
 
-> **Note:** When using filesystem-as-schema inference, agents discovered from `xcaf/agents/<name>/agent.xcaf` do not need explicit entries in the `agents:` list. The parser discovers them automatically from the directory structure.
+```yaml
+agents:
+  react-developer:
+    description: "React and TypeScript specialist."
+    model: sonnet
+    tools: [Read, Write, Edit, Bash]
+```
+
+Filesystem-discovered agents under `xcaf/agents/<name>/agent.xcaf` require no explicit entry — the parser finds and merges them automatically.
+
+> **Note:** The project manifest does not support a `path:` reference syntax. Agent files are either declared inline or discovered by directory convention.
+
+### `test` block
+
+Configures the `xcaffold test` command. All fields are optional.
+
+- `cli-path` — `string`. Path to the CLI binary used for simulation (e.g., `/usr/local/bin/claude`).
+- `judge-model` — `string`. Generative model used for LLM-as-a-Judge evaluation of test output.
+- `task` — `string`. User prompt sent to the agent during test simulation. Defaults to a generic capability discovery prompt when empty.
+- `max-turns` — `int`. Maximum simulated conversation turns. Reserved for future multi-turn support.
+
+### `local` block
+
+A `SettingsConfig` block applied only to this project. Fields mirror those of a named `settings` resource. Use `local:` to apply project-specific provider settings without creating a named settings resource. See [kind: settings](./settings) for the full field reference.
+
+### `target-options` block
+
+Per-provider compile-time overrides keyed by provider name. Each value is a `TargetOverride` with the following fields:
+
+- `hooks` — `map[string]string`. Provider-specific hook path overrides.
+- `suppress-fidelity-warnings` — `bool`. Suppress fidelity notes for this provider during `apply`.
+- `skip-synthesis` — `bool`. Skip synthesis passes for this provider.
+- `provider` — `map[string]any`. Opaque pass-through map emitted verbatim into the provider's native config.
+
+```yaml
+target-options:
+  copilot:
+    hooks:
+      copilot-instructions: ".copilot/instructions.md"
+    provider:
+      groups:
+        - copilot-chat
+  cursor:
+    suppress-fidelity-warnings: false
+    skip-synthesis: false
+```
 
 ### `targets` on resources vs. project
 

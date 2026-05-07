@@ -17,9 +17,9 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 | **Skills** | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` |
 | **Rules** | `rules/*.md` | `rules/*.md` or `rules/*.mdc` | `GEMINI.md` | `.github/copilot-instructions.md` | `GEMINI.md` |
 | **Workflows** | *via Rules & Skills* | *via Rules* | *via Rules & Skills* | *via Rules & Skills* | `workflows/*.md` |
-| **Shell Hooks** | `settings.json` ¹ | `hooks.json` | `settings.json` | `hooks/xcaffold-hooks.json` | *N/A* |
+| **Shell Hooks** | `settings.json` ¹ | `hooks.json` | `settings.json` | *N/A* | *N/A* |
 | **MCP Servers** | `.mcp.json` ² | `.cursor/mcp.json` | `settings.json` | `.vscode/mcp.json` | `~/.gemini/antigravity/mcp_config.json` ³ |
-| **Settings & Sandbox** | `settings.json` | Cursor Settings UI | `settings.json` | IDE settings | `settings.json` |
+| **Settings & Sandbox** | `settings.json` | Cursor Settings UI | `settings.json` | IDE settings | *N/A* |
 | **Project Instructions** | `CLAUDE.md` (nested) | `AGENTS.md` (nested) | `GEMINI.md` | `.github/copilot-instructions.md` | `.agents/rules/*.md` |
 | **Memory Context** | Auto Memory (persistent) | Not supported | Not supported | Not supported | Not supported |
 
@@ -34,7 +34,7 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 ³ **Antigravity MCP** — Antigravity reads MCP configuration exclusively from the global file `~/.gemini/antigravity/mcp_config.json`. No project-local MCP file is written. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted. Configure MCP servers via the Antigravity MCP Store UI or edit the global config directly.
 
 > [!NOTE]
-> Target capabilities are continuously expanding. For a granular block-by-block breakdown of per-field fidelity mappings per target, consult the [Schema Reference](../reference/schema.md).
+> Target capabilities are continuously expanding. For a granular block-by-block breakdown of per-field fidelity mappings per target, consult the [Kind Reference](./kinds/index.md).
 
 ---
 
@@ -49,9 +49,9 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 | **agent** | `.claude/agents/*.md` | `.cursor/agents/*.md` | `.gemini/agents/*.md` | `.github/agents/*.{md,agent.md}` | — |
 | **skill** | `.claude/skills/*/SKILL.md` | `.cursor/skills/*/SKILL.md` | `.gemini/skills/*/SKILL.md` | `.github/skills/*/SKILL.md` | `.agents/skills/*/SKILL.md` |
 | **rule** | `.claude/rules/*.md` | `.cursor/rules/*.{md,mdc}` | `.gemini/rules/*.md` | `.github/copilot-instructions.md` | `.agents/rules/*.md` |
-| **hook** | `.claude/settings.json` (`hooks` key) | `.cursor/hooks.json` | `.gemini/settings.json` | `.github/hooks/xcaffold-hooks.json` | — |
+| **hook** | `.claude/settings.json` (`hooks` key) | `.cursor/hooks.json` | `.gemini/settings.json` | — | — |
 | **mcp** | `.mcp.json` | `.cursor/mcp.json` | `.gemini/settings.json` | `.vscode/mcp.json` | — |
-| **settings** | `.claude/settings.json` | Cursor Settings UI | `.gemini/settings.json` | — | `.agents/settings.json` |
+| **settings** | `.claude/settings.json` | Cursor Settings UI | `.gemini/settings.json` | — | — |
 | **provider-extras** | unrecognised `.claude/` files | unrecognised `.cursor/` files | unrecognised `.gemini/` files | unrecognised `.github/` files | unrecognised `.agents/` files |
 
 `SourceProvider` is recorded on every imported resource so `xcaffold apply` can emit targeted fidelity notes when a resource cannot be faithfully translated to a different provider.

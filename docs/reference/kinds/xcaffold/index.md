@@ -15,4 +15,6 @@ Xcaffold kinds configure the compiler itself. They are evaluated at compile time
 | [`global`](./global) | Shared resource definitions that are inherited across the entire project |
 | [`registry`](./registry) | Machine-wide project index — tracks initialized repos and apply timestamps |
 
-These kinds use **pure YAML format** (no frontmatter `---` delimiters) with the exception of `project`, which supports an optional markdown body after closing `---` for project-level instructions.
+`project` uses **frontmatter+body format** (`---` delimiters required). The content after the closing `---` is compiled into provider root context files (`CLAUDE.md`, `AGENTS.md`, etc.). The body is optional but the delimiters are required.
+
+All other xcaffold kinds — `policy`, `blueprint`, `global`, `registry` — use **pure YAML format** (no `---` delimiters).
