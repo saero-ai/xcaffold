@@ -83,6 +83,8 @@ rules:
   - api-conventions
 mcp:
   - database-tools
+memory:
+  - shared-context
 contexts:
   - backend-context
 settings: development

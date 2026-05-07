@@ -57,6 +57,24 @@ xcaf/skills/
         └── good-review.md    ← "golden rule" demonstration
 ```
 
+The `skill.xcaf` file for this layout declares which subdirectories are active using the `artifacts:` field:
+
+```yaml
+---
+kind: skill
+version: "1.0"
+name: code-review
+description: "Automated code review workflow."
+artifacts:
+  - references
+  - scripts
+  - assets
+  - examples
+---
+```
+
+If you declare an artifact in `artifacts:` but the corresponding directory does not exist on disk, `xcaffold validate` will report an error.
+
 > [!NOTE]
 > When **authoring** skill directories, the parser validates subdirectory names at parse time. Only `references/`, `scripts/`, `assets/`, and `examples/` are recognized as canonical subdirectories. Maximum depth is 1 level — nesting inside `references/references/` is not supported.
 >

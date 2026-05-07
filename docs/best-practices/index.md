@@ -12,4 +12,3 @@ Targeted recommendations for when to use specific patterns within xcaffold. Each
 - [Skill Organization](skill-organization) — The required subdirectory layout, when to use `references/`, `scripts/`, `assets/`, and `examples/`.
 - [Blueprint Design](blueprint-design) — Opt-in subset selection for large projects. Includes an experimental label for upcoming marketplace features.
 - [Policy Organization](policy-organization) — Writing `kind: policy` constraints with the correct `target`, `match`, `require`, and `deny` fields.
-- [Cross-Provider Deployment](cross-provider) — Compiling one source to multiple AI providers, understanding fidelity notes, and using per-target overrides.
