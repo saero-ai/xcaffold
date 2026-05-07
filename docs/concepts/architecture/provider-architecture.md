@@ -154,6 +154,13 @@ Every `Compile*` method returns three values: a `map[string]string` of relative 
 Each renderer declares its supported resource kinds via a `CapabilitySet` struct:
 
 ```go
+type RuleEncodingCapabilities struct {
+    // Description: "frontmatter" | "prose" | "omit"
+    Description string
+    // Activation: "frontmatter" | "omit"
+    Activation  string
+}
+
 type CapabilitySet struct {
     Agents              bool
     Skills              bool
@@ -164,13 +171,19 @@ type CapabilitySet struct {
     MCP                 bool
     Memory              bool
     ProjectInstructions bool
-    SkillSubdirs        []string   // e.g., ["references", "scripts", "assets"]
-    ModelField          bool
-    RuleActivations     []string   // e.g., ["always", "path-glob"]
+    // SkillArtifactDirs maps canonical artifact names to provider output subdirectory
+    // names. An empty string value means the artifact files are flattened to the
+    // skill root directory alongside SKILL.md (no subdirectory created).
+    SkillArtifactDirs   map[string]string // canonical name → provider output subdir ("" = flatten to root)
+    RuleActivations     []string          // e.g., ["always", "path-glob"]
+    RuleEncoding        RuleEncodingCapabilities
+    // AgentNativeToolsOnly declares that this provider's native tool vocabulary
+    // IS the Claude Core tool set. Only Claude sets this true.
+    AgentNativeToolsOnly bool
 }
 ```
 
-The `CapabilitySet` serves two purposes. First, the orchestrator uses the boolean fields to decide whether to call the corresponding `Compile*` method or emit a `RENDERER_KIND_UNSUPPORTED` fidelity note. Second, the extended fields (`SkillSubdirs`, `ModelField`, `RuleActivations`) provide structured metadata about the renderer's feature support for tooling and tests.
+The `CapabilitySet` serves two purposes. First, the orchestrator uses the boolean fields to decide whether to call the corresponding `Compile*` method or emit a `RENDERER_KIND_UNSUPPORTED` fidelity note. Second, the extended fields (`SkillArtifactDirs`, `RuleActivations`, `RuleEncoding`, `AgentNativeToolsOnly`) provide structured metadata about the renderer's feature support for tooling and tests.
 
 The current capability declarations:
 
@@ -183,9 +196,11 @@ The current capability declarations:
 | Hooks | yes | yes | yes | yes | no |
 | Settings | yes | yes | yes | yes | yes |
 | MCP | yes | yes | yes | yes | yes |
-| Memory | yes | no | no | no | yes |
+| Memory | yes | no | no | no | no |
 | ProjectInstructions | yes | yes | yes | yes | yes |
-| ModelField | yes | no | yes | yes | no |
+| AgentNativeToolsOnly | yes | no | no | no | no |
+| RuleEncoding.Description | frontmatter | frontmatter | prose | frontmatter | frontmatter |
+| RuleEncoding.Activation | frontmatter | frontmatter | omit | frontmatter | frontmatter |
 
 These declarations are locked by `provider_features_test.go`, which asserts the exact capability set for every provider. Changing a capability without updating the test is a compile-time failure.
 
