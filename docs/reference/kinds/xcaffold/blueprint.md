@@ -1,6 +1,6 @@
 ---
 title: "kind: blueprint"
-description: "Defines resource selection and inheritance for compilation. Source: `xcf/blueprints/<id>/blueprint.xcf`."
+description: "Defines resource selection and inheritance for compilation. Source: `xcf/blueprints/<id>/blueprint.xcaf`."
 ---
 
 # `kind: blueprint`
@@ -10,7 +10,6 @@ Defines a named subset of project resources to be processed by the xcaffold comp
 ## Example Usage
 
 ```yaml
----
 kind: blueprint
 version: "1.0"
 name: onboarding
@@ -19,7 +18,6 @@ extends: base
 agents: [onboarding-guide]
 rules: [style-guide]
 settings: standard
----
 ```
 
 ## Argument Reference
@@ -73,7 +71,7 @@ These fields accept a single ID and override any value inherited from a parent b
 
 ## Filesystem-as-Schema
 
-When a blueprint is defined at `xcf/blueprints/<id>/blueprint.xcf`, Xcaffold automatically infers:
+When a blueprint is defined at `xcf/blueprints/<id>/blueprint.xcaf`, Xcaffold automatically infers:
 - **kind**: `blueprint` derived from the `blueprints/` directory.
 - **name**: `<id>` derived from the directory segment between the kind and the filename.
 

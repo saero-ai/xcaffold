@@ -1,6 +1,6 @@
 ---
 title: "kind: policy"
-description: "Defines declarative constraints and governance rules. Source: `xcf/policy/<id>/policy.xcf`."
+description: "Defines declarative constraints and governance rules. Source: `xcf/policy/<id>/policy.xcaf`."
 ---
 
 # `kind: policy`
@@ -10,7 +10,6 @@ Defines declarative constraints and governance rules evaluated during `xcaffold 
 ## Example Usage
 
 ```yaml
----
 kind: policy
 version: "1.0"
 name: require-description
@@ -19,7 +18,6 @@ target: agent
 require:
   - field: description
     is-present: true
----
 ```
 
 ## Argument Reference
@@ -79,7 +77,7 @@ require:
 
 ## Filesystem-as-Schema
 
-When a policy is defined at `xcf/policy/<id>/policy.xcf`, Xcaffold automatically infers:
+When a policy is defined at `xcf/policy/<id>/policy.xcaf`, Xcaffold automatically infers:
 - **kind**: `policy` derived from the `policy/` directory.
 - **name**: `<id>` derived from the directory segment between the kind and the filename.
 
