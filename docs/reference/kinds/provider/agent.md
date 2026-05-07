@@ -96,7 +96,6 @@ The following arguments are supported:
 - `model` — (Optional) `string`. LLM model identifier. Supports aliases: `sonnet` → `claude-sonnet-4-5-20250514`, `opus` → `claude-opus-4-5-20250514`, `haiku` → `claude-haiku-4-5-20251001`. Resolved per-provider at compile time.
 - `effort` — (Optional) `string`. Resource utilization level: `"low"`, `"medium"`, `"high"`, `"max"`.
 - `max-turns` — (Optional) `int`. Maximum conversation turns before the agent stops.
-- `mode` — (Optional) `string`. Agent execution mode reserved for provider-native use.
 - `tools` — (Optional) `[]string`. Runtime tools granted to the agent: `Read`, `Edit`, `Write`, `Bash`, `Glob`, `Grep`, `WebSearch`, etc. Omit to inherit all available tools.
 - `disallowed-tools` — (Optional) `[]string`. Tools explicitly forbidden. Applied before `tools` resolution.
 - `readonly` — (Optional) `bool`. When `true` and `tools` is unset, Claude emits `tools: [Read, Grep, Glob]`; Cursor emits `readonly: true`. Mutually exclusive with `tools`.

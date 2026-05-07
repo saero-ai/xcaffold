@@ -53,6 +53,7 @@ post-tool-call:
 The following arguments are supported:
 
 - `name` — (Required) Unique hooks identifier. Must match `[a-z0-9-]+`.
+- `artifacts` — (Optional) `[]string`. Named subdirectories to copy from `xcaf/hooks/<name>/` to provider hook directories during compilation.
 - `pre-tool-call` — (Optional) `[]HookEntry`. Scripts run before any matching tool invocation.
 - `post-tool-call` — (Optional) `[]HookEntry`. Scripts run after any matching tool invocation.
 - `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides. Hooks rarely use `targets:` since lifecycle scripts are typically provider-universal, but the field is available for cases where hook behavior differs across providers.
