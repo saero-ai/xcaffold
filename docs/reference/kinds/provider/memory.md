@@ -1,6 +1,6 @@
 ---
 title: "kind: memory"
-description: "Defines persistent context for an agent persona. Source: `xcf/agents/<agent-id>/memory/<id>/memory.xcf`."
+description: "Defines persistent context for an agent persona. Source: `xcaf/agents/<agent-id>/memory/<id>/memory.xcaf`."
 ---
 
 # `kind: memory`
@@ -40,7 +40,7 @@ All code must adhere to the R1 architectural standards.
 
 ## Filesystem-as-Schema
 
-When a memory block is defined at `xcf/agents/<agent-id>/memory/<id>/memory.xcf`, Xcaffold automatically infers:
+When a memory block is defined at `xcaf/agents/<agent-id>/memory/<id>/memory.xcaf`, Xcaffold automatically infers:
 - **kind**: `memory` derived from the `memory/` directory.
 - **name**: `<id>` derived from the directory segment between the kind and the filename.
 - **agent**: `<agent-id>` derived from the grandparent agent directory.

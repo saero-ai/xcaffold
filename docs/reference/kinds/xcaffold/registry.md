@@ -1,11 +1,11 @@
 ---
 title: "kind: registry"
-description: "Machine-wide project index. Source: ~/.xcaffold/registry.xcf. Managed by xcaffold init and apply."
+description: "Machine-wide project index. Source: ~/.xcaffold/registry.xcaf. Managed by xcaffold init and apply."
 ---
 
 # `kind: registry`
 
-The `registry` kind defines the machine-wide index of all `xcaffold` projects initialized on the system. It is stored at `~/.xcaffold/registry.xcf` and is managed automatically by the CLI.
+The `registry` kind defines the machine-wide index of all `xcaffold` projects initialized on the system. It is stored at `~/.xcaffold/registry.xcaf` and is managed automatically by the CLI.
 
 > [!IMPORTANT]
 > This is a system-level resource. While it can be edited manually, it is primarily managed via `xcaffold init`, `xcaffold apply`, and `xcaffold registry` commands.
@@ -37,7 +37,7 @@ projects:
 | :--- | :--- | :--- |
 | `name` | `string` | Unique name for the project. |
 | `path` | `string` | Absolute path to the project root. |
-| `config_directory` | `string` | Relative path from `path` to the directory containing `project.xcf`. |
+| `config_directory` | `string` | Relative path from `path` to the directory containing `project.xcaf`. |
 | `targets` | `[]string` | List of compilation targets configured for this project. |
 | `registered` | `timestamp` | UTC timestamp of when the project was first initialized. |
 | `last_applied` | `timestamp` | UTC timestamp of the last successful `xcaffold apply`. |
@@ -50,4 +50,4 @@ projects:
 
 ## Storage
 
-The registry is stored as a plain YAML file at `~/.xcaffold/registry.xcf`. It does not use the standard `.xcf` frontmatter+body format; it is a single YAML document.
+The registry is stored as a plain YAML file at `~/.xcaffold/registry.xcaf`. It does not use the standard `.xcf` frontmatter+body format; it is a single YAML document.

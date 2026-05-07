@@ -23,8 +23,8 @@ xcaffold test --agent <id> [flags]
 | `--agent` | `-a` | `string` | `""` | The ID of the agent to simulate. **Required**. |
 | `--judge` | | `bool` | `false` | Run LLM-as-a-Judge evaluation after the simulation. |
 | `--output` | `-o` | `string` | `trace.jsonl` | Path to write the execution trace. |
-| `--cli-path` | | `string` | `""` | Path to the underlying CLI binary (overrides `project.xcf`). |
-| `--judge-model`| | `string` | `""` | The model to use for the judge (overrides `project.xcf`). |
+| `--cli-path` | | `string` | `""` | Path to the underlying CLI binary (overrides `project.xcaf`). |
+| `--judge-model`| | `string` | `""` | The model to use for the judge (overrides `project.xcaf`). |
 
 ## Behavior
 

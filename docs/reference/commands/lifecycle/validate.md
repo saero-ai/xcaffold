@@ -1,11 +1,11 @@
 ---
 title: "xcaffold validate"
-description: "Check .xcf syntax, cross-references, and structural invariants."
+description: "Check .xcaf syntax, cross-references, and structural invariants."
 ---
 
 # `xcaffold validate`
 
-Performs a dry-run validation of your `.xcf` configuration. It checks for syntax errors, broken references, policy violations, and structural invariants without writing any files to the provider directories.
+Performs a dry-run validation of your `.xcaf` configuration. It checks for syntax errors, broken references, policy violations, and structural invariants without writing any files to the provider directories.
 
 ## Usage
 
@@ -29,7 +29,7 @@ xcaffold validate [flags]
 
 ### Validation Tiers
 
-1. **Syntax & Schema**: Checks that all `.xcf` files are valid YAML and adhere to the latest schema version (e.g., `version: "1.0"`).
+1. **Syntax & Schema**: Checks that all `.xcaf` files are valid YAML and adhere to the latest schema version (e.g., `version: "1.0"`).
 2. **Cross-References**: Ensures that all resource links (e.g., an agent referencing a skill) resolve to valid resource IDs.
 3. **Directory Integrity**: Validates that all referenced supporting files (scripts, references, artifacts) exist on the filesystem.
 4. **Structural Checks**: Runs invariant checks, such as warning if an agent has the `Bash` tool enabled without a `PreToolUse` hook for command validation.

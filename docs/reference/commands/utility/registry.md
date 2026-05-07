@@ -18,7 +18,7 @@ xcaffold registry [flags]
 The `registry` command scans the global configuration directory (typically `~/.xcaffold/`) and prints a summary of:
 
 -   **Managed Projects**: The name, filesystem path, compilation targets, and last applied timestamp for every registered project.
--   **Resource Summary**: A count of agents, skills, and rules discovered in each project's `project.xcf`.
+-   **Resource Summary**: A count of agents, skills, and rules discovered in each project's `project.xcaf`.
 -   **Global Scope**: A summary of the user-wide global configuration.
 
 ## Examples
