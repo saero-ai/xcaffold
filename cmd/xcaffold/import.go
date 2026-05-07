@@ -723,8 +723,9 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 
 		manifest, _ := providerspkg.ManifestFor(provider)
 		for id := range tmpConfig.Skills {
-			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
-			if _, err := os.Stat(skillFile); err == nil {
+			skillDir := filepath.Join(dir, "skills", id)
+			if info, err := os.Stat(skillDir); err == nil && info.IsDir() {
+				skillFile := filepath.Join(skillDir, "SKILL.md")
 				refs, scripts, fileAssets, fileExamples, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
 				sc := tmpConfig.Skills[id]
 				if len(refs) > 0 {

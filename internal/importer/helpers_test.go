@@ -226,7 +226,7 @@ func TestDefaultExtractSkillAsset_References(t *testing.T) {
 	require.NoError(t, err)
 
 	skill := config.Skills["tdd"]
-	assert.Equal(t, []string{"references/guide.md"}, skill.References.Values)
+	assert.Equal(t, []string{"xcf/skills/tdd/references/guide.md"}, skill.References.Values)
 }
 
 func TestDefaultExtractSkillAsset_Scripts(t *testing.T) {
@@ -238,7 +238,7 @@ func TestDefaultExtractSkillAsset_Scripts(t *testing.T) {
 	require.NoError(t, err)
 
 	skill := config.Skills["tdd"]
-	assert.Equal(t, []string{"scripts/helper.sh"}, skill.Scripts.Values)
+	assert.Equal(t, []string{"xcf/skills/tdd/scripts/helper.sh"}, skill.Scripts.Values)
 }
 
 func TestDefaultExtractSkillAsset_Assets(t *testing.T) {
@@ -250,7 +250,7 @@ func TestDefaultExtractSkillAsset_Assets(t *testing.T) {
 	require.NoError(t, err)
 
 	skill := config.Skills["tdd"]
-	assert.Equal(t, []string{"assets/data.json"}, skill.Assets.Values)
+	assert.Equal(t, []string{"xcf/skills/tdd/assets/data.json"}, skill.Assets.Values)
 }
 
 func TestDefaultExtractSkillAsset_AppendsUnique(t *testing.T) {
@@ -258,14 +258,13 @@ func TestDefaultExtractSkillAsset_AppendsUnique(t *testing.T) {
 	config.Skills = make(map[string]ast.SkillConfig)
 	config.Skills["tdd"] = ast.SkillConfig{
 		Name:       "tdd",
-		References: ast.ClearableList{Values: []string{"references/existing.md"}},
+		References: ast.ClearableList{Values: []string{"xcf/skills/tdd/references/existing.md"}},
 	}
-
 	err := importer.DefaultExtractSkillAsset("skills/tdd/references/new.md", []byte("new"), config)
 	require.NoError(t, err)
 
 	skill := config.Skills["tdd"]
-	assert.Equal(t, []string{"references/existing.md", "references/new.md"}, skill.References.Values)
+	assert.Equal(t, []string{"xcf/skills/tdd/references/existing.md", "xcf/skills/tdd/references/new.md"}, skill.References.Values)
 }
 
 func TestDefaultExtractSkillAsset_InvalidPath(t *testing.T) {

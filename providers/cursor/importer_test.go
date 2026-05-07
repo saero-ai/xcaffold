@@ -93,7 +93,7 @@ func TestCursorExtract_SkillCompanionFilePopulatesReferences(t *testing.T) {
 	err := imp.Extract("skills/code-review/references/guide.md", []byte("# Guide"), config)
 	require.NoError(t, err)
 	skill := config.Skills["code-review"]
-	assert.Contains(t, skill.References.Values, "references/guide.md")
+	assert.Contains(t, skill.References.Values, "xcf/skills/code-review/references/guide.md")
 }
 
 func TestCursorImporter_Provider(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/providers"
 )
 
 // CrossReferenceIssue represents a single cross-reference validation issue.
@@ -110,35 +111,42 @@ var knownPlugins = map[string]bool{
 	"pr-review-toolkit": true,
 }
 
-// reservedOutputPrefixes are compiler output directories and well-known agent
+// reservedOutputPrefixes returns compiler output directories and well-known agent
 // config paths. instructions-file paths starting with these prefixes create
 // circular dependencies where the compiler reads its own output, or reference
 // files managed by other providers outside the project tree.
-var reservedOutputPrefixes = []string{
-	"~/.claude/",
-	"~/.gemini/",
-	".agents/",
-	".antigravity/",
-	".claude/",
-	".cursor/",
-	".cursorrules",
-	".gemini/",
+func reservedOutputPrefixes() []string {
+	prefixes := providers.RegisteredOutputDirs()
+	// Add user-home variations
+	var out []string
+	for _, p := range prefixes {
+		if !strings.HasSuffix(p, "/") {
+			out = append(out, p+"/")
+			out = append(out, "~/"+p+"/")
+		} else {
+			out = append(out, p)
+			out = append(out, "~/"+p)
+		}
+	}
+	// Explicitly add legacy/well-known if not registered
+	out = append(out, ".agents/", ".antigravity/", ".cursorrules")
+	return out
 }
 
-// reservedOutputFilenames are root-level files written directly by the compiler.
+// reservedOutputFilenames returns root-level files written directly by the compiler.
 // Pointing instructions-file at one of these creates a circular read dependency.
-var reservedOutputFilenames = []string{
-	"CLAUDE.md",
-	"AGENTS.md",
-	"GEMINI.md",
+func reservedOutputFilenames() []string {
+	return providers.RegisteredContextFiles()
 }
 
-// reservedOutputPaths are specific files and directories written by the compiler.
+// reservedOutputPaths returns specific files and directories written by the compiler.
 // Exact-match and prefix-match are both applied (directory entries end with /).
-var reservedOutputPaths = []string{
-	".github/copilot-instructions.md",
-	".github/instructions/",
-	".github/prompts/",
+func reservedOutputPaths() []string {
+	return []string{
+		".github/copilot-instructions.md",
+		".github/instructions/",
+		".github/prompts/",
+	}
 }
 
 // validateRuleActivations enforces activation enum and paths co-constraints

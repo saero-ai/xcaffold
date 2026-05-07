@@ -15,7 +15,9 @@ test:
 	@echo "=> Running tests..."
 	@go test -v ./...
 
-VERSION ?= 1.0.0-dev
+# Automatically extract version from the release-please manifest
+VERSION := $(shell grep '"\."' .release-please-manifest.json | cut -d '"' -f 4)
+
 COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "none")
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
@@ -53,4 +55,4 @@ verify-markers:
 clean:
 	@echo "=> Cleaning up build artifacts..."
 	@rm -f xcaffold
-	@rm -rf .claude/
+	@rm -rf .claude/ .cursor/ .agents/ .gemini/ .github/
