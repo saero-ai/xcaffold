@@ -17,8 +17,13 @@ xcaffold validate [flags]
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--target` | | `string` | `""` | Validate field support for a specific provider target. |
-| `--global` | `-g` | `bool` | `false` | Validate the user-wide global configuration. |
+| `--target` | | `string` | `""` | Validate field support for a specific provider target. When set, runs field-level fidelity checks and returns a non-zero exit code on any field error. |
+| `--var-file` | | `string` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
+| `--global` | `-g` | `bool` | `false` | Operate on the user-wide global configuration. Inherited from the root command. |
+
+> **Note:** The `--blueprint` flag is available but hidden. It restricts validation to the named blueprint only.
+
+> **Note:** Global scope (`--global`) is not yet fully implemented. Running `xcaffold validate --global` will return an error.
 
 ## Behavior
 
@@ -43,6 +48,12 @@ xcaffold validate
 
 ```bash
 xcaffold validate --target claude
+```
+
+**Load variables from a custom file:**
+
+```bash
+xcaffold validate --var-file ./custom.vars
 ```
 
 ## Sample Output

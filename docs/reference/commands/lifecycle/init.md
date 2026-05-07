@@ -7,7 +7,7 @@ description: "Bootstrap the agentic environment and set up the xcaffold compiler
 
 Scaffolds the environment to prepare it for Agent-as-Code compilation.
 
-The `init` command bootstraps a repository with a `.xcaffold/project.xcaf` file and the base directories needed for defining custom agents, rules, and skills. If it detects existing provider directories (e.g., `.claude/` or `.cursor/`), it will proactively prompt you to run `xcaffold import` instead, enabling a smooth migration path into the Xcaffold ecosystem.
+The `init` command bootstraps a repository with a `project.xcaf` file and the `xcaf/` source directory. If it detects existing provider directories (e.g., `.claude/` or `.cursor/`), it prompts you to run `xcaffold import` instead, enabling a smooth migration path into the xcaffold ecosystem.
 
 ## Usage
 
@@ -19,23 +19,17 @@ xcaffold init [flags]
 
 | Flag | Default | Description |
 |---|---|---|
-| `-y, --yes` | `false` | Accept all defaults non-interactively. Perfect for CI/CD injection. |
-| `--template <name>` | `""` | Scaffold a predefined topology template. Disables the interactive wizard. Values: `rest-api`, `cli-tool`, `frontend-app`. |
-| `--no-policies` | `false` | Skip the generation of starter policy `.xcaf` files during bootstrap. |
-| `--target <strings>`| `""` | Comma-separated list to immediately compile specific target platforms (e.g., `claude,cursor`) alongside configuration creation. |
-| `--json` | `false` | Output machine-readable JSON manifests instead of rendering interactive setup logs to stdout. |
-| `-g, --global` | `false` | Bootstrap the user-wide environment instead of project-wide. Generates `~/.xcaffold/global.xcaf`. |
+| `-y, --yes` | `false` | Accept all defaults non-interactively. Useful for CI/CD. |
+| `--target <strings>` | `""` | One or more compilation target providers (e.g., `claude`, `cursor`). Repeat or comma-separate for multiple targets. |
+| `--json` | `false` | Output machine-readable JSON manifest instead of interactive logs. |
 
 ## Behavior
 
 ### The Bootstrap Phase
-1. **Detection:** Identifies if you are starting from a blank slate, or if legacy AI provider configurations currently exist.
-2. **Interactive Wizard:** Presents a step-by-step CLI prompt to collect the Project ID, default model provider configuration, and desired AI personas (or agents). 
-3. **Synthesis:** Renders the `.xcaffold/project.xcaf` entrypoint alongside an initial `agents.xcaf` file based on your selections. 
-4. **Directory Structure:** Emits the base directory structure `xcaf/` (if using split-file architectures) containing `agents/`, `skills/`, `rules/`, and `workflows/`.
-
-### Templates
-You can bypass the interactive wizard fully by specifying a `--template`. This option will automatically pre-populate your `.xcaf` configuration with a battle-tested architecture corresponding to your project type.
+1. **Detection:** Checks for existing provider directories (`.claude/`, `.cursor/`, `.agents/`) and an existing `project.xcaf`. Offers to run `xcaffold import` when provider directories are found.
+2. **Target Selection:** Presents an interactive multi-select prompt to choose one or more target providers. Skipped when `--target` is set.
+3. **Synthesis:** Writes `project.xcaf` and the `xcaf/` source directory, including the Xaff authoring agent, the `xcaffold` skill, the `xcaf-conventions` rule, and provider override files for each selected target.
+4. **Registration:** Registers the project in the local xcaffold registry.
 
 ## Output
 
@@ -61,17 +55,17 @@ Kinds are listed as rows; detected providers as columns. Only kinds with at leas
 xcaffold init
 ```
 
-**Initialize a blank project silently (CI/CD mode):**
+**Initialize non-interactively with a specific target (CI/CD mode):**
 ```bash
-xcaffold init --yes
+xcaffold init --yes --target claude
 ```
 
-**Initialize an advanced Full-Stack template and immediately target Claude:**
+**Initialize with multiple targets:**
 ```bash
-xcaffold init --template rest-api --target claude
+xcaffold init --target claude --target gemini
 ```
 
-**Initialize the Global registry:**
+**Output a machine-readable JSON manifest (non-interactive):**
 ```bash
-xcaffold init --global
+xcaffold init --json --target claude
 ```

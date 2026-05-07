@@ -19,23 +19,33 @@ xcaffold export [flags]
 
 ## Options
 
-| Flag | Default | Description |
-|---|---|---|
-| `--format <string>` | `"plugin"` | Desired distribution format logic. Currently solely supports `plugin` repackaging mappings. |
-| `--output <string>` | `""` | Output directory destination for processing generated exported constraints. |
-| `--target <string>` | `"claude"` | Underlying compilation target provider platform for translating native artifacts into distribution wrappers. Valid ranges identically align with standard target variables (`claude`, `cursor`, `gemini`, etc.). |
-| `--var-file <path>` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
+| Flag | Required | Default | Description |
+|---|---|---|---|
+| `--output <string>` | Yes | | Output directory for the exported plugin. |
+| `--format <string>` | | `"plugin"` | Export format. Currently only `plugin` is supported. |
+| `--target <string>` | | `""` | Compilation target provider (e.g., `claude`, `cursor`, `gemini`). When omitted, exports without provider-specific optimizations. |
+| `--var-file <path>` | | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
 
 ## Behavior
 
-The export routine performs the following lifecycle behaviors:
-1. **Source Discovery**: Connects directly against compiled physical artifacts associated immediately with `--target` requirements inside your core configuration mapping variables. 
-2. **Translation Verification**: Audits structural capabilities surrounding your local output layer resolving missing artifact mappings required exclusively for independent distribution logic.
-3. **Format Packaging**: Builds the requested formatting wrappers natively into your requested `--output` directories.
+1. **Parse**: Reads the project configuration from `project.xcaf` and any `xcaf/` sources.
+2. **Compile**: Runs the full compilation pipeline for the specified `--target` (or provider-agnostic if omitted).
+3. **Optimize**: Applies the optimizer pass for the target provider.
+4. **Package**: Writes the plugin directory structure to `--output`.
 
 ## Examples
 
-**Package your compiled configuration into a standardized plugin distribution:**
+**Package your compiled configuration into a plugin distribution:**
 ```bash
 xcaffold export --format plugin --output ./my-plugin/
+```
+
+**Export targeting a specific provider:**
+```bash
+xcaffold export --format plugin --output ./my-plugin/ --target claude
+```
+
+**Export with a custom variable file:**
+```bash
+xcaffold export --format plugin --output ./my-plugin/ --target gemini --var-file ./custom.vars
 ```
