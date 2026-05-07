@@ -5,13 +5,13 @@ description: "How the AST enables the same configuration to compile to different
 
 # Multi-Target Rendering
 
-A single `.xcf` file describes your agent configuration once. xcaffold compiles that description into whichever native format a target AI platform expects — `.claude/` for Claude Code, `.cursor/` for Cursor, `.agents/` for Antigravity, `.github/` for GitHub Copilot, or `.gemini/` for Gemini CLI. The same source, different outputs, without editing the configuration between runs.
+A single `.xcaf` file describes your agent configuration once. xcaffold compiles that description into whichever native format a target AI platform expects — `.claude/` for Claude Code, `.cursor/` for Cursor, `.agents/` for Antigravity, `.github/` for GitHub Copilot, or `.gemini/` for Gemini CLI. The same source, different outputs, without editing the configuration between runs.
 
 This works because xcaffold treats configuration as data and delegates all format concerns to per-target renderers.
 
 ## AST as Data/Presentation Separation
 
-When xcaffold parses a `.xcf` file, the result is a typed Go struct — `ast.XcaffoldConfig` — that holds all configuration data in a platform-agnostic form: agent identities, skill definitions, rule bodies, hook commands, MCP server declarations, and settings values. The struct knows nothing about output formats. It does not know whether a rule becomes a `.md` file or a `.mdc` file, whether a hook gets serialized as JSON or ignored, or whether there is even a directory to write into.
+When xcaffold parses a `.xcaf` file, the result is a typed Go struct — `ast.XcaffoldConfig` — that holds all configuration data in a platform-agnostic form: agent identities, skill definitions, rule bodies, hook commands, MCP server declarations, and settings values. The struct knows nothing about output formats. It does not know whether a rule becomes a `.md` file or a `.mdc` file, whether a hook gets serialized as JSON or ignored, or whether there is even a directory to write into.
 
 Translation is delegated entirely to the `TargetRenderer` interface (`internal/renderer/renderer.go`):
 
@@ -57,7 +57,7 @@ The `gemini` target writes project-level instructions to `GEMINI.md` at the repo
 
 ## Target-Determined Output Directories
 
-No output directory is assumed at the time the `.xcf` file is parsed. The compiler never writes to a default location. The target determines the directory at the point `compiler.OutputDir(target)` is called:
+No output directory is assumed at the time the `.xcaf` file is parsed. The compiler never writes to a default location. The target determines the directory at the point `compiler.OutputDir(target)` is called:
 
 ```go
 func OutputDir(target string) string {
@@ -77,19 +77,19 @@ When the target is `"cursor"`, every file path in the output `map[string]string`
 
 ## MCP Shorthand and Settings Merge
 
-The `.xcf` schema provides two ways to declare MCP servers. A top-level `mcp:` block is a shorthand for listing servers directly without nesting them under `settings:`. A `settings.mcpServers` block is the fully qualified path. Both can appear in the same file.
+The `.xcaf` schema provides two ways to declare MCP servers. A top-level `mcp:` block is a shorthand for listing servers directly without nesting them under `settings:`. A `settings.mcpServers` block is the fully qualified path. Both can appear in the same file.
 
 During compilation, the Claude renderer merges both sources in `compileClaudeMCP` (`internal/renderer/claude/claude.go:415–437`). The merge is additive: `mcp:` entries populate the output map first, then `settings.mcpServers` entries are written over them. When both define a server with the same key, `settings.mcpServers` wins.
 
-The merge happens entirely in the renderer. The raw `.xcf` YAML is not modified. The `ast.XcaffoldConfig` struct retains `MCP` and `Settings.MCPServers` as separate fields throughout the compilation pipeline. The merged result appears only in the rendered `mcp.json`.
+The merge happens entirely in the renderer. The raw `.xcaf` YAML is not modified. The `ast.XcaffoldConfig` struct retains `MCP` and `Settings.MCPServers` as separate fields throughout the compilation pipeline. The merged result appears only in the rendered `mcp.json`.
 
 For the `cursor` target, only the `mcp:` shorthand block is compiled to `mcp.json` (`internal/renderer/cursor/cursor.go:97–104`). For the `antigravity` target, MCP servers are written to `mcp_config.json` using a reduced schema that supports only `command`, `args`, and `env` — the `url` and `headers` fields used for HTTP-based MCP servers have no equivalent and are silently dropped.
 
 ## Per-Target State Files as Proof of Separation
 
-A project compiled for both targets produces a single `.xcaffold/project.xcf.state` file containing artifact hashes for both targets under separate target sections. Per-blueprint compilations produce `.xcaffold/<blueprint-name>.xcf.state`. Each state file records the SHA-256 hashes of that context's artifacts, the xcaffold version, and the timestamp of the last apply.
+A project compiled for both targets produces a single `.xcaffold/project.xcaf.state` file containing artifact hashes for both targets under separate target sections. Per-blueprint compilations produce `.xcaffold/<blueprint-name>.xcaf.state`. Each state file records the SHA-256 hashes of that context's artifacts, the xcaffold version, and the timestamp of the last apply.
 
-This separation is significant for teams that maintain multiple deployment contexts from a single `.xcf` file. Advancing a `claude` compilation — adding new rules, updating agent definitions — does not invalidate the `cursor` state section, and vice versa. Drift detection operates independently per target. A team can keep one target stable while iterating on another, with the state file providing the audit trail for each independently.
+This separation is significant for teams that maintain multiple deployment contexts from a single `.xcaf` file. Advancing a `claude` compilation — adding new rules, updating agent definitions — does not invalidate the `cursor` state section, and vice versa. Drift detection operates independently per target. A team can keep one target stable while iterating on another, with the state file providing the audit trail for each independently.
 
 ## Import Side
 

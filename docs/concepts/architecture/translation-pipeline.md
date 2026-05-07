@@ -20,7 +20,7 @@ Source .md files
       IntentProcedure  → TargetPrimitive{Kind: "skill",      ID: <id>}
       IntentConstraint → TargetPrimitive{Kind: "rule",       ID: <id>-constraints}
       IntentAutomation → TargetPrimitive{Kind: "permission", ID: <id>-permissions}
-  → injectIntoConfig()           inlines instructions + writes split .xcf files
+  → injectIntoConfig()           inlines instructions + writes split .xcaf files
 ```
 
 If a `SemanticUnit` has no detected intents, it falls back to a single `skill` primitive containing the full body.
@@ -34,4 +34,4 @@ If a `SemanticUnit` has no detected intents, it falls back to a single `skill` p
 
 Provenance markers in `rule-plus-skill` output are consumed by `bir.ReassembleWorkflow()` during round-trip import to reconstruct the original `WorkflowConfig` with step fidelity.
 
-> **Note:** The main `xcaffold import` command uses `WriteSplitFiles` to produce `kind: project` manifests with inline instructions and individual `.xcf` resource files under `xcf/`. The BIR pipeline operates as an internal compiler stage.
+> **Note:** The main `xcaffold import` command uses `WriteSplitFiles` to produce `kind: project` manifests with inline instructions and individual `.xcaf` resource files under `xcaf/`. The BIR pipeline operates as an internal compiler stage.

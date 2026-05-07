@@ -64,7 +64,7 @@ type MarkerSet struct {
 	Pattern   string
 	Example   string
 	Default   string
-	Role      []string // +xcf:role= values
+	Role      []string // +xcaf:role= values
 }
 
 type FieldInfo struct {
@@ -192,7 +192,7 @@ func validateKindFields(provName, kind string, canonical []FieldInfo, yamlFields
 }
 
 // mergeProviderData merges YAML provider data into the fields map.
-// YAML values take precedence over +xcf:provider= marker values.
+// YAML values take precedence over +xcaf:provider= marker values.
 func mergeProviderData(
 	fields map[string][]FieldInfo,
 	yamlData map[string]FieldsYAML,
@@ -362,13 +362,13 @@ func validateMarkers(pkg *ast.Package) []string {
 					if !markers.Optional && !markers.Required {
 						fieldName := getFieldName(f)
 						violations = append(violations, fmt.Sprintf(
-							"%s.%s: missing +xcf:optional or +xcf:required", kind, fieldName))
+							"%s.%s: missing +xcaf:optional or +xcaf:required", kind, fieldName))
 					}
 
 					if markers.Group == "" {
 						fieldName := getFieldName(f)
 						violations = append(violations, fmt.Sprintf(
-							"%s.%s: missing +xcf:group=...", kind, fieldName))
+							"%s.%s: missing +xcaf:group=...", kind, fieldName))
 					}
 				}
 			}
@@ -476,7 +476,7 @@ func extractDescription(comment *ast.CommentGroup) string {
 		text := strings.TrimPrefix(c.Text, "//")
 		text = strings.TrimSpace(text)
 
-		if !strings.HasPrefix(text, "+xcf:") {
+		if !strings.HasPrefix(text, "+xcaf:") {
 			lines = append(lines, text)
 		}
 	}
@@ -498,11 +498,11 @@ func parseMarkers(comment *ast.CommentGroup) MarkerSet {
 		text := strings.TrimPrefix(c.Text, "//")
 		text = strings.TrimSpace(text)
 
-		if !strings.HasPrefix(text, "+xcf:") {
+		if !strings.HasPrefix(text, "+xcaf:") {
 			continue
 		}
 
-		marker := strings.TrimPrefix(text, "+xcf:")
+		marker := strings.TrimPrefix(text, "+xcaf:")
 
 		if marker == "optional" {
 			result.Optional = true
@@ -615,11 +615,11 @@ func writeFieldEntry(buf *strings.Builder, f FieldInfo) {
 	buf.WriteString(fmt.Sprintf("\t\t\t\tName: \"%s\",\n", f.Name))
 	buf.WriteString(fmt.Sprintf("\t\t\t\tYAMLKey: \"%s\",\n", f.YAMLKey))
 	buf.WriteString(fmt.Sprintf("\t\t\t\tGoType: \"%s\",\n", f.GoType))
-	xcfType := f.Markers.FieldType
-	if xcfType == "" {
-		xcfType = mapToXCFType(f.GoType)
+	xcafType := f.Markers.FieldType
+	if xcafType == "" {
+		xcafType = mapToXCAFType(f.GoType)
 	}
-	buf.WriteString(fmt.Sprintf("\t\t\t\tXCFType: \"%s\",\n", xcfType))
+	buf.WriteString(fmt.Sprintf("\t\t\t\tXCAFType: \"%s\",\n", xcafType))
 	buf.WriteString(fmt.Sprintf("\t\t\t\tOptional: %v,\n", f.Markers.Optional))
 	buf.WriteString(fmt.Sprintf("\t\t\t\tDescription: %q,\n", f.Description))
 	buf.WriteString(fmt.Sprintf("\t\t\t\tGroup: \"%s\",\n", f.Markers.Group))
@@ -770,7 +770,7 @@ func writePresenceCheck(buf *strings.Builder, param string, f FieldInfo) {
 	}
 }
 
-func mapToXCFType(goType string) string {
+func mapToXCAFType(goType string) string {
 	goType = strings.TrimSpace(goType)
 
 	if strings.HasPrefix(goType, "*bool") {

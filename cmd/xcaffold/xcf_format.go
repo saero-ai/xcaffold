@@ -79,7 +79,7 @@ type contextDoc struct {
 
 // projectSplitDoc is the serialization envelope for kind: project in split-file mode.
 // It does NOT contain resource maps — only metadata, targets, ref lists pointing
-// to child files under xcf/, and project-level instruction references.
+// to child files under xcaf/, and project-level instruction references.
 type projectSplitDoc struct {
 	Kind        string   `yaml:"kind"`
 	Version     string   `yaml:"version"`
@@ -119,10 +119,10 @@ type settingsOverrideDoc struct {
 	ast.SettingsConfig `yaml:",inline"`
 }
 
-// WriteProjectFile writes only the project.xcf file for rootDir from config.
+// WriteProjectFile writes only the project.xcaf file for rootDir from config.
 // Use this instead of WriteSplitFiles when only the project metadata block needs
 // updating (e.g. on re-import) and resource files should be left untouched.
-// Project metadata is written to rootDir/project.xcf (root level).
+// Project metadata is written to rootDir/project.xcaf (root level).
 func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 	rootDir = filepath.Clean(rootDir)
 	version := config.Version
@@ -145,20 +145,20 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 		BackupDir:   proj.BackupDir,
 		Targets:     proj.Targets,
 	}
-	// Write project.xcf to root level (preferred location)
-	return writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc)
+	// Write project.xcaf to root level (preferred location)
+	return writeYAMLFile(filepath.Join(rootDir, "project.xcaf"), projDoc)
 }
 
-// WriteSplitFiles writes an XcaffoldConfig to rootDir as individual .xcf files:
+// WriteSplitFiles writes an XcaffoldConfig to rootDir as individual .xcaf files:
 //
-//   - rootDir/project.xcf              — kind: project (metadata + ref lists)
-//   - rootDir/xcf/agents/<name>/agent.xcf      — kind: agent (one per agent, in its own subdirectory)
-//   - rootDir/xcf/skills/<name>/skill.xcf      — kind: skill (one per skill, in its own subdirectory)
-//   - rootDir/xcf/rules/<name>/rule.xcf        — kind: rule (one per rule, in its own subdirectory)
-//   - rootDir/xcf/workflows/<name>/workflow.xcf — kind: workflow (one per workflow, in its own subdirectory)
-//   - rootDir/xcf/mcp/<name>/mcp.xcf           — kind: mcp (one per MCP server, in its own subdirectory)
-//   - rootDir/xcf/hooks/<name>/hooks.xcf       — kind: hooks (each named hook in its own subdirectory, only when non-empty)
-//   - rootDir/xcf/settings/<name>/settings.xcf — kind: settings (each named settings in its own subdirectory, only when non-zero)
+//   - rootDir/project.xcaf              — kind: project (metadata + ref lists)
+//   - rootDir/xcaf/agents/<name>/agent.xcaf      — kind: agent (one per agent, in its own subdirectory)
+//   - rootDir/xcaf/skills/<name>/skill.xcaf      — kind: skill (one per skill, in its own subdirectory)
+//   - rootDir/xcaf/rules/<name>/rule.xcaf        — kind: rule (one per rule, in its own subdirectory)
+//   - rootDir/xcaf/workflows/<name>/workflow.xcaf — kind: workflow (one per workflow, in its own subdirectory)
+//   - rootDir/xcaf/mcp/<name>/mcp.xcaf           — kind: mcp (one per MCP server, in its own subdirectory)
+//   - rootDir/xcaf/hooks/<name>/hooks.xcaf       — kind: hooks (each named hook in its own subdirectory, only when non-empty)
+//   - rootDir/xcaf/settings/<name>/settings.xcaf — kind: settings (each named settings in its own subdirectory, only when non-zero)
 //
 // Output is deterministic: all resource maps are emitted in sorted key order.
 // All paths are cleaned via filepath.Clean. Directories are created with 0755,
@@ -171,7 +171,7 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		version = "1.0"
 	}
 
-	// Write project.xcf
+	// Write project.xcaf
 	proj := config.Project
 	if proj == nil {
 		proj = &ast.ProjectConfig{}
@@ -198,39 +198,39 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		workflowFilter map[string]bool
 		mcpFilter      map[string]bool
 	)
-	// Write project.xcf to root level (preferred location)
-	if err := writeYAMLFile(filepath.Join(rootDir, "project.xcf"), projDoc); err != nil {
+	// Write project.xcaf to root level (preferred location)
+	if err := writeYAMLFile(filepath.Join(rootDir, "project.xcaf"), projDoc); err != nil {
 		return err
 	}
 
-	xcfDir := filepath.Join(rootDir, "xcf")
+	xcafDir := filepath.Join(rootDir, "xcaf")
 
 	// Delegate to per-kind helpers
-	if err := writeAgentFiles(config, xcfDir, version, agentFilter); err != nil {
+	if err := writeAgentFiles(config, xcafDir, version, agentFilter); err != nil {
 		return err
 	}
-	if err := writeSkillFiles(config, xcfDir, version, skillFilter); err != nil {
+	if err := writeSkillFiles(config, xcafDir, version, skillFilter); err != nil {
 		return err
 	}
-	if err := writeRuleFiles(config, xcfDir, version, ruleFilter); err != nil {
+	if err := writeRuleFiles(config, xcafDir, version, ruleFilter); err != nil {
 		return err
 	}
-	if err := writeWorkflowFiles(config, xcfDir, version, workflowFilter); err != nil {
+	if err := writeWorkflowFiles(config, xcafDir, version, workflowFilter); err != nil {
 		return err
 	}
-	if err := writeMCPFiles(config, xcfDir, version, mcpFilter); err != nil {
+	if err := writeMCPFiles(config, xcafDir, version, mcpFilter); err != nil {
 		return err
 	}
-	if err := writePolicyFiles(config, xcfDir, version); err != nil {
+	if err := writePolicyFiles(config, xcafDir, version); err != nil {
 		return err
 	}
-	if err := writeContextFiles(config, xcfDir, version); err != nil {
+	if err := writeContextFiles(config, xcafDir, version); err != nil {
 		return err
 	}
-	if err := writeHooksFiles(config, xcfDir, version); err != nil {
+	if err := writeHooksFiles(config, xcafDir, version); err != nil {
 		return err
 	}
-	if err := writeSettingsFiles(config, xcfDir, version); err != nil {
+	if err := writeSettingsFiles(config, xcafDir, version); err != nil {
 		return err
 	}
 	if err := writeProviderExtrasFiles(config, rootDir); err != nil {
@@ -347,8 +347,8 @@ func isZeroSettings(s ast.SettingsConfig) bool {
 		s.AutoMode == nil
 }
 
-// writeAgentFiles writes all agents from config to xcf/agents/ directory.
-func writeAgentFiles(config *ast.XcaffoldConfig, xcfDir, version string, agentFilter map[string]bool) error {
+// writeAgentFiles writes all agents from config to xcaf/agents/ directory.
+func writeAgentFiles(config *ast.XcaffoldConfig, xcafDir, version string, agentFilter map[string]bool) error {
 	if len(config.Agents) == 0 {
 		return nil
 	}
@@ -356,7 +356,7 @@ func writeAgentFiles(config *ast.XcaffoldConfig, xcfDir, version string, agentFi
 		if agentFilter != nil && !agentFilter[k] {
 			continue
 		}
-		agentSubDir := filepath.Join(xcfDir, "agents", k)
+		agentSubDir := filepath.Join(xcafDir, "agents", k)
 		if err := os.MkdirAll(agentSubDir, 0755); err != nil {
 			return err
 		}
@@ -366,10 +366,10 @@ func writeAgentFiles(config *ast.XcaffoldConfig, xcfDir, version string, agentFi
 		}
 		body := strings.TrimSpace(agent.Body)
 		doc := agentDoc{Kind: "agent", Version: version, AgentConfig: agent}
-		if err := writeFrontmatterFile(filepath.Join(agentSubDir, "agent.xcf"), doc, body); err != nil {
+		if err := writeFrontmatterFile(filepath.Join(agentSubDir, "agent.xcaf"), doc, body); err != nil {
 			return err
 		}
-		// Write agent overrides: agent.<provider>.xcf
+		// Write agent overrides: agent.<provider>.xcaf
 		if config.Overrides != nil {
 			if providers := config.Overrides.AgentProviders(k); len(providers) > 0 {
 				for _, provider := range providers {
@@ -377,7 +377,7 @@ func writeAgentFiles(config *ast.XcaffoldConfig, xcfDir, version string, agentFi
 					overrideBody := strings.TrimSpace(overrideCfg.Body)
 					overrideCfg.Body = ""
 					overrideCfg.Name = ""
-					overridePath := filepath.Join(agentSubDir, fmt.Sprintf("agent.%s.xcf", provider))
+					overridePath := filepath.Join(agentSubDir, fmt.Sprintf("agent.%s.xcaf", provider))
 					if err := writeFrontmatterFile(overridePath, overrideCfg, overrideBody); err != nil {
 						return err
 					}
@@ -388,12 +388,12 @@ func writeAgentFiles(config *ast.XcaffoldConfig, xcfDir, version string, agentFi
 	return nil
 }
 
-// writeSkillFiles writes all skills from config to xcf/skills/ directory.
-func writeSkillFiles(config *ast.XcaffoldConfig, xcfDir, version string, skillFilter map[string]bool) error {
+// writeSkillFiles writes all skills from config to xcaf/skills/ directory.
+func writeSkillFiles(config *ast.XcaffoldConfig, xcafDir, version string, skillFilter map[string]bool) error {
 	if len(config.Skills) == 0 {
 		return nil
 	}
-	dir := filepath.Join(xcfDir, "skills")
+	dir := filepath.Join(xcafDir, "skills")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -412,13 +412,13 @@ func writeSkillFiles(config *ast.XcaffoldConfig, xcfDir, version string, skillFi
 		if err := os.MkdirAll(skillSubDir, 0755); err != nil {
 			return err
 		}
-		outPath := filepath.Join(skillSubDir, "skill.xcf")
+		outPath := filepath.Join(skillSubDir, "skill.xcaf")
 
 		if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 			return err
 		}
 
-		// Write skill overrides: xcf/skills/<name>/skill.<provider>.xcf
+		// Write skill overrides: xcaf/skills/<name>/skill.<provider>.xcaf
 		if config.Overrides != nil {
 			if providers := config.Overrides.SkillProviders(k); len(providers) > 0 {
 				for _, provider := range providers {
@@ -426,7 +426,7 @@ func writeSkillFiles(config *ast.XcaffoldConfig, xcfDir, version string, skillFi
 					overrideBody := strings.TrimSpace(overrideCfg.Body)
 					overrideCfg.Body = ""
 					overrideCfg.Name = ""
-					overridePath := filepath.Join(skillSubDir, fmt.Sprintf("skill.%s.xcf", provider))
+					overridePath := filepath.Join(skillSubDir, fmt.Sprintf("skill.%s.xcaf", provider))
 					if err := writeFrontmatterFile(overridePath, overrideCfg, overrideBody); err != nil {
 						return err
 					}
@@ -437,12 +437,12 @@ func writeSkillFiles(config *ast.XcaffoldConfig, xcfDir, version string, skillFi
 	return nil
 }
 
-// writeRuleFiles writes all rules from config to xcf/rules/ directory.
-func writeRuleFiles(config *ast.XcaffoldConfig, xcfDir, version string, ruleFilter map[string]bool) error {
+// writeRuleFiles writes all rules from config to xcaf/rules/ directory.
+func writeRuleFiles(config *ast.XcaffoldConfig, xcafDir, version string, ruleFilter map[string]bool) error {
 	if len(config.Rules) == 0 {
 		return nil
 	}
-	dir := filepath.Join(xcfDir, "rules")
+	dir := filepath.Join(xcafDir, "rules")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -457,18 +457,18 @@ func writeRuleFiles(config *ast.XcaffoldConfig, xcfDir, version string, ruleFilt
 		body := strings.TrimSpace(rule.Body)
 		doc := ruleDoc{Kind: "rule", Version: version, RuleConfig: rule}
 
-		// Directory layout: xcf/rules/<name>/rule.xcf
+		// Directory layout: xcaf/rules/<name>/rule.xcaf
 		ruleSubDir := filepath.Join(dir, k)
 		if err := os.MkdirAll(ruleSubDir, 0755); err != nil {
 			return err
 		}
-		outPath := filepath.Join(ruleSubDir, "rule.xcf")
+		outPath := filepath.Join(ruleSubDir, "rule.xcaf")
 
 		if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 			return err
 		}
 
-		// Write rule overrides: rule.<provider>.xcf
+		// Write rule overrides: rule.<provider>.xcaf
 		if config.Overrides != nil {
 			if providers := config.Overrides.RuleProviders(k); len(providers) > 0 {
 				for _, provider := range providers {
@@ -476,7 +476,7 @@ func writeRuleFiles(config *ast.XcaffoldConfig, xcfDir, version string, ruleFilt
 					overrideBody := strings.TrimSpace(overrideCfg.Body)
 					overrideCfg.Body = ""
 					overrideCfg.Name = ""
-					overridePath := filepath.Join(ruleSubDir, fmt.Sprintf("rule.%s.xcf", provider))
+					overridePath := filepath.Join(ruleSubDir, fmt.Sprintf("rule.%s.xcaf", provider))
 					if err := writeFrontmatterFile(overridePath, overrideCfg, overrideBody); err != nil {
 						return err
 					}
@@ -487,12 +487,12 @@ func writeRuleFiles(config *ast.XcaffoldConfig, xcfDir, version string, ruleFilt
 	return nil
 }
 
-// writeWorkflowFiles writes all workflows from config to xcf/workflows/ directory.
-func writeWorkflowFiles(config *ast.XcaffoldConfig, xcfDir, version string, workflowFilter map[string]bool) error {
+// writeWorkflowFiles writes all workflows from config to xcaf/workflows/ directory.
+func writeWorkflowFiles(config *ast.XcaffoldConfig, xcafDir, version string, workflowFilter map[string]bool) error {
 	if len(config.Workflows) == 0 {
 		return nil
 	}
-	dir := filepath.Join(xcfDir, "workflows")
+	dir := filepath.Join(xcafDir, "workflows")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -507,18 +507,18 @@ func writeWorkflowFiles(config *ast.XcaffoldConfig, xcfDir, version string, work
 		body := strings.TrimSpace(wf.Body)
 		doc := workflowDoc{Kind: "workflow", Version: version, WorkflowConfig: wf}
 
-		// Directory layout: xcf/workflows/<name>/workflow.xcf
+		// Directory layout: xcaf/workflows/<name>/workflow.xcaf
 		workflowSubDir := filepath.Join(dir, k)
 		if err := os.MkdirAll(workflowSubDir, 0755); err != nil {
 			return err
 		}
-		outPath := filepath.Join(workflowSubDir, "workflow.xcf")
+		outPath := filepath.Join(workflowSubDir, "workflow.xcaf")
 
 		if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 			return err
 		}
 
-		// Write workflow overrides: workflow.<provider>.xcf
+		// Write workflow overrides: workflow.<provider>.xcaf
 		if config.Overrides != nil {
 			if providers := config.Overrides.WorkflowProviders(k); len(providers) > 0 {
 				for _, provider := range providers {
@@ -526,7 +526,7 @@ func writeWorkflowFiles(config *ast.XcaffoldConfig, xcfDir, version string, work
 					overrideBody := strings.TrimSpace(overrideCfg.Body)
 					overrideCfg.Body = ""
 					overrideCfg.Name = ""
-					overridePath := filepath.Join(workflowSubDir, fmt.Sprintf("workflow.%s.xcf", provider))
+					overridePath := filepath.Join(workflowSubDir, fmt.Sprintf("workflow.%s.xcaf", provider))
 					if err := writeFrontmatterFile(overridePath, overrideCfg, overrideBody); err != nil {
 						return err
 					}
@@ -537,12 +537,12 @@ func writeWorkflowFiles(config *ast.XcaffoldConfig, xcfDir, version string, work
 	return nil
 }
 
-// writeMCPFiles writes all MCP servers from config to xcf/mcp/ directory.
-func writeMCPFiles(config *ast.XcaffoldConfig, xcfDir, version string, mcpFilter map[string]bool) error {
+// writeMCPFiles writes all MCP servers from config to xcaf/mcp/ directory.
+func writeMCPFiles(config *ast.XcaffoldConfig, xcafDir, version string, mcpFilter map[string]bool) error {
 	if len(config.MCP) == 0 {
 		return nil
 	}
-	dir := filepath.Join(xcfDir, "mcp")
+	dir := filepath.Join(xcafDir, "mcp")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -556,24 +556,24 @@ func writeMCPFiles(config *ast.XcaffoldConfig, xcfDir, version string, mcpFilter
 		}
 		doc := mcpDoc{Kind: "mcp", Version: version, MCPConfig: mcp}
 
-		// Directory layout: xcf/mcp/<name>/mcp.xcf
+		// Directory layout: xcaf/mcp/<name>/mcp.xcaf
 		mcpSubDir := filepath.Join(dir, k)
 		if err := os.MkdirAll(mcpSubDir, 0755); err != nil {
 			return err
 		}
-		outPath := filepath.Join(mcpSubDir, "mcp.xcf")
+		outPath := filepath.Join(mcpSubDir, "mcp.xcaf")
 
 		if err := writeYAMLFile(outPath, doc); err != nil {
 			return err
 		}
 
-		// Write MCP overrides: mcp.<provider>.xcf
+		// Write MCP overrides: mcp.<provider>.xcaf
 		if config.Overrides != nil {
 			if providers := config.Overrides.MCPProviders(k); len(providers) > 0 {
 				for _, provider := range providers {
 					overrideCfg, _ := config.Overrides.GetMCP(k, provider)
 					overrideCfg.Name = ""
-					overridePath := filepath.Join(mcpSubDir, fmt.Sprintf("mcp.%s.xcf", provider))
+					overridePath := filepath.Join(mcpSubDir, fmt.Sprintf("mcp.%s.xcaf", provider))
 					if err := writeYAMLFile(overridePath, overrideCfg); err != nil {
 						return err
 					}
@@ -584,12 +584,12 @@ func writeMCPFiles(config *ast.XcaffoldConfig, xcfDir, version string, mcpFilter
 	return nil
 }
 
-// writePolicyFiles writes all policies from config to xcf/policy/ directory.
-func writePolicyFiles(config *ast.XcaffoldConfig, xcfDir, version string) error {
+// writePolicyFiles writes all policies from config to xcaf/policy/ directory.
+func writePolicyFiles(config *ast.XcaffoldConfig, xcafDir, version string) error {
 	if len(config.Policies) == 0 {
 		return nil
 	}
-	dir := filepath.Join(xcfDir, "policy")
+	dir := filepath.Join(xcafDir, "policy")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -600,12 +600,12 @@ func writePolicyFiles(config *ast.XcaffoldConfig, xcfDir, version string) error 
 		}
 		doc := policyDoc{Kind: "policy", Version: version, PolicyConfig: policy}
 
-		// Directory layout: xcf/policy/<name>/policy.xcf
+		// Directory layout: xcaf/policy/<name>/policy.xcaf
 		policySubDir := filepath.Join(dir, k)
 		if err := os.MkdirAll(policySubDir, 0755); err != nil {
 			return err
 		}
-		outPath := filepath.Join(policySubDir, "policy.xcf")
+		outPath := filepath.Join(policySubDir, "policy.xcaf")
 
 		if err := writeYAMLFile(outPath, doc); err != nil {
 			return err
@@ -614,12 +614,12 @@ func writePolicyFiles(config *ast.XcaffoldConfig, xcfDir, version string) error 
 	return nil
 }
 
-// writeContextFiles writes all contexts from config to xcf/context/ directory.
-func writeContextFiles(config *ast.XcaffoldConfig, xcfDir, version string) error {
+// writeContextFiles writes all contexts from config to xcaf/context/ directory.
+func writeContextFiles(config *ast.XcaffoldConfig, xcafDir, version string) error {
 	if len(config.Contexts) == 0 {
 		return nil
 	}
-	dir := filepath.Join(xcfDir, "context")
+	dir := filepath.Join(xcafDir, "context")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -636,7 +636,7 @@ func writeContextFiles(config *ast.XcaffoldConfig, xcfDir, version string) error
 		if err := os.MkdirAll(ctxSubDir, 0755); err != nil {
 			return err
 		}
-		outPath := filepath.Join(ctxSubDir, "context.xcf")
+		outPath := filepath.Join(ctxSubDir, "context.xcaf")
 
 		if err := writeFrontmatterFile(outPath, doc, body); err != nil {
 			return err
@@ -645,12 +645,12 @@ func writeContextFiles(config *ast.XcaffoldConfig, xcfDir, version string) error
 	return nil
 }
 
-// writeHooksFiles writes all named hooks from config to xcf/hooks/ directory.
-func writeHooksFiles(config *ast.XcaffoldConfig, xcfDir, version string) error {
+// writeHooksFiles writes all named hooks from config to xcaf/hooks/ directory.
+func writeHooksFiles(config *ast.XcaffoldConfig, xcafDir, version string) error {
 	if len(config.Hooks) == 0 {
 		return nil
 	}
-	dir := filepath.Join(xcfDir, "hooks")
+	dir := filepath.Join(xcafDir, "hooks")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -667,23 +667,23 @@ func writeHooksFiles(config *ast.XcaffoldConfig, xcfDir, version string) error {
 			Targets: hook.Targets,
 		}
 
-		// Directory layout: xcf/hooks/<name>/hooks.xcf
+		// Directory layout: xcaf/hooks/<name>/hooks.xcaf
 		hookSubDir := filepath.Join(dir, k)
 		if err := os.MkdirAll(hookSubDir, 0755); err != nil {
 			return err
 		}
-		outPath := filepath.Join(hookSubDir, "hooks.xcf")
+		outPath := filepath.Join(hookSubDir, "hooks.xcaf")
 
 		if err := writeYAMLFile(outPath, doc); err != nil {
 			return err
 		}
 
-		// Write hooks overrides: hooks.<provider>.xcf
+		// Write hooks overrides: hooks.<provider>.xcaf
 		if config.Overrides != nil {
 			if providers := config.Overrides.HooksProviders(k); len(providers) > 0 {
 				for _, provider := range providers {
 					overrideCfg, _ := config.Overrides.GetHooks(k, provider)
-					overridePath := filepath.Join(hookSubDir, fmt.Sprintf("hooks.%s.xcf", provider))
+					overridePath := filepath.Join(hookSubDir, fmt.Sprintf("hooks.%s.xcaf", provider))
 					overrideDoc := hooksOverrideDoc{
 						Events:  overrideCfg.Events,
 						Targets: overrideCfg.Targets,
@@ -698,12 +698,12 @@ func writeHooksFiles(config *ast.XcaffoldConfig, xcfDir, version string) error {
 	return nil
 }
 
-// writeSettingsFiles writes all named settings from config to xcf/settings/ directory.
-func writeSettingsFiles(config *ast.XcaffoldConfig, xcfDir, version string) error {
+// writeSettingsFiles writes all named settings from config to xcaf/settings/ directory.
+func writeSettingsFiles(config *ast.XcaffoldConfig, xcafDir, version string) error {
 	if len(config.Settings) == 0 {
 		return nil
 	}
-	dir := filepath.Join(xcfDir, "settings")
+	dir := filepath.Join(xcafDir, "settings")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -719,24 +719,24 @@ func writeSettingsFiles(config *ast.XcaffoldConfig, xcfDir, version string) erro
 			SettingsConfig: settings,
 		}
 
-		// Directory layout: xcf/settings/<name>/settings.xcf
+		// Directory layout: xcaf/settings/<name>/settings.xcaf
 		settingsSubDir := filepath.Join(dir, k)
 		if err := os.MkdirAll(settingsSubDir, 0755); err != nil {
 			return err
 		}
-		outPath := filepath.Join(settingsSubDir, "settings.xcf")
+		outPath := filepath.Join(settingsSubDir, "settings.xcaf")
 
 		if err := writeYAMLFile(outPath, doc); err != nil {
 			return err
 		}
 
-		// Write settings overrides: settings.<provider>.xcf
+		// Write settings overrides: settings.<provider>.xcaf
 		if config.Overrides != nil {
 			if providers := config.Overrides.SettingsProviders(k); len(providers) > 0 {
 				for _, provider := range providers {
 					overrideCfg, _ := config.Overrides.GetSettings(k, provider)
 					overrideCfg.Name = ""
-					overridePath := filepath.Join(settingsSubDir, fmt.Sprintf("settings.%s.xcf", provider))
+					overridePath := filepath.Join(settingsSubDir, fmt.Sprintf("settings.%s.xcaf", provider))
 					overrideDoc := settingsOverrideDoc{
 						SettingsConfig: overrideCfg,
 					}
@@ -767,11 +767,11 @@ func writeProviderExtrasFiles(config *ast.XcaffoldConfig, rootDir string) error 
 		}
 		sort.Strings(keys)
 		var destRoot string
-		if provider == "xcf" {
+		if provider == "xcaf" {
 			// Canonical passthrough for hooks
-			destRoot = filepath.Join(rootDir, "xcf")
+			destRoot = filepath.Join(rootDir, "xcaf")
 		} else {
-			destRoot = filepath.Join(rootDir, "xcf", "provider", provider)
+			destRoot = filepath.Join(rootDir, "xcaf", "provider", provider)
 		}
 
 		for _, rel := range keys {

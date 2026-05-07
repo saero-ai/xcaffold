@@ -33,12 +33,12 @@ func captureValidateOutput(f func() error) (string, error) {
 
 func TestValidateCmd_ValidConfig(t *testing.T) {
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(`kind: project
 version: "1.0"
 name: "test"
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcaf"), []byte(`kind: global
 version: "1.0"
 agents:
   developer:
@@ -49,10 +49,10 @@ skills:
     description: "Deploy skill"
 `), 0600))
 
-	// Set the package-level xcfPath directly (PersistentPreRunE would normally do this)
-	oldPath := xcfPath
-	xcfPath = xcf
-	defer func() { xcfPath = oldPath }()
+	// Set the package-level xcafPath directly (PersistentPreRunE would normally do this)
+	oldPath := xcafPath
+	xcafPath = xcaf
+	defer func() { xcafPath = oldPath }()
 
 	err := runValidate(validateCmd, []string{})
 	assert.NoError(t, err)
@@ -61,7 +61,7 @@ skills:
 func TestValidateCmd_InvalidCrossRef(t *testing.T) {
 	// Cross-reference validation no longer fails — exits 0 with warnings
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "project.xcf")
+	xcaf := filepath.Join(dir, "project.xcaf")
 	content := `---
 kind: project
 version: "1.0"
@@ -74,13 +74,13 @@ agents:
     description: "Dev agent"
     skills: [nonexistent]
 `
-	require.NoError(t, os.WriteFile(xcf, []byte(content), 0600))
+	require.NoError(t, os.WriteFile(xcaf, []byte(content), 0600))
 
-	oldPath := xcfPath
-	xcfPath = xcf
-	defer func() { xcfPath = oldPath }()
+	oldPath := xcafPath
+	xcafPath = xcaf
+	defer func() { xcafPath = oldPath }()
 
-	// Multi-doc .xcf will still cause syntax error, not a cross-ref error
+	// Multi-doc .xcaf will still cause syntax error, not a cross-ref error
 	err := runValidate(validateCmd, []string{})
 	assert.Error(t, err) // But it's syntax error, not cross-ref
 }
@@ -89,14 +89,14 @@ func TestValidateCmd_InvalidCrossRef_ExitsZero(t *testing.T) {
 	// Cross-reference issues exit 0 (warnings only), not 1
 	dir := t.TempDir()
 
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(`kind: project
 version: "1.0"
 name: "test"
 `), 0600))
 
 	// Global config with agent referencing undefined skill
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcf"), []byte(`kind: global
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcaf"), []byte(`kind: global
 version: "1.0"
 agents:
   developer:
@@ -104,9 +104,9 @@ agents:
     skills: [nonexistent]
 `), 0600))
 
-	oldPath := xcfPath
-	xcfPath = xcf
-	defer func() { xcfPath = oldPath }()
+	oldPath := xcafPath
+	xcafPath = xcaf
+	defer func() { xcafPath = oldPath }()
 
 	err := runValidate(validateCmd, []string{})
 	assert.NoError(t, err, "cross-reference warnings should not fail validation")
@@ -190,12 +190,12 @@ func TestCheckBashWithoutHook_NoHook_Warns(t *testing.T) {
 
 func TestValidateCmd_StructuralChecks(t *testing.T) {
 	dir := t.TempDir()
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(`kind: project
 version: "1.0"
 name: "test"
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcaf"), []byte(`kind: global
 version: "1.0"
 agents:
   developer:
@@ -205,9 +205,9 @@ skills:
     description: "No agent references this skill"
 `), 0600))
 
-	oldPath := xcfPath
-	xcfPath = xcf
-	defer func() { xcfPath = oldPath }()
+	oldPath := xcafPath
+	xcafPath = xcaf
+	defer func() { xcafPath = oldPath }()
 
 	err := runValidate(validateCmd, []string{})
 	// Structural checks warn but don't fail
@@ -220,17 +220,17 @@ skills:
 func TestValidate_TargetFlag_EmitsFidelityErrors(t *testing.T) {
 	dir := t.TempDir()
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "field-test"
 `), 0600))
 
 	// description is required by claude. Omitting it produces a LevelError
 	// FIELD_REQUIRED_FOR_TARGET fidelity note which fails validation.
-	// Agents must be in xcf/agents/<id>/<file>.xcf (directory-per-resource layout).
-	devDir := filepath.Join(dir, "xcf", "agents", "dev")
+	// Agents must be in xcaf/agents/<id>/<file>.xcaf (directory-per-resource layout).
+	devDir := filepath.Join(dir, "xcaf", "agents", "dev")
 	require.NoError(t, os.MkdirAll(devDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(devDir, "agent.xcf"), []byte(`---
+	require.NoError(t, os.WriteFile(filepath.Join(devDir, "agent.xcaf"), []byte(`---
 kind: agent
 version: "1.0"
 name: dev
@@ -238,12 +238,12 @@ name: dev
 You are a developer.
 `), 0600))
 
-	oldPath := xcfPath
+	oldPath := xcafPath
 	oldTarget := targetFlag
-	xcfPath = filepath.Join(dir, "project.xcf")
+	xcafPath = filepath.Join(dir, "project.xcaf")
 	targetFlag = "claude"
 	defer func() {
-		xcfPath = oldPath
+		xcafPath = oldPath
 		targetFlag = oldTarget
 	}()
 
@@ -257,15 +257,15 @@ You are a developer.
 func TestValidate_NoTarget_NoFieldCheck(t *testing.T) {
 	dir := t.TempDir()
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "field-test"
 `), 0600))
 
 	// effort: low is unsupported by antigravity, but without --target no check runs.
-	devDir := filepath.Join(dir, "xcf", "agents", "dev")
+	devDir := filepath.Join(dir, "xcaf", "agents", "dev")
 	require.NoError(t, os.MkdirAll(devDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(devDir, "agent.xcf"), []byte(`---
+	require.NoError(t, os.WriteFile(filepath.Join(devDir, "agent.xcaf"), []byte(`---
 kind: agent
 version: "1.0"
 name: dev
@@ -275,12 +275,12 @@ effort: low
 You are a developer.
 `), 0600))
 
-	oldPath := xcfPath
+	oldPath := xcafPath
 	oldTarget := targetFlag
-	xcfPath = filepath.Join(dir, "project.xcf")
+	xcafPath = filepath.Join(dir, "project.xcaf")
 	targetFlag = ""
 	defer func() {
-		xcfPath = oldPath
+		xcafPath = oldPath
 		targetFlag = oldTarget
 	}()
 
@@ -290,10 +290,10 @@ You are a developer.
 
 func TestValidate_ManifestInXcaffoldDir_ParsesFullProjectRoot(t *testing.T) {
 	// Verify that validate.go correctly parses the full project root
-	// when project.xcf is at the root, including all xcf/ subdirectories.
+	// when project.xcaf is at the root, including all xcaf/ subdirectories.
 	dir := t.TempDir()
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 name: test
 version: "1.0"
 `), 0644))
@@ -301,9 +301,9 @@ version: "1.0"
 	// Agent at the project root with an unresolved cross-reference.
 	// skill "nonexistent" does NOT exist. ParseDirectory should scan the project root
 	// correctly and report the cross-reference as a warning.
-	agentsDir := filepath.Join(dir, "xcf", "agents", "bad-agent")
+	agentsDir := filepath.Join(dir, "xcaf", "agents", "bad-agent")
 	require.NoError(t, os.MkdirAll(agentsDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "agent.xcf"), []byte(`---
+	require.NoError(t, os.WriteFile(filepath.Join(agentsDir, "agent.xcaf"), []byte(`---
 kind: agent
 version: "1.0"
 name: bad-agent
@@ -313,9 +313,9 @@ skills: [nonexistent]
 Agent body text.
 `), 0644))
 
-	oldPath := xcfPath
-	xcfPath = filepath.Join(dir, "project.xcf")
-	t.Cleanup(func() { xcfPath = oldPath })
+	oldPath := xcafPath
+	xcafPath = filepath.Join(dir, "project.xcaf")
+	t.Cleanup(func() { xcafPath = oldPath })
 
 	err := runValidate(validateCmd, []string{})
 
@@ -329,17 +329,17 @@ Agent body text.
 func TestValidate_TargetFlag_HeaderIncludesTarget(t *testing.T) {
 	dir := t.TempDir()
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "myproject"
 `), 0600))
 
-	oldPath := xcfPath
+	oldPath := xcafPath
 	oldTarget := targetFlag
-	xcfPath = filepath.Join(dir, "project.xcf")
+	xcafPath = filepath.Join(dir, "project.xcaf")
 	targetFlag = "claude"
 	defer func() {
-		xcfPath = oldPath
+		xcafPath = oldPath
 		targetFlag = oldTarget
 	}()
 
@@ -364,17 +364,17 @@ name: "myproject"
 func TestValidate_NoTarget_HeaderExcludesProvider(t *testing.T) {
 	dir := t.TempDir()
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "myproject"
 `), 0600))
 
-	oldPath := xcfPath
+	oldPath := xcafPath
 	oldTarget := targetFlag
-	xcfPath = filepath.Join(dir, "project.xcf")
+	xcafPath = filepath.Join(dir, "project.xcaf")
 	targetFlag = ""
 	defer func() {
-		xcfPath = oldPath
+		xcafPath = oldPath
 		targetFlag = oldTarget
 	}()
 
@@ -393,17 +393,17 @@ name: "myproject"
 func TestValidate_TargetFlag_FooterIncludesFieldValidation(t *testing.T) {
 	dir := t.TempDir()
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "myproject"
 `), 0600))
 
-	oldPath := xcfPath
+	oldPath := xcafPath
 	oldTarget := targetFlag
-	xcfPath = filepath.Join(dir, "project.xcf")
+	xcafPath = filepath.Join(dir, "project.xcaf")
 	targetFlag = "claude"
 	defer func() {
-		xcfPath = oldPath
+		xcafPath = oldPath
 		targetFlag = oldTarget
 	}()
 
@@ -422,17 +422,17 @@ name: "myproject"
 func TestValidate_NoTarget_FooterExcludesFieldValidation(t *testing.T) {
 	dir := t.TempDir()
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "myproject"
 `), 0600))
 
-	oldPath := xcfPath
+	oldPath := xcafPath
 	oldTarget := targetFlag
-	xcfPath = filepath.Join(dir, "project.xcf")
+	xcafPath = filepath.Join(dir, "project.xcaf")
 	targetFlag = ""
 	defer func() {
-		xcfPath = oldPath
+		xcafPath = oldPath
 		targetFlag = oldTarget
 	}()
 
@@ -449,14 +449,14 @@ name: "myproject"
 func TestValidate_CrossRefWarnings_TieredOutput(t *testing.T) {
 	dir := t.TempDir()
 
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`kind: project
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(`kind: project
 version: "1.0"
 name: "test"
 `), 0600))
 
 	// Global config with agent referencing undefined skill
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcf"), []byte(`kind: global
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents.xcaf"), []byte(`kind: global
 version: "1.0"
 agents:
   developer:
@@ -464,9 +464,9 @@ agents:
     skills: [nonexistent-skill]
 `), 0600))
 
-	oldPath := xcfPath
-	xcfPath = xcf
-	defer func() { xcfPath = oldPath }()
+	oldPath := xcafPath
+	xcafPath = xcaf
+	defer func() { xcafPath = oldPath }()
 
 	out, err := captureValidateOutput(func() error {
 		return runValidate(validateCmd, []string{})

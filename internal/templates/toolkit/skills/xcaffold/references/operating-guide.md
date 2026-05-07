@@ -17,15 +17,15 @@ Generated layout:
 ```
 my-project/
   .xcaffold/
-    project.xcf              # kind: project (targets, resource refs)
-  xcf/
+    project.xcaf              # kind: project (targets, resource refs)
+  xcaf/
     agents/
       xaff/
-        agent.xcf            # base Xaff agent (universal)
-        agent.claude.xcf     # per-provider override
+        agent.xcaf            # base Xaff agent (universal)
+        agent.claude.xcaf     # per-provider override
     skills/
       xcaffold/
-        xcaffold.xcf         # THIS SKILL
+        xcaffold.xcaf         # THIS SKILL
         references/
           agent-reference.md        # agent field catalog
           skill-reference.md        # skill field catalog
@@ -35,20 +35,20 @@ my-project/
           hooks-reference.md        # hooks field catalog
           memory-reference.md       # memory field catalog
           cli-cheatsheet.md         # CLI command reference
-          authoring-guide.md        # xcf manifest authoring guide
+          authoring-guide.md        # xcaf manifest authoring guide
           operating-guide.md        # xcaffold CLI operating guide
     rules/
-      xcf-conventions/
-        xcf-conventions.xcf  # xcaffold authoring conventions
+      xcaf-conventions/
+        xcaf-conventions.xcaf  # xcaffold authoring conventions
     policies/
-      require-agent-description.xcf
-      require-agent-instructions.xcf
-    settings.xcf             # kind: settings (MCP, permissions)
+      require-agent-description.xcaf
+      require-agent-instructions.xcaf
+    settings.xcaf             # kind: settings (MCP, permissions)
 ```
 
 ## CLI reference
 
-See `xcf/skills/xcaffold/references/cli-cheatsheet.md` for the complete command and flag reference, including all flags for `init`, `apply`, `validate`, `status`, `import`, `graph`, `list`, `export`, and `test`.
+See `xcaf/skills/xcaffold/references/cli-cheatsheet.md` for the complete command and flag reference, including all flags for `init`, `apply`, `validate`, `status`, `import`, `graph`, `list`, `export`, and `test`.
 
 ## Checking compilation state
 
@@ -61,7 +61,7 @@ xcaffold status --target claude  # focus on one provider
 
 ```bash
 xcaffold import --plan       # preview what will be imported
-xcaffold import              # write to xcf/
+xcaffold import              # write to xcaf/
 xcaffold validate            # verify the imported config
 xcaffold apply --dry-run     # preview compiled output
 ```
@@ -70,7 +70,7 @@ xcaffold apply --dry-run     # preview compiled output
 
 ```bash
 xcaffold validate            # schema + policy validation (no file writes)
-xcaffold apply --target claude  # compile xcf/ to .claude/ output
+xcaffold apply --target claude  # compile xcaf/ to .claude/ output
 xcaffold apply --dry-run     # preview output without writing
 ```
 

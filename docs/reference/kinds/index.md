@@ -1,11 +1,11 @@
 ---
 title: "Resource Kinds"
-description: "All xcf resource kinds supported by the xcaffold compiler."
+description: "All xcaf resource kinds supported by the xcaffold compiler."
 ---
 
 # Resource Kinds
 
-xcaffold compiles `.xcf` manifest files into provider-native output directories. Each file declares exactly one resource using a `kind:` field that tells the compiler how to parse and render it.
+xcaffold compiles `.xcaf` manifest files into provider-native output directories. Each file declares exactly one resource using a `kind:` field that tells the compiler how to parse and render it.
 
 Kinds fall into two categories:
 
@@ -39,7 +39,7 @@ These kinds govern the compiler itself — they configure compilation targets, e
 
 ## Resource File Format (One Kind Per File)
 
-`xcaffold` enforces a **single-kind-per-file** layout. Each `.xcf` file declares exactly one `kind:` field. Resources under `xcf/` are discovered automatically, parsed recursively, and merged prior to compilation. Unknown fields will cause an immediate parse error.
+`xcaffold` enforces a **single-kind-per-file** layout. Each `.xcaf` file declares exactly one `kind:` field. Resources under `xcaf/` are discovered automatically, parsed recursively, and merged prior to compilation. Unknown fields will cause an immediate parse error.
 
 xcaffold leverages two distinct file formats depending on whether a structural resource requires a multi-line textual instruction block.
 

@@ -2,57 +2,57 @@
 
 ## Project structure
 
-All xcaffold manifests live under `xcf/`, organized by resource kind.
-Each resource kind has its own directory with a `.xcf` file.
+All xcaffold manifests live under `xcaf/`, organized by resource kind.
+Each resource kind has its own directory with a `.xcaf` file.
 
 ```
-xcf/
+xcaf/
   agents/
     reviewer/
-      agent.xcf            # kind: agent
+      agent.xcaf            # kind: agent
     xaff/
-      agent.xcf            # base agent
-      agent.claude.xcf     # per-provider override
+      agent.xcaf            # base agent
+      agent.claude.xcaf     # per-provider override
   skills/
     tdd/
-      skill.xcf            # kind: skill
+      skill.xcaf            # kind: skill
       references/
         guide.md           # supporting files (optional)
   rules/
     my-rule/
-      rule.xcf             # kind: rule
+      rule.xcaf             # kind: rule
   workflows/
     setup/
-      workflow.xcf         # kind: workflow
+      workflow.xcaf         # kind: workflow
   mcp/
     filesystem/
-      mcp.xcf              # kind: mcp
+      mcp.xcaf              # kind: mcp
   policies/
-    require-agent-description.xcf
+    require-agent-description.xcaf
   hooks/
     pre-tool-use/
-      hooks.xcf            # kind: hooks
-  settings.xcf             # kind: settings (singleton)
+      hooks.xcaf            # kind: hooks
+  settings.xcaf             # kind: settings (singleton)
 ```
 
 ## Adding a resource
 
 1. Identify the resource kind (agent, skill, rule, workflow, mcp, hooks, settings).
 
-2. Create a subdirectory under `xcf/<kind>/` with the resource name:
+2. Create a subdirectory under `xcaf/<kind>/` with the resource name:
 
 ```bash
-mkdir -p xcf/agents/reviewer
-mkdir -p xcf/skills/tdd
-mkdir -p xcf/rules/my-rule
-mkdir -p xcf/workflows/setup
-mkdir -p xcf/mcp/filesystem
+mkdir -p xcaf/agents/reviewer
+mkdir -p xcaf/skills/tdd
+mkdir -p xcaf/rules/my-rule
+mkdir -p xcaf/workflows/setup
+mkdir -p xcaf/mcp/filesystem
 ```
 
-3. Create the `.xcf` file with the resource name as the filename:
+3. Create the `.xcaf` file with the resource name as the filename:
 
 ```yaml
-# xcf/agents/reviewer/agent.xcf
+# xcaf/agents/reviewer/agent.xcaf
 ---
 kind: agent
 version: \"1.0\"
@@ -73,7 +73,7 @@ xcaffold apply --target claude
 
 ## Schema quick reference
 
-### kind: agent — `xcf/agents/<name>/agent.xcf`
+### kind: agent — `xcaf/agents/<name>/agent.xcaf`
 
 ```yaml
 kind: agent
@@ -90,7 +90,7 @@ memory: [project-context]
 Your agent instructions here. Minimum 10 characters.
 ```
 
-### kind: skill — `xcf/skills/<name>/skill.xcf`
+### kind: skill — `xcaf/skills/<name>/skill.xcaf`
 
 ```yaml
 kind: skill
@@ -103,7 +103,7 @@ references: [references/guide.md]
 Write a failing test first. Write minimal code to pass. Refactor.
 ```
 
-### kind: rule — `xcf/rules/<name>/rule.xcf`
+### kind: rule — `xcaf/rules/<name>/rule.xcaf`
 
 ```yaml
 kind: rule
@@ -115,7 +115,7 @@ activation: always
 Rule instructions injected into agent context when active.
 ```
 
-### kind: workflow — `xcf/workflows/<name>/workflow.xcf`
+### kind: workflow — `xcaf/workflows/<name>/workflow.xcaf`
 
 ```yaml
 kind: workflow
@@ -128,7 +128,7 @@ steps:
     description: \"Configure application.\"
 ```
 
-### kind: mcp — `xcf/mcp/<name>/mcp.xcf`
+### kind: mcp — `xcaf/mcp/<name>/mcp.xcaf`
 
 ```yaml
 kind: mcp
@@ -139,7 +139,7 @@ command: npx
 args: [\"-y\", \"@modelcontextprotocol/server-filesystem\", \".\"]
 ```
 
-### kind: hooks — `xcf/hooks/<name>/hooks.xcf`
+### kind: hooks — `xcaf/hooks/<name>/hooks.xcaf`
 
 ```yaml
 kind: hooks
@@ -152,7 +152,7 @@ events:
           command: \"validate.sh\"
 ```
 
-### kind: memory — `xcf/agents/<name>/memory/<id>.md`
+### kind: memory — `xcaf/agents/<name>/memory/<id>.md`
 
 ```yaml
 ---
@@ -163,7 +163,7 @@ name: project-context
 Memory content goes here.
 ```
 
-### kind: settings — `xcf/settings.xcf` (singleton, pure YAML)
+### kind: settings — `xcaf/settings.xcaf` (singleton, pure YAML)
 
 ```yaml
 kind: settings
@@ -185,7 +185,7 @@ permissions: {}
 | `hooks` | YES | dropped | dropped | dropped | dropped |
 | `memory` | YES | dropped | dropped | dropped | dropped |
 
-Fields marked 'dropped' remain in `xcf/` source. xcaffold removes them at compile time.
+Fields marked 'dropped' remain in `xcaf/` source. xcaffold removes them at compile time.
 
 ## Common validation errors
 
@@ -193,5 +193,5 @@ Fields marked 'dropped' remain in `xcf/` source. xcaffold removes them at compil
 |---|---|---|
 | `require-agent-instructions` | `instructions:` < 10 chars | Add meaningful instructions |
 | `require-agent-description` | `description:` missing | Add a description field |
-| `duplicate agent ID` | Same `name:` in two `.xcf` files | Rename one |
+| `duplicate agent ID` | Same `name:` in two `.xcaf` files | Rename one |
 | `path traversal` | Relative path with `..` | Use path relative to project root |

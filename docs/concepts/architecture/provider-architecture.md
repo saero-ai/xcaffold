@@ -240,9 +240,9 @@ Skills support four canonical subdirectories (`references/`, `scripts/`, `assets
 
 **Flat alongside SKILL.md (Claude Code examples).** Claude Code's `examples/` files are placed directly in the skill directory next to `SKILL.md`, not in a subdirectory. This matches Claude Code's native convention for example content.
 
-#### Provider Passthrough (`xcf/provider/`)
+#### Provider Passthrough (`xcaf/provider/`)
 
-When a provider-native feature has no canonical equivalent — a file type or directory structure specific to one provider that xcaffold's canonical schema does not model — users can place files in `xcf/provider/<provider-name>/`. These files are copied verbatim into the provider's output directory during compilation, bypassing the canonical translation layer entirely.
+When a provider-native feature has no canonical equivalent — a file type or directory structure specific to one provider that xcaffold's canonical schema does not model — users can place files in `xcaf/provider/<provider-name>/`. These files are copied verbatim into the provider's output directory during compilation, bypassing the canonical translation layer entirely.
 
 This is the file-level equivalent of `target-options:` (which provides field-level passthrough). Both mechanisms share the same principle: xcaffold cannot anticipate every present and future provider feature, so it provides an explicit escape hatch for provider-native content that falls outside the canonical schema.
 

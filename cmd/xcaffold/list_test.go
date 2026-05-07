@@ -225,8 +225,8 @@ func TestList_AddedSections_Contexts_Hooks_Settings(t *testing.T) {
 func TestList_VerboseMemory_ShowsEntries(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create xcf/agents/agent1/memory/file1.md
-	memDir := filepath.Join(dir, "xcf", "agents", "agent1", "memory")
+	// Create xcaf/agents/agent1/memory/file1.md
+	memDir := filepath.Join(dir, "xcaf", "agents", "agent1", "memory")
 	os.MkdirAll(memDir, 0755)
 	os.WriteFile(filepath.Join(memDir, "file1.md"), []byte("..."), 0644)
 

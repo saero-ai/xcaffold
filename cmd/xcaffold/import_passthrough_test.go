@@ -26,16 +26,16 @@ func TestImport_HookScriptPassthrough(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude", "custom"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude", "custom", "test.json"), []byte("{}"), 0o644))
 
-	err = importScope(".claude", "project.xcf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude")
 	require.NoError(t, err)
 
-	hookOutput := filepath.Join(dir, "xcf", "hooks", "pre-commit.sh")
+	hookOutput := filepath.Join(dir, "xcaf", "hooks", "pre-commit.sh")
 	require.FileExists(t, hookOutput)
 	info, err := os.Stat(hookOutput)
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0755), info.Mode()&os.ModePerm, "hook script must be executable")
 
-	extraOutput := filepath.Join(dir, "xcf", "provider", "claude", "custom", "test.json")
+	extraOutput := filepath.Join(dir, "xcaf", "provider", "claude", "custom", "test.json")
 	require.FileExists(t, extraOutput)
 	extraInfo, err := os.Stat(extraOutput)
 	require.NoError(t, err)

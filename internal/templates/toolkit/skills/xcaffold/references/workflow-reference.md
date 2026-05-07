@@ -2,7 +2,7 @@
 # Workflow Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
-# Copy fields from here into your xcf/workflows/<name>/<name>.xcf
+# Copy fields from here into your xcaf/workflows/<name>/<name>.xcaf
 # Provider support: YES = compiled, dropped = silently removed
 # ============================================================
 

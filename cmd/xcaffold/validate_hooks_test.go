@@ -12,7 +12,7 @@ import (
 
 func TestValidateHooksDirectory_MissingScript_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	hooksDir := filepath.Join(dir, "xcf", "hooks", "enforce")
+	hooksDir := filepath.Join(dir, "xcaf", "hooks", "enforce")
 	os.MkdirAll(hooksDir, 0755)
 
 	cfg := &ast.XcaffoldConfig{
@@ -26,7 +26,7 @@ func TestValidateHooksDirectory_MissingScript_ReturnsError(t *testing.T) {
 							Hooks: []ast.HookHandler{
 								{
 									Type:    "command",
-									Command: "bash xcf/hooks/enforce/scripts/enforce-standards.sh",
+									Command: "bash xcaf/hooks/enforce/scripts/enforce-standards.sh",
 								},
 							},
 						},
@@ -43,7 +43,7 @@ func TestValidateHooksDirectory_MissingScript_ReturnsError(t *testing.T) {
 
 func TestValidateHooksDirectory_MissingArtifactDir_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	hooksDir := filepath.Join(dir, "xcf", "hooks", "enforce")
+	hooksDir := filepath.Join(dir, "xcaf", "hooks", "enforce")
 	os.MkdirAll(hooksDir, 0755)
 
 	cfg := &ast.XcaffoldConfig{
@@ -62,7 +62,7 @@ func TestValidateHooksDirectory_MissingArtifactDir_ReturnsError(t *testing.T) {
 
 func TestValidateHooksDirectory_ValidHookDir_NoErrors(t *testing.T) {
 	dir := t.TempDir()
-	hooksDir := filepath.Join(dir, "xcf", "hooks", "enforce")
+	hooksDir := filepath.Join(dir, "xcaf", "hooks", "enforce")
 	scriptsDir := filepath.Join(hooksDir, "scripts")
 	os.MkdirAll(scriptsDir, 0755)
 	os.WriteFile(filepath.Join(scriptsDir, "enforce-standards.sh"), []byte("#!/bin/bash\nexit 0\n"), 0755)
@@ -79,7 +79,7 @@ func TestValidateHooksDirectory_ValidHookDir_NoErrors(t *testing.T) {
 							Hooks: []ast.HookHandler{
 								{
 									Type:    "command",
-									Command: "bash xcf/hooks/enforce/scripts/enforce-standards.sh",
+									Command: "bash xcaf/hooks/enforce/scripts/enforce-standards.sh",
 								},
 							},
 						},

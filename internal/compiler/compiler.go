@@ -157,14 +157,14 @@ func OutputDir(target string) string {
 	return r.OutputDir()
 }
 
-// DiscoverAgentMemory walks xcf/agents/<id>/memory/ directories to discover
+// DiscoverAgentMemory walks xcaf/agents/<id>/memory/ directories to discover
 // memory entries from .md files. Returns a mapping of "agentID/memName" -> MemoryConfig.
 // MEMORY.md index files and non-.md files are skipped. Optional YAML frontmatter
 // (name, description) is parsed; missing fields fall back to the filename and
 // first line of content respectively.
 func DiscoverAgentMemory(baseDir string, vars map[string]interface{}, envs map[string]string) map[string]ast.MemoryConfig {
 	result := make(map[string]ast.MemoryConfig)
-	agentsDir := filepath.Join(baseDir, "xcf", "agents")
+	agentsDir := filepath.Join(baseDir, "xcaf", "agents")
 
 	agentEntries, err := os.ReadDir(agentsDir)
 	if err != nil {

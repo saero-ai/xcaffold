@@ -16,7 +16,7 @@ import (
 // agent has no local agent definition. The importer issues a warning for
 // such entries but explicitly keeps them (they may belong to a global agent
 // defined in ~/.claude/agents/). Memory that was never imported (i.e. written
-// directly to xcf/ by a prior run but absent from the current import) is the
+// directly to xcaf/ by a prior run but absent from the current import) is the
 // only category that pruneOrphanMemory removes.
 func TestImportScope_PrunesOrphanMemory(t *testing.T) {
 	orig, err := os.Getwd()
@@ -40,19 +40,19 @@ func TestImportScope_PrunesOrphanMemory(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude", "agent-memory", "sub"), 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude", "agent-memory", "sub", "task.md"), []byte("task mem"), 0o644))
 
-	err = importScope(".claude", "project.xcf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude")
 	require.NoError(t, err)
 
 	// Memory for the declared agent must be present.
-	devMd := filepath.Join(dir, "xcf", "agents", "dev", "memory", "dev.md")
+	devMd := filepath.Join(dir, "xcaf", "agents", "dev", "memory", "dev.md")
 	require.FileExists(t, devMd)
 
 	// Memory imported for agents without a local definition is preserved because
 	// the importer added them to config.Memory (they may be global agents).
-	globalMd := filepath.Join(dir, "xcf", "agents", "global", "memory", "global.md")
+	globalMd := filepath.Join(dir, "xcaf", "agents", "global", "memory", "global.md")
 	assert.FileExists(t, globalMd, "imported memory for agent without local definition should be preserved")
 
-	subMd := filepath.Join(dir, "xcf", "agents", "sub", "memory", "task.md")
+	subMd := filepath.Join(dir, "xcaf", "agents", "sub", "memory", "task.md")
 	assert.FileExists(t, subMd, "imported nested memory for agent without local definition should be preserved")
 }
 
@@ -65,7 +65,7 @@ func TestPruneOrphanMemory_PreservesImportedMemory(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create memory file for a global agent "ceo" that has no agent definition.
-	memDir := filepath.Join(dir, "xcf", "agents", "ceo", "memory")
+	memDir := filepath.Join(dir, "xcaf", "agents", "ceo", "memory")
 	require.NoError(t, os.MkdirAll(memDir, 0755))
 	memFile := filepath.Join(memDir, "context.md")
 	require.NoError(t, os.WriteFile(memFile, []byte("ceo context"), 0o644))
@@ -90,7 +90,7 @@ func TestPruneOrphanMemory_PrunesNonImportedMemory(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create memory file for "ghost" agent — not in config at all.
-	memDir := filepath.Join(dir, "xcf", "agents", "ghost", "memory")
+	memDir := filepath.Join(dir, "xcaf", "agents", "ghost", "memory")
 	require.NoError(t, os.MkdirAll(memDir, 0755))
 	memFile := filepath.Join(memDir, "context.md")
 	require.NoError(t, os.WriteFile(memFile, []byte("ghost context"), 0o644))
@@ -107,13 +107,13 @@ func TestPruneOrphanMemory_PrunesNonImportedMemory(t *testing.T) {
 }
 
 // TestPruneOrphanMemory_CleansEmptyDirs verifies that after pruning, any
-// xcf/agents/<id>/ directory that is now empty (no .xcf file and no memory/)
+// xcaf/agents/<id>/ directory that is now empty (no .xcaf file and no memory/)
 // is removed.
 func TestPruneOrphanMemory_CleansEmptyDirs(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create an empty orphan agent directory with no .xcf file and no memory/.
-	orphanDir := filepath.Join(dir, "xcf", "agents", "orphan")
+	// Create an empty orphan agent directory with no .xcaf file and no memory/.
+	orphanDir := filepath.Join(dir, "xcaf", "agents", "orphan")
 	require.NoError(t, os.MkdirAll(orphanDir, 0755))
 
 	config := &ast.XcaffoldConfig{}

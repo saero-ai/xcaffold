@@ -7,7 +7,7 @@ description: "Available target AI runtimes and their compilation scopes"
 
 `xcaffold` compiles agent architectures into whichever native format a target AI platform expects. This decouples your instructions from any single vendor's proprietary schema.
 
-Below is the definitive capability matrix for the AI runtimes currently supported natively by the `xcaffold apply` and `xcaffold translate` pipelines. A single `.xcf` file can emit deterministic configurations for any combination of these platforms simultaneously.
+Below is the definitive capability matrix for the AI runtimes currently supported natively by the `xcaffold apply` and `xcaffold translate` pipelines. A single `.xcaf` file can emit deterministic configurations for any combination of these platforms simultaneously.
 
 ## Capability Matrix
 
@@ -40,7 +40,7 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 ## Provider Import Support
 
-`xcaffold import` reads an existing provider directory and synthesises a `project.xcf` from the artifacts found on disk. Each provider importer handles the kinds it natively understands; unknown files are captured as `provider-extras` and emitted as fidelity notes during `xcaffold apply`.
+`xcaffold import` reads an existing provider directory and synthesises a `project.xcaf` from the artifacts found on disk. Each provider importer handles the kinds it natively understands; unknown files are captured as `provider-extras` and emitted as fidelity notes during `xcaffold apply`.
 
 ### Kind Matrix
 

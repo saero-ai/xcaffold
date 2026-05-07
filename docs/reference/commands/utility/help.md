@@ -7,23 +7,23 @@ description: "Display general help or schema documentation for xcaffold resource
 
 Display general CLI help or schema documentation for xcaffold resource kinds.
 
-The `help` command provides general usage information for the CLI, lists available commands, and can dynamically generate and display `.xcf` schema reference material and file templates.
+The `help` command provides general usage information for the CLI, lists available commands, and can dynamically generate and display `.xcaf` schema reference material and file templates.
 
 **Usage:**
 
 ```
 xcaffold help [command]
-xcaffold help --xcf <kind> [--out [path]]
-xcaffold --xcf <kind> [--out [path]]
+xcaffold help --xcaf <kind> [--out [path]]
+xcaffold --xcaf <kind> [--out [path]]
 ```
 
 ## Flags
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--xcf <kind>` | — | `string` | `""` | Display schema for a resource kind (e.g., `agent`, `skill`, `rule`). |
-| `--out [path]` | — | `string` | `"."` | Generate a template `.xcf` file for the requested kind. Use with `--xcf`. |
-| `--config <path>` | — | `string` | `""` | Path to project.xcf (inherited from root). |
+| `--xcaf <kind>` | — | `string` | `""` | Display schema for a resource kind (e.g., `agent`, `skill`, `rule`). |
+| `--out [path]` | — | `string` | `"."` | Generate a template `.xcaf` file for the requested kind. Use with `--xcaf`. |
+| `--config <path>` | — | `string` | `""` | Path to project.xcaf (inherited from root). |
 | `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (inherited from root). |
 | `--no-color` | — | `bool` | `false` | Disable color output (inherited from root). |
 
@@ -35,14 +35,14 @@ Running `xcaffold help` (or `xcaffold -h`) without flags prints the root help me
 
 Running `xcaffold help <command>` (or `xcaffold <command> --help`) prints detailed help for that specific subcommand, including its description, usage pattern, and unique flags.
 
-### Schema Documentation (`--xcf`)
+### Schema Documentation (`--xcaf`)
 
-When the `--xcf <kind>` flag is provided, the CLI displays the field-level schema for the specified resource kind. This data is pulled directly from the internal Go AST and includes:
+When the `--xcaf <kind>` flag is provided, the CLI displays the field-level schema for the specified resource kind. This data is pulled directly from the internal Go AST and includes:
 
 - **Identity**: Kind name, schema version, and file format (`frontmatter+body` or `pure-yaml`).
 - **Field Groups**: Fields organized into logical categories (e.g., `Identity`, `Model & Execution`).
 - **Field Attributes**:
-    - **YAML Key**: The kebab-case key used in the `.xcf` file.
+    - **YAML Key**: The kebab-case key used in the `.xcaf` file.
     - **Type**: The Xcaffold type (e.g., `string`, `integer`, `[]string`).
     - **Requirement**: Whether the field is `required` or `optional`.
     - **Description**: Human-readable explanation of the field's purpose.
@@ -55,17 +55,17 @@ When the `--xcf <kind>` flag is provided, the CLI displays the field-level schem
 
 ### Template Generation (`--out`)
 
-The `--out` flag (used in conjunction with `--xcf`) generates a skeleton `.xcf` file populated with all valid fields for that kind.
+The `--out` flag (used in conjunction with `--xcaf`) generates a skeleton `.xcaf` file populated with all valid fields for that kind.
 
 - **Destination**:
-    - If no path is provided (just `--out`), it writes `<kind>.xcf` to the current directory.
-    - If a path to a directory is provided, it writes `<kind>.xcf` inside that directory.
-    - If a path ending in `.xcf` is provided, it writes to that exact file.
+    - If no path is provided (just `--out`), it writes `<kind>.xcaf` to the current directory.
+    - If a path to a directory is provided, it writes `<kind>.xcaf` inside that directory.
+    - If a path ending in `.xcaf` is provided, it writes to that exact file.
 - **Format**:
     - Includes frontmatter delimiters (`---`) for relevant kinds.
     - Fields are grouped with decorative headers (e.g., `# ── Identity ────────`).
     - Every field includes a comment describing its type and requirement.
-    - Includes `# +xcf:` markers for AI-assisted authoring (containing constraints like patterns and enums).
+    - Includes `# +xcaf:` markers for AI-assisted authoring (containing constraints like patterns and enums).
     - Uses sensible placeholders (e.g., `""`, `[]`, `false`).
 
 ## Examples
@@ -82,16 +82,16 @@ xcaffold . deterministic agent configuration compiler
   Usage:  xcaffold [command]
 
   Commands:
-    apply       Compile .xcf resources into provider-native agent files
+    apply       Compile .xcaf resources into provider-native agent files
     graph       Visualize the resource dependency graph
-    import      Import existing provider config into project.xcf
-    init        Bootstrap a new project.xcf configuration
+    import      Import existing provider config into project.xcaf
+    init        Bootstrap a new project.xcaf configuration
     list        List discovered resources and blueprints
     status      Show compilation state and check for drift across all providers
-    validate    Check .xcf syntax, cross-references, and structural invariants
+    validate    Check .xcaf syntax, cross-references, and structural invariants
 
   Flags:
-    --config <path>   Path to project.xcf (default: ./project.xcf)
+    --config <path>   Path to project.xcaf (default: ./project.xcaf)
     --no-color        Disable color output
     -h, --help        Show this help
     -v, --version     Show version
@@ -106,7 +106,7 @@ xcaffold help apply
 
 Output:
 ```
-Deterministically compiles .xcf resources into provider-native agent files.
+Deterministically compiles .xcaf resources into provider-native agent files.
 
   - Strict one-way generation (YAML -> provider-native markdown/JSON)
   - Generates a SHA-256 state manifest for drift detection (.xcaffold/)
@@ -132,15 +132,15 @@ Flags:
       --target string      compilation target platform (claude, cursor, antigravity, copilot, gemini; default: claude) (default "claude")
 
 Global Flags:
-      --config string      Path to project.xcf (default: ./project.xcf). Use for monorepo sub-directories.
+      --config string      Path to project.xcaf (default: ./project.xcaf). Use for monorepo sub-directories.
       --no-color           disable color output
-      --out string[="."]   Generate template .xcf file (use with --xcf)
-      --xcf string         Display schema for a resource kind
+      --out string[="."]   Generate template .xcaf file (use with --xcaf)
+      --xcaf string         Display schema for a resource kind
 ```
 
 **Display schema for the 'agent' kind:**
 ```bash
-xcaffold help --xcf agent
+xcaffold help --xcaf agent
 ```
 
 Output:
@@ -207,21 +207,21 @@ kind: agent . version 1.0 . format: frontmatter+body
   Multi-Target
     targets                   map             optional  Per-provider override configuration keyed by provider name.
 
--> Run 'xcaffold help --xcf agent --out' to generate a template.
+-> Run 'xcaffold help --xcaf agent --out' to generate a template.
 ```
 
 **Generate a 'skill' template in the current directory:**
 ```bash
-xcaffold help --xcf skill --out
+xcaffold help --xcaf skill --out
 ```
 
 **Generate an 'agent' template at a specific path:**
 ```bash
-xcaffold help --xcf agent --out ./xcf/agents/my-agent.xcf
+xcaffold help --xcaf agent --out ./xcaf/agents/my-agent.xcaf
 ```
 
 ## Notes
 
-- Kinds are validated against the internal taxonomy. Use `xcaffold help --xcf` with an invalid kind to see the list of available kinds.
+- Kinds are validated against the internal taxonomy. Use `xcaffold help --xcaf` with an invalid kind to see the list of available kinds.
 - Generated templates are syntactically valid and pass `xcaffold validate` immediately.
 - Global flags like `--no-color` are honored when displaying schema documentation.

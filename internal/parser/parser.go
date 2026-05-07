@@ -85,7 +85,7 @@ func resolveParseDirOptions(opts []ParseDirOption) parseDirConfig {
 	return cfg
 }
 
-// reservedDirToKind maps xcf directory names to their corresponding resource kind.
+// reservedDirToKind maps xcaf directory names to their corresponding resource kind.
 // Used for filesystem-as-schema inference when kind: is omitted from YAML.
 var reservedDirToKind = map[string]string{
 	"agents":     "agent",
@@ -103,29 +103,29 @@ var reservedDirToKind = map[string]string{
 }
 
 // inferKindAndName extracts kind and name from a file path when not explicit in YAML.
-// Pattern: xcf/<resource-kind>/<resource-id>/... returns (kind, name).
+// Pattern: xcaf/<resource-kind>/<resource-id>/... returns (kind, name).
 // Returns ("", "") if the path does not match the pattern.
 func inferKindAndName(filePath string) (kind, name string) {
 	parts := strings.Split(filepath.ToSlash(filePath), "/")
-	xcfIdx := -1
+	xcafIdx := -1
 	for i, p := range parts {
-		if p == "xcf" {
-			xcfIdx = i
+		if p == "xcaf" {
+			xcafIdx = i
 			break
 		}
 	}
-	if xcfIdx < 0 || xcfIdx+2 >= len(parts) {
+	if xcafIdx < 0 || xcafIdx+2 >= len(parts) {
 		return "", ""
 	}
-	kindDir := parts[xcfIdx+1]
+	kindDir := parts[xcafIdx+1]
 	kind, ok := reservedDirToKind[kindDir]
 	if !ok {
 		return "", ""
 	}
 
-	// Check if filename is a canonical kind filename (<kind>.xcf or <kind>.<provider>.xcf)
+	// Check if filename is a canonical kind filename (<kind>.xcaf or <kind>.<provider>.xcaf)
 	filename := parts[len(parts)-1]
-	baseFilename := strings.TrimSuffix(filename, ".xcf")
+	baseFilename := strings.TrimSuffix(filename, ".xcaf")
 	// Strip provider suffix: "rule.claude" → "rule"
 	if dotIdx := strings.LastIndex(baseFilename, "."); dotIdx >= 0 {
 		baseFilename = baseFilename[:dotIdx]
@@ -133,7 +133,7 @@ func inferKindAndName(filePath string) (kind, name string) {
 
 	if baseFilename == kind {
 		// Canonical convention: name from segments between kind-dir and filename
-		nameSegments := parts[xcfIdx+2 : len(parts)-1]
+		nameSegments := parts[xcafIdx+2 : len(parts)-1]
 		if len(nameSegments) == 0 {
 			return "", ""
 		}
@@ -141,13 +141,13 @@ func inferKindAndName(filePath string) (kind, name string) {
 		return kind, name
 	}
 
-	// Legacy: name is parts[xcfIdx+2] with .xcf stripped
-	name = parts[xcfIdx+2]
-	name = strings.TrimSuffix(name, ".xcf")
+	// Legacy: name is parts[xcafIdx+2] with .xcaf stripped
+	name = parts[xcafIdx+2]
+	name = strings.TrimSuffix(name, ".xcaf")
 	return kind, name
 }
 
-// Parse reads a .xcf YAML configuration from the given reader and returns a
+// Parse reads a .xcaf YAML configuration from the given reader and returns a
 // validated XcaffoldConfig. It treats the configuration as a complete, standalone file.
 func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
 	config, err := parsePartial(r)
@@ -155,12 +155,12 @@ func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
 		return nil, err
 	}
 	if err := validateMerged(config); err != nil {
-		return nil, fmt.Errorf("invalid .xcf configuration: %w", err)
+		return nil, fmt.Errorf("invalid .xcaf configuration: %w", err)
 	}
 	return config, nil
 }
 
-// legacyKeyAliases maps pre-migration camelCase/snake_case xcf YAML keys to their
+// legacyKeyAliases maps pre-migration camelCase/snake_case xcaf YAML keys to their
 // canonical kebab-case equivalents. This rewrite is applied per-document (after
 // splitting on "---") to provide a deprecation-period grace window.
 //
@@ -180,8 +180,8 @@ var legacyKeyAliases = map[string]string{
 	// NOTE: "mcpServers:" aliasing for non-settings documents is handled below in
 	// the SettingsConfig block. The "kind: settings" document exemption in
 	// isSettingsDocument protects standalone settings files (provider wire-format
-	// pass-throughs). The alias only fires for non-settings xcf documents (e.g.
-	// kind: global, kind: project) where the settings: sub-block uses the xcf
+	// pass-throughs). The alias only fires for non-settings xcaf documents (e.g.
+	// kind: global, kind: project) where the settings: sub-block uses the xcaf
 	// schema key "mcp-servers:" going forward.
 	// HookHandler — camelCase Claude-settings mirror (pre-migration convention)
 	"statusMessage:":  "status-message:",
@@ -259,7 +259,7 @@ var legacyKeyAliases = map[string]string{
 	"availableModels:":                   "available-models:",
 }
 
-// rewriteLegacyKeys rewrites pre-migration xcf YAML keys to kebab-case equivalents
+// rewriteLegacyKeys rewrites pre-migration xcaf YAML keys to kebab-case equivalents
 // on a per-document basis. The "kind: settings" document type is exempt — settings
 // fields are provider-native pass-throughs that must not be mangled.
 //
@@ -347,7 +347,7 @@ func isSettingsDocument(doc []byte) bool {
 // with a legacy key — preserving the original leading whitespace and any
 // YAML list-item marker ("- "). Comment lines (trimmed prefix "#") are skipped.
 //
-// This handles all field positions in the .xcf YAML structure: top-level fields
+// This handles all field positions in the .xcaf YAML structure: top-level fields
 // (e.g. "backup-dir:"), nested fields (e.g. "  instructions-file:", "  max-turns:"),
 // and list-item fields (e.g. "  - content-contains:") which are common in
 // policy deny/require blocks.
@@ -389,7 +389,7 @@ func rewriteDocumentKeys(doc []byte) []byte {
 	return bytes.Join(lines, []byte("\n"))
 }
 
-// detectRejectedSnakeCaseKeys scans raw .xcf YAML bytes (before legacy-key
+// detectRejectedSnakeCaseKeys scans raw .xcaf YAML bytes (before legacy-key
 // rewriting) for snake_case keys that are rejected with a targeted diagnostic
 // rather than silently aliased to their kebab-case equivalents.
 //
@@ -465,7 +465,7 @@ func isRuleDocument(doc []byte) bool {
 	return false
 }
 
-// extractFrontmatterAndBody splits .xcf file bytes on the frontmatter `---`
+// extractFrontmatterAndBody splits .xcaf file bytes on the frontmatter `---`
 // delimiter. The format is:
 //
 //	---
@@ -480,7 +480,7 @@ func isRuleDocument(doc []byte) bool {
 //   - If data starts with "---\n" and the region following the closing "---\n"
 //     starts with another YAML kind document (begins with "kind:"), the file is
 //     treated as a multi-document YAML stream (no frontmatter split). This
-//     preserves full backward compatibility with multi-kind .xcf files.
+//     preserves full backward compatibility with multi-kind .xcaf files.
 //   - If data starts with "---\n" with no closing "---\n", an error is
 //     returned.
 //   - body is the raw bytes after the closing "---\n". Callers must TrimSpace
@@ -507,7 +507,7 @@ func extractFrontmatterAndBody(data []byte) (frontmatter []byte, body []byte, er
 					firstLine = firstLine[:57] + "..."
 				}
 				return nil, nil, fmt.Errorf(
-					"content before the opening '---' delimiter is not allowed in .xcf files (found: %q). "+
+					"content before the opening '---' delimiter is not allowed in .xcaf files (found: %q). "+
 						"Remove any text or comments before the first '---' line",
 					firstLine)
 			}
@@ -526,7 +526,7 @@ func extractFrontmatterAndBody(data []byte) (frontmatter []byte, body []byte, er
 			return data, nil, nil
 		}
 		return nil, nil, fmt.Errorf(
-			".xcf file opens with '---' but has no closing '---' delimiter: " +
+			".xcaf file opens with '---' but has no closing '---' delimiter: " +
 				"every frontmatter block must be closed with a line containing only '---'",
 		)
 	}
@@ -544,7 +544,7 @@ func extractFrontmatterAndBody(data []byte) (frontmatter []byte, body []byte, er
 
 // looksLikeYAMLDocument returns true when data begins with a line of the form
 // "kind: <value>" at the top level (no leading whitespace), indicating the
-// content is a .xcf resource document rather than free-form markdown.
+// content is a .xcaf resource document rather than free-form markdown.
 func looksLikeYAMLDocument(data []byte) bool {
 	trimmed := bytes.TrimLeft(data, " \t\r\n")
 	return bytes.HasPrefix(trimmed, []byte("kind:"))
@@ -554,7 +554,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 	resolved := resolveParseOptions(opts)
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read .xcf input: %w", err)
+		return nil, fmt.Errorf("failed to read .xcaf input: %w", err)
 	}
 
 	if len(resolved.Vars) > 0 || len(resolved.Envs) > 0 {
@@ -597,7 +597,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			if err == io.EOF {
 				break
 			}
-			return nil, fmt.Errorf("failed to parse .xcf YAML document %d: %w", docIndex, err)
+			return nil, fmt.Errorf("failed to parse .xcaf YAML document %d: %w", docIndex, err)
 		}
 
 		// yaml.Decoder wraps each document in a DocumentNode; unwrap it.
@@ -630,7 +630,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 		switch kind {
 		case "":
 			return nil, fmt.Errorf(
-				"kind field is required: every .xcf document must declare a kind " +
+				"kind field is required: every .xcaf document must declare a kind " +
 					"(e.g., kind: project, kind: agent, kind: global). " +
 					"See https://xcaffold.com/docs/reference/schema",
 			)
@@ -669,13 +669,13 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			return nil, fmt.Errorf("unknown resource kind %q in document %d", kind, docIndex)
 		}
 
-		// Reject multi-document .xcf files. Each file must contain exactly one
-		// resource document. Split multi-resource files into separate .xcf files.
+		// Reject multi-document .xcaf files. Each file must contain exactly one
+		// resource document. Split multi-resource files into separate .xcaf files.
 		if docIndex > 0 {
 			return nil, fmt.Errorf(
-				"multi-document .xcf files are no longer supported; "+
-					"each .xcf file must contain exactly one resource (found document %d, kind: %s); "+
-					"split into separate files under xcf/",
+				"multi-document .xcaf files are no longer supported; "+
+					"each .xcaf file must contain exactly one resource (found document %d, kind: %s); "+
+					"split into separate files under xcaf/",
 				docIndex+1, kind)
 		}
 
@@ -683,7 +683,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 	}
 
 	if docIndex == 0 {
-		return nil, fmt.Errorf("failed to parse .xcf YAML: EOF")
+		return nil, fmt.Errorf("failed to parse .xcaf YAML: EOF")
 	}
 
 	// Assign markdown body to the parsed resource's Body or Content field.
@@ -733,7 +733,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 
 	o := resolveParseOptions(opts)
 	if err := validatePartial(config, o.globalScope); err != nil {
-		return nil, fmt.Errorf("invalid .xcf configuration part: %w", err)
+		return nil, fmt.Errorf("invalid .xcaf configuration part: %w", err)
 	}
 	return config, nil
 }

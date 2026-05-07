@@ -11,20 +11,20 @@ xcaffold uses state files to track what was compiled, when, and from which sourc
 
 The `.xcaffold/` directory is xcaffold's machine-local state store. It is created by `xcaffold init` when a new project is bootstrapped.
 
-`xcaffold apply` writes the state file (`.xcaffold/project.xcf.state`) after each successful compilation. It also automatically appends `.xcaffold/` to the project's `.gitignore` on first run if the entry is not already present.
+`xcaffold apply` writes the state file (`.xcaffold/project.xcaf.state`) after each successful compilation. It also automatically appends `.xcaffold/` to the project's `.gitignore` on first run if the entry is not already present.
 
 The directory contains:
 
-- `project.xcf` — the compiled manifest (written by `init`)
+- `project.xcaf` — the compiled manifest (written by `init`)
 - One state file per blueprint, plus the default (written by `apply`)
 - `schemas/` — field reference companion files (written by `init`)
 
 ```
 .xcaffold/
-  project.xcf              # project manifest (created by xcaffold init)
-  project.xcf.state        # default state (created by xcaffold apply)
-  backend.xcf.state        # xcaffold apply --blueprint backend
-  frontend.xcf.state       # xcaffold apply --blueprint frontend
+  project.xcaf              # project manifest (created by xcaffold init)
+  project.xcaf.state        # default state (created by xcaffold apply)
+  backend.xcaf.state        # xcaffold apply --blueprint backend
+  frontend.xcaf.state       # xcaffold apply --blueprint frontend
   schemas/                 # field reference docs (created by xcaffold init)
 ```
 
@@ -39,9 +39,9 @@ version: 1
 xcaffold-version: "1.0.0"
 blueprint: ""
 source-files:
-  - path: project.xcf
+  - path: project.xcaf
     hash: "sha256:abc123..."
-  - path: xcf/agents/developer.xcf
+  - path: xcaf/agents/developer.xcaf
     hash: "sha256:def456..."
 targets:
   claude:
@@ -58,7 +58,7 @@ targets:
 
 | Field | Scope | Purpose |
 | :--- | :--- | :--- |
-| `source-files` | Shared | All `.xcf` inputs regardless of target. Same sources compile to all targets. |
+| `source-files` | Shared | All `.xcaf` inputs regardless of target. Same sources compile to all targets. |
 | `targets.<name>.artifacts` | Per-target | Output file hashes for a specific target. |
 | `blueprint` | Top-level | Empty string for default compilation, or the blueprint name. |
 
@@ -66,13 +66,13 @@ targets:
 
 Skill subdirectory files (`references/`, `scripts/`, `assets/`, `examples/`) are tracked as individual artifacts in the state file alongside the main `SKILL.md` entry. Each supporting file's content is hashed with SHA-256 independently — for example, a skill with two reference files produces three artifact entries: `skills/<id>/SKILL.md`, `skills/<id>/references/api-spec.md`, and `skills/<id>/references/conventions.md`.
 
-When a supporting file is added, removed, or modified, `xcaffold status` reports it as artifact drift for the affected provider. The same orphan cleanup logic applies: if a supporting file is removed from the source `xcf/skills/<id>/` directory, the corresponding output file is deleted on the next `xcaffold apply` and its entry is removed from the state file.
+When a supporting file is added, removed, or modified, `xcaffold status` reports it as artifact drift for the affected provider. The same orphan cleanup logic applies: if a supporting file is removed from the source `xcaf/skills/<id>/` directory, the corresponding output file is deleted on the next `xcaffold apply` and its entry is removed from the state file.
 
 ## Source Drift vs. Artifact Drift
 
 xcaffold distinguishes two types of divergence:
 
-**Source drift** — one or more `.xcf` files changed since the last apply. The compiled output is stale. Fix: run `xcaffold apply`.
+**Source drift** — one or more `.xcaf` files changed since the last apply. The compiled output is stale. Fix: run `xcaffold apply`.
 
 **Artifact drift** — a compiled output file was manually edited on disk. The file no longer matches what xcaffold generated. Fix: run `xcaffold apply --force` to overwrite, or revert the manual edit.
 
@@ -83,9 +83,9 @@ xcaffold distinguishes two types of divergence:
 | `synced` | Artifact | All tracked files match the recorded hashes. |
 | `modified` | Artifact | File exists but its content differs from the recorded hash. |
 | `missing` | Artifact | File is tracked in the state file but does not exist on disk. |
-| `source changed` | Source | A `.xcf` file changed since the last apply. Compiled output is stale. |
-| `source removed` | Source | A `.xcf` file tracked at last apply no longer exists on disk. |
-| `new source` | Source | A `.xcf` file exists that was not present at the last apply. |
+| `source changed` | Source | A `.xcaf` file changed since the last apply. Compiled output is stale. |
+| `source removed` | Source | A `.xcaf` file tracked at last apply no longer exists on disk. |
+| `new source` | Source | A `.xcaf` file exists that was not present at the last apply. |
 
 ## xcaffold status
 
@@ -99,11 +99,11 @@ See [xcaffold status](../reference/commands/diagnostic/status.md) for flags, sam
 
 xcaffold manages developer tooling configurations, not production infrastructure. 
 
-xcaffold output is deterministic: given the same `.xcf` sources, `xcaffold apply` always produces the same files. There is no shared mutable reality to protect. The `.xcf` source files in git are the shared truth. Each developer's state file is just a local cache of what was last compiled — it can be regenerated from source at any time with `xcaffold apply --force`.
+xcaffold output is deterministic: given the same `.xcaf` sources, `xcaffold apply` always produces the same files. There is no shared mutable reality to protect. The `.xcaf` source files in git are the shared truth. Each developer's state file is just a local cache of what was last compiled — it can be regenerated from source at any time with `xcaffold apply --force`.
 
 Design consequences:
 
-- `.xcf` source files live in git — that is the shared truth between developers
+- `.xcaf` source files live in git — that is the shared truth between developers
 - State files are machine-local; each developer has their own
 - No state locking, no conflict resolution, no remote backend needed
 - Rebuilding state is free: `xcaffold apply --force` regenerates everything from source

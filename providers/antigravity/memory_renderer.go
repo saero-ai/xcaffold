@@ -68,7 +68,7 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 }
 
 // resolveKnowledgeBody returns the effective body for a memory entry.
-// Content is populated by the compiler's filesystem scan of xcf/agents/<id>/memory/
+// Content is populated by the compiler's filesystem scan of xcaf/agents/<id>/memory/
 // .md files — the renderer simply returns it.
 func resolveKnowledgeBody(_ string, entry ast.MemoryConfig, _ string) (string, error) {
 	return entry.Content, nil

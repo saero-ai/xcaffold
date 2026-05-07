@@ -73,12 +73,12 @@ func makeTestImporters(pairs ...struct{ dir, platform string }) []importer.Provi
 	return result
 }
 
-func TestImportScope_XcfDirAlreadyExists(t *testing.T) {
+func TestImportScope_XcafDirAlreadyExists(t *testing.T) {
 	tmp := t.TempDir()
 
-	// Create xcf/ directory inside the temp dir
-	if err := os.MkdirAll(filepath.Join(tmp, "xcf"), 0755); err != nil {
-		t.Fatalf("failed to create xcf/ dir: %v", err)
+	// Create xcaf/ directory inside the temp dir
+	if err := os.MkdirAll(filepath.Join(tmp, "xcaf"), 0755); err != nil {
+		t.Fatalf("failed to create xcaf/ dir: %v", err)
 	}
 
 	// Create .claude/agents/ with a dummy agent file so importScope has content to scan
@@ -100,12 +100,12 @@ func TestImportScope_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = importScope(".claude", "project.xcf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude")
 	if err == nil {
-		t.Fatal("expected error when xcf/ directory already exists, got nil")
+		t.Fatal("expected error when xcaf/ directory already exists, got nil")
 	}
-	if !strings.Contains(err.Error(), "xcf/ directory already exists") {
-		t.Errorf("expected error to contain %q, got: %v", "xcf/ directory already exists", err)
+	if !strings.Contains(err.Error(), "xcaf/ directory already exists") {
+		t.Errorf("expected error to contain %q, got: %v", "xcaf/ directory already exists", err)
 	}
 }
 
@@ -178,7 +178,7 @@ func TestImportScope_Messaging_NoReferencedInPlace(t *testing.T) {
 	}
 	os.Stdout = w
 
-	importErr := importScope(".claude", "project.xcf", "project", "claude")
+	importErr := importScope(".claude", "project.xcaf", "project", "claude")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -271,48 +271,48 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	}
 
 	// Run importScope
-	if err := importScope(".claude", "project.xcf", "project", "claude"); err != nil {
+	if err := importScope(".claude", "project.xcaf", "project", "claude"); err != nil {
 		t.Fatalf("importScope returned unexpected error: %v", err)
 	}
 
-	// project.xcf must exist
-	if _, err := os.Stat(filepath.Join(tmp, "project.xcf")); err != nil {
-		t.Fatalf("project.xcf was not created: %v", err)
+	// project.xcaf must exist
+	if _, err := os.Stat(filepath.Join(tmp, "project.xcaf")); err != nil {
+		t.Fatalf("project.xcaf was not created: %v", err)
 	}
 
-	// Read project.xcf — must contain kind: project
-	scaffoldData, err := os.ReadFile(filepath.Join(tmp, "project.xcf"))
+	// Read project.xcaf — must contain kind: project
+	scaffoldData, err := os.ReadFile(filepath.Join(tmp, "project.xcaf"))
 	require.NoError(t, err)
 	scaffoldStr := string(scaffoldData)
-	assert.Contains(t, scaffoldStr, "kind: project", "project.xcf must use kind: project (split-file format)")
+	assert.Contains(t, scaffoldStr, "kind: project", "project.xcaf must use kind: project (split-file format)")
 
-	// Split .xcf files must exist for each resource
-	// Agents live in their own subdirectory: xcf/agents/<name>/agent.xcf
-	expectedXcfFiles := []string{
-		filepath.Join(tmp, "xcf", "agents", "dev", "agent.xcf"),
-		filepath.Join(tmp, "xcf", "agents", "reviewer", "agent.xcf"),
-		filepath.Join(tmp, "xcf", "skills", "tdd", "skill.xcf"),
-		filepath.Join(tmp, "xcf", "rules", "security", "rule.xcf"),
-		filepath.Join(tmp, "xcf", "workflows", "deploy", "workflow.xcf"),
+	// Split .xcaf files must exist for each resource
+	// Agents live in their own subdirectory: xcaf/agents/<name>/agent.xcaf
+	expectedXcafFiles := []string{
+		filepath.Join(tmp, "xcaf", "agents", "dev", "agent.xcaf"),
+		filepath.Join(tmp, "xcaf", "agents", "reviewer", "agent.xcaf"),
+		filepath.Join(tmp, "xcaf", "skills", "tdd", "skill.xcaf"),
+		filepath.Join(tmp, "xcaf", "rules", "security", "rule.xcaf"),
+		filepath.Join(tmp, "xcaf", "workflows", "deploy", "workflow.xcaf"),
 	}
-	for _, f := range expectedXcfFiles {
+	for _, f := range expectedXcafFiles {
 		if _, err := os.Stat(f); err != nil {
-			t.Errorf("expected split xcf file %q to exist: %v", f, err)
+			t.Errorf("expected split xcaf file %q to exist: %v", f, err)
 		}
 	}
 
 	// Skill reference file must still be copied
-	xcfRefPath := filepath.Join(tmp, "xcf", "skills", "tdd", "references", "patterns.md")
-	if _, err := os.Stat(xcfRefPath); err != nil {
-		t.Errorf("expected skill reference file to be copied to %q: %v", xcfRefPath, err)
+	xcafRefPath := filepath.Join(tmp, "xcaf", "skills", "tdd", "references", "patterns.md")
+	if _, err := os.Stat(xcafRefPath); err != nil {
+		t.Errorf("expected skill reference file to be copied to %q: %v", xcafRefPath, err)
 	}
 
 	// .md files must NOT be copied (inline mode — no instructions-file references)
 	unexpectedMdFiles := []string{
-		filepath.Join(tmp, "xcf", "agents", "dev", "dev.md"),
-		filepath.Join(tmp, "xcf", "agents", "reviewer", "reviewer.md"),
-		filepath.Join(tmp, "xcf", "rules", "security.md"),
-		filepath.Join(tmp, "xcf", "workflows", "deploy.md"),
+		filepath.Join(tmp, "xcaf", "agents", "dev", "dev.md"),
+		filepath.Join(tmp, "xcaf", "agents", "reviewer", "reviewer.md"),
+		filepath.Join(tmp, "xcaf", "rules", "security.md"),
+		filepath.Join(tmp, "xcaf", "workflows", "deploy.md"),
 	}
 	for _, f := range unexpectedMdFiles {
 		if _, err := os.Stat(f); err == nil {
@@ -320,24 +320,24 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 		}
 	}
 
-	// Agent .xcf files must use frontmatter format for inline instructions, not instructions-file.
+	// Agent .xcaf files must use frontmatter format for inline instructions, not instructions-file.
 	// Instructions content moves into the markdown body (after the closing ---), not as a YAML field.
-	devXcf, err := os.ReadFile(filepath.Join(tmp, "xcf", "agents", "dev", "agent.xcf"))
+	devXcaf, err := os.ReadFile(filepath.Join(tmp, "xcaf", "agents", "dev", "agent.xcaf"))
 	require.NoError(t, err)
-	devXcfStr := string(devXcf)
-	assert.Contains(t, devXcfStr, "kind: agent")
-	assert.True(t, strings.HasPrefix(devXcfStr, "---\n"), "agent xcf must use frontmatter format for inline instructions")
-	assert.NotContains(t, devXcfStr, "instructions:", "instructions must be in the markdown body, not as a YAML field")
-	assert.NotContains(t, devXcfStr, "instructions-file:", "agent xcf must not use instructions-file")
-	assert.Contains(t, devXcfStr, "Write clean, well-tested code", "agent xcf must contain body text")
+	devXcafStr := string(devXcaf)
+	assert.Contains(t, devXcafStr, "kind: agent")
+	assert.True(t, strings.HasPrefix(devXcafStr, "---\n"), "agent xcaf must use frontmatter format for inline instructions")
+	assert.NotContains(t, devXcafStr, "instructions:", "instructions must be in the markdown body, not as a YAML field")
+	assert.NotContains(t, devXcafStr, "instructions-file:", "agent xcaf must not use instructions-file")
+	assert.Contains(t, devXcafStr, "Write clean, well-tested code", "agent xcaf must contain body text")
 }
 
-func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
+func TestMergeImportDirs_XcafDirAlreadyExists(t *testing.T) {
 	tmp := t.TempDir()
 
-	// Create xcf/ directory inside the temp dir
-	if err := os.MkdirAll(filepath.Join(tmp, "xcf"), 0755); err != nil {
-		t.Fatalf("failed to create xcf/ dir: %v", err)
+	// Create xcaf/ directory inside the temp dir
+	if err := os.MkdirAll(filepath.Join(tmp, "xcaf"), 0755); err != nil {
+		t.Fatalf("failed to create xcaf/ dir: %v", err)
 	}
 
 	// Create .claude/agents/ with a dummy agent file
@@ -359,12 +359,12 @@ func TestMergeImportDirs_XcfDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
-	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcf")
+	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcaf")
 	if err == nil {
-		t.Fatal("expected error when xcf/ directory already exists, got nil")
+		t.Fatal("expected error when xcaf/ directory already exists, got nil")
 	}
-	if !strings.Contains(err.Error(), "xcf/ directory already exists") {
-		t.Errorf("expected error to contain %q, got: %v", "xcf/ directory already exists", err)
+	if !strings.Contains(err.Error(), "xcaf/ directory already exists") {
+		t.Errorf("expected error to contain %q, got: %v", "xcaf/ directory already exists", err)
 	}
 }
 
@@ -384,34 +384,34 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	require.NoError(t, os.WriteFile(".claude/skills/tdd/SKILL.md",
 		[]byte("---\nname: tdd\ndescription: TDD\n---\n\nTDD instructions"), 0644))
 
-	err = importScope(".claude", "project.xcf", "project", "claude")
+	err = importScope(".claude", "project.xcaf", "project", "claude")
 	require.NoError(t, err)
 
-	content, err := os.ReadFile("project.xcf")
+	content, err := os.ReadFile("project.xcaf")
 	require.NoError(t, err)
 
 	s := string(content)
 
-	// project.xcf must use kind: project (split-file format, not multi-kind)
+	// project.xcaf must use kind: project (split-file format, not multi-kind)
 	assert.Contains(t, s, "kind: project")
 
-	// Must NOT contain multi-kind documents inline in project.xcf
-	assert.NotContains(t, s, "kind: agent", "agent must be in xcf/agents/dev/agent.xcf, not project.xcf")
-	assert.NotContains(t, s, "kind: skill", "skill must be in xcf/skills/tdd/skill.xcf, not project.xcf")
+	// Must NOT contain multi-kind documents inline in project.xcaf
+	assert.NotContains(t, s, "kind: agent", "agent must be in xcaf/agents/dev/agent.xcaf, not project.xcaf")
+	assert.NotContains(t, s, "kind: skill", "skill must be in xcaf/skills/tdd/skill.xcaf, not project.xcaf")
 
 	// Split files must exist — each kind in its own subdirectory
-	assert.FileExists(t, filepath.Join(dir, "xcf", "agents", "dev", "agent.xcf"))
-	assert.FileExists(t, filepath.Join(dir, "xcf", "skills", "tdd", "skill.xcf"))
+	assert.FileExists(t, filepath.Join(dir, "xcaf", "agents", "dev", "agent.xcaf"))
+	assert.FileExists(t, filepath.Join(dir, "xcaf", "skills", "tdd", "skill.xcaf"))
 
 	// Agent split file must use frontmatter format for inline instructions.
 	// Instructions content moves into the markdown body, not as a YAML field.
-	devXcf, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "dev", "agent.xcf"))
+	devXcaf, err := os.ReadFile(filepath.Join(dir, "xcaf", "agents", "dev", "agent.xcaf"))
 	require.NoError(t, err)
-	devXcfContent := string(devXcf)
-	assert.True(t, strings.HasPrefix(devXcfContent, "---\n"), "agent xcf must use frontmatter format")
-	assert.NotContains(t, devXcfContent, "instructions:", "instructions must be in the markdown body, not as a YAML field")
-	assert.Contains(t, devXcfContent, "Dev instructions")
-	assert.NotContains(t, devXcfContent, "instructions-file:")
+	devXcafContent := string(devXcaf)
+	assert.True(t, strings.HasPrefix(devXcafContent, "---\n"), "agent xcaf must use frontmatter format")
+	assert.NotContains(t, devXcafContent, "instructions:", "instructions must be in the markdown body, not as a YAML field")
+	assert.Contains(t, devXcafContent, "Dev instructions")
+	assert.NotContains(t, devXcafContent, "instructions-file:")
 }
 
 func TestDetectTargets(t *testing.T) {
@@ -502,12 +502,12 @@ func TestExtractSkillSubdirs_AntigravityResources(t *testing.T) {
 	}
 
 	// Verify files were copied to canonical locations
-	expectedAsset := filepath.Join(outDir, "xcf", "skills", "my-skill", "assets", "TEMPLATE.md")
+	expectedAsset := filepath.Join(outDir, "xcaf", "skills", "my-skill", "assets", "TEMPLATE.md")
 	if _, err := os.Stat(expectedAsset); os.IsNotExist(err) {
 		t.Errorf("expected asset copied to %s", expectedAsset)
 	}
 
-	expectedExample := filepath.Join(outDir, "xcf", "skills", "my-skill", "examples", "sample.md")
+	expectedExample := filepath.Join(outDir, "xcaf", "skills", "my-skill", "examples", "sample.md")
 	if _, err := os.Stat(expectedExample); os.IsNotExist(err) {
 		t.Errorf("expected example copied to %s", expectedExample)
 	}
@@ -542,7 +542,7 @@ func TestExtractSkillSubdirs_ClaudeFlatMdFiles(t *testing.T) {
 
 	// Verify files were copied to references/
 	for _, name := range []string{"helper.md", "guide.md"} {
-		dest := filepath.Join(outDir, "xcf", "skills", "my-skill", "references", name)
+		dest := filepath.Join(outDir, "xcaf", "skills", "my-skill", "references", name)
 		if _, err := os.Stat(dest); os.IsNotExist(err) {
 			t.Errorf("expected reference copied to %s", dest)
 		}
@@ -578,7 +578,7 @@ func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
 	}
 
 	// File should appear in the skill directory with unknown subdirs.
-	passthroughFile := filepath.Join(outDir, "xcf", "skills", "my-skill", "extras", "data.json")
+	passthroughFile := filepath.Join(outDir, "xcaf", "skills", "my-skill", "extras", "data.json")
 	if _, err := os.Stat(passthroughFile); os.IsNotExist(err) {
 		t.Errorf("expected passthrough file at %s", passthroughFile)
 	}
@@ -622,7 +622,7 @@ func TestWriteMemoryFiles_WritesMarkdownToDisk(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, n)
 
-	data, err := os.ReadFile(filepath.Join("xcf", "agents", "dev", "memory", "context.md"))
+	data, err := os.ReadFile(filepath.Join("xcaf", "agents", "dev", "memory", "context.md"))
 	require.NoError(t, err)
 	require.Contains(t, string(data), "This is memory content.")
 }
@@ -663,7 +663,7 @@ func TestMergeImportDirs_SmartAssembly_DifferentAgents(t *testing.T) {
 		struct{ dir, platform string }{".cursor", "cursor"},
 	)
 
-	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcaf"))
 	require.NoError(t, err)
 
 	config, parseErr := parser.ParseDirectory(".")
@@ -709,7 +709,7 @@ func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
 		struct{ dir, platform string }{".cursor", "cursor"},
 	)
 
-	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcaf"))
 	require.NoError(t, err)
 
 	// MCP from .claude/ must be present
@@ -755,11 +755,11 @@ func TestMergeImportDirs_ImportsMemory(t *testing.T) {
 		struct{ dir, platform string }{".cursor", "cursor"},
 	)
 
-	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcf"))
+	err := mergeImportDirs(importers, filepath.Join(tmp, "project.xcaf"))
 	require.NoError(t, err)
 
 	// Memory must be written to disk
-	memPath := filepath.Join("xcf", "agents", "dev", "memory", "context.md")
+	memPath := filepath.Join("xcaf", "agents", "dev", "memory", "context.md")
 	_, statErr := os.Stat(memPath)
 	require.NoError(t, statErr, "memory file must exist at %s", memPath)
 
@@ -1192,7 +1192,7 @@ func TestImport_Output_ExplainsTargetsTagging(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := importScope(".claude", "project.xcf", "project", "claude")
+	err := importScope(".claude", "project.xcaf", "project", "claude")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1228,7 +1228,7 @@ func TestImportScope_PlanFlag_DryRun(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := importScope(".claude", "project.xcf", "project", "claude")
+	err := importScope(".claude", "project.xcaf", "project", "claude")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1245,8 +1245,8 @@ func TestImportScope_PlanFlag_DryRun(t *testing.T) {
 	assert.Contains(t, output, "1 skills", "output should show skills count")
 
 	// Verify NO files were written
-	assert.NoFileExists(t, filepath.Join(tmp, "project.xcf"), "project.xcf should not exist in plan mode")
-	assert.NoFileExists(t, filepath.Join(tmp, "xcf", "agents", "dev.xcf"), "xcf files should not exist in plan mode")
+	assert.NoFileExists(t, filepath.Join(tmp, "project.xcaf"), "project.xcaf should not exist in plan mode")
+	assert.NoFileExists(t, filepath.Join(tmp, "xcaf", "agents", "dev.xcaf"), "xcaf files should not exist in plan mode")
 }
 
 func TestMergeImportDirs_PlanFlag_DryRun(t *testing.T) {
@@ -1277,7 +1277,7 @@ func TestMergeImportDirs_PlanFlag_DryRun(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := mergeImportDirs(providerImporters, "project.xcf")
+	err := mergeImportDirs(providerImporters, "project.xcaf")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1290,8 +1290,8 @@ func TestMergeImportDirs_PlanFlag_DryRun(t *testing.T) {
 	assert.Contains(t, output, "2 provider directories")
 
 	// Verify NO files were written
-	assert.NoFileExists(t, filepath.Join(tmp, "project.xcf"))
-	assert.NoFileExists(t, filepath.Join(tmp, "xcf"))
+	assert.NoFileExists(t, filepath.Join(tmp, "project.xcaf"))
+	assert.NoFileExists(t, filepath.Join(tmp, "xcaf"))
 }
 
 func TestMergeImportDirs_MultiProvider_ConflictCount(t *testing.T) {
@@ -1317,7 +1317,7 @@ func TestMergeImportDirs_MultiProvider_ConflictCount(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := mergeImportDirs(providerImporters, "project.xcf")
+	err := mergeImportDirs(providerImporters, "project.xcaf")
 
 	w.Close()
 	os.Stdout = oldStdout
@@ -1356,7 +1356,7 @@ func TestRunPostImportSteps_WritesMemoryAndPrunes(t *testing.T) {
 	require.NoError(t, err)
 
 	// Memory file should be written
-	memPath := filepath.Join(tmp, "xcf", "agents", "dev", "memory", "context.md")
+	memPath := filepath.Join(tmp, "xcaf", "agents", "dev", "memory", "context.md")
 	data, err := os.ReadFile(memPath)
 	require.NoError(t, err, "memory file should exist")
 	require.Contains(t, string(data), "Context details")

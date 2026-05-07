@@ -36,7 +36,7 @@ func buildGeneratorPrompt(sig *analyzer.ProjectSignature) string {
 	sb.WriteString("You must return ONLY a raw JSON strictly adhering to the schema below. Do not wrap it in markdown code blocks. Do not add conversational text.\n")
 	sb.WriteString("```json\n")
 	sb.WriteString("{\n")
-	sb.WriteString("  \"yaml_config\": \"[The raw YAML string adhering to the .xcf schema]\",\n")
+	sb.WriteString("  \"yaml_config\": \"[The raw YAML string adhering to the .xcaf schema]\",\n")
 	sb.WriteString("  \"audit_report\": {\n")
 	sb.WriteString("    \"type\": \"[greenfield|brownfield]\",\n")
 	sb.WriteString("    \"scores\": {\n")
@@ -48,7 +48,7 @@ func buildGeneratorPrompt(sig *analyzer.ProjectSignature) string {
 	sb.WriteString("  }\n")
 	sb.WriteString("}\n")
 	sb.WriteString("```\n\n")
-	sb.WriteString("The `yaml_config` string must contain raw YAML adhering strictly to the `.xcf` schema. CRITICAL: Because this is JSON, you MUST escape all newlines (`\\n`) and quotes (`\\\"`) inside the `yaml_config` string so the overall JSON remains valid:\n")
+	sb.WriteString("The `yaml_config` string must contain raw YAML adhering strictly to the `.xcaf` schema. CRITICAL: Because this is JSON, you MUST escape all newlines (`\\n`) and quotes (`\\\"`) inside the `yaml_config` string so the overall JSON remains valid:\n")
 	sb.WriteString(`
 project:
   name: "[Inferred Project Name]"

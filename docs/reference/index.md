@@ -9,7 +9,7 @@ Information-oriented documentation that provides exhaustive, definitive facts ab
 
 ## Documents
 
-- [Resource Kinds](kinds/index.md) — Comprehensive reference of all `.xcf` YAML fields, valid types, and schemas organized by kind taxonomy.
+- [Resource Kinds](kinds/index.md) — Comprehensive reference of all `.xcaf` YAML fields, valid types, and schemas organized by kind taxonomy.
 - [CLI Reference](commands/index.md) — Detailed breakdown of every `xcaffold` command, argument, and flag.
 - [Supported Providers](supported-providers.md) — Registered providers, compilation scopes, input/output directories, and kind support matrix.
 

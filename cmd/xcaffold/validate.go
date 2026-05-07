@@ -21,8 +21,8 @@ var validateVarFileFlag string
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
-	Short: "Check .xcf syntax, cross-references, and structural invariants",
-	Long: `Validate checks the project.xcf file for correctness:
+	Short: "Check .xcaf syntax, cross-references, and structural invariants",
+	Long: `Validate checks the project.xcaf file for correctness:
 
   - YAML syntax and known fields
   - Cross-reference integrity (agent -> skill/rule/MCP IDs exist)
@@ -51,7 +51,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("global scope is not yet available")
 	}
 
-	validatePath := xcfPath
+	validatePath := xcafPath
 
 	parseRoot := filepath.Dir(validatePath)
 	if filepath.Base(parseRoot) == ".xcaffold" {
@@ -105,8 +105,8 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Skill directory structures.
-	xcfSkillsDir := filepath.Join(parseRoot, "xcf", "skills")
-	if entries, dirErr := os.ReadDir(xcfSkillsDir); dirErr == nil {
+	xcafSkillsDir := filepath.Join(parseRoot, "xcaf", "skills")
+	if entries, dirErr := os.ReadDir(xcafSkillsDir); dirErr == nil {
 		skillDirCount := 0
 		skillDirHasIssues := false
 		for _, entry := range entries {
@@ -114,7 +114,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			skillDirCount++
-			skillDir := filepath.Join(xcfSkillsDir, entry.Name())
+			skillDir := filepath.Join(xcafSkillsDir, entry.Name())
 			// Look up the skill's artifacts from the config
 			var artifacts []string
 			if skill, ok := cfg.Skills[entry.Name()]; ok {
@@ -247,7 +247,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Footer.
-	xcfFileCount := countXcfFiles(parseRoot)
+	xcafFileCount := countXcafFiles(parseRoot)
 	totalWarnings := len(structWarnings) + len(policyWarnings) + len(crossRefIssues)
 	fmt.Println()
 	fieldSuffix := ""
@@ -257,11 +257,11 @@ func runValidate(cmd *cobra.Command, args []string) error {
 			plural(fieldValidationErrors, "error", "errors"))
 	}
 	if totalWarnings > 0 {
-		fmt.Printf("%s  Validation passed with %d %s.  %d .xcf files checked.%s\n",
-			colorGreen(glyphOK()), totalWarnings, plural(totalWarnings, "warning", "warnings"), xcfFileCount, fieldSuffix)
+		fmt.Printf("%s  Validation passed with %d %s.  %d .xcaf files checked.%s\n",
+			colorGreen(glyphOK()), totalWarnings, plural(totalWarnings, "warning", "warnings"), xcafFileCount, fieldSuffix)
 	} else {
-		fmt.Printf("%s  Validation passed.  %d .xcf files checked.%s\n",
-			colorGreen(glyphOK()), xcfFileCount, fieldSuffix)
+		fmt.Printf("%s  Validation passed.  %d .xcaf files checked.%s\n",
+			colorGreen(glyphOK()), xcafFileCount, fieldSuffix)
 	}
 	return nil
 }
@@ -284,14 +284,14 @@ func findLastApplied(baseDir, blueprint string) string {
 	return result
 }
 
-func countXcfFiles(root string) int {
+func countXcafFiles(root string) int {
 	count := 0
-	xcfDir := filepath.Join(root, "xcf")
-	_ = filepath.WalkDir(xcfDir, func(_ string, d fs.DirEntry, err error) error {
+	xcafDir := filepath.Join(root, "xcaf")
+	_ = filepath.WalkDir(xcafDir, func(_ string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if !d.IsDir() && filepath.Ext(d.Name()) == ".xcf" {
+		if !d.IsDir() && filepath.Ext(d.Name()) == ".xcaf" {
 			count++
 		}
 		return nil

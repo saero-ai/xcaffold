@@ -20,7 +20,7 @@ A project with a handful of agents rarely needs blueprints. Introduce them when:
 When a blueprint selects an agent, the compiler automatically includes that agent's declared skills, rules, and MCP servers. You do not need to enumerate every dependency.
 
 ```yaml
-# xcf/agents/api-developer.xcf
+# xcaf/agents/api-developer.xcaf
 kind: agent
 version: "1.0"
 name: api-developer
@@ -30,7 +30,7 @@ mcp: [database-tools]
 ```
 
 ```yaml
-# xcf/blueprints/backend.xcf
+# xcaf/blueprints/backend.xcaf
 kind: blueprint
 version: "1.0"
 name: backend
@@ -67,7 +67,7 @@ Use `extends` to create a child blueprint that inherits from a parent. The child
 ### Example: Base blueprint with CI variant
 
 ```yaml
-# xcf/blueprints/backend.xcf
+# xcaf/blueprints/backend.xcaf
 kind: blueprint
 version: "1.0"
 name: backend
@@ -90,7 +90,7 @@ hooks: pre-commit
 ```
 
 ```yaml
-# xcf/blueprints/backend-ci.xcf
+# xcaf/blueprints/backend-ci.xcaf
 kind: blueprint
 version: "1.0"
 name: backend-ci
@@ -119,7 +119,7 @@ settings: restricted
 Blueprints control which `kind: context` files render to provider root files (CLAUDE.md, GEMINI.md). At compile time, at most **one context per target provider** is allowed.
 
 ```yaml
-# xcf/context/main.xcf — shared project context
+# xcaf/context/main.xcaf — shared project context
 ---
 kind: context
 name: main
@@ -128,7 +128,7 @@ default: true
 This project uses Go 1.24 with Cobra for CLI commands.
 Run tests with `go test ./...`.
 
-# xcf/context/backend-context.xcf — backend-specific
+# xcaf/context/backend-context.xcaf — backend-specific
 ---
 kind: context
 name: backend-context
@@ -137,7 +137,7 @@ targets: [claude]
 Focus on API design and database schema integrity.
 Use the database-tools MCP server for schema exploration.
 
-# xcf/context/frontend-context.xcf — frontend-specific
+# xcaf/context/frontend-context.xcaf — frontend-specific
 ---
 kind: context
 name: frontend-context
@@ -189,7 +189,7 @@ When a blueprint selects `policies: [security-baseline]`, only that policy evalu
 Blueprints can select which `kind: settings` and `kind: hooks` configuration to use:
 
 ```yaml
-# xcf/settings/development.xcf
+# xcaf/settings/development.xcaf
 kind: settings
 version: "1.0"
 name: development
@@ -197,7 +197,7 @@ model: sonnet
 permissions:
   allow: [Read, Write, Edit, Bash]
 
-# xcf/settings/restricted.xcf
+# xcaf/settings/restricted.xcaf
 kind: settings
 version: "1.0"
 name: restricted
@@ -223,7 +223,7 @@ my-project  ·  last applied 2 minutes ago
   claude        90 artifacts    1 modified
   cursor        72 artifacts    synced
 
-Sources  54 .xcf files  ·  no changes since last apply
+Sources  54 .xcaf files  ·  no changes since last apply
 
 Modified files:
 

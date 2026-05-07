@@ -80,10 +80,10 @@ func TestStress_FullLifecycle_100Agents(t *testing.T) {
 		fmt.Fprintf(&sb, "  agent-%03d:\n    description: \"Agent %d\"\n    instructions: \"Do task %d.\"\n", i, i, i)
 	}
 
-	xcfPath := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcfPath, []byte(sb.String()), 0644))
+	xcafPath := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcafPath, []byte(sb.String()), 0644))
 
-	config, err := parser.ParseFile(xcfPath)
+	config, err := parser.ParseFile(xcafPath)
 	require.NoError(t, err)
 
 	out, _, err := compiler.Compile(config, "", "", "")

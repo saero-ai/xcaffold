@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed builtin/*.xcf
+//go:embed builtin/*.xcaf
 var builtinFS embed.FS
 
 // Evaluate runs all policies against the config snapshot and compiled output.

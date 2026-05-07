@@ -2,7 +2,7 @@
 kind: skill
 version: "1.0"
 name: xcaffold
-description: Scaffolds, compiles, and validates AI agent configurations using xcaffold — the deterministic agent configuration compiler. Invoke when the user asks to create agents, skills, rules, or policies; when they want to target Claude Code, Cursor, Gemini CLI, GitHub Copilot, or Antigravity; when setting up a new xcaffold project; or when validating or applying existing xcf configurations.
+description: Scaffolds, compiles, and validates AI agent configurations using xcaffold — the deterministic agent configuration compiler. Invoke when the user asks to create agents, skills, rules, or policies; when they want to target Claude Code, Cursor, Gemini CLI, GitHub Copilot, or Antigravity; when setting up a new xcaffold project; or when validating or applying existing xcaf configurations.
 allowed-tools:
   - Read
   - Write
@@ -15,7 +15,7 @@ artifacts:
 ---
 # xcaffold — Agent Configuration Compiler
 
-xcaffold compiles `.xcf` YAML source files into native AI provider output
+xcaffold compiles `.xcaf` YAML source files into native AI provider output
 for Claude Code, Cursor, Gemini CLI, GitHub Copilot, and Antigravity. It is
 the determinism layer between authoring and provider output — enforcing correct
 field names, directory structures, and supported frontmatter per provider.
@@ -24,7 +24,7 @@ field names, directory structures, and supported frontmatter per provider.
 
 Use xcaffold when:
 - The user asks to create or configure an agent, skill, rule, workflow, or MCP server
-- The user wants to target multiple AI providers from a single xcf source
+- The user wants to target multiple AI providers from a single xcaf source
 - The user says "scaffold", "initialize", or "set up xcaffold"
 - You need to validate or compile agent configs for a provider
 - The user asks to import existing provider configs (.claude/, .cursor/, etc.) into xcaffold
@@ -32,16 +32,16 @@ Use xcaffold when:
 
 ## Mode 1 — Authoring
 
-Use this mode when writing or editing `.xcf` manifests.
+Use this mode when writing or editing `.xcaf` manifests.
 
 1. **Read the field catalog** for the resource kind you are authoring:
-   - `xcf/skills/xcaffold/references/agent-reference.md` — agent fields
-   - `xcf/skills/xcaffold/references/skill-reference.md` — skill fields
-   - `xcf/skills/xcaffold/references/rule-reference.md` — rule fields
-   - `xcf/skills/xcaffold/references/workflow-reference.md` — workflow fields
-   - `xcf/skills/xcaffold/references/mcp-reference.md` — MCP server fields
-   - `xcf/skills/xcaffold/references/hooks-reference.md` — hooks fields
-   - `xcf/skills/xcaffold/references/memory-reference.md` — memory fields
+   - `xcaf/skills/xcaffold/references/agent-reference.md` — agent fields
+   - `xcaf/skills/xcaffold/references/skill-reference.md` — skill fields
+   - `xcaf/skills/xcaffold/references/rule-reference.md` — rule fields
+   - `xcaf/skills/xcaffold/references/workflow-reference.md` — workflow fields
+   - `xcaf/skills/xcaffold/references/mcp-reference.md` — MCP server fields
+   - `xcaf/skills/xcaffold/references/hooks-reference.md` — hooks fields
+   - `xcaf/skills/xcaffold/references/memory-reference.md` — memory fields
 
 2. **Fill in fields from the catalog** that match the user's use case and target provider(s). Fields marked 'dropped' for a provider are silently removed at compile time — leave them in source.
 
@@ -50,8 +50,8 @@ Use this mode when writing or editing `.xcf` manifests.
    - All YAML keys use kebab-case (`allowed-tools`, not `allowedTools`).
    - `version` is always a quoted string: `version: "1.0"` (not `version: 1.0`).
    - `name` uses lowercase + hyphens only: `^[a-z0-9-]+$`.
-   - One resource per file. Directory-per-resource layout: `xcf/<kind>/<name>/<name>.xcf`.
-   - See `xcf/rules/xcf-conventions/rule.xcf` for the full convention set.
+   - One resource per file. Directory-per-resource layout: `xcaf/<kind>/<name>/<name>.xcaf`.
+   - See `xcaf/rules/xcaf-conventions/rule.xcaf` for the full convention set.
 
 4. **Validate before applying:**
    ```bash
@@ -62,12 +62,12 @@ Use this mode when writing or editing `.xcf` manifests.
 
 ## Mode 2 — Operating
 
-Use this mode when operating the xcaffold CLI. See `xcf/skills/xcaffold/references/cli-cheatsheet.md` for the full command and flag reference.
+Use this mode when operating the xcaffold CLI. See `xcaf/skills/xcaffold/references/cli-cheatsheet.md` for the full command and flag reference.
 
 **Typical workflow:**
 ```bash
 xcaffold init --target claude         # bootstrap
-# edit xcf/ files
+# edit xcaf/ files
 xcaffold validate                     # validate schema + policies
 xcaffold apply --dry-run              # preview compiled output
 xcaffold apply                        # compile to provider dirs
@@ -76,9 +76,9 @@ xcaffold status                       # verify drift
 
 **Key commands:**
 - `xcaffold init` — bootstrap a new project, generate toolkit, optionally import existing provider configs
-- `xcaffold import` — import existing provider configs into xcf/
+- `xcaffold import` — import existing provider configs into xcaf/
 - `xcaffold validate` — check schema, cross-references, and policy compliance
-- `xcaffold apply` — compile xcf/ to provider-native output
+- `xcaffold apply` — compile xcaf/ to provider-native output
 - `xcaffold status` — show compilation state and drift across providers
 - `xcaffold list` — enumerate declared resources
 - `xcaffold graph` — visualize agent/skill/rule dependency topology

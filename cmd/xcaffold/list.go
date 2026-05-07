@@ -65,8 +65,8 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	if xcfPath == "" {
-		return fmt.Errorf("no project.xcf found; run from a project directory or use --config")
+	if xcafPath == "" {
+		return fmt.Errorf("no project.xcaf found; run from a project directory or use --config")
 	}
 
 	configDir := projectParseRoot()
@@ -112,7 +112,7 @@ func filterMapByName[T any](m map[string]T, filter string) map[string]T {
 
 func memorySummary(projectRoot string, cfg *ast.XcaffoldConfig) map[string][]string {
 	result := make(map[string][]string)
-	memBase := filepath.Join(projectRoot, "xcf", "agents")
+	memBase := filepath.Join(projectRoot, "xcaf", "agents")
 	for agentID := range cfg.Agents {
 		memDir := filepath.Join(memBase, agentID, "memory")
 		entries, err := os.ReadDir(memDir)

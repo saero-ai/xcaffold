@@ -1,13 +1,13 @@
 ---
 title: "xcaffold validate"
-description: "Check .xcf syntax, cross-references, structural invariants, and policy compliance."
+description: "Check .xcaf syntax, cross-references, structural invariants, and policy compliance."
 ---
 
 # xcaffold validate
 
-Check .xcf syntax, cross-references, structural invariants, and policy compliance.
+Check .xcaf syntax, cross-references, structural invariants, and policy compliance.
 
-The `validate` command parses every `.xcf` file in the project, verifies cross-reference integrity, checks structural invariants, and evaluates policy rules — all without modifying any output on disk. Use it as a pre-commit gate or in CI to confirm the project is compilable before running `xcaffold apply`.
+The `validate` command parses every `.xcaf` file in the project, verifies cross-reference integrity, checks structural invariants, and evaluates policy rules — all without modifying any output on disk. Use it as a pre-commit gate or in CI to confirm the project is compilable before running `xcaffold apply`.
 
 **Usage:**
 
@@ -21,7 +21,7 @@ xcaffold validate [flags]
 |------|-------|------|---------|-------------|
 | `--target <provider>` | — | `string` | `""` | Validate field support for a specific provider target (`claude`, `cursor`, `antigravity`, `copilot`, `gemini`). |
 | `--blueprint <name>` | — | `string` | `""` | Validate only the named blueprint's resources. Internal use. |
-| `--global` | `-g` | `bool` | `false` | Operate on the global config (`~/.xcaffold/global.xcf`). Not yet available — prints an error and exits. |
+| `--global` | `-g` | `bool` | `false` | Operate on the global config (`~/.xcaffold/global.xcaf`). Not yet available — prints an error and exits. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 | `--var-file <path>` | — | `string` | `""` | Load variables from a custom file instead of the default `xcf/project.vars`. |
 
@@ -33,12 +33,12 @@ xcaffold validate [flags]
 
 Running `xcaffold validate` without flags prints a breadcrumb header followed by the result of each check phase:
 
-1. **Syntax and cross-references** — parses every `.xcf` file using strict known-fields mode. Reports YAML errors and unknown keys. Verifies that agent `skills`, `rules`, and `mcp` references resolve to defined resources.
-2. **Skill directories** — walks `xcf/skills/` and validates that each skill subdirectory has the expected structure (presence of a `SKILL.md` body file, no unexpected files).
+1. **Syntax and cross-references** — parses every `.xcaf` file using strict known-fields mode. Reports YAML errors and unknown keys. Verifies that agent `skills`, `rules`, and `mcp` references resolve to defined resources.
+2. **Skill directories** — walks `xcaf/skills/` and validates that each skill subdirectory has the expected structure (presence of a `SKILL.md` body file, no unexpected files).
 3. **Structural checks** — runs invariant checks on the parsed config. See [Structural checks](#structural-checks) for the full list.
 4. **Policy evaluation** — compiles the project in-memory and evaluates all active policy rules against the compiled output. See [Policy evaluation](#policy-evaluation) for details.
 
-A footer line reports the total warning count and the number of `.xcf` files checked.
+A footer line reports the total warning count and the number of `.xcaf` files checked.
 
 ### Field validation (--target)
 
@@ -59,7 +59,7 @@ Policy rules are evaluated after a successful in-memory compilation pass. Built-
 - **path-safety** — flags file paths containing `..` or other unsafe sequences.
 - Additional built-in policies shipped with the binary.
 
-You can define project-level policy overrides in `.xcf` files with `kind: policy`. Policy violations are classified as `error` or `warning` by the rule definition. Errors cause a non-zero exit; warnings are reported but do not fail validation.
+You can define project-level policy overrides in `.xcaf` files with `kind: policy`. Policy violations are classified as `error` or `warning` by the rule definition. Errors cause a non-zero exit; warnings are reported but do not fail validation.
 
 ### Structural checks
 
@@ -102,7 +102,7 @@ sandbox  ·  last applied 3 days ago
   ✓  structural checks
   ✓  policies (4 checked)
 
-✓  Validation passed.  52 .xcf files checked.
+✓  Validation passed.  52 .xcaf files checked.
 ```
 
 ### Validation with structural warnings
@@ -119,7 +119,7 @@ sandbox  ·  last applied 3 days ago
 
   ✓  policies (4 checked)
 
-✓  Validation passed with 2 warnings.  52 .xcf files checked.
+✓  Validation passed with 2 warnings.  52 .xcaf files checked.
 ```
 
 ### Validation with policy warnings
@@ -136,7 +136,7 @@ sandbox  ·  last applied 3 days ago
 
   ✓  policies (4 checked, 1 warning)
 
-✓  Validation passed with 1 warning.  52 .xcf files checked.
+✓  Validation passed with 1 warning.  52 .xcaf files checked.
 ```
 
 ### Validation with policy errors
@@ -165,7 +165,7 @@ sandbox  ·  antigravity  ·  last applied 3 days ago
   ✓  policies (4 checked)
   ✓  field validation (antigravity)
 
-✓  Validation passed.  52 .xcf files checked.  Field validation: antigravity (0 errors).
+✓  Validation passed.  52 .xcaf files checked.  Field validation: antigravity (0 errors).
 ```
 
 ### Validation with --target field errors
@@ -176,7 +176,7 @@ sandbox  ·  antigravity  ·  last applied 3 days ago
   ✓  syntax and cross-references
   ✓  skill directories
   ✓  structural checks
-ERROR (antigravity): field "effort" is unsupported by antigravity; use a agent.antigravity.xcf override or remove from base manifest
+ERROR (antigravity): field "effort" is unsupported by antigravity; use a agent.antigravity.xcaf override or remove from base manifest
 
 ✗  Validation failed: compilation failed with 1 error(s):
   FIELD_UNSUPPORTED agent/dev: field "effort" is unsupported by antigravity; ...
@@ -189,7 +189,7 @@ sandbox  ·  last applied 3 days ago
 
   ✗  syntax and cross-references
 
-✗  Validation failed: xcf/agents/developer.xcf:12: unknown field "allowedTools"
+✗  Validation failed: xcaf/agents/developer.xcaf:12: unknown field "allowedTools"
 ```
 
 ## Examples

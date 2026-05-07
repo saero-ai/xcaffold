@@ -14,10 +14,10 @@ Defines a named, reusable multi-step procedure. Compiled exclusively to `.agents
 ## Source Directory
 
 ```
-xcf/workflows/<name>/workflow.xcf
+xcaf/workflows/<name>/workflow.xcaf
 ```
 
-Each workflow is a directory-per-resource under `xcf/workflows/`. The `.xcf` file contains the frontmatter and optional body for that workflow.
+Each workflow is a directory-per-resource under `xcaf/workflows/`. The `.xcaf` file contains the frontmatter and optional body for that workflow.
 
 ## Example Usage
 

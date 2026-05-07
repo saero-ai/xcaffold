@@ -78,7 +78,7 @@ brews:
       email: bot@saero.ai
     commit_msg_template: "chore: bump xcaffold to {{ .Tag }}"
     homepage: "https://github.com/saero-ai/xcaffold"
-    description: "Deterministic agent configuration compiler for AI coding platforms. Compile .xcf blueprints into native agent configurations."
+    description: "Deterministic agent configuration compiler for AI coding platforms. Compile .xcaf blueprints into native agent configurations."
     license: "Apache-2.0"
     install: |
       bin.install "xcaffold"
@@ -96,5 +96,5 @@ scoops:
       email: bot@saero.ai
     commit_msg_template: "chore: bump xcaffold to {{ .Tag }}"
     homepage: "https://github.com/saero-ai/xcaffold"
-    description: "Deterministic agent configuration compiler for AI coding platforms. Compile .xcf blueprints into native agent configurations."
+    description: "Deterministic agent configuration compiler for AI coding platforms. Compile .xcaf blueprints into native agent configurations."
     license: "Apache-2.0"

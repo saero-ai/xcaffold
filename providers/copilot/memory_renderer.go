@@ -43,7 +43,7 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, _ string) (*output.
 			"",
 			renderer.CodeMemoryNoNativeTarget,
 			"GitHub Copilot has no native memory primitive; add this context to `.github/copilot-instructions.md` or a rule with activation: always.",
-			fmt.Sprintf("Add the content of memory entry %q to .github/copilot-instructions.md, or declare a rule with activation: always in .xcf.", name),
+			fmt.Sprintf("Add the content of memory entry %q to .github/copilot-instructions.md, or declare a rule with activation: always in .xcaf.", name),
 		))
 	}
 	return out, notes, nil

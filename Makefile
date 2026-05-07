@@ -47,7 +47,7 @@ verify-generate:
 	@echo "=> Generated files are up to date."
 
 verify-markers:
-	@echo "=> Verifying +xcf markers are complete..."
+	@echo "=> Verifying +xcaf markers are complete..."
 	@go run tools/gen-schema/main.go -validate-only
 
 clean:

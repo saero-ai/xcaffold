@@ -5,7 +5,7 @@ description: "The holistic compiler geography, project boundaries, and internal 
 
 # Architecture Overview
 
-`xcaffold` operates on a strictly deterministic, One-Way Compiler architecture for managing agent configurations across multiple platforms. It targets [multiple supported platforms](supported-providers.md) from a single `.xcf` file.
+`xcaffold` operates on a strictly deterministic, One-Way Compiler architecture for managing agent configurations across multiple platforms. It targets [multiple supported platforms](supported-providers.md) from a single `.xcaf` file.
 
 ---
 
@@ -14,20 +14,20 @@ description: "The holistic compiler geography, project boundaries, and internal 
 ```mermaid
 graph LR
   subgraph Global Home ["~/.xcaffold/"]
-    R[registry.xcf]
-    GC[global.xcf]
+    R[registry.xcaf]
+    GC[global.xcaf]
   end
 
   subgraph User Codebase
-    A[.xcaffold/project.xcf]
-    XCF["`xcf/agents/<name>/agent.xcf
-    xcf/agents/<name>/memory/
-    xcf/skills/<name>/skill.xcf
-    xcf/rules/<name>/rule.xcf
-    xcf/workflows/<name>/workflow.xcf
-    xcf/hooks/hooks.xcf
-    xcf/mcp/<name>/mcp.xcf
-    xcf/settings/settings.xcf`"]
+    A[.xcaffold/project.xcaf]
+    XCAF["`xcaf/agents/<name>/agent.xcaf
+    xcaf/agents/<name>/memory/
+    xcaf/skills/<name>/skill.xcaf
+    xcaf/rules/<name>/rule.xcaf
+    xcaf/workflows/<name>/workflow.xcaf
+    xcaf/hooks/hooks.xcaf
+    xcaf/mcp/<name>/mcp.xcaf
+    xcaf/settings/settings.xcaf`"]
   end
 
   subgraph xcaffold Engine
@@ -46,7 +46,7 @@ graph LR
   end
 
   subgraph Outputs
-    F[".xcaffold/project.xcf.state"]
+    F[".xcaffold/project.xcaf.state"]
     
     subgraph .claude/
       O1["`agents/{agent-id}.md
@@ -96,7 +96,7 @@ graph LR
   R -..->|registry lookup| A
   GC -->|"--global / -g"| B
   A --> B
-  XCF --> B
+  XCAF --> B
   B --> C
   C --> PE[Policy Engine]
   PE --> RG
@@ -118,10 +118,10 @@ Created automatically on first run by `registry.EnsureGlobalHome()`. Contains tw
 
 | File | Purpose |
 |---|---|
-| `global.xcf` | User-wide agent config (uses `kind: global` for global-scope resources and settings) — auto-bootstrapped by scanning installed platform providers |
-| `registry.xcf` | YAML list of all registered projects (`name`, `path`, `targets`, `registered`, `last_applied`) |
+| `global.xcaf` | User-wide agent config (uses `kind: global` for global-scope resources and settings) — auto-bootstrapped by scanning installed platform providers |
+| `registry.xcaf` | YAML list of all registered projects (`name`, `path`, `targets`, `registered`, `last_applied`) |
 
-`global.xcf` is rebuilt by `RebuildGlobalXCF()`, which iterates a `globalProviders` registry containing the [supported platforms](../reference/supported-providers.md). During a scan, these providers read their specific configuration artifacts (e.g., skill directories, standalone global instructions) to bootstrap a multi-provider `.xcf`.
+`global.xcaf` is rebuilt by `RebuildGlobalXCAF()`, which iterates a `globalProviders` registry containing the [supported platforms](../reference/supported-providers.md). During a scan, these providers read their specific configuration artifacts (e.g., skill directories, standalone global instructions) to bootstrap a multi-provider `.xcaf`.
 
 > New providers are added by implementing a scan function and appending it to `globalProviders` in `internal/registry/registry.go`. No other changes are required.
 
@@ -129,7 +129,7 @@ Created automatically on first run by `registry.EnsureGlobalHome()`. Contains tw
 
 ### File Taxonomy (`kind:` Discriminator)
 
-Every `.xcf` file carries a `kind:` field as its first key. The parser reads this field before attempting full parsing to determine how the file should be processed:
+Every `.xcaf` file carries a `kind:` field as its first key. The parser reads this field before attempting full parsing to determine how the file should be processed:
 
 | Kind value | Schema | Parser | Notes |
 |---|---|---|---|
@@ -140,7 +140,7 @@ Every `.xcf` file carries a `kind:` field as its first key. The parser reads thi
 | `policy` (Preview) | `PolicyConfig` | `parseResourceDocument()` | Declarative constraint (standardized kind) |
 | `registry` | `{kind, projects}` | `registry.readProjects()` | |
 
-Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognized `kind:` values (like `registry`) are silently skipped by the directory scanner — this prevents non-config files from crashing the strict `KnownFields(true)` parser.
+Every `.xcaf` file must declare an explicit `kind:` field. Files with unrecognized `kind:` values (like `registry`) are silently skipped by the directory scanner — this prevents non-config files from crashing the strict `KnownFields(true)` parser.
 
 ---
 
@@ -166,7 +166,7 @@ Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognize
 | `importer/copilot` | `internal/importer/copilot/` | GitHub Copilot importer (reads `.github/`) |
 | `importer/antigravity` | `internal/importer/antigravity/` | Antigravity importer (reads `.agents/`) |
 | `output` | `internal/output/` | `Output` struct — `map[relPath]content` file map |
-| `state` | `internal/state/` | SHA-256 `.xcaffold/project.xcf.state` generation, read, and write |
+| `state` | `internal/state/` | SHA-256 `.xcaffold/project.xcaf.state` generation, read, and write |
 | `registry` | `internal/registry/` | Global home bootstrap, project registry CRUD, platform provider scans |
 | `templates` | `internal/templates/` | Rendering templates for references and boilerplate generation |
 | `analyzer` | `internal/analyzer/` | Detects undeclared artifacts via `ScanOutputDir` |
@@ -227,11 +227,11 @@ Every `.xcf` file must declare an explicit `kind:` field. Files with unrecognize
 
 ```
 Bootstrap    → xcaffold init
-Ingestion    → xcaffold import    (import provider configs into xcf project)
+Ingestion    → xcaffold import    (import provider configs into xcaf project)
 Topology     → xcaffold graph     (ASCII / mermaid / DOT / JSON output)
 Listing      → xcaffold list      (View registered projects)
-Compilation  → xcaffold apply     (XCF → policy evaluation → target output files + .xcaffold/project.xcf.state)
-Drift Check  → xcaffold diff      (compares .xcaffold/project.xcf.state against live output files)
+Compilation  → xcaffold apply     (XCAF → policy evaluation → target output files + .xcaffold/project.xcaf.state)
+Drift Check  → xcaffold diff      (compares .xcaffold/project.xcaf.state against live output files)
 Validation   → xcaffold validate  (Syntax/structural check)
 ```
 

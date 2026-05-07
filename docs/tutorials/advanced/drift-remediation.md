@@ -5,13 +5,13 @@ description: "Detect, diagnose, and restore managed files when compiled output h
 
 # Drift Remediation
 
-This tutorial walks through detecting and resolving drift in an xcaffold-managed project. Drift occurs when files inside a compiled output directory (`.claude/`, `.cursor/`, `.agents/`) are modified directly rather than through `project.xcf`. xcaffold uses SHA-256 hashes to detect these changes precisely and gives you explicit control over remediation. For background on why drift matters, see [Concepts: Drift Detection and State](../concepts/architecture.md#drift-detection-and-state).
+This tutorial walks through detecting and resolving drift in an xcaffold-managed project. Drift occurs when files inside a compiled output directory (`.claude/`, `.cursor/`, `.agents/`) are modified directly rather than through `project.xcaf`. xcaffold uses SHA-256 hashes to detect these changes precisely and gives you explicit control over remediation. For background on why drift matters, see [Concepts: Drift Detection and State](../concepts/architecture.md#drift-detection-and-state).
 
 **Time to complete:** ~10 minutes
 
 **Prerequisites:**
 - `xcaffold` installed and on `$PATH`
-- A project directory with `project.xcf` present
+- A project directory with `project.xcaf` present
 - First apply already run (`xcaffold apply --target claude`)
 
 ---
@@ -22,16 +22,16 @@ This tutorial walks through detecting and resolving drift in an xcaffold-managed
 xcaffold apply --target claude
 ```
 
-This compiles `project.xcf` into `.claude/` and writes `.xcaffold/project.xcf.state` with SHA-256 hashes of every output file. The state file is the reference state for all subsequent drift checks.
+This compiles `project.xcaf` into `.claude/` and writes `.xcaffold/project.xcaf.state` with SHA-256 hashes of every output file. The state file is the reference state for all subsequent drift checks.
 
 **Expected output:**
 ```
   [project] ✓ wrote /path/to/project/.claude/agents/developer.md  (sha256:<hex>)
 
-[project] ✓ Apply complete. .xcaffold/project.xcf.state updated.
+[project] ✓ Apply complete. .xcaffold/project.xcaf.state updated.
 ```
 
-Commit `project.xcf` and `.xcaffold/project.xcf.state` together.
+Commit `project.xcaf` and `.xcaffold/project.xcaf.state` together.
 
 ---
 
@@ -41,7 +41,7 @@ Commit `project.xcf` and `.xcaffold/project.xcf.state` together.
 echo "# MANUAL EDIT" >> .claude/agents/developer.md
 ```
 
-This simulates a direct edit to a managed file — the kind that happens when someone tweaks an agent definition in place rather than updating `project.xcf`.
+This simulates a direct edit to a managed file — the kind that happens when someone tweaks an agent definition in place rather than updating `project.xcaf`.
 
 ---
 
@@ -51,7 +51,7 @@ This simulates a direct edit to a managed file — the kind that happens when so
 xcaffold diff --target claude
 ```
 
-xcaffold recomputes SHA-256 hashes for all artifacts listed in `.xcaffold/project.xcf.state` and compares them against disk. Any mismatch is reported.
+xcaffold recomputes SHA-256 hashes for all artifacts listed in `.xcaffold/project.xcaf.state` and compares them against disk. Any mismatch is reported.
 
 **Expected output:**
 ```
@@ -89,7 +89,7 @@ This drift guard prevents silent data loss. To proceed you must acknowledge the 
 xcaffold apply --target claude --force
 ```
 
-`--force` bypasses the drift guard and overwrites the output directory with freshly compiled content. The manual edit in `developer.md` is discarded. `.xcaffold/project.xcf.state` is updated with the new hashes.
+`--force` bypasses the drift guard and overwrites the output directory with freshly compiled content. The manual edit in `developer.md` is discarded. `.xcaffold/project.xcaf.state` is updated with the new hashes.
 
 If you want to preserve the drifted state before overwriting, add `--backup`:
 
@@ -101,7 +101,7 @@ xcaffold apply --target claude --force --backup
 ```
   [project] ✓ wrote /path/to/project/.claude/agents/developer.md  (sha256:<hex>)
 
-[project] ✓ Apply complete. .xcaffold/project.xcf.state updated.
+[project] ✓ Apply complete. .xcaffold/project.xcaf.state updated.
 ```
 
 ---

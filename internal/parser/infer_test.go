@@ -10,40 +10,40 @@ func TestInferKindAndName(t *testing.T) {
 		wantKind string
 		wantName string
 	}{
-		// Standard convention: <kind>/<name>/<kind>.xcf
-		{"xcf/agents/xaff/agent.xcf", "agent", "xaff"},
-		{"xcf/skills/xcaffold/skill.xcf", "skill", "xcaffold"},
-		{"xcf/rules/xcf-conventions/rule.xcf", "rule", "xcf-conventions"},
-		{"xcf/workflows/deploy/workflow.xcf", "workflow", "deploy"},
-		{"xcf/mcp/server/mcp.xcf", "mcp", "server"},
+		// Standard convention: <kind>/<name>/<kind>.xcaf
+		{"xcaf/agents/xaff/agent.xcaf", "agent", "xaff"},
+		{"xcaf/skills/xcaffold/skill.xcaf", "skill", "xcaffold"},
+		{"xcaf/rules/xcaf-conventions/rule.xcaf", "rule", "xcaf-conventions"},
+		{"xcaf/workflows/deploy/workflow.xcaf", "workflow", "deploy"},
+		{"xcaf/mcp/server/mcp.xcaf", "mcp", "server"},
 
-		// Namespaced rules: <kind>/<namespace>/<name>/<kind>.xcf
-		{"xcf/rules/cli/go-code-quality/rule.xcf", "rule", "cli/go-code-quality"},
-		{"xcf/rules/platform/api-standards/rule.xcf", "rule", "platform/api-standards"},
-		{"xcf/rules/core/safety-check/rule.xcf", "rule", "core/safety-check"},
+		// Namespaced rules: <kind>/<namespace>/<name>/<kind>.xcaf
+		{"xcaf/rules/cli/go-code-quality/rule.xcaf", "rule", "cli/go-code-quality"},
+		{"xcaf/rules/platform/api-standards/rule.xcaf", "rule", "platform/api-standards"},
+		{"xcaf/rules/core/safety-check/rule.xcaf", "rule", "core/safety-check"},
 
-		// Provider overrides: <kind>/<name>/<kind>.<provider>.xcf
-		{"xcf/agents/xaff/agent.claude.xcf", "agent", "xaff"},
-		{"xcf/agents/xaff/agent.cursor.xcf", "agent", "xaff"},
-		{"xcf/agents/xaff/agent.gemini.xcf", "agent", "xaff"},
-		{"xcf/rules/cli/go-code-quality/rule.gemini.xcf", "rule", "cli/go-code-quality"},
-		{"xcf/skills/tdd/skill.claude.xcf", "skill", "tdd"},
+		// Provider overrides: <kind>/<name>/<kind>.<provider>.xcaf
+		{"xcaf/agents/xaff/agent.claude.xcaf", "agent", "xaff"},
+		{"xcaf/agents/xaff/agent.cursor.xcaf", "agent", "xaff"},
+		{"xcaf/agents/xaff/agent.gemini.xcaf", "agent", "xaff"},
+		{"xcaf/rules/cli/go-code-quality/rule.gemini.xcaf", "rule", "cli/go-code-quality"},
+		{"xcaf/skills/tdd/skill.claude.xcaf", "skill", "tdd"},
 
-		// Legacy format (backward compat): <kind>/<name>/<name>.xcf
-		{"xcf/skills/xcaffold/xcaffold.xcf", "skill", "xcaffold"},
-		{"xcf/rules/xcf-conventions/xcf-conventions.xcf", "rule", "xcf-conventions"},
-		{"xcf/agents/developer/developer.xcf", "agent", "developer"},
+		// Legacy format (backward compat): <kind>/<name>/<name>.xcaf
+		{"xcaf/skills/xcaffold/xcaffold.xcaf", "skill", "xcaffold"},
+		{"xcaf/rules/xcaf-conventions/xcaf-conventions.xcaf", "rule", "xcaf-conventions"},
+		{"xcaf/agents/developer/developer.xcaf", "agent", "developer"},
 
 		// Absolute path prefix (common in error messages and tests)
-		{"project-root/xcf/agents/dev/agent.xcf", "agent", "dev"},
-		{"home/user/xcf/rules/cli/style/rule.xcf", "rule", "cli/style"},
+		{"project-root/xcaf/agents/dev/agent.xcaf", "agent", "dev"},
+		{"home/user/xcaf/rules/cli/style/rule.xcaf", "rule", "cli/style"},
 
 		// Invalid cases: no match
-		{"some/other/path/file.xcf", "", ""},
-		{"xcf/unknown-dir/test/test.xcf", "", ""},
-		{"xcf/rules/rule.xcf", "", ""},
-		{"no-xcf-dir/agents/test/agent.xcf", "", ""},
-		{"notxcf/agents/test/agent.xcf", "", ""},
+		{"some/other/path/file.xcaf", "", ""},
+		{"xcaf/unknown-dir/test/test.xcaf", "", ""},
+		{"xcaf/rules/rule.xcaf", "", ""},
+		{"no-xcaf-dir/agents/test/agent.xcaf", "", ""},
+		{"notxcaf/agents/test/agent.xcaf", "", ""},
 	}
 
 	for _, tt := range tests {

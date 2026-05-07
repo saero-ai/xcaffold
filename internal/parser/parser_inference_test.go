@@ -11,7 +11,7 @@ import (
 
 // TestInferKindAndName_AgentPath tests the inferKindAndName helper function.
 func TestInferKindAndName_AgentPath(t *testing.T) {
-	filePath := "some/path/xcf/agents/developer/agent.xcf"
+	filePath := "some/path/xcaf/agents/developer/agent.xcaf"
 	kind, name := inferKindAndName(filePath)
 	assert.Equal(t, "agent", kind)
 	assert.Equal(t, "developer", name)
@@ -19,7 +19,7 @@ func TestInferKindAndName_AgentPath(t *testing.T) {
 
 // TestInferKindAndName_SkillPath tests skill inference.
 func TestInferKindAndName_SkillPath(t *testing.T) {
-	filePath := "xcf/skills/tdd/skill.xcf"
+	filePath := "xcaf/skills/tdd/skill.xcaf"
 	kind, name := inferKindAndName(filePath)
 	assert.Equal(t, "skill", kind)
 	assert.Equal(t, "tdd", name)
@@ -27,15 +27,15 @@ func TestInferKindAndName_SkillPath(t *testing.T) {
 
 // TestInferKindAndName_RulePath tests rule inference with allowed slash.
 func TestInferKindAndName_RulePath(t *testing.T) {
-	filePath := "xcf/rules/cli/rule.xcf"
+	filePath := "xcaf/rules/cli/rule.xcaf"
 	kind, name := inferKindAndName(filePath)
 	assert.Equal(t, "rule", kind)
 	assert.Equal(t, "cli", name)
 }
 
-// TestInferKindAndName_NoXcfDir tests that inference returns empty when xcf is not in path.
-func TestInferKindAndName_NoXcfDir(t *testing.T) {
-	filePath := "some/path/agents/developer/agent.xcf"
+// TestInferKindAndName_NoXcafDir tests that inference returns empty when xcaf is not in path.
+func TestInferKindAndName_NoXcafDir(t *testing.T) {
+	filePath := "some/path/agents/developer/agent.xcaf"
 	kind, name := inferKindAndName(filePath)
 	assert.Equal(t, "", kind)
 	assert.Equal(t, "", name)
@@ -43,7 +43,7 @@ func TestInferKindAndName_NoXcfDir(t *testing.T) {
 
 // TestInferKindAndName_InvalidKindDir tests that inference returns empty for unknown kinds.
 func TestInferKindAndName_InvalidKindDir(t *testing.T) {
-	filePath := "xcf/unknown-kind/something/file.xcf"
+	filePath := "xcaf/unknown-kind/something/file.xcaf"
 	kind, name := inferKindAndName(filePath)
 	assert.Equal(t, "", kind)
 	assert.Equal(t, "", name)
@@ -51,7 +51,7 @@ func TestInferKindAndName_InvalidKindDir(t *testing.T) {
 
 // TestInferKindAndName_TooShortPath tests that inference returns empty if path is too short.
 func TestInferKindAndName_TooShortPath(t *testing.T) {
-	filePath := "xcf/agents"
+	filePath := "xcaf/agents"
 	kind, name := inferKindAndName(filePath)
 	assert.Equal(t, "", kind)
 	assert.Equal(t, "", name)
@@ -61,18 +61,18 @@ func TestInferKindAndName_TooShortPath(t *testing.T) {
 // from filesystem when the YAML provides kind: but no name:.
 func TestParse_FilesystemInference_InfersNameWhenKindProvided(t *testing.T) {
 	dir := t.TempDir()
-	xcfDir := filepath.Join(dir, "xcf", "agents", "developer")
-	require.NoError(t, os.MkdirAll(xcfDir, 0755))
+	xcafDir := filepath.Join(dir, "xcaf", "agents", "developer")
+	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
 	// Agent file with kind: but NO name: — name should be inferred from path
 	content := "---\nkind: agent\nversion: \"1.0\"\nmodel: sonnet\n---\nYou are a developer.\n"
-	filePath := filepath.Join(xcfDir, "agent.xcf")
+	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err, "expected successful parse with inferred name")
 	agent, ok := cfg.Agents["developer"]
-	require.True(t, ok, "expected agent 'developer' inferred from path xcf/agents/developer/")
+	require.True(t, ok, "expected agent 'developer' inferred from path xcaf/agents/developer/")
 	assert.Equal(t, "sonnet", agent.Model)
 }
 
@@ -82,11 +82,11 @@ func TestParse_FilesystemInference_ValidatesInferredName(t *testing.T) {
 	dir := t.TempDir()
 	// Create directory structure with ".." - filesystem normalization may cause issues
 	// Instead, test a directory with an actual invalid name when inferred
-	xcfDir := filepath.Join(dir, "xcf", "agents", "..")
-	require.NoError(t, os.MkdirAll(xcfDir, 0755))
+	xcafDir := filepath.Join(dir, "xcaf", "agents", "..")
+	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
 	content := "---\nkind: agent\nversion: \"1.0\"\nmodel: sonnet\n---\n"
-	filePath := filepath.Join(xcfDir, "agent.xcf")
+	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
 	_, err := ParseDirectory(dir)
@@ -101,30 +101,30 @@ func TestParse_FilesystemInference_ValidatesInferredName(t *testing.T) {
 // only in rule IDs (and is interpreted as a path component).
 func TestParse_FilesystemInference_SlashExceptionScopedToRule(t *testing.T) {
 	dir := t.TempDir()
-	ruleDir := filepath.Join(dir, "xcf", "rules", "cli")
+	ruleDir := filepath.Join(dir, "xcaf", "rules", "cli")
 	require.NoError(t, os.MkdirAll(ruleDir, 0755))
 
 	// Rule with NO explicit name — should infer "cli" from directory
 	content := "---\nkind: rule\nversion: \"1.0\"\ndescription: Build the Go CLI\n---\nBuild instructions.\n"
-	filePath := filepath.Join(ruleDir, "build-go-cli.xcf")
+	filePath := filepath.Join(ruleDir, "build-go-cli.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err, "expected successful parse for rule with / in path")
 	_, ok := cfg.Rules["cli"]
-	require.True(t, ok, "expected rule 'cli' inferred from path xcf/rules/cli/")
+	require.True(t, ok, "expected rule 'cli' inferred from path xcaf/rules/cli/")
 }
 
 // TestParse_FilesystemInference_SkipsWhenExplicitName tests that explicit name in YAML
 // overrides filesystem inference.
 func TestParse_FilesystemInference_SkipsWhenExplicitName(t *testing.T) {
 	dir := t.TempDir()
-	xcfDir := filepath.Join(dir, "xcf", "agents", "developer")
-	require.NoError(t, os.MkdirAll(xcfDir, 0755))
+	xcafDir := filepath.Join(dir, "xcaf", "agents", "developer")
+	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
 	// Agent file with explicit name — should NOT infer
 	content := "---\nkind: agent\nversion: \"1.0\"\nname: explicit-name\nmodel: sonnet\n---\nYou are a developer.\n"
-	filePath := filepath.Join(xcfDir, "agent.xcf")
+	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
 	cfg, err := ParseDirectory(dir)
@@ -143,12 +143,12 @@ func TestParse_FilesystemInference_AllResourceKinds(t *testing.T) {
 		relPath    string
 		expectedID string
 	}{
-		{"agent", "xcf/agents/my-agent/agent.xcf", "my-agent"},
-		{"skill", "xcf/skills/my-skill/skill.xcf", "my-skill"},
-		{"rule", "xcf/rules/my-rule/rule.xcf", "my-rule"},
-		{"workflow", "xcf/workflows/my-workflow/workflow.xcf", "my-workflow"},
-		{"mcp", "xcf/mcp/my-mcp/mcp.xcf", "my-mcp"},
-		{"context", "xcf/context/my-context/context.xcf", "my-context"},
+		{"agent", "xcaf/agents/my-agent/agent.xcaf", "my-agent"},
+		{"skill", "xcaf/skills/my-skill/skill.xcaf", "my-skill"},
+		{"rule", "xcaf/rules/my-rule/rule.xcaf", "my-rule"},
+		{"workflow", "xcaf/workflows/my-workflow/workflow.xcaf", "my-workflow"},
+		{"mcp", "xcaf/mcp/my-mcp/mcp.xcaf", "my-mcp"},
+		{"context", "xcaf/context/my-context/context.xcaf", "my-context"},
 	}
 
 	for _, tc := range testCases {
@@ -193,12 +193,12 @@ func TestParse_FilesystemInference_AllResourceKinds(t *testing.T) {
 // The YAML values take precedence.
 func TestParse_FilesystemInference_WarnsOnMismatch(t *testing.T) {
 	dir := t.TempDir()
-	xcfDir := filepath.Join(dir, "xcf", "agents", "developer")
-	require.NoError(t, os.MkdirAll(xcfDir, 0755))
+	xcafDir := filepath.Join(dir, "xcaf", "agents", "developer")
+	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
 	// Agent file with explicit name that does NOT match directory
 	content := "---\nkind: agent\nversion: \"1.0\"\nname: reviewer\nmodel: sonnet\n---\nYou are a reviewer.\n"
-	filePath := filepath.Join(xcfDir, "agent.xcf")
+	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
 	cfg, err := ParseDirectory(dir)
@@ -212,33 +212,33 @@ func TestParse_FilesystemInference_WarnsOnMismatch(t *testing.T) {
 }
 
 // TestInferKindAndName_FlatSkillFile tests inferring name from a flat skill file (no subdirectory).
-// Path: xcf/skills/commit-changes.xcf
-// Expected: kind=skill, name=commit-changes (NOT commit-changes.xcf)
+// Path: xcaf/skills/commit-changes.xcaf
+// Expected: kind=skill, name=commit-changes (NOT commit-changes.xcaf)
 func TestInferKindAndName_FlatSkillFile(t *testing.T) {
-	filePath := "xcf/skills/commit-changes.xcf"
+	filePath := "xcaf/skills/commit-changes.xcaf"
 	kind, name := inferKindAndName(filePath)
 	assert.Equal(t, "skill", kind)
-	assert.Equal(t, "commit-changes", name, "expected .xcf extension to be stripped from filename")
+	assert.Equal(t, "commit-changes", name, "expected .xcaf extension to be stripped from filename")
 }
 
 // TestInferKindAndName_FlatRuleFile tests inferring name from a flat rule file.
-// Path: xcf/rules/secure-production-code.xcf
-// Expected: kind=rule, name=secure-production-code (NOT secure-production-code.xcf)
+// Path: xcaf/rules/secure-production-code.xcaf
+// Expected: kind=rule, name=secure-production-code (NOT secure-production-code.xcaf)
 func TestInferKindAndName_FlatRuleFile(t *testing.T) {
-	filePath := "xcf/rules/secure-production-code.xcf"
+	filePath := "xcaf/rules/secure-production-code.xcaf"
 	kind, name := inferKindAndName(filePath)
 	assert.Equal(t, "rule", kind)
-	assert.Equal(t, "secure-production-code", name, "expected .xcf extension to be stripped from filename")
+	assert.Equal(t, "secure-production-code", name, "expected .xcaf extension to be stripped from filename")
 }
 
 // TestInferKindAndName_FlatContextFile tests inferring name from a flat context file.
-// Path: xcf/context/main.xcf
-// Expected: kind=context, name=main (NOT main.xcf)
+// Path: xcaf/context/main.xcaf
+// Expected: kind=context, name=main (NOT main.xcaf)
 func TestInferKindAndName_FlatContextFile(t *testing.T) {
-	filePath := "xcf/context/main.xcf"
+	filePath := "xcaf/context/main.xcaf"
 	kind, name := inferKindAndName(filePath)
 	assert.Equal(t, "context", kind)
-	assert.Equal(t, "main", name, "expected .xcf extension to be stripped from filename")
+	assert.Equal(t, "main", name, "expected .xcaf extension to be stripped from filename")
 }
 
 // TestParse_NameMismatch_WarningCollected verifies that when a resource's declared name
@@ -246,12 +246,12 @@ func TestInferKindAndName_FlatContextFile(t *testing.T) {
 // rather than printed directly to stderr.
 func TestParse_NameMismatch_WarningCollected(t *testing.T) {
 	dir := t.TempDir()
-	xcfDir := filepath.Join(dir, "xcf", "agents", "developer")
-	require.NoError(t, os.MkdirAll(xcfDir, 0755))
+	xcafDir := filepath.Join(dir, "xcaf", "agents", "developer")
+	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
-	// Agent at xcf/agents/developer/ but declares name: reviewer (mismatch)
+	// Agent at xcaf/agents/developer/ but declares name: reviewer (mismatch)
 	content := "---\nkind: agent\nversion: \"1.0\"\nname: reviewer\nmodel: sonnet\n---\nYou are a reviewer.\n"
-	filePath := filepath.Join(xcfDir, "agent.xcf")
+	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
 	cfg, err := ParseDirectory(dir)

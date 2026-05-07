@@ -2,7 +2,7 @@
 # Agent Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
-# Copy fields from here into your xcf/agents/<name>/agent.xcf
+# Copy fields from here into your xcaf/agents/<name>/agent.xcaf
 # Field definitions follow the xcaffold schema specification.
 # ============================================================
 

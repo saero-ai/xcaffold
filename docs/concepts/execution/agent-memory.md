@@ -13,15 +13,15 @@ Unlike other elements of the configuration graph (Agents, Skills, Rules) which a
 
 ## The Core Mechanism
 
-Memory operates entirely via a convention-based directory structure (`xcf/agents/<agent-id>/memory/`). The compiler discovers plain `.md` files present in these directories at compile time rather than relying on the YAML parse tree. 
+Memory operates entirely via a convention-based directory structure (`xcaf/agents/<agent-id>/memory/`). The compiler discovers plain `.md` files present in these directories at compile time rather than relying on the YAML parse tree. 
 
 When you run `xcaffold apply`, the compiler aggregates these discovered `.md` files according to the capabilities of the target provider. 
 
 ```text
-xcf/
+xcaf/
   agents/
     backend-dev/
-      backend-dev.xcf           # Parsed agent resource
+      backend-dev.xcaf           # Parsed agent resource
       memory/                   # Discovered convention directory
         database-schema.md      # Memory entry
         api-patterns.md         # Memory entry
@@ -42,7 +42,7 @@ Native support (Claude Code) generates an auto-generated `MEMORY.md` index file 
 
 Memory was originally implemented as an AST resource (`kind: memory`) with explicit YAML metadata fields like `type` and `lifecycle`. We removed the parser-translation and migrated to a convention-based `.md` filesystem approach to eliminate format friction.
 
-**Why `.md` instead of `.xcf`?** 
+**Why `.md` instead of `.xcaf`?** 
 Memory content is fundamentally prose, not configuration. Wrapping memory inside YAML blocks created friction, serialization edge cases, and made it incompatible with native text-based subagent import/export operations. Dropping the parser requirement eliminated the entire class of translation bugs and provided zero-ceremony authoring.
 
 **Why no seed-once lifecycle?**
@@ -52,7 +52,7 @@ The `--reseed` flag and `seed-once` lifecycle exceptions were abandoned to unify
 
 ## Interaction with Other Concepts
 
-Memory binds directly to the **Compilation Targets** execution graph. Since it skips the parser and does not participate in constraint resolution or blueprint evaluation, memory propagation relies purely on the target provider's specific rendering engine and directory scanning behaviors. Memory entries interact heavily with **State and Drift Detection**, where `.xcaffold/project.xcf.state` tracks the SHA-256 hashes of compiled output specifically to prevent silent overwrites of provider-modified artifacts without throwing a drift error constraint.
+Memory binds directly to the **Compilation Targets** execution graph. Since it skips the parser and does not participate in constraint resolution or blueprint evaluation, memory propagation relies purely on the target provider's specific rendering engine and directory scanning behaviors. Memory entries interact heavily with **State and Drift Detection**, where `.xcaffold/project.xcaf.state` tracks the SHA-256 hashes of compiled output specifically to prevent silent overwrites of provider-modified artifacts without throwing a drift error constraint.
 
 ### Import Behavior
 
@@ -65,13 +65,13 @@ Memory discovery (`DiscoverAgentMemory`) runs after override merge and target fi
 - Override files can add or modify memory references before discovery runs.
 - Target-filtered agents still have their memory discovered — memory directories are not filtered by `targets:`.
 
-With filesystem-as-schema, memory directories can exist at `xcf/agents/<name>/memory/` without a corresponding `.xcf` agent file. The agent is inferred from the directory structure, and its memory is compiled normally.
+With filesystem-as-schema, memory directories can exist at `xcaf/agents/<name>/memory/` without a corresponding `.xcaf` agent file. The agent is inferred from the directory structure, and its memory is compiled normally.
 
 ### Global Agent Memory
 
 Global agents — agents defined at user scope (e.g., `~/.claude/agents/`) rather than project scope (`.claude/agents/`) — may use `memory: project` to write project-scoped memory. When these agents operate within a project, the provider creates memory entries in the project's agent-memory directory (e.g., `.claude/agent-memory/principal-architect/`).
 
-During import, xcaffold preserves this memory even though the agent definition is not present in the project's provider directory. The memory files are written to `xcf/agents/<agent-id>/memory/` without a corresponding `<agent-id>.xcf` file. The compiler's filesystem discovery does not require a `.xcf` file to discover memory — it scans all `xcf/agents/*/memory/` directories unconditionally.
+During import, xcaffold preserves this memory even though the agent definition is not present in the project's provider directory. The memory files are written to `xcaf/agents/<agent-id>/memory/` without a corresponding `<agent-id>.xcaf` file. The compiler's filesystem discovery does not require a `.xcaf` file to discover memory — it scans all `xcaf/agents/*/memory/` directories unconditionally.
 
 On `xcaffold apply`, the renderer writes these memory entries back to the provider's agent-memory directory, maintaining the round-trip contract:
 
@@ -80,7 +80,7 @@ On `xcaffold apply`, the renderer writes these memory entries back to the provid
        ↓ agent writes memory
 .claude/agent-memory/principal-architect/*.md
        ↓ xcaffold import
-xcf/agents/principal-architect/memory/*.md (no principal-architect.xcf needed)
+xcaf/agents/principal-architect/memory/*.md (no principal-architect.xcaf needed)
        ↓ xcaffold apply
 .claude/agent-memory/principal-architect/*.md (global agent can use it)
 ```

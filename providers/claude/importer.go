@@ -131,12 +131,12 @@ func (c *ClaudeImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 	}
 
 	// Cross-reference memory against known agents: warn if the parent agent is absent,
-	// but keep the entry so it can still be imported to xcf/agents/<id>/memory/.
+	// but keep the entry so it can still be imported to xcaf/agents/<id>/memory/.
 	for memPath := range config.Memory {
 		agentID := strings.SplitN(memPath, "/", 2)[0]
 		if len(config.Agents) > 0 {
 			if _, ok := config.Agents[agentID]; !ok {
-				c.AppendWarning(fmt.Sprintf("memory for agent %q has no matching agent definition; will import to xcf/agents/%s/memory/", agentID, agentID))
+				c.AppendWarning(fmt.Sprintf("memory for agent %q has no matching agent definition; will import to xcaf/agents/%s/memory/", agentID, agentID))
 			}
 		}
 	}

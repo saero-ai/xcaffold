@@ -38,15 +38,15 @@ var (
 
 var importCmd = &cobra.Command{
 	Use:   "import",
-	Short: "Import existing provider config into project.xcf",
+	Short: "Import existing provider config into project.xcaf",
 	Long: `xcaffold import adopts existing provider configurations into xcaffold.
 
 Detection (Default):
- • Scans .claude/agents/*.md   → extracts to xcf/agents/<id>.md
- • Scans .claude/skills/*/SKILL.md → extracts to xcf/skills/<id>/SKILL.md
- • Scans .claude/rules/*.md    → extracts to xcf/rules/<id>.md
+ • Scans .claude/agents/*.md   → extracts to xcaf/agents/<id>.md
+ • Scans .claude/skills/*/SKILL.md → extracts to xcaf/skills/<id>/SKILL.md
+ • Scans .claude/rules/*.md    → extracts to xcaf/rules/<id>.md
  • Reads .claude/settings.json for MCP and settings context
- • Generates project.xcf manifest referencing discovered resources
+ • Generates project.xcaf manifest referencing discovered resources
 
 Usage:
   $ xcaffold import
@@ -240,9 +240,9 @@ func runImport(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("no global platform directories found (~/.claude/, ~/.cursor/, ~/.agents/)")
 		}
 		if len(globalDetected) > 1 {
-			return mergeImportDirs(globalDetected, globalXcfPath)
+			return mergeImportDirs(globalDetected, globalXcafPath)
 		}
-		return importScope(globalDetected[0].InputDir(), globalXcfPath, "global", globalDetected[0].Provider())
+		return importScope(globalDetected[0].InputDir(), globalXcafPath, "global", globalDetected[0].Provider())
 	}
 
 	// Validate --target if set
@@ -269,25 +269,25 @@ func runImport(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(detected) > 1 {
-		return mergeImportDirs(detected, "project.xcf")
+		return mergeImportDirs(detected, "project.xcaf")
 	}
 	if len(detected) == 1 {
 		imp := detected[0]
-		return importScope(imp.InputDir(), "project.xcf", "project", imp.Provider())
+		return importScope(imp.InputDir(), "project.xcaf", "project", imp.Provider())
 	}
 
 	return fmt.Errorf("no supported AI provider configuration found in current directory. Supported providers: Claude Code, Gemini CLI, Cursor, GitHub Copilot, Antigravity")
 }
 
-// importScope scans a platform directory and writes a xcf file to xcfDest.
+// importScope scans a platform directory and writes a xcaf file to xcafDest.
 // provider selects provider-specific extraction logic for settings, MCP,
 // hooks, project-instruction files, and memory. The provider name must match
 // a registered provider (see providers.RegisteredNames()).
-func importScope(platformDir, xcfDest, scopeName, provider string) error {
-	if _, err := os.Stat(xcfDest); err == nil {
-		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcfDest)
+func importScope(platformDir, xcafDest, scopeName, provider string) error {
+	if _, err := os.Stat(xcafDest); err == nil {
+		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcafDest)
 	}
-	if err := checkXcfDirPreexistence(".", scopeName); err != nil {
+	if err := checkXcafDirPreexistence(".", scopeName); err != nil {
 		return err
 	}
 
@@ -333,7 +333,7 @@ func importScope(platformDir, xcfDest, scopeName, provider string) error {
 		config.Project.Targets = detectTargets(platformDir)
 	}
 
-	return finalizeImportScope(xcfDest, scopeName, provider, config, &warnings)
+	return finalizeImportScope(xcafDest, scopeName, provider, config, &warnings)
 }
 
 // importSettings parses settings.json and populates MCP, rules, and settings.
@@ -433,20 +433,20 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 }
 
 // extractSkillSubdirs scans the skill directory for known canonical and
-// provider-native subdirectories, copies their files to xcf/skills/<id>/,
+// provider-native subdirectories, copies their files to xcaf/skills/<id>/,
 // and returns slices of copied paths grouped by canonical category.
 //
 // manifest provides the provider's SubdirMap; if nil, all subdirectory files
 // are routed to passthrough.
 //
-// outDir is the base directory for output paths (xcf/skills/<id>/...).  When
+// outDir is the base directory for output paths (xcaf/skills/<id>/...).  When
 // empty, the current working directory is used.
 //
 // For providers with SkillMDAsReference=true, any .md file alongside SKILL.md
 // (not in a subdirectory) is treated as a reference.
 //
 // Files from subdirectories that have no canonical mapping are copied to
-// xcf/skills/<id>/<subdir>/ alongside canonical subdirectories.
+// xcaf/skills/<id>/<subdir>/ alongside canonical subdirectories.
 //
 // The discoveredDirs slice contains all discovered subdirectory names (both
 // canonical and custom) in the skill directory, suitable for populating
@@ -476,14 +476,14 @@ func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderMa
 
 	// Helper: copy a file and append to the appropriate slice.
 	appendCopied := func(src, canonicalSubdir, filename string) {
-		// The xcf-relative path is always outDir-agnostic — it is what gets
+		// The xcaf-relative path is always outDir-agnostic — it is what gets
 		// stored in AST SkillConfig fields (References, Scripts, Assets, Examples).
-		xcfRelPath := filepath.ToSlash(filepath.Join("xcf", "skills", id, canonicalSubdir, filename))
+		xcafRelPath := filepath.ToSlash(filepath.Join("xcaf", "skills", id, canonicalSubdir, filename))
 		var dest string
 		if base != "" {
-			dest = filepath.Join(base, "xcf", "skills", id, canonicalSubdir, filename)
+			dest = filepath.Join(base, "xcaf", "skills", id, canonicalSubdir, filename)
 		} else {
-			dest = filepath.Join("xcf", "skills", id, canonicalSubdir, filename)
+			dest = filepath.Join("xcaf", "skills", id, canonicalSubdir, filename)
 		}
 		if copyErr := copyFile(src, dest); copyErr != nil {
 			*warnings = append(*warnings, fmt.Sprintf("failed to copy skill file %s: %v", src, copyErr))
@@ -491,13 +491,13 @@ func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderMa
 		}
 		switch canonicalSubdir {
 		case "references":
-			refs = append(refs, xcfRelPath)
+			refs = append(refs, xcafRelPath)
 		case "scripts":
-			scripts = append(scripts, xcfRelPath)
+			scripts = append(scripts, xcafRelPath)
 		case "assets":
-			assets = append(assets, xcfRelPath)
+			assets = append(assets, xcafRelPath)
 		case "examples":
-			examples = append(examples, xcfRelPath)
+			examples = append(examples, xcafRelPath)
 		}
 	}
 
@@ -505,9 +505,9 @@ func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderMa
 	appendPassthrough := func(src, subdir, filename string) {
 		var dest string
 		if base != "" {
-			dest = filepath.Join(base, "xcf", "skills", id, subdir, filename)
+			dest = filepath.Join(base, "xcaf", "skills", id, subdir, filename)
 		} else {
-			dest = filepath.Join("xcf", "skills", id, subdir, filename)
+			dest = filepath.Join("xcaf", "skills", id, subdir, filename)
 		}
 		if copyErr := copyFile(src, dest); copyErr != nil {
 			*warnings = append(*warnings, fmt.Sprintf("failed to copy skill file %s: %v", src, copyErr))
@@ -604,7 +604,7 @@ func detectTargets(baseDirs ...string) []string {
 }
 
 // finalizeImportScope handles memory file writing, resource tagging, filtering, and success messages.
-func finalizeImportScope(xcfDest, scopeName, provider string, config *ast.XcaffoldConfig, warnings *[]string) error {
+func finalizeImportScope(xcafDest, scopeName, provider string, config *ast.XcaffoldConfig, warnings *[]string) error {
 	tagResourcesWithProvider(config, provider)
 	applyKindFilters(config)
 
@@ -612,18 +612,18 @@ func finalizeImportScope(xcfDest, scopeName, provider string, config *ast.Xcaffo
 		fmt.Printf("Import plan (dry-run):\n")
 		fmt.Printf("  Would create %d agents, %d skills, %d rules, %d workflows, %d MCP servers\n",
 			len(config.Agents), len(config.Skills), len(config.Rules), len(config.Workflows), len(config.MCP))
-		fmt.Printf("  Target directory: %s\n", xcfDest)
+		fmt.Printf("  Target directory: %s\n", xcafDest)
 		return nil
 	}
 
 	if err := WriteSplitFiles(config, "."); err != nil {
-		return fmt.Errorf("[%s] failed to write split xcf files: %w", scopeName, err)
+		return fmt.Errorf("[%s] failed to write split xcaf files: %w", scopeName, err)
 	}
 
 	importCount := len(config.Agents) + len(config.Skills) + len(config.Rules) +
 		len(config.Workflows) + len(config.MCP)
-	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcfDest, importCount)
-	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
+	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcafDest, importCount)
+	fmt.Printf("  Split xcaf/ files written to xcaf/ directory.\n")
 	fmt.Printf("  Resources tagged with targets: [%s]. Remove the targets field to make universal.\n", provider)
 	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
 
@@ -764,15 +764,15 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 	return providerConfigs
 }
 
-// mergeImportDirs consolidates multiple platform directories into a single project.xcf.
+// mergeImportDirs consolidates multiple platform directories into a single project.xcaf.
 // Resources present in multiple providers are compared field-by-field: identical content
 // produces a universal base tagged with all providers; different content produces a base
 // with the first provider's values plus per-provider override files.
-func mergeImportDirs(providers []importer.ProviderImporter, xcfDest string) error {
-	if _, err := os.Stat(xcfDest); err == nil {
-		return fmt.Errorf("[project] %s already exists. Remove it first to import", xcfDest)
+func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) error {
+	if _, err := os.Stat(xcafDest); err == nil {
+		return fmt.Errorf("[project] %s already exists. Remove it first to import", xcafDest)
 	}
-	if err := checkXcfDirPreexistence(".", "project"); err != nil {
+	if err := checkXcafDirPreexistence(".", "project"); err != nil {
 		return err
 	}
 
@@ -819,13 +819,13 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcfDest string) erro
 	if memCount, err := writeMemoryFiles(config); err != nil {
 		return fmt.Errorf("write memory files: %w", err)
 	} else if memCount > 0 {
-		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
+		fmt.Printf("  Agent memory: %d entry(ies) → xcaf/agents/<id>/memory/\n", memCount)
 	}
 
 	discoverRootContextFiles(".", config)
 
 	if err := WriteSplitFiles(config, "."); err != nil {
-		return fmt.Errorf("[project] failed to write split xcf files: %w", err)
+		return fmt.Errorf("[project] failed to write split xcaf files: %w", err)
 	}
 
 	if err := pruneOrphanMemory(config, "."); err != nil {
@@ -850,8 +850,8 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcfDest string) erro
 		}
 	}
 	fmt.Printf("\n[project] ✓ Import complete. Created %s with %d resources from %d directories.\n",
-		xcfDest, importCount, len(providers))
-	fmt.Printf("  Split xcf/ files written to xcf/ directory.\n")
+		xcafDest, importCount, len(providers))
+	fmt.Printf("  Split xcaf/ files written to xcaf/ directory.\n")
 	fmt.Printf("  Resources tagged with targets: [%s].\n", strings.Join(sortedProviderNames(providers), ", "))
 	if overrideCount > 0 {
 		fmt.Printf("  %d conflicts detected — override files created. Run 'xcaffold validate' to review.\n", overrideCount)
@@ -872,12 +872,12 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcfDest string) erro
 	return nil
 }
 
-// checkXcfDirPreexistence returns an error if a xcf/ directory already exists
-// adjacent to xcfDest. Callers must remove it before re-importing.
-func checkXcfDirPreexistence(xcfDest, scopeName string) error {
-	xcfSourceDir := filepath.Join(filepath.Dir(xcfDest), "xcf")
-	if _, err := os.Stat(xcfSourceDir); err == nil {
-		return fmt.Errorf("[%s] xcf/ directory already exists. Remove it first to re-import", scopeName)
+// checkXcafDirPreexistence returns an error if a xcaf/ directory already exists
+// adjacent to xcafDest. Callers must remove it before re-importing.
+func checkXcafDirPreexistence(xcafDest, scopeName string) error {
+	xcafSourceDir := filepath.Join(filepath.Dir(xcafDest), "xcaf")
+	if _, err := os.Stat(xcafSourceDir); err == nil {
+		return fmt.Errorf("[%s] xcaf/ directory already exists. Remove it first to re-import", scopeName)
 	}
 	return nil
 }
@@ -927,14 +927,14 @@ func findImporterByProvider(provider string) importer.ProviderImporter {
 	return nil
 }
 
-// pruneOrphanMemory removes xcf/agents/<id>/memory/ directories for agents
+// pruneOrphanMemory removes xcaf/agents/<id>/memory/ directories for agents
 // that are not present in the current import scope. Agents referenced only via
 // config.Memory (e.g. global agents whose project-scoped memory was imported)
 // are preserved even when they have no entry in config.Agents.
-// After pruning, any now-empty agent directory (no .xcf file, no memory/) is
+// After pruning, any now-empty agent directory (no .xcaf file, no memory/) is
 // also removed.
 func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
-	agentsDir := filepath.Join(rootDir, "xcf", "agents")
+	agentsDir := filepath.Join(rootDir, "xcaf", "agents")
 	// If agentsDir doesn't exist, nothing to prune.
 	if _, err := os.Stat(agentsDir); os.IsNotExist(err) {
 		return nil
@@ -981,7 +981,7 @@ func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
 		}
 	}
 
-	// Remove any agent directories that are now empty (no .xcf file and no
+	// Remove any agent directories that are now empty (no .xcaf file and no
 	// memory/ subdirectory). These are artifacts left when the memory dir was
 	// pruned above or was never populated.
 	entries, err = os.ReadDir(agentsDir)
@@ -1010,7 +1010,7 @@ func runPostImportSteps(config *ast.XcaffoldConfig, projectDir string, injectToo
 	if memCount, err := writeMemoryFiles(config); err != nil {
 		return fmt.Errorf("write memory: %w", err)
 	} else if memCount > 0 {
-		fmt.Printf("  Agent memory: %d entry(ies) → xcf/agents/<id>/memory/\n", memCount)
+		fmt.Printf("  Agent memory: %d entry(ies) → xcaf/agents/<id>/memory/\n", memCount)
 	}
 
 	discoverRootContextFiles(projectDir, config)
@@ -1028,7 +1028,7 @@ func runPostImportSteps(config *ast.XcaffoldConfig, projectDir string, injectToo
 }
 
 // writeMemoryFiles writes each memory entry in config to a plain .md file under
-// xcf/agents/<agentID>/memory/<name>.md, mirroring the convention the compiler
+// xcaf/agents/<agentID>/memory/<name>.md, mirroring the convention the compiler
 // uses to discover memory at build time. Returns the number of files written.
 func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
 	if len(config.Memory) == 0 {
@@ -1049,7 +1049,7 @@ func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
 			}
 			memName = k
 		}
-		outPath := filepath.Join("xcf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
+		outPath := filepath.Join("xcaf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
 		if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
 			return count, fmt.Errorf("create memory dir: %w", err)
 		}

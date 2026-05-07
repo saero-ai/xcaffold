@@ -13,12 +13,12 @@ import (
 	"github.com/saero-ai/xcaffold/pkg/schema"
 )
 
-// TestParseMarkers_Optional verifies that +xcf:optional marker sets Optional=true
+// TestParseMarkers_Optional verifies that +xcaf:optional marker sets Optional=true
 func TestParseMarkers_Optional(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
 			{Text: "// Some description"},
-			{Text: "// +xcf:optional"},
+			{Text: "// +xcaf:optional"},
 		},
 	}
 
@@ -29,12 +29,12 @@ func TestParseMarkers_Optional(t *testing.T) {
 	}
 }
 
-// TestParseMarkers_Required verifies that +xcf:required marker sets Required=true
+// TestParseMarkers_Required verifies that +xcaf:required marker sets Required=true
 func TestParseMarkers_Required(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
 			{Text: "// Some description"},
-			{Text: "// +xcf:required"},
+			{Text: "// +xcaf:required"},
 		},
 	}
 
@@ -45,12 +45,12 @@ func TestParseMarkers_Required(t *testing.T) {
 	}
 }
 
-// TestParseMarkers_Group verifies that +xcf:group=X marker sets Group correctly
+// TestParseMarkers_Group verifies that +xcaf:group=X marker sets Group correctly
 func TestParseMarkers_Group(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
 			{Text: "// Configuration group"},
-			{Text: "// +xcf:group=Identity"},
+			{Text: "// +xcaf:group=Identity"},
 		},
 	}
 
@@ -61,12 +61,12 @@ func TestParseMarkers_Group(t *testing.T) {
 	}
 }
 
-// TestParseMarkers_Enum verifies that +xcf:enum=a,b,c parses enum values
+// TestParseMarkers_Enum verifies that +xcaf:enum=a,b,c parses enum values
 func TestParseMarkers_Enum(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
 			{Text: "// Model identifier"},
-			{Text: "// +xcf:enum=sonnet,opus,haiku"},
+			{Text: "// +xcaf:enum=sonnet,opus,haiku"},
 		},
 	}
 
@@ -78,12 +78,12 @@ func TestParseMarkers_Enum(t *testing.T) {
 	}
 }
 
-// TestParseMarkers_Provider verifies that +xcf:provider=provider:behavior parses provider map
+// TestParseMarkers_Provider verifies that +xcaf:provider=provider:behavior parses provider map
 func TestParseMarkers_Provider(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
 			{Text: "// Provider behavior"},
-			{Text: "// +xcf:provider=cursor:ignored,gemini:pass-through"},
+			{Text: "// +xcaf:provider=cursor:ignored,gemini:pass-through"},
 		},
 	}
 
@@ -103,10 +103,10 @@ func TestParseMarkers_Combined(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
 			{Text: "// Field description"},
-			{Text: "// +xcf:optional"},
-			{Text: "// +xcf:group=Configuration"},
-			{Text: "// +xcf:enum=value1,value2"},
-			{Text: "// +xcf:provider=claude:ignored"},
+			{Text: "// +xcaf:optional"},
+			{Text: "// +xcaf:group=Configuration"},
+			{Text: "// +xcaf:enum=value1,value2"},
+			{Text: "// +xcaf:provider=claude:ignored"},
 		},
 	}
 
@@ -131,7 +131,7 @@ func TestExtractDescription(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
 			{Text: "// This is a description"},
-			{Text: "// +xcf:optional"},
+			{Text: "// +xcaf:optional"},
 			{Text: "// More description"},
 		},
 	}
@@ -273,8 +273,8 @@ func TestTypeString_Nested(t *testing.T) {
 	}
 }
 
-// TestMapToXCFType uses table-driven tests for Go-to-XCF type mapping
-func TestMapToXCFType(t *testing.T) {
+// TestMapToXCAFType uses table-driven tests for Go-to-XCAF type mapping
+func TestMapToXCAFType(t *testing.T) {
 	tests := []struct {
 		goType   string
 		expected string
@@ -294,7 +294,7 @@ func TestMapToXCFType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.goType, func(t *testing.T) {
-			result := mapToXCFType(tt.goType)
+			result := mapToXCAFType(tt.goType)
 			if result != tt.expected {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}
@@ -341,7 +341,7 @@ type AgentConfig struct {
 	}
 }
 
-// TestValidateMarkers_MissingOptionalRequired verifies violation when field lacks +xcf:optional/required
+// TestValidateMarkers_MissingOptionalRequired verifies violation when field lacks +xcaf:optional/required
 func TestValidateMarkers_MissingOptionalRequired(t *testing.T) {
 	src := `
 package ast
@@ -367,24 +367,24 @@ type SkillConfig struct {
 
 	foundViolation := false
 	for _, v := range violations {
-		if strings.Contains(v, "missing +xcf:optional or +xcf:required") {
+		if strings.Contains(v, "missing +xcaf:optional or +xcaf:required") {
 			foundViolation = true
 			break
 		}
 	}
 	if !foundViolation {
-		t.Errorf("Expected violation about missing +xcf:optional or +xcf:required, got: %v", violations)
+		t.Errorf("Expected violation about missing +xcaf:optional or +xcaf:required, got: %v", violations)
 	}
 }
 
-// TestValidateMarkers_MissingGroup verifies violation when field lacks +xcf:group
+// TestValidateMarkers_MissingGroup verifies violation when field lacks +xcaf:group
 func TestValidateMarkers_MissingGroup(t *testing.T) {
 	src := `
 package ast
 
 type RuleConfig struct {
 	// A description field
-	// +xcf:optional
+	// +xcaf:optional
 	Name string
 }
 `
@@ -404,13 +404,13 @@ type RuleConfig struct {
 
 	foundViolation := false
 	for _, v := range violations {
-		if strings.Contains(v, "missing +xcf:group") {
+		if strings.Contains(v, "missing +xcaf:group") {
 			foundViolation = true
 			break
 		}
 	}
 	if !foundViolation {
-		t.Errorf("Expected violation about missing +xcf:group, got: %v", violations)
+		t.Errorf("Expected violation about missing +xcaf:group, got: %v", violations)
 	}
 }
 
@@ -421,8 +421,8 @@ package ast
 
 type WorkflowConfig struct {
 	// Identifies the workflow name
-	// +xcf:optional
-	// +xcf:group=Metadata
+	// +xcaf:optional
+	// +xcaf:group=Metadata
 	Name string
 }
 `
@@ -481,8 +481,8 @@ package ast
 
 type MCPConfig struct {
 	// The MCP server name
-	// +xcf:required
-	// +xcf:group=Metadata
+	// +xcaf:required
+	// +xcaf:group=Metadata
 	Name string ` + "`yaml:\"name\"`" + `
 }
 `
@@ -536,13 +536,13 @@ package ast
 
 type PolicyConfig struct {
 	// Should be included
-	// +xcf:optional
-	// +xcf:group=Core
+	// +xcaf:optional
+	// +xcaf:group=Core
 	Name string ` + "`yaml:\"name\"`" + `
 
 	// Should be skipped
-	// +xcf:optional
-	// +xcf:group=Internal
+	// +xcaf:optional
+	// +xcaf:group=Internal
 	Internal string ` + "`yaml:\"-\"`" + `
 }
 `
@@ -607,12 +607,12 @@ func TestParseMarkers_NilComment(t *testing.T) {
 	}
 }
 
-// TestParseMarkers_FieldType verifies +xcf:type=CustomType marker parsing
+// TestParseMarkers_FieldType verifies +xcaf:type=CustomType marker parsing
 func TestParseMarkers_FieldType(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
 			{Text: "// Custom field type"},
-			{Text: "// +xcf:type=FlexStringSlice"},
+			{Text: "// +xcaf:type=FlexStringSlice"},
 		},
 	}
 
@@ -627,8 +627,8 @@ func TestParseMarkers_FieldType(t *testing.T) {
 func TestExtractDescription_EmptyComment(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
-			{Text: "// +xcf:optional"},
-			{Text: "// +xcf:group=Test"},
+			{Text: "// +xcaf:optional"},
+			{Text: "// +xcaf:group=Test"},
 		},
 	}
 
@@ -691,8 +691,8 @@ func TestParseMarkers_WhitespaceHandling(t *testing.T) {
 	comment := &ast.CommentGroup{
 		List: []*ast.Comment{
 			{Text: "//   Description with spaces   "},
-			{Text: "//   +xcf:optional   "},
-			{Text: "// +xcf:group=   Test   "},
+			{Text: "//   +xcaf:optional   "},
+			{Text: "// +xcaf:group=   Test   "},
 		},
 	}
 
@@ -1260,11 +1260,11 @@ func TestGenSchema_GeneratesPresenceExtractors(t *testing.T) {
 	}
 }
 
-// TestParseMarkers_Role_Single verifies that +xcf:role=rendering marker sets Role correctly
+// TestParseMarkers_Role_Single verifies that +xcaf:role=rendering marker sets Role correctly
 func TestParseMarkers_Role_Single(t *testing.T) {
 	comments := &ast.CommentGroup{
 		List: []*ast.Comment{
-			{Text: "// +xcf:role=rendering"},
+			{Text: "// +xcaf:role=rendering"},
 		},
 	}
 	result := parseMarkers(comments)
@@ -1273,11 +1273,11 @@ func TestParseMarkers_Role_Single(t *testing.T) {
 	}
 }
 
-// TestParseMarkers_Role_Multiple verifies that +xcf:role=a,b,c parses multiple roles
+// TestParseMarkers_Role_Multiple verifies that +xcaf:role=a,b,c parses multiple roles
 func TestParseMarkers_Role_Multiple(t *testing.T) {
 	comments := &ast.CommentGroup{
 		List: []*ast.Comment{
-			{Text: "// +xcf:role=composition,rendering"},
+			{Text: "// +xcaf:role=composition,rendering"},
 		},
 	}
 	result := parseMarkers(comments)
@@ -1291,7 +1291,7 @@ func TestParseMarkers_Role_Multiple(t *testing.T) {
 func TestParseMarkers_Role_WithSpaces(t *testing.T) {
 	comments := &ast.CommentGroup{
 		List: []*ast.Comment{
-			{Text: "// +xcf:role=composition, rendering, identity"},
+			{Text: "// +xcaf:role=composition, rendering, identity"},
 		},
 	}
 	result := parseMarkers(comments)
@@ -1305,9 +1305,9 @@ func TestParseMarkers_Role_WithSpaces(t *testing.T) {
 func TestParseMarkers_Role_MultipleLines(t *testing.T) {
 	comments := &ast.CommentGroup{
 		List: []*ast.Comment{
-			{Text: "// +xcf:optional"},
-			{Text: "// +xcf:role=rendering"},
-			{Text: "// +xcf:group=Model"},
+			{Text: "// +xcaf:optional"},
+			{Text: "// +xcaf:role=rendering"},
+			{Text: "// +xcaf:group=Model"},
 		},
 	}
 	result := parseMarkers(comments)

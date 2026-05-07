@@ -52,8 +52,8 @@ func TestSkillConfig_FieldCount_OverrideScoringGuard(t *testing.T) {
 // round-trip with all values intact.
 func TestSkillConfig_Examples_RoundTrip(t *testing.T) {
 	input := `examples:
-- xcf/skills/tdd/examples/basic.xcf
-- xcf/skills/tdd/examples/advanced.xcf
+- xcaf/skills/tdd/examples/basic.xcaf
+- xcaf/skills/tdd/examples/advanced.xcaf
 `
 	var sc SkillConfig
 	dec := yaml.NewDecoder(strings.NewReader(input))
@@ -61,8 +61,8 @@ func TestSkillConfig_Examples_RoundTrip(t *testing.T) {
 	require.NoError(t, dec.Decode(&sc), "examples: must be a known field on SkillConfig")
 
 	require.Len(t, sc.Examples.Values, 2)
-	require.Equal(t, "xcf/skills/tdd/examples/basic.xcf", sc.Examples.Values[0])
-	require.Equal(t, "xcf/skills/tdd/examples/advanced.xcf", sc.Examples.Values[1])
+	require.Equal(t, "xcaf/skills/tdd/examples/basic.xcaf", sc.Examples.Values[0])
+	require.Equal(t, "xcaf/skills/tdd/examples/advanced.xcaf", sc.Examples.Values[1])
 
 	data, err := yaml.Marshal(sc)
 	require.NoError(t, err)

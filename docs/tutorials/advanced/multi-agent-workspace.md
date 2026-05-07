@@ -7,10 +7,10 @@ description: "Configure differentiated agents with distinct permissions, shared 
 
 This tutorial walks through configuring a team of differentiated AI agents. You will define two agents with distinct tool permissions, attach shared rules and skills, validate the workspace, visualize the topology, audit security field behavior across targets, and inspect the compiled output.
 
-xcaffold uses a split-file layout: `project.xcf` (kind: project) at the root and individual `.xcf` files under `xcf/` for each resource. Body-bearing kinds (`agent`, `skill`, `rule`) use frontmatter format; structural kinds (`project`, `settings`, `hooks`, `policy`) use pure YAML.
+xcaffold uses a split-file layout: `project.xcaf` (kind: project) at the root and individual `.xcaf` files under `xcaf/` for each resource. Body-bearing kinds (`agent`, `skill`, `rule`) use frontmatter format; structural kinds (`project`, `settings`, `hooks`, `policy`) use pure YAML.
 
 **Time to complete:** ~15 minutes
-**Prerequisites:** Completed the Getting Started tutorial. A fresh project directory with no existing `project.xcf`.
+**Prerequisites:** Completed the Getting Started tutorial. A fresh project directory with no existing `project.xcaf`.
 
 ---
 
@@ -32,7 +32,7 @@ The `agents:` map uses each key as both the agent's internal ID and its output f
 
 Start with the first agent only. Create two files:
 
-`project.xcf`:
+`project.xcaf`:
 
 ```yaml
 kind: project
@@ -42,7 +42,7 @@ targets:
   - claude
 ```
 
-`xcf/agents/frontend-dev/agent.xcf`:
+`xcaf/agents/frontend-dev/agent.xcaf`:
 
 ```
 ---
@@ -76,15 +76,15 @@ validation passed
 
 ## Step 2 — Build the shared library
 
-Rules and skills are defined in their own `.xcf` files as top-level resources (`kind: rule`, `kind: skill`). They form a shared library that agents reference by ID. They are compiled into separate files under `.claude/rules/` and `.claude/skills/` respectively.
+Rules and skills are defined in their own `.xcaf` files as top-level resources (`kind: rule`, `kind: skill`). They form a shared library that agents reference by ID. They are compiled into separate files under `.claude/rules/` and `.claude/skills/` respectively.
 
 **Rules** enforce behavioral constraints. A rule with `paths:` activates only when the agent reads or writes matching file patterns. A rule with `always-apply: true` is injected regardless of context.
 
 **Skills** are reusable prompt packages. They are compiled to `.claude/skills/<id>/SKILL.md` and loaded when an agent invokes them.
 
-Add the second agent, then define the shared library. Each resource is its own file under `xcf/`:
+Add the second agent, then define the shared library. Each resource is its own file under `xcaf/`:
 
-`project.xcf`:
+`project.xcaf`:
 
 ```yaml
 kind: project
@@ -94,7 +94,7 @@ targets:
   - claude
 ```
 
-`xcf/agents/frontend-dev/agent.xcf`:
+`xcaf/agents/frontend-dev/agent.xcaf`:
 
 ```
 ---
@@ -112,7 +112,7 @@ You write React components and TypeScript.
 Do not modify backend code.
 ```
 
-`xcf/agents/security-reviewer/agent.xcf`:
+`xcaf/agents/security-reviewer/agent.xcaf`:
 
 ```
 ---
@@ -130,7 +130,7 @@ You review code for security vulnerabilities.
 Never modify files. Only read and report.
 ```
 
-`xcf/rules/frontend-only/rule.xcf`:
+`xcaf/rules/frontend-only/rule.xcaf`:
 
 ```
 ---
@@ -142,7 +142,7 @@ paths: ["src/components/**", "src/pages/**"]
 Only modify files in src/components/ and src/pages/.
 ```
 
-`xcf/rules/security-review-protocol/rule.xcf`:
+`xcaf/rules/security-review-protocol/rule.xcaf`:
 
 ```
 ---
@@ -155,7 +155,7 @@ Always output a structured JSON report.
 [CRITICAL], [HIGH], [MEDIUM], [LOW] severity must be explicitly labeled.
 ```
 
-`xcf/skills/component-patterns/skill.xcf`:
+`xcaf/skills/component-patterns/skill.xcaf`:
 
 ```
 ---
@@ -170,7 +170,7 @@ instructions-file: "skills/component-patterns/SKILL.md"
 Key points:
 - `disallowed-tools` (lowercase `d`) is the YAML key. It corresponds to the `DisallowedTools` field in the Go AST.
 - `skills:` and `rules:` on each agent are lists of IDs — the compiler resolves them from the top-level library of `kind: skill` and `kind: rule` documents.
-- The `component-patterns` skill references `instructions-file:`. That file must exist on disk relative to `project.xcf` before you run `apply`.
+- The `component-patterns` skill references `instructions-file:`. That file must exist on disk relative to `project.xcaf` before you run `apply`.
 
 ### Layout reference
 
@@ -178,24 +178,24 @@ The directory layout for this workspace:
 
 ```
 my-team/
-  project.xcf                      # kind: project — metadata only
-  xcf/
+  project.xcaf                      # kind: project — metadata only
+  xcaf/
     agents/
       frontend-dev/
-        agent.xcf                  # kind: agent
+        agent.xcaf                  # kind: agent
       security-reviewer/
-        agent.xcf                  # kind: agent
+        agent.xcaf                  # kind: agent
     rules/
       frontend-only/
-        rule.xcf                   # kind: rule
+        rule.xcaf                   # kind: rule
       security-review-protocol/
-        rule.xcf                   # kind: rule
+        rule.xcaf                   # kind: rule
     skills/
       component-patterns/
-        skill.xcf                  # kind: skill
+        skill.xcaf                  # kind: skill
 ```
 
-`ParseDirectory` discovers all `.xcf` files recursively, parses each one, and merges the results into a single AST before compilation. The parser uses file discovery to find resources — no explicit ref lists needed in `project.xcf`.
+`ParseDirectory` discovers all `.xcaf` files recursively, parses each one, and merges the results into a single AST before compilation. The parser uses file discovery to find resources — no explicit ref lists needed in `project.xcaf`.
 
 See [Organizing Project Resources](../how-to/multi-file-projects.md) for best practices on directory organization as projects grow.
 
@@ -219,7 +219,7 @@ syntax and cross-references: ok
 validation passed
 ```
 
-Now add a rule that has no `paths:`, no `always-apply: true`, and is not referenced by any agent, to see what a structural warning looks like. Create `xcf/rules/orphan-rule/rule.xcf`:
+Now add a rule that has no `paths:`, no `always-apply: true`, and is not referenced by any agent, to see what a structural warning looks like. Create `xcaf/rules/orphan-rule/rule.xcaf`:
 
 ```
 ---
@@ -374,7 +374,7 @@ $ xcaffold apply --target claude
   [project] ✓ wrote .claude/agents/frontend-dev.md  (sha256:<hex>)
   [project] ✓ wrote .claude/agents/security-reviewer.md  (sha256:<hex>)
 
-[project] ✓ Apply complete. .xcaffold/project.xcf.state updated.
+[project] ✓ Apply complete. .xcaffold/project.xcaf.state updated.
 ```
 
 Two agent files are written, one per agent ID. Each file is self-contained — it embeds the agent's model, effort, tools, instructions, and resolved rule content. The shared library resources were referenced during compilation but each agent receives only what it declared.
@@ -413,19 +413,19 @@ Never modify files. Only read and report.
 
 The two files share the same model and effort settings, but their tool lists are entirely different. `frontend-dev` has `Write`, `Edit`, and `Bash`; `security-reviewer` does not and additionally has those three tools listed under `disallowed-tools`. That field is enforced by the runtime, not just advisory. Rules are compiled to separate files under `.claude/rules/` — agent files reference them by ID in the `rules:` frontmatter field rather than inlining their content.
 
-The SHA-256 hash on each write line is recorded in `.xcaffold/project.xcf.state`. On the next `apply`, xcaffold compares source hashes and skips compilation if nothing changed. If you manually edit a compiled file, the next `apply` will detect drift and abort unless you pass `--force`.
+The SHA-256 hash on each write line is recorded in `.xcaffold/project.xcaf.state`. On the next `apply`, xcaffold compares source hashes and skips compilation if nothing changed. If you manually edit a compiled file, the next `apply` will detect drift and abort unless you pass `--force`.
 
 ---
 
 ## What You Built
 
-You configured a two-agent workspace with distinct tool permissions, defined shared rules and a skill in individual `.xcf` files under `xcf/`, validated structural integrity with `xcaffold validate --structural`, and audited how security fields behave across targets. You compiled the configuration to `.claude/` and verified that each agent file contains only the resources it declared.
+You configured a two-agent workspace with distinct tool permissions, defined shared rules and a skill in individual `.xcaf` files under `xcaf/`, validated structural integrity with `xcaffold validate --structural`, and audited how security fields behave across targets. You compiled the configuration to `.claude/` and verified that each agent file contains only the resources it declared.
 
 ---
 
 ## Next Steps
 
 - **Drift remediation** — detect and restore managed files when compiled output has been modified directly: [Drift Remediation](drift-remediation.md)
-- **Organize configurations** — structure resources into domain-scoped files under `xcf/`: [Organizing Project Resources](../how-to/multi-file-projects.md)
+- **Organize configurations** — structure resources into domain-scoped files under `xcaf/`: [Organizing Project Resources](../how-to/multi-file-projects.md)
 - **Policy enforcement** (Preview) — add `require` and `deny` constraints that block compilation when violated: [Policy Enforcement](../how-to/policy-enforcement.md)
 - **CLI reference** — full command reference including all flags for `apply`, `diff`, `validate`, and `graph`: [CLI Reference](../reference/cli.md)

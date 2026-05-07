@@ -13,10 +13,10 @@ import (
 
 func TestApply_StateFilePath_UsesXcaffoldDir(t *testing.T) {
 	base := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(base, "project.xcf"), []byte("---\nkind: project\nname: test-proj\n---\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(base, "project.xcaf"), []byte("---\nkind: project\nname: test-proj\n---\n"), 0644))
 
 	statePath := state.StateFilePath(base, "")
-	assert.Equal(t, filepath.Join(base, ".xcaffold", "project.xcf.state"), statePath)
+	assert.Equal(t, filepath.Join(base, ".xcaffold", "project.xcaf.state"), statePath)
 
 	_, err := os.Stat(filepath.Join(base, ".xcaffold"))
 	assert.True(t, os.IsNotExist(err), ".xcaffold/ must not exist before apply")

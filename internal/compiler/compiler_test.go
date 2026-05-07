@@ -366,7 +366,7 @@ func TestCompile_FidelityNotes_Propagated_FromCursor(t *testing.T) {
 
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
-			t.Errorf("permission-mode has an xcf role; FIELD_UNSUPPORTED must not be emitted for cursor, got: %s", n.Reason)
+			t.Errorf("permission-mode has an xcaf role; FIELD_UNSUPPORTED must not be emitted for cursor, got: %s", n.Reason)
 		}
 	}
 }
@@ -527,7 +527,7 @@ func TestCompile_BlueprintValidation_RunsAfterExtends(t *testing.T) {
 
 func TestDiscoverAgentMemory_FindsMdFiles(t *testing.T) {
 	dir := t.TempDir()
-	agentMemDir := filepath.Join(dir, "xcf", "agents", "backend-dev", "memory")
+	agentMemDir := filepath.Join(dir, "xcaf", "agents", "backend-dev", "memory")
 	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
 
 	content := "---\nname: ORM Decision\ndescription: \"Always use Drizzle\"\n---\n\nWe chose Drizzle ORM.\n"
@@ -544,7 +544,7 @@ func TestDiscoverAgentMemory_FindsMdFiles(t *testing.T) {
 
 func TestDiscoverAgentMemory_SkipsMemoryMd(t *testing.T) {
 	dir := t.TempDir()
-	agentMemDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	agentMemDir := filepath.Join(dir, "xcaf", "agents", "dev", "memory")
 	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "MEMORY.md"), []byte("index"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "real-entry.md"), []byte("content"), 0o644))
@@ -556,7 +556,7 @@ func TestDiscoverAgentMemory_SkipsMemoryMd(t *testing.T) {
 
 func TestDiscoverAgentMemory_FallbackNameDescription(t *testing.T) {
 	dir := t.TempDir()
-	agentMemDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	agentMemDir := filepath.Join(dir, "xcaf", "agents", "dev", "memory")
 	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "simple.md"), []byte("First line of content.\nSecond line."), 0o644))
 
@@ -569,7 +569,7 @@ func TestDiscoverAgentMemory_FallbackNameDescription(t *testing.T) {
 
 func TestDiscoverAgentMemory_FallbackDescriptionTruncated(t *testing.T) {
 	dir := t.TempDir()
-	agentMemDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	agentMemDir := filepath.Join(dir, "xcaf", "agents", "dev", "memory")
 	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
 	longLine := strings.Repeat("a", 200)
 	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "long.md"), []byte(longLine), 0o644))
@@ -579,11 +579,11 @@ func TestDiscoverAgentMemory_FallbackDescriptionTruncated(t *testing.T) {
 	assert.Len(t, []rune(entry.Description), 120)
 }
 
-func TestDiscoverAgentMemory_IgnoresXcfFiles(t *testing.T) {
+func TestDiscoverAgentMemory_IgnoresXcafFiles(t *testing.T) {
 	dir := t.TempDir()
-	agentMemDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	agentMemDir := filepath.Join(dir, "xcaf", "agents", "dev", "memory")
 	require.NoError(t, os.MkdirAll(agentMemDir, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "old.xcf"), []byte("kind: memory"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(agentMemDir, "old.xcaf"), []byte("kind: memory"), 0o644))
 
 	result := DiscoverAgentMemory(dir, nil, nil)
 	assert.Empty(t, result)
@@ -626,7 +626,7 @@ func TestCompile_OverrideMerge_AppliesForTarget(t *testing.T) {
 
 func TestDiscoverAgentMemory_NoMemoryDir(t *testing.T) {
 	dir := t.TempDir()
-	agentDir := filepath.Join(dir, "xcf", "agents", "dev")
+	agentDir := filepath.Join(dir, "xcaf", "agents", "dev")
 	require.NoError(t, os.MkdirAll(agentDir, 0o755))
 
 	result := DiscoverAgentMemory(dir, nil, nil)

@@ -6,7 +6,7 @@ concerns between the compilation pipeline and provider rendering.
 ## Layer 1: xcaffold Core Fields
 
 Every field on `AgentConfig`, `SkillConfig`, and `RuleConfig` carries a
-role annotation (`+xcf:role=`) that declares its function in the
+role annotation (`+xcaf:role=`) that declares its function in the
 compilation pipeline:
 
 | Role | Meaning | Example Fields |
@@ -83,10 +83,10 @@ explicit empty sequence always means "clear".
 ### Example
 
 ```yaml
-# base agent.xcf
+# base agent.xcaf
 tools: [Bash, Read, Write]
 
-# agent.cursor.xcf override
+# agent.cursor.xcaf override
 tools: []  # cleared — cursor agent gets no tools list
 ```
 

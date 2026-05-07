@@ -69,7 +69,7 @@ func (j *Judge) Evaluate(ctx context.Context, summary trace.Summary, assertions 
 		return &Report{
 			Model:     j.model,
 			AuthMode:  j.client.AuthMode(),
-			Reasoning: "No assertions were defined. Add assertions to your agent in project.xcf.",
+			Reasoning: "No assertions were defined. Add assertions to your agent in project.xcaf.",
 		}, nil
 	}
 

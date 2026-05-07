@@ -5,13 +5,13 @@ description: "Why xcaffold enforces one-way compilation, the fail-closed parser,
 
 # Declarative Compilation
 
-Agent configurations are software artifacts. Like infrastructure-as-code, they should be versioned, audited, and reproduced from source — not edited in place and synced back. xcaffold enforces this by treating `.xcf` files as the authoritative source of record and compiling them, in one direction, into native runtime files for each target platform. This document explains the reasoning behind that architectural choice.
+Agent configurations are software artifacts. Like infrastructure-as-code, they should be versioned, audited, and reproduced from source — not edited in place and synced back. xcaffold enforces this by treating `.xcaf` files as the authoritative source of record and compiling them, in one direction, into native runtime files for each target platform. This document explains the reasoning behind that architectural choice.
 
 ### Declarative Configuration vs Prompt-at-Runtime
 
 The conventional approach to configuring AI agents is to paste instructions directly into an IDE panel or settings dialog. The instructions exist only in that session; they are not versioned, they cannot be diffed, and reproducing them exactly on another machine or for another team member requires manual copy-paste. This is the prompt-at-runtime model.
 
-xcaffold uses declarative configuration compiled ahead of time. Agents, skills, rules, hooks, and MCP server bindings are declared in `.xcf` files that live alongside the codebase. Changes are made to the `.xcf` file, committed with a message, reviewed in a pull request, and rolled back with `git revert` if needed. The runtime configuration is generated, not authored.
+xcaffold uses declarative configuration compiled ahead of time. Agents, skills, rules, hooks, and MCP server bindings are declared in `.xcaf` files that live alongside the codebase. Changes are made to the `.xcaf` file, committed with a message, reviewed in a pull request, and rolled back with `git revert` if needed. The runtime configuration is generated, not authored.
 
 The distinction matters beyond aesthetics. Prompt-at-runtime configurations are invisible to code review. They cannot be linted, tested, or audited. A typo in a system prompt has no stack trace. Declarative configuration surfaces these problems at compile time, before any agent executes.
 
@@ -34,11 +34,11 @@ type XcaffoldConfig struct {
 
 `ResourceScope` holds all the agentic primitives — agents, skills, rules, hooks, MCP servers, workflows — as typed Go maps. The AST has no knowledge of any target platform. It carries no Markdown syntax, no JSON keys specific to any runtime, no platform-specific field names.
 
-This separation is the boundary that makes multi-target rendering possible. The same `AgentConfig` is handed to the claude renderer, which writes `.claude/agents/<id>.md`; and to the cursor renderer, which writes `.cursor/rules/<id>.mdc`. The `.xcf` source does not change. Platform-specific concerns never leak into the data model.
+This separation is the boundary that makes multi-target rendering possible. The same `AgentConfig` is handed to the claude renderer, which writes `.claude/agents/<id>.md`; and to the cursor renderer, which writes `.cursor/rules/<id>.mdc`. The `.xcaf` source does not change. Platform-specific concerns never leak into the data model.
 
 ### Determinism as a Contract
 
-xcaffold makes a hard guarantee: given the same `.xcf` file, every invocation of the compiler produces byte-for-byte identical output. There are no timestamps embedded in generated file content, no random identifiers, no environment-dependent paths inside compiled files.
+xcaffold makes a hard guarantee: given the same `.xcaf` file, every invocation of the compiler produces byte-for-byte identical output. There are no timestamps embedded in generated file content, no random identifiers, no environment-dependent paths inside compiled files.
 
 This guarantee is what makes drift detection meaningful. After compilation, `state.GenerateWithOpts()` (`internal/state/state.go:70`) hashes every output artifact with SHA-256 and records the results in a state file:
 
@@ -56,13 +56,13 @@ Determinism is also what makes CI verification possible. A pipeline that runs `x
 
 ### Multi-Document YAML Parsing
 
-A single `.xcf` file can contain multiple YAML documents separated by `---`. The parser's `parsePartial` function loops over each document in the stream and routes it by `kind:`:
+A single `.xcaf` file can contain multiple YAML documents separated by `---`. The parser's `parsePartial` function loops over each document in the stream and routes it by `kind:`:
 
 - `kind: project` populates `ProjectConfig` with the project name, targets, and resource reference lists.
 - `kind: hooks`, `kind: settings`, and other resource kinds merge their contents into `ResourceScope` maps.
 - `kind: global` contains global-scope resources and settings.
 
-When `ParseDirectory` scans a project tree, it discovers all `.xcf` files recursively and merges all parsed documents into a single configuration. Strict deduplication is enforced: if the same resource ID (e.g., agent `deployer`) appears in two different files, parsing fails with a duplicate ID error. This prevents ambiguous precedence and ensures every resource has exactly one authoritative definition.
+When `ParseDirectory` scans a project tree, it discovers all `.xcaf` files recursively and merges all parsed documents into a single configuration. Strict deduplication is enforced: if the same resource ID (e.g., agent `deployer`) appears in two different files, parsing fails with a duplicate ID error. This prevents ambiguous precedence and ensures every resource has exactly one authoritative definition.
 
 ### The Fail-Closed Parser
 
@@ -74,7 +74,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
     decoder := yaml.NewDecoder(r)
     decoder.KnownFields(true)
     if err := decoder.Decode(config); err != nil {
-        return nil, fmt.Errorf("failed to parse .xcf YAML: %w", err)
+        return nil, fmt.Errorf("failed to parse .xcaf YAML: %w", err)
     }
     ...
 }
@@ -88,7 +88,7 @@ The same strict posture extends to cross-resource references. `validateCrossRefe
 
 ### One-Way Compilation as a Trust Boundary
 
-Generated files in `.claude/`, `.cursor/`, and `.agents/` are machine outputs. They are not intended to be edited by hand, and xcaffold does not read them back. The compilation direction is fixed: `.xcf` in, platform files out.
+Generated files in `.claude/`, `.cursor/`, and `.agents/` are machine outputs. They are not intended to be edited by hand, and xcaffold does not read them back. The compilation direction is fixed: `.xcaf` in, platform files out.
 
 `Compile()` (`internal/compiler/compiler.go`) makes this flow explicit. It merges project-scoped resources over global-scoped resources, strips inherited resources that should not be duplicated locally, resolves the target renderer, and dispatches via the orchestrator:
 
@@ -106,9 +106,9 @@ func Compile(config *ast.XcaffoldConfig, baseDir, target, blueprintName string) 
 }
 ```
 
-`renderer.Orchestrate()` iterates each resource kind, checks the renderer's `Capabilities()`, and calls the appropriate `Compile*` method or emits a `RENDERER_KIND_UNSUPPORTED` note. There is no code path that reads compiled output files and updates `.xcf`. This asymmetry is the trust boundary. When a generated file is found to differ from what the compiler would produce, the answer is always "recompile," never "sync back." The `.xcf` source is the truth; the generated files are a derived view of it.
+`renderer.Orchestrate()` iterates each resource kind, checks the renderer's `Capabilities()`, and calls the appropriate `Compile*` method or emits a `RENDERER_KIND_UNSUPPORTED` note. There is no code path that reads compiled output files and updates `.xcaf`. This asymmetry is the trust boundary. When a generated file is found to differ from what the compiler would produce, the answer is always "recompile," never "sync back." The `.xcaf` source is the truth; the generated files are a derived view of it.
 
-Bidirectional sync would collapse this boundary. If edits to generated files were propagated back into the `.xcf` source, the system would have two authorities for the same configuration and no principled way to resolve conflicts. One-way compilation avoids that class of problem entirely.
+Bidirectional sync would collapse this boundary. If edits to generated files were propagated back into the `.xcaf` source, the system would have two authorities for the same configuration and no principled way to resolve conflicts. One-way compilation avoids that class of problem entirely.
 
 ### Instructions vs. Instructions File
 
@@ -142,4 +142,4 @@ func validateInstructionOrFile(kind, id, inst, file string, globalScope bool) er
 
 Setting both fields is an immediate parse error. This prevents ambiguity about which content would win. The design also prevents a specific circular dependency: `instructions-file` paths that point into compiler output directories (`.claude/`, `.cursor/`, `.agents/`) are explicitly rejected. A compiled file cannot be its own source.
 
-The `instructions-file` mechanism exists because long agent system prompts benefit from Markdown authoring tools, syntax highlighting, and review comments. Separating long-form prose into dedicated `.md` files is an ergonomic choice that does not compromise the compilation model: the content is still embedded at compile time, and the `.xcf` file remains the single configuration entry point.
+The `instructions-file` mechanism exists because long agent system prompts benefit from Markdown authoring tools, syntax highlighting, and review comments. Separating long-form prose into dedicated `.md` files is an ergonomic choice that does not compromise the compilation model: the content is still embedded at compile time, and the `.xcaf` file remains the single configuration entry point.

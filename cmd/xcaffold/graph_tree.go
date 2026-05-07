@@ -70,7 +70,7 @@ func runGraphProject() error {
 }
 
 func runGraphGlobal() error {
-	cfg, err := parser.ParseDirectory(globalXcfHome)
+	cfg, err := parser.ParseDirectory(globalXcafHome)
 	if err != nil {
 		return fmt.Errorf("global parse error: %w", err)
 	}
@@ -95,14 +95,14 @@ func runGraphGlobal() error {
 	}
 	fmt.Printf("%s\n", strings.Join(parts, sep))
 
-	renderAgentTree(cfg, globalXcfHome)
+	renderAgentTree(cfg, globalXcafHome)
 	printMCPFooter(cfg)
 	printRulesFooter(cfg)
 	return nil
 }
 
 func runGraphFull() error {
-	globalCfg, err := parser.ParseDirectory(globalXcfHome)
+	globalCfg, err := parser.ParseDirectory(globalXcafHome)
 	if err != nil {
 		// It's ok if global doesn't exist
 		globalCfg = &ast.XcaffoldConfig{}
@@ -144,7 +144,7 @@ func runGraphFull() error {
 	fmt.Printf("%s\n\n", strings.Join(parts, sep))
 
 	fmt.Printf("══════════════════════════════════════════\n  GLOBAL\n══════════════════════════════════════════\n")
-	renderAgentTree(globalCfg, globalXcfHome)
+	renderAgentTree(globalCfg, globalXcafHome)
 	printRULESFooterIfAny(globalCfg)
 
 	fmt.Printf("\n══════════════════════════════════════════\n  PROJECT: %s\n══════════════════════════════════════════\n", projectName)
@@ -187,7 +187,7 @@ func runGraphBlueprint(bpName string) error {
 }
 
 func runGraphAll() error {
-	globalCfg, _ := parser.ParseDirectory(globalXcfHome)
+	globalCfg, _ := parser.ParseDirectory(globalXcafHome)
 	if globalCfg == nil {
 		globalCfg = &ast.XcaffoldConfig{}
 	}
@@ -196,24 +196,24 @@ func runGraphAll() error {
 	}
 
 	fmt.Printf("══════════════════════════════════════════\n  GLOBAL\n══════════════════════════════════════════\n")
-	renderAgentTree(globalCfg, globalXcfHome)
+	renderAgentTree(globalCfg, globalXcafHome)
 
 	projects, err := registry.List()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not list registered projects: %v\n", err)
 	} else {
 		for _, p := range projects {
-			var xcfProjectPath string
-			if _, err := os.Stat(filepath.Join(p.Path, "project.xcf")); err == nil {
-				xcfProjectPath = filepath.Join(p.Path, "project.xcf")
+			var xcafProjectPath string
+			if _, err := os.Stat(filepath.Join(p.Path, "project.xcaf")); err == nil {
+				xcafProjectPath = filepath.Join(p.Path, "project.xcaf")
 			}
-			if xcfProjectPath != "" {
-				cfg, err := parser.ParseDirectory(getParseRoot(xcfProjectPath))
+			if xcafProjectPath != "" {
+				cfg, err := parser.ParseDirectory(getParseRoot(xcafProjectPath))
 				if err == nil {
 					cfg.StripInherited()
 					_ = filterAgentIfRequested(cfg)
 					fmt.Printf("\n══════════════════════════════════════════\n  PROJECT: %s\n══════════════════════════════════════════\n", p.Name)
-					renderAgentTree(cfg, getParseRoot(xcfProjectPath))
+					renderAgentTree(cfg, getParseRoot(xcafProjectPath))
 				}
 			}
 		}
@@ -357,7 +357,7 @@ func printRulesFooter(cfg *ast.XcaffoldConfig) {
 }
 
 func agentMemoryEntries(projectRoot, agentID string) []string {
-	dir := filepath.Join(projectRoot, "xcf", "agents", agentID, "memory")
+	dir := filepath.Join(projectRoot, "xcaf", "agents", agentID, "memory")
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil

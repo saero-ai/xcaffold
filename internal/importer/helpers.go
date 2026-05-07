@@ -166,18 +166,18 @@ func walkProviderDir(root, current, prefix string, visitor FileVisitor, visited 
 	})
 }
 
-// ExtractHookScript stores a hook shell script for passthrough to xcf/hooks/.
-// Scripts are stored in config.ProviderExtras["xcf"]["hooks/<basename>"]
-// and emitted to xcf/hooks/<basename> by WriteSplitFiles.
+// ExtractHookScript stores a hook shell script for passthrough to xcaf/hooks/.
+// Scripts are stored in config.ProviderExtras["xcaf"]["hooks/<basename>"]
+// and emitted to xcaf/hooks/<basename> by WriteSplitFiles.
 func ExtractHookScript(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	dest := "hooks/" + filepath.Base(rel)
 	if config.ProviderExtras == nil {
 		config.ProviderExtras = make(map[string]map[string][]byte)
 	}
-	if config.ProviderExtras["xcf"] == nil {
-		config.ProviderExtras["xcf"] = make(map[string][]byte)
+	if config.ProviderExtras["xcaf"] == nil {
+		config.ProviderExtras["xcaf"] = make(map[string][]byte)
 	}
-	config.ProviderExtras["xcf"][dest] = data
+	config.ProviderExtras["xcaf"][dest] = data
 	return nil
 }
 

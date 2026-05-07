@@ -11,7 +11,7 @@ xcaffold deals with two distinct sandboxing concepts that serve entirely differe
 
 ## Two Sandboxes, Two Purposes
 
-The `settings.sandbox` block (`internal/ast/types.go:183-193`, type `SandboxConfig`) declares OS-level process isolation properties. When compiled to a target that supports it, this configuration is embedded in the platform's settings output. The platform — not xcaffold — is responsible for enforcing the isolation. xcaffold's role is strictly compilation: it translates the `.xcf` declaration into whatever format the target requires. Once the output is on disk, xcaffold's involvement ends.
+The `settings.sandbox` block (`internal/ast/types.go:183-193`, type `SandboxConfig`) declares OS-level process isolation properties. When compiled to a target that supports it, this configuration is embedded in the platform's settings output. The platform — not xcaffold — is responsible for enforcing the isolation. xcaffold's role is strictly compilation: it translates the `.xcaf` declaration into whatever format the target requires. Once the output is on disk, xcaffold's involvement ends.
 
 The `xcaffold test` simulation reads the compiled agent system prompt from the target output directory (e.g., `.claude/agents/<id>.md` for the `claude` target), sends a user task to the LLM API directly via `internal/llmclient`, and extracts tool call declarations from the model's response. It records these to a JSONL trace file. The simulation does not execute tools against the host OS — it captures what the model declares it would do, not what the tools actually produce. The simulation does not enforce `settings.sandbox` configuration and has no effect on any network policy declared in `SandboxNetwork`. It exists to make agent behavior observable during authoring.
 
@@ -37,7 +37,7 @@ github-copilot: settings.sandbox will be dropped — no sandbox model
 
 The function also detects conflicts between `settings.permissions.deny` rules and per-agent `tools` lists, emitting `[ERROR]` lines for those. `--check-permissions` is read-only and never modifies any output file. It returns a non-zero exit code only when `[ERROR]`-level conflicts are found; dropped security fields are warnings, not errors.
 
-This design reflects a principle xcaffold applies throughout multi-target rendering: the source of truth is always the `.xcf` file, and per-target fidelity differences are surfaced explicitly rather than silently accepted. Users who rely on sandbox isolation for security properties must understand that those properties only exist when the compiled output is consumed by a platform that supports them.
+This design reflects a principle xcaffold applies throughout multi-target rendering: the source of truth is always the `.xcaf` file, and per-target fidelity differences are surfaced explicitly rather than silently accepted. Users who rely on sandbox isolation for security properties must understand that those properties only exist when the compiled output is consumed by a platform that supports them.
 
 ---
 
@@ -96,7 +96,7 @@ The simulation does not execute tools against the host OS. It captures what the 
 
 > **Preview.** LLM-as-a-Judge evaluation is part of the `xcaffold test` simulation planned for a future release.
 
-When `xcaffold test` completes a session, the recorded `trace.Summary` — containing all intercepted tool calls, their parameters, and their mock responses — is available for post-session evaluation. If `--judge` is specified, xcaffold constructs a `judge.Judge` (`internal/judge/judge.go:31-34`) and calls `Evaluate()` (`internal/judge/judge.go:68-85`), passing the trace summary alongside the agent's `assertions` list from the `.xcf` file.
+When `xcaffold test` completes a session, the recorded `trace.Summary` — containing all intercepted tool calls, their parameters, and their mock responses — is available for post-session evaluation. If `--judge` is specified, xcaffold constructs a `judge.Judge` (`internal/judge/judge.go:31-34`) and calls `Evaluate()` (`internal/judge/judge.go:68-85`), passing the trace summary alongside the agent's `assertions` list from the `.xcaf` file.
 
 `Evaluate()` assembles a structured prompt via `buildPrompt()` (`internal/judge/judge.go:88-142`). The prompt presents the trace summary, the detailed tool call log with parameters and mock responses, the assertions list, and an adversarial verification instruction: the judge model is explicitly told to treat unverified success claims — assertions that claim passing without supporting trace evidence — as failures.
 
@@ -107,7 +107,7 @@ The judge model returns a markdown reasoning section followed by a JSON block. `
 - `PassedAssertions` — list of assertion strings that the judge determined were satisfied
 - `FailedAssertions` — list of assertion strings that the judge determined were not satisfied
 
-The default judge model is `claude-haiku-4-5-20251001` (`internal/judge/judge.go:15`), configurable via `TestConfig.JudgeModel` in the `.xcf` file's `project.test` block (`internal/ast/types.go:252-262`).
+The default judge model is `claude-haiku-4-5-20251001` (`internal/judge/judge.go:15`), configurable via `TestConfig.JudgeModel` in the `.xcaf` file's `project.test` block (`internal/ast/types.go:252-262`).
 
 This evaluation is explicitly a soft check using LLM reasoning, not deterministic rule matching. The judge model interprets the trace evidence against each assertion using natural language understanding. Two runs against identical trace data may produce marginally different reasoning text, though the verdict is generally stable for well-defined assertions. Users who require deterministic pass/fail signals should express assertions in terms of concrete, observable trace properties — specific tool names called, specific parameter values — rather than behavioral descriptions that require inference.
 

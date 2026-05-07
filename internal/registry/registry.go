@@ -45,25 +45,25 @@ func GlobalHome() (string, error) {
 	return filepath.Join(home, ".xcaffold"), nil
 }
 
-// DefaultGlobalXCFContent is a minimal starter template used only when no
+// DefaultGlobalXCAFContent is a minimal starter template used only when no
 // real global agent configs are found on disk.
-const DefaultGlobalXCFContent = `kind: global
+const DefaultGlobalXCAFContent = `kind: global
 version: "1.0"
 # No global agents were detected. Add agents here and run:
 #   xcaffold apply --global
 agents: {}
 `
 
-// RebuildGlobalXCF re-scans all registered platform providers and rewrites
-// ~/.xcaffold/global.xcf. Call this after installing a new provider or after
+// RebuildGlobalXCAF re-scans all registered platform providers and rewrites
+// ~/.xcaffold/global.xcaf. Call this after installing a new provider or after
 // adding new global agents, skills, or rules to an existing one.
-func RebuildGlobalXCF() error {
+func RebuildGlobalXCAF() error {
 	home, err := GlobalHome()
 	if err != nil {
 		return err
 	}
-	data := buildGlobalXCF()
-	return os.WriteFile(filepath.Join(home, "global.xcf"), data, 0600)
+	data := buildGlobalXCAF()
+	return os.WriteFile(filepath.Join(home, "global.xcaf"), data, 0600)
 }
 
 // EnsureGlobalHome creates ~/.xcaffold/ and its seed files if they don't exist.
@@ -77,10 +77,10 @@ func EnsureGlobalHome() error {
 		return fmt.Errorf("could not create global home: %w", err)
 	}
 
-	// Remove legacy settings.xcf — preferences now live in global.xcf's settings: block.
-	_ = os.Remove(filepath.Join(home, "settings.xcf"))
+	// Remove legacy settings.xcaf — preferences now live in global.xcaf's settings: block.
+	_ = os.Remove(filepath.Join(home, "settings.xcaf"))
 
-	projectsPath := filepath.Join(home, "registry.xcf")
+	projectsPath := filepath.Join(home, "registry.xcaf")
 	if _, err := os.Stat(projectsPath); os.IsNotExist(err) {
 		wrapper := map[string]interface{}{
 			"kind":     "registry",
@@ -90,7 +90,7 @@ func EnsureGlobalHome() error {
 		_ = os.WriteFile(projectsPath, out, 0600)
 	}
 
-	// TODO: auto-generate global.xcf from detected provider directories.
+	// TODO: auto-generate global.xcaf from detected provider directories.
 	// Global scope is under development; bootstrap deferred to avoid emitting
 	// fields the current parser cannot consume.
 
@@ -99,14 +99,14 @@ func EnsureGlobalHome() error {
 
 // ── Resource entry types ──────────────────────────────────────────────────
 //
-// Each type represents one manageable resource class in global.xcf.
+// Each type represents one manageable resource class in global.xcaf.
 //
 // HOW TO ADD A NEW RESOURCE TYPE (e.g. "templates"):
 //  1. Add a struct below (e.g. GlobalTemplateEntry).
 //  2. Add a map field to GlobalScanResult (e.g. Templates map[string]GlobalTemplateEntry).
 //  3. Initialise the map in NewScanResult().
 //  4. Scan it inside the relevant provider Scan function(s).
-//  5. Emit it in marshalGlobalXCF().
+//  5. Emit it in marshalGlobalXCAF().
 //  No other code changes are needed.
 
 type GlobalAgentEntry struct{ InstructionsFile string }
@@ -145,16 +145,16 @@ func NewScanResult() GlobalScanResult {
 
 // ── Core bootstrap ────────────────────────────────────────────────────────
 
-// buildGlobalXCF generates global.xcf content by iterating registered provider
+// buildGlobalXCAF generates global.xcaf content by iterating registered provider
 // scanners. Falls back to the minimal starter template when nothing is found on disk.
-func buildGlobalXCF() []byte {
+func buildGlobalXCAF() []byte {
 	userHome, err := os.UserHomeDir()
 	if err != nil {
-		return []byte(DefaultGlobalXCFContent)
+		return []byte(DefaultGlobalXCAFContent)
 	}
 
-	// Migrate verbatim from a legacy ~/.claude/global.xcf if one exists.
-	if data, err := os.ReadFile(filepath.Join(userHome, ".claude", "global.xcf")); err == nil {
+	// Migrate verbatim from a legacy ~/.claude/global.xcaf if one exists.
+	if data, err := os.ReadFile(filepath.Join(userHome, ".claude", "global.xcaf")); err == nil {
 		return data
 	}
 
@@ -166,10 +166,10 @@ func buildGlobalXCF() []byte {
 	// Nothing found — emit the empty starter template.
 	if len(r.Agents) == 0 && len(r.Skills) == 0 &&
 		len(r.Rules) == 0 && len(r.MCP) == 0 {
-		return []byte(DefaultGlobalXCFContent)
+		return []byte(DefaultGlobalXCAFContent)
 	}
 
-	return marshalGlobalXCF(&r)
+	return marshalGlobalXCAF(&r)
 }
 
 // ── Exported scan helpers ─────────────────────────────────────────────────
@@ -282,12 +282,12 @@ func ScanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string
 
 // ── YAML serializer ───────────────────────────────────────────────────────
 //
-// marshalGlobalXCF emits all non-empty resource sections in stable order.
+// marshalGlobalXCAF emits all non-empty resource sections in stable order.
 //
 // HOW TO ADD A NEW SECTION: add an if-block for the new resource map here,
 // following the same pattern as existing sections.
 
-func marshalGlobalXCF(r *GlobalScanResult) []byte {
+func marshalGlobalXCAF(r *GlobalScanResult) []byte {
 	var buf bytes.Buffer
 
 	buf.WriteString("kind: global\n")
@@ -358,7 +358,7 @@ func readProjects() ([]Project, error) {
 	if err != nil {
 		return nil, err
 	}
-	projectsPath := filepath.Join(home, "registry.xcf")
+	projectsPath := filepath.Join(home, "registry.xcaf")
 	data, err := os.ReadFile(projectsPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -392,7 +392,7 @@ func writeProjects(projects []Project) error {
 	if err != nil {
 		return err
 	}
-	projectsPath := filepath.Join(home, "registry.xcf")
+	projectsPath := filepath.Join(home, "registry.xcaf")
 	wrapper := map[string]interface{}{
 		"kind":     "registry",
 		"projects": projects,

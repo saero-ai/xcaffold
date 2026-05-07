@@ -29,31 +29,31 @@ func TestEnsureGlobalHome_CreatesDirectory(t *testing.T) {
 		t.Fatalf("EnsureGlobalHome failed: %v", err)
 	}
 
-	xcfHome := filepath.Join(tmp, ".xcaffold")
-	if _, err := os.Stat(xcfHome); os.IsNotExist(err) {
+	xcafHome := filepath.Join(tmp, ".xcaffold")
+	if _, err := os.Stat(xcafHome); os.IsNotExist(err) {
 		t.Fatal("~/.xcaffold/ was not created")
 	}
 
-	// settings.xcf must NOT be created (removed in file taxonomy update)
-	if _, err := os.Stat(filepath.Join(xcfHome, "settings.xcf")); err == nil {
-		t.Fatal("settings.xcf should not be created")
+	// settings.xcaf must NOT be created (removed in file taxonomy update)
+	if _, err := os.Stat(filepath.Join(xcafHome, "settings.xcaf")); err == nil {
+		t.Fatal("settings.xcaf should not be created")
 	}
 
-	if _, err := os.Stat(filepath.Join(xcfHome, "registry.xcf")); os.IsNotExist(err) {
-		t.Fatal("registry.xcf was not created")
+	if _, err := os.Stat(filepath.Join(xcafHome, "registry.xcaf")); os.IsNotExist(err) {
+		t.Fatal("registry.xcaf was not created")
 	}
 
-	// global.xcf bootstrap is deferred; must NOT be created.
-	if _, err := os.Stat(filepath.Join(xcfHome, "global.xcf")); err == nil {
-		t.Fatal("global.xcf should not be created (bootstrap deferred)")
+	// global.xcaf bootstrap is deferred; must NOT be created.
+	if _, err := os.Stat(filepath.Join(xcafHome, "global.xcaf")); err == nil {
+		t.Fatal("global.xcaf should not be created (bootstrap deferred)")
 	}
 
-	registryData, err := os.ReadFile(filepath.Join(xcfHome, "registry.xcf"))
+	registryData, err := os.ReadFile(filepath.Join(xcafHome, "registry.xcaf"))
 	if err != nil {
-		t.Fatalf("registry.xcf was not created: %v", err)
+		t.Fatalf("registry.xcaf was not created: %v", err)
 	}
 	if !strings.Contains(string(registryData), "kind: registry") {
-		t.Errorf("registry.xcf should contain 'kind: registry', got:\n%s", string(registryData))
+		t.Errorf("registry.xcaf should contain 'kind: registry', got:\n%s", string(registryData))
 	}
 }
 
@@ -65,9 +65,9 @@ func TestEnsureGlobalHome_Idempotent(t *testing.T) {
 		t.Fatalf("first call failed: %v", err)
 	}
 
-	// Write a project entry to registry.xcf and verify EnsureGlobalHome does not overwrite it.
+	// Write a project entry to registry.xcaf and verify EnsureGlobalHome does not overwrite it.
 	home := filepath.Join(tmp, ".xcaffold")
-	registryPath := filepath.Join(home, "registry.xcf")
+	registryPath := filepath.Join(home, "registry.xcaf")
 	customRegistry := "kind: registry\nprojects:\n  - path: /some/project\n    name: sentinel\n"
 	_ = os.WriteFile(registryPath, []byte(customRegistry), 0600)
 
@@ -78,11 +78,11 @@ func TestEnsureGlobalHome_Idempotent(t *testing.T) {
 	// Verify custom registry was not overwritten
 	data, _ := os.ReadFile(registryPath)
 	if string(data) != customRegistry {
-		t.Fatalf("registry.xcf was overwritten: got %q", string(data))
+		t.Fatalf("registry.xcaf was overwritten: got %q", string(data))
 	}
 }
 
-func TestGlobalXCF_KindGlobal(t *testing.T) {
+func TestGlobalXCAF_KindGlobal(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 
@@ -91,18 +91,18 @@ func TestGlobalXCF_KindGlobal(t *testing.T) {
 	_ = os.MkdirAll(agentsDir, 0755)
 	_ = os.WriteFile(filepath.Join(agentsDir, "test-agent.md"), []byte("# Test Agent"), 0600)
 
-	data := buildGlobalXCF()
+	data := buildGlobalXCAF()
 	content := string(data)
 
 	if !strings.Contains(content, "kind: global") {
-		t.Errorf("global.xcf should contain 'kind: global', got:\n%s", content)
+		t.Errorf("global.xcaf should contain 'kind: global', got:\n%s", content)
 	}
 	if strings.Contains(content, "project:") {
-		t.Errorf("global.xcf should NOT contain 'project:' block, got:\n%s", content)
+		t.Errorf("global.xcaf should NOT contain 'project:' block, got:\n%s", content)
 	}
 }
 
-func TestRegistryXCF_KindRegistry(t *testing.T) {
+func TestRegistryXCAF_KindRegistry(t *testing.T) {
 	setupTestHome(t)
 
 	projectPath := t.TempDir()
@@ -111,13 +111,13 @@ func TestRegistryXCF_KindRegistry(t *testing.T) {
 	}
 
 	home, _ := GlobalHome()
-	data, err := os.ReadFile(filepath.Join(home, "registry.xcf"))
+	data, err := os.ReadFile(filepath.Join(home, "registry.xcaf"))
 	if err != nil {
-		t.Fatalf("could not read registry.xcf: %v", err)
+		t.Fatalf("could not read registry.xcaf: %v", err)
 	}
 	content := string(data)
 	if !strings.Contains(content, "kind: registry") {
-		t.Errorf("registry.xcf should contain 'kind: registry', got:\n%s", content)
+		t.Errorf("registry.xcaf should contain 'kind: registry', got:\n%s", content)
 	}
 }
 

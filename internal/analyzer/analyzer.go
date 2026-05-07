@@ -26,7 +26,7 @@ func New() *Analyzer {
 }
 
 // ScanOutputDir walks a compiled output directory (.claude/ or .agents/)
-// and returns on-disk artifacts not declared in the XCF.
+// and returns on-disk artifacts not declared in the XCAF.
 //
 //nolint:gocyclo
 func (a *Analyzer) ScanOutputDir(dir string, declared map[string]bool) ([]ArtifactEntry, error) {
@@ -93,7 +93,7 @@ func (a *Analyzer) ScanOutputDir(dir string, declared map[string]bool) ([]Artifa
 			return nil
 		}
 
-		// Skip if this artifact is managed by XCF
+		// Skip if this artifact is managed by XCAF
 		if kind != "" && id != "" && !declared[fmt.Sprintf("%s:%s", kind, id)] {
 			entries = append(entries, ArtifactEntry{
 				ID:     id,

@@ -53,7 +53,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	dir := projectRoot
 	if globalFlag {
-		dir = globalXcfHome
+		dir = globalXcafHome
 	}
 
 	statePath := state.StateFilePath(dir, statusBlueprintFlag)
@@ -141,7 +141,7 @@ func runStatusOverview(dir string, manifest *state.StateManifest, showAll bool) 
 
 	// Sources line.
 	srcChanged := countChangedSources(dir, manifest.SourceFiles)
-	fmt.Printf("\n  Sources  %d .xcf files  %s  ", len(manifest.SourceFiles), glyphDot())
+	fmt.Printf("\n  Sources  %d .xcaf files  %s  ", len(manifest.SourceFiles), glyphDot())
 	if srcChanged == 0 {
 		fmt.Println("no changes since last apply")
 	} else {
@@ -266,7 +266,7 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 	}
 
 	// Sources line.
-	fmt.Printf("\n  Sources  %d .xcf files  %s  ", len(manifest.SourceFiles), glyphDot())
+	fmt.Printf("\n  Sources  %d .xcaf files  %s  ", len(manifest.SourceFiles), glyphDot())
 	if srcChanged == 0 {
 		fmt.Println("no changes since last apply")
 	} else {
@@ -337,7 +337,7 @@ func printSourceChanges(baseDir string, sourceFiles []state.SourceFile) {
 }
 
 func findChangedSources(baseDir string, sourceFiles []state.SourceFile) ([]driftEntry, map[string]string, int) {
-	currentSources, err := resolver.FindXCFFiles(baseDir)
+	currentSources, err := resolver.FindXCAFFiles(baseDir)
 	if err != nil {
 		return nil, nil, 0
 	}

@@ -7,16 +7,16 @@ layered hierarchy. Each layer narrows or overrides the previous.
 
 From lowest to highest priority:
 
-1. **Global config** (`~/.xcaffold/global.xcf`) — project-wide defaults
+1. **Global config** (`~/.xcaffold/global.xcaf`) — project-wide defaults
    inherited by all resources via `extends: global`.
-2. **Resource definition** — the base `.xcf` file for the resource
-   (`xcf/agents/<id>.xcf`, `xcf/skills/<id>.xcf`, etc.).
+2. **Resource definition** — the base `.xcaf` file for the resource
+   (`xcaf/agents/<id>.xcaf`, `xcaf/skills/<id>.xcaf`, etc.).
 3. **Blueprint targets** — when `--blueprint` is active and the named
    blueprint declares a `targets:` list, that list controls which
    providers are compiled.
-4. **Project targets** (`project.xcf`) — the project-wide compilation
+4. **Project targets** (`project.xcaf`) — the project-wide compilation
    target list under `project.targets`.
-5. **Override files** (`<resource>.<provider>.xcf`) — provider-specific
+5. **Override files** (`<resource>.<provider>.xcaf`) — provider-specific
    field values that replace or clear base values for one provider only.
 6. **`--target` flag** — CLI imperative override; highest priority.
 
@@ -28,7 +28,7 @@ four-tier precedence (first match wins):
 ```
 --target flag (if set by the caller)
   └─ blueprint.targets (if --blueprint is active and blueprint has targets)
-      └─ project.targets (from project.xcf)
+      └─ project.targets (from project.xcaf)
           └─ error: "no compilation targets configured"
 ```
 
@@ -43,7 +43,7 @@ provider.
 
 ## Override Merge Rules
 
-When an override file exists for a resource (e.g., `developer.cursor.xcf`
+When an override file exists for a resource (e.g., `developer.cursor.xcaf`
 for a `developer` agent), the compiler merges it with the base resource
 before passing to the renderer:
 
@@ -70,7 +70,7 @@ specification.
 ### Single-Provider Project
 
 ```yaml
-# .xcaffold/project.xcf
+# .xcaffold/project.xcaf
 kind: project
 version: "1.0"
 name: my-project
@@ -83,7 +83,7 @@ All resources compile for Claude only. Running `xcaffold apply` without
 ### Multi-Provider Project
 
 ```yaml
-# .xcaffold/project.xcf
+# .xcaffold/project.xcaf
 kind: project
 version: "1.0"
 name: my-project
@@ -91,13 +91,13 @@ targets: [claude, gemini]
 ```
 
 Each resource compiles twice — once per target. Override files
-(`agent.gemini.xcf`) customize fields per provider without duplicating
+(`agent.gemini.xcaf`) customize fields per provider without duplicating
 the base definition.
 
 ### Blueprint with Its Own Targets
 
 ```yaml
-# .xcaffold/project.xcf
+# .xcaffold/project.xcaf
 kind: project
 version: "1.0"
 name: my-project
@@ -117,7 +117,7 @@ Running `xcaffold apply --blueprint mobile` compiles `mobile-dev` for
 ### Provider-Specific Override
 
 ```yaml
-# xcf/agents/reviewer.xcf
+# xcaf/agents/reviewer.xcaf
 kind: agent
 version: "1.0"
 name: reviewer
@@ -126,7 +126,7 @@ tools: [Read, Grep, Glob]
 ```
 
 ```yaml
-# xcf/agents/reviewer.gemini.xcf
+# xcaf/agents/reviewer.gemini.xcaf
 kind: agent
 version: "1.0"
 name: reviewer

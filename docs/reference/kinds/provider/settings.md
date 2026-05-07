@@ -14,10 +14,10 @@ Uses **pure YAML format** (no frontmatter `---` delimiters).
 ## Source Directory
 
 ```
-xcf/settings/settings.xcf
+xcaf/settings/settings.xcaf
 ```
 
-`kind: settings` is a singleton — there is no `<name>` directory. All provider settings for a project are defined in a single `xcf/settings/settings.xcf` file.
+`kind: settings` is a singleton — there is no `<name>` directory. All provider settings for a project are defined in a single `xcaf/settings/settings.xcaf` file.
 
 ## Example Usage
 
@@ -93,7 +93,7 @@ The following arguments are supported:
 Settings are merged at compile time in this order (later wins):
 
 1. Global settings (from `extends:` base config)
-2. Project settings (`kind: settings` in `project.xcf`)
+2. Project settings (`kind: settings` in `project.xcaf`)
 3. `kind: mcp` declarations merged into `mcp-servers` map
 
 Each provider serializes the merged result into its native format:

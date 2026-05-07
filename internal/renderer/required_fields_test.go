@@ -54,7 +54,7 @@ func TestCheckFieldSupport_UnsupportedTarget(t *testing.T) {
 
 func TestCheckFieldSupport_Unsupported_WithRole_NoError(t *testing.T) {
 	// "tools" is unsupported for cursor on agent kind, but has Role:["rendering"].
-	// Two-layer fidelity check: unsupported + has xcf role = silently skipped.
+	// Two-layer fidelity check: unsupported + has xcaf role = silently skipped.
 	// The field is an intentional xcaffold extension compiled by the renderer,
 	// not a user authoring mistake, so no error is warranted.
 	fields := map[string]string{
@@ -65,7 +65,7 @@ func TestCheckFieldSupport_Unsupported_WithRole_NoError(t *testing.T) {
 	notes := CheckFieldSupport("cursor", "agent", "my-agent", fields, false)
 	for _, n := range notes {
 		if n.Code == CodeFieldUnsupported && n.Field == "tools" {
-			t.Errorf("tools has an xcf role; should be silently skipped for cursor, got: %s", n.Reason)
+			t.Errorf("tools has an xcaf role; should be silently skipped for cursor, got: %s", n.Reason)
 		}
 	}
 }
@@ -138,8 +138,8 @@ func TestCheckFieldSupport_Suppressed_StillEmitsRequired(t *testing.T) {
 }
 
 func TestCheckFieldSupport_Unsupported_WithRole_Silent(t *testing.T) {
-	// "skills" is unsupported by gemini but has +xcf:role=composition,rendering.
-	// Fields with an xcf role should be silently skipped rather than emitting an
+	// "skills" is unsupported by gemini but has +xcaf:role=composition,rendering.
+	// Fields with an xcaf role should be silently skipped rather than emitting an
 	// error — they are intentional xcaffold extensions, not user mistakes.
 	fields := map[string]string{
 		"name":        "my-agent",
@@ -149,7 +149,7 @@ func TestCheckFieldSupport_Unsupported_WithRole_Silent(t *testing.T) {
 	notes := CheckFieldSupport("gemini", "agent", "my-agent", fields, false)
 	for _, n := range notes {
 		if n.Field == "skills" && n.Code == CodeFieldUnsupported {
-			t.Errorf("skills field should be silently skipped for gemini (has xcf role), got error: %s", n.Reason)
+			t.Errorf("skills field should be silently skipped for gemini (has xcaf role), got error: %s", n.Reason)
 		}
 	}
 }
@@ -157,7 +157,7 @@ func TestCheckFieldSupport_Unsupported_WithRole_Silent(t *testing.T) {
 func TestCheckFieldSupport_TwoLayer_SkillsOnGemini(t *testing.T) {
 	// Two-layer fidelity integration test: an agent with `skills:` targeting gemini
 	// should not produce a fidelity error (the original bug fix).
-	// "skills" is unsupported by gemini but has xcf role, so it should be silently skipped.
+	// "skills" is unsupported by gemini but has xcaf role, so it should be silently skipped.
 	fields := map[string]string{
 		"name":        "my-agent",
 		"description": "Agent with skills",
@@ -166,7 +166,7 @@ func TestCheckFieldSupport_TwoLayer_SkillsOnGemini(t *testing.T) {
 	notes := CheckFieldSupport("gemini", "agent", "my-agent", fields, false)
 	for _, n := range notes {
 		if n.Field == "skills" && n.Code == CodeFieldUnsupported {
-			t.Errorf("skills field should be silently skipped for gemini (has xcf role), got error: %s", n.Reason)
+			t.Errorf("skills field should be silently skipped for gemini (has xcaf role), got error: %s", n.Reason)
 		}
 	}
 }

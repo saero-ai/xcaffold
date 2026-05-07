@@ -15,9 +15,9 @@ func SetupTestEnv(t *testing.T, files map[string]string) (string, func()) {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 
-	xcfDir := filepath.Join(tmpDir, "xcf")
+	xcfDir := filepath.Join(tmpDir, "xcaf")
 	if err := os.MkdirAll(xcfDir, 0755); err != nil {
-		t.Fatalf("failed to create xcf dir: %v", err)
+		t.Fatalf("failed to create xcaf dir: %v", err)
 	}
 
 	for name, content := range files {

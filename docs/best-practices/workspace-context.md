@@ -24,7 +24,7 @@ Because these files are loaded on **every interaction** (check with the provider
 
 ## Declaring Workspace Context
 
-Create a `kind: context` file under `xcf/`. The markdown body becomes the compiled workspace instruction:
+Create a `kind: context` file under `xcaf/`. The markdown body becomes the compiled workspace instruction:
 
 ```
 ---
@@ -143,7 +143,7 @@ A well-written context file is typically under 200 lines. If yours exceeds that,
 |---|---|
 | Project-wide invariants (tooling, commit format, security) | `kind: context` |
 | Path-specific coding conventions | `kind: rule` with `paths:` |
-| Agent-specific behavioral guidance | That agent's `.xcf` body |
+| Agent-specific behavioral guidance | That agent's `.xcaf` body |
 | Multi-step procedures or workflows | `kind: skill` or `kind: workflow` |
 | Background context that doesn't drive behavior | Remove it entirely |
 
@@ -190,7 +190,7 @@ targets:
 
 ## Working With This Repository
 
-Run `xcaffold apply` from the terminal to regenerate agent configs after editing `.xcf` files.
+Run `xcaffold apply` from the terminal to regenerate agent configs after editing `.xcaf` files.
 Database schema is in `packages/db/schema/`. Refer to it before writing migrations.
 ```
 

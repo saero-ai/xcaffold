@@ -8,7 +8,7 @@ import (
 	"github.com/saero-ai/xcaffold/providers"
 )
 
-// newParseFilter creates a map of directory names to skip during xcf scanning.
+// newParseFilter creates a map of directory names to skip during xcaf scanning.
 // It includes generic build/cache directories plus registered provider input directories.
 func newParseFilter(dir string) map[string]bool {
 	ignored := map[string]bool{
@@ -23,7 +23,7 @@ func newParseFilter(dir string) map[string]bool {
 	}
 
 	// Add registered provider input directories dynamically.
-	// This way, new providers automatically exclude their input dirs from xcf scanning.
+	// This way, new providers automatically exclude their input dirs from xcaf scanning.
 	for _, providerDir := range providers.RegisteredInputDirs() {
 		ignored[providerDir] = true
 	}

@@ -10,13 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `targets` field on `kind: blueprint` — blueprints can declare independent compilation targets, overriding project-level targets for that blueprint's resource subset.
 - `ClearableList` type for list fields in override merging — setting a list field to `[]` explicitly clears inherited values rather than inheriting the base.
-- Two-layer field classification with `+xcf:role=` markers on all config struct fields (`identity`, `rendering`, `composition`, `metadata`, `filtering`).
+- Two-layer field classification with `+xcaf:role=` markers on all config struct fields (`identity`, `rendering`, `composition`, `metadata`, `filtering`).
 - `docs/concepts/configuration/field-model.md` — explains the two-layer field classification and `ClearableList` override semantics.
 - `docs/concepts/configuration/layer-precedence.md` — explains target resolution hierarchy and override merge rules.
 
 ### Changed
 
-- `xcaffold apply` no longer defaults to `claude` when no target is configured. Set `targets:` in `project.xcf` or pass `--target`.
+- `xcaffold apply` no longer defaults to `claude` when no target is configured. Set `targets:` in `project.xcaf` or pass `--target`.
 - `xcaffold init --yes` requires `--target` when no known CLI is detected on `$PATH`.
 - Provider `fields.yaml` entries previously classified as `xcaffold-only` are now `unsupported`. The two-layer model silently skips core fields that a provider cannot render.
 
@@ -65,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed (Provider-Agnostic Renderer)
 
-- Relocated project manifest from `./project.xcf` to `.xcaffold/project.xcf` — the manifest is a tool-generated file (compiler/init/import)
+- Relocated project manifest from `./project.xcaf` to `.xcaffold/project.xcaf` — the manifest is a tool-generated file (compiler/init/import)
 - Transitioned `kind: memory` rendering to provider-agnostic system respecting per-provider ground truth: Claude (full render), Gemini & Antigravity (partial render with note), Cursor & Copilot (dropped with note) (compiler/renderer)
 - Schema: Updated `ProjectConfig.AgentRefs` to use `AgentManifestEntry` to support deterministic memory linkage within manifest files (schema)
 - Changed `TargetRenderer` interface from monolithic `Compile()`/`Render()` to per-resource methods (`CompileAgents`, `CompileSkills`, `CompileRules`, `CompileWorkflows`, `CompileHooks`, `CompileSettings`, `CompileMCP`, `CompileProjectInstructions`) with `Capabilities()` and `Finalize()` hooks (renderer)
@@ -81,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed (Convention-Based Memory)
 
-- Removed `kind: memory` from parser — memory entries are now plain `.md` files in `xcf/agents/<id>/memory/`, discovered by the compiler at compile time (parser/compiler)
+- Removed `kind: memory` from parser — memory entries are now plain `.md` files in `xcaf/agents/<id>/memory/`, discovered by the compiler at compile time (parser/compiler)
 - Removed `MemoryConfig.Instructions`, `MemoryConfig.InstructionsFile`, `MemoryConfig.Inherited` fields — replaced by `MemoryConfig.Content` populated from `.md` file body (ast)
 - Removed `MemorySeed.Lifecycle` field from state tracking (state)
 - Removed seed-once lifecycle and `--reseed` flag — `apply` always overwrites memory output, matching all other resource kinds (renderer/cli)
@@ -93,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed (Parser)
 
-- Fixed missing `case "memory":` in frontmatter body assignment — memory `.xcf` files with frontmatter + body now correctly assign body to Instructions field (parser) — *subsequently removed in Convention-Based Memory migration*
+- Fixed missing `case "memory":` in frontmatter body assignment — memory `.xcaf` files with frontmatter + body now correctly assign body to Instructions field (parser) — *subsequently removed in Convention-Based Memory migration*
 
 ### Fixed (Provider-Agnostic Renderer)
 
@@ -109,8 +109,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Copilot MCP config generation layout, correctly emitting standard layout JSON objects out to `.vscode/mcp.json` (renderer)
 
 ### Added
-- `xcaffold init` automatically generates a self-referential `/xcaffold` skill (`xcf/skills/xcaffold.xcf`) out of the box, teaching AI assistants local schema constraints and provider support matrices natively.
-- `xcaffold init` multi-file generator that scaffolds an entire `xcf/` directory, replacing the legacy single `project.xcf` builder.
+- `xcaffold init` automatically generates a self-referential `/xcaffold` skill (`xcaf/skills/xcaffold.xcaf`) out of the box, teaching AI assistants local schema constraints and provider support matrices natively.
+- `xcaffold init` multi-file generator that scaffolds an entire `xcaf/` directory, replacing the legacy single `project.xcaf` builder.
 - `xcaffold init` `--target` string slice flag and multi-select UI prompt for concurrent platform targeting (`claude`, `cursor`, `antigravity`, etc).
 - `xcaffold init` `--no-policies` flag to skip starter policy generation.
 - `xcaffold init` `--json` manifest mode for machine-readable output tailored for autonomous agent execution.
@@ -158,7 +158,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `disable-model-invocation` (`*bool`) and `user-invocable` (`*bool`) fields to `AgentConfig` (ast)
 - Added `provider` pass-through map (`map[string]any`) to `TargetOverride` for carrying provider-native fields such as `temperature`, `timeout_mins`, `kind`, `target`, `metadata` (ast)
 - Added `--no-references` flag to `xcaffold init` to skip generation of reference template files (init)
-- Added `xcf/references/agent.xcf.reference` generation during `xcaffold init` — an annotated, non-parsed field catalog for the Agent kind (init)
+- Added `xcaf/references/agent.xcaf.reference` generation during `xcaffold init` — an annotated, non-parsed field catalog for the Agent kind (init)
 - Added `internal/templates.RenderAgentReference()` for rendering the Agent kind reference template (templates)
 - Added real-data integration tests validating agent schema round-tripping against provider fixtures (integration)
 
@@ -169,7 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Claude renderer now emits `memory` after `isolation` (before `color`) to match the canonical order (renderer)
 - Reordered agent field emission in `rest-api`, `cli-tool`, and `frontend-app` init templates so `instructions` appears last (templates)
 - Reordered agent document emitted by `xcaffold init` so `instructions` appears after `tools`, matching the canonical order (init)
-- Added inline comment in generated `project.xcf` pointing users to `xcf/references/agent.xcf.reference` for the full field catalog (init)
+- Added inline comment in generated `project.xcaf` pointing users to `xcaf/references/agent.xcaf.reference` for the full field catalog (init)
 
 ### Added (Skill Schema Normalization)
 
@@ -179,7 +179,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `userInvocable` (`*bool`) field to `SkillConfig` — if false, the skill is model-only with no slash command (ast)
 - Added `argumentHint` (`string`) field to `SkillConfig` for slash-command autocomplete (ast)
 - Added `targets` (`map[string]TargetOverride`) field to `SkillConfig` for per-provider overrides and provider pass-through (ast)
-- Added `xcf/references/skill.xcf.reference` generation during `xcaffold init` — an annotated, non-parsed field catalog for the Skill kind (init)
+- Added `xcaf/references/skill.xcaf.reference` generation during `xcaffold init` — an annotated, non-parsed field catalog for the Skill kind (init)
 - Added `internal/templates.RenderSkillReference()` for rendering the Skill kind reference template (templates)
 - Added Claude provider pass-through for skills — keys under `targets.claude.provider:` (`context`, `agent`, `model`, `effort`, `shell`, `paths`, `hooks`) are emitted into compiled SKILL.md frontmatter (renderer)
 - Added real-data integration tests validating skill schema round-tripping against provider fixtures (integration)
@@ -196,11 +196,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking Changes
 
 - **Removed `kind: config`**: The legacy monolithic format has been removed. Use `kind: project` with individual resource documents (`kind: agent`, `kind: skill`, etc.). For global configuration, use `kind: global`. Files with empty or missing `kind:` fields now produce a descriptive error with migration guidance.
-- **Renamed `tools:` to `allowed-tools:` under `kind: skill`**: Any `.xcf` file using `tools:` under a skill block must rename to `allowed-tools:` to parse successfully. `AgentConfig.tools` is unchanged — the rename applies only to skills. This aligns with the cross-provider canonical name from the agentskills.io open standard.
+- **Renamed `tools:` to `allowed-tools:` under `kind: skill`**: Any `.xcaf` file using `tools:` under a skill block must rename to `allowed-tools:` to parse successfully. `AgentConfig.tools` is unchanged — the rename applies only to skills. This aligns with the cross-provider canonical name from the agentskills.io open standard.
 
 ### Added
 
-- **`kind: global`**: New kind for `~/.xcaffold/global.xcf`. Contains shared resources and settings without project metadata.
+- **`kind: global`**: New kind for `~/.xcaffold/global.xcaf`. Contains shared resources and settings without project metadata.
 - **`kind: policy`**: Declarative constraint engine. Define `require` and `deny` rules evaluated during `apply` and `validate`. Four built-in policies ship with the binary: `path-safety`, `settings-schema`, `agent-has-description`, `no-empty-skills`.
 - **Policy references in `kind: project`**: Projects can reference policies via `policies:` list, same as agents, skills, and rules.
 - **Built-in policy overrides**: Create a `kind: policy` file with the same `name` as a built-in and set `severity: off` to disable it.
@@ -209,7 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `isConfigFile()` renamed to `isParseableFile()` — now rejects empty and `config` kind values.
 - `WriteSplitFiles()` emits each resource as a separate file with frontmatter format for body-bearing kinds.
-- `~/.xcaffold/global.xcf` now uses `kind: global` instead of `kind: config`.
+- `~/.xcaffold/global.xcaf` now uses `kind: global` instead of `kind: config`.
 
 ### Changed
 - Refactored `README.md` "Why xcaffold?" section with a provider-agnostic ecosystem narrative, removing inaccurate "token budgeting" claims in favor of policy enforcement and agent topology visibility (docs)
@@ -217,28 +217,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standardized Diátaxis `index.md` files across `docs/` with unified cross-navigation "Next Steps" sections (docs)
 - Populated empty information-oriented reference index and created a dedicated `examples/README.md` for proper IDE Markdown parsing (docs)
 - Replaced `--scope global|project|all` flag with `--global / -g` boolean flag across all commands (cli)
-- Changed `validate` command to accept `--global` for validating `~/.xcaffold/global.xcf` (cli)
+- Changed `validate` command to accept `--global` for validating `~/.xcaffold/global.xcaf` (cli)
 - Changed global config template to omit `project:` block (registry)
 - Rewrote `xcaffold test` to send the compiled agent system prompt directly to the LLM API via `internal/llmclient` instead of spawning a CLI subprocess through an HTTP intercept proxy; trace records declared tool calls extracted from the response (test)
-- `xcaffold test` now reads the task from `test.task` in `project.xcf`; defaults to a capabilities-description prompt if unset (test)
+- `xcaffold test` now reads the task from `test.task` in `project.xcaf`; defaults to a capabilities-description prompt if unset (test)
 - `graph --format json` now uses snake_case field names (`config_path`, `disk_entries`, `blocked_tools`) — breaking change for JSON consumers (graph)
-- `import --global` now scans all provider directories (`~/.claude/`, `~/.cursor/`, `~/.agents/`) and merges all discovered resources into `global.xcf` (import)
+- `import --global` now scans all provider directories (`~/.claude/`, `~/.cursor/`, `~/.agents/`) and merges all discovered resources into `global.xcaf` (import)
 
 ### Added
 - Added `--all` flag to `graph` command for combined global and registered projects view (graph)
 - Added hooks and workflows to `graph` topology output (graph)
 - Added `task` and `max_turns` fields to `TestConfig` (schema `project.test`) (ast)
-- Extended `review project.xcf` to display skills, rules, hooks, MCP servers, and workflows in addition to agents (review)
+- Extended `review project.xcaf` to display skills, rules, hooks, MCP servers, and workflows in addition to agents (review)
 - Updated `knownTools` validation to include `Task`, `Computer`, `AskUserQuestion`, `Agent`, `ExitPlanMode`, and `EnterPlanMode` (parser)
 
 ### Fixed
-- `analyze` no longer errors when no `project.xcf` exists in the current directory (analyze)
+- `analyze` no longer errors when no `project.xcaf` exists in the current directory (analyze)
 - `export --output` flag now correctly sets the destination path (export)
-- `init --global` no longer fails when a local `project.xcf` is present (init)
+- `init --global` no longer fails when a local `project.xcaf` is present (init)
 - `apply --check` now returns a non-zero exit code when validation errors are found (apply)
 - `apply --check-permissions --global` now reads the global config directory instead of the project directory (apply)
-- `diff` now surfaces `FindXCFFiles` errors instead of reporting false-positive `SRC DELETED` for valid source files (diff)
-- `apply` excludes `registry.xcf` from source file tracking, preventing unnecessary recompilation on every run (apply)
+- `diff` now surfaces `FindXCAFFiles` errors instead of reporting false-positive `SRC DELETED` for valid source files (diff)
+- `apply` excludes `registry.xcaf` from source file tracking, preventing unnecessary recompilation on every run (apply)
 - `graph` no longer includes inherited global resources in project-scope topology output (graph)
 
 ### Removed
@@ -252,22 +252,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smart Compilation Skipping: `xcaffold apply` tracks multi-file source hashing to skip redundant compilation automatically.
 - Deterministic Orphan Purge: `xcaffold apply` identifies and silently prunes missing artifacts to prevent config bloat, supporting `--dry-run` previews natively.
 - Legacy Lock Migration: `xcaffold apply` seamlessly upgrades older V1 lock files format mapping targets automatically.
-- Source File Drift Tracking: `xcaffold diff` explicitly reports modifications within `project.xcf` dependencies indicating required compilation cycles.
-- Parser `ParseDirectory` API: Programmatic support for parsing and merging multiple `.xcf` files within a directory hierarchy, skipping hidden/nested repositories.
+- Source File Drift Tracking: `xcaffold diff` explicitly reports modifications within `project.xcaf` dependencies indicating required compilation cycles.
+- Parser `ParseDirectory` API: Programmatic support for parsing and merging multiple `.xcaf` files within a directory hierarchy, skipping hidden/nested repositories.
 - Hardened global inheritance parser `resolveExtendsGlobal` resolving `~/.xcaffold/` first with strict circular dependency traversal detection.
 - File-origin error reporting: Duplicate resource IDs (Agents, Skills, Rules, Workflows, MCPs) declared across multiple configuration files now report precise file locations in strict merge conflicts.
 - Centralized architecture: `~/.xcaffold/` is the global home for user preferences, project registry, and global agent resources.
-- `global.xcf` magical bootstrapping: CLI automatically runs `EnsureGlobalHome()`, migrating your legacy `~/.claude/global.xcf` entirely seamlessly or safely initialises boilerplate without demanding explicit `--scope global` setup.
+- `global.xcaf` magical bootstrapping: CLI automatically runs `EnsureGlobalHome()`, migrating your legacy `~/.claude/global.xcaf` entirely seamlessly or safely initialises boilerplate without demanding explicit `--scope global` setup.
 - Provider SDK registry: Added extensible `platformProvider` interface and multi-platform scanner to deduplicate global discoveries across Claude, Antigravity, and Cursor.
-- Internal registry metadata files standardized to `.xcf` (`registry.xcf`, `settings.xcf`).
+- Internal registry metadata files standardized to `.xcaf` (`registry.xcaf`, `settings.xcaf`).
 - Fleet auto-registration: `xcaffold init`, `xcaffold import`, and `xcaffold apply` now automatically detect your scope and auto-register cloned projects into your global registry.
 - `xcaffold list` command displays all managed projects with path, targets, resource counts, and last-applied timestamp.
 - `xcaffold graph --project <name>` queries any registered project's topology from any location.
 - `xcaffold apply` safely resolves project paths from the global registry when invoked using `--project <name>`.
 - `xcaffold plan` command for static parsing and pre-deployment execution dry-runs.
-- Reference-in-place import: `xcaffold import` generates `project.xcf` entries pointing to existing instruction files without duplication.
+- Reference-in-place import: `xcaffold import` generates `project.xcaf` entries pointing to existing instruction files without duplication.
 - `xcaffold import` natively extracts `hooks.json` mapping parameters and workflow assets directly into the merged definitions.
-- Walk-up configuration search: CLI commands work from project subdirectories by walking up to find the nearest `project.xcf` (bounded by `$HOME`).
+- Walk-up configuration search: CLI commands work from project subdirectories by walking up to find the nearest `project.xcaf` (bounded by `$HOME`).
 - Semantic Translation Engine: cross-platform agent capabilities decomposed via static intent heuristics, accessible through `xcaffold import --source`.
 - `xcaffold test` execution flag `--claude-path` renamed to `--cli-path` to support fallback binary resolution for `cursor` or other detected proxies.
 - `xcaffold apply` safeguards: integrated drift-detection mechanism natively blocks overwrites to locally mutated unrecorded output files.
@@ -295,7 +295,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `xcaffold analyze` now references `auth.AuthModeSubscription` from the shared auth package.
 ### Fixed
 - Fixed `xcaffold init` generating stale `version: "1.0"` templates, and fixed inner `agents:` struct indentation to correctly fall under the `project:` scope (cli)
-- Fixed schema versions and YAML structure in `README.md` examples and `project.xcf` (docs)
+- Fixed schema versions and YAML structure in `README.md` examples and `project.xcaf` (docs)
 - Fixed unmapped `model` declarations failing string resolution in native `settings.json` renderer loops.
 - Compiler now emits all schema blocks. Previously, `skills`, `rules`, `hooks`, and `mcp` were silently discarded.
 - `xcaffold import` completely refactored to be highly faithful, dynamically discovering and preserving external file structures.
@@ -316,14 +316,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Complete rewrite of the CLI compiler replacing the deprecated TypeScript prototype with a robust Go binary.
 - One-Way Compilation architecture targeting Anthropic Claude Code configurations natively.
 - Automatic creation and formatting of `.claude/agents/*.md` and `.claude/settings.json`.
-- `.xcaffold/project.xcf.state` manifest generation tracking SHA-256 state blobs of output configurations.
+- `.xcaffold/project.xcaf.state` manifest generation tracking SHA-256 state blobs of output configurations.
 - `xcaffold plan` command for static parsing and pre-deployment analysis.
 - `xcaffold diff` command to enforce GitOps strictness and identify shadow configuration modifications (drift).
-- Support for `tools`, `skills`, `blocked_tools`, `effort`, `model`, and `mcp` declarations within `project.xcf`.
+- Support for `tools`, `skills`, `blocked_tools`, `effort`, `model`, and `mcp` declarations within `project.xcaf`.
 
 ### Removed
 - Support for multi-provider prompt polyfilling has been explicitly removed in V1 in favor of the strict native ecosystem.
-- Support for Bi-Directional Compilation (Decompilation of `.claude/` files back to `.xcf`).
+- Support for Bi-Directional Compilation (Decompilation of `.claude/` files back to `.xcaf`).
 
 ### Security
 - Replaced ambiguous degradation warnings with a fail-closed schema validator (`exit 1`) to ensure security rules are not bypassed during configuration generation.

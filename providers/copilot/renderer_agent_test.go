@@ -115,9 +115,9 @@ func TestCompile_Copilot_Agents_ProviderPassthrough(t *testing.T) {
 // no Copilot equivalent are silently dropped and produce FIELD_UNSUPPORTED
 // fidelity notes.
 //
-// Two-layer fidelity check: fields that are unsupported AND have an xcf role
+// Two-layer fidelity check: fields that are unsupported AND have an xcaf role
 // (permission-mode, disallowed-tools, isolation — all Role:["rendering"]) are
-// silently skipped with no note. Fields that are unsupported with no xcf role
+// silently skipped with no note. Fields that are unsupported with no xcaf role
 // (effort, skills, memory, max-turns, background, initial-prompt, readonly)
 // still emit FIELD_UNSUPPORTED.
 func TestCompile_Copilot_Agents_UnsupportedFields(t *testing.T) {
@@ -152,7 +152,7 @@ func TestCompile_Copilot_Agents_UnsupportedFields(t *testing.T) {
 	_, ok := out.Files[wantPath]
 	require.True(t, ok, "expected output file %s", wantPath)
 
-	// Fields without xcf roles that are unsupported must emit FIELD_UNSUPPORTED.
+	// Fields without xcaf roles that are unsupported must emit FIELD_UNSUPPORTED.
 	unsupportedNotes := filterNotes(notes, renderer.CodeFieldUnsupported)
 	require.NotEmpty(t, unsupportedNotes,
 		"expected FIELD_UNSUPPORTED for effort, skills, memory, max-turns, background, initial-prompt, readonly")
@@ -161,7 +161,7 @@ func TestCompile_Copilot_Agents_UnsupportedFields(t *testing.T) {
 	for _, n := range unsupportedNotes {
 		switch n.Field {
 		case "permission-mode", "disallowed-tools", "isolation":
-			t.Errorf("field %q has an xcf role; FIELD_UNSUPPORTED must not be emitted", n.Field)
+			t.Errorf("field %q has an xcaf role; FIELD_UNSUPPORTED must not be emitted", n.Field)
 		}
 	}
 }

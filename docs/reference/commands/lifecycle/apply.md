@@ -1,13 +1,13 @@
 ---
 title: "xcaffold apply"
-description: "Compile .xcf resources into provider-native agent configuration files."
+description: "Compile .xcaf resources into provider-native agent configuration files."
 ---
 
 # xcaffold apply
 
-Compile .xcf resources into provider-native agent configuration files.
+Compile .xcaf resources into provider-native agent configuration files.
 
-The `apply` command compiles every `.xcf` file in the project into provider-native output files (`.claude/`, `.cursor/`, `.gemini/`, etc.). It is a strict one-way generation — manual edits in the output directory are overwritten on the next apply. Use `xcaffold import` to sync manual edits back to `.xcf` sources before applying.
+The `apply` command compiles every `.xcaf` file in the project into provider-native output files (`.claude/`, `.cursor/`, `.gemini/`, etc.). It is a strict one-way generation — manual edits in the output directory are overwritten on the next apply. Use `xcaffold import` to sync manual edits back to `.xcaf` sources before applying.
 
 **Usage:**
 
@@ -23,7 +23,7 @@ xcaffold apply [flags]
 | `--blueprint <name>` | — | `string` | `""` | Compile only the named blueprint's resources. |
 | `--dry-run` | — | `bool` | `false` | Preview changes without writing to disk. Shows a diff of what would change. |
 | `--force` | — | `bool` | `false` | Overwrite output files even when drift is detected. |
-| `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/global.xcf`). Not yet available. |
+| `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/global.xcaf`). Not yet available. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
 | `--project <name>` | — | `string` | `""` | Apply to a project registered in the global registry. |
 | `--target <name>` | — | `string` | `"claude"` | Compilation target platform (`claude`, `cursor`, `antigravity`, `copilot`, `gemini`). |
@@ -33,7 +33,7 @@ xcaffold apply [flags]
 
 ### Compilation sequence
 
-1. **Parsing** — reads all `.xcf` files, validates syntax, and checks cross-references. Unknown fields cause an immediate error.
+1. **Parsing** — reads all `.xcaf` files, validates syntax, and checks cross-references. Unknown fields cause an immediate error.
 2. **Smart skip** — compares source file hashes against the last recorded state. If sources are unchanged, apply exits early with no writes. Use `--force` to skip this check and recompile.
 3. **Compilation** — transforms resources into the provider-native format selected by `--target`.
 4. **Policy evaluation** — checks compiled output against built-in and any project-defined `kind: policy` rules. Policy errors block the write phase; warnings are printed to stderr and do not block.
@@ -44,12 +44,12 @@ xcaffold apply [flags]
 
 When drift is detected, apply lists each affected file with its status (`missing` or `modified`) and exits `1`. Two options are available:
 
-- `xcaffold import` — reads the drifted files and syncs them back to `.xcf` sources. Run apply again after importing.
+- `xcaffold import` — reads the drifted files and syncs them back to `.xcaf` sources. Run apply again after importing.
 - `xcaffold apply --force` — overwrites the output directory, discarding any manual edits.
 
 ### Multi-target projects
 
-When `--target` is not provided and the `project.xcf` declares a `targets:` list, apply compiles for each declared target in sequence. Passing `--target` explicitly limits compilation to that single platform.
+When `--target` is not provided and the `project.xcaf` declares a `targets:` list, apply compiles for each declared target in sequence. Passing `--target` explicitly limits compilation to that single platform.
 
 ## Exit codes
 
@@ -67,7 +67,7 @@ When `--target` is not provided and the `project.xcf` declares a `targets:` list
 sandbox  ·  claude  ·  last applied just now
 
 ok  Apply complete. 90 files written to .claude/
-  Run 'xcaffold import' to sync manual edits back to .xcf sources.
+  Run 'xcaffold import' to sync manual edits back to .xcaf sources.
 ```
 
 ### Sources unchanged
@@ -126,6 +126,6 @@ xcaffold apply --backup
 
 - `--global` is accepted as a flag but prints `Global scope is not yet available` and exits `1`. Global compilation will be supported in a future release.
 - `--blueprint` and `--global` cannot be combined. Blueprints are project-scoped.
-- The state file is written to `.xcaffold/project.xcf.state` and is machine-local. It should be gitignored (apply adds the entry automatically). See [State Files and Drift Detection](../../concepts/execution/state-and-drift.md) for schema details.
+- The state file is written to `.xcaffold/project.xcaf.state` and is machine-local. It should be gitignored (apply adds the entry automatically). See [State Files and Drift Detection](../../concepts/execution/state-and-drift.md) for schema details.
 - Policy rules are evaluated after successful compilation. If compilation fails, the policy phase is skipped.
 - For guidance on authoring policy resources, see [Policy Best Practices](../../best-practices/policy-organization.md).

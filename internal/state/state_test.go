@@ -32,7 +32,7 @@ func TestStateManifest_Fields(t *testing.T) {
 		Blueprint:       "backend",
 		BlueprintHash:   "sha256:abc",
 		SourceFiles: []SourceFile{
-			{Path: "project.xcf", Hash: "sha256:111"},
+			{Path: "project.xcaf", Hash: "sha256:111"},
 		},
 		Targets: map[string]TargetState{
 			"claude": {
@@ -84,12 +84,12 @@ func TestStateDir(t *testing.T) {
 
 func TestStateFilePath_Default(t *testing.T) {
 	got := StateFilePath("/home/user/proj", "")
-	assert.Equal(t, "/home/user/proj/.xcaffold/project.xcf.state", got)
+	assert.Equal(t, "/home/user/proj/.xcaffold/project.xcaf.state", got)
 }
 
 func TestStateFilePath_NamedProfile(t *testing.T) {
 	got := StateFilePath("/home/user/proj", "backend")
-	assert.Equal(t, "/home/user/proj/.xcaffold/backend.xcf.state", got)
+	assert.Equal(t, "/home/user/proj/.xcaffold/backend.xcaf.state", got)
 }
 
 func TestStateFilePath_PathTraversal(t *testing.T) {
@@ -105,7 +105,7 @@ func TestStateOpts_Fields(t *testing.T) {
 		BlueprintHash: "sha256:abc",
 		Target:        "claude",
 		BaseDir:       "/tmp/proj",
-		SourceFiles:   []string{"/tmp/proj/project.xcf"},
+		SourceFiles:   []string{"/tmp/proj/project.xcaf"},
 		MemorySeeds:   nil,
 	}
 	assert.Equal(t, "claude", opts.Target)
@@ -120,7 +120,7 @@ func TestState_WriteRead_RoundTrip(t *testing.T) {
 		Version:         1,
 		XcaffoldVersion: "1.2.0",
 		Blueprint:       "",
-		SourceFiles:     []SourceFile{{Path: "project.xcf", Hash: "sha256:aaa"}},
+		SourceFiles:     []SourceFile{{Path: "project.xcaf", Hash: "sha256:aaa"}},
 		Targets: map[string]TargetState{
 			"claude": {
 				LastApplied: "2026-04-20T01:00:00Z",
@@ -162,14 +162,14 @@ func TestWriteState_Permissions(t *testing.T) {
 }
 
 func TestReadState_FileNotFound(t *testing.T) {
-	_, err := ReadState("/nonexistent/.xcaffold/project.xcf.state")
+	_, err := ReadState("/nonexistent/.xcaffold/project.xcaf.state")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "project.xcf.state")
+	assert.Contains(t, err.Error(), "project.xcaf.state")
 }
 
 func TestReadState_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "bad.xcf.state")
+	path := filepath.Join(dir, "bad.xcaf.state")
 	require.NoError(t, os.WriteFile(path, []byte("version: [invalid\n  broken:"), 0600))
 	_, err := ReadState(path)
 	require.Error(t, err)
@@ -259,7 +259,7 @@ func TestFindOrphansFromState_OrphansFound(t *testing.T) {
 
 func TestGenerateState_SourceFilesHashed(t *testing.T) {
 	base := t.TempDir()
-	src := filepath.Join(base, "project.xcf")
+	src := filepath.Join(base, "project.xcaf")
 	require.NoError(t, os.WriteFile(src, []byte("kind: project\n"), 0644))
 
 	out := &output.Output{Files: map[string]string{}}
@@ -272,13 +272,13 @@ func TestGenerateState_SourceFilesHashed(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, m.SourceFiles, 1)
-	assert.Equal(t, "project.xcf", m.SourceFiles[0].Path)
+	assert.Equal(t, "project.xcaf", m.SourceFiles[0].Path)
 	assert.True(t, strings.HasPrefix(m.SourceFiles[0].Hash, "sha256:"))
 }
 
 func TestGenerateState_TargetKeyedSources(t *testing.T) {
 	base := t.TempDir()
-	src := filepath.Join(base, "project.xcf")
+	src := filepath.Join(base, "project.xcaf")
 	require.NoError(t, os.WriteFile(src, []byte("kind: project\n"), 0644))
 
 	out := &output.Output{Files: map[string]string{"agents/dev.md": "# dev"}}
@@ -293,14 +293,14 @@ func TestGenerateState_TargetKeyedSources(t *testing.T) {
 	// Source files should be stored in the target-specific state
 	claudeTarget := m.Targets["claude"]
 	require.Len(t, claudeTarget.SourceFiles, 1)
-	assert.Equal(t, "project.xcf", claudeTarget.SourceFiles[0].Path)
+	assert.Equal(t, "project.xcaf", claudeTarget.SourceFiles[0].Path)
 	assert.True(t, strings.HasPrefix(claudeTarget.SourceFiles[0].Hash, "sha256:"))
 }
 
 func TestGenerateState_IndependentSourcesPerTarget(t *testing.T) {
 	base := t.TempDir()
-	src1 := filepath.Join(base, "claude.xcf")
-	src2 := filepath.Join(base, "cursor.xcf")
+	src1 := filepath.Join(base, "claude.xcaf")
+	src2 := filepath.Join(base, "cursor.xcaf")
 	require.NoError(t, os.WriteFile(src1, []byte("kind: project\nname: claude\n"), 0644))
 	require.NoError(t, os.WriteFile(src2, []byte("kind: project\nname: cursor\n"), 0644))
 
@@ -329,15 +329,15 @@ func TestGenerateState_IndependentSourcesPerTarget(t *testing.T) {
 
 	require.Len(t, claudeSources, 1)
 	require.Len(t, cursorSources, 1)
-	assert.Equal(t, "claude.xcf", claudeSources[0].Path)
-	assert.Equal(t, "cursor.xcf", cursorSources[0].Path)
+	assert.Equal(t, "claude.xcaf", claudeSources[0].Path)
+	assert.Equal(t, "cursor.xcaf", cursorSources[0].Path)
 	assert.NotEqual(t, claudeSources[0].Hash, cursorSources[0].Hash)
 }
 
 func TestSourcesChanged_UsesTargetSpecificSources(t *testing.T) {
 	base := t.TempDir()
-	src1 := filepath.Join(base, "claude.xcf")
-	src2 := filepath.Join(base, "cursor.xcf")
+	src1 := filepath.Join(base, "claude.xcaf")
+	src2 := filepath.Join(base, "cursor.xcaf")
 	require.NoError(t, os.WriteFile(src1, []byte("kind: project\nname: claude\n"), 0644))
 	require.NoError(t, os.WriteFile(src2, []byte("kind: project\nname: cursor\n"), 0644))
 
@@ -375,9 +375,9 @@ func TestListStateFiles(t *testing.T) {
 	require.NoError(t, os.MkdirAll(stateDir, 0755))
 
 	// Create multiple state files
-	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "project.xcf.state"), []byte("version: 1\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "backend.xcf.state"), []byte("version: 1\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "frontend.xcf.state"), []byte("version: 1\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "project.xcaf.state"), []byte("version: 1\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "backend.xcaf.state"), []byte("version: 1\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "frontend.xcaf.state"), []byte("version: 1\n"), 0600))
 
 	files, err := ListStateFiles(stateDir)
 	require.NoError(t, err)
@@ -404,12 +404,12 @@ func TestListStateFiles_IgnoresNonStateFiles(t *testing.T) {
 	stateDir := filepath.Join(base, ".xcaffold")
 	require.NoError(t, os.MkdirAll(stateDir, 0755))
 
-	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "project.xcf.state"), []byte("version: 1\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "project.xcaf.state"), []byte("version: 1\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "readme.txt"), []byte("not a state file\n"), 0644))
-	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "project.xcf"), []byte("kind: project\n"), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "project.xcaf"), []byte("kind: project\n"), 0644))
 
 	files, err := ListStateFiles(stateDir)
 	require.NoError(t, err)
 	require.Len(t, files, 1)
-	assert.True(t, strings.HasSuffix(files[0], "project.xcf.state"))
+	assert.True(t, strings.HasSuffix(files[0], "project.xcaf.state"))
 }

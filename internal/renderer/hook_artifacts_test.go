@@ -16,15 +16,15 @@ func TestRewriteHookCommandPath(t *testing.T) {
 	}{
 		{
 			name:    "script path rewritten",
-			command: "bash xcf/hooks/enforce/scripts/enforce-standards.sh",
-			srcBase: "xcf/hooks/enforce/scripts/",
+			command: "bash xcaf/hooks/enforce/scripts/enforce-standards.sh",
+			srcBase: "xcaf/hooks/enforce/scripts/",
 			dstBase: ".claude/hooks/",
 			want:    "bash .claude/hooks/enforce-standards.sh",
 		},
 		{
 			name:    "non-matching command unchanged",
 			command: "echo hello",
-			srcBase: "xcf/hooks/enforce/scripts/",
+			srcBase: "xcaf/hooks/enforce/scripts/",
 			dstBase: ".claude/hooks/",
 			want:    "echo hello",
 		},

@@ -25,12 +25,12 @@ func writeFile(t *testing.T, dir, name, content string) string {
 func TestParseFile_ValidConfig(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	writeFile(t, dir, "project.xcf", `kind: project
+	writeFile(t, dir, "project.xcaf", `kind: project
 version: "1.0"
 name: "valid-project"
 description: "A simple project."
 `)
-	writeFile(t, dir, "global.xcf", `kind: global
+	writeFile(t, dir, "global.xcaf", `kind: global
 version: "1.0"
 agents:
   coder:
@@ -57,8 +57,8 @@ func TestParseFile_ExtendsInheritance(t *testing.T) {
 	baseDir := t.TempDir()
 	projectDir := t.TempDir()
 
-	// base.xcf: single kind:global — contains only the base-agent.
-	writeFile(t, baseDir, "base.xcf", `kind: global
+	// base.xcaf: single kind:global — contains only the base-agent.
+	writeFile(t, baseDir, "base.xcaf", `kind: global
 version: "1.0"
 agents:
   base-agent:
@@ -66,15 +66,15 @@ agents:
     model: "claude-3-5-haiku-20241022"
 `)
 
-	// project dir: separate project.xcf and global.xcf that extends the base.
-	writeFile(t, projectDir, "project.xcf", `kind: project
+	// project dir: separate project.xcaf and global.xcaf that extends the base.
+	writeFile(t, projectDir, "project.xcaf", `kind: project
 version: "1.0"
 name: "base-project"
 description: "Base description."
 `)
-	writeFile(t, projectDir, "global.xcf", `kind: global
+	writeFile(t, projectDir, "global.xcaf", `kind: global
 version: "1.0"
-extends: "`+filepath.Join(baseDir, "base.xcf")+`"
+extends: "`+filepath.Join(baseDir, "base.xcaf")+`"
 agents:
   child-agent:
     description: "Child agent."
@@ -85,11 +85,11 @@ agents:
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
-	// Project info from project.xcf
+	// Project info from project.xcaf
 	assert.Equal(t, "base-project", cfg.Project.Name)
 	assert.Equal(t, "Base description.", cfg.Project.Description)
 
-	// Base agent inherited from base.xcf via extends
+	// Base agent inherited from base.xcaf via extends
 	require.Contains(t, cfg.Agents, "base-agent", "base agent should be inherited")
 	assert.Equal(t, "claude-3-5-haiku-20241022", cfg.Agents["base-agent"].Model)
 
@@ -106,8 +106,8 @@ func TestParseFile_ExtendsChildOverridesBase(t *testing.T) {
 	baseDir := t.TempDir()
 	childDir := t.TempDir()
 
-	// base.xcf: kind:global only — no project doc (project in separate file).
-	writeFile(t, baseDir, "base.xcf", `kind: global
+	// base.xcaf: kind:global only — no project doc (project in separate file).
+	writeFile(t, baseDir, "base.xcaf", `kind: global
 version: "1.0"
 agents:
   shared-agent:
@@ -115,8 +115,8 @@ agents:
     model: "claude-3-5-haiku-20241022"
 `)
 
-	// Child directory: project.xcf and global.xcf with extends.
-	writeFile(t, childDir, "project.xcf", `kind: project
+	// Child directory: project.xcaf and global.xcaf with extends.
+	writeFile(t, childDir, "project.xcaf", `kind: project
 version: "1.0"
 name: "child-project"
 description: "Child description."
@@ -124,9 +124,9 @@ test:
   cli-path: "/usr/local/bin/claude"
   judge-model: "claude-3-opus-20240229"
 `)
-	writeFile(t, childDir, "global.xcf", `kind: global
+	writeFile(t, childDir, "global.xcaf", `kind: global
 version: "1.0"
-extends: "`+filepath.Join(baseDir, "base.xcf")+`"
+extends: "`+filepath.Join(baseDir, "base.xcaf")+`"
 agents:
   shared-agent:
     description: "Child version of agent."
@@ -137,7 +137,7 @@ agents:
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
-	// Child project from project.xcf
+	// Child project from project.xcaf
 	assert.Equal(t, "child-project", cfg.Project.Name)
 	assert.Equal(t, "Child description.", cfg.Project.Description)
 
@@ -146,10 +146,10 @@ agents:
 	assert.Equal(t, "Child version of agent.", cfg.Agents["shared-agent"].Description)
 	assert.Equal(t, "claude-3-7-sonnet-20250219", cfg.Agents["shared-agent"].Model)
 
-	// Test config: child project.xcf sets both cli-path and judge-model
+	// Test config: child project.xcaf sets both cli-path and judge-model
 	require.NotNil(t, cfg.Project)
-	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.CliPath, "cli-path from project.xcf")
-	assert.Equal(t, "claude-3-opus-20240229", cfg.Project.Test.JudgeModel, "judge-model from project.xcf")
+	assert.Equal(t, "/usr/local/bin/claude", cfg.Project.Test.CliPath, "cli-path from project.xcaf")
+	assert.Equal(t, "claude-3-opus-20240229", cfg.Project.Test.JudgeModel, "judge-model from project.xcaf")
 }
 
 // ---------------------------------------------------------------------------
@@ -159,17 +159,17 @@ agents:
 func TestParseFile_CircularExtendsDetected(t *testing.T) {
 	dir := t.TempDir()
 
-	writeFile(t, dir, "a.xcf", `kind: global
+	writeFile(t, dir, "a.xcaf", `kind: global
 version: "1.0"
-extends: "b.xcf"
+extends: "b.xcaf"
 `)
 
-	writeFile(t, dir, "b.xcf", `kind: global
+	writeFile(t, dir, "b.xcaf", `kind: global
 version: "1.0"
-extends: "a.xcf"
+extends: "a.xcaf"
 `)
 
-	aPath := filepath.Join(dir, "a.xcf")
+	aPath := filepath.Join(dir, "a.xcaf")
 	_, err := ParseFile(aPath)
 	require.Error(t, err)
 	assert.True(t,
@@ -185,9 +185,9 @@ extends: "a.xcf"
 func TestParseFile_ExtendsMissingBaseFile(t *testing.T) {
 	dir := t.TempDir()
 
-	childPath := writeFile(t, dir, "child.xcf", `kind: global
+	childPath := writeFile(t, dir, "child.xcaf", `kind: global
 version: "1.0"
-extends: "nonexistent-base.xcf"
+extends: "nonexistent-base.xcaf"
 `)
 
 	_, err := ParseFile(childPath)
@@ -199,7 +199,7 @@ extends: "nonexistent-base.xcf"
 // ---------------------------------------------------------------------------
 
 func TestParseFile_FileNotFound(t *testing.T) {
-	_, err := ParseFile("/tmp/xcaffold-test-does-not-exist-12345.xcf")
+	_, err := ParseFile("/tmp/xcaffold-test-does-not-exist-12345.xcaf")
 	require.Error(t, err)
 }
 
@@ -270,11 +270,11 @@ func TestMergeMapStrict_DisallowsDuplicates(t *testing.T) {
 	child := map[string]string{
 		"shared": "child-value",
 	}
-	baseOrigins := map[string]string{"shared": "base.xcf"}
+	baseOrigins := map[string]string{"shared": "base.xcaf"}
 
-	_, _, err := mergeMapStrict(base, child, "agent", baseOrigins, "child.xcf")
+	_, _, err := mergeMapStrict(base, child, "agent", baseOrigins, "child.xcaf")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate agent ID \"shared\" found in base.xcf and child.xcf")
+	assert.Contains(t, err.Error(), "duplicate agent ID \"shared\" found in base.xcaf and child.xcaf")
 }
 
 func TestMergeMapStrict_AllowsDisjoint(t *testing.T) {
@@ -284,13 +284,13 @@ func TestMergeMapStrict_AllowsDisjoint(t *testing.T) {
 	child := map[string]string{
 		"child-only": "child-value",
 	}
-	baseOrigins := map[string]string{"base-only": "base.xcf"}
-	result, origins, err := mergeMapStrict(base, child, "agent", baseOrigins, "child.xcf")
+	baseOrigins := map[string]string{"base-only": "base.xcaf"}
+	result, origins, err := mergeMapStrict(base, child, "agent", baseOrigins, "child.xcaf")
 	require.NoError(t, err)
 	assert.Equal(t, "base-value", result["base-only"])
 	assert.Equal(t, "child-value", result["child-only"])
-	assert.Equal(t, "base.xcf", origins["base-only"])
-	assert.Equal(t, "child.xcf", origins["child-only"])
+	assert.Equal(t, "base.xcaf", origins["base-only"])
+	assert.Equal(t, "child.xcaf", origins["child-only"])
 }
 
 // ---------------------------------------------------------------------------
@@ -306,26 +306,26 @@ func TestParseFile_ExtendsGlobal_ReadsFromXcaffoldDir(t *testing.T) {
 	xcaffoldDir := filepath.Join(fakeHome, ".xcaffold")
 	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
 
-	writeFile(t, xcaffoldDir, "agents.xcf", `kind: global
+	writeFile(t, xcaffoldDir, "agents.xcaf", `kind: global
 version: "1.0"
 agents:
   global-agent:
-    description: "I am a global agent from .xcaffold/agents.xcf"
+    description: "I am a global agent from .xcaffold/agents.xcaf"
 `)
-	writeFile(t, xcaffoldDir, "skills.xcf", `kind: global
+	writeFile(t, xcaffoldDir, "skills.xcaf", `kind: global
 version: "1.0"
 skills:
   global-skill:
-    description: "I am a global skill from .xcaffold/skills.xcf"
+    description: "I am a global skill from .xcaffold/skills.xcaf"
 `)
 
 	// 2. Create the project config extending "global" — split into separate single-kind files.
 	projectDir := t.TempDir()
-	writeFile(t, projectDir, "project.xcf", `kind: project
+	writeFile(t, projectDir, "project.xcaf", `kind: project
 version: "1.0"
 name: "local-project"
 `)
-	writeFile(t, projectDir, "global.xcf", `kind: global
+	writeFile(t, projectDir, "global.xcaf", `kind: global
 version: "1.0"
 extends: "global"
 `)
@@ -336,9 +336,9 @@ extends: "global"
 	// 3. Verify AST merges all global parts plus local project
 	assert.Equal(t, "local-project", cfg.Project.Name)
 	require.Contains(t, cfg.Agents, "global-agent")
-	assert.Equal(t, "I am a global agent from .xcaffold/agents.xcf", cfg.Agents["global-agent"].Description)
+	assert.Equal(t, "I am a global agent from .xcaffold/agents.xcaf", cfg.Agents["global-agent"].Description)
 	require.Contains(t, cfg.Skills, "global-skill")
-	assert.Equal(t, "I am a global skill from .xcaffold/skills.xcf", cfg.Skills["global-skill"].Description)
+	assert.Equal(t, "I am a global skill from .xcaffold/skills.xcaf", cfg.Skills["global-skill"].Description)
 }
 
 // ---------------------------------------------------------------------------
@@ -350,18 +350,18 @@ func TestParseFile_ExtendsGlobal_LegacyFallback(t *testing.T) {
 	t.Setenv("HOME", fakeHome)
 	t.Setenv("USERPROFILE", fakeHome)
 
-	// Only .claude/global.xcf exists
+	// Only .claude/global.xcaf exists
 	legacyDir := filepath.Join(fakeHome, ".claude")
 	require.NoError(t, os.MkdirAll(legacyDir, 0755))
-	writeFile(t, legacyDir, "global.xcf", `kind: global
+	writeFile(t, legacyDir, "global.xcaf", `kind: global
 version: "1.0"
 agents:
   legacy-agent:
-    description: "From legacy .claude/global.xcf"
+    description: "From legacy .claude/global.xcaf"
 `)
 
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "project.xcf", `kind: global
+	childPath := writeFile(t, projectDir, "project.xcaf", `kind: global
 version: "1.0"
 extends: "global"
 `)
@@ -369,7 +369,7 @@ extends: "global"
 	cfg, err := ParseFile(childPath)
 	require.NoError(t, err)
 	require.Contains(t, cfg.Agents, "legacy-agent")
-	assert.Equal(t, "From legacy .claude/global.xcf", cfg.Agents["legacy-agent"].Description)
+	assert.Equal(t, "From legacy .claude/global.xcaf", cfg.Agents["legacy-agent"].Description)
 }
 
 // ---------------------------------------------------------------------------
@@ -384,13 +384,13 @@ func TestParseFile_ExtendsGlobal_Circular(t *testing.T) {
 	xcaffoldDir := filepath.Join(fakeHome, ".xcaffold")
 	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
 
-	writeFile(t, xcaffoldDir, "circular.xcf", `kind: global
+	writeFile(t, xcaffoldDir, "circular.xcaf", `kind: global
 version: "1.0"
 extends: "global"
 `)
 
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "project.xcf", `kind: global
+	childPath := writeFile(t, projectDir, "project.xcaf", `kind: global
 version: "1.0"
 extends: "global"
 `)
@@ -415,23 +415,23 @@ func TestParseFile_ExtendsGlobal_NestedInheritance(t *testing.T) {
 	xcaffoldDir := filepath.Join(fakeHome, ".xcaffold")
 	require.NoError(t, os.MkdirAll(xcaffoldDir, 0755))
 
-	writeFile(t, xcaffoldDir, "base.xcf", `kind: global
+	writeFile(t, xcaffoldDir, "base.xcaf", `kind: global
 version: "1.0"
 agents:
   nested-agent:
     description: "From nested global"
 `)
 
-	writeFile(t, xcaffoldDir, "main.xcf", `kind: global
+	writeFile(t, xcaffoldDir, "main.xcaf", `kind: global
 version: "1.0"
-extends: "base.xcf"
+extends: "base.xcaf"
 agents:
   main-agent:
     description: "From main global"
 `)
 
 	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "project.xcf", `kind: global
+	childPath := writeFile(t, projectDir, "project.xcaf", `kind: global
 version: "1.0"
 extends: "global"
 `)

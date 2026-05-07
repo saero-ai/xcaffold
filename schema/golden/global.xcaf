@@ -14,7 +14,7 @@ settings:
   include-git-instructions: true
   skip-dangerous-mode-permission-prompt: false
   auto-memory-enabled: true
-  auto-memory-directory: .xcf/memory
+  auto-memory-directory: .xcaf/memory
   always-thinking-enabled: false
   cleanup-period-days: 30
   respect-gitignore: true

@@ -67,7 +67,7 @@ func configKindCount(
 	}
 }
 
-// renderCurrentStateTable prints a summary of the current project.xcf state.
+// renderCurrentStateTable prints a summary of the current project.xcaf state.
 func renderCurrentStateTable(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 	if config == nil {
 		return
@@ -107,7 +107,7 @@ func renderCurrentStateTable(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 
 	fmt.Printf("  ┌─── CURRENT STATE ─%s┐\n",
 		border[19:])
-	srcLine := "Source: project.xcf"
+	srcLine := "Source: project.xcaf"
 	fmt.Printf("  │ %-*s │\n", inner-2, srcLine)
 	fmt.Printf("  ├─%s─┤\n", border)
 	fmt.Printf("  │ %-*s │\n", inner-2, summary)

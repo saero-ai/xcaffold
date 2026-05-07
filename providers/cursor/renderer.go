@@ -304,7 +304,7 @@ var xcaffoldToCursorEvent = map[string]string{
 	"SubagentStart":    "subagentStart",
 	"SubagentStop":     "subagentStop",
 	"Stop":             "stop",
-	// Gemini-style aliases (to handle xcf files originally authored for Gemini)
+	// Gemini-style aliases (to handle xcaf files originally authored for Gemini)
 	"PreToolExecution":  "preToolUse",
 	"PostToolExecution": "postToolUse",
 	"BeforeTool":        "preToolUse",

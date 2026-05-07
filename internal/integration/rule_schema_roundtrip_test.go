@@ -18,12 +18,12 @@ const ruleFixtureBase = "testdata/rule-schema"
 func TestRuleSchema_RoundTrip_ClaudeToCursor(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	xcfPath := filepath.Join(ruleFixtureBase, "input", "path-glob-rule.xcf")
-	config, err := parser.ParseFile(xcfPath)
+	xcafPath := filepath.Join(ruleFixtureBase, "input", "path-glob-rule.xcaf")
+	config, err := parser.ParseFile(xcafPath)
 	require.NoError(t, err)
 
 	cr := cursor.New()
-	out, _, err := renderer.Orchestrate(cr, config, filepath.Dir(xcfPath))
+	out, _, err := renderer.Orchestrate(cr, config, filepath.Dir(xcafPath))
 	require.NoError(t, err)
 
 	ruleKey := "rules/path-glob-rule.mdc"
@@ -36,8 +36,8 @@ func TestRuleSchema_RoundTrip_ClaudeToCursor(t *testing.T) {
 func TestRuleSchema_LegacyAlwaysApply_NormalizedToActivation(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 
-	legacyPath := filepath.Join(ruleFixtureBase, "input", "legacy-always-apply-true.xcf")
-	activationPath := filepath.Join(ruleFixtureBase, "input", "always-rule.xcf")
+	legacyPath := filepath.Join(ruleFixtureBase, "input", "legacy-always-apply-true.xcaf")
+	activationPath := filepath.Join(ruleFixtureBase, "input", "always-rule.xcaf")
 
 	legacyConfig, err := parser.ParseFile(legacyPath)
 	require.NoError(t, err)
@@ -114,10 +114,10 @@ name: ` + id + `
 activation: always
 instructions-file: "` + localName + `"
 `
-			xcfPath := filepath.Join(tmp, "rule.xcf")
-			require.NoError(t, os.WriteFile(xcfPath, []byte(src), 0o600))
+			xcafPath := filepath.Join(tmp, "rule.xcaf")
+			require.NoError(t, os.WriteFile(xcafPath, []byte(src), 0o600))
 
-			config, err := parser.ParseFile(xcfPath)
+			config, err := parser.ParseFile(xcafPath)
 			require.NoError(t, err, "parse failed for %s", id)
 
 			out, _, err := renderer.Orchestrate(cr, config, tmp)

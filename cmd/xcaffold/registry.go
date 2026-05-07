@@ -47,19 +47,19 @@ func runRegistry(cmd *cobra.Command, args []string) error {
 		}
 
 		var resInfo string
-		var xcfProjectPath string
-		if _, err := os.Stat(filepath.Join(p.Path, "project.xcf")); err == nil {
-			xcfProjectPath = filepath.Join(p.Path, "project.xcf")
+		var xcafProjectPath string
+		if _, err := os.Stat(filepath.Join(p.Path, "project.xcaf")); err == nil {
+			xcafProjectPath = filepath.Join(p.Path, "project.xcaf")
 		}
 
-		if xcfProjectPath != "" {
-			if cfg, err := parser.ParseDirectory(getParseRoot(xcfProjectPath)); err == nil {
+		if xcafProjectPath != "" {
+			if cfg, err := parser.ParseDirectory(getParseRoot(xcafProjectPath)); err == nil {
 				resInfo = fmt.Sprintf("    resources: %d agents, %d skills, %d rules", len(cfg.Agents), len(cfg.Skills), len(cfg.Rules))
 			} else {
 				resInfo = "    resources: parse error"
 			}
 		} else {
-			resInfo = "    resources: not found (project.xcf missing)"
+			resInfo = "    resources: not found (project.xcaf missing)"
 		}
 
 		lastApplied := "never"
@@ -82,9 +82,9 @@ func runRegistry(cmd *cobra.Command, args []string) error {
 	}
 
 	// Show global info
-	cmd.Printf("  GLOBAL (%s)\n", globalXcfPath)
-	if _, err := os.Stat(globalXcfPath); err == nil {
-		if cfg, err := parser.ParseDirectory(getParseRoot(globalXcfPath)); err == nil {
+	cmd.Printf("  GLOBAL (%s)\n", globalXcafPath)
+	if _, err := os.Stat(globalXcafPath); err == nil {
+		if cfg, err := parser.ParseDirectory(getParseRoot(globalXcafPath)); err == nil {
 			cmd.Printf("    resources: %d agents, %d skills, %d rules\n", len(cfg.Agents), len(cfg.Skills), len(cfg.Rules))
 		} else {
 			cmd.Printf("    resources: parse error\n")

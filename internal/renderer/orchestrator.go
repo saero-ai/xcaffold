@@ -156,7 +156,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 		}
 	}
 
-	// Hook artifacts — copy script files from xcf/hooks/<name>/ to provider output.
+	// Hook artifacts — copy script files from xcaf/hooks/<name>/ to provider output.
 	if caps.Hooks {
 		for hookKey, hook := range config.Hooks {
 			if len(hook.Artifacts) == 0 {
@@ -166,7 +166,7 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 			if name == "" {
 				name = hookKey
 			}
-			hookSrcDir := filepath.Join(baseDir, "xcf", "hooks", name)
+			hookSrcDir := filepath.Join(baseDir, "xcaf", "hooks", name)
 			hookDstDir := filepath.Join(r.OutputDir(), "hooks")
 			artifactFiles, err := CompileHookArtifacts(name, hook.Artifacts, hookSrcDir, hookDstDir)
 			if err != nil {

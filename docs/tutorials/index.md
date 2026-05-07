@@ -21,7 +21,7 @@ Work through these in order. Getting Started is a prerequisite for the other thr
 
 | Order | Tutorial | Description | Time |
 |-------|----------|-------------|------|
-| 1 | [Getting Started](getting-started.md) | Initialize a project, compile your first agent, and understand the `.xcf` → output pipeline | ~10 min |
+| 1 | [Getting Started](getting-started.md) | Initialize a project, compile your first agent, and understand the `.xcaf` → output pipeline | ~10 min |
 | 2 | [AI-Assisted Scaffolding](ai-assisted-scaffolding.md) | Use an AI coding assistant to fill in your scaffold without hallucinating provider-specific formats | ~15 min |
 | 3 | [Multi-Agent Workspace](multi-agent-workspace.md) | Configure a team of differentiated agents with distinct tool permissions, shared rules and skills, and validated output | ~15 min |
 | 4 | [Drift Remediation](drift-remediation.md) | Detect, diagnose, and restore managed files when compiled output has been modified directly | ~10 min |

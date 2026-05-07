@@ -13,7 +13,7 @@ The project follows a clean architecture pattern with three layers:
 ## Key Design Decisions
 
 - YAML frontmatter is the canonical configuration format
-- The compilation pipeline is one-way: `.xcf` source to provider-native output
+- The compilation pipeline is one-way: `.xcaf` source to provider-native output
 - Each provider has its own renderer implementing the `TargetRenderer` interface
 - Import uses `ProviderImporter` interface for provider-specific file parsing
 

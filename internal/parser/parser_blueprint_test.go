@@ -11,11 +11,11 @@ import (
 )
 
 func TestBlueprint_Targets_ParsedFromYAML(t *testing.T) {
-	// Create a temp dir with a blueprint xcf that has targets
+	// Create a temp dir with a blueprint xcaf that has targets
 	dir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "test-bp.xcf"), []byte(`kind: blueprint
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcaf", "blueprints", "test-bp.xcaf"), []byte(`kind: blueprint
 version: "1.0"
 name: test-bp
 targets:
@@ -34,9 +34,9 @@ agents:
 
 func TestBlueprint_Targets_EmptyOmitted(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "test-bp.xcf"), []byte(`kind: blueprint
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcaf", "blueprints", "test-bp.xcaf"), []byte(`kind: blueprint
 version: "1.0"
 name: test-bp
 agents:
@@ -52,9 +52,9 @@ agents:
 
 func TestBlueprint_Targets_SingleTarget(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "test-bp.xcf"), []byte(`kind: blueprint
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcaf", "blueprints", "test-bp.xcaf"), []byte(`kind: blueprint
 version: "1.0"
 name: test-bp
 targets:
@@ -72,12 +72,12 @@ agents:
 
 func TestBlueprint_ParsesBasicDocument(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: test-project\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte("kind: agent\nversion: \"1.0\"\nname: developer\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte("kind: skill\nversion: \"1.0\"\nname: tdd\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcf"), []byte("kind: rule\nversion: \"1.0\"\nname: testing\n"), 0600))
-	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcf", "blueprints"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcf", "blueprints", "backend.xcf"), []byte(`kind: blueprint
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test-project\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte("kind: agent\nversion: \"1.0\"\nname: developer\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcaf"), []byte("kind: skill\nversion: \"1.0\"\nname: tdd\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcaf"), []byte("kind: rule\nversion: \"1.0\"\nname: testing\n"), 0600))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcaf", "blueprints", "backend.xcaf"), []byte(`kind: blueprint
 version: "1.0"
 name: backend
 description: Backend engineering
@@ -99,17 +99,17 @@ rules:
 
 func TestBlueprint_UnknownField_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "bad-bp.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: myblueprint\nunknown-field: bad\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "bad-bp.xcaf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: myblueprint\nunknown-field: bad\n"), 0600))
 	_, err := ParseDirectory(dir)
 	require.Error(t, err)
 }
 
 func TestBlueprint_DuplicateName_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "p1.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: backend\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "p2.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: backend\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "p1.xcaf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: backend\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "p2.xcaf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: backend\n"), 0600))
 	_, err := ParseDirectory(dir)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate blueprint name")
@@ -117,16 +117,16 @@ func TestBlueprint_DuplicateName_ReturnsError(t *testing.T) {
 
 func TestBlueprint_EmptyName_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "bp.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: \"\"\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "bp.xcaf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: \"\"\n"), 0600))
 	_, err := ParseDirectory(dir)
 	require.Error(t, err)
 }
 
 func TestBlueprint_InvalidNameChars_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "bp.xcf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: \"Backend Engineering\"\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: x\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "bp.xcaf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: \"Backend Engineering\"\n"), 0600))
 	_, err := ParseDirectory(dir)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid")
@@ -134,15 +134,15 @@ func TestBlueprint_InvalidNameChars_ReturnsError(t *testing.T) {
 
 func TestBlueprint_MissingVersion_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "bp.xcf"), []byte("kind: blueprint\nname: myblueprint\n"), 0600))
-	_, err := ParseFileExact(filepath.Join(dir, "bp.xcf"))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "bp.xcaf"), []byte("kind: blueprint\nname: myblueprint\n"), 0600))
+	_, err := ParseFileExact(filepath.Join(dir, "bp.xcaf"))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "version")
 }
 
 func TestBlueprint_ParsedViaParseFileExact(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "backend.xcf")
+	f := filepath.Join(dir, "backend.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte(`kind: blueprint
 version: "1.0"
 name: backend
@@ -173,7 +173,7 @@ func TestBlueprint_FixturesParse(t *testing.T) {
 	require.NotEmpty(t, entries)
 
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".xcf") {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".xcaf") {
 			continue
 		}
 		t.Run(entry.Name(), func(t *testing.T) {

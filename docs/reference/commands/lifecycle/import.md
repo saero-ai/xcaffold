@@ -5,14 +5,14 @@ description: "Import existing provider configurations into Xcaffold project stru
 
 # xcaffold import
 
-Adopts existing fragmented AI configurations from provider directories (`.claude/`, `.cursor/`, `.gemini/`, etc.) into a centralized Xcaffold `.xcf` project specification.
+Adopts existing fragmented AI configurations from provider directories (`.claude/`, `.cursor/`, `.gemini/`, etc.) into a centralized Xcaffold `.xcaf` project specification.
 
 The `import` command:
 1. **Detects** available provider directories in the project root
 2. **Imports** resources from each provider using the `ProviderImporter` interface
 3. **Filters** resources by kind (agents, skills, rules, etc.) via `--<kind>` flags
 4. **Merges** multi-provider resources into base files + provider-specific override files
-5. **Writes** the result as `project.xcf` + directory-per-resource layout in `xcf/`
+5. **Writes** the result as `project.xcaf` + directory-per-resource layout in `xcaf/`
 
 ## Usage
 
@@ -32,7 +32,7 @@ xcaffold import [flags]
 | `--mcp` | string | (all) | Import MCP server definitions. Optionally filter by name. |
 | `--hooks` | bool | false | Import hook definitions. |
 | `--settings` | bool | false | Import settings configuration. |
-| `--memory` | bool | false | Import agent-written memory snapshots to `xcf/agents/<id>/memory/` sidecars. |
+| `--memory` | bool | false | Import agent-written memory snapshots to `xcaf/agents/<id>/memory/` sidecars. |
 | `--plan` | bool | false | Dry-run: print import plan without writing files. |
 
 ## Behavior
@@ -43,7 +43,7 @@ When `--target` is specified:
 - Scans only the target provider's directory (e.g., `.claude/` for `--target claude`)
 - Imports all matching resources (filtered by `--<kind>` flags if provided)
 - Tags all resources with `targets: [<provider>]` to indicate their source
-- Writes `project.xcf` + directory-per-resource layout
+- Writes `project.xcaf` + directory-per-resource layout
 
 **Example:** `xcaffold import --target claude --agent` imports all agents from `.claude/` and tags them with `targets: [claude]`.
 
@@ -57,14 +57,14 @@ When `--target` is not specified:
     - Identical resources (same name, frontmatter, body) from multiple providers are merged into a single base file
     - Divergent fields (e.g., same agent with different instructions) are extracted into provider-specific override files
     - The provider with the fewest provider-specific fields (hooks, model, tools) becomes the base. Override files contain only the fields that differ from the base — when body content is identical across providers, override files omit the body and inherit it from the base at compile time.
-    - Override files use `<kind>.<provider>.xcf` naming (e.g., `agent.claude.xcf`, `agent.cursor.xcf`)
+    - Override files use `<kind>.<provider>.xcaf` naming (e.g., `agent.claude.xcaf`, `agent.cursor.xcaf`)
   - **Memory**: Union merge across all provider-specific memory directories. Within a single agent's memory, first-seen document wins on key collision.
   - **Hooks, MCP, Settings**: All variants merged; provider-specific differences preserved in `target-options` where applicable
 
 **Example:** `xcaffold import` (no flags) detects `.claude/`, `.cursor/`, and `.gemini/` directories, imports all resources from each, and produces:
-- `xcf/agents/researcher/agent.xcf` (base, common to multiple providers)
-- `xcf/agents/researcher/agent.claude.xcf` (Claude-specific overrides)
-- `xcf/agents/researcher/agent.cursor.xcf` (Cursor-specific overrides)
+- `xcaf/agents/researcher/agent.xcaf` (base, common to multiple providers)
+- `xcaf/agents/researcher/agent.claude.xcaf` (Claude-specific overrides)
+- `xcaf/agents/researcher/agent.cursor.xcaf` (Cursor-specific overrides)
 
 ### Resource Filtering
 
@@ -79,31 +79,31 @@ Per-kind flags (`--agent`, `--skill`, etc.) control which resource types are imp
 After import, the project structure is organized as directory-per-resource with canonical filenames:
 
 ```
-xcf/
+xcaf/
 ├── agents/
 │   └── researcher/
-│       ├── agent.xcf              # base definition
-│       ├── agent.claude.xcf       # Claude-specific overrides
-│       ├── agent.cursor.xcf       # Cursor-specific overrides
+│       ├── agent.xcaf              # base definition
+│       ├── agent.claude.xcaf       # Claude-specific overrides
+│       ├── agent.cursor.xcaf       # Cursor-specific overrides
 │       └── memory/                # agent memory sidecars
 ├── skills/
 │   └── code-review/
-│       ├── skill.xcf
-│       └── skill.claude.xcf
+│       ├── skill.xcaf
+│       └── skill.claude.xcaf
 ├── rules/
 │   └── security/
-│       └── rule.xcf
+│       └── rule.xcaf
 ├── workflows/
 │   └── ci-pipeline/
-│       └── workflow.xcf
+│       └── workflow.xcaf
 ├── hooks/
-│   └── hooks.xcf
+│   └── hooks.xcaf
 ├── mcp/
 │   └── github-mcp/
-│       ├── mcp.xcf
-│       └── mcp.claude.xcf
+│       ├── mcp.xcaf
+│       └── mcp.claude.xcaf
 └── settings/
-    └── settings.xcf
+    └── settings.xcaf
 ```
 
 ## Examples
@@ -154,14 +154,14 @@ When multi-provider resources conflict:
 
 ## Limitations
 
-- Multi-document `.xcf` files (multiple resources per file) are not supported during import; resources are split into directory-per-resource layout
+- Multi-document `.xcaf` files (multiple resources per file) are not supported during import; resources are split into directory-per-resource layout
 - Imported resources must have a valid `name` (inferred from filename or declared in YAML); unnamed resources are skipped with a warning
 - Circular memory references across agents are flattened; direct circular imports are not supported
 
 ## Next Steps
 
 After import completes:
-1. Review the generated `project.xcf` and override files
+1. Review the generated `project.xcaf` and override files
 2. Run `xcaffold validate` to verify the project structure
 3. Run `xcaffold apply` to compile to target provider directories
 

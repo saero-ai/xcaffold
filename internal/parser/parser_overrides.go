@@ -18,10 +18,10 @@ type overrideFileEntry struct {
 	Provider string
 }
 
-// classifyOverrideFile parses a filename to detect <kind>.<provider>.xcf pattern.
+// classifyOverrideFile parses a filename to detect <kind>.<provider>.xcaf pattern.
 // Returns (kind, provider, isOverride). If not an override file, isOverride is false.
 func classifyOverrideFile(filename string) (kind, provider string, isOverride bool) {
-	name := strings.TrimSuffix(filename, ".xcf")
+	name := strings.TrimSuffix(filename, ".xcaf")
 	parts := strings.SplitN(name, ".", 2)
 	if len(parts) != 2 {
 		return "", "", false
@@ -32,7 +32,7 @@ func classifyOverrideFile(filename string) (kind, provider string, isOverride bo
 	return parts[0], parts[1], true
 }
 
-// parseOverrideFile parses a single override file (.provider.xcf) and stores
+// parseOverrideFile parses a single override file (.provider.xcaf) and stores
 // the partial resource config in XcaffoldConfig.Overrides.
 func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig, vars map[string]interface{}, envs map[string]string) error {
 	data, err := os.ReadFile(entry.Path)
@@ -57,7 +57,7 @@ func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig, vars
 		return nil
 	}
 
-	// Infer resource name from directory: xcf/agents/<name>/agent.claude.xcf -> name
+	// Infer resource name from directory: xcaf/agents/<name>/agent.claude.xcaf -> name
 	resourceName := filepath.Base(filepath.Dir(entry.Path))
 	trimmedBody := strings.TrimSpace(string(body))
 

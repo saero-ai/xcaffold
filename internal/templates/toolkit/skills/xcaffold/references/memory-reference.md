@@ -2,20 +2,20 @@
 # Memory Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
-# Memory files live at: xcf/agents/<agent-id>/memory/<id>.md
+# Memory files live at: xcaf/agents/<agent-id>/memory/<id>.md
 # Provider support: Claude only (dropped by all others)
 # ============================================================
 # IMPORTANT: Memory uses Content (not Body) for its text field.
 # Content is populated by the compiler from the .md file body,
 # NOT from frontmatter extraction. The compiler discovers .md files
-# under xcf/agents/<agent-id>/memory/ automatically.
+# under xcaf/agents/<agent-id>/memory/ automatically.
 #
 # Memory has NO targets (per-provider overrides).
 # Memory does NOT participate in extends: global inheritance.
 # ============================================================
 #
-# File convention: xcf/agents/<agent-id>/memory/<id>.md
-# Example:         xcf/agents/xaff/memory/project-context.md
+# File convention: xcaf/agents/<agent-id>/memory/<id>.md
+# Example:         xcaf/agents/xaff/memory/project-context.md
 #
 # ── Frontmatter Fields ───────────────────────────────────────
 

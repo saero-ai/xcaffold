@@ -8,7 +8,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 )
 
-// ParseFileExact reads a .xcf YAML configuration from the given path without
+// ParseFileExact reads a .xcaf YAML configuration from the given path without
 // loading the global base. This is the internal entry point called by Parse* functions.
 func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	f, err := os.Open(path)
@@ -18,7 +18,7 @@ func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, 
 	defer f.Close()
 
 	// Prepend source path so kind-specific parsers can derive contextual
-	// metadata from the file's on-disk location (e.g., xcf/agents/<agentID>/memory/).
+	// metadata from the file's on-disk location (e.g., xcaf/agents/<agentID>/memory/).
 	// Caller-supplied opts override this by appearing later in the slice.
 	opts = append([]parseOptionFunc{withSourcePath(path)}, opts...)
 
@@ -30,7 +30,7 @@ func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, 
 }
 
 // loadGlobalBase implicitly discovers and loads the global configuration
-// from ~/.xcaffold/ (or falls back to legacy ~/.claude/global.xcf).
+// from ~/.xcaffold/ (or falls back to legacy ~/.claude/global.xcaf).
 // It returns an empty config if no global config is found.
 // Resources loaded from this base are tagged as Inherited=true during merge.
 func loadGlobalBase() (*ast.XcaffoldConfig, error) {
@@ -107,7 +107,7 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars
 			return mergeConfigOverride(baseConfig, config), nil
 		}
 
-		legacyPath := filepath.Join(home, ".claude", "global.xcf")
+		legacyPath := filepath.Join(home, ".claude", "global.xcaf")
 		if _, err := os.Stat(legacyPath); err == nil {
 			fmt.Fprintf(os.Stderr, "WARNING: extends: global resolved from legacy path %s -- expected location is %s\n", legacyPath, xcaffoldDir)
 			basePath = legacyPath
@@ -627,7 +627,7 @@ func mergeWorkflowsOverrideInherited(base, child map[string]ast.WorkflowConfig) 
 	return merged
 }
 
-// ParseFile reads a .xcf YAML configuration from the given path, resolving
+// ParseFile reads a .xcaf YAML configuration from the given path, resolving
 // 'extends:' references recursively. Evaluated as a strict, single file entry point.
 func ParseFile(path string) (*ast.XcaffoldConfig, error) {
 	globalConfig, err := loadGlobalBase()

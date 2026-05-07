@@ -195,7 +195,7 @@ func TestIntegration_Memory_Gemini_AppendsToGeminiMD(t *testing.T) {
 func TestIntegration_Memory_ConventionDiscovery_EndToEnd(t *testing.T) {
 	// Set up convention-based memory files on disk.
 	baseDir := t.TempDir()
-	memDir := filepath.Join(baseDir, "xcf", "agents", "dev", "memory")
+	memDir := filepath.Join(baseDir, "xcaf", "agents", "dev", "memory")
 	require.NoError(t, os.MkdirAll(memDir, 0o755))
 
 	// Write a memory file with frontmatter.

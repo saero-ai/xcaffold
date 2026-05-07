@@ -319,7 +319,7 @@ func validatePermissions(c *ast.XcaffoldConfig) error {
 	for _, rule := range p.Allow {
 		name, _, err := parsePermissionRule(rule)
 		if err != nil {
-			return fmt.Errorf("invalid .xcf configuration: %w", err)
+			return fmt.Errorf("invalid .xcaf configuration: %w", err)
 		}
 		if !knownTools[name] {
 			return fmt.Errorf("permissions: unknown tool %q in allow rule %q", name, rule)
@@ -329,7 +329,7 @@ func validatePermissions(c *ast.XcaffoldConfig) error {
 	for _, rule := range p.Deny {
 		name, _, err := parsePermissionRule(rule)
 		if err != nil {
-			return fmt.Errorf("invalid .xcf configuration: %w", err)
+			return fmt.Errorf("invalid .xcaf configuration: %w", err)
 		}
 		if !knownTools[name] {
 			return fmt.Errorf("permissions: unknown tool %q in deny rule %q", name, rule)
@@ -339,7 +339,7 @@ func validatePermissions(c *ast.XcaffoldConfig) error {
 	for _, rule := range p.Ask {
 		name, _, err := parsePermissionRule(rule)
 		if err != nil {
-			return fmt.Errorf("invalid .xcf configuration: %w", err)
+			return fmt.Errorf("invalid .xcaf configuration: %w", err)
 		}
 		if !knownTools[name] {
 			return fmt.Errorf("permissions: unknown tool %q in ask rule %q", name, rule)
@@ -491,7 +491,7 @@ func validateCrossReferences(c *ast.XcaffoldConfig) error {
 	return nil
 }
 
-// ValidateFile parses the .xcf file at path, runs file-existence checks and
+// ValidateFile parses the .xcaf file at path, runs file-existence checks and
 // plugin validation, and returns all diagnostics. ParseFile already runs
 // validateCrossReferences internally, so this function does not duplicate it.
 func ValidateFile(path string) []Diagnostic {

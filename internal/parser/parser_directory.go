@@ -18,7 +18,7 @@ type ParsedFile struct {
 	FilePath string
 }
 
-// ParseDirectory recursively scans the given directory for all *.xcf files,
+// ParseDirectory recursively scans the given directory for all *.xcaf files,
 // parses them, merges them strictly (erroring on duplicate IDs), and then
 // resolves 'extends:' chains.
 func ParseDirectory(dir string, opts ...ParseDirOption) (*ast.XcaffoldConfig, error) {
@@ -90,7 +90,7 @@ func ParseDirectoryWithCrossRefWarnings(dir string, opts ...ParseDirOption) (*as
 }
 
 // parseableKinds lists the kind values accepted by isParseableFile.
-// Every .xcf document must declare an explicit kind field.
+// Every .xcaf document must declare an explicit kind field.
 var parseableKinds = map[string]bool{
 	"project":   true,
 	"agent":     true,
@@ -107,7 +107,7 @@ var parseableKinds = map[string]bool{
 	"memory":    true,
 }
 
-// isParseableFile reads the kind: field from an .xcf file to determine if it
+// isParseableFile reads the kind: field from an .xcaf file to determine if it
 // should be parsed by the compiler. Returns true for known resource-kind files.
 // Returns false for files with unknown, empty, or removed kinds (such as "config").
 func isParseableFile(path string) bool {
@@ -149,7 +149,7 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig, vars map[stri
 	var files []string
 	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
-	providerDir := filepath.Join("xcf", "provider")
+	providerDir := filepath.Join("xcaf", "provider")
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -164,7 +164,7 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig, vars map[stri
 			}
 			return nil
 		}
-		if strings.HasSuffix(d.Name(), ".xcf") {
+		if strings.HasSuffix(d.Name(), ".xcaf") {
 			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
 				if !providers.IsRegistered(provider) {
 					return fmt.Errorf("override file %s: unknown provider %q; valid providers: %s", d.Name(), provider, strings.Join(providers.RegisteredNames(), ", "))
@@ -185,7 +185,7 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig, vars map[stri
 	}
 
 	if len(files) == 0 {
-		return nil, fmt.Errorf("no *.xcf files found in directory %q", dir)
+		return nil, fmt.Errorf("no *.xcaf files found in directory %q", dir)
 	}
 
 	var parsedFiles []ParsedFile
@@ -246,7 +246,7 @@ func parseDirectoryRaw(dir string, vars map[string]interface{}, envs map[string]
 	var files []string
 	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
-	providerDir := filepath.Join("xcf", "provider")
+	providerDir := filepath.Join("xcaf", "provider")
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -261,7 +261,7 @@ func parseDirectoryRaw(dir string, vars map[string]interface{}, envs map[string]
 			}
 			return nil
 		}
-		if strings.HasSuffix(d.Name(), ".xcf") {
+		if strings.HasSuffix(d.Name(), ".xcaf") {
 			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
 				if !providers.IsRegistered(provider) {
 					return fmt.Errorf("override file %s: unknown provider %q; valid providers: %s", d.Name(), provider, strings.Join(providers.RegisteredNames(), ", "))
@@ -282,7 +282,7 @@ func parseDirectoryRaw(dir string, vars map[string]interface{}, envs map[string]
 	}
 
 	if len(files) == 0 {
-		return nil, fmt.Errorf("no *.xcf files found in directory %q", dir)
+		return nil, fmt.Errorf("no *.xcaf files found in directory %q", dir)
 	}
 
 	var parsedFiles []ParsedFile

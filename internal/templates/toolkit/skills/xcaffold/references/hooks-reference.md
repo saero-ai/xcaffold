@@ -2,7 +2,7 @@
 # Hooks Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
-# Copy fields from here into your xcf/hooks/<name>/hooks.xcf
+# Copy fields from here into your xcaf/hooks/<name>/hooks.xcaf
 # Provider support: hooks are Claude-only (dropped by all others)
 # ============================================================
 # IMPORTANT: Hooks use pure YAML format — no frontmatter delimiters (---).

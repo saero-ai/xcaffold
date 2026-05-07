@@ -1,6 +1,6 @@
 ---
 title: "kind: rule"
-description: "Defines a constraint. Source: xcf/rules/<name>/rule.xcf. Compiled to rules/<name>.md (or .mdc) per provider."
+description: "Defines a constraint. Source: xcaf/rules/<name>/rule.xcaf. Compiled to rules/<name>.md (or .mdc) per provider."
 ---
 
 # `kind: rule`
@@ -89,9 +89,9 @@ The following arguments are supported:
 
 ## Filesystem-as-Schema
 
-When a rule `.xcf` file lives at `xcf/rules/<name>/rule.xcf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
+When a rule `.xcaf` file lives at `xcaf/rules/<name>/rule.xcaf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
 - `kind: rule` from the parent directory name (`rules/`)
-- `name:` from the grandparent directory name (e.g., `react-conventions` from `rules/react-conventions/rule.xcf`)
+- `name:` from the grandparent directory name (e.g., `react-conventions` from `rules/react-conventions/rule.xcaf`)
 
 When `kind:` or `name:` are present in the YAML, they must match the inferred values.
 

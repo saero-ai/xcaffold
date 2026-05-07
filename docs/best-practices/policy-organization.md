@@ -176,20 +176,20 @@ Setting `severity: off` disables the policy entirely. This is version-controlled
 
 ## Organizing Policy Files
 
-Store policy files in `xcf/policies/`. The scanner discovers them by `kind: policy` frontmatter — placement within `xcf/` is convention, not enforced:
+Store policy files in `xcaf/policies/`. The scanner discovers them by `kind: policy` frontmatter — placement within `xcaf/` is convention, not enforced:
 
 ```
-xcf/
+xcaf/
 └── policies/
     ├── quality/
-    │   ├── require-agent-description.xcf
-    │   └── require-skill-description.xcf
+    │   ├── require-agent-description.xcaf
+    │   └── require-skill-description.xcaf
     ├── security/
-    │   ├── no-hardcoded-api-keys.xcf
-    │   └── bash-skills-must-declare-tools.xcf
+    │   ├── no-hardcoded-api-keys.xcaf
+    │   └── bash-skills-must-declare-tools.xcaf
     └── production/
-        ├── prod-agents-require-permission-mode.xcf
-        └── prod-agents-limit-tools.xcf
+        ├── prod-agents-require-permission-mode.xcaf
+        └── prod-agents-limit-tools.xcaf
 ```
 
 Grouping by concern (quality, security, production) makes it easy to apply CODEOWNERS rules and understand what governance your project has at a glance.

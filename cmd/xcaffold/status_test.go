@@ -33,9 +33,9 @@ func captureStatusStdout(f func() error) (string, error) {
 
 func setupMockState(t *testing.T, content string) string {
 	dir := t.TempDir()
-	xcfDir := filepath.Join(dir, ".xcaffold")
-	os.MkdirAll(xcfDir, 0755)
-	statePath := filepath.Join(xcfDir, "project.xcf.state")
+	xcafDir := filepath.Join(dir, ".xcaffold")
+	os.MkdirAll(xcafDir, 0755)
+	statePath := filepath.Join(xcafDir, "project.xcaf.state")
 	os.WriteFile(statePath, []byte(content), 0644)
 	return dir
 }

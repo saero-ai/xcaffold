@@ -56,7 +56,7 @@ func CheckFieldSupport(target, kind, resourceName string, presentFields map[stri
 					Resource: resourceName,
 					Field:    f.YAMLKey,
 					Code:     CodeFieldUnsupported,
-					Reason:   fmt.Sprintf("field %q is unsupported by %s; use a %s.%s.xcf override or remove from base manifest", f.YAMLKey, target, kind, target),
+					Reason:   fmt.Sprintf("field %q is unsupported by %s; use a %s.%s.xcaf override or remove from base manifest", f.YAMLKey, target, kind, target),
 				})
 			}
 		}

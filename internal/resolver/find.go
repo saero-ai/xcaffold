@@ -9,13 +9,13 @@ import (
 	"strings"
 )
 
-// FindProjectRoot walks up from start directory looking for a project.xcf file.
-// Returns the directory containing project.xcf, or an empty string if not found.
+// FindProjectRoot walks up from start directory looking for a project.xcaf file.
+// Returns the directory containing project.xcaf, or an empty string if not found.
 func FindProjectRoot(start string) string {
 	curr := start
 	for {
-		// Check for project.xcf at root level
-		if _, err := os.Stat(filepath.Join(curr, "project.xcf")); err == nil {
+		// Check for project.xcaf at root level
+		if _, err := os.Stat(filepath.Join(curr, "project.xcaf")); err == nil {
 			return curr
 		}
 		parent := filepath.Dir(curr)
@@ -27,11 +27,11 @@ func FindProjectRoot(start string) string {
 	}
 }
 
-// dirContainsXCF returns true if the directory contains at least one *.xcf file
+// dirContainsXCAF returns true if the directory contains at least one *.xcaf file
 // at the top level (not recursively). Hidden directories are ignored.
-func dirContainsXCF(dir string) bool {
-	// Check for project.xcf at root level
-	if _, err := os.Stat(filepath.Join(dir, "project.xcf")); err == nil {
+func dirContainsXCAF(dir string) bool {
+	// Check for project.xcaf at root level
+	if _, err := os.Stat(filepath.Join(dir, "project.xcaf")); err == nil {
 		return true
 	}
 	entries, err := os.ReadDir(dir)
@@ -42,7 +42,7 @@ func dirContainsXCF(dir string) bool {
 		if e.IsDir() {
 			continue
 		}
-		if strings.HasSuffix(e.Name(), ".xcf") {
+		if strings.HasSuffix(e.Name(), ".xcaf") {
 			return true
 		}
 	}
@@ -50,12 +50,12 @@ func dirContainsXCF(dir string) bool {
 }
 
 // FindConfigDir walks up from start looking for the nearest directory that
-// contains at least one *.xcf file. The search stops at (and includes) the
+// contains at least one *.xcaf file. The search stops at (and includes) the
 // home boundary. Returns the directory path or an error if none is found.
 func FindConfigDir(start, home string) (string, error) {
 	curr := start
 	for {
-		if dirContainsXCF(curr) {
+		if dirContainsXCAF(curr) {
 			return curr, nil
 		}
 		if curr == home {
@@ -67,12 +67,12 @@ func FindConfigDir(start, home string) (string, error) {
 		}
 		curr = parent
 	}
-	return "", fmt.Errorf("no *.xcf files found between %q and %q\n\nHint: run 'xcaffold init' to create one, or use --config to specify a path", start, home)
+	return "", fmt.Errorf("no *.xcaf files found between %q and %q\n\nHint: run 'xcaffold init' to create one, or use --config to specify a path", start, home)
 }
 
-// FindXCFFiles returns all *.xcf file paths in the given directory (recursive),
+// FindXCAFFiles returns all *.xcaf file paths in the given directory (recursive),
 // sorted alphabetically. Hidden directories and node_modules are skipped.
-func FindXCFFiles(dir string) ([]string, error) {
+func FindXCAFFiles(dir string) ([]string, error) {
 	var files []string
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -85,13 +85,13 @@ func FindXCFFiles(dir string) ([]string, error) {
 			}
 			return nil
 		}
-		if strings.HasSuffix(d.Name(), ".xcf") && d.Name() != "registry.xcf" {
+		if strings.HasSuffix(d.Name(), ".xcaf") && d.Name() != "registry.xcaf" {
 			files = append(files, path)
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan %q for xcf files: %w", dir, err)
+		return nil, fmt.Errorf("failed to scan %q for xcaf files: %w", dir, err)
 	}
 	sort.Strings(files)
 	return files, nil

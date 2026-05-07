@@ -2,7 +2,7 @@
 # Skill Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
-# Copy fields from here into your xcf/skills/<name>/<name>.xcf
+# Copy fields from here into your xcaf/skills/<name>/<name>.xcaf
 # Field definitions follow the xcaffold schema specification.
 # ============================================================
 

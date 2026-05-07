@@ -35,8 +35,8 @@ var varFileFlag string
 
 var applyCmd = &cobra.Command{
 	Use:   "apply",
-	Short: "Compile .xcf resources into provider-native agent files",
-	Long: `Deterministically compiles .xcf resources into provider-native agent files.
+	Short: "Compile .xcaf resources into provider-native agent files",
+	Long: `Deterministically compiles .xcaf resources into provider-native agent files.
 
   - Strict one-way generation (YAML -> provider-native markdown/JSON)
   - Generates a SHA-256 state manifest for drift detection (.xcaffold/)
@@ -93,38 +93,38 @@ func runApply(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("project %q not found in registry: %w", applyProjectFlag, err)
 		}
-		globalXcfPath = filepath.Join(proj.Path, "project.xcf")
-		xcfPath = globalXcfPath
+		globalXcafPath = filepath.Join(proj.Path, "project.xcaf")
+		xcafPath = globalXcafPath
 		projectRoot = proj.Path
 	}
 
 	if globalFlag {
-		// globalXcfHome is ~/.xcaffold/ — the source directory.
+		// globalXcafHome is ~/.xcaffold/ — the source directory.
 		// Global artifacts are written one level up (~/), into ~/.claude/ etc.
-		globalOutDir := filepath.Join(filepath.Dir(globalXcfHome), compiler.OutputDir(targetFlag))
-		return applyScope(globalXcfPath, globalOutDir, globalXcfHome, "global")
+		globalOutDir := filepath.Join(filepath.Dir(globalXcafHome), compiler.OutputDir(targetFlag))
+		return applyScope(globalXcafPath, globalOutDir, globalXcafHome, "global")
 	}
 
 	// projectRoot is the canonical CWD-level project directory, always set by
 	// resolveProjectConfig before any subcommand runs. It is the single source
-	// of truth for the project root — never derive it from filepath.Dir(xcfPath)
-	// because xcfPath may live inside .xcaffold/.
+	// of truth for the project root — never derive it from filepath.Dir(xcafPath)
+	// because xcafPath may live inside .xcaffold/.
 	if projectRoot == "" {
 		// Defensive fallback: should never happen post-resolveProjectConfig.
-		return fmt.Errorf("internal error: project root not resolved; run from a directory containing project.xcf")
+		return fmt.Errorf("internal error: project root not resolved; run from a directory containing project.xcaf")
 	}
 
 	// Determine which targets to compile.
 	// Priority: --target flag > blueprint targets > project targets > error
 	targets := resolveTargets(cmd, projectRoot, applyBlueprintFlag)
 	if targets == nil {
-		return fmt.Errorf("no compilation targets configured; set targets in project.xcf or pass --target")
+		return fmt.Errorf("no compilation targets configured; set targets in project.xcaf or pass --target")
 	}
 
 	for _, t := range targets {
 		targetFlag = t
 		outDir := filepath.Join(projectRoot, compiler.OutputDir(t))
-		if err := applyScope(xcfPath, outDir, projectRoot, "project"); err != nil {
+		if err := applyScope(xcafPath, outDir, projectRoot, "project"); err != nil {
 			return err
 		}
 	}
@@ -135,11 +135,11 @@ func runApply(cmd *cobra.Command, args []string) error {
 // resolveTargets returns the list of compilation targets with 4-tier priority:
 // 1. --target flag (if explicitly set by the user)
 // 2. blueprint targets (if blueprintName is specified and blueprint has targets)
-// 3. project targets (from project.xcf)
+// 3. project targets (from project.xcaf)
 // 4. nil (no targets configured anywhere)
 //
-// baseDir must be the project root directory (not filepath.Dir(xcfPath)) —
-// xcfPath may live inside .xcaffold/ and filepath.Dir would give the wrong dir.
+// baseDir must be the project root directory (not filepath.Dir(xcafPath)) —
+// xcafPath may live inside .xcaffold/ and filepath.Dir would give the wrong dir.
 func resolveTargets(cmd *cobra.Command, baseDir string, blueprintName string) []string {
 	if cmd != nil && cmd.Flag("target") != nil && cmd.Flag("target").Changed {
 		return []string{targetFlag}
@@ -164,9 +164,9 @@ func resolveTargets(cmd *cobra.Command, baseDir string, blueprintName string) []
 	return nil
 }
 
-// applyScope compiles the xcf configuration at configPath into outputDir.
+// applyScope compiles the xcaf configuration at configPath into outputDir.
 // baseDir is the project root directory — the canonical source of truth passed
-// in by the caller (runApply uses projectRoot; global apply uses globalXcfHome).
+// in by the caller (runApply uses projectRoot; global apply uses globalXcafHome).
 // It must never be derived from filepath.Dir(configPath) because configPath may
 // live inside .xcaffold/ and filepath.Dir would give the wrong directory.
 //
@@ -192,7 +192,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	fmt.Println()
 
 	if config.Version != "" && config.Version < currentSchemaVersion {
-		return fmt.Errorf("project.xcf uses schema version %s but xcaffold requires %s — please update the version field in your project.xcf", config.Version, currentSchemaVersion)
+		return fmt.Errorf("project.xcaf uses schema version %s but xcaffold requires %s — please update the version field in your project.xcaf", config.Version, currentSchemaVersion)
 	}
 
 	// --- Smart compilation skip: compare source hashes ---
@@ -200,12 +200,12 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 
 	ensureGitignoreEntry(baseDir, ".xcaffold/")
 
-	sourceFiles, findErr := resolver.FindXCFFiles(baseDir)
+	sourceFiles, findErr := resolver.FindXCAFFiles(baseDir)
 	if findErr != nil {
 		fmt.Fprintf(os.Stderr, "  Warning: failed to scan source files: %v\n", findErr)
 	}
 
-	// Filter out non-config XCF files (e.g. kind: registry) to prevent
+	// Filter out non-config XCAF files (e.g. kind: registry) to prevent
 	// SourcesChanged from detecting registry mutations as config changes.
 	var configSources []string
 	for _, f := range sourceFiles {
@@ -297,7 +297,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 
 	// Policy evaluation. Run against config post-Compile() — compiler.Compile
 	// has already called StripInherited() so globally-inherited resources (e.g.
-	// from ~/.xcaffold/global.xcf) are absent. Policies only evaluate what was
+	// from ~/.xcaffold/global.xcaf) are absent. Policies only evaluate what was
 	// actually compiled, preventing spurious violations on user-wide globals.
 	violations := policy.Evaluate(config.Policies, config, out)
 	policyErrors := policy.FilterBySeverity(violations, policy.SeverityError)
@@ -404,7 +404,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	outDirName := compiler.OutputDir(targetFlag)
 	fmt.Printf("%s  Apply complete. %d %s written to %s/\n",
 		colorGreen(glyphOK()), filesWritten, plural(filesWritten, "file", "files"), outDirName)
-	fmt.Printf("  Run 'xcaffold import' to sync manual edits back to .xcf sources.\n")
+	fmt.Printf("  Run 'xcaffold import' to sync manual edits back to .xcaf sources.\n")
 
 	// Ensure the project is registered and the timestamp is updated.
 	cwd, _ := os.Getwd()

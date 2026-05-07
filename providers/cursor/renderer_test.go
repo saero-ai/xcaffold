@@ -1069,7 +1069,7 @@ func TestSecurityFieldCheck_Centralized(t *testing.T) {
 	// is silently skipped for cursor — no FIELD_UNSUPPORTED note is emitted.
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
-			t.Errorf("permission-mode has an xcf role; FIELD_UNSUPPORTED must not be emitted for cursor, got: %s", n.Reason)
+			t.Errorf("permission-mode has an xcaf role; FIELD_UNSUPPORTED must not be emitted for cursor, got: %s", n.Reason)
 		}
 	}
 }
@@ -1090,7 +1090,7 @@ func TestCursorRenderer_AgentPermissionMode_Silent(t *testing.T) {
 
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "permission-mode" {
-			t.Errorf("permission-mode has an xcf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
+			t.Errorf("permission-mode has an xcaf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
 		}
 	}
 }
@@ -1111,7 +1111,7 @@ func TestCursorRenderer_AgentDisallowedTools_Silent(t *testing.T) {
 
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "disallowed-tools" {
-			t.Errorf("disallowed-tools has an xcf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
+			t.Errorf("disallowed-tools has an xcaf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
 		}
 	}
 }
@@ -1132,7 +1132,7 @@ func TestCursorRenderer_AgentIsolation_Silent(t *testing.T) {
 
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported && n.Field == "isolation" {
-			t.Errorf("isolation has an xcf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
+			t.Errorf("isolation has an xcaf role; FIELD_UNSUPPORTED must not be emitted, got: %s", n.Reason)
 		}
 	}
 }

@@ -1,6 +1,6 @@
 ---
 title: "kind: skill"
-description: "Defines a reusable procedure. Source: xcf/skills/<name>/skill.xcf. Compiled to skills/<name>/SKILL.md per provider."
+description: "Defines a reusable procedure. Source: xcaf/skills/<name>/skill.xcaf. Compiled to skills/<name>/SKILL.md per provider."
 ---
 
 # `kind: skill`
@@ -43,8 +43,8 @@ description: >-
   frontend-app conventions — file layout, prop types, Tailwind styling,
   accessibility attributes, and co-located test scaffolding.
 references:
-  - xcf/skills/component-patterns/references/design-tokens.md
-  - xcf/skills/component-patterns/references/shadcn-primitives.md
+  - xcaf/skills/component-patterns/references/design-tokens.md
+  - xcaf/skills/component-patterns/references/shadcn-primitives.md
 ---
 # Component Patterns
 
@@ -132,9 +132,9 @@ The following arguments are supported:
 
 ## Filesystem-as-Schema
 
-When a skill `.xcf` file lives at `xcf/skills/<name>/skill.xcf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
+When a skill `.xcaf` file lives at `xcaf/skills/<name>/skill.xcaf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
 - `kind: skill` from the parent directory name (`skills/`)
-- `name:` from the grandparent directory name (e.g., `component-patterns` from `skills/component-patterns/skill.xcf`)
+- `name:` from the grandparent directory name (e.g., `component-patterns` from `skills/component-patterns/skill.xcaf`)
 
 When `kind:` or `name:` are present in the YAML, they must match the inferred values.
 

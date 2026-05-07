@@ -52,8 +52,8 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 	err := WriteSplitFiles(config, tmpDir)
 	require.NoError(t, err)
 
-	// project.xcf must exist with kind: project
-	scaffoldPath := filepath.Join(tmpDir, "project.xcf")
+	// project.xcaf must exist with kind: project
+	scaffoldPath := filepath.Join(tmpDir, "project.xcaf")
 	assert.FileExists(t, scaffoldPath)
 	scaffoldBytes, err := os.ReadFile(scaffoldPath)
 	require.NoError(t, err)
@@ -62,43 +62,43 @@ func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
 	assert.Contains(t, scaffoldContent, "name: my-project")
 	assert.Contains(t, scaffoldContent, "claude")
 	assert.Contains(t, scaffoldContent, "antigravity")
-	// Ref lists are no longer in project.xcf; resources are discovered from xcf/ directory
+	// Ref lists are no longer in project.xcaf; resources are discovered from xcaf/ directory
 	assert.NotContains(t, scaffoldContent, "developer")
 	assert.NotContains(t, scaffoldContent, "reviewer")
 	assert.NotContains(t, scaffoldContent, "tdd")
 	assert.NotContains(t, scaffoldContent, "security")
 
-	// Agent files — each lives in its own subdirectory: xcf/agents/<id>/agent.xcf
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "developer", "agent.xcf"))
-	developerBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "agents", "developer", "agent.xcf"))
+	// Agent files — each lives in its own subdirectory: xcaf/agents/<id>/agent.xcaf
+	assert.FileExists(t, filepath.Join(tmpDir, "xcaf", "agents", "developer", "agent.xcaf"))
+	developerBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcaf", "agents", "developer", "agent.xcaf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(developerBytes), "kind: agent")
 	assert.Contains(t, string(developerBytes), "name: developer")
 
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "agents", "reviewer", "agent.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcaf", "agents", "reviewer", "agent.xcaf"))
 
-	// Skill file — directory layout: xcf/skills/<name>/skill.xcf
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "skills", "tdd", "skill.xcf"))
-	skillBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "skills", "tdd", "skill.xcf"))
+	// Skill file — directory layout: xcaf/skills/<name>/skill.xcaf
+	assert.FileExists(t, filepath.Join(tmpDir, "xcaf", "skills", "tdd", "skill.xcaf"))
+	skillBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcaf", "skills", "tdd", "skill.xcaf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(skillBytes), "kind: skill")
 
 	// Rule file
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "rules", "security", "rule.xcf"))
-	ruleBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "rules", "security", "rule.xcf"))
+	assert.FileExists(t, filepath.Join(tmpDir, "xcaf", "rules", "security", "rule.xcaf"))
+	ruleBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcaf", "rules", "security", "rule.xcaf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(ruleBytes), "kind: rule")
 
-	// Hooks file — each named hook lives in its own subdirectory: xcf/hooks/<name>/hooks.xcf
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "hooks", "default", "hooks.xcf"))
-	hooksBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "hooks", "default", "hooks.xcf"))
+	// Hooks file — each named hook lives in its own subdirectory: xcaf/hooks/<name>/hooks.xcaf
+	assert.FileExists(t, filepath.Join(tmpDir, "xcaf", "hooks", "default", "hooks.xcaf"))
+	hooksBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcaf", "hooks", "default", "hooks.xcaf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(hooksBytes), "kind: hooks")
 	assert.Contains(t, string(hooksBytes), "events:")
 
-	// Settings file — each named settings lives in its own subdirectory: xcf/settings/<name>/settings.xcf
-	assert.FileExists(t, filepath.Join(tmpDir, "xcf", "settings", "default", "settings.xcf"))
-	settingsBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcf", "settings", "default", "settings.xcf"))
+	// Settings file — each named settings lives in its own subdirectory: xcaf/settings/<name>/settings.xcaf
+	assert.FileExists(t, filepath.Join(tmpDir, "xcaf", "settings", "default", "settings.xcaf"))
+	settingsBytes, err := os.ReadFile(filepath.Join(tmpDir, "xcaf", "settings", "default", "settings.xcaf"))
 	require.NoError(t, err)
 	assert.Contains(t, string(settingsBytes), "kind: settings")
 }
@@ -165,17 +165,17 @@ func TestWriteSplitFiles_Deterministic(t *testing.T) {
 	err = WriteSplitFiles(config, tmpDir2)
 	require.NoError(t, err)
 
-	// Compare project.xcf
-	b1, err := os.ReadFile(filepath.Join(tmpDir1, "project.xcf"))
+	// Compare project.xcaf
+	b1, err := os.ReadFile(filepath.Join(tmpDir1, "project.xcaf"))
 	require.NoError(t, err)
-	b2, err := os.ReadFile(filepath.Join(tmpDir2, "project.xcf"))
+	b2, err := os.ReadFile(filepath.Join(tmpDir2, "project.xcaf"))
 	require.NoError(t, err)
-	assert.Equal(t, b1, b2, "project.xcf must be byte-identical")
+	assert.Equal(t, b1, b2, "project.xcaf must be byte-identical")
 
 	// Compare an agent file
-	a1, err := os.ReadFile(filepath.Join(tmpDir1, "xcf", "agents", "alpha", "agent.xcf"))
+	a1, err := os.ReadFile(filepath.Join(tmpDir1, "xcaf", "agents", "alpha", "agent.xcaf"))
 	require.NoError(t, err)
-	a2, err := os.ReadFile(filepath.Join(tmpDir2, "xcf", "agents", "alpha", "agent.xcf"))
+	a2, err := os.ReadFile(filepath.Join(tmpDir2, "xcaf", "agents", "alpha", "agent.xcaf"))
 	require.NoError(t, err)
 	assert.Equal(t, a1, a2, "agent file must be byte-identical")
 }
@@ -193,12 +193,12 @@ func TestWriteSplitFiles_EmptyResources(t *testing.T) {
 	err := WriteSplitFiles(config, tmpDir)
 	require.NoError(t, err)
 
-	// project.xcf must be created
-	assert.FileExists(t, filepath.Join(tmpDir, "project.xcf"))
+	// project.xcaf must be created
+	assert.FileExists(t, filepath.Join(tmpDir, "project.xcaf"))
 
-	// No xcf/agents/ directory when there are no agents
-	_, statErr := os.Stat(filepath.Join(tmpDir, "xcf", "agents"))
-	assert.True(t, os.IsNotExist(statErr), "xcf/agents/ should not exist when config has no agents")
+	// No xcaf/agents/ directory when there are no agents
+	_, statErr := os.Stat(filepath.Join(tmpDir, "xcaf", "agents"))
+	assert.True(t, os.IsNotExist(statErr), "xcaf/agents/ should not exist when config has no agents")
 }
 
 func TestWriteSplitFiles_NoHooks_NoHooksFile(t *testing.T) {
@@ -220,13 +220,13 @@ func TestWriteSplitFiles_NoHooks_NoHooksFile(t *testing.T) {
 	require.NoError(t, err)
 
 	// No hooks directory should exist when config has no hooks
-	_, statErr := os.Stat(filepath.Join(tmpDir, "xcf", "hooks"))
-	assert.True(t, os.IsNotExist(statErr), "xcf/hooks/ directory should not be created when config has no hooks")
+	_, statErr := os.Stat(filepath.Join(tmpDir, "xcaf", "hooks"))
+	assert.True(t, os.IsNotExist(statErr), "xcaf/hooks/ directory should not be created when config has no hooks")
 }
 
 func TestWriteFrontmatterFile_AgentWithBody(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "developer.xcf")
+	path := filepath.Join(dir, "developer.xcaf")
 
 	type frontmatterDoc struct {
 		Kind    string `yaml:"kind"`
@@ -265,12 +265,12 @@ func TestWriteSplitFiles_ProviderPassthrough(t *testing.T) {
 	err := WriteSplitFiles(config, tmpDir)
 	require.NoError(t, err)
 
-	expected := filepath.Join(tmpDir, "xcf", "provider", "claude", "skills", "adr-management", "TEMPLATE.md")
-	assert.FileExists(t, expected, "expected file at xcf/provider/claude/...")
+	expected := filepath.Join(tmpDir, "xcaf", "provider", "claude", "skills", "adr-management", "TEMPLATE.md")
+	assert.FileExists(t, expected, "expected file at xcaf/provider/claude/...")
 
-	unexpected := filepath.Join(tmpDir, "xcf", "extras")
+	unexpected := filepath.Join(tmpDir, "xcaf", "extras")
 	_, statErr := os.Stat(unexpected)
-	assert.True(t, os.IsNotExist(statErr), "xcf/extras/ should not exist — should be xcf/provider/")
+	assert.True(t, os.IsNotExist(statErr), "xcaf/extras/ should not exist — should be xcaf/provider/")
 }
 
 func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {
@@ -292,7 +292,7 @@ func TestWriteSplitFiles_AgentFrontmatter(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(dir, "xcf", "agents", "developer", "agent.xcf"))
+	data, err := os.ReadFile(filepath.Join(dir, "xcaf", "agents", "developer", "agent.xcaf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -322,7 +322,7 @@ func TestWriteSplitFiles_SkillFrontmatter(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(dir, "xcf", "skills", "tdd", "skill.xcf"))
+	data, err := os.ReadFile(filepath.Join(dir, "xcaf", "skills", "tdd", "skill.xcaf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -350,7 +350,7 @@ func TestWriteSplitFiles_RuleFrontmatter(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(dir, "xcf", "rules", "conventions", "rule.xcf"))
+	data, err := os.ReadFile(filepath.Join(dir, "xcaf", "rules", "conventions", "rule.xcaf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -375,9 +375,9 @@ func TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll(t *testing.T) {
 	err := WriteSplitFiles(config, dir)
 	require.NoError(t, err)
 
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "developer", "agent.xcf"))
+	_, err = os.Stat(filepath.Join(dir, "xcaf", "agents", "developer", "agent.xcaf"))
 	require.NoError(t, err)
-	_, err = os.Stat(filepath.Join(dir, "xcf", "agents", "reviewer", "agent.xcf"))
+	_, err = os.Stat(filepath.Join(dir, "xcaf", "agents", "reviewer", "agent.xcaf"))
 	require.NoError(t, err)
 }
 
@@ -391,10 +391,10 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 				"my-skill": {
 					Name:        "my-skill",
 					Description: "Test skill",
-					References:  ast.ClearableList{Values: []string{"xcf/skills/my-skill/references/ref.md"}},
-					Scripts:     ast.ClearableList{Values: []string{"xcf/skills/my-skill/scripts/run.sh"}},
-					Assets:      ast.ClearableList{Values: []string{"xcf/skills/my-skill/assets/icon.svg"}},
-					Examples:    ast.ClearableList{Values: []string{"xcf/skills/my-skill/examples/sample.md"}},
+					References:  ast.ClearableList{Values: []string{"xcaf/skills/my-skill/references/ref.md"}},
+					Scripts:     ast.ClearableList{Values: []string{"xcaf/skills/my-skill/scripts/run.sh"}},
+					Assets:      ast.ClearableList{Values: []string{"xcaf/skills/my-skill/assets/icon.svg"}},
+					Examples:    ast.ClearableList{Values: []string{"xcaf/skills/my-skill/examples/sample.md"}},
 					Body:        "Do the thing.",
 				},
 			},
@@ -403,7 +403,7 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 	err := WriteSplitFiles(config, outDir)
 	require.NoError(t, err)
 
-	data, err := os.ReadFile(filepath.Join(outDir, "xcf", "skills", "my-skill", "skill.xcf"))
+	data, err := os.ReadFile(filepath.Join(outDir, "xcaf", "skills", "my-skill", "skill.xcaf"))
 	require.NoError(t, err)
 	content := string(data)
 
@@ -433,14 +433,14 @@ func TestWriteSplitFiles_Rules_DirectoryLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Should be in directory layout: xcf/rules/secure-coding/rule.xcf
-	expected := filepath.Join(dir, "xcf", "rules", "secure-coding", "rule.xcf")
+	// Should be in directory layout: xcaf/rules/secure-coding/rule.xcaf
+	expected := filepath.Join(dir, "xcaf", "rules", "secure-coding", "rule.xcaf")
 	if _, err := os.Stat(expected); os.IsNotExist(err) {
 		t.Fatalf("expected rule at %s", expected)
 	}
 
-	// Should NOT be flat: xcf/rules/secure-coding.xcf
-	flat := filepath.Join(dir, "xcf", "rules", "secure-coding.xcf")
+	// Should NOT be flat: xcaf/rules/secure-coding.xcaf
+	flat := filepath.Join(dir, "xcaf", "rules", "secure-coding.xcaf")
 	if _, err := os.Stat(flat); !os.IsNotExist(err) {
 		t.Fatal("rule should NOT be in flat layout")
 	}
@@ -459,12 +459,12 @@ func TestWriteSplitFiles_Skill_DirectoryLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := filepath.Join(dir, "xcf", "skills", "tdd", "skill.xcf")
+	expected := filepath.Join(dir, "xcaf", "skills", "tdd", "skill.xcaf")
 	if _, err := os.Stat(expected); os.IsNotExist(err) {
 		t.Fatal("expected skill at directory layout path")
 	}
 
-	flat := filepath.Join(dir, "xcf", "skills", "tdd.xcf")
+	flat := filepath.Join(dir, "xcaf", "skills", "tdd.xcaf")
 	if _, err := os.Stat(flat); !os.IsNotExist(err) {
 		t.Fatal("skill should NOT be in flat layout")
 	}
@@ -483,12 +483,12 @@ func TestWriteSplitFiles_Context_DirectoryLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := filepath.Join(dir, "xcf", "context", "project-readme", "context.xcf")
+	expected := filepath.Join(dir, "xcaf", "context", "project-readme", "context.xcaf")
 	if _, err := os.Stat(expected); os.IsNotExist(err) {
 		t.Fatalf("expected context at %s", expected)
 	}
 
-	flat := filepath.Join(dir, "xcf", "context", "project-readme.xcf")
+	flat := filepath.Join(dir, "xcaf", "context", "project-readme.xcaf")
 	if _, err := os.Stat(flat); !os.IsNotExist(err) {
 		t.Fatal("context should NOT be in flat layout")
 	}
@@ -507,12 +507,12 @@ func TestWriteSplitFiles_Agent_CanonicalFilename(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	canonical := filepath.Join(dir, "xcf", "agents", "developer", "agent.xcf")
+	canonical := filepath.Join(dir, "xcaf", "agents", "developer", "agent.xcaf")
 	if _, err := os.Stat(canonical); os.IsNotExist(err) {
-		t.Fatal("expected canonical filename agent.xcf")
+		t.Fatal("expected canonical filename agent.xcaf")
 	}
 
-	old := filepath.Join(dir, "xcf", "agents", "developer", "developer.xcf")
+	old := filepath.Join(dir, "xcaf", "agents", "developer", "developer.xcaf")
 	if _, err := os.Stat(old); !os.IsNotExist(err) {
 		t.Fatal("should not use resource name as filename")
 	}
@@ -569,52 +569,52 @@ func TestWriteSplitFiles_AllKinds_DirectoryLayout(t *testing.T) {
 	err := WriteSplitFiles(config, tmpDir)
 	require.NoError(t, err)
 
-	// Workflows: xcf/workflows/<name>/workflow.xcf
-	workflowPath := filepath.Join(tmpDir, "xcf", "workflows", "deploy", "workflow.xcf")
+	// Workflows: xcaf/workflows/<name>/workflow.xcaf
+	workflowPath := filepath.Join(tmpDir, "xcaf", "workflows", "deploy", "workflow.xcaf")
 	assert.FileExists(t, workflowPath)
 	workflowBytes, err := os.ReadFile(workflowPath)
 	require.NoError(t, err)
 	assert.Contains(t, string(workflowBytes), "kind: workflow")
 	assert.Contains(t, string(workflowBytes), "name: deploy")
 
-	// MCP: xcf/mcp/<name>/mcp.xcf
-	mcpPath := filepath.Join(tmpDir, "xcf", "mcp", "server-a", "mcp.xcf")
+	// MCP: xcaf/mcp/<name>/mcp.xcaf
+	mcpPath := filepath.Join(tmpDir, "xcaf", "mcp", "server-a", "mcp.xcaf")
 	assert.FileExists(t, mcpPath)
 	mcpBytes, err := os.ReadFile(mcpPath)
 	require.NoError(t, err)
 	assert.Contains(t, string(mcpBytes), "kind: mcp")
 	assert.Contains(t, string(mcpBytes), "name: server-a")
 
-	// Policy: xcf/policy/<name>/policy.xcf
-	policyPath := filepath.Join(tmpDir, "xcf", "policy", "security", "policy.xcf")
+	// Policy: xcaf/policy/<name>/policy.xcaf
+	policyPath := filepath.Join(tmpDir, "xcaf", "policy", "security", "policy.xcaf")
 	assert.FileExists(t, policyPath)
 	policyBytes, err := os.ReadFile(policyPath)
 	require.NoError(t, err)
 	assert.Contains(t, string(policyBytes), "kind: policy")
 	assert.Contains(t, string(policyBytes), "name: security")
 
-	// Hooks: xcf/hooks/<name>/hooks.xcf (each named hook gets a subdirectory)
-	preCompilePath := filepath.Join(tmpDir, "xcf", "hooks", "pre-compile", "hooks.xcf")
+	// Hooks: xcaf/hooks/<name>/hooks.xcaf (each named hook gets a subdirectory)
+	preCompilePath := filepath.Join(tmpDir, "xcaf", "hooks", "pre-compile", "hooks.xcaf")
 	assert.FileExists(t, preCompilePath)
 	preCompileBytes, err := os.ReadFile(preCompilePath)
 	require.NoError(t, err)
 	assert.Contains(t, string(preCompileBytes), "kind: hooks")
 	assert.Contains(t, string(preCompileBytes), "events:")
 
-	postCompilePath := filepath.Join(tmpDir, "xcf", "hooks", "post-compile", "hooks.xcf")
+	postCompilePath := filepath.Join(tmpDir, "xcaf", "hooks", "post-compile", "hooks.xcaf")
 	assert.FileExists(t, postCompilePath)
 	postCompileBytes, err := os.ReadFile(postCompilePath)
 	require.NoError(t, err)
 	assert.Contains(t, string(postCompileBytes), "kind: hooks")
 
-	// Settings: xcf/settings/<name>/settings.xcf (each named settings gets a subdirectory)
-	defaultSettingsPath := filepath.Join(tmpDir, "xcf", "settings", "default", "settings.xcf")
+	// Settings: xcaf/settings/<name>/settings.xcaf (each named settings gets a subdirectory)
+	defaultSettingsPath := filepath.Join(tmpDir, "xcaf", "settings", "default", "settings.xcaf")
 	assert.FileExists(t, defaultSettingsPath)
 	defaultSettingsBytes, err := os.ReadFile(defaultSettingsPath)
 	require.NoError(t, err)
 	assert.Contains(t, string(defaultSettingsBytes), "kind: settings")
 
-	compactSettingsPath := filepath.Join(tmpDir, "xcf", "settings", "compact", "settings.xcf")
+	compactSettingsPath := filepath.Join(tmpDir, "xcaf", "settings", "compact", "settings.xcaf")
 	assert.FileExists(t, compactSettingsPath)
 }
 
@@ -639,13 +639,13 @@ func TestWriteSplitFiles_OverrideFiles_AgentWritten(t *testing.T) {
 	}
 
 	// Base file should exist
-	basePath := filepath.Join(dir, "xcf", "agents", "developer", "agent.xcf")
+	basePath := filepath.Join(dir, "xcaf", "agents", "developer", "agent.xcaf")
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
 		t.Fatal("expected base agent file")
 	}
 
-	// Override file: agent.claude.xcf
-	overridePath := filepath.Join(dir, "xcf", "agents", "developer", "agent.claude.xcf")
+	// Override file: agent.claude.xcaf
+	overridePath := filepath.Join(dir, "xcaf", "agents", "developer", "agent.claude.xcaf")
 	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
 		t.Fatal("expected claude override file at " + overridePath)
 	}
@@ -688,8 +688,8 @@ func TestWriteSplitFiles_OverrideFiles_SkillWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Override file for skills: xcf/skills/<name>/skill.<provider>.xcf
-	overridePath := filepath.Join(dir, "xcf", "skills", "tdd", "skill.cursor.xcf")
+	// Override file for skills: xcaf/skills/<name>/skill.<provider>.xcaf
+	overridePath := filepath.Join(dir, "xcaf", "skills", "tdd", "skill.cursor.xcaf")
 	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
 		t.Fatal("expected cursor skill override file at " + overridePath)
 	}
@@ -725,8 +725,8 @@ func TestWriteSplitFiles_OverrideFiles_RuleWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Override file: rule.gemini.xcf (in the rule's directory)
-	overridePath := filepath.Join(dir, "xcf", "rules", "secure", "rule.gemini.xcf")
+	// Override file: rule.gemini.xcaf (in the rule's directory)
+	overridePath := filepath.Join(dir, "xcaf", "rules", "secure", "rule.gemini.xcaf")
 	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
 		t.Fatal("expected gemini rule override file at " + overridePath)
 	}
@@ -761,8 +761,8 @@ func TestWriteSplitFiles_OverrideFiles_WorkflowWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Override file: workflow.antigravity.xcf
-	overridePath := filepath.Join(dir, "xcf", "workflows", "deploy", "workflow.antigravity.xcf")
+	// Override file: workflow.antigravity.xcaf
+	overridePath := filepath.Join(dir, "xcaf", "workflows", "deploy", "workflow.antigravity.xcaf")
 	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
 		t.Fatal("expected antigravity workflow override file at " + overridePath)
 	}
@@ -797,8 +797,8 @@ func TestWriteSplitFiles_OverrideFiles_MCPWritten(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Override file: mcp.claude.xcf
-	overridePath := filepath.Join(dir, "xcf", "mcp", "server", "mcp.claude.xcf")
+	// Override file: mcp.claude.xcaf
+	overridePath := filepath.Join(dir, "xcaf", "mcp", "server", "mcp.claude.xcaf")
 	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
 		t.Fatal("expected claude mcp override file at " + overridePath)
 	}
@@ -828,8 +828,8 @@ func TestWriteSplitFiles_Rules_NamespacedPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Namespaced rule produces directory: xcf/rules/cli/build-go-cli/rule.xcf
-	expected := filepath.Join(dir, "xcf", "rules", "cli", "build-go-cli", "rule.xcf")
+	// Namespaced rule produces directory: xcaf/rules/cli/build-go-cli/rule.xcaf
+	expected := filepath.Join(dir, "xcaf", "rules", "cli", "build-go-cli", "rule.xcaf")
 	if _, err := os.Stat(expected); os.IsNotExist(err) {
 		t.Fatalf("expected namespaced rule at %s", expected)
 	}
@@ -874,13 +874,13 @@ func TestWriteSplitFiles_HooksOverrideFiles(t *testing.T) {
 	}
 
 	// Base file should exist
-	basePath := filepath.Join(dir, "xcf", "hooks", "pre-compile", "hooks.xcf")
+	basePath := filepath.Join(dir, "xcaf", "hooks", "pre-compile", "hooks.xcaf")
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
 		t.Fatal("expected base hooks file")
 	}
 
-	// Override file: hooks.claude.xcf
-	overridePath := filepath.Join(dir, "xcf", "hooks", "pre-compile", "hooks.claude.xcf")
+	// Override file: hooks.claude.xcaf
+	overridePath := filepath.Join(dir, "xcaf", "hooks", "pre-compile", "hooks.claude.xcaf")
 	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
 		t.Fatal("expected claude override file at " + overridePath)
 	}
@@ -921,13 +921,13 @@ func TestWriteSplitFiles_SettingsOverrideFiles(t *testing.T) {
 	}
 
 	// Base file should exist
-	basePath := filepath.Join(dir, "xcf", "settings", "default", "settings.xcf")
+	basePath := filepath.Join(dir, "xcaf", "settings", "default", "settings.xcaf")
 	if _, err := os.Stat(basePath); os.IsNotExist(err) {
 		t.Fatal("expected base settings file")
 	}
 
-	// Override file: settings.gemini.xcf
-	overridePath := filepath.Join(dir, "xcf", "settings", "default", "settings.gemini.xcf")
+	// Override file: settings.gemini.xcaf
+	overridePath := filepath.Join(dir, "xcaf", "settings", "default", "settings.gemini.xcaf")
 	if _, err := os.Stat(overridePath); os.IsNotExist(err) {
 		t.Fatal("expected gemini override file at " + overridePath)
 	}

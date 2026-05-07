@@ -5,7 +5,7 @@ description: "Render a dependency graph of agents and their linked resources."
 
 # xcaffold graph
 
-Parses `.xcf` manifests and renders a visual dependency graph.
+Parses `.xcaf` manifests and renders a visual dependency graph.
 
 The `graph` command builds a directed acyclic graph (DAG) of the current configuration scope, showing how agents relate to skills, rules, workflows, MCP servers, and memory. Output can be rendered as a terminal tree, Mermaid diagram, Graphviz DOT file, or JSON edge list.
 
@@ -29,7 +29,7 @@ xcaffold graph [flags]
 | `--settings` | — | `bool` | `false` | Include settings in output. |
 | `--format` | `-f` | `string` | `"terminal"` | Output format: `terminal`, `mermaid`, `dot`, `json`. |
 | `--full` | — | `bool` | `false` | Expand all nested relations in the terminal tree. Always true when `--agent` names a specific agent. |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcf`). |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 
 ## Behavior

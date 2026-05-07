@@ -5,7 +5,7 @@ description: "Declares shared resource definitions inherited by all projects tha
 
 # `kind: global`
 
-Declares shared resource definitions that are inherited by all projects via the `extends:` field in `project.xcf`. Global configs serve as a base layer — any resource (agent, skill, rule, MCP server, settings, hooks) declared in a global config is available to inheriting projects without re-declaring it.
+Declares shared resource definitions that are inherited by all projects via the `extends:` field in `project.xcaf`. Global configs serve as a base layer — any resource (agent, skill, rule, MCP server, settings, hooks) declared in a global config is available to inheriting projects without re-declaring it.
 
 Global configs produce **no output files** on their own. Output is produced only when a project config compiles with `extends:` pointing to this global.
 
@@ -17,7 +17,7 @@ Uses **pure YAML format** (no frontmatter `---` delimiters).
 
 ### Shared organization baseline
 
-`xcf/global/org-baseline.xcf`:
+`xcaf/global/org-baseline.xcaf`:
 ```yaml
 kind: global
 version: "1.0"
@@ -28,36 +28,36 @@ description: >-
   org-wide security policies applicable to every repository.
 skills:
   - id: conventional-commits
-    path: xcf/global/skills/conventional-commits.xcf
+    path: xcaf/global/skills/conventional-commits.xcaf
   - id: systematic-debugging
-    path: xcf/global/skills/systematic-debugging.xcf
+    path: xcaf/global/skills/systematic-debugging.xcaf
 rules:
   - id: no-secrets-in-code
-    path: xcf/global/rules/no-secrets-in-code.xcf
+    path: xcaf/global/rules/no-secrets-in-code.xcaf
   - id: code-review-standards
-    path: xcf/global/rules/code-review-standards.xcf
+    path: xcaf/global/rules/code-review-standards.xcaf
 policies:
   - id: require-approved-model
-    path: xcf/global/policies/require-approved-model.xcf
+    path: xcaf/global/policies/require-approved-model.xcaf
 settings:
   - id: org-defaults
-    path: xcf/global/settings/org-defaults.xcf
+    path: xcaf/global/settings/org-defaults.xcaf
 ```
 
-Project `project.xcf` inheriting the global:
+Project `project.xcaf` inheriting the global:
 ```yaml
 ---
 kind: project
 version: "1.0"
 name: frontend-app
-extends: xcf/global/org-baseline.xcf
+extends: xcaf/global/org-baseline.xcaf
 targets:
   - claude
   - cursor
   - gemini
 agents:
   - id: react-developer
-    path: xcf/agents/react-developer/react-developer.xcf
+    path: xcaf/agents/react-developer/react-developer.xcaf
 skills:
   - component-patterns
 rules:
@@ -88,7 +88,7 @@ The following arguments are supported:
 Each entry in a resource list supports:
 
 - `id` — (Required) Identifier used to reference the resource from the inheriting project's `skills:`, `rules:`, etc. lists.
-- `path` — (Required) Relative path from the global config root to the resource `.xcf` file.
+- `path` — (Required) Relative path from the global config root to the resource `.xcaf` file.
 
 ## Behavior
 
@@ -97,7 +97,7 @@ When a project declares `extends:`, the compiler:
 1. Parses the global config at the referenced path.
 2. Marks all global resources with `Inherited = true`.
 3. Merges global resources into the project's compiled resource set.
-4. Strips inherited resources from local project file output (they are not re-emitted as new `.xcf` files).
+4. Strips inherited resources from local project file output (they are not re-emitted as new `.xcaf` files).
 
 Inherited resources can be overridden by re-declaring the same `id` in the project config. The local declaration wins.
 

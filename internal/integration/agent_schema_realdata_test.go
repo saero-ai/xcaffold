@@ -53,7 +53,7 @@ func TestRealData_ImportedAgent_CompilesWithCanonicalFieldOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(tmp, "backend-engineer.md"), fixtureData, 0o600))
 
-	xcfContent := `---
+	xcafContent := `---
 kind: agent
 version: "1.0"
 name: backend-engineer
@@ -64,10 +64,10 @@ tools: [Bash, Read, Write, Edit, Glob, Grep]
 ---
 
 ` + string(fixtureData)
-	xcfPath := filepath.Join(tmp, "agent.xcf")
-	require.NoError(t, os.WriteFile(xcfPath, []byte(xcfContent), 0o600))
+	xcafPath := filepath.Join(tmp, "agent.xcaf")
+	require.NoError(t, os.WriteFile(xcafPath, []byte(xcafContent), 0o600))
 
-	config, err := parser.ParseFile(xcfPath)
+	config, err := parser.ParseFile(xcafPath)
 	require.NoError(t, err)
 	require.Contains(t, config.Agents, "backend-engineer")
 
@@ -128,7 +128,7 @@ func TestRealData_AllClaudeAgents_Parse(t *testing.T) {
 			localName := entry.Name()
 			require.NoError(t, os.WriteFile(filepath.Join(tmp, localName), fixtureData, 0o600))
 
-			xcfContent := `---
+			xcafContent := `---
 kind: agent
 version: "1.0"
 name: ` + id + `
@@ -137,10 +137,10 @@ model: sonnet
 ---
 
 ` + string(fixtureData)
-			xcfPath := filepath.Join(tmp, "agent.xcf")
-			require.NoError(t, os.WriteFile(xcfPath, []byte(xcfContent), 0o600))
+			xcafPath := filepath.Join(tmp, "agent.xcaf")
+			require.NoError(t, os.WriteFile(xcafPath, []byte(xcafContent), 0o600))
 
-			config, err := parser.ParseFile(xcfPath)
+			config, err := parser.ParseFile(xcafPath)
 			require.NoError(t, err, "parse failed for %s", id)
 
 			out, _, err := renderer.Orchestrate(r, config, tmp)
@@ -156,7 +156,7 @@ model: sonnet
 // and that provider-specific fields do NOT leak into other targets.
 func TestRealData_NewFields_RoundTripThroughTargets(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	xcfContent := `---
+	xcafContent := `---
 kind: agent
 version: "1.0"
 name: round-trip
@@ -180,10 +180,10 @@ targets:
 Round-trip test body.
 `
 	tmp := t.TempDir()
-	xcfPath := filepath.Join(tmp, "agent.xcf")
-	require.NoError(t, os.WriteFile(xcfPath, []byte(xcfContent), 0o600))
+	xcafPath := filepath.Join(tmp, "agent.xcaf")
+	require.NoError(t, os.WriteFile(xcafPath, []byte(xcafContent), 0o600))
 
-	config, err := parser.ParseFile(xcfPath)
+	config, err := parser.ParseFile(xcafPath)
 	require.NoError(t, err)
 
 	agent := config.Agents["round-trip"]

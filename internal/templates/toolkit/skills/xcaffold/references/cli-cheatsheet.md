@@ -5,12 +5,12 @@
 # ============================================================
 
 # ── Global Flags ─────────────────────────────────────────────
-#   --config PATH    Path to project.xcf (default: ./project.xcf)
-#   --global         Operate on user-wide global config (~/.xcaffold/global.xcf)
+#   --config PATH    Path to project.xcaf (default: ./project.xcaf)
+#   --global         Operate on user-wide global config (~/.xcaffold/global.xcaf)
 #   --no-color       Disable color output
 
 # ── init ─────────────────────────────────────────────────────
-# Bootstrap a new project.xcf configuration.
+# Bootstrap a new project.xcaf configuration.
 # Scope: project, global
 #
 #   xcaffold init
@@ -20,7 +20,7 @@
 #   xcaffold init --json                  # machine-readable manifest output
 
 # ── apply ────────────────────────────────────────────────────
-# Compile .xcf resources into provider-native agent files.
+# Compile .xcaf resources into provider-native agent files.
 # Scope: project, global
 #
 #   xcaffold apply
@@ -36,7 +36,7 @@
 #   xcaffold apply --blueprint NAME       # compile a specific blueprint
 
 # ── validate ─────────────────────────────────────────────────
-# Check .xcf syntax, cross-references, and structural invariants.
+# Check .xcaf syntax, cross-references, and structural invariants.
 # Scope: project, global
 #
 #   xcaffold validate
@@ -51,7 +51,7 @@
 #   xcaffold status --all                 # show all files (default: drifted only)
 
 # ── import ───────────────────────────────────────────────────
-# Import existing provider config into project.xcf.
+# Import existing provider config into project.xcaf.
 # Scope: project
 #
 #   xcaffold import
@@ -108,7 +108,7 @@
 # Typical development loop:
 #
 #   xcaffold init --target claude         # 1. bootstrap
-#   # edit xcf/ files
+#   # edit xcaf/ files
 #   xcaffold validate                     # 2. validate
 #   xcaffold apply --dry-run              # 3. preview
 #   xcaffold apply                        # 4. compile
@@ -118,15 +118,15 @@
 #
 #   my-project/
 #     .xcaffold/
-#       project.xcf                   # kind: project (targets, resource refs)
-#     xcf/
+#       project.xcaf                   # kind: project (targets, resource refs)
+#     xcaf/
 #       agents/
 #         xaff/
-#           agent.xcf                 # base agent (universal)
-#           agent.claude.xcf          # per-provider override
+#           agent.xcaf                 # base agent (universal)
+#           agent.claude.xcaf          # per-provider override
 #       skills/
 #         xcaffold/
-#           xcaffold.xcf         # THIS SKILL
+#           xcaffold.xcaf         # THIS SKILL
 #           references/
 #             agent-reference.md      # agent field catalog
 #             skill-reference.md      # skill field catalog
@@ -136,12 +136,12 @@
 #             hooks-reference.md      # hooks field catalog
 #             memory-reference.md     # memory field catalog
 #             cli-cheatsheet.md       # THIS FILE — CLI command reference
-#             authoring-guide.md      # xcf manifest authoring guide
+#             authoring-guide.md      # xcaf manifest authoring guide
 #             operating-guide.md      # xcaffold CLI operating guide
 #       rules/
-#         xcf-conventions/
-#           xcf-conventions.xcf       # xcaffold authoring conventions rule
+#         xcaf-conventions/
+#           xcaf-conventions.xcaf       # xcaffold authoring conventions rule
 #       policies/
-#         require-agent-description.xcf
-#         require-agent-instructions.xcf
-#       settings.xcf                  # kind: settings (MCP, permissions, hooks)
+#         require-agent-description.xcaf
+#         require-agent-instructions.xcaf
+#       settings.xcaf                  # kind: settings (MCP, permissions, hooks)

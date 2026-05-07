@@ -38,7 +38,7 @@ var xcaffoldToGeminiEvent = map[string]string{
 	"PreToolUse":       "BeforeTool",
 	"PostToolUse":      "AfterTool",
 	"UserPromptSubmit": "BeforeAgent",
-	// Existing mappings (keep — Gemini-style names may appear in xcf files too)
+	// Existing mappings (keep — Gemini-style names may appear in xcaf files too)
 	"PreToolExecution":  "BeforeTool",
 	"PostToolExecution": "AfterTool",
 }

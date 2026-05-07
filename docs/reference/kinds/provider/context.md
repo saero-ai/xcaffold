@@ -10,7 +10,7 @@ Workspace-level ambient context compiled into each provider's root instruction f
 
 A `kind: context` resource holds the prose that xcaffold renders into the root instruction file for one or more AI providers. Unlike agents, skills, and rules — which target specific AI behaviors — context tells the AI tool about the project itself: its structure, conventions, and how to work within it.
 
-Context files live in `xcf/context/` and use the standard frontmatter + body format. The markdown body is rendered verbatim as the provider's instruction file content.
+Context files live in `xcaf/context/` and use the standard frontmatter + body format. The markdown body is rendered verbatim as the provider's instruction file content.
 
 ## Format
 
@@ -34,7 +34,7 @@ You are working on xcaffold, a deterministic Agent-as-Code compiler...
 |---|---|---|---|
 | `kind` | Yes | string | Must be `context` |
 | `version` | Yes | string | Schema version, e.g. `"1.0"` |
-| `name` | Yes | string | Unique identifier within the project. Used as the xcf filename stem. |
+| `name` | Yes | string | Unique identifier within the project. Used as the xcaf filename stem. |
 | `targets` | No | list of strings | Provider filter — see [Targets](#targets) below |
 | `description` | No | string | Short human-readable description of this context file |
 
@@ -53,7 +53,7 @@ The **markdown body** (content after the closing `---`) contains the workspace c
 This allows multi-provider projects to author provider-specific workspace context where the content differs between tools:
 
 ```yaml
-# xcf/context/main.xcf — Claude Code only
+# xcaf/context/main.xcaf — Claude Code only
 ---
 kind: context
 name: main
@@ -61,7 +61,7 @@ targets: [claude]
 ---
 You are working on xcaffold. Use CLAUDE.md conventions...
 
-# xcf/context/antigravity.xcf — Antigravity only
+# xcaf/context/antigravity.xcaf — Antigravity only
 ---
 kind: context
 name: antigravity
@@ -85,17 +85,17 @@ You are working on xcaffold...
 
 ## File Location
 
-Context files are placed in `xcf/context/`:
+Context files are placed in `xcaf/context/`:
 
 ```
-xcf/
+xcaf/
 └── context/
-    ├── main.xcf           # root context for claude (or all targets)
-    ├── gemini.xcf         # root context for gemini only
-    └── antigravity.xcf    # root context for antigravity only
+    ├── main.xcaf           # root context for claude (or all targets)
+    ├── gemini.xcaf         # root context for gemini only
+    └── antigravity.xcaf    # root context for antigravity only
 ```
 
-Files are auto-discovered by `xcaffold apply` — no explicit reference in `project.xcf` is required.
+Files are auto-discovered by `xcaffold apply` — no explicit reference in `project.xcaf` is required.
 
 ## Provider Output
 
@@ -113,11 +113,11 @@ When running `xcaffold import`, xcaffold creates context files using these defau
 
 | Source file | Generated context | Frontmatter |
 |---|---|---|
-| `CLAUDE.md` | `xcf/context/main.xcf` | `name: main` / `targets: [claude]` |
-| `GEMINI.md` | `xcf/context/gemini.xcf` | `name: gemini` / `targets: [gemini]` |
-| `AGENTS.md` (Cursor) | `xcf/context/cursor.xcf` | `name: cursor` / `targets: [cursor]` |
-| `AGENTS.md` (Antigravity) | `xcf/context/antigravity.xcf` | `name: antigravity` / `targets: [antigravity]` |
-| `.github/copilot-instructions.md` | `xcf/context/copilot.xcf` | `name: copilot` / `targets: [copilot]` |
+| `CLAUDE.md` | `xcaf/context/main.xcaf` | `name: main` / `targets: [claude]` |
+| `GEMINI.md` | `xcaf/context/gemini.xcaf` | `name: gemini` / `targets: [gemini]` |
+| `AGENTS.md` (Cursor) | `xcaf/context/cursor.xcaf` | `name: cursor` / `targets: [cursor]` |
+| `AGENTS.md` (Antigravity) | `xcaf/context/antigravity.xcaf` | `name: antigravity` / `targets: [antigravity]` |
+| `.github/copilot-instructions.md` | `xcaf/context/copilot.xcaf` | `name: copilot` / `targets: [copilot]` |
 
 You can rename the file and change the `name:` field freely — the `name` is a human identifier only.
 

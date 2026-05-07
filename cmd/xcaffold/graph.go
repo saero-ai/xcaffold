@@ -115,7 +115,7 @@ func runGraph(cmd *cobra.Command, args []string) error {
 
 	if graphAll {
 		// Global topology
-		gGlobal, err := parseGraphData(globalXcfPath, "global")
+		gGlobal, err := parseGraphData(globalXcafPath, "global")
 		if err != nil {
 			return err
 		}
@@ -127,11 +127,11 @@ func runGraph(cmd *cobra.Command, args []string) error {
 			fmt.Fprintf(os.Stderr, "warning: could not list registered projects: %v\n", err)
 		} else {
 			for _, p := range projects {
-				projXcf := filepath.Join(p.Path, "project.xcf")
+				projXcaf := filepath.Join(p.Path, "project.xcaf")
 				if p.ConfigDir != "" && p.ConfigDir != "." {
-					projXcf = filepath.Join(p.Path, p.ConfigDir, "project.xcf")
+					projXcaf = filepath.Join(p.Path, p.ConfigDir, "project.xcaf")
 				}
-				g, err := parseGraphData(projXcf, fmt.Sprintf("project:%s", p.Name))
+				g, err := parseGraphData(projXcaf, fmt.Sprintf("project:%s", p.Name))
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "warning: skipping project %q: %v\n", p.Name, err)
 					continue
@@ -144,8 +144,8 @@ func runGraph(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		projXcf := filepath.Join(p.Path, "project.xcf")
-		g, err := parseGraphData(projXcf, fmt.Sprintf("project:%s", p.Name))
+		projXcaf := filepath.Join(p.Path, "project.xcaf")
+		g, err := parseGraphData(projXcaf, fmt.Sprintf("project:%s", p.Name))
 		if err != nil {
 			return err
 		}
@@ -157,13 +157,13 @@ func runGraph(cmd *cobra.Command, args []string) error {
 		}
 		scopes = append(scopes, g)
 	} else if globalFlag {
-		g, err := parseGraphData(globalXcfPath, "global")
+		g, err := parseGraphData(globalXcafPath, "global")
 		if err != nil {
 			return err
 		}
 		scopes = append(scopes, g)
 	} else {
-		g, err := parseGraphData(xcfPath, "project")
+		g, err := parseGraphData(xcafPath, "project")
 		if err != nil {
 			return err
 		}

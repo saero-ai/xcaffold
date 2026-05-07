@@ -1,6 +1,6 @@
 ---
 title: "kind: agent"
-description: "Defines a named AI persona. Source: xcf/agents/<name>/agent.xcf. Compiled to agents/<name>.md per provider."
+description: "Defines a named AI persona. Source: xcaf/agents/<name>/agent.xcaf. Compiled to agents/<name>.md per provider."
 ---
 
 # `kind: agent`
@@ -143,9 +143,9 @@ Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct.
 
 ## Filesystem-as-Schema
 
-When an agent `.xcf` file lives at `xcf/agents/<name>/agent.xcf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
+When an agent `.xcaf` file lives at `xcaf/agents/<name>/agent.xcaf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
 - `kind: agent` from the parent directory name (`agents/`)
-- `name:` from the grandparent directory name (e.g., `researcher` from `agents/researcher/agent.xcf`)
+- `name:` from the grandparent directory name (e.g., `researcher` from `agents/researcher/agent.xcaf`)
 
 When `kind:` or `name:` are present in the YAML, they must match the inferred values.
 

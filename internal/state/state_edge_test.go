@@ -14,11 +14,11 @@ import (
 // TestSourcesChanged_NoChange verifies false when hashes match.
 func TestSourcesChanged_NoChange(t *testing.T) {
 	dir := t.TempDir()
-	src := filepath.Join(dir, "project.xcf")
+	src := filepath.Join(dir, "project.xcaf")
 	require.NoError(t, os.WriteFile(src, []byte("version: \"1\"\n"), 0600))
 
 	prev := []SourceFile{
-		{Path: "project.xcf", Hash: hashFileContent(t, src)},
+		{Path: "project.xcaf", Hash: hashFileContent(t, src)},
 	}
 
 	changed, err := SourcesChanged(prev, []string{src}, dir)
@@ -29,11 +29,11 @@ func TestSourcesChanged_NoChange(t *testing.T) {
 // TestSourcesChanged_ContentModified verifies true when a file changes.
 func TestSourcesChanged_ContentModified(t *testing.T) {
 	dir := t.TempDir()
-	src := filepath.Join(dir, "project.xcf")
+	src := filepath.Join(dir, "project.xcaf")
 	require.NoError(t, os.WriteFile(src, []byte("version: \"1\"\n"), 0600))
 
 	prev := []SourceFile{
-		{Path: "project.xcf", Hash: hashFileContent(t, src)},
+		{Path: "project.xcaf", Hash: hashFileContent(t, src)},
 	}
 
 	// Modify
@@ -47,14 +47,14 @@ func TestSourcesChanged_ContentModified(t *testing.T) {
 // TestSourcesChanged_FileAdded verifies true when a new source file appears.
 func TestSourcesChanged_FileAdded(t *testing.T) {
 	dir := t.TempDir()
-	src1 := filepath.Join(dir, "project.xcf")
+	src1 := filepath.Join(dir, "project.xcaf")
 	require.NoError(t, os.WriteFile(src1, []byte("version: \"1\"\n"), 0600))
 
 	prev := []SourceFile{
-		{Path: "project.xcf", Hash: hashFileContent(t, src1)},
+		{Path: "project.xcaf", Hash: hashFileContent(t, src1)},
 	}
 
-	src2 := filepath.Join(dir, "agents.xcf")
+	src2 := filepath.Join(dir, "agents.xcaf")
 	require.NoError(t, os.WriteFile(src2, []byte("agents:\n"), 0600))
 
 	changed, err := SourcesChanged(prev, []string{src1, src2}, dir)
@@ -65,12 +65,12 @@ func TestSourcesChanged_FileAdded(t *testing.T) {
 // TestSourcesChanged_FileRemoved verifies true when a source file disappears.
 func TestSourcesChanged_FileRemoved(t *testing.T) {
 	dir := t.TempDir()
-	src := filepath.Join(dir, "project.xcf")
+	src := filepath.Join(dir, "project.xcaf")
 	require.NoError(t, os.WriteFile(src, []byte("version: \"1\"\n"), 0600))
 
 	prev := []SourceFile{
-		{Path: "project.xcf", Hash: hashFileContent(t, src)},
-		{Path: "agents.xcf", Hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"},
+		{Path: "project.xcaf", Hash: hashFileContent(t, src)},
+		{Path: "agents.xcaf", Hash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"},
 	}
 
 	changed, err := SourcesChanged(prev, []string{src}, dir)
@@ -81,7 +81,7 @@ func TestSourcesChanged_FileRemoved(t *testing.T) {
 // TestSourcesChanged_EmptyPrevious verifies true on first run (no previous state).
 func TestSourcesChanged_EmptyPrevious(t *testing.T) {
 	dir := t.TempDir()
-	src := filepath.Join(dir, "project.xcf")
+	src := filepath.Join(dir, "project.xcaf")
 	require.NoError(t, os.WriteFile(src, []byte("version: \"1\"\n"), 0600))
 
 	changed, err := SourcesChanged(nil, []string{src}, dir)

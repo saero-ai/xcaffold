@@ -7,7 +7,7 @@ description: "List all discovered resources in the current scope."
 
 Scans the target configuration scope and displays all parsed resources grouped by kind.
 
-The `list` command reads the project manifest and all `.xcf` files under `xcf/`, then prints a categorized inventory of every discovered resource: agents, skills, rules, workflows, MCP servers, contexts, hooks, settings, memory entries, and blueprints. Resources are sorted alphabetically within each section. Rules are grouped by directory prefix (`cli/`, `platform/`, `(root)`).
+The `list` command reads the project manifest and all `.xcaf` files under `xcaf/`, then prints a categorized inventory of every discovered resource: agents, skills, rules, workflows, MCP servers, contexts, hooks, settings, memory entries, and blueprints. Resources are sorted alphabetically within each section. Rules are grouped by directory prefix (`cli/`, `platform/`, `(root)`).
 
 **Usage:**
 
@@ -28,7 +28,7 @@ xcaffold list [flags]
 | `--hooks` | — | `bool` | `false` | List hooks. |
 | `--settings` | — | `bool` | `false` | List settings. |
 | `--verbose` | `-v` | `bool` | `false` | Show individual memory entry names per agent instead of aggregate counts. |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcf`). |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 
 ## Behavior

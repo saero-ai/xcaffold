@@ -9,34 +9,34 @@ Skills are reusable prompt packages compiled to `skills/<id>/SKILL.md` in each p
 
 ## Required Directory Structure
 
-Unlike rules and policies, skills **must** be authored in a subdirectory under `xcf/skills/`. A flat file at `xcf/skills/git-workflow.xcf` causes an immediate parse error:
+Unlike rules and policies, skills **must** be authored in a subdirectory under `xcaf/skills/`. A flat file at `xcaf/skills/git-workflow.xcaf` causes an immediate parse error:
 
 ```
-✗ skill file "git-workflow.xcf" must be in a subdirectory under xcf/skills/<id>/
+✗ skill file "git-workflow.xcaf" must be in a subdirectory under xcaf/skills/<id>/
 ```
 
 The correct structure is:
 
 ```
-xcf/skills/
+xcaf/skills/
 └── git-workflow/     ← subdirectory named after the skill ID
-    └── skill.xcf     ← file must be named skill.xcf
+    └── skill.xcaf     ← file must be named skill.xcaf
 ```
 
-The validator enforces the filename `skill.xcf` exactly — `git-workflow.xcf` or any other name at the skill root will fail validation. The skill's `name:` field in the frontmatter is the resource ID, independent of the directory name.
+The validator enforces the filename `skill.xcaf` exactly — `git-workflow.xcaf` or any other name at the skill root will fail validation. The skill's `name:` field in the frontmatter is the resource ID, independent of the directory name.
 
 ## Graduated Complexity
 
-Start with the single `.xcf` file. Add supporting subdirectories only when the skill genuinely needs them.
+Start with the single `.xcaf` file. Add supporting subdirectories only when the skill genuinely needs them.
 
 ### Stage 1 — Instruction only
 
-A skill that provides inline guidance needs only the `.xcf` file:
+A skill that provides inline guidance needs only the `.xcaf` file:
 
 ```
-xcf/skills/
+xcaf/skills/
 └── git-workflow/
-    └── skill.xcf
+    └── skill.xcaf
 ```
 
 ### Stage 2 — With supporting files
@@ -44,9 +44,9 @@ xcf/skills/
 When the skill needs reference documents, executable scripts, output templates, or worked examples, graduate to the canonical layout:
 
 ```
-xcf/skills/
+xcaf/skills/
 └── code-review/
-    ├── skill.xcf             ← the orchestrator
+    ├── skill.xcaf             ← the orchestrator
     ├── references/
     │   └── team-standards.md ← read-only background knowledge
     ├── scripts/
@@ -60,7 +60,7 @@ xcf/skills/
 > [!NOTE]
 > When **authoring** skill directories, the parser validates subdirectory names at parse time. Only `references/`, `scripts/`, `assets/`, and `examples/` are recognized as canonical subdirectories. Maximum depth is 1 level — nesting inside `references/references/` is not supported.
 >
-> During **import**, non-standard subdirectories found in provider skill directories are preserved under `xcf/skills/<id>/<subdir>/` alongside canonical subdirectories, rather than being rejected.
+> During **import**, non-standard subdirectories found in provider skill directories are preserved under `xcaf/skills/<id>/<subdir>/` alongside canonical subdirectories, rather than being rejected.
 
 ## Choosing the Right Subdirectory
 
@@ -73,7 +73,7 @@ xcf/skills/
 
 ### `references/`
 
-Background knowledge the AI needs to execute the skill correctly — API specs, coding standards, domain glossaries. Files here are read-only contextual facts. The `.xcf` orchestrator stays clean; heavy documentation lives separately and is copied to `skills/<id>/references/` at compile time.
+Background knowledge the AI needs to execute the skill correctly — API specs, coding standards, domain glossaries. Files here are read-only contextual facts. The `.xcaf` orchestrator stays clean; heavy documentation lives separately and is copied to `skills/<id>/references/` at compile time.
 
 Rather than embedding a 10-page API specification in the skill body, instruct the AI in the body to read from `./references/api-spec.md`. The file is always present after `xcaffold apply`.
 
@@ -115,12 +115,12 @@ Every provider receives a `skills/<id>/SKILL.md`. The tables below show exactly 
 
 **Legend:**
 - ✅ Written to SKILL.md frontmatter
-- ❌ Field not written; stays in `xcf/` source only
+- ❌ Field not written; stays in `xcaf/` source only
 - ❌ ² Field not written **and** xcaffold prints a warning to stderr (a fidelity note) telling you the field was dropped for this provider
 
 **Notes:**
 
-1. `when_to_use` uses an underscore in the output file — not a hyphen. Claude Code's native SKILL.md schema requires exactly `when_to_use:`. xcaffold handles this automatically; you author it in `.xcf` as `when-to-use:` (kebab-case) and the Claude renderer converts it on output.
+1. `when_to_use` uses an underscore in the output file — not a hyphen. Claude Code's native SKILL.md schema requires exactly `when_to_use:`. xcaffold handles this automatically; you author it in `.xcaf` as `when-to-use:` (kebab-case) and the Claude renderer converts it on output.
 
 2. For fields marked ❌ ², xcaffold prints a line like `[WARN] skill "my-skill": field "when-to-use" dropped for gemini — no native equivalent` to stderr during `xcaffold apply`. Compilation still succeeds and SKILL.md is still written.
 

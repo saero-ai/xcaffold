@@ -60,4 +60,4 @@ kind: agent . version 1.0 . format: frontmatter+body
   Multi-Target
     targets                   map             optional  Per-provider override configuration keyed by provider name.
 
--> Run 'xcaffold help --xcf agent --out' to generate a template.
+-> Run 'xcaffold help --xcaf agent --out' to generate a template.

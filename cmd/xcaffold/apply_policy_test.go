@@ -15,22 +15,22 @@ import (
 func TestRunApply_PolicyError_BlocksWrite(t *testing.T) {
 	dir := t.TempDir()
 
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`---
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(`---
 kind: project
 version: "1.0"
 name: policy-error-test
 targets:
   - claude
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`---
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`---
 kind: agent
 version: "1.0"
 name: dev
 ---
 You are a developer
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`---
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcaf"), []byte(`---
 kind: policy
 version: "1.0"
 name: needs-desc
@@ -47,7 +47,7 @@ require:
 	targetFlag = "claude"
 	defer func() { applyForce = false }()
 
-	err := applyScope(xcf, outputDir, filepath.Dir(xcf), "test")
+	err := applyScope(xcaf, outputDir, filepath.Dir(xcaf), "test")
 	require.Error(t, err, "applyScope must return an error when a policy error is triggered")
 	assert.True(t, strings.Contains(err.Error(), "policy error") || strings.Contains(err.Error(), "policy") || strings.Contains(err.Error(), "FIELD_REQUIRED_FOR_TARGET"),
 		"error message should reference policy or fidelity error, got: %s", err.Error())
@@ -79,15 +79,15 @@ require:
 func TestRunApply_PolicyWarning_AllowsWrite(t *testing.T) {
 	dir := t.TempDir()
 
-	xcf := filepath.Join(dir, "project.xcf")
-	require.NoError(t, os.WriteFile(xcf, []byte(`---
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(`---
 kind: project
 version: "1.0"
 name: policy-warning-test
 targets:
   - claude
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`---
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`---
 kind: agent
 version: "1.0"
 name: dev
@@ -95,7 +95,7 @@ description: A developer agent
 ---
 You are a developer
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`---
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcaf"), []byte(`---
 kind: policy
 version: "1.0"
 name: needs-desc
@@ -112,7 +112,7 @@ require:
 	targetFlag = "claude"
 	defer func() { applyForce = false }()
 
-	err := applyScope(xcf, outputDir, filepath.Dir(xcf), "test")
+	err := applyScope(xcaf, outputDir, filepath.Dir(xcaf), "test")
 	require.NoError(t, err, "applyScope must succeed when the only violations are warnings")
 
 	// Output directory must have been written.

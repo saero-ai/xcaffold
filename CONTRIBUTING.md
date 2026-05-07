@@ -23,7 +23,7 @@ Open a GitHub issue. Include:
 
 - `xcaffold version` output
 - OS and Go version
-- Minimal `.xcf` file that reproduces the issue
+- Minimal `.xcaf` file that reproduces the issue
 - Full error output (stdout and stderr)
 
 ## Proposing Features
@@ -159,10 +159,10 @@ Add the provider to `docs/reference/supported-providers.md`. Follow the Diátaxi
 
 xcaffold has two discrete, directional operations:
 
-- **`xcaffold apply`** — compiles `.xcf` manifests to provider-native output directories. This is the primary compilation direction. The `.xcf` manifest is the source of truth for all compiled output.
-- **`xcaffold import`** — reads an existing provider output directory and generates an equivalent `.xcf` manifest. This is an explicit, one-shot capture operation, not a sync mechanism.
+- **`xcaffold apply`** — compiles `.xcaf` manifests to provider-native output directories. This is the primary compilation direction. The `.xcaf` manifest is the source of truth for all compiled output.
+- **`xcaffold import`** — reads an existing provider output directory and generates an equivalent `.xcaf` manifest. This is an explicit, one-shot capture operation, not a sync mechanism.
 
-Do not introduce automatic bidirectional sync, file-watching reconciliation, or any mechanism that modifies `.xcf` files in response to provider output changes without explicit user invocation. The distinction between a discrete import and a sync daemon is fundamental to the architecture.
+Do not introduce automatic bidirectional sync, file-watching reconciliation, or any mechanism that modifies `.xcaf` files in response to provider output changes without explicit user invocation. The distinction between a discrete import and a sync daemon is fundamental to the architecture.
 
 ### Provider-Agnostic Principle
 
@@ -172,20 +172,20 @@ No provider receives special treatment in `internal/` packages. Every provider i
 
 When a provider does not support a resource kind, return an empty `map[string]string` from the relevant `Compile*` method. The orchestrator emits `RENDERER_KIND_UNSUPPORTED` automatically. Never silently drop data. Never return an error for unsupported-but-valid input — unsupported kinds are a normal, expected condition.
 
-### .xcf File Format and Key Convention
+### .xcaf File Format and Key Convention
 
-`.xcf` files use two distinct formats depending on the resource kind:
+`.xcaf` files use two distinct formats depending on the resource kind:
 
 - **Frontmatter + optional markdown body** (`---` delimiters): `agent`, `skill`, `rule`, `workflow`
 - **Pure YAML** (no delimiters): `hooks`, `settings`, `mcp`, `global`, `project`
 
 Using the wrong format produces a parse error. When writing test fixtures, check which format the kind expects before authoring the file.
 
-All `.xcf` keys use kebab-case (e.g., `allowed-tools`, `disable-model-invocation`). Go struct field names are PascalCase; only the `yaml:` struct tag uses kebab-case. The parser's `KnownFields` setting rejects unknown keys at parse time — incorrect casing is a parse error, not a silent ignore.
+All `.xcaf` keys use kebab-case (e.g., `allowed-tools`, `disable-model-invocation`). Go struct field names are PascalCase; only the `yaml:` struct tag uses kebab-case. The parser's `KnownFields` setting rejects unknown keys at parse time — incorrect casing is a parse error, not a silent ignore.
 
 ### Schema Codegen
 
-AST struct fields in `internal/ast/types.go` carry `// +xcf:` markers that drive schema generation. Any new field you add requires the correct set of markers — use the existing fields in that file as the authoritative reference for which markers apply and what values are valid.
+AST struct fields in `internal/ast/types.go` carry `// +xcaf:` markers that drive schema generation. Any new field you add requires the correct set of markers — use the existing fields in that file as the authoritative reference for which markers apply and what values are valid.
 
 After any change to `internal/ast/types.go`, run:
 
@@ -199,7 +199,7 @@ CI enforces that generated files are fresh. A PR with stale generated files will
 
 ## Breaking Changes
 
-A breaking change requires existing users to modify their `.xcf` files, CLI invocations, or tooling. Process:
+A breaking change requires existing users to modify their `.xcaf` files, CLI invocations, or tooling. Process:
 
 1. Deprecate in the same PR with a runtime warning
 2. Keep the old behavior working for at least one minor release

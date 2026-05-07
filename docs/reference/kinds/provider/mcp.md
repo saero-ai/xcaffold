@@ -12,10 +12,10 @@ Declares a Model Context Protocol (MCP) server. Compiled to provider-native JSON
 ## Source Directory
 
 ```
-xcf/mcp/<name>/mcp.xcf
+xcaf/mcp/<name>/mcp.xcaf
 ```
 
-Each MCP server declaration is a directory-per-resource under `xcf/mcp/`. The `.xcf` file contains the frontmatter for that server.
+Each MCP server declaration is a directory-per-resource under `xcaf/mcp/`. The `.xcaf` file contains the frontmatter for that server.
 
 ## Example Usage
 

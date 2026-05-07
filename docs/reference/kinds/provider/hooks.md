@@ -14,10 +14,10 @@ Uses **pure YAML format** (no frontmatter `---` delimiters).
 ## Source Directory
 
 ```
-xcf/hooks/hooks.xcf
+xcaf/hooks/hooks.xcaf
 ```
 
-`kind: hooks` is a singleton — there is no `<name>` directory. All hook declarations for a project are defined in a single `xcf/hooks/hooks.xcf` file.
+`kind: hooks` is a singleton — there is no `<name>` directory. All hook declarations for a project are defined in a single `xcaf/hooks/hooks.xcaf` file.
 
 ## Example Usage
 

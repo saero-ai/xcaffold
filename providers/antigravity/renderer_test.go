@@ -946,14 +946,14 @@ func TestAntigravityRenderer_AgentSecurityFields_SilentWithRole(t *testing.T) {
 	require.NoError(t, err)
 
 	// Two-layer fidelity check: security fields are unsupported by antigravity
-	// but have Role:["rendering"] in the schema. Fields with an xcf role are
+	// but have Role:["rendering"] in the schema. Fields with an xcaf role are
 	// silently skipped — no FIELD_UNSUPPORTED error is emitted. The renderer
 	// simply omits these fields from the output without surfacing an error.
 	for _, n := range notes {
 		if n.Code == renderer.CodeFieldUnsupported {
 			switch n.Field {
 			case "permission-mode", "disallowed-tools", "isolation":
-				t.Errorf("field %q has an xcf role; FIELD_UNSUPPORTED must not be emitted", n.Field)
+				t.Errorf("field %q has an xcaf role; FIELD_UNSUPPORTED must not be emitted", n.Field)
 			}
 		}
 	}

@@ -11,7 +11,7 @@ import (
 
 func TestParse_NegativeKind_Config(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "bad.xcf")
+	f := filepath.Join(dir, "bad.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte("kind: config\nname: old\nversion: \"1.0\"\n"), 0600))
 	_, err := ParseFileExact(f)
 	require.Error(t, err)
@@ -20,7 +20,7 @@ func TestParse_NegativeKind_Config(t *testing.T) {
 
 func TestParse_NegativeKind_Unknown(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "bad.xcf")
+	f := filepath.Join(dir, "bad.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte("kind: foobar\nname: x\nversion: \"1.0\"\n"), 0600))
 	_, err := ParseFileExact(f)
 	require.Error(t, err)
@@ -29,7 +29,7 @@ func TestParse_NegativeKind_Unknown(t *testing.T) {
 
 func TestParse_NegativeKind_Empty(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "bad.xcf")
+	f := filepath.Join(dir, "bad.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte("name: x\nversion: \"1.0\"\n"), 0600))
 	_, err := ParseFileExact(f)
 	require.Error(t, err)
@@ -38,7 +38,7 @@ func TestParse_NegativeKind_Empty(t *testing.T) {
 
 func TestParse_Negative_FrontmatterUnknownField(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "bad.xcf")
+	f := filepath.Join(dir, "bad.xcaf")
 	content := "---\nkind: skill\nname: tdd\nversion: \"1.0\"\nbogus-key: oops\n---\nbody\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	_, err := ParseFileExact(f)
@@ -48,13 +48,13 @@ func TestParse_Negative_FrontmatterUnknownField(t *testing.T) {
 
 func TestParseDirectory_MultiFileProject(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"),
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"),
 		[]byte("kind: project\nname: multifile\nversion: \"1.0\"\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcf"),
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcaf"),
 		[]byte("kind: agent\nname: developer\nversion: \"1.0\"\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "tdd.xcf"),
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "tdd.xcaf"),
 		[]byte("kind: skill\nname: tdd\nversion: \"1.0\"\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "testing.xcf"),
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "testing.xcaf"),
 		[]byte("kind: rule\nname: testing\nversion: \"1.0\"\n"), 0600))
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
@@ -65,11 +65,11 @@ func TestParseDirectory_MultiFileProject(t *testing.T) {
 
 func TestParseDirectory_FilterExcludesOutputDirs(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"),
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"),
 		[]byte("kind: project\nname: myproject\nversion: \"1.0\"\n"), 0600))
 	claudeDir := filepath.Join(dir, ".claude")
 	require.NoError(t, os.MkdirAll(claudeDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "should-skip.xcf"),
+	require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "should-skip.xcaf"),
 		[]byte("kind: agent\nname: phantom\nversion: \"1.0\"\n"), 0600))
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
@@ -79,9 +79,9 @@ func TestParseDirectory_FilterExcludesOutputDirs(t *testing.T) {
 
 func TestParseDirectory_FrontmatterMultiFileWithBodies(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"),
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"),
 		[]byte("---\nkind: project\nname: my-app\nversion: \"1.0\"\n---\nProject instructions.\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcf"),
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcaf"),
 		[]byte("---\nkind: agent\nname: developer\nversion: \"1.0\"\n---\nYou are a developer.\n"), 0600))
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHelpXcf_Agent_ShowsAllFields(t *testing.T) {
+func TestHelpXcaf_Agent_ShowsAllFields(t *testing.T) {
 	ks, ok := schema.LookupKind("agent")
 	require.True(t, ok)
 
@@ -31,7 +31,7 @@ func TestHelpXcf_Agent_ShowsAllFields(t *testing.T) {
 	assert.Contains(t, output, "frontmatter+body")
 }
 
-func TestHelpXcf_Skill_ShowsAllFields(t *testing.T) {
+func TestHelpXcaf_Skill_ShowsAllFields(t *testing.T) {
 	ks, ok := schema.LookupKind("skill")
 	require.True(t, ok)
 
@@ -48,22 +48,22 @@ func TestHelpXcf_Skill_ShowsAllFields(t *testing.T) {
 	assert.Contains(t, output, "kind: skill")
 }
 
-func TestHelpXcf_UnknownKind_ReturnsError(t *testing.T) {
-	err := runHelpXcf(rootCmd, "nonexistent", "", false)
+func TestHelpXcaf_UnknownKind_ReturnsError(t *testing.T) {
+	err := runHelpXcaf(rootCmd, "nonexistent", "", false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown kind: nonexistent")
 	assert.Contains(t, err.Error(), "Available:")
 }
 
-func TestHelpXcf_EmptyKind_ReturnsError(t *testing.T) {
-	err := runHelpXcf(rootCmd, "", "", false)
+func TestHelpXcaf_EmptyKind_ReturnsError(t *testing.T) {
+	err := runHelpXcaf(rootCmd, "", "", false)
 	assert.Error(t, err, "empty kind should return error")
 	assert.Contains(t, err.Error(), "unknown kind")
 }
 
-func TestHelpXcf_Out_WritesTemplate(t *testing.T) {
+func TestHelpXcaf_Out_WritesTemplate(t *testing.T) {
 	dir := t.TempDir()
-	dest := filepath.Join(dir, "agent.xcf")
+	dest := filepath.Join(dir, "agent.xcaf")
 
 	ks, _ := schema.LookupKind("agent")
 	err := generateTemplate(rootCmd, ks, "agent", dest)
@@ -80,37 +80,37 @@ func TestHelpXcf_Out_WritesTemplate(t *testing.T) {
 	assert.Contains(t, s, "# Instructions go here.")
 }
 
-func TestHelpXcf_Out_ExistingDir_AppendsKind(t *testing.T) {
+func TestHelpXcaf_Out_ExistingDir_AppendsKind(t *testing.T) {
 	dir := t.TempDir()
 
 	ks, _ := schema.LookupKind("skill")
 	err := generateTemplate(rootCmd, ks, "skill", dir)
 	require.NoError(t, err)
 
-	expected := filepath.Join(dir, "skill.xcf")
+	expected := filepath.Join(dir, "skill.xcaf")
 	assert.FileExists(t, expected)
 }
 
-func TestHelpXcf_Out_MissingDir_Errors(t *testing.T) {
+func TestHelpXcaf_Out_MissingDir_Errors(t *testing.T) {
 	ks, _ := schema.LookupKind("agent")
-	err := generateTemplate(rootCmd, ks, "agent", "/tmp/xcf-nonexistent-dir-12345/test.xcf")
+	err := generateTemplate(rootCmd, ks, "agent", "/tmp/xcaf-nonexistent-dir-12345/test.xcaf")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "directory does not exist")
 }
 
-func TestHelpXcf_Out_InvalidExtension_Errors(t *testing.T) {
+func TestHelpXcaf_Out_InvalidExtension_Errors(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "agent.yaml")
 
 	ks, _ := schema.LookupKind("agent")
 	err := generateTemplate(rootCmd, ks, "agent", dest)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "must end in .xcf")
+	assert.Contains(t, err.Error(), "must end in .xcaf")
 }
 
-func TestHelpXcf_FieldsMatchParser(t *testing.T) {
+func TestHelpXcaf_FieldsMatchParser(t *testing.T) {
 	dir := t.TempDir()
-	dest := filepath.Join(dir, "agent.xcf")
+	dest := filepath.Join(dir, "agent.xcaf")
 
 	ks, _ := schema.LookupKind("agent")
 	err := generateTemplate(rootCmd, ks, "agent", dest)
@@ -156,7 +156,7 @@ func TestFormatProviderSupport_UsesAlphabeticalOrder(t *testing.T) {
 	assert.True(t, cursorIdx < geminiIdx, "Cursor should come before Gemini alphabetically")
 }
 
-func TestHelpXcf_GoldenOutput(t *testing.T) {
+func TestHelpXcaf_GoldenOutput(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	noColorFlag = true
 	defer func() { noColorFlag = false }()
@@ -171,11 +171,11 @@ func TestHelpXcf_GoldenOutput(t *testing.T) {
 	displayKindSchema(rootCmd, ks)
 	actual := buf.String()
 
-	golden, err := os.ReadFile("testdata/help_xcf_agent.golden")
+	golden, err := os.ReadFile("testdata/help_xcaf_agent.golden")
 	require.NoError(t, err)
 
 	if actual != string(golden) {
-		t.Errorf("output differs from golden file.\nTo update: NO_COLOR=1 ./xcaffold help --xcf agent > cmd/xcaffold/testdata/help_xcf_agent.golden")
+		t.Errorf("output differs from golden file.\nTo update: NO_COLOR=1 ./xcaffold help --xcaf agent > cmd/xcaffold/testdata/help_xcaf_agent.golden")
 		lines := strings.Split(actual, "\n")
 		goldenLines := strings.Split(string(golden), "\n")
 		for i := 0; i < len(lines) && i < len(goldenLines); i++ {
@@ -187,7 +187,7 @@ func TestHelpXcf_GoldenOutput(t *testing.T) {
 	}
 }
 
-func TestHelpXCF_ShowsProviderSupport(t *testing.T) {
+func TestHelpXCAF_ShowsProviderSupport(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	noColorFlag = true
 	defer func() { noColorFlag = false }()

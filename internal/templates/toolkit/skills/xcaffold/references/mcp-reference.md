@@ -2,7 +2,7 @@
 # MCP Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
-# Copy fields from here into your xcf/mcp/<name>/<name>.xcf
+# Copy fields from here into your xcaf/mcp/<name>/<name>.xcaf
 # Provider support: YES = compiled, dropped = silently removed
 # ============================================================
 # Note: MCP has NO body and NO targets (per-provider overrides).

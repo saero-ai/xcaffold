@@ -17,7 +17,7 @@ func validateHooksDirectory(cfg *ast.XcaffoldConfig, projectDir string) []string
 	var errors []string
 
 	for hookID, hook := range cfg.Hooks {
-		hookBase := filepath.Join(projectDir, "xcf", "hooks", hookID)
+		hookBase := filepath.Join(projectDir, "xcaf", "hooks", hookID)
 
 		for _, artifact := range hook.Artifacts {
 			artifactPath := filepath.Join(hookBase, artifact)
@@ -36,7 +36,7 @@ func validateHooksDirectory(cfg *ast.XcaffoldConfig, projectDir string) []string
 
 func validateHookCommands(hookID string, events ast.HookConfig, projectDir string) []string {
 	var errors []string
-	prefix := "xcf/hooks/"
+	prefix := "xcaf/hooks/"
 
 	for _, groups := range events {
 		for _, group := range groups {

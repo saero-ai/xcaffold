@@ -57,8 +57,8 @@ func init() {
 	testCmd.Flags().StringVarP(&testAgentFlag, "agent", "a", "", "Agent ID to simulate (required)")
 	testCmd.Flags().BoolVar(&testJudgeFlag, "judge", false, "Run LLM-as-a-Judge evaluation after simulation")
 	testCmd.Flags().StringVarP(&testOutputFlag, "output", "o", "trace.jsonl", "Path to write the execution trace")
-	testCmd.Flags().StringVar(&testCliPathFlag, "cli-path", "", "Path to underlying CLI binary (overrides project.xcf test.cli-path)")
-	testCmd.Flags().StringVar(&testJudgeModelFlag, "judge-model", "", "Anthropic model for the judge (overrides project.xcf test.judge-model)")
+	testCmd.Flags().StringVar(&testCliPathFlag, "cli-path", "", "Path to underlying CLI binary (overrides project.xcaf test.cli-path)")
+	testCmd.Flags().StringVar(&testJudgeModelFlag, "judge-model", "", "Anthropic model for the judge (overrides project.xcaf test.judge-model)")
 
 	_ = testCmd.MarkFlagRequired("agent")
 	rootCmd.AddCommand(testCmd)
@@ -73,10 +73,10 @@ func runTest(cmd *cobra.Command, args []string) error {
 
 	agentConfig, ok := config.Agents[testAgentFlag]
 	if !ok {
-		return fmt.Errorf("agent %q not found in project.xcf", testAgentFlag)
+		return fmt.Errorf("agent %q not found in project.xcaf", testAgentFlag)
 	}
 
-	// 2. Resolve test config (CLI flag > xcf > defaults).
+	// 2. Resolve test config (CLI flag > xcaf > defaults).
 	var testCfg ast.TestConfig
 	if config.Project != nil {
 		testCfg = config.Project.Test
@@ -117,7 +117,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 			model, _ = resolveTargetMeta(detected)
 		}
 		if model == "" {
-			return fmt.Errorf("agent %q does not specify a model in .xcf, and no CLI was detected on PATH", testAgentFlag)
+			return fmt.Errorf("agent %q does not specify a model in .xcaf, and no CLI was detected on PATH", testAgentFlag)
 		}
 	}
 
@@ -281,7 +281,7 @@ func runJudge(summary trace.Summary, assertions []string, configModel, cliPath s
 }
 
 // resolveCliPath returns the effective path to the underlying CLI binary.
-// Priority: CLI flag > project.xcf test.cli-path > empty string.
+// Priority: CLI flag > project.xcaf test.cli-path > empty string.
 // Callers must handle the empty string case when CLI mode is needed.
 func resolveCliPath(cliPath string) string {
 	if testCliPathFlag != "" {
@@ -294,15 +294,15 @@ func resolveCliPath(cliPath string) string {
 }
 
 // resolveJudgeModel returns the effective judge model for the LLM-as-a-Judge evaluation.
-// Priority: CLI flag > project.xcf test.judge-model > xcaffold's default judge model.
+// Priority: CLI flag > project.xcaf test.judge-model > xcaffold's default judge model.
 // The default judge model is xcaffold's internal choice for evaluation, not a provider assumption.
-func resolveJudgeModel(xcfModel string) string {
+func resolveJudgeModel(xcafModel string) string {
 	const defaultJudgeModel = "claude-haiku-4-5-20251001"
 	if testJudgeModelFlag != "" {
 		return testJudgeModelFlag
 	}
-	if xcfModel != "" {
-		return xcfModel
+	if xcafModel != "" {
+		return xcafModel
 	}
 	return defaultJudgeModel
 }

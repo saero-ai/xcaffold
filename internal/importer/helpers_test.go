@@ -163,11 +163,11 @@ func TestExtractHookScript(t *testing.T) {
 		t.Fatalf("ExtractHookScript failed: %v", err)
 	}
 
-	if config.ProviderExtras == nil || config.ProviderExtras["xcf"] == nil {
-		t.Fatalf("ProviderExtras[\"xcf\"] not initialized")
+	if config.ProviderExtras == nil || config.ProviderExtras["xcaf"] == nil {
+		t.Fatalf("ProviderExtras[\"xcaf\"] not initialized")
 	}
 
-	data, ok := config.ProviderExtras["xcf"]["hooks/test.sh"]
+	data, ok := config.ProviderExtras["xcaf"]["hooks/test.sh"]
 	if !ok {
 		t.Fatalf("hook script not found in ProviderExtras")
 	}
@@ -290,7 +290,7 @@ func TestDefaultExtractHookScript_DelegatesToExtractHookScript(t *testing.T) {
 	err := importer.DefaultExtractHookScript("hooks/test.sh", []byte("echo test"), config)
 	require.NoError(t, err)
 
-	data, ok := config.ProviderExtras["xcf"]["hooks/test.sh"]
+	data, ok := config.ProviderExtras["xcaf"]["hooks/test.sh"]
 	require.True(t, ok)
 	assert.Equal(t, "echo test", string(data))
 }

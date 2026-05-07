@@ -12,7 +12,7 @@ import (
 
 func TestParse_Frontmatter_ExtractsBodyAsInstructions(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "coder.xcf")
+	f := filepath.Join(dir, "coder.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte(
 		"---\nkind: agent\nname: coder\nversion: \"1.0\"\n---\nThis is the body.\n"), 0600))
 	cfg, err := ParseFileExact(f)
@@ -22,7 +22,7 @@ func TestParse_Frontmatter_ExtractsBodyAsInstructions(t *testing.T) {
 
 func TestParse_Frontmatter_NoDelimiter(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "coder.xcf")
+	f := filepath.Join(dir, "coder.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte("kind: agent\nname: coder\nversion: \"1.0\"\n"), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
@@ -32,7 +32,7 @@ func TestParse_Frontmatter_NoDelimiter(t *testing.T) {
 
 func TestParse_Frontmatter_EmptyBody(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "coder.xcf")
+	f := filepath.Join(dir, "coder.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte("---\nkind: agent\nname: coder\nversion: \"1.0\"\n---\n"), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
@@ -41,7 +41,7 @@ func TestParse_Frontmatter_EmptyBody(t *testing.T) {
 
 func TestParse_Frontmatter_WhitespaceBody(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "coder.xcf")
+	f := filepath.Join(dir, "coder.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte("---\nkind: agent\nname: coder\nversion: \"1.0\"\n---\n   \n   \n"), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestParse_Negative_MissingClosingDelimiter(t *testing.T) {
 	// "kind:" line) signals intent to use frontmatter format but is missing the
 	// closing "---" delimiter. This must be a parse error.
 	dir := t.TempDir()
-	f := filepath.Join(dir, "bad.xcf")
+	f := filepath.Join(dir, "bad.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte("---\nThis is just markdown, not YAML.\nNo closing delimiter.\n"), 0600))
 	_, err := ParseFileExact(f)
 	require.Error(t, err)
@@ -67,7 +67,7 @@ func TestParse_Frontmatter_InstructionsFieldWins(t *testing.T) {
 
 	// When instructions: is already set in the YAML, the body is silently discarded.
 	dir := t.TempDir()
-	f := filepath.Join(dir, "coder.xcf")
+	f := filepath.Join(dir, "coder.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte(
 		"---\nkind: agent\nname: coder\nversion: \"1.0\"\ninstructions: \"from yaml\"\n---\nThis body is ignored.\n"), 0600))
 	cfg, err := ParseFileExact(f)
@@ -77,7 +77,7 @@ func TestParse_Frontmatter_InstructionsFieldWins(t *testing.T) {
 
 func TestParse_Frontmatter_SkillBodyAsInstructions(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "my-skill.xcf")
+	f := filepath.Join(dir, "my-skill.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte(
 		"---\nkind: skill\nname: my-skill\nversion: \"1.0\"\ndescription: \"A skill\"\n---\nSkill body content.\n"), 0600))
 	cfg, err := ParseFileExact(f)
@@ -87,7 +87,7 @@ func TestParse_Frontmatter_SkillBodyAsInstructions(t *testing.T) {
 
 func TestParse_Frontmatter_RuleBodyAsInstructions(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "my-rule.xcf")
+	f := filepath.Join(dir, "my-rule.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte(
 		"---\nkind: rule\nname: my-rule\nversion: \"1.0\"\n---\nRule body content.\n"), 0600))
 	cfg, err := ParseFileExact(f)
@@ -97,7 +97,7 @@ func TestParse_Frontmatter_RuleBodyAsInstructions(t *testing.T) {
 
 func TestParse_Frontmatter_SkillWithBody(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "tdd.xcf")
+	f := filepath.Join(dir, "tdd.xcaf")
 	content := "---\nkind: skill\nname: tdd\nversion: \"1.0\"\ndescription: TDD workflow\n---\n# Red-Green-Refactor\n\nWrite tests first.\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	cfg, err := ParseFileExact(f)
@@ -109,7 +109,7 @@ func TestParse_Frontmatter_SkillWithBody(t *testing.T) {
 
 func TestParse_Frontmatter_RuleWithBody(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "testing.xcf")
+	f := filepath.Join(dir, "testing.xcaf")
 	content := "---\nkind: rule\nname: testing\nversion: \"1.0\"\n---\nAlways write tests before implementation.\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	cfg, err := ParseFileExact(f)
@@ -125,7 +125,7 @@ func TestParse_Frontmatter_ProjectWithBody(t *testing.T) {
 	t.Skip("Legacy instructions test removed")
 
 	dir := t.TempDir()
-	f := filepath.Join(dir, "project.xcf")
+	f := filepath.Join(dir, "project.xcaf")
 	content := "---\nkind: project\nname: myapp\nversion: \"1.0\"\n---\nProject-level instructions here.\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	cfg, err := ParseFileExact(f)
@@ -140,7 +140,7 @@ func TestParse_Frontmatter_BodyDoesNotOverrideYAMLInstructions(t *testing.T) {
 	t.Skip("Legacy instructions test removed")
 
 	dir := t.TempDir()
-	f := filepath.Join(dir, "coder.xcf")
+	f := filepath.Join(dir, "coder.xcaf")
 	content := "---\nkind: agent\nname: coder\nversion: \"1.0\"\ninstructions: from yaml\n---\nfrom body\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	cfg, err := ParseFileExact(f)
@@ -150,7 +150,7 @@ func TestParse_Frontmatter_BodyDoesNotOverrideYAMLInstructions(t *testing.T) {
 
 func TestParse_Frontmatter_SettingsKindWithBodyIgnored(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "settings.xcf")
+	f := filepath.Join(dir, "settings.xcaf")
 	content := "---\nkind: settings\nversion: \"1.0\"\nmodel: sonnet-4\n---\nThis body should be ignored.\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	cfg, err := ParseFileExact(f)
@@ -160,7 +160,7 @@ func TestParse_Frontmatter_SettingsKindWithBodyIgnored(t *testing.T) {
 
 func TestParse_Frontmatter_KnownFieldsOnFrontmatterOnly(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "bad.xcf")
+	f := filepath.Join(dir, "bad.xcaf")
 	content := "---\nkind: agent\nname: coder\nversion: \"1.0\"\nunknown-field: oops\n---\nbody text\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	_, err := ParseFileExact(f)
@@ -170,7 +170,7 @@ func TestParse_Frontmatter_KnownFieldsOnFrontmatterOnly(t *testing.T) {
 
 func TestParse_Frontmatter_WorkflowWithBody(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "deploy.xcf")
+	f := filepath.Join(dir, "deploy.xcaf")
 	content := "---\nkind: workflow\nname: deploy\nversion: \"1.0\"\ndescription: Deployment workflow\n---\n1. Build the project.\n2. Run tests.\n3. Deploy.\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	cfg, err := ParseFileExact(f)
@@ -182,7 +182,7 @@ func TestParse_Frontmatter_WorkflowWithBody(t *testing.T) {
 
 func TestParse_Frontmatter_MultiDocumentDeprecationWarning(t *testing.T) {
 	dir := t.TempDir()
-	f := filepath.Join(dir, "multi.xcf")
+	f := filepath.Join(dir, "multi.xcaf")
 	content := "kind: agent\nname: agent-a\nversion: \"1.0\"\n---\nkind: skill\nname: skill-b\nversion: \"1.0\"\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 

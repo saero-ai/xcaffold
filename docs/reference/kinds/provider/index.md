@@ -1,11 +1,11 @@
 ---
 title: "Provider Kinds"
-description: "xcf kinds that compile into provider-native output files."
+description: "xcaf kinds that compile into provider-native output files."
 ---
 
 # Provider Kinds
 
-Provider kinds are `.xcf` resources that xcaffold compiles into files inside each target provider's output directory. Run `xcaffold apply` to render them.
+Provider kinds are `.xcaf` resources that xcaffold compiles into files inside each target provider's output directory. Run `xcaffold apply` to render them.
 
 | Kind | What it compiles to | Supported providers |
 |---|---|---|

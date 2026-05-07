@@ -15,7 +15,7 @@ type Field struct {
 	Name          string
 	YAMLKey       string
 	GoType        string
-	XCFType       string // Human-readable type ([]string, map, etc.)
+	XCAFType      string // Human-readable type ([]string, map, etc.)
 	Optional      bool
 	Description   string
 	Group         string
@@ -62,7 +62,7 @@ func FieldSupportForTarget(kind, yamlKey, target string) string {
 }
 
 // HasRole returns true if the given field on the given kind has at least one
-// +xcf:role= annotation. Fields with roles are xcaffold core fields that
+// +xcaf:role= annotation. Fields with roles are xcaffold core fields that
 // serve the compiler regardless of provider support.
 func HasRole(kind, yamlKey string) bool {
 	ks, ok := Registry[kind]

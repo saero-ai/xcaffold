@@ -14,25 +14,25 @@ import (
 // loadExtras reads raw provider-extra files into config.ProviderExtras.
 // It checks two directories in priority order:
 //
-//  1. <dir>/xcf/provider/<provider>/<relpath>  (new convention, higher priority)
-//  2. <dir>/xcf/extras/<provider>/<relpath>    (legacy convention, lower priority)
+//  1. <dir>/xcaf/provider/<provider>/<relpath>  (new convention, higher priority)
+//  2. <dir>/xcaf/extras/<provider>/<relpath>    (legacy convention, lower priority)
 //
-// Files found in xcf/provider/ take precedence: if the same <provider>/<relpath>
-// exists in both directories, the xcf/provider/ version is kept and the
-// xcf/extras/ version is silently ignored.
+// Files found in xcaf/provider/ take precedence: if the same <provider>/<relpath>
+// exists in both directories, the xcaf/provider/ version is kept and the
+// xcaf/extras/ version is silently ignored.
 //
 // If neither directory exists the function returns nil — absence of extras is
 // not an error.
 func loadExtras(dir string, config *ast.XcaffoldConfig) error {
 	// Load hook scripts as provider-agnostic extras mapped to hooks/.
-	if err := walkExtrasDirRoot(filepath.Join(dir, "xcf", "hooks"), "xcf", config); err != nil {
+	if err := walkExtrasDirRoot(filepath.Join(dir, "xcaf", "hooks"), "xcaf", config); err != nil {
 		return err
 	}
 
-	if err := walkExtrasDir(filepath.Join(dir, "xcf", "provider"), config, false); err != nil {
+	if err := walkExtrasDir(filepath.Join(dir, "xcaf", "provider"), config, false); err != nil {
 		return err
 	}
-	return walkExtrasDir(filepath.Join(dir, "xcf", "extras"), config, true)
+	return walkExtrasDir(filepath.Join(dir, "xcaf", "extras"), config, true)
 }
 
 func walkExtrasDirRoot(extrasDir string, fixedProvider string, config *ast.XcaffoldConfig) error {
@@ -79,7 +79,7 @@ func walkExtrasDirRoot(extrasDir string, fixedProvider string, config *ast.Xcaff
 
 // walkExtrasDir walks a single extras-style directory and populates
 // config.ProviderExtras.  When skipExisting is true, entries whose key already
-// exists in the map are not overwritten (used for the legacy xcf/extras/ pass).
+// exists in the map are not overwritten (used for the legacy xcaf/extras/ pass).
 func walkExtrasDir(extrasDir string, config *ast.XcaffoldConfig, skipExisting bool) error {
 	info, err := os.Stat(extrasDir)
 	if err != nil {

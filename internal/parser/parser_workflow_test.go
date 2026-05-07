@@ -149,11 +149,11 @@ Run go build ./...
 // TestMerge_Workflows_ChildAddsNew verifies that a child config's workflows are
 // present in the merged result when the base has none.
 func TestMerge_Workflows_ChildAddsNew(t *testing.T) {
-	base := writeTemp(t, "base.xcf", `kind: project
+	base := writeTemp(t, "base.xcaf", `kind: project
 version: "1.0"
 name: "base-project"
 `)
-	child := writeTemp(t, "child.xcf", fmt.Sprintf(`kind: global
+	child := writeTemp(t, "child.xcaf", fmt.Sprintf(`kind: global
 version: "1.0"
 extends: %q
 workflows:
@@ -169,13 +169,13 @@ workflows:
 // TestMerge_Workflows_BasePreserved verifies that base workflows survive when the
 // child introduces a different workflow ID.
 func TestMerge_Workflows_BasePreserved(t *testing.T) {
-	base := writeTemp(t, "base.xcf", `kind: global
+	base := writeTemp(t, "base.xcaf", `kind: global
 version: "1.0"
 workflows:
   build:
 
 `)
-	child := writeTemp(t, "child.xcf", fmt.Sprintf(`kind: global
+	child := writeTemp(t, "child.xcaf", fmt.Sprintf(`kind: global
 version: "1.0"
 extends: %q
 workflows:
@@ -195,8 +195,8 @@ func TestMerge_Workflows_ChildOverridesBase(t *testing.T) {
 	tmp := t.TempDir()
 	baseDir := filepath.Join(tmp, "base")
 	childDir := filepath.Join(tmp, "child")
-	require.NoError(t, os.MkdirAll(filepath.Join(baseDir, "xcf", "workflows"), 0755))
-	require.NoError(t, os.MkdirAll(filepath.Join(childDir, "xcf", "workflows"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(baseDir, "xcaf", "workflows"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(childDir, "xcaf", "workflows"), 0755))
 
 	baseWf := `---
 kind: workflow
@@ -212,19 +212,19 @@ name: deploy
 ---
 Child deploy instructions.
 `
-	require.NoError(t, os.WriteFile(filepath.Join(baseDir, "xcf", "workflows", "deploy.xcf"), []byte(baseWf), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(childDir, "xcf", "workflows", "deploy.xcf"), []byte(childWf), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(baseDir, "xcaf", "workflows", "deploy.xcaf"), []byte(baseWf), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(childDir, "xcaf", "workflows", "deploy.xcaf"), []byte(childWf), 0600))
 
 	// Child extends base
 	childProject := fmt.Sprintf(`kind: project
 version: "1.0"
 name: child
 extends: %s
-`, filepath.Join(baseDir, ".xcaffold", "project.xcf"))
+`, filepath.Join(baseDir, ".xcaffold", "project.xcaf"))
 	require.NoError(t, os.MkdirAll(filepath.Join(baseDir, ".xcaffold"), 0755))
 	require.NoError(t, os.MkdirAll(filepath.Join(childDir, ".xcaffold"), 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(baseDir, ".xcaffold", "project.xcf"), []byte("kind: project\nversion: \"1.0\"\nname: base"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(childDir, ".xcaffold", "project.xcf"), []byte(childProject), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(baseDir, ".xcaffold", "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: base"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(childDir, ".xcaffold", "project.xcaf"), []byte(childProject), 0600))
 
 	cfg, err := ParseDirectory(childDir)
 	require.NoError(t, err)
@@ -279,7 +279,7 @@ Run golangci-lint.
 ## summarize
 Write the summary.
 `
-	path := writeTemp(t, "code-review.xcf", input)
+	path := writeTemp(t, "code-review.xcaf", input)
 
 	config, err := ParseFile(path)
 	require.NoError(t, err)
@@ -314,7 +314,7 @@ workflows:
       - name: step-one
 
 `
-	path := writeTemp(t, "project.xcf", input)
+	path := writeTemp(t, "project.xcaf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -339,7 +339,7 @@ workflows:
       - description: No name field here.
 
 `
-	path := writeTemp(t, "project.xcf", input)
+	path := writeTemp(t, "project.xcaf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -364,7 +364,7 @@ targets:
 ## step-one
 Step one body.
 `
-	path := writeTemp(t, "bad-strategy.xcf", input)
+	path := writeTemp(t, "bad-strategy.xcaf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -388,7 +388,7 @@ workflows:
       - name: step-one
 
 `
-	path := writeTemp(t, "project.xcf", input)
+	path := writeTemp(t, "project.xcaf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -413,7 +413,7 @@ workflows:
 
 
 `
-	path := writeTemp(t, "project.xcf", input)
+	path := writeTemp(t, "project.xcaf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -432,7 +432,7 @@ workflows:
     steps:
       - name: step-one
 `
-	path := writeTemp(t, "project.xcf", input)
+	path := writeTemp(t, "project.xcaf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -456,7 +456,7 @@ workflows:
       - name: step-one
 
 `
-	path := writeTemp(t, "project.xcf", input)
+	path := writeTemp(t, "project.xcaf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -477,7 +477,7 @@ workflows:
       - name: step-one
 
 `
-	path := writeTemp(t, "project.xcf", input)
+	path := writeTemp(t, "project.xcaf", input)
 
 	_, err := ParseFile(path)
 	require.Error(t, err)

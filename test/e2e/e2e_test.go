@@ -15,20 +15,20 @@ func TestImport_MultiProviderAutoDetect(t *testing.T) {
 	sandbox := setupSandbox(t)
 	_, _, code := runXcaffold(t, sandbox, "import")
 	require.Equal(t, 0, code)
-	assertFileExists(t, filepath.Join(sandbox, ".xcaffold", "project.xcf"))
-	assertDirExists(t, filepath.Join(sandbox, "xcf", "agents"))
-	assertDirExists(t, filepath.Join(sandbox, "xcf", "rules"))
-	assertDirExists(t, filepath.Join(sandbox, "xcf", "skills"))
+	assertFileExists(t, filepath.Join(sandbox, ".xcaffold", "project.xcaf"))
+	assertDirExists(t, filepath.Join(sandbox, "xcaf", "agents"))
+	assertDirExists(t, filepath.Join(sandbox, "xcaf", "rules"))
+	assertDirExists(t, filepath.Join(sandbox, "xcaf", "skills"))
 }
 
 func TestImport_SmartAssembly_BaseAndOverride(t *testing.T) {
 	sandbox := setupSandbox(t)
 	_, _, code := runXcaffold(t, sandbox, "import")
 	require.Equal(t, 0, code)
-	devDir := filepath.Join(sandbox, "xcf", "agents", "developer")
+	devDir := filepath.Join(sandbox, "xcaf", "agents", "developer")
 	assertDirExists(t, devDir)
-	assertFileExists(t, filepath.Join(devDir, "agent.xcf"))
-	overrides := countFiles(t, devDir, "agent.*.xcf")
+	assertFileExists(t, filepath.Join(devDir, "agent.xcaf"))
+	overrides := countFiles(t, devDir, "agent.*.xcaf")
 	assert.Greater(t, overrides, 0, "expected override files for shared agent")
 }
 
@@ -36,25 +36,25 @@ func TestImport_SingleProviderResource(t *testing.T) {
 	sandbox := setupSandbox(t)
 	_, _, code := runXcaffold(t, sandbox, "import")
 	require.Equal(t, 0, code)
-	reviewerXcf := filepath.Join(sandbox, "xcf", "agents", "reviewer", "agent.xcf")
-	assertFileExists(t, reviewerXcf)
-	assertFileContains(t, reviewerXcf, "targets:")
+	reviewerXcaf := filepath.Join(sandbox, "xcaf", "agents", "reviewer", "agent.xcaf")
+	assertFileExists(t, reviewerXcaf)
+	assertFileContains(t, reviewerXcaf, "targets:")
 }
 
 func TestImport_DirectoryPerResource(t *testing.T) {
 	sandbox := setupSandbox(t)
 	_, _, code := runXcaffold(t, sandbox, "import")
 	require.Equal(t, 0, code)
-	assert.Greater(t, countFiles(t, filepath.Join(sandbox, "xcf", "agents"), "agent.xcf"), 0)
-	assert.Greater(t, countFiles(t, filepath.Join(sandbox, "xcf", "rules"), "rule.xcf"), 0)
-	assert.Greater(t, countFiles(t, filepath.Join(sandbox, "xcf", "skills"), "skill.xcf"), 0)
+	assert.Greater(t, countFiles(t, filepath.Join(sandbox, "xcaf", "agents"), "agent.xcaf"), 0)
+	assert.Greater(t, countFiles(t, filepath.Join(sandbox, "xcaf", "rules"), "rule.xcaf"), 0)
+	assert.Greater(t, countFiles(t, filepath.Join(sandbox, "xcaf", "skills"), "skill.xcaf"), 0)
 }
 
 func TestImport_ConventionMemory(t *testing.T) {
 	sandbox := setupSandbox(t)
 	_, _, code := runXcaffold(t, sandbox, "import")
 	require.Equal(t, 0, code)
-	memDir := filepath.Join(sandbox, "xcf", "agents", "developer", "memory")
+	memDir := filepath.Join(sandbox, "xcaf", "agents", "developer", "memory")
 	if _, err := os.Stat(memDir); err == nil {
 		memFiles := countFiles(t, memDir, "*.md")
 		assert.Greater(t, memFiles, 0, "expected memory files")
@@ -65,9 +65,9 @@ func TestImport_ContextFiles(t *testing.T) {
 	sandbox := setupSandbox(t)
 	_, _, code := runXcaffold(t, sandbox, "import")
 	require.Equal(t, 0, code)
-	contextDir := filepath.Join(sandbox, "xcf", "context")
+	contextDir := filepath.Join(sandbox, "xcaf", "context")
 	if _, err := os.Stat(contextDir); os.IsNotExist(err) {
-		t.Log("NOTE: xcf/context/ not created — context handling may vary with fixture data")
+		t.Log("NOTE: xcaf/context/ not created — context handling may vary with fixture data")
 		return
 	}
 	assertDirExists(t, contextDir)
@@ -77,7 +77,7 @@ func TestImport_SkillReferences(t *testing.T) {
 	sandbox := setupSandbox(t)
 	_, _, code := runXcaffold(t, sandbox, "import")
 	require.Equal(t, 0, code)
-	refFile := filepath.Join(sandbox, "xcf", "skills", "tdd", "references", "template.md")
+	refFile := filepath.Join(sandbox, "xcaf", "skills", "tdd", "references", "template.md")
 	assertFileExists(t, refFile)
 	assertFileContains(t, refFile, "Test Template")
 }
@@ -86,8 +86,8 @@ func TestImport_ScopedRules(t *testing.T) {
 	sandbox := setupSandbox(t)
 	_, _, code := runXcaffold(t, sandbox, "import")
 	require.Equal(t, 0, code)
-	assertDirExists(t, filepath.Join(sandbox, "xcf", "rules", "cli", "go-standards"))
-	assertDirExists(t, filepath.Join(sandbox, "xcf", "rules", "platform", "api-conventions"))
+	assertDirExists(t, filepath.Join(sandbox, "xcaf", "rules", "cli", "go-standards"))
+	assertDirExists(t, filepath.Join(sandbox, "xcaf", "rules", "platform", "api-conventions"))
 }
 
 func TestValidate_Clean(t *testing.T) {
@@ -100,7 +100,7 @@ func TestValidate_Clean(t *testing.T) {
 func TestValidate_HiddenFilesIgnored(t *testing.T) {
 	sandbox := setupSandbox(t)
 	runXcaffold(t, sandbox, "import")
-	os.WriteFile(filepath.Join(sandbox, "xcf", "skills", "tdd", ".DS_Store"), []byte{}, 0o644)
+	os.WriteFile(filepath.Join(sandbox, "xcaf", "skills", "tdd", ".DS_Store"), []byte{}, 0o644)
 	_, _, code := runXcaffold(t, sandbox, "validate")
 	assert.Equal(t, 0, code)
 }
@@ -108,9 +108,9 @@ func TestValidate_HiddenFilesIgnored(t *testing.T) {
 func TestValidate_FilesystemInference(t *testing.T) {
 	sandbox := setupSandbox(t)
 	runXcaffold(t, sandbox, "import")
-	ruleDir := filepath.Join(sandbox, "xcf", "rules", "test-inferred")
+	ruleDir := filepath.Join(sandbox, "xcaf", "rules", "test-inferred")
 	os.MkdirAll(ruleDir, 0o755)
-	os.WriteFile(filepath.Join(ruleDir, "rule.xcf"), []byte("---\ndescription: Inferred.\nversion: \"1.0\"\n---\nNo secrets.\n"), 0o644)
+	os.WriteFile(filepath.Join(ruleDir, "rule.xcaf"), []byte("---\ndescription: Inferred.\nversion: \"1.0\"\n---\nNo secrets.\n"), 0o644)
 	_, _, code := runXcaffold(t, sandbox, "validate")
 	assert.Equal(t, 0, code)
 }
@@ -234,12 +234,12 @@ func TestStatus_DriftDetected(t *testing.T) {
 func TestApply_CrossProviderRoundTrip(t *testing.T) {
 	sandbox := setupSandbox(t)
 	runXcaffold(t, sandbox, "import")
-	xcfDir := filepath.Join(sandbox, "xcf")
-	before := countFiles(t, xcfDir, "*")
+	xcafDir := filepath.Join(sandbox, "xcaf")
+	before := countFiles(t, xcafDir, "*")
 	for _, target := range []string{"claude", "cursor", "gemini", "antigravity", "copilot"} {
 		_, _, code := runXcaffold(t, sandbox, "apply", "--target", target)
 		assert.Equal(t, 0, code, "apply --%s failed", target)
 	}
-	after := countFiles(t, xcfDir, "*")
-	assert.Equal(t, before, after, "xcf/ file count changed")
+	after := countFiles(t, xcafDir, "*")
+	assert.Equal(t, before, after, "xcaf/ file count changed")
 }

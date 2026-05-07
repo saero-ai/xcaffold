@@ -21,9 +21,9 @@ var (
 // It is resolved before any subcommand runs.
 var configFlag string
 
-// xcfPath is the resolved, absolute path to the project.xcf file.
+// xcafPath is the resolved, absolute path to the project.xcaf file.
 // All subcommands should read from this rather than a hardcoded filename.
-var xcfPath string
+var xcafPath string
 
 // projectRoot is the resolved, absolute path to the project's config directory.
 var projectRoot string
@@ -31,11 +31,11 @@ var projectRoot string
 // globalFlag indicates whether to operate on the user-wide global config.
 var globalFlag bool
 
-// globalXcfPath is the resolved path to global.xcf.
-var globalXcfPath string
+// globalXcafPath is the resolved path to global.xcaf.
+var globalXcafPath string
 
-// globalXcfHome is where global.xcf lives ~/.xcaffold/ by convention.
-var globalXcfHome string
+// globalXcafHome is where global.xcaf lives ~/.xcaffold/ by convention.
+var globalXcafHome string
 
 // noColorFlag disables colored output in TTY.
 var noColorFlag bool
@@ -60,7 +60,7 @@ var rootCmd = &cobra.Command{
 	Use:   "xcaffold",
 	Short: "xcaffold — deterministic agent configuration compiler",
 	Long: `Deterministic agent configuration compiler.
-Compiles .xcf YAML into provider-native agent files (.claude/, .cursor/, .agents/).`,
+Compiles .xcaf YAML into provider-native agent files (.claude/, .cursor/, .agents/).`,
 	PersistentPreRunE: resolveConfig,
 	SilenceErrors:     true,
 }
@@ -75,14 +75,14 @@ func init() {
 		&configFlag,
 		"config",
 		"",
-		"Path to project.xcf (default: ./project.xcf). Use for monorepo sub-directories.",
+		"Path to project.xcaf (default: ./project.xcaf). Use for monorepo sub-directories.",
 	)
 	rootCmd.PersistentFlags().BoolVarP(
 		&globalFlag,
 		"global",
 		"g",
 		false,
-		"Operate on user-wide global config (~/.xcaffold/global.xcf)",
+		"Operate on user-wide global config (~/.xcaffold/global.xcaf)",
 	)
 	rootCmd.PersistentFlags().BoolVar(
 		&noColorFlag,
@@ -91,18 +91,18 @@ func init() {
 		"disable color output",
 	)
 	_ = rootCmd.PersistentFlags().MarkHidden("global")
-	rootCmd.PersistentFlags().String("xcf", "", "Display schema for a resource kind")
-	rootCmd.PersistentFlags().String("out", "", "Generate template .xcf file (use with --xcf)")
+	rootCmd.PersistentFlags().String("xcaf", "", "Display schema for a resource kind")
+	rootCmd.PersistentFlags().String("out", "", "Generate template .xcaf file (use with --xcaf)")
 	rootCmd.Flag("out").NoOptDefVal = "."
 	rootCmd.SetHelpFunc(rootHelpFunc)
 }
 
 func rootHelpFunc(cmd *cobra.Command, args []string) {
-	xcfKind, _ := cmd.Flags().GetString("xcf")
-	if xcfKind != "" {
+	xcafKind, _ := cmd.Flags().GetString("xcaf")
+	if xcafKind != "" {
 		outPath, _ := cmd.Flags().GetString("out")
 		outChanged := cmd.Flags().Changed("out")
-		if err := runHelpXcf(cmd, xcfKind, outPath, outChanged); err != nil {
+		if err := runHelpXcaf(cmd, xcafKind, outPath, outChanged); err != nil {
 			fmt.Fprintln(cmd.ErrOrStderr(), err)
 		}
 		return
@@ -130,7 +130,7 @@ func rootHelpFunc(cmd *cobra.Command, args []string) {
 	}
 	fmt.Println()
 	fmt.Printf("  %s\n", dim("Flags:"))
-	fmt.Printf("    --config <path>   Path to project.xcf (default: ./project.xcf)\n")
+	fmt.Printf("    --config <path>   Path to project.xcaf (default: ./project.xcaf)\n")
 	fmt.Printf("    --no-color        Disable color output\n")
 	fmt.Printf("    -h, --help        Show this help\n")
 	fmt.Printf("    -v, --version     Show version\n")
@@ -157,7 +157,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 	if err != nil {
 		return fmt.Errorf("could not determine home directory: %w", err)
 	}
-	globalXcfHome = filepath.Join(home, ".xcaffold")
+	globalXcafHome = filepath.Join(home, ".xcaffold")
 
 	if cmd.Name() != "init" && cmd.Name() != "import" {
 		fmt.Println(formatHeader("~", "", true, "", ""))
@@ -173,9 +173,9 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("--config: could not resolve path %q: %w", configFlag, err)
 		}
-		globalXcfPath = abs
+		globalXcafPath = abs
 	} else {
-		globalXcfPath = filepath.Join(globalXcfHome, "global.xcf")
+		globalXcafPath = filepath.Join(globalXcafHome, "global.xcaf")
 	}
 	return nil
 }
@@ -213,19 +213,19 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 		configDir = dir
 	}
 
-	// Look for project.xcf at the root of configDir
-	xcfPath = filepath.Join(configDir, "project.xcf")
-	if _, err := os.Stat(xcfPath); err != nil {
-		xcfPath = configDir
+	// Look for project.xcaf at the root of configDir
+	xcafPath = filepath.Join(configDir, "project.xcaf")
+	if _, err := os.Stat(xcafPath); err != nil {
+		xcafPath = configDir
 	}
 
 	projectRoot = configDir
 	return nil
 }
 
-// projectParseRoot returns the base directory to scan for .xcf files.
-// getParseRoot returns the base directory to scan for .xcf files.
-// It handles the case where the manifest is in .xcaffold/*.xcf.
+// projectParseRoot returns the base directory to scan for .xcaf files.
+// getParseRoot returns the base directory to scan for .xcaf files.
+// It handles the case where the manifest is in .xcaffold/*.xcaf.
 func getParseRoot(manifestPath string) string {
 	dir := filepath.Dir(manifestPath)
 	if filepath.Base(dir) == ".xcaffold" {
@@ -238,7 +238,7 @@ func projectParseRoot() string {
 	if projectRoot != "" {
 		return projectRoot
 	}
-	return getParseRoot(xcfPath)
+	return getParseRoot(xcafPath)
 }
 
 func main() {

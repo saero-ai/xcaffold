@@ -230,7 +230,7 @@ description: "Another dev"
 // Multi-document parsing tests (Phase 5)
 
 func TestParseFile_MultiKind_MultipleDocuments(t *testing.T) {
-	// Multi-document .xcf files are no longer supported. Parse must return an error.
+	// Multi-document .xcaf files are no longer supported. Parse must return an error.
 	input := `---
 kind: agent
 version: "1.0"
@@ -244,8 +244,8 @@ name: tdd
 description: "TDD workflow"
 `
 	_, err := Parse(strings.NewReader(input))
-	require.Error(t, err, "multi-document .xcf files must be rejected")
-	assert.Contains(t, err.Error(), "multi-document .xcf files are no longer supported")
+	require.Error(t, err, "multi-document .xcaf files must be rejected")
+	assert.Contains(t, err.Error(), "multi-document .xcaf files are no longer supported")
 }
 
 func TestParseFile_MultiKind_UnknownKind_Error(t *testing.T) {
@@ -296,12 +296,12 @@ func TestParseFile_MultiKind_CrossRefValidation(t *testing.T) {
 	// resolve successfully after all files are merged via ParseDirectory.
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte(`kind: skill
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcaf"), []byte(`kind: skill
 version: "1.0"
 name: tdd
 description: "TDD"
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`kind: agent
 version: "1.0"
 name: developer
 description: "Dev"
@@ -338,7 +338,7 @@ func TestParseFile_MultiKind_ExtendsOnResourceKind_Error(t *testing.T) {
 version: "1.0"
 name: developer
 description: "Dev"
-extends: base.xcf
+extends: base.xcaf
 `
 	_, err := Parse(strings.NewReader(input))
 	require.Error(t, err, "KnownFields must reject 'extends' as an unknown field on agentDocument")
@@ -350,11 +350,11 @@ func TestParseFile_MultiKind_ProjectScopedMerge(t *testing.T) {
 	// root ResourceScope (config.Agents), not a project-scoped map.
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: test-project
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`kind: agent
 version: "1.0"
 name: developer
 description: "Dev"
@@ -391,13 +391,13 @@ func TestParseDirectory_MultiKind_AcrossFiles(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(
 		"kind: project\nversion: \"1.0\"\nname: test-project\n",
 	), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(
 		"kind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"Dev\"\nmodel: sonnet\n",
 	), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte(
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcaf"), []byte(
 		"kind: skill\nversion: \"1.0\"\nname: tdd\ndescription: \"TDD\"\n",
 	), 0600))
 
@@ -424,7 +424,7 @@ args: ["@anthropic/mcp-playwright"]
 // Phase 9: round-trip equivalence tests.
 
 func TestRoundTrip_MultiKind_EquivalentToMonolithic(t *testing.T) {
-	// Multi-document .xcf files (kind:project + kind:global in one file) are no
+	// Multi-document .xcaf files (kind:project + kind:global in one file) are no
 	// longer supported. This test verifies that both formats are now rejected and
 	// that ParseDirectory with separate single-kind files produces equivalent results.
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
@@ -462,11 +462,11 @@ model: sonnet
 
 	// ParseDirectory with separate single-kind files produces the correct result.
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: test-project
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`kind: agent
 version: "1.0"
 name: developer
 description: "Dev agent"
@@ -474,13 +474,13 @@ model: sonnet
 tools: [Bash, Read, Write]
 skills: [tdd]
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte(`kind: skill
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcaf"), []byte(`kind: skill
 version: "1.0"
 name: tdd
 description: "TDD workflow"
 
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcf"), []byte(`kind: rule
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcaf"), []byte(`kind: rule
 version: "1.0"
 name: security
 description: "Security rules"
@@ -500,29 +500,29 @@ func TestRoundTrip_MultiKind_Validate(t *testing.T) {
 	// A complete multi-resource config with cross-references via ParseDirectory.
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: validation-test
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill-tdd.xcf"), []byte(`kind: skill
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill-tdd.xcaf"), []byte(`kind: skill
 version: "1.0"
 name: tdd
 description: "TDD"
 
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill-cr.xcf"), []byte(`kind: skill
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill-cr.xcaf"), []byte(`kind: skill
 version: "1.0"
 name: code-review
 description: "Code review"
 
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcf"), []byte(`kind: rule
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcaf"), []byte(`kind: rule
 version: "1.0"
 name: security
 description: "Security"
 
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`kind: agent
 version: "1.0"
 name: developer
 description: "Dev"
@@ -559,7 +559,7 @@ targets:
 	require.NotNil(t, config.Project, "config.Project must not be nil for kind:project")
 	assert.Equal(t, "my-project", config.Project.Name)
 	assert.Equal(t, []string{"claude", "antigravity"}, config.Project.Targets)
-	// Ref lists are no longer populated by the parser; resources come from xcf/ directory scanning
+	// Ref lists are no longer populated by the parser; resources come from xcaf/ directory scanning
 	assert.Len(t, config.Agents, 0, "ref lists no longer used; agents come from filesystem")
 }
 
@@ -597,7 +597,7 @@ effort-level: high
 }
 
 func TestParsePartial_MultiDoc_ProjectAgentHooks(t *testing.T) {
-	// Multi-document .xcf files are no longer supported; parsePartial rejects them.
+	// Multi-document .xcaf files are no longer supported; parsePartial rejects them.
 	// Use ParseDirectory with separate files to achieve the same composition.
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 
@@ -620,23 +620,23 @@ model: sonnet
 
 	// ParseDirectory with separate files achieves the same result.
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: multi-doc-project
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`kind: agent
 version: "1.0"
 name: backend-engineer
 description: "Backend dev"
 model: sonnet
 skills: [tdd]
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcf"), []byte(`kind: skill
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcaf"), []byte(`kind: skill
 version: "1.0"
 name: tdd
 description: "TDD"
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "hooks.xcf"), []byte(`kind: hooks
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "hooks.xcaf"), []byte(`kind: hooks
 version: "1.0"
 events:
   PreToolUse:
@@ -735,14 +735,14 @@ agents:
 
 func TestIsParseableFile_ConfigKind_ReturnsFalse(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "legacy.xcf")
+	path := filepath.Join(dir, "legacy.xcaf")
 	os.WriteFile(path, []byte("kind: config\nversion: \"1.0\"\nagents: {}\n"), 0644)
 	assert.False(t, isParseableFile(path))
 }
 
 func TestIsParseableFile_EmptyKind_ReturnsFalse(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "legacy.xcf")
+	path := filepath.Join(dir, "legacy.xcaf")
 	os.WriteFile(path, []byte("version: \"1.0\"\nagents: {}\n"), 0644)
 	assert.False(t, isParseableFile(path))
 }
@@ -805,7 +805,7 @@ project:
 
 func TestIsParseableFile_GlobalKind_ReturnsTrue(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "global.xcf")
+	path := filepath.Join(dir, "global.xcaf")
 	os.WriteFile(path, []byte("kind: global\nversion: \"1.0\"\nagents: {}\n"), 0644)
 	assert.True(t, isParseableFile(path))
 }
@@ -839,16 +839,16 @@ require:
 func TestParseFile_MultiKind_ProjectWithPolicies(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: my-api
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcf"), []byte(`kind: agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`kind: agent
 version: "1.0"
 name: developer
 
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`kind: policy
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcaf"), []byte(`kind: policy
 version: "1.0"
 name: require-approved-model
 severity: error
@@ -884,11 +884,11 @@ policies:
 func TestParseFile_MultiKind_PolicyCrossRef_Valid(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: my-api
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcf"), []byte(`kind: policy
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcaf"), []byte(`kind: policy
 version: "1.0"
 name: my-policy
 severity: warning
@@ -907,16 +907,16 @@ func TestParseDirectory_PolicyInSubdir(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
-	// main.xcf: project
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcf"), []byte(`kind: project
+	// main.xcaf: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcaf"), []byte(`kind: project
 version: "1.0"
 name: test-project
 `), 0644))
 
-	// xcf/policies/approved-model.xcf: policy in subdirectory
-	policiesDir := filepath.Join(dir, "xcf", "policies")
+	// xcaf/policies/approved-model.xcaf: policy in subdirectory
+	policiesDir := filepath.Join(dir, "xcaf", "policies")
 	require.NoError(t, os.MkdirAll(policiesDir, 0755))
-	require.NoError(t, os.WriteFile(filepath.Join(policiesDir, "approved-model.xcf"), []byte(`kind: policy
+	require.NoError(t, os.WriteFile(filepath.Join(policiesDir, "approved-model.xcaf"), []byte(`kind: policy
 version: "1.0"
 name: approved-model
 severity: error
@@ -931,7 +931,7 @@ require:
 	require.NoError(t, err)
 	require.NotNil(t, config.Policies)
 	p, ok := config.Policies["approved-model"]
-	require.True(t, ok, "policy should be discovered from xcf/policies/ subdirectory")
+	require.True(t, ok, "policy should be discovered from xcaf/policies/ subdirectory")
 	assert.Equal(t, "error", p.Severity)
 	assert.Equal(t, "agent", p.Target)
 	// Ref lists are no longer populated by the parser
@@ -941,8 +941,8 @@ func TestParseDirectory_MultiKind_MixedFormats(t *testing.T) {
 	t.Setenv("XCAFFOLD_SKIP_GLOBAL", "true")
 	dir := t.TempDir()
 
-	// main.xcf: kind global containing an inline agent
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcf"), []byte(`kind: global
+	// main.xcaf: kind global containing an inline agent
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "main.xcaf"), []byte(`kind: global
 version: "1.0"
 agents:
   reviewer:
@@ -951,8 +951,8 @@ agents:
     model: sonnet
 `), 0600))
 
-	// dev.xcf: kind agent — separate file
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcf"), []byte(
+	// dev.xcaf: kind agent — separate file
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcaf"), []byte(
 		"kind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"Dev\"\nmodel: haiku\n",
 	), 0600))
 

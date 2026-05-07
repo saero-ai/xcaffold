@@ -2,7 +2,7 @@
 # Rule Kind — Full Field Reference
 # ============================================================
 # This file is NOT parsed by xcaffold.
-# Copy fields from here into your xcf/rules/<name>/<name>.xcf
+# Copy fields from here into your xcaf/rules/<name>/<name>.xcaf
 # Provider support: YES = compiled, dropped = silently removed
 # ============================================================
 

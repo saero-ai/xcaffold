@@ -19,7 +19,7 @@ var subdirExtensionRules = map[string]bool{
 var subdirAllowedExtensions = map[string][]string{
 	"references": {".md", ".mdx", ".json", ".yaml", ".yml", ".toml", ".txt"},
 	"scripts":    {".sh", ".bash", ".py", ".js", ".ts", ".ps1"},
-	"examples":   {".md", ".txt", ".xcf"},
+	"examples":   {".md", ".txt", ".xcaf"},
 }
 
 // SkillValidationResult separates hard errors from advisory warnings produced
@@ -45,7 +45,7 @@ func ValidateSkillDirectory(skillDir, skillID string, artifacts []string) *Skill
 		return result
 	}
 
-	legacyXcfFile := skillID + ".xcf"
+	legacyXcafFile := skillID + ".xcaf"
 
 	// Build a map of declared artifacts for fast lookup
 	artifactsMap := make(map[string]bool)
@@ -78,16 +78,16 @@ func ValidateSkillDirectory(skillDir, skillID string, artifacts []string) *Skill
 		}
 
 		// Skip hidden files (dotfiles like .DS_Store, .gitkeep, .gitignore).
-		// These are not user-authored xcf content and must not be flagged.
+		// These are not user-authored xcaf content and must not be flagged.
 		if strings.HasPrefix(name, ".") {
 			continue
 		}
 
-		// Accept both canonical "skill.xcf" and legacy "{skillID}.xcf"
-		if name == "skill.xcf" || strings.EqualFold(name, legacyXcfFile) {
+		// Accept both canonical "skill.xcaf" and legacy "{skillID}.xcaf"
+		if name == "skill.xcaf" || strings.EqualFold(name, legacyXcafFile) {
 			continue
 		}
-		// Accept override files: <kind>.<provider>.xcf pattern
+		// Accept override files: <kind>.<provider>.xcaf pattern
 		if isOverrideFilename(name) {
 			continue
 		}
@@ -166,10 +166,10 @@ var validOverrideKinds = map[string]bool{
 }
 
 func isOverrideFilename(name string) bool {
-	if !strings.HasSuffix(name, ".xcf") {
+	if !strings.HasSuffix(name, ".xcaf") {
 		return false
 	}
-	base := strings.TrimSuffix(name, ".xcf")
+	base := strings.TrimSuffix(name, ".xcaf")
 	parts := strings.Split(base, ".")
 	if len(parts) != 2 {
 		return false

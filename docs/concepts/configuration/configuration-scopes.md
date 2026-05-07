@@ -5,15 +5,15 @@ description: "Understanding configuration contexts, scopes, implicit global inhe
 
 # Configuration Scopes
 
-xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **project scope** (the directory containing `project.xcf`), and **blueprint scope** (a named subset of project resources). Each scope compiles independently and produces its own state file. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
+xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **project scope** (the directory containing `project.xcaf`), and **blueprint scope** (a named subset of project resources). Each scope compiles independently and produces its own state file. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
 
 ## Three Compilation Scopes
 
 | Scope | Flag | What Compiles | State File Path |
 | :--- | :--- | :--- | :--- |
-| Global | `--global` | User-wide personal config (`~/.xcaffold/global.xcf`) | `~/.xcaffold/<state>.xcf.state` |
-| Project | (default) | All resources in `xcf/` | `.xcaffold/project.xcf.state` |
-| Blueprint | `--blueprint <name>` | Named resource subset selected by a `kind: blueprint` file | `.xcaffold/<blueprint-name>.xcf.state` |
+| Global | `--global` | User-wide personal config (`~/.xcaffold/global.xcaf`) | `~/.xcaffold/<state>.xcaf.state` |
+| Project | (default) | All resources in `xcaf/` | `.xcaffold/project.xcaf.state` |
+| Blueprint | `--blueprint <name>` | Named resource subset selected by a `kind: blueprint` file | `.xcaffold/<blueprint-name>.xcaf.state` |
 
 > **Note:** Scopes are mutually exclusive. One context per compiled invocation.
 
@@ -21,9 +21,9 @@ xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **
 
 ## Multi-Kind Project Scope
 
-A project scope is defined by exactly one `kind: project` document. This document declares the project name, targets, and resource references (bare name lists of agents, skills, rules, etc.). The actual resource definitions live in separate `.xcf` files under `xcf/` subdirectories.
+A project scope is defined by exactly one `kind: project` document. This document declares the project name, targets, and resource references (bare name lists of agents, skills, rules, etc.). The actual resource definitions live in separate `.xcaf` files under `xcaf/` subdirectories.
 
-`ParseDirectory` discovers all `.xcf` files recursively from the project root, parses each document, and routes it by `kind:`:
+`ParseDirectory` discovers all `.xcaf` files recursively from the project root, parses each document, and routes it by `kind:`:
 
 | Kind | Role |
 |---|---|
@@ -42,7 +42,7 @@ Resources in `~/.xcaffold/` define the global scope. These are loaded via `loadG
 
 ## Configuration Classification
 
-Xcaffold acts as a deterministic compiler that sits between an agnostic declarative schema (`project.xcf`) and the provider-specific agent constraints required by the LLM target (e.g. Claude, Cursor, GitHub Copilot).
+Xcaffold acts as a deterministic compiler that sits between an agnostic declarative schema (`project.xcaf`) and the provider-specific agent constraints required by the LLM target (e.g. Claude, Cursor, GitHub Copilot).
 
 To satisfy this architectural boundary, the YAML configuration schema maintains a strict, philosophical separation between two distinct classes of structures:
 
@@ -60,7 +60,7 @@ These configuration blocks control how Xcaffold evaluates paths, manages executi
 **Crucially, nothing defined in these configurations is natively loaded into the AI's contextual window.** They represent classical, deterministic computing mechanics that execute surrounding the LLM prompt, without ever polluting it.
 
 ### `global` (Global Scope)
-System-wide declarations residing outside your project repository (`~/.xcaffold/global.xcf`). Evaluated under the overarching workspace scope to ensure consistent inheritance of security boundaries across all local projects.
+System-wide declarations residing outside your project repository (`~/.xcaffold/global.xcaf`). Evaluated under the overarching workspace scope to ensure consistent inheritance of security boundaries across all local projects.
 
 ### `project` (Project Scope)
 The authoritative root bounding the local workspace (`project:` object). It registers metadata signatures tracked in state files and limits the execution blast radius to localized overrides and dependencies.
@@ -132,13 +132,13 @@ When a configuration hierarchy is resolved (whether through implicit global reso
 
 ### Provider Override Files
 
-Provider-specific overrides use `<kind>.<provider>.xcf` files alongside base resources:
+Provider-specific overrides use `<kind>.<provider>.xcaf` files alongside base resources:
 
 ```
-xcf/agents/developer/
-  agent.xcf                # base definition (universal)
-  agent.claude.xcf         # Claude-specific overrides
-  agent.gemini.xcf         # Gemini-specific overrides
+xcaf/agents/developer/
+  agent.xcaf                # base definition (universal)
+  agent.claude.xcaf         # Claude-specific overrides
+  agent.gemini.xcaf         # Gemini-specific overrides
 ```
 
 Override merge uses the following field-type semantics:
@@ -153,9 +153,9 @@ Override merge uses the following field-type semantics:
 **Example:** An agent base file defines the full instructions body. The Claude override adds only a model and hooks:
 
 ```
-xcf/agents/developer/
-  agent.xcf                # base: full instructions + shared fields
-  agent.claude.xcf         # override: model: opus, hooks: {...} (no body — inherits from base)
+xcaf/agents/developer/
+  agent.xcaf                # base: full instructions + shared fields
+  agent.claude.xcaf         # override: model: opus, hooks: {...} (no body — inherits from base)
 ```
 
 Override files that share the same body as the base should omit the body entirely. The compiler inherits the base body automatically during merge.
@@ -164,7 +164,7 @@ The compiler applies overrides between `ApplyBlueprint()` and `DiscoverAgentMemo
 
 ### Directory Scan Deduplication (File vs File in Same Scope)
 
-When discovering multiple `.xcf` files recursively within the *same* scope (e.g., across `xcf/agents/*.xcf`), resources are safely aggregated.
+When discovering multiple `.xcaf` files recursively within the *same* scope (e.g., across `xcaf/agents/*.xcaf`), resources are safely aggregated.
 
 | Resource | Merge behavior |
 |----------|---------------|
@@ -222,7 +222,7 @@ Resources excluded by target filtering produce a fidelity warning.
 Unlike static models (agents, rules), runtime execution lifecycle hooks accumulate across the inheritance chain securely. If the global base defines a `PreToolUse` handler and the local project also defines a `PreToolUse` handler, both run chronologically. The child's project-specific handler fires immediately after the overarching global policy baseline.
 
 ```yaml
-# ~/.xcaffold/global.xcf
+# ~/.xcaffold/global.xcaf
 kind: global
 version: "1.0"
 hooks:
@@ -231,7 +231,7 @@ hooks:
         - type: command
           command: "echo pre-tool-use from global baseline"
 
-# ./hooks.xcf (kind: hooks — standalone format, recommended)
+# ./hooks.xcaf (kind: hooks — standalone format, recommended)
 kind: hooks
 version: "1.0"
 events:
@@ -251,11 +251,11 @@ xcaffold prevents endless configuration loops by tracking file dependencies duri
 
 An explicit error terminates compilation instantly if:
 - Implicit `global` resolution references itself
-- Graph trace detects topological loops during `extends: /path/to/base.xcf` resolution
+- Graph trace detects topological loops during `extends: /path/to/base.xcaf` resolution
 
 Example compiler termination:
 ```
-circular extends detected: "/abs/path/to/base.xcf"
+circular extends detected: "/abs/path/to/base.xcaf"
 ```
 
 ---
@@ -273,6 +273,6 @@ circular extends detected: "/abs/path/to/base.xcf"
 
 - [Getting Started](../tutorials/getting-started.md) — walkthrough of project-scope initialization and first apply
 - [Multi-Agent Workspace](../tutorials/multi-agent-workspace.md) — example project using both global and project-scoped agents
-- [Split Configs](../how-to/multi-file-projects.md) — how to organize a project across multiple `.xcf` files
+- [Split Configs](../how-to/multi-file-projects.md) — how to organize a project across multiple `.xcaf` files
 - [Architecture](architecture.md) — the full compilation pipeline including scope merge mechanics
 - [Schema Reference](../reference/schema.md) — `kind: global`, `kind: project`, and `extends:` field definitions

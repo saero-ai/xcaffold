@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func runHelpXcf(cmd *cobra.Command, kind string, outPath string, outChanged bool) error {
+func runHelpXcaf(cmd *cobra.Command, kind string, outPath string, outChanged bool) error {
 	ks, ok := schema.LookupKind(kind)
 	if !ok {
 		return fmt.Errorf("unknown kind: %s. Available: %s", kind, strings.Join(schema.KindNames(), ", "))
@@ -40,13 +40,13 @@ func displayKindSchema(cmd *cobra.Command, ks schema.KindSchema) {
 			if !f.Optional {
 				req = "required"
 			}
-			fmt.Fprintf(w, "    %-26s%-16s%-10s%s\n", f.YAMLKey, f.XCFType, req, f.Description)
+			fmt.Fprintf(w, "    %-26s%-16s%-10s%s\n", f.YAMLKey, f.XCAFType, req, f.Description)
 			printFieldConstraints(w, f)
 		}
 		fmt.Fprintln(w)
 	}
 
-	fmt.Fprintf(w, "%s Run 'xcaffold help --xcf %s --out' to generate a template.\n", glyphArrow(), ks.Kind)
+	fmt.Fprintf(w, "%s Run 'xcaffold help --xcaf %s --out' to generate a template.\n", glyphArrow(), ks.Kind)
 }
 
 func printFieldConstraints(w io.Writer, f schema.Field) {
@@ -154,16 +154,16 @@ func generateTemplate(cmd *cobra.Command, ks schema.KindSchema, kind, outPath st
 
 func resolveOutPath(kind, outPath string) (string, error) {
 	if outPath == "" || outPath == "." {
-		return filepath.Abs(kind + ".xcf")
+		return filepath.Abs(kind + ".xcaf")
 	}
 
 	info, err := os.Stat(outPath)
 	if err == nil && info.IsDir() {
-		return filepath.Join(outPath, kind+".xcf"), nil
+		return filepath.Join(outPath, kind+".xcaf"), nil
 	}
 
-	if !strings.HasSuffix(outPath, ".xcf") {
-		return "", fmt.Errorf("output path must end in .xcf: %s", outPath)
+	if !strings.HasSuffix(outPath, ".xcaf") {
+		return "", fmt.Errorf("output path must end in .xcaf: %s", outPath)
 	}
 
 	abs, err := filepath.Abs(outPath)
@@ -212,7 +212,7 @@ func writeGroupFields(sb *strings.Builder, fields []schema.Field) {
 		if !f.Optional {
 			req = "required"
 		}
-		sb.WriteString(fmt.Sprintf("# %s (%s, %s): %s\n", f.YAMLKey, f.XCFType, req, f.Description))
+		sb.WriteString(fmt.Sprintf("# %s (%s, %s): %s\n", f.YAMLKey, f.XCAFType, req, f.Description))
 		sb.WriteString(buildMarkerComment(f))
 		sb.WriteString(fmt.Sprintf("%s: %s\n", f.YAMLKey, fieldPlaceholder(f)))
 		sb.WriteString("\n")
@@ -220,42 +220,42 @@ func writeGroupFields(sb *strings.Builder, fields []schema.Field) {
 }
 
 func fieldPlaceholder(f schema.Field) string {
-	if !f.Optional && f.XCFType == "string" {
+	if !f.Optional && f.XCAFType == "string" {
 		return "\"my-" + f.YAMLKey + "\""
 	}
-	return emptyValue(f.XCFType)
+	return emptyValue(f.XCAFType)
 }
 
 func buildMarkerComment(f schema.Field) string {
 	var parts []string
 	if f.Optional {
-		parts = append(parts, "+xcf:optional")
+		parts = append(parts, "+xcaf:optional")
 	} else {
-		parts = append(parts, "+xcf:required")
+		parts = append(parts, "+xcaf:required")
 	}
 	if f.Pattern != "" {
-		parts = append(parts, "+xcf:pattern="+f.Pattern)
+		parts = append(parts, "+xcaf:pattern="+f.Pattern)
 	}
 	if len(f.Enum) > 0 {
-		parts = append(parts, "+xcf:enum="+strings.Join(f.Enum, ","))
+		parts = append(parts, "+xcaf:enum="+strings.Join(f.Enum, ","))
 	}
 	if f.Example != "" {
-		parts = append(parts, "+xcf:example="+f.Example)
+		parts = append(parts, "+xcaf:example="+f.Example)
 	}
 	return "# " + strings.Join(parts, " ") + "\n"
 }
 
-func emptyValue(xcfType string) string {
+func emptyValue(xcafType string) string {
 	switch {
-	case strings.HasPrefix(xcfType, "[]"):
+	case strings.HasPrefix(xcafType, "[]"):
 		return "[]"
-	case strings.HasPrefix(xcfType, "map") || strings.HasSuffix(xcfType, "Config"):
+	case strings.HasPrefix(xcafType, "map") || strings.HasSuffix(xcafType, "Config"):
 		return "{}"
-	case xcfType == "boolean":
+	case xcafType == "boolean":
 		return "false"
-	case xcfType == "integer" || xcfType == "int":
+	case xcafType == "integer" || xcafType == "int":
 		return "0"
-	case xcfType == "string":
+	case xcafType == "string":
 		return "\"\""
 	default:
 		return "\"\""

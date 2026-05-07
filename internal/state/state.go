@@ -15,7 +15,7 @@ import (
 
 var XcaffoldVersion = "1.0.0-dev"
 
-// SourceFile tracks a source .xcf file and its SHA-256 content hash.
+// SourceFile tracks a source .xcaf file and its SHA-256 content hash.
 type SourceFile struct {
 	Path string `yaml:"path"`
 	Hash string `yaml:"hash"`
@@ -78,17 +78,17 @@ func StateDir(baseDir string) string {
 }
 
 // StateFilePath returns the full path to the state file for a given blueprint.
-// If blueprintName is empty, the default filename "project.xcf.state" is used.
+// If blueprintName is empty, the default filename "project.xcaf.state" is used.
 // The blueprintName is sanitized with filepath.Base to prevent directory traversal.
 func StateFilePath(baseDir, blueprintName string) string {
 	name := "project"
 	if blueprintName != "" {
 		name = filepath.Base(blueprintName)
 	}
-	return filepath.Clean(filepath.Join(baseDir, ".xcaffold", name+".xcf.state"))
+	return filepath.Clean(filepath.Join(baseDir, ".xcaffold", name+".xcaf.state"))
 }
 
-// ListStateFiles returns a sorted list of all .xcf.state files in the given
+// ListStateFiles returns a sorted list of all .xcaf.state files in the given
 // state directory. Returns an empty slice if the directory doesn't exist or
 // contains no state files.
 func ListStateFiles(stateDir string) ([]string, error) {
@@ -102,7 +102,7 @@ func ListStateFiles(stateDir string) ([]string, error) {
 
 	var files []string
 	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".xcf.state") {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".xcaf.state") {
 			files = append(files, filepath.Join(stateDir, entry.Name()))
 		}
 	}

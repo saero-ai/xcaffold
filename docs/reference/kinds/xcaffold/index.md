@@ -1,6 +1,6 @@
 ---
 title: "Xcaffold Kinds"
-description: "xcf kinds that govern the compiler — no output files produced."
+description: "xcaf kinds that govern the compiler — no output files produced."
 ---
 
 # Xcaffold Kinds

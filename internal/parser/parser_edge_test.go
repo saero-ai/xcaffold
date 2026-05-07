@@ -98,7 +98,7 @@ func TestParse_AllOptionalBlocks(t *testing.T) {
 	dir := t.TempDir()
 
 	// kind: project
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "full-project"
 description: "All blocks populated"
@@ -108,7 +108,7 @@ test:
 `), 0600))
 
 	// kind: global — agents, skills, rules, hooks, mcp
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcaf"), []byte(`kind: global
 version: "1.0"
 agents:
   my-agent:
@@ -191,12 +191,12 @@ agents:
 func TestParse_ExtendsOmitsProjectName(t *testing.T) {
 	yaml := `kind: global
 version: "1.0"
-extends: "base.xcf"
+extends: "base.xcaf"
 `
 	cfg, err := Parse(strings.NewReader(yaml))
 	require.NoError(t, err, "with extends set, empty project.name should be allowed")
 	require.NotNil(t, cfg)
-	assert.Equal(t, "base.xcf", cfg.Extends)
+	assert.Equal(t, "base.xcaf", cfg.Extends)
 	assert.Nil(t, cfg.Project)
 }
 
@@ -438,14 +438,14 @@ func TestParsePartial_GlobalScope_AllowsAbsoluteInstructionsFile(t *testing.T) {
 
 	t.Skip("Legacy instructions test removed")
 
-	xcf := `kind: global
+	xcaf := `kind: global
 version: "1.0"
 agents:
   ceo:
     description: "Global CEO agent"
 
 `
-	cfg, err := parsePartial(strings.NewReader(xcf), withGlobalScope())
+	cfg, err := parsePartial(strings.NewReader(xcaf), withGlobalScope())
 	require.NoError(t, err, "global scope must accept absolute instructions-file path")
 	assert.Equal(t, "/Users/testuser/.claude/agents/ceo.md", cfg.Agents["ceo"].Description)
 }
@@ -458,14 +458,14 @@ func TestParsePartial_ProjectScope_RejectsAbsoluteInstructionsFile(t *testing.T)
 
 	t.Skip("Legacy instructions test removed")
 
-	xcf := `kind: global
+	xcaf := `kind: global
 version: "1.0"
 agents:
   ceo:
     description: "Project CEO agent"
 
 `
-	_, err := parsePartial(strings.NewReader(xcf))
+	_, err := parsePartial(strings.NewReader(xcaf))
 	require.Error(t, err, "project scope must reject absolute instructions-file path")
 	assert.Contains(t, err.Error(), "relative path")
 }
@@ -478,28 +478,28 @@ func TestParsePartial_GlobalScope_StillRejectsPathTraversal(t *testing.T) {
 
 	t.Skip("Legacy instructions test removed")
 
-	xcf := `kind: global
+	xcaf := `kind: global
 version: "1.0"
 agents:
   ceo:
     description: "Global CEO agent"
 
 `
-	_, err := parsePartial(strings.NewReader(xcf), withGlobalScope())
+	_, err := parsePartial(strings.NewReader(xcaf), withGlobalScope())
 	require.Error(t, err, "global scope must still reject path traversal")
 	assert.Contains(t, err.Error(), "instructions-file")
 }
 
 // TestParseDirectoryRaw_GlobalScope_AllowsAbsoluteInstructionsFile verifies that
 // parseDirectoryRaw propagates withGlobalScope() into parseFileExact so that an
-// XCF file inside ~/.xcaffold/ with an absolute instructions-file parses without error.
+// XCAF file inside ~/.xcaffold/ with an absolute instructions-file parses without error.
 func TestParseDirectoryRaw_GlobalScope_AllowsAbsoluteInstructionsFile(t *testing.T) {
 	t.Skip("Legacy instructions test removed")
 
 	t.Skip("Legacy instructions test removed")
 
 	dir := t.TempDir()
-	writeTestXCF(t, dir, "agents.xcf", `kind: global
+	writeTestXCAF(t, dir, "agents.xcaf", `kind: global
 version: "1.0"
 agents:
   ceo:
@@ -520,7 +520,7 @@ func TestParseDirectoryRaw_ProjectScope_RejectsAbsoluteInstructionsFile(t *testi
 	t.Skip("Legacy instructions test removed")
 
 	dir := t.TempDir()
-	writeTestXCF(t, dir, "agents.xcf", `kind: global
+	writeTestXCAF(t, dir, "agents.xcaf", `kind: global
 version: "1.0"
 agents:
   ceo:
@@ -533,21 +533,21 @@ agents:
 	assert.Contains(t, err.Error(), "relative path")
 }
 
-// TestParseFile_CommentBeforeFrontmatter_HelpfulError verifies that a .xcf file
+// TestParseFile_CommentBeforeFrontmatter_HelpfulError verifies that a .xcaf file
 // with content (like a comment) before the opening --- delimiter produces a
 // helpful error message instead of an opaque YAML unmarshal error.
 func TestParseFile_CommentBeforeFrontmatter_HelpfulError(t *testing.T) {
 	dir := t.TempDir()
-	xcfDir := filepath.Join(dir, "xcf", "agents", "test")
-	require.NoError(t, os.MkdirAll(xcfDir, 0o755))
+	xcafDir := filepath.Join(dir, "xcaf", "agents", "test")
+	require.NoError(t, os.MkdirAll(xcafDir, 0o755))
 
 	content := "# This is a comment\n---\nkind: agent\nversion: \"1.0\"\nname: test\ndescription: \"Test\"\ntools: [Read]\n---\nYou are a test agent.\n"
-	require.NoError(t, os.WriteFile(filepath.Join(xcfDir, "agent.xcf"), []byte(content), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(xcafDir, "agent.xcaf"), []byte(content), 0o600))
 
 	projectDir := filepath.Join(dir, ".xcaffold")
 	require.NoError(t, os.MkdirAll(projectDir, 0o755))
 	projectContent := "kind: project\nversion: \"1.0\"\nname: test\ntargets:\n  - claude\nagents:\n  - test\n"
-	require.NoError(t, os.WriteFile(filepath.Join(projectDir, "project.xcf"), []byte(projectContent), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(projectDir, "project.xcaf"), []byte(projectContent), 0o600))
 
 	_, err := ParseDirectory(dir)
 	require.Error(t, err)

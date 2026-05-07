@@ -217,7 +217,7 @@ func TestCompileMemory_Seeds_Recorded(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Memory: map[string]ast.MemoryConfig{
-				"arch": {Name: "arch", Description: "Architecture", Content: "Original xcf content."},
+				"arch": {Name: "arch", Description: "Architecture", Content: "Original xcaf content."},
 			},
 		},
 	}

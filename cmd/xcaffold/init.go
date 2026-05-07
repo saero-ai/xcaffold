@@ -27,12 +27,12 @@ var jsonManifestFlag bool
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Bootstrap a new project.xcf configuration",
+	Short: "Bootstrap a new project.xcaf configuration",
 	Long: `xcaffold init bootstraps a new project.
 
  • Detects existing platform config (.claude/, .cursor/, .agents/) and offers to run 'xcaffold import'.
  • Guides you through an interactive wizard for new projects.
- • Generates the Xaff authoring toolkit: agent, xcaffold skill, xcf-conventions rule, and schema references.
+ • Generates the Xaff authoring toolkit: agent, xcaffold skill, xcaf-conventions rule, and schema references.
  • Infers project name from the current directory.
  • Use --yes / -y to accept all defaults non-interactively (CI/CD).
 
@@ -73,13 +73,13 @@ func runInit(cmd *cobra.Command, _ []string) error {
 
 // initProject runs the interactive project-level init wizard.
 func initProject(cmd *cobra.Command) error {
-	xcfFile := "project.xcf"
+	xcafFile := "project.xcaf"
 
 	var currentConfig *ast.XcaffoldConfig
 	hasExistingScaffold := false
-	if _, err := os.Stat(xcfFile); err == nil {
+	if _, err := os.Stat(xcafFile); err == nil {
 		hasExistingScaffold = true
-		currentConfig, _ = parser.ParseFile(xcfFile)
+		currentConfig, _ = parser.ParseFile(xcafFile)
 	}
 
 	detected := importer.DetectProviders(".", importer.DefaultImporters())
@@ -90,11 +90,11 @@ func initProject(cmd *cobra.Command) error {
 		projectName := filepath.Base(cwd)
 		fmt.Println(formatHeader(projectName, "", false, "", "already initialized"))
 		fmt.Println()
-		fmt.Printf("  %s project.xcf exists.\n", glyphNever())
+		fmt.Printf("  %s project.xcaf exists.\n", glyphNever())
 		fmt.Println()
-		fmt.Printf("%s Run 'xcaffold apply' to compile your xcf/ sources.\n", glyphArrow())
-		fmt.Printf("  Run 'xcaffold import' to sync provider changes back to xcf/.\n")
-		tryAutoRegister(xcfFile)
+		fmt.Printf("%s Run 'xcaffold apply' to compile your xcaf/ sources.\n", glyphArrow())
+		fmt.Printf("  Run 'xcaffold import' to sync provider changes back to xcaf/.\n")
+		tryAutoRegister(xcafFile)
 		return nil
 	}
 
@@ -102,7 +102,7 @@ func initProject(cmd *cobra.Command) error {
 	if len(detected) > 0 {
 		fmt.Println()
 		if hasExistingScaffold {
-			fmt.Println("  project.xcf already exists, but existing compiled configurations were detected.")
+			fmt.Println("  project.xcaf already exists, but existing compiled configurations were detected.")
 		} else {
 			fmt.Printf("  %s Detected existing agent configuration(s):\n", glyphOK())
 		}
@@ -121,7 +121,7 @@ func initProject(cmd *cobra.Command) error {
 				doImport = true
 			} else {
 				var err error
-				doImport, err = prompt.Confirm("Re-import from source directories? (overwrites project.xcf and xcf/)", false)
+				doImport, err = prompt.Confirm("Re-import from source directories? (overwrites project.xcaf and xcaf/)", false)
 				if err != nil {
 					return fmt.Errorf("prompt error: %w", err)
 				}
@@ -131,10 +131,10 @@ func initProject(cmd *cobra.Command) error {
 			if yesFlag {
 				doImport = true
 			} else {
-				fmtStr := "Import %s into project.xcf?"
+				fmtStr := "Import %s into project.xcaf?"
 				if len(detected) > 1 {
-					fmt.Println("  xcaffold consolidates multiple configs into one project.xcf.")
-					fmtStr = "Import these directories into project.xcf?"
+					fmt.Println("  xcaffold consolidates multiple configs into one project.xcaf.")
+					fmtStr = "Import these directories into project.xcaf?"
 				} else {
 					fmtStr = fmt.Sprintf(fmtStr, detected[0].InputDir())
 				}
@@ -150,7 +150,7 @@ func initProject(cmd *cobra.Command) error {
 		if !doImport {
 			if hasExistingScaffold {
 				fmt.Printf("%s Run 'xcaffold apply' to compile, or 'xcaffold status' to check for drift.\n", glyphArrow())
-				tryAutoRegister(xcfFile)
+				tryAutoRegister(xcafFile)
 				return nil
 			}
 			fmt.Printf("\n  %s Skipping import. Continuing with fresh scaffold.\n", glyphNever())
@@ -158,17 +158,17 @@ func initProject(cmd *cobra.Command) error {
 			// Proceed to wizard (Case D)
 		} else {
 			if hasExistingScaffold {
-				_ = os.Remove(xcfFile)
-				_ = os.RemoveAll("xcf")
+				_ = os.Remove(xcafFile)
+				_ = os.RemoveAll("xcaf")
 			}
 			fmt.Println()
 
 			var importErr error
 			if len(detected) == 1 {
-				importErr = importScope(detected[0].InputDir(), xcfFile, "project", detected[0].Provider())
+				importErr = importScope(detected[0].InputDir(), xcafFile, "project", detected[0].Provider())
 			} else {
 				if yesFlag {
-					importErr = mergeImportDirs(detected, xcfFile)
+					importErr = mergeImportDirs(detected, xcafFile)
 				} else {
 					var options []prompt.SelectOption
 					for _, imp := range detected {
@@ -200,7 +200,7 @@ func initProject(cmd *cobra.Command) error {
 									break
 								}
 							}
-							importErr = importScope(selected[0], xcfFile, "project", selectedProvider)
+							importErr = importScope(selected[0], xcafFile, "project", selectedProvider)
 						} else {
 							fmt.Println()
 							var selectedImps []importer.ProviderImporter
@@ -212,7 +212,7 @@ func initProject(cmd *cobra.Command) error {
 									}
 								}
 							}
-							importErr = mergeImportDirs(selectedImps, xcfFile)
+							importErr = mergeImportDirs(selectedImps, xcafFile)
 						}
 					}
 				}
@@ -222,7 +222,7 @@ func initProject(cmd *cobra.Command) error {
 				if importErr != nil {
 					return importErr
 				}
-				importedConfig, parseErr := parser.ParseFile(xcfFile)
+				importedConfig, parseErr := parser.ParseFile(xcafFile)
 				if parseErr != nil {
 					return fmt.Errorf("parsing imported scaffold: %w", parseErr)
 				}
@@ -230,10 +230,10 @@ func initProject(cmd *cobra.Command) error {
 					fmt.Printf("  %s Failed to inject xcaffold toolkit: %v\n", glyphErr(), err)
 				} else {
 					fmt.Println()
-					fmt.Printf("  %s xcf/agents/xaff/\n", colorGreen(glyphOK()))
-					fmt.Printf("  %s xcf/skills/xcaffold/\n", colorGreen(glyphOK()))
-					fmt.Printf("  %s xcf/rules/xcf-conventions/\n", colorGreen(glyphOK()))
-					fmt.Printf("  %s xcf/skills/xcaffold/references/    %s\n",
+					fmt.Printf("  %s xcaf/agents/xaff/\n", colorGreen(glyphOK()))
+					fmt.Printf("  %s xcaf/skills/xcaffold/\n", colorGreen(glyphOK()))
+					fmt.Printf("  %s xcaf/rules/xcaf-conventions/\n", colorGreen(glyphOK()))
+					fmt.Printf("  %s xcaf/skills/xcaffold/references/    %s\n",
 						colorGreen(glyphOK()), dim("10 references"))
 					fmt.Println()
 					fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
@@ -247,7 +247,7 @@ func initProject(cmd *cobra.Command) error {
 	if hasExistingScaffold {
 		return nil
 	}
-	return runWizard(cmd, xcfFile)
+	return runWizard(cmd, xcafFile)
 }
 
 // copyToolkitFiles copies files from the embedded toolkit FS to disk.
@@ -270,7 +270,7 @@ func copyToolkitFiles(baseDir string, paths map[string]string) error {
 }
 
 // runWizard runs the interactive new-project wizard.
-func runWizard(cmd *cobra.Command, xcfFile string) error {
+func runWizard(cmd *cobra.Command, xcafFile string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("could not determine working directory: %w", err)
@@ -296,7 +296,7 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		}
 	}
 
-	if err := writeXCFDirectory(cwd, ans); err != nil {
+	if err := writeXCAFDirectory(cwd, ans); err != nil {
 		return fmt.Errorf("failed to scaffold directory: %w", err)
 	}
 
@@ -312,22 +312,22 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 		}
 
 		files := []string{
-			"project.xcf",
-			"xcf/agents/xaff/agent.xcf",
+			"project.xcaf",
+			"xcaf/agents/xaff/agent.xcaf",
 		}
 		for _, t := range ans.targets {
-			files = append(files, fmt.Sprintf("xcf/agents/xaff/agent.%s.xcf", t))
+			files = append(files, fmt.Sprintf("xcaf/agents/xaff/agent.%s.xcaf", t))
 		}
 		files = append(files,
-			"xcf/skills/xcaffold/skill.xcf",
-			"xcf/skills/xcaffold/references/operating-guide.md",
-			"xcf/skills/xcaffold/references/authoring-guide.md",
-			"xcf/rules/xcf-conventions/rule.xcf",
+			"xcaf/skills/xcaffold/skill.xcaf",
+			"xcaf/skills/xcaffold/references/operating-guide.md",
+			"xcaf/skills/xcaffold/references/authoring-guide.md",
+			"xcaf/rules/xcaf-conventions/rule.xcaf",
 		)
 		for _, ref := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "memory"} {
-			files = append(files, fmt.Sprintf("xcf/skills/xcaffold/references/%s-reference.md", ref))
+			files = append(files, fmt.Sprintf("xcaf/skills/xcaffold/references/%s-reference.md", ref))
 		}
-		files = append(files, "xcf/skills/xcaffold/references/cli-cheatsheet.md")
+		files = append(files, "xcaf/skills/xcaffold/references/cli-cheatsheet.md")
 
 		b, err := json.MarshalIndent(Manifest{Project: ans.name, Targets: ans.targets, Files: files}, "", "  ")
 		if err == nil {
@@ -337,16 +337,16 @@ func runWizard(cmd *cobra.Command, xcfFile string) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("  %s project.xcf\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcf/agents/xaff/                     %s\n",
+	fmt.Printf("  %s project.xcaf\n", colorGreen(glyphOK()))
+	fmt.Printf("  %s xcaf/agents/xaff/                     %s\n",
 		colorGreen(glyphOK()), dim(fmt.Sprintf("base + %d %s", len(ans.targets), plural(len(ans.targets), "override", "overrides"))))
-	fmt.Printf("  %s xcf/skills/xcaffold/\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcf/rules/xcf-conventions/\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcf/skills/xcaffold/references/    %s\n",
+	fmt.Printf("  %s xcaf/skills/xcaffold/\n", colorGreen(glyphOK()))
+	fmt.Printf("  %s xcaf/rules/xcaf-conventions/\n", colorGreen(glyphOK()))
+	fmt.Printf("  %s xcaf/skills/xcaffold/references/    %s\n",
 		colorGreen(glyphOK()), dim("10 references"))
 	fmt.Println()
 	fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
-	fmt.Printf("  Includes Xaff agent, xcaffold skill, and xcf-conventions rule.\n")
+	fmt.Printf("  Includes Xaff agent, xcaffold skill, and xcaf-conventions rule.\n")
 
 	return nil
 }
@@ -441,29 +441,29 @@ func collectWizardAnswers(defaultName string) (ans wizardAnswers, err error) {
 	return
 }
 
-// writeXCFDirectory generates the xcaffold authoring toolkit scaffold structure.
-func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
+// writeXCAFDirectory generates the xcaffold authoring toolkit scaffold structure.
+func writeXCAFDirectory(baseDir string, ans wizardAnswers) error {
 	// Build the file map: embedded path → disk path
 	files := map[string]string{
-		"toolkit/agents/xaff/agent.xcf":                            "xcf/agents/xaff/agent.xcf",
-		"toolkit/skills/xcaffold/skill.xcf":                        "xcf/skills/xcaffold/skill.xcf",
-		"toolkit/skills/xcaffold/references/operating-guide.md":    "xcf/skills/xcaffold/references/operating-guide.md",
-		"toolkit/skills/xcaffold/references/authoring-guide.md":    "xcf/skills/xcaffold/references/authoring-guide.md",
-		"toolkit/skills/xcaffold/references/agent-reference.md":    "xcf/skills/xcaffold/references/agent-reference.md",
-		"toolkit/skills/xcaffold/references/skill-reference.md":    "xcf/skills/xcaffold/references/skill-reference.md",
-		"toolkit/skills/xcaffold/references/rule-reference.md":     "xcf/skills/xcaffold/references/rule-reference.md",
-		"toolkit/skills/xcaffold/references/workflow-reference.md": "xcf/skills/xcaffold/references/workflow-reference.md",
-		"toolkit/skills/xcaffold/references/mcp-reference.md":      "xcf/skills/xcaffold/references/mcp-reference.md",
-		"toolkit/skills/xcaffold/references/hooks-reference.md":    "xcf/skills/xcaffold/references/hooks-reference.md",
-		"toolkit/skills/xcaffold/references/memory-reference.md":   "xcf/skills/xcaffold/references/memory-reference.md",
-		"toolkit/skills/xcaffold/references/cli-cheatsheet.md":     "xcf/skills/xcaffold/references/cli-cheatsheet.md",
-		"toolkit/rules/xcf-conventions/rule.xcf":                   "xcf/rules/xcf-conventions/rule.xcf",
+		"toolkit/agents/xaff/agent.xcaf":                           "xcaf/agents/xaff/agent.xcaf",
+		"toolkit/skills/xcaffold/skill.xcaf":                       "xcaf/skills/xcaffold/skill.xcaf",
+		"toolkit/skills/xcaffold/references/operating-guide.md":    "xcaf/skills/xcaffold/references/operating-guide.md",
+		"toolkit/skills/xcaffold/references/authoring-guide.md":    "xcaf/skills/xcaffold/references/authoring-guide.md",
+		"toolkit/skills/xcaffold/references/agent-reference.md":    "xcaf/skills/xcaffold/references/agent-reference.md",
+		"toolkit/skills/xcaffold/references/skill-reference.md":    "xcaf/skills/xcaffold/references/skill-reference.md",
+		"toolkit/skills/xcaffold/references/rule-reference.md":     "xcaf/skills/xcaffold/references/rule-reference.md",
+		"toolkit/skills/xcaffold/references/workflow-reference.md": "xcaf/skills/xcaffold/references/workflow-reference.md",
+		"toolkit/skills/xcaffold/references/mcp-reference.md":      "xcaf/skills/xcaffold/references/mcp-reference.md",
+		"toolkit/skills/xcaffold/references/hooks-reference.md":    "xcaf/skills/xcaffold/references/hooks-reference.md",
+		"toolkit/skills/xcaffold/references/memory-reference.md":   "xcaf/skills/xcaffold/references/memory-reference.md",
+		"toolkit/skills/xcaffold/references/cli-cheatsheet.md":     "xcaf/skills/xcaffold/references/cli-cheatsheet.md",
+		"toolkit/rules/xcaf-conventions/rule.xcaf":                 "xcaf/rules/xcaf-conventions/rule.xcaf",
 	}
 
 	// Add provider override files for selected targets only
 	for _, target := range ans.targets {
-		embedKey := fmt.Sprintf("toolkit/agents/xaff/agent.%s.xcf", target)
-		diskKey := fmt.Sprintf("xcf/agents/xaff/agent.%s.xcf", target)
+		embedKey := fmt.Sprintf("toolkit/agents/xaff/agent.%s.xcaf", target)
+		diskKey := fmt.Sprintf("xcaf/agents/xaff/agent.%s.xcaf", target)
 		files[embedKey] = diskKey
 	}
 
@@ -471,7 +471,7 @@ func writeXCFDirectory(baseDir string, ans wizardAnswers) error {
 		return err
 	}
 
-	// Write project.xcf
+	// Write project.xcaf
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
 		Project: &ast.ProjectConfig{
@@ -489,10 +489,10 @@ func initGlobal() error {
 	return nil
 }
 
-func tryAutoRegister(xcfFile string) {
-	config, err := parser.ParseFile(xcfFile)
+func tryAutoRegister(xcafFile string) {
+	config, err := parser.ParseFile(xcafFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s for auto-registration: %v\n", xcfFile, err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to parse %s for auto-registration: %v\n", xcafFile, err)
 		return
 	}
 	if config.Project != nil && config.Project.Name != "" {
@@ -504,9 +504,9 @@ func tryAutoRegister(xcfFile string) {
 // injectXaffToolkitAfterImport writes the full Xaff authoring toolkit after an import.
 // It replaces injectXcaffoldSkillAfterImport, which only wrote the skill.
 func injectXaffToolkitAfterImport(baseDir string) error {
-	// Check for project.xcf in root
-	xcfFile := filepath.Join(baseDir, "project.xcf")
-	config, err := parser.ParseFileExact(xcfFile)
+	// Check for project.xcaf in root
+	xcafFile := filepath.Join(baseDir, "project.xcaf")
+	config, err := parser.ParseFileExact(xcafFile)
 	if err != nil {
 		return fmt.Errorf("parsing imported scaffold: %w", err)
 	}
@@ -520,25 +520,25 @@ func injectXaffToolkitAfterImport(baseDir string) error {
 
 	// Build the file map: embedded path → disk path
 	files := map[string]string{
-		"toolkit/agents/xaff/agent.xcf":                            "xcf/agents/xaff/agent.xcf",
-		"toolkit/skills/xcaffold/skill.xcf":                        "xcf/skills/xcaffold/skill.xcf",
-		"toolkit/skills/xcaffold/references/operating-guide.md":    "xcf/skills/xcaffold/references/operating-guide.md",
-		"toolkit/skills/xcaffold/references/authoring-guide.md":    "xcf/skills/xcaffold/references/authoring-guide.md",
-		"toolkit/skills/xcaffold/references/agent-reference.md":    "xcf/skills/xcaffold/references/agent-reference.md",
-		"toolkit/skills/xcaffold/references/skill-reference.md":    "xcf/skills/xcaffold/references/skill-reference.md",
-		"toolkit/skills/xcaffold/references/rule-reference.md":     "xcf/skills/xcaffold/references/rule-reference.md",
-		"toolkit/skills/xcaffold/references/workflow-reference.md": "xcf/skills/xcaffold/references/workflow-reference.md",
-		"toolkit/skills/xcaffold/references/mcp-reference.md":      "xcf/skills/xcaffold/references/mcp-reference.md",
-		"toolkit/skills/xcaffold/references/hooks-reference.md":    "xcf/skills/xcaffold/references/hooks-reference.md",
-		"toolkit/skills/xcaffold/references/memory-reference.md":   "xcf/skills/xcaffold/references/memory-reference.md",
-		"toolkit/skills/xcaffold/references/cli-cheatsheet.md":     "xcf/skills/xcaffold/references/cli-cheatsheet.md",
-		"toolkit/rules/xcf-conventions/rule.xcf":                   "xcf/rules/xcf-conventions/rule.xcf",
+		"toolkit/agents/xaff/agent.xcaf":                           "xcaf/agents/xaff/agent.xcaf",
+		"toolkit/skills/xcaffold/skill.xcaf":                       "xcaf/skills/xcaffold/skill.xcaf",
+		"toolkit/skills/xcaffold/references/operating-guide.md":    "xcaf/skills/xcaffold/references/operating-guide.md",
+		"toolkit/skills/xcaffold/references/authoring-guide.md":    "xcaf/skills/xcaffold/references/authoring-guide.md",
+		"toolkit/skills/xcaffold/references/agent-reference.md":    "xcaf/skills/xcaffold/references/agent-reference.md",
+		"toolkit/skills/xcaffold/references/skill-reference.md":    "xcaf/skills/xcaffold/references/skill-reference.md",
+		"toolkit/skills/xcaffold/references/rule-reference.md":     "xcaf/skills/xcaffold/references/rule-reference.md",
+		"toolkit/skills/xcaffold/references/workflow-reference.md": "xcaf/skills/xcaffold/references/workflow-reference.md",
+		"toolkit/skills/xcaffold/references/mcp-reference.md":      "xcaf/skills/xcaffold/references/mcp-reference.md",
+		"toolkit/skills/xcaffold/references/hooks-reference.md":    "xcaf/skills/xcaffold/references/hooks-reference.md",
+		"toolkit/skills/xcaffold/references/memory-reference.md":   "xcaf/skills/xcaffold/references/memory-reference.md",
+		"toolkit/skills/xcaffold/references/cli-cheatsheet.md":     "xcaf/skills/xcaffold/references/cli-cheatsheet.md",
+		"toolkit/rules/xcaf-conventions/rule.xcaf":                 "xcaf/rules/xcaf-conventions/rule.xcaf",
 	}
 
 	// Add provider override files for the targets in the project config
 	for _, target := range targets {
-		embedKey := fmt.Sprintf("toolkit/agents/xaff/agent.%s.xcf", target)
-		diskKey := fmt.Sprintf("xcf/agents/xaff/agent.%s.xcf", target)
+		embedKey := fmt.Sprintf("toolkit/agents/xaff/agent.%s.xcaf", target)
+		diskKey := fmt.Sprintf("xcaf/agents/xaff/agent.%s.xcaf", target)
 		files[embedKey] = diskKey
 	}
 

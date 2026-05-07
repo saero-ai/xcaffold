@@ -1,6 +1,6 @@
-# XCF Golden Manifests
+# XCAF Golden Manifests
 
-Reference `.xcf` files that exercise every field for each resource kind.
+Reference `.xcaf` files that exercise every field for each resource kind.
 
 ## Purpose
 

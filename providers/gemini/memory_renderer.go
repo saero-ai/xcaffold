@@ -208,7 +208,7 @@ func removeMemoryBlock(content, name string) string {
 }
 
 // resolveBody returns the effective body content for a memory entry.
-// Content is populated by the compiler's filesystem scan of xcf/agents/<id>/memory/
+// Content is populated by the compiler's filesystem scan of xcaf/agents/<id>/memory/
 // .md files — the renderer simply returns it.
 func resolveBody(_ string, entry ast.MemoryConfig, _ string) (string, error) {
 	return entry.Content, nil

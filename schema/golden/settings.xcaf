@@ -14,7 +14,7 @@ default-shell: /bin/zsh
 
 # Memory
 auto-memory-enabled: true
-auto-memory-directory: .xcf/memory
+auto-memory-directory: .xcaf/memory
 always-thinking-enabled: false
 
 # Maintenance

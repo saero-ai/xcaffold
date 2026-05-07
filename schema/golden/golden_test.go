@@ -12,7 +12,7 @@ import (
 
 func TestGoldenManifests_AllParse(t *testing.T) {
 	goldenDir := "."
-	if _, err := os.Stat(filepath.Join(goldenDir, "agent.xcf")); err != nil {
+	if _, err := os.Stat(filepath.Join(goldenDir, "agent.xcaf")); err != nil {
 		// Running from repo root — adjust path.
 		goldenDir = "schema/golden"
 	}
@@ -24,23 +24,23 @@ func TestGoldenManifests_AllParse(t *testing.T) {
 
 	// Kinds whose parser support is not yet implemented or has been removed.
 	unparseable := map[string]bool{
-		"template.xcf": true,
-		"system.xcf":   true,
-		// memory.xcf: kind:memory is no longer a parsed resource kind.
-		// Memory is convention-based (.md files in xcf/agents/<id>/memory/).
-		"memory.xcf": true,
+		"template.xcaf": true,
+		"system.xcaf":   true,
+		// memory.xcaf: kind:memory is no longer a parsed resource kind.
+		// Memory is convention-based (.md files in xcaf/agents/<id>/memory/).
+		"memory.xcaf": true,
 	}
 
-	xcfCount := 0
+	xcafCount := 0
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".xcf") {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".xcaf") {
 			continue
 		}
 		if unparseable[entry.Name()] {
 			t.Logf("SKIP (parser support pending): %s", entry.Name())
 			continue
 		}
-		xcfCount++
+		xcafCount++
 		t.Run(entry.Name(), func(t *testing.T) {
 			path := filepath.Join(goldenDir, entry.Name())
 			f, err := os.Open(path)
@@ -56,15 +56,15 @@ func TestGoldenManifests_AllParse(t *testing.T) {
 		})
 	}
 
-	if xcfCount == 0 {
-		t.Fatal("no .xcf golden manifests found — test is misconfigured")
+	if xcafCount == 0 {
+		t.Fatal("no .xcaf golden manifests found — test is misconfigured")
 	}
-	t.Logf("validated %d golden manifests", xcfCount)
+	t.Logf("validated %d golden manifests", xcafCount)
 }
 
 func TestGoldenManifests_Completeness(t *testing.T) {
 	goldenDir := "."
-	if _, err := os.Stat(filepath.Join(goldenDir, "agent.xcf")); err != nil {
+	if _, err := os.Stat(filepath.Join(goldenDir, "agent.xcaf")); err != nil {
 		goldenDir = "schema/golden"
 	}
 
@@ -78,7 +78,7 @@ func TestGoldenManifests_Completeness(t *testing.T) {
 			continue
 		}
 		t.Run(kindName, func(t *testing.T) {
-			path := filepath.Join(goldenDir, kindName+".xcf")
+			path := filepath.Join(goldenDir, kindName+".xcaf")
 			content, err := os.ReadFile(path)
 			if err != nil {
 				t.Skipf("no golden manifest for kind %q: %v", kindName, err)

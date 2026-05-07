@@ -1,13 +1,13 @@
 ---
 title: "kind: project"
-description: "Root manifest that declares compilation targets and references all named xcf resources. One per project."
+description: "Root manifest that declares compilation targets and references all named xcaf resources. One per project."
 ---
 
 # `kind: project`
 
 The root manifest for an xcaffold project. Declares which providers to target, references all named resources (agents, skills, rules, MCP servers, policies), and optionally provides project-level instructions compiled to each provider's root instructions file.
 
-There is **exactly one** project manifest per project, located at `.xcaffold/project.xcf`. Produces no provider output files — the manifest drives the compilation pipeline.
+There is **exactly one** project manifest per project, located at `.xcaffold/project.xcaf`. Produces no provider output files — the manifest drives the compilation pipeline.
 
 > **Required:** `kind`, `version`, `name`, `targets`
 
@@ -25,7 +25,7 @@ targets:
   - cursor
 agents:
   - id: react-developer
-    path: xcf/agents/react-developer/agent.xcf
+    path: xcaf/agents/react-developer/agent.xcaf
 ---
 ```
 
@@ -50,7 +50,7 @@ targets:
   - antigravity
 agents:
   - id: react-developer
-    path: xcf/agents/react-developer/agent.xcf
+    path: xcaf/agents/react-developer/agent.xcaf
 skills:
   - component-patterns
 rules:
@@ -80,20 +80,20 @@ The following arguments are supported:
 - `targets` — (Required) `[]string`. Provider targets to compile: `claude`, `cursor`, `gemini`, `copilot`, `antigravity`. At least one required.
 - `allowed-env-vars` — (Optional) `[]string`. Allowed environment variables that can be injected via `${env.NAME}` inside `.xcf` or `.vars` files. Prevents accidental secret leakage. See [Project Variables](../../../concepts/configuration/variables.md) for details.
 - `agents` — (Optional) `[]AgentManifestEntry`. Agents to include (see [agents block](#agents-block)).
-- `skills` — (Optional) `[]string`. Skill IDs declared in `xcf/skills/`.
-- `rules` — (Optional) `[]string`. Rule IDs declared in `xcf/rules/`.
-- `mcp` — (Optional) `[]string`. MCP server IDs declared in `xcf/mcp/`.
-- `policies` — (Optional) `[]string`. Policy IDs declared in `xcf/policies/`.
+- `skills` — (Optional) `[]string`. Skill IDs declared in `xcaf/skills/`.
+- `rules` — (Optional) `[]string`. Rule IDs declared in `xcaf/rules/`.
+- `mcp` — (Optional) `[]string`. MCP server IDs declared in `xcaf/mcp/`.
+- `policies` — (Optional) `[]string`. Policy IDs declared in `xcaf/policies/`.
 - `backup-dir` — (Optional) `string`. Directory for provider backup files before overwrite.
 
 ### `agents` block
 
 Each entry in the `agents` list supports:
 
-- `id` — (Required) Agent identifier. Must match the `name` in the referenced `.xcf` file.
-- `path` — (Required) Relative path to the agent's `.xcf` file from the project root.
+- `id` — (Required) Agent identifier. Must match the `name` in the referenced `.xcaf` file.
+- `path` — (Required) Relative path to the agent's `.xcaf` file from the project root.
 
-> **Note:** When using filesystem-as-schema inference, agents discovered from `xcf/agents/<name>/agent.xcf` do not need explicit entries in the `agents:` list. The parser discovers them automatically from the directory structure.
+> **Note:** When using filesystem-as-schema inference, agents discovered from `xcaf/agents/<name>/agent.xcaf` do not need explicit entries in the `agents:` list. The parser discovers them automatically from the directory structure.
 
 ### `targets` on resources vs. project
 
@@ -119,4 +119,4 @@ The project manifest body (content after the closing `---`) is compiled to proje
 xcaffold import --target claude
 ```
 
-`xcaffold import` reverse-engineers existing provider directories into `.xcf` source files and reconstructs a `project.xcf` with discovered resources.
+`xcaffold import` reverse-engineers existing provider directories into `.xcaf` source files and reconstructs a `project.xcaf` with discovered resources.

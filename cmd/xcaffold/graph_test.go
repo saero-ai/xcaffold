@@ -218,7 +218,7 @@ func captureGraphStdout(f func()) string {
 
 func TestGraph_TreeAlignment_NonLastBlock(t *testing.T) {
 	dir := t.TempDir()
-	memDir := dir + "/xcf/agents/test-agent/memory"
+	memDir := dir + "/xcaf/agents/test-agent/memory"
 	os.MkdirAll(memDir, 0755)
 	os.WriteFile(memDir+"/note.md", []byte("x"), 0644)
 
@@ -418,7 +418,7 @@ func TestGraph_ProjectScoped_EmptyWhenAllReferenced(t *testing.T) {
 func TestGraph_ScopeSummary_NoOrphanCounter(t *testing.T) {
 	g := &graphData{
 		Project:    "test-project",
-		ConfigPath: "xcf/project.xcf",
+		ConfigPath: "xcaf/project.xcaf",
 		Scope:      "project",
 		Nodes: []graphNode{
 			{ID: "agent:main", Kind: kindAgent, Label: "main"},

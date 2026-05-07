@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const validXCF = `---
+const validXCAF = `---
 kind: global
 version: "1.0"
 agents:
@@ -35,7 +35,7 @@ version: "1.0"
 description: "Missing the name field."
 `
 
-const unknownFieldXCF = `kind: global
+const unknownFieldXCAF = `kind: global
 version: "1.0"
 agents:
   dev:
@@ -44,7 +44,7 @@ unknown_top_level_field: "should fail"
 `
 
 func TestParse_ValidConfig(t *testing.T) {
-	cfg, err := Parse(strings.NewReader(validXCF))
+	cfg, err := Parse(strings.NewReader(validXCAF))
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
@@ -78,7 +78,7 @@ func TestParse_MissingProjectName(t *testing.T) {
 
 func TestParse_UnknownField_Rejected(t *testing.T) {
 	// Strict mode must reject unknown top-level fields to prevent silent misconfigurations.
-	_, err := Parse(strings.NewReader(unknownFieldXCF))
+	_, err := Parse(strings.NewReader(unknownFieldXCAF))
 	require.Error(t, err)
 }
 
@@ -88,22 +88,22 @@ func TestParse_EmptyReader(t *testing.T) {
 }
 
 func TestParse_MissingVersion_Rejected(t *testing.T) {
-	missingVersionXCF := `kind: project
+	missingVersionXCAF := `kind: project
 name: "test-project"
 `
-	_, err := Parse(strings.NewReader(missingVersionXCF))
+	_, err := Parse(strings.NewReader(missingVersionXCAF))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "version is required")
 }
 
 func TestParse_PathTraversalAgentID_Rejected(t *testing.T) {
-	maliciousXCF := `kind: global
+	maliciousXCAF := `kind: global
 version: "1.0"
 agents:
   "../evil":
     description: "Path traversal attempt"
 `
-	_, err := Parse(strings.NewReader(maliciousXCF))
+	_, err := Parse(strings.NewReader(maliciousXCAF))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "agent id contains invalid characters")
 }
@@ -137,12 +137,12 @@ hooks:
 }
 
 func TestParseFile_ExtendsGlobal_ResolvesToHomeClaude(t *testing.T) {
-	// Create a fake home structure with global.xcf
+	// Create a fake home structure with global.xcaf
 	fakeHome := t.TempDir()
 	claudeDir := filepath.Join(fakeHome, ".claude")
 	require.NoError(t, os.MkdirAll(claudeDir, 0755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(claudeDir, "global.xcf"),
+		filepath.Join(claudeDir, "global.xcaf"),
 		[]byte(`kind: global
 version: "1.0"
 agents:
@@ -152,14 +152,14 @@ agents:
 		0600,
 	))
 
-	// Create a project project.xcf that extends using an absolute path.
+	// Create a project project.xcaf that extends using an absolute path.
 	// (os.UserHomeDir cannot be mocked in tests, so the extends mechanism
 	// is verified with an absolute path; the "global" keyword path is a
 	// simple string-comparison branch on top of the same merge logic.)
 	projectDir := t.TempDir()
-	globalPath := filepath.Join(claudeDir, "global.xcf")
+	globalPath := filepath.Join(claudeDir, "global.xcaf")
 	require.NoError(t, os.WriteFile(
-		filepath.Join(projectDir, "project.xcf"),
+		filepath.Join(projectDir, "project.xcaf"),
 		[]byte(fmt.Sprintf(`kind: global
 version: "1.0"
 extends: "%s"
@@ -170,7 +170,7 @@ agents:
 		0600,
 	))
 
-	config, err := ParseFile(filepath.Join(projectDir, "project.xcf"))
+	config, err := ParseFile(filepath.Join(projectDir, "project.xcaf"))
 	require.NoError(t, err)
 
 	_, hasShared := config.Agents["shared"]
@@ -277,14 +277,14 @@ permissions:
 
 func TestValidatePermissions_AgentDisallowedConflict(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcaf"), []byte(`kind: global
 version: "1.0"
 agents:
   dev:
     description: "Developer"
     disallowed-tools: [Write]
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcf"), []byte(`kind: settings
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcaf"), []byte(`kind: settings
 version: "1.0"
 permissions:
   allow: [Write]
@@ -297,14 +297,14 @@ permissions:
 
 func TestValidatePermissions_AgentToolsDenyConflict(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcf"), []byte(`kind: global
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "global.xcaf"), []byte(`kind: global
 version: "1.0"
 agents:
   dev:
     description: "Developer"
     tools: [Bash]
 `), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcf"), []byte(`kind: settings
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcaf"), []byte(`kind: settings
 version: "1.0"
 permissions:
   deny: [Bash]
@@ -352,7 +352,7 @@ mcp:
 
 // ── ValidateFile: file-ref and duplicate-ID tests ──────────────────────────
 
-func writeXCFFile(t *testing.T, dir, name, content string) string {
+func writeXCAFFile(t *testing.T, dir, name, content string) string {
 	t.Helper()
 	p := filepath.Join(dir, name)
 	require.NoError(t, os.WriteFile(p, []byte(content), 0600))
@@ -361,7 +361,7 @@ func writeXCFFile(t *testing.T, dir, name, content string) string {
 
 func TestValidateFileRefs_MissingSkillReference(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
+	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
 version: "1.0"
 skills:
   my-skill:
@@ -370,7 +370,7 @@ skills:
     references:
       - nonexistent.md
 `)
-	diags := ValidateFile(xcf)
+	diags := ValidateFile(xcaf)
 	var found bool
 	for _, d := range diags {
 		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") { //nolint:goconst
@@ -382,16 +382,16 @@ skills:
 
 func TestValidateFileRefs_MissingSkillExample(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
+	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
 version: "1.0"
 skills:
   my-skill:
     description: "A skill"
 
     examples:
-      - xcf/skills/my-skill/examples/nonexistent.md
+      - xcaf/skills/my-skill/examples/nonexistent.md
 `)
-	diags := ValidateFile(xcf)
+	diags := ValidateFile(xcaf)
 	var found bool
 	for _, d := range diags {
 		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") && strings.Contains(d.Message, "examples") {
@@ -405,14 +405,14 @@ func TestValidateFileRefs_MissingInstructionsFile_Agent(t *testing.T) {
 	t.Skip("Legacy instructions test removed")
 
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
+	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
 version: "1.0"
 agents:
   my-agent:
     description: "An agent"
 
 `)
-	diags := ValidateFile(xcf)
+	diags := ValidateFile(xcaf)
 	var found bool
 	for _, d := range diags {
 		if d.Severity == "error" && strings.Contains(d.Message, "not found") {
@@ -429,14 +429,14 @@ func TestValidateFileRefs_PresentInstructionsFile(t *testing.T) {
 	instrFile := filepath.Join(dir, "real.md")
 	require.NoError(t, os.WriteFile(instrFile, []byte("# instructions"), 0600))
 
-	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
+	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
 version: "1.0"
 agents:
   my-agent:
     description: "An agent"
 
 `)
-	diags := ValidateFile(xcf)
+	diags := ValidateFile(xcaf)
 	for _, d := range diags {
 		if strings.Contains(d.Message, "not found") || strings.Contains(d.Message, "does not exist") {
 			t.Errorf("unexpected file-existence diagnostic: %+v", d)
@@ -448,7 +448,7 @@ func TestValidateFileRefs_DuplicateID(t *testing.T) {
 	t.Skip("Legacy instructions test removed")
 
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
+	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
 version: "1.0"
 agents:
   foo:
@@ -459,7 +459,7 @@ skills:
     description: "A skill"
 
 `)
-	diags := ValidateFile(xcf)
+	diags := ValidateFile(xcaf)
 	var found bool
 	for _, d := range diags {
 		if d.Severity == "warning" && strings.Contains(d.Message, "used in both") {
@@ -471,7 +471,7 @@ skills:
 
 func TestValidateFileRefs_UniqueIDs(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "project.xcf", `kind: global
+	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
 version: "1.0"
 agents:
   agent-one:
@@ -485,7 +485,7 @@ rules:
   rule-one:
 
 `)
-	diags := ValidateFile(xcf)
+	diags := ValidateFile(xcaf)
 	for _, d := range diags {
 		if strings.Contains(d.Message, "used in both") {
 			t.Errorf("unexpected duplicate-ID diagnostic: %+v", d)
@@ -497,12 +497,12 @@ rules:
 
 func TestValidatePlugins_KnownPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "project.xcf", `kind: settings
+	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: settings
 version: "1.0"
 enabled-plugins:
   commit-commands: true
 `)
-	diags := ValidateFile(xcf)
+	diags := ValidateFile(xcaf)
 	for _, d := range diags {
 		if strings.Contains(d.Message, "unknown plugin") {
 			t.Errorf("unexpected unknown-plugin diagnostic for a known plugin: %+v", d)
@@ -512,12 +512,12 @@ enabled-plugins:
 
 func TestValidatePlugins_UnknownSettingsPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "project.xcf", `kind: settings
+	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: settings
 version: "1.0"
 enabled-plugins:
   my-custom-plugin: true
 `)
-	diags := ValidateFile(xcf)
+	diags := ValidateFile(xcaf)
 	var found bool
 	for _, d := range diags {
 		if d.Severity == "warning" && strings.Contains(d.Message, "unknown plugin") &&
@@ -530,14 +530,14 @@ enabled-plugins:
 
 func TestValidatePlugins_UnknownLocalPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcf := writeXCFFile(t, dir, "project.xcf", `kind: project
+	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: project
 version: "1.0"
 name: "test"
 local:
   enabledPlugins:
     mystery-plugin: true
 `)
-	diags := ValidateFile(xcf)
+	diags := ValidateFile(xcaf)
 	var found bool
 	for _, d := range diags {
 		if d.Severity == "warning" && strings.Contains(d.Message, "local") &&
@@ -551,21 +551,21 @@ local:
 func TestValidatePlugins_BothBlocksUnknown(t *testing.T) {
 	dir := t.TempDir()
 	// Two separate files — one per resource kind.
-	writeXCFFile(t, dir, "project.xcf", `kind: project
+	writeXCAFFile(t, dir, "project.xcaf", `kind: project
 version: "1.0"
 name: "test"
 local:
   enabledPlugins:
     beta-plugin: true
 `)
-	writeXCFFile(t, dir, "settings.xcf", `kind: settings
+	writeXCAFFile(t, dir, "settings.xcaf", `kind: settings
 version: "1.0"
 enabled-plugins:
   alpha-plugin: true
 `)
 	// ValidateFile operates on a single file; run it on each file separately.
-	diagsProject := ValidateFile(filepath.Join(dir, "project.xcf"))
-	diagsSettings := ValidateFile(filepath.Join(dir, "settings.xcf"))
+	diagsProject := ValidateFile(filepath.Join(dir, "project.xcaf"))
+	diagsSettings := ValidateFile(filepath.Join(dir, "settings.xcaf"))
 	diags := append(diagsProject, diagsSettings...)
 	count := 0
 	for _, d := range diags {
@@ -580,24 +580,24 @@ func TestParseDirectory_SkipsNonConfigFiles(t *testing.T) {
 	dir := t.TempDir()
 
 	// Write a valid config file
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcf"), []byte(`kind: project
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
 version: "1.0"
 name: "test-project"
 `), 0600))
 
 	// Write a registry file (should be skipped)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "registry.xcf"), []byte(`kind: registry
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "registry.xcaf"), []byte(`kind: registry
 projects: []
 `), 0600))
 
 	// Write a template file (should be skipped — "template" is not a parseable kind)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "template.xcf"), []byte(`kind: template
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "template.xcaf"), []byte(`kind: template
 default_target: claude
 `), 0600))
 
-	// ParseDirectory should succeed — it should skip registry.xcf and template.xcf
-	// and only parse project.xcf. Without the isConfigFile filter, this would
-	// panic or error because registry.xcf and template.xcf don't conform to
+	// ParseDirectory should succeed — it should skip registry.xcaf and template.xcaf
+	// and only parse project.xcaf. Without the isConfigFile filter, this would
+	// panic or error because registry.xcaf and template.xcaf don't conform to
 	// the XcaffoldConfig schema.
 	config, err := ParseDirectory(dir)
 	require.NoError(t, err)
@@ -608,21 +608,21 @@ func TestParseDirectory_SkipsNonConfigFiles_OnlyNonConfig(t *testing.T) {
 	dir := t.TempDir()
 
 	// Write only non-config files
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "registry.xcf"), []byte(`kind: registry
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "registry.xcaf"), []byte(`kind: registry
 projects: []
 `), 0600))
 
-	// ParseDirectory should fail with "no *.xcf files found" since all files are non-config
+	// ParseDirectory should fail with "no *.xcaf files found" since all files are non-config
 	_, err := ParseDirectory(dir)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "no *.xcf files found")
+	assert.Contains(t, err.Error(), "no *.xcaf files found")
 }
 
 func TestIsParseableFile_LegacyNoKind_ReturnsFalse(t *testing.T) {
 	dir := t.TempDir()
 
 	// File without kind: field must not be treated as parseable — kind is required
-	path := filepath.Join(dir, "legacy.xcf")
+	path := filepath.Join(dir, "legacy.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(`version: "1.0"
 project:
   name: "legacy"
@@ -634,7 +634,7 @@ project:
 func TestCompile_MultiFile_DuplicateIDErrorTracksOrigin(t *testing.T) {
 	dir := t.TempDir()
 
-	file1 := filepath.Join(dir, "agent1.xcf")
+	file1 := filepath.Join(dir, "agent1.xcaf")
 	err := os.WriteFile(file1, []byte(`kind: global
 version: "1.0"
 agents:
@@ -645,7 +645,7 @@ agents:
 		t.Fatal(err)
 	}
 
-	file2 := filepath.Join(dir, "agent2.xcf")
+	file2 := filepath.Join(dir, "agent2.xcaf")
 	err = os.WriteFile(file2, []byte(`kind: global
 version: "1.0"
 agents:
@@ -662,8 +662,8 @@ agents:
 	}
 
 	expectedSubstring1 := "duplicate agent ID \"dev\" found in"
-	expectedSubstring2 := "agent1.xcf"
-	expectedSubstring3 := "agent2.xcf"
+	expectedSubstring2 := "agent1.xcaf"
+	expectedSubstring3 := "agent2.xcaf"
 
 	errMsg := err.Error()
 	// For simplicity, we just check if it contains the duplicate key strings and filenames.
@@ -686,7 +686,7 @@ targets:
       kind: local
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "agent.xcf")
+	path := filepath.Join(tmp, "agent.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(yaml), 0o600))
 
 	config, err := ParseFile(path)
@@ -717,7 +717,7 @@ targets:
 
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "skill.xcf")
+	path := filepath.Join(tmp, "skill.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(yamlSrc), 0o600))
 
 	config, err := ParseFile(path)
@@ -745,7 +745,7 @@ activation: %s%s
 
 `, activation, paths)
 			tmp := t.TempDir()
-			path := filepath.Join(tmp, "rule.xcf")
+			path := filepath.Join(tmp, "rule.xcaf")
 			require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 			_, err := ParseFile(path)
 			require.NoError(t, err, "activation %q must be valid", activation)
@@ -761,7 +761,7 @@ activation: on-demand
 
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "rule.xcf")
+	path := filepath.Join(tmp, "rule.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -776,7 +776,7 @@ activation: path-glob
 
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "rule.xcf")
+	path := filepath.Join(tmp, "rule.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -793,7 +793,7 @@ paths:
 
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "rule.xcf")
+	path := filepath.Join(tmp, "rule.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -808,7 +808,7 @@ always-apply: true
 
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "rule.xcf")
+	path := filepath.Join(tmp, "rule.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 	// Must not return a hard error — always-apply without activation is a deprecation warning.
 	_, err := ParseFile(path)
@@ -824,7 +824,7 @@ name: test-rule
 instructions_file: rules/body.md
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "rule.xcf")
+	path := filepath.Join(tmp, "rule.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -841,7 +841,7 @@ name: test-rule
 
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "rule.xcf")
+	path := filepath.Join(tmp, "rule.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -858,7 +858,7 @@ exclude-agents:
 
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "rule.xcf")
+	path := filepath.Join(tmp, "rule.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 	_, err := ParseFile(path)
 	require.Error(t, err)
@@ -876,7 +876,7 @@ exclude-agents:
 
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "rule.xcf")
+	path := filepath.Join(tmp, "rule.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 	_, err := ParseFile(path)
 	require.NoError(t, err)
@@ -894,7 +894,7 @@ targets:
 
 `
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, "rule.xcf")
+	path := filepath.Join(tmp, "rule.xcaf")
 	require.NoError(t, os.WriteFile(path, []byte(src), 0o600))
 	config, err := ParseFile(path)
 	require.NoError(t, err)
@@ -1002,14 +1002,14 @@ Never do bad things.
 func TestCompile_MultiFile_DuplicateContextIDErrorTracksOrigin(t *testing.T) {
 	dir := t.TempDir()
 
-	file1 := filepath.Join(dir, "ctx1.xcf")
+	file1 := filepath.Join(dir, "ctx1.xcaf")
 	err := os.WriteFile(file1, []byte(`kind: context
 version: "1.0"
 name: global
 `), 0600)
 	require.NoError(t, err)
 
-	file2 := filepath.Join(dir, "ctx2.xcf")
+	file2 := filepath.Join(dir, "ctx2.xcaf")
 	err = os.WriteFile(file2, []byte(`kind: context
 version: "1.0"
 name: global
@@ -1021,8 +1021,8 @@ name: global
 
 	errMsg := err.Error()
 	assert.Contains(t, errMsg, "duplicate context ID \"global\" found in")
-	assert.Contains(t, errMsg, "ctx1.xcf")
-	assert.Contains(t, errMsg, "ctx2.xcf")
+	assert.Contains(t, errMsg, "ctx1.xcaf")
+	assert.Contains(t, errMsg, "ctx2.xcaf")
 }
 
 func TestParse_AgentMemory_AcceptsList(t *testing.T) {
@@ -1194,15 +1194,15 @@ events:
 
 func TestParseOverrideFile_Hooks_DecodesAndStores(t *testing.T) {
 	dir := t.TempDir()
-	hooksDir := filepath.Join(dir, "xcf", "hooks", "pre-commit")
+	hooksDir := filepath.Join(dir, "xcaf", "hooks", "pre-commit")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
 
 	content := "---\nname: pre-commit\nartifacts:\n  - lint.sh\n  - format.sh\n---\n"
-	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "hooks.claude.xcf"), []byte(content), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, "hooks.claude.xcaf"), []byte(content), 0o644))
 
 	config := &ast.XcaffoldConfig{}
 	entry := overrideFileEntry{
-		Path:     filepath.Join(hooksDir, "hooks.claude.xcf"),
+		Path:     filepath.Join(hooksDir, "hooks.claude.xcaf"),
 		Kind:     "hooks",
 		Provider: "claude",
 	}
@@ -1219,15 +1219,15 @@ func TestParseOverrideFile_Hooks_DecodesAndStores(t *testing.T) {
 
 func TestParseOverrideFile_Settings_DecodesAndStores(t *testing.T) {
 	dir := t.TempDir()
-	settingsDir := filepath.Join(dir, "xcf", "settings", "default")
+	settingsDir := filepath.Join(dir, "xcaf", "settings", "default")
 	require.NoError(t, os.MkdirAll(settingsDir, 0o755))
 
 	content := "---\nname: default\nauto-memory-enabled: true\n---\n"
-	require.NoError(t, os.WriteFile(filepath.Join(settingsDir, "settings.gemini.xcf"), []byte(content), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(settingsDir, "settings.gemini.xcaf"), []byte(content), 0o644))
 
 	config := &ast.XcaffoldConfig{}
 	entry := overrideFileEntry{
-		Path:     filepath.Join(settingsDir, "settings.gemini.xcf"),
+		Path:     filepath.Join(settingsDir, "settings.gemini.xcaf"),
 		Kind:     "settings",
 		Provider: "gemini",
 	}
@@ -1245,15 +1245,15 @@ func TestParseOverrideFile_Settings_DecodesAndStores(t *testing.T) {
 
 func TestParseOverrideFile_Policy_DecodesAndStores(t *testing.T) {
 	dir := t.TempDir()
-	policyDir := filepath.Join(dir, "xcf", "policies", "require-desc")
+	policyDir := filepath.Join(dir, "xcaf", "policies", "require-desc")
 	require.NoError(t, os.MkdirAll(policyDir, 0o755))
 
 	content := "---\nname: require-desc\nseverity: error\ntarget: agent\n---\n"
-	require.NoError(t, os.WriteFile(filepath.Join(policyDir, "policy.cursor.xcf"), []byte(content), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(policyDir, "policy.cursor.xcaf"), []byte(content), 0o644))
 
 	config := &ast.XcaffoldConfig{}
 	entry := overrideFileEntry{
-		Path:     filepath.Join(policyDir, "policy.cursor.xcf"),
+		Path:     filepath.Join(policyDir, "policy.cursor.xcaf"),
 		Kind:     "policy",
 		Provider: "cursor",
 	}
@@ -1271,15 +1271,15 @@ func TestParseOverrideFile_Policy_DecodesAndStores(t *testing.T) {
 
 func TestParseOverrideFile_Template_DecodesAndStoresWithBody(t *testing.T) {
 	dir := t.TempDir()
-	tmplDir := filepath.Join(dir, "xcf", "templates", "scaffold")
+	tmplDir := filepath.Join(dir, "xcaf", "templates", "scaffold")
 	require.NoError(t, os.MkdirAll(tmplDir, 0o755))
 
 	content := "---\nname: scaffold\ndescription: Project scaffold template\ndefault-target: claude\n---\nThis is the template body content.\nIt supports multiple lines."
-	require.NoError(t, os.WriteFile(filepath.Join(tmplDir, "template.copilot.xcf"), []byte(content), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmplDir, "template.copilot.xcaf"), []byte(content), 0o644))
 
 	config := &ast.XcaffoldConfig{}
 	entry := overrideFileEntry{
-		Path:     filepath.Join(tmplDir, "template.copilot.xcf"),
+		Path:     filepath.Join(tmplDir, "template.copilot.xcaf"),
 		Kind:     "template",
 		Provider: "copilot",
 	}
@@ -1299,15 +1299,15 @@ func TestParseOverrideFile_Template_DecodesAndStoresWithBody(t *testing.T) {
 
 func TestParseOverrideFile_Memory_NoOp(t *testing.T) {
 	dir := t.TempDir()
-	memDir := filepath.Join(dir, "xcf", "agents", "dev", "memory")
+	memDir := filepath.Join(dir, "xcaf", "agents", "dev", "memory")
 	require.NoError(t, os.MkdirAll(memDir, 0o755))
 
 	content := "---\nname: context\n---\nSome memory content that should be ignored for overrides."
-	require.NoError(t, os.WriteFile(filepath.Join(memDir, "memory.claude.xcf"), []byte(content), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(memDir, "memory.claude.xcaf"), []byte(content), 0o644))
 
 	config := &ast.XcaffoldConfig{}
 	entry := overrideFileEntry{
-		Path:     filepath.Join(memDir, "memory.claude.xcf"),
+		Path:     filepath.Join(memDir, "memory.claude.xcaf"),
 		Kind:     "memory",
 		Provider: "claude",
 	}
@@ -1319,11 +1319,11 @@ func TestParseOverrideFile_Memory_NoOp(t *testing.T) {
 
 func TestParseOverrideFile_UnsupportedKind_ReturnsError(t *testing.T) {
 	dir := t.TempDir()
-	badDir := filepath.Join(dir, "xcf", "bad", "thing")
+	badDir := filepath.Join(dir, "xcaf", "bad", "thing")
 	require.NoError(t, os.MkdirAll(badDir, 0o755))
 
 	content := "---\nname: thing\n---\n"
-	fpath := filepath.Join(badDir, "bogus.claude.xcf")
+	fpath := filepath.Join(badDir, "bogus.claude.xcaf")
 	require.NoError(t, os.WriteFile(fpath, []byte(content), 0o644))
 
 	config := &ast.XcaffoldConfig{}
@@ -1515,15 +1515,15 @@ func TestValidateCrossReferencesAsList_AllResolved_NoIssues(t *testing.T) {
 
 func TestParseDirectory_SkipGlobal_DoesNotLoadGlobalBase(t *testing.T) {
 	dir := t.TempDir()
-	xcfDir := filepath.Join(dir, "xcf")
-	os.MkdirAll(xcfDir, 0755)
+	xcafDir := filepath.Join(dir, "xcaf")
+	os.MkdirAll(xcafDir, 0755)
 
-	projectXcf := filepath.Join(xcfDir, "project.xcf")
-	os.WriteFile(projectXcf, []byte("---\nkind: project\nversion: \"1.0\"\nname: test-project\n---\n"), 0644)
+	projectXcaf := filepath.Join(xcafDir, "project.xcaf")
+	os.WriteFile(projectXcaf, []byte("---\nkind: project\nversion: \"1.0\"\nname: test-project\n---\n"), 0644)
 
-	agentDir := filepath.Join(xcfDir, "agents", "worker")
+	agentDir := filepath.Join(xcafDir, "agents", "worker")
 	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "agent.xcf"), []byte("---\nkind: agent\nversion: \"1.0\"\nname: worker\ndescription: \"Test agent\"\ntools: [Read]\n---\nDo work.\n"), 0644)
+	os.WriteFile(filepath.Join(agentDir, "agent.xcaf"), []byte("---\nkind: agent\nversion: \"1.0\"\nname: worker\ndescription: \"Test agent\"\ntools: [Read]\n---\nDo work.\n"), 0644)
 
 	cfg, err := ParseDirectory(dir, WithSkipGlobal())
 	require.NoError(t, err)

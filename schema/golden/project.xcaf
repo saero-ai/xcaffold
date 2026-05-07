@@ -7,7 +7,7 @@ author: "Golden Author"
 homepage: "https://example.com/golden-project"
 repository: "https://github.com/example/golden-project"
 license: "MIT"
-backup-dir: ".xcf-backup"
+backup-dir: ".xcaf-backup"
 
 # Test configuration for xcaffold test
 test:
@@ -26,7 +26,7 @@ local:
   include-git-instructions: true
   skip-dangerous-mode-permission-prompt: false
   auto-memory-enabled: true
-  auto-memory-directory: .xcf/memory
+  auto-memory-directory: .xcaf/memory
   always-thinking-enabled: false
   cleanup-period-days: 30
   respect-gitignore: true
