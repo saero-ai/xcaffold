@@ -46,9 +46,11 @@ func crossProviderFixture(t *testing.T) (*ast.XcaffoldConfig, string) {
 	))
 
 	// Create a reference file for the skill.
-	require.NoError(t, os.MkdirAll(filepath.Join(baseDir, "refs"), 0o755))
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	skillBase := filepath.Join(baseDir, "xcaf", "skills", "test-skill")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "refs"), 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(baseDir, "refs", "doc.md"),
+		filepath.Join(skillBase, "refs", "doc.md"),
 		[]byte("# Reference Doc"),
 		0o644,
 	))

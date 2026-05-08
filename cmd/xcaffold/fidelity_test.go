@@ -30,12 +30,13 @@ func TestPrintFidelityNotes_Suppressed(t *testing.T) {
 
 	suppressed := map[string]bool{"reviewer": true}
 	filtered := renderer.FilterNotes(notes, suppressed)
+	// When verbose=false, warning notes should not be printed (even if not suppressed)
 	printed := printFidelityNotes(&buf, filtered, false)
-	assert.Equal(t, 0, printed, "suppressed note must not be printed")
+	assert.Equal(t, 0, printed, "empty filtered notes must not be printed")
 	assert.Empty(t, buf.String())
 }
 
-func TestPrintFidelityNotes_StrictMode_PromotesWarningToError(t *testing.T) {
+func TestPrintFidelityNotes_VerboseMode_PrintsWarnings(t *testing.T) {
 	var buf bytes.Buffer
 
 	notes := []renderer.FidelityNote{
@@ -51,12 +52,13 @@ func TestPrintFidelityNotes_StrictMode_PromotesWarningToError(t *testing.T) {
 		),
 	}
 
+	// When verbose=true, warnings should be printed
 	printed := printFidelityNotes(&buf, notes, true)
 	assert.Equal(t, 1, printed)
-	assert.Contains(t, buf.String(), "ERROR")
+	assert.Contains(t, buf.String(), "WARNING")
 }
 
-func TestPrintFidelityNotes_WarnMode_DefaultPrefix(t *testing.T) {
+func TestPrintFidelityNotes_VerboseFalse_FiltersWarnings(t *testing.T) {
 	var buf bytes.Buffer
 
 	notes := []renderer.FidelityNote{
@@ -69,9 +71,10 @@ func TestPrintFidelityNotes_WarnMode_DefaultPrefix(t *testing.T) {
 		),
 	}
 
+	// When verbose=false, warnings should be filtered out
 	printed := printFidelityNotes(&buf, notes, false)
-	assert.Equal(t, 1, printed)
-	assert.Contains(t, buf.String(), "WARNING (cursor):")
+	assert.Equal(t, 0, printed)
+	assert.Empty(t, buf.String())
 }
 
 func TestBuildSuppressedResourcesMap_PicksUpAgentOverride(t *testing.T) {

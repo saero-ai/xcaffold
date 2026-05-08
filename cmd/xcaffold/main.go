@@ -40,6 +40,9 @@ var globalXcafHome string
 // noColorFlag disables colored output in TTY.
 var noColorFlag bool
 
+// verboseFlag enables verbose output (fidelity notes, policy warnings).
+var verboseFlag bool
+
 type driftDetectedError struct {
 	msg string
 }
@@ -89,6 +92,12 @@ func init() {
 		"no-color",
 		false,
 		"disable color output",
+	)
+	rootCmd.PersistentFlags().BoolVar(
+		&verboseFlag,
+		"verbose",
+		false,
+		"show fidelity notes and policy warnings",
 	)
 	_ = rootCmd.PersistentFlags().MarkHidden("global")
 	rootCmd.PersistentFlags().String("xcaf", "", "Display schema for a resource kind")

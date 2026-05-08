@@ -469,10 +469,13 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	r := cursor.New()
 
 	// Provide real files so compileCursorSkillSubdir can read them.
+	// Files live at xcaf/skills/<id>/ since paths are skill-dir-relative.
 	tmpDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "main.go"), []byte("package main"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "setup.sh"), []byte("#!/bin/bash"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "icon.png"), []byte("\x89PNG"), 0o644))
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "rich-skill")
+	require.NoError(t, os.MkdirAll(skillBase, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "main.go"), []byte("package main"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "setup.sh"), []byte("#!/bin/bash"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "icon.png"), []byte("\x89PNG"), 0o644))
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -1171,7 +1174,9 @@ func TestCursorRenderer_SkillScriptsEmitted(t *testing.T) {
 	r := cursor.New()
 
 	tmpDir := t.TempDir()
-	scriptPath := filepath.Join(tmpDir, "scripts")
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "setup")
+	scriptPath := filepath.Join(skillBase, "scripts")
 	require.NoError(t, os.MkdirAll(scriptPath, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(scriptPath, "install.sh"), []byte("#!/bin/bash\necho hello"), 0o644))
 
@@ -1204,7 +1209,9 @@ func TestCursorRenderer_SkillAssetsEmitted(t *testing.T) {
 	r := cursor.New()
 
 	tmpDir := t.TempDir()
-	assetPath := filepath.Join(tmpDir, "assets")
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "gen")
+	assetPath := filepath.Join(skillBase, "assets")
 	require.NoError(t, os.MkdirAll(assetPath, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(assetPath, "template.txt"), []byte("hello world"), 0o644))
 
@@ -1235,7 +1242,9 @@ func TestCursorRenderer_SkillReferencesEmitted(t *testing.T) {
 	r := cursor.New()
 
 	tmpDir := t.TempDir()
-	refPath := filepath.Join(tmpDir, "refs")
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "db-setup")
+	refPath := filepath.Join(skillBase, "refs")
 	require.NoError(t, os.MkdirAll(refPath, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(refPath, "schema.sql"), []byte("CREATE TABLE t(id INT);"), 0o644))
 
@@ -1430,8 +1439,10 @@ func TestCompileCursorRule_LegacyAlwaysApply_False(t *testing.T) {
 
 func TestCompile_SkillWithExamples_Cursor(t *testing.T) {
 	tmpDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "examples"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample"), 0o644))
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "my-skill")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "examples"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "examples", "sample.md"), []byte("# Sample"), 0o644))
 
 	skills := map[string]ast.SkillConfig{
 		"my-skill": {

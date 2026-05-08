@@ -376,6 +376,9 @@ func writeSkillFiles(config *ast.XcaffoldConfig, xcafDir, version string, skillF
 		if skill.Name == "" {
 			skill.Name = k
 		}
+
+		normalizeSkillPaths(&skill, k)
+
 		body := strings.TrimSpace(skill.Body)
 		doc := skillDoc{Kind: "skill", Version: version, SkillConfig: skill}
 
@@ -406,6 +409,22 @@ func writeSkillFiles(config *ast.XcaffoldConfig, xcafDir, version string, skillF
 		}
 	}
 	return nil
+}
+
+func normalizeSkillPaths(skill *ast.SkillConfig, skillID string) {
+	prefix := "xcaf/skills/" + skillID + "/"
+	for i, ref := range skill.References.Values {
+		skill.References.Values[i] = strings.TrimPrefix(ref, prefix)
+	}
+	for i, s := range skill.Scripts.Values {
+		skill.Scripts.Values[i] = strings.TrimPrefix(s, prefix)
+	}
+	for i, a := range skill.Assets.Values {
+		skill.Assets.Values[i] = strings.TrimPrefix(a, prefix)
+	}
+	for i, e := range skill.Examples.Values {
+		skill.Examples.Values[i] = strings.TrimPrefix(e, prefix)
+	}
 }
 
 // writeRuleFiles writes all rules from config to xcaf/rules/ directory.

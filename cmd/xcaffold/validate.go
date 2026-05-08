@@ -180,7 +180,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 			fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
 		} else {
 			filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag))
-			printFidelityNotes(os.Stderr, filteredNotes, false)
+			printFidelityNotes(os.Stderr, filteredNotes, verboseFlag)
 			if targetFlag != "" {
 				if err := checkFidelityErrors(filteredNotes); err != nil {
 					fmt.Println()
@@ -203,7 +203,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 				policiesChecked = countBuiltinPolicies()
 			}
 
-			if len(policyWarnings) > 0 {
+			if len(policyWarnings) > 0 && verboseFlag {
 				fmt.Println()
 				fmt.Println("  policy warnings:")
 				for _, v := range policyWarnings {

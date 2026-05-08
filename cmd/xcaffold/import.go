@@ -478,7 +478,7 @@ func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderMa
 	appendCopied := func(src, canonicalSubdir, filename string) {
 		// The xcaf-relative path is always outDir-agnostic — it is what gets
 		// stored in AST SkillConfig fields (References, Scripts, Assets, Examples).
-		xcafRelPath := filepath.ToSlash(filepath.Join("xcaf", "skills", id, canonicalSubdir, filename))
+		xcafRelPath := filepath.ToSlash(filepath.Join(canonicalSubdir, filename))
 		var dest string
 		if base != "" {
 			dest = filepath.Join(base, "xcaf", "skills", id, canonicalSubdir, filename)
@@ -665,20 +665,11 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 		for id := range config.Skills {
 			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				refs, scripts, fileAssets, fileExamples, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				_, _, _, _, discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				if subdirsErr != nil {
+					*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs %s: %v", id, subdirsErr))
+				}
 				sc := config.Skills[id]
-				if len(refs) > 0 {
-					sc.References = ast.ClearableList{Values: refs}
-				}
-				if len(scripts) > 0 {
-					sc.Scripts = ast.ClearableList{Values: scripts}
-				}
-				if len(fileAssets) > 0 {
-					sc.Assets = ast.ClearableList{Values: fileAssets}
-				}
-				if len(fileExamples) > 0 {
-					sc.Examples = ast.ClearableList{Values: fileExamples}
-				}
 				if len(discoveredDirs) > 0 {
 					sc.Artifacts = discoveredDirs
 				}
@@ -725,20 +716,11 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 		for id := range tmpConfig.Skills {
 			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				refs, scripts, fileAssets, fileExamples, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				_, _, _, _, discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				if subdirsErr != nil {
+					*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs %s: %v", id, subdirsErr))
+				}
 				sc := tmpConfig.Skills[id]
-				if len(refs) > 0 {
-					sc.References = ast.ClearableList{Values: refs}
-				}
-				if len(scripts) > 0 {
-					sc.Scripts = ast.ClearableList{Values: scripts}
-				}
-				if len(fileAssets) > 0 {
-					sc.Assets = ast.ClearableList{Values: fileAssets}
-				}
-				if len(fileExamples) > 0 {
-					sc.Examples = ast.ClearableList{Values: fileExamples}
-				}
 				if len(discoveredDirs) > 0 {
 					sc.Artifacts = discoveredDirs
 				}

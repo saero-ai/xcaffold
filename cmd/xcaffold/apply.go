@@ -291,7 +291,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	// Check for error-level fidelity notes (e.g., missing required fields).
 	// Print all notes first (so the user sees them), then fail if any are errors.
 	filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, targetFlag))
-	printFidelityNotes(os.Stderr, filteredNotes, false)
+	printFidelityNotes(os.Stderr, filteredNotes, verboseFlag)
 	if err := checkFidelityErrors(filteredNotes); err != nil {
 		return &silentError{msg: err.Error()}
 	}
@@ -304,7 +304,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	policyErrors := policy.FilterBySeverity(violations, policy.SeverityError)
 	policyWarnings := policy.FilterBySeverity(violations, policy.SeverityWarning)
 
-	if len(policyWarnings) > 0 {
+	if len(policyWarnings) > 0 && verboseFlag {
 		fmt.Fprint(os.Stderr, policy.FormatViolations(policyWarnings))
 	}
 	if len(policyErrors) > 0 {

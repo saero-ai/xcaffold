@@ -98,11 +98,18 @@ func FlattenToSkillRoot(id, canonicalName string, paths []string, baseDir string
 // outputSubdir is the provider-native directory name written to the output path (e.g. "resources").
 // Passing the same value for both parameters produces identity translation.
 //
-// Each pattern in paths is resolved relative to baseDir. Path traversal above
-// baseDir is rejected. Glob patterns are expanded; literal paths are read directly.
-func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string, baseDir string, out *output.Output) error {
+// Each pattern in paths is resolved relative to filepath.Join(baseDir, skillSourceDir).
+// skillSourceDir is the skill-source root within the project (e.g. "xcaf/skills/<id>").
+// Pass an empty string to resolve patterns directly from baseDir (legacy behavior).
+// Path traversal above baseDir is rejected. Glob patterns are expanded; literal paths are read directly.
+func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string, baseDir, skillSourceDir string, out *output.Output) error {
 	if len(paths) == 0 {
 		return nil
+	}
+
+	cleanedSourceDir := filepath.Clean(skillSourceDir)
+	if cleanedSourceDir != "." && strings.HasPrefix(cleanedSourceDir, "..") {
+		return fmt.Errorf("skill source directory %q contains path traversal", skillSourceDir)
 	}
 
 	for _, pattern := range paths {
@@ -112,7 +119,7 @@ func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string
 			return fmt.Errorf("%s path %q traverses above the project root", canonicalSubdir, pattern)
 		}
 
-		absPattern := filepath.Join(baseDir, cleanedPattern)
+		absPattern := filepath.Join(baseDir, skillSourceDir, cleanedPattern)
 
 		// Expand glob patterns (e.g. "docs/schema/*.sql")
 		matches, err := filepath.Glob(absPattern)

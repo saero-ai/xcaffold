@@ -19,7 +19,8 @@ import (
 // with instructions-file: uses the file body as its system prompt.
 func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 	dir := t.TempDir()
-	refDir := filepath.Join(dir, "skills", "flutter-integration", "references")
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	refDir := filepath.Join(dir, "xcaf", "skills", "flutter-integration", "references")
 	require.NoError(t, os.MkdirAll(refDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(refDir, "advanced-patterns.md"), []byte("# Advanced Patterns"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(refDir, "lottie-guide.md"), []byte("# Lottie Guide"), 0600))
@@ -31,8 +32,8 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 					Description: "Flutter SVG and Lottie integration",
 					Body:        "Integrate SVG and Lottie into Flutter apps.",
 					References: ast.ClearableList{Values: []string{
-						"skills/flutter-integration/references/advanced-patterns.md",
-						"skills/flutter-integration/references/lottie-guide.md",
+						"references/advanced-patterns.md",
+						"references/lottie-guide.md",
 					}},
 				},
 			},
@@ -57,7 +58,8 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 // in references: expand to multiple files.
 func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 	dir := t.TempDir()
-	refDir := filepath.Join(dir, "skills", "design", "refs")
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	refDir := filepath.Join(dir, "xcaf", "skills", "design", "refs")
 	require.NoError(t, os.MkdirAll(refDir, 0755))
 	for _, name := range []string{"colors.md", "typography.md", "layout.md"} {
 		require.NoError(t, os.WriteFile(filepath.Join(refDir, name), []byte("# "+name), 0600))
@@ -68,7 +70,7 @@ func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"design": {
 					Body:       "Design system patterns.",
-					References: ast.ClearableList{Values: []string{"skills/design/refs/*.md"}},
+					References: ast.ClearableList{Values: []string{"refs/*.md"}},
 				},
 			},
 		},

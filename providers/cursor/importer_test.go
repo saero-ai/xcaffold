@@ -84,7 +84,7 @@ func TestCursorClassify_SkillAssetFile(t *testing.T) {
 	assert.Equal(t, importer.DirectoryPerEntry, layout)
 }
 
-func TestCursorExtract_SkillCompanionFilePopulatesReferences(t *testing.T) {
+func TestCursorExtract_SkillCompanionFilePopulatesArtifacts(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.Skills = map[string]ast.SkillConfig{
 		"code-review": {Name: "code-review", SourceProvider: "cursor"},
@@ -93,7 +93,7 @@ func TestCursorExtract_SkillCompanionFilePopulatesReferences(t *testing.T) {
 	err := imp.Extract("skills/code-review/references/guide.md", []byte("# Guide"), config)
 	require.NoError(t, err)
 	skill := config.Skills["code-review"]
-	assert.Contains(t, skill.References.Values, "references/guide.md")
+	assert.Contains(t, skill.Artifacts, "references")
 }
 
 func TestCursorImporter_Provider(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -221,7 +222,8 @@ func DefaultExtractRule(rel string, data []byte, provider string, config *ast.Xc
 	return nil
 }
 
-// DefaultExtractSkillAsset records skill companion files (references/*, scripts/*, assets/*).
+// DefaultExtractSkillAsset records skill companion subdirectories (references/, scripts/, assets/, examples/)
+// by adding the subdirectory name to the artifacts list.
 // The file path must follow the pattern: skills/<skillId>/<subDir>/<rest>.
 func DefaultExtractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) error {
 	parts := strings.SplitN(filepath.ToSlash(rel), "/", 4)
@@ -230,19 +232,16 @@ func DefaultExtractSkillAsset(rel string, _ []byte, config *ast.XcaffoldConfig) 
 	}
 	skillID := parts[1]
 	subDir := parts[2]
-	relWithinSkill := subDir + "/" + parts[3]
 
 	if config.Skills == nil {
 		config.Skills = make(map[string]ast.SkillConfig)
 	}
 	skill := config.Skills[skillID]
 	switch subDir {
-	case "references":
-		skill.References = ast.ClearableList{Values: AppendUnique(skill.References.Values, relWithinSkill)}
-	case "scripts":
-		skill.Scripts = ast.ClearableList{Values: AppendUnique(skill.Scripts.Values, relWithinSkill)}
-	case "assets", "examples":
-		skill.Assets = ast.ClearableList{Values: AppendUnique(skill.Assets.Values, relWithinSkill)}
+	case "references", "scripts", "assets", "examples":
+		if !slices.Contains(skill.Artifacts, subDir) {
+			skill.Artifacts = append(skill.Artifacts, subDir)
+		}
 	default:
 		return fmt.Errorf("skill asset: unknown subdirectory %q in %q", subDir, rel)
 	}

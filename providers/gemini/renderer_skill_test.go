@@ -114,10 +114,12 @@ func TestCompile_Gemini_Skills_ReferencesDropped(t *testing.T) {
 
 func TestCompile_Gemini_Skills_WithSubdirs(t *testing.T) {
 	tmpDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "refs", "guide.md"), []byte("# Guide"), 0o644))
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "examples"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample"), 0o644))
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "my-skill")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "refs"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "refs", "guide.md"), []byte("# Guide"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "examples"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "examples", "sample.md"), []byte("# Sample"), 0o644))
 
 	skills := map[string]ast.SkillConfig{
 		"my-skill": {
