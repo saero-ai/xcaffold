@@ -296,6 +296,15 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		return &silentError{msg: err.Error()}
 	}
 
+	// Security invariants check. Run before policy evaluation.
+	// Invariant violations are always fatal — no --verbose gating.
+	if errs := policy.RunInvariants(config, out); len(errs) > 0 {
+		for _, e := range errs {
+			fmt.Fprintf(os.Stderr, "%s  %s\n", colorRed(glyphErr()), e)
+		}
+		return &silentError{msg: fmt.Sprintf("apply blocked: %d security invariant(s) violated", len(errs))}
+	}
+
 	// Policy evaluation. Run against config post-Compile() — compiler.Compile
 	// has already called StripInherited() so globally-inherited resources (e.g.
 	// from ~/.xcaffold/global.xcaf) are absent. Policies only evaluate what was
