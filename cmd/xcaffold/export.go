@@ -66,7 +66,7 @@ func runExport(cmd *cobra.Command, args []string) error {
 	compiled.Files = optimized
 	notes = append(notes, optNotes...)
 
-	printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, exportTarget)), false)
+	printFidelityNotes(os.Stderr, renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, exportTarget)), verboseFlag)
 
 	exported, err := compiler.ExportPlugin(config, compiled, exportTarget)
 	if err != nil {
