@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/providers"
 )
 
@@ -29,7 +30,7 @@ func pluginDirForTarget(target string) (string, error) {
 // target selects the output platform.
 // Settings files are excluded (they are environment-specific), and the hooks
 // file is relocated under a hooks/ subdirectory.
-func ExportPlugin(config *ast.XcaffoldConfig, compiled *Output, target string) (*Output, error) {
+func ExportPlugin(config *ast.XcaffoldConfig, compiled *output.Output, target string) (*output.Output, error) {
 	if config.Project == nil {
 		return nil, fmt.Errorf("ExportPlugin requires a project configuration")
 	}
@@ -39,7 +40,7 @@ func ExportPlugin(config *ast.XcaffoldConfig, compiled *Output, target string) (
 		return nil, err
 	}
 
-	out := &Output{
+	out := &output.Output{
 		Files: make(map[string]string),
 	}
 

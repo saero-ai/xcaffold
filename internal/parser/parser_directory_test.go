@@ -352,7 +352,7 @@ local:
 version: "1.0"
 name: "local-merge-test"
 local:
-  effortLevel: "low"
+  effort-level: "low"
 `)
 
 	cfg, err := ParseDirectory(dir)
@@ -383,7 +383,7 @@ func TestParseDirectory_ExtendsGlobal_InheritsSettings(t *testing.T) {
 version: "1.0"
 settings:
   model: "sonnet-4"
-  effortLevel: "high"
+  effort-level: "high"
   env:
     GLOBAL_KEY: "from-global"
 `)
@@ -394,7 +394,7 @@ settings:
 version: "1.0"
 extends: global
 settings:
-  effortLevel: "low"
+  effort-level: "low"
   env:
     PROJECT_KEY: "from-project"
 `)

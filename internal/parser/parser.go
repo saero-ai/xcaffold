@@ -67,11 +67,6 @@ func WithSkipGlobal() ParseDirOption {
 	return func(c *parseDirConfig) { c.skipGlobal = true }
 }
 
-// WithTarget sets the target provider for variable resolution.
-func WithTarget(target string) ParseDirOption {
-	return func(c *parseDirConfig) { c.Target = target }
-}
-
 // WithVarFile sets a custom variable file to use.
 func WithVarFile(path string) ParseDirOption {
 	return func(c *parseDirConfig) { c.VarFile = path }
@@ -160,248 +155,15 @@ func Parse(r io.Reader) (*ast.XcaffoldConfig, error) {
 	return config, nil
 }
 
-// legacyKeyAliases maps pre-migration camelCase/snake_case xcaf YAML keys to their
-// canonical kebab-case equivalents. This rewrite is applied per-document (after
-// splitting on "---") to provide a deprecation-period grace window.
-//
-// IMPORTANT: Keys inside "kind: settings" documents are provider wire-format
-// pass-throughs and are intentionally excluded from aliasing.
-//
-// TODO: Remove this map and the rewriting logic once the deprecation window closes
-// (target: next major version after migration lands).
-var legacyKeyAliases = map[string]string{
-	// AgentConfig — camelCase (pre-migration convention for agent fields)
-	"maxTurns:":               "max-turns:",
-	"disallowedTools:":        "disallowed-tools:",
-	"permissionMode:":         "permission-mode:",
-	"disableModelInvocation:": "disable-model-invocation:",
-	"userInvocable:":          "user-invocable:",
-	"initialPrompt:":          "initial-prompt:",
-	// NOTE: "mcpServers:" aliasing for non-settings documents is handled below in
-	// the SettingsConfig block. The "kind: settings" document exemption in
-	// isSettingsDocument protects standalone settings files (provider wire-format
-	// pass-throughs). The alias only fires for non-settings xcaf documents (e.g.
-	// kind: global, kind: project) where the settings: sub-block uses the xcaf
-	// schema key "mcp-servers:" going forward.
-	// HookHandler — camelCase Claude-settings mirror (pre-migration convention)
-	"statusMessage:":  "status-message:",
-	"allowedEnvVars:": "allowed-env-vars:",
-	// AgentConfig / SkillConfig / RuleConfig / WorkflowConfig
-	"instructions_file:": "instructions-file:",
-	// RuleConfig
-	"alwaysApply:": "always-apply:",
-	// TargetOverride
-	"suppress_fidelity_warnings:": "suppress-fidelity-warnings:",
-	"skip_synthesis:":             "skip-synthesis:",
-	"instructions_override:":      "instructions-override:",
-	// ProjectConfig
-	"backup_dir:": "backup-dir:",
-	// TestConfig
-	"cli_path:":    "cli-path:",
-	"judge_model:": "judge-model:",
-	// PolicyMatch
-	"has_tool:":        "has-tool:",
-	"has_field:":       "has-field:",
-	"name_matches:":    "name-matches:",
-	"target_includes:": "target-includes:",
-	// PolicyRequire
-	"is_present:": "is-present:",
-	"min_length:": "min-length:",
-	"max_count:":  "max-count:",
-	"one_of:":     "one-of:",
-	// PolicyDeny
-	"content_contains:": "content-contains:",
-	"content_matches:":  "content-matches:",
-	"path_contains:":    "path-contains:",
-	// MCPConfig — camelCase (pre-migration)
-	"authProviderType:": "auth-provider-type:",
-	"disabledTools:":    "disabled-tools:",
-	// PermissionsConfig — camelCase (pre-migration)
-	"defaultMode:":                  "default-mode:",
-	"additionalDirectories:":        "additional-directories:",
-	"disableBypassPermissionsMode:": "disable-bypass-permissions-mode:",
-	// SandboxConfig — camelCase (pre-migration)
-	"autoAllowBashIfSandboxed:": "auto-allow-bash-if-sandboxed:",
-	"failIfUnavailable:":        "fail-if-unavailable:",
-	"allowUnsandboxedCommands:": "allow-unsandboxed-commands:",
-	"excludedCommands:":         "excluded-commands:",
-	// SandboxFilesystem — camelCase (pre-migration)
-	"allowWrite:": "allow-write:",
-	"denyWrite:":  "deny-write:",
-	"allowRead:":  "allow-read:",
-	"denyRead:":   "deny-read:",
-	// SandboxNetwork — camelCase (pre-migration)
-	"httpProxyPort:":           "http-proxy-port:",
-	"socksProxyPort:":          "socks-proxy-port:",
-	"allowManagedDomainsOnly:": "allow-managed-domains-only:",
-	"allowUnixSockets:":        "allow-unix-sockets:",
-	"allowLocalBinding:":       "allow-local-binding:",
-	"allowedDomains:":          "allowed-domains:",
-	// SettingsConfig — camelCase (pre-migration)
-	"autoMode:":                          "auto-mode:",
-	"cleanupPeriodDays:":                 "cleanup-period-days:",
-	"includeGitInstructions:":            "include-git-instructions:",
-	"skipDangerousModePermissionPrompt:": "skip-dangerous-mode-permission-prompt:",
-	"autoMemoryEnabled:":                 "auto-memory-enabled:",
-	"disableAllHooks:":                   "disable-all-hooks:",
-	"mcpServers:":                        "mcp-servers:",
-	"statusLine:":                        "status-line:",
-	"respectGitignore:":                  "respect-gitignore:",
-	"enabledPlugins:":                    "enabled-plugins:",
-	"disableSkillShellExecution:":        "disable-skill-shell-execution:",
-	"alwaysThinkingEnabled:":             "always-thinking-enabled:",
-	"effortLevel:":                       "effort-level:",
-	"defaultShell:":                      "default-shell:",
-	"outputStyle:":                       "output-style:",
-	"plansDirectory:":                    "plans-directory:",
-	"otelHeadersHelper:":                 "otel-headers-helper:",
-	"autoMemoryDirectory:":               "auto-memory-directory:",
-	"availableModels:":                   "available-models:",
-}
-
-// rewriteLegacyKeys rewrites pre-migration xcaf YAML keys to kebab-case equivalents
-// on a per-document basis. The "kind: settings" document type is exempt — settings
-// fields are provider-native pass-throughs that must not be mangled.
-//
-// Detection is line-oriented: the rewriter scans for "key:" at the start of a
-// non-indented line (scalar key), which is sufficient for all affected fields.
-// Indented values and YAML strings are not affected.
-func rewriteLegacyKeys(data []byte) []byte {
-	// Split into per-document segments on "---" boundaries so each document
-	// can be checked for "kind: settings" independently.
-	type segment struct {
-		sep  []byte // leading "---\n" or nil for first doc
-		body []byte
-	}
-
-	var segments []segment
-	rest := data
-
-	// First segment: content before the first "---"
-	if idx := bytes.Index(rest, []byte("\n---")); idx >= 0 {
-		segments = append(segments, segment{nil, rest[:idx+1]})
-		rest = rest[idx+1:]
-	} else {
-		segments = append(segments, segment{nil, rest})
-		rest = nil
-	}
-
-	// Remaining segments: split on "\n---\n" or "\n---" at EOF
-	for len(rest) > 0 {
-		markerEnd := 4 // len("---\n")
-		if len(rest) < 4 || !bytes.HasPrefix(rest, []byte("---")) {
-			// Shouldn't happen; append as-is.
-			segments = append(segments, segment{nil, rest})
-			break
-		}
-		// Find next "---"
-		next := bytes.Index(rest[3:], []byte("\n---"))
-		if next < 0 {
-			segments = append(segments, segment{[]byte("---\n"), rest[markerEnd:]})
-			break
-		}
-		cutAt := 3 + next + 1 // position of "\n" before next "---"
-		segments = append(segments, segment{[]byte("---\n"), rest[markerEnd:cutAt]})
-		rest = rest[cutAt:]
-	}
-
-	var out bytes.Buffer
-	for _, seg := range segments {
-		out.Write(seg.sep)
-		// Check if this document is "kind: settings" — exempt from aliasing.
-		if isSettingsDocument(seg.body) {
-			out.Write(seg.body)
-			continue
-		}
-		out.Write(rewriteDocumentKeys(seg.body))
-	}
-	return out.Bytes()
-}
-
-// isSettingsDocument returns true if the document declares "kind: settings"
-// at the top level. Indented "kind: settings" values inside nested maps do
-// not qualify — only a zero-indent top-level kind discriminator matters.
-func isSettingsDocument(doc []byte) bool {
-	for _, line := range bytes.Split(doc, []byte("\n")) {
-		// Only consider top-level lines (no leading whitespace).
-		if len(line) == 0 || line[0] == ' ' || line[0] == '\t' {
-			continue
-		}
-		if line[0] == '#' {
-			continue
-		}
-		trimmed := bytes.TrimSpace(line)
-		if bytes.Equal(trimmed, []byte("kind: settings")) {
-			return true
-		}
-		if bytes.HasPrefix(trimmed, []byte("kind:")) {
-			// A top-level kind that isn't settings — this document is not exempt.
-			return false
-		}
-	}
-	return false
-}
-
-// rewriteDocumentKeys applies legacyKeyAliases to a single document body.
-// It rewrites any line (at any indentation level) whose key position starts
-// with a legacy key — preserving the original leading whitespace and any
-// YAML list-item marker ("- "). Comment lines (trimmed prefix "#") are skipped.
-//
-// This handles all field positions in the .xcaf YAML structure: top-level fields
-// (e.g. "backup-dir:"), nested fields (e.g. "  instructions-file:", "  max-turns:"),
-// and list-item fields (e.g. "  - content-contains:") which are common in
-// policy deny/require blocks.
-func rewriteDocumentKeys(doc []byte) []byte {
-	lines := bytes.Split(doc, []byte("\n"))
-	for i, line := range lines {
-		if len(line) == 0 {
-			continue
-		}
-		// Calculate leading whitespace length.
-		indent := 0
-		for indent < len(line) && (line[indent] == ' ' || line[indent] == '\t') {
-			indent++
-		}
-		// Skip comment lines and lines that are only whitespace.
-		if indent >= len(line) || line[indent] == '#' {
-			continue
-		}
-		// Advance past a YAML list-item marker ("- ") if present, so that
-		// "  - content_contains:" is treated like a key at deeper indent.
-		keyStart := indent
-		if keyStart+1 < len(line) && line[keyStart] == '-' && line[keyStart+1] == ' ' {
-			keyStart += 2
-		}
-		keyRegion := line[keyStart:]
-		for old, newKey := range legacyKeyAliases {
-			if bytes.HasPrefix(keyRegion, []byte(old)) {
-				// Reconstruct: prefix (indent + optional "- ") + new_key + remainder.
-				remainder := keyRegion[len(old):]
-				newLine := make([]byte, 0, keyStart+len(newKey)+len(remainder))
-				newLine = append(newLine, line[:keyStart]...)
-				newLine = append(newLine, newKey...)
-				newLine = append(newLine, remainder...)
-				lines[i] = newLine
-				break
-			}
-		}
-	}
-	return bytes.Join(lines, []byte("\n"))
-}
-
-// detectRejectedSnakeCaseKeys scans raw .xcaf YAML bytes (before legacy-key
-// rewriting) for snake_case keys that are rejected with a targeted diagnostic
-// rather than silently aliased to their kebab-case equivalents.
+// detectRejectedSnakeCaseKeys scans raw .xcaf YAML bytes for snake_case keys
+// that must use kebab-case instead. Returns a targeted diagnostic with the
+// correct spelling.
 //
 // Currently enforced:
-//   - instructions_file: in a kind: rule document must not be used. Authors
-//     must use instructions-file: (renamed in schema v1.1). The rewriter would
-//     silently alias this key, masking the usage. We surface it as an error
-//     with a message that includes the canonical name "instructions-file" so
-//     tooling and users know the correct spelling.
+//   - instructions_file: in a kind: rule document must be instructions-file:.
 func detectRejectedSnakeCaseKeys(data []byte) error {
-	// Split into per-document segments on "---" boundaries (same logic as
-	// rewriteLegacyKeys) so we can check kind per document.
+	// Split into per-document segments on "---" boundaries so we can
+	// check kind per document.
 	type segment struct{ body []byte }
 	var segments []segment
 	rest := data
@@ -572,16 +334,10 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 		return nil, err
 	}
 
-	// Detect pre-migration snake_case keys that are rejected (not silently aliased)
-	// for specific kinds. This scan runs before rewriteLegacyKeys so the original
-	// key spelling is still visible.
+	// Reject snake_case keys that must use kebab-case for specific kinds.
 	if err := detectRejectedSnakeCaseKeys(frontmatter); err != nil {
 		return nil, err
 	}
-
-	// Rewrite deprecated camelCase/snake_case keys to kebab-case before decoding.
-	// This provides backward compatibility during the migration period.
-	frontmatter = rewriteLegacyKeys(frontmatter)
 
 	config := &ast.XcaffoldConfig{}
 	decoder := yaml.NewDecoder(bytes.NewReader(frontmatter))

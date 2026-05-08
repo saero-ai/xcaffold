@@ -9,24 +9,8 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/compiler"
 	"gopkg.in/yaml.v3"
 )
-
-func agentMemoryIndex(rootDir string) map[string][]string {
-	discovered := compiler.DiscoverAgentMemory(rootDir, nil, nil)
-	idx := make(map[string][]string)
-	for key := range discovered {
-		parts := strings.SplitN(key, "/", 2)
-		if len(parts) == 2 {
-			idx[parts[0]] = append(idx[parts[0]], parts[1])
-		}
-	}
-	for id := range idx {
-		sort.Strings(idx[id])
-	}
-	return idx
-}
 
 // agentDoc is the serialization envelope for a kind: agent document.
 type agentDoc struct {
@@ -298,19 +282,6 @@ func sortedMapKeys[V any](m map[string]V) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-// refSet builds a lookup set from a list of resource reference names.
-// Returns nil when refs is empty, which callers interpret as "no filter — write all".
-func refSet(refs []string) map[string]bool {
-	if len(refs) == 0 {
-		return nil
-	}
-	s := make(map[string]bool, len(refs))
-	for _, r := range refs {
-		s[r] = true
-	}
-	return s
 }
 
 // isZeroSettings reports whether s is the zero value of SettingsConfig,

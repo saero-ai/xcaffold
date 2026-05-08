@@ -11,14 +11,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// kindHeader is a lightweight struct for extracting the kind discriminator
-// from a YAML document without decoding the full resource.
-type kindHeader struct {
-	Kind    string `yaml:"kind"`
-	Version string `yaml:"version"`
-	Name    string `yaml:"name"`
-}
-
 // agentDocument wraps AgentConfig with envelope fields for multi-kind parsing.
 // KnownFields(true) validates both envelope and agent-specific fields.
 // Name is not redeclared here — it is promoted from AgentConfig.Name to avoid

@@ -7,13 +7,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/saero-ai/xcaffold/internal/analyzer"
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
-	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/registry"
-	"github.com/saero-ai/xcaffold/providers"
 )
 
 func runGraphTerminalMode() error {
@@ -421,51 +418,6 @@ func groupRulesByFolder(ruleIDs []string) []ruleGroup {
 		return groups[i].prefix < groups[j].prefix
 	})
 	return groups
-}
-
-func printDiskEntriesIfAny(cfg *ast.XcaffoldConfig, parseRoot string) {
-	if !graphScanOutput {
-		return
-	}
-	a := analyzer.New()
-	declared := make(map[string]bool)
-	for id := range cfg.Agents {
-		declared["agent:"+id] = true
-	}
-	for id := range cfg.Skills {
-		declared["skill:"+id] = true
-	}
-	for id := range cfg.Rules {
-		declared["rule:"+id] = true
-	}
-	for id := range cfg.MCP {
-		declared["mcp:"+id] = true
-	}
-	for id := range cfg.Policies {
-		declared["policy:"+id] = true
-	}
-
-	outDir := compiler.OutputDir(targetFlag)
-	if outDir == "" {
-		// No target specified — use first registered provider's output dir.
-		for _, name := range providers.RegisteredNames() {
-			if d := compiler.OutputDir(name); d != "" {
-				outDir = d
-				break
-			}
-		}
-	}
-	if outDir == "" {
-		return // no providers registered, nothing to scan
-	}
-	targetDir := filepath.Join(parseRoot, outDir)
-	entries, err := a.ScanOutputDir(targetDir, declared)
-	if err == nil && len(entries) > 0 {
-		fmt.Printf("\n  [ UNDECLARED FILES ]  (!)\n")
-		for _, e := range entries {
-			fmt.Printf("      - [%s] %s\n", e.Kind, e.ID)
-		}
-	}
 }
 
 func pluralize(singular, plural string, count int) string {

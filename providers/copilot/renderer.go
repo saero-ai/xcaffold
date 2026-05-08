@@ -250,12 +250,6 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 	return files, rootFiles, nil, nil
 }
 
-// instructionsMode returns the effective instructions-mode for the Copilot renderer.
-// Always returns "flat" now that InstructionsMode has been deprecated.
-func instructionsMode(config *ast.XcaffoldConfig) string {
-	return "flat"
-}
-
 // claudeDirExists reports whether a .claude/ directory exists in baseDir.
 // It is used to determine whether to skip full translation and emit passthrough
 // fidelity notes instead. GitHub Copilot natively loads .claude/agents/,
@@ -273,12 +267,7 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 		return nil
 	}
 
-	mode := instructionsMode(config)
-	if mode == "nested" {
-		files[filepath.Clean("AGENTS.md")] = resolver.StripFrontmatter(rootContent)
-	} else {
-		files[filepath.Clean("copilot-instructions.md")] = resolver.StripFrontmatter(rootContent)
-	}
+	files[filepath.Clean("copilot-instructions.md")] = resolver.StripFrontmatter(rootContent)
 	return nil
 }
 

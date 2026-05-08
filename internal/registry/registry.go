@@ -54,18 +54,6 @@ version: "1.0"
 agents: {}
 `
 
-// RebuildGlobalXCAF re-scans all registered platform providers and rewrites
-// ~/.xcaffold/global.xcaf. Call this after installing a new provider or after
-// adding new global agents, skills, or rules to an existing one.
-func RebuildGlobalXCAF() error {
-	home, err := GlobalHome()
-	if err != nil {
-		return err
-	}
-	data := buildGlobalXCAF()
-	return os.WriteFile(filepath.Join(home, "global.xcaf"), data, 0600)
-}
-
 // EnsureGlobalHome creates ~/.xcaffold/ and its seed files if they don't exist.
 func EnsureGlobalHome() error {
 	home, err := GlobalHome()
@@ -76,9 +64,6 @@ func EnsureGlobalHome() error {
 	if err := os.MkdirAll(home, 0755); err != nil {
 		return fmt.Errorf("could not create global home: %w", err)
 	}
-
-	// Remove legacy settings.xcaf — preferences now live in global.xcaf's settings: block.
-	_ = os.Remove(filepath.Join(home, "settings.xcaf"))
 
 	projectsPath := filepath.Join(home, "registry.xcaf")
 	if _, err := os.Stat(projectsPath); os.IsNotExist(err) {
@@ -379,12 +364,7 @@ func readProjects() ([]Project, error) {
 		return wrapper.Projects, nil
 	}
 
-	// Fallback: legacy bare []Project array
-	var projects []Project
-	if err := yaml.Unmarshal(data, &projects); err != nil {
-		return nil, err
-	}
-	return projects, nil
+	return nil, fmt.Errorf("registry file must declare kind: registry")
 }
 
 func writeProjects(projects []Project) error {

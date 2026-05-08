@@ -330,8 +330,8 @@ mcp:
     type: "http"
     url: "https://example.com/mcp"
     disabled: true
-    disabledTools: ["dangerousTool"]
-    authProviderType: "custom"
+    disabled-tools: ["dangerousTool"]
+    auth-provider-type: "custom"
 `
 	config, err := Parse(strings.NewReader(input))
 	require.NoError(t, err)
@@ -347,7 +347,7 @@ mcp:
 	require.True(t, ok)
 	assert.True(t, *remote.Disabled)
 	assert.Contains(t, remote.DisabledTools, "dangerousTool")
-	assert.Equal(t, "custom", remote.AuthProviderType)
+	assert.Equal(t, "custom", remote.AuthProviderType) // Field name in struct is PascalCase
 }
 
 // ── ValidateFile: file-ref and duplicate-ID tests ──────────────────────────
@@ -534,7 +534,7 @@ func TestValidatePlugins_UnknownLocalPlugin(t *testing.T) {
 version: "1.0"
 name: "test"
 local:
-  enabledPlugins:
+  enabled-plugins:
     mystery-plugin: true
 `)
 	diags := ValidateFile(xcaf)
@@ -555,7 +555,7 @@ func TestValidatePlugins_BothBlocksUnknown(t *testing.T) {
 version: "1.0"
 name: "test"
 local:
-  enabledPlugins:
+  enabled-plugins:
     beta-plugin: true
 `)
 	writeXCAFFile(t, dir, "settings.xcaf", `kind: settings

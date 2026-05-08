@@ -110,37 +110,6 @@ var knownPlugins = map[string]bool{
 	"pr-review-toolkit": true,
 }
 
-// reservedOutputPrefixes are compiler output directories and well-known agent
-// config paths. instructions-file paths starting with these prefixes create
-// circular dependencies where the compiler reads its own output, or reference
-// files managed by other providers outside the project tree.
-var reservedOutputPrefixes = []string{
-	"~/.claude/",
-	"~/.gemini/",
-	".agents/",
-	".antigravity/",
-	".claude/",
-	".cursor/",
-	".cursorrules",
-	".gemini/",
-}
-
-// reservedOutputFilenames are root-level files written directly by the compiler.
-// Pointing instructions-file at one of these creates a circular read dependency.
-var reservedOutputFilenames = []string{
-	"CLAUDE.md",
-	"AGENTS.md",
-	"GEMINI.md",
-}
-
-// reservedOutputPaths are specific files and directories written by the compiler.
-// Exact-match and prefix-match are both applied (directory entries end with /).
-var reservedOutputPaths = []string{
-	".github/copilot-instructions.md",
-	".github/instructions/",
-	".github/prompts/",
-}
-
 // validateRuleActivations enforces activation enum and paths co-constraints
 // across all rules in the config. It also validates exclude-agents enum values
 // and emits a deprecation warning to stderr when always-apply is used without

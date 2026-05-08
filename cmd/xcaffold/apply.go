@@ -14,6 +14,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/optimizer"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/saero-ai/xcaffold/internal/registry"
@@ -427,7 +428,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 // Files from other providers are skipped and a FidelityNote is appended for
 // each skipped path. Provider keys and file paths within each provider are
 // sorted before iteration so note order is deterministic.
-func applyProviderExtras(config *ast.XcaffoldConfig, out *compiler.Output, target string, notes []renderer.FidelityNote) []renderer.FidelityNote {
+func applyProviderExtras(config *ast.XcaffoldConfig, out *output.Output, target string, notes []renderer.FidelityNote) []renderer.FidelityNote {
 	if len(config.ProviderExtras) == 0 {
 		return notes
 	}
@@ -583,7 +584,7 @@ func copyDir(src, dst string) error {
 
 // cleanOrphansFromState removes files from outputDir that were recorded in old
 // for the given target but are absent from the new compiler output.
-func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out *compiler.Output, outputDir, baseDir, scopeName string, hasChanges *bool) {
+func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out *output.Output, outputDir, baseDir, scopeName string, hasChanges *bool) {
 	orphans := state.FindOrphansFromState(oldManifest, target, out.Files, out.RootFiles)
 	for _, orphanPath := range orphans {
 		var absPath string

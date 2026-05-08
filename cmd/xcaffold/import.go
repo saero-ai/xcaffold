@@ -907,15 +907,6 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, data, 0600)
 }
 
-// fileSize returns the size of a file in bytes, or 0 if it can't be read.
-func fileSize(path string) int64 {
-	info, err := os.Stat(path)
-	if err != nil {
-		return 0
-	}
-	return info.Size()
-}
-
 // findImporterByProvider returns the registered ProviderImporter for the given
 // provider name, or nil when no importer is registered for that provider.
 func findImporterByProvider(provider string) importer.ProviderImporter {

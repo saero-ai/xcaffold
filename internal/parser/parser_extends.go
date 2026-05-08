@@ -30,8 +30,7 @@ func ParseFileExact(path string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, 
 }
 
 // loadGlobalBase implicitly discovers and loads the global configuration
-// from ~/.xcaffold/ (or falls back to legacy ~/.claude/global.xcaf).
-// It returns an empty config if no global config is found.
+// from ~/.xcaffold/. It returns an empty config if no global config is found.
 // Resources loaded from this base are tagged as Inherited=true during merge.
 func loadGlobalBase() (*ast.XcaffoldConfig, error) {
 	home, err := os.UserHomeDir()
@@ -107,13 +106,7 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars
 			return mergeConfigOverride(baseConfig, config), nil
 		}
 
-		legacyPath := filepath.Join(home, ".claude", "global.xcaf")
-		if _, err := os.Stat(legacyPath); err == nil {
-			fmt.Fprintf(os.Stderr, "WARNING: extends: global resolved from legacy path %s -- expected location is %s\n", legacyPath, xcaffoldDir)
-			basePath = legacyPath
-		} else {
-			return nil, fmt.Errorf("could not resolve 'extends: global': no global config found")
-		}
+		return nil, fmt.Errorf("could not resolve 'extends: global': no global config found")
 	} else if filepath.IsAbs(config.Extends) {
 		basePath = config.Extends
 	} else {
