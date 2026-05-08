@@ -1,9 +1,0 @@
-kind: policy
-version: "1.0"
-name: agent-has-description
-description: Every agent should have a non-empty description field
-severity: warning
-target: agent
-require:
-  - field: description
-    is-present: true

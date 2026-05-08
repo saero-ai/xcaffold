@@ -1,9 +1,0 @@
-kind: policy
-version: "1.0"
-name: no-empty-skills
-description: Skills should have non-empty instructions content
-severity: warning
-target: skill
-require:
-  - field: instructions
-    is-present: true
