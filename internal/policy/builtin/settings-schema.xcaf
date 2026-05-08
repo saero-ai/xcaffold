@@ -1,9 +1,0 @@
-kind: policy
-version: "1.0"
-name: settings-schema
-description: Settings output must not contain null permissions
-severity: error
-target: settings
-deny:
-  - content-contains:
-      - "\"permissions\": null"
