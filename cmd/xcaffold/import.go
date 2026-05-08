@@ -665,7 +665,10 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 		for id := range config.Skills {
 			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				_, _, _, _, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				_, _, _, _, discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				if subdirsErr != nil {
+					*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs %s: %v", id, subdirsErr))
+				}
 				sc := config.Skills[id]
 				if len(discoveredDirs) > 0 {
 					sc.Artifacts = discoveredDirs
@@ -713,7 +716,10 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 		for id := range tmpConfig.Skills {
 			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				_, _, _, _, discoveredDirs, _ := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				_, _, _, _, discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				if subdirsErr != nil {
+					*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs %s: %v", id, subdirsErr))
+				}
 				sc := tmpConfig.Skills[id]
 				if len(discoveredDirs) > 0 {
 					sc.Artifacts = discoveredDirs

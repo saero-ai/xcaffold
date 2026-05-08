@@ -93,10 +93,9 @@ func init() {
 		false,
 		"disable color output",
 	)
-	rootCmd.PersistentFlags().BoolVarP(
+	rootCmd.PersistentFlags().BoolVar(
 		&verboseFlag,
 		"verbose",
-		"v",
 		false,
 		"show fidelity notes and policy warnings",
 	)

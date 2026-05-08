@@ -107,6 +107,11 @@ func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string
 		return nil
 	}
 
+	cleanedSourceDir := filepath.Clean(skillSourceDir)
+	if cleanedSourceDir != "." && strings.HasPrefix(cleanedSourceDir, "..") {
+		return fmt.Errorf("skill source directory %q contains path traversal", skillSourceDir)
+	}
+
 	for _, pattern := range paths {
 		// Security: pattern must not traverse above baseDir.
 		cleanedPattern := filepath.Clean(pattern)
