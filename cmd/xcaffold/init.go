@@ -222,11 +222,7 @@ func initProject(cmd *cobra.Command) error {
 				if importErr != nil {
 					return importErr
 				}
-				importedConfig, parseErr := parser.ParseFile(xcafFile)
-				if parseErr != nil {
-					return fmt.Errorf("parsing imported scaffold: %w", parseErr)
-				}
-				if err := runPostImportSteps(importedConfig, ".", true); err != nil {
+				if err := injectXaffToolkitAfterImport("."); err != nil {
 					fmt.Printf("  %s Failed to inject xcaffold toolkit: %v\n", glyphErr(), err)
 				} else {
 					fmt.Println()

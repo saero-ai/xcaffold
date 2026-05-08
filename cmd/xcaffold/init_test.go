@@ -742,3 +742,82 @@ func TestProviderManifest_HasDisplayLabel_AndCLIBinary(t *testing.T) {
 			"provider %s should have DefaultModel=%q", m.Name, expected.defaultModel)
 	}
 }
+
+// TestInit_MultiProviderImport_PreservesMemoryFiles verifies that after
+// mergeImportDirs writes memory files, the old code that called runPostImportSteps
+// with an empty config would NOT delete the memory. This test specifically validates
+// the fix: calling injectXaffToolkitAfterImport directly instead of runPostImportSteps.
+func TestInit_MultiProviderImport_PreservesMemoryFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { _ = os.Chdir(orig) }()
+
+	// Simulate mergeImportDirs having written a full config with resources and memory
+	fullConfig := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test", Targets: []string{"claude"}},
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"reviewer": {
+					Name:        "reviewer",
+					Description: "Code reviewer",
+					Model:       "claude-sonnet-4-6",
+				},
+			},
+			Memory: map[string]ast.MemoryConfig{
+				"reviewer/patterns": {
+					Name:     "patterns",
+					AgentRef: "reviewer",
+					Content:  "# Code Review Patterns\n\nCheck for security issues.",
+				},
+				"reviewer/checklist": {
+					Name:     "checklist",
+					AgentRef: "reviewer",
+					Content:  "# Code Review Checklist\n\n- [ ] Security\n- [ ] Performance",
+				},
+			},
+		},
+	}
+
+	// Step 1: mergeImportDirs writes memory files from the full config
+	memCount, err := writeMemoryFiles(fullConfig)
+	require.NoError(t, err)
+	require.Equal(t, 2, memCount, "expected 2 memory files to be written by mergeImportDirs")
+
+	// Verify memory files exist
+	memFile1 := filepath.Join(tmpDir, "xcaf", "agents", "reviewer", "memory", "patterns.md")
+	memFile2 := filepath.Join(tmpDir, "xcaf", "agents", "reviewer", "memory", "checklist.md")
+	assert.FileExists(t, memFile1, "memory file 1 should exist after writeMemoryFiles")
+	assert.FileExists(t, memFile2, "memory file 2 should exist after writeMemoryFiles")
+
+	// Step 2: Write only project.xcaf (which has no agents, skills, rules, or memory)
+	projectOnly := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Project: &ast.ProjectConfig{Name: "test", Targets: []string{"claude"}},
+	}
+	if err := WriteProjectFile(projectOnly, tmpDir); err != nil {
+		t.Fatalf("failed to write project.xcaf: %v", err)
+	}
+
+	// Step 3: The old buggy code would parse project.xcaf (empty config)
+	// and call runPostImportSteps(emptyConfig, ".", true) which would
+	// call pruneOrphanMemory and DELETE all the memory.
+	// The new code just calls injectXaffToolkitAfterImport directly.
+	err = injectXaffToolkitAfterImport(tmpDir)
+	require.NoError(t, err)
+
+	// Verify memory files still exist (this is the key assertion)
+	assert.FileExists(t, memFile1, "memory file 1 should still exist after injectXaffToolkitAfterImport")
+	assert.FileExists(t, memFile2, "memory file 2 should still exist after injectXaffToolkitAfterImport")
+
+	// Verify toolkit files were created
+	xaffAgent := filepath.Join(tmpDir, "xcaf", "agents", "xaff", "agent.xcaf")
+	xcaffSkill := filepath.Join(tmpDir, "xcaf", "skills", "xcaffold", "skill.xcaf")
+	xcafRule := filepath.Join(tmpDir, "xcaf", "rules", "xcaf-conventions", "rule.xcaf")
+	assert.FileExists(t, xaffAgent, "xaff agent should be created")
+	assert.FileExists(t, xcaffSkill, "xcaffold skill should be created")
+	assert.FileExists(t, xcafRule, "xcaf-conventions rule should be created")
+}
