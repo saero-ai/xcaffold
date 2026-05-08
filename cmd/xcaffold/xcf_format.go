@@ -376,6 +376,22 @@ func writeSkillFiles(config *ast.XcaffoldConfig, xcafDir, version string, skillF
 		if skill.Name == "" {
 			skill.Name = k
 		}
+
+		// Normalize any legacy project-root-relative paths to skill-dir-relative.
+		prefix := "xcaf/skills/" + k + "/"
+		for i, ref := range skill.References.Values {
+			skill.References.Values[i] = strings.TrimPrefix(ref, prefix)
+		}
+		for i, ref := range skill.Scripts.Values {
+			skill.Scripts.Values[i] = strings.TrimPrefix(ref, prefix)
+		}
+		for i, ref := range skill.Assets.Values {
+			skill.Assets.Values[i] = strings.TrimPrefix(ref, prefix)
+		}
+		for i, ref := range skill.Examples.Values {
+			skill.Examples.Values[i] = strings.TrimPrefix(ref, prefix)
+		}
+
 		body := strings.TrimSpace(skill.Body)
 		doc := skillDoc{Kind: "skill", Version: version, SkillConfig: skill}
 

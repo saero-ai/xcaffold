@@ -478,7 +478,7 @@ func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderMa
 	appendCopied := func(src, canonicalSubdir, filename string) {
 		// The xcaf-relative path is always outDir-agnostic — it is what gets
 		// stored in AST SkillConfig fields (References, Scripts, Assets, Examples).
-		xcafRelPath := filepath.ToSlash(filepath.Join("xcaf", "skills", id, canonicalSubdir, filename))
+		xcafRelPath := filepath.ToSlash(filepath.Join(canonicalSubdir, filename))
 		var dest string
 		if base != "" {
 			dest = filepath.Join(base, "xcaf", "skills", id, canonicalSubdir, filename)

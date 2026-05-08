@@ -175,16 +175,18 @@ func TestCompile_Copilot_Skills_ReferencesDropped(t *testing.T) {
 // are flattened co-located alongside SKILL.md under skills/<id>/<filename>.
 func TestCompile_Copilot_Skills_WithSubdirs(t *testing.T) {
 	tmpDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755); err != nil {
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "my-skill")
+	if err := os.MkdirAll(filepath.Join(skillBase, "refs"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "refs", "guide.md"), []byte("# Guide"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(skillBase, "refs", "guide.md"), []byte("# Guide"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(tmpDir, "scripts"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(skillBase, "scripts"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "scripts", "run.sh"), []byte("#!/bin/bash"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(skillBase, "scripts", "run.sh"), []byte("#!/bin/bash"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 

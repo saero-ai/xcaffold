@@ -285,13 +285,15 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 	t.Helper()
 
 	// Create stub files that the claude renderer reads when copying skill subfiles.
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	skillBase := filepath.Join(baseDir, "xcaf", "skills", "fidelity-skill")
 	stubFiles := map[string]string{
 		"scripts/helper.sh": "#!/bin/sh\necho stub\n",
 		"assets/logo.png":   "stub-png-data",
 		"docs/ref.md":       "# stub reference\n",
 	}
 	for rel, content := range stubFiles {
-		full := filepath.Join(baseDir, rel)
+		full := filepath.Join(skillBase, rel)
 		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
 		require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
 	}
