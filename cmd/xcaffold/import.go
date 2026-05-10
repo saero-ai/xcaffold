@@ -451,7 +451,7 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 // The discoveredDirs slice contains all discovered subdirectory names (both
 // canonical and custom) in the skill directory, suitable for populating
 // the Artifacts field of SkillConfig.
-func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderManifest, outDir string, warnings *[]string) (refs, scripts, assets, examples, discoveredDirs []string, err error) {
+func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderManifest, outDir string, warnings *[]string) (discoveredDirs []string, err error) {
 	skillDir := filepath.Dir(skillFile)
 
 	// Determine the base for output paths.
@@ -471,14 +471,10 @@ func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderMa
 	entries, readErr := os.ReadDir(skillDir)
 	if readErr != nil {
 		// If the directory cannot be read at all, return empty (not an error).
-		return nil, nil, nil, nil, nil, nil
+		return nil, nil
 	}
 
-	// Helper: copy a file and append to the appropriate slice.
 	appendCopied := func(src, canonicalSubdir, filename string) {
-		// The xcaf-relative path is always outDir-agnostic — it is what gets
-		// stored in AST SkillConfig fields (References, Scripts, Assets, Examples).
-		xcafRelPath := filepath.ToSlash(filepath.Join(canonicalSubdir, filename))
 		var dest string
 		if base != "" {
 			dest = filepath.Join(base, "xcaf", "skills", id, canonicalSubdir, filename)
@@ -487,17 +483,6 @@ func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderMa
 		}
 		if copyErr := copyFile(src, dest); copyErr != nil {
 			*warnings = append(*warnings, fmt.Sprintf("failed to copy skill file %s: %v", src, copyErr))
-			return
-		}
-		switch canonicalSubdir {
-		case "references":
-			refs = append(refs, xcafRelPath)
-		case "scripts":
-			scripts = append(scripts, xcafRelPath)
-		case "assets":
-			assets = append(assets, xcafRelPath)
-		case "examples":
-			examples = append(examples, xcafRelPath)
 		}
 	}
 
@@ -550,7 +535,7 @@ func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderMa
 		}
 	}
 
-	return refs, scripts, assets, examples, discoveredDirs, nil
+	return discoveredDirs, nil
 }
 
 // extractBodyAfterFrontmatter returns the markdown body that follows the YAML frontmatter block.
@@ -665,7 +650,7 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 		for id := range config.Skills {
 			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				_, _, _, _, discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
 				if subdirsErr != nil {
 					*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs %s: %v", id, subdirsErr))
 				}
@@ -716,7 +701,7 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 		for id := range tmpConfig.Skills {
 			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				_, _, _, _, discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
 				if subdirsErr != nil {
 					*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs %s: %v", id, subdirsErr))
 				}

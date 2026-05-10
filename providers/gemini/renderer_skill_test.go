@@ -63,8 +63,6 @@ func TestCompile_Gemini_Skills_UnsupportedFields(t *testing.T) {
 					Body:                   "Do the thing.",
 					AllowedTools:           ast.ClearableList{Values: []string{"Read", "Grep"}},
 					WhenToUse:              "When reviewing code.",
-					Scripts:                ast.ClearableList{Values: []string{"scripts/run.sh"}},
-					Assets:                 ast.ClearableList{Values: []string{"assets/template.md"}},
 					DisableModelInvocation: boolPtr(true),
 				},
 			},
@@ -73,7 +71,7 @@ func TestCompile_Gemini_Skills_UnsupportedFields(t *testing.T) {
 	_, notes, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
-	// Should have fidelity notes for unsupported fields
+	// Should have fidelity notes for Gemini-unsupported frontmatter fields.
 	codes := make(map[string]bool)
 	fields := make(map[string]bool)
 	for _, n := range notes {
@@ -82,42 +80,42 @@ func TestCompile_Gemini_Skills_UnsupportedFields(t *testing.T) {
 	}
 	assert.True(t, codes[renderer.CodeFieldUnsupported], "expected CodeFieldUnsupported for allowed-tools, when-to-use, or disable-model-invocation")
 	assert.True(t, fields["disable-model-invocation"], "expected fidelity note for disable-model-invocation")
-	assert.True(t, codes[renderer.CodeSkillScriptsDropped], "expected CodeSkillScriptsDropped")
-	assert.True(t, codes[renderer.CodeSkillAssetsDropped], "expected CodeSkillAssetsDropped")
+	// Scripts and assets are now handled via Artifacts + auto-discovery, not via legacy field values.
+	// No drop notes are emitted for those fields.
 }
 
-func TestCompile_Gemini_Skills_ReferencesDropped(t *testing.T) {
+func TestCompile_Gemini_Skills_NoArtifactsProducesOnlySKILLMd(t *testing.T) {
+	// With auto-discovery, the legacy References field is not read.
+	// A skill with no Artifacts list declared produces only SKILL.md — no subdirectory files.
 	r := New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"test-skill": {
 					Name:        "test-skill",
-					Description: "A skill with references",
+					Description: "A skill with no declared artifacts",
 					Body:        "Do things.",
-					References:  ast.ClearableList{Values: []string{"refs/doc.md"}},
 				},
 			},
 		},
 	}
-	_, notes, err := renderer.Orchestrate(r, config, t.TempDir())
+	files, _, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
-	found := false
-	for _, n := range notes {
-		if n.Code == renderer.CodeSkillReferencesDropped {
-			found = true
+	assert.Contains(t, files.Files, "skills/test-skill/SKILL.md", "SKILL.md should always be emitted")
+	for k := range files.Files {
+		if k != "skills/test-skill/SKILL.md" {
+			t.Errorf("unexpected file emitted with no artifacts: %s", k)
 		}
 	}
-	assert.True(t, found, "expected SKILL_REFERENCES_DROPPED fidelity note for skill with references")
 }
 
 func TestCompile_Gemini_Skills_WithSubdirs(t *testing.T) {
 	tmpDir := t.TempDir()
-	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	// Auto-discovery walks xcaf/skills/<id>/<artifactName>/ using canonical names.
 	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "my-skill")
-	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "refs"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "refs", "guide.md"), []byte("# Guide"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "references"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "references", "guide.md"), []byte("# Guide"), 0o644))
 	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "examples"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "examples", "sample.md"), []byte("# Sample"), 0o644))
 
@@ -125,8 +123,7 @@ func TestCompile_Gemini_Skills_WithSubdirs(t *testing.T) {
 		"my-skill": {
 			Description: "test",
 			Body:        "Do the thing.",
-			References:  ast.ClearableList{Values: []string{"refs/guide.md"}},
-			Examples:    ast.ClearableList{Values: []string{"examples/sample.md"}},
+			Artifacts:   []string{"references", "examples"},
 		},
 	}
 
@@ -137,7 +134,7 @@ func TestCompile_Gemini_Skills_WithSubdirs(t *testing.T) {
 	if _, ok := files["skills/my-skill/references/guide.md"]; !ok {
 		t.Error("expected references/guide.md to be compiled")
 	}
-	// Examples collapse into references for Gemini
+	// Gemini: examples collapse into references/ (via SkillArtifactDirs mapping)
 	if _, ok := files["skills/my-skill/references/sample.md"]; !ok {
 		t.Error("expected examples collapsed into references/sample.md")
 	}

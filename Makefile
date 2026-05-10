@@ -35,12 +35,12 @@ test-e2e:
 
 generate:
 	@echo "=> Generating schema registry and presence extractors..."
-	@go run tools/gen-schema/main.go -output internal/schema/registry_gen.go -presence-output internal/renderer/presence_gen.go
+	@go run tools/gen-schema/main.go -output pkg/schema/registry_gen.go -presence-output internal/renderer/presence_gen.go
 
 verify-generate:
 	@echo "=> Verifying generated files are fresh..."
 	@go run tools/gen-schema/main.go -output /tmp/registry_gen_check.go -presence-output /tmp/presence_gen_check.go
-	@diff -q internal/schema/registry_gen.go /tmp/registry_gen_check.go || \
+	@diff -q pkg/schema/registry_gen.go /tmp/registry_gen_check.go || \
 		(echo "ERROR: registry_gen.go is stale. Run 'make generate' to update." && exit 1)
 	@diff -q internal/renderer/presence_gen.go /tmp/presence_gen_check.go || \
 		(echo "ERROR: presence_gen.go is stale. Run 'make generate' to update." && exit 1)

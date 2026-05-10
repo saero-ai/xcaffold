@@ -459,34 +459,6 @@ type SkillConfig struct {
 	// +xcaf:role=composition
 	Artifacts []string `yaml:"artifacts,omitempty"`
 
-	// Docs and data files copied to skills/<id>/references/ at compile time.
-	// +xcaf:optional
-	// +xcaf:group=Composition
-	// +xcaf:type=[]string
-	// +xcaf:role=composition
-	References ClearableList `yaml:"references,omitempty"`
-
-	// Executable helper files copied to skills/<id>/scripts/ at compile time.
-	// +xcaf:optional
-	// +xcaf:group=Composition
-	// +xcaf:type=[]string
-	// +xcaf:role=composition
-	Scripts ClearableList `yaml:"scripts,omitempty"`
-
-	// Output artifact files copied to skills/<id>/assets/ at compile time.
-	// +xcaf:optional
-	// +xcaf:group=Composition
-	// +xcaf:type=[]string
-	// +xcaf:role=composition
-	Assets ClearableList `yaml:"assets,omitempty"`
-
-	// Demonstration files copied to skills/<id>/examples/ at compile time.
-	// +xcaf:optional
-	// +xcaf:group=Composition
-	// +xcaf:type=[]string
-	// +xcaf:role=composition
-	Examples ClearableList `yaml:"examples,omitempty"`
-
 	// Per-provider override configuration keyed by provider name.
 	// +xcaf:optional
 	// +xcaf:group=Multi-Target

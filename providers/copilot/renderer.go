@@ -484,17 +484,24 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 		}
 		skillSourceDir := filepath.Join("xcaf", "skills", id)
 		subOut := &output.Output{Files: make(map[string]string)}
-		if err := renderer.CompileSkillSubdir(id, "references", "references", skill.References.Values, baseDir, skillSourceDir, subOut); err != nil {
-			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "references", renderer.CodeSkillReferencesDropped, err.Error(), "Check file paths"))
-		}
-		if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, skillSourceDir, subOut); err != nil {
-			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "scripts", renderer.CodeSkillScriptsDropped, err.Error(), "Check file paths"))
-		}
-		if err := renderer.CompileSkillSubdir(id, "assets", "assets", skill.Assets.Values, baseDir, skillSourceDir, subOut); err != nil {
-			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "assets", renderer.CodeSkillAssetsDropped, err.Error(), "Check file paths"))
-		}
-		if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples.Values, baseDir, skillSourceDir, subOut); err != nil {
-			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, "examples", renderer.CodeSkillExamplesDropped, err.Error(), "Check file paths"))
+		caps := r.Capabilities()
+		for _, artifactName := range skill.Artifacts {
+			outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
+			if !ok {
+				outputSubdir = artifactName
+			}
+			paths, err := renderer.DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName)
+			if err != nil {
+				notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, artifactName, renderer.CodeSkillReferencesDropped,
+					fmt.Sprintf("skill %s artifact %s: discover files: %s", id, artifactName, err), "Check file paths"))
+				continue
+			}
+			if len(paths) == 0 {
+				continue
+			}
+			if err := renderer.CompileSkillSubdir(id, artifactName, outputSubdir, paths, baseDir, skillSourceDir, subOut); err != nil {
+				notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, artifactName, renderer.CodeSkillReferencesDropped, err.Error(), "Check file paths"))
+			}
 		}
 		for k, v := range subOut.Files {
 			files[k] = v

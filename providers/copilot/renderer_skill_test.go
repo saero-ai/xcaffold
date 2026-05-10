@@ -100,8 +100,10 @@ func TestCompile_Copilot_Skills_WithAllowedTools(t *testing.T) {
 }
 
 // TestCompile_Copilot_Skills_UnsupportedFields verifies that when-to-use,
-// disable-model-invocation, scripts, and assets each produce the expected
-// fidelity notes because Copilot has no native equivalent for them.
+// disable-model-invocation, and argument-hint each produce fidelity notes
+// because Copilot has no native equivalent for them in SKILL.md frontmatter.
+// Scripts and assets are handled via Artifacts + auto-discovery and produce
+// no fidelity notes when no artifact directory is declared.
 func TestCompile_Copilot_Skills_UnsupportedFields(t *testing.T) {
 	r := copilot.New()
 	config := &ast.XcaffoldConfig{
@@ -112,8 +114,6 @@ func TestCompile_Copilot_Skills_UnsupportedFields(t *testing.T) {
 					Description:            "Skill with all fields.",
 					Body:                   "Do the thing.",
 					WhenToUse:              "When reviewing code.",
-					Scripts:                ast.ClearableList{Values: []string{"scripts/run.sh"}},
-					Assets:                 ast.ClearableList{Values: []string{"assets/template.md"}},
 					DisableModelInvocation: boolPtr(true),
 				},
 			},
@@ -136,51 +136,49 @@ func TestCompile_Copilot_Skills_UnsupportedFields(t *testing.T) {
 		"expected fidelity note for when-to-use")
 	assert.True(t, fields["disable-model-invocation"],
 		"expected fidelity note for disable-model-invocation")
-	assert.True(t, codes[renderer.CodeSkillScriptsDropped],
-		"expected CodeSkillScriptsDropped for scripts field")
-	assert.True(t, codes[renderer.CodeSkillAssetsDropped],
-		"expected CodeSkillAssetsDropped for assets field")
+	// Scripts and assets are now handled via Artifacts + auto-discovery.
+	// No drop notes are emitted for legacy field values.
 }
 
-// TestCompile_Copilot_Skills_ReferencesDropped verifies that a skill with
-// references produces a SKILL_REFERENCES_DROPPED fidelity note because Copilot
-// has no native support for skill references/ directories.
-func TestCompile_Copilot_Skills_ReferencesDropped(t *testing.T) {
+// TestCompile_Copilot_Skills_NoArtifactsProducesOnlySKILLMd verifies that a
+// skill with no Artifacts list declared produces only SKILL.md and no subdirectory
+// files, regardless of any legacy field values set. With auto-discovery, artifact
+// discovery is driven entirely by skill.Artifacts.
+func TestCompile_Copilot_Skills_NoArtifactsProducesOnlySKILLMd(t *testing.T) {
 	r := copilot.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"test-skill": {
 					Name:        "test-skill",
-					Description: "A skill with references",
+					Description: "A skill with no declared artifacts",
 					Body:        "Do things.",
-					References:  ast.ClearableList{Values: []string{"refs/doc.md"}},
 				},
 			},
 		},
 	}
-	_, notes, err := renderer.Orchestrate(r, config, t.TempDir())
+	files, _, err := renderer.Orchestrate(r, config, t.TempDir())
 	require.NoError(t, err)
 
-	found := false
-	for _, n := range notes {
-		if n.Code == renderer.CodeSkillReferencesDropped {
-			found = true
+	assert.Contains(t, files.Files, "skills/test-skill/SKILL.md", "SKILL.md should always be emitted")
+	for k := range files.Files {
+		if k != "skills/test-skill/SKILL.md" {
+			t.Errorf("unexpected file emitted with no artifacts: %s", k)
 		}
 	}
-	assert.True(t, found, "expected SKILL_REFERENCES_DROPPED fidelity note for skill with references")
 }
 
 // TestCompile_Copilot_Skills_WithSubdirs verifies that references and scripts
-// are flattened co-located alongside SKILL.md under skills/<id>/<filename>.
+// are compiled to standard subdirectories when declared in skill.Artifacts.
+// Auto-discovery walks xcaf/skills/<id>/<artifactName>/ using canonical names.
 func TestCompile_Copilot_Skills_WithSubdirs(t *testing.T) {
 	tmpDir := t.TempDir()
-	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	// Use canonical directory names — auto-discovery walks these exact paths.
 	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "my-skill")
-	if err := os.MkdirAll(filepath.Join(skillBase, "refs"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(skillBase, "references"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(skillBase, "refs", "guide.md"), []byte("# Guide"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(skillBase, "references", "guide.md"), []byte("# Guide"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(skillBase, "scripts"), 0o755); err != nil {
@@ -194,8 +192,7 @@ func TestCompile_Copilot_Skills_WithSubdirs(t *testing.T) {
 		"my-skill": {
 			Description: "test",
 			Body:        "Do the thing.",
-			References:  ast.ClearableList{Values: []string{"refs/guide.md"}},
-			Scripts:     ast.ClearableList{Values: []string{"scripts/run.sh"}},
+			Artifacts:   []string{"references", "scripts"},
 		},
 	}
 

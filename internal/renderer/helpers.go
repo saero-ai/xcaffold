@@ -91,6 +91,40 @@ func FlattenToSkillRoot(id, canonicalName string, paths []string, baseDir string
 	return nil
 }
 
+// DiscoverArtifactFiles walks a single artifact subdirectory inside a skill source
+// directory and returns a list of file paths relative to the skill directory.
+// Only immediate children are returned (no recursion into nested dirs).
+// If the directory does not exist, an empty slice is returned (not an error).
+//
+// Example: for artifactName="references" and skillSourceDir="xcaf/skills/my-skill",
+// if the directory contains guide.md and patterns.md, the result is:
+//
+//	["references/guide.md", "references/patterns.md"]
+func DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName string) ([]string, error) {
+	cleaned := filepath.Clean(artifactName)
+	if strings.HasPrefix(cleaned, "..") {
+		return nil, fmt.Errorf("artifact name %q traverses above the skill directory", artifactName)
+	}
+	dir := filepath.Join(baseDir, skillSourceDir, cleaned)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading artifact directory %q: %w", dir, err)
+	}
+
+	var paths []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		paths = append(paths, filepath.Join(artifactName, entry.Name()))
+	}
+	sort.Strings(paths)
+	return paths, nil
+}
+
 // CompileSkillSubdir reads files from a skill subdirectory (references/, scripts/, assets/)
 // and adds them to the output map at skills/<id>/<outputSubdir>/<filename>.
 //

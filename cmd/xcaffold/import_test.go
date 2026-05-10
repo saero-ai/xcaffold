@@ -482,24 +482,11 @@ func TestExtractSkillSubdirs_AntigravityResources(t *testing.T) {
 	var warnings []string
 
 	antigravityManifest, _ := providerspkg.ManifestFor("antigravity")
-	refs, scripts, assets, examples, discoveredDirs, err := extractSkillSubdirs(
+	discoveredDirs, err := extractSkillSubdirs(
 		filepath.Join(skillDir, "SKILL.md"), "my-skill", &antigravityManifest, outDir, &warnings,
 	)
 	require.NoError(t, err)
-	_ = discoveredDirs // capture unused return value
-
-	// refs and scripts should be empty for this fixture
-	_ = refs
-	_ = scripts
-
-	// Antigravity resources/ → canonical assets/
-	if len(assets) == 0 {
-		t.Error("expected resources/ to map to assets/, got empty")
-	}
-	// Antigravity examples/ → canonical examples/
-	if len(examples) == 0 {
-		t.Error("expected examples/ to map to examples/, got empty")
-	}
+	_ = discoveredDirs
 
 	// Verify files were copied to canonical locations
 	expectedAsset := filepath.Join(outDir, "xcaf", "skills", "my-skill", "assets", "TEMPLATE.md")
@@ -526,19 +513,11 @@ func TestExtractSkillSubdirs_ClaudeFlatMdFiles(t *testing.T) {
 	var warnings []string
 
 	claudeManifest, _ := providerspkg.ManifestFor("claude")
-	refs, scripts, assets, examples, discoveredDirs, err := extractSkillSubdirs(
+	discoveredDirs, err := extractSkillSubdirs(
 		filepath.Join(skillDir, "SKILL.md"), "my-skill", &claudeManifest, outDir, &warnings,
 	)
 	require.NoError(t, err)
-	_ = discoveredDirs // capture unused return value
-
-	_ = scripts
-	_ = assets
-	_ = examples
-
-	if len(refs) != 2 {
-		t.Errorf("expected 2 refs for flat .md files, got %d: %v", len(refs), refs)
-	}
+	_ = discoveredDirs
 
 	// Verify files were copied to references/
 	for _, name := range []string{"helper.md", "guide.md"} {
@@ -565,17 +544,11 @@ func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
 	var warnings []string
 
 	// For unknown provider, pass nil manifest
-	refs, scripts, assets, examples, discoveredDirs, err := extractSkillSubdirs(
+	discoveredDirs, err := extractSkillSubdirs(
 		filepath.Join(skillDir, "SKILL.md"), "my-skill", nil, outDir, &warnings,
 	)
 	require.NoError(t, err)
-	_ = discoveredDirs // capture unused return value
-
-	// All canonical slices should be empty — unknown provider has no canonical mapping.
-	if len(refs)+len(scripts)+len(assets)+len(examples) != 0 {
-		t.Errorf("expected empty canonical slices for unknown provider, got refs=%v scripts=%v assets=%v examples=%v",
-			refs, scripts, assets, examples)
-	}
+	_ = discoveredDirs
 
 	// File should appear in the skill directory with unknown subdirs.
 	passthroughFile := filepath.Join(outDir, "xcaf", "skills", "my-skill", "extras", "data.json")

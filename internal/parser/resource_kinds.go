@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -372,23 +371,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			return fmt.Errorf("duplicate skill ID %q", doc.Name)
 		}
 
-		// Post-parse: migrate legacy subdirectory fields to artifacts
-		skill := doc.SkillConfig
-		for _, legacy := range []struct {
-			field []string
-			name  string
-		}{
-			{skill.References.Values, "references"},
-			{skill.Scripts.Values, "scripts"},
-			{skill.Assets.Values, "assets"},
-			{skill.Examples.Values, "examples"},
-		} {
-			if len(legacy.field) > 0 && !slices.Contains(skill.Artifacts, legacy.name) {
-				skill.Artifacts = append(skill.Artifacts, legacy.name)
-			}
-		}
-
-		config.Skills[doc.Name] = skill
+		config.Skills[doc.Name] = doc.SkillConfig
 
 	case "rule":
 		var doc ruleDocument

@@ -126,24 +126,8 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		out := &output.Output{Files: make(map[string]string)}
 
 		skillSourceDir := filepath.Join("xcaf", "skills", id)
-		if len(skill.Artifacts) > 0 {
-			if err := compileSkillArtifacts(id, skill, caps, baseDir, skillSourceDir, out); err != nil {
-				return nil, nil, fmt.Errorf("antigravity: skill %q: %w", id, err)
-			}
-		} else {
-			// Legacy path: individual fields for skills that predate the artifacts field.
-			if err := renderer.CompileSkillSubdir(id, "references", "examples", skill.References.Values, baseDir, skillSourceDir, out); err != nil {
-				return nil, nil, fmt.Errorf("antigravity: references for skill %q: %w", id, err)
-			}
-			if err := renderer.CompileSkillSubdir(id, "scripts", "scripts", skill.Scripts.Values, baseDir, skillSourceDir, out); err != nil {
-				return nil, nil, fmt.Errorf("antigravity: scripts for skill %q: %w", id, err)
-			}
-			if err := renderer.CompileSkillSubdir(id, "assets", "resources", skill.Assets.Values, baseDir, skillSourceDir, out); err != nil {
-				return nil, nil, fmt.Errorf("antigravity: assets for skill %q: %w", id, err)
-			}
-			if err := renderer.CompileSkillSubdir(id, "examples", "examples", skill.Examples.Values, baseDir, skillSourceDir, out); err != nil {
-				return nil, nil, fmt.Errorf("antigravity: examples for skill %q: %w", id, err)
-			}
+		if err := compileSkillArtifacts(id, skill, caps, baseDir, skillSourceDir, out); err != nil {
+			return nil, nil, fmt.Errorf("antigravity: skill %q: %w", id, err)
 		}
 
 		for k, v := range out.Files {
@@ -156,22 +140,16 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 
 // compileSkillArtifacts iterates skill.Artifacts and dispatches each artifact
 // to the correct output subdirectory using the renderer's SkillArtifactDirs map.
+// Files are discovered automatically from the artifact subdirectory on disk.
 func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.CapabilitySet, baseDir, skillSourceDir string, out *output.Output) error {
 	for _, artifactName := range skill.Artifacts {
 		outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
 		if !ok {
 			outputSubdir = artifactName
 		}
-		var paths []string
-		switch artifactName {
-		case "references":
-			paths = skill.References.Values
-		case "scripts":
-			paths = skill.Scripts.Values
-		case "assets":
-			paths = skill.Assets.Values
-		case "examples":
-			paths = skill.Examples.Values
+		paths, err := renderer.DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName)
+		if err != nil {
+			return fmt.Errorf("skill %s artifact %s: discover files: %w", id, artifactName, err)
 		}
 		if len(paths) == 0 {
 			continue

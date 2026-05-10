@@ -359,48 +359,6 @@ func writeXCAFFile(t *testing.T, dir, name, content string) string {
 	return p
 }
 
-func TestValidateFileRefs_MissingSkillReference(t *testing.T) {
-	dir := t.TempDir()
-	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
-version: "1.0"
-skills:
-  my-skill:
-    description: "A skill"
-
-    references:
-      - nonexistent.md
-`)
-	diags := ValidateFile(xcaf)
-	var found bool
-	for _, d := range diags {
-		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") { //nolint:goconst
-			found = true
-		}
-	}
-	assert.True(t, found, "expected a warning diagnostic about a missing reference file, got: %v", diags)
-}
-
-func TestValidateFileRefs_MissingSkillExample(t *testing.T) {
-	dir := t.TempDir()
-	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
-version: "1.0"
-skills:
-  my-skill:
-    description: "A skill"
-
-    examples:
-      - xcaf/skills/my-skill/examples/nonexistent.md
-`)
-	diags := ValidateFile(xcaf)
-	var found bool
-	for _, d := range diags {
-		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") && strings.Contains(d.Message, "examples") {
-			found = true
-		}
-	}
-	assert.True(t, found, "expected a warning diagnostic about a missing examples file, got: %v", diags)
-}
-
 func TestValidateFileRefs_MissingInstructionsFile_Agent(t *testing.T) {
 	t.Skip("Legacy instructions test removed")
 
@@ -1103,43 +1061,14 @@ Do things.
 	}
 }
 
-func TestParse_Skill_LegacyFieldsMigrateToArtifacts(t *testing.T) {
-	input := `---
-kind: skill
-version: "1.0"
-name: legacy-skill
-references:
-  - doc.md
-scripts:
-  - run.sh
----
-Legacy skill.
-`
-	config, err := Parse(strings.NewReader(input))
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	skill := config.Skills["legacy-skill"]
-	if len(skill.Artifacts) < 2 {
-		t.Fatalf("expected legacy fields migrated to artifacts, got %d artifacts", len(skill.Artifacts))
-	}
-	// Verify "references" and "scripts" are in artifacts
-	hasRef, hasScript := false, false
-	for _, a := range skill.Artifacts {
-		if a == "references" {
-			hasRef = true
-		}
-		if a == "scripts" {
-			hasScript = true
-		}
-	}
-	if !hasRef {
-		t.Error("expected 'references' in artifacts after migration")
-	}
-	if !hasScript {
-		t.Error("expected 'scripts' in artifacts after migration")
-	}
-}
+// TestParse_Skill_LegacyFieldsMigrateToArtifacts has been removed because
+// the legacy fields (references, scripts, assets, examples) have been removed
+// from the SkillConfig struct. All subdirectories are now managed via the
+// artifacts field alone.
+//
+// func TestParse_Skill_LegacyFieldsMigrateToArtifacts(t *testing.T) {
+//   (test removed)
+// }
 
 func TestParse_Agent_RejectsWhenField(t *testing.T) {
 	input := `---

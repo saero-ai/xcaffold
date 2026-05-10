@@ -2,7 +2,6 @@ package ast
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -40,37 +39,11 @@ func TestXcaffoldConfig_BlueprintsMap_Exists(t *testing.T) {
 }
 
 func TestSkillConfig_FieldCount_OverrideScoringGuard(t *testing.T) {
-	const expected = 17
+	const expected = 13
 	rt := reflect.TypeOf(SkillConfig{})
 	if rt.NumField() != expected {
 		t.Fatalf("SkillConfig has %d fields, expected %d — update override scoring if fields changed", rt.NumField(), expected)
 	}
-}
-
-// TestSkillConfig_Examples_RoundTrip verifies that the examples: field on
-// SkillConfig is accepted by KnownFields(true) and survives a marshal/unmarshal
-// round-trip with all values intact.
-func TestSkillConfig_Examples_RoundTrip(t *testing.T) {
-	input := `examples:
-- xcaf/skills/tdd/examples/basic.xcaf
-- xcaf/skills/tdd/examples/advanced.xcaf
-`
-	var sc SkillConfig
-	dec := yaml.NewDecoder(strings.NewReader(input))
-	dec.KnownFields(true)
-	require.NoError(t, dec.Decode(&sc), "examples: must be a known field on SkillConfig")
-
-	require.Len(t, sc.Examples.Values, 2)
-	require.Equal(t, "xcaf/skills/tdd/examples/basic.xcaf", sc.Examples.Values[0])
-	require.Equal(t, "xcaf/skills/tdd/examples/advanced.xcaf", sc.Examples.Values[1])
-
-	data, err := yaml.Marshal(sc)
-	require.NoError(t, err)
-	require.Contains(t, string(data), "examples:")
-
-	var sc2 SkillConfig
-	require.NoError(t, yaml.Unmarshal(data, &sc2))
-	require.Equal(t, sc.Examples, sc2.Examples)
 }
 
 // TestResourceOverrides_ExcludedFromYAML verifies that XcaffoldConfig.Overrides

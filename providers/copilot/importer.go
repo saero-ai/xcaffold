@@ -193,9 +193,6 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		DisableModelInvocation *bool                         `yaml:"disable-model-invocation"`
 		UserInvocable          *bool                         `yaml:"user-invocable"`
 		ArgumentHint           string                        `yaml:"argument-hint"`
-		References             []string                      `yaml:"references"`
-		Scripts                []string                      `yaml:"scripts"`
-		Assets                 []string                      `yaml:"assets"`
 		Targets                map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
@@ -218,9 +215,6 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		DisableModelInvocation: front.DisableModelInvocation,
 		UserInvocable:          front.UserInvocable,
 		ArgumentHint:           front.ArgumentHint,
-		References:             ast.ClearableList{Values: front.References},
-		Scripts:                ast.ClearableList{Values: front.Scripts},
-		Assets:                 ast.ClearableList{Values: front.Assets},
 		Targets:                front.Targets,
 		Body:                   body,
 		SourceProvider:         "copilot",

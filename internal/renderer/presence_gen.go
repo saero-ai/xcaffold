@@ -110,18 +110,6 @@ func ExtractSkillPresentFields(s ast.SkillConfig) map[string]string {
 	if len(s.Artifacts) > 0 {
 		m["artifacts"] = "set"
 	}
-	if len(s.References.Values) > 0 {
-		m["references"] = "set"
-	}
-	if len(s.Scripts.Values) > 0 {
-		m["scripts"] = "set"
-	}
-	if len(s.Assets.Values) > 0 {
-		m["assets"] = "set"
-	}
-	if len(s.Examples.Values) > 0 {
-		m["examples"] = "set"
-	}
 	if len(s.Targets) > 0 {
 		m["targets"] = "set"
 	}

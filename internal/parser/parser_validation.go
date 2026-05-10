@@ -481,32 +481,6 @@ func ValidateFile(path string) []Diagnostic {
 func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 	var diags []Diagnostic
 
-	// Skill subdirectory file sets: warn on missing files for references, scripts, assets, examples
-	for id, skill := range c.Skills {
-		for _, subdirPaths := range []struct {
-			subdir string
-			paths  []string
-		}{
-			{"references", skill.References.Values},
-			{"scripts", skill.Scripts.Values},
-			{"assets", skill.Assets.Values},
-			{"examples", skill.Examples.Values},
-		} {
-			for _, ref := range subdirPaths.paths {
-				if ref == "" {
-					continue
-				}
-				abs := filepath.Join(baseDir, ref)
-				if _, err := os.Stat(abs); os.IsNotExist(err) {
-					diags = append(diags, Diagnostic{
-						Severity: "warning",
-						Message:  fmt.Sprintf("skill %q %s file that does not exist: %q", id, subdirPaths.subdir, ref),
-					})
-				}
-			}
-		}
-	}
-
 	// Duplicate ID check across resource types
 	seen := make(map[string][]string) // id -> []resourceType
 	for id := range c.Agents {

@@ -426,18 +426,6 @@ func scoreSkillSpecificity(cfg ast.SkillConfig) int {
 	if len(cfg.AllowedTools.Values) > 0 {
 		s++
 	}
-	if len(cfg.References.Values) > 0 {
-		s++
-	}
-	if len(cfg.Scripts.Values) > 0 {
-		s++
-	}
-	if len(cfg.Assets.Values) > 0 {
-		s++
-	}
-	if len(cfg.Examples.Values) > 0 {
-		s++
-	}
 	if cfg.DisableModelInvocation != nil {
 		s++
 	}
@@ -712,22 +700,9 @@ func assembleSettings(providerConfigs map[string]*ast.XcaffoldConfig, result *as
 }
 
 // isEmptySkillOverride returns true if the skill override contains no meaningful content.
-// An override is empty if it has no allowed tools, references, scripts, assets, examples,
-// and all optional fields are false/nil/empty, and the body is empty.
+// An override is empty if it has no allowed tools, and all optional fields are false/nil/empty, and the body is empty.
 func isEmptySkillOverride(override ast.SkillConfig) bool {
 	if len(override.AllowedTools.Values) > 0 {
-		return false
-	}
-	if len(override.References.Values) > 0 {
-		return false
-	}
-	if len(override.Scripts.Values) > 0 {
-		return false
-	}
-	if len(override.Assets.Values) > 0 {
-		return false
-	}
-	if len(override.Examples.Values) > 0 {
 		return false
 	}
 	if override.DisableModelInvocation != nil {

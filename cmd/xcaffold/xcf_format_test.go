@@ -381,7 +381,7 @@ func TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
+func TestWriteSplitFiles_SkillWithArtifacts(t *testing.T) {
 	outDir := t.TempDir()
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
@@ -391,10 +391,7 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 				"my-skill": {
 					Name:        "my-skill",
 					Description: "Test skill",
-					References:  ast.ClearableList{Values: []string{"xcaf/skills/my-skill/references/ref.md"}},
-					Scripts:     ast.ClearableList{Values: []string{"xcaf/skills/my-skill/scripts/run.sh"}},
-					Assets:      ast.ClearableList{Values: []string{"xcaf/skills/my-skill/assets/icon.svg"}},
-					Examples:    ast.ClearableList{Values: []string{"xcaf/skills/my-skill/examples/sample.md"}},
+					Artifacts:   []string{"references", "examples"},
 					Body:        "Do the thing.",
 				},
 			},
@@ -409,11 +406,8 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 
 	// Verify frontmatter mode is used for skills with a body
 	assert.True(t, strings.HasPrefix(content, "---\n"), "skill with body must use frontmatter")
-	// Verify all 4 subdir fields appear in frontmatter
-	assert.Contains(t, content, "references:")
-	assert.Contains(t, content, "scripts:")
-	assert.Contains(t, content, "assets:")
-	assert.Contains(t, content, "examples:")
+	// Verify artifacts field appears in frontmatter
+	assert.Contains(t, content, "artifacts:")
 	// Verify body appears after the closing --- delimiter
 	assert.Contains(t, content, "---\nDo the thing.")
 	// Verify instructions field is NOT duplicated in YAML

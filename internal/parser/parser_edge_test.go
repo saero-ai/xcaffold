@@ -316,24 +316,6 @@ agents:
 // TestParse_SkillInstructionsFile_Valid verifies skills accept instructions-file.
 func TestParse_SkillInstructionsFile_Valid(t *testing.T) {
 	t.Skip("Legacy instructions test removed")
-
-	t.Skip("Legacy instructions test removed")
-
-	yaml := `kind: global
-version: "1.0"
-skills:
-  flutter-integration:
-    description: "Flutter integration skill"
-
-    references:
-      - "skills/flutter-integration/references/advanced-patterns.md"
-`
-	config, err := Parse(strings.NewReader(yaml))
-	require.NoError(t, err, "skill with instructions-file and references should be accepted")
-	skill, ok := config.Skills["flutter-integration"]
-	require.True(t, ok)
-	assert.Equal(t, "skills/flutter-integration/SKILL.md", skill.Description)
-	assert.Len(t, skill.References.Values, 1)
 }
 
 // TestParse_InstructionsFile_CircularReference_ClaudeDir verifies that instructions-file

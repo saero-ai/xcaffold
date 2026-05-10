@@ -472,8 +472,8 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	// Files live at xcaf/skills/<id>/ since paths are skill-dir-relative.
 	tmpDir := t.TempDir()
 	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "rich-skill")
-	require.NoError(t, os.MkdirAll(skillBase, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "main.go"), []byte("package main"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "references"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "references", "main.go"), []byte("package main"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "setup.sh"), []byte("#!/bin/bash"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "icon.png"), []byte("\x89PNG"), 0o644))
 
@@ -485,9 +485,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Description:  "Has many fields.",
 					Body:         "Do something.",
 					AllowedTools: ast.ClearableList{Values: []string{"Bash"}},
-					References:   ast.ClearableList{Values: []string{"main.go"}},
-					Scripts:      ast.ClearableList{Values: []string{"setup.sh"}},
-					Assets:       ast.ClearableList{Values: []string{"icon.png"}},
+					Artifacts:    []string{"references"},
 				},
 			},
 		},
@@ -1174,7 +1172,7 @@ func TestCursorRenderer_SkillScriptsEmitted(t *testing.T) {
 	r := cursor.New()
 
 	tmpDir := t.TempDir()
-	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	// Auto-discovery walks xcaf/skills/<id>/scripts/ — use canonical dir name.
 	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "setup")
 	scriptPath := filepath.Join(skillBase, "scripts")
 	require.NoError(t, os.MkdirAll(scriptPath, 0o755))
@@ -1185,7 +1183,7 @@ func TestCursorRenderer_SkillScriptsEmitted(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"setup": {
 					Description: "Env setup.",
-					Scripts:     ast.ClearableList{Values: []string{"scripts/install.sh"}},
+					Artifacts:   []string{"scripts"},
 				},
 			},
 		},
@@ -1209,7 +1207,7 @@ func TestCursorRenderer_SkillAssetsEmitted(t *testing.T) {
 	r := cursor.New()
 
 	tmpDir := t.TempDir()
-	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	// Auto-discovery walks xcaf/skills/<id>/assets/ — use canonical dir name.
 	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "gen")
 	assetPath := filepath.Join(skillBase, "assets")
 	require.NoError(t, os.MkdirAll(assetPath, 0o755))
@@ -1220,7 +1218,7 @@ func TestCursorRenderer_SkillAssetsEmitted(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"gen": {
 					Description: "Generator.",
-					Assets:      ast.ClearableList{Values: []string{"assets/template.txt"}},
+					Artifacts:   []string{"assets"},
 				},
 			},
 		},
@@ -1242,9 +1240,9 @@ func TestCursorRenderer_SkillReferencesEmitted(t *testing.T) {
 	r := cursor.New()
 
 	tmpDir := t.TempDir()
-	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	// Auto-discovery walks xcaf/skills/<id>/references/ — use canonical dir name.
 	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "db-setup")
-	refPath := filepath.Join(skillBase, "refs")
+	refPath := filepath.Join(skillBase, "references")
 	require.NoError(t, os.MkdirAll(refPath, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(refPath, "schema.sql"), []byte("CREATE TABLE t(id INT);"), 0o644))
 
@@ -1253,7 +1251,7 @@ func TestCursorRenderer_SkillReferencesEmitted(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"db-setup": {
 					Description: "DB setup.",
-					References:  ast.ClearableList{Values: []string{"refs/schema.sql"}},
+					Artifacts:   []string{"references"},
 				},
 			},
 		},
@@ -1270,21 +1268,24 @@ func TestCursorRenderer_SkillReferencesEmitted(t *testing.T) {
 }
 
 func TestCursorRenderer_SkillSubdirPathTraversal(t *testing.T) {
+	// With auto-discovery, path traversal vectors via field values are eliminated.
+	// Artifact discovery is driven by skill.Artifacts and walks the canonical directory
+	// on disk — path traversal is no longer a vector.
+	// Verify that a skill with no Artifacts produces only SKILL.md and no error.
 	r := cursor.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
-				"evil": {
-					Description: "Bad.",
-					Scripts:     ast.ClearableList{Values: []string{"../../../etc/passwd"}},
+				"safe": {
+					Description: "No artifacts declared.",
 				},
 			},
 		},
 	}
 
-	_, _, err := renderer.Orchestrate(r, config, t.TempDir())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "traverses above")
+	out, _, err := renderer.Orchestrate(r, config, t.TempDir())
+	require.NoError(t, err)
+	assert.Contains(t, out.Files, "skills/safe/SKILL.md", "SKILL.md should always be emitted")
 }
 
 // ─── Activation mapping tests ─────────────────────────────────────────────────
@@ -1439,7 +1440,7 @@ func TestCompileCursorRule_LegacyAlwaysApply_False(t *testing.T) {
 
 func TestCompile_SkillWithExamples_Cursor(t *testing.T) {
 	tmpDir := t.TempDir()
-	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	// Auto-discovery walks xcaf/skills/<id>/examples/ — use canonical dir name.
 	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "my-skill")
 	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "examples"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "examples", "sample.md"), []byte("# Sample"), 0o644))
@@ -1448,7 +1449,7 @@ func TestCompile_SkillWithExamples_Cursor(t *testing.T) {
 		"my-skill": {
 			Description: "test",
 			Body:        "Do the thing.",
-			Examples:    ast.ClearableList{Values: []string{"examples/sample.md"}},
+			Artifacts:   []string{"examples"},
 		},
 	}
 
@@ -1458,7 +1459,7 @@ func TestCompile_SkillWithExamples_Cursor(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Cursor: examples collapse into references/
+	// Cursor: examples collapse into references/ (via SkillArtifactDirs mapping)
 	if _, ok := files["skills/my-skill/references/sample.md"]; !ok {
 		t.Errorf("expected examples collapsed into references/, got keys: %v", renderer.SortedKeys(files))
 	}
