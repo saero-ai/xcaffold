@@ -117,11 +117,14 @@ func initProject(cmd *cobra.Command) error {
 		var doImport bool
 		if hasExistingScaffold {
 			fmt.Println()
+			fmt.Fprintf(os.Stderr, "  %s  Re-init DELETES all xcaf/ sources and reimports from detected providers.\n", colorYellow(glyphSrc()))
+			fmt.Fprintf(os.Stderr, "      Manually authored files (blueprints, custom contexts) will be lost.\n")
+			fmt.Fprintf(os.Stderr, "      To sync incremental changes, use 'xcaffold import' instead.\n\n")
 			if yesFlag {
 				doImport = true
 			} else {
 				var err error
-				doImport, err = prompt.Confirm("Re-import from source directories? (overwrites project.xcaf and xcaf/)", false)
+				doImport, err = prompt.Confirm("Delete xcaf/ and reimport from scratch?", false)
 				if err != nil {
 					return fmt.Errorf("prompt error: %w", err)
 				}
