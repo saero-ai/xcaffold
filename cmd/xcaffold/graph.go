@@ -244,6 +244,22 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 	}
 
 	if graphBlueprintFlag != "" {
+		if err := blueprint.ResolveBlueprintExtends(config.Blueprints); err != nil {
+			return nil, fmt.Errorf("blueprint extends resolution failed: %w", err)
+		}
+		if errs := blueprint.ValidateBlueprintRefs(config.Blueprints, &config.ResourceScope); len(errs) > 0 {
+			msgs := make([]string, len(errs))
+			for i, e := range errs {
+				msgs[i] = e.Error()
+			}
+			return nil, fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
+		}
+		if p, ok := config.Blueprints[graphBlueprintFlag]; ok {
+			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
+				return nil, fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
+			}
+			config.Blueprints[graphBlueprintFlag] = p
+		}
 		filtered, err := blueprint.ApplyBlueprint(config, graphBlueprintFlag)
 		if err != nil {
 			return nil, fmt.Errorf("blueprint %q: %w", graphBlueprintFlag, err)

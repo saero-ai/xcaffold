@@ -159,6 +159,23 @@ func runGraphBlueprint(bpName string) error {
 	}
 	cfg.StripInherited()
 
+	if err := blueprint.ResolveBlueprintExtends(cfg.Blueprints); err != nil {
+		return fmt.Errorf("blueprint extends resolution failed: %w", err)
+	}
+	if errs := blueprint.ValidateBlueprintRefs(cfg.Blueprints, &cfg.ResourceScope); len(errs) > 0 {
+		msgs := make([]string, len(errs))
+		for i, e := range errs {
+			msgs[i] = e.Error()
+		}
+		return fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
+	}
+	if p, ok := cfg.Blueprints[bpName]; ok {
+		if err := blueprint.ResolveTransitiveDeps(&p, &cfg.ResourceScope); err != nil {
+			return fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
+		}
+		cfg.Blueprints[bpName] = p
+	}
+
 	filtered, err := blueprint.ApplyBlueprint(cfg, bpName)
 	if err != nil {
 		return fmt.Errorf("blueprint error: %w", err)
