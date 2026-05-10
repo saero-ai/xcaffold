@@ -295,12 +295,13 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 
 	switch kind {
 	case "agent":
-		// Guard: reject kind:agent files placed directly under xcaf/agents/.
-		// They must be in a subdirectory: xcaf/agents/<id>/<file>.xcaf.
+		// Warn: flat kind:agent files placed directly under xcaf/agents/ are deprecated.
+		// Prefer subdirectory layout: xcaf/agents/<id>/agent.xcaf for proper memory discovery.
 		if sourceFile != "" {
 			parentDir := filepath.Base(filepath.Dir(sourceFile))
 			if parentDir == "agents" {
-				return fmt.Errorf("agent file %q must be in a subdirectory under xcaf/agents/<id>/; flat files are not supported", filepath.Base(sourceFile))
+				config.ParseWarnings = append(config.ParseWarnings,
+					fmt.Sprintf("agent %q is a flat file under xcaf/agents/; memory discovery requires xcaf/agents/<name>/agent.xcaf layout", filepath.Base(sourceFile)))
 			}
 		}
 		var doc agentDocument

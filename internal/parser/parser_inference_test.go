@@ -261,3 +261,52 @@ func TestParse_NameMismatch_WarningCollected(t *testing.T) {
 	assert.Contains(t, cfg.ParseWarnings[0], "reviewer", "warning must include declared name")
 	assert.Contains(t, cfg.ParseWarnings[0], "developer", "warning must include inferred name")
 }
+
+// TestParse_FlatAgentFile_WarningEmitted tests that flat agent files (xcaf/agents/developer.xcaf)
+// are no longer rejected; instead, a warning is emitted about the missing memory discovery layout.
+func TestParse_FlatAgentFile_WarningEmitted(t *testing.T) {
+	dir := t.TempDir()
+	agentsDir := filepath.Join(dir, "xcaf", "agents")
+	require.NoError(t, os.MkdirAll(agentsDir, 0755))
+
+	// Flat agent file: directly under xcaf/agents/, not in a subdirectory
+	content := "---\nkind: agent\nversion: \"1.0\"\nname: developer\nmodel: sonnet\n---\nYou are a developer.\n"
+	filePath := filepath.Join(agentsDir, "developer.xcaf")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	// Need a project.xcaf to satisfy parser requirements
+	projectContent := "kind: project\nversion: \"1.0\"\nname: test-project\ntargets:\n  - claude\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(projectContent), 0644))
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err, "flat agent file must not cause a parse error")
+
+	agent, ok := cfg.Agents["developer"]
+	require.True(t, ok, "flat agent must be added to config")
+	assert.Equal(t, "sonnet", agent.Model)
+
+	require.NotEmpty(t, cfg.ParseWarnings, "expected a parse warning for flat agent file")
+	found := false
+	for _, w := range cfg.ParseWarnings {
+		if contains(w, "flat file") && contains(w, "memory discovery") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected warning about flat file and memory discovery, got: %v", cfg.ParseWarnings)
+}
+
+// contains is a simple helper to check if a string contains a substring.
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && stringContains(s, substr)
+}
+
+// stringContains checks if s contains substr.
+func stringContains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
