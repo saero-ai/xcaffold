@@ -76,9 +76,13 @@ func makeTestImporters(pairs ...struct{ dir, platform string }) []importer.Provi
 func TestImportScope_XcafDirAlreadyExists(t *testing.T) {
 	tmp := t.TempDir()
 
-	// Create xcaf/ directory inside the temp dir
-	if err := os.MkdirAll(filepath.Join(tmp, "xcaf"), 0755); err != nil {
+	// Create xcaf/ directory with at least one valid .xcaf file (to make it parseable)
+	if err := os.MkdirAll(filepath.Join(tmp, "xcaf", "agents"), 0755); err != nil {
 		t.Fatalf("failed to create xcaf/ dir: %v", err)
+	}
+	projXcafPath := filepath.Join(tmp, "xcaf", "agents", "empty.xcaf")
+	if err := os.WriteFile(projXcafPath, []byte("kind: agent\nversion: \"1.0\"\nname: empty\n"), 0600); err != nil {
+		t.Fatalf("failed to write empty agent: %v", err)
 	}
 
 	// Create .claude/agents/ with a dummy agent file so importScope has content to scan
@@ -100,12 +104,12 @@ func TestImportScope_XcafDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
+	// When xcaf/ already exists with valid .xcaf files, importScope should attempt incremental import
+	// and succeed (since there's nothing new to import from the dummy agent)
 	err = importScope(".claude", "project.xcaf", "project", "claude")
-	if err == nil {
-		t.Fatal("expected error when xcaf/ directory already exists, got nil")
-	}
-	if !strings.Contains(err.Error(), "xcaf/ directory already exists") {
-		t.Errorf("expected error to contain %q, got: %v", "xcaf/ directory already exists", err)
+	// No error is expected - incremental import should handle existing state gracefully
+	if err != nil {
+		t.Errorf("expected incremental import to succeed, got error: %v", err)
 	}
 }
 
@@ -335,9 +339,13 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 func TestMergeImportDirs_XcafDirAlreadyExists(t *testing.T) {
 	tmp := t.TempDir()
 
-	// Create xcaf/ directory inside the temp dir
-	if err := os.MkdirAll(filepath.Join(tmp, "xcaf"), 0755); err != nil {
+	// Create xcaf/ directory with at least one valid .xcaf file
+	if err := os.MkdirAll(filepath.Join(tmp, "xcaf", "agents"), 0755); err != nil {
 		t.Fatalf("failed to create xcaf/ dir: %v", err)
+	}
+	projXcafPath := filepath.Join(tmp, "xcaf", "agents", "empty.xcaf")
+	if err := os.WriteFile(projXcafPath, []byte("kind: agent\nversion: \"1.0\"\nname: empty\n"), 0600); err != nil {
+		t.Fatalf("failed to write empty agent: %v", err)
 	}
 
 	// Create .claude/agents/ with a dummy agent file
@@ -359,12 +367,14 @@ func TestMergeImportDirs_XcafDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
+	// When xcaf/ already exists, mergeImportDirs should return an error
+	// (incremental merge is not yet implemented for multi-provider scenarios)
 	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcaf")
 	if err == nil {
 		t.Fatal("expected error when xcaf/ directory already exists, got nil")
 	}
-	if !strings.Contains(err.Error(), "xcaf/ directory already exists") {
-		t.Errorf("expected error to contain %q, got: %v", "xcaf/ directory already exists", err)
+	if !strings.Contains(err.Error(), "incremental import with multiple providers is not yet supported") {
+		t.Errorf("expected error about incremental import with multiple providers, got: %v", err)
 	}
 }
 
@@ -751,8 +761,14 @@ func TestImport_RemovedFlags_NotRegistered(t *testing.T) {
 
 func TestImport_PreservedFlags_StillRegistered(t *testing.T) {
 	flags := importCmd.Flags()
-	if flags.Lookup("plan") == nil {
-		t.Error("--plan flag should be preserved")
+	if flags.Lookup("dry-run") == nil {
+		t.Error("--dry-run flag should be registered")
+	}
+	if flags.Lookup("force") == nil {
+		t.Error("--force flag should be registered")
+	}
+	if flags.Lookup("yes") == nil {
+		t.Error("--yes flag should be registered")
 	}
 }
 
@@ -1191,10 +1207,10 @@ func TestImportScope_PlanFlag_DryRun(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".claude", "skills", "testing", "SKILL.md"),
 		"---\nname: testing\ndescription: Testing Skill\n---\n\nTesting steps.")
 
-	// Enable --plan flag
-	oldImportPlan := importPlan
-	importPlan = true
-	defer func() { importPlan = oldImportPlan }()
+	// Enable --dry-run flag
+	oldImportDryRun := importDryRun
+	importDryRun = true
+	defer func() { importDryRun = oldImportDryRun }()
 
 	// Capture stdout
 	oldStdout := os.Stdout
@@ -1235,10 +1251,10 @@ func TestMergeImportDirs_PlanFlag_DryRun(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, ".gemini", "agents", "reviewer.md"),
 		"---\nname: reviewer\ndescription: Reviewer\n---\n\nReviewer.")
 
-	// Enable --plan flag
-	oldImportPlan := importPlan
-	importPlan = true
-	defer func() { importPlan = oldImportPlan }()
+	// Enable --dry-run flag
+	oldImportDryRun := importDryRun
+	importDryRun = true
+	defer func() { importDryRun = oldImportDryRun }()
 
 	providerImporters := makeTestImporters(
 		struct{ dir, platform string }{filepath.Join(tmp, ".claude"), "claude"},

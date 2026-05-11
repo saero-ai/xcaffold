@@ -476,14 +476,6 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 				ctx.Body = trimmedBody
 				config.Contexts[lastName] = ctx
 			}
-		case "project":
-			if config.Contexts == nil {
-				config.Contexts = make(map[string]ast.ContextConfig)
-			}
-			config.Contexts["root"] = ast.ContextConfig{
-				Name: "root",
-				Body: trimmedBody,
-			}
 		}
 	}
 

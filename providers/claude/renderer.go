@@ -250,27 +250,13 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 	return files, nil, nil
 }
 
-// CompileProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per
-// scope, plus settings.local.json when a project.local block is present.
+// CompileProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per scope.
 func (r *Renderer) CompileProjectInstructions(config *ast.XcaffoldConfig, baseDir string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
 	rootFiles := make(map[string]string)
 
 	// Synthesize a minimal config so renderProjectInstructions can read it.
 	notes := r.renderProjectInstructions(config, baseDir, rootFiles)
-
-	// Emit settings.local.json when a local block is present.
-	var local ast.SettingsConfig
-	if config.Project != nil {
-		local = config.Project.Local
-	}
-	localJSON, err := compileSettingsJSON(local, nil)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to compile local settings: %w", err)
-	}
-	if localJSON != "" {
-		files["settings.local.json"] = localJSON
-	}
 
 	return files, rootFiles, notes, nil
 }

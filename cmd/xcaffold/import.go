@@ -12,6 +12,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/importer"
 	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	providerspkg "github.com/saero-ai/xcaffold/providers"
 	_ "github.com/saero-ai/xcaffold/providers/antigravity"
@@ -23,7 +24,9 @@ import (
 )
 
 var (
-	importPlan       bool
+	importDryRun     bool
+	importForce      bool
+	importYes        bool
 	importTargetFlag string
 
 	importFilterAgent    string
@@ -48,10 +51,16 @@ Detection (Default):
  • Reads .claude/settings.json for MCP and settings context
  • Generates project.xcaf manifest referencing discovered resources
 
+Incremental Import:
+ • If project.xcaf or xcaf/ already exists, shows a diff of what would change
+ • Use --force to delete existing state and reimport from scratch
+ • Use --yes to skip confirmation prompts (CI/CD mode)
+
 Usage:
   $ xcaffold import
   $ xcaffold import --target claude
-  $ xcaffold import --plan`,
+  $ xcaffold import --dry-run
+  $ xcaffold import --force --yes`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return nil
@@ -63,7 +72,9 @@ Usage:
 
 func init() {
 	f := importCmd.Flags()
-	f.BoolVar(&importPlan, "plan", false, "Dry-run: print import plan without writing files")
+	f.BoolVar(&importDryRun, "dry-run", false, "Preview changes without writing to disk")
+	f.BoolVar(&importForce, "force", false, "Delete project.xcaf and xcaf/, then reimport from scratch")
+	f.BoolVarP(&importYes, "yes", "y", false, "Skip confirmation prompts (CI/CD mode)")
 	f.StringVar(&importTargetFlag, "target", "", fmt.Sprintf("import from specific provider: %s", strings.Join(providerspkg.PrimaryNames(), ", ")))
 
 	// Per-kind resource filtering flags
@@ -284,11 +295,37 @@ func runImport(cmd *cobra.Command, args []string) error {
 // hooks, project-instruction files, and memory. The provider name must match
 // a registered provider (see providers.RegisteredNames()).
 func importScope(platformDir, xcafDest, scopeName, provider string) error {
+	xcafExists := false
 	if _, err := os.Stat(xcafDest); err == nil {
-		return fmt.Errorf("[%s] %s already exists. Remove it first to import", scopeName, xcafDest)
+		xcafExists = true
 	}
-	if err := checkXcafDirPreexistence(".", scopeName); err != nil {
-		return err
+	xcafDirExists := false
+	if _, err := os.Stat("xcaf"); err == nil {
+		xcafDirExists = true
+	}
+
+	if importForce && (xcafExists || xcafDirExists) {
+		fmt.Fprintf(os.Stderr, "\n  %s  --force will DELETE project.xcaf and xcaf/ directory.\n", colorYellow(glyphSrc()))
+		fmt.Fprintf(os.Stderr, "     All manual edits to xcaf files will be lost.\n\n")
+		doForce := importYes
+		if !importYes {
+			var err error
+			doForce, err = prompt.Confirm("Proceed with destructive reimport?", false)
+			if err != nil {
+				return fmt.Errorf("prompt error: %w", err)
+			}
+		}
+		if !doForce {
+			return nil
+		}
+		_ = os.Remove(xcafDest)
+		_ = os.RemoveAll("xcaf")
+		xcafExists = false
+		xcafDirExists = false
+	}
+
+	if xcafExists || xcafDirExists {
+		return incrementalImport(platformDir, xcafDest, scopeName, provider)
 	}
 
 	// projectDir is the directory that contains the provider sub-directory.
@@ -593,7 +630,7 @@ func finalizeImportScope(xcafDest, scopeName, provider string, config *ast.Xcaff
 	tagResourcesWithProvider(config, provider)
 	applyKindFilters(config)
 
-	if importPlan {
+	if importDryRun {
 		fmt.Printf("Import plan (dry-run):\n")
 		fmt.Printf("  Would create %d agents, %d skills, %d rules, %d workflows, %d MCP servers\n",
 			len(config.Agents), len(config.Skills), len(config.Rules), len(config.Workflows), len(config.MCP))
@@ -736,11 +773,38 @@ func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]stri
 // produces a universal base tagged with all providers; different content produces a base
 // with the first provider's values plus per-provider override files.
 func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) error {
+	xcafExists := false
 	if _, err := os.Stat(xcafDest); err == nil {
-		return fmt.Errorf("[project] %s already exists. Remove it first to import", xcafDest)
+		xcafExists = true
 	}
-	if err := checkXcafDirPreexistence(".", "project"); err != nil {
-		return err
+	xcafDirExists := false
+	if _, err := os.Stat("xcaf"); err == nil {
+		xcafDirExists = true
+	}
+
+	if importForce && (xcafExists || xcafDirExists) {
+		fmt.Fprintf(os.Stderr, "\n  %s  --force will DELETE project.xcaf and xcaf/ directory.\n", colorYellow(glyphSrc()))
+		fmt.Fprintf(os.Stderr, "     All manual edits to xcaf files will be lost.\n\n")
+		doForce := importYes
+		if !importYes {
+			var err error
+			doForce, err = prompt.Confirm("Proceed with destructive reimport?", false)
+			if err != nil {
+				return fmt.Errorf("prompt error: %w", err)
+			}
+		}
+		if !doForce {
+			return nil
+		}
+		_ = os.Remove(xcafDest)
+		_ = os.RemoveAll("xcaf")
+		xcafExists = false
+		xcafDirExists = false
+	}
+
+	if xcafExists || xcafDirExists {
+		// TODO: implement incremental merge in mergeImportDirs
+		return fmt.Errorf("[project] incremental import with multiple providers is not yet supported; use 'xcaffold import --force' to reimport from scratch")
 	}
 
 	projectName := inferProjectName()
@@ -774,8 +838,8 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) err
 
 	applyKindFilters(config)
 
-	// Apply --plan guard before writing files
-	if importPlan {
+	// Apply --dry-run guard before writing files
+	if importDryRun {
 		fmt.Printf("Import plan (dry-run):\n")
 		fmt.Printf("  Would create %d agents, %d skills, %d rules, %d workflows, %d MCP servers\n",
 			len(config.Agents), len(config.Skills), len(config.Rules), len(config.Workflows), len(config.MCP))
@@ -835,16 +899,6 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) err
 		for _, w := range warnings {
 			fmt.Println(" ⚠", w)
 		}
-	}
-	return nil
-}
-
-// checkXcafDirPreexistence returns an error if a xcaf/ directory already exists
-// adjacent to xcafDest. Callers must remove it before re-importing.
-func checkXcafDirPreexistence(xcafDest, scopeName string) error {
-	xcafSourceDir := filepath.Join(filepath.Dir(xcafDest), "xcaf")
-	if _, err := os.Stat(xcafSourceDir); err == nil {
-		return fmt.Errorf("[%s] xcaf/ directory already exists. Remove it first to re-import", scopeName)
 	}
 	return nil
 }

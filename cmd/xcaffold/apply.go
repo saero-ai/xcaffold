@@ -17,6 +17,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
+	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
@@ -29,6 +30,7 @@ import (
 var applyDryRun bool
 var applyForce bool
 var applyBackup bool
+var applyYes bool
 var applyProjectFlag string
 var applyBlueprintFlag string
 var targetFlag string
@@ -52,6 +54,211 @@ Any manually edited files inside the target directory will be overwritten.`,
 	SilenceErrors: true,
 }
 
+// prepareSourceFiles collects and filters source files for compilation.
+// It excludes registry-kind files and includes variable files.
+func prepareSourceFiles(baseDir, target, varFile string) ([]string, error) {
+	sourceFiles, findErr := resolver.FindXCAFFiles(baseDir)
+	if findErr != nil {
+		fmt.Fprintf(os.Stderr, "  Warning: failed to scan source files: %v\n", findErr)
+	}
+
+	// Filter out non-config XCAF files (e.g. kind: registry) to prevent
+	// SourcesChanged from detecting registry mutations as config changes.
+	var configSources []string
+	for _, f := range sourceFiles {
+		data, readErr := os.ReadFile(f)
+		if readErr != nil {
+			configSources = append(configSources, f)
+			continue
+		}
+		var header struct {
+			Kind string `yaml:"kind"`
+		}
+		if yaml.Unmarshal(data, &header) == nil && header.Kind == "registry" {
+			continue
+		}
+		configSources = append(configSources, f)
+	}
+
+	// Add variable files to sources for drift detection
+	configSources = append(configSources, resolver.FindVariableFiles(baseDir, target, varFile)...)
+	return configSources, findErr
+}
+
+// checkSmartSkip determines if compilation can be skipped due to unchanged sources.
+// Returns true if sources haven't changed and compilation can be skipped.
+func checkSmartSkip(stateFilePath string, sourceFiles []string, baseDir string) bool {
+	if applyForce {
+		return false
+	}
+
+	prevManifest, readErr := state.ReadState(stateFilePath)
+	if readErr != nil {
+		return false
+	}
+
+	// Read source files from target-specific state (new behavior)
+	// with fallback to top-level for backward compat (old state files)
+	prevSourceFiles := prevManifest.Targets[targetFlag].SourceFiles
+	if len(prevSourceFiles) == 0 && len(prevManifest.SourceFiles) > 0 {
+		// Backward compat: old state files stored sources at top level
+		prevSourceFiles = prevManifest.SourceFiles
+	}
+
+	if len(prevSourceFiles) == 0 {
+		return false
+	}
+
+	changed, _ := state.SourcesChanged(prevSourceFiles, sourceFiles, baseDir)
+	return !changed
+}
+
+// compileAndOptimize compiles the config and applies optimization.
+// Returns compiled output, fidelity notes, and any error.
+func compileAndOptimize(config *ast.XcaffoldConfig, baseDir, target, blueprint, varFile string) (*output.Output, []renderer.FidelityNote, error) {
+	out, notes, err := compiler.Compile(config, baseDir, target, blueprint, varFile)
+	if err != nil {
+		return nil, notes, err
+	}
+
+	// Renderers resolve @-imports natively; the optimizer handles targets that don't.
+	opt := optimizer.New(target)
+	optimized, optNotes, optErr := opt.Run(out.Files)
+	if optErr != nil {
+		return nil, notes, optErr
+	}
+	out.Files = optimized
+	notes = append(notes, optNotes...)
+
+	// Restore same-provider extras and emit fidelity notes for cross-provider ones.
+	notes = applyProviderExtras(config, out, target, notes)
+
+	return out, notes, nil
+}
+
+// checkCompilationErrors verifies fidelity notes and policy violations.
+// Prints all notes/violations first, then returns an error if any are fatal.
+func checkCompilationErrors(config *ast.XcaffoldConfig, out *output.Output, notes []renderer.FidelityNote) error {
+	// Check for error-level fidelity notes (e.g., missing required fields).
+	filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, targetFlag))
+	printFidelityNotes(os.Stderr, filteredNotes, verboseFlag)
+	if err := checkFidelityErrors(filteredNotes); err != nil {
+		return &silentError{msg: err.Error()}
+	}
+
+	// Security invariants check. Run before policy evaluation.
+	// Invariant violations are always fatal — no --verbose gating.
+	if errs := policy.RunInvariants(config, out); len(errs) > 0 {
+		for _, e := range errs {
+			fmt.Fprintf(os.Stderr, "%s  %s\n", colorRed(glyphErr()), e)
+		}
+		return &silentError{msg: fmt.Sprintf("apply blocked: %d security invariant(s) violated", len(errs))}
+	}
+
+	// Policy evaluation. Run against config post-Compile() — compiler.Compile
+	// has already called StripInherited() so globally-inherited resources (e.g.
+	// from ~/.xcaffold/global.xcaf) are absent. Policies only evaluate what was
+	// actually compiled, preventing spurious violations on user-wide globals.
+	violations := policy.Evaluate(config.Policies, config, out)
+	policyErrors := policy.FilterBySeverity(violations, policy.SeverityError)
+	policyWarnings := policy.FilterBySeverity(violations, policy.SeverityWarning)
+
+	if len(policyWarnings) > 0 && verboseFlag {
+		fmt.Fprint(os.Stderr, policy.FormatViolations(policyWarnings))
+	}
+	if len(policyErrors) > 0 {
+		fmt.Fprint(os.Stderr, policy.FormatViolations(policyErrors))
+		return &silentError{msg: fmt.Sprintf("apply blocked: %d policy error(s) found", len(policyErrors))}
+	}
+
+	return nil
+}
+
+// showApplyPreview displays the preview table and prompts for confirmation.
+// Returns true if user confirmed or if no changes detected (which means "proceed").
+// Returns false only if user explicitly denied the prompt.
+func showApplyPreview(oldManifest *state.StateManifest, out *output.Output, outputDir, baseDir string) (bool, error) {
+	preview := computeApplyPreview(out.Files, out.RootFiles, outputDir, baseDir)
+	orphanCount := countOrphansFromState(oldManifest, targetFlag, out.Files)
+	newC, changedC, _ := renderApplyPreview(preview)
+	totalChanges := newC + changedC + orphanCount
+
+	if totalChanges == 0 {
+		fmt.Printf("\n  %s  No changes. Current files are up to date.\n", colorGreen(glyphOK()))
+		return true, nil // Return true to allow state file to be written
+	}
+
+	if applyYes {
+		return true, nil
+	}
+
+	parts := []string{}
+	if changedC > 0 {
+		parts = append(parts, fmt.Sprintf("%d changed", changedC))
+	}
+	if newC > 0 {
+		parts = append(parts, fmt.Sprintf("%d new", newC))
+	}
+	if orphanCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d deleted", orphanCount))
+	}
+	msg := fmt.Sprintf("Apply %s?", strings.Join(parts, " + "))
+	ok, err := prompt.Confirm(msg, true)
+	if err != nil {
+		return false, fmt.Errorf("prompt error: %w", err)
+	}
+	return ok, nil
+}
+
+// writeApplyFiles writes all compiled files (both output and root) to disk.
+// Updates filesWritten counter and returns it.
+func writeApplyFiles(out *output.Output, outputDir, baseDir, scopeName string) (int, error) {
+	var hasChanges bool
+	filesWritten := 0
+
+	for relPath, content := range out.Files {
+		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
+		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
+			return 0, err
+		}
+	}
+
+	for relPath, content := range out.RootFiles {
+		absPath := filepath.Clean(filepath.Join(baseDir, relPath))
+		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
+			return 0, err
+		}
+	}
+
+	return filesWritten, nil
+}
+
+// writeApplyState writes the state manifest to disk after a successful apply.
+func writeApplyState(config *ast.XcaffoldConfig, out *output.Output, baseDir, stateFilePath string, sourceFiles []string, oldManifest *state.StateManifest) error {
+	// Compute blueprint hash before writing state.
+	var bpHash string
+	if applyBlueprintFlag != "" {
+		if p, ok := config.Blueprints[applyBlueprintFlag]; ok {
+			bpHash = blueprint.BlueprintHash(p)
+		}
+	}
+
+	newManifest, err := state.GenerateState(out, state.StateOpts{
+		Blueprint:     applyBlueprintFlag,
+		BlueprintHash: bpHash,
+		Target:        targetFlag,
+		BaseDir:       baseDir,
+		SourceFiles:   sourceFiles,
+	}, oldManifest)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  Warning: failed to generate state: %v\n", err)
+	}
+	if err := state.WriteState(newManifest, stateFilePath); err != nil {
+		fmt.Fprintf(os.Stderr, "  Warning: failed to write state: %v\n", err)
+	}
+	return nil
+}
+
 // checkFidelityErrors scans fidelity notes for error-level entries and returns
 // an error if any are found. Error-level notes (e.g., missing required fields)
 // are severe enough to block compilation.
@@ -68,10 +275,104 @@ func checkFidelityErrors(notes []renderer.FidelityNote) error {
 	return nil
 }
 
+// applyDiffEntry represents a single file comparison for preview output.
+type applyDiffEntry struct {
+	Path   string
+	Status string // "new", "changed", "unchanged"
+}
+
+// computeApplyPreview compares compiled output against files on disk.
+// Only handles NEW/CHANGED/UNCHANGED. Orphan detection is handled by
+// existing cleanOrphansFromState() to avoid duplicating logic.
+func computeApplyPreview(outFiles map[string]string, rootFiles map[string]string, outputDir, baseDir string) []applyDiffEntry {
+	var entries []applyDiffEntry
+	for relPath, content := range outFiles {
+		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
+		existing, err := os.ReadFile(absPath)
+		if err != nil {
+			entries = append(entries, applyDiffEntry{Path: relPath, Status: "new"})
+		} else if string(existing) != content {
+			entries = append(entries, applyDiffEntry{Path: relPath, Status: "changed"})
+		} else {
+			entries = append(entries, applyDiffEntry{Path: relPath, Status: "unchanged"})
+		}
+	}
+	for relPath, content := range rootFiles {
+		absPath := filepath.Clean(filepath.Join(baseDir, relPath))
+		existing, err := os.ReadFile(absPath)
+		if err != nil {
+			entries = append(entries, applyDiffEntry{Path: relPath + "  (root)", Status: "new"})
+		} else if string(existing) != content {
+			entries = append(entries, applyDiffEntry{Path: relPath + "  (root)", Status: "changed"})
+		} else {
+			entries = append(entries, applyDiffEntry{Path: relPath + "  (root)", Status: "unchanged"})
+		}
+	}
+	return entries
+}
+
+// countOrphansFromState counts the number of files tracked in oldManifest
+// for the given target that are absent from the new compiled output.
+func countOrphansFromState(oldManifest *state.StateManifest, target string, outFiles map[string]string) int {
+	if oldManifest == nil {
+		return 0
+	}
+	count := 0
+	targetState, ok := oldManifest.Targets[target]
+	if !ok {
+		return 0
+	}
+	for _, artifact := range targetState.Artifacts {
+		if _, inOut := outFiles[artifact.Path]; !inOut {
+			count++
+		}
+	}
+	return count
+}
+
+// renderApplyPreview prints the preview table and returns counts of each status.
+// Note: deletedCount is not returned because the preview does not track deletions
+// (they are handled separately by cleanOrphansFromState).
+func renderApplyPreview(entries []applyDiffEntry) (newCount, changedCount, unchangedCount int) {
+	for _, e := range entries {
+		switch e.Status {
+		case "new":
+			newCount++
+		case "changed":
+			changedCount++
+		case "unchanged":
+			unchangedCount++
+		}
+	}
+	if changedCount > 0 {
+		fmt.Printf("\n  CHANGED (%d %s):\n", changedCount, plural(changedCount, "file", "files"))
+		for _, e := range entries {
+			if e.Status == "changed" {
+				display, _ := formatArtifactPath(e.Path)
+				fmt.Printf("    %s  %s\n", colorYellow(glyphSrc()), display)
+			}
+		}
+	}
+	if newCount > 0 {
+		fmt.Printf("\n  NEW (%d %s):\n", newCount, plural(newCount, "file", "files"))
+		for _, e := range entries {
+			if e.Status == "new" {
+				display, _ := formatArtifactPath(e.Path)
+				fmt.Printf("    %s  %s\n", colorGreen("+"), display)
+			}
+		}
+	}
+	if unchangedCount > 0 {
+		fmt.Printf("\n  UNCHANGED: %d %s\n", unchangedCount, plural(unchangedCount, "file", "files"))
+	}
+	return
+}
+
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
 	applyCmd.Flags().BoolVar(&applyForce, "force", false, "Overwrite customized local files and bypass drift safeguard")
 	applyCmd.Flags().BoolVar(&applyBackup, "backup", false, "Backup existing target directory before overwriting")
+	applyCmd.Flags().BoolVarP(&applyYes, "yes", "y", false, "Skip confirmation prompt (CI/CD mode)")
 	applyCmd.Flags().StringVar(&applyProjectFlag, "project", "", "Apply to an external project registered in the global registry")
 	applyCmd.Flags().StringVar(&applyBlueprintFlag, "blueprint", "", "Compile a specific blueprint (default: all resources)")
 	applyCmd.Flags().StringVar(&targetFlag, "target", "", fmt.Sprintf("compilation target platform (%s)", strings.Join(providers.PrimaryNames(), ", ")))
@@ -83,7 +384,6 @@ func init() {
 // Configs with older versions produce an error requiring the user to update the version field.
 const currentSchemaVersion = "1.0"
 
-//nolint:gocyclo
 func runApply(cmd *cobra.Command, args []string) error {
 	if applyBlueprintFlag != "" && globalFlag {
 		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
@@ -173,8 +473,6 @@ func resolveTargets(cmd *cobra.Command, baseDir string, blueprintName string) []
 //
 // scopeName is used as a prefix in terminal output so the user can distinguish
 // global from project compilation.
-//
-//nolint:gocyclo
 func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	projectName := filepath.Base(baseDir)
 	lastApplied := findLastApplied(baseDir, applyBlueprintFlag)
@@ -196,38 +494,10 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		return fmt.Errorf("project.xcaf uses schema version %s but xcaffold requires %s — please update the version field in your project.xcaf", config.Version, currentSchemaVersion)
 	}
 
-	// --- Smart compilation skip: compare source hashes ---
 	stateFilePath := state.StateFilePath(baseDir, applyBlueprintFlag)
-
 	ensureGitignoreEntry(baseDir, ".xcaffold/")
 
-	sourceFiles, findErr := resolver.FindXCAFFiles(baseDir)
-	if findErr != nil {
-		fmt.Fprintf(os.Stderr, "  Warning: failed to scan source files: %v\n", findErr)
-	}
-
-	// Filter out non-config XCAF files (e.g. kind: registry) to prevent
-	// SourcesChanged from detecting registry mutations as config changes.
-	var configSources []string
-	for _, f := range sourceFiles {
-		data, readErr := os.ReadFile(f)
-		if readErr != nil {
-			configSources = append(configSources, f)
-			continue
-		}
-		var header struct {
-			Kind string `yaml:"kind"`
-		}
-		if yaml.Unmarshal(data, &header) == nil && header.Kind == "registry" {
-			continue
-		}
-		configSources = append(configSources, f)
-	}
-
-	// Add variable files to sources for drift detection
-	configSources = append(configSources, resolver.FindVariableFiles(baseDir, targetFlag, varFileFlag)...)
-
-	sourceFiles = configSources
+	sourceFiles, _ := prepareSourceFiles(baseDir, targetFlag, varFileFlag)
 
 	if applyBackup && !applyDryRun {
 		var backupDir string
@@ -239,86 +509,25 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		}
 	}
 
-	if !applyForce {
-		prevManifest, readErr := state.ReadState(stateFilePath)
-		if readErr == nil {
-			// Read source files from target-specific state (new behavior)
-			// with fallback to top-level for backward compat (old state files)
-			prevSourceFiles := prevManifest.Targets[targetFlag].SourceFiles
-			if len(prevSourceFiles) == 0 && len(prevManifest.SourceFiles) > 0 {
-				// Backward compat: old state files stored sources at top level
-				prevSourceFiles = prevManifest.SourceFiles
-			}
-
-			if len(prevSourceFiles) > 0 {
-				changed, _ := state.SourcesChanged(prevSourceFiles, sourceFiles, baseDir)
-				if !changed {
-					if applyDryRun {
-						fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
-					} else {
-						fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
-						fmt.Println()
-						fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
-					}
-					return nil
-				}
-			}
+	if checkSmartSkip(stateFilePath, sourceFiles, baseDir) {
+		if applyDryRun {
+			fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+		} else {
+			fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+			fmt.Println()
+			fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
 		}
+		return nil
 	}
-	// --- End smart skip ---
 
-	// compiler.Compile mutates config in-place — it calls StripInherited() to
-	// remove globally-inherited resources before rendering. After Compile returns,
-	// config reflects exactly what was compiled (no global-scope bleed-through).
-	out, notes, err := compiler.Compile(config, baseDir, targetFlag, applyBlueprintFlag, varFileFlag)
+	out, notes, err := compileAndOptimize(config, baseDir, targetFlag, applyBlueprintFlag, varFileFlag)
 	if err != nil {
 		fmt.Printf("  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
 		return &silentError{msg: err.Error()}
 	}
 
-	// Renderers resolve @-imports natively; the optimizer handles targets that don't.
-	opt := optimizer.New(targetFlag)
-	optimized, optNotes, optErr := opt.Run(out.Files)
-	if optErr != nil {
-		return fmt.Errorf("optimizer error: %w", optErr)
-	}
-	out.Files = optimized
-	notes = append(notes, optNotes...)
-
-	// Restore same-provider extras and emit fidelity notes for cross-provider ones.
-	notes = applyProviderExtras(config, out, targetFlag, notes)
-
-	// Check for error-level fidelity notes (e.g., missing required fields).
-	// Print all notes first (so the user sees them), then fail if any are errors.
-	filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(config, targetFlag))
-	printFidelityNotes(os.Stderr, filteredNotes, verboseFlag)
-	if err := checkFidelityErrors(filteredNotes); err != nil {
-		return &silentError{msg: err.Error()}
-	}
-
-	// Security invariants check. Run before policy evaluation.
-	// Invariant violations are always fatal — no --verbose gating.
-	if errs := policy.RunInvariants(config, out); len(errs) > 0 {
-		for _, e := range errs {
-			fmt.Fprintf(os.Stderr, "%s  %s\n", colorRed(glyphErr()), e)
-		}
-		return &silentError{msg: fmt.Sprintf("apply blocked: %d security invariant(s) violated", len(errs))}
-	}
-
-	// Policy evaluation. Run against config post-Compile() — compiler.Compile
-	// has already called StripInherited() so globally-inherited resources (e.g.
-	// from ~/.xcaffold/global.xcaf) are absent. Policies only evaluate what was
-	// actually compiled, preventing spurious violations on user-wide globals.
-	violations := policy.Evaluate(config.Policies, config, out)
-	policyErrors := policy.FilterBySeverity(violations, policy.SeverityError)
-	policyWarnings := policy.FilterBySeverity(violations, policy.SeverityWarning)
-
-	if len(policyWarnings) > 0 && verboseFlag {
-		fmt.Fprint(os.Stderr, policy.FormatViolations(policyWarnings))
-	}
-	if len(policyErrors) > 0 {
-		fmt.Fprint(os.Stderr, policy.FormatViolations(policyErrors))
-		return &silentError{msg: fmt.Sprintf("apply blocked: %d policy error(s) found", len(policyErrors))}
+	if err := checkCompilationErrors(config, out, notes); err != nil {
+		return err
 	}
 
 	oldManifest, _ := state.ReadState(stateFilePath)
@@ -360,54 +569,44 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		fmt.Println()
 	}
 
-	// Write (or preview) each compiled file.
-	hasChanges := false
-	filesWritten := 0
-
-	cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, baseDir, scopeName, &hasChanges)
-
-	for relPath, content := range out.Files {
-		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
-		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
+	var promptDenied bool
+	if !applyDryRun && !applyForce {
+		ok, err := showApplyPreview(oldManifest, out, outputDir, baseDir)
+		if err != nil {
 			return err
 		}
+		promptDenied = !ok
+	}
+	fmt.Println()
+
+	// Skip file writes if user denied confirmation, but NOT if no changes were detected
+	// (state file should still be written even when nothing changed)
+	if promptDenied {
+		return nil
 	}
 
-	for relPath, content := range out.RootFiles {
-		absPath := filepath.Clean(filepath.Join(baseDir, relPath))
-		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
-			return err
-		}
+	// Delete orphans AFTER user confirmation to prevent data loss if user declines
+	var hasChanges bool
+	if !applyDryRun {
+		cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, baseDir, scopeName, &hasChanges)
+	}
+	_ = hasChanges // Variable is tracked by cleanOrphansFromState and applyFile, used implicitly
+
+	filesWritten, err := writeApplyFiles(out, outputDir, baseDir, scopeName)
+	if err != nil {
+		return err
 	}
 
 	if applyDryRun {
-		if !hasChanges {
+		if filesWritten == 0 && !hasChanges {
 			fmt.Printf("  %s  No changes predicted. Current files are up to date.\n", colorGreen(glyphOK()))
 		}
 		return nil
 	}
 
-	// Compute blueprint hash before writing state.
-	var bpHash string
-	if applyBlueprintFlag != "" {
-		if p, ok := config.Blueprints[applyBlueprintFlag]; ok {
-			bpHash = blueprint.BlueprintHash(p)
-		}
-	}
-
-	// Write the state file with source tracking.
-	newManifest, err := state.GenerateState(out, state.StateOpts{
-		Blueprint:     applyBlueprintFlag,
-		BlueprintHash: bpHash,
-		Target:        targetFlag,
-		BaseDir:       baseDir,
-		SourceFiles:   sourceFiles,
-	}, oldManifest)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "  Warning: failed to generate state: %v\n", err)
-	}
-	if err := state.WriteState(newManifest, stateFilePath); err != nil {
-		fmt.Fprintf(os.Stderr, "  Warning: failed to write state: %v\n", err)
+	// Write state file even if no files were written (important for drift detection on next run)
+	if err := writeApplyState(config, out, baseDir, stateFilePath, sourceFiles, oldManifest); err != nil {
+		return err
 	}
 
 	fmt.Println()

@@ -525,8 +525,5 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 		}
 	}
 	check(c.Settings["default"].EnabledPlugins, "settings")
-	if c.Project != nil {
-		check(c.Project.Local.EnabledPlugins, "local")
-	}
 	return diags
 }

@@ -79,7 +79,6 @@ type projectDocFields struct {
 	AllowedEnvVars []string                      `yaml:"allowed-env-vars,omitempty"`
 	Targets        []string                      `yaml:"targets,omitempty"`
 	Test           ast.TestConfig                `yaml:"test,omitempty"`
-	Local          ast.SettingsConfig            `yaml:"local,omitempty"`
 	TargetOptions  map[string]ast.TargetOverride `yaml:"target-options,omitempty"`
 }
 
@@ -572,7 +571,6 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.AllowedEnvVars = doc.AllowedEnvVars
 		config.Project.Targets = doc.Targets
 		config.Project.Test = doc.Test
-		config.Project.Local = doc.Local
 
 		config.Project.TargetOptions = doc.TargetOptions
 

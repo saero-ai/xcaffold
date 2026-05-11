@@ -71,12 +71,7 @@ type ProjectConfig struct {
 	// Populated by the parser when decoding kind: project documents.
 	Targets []string `yaml:"-"`
 
-	Test  TestConfig     `yaml:"test,omitempty"`
-	Local SettingsConfig `yaml:"local,omitempty"`
-
-	// Body holds markdown content parsed from the frontmatter+body format.
-	// For kind:project, this content is placed into Contexts["root"] by the parser.
-	Body string `yaml:"-"`
+	Test TestConfig `yaml:"test,omitempty"`
 
 	// InstructionsImports lists @-import targets preserved verbatim for providers
 	// that support them (Claude, Gemini). Emitted as-is into the rendered output.

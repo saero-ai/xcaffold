@@ -488,50 +488,47 @@ enabled-plugins:
 
 func TestValidatePlugins_UnknownLocalPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: project
+	// Local plugin validation now happens at kind:settings level, not kind:project.
+	// This test verifies that kind:settings validates unknown plugins.
+	xcaf := writeXCAFFile(t, dir, "settings.xcaf", `kind: settings
 version: "1.0"
-name: "test"
-local:
-  enabled-plugins:
-    mystery-plugin: true
+enabled-plugins:
+  mystery-plugin: true
 `)
 	diags := ValidateFile(xcaf)
 	var found bool
 	for _, d := range diags {
-		if d.Severity == "warning" && strings.Contains(d.Message, "local") &&
-			strings.Contains(d.Message, "unknown plugin") {
+		if d.Severity == "warning" && strings.Contains(d.Message, "unknown plugin") {
 			found = true
 		}
 	}
-	assert.True(t, found, "expected a warning about unknown local plugin, got: %v", diags)
+	assert.True(t, found, "expected a warning about unknown plugin, got: %v", diags)
 }
 
 func TestValidatePlugins_BothBlocksUnknown(t *testing.T) {
 	dir := t.TempDir()
-	// Two separate files — one per resource kind.
-	writeXCAFFile(t, dir, "project.xcaf", `kind: project
+	// Two separate kind:settings files with different unknown plugins.
+	writeXCAFFile(t, dir, "settings1.xcaf", `kind: settings
 version: "1.0"
-name: "test"
-local:
-  enabled-plugins:
-    beta-plugin: true
+enabled-plugins:
+  beta-plugin: true
 `)
-	writeXCAFFile(t, dir, "settings.xcaf", `kind: settings
+	writeXCAFFile(t, dir, "settings2.xcaf", `kind: settings
 version: "1.0"
 enabled-plugins:
   alpha-plugin: true
 `)
 	// ValidateFile operates on a single file; run it on each file separately.
-	diagsProject := ValidateFile(filepath.Join(dir, "project.xcaf"))
-	diagsSettings := ValidateFile(filepath.Join(dir, "settings.xcaf"))
-	diags := append(diagsProject, diagsSettings...)
+	diagsSettings1 := ValidateFile(filepath.Join(dir, "settings1.xcaf"))
+	diagsSettings2 := ValidateFile(filepath.Join(dir, "settings2.xcaf"))
+	diags := append(diagsSettings1, diagsSettings2...)
 	count := 0
 	for _, d := range diags {
 		if d.Severity == "warning" && strings.Contains(d.Message, "unknown plugin") {
 			count++
 		}
 	}
-	assert.Equal(t, 2, count, "expected 2 unknown-plugin warnings (one per block), got: %v", diags)
+	assert.Equal(t, 2, count, "expected 2 unknown-plugin warnings (one per settings file), got: %v", diags)
 }
 
 func TestParseDirectory_SkipsNonConfigFiles(t *testing.T) {

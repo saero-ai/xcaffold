@@ -156,7 +156,6 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	blueprintOrigins := map[string]string{}
 	contextOrigins := map[string]string{}
 	settingsOrigin := ""
-	localOrigin := ""
 
 	for _, pf := range parsedFiles {
 		p := pf.Config
@@ -177,7 +176,7 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			if merged.Project == nil {
 				merged.Project = &ast.ProjectConfig{}
 			}
-			// Copy scalar metadata fields; Local and ResourceScope are merged separately below.
+			// Copy scalar metadata fields; ResourceScope is merged separately below.
 			if p.Project.Name != "" {
 				merged.Project.Name = p.Project.Name
 			}
@@ -207,9 +206,6 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			// directly; only kind: project documents populate it.
 			if len(p.Project.Targets) > 0 {
 				merged.Project.Targets = p.Project.Targets
-			}
-			if p.Project.Body != "" {
-				merged.Project.Body = p.Project.Body
 			}
 		}
 
@@ -278,28 +274,15 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 			}
 		}
 
-		// Track which file first contributed non-empty settings/local.
+		// Track which file first contributed non-empty settings.
 		if settingsOrigin == "" && len(p.Settings) > 0 {
 			settingsOrigin = f
-		}
-		if p.Project != nil && localOrigin == "" && !isEmptySettings(p.Project.Local) {
-			localOrigin = f
 		}
 
 		// Deep merge settings map (conflicting scalar keys within the same named entry -> error).
 		merged.Settings, err = mergeSettingsMapStrict(merged.Settings, p.Settings, settingsOrigin, f)
 		if err != nil {
 			return nil, err
-		}
-		// Deep merge local block (now lives in ProjectConfig).
-		if p.Project != nil {
-			if merged.Project == nil {
-				merged.Project = &ast.ProjectConfig{}
-			}
-			merged.Project.Local, err = mergeSettingsStrict(merged.Project.Local, p.Project.Local, localOrigin, f)
-			if err != nil {
-				return nil, err
-			}
 		}
 	}
 	return merged, nil
@@ -467,19 +450,10 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 			if child.Project.Test.MaxTurns > 0 {
 				merged.Project.Test.MaxTurns = child.Project.Test.MaxTurns
 			}
-			// Local settings override
-			var baseLocal ast.SettingsConfig
-			if base.Project != nil {
-				baseLocal = base.Project.Local
-			}
-			merged.Project.Local = mergeSettingsOverride(baseLocal, child.Project.Local)
 
 			// Project instructions fields. A set field on the child wins; an empty
 			// field on the child preserves the base value (matches the same
 			// convention applied to Name, Description, and other scalar fields above).
-			if child.Project.Body != "" {
-				merged.Project.Body = child.Project.Body
-			}
 		}
 	}
 

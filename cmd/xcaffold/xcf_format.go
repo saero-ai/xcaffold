@@ -65,16 +65,20 @@ type contextDoc struct {
 // It does NOT contain resource maps — only metadata, targets, ref lists pointing
 // to child files under xcaf/, and project-level instruction references.
 type projectSplitDoc struct {
-	Kind        string   `yaml:"kind"`
-	Version     string   `yaml:"version"`
-	Name        string   `yaml:"name"`
-	Description string   `yaml:"description,omitempty"`
-	Author      string   `yaml:"author,omitempty"`
-	Homepage    string   `yaml:"homepage,omitempty"`
-	Repository  string   `yaml:"repository,omitempty"`
-	License     string   `yaml:"license,omitempty"`
-	BackupDir   string   `yaml:"backup-dir,omitempty"`
-	Targets     []string `yaml:"targets,omitempty"`
+	Kind           string                        `yaml:"kind"`
+	Version        string                        `yaml:"version"`
+	Extends        string                        `yaml:"extends,omitempty"`
+	Name           string                        `yaml:"name"`
+	Description    string                        `yaml:"description,omitempty"`
+	Author         string                        `yaml:"author,omitempty"`
+	Homepage       string                        `yaml:"homepage,omitempty"`
+	Repository     string                        `yaml:"repository,omitempty"`
+	License        string                        `yaml:"license,omitempty"`
+	BackupDir      string                        `yaml:"backup-dir,omitempty"`
+	AllowedEnvVars []string                      `yaml:"allowed-env-vars,omitempty"`
+	Targets        []string                      `yaml:"targets,omitempty"`
+	Test           ast.TestConfig                `yaml:"test,omitempty"`
+	TargetOptions  map[string]ast.TargetOverride `yaml:"target-options,omitempty"`
 }
 
 // hooksSplitDoc is the serialization envelope for kind: hooks in split-file mode.
@@ -118,16 +122,20 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 		proj = &ast.ProjectConfig{}
 	}
 	projDoc := projectSplitDoc{
-		Kind:        "project",
-		Version:     version,
-		Name:        proj.Name,
-		Description: proj.Description,
-		Author:      proj.Author,
-		Homepage:    proj.Homepage,
-		Repository:  proj.Repository,
-		License:     proj.License,
-		BackupDir:   proj.BackupDir,
-		Targets:     proj.Targets,
+		Kind:           "project",
+		Version:        version,
+		Extends:        config.Extends,
+		Name:           proj.Name,
+		Description:    proj.Description,
+		Author:         proj.Author,
+		Homepage:       proj.Homepage,
+		Repository:     proj.Repository,
+		License:        proj.License,
+		BackupDir:      proj.BackupDir,
+		AllowedEnvVars: proj.AllowedEnvVars,
+		Targets:        proj.Targets,
+		Test:           proj.Test,
+		TargetOptions:  proj.TargetOptions,
 	}
 	// Write project.xcaf to root level (preferred location)
 	return writeYAMLFile(filepath.Join(rootDir, "project.xcaf"), projDoc)
@@ -150,28 +158,13 @@ func WriteProjectFile(config *ast.XcaffoldConfig, rootDir string) error {
 func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 	rootDir = filepath.Clean(rootDir)
 
+	if err := WriteProjectFile(config, rootDir); err != nil {
+		return err
+	}
+
 	version := config.Version
 	if version == "" {
 		version = "1.0"
-	}
-
-	// Write project.xcaf
-	proj := config.Project
-	if proj == nil {
-		proj = &ast.ProjectConfig{}
-	}
-
-	projDoc := projectSplitDoc{
-		Kind:        "project",
-		Version:     version,
-		Name:        proj.Name,
-		Description: proj.Description,
-		Author:      proj.Author,
-		Homepage:    proj.Homepage,
-		Repository:  proj.Repository,
-		License:     proj.License,
-		BackupDir:   proj.BackupDir,
-		Targets:     proj.Targets,
 	}
 
 	// Since ref lists are no longer used, write all resources (nil filters mean "write all")
@@ -182,10 +175,6 @@ func WriteSplitFiles(config *ast.XcaffoldConfig, rootDir string) error {
 		workflowFilter map[string]bool
 		mcpFilter      map[string]bool
 	)
-	// Write project.xcaf to root level (preferred location)
-	if err := writeYAMLFile(filepath.Join(rootDir, "project.xcaf"), projDoc); err != nil {
-		return err
-	}
 
 	xcafDir := filepath.Join(rootDir, "xcaf")
 

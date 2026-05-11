@@ -868,34 +868,6 @@ func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 	assert.NotContains(t, content, "disallowed-tools:", "disallowedTools must not appear in Cursor agent output")
 }
 
-// in the XcaffoldConfig compiles to settings.local.json.
-func TestCompile_LocalSettings_EmitsSettingsLocalJSON(t *testing.T) {
-	config := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{
-			Local: ast.SettingsConfig{
-				Model: "claude-opus-4-6",
-				Env: map[string]string{
-					"ANTHROPIC_API_KEY": "sk-test-key",
-				},
-			},
-		},
-	}
-
-	out, _, err := Compile(config, "", "claude", "", "")
-	require.NoError(t, err)
-
-	raw, ok := out.Files["settings.local.json"]
-	require.True(t, ok, "settings.local.json must be generated")
-
-	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
-
-	assert.Equal(t, "claude-opus-4-6", parsed["model"])
-	env, ok := parsed["env"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "sk-test-key", env["ANTHROPIC_API_KEY"])
-}
-
 // ---------------------------------------------------------------------------
 // Context uniqueness validation wired into the compile path
 // ---------------------------------------------------------------------------
