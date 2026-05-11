@@ -114,16 +114,6 @@ func ResolveRenderer(target string) (renderer.TargetRenderer, error) {
 	return m.NewRenderer(), nil
 }
 
-// ResolveModelResolver returns a new ModelResolver for the given target name or
-// alias. It returns nil if the target is unknown or does not support model resolution.
-func ResolveModelResolver(target string) renderer.ModelResolver {
-	m, ok := ManifestFor(target)
-	if !ok || m.NewModelResolver == nil {
-		return nil
-	}
-	return m.NewModelResolver()
-}
-
 // RegisteredInputDirs returns the input directory for each registered provider
 // that has an importer. Returns a slice of directory names (e.g. [".claude", ".cursor"]).
 // Duplicates are removed. Order matches registration order.

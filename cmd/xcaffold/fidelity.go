@@ -13,16 +13,20 @@ import (
 // printed. Suppression must be applied by the caller before this function is
 // invoked — pass renderer.FilterNotes(notes, suppressed) to pre-filter.
 //
-// strict controls whether LevelWarning notes are promoted to errors in the
-// output message. It does not change the return count.
-func printFidelityNotes(w io.Writer, notes []renderer.FidelityNote, strict bool) int {
+// verbose controls whether LevelWarning and LevelInfo notes are included in
+// output. When verbose is false, only LevelError notes are printed. When true,
+// all notes are printed.
+func printFidelityNotes(w io.Writer, notes []renderer.FidelityNote, verbose bool) int {
 	printed := 0
 	for _, n := range notes {
+		// Skip non-error notes when verbose is false
+		if !verbose && (n.Level == renderer.LevelWarning || n.Level == renderer.LevelInfo) {
+			continue
+		}
+
 		prefix := "WARNING"
 		switch {
 		case n.Level == renderer.LevelError:
-			prefix = "ERROR"
-		case strict && n.Level == renderer.LevelWarning:
 			prefix = "ERROR"
 		case n.Level == renderer.LevelInfo:
 			prefix = "INFO"

@@ -1078,3 +1078,79 @@ func TestApply_WithVarFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "Hello World")
 }
+
+// TestComputeApplyPreview_NewFile verifies that a file not on disk is detected as "new".
+func TestComputeApplyPreview_NewFile(t *testing.T) {
+	dir := t.TempDir()
+	outFiles := map[string]string{"agents/new-agent.md": "# New Agent"}
+	entries := computeApplyPreview(outFiles, nil, dir, dir)
+	assert.Len(t, entries, 1)
+	assert.Equal(t, "new", entries[0].Status)
+	assert.Equal(t, "agents/new-agent.md", entries[0].Path)
+}
+
+// TestComputeApplyPreview_ChangedFile verifies that a file with different content is detected as "changed".
+func TestComputeApplyPreview_ChangedFile(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "agents"), 0755)
+	os.WriteFile(filepath.Join(dir, "agents", "reviewer.md"), []byte("old content"), 0644)
+	outFiles := map[string]string{"agents/reviewer.md": "new content"}
+	entries := computeApplyPreview(outFiles, nil, dir, dir)
+	assert.Len(t, entries, 1)
+	assert.Equal(t, "changed", entries[0].Status)
+	assert.Equal(t, "agents/reviewer.md", entries[0].Path)
+}
+
+// TestComputeApplyPreview_UnchangedFile verifies that a file with identical content is detected as "unchanged".
+func TestComputeApplyPreview_UnchangedFile(t *testing.T) {
+	dir := t.TempDir()
+	content := "same content"
+	os.MkdirAll(filepath.Join(dir, "agents"), 0755)
+	os.WriteFile(filepath.Join(dir, "agents", "reviewer.md"), []byte(content), 0644)
+	outFiles := map[string]string{"agents/reviewer.md": content}
+	entries := computeApplyPreview(outFiles, nil, dir, dir)
+	assert.Len(t, entries, 1)
+	assert.Equal(t, "unchanged", entries[0].Status)
+	assert.Equal(t, "agents/reviewer.md", entries[0].Path)
+}
+
+// TestCountOrphansFromState verifies that orphaned files (in old state but not in new output) are counted.
+func TestCountOrphansFromState(t *testing.T) {
+	oldManifest := &state.StateManifest{
+		Targets: map[string]state.TargetState{
+			"claude": {
+				Artifacts: []state.Artifact{
+					{Path: "agents/old.md"},
+					{Path: "agents/removed.md"},
+				},
+			},
+		},
+	}
+	outFiles := map[string]string{
+		"agents/new.md": "content",
+	}
+	count := countOrphansFromState(oldManifest, "claude", outFiles)
+	assert.Equal(t, 2, count)
+}
+
+// TestCountOrphansFromState_NoOldState verifies that nil state returns 0 orphans.
+func TestCountOrphansFromState_NoOldState(t *testing.T) {
+	outFiles := map[string]string{"agents/new.md": "content"}
+	count := countOrphansFromState(nil, "claude", outFiles)
+	assert.Equal(t, 0, count)
+}
+
+// TestRenderApplyPreview_CountsCorrectly verifies that preview rendering counts file statuses correctly.
+func TestRenderApplyPreview_CountsCorrectly(t *testing.T) {
+	entries := []applyDiffEntry{
+		{Path: "agents/new1.md", Status: "new"},
+		{Path: "agents/new2.md", Status: "new"},
+		{Path: "agents/changed1.md", Status: "changed"},
+		{Path: "agents/unchanged1.md", Status: "unchanged"},
+		{Path: "agents/unchanged2.md", Status: "unchanged"},
+	}
+	newC, changedC, unchangedC := renderApplyPreview(entries)
+	assert.Equal(t, 2, newC, "should count 2 new files")
+	assert.Equal(t, 1, changedC, "should count 1 changed file")
+	assert.Equal(t, 2, unchangedC, "should count 2 unchanged files")
+}

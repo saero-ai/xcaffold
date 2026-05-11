@@ -91,6 +91,40 @@ func FlattenToSkillRoot(id, canonicalName string, paths []string, baseDir string
 	return nil
 }
 
+// DiscoverArtifactFiles walks a single artifact subdirectory inside a skill source
+// directory and returns a list of file paths relative to the skill directory.
+// Only immediate children are returned (no recursion into nested dirs).
+// If the directory does not exist, an empty slice is returned (not an error).
+//
+// Example: for artifactName="references" and skillSourceDir="xcaf/skills/my-skill",
+// if the directory contains guide.md and patterns.md, the result is:
+//
+//	["references/guide.md", "references/patterns.md"]
+func DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName string) ([]string, error) {
+	cleaned := filepath.Clean(artifactName)
+	if strings.HasPrefix(cleaned, "..") {
+		return nil, fmt.Errorf("artifact name %q traverses above the skill directory", artifactName)
+	}
+	dir := filepath.Join(baseDir, skillSourceDir, cleaned)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading artifact directory %q: %w", dir, err)
+	}
+
+	var paths []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		paths = append(paths, filepath.Join(artifactName, entry.Name()))
+	}
+	sort.Strings(paths)
+	return paths, nil
+}
+
 // CompileSkillSubdir reads files from a skill subdirectory (references/, scripts/, assets/)
 // and adds them to the output map at skills/<id>/<outputSubdir>/<filename>.
 //
@@ -98,11 +132,18 @@ func FlattenToSkillRoot(id, canonicalName string, paths []string, baseDir string
 // outputSubdir is the provider-native directory name written to the output path (e.g. "resources").
 // Passing the same value for both parameters produces identity translation.
 //
-// Each pattern in paths is resolved relative to baseDir. Path traversal above
-// baseDir is rejected. Glob patterns are expanded; literal paths are read directly.
-func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string, baseDir string, out *output.Output) error {
+// Each pattern in paths is resolved relative to filepath.Join(baseDir, skillSourceDir).
+// skillSourceDir is the skill-source root within the project (e.g. "xcaf/skills/<id>").
+// Pass an empty string to resolve patterns directly from baseDir (legacy behavior).
+// Path traversal above baseDir is rejected. Glob patterns are expanded; literal paths are read directly.
+func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string, baseDir, skillSourceDir string, out *output.Output) error {
 	if len(paths) == 0 {
 		return nil
+	}
+
+	cleanedSourceDir := filepath.Clean(skillSourceDir)
+	if cleanedSourceDir != "." && strings.HasPrefix(cleanedSourceDir, "..") {
+		return fmt.Errorf("skill source directory %q contains path traversal", skillSourceDir)
 	}
 
 	for _, pattern := range paths {
@@ -112,7 +153,7 @@ func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string
 			return fmt.Errorf("%s path %q traverses above the project root", canonicalSubdir, pattern)
 		}
 
-		absPattern := filepath.Join(baseDir, cleanedPattern)
+		absPattern := filepath.Join(baseDir, skillSourceDir, cleanedPattern)
 
 		// Expand glob patterns (e.g. "docs/schema/*.sql")
 		matches, err := filepath.Glob(absPattern)

@@ -17,10 +17,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Output is an alias for output.Output, preserved for backward compatibility.
-// All callers that reference compiler.Output continue to work without changes.
-type Output = output.Output
-
 // Compile translates an XcaffoldConfig AST into platform-native files.
 // target selects the output platform (see providers.PrimaryNames() for supported values).
 // An empty target returns an error.
@@ -32,7 +28,7 @@ type Output = output.Output
 // the compiler merges them before rendering. Project resources override global
 // resources by ID. After merging, inherited resources are stripped so global
 // configurations are not physically duplicated into local project directories.
-func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprintName string, varFile string) (*Output, []renderer.FidelityNote, error) {
+func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprintName string, varFile string) (*output.Output, []renderer.FidelityNote, error) {
 	if target == "" {
 		return nil, nil, fmt.Errorf("target is required; supported: %s", strings.Join(providers.PrimaryNames(), ", "))
 	}

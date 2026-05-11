@@ -79,8 +79,12 @@ func TestParseDirectory_FilterExcludesOutputDirs(t *testing.T) {
 
 func TestParseDirectory_FrontmatterMultiFileWithBodies(t *testing.T) {
 	dir := t.TempDir()
+	// ProjectConfig no longer supports Body (moved to kind:context).
+	// Test that agent bodies are still parsed correctly.
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"),
-		[]byte("---\nkind: project\nname: my-app\nversion: \"1.0\"\n---\nProject instructions.\n"), 0600))
+		[]byte("---\nkind: project\nname: my-app\nversion: \"1.0\"\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "context.xcaf"),
+		[]byte("---\nkind: context\nname: root\nversion: \"1.0\"\n---\nProject instructions.\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcaf"),
 		[]byte("---\nkind: agent\nname: developer\nversion: \"1.0\"\n---\nYou are a developer.\n"), 0600))
 	cfg, err := ParseDirectory(dir)

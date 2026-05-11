@@ -524,10 +524,12 @@ func TestCompileRuleMarkdown_Activation_ManualMention_FidelityNote(t *testing.T)
 
 func TestCompile_SkillWithExamples_Claude(t *testing.T) {
 	tmpDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tmpDir, "examples"), 0o755); err != nil {
+	// Auto-discovery walks xcaf/skills/<id>/examples/ — use canonical dir name.
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "my-skill")
+	if err := os.MkdirAll(filepath.Join(skillBase, "examples"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample Output"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(skillBase, "examples", "sample.md"), []byte("# Sample Output"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -535,7 +537,7 @@ func TestCompile_SkillWithExamples_Claude(t *testing.T) {
 		"my-skill": {
 			Description: "test skill",
 			Body:        "Do the thing.",
-			Examples:    ast.ClearableList{Values: []string{"examples/sample.md"}},
+			Artifacts:   []string{"examples"},
 		},
 	}
 

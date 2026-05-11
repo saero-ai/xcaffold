@@ -4,20 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"gopkg.in/yaml.v3"
 )
-
-// kindHeader is a lightweight struct for extracting the kind discriminator
-// from a YAML document without decoding the full resource.
-type kindHeader struct {
-	Kind    string `yaml:"kind"`
-	Version string `yaml:"version"`
-	Name    string `yaml:"name"`
-}
 
 // agentDocument wraps AgentConfig with envelope fields for multi-kind parsing.
 // KnownFields(true) validates both envelope and agent-specific fields.
@@ -88,7 +79,6 @@ type projectDocFields struct {
 	AllowedEnvVars []string                      `yaml:"allowed-env-vars,omitempty"`
 	Targets        []string                      `yaml:"targets,omitempty"`
 	Test           ast.TestConfig                `yaml:"test,omitempty"`
-	Local          ast.SettingsConfig            `yaml:"local,omitempty"`
 	TargetOptions  map[string]ast.TargetOverride `yaml:"target-options,omitempty"`
 }
 
@@ -303,12 +293,13 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 
 	switch kind {
 	case "agent":
-		// Guard: reject kind:agent files placed directly under xcaf/agents/.
-		// They must be in a subdirectory: xcaf/agents/<id>/<file>.xcaf.
+		// Warn: flat kind:agent files placed directly under xcaf/agents/ are deprecated.
+		// Prefer subdirectory layout: xcaf/agents/<id>/agent.xcaf for proper memory discovery.
 		if sourceFile != "" {
 			parentDir := filepath.Base(filepath.Dir(sourceFile))
 			if parentDir == "agents" {
-				return fmt.Errorf("agent file %q must be in a subdirectory under xcaf/agents/<id>/; flat files are not supported", filepath.Base(sourceFile))
+				config.ParseWarnings = append(config.ParseWarnings,
+					fmt.Sprintf("agent %q is a flat file under xcaf/agents/; memory discovery requires xcaf/agents/<name>/agent.xcaf layout", filepath.Base(sourceFile)))
 			}
 		}
 		var doc agentDocument
@@ -379,23 +370,7 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 			return fmt.Errorf("duplicate skill ID %q", doc.Name)
 		}
 
-		// Post-parse: migrate legacy subdirectory fields to artifacts
-		skill := doc.SkillConfig
-		for _, legacy := range []struct {
-			field []string
-			name  string
-		}{
-			{skill.References.Values, "references"},
-			{skill.Scripts.Values, "scripts"},
-			{skill.Assets.Values, "assets"},
-			{skill.Examples.Values, "examples"},
-		} {
-			if len(legacy.field) > 0 && !slices.Contains(skill.Artifacts, legacy.name) {
-				skill.Artifacts = append(skill.Artifacts, legacy.name)
-			}
-		}
-
-		config.Skills[doc.Name] = skill
+		config.Skills[doc.Name] = doc.SkillConfig
 
 	case "rule":
 		var doc ruleDocument
@@ -596,7 +571,6 @@ func parseResourceDocument(node *yaml.Node, kind string, config *ast.XcaffoldCon
 		config.Project.AllowedEnvVars = doc.AllowedEnvVars
 		config.Project.Targets = doc.Targets
 		config.Project.Test = doc.Test
-		config.Project.Local = doc.Local
 
 		config.Project.TargetOptions = doc.TargetOptions
 

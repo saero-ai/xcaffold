@@ -35,10 +35,6 @@ kinds:
     user-invocable: { support: unsupported }
     argument-hint: { support: unsupported }
     artifacts: { support: optional }
-    references: { support: unsupported }
-    scripts: { support: unsupported }
-    assets: { support: unsupported }
-    examples: { support: unsupported }
     targets: { support: unsupported }
   rule:
     always-apply: { support: unsupported }

@@ -180,7 +180,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 			fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
 		} else {
 			filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag))
-			printFidelityNotes(os.Stderr, filteredNotes, false)
+			printFidelityNotes(os.Stderr, filteredNotes, verboseFlag)
 			if targetFlag != "" {
 				if err := checkFidelityErrors(filteredNotes); err != nil {
 					fmt.Println()
@@ -195,15 +195,23 @@ func runValidate(cmd *cobra.Command, args []string) error {
 				}
 				fmt.Printf("  %s  field validation (%s)\n", colorGreen(glyphOK()), targetFlag)
 			}
+			if errs := policy.RunInvariants(configSnapshot, compiled); len(errs) > 0 {
+				fmt.Println()
+				fmt.Println("  security invariant errors:")
+				for _, e := range errs {
+					fmt.Printf("    %s  %s\n", colorRed(glyphErr()), e)
+				}
+				fmt.Println()
+				fmt.Printf("%s  Validation failed: %d security invariant(s) violated.\n",
+					colorRed(glyphErr()), len(errs))
+				return fmt.Errorf("validation failed: %d security invariant(s) violated", len(errs))
+			}
 			violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
 			policyErrors = policy.FilterBySeverity(violations, policy.SeverityError)
 			policyWarnings = policy.FilterBySeverity(violations, policy.SeverityWarning)
 			policiesChecked = len(policyErrors) + len(policyWarnings)
-			if policiesChecked == 0 {
-				policiesChecked = countBuiltinPolicies()
-			}
 
-			if len(policyWarnings) > 0 {
+			if len(policyWarnings) > 0 && verboseFlag {
 				fmt.Println()
 				fmt.Println("  policy warnings:")
 				for _, v := range policyWarnings {
@@ -231,11 +239,16 @@ func runValidate(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("validation failed: %d policy error(s) found", len(policyErrors))
 			}
 
-			policyLabel := fmt.Sprintf("policies (%d checked", policiesChecked)
-			if len(policyWarnings) > 0 {
-				policyLabel += fmt.Sprintf(", %d %s", len(policyWarnings), plural(len(policyWarnings), "warning", "warnings"))
+			var policyLabel string
+			if policiesChecked == 0 {
+				policyLabel = "policies (none configured)"
+			} else {
+				policyLabel = fmt.Sprintf("policies (%d checked", policiesChecked)
+				if len(policyWarnings) > 0 {
+					policyLabel += fmt.Sprintf(", %d %s", len(policyWarnings), plural(len(policyWarnings), "warning", "warnings"))
+				}
+				policyLabel += ")"
 			}
-			policyLabel += ")"
 			fmt.Printf("  %s  %s\n", colorGreen(glyphOK()), policyLabel)
 		}
 	}
@@ -297,14 +310,6 @@ func countXcafFiles(root string) int {
 		return nil
 	})
 	return count
-}
-
-func countBuiltinPolicies() int {
-	entries, err := os.ReadDir("internal/policy/builtin")
-	if err != nil {
-		return 4
-	}
-	return len(entries)
 }
 
 // runStructuralChecks performs non-fatal invariant checks on the config.

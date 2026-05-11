@@ -10,6 +10,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestWriteSplitFiles_DirectoryStructure(t *testing.T) {
@@ -381,7 +382,7 @@ func TestWriteSplitFiles_ScopeFilter_EmptyRefs_WritesAll(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
+func TestWriteSplitFiles_SkillWithArtifacts(t *testing.T) {
 	outDir := t.TempDir()
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
@@ -391,10 +392,7 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 				"my-skill": {
 					Name:        "my-skill",
 					Description: "Test skill",
-					References:  ast.ClearableList{Values: []string{"xcaf/skills/my-skill/references/ref.md"}},
-					Scripts:     ast.ClearableList{Values: []string{"xcaf/skills/my-skill/scripts/run.sh"}},
-					Assets:      ast.ClearableList{Values: []string{"xcaf/skills/my-skill/assets/icon.svg"}},
-					Examples:    ast.ClearableList{Values: []string{"xcaf/skills/my-skill/examples/sample.md"}},
+					Artifacts:   []string{"references", "examples"},
 					Body:        "Do the thing.",
 				},
 			},
@@ -409,11 +407,8 @@ func TestWriteSplitFiles_SkillSubdirFields(t *testing.T) {
 
 	// Verify frontmatter mode is used for skills with a body
 	assert.True(t, strings.HasPrefix(content, "---\n"), "skill with body must use frontmatter")
-	// Verify all 4 subdir fields appear in frontmatter
-	assert.Contains(t, content, "references:")
-	assert.Contains(t, content, "scripts:")
-	assert.Contains(t, content, "assets:")
-	assert.Contains(t, content, "examples:")
+	// Verify artifacts field appears in frontmatter
+	assert.Contains(t, content, "artifacts:")
 	// Verify body appears after the closing --- delimiter
 	assert.Contains(t, content, "---\nDo the thing.")
 	// Verify instructions field is NOT duplicated in YAML
@@ -943,4 +938,62 @@ func TestWriteSplitFiles_SettingsOverrideFiles(t *testing.T) {
 	if strings.Contains(content, "version:") {
 		t.Error("override should not contain version field")
 	}
+}
+
+func TestWriteProjectFile_RoundTripNewFields(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := &ast.XcaffoldConfig{
+		Version: "1.0",
+		Extends: "base",
+		Project: &ast.ProjectConfig{
+			Name:           "test-project",
+			AllowedEnvVars: []string{"API_KEY", "SECRET"},
+			Test: ast.TestConfig{
+				CliPath:    "/path/to/cli",
+				JudgeModel: "sonnet",
+				Task:       "test the agent",
+				MaxTurns:   5,
+			},
+			TargetOptions: map[string]ast.TargetOverride{
+				"claude": {
+					SuppressFidelityWarnings: &[]bool{true}[0],
+					Hooks: map[string]string{
+						"PreCompile": "echo pre",
+					},
+				},
+			},
+		},
+	}
+
+	err := WriteProjectFile(config, tmpDir)
+	require.NoError(t, err)
+
+	// Read back the written file
+	projectPath := filepath.Join(tmpDir, "project.xcaf")
+	projectBytes, err := os.ReadFile(projectPath)
+	require.NoError(t, err)
+
+	// Parse the YAML back into a projectSplitDoc
+	var parsed projectSplitDoc
+	err = yaml.Unmarshal(projectBytes, &parsed)
+	require.NoError(t, err)
+
+	// Verify all 4 new fields survived the round-trip
+	assert.Equal(t, "base", parsed.Extends, "Extends field should round-trip")
+	assert.Equal(t, []string{"API_KEY", "SECRET"}, parsed.AllowedEnvVars, "AllowedEnvVars field should round-trip")
+
+	// Verify TestConfig fields
+	assert.Equal(t, "/path/to/cli", parsed.Test.CliPath, "Test.CliPath should round-trip")
+	assert.Equal(t, "sonnet", parsed.Test.JudgeModel, "Test.JudgeModel should round-trip")
+	assert.Equal(t, "test the agent", parsed.Test.Task, "Test.Task should round-trip")
+	assert.Equal(t, 5, parsed.Test.MaxTurns, "Test.MaxTurns should round-trip")
+
+	// Verify TargetOptions map
+	assert.NotNil(t, parsed.TargetOptions, "TargetOptions should be present")
+	claudeOverride, exists := parsed.TargetOptions["claude"]
+	assert.True(t, exists, "claude provider override should exist")
+	assert.NotNil(t, claudeOverride.SuppressFidelityWarnings, "SuppressFidelityWarnings should be non-nil")
+	assert.True(t, *claudeOverride.SuppressFidelityWarnings, "SuppressFidelityWarnings should be true")
+	assert.Equal(t, "echo pre", claudeOverride.Hooks["PreCompile"], "Hooks in TargetOverride should round-trip")
 }

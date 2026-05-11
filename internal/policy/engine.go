@@ -1,37 +1,32 @@
 package policy
 
 import (
-	"embed"
 	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
-	"gopkg.in/yaml.v3"
 )
 
-//go:embed builtin/*.xcaf
-var builtinFS embed.FS
-
-// Evaluate runs all policies against the config snapshot and compiled output.
-// User policies override built-in policies with the same name.
+// Evaluate runs all user-defined policies against the config snapshot and compiled output.
 func Evaluate(
 	userPolicies map[string]ast.PolicyConfig,
 	configSnapshot *ast.XcaffoldConfig,
 	compiled *output.Output,
 ) []Violation {
-	merged := mergeBuiltins(userPolicies)
+	if len(userPolicies) == 0 {
+		return nil
+	}
 
-	// Sort policy names for deterministic evaluation order.
-	policyNames := make([]string, 0, len(merged))
-	for name := range merged {
+	policyNames := make([]string, 0, len(userPolicies))
+	for name := range userPolicies {
 		policyNames = append(policyNames, name)
 	}
 	sort.Strings(policyNames)
 
 	var violations []Violation
 	for _, name := range policyNames {
-		p := merged[name]
+		p := userPolicies[name]
 		if p.Severity == SeverityOff {
 			continue
 		}
@@ -42,29 +37,6 @@ func Evaluate(
 		violations = append(violations, vs...)
 	}
 	return violations
-}
-
-func mergeBuiltins(userPolicies map[string]ast.PolicyConfig) map[string]ast.PolicyConfig {
-	merged := make(map[string]ast.PolicyConfig)
-
-	entries, _ := builtinFS.ReadDir("builtin")
-	for _, entry := range entries {
-		data, err := builtinFS.ReadFile("builtin/" + entry.Name())
-		if err != nil {
-			continue
-		}
-		var p ast.PolicyConfig
-		if err := yaml.Unmarshal(data, &p); err != nil {
-			continue
-		}
-		merged[p.Name] = p
-	}
-
-	for name, p := range userPolicies {
-		merged[name] = p
-	}
-
-	return merged
 }
 
 func evaluatePolicy(p ast.PolicyConfig, config *ast.XcaffoldConfig, compiled *output.Output) []Violation {

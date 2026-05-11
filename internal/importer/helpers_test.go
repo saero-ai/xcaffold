@@ -226,7 +226,7 @@ func TestDefaultExtractSkillAsset_References(t *testing.T) {
 	require.NoError(t, err)
 
 	skill := config.Skills["tdd"]
-	assert.Equal(t, []string{"xcf/skills/tdd/references/guide.md"}, skill.References.Values)
+	assert.Equal(t, []string{"references"}, skill.Artifacts)
 }
 
 func TestDefaultExtractSkillAsset_Scripts(t *testing.T) {
@@ -238,7 +238,7 @@ func TestDefaultExtractSkillAsset_Scripts(t *testing.T) {
 	require.NoError(t, err)
 
 	skill := config.Skills["tdd"]
-	assert.Equal(t, []string{"xcf/skills/tdd/scripts/helper.sh"}, skill.Scripts.Values)
+	assert.Equal(t, []string{"scripts"}, skill.Artifacts)
 }
 
 func TestDefaultExtractSkillAsset_Assets(t *testing.T) {
@@ -250,21 +250,23 @@ func TestDefaultExtractSkillAsset_Assets(t *testing.T) {
 	require.NoError(t, err)
 
 	skill := config.Skills["tdd"]
-	assert.Equal(t, []string{"xcf/skills/tdd/assets/data.json"}, skill.Assets.Values)
+	assert.Equal(t, []string{"assets"}, skill.Artifacts)
 }
 
 func TestDefaultExtractSkillAsset_AppendsUnique(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.Skills = make(map[string]ast.SkillConfig)
 	config.Skills["tdd"] = ast.SkillConfig{
-		Name:       "tdd",
-		References: ast.ClearableList{Values: []string{"xcf/skills/tdd/references/existing.md"}},
+		Name:      "tdd",
+		Artifacts: []string{"references"},
 	}
+
 	err := importer.DefaultExtractSkillAsset("skills/tdd/references/new.md", []byte("new"), config)
 	require.NoError(t, err)
 
 	skill := config.Skills["tdd"]
-	assert.Equal(t, []string{"xcf/skills/tdd/references/existing.md", "xcf/skills/tdd/references/new.md"}, skill.References.Values)
+	// Should not add duplicate "references"
+	assert.Equal(t, []string{"references"}, skill.Artifacts)
 }
 
 func TestDefaultExtractSkillAsset_InvalidPath(t *testing.T) {

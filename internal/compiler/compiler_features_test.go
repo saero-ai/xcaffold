@@ -15,11 +15,13 @@ import (
 // Feature 1A: instructions-file: external file references
 // ---------------------------------------------------------------------------
 
-// TestCompile_AgentInstructionsFile_ReadsExternalFile verifies that an agent
-// with instructions-file: uses the file body as its system prompt.
+// TestCompile_SkillWithReferences_CopiesFiles verifies that a skill with an
+// Artifacts declaration compiles files from the canonical artifact directory
+// on disk into the output map.
 func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 	dir := t.TempDir()
-	refDir := filepath.Join(dir, "skills", "flutter-integration", "references")
+	// Auto-discovery walks xcaf/skills/<id>/references/ — canonical dir name.
+	refDir := filepath.Join(dir, "xcaf", "skills", "flutter-integration", "references")
 	require.NoError(t, os.MkdirAll(refDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(refDir, "advanced-patterns.md"), []byte("# Advanced Patterns"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(refDir, "lottie-guide.md"), []byte("# Lottie Guide"), 0600))
@@ -30,10 +32,7 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 				"flutter-integration": {
 					Description: "Flutter SVG and Lottie integration",
 					Body:        "Integrate SVG and Lottie into Flutter apps.",
-					References: ast.ClearableList{Values: []string{
-						"skills/flutter-integration/references/advanced-patterns.md",
-						"skills/flutter-integration/references/lottie-guide.md",
-					}},
+					Artifacts:   []string{"references"},
 				},
 			},
 		},
@@ -53,11 +52,12 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 	assert.True(t, hasRef2, "second reference file must be in output")
 }
 
-// TestCompile_SkillReferences_Glob_ExpandsCorrectly verifies that glob patterns
-// in references: expand to multiple files.
-func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
+// TestCompile_SkillReferences_DirectoryWalked verifies that all files inside a
+// declared artifact directory are compiled, without requiring explicit file paths.
+func TestCompile_SkillReferences_DirectoryWalked(t *testing.T) {
 	dir := t.TempDir()
-	refDir := filepath.Join(dir, "skills", "design", "refs")
+	// Auto-discovery walks the entire references/ directory.
+	refDir := filepath.Join(dir, "xcaf", "skills", "design", "references")
 	require.NoError(t, os.MkdirAll(refDir, 0755))
 	for _, name := range []string{"colors.md", "typography.md", "layout.md"} {
 		require.NoError(t, os.WriteFile(filepath.Join(refDir, name), []byte("# "+name), 0600))
@@ -67,8 +67,8 @@ func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
 				"design": {
-					Body:       "Design system patterns.",
-					References: ast.ClearableList{Values: []string{"skills/design/refs/*.md"}},
+					Body:      "Design system patterns.",
+					Artifacts: []string{"references"},
 				},
 			},
 		},
@@ -83,23 +83,29 @@ func TestCompile_SkillReferences_Glob_ExpandsCorrectly(t *testing.T) {
 			refCount++
 		}
 	}
-	assert.Equal(t, 3, refCount, "glob should expand to all 3 reference files")
+	assert.Equal(t, 3, refCount, "all 3 files in references/ should be compiled")
 }
 
-// TestCompile_SkillReferences_PathTraversal_Rejected verifies traversal is blocked.
-func TestCompile_SkillReferences_PathTraversal_Rejected(t *testing.T) {
+// TestCompile_SkillNoArtifacts_OnlySKILLMdEmitted verifies that a skill with no
+// Artifacts list produces only SKILL.md.
+func TestCompile_SkillNoArtifacts_OnlySKILLMdEmitted(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{
-				"evil": {
-					Body:       "Some skill.",
-					References: ast.ClearableList{Values: []string{"../../etc/shadow"}},
+				"safe": {
+					Body: "Some skill.",
 				},
 			},
 		},
 	}
-	_, _, err := Compile(config, t.TempDir(), "claude", "", "")
-	require.Error(t, err, "traversal references must be rejected")
+	out, _, err := Compile(config, t.TempDir(), "claude", "", "")
+	require.NoError(t, err)
+	assert.Contains(t, out.Files, "skills/safe/SKILL.md", "SKILL.md should always be emitted")
+	for k := range out.Files {
+		if k != "skills/safe/SKILL.md" {
+			t.Errorf("unexpected file emitted with no artifacts: %s", k)
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -860,34 +866,6 @@ func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 	content, ok := out.Files["agents/dev.md"]
 	require.True(t, ok, "agents/dev.md must be generated for cursor target")
 	assert.NotContains(t, content, "disallowed-tools:", "disallowedTools must not appear in Cursor agent output")
-}
-
-// in the XcaffoldConfig compiles to settings.local.json.
-func TestCompile_LocalSettings_EmitsSettingsLocalJSON(t *testing.T) {
-	config := &ast.XcaffoldConfig{
-		Project: &ast.ProjectConfig{
-			Local: ast.SettingsConfig{
-				Model: "claude-opus-4-6",
-				Env: map[string]string{
-					"ANTHROPIC_API_KEY": "sk-test-key",
-				},
-			},
-		},
-	}
-
-	out, _, err := Compile(config, "", "claude", "", "")
-	require.NoError(t, err)
-
-	raw, ok := out.Files["settings.local.json"]
-	require.True(t, ok, "settings.local.json must be generated")
-
-	var parsed map[string]any
-	require.NoError(t, json.Unmarshal([]byte(raw), &parsed))
-
-	assert.Equal(t, "claude-opus-4-6", parsed["model"])
-	env, ok := parsed["env"].(map[string]any)
-	require.True(t, ok)
-	assert.Equal(t, "sk-test-key", env["ANTHROPIC_API_KEY"])
 }
 
 // ---------------------------------------------------------------------------

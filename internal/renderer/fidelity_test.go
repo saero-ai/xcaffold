@@ -284,14 +284,16 @@ func TestAllCodes_ContainsFieldRequiredForTarget(t *testing.T) {
 func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 	t.Helper()
 
-	// Create stub files that the claude renderer reads when copying skill subfiles.
+	// Create stub files that the renderer reads when auto-discovering artifacts.
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	skillBase := filepath.Join(baseDir, "xcaf", "skills", "fidelity-skill")
 	stubFiles := map[string]string{
 		"scripts/helper.sh": "#!/bin/sh\necho stub\n",
 		"assets/logo.png":   "stub-png-data",
-		"docs/ref.md":       "# stub reference\n",
+		"references/ref.md": "# stub reference\n",
 	}
 	for rel, content := range stubFiles {
-		full := filepath.Join(baseDir, rel)
+		full := filepath.Join(skillBase, rel)
 		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o755))
 		require.NoError(t, os.WriteFile(full, []byte(content), 0o644))
 	}
@@ -369,9 +371,7 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 					Name:         "Fidelity Skill",
 					Description:  "triggers scripts and assets dropped notes",
 					AllowedTools: ast.ClearableList{Values: []string{"Read"}},
-					References:   ast.ClearableList{Values: []string{"docs/ref.md"}},
-					Scripts:      ast.ClearableList{Values: []string{"scripts/helper.sh"}},
-					Assets:       ast.ClearableList{Values: []string{"assets/logo.png"}},
+					Artifacts:    []string{"references", "scripts", "assets"},
 					Body:         "Use this skill.",
 				},
 			},

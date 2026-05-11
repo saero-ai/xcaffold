@@ -73,24 +73,14 @@ func TestMerge_ClearableList_Clear_AllAgentFields(t *testing.T) {
 func TestMerge_ClearableList_Clear_SkillFields(t *testing.T) {
 	base := ast.SkillConfig{
 		AllowedTools: ast.ClearableList{Values: []string{"Read"}},
-		References:   ast.ClearableList{Values: []string{"ref.md"}},
-		Scripts:      ast.ClearableList{Values: []string{"run.sh"}},
-		Assets:       ast.ClearableList{Values: []string{"logo.png"}},
-		Examples:     ast.ClearableList{Values: []string{"ex1.md"}},
+		Artifacts:    []string{"artifact.txt"},
 	}
 	override := ast.SkillConfig{
 		AllowedTools: ast.ClearableList{Cleared: true},
-		References:   ast.ClearableList{Values: []string{"new-ref.md"}},
-		Scripts:      ast.ClearableList{},
-		Assets:       ast.ClearableList{Cleared: true},
-		Examples:     ast.ClearableList{Values: []string{"ex2.md"}},
 	}
 	result := mergeSkillConfig(base, override)
 	require.True(t, result.AllowedTools.Cleared, "AllowedTools should be cleared")
-	require.Equal(t, []string{"new-ref.md"}, result.References.Values, "References should be replaced")
-	require.Equal(t, []string{"run.sh"}, result.Scripts.Values, "Scripts should be inherited")
-	require.True(t, result.Assets.Cleared, "Assets should be cleared")
-	require.Equal(t, []string{"ex2.md"}, result.Examples.Values, "Examples should be replaced")
+	require.Equal(t, []string{"artifact.txt"}, result.Artifacts, "Artifacts should be inherited")
 }
 
 func TestMerge_ClearableList_Clear_RuleFields(t *testing.T) {

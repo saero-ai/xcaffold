@@ -71,12 +71,7 @@ type ProjectConfig struct {
 	// Populated by the parser when decoding kind: project documents.
 	Targets []string `yaml:"-"`
 
-	Test  TestConfig     `yaml:"test,omitempty"`
-	Local SettingsConfig `yaml:"local,omitempty"`
-
-	// Body holds markdown content parsed from the frontmatter+body format.
-	// For kind:project, this content is placed into Contexts["root"] by the parser.
-	Body string `yaml:"-"`
+	Test TestConfig `yaml:"test,omitempty"`
 
 	// InstructionsImports lists @-import targets preserved verbatim for providers
 	// that support them (Claude, Gemini). Emitted as-is into the rendered output.
@@ -458,34 +453,6 @@ type SkillConfig struct {
 	// +xcaf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
 	// +xcaf:role=composition
 	Artifacts []string `yaml:"artifacts,omitempty"`
-
-	// Docs and data files copied to skills/<id>/references/ at compile time.
-	// +xcaf:optional
-	// +xcaf:group=Composition
-	// +xcaf:type=[]string
-	// +xcaf:role=composition
-	References ClearableList `yaml:"references,omitempty"`
-
-	// Executable helper files copied to skills/<id>/scripts/ at compile time.
-	// +xcaf:optional
-	// +xcaf:group=Composition
-	// +xcaf:type=[]string
-	// +xcaf:role=composition
-	Scripts ClearableList `yaml:"scripts,omitempty"`
-
-	// Output artifact files copied to skills/<id>/assets/ at compile time.
-	// +xcaf:optional
-	// +xcaf:group=Composition
-	// +xcaf:type=[]string
-	// +xcaf:role=composition
-	Assets ClearableList `yaml:"assets,omitempty"`
-
-	// Demonstration files copied to skills/<id>/examples/ at compile time.
-	// +xcaf:optional
-	// +xcaf:group=Composition
-	// +xcaf:type=[]string
-	// +xcaf:role=composition
-	Examples ClearableList `yaml:"examples,omitempty"`
 
 	// Per-provider override configuration keyed by provider name.
 	// +xcaf:optional

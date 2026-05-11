@@ -18,6 +18,9 @@ vendor/
 /.claude/
 scaffold.lock
 
+# Code analysis cache
+.codesight/
+
 # IDE / OS specific ignoring
 .idea/
 .vscode/

@@ -194,7 +194,6 @@ The alphabetical sort order of file names determines "first" and "last" for `ver
 | `hooks:` | Additive. Both base and child handlers are kept. Child handlers are appended to base handlers for each event. |
 | `project.test:` | Field-by-field overlay within `ProjectConfig`. `cli_path`, `cli-path`, and `judge-model` are replaced individually only when the child sets a non-empty value. |
 | `settings:` | Last file in the directory wins (single-settings-file convention). Inherited and merged via `extends:`. |
-| `project.local:` | Machine-local settings override within `ProjectConfig`. Not inherited via `extends:`. Compiles to `settings.local.json`. |
 
 ### Compiler Scope Merge
 

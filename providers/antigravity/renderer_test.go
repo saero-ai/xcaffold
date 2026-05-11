@@ -510,11 +510,13 @@ func TestCompile_Skill_FrontmatterDelimitersPresent(t *testing.T) {
 
 func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 	// Create actual files so CompileSkillSubdir can read them.
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
 	tmpDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "refs", "guide.go"), []byte("// guide"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "setup.sh"), []byte("#!/bin/sh"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "icon.png"), []byte("PNG"), 0o644))
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "rich-skill")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "references"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "references", "guide.go"), []byte("// guide"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "setup.sh"), []byte("#!/bin/sh"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "icon.png"), []byte("PNG"), 0o644))
 
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
@@ -525,9 +527,7 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 					Description:  "Has many fields.",
 					Body:         "Do something.",
 					AllowedTools: ast.ClearableList{Values: []string{"Bash"}},
-					References:   ast.ClearableList{Values: []string{"refs/guide.go"}},
-					Scripts:      ast.ClearableList{Values: []string{"setup.sh"}},
-					Assets:       ast.ClearableList{Values: []string{"icon.png"}},
+					Artifacts:    []string{"references"},
 				},
 			},
 		},
@@ -552,10 +552,12 @@ func TestCompile_Skill_CCOnlyFieldsDropped(t *testing.T) {
 }
 
 func TestCompile_Skill_References_CompiledToExamples(t *testing.T) {
-	// Antigravity now compiles references/ → examples/ instead of dropping them.
+	// Antigravity: references/ → examples/ (name translation via SkillArtifactDirs).
+	// Auto-discovery walks xcaf/skills/<id>/references/ — use canonical dir name.
 	tmpDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "refs", "doc.md"), []byte("# Doc"), 0o644))
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "test-skill")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "references"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "references", "doc.md"), []byte("# Doc"), 0o644))
 
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
@@ -565,7 +567,7 @@ func TestCompile_Skill_References_CompiledToExamples(t *testing.T) {
 					Name:        "test-skill",
 					Description: "A skill with references",
 					Body:        "Do things.",
-					References:  ast.ClearableList{Values: []string{"refs/doc.md"}},
+					Artifacts:   []string{"references"},
 				},
 			},
 		},
@@ -1010,10 +1012,11 @@ func TestAntigravityRenderer_MCPDeclared_EmitsGlobalConfigOnlyNote(t *testing.T)
 }
 
 func TestAntigravityRenderer_SkillScripts_CompiledToScripts(t *testing.T) {
-	// Antigravity now compiles scripts/ instead of dropping them.
+	// Antigravity compiles scripts/ via auto-discovery from xcaf/skills/<id>/scripts/.
 	tmpDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "scripts"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "scripts", "install.sh"), []byte("#!/bin/sh\necho hi"), 0o755))
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "setup")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "scripts"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "scripts", "install.sh"), []byte("#!/bin/sh\necho hi"), 0o755))
 
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
@@ -1021,7 +1024,7 @@ func TestAntigravityRenderer_SkillScripts_CompiledToScripts(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"setup": {
 					Description: "Env setup.",
-					Scripts:     ast.ClearableList{Values: []string{"scripts/install.sh"}},
+					Artifacts:   []string{"scripts"},
 				},
 			},
 		},
@@ -1038,10 +1041,12 @@ func TestAntigravityRenderer_SkillScripts_CompiledToScripts(t *testing.T) {
 }
 
 func TestAntigravityRenderer_SkillAssets_CompiledToResources(t *testing.T) {
-	// Antigravity now compiles assets/ → resources/ instead of dropping them.
+	// Antigravity: assets/ → resources/ (name translation via SkillArtifactDirs).
+	// Auto-discovery walks xcaf/skills/<id>/assets/ — use canonical dir name.
 	tmpDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "assets"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "assets", "logo.svg"), []byte("<svg/>"), 0o644))
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "branding")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "assets"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(skillBase, "assets", "logo.svg"), []byte("<svg/>"), 0o644))
 
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
@@ -1049,7 +1054,7 @@ func TestAntigravityRenderer_SkillAssets_CompiledToResources(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{
 				"branding": {
 					Description: "Brand assets.",
-					Assets:      ast.ClearableList{Values: []string{"assets/logo.svg"}},
+					Artifacts:   []string{"assets"},
 				},
 			},
 		},
@@ -1165,16 +1170,18 @@ func TestCompile_Agents_EmitsKindUnsupported(t *testing.T) {
 
 func TestCompile_SkillWithSubdirs_Antigravity(t *testing.T) {
 	tmpDir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tmpDir, "assets"), 0o755); err != nil {
+	// Auto-discovery walks xcaf/skills/<id>/<artifactName>/ using canonical names.
+	skillBase := filepath.Join(tmpDir, "xcaf", "skills", "my-skill")
+	if err := os.MkdirAll(filepath.Join(skillBase, "assets"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "assets", "TEMPLATE.md"), []byte("# Template"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(skillBase, "assets", "TEMPLATE.md"), []byte("# Template"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(tmpDir, "refs"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(skillBase, "references"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(tmpDir, "refs", "guide.md"), []byte("# Guide"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(skillBase, "references", "guide.md"), []byte("# Guide"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1182,8 +1189,7 @@ func TestCompile_SkillWithSubdirs_Antigravity(t *testing.T) {
 		"my-skill": {
 			Description: "test",
 			Body:        "Do the thing.",
-			Assets:      ast.ClearableList{Values: []string{"assets/TEMPLATE.md"}},
-			References:  ast.ClearableList{Values: []string{"refs/guide.md"}},
+			Artifacts:   []string{"assets", "references"},
 		},
 	}
 
@@ -1209,7 +1215,7 @@ func TestCompile_SkillWithSubdirs_Antigravity(t *testing.T) {
 		}
 		t.Errorf("expected references mapped to examples/, got keys: %v", keys)
 	}
-	// Should NOT have "dropped" fidelity notes for assets/references anymore
+	// Should NOT have "dropped" fidelity notes for assets/references
 	for _, n := range notes {
 		if n.Code == renderer.CodeSkillAssetsDropped || n.Code == renderer.CodeSkillReferencesDropped {
 			t.Errorf("unexpected drop note: %v", n)

@@ -330,8 +330,8 @@ mcp:
     type: "http"
     url: "https://example.com/mcp"
     disabled: true
-    disabledTools: ["dangerousTool"]
-    authProviderType: "custom"
+    disabled-tools: ["dangerousTool"]
+    auth-provider-type: "custom"
 `
 	config, err := Parse(strings.NewReader(input))
 	require.NoError(t, err)
@@ -347,7 +347,7 @@ mcp:
 	require.True(t, ok)
 	assert.True(t, *remote.Disabled)
 	assert.Contains(t, remote.DisabledTools, "dangerousTool")
-	assert.Equal(t, "custom", remote.AuthProviderType)
+	assert.Equal(t, "custom", remote.AuthProviderType) // Field name in struct is PascalCase
 }
 
 // ── ValidateFile: file-ref and duplicate-ID tests ──────────────────────────
@@ -357,48 +357,6 @@ func writeXCAFFile(t *testing.T, dir, name, content string) string {
 	p := filepath.Join(dir, name)
 	require.NoError(t, os.WriteFile(p, []byte(content), 0600))
 	return p
-}
-
-func TestValidateFileRefs_MissingSkillReference(t *testing.T) {
-	dir := t.TempDir()
-	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
-version: "1.0"
-skills:
-  my-skill:
-    description: "A skill"
-
-    references:
-      - nonexistent.md
-`)
-	diags := ValidateFile(xcaf)
-	var found bool
-	for _, d := range diags {
-		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") { //nolint:goconst
-			found = true
-		}
-	}
-	assert.True(t, found, "expected a warning diagnostic about a missing reference file, got: %v", diags)
-}
-
-func TestValidateFileRefs_MissingSkillExample(t *testing.T) {
-	dir := t.TempDir()
-	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: global
-version: "1.0"
-skills:
-  my-skill:
-    description: "A skill"
-
-    examples:
-      - xcaf/skills/my-skill/examples/nonexistent.md
-`)
-	diags := ValidateFile(xcaf)
-	var found bool
-	for _, d := range diags {
-		if d.Severity == "warning" && strings.Contains(d.Message, "does not exist") && strings.Contains(d.Message, "examples") {
-			found = true
-		}
-	}
-	assert.True(t, found, "expected a warning diagnostic about a missing examples file, got: %v", diags)
 }
 
 func TestValidateFileRefs_MissingInstructionsFile_Agent(t *testing.T) {
@@ -530,50 +488,47 @@ enabled-plugins:
 
 func TestValidatePlugins_UnknownLocalPlugin(t *testing.T) {
 	dir := t.TempDir()
-	xcaf := writeXCAFFile(t, dir, "project.xcaf", `kind: project
+	// Local plugin validation now happens at kind:settings level, not kind:project.
+	// This test verifies that kind:settings validates unknown plugins.
+	xcaf := writeXCAFFile(t, dir, "settings.xcaf", `kind: settings
 version: "1.0"
-name: "test"
-local:
-  enabledPlugins:
-    mystery-plugin: true
+enabled-plugins:
+  mystery-plugin: true
 `)
 	diags := ValidateFile(xcaf)
 	var found bool
 	for _, d := range diags {
-		if d.Severity == "warning" && strings.Contains(d.Message, "local") &&
-			strings.Contains(d.Message, "unknown plugin") {
+		if d.Severity == "warning" && strings.Contains(d.Message, "unknown plugin") {
 			found = true
 		}
 	}
-	assert.True(t, found, "expected a warning about unknown local plugin, got: %v", diags)
+	assert.True(t, found, "expected a warning about unknown plugin, got: %v", diags)
 }
 
 func TestValidatePlugins_BothBlocksUnknown(t *testing.T) {
 	dir := t.TempDir()
-	// Two separate files — one per resource kind.
-	writeXCAFFile(t, dir, "project.xcaf", `kind: project
+	// Two separate kind:settings files with different unknown plugins.
+	writeXCAFFile(t, dir, "settings1.xcaf", `kind: settings
 version: "1.0"
-name: "test"
-local:
-  enabledPlugins:
-    beta-plugin: true
+enabled-plugins:
+  beta-plugin: true
 `)
-	writeXCAFFile(t, dir, "settings.xcaf", `kind: settings
+	writeXCAFFile(t, dir, "settings2.xcaf", `kind: settings
 version: "1.0"
 enabled-plugins:
   alpha-plugin: true
 `)
 	// ValidateFile operates on a single file; run it on each file separately.
-	diagsProject := ValidateFile(filepath.Join(dir, "project.xcaf"))
-	diagsSettings := ValidateFile(filepath.Join(dir, "settings.xcaf"))
-	diags := append(diagsProject, diagsSettings...)
+	diagsSettings1 := ValidateFile(filepath.Join(dir, "settings1.xcaf"))
+	diagsSettings2 := ValidateFile(filepath.Join(dir, "settings2.xcaf"))
+	diags := append(diagsSettings1, diagsSettings2...)
 	count := 0
 	for _, d := range diags {
 		if d.Severity == "warning" && strings.Contains(d.Message, "unknown plugin") {
 			count++
 		}
 	}
-	assert.Equal(t, 2, count, "expected 2 unknown-plugin warnings (one per block), got: %v", diags)
+	assert.Equal(t, 2, count, "expected 2 unknown-plugin warnings (one per settings file), got: %v", diags)
 }
 
 func TestParseDirectory_SkipsNonConfigFiles(t *testing.T) {
@@ -1103,43 +1058,14 @@ Do things.
 	}
 }
 
-func TestParse_Skill_LegacyFieldsMigrateToArtifacts(t *testing.T) {
-	input := `---
-kind: skill
-version: "1.0"
-name: legacy-skill
-references:
-  - doc.md
-scripts:
-  - run.sh
----
-Legacy skill.
-`
-	config, err := Parse(strings.NewReader(input))
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	skill := config.Skills["legacy-skill"]
-	if len(skill.Artifacts) < 2 {
-		t.Fatalf("expected legacy fields migrated to artifacts, got %d artifacts", len(skill.Artifacts))
-	}
-	// Verify "references" and "scripts" are in artifacts
-	hasRef, hasScript := false, false
-	for _, a := range skill.Artifacts {
-		if a == "references" {
-			hasRef = true
-		}
-		if a == "scripts" {
-			hasScript = true
-		}
-	}
-	if !hasRef {
-		t.Error("expected 'references' in artifacts after migration")
-	}
-	if !hasScript {
-		t.Error("expected 'scripts' in artifacts after migration")
-	}
-}
+// TestParse_Skill_LegacyFieldsMigrateToArtifacts has been removed because
+// the legacy fields (references, scripts, assets, examples) have been removed
+// from the SkillConfig struct. All subdirectories are now managed via the
+// artifacts field alone.
+//
+// func TestParse_Skill_LegacyFieldsMigrateToArtifacts(t *testing.T) {
+//   (test removed)
+// }
 
 func TestParse_Agent_RejectsWhenField(t *testing.T) {
 	input := `---

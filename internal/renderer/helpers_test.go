@@ -62,7 +62,7 @@ func TestCompileSkillSubdir_CopiesFiles(t *testing.T) {
 	os.WriteFile(filepath.Join(refDir, "doc.md"), []byte("# Reference"), 0o644)
 
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "references", "references", []string{"refs/doc.md"}, tmpDir, out)
+	err := CompileSkillSubdir("my-skill", "references", "references", []string{"refs/doc.md"}, tmpDir, "", out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestCompileSkillSubdir_CopiesFiles(t *testing.T) {
 
 func TestCompileSkillSubdir_RejectsPathTraversal(t *testing.T) {
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "references", "references", []string{"../../etc/passwd"}, t.TempDir(), out)
+	err := CompileSkillSubdir("my-skill", "references", "references", []string{"../../etc/passwd"}, t.TempDir(), "", out)
 	if err == nil {
 		t.Error("expected error for path traversal, got nil")
 	}
@@ -83,7 +83,7 @@ func TestCompileSkillSubdir_RejectsPathTraversal(t *testing.T) {
 
 func TestCompileSkillSubdir_EmptyPaths(t *testing.T) {
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "references", "references", nil, t.TempDir(), out)
+	err := CompileSkillSubdir("my-skill", "references", "references", nil, t.TempDir(), "", out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestCompileSkillSubdir_GlobExpansion(t *testing.T) {
 	os.WriteFile(filepath.Join(scriptDir, "b.sh"), []byte("#!/bin/sh\necho b"), 0o644)
 
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "scripts", "scripts", []string{"scripts/*.sh"}, tmpDir, out)
+	err := CompileSkillSubdir("my-skill", "scripts", "scripts", []string{"scripts/*.sh"}, tmpDir, "", out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestCompileSkillSubdir_GlobExpansion(t *testing.T) {
 
 func TestCompileSkillSubdir_MissingLiteralFile(t *testing.T) {
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "assets", "assets", []string{"nonexistent.png"}, t.TempDir(), out)
+	err := CompileSkillSubdir("my-skill", "assets", "assets", []string{"nonexistent.png"}, t.TempDir(), "", out)
 	if err == nil {
 		t.Error("expected error for missing literal file, got nil")
 	}
@@ -127,7 +127,7 @@ func TestCompileSkillSubdir_OutputNameTranslation(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample"), 0o644)
 
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "examples", "resources", []string{"examples/sample.md"}, tmpDir, out)
+	err := CompileSkillSubdir("my-skill", "examples", "resources", []string{"examples/sample.md"}, tmpDir, "", out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -234,5 +234,120 @@ func TestStripAllFrontmatter_NoFrontmatter(t *testing.T) {
 	got := StripAllFrontmatter(input)
 	if got != input {
 		t.Errorf("expected unchanged content, got: %q", got)
+	}
+}
+
+func TestDiscoverArtifactFiles_ReturnsRelativePaths(t *testing.T) {
+	tmpDir := t.TempDir()
+	skillSourceDir := filepath.Join("xcaf", "skills", "my-skill")
+	refDir := filepath.Join(tmpDir, skillSourceDir, "references")
+	if err := os.MkdirAll(refDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"a.md", "b.md", "c.md"} {
+		if err := os.WriteFile(filepath.Join(refDir, name), []byte("# "+name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := DiscoverArtifactFiles(tmpDir, skillSourceDir, "references")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{
+		filepath.Join("references", "a.md"),
+		filepath.Join("references", "b.md"),
+		filepath.Join("references", "c.md"),
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d paths, got %d: %v", len(want), len(got), got)
+	}
+	for i, p := range got {
+		if p != want[i] {
+			t.Errorf("index %d: got %q, want %q", i, p, want[i])
+		}
+	}
+}
+
+func TestDiscoverArtifactFiles_SkipsSubdirectories(t *testing.T) {
+	tmpDir := t.TempDir()
+	skillSourceDir := filepath.Join("xcaf", "skills", "my-skill")
+	refDir := filepath.Join(tmpDir, skillSourceDir, "references")
+	if err := os.MkdirAll(refDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(refDir, "guide.md"), []byte("# Guide"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Create a nested subdirectory — must not appear in results.
+	if err := os.MkdirAll(filepath.Join(refDir, "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := DiscoverArtifactFiles(tmpDir, skillSourceDir, "references")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for _, p := range got {
+		if strings.Contains(p, "nested") {
+			t.Errorf("subdirectory %q must not appear in results", p)
+		}
+	}
+	if len(got) != 1 {
+		t.Errorf("expected 1 file result, got %d: %v", len(got), got)
+	}
+}
+
+func TestDiscoverArtifactFiles_EmptyForMissingDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	got, err := DiscoverArtifactFiles(tmpDir, "xcaf/skills/my-skill", "nonexistent-artifact")
+	if err != nil {
+		t.Fatalf("expected no error for missing dir, got: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("expected empty slice for missing dir, got: %v", got)
+	}
+}
+
+func TestDiscoverArtifactFiles_SortedOutput(t *testing.T) {
+	tmpDir := t.TempDir()
+	skillSourceDir := "xcaf/skills/my-skill"
+	refDir := filepath.Join(tmpDir, skillSourceDir, "references")
+	if err := os.MkdirAll(refDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Write in reverse alphabetical order to confirm sort is applied.
+	for _, name := range []string{"zebra.md", "mango.md", "apple.md"} {
+		if err := os.WriteFile(filepath.Join(refDir, name), []byte("# "+name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got, err := DiscoverArtifactFiles(tmpDir, skillSourceDir, "references")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{
+		filepath.Join("references", "apple.md"),
+		filepath.Join("references", "mango.md"),
+		filepath.Join("references", "zebra.md"),
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d paths, got %d: %v", len(want), len(got), got)
+	}
+	for i, p := range got {
+		if p != want[i] {
+			t.Errorf("index %d: got %q, want %q", i, p, want[i])
+		}
+	}
+}
+
+func TestDiscoverArtifactFiles_RejectsTraversal(t *testing.T) {
+	_, err := DiscoverArtifactFiles(t.TempDir(), "xcaf/skills/my-skill", "../../etc")
+	if err == nil {
+		t.Fatal("expected error for path traversal, got nil")
 	}
 }

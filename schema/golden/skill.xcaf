@@ -18,10 +18,6 @@ argument-hint: "Provide a task description as the argument."
 
 # Group 7: Composition / Supporting Files
 artifacts: [references, scripts, assets, examples]
-references: [docs/reference.md, docs/glossary.md]
-scripts: [scripts/helper.sh]
-assets: [assets/template.txt]
-examples: [examples/output.md]
 
 # Group 9: Multi-Target overrides
 targets:

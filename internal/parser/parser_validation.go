@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/providers"
 )
 
 // CrossReferenceIssue represents a single cross-reference validation issue.
@@ -109,44 +108,6 @@ var knownPlugins = map[string]bool{
 	"security-guidance": true,
 	"code-review":       true,
 	"pr-review-toolkit": true,
-}
-
-// reservedOutputPrefixes returns compiler output directories and well-known agent
-// config paths. instructions-file paths starting with these prefixes create
-// circular dependencies where the compiler reads its own output, or reference
-// files managed by other providers outside the project tree.
-func reservedOutputPrefixes() []string {
-	prefixes := providers.RegisteredOutputDirs()
-	// Add user-home variations
-	var out []string
-	for _, p := range prefixes {
-		if !strings.HasSuffix(p, "/") {
-			out = append(out, p+"/")
-			out = append(out, "~/"+p+"/")
-		} else {
-			out = append(out, p)
-			out = append(out, "~/"+p)
-		}
-	}
-	// Explicitly add legacy/well-known if not registered
-	out = append(out, ".agents/", ".antigravity/", ".cursorrules")
-	return out
-}
-
-// reservedOutputFilenames returns root-level files written directly by the compiler.
-// Pointing instructions-file at one of these creates a circular read dependency.
-func reservedOutputFilenames() []string {
-	return providers.RegisteredContextFiles()
-}
-
-// reservedOutputPaths returns specific files and directories written by the compiler.
-// Exact-match and prefix-match are both applied (directory entries end with /).
-func reservedOutputPaths() []string {
-	return []string{
-		".github/copilot-instructions.md",
-		".github/instructions/",
-		".github/prompts/",
-	}
 }
 
 // validateRuleActivations enforces activation enum and paths co-constraints
@@ -520,32 +481,6 @@ func ValidateFile(path string) []Diagnostic {
 func validateFileRefs(c *ast.XcaffoldConfig, baseDir string) []Diagnostic {
 	var diags []Diagnostic
 
-	// Skill subdirectory file sets: warn on missing files for references, scripts, assets, examples
-	for id, skill := range c.Skills {
-		for _, subdirPaths := range []struct {
-			subdir string
-			paths  []string
-		}{
-			{"references", skill.References.Values},
-			{"scripts", skill.Scripts.Values},
-			{"assets", skill.Assets.Values},
-			{"examples", skill.Examples.Values},
-		} {
-			for _, ref := range subdirPaths.paths {
-				if ref == "" {
-					continue
-				}
-				abs := filepath.Join(baseDir, ref)
-				if _, err := os.Stat(abs); os.IsNotExist(err) {
-					diags = append(diags, Diagnostic{
-						Severity: "warning",
-						Message:  fmt.Sprintf("skill %q %s file that does not exist: %q", id, subdirPaths.subdir, ref),
-					})
-				}
-			}
-		}
-	}
-
 	// Duplicate ID check across resource types
 	seen := make(map[string][]string) // id -> []resourceType
 	for id := range c.Agents {
@@ -590,8 +525,5 @@ func validatePlugins(c *ast.XcaffoldConfig) []Diagnostic {
 		}
 	}
 	check(c.Settings["default"].EnabledPlugins, "settings")
-	if c.Project != nil {
-		check(c.Project.Local.EnabledPlugins, "local")
-	}
 	return diags
 }

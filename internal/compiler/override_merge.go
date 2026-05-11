@@ -178,10 +178,6 @@ func mergeSkillConfig(base, override ast.SkillConfig) ast.SkillConfig {
 
 	// --- Lists (tri-state: Cleared wins, Values replace, zero-value inherits) ---
 	result.AllowedTools = mergeClearableList(result.AllowedTools, override.AllowedTools)
-	result.References = mergeClearableList(result.References, override.References)
-	result.Scripts = mergeClearableList(result.Scripts, override.Scripts)
-	result.Assets = mergeClearableList(result.Assets, override.Assets)
-	result.Examples = mergeClearableList(result.Examples, override.Examples)
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
 	if len(override.Targets) > 0 {

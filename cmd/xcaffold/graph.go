@@ -244,6 +244,22 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 	}
 
 	if graphBlueprintFlag != "" {
+		if err := blueprint.ResolveBlueprintExtends(config.Blueprints); err != nil {
+			return nil, fmt.Errorf("blueprint extends resolution failed: %w", err)
+		}
+		if errs := blueprint.ValidateBlueprintRefs(config.Blueprints, &config.ResourceScope); len(errs) > 0 {
+			msgs := make([]string, len(errs))
+			for i, e := range errs {
+				msgs[i] = e.Error()
+			}
+			return nil, fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
+		}
+		if p, ok := config.Blueprints[graphBlueprintFlag]; ok {
+			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
+				return nil, fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
+			}
+			config.Blueprints[graphBlueprintFlag] = p
+		}
 		filtered, err := blueprint.ApplyBlueprint(config, graphBlueprintFlag)
 		if err != nil {
 			return nil, fmt.Errorf("blueprint %q: %w", graphBlueprintFlag, err)
@@ -443,30 +459,6 @@ func appendGraphWorkflows(config *ast.XcaffoldConfig, g *graphData) {
 	}
 }
 
-func renderTerminal(g *graphData) string {
-	var sb strings.Builder
-
-	fmt.Fprintf(&sb, "%s\n", renderTerminalHeader(g))
-
-	if globals := renderTerminalGlobals(g); globals != "" {
-		fmt.Fprintf(&sb, "%s\n", globals)
-	}
-
-	if agents := renderTerminalAgents(g); agents != "" {
-		fmt.Fprintf(&sb, "%s\n", agents)
-	}
-
-	if library := renderTerminalLibrary(g); library != "" {
-		fmt.Fprintf(&sb, "%s\n", library)
-	}
-
-	if projectScoped := renderProjectScoped(g); projectScoped != "" {
-		fmt.Fprintf(&sb, "%s\n", projectScoped)
-	}
-
-	return sb.String()
-}
-
 func renderTerminalHeader(g *graphData) string {
 	agents, skills, rules, mcps, hooks, policies := 0, 0, 0, 0, 0, 0
 	for _, n := range g.Nodes {
@@ -514,57 +506,6 @@ func renderTerminalHeader(g *graphData) string {
 	return fmt.Sprintf("\n┌%s┐\n│%s│\n└%s┘\n", border, header, border)
 }
 
-func renderTerminalGlobals(g *graphData) string {
-	var globals []string
-	for _, n := range g.Nodes {
-		if n.Kind == "settings" {
-			globals = append(globals, "  ● Settings")
-			for i, p := range n.Plugins {
-				prefix := "      ├─(plugin)─▶ "
-				if i == len(n.Plugins)-1 {
-					prefix = "      └─(plugin)─▶ "
-				}
-				globals = append(globals, prefix+p+" [Enabled]")
-			}
-		}
-	}
-	if len(globals) > 0 {
-		return "  [ GLOBAL ENVIRONMENT ]\n" + strings.Join(globals, "\n") + "\n"
-	}
-	return ""
-}
-
-func renderTerminalLibrary(g *graphData) string {
-	var library []string
-	for _, n := range g.Nodes {
-		var lines []string
-		if n.Kind == kindSkill {
-			lines = append(lines, fmt.Sprintf("  ● skill: %s", n.Label))
-			if len(n.Tools) > 0 {
-				lines = append(lines, "      ├─(tools)─▶ "+strings.Join(n.Tools, ", "))
-			}
-			if len(n.Paths) > 0 {
-				lines = append(lines, "      └─(paths)─▶ "+strings.Join(n.Paths, ", "))
-			} else if len(n.Tools) > 0 {
-				lines[1] = strings.Replace(lines[1], "      ├─", "      └─", 1)
-			}
-		} else if n.Kind == kindRule {
-			lines = append(lines, fmt.Sprintf("  ● rule: %s", n.Label))
-			if len(n.Paths) > 0 {
-				lines = append(lines, "      └─(paths)─▶ "+strings.Join(n.Paths, ", "))
-			}
-		}
-		if len(lines) > 1 {
-			library = append(library, strings.Join(lines, "\n"))
-		}
-	}
-
-	if len(library) > 0 {
-		return "  [ LIBRARY ]\n" + strings.Join(library, "\n\n") + "\n"
-	}
-	return ""
-}
-
 func renderProjectScoped(g *graphData) string {
 	referenced := map[string]bool{}
 	for _, e := range g.Edges {
@@ -601,232 +542,8 @@ func renderProjectScoped(g *graphData) string {
 	return sb.String()
 }
 
-func renderTerminalAgents(g *graphData) string {
-	var agentsBlocks []string
-	for _, node := range g.Nodes {
-		if node.Kind != kindAgent {
-			continue
-		}
-		if agentStr := renderTerminalAgent(node, g.Edges, g); agentStr != "" {
-			agentsBlocks = append(agentsBlocks, agentStr)
-		}
-	}
-
-	if len(agentsBlocks) > 0 {
-		return "  [ AGENTS ]\n" + strings.Join(agentsBlocks, "\n\n") + "\n"
-	}
-	return ""
-}
-
-func renderTerminalAgent(node graphNode, edges []graphEdge, g *graphData) string {
-	metaStr := renderAgentMeta(node)
-	agentStr := fmt.Sprintf("  ● %s%s\n      │", node.Label, metaStr)
-	blocks := []string{}
-
-	if capBlock := renderAgentCapabilities(node); capBlock != "" {
-		blocks = append(blocks, capBlock)
-	}
-
-	skillsList, rulesList := extractAgentRelations(node.ID, edges)
-
-	if skillsBlock := renderAgentSkills(skillsList); skillsBlock != "" {
-		blocks = append(blocks, skillsBlock)
-	}
-	if rulesBlock := renderAgentRules(rulesList); rulesBlock != "" {
-		blocks = append(blocks, rulesBlock)
-	}
-	if serversBlock := renderAgentServers(node.ID, edges, &blocks); serversBlock != "" {
-		blocks = append(blocks, serversBlock)
-	}
-
-	if len(blocks) > 0 {
-		agentStr += "\n" + strings.Join(blocks, "\n      │\n")
-	} else {
-		agentStr = strings.TrimSuffix(agentStr, "\n      │")
-	}
-
-	return agentStr
-}
-
-func renderAgentMeta(node graphNode) string {
-	metaParts := []string{}
-	if m, ok := node.Meta["model"]; ok {
-		short := m
-		if idx := strings.LastIndex(m, "-"); idx > 0 && len(m) > 20 {
-			short = "..." + m[idx:]
-		}
-		metaParts = append(metaParts, short)
-	}
-	if e, ok := node.Meta["effort"]; ok {
-		metaParts = append(metaParts, e+" effort")
-	}
-	if len(metaParts) > 0 {
-		return " [" + strings.Join(metaParts, " · ") + "]"
-	}
-	return ""
-}
-
-//nolint:gocyclo
-func renderAgentCapabilities(node graphNode) string {
-	if len(node.Tools) == 0 && len(node.BlockedTools) == 0 {
-		return ""
-	}
-
-	type groupDef struct {
-		Name  string
-		Tools []string
-	}
-
-	groupAndFormat := func(list []string, kind string, isLastBlock bool) []string {
-		var std []string
-		mcp := map[string][]string{}
-
-		for _, t := range list {
-			if strings.HasPrefix(t, "mcp__") {
-				parts := strings.SplitN(t, "__", 3)
-				if len(parts) == 3 {
-					grp := "mcp__" + parts[1]
-					mcp[grp] = append(mcp[grp], parts[2])
-					continue
-				}
-			}
-			std = append(std, t)
-		}
-
-		var sortedGroups []groupDef
-		for k, v := range mcp {
-			sort.Strings(v)
-			sortedGroups = append(sortedGroups, groupDef{Name: k, Tools: v})
-		}
-		sort.Slice(sortedGroups, func(i, j int) bool { return sortedGroups[i].Name < sortedGroups[j].Name })
-
-		totalItems := len(std) + len(sortedGroups)
-		var out []string
-		currentIdx := 0
-
-		spacing := strings.Repeat(" ", 11+len(kind))
-		remSpace := spacing[5:] // 5 char offset for "    │"
-
-		for _, t := range std {
-			isLast := currentIdx == totalItems-1 && isLastBlock
-			prefix := "      │    ├─(" + kind + ")─▶ "
-			if isLast {
-				prefix = "      │    └─(" + kind + ")─▶ "
-			}
-			out = append(out, prefix+t)
-			currentIdx++
-		}
-
-		for _, g := range sortedGroups {
-			isLastGroup := currentIdx == totalItems-1 && isLastBlock
-			prefix := "      │    ├─(" + kind + ")─▶ "
-			if isLastGroup {
-				prefix = "      │    └─(" + kind + ")─▶ "
-			}
-			out = append(out, prefix+g.Name)
-
-			for i, ct := range g.Tools {
-				var childPrefix string
-				if isLastGroup {
-					childPrefix = "      │" + spacing + "├─▶ "
-					if i == len(g.Tools)-1 {
-						childPrefix = "      │" + spacing + "└─▶ "
-					}
-				} else {
-					childPrefix = "      │    │" + remSpace + "├─▶ "
-					if i == len(g.Tools)-1 {
-						childPrefix = "      │    │" + remSpace + "└─▶ "
-					}
-				}
-				out = append(out, childPrefix+ct)
-			}
-			currentIdx++
-		}
-		return out
-	}
-
-	var capLines []string
-	if len(node.Tools) > 0 {
-		capLines = append(capLines, groupAndFormat(node.Tools, "tool", len(node.BlockedTools) == 0)...)
-	}
-	if len(node.BlockedTools) > 0 {
-		capLines = append(capLines, groupAndFormat(node.BlockedTools, "blocked", true)...)
-	}
-
-	return "      ├─▶ [Capabilities]\n" + strings.Join(capLines, "\n")
-}
-
-func extractAgentRelations(nodeID string, edges []graphEdge) ([]string, []string) {
-	var skillsList []string
-	var rulesList []string
-	for _, edge := range edges {
-		if edge.From == nodeID {
-			target := strings.SplitN(edge.To, ":", 2)
-			if len(target) == 2 {
-				if edge.Label == kindSkill {
-					skillsList = append(skillsList, target[1])
-				} else if edge.Label == kindRule {
-					rulesList = append(rulesList, target[1])
-				}
-			}
-		}
-	}
-	return skillsList, rulesList
-}
-
 const treePrefixMid = "      │    ├─▶ "
 const treePrefixLast = "      │    └─▶ "
-
-func renderAgentSkills(skillsList []string) string {
-	if len(skillsList) == 0 {
-		return ""
-	}
-	lines := []string{}
-	for i, inf := range skillsList {
-		prefix := treePrefixMid
-		if i == len(skillsList)-1 {
-			prefix = treePrefixLast
-		}
-		lines = append(lines, prefix+inf)
-	}
-	return "      ├─▶ [Skills]\n" + strings.Join(lines, "\n")
-}
-
-func renderAgentRules(rulesList []string) string {
-	if len(rulesList) == 0 {
-		return ""
-	}
-	lines := []string{}
-	for i, inf := range rulesList {
-		prefix := treePrefixMid
-		if i == len(rulesList)-1 {
-			prefix = treePrefixLast
-		}
-		lines = append(lines, prefix+inf)
-	}
-	return "      └─▶ [Rules]\n" + strings.Join(lines, "\n")
-}
-
-func renderAgentServers(nodeID string, edges []graphEdge, blocks *[]string) string {
-	var servers []string
-	for _, edge := range edges {
-		if edge.From == nodeID && edge.Label == "mcp" {
-			target := strings.SplitN(edge.To, ":", 2)
-			if len(target) == 2 {
-				servers = append(servers, "      │    └─(mcp)─▶ "+target[1])
-			}
-		}
-	}
-	if len(servers) > 0 {
-		return "      └─▶ [Servers]\n" + strings.Join(servers, "\n")
-	} else if len(*blocks) > 0 {
-		lastBlock := (*blocks)[len(*blocks)-1]
-		lastBlock = strings.Replace(lastBlock, "      ├─▶", "      └─▶", 1)
-		lastBlock = strings.ReplaceAll(lastBlock, "      │    ", "           ")
-		(*blocks)[len(*blocks)-1] = lastBlock
-	}
-	return ""
-}
 
 func renderMermaid(g *graphData) string {
 	var sb strings.Builder
@@ -949,24 +666,6 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-func renderTerminalSummary(scopes []*graphData) string {
-	var sb strings.Builder
-
-	for _, g := range scopes {
-		if g.Scope == "global" {
-			sb.WriteString("\n[ GLOBAL ]\n")
-		} else if g.Scope == "project" {
-			sb.WriteString("\n[ PROJECTS ]\n")
-		} else {
-			sb.WriteString(fmt.Sprintf("\n[ TARGET: %s ]\n", g.ConfigPath))
-		}
-
-		renderScopeSummary(&sb, g)
-	}
-
-	return sb.String() + "\n"
-}
-
 //nolint:gocyclo
 func renderScopeSummary(sb *strings.Builder, g *graphData) {
 	var agents, rules, mcp, policies int
@@ -1040,13 +739,4 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 			}
 		}
 	}
-}
-
-func renderTerminalDiskEntries(g *graphData) string {
-	var sb strings.Builder
-	sb.WriteString("\n  [ UNDECLARED FILES ]  (!)\n")
-	for _, e := range g.DiskEntries {
-		sb.WriteString(fmt.Sprintf("      - [%s] %s\n", e.Kind, e.ID))
-	}
-	return sb.String()
 }

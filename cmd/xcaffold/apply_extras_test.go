@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/compiler"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +21,7 @@ func TestApplyProviderExtras_RestoresSameProviderExtras(t *testing.T) {
 			},
 		},
 	}
-	out := &compiler.Output{Files: map[string]string{}}
+	out := &output.Output{Files: map[string]string{}}
 	var notes []renderer.FidelityNote
 
 	notes = applyProviderExtras(config, out, "claude", notes)
@@ -41,7 +41,7 @@ func TestApplyProviderExtras_EmitsFidelityNoteForCrossProviderExtras(t *testing.
 			},
 		},
 	}
-	out := &compiler.Output{Files: map[string]string{}}
+	out := &output.Output{Files: map[string]string{}}
 	var notes []renderer.FidelityNote
 
 	notes = applyProviderExtras(config, out, "claude", notes)
@@ -68,7 +68,7 @@ func TestApplyProviderExtras_MultiProvider(t *testing.T) {
 			},
 		},
 	}
-	out := &compiler.Output{Files: map[string]string{}}
+	out := &output.Output{Files: map[string]string{}}
 	var notes []renderer.FidelityNote
 
 	notes = applyProviderExtras(config, out, "claude", notes)
@@ -83,7 +83,7 @@ func TestApplyProviderExtras_MultiProvider(t *testing.T) {
 // when ProviderExtras is nil.
 func TestApplyProviderExtras_NilExtras_NoOp(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
-	out := &compiler.Output{Files: map[string]string{}}
+	out := &output.Output{Files: map[string]string{}}
 	var notes []renderer.FidelityNote
 
 	notes = applyProviderExtras(config, out, "claude", notes)
@@ -105,7 +105,7 @@ func TestApplyProviderExtras_RejectsPathTraversal(t *testing.T) {
 			},
 		},
 	}
-	out := &compiler.Output{Files: make(map[string]string)}
+	out := &output.Output{Files: make(map[string]string)}
 	var notes []renderer.FidelityNote
 
 	notes = applyProviderExtras(config, out, "claude", notes)
@@ -140,7 +140,7 @@ func TestApplyProviderExtras_NoteOrderIsDeterministic(t *testing.T) {
 			},
 		},
 	}
-	out := &compiler.Output{Files: map[string]string{}}
+	out := &output.Output{Files: map[string]string{}}
 	var notes []renderer.FidelityNote
 
 	notes = applyProviderExtras(config, out, "claude", notes)

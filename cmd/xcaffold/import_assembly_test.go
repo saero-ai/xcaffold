@@ -26,9 +26,9 @@ func TestScoreSkillSpecificity(t *testing.T) {
 			want: 1,
 		},
 		{
-			name: "references only",
+			name: "disable-model-invocation only",
 			cfg: ast.SkillConfig{
-				References: ast.ClearableList{Values: []string{"ref.md"}},
+				DisableModelInvocation: boolPtr(true),
 			},
 			want: 1,
 		},
@@ -36,17 +36,16 @@ func TestScoreSkillSpecificity(t *testing.T) {
 			name: "multiple fields",
 			cfg: ast.SkillConfig{
 				AllowedTools: ast.ClearableList{Values: []string{"Read"}},
-				References:   ast.ClearableList{Values: []string{"ref.md"}},
 				WhenToUse:    "always",
 				ArgumentHint: "hint",
 			},
-			want: 4,
+			want: 3,
 		},
 		{
-			name: "scripts and assets",
+			name: "disable-model-invocation and when-to-use",
 			cfg: ast.SkillConfig{
-				Scripts: ast.ClearableList{Values: []string{"run.sh"}},
-				Assets:  ast.ClearableList{Values: []string{"icon.svg"}},
+				DisableModelInvocation: boolPtr(true),
+				WhenToUse:              "when needed",
 			},
 			want: 2,
 		},
@@ -54,21 +53,16 @@ func TestScoreSkillSpecificity(t *testing.T) {
 			name: "all fields populated",
 			cfg: ast.SkillConfig{
 				AllowedTools:           ast.ClearableList{Values: []string{"Read", "Write"}},
-				References:             ast.ClearableList{Values: []string{"ref.md"}},
-				Scripts:                ast.ClearableList{Values: []string{"run.sh"}},
-				Assets:                 ast.ClearableList{Values: []string{"icon.svg"}},
-				Examples:               ast.ClearableList{Values: []string{"example.md"}},
 				DisableModelInvocation: boolPtr(true),
 				WhenToUse:              "when needed",
 				ArgumentHint:           "hint text",
 			},
-			want: 8,
+			want: 4,
 		},
 		{
 			name: "empty lists don't count",
 			cfg: ast.SkillConfig{
 				AllowedTools: ast.ClearableList{Values: []string{}},
-				References:   ast.ClearableList{Values: []string{}},
 				WhenToUse:    "when",
 			},
 			want: 1,

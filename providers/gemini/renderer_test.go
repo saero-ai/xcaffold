@@ -195,8 +195,6 @@ func TestCompile_Gemini_PathTraversal(t *testing.T) {
 	}
 }
 
-func intPtr(i int) *int { return &i }
-
 // TestCompile_Gemini_OutputPathsRelativeToOutputDir verifies that all keys in
 // out.Files are relative to OutputDir() — no ".gemini/" prefix — so that the
 // apply command's join of outputDir+relPath produces the correct final path

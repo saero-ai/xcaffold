@@ -338,30 +338,6 @@ model: "opus-4"
 	assert.Contains(t, err.Error(), "model")
 }
 
-func TestParseDirectory_LocalDeepMerge_NonConflicting(t *testing.T) {
-	dir := t.TempDir()
-
-	writeTestXCAF(t, dir, "project.xcaf", `kind: project
-version: "1.0"
-name: "local-merge-test"
-local:
-  env:
-    SECRET: "abc"
-`)
-	writeTestXCAF(t, dir, "local-overrides.xcaf", `kind: project
-version: "1.0"
-name: "local-merge-test"
-local:
-  effortLevel: "low"
-`)
-
-	cfg, err := ParseDirectory(dir)
-	require.NoError(t, err)
-	require.NotNil(t, cfg.Project)
-	assert.Equal(t, "low", cfg.Project.Local.EffortLevel)
-	assert.Equal(t, "abc", cfg.Project.Local.Env["SECRET"])
-}
-
 func TestParse_Profile_IsParseableFile(t *testing.T) {
 	dir := t.TempDir()
 	proj := filepath.Join(dir, "project.xcaf")
@@ -383,7 +359,7 @@ func TestParseDirectory_ExtendsGlobal_InheritsSettings(t *testing.T) {
 version: "1.0"
 settings:
   model: "sonnet-4"
-  effortLevel: "high"
+  effort-level: "high"
   env:
     GLOBAL_KEY: "from-global"
 `)
@@ -394,7 +370,7 @@ settings:
 version: "1.0"
 extends: global
 settings:
-  effortLevel: "low"
+  effort-level: "low"
   env:
     PROJECT_KEY: "from-project"
 `)

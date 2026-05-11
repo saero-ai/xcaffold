@@ -342,36 +342,6 @@ extends: "global"
 }
 
 // ---------------------------------------------------------------------------
-// TestParseFile_ExtendsGlobal_LegacyFallback
-// ---------------------------------------------------------------------------
-
-func TestParseFile_ExtendsGlobal_LegacyFallback(t *testing.T) {
-	fakeHome := t.TempDir()
-	t.Setenv("HOME", fakeHome)
-	t.Setenv("USERPROFILE", fakeHome)
-
-	// Only .claude/global.xcaf exists
-	legacyDir := filepath.Join(fakeHome, ".claude")
-	require.NoError(t, os.MkdirAll(legacyDir, 0755))
-	writeFile(t, legacyDir, "global.xcaf", `kind: global
-version: "1.0"
-agents:
-  legacy-agent:
-    description: "From legacy .claude/global.xcaf"
-`)
-
-	projectDir := t.TempDir()
-	childPath := writeFile(t, projectDir, "project.xcaf", `kind: global
-version: "1.0"
-extends: "global"
-`)
-
-	cfg, err := ParseFile(childPath)
-	require.NoError(t, err)
-	require.Contains(t, cfg.Agents, "legacy-agent")
-	assert.Equal(t, "From legacy .claude/global.xcaf", cfg.Agents["legacy-agent"].Description)
-}
-
 // ---------------------------------------------------------------------------
 // TestParseFile_ExtendsGlobal_Circular
 // ---------------------------------------------------------------------------

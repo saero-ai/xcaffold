@@ -11,18 +11,6 @@ import (
 	"github.com/saero-ai/xcaffold/providers"
 )
 
-// Pass is the interface implemented by every optimization pass.
-type Pass interface {
-	// Name returns the stable string identifier for this pass.
-	Name() string
-
-	// Required reports whether this pass must run regardless of user configuration.
-	Required() bool
-
-	// Apply transforms files and returns the updated map plus any fidelity notes.
-	Apply(files map[string]string) (map[string]string, []renderer.FidelityNote, error)
-}
-
 // RequiredPasses returns the mandatory leading passes for a target from its manifest.
 func RequiredPasses(target string) []string {
 	m, ok := providers.ManifestFor(target)

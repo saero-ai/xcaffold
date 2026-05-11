@@ -46,9 +46,12 @@ func crossProviderFixture(t *testing.T) (*ast.XcaffoldConfig, string) {
 	))
 
 	// Create a reference file for the skill.
-	require.NoError(t, os.MkdirAll(filepath.Join(baseDir, "refs"), 0o755))
+	// Files live under xcaf/skills/<id>/ since paths are skill-dir-relative.
+	// Auto-discovery looks in xcaf/skills/<id>/references/ and returns paths like "references/doc.md".
+	skillBase := filepath.Join(baseDir, "xcaf", "skills", "test-skill")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillBase, "references"), 0o755))
 	require.NoError(t, os.WriteFile(
-		filepath.Join(baseDir, "refs", "doc.md"),
+		filepath.Join(skillBase, "references", "doc.md"),
 		[]byte("# Reference Doc"),
 		0o644,
 	))
@@ -68,7 +71,7 @@ func crossProviderFixture(t *testing.T) (*ast.XcaffoldConfig, string) {
 					Name:        "test-skill",
 					Description: "A skill with references",
 					Body:        "Skill body.",
-					References:  ast.ClearableList{Values: []string{"refs/doc.md"}},
+					Artifacts:   []string{"references"},
 				},
 			},
 			Rules: map[string]ast.RuleConfig{
