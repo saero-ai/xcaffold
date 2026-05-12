@@ -425,40 +425,12 @@ func assignBodyToResource(config *ast.XcaffoldConfig, lastKind, lastName string,
 	return nil
 }
 
-func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
-	resolved := resolveParseOptions(opts)
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read .xcaf input: %w", err)
-	}
-
-	if len(resolved.Vars) > 0 || len(resolved.Envs) > 0 {
-		data, err = resolver.ExpandVariables(data, resolved.Vars, resolved.Envs)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Split on frontmatter delimiter before any YAML processing.
-	// Files that do NOT start with "---\n" are treated as pure YAML (body == nil)
-	// and fall through unchanged — full backward compatibility is preserved.
-	frontmatter, body, err := extractFrontmatterAndBody(data)
-	if err != nil {
-		return nil, err
-	}
-
-	// Reject snake_case keys that must use kebab-case for specific kinds.
-	if err := detectRejectedSnakeCaseKeys(frontmatter); err != nil {
-		return nil, err
-	}
-
-	config := &ast.XcaffoldConfig{}
+// processYAMLDocuments decodes YAML documents and routes them to appropriate parsers.
+// Returns the kind and name of the last processed document.
+func processYAMLDocuments(frontmatter []byte, config *ast.XcaffoldConfig, resolved parseOption) (string, string, error) {
 	decoder := yaml.NewDecoder(bytes.NewReader(frontmatter))
 	docIndex := 0
-
-	// Track the kind and name of the last parsed resource for body assignment.
-	var lastKind string
-	var lastName string
+	var lastKind, lastName string
 
 	for {
 		var node yaml.Node
@@ -466,7 +438,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			if err == io.EOF {
 				break
 			}
-			return nil, fmt.Errorf("failed to parse .xcaf YAML document %d: %w", docIndex, err)
+			return "", "", fmt.Errorf("failed to parse .xcaf YAML document %d: %w", docIndex, err)
 		}
 
 		// yaml.Decoder wraps each document in a DocumentNode; unwrap it.
@@ -482,13 +454,12 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 		var routeErr error
 		lastKind, lastName, routeErr = routeDocument(docNode, kind, inferredName, config, resolved, docIndex)
 		if routeErr != nil {
-			return nil, routeErr
+			return "", "", routeErr
 		}
 
-		// Reject multi-document .xcaf files. Each file must contain exactly one
-		// resource document. Split multi-resource files into separate .xcaf files.
+		// Reject multi-document .xcaf files.
 		if docIndex > 0 {
-			return nil, fmt.Errorf(
+			return "", "", fmt.Errorf(
 				"multi-document .xcaf files are no longer supported; "+
 					"each .xcaf file must contain exactly one resource (found document %d, kind: %s); "+
 					"split into separate files under xcaf/",
@@ -499,11 +470,41 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 	}
 
 	if docIndex == 0 {
-		return nil, fmt.Errorf("failed to parse .xcaf YAML: EOF")
+		return "", "", fmt.Errorf("failed to parse .xcaf YAML: EOF")
 	}
 
-	// Assign markdown body to the parsed resource's Body or Content field.
-	// Only applies to frontmatter-format files (body != nil) with non-empty body text.
+	return lastKind, lastName, nil
+}
+
+func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
+	resolved := resolveParseOptions(opts)
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read .xcaf input: %w", err)
+	}
+
+	if len(resolved.Vars) > 0 || len(resolved.Envs) > 0 {
+		data, err = resolver.ExpandVariables(data, resolved.Vars, resolved.Envs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	frontmatter, body, err := extractFrontmatterAndBody(data)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := detectRejectedSnakeCaseKeys(frontmatter); err != nil {
+		return nil, err
+	}
+
+	config := &ast.XcaffoldConfig{}
+	lastKind, lastName, err := processYAMLDocuments(frontmatter, config, resolved)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := assignBodyToResource(config, lastKind, lastName, body); err != nil {
 		return nil, err
 	}
