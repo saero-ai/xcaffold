@@ -16,7 +16,7 @@ func TestPresenceExtractor_Agent_PopulatedFields(t *testing.T) {
 		Description:            "A test agent",
 		Model:                  "sonnet",
 		Effort:                 "high",
-		MaxTurns:               10,
+		MaxTurns:               intPtr(10),
 		Tools:                  ast.ClearableList{Values: []string{"Bash", "Read"}},
 		DisallowedTools:        ast.ClearableList{Values: []string{"Write"}},
 		Readonly:               &tr,
@@ -105,3 +105,5 @@ func TestPresenceExtractor_Rule_PopulatedFields(t *testing.T) {
 		}
 	}
 }
+
+func intPtr(n int) *int { return &n }

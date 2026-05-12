@@ -142,6 +142,7 @@ var canonicalKindFilenames = map[string]bool{
 	"settings": true,
 	"policy":   true,
 	"template": true,
+	"context":  true,
 	"memory":   true,
 }
 

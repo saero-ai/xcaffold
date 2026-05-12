@@ -30,7 +30,7 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 					// CC-only fields that must be dropped
 					Effort:         "high",
 					PermissionMode: "acceptEdits",
-					MaxTurns:       5,
+					MaxTurns:       intPtr(5),
 				},
 			},
 			Skills: map[string]ast.SkillConfig{
@@ -137,3 +137,5 @@ func TestCursorRenderer_FullConfig(t *testing.T) {
 	// 1 agent + 1 skill + 2 rules + 1 mcp.json = 5 files
 	assert.Len(t, out.Files, 5, "expected exactly 5 output files")
 }
+
+func intPtr(n int) *int { return &n }

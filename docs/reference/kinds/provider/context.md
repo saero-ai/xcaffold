@@ -36,6 +36,7 @@ You are working on xcaffold, a deterministic Agent-as-Code compiler...
 | `version` | Yes | string | Schema version, e.g. `"1.0"` |
 | `name` | Yes | string | Unique identifier within the project. Used as the xcaf filename stem. |
 | `targets` | No | list of strings | Provider filter — see [Targets](#targets) below |
+| `default` | No | bool | Tie-breaker when multiple contexts match the same target. See [Default Resolution](#default-resolution) below |
 | `description` | No | string | Short human-readable description of this context file |
 
 The **markdown body** (content after the closing `---`) contains the workspace context prose that is rendered verbatim to the provider's instruction file.
@@ -82,6 +83,19 @@ You are working on xcaffold...
 
 > [!NOTE]
 > `targets:` is a filter, not a compilation directive. It does not add targets — it restricts which of the already-configured project targets receive this context. If your project only targets `claude`, a context with `targets: [gemini]` produces no output.
+
+## Default Resolution
+
+When multiple contexts match the same target provider and no blueprint is active, xcaffold requires exactly one to be marked `default: true`. This context is placed first in the composed output; remaining contexts follow in alphabetical order.
+
+| Scenario (no blueprint) | Result |
+|---|---|
+| 1 context matches target | Renders regardless of `default` — no ambiguity |
+| 2+ match, exactly 1 has `default: true` | All bodies compose; default goes first |
+| 2+ match, none has `default: true` | Compiler error — mark one as default or use `--blueprint` |
+| 2+ match, multiple have `default: true` | Compiler error — only one default allowed per target |
+
+When a blueprint is active (`--blueprint name`), the blueprint's `contexts:` list explicitly selects which contexts compile. The `default` flag is ignored entirely. See [Blueprint Design — Context Selection](../../best-practices/blueprint-design.md#context-selection) for details.
 
 ## File Location
 

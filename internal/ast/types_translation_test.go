@@ -173,7 +173,7 @@ func TestAgentConfig_CanonicalFieldOrdering(t *testing.T) {
 		Description:            "Software developer.",
 		Model:                  "sonnet",
 		Effort:                 "high",
-		MaxTurns:               10,
+		MaxTurns:               intPtr(10),
 		Tools:                  ClearableList{Values: []string{"Read", "Write"}},
 		Readonly:               &truthy,
 		PermissionMode:         "default",
@@ -313,3 +313,5 @@ func TestRuleConfig_Targets_Serializes(t *testing.T) {
 	require.Contains(t, content, "provider:")
 	require.Contains(t, content, "mode: edit")
 }
+
+func intPtr(n int) *int { return &n }

@@ -266,7 +266,7 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 		// Test now lives in ProjectConfig.
 		if p.Project != nil {
 			pTest := p.Project.Test
-			if pTest.CliPath != "" || pTest.JudgeModel != "" || pTest.Task != "" || pTest.MaxTurns != 0 {
+			if pTest.CliPath != "" || pTest.JudgeModel != "" || pTest.Task != "" || pTest.MaxTurns != nil {
 				if merged.Project == nil {
 					merged.Project = &ast.ProjectConfig{}
 				}
@@ -447,7 +447,7 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 			if child.Project.Test.Task != "" {
 				merged.Project.Test.Task = child.Project.Test.Task
 			}
-			if child.Project.Test.MaxTurns > 0 {
+			if child.Project.Test.MaxTurns != nil {
 				merged.Project.Test.MaxTurns = child.Project.Test.MaxTurns
 			}
 

@@ -45,7 +45,7 @@ func TestCompile_Gemini_Agents_FullSchema(t *testing.T) {
 					Description: "Analyses code.",
 					Tools:       ast.ClearableList{Values: []string{"read_file", "grep_search"}},
 					Model:       "gemini-3-flash-preview",
-					MaxTurns:    20,
+					MaxTurns:    intPtr(20),
 				},
 			},
 		},
@@ -200,3 +200,5 @@ func TestCompile_Gemini_Agents_WithBody(t *testing.T) {
 	require.True(t, ok, "expected agents/auditor.md (relative to OutputDir) to be present")
 	assert.Contains(t, content, "You are a security auditor.")
 }
+
+func intPtr(n int) *int { return &n }

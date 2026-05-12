@@ -173,3 +173,94 @@ func TestResolveAttributes_NoReferences_Passthrough(t *testing.T) {
 	assert.Equal(t, "Plain text, no refs", config.Agents["developer"].Description)
 	assert.Equal(t, "sonnet", config.Agents["developer"].Model)
 }
+
+func TestResolveAttributes_PolicyField(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Policies = map[string]ast.PolicyConfig{
+		"require-desc": {Name: "require-desc", Severity: "error"},
+	}
+	config.Agents = map[string]ast.AgentConfig{
+		"dev": {Description: "Policy severity: ${policy.require-desc.severity}"},
+	}
+	err := ResolveAttributes(config)
+	require.NoError(t, err)
+	assert.Equal(t, "Policy severity: error", config.Agents["dev"].Description)
+}
+
+func TestResolveAttributes_MemoryField(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Memory = map[string]ast.MemoryConfig{
+		"project-context": {Name: "project-context", Description: "Project memory"},
+	}
+	config.Agents = map[string]ast.AgentConfig{
+		"dev": {Description: "Memory: ${memory.project-context.description}"},
+	}
+	err := ResolveAttributes(config)
+	require.NoError(t, err)
+	assert.Equal(t, "Memory: Project memory", config.Agents["dev"].Description)
+}
+
+func TestResolveAttributes_ContextField(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Contexts = map[string]ast.ContextConfig{
+		"coding-rules": {Name: "coding-rules", Description: "Coding standards"},
+	}
+	config.Agents = map[string]ast.AgentConfig{
+		"dev": {Description: "Context: ${context.coding-rules.description}"},
+	}
+	err := ResolveAttributes(config)
+	require.NoError(t, err)
+	assert.Equal(t, "Context: Coding standards", config.Agents["dev"].Description)
+}
+
+func TestResolveAttributes_TemplateField(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Templates = map[string]ast.TemplateConfig{
+		"scaffold": {Name: "scaffold", DefaultTarget: "claude"},
+	}
+	config.Agents = map[string]ast.AgentConfig{
+		"dev": {Description: "Template target: ${template.scaffold.default-target}"},
+	}
+	err := ResolveAttributes(config)
+	require.NoError(t, err)
+	assert.Equal(t, "Template target: claude", config.Agents["dev"].Description)
+}
+
+func TestResolveAttributes_HooksField(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Hooks = map[string]ast.NamedHookConfig{
+		"pre-commit": {Name: "pre-commit", Description: "Git hooks"},
+	}
+	config.Agents = map[string]ast.AgentConfig{
+		"dev": {Description: "Hook: ${hooks.pre-commit.description}"},
+	}
+	err := ResolveAttributes(config)
+	require.NoError(t, err)
+	assert.Equal(t, "Hook: Git hooks", config.Agents["dev"].Description)
+}
+
+func TestResolveAttributes_SettingsField(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Settings = map[string]ast.SettingsConfig{
+		"default": {Name: "default", Model: "opus"},
+	}
+	config.Agents = map[string]ast.AgentConfig{
+		"dev": {Description: "Settings model: ${settings.default.model}"},
+	}
+	err := ResolveAttributes(config)
+	require.NoError(t, err)
+	assert.Equal(t, "Settings model: opus", config.Agents["dev"].Description)
+}
+
+func TestResolveAttributes_PolicyContainsRef(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Agents = map[string]ast.AgentConfig{
+		"dev": {Model: "opus"},
+	}
+	config.Policies = map[string]ast.PolicyConfig{
+		"check": {Name: "check", Description: "Agent uses ${agent.dev.model}"},
+	}
+	err := ResolveAttributes(config)
+	require.NoError(t, err)
+	assert.Equal(t, "Agent uses opus", config.Policies["check"].Description)
+}

@@ -18,7 +18,7 @@ func ExtractAgentPresentFields(a ast.AgentConfig) map[string]string {
 	if a.Effort != "" {
 		m["effort"] = a.Effort
 	}
-	if a.MaxTurns != 0 {
+	if a.MaxTurns != nil {
 		m["max-turns"] = "set"
 	}
 	if len(a.Tools.Values) > 0 {

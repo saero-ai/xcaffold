@@ -464,8 +464,8 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 			fmt.Fprintf(&sb, "model: %s\n", resolvedModel)
 		}
 
-		if agent.MaxTurns > 0 {
-			fmt.Fprintf(&sb, "max_turns: %d\n", agent.MaxTurns)
+		if agent.MaxTurns != nil && *agent.MaxTurns > 0 {
+			fmt.Fprintf(&sb, "max_turns: %d\n", *agent.MaxTurns)
 		}
 
 		// Inline MCP servers.

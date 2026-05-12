@@ -51,8 +51,9 @@ func mergeAgentScalars(result *ast.AgentConfig, override ast.AgentConfig) {
 	if override.Effort != "" {
 		result.Effort = override.Effort
 	}
-	if override.MaxTurns != 0 {
-		result.MaxTurns = override.MaxTurns
+	if override.MaxTurns != nil {
+		v := *override.MaxTurns
+		result.MaxTurns = &v
 	}
 	if override.PermissionMode != "" {
 		result.PermissionMode = override.PermissionMode
@@ -338,6 +339,300 @@ func mergeMCPConfig(base, override ast.MCPConfig) ast.MCPConfig {
 
 	// Internal provenance fields are intentionally NOT merged.
 	return result
+}
+
+// mergeNamedHookConfig merges override into base using provider-override semantics.
+// See mergeAgentConfig for the full description of merge rules.
+func mergeNamedHookConfig(base, override ast.NamedHookConfig) ast.NamedHookConfig {
+	result := base
+
+	if override.Name != "" {
+		result.Name = override.Name
+	}
+	if override.Description != "" {
+		result.Description = override.Description
+	}
+
+	if len(override.Artifacts) > 0 {
+		result.Artifacts = append([]string(nil), override.Artifacts...)
+	}
+
+	if len(override.Events) > 0 {
+		merged := make(ast.HookConfig, len(base.Events)+len(override.Events))
+		for k, v := range base.Events {
+			merged[k] = v
+		}
+		for k, v := range override.Events {
+			merged[k] = v
+		}
+		result.Events = merged
+	}
+
+	if len(override.Targets) > 0 {
+		merged := make(map[string]ast.TargetOverride, len(base.Targets)+len(override.Targets))
+		for k, v := range base.Targets {
+			merged[k] = v
+		}
+		for k, v := range override.Targets {
+			merged[k] = v
+		}
+		result.Targets = merged
+	}
+
+	// Internal provenance fields are intentionally NOT merged.
+	return result
+}
+
+// mergePolicyConfig merges override into base using provider-override semantics.
+// PolicyConfig has no Targets map or Body field.
+// See mergeAgentConfig for the full description of merge rules.
+func mergePolicyConfig(base, override ast.PolicyConfig) ast.PolicyConfig {
+	result := base
+
+	if override.Name != "" {
+		result.Name = override.Name
+	}
+	if override.Description != "" {
+		result.Description = override.Description
+	}
+	if override.Severity != "" {
+		result.Severity = override.Severity
+	}
+	if override.Target != "" {
+		result.Target = override.Target
+	}
+
+	if override.Match != nil {
+		result.Match = override.Match
+	}
+
+	if len(override.Require) > 0 {
+		result.Require = append([]ast.PolicyRequire(nil), override.Require...)
+	}
+	if len(override.Deny) > 0 {
+		result.Deny = append([]ast.PolicyDeny(nil), override.Deny...)
+	}
+
+	// Internal provenance fields are intentionally NOT merged.
+	return result
+}
+
+// mergeTemplateConfig merges override into base using provider-override semantics.
+// TemplateConfig has no Targets map.
+// See mergeAgentConfig for the full description of merge rules.
+func mergeTemplateConfig(base, override ast.TemplateConfig) ast.TemplateConfig {
+	result := base
+
+	if override.Name != "" {
+		result.Name = override.Name
+	}
+	if override.Description != "" {
+		result.Description = override.Description
+	}
+	if override.DefaultTarget != "" {
+		result.DefaultTarget = override.DefaultTarget
+	}
+
+	if override.Body != "" {
+		result.Body = override.Body
+	}
+
+	// Internal provenance fields are intentionally NOT merged.
+	return result
+}
+
+// mergeContextConfig merges override into base using provider-override semantics.
+// ContextConfig.Targets is []string (not a map), so it follows list semantics:
+// override replaces the entire base slice when non-empty.
+// See mergeAgentConfig for the full description of merge rules.
+func mergeContextConfig(base, override ast.ContextConfig) ast.ContextConfig {
+	result := base
+
+	if override.Name != "" {
+		result.Name = override.Name
+	}
+	if override.Description != "" {
+		result.Description = override.Description
+	}
+	if override.Default {
+		result.Default = override.Default
+	}
+
+	if len(override.Targets) > 0 {
+		result.Targets = append([]string(nil), override.Targets...)
+	}
+
+	if override.Body != "" {
+		result.Body = override.Body
+	}
+
+	// Internal provenance fields are intentionally NOT merged.
+	return result
+}
+
+// mergeSettingsConfig merges override into base using provider-override semantics.
+// See mergeAgentConfig for the full description of merge rules.
+func mergeSettingsConfig(base, override ast.SettingsConfig) ast.SettingsConfig {
+	result := base
+	mergeSettingsScalars(&result, override)
+	mergeSettingsBoolPtrs(&result, override)
+	mergeSettingsStructPtrs(&result, override)
+	mergeSettingsLists(&result, override)
+	mergeSettingsMaps(&result, base, override)
+	// Internal provenance fields are intentionally NOT merged.
+	return result
+}
+
+func mergeSettingsScalars(result *ast.SettingsConfig, override ast.SettingsConfig) {
+	if override.Name != "" {
+		result.Name = override.Name
+	}
+	if override.Description != "" {
+		result.Description = override.Description
+	}
+	if override.EffortLevel != "" {
+		result.EffortLevel = override.EffortLevel
+	}
+	if override.DefaultShell != "" {
+		result.DefaultShell = override.DefaultShell
+	}
+	if override.Language != "" {
+		result.Language = override.Language
+	}
+	if override.OutputStyle != "" {
+		result.OutputStyle = override.OutputStyle
+	}
+	if override.PlansDirectory != "" {
+		result.PlansDirectory = override.PlansDirectory
+	}
+	if override.Model != "" {
+		result.Model = override.Model
+	}
+	if override.OtelHeadersHelper != "" {
+		result.OtelHeadersHelper = override.OtelHeadersHelper
+	}
+	if override.AutoMemoryDirectory != "" {
+		result.AutoMemoryDirectory = override.AutoMemoryDirectory
+	}
+}
+
+func mergeSettingsBoolPtrs(result *ast.SettingsConfig, override ast.SettingsConfig) {
+	if override.IncludeGitInstructions != nil {
+		v := *override.IncludeGitInstructions
+		result.IncludeGitInstructions = &v
+	}
+	if override.SkipDangerousModePermissionPrompt != nil {
+		v := *override.SkipDangerousModePermissionPrompt
+		result.SkipDangerousModePermissionPrompt = &v
+	}
+	if override.AutoMemoryEnabled != nil {
+		v := *override.AutoMemoryEnabled
+		result.AutoMemoryEnabled = &v
+	}
+	if override.DisableAllHooks != nil {
+		v := *override.DisableAllHooks
+		result.DisableAllHooks = &v
+	}
+	if override.Attribution != nil {
+		v := *override.Attribution
+		result.Attribution = &v
+	}
+	if override.RespectGitignore != nil {
+		v := *override.RespectGitignore
+		result.RespectGitignore = &v
+	}
+	if override.DisableSkillShellExecution != nil {
+		v := *override.DisableSkillShellExecution
+		result.DisableSkillShellExecution = &v
+	}
+	if override.AlwaysThinkingEnabled != nil {
+		v := *override.AlwaysThinkingEnabled
+		result.AlwaysThinkingEnabled = &v
+	}
+}
+
+func mergeSettingsStructPtrs(result *ast.SettingsConfig, override ast.SettingsConfig) {
+	if override.CleanupPeriodDays != nil {
+		v := *override.CleanupPeriodDays
+		result.CleanupPeriodDays = &v
+	}
+	if override.Permissions != nil {
+		result.Permissions = override.Permissions
+	}
+	if override.Sandbox != nil {
+		result.Sandbox = override.Sandbox
+	}
+	if override.StatusLine != nil {
+		result.StatusLine = override.StatusLine
+	}
+	if override.Agent != nil {
+		result.Agent = override.Agent
+	}
+	if override.Worktree != nil {
+		result.Worktree = override.Worktree
+	}
+	if override.AutoMode != nil {
+		result.AutoMode = override.AutoMode
+	}
+}
+
+func mergeSettingsLists(result *ast.SettingsConfig, override ast.SettingsConfig) {
+	if len(override.MdExcludes) > 0 {
+		result.MdExcludes = append([]string(nil), override.MdExcludes...)
+	}
+	if len(override.AvailableModels) > 0 {
+		result.AvailableModels = append([]string(nil), override.AvailableModels...)
+	}
+}
+
+func mergeSettingsMaps(result *ast.SettingsConfig, base, override ast.SettingsConfig) {
+	result.Env = mergeStringMap(base.Env, override.Env)
+
+	if len(override.MCPServers) > 0 {
+		merged := make(map[string]ast.MCPConfig, len(base.MCPServers)+len(override.MCPServers))
+		for k, v := range base.MCPServers {
+			merged[k] = v
+		}
+		for k, v := range override.MCPServers {
+			merged[k] = v
+		}
+		result.MCPServers = merged
+	}
+
+	if len(override.EnabledPlugins) > 0 {
+		merged := make(map[string]bool, len(base.EnabledPlugins)+len(override.EnabledPlugins))
+		for k, v := range base.EnabledPlugins {
+			merged[k] = v
+		}
+		for k, v := range override.EnabledPlugins {
+			merged[k] = v
+		}
+		result.EnabledPlugins = merged
+	}
+
+	// HookConfig is map[string][]HookMatcherGroup — deep merge: override event
+	// keys replace base event keys; base events not present in override are kept.
+	if len(override.Hooks) > 0 {
+		merged := make(ast.HookConfig, len(base.Hooks)+len(override.Hooks))
+		for k, v := range base.Hooks {
+			merged[k] = v
+		}
+		for k, v := range override.Hooks {
+			merged[k] = v
+		}
+		result.Hooks = merged
+	}
+
+	if len(override.Targets) > 0 {
+		merged := make(map[string]ast.TargetOverride, len(base.Targets)+len(override.Targets))
+		for k, v := range base.Targets {
+			merged[k] = v
+		}
+		for k, v := range override.Targets {
+			merged[k] = v
+		}
+		result.Targets = merged
+	}
 }
 
 // mergeStringMap deep-merges two string maps: override keys win, base keys not

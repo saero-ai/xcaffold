@@ -953,7 +953,7 @@ func TestWriteProjectFile_RoundTripNewFields(t *testing.T) {
 				CliPath:    "/path/to/cli",
 				JudgeModel: "sonnet",
 				Task:       "test the agent",
-				MaxTurns:   5,
+				MaxTurns:   intPtr(5),
 			},
 			TargetOptions: map[string]ast.TargetOverride{
 				"claude": {
@@ -987,7 +987,8 @@ func TestWriteProjectFile_RoundTripNewFields(t *testing.T) {
 	assert.Equal(t, "/path/to/cli", parsed.Test.CliPath, "Test.CliPath should round-trip")
 	assert.Equal(t, "sonnet", parsed.Test.JudgeModel, "Test.JudgeModel should round-trip")
 	assert.Equal(t, "test the agent", parsed.Test.Task, "Test.Task should round-trip")
-	assert.Equal(t, 5, parsed.Test.MaxTurns, "Test.MaxTurns should round-trip")
+	require.NotNil(t, parsed.Test.MaxTurns, "Test.MaxTurns should be non-nil after round-trip")
+	assert.Equal(t, 5, *parsed.Test.MaxTurns, "Test.MaxTurns should round-trip")
 
 	// Verify TargetOptions map
 	assert.NotNil(t, parsed.TargetOptions, "TargetOptions should be present")
@@ -997,3 +998,5 @@ func TestWriteProjectFile_RoundTripNewFields(t *testing.T) {
 	assert.True(t, *claudeOverride.SuppressFidelityWarnings, "SuppressFidelityWarnings should be true")
 	assert.Equal(t, "echo pre", claudeOverride.Hooks["PreCompile"], "Hooks in TargetOverride should round-trip")
 }
+
+func intPtr(n int) *int { return &n }

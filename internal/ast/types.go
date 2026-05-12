@@ -223,7 +223,7 @@ type AgentConfig struct {
 	// +xcaf:group=Model & Execution
 	// +xcaf:provider=claude:optional,gemini:optional
 	// +xcaf:role=rendering
-	MaxTurns int `yaml:"max-turns,omitempty"`
+	MaxTurns *int `yaml:"max-turns,omitempty"`
 
 	// Ordered list of tools this agent may invoke.
 	// +xcaf:optional
@@ -967,7 +967,7 @@ type TestConfig struct {
 
 	// MaxTurns caps the number of simulated conversation turns.
 	// Reserved for future multi-turn support; currently unused beyond recording.
-	MaxTurns int `yaml:"max-turns,omitempty"`
+	MaxTurns *int `yaml:"max-turns,omitempty"`
 }
 
 // WorkflowConfig defines a named, reusable, multi-step procedure.
@@ -1297,7 +1297,7 @@ type BlueprintConfig struct {
 	SourceProvider string `yaml:"-" json:"-"`
 }
 
-// ResourceOverrides stores parsed .<provider>.xcaf partial configs for all 9 kinds.
+// ResourceOverrides stores parsed .<provider>.xcaf partial configs for all 10 kinds.
 // Keyed as [kind][name][provider] → config struct. Populated by the import pipeline
 // during filesystem scanning of <config-dir>.<provider>.xcaf files.
 // Never serialized; used by the compiler for provider-specific config merging.
@@ -1311,6 +1311,7 @@ type ResourceOverrides struct {
 	Settings map[string]map[string]SettingsConfig  `json:"-"`
 	Policy   map[string]map[string]PolicyConfig    `json:"-"`
 	Template map[string]map[string]TemplateConfig  `json:"-"`
+	Context  map[string]map[string]ContextConfig   `json:"-"`
 }
 
 // AddAgent stores an AgentConfig override keyed by [name][provider].
@@ -1631,6 +1632,42 @@ func (r *ResourceOverrides) TemplateProviders(name string) []string {
 	}
 	var providers []string
 	for p := range r.Template[name] {
+		providers = append(providers, p)
+	}
+	sort.Strings(providers)
+	return providers
+}
+
+// AddContext stores a ContextConfig override keyed by [name][provider].
+func (r *ResourceOverrides) AddContext(name, provider string, cfg ContextConfig) {
+	if r.Context == nil {
+		r.Context = make(map[string]map[string]ContextConfig)
+	}
+	if r.Context[name] == nil {
+		r.Context[name] = make(map[string]ContextConfig)
+	}
+	r.Context[name][provider] = cfg
+}
+
+// GetContext retrieves a ContextConfig override by [name][provider].
+func (r *ResourceOverrides) GetContext(name, provider string) (ContextConfig, bool) {
+	if r == nil || r.Context == nil {
+		return ContextConfig{}, false
+	}
+	if r.Context[name] == nil {
+		return ContextConfig{}, false
+	}
+	cfg, ok := r.Context[name][provider]
+	return cfg, ok
+}
+
+// ContextProviders returns a sorted list of provider names for a given context.
+func (r *ResourceOverrides) ContextProviders(name string) []string {
+	if r == nil || r.Context == nil || r.Context[name] == nil {
+		return nil
+	}
+	var providers []string
+	for p := range r.Context[name] {
 		providers = append(providers, p)
 	}
 	sort.Strings(providers)

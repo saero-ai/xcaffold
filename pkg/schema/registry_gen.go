@@ -81,7 +81,7 @@ func init() {
 			{
 				Name:        "MaxTurns",
 				YAMLKey:     "max-turns",
-				GoType:      "int",
+				GoType:      "*int",
 				XCAFType:    "int",
 				Optional:    true,
 				Description: "Maximum conversation turns before the agent exits.",

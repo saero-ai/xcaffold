@@ -132,6 +132,13 @@ func decodeAndStoreOverride(entry overrideFileEntry, frontmatter []byte, body, n
 		}
 		cfg.Body = body
 		overrides.AddTemplate(name, entry.Provider, cfg)
+	case "context":
+		var cfg ast.ContextConfig
+		if err := yaml.Unmarshal(frontmatter, &cfg); err != nil {
+			return fmt.Errorf("decode context override %s: %w", entry.Path, err)
+		}
+		cfg.Body = body
+		overrides.AddContext(name, entry.Provider, cfg)
 	default:
 		return fmt.Errorf("override file %s: unsupported kind %q for overrides", entry.Path, entry.Kind)
 	}
@@ -172,6 +179,7 @@ func validateOverrideBasesExist(config *ast.XcaffoldConfig) error {
 		{"settings", mapKeys(config.Overrides.Settings), func(n string) bool { _, ok := config.Settings[n]; return ok }},
 		{"policy", mapKeys(config.Overrides.Policy), func(n string) bool { _, ok := config.Policies[n]; return ok }},
 		{"template", mapKeys(config.Overrides.Template), func(n string) bool { _, ok := config.Templates[n]; return ok }},
+		{"context", mapKeys(config.Overrides.Context), func(n string) bool { _, ok := config.Contexts[n]; return ok }},
 	}
 
 	for _, c := range checks {

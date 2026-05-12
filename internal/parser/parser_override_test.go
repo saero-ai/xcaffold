@@ -109,3 +109,31 @@ func TestParse_OverrideFile_RequiresBaseFile(t *testing.T) {
 		t.Fatal("expected error when override file has no base")
 	}
 }
+
+func TestParse_OverrideFile_StoresContextOverride(t *testing.T) {
+	dir := t.TempDir()
+	xcafDir := filepath.Join(dir, "xcaf", "contexts", "project-rules")
+	os.MkdirAll(xcafDir, 0755)
+
+	base := "---\nkind: context\nversion: \"1.0\"\nname: project-rules\ndescription: Project coding rules\n---\nUniversal context body.\n"
+	os.WriteFile(filepath.Join(xcafDir, "context.xcaf"), []byte(base), 0644)
+
+	override := "---\ndescription: Claude-specific rules\n---\nClaude-specific context body.\n"
+	os.WriteFile(filepath.Join(xcafDir, "context.claude.xcaf"), []byte(override), 0644)
+
+	config, err := ParseDirectory(dir)
+	if err != nil {
+		t.Fatalf("ParseDirectory failed: %v", err)
+	}
+
+	ctx, ok := config.Overrides.GetContext("project-rules", "claude")
+	if !ok {
+		t.Fatal("expected context override for 'project-rules' / 'claude' to be stored")
+	}
+	if ctx.Description != "Claude-specific rules" {
+		t.Errorf("Description: want %q, got %q", "Claude-specific rules", ctx.Description)
+	}
+	if ctx.Body != "Claude-specific context body." {
+		t.Errorf("Body: want %q, got %q", "Claude-specific context body.", ctx.Body)
+	}
+}
