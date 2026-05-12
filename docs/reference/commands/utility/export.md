@@ -23,8 +23,8 @@ xcaffold export [flags]
 |---|---|---|---|
 | `--output <string>` | Yes | | Output directory for the exported plugin. |
 | `--format <string>` | | `"plugin"` | Export format. Currently only `plugin` is supported. |
-| `--target <string>` | Yes | | Compilation target provider (e.g., `claude`, `cursor`, `gemini`). |
-| `--var-file <path>` | | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
+| `--target <string>` | | `""` | Compilation target provider (e.g., `claude`, `cursor`, `gemini`). |
+| `--var-file <path>` | | `""` | Load additional variables from a custom file (layered on top of `xcaf/project.vars`). |
 
 ## Behavior
 

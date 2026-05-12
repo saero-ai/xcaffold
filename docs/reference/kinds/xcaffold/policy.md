@@ -1,11 +1,19 @@
 ---
 title: "kind: policy"
-description: "Defines declarative constraints and governance rules. Source: `xcf/policy/<id>/policy.xcaf`."
+description: "Defines declarative constraints and governance rules. Source: `xcaf/policies/<id>/policy.xcaf`."
 ---
 
 # `kind: policy`
 
 Defines declarative constraints and governance rules evaluated during `xcaffold validate` and `xcaffold apply`. Policies ensure that project resources and compiled output adhere to organizational standards and security best practices.
+
+> **Required:** `kind`, `version`, `name`, `severity`, `target`
+
+## Source Directory
+
+```
+xcaf/policies/<name>/policy.xcaf
+```
 
 ## Example Usage
 
@@ -20,28 +28,26 @@ require:
     is-present: true
 ```
 
-## Argument Reference
+## Field Reference
 
-### Required Arguments
+### Required Fields
 
-| Argument | Type | Description |
+| Field | Type | Description |
 | :--- | :--- | :--- |
-| `kind` | `string` | Must be `policy`. |
-| `version` | `string` | Resource schema version (e.g., `"1.0"`). |
-| `name` | `string` | Unique identifier for the policy. |
-| `severity` | `string` | Violation level: `error`, `warning`, `off`. |
-| `target` | `string` | Evaluation domain: `agent`, `skill`, `rule`, `hook`, `settings`, `output`. |
+| `name` | `string` | Unique identifier for the policy. Must match `[a-z0-9-]+`. |
+| `severity` | `string` | Violation level when the policy fails: `error`, `warning`, `off`. |
+| `target` | `string` | Resource kind this policy evaluates: `agent`, `skill`, `rule`, `hook`, `settings`, `output`. |
 
-### Optional Arguments
+### Optional Fields
 
 #### Identity & Matching
 
-| Argument | Type | Description |
+| Field | Type | Description |
 | :--- | :--- | :--- |
 | `description` | `string` | Human-readable purpose of this policy. |
 | `match` | `PolicyMatch` | Filter conditions selecting which resources to evaluate. |
 
-##### `PolicyMatch` Fields
+#### `PolicyMatch` Fields
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
@@ -52,12 +58,12 @@ require:
 
 #### Constraints
 
-| Argument | Type | Description |
+| Field | Type | Description |
 | :--- | :--- | :--- |
 | `require` | `[]PolicyRequire` | List of field constraints applied to matched resources. |
 | `deny` | `[]PolicyDeny` | Forbidden patterns in compiled output content or paths. |
 
-##### `PolicyRequire` Fields
+#### `PolicyRequire` Fields
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
@@ -67,7 +73,7 @@ require:
 | `max-count` | `int` | Maximum element count for list fields. |
 | `one-of` | `[]string` | List of permitted values for the field. |
 
-##### `PolicyDeny` Fields
+#### `PolicyDeny` Fields
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
@@ -77,12 +83,12 @@ require:
 
 ## Filesystem-as-Schema
 
-When a policy is defined at `xcf/policy/<id>/policy.xcaf`, Xcaffold automatically infers:
-- **kind**: `policy` derived from the `policy/` directory.
+When a policy is defined at `xcaf/policies/<id>/policy.xcaf`, Xcaffold automatically infers:
+- **kind**: `policy` derived from the `policies/` directory.
 - **name**: `<id>` derived from the directory segment between the kind and the filename.
 
 ## Behavior
 
 1.  **Pipeline Integration**: Policies are evaluated during `validate` and `apply` phases.
 2.  **Gatekeeping**: An `error` level violation prevents `xcaffold apply` from writing any files to disk.
-3.  **Global Scope**: Policies in `~/.xcaffold/policies/` apply to all projects.
+3.  **Global Scope**: Policy `.xcaf` files placed under `~/.xcaffold/` are evaluated globally for all projects. The scanner recursively discovers all `.xcaf` files in the global home directory.

@@ -26,7 +26,7 @@ xcaffold test --agent <id> [flags]
 | `--judge` | | `bool` | `false` | Run LLM-as-a-Judge evaluation after the simulation. |
 | `--output` | `-o` | `string` | `trace.jsonl` | Path to write the execution trace. |
 | `--cli-path` | | `string` | `""` | Path to the underlying CLI binary (overrides `project.xcaf`). |
-| `--judge-model`| | `string` | `""` | The model to use for the judge (overrides `project.xcaf`). |
+| `--judge-model`| | `string` | `""` | The model to use for the judge. Falls back to `claude-haiku-4-5-20251001` when not specified. |
 
 ## Behavior
 
@@ -39,7 +39,7 @@ xcaffold test --agent <id> [flags]
 
 ## Prerequisites
 
--   **API Keys**: You must have `ANTHROPIC_API_KEY` or `XCAFFOLD_LLM_API_KEY` set in your environment.
+-   **API Keys**: You must have `ANTHROPIC_API_KEY` or `XCAFFOLD_LLM_API_KEY` set in your environment. Optionally set `XCAFFOLD_LLM_BASE_URL` to point to a non-Anthropic endpoint.
 -   **Compiled Output**: The agent must have been successfully compiled via `xcaffold apply`.
 
 ## Examples
@@ -60,7 +60,7 @@ xcaffold test --agent developer --judge
 
 ```text
 Testing agent "developer" with task: Add a new endpoint to the API
-Using model: claude-sonnet-4-6 (auth: api-key)
+Using model: <resolved-from-agent-config> (auth: api-key)
 
 ── Simulation Trace Summary ──────────────────────────
   Total intercepted tool calls: 3

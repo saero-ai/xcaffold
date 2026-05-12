@@ -7,7 +7,7 @@ description: "Render a dependency graph of agents and their linked resources."
 
 Parses `.xcaf` manifests and renders a visual dependency graph.
 
-The `graph` command builds a directed acyclic graph (DAG) of the current configuration scope, showing how agents relate to skills, rules, and MCP servers. Output can be rendered as a terminal tree, Mermaid diagram, Graphviz DOT file, or JSON edge list.
+The `graph` command builds a directed acyclic graph (DAG) of the current configuration scope, showing how agents relate to skills, rules, MCP servers, memory, policies, hooks, and workflows. Output can be rendered as a terminal tree, Mermaid diagram, Graphviz DOT file, or JSON edge list.
 
 **Usage:**
 
@@ -21,7 +21,7 @@ xcaffold graph [file] [flags]
 |------|-------|------|---------|-------------|
 | `--agent <name>` | `-a` | `string` | `""` | Target a specific agent; shows only its topology. |
 | `--project <name>` | `-p` | `string` | `""` | Target a specific managed project by registered name or path. |
-| `--full` | `-f` | `bool` | `false` | Show the fully expanded topology tree. Must be explicitly set. |
+| `--full` | `-f` | `bool` | `false` | Show the fully expanded topology tree. Always true when `--agent` is set. |
 | `--all` | — | `bool` | `false` | Show global topology and all registered projects. Mutually exclusive with `--project` and `--global`. |
 | `--scan-output` | — | `bool` | `false` | Scan compiled output directories for undeclared artifacts. |
 | `--format` | — | `string` | `"terminal"` | Output format: `terminal`, `mermaid`, `dot`, `json`. |
@@ -32,7 +32,7 @@ xcaffold graph [file] [flags]
 
 ### Terminal tree
 
-The default `terminal` format renders each agent as a tree node with its tools, linked skills, rules, and MCP servers nested beneath it. Branch glyphs use `│`, `├──`, and `└──` aligned at column 2:
+The default `terminal` format renders each agent as a tree node with its tools, linked skills, rules, MCP servers, and memory entries nested beneath it. Branch glyphs use `│`, `├──`, and `└──` aligned at column 2:
 
 ```
   ● agent-name
@@ -42,11 +42,15 @@ The default `terminal` format renders each agent as a tree node with its tools, 
   │    ├── skill-a
   │    └── skill-b
   │
-  └── rules
-       └── rule-a
+  ├── rules
+  │    └── rule-a
+  │
+  └── memory  (2 entries)
+       ├── project-context
+       └── coding-standards
 ```
 
-The header breadcrumb uses `·` as a separator (falls back to `.` when `--no-color` is set or `NO_COLOR` is set). Kinds with zero resources are omitted from the header count.
+The header breadcrumb uses `·` as a separator (falls back to `.` when `--no-color` is set or `NO_COLOR` is set). Kinds with zero resources are omitted from the header count. The count includes agents, skills, rules, MCP servers, policies, and hooks.
 
 ### Output formats
 
@@ -55,13 +59,15 @@ The header breadcrumb uses `·` as a separator (falls back to `.` when `--no-col
 - **`dot`** — Graphviz DOT format. Combine with `dot -Tsvg` to produce network diagrams.
 - **`json`** — Machine-readable array of nodes and edges. Suitable for CI/CD integration.
 
+All non-terminal formats include policy, hook, and workflow nodes when present in the configuration.
+
 ### Scope
 
 By default, `xcaffold graph` operates on the project-level manifest in the current directory. Pass a file path as a positional argument to target a specific `.xcaf` file directly. Use `--global` to switch to the user-wide global scope, `--project` to target a registered project by name, or `--all` to render global topology plus all registered projects.
 
 ### Scanning undeclared artifacts
 
-When `--scan-output` is provided, the command scans the compiled output directory for files that are present on disk but not declared in the current manifest. Undeclared entries are listed under a `[ UNDECLARED FILES ]` section in terminal mode or included in the `disk_entries` array in JSON mode.
+When `--scan-output` is provided, the command scans the compiled output directory for files that are present on disk but not declared in the current manifest. Undeclared entries are included in the `disk_entries` array in JSON mode and as additional nodes in mermaid and dot modes. This flag has no effect in terminal mode.
 
 ## Sample output
 
@@ -77,8 +83,12 @@ sandbox  ·  2 agents  ·  3 skills  ·  4 rules
   │    ├── feature-lifecycle
   │    └── commit-changes
   │
-  └── rules
-       └── secure-coding
+  ├── rules
+  │    └── secure-coding
+  │
+  └── memory  (2 entries)
+       ├── project-context
+       └── coding-standards
 ```
 
 ### Mermaid output

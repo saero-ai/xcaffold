@@ -1,11 +1,19 @@
 ---
 title: "kind: blueprint"
-description: "Defines resource selection and inheritance for compilation. Source: `xcf/blueprints/<id>/blueprint.xcaf`."
+description: "Defines resource selection and inheritance for compilation. Source: `xcaf/blueprints/<id>/blueprint.xcaf`."
 ---
 
 # `kind: blueprint`
 
 Defines a named subset of project resources to be processed by the xcaffold compiler. Blueprints enable environment-specific configurations (e.g., `production`, `ci`, `onboarding`) by selectively including agents, skills, and settings.
+
+> **Required:** `kind`, `version`, `name`
+
+## Source Directory
+
+```
+xcaf/blueprints/<name>/blueprint.xcaf
+```
 
 ## Example Usage
 
@@ -20,58 +28,52 @@ rules: [style-guide]
 settings: standard
 ```
 
-## Argument Reference
+## Field Reference
 
-### Required Arguments
+### Required Fields
 
-| Argument | Type | Description |
+| Field | Type | Description |
 | :--- | :--- | :--- |
-| `kind` | `string` | Must be `blueprint`. |
-| `version` | `string` | Resource schema version (e.g., `"1.0"`). |
-| `name` | `string` | Unique identifier for the blueprint. |
+| `name` | `string` | Unique identifier for the blueprint. Must match `[a-z0-9-]+`. |
 
-### Optional Arguments
+### Optional Fields
 
 #### Identity & Inheritance
 
-| Argument | Type | Description |
+| Field | Type | Description |
 | :--- | :--- | :--- |
 | `description` | `string` | Human-readable purpose of this blueprint. |
-| `extends` | `string` | Name of a parent blueprint to inherit selections from. |
+| `extends` | `string` | Name of another blueprint to inherit selections from. |
 
 #### Resource Selectors
 
-These fields define which resources are included in the compilation. Lists are merged when using `extends`.
-
-| Argument | Type | Description |
+| Field | Type | Description |
 | :--- | :--- | :--- |
-| `agents` | `[]string` | List of Agent IDs to include. |
-| `skills` | `[]string` | List of Skill IDs to include. |
-| `rules` | `[]string` | List of Rule IDs to include. |
-| `workflows` | `[]string` | List of Workflow IDs to include. |
-| `mcp` | `[]string` | List of MCP Server IDs to include. |
-| `policies` | `[]string` | List of Policy IDs to include. |
-| `memory` | `[]string` | List of Memory IDs to include. |
-| `contexts` | `[]string` | List of Context IDs to include. |
+| `agents` | `[]string` | Agent resource IDs to include in this blueprint. |
+| `skills` | `[]string` | Skill resource IDs to include. |
+| `rules` | `[]string` | Rule resource IDs to include. |
+| `workflows` | `[]string` | Workflow resource IDs to include. |
+| `mcp` | `[]string` | MCP server resource IDs to include. |
+| `policies` | `[]string` | Policy resource IDs to include. |
+| `memory` | `[]string` | Memory resource IDs to include. |
+| `contexts` | `[]string` | Context resource IDs to include. |
 
 #### Singleton Selectors
 
-These fields accept a single ID and override any value inherited from a parent blueprint.
-
-| Argument | Type | Description |
+| Field | Type | Description |
 | :--- | :--- | :--- |
-| `settings` | `string` | The ID of the Settings block to apply. |
-| `hooks` | `string` | The ID of the Hooks block to apply. |
+| `settings` | `string` | Name of the settings block to use. |
+| `hooks` | `string` | Name of the hooks block to use. |
 
 #### Multi-Target
 
-| Argument | Type | Description |
+| Field | Type | Description |
 | :--- | :--- | :--- |
-| `targets` | `[]string` | Restricts this blueprint to specific provider targets (e.g., `claude`, `cursor`). |
+| `targets` | `[]string` | Restricts this blueprint to specific provider targets. When absent, falls through to project targets or `--target` flag. |
 
 ## Filesystem-as-Schema
 
-When a blueprint is defined at `xcf/blueprints/<id>/blueprint.xcaf`, Xcaffold automatically infers:
+When a blueprint is defined at `xcaf/blueprints/<id>/blueprint.xcaf`, Xcaffold automatically infers:
 - **kind**: `blueprint` derived from the `blueprints/` directory.
 - **name**: `<id>` derived from the directory segment between the kind and the filename.
 

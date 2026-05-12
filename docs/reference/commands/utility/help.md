@@ -22,10 +22,11 @@ xcaffold --xcaf <kind> [--out [path]]
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
 | `--xcaf <kind>` | — | `string` | `""` | Display schema for a resource kind (e.g., `agent`, `skill`, `rule`). |
-| `--out [path]` | — | `string` | `"."` | Generate a template `.xcaf` file for the requested kind. Use with `--xcaf`. |
+| `--out [path]` | — | `string` | `""` | Generate a template `.xcaf` file for the requested kind. Without a value, defaults to current directory. Use with `--xcaf`. |
 | `--config <path>` | — | `string` | `""` | Path to project.xcaf (inherited from root). |
 | `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (inherited from root). *(Hidden — not yet available)* |
 | `--no-color` | — | `bool` | `false` | Disable color output (inherited from root). |
+| `--verbose` | — | `bool` | `false` | Show fidelity notes and policy warnings (inherited from root). |
 
 ## Behavior
 
@@ -136,6 +137,7 @@ Global Flags:
       --config string      Path to project.xcaf (default: ./project.xcaf). Use for monorepo sub-directories.
       --no-color           disable color output
       --out string[="."]   Generate template .xcaf file (use with --xcaf)
+      --verbose            show fidelity notes and policy warnings
       --xcaf string         Display schema for a resource kind
 ```
 

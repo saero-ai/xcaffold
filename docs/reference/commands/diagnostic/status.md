@@ -23,7 +23,7 @@ xcaffold status [flags]
 |------|-------|------|---------|-------------|
 | `--all` | — | `bool` | `false` | Show all tracked files grouped by subdirectory. Works with or without `--target` (default: drifted files only). |
 | `--blueprint <name>` | — | `string` | `""` | Read state from the named blueprint's state file. Mutually exclusive with `--global`. |
-| `--global` | — | `bool` | `false` | Read from the global config state (`~/.xcaffold/`). Mutually exclusive with `--blueprint`. *(Not yet available — hidden flag)* |
+| `--global` | `-g` | `bool` | `false` | Read from the global config state (`~/.xcaffold/`). Mutually exclusive with `--blueprint`. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 | `--target <name>` | — | `string` | `""` | Focus drift inspection on a single provider (e.g., `claude`, `cursor`, `gemini`). |
 
@@ -51,7 +51,7 @@ When used without `--target` (overview mode), a per-provider `GROUP` table is ap
 
 ### Flag constraints
 
-`--blueprint` and `--global` cannot be combined. The `--global` flag is registered but not yet functional for this command. Using it prints `Global scope is not yet available.` and exits with code 1.
+`--blueprint` and `--global` cannot be combined.
 
 ## Output labels
 

@@ -47,9 +47,6 @@ version: "1.0"
 api-version: workflow/v1
 name: ship-feature
 description: End-to-end workflow for shipping a new React component from branch to PR.
----
-```
-```yaml
 steps:
   - name: implement
     description: Build the component using the component-patterns skill.
@@ -59,6 +56,7 @@ steps:
 
   - name: pr
     description: Open a pull request.
+---
 ```
 
 Step content is authored as named body sections using `## <step-name>` headings in the workflow body:
@@ -83,22 +81,31 @@ Step content is authored as named body sections using `## <step-name>` headings 
 3. Include a Storybook screenshot in the PR description.
 ```
 
-## Argument Reference
+## Field Reference
 
-The following arguments are supported:
+### Required Fields
 
-- `name` — (Required) Unique workflow identifier. Must match `[a-z0-9-]+`.
-- `api-version` — (Optional) `string`. Schema discriminator. Default: `"workflow/v1"`.
-- `description` — (Optional) `string`. What this workflow accomplishes.
-- `steps` — (Optional) `[]WorkflowStep`. Ordered procedural steps. Use when the workflow has multiple phases. Mutually exclusive with a top-level instruction body.
-- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides. Resources with a `targets:` field are compiled only for the listed providers. When absent, the resource is compiled for all applicable providers.
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Unique workflow identifier. Must match `[a-z0-9-]+`. |
+
+### Optional Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `api-version` | `string` | Schema shape discriminator for workflow versioning. Default: `"workflow/v1"`. |
+| `description` | `string` | Human-readable description of what this workflow accomplishes. |
+| `steps` | `[]WorkflowStep` | Ordered procedural steps. Use when the workflow has multiple phases. |
+| `targets` | `map[string]TargetOverride` | Per-provider overrides for compilation behavior. Does not restrict which providers compile this resource; to exclude a provider, set `skip-synthesis: true` within that provider's entry. |
 
 ### `steps` entry
 
 Each entry in `steps` supports:
 
-- `name` — (Required) Step identifier. Used as a heading in the compiled output and as the key for the corresponding `## <name>` body section.
-- `description` — (Optional) `string`. One-line step summary placed beneath the step heading in the compiled output.
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | (Required) Step identifier. Used as a heading in the compiled output and as the key for the corresponding `## <name>` body section. |
+| `description` | `string` | (Optional) One-line step summary placed beneath the step heading in the compiled output. |
 
 Step instructions are provided as `## <step-name>` body sections in the workflow source file, not as an inline `instructions:` field.
 
@@ -128,132 +135,116 @@ When `lowering-strategy` is absent, `rule-plus-skill` is used.
 
 ## Compiled Output
 
-<ProviderTabs>
-  <ProviderTab id="claude">
-    **Default strategy**: `rule-plus-skill`
+### Claude
 
-    **Output paths** (example: `ship-feature`):
-    - `rules/ship-feature-workflow.md` — procedure overview rule
-    - `skills/ship-feature-01-implement/SKILL.md`
-    - `skills/ship-feature-02-review/SKILL.md`
-    - `skills/ship-feature-03-pr/SKILL.md`
+**Default strategy**: `rule-plus-skill`
 
-    > workflow lowered to rule+skill
-  </ProviderTab>
+**Output paths** (example: `ship-feature`):
+- `rules/ship-feature-workflow.md` — procedure overview rule
+- `skills/ship-feature-01-implement/SKILL.md`
+- `skills/ship-feature-02-review/SKILL.md`
+- `skills/ship-feature-03-pr/SKILL.md`
 
-  <ProviderTab id="cursor">
-    **Default strategy**: `rule-plus-skill`
+> workflow lowered to rule+skill
 
-    **Output paths** (example: `ship-feature`):
-    - `rules/ship-feature-workflow.mdc` — procedure overview rule
-    - `skills/ship-feature-01-implement/SKILL.md`
-    - `skills/ship-feature-02-review/SKILL.md`
-    - `skills/ship-feature-03-pr/SKILL.md`
+### Cursor
 
-    > workflow lowered to rule+skill
-  </ProviderTab>
+**Default strategy**: `rule-plus-skill`
 
-  <ProviderTab id="copilot">
-    **Default strategy**: `rule-plus-skill`
+**Output paths** (example: `ship-feature`):
+- `rules/ship-feature-workflow.mdc` — procedure overview rule
+- `skills/ship-feature-01-implement/SKILL.md`
+- `skills/ship-feature-02-review/SKILL.md`
+- `skills/ship-feature-03-pr/SKILL.md`
 
-    **Output paths** (example: `ship-feature`):
-    - `.github/copilot-instructions.md` — procedure overview appended as a rule
-    - `skills/ship-feature-01-implement/SKILL.md`
-    - `skills/ship-feature-02-review/SKILL.md`
-    - `skills/ship-feature-03-pr/SKILL.md`
+> workflow lowered to rule+skill
 
-    > workflow lowered to rule+skill
+### Copilot
 
-    **With `lowering-strategy: prompt-file`:**
+**Default strategy**: `rule-plus-skill`
 
-    **Output path**: `.github/prompts/ship-feature.prompt.md`
+**Output paths** (example: `ship-feature`):
+- `.github/instructions/ship-feature-workflow.instructions.md` — procedure overview rule
+- `.github/skills/ship-feature-01-implement/SKILL.md`
+- `.github/skills/ship-feature-02-review/SKILL.md`
+- `.github/skills/ship-feature-03-pr/SKILL.md`
 
-    ```markdown
-    ---
-    description: "End-to-end workflow for shipping a new React component from branch to PR."
-    ---
+> workflow lowered to rule+skill
 
-    ## implement
+**With `lowering-strategy: prompt-file`:**
 
-    ...
+**Output path**: `.github/prompts/ship-feature.prompt.md`
 
-    ## review
+```markdown
+---
+mode: agent
+x-xcaffold:
+  compiled-from: workflow
+  workflow-name: ship-feature
+  api-version: workflow/v1
+---
 
-    ...
+...step bodies concatenated...
+```
 
-    ## pr
+### Gemini
 
-    ...
-    ```
-  </ProviderTab>
+**Default strategy**: `rule-plus-skill`
 
-  <ProviderTab id="gemini">
-    **Default strategy**: `rule-plus-skill`
+**Output paths** (example: `ship-feature`):
+- `.gemini/rules/ship-feature-workflow.md` — procedure overview rule
+- `GEMINI.md` — receives an `@`-import line referencing the rule
+- `.gemini/skills/ship-feature-01-implement/SKILL.md`
+- `.gemini/skills/ship-feature-02-review/SKILL.md`
+- `.gemini/skills/ship-feature-03-pr/SKILL.md`
 
-    **Output paths** (example: `ship-feature`):
-    - `GEMINI.md` — procedure overview appended as a rule section
-    - `skills/ship-feature-01-implement/SKILL.md`
-    - `skills/ship-feature-02-review/SKILL.md`
-    - `skills/ship-feature-03-pr/SKILL.md`
+> workflow lowered to rule+skill
 
-    > workflow lowered to rule+skill
+**With `lowering-strategy: custom-command`:**
 
-    **With `lowering-strategy: custom-command`:**
+**Output path**: `.gemini/commands/ship-feature.md`
 
-    **Output path**: `.gemini/commands/ship-feature.md`
+```markdown
+...step bodies concatenated with blank lines between them...
+```
 
-    ```markdown
-    ---
-    description: "End-to-end workflow for shipping a new React component from branch to PR."
-    ---
+### Antigravity
 
-    ## implement
+**Default output path**: `.agents/workflows/ship-feature.md`
 
-    ...
+The default path writes a frontmatter block with `description:` followed by the workflow body verbatim. The `steps:` array entries are not rendered as section headings.
 
-    ## review
+```markdown
+---
+description: "End-to-end workflow for shipping a new React component from branch to PR."
+---
 
-    ...
+...workflow body written as-is...
+```
 
-    ## pr
+**With `promote-rules-to-workflows: true`:**
 
-    ...
-    ```
-  </ProviderTab>
+Set this flag in the `antigravity` target override to activate native step-body rendering. Steps are concatenated under `## <step-name>` headers (level-2, no numbering).
 
-  <ProviderTab id="antigravity">
-    **Output path**: `.agents/workflows/ship-feature.md`
+```yaml
+targets:
+  antigravity:
+    provider:
+      promote-rules-to-workflows: true
+```
 
-    ```markdown
-    ---
-    description: "End-to-end workflow for shipping a new React component from branch to PR."
-    ---
+Output:
 
-    ### Step 1: implement
+```markdown
+## implement
 
-    Build the component using the component-patterns skill.
+...step body...
 
-    1. Create a git worktree: `git worktree add .worktrees/feat-<name> feat/<name>`
-    2. Invoke the component-patterns skill to scaffold the component.
-    3. Run `pnpm test --filter frontend-app` — all tests must pass.
+## review
 
-    ### Step 2: review
+...step body...
 
-    Self-review for convention compliance.
+## pr
 
-    1. Run `pnpm lint` — zero ESLint errors.
-    2. Check every new component has a co-located `.test.tsx`.
-    3. Confirm no `any` types appear in props.
-
-    ### Step 3: pr
-
-    Open a pull request.
-
-    1. Commit with: `feat(ui): add <ComponentName> component`
-    2. Push the branch and open a PR targeting `main`.
-    3. Include a Storybook screenshot in the PR description.
-    ```
-
-    Antigravity has a native workflow runtime. Steps are flattened into sequentially numbered `### Step N: <name>` headings. The `description` is placed as a subheading beneath each step heading.
-  </ProviderTab>
-</ProviderTabs>
+...step body...
+```

@@ -21,6 +21,7 @@ xcaffold init [flags]
 |---|---|---|
 | `-y, --yes` | `false` | Accept all defaults non-interactively. Useful for CI/CD. |
 | `--target <strings>` | `[]` | One or more compilation target providers (e.g., `claude`, `cursor`). Repeat or comma-separate for multiple targets. |
+| `--upgrade` | `false` | Force-refresh toolkit files (xaff agent, xcaffold skill, xcaf-conventions rule) to the latest embedded versions. |
 | `--json` | `false` | Output machine-readable JSON manifest instead of interactive logs. |
 
 ## Behavior

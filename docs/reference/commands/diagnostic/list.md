@@ -19,7 +19,7 @@ xcaffold list [flags]
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--agent [name]` | — | `string` | `""` | List agents. Without a value, lists all agents. With a value, filters by name. |
+| `--agent [name]` | — | `string` | `""` | List agents. Without a value, lists all agents. With a value, filters by substring match. |
 | `--skill [name]` | — | `string` | `""` | List skills. Same filter behavior as `--agent`. |
 | `--rule [name]` | — | `string` | `""` | List rules. Same filter behavior as `--agent`. |
 | `--workflow [name]` | — | `string` | `""` | List workflows. Same filter behavior as `--agent`. |
@@ -30,6 +30,8 @@ xcaffold list [flags]
 | `--verbose` | `-v` | `bool` | `false` | Show individual memory entry names per agent instead of aggregate counts. |
 | `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). *(Not yet available — hidden flag)* |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
+| `--blueprint [name]` | — | `string` | `""` | Show resources belonging to a named blueprint. *(Hidden flag)* |
+| `--resolved` | — | `bool` | `false` | Include transitive dependencies when listing a blueprint. Use with `--blueprint`. *(Hidden flag)* |
 
 ## Behavior
 
@@ -43,7 +45,9 @@ When one or more kind-filter flags are set (`--agent`, `--skill`, `--rule`, etc.
 
 String-valued kind flags accept an optional name argument for filtering:
 - `--agent` — lists all agents
-- `--agent dev` — lists only agents whose name matches `dev`
+- `--agent dev` — lists agents whose name contains `dev`
+
+Positional arguments are not accepted. To filter by name, use `--<kind>=<name>` syntax.
 
 ### Scope
 

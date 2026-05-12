@@ -107,19 +107,22 @@ events:
           timeout: 10
 ```
 
-## Argument Reference
+## Field Reference
 
-### Top-level fields
+### Required Fields
 
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `kind` | Yes | `string` | Always `hooks`. |
-| `version` | Yes | `string` | Schema version. Must be `"1.0"` (quoted). |
-| `name` | No | `string` | Unique identifier for this hook block. Must match `[a-z0-9-]+`. Defaults to `"default"`. |
-| `description` | No | `string` | Human-readable description of this hook block's purpose. |
-| `artifacts` | No | `[]string` | Named subdirectories within `xcaf/hooks/<name>/` to copy into the provider hook directory during compilation (e.g., `scripts`, `templates`). |
-| `targets` | No | `map[string]TargetOverride` | Per-provider overrides keyed by provider name. |
-| `events` | No | `map[string][]HookMatcherGroup` | Lifecycle event handlers keyed by event name. See [Events](#events) below. |
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Unique identifier for this hook block. Must match `[a-z0-9-]+`. |
+
+### Optional Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | `string` | Human-readable description of this hook block's purpose. |
+| `artifacts` | `[]string` | Named subdirectories within `xcaf/hooks/<name>/` to copy into the provider hook directory during compilation (e.g., `scripts`, `templates`). |
+| `events` | `map[string][]HookMatcherGroup` | Lifecycle event handlers keyed by event name. See [Events](#events) below. |
+| `targets` | `map[string]TargetOverride` | Per-provider behavioral overrides for this hook block. |
 
 ### Events
 
@@ -131,52 +134,67 @@ events:
 | `PostToolUse` | After a tool call completes. |
 | `SessionStart` | When a provider session begins. |
 | `Stop` | When a provider session ends. |
+| `SubagentStop` | When a subagent finishes. |
+| `InstructionsLoaded` | After system instructions are loaded at session start. |
+| `PreCompact` | Before context compaction runs. |
 | `Notification` | When the provider emits a notification. |
+| `ConfigChange` | When provider configuration changes at runtime. |
 
-### `HookMatcherGroup`
+### HookMatcherGroup
 
 Each entry in an event array is a matcher group. The group runs when the tool name matches `matcher`.
 
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `matcher` | No | `string` | Tool name to match (e.g., `"Bash"`, `"Edit"`, `"Write"`). Empty string matches all tools. |
-| `hooks` | Yes | `[]HookHandler` | One or more handlers to execute when the matcher fires. |
+| Field | Type | Description |
+|-------|------|-------------|
+| `matcher` | `string` | Tool name to match (e.g., `"Bash"`, `"Edit"`, `"Write"`). Empty string matches all tools. Optional. |
+| `hooks` | `[]HookHandler` | One or more handlers to execute when the matcher fires. Required. |
 
-### `HookHandler`
+### HookHandler
 
 Each entry in `hooks:` defines a single executable action.
 
-| Field | Required | Type | Description |
-|-------|----------|------|-------------|
-| `type` | Yes | `string` | Handler type. Use `"command"` for shell commands. |
-| `command` | No | `string` | Shell command to execute. Use `$XCAF_PROJECT_DIR` for the project root. |
-| `async` | No | `bool` | When `true`, the hook runs without blocking the provider. Default: `false`. |
-| `timeout` | No | `int` | Maximum execution time in milliseconds before the hook is killed. |
-| `once` | No | `bool` | When `true`, the hook fires only on the first matching event in a session. |
-| `shell` | No | `string` | Shell binary to use (e.g., `/bin/sh`, `/bin/bash`). Provider default when omitted. |
-| `status-message` | No | `string` | Text displayed in the provider UI while the hook is running. |
-| `allowed-env-vars` | No | `[]string` | Environment variable names passed to the hook process. |
-| `if` | No | `string` | Conditional expression. Hook is skipped when this evaluates to false. |
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `string` | Handler type. Use `"command"` for shell commands. Required. |
+| `command` | `string` | Shell command to execute. Use `$XCAF_PROJECT_DIR` for the project root. |
+| `url` | `string` | URL to invoke for webhook-style handlers. |
+| `prompt` | `string` | Prompt text passed to the handler. |
+| `model` | `string` | Model identifier used when the handler invokes a model. |
+| `headers` | `map[string]string` | HTTP headers sent when `url` is set. |
+| `async` | `bool` | When `true`, the hook runs without blocking the provider. Default: `false`. |
+| `timeout` | `int` | Maximum execution time in milliseconds before the hook is killed. |
+| `once` | `bool` | When `true`, the hook fires only on the first matching event in a session. |
+| `shell` | `string` | Shell binary to use (e.g., `/bin/sh`, `/bin/bash`). Provider default when omitted. |
+| `status-message` | `string` | Text displayed in the provider UI while the hook is running. |
+| `allowed-env-vars` | `[]string` | Environment variable names passed to the hook process. |
+| `if` | `string` | Conditional expression. Hook is skipped when this evaluates to false. |
 
 ### Variable substitution
 
-Use `$XCAF_PROJECT_DIR` in `command` values to refer to the project root directory. Xcaffold rewrites this to the provider-native equivalent during compilation:
+Use `$XCAF_PROJECT_DIR` in `command` values to refer to the project root directory. xcaffold rewrites this to the provider-native equivalent during compilation:
 
-| Provider | Expanded Value |
-|----------|---------------|
+| Provider | Compiled To |
+|----------|------------|
 | Claude | `$CLAUDE_PROJECT_DIR` |
 | Gemini | `$GEMINI_PROJECT_DIR` |
 | Cursor | `$CURSOR_PROJECT_DIR` |
 | Copilot | `$GITHUB_WORKSPACE` |
 
+For backward compatibility, `$CLAUDE_PROJECT_DIR` in `.xcaf` source is also translated to the target provider's variable.
+
 ## Compiled Output
 
 Hook declarations are merged into provider-native configuration at compile time.
 
-<ProviderTabs
-  claude={`// Merged into .claude/settings.json under the "hooks" key.
+### Claude
+
+**Output path**: `.claude/settings.json` (`hooks` key)
+
+`$XCAF_PROJECT_DIR` is translated to `$CLAUDE_PROJECT_DIR`. Event names and hook structure are preserved as-is (Claude Code's native format matches the xcaffold schema).
+
+```json
 {
-  "$schema": "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json",
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "hooks": {
     "PreToolUse": [
       {
@@ -205,9 +223,16 @@ Hook declarations are merged into provider-native configuration at compile time.
       }
     ]
   }
-}`}
-  gemini={`// Merged into .gemini/settings.json under the "hooks" key.
-// Event names are translated: PreToolUse → BeforeTool, PostToolUse → AfterTool.
+}
+```
+
+### Gemini
+
+**Output path**: `.gemini/settings.json` (`hooks` key)
+
+Event names are translated: `PreToolUse` → `BeforeTool`, `PostToolUse` → `AfterTool`. `$XCAF_PROJECT_DIR` is rewritten to `$GEMINI_PROJECT_DIR`.
+
+```json
 {
   "hooks": {
     "BeforeTool": [
@@ -235,10 +260,16 @@ Hook declarations are merged into provider-native configuration at compile time.
       }
     ]
   }
-}`}
-  cursor={`// Written to .cursor/hooks.json.
-// Event names are translated to camelCase: PreToolUse → preToolUse, PostToolUse → postToolUse.
-// The 3-level xcaffold structure (event → matcher groups → handlers) is flattened to 2 levels.
+}
+```
+
+### Cursor
+
+**Output path**: `.cursor/hooks.json`
+
+Event names are translated to camelCase: `PreToolUse` → `preToolUse`, `PostToolUse` → `postToolUse`. The xcaffold three-level structure (event → matcher groups → handlers) is flattened to two levels. `$XCAF_PROJECT_DIR` is rewritten to `$CURSOR_PROJECT_DIR`.
+
+```json
 {
   "version": 1,
   "preToolUse": [
@@ -257,9 +288,16 @@ Hook declarations are merged into provider-native configuration at compile time.
       "timeout": 15
     }
   ]
-}`}
-  github={`// Written to .github/hooks/xcaffold-hooks.json.
-// The "command" field is mapped to "bash". Timeout is converted from milliseconds to seconds.
+}
+```
+
+### Copilot
+
+**Output path**: `.github/hooks/xcaffold-hooks.json`
+
+The `command` field is mapped to `bash`. Timeout is converted from milliseconds to seconds. `$XCAF_PROJECT_DIR` is rewritten to `$GITHUB_WORKSPACE`.
+
+```json
 {
   "version": 1,
   "hooks": {
@@ -277,14 +315,12 @@ Hook declarations are merged into provider-native configuration at compile time.
       }
     ]
   }
-}`}
-/>
+}
+```
 
-> [!WARNING]
-> Hook scripts referenced in `command` are **not** created by xcaffold. You must author and commit them to your repository. If a referenced script is absent, the provider will error at runtime.
+### Antigravity
 
-> [!NOTE]
-> Antigravity does not support hooks. Xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note and produces no hook output for that target.
+Antigravity does not support hooks. Xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note and produces no hook output for that target.
 
 ## Provider Support
 
@@ -303,5 +339,16 @@ Hook declarations are merged into provider-native configuration at compile time.
 | `PreToolUse` | `PreToolUse` | `BeforeTool` | `preToolUse` | `preToolUse` |
 | `PostToolUse` | `PostToolUse` | `AfterTool` | `postToolUse` | `postToolUse` |
 | `SessionStart` | `SessionStart` | `SessionStart` | `sessionStart` | `sessionStart` |
-| `Stop` | `Stop` | — | `stop` | `agentStop` |
-| `Notification` | `Notification` | `Notification` | camelCase fallback | — |
+| `Stop` | `Stop` | —¹ | `stop` | `agentStop` |
+| `SubagentStop` | `SubagentStop` | —¹ | `subagentStop` | `subagentStop` |
+| `InstructionsLoaded` | `InstructionsLoaded` | —¹ | camelCase fallback² | —¹ |
+| `PreCompact` | `PreCompact` | —¹ | camelCase fallback² | —¹ |
+| `ConfigChange` | `ConfigChange` | —¹ | camelCase fallback² | —¹ |
+| `Notification` | `Notification` | `Notification` | camelCase fallback² | —¹ |
+
+¹ Event is dropped and xcaffold emits a `CodeFieldUnsupported` fidelity warning. The event does not appear in the compiled output.
+
+² Cursor has no verified mapping for this event. Xcaffold emits the event name in camelCase with a `CodeFieldUnsupported` fidelity warning advising verification against Cursor documentation.
+
+> [!WARNING]
+> Hook scripts referenced in `command` are **not** created by xcaffold. You must author and commit them to your repository. If a referenced script is absent, the provider will error at runtime.

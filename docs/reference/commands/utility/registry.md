@@ -7,7 +7,7 @@ description: "List projects registered in the global registry."
 
 # `xcaffold registry`
 
-Displays a list of all projects managed by `xcaffold` across your local system. `xcaffold` automatically registers projects during `init` or `import` to enable cross-project discovery and global management.
+Displays a list of all projects managed by `xcaffold` across your local system. `xcaffold` automatically registers projects during `init`, `import`, or `apply` to enable cross-project discovery and global management.
 
 ## Usage
 
@@ -56,6 +56,8 @@ xcaffold registry
 
   3 projects registered.
 ```
+
+When a registered project's `project.xcaf` is missing, the resources line shows `resources: not found (project.xcaf missing)`. When the manifest exists but fails to parse, it shows `resources: parse error`.
 
 ## Exit Codes
 

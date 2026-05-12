@@ -5,7 +5,7 @@ description: "Exhaustive schema references, CLI flags, and configuration example
 
 # Reference
 
-Information-oriented documentation that provides exhaustive, definitive facts about xcaffold's machinery. Use these documents when you need exact schema definitions, flag behaviors, or configuration syntax.
+Information-oriented documentation that provides exhaustive, definitive facts about xcaffold's machinery. These documents cover every `.xcaf` field, CLI flag, and provider-native output path in the Harness-as-Code toolchain. Use these documents when you need exact schema definitions, flag behaviors, or configuration syntax.
 
 ## Documents
 

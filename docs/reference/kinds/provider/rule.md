@@ -9,6 +9,12 @@ Defines a constraint the agent must follow at all times, or only when working wi
 
 > **Required:** `kind`, `version`, `name`
 
+## Source Directory
+
+```
+xcaf/rules/<name>/rule.xcaf
+```
+
 ## Example Usage
 
 ### Always-apply rule
@@ -72,22 +78,24 @@ components or hooks. This causes Next.js build failures on the client bundle.
 **Forbidden**: `server-only`, `next/headers`, `src/server/**`
 ```
 
-## Argument Reference
+## Field Reference
 
-The following arguments are supported:
+### Required Fields
 
-- `name` — (Required) Unique rule identifier. Must match `[a-z0-9-]+`.
-- `description` — (Optional) `string`. What constraint this rule enforces.
-- `activation` — (Optional) `string`. Controls when the rule is applied. Values:
-  - `always` (default) — rule is active in every context
-  - `path-glob` — rule activates only when the agent's working files match `paths`
-  - `manual-mention` — rule only activates when explicitly referenced by the user
-  - `model-decided` — the model decides whether to apply the rule based on context
-  - `explicit-invoke` — rule only activates when directly invoked (e.g., `@rule-name`)
-- `always-apply` — (Optional) `bool`. Legacy alias for `activation`. `true` maps to `activation: always`; `false` maps to `activation: manual-mention`. When both `always-apply` and `activation` are present, `activation` takes precedence.
-- `paths` — (Optional) `[]string`. Glob patterns used when `activation: path-glob`. Each pattern is matched against the agent's currently open or modified files.
-- `exclude-agents` — (Optional) `[]string`. Copilot-only. Prevents the rule from being applied by specific Copilot agents. Accepted values: `code-review`, `cloud-agent`.
-- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides.
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Unique rule identifier. Must match `[a-z0-9-]+`. |
+
+### Optional Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | `string` | Human-readable description of what constraint this rule enforces. |
+| `activation` | `string` | Controls when the rule is applied. Values: `always` (default), `path-glob`, `manual-mention`, `model-decided`, `explicit-invoke`. |
+| `always-apply` | `bool` | Legacy alias for `activation`. `true` maps to `activation: always`; `false` maps to `activation: manual-mention`. When both `always-apply` and `activation` are present, `activation` takes precedence. |
+| `paths` | `[]string` | Glob patterns used when `activation: path-glob`. Each pattern is matched against the agent's currently open or modified files. |
+| `exclude-agents` | `[]string` | Prevents the rule from being applied by specific agent types. Accepted values: `code-review`, `cloud-agent`. Copilot-specific. |
+| `targets` | `map[string]TargetOverride` | Per-provider overrides keyed by provider name. |
 
 ## Filesystem-as-Schema
 
@@ -95,154 +103,174 @@ When a rule `.xcaf` file lives at `xcaf/rules/<name>/rule.xcaf`, the `kind:` and
 - `kind: rule` from the parent directory name (`rules/`)
 - `name:` from the grandparent directory name (e.g., `react-conventions` from `rules/react-conventions/rule.xcaf`)
 
-When `kind:` or `name:` are present in the YAML, they must match the inferred values.
+When `kind:` or `name:` are present in the YAML, they should match the inferred values. A mismatch produces a parse warning.
 
 ## Compiled Output
 
-<ProviderTabs>
-  <ProviderTab id="claude">
-    **Always-apply** → `.claude/rules/react-conventions.md`
+### Claude
 
-    ```markdown
-    ---
-    description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
-    ---
+**Always-apply** → `.claude/rules/react-conventions.md`
 
-    # React Conventions
+```markdown
+---
+description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
+---
 
-    ## Component Structure
-    - Use functional components only — no class components.
-    …
-    ```
+# React Conventions
 
-    **Path-scoped** → `.claude/rules/no-server-imports-in-ui.md`
+## Component Structure
+- Use functional components only — no class components.
+…
+```
 
-    ```markdown
-    ---
-    description: "Prevents server-only modules from being imported inside client components."
-    globs:
-      - "src/components/**"
-      - "src/hooks/**"
-    ---
+**Path-scoped** → `.claude/rules/no-server-imports-in-ui.md`
 
-    # No Server Imports in UI
-    …
-    ```
-  </ProviderTab>
+```markdown
+---
+description: "Prevents server-only modules from being imported inside client components."
+paths: [src/components/**, src/hooks/**]
+---
 
-  <ProviderTab id="cursor">
-    **Always-apply** → `.cursor/rules/react-conventions.mdc`
+# No Server Imports in UI
+…
+```
 
-    ```markdown
-    ---
-    description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
-    always-apply: true
-    ---
+### Cursor
 
-    # React Conventions
-    …
-    ```
+**Always-apply** → `.cursor/rules/react-conventions.mdc`
 
-    **Path-scoped** → `.cursor/rules/no-server-imports-in-ui.mdc`
+```markdown
+---
+description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
+always-apply: true
+---
 
-    ```markdown
-    ---
-    description: "Prevents server-only modules from being imported inside client components."
-    globs:
-      - "src/components/**"
-      - "src/hooks/**"
-    ---
+# React Conventions
+…
+```
 
-    # No Server Imports in UI
-    …
-    ```
+**Path-scoped** → `.cursor/rules/no-server-imports-in-ui.mdc`
 
-    > Cursor uses `.mdc` extension. Supported activation modes: `always`, `path-glob`, and `manual-mention`. Always-apply rules emit `always-apply: true`. Path-scoped rules emit `globs:`. Manual-mention rules emit no activation key.
-  </ProviderTab>
+```markdown
+---
+description: "Prevents server-only modules from being imported inside client components."
+globs: [src/components/**, src/hooks/**]
+---
 
-  <ProviderTab id="copilot">
-    Each rule compiles to its own file under `.github/instructions/`.
+# No Server Imports in UI
+…
+```
 
-    **Always-apply** → `.github/instructions/react-conventions.instructions.md`
+> Cursor uses `.mdc` extension. Supported activation modes: `always`, `path-glob`, and `manual-mention`. Always-apply rules emit `always-apply: true`. Path-scoped rules emit `globs:`. Manual-mention rules emit no activation key.
 
-    ```markdown
-    ---
-    applyTo: "**"
-    ---
+### Copilot
 
-    # React Conventions
+Each rule compiles to its own file under `.github/instructions/`.
 
-    ## Component Structure
-    - Use functional components only — no class components.
-    …
-    ```
+**Always-apply** → `.github/instructions/react-conventions.instructions.md`
 
-    **Path-scoped** → `.github/instructions/no-server-imports-in-ui.instructions.md`
+```markdown
+---
+applyTo: "**"
+---
 
-    ```markdown
-    ---
-    applyTo: "src/components/**, src/hooks/**"
-    ---
+# React Conventions
 
-    # No Server Imports in UI
+## Component Structure
+- Use functional components only — no class components.
+…
+```
 
-    Never import from modules marked `server-only`…
-    ```
+**Path-scoped** → `.github/instructions/no-server-imports-in-ui.instructions.md`
 
-    > Copilot writes one `.github/instructions/<name>.instructions.md` file per rule. Always-apply rules emit `applyTo: "**"`. Path-scoped rules emit `applyTo:` set to the joined glob patterns.
-  </ProviderTab>
+```markdown
+---
+applyTo: "src/components/**, src/hooks/**"
+---
 
-  <ProviderTab id="gemini">
-    **Always-apply** → import line added to root `GEMINI.md`:
+# No Server Imports in UI
 
-    ```
-    @.gemini/rules/react-conventions.md
-    ```
+Never import from modules marked `server-only`…
+```
 
-    Individual rule file `.gemini/rules/react-conventions.md`:
+> Copilot writes one `.github/instructions/<name>.instructions.md` file per rule. Always-apply rules emit `applyTo: "**"`. Path-scoped rules emit `applyTo:` set to the joined glob patterns.
 
-    ```markdown
-    # React Conventions
+### Gemini
 
-    ## Component Structure
-    …
-    ```
+**Always-apply** → import line added to root `GEMINI.md`:
 
-    **Path-scoped** → single rule file at `.gemini/rules/no-server-imports-in-ui.md` with an `@-import` directive added to the root `GEMINI.md` alongside the path constraint as a comment:
+```
+@.gemini/rules/react-conventions.md
+```
 
-    Root `GEMINI.md` addition:
-    ```
-    @.gemini/rules/no-server-imports-in-ui.md
-    ```
+Individual rule file `.gemini/rules/react-conventions.md`:
 
-    Individual rule file `.gemini/rules/no-server-imports-in-ui.md`:
+```markdown
+# React Conventions
 
-    ```markdown
-    # No Server Imports in UI
+## Component Structure
+…
+```
 
-    <!-- paths: src/components/**, src/hooks/** -->
+**Path-scoped** → single rule file at `.gemini/rules/no-server-imports-in-ui.md` with a two-line entry added to the root `GEMINI.md`:
 
-    Never import from modules marked `server-only`…
-    ```
+Root `GEMINI.md` addition:
+```
+Apply this rule when accessing src/components/**, src/hooks/**:
+@.gemini/rules/no-server-imports-in-ui.md
+```
 
-    > Gemini scoping is implemented via a single rule file and a single `@-import` line in the root `GEMINI.md`. Path information is recorded as a comment inside the rule file. Nested per-directory `GEMINI.md` files are not used.
-  </ProviderTab>
+Individual rule file `.gemini/rules/no-server-imports-in-ui.md`:
 
-  <ProviderTab id="antigravity">
-    **Output path**: `.agents/rules/react-conventions.md`
+```markdown
+# No Server Imports in UI
 
-    ```markdown
-    ---
-    description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
-    ---
+Never import from modules marked `server-only`…
+```
 
-    # React Conventions
-    …
-    ```
+> Gemini scoping is implemented via a two-line entry in the root `GEMINI.md`: a plain-text path constraint on the first line, followed by the `@-import` directive on the second. The individual rule file contains only the rule body — no path comment or frontmatter. Nested per-directory `GEMINI.md` files are not used.
 
-    Path-scoped rules emit `paths:` in the frontmatter.
-  </ProviderTab>
-</ProviderTabs>
+### Antigravity
+
+**Always-apply** → `.agents/rules/react-conventions.md`
+
+```markdown
+---
+description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
+---
+
+# React Conventions
+…
+```
+
+**Path-scoped** → `.agents/rules/no-server-imports-in-ui.md`
+
+```markdown
+---
+description: "Prevents server-only modules from being imported inside client components."
+trigger: glob
+globs: src/components/**,src/hooks/**
+---
+
+# No Server Imports in UI
+…
+```
+
+Path-scoped rules emit `trigger: glob` and `globs: <comma-joined-patterns>` in the frontmatter. Always-apply rules emit no activation key.
+
+**Model-decided** → `.agents/rules/react-conventions.md`
+
+```markdown
+---
+description: "Enforces React 18+ functional component patterns, hook rules, and TypeScript type annotations for all UI code in frontend-app."
+trigger: model_decision
+---
+
+# React Conventions
+…
+```
+
+Antigravity is the only provider that natively supports `model-decided` activation. Rules compiled with this activation emit `trigger: model_decision` in the frontmatter.
 
 > [!NOTE]
 > **model-decided** and **explicit-invoke**: These activation modes are not natively supported by Claude Code, Cursor, Copilot, or Gemini. Rules compiled with these modes include a fidelity note explaining the limitation. Antigravity natively supports `model-decided`.

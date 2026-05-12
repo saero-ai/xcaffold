@@ -9,6 +9,19 @@ Defines a reusable procedure that agents invoke on-demand. Compiled to `skills/<
 
 > **Required:** `kind`, `version`, `name`
 
+## Source Directory
+
+```
+xcaf/skills/<name>/skill.xcaf
+```
+
+Per-provider overrides use a sibling file with a provider suffix:
+
+```
+xcaf/skills/<name>/skill.claude.xcaf
+xcaf/skills/<name>/skill.cursor.xcaf
+```
+
 ## Example Usage
 
 ### Minimal skill
@@ -42,9 +55,7 @@ description: >-
   Step-by-step procedure for implementing a new React component following
   frontend-app conventions — file layout, prop types, Tailwind styling,
   accessibility attributes, and co-located test scaffolding.
-references:
-  - xcaf/skills/component-patterns/references/design-tokens.md
-  - xcaf/skills/component-patterns/references/shadcn-primitives.md
+artifacts: [references]
 ---
 # Component Patterns
 
@@ -118,23 +129,27 @@ export * from './<Category>/<ComponentName>';
 Report: "Created <ComponentName> with <N> props, <M> tests passing."
 ```
 
-## Argument Reference
+## Field Reference
 
-The following arguments are supported:
+### Required Fields
 
-- `name` — (Required) Unique skill identifier. Must match `[a-z0-9-]+`.
-- `description` — (Optional) `string`. What this skill does and when to invoke it.
-- `when-to-use` — (Optional) `string`. Guidance for the model on when to invoke this skill. Emitted only for Claude; ignored by other providers.
-- `license` — (Optional) `string`. SPDX license identifier (e.g. `"MIT"`, `"Apache-2.0"`). Emitted for Claude and Copilot; ignored by other providers.
-- `disable-model-invocation` — (Optional) `bool`. When `true`, prevents the skill from spawning a sub-agent. Claude-only; ignored by other providers.
-- `user-invocable` — (Optional) `bool`. When `true`, exposes the skill as a slash command the user can invoke directly. Claude-only; ignored by other providers.
-- `argument-hint` — (Optional) `string`. Hint text shown during slash-command invocation. Has effect only when `user-invocable: true`. Claude-only; ignored by other providers.
-- `artifacts` — (Optional) `[]string`. Relative paths to files that should be composed with the skill. Preferred over `references`, `scripts`, `assets`, and `examples` for new skills; those fields remain supported for backward compatibility.
-- `references` — (Optional) `[]string`. Relative paths to supporting files seeded alongside `SKILL.md` in a `references/` subdirectory.
-- `examples` — (Optional) `[]string`. Relative paths to example files. Output placement varies by provider: Claude flattens examples to the skill root alongside `SKILL.md`; Cursor and Gemini collapse examples into `references/`; Copilot and Antigravity seed them in an `examples/` subdirectory.
-- `scripts` — (Optional) `[]string`. Relative paths to executable scripts seeded in a `scripts/` subdirectory.
-- `assets` — (Optional) `[]string`. Relative paths to binary or data assets seeded alongside `SKILL.md`.
-- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides.
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Unique skill identifier. Must match `[a-z0-9-]+`. |
+
+### Optional Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | `string` | Human-readable purpose of this skill. What it does and when to invoke it. |
+| `when-to-use` | `string` | Guidance for the model on when to invoke this skill. Emitted only for Claude (as `when_to_use` in SKILL.md frontmatter); ignored by other providers. |
+| `license` | `string` | SPDX license identifier (e.g. `"MIT"`, `"Apache-2.0"`). Emitted for Claude and Copilot; ignored by other providers. |
+| `allowed-tools` | `[]string` | Tools the skill is permitted to use. Claude emits as a space-separated string. Copilot emits as a YAML list. Gemini drops this field with a fidelity warning. Cursor and Antigravity do not emit this field. |
+| `disable-model-invocation` | `bool` | When `true`, prevents the skill from spawning a sub-agent. Claude-only. |
+| `user-invocable` | `bool` | When `true`, exposes the skill as a slash command the user can invoke directly. Claude-only. |
+| `argument-hint` | `string` | Hint text shown during slash-command invocation. Has effect only when `user-invocable: true`. Claude-only. |
+| `artifacts` | `[]string` | Named subdirectories to compose with the skill. Valid canonical names: `references`, `scripts`, `assets`, `examples`. Custom names also accepted. Files within each subdirectory are discovered automatically from the filesystem. |
+| `targets` | `map[string]TargetOverride` | Per-provider overrides keyed by provider name. |
 
 ## Filesystem-as-Schema
 
@@ -146,53 +161,60 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
 
 ## Compiled Output
 
-<ProviderTabs>
-  <ProviderTab id="claude">
-    **Output path**: `.claude/skills/component-patterns/SKILL.md`
+### Claude
 
-    ```markdown
-    ---
-    name: component-patterns
-    description: >-
-      Step-by-step procedure for implementing a new React component following
-      frontend-app conventions — file layout, prop types, Tailwind styling,
-      accessibility attributes, and co-located test scaffolding.
-    ---
-    # Component Patterns
+**Output path**: `.claude/skills/component-patterns/SKILL.md`
 
-    ## When to Use
-    Invoke this skill whenever you are asked to create a new React component
-    or refactor an existing one to meet project standards.
-    …
-    ```
+```markdown
+---
+name: component-patterns
+description: >-
+  Step-by-step procedure for implementing a new React component following
+  frontend-app conventions — file layout, prop types, Tailwind styling,
+  accessibility attributes, and co-located test scaffolding.
+---
+# Component Patterns
 
-    Reference files are placed at `.claude/skills/component-patterns/references/design-tokens.md` and `.claude/skills/component-patterns/references/shadcn-primitives.md`.
-  </ProviderTab>
+## When to Use
+Invoke this skill whenever you are asked to create a new React component
+or refactor an existing one to meet project standards.
+…
+```
 
-  <ProviderTab id="cursor">
-    **Output path**: `.cursor/skills/component-patterns/SKILL.md`
+Files discovered in the `references/` artifact subdirectory are placed at `.claude/skills/component-patterns/references/` (e.g., `design-tokens.md`, `shadcn-primitives.md`).
 
-    Frontmatter is limited to `name` and `description`. Provider-specific fields (`when-to-use`, `license`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are omitted. Reference files are seeded at `.cursor/skills/component-patterns/references/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
-  </ProviderTab>
+### Cursor
 
-  <ProviderTab id="copilot">
-    **Output path**: `.github/skills/component-patterns/SKILL.md`
+**Output path**: `.cursor/skills/component-patterns/SKILL.md`
 
-    Emits `name`, `description`, and `license` in the frontmatter. Reference files are seeded at `.github/skills/component-patterns/references/`. Example files are seeded in an `examples/` subdirectory.
-  </ProviderTab>
+Frontmatter is limited to `name` and `description`. Provider-specific fields (`when-to-use`, `license`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are omitted. Reference files are seeded at `.cursor/skills/component-patterns/references/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
 
-  <ProviderTab id="gemini">
-    **Output path**: `.gemini/skills/component-patterns/SKILL.md`
+### Copilot
 
-    Frontmatter is limited to `name` and `description`. Provider-specific fields are omitted. Reference files are seeded at `.gemini/skills/component-patterns/references/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
-  </ProviderTab>
+**Output path**: `.github/skills/component-patterns/SKILL.md`
 
-  <ProviderTab id="antigravity">
-    **Output path**: `.agents/skills/component-patterns/SKILL.md`
+Emits `name`, `description`, and `license` in the frontmatter. Reference files are seeded at `.github/skills/component-patterns/references/`. Example files are seeded in an `examples/` subdirectory.
 
-    Antigravity emits only `name` and `description` in the frontmatter. All other fields (`when-to-use`, `license`, `disable-model-invocation`, `user-invocable`, `argument-hint`, `artifacts`, `references`, `scripts`, `assets`) are stripped. The markdown body is preserved. Example files are seeded in an `examples/` subdirectory.
-  </ProviderTab>
-</ProviderTabs>
+### Gemini
+
+**Output path**: `.gemini/skills/component-patterns/SKILL.md`
+
+Frontmatter is limited to `name` and `description`. Provider-specific fields are omitted. Reference files are seeded at `.gemini/skills/component-patterns/references/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
+
+### Antigravity
+
+**Output path**: `.agents/skills/component-patterns/SKILL.md`
+
+Antigravity emits only `name` and `description` in the frontmatter. All other frontmatter fields (`when-to-use`, `license`, `allowed-tools`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are stripped. The markdown body is preserved.
+
+Artifact subdirectories are compiled with path remapping:
+
+| Source directory | Antigravity output directory |
+|------------------|------------------------------|
+| `references/` | `examples/` |
+| `scripts/` | `scripts/` |
+| `assets/` | `resources/` |
+| `examples/` | `examples/` |
 
 ## Provider Fidelity
 
@@ -202,13 +224,14 @@ Skill output is not uniform across providers. The table below summarises what ea
 |-------|--------|--------|---------|--------|-------------|
 | `name` | yes | yes | yes | yes | yes |
 | `description` | yes | yes | yes | yes | yes |
-| `when-to-use` | yes | no | no | no | no |
+| `when-to-use` | yes (`when_to_use`) | no | no | no | no |
 | `license` | yes | no | yes | no | no |
+| `allowed-tools` | yes (space-separated) | no | yes (YAML list) | no (warning) | no |
 | `disable-model-invocation` | yes | no | no | no | no |
 | `user-invocable` | yes | no | no | no | no |
 | `argument-hint` | yes | no | no | no | no |
 | Markdown body | yes | yes | yes | yes | yes |
-| `references/` subdirectory | yes | yes | yes | yes | yes |
+| `references/` subdirectory | yes | yes | yes | yes | compiled to `examples/` |
 | `examples` placement | skill root | `references/` | `examples/` | `references/` | `examples/` |
 | `scripts/` subdirectory | yes | yes | yes | yes | yes |
-| `assets` | yes | yes | yes | yes | yes |
+| `assets/` subdirectory | yes | yes | yes | yes | compiled to `resources/` |

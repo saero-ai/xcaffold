@@ -33,7 +33,9 @@ xcaffold import [flags]
 | `--hook` | bool | false | Import hook definitions. |
 | `--setting` | bool | false | Import settings configuration. |
 | `--memory` | bool | false | Import agent-written memory snapshots to `xcaf/agents/<id>/memory/` sidecars. |
-| `--plan` | bool | false | Dry-run: print import plan without writing files. |
+| `--dry-run` | bool | false | Preview changes without writing to disk. |
+| `--force` | bool | false | Delete `project.xcaf` and `xcaf/`, then reimport from scratch. |
+| `-y, --yes` | bool | false | Skip confirmation prompts. Useful for CI/CD pipelines. |
 
 ## Behavior
 
@@ -132,7 +134,7 @@ xcaffold import --target claude --agent developer
 
 **Dry-run preview (no files written):**
 ```bash
-xcaffold import --plan
+xcaffold import --dry-run
 ```
 
 ## Output
