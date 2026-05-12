@@ -85,6 +85,7 @@ func TestFidelityNote_AllCodes_Unique(t *testing.T) {
 func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 	expected := map[string]bool{
 		renderer.CodeRendererKindUnsupported:             true,
+		renderer.CodeRendererKindDowngraded:              true,
 		renderer.CodeFieldUnsupported:                    true,
 		renderer.CodeFieldTransformed:                    true,
 		renderer.CodeActivationDegraded:                  true,

@@ -215,7 +215,7 @@ func TestCompile_AntigravityTarget_RulesEmitFrontmatter(t *testing.T) {
 	assert.Contains(t, content, "description: Style\n")
 }
 
-func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
+func TestCompile_AntigravityTarget_AgentsIncluded(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
@@ -228,8 +228,8 @@ func TestCompile_AntigravityTarget_AgentsExcluded(t *testing.T) {
 	}
 	out, _, err := Compile(config, "", "antigravity", "", "")
 	require.NoError(t, err)
-	// Only rule should appear, not agent
-	assert.Len(t, out.Files, 1)
+	// Both rule and agent should appear (agent as note)
+	assert.Len(t, out.Files, 2)
 }
 
 func TestCompileAgentMarkdown_PathTraversalPrevented(t *testing.T) {

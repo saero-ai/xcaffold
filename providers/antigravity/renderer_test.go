@@ -666,13 +666,13 @@ func TestCompile_AgentsAndHooks_AreNotEmitted(t *testing.T) {
 	out, _, err := renderer.Orchestrate(r, config, "")
 	require.NoError(t, err)
 
-	// Rules and skills must be emitted
+	// Rules, skills and agents must be emitted
 	assert.Contains(t, out.Files, "rules/a-rule.md", "rules must be compiled")
 	assert.Contains(t, out.Files, "skills/a-skill/SKILL.md", "skills must be compiled")
+	assert.Contains(t, out.Files, "agents/my-agent.md", "agents must be compiled as notes")
 
-	// Agents and hooks must be silently skipped
+	// Hooks must be silently skipped
 	for path := range out.Files {
-		assert.False(t, strings.HasPrefix(path, "agents/"), "agents must not be emitted for AG target")
 		assert.NotEqual(t, "hooks.json", path, "hooks must not be emitted for AG target")
 	}
 }
@@ -1138,7 +1138,7 @@ func TestCompileAntigravityRule_Activation_Glob_WithPaths(t *testing.T) {
 	require.NotContains(t, content, "<!-- xcaffold:activation")
 }
 
-func TestCompile_Agents_EmitsKindUnsupported(t *testing.T) {
+func TestCompile_Agents_EmitsKindDowngraded(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
@@ -1157,12 +1157,12 @@ func TestCompile_Agents_EmitsKindUnsupported(t *testing.T) {
 	}
 	found := false
 	for _, n := range notes {
-		if n.Code == renderer.CodeRendererKindUnsupported && n.Resource == "test-agent" {
+		if n.Code == renderer.CodeRendererKindDowngraded && n.Resource == "test-agent" {
 			found = true
 		}
 	}
 	if !found {
-		t.Error("expected RENDERER_KIND_UNSUPPORTED fidelity note for agent in antigravity")
+		t.Error("expected RENDERER_KIND_DOWNGRADED fidelity note for agent in antigravity")
 	}
 }
 

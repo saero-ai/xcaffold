@@ -8,6 +8,11 @@ const (
 	// (e.g. workflow) has no representation in the target. All fields are dropped.
 	CodeRendererKindUnsupported = "RENDERER_KIND_UNSUPPORTED"
 
+	// CodeRendererKindDowngraded is emitted when an entire resource kind has no
+	// native representation in the target, and was instead rendered as its
+	// closest equivalent (e.g. agent rendered as a specialist note).
+	CodeRendererKindDowngraded = "RENDERER_KIND_DOWNGRADED"
+
 	// CodeFieldUnsupported is emitted when a specific field on a resource
 	// has no equivalent in the target and was dropped silently.
 	CodeFieldUnsupported = "FIELD_UNSUPPORTED"
@@ -162,6 +167,7 @@ const (
 func AllCodes() []string {
 	return []string{
 		CodeRendererKindUnsupported,
+		CodeRendererKindDowngraded,
 		CodeFieldUnsupported,
 		CodeFieldTransformed,
 		CodeActivationDegraded,

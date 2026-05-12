@@ -32,99 +32,131 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 
 	// Agents
 	if len(config.Agents) > 0 {
-		if caps.Agents {
-			files, n, err := r.CompileAgents(config.Agents, baseDir)
-			if err != nil {
-				return nil, nil, fmt.Errorf("CompileAgents: %w", err)
+		filtered := make(map[string]ast.AgentConfig)
+		for id, agent := range config.Agents {
+			if !isSkipSynthesis(agent.Targets, r.Target()) {
+				filtered[id] = agent
 			}
-			mergeFiles(out, files)
-			notes = append(notes, n...)
-			for id, agent := range config.Agents {
-				present := ExtractAgentPresentFields(agent)
-				suppressed := isSuppressed(agent.Targets, r.Target())
-				notes = append(notes, CheckFieldSupport(r.Target(), "agent", id, present, suppressed)...)
-			}
-		} else {
-			for _, id := range SortedKeys(config.Agents) {
-				notes = append(notes, NewNote(
-					LevelWarning, r.Target(), "agent", id, "",
-					CodeRendererKindUnsupported,
-					"agents are not supported by this renderer",
-					"",
-				))
+		}
+		if len(filtered) > 0 {
+			if caps.Agents {
+				files, n, err := r.CompileAgents(filtered, baseDir)
+				if err != nil {
+					return nil, nil, fmt.Errorf("CompileAgents: %w", err)
+				}
+				mergeFiles(out, files)
+				notes = append(notes, n...)
+				for id, agent := range filtered {
+					present := ExtractAgentPresentFields(agent)
+					suppressed := isSuppressed(agent.Targets, r.Target())
+					notes = append(notes, CheckFieldSupport(r.Target(), "agent", id, present, suppressed)...)
+				}
+			} else {
+				for _, id := range SortedKeys(filtered) {
+					notes = append(notes, NewNote(
+						LevelWarning, r.Target(), "agent", id, "",
+						CodeRendererKindUnsupported,
+						"agents are not supported by this renderer",
+						"",
+					))
+				}
 			}
 		}
 	}
 
 	// Skills
 	if len(config.Skills) > 0 {
-		if caps.Skills {
-			files, n, err := r.CompileSkills(config.Skills, baseDir)
-			if err != nil {
-				return nil, nil, fmt.Errorf("CompileSkills: %w", err)
+		filtered := make(map[string]ast.SkillConfig)
+		for id, skill := range config.Skills {
+			if !isSkipSynthesis(skill.Targets, r.Target()) {
+				filtered[id] = skill
 			}
-			mergeFiles(out, files)
-			notes = append(notes, n...)
-			for id, skill := range config.Skills {
-				present := ExtractSkillPresentFields(skill)
-				suppressed := isSuppressed(skill.Targets, r.Target())
-				notes = append(notes, CheckFieldSupport(r.Target(), "skill", id, present, suppressed)...)
-			}
-		} else {
-			for _, id := range SortedKeys(config.Skills) {
-				notes = append(notes, NewNote(
-					LevelWarning, r.Target(), "skill", id, "",
-					CodeRendererKindUnsupported,
-					"skills are not supported by this renderer",
-					"",
-				))
+		}
+		if len(filtered) > 0 {
+			if caps.Skills {
+				files, n, err := r.CompileSkills(filtered, baseDir)
+				if err != nil {
+					return nil, nil, fmt.Errorf("CompileSkills: %w", err)
+				}
+				mergeFiles(out, files)
+				notes = append(notes, n...)
+				for id, skill := range filtered {
+					present := ExtractSkillPresentFields(skill)
+					suppressed := isSuppressed(skill.Targets, r.Target())
+					notes = append(notes, CheckFieldSupport(r.Target(), "skill", id, present, suppressed)...)
+				}
+			} else {
+				for _, id := range SortedKeys(filtered) {
+					notes = append(notes, NewNote(
+						LevelWarning, r.Target(), "skill", id, "",
+						CodeRendererKindUnsupported,
+						"skills are not supported by this renderer",
+						"",
+					))
+				}
 			}
 		}
 	}
 
 	// Rules
 	if len(config.Rules) > 0 {
-		if caps.Rules {
-			files, n, err := r.CompileRules(config.Rules, baseDir)
-			if err != nil {
-				return nil, nil, fmt.Errorf("CompileRules: %w", err)
+		filtered := make(map[string]ast.RuleConfig)
+		for id, rule := range config.Rules {
+			if !isSkipSynthesis(rule.Targets, r.Target()) {
+				filtered[id] = rule
 			}
-			mergeFiles(out, files)
-			notes = append(notes, n...)
-			for id, rule := range config.Rules {
-				present := ExtractRulePresentFields(rule)
-				suppressed := isSuppressed(rule.Targets, r.Target())
-				notes = append(notes, CheckFieldSupport(r.Target(), "rule", id, present, suppressed)...)
-			}
-		} else {
-			for _, id := range SortedKeys(config.Rules) {
-				notes = append(notes, NewNote(
-					LevelWarning, r.Target(), "rule", id, "",
-					CodeRendererKindUnsupported,
-					"rules are not supported by this renderer",
-					"",
-				))
+		}
+		if len(filtered) > 0 {
+			if caps.Rules {
+				files, n, err := r.CompileRules(filtered, baseDir)
+				if err != nil {
+					return nil, nil, fmt.Errorf("CompileRules: %w", err)
+				}
+				mergeFiles(out, files)
+				notes = append(notes, n...)
+				for id, rule := range filtered {
+					present := ExtractRulePresentFields(rule)
+					suppressed := isSuppressed(rule.Targets, r.Target())
+					notes = append(notes, CheckFieldSupport(r.Target(), "rule", id, present, suppressed)...)
+				}
+			} else {
+				for _, id := range SortedKeys(filtered) {
+					notes = append(notes, NewNote(
+						LevelWarning, r.Target(), "rule", id, "",
+						CodeRendererKindUnsupported,
+						"rules are not supported by this renderer",
+						"",
+					))
+				}
 			}
 		}
 	}
 
 	// Workflows
 	if len(config.Workflows) > 0 {
-		if caps.Workflows {
-			files, n, err := r.CompileWorkflows(config.Workflows, baseDir)
-			if err != nil {
-				return nil, nil, fmt.Errorf("CompileWorkflows: %w", err)
+		filtered := make(map[string]ast.WorkflowConfig)
+		for id, wf := range config.Workflows {
+			if !isSkipSynthesis(wf.Targets, r.Target()) {
+				filtered[id] = wf
 			}
-			mergeFiles(out, files)
-			notes = append(notes, n...)
-		} else {
-			for _, id := range SortedKeys(config.Workflows) {
-				notes = append(notes, NewNote(
-					LevelWarning, r.Target(), "workflow", id, "",
-					CodeRendererKindUnsupported,
-					"workflows are not supported by this renderer",
-					"",
-				))
+		}
+		if len(filtered) > 0 {
+			if caps.Workflows {
+				files, n, err := r.CompileWorkflows(filtered, baseDir)
+				if err != nil {
+					return nil, nil, fmt.Errorf("CompileWorkflows: %w", err)
+				}
+				mergeFiles(out, files)
+				notes = append(notes, n...)
+			} else {
+				for _, id := range SortedKeys(filtered) {
+					notes = append(notes, NewNote(
+						LevelWarning, r.Target(), "workflow", id, "",
+						CodeRendererKindUnsupported,
+						"workflows are not supported by this renderer",
+						"",
+					))
+				}
 			}
 		}
 	}
@@ -134,7 +166,10 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	// (event-name → matcher-group slice) from the default named block.
 	var mergedHooks ast.HookConfig
 	if dh, ok := config.Hooks["default"]; ok && len(dh.Events) > 0 {
-		mergedHooks = dh.Events
+		// NamedHookConfig also has Targets field.
+		if !isSkipSynthesis(dh.Targets, r.Target()) {
+			mergedHooks = dh.Events
+		}
 	}
 	if len(mergedHooks) > 0 {
 		if caps.Hooks {
@@ -162,6 +197,9 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 			if len(hook.Artifacts) == 0 {
 				continue
 			}
+			if isSkipSynthesis(hook.Targets, r.Target()) {
+				continue
+			}
 			name := hook.Name
 			if name == "" {
 				name = hookKey
@@ -179,40 +217,50 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	// Settings — canonical entry is "default".
 	settings, hasSettings := config.Settings["default"]
 	if hasSettings {
-		if caps.Settings {
-			files, n, err := r.CompileSettings(settings)
-			if err != nil {
-				return nil, nil, fmt.Errorf("CompileSettings: %w", err)
+		if !isSkipSynthesis(settings.Targets, r.Target()) {
+			if caps.Settings {
+				files, n, err := r.CompileSettings(settings)
+				if err != nil {
+					return nil, nil, fmt.Errorf("CompileSettings: %w", err)
+				}
+				mergeFiles(out, files)
+				notes = append(notes, n...)
+			} else {
+				notes = append(notes, NewNote(
+					LevelWarning, r.Target(), "settings", "default", "",
+					CodeRendererKindUnsupported,
+					"settings are not supported by this renderer",
+					"",
+				))
 			}
-			mergeFiles(out, files)
-			notes = append(notes, n...)
-		} else {
-			notes = append(notes, NewNote(
-				LevelWarning, r.Target(), "settings", "default", "",
-				CodeRendererKindUnsupported,
-				"settings are not supported by this renderer",
-				"",
-			))
 		}
 	}
 
 	// MCP servers
 	if len(config.MCP) > 0 {
-		if caps.MCP {
-			files, n, err := r.CompileMCP(config.MCP)
-			if err != nil {
-				return nil, nil, fmt.Errorf("CompileMCP: %w", err)
+		filtered := make(map[string]ast.MCPConfig)
+		for id, mcp := range config.MCP {
+			if !isSkipSynthesis(mcp.Targets, r.Target()) {
+				filtered[id] = mcp
 			}
-			mergeFiles(out, files)
-			notes = append(notes, n...)
-		} else {
-			for _, id := range SortedKeys(config.MCP) {
-				notes = append(notes, NewNote(
-					LevelWarning, r.Target(), "mcp", id, "",
-					CodeRendererKindUnsupported,
-					"MCP servers are not supported by this renderer",
-					"",
-				))
+		}
+		if len(filtered) > 0 {
+			if caps.MCP {
+				files, n, err := r.CompileMCP(filtered)
+				if err != nil {
+					return nil, nil, fmt.Errorf("CompileMCP: %w", err)
+				}
+				mergeFiles(out, files)
+				notes = append(notes, n...)
+			} else {
+				for _, id := range SortedKeys(filtered) {
+					notes = append(notes, NewNote(
+						LevelWarning, r.Target(), "mcp", id, "",
+						CodeRendererKindUnsupported,
+						"MCP servers are not supported by this renderer",
+						"",
+					))
+				}
 			}
 		}
 	}
@@ -268,6 +316,19 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 	notes = append(notes, finalNotes...)
 
 	return out, notes, nil
+}
+
+// isSkipSynthesis returns true when the resource's target override for the given
+// provider has skip-synthesis set to true.
+func isSkipSynthesis(targets map[string]ast.TargetOverride, target string) bool {
+	if targets == nil {
+		return false
+	}
+	to, ok := targets[target]
+	if !ok {
+		return false
+	}
+	return to.SkipSynthesis != nil && *to.SkipSynthesis
 }
 
 // mergeFiles copies all entries from files into out.Files. Existing keys are
