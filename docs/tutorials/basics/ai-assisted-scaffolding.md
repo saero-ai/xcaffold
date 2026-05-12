@@ -26,7 +26,7 @@ The typical failure mode: an AI generates a `.claude/agents/dev.md` with `activa
 
 xcaffold breaks this failure mode in three steps:
 
-1. `xcaffold init` generates `.xcaf` files with an **embedded provider matrix** for your selected targets. Every field is annotated with which targets support it. The AI has a ground-truth reference baked into the file it is editing.
+1. `xcaffold init` generates `.xcaf` files for your selected targets, along with a set of **provider-aware reference files** in `xcaf/skills/xcaffold/references/`. Every field is annotated with which targets support it. The AI reads these references when editing `.xcaf` files.
 2. The AI edits `.xcaf` files — not provider output. It can only set fields that the xcaffold schema accepts.
 3. `xcaffold apply` validates the edited `.xcaf` against all configured policies before writing a single file. Policy violations are caught and reported before any output is written.
 
@@ -49,52 +49,49 @@ This generates:
 
 ```
 my-project/
-  .xcaffold/
-    project.xcaf              # kind: project
+  project.xcaf                              # kind: project (at repo root)
   xcaf/
     agents/
-      developer/
-        agent.xcaf           # kind: agent (with provider matrix)
+      xaff/
+        agent.xcaf                          # Xaff authoring agent (base)
+        agent.claude.xcaf                   # Claude-specific overrides
+        agent.cursor.xcaf                   # Cursor-specific overrides
     rules/
-      conventions/
-        rule.xcaf            # kind: rule (with provider matrix)
-    settings/
-      settings.xcaf          # kind: settings (MCP, permissions)
-    references/
-      agent.xcaf.reference   # full annotated field catalog
-      skill.xcaf.reference   # full annotated field catalog
+      xcaf-conventions/
+        rule.xcaf                           # xcaffold conventions rule
+    skills/
+      xcaffold/
+        skill.xcaf                          # self-referential xcaffold skill
+        references/
+          operating-guide.md
+          authoring-guide.md
+          agent-reference.md                # per-kind field support details
+          skill-reference.md
+          rule-reference.md
+          workflow-reference.md
+          mcp-reference.md
+          hooks-reference.md
+          memory-reference.md
+          cli-cheatsheet.md
 ```
 
-Every `.xcaf` file opens with a commented **provider support matrix** filtered to your selected targets (`claude`, `cursor` in this example):
+The `xcaf/agents/xaff/` directory contains Xaff, the built-in xcaffold authoring agent that knows the schema, CLI commands, and provider field support. Per-provider override files (e.g., `agent.claude.xcaf`, `agent.cursor.xcaf`) are generated alongside the base file — use these to customize the agent's behavior per target without duplicating the whole definition.
 
-```yaml
-# kind: agent - provider field support for your selected targets
-#
-#  Field                 claude    cursor
-#  name / description    YES       YES
-#  model                 YES       dropped
-#  effort                YES       dropped
-#  permission-mode       YES       dropped
-#  tools                 YES       YES
-#  skills / rules / mcp  YES       YES
-#  hooks                 YES       dropped
-#  memory                YES       dropped
-#  targets: overrides    YES       YES
-```
-
-This matrix is the single source of truth the AI will use when filling in the config.
+Provider field support details live in the reference files under `xcaf/skills/xcaffold/references/` (for example, `agent-reference.md`). When the AI reads these files, it has a ground-truth field catalog filtered to your selected targets.
 
 ### Step 2 — Describe your agent to the AI
 
-Open your AI assistant and give it the contents of `xcaf/agents/developer.xcaf` along with a plain-English description of what you want the agent to do. Example prompt:
+Open your AI assistant and give it the contents of your agent's `.xcaf` file along with a plain-English description of what you want the agent to do. Example prompt:
 
-> I have an xcaffold scaffold below. Fill in the `instructions` field with a focused backend API developer persona. The agent should enforce TypeScript strict mode, always prefer `async/await` over callbacks, and refuse to edit files outside `src/`. Respect the provider matrix — if a field says `dropped` for `cursor`, leave it as-is or remove it. Do not invent fields that are not already present in the YAML.
+> I have an xcaffold scaffold below. Fill in the `instructions` field with a focused backend API developer persona. The agent should enforce TypeScript strict mode, always prefer `async/await` over callbacks, and refuse to edit files outside `src/`. Refer to `xcaf/skills/xcaffold/references/agent-reference.md` for field support by target. Do not invent fields that are not listed in the reference. Do not include fields marked as unsupported for any of your targets.
 >
 > ```yaml
-> [paste xcaf/agents/developer.xcaf contents here]
+> [paste xcaf/agents/backend-dev.xcaf contents here]
 > ```
 
-The AI returns a completed `xcaf/agents/developer.xcaf`. Because the matrix is embedded in the file, a well-instructed AI will not place `effort:` in a way that breaks Cursor, and will not invent fields like `activation:` on an agent (that field belongs to rules).
+The AI returns a completed `.xcaf` file. Because the reference file describes exactly which fields each target supports, a well-instructed AI will not place `effort:` in a way that breaks Cursor, and will not invent fields like `activation:` on an agent (that field belongs to rules).
+
+> **Tip:** Before applying for the first time, use `xcaffold apply --backup` to save a snapshot of your existing provider output directories. This makes it easy to roll back if needed.
 
 ### Step 3 — Validate and apply
 
@@ -114,8 +111,8 @@ xcaffold apply --target cursor
 When validation passes, inspect the compiled output:
 
 ```bash
-cat .claude/agents/developer.md      # Claude Code native format
-cat .cursor/agents/developer.md      # Cursor native format
+cat .claude/agents/backend-dev.md     # Claude Code native format
+cat .cursor/agents/backend-dev.md     # Cursor native format
 ```
 
 ---
@@ -147,23 +144,30 @@ This returns a machine-readable manifest of every generated file:
 
 ```json
 {
+  "project": "my-project",
   "targets": ["claude", "gemini"],
   "files": [
-    ".xcaffold/project.xcaf",
-    "xcaf/agents/developer/agent.xcaf",
-    "xcaf/rules/conventions/rule.xcaf",
-    "xcaf/settings/settings.xcaf",
-    "xcaf/skills/xcaffold/xcaf.reference",
-    "xcaf/skills/xcaffold/SKILL.md"
-  ],
-  "provider_notes": {
-    "claude": "full feature set",
-    "gemini": "hooks, memory, permission-mode unsupported — will be dropped at apply"
-  }
+    "project.xcaf",
+    "xcaf/agents/xaff/agent.xcaf",
+    "xcaf/agents/xaff/agent.claude.xcaf",
+    "xcaf/agents/xaff/agent.gemini.xcaf",
+    "xcaf/skills/xcaffold/skill.xcaf",
+    "xcaf/skills/xcaffold/references/operating-guide.md",
+    "xcaf/skills/xcaffold/references/authoring-guide.md",
+    "xcaf/rules/xcaf-conventions/rule.xcaf",
+    "xcaf/skills/xcaffold/references/agent-reference.md",
+    "xcaf/skills/xcaffold/references/skill-reference.md",
+    "xcaf/skills/xcaffold/references/rule-reference.md",
+    "xcaf/skills/xcaffold/references/workflow-reference.md",
+    "xcaf/skills/xcaffold/references/mcp-reference.md",
+    "xcaf/skills/xcaffold/references/hooks-reference.md",
+    "xcaf/skills/xcaffold/references/memory-reference.md",
+    "xcaf/skills/xcaffold/references/cli-cheatsheet.md"
+  ]
 }
 ```
 
-The AI reads this manifest to know exactly which files to edit. It reads `xcaf/skills/xcaffold/xcaf.reference` for the complete field catalog, and `xcaf/agents/developer.xcaf` for the provider matrix.
+The AI reads this manifest to know exactly which files were generated. It reads `xcaf/skills/xcaffold/references/agent-reference.md` for the field catalog, then creates new agent files (e.g., `xcaf/agents/backend.xcaf`, `xcaf/agents/reviewer.xcaf`) following the same structure as `xcaf/agents/xaff/agent.xcaf`.
 
 ```bash
 # Step 2: The AI edits xcaf/agents/developer.xcaf and creates xcaf/agents/reviewer.xcaf
@@ -196,7 +200,7 @@ If your project already has a `.claude/` or `.cursor/` directory, use the AI to 
 
 ### Human prompt to AI
 
-> This project has a `.claude/` directory. Initialize a new xcaffold project here targeting `claude` and `cursor`. Then import the existing Claude configuration into xcaffold. Show me the `import --plan` output before actually importing.
+> This project has a `.claude/` directory. Initialize a new xcaffold project here targeting `claude` and `cursor`. Then import the existing Claude configuration into xcaffold. Show me what would be imported before actually running it.
 
 ### AI command sequence
 
@@ -204,13 +208,18 @@ If your project already has a `.claude/` or `.cursor/` directory, use the AI to 
 # 1. Initialize empty scaffold
 xcaffold init --target claude,cursor --yes
 
-# 2. Preview import plan
-xcaffold import --target claude --plan
+# 2. Preview what will be imported without writing files
+xcaffold import --target claude --dry-run
 
-# The AI reports the plan to the user. Once approved:
+# The AI reports the preview to the user. Once approved:
 
-# 3. Import
+# 3. Import all resource types
 xcaffold import --target claude
+
+# Or import selectively by resource kind:
+xcaffold import --target claude --agent --rule   # only agents and rules
+xcaffold import --target claude --skill --hook   # only skills and hooks
+
 # Imported resources are tagged with targets: [claude].
 # Remove the targets field to make resources universal.
 
@@ -224,26 +233,21 @@ Once imported, the AI can now modify the configurations through the `.xcaf` file
 
 ## The `/xcaffold` AI skill
 
-Every time you run `xcaffold init`, it automatically generates a self-referential skill in `xcaf/skills/xcaffold/SKILL.md`. This file includes a built-in schema reference, workflow cheat sheets, and provider matrices.
+Every time you run `xcaffold init`, it automatically generates a self-referential skill at `xcaf/skills/xcaffold/skill.xcaf` along with reference files in `xcaf/skills/xcaffold/references/`. These include schema references, workflow cheat sheets, and provider field support details.
 
 When you run `xcaffold apply`, this skill compiles to your project's `.claude/skills/xcaffold/` (or Cursor equivalent) directory. 
 
 This gives you a magic loop: **your AI assistant instantly learns how to use xcaffold just by being inside an initialized project.**
 
-### Using it globally
+### Keeping the skill up to date
 
-If you want the `/xcaffold` skill available to your AI assistant everywhere (not just inside specific initialized projects), run:
+When xcaffold releases a new version, the embedded reference files may be updated. Run `--upgrade` to refresh the toolkit files in place without reinitializing the whole project:
 
 ```bash
-# Initialize the user-wide environment
-xcaffold init --global --target claude,cursor
-
-# Compile the skill to your global ~/.claude/skills/ directories
-xcaffold apply --global --target claude
-xcaffold apply --global --target cursor
+xcaffold init --upgrade --target claude,cursor --yes
 ```
 
-Once compiled, you can type `/xcaffold` in Claude Code or Cursor, or simply ask Gemini *"scaffold a new agent for me using xcaffold"* from any directory, and it will autonomously know the exact commands and schema to use.
+This regenerates `xcaf/skills/xcaffold/references/*.md` and the skill scaffold with the latest content, leaving your custom agents, rules, and skills untouched. Run `xcaffold apply` afterward to compile the updated references to your provider directories.
 
 ---
 
@@ -253,7 +257,7 @@ Skills are the most complex resource type — they have their own directory stru
 
 ### Human prompt to AI
 
-> Read `xcaf/skills/xcaffold/references/skill.xcaf.reference`. Create a new skill called `tdd` in `xcaf/skills/tdd.xcaf`. The skill should:
+> Read `xcaf/skills/xcaffold/references/skill-reference.md`. Create a new skill called `tdd` in `xcaf/skills/tdd/skill.xcaf`. The skill should:
 >
 > - Instruct the agent to write a failing test first, then minimal code to pass it, then refactor.
 > - Apply to all selected targets (claude, cursor).
@@ -263,7 +267,7 @@ Skills are the most complex resource type — they have their own directory stru
 
 ### AI command sequence
 
-The AI writes `xcaf/skills/tdd.xcaf`, then runs:
+The AI writes `xcaf/skills/tdd/skill.xcaf`, then runs:
 
 ```bash
 xcaffold validate    # catch malformed YAML or schema violations
@@ -286,8 +290,10 @@ The compiled output for Claude:
 The compiled output for Cursor:
 
 ```
-.cursor/rules/tdd.mdc           # Cursor uses .mdc rule files for skills
+.cursor/skills/tdd/SKILL.md     # Cursor skills maintain the same directory structure
 ```
+
+Note: rules compile differently — a `kind: rule` produces `.cursor/rules/<name>.mdc` for Cursor. Skills always compile to `skills/<name>/SKILL.md` for both targets.
 
 Same source, two provider-native outputs.
 

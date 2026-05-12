@@ -9,14 +9,11 @@ Policies give you compile-time governance over your xcaffold project. Rather tha
 
 This guide covers practical use cases — how to use policies effectively, not what every field does. For field-level reference, see the [Policy Reference](../reference/kinds/xcaffold/policy.md).
 
----
-
-## Use Case 1 — Enforcing Quality Standards Across All Agents
+## Enforcing Quality Standards Across All Agents
 
 The most common use of policies is ensuring every agent has the metadata needed for it to be useful to other developers and AI tools:
 
-```
----
+```yaml
 kind: policy
 version: "1.0"
 name: require-agent-description
@@ -27,13 +24,11 @@ require:
   - field: description
     is-present: true
     min-length: 20
----
 ```
 
 This emits a `warning` (visible in stderr but not blocking) whenever an agent is missing a `description` or has a description shorter than 20 characters. Pair it with a stricter model policy:
 
-```
----
+```yaml
 kind: policy
 version: "1.0"
 name: require-approved-models
@@ -44,21 +39,17 @@ require:
   - field: model
     one-of:
       - sonnet-4
-      - haiku-3.5
+      - haiku-4.5
       - opus-4
----
 ```
 
 Because this is `error` severity, compiling an agent with `model: gpt-4o` will fail immediately with a clear diagnostic. No agent using an unapproved model will ever make it into the compiled output.
 
----
-
-## Use Case 2 — Locking Down Production Agents
+## Locking Down Production Agents
 
 For production deployments, you often want stricter rules on agents that have broad permissions. Use `match:` to apply a policy only to agents with specific naming patterns:
 
-```
----
+```yaml
 kind: policy
 version: "1.0"
 name: prod-agents-require-instructions
@@ -71,11 +62,9 @@ require:
   - field: instructions
     is-present: true
     min-length: 50
----
 ```
 
-```
----
+```yaml
 kind: policy
 version: "1.0"
 name: prod-agents-limit-tools
@@ -87,7 +76,6 @@ match:
 require:
   - field: tools
     max-count: 5
----
 ```
 
 Both policies target only agents whose names end in `-prod` (e.g., `api-prod`, `db-prod`). Development agents are unaffected.
@@ -95,14 +83,11 @@ Both policies target only agents whose names end in `-prod` (e.g., `api-prod`, `
 > [!NOTE]
 > The `instructions` field maps to the agent's markdown body — the system prompt below the frontmatter delimiters.
 
----
-
-## Use Case 3 — Preventing Secrets From Leaking Into Output
+## Preventing Secrets From Leaking Into Output
 
 One of the highest-value uses of policies is blocking hardcoded credentials and tokens from ever appearing in compiled output. Use `target: output` with `deny.content-matches` to run a regex over every compiled file:
 
-```
----
+```yaml
 kind: policy
 version: "1.0"
 name: no-hardcoded-api-keys
@@ -115,19 +100,15 @@ deny:
   - content-contains:
       - "AKIA"
       - "Bearer eyJ"
----
 ```
 
 This runs after compilation — before any files are written to disk — and fails immediately if a compiled artifact contains a pattern matching a known secret format. The patterns above catch OpenAI keys, GitHub tokens, AWS access key IDs, and common JWT patterns.
 
----
-
-## Use Case 4 — Governing Skill Quality
+## Governing Skill Quality
 
 Skills without proper documentation make it hard for agents to know when to invoke them. Enforce baseline quality on all skills:
 
-```
----
+```yaml
 kind: policy
 version: "1.0"
 name: require-skill-description
@@ -137,13 +118,11 @@ target: skill
 require:
   - field: description
     is-present: true
----
 ```
 
 For skills that carry procedural instructions, you may want to require a body (the markdown content below the frontmatter):
 
-```
----
+```yaml
 kind: policy
 version: "1.0"
 name: skills-must-have-instructions
@@ -154,35 +133,28 @@ require:
   - field: instructions
     is-present: true
     min-length: 20
----
 ```
 
 > [!NOTE]
 > The `instructions` field maps to the skill's markdown body, just as it does for agents and rules.
 
----
-
-## Use Case 5 — Disabling a Built-In Check
+## Disabling a Built-In Check
 
 xcaffold ships built-in compiler policies. If a built-in check doesn't apply to your project (for example, a project that intentionally ships minimal skills without descriptions), you can silence it without deleting your source files:
 
-```
----
+```yaml
 kind: policy
 version: "1.0"
 name: allow-empty-skills
 severity: off
 target: skill
----
 ```
 
 Setting `severity: off` disables the policy entirely. This is version-controlled and self-documenting — better than a command-line flag that disappears from institutional memory.
 
----
-
 ## Organizing Policy Files
 
-Store policy files in `xcaf/policies/`. The scanner discovers them by `kind: policy` frontmatter — placement within `xcaf/` is convention, not enforced:
+Store policy files in `xcaf/policies/`. The scanner discovers them by `kind: policy` in the YAML content — placement within `xcaf/` is convention, not enforced:
 
 ```
 xcaf/
@@ -200,76 +172,22 @@ xcaf/
 
 Grouping by concern (quality, security, production) makes it easy to apply CODEOWNERS rules and understand what governance your project has at a glance.
 
----
+## Decision Guide
 
-## Severity Decision Guide
-
-| When to use | Severity |
+| Situation | Approach |
 |---|---|
-| Missing metadata that degrades UX or auto-invocation | `warning` |
-| Unapproved models, tools, or patterns that could cause cost overruns | `error` |
-| Security-critical constraints (secrets, dangerous commands) | `error` |
-| Rules you want to exist but not block CI right now | `warning` |
-| Built-in checks that don't apply to your project | `off` |
+| Enforce metadata presence across all resources of a kind | `require:` with `is-present: true` and `severity: warning` |
+| Block compilation when a critical field is missing or wrong | `require:` with `severity: error` |
+| Restrict field values to an approved list | `require:` with `one-of:` |
+| Apply rules only to resources matching a naming pattern | Add `match: name-matches:` to scope the policy |
+| Prevent specific values from appearing in fields | `deny:` with `content-contains:` or `content-matches:` |
 
----
+## Supported Fields
 
-## Supported Policy Fields
+Policies support `target:`, `match:`, `require:`, `severity:`, and `deny:` fields with various sub-fields for fine-grained validation. For the complete field schema, allowed operators, and per-field examples, see the [Policy Reference](../reference/kinds/xcaffold/policy.md#argument-reference).
 
-The `require:` clause evaluates fields by name. Not every resource field is available for policy evaluation — only the fields listed below are handled by the policy engine. Using a field not in this table will always evaluate as empty, producing a false violation.
+## Related
 
-### `target: agent` — require fields
-
-| Field name | What it checks | Supports |
-|---|---|---|
-| `name` | Agent's `name:` value | `is-present`, `min-length`, `one-of` |
-| `description` | Agent's `description:` value | `is-present`, `min-length`, `one-of` |
-| `model` | Agent's `model:` value | `is-present`, `min-length`, `one-of` |
-| `instructions` | Agent's markdown body (system prompt) | `is-present`, `min-length` |
-| `tools` | Agent's `tools:` list | `max-count` |
-| `skills` | Agent's `skills:` list | `max-count` |
-| `rules` | Agent's `rules:` list | `max-count` |
-
-### `target: skill` — require fields
-
-| Field name | What it checks | Supports |
-|---|---|---|
-| `name` | Skill's `name:` value | `is-present`, `min-length`, `one-of` |
-| `description` | Skill's `description:` value | `is-present`, `min-length`, `one-of` |
-| `instructions` | Skill's markdown body | `is-present`, `min-length` |
-| `tools` | Skill's `allowed-tools:` list | `max-count` |
-
-### `target: rule` — require fields
-
-| Field name | What it checks | Supports |
-|---|---|---|
-| `name` | Rule's `name:` value | `is-present`, `min-length`, `one-of` |
-| `description` | Rule's `description:` value | `is-present`, `min-length`, `one-of` |
-| `instructions` | Rule's markdown body | `is-present`, `min-length` |
-
-### `target: output` — deny fields
-
-| Field name | What it checks |
-|---|---|
-| `content-matches` | Regex match against compiled file content |
-| `content-contains` | Substring match against compiled file content (case-insensitive) |
-| `path-contains` | Substring match against compiled file paths |
-
-### `target: settings` — deny fields
-
-| Field name | What it checks |
-|---|---|
-| `content-contains` | Substring match against settings.json / settings.local.json content (case-insensitive) |
-| `content-matches` | Regex match against settings.json / settings.local.json content |
-| `path-contains` | Substring match against settings file paths |
-
-The `settings` target narrows output scanning to settings files only (`settings.json` and `settings.local.json`), applying the same deny rules as `target: output` but scoped to configuration files.
-
-### `match:` conditions
-
-| Condition | What it does |
-|---|---|
-| `name-matches` | Glob pattern against resource name (e.g., `*-prod`) |
-| `has-tool` | True when the resource's tool list includes the named tool |
-| `has-field` | True when the named field is present and non-empty |
-| `target-includes` | True when the resource's `targets:` map includes the named provider (parsed but not yet evaluated — all resources currently return no targets) |
+- [Policy Reference](../reference/kinds/xcaffold/policy.md) — field-level documentation for all policy fields
+- [Rule Organization](rule-organization.md) — behavioral guidance that applies at runtime, not compile time
+- [Variables and Overrides](variables-and-overrides.md) — customizing resources per provider without duplication

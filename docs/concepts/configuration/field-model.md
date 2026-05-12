@@ -1,3 +1,8 @@
+---
+title: "Field Model"
+description: "Two-layer field classification: xcaffold core roles and provider field support"
+---
+
 # Field Model
 
 xcaffold uses a two-layer field classification system that separates
@@ -53,8 +58,8 @@ render, skip, or reject a field:
 |----------------|---------------------------|--------|
 | has role | `optional` | Field is rendered when present |
 | has role | `required` | Field must be present; absent field emits `FIELD_REQUIRED_FOR_TARGET` |
-| has role | `unsupported` | Field is silently skipped |
-| (no role annotation) | `unsupported` | Field is silently skipped |
+| has role | `unsupported` | Field is silently skipped (core fields serve the compiler regardless of provider) |
+| (no role annotation) | `unsupported` | Error-level `FIELD_UNSUPPORTED` fidelity note if field is present |
 
 Composition fields (`skills`, `rules`, `mcp`) are resolved during
 compilation before the renderer runs. The provider never sees the

@@ -276,37 +276,9 @@ targets:
 
 ## Capability Differences
 
-Not every provider supports every resource kind. The table below shows what each provider can receive from xcaffold.
+Provider support for resource fields varies. Some fields compile to all providers; others are silently dropped or produce fidelity notes when targeting a provider that does not support them. See the [Supported Providers](../reference/supported-providers.md) reference for the full capability matrix.
 
-| Capability | Claude | Cursor | Gemini | Copilot | Antigravity |
-|---|---|---|---|---|---|
-| Agents | ✅ | ✅ | ✅ | ✅ | notes only |
-| Skills | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Rules | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Workflows | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Hooks | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Settings | ✅ | ✅ | ✅ | ✅ | ✅ |
-| MCP | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Memory | ✅ | ❌ | ❌ | ❌ | ❌ |
-
-**Antigravity agents — notes only:** Antigravity does not have a native agent runtime. When xcaffold compiles an agent for Antigravity, it renders the agent's description and instructions as a notes document in the output directory. The agent is present in compiled output as reference material, not as an invocable agent. If you want the agent to be executable on Antigravity, model it as a skill instead.
-
-**Memory:** `kind: memory` files compile only for Claude Code. For Cursor, Gemini, Copilot, and Antigravity, scope memory content to `targets: { claude: {} }` to avoid fidelity warnings on every apply.
-
-**Hooks:** `kind: hooks` files do not compile for Antigravity. Scope hooks resources accordingly if your project uses them.
-
-### Rule activation per provider
-
-`kind: rule` supports an `activation:` field that controls when the rule is applied. Not every activation mode is available on every provider.
-
-| Activation mode | Claude | Cursor | Gemini | Copilot | Antigravity |
-|---|---|---|---|---|---|
-| `always` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `path-glob` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `manual-mention` | ❌ | ✅ | ❌ | ❌ | ❌ |
-| `model-decided` | ❌ | ❌ | ❌ | ❌ | ✅ |
-
-Rules using `manual-mention` or `model-decided` should be scoped to the provider that supports them using the `targets:` map. Otherwise xcaffold compiles the rule for all providers but emits a warning that the activation encoding was omitted.
+Rules using `manual-mention` or `model-decided` activation should be scoped to the provider that supports them using the `targets:` map. Otherwise xcaffold compiles the rule for all providers but emits a warning that the activation encoding was omitted.
 
 ## Decision Guide
 
@@ -320,6 +292,9 @@ Rules using `manual-mention` or `model-decided` should be scoped to the provider
 | Silence a known fidelity warning | Use `targets.<provider>.suppress-fidelity-warnings: true` |
 | Verify fidelity issues before compiling | Run `xcaffold validate --target <provider>` |
 | Check what a specific blueprint resolves to | Run `xcaffold list --blueprint <name> --resolved` |
-vider>.suppress-fidelity-warnings: true` |
-| Verify fidelity issues before compiling | Run `xcaffold validate --target <provider>` |
-| Check what a specific blueprint resolves to | Run `xcaffold list --blueprint <name> --resolved` |
+
+## Related
+
+- [Supported Providers](../reference/supported-providers.md) — full provider capability matrix and fidelity notes
+- [Variables and Overrides](variables-and-overrides.md) — customizing field values per provider without duplication
+- [Blueprint Design](blueprint-design.md) — narrowing compiled output to specific resource subsets

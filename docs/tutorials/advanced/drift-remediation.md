@@ -5,7 +5,7 @@ description: "Detect, diagnose, and restore managed files when compiled output h
 
 # Drift Remediation
 
-This tutorial walks through detecting and resolving drift in an xcaffold-managed project. Drift occurs when files inside a compiled output directory (`.claude/`, `.cursor/`, `.agents/`) are modified directly rather than through `project.xcaf`. xcaffold uses SHA-256 hashes to detect these changes precisely and gives you explicit control over remediation. For background on why drift matters, see [Concepts: Drift Detection and State](../concepts/architecture.md#drift-detection-and-state).
+This tutorial walks through detecting and resolving drift in an xcaffold-managed project. Drift occurs when files inside a compiled output directory (`.claude/`, `.cursor/`, `.agents/`) are modified directly rather than through `project.xcaf`. xcaffold uses SHA-256 hashes to detect these changes precisely and gives you explicit control over remediation. For background on why drift matters, see [Concepts: Drift Detection and State](../../concepts/execution/state-and-drift.md).
 
 **Time to complete:** ~10 minutes
 
@@ -26,9 +26,15 @@ This compiles `project.xcaf` into `.claude/` and writes `.xcaffold/project.xcaf.
 
 **Expected output:**
 ```
-  [project] ✓ wrote /path/to/project/.claude/agents/developer.md  (sha256:<hex>)
+sandbox  ·  claude  ·  first apply
 
-[project] ✓ Apply complete. .xcaffold/project.xcaf.state updated.
+  NEW (1 file):
+    +  agents/developer.md
+
+Apply 1 new?  [Y/n] y
+
+✓  Apply complete. 1 file written to .claude/
+  Run 'xcaffold import' to sync manual edits back to .xcaf sources.
 ```
 
 Commit `project.xcaf` and `.xcaffold/project.xcaf.state` together.
@@ -48,21 +54,26 @@ This simulates a direct edit to a managed file — the kind that happens when so
 ## Step 3 — Detect drift
 
 ```bash
-xcaffold diff --target claude
+xcaffold status --target claude
 ```
 
-xcaffold recomputes SHA-256 hashes for all artifacts listed in `.xcaffold/project.xcaf.state` and compares them against disk. Any mismatch is reported.
+`xcaffold status` recomputes SHA-256 hashes for all artifacts listed in `.xcaffold/project.xcaf.state` and compares them against disk. Any mismatch is reported.
 
 **Expected output:**
 ```
-  [project] DRIFTED  /path/to/project/.claude/agents/developer.md
-    expected: sha256:abc123...
-    actual:   sha256:def456...
+sandbox  ·  claude  ·  applied just now
 
-drift detected in 1 file(s) — run 'xcaffold apply --target claude' to restore managed state
+  1 synced  ·  1 modified  ·  1 source unchanged
+
+  ✗  modified    agents/developer.md
+
+  Sources  1 .xcaf files  ·  no changes since last apply
+
+→ Run 'xcaffold apply --target claude' to restore.
+  Run 'xcaffold status --target claude --all' for details.
 ```
 
-`xcaffold diff` exits with code `1` when drift is found. This is intentional — it makes the command usable as a CI gate. For the full diff status reference, see [CLI Reference](../../reference/commands/index.md).
+`xcaffold status` exits with code `1` when drift is found. This is intentional — it makes the command usable as a CI gate. For the full status reference, see [CLI Reference](../../reference/commands/index.md).
 
 ---
 
@@ -76,10 +87,17 @@ When a state file exists and drift is detected, `apply` refuses to proceed:
 
 **Expected output:**
 ```
-[project] drift detected! Target directory contains unrecorded changes. Use --force to overwrite
+sandbox  ·  claude  ·  applied just now
+
+  ✗  Drift detected in 1 file:
+
+    ✗  modified    agents/developer.md
+  To preserve manual edits, run 'xcaffold import' first.
+
+→ Run 'xcaffold apply --force' to overwrite.
 ```
 
-This drift guard prevents silent data loss. To proceed you must acknowledge the intent explicitly with `--force`. To preview what would be written without committing, use `--dry-run` instead. For guidance on when `--force` is appropriate, see [Drift Detection and State](../concepts/architecture.md#drift-detection-and-state).
+This drift guard prevents silent data loss. To proceed you must acknowledge the intent explicitly with `--force`. To preview what would be written without committing, use `--dry-run` instead. For guidance on when `--force` is appropriate, see [Drift Detection and State](../../concepts/execution/state-and-drift.md).
 
 ---
 
@@ -99,9 +117,13 @@ xcaffold apply --target claude --force --backup
 
 **Expected output:**
 ```
-  [project] ✓ wrote /path/to/project/.claude/agents/developer.md  (sha256:<hex>)
+sandbox  ·  claude  ·  applied just now
 
-[project] ✓ Apply complete. .xcaffold/project.xcaf.state updated.
+  CHANGED (1 file):
+    △  agents/developer.md
+
+✓  Apply complete. 1 file written to .claude/
+  Run 'xcaffold import' to sync manual edits back to .xcaf sources.
 ```
 
 ---
@@ -109,14 +131,18 @@ xcaffold apply --target claude --force --backup
 ## Step 6 — Verify clean state
 
 ```bash
-xcaffold diff --target claude
+xcaffold status --target claude
 ```
 
 **Expected output:**
 ```
-  [project] clean    /path/to/project/.claude/agents/developer.md
+sandbox  ·  claude  ·  applied just now
 
-No drift detected. All managed files are in sync.
+  1 synced  ·  1 source unchanged
+
+  Sources  1 .xcaf files  ·  no changes since last apply
+
+✓ Everything in sync.
 ```
 
 Exit code `0`. The output directory matches the state file. The project is back under xcaffold's control.
@@ -125,7 +151,7 @@ Exit code `0`. The output directory matches the state file. The project is back 
 
 ## What You Built
 
-You induced drift on a managed file, used `xcaffold diff` to detect it precisely by SHA-256 hash comparison, observed the drift guard block a plain `apply`, and restored the project to a clean state with `--force`. You now have the complete remediation workflow: detect with `diff`, guard on `apply`, restore with `--force`.
+You induced drift on a managed file, used `xcaffold status` to detect it precisely by SHA-256 hash comparison, observed the drift guard block a plain `apply`, and restored the project to a clean state with `--force`. You now have the complete remediation workflow: detect with `status`, guard on `apply`, restore with `--force`.
 
 ---
 
@@ -134,4 +160,4 @@ You induced drift on a managed file, used `xcaffold diff` to detect it precisely
 - **Getting Started** — if you haven't compiled your first agent yet: [Getting Started](../basics/getting-started.md)
 - **Multi-Agent Workspace** — define multiple agents, rules, and skills: [Multi-Agent Workspace](multi-agent-workspace.md)
 - **Drift detection concepts** — how the state file, SHA-256 hashes, and source vs. artifact drift work: [Concepts: Drift Detection and State](../../concepts/execution/state-and-drift.md)
-- **CLI reference** — full flag reference for `diff`, `apply`, and `--force`: [CLI Reference](../../reference/commands/index.md)
+- **CLI reference** — full flag reference for `status`, `apply`, and `--force`: [CLI Reference](../../reference/commands/index.md)

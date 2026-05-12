@@ -5,7 +5,7 @@ description: "Best practices for designing blueprints that segment agent configu
 
 # Blueprint Design
 
-A blueprint is a named resource subset that selects which agents, skills, rules, workflows, MCP servers, policies, memory entries, contexts, settings, and hooks are compiled. Without a `--blueprint` flag, `xcaffold apply` compiles everything. Blueprints narrow the scope.
+A blueprint is a named resource subset that selects which agents, skills, rules, workflows, MCP servers, policies, memory entries, contexts, settings, and hooks are compiled. Without a `--blueprint` flag, `xcaffold apply` compiles everything. Blueprints narrow the scope. In Harness-as-Code terms, a blueprint is a scoped projection of the full harness — only the resources relevant to a specific role, environment, or workflow are compiled.
 
 ## When to Introduce Blueprints
 
@@ -21,12 +21,14 @@ When a blueprint selects an agent, the compiler automatically includes that agen
 
 ```yaml
 # xcaf/agents/api-developer.xcaf
+---
 kind: agent
 version: "1.0"
 name: api-developer
 skills: [tdd, schema-design]
 rules: [secure-code, api-conventions]
 mcp: [database-tools]
+---
 ```
 
 ```yaml
@@ -118,6 +120,7 @@ Blueprints control which `kind: context` files render to provider root files (CL
 # xcaf/context/main.xcaf — shared project context
 ---
 kind: context
+version: "1.0"
 name: main
 default: true
 ---
@@ -127,6 +130,7 @@ Run tests with `go test ./...`.
 # xcaf/context/backend-context.xcaf — backend-specific
 ---
 kind: context
+version: "1.0"
 name: backend-context
 targets: [claude]
 ---
@@ -136,6 +140,7 @@ Use the database-tools MCP server for schema exploration.
 # xcaf/context/frontend-context.xcaf — frontend-specific
 ---
 kind: context
+version: "1.0"
 name: frontend-context
 targets: [claude]
 ---
@@ -263,3 +268,20 @@ xcaffold's resource model is designed for mix-and-match composition. Every resou
 When your project grows a library of reusable resources — skills for TDD, rules for security, policies for quality — blueprints become the interface for composing them into role-specific or environment-specific configurations. Rather than maintaining separate agent definitions for each team, maintain one shared pool of resources and let blueprints select the right combination.
 
 The pattern scales: a CI blueprint selects a restrictive settings profile and no interactive hooks. A review blueprint selects read-only agents and audit rules. A full-development blueprint selects everything. Each is a single file that references existing resources by ID — no duplication.
+
+## Decision Guide
+
+| Situation | Approach |
+|---|---|
+| Multiple developers need different agent sets | Create role-based blueprints (`backend`, `frontend`, `reviewer`) |
+| CI needs a minimal configuration | Create a `ci` blueprint with only automation-relevant agents |
+| A blueprint needs everything another has, plus more | Use `extends:` to inherit and add resources |
+| An agent's transitive dependencies are not enough | Add extra resources directly to the blueprint's resource lists |
+| You need to select specific context documents per blueprint | Use the `contexts:` list to include only relevant workspace instructions |
+| All agents should share a policy but only in production | Add the policy to a `production` blueprint, not to every agent |
+
+## Related
+
+- [Blueprint Reference](../reference/kinds/xcaffold/blueprint.md) — field-level documentation for blueprint resources
+- [Project Structure](project-structure.md) — when to introduce blueprints as a project grows
+- [Agent Design Patterns](agent-design-patterns.md) — how agents declare dependencies that blueprints resolve

@@ -52,7 +52,7 @@ Variable files use a simple `key = value` assignment syntax rather than standard
 Environment variables are powerful but pose a security risk if a malicious blueprint attempts to exfiltrate system secrets via `${env.AWS_ACCESS_KEY_ID}`. We mandate that all accessible environment variables be explicitly declared in the `project.xcaf` `allowed-env-vars` array, establishing a secure perimeter around the compilation context.
 
 **Flexible Naming Conventions**
-Variable names are not restricted to kebab-case. Authors are free to use `snake_case`, `camelCase`, or `PascalCase` to match their team's preferences. Names must simply start with a letter or underscore and contain only alphanumeric characters, underscores, or hyphens (`^[a-zA-Z][_a-zA-Z0-9-]*$`).
+Variable names are not restricted to kebab-case. Authors are free to use `snake_case`, `camelCase`, or `PascalCase` to match their team's preferences. Names must start with a letter and contain only alphanumeric characters, underscores, or hyphens (`^[a-zA-Z][_a-zA-Z0-9-]*$`).
 
 ---
 
@@ -71,5 +71,5 @@ Variable names are not restricted to kebab-case. Authors are free to use `snake_
 
 ## Related
 
-- [CLI Reference](../reference/cli.md) — details on the `--var-file` flag
-- [Schema Reference](../reference/schema.md) — details on `allowed-env-vars`
+- [Multi-Target Rendering](../architecture/multi-target-rendering.md) — how target-specific variable files integrate with compilation
+- [State & Drift](../execution/state-and-drift.md) — how variable files are tracked in state

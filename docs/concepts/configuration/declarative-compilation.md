@@ -5,7 +5,7 @@ description: "Why xcaffold enforces one-way compilation, the fail-closed parser,
 
 # Declarative Compilation
 
-Agent configurations are software artifacts. Like infrastructure-as-code, they should be versioned, audited, and reproduced from source — not edited in place and synced back. xcaffold enforces this by treating `.xcaf` files as the authoritative source of record and compiling them, in one direction, into native runtime files for each target platform. This document explains the reasoning behind that architectural choice.
+Agent configurations are software artifacts. Like infrastructure-as-code, they should be versioned, audited, and reproduced from source — not edited in place and synced back. This is the core of Harness-as-Code: the agent harness is software, not a settings panel. xcaffold enforces this by treating `.xcaf` files as the authoritative source of record and compiling them, in one direction, into native runtime files for each target platform. This document explains the reasoning behind that architectural choice.
 
 ### Declarative Configuration vs Prompt-at-Runtime
 
@@ -21,11 +21,12 @@ The compiler does not transform YAML strings directly into Markdown or JSON. Bet
 
 ```go
 type XcaffoldConfig struct {
-    Kind    string `yaml:"kind,omitempty"`
+    Kind    string `yaml:"-"`    // Set by parser routing, not decoded from YAML
     Version string `yaml:"version"`
     Extends string `yaml:"extends,omitempty"`
 
-    Settings SettingsConfig `yaml:"settings,omitempty"`
+    Settings   map[string]SettingsConfig  `yaml:"settings,omitempty"`
+    Blueprints map[string]BlueprintConfig `yaml:"blueprints,omitempty"`
 
     ResourceScope `yaml:",inline"` // Global-level resources
     Project *ProjectConfig `yaml:"project,omitempty"`
@@ -40,11 +41,11 @@ This separation is the boundary that makes multi-target rendering possible. The 
 
 xcaffold makes a hard guarantee: given the same `.xcaf` file, every invocation of the compiler produces byte-for-byte identical output. There are no timestamps embedded in generated file content, no random identifiers, no environment-dependent paths inside compiled files.
 
-This guarantee is what makes drift detection meaningful. After compilation, `state.GenerateWithOpts()` (`internal/state/state.go:70`) hashes every output artifact with SHA-256 and records the results in a state file:
+This guarantee is what makes drift detection meaningful. After compilation, `state.GenerateState()` (`internal/state/state.go`) hashes every output artifact with SHA-256 and records the results in a state file:
 
 ```go
 hash := sha256.Sum256([]byte(content))
-manifest.Artifacts = append(manifest.Artifacts, Artifact{
+artifacts = append(artifacts, Artifact{
     Path: path,
     Hash: fmt.Sprintf("sha256:%x", hash),
 })
@@ -54,37 +55,36 @@ On the next run, the state file is compared against the current hashes of the sa
 
 Determinism is also what makes CI verification possible. A pipeline that runs `xcaffold apply` and then checks for uncommitted changes in the target output directory only works if clean-source-in produces clean-output-out, every time.
 
-### Multi-Document YAML Parsing
+### Single-Resource File Format
 
-A single `.xcaf` file can contain multiple YAML documents separated by `---`. The parser's `parsePartial` function loops over each document in the stream and routes it by `kind:`:
+Each `.xcaf` file contains exactly one resource document. The parser enforces this constraint: if a second `kind:` declaration is detected in the same file, parsing fails immediately with an error directing the author to split the file.
 
-- `kind: project` populates `ProjectConfig` with the project name, targets, and resource reference lists.
-- `kind: hooks`, `kind: settings`, and other resource kinds merge their contents into `ResourceScope` maps.
-- `kind: global` contains global-scope resources and settings.
+The `---` delimiters in a `.xcaf` file separate YAML frontmatter from the Markdown body — they do not separate multiple YAML documents. Frontmatter contains the resource's typed fields (name, description, tools, model, etc.). The body, if present, carries free-form instructions that become the resource's `Body` field.
 
-When `ParseDirectory` scans a project tree, it discovers all `.xcaf` files recursively and merges all parsed documents into a single configuration. Strict deduplication is enforced: if the same resource ID (e.g., agent `deployer`) appears in two different files, parsing fails with a duplicate ID error. This prevents ambiguous precedence and ensures every resource has exactly one authoritative definition.
+When `ParseDirectory` scans a project tree, it discovers all `.xcaf` files recursively and merges all parsed resources into a single configuration. Strict deduplication is enforced: if the same resource ID (e.g., agent `deployer`) appears in two different files, parsing fails with a duplicate ID error. This prevents ambiguous precedence and ensures every resource has exactly one authoritative definition.
 
 ### The Fail-Closed Parser
 
-The YAML parser is strict by design. `parsePartial()` (`internal/parser/parser.go:50`) creates a `yaml.Decoder` and calls `KnownFields(true)` before decoding:
+The YAML parser is strict by design. `parsePartial()` (`internal/parser/parser.go`) creates a `yaml.Decoder` and calls `KnownFields(true)` before decoding:
 
 ```go
 func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
+    data, err := io.ReadAll(r)
+    // ... variable expansion via resolver.ExpandVariables() ...
+
+    frontmatter, body, err := extractFrontmatterAndBody(data)
+
     config := &ast.XcaffoldConfig{}
-    decoder := yaml.NewDecoder(r)
-    decoder.KnownFields(true)
-    if err := decoder.Decode(config); err != nil {
-        return nil, fmt.Errorf("failed to parse .xcaf YAML: %w", err)
-    }
-    ...
+    decoder := yaml.NewDecoder(bytes.NewReader(frontmatter))
+    // ... routes each document by kind: field ...
 }
 ```
 
-`KnownFields(true)` instructs the decoder to return an error if the YAML document contains any field that does not map to a struct tag in the AST. The parse fails immediately on the first unknown field; there is no partial result, no warning, no silent skip.
+During per-resource-kind parsing (`internal/parser/resource_kinds.go`), `KnownFields(true)` instructs the decoder to return an error if the YAML document contains any field that does not map to a struct tag in the AST. The parse fails immediately on the first unknown field; there is no partial result, no warning, no silent skip.
 
 The alternative — accepting unknown fields and ignoring them — would make typos invisible. A misspelled field like `instrctions:` would silently produce an agent with no instructions, and the user would debug agent behavior rather than configuration syntax. By failing closed, the parser makes the schema the contract: anything accepted by the parser is structurally valid.
 
-The same strict posture extends to cross-resource references. `validateCrossReferences()` (`internal/parser/parser.go:956`) verifies that every agent-referenced skill ID, rule ID, and MCP server ID is defined in the same config. A reference to an undefined resource is a parse-time error, not a runtime surprise.
+The same strict posture extends to cross-resource references. `validateCrossReferences()` (`internal/parser/parser_validation.go`) verifies that every agent-referenced skill ID, rule ID, and MCP server ID is defined in the same config. A reference to an undefined resource is a parse-time error, not a runtime surprise.
 
 ### One-Way Compilation as a Trust Boundary
 
@@ -93,12 +93,14 @@ Generated files in `.claude/`, `.cursor/`, and `.agents/` are machine outputs. T
 `Compile()` (`internal/compiler/compiler.go`) makes this flow explicit. It merges project-scoped resources over global-scoped resources, strips inherited resources that should not be duplicated locally, resolves the target renderer, and dispatches via the orchestrator:
 
 ```go
-func Compile(config *ast.XcaffoldConfig, baseDir, target, blueprintName string) (*Output, []FidelityNote, error) {
+func Compile(config *ast.XcaffoldConfig, baseDir, target, blueprintName, varFile string) (*output.Output, []renderer.FidelityNote, error) {
     if config.Project != nil {
         mergeResourceScope(&config.ResourceScope, &config.Project.ResourceScope)
     }
+    resolver.ResolveAttributes(config)
+    // ... variable loading, blueprint resolution ...
     config.StripInherited()
-    r, err := resolveRenderer(target)
+    r, err := ResolveRenderer(target)
     if err != nil {
         return nil, nil, err
     }
@@ -110,36 +112,23 @@ func Compile(config *ast.XcaffoldConfig, baseDir, target, blueprintName string) 
 
 Bidirectional sync would collapse this boundary. If edits to generated files were propagated back into the `.xcaf` source, the system would have two authorities for the same configuration and no principled way to resolve conflicts. One-way compilation avoids that class of problem entirely.
 
-### Instructions vs. Instructions File
+### The Frontmatter Body as Instructions
 
-Every resource type that carries agent instructions — agents, skills, rules, workflows — supports two mutually exclusive ways to provide that content.
+Every resource type that carries agent instructions — agents, skills, rules, workflows — uses the frontmatter body to provide that content. The `.xcaf` file format uses `---` delimiters: YAML configuration sits between the delimiters, and Markdown content follows:
 
-`instructions` accepts inline YAML content compiled verbatim into the output. `instructions-file` accepts a relative path to a Markdown file. At compile time, `resolver.ResolveInstructions()` (`internal/resolver/resolver.go:35`) reads the file, strips any YAML frontmatter, and embeds the result:
-
-```go
-func ResolveInstructions(inline, filePath, conventionPath, baseDir string) (string, error) {
-    if inline != "" {
-        return inline, nil
-    }
-    // filePath resolved relative to baseDir, path traversal rejected
-    ...
-    b, err := os.ReadFile(bestPath)
-    content := StripFrontmatter(string(b))
-    return content, nil
-}
+```yaml
+---
+kind: agent
+version: "1.0"
+name: reviewer
+description: "Code review specialist."
+model: sonnet
+tools: [Read, Glob, Grep]
+---
+You are a code reviewer. Focus on correctness, security, and maintainability.
+Never approve code that introduces panics in library packages.
 ```
 
-The mutual exclusivity is enforced at parse time by `validateInstructionOrFile()` (`internal/parser/parser.go:949`):
+The parser's `extractFrontmatterAndBody()` splits the file at compile time. The frontmatter is decoded into the resource's typed struct fields. The body is stored as the `Body` string field (tagged `yaml:"-"` — it is never decoded from YAML). Renderers embed this body verbatim into the compiled output as the resource's instructions.
 
-```go
-func validateInstructionOrFile(kind, id, inst, file string, globalScope bool) error {
-    if inst != "" && file != "" {
-        return fmt.Errorf("%s %q: instructions and instructions-file are mutually exclusive; set one or the other", kind, id)
-    }
-    ...
-}
-```
-
-Setting both fields is an immediate parse error. This prevents ambiguity about which content would win. The design also prevents a specific circular dependency: `instructions-file` paths that point into compiler output directories (`.claude/`, `.cursor/`, `.agents/`) are explicitly rejected. A compiled file cannot be its own source.
-
-The `instructions-file` mechanism exists because long agent system prompts benefit from Markdown authoring tools, syntax highlighting, and review comments. Separating long-form prose into dedicated `.md` files is an ergonomic choice that does not compromise the compilation model: the content is still embedded at compile time, and the `.xcaf` file remains the single configuration entry point.
+This design means long agent system prompts benefit from Markdown authoring tools, syntax highlighting, and review comments. The `.xcaf` file remains the single configuration entry point — there is no separate instructions file to keep in sync.

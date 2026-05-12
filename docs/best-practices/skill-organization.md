@@ -65,3 +65,19 @@ The `xcaffold validate` command enforces the following structural rules:
 2.  **Missing Artifacts:** Any folder listed in `artifacts` that does not exist on disk is a hard error.
 3.  **Stray Files:** Non-manifest files (like `notes.txt` or `README.md`) at the skill root are not allowed. They must be moved into an artifact subdirectory.
 4.  **Flat Manifests:** Manifest files placed directly in `xcaf/skills/` without a parent directory are flagged. Skills must always live in a dedicated subdirectory.
+
+## Decision Guide
+
+| Situation | Approach |
+|---|---|
+| Skill needs only instructions, no supporting files | Single `skill.xcaf` with a body, no `artifacts:` field |
+| Skill needs background knowledge or lookup data | Add a `references/` directory, list it in `artifacts:` |
+| Skill needs executable tools or helper scripts | Add a `scripts/` directory, list it in `artifacts:` |
+| Skill needs production templates or schemas | Add an `assets/` directory, list it in `artifacts:` |
+| Skill needs demonstration outputs for few-shot learning | Add an `examples/` directory, list it in `artifacts:` |
+
+## Related
+
+- [Skill Reference](../reference/kinds/provider/skill.md) — field-level documentation for skill resources
+- [Agent Design Patterns](agent-design-patterns.md) — how agents reference skills via the `skills:` field
+- [Blueprint Design](blueprint-design.md) — how blueprints resolve skill dependencies transitively

@@ -5,11 +5,7 @@ description: "Practical patterns for designing effective xcaffold agents — fro
 
 # Agent Design Patterns
 
-Agents are the primary resource kind in xcaffold. They define the personas, tool access, and behavioral constraints for AI interactions — compiled to provider-native format on every `xcaffold apply`. This guide covers patterns for writing agents that are focused, maintainable, and correctly scoped across providers.
-
-For field-level reference, see the [agent reference](../reference/kinds/provider/agent.md#argument-reference).
-
----
+Agents are the primary resource kind in xcaffold, defining the personas, tool access, and behavioral constraints for AI interactions — compiled to provider-native format on every `xcaffold apply`. This guide covers practical patterns for writing agents that are focused, maintainable, and correctly scoped across providers. For field-level reference, see the [agent reference](../reference/kinds/provider/agent.md#argument-reference).
 
 ## Anatomy of an Agent
 
@@ -40,9 +36,7 @@ Agent fields are grouped by purpose: identity, model and execution, tool access,
 
 **The body IS the system prompt.** The markdown prose below the frontmatter delimiters is passed verbatim as the agent's system prompt instructions in every provider that supports agents. It is the universal instruction layer — what you write here shapes behavior across all targets.
 
----
-
-## Pattern: Specialized Agents
+## Specialized Agents
 
 A common mistake is writing one large general-purpose agent and trying to cover every task through prompt engineering. Narrow agents are more reliable: a reviewer that can only read cannot accidentally modify files, and a database agent that only knows SQL tools cannot touch application code.
 
@@ -105,9 +99,7 @@ Always write reversible migrations (up + down). Never use DROP TABLE or TRUNCATE
 
 Narrow agents are easier to reason about, easier to test, and produce fewer out-of-scope side effects. When an agent's description says exactly what it does and does not do, providers and users make better delegation decisions.
 
----
-
-## Pattern: Composition Over Duplication
+## Composition
 
 Skills and rules are compiled into every agent that references them. Rather than copying the same instructions into every agent body, attach shared resources by ID.
 
@@ -152,9 +144,7 @@ rules: [secure-coding, no-secrets]  # Constraints on the work
 
 This separation makes it easier to audit what governs an agent versus what it is instructed to do.
 
----
-
-## Pattern: Tool Scoping
+## Tool Scoping
 
 xcaffold provides three tool-control mechanisms. Each serves a different pattern:
 
@@ -175,9 +165,7 @@ See the [agent reference](../reference/kinds/provider/agent.md#argument-referenc
 | You want to declare read-only intent clearly | `readonly: true` |
 | The agent runs in production with restricted trust | `permission-mode:` (Claude only) |
 
----
-
-## Pattern: Provider-Scoped Overrides
+## Provider-Scoped Overrides
 
 Different providers have different capabilities. The `targets:` map lets you override specific fields per provider without duplicating the entire agent definition.
 
@@ -256,8 +244,6 @@ The `targets:` map also supports provider-specific metadata — `suppress-fideli
 
 Not all providers support every agent field. Fields without native support are dropped silently during compilation. See the [agent reference](../reference/kinds/provider/agent.md#compiled-output) for the full provider support matrix and compiled output examples per target.
 
----
-
 ## The System Prompt (Body)
 
 The markdown body of an agent `.xcaf` file is its system prompt. Write it with the same discipline you apply to the rest of the manifest.
@@ -301,8 +287,6 @@ Explicit negative constraints prevent the most common out-of-scope behaviors. Th
 | 20+ lines | Break into a skill with its own references/ subdirectory |
 
 If your agent body is growing past 20 lines, extract the repeating content into a `kind: skill` and attach it via `skills:`. The skill can reference detailed documents in its `references/` directory without bloating the agent manifest.
-
----
 
 ## Decision Guide
 
