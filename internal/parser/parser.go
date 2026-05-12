@@ -312,6 +312,119 @@ func looksLikeYAMLDocument(data []byte) bool {
 	return bytes.HasPrefix(trimmed, []byte("kind:"))
 }
 
+// extractKindAndInferredName reads kind and inferred name from a document node.
+// It handles kind inference from the file path and warns on kind mismatches.
+func extractKindAndInferredName(docNode *yaml.Node, resolved parseOption, config *ast.XcaffoldConfig) (string, string) {
+	kind := extractKind(docNode)
+
+	// Infer kind and name from file path if not explicit in YAML.
+	// If kind is empty, infer both kind and name.
+	// If kind is provided but name is not, infer only the name.
+	var inferredKind, inferredName string
+	if resolved.sourcePath != "" {
+		inferredKind, inferredName = inferKindAndName(resolved.sourcePath)
+		// If kind was empty in YAML, use the inferred kind
+		if kind == "" && inferredKind != "" {
+			kind = inferredKind
+		}
+	}
+
+	// Warn if YAML kind differs from inferred kind (when both are present)
+	if kind != "" && inferredKind != "" && kind != inferredKind {
+		config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares kind: %s but path implies kind: %s", resolved.sourcePath, kind, inferredKind))
+	}
+
+	return kind, inferredName
+}
+
+// routeDocument routes a single document to the appropriate parser based on its kind.
+// It updates config and returns the lastKind and lastName for body assignment.
+func routeDocument(docNode *yaml.Node, kind string, inferredName string, config *ast.XcaffoldConfig, resolved parseOption, docIndex int) (string, string, error) {
+	switch kind {
+	case "":
+		return "", "", fmt.Errorf(
+			"kind field is required: every .xcaf document must declare a kind " +
+				"(e.g., kind: project, kind: agent, kind: global). " +
+				"See https://xcaffold.com/docs/reference/schema",
+		)
+
+	case "config":
+		return "", "", fmt.Errorf(
+			"kind \"config\" has been removed: migrate to kind: project with " +
+				"individual resource documents (kind: agent, kind: skill, etc.). " +
+				"For global config, use kind: global. " +
+				"See https://xcaffold.com/docs/migration/config-removal",
+		)
+
+	case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy", "context", "memory":
+		// Resource-kind document: route to the kind-aware parser.
+		// Propagate the resource version to config.Version if not already set.
+		if config.Version == "" {
+			config.Version = extractVersion(docNode)
+		}
+		if parseErr := parseResourceDocument(docNode, kind, config, resolved.sourcePath, inferredName); parseErr != nil {
+			return "", "", parseErr
+		}
+		return kind, extractScalarField(docNode, "name"), nil
+
+	case "blueprint":
+		if config.Version == "" {
+			config.Version = extractVersion(docNode)
+		}
+		if parseErr := parseBlueprintDocumentFromNode(docNode, config); parseErr != nil {
+			return "", "", parseErr
+		}
+		return "blueprint", extractScalarField(docNode, "name"), nil
+
+	default:
+		return "", "", fmt.Errorf("unknown resource kind %q in document %d", kind, docIndex)
+	}
+}
+
+// assignBodyToResource assigns markdown body text to the last parsed resource.
+// Returns an error if the body assignment is invalid (e.g., project with body).
+func assignBodyToResource(config *ast.XcaffoldConfig, lastKind, lastName string, body []byte) error {
+	if body == nil || len(strings.TrimSpace(string(body))) == 0 {
+		return nil
+	}
+
+	trimmedBody := strings.TrimSpace(string(body))
+	switch lastKind {
+	case "agent":
+		if a, ok := config.Agents[lastName]; ok {
+			a.Body = trimmedBody
+			config.Agents[lastName] = a
+		}
+	case "skill":
+		if s, ok := config.Skills[lastName]; ok {
+			s.Body = trimmedBody
+			config.Skills[lastName] = s
+		}
+	case "rule":
+		if r, ok := config.Rules[lastName]; ok {
+			r.Body = trimmedBody
+			config.Rules[lastName] = r
+		}
+	case "workflow":
+		if w, ok := config.Workflows[lastName]; ok {
+			if len(w.Steps) > 0 {
+				assignWorkflowStepBodies(&w, trimmedBody)
+			} else {
+				w.Body = trimmedBody
+			}
+			config.Workflows[lastName] = w
+		}
+	case "context":
+		if ctx, ok := config.Contexts[lastName]; ok {
+			ctx.Body = trimmedBody
+			config.Contexts[lastName] = ctx
+		}
+	case "project":
+		return fmt.Errorf("invalid project document: kind: project does not support a markdown body — use kind: context for workspace-level instructions")
+	}
+	return nil
+}
+
 func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
 	resolved := resolveParseOptions(opts)
 	data, err := io.ReadAll(r)
@@ -362,67 +475,14 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			docNode = node.Content[0]
 		}
 
-		kind := extractKind(docNode)
+		// Extract kind and inferred name with warnings.
+		kind, inferredName := extractKindAndInferredName(docNode, resolved, config)
 
-		// Infer kind and name from file path if not explicit in YAML.
-		// If kind is empty, infer both kind and name.
-		// If kind is provided but name is not, infer only the name.
-		var inferredKind, inferredName string
-		if resolved.sourcePath != "" {
-			inferredKind, inferredName = inferKindAndName(resolved.sourcePath)
-			// If kind was empty in YAML, use the inferred kind
-			if kind == "" && inferredKind != "" {
-				kind = inferredKind
-			}
-			// If kind is now known (either explicit or inferred), we can use the inferred name
-			// The name will be applied during resource document parsing if YAML name is empty.
-		}
-
-		// Warn if YAML kind differs from inferred kind (when both are present)
-		if kind != "" && inferredKind != "" && kind != inferredKind {
-			config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares kind: %s but path implies kind: %s", resolved.sourcePath, kind, inferredKind))
-		}
-
-		switch kind {
-		case "":
-			return nil, fmt.Errorf(
-				"kind field is required: every .xcaf document must declare a kind " +
-					"(e.g., kind: project, kind: agent, kind: global). " +
-					"See https://xcaffold.com/docs/reference/schema",
-			)
-
-		case "config":
-			return nil, fmt.Errorf(
-				"kind \"config\" has been removed: migrate to kind: project with " +
-					"individual resource documents (kind: agent, kind: skill, etc.). " +
-					"For global config, use kind: global. " +
-					"See https://xcaffold.com/docs/migration/config-removal",
-			)
-
-		case "agent", "skill", "rule", "workflow", "mcp", "project", "hooks", "settings", "global", "policy", "context", "memory":
-			// Resource-kind document: route to the kind-aware parser.
-			// Propagate the resource version to config.Version if not already set.
-			if config.Version == "" {
-				config.Version = extractVersion(docNode)
-			}
-			if parseErr := parseResourceDocument(docNode, kind, config, resolved.sourcePath, inferredName); parseErr != nil {
-				return nil, parseErr
-			}
-			lastKind = kind
-			lastName = extractScalarField(docNode, "name")
-
-		case "blueprint":
-			if config.Version == "" {
-				config.Version = extractVersion(docNode)
-			}
-			if parseErr := parseBlueprintDocumentFromNode(docNode, config); parseErr != nil {
-				return nil, parseErr
-			}
-			lastKind = "blueprint"
-			lastName = extractScalarField(docNode, "name")
-
-		default:
-			return nil, fmt.Errorf("unknown resource kind %q in document %d", kind, docIndex)
+		// Route the document to the appropriate parser.
+		var routeErr error
+		lastKind, lastName, routeErr = routeDocument(docNode, kind, inferredName, config, resolved, docIndex)
+		if routeErr != nil {
+			return nil, routeErr
 		}
 
 		// Reject multi-document .xcaf files. Each file must contain exactly one
@@ -444,41 +504,8 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 
 	// Assign markdown body to the parsed resource's Body or Content field.
 	// Only applies to frontmatter-format files (body != nil) with non-empty body text.
-	if body != nil && len(strings.TrimSpace(string(body))) > 0 {
-		trimmedBody := strings.TrimSpace(string(body))
-		switch lastKind {
-		case "agent":
-			if a, ok := config.Agents[lastName]; ok {
-				a.Body = trimmedBody
-				config.Agents[lastName] = a
-			}
-		case "skill":
-			if s, ok := config.Skills[lastName]; ok {
-				s.Body = trimmedBody
-				config.Skills[lastName] = s
-			}
-		case "rule":
-			if r, ok := config.Rules[lastName]; ok {
-				r.Body = trimmedBody
-				config.Rules[lastName] = r
-			}
-		case "workflow":
-			if w, ok := config.Workflows[lastName]; ok {
-				if len(w.Steps) > 0 {
-					assignWorkflowStepBodies(&w, trimmedBody)
-				} else {
-					w.Body = trimmedBody
-				}
-				config.Workflows[lastName] = w
-			}
-		case "context":
-			if ctx, ok := config.Contexts[lastName]; ok {
-				ctx.Body = trimmedBody
-				config.Contexts[lastName] = ctx
-			}
-		case "project":
-			return nil, fmt.Errorf("invalid project document: kind: project does not support a markdown body — use kind: context for workspace-level instructions")
-		}
+	if err := assignBodyToResource(config, lastKind, lastName, body); err != nil {
+		return nil, err
 	}
 
 	o := resolveParseOptions(opts)
