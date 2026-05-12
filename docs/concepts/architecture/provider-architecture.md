@@ -12,6 +12,8 @@ xcaffold uses a symmetric import/render architecture for each supported provider
 
 The AST (`ast.XcaffoldConfig`) sits between these two halves as a shared intermediate representation. An import from one provider and a render to another is a cross-provider translation; an import and render to the same provider is a round-trip that should preserve all classified data.
 
+All five current providers are **harness providers** — AI coding tools that read static configuration files at runtime. The provider architecture also supports declarative agent SDK frameworks as future expansion targets, where xcaffold would scaffold starting configurations rather than continuously compile managed state.
+
 ---
 
 ## Pipeline Overview
@@ -306,7 +308,7 @@ The orchestrator automatically dispatches to per-resource methods and emits fide
 
 ## Related
 
-- [Architecture](architecture.md) — full compilation pipeline and internal package map
+- [Architecture](overview.md) — full compilation pipeline and internal package map
 - [Multi-Target Rendering](multi-target-rendering.md) — how the AST enables same-source, different-output compilation
-- [Supported Providers](../reference/supported-providers.md) — capability matrix and per-provider field support
-- [Schema Reference](../reference/schema.md) — per-target fidelity mappings
+- [Supported Providers](../../reference/supported-providers.md) — capability matrix and per-provider field support
+- [Kind Reference](../../reference/kinds/index.md) — per-target fidelity mappings

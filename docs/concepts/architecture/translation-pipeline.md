@@ -128,6 +128,6 @@ Every lowering function returns a `[]renderer.FidelityNote` alongside the primit
 
 ## Related
 
-- [Architecture](architecture.md) — full internal package map
+- [Architecture](overview.md) — full internal package map
 - [Workflows kind reference](../../reference/kinds/provider/workflow.md) — `WorkflowConfig` field reference and `.xcaf` authoring guide
 - [Multi-Target Rendering](multi-target-rendering.md) — how fidelity notes surface per-target differences
