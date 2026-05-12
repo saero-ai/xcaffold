@@ -117,6 +117,46 @@ func TestCopilotRenderer_HookPaths_PathFix(t *testing.T) {
 	assert.False(t, bad, "hook path must NOT include \".github/\" prefix")
 }
 
+// TestCopilotRenderer_Workflow_PromptFile_NoPathDoubling verifies that a workflow
+// lowered to a prompt-file primitive is stored with a path relative to OutputDir
+// ("prompts/<name>.prompt.md") and NOT with the full provider prefix
+// (".github/prompts/<name>.prompt.md"). Without the fix, apply.go would join
+// OutputDir + ".github/prompts/my-prompt.prompt.md", producing
+// ".github/.github/prompts/my-prompt.prompt.md" on disk.
+func TestCopilotRenderer_Workflow_PromptFile_NoPathDoubling(t *testing.T) {
+	r := copilot.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"my-prompt": {
+					Name: "my-prompt",
+					Steps: []ast.WorkflowStep{
+						{Name: "step-one", Body: "Some prompt body."},
+					},
+					Targets: map[string]ast.TargetOverride{
+						"copilot": {
+							Provider: map[string]interface{}{
+								"lowering-strategy": "prompt-file",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, t.TempDir())
+	require.NoError(t, err)
+
+	// Relative path (correct — apply.go will prepend .github/).
+	_, ok := out.Files["prompts/my-prompt.prompt.md"]
+	assert.True(t, ok, "workflow prompt-file path must be relative: \"prompts/my-prompt.prompt.md\"")
+
+	// Absolute path with provider prefix (the doubled path — must not appear).
+	_, doubled := out.Files[".github/prompts/my-prompt.prompt.md"]
+	assert.False(t, doubled, "workflow prompt-file path must NOT include \".github/\" prefix")
+}
+
 // TestCopilotRenderer_InstructionPath_PathFix verifies that the copilot-instructions.md
 // path is relative to OutputDir (i.e. "copilot-instructions.md", no ".github/" prefix).
 func TestCopilotRenderer_InstructionPath_PathFix(t *testing.T) {

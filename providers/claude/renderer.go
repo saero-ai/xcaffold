@@ -158,7 +158,10 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	return files, notes, nil
 }
 
-// CompileWorkflows lowers workflow configs to rules and skills.
+// CompileWorkflows lowers workflow configs to provider-native primitives. Rule and
+// skill primitives are written to their standard paths. Primitives with provider-
+// native paths ("custom-command", "prompt-file") are written directly using the
+// path set by the translator.
 func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
@@ -181,6 +184,15 @@ func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, bas
 			case "skill":
 				safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))
 				files[safePath] = content
+			case "custom-command", "prompt-file":
+				// Primitives with a provider-native path set by the translator
+				// are written directly. Strip the OutputDir prefix if present:
+				// apply.go already prepends OutputDir when writing to disk, so
+				// any ".claude/"-prefixed path would produce ".claude/.claude/...".
+				if p.Path != "" {
+					relPath := strings.TrimPrefix(p.Path, r.OutputDir()+"/")
+					files[relPath] = content
+				}
 			}
 		}
 	}

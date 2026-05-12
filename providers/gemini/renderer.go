@@ -102,15 +102,28 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	return files, notes, nil
 }
 
-// CompileWorkflows lowers workflow configs to rule+skill primitives and compiles
-// them. @-import lines for any lowered rules are stored under the sentinel key.
+// CompileWorkflows lowers workflow configs to provider-native primitives and compiles
+// them. Rule and skill primitives are rendered into their standard output paths.
+// Primitives with provider-native paths (custom-command, prompt-file) are written
+// directly using the path set by the translator. @-import lines for any lowered
+// rules are stored under the sentinel key.
 func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Workflows: workflows}}
-	lowered, workflowNotes := rendshared.LowerWorkflows(cfg, targetName)
+	lowered, directFiles, workflowNotes := rendshared.LowerWorkflows(cfg, targetName)
 
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 	notes = append(notes, workflowNotes...)
+
+	// Merge direct-path files (e.g. custom-command primitives). The translator sets
+	// p.Path to the full provider-prefixed path (e.g. ".gemini/commands/<name>.md")
+	// because it encodes the intended on-disk location. The files map here is keyed
+	// relative to OutputDir, so apply.go will prepend OutputDir again when writing.
+	// Strip the OutputDir prefix to avoid the doubled path ".gemini/.gemini/..." on disk.
+	prefix := r.OutputDir() + "/"
+	for path, content := range directFiles {
+		files[strings.TrimPrefix(path, prefix)] = content
+	}
 
 	if len(lowered.Rules) > 0 {
 		ruleNotes, err := r.renderRulesToMap(lowered, files, baseDir)
