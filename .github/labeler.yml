@@ -1,0 +1,56 @@
+area/parser:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'internal/parser/**'
+      - 'internal/ast/**'
+
+area/compiler:
+  # includes internal/policy/ — policy engine is compiler-adjacent (enforced during compilation)
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'internal/compiler/**'
+      - 'internal/bir/**'
+      - 'internal/optimizer/**'
+      - 'internal/policy/**'
+
+area/renderer:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'internal/renderer/**'
+      - 'internal/output/**'
+      - 'internal/registry/**'
+
+area/cli:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'cmd/**'
+      - 'internal/state/**'
+      - 'internal/templates/**'
+
+area/importer:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'internal/importer/**'
+      - 'internal/analyzer/**'
+
+area/docs:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docs/**'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'CHANGELOG.md'
+
+area/ci:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**'
+      - 'Makefile'
+      - '.goreleaser.yaml'
+      - '.golangci.yml'
+
+area/schema:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'xcf/**'
+      - '*.xcaf'

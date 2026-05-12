@@ -1,0 +1,22 @@
+# Default owner for everything
+* @saero-ai/maintainers
+
+# Parser and AST
+/internal/parser/ @saero-ai/maintainers
+/internal/ast/ @saero-ai/maintainers
+
+# Compiler pipeline
+/internal/compiler/ @saero-ai/maintainers
+/internal/bir/ @saero-ai/maintainers
+/internal/optimizer/ @saero-ai/maintainers
+
+# Renderers
+/internal/renderer/ @saero-ai/maintainers
+
+# CLI commands
+/cmd/ @saero-ai/maintainers
+
+# CI and release
+/.github/ @saero-ai/maintainers
+/Makefile @saero-ai/maintainers
+/.goreleaser.yaml @saero-ai/maintainers

@@ -1,0 +1,72 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  welcome:
+    name: Welcome first-time contributor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Welcome to xcaffold! Thanks for opening your first issue.
+
+            A maintainer will review this soon. In the meantime:
+            - For **bug reports**: please ensure you've included reproduction steps and your `xcaffold version` output
+            - For **feature requests**: check our [Discussions](https://github.com/saero-ai/xcaffold/discussions) for related proposals
+            - For **questions**: consider opening a [Discussion](https://github.com/saero-ai/xcaffold/discussions) instead
+
+            Read our [Contributing Guide](CONTRIBUTING.md) for how we handle contributions.
+          pr-message: |
+            Welcome to xcaffold! Thanks for your first pull request.
+
+            A maintainer will review this soon. Please make sure:
+            - [ ] `make lint` passes locally
+            - [ ] `make test` passes locally
+            - [ ] You've read our [Contributing Guide](CONTRIBUTING.md)
+
+  auto-label:
+    name: Auto-label by content
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const body = (issue.body || '').toLowerCase();
+            const title = (issue.title || '').toLowerCase();
+            const text = title + ' ' + body;
+            const labels = [];
+
+            // Area labels
+            const areaMap = {
+              'area/parser': ['parser', 'ast', 'parsing', 'syntax', 'xcaf file'],
+              'area/compiler': ['compiler', 'compilation', 'bir', 'optimizer', 'policy'],
+              'area/renderer': ['renderer', 'rendering', 'output', 'provider output'],
+              'area/cli': ['cli', 'command', 'flag', 'init', 'apply', 'import', 'validate', 'diff'],
+              'area/importer': ['import', 'importer', 'analyzer', 'scan'],
+              'area/docs': ['documentation', 'docs', 'readme', 'contributing', 'changelog'],
+            };
+
+            for (const [label, keywords] of Object.entries(areaMap)) {
+              if (keywords.some(kw => text.includes(kw))) {
+                labels.push(label);
+              }
+            }
+
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                labels: labels,
+              });
+            }
