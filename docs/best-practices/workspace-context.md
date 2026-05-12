@@ -20,8 +20,6 @@ In xcaffold, workspace-level instructions — the root prompt read by all AI pro
 
 Because these files are loaded on **every interaction** (check with the provider for any changes), their token cost is unconditional — paid regardless of which agent is active or what task is being performed. Keep them short and focused on absolute invariants.
 
----
-
 ## Declaring Workspace Context
 
 Create a `kind: context` file under `xcaf/`. The markdown body becomes the compiled workspace instruction:
@@ -58,9 +56,8 @@ The `targets:` field scopes which providers receive this context. Omitting `targ
 > [!IMPORTANT]
 > The `kind: project` document does **not** support a markdown body. Project metadata (`name`, `targets`, `extends`) goes in `kind: project`. Workspace prose goes in `kind: context`. Adding a markdown body after the closing `---` in a project manifest will cause a parse error.
 
----
 
-## Practice: Document Only Absolute Laws
+## Document Only Absolute Laws
 
 Reserve workspace context for immutable ground rules that span all disciplines and all agents. Ask yourself: "Is this true for every file in the repository, every agent, and every task?" If not, it belongs somewhere narrower.
 
@@ -76,9 +73,8 @@ Reserve workspace context for immutable ground rules that span all disciplines a
 - Testing framework usage (language-specific)
 - Agent-specific behavioral guidance
 
----
 
-## Practice: Isolate Tactical Rules to Their Scope
+## Isolate Tactical Rules to Their Scope
 
 **Anti-pattern:** Embedding a CSS architecture guide in the root `kind: context`.
 
@@ -103,9 +99,8 @@ When adding a new component, check `src/ui/design-tokens.ts` for available color
 
 Similarly, move agent-specific guidance directly into that agent's body, not into the workspace context.
 
----
 
-## Practice: Write Instructions, Not Documentation
+## Write Instructions, Not Documentation
 
 The most common mistake when authoring a context file is writing it like a README or a wiki page — describing what the project is, listing technologies, explaining architecture. That content may be accurate, but it does not change how an AI agent behaves.
 
@@ -147,9 +142,8 @@ A well-written context file is typically under 200 lines. If yours exceeds that,
 | Multi-step procedures or workflows | `kind: skill` or `kind: workflow` |
 | Background context that doesn't drive behavior | Remove it entirely |
 
----
 
-## Practice: Use Multiple Context Documents for Multi-Provider Projects
+## Use Multiple Context Documents for Multi-Provider Projects
 
 If providers need different framing for the same information — for example, Claude has MCP tool access while Copilot operates only through the editor — use separate `kind: context` documents with scoped `targets:` rather than writing provider-specific conditionals in a single document:
 
@@ -194,5 +188,19 @@ Run `xcaffold apply` from the terminal to regenerate agent configs after editing
 Database schema is in `packages/db/schema/`. Refer to it before writing migrations.
 ```
 
----
+## Decision Guide
 
+| Content Type | Where It Belongs |
+|---|---|
+| Universal ground rules (repo layout, tooling, commit format) | `kind: context` — workspace-level instructions |
+| File-type or directory-scoped conventions (CSS style, test standards) | `kind: rule` with `activation: path-glob` |
+| Agent-specific behavioral guidance | Agent body (system prompt) |
+| Reusable procedural instructions | `kind: skill` with step-by-step body |
+| Per-provider behavioral differences | `kind: context` with provider-scoped `targets:` |
+
+## Related
+
+- [Context Reference](../reference/kinds/provider/context.md) — field-level documentation for context resources
+- [Rule Organization](rule-organization.md) — behavioral guidance with activation modes
+- [Project Structure](project-structure.md) — how to organize your xcaf/ directory
+- [Multi-Target Compilation](multi-target-compilation.md) — compiling context for multiple providers

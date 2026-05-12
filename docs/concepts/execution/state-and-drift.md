@@ -5,7 +5,7 @@ description: "How xcaffold tracks compilation state, detects drift, and organize
 
 # State Files and Drift Detection
 
-xcaffold uses state files to track what was compiled, when, and from which sources. This enables drift detection without relying on git or file timestamps.
+xcaffold uses state files to track what was compiled, when, and from which sources. This enables drift detection without relying on git or file timestamps. Without lifecycle management, agent configuration degrades over time — a problem known as **config rot**. Drift detection is xcaffold's primary defense against it.
 
 ## The .xcaffold/ Directory
 
@@ -13,19 +13,18 @@ The `.xcaffold/` directory is xcaffold's machine-local state store. It is create
 
 `xcaffold apply` writes the state file (`.xcaffold/project.xcaf.state`) after each successful compilation. It also automatically appends `.xcaffold/` to the project's `.gitignore` on first run if the entry is not already present.
 
+`project.xcaf` lives at the project root, not inside `.xcaffold/`. The `.xcaffold/` directory contains only state files written by `xcaffold apply`.
+
 The directory contains:
 
-- `project.xcaf` — the compiled manifest (written by `init`)
 - One state file per blueprint, plus the default (written by `apply`)
-- `schemas/` — field reference companion files (written by `init`)
 
 ```
+project.xcaf               # project manifest at root (created by xcaffold init)
 .xcaffold/
-  project.xcaf              # project manifest (created by xcaffold init)
   project.xcaf.state        # default state (created by xcaffold apply)
   backend.xcaf.state        # xcaffold apply --blueprint backend
   frontend.xcaf.state       # xcaffold apply --blueprint frontend
-  schemas/                 # field reference docs (created by xcaffold init)
 ```
 
 The `.xcaffold/` gitignore entry is added automatically by `xcaffold apply`. You do not need to add it manually, but you can if you want it committed before the first apply.
@@ -91,7 +90,7 @@ xcaffold distinguishes two types of divergence:
 
 Detailed per-file hash comparison between the state file and current disk contents. Reports drift labels per file, grouped by provider.
 
-See [xcaffold status](../reference/commands/diagnostic/status.md) for flags, sample output, and exit codes.
+See [xcaffold status](../../reference/commands/diagnostic/status.md) for flags, sample output, and exit codes.
 
 ## Design Decisions
 
@@ -123,5 +122,5 @@ State files record SHA-256 hashes rather than file timestamps. Timestamps are un
 
 ## Related
 
-- [Blueprints](blueprints.md)
-- [xcaffold status](../reference/commands/diagnostic/status.md)
+- [Blueprints](../../reference/kinds/xcaffold/blueprint.md)
+- [xcaffold status](../../reference/commands/diagnostic/status.md)

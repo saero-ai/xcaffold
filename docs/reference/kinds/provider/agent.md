@@ -1,13 +1,21 @@
 ---
 title: "kind: agent"
-description: "Defines a named AI persona. Source: xcaf/agents/<name>/agent.xcaf. Compiled to agents/<name>.md per provider."
+description: "Defines a named subagent/specialist delegated to by the main AI session. Source: xcaf/agents/<name>/agent.xcaf. Compiled to agents/<name>.md per provider."
 ---
 
 # `kind: agent`
 
-Defines an AI persona with a system prompt, tool access, and optional skill, rule, and MCP bindings. Compiled to `agents/<id>.md` with YAML frontmatter for each supported target provider.
+Defines a named subagent that the main AI session delegates to. Each agent carries its own system prompt, tool access, and optional skill, rule, and MCP bindings. xcaffold compiles it to `agents/<id>.md` with YAML frontmatter for each supported target provider.
+
+In every provider, the compiled output lands in that provider's agents directory — `.claude/agents/`, `.cursor/agents/`, `.github/agents/`, `.gemini/agents/` — where the main session picks it up and dispatches to it by name.
 
 > **Required:** `kind`, `version`, `name`
+
+## Source Directory
+
+```
+xcaf/agents/<name>/agent.xcaf
+```
 
 ## Example Usage
 
@@ -87,32 +95,40 @@ You are the ONLY agent authorized to modify `src/components/`.
 - Leave `any` types in props.
 ```
 
-## Argument Reference
+## Field Reference
 
-The following arguments are supported:
+### Required Fields
 
-- `name` — (Required) Unique agent identifier. Must match `[a-z0-9-]+`.
-- `description` — (Optional) `string`. Purpose and scope description. Used for delegation and auto-invocation.
-- `model` — (Optional) `string`. LLM model identifier. Bare tier aliases (`sonnet`, `opus`, `haiku`) are passed through to Claude Code for runtime resolution — xcaffold does not expand them to date-stamped IDs. Versioned aliases are mapped at compile time: `sonnet-4` → `claude-sonnet-4-5`, `opus-4` → `claude-opus-4-7`, `haiku-3.5` → `claude-haiku-4-5`. Full `claude-*` IDs are passed through unchanged.
-- `effort` — (Optional) `string`. Resource utilization level: `"low"`, `"medium"`, `"high"`, `"max"`.
-- `max-turns` — (Optional) `int`. Maximum conversation turns before the agent stops.
-- `tools` — (Optional) `[]string`. Runtime tools granted to the agent: `Read`, `Edit`, `Write`, `Bash`, `Glob`, `Grep`, `WebSearch`, etc. Omit to inherit all available tools.
-- `disallowed-tools` — (Optional) `[]string`. Tools explicitly forbidden. Applied before `tools` resolution.
-- `readonly` — (Optional) `bool`. When `true` and `tools` is unset, Claude emits `tools: [Read, Grep, Glob]`; Cursor emits `readonly: true`. Mutually exclusive with `tools`.
-- `permission-mode` — (Optional) `string`. Default execution permission mode: `default`, `acceptEdits`, `auto`, `bypassPermissions`, `plan`.
-- `disable-model-invocation` — (Optional) `bool`. When `true`, the host model cannot auto-invoke this agent. Copilot-only for agents; Claude drops this field silently.
-- `user-invocable` — (Optional) `bool`. When `false`, the agent is only accessible programmatically. Copilot-only for agents; Claude drops this field silently.
-- `background` — (Optional) `bool`. Executes without blocking the UI. Claude emits `background`; Cursor emits `is_background`.
-- `isolation` — (Optional) `string`. Worktree or environment isolation preference.
-- `when` — (Optional) `string`. Compile-time conditional for inclusion.
-- `memory` — (Optional) `[]string`. Agent memory references. A single string value is accepted for backward compatibility. See [`kind: memory`](./memory).
-- `color` — (Optional) `string`. Terminal UI color attribute (Claude-specific).
-- `initial-prompt` — (Optional) `string`. Default message auto-submitted as the first turn.
-- `skills` — (Optional) `[]string`. Skill IDs to grant. Must match top-level `skills:` map keys.
-- `rules` — (Optional) `[]string`. Rule IDs to enforce. Must match top-level `rules:` map keys.
-- `mcp` — (Optional) `[]string`. MCP server IDs to load. Must match top-level `mcp:` map keys.
-- `assertions` — (Optional) `[]string`. Behavioral constraints evaluated by `xcaffold test --judge`.
-- `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides. Keys: `claude`, `cursor`, `copilot`, `gemini`, `antigravity`.
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Unique agent identifier. Must match `[a-z0-9-]+`. |
+
+### Optional Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | `string` | Human-readable purpose of this agent. Used for delegation and auto-invocation. |
+| `model` | `string` | LLM model identifier or alias resolved at compile time. Bare tier aliases (`sonnet`, `opus`, `haiku`) are passed through for runtime resolution. |
+| `effort` | `string` | Reasoning effort level hint for the model provider. |
+| `max-turns` | `int` | Maximum conversation turns before the agent exits. |
+| `tools` | `[]string` | Ordered list of tools this agent may invoke. Omit to inherit all available tools. |
+| `disallowed-tools` | `[]string` | Tools explicitly denied to this agent. |
+| `readonly` | `bool` | When `true`, restricts the agent to read-only tool access. |
+| `permission-mode` | `string` | Security mode controlling tool authorization behavior. |
+| `disable-model-invocation` | `bool` | Prevents the agent from spawning sub-agents. |
+| `user-invocable` | `bool` | Whether users can invoke this agent directly via slash command. |
+| `background` | `bool` | Runs the agent in background mode without interactive prompts. |
+| `isolation` | `string` | Process isolation level for the agent session. |
+| `memory` | `string` or `[]string` | Named memory banks attached to this agent. A single string value is accepted for backward compatibility. |
+| `color` | `string` | Display color for terminal output differentiation. |
+| `initial-prompt` | `string` | System prompt prepended to every conversation. |
+| `skills` | `[]string` | Skill resource IDs attached to this agent. Must match top-level `skills:` map keys. |
+| `rules` | `[]string` | Rule resource IDs governing this agent. Must match top-level `rules:` map keys. |
+| `mcp` | `[]string` | MCP server resource IDs available to this agent. Must match top-level `mcp:` map keys. |
+| `assertions` | `[]string` | Policy assertion IDs evaluated by `xcaffold test --judge`. |
+| `mcp-servers` | `map[string]MCPConfig` | Inline MCP server definitions keyed by server name. Same field schema as [`kind: mcp`](./mcp). |
+| `hooks` | `HookConfig` | Agent-scoped lifecycle hooks. Same structure as [`kind: hooks`](./hooks). |
+| `targets` | `map[string]TargetOverride` | Per-provider overrides keyed by provider name (`claude`, `cursor`, `copilot`, `gemini`, `antigravity`). |
 
 ### `hooks` block
 
@@ -120,7 +136,7 @@ Agent-scoped lifecycle hooks. Same structure as [`kind: hooks`](hooks.md).
 
 - `PreToolUse` — Runs before any tool invocation.
 - `PostToolUse` — Runs after any tool invocation.
-- `SessionStart`, `Stop`, `Notification` — Session lifecycle events.
+- `SessionStart`, `Stop`, `Notification`, `SubagentStop`, `InstructionsLoaded`, `PreCompact`, `ConfigChange` — Session lifecycle events.
 
 ### `mcp-servers` block
 
@@ -128,9 +144,7 @@ Agent-scoped MCP server definitions. Not merged with project-level `mcp:`. Same 
 
 ### `targets` block
 
-The `targets:` field serves two purposes:
-1. **Compilation filtering**: When the `targets` key is present on a resource (e.g., `targets: [claude, gemini]` at the top level), the resource is compiled only for listed providers. When absent, the resource is universal.
-2. **Provider overrides**: The `targets:` map under the agent definition holds provider-native pass-through fields via `TargetOverride`.
+Per-provider overrides keyed by provider name. When present, the resource compiles only for listed providers. See [Targets](../../../concepts/configuration/targets.md) for the full concept, including filtering semantics and the dual-purpose map syntax.
 
 Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct. Valid target keys are: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`.
 
@@ -139,6 +153,38 @@ Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct.
 | `suppress-fidelity-warnings` | `*bool` | Parsed, not compiled |
 | `hooks` | `map[string]string` | Parsed, not compiled |
 | `skip-synthesis` | `*bool` | Parsed, not compiled |
+
+## Provider Fidelity
+
+Not all fields survive compilation to every provider. The table below shows which xcaffold fields are emitted for each target. Fields marked `—` are dropped silently unless noted.
+
+| Field | Claude | Cursor | Copilot | Gemini | Antigravity |
+|-------|--------|--------|---------|--------|-------------|
+| `name` | yes | yes | yes | yes | body only |
+| `description` | yes | yes | yes | yes | body only |
+| `model` | yes (resolved) | mapped only ¹ | yes (resolved) | yes (resolved) | body only |
+| `effort` | yes | — | — | — | — |
+| `max-turns` | yes | — | — | `max_turns` ² | — |
+| `tools` | yes (inline) | — | yes (YAML list) | yes (YAML list) | — |
+| `disallowed-tools` | yes | — | — | — | — |
+| `readonly` | transforms ³ | yes | — | — | — |
+| `permission-mode` | yes | — | — | — | — |
+| `disable-model-invocation` | — | — | yes | — | — |
+| `user-invocable` | — | — | yes | — | — |
+| `background` | yes | `is_background` ² | — | — | — |
+| `isolation` | yes | — | — | — | — |
+| `memory` | yes | — | — | — | — |
+| `color` | yes | — | — | — | — |
+| `initial-prompt` | yes | — | — | — | — |
+| `skills` | yes (inline) | — | — | — | — |
+| `hooks` | yes (YAML) | — | — | — | — |
+| `mcp-servers` | yes (YAML) | — | yes (YAML) | `mcpServers` ² | — |
+
+**Footnotes**
+
+1. Cursor emits `model` only when `IsMappedModel` returns true. Unmapped values are dropped with an `AGENT_MODEL_UNMAPPED` warning to stderr.
+2. Key name differs from the xcaffold canonical: `max_turns` (snake_case), `is_background`, `mcpServers` (camelCase).
+3. Claude: when `readonly: true` and no `tools` are specified, emits `tools: [Read, Grep, Glob]` rather than a `readonly` key.
 
 ## Filesystem-as-Schema
 
@@ -150,105 +196,121 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
 
 ## Compiled Output
 
-<ProviderTabs>
-  <ProviderTab id="claude">
-    **Output path**: `.claude/agents/react-developer.md`
+### Claude
 
-    ```yaml
-    ---
-    name: react-developer
-    description: >-
-      Implements React components, hooks, and UI features for frontend-app.
-      Authorized to modify src/components/, src/hooks/, src/pages/, and
-      src/styles/. Consults the component-patterns skill before authoring
-      any new component.
-    model: claude-sonnet-4-5-20250514
-    tools: [Read, Edit, Write, Bash, Glob, Grep]
-    memory: project
-    skills: [component-patterns]
-    ---
-    # React Developer
+**Output path**: `.claude/agents/react-developer.md`
 
-    ## Role
-    Implements and maintains React UI components for `frontend-app`.
-    …
-    ```
+```yaml
+---
+name: react-developer
+description: >-
+  Implements React components, hooks, and UI features for frontend-app.
+  Authorized to modify src/components/, src/hooks/, src/pages/, and
+  src/styles/. Consults the component-patterns skill before authoring
+  any new component.
+model: claude-sonnet-4-5
+tools: [Read, Edit, Write, Bash, Glob, Grep]
+memory: project
+skills: [component-patterns]
+---
+# React Developer
 
-    All supported fields are emitted. The `model` alias (`sonnet`) is resolved to the full model ID.
-  </ProviderTab>
+## Role
+Implements and maintains React UI components for `frontend-app`.
+…
+```
 
-  <ProviderTab id="cursor">
-    **Output path**: `.cursor/agents/react-developer.md`
+All supported fields are emitted. The `model` alias (`sonnet`) is resolved to the full model ID. `skills` is inlined. `disable-model-invocation` and `user-invocable` are not Claude fields and are not emitted.
 
-    ```yaml
-    ---
-    name: react-developer
-    description: >-
-      Implements React components, hooks, and UI features for frontend-app.
-      Authorized to modify src/components/, src/hooks/, src/pages/, and
-      src/styles/. Consults the component-patterns skill before authoring
-      any new component.
-    model: claude-sonnet-4-5-20250514
-    ---
-    # React Developer
+### Cursor
 
-    ## Role
-    …
-    ```
+**Output path**: `.cursor/agents/react-developer.md`
 
-    > `tools`, `memory`, `skills`, `rules`, `mcp`, `effort`, `permission-mode`, `color`, `initial-prompt`, `hooks`, `mcp-servers` are dropped. Only `name`, `description`, `model`, `readonly`, and `background` (→ `is_background`) are emitted.
-  </ProviderTab>
+```yaml
+---
+name: react-developer
+description: >-
+  Implements React components, hooks, and UI features for frontend-app.
+  Authorized to modify src/components/, src/hooks/, src/pages/, and
+  src/styles/. Consults the component-patterns skill before authoring
+  any new component.
+readonly: true
+---
+# React Developer
 
-  <ProviderTab id="copilot">
-    **Output path**: `.github/agents/react-developer.agent.md`
+## Role
+…
+```
 
-    ```yaml
-    ---
-    name: react-developer
-    description: >-
-      Implements React components, hooks, and UI features for frontend-app.
-      Authorized to modify src/components/, src/hooks/, src/pages/, and
-      src/styles/. Consults the component-patterns skill before authoring
-      any new component.
-    model: claude-sonnet-4-5-20250514
-    tools: [Read, Edit, Write, Bash, Glob, Grep]
-    ---
-    # React Developer
+> Cursor emits `name`, `description`, `model` (mapped models only — unmapped values dropped with `AGENT_MODEL_UNMAPPED` warning), `readonly`, and `background` (renamed to `is_background`). All other fields — `tools`, `memory`, `skills`, `rules`, `mcp`, `effort`, `permission-mode`, `color`, `initial-prompt`, `hooks`, `mcp-servers` — are dropped.
 
-    ## Role
-    …
-    ```
+### Copilot
 
-    > `memory`, `skills`, `rules`, `mcp` are dropped. `name`, `description`, `model`, `tools`, `disable-model-invocation`, `user-invocable`, and `mcp-servers` are emitted.
-  </ProviderTab>
+**Output path**: `.github/agents/react-developer.agent.md`
 
-  <ProviderTab id="gemini">
-    **Output path**: `.gemini/agents/react-developer.md`
+```yaml
+---
+name: react-developer
+description: >-
+  Implements React components, hooks, and UI features for frontend-app.
+  Authorized to modify src/components/, src/hooks/, src/pages/, and
+  src/styles/. Consults the component-patterns skill before authoring
+  any new component.
+model: claude-sonnet-4-6
+tools:
+  - Read
+  - Edit
+  - Write
+  - Bash
+  - Glob
+  - Grep
+---
+# React Developer
 
-    ```yaml
-    ---
-    name: react-developer
-    description: >-
-      Implements React components, hooks, and UI features for frontend-app.
-      Authorized to modify src/components/, src/hooks/, src/pages/, and
-      src/styles/. Consults the component-patterns skill before authoring
-      any new component.
-    ---
-    # React Developer
+## Role
+…
+```
 
-    ## Role
-    …
-    ```
-
-    > `name`, `description`, `tools` (if present), `model` (if resolved), and `max_turns` (snake_case) are emitted. `memory`, `skills`, `rules`, `mcp`, `effort`, `permission-mode`, and other Claude/Cursor-specific fields are dropped.
-  </ProviderTab>
-
-  <ProviderTab id="antigravity">
-    > **Target Skipped**: Antigravity has no file-based agent configuration. Agent behavior is controlled entirely via UI settings. `AGENT_NO_NATIVE_TARGET` fidelity note emitted to stderr.
-  </ProviderTab>
-</ProviderTabs>
-
-> [!WARNING]
-> **Cursor**: Drops all fields except `name`, `description`, `model`, `readonly`, and `background`. Unmapped `model` values emit a stderr warning and are omitted from output.
+> Copilot emits `name`, `description`, `model` (resolved), `tools` (YAML list), `disable-model-invocation`, `user-invocable`, and `mcp-servers`. Fields `memory`, `skills`, `rules`, `mcp`, `effort`, `permission-mode`, `readonly`, `background`, `isolation`, `color`, `initial-prompt`, and `hooks` are dropped.
 >
-> **Antigravity**: Agent compilation is skipped entirely. No files are written for this target.
+> **Native passthrough**: when `.claude/agents/` is present in the project, Copilot skips compilation for agents and reads the Claude output directly (`CLAUDE_NATIVE_PASSTHROUGH`).
+
+### Gemini
+
+**Output path**: `.gemini/agents/react-developer.md`
+
+```yaml
+---
+name: react-developer
+description: >-
+  Implements React components, hooks, and UI features for frontend-app.
+  Authorized to modify src/components/, src/hooks/, src/pages/, and
+  src/styles/. Consults the component-patterns skill before authoring
+  any new component.
+model: gemini-2.5-flash
+tools:
+  - Read
+  - Edit
+  - Write
+  - Bash
+  - Glob
+  - Grep
+max_turns: 10
+mcpServers:
+  browser-tools:
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-browser-tools"]
+---
+# React Developer
+
+## Role
+…
+```
+
+> Gemini emits `name`, `description`, `model` (resolved), `tools` (YAML list), `max_turns` (snake_case, from `max-turns`), and `mcpServers` (camelCase, from `mcp-servers`). Fields `memory`, `skills`, `rules`, `mcp`, `effort`, `permission-mode`, `readonly`, `background`, `isolation`, `color`, `initial-prompt`, and `hooks` are dropped.
+
+### Antigravity
+
+**Output path**: `.agents/agents/react-developer.md`
+
+Agent compiled as a specialist note (persona profile). Fidelity note `RENDERER_KIND_DOWNGRADED` emitted to stderr indicating that Antigravity does not support native agent definitions. `name`, `description`, `model`, and body content are folded into the note body; no frontmatter fields are emitted.

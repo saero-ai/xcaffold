@@ -7,9 +7,7 @@ description: "How to structure rule resources, choose activation modes, and get 
 
 Rules are behavioral guidelines compiled into provider-native instruction files. They control *when* an AI agent receives specific instructions — always, only when touching certain files, or only when explicitly invoked. Unlike agents or skills, rules don't orchestrate a task; they set boundaries and conventions that apply across all tasks.
 
-This guide covers practical use cases — how to use rules effectively and how activation works across providers. For field-level reference, see the [Schema Reference](../reference/schema.md#ruleconfig).
-
----
+This guide covers practical use cases — how to use rules effectively and how activation works across providers. For field-level reference, see the [Schema Reference](../reference/kinds/provider/rule.md).
 
 ## Choosing an Activation Mode
 
@@ -36,9 +34,7 @@ When no `activation:` is set and no `paths:` are provided, the compiler defaults
 
 If `activation:` is set, it takes precedence over `always-apply:`.
 
----
-
-## Use Case 1 — Global Standards
+## Global Standards
 
 A rule with `activation: always` is loaded into every conversation and applies unconditionally. Use this for conventions that must hold regardless of context:
 
@@ -71,9 +67,7 @@ All commit messages must use the format `type(scope): description`.
 
 Both produce the same compiled output.
 
----
-
-## Use Case 2 — Path-Scoped Rules
+## Path-Scoped Rules
 
 A rule with `activation: path-glob` is only loaded when the active file or conversation context matches one of the patterns in `paths:`. This is the right choice when a guideline is specific to part of your codebase.
 
@@ -109,9 +103,7 @@ Always add a negative case (error path) for every positive case tested.
 
 Rules do not require subdirectories — a flat file at `xcaf/rules/test-conventions.xcaf` is valid. Use the directory-per-resource layout (`xcaf/rules/test-conventions/rule.xcaf`) only when you expect to add supporting files alongside the rule in the future.
 
----
-
-## Use Case 3 — On-Demand Guidance
+## On-Demand Guidance
 
 A rule with `activation: manual-mention` is not loaded automatically. It enters the conversation only when the user or agent references it by name. Use this for guidance that is relevant in specific, predictable situations but would add noise if always present:
 
@@ -132,9 +124,7 @@ Before writing a migration:
 
 A user invokes this by mentioning it in conversation: "Apply the database-migration-checklist before we write this migration."
 
----
-
-## Use Case 4 — AI-Decided Relevance
+## AI-Decided Relevance
 
 A rule with `activation: model-decided` lets the model itself determine whether the rule applies to the current conversation. The model reads the rule's `description:` field to make that determination:
 
@@ -153,9 +143,7 @@ Document the baseline measurement alongside any optimization.
 
 The description is the signal the model uses to decide. Write it as a precise "apply when" statement rather than a general summary. Note that `model-decided` is only supported by a subset of providers — see the Provider Support table below.
 
----
-
-## Use Case 5 — Strictly Opt-In Rules
+## Strictly Opt-In Rules
 
 A rule with `activation: explicit-invoke` requires a deliberate invocation to load. It is stricter than `manual-mention` — it does not activate from casual name references in conversation. Use it for high-stakes playbooks where accidental activation could cause harm:
 
@@ -173,29 +161,9 @@ Production deployments require explicit authorization.
 3. Deploy during the maintenance window (UTC 02:00–04:00) unless critical.
 ```
 
----
-
 ## Provider Activation Support
 
-Providers differ in which activation modes they support. When a rule uses an unsupported mode, xcaffold still emits the rule — it is not dropped — but falls back to a compatible mode and emits a fidelity warning to stderr.
-
-| Activation mode | Claude | Cursor | Gemini | Copilot | Antigravity |
-|---|---|---|---|---|---|
-| `always` | Supported | Supported | Supported | Supported | Supported |
-| `path-glob` | Supported | Supported | Supported | Supported | Supported |
-| `manual-mention` | Not supported¹ | Supported | Not supported¹ | Not supported¹ | Not supported¹ |
-| `model-decided` | Not supported¹ | Not supported¹ | Not supported¹ | Not supported¹ | Supported |
-| `explicit-invoke` | Not supported¹ | Not supported¹ | Not supported¹ | Not supported¹ | Not supported¹ |
-
-**Notes:**
-
-1. When a provider does not support the requested activation mode, xcaffold emits the rule using the provider's fallback mode and prints a fidelity warning to stderr. Claude falls back to always-loaded; Cursor falls back to `always-apply: false`; Copilot falls back to `applyTo: "**"`. Compilation succeeds and the rule file is still written.
-
-Gemini is a special case: it supports always and path-glob logically, but its output format does not encode activation as a frontmatter field. xcaffold places the rule's description as the first plain paragraph of the compiled body, making the intent readable to the model, and emits a fidelity note that activation was not encoded in the output.
-
-The `exclude-agents:` field is only meaningful for Copilot. Claude drops it with a fidelity note; other providers ignore it silently.
-
----
+Provider support for activation modes varies. Some modes (like `model-decided` and `explicit-invoke`) are only available on providers that support agent-decided file selection. See the [Schema Reference](../reference/kinds/provider/rule.md) for the full provider activation support matrix.
 
 ## Organizing Rule Files
 
@@ -242,8 +210,6 @@ xcaf/
 
 Grouping by concern makes it easy to understand what categories of guidance your project enforces at a glance.
 
----
-
 ## Rule Composition with Agents
 
 Rules are referenced from agent manifests using the `rules:` field. Unlike rules, agents should always use the directory-per-resource layout (`xcaf/agents/<name>/agent.xcaf`) to support memory discovery without CLI warnings:
@@ -268,9 +234,7 @@ Only the rules listed in `rules:` are compiled into the agent's context bundle. 
 
 Rules that are not referenced by any agent are still compiled and written to disk. Their activation mode determines whether the provider loads them — an `always` rule with no agent reference is still loaded globally by providers that support global instruction files.
 
----
-
-## Activation Decision Guide
+## Decision Guide
 
 | I need... | Use |
 |---|---|
@@ -283,3 +247,10 @@ Rules that are not referenced by any agent are still compiled and written to dis
 | A shorthand for mention-to-activate | `always-apply: false` |
 | Universal support across all providers | `always` or `path-glob` |
 | On-demand loading with broadest provider support | `manual-mention` (Cursor only for now) |
+
+## Related
+
+- [Schema Reference — RuleConfig](../reference/kinds/provider/rule.md) — field-level documentation for all rule fields
+- [Policy Organization](policy-organization.md) — compile-time governance rules that block invalid output
+- [Agent Design Patterns](agent-design-patterns.md) — patterns for agent composition that reference rules
+- [Workspace Context](workspace-context.md) — project-level instructions that apply across all agents

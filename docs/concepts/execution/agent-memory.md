@@ -76,7 +76,7 @@ During import, xcaffold preserves this memory even though the agent definition i
 On `xcaffold apply`, the renderer writes these memory entries back to the provider's agent-memory directory, maintaining the round-trip contract:
 
 ```text
-~/.claude/agents/ceo.md (memory: project)
+~/.claude/agents/principal-architect.md (memory: project)
        ↓ agent writes memory
 .claude/agent-memory/principal-architect/*.md
        ↓ xcaffold import
@@ -100,4 +100,4 @@ Memory configurations matter when provisioning long-lived service agents that bu
 ## Related
 
 - [State and Drift](state-and-drift.md) — verifying artifact hashes and preventing file overwrite anomalies
-- [Multi-Target Rendering](multi-target-rendering.md) — understanding capability variance across provider outputs
+- [Multi-Target Rendering](../architecture/multi-target-rendering.md) — understanding capability variance across provider outputs

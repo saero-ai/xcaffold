@@ -23,7 +23,8 @@ xcaffold apply [flags]
 | `--blueprint <name>` | — | `string` | `""` | Compile only the named blueprint's resources. |
 | `--dry-run` | — | `bool` | `false` | Preview changes without writing to disk. Shows a diff of what would change. |
 | `--force` | — | `bool` | `false` | Overwrite output files even when drift is detected. |
-| `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/global.xcaf`). Not yet available. |
+| `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/global.xcaf`). |
+| `--yes` | `-y` | `bool` | `false` | Skip the confirmation prompt. Useful for CI/CD pipelines. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
 | `--project <name>` | — | `string` | `""` | Apply to a project registered in the global registry. |
 | `--target <name>` | — | `string` | `""` | Compilation target platform (`antigravity`, `claude`, `copilot`, `cursor`, `gemini`). When omitted, reads targets from `project.xcaf`. |
@@ -65,7 +66,7 @@ When `--target` is not provided and the `project.xcaf` declares a `targets:` lis
 ```
 sandbox  ·  claude  ·  applied just now
 
-ok  Apply complete. 90 files written to .claude/
+✓  Apply complete. 90 files written to .claude/
   Run 'xcaffold import' to sync manual edits back to .xcaf sources.
 ```
 
@@ -74,9 +75,9 @@ ok  Apply complete. 90 files written to .claude/
 ```
 sandbox  ·  claude  ·  applied 2 hours ago
 
-  ok  Sources unchanged. Nothing to compile.
+  ✓  Sources unchanged. Nothing to compile.
 
--> Run 'xcaffold apply --force' to recompile.
+→ Run 'xcaffold apply --force' to recompile.
 ```
 
 ### Drift detected
@@ -84,14 +85,14 @@ sandbox  ·  claude  ·  applied 2 hours ago
 ```
 sandbox  ·  claude  ·  applied 2 hours ago
 
-  !!  Drift detected in 2 files:
+  ✗  Drift detected in 2 files:
 
-    !!  missing     CLAUDE.md  (root)
-    !!  modified    agents/reviewer.md
+    ✗  missing     CLAUDE.md  (root)
+    ✗  modified    agents/reviewer.md
 
   To preserve manual edits, run 'xcaffold import' first.
 
--> Run 'xcaffold apply --force' to overwrite.
+→ Run 'xcaffold apply --force' to overwrite.
 ```
 
 ## Examples
@@ -123,8 +124,8 @@ xcaffold apply --backup
 
 ## Notes
 
-- `--global` is accepted as a flag but prints `Global scope is not yet available` and exits `1`. Global compilation will be supported in a future release.
+- `--global` compiles the user-wide global config at `~/.xcaffold/global.xcaf`. The flag is hidden but functional.
 - `--blueprint` and `--global` cannot be combined. Blueprints are project-scoped.
-- The state file is written to `.xcaffold/project.xcaf.state` and is machine-local. It should be gitignored (apply adds the entry automatically). See [State Files and Drift Detection](../../concepts/execution/state-and-drift.md) for schema details.
+- The state file is written to `.xcaffold/project.xcaf.state` and is machine-local. It should be gitignored (apply adds the entry automatically). See [State Files and Drift Detection](../../../concepts/execution/state-and-drift.md) for schema details.
 - Policy rules are evaluated after successful compilation. If compilation fails, the policy phase is skipped.
-- For guidance on authoring policy resources, see [Policy Best Practices](../../best-practices/policy-organization.md).
+- For guidance on authoring policy resources, see [Policy Best Practices](../../../best-practices/policy-organization.md).

@@ -9,8 +9,6 @@ xcaffold provides two mechanisms for customizing compiled output without duplica
 
 Used together, they keep your `xcaf/` tree small, readable, and non-repetitive regardless of how many providers you target.
 
----
-
 ## When to Use Variables
 
 Variables are the right tool when the same value appears in multiple manifests or when the value differs between environments but the manifest structure does not:
@@ -21,8 +19,6 @@ Variables are the right tool when the same value appears in multiple manifests o
 - Any value that a developer should be able to override locally without touching committed files
 
 If the difference between two environments is a handful of scalar values, use variables. If the difference is structural — different fields, different tools, different behavior — use overrides instead.
-
----
 
 ## Variable File Stack
 
@@ -40,7 +36,7 @@ A practical three-layer setup looks like this:
 `xcaf/project.vars` — committed, shared across all targets:
 ```
 # Shared defaults
-model = haiku-3.5
+model = haiku-4.5
 api-base = https://api.example.com
 team = platform
 ```
@@ -57,11 +53,9 @@ model = sonnet-4
 api-base = http://localhost:8080
 ```
 
-When compiling for the Claude target, `model` resolves to `sonnet-4` (from the target file). When compiling for any other target, `model` resolves to `haiku-3.5` (from the base file). A developer running locally sees `http://localhost:8080` for `api-base` regardless of target.
+When compiling for the Claude target, `model` resolves to `sonnet-4` (from the target file). When compiling for any other target, `model` resolves to `haiku-4.5` (from the base file). A developer running locally sees `http://localhost:8080` for `api-base` regardless of target.
 
 Add `xcaf/project.vars.local` to your `.gitignore` to keep local overrides out of version control.
-
----
 
 ## Variable Syntax and Types
 
@@ -71,7 +65,7 @@ Each line in a variable file follows `key = value` format:
 # Comment lines begin with #
 # Empty lines are ignored
 
-model = haiku-3.5
+model = haiku-4.5
 max-tokens = 4096
 enable-streaming = true
 allowed-providers = [claude, cursor, gemini]
@@ -83,14 +77,12 @@ Values are parsed as YAML scalars and sequences:
 
 | Value written | Type resolved |
 |---|---|
-| `haiku-3.5` | string |
+| `haiku-4.5` | string |
 | `4096` | integer |
 | `true` / `false` | boolean |
 | `[claude, cursor]` | list of strings |
 
 Strings do not require quotes unless they contain characters that YAML would otherwise interpret (colons, brackets, etc.).
-
----
 
 ## Using Variables in Manifests
 
@@ -140,8 +132,6 @@ Current environment: ${env.CI_ENVIRONMENT}
 
 If a manifest references `${env.NAME}` and `NAME` is not in `allowed-env-vars`, xcaffold reports an error and halts compilation. This prevents accidental leakage of sensitive environment variables into compiled output.
 
----
-
 ## Variable Composition
 
 Variables can reference other variables. This lets you build derived values from shared primitives:
@@ -157,9 +147,7 @@ Resolution runs up to 10 passes, resolving references iteratively until all valu
 
 Keep composition shallow — one or two levels is usually sufficient. Deeply nested chains make it hard to trace the final resolved value.
 
----
-
-## Pattern: Shared Values Between Frontmatter and Body
+## Shared Values Between Frontmatter and Body
 
 Variables are most effective when they bridge your frontmatter configuration and the agent's system prompt. Define shared facts once in `project.vars` and reference them in both places:
 
@@ -209,8 +197,6 @@ The compiler resolves `${skill.tdd.description}` to the actual `description:` va
 
 Cross-resource references support cycle detection: if skill A references agent B's description and agent B references skill A's description, xcaffold detects the cycle and reports an error.
 
----
-
 ## When to Use Overrides
 
 Overrides are the right tool when a resource needs structurally different configuration for a specific provider:
@@ -221,8 +207,6 @@ Overrides are the right tool when a resource needs structurally different config
 - A workflow that requires different environment settings per provider
 
 If the difference is just a value (same field, different content), a target-specific variable file may be cleaner. If the difference is which fields are present, use an override.
-
----
 
 ## Override File Convention
 
@@ -254,8 +238,6 @@ xcaf/rules/
 Every override must have a corresponding base resource in the same directory. An override without a base file causes a parse error.
 
 Supported kinds for overrides: `agent`, `skill`, `rule`, `workflow`, `mcp`, `hooks`, `settings`, `policy`, `template`. `memory` resources do not participate in the override system.
-
----
 
 ## Override Merge Behavior
 
@@ -312,8 +294,6 @@ targets:
 
 This tells xcaffold that the field drops for Gemini are deliberate. The compiled output is unchanged; only the warnings are suppressed.
 
----
-
 ## Target Filtering
 
 A resource can be excluded from specific providers entirely using the `targets:` map on the base manifest. This is distinct from overrides — it removes the resource from compilation rather than adjusting its fields:
@@ -331,8 +311,6 @@ targets:
 
 A resource with a `targets:` map is compiled only for the providers listed. A resource without a `targets:` map is compiled for all providers. Use `targets:` when a resource is provider-specific by nature, not just by configuration.
 
----
-
 ## Decision Guide
 
 | Scenario | Tool |
@@ -343,3 +321,9 @@ A resource with a `targets:` map is compiled only for the providers listed. A re
 | Field set, tool list, or body differs per provider | Override |
 | Resource should only exist for one or two providers | `targets:` map on the base resource |
 | Silencing a known fidelity warning | `targets.<provider>.suppress-fidelity-warnings` on the resource |
+
+## Related
+
+- [Variables Reference](../concepts/configuration/variables.md) — variable syntax and resolution rules
+- [Multi-Target Compilation](multi-target-compilation.md) — using variables with provider-scoped targets
+- [Blueprint Design](blueprint-design.md) — narrowing compiled output with named resource subsets
