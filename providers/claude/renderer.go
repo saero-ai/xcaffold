@@ -352,7 +352,7 @@ func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string
 					return nil, nil, nil, fmt.Errorf("Finalize: failed to parse settings.json for hook merge: %w", err)
 				}
 			} else {
-				existing["$schema"] = "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json"
+				existing["$schema"] = "https://json.schemastore.org/claude-code-settings.json"
 			}
 			existing["hooks"] = hooks
 			b, err := json.MarshalIndent(existing, "", "  ")
@@ -678,7 +678,7 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 //   - The $schema key is always emitted first when there is content.
 func compileSettingsJSON(settings ast.SettingsConfig, hooks ast.HookConfig) (string, error) {
 	out := map[string]any{
-		"$schema": "https://cdn.jsdelivr.net/npm/@anthropic-ai/claude-code@latest/config-schema.json",
+		"$schema": "https://json.schemastore.org/claude-code-settings.json",
 	}
 
 	populateSettingsCore(out, settings)
