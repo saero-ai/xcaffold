@@ -5,9 +5,9 @@ description: "Use-case patterns for governing your xcaffold project with kind: p
 
 # Policy Organization
 
-Policies give you compile-time governance over your xcaffold project. Rather than relying on code review or runtime observation to catch misconfigurations, you express constraints as `kind: policy` files that run automatically on every `xcaffold apply` and `xcaffold validate`. A violation at `error` severity blocks compilation entirely.
+Policies give you compile-time governance over your xcaffold project. Rather than relying on code review or runtime observation to catch misconfigurations, you express constraints as `kind: policy` files that run automatically on every `xcaffold apply` and `xcaffold validate`. A violation at `error` severity blocks output entirely — compilation runs to completion, but no files are written to disk.
 
-This guide covers practical use cases — how to use policies effectively, not what every field does. For field-level reference, see the [Schema Reference](../reference/schema.md#policyconfig).
+This guide covers practical use cases — how to use policies effectively, not what every field does. For field-level reference, see the [Policy Reference](../reference/kinds/xcaffold/policy.md).
 
 ---
 
@@ -237,6 +237,7 @@ The `require:` clause evaluates fields by name. Not every resource field is avai
 | `name` | Skill's `name:` value | `is-present`, `min-length`, `one-of` |
 | `description` | Skill's `description:` value | `is-present`, `min-length`, `one-of` |
 | `instructions` | Skill's markdown body | `is-present`, `min-length` |
+| `tools` | Skill's `allowed-tools:` list | `max-count` |
 
 ### `target: rule` — require fields
 
@@ -254,6 +255,16 @@ The `require:` clause evaluates fields by name. Not every resource field is avai
 | `content-contains` | Substring match against compiled file content (case-insensitive) |
 | `path-contains` | Substring match against compiled file paths |
 
+### `target: settings` — deny fields
+
+| Field name | What it checks |
+|---|---|
+| `content-contains` | Substring match against settings.json / settings.local.json content (case-insensitive) |
+| `content-matches` | Regex match against settings.json / settings.local.json content |
+| `path-contains` | Substring match against settings file paths |
+
+The `settings` target narrows output scanning to settings files only (`settings.json` and `settings.local.json`), applying the same deny rules as `target: output` but scoped to configuration files.
+
 ### `match:` conditions
 
 | Condition | What it does |
@@ -261,4 +272,4 @@ The `require:` clause evaluates fields by name. Not every resource field is avai
 | `name-matches` | Glob pattern against resource name (e.g., `*-prod`) |
 | `has-tool` | True when the resource's tool list includes the named tool |
 | `has-field` | True when the named field is present and non-empty |
-| `target-includes` | True when the resource's `targets:` map includes the named provider |
+| `target-includes` | True when the resource's `targets:` map includes the named provider (parsed but not yet evaluated — all resources currently return no targets) |

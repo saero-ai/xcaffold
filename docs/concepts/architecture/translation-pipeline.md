@@ -5,7 +5,7 @@ description: "How xcaffold lowers WorkflowConfig resources into provider-native 
 
 # Translation Pipeline
 
-The translation pipeline converts a `WorkflowConfig` resource — parsed from a `kind: workflow` `.xcaf` file — into one or more provider-native output artifacts called **target primitives**. This work is performed entirely by the `internal/translator` package. The compiler invokes `TranslateWorkflow` after parsing and before the renderer writes files to disk.
+The translation pipeline converts a `WorkflowConfig` resource — parsed from a `kind: workflow` `.xcaf` file — into one or more provider-native output artifacts called **target primitives**. This work is performed entirely by the `internal/translator` package. The renderer invokes `TranslateWorkflow` (via `shared.LowerWorkflows`) after parsing and before writing files to disk.
 
 ---
 
@@ -17,11 +17,11 @@ The translation pipeline converts a `WorkflowConfig` resource — parsed from a 
 
 ```go
 type TargetPrimitive struct {
-    Kind    string // "skill", "rule", "workflow", "prompt-file", "custom-command"
+    Kind    string // "skill", "rule", "permission", "workflow", "prompt-file", "custom-command"
     ID      string
+    Body    string // legacy field kept for backward compatibility
     Content string // full text of the artifact
     Path    string // set only for primitives that carry their own output path
-    Body    string // legacy field kept for backward compatibility
 }
 ```
 
@@ -129,5 +129,5 @@ Every lowering function returns a `[]renderer.FidelityNote` alongside the primit
 ## Related
 
 - [Architecture](architecture.md) — full internal package map
-- [Workflows kind reference](../../reference/kinds/workflow.md) — `WorkflowConfig` field reference and `.xcaf` authoring guide
-- [Multi-Target Rendering](architecture.md#multi-target-rendering) — how fidelity notes surface per-target differences
+- [Workflows kind reference](../../reference/kinds/provider/workflow.md) — `WorkflowConfig` field reference and `.xcaf` authoring guide
+- [Multi-Target Rendering](multi-target-rendering.md) — how fidelity notes surface per-target differences
