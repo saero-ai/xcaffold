@@ -46,7 +46,7 @@ test(importer): add roundtrip test for gemini
 
 ### Changelog
 
-Update `CHANGELOG.md` for every user-facing change. Add entries under `[Unreleased]`. For breaking changes, add both a `Breaking Changes` entry and a `Migration` entry.
+Update `CHANGELOG.md` for every user-facing change. Add entries under `[Unreleased]`. For breaking changes, add a `Breaking Changes` entry.
 
 ### PR Checklist
 
@@ -79,7 +79,7 @@ Documentation lives under `docs/` and follows the [Diátaxis](https://diataxis.f
 | Pillar | Directory | Contents |
 |--------|-----------|----------|
 | Tutorials | `docs/tutorials/` | Step-by-step learning paths |
-| How-to guides | `docs/how-to/` | Task-oriented procedures |
+| Best Practices | `docs/best-practices/` | Task-oriented procedures |
 | Concepts | `docs/concepts/` | Explanatory background |
 | Reference | `docs/reference/` | Commands, kinds, fields |
 
@@ -118,9 +118,11 @@ providers/<name>/
     manifest.go     # ProviderManifest declaration and init()
     renderer.go     # TargetRenderer implementation
     importer.go     # ProviderImporter implementation
+    renderer_test.go
+    importer_test.go
 ```
 
-Reference `providers/claude/` as the canonical example. Do not modify `providers/registry.go` — providers self-register via `init()`.
+Reference `providers/claude/` as the canonical example. Mature providers may also include `model_resolver.go`, `global.go`, and a `testdata/` directory. Do not modify `providers/registry.go` — providers self-register via `init()`.
 
 ### 3. Implement the Manifest
 
@@ -128,19 +130,19 @@ In `manifest.go`, declare a `providers.ProviderManifest` and call `providers.Reg
 
 ### 4. Implement the Renderer
 
-Implement the `renderer.TargetRenderer` interface defined in `internal/renderer/renderer.go`. For unsupported kinds, return an empty `map[string]string` — the orchestrator emits `RENDERER_KIND_UNSUPPORTED` automatically based on the `CapabilitySet`. Reuse helpers from `internal/renderer/helpers.go` (`SortedKeys`, `YAMLScalar`, `StripAllFrontmatter`, `FlattenToSkillRoot`) rather than reimplementing them.
+Implement the `renderer.TargetRenderer` interface defined in `internal/renderer/renderer.go`. For unsupported kinds, return an empty `map[string]string` and no error — the orchestrator emits `RENDERER_KIND_UNSUPPORTED` automatically based on the `CapabilitySet`. Reuse helpers from `internal/renderer/helpers.go` (`SortedKeys`, `YAMLScalar`, `StripAllFrontmatter`, `FlattenToSkillRoot`) rather than reimplementing them.
 
 See `providers/claude/renderer.go` for the canonical implementation.
 
 ### 5. Implement the Importer
 
-Implement the `importer.ProviderImporter` interface defined in `internal/importer/importer.go`. Embed `importer.BaseImporter` to satisfy `Provider()`, `InputDir()`, and `GetWarnings()` without boilerplate. Define a `KindMapping` table, implement `Classify()` and `Extract()`, and delegate the walk-and-dispatch loop to `RunImport()` from the base.
+Implement the `importer.ProviderImporter` interface defined in `internal/importer/importer.go`. Embed `importer.BaseImporter` to satisfy `Provider()` and `InputDir()` without boilerplate. Define `Classify()`, `Extract()`, and `Import()` methods — `Import()` can delegate to `importer.RunImport()` for the standard walk-and-dispatch loop.
 
 See `providers/claude/importer.go` for the canonical implementation.
 
 ### 6. Declare Capabilities Accurately
 
-The `CapabilitySet` returned by `Capabilities()` must match what the provider's official documentation states. Overstating capabilities causes cross-provider test failures. Understating causes incorrect `RENDERER_KIND_UNSUPPORTED` emission and suppresses output that the provider could have produced.
+The `CapabilitySet` returned by the renderer's `Capabilities()` method must match what the provider's official documentation states. Overstating capabilities causes cross-provider test failures. Understating causes incorrect `RENDERER_KIND_UNSUPPORTED` emission and suppresses output that the provider could have produced.
 
 ### 7. Required Tests
 
@@ -151,7 +153,7 @@ The `CapabilitySet` returned by `Capabilities()` must match what the provider's 
 
 ### 8. Documentation Updates
 
-Add the provider to `docs/reference/supported-providers.md`. Follow the Diátaxis pillar structure for any conceptual pages. Update `CHANGELOG.md` under `[Unreleased]`.
+Add the provider to `docs/reference/supported-providers.md`. Follow the Diátaxis pillar structure for any conceptual pages. Ensure the `ProviderManifest.KindSupport` map and the renderer's `CapabilitySet` are both accurately declared — they serve different layers of the compilation pipeline. Update `CHANGELOG.md` under `[Unreleased]`.
 
 ## Architectural Constraints
 
@@ -176,12 +178,12 @@ When a provider does not support a resource kind, return an empty `map[string]st
 
 `.xcaf` files use two distinct formats depending on the resource kind:
 
-- **Frontmatter + optional markdown body** (`---` delimiters): `agent`, `skill`, `rule`, `workflow`
-- **Pure YAML** (no delimiters): `hooks`, `settings`, `mcp`, `global`, `project`
+- **Frontmatter + optional markdown body** (`---` delimiters): `agent`, `skill`, `rule`, `context`, `memory`, `workflow`
+- **Pure YAML** (no delimiters): `hooks`, `settings`, `mcp`, `global`, `project`, `policy`, `blueprint`
 
 Using the wrong format produces a parse error. When writing test fixtures, check which format the kind expects before authoring the file.
 
-All `.xcaf` keys use kebab-case (e.g., `allowed-tools`, `disable-model-invocation`). Go struct field names are PascalCase; only the `yaml:` struct tag uses kebab-case. The parser's `KnownFields` setting rejects unknown keys at parse time — incorrect casing is a parse error, not a silent ignore.
+All `.xcaf` keys use kebab-case (e.g., `allowed-tools`, `disable-model-invocation`). Go struct field names are PascalCase; only the `yaml:` struct tag uses kebab-case. The parser uses Go's `yaml.Decoder.KnownFields(true)` to reject unknown keys at parse time — incorrect casing is a parse error, not a silent ignore.
 
 ### Schema Codegen
 
@@ -199,13 +201,7 @@ CI enforces that generated files are fresh. A PR with stale generated files will
 
 ## Breaking Changes
 
-A breaking change requires existing users to modify their `.xcaf` files, CLI invocations, or tooling. Process:
-
-1. Deprecate in the same PR with a runtime warning
-2. Keep the old behavior working for at least one minor release
-3. Remove in the following release
-4. Add a `BREAKING CHANGE:` footer to the commit message
-5. Add `Breaking Changes` and `Migration` entries to `CHANGELOG.md`
+xcaffold is pre-v1.0. Breaking changes to `.xcaf` schema, CLI flags, or compiler output are expected and do not require a deprecation cycle. Document breaking changes in the CHANGELOG under `Breaking Changes`.
 
 ## Good First Issues
 

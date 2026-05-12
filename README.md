@@ -10,30 +10,19 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Go Version](https://img.shields.io/badge/go-1.25-blue.svg)](https://go.dev/dl/)
 
-**Your agents, by design.** Declare your agents once in a `.xcaf` YAML file. `xcaffold` compiles deterministically into native configurations for Claude Code, Cursor, GitHub Copilot, Gemini CLI, and Antigravity — with drift detection, policy enforcement, and behavioral testing.
+**Your agents, by design.** Every AI coding tool your team uses ships its own configuration format, directory structure, and file conventions. Use three tools and you maintain three separate configuration trees — `.claude/`, `.cursor/`, `.gemini/` — that drift from each other silently. When someone updates the rules in one, the others are forgotten.
+
+`xcaffold` gives you `.xcaf` manifests as your single source of truth — compiling deterministically into native configuration for every provider your team uses.
 
 ```
-                                   ──► claude        ──►  .claude/
-project.xcaf  ──►  xcaffold apply  ──► cursor        ──►  .cursor/
-                                   ──► antigravity   ──►  .agents/
-                                   ──► copilot       ──►  .github/
-                                   ──► gemini        ──►  .gemini/
+project.xcaf  ──►  xcaffold apply  ──►  claude       ──►  .claude/
+                                   ──►  cursor       ──►  .cursor/
+                                   ──►  gemini       ──►  .gemini/
+                                   ──►  copilot      ──►  .github/
+                                   ──►  antigravity  ──►  .agents/
 ```
 
-## Why xcaffold?
-
-The agentic development ecosystem is fragmented. Every AI coding tool ships its own configuration format, directory structure, and file conventions. Teams maintaining agents across multiple tools end up with multiple independent, unmaintained configuration trees.
-
-`xcaffold` eliminates this fragmentation by treating agent configuration as code — declarative, deterministic, and version-controlled. A single `project.xcaf` YAML file is your source of truth. It compiles to native formats for every supported platform.
-
-### Core capabilities
-
-- **Blueprint-based agent configuration** — Define agents, skills, rules, and hooks once in `.xcaf` YAML. Target-specific details emerge at compile time, not in your source tree.
-- **Multi-provider compilation** — Single source, native output. Compile to Claude Code, Cursor, GitHub Copilot, Gemini CLI, Antigravity — all from one `.xcaf` file.
-- **Drift detection via SHA-256 state** — Track compiled state in `.xcaffold/<name>.xcaf.state`. Detect when `.claude/`, `.cursor/`, or other output directories have been manually edited. `xcaffold status` shows sync state and drift across all applied targets.
-- **Policy enforcement at compile time** — Define policies (require, deny, match constraints). Violations block compilation with precise error messages. No unsafe agent configurations reach production.
-- **Cross-provider translation with fidelity reporting** — When a capability cannot be expressed in a target's native format, `xcaffold` reports the translation loss. Migrate between providers with full visibility into behavioral gaps.
-- **Import existing configs** — Have agents already configured in Claude Code, Cursor, or GitHub Copilot? `xcaffold import` reads existing agent/skill/rule directories and reconstructs the `.xcaf` blueprint.
+This is **Harness-as-Code**: the complete agent harness — system prompts, tools, rules, memory, hooks, MCP servers, and policies — declared once in version-controlled `.xcaf` manifests, compiled deterministically, with drift detection and compile-time policy enforcement.
 
 ## Installation
 
@@ -53,83 +42,86 @@ scoop install xcaffold
 go install github.com/saero-ai/xcaffold/cmd/xcaffold@latest
 ```
 
-**Binary releases**
-
-Pre-built binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64) are available on the [Releases page](https://github.com/saero-ai/xcaffold/releases). Windows binaries are packaged as `.zip` while Unix binaries are `.tar.gz`.
-
 **Build from source**
 ```bash
 git clone https://github.com/saero-ai/xcaffold
 cd xcaffold
 make build
-./xcaffold --help      # Run locally
-# OR
-make install           # Install globally to $GOPATH/bin
+./xcaffold --help
+# or: make install  (installs to $GOPATH/bin)
 ```
 
-## Example Usage
+Pre-built binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64) are available on the [Releases page](https://github.com/saero-ai/xcaffold/releases).
 
-Define your agents in `project.xcaf`:
+## Quick Start
 
-```yaml
-# project.xcaf
-kind: project
-version: "1.0"
-name: my-app
-targets:
-  - claude
-  - cursor
-```
-
-```yaml
-# xcaf/agents/backend.xcaf
----
-kind: agent
-version: "1.0"
-name: backend
-description: "Backend API developer"
-model: sonnet
-tools: [Read, Write, Edit, Bash, Glob, Grep]
----
-You are a backend developer specializing in Go APIs.
-```
-
-Run the lifecycle:
+**Already have a `.claude/`, `.cursor/`, or `.gemini/` directory?** Import your existing configuration in seconds:
 
 ```bash
-xcaffold init                      # Initialize a new project.xcaf
-xcaffold apply                     # Compile to .claude/, .cursor/, etc.
-xcaffold validate                  # Check syntax without compiling
-xcaffold status --target claude    # Check for drift in applied output directories
-xcaffold list --agent              # List all agents across registered projects
-xcaffold graph --format terminal   # Visualize resource topology
-xcaffold import --target claude    # Read existing .claude/ and generate .xcaf
+xcaffold import --target claude    # reads .claude/ → generates .xcaf manifests
 ```
 
-## What xcaffold Compiles
+**Starting from scratch:**
+
+```bash
+xcaffold init                      # scaffold a new project.xcaf
+```
+
+**Core workflow:**
+
+```bash
+xcaffold apply                     # compile .xcaf → .claude/, .cursor/, etc.
+xcaffold status                    # detect drift in output directories
+xcaffold validate                  # validate manifests without compiling
+xcaffold test                      # behavioral assertions against a live provider
+xcaffold graph                     # visualize resource scope and dependencies
+xcaffold list                      # list all resources across providers
+```
+
+## What xcaffold Manages
+
+Each `.xcaf` manifest declares one resource in the agent harness. xcaffold compiles the full set to the appropriate native format per provider:
+
+| Kind | Purpose |
+|------|---------|
+| `agent` | Identity, system prompt, model selection, tool declarations |
+| `skill` | Reusable capability modules with scoped tool access |
+| `rule` | Constraints and standards enforced at the provider level |
+| `hooks` | Lifecycle hooks — pre/post tool use, session events |
+| `mcp` | MCP server declarations and connection configuration |
+| `memory` | Persistent memory definitions |
+| `settings` | Provider-level permissions and behavior settings |
+| `policy` | Compile-time enforcement; violations block `xcaffold apply` |
+| `workflow` | Multi-step agent procedures |
+| `blueprint` | Resource subset selectors for multi-environment targeting |
+| `context` | Formal workspace context declarations |
+
+## Provider Support
 
 | Resource | Claude Code | Cursor | GitHub Copilot | Gemini CLI | Antigravity |
-|----------|-------------|--------|----------------|------------|-------------|
-| Agents | Yes | Yes | Yes | Yes | -- |
-| Skills | Yes | Yes | Yes | Yes | Yes |
-| Rules | Yes | Yes | Yes | Yes | Yes |
-| Workflows | Yes* | Yes* | Yes* | Yes* | Yes |
-| Hooks | Yes | Yes | Yes | Yes | -- |
-| MCP Servers | Yes | Yes | Yes | Yes | Yes |
-| Memory | Yes | -- | -- | -- | -- |
-| Settings | Yes | Yes | Yes | Yes | Yes |
+|----------|:-----------:|:------:|:--------------:|:----------:|:-----------:|
+| Agents | ✓ | ✓ | ✓ | ✓ | — |
+| Skills | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Rules | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Workflows | ✓* | ✓* | ✓* | ✓* | ✓ |
+| Hooks | ✓ | ✓ | ✓ | ✓ | — |
+| MCP Servers | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Memory | ✓ | —** | —** | —** | —** |
+| Settings | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 *Compiled as rules + skills for providers without a native workflow format.
+**Persistent context can be delivered through `context`, `rule`, or `hooks` kinds. See [memory reference](docs/reference/kinds/provider/memory.md#cross-provider-memory-patterns).
+
+When a feature cannot be expressed in a target's native format, xcaffold emits a structured fidelity report rather than silently dropping configuration. You always know exactly what was and was not applied.
+
+The provider architecture is open. Adding a new target requires implementing two Go interfaces (`TargetRenderer` and `ProviderImporter`). Agent SDKs with declarative configuration formats are natural expansion targets. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Documentation
 
-To learn more about how to use `xcaffold`, explore our documentation:
-
-- [Tutorials](docs/tutorials/index.md) — End-to-end guides for agent configuration setups.
-- [Best Practices](docs/best-practices/index.md) — Targeted recipes for common workflows.
-- [Concepts](docs/concepts/index.md) — Deep dives into architecture, compilation scopes, and best practices.
-- [Reference](docs/reference/index.md) — Exhaustive `.xcaf` schema references, CLI flags, and diagnostics APIs.
-
+- [Tutorials](docs/tutorials/index.md) — End-to-end setup guides
+- [Best Practices](docs/best-practices/index.md) — Task-oriented recipes
+- [Concepts](docs/concepts/index.md) — Architecture, compilation, field model
+- [Reference](docs/reference/index.md) — CLI commands, `.xcaf` schema, provider matrix
 
 ## Contributing
 

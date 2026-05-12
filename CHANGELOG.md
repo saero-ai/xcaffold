@@ -6,304 +6,223 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- `targets` field on `kind: blueprint` — blueprints can declare independent compilation targets, overriding project-level targets for that blueprint's resource subset.
-- `ClearableList` type for list fields in override merging — setting a list field to `[]` explicitly clears inherited values rather than inheriting the base.
-- Two-layer field classification with `+xcaf:role=` markers on all config struct fields (`identity`, `rendering`, `composition`, `metadata`, `filtering`).
-- `docs/concepts/configuration/field-model.md` — explains the two-layer field classification and `ClearableList` override semantics.
-- `docs/concepts/configuration/layer-precedence.md` — explains target resolution hierarchy and override merge rules.
-- Provider-override list merge now supports a tri-state `cleared` signal. Setting `cleared: true` on any `ClearableList` field (e.g. `tools`, `skills`, `allowed-tools`, `paths`) in an override file explicitly empties the field rather than inheriting the base value. An absent (zero-value) list continues to inherit the base as before.
-- Added `--target <provider>` flag to `xcaffold validate`. When set, the command performs a compile-time field validation pass that fails on unsupported or missing required fields for the specified provider target.
-- Added `xcaffold status` command to replace `xcaffold diff`, providing high-level sync/drift metrics across all applied targets with inline file status reporting.
-- Added adaptive 3-column terminal output for `xcaffold list`, intelligently scoping and grouping registered Rules and Memory items natively.
-
-### Changed
-
-- `xcaffold apply` no longer defaults to `claude` when no target is configured. Set `targets:` in `project.xcaf` or pass `--target`.
-- `xcaffold init --yes` requires `--target` when no known CLI is detected on `$PATH`.
-- Provider `fields.yaml` entries previously classified as `xcaffold-only` are now `unsupported`. The two-layer model silently skips core fields that a provider cannot render.
-- `xcaffold validate --target <provider>` now includes the provider name in the header breadcrumb and appends a field validation summary (`Field validation: <provider> (N errors)`) to the footer on success.
-- Parser name/kind mismatch warnings (e.g. YAML `name:` differs from directory-inferred name) are no longer printed directly to stderr. They are now collected in `XcaffoldConfig.ParseWarnings` and surfaced by commands that have structured diagnostic output.
-- `xcaffold apply` output now matches the output standards of `status` and `validate`: header breadcrumb at the top, glyph helpers for all status lines, file count summary on success instead of per-file write lines, and an import hint footer.
-- `xcaffold apply` now lists each drifted file (path and status: missing or modified) before aborting, instead of reporting a generic "drift detected" message.
-- Command `xcaffold graph` overhauled dependency rendering to naturally group rules by folder prefixes and nest active agent memory dynamically.
-- `xcaffold diff` is now officially deprecated, safely delegating any active usage directly to `xcaffold status` with migration hints natively.
-- **Import pipeline unified on ProviderImporter interface** — `mergeImportDirs` (multi-directory import) now uses the registered `ProviderImporter.Import()` per directory instead of legacy extraction functions. All resource types (agents, skills, rules, workflows, memory, hooks, MCP, settings, project instructions) are now imported in multi-dir mode. Previously, multi-dir imports silently dropped memory, MCP, settings, hooks, and project instructions.
-
-### Fixed
-
-- Fixed `tagResourcesWithProvider` skipping MCP, hooks, and settings during multi-provider import assembly; all 7 resource kinds (agents, skills, rules, workflows, MCP, hooks, settings) now receive provider-scoped `targets` entries.
-- Fixed `xcaffold apply --backup` skipping backup for 2nd and subsequent targets in multi-target projects; backup now runs for every target regardless of source-change detection.
-- Fixed `xcaffold status --all` being silently ignored when used without `--target`; `--all` now appends a per-provider grouped file listing in overview mode.
-
-### Removed
-
-- Removed `xcaffold translate` command — cross-provider translation now happens automatically during `xcaffold apply`, and explicit cross-provider import is handled by `xcaffold import --source`. The `internal/translator` package and all workflow lowering logic remain unchanged.
-- `xcaffold migrate` command removed — schema version migration infrastructure had no consumers; legacy layout transitions have no external audience
-- Removed `buildConfigFromDir` and 10 provider-specific extraction functions from `import.go` (dead code with 0 production callers).
-- Removed `extractAgents`, `extractSkills`, `extractRules`, `extractWorkflows` legacy functions (replaced by `ProviderImporter.Import()`).
-- Removed unreachable fallback branch in `importScope` (all 5 providers have registered importers).
-- Removed duplicate `rendererForTarget` in `apply.go` (consolidated into `compiler.ResolveRenderer`).
-- Removed duplicate `detectAllGlobalPlatformDirs` (import.go) and `detectAllPlatformDirs` (init.go), merged into parameterized `detectPlatformDirs`.
-
-### Added (Provider-Agnostic Renderer)
-
-- Added `CapabilitySet` type declaring per-resource support for each renderer (renderer)
-- Added `Orchestrate()` function dispatching compilation to per-resource methods based on capability declarations (renderer)
-- Added cross-provider invariant test suite asserting render-or-note, no raw aliases, no Claude env var leakage, reference fidelity, and code catalog completeness (renderer)
-- Added `provider_features_test.go` with ground truth assertions for all five providers' capability sets, target names, and output directories (renderer)
-- Added shared `CompileSkillSubdir`, `SortedKeys`, `YAMLScalar`, `StripAllFrontmatter` helpers (renderer)
-- Added `LowerWorkflows` helper in `renderer/shared/` subpackage to avoid import cycles (renderer)
-- Added shared `ParseFrontmatter`, `ParseFrontmatterLenient`, `MatchGlob`, `ReadFile`, `AppendUnique` helpers to eliminate duplication across five provider importers (importer)
-
-### Changed (Provider-Agnostic Renderer)
-
-- Relocated project manifest from `./project.xcaf` to `.xcaffold/project.xcaf` — the manifest is a tool-generated file (compiler/init/import)
-- Transitioned `kind: memory` rendering to provider-agnostic system respecting per-provider ground truth: Claude (full render), Gemini & Antigravity (partial render with note), Cursor & Copilot (dropped with note) (compiler/renderer)
-- Schema: Updated `ProjectConfig.AgentRefs` to use `AgentManifestEntry` to support deterministic memory linkage within manifest files (schema)
-- Changed `TargetRenderer` interface from monolithic `Compile()`/`Render()` to per-resource methods (`CompileAgents`, `CompileSkills`, `CompileRules`, `CompileWorkflows`, `CompileHooks`, `CompileSettings`, `CompileMCP`, `CompileProjectInstructions`) with `Capabilities()` and `Finalize()` hooks (renderer)
-- Changed `compiler.Compile()` to use `resolveRenderer()` + `renderer.Orchestrate()` instead of a target switch with direct renderer construction (compiler)
-- Changed `compiler.OutputDir()` to return empty string for unknown targets instead of defaulting to `.claude` (compiler)
-- Changed `xcaffold apply` to run optimizer required passes (e.g. `flatten-scopes`, `inline-imports`) after compilation and before policy evaluation (apply)
-- Changed internal `claudeDir` variable to `projectRoot` across all CLI commands for provider-agnostic path resolution (cmd)
-
-### Added (Schema)
-
-- Added golden manifest reference files in `schema/golden/` exercising every field per resource kind (schema)
-- Added CI test validating all golden manifests parse without error (schema)
-
-### Removed (Convention-Based Memory)
-
-- Removed `kind: memory` from parser — memory entries are now plain `.md` files in `xcaf/agents/<id>/memory/`, discovered by the compiler at compile time (parser/compiler)
-- Removed `MemoryConfig.Instructions`, `MemoryConfig.InstructionsFile`, `MemoryConfig.Inherited` fields — replaced by `MemoryConfig.Content` populated from `.md` file body (ast)
-- Removed `MemorySeed.Lifecycle` field from state tracking (state)
-- Removed seed-once lifecycle and `--reseed` flag — `apply` always overwrites memory output, matching all other resource kinds (renderer/cli)
-- Removed `resolveMemoryBody`, `renderMemoryMarkdown`, `CompileWithPriorSeeds`, `WithReseed` from Claude renderer (renderer)
-- Removed `CodeMemorySeedSkipped` and `CodeMemoryBodyEmpty` fidelity codes (renderer)
-- Removed `MemoryOptions.Reseed` and `MemoryOptions.PriorHashes` from renderer interface (renderer)
-- Removed `memoryDoc` struct and `WriteSplitFiles` memory block — import writes `.md` files directly (cli)
-- Removed `xcaffold translate` command and all associated flags (cli)
-
-### Fixed (Parser)
-
-- Fixed missing `case "memory":` in frontmatter body assignment — memory `.xcaf` files with frontmatter + body now correctly assign body to Instructions field (parser) — *subsequently removed in Convention-Based Memory migration*
-
-### Fixed (Provider-Agnostic Renderer)
-
-- Enforced path-safe slugification for imported agent-scoped memory files across all renderers to ensure high-fidelity synchronization (compiler)
-- Prevented compounding `project_` prefixes during recursive memory import derivations (bir)
-- Derived accurate project roots when manifests reside in the nested `.xcaffold/` namespace (validator)
-
-- Fixed model alias resolution for gemini, copilot, and cursor agent rendering — raw aliases like `sonnet-4` are now mapped to provider-specific model identifiers (renderer)
-- Fixed antigravity renderer silently dropping agents without emitting a `RENDERER_KIND_UNSUPPORTED` fidelity note (renderer)
-- Fixed data loss in copilot `InstructionsFile` rendering and copilot/gemini model resolution (renderer)
-- Fixed `graph` command hardcoded `.claude` fallback to use `compiler.OutputDir()` (graph)
-- Fixed `diff` command inconsistent target normalization between global and project scope (diff)
-- Fixed Copilot MCP config generation layout, correctly emitting standard layout JSON objects out to `.vscode/mcp.json` (renderer)
-
-### Added
-- `xcaffold init` automatically generates a self-referential `/xcaffold` skill (`xcaf/skills/xcaffold.xcaf`) out of the box, teaching AI assistants local schema constraints and provider support matrices natively.
-- `xcaffold init` multi-file generator that scaffolds an entire `xcaf/` directory, replacing the legacy single `project.xcaf` builder.
-- `xcaffold init` `--target` string slice flag and multi-select UI prompt for concurrent platform targeting (`claude`, `cursor`, `antigravity`, etc).
-- `xcaffold init` `--no-policies` flag to skip starter policy generation.
-- `xcaffold init` `--json` manifest mode for machine-readable output tailored for autonomous agent execution.
-- `internal/templates` provider matrix renderer emitting exact field support tables for selected compilation targets.
-- `internal/importer`: ProviderImporter interface with per-provider implementations for claude, cursor, gemini, copilot, and antigravity
-- `ast.XcaffoldConfig.ProviderExtras`: genuinely-unclassified file catchall for provider-specific artifacts
-- `SourceProvider` annotation field on all AST resource types for import provenance tracking
-- `parser.ReclassifyExtras`: auto-graduates ProviderExtras files when importers recognize them
-- Apply-time fidelity notes for cross-provider extras that cannot be translated
-- `importer.KindHookScript` and canonical routing mapping `hooks/**` retaining raw hook script files dynamically across Claude, Cursor, Copilot and Gemini providers (importer)
-
-### Fixed
-- `xcaffold status` command now exits with code 1 when drift is detected (artifact drift or source drift), enabling scriptable drift checks in CI/CD. Previously exited with code 0 even when drift was present (cli/status)
-- Copilot renderer path-doubling bug: OutputDir() now returns ".github" and all emitted file paths are relative
-- Fixed leakage of global-scope agent memory files during `xcaffold import` by pruning orphaned files not explicitly owned by declared project agents (cli/import)
-
-### Removed
-
-- **agentsmd renderer**: The `--target agentsmd` compilation target has been removed. AGENTS.md is an open standard for project instructions, not a provider. Cursor (`--target cursor`) and Copilot (`--target copilot`) generate AGENTS.md files via their own instruction renderers.
-
-### Added
-
-- **Gemini CLI renderer**: `--target gemini` compiles all resource kinds to Gemini CLI native format — instructions to `GEMINI.md`, rules to `.gemini/rules/`, skills to `.gemini/skills/`, agents to `.gemini/agents/`, hooks and MCP to `.gemini/settings.json`.
-
-### Added (FidelityNote Return Surface)
-
-- Added `renderer.FidelityNote` struct and `FidelityLevel` (`info` / `warning` / `error`) for structured, machine-readable fidelity reporting (renderer)
-- Added `renderer.NewNote()` constructor and a stable code catalog in `internal/renderer/fidelity_codes.go` covering 16 codes including `SKILL_SCRIPTS_DROPPED`, `SKILL_ASSETS_DROPPED`, `SETTINGS_FIELD_UNSUPPORTED`, `AGENT_MODEL_UNMAPPED`, `AGENT_SECURITY_FIELDS_DROPPED`, and `HOOK_INTERPOLATION_REQUIRES_ENV_SYNTAX` (renderer)
-- Added `renderer.AllCodes()` enumeration for tooling that needs to introspect known codes (renderer)
-- Added `cmd/xcaffold/fidelity.go` with `printFidelityNotes()` for human-readable output and `buildSuppressedResourcesMap()` for applying per-resource suppression at the command layer (cmd)
-- Added propagation test verifying fidelity notes flow from renderer through `compiler.Compile` to the caller (compiler)
-
-### Changed (FidelityNote Return Surface)
-
-- Changed `compiler.Compile` signature to `(*Output, []FidelityNote, error)`; the second return carries fidelity notes for the selected target (compiler)
-- Changed `TargetRenderer` interface to return notes from `Compile`, consolidating around the real semantic entry point rather than the thin `Render` wrapper (renderer)
-- Changed the cursor renderer to replace 12 stderr writes with typed notes (renderer/cursor)
-- Changed the antigravity renderer to replace 4 stderr writes with typed notes and added scripts/assets coverage for parity with cursor (renderer/antigravity)
-- Changed the agentsmd renderer to replace the package-level `warningWriter` and `warnLossy*` helpers with `collectNotes{Agent,Skill,Rule}` functions returning notes (renderer/agentsmd)
-- Moved `suppress-fidelity-warnings` enforcement out of every renderer and into `cmd/xcaffold/fidelity.go`; renderers now emit notes unconditionally and the command layer filters them (cmd, renderer)
-- Updated `xcaffold apply`, `xcaffold export`, and `xcaffold validate` to receive fidelity notes from the compiler and print them via the shared helper (cmd)
-
-### Added (Agent Schema Normalization)
-
-- Added `disable-model-invocation` (`*bool`) and `user-invocable` (`*bool`) fields to `AgentConfig` (ast)
-- Added `provider` pass-through map (`map[string]any`) to `TargetOverride` for carrying provider-native fields such as `temperature`, `timeout_mins`, `kind`, `target`, `metadata` (ast)
-- Added `--no-references` flag to `xcaffold init` to skip generation of reference template files (init)
-- Added `xcaf/references/agent.xcaf.reference` generation during `xcaffold init` — an annotated, non-parsed field catalog for the Agent kind (init)
-- Added `internal/templates.RenderAgentReference()` for rendering the Agent kind reference template (templates)
-- Added real-data integration tests validating agent schema round-tripping against provider fixtures (integration)
-
-### Changed (Agent Schema Normalization)
-
-- Reordered `AgentConfig` struct fields so compiled output emits them in a canonical order: identity, then model and execution, tool access, permissions and invocation, lifecycle, memory and context, composition references, inline composition, targets, and instructions last (ast)
-- Claude renderer now emits `disable-model-invocation` and `user-invocable` in agent frontmatter when set (renderer)
-- Claude renderer now emits `memory` after `isolation` (before `color`) to match the canonical order (renderer)
-- Reordered agent field emission in `rest-api`, `cli-tool`, and `frontend-app` init templates so `instructions` appears last (templates)
-- Reordered agent document emitted by `xcaffold init` so `instructions` appears after `tools`, matching the canonical order (init)
-- Added inline comment in generated `project.xcaf` pointing users to `xcaf/references/agent.xcaf.reference` for the full field catalog (init)
-
-### Added (Skill Schema Normalization)
-
-- Added `whenToUse` (`string`) field to `SkillConfig` for detailed activation guidance (ast)
-- Added `license` (`string`) field to `SkillConfig` for SPDX identifier (ast)
-- Added `disableModelInvocation` (`*bool`) field to `SkillConfig` — if true, the skill is user-invocable only (ast)
-- Added `userInvocable` (`*bool`) field to `SkillConfig` — if false, the skill is model-only with no slash command (ast)
-- Added `argumentHint` (`string`) field to `SkillConfig` for slash-command autocomplete (ast)
-- Added `targets` (`map[string]TargetOverride`) field to `SkillConfig` for per-provider overrides and provider pass-through (ast)
-- Added `xcaf/references/skill.xcaf.reference` generation during `xcaffold init` — an annotated, non-parsed field catalog for the Skill kind (init)
-- Added `internal/templates.RenderSkillReference()` for rendering the Skill kind reference template (templates)
-- Added Claude provider pass-through for skills — keys under `targets.claude.provider:` (`context`, `agent`, `model`, `effort`, `shell`, `paths`, `hooks`) are emitted into compiled SKILL.md frontmatter (renderer)
-- Added real-data integration tests validating skill schema round-tripping against provider fixtures (integration)
-
-### Changed (Skill Schema Normalization)
-
-- Renamed `SkillConfig.Tools` to `SkillConfig.AllowedTools` with canonical YAML key `allowed-tools`, aligning with the agentskills.io open standard and the Claude and Copilot published conventions (ast, renderer)
-- Reordered `SkillConfig` struct fields into the canonical six-group layout: identity, tool access, permissions and invocation, composition files, targets, and instructions last (ast)
-- Claude renderer now emits `when_to_use`, `license`, `allowed-tools`, `disable-model-invocation`, `user-invocable`, and `argument-hint` in skill frontmatter when set (renderer)
-- All skill provider pass-through scalars now route through yaml.Marshal for correct escaping — previously vulnerable values containing newlines could have terminated the frontmatter block (renderer)
-- Broadened the attribute resolver regex to accept kebab-case field names in resource references like `${skill.tdd.allowed-tools}` (resolver)
-- Updated the shipped multi-kind reference example and schema documentation to use `allowed-tools` under the skill block (docs)
-
 ### Breaking Changes
 
-- **Removed `kind: config`**: The legacy monolithic format has been removed. Use `kind: project` with individual resource documents (`kind: agent`, `kind: skill`, etc.). For global configuration, use `kind: global`. Files with empty or missing `kind:` fields now produce a descriptive error with migration guidance.
-- **Renamed `tools:` to `allowed-tools:` under `kind: skill`**: Any `.xcaf` file using `tools:` under a skill block must rename to `allowed-tools:` to parse successfully. `AgentConfig.tools` is unchanged — the rename applies only to skills. This aligns with the cross-provider canonical name from the agentskills.io open standard.
+- `.xcf` → `.xcaf` file extension — all resource files must be renamed; the parser no longer accepts `.xcf`. (parser)
+- `kind: config` removed — use `kind: project` with individual resource documents. Files with an empty or missing `kind:` field now produce a descriptive error with migration guidance. (parser)
+- `tools:` renamed to `allowed-tools:` under `kind: skill` — `AgentConfig.tools` is unchanged; the rename applies only to skills. (ast, renderer)
+- `xcaffold apply` no longer defaults to `--target claude` when no target is configured — set `targets:` in `project.xcaf` or pass `--target`. (cli)
+- `xcaffold init --yes` requires `--target` when no known provider CLI is detected on `$PATH`. (cli)
+- `graph --format json` uses snake_case field names (`config_path`, `disk_entries`, `blocked_tools`) — breaks existing JSON consumers. (graph)
 
 ### Added
 
-- **`kind: global`**: New kind for `~/.xcaffold/global.xcaf`. Contains shared resources and settings without project metadata.
-- **`kind: policy`**: Declarative constraint engine. Define `require` and `deny` rules evaluated during `apply` and `validate`. Four built-in policies ship with the binary: `path-safety`, `settings-schema`, `agent-has-description`, `no-empty-skills`.
-- **Policy references in `kind: project`**: Projects can reference policies via `policies:` list, same as agents, skills, and rules.
-- **Built-in policy overrides**: Create a `kind: policy` file with the same `name` as a built-in and set `severity: off` to disable it.
+**Resource kinds**
+
+- `kind: global` — resource kind for `~/.xcaffold/global.xcaf`; holds shared resources and settings without project metadata. (ast, parser)
+- `kind: policy` — declarative constraint engine with `require` and `deny` rules evaluated during `apply` and `validate`. Four built-in policies ship with the binary: `path-safety`, `settings-schema`, `agent-has-description`, `no-empty-skills`. Projects reference policies via a `policies:` list in `kind: project`. Create a same-name `kind: policy` file with `severity: off` to disable a built-in. (ast, compiler, policy)
+- `kind: context` — shared prompt context blocks composable into agents and blueprints; defined in `xcaf/contexts/`. (ast, parser, renderer)
+
+**Schema features**
+
+- `targets` field on `kind: blueprint` — blueprints can declare independent compilation targets. (ast)
+- `ClearableList` type for list fields — setting a list field to `[]` explicitly clears inherited values; absent continues to inherit, empty clears, populated replaces. (ast)
+- Two-layer field classification with `+xcaf:role=` markers on all config struct fields (`identity`, `rendering`, `composition`, `metadata`, `filtering`). (ast)
+- `disable-model-invocation` (`*bool`) and `user-invocable` (`*bool`) on `AgentConfig`. (ast)
+- `provider` pass-through map (`map[string]any`) on `TargetOverride` for provider-native fields. (ast)
+- `whenToUse`, `license`, `disableModelInvocation` (`*bool`), `userInvocable` (`*bool`), `argumentHint` on `SkillConfig`. (ast)
+- `targets` (`map[string]TargetOverride`) on `SkillConfig` for per-provider overrides and provider pass-through. (ast)
+- `AllowedEnvVars` on `ProjectConfig` — security filtering for env var injection via `${env.NAME}`. (ast)
+- `task` and `max_turns` fields on `TestConfig` (schema `project.test`). (ast)
+
+**Variable resolution system**
+
+- `--var-file` flag on `apply`, `validate`, and related commands. (cli)
+- Variable expansion in `.xcaf` files: `${var.name}` for project variables, `${env.NAME}` for environment variables. (parser, compiler)
+- Variable stack loading from `project.xcaf`, `vars.xcaf`, and `--var-file` sources. (compiler)
+
+**CLI commands and flags**
+
+- `xcaffold status` command — sync and drift metrics across all applied targets with inline file status reporting, replacing `xcaffold diff`. (cli)
+- `xcaffold list` — adaptive 3-column output displaying all managed projects with path, targets, resource counts, and last-applied timestamp. (cli)
+- `xcaffold graph` — deep hierarchical topology visualization; segments global components, renders blocked and allowed tools, separates inherited skills from rules. (cli)
+- `xcaffold graph --project <name>` — queries any registered project's topology from any location. (cli)
+- `xcaffold graph --all` — combined global and registered projects view. (cli)
+- `xcaffold help <kind>` — shows per-provider field annotations for a resource kind and generates annotated templates. (cli)
+- `--target <provider>` flag on `xcaffold validate` — compile-time field validation per provider, with provider name in the header and a field validation summary in the footer. (cli)
+- `--blueprint` flag on `xcaffold validate`. (cli)
+- `--json` flag on `xcaffold init` — machine-readable manifest output. (cli)
+- `--target` string-slice flag on `xcaffold init` — multi-select provider targeting. (cli)
+- `--force` and `--backup` flags on `xcaffold apply` — drift circumvention and timestamped backup. (cli)
+- `--check` flag on `xcaffold apply` — fail-fast schema validation without writing artifacts. (cli)
+- `--global / -g` boolean flag replaces `--scope global|project|all` across all commands. (cli)
+- `--target` flag on `apply` and `import` for isolating platform outputs. (cli)
+- `xcaffold apply --dry-run` — preview and orphan detection without writing. (cli)
+- Idempotent `xcaffold init` — re-running updates rather than overwrites. (cli)
+- Incremental `xcaffold import` — imports only new or changed resources. (importer)
+- Apply preview — `xcaffold apply` shows a diff preview before writing. (cli)
+- `xcaffold import --source` — semantic cross-provider translation during import. (importer)
+
+**Compiler and optimizer**
+
+- Multi-target compilation support. (compiler)
+- `TargetRenderer` registry — pluggable compiler architecture; all provider dispatch goes through `resolveRenderer()` + `renderer.Orchestrate()`. (compiler, renderer)
+- Smart compilation skipping via multi-file source hashing. (compiler)
+- Deterministic orphan purge with `--dry-run` preview. (compiler)
+- Walk-up configuration search from project subdirectories, bounded by `$HOME`. (compiler)
+- Lockfile standardization with per-target naming (`scaffold.claude.lock`, `scaffold.cursor.lock`). (compiler)
+- Skill artifact auto-discovery by compiler. (compiler)
+- `xcaffold apply` runs optimizer passes after compilation and before policy evaluation. (compiler)
+- Security invariant policies: output path confinement, settings schema, hook URL validation. (policy)
+
+**Renderer — provider-agnostic surface**
+
+- `CapabilitySet` type declaring per-resource support for each renderer. (renderer)
+- `Orchestrate()` function dispatching compilation to per-resource methods based on `CapabilitySet`. (renderer)
+- `TargetRenderer` per-resource methods: `CompileAgents`, `CompileSkills`, `CompileRules`, `CompileWorkflows`, `CompileHooks`, `CompileSettings`, `CompileMCP`, `CompileProjectInstructions`, plus `Capabilities()` and `Finalize()`. (renderer)
+- Cross-provider invariant test suite: render-or-note, no raw aliases, no Claude env var leakage, reference fidelity, code catalog completeness. (renderer)
+- `provider_features_test.go` — ground truth assertions for all five providers' capability sets, target names, and output directories. (renderer)
+- Shared renderer helpers: `CompileSkillSubdir`, `SortedKeys`, `YAMLScalar`, `StripAllFrontmatter`. (renderer)
+- `LowerWorkflows` in `renderer/shared/` to avoid import cycles. (renderer)
+- `FidelityNote` struct with `FidelityLevel` (`info` / `warning` / `error`) and `NewNote()` constructor. (renderer)
+- Stable fidelity code catalog in `fidelity_codes.go` — 16 codes including `SKILL_SCRIPTS_DROPPED`, `SKILL_ASSETS_DROPPED`, `SETTINGS_FIELD_UNSUPPORTED`, `AGENT_MODEL_UNMAPPED`, `AGENT_SECURITY_FIELDS_DROPPED`, `HOOK_INTERPOLATION_REQUIRES_ENV_SYNTAX`. (renderer)
+- `AllCodes()` enumeration for tooling introspection. (renderer)
+- `cmd/xcaffold/fidelity.go` with `printFidelityNotes()` and `buildSuppressedResourcesMap()` for command-layer suppression. (cmd)
+- Antigravity renderer — agents rendered as specialist notes. (renderer)
+- Gemini CLI renderer (`--target gemini`) — instructions to `GEMINI.md`, rules to `.gemini/rules/`, skills to `.gemini/skills/`, agents to `.gemini/agents/`, hooks and MCP to `.gemini/settings.json`. (renderer)
+- `ProviderManifest` registry — replaces hardcoded provider switches. (renderer)
+- gen-schema tooling for `+xcaf:` marker extraction and schema registry. (ast)
+- Override parsing expanded to 9 resource kinds. (parser)
+
+**Importer**
+
+- `ProviderImporter` interface with per-provider implementations for claude, cursor, gemini, copilot, and antigravity. (importer)
+- `ProviderExtras` catchall for genuinely unclassified provider-specific artifacts. (ast, importer)
+- `SourceProvider` annotation on all AST resource types for import provenance tracking. (ast)
+- `ReclassifyExtras` — auto-graduates `ProviderExtras` entries when an importer recognizes them. (parser)
+- `KindHookScript` and canonical hook-file routing across claude, cursor, copilot, and gemini. (importer)
+- Shared importer helpers: `ParseFrontmatter`, `ParseFrontmatterLenient`, `MatchGlob`, `AppendUnique`. (importer)
+- `import --global` scans all provider directories and merges all discovered resources. (importer)
+
+**Schema and golden files**
+
+- Golden manifest reference files in `schema/golden/` for every resource kind. (schema)
+- CI test validating all golden manifests parse without error. (schema)
+- Per-kind reference guides (`agent-reference.md`, `skill-reference.md`, etc.) generated inside the xcaffold skill during `xcaffold init`. (init)
+
+**Other**
+
+- `xcaffold init` generates a self-referential `/xcaffold` skill (`xcaf/skills/xcaffold.xcaf`) teaching AI assistants local schema constraints. (init)
+- `xcaffold init` multi-file generator scaffolds a full `xcaf/` directory, replacing the legacy single-file builder. (init)
+- `instructions-file:` directive on agents, skills, and rules for sourcing prompts from external markdown files. (ast)
+- `references:` directive on skills for copying supplementary context files (glob patterns). (ast)
+- Provider override list merge with tri-state `cleared` signal — `cleared: true` empties an inherited list field. (ast)
+- Claude provider pass-through for skills — keys under `targets.claude.provider:` emitted into SKILL.md frontmatter. (renderer)
+- File-origin error reporting for duplicate resource IDs across multiple `.xcaf` files. (parser)
+- Walk-up `EnsureGlobalHome()` migrates or initializes `~/.xcaffold/` automatically on first run. (cli)
+- Project auto-registration into global registry on `init`, `import`, and `apply`. (cli)
+- `xcaffold apply --project <name>` resolves project paths from the global registry. (cli)
+- `hooks` and `workflows` included in `xcaffold graph` topology output. (graph)
+- `review project.xcaf` displays skills, rules, hooks, MCP servers, and workflows in addition to agents. (review)
+- `knownTools` validation extended with `Task`, `Computer`, `AskUserQuestion`, `Agent`, `ExitPlanMode`, `EnterPlanMode`. (parser)
+- GoReleaser — pre-built binaries for Linux (amd64/arm64), macOS (amd64/arm64), Windows (amd64) with Homebrew tap. (release)
+- `AGENTS.md` following the [agents.txt](https://agentstext.com) convention. (docs)
+- `llms.txt` AI discovery index at repository root. (docs)
+- `docs/concepts/architecture/architecture.md` — system architecture documentation with Mermaid diagrams. (docs)
+- Shared `internal/auth` package eliminating `AuthMode` type duplication. (internal)
+- `make install` target with `LDFLAGS` injection for version propagation. (build)
 
 ### Changed
 
-- `isConfigFile()` renamed to `isParseableFile()` — now rejects empty and `config` kind values.
-- `WriteSplitFiles()` emits each resource as a separate file with frontmatter format for body-bearing kinds.
-- `~/.xcaffold/global.xcaf` now uses `kind: global` instead of `kind: config`.
-
-### Changed
-- Refactored `README.md` "Why xcaffold?" section with a provider-agnostic ecosystem narrative, removing inaccurate "token budgeting" claims in favor of policy enforcement and agent topology visibility (docs)
-- Updated Homebrew and Scoop package descriptions in `.goreleaser.yaml` to reflect provider-agnostic agent configuration positioning (release)
-- Standardized Diátaxis `index.md` files across `docs/` with unified cross-navigation "Next Steps" sections (docs)
-- Populated empty information-oriented reference index and created a dedicated `examples/README.md` for proper IDE Markdown parsing (docs)
-- Replaced `--scope global|project|all` flag with `--global / -g` boolean flag across all commands (cli)
-- Changed `validate` command to accept `--global` for validating `~/.xcaffold/global.xcaf` (cli)
-- Changed global config template to omit `project:` block (registry)
-- Rewrote `xcaffold test` to send the compiled agent system prompt directly to the LLM API via `internal/llmclient` instead of spawning a CLI subprocess through an HTTP intercept proxy; trace records declared tool calls extracted from the response (test)
-- `xcaffold test` now reads the task from `test.task` in `project.xcaf`; defaults to a capabilities-description prompt if unset (test)
-- `graph --format json` now uses snake_case field names (`config_path`, `disk_entries`, `blocked_tools`) — breaking change for JSON consumers (graph)
-- `import --global` now scans all provider directories (`~/.claude/`, `~/.cursor/`, `~/.agents/`) and merges all discovered resources into `global.xcaf` (import)
-
-### Added
-- Added `--all` flag to `graph` command for combined global and registered projects view (graph)
-- Added hooks and workflows to `graph` topology output (graph)
-- Added `task` and `max_turns` fields to `TestConfig` (schema `project.test`) (ast)
-- Extended `review project.xcaf` to display skills, rules, hooks, MCP servers, and workflows in addition to agents (review)
-- Updated `knownTools` validation to include `Task`, `Computer`, `AskUserQuestion`, `Agent`, `ExitPlanMode`, and `EnterPlanMode` (parser)
+- `TargetRenderer` interface: monolithic `Compile()`/`Render()` replaced by per-resource methods with `Capabilities()` and `Finalize()`. (renderer)
+- `compiler.Compile()` signature: `(*Output, []FidelityNote, error)` — second return carries fidelity notes. (compiler)
+- `compiler.Compile()` uses `resolveRenderer()` + `renderer.Orchestrate()` instead of a direct target switch. (compiler)
+- `compiler.OutputDir()` returns empty string for unknown targets instead of `.claude`. (compiler)
+- `suppress-fidelity-warnings` enforcement moved from individual renderers to the command layer; renderers emit notes unconditionally. (cmd, renderer)
+- `xcaffold apply`, `xcaffold export`, and `xcaffold validate` receive and print fidelity notes via the shared helper. (cmd)
+- Cursor renderer: 12 stderr writes replaced with typed fidelity notes. (renderer)
+- Antigravity renderer: 4 stderr writes replaced with typed fidelity notes. (renderer)
+- `AgentConfig` struct fields reordered to canonical grouping: identity, model and execution, tool access, permissions and invocation, lifecycle, memory and context, composition references, inline composition, targets, instructions last. (ast)
+- `SkillConfig` struct fields reordered to canonical six-group layout: identity, tool access, permissions and invocation, composition files, targets, instructions last. (ast)
+- Claude renderer emits new agent frontmatter fields: `disable-model-invocation`, `user-invocable`, `memory` (after `isolation`). (renderer)
+- Claude renderer emits skill frontmatter fields: `when_to_use`, `license`, `allowed-tools`, `disable-model-invocation`, `user-invocable`, `argument-hint`. (renderer)
+- Attribute resolver regex broadened to accept kebab-case field names (e.g. `${skill.tdd.allowed-tools}`). (resolver)
+- `fields.yaml` entries reclassified from `xcaffold-only` to `unsupported`. (renderer)
+- Parser name/kind mismatch warnings collected in `XcaffoldConfig.ParseWarnings` instead of printing to stderr. (parser)
+- `xcaffold apply` output: header breadcrumb, glyph helpers, file count summary, import hint footer. (cli)
+- `xcaffold apply` lists each drifted file with path and status before aborting. (cli)
+- `xcaffold graph` dependency rendering overhauled — rules grouped by folder prefix, agent memory nested dynamically. (graph)
+- Import pipeline unified on `ProviderImporter` interface — multi-directory import now uses `ProviderImporter.Import()` per directory; memory, MCP, settings, hooks, and project instructions no longer dropped in multi-dir mode. (importer)
+- `isConfigFile()` renamed to `isParseableFile()` — now rejects empty and `config` kind values. (parser)
+- `WriteSplitFiles()` emits separate files with frontmatter for body-bearing kinds. (compiler)
+- `~/.xcaffold/global.xcaf` uses `kind: global` instead of `kind: config`. (ast)
+- Project manifest relocated from `./project.xcaf` to `.xcaffold/project.xcaf`. (compiler, init, importer)
+- `--scope global|project|all` replaced with `--global / -g` boolean flag. (cli)
+- `xcaffold test` rewrites compilation to send the compiled system prompt directly to the LLM API via `internal/llmclient`; trace records declared tool calls from the response. `test.task` in `project.xcaf` sets the task prompt. (test)
+- `xcaffold test --claude-path` renamed to `--cli-path` for provider-agnostic binary resolution. (cli)
+- Memory rendering transitioned to convention-based `.md` files in `xcaf/agents/<id>/memory/` — discovered by the compiler at compile time. (compiler, renderer)
+- Lockfile format standardized with per-target naming; V1 lock files upgraded automatically. (compiler)
+- `validate --target` includes provider name in header and appends a field validation summary. (cli)
+- README rewritten with badge row, "Why xcaffold?" section, Homebrew install target, expanded schema documentation, and multi-platform output tables. (docs)
+- Diátaxis `index.md` files standardized with unified cross-navigation sections. (docs)
 
 ### Fixed
-- `analyze` no longer errors when no `project.xcaf` exists in the current directory (analyze)
-- `export --output` flag now correctly sets the destination path (export)
-- `init --global` no longer fails when a local `project.xcaf` is present (init)
-- `apply --check` now returns a non-zero exit code when validation errors are found (apply)
-- `apply --check-permissions --global` now reads the global config directory instead of the project directory (apply)
-- `diff` now surfaces `FindXCAFFiles` errors instead of reporting false-positive `SRC DELETED` for valid source files (diff)
-- `apply` excludes `registry.xcaf` from source file tracking, preventing unnecessary recompilation on every run (apply)
-- `graph` no longer includes inherited global resources in project-scope topology output (graph)
+
+- `tagResourcesWithProvider` skipping MCP, hooks, and settings during multi-provider import; all 7 resource kinds now receive provider-scoped `targets` entries. (importer)
+- `xcaffold apply --backup` skipping backup for 2nd and subsequent targets in multi-target projects. (cli)
+- `xcaffold status --all` silently ignored without `--target`; now appends per-provider grouped file listing in overview mode. (cli)
+- `xcaffold status` exits with code 1 on drift detection, enabling scriptable CI checks. (cli)
+- Copilot renderer path-doubling: `OutputDir()` returns `.github`, all emitted paths are relative. (renderer)
+- Global-scope memory file leakage during `xcaffold import` — orphaned files not owned by declared project agents are now pruned. (importer)
+- Model alias resolution for gemini, copilot, and cursor — raw aliases like `sonnet-4` now map to provider-specific identifiers. (renderer)
+- Antigravity renderer silently dropping agents without emitting a `RENDERER_KIND_UNSUPPORTED` fidelity note. (renderer)
+- Copilot `InstructionsFile` rendering and model resolution. (renderer)
+- Copilot MCP config layout — correctly emits `.vscode/mcp.json`. (renderer)
+- `graph` hardcoded `.claude` fallback replaced with `compiler.OutputDir()`. (graph)
+- `graph` excluding inherited global resources from project-scope topology output. (graph)
+- `diff` surfacing `FindXCAFFiles` errors instead of reporting false-positive `SRC DELETED`. (diff)
+- `apply` excluding `registry.xcaf` from source file tracking. (apply)
+- Memory import path-safe slugification and compounding `project_` prefixes during recursive import. (importer)
+- Project root derivation with nested `.xcaffold/` namespace. (compiler)
+- `analyze` no longer errors when no `project.xcaf` is present. (analyze)
+- `export --output` flag correctly sets the destination path. (export)
+- `init --global` with a local `project.xcaf` present. (init)
+- `apply --check` returns non-zero exit code on validation errors. (apply)
+- `apply --check-permissions --global` reads the global config directory. (apply)
+- `init` generating stale `version: "1.0"` templates and incorrect `agents:` indentation. (init)
+- Schema versions and YAML structure in README examples. (docs)
+- Unmapped `model` declarations failing string resolution in `settings.json` renderer. (renderer)
+- Compiler silently discarding `skills`, `rules`, `hooks`, and `mcp` blocks. (compiler)
+- `statusLine` and `enabledPlugins` strict typing in settings renderer. (renderer)
+- `trace.Recorder` data race — added `sync.Mutex` for concurrent HTTP handler writes. (internal)
+- SSRF in `internal/proxy` — replaced `strings.HasSuffix` host check with strict equality. (internal)
+- `os.Exit(1)` in `diff.go` and `validate.go` replaced with `return fmt.Errorf(...)`. (cli)
 
 ### Removed
-- Removed `plan` command — use `apply --dry-run` instead (cli)
-- Removed `--scope all` compilation mode (cli)
-- Removed `internal/mascot` package (unused terminal animation) (internal)
-- Removed `renderer.Register()`, `renderer.Get()`, and `renderer.Registered()` dead-code functions (renderer)
-- Removed `bir.Analyze()` unused function (bir)
 
-### Added
-- Smart Compilation Skipping: `xcaffold apply` tracks multi-file source hashing to skip redundant compilation automatically.
-- Deterministic Orphan Purge: `xcaffold apply` identifies and silently prunes missing artifacts to prevent config bloat, supporting `--dry-run` previews natively.
-- Legacy Lock Migration: `xcaffold apply` seamlessly upgrades older V1 lock files format mapping targets automatically.
-- Source File Drift Tracking: `xcaffold diff` explicitly reports modifications within `project.xcaf` dependencies indicating required compilation cycles.
-- Parser `ParseDirectory` API: Programmatic support for parsing and merging multiple `.xcaf` files within a directory hierarchy, skipping hidden/nested repositories.
-- Hardened global inheritance parser `resolveExtendsGlobal` resolving `~/.xcaffold/` first with strict circular dependency traversal detection.
-- File-origin error reporting: Duplicate resource IDs (Agents, Skills, Rules, Workflows, MCPs) declared across multiple configuration files now report precise file locations in strict merge conflicts.
-- Centralized architecture: `~/.xcaffold/` is the global home for user preferences, project registry, and global agent resources.
-- `global.xcaf` magical bootstrapping: CLI automatically runs `EnsureGlobalHome()`, migrating your legacy `~/.claude/global.xcaf` entirely seamlessly or safely initialises boilerplate without demanding explicit `--scope global` setup.
-- Provider SDK registry: Added extensible `platformProvider` interface and multi-platform scanner to deduplicate global discoveries across Claude, Antigravity, and Cursor.
-- Internal registry metadata files standardized to `.xcaf` (`registry.xcaf`, `settings.xcaf`).
-- Fleet auto-registration: `xcaffold init`, `xcaffold import`, and `xcaffold apply` now automatically detect your scope and auto-register cloned projects into your global registry.
-- `xcaffold list` command displays all managed projects with path, targets, resource counts, and last-applied timestamp.
-- `xcaffold graph --project <name>` queries any registered project's topology from any location.
-- `xcaffold apply` safely resolves project paths from the global registry when invoked using `--project <name>`.
-- `xcaffold plan` command for static parsing and pre-deployment execution dry-runs.
-- Reference-in-place import: `xcaffold import` generates `project.xcaf` entries pointing to existing instruction files without duplication.
-- `xcaffold import` natively extracts `hooks.json` mapping parameters and workflow assets directly into the merged definitions.
-- Walk-up configuration search: CLI commands work from project subdirectories by walking up to find the nearest `project.xcaf` (bounded by `$HOME`).
-- Semantic Translation Engine: cross-platform agent capabilities decomposed via static intent heuristics, accessible through `xcaffold import --source`.
-- `xcaffold test` execution flag `--claude-path` renamed to `--cli-path` to support fallback binary resolution for `cursor` or other detected proxies.
-- `xcaffold apply` safeguards: integrated drift-detection mechanism natively blocks overwrites to locally mutated unrecorded output files.
-- `xcaffold apply` overrides: included `--force` flag for drift circumvention and `--backup` flag utilizing localized timestamped clones.
-- `xcaffold apply` now supports the `--check` flag to perform fail-fast schema syntax validation without creating artifacts.
-- Multi-target compilation support: CLI commands (`apply`, `import`) now support a `--target` flag (`claude`, `cursor`, `antigravity`) to isolate platform outputs.
-- `TargetRenderer` Registry: Pluggable compiler architecture delegating to platform-specific layout generation.
-- Full compiler surface: `xcaffold apply` now emits `.claude/skills/*.md`, `.claude/rules/*.md`, `.claude/hooks.json`, and `.claude/settings.json` (with MCP) in addition to agents.
-- `xcaffold graph` command with deep hierarchical topology visualization (segments global components, natively renders blocked/allowed tools, and separates inherited skills from rules automatically).
-- `instructions-file:` directive across agents, skills, and rules to allow sourcing prompts from external markdown files.
-- `references:` directive for skills to support copying supplementary context files (supports glob patterns).
-- GoReleaser configuration — pre-built release binaries for Linux (amd64/arm64), macOS (amd64/arm64), and Windows (amd64). Homebrew tap formula included.
-- `AGENTS.md` — universal agent instruction file following the [agents.txt](https://agentstext.com) convention.
-- `llms.txt` — AI discovery index at repository root.
-- `.github/` — workspace-specific AI coding context files.
-- `docs/architecture.md` — system architecture documentation with Mermaid diagrams.
-- Shared `internal/auth` package — eliminates `AuthMode` type duplication between `judge` and `generator` packages.
-- `make install` target added to `Makefile` with dynamic `LDFLAGS` injection for version propagation.
-
-### Changed
-- Lockfile standardization: state hashes are now enforced under explicit output conventions globally (`scaffold.claude.lock`, `scaffold.cursor.lock`).
-- Command Consolidation: The `translate` and `validate` workflows were absorbed into their logical primary operations (`import` and `apply` respectively) to reduce the CLI verb surface.
-- Platform neutral scopes: the internal `globalClaudeDir` has been renamed to `globalXcfHome`, aligning `xcaffold init` multi-platform detection for native Claude, Cursor, and Antigravity defaults.
-- README rewritten with badge row, "Why xcaffold?" section, Homebrew install target, expanded schema documentation, and multi-platform output tables.
-- `xcaffold analyze` now references `auth.AuthModeSubscription` from the shared auth package.
-### Fixed
-- Fixed `xcaffold init` generating stale `version: "1.0"` templates, and fixed inner `agents:` struct indentation to correctly fall under the `project:` scope (cli)
-- Fixed schema versions and YAML structure in `README.md` examples and `project.xcaf` (docs)
-- Fixed unmapped `model` declarations failing string resolution in native `settings.json` renderer loops.
-- Compiler now emits all schema blocks. Previously, `skills`, `rules`, `hooks`, and `mcp` were silently discarded.
-- `xcaffold import` completely refactored to be highly faithful, dynamically discovering and preserving external file structures.
-- Settings structure type limitations fixed: `statusLine` and `enabledPlugins` are now strictly typed structures instead of untyped maps.
-- `trace.Recorder` data race — added `sync.Mutex` to protect concurrent writes from HTTP handler goroutines.
-- SSRF in `internal/proxy` — replaced `strings.HasSuffix` host check with strict equality, preventing `evil-api.anthropic.com` bypass.
-- `os.Exit(1)` in `diff.go` and `validate.go` replaced with `return fmt.Errorf(...)` to allow Cobra to handle exit codes and deferred cleanup.
-- CI `go-version` aligned to `1.24` to match `go.mod` declaration.
-
-### Removed
-- Top-level CLI commands `xcaffold translate`, `xcaffold plan`, and `xcaffold validate` were deprecated and removed entirely in favor of flag-driven behaviors on `import`, `graph`, and `apply`.
-- `wazero` WASM runtime — the `wasmBytecode` embed was always nil (no `//go:embed` directive), making the runtime initialization dead code. Removed from `go.mod` and `go.sum`.
-- `golang.org/x/sys` transitive dependency (was pulled in by `wazero`).
-- Token estimation feature (`--tokens` flag on `xcaffold graph`) — cross-provider accuracy is not feasible with a single byte-count heuristic.
+- `xcaffold plan` command — use `apply --dry-run`. (cli)
+- `xcaffold diff` command — replaced by `xcaffold status`. (cli)
+- `xcaffold translate` command — translation via `import --source` and cross-provider `apply`. (cli)
+- `xcaffold migrate` command — had no consumers. (cli)
+- `--target agentsmd` compilation target — AGENTS.md is generated by the cursor and copilot renderers. (renderer)
+- `--scope all` compilation mode. (cli)
+- `kind: memory` from parser — memory entries are now plain `.md` files discovered by the compiler. (parser)
+- `MemoryConfig.Instructions`, `MemoryConfig.InstructionsFile`, `MemoryConfig.Inherited` fields. (ast)
+- `MemorySeed.Lifecycle` field and seed-once lifecycle with `--reseed` flag. (state, cli)
+- `resolveMemoryBody`, `renderMemoryMarkdown`, `CompileWithPriorSeeds`, `WithReseed` from Claude renderer. (renderer)
+- `CodeMemorySeedSkipped` and `CodeMemoryBodyEmpty` fidelity codes. (renderer)
+- `MemoryOptions.Reseed` and `MemoryOptions.PriorHashes` from renderer interface. (renderer)
+- `memoryDoc` struct and `WriteSplitFiles` memory block. (renderer)
+- `internal/mascot` package. (internal)
+- `renderer.Register()`, `renderer.Get()`, `renderer.Registered()` dead-code functions. (renderer)
+- `bir.Analyze()` unused function. (bir)
+- `buildConfigFromDir` and 10 provider-specific extraction functions from `import.go`. (importer)
+- `extractAgents`, `extractSkills`, `extractRules`, `extractWorkflows` legacy functions. (importer)
+- Unreachable fallback branch in `importScope`. (importer)
+- Duplicate `rendererForTarget` in `apply.go`. (compiler)
+- Duplicate `detectAllGlobalPlatformDirs` / `detectAllPlatformDirs` merged into parameterized `detectPlatformDirs`. (cli)
+- `wazero` WASM runtime and `golang.org/x/sys` transitive dependency. (internal)
+- `--tokens` flag on `xcaffold graph`. (graph)
 
 ## [0.1.0] - 2026-04-02
 ### Added
