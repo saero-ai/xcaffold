@@ -35,7 +35,13 @@ When authoring or editing xcaffold `.xcaf` files, follow these conventions:
 - skill: use `allowed-tools:` (not `tools:`)
 - hooks: pure YAML format — no `---` frontmatter delimiters
 - memory: content comes from file body, not a `content:` field
-- mcp: no body and no targets (per-provider overrides not supported)
+- mcp: pure YAML, no body. Supports targets: block for per-provider overrides.
+
+## Format by kind
+
+- frontmatter kinds (use `---` delimiters + body): agent, skill, rule, workflow, context
+- pure-YAML kinds (no delimiters, no body): mcp, hooks, settings, policy, blueprint
+- memory: `.md` files in `xcaf/agents/<name>/memory/`, not `.xcaf`
 
 ## Never do
 

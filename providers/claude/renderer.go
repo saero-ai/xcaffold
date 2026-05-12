@@ -211,11 +211,31 @@ const (
 // Claude embeds hooks inside settings.json, not as a standalone file. Storing
 // hooks under a private staging key avoids a last-writer-wins collision with
 // CompileSettings (which also writes settings.json).
+//
+// Hook commands are translated before marshaling: $XCAF_PROJECT_DIR is rewritten
+// to $CLAUDE_PROJECT_DIR and .xcaf/hooks/ paths become .claude/hooks/. A deep
+// copy of the config is made so the shared input is never mutated.
 func (r *Renderer) CompileHooks(hooks ast.HookConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	if len(hooks) == 0 {
 		return make(map[string]string), nil, nil
 	}
-	b, err := json.Marshal(hooks)
+	translated := make(ast.HookConfig, len(hooks))
+	for event, groups := range hooks {
+		translatedGroups := make([]ast.HookMatcherGroup, len(groups))
+		for i, group := range groups {
+			translatedHandlers := make([]ast.HookHandler, len(group.Hooks))
+			for j, h := range group.Hooks {
+				h.Command = renderer.TranslateHookCommand(h.Command, "$CLAUDE_PROJECT_DIR", ".claude/hooks/")
+				translatedHandlers[j] = h
+			}
+			translatedGroups[i] = ast.HookMatcherGroup{
+				Matcher: group.Matcher,
+				Hooks:   translatedHandlers,
+			}
+		}
+		translated[event] = translatedGroups
+	}
+	b, err := json.Marshal(translated)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal hooks: %w", err)
 	}

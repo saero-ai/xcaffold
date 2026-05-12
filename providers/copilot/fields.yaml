@@ -11,8 +11,8 @@ kinds:
     disallowed-tools: { support: unsupported }
     readonly: { support: unsupported }
     permission-mode: { support: unsupported }
-    disable-model-invocation: { support: unsupported }
-    user-invocable: { support: unsupported }
+    disable-model-invocation: { support: optional }
+    user-invocable: { support: optional }
     background: { support: unsupported }
     isolation: { support: unsupported }
     memory: { support: unsupported }

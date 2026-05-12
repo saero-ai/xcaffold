@@ -5,7 +5,8 @@
 # Copy fields from here into your xcaf/mcp/<name>/<name>.xcaf
 # Provider support: YES = compiled, dropped = silently removed
 # ============================================================
-# Note: MCP has NO body and NO targets (per-provider overrides).
+# Note: MCP has NO body (pure YAML, no instructions section).
+# MCP supports per-provider target overrides via the targets: block.
 # For agent-scoped MCP, use agent-level mcp-servers: inline map.
 # ============================================================
 
@@ -63,3 +64,16 @@ args:                       # Optional.
 # disabled-tools:
 #   - "dangerous-tool"
 #   - "another-tool"
+
+# ── Multi-Target (per-provider overrides) ────────────────────
+# targets: keys are provider names. Override fields:
+#   suppress-fidelity-warnings: bool
+#   skip-synthesis: bool
+#   provider: map (opaque provider-native pass-through)
+#
+# targets:
+#   claude:
+#     skip-synthesis: true
+#   gemini:
+#     provider:
+#       timeout_mins: 30

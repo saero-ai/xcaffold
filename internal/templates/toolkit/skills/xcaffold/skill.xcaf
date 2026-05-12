@@ -42,6 +42,10 @@ Use this mode when writing or editing `.xcaf` manifests.
    - `xcaf/skills/xcaffold/references/mcp-reference.md` — MCP server fields
    - `xcaf/skills/xcaffold/references/hooks-reference.md` — hooks fields
    - `xcaf/skills/xcaffold/references/memory-reference.md` — memory fields
+   - `xcaf/skills/xcaffold/references/context-reference.md` — context fields
+   - `xcaf/skills/xcaffold/references/settings-reference.md` — settings fields
+
+   If no reference exists for the kind you need, run `xcaffold help --xcaf <kind>` to see the schema.
 
 2. **Fill in fields from the catalog** that match the user's use case and target provider(s). Fields marked 'dropped' for a provider are silently removed at compile time — leave them in source.
 
@@ -56,7 +60,7 @@ Use this mode when writing or editing `.xcaf` manifests.
 4. **Validate before applying:**
    ```bash
    xcaffold validate
-   xcaffold apply --dry-run
+   xcaffold apply --dry-run      # preview without writing
    xcaffold apply
    ```
 

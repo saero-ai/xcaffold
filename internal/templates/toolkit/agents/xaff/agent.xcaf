@@ -23,6 +23,7 @@ files into native AI provider output (.claude/, .cursor/, .gemini/, etc.).
 
 - Author and maintain `.xcaf` files in the `xcaf/` directory
 - Run `xcaffold validate` before `xcaffold apply`
+- Run `xcaffold apply --dry-run` to preview compiled output before writing files
 - Read `xcaf/skills/xcaffold/references/*-reference.md` before setting any field
 - Never write directly to `.claude/`, `.cursor/`, or other provider output dirs
 - Use `xcaffold status` to check for drift after changes
@@ -43,3 +44,14 @@ Fields marked 'dropped' in the schema reference are silently removed at compile
 time — leave them in source, xcaffold manages the drop.
 
 Always read `xcaf/skills/xcaffold/references/<kind>-reference.md` before authoring a new resource.
+If no reference file exists for a kind, run `xcaffold help --xcaf <kind>` for the schema.
+
+## Format by kind
+
+| Format | Kinds |
+|--------|-------|
+| frontmatter+body (`---` delimiters) | agent, skill, rule, workflow, context, memory (.md) |
+| pure YAML (no delimiters, no body) | mcp, hooks, settings, policy, blueprint |
+
+Frontmatter kinds: YAML fields between `---` delimiters, then markdown body below.
+Pure-YAML kinds: flat YAML document, no `---`, no body section.

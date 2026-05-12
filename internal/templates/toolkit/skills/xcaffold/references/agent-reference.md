@@ -60,10 +60,13 @@ assertions: []              # Test assertions (evaluated by xcaffold test --judg
 #           command: "validate.sh"
 
 # ── Multi-Target (per-provider overrides) ────────────────────
+# targets: keys are provider names. Valid override fields:
+#   suppress-fidelity-warnings: bool  — suppress compile-time fidelity warnings
+#   skip-synthesis: bool              — skip synthetic field generation
+#   provider: map                     — opaque provider-native pass-through (any key/value)
+#
 # targets:
 #   gemini:
-#     instructions-override: |
-#       Alternative body for Gemini only.
 #     suppress-fidelity-warnings: false
 #     skip-synthesis: false
 #     provider:                  # Provider-native pass-through fields.

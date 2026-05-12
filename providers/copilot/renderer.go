@@ -25,6 +25,11 @@ import (
 
 const targetName = "copilot"
 
+// vscodeMCPPath is the workspace-root path VS Code reads for MCP server config.
+// It must land at the project root, not inside .github/, so Finalize() moves it
+// from files (OutputDir-relative) to rootFiles (project-root-relative).
+const vscodeMCPPath = ".vscode/mcp.json"
+
 // Renderer compiles an XcaffoldConfig AST into GitHub Copilot instruction files.
 // It targets the ".github/instructions/" directory structure.
 type Renderer struct{}
@@ -210,7 +215,7 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 	}
 	files := make(map[string]string)
 	if mcpJSON != "" {
-		files[".vscode/mcp.json"] = mcpJSON
+		files[vscodeMCPPath] = mcpJSON
 	}
 	return files, mcpNotes, nil
 }
@@ -257,8 +262,14 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 	return out.Files, notes, nil
 }
 
-// Finalize is a no-op for the Copilot renderer — no post-processing is required.
+// Finalize moves .vscode/mcp.json from files (OutputDir-relative) to rootFiles
+// (project-root-relative) so the orchestrator writes it to the workspace root
+// rather than inside .github/.
 func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	if content, ok := files[vscodeMCPPath]; ok {
+		rootFiles[vscodeMCPPath] = content
+		delete(files, vscodeMCPPath)
+	}
 	return files, rootFiles, nil, nil
 }
 
