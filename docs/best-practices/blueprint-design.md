@@ -151,8 +151,9 @@ Use the browser-tools MCP server for visual testing.
 
 ### How contexts resolve
 
-- **One context per target:** if multiple context files match the same target without a blueprint, the one marked `default: true` renders. If none is marked as default, the compiler returns an error.
-- **Blueprint selection overrides:** when `--blueprint` is used, only contexts listed in the blueprint's `contexts:` field compile. The `default` flag is ignored.
+- **One context per target:** if multiple context files match the same target without a blueprint, the one marked `default: true` renders first, followed by the rest in alphabetical order. If none is marked as default, the compiler returns an error. See the [context reference — Default Resolution](../reference/kinds/provider/context.md#default-resolution) for the full resolution table.
+- **Blueprint selection overrides:** when `--blueprint` is used, only contexts listed in the blueprint's `contexts:` field compile. The `default` flag is ignored entirely.
+- **Omitted `contexts:` in blueprint = no contexts:** unlike `policies:` (where omission means "evaluate all"), omitting `contexts:` from a blueprint compiles zero context resources. This is intentional — context prose is specific to the workflow the blueprint represents, so there is no safe default.
 - **No targets = all targets:** a context with no `targets:` field renders for every configured provider.
 
 ### Blueprint + context example

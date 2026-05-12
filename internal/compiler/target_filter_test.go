@@ -303,3 +303,249 @@ func TestResolveTargetOverrides_NilOverrides(t *testing.T) {
 		t.Fatal("expected 'developer' agent to remain in config")
 	}
 }
+
+// TestResolveTargetOverrides_MCP_FilteredWhenTargetNotListed verifies that an
+// MCP server whose Targets map does not include the current target is removed
+// and one warning note is emitted with kind "mcp".
+func TestResolveTargetOverrides_MCP_FilteredWhenTargetNotListed(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.MCP = map[string]ast.MCPConfig{
+		"my-server": {
+			Name: "my-server",
+			Targets: map[string]ast.TargetOverride{
+				"gemini": {},
+			},
+		},
+	}
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if _, ok := config.MCP["my-server"]; ok {
+		t.Fatal("expected 'my-server' MCP to be removed — target claude not in Targets")
+	}
+	if len(notes) != 1 {
+		t.Fatalf("expected 1 note, got %d: %+v", len(notes), notes)
+	}
+	note := notes[0]
+	if note.Level != renderer.LevelWarning {
+		t.Errorf("expected warning level, got %q", note.Level)
+	}
+	if note.Kind != "mcp" {
+		t.Errorf("expected kind 'mcp', got %q", note.Kind)
+	}
+	if note.Resource != "my-server" {
+		t.Errorf("expected resource 'my-server', got %q", note.Resource)
+	}
+	if note.Target != "claude" {
+		t.Errorf("expected target 'claude', got %q", note.Target)
+	}
+	if note.Code != CodeResourceTargetSkipped {
+		t.Errorf("expected code %q, got %q", CodeResourceTargetSkipped, note.Code)
+	}
+}
+
+// TestResolveTargetOverrides_Hooks_OverrideApplied verifies that a per-provider
+// override for a hook is merged into the base hook config.
+func TestResolveTargetOverrides_Hooks_OverrideApplied(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Hooks = map[string]ast.NamedHookConfig{
+		"my-hooks": {
+			Name:        "my-hooks",
+			Description: "base description",
+		},
+	}
+	config.Overrides = &ast.ResourceOverrides{}
+	config.Overrides.AddHooks("my-hooks", "claude", ast.NamedHookConfig{
+		Description: "claude-specific description",
+	})
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if len(notes) != 0 {
+		t.Fatalf("expected 0 notes, got %d: %+v", len(notes), notes)
+	}
+	hook, ok := config.Hooks["my-hooks"]
+	if !ok {
+		t.Fatal("expected 'my-hooks' to remain in config")
+	}
+	if hook.Description != "claude-specific description" {
+		t.Errorf("Description: want %q, got %q", "claude-specific description", hook.Description)
+	}
+}
+
+// TestResolveTargetOverrides_Hooks_SkippedWhenTargetNotListed verifies that a hook
+// whose Targets map does not include the current target is removed and one warning
+// note is emitted with kind "hooks".
+func TestResolveTargetOverrides_Hooks_SkippedWhenTargetNotListed(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Hooks = map[string]ast.NamedHookConfig{
+		"my-hooks": {
+			Name: "my-hooks",
+			Targets: map[string]ast.TargetOverride{
+				"gemini": {},
+			},
+		},
+	}
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if _, ok := config.Hooks["my-hooks"]; ok {
+		t.Fatal("expected 'my-hooks' to be removed — target claude not in Targets")
+	}
+	if len(notes) != 1 {
+		t.Fatalf("expected 1 note, got %d: %+v", len(notes), notes)
+	}
+	note := notes[0]
+	if note.Level != renderer.LevelWarning {
+		t.Errorf("expected warning level, got %q", note.Level)
+	}
+	if note.Kind != "hooks" {
+		t.Errorf("expected kind 'hooks', got %q", note.Kind)
+	}
+	if note.Resource != "my-hooks" {
+		t.Errorf("expected resource 'my-hooks', got %q", note.Resource)
+	}
+	if note.Target != "claude" {
+		t.Errorf("expected target 'claude', got %q", note.Target)
+	}
+}
+
+// TestResolveTargetOverrides_Settings_OverrideApplied verifies that a per-provider
+// override for settings is merged into the base settings config.
+func TestResolveTargetOverrides_Settings_OverrideApplied(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Settings = map[string]ast.SettingsConfig{
+		"default": {
+			Name:  "default",
+			Model: "sonnet",
+		},
+	}
+	config.Overrides = &ast.ResourceOverrides{}
+	config.Overrides.AddSettings("default", "claude", ast.SettingsConfig{Model: "opus"})
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if len(notes) != 0 {
+		t.Fatalf("expected 0 notes, got %d: %+v", len(notes), notes)
+	}
+	settings, ok := config.Settings["default"]
+	if !ok {
+		t.Fatal("expected 'default' settings to remain in config")
+	}
+	if settings.Model != "opus" {
+		t.Errorf("Model: want %q, got %q", "opus", settings.Model)
+	}
+}
+
+// TestResolveTargetOverrides_Settings_SkippedWhenTargetNotListed verifies that a
+// settings block whose Targets map does not include the current target is removed
+// and one warning note is emitted with kind "settings".
+func TestResolveTargetOverrides_Settings_SkippedWhenTargetNotListed(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Settings = map[string]ast.SettingsConfig{
+		"default": {
+			Name: "default",
+			Targets: map[string]ast.TargetOverride{
+				"gemini": {},
+			},
+		},
+	}
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if _, ok := config.Settings["default"]; ok {
+		t.Fatal("expected 'default' settings to be removed — target claude not in Targets")
+	}
+	if len(notes) != 1 {
+		t.Fatalf("expected 1 note, got %d: %+v", len(notes), notes)
+	}
+	note := notes[0]
+	if note.Kind != "settings" {
+		t.Errorf("expected kind 'settings', got %q", note.Kind)
+	}
+}
+
+// TestResolveTargetOverrides_Policy_OverrideApplied verifies that a per-provider
+// override for a policy is merged into the base policy config. Policies have no
+// Targets map so there is no filter step — only override application.
+func TestResolveTargetOverrides_Policy_OverrideApplied(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Policies = map[string]ast.PolicyConfig{
+		"my-policy": {
+			Name:     "my-policy",
+			Severity: "warning",
+			Target:   "agent",
+		},
+	}
+	config.Overrides = &ast.ResourceOverrides{}
+	config.Overrides.AddPolicy("my-policy", "claude", ast.PolicyConfig{Severity: "error"})
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if len(notes) != 0 {
+		t.Fatalf("expected 0 notes, got %d: %+v", len(notes), notes)
+	}
+	policy, ok := config.Policies["my-policy"]
+	if !ok {
+		t.Fatal("expected 'my-policy' to remain in config")
+	}
+	if policy.Severity != "error" {
+		t.Errorf("Severity: want %q, got %q", "error", policy.Severity)
+	}
+}
+
+// TestResolveTargetOverrides_Template_OverrideApplied verifies that a per-provider
+// override for a template is merged into the base template config. Templates have
+// no Targets field so there is no filter step — only override application.
+func TestResolveTargetOverrides_Template_OverrideApplied(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Templates = map[string]ast.TemplateConfig{
+		"my-template": {
+			Name:          "my-template",
+			DefaultTarget: "claude",
+		},
+	}
+	config.Overrides = &ast.ResourceOverrides{}
+	config.Overrides.AddTemplate("my-template", "claude", ast.TemplateConfig{DefaultTarget: "gemini"})
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if len(notes) != 0 {
+		t.Fatalf("expected 0 notes, got %d: %+v", len(notes), notes)
+	}
+	tmpl, ok := config.Templates["my-template"]
+	if !ok {
+		t.Fatal("expected 'my-template' to remain in config")
+	}
+	if tmpl.DefaultTarget != "gemini" {
+		t.Errorf("DefaultTarget: want %q, got %q", "gemini", tmpl.DefaultTarget)
+	}
+}
+
+// TestResolveTargetOverrides_Context_OverrideApplied verifies that a per-provider
+// override for a context is merged into the base context config. Context.Targets is
+// []string (not a filter map) so there is no filter step — only override application.
+func TestResolveTargetOverrides_Context_OverrideApplied(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.Contexts = map[string]ast.ContextConfig{
+		"my-context": {
+			Name: "my-context",
+			Body: "base body",
+		},
+	}
+	config.Overrides = &ast.ResourceOverrides{}
+	config.Overrides.AddContext("my-context", "claude", ast.ContextConfig{Body: "claude body"})
+
+	notes := resolveTargetOverrides(config, "claude")
+
+	if len(notes) != 0 {
+		t.Fatalf("expected 0 notes, got %d: %+v", len(notes), notes)
+	}
+	ctx, ok := config.Contexts["my-context"]
+	if !ok {
+		t.Fatal("expected 'my-context' to remain in config")
+	}
+	if ctx.Body != "claude body" {
+		t.Errorf("Body: want %q, got %q", "claude body", ctx.Body)
+	}
+}

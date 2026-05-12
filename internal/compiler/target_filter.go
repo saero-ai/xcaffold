@@ -22,7 +22,7 @@ const CodeResourceTargetSkipped = "RESOURCE_TARGET_SKIPPED"
 //     the resource and emit a warning note.
 //  3. If the resource has no Targets map, keep it unchanged.
 //
-// MCPConfig has no Targets field; only overrides are applied for MCP resources.
+// MCPConfig has a Targets field; both overrides and target filtering are applied.
 // config.Overrides may be nil — all nil-checks are handled internally.
 func resolveTargetOverrides(config *ast.XcaffoldConfig, target string) []renderer.FidelityNote {
 	var notes []renderer.FidelityNote
@@ -90,11 +90,71 @@ func resolveTargetOverrides(config *ast.XcaffoldConfig, target string) []rendere
 	}
 
 	// --- MCP ---
-	// MCPConfig has no Targets field, so only override application is needed.
 	for name, mcp := range config.MCP {
 		if override, ok := config.Overrides.GetMCP(name, target); ok {
 			mcp = mergeMCPConfig(mcp, override)
 			config.MCP[name] = mcp
+		}
+		if len(mcp.Targets) > 0 {
+			if _, listed := mcp.Targets[target]; !listed {
+				delete(config.MCP, name)
+				notes = append(notes, newSkippedNote(target, "mcp", name))
+				continue
+			}
+		}
+	}
+
+	// --- Hooks ---
+	for name, hook := range config.Hooks {
+		if override, ok := config.Overrides.GetHooks(name, target); ok {
+			hook = mergeNamedHookConfig(hook, override)
+			config.Hooks[name] = hook
+		}
+		if len(hook.Targets) > 0 {
+			if _, listed := hook.Targets[target]; !listed {
+				delete(config.Hooks, name)
+				notes = append(notes, newSkippedNote(target, "hooks", name))
+				continue
+			}
+		}
+	}
+
+	// --- Settings ---
+	for name, settings := range config.Settings {
+		if override, ok := config.Overrides.GetSettings(name, target); ok {
+			settings = mergeSettingsConfig(settings, override)
+			config.Settings[name] = settings
+		}
+		if len(settings.Targets) > 0 {
+			if _, listed := settings.Targets[target]; !listed {
+				delete(config.Settings, name)
+				notes = append(notes, newSkippedNote(target, "settings", name))
+				continue
+			}
+		}
+	}
+
+	// --- Policies (override only — no Targets map) ---
+	for name, policy := range config.Policies {
+		if override, ok := config.Overrides.GetPolicy(name, target); ok {
+			policy = mergePolicyConfig(policy, override)
+			config.Policies[name] = policy
+		}
+	}
+
+	// --- Templates (override only — no Targets field) ---
+	for name, tmpl := range config.Templates {
+		if override, ok := config.Overrides.GetTemplate(name, target); ok {
+			tmpl = mergeTemplateConfig(tmpl, override)
+			config.Templates[name] = tmpl
+		}
+	}
+
+	// --- Contexts (override only — Targets is []string, not map) ---
+	for name, ctx := range config.Contexts {
+		if override, ok := config.Overrides.GetContext(name, target); ok {
+			ctx = mergeContextConfig(ctx, override)
+			config.Contexts[name] = ctx
 		}
 	}
 

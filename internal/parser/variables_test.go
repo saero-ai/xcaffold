@@ -102,6 +102,20 @@ func TestLoadVariableStack_Layering(t *testing.T) {
 			},
 		},
 		{
+			name:       "custom file layers on top of project.vars",
+			target:     "",
+			customFile: "xcaf/custom.vars",
+			files: map[string]string{
+				"project.vars": "base-key = base-value\nshared = from-base\n",
+				"custom.vars":  "custom-key = custom-value\nshared = from-custom\n",
+			},
+			expected: map[string]interface{}{
+				"base-key":   "base-value",
+				"custom-key": "custom-value",
+				"shared":     "from-custom",
+			},
+		},
+		{
 			name:   "malformed key rejected",
 			target: "default",
 			files: map[string]string{

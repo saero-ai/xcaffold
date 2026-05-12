@@ -293,7 +293,7 @@ func TestClaudeRenderer_Compile_Agent_MemoryInGroup6(t *testing.T) {
 					Description: "Research agent.",
 					Model:       "sonnet",
 					Effort:      "high",
-					MaxTurns:    10,
+					MaxTurns:    intPtr(10),
 					Memory:      ast.FlexStringSlice{"project"},
 					Isolation:   "worktree",
 				},
@@ -607,3 +607,5 @@ func TestCompileAgents_RulesNotInFrontmatter(t *testing.T) {
 	assert.Contains(t, content, "name: test")
 	assert.Contains(t, content, "You are a test agent.")
 }
+
+func intPtr(n int) *int { return &n }

@@ -136,7 +136,7 @@ func TestCompile_Copilot_Agents_UnsupportedFields(t *testing.T) {
 					Isolation:       "sandbox",
 					Skills:          ast.ClearableList{Values: []string{"my-skill"}},
 					Memory:          ast.FlexStringSlice{"long-term"},
-					MaxTurns:        10,
+					MaxTurns:        intPtr(10),
 					Background:      &background,
 					Color:           "blue",
 					InitialPrompt:   "Hello!",
@@ -267,3 +267,5 @@ func TestCompileAgents_Copilot_NoClaude_FullTranslation(t *testing.T) {
 			"no CLAUDE_NATIVE_PASSTHROUGH notes expected when .claude/ is absent")
 	}
 }
+
+func intPtr(n int) *int { return &n }

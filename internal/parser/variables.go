@@ -57,16 +57,23 @@ func parseVarFile(path string) (map[string]interface{}, error) {
 }
 
 func LoadVariableStack(baseDir, target, customFile string) (map[string]interface{}, error) {
-	basePath := customFile
-	if basePath == "" {
-		basePath = filepath.Join(baseDir, "xcaf", "project.vars")
-	} else if !filepath.IsAbs(basePath) {
-		basePath = filepath.Join(baseDir, basePath)
-	}
-
-	res, err := parseVarFile(basePath)
+	res, err := parseVarFile(filepath.Join(baseDir, "xcaf", "project.vars"))
 	if err != nil {
 		return nil, err
+	}
+
+	if customFile != "" {
+		cfPath := customFile
+		if !filepath.IsAbs(cfPath) {
+			cfPath = filepath.Join(baseDir, cfPath)
+		}
+		customVars, err := parseVarFile(cfPath)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range customVars {
+			res[k] = v
+		}
 	}
 
 	if target != "" {

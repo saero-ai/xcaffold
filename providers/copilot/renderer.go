@@ -380,7 +380,7 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		}
 		unsupported := []unsupportedField{
 			{"effort", agent.Effort != ""},
-			{"max-turns", agent.MaxTurns > 0},
+			{"max-turns", agent.MaxTurns != nil && *agent.MaxTurns > 0},
 			{"background", agent.Background != nil},
 			{"color", agent.Color != ""},
 			{"initial-prompt", agent.InitialPrompt != ""},

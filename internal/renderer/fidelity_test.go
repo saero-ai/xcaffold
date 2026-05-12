@@ -333,7 +333,7 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 					Description:     "triggers security and model fidelity notes",
 					Model:           "unknown-model-xyz-not-in-catalog",
 					Effort:          "high",
-					MaxTurns:        5,
+					MaxTurns:        intPtr(5),
 					Tools:           ast.ClearableList{Values: []string{"Read", "Write"}},
 					DisallowedTools: ast.ClearableList{Values: []string{"Bash"}},
 					Readonly:        &trueVal,
@@ -394,3 +394,5 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 		},
 	}
 }
+
+func intPtr(n int) *int { return &n }

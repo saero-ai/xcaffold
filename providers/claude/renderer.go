@@ -474,8 +474,8 @@ func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
 	if agent.Effort != "" {
 		fmt.Fprintf(sb, "effort: %s\n", agent.Effort)
 	}
-	if agent.MaxTurns > 0 {
-		fmt.Fprintf(sb, "max-turns: %d\n", agent.MaxTurns)
+	if agent.MaxTurns != nil && *agent.MaxTurns > 0 {
+		fmt.Fprintf(sb, "max-turns: %d\n", *agent.MaxTurns)
 	}
 }
 

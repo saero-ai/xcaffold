@@ -12,8 +12,9 @@ import (
 )
 
 // refPattern matches ${resource_type.resource_name.field} tokens.
-// The field segment allows hyphens to support kebab-case YAML keys (e.g. allowed-tools).
-var refPattern = regexp.MustCompile(`\$\{(\w+)\.(\w+)\.([\w-]+)\}`)
+// Both the resource name and field segments allow hyphens to support
+// kebab-case resource identifiers and YAML keys (e.g. require-desc, allowed-tools).
+var refPattern = regexp.MustCompile(`\$\{(\w+)\.([\w-]+)\.([\w-]+)\}`)
 var varPattern = regexp.MustCompile(`\$\{var\.([a-zA-Z][_a-zA-Z0-9-]*)\}`)
 var envPattern = regexp.MustCompile(`\$\{env\.([A-Z0-9_]+)\}`)
 
@@ -150,6 +151,48 @@ func ResolveAttributes(config *ast.XcaffoldConfig) error {
 	// Resolve all MCP configs.
 	for id := range config.MCP {
 		key := resourceKey{"mcp", id}
+		if err := resolveResource(config, key, visited, inStack); err != nil {
+			return err
+		}
+	}
+	// Resolve all policies.
+	for id := range config.Policies {
+		key := resourceKey{"policy", id}
+		if err := resolveResource(config, key, visited, inStack); err != nil {
+			return err
+		}
+	}
+	// Resolve all memory entries.
+	for id := range config.Memory {
+		key := resourceKey{"memory", id}
+		if err := resolveResource(config, key, visited, inStack); err != nil {
+			return err
+		}
+	}
+	// Resolve all contexts.
+	for id := range config.Contexts {
+		key := resourceKey{"context", id}
+		if err := resolveResource(config, key, visited, inStack); err != nil {
+			return err
+		}
+	}
+	// Resolve all templates.
+	for id := range config.Templates {
+		key := resourceKey{"template", id}
+		if err := resolveResource(config, key, visited, inStack); err != nil {
+			return err
+		}
+	}
+	// Resolve all hook configs.
+	for id := range config.Hooks {
+		key := resourceKey{"hooks", id}
+		if err := resolveResource(config, key, visited, inStack); err != nil {
+			return err
+		}
+	}
+	// Resolve all settings.
+	for id := range config.Settings {
+		key := resourceKey{"settings", id}
 		if err := resolveResource(config, key, visited, inStack); err != nil {
 			return err
 		}
@@ -316,6 +359,72 @@ func resolveFields(config *ast.XcaffoldConfig, key resourceKey) error {
 			return err
 		}
 		config.MCP[key.name] = mcp
+
+	case "policy":
+		p, ok := config.Policies[key.name]
+		if !ok {
+			return nil
+		}
+		v := reflect.ValueOf(&p).Elem()
+		if err := resolveStructFields(config, v); err != nil {
+			return err
+		}
+		config.Policies[key.name] = p
+
+	case "memory":
+		m, ok := config.Memory[key.name]
+		if !ok {
+			return nil
+		}
+		v := reflect.ValueOf(&m).Elem()
+		if err := resolveStructFields(config, v); err != nil {
+			return err
+		}
+		config.Memory[key.name] = m
+
+	case "context":
+		ctx, ok := config.Contexts[key.name]
+		if !ok {
+			return nil
+		}
+		v := reflect.ValueOf(&ctx).Elem()
+		if err := resolveStructFields(config, v); err != nil {
+			return err
+		}
+		config.Contexts[key.name] = ctx
+
+	case "template":
+		tmpl, ok := config.Templates[key.name]
+		if !ok {
+			return nil
+		}
+		v := reflect.ValueOf(&tmpl).Elem()
+		if err := resolveStructFields(config, v); err != nil {
+			return err
+		}
+		config.Templates[key.name] = tmpl
+
+	case "hooks":
+		h, ok := config.Hooks[key.name]
+		if !ok {
+			return nil
+		}
+		v := reflect.ValueOf(&h).Elem()
+		if err := resolveStructFields(config, v); err != nil {
+			return err
+		}
+		config.Hooks[key.name] = h
+
+	case "settings":
+		s, ok := config.Settings[key.name]
+		if !ok {
+			return nil
+		}
+		v := reflect.ValueOf(&s).Elem()
+		if err := resolveStructFields(config, v); err != nil {
+			return err
+		}
+		config.Settings[key.name] = s
 	}
 	return nil
 }
@@ -462,6 +571,42 @@ func getResourceValue(config *ast.XcaffoldConfig, key resourceKey) (reflect.Valu
 		v, ok := config.MCP[key.name]
 		if !ok {
 			return reflect.Value{}, fmt.Errorf("attribute reference: mcp %q not found", key.name)
+		}
+		return reflect.ValueOf(v), nil
+	case "policy":
+		v, ok := config.Policies[key.name]
+		if !ok {
+			return reflect.Value{}, fmt.Errorf("attribute reference: policy %q not found", key.name)
+		}
+		return reflect.ValueOf(v), nil
+	case "memory":
+		v, ok := config.Memory[key.name]
+		if !ok {
+			return reflect.Value{}, fmt.Errorf("attribute reference: memory %q not found", key.name)
+		}
+		return reflect.ValueOf(v), nil
+	case "context":
+		v, ok := config.Contexts[key.name]
+		if !ok {
+			return reflect.Value{}, fmt.Errorf("attribute reference: context %q not found", key.name)
+		}
+		return reflect.ValueOf(v), nil
+	case "template":
+		v, ok := config.Templates[key.name]
+		if !ok {
+			return reflect.Value{}, fmt.Errorf("attribute reference: template %q not found", key.name)
+		}
+		return reflect.ValueOf(v), nil
+	case "hooks":
+		v, ok := config.Hooks[key.name]
+		if !ok {
+			return reflect.Value{}, fmt.Errorf("attribute reference: hooks %q not found", key.name)
+		}
+		return reflect.ValueOf(v), nil
+	case "settings":
+		v, ok := config.Settings[key.name]
+		if !ok {
+			return reflect.Value{}, fmt.Errorf("attribute reference: settings %q not found", key.name)
 		}
 		return reflect.ValueOf(v), nil
 	default:

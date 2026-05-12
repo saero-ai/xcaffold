@@ -152,7 +152,7 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Description:            front.Description,
 		Model:                  front.Model,
 		Effort:                 front.Effort,
-		MaxTurns:               front.MaxTurns,
+		MaxTurns:               intPtrIfNonZero(front.MaxTurns),
 		Tools:                  ast.ClearableList{Values: front.Tools},
 		DisallowedTools:        ast.ClearableList{Values: front.DisallowedTools},
 		PermissionMode:         front.PermissionMode,
@@ -261,4 +261,11 @@ func extractSettings(rel string, data []byte, config *ast.XcaffoldConfig) error 
 	settings.SourceProvider = "gemini"
 	config.Settings = map[string]ast.SettingsConfig{"default": settings}
 	return nil
+}
+
+func intPtrIfNonZero(n int) *int {
+	if n == 0 {
+		return nil
+	}
+	return &n
 }
