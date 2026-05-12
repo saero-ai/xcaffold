@@ -17,22 +17,8 @@ func isEmptySettings(s ast.SettingsConfig) bool {
 // Scalar conflicts (both set to different values) produce an error naming both
 // source files.  Maps are merged additively; duplicate map keys with different
 // values are an error.  Hooks are always appended.
-func mergeSettingsStrict(base, child ast.SettingsConfig, baseFile, childFile string) (ast.SettingsConfig, error) {
-	if isEmptySettings(child) {
-		return base, nil
-	}
-	if isEmptySettings(base) {
-		return child, nil
-	}
-
-	bf := filepath.Base(baseFile)
-	cf := filepath.Base(childFile)
-	conflict := func(field string) error {
-		return fmt.Errorf("settings conflict for %q between %s and %s", field, bf, cf)
-	}
-
-	out := base // shallow copy
-
+// mergeScalarFields merges scalar string and int fields from child into base settings.
+func mergeScalarFields(out *ast.SettingsConfig, base, child ast.SettingsConfig, conflict func(string) error) error {
 	// --- string scalars ---
 	strFields := []struct {
 		name     string
@@ -52,13 +38,25 @@ func mergeSettingsStrict(base, child ast.SettingsConfig, baseFile, childFile str
 	for _, f := range strFields {
 		if f.childVal != "" {
 			if f.baseVal != "" && f.baseVal != f.childVal {
-				return ast.SettingsConfig{}, conflict(f.name)
+				return conflict(f.name)
 			}
 			*f.dst = f.childVal
 		}
 	}
 
-	// --- *bool pointers ---
+	// --- *int pointer ---
+	if child.CleanupPeriodDays != nil {
+		if base.CleanupPeriodDays != nil && *base.CleanupPeriodDays != *child.CleanupPeriodDays {
+			return conflict("cleanupPeriodDays")
+		}
+		out.CleanupPeriodDays = child.CleanupPeriodDays
+	}
+
+	return nil
+}
+
+// mergeBooleanFields merges boolean pointer fields from child into base settings.
+func mergeBooleanFields(out *ast.SettingsConfig, base, child ast.SettingsConfig, conflict func(string) error) error {
 	boolFields := []struct {
 		name     string
 		baseVal  *bool
@@ -77,21 +75,16 @@ func mergeSettingsStrict(base, child ast.SettingsConfig, baseFile, childFile str
 	for _, f := range boolFields {
 		if f.childVal != nil {
 			if f.baseVal != nil && *f.baseVal != *f.childVal {
-				return ast.SettingsConfig{}, conflict(f.name)
+				return conflict(f.name)
 			}
 			*f.dst = f.childVal
 		}
 	}
+	return nil
+}
 
-	// --- *int pointer ---
-	if child.CleanupPeriodDays != nil {
-		if base.CleanupPeriodDays != nil && *base.CleanupPeriodDays != *child.CleanupPeriodDays {
-			return ast.SettingsConfig{}, conflict("cleanupPeriodDays")
-		}
-		out.CleanupPeriodDays = child.CleanupPeriodDays
-	}
-
-	// --- any fields (Agent, Worktree, AutoMode) ---
+// mergeAnyFields merges untyped any fields from child into base settings.
+func mergeAnyFields(out *ast.SettingsConfig, base, child ast.SettingsConfig, conflict func(string) error) error {
 	anyFields := []struct {
 		name     string
 		baseVal  any
@@ -105,50 +98,59 @@ func mergeSettingsStrict(base, child ast.SettingsConfig, baseFile, childFile str
 	for _, f := range anyFields {
 		if f.childVal != nil {
 			if f.baseVal != nil {
-				return ast.SettingsConfig{}, conflict(f.name)
+				return conflict(f.name)
 			}
 			*f.dst = f.childVal
 		}
 	}
+	return nil
+}
 
-	// --- struct pointers (Permissions, Sandbox, StatusLine) ---
+// mergeStructPointerFields merges struct pointer fields from child into base settings.
+func mergeStructPointerFields(out *ast.SettingsConfig, base, child ast.SettingsConfig, conflict func(string) error) error {
 	if child.Permissions != nil {
 		if base.Permissions != nil {
-			return ast.SettingsConfig{}, conflict("permissions")
+			return conflict("permissions")
 		}
 		out.Permissions = child.Permissions
 	}
 	if child.Sandbox != nil {
 		if base.Sandbox != nil {
-			return ast.SettingsConfig{}, conflict("sandbox")
+			return conflict("sandbox")
 		}
 		out.Sandbox = child.Sandbox
 	}
 	if child.StatusLine != nil {
 		if base.StatusLine != nil {
-			return ast.SettingsConfig{}, conflict("statusLine")
+			return conflict("statusLine")
 		}
 		out.StatusLine = child.StatusLine
 	}
+	return nil
+}
+
+// mergeMapAndSliceFields merges map and slice fields from child into base settings.
+func mergeMapAndSliceFields(out *ast.SettingsConfig, base, child ast.SettingsConfig, bf, cf string) error {
+	var err error
 
 	// --- map[string]string (Env) ---
 	merged, err := mergeStringMapStrict(base.Env, child.Env, "env", bf, cf)
 	if err != nil {
-		return ast.SettingsConfig{}, err
+		return err
 	}
 	out.Env = merged
 
 	// --- map[string]bool (EnabledPlugins) ---
 	mergedPlugins, err := mergeBoolMapStrict(base.EnabledPlugins, child.EnabledPlugins, "enabledPlugins", bf, cf)
 	if err != nil {
-		return ast.SettingsConfig{}, err
+		return err
 	}
 	out.EnabledPlugins = mergedPlugins
 
 	// --- map[string]MCPConfig (MCPServers) ---
 	mergedMCP, err := mergeMCPMapStrict(base.MCPServers, child.MCPServers, "mcpServers", bf, cf)
 	if err != nil {
-		return ast.SettingsConfig{}, err
+		return err
 	}
 	out.MCPServers = mergedMCP
 
@@ -158,6 +160,45 @@ func mergeSettingsStrict(base, child ast.SettingsConfig, baseFile, childFile str
 
 	// --- HookConfig (additive) ---
 	out.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
+
+	return nil
+}
+
+func mergeSettingsStrict(base, child ast.SettingsConfig, baseFile, childFile string) (ast.SettingsConfig, error) {
+	if isEmptySettings(child) {
+		return base, nil
+	}
+	if isEmptySettings(base) {
+		return child, nil
+	}
+
+	bf := filepath.Base(baseFile)
+	cf := filepath.Base(childFile)
+	conflict := func(field string) error {
+		return fmt.Errorf("settings conflict for %q between %s and %s", field, bf, cf)
+	}
+
+	out := base // shallow copy
+
+	if err := mergeScalarFields(&out, base, child, conflict); err != nil {
+		return ast.SettingsConfig{}, err
+	}
+
+	if err := mergeBooleanFields(&out, base, child, conflict); err != nil {
+		return ast.SettingsConfig{}, err
+	}
+
+	if err := mergeAnyFields(&out, base, child, conflict); err != nil {
+		return ast.SettingsConfig{}, err
+	}
+
+	if err := mergeStructPointerFields(&out, base, child, conflict); err != nil {
+		return ast.SettingsConfig{}, err
+	}
+
+	if err := mergeMapAndSliceFields(&out, base, child, bf, cf); err != nil {
+		return ast.SettingsConfig{}, err
+	}
 
 	return out, nil
 }
