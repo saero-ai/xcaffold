@@ -9,7 +9,7 @@
 //   - Rules: AlwaysOn / absent → no trigger field (always-on by default)
 //   - Rules: ManualMention / ExplicitInvoke → fidelity note; no frontmatter encoding
 //   - Skills: only name and description emitted in frontmatter; all other fields dropped
-//   - Agents are not supported; RENDERER_KIND_UNSUPPORTED notes plus per-field security notes are emitted
+//   - Agents are rendered as specialist profiles (Markdown notes) at agents/<id>.md
 //   - Hooks are not supported by this renderer; the orchestrator emits RENDERER_KIND_UNSUPPORTED
 //   - MCP is global-only; no project-local file is written; a MCP_GLOBAL_CONFIG_ONLY note is emitted
 package antigravity
@@ -85,23 +85,30 @@ func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	}
 }
 
-// CompileAgents returns no output files — Antigravity does not support agent
-// definitions. It emits a RENDERER_KIND_UNSUPPORTED fidelity note for each
-// agent. Security fields (permission-mode, disallowed-tools, isolation) are
-// reported via CheckFieldSupport in the orchestrator rather than here.
+// CompileAgents renders all agents to agents/<id>.md files as specialist
+// profiles (notes). This is a downgrade path from the native agent model
+// supported by Claude and Cursor.
 func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
+	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 
-	for _, id := range renderer.SortedKeys(agents) {
+	for id, agent := range agents {
+		md, err := compileAntigravityAgent(id, agent, baseDir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("antigravity: failed to compile agent %q: %w", id, err)
+		}
+		safePath := filepath.Clean(fmt.Sprintf("agents/%s.md", id))
+		files[safePath] = md
+
 		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "agent", id, "",
-			renderer.CodeRendererKindUnsupported,
-			fmt.Sprintf("agent %q dropped; Antigravity does not support agent definitions", id),
-			"Use a target that supports agents (claude, cursor, gemini, copilot)",
+			renderer.LevelInfo, targetName, "agent", id, "",
+			renderer.CodeRendererKindDowngraded,
+			fmt.Sprintf("agent %q rendered as a specialist note; Antigravity does not support native agent definitions", id),
+			"Use a target that supports native agents (claude, cursor) for full agentic behavior",
 		))
 	}
 
-	return nil, notes, nil
+	return files, notes, nil
 }
 
 // CompileSkills renders all skills to skills/<id>/SKILL.md files with minimal
@@ -323,6 +330,36 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	return nil
 }
 
+// compileAntigravityAgent renders a single AgentConfig to a Markdown file
+// as a specialist profile.
+func compileAntigravityAgent(id string, agent ast.AgentConfig, baseDir string) (string, error) {
+	if strings.TrimSpace(id) == "" {
+		return "", fmt.Errorf("agent id must not be empty")
+	}
+
+	body := resolver.StripFrontmatter(agent.Body)
+
+	var sb strings.Builder
+
+	sb.WriteString("---\n")
+	if agent.Name != "" {
+		fmt.Fprintf(&sb, "name: %s\n", renderer.YAMLScalar(agent.Name))
+	}
+	if agent.Description != "" {
+		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(agent.Description))
+	}
+	sb.WriteString("---\n")
+
+	if body != "" {
+		sb.WriteString("\n")
+		// Strip any inner frontmatter
+		sb.WriteString(strings.TrimRight(renderer.StripAllFrontmatter(body), "\n"))
+		sb.WriteString("\n")
+	}
+
+	return sb.String(), nil
+}
+
 // compileAntigravityRule renders a single RuleConfig to a Markdown file with
 // optional YAML frontmatter.
 //
@@ -481,3 +518,6 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 
 // stripFrontmatter removes YAML frontmatter delimited by "---" from the start
 // of a markdown file, returning only the body content with leading newlines trimmed.
+func stripFrontmatter(data []byte) string {
+	return resolver.StripFrontmatter(string(data))
+}
