@@ -28,12 +28,11 @@ These kinds govern the compiler itself — they configure compilation targets, e
 
 | Kind | Description |
 |---|---|
-| [`project`](./xcaffold/project) | Root manifest — declares targets, references all resources |
+| [`project`](./xcaffold/project) | Root manifest — declares targets and project metadata; resources discovered from `xcaf/` directories |
 | [`policy`](./xcaffold/policy) | Compile-time constraint evaluated during `apply` and `validate` |
-| [`settings`](./xcaffold/settings) | Global and workspace-scoped provider settings |
-| [`hooks`](./xcaffold/hooks) | Build-time lifecycle scripts run before or after tool invocations |
 | [`blueprint`](./xcaffold/blueprint) | Named resource subset for conditional compilation |
-| [`global`](./xcaffold/global) | Shared resource definitions inherited across the project |
+| [`global`](./xcaffold/global) | Shared resource definitions inherited across projects |
+| [`registry`](./xcaffold/registry) | Machine-wide project index at `~/.xcaffold/registry.xcaf` (managed by CLI) |
 
 ---
 
@@ -61,12 +60,16 @@ The `---` delimiters demarcate the boundaries of the frontmatter config. All cha
 
 ### Structural Config Kinds (Pure YAML)
 
-`project`, `settings`, `hooks`, `policy`, `mcp`, `global`, and `memory` have no concept of open-ended conversational instruction bodies. Thus, they leverage pure YAML format without `---` delimiters:
+`policy`, `mcp`, `global`, `memory`, and `registry` have no concept of open-ended instruction bodies. They use pure YAML format without `---` delimiters.
+
+`project` is the exception: it uses frontmatter format with `---` delimiters, but **does not support a markdown body**. Adding content after the closing `---` will cause a parse error. The delimiters are supported for consistency with other core manifests, but the instruction block must be empty.
 
 ```yaml
+---
 kind: project
 version: "1.0"
 name: my-api
 targets:
   - claude
+---
 ```

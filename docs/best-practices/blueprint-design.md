@@ -5,7 +5,7 @@ description: "Best practices for designing blueprints that segment agent configu
 
 # Blueprint Design
 
-A blueprint is a named resource subset that selects which agents, skills, rules, workflows, MCP servers, policies, memory entries, contexts, settings, and hooks are compiled. Without a `--blueprint` flag, `xcaffold apply` compiles everything. Blueprints narrow the scope.
+A blueprint is a named resource subset that selects which agents, skills, rules, workflows, MCP servers, policies, memory entries, contexts, settings, and hooks are compiled. Without a `--blueprint` flag, `xcaffold apply` compiles everything. Blueprints narrow the scope. In Harness-as-Code terms, a blueprint is a scoped projection of the full harness — only the resources relevant to a specific role, environment, or workflow are compiled.
 
 ## When to Introduce Blueprints
 
@@ -21,12 +21,14 @@ When a blueprint selects an agent, the compiler automatically includes that agen
 
 ```yaml
 # xcaf/agents/api-developer.xcaf
+---
 kind: agent
 version: "1.0"
 name: api-developer
 skills: [tdd, schema-design]
 rules: [secure-code, api-conventions]
 mcp: [database-tools]
+---
 ```
 
 ```yaml
@@ -83,6 +85,8 @@ rules:
   - api-conventions
 mcp:
   - database-tools
+memory:
+  - shared-context
 contexts:
   - backend-context
 settings: development
@@ -94,34 +98,29 @@ hooks: pre-commit
 kind: blueprint
 version: "1.0"
 name: backend-ci
-description: "CI pipeline — backend agents without interactive hooks or MCP."
+description: "CI pipeline — backend agents."
 extends: backend
-mcp: []
-hooks: ""
-settings: restricted
+settings: default
 ```
 
-`backend-ci` inherits all agents, skills, rules, and contexts from `backend`, but overrides three things:
-
-- `mcp: []` — no MCP servers in CI (database-tools requires a running connection)
-- `hooks: ""` — no interactive pre-commit hooks in automation
-- `settings: restricted` — uses a read-only settings profile instead of `development`
+`backend-ci` inherits all agents, skills, rules, and contexts from `backend`. 
 
 ### Extends resolution
 
-- **Set union:** child lists are merged with parent lists, duplicates removed.
-- **Override:** setting a field to an empty value (`[]` for lists, `""` for strings) in the child overrides the parent's value entirely.
-- **Chain depth:** extends chains can go up to 10 levels deep. Cycles are detected and rejected at parse time.
+- **Set union:** child resource lists (agents, skills, rules, etc.) are merged with parent lists. Elements from the parent appear first, followed by elements from the child not already present in the parent.
+- **Merge behavior:** empty lists in a child blueprint do not remove parent resources; they result in a union that preserves all parent selections.
+- **Chain depth:** extends chains can go up to 5 levels deep. Cycles are detected and rejected at parse time.
 - **Non-existent parent:** referencing a parent blueprint that does not exist produces a parse error.
 
 ## Context Selection
 
-Blueprints control which `kind: context` files render to provider root files (CLAUDE.md, GEMINI.md). At compile time, at most **one context per target provider** is allowed.
+Blueprints control which `kind: context` files render to provider root files (CLAUDE.md, GEMINI.md). Multiple contexts matching the same target are **composed** (joined) into a single instruction set.
 
 ```yaml
 # xcaf/context/main.xcaf — shared project context
 ---
 kind: context
+version: "1.0"
 name: main
 default: true
 ---
@@ -131,6 +130,7 @@ Run tests with `go test ./...`.
 # xcaf/context/backend-context.xcaf — backend-specific
 ---
 kind: context
+version: "1.0"
 name: backend-context
 targets: [claude]
 ---
@@ -140,6 +140,7 @@ Use the database-tools MCP server for schema exploration.
 # xcaf/context/frontend-context.xcaf — frontend-specific
 ---
 kind: context
+version: "1.0"
 name: frontend-context
 targets: [claude]
 ---
@@ -149,10 +150,10 @@ Use the browser-tools MCP server for visual testing.
 
 ### How contexts resolve
 
-- **One context per target:** if multiple context files match the same target without a blueprint, the one marked `default: true` renders first, followed by the rest in alphabetical order. If none is marked as default, the compiler returns an error. See the [context reference — Default Resolution](../reference/kinds/provider/context.md#default-resolution) for the full resolution table.
+- **Context composition:** if multiple context files match the same target, all bodies are composed (joined with `\n\n`). The one marked `default: true` is placed first; remaining contexts follow in sorted name order. If none is marked as default and multiple match, the compiler returns an error. See the [context reference — Default Resolution](../reference/kinds/provider/context.md#default-resolution) for the full resolution table.
 - **Blueprint selection overrides:** when `--blueprint` is used, only contexts listed in the blueprint's `contexts:` field compile. The `default` flag is ignored entirely.
 - **Omitted `contexts:` in blueprint = no contexts:** unlike `policies:` (where omission means "evaluate all"), omitting `contexts:` from a blueprint compiles zero context resources. This is intentional — context prose is specific to the workflow the blueprint represents, so there is no safe default.
-- **No targets = all targets:** a context with no `targets:` field renders for every configured provider.
+- **No targets = all targets:** a context with no `targets:` field is eligible for every configured provider.
 
 ### Blueprint + context example
 
@@ -181,34 +182,17 @@ Running `xcaffold apply --blueprint backend` renders only `backend-context` to C
 
 ## Policies and Blueprints
 
-Blueprints can select which `kind: policy` resources are evaluated. Policies enforce quality constraints on agents, skills, and rules — for example, requiring every agent to have a description, or denying specific tool patterns in compiled output.
+Blueprints can select which `kind: policy` resources are evaluated. Policies enforce quality constraints on agents, skills, and rules.
 
-When a blueprint selects `policies: [security-baseline]`, only that policy evaluates against the blueprint's compiled resources. When `policies:` is omitted, all policies evaluate. Setting `policies: []` disables all policy evaluation for that blueprint.
+When a blueprint selects `policies: [security-baseline]`, only that policy evaluates against the blueprint's compiled resources. 
+
+**Note on Omission:** Unlike other resource types, omitting the `policies:` field in a blueprint (or setting it to `[]`) disables all policy evaluation for that blueprint.
 
 ## Named Settings and Hooks
 
-Blueprints can select which `kind: settings` and `kind: hooks` configuration to use:
+Blueprints can select which `kind: settings` and `kind: hooks` configuration to include in the compilation.
 
-```yaml
-# xcaf/settings/development.xcaf
-kind: settings
-version: "1.0"
-name: development
-model: sonnet
-permissions:
-  allow: [Read, Write, Edit, Bash]
-
-# xcaf/settings/restricted.xcaf
-kind: settings
-version: "1.0"
-name: restricted
-model: haiku
-permissions:
-  allow: [Read, Grep, Glob]
-  deny: [Bash, Write]
-```
-
-When a blueprint omits `settings` or `hooks`, all named configurations are included. When specified, only the named entry is compiled.
+**Note on Selection:** The `xcaffold` compiler currently expects the selected settings or hooks entry to be named `default` for it to be automatically applied to the provider's configuration. If a blueprint selects a non-default name (e.g., `settings: restricted`), that configuration will be included in the resource set but may not be automatically active unless the target provider's renderer is specifically configured to handle it.
 
 ## Checking Blueprint State
 
@@ -235,3 +219,69 @@ Run 'xcaffold apply' to restore.
 ```
 
 Drift in one blueprint does not affect another. Before switching between blueprints, run status to verify your compiled output is in sync with your sources.
+
+## Focused Context for Delegated Work
+
+Blueprints scope both agents and workspace context simultaneously. When you apply with `--blueprint`, only the contexts listed in the blueprint's `contexts:` field are compiled to the provider's root instruction file (e.g., `CLAUDE.md`). Agents compiled under that blueprint receive only the relevant context — not every context defined in the project.
+
+This is particularly valuable when orchestrating subagent work. A main agent dispatching a backend task can compile with the `backend` blueprint, ensuring the subagent's workspace context covers database conventions and API patterns — without injecting frontend CSS rules, design system tokens, or unrelated team standards.
+
+```yaml
+# xcaf/blueprints/backend.xcaf
+kind: blueprint
+version: "1.0"
+name: backend
+description: "Backend services — API and database."
+agents:
+  - api-developer
+  - database-engineer
+contexts:
+  - backend-context
+rules:
+  - api-conventions
+  - migration-safety
+```
+
+```yaml
+# xcaf/blueprints/frontend.xcaf
+kind: blueprint
+version: "1.0"
+name: frontend
+description: "Frontend — React components and styling."
+agents:
+  - react-developer
+contexts:
+  - frontend-context
+rules:
+  - accessibility
+  - css-conventions
+```
+
+Running `xcaffold apply --blueprint backend` compiles only `backend-context` to `CLAUDE.md`, only the two backend agents, and only the backend rules. The frontend CSS conventions, accessibility rules, and `frontend-context` are excluded entirely. The subagent receives a clean, focused workspace instruction set with no stale or irrelevant guidance.
+
+Without blueprints, every agent in the project receives the full workspace context — which grows linearly with the number of teams and domains. Blueprints are the mechanism for keeping that context focused.
+
+## Composing from the Catalog
+
+xcaffold's resource model is designed for mix-and-match composition. Every resource kind (`agent`, `skill`, `rule`, `workflow`, `mcp`, `policy`, `context`) is an independent unit with a declared identity. Blueprints let you assemble these units into purpose-specific bundles.
+
+When your project grows a library of reusable resources — skills for TDD, rules for security, policies for quality — blueprints become the interface for composing them into role-specific or environment-specific configurations. Rather than maintaining separate agent definitions for each team, maintain one shared pool of resources and let blueprints select the right combination.
+
+The pattern scales: a CI blueprint selects a restrictive settings profile and no interactive hooks. A review blueprint selects read-only agents and audit rules. A full-development blueprint selects everything. Each is a single file that references existing resources by ID — no duplication.
+
+## Decision Guide
+
+| Situation | Approach |
+|---|---|
+| Multiple developers need different agent sets | Create role-based blueprints (`backend`, `frontend`, `reviewer`) |
+| CI needs a minimal configuration | Create a `ci` blueprint with only automation-relevant agents |
+| A blueprint needs everything another has, plus more | Use `extends:` to inherit and add resources |
+| An agent's transitive dependencies are not enough | Add extra resources directly to the blueprint's resource lists |
+| You need to select specific context documents per blueprint | Use the `contexts:` list to include only relevant workspace instructions |
+| All agents should share a policy but only in production | Add the policy to a `production` blueprint, not to every agent |
+
+## Related
+
+- [Blueprint Reference](../reference/kinds/xcaffold/blueprint.md) — field-level documentation for blueprint resources
+- [Project Structure](project-structure.md) — when to introduce blueprints as a project grows
+- [Agent Design Patterns](agent-design-patterns.md) — how agents declare dependencies that blueprints resolve

@@ -25,6 +25,11 @@ import (
 
 const targetName = "copilot"
 
+// vscodeMCPPath is the workspace-root path VS Code reads for MCP server config.
+// It must land at the project root, not inside .github/, so Finalize() moves it
+// from files (OutputDir-relative) to rootFiles (project-root-relative).
+const vscodeMCPPath = ".vscode/mcp.json"
+
 // Renderer compiles an XcaffoldConfig AST into GitHub Copilot instruction files.
 // It targets the ".github/instructions/" directory structure.
 type Renderer struct{}
@@ -146,17 +151,29 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	return files, notes, nil
 }
 
-// CompileWorkflows lowers workflow configs to rule+skill primitives and compiles
-// them. Rules are emitted as instructions/<id>.instructions.md files; skills
-// are emitted as skills/<id>/SKILL.md files. If a .claude/ directory is
-// present, the lowered rules will be seamlessly skipped by CompileRules.
+// CompileWorkflows lowers workflow configs to provider-native primitives and compiles
+// them. Rules are emitted as instructions/<id>.instructions.md files; skills are
+// emitted as skills/<id>/SKILL.md files. Primitives with provider-native paths
+// (prompt-file) are written directly using the path set by the translator. If a
+// .claude/ directory is present, the lowered rules will be seamlessly skipped by
+// CompileRules.
 func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	cfg := &ast.XcaffoldConfig{ResourceScope: ast.ResourceScope{Workflows: workflows}}
-	lowered, workflowNotes := rendshared.LowerWorkflows(cfg, targetName)
+	lowered, directFiles, workflowNotes := rendshared.LowerWorkflows(cfg, targetName)
 
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 	notes = append(notes, workflowNotes...)
+
+	// Merge direct-path files (e.g. prompt-file primitives). The translator sets
+	// p.Path to the full provider-prefixed path (e.g. ".github/prompts/<name>.prompt.md")
+	// because it encodes the intended on-disk location. The files map here is keyed
+	// relative to OutputDir, so apply.go will prepend OutputDir again when writing.
+	// Strip the OutputDir prefix to avoid the doubled path ".github/.github/..." on disk.
+	prefix := r.OutputDir() + "/"
+	for path, content := range directFiles {
+		files[strings.TrimPrefix(path, prefix)] = content
+	}
 
 	if len(lowered.Rules) > 0 {
 		ruleFiles, ruleNotes, err := r.CompileRules(lowered.Rules, baseDir)
@@ -198,7 +215,7 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 	}
 	files := make(map[string]string)
 	if mcpJSON != "" {
-		files[".vscode/mcp.json"] = mcpJSON
+		files[vscodeMCPPath] = mcpJSON
 	}
 	return files, mcpNotes, nil
 }
@@ -245,8 +262,14 @@ func (r *Renderer) CompileMemory(config *ast.XcaffoldConfig, baseDir string, opt
 	return out.Files, notes, nil
 }
 
-// Finalize is a no-op for the Copilot renderer — no post-processing is required.
+// Finalize moves .vscode/mcp.json from files (OutputDir-relative) to rootFiles
+// (project-root-relative) so the orchestrator writes it to the workspace root
+// rather than inside .github/.
 func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
+	if content, ok := files[vscodeMCPPath]; ok {
+		rootFiles[vscodeMCPPath] = content
+		delete(files, vscodeMCPPath)
+	}
 	return files, rootFiles, nil, nil
 }
 

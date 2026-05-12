@@ -5,13 +5,19 @@ description: "Declares shared resource definitions inherited by all projects tha
 
 # `kind: global`
 
-Declares shared resource definitions that are inherited by all projects via the `extends:` field in `project.xcaf`. Global configs serve as a base layer — any resource (agent, skill, rule, MCP server, settings, hooks) declared in a global config is available to inheriting projects without re-declaring it.
+Declares shared resource definitions inherited by all projects via the `extends:` field in `project.xcaf`. Global configs serve as a base layer — any resource (agent, skill, rule, MCP server, settings, hooks, workflow) declared in a global config is available to inheriting projects without re-declaring it.
 
 Global configs produce **no output files** on their own. Output is produced only when a project config compiles with `extends:` pointing to this global.
 
 Uses **pure YAML format** (no frontmatter `---` delimiters).
 
-> **Required:** `kind`, `version`, `name`
+> **Required:** `kind`, `version`
+
+## Source Directory
+
+```
+xcaf/global/<name>.xcaf
+```
 
 ## Example Usage
 
@@ -21,27 +27,57 @@ Uses **pure YAML format** (no frontmatter `---` delimiters).
 ```yaml
 kind: global
 version: "1.0"
-name: org-baseline
-description: >-
-  Shared agent baseline for all Acme Corp projects. Provides the
-  conventional-commits skill, the code-review rule, and
-  org-wide security policies applicable to every repository.
-skills:
-  - id: conventional-commits
-    path: xcaf/global/skills/conventional-commits.xcaf
-  - id: systematic-debugging
-    path: xcaf/global/skills/systematic-debugging.xcaf
-rules:
-  - id: no-secrets-in-code
-    path: xcaf/global/rules/no-secrets-in-code.xcaf
-  - id: code-review-standards
-    path: xcaf/global/rules/code-review-standards.xcaf
-policies:
-  - id: require-approved-model
-    path: xcaf/global/policies/require-approved-model.xcaf
+
+extends: ""
+
 settings:
-  - id: org-defaults
-    path: xcaf/global/settings/org-defaults.xcaf
+  model: claude-sonnet-4-5
+  effort-level: high
+  language: en
+  output-style: concise
+  default-shell: /bin/zsh
+  include-git-instructions: true
+  permissions:
+    allow:
+      - "Bash(go test ./...)"
+    deny:
+      - "Bash(rm -rf /)"
+    default-mode: default
+
+hooks:
+  PreToolUse:
+    - matcher: "Bash"
+      hooks:
+        - type: command
+          command: echo "global pre-tool-use"
+          async: false
+          timeout: 10
+
+agents:
+  code-reviewer:
+    name: code-reviewer
+    description: "Reviews code for correctness and style."
+    model: claude-sonnet-4-5
+    tools: [Read, Glob, Grep]
+
+skills:
+  conventional-commits:
+    name: conventional-commits
+    description: "Enforces conventional commit message format."
+    allowed-tools: [Bash]
+
+rules:
+  no-secrets-in-code:
+    name: no-secrets-in-code
+    description: "Prevents secrets from appearing in source code."
+    always-apply: true
+
+mcp:
+  global-ref-mcp:
+    name: global-ref-mcp
+    type: stdio
+    command: node
+    args: [./global-server.js]
 ```
 
 Project `project.xcaf` inheriting the global:
@@ -55,40 +91,37 @@ targets:
   - claude
   - cursor
   - gemini
-agents:
-  - id: react-developer
-    path: xcaf/agents/react-developer/react-developer.xcaf
-skills:
-  - component-patterns
-rules:
-  - react-conventions
 ---
-This project builds on the org baseline with React-specific conventions.
 ```
 
-The compiled output for `frontend-app` includes both the project-local resources (`react-developer`, `component-patterns`, `react-conventions`) and the inherited global resources (`conventional-commits`, `systematic-debugging`, `no-secrets-in-code`, `code-review-standards`).
+Project-local resources are defined in `xcaf/` subdirectories (e.g., `xcaf/agents/react-developer/agent.xcaf`), not inline in `project.xcaf`. The compiled output for `frontend-app` includes both project-local resources and the inherited global resources (`code-reviewer`, `conventional-commits`, `no-secrets-in-code`).
 
-## Argument Reference
+## Field Reference
 
-The following arguments are supported:
+### Required Fields
 
-- `name` — (Required) Unique global config identifier.
-- `version` — (Required) Schema version. Use `"1.0"`.
-- `description` — (Optional) `string`. What this baseline provides.
-- `skills` — (Optional) `[]ResourceRef`. Skills to make available to inheriting projects.
-- `rules` — (Optional) `[]ResourceRef`. Rules to make available to inheriting projects.
-- `agents` — (Optional) `[]ResourceRef`. Agents to make available to inheriting projects.
-- `mcp` — (Optional) `[]ResourceRef`. MCP servers to make available to inheriting projects.
-- `policies` — (Optional) `[]ResourceRef`. Policies to enforce across all inheriting projects.
-- `settings` — (Optional) `[]ResourceRef`. Settings to merge into inheriting projects.
-- `hooks` — (Optional) `[]ResourceRef`. Hooks to merge into inheriting projects.
+None. Global configs have no required config fields beyond `kind` and `version`.
 
-### `ResourceRef`
+### Optional Fields
 
-Each entry in a resource list supports:
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `extends` | `string` | Path to a parent global config to inherit from. |
+| `settings` | `map[string]SettingsConfig` | Named settings blocks. Keys are settings IDs. See [`kind: settings`](../provider/settings). |
+| `hooks` | `map[string]NamedHookConfig` | Named hook blocks. Keys are hook block IDs. See [`kind: hooks`](../provider/hooks). |
+| `agents` | `map[string]AgentConfig` | Inline agent definitions. Keys are agent IDs. |
+| `skills` | `map[string]SkillConfig` | Inline skill definitions. Keys are skill IDs. |
+| `rules` | `map[string]RuleConfig` | Inline rule definitions. Keys are rule IDs. |
+| `mcp` | `map[string]MCPConfig` | Inline MCP server definitions. Keys are server IDs. |
+| `workflows` | `map[string]WorkflowConfig` | Inline workflow definitions. Keys are workflow IDs. |
+| `policies` | `map[string]PolicyConfig` | Inline policy definitions. Keys are policy IDs. |
+| `memory` | `map[string]MemoryConfig` | Inline memory definitions. Keys are memory IDs. |
+| `contexts` | `map[string]ContextConfig` | Inline context definitions. Keys are context IDs. |
+| `blueprints` | `map[string]BlueprintConfig` | Inline blueprint definitions. Keys are blueprint IDs. |
 
-- `id` — (Required) Identifier used to reference the resource from the inheriting project's `skills:`, `rules:`, etc. lists.
-- `path` — (Required) Relative path from the global config root to the resource `.xcaf` file.
+Resource fields use **inline map format** — each key in the map is the resource ID, and its value is the full resource config object. This differs from `kind: blueprint`, which uses string ID arrays for selection.
+
+**Note:** The `settings` and `hooks` fields shown in the example above use a flat format (keys are event names or setting names directly). The AST type is `map[string]SettingsConfig` and `map[string]NamedHookConfig` respectively — the outer key is the block ID. The parser may accept a flat block as a convenience shorthand for global configs; when using the named map format explicitly, each key is the block ID.
 
 ## Behavior
 
@@ -99,7 +132,7 @@ When a project declares `extends:`, the compiler:
 3. Merges global resources into the project's compiled resource set.
 4. Strips inherited resources from local project file output (they are not re-emitted as new `.xcaf` files).
 
-Inherited resources can be overridden by re-declaring the same `id` in the project config. The local declaration wins.
+Inherited resources can be overridden by re-declaring the same ID in the project config. The local declaration wins.
 
 > [!WARNING]
-> Global configs are not validated in isolation — `xcaffold validate` always requires a project root. Run `xcaffold validate --from-root <project-dir>` to validate a project that extends a global.
+> Global configs are not validated in isolation — `xcaffold validate` always requires a project root. Run `xcaffold validate` from a project directory that uses `extends:` to reference this global config.

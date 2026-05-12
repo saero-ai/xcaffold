@@ -35,7 +35,7 @@ The consequence: a rule defined as `paths: ["src/**/*.ts"]` with a Markdown body
 
 ## Target Fidelity and Warnings
 
-> For a complete matrix of capabilities, supported fields, and fidelity mappings per target, see the [Schema Reference](../reference/schema.md).
+> For a complete matrix of capabilities, supported fields, and fidelity mappings per target, see the [Kind Reference](../../reference/kinds/index.md).
 
 The fidelity warnings are not errors. Compilation always succeeds; warnings inform you that a configuration concept present in the source had no representation in the target format and was silently dropped.
 

@@ -70,7 +70,7 @@ specification.
 ### Single-Provider Project
 
 ```yaml
-# .xcaffold/project.xcaf
+# project.xcaf
 kind: project
 version: "1.0"
 name: my-project
@@ -83,7 +83,7 @@ All resources compile for Claude only. Running `xcaffold apply` without
 ### Multi-Provider Project
 
 ```yaml
-# .xcaffold/project.xcaf
+# project.xcaf
 kind: project
 version: "1.0"
 name: my-project
@@ -97,7 +97,7 @@ the base definition.
 ### Blueprint with Its Own Targets
 
 ```yaml
-# .xcaffold/project.xcaf
+# project.xcaf
 kind: project
 version: "1.0"
 name: my-project

@@ -135,6 +135,38 @@ func RegisteredInputDirs() []string {
 	return dirs
 }
 
+// RegisteredOutputDirs returns every registered default output directory
+// (e.g. [".claude", ".cursor", ".agents"]). Duplicates are removed.
+func RegisteredOutputDirs() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	var dirs []string
+	seen := make(map[string]bool)
+	for _, m := range reg {
+		if m.OutputDir != "" && !seen[m.OutputDir] {
+			dirs = append(dirs, m.OutputDir)
+			seen[m.OutputDir] = true
+		}
+	}
+	return dirs
+}
+
+// RegisteredContextFiles returns every registered root context filename
+// (e.g. ["CLAUDE.md", "GEMINI.md", "AGENTS.md"]). Duplicates are removed.
+func RegisteredContextFiles() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	var files []string
+	seen := make(map[string]bool)
+	for _, m := range reg {
+		if m.RootContextFile != "" && !seen[m.RootContextFile] {
+			files = append(files, m.RootContextFile)
+			seen[m.RootContextFile] = true
+		}
+	}
+	return files
+}
+
 // SwapRegistryForTest atomically replaces the global registry with next and
 // returns the previous contents. This is exported only for testing — call it
 // only inside test files via the _test package. Callers should defer the

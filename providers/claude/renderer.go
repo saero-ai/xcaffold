@@ -158,7 +158,10 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	return files, notes, nil
 }
 
-// CompileWorkflows lowers workflow configs to rules and skills.
+// CompileWorkflows lowers workflow configs to provider-native primitives. Rule and
+// skill primitives are written to their standard paths. Primitives with provider-
+// native paths ("custom-command", "prompt-file") are written directly using the
+// path set by the translator.
 func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
@@ -181,6 +184,15 @@ func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, bas
 			case "skill":
 				safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))
 				files[safePath] = content
+			case "custom-command", "prompt-file":
+				// Primitives with a provider-native path set by the translator
+				// are written directly. Strip the OutputDir prefix if present:
+				// apply.go already prepends OutputDir when writing to disk, so
+				// any ".claude/"-prefixed path would produce ".claude/.claude/...".
+				if p.Path != "" {
+					relPath := strings.TrimPrefix(p.Path, r.OutputDir()+"/")
+					files[relPath] = content
+				}
 			}
 		}
 	}
@@ -199,11 +211,31 @@ const (
 // Claude embeds hooks inside settings.json, not as a standalone file. Storing
 // hooks under a private staging key avoids a last-writer-wins collision with
 // CompileSettings (which also writes settings.json).
+//
+// Hook commands are translated before marshaling: $XCAF_PROJECT_DIR is rewritten
+// to $CLAUDE_PROJECT_DIR and .xcaf/hooks/ paths become .claude/hooks/. A deep
+// copy of the config is made so the shared input is never mutated.
 func (r *Renderer) CompileHooks(hooks ast.HookConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	if len(hooks) == 0 {
 		return make(map[string]string), nil, nil
 	}
-	b, err := json.Marshal(hooks)
+	translated := make(ast.HookConfig, len(hooks))
+	for event, groups := range hooks {
+		translatedGroups := make([]ast.HookMatcherGroup, len(groups))
+		for i, group := range groups {
+			translatedHandlers := make([]ast.HookHandler, len(group.Hooks))
+			for j, h := range group.Hooks {
+				h.Command = renderer.TranslateHookCommand(h.Command, "$CLAUDE_PROJECT_DIR", ".claude/hooks/")
+				translatedHandlers[j] = h
+			}
+			translatedGroups[i] = ast.HookMatcherGroup{
+				Matcher: group.Matcher,
+				Hooks:   translatedHandlers,
+			}
+		}
+		translated[event] = translatedGroups
+	}
+	b, err := json.Marshal(translated)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal hooks: %w", err)
 	}

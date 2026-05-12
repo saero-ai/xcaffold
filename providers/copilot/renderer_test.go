@@ -231,7 +231,7 @@ func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
 	assert.Contains(t, out.Files, "agents/auditor.agent.md", "agent")
 	assert.Contains(t, out.Files, "skills/review/SKILL.md", "skill")
 	assert.Contains(t, out.Files, "hooks/xcaffold-hooks.json", "hooks")
-	assert.Contains(t, out.Files, ".vscode/mcp.json", "MCP must be in output map")
+	assert.Contains(t, out.RootFiles, ".vscode/mcp.json", "MCP must be in rootFiles (project root)")
 
 	// Verify fidelity notes.
 	settingsNotes := filterNotes(notes, renderer.CodeSettingsFieldUnsupported)

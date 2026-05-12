@@ -5,34 +5,39 @@ description: "Root manifest that declares compilation targets and references all
 
 # `kind: project`
 
-The root manifest for an xcaffold project. Declares which providers to target, references all named resources (agents, skills, rules, MCP servers, policies), and optionally provides project-level instructions compiled to each provider's root instructions file.
+The root manifest for an xcaffold project. Declares which providers to target, references all named resources (agents, skills, rules, MCP servers, policies), and configures project-wide settings.
 
-There is **exactly one** project manifest per project, located at `.xcaffold/project.xcaf`. Produces no provider output files — the manifest drives the compilation pipeline.
+There is **exactly one** project manifest per project, located at `project.xcaf` (at the repository root). Produces no provider output files — the manifest drives the compilation pipeline.
 
-> **Required:** `kind`, `version`, `name`, `targets`
+> [!IMPORTANT]
+> The `kind: project` manifest does **not** support a markdown body. Workspace-level instructions must be declared using [`kind: context`](../provider/context). Adding a body after the closing `---` in a project manifest will cause a parse error.
+
+> **Required:** `kind`, `version`, `name`
+
+## Source Directory
+
+```
+project.xcaf
+```
+
+Located at the repository root. There is exactly one project manifest per project.
 
 ## Example Usage
 
 ### Minimal project
 
 ```yaml
----
 kind: project
 version: "1.0"
 name: frontend-app
 targets:
   - claude
   - cursor
-agents:
-  - id: react-developer
-    path: xcaf/agents/react-developer/agent.xcaf
----
 ```
 
 ### Full project manifest — React TypeScript SaaS
 
 ```yaml
----
 kind: project
 version: "1.0"
 name: frontend-app
@@ -48,70 +53,95 @@ targets:
   - gemini
   - copilot
   - antigravity
-agents:
-  - id: react-developer
-    path: xcaf/agents/react-developer/agent.xcaf
-skills:
-  - component-patterns
-rules:
-  - react-conventions
-  - no-server-imports-in-ui
-mcp:
-  - browser-tools
-policies:
-  - require-approved-model
----
-This project uses xcaffold to manage AI agent configuration across all providers.
-Agents must follow all declared rules at all times.
-To add a new UI component, invoke the component-patterns skill before writing any code.
+test:
+  cli-path: /usr/local/bin/claude
+  judge-model: claude-opus-4-5
+  task: "Demonstrate all capabilities and confirm every feature works end-to-end."
+  max-turns: 10
+target-options:
+  copilot:
+    hooks:
+      copilot-instructions: ".copilot/instructions.md"
+  cursor:
+    suppress-fidelity-warnings: false
 ```
 
-## Argument Reference
+## Field Reference
 
-The following arguments are supported:
+### Required Fields
 
-- `name` — (Required) Unique project identifier. Must match `[a-z0-9-]+`.
-- `version` — (Required) Schema version. Use `"1.0"`.
-- `description` — (Optional) `string`. Human-readable project description.
-- `author` — (Optional) `string`. Project author or organization name.
-- `homepage` — (Optional) `string`. Project URL.
-- `repository` — (Optional) `string`. Source repository URL.
-- `license` — (Optional) `string`. SPDX license identifier.
-- `targets` — (Required) `[]string`. Provider targets to compile: `claude`, `cursor`, `gemini`, `copilot`, `antigravity`. At least one required.
-- `allowed-env-vars` — (Optional) `[]string`. Allowed environment variables that can be injected via `${env.NAME}` inside `.xcf` or `.vars` files. Prevents accidental secret leakage. See [Project Variables](../../../concepts/configuration/variables.md) for details.
-- `agents` — (Optional) `[]AgentManifestEntry`. Agents to include (see [agents block](#agents-block)).
-- `skills` — (Optional) `[]string`. Skill IDs declared in `xcaf/skills/`.
-- `rules` — (Optional) `[]string`. Rule IDs declared in `xcaf/rules/`.
-- `mcp` — (Optional) `[]string`. MCP server IDs declared in `xcaf/mcp/`.
-- `policies` — (Optional) `[]string`. Policy IDs declared in `xcaf/policies/`.
-- `backup-dir` — (Optional) `string`. Directory for provider backup files before overwrite.
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Unique project identifier. Must match `[a-z0-9-]+`. |
 
-### `agents` block
+### Optional Fields
 
-Each entry in the `agents` list supports:
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | `string` | Human-readable project description. |
+| `version` | `string` | Project version (distinct from the schema version in `kind`/`version`). |
+| `author` | `string` | Project author or organization name. |
+| `homepage` | `string` | Project URL. |
+| `repository` | `string` | Source repository URL. |
+| `license` | `string` | SPDX license identifier. |
+| `extends` | `string` | Path to a global config to inherit resources from. |
+| `backup-dir` | `string` | Directory where provider output is backed up before each overwrite. |
+| `allowed-env-vars` | `[]string` | Environment variable names that may be injected via `${env.NAME}` inside `.xcaf` files. Variables not listed here are rejected at compile time. |
+| `targets` | `[]string` | Provider targets to compile: `claude`, `cursor`, `gemini`, `copilot`, `antigravity`. When empty, the `--target` flag must be provided at compile time. |
+| `test` | `TestConfig` | Configuration for `xcaffold test`. See [test block](#test-block). |
+| `target-options` | `map[string]TargetOverride` | Per-provider compile-time overrides. See [target-options block](#target-options-block). |
 
-- `id` — (Required) Agent identifier. Must match the `name` in the referenced `.xcaf` file.
-- `path` — (Required) Relative path to the agent's `.xcaf` file from the project root.
+> **Note:** Resources (agents, skills, rules, MCP servers, policies, workflows, memory, and contexts) are not declared inline in `project.xcaf`. They are discovered automatically from `xcaf/` subdirectories (e.g., `xcaf/agents/<name>/agent.xcaf`). See [Resource File Format](#resource-file-format-one-kind-per-file) in the kinds index for directory layout details.
 
-> **Note:** When using filesystem-as-schema inference, agents discovered from `xcaf/agents/<name>/agent.xcaf` do not need explicit entries in the `agents:` list. The parser discovers them automatically from the directory structure.
+### Resource Discovery
+
+Resources are not declared inline in the project manifest. Instead, xcaffold discovers them from the `xcaf/` directory tree:
+
+- `xcaf/agents/<name>/agent.xcaf` — Agent definitions
+- `xcaf/skills/<name>/skill.xcaf` — Skill definitions
+- `xcaf/rules/<name>/rule.xcaf` — Rule definitions
+- `xcaf/policies/<name>/policy.xcaf` — Policy constraints
+
+All discovered resources are merged into the project's compilation scope automatically. No explicit entry in `project.xcaf` is required.
+
+### `test` block
+
+Configures the `xcaffold test` command. All fields are optional.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cli-path` | `string` | Path to the CLI binary used for simulation. |
+| `judge-model` | `string` | Generative model used for LLM-as-a-Judge evaluation. |
+| `task` | `string` | User prompt sent to the agent during test simulation. Defaults to a generic capability discovery prompt. |
+| `max-turns` | `int` | Maximum simulated conversation turns. Reserved for future multi-turn support. |
+
+### `target-options` block
+
+Per-provider compile-time overrides keyed by provider name. Each value is a `TargetOverride` with the following fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `hooks` | `map[string]string` | Provider-specific hook path overrides. |
+| `suppress-fidelity-warnings` | `bool` | Suppress fidelity notes for this provider during `apply`. |
+| `skip-synthesis` | `bool` | Skip synthesis passes for this provider. |
+| `provider` | `map[string]any` | Opaque pass-through map emitted verbatim into the provider's native config. |
+
+```yaml
+target-options:
+  copilot:
+    hooks:
+      copilot-instructions: ".copilot/instructions.md"
+    provider:
+      groups:
+        - copilot-chat
+  cursor:
+    suppress-fidelity-warnings: false
+    skip-synthesis: false
+```
 
 ### `targets` on resources vs. project
 
-The `targets:` field appears in two contexts:
-- **On the project manifest**: Lists which providers to compile output for. Required.
-- **On individual resources**: Controls compilation filtering — a resource with `targets: [claude]` is compiled only for Claude. When absent, the resource is universal (compiled for all project targets).
-
-## Behavior
-
-The project manifest body (content after the closing `---`) is compiled to project-level instructions:
-
-| Provider | Output path |
-|---|---|
-| Claude | `CLAUDE.md` (project root) |
-| Gemini | `GEMINI.md` (project root, with rule imports) |
-| Antigravity | `AGENTS.md` (project root) |
-| Cursor | Prepended to `.cursor/rules/project-instructions.md` |
-| Copilot | Prepended to `.github/copilot-instructions.md` |
+The `targets:` field has different roles depending on where it appears (project manifest vs. individual resources). See [Targets](../../../concepts/configuration/targets.md) for the full explanation.
 
 ## Import
 
@@ -119,4 +149,4 @@ The project manifest body (content after the closing `---`) is compiled to proje
 xcaffold import --target claude
 ```
 
-`xcaffold import` reverse-engineers existing provider directories into `.xcaf` source files and reconstructs a `project.xcaf` with discovered resources.
+`xcaffold import` reverse-engineers existing provider directories into `.xcaf` source files and reconstructs a `project.xcaf` with discovered resources. Instructions found in provider root files (e.g. `CLAUDE.md`) are imported as `kind: context` resources.

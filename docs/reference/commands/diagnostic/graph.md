@@ -7,55 +7,50 @@ description: "Render a dependency graph of agents and their linked resources."
 
 Parses `.xcaf` manifests and renders a visual dependency graph.
 
-The `graph` command builds a directed acyclic graph (DAG) of the current configuration scope, showing how agents relate to skills, rules, workflows, MCP servers, and memory. Output can be rendered as a terminal tree, Mermaid diagram, Graphviz DOT file, or JSON edge list.
+The `graph` command builds a directed acyclic graph (DAG) of the current configuration scope, showing how agents relate to skills, rules, MCP servers, memory, policies, hooks, and workflows. Output can be rendered as a terminal tree, Mermaid diagram, Graphviz DOT file, or JSON edge list.
 
 **Usage:**
 
 ```
-xcaffold graph [flags]
+xcaffold graph [file] [flags]
 ```
 
 ## Flags
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--agent [name]` | — | `string` | `""` | Filter graph to agents matching name (or all agents if no value). |
-| `--skill [name]` | — | `string` | `""` | Filter to skills. |
-| `--rule [name]` | — | `string` | `""` | Filter to rules. |
-| `--workflow [name]` | — | `string` | `""` | Filter to workflows. |
-| `--mcp [name]` | — | `string` | `""` | Filter to MCP servers. |
-| `--context [name]` | — | `string` | `""` | Filter to contexts. |
-| `--hooks` | — | `bool` | `false` | Include hooks in output. |
-| `--settings` | — | `bool` | `false` | Include settings in output. |
-| `--format` | `-f` | `string` | `"terminal"` | Output format: `terminal`, `mermaid`, `dot`, `json`. |
-| `--full` | — | `bool` | `false` | Expand all nested relations in the terminal tree. Always true when `--agent` names a specific agent. |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). |
+| `--agent <name>` | `-a` | `string` | `""` | Target a specific agent; shows only its topology. |
+| `--project <name>` | `-p` | `string` | `""` | Target a specific managed project by registered name or path. |
+| `--full` | `-f` | `bool` | `false` | Show the fully expanded topology tree. Always true when `--agent` is set. |
+| `--all` | — | `bool` | `false` | Show global topology and all registered projects. Mutually exclusive with `--project` and `--global`. |
+| `--scan-output` | — | `bool` | `false` | Scan compiled output directories for undeclared artifacts. |
+| `--format` | — | `string` | `"terminal"` | Output format: `terminal`, `mermaid`, `dot`, `json`. |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). Mutually exclusive with `--all`. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 
 ## Behavior
 
 ### Terminal tree
 
-The default `terminal` format renders each agent as a tree node with its tools, linked skills, rules, and memory entries nested beneath it. Branch glyphs use `│`, `├──`, and `└──` aligned at column 2:
+The default `terminal` format renders each agent as a tree node with its tools, linked skills, rules, MCP servers, and memory entries nested beneath it. Branch glyphs use `│`, `├──`, and `└──` aligned at column 2:
 
 ```
   ● agent-name
-  │   tools    Read  Edit  Write  Bash  Glob  Grep
+  │   tools    Read  Bash
   │
   ├── skills
-  │     ├── skill-a
-  │     └── skill-b
+  │    ├── skill-a
+  │    └── skill-b
+  │
+  ├── rules
+  │    └── rule-a
   │
   └── memory  (2 entries)
-        ├── entry-a
-        └── entry-b
+       ├── project-context
+       └── coding-standards
 ```
 
-The header breadcrumb uses `·` as a separator (falls back to `.` when `--no-color` is set or `NO_COLOR` is set). Kinds with zero resources are omitted from the header count.
-
-### Kind-filter mode
-
-When one or more kind-filter flags are provided, only nodes of those kinds appear in the graph. Without kind filters, all resource types are included.
+The header breadcrumb uses `·` as a separator (falls back to `.` when `--no-color` is set or `NO_COLOR` is set). Kinds with zero resources are omitted from the header count. The count includes agents, skills, rules, MCP servers, policies, and hooks.
 
 ### Output formats
 
@@ -64,40 +59,36 @@ When one or more kind-filter flags are provided, only nodes of those kinds appea
 - **`dot`** — Graphviz DOT format. Combine with `dot -Tsvg` to produce network diagrams.
 - **`json`** — Machine-readable array of nodes and edges. Suitable for CI/CD integration.
 
+All non-terminal formats include policy, hook, and workflow nodes when present in the configuration.
+
 ### Scope
 
-By default, `xcaffold graph` operates on the project-level manifest. Using `--global` switches to the user-wide global scope.
+By default, `xcaffold graph` operates on the project-level manifest in the current directory. Pass a file path as a positional argument to target a specific `.xcaf` file directly. Use `--global` to switch to the user-wide global scope, `--project` to target a registered project by name, or `--all` to render global topology plus all registered projects.
+
+### Scanning undeclared artifacts
+
+When `--scan-output` is provided, the command scans the compiled output directory for files that are present on disk but not declared in the current manifest. Undeclared entries are included in the `disk_entries` array in JSON mode and as additional nodes in mermaid and dot modes. This flag has no effect in terminal mode.
 
 ## Sample output
 
 ### Terminal — project graph
 
 ```
-sandbox  ·  12 agents  ·  14 skills  ·  23 rules
+sandbox  ·  2 agents  ·  3 skills  ·  4 rules
 
   ● auth-specialist
-  │   tools    Read  Bash  Glob  Grep
+  │   tools    Read  Bash
   │
   ├── skills
-  │     ├── feature-lifecycle
-  │     └── commit-changes
+  │    ├── feature-lifecycle
+  │    └── commit-changes
   │
-  └── memory  (3 entries)
-        ├── corrections.md
-        ├── feedback-notes.md
-        └── user-profile.md
-
-  ● database-engineer
-  │   tools    Read  Write  Edit  Bash  Glob  Grep
+  ├── rules
+  │    └── secure-coding
   │
-  └── skills
-        └── tdd
-```
-
-### No-color mode
-
-```
-sandbox  .  12 agents  .  14 skills  .  23 rules
+  └── memory  (2 entries)
+       ├── project-context
+       └── coding-standards
 ```
 
 ### Mermaid output
@@ -106,11 +97,17 @@ sandbox  .  12 agents  .  14 skills  .  23 rules
 xcaffold graph --format mermaid
 ```
 
-```
+```mermaid
 graph LR
-  auth-specialist --> feature-lifecycle
-  auth-specialist --> commit-changes
-  database-engineer --> tdd
+  subgraph Agents
+    agent_auth_specialist["auth-specialist / claude-sonnet-4-6"]
+  end
+  subgraph Skills
+    skill_feature_lifecycle["feature-lifecycle"]
+    skill_commit_changes["commit-changes"]
+  end
+  agent_auth_specialist -->|"skill"| skill_feature_lifecycle
+  agent_auth_specialist -->|"skill"| skill_commit_changes
 ```
 
 ## Exit codes
@@ -132,6 +129,16 @@ xcaffold graph
 xcaffold graph --agent auth-specialist
 ```
 
+**Target a registered project by name:**
+```bash
+xcaffold graph --project my-api
+```
+
+**Show global topology and all registered projects:**
+```bash
+xcaffold graph --all
+```
+
 **Export a Mermaid diagram:**
 ```bash
 xcaffold graph --format mermaid > architecture.md
@@ -142,12 +149,22 @@ xcaffold graph --format mermaid > architecture.md
 xcaffold graph --format dot | dot -Tsvg > graph.svg
 ```
 
-**Show only agents and their linked skills:**
-```bash
-xcaffold graph --agent --skill
-```
-
 **Inspect the global scope graph:**
 ```bash
 xcaffold graph --global
+```
+
+**Scan for undeclared output artifacts:**
+```bash
+xcaffold graph --scan-output
+```
+
+**Show expanded topology for a project:**
+```bash
+xcaffold graph --full
+```
+
+**Export machine-readable JSON for CI:**
+```bash
+xcaffold graph --format json | jq .
 ```

@@ -60,9 +60,9 @@ func compileCopilotSettings(hooks ast.HookConfig, mcp map[string]ast.MCPConfig, 
 			return nil, notes, err
 		}
 		if mcpJSON != "" {
-			// .vscode/mcp.json is at the project root, not inside .github/.
-			// The orchestrator writes file map keys relative to the project root.
-			files[".vscode/mcp.json"] = mcpJSON
+			// Finalize() moves this to rootFiles so it lands at the project root,
+			// not inside .github/.
+			files[vscodeMCPPath] = mcpJSON
 		}
 	}
 

@@ -11,12 +11,12 @@ kinds:
     disallowed-tools: { support: optional }
     readonly: { support: optional }
     permission-mode: { support: optional }
-    disable-model-invocation: { support: optional }
-    user-invocable: { support: optional }
+    disable-model-invocation: { support: unsupported }
+    user-invocable: { support: unsupported }
     background: { support: optional }
     isolation: { support: optional }
     memory: { support: optional }
-    color: { support: unsupported }
+    color: { support: optional }
     initial-prompt: { support: optional }
     skills: { support: optional }
     rules: { support: unsupported }

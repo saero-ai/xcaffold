@@ -1,15 +1,16 @@
 ---
 title: "xcaffold test"
-description: "Simulate and test compiled agents directly against the LLM via tool-call generation."
+description: "Run a sandboxed local simulation of an agent."
 ---
 
-> **Note:** This command is in **Preview**. It is available natively in the binary but its execution schemas subject to changes alongside Anthropic capability shifts.
+> **Preview command** — This command is hidden from `xcaffold --help` output. It may change without notice.
 
-# xcaffold test
+# `xcaffold test`
 
-Simulates an active compiled workspace agent by routing your prompt architecture dynamically against an LLM interface through zero-shot prompts and logging what instructions the agent would inherently invoke.
+Simulates your compiled agent by sending a task directly to the LLM and recording all declared tool calls. This allows for rapid iteration and validation of agent behavior without manually interacting with the CLI.
 
-Instead of writing physical integration tests targeting the API surface directly, the `test` command acts as a simulated harness evaluating reasoning execution.
+> [!IMPORTANT]
+> You must run `xcaffold apply` before testing, as the command reads from the compiled provider-native files (e.g., `.claude/agents/`).
 
 ## Usage
 
@@ -17,43 +18,62 @@ Instead of writing physical integration tests targeting the API surface directly
 xcaffold test --agent <id> [flags]
 ```
 
-## Prerequisites
+## Flags
 
-- You must execute `xcaffold apply` explicitly ahead of `test` boundaries because testing sources execution logic directly from compiled artifact artifacts (e.g., `.claude/agents/<agent>.md`).
-- A localized Anthropic provider is required via `ANTHROPIC_API_KEY` (or the internal alias `XCAFFOLD_LLM_API_KEY`) set inside your system environment parameters.
-
-## Options
-
-| Flag | Default | Description |
-|---|---|---|
-| `-a, --agent <string>` | *(Required)* | Targeted Agent ID mapping directly to the underlying definition ID. |
-| `--cli-path <string>`| `""` | Provide custom executable path boundaries targeting alternative localized CLI architectures if bypassing Anthropic API endpoints directly. |
-| `--judge` | `false` | Following the core tool-call simulation matrix, route output alongside explicitly defined schema assertions backward into the simulation stack, returning boolean accuracy feedback loops. |
-| `--judge-model <string>` | `""` | Assign an alternative reasoning node (Anthropic Model definition) for running evaluation protocols explicitly overriding defaults. |
-| `-o, --output <string>` | `"trace.jsonl"` | Designated target file path for writing JSONL-based execution stream. |
+| Flag | Short | Type | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `--agent` | `-a` | `string` | `""` | The ID of the agent to simulate. **Required**. |
+| `--judge` | | `bool` | `false` | Run LLM-as-a-Judge evaluation after the simulation. |
+| `--output` | `-o` | `string` | `trace.jsonl` | Path to write the execution trace. |
+| `--cli-path` | | `string` | `""` | Path to the underlying CLI binary (overrides `project.xcaf`). |
+| `--judge-model`| | `string` | `""` | The model to use for the judge. Falls back to `claude-haiku-4-5-20251001` when not specified. |
 
 ## Behavior
 
-`xcaffold test` isolates reasoning layers without applying direct side effects to your system variables.
+### Simulation Workflow
 
-The architecture fundamentally functions on three sequential phases:
-1. **Prompt Compilation:** It extracts standard system instructions formatted natively inside the `agents/` directories and merges those inputs implicitly into an isolated API transaction stream.
-2. **Evaluation Layer:** Native declarations invoked by the responding model evaluating your configuration are scraped directly from JSON block schemas inside the stream. 
-3. **Execution Trace Logging:** Each independent action the model requested authorization to execute is pushed locally into an output log (`trace.jsonl`). You leverage this trace mapping statically alongside programmatic regression validations matching specific outputs to expected inputs.
+1.  **Compilation Check**: Verifies that the agent has been compiled to `.claude/agents/<id>.md`.
+2.  **LLM Interaction**: Sends the system prompt and a test task to the LLM.
+3.  **Trace Recording**: Captures every `tool_use` block emitted by the model and writes it to a JSONL trace file.
+4.  **Evaluation (Optional)**: If `--judge` is set, an independent LLM evaluates the trace against the agent's `assertions`.
+
+## Prerequisites
+
+-   **API Keys**: You must have `ANTHROPIC_API_KEY` or `XCAFFOLD_LLM_API_KEY` set in your environment. Optionally set `XCAFFOLD_LLM_BASE_URL` to point to a non-Anthropic endpoint.
+-   **Compiled Output**: The agent must have been successfully compiled via `xcaffold apply`.
 
 ## Examples
 
-**Run a baseline tool execution simulation matching a configured `backend-dev` definition:**
+**Simulate the 'developer' agent:**
+
 ```bash
-xcaffold test --agent backend-dev
+xcaffold test --agent developer
 ```
 
-**Evaluate behavior explicitly alongside schema assertions for a `data-analyst` specification:**
+**Simulate and evaluate using the judge:**
+
 ```bash
-xcaffold test --agent data-analyst --judge
+xcaffold test --agent developer --judge
 ```
 
-**Export tool invocation outputs dynamically to a custom trace file:**
-```bash
-xcaffold test -a frontend-dev --output custom_trace.jsonl
+## Sample Output
+
+```text
+Testing agent "developer" with task: Add a new endpoint to the API
+Using model: <resolved-from-agent-config> (auth: api-key)
+
+── Simulation Trace Summary ──────────────────────────
+  Total intercepted tool calls: 3
+  Breakdown by tool:
+    Read                 2 call(s)
+    Edit                 1 call(s)
+──────────────────────────────────────────────────────
+  Trace written to: trace.jsonl
 ```
+
+## Exit Codes
+
+| Code | Meaning |
+| :--- | :--- |
+| `0` | Success |
+| `1` | Failure (e.g., agent not found, LLM error, or judge failure) |

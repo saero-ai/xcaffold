@@ -193,8 +193,8 @@ func TestCompile_Copilot_MCP_StdioServer(t *testing.T) {
 	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, hasMCP := out.Files[".vscode/mcp.json"]
-	assert.True(t, hasMCP, ".vscode/mcp.json must appear in output map")
+	raw, hasMCP := out.RootFiles[".vscode/mcp.json"]
+	assert.True(t, hasMCP, ".vscode/mcp.json must appear in rootFiles (project root)")
 	assert.Contains(t, raw, `"servers":`)
 
 	// A CodeMCPGlobalConfigOnly note must be emitted to guide the user.
@@ -224,8 +224,8 @@ func TestCompile_Copilot_MCP_EnvVars(t *testing.T) {
 	out, notes, err := renderer.Orchestrate(r, cfg, t.TempDir())
 	require.NoError(t, err)
 
-	raw, hasMCP := out.Files[".vscode/mcp.json"]
-	assert.True(t, hasMCP, ".vscode/mcp.json must appear in output map")
+	raw, hasMCP := out.RootFiles[".vscode/mcp.json"]
+	assert.True(t, hasMCP, ".vscode/mcp.json must appear in rootFiles (project root)")
 	assert.Contains(t, raw, `"API_KEY": "secret"`)
 
 	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
@@ -279,8 +279,8 @@ func TestCompile_Copilot_Settings_MergedOutput(t *testing.T) {
 	_, hasHooks := out.Files["hooks/xcaffold-hooks.json"]
 	assert.True(t, hasHooks, "expected hooks/xcaffold-hooks.json in output map")
 
-	_, hasMCP := out.Files[".vscode/mcp.json"]
-	assert.True(t, hasMCP, ".vscode/mcp.json must appear in output map")
+	_, hasMCP := out.RootFiles[".vscode/mcp.json"]
+	assert.True(t, hasMCP, ".vscode/mcp.json must appear in rootFiles (project root)")
 
 	mcpNotes := filterNotes(notes, renderer.CodeMCPGlobalConfigOnly)
 	assert.NotEmpty(t, mcpNotes, "MCP must emit CodeMCPGlobalConfigOnly fidelity note")

@@ -77,6 +77,8 @@ func buildToolkitFileMap(targets []string) map[string]string {
 		"toolkit/skills/xcaffold/references/mcp-reference.md":      "xcaf/skills/xcaffold/references/mcp-reference.md",
 		"toolkit/skills/xcaffold/references/hooks-reference.md":    "xcaf/skills/xcaffold/references/hooks-reference.md",
 		"toolkit/skills/xcaffold/references/memory-reference.md":   "xcaf/skills/xcaffold/references/memory-reference.md",
+		"toolkit/skills/xcaffold/references/context-reference.md":  "xcaf/skills/xcaffold/references/context-reference.md",
+		"toolkit/skills/xcaffold/references/settings-reference.md": "xcaf/skills/xcaffold/references/settings-reference.md",
 		"toolkit/skills/xcaffold/references/cli-cheatsheet.md":     "xcaf/skills/xcaffold/references/cli-cheatsheet.md",
 		"toolkit/rules/xcaf-conventions/rule.xcaf":                 "xcaf/rules/xcaf-conventions/rule.xcaf",
 	}
@@ -250,7 +252,7 @@ func runWizard(cmd *cobra.Command, xcafFile string) error {
 			"xcaf/skills/xcaffold/references/authoring-guide.md",
 			"xcaf/rules/xcaf-conventions/rule.xcaf",
 		)
-		for _, ref := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "memory"} {
+		for _, ref := range []string{"agent", "skill", "rule", "workflow", "mcp", "hooks", "memory", "context", "settings"} {
 			files = append(files, fmt.Sprintf("xcaf/skills/xcaffold/references/%s-reference.md", ref))
 		}
 		files = append(files, "xcaf/skills/xcaffold/references/cli-cheatsheet.md")
@@ -269,7 +271,7 @@ func runWizard(cmd *cobra.Command, xcafFile string) error {
 	fmt.Printf("  %s xcaf/skills/xcaffold/\n", colorGreen(glyphOK()))
 	fmt.Printf("  %s xcaf/rules/xcaf-conventions/\n", colorGreen(glyphOK()))
 	fmt.Printf("  %s xcaf/skills/xcaffold/references/    %s\n",
-		colorGreen(glyphOK()), dim("10 references"))
+		colorGreen(glyphOK()), dim("12 references"))
 	fmt.Println()
 	fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
 	fmt.Printf("  Includes Xaff agent, xcaffold skill, and xcaf-conventions rule.\n")
@@ -463,7 +465,7 @@ func handleProviderImport(cmd *cobra.Command, detected []importer.ProviderImport
 		fmt.Printf("  %s xcaf/skills/xcaffold/\n", colorGreen(glyphOK()))
 		fmt.Printf("  %s xcaf/rules/xcaf-conventions/\n", colorGreen(glyphOK()))
 		fmt.Printf("  %s xcaf/skills/xcaffold/references/    %s\n",
-			colorGreen(glyphOK()), dim("10 references"))
+			colorGreen(glyphOK()), dim("12 references"))
 		fmt.Println()
 		fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
 	}

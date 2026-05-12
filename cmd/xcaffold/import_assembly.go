@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -107,6 +108,23 @@ func assembleSkills(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.
 		}
 		base, overrides := splitSkillOverrides(providerSkills)
 		base.Targets = buildTargetsMap(providerSkills)
+
+		// Union artifacts from all providers into the base skill to ensure
+		// they are declared even if some providers are missing them.
+		allArtifacts := make(map[string]bool)
+		for _, s := range providerSkills {
+			for _, a := range s.Artifacts {
+				allArtifacts[a] = true
+			}
+		}
+		if len(allArtifacts) > 0 {
+			base.Artifacts = make([]string, 0, len(allArtifacts))
+			for a := range allArtifacts {
+				base.Artifacts = append(base.Artifacts, a)
+			}
+			sort.Strings(base.Artifacts)
+		}
+
 		result.Skills[name] = base
 		if result.Overrides == nil {
 			result.Overrides = &ast.ResourceOverrides{}
@@ -360,6 +378,22 @@ func assembleHooks(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.X
 			continue
 		}
 		base, overrides := splitHookOverrides(providerHooks)
+
+		// Union artifacts from all providers into the base hook
+		allArtifacts := make(map[string]bool)
+		for _, h := range providerHooks {
+			for _, a := range h.Artifacts {
+				allArtifacts[a] = true
+			}
+		}
+		if len(allArtifacts) > 0 {
+			base.Artifacts = make([]string, 0, len(allArtifacts))
+			for a := range allArtifacts {
+				base.Artifacts = append(base.Artifacts, a)
+			}
+			sort.Strings(base.Artifacts)
+		}
+
 		result.Hooks[name] = base
 		if result.Overrides == nil {
 			result.Overrides = &ast.ResourceOverrides{}

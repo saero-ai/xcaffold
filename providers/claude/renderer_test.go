@@ -608,4 +608,40 @@ func TestCompileAgents_RulesNotInFrontmatter(t *testing.T) {
 	assert.Contains(t, content, "You are a test agent.")
 }
 
+// TestClaudeRenderer_Workflow_PromptFile_NoProviderPrefix verifies that a workflow
+// lowered to a prompt-file primitive does not store a path that includes
+// the OutputDir prefix (".claude/") — apply.go already prepends OutputDir when
+// writing files to disk. Without the fix a path like ".claude/prompts/wf.prompt.md"
+// would produce ".claude/.claude/prompts/wf.prompt.md" on disk.
+// Note: the translator currently maps prompt-file to ".github/prompts/..." (copilot)
+// and custom-command to ".gemini/commands/..." (gemini) regardless of target.
+// The TrimPrefix guard in Claude's renderer is defensive: it strips ".claude/"
+// if/when a future path originates with that prefix, so no entry in out.Files
+// starts with ".claude/".
+func TestClaudeRenderer_Workflow_NoOutputDirPrefix(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"my-wf": {
+					Name: "my-wf",
+					Steps: []ast.WorkflowStep{
+						{Name: "step-one", Body: "Do the thing."},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, t.TempDir())
+	require.NoError(t, err)
+
+	// No file in out.Files should start with ".claude/" — apply.go prepends
+	// the OutputDir, so any such path would result in ".claude/.claude/...".
+	for path := range out.Files {
+		assert.False(t, strings.HasPrefix(path, ".claude/"),
+			"output path %q must not begin with \".claude/\" — apply.go prepends OutputDir", path)
+	}
+}
+
 func intPtr(n int) *int { return &n }

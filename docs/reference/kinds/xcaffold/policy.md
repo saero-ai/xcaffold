@@ -1,124 +1,94 @@
 ---
 title: "kind: policy"
-description: "Declarative compile-time constraint evaluated during xcaffold apply and validate. Produces no output files."
+description: "Defines declarative constraints and governance rules. Source: `xcaf/policies/<id>/policy.xcaf`."
 ---
 
 # `kind: policy`
 
-Defines a compile-time constraint evaluated against the parsed AST during `xcaffold apply` and `xcaffold validate`. Policies produce **no output files** — they run in-process and emit diagnostics to stderr.
-
-Uses **pure YAML format** (no frontmatter `---` delimiters).
+Defines declarative constraints and governance rules evaluated during `xcaffold validate` and `xcaffold apply`. Policies ensure that project resources and compiled output adhere to organizational standards and security best practices.
 
 > **Required:** `kind`, `version`, `name`, `severity`, `target`
 
+## Source Directory
+
+```
+xcaf/policies/<name>/policy.xcaf
+```
+
 ## Example Usage
 
-### Require an approved model
-
 ```yaml
 kind: policy
 version: "1.0"
-name: require-approved-model
-description: >-
-  All agents in frontend-app must declare a model from the approved list.
-  Unapproved models lack the tool-use capabilities required by
-  component-patterns and the browser-tools MCP.
+name: require-description
 severity: error
 target: agent
-require:
-  - field: model
-    one-of:
-      - claude-opus-4-5-20250514
-      - claude-sonnet-4-5-20250514
-      - claude-haiku-4-5-20251001
-```
-
-### Deny secrets in compiled output
-
-```yaml
-kind: policy
-version: "1.0"
-name: no-secrets-in-output
-description: Prevent API keys and tokens from appearing in compiled provider files.
-severity: error
-target: output
-deny:
-  - content-contains:
-      - "sk-ant-"
-      - "ANTHROPIC_API_KEY="
-      - "ghp_"
-  - content-matches: "(AKIA[0-9A-Z]{16})"
-```
-
-### Require component descriptions on agents
-
-```yaml
-kind: policy
-version: "1.0"
-name: require-agent-description
-description: All agents must declare a description for delegation routing.
-severity: warning
-target: agent
-match:
-  name-matches: "*-developer"
 require:
   - field: description
     is-present: true
-    min-length: 20
 ```
 
-## Argument Reference
+## Field Reference
 
-The following arguments are supported:
+### Required Fields
 
-- `name` — (Required) Unique policy identifier. Must match `[a-z0-9-]+`.
-- `version` — (Required) Schema version. Use `"1.0"`.
-- `severity` — (Required) Diagnostic severity:
-  - `"error"` — blocks `xcaffold apply` with a non-zero exit code
-  - `"warning"` — emits to stderr but does not block apply
-  - `"off"` — policy is loaded but not evaluated
-- `target` — (Required) Resource type the policy applies to: `"agent"`, `"skill"`, `"rule"`, `"hook"`, `"settings"`, `"output"`.
-- `description` — (Optional) `string`. Human-readable policy intent.
-- `match` — (Optional) Filter conditions (see [match block](#match-block)).
-- `require` — (Optional) `[]PolicyRequire`. Field value constraints (see [require block](#require-block)).
-- `deny` — (Optional) `[]PolicyDeny`. Forbidden content patterns (see [deny block](#deny-block)).
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `name` | `string` | Unique identifier for the policy. Must match `[a-z0-9-]+`. |
+| `severity` | `string` | Violation level when the policy fails: `error`, `warning`, `off`. |
+| `target` | `string` | Resource kind this policy evaluates: `agent`, `skill`, `rule`, `hook`, `settings`, `output`. |
 
-### `match` block
+### Optional Fields
 
-Narrows which resources this policy applies to. All conditions are AND-ed.
+#### Identity & Matching
 
-- `has-tool` — `string`. Tool name that must be present in `tools` for the policy to apply.
-- `has-field` — `string`. Field name that must be non-zero on the resource.
-- `name-matches` — `string`. Glob pattern matched against the resource `name` (e.g., `"*-developer"`).
-- `target-includes` — `string`. Target name that must appear in the resource's `targets` map.
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `description` | `string` | Human-readable purpose of this policy. |
+| `match` | `PolicyMatch` | Filter conditions selecting which resources to evaluate. |
 
-### `require` block
+#### `PolicyMatch` Fields
 
-Asserts a field meets a value constraint. All entries must pass.
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `has-tool` | `string` | Matches resources with a specific tool granted. |
+| `has-field` | `string` | Matches resources with a specific field defined. |
+| `name-matches` | `string` | Regex pattern matching the resource name. |
+| `target-includes` | `string` | Matches resources targeting a specific provider. |
 
-- `field` — (Required) Dot-path to the checked field: `"model"`, `"permissions.defaultMode"`.
-- `is-present` — `bool`. `true` = field must be non-zero; `false` = field must be zero/empty.
-- `min-length` — `int`. Minimum string or list length.
-- `max-count` — `int`. Maximum list item count.
-- `one-of` — `[]string`. Allowed values. Policy passes if the field value matches any entry.
+#### Constraints
 
-### `deny` block
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `require` | `[]PolicyRequire` | List of field constraints applied to matched resources. |
+| `deny` | `[]PolicyDeny` | Forbidden patterns in compiled output content or paths. |
 
-Asserts forbidden content does not appear. A single match causes the policy to fail.
+#### `PolicyRequire` Fields
 
-- `content-contains` — `[]string`. Substrings that must not appear in compiled output. Requires `target: output`.
-- `content-matches` — `string`. Regex forbidden in compiled output content. Requires `target: output`.
-- `path-contains` — `string`. Substring that must not appear in any compiled output file path.
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `field` | `string` | The field name to evaluate. |
+| `is-present` | `bool` | Whether the field must be defined. |
+| `min-length` | `int` | Minimum character length for string fields. |
+| `max-count` | `int` | Maximum element count for list fields. |
+| `one-of` | `[]string` | List of permitted values for the field. |
 
-## Diagnostics
+#### `PolicyDeny` Fields
 
-When a policy violation is detected, xcaffold emits a structured diagnostic:
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `content-contains` | `[]string` | Forbidden literal strings in the content. |
+| `content-matches` | `string` | Forbidden regex pattern in the content. |
+| `path-contains` | `string` | Forbidden literal string in the output path. |
 
-```
-[policy error] require-approved-model: agent "react-developer" — field "model" must be
-  one of [claude-opus-4-5-20250514, claude-sonnet-4-5-20250514, claude-haiku-4-5-20251001],
-  got "gpt-4o"
-Error: 1 policy violation(s) blocked apply. Run `xcaffold validate` to see all violations.
-```
+## Filesystem-as-Schema
 
-`severity: warning` diagnostics use `[policy warning]` prefix and do not block apply.
+When a policy is defined at `xcaf/policies/<id>/policy.xcaf`, Xcaffold automatically infers:
+- **kind**: `policy` derived from the `policies/` directory.
+- **name**: `<id>` derived from the directory segment between the kind and the filename.
+
+## Behavior
+
+1.  **Pipeline Integration**: Policies are evaluated during `validate` and `apply` phases.
+2.  **Gatekeeping**: An `error` level violation prevents `xcaffold apply` from writing any files to disk.
+3.  **Global Scope**: Policy `.xcaf` files placed under `~/.xcaffold/` are evaluated globally for all projects. The scanner recursively discovers all `.xcaf` files in the global home directory.

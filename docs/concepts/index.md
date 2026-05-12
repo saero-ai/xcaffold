@@ -7,9 +7,11 @@ description: "Understanding-oriented explanations of xcaffold architecture and d
 
 Understanding-oriented explanations of xcaffold's architectural and philosophical foundations. These documents explain *why* the system is designed the way it is — not how to use it.
 
+xcaffold is an Agent Configuration Management toolchain that implements the Harness-as-Code approach — declaring the complete agent harness in version-controlled `.xcaf` manifests and compiling deterministically to native provider formats.
+
 ## Architecture
 
-- [Core Architecture](architecture/architecture.md) — The one-way deterministic compiler architecture.
+- [Core Architecture](architecture/overview.md) — The one-way deterministic compiler architecture.
 - [Translation Pipeline](architecture/translation-pipeline.md) — How .xcaf manifests move from discovery to provider output.
 - [Intermediate Representation](architecture/intermediate-representation.md) — The BIR (Blueprint Intermediate Representation) graph.
 - [Multi-Target Rendering](architecture/multi-target-rendering.md) — How the AST compiles to different provider formats.
@@ -27,10 +29,10 @@ Understanding-oriented explanations of xcaffold's architectural and philosophica
 
 - [Agent Memory](execution/agent-memory.md) — Understanding the durable, agent-scoped context model.
 - [State & Drift Detection](execution/state-and-drift.md) — How xcaffold tracks compilation output and detects manual edits.
-- [Sandboxing](execution/sandboxing.md) — Runtime sandbox configuration and compile-time evaluation sandbox.
+
 
 ## Next Steps
 
 - [`Tutorials`](../tutorials/index.md) — learning-oriented, step-by-step guides
-- [`How-To Guides`](../how-to/index.md) — task-oriented guides for specific operations
+- [`Tutorials`](../tutorials/basics/getting-started.md) — task-oriented guides for specific operations
 - [`Reference`](../reference/index.md) — full schema reference and CLI command reference

@@ -11,9 +11,11 @@ xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **
 
 | Scope | Flag | What Compiles | State File Path |
 | :--- | :--- | :--- | :--- |
-| Global | `--global` | User-wide personal config (`~/.xcaffold/global.xcaf`) | `~/.xcaffold/<state>.xcaf.state` |
+| Global | `--global` | User-wide personal config (`~/.xcaffold/global.xcaf`) | `~/.xcaffold/.xcaffold/project.xcaf.state` |
 | Project | (default) | All resources in `xcaf/` | `.xcaffold/project.xcaf.state` |
 | Blueprint | `--blueprint <name>` | Named resource subset selected by a `kind: blueprint` file | `.xcaffold/<blueprint-name>.xcaf.state` |
+
+> **Note:** `xcaffold apply --global` is not yet available. The `--global` flag is currently functional only for `xcaffold init` and `xcaffold import`.
 
 > **Note:** Scopes are mutually exclusive. One context per compiled invocation.
 
@@ -120,11 +122,7 @@ When you execute an `xcaffold apply` inside your project, the compilation runtim
 
 Global resources are intentionally **NOT** written to the local project output directories (like `.claude/` or `.cursor/`). Because Claude Code, Cursor, Gemini CLI, and GitHub Copilot all autonomously combine the user's global environment at inference time, duplicating physical files into the local workspace would cause duplicate instruction injection and pollute git history unnecessarily. (Antigravity's scope loading behavior is not documented.)
 
-To synchronize global changes to disc, execute a global-scoped apply independent of your project:
-
-```bash
-xcaffold apply --global
-```
+Synchronizing global changes to disc via a global-scoped apply is planned but not yet available. `xcaffold apply --global` currently returns "Global scope is not yet available." The `--global` flag is functional today only for `xcaffold init` and `xcaffold import`.
 
 ## Override Mechanics
 
@@ -144,7 +142,7 @@ xcaf/agents/developer/
 Override merge uses the following field-type semantics:
 - **Scalars**: override REPLACES base when non-zero
 - **Lists** (`tools`, `skills`, `rules`, `allowed-tools`, `paths`, etc.): tri-state —
-  - `cleared: true` → field is explicitly emptied (override wins)
+  - `~` or `[]` (null or empty sequence) → field is explicitly cleared (override wins)
   - non-empty values → override REPLACES base
   - absent (zero-value) → base value is INHERITED
 - **Maps**: DEEP MERGE (override keys win, base keys not in override are preserved)
@@ -177,10 +175,10 @@ When discovering multiple `.xcaf` files recursively within the *same* scope (e.g
 | `version` | First file that declares it wins. Conflicting values = hard error. |
 | `project` | First file that declares `project.name` wins. Conflicting values = hard error. |
 | `extends` | First file that declares it wins. Conflicting values = hard error. |
-| `settings` | Last file wins (full struct overwrite — not field-by-field merge). |
+| `settings` | Field-by-field merge. Conflicting scalar fields produce a hard error. |
 | `test` | Last file that declares a non-empty block wins. |
 
-The alphabetical sort order of file names determines "first" and "last" for `version`, `project`, and `settings`. Keep `settings` in a single file to avoid unexpected overwrite behavior.
+The alphabetical sort order of file names determines "first" for `version` and `project`. Keep `settings` in a single file — the field-by-field merge with conflict detection means conflicting scalar values across files produce a hard error.
 
 ### Cross-Scope Merge Behavior (Parent vs Child)
 
@@ -192,8 +190,8 @@ The alphabetical sort order of file names determines "first" and "last" for `ver
 | `mcp:` | Child entry replaces base entry per ID. IDs present only in the base are kept. |
 | `workflows:` | Child entry replaces base entry per ID. IDs present only in the base are kept. |
 | `hooks:` | Additive. Both base and child handlers are kept. Child handlers are appended to base handlers for each event. |
-| `project.test:` | Field-by-field overlay within `ProjectConfig`. `cli_path`, `cli-path`, and `judge-model` are replaced individually only when the child sets a non-empty value. |
-| `settings:` | Last file in the directory wins (single-settings-file convention). Inherited and merged via `extends:`. |
+| `project.test:` | Field-by-field overlay within `ProjectConfig`. `cli-path` and `judge-model` are replaced individually only when the child sets a non-empty value. |
+| `settings:` | Field-by-field strict merge. Conflicting scalars between files produce a hard error. Maps are merged additively with conflict detection. |
 
 ### Compiler Scope Merge
 
@@ -270,8 +268,6 @@ circular extends detected: "/abs/path/to/base.xcaf"
 
 ## Related
 
-- [Getting Started](../tutorials/getting-started.md) — walkthrough of project-scope initialization and first apply
-- [Multi-Agent Workspace](../tutorials/multi-agent-workspace.md) — example project using both global and project-scoped agents
-- [Split Configs](../how-to/multi-file-projects.md) — how to organize a project across multiple `.xcaf` files
-- [Architecture](architecture.md) — the full compilation pipeline including scope merge mechanics
-- [Schema Reference](../reference/schema.md) — `kind: global`, `kind: project`, and `extends:` field definitions
+- [Getting Started](../../tutorials/basics/getting-started.md) — walkthrough of project-scope initialization and first apply
+- [Multi-Agent Workspace](../../tutorials/advanced/multi-agent-workspace.md) — example project using both global and project-scoped agents
+- [Architecture](../architecture/overview.md) — the full compilation pipeline including scope merge mechanics

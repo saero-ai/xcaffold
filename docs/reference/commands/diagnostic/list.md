@@ -19,17 +19,19 @@ xcaffold list [flags]
 
 | Flag | Short | Type | Default | Description |
 |------|-------|------|---------|-------------|
-| `--agent [name]` | — | `string` | `""` | List agents. Without a value, lists all agents. With a value, filters by name. |
+| `--agent [name]` | — | `string` | `""` | List agents. Without a value, lists all agents. With a value, filters by substring match. |
 | `--skill [name]` | — | `string` | `""` | List skills. Same filter behavior as `--agent`. |
 | `--rule [name]` | — | `string` | `""` | List rules. Same filter behavior as `--agent`. |
 | `--workflow [name]` | — | `string` | `""` | List workflows. Same filter behavior as `--agent`. |
 | `--mcp [name]` | — | `string` | `""` | List MCP servers. Same filter behavior as `--agent`. |
 | `--context [name]` | — | `string` | `""` | List contexts. Same filter behavior as `--agent`. |
-| `--hooks` | — | `bool` | `false` | List hooks. |
-| `--settings` | — | `bool` | `false` | List settings. |
+| `--hook` | — | `bool` | `false` | List hooks. |
+| `--setting` | — | `bool` | `false` | List settings. |
 | `--verbose` | `-v` | `bool` | `false` | Show individual memory entry names per agent instead of aggregate counts. |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). *(Not yet available — hidden flag)* |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
+| `--blueprint [name]` | — | `string` | `""` | Show resources belonging to a named blueprint. *(Hidden flag)* |
+| `--resolved` | — | `bool` | `false` | Include transitive dependencies when listing a blueprint. Use with `--blueprint`. *(Hidden flag)* |
 
 ## Behavior
 
@@ -43,11 +45,13 @@ When one or more kind-filter flags are set (`--agent`, `--skill`, `--rule`, etc.
 
 String-valued kind flags accept an optional name argument for filtering:
 - `--agent` — lists all agents
-- `--agent dev` — lists only agents whose name matches `dev`
+- `--agent dev` — lists agents whose name contains `dev`
+
+Positional arguments are not accepted. To filter by name, use `--<kind>=<name>` syntax.
 
 ### Scope
 
-By default, `xcaffold list` operates on the project-level manifest. Using `--global` switches to the user-wide global scope.
+By default, `xcaffold list` operates on the project-level manifest. The `--global` flag is registered but not yet functional for this command. Using it prints `Global scope is not yet available.` and exits with code 1.
 
 ## Sample output
 
@@ -149,9 +153,4 @@ xcaffold list --agent go-cli-developer
 **Show detailed memory entries:**
 ```bash
 xcaffold list -v
-```
-
-**List global-scope resources:**
-```bash
-xcaffold list --global
 ```

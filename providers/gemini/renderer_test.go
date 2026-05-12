@@ -391,3 +391,42 @@ func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 	}
 	assert.True(t, hasLoweringNote, "expected CodeWorkflowLoweredToRulePlusSkill fidelity note")
 }
+
+// TestCompile_Gemini_Workflow_CustomCommand_NoPathDoubling verifies that a workflow
+// lowered to a custom-command primitive is stored with a path relative to OutputDir
+// ("commands/<name>.md") and NOT with the full provider prefix (".gemini/commands/<name>.md").
+// Without the fix, apply.go would join OutputDir + ".gemini/commands/tdd.md", producing
+// ".gemini/.gemini/commands/tdd.md" on disk.
+func TestCompile_Gemini_Workflow_CustomCommand_NoPathDoubling(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"tdd": {
+					Name: "tdd",
+					Steps: []ast.WorkflowStep{
+						{Name: "red", Body: "Write a failing test."},
+					},
+					Targets: map[string]ast.TargetOverride{
+						"gemini": {
+							Provider: map[string]interface{}{
+								"lowering-strategy": "custom-command",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, t.TempDir())
+	require.NoError(t, err)
+
+	// Relative path (correct — apply.go will prepend .gemini/).
+	_, ok := out.Files["commands/tdd.md"]
+	assert.True(t, ok, "workflow custom-command path must be relative: \"commands/tdd.md\"")
+
+	// Absolute path with provider prefix (the doubled path — must not appear).
+	_, doubled := out.Files[".gemini/commands/tdd.md"]
+	assert.False(t, doubled, "workflow custom-command path must NOT include \".gemini/\" prefix")
+}

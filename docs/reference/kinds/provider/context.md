@@ -3,16 +3,23 @@ title: "kind: context"
 description: "Workspace-level ambient context compiled into each provider's root instruction file."
 ---
 
-# kind: context
-Workspace-level ambient context compiled into each provider's root instruction file — `CLAUDE.md`, `GEMINI.md`, `AGENTS.md`, or `.github/copilot-instructions.md`.
+# `kind: context`
 
-## Overview
+Workspace-level ambient context compiled into each provider's root instruction file — `CLAUDE.md`, `GEMINI.md`, `AGENTS.md`, or `.github/copilot-instructions.md`.
 
 A `kind: context` resource holds the prose that xcaffold renders into the root instruction file for one or more AI providers. Unlike agents, skills, and rules — which target specific AI behaviors — context tells the AI tool about the project itself: its structure, conventions, and how to work within it.
 
-Context files live in `xcaf/context/` and use the standard frontmatter + body format. The markdown body is rendered verbatim as the provider's instruction file content.
+The markdown body is rendered verbatim as the provider's instruction file content.
 
-## Format
+> **Required:** `kind`, `version`, `name`
+
+## Source Directory
+
+```
+xcaf/context/<name>/context.xcaf
+```
+
+## Example Usage
 
 ```yaml
 ---
@@ -28,90 +35,37 @@ You are working on xcaffold, a deterministic Agent-as-Code compiler...
 ...
 ```
 
-## Fields
+## Field Reference
 
-| Field | Required | Type | Description |
-|---|---|---|---|
-| `kind` | Yes | string | Must be `context` |
-| `version` | Yes | string | Schema version, e.g. `"1.0"` |
-| `name` | Yes | string | Unique identifier within the project. Used as the xcaf filename stem. |
-| `targets` | No | list of strings | Provider filter — see [Targets](#targets) below |
-| `default` | No | bool | Tie-breaker when multiple contexts match the same target. See [Default Resolution](#default-resolution) below |
-| `description` | No | string | Short human-readable description of this context file |
+### Required Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `string` | Unique identifier for this context block. Must match `[a-z0-9-]+`. |
+
+### Optional Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `description` | `string` | Human-readable purpose of this context block. |
+| `default` | `bool` | Marks this context as tie-breaker when multiple match the same target. |
+| `targets` | `[]string` | Restricts this context to specific provider targets. When absent, context renders for all targets. |
 
 The **markdown body** (content after the closing `---`) contains the workspace context prose that is rendered verbatim to the provider's instruction file.
 
-## Targets
+## Targets and Default Resolution
 
-`targets:` is a **render filter**. It controls which compilation targets receive this context file.
+The `targets:` field filters which compilation targets receive this context. When multiple contexts match a target, the `default` field controls ordering. See [Targets](../../../concepts/configuration/targets.md) for the full concept, including filter semantics and default resolution rules.
 
-| `targets:` value | Behavior |
-|---|---|
-| Absent / empty (`[]`) | Context renders for **all** targets configured in the active `xcaffold apply` invocation |
-| `[claude]` | Context renders **only** when compiling for the `claude` target; **skipped** for all other targets |
-| `[claude, cursor]` | Context renders for `claude` and `cursor` targets only |
+## Filesystem-as-Schema
 
-This allows multi-provider projects to author provider-specific workspace context where the content differs between tools:
+When a context `.xcaf` file lives at `xcaf/context/<name>/context.xcaf`, the `kind:` and `name:` fields can be omitted from the YAML. The parser infers:
+- `kind: context` from the parent directory name (`context/`)
+- `name:` from the grandparent directory name (e.g., `main` from `context/main/context.xcaf`)
 
-```yaml
-# xcaf/context/main.xcaf — Claude Code only
----
-kind: context
-name: main
-targets: [claude]
----
-You are working on xcaffold. Use CLAUDE.md conventions...
+When `kind:` or `name:` are present in the YAML, they must match the inferred values.
 
-# xcaf/context/antigravity.xcaf — Antigravity only
----
-kind: context
-name: antigravity
-targets: [antigravity]
----
-You are working on xcaffold. As an Antigravity agent...
-```
-
-For projects targeting a single provider, omit `targets:` entirely:
-
-```yaml
----
-kind: context
-name: main
----
-You are working on xcaffold...
-```
-
-> [!NOTE]
-> `targets:` is a filter, not a compilation directive. It does not add targets — it restricts which of the already-configured project targets receive this context. If your project only targets `claude`, a context with `targets: [gemini]` produces no output.
-
-## Default Resolution
-
-When multiple contexts match the same target provider and no blueprint is active, xcaffold requires exactly one to be marked `default: true`. This context is placed first in the composed output; remaining contexts follow in alphabetical order.
-
-| Scenario (no blueprint) | Result |
-|---|---|
-| 1 context matches target | Renders regardless of `default` — no ambiguity |
-| 2+ match, exactly 1 has `default: true` | All bodies compose; default goes first |
-| 2+ match, none has `default: true` | Compiler error — mark one as default or use `--blueprint` |
-| 2+ match, multiple have `default: true` | Compiler error — only one default allowed per target |
-
-When a blueprint is active (`--blueprint name`), the blueprint's `contexts:` list explicitly selects which contexts compile. The `default` flag is ignored entirely. See [Blueprint Design — Context Selection](../../best-practices/blueprint-design.md#context-selection) for details.
-
-## File Location
-
-Context files are placed in `xcaf/context/`:
-
-```
-xcaf/
-└── context/
-    ├── main.xcaf           # root context for claude (or all targets)
-    ├── gemini.xcaf         # root context for gemini only
-    └── antigravity.xcaf    # root context for antigravity only
-```
-
-Files are auto-discovered by `xcaffold apply` — no explicit reference in `project.xcaf` is required.
-
-## Provider Output
+## Compiled Output
 
 | Provider target | Output file |
 |---|---|
@@ -119,7 +73,7 @@ Files are auto-discovered by `xcaffold apply` — no explicit reference in `proj
 | `gemini` | `GEMINI.md` (project root) |
 | `cursor` | `AGENTS.md` (project root) |
 | `copilot` | `.github/copilot-instructions.md` |
-| `antigravity` | `AGENTS.md` (project root) |
+| `antigravity` | `GEMINI.md` (project root) |
 
 ## Default Import Naming
 
@@ -127,11 +81,11 @@ When running `xcaffold import`, xcaffold creates context files using these defau
 
 | Source file | Generated context | Frontmatter |
 |---|---|---|
-| `CLAUDE.md` | `xcaf/context/main.xcaf` | `name: main` / `targets: [claude]` |
-| `GEMINI.md` | `xcaf/context/gemini.xcaf` | `name: gemini` / `targets: [gemini]` |
-| `AGENTS.md` (Cursor) | `xcaf/context/cursor.xcaf` | `name: cursor` / `targets: [cursor]` |
-| `AGENTS.md` (Antigravity) | `xcaf/context/antigravity.xcaf` | `name: antigravity` / `targets: [antigravity]` |
-| `.github/copilot-instructions.md` | `xcaf/context/copilot.xcaf` | `name: copilot` / `targets: [copilot]` |
+| `CLAUDE.md` | `xcaf/context/claude/context.xcaf` | `name: claude` / `targets: [claude]` |
+| `GEMINI.md` | `xcaf/context/gemini/context.xcaf` | `name: gemini` / `targets: [gemini]` |
+| `AGENTS.md` (Cursor) | `xcaf/context/cursor/context.xcaf` | `name: cursor` / `targets: [cursor]` |
+| `AGENTS.md` (Antigravity) | `xcaf/context/antigravity/context.xcaf` | `name: antigravity` / `targets: [antigravity]` |
+| `.github/copilot-instructions.md` | `xcaf/context/copilot/context.xcaf` | `name: copilot` / `targets: [copilot]` |
 
 You can rename the file and change the `name:` field freely — the `name` is a human identifier only.
 
@@ -140,4 +94,4 @@ You can rename the file and change the `name:` field freely — the `name` is a 
 - Context kind design rationale is documented in the project architecture decisions
 - [kind: agent](agent.md)
 - [kind: rule](rule.md)
-- [Project Layouts](../../best-practices/project-layouts.md)
+- [Project Structure](../../../best-practices/project-structure.md)

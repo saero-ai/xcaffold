@@ -7,6 +7,6 @@ description: "Core architectural concepts driving the xcaffold compilation engin
 
 This section covers the foundational architecture of the xcaffold compiler, including how it processes multi-file manifests and renders them into provider-native configurations.
 
-- [System Architecture](architecture) — The end-to-end compilation pipeline.
+- [System Architecture](overview) — The end-to-end compilation pipeline.
 - [Provider Architecture](provider-architecture) — How renderers and importers interface with LLM CLIs.
 - [Multi-Target Rendering](multi-target-rendering) — Managing multiple IDEs and agents simultaneously.
