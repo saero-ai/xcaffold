@@ -3,6 +3,8 @@ title: "xcaffold registry"
 description: "List projects registered in the global registry."
 ---
 
+> **Internal command** — This command is hidden from `xcaffold --help` output.
+
 # `xcaffold registry`
 
 Displays a list of all projects managed by `xcaffold` across your local system. `xcaffold` automatically registers projects during `init` or `import` to enable cross-project discovery and global management.
@@ -32,14 +34,27 @@ xcaffold registry
 ## Sample Output
 
 ```text
-xcaffold  ·  global registry  ·  ~/.xcaffold/registry.xcf
+  MANAGED PROJECTS
 
-PROJECT       PATH                          TARGETS    LAST APPLIED
-xcaffold-cli  /Users/user/dev/xcaffold      claude     2h ago
-my-new-app    /Users/user/dev/my-new-app    cursor     yesterday
-demo-skill    /Users/user/dev/demo-skill    gemini     5d ago
+  ● xcaffold-cli (/Users/user/dev/xcaffold)
+    targets: claude
+    resources: 3 agents, 5 skills, 2 rules
+    last applied: today at 14:32
 
-→ 3 projects registered.
+  ● my-new-app (/Users/user/dev/my-new-app)
+    targets: cursor
+    resources: 1 agents, 2 skills, 0 rules
+    last applied: yesterday
+
+  ● demo-skill (/Users/user/dev/demo-skill)
+    targets: gemini
+    resources: 0 agents, 1 skills, 0 rules
+    last applied: 2026-05-03 09:15
+
+  GLOBAL (~/.xcaffold/global.xcaf)
+    resources: 2 agents, 4 skills, 1 rules
+
+  3 projects registered.
 ```
 
 ## Exit Codes

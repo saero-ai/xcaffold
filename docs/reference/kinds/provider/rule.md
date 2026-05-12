@@ -81,10 +81,12 @@ The following arguments are supported:
 - `activation` — (Optional) `string`. Controls when the rule is applied. Values:
   - `always` (default) — rule is active in every context
   - `path-glob` — rule activates only when the agent's working files match `paths`
-  - `model-decided` — the model decides whether to apply the rule based on context
   - `manual-mention` — rule only activates when explicitly referenced by the user
+  - `model-decided` — the model decides whether to apply the rule based on context
   - `explicit-invoke` — rule only activates when directly invoked (e.g., `@rule-name`)
+- `always-apply` — (Optional) `bool`. Legacy alias for `activation`. `true` maps to `activation: always`; `false` maps to `activation: manual-mention`. When both `always-apply` and `activation` are present, `activation` takes precedence.
 - `paths` — (Optional) `[]string`. Glob patterns used when `activation: path-glob`. Each pattern is matched against the agent's currently open or modified files.
+- `exclude-agents` — (Optional) `[]string`. Copilot-only. Prevents the rule from being applied by specific Copilot agents. Accepted values: `code-review`, `cloud-agent`.
 - `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides.
 
 ## Filesystem-as-Schema
@@ -155,27 +157,39 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
     …
     ```
 
-    > Cursor uses `.mdc` extension. Always-apply rules emit `always-apply: true`. Path-scoped rules emit `globs:` instead.
+    > Cursor uses `.mdc` extension. Supported activation modes: `always`, `path-glob`, and `manual-mention`. Always-apply rules emit `always-apply: true`. Path-scoped rules emit `globs:`. Manual-mention rules emit no activation key.
   </ProviderTab>
 
   <ProviderTab id="copilot">
-    **Output path**: `.github/copilot-instructions.md`
+    Each rule compiles to its own file under `.github/instructions/`.
 
-    Rules are appended inline into a single instructions file:
+    **Always-apply** → `.github/instructions/react-conventions.instructions.md`
 
     ```markdown
+    ---
+    applyTo: "**"
+    ---
+
     # React Conventions
 
     ## Component Structure
     - Use functional components only — no class components.
     …
+    ```
+
+    **Path-scoped** → `.github/instructions/no-server-imports-in-ui.instructions.md`
+
+    ```markdown
+    ---
+    applyTo: "src/components/**, src/hooks/**"
+    ---
 
     # No Server Imports in UI
 
     Never import from modules marked `server-only`…
     ```
 
-    > Copilot has no per-rule file concept. All rules are concatenated into `.github/copilot-instructions.md`. Path scoping is not natively supported and is noted in the file as a comment.
+    > Copilot writes one `.github/instructions/<name>.instructions.md` file per rule. Always-apply rules emit `applyTo: "**"`. Path-scoped rules emit `applyTo:` set to the joined glob patterns.
   </ProviderTab>
 
   <ProviderTab id="gemini">
@@ -194,14 +208,24 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
     …
     ```
 
-    **Path-scoped** → nested `GEMINI.md` placed inside each matching directory:
+    **Path-scoped** → single rule file at `.gemini/rules/no-server-imports-in-ui.md` with an `@-import` directive added to the root `GEMINI.md` alongside the path constraint as a comment:
 
-    `src/components/GEMINI.md` and `src/hooks/GEMINI.md`:
+    Root `GEMINI.md` addition:
     ```
     @.gemini/rules/no-server-imports-in-ui.md
     ```
 
-    > Gemini implements path scoping via nested `GEMINI.md` files placed in each directory matching the glob pattern. The individual rule file lives at `.gemini/rules/no-server-imports-in-ui.md`.
+    Individual rule file `.gemini/rules/no-server-imports-in-ui.md`:
+
+    ```markdown
+    # No Server Imports in UI
+
+    <!-- paths: src/components/**, src/hooks/** -->
+
+    Never import from modules marked `server-only`…
+    ```
+
+    > Gemini scoping is implemented via a single rule file and a single `@-import` line in the root `GEMINI.md`. Path information is recorded as a comment inside the rule file. Nested per-directory `GEMINI.md` files are not used.
   </ProviderTab>
 
   <ProviderTab id="antigravity">
@@ -220,7 +244,5 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
   </ProviderTab>
 </ProviderTabs>
 
-> [!WARNING]
-> **Copilot**: All rules are merged into a single `.github/copilot-instructions.md` file. Path-scoped rules (`activation: path-glob`) are not natively enforced by Copilot — the path constraint is included as a markdown comment for informational purposes only.
->
-> **Gemini**: Path-scoped rules are implemented via Gemini's JIT scoping — nested `GEMINI.md` files are placed in each directory matching the glob. This requires the compiler to know the directory structure of your project at compile time.
+> [!NOTE]
+> **model-decided** and **explicit-invoke**: These activation modes are not natively supported by Claude Code, Cursor, Copilot, or Gemini. Rules compiled with these modes include a fidelity note explaining the limitation. Antigravity natively supports `model-decided`.

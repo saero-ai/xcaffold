@@ -5,11 +5,14 @@ description: "Root manifest that declares compilation targets and references all
 
 # `kind: project`
 
-The root manifest for an xcaffold project. Declares which providers to target, references all named resources (agents, skills, rules, MCP servers, policies), and optionally provides project-level instructions compiled to each provider's root instructions file.
+The root manifest for an xcaffold project. Declares which providers to target, references all named resources (agents, skills, rules, MCP servers, policies), and configures project-wide settings.
 
-There is **exactly one** project manifest per project, located at `.xcaffold/project.xcaf`. Produces no provider output files — the manifest drives the compilation pipeline.
+There is **exactly one** project manifest per project, located at `project.xcaf` (at the repository root). Produces no provider output files — the manifest drives the compilation pipeline.
 
-> **Required:** `kind`, `version`, `name`, `targets`
+> [!IMPORTANT]
+> The `kind: project` manifest does **not** support a markdown body. Workspace-level instructions must be declared using [`kind: context`](../provider/context). Adding a body after the closing `---` in a project manifest will cause a parse error.
+
+> **Required:** `kind`, `version`, `name`, \`targets\`
 
 ## Example Usage
 
@@ -50,9 +53,6 @@ test:
   judge-model: claude-opus-4-5
   task: "Demonstrate all capabilities and confirm every feature works end-to-end."
   max-turns: 10
-local:
-  model: claude-sonnet-4-6
-  effort-level: high
 target-options:
   copilot:
     hooks:
@@ -60,9 +60,6 @@ target-options:
   cursor:
     suppress-fidelity-warnings: false
 ---
-This project uses xcaffold to manage AI agent configuration across all providers.
-Agents must follow all declared rules at all times.
-To add a new UI component, invoke the component-patterns skill before writing any code.
 ```
 
 ## Argument Reference
@@ -147,22 +144,10 @@ The `targets:` field appears in two contexts:
 - **On the project manifest**: Lists which providers to compile output for. Required.
 - **On individual resources**: Controls compilation filtering — a resource with `targets: [claude]` is compiled only for Claude. When absent, the resource is universal (compiled for all project targets).
 
-## Behavior
-
-The project manifest body (content after the closing `---`) is compiled to project-level instructions:
-
-| Provider | Output path |
-|---|---|
-| Claude | `CLAUDE.md` (project root) |
-| Gemini | `GEMINI.md` (project root, with rule imports) |
-| Antigravity | `AGENTS.md` (project root) |
-| Cursor | Prepended to `.cursor/rules/project-instructions.md` |
-| Copilot | Prepended to `.github/copilot-instructions.md` |
-
 ## Import
 
 ```bash
 xcaffold import --target claude
 ```
 
-`xcaffold import` reverse-engineers existing provider directories into `.xcaf` source files and reconstructs a `project.xcaf` with discovered resources.
+`xcaffold import` reverse-engineers existing provider directories into `.xcaf` source files and reconstructs a `project.xcaf` with discovered resources. Instructions found in provider root files (e.g. `CLAUDE.md`) are imported as `kind: context` resources.

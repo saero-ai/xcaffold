@@ -38,6 +38,7 @@ You are working on xcaffold, a deterministic Agent-as-Code compiler...
 | `targets` | No | list of strings | Provider filter — see [Targets](#targets) below |
 | `default` | No | bool | Tie-breaker when multiple contexts match the same target. See [Default Resolution](#default-resolution) below |
 | `description` | No | string | Short human-readable description of this context file |
+| `default` | No | bool | Marks this context as the tie-breaker when multiple contexts match the same target |
 
 The **markdown body** (content after the closing `---`) contains the workspace context prose that is rendered verbatim to the provider's instruction file.
 
@@ -54,15 +55,15 @@ The **markdown body** (content after the closing `---`) contains the workspace c
 This allows multi-provider projects to author provider-specific workspace context where the content differs between tools:
 
 ```yaml
-# xcaf/context/main.xcaf — Claude Code only
+# xcaf/context/claude/context.xcaf — Claude Code only
 ---
 kind: context
-name: main
+name: claude
 targets: [claude]
 ---
 You are working on xcaffold. Use CLAUDE.md conventions...
 
-# xcaf/context/antigravity.xcaf — Antigravity only
+# xcaf/context/antigravity/context.xcaf — Antigravity only
 ---
 kind: context
 name: antigravity
@@ -104,9 +105,12 @@ Context files are placed in `xcaf/context/`:
 ```
 xcaf/
 └── context/
-    ├── main.xcaf           # root context for claude (or all targets)
-    ├── gemini.xcaf         # root context for gemini only
-    └── antigravity.xcaf    # root context for antigravity only
+    ├── claude/
+    │   └── context.xcaf    # root context for claude (or all targets)
+    ├── gemini/
+    │   └── context.xcaf    # root context for gemini only
+    └── antigravity/
+        └── context.xcaf    # root context for antigravity only
 ```
 
 Files are auto-discovered by `xcaffold apply` — no explicit reference in `project.xcaf` is required.
@@ -119,7 +123,7 @@ Files are auto-discovered by `xcaffold apply` — no explicit reference in `proj
 | `gemini` | `GEMINI.md` (project root) |
 | `cursor` | `AGENTS.md` (project root) |
 | `copilot` | `.github/copilot-instructions.md` |
-| `antigravity` | `AGENTS.md` (project root) |
+| `antigravity` | `GEMINI.md` (project root) |
 
 ## Default Import Naming
 
@@ -127,11 +131,11 @@ When running `xcaffold import`, xcaffold creates context files using these defau
 
 | Source file | Generated context | Frontmatter |
 |---|---|---|
-| `CLAUDE.md` | `xcaf/context/main.xcaf` | `name: main` / `targets: [claude]` |
-| `GEMINI.md` | `xcaf/context/gemini.xcaf` | `name: gemini` / `targets: [gemini]` |
-| `AGENTS.md` (Cursor) | `xcaf/context/cursor.xcaf` | `name: cursor` / `targets: [cursor]` |
-| `AGENTS.md` (Antigravity) | `xcaf/context/antigravity.xcaf` | `name: antigravity` / `targets: [antigravity]` |
-| `.github/copilot-instructions.md` | `xcaf/context/copilot.xcaf` | `name: copilot` / `targets: [copilot]` |
+| `CLAUDE.md` | `xcaf/context/claude/context.xcaf` | `name: claude` / `targets: [claude]` |
+| `GEMINI.md` | `xcaf/context/gemini/context.xcaf` | `name: gemini` / `targets: [gemini]` |
+| `AGENTS.md` (Cursor) | `xcaf/context/cursor/context.xcaf` | `name: cursor` / `targets: [cursor]` |
+| `AGENTS.md` (Antigravity) | `xcaf/context/antigravity/context.xcaf` | `name: antigravity` / `targets: [antigravity]` |
+| `.github/copilot-instructions.md` | `xcaf/context/copilot/context.xcaf` | `name: copilot` / `targets: [copilot]` |
 
 You can rename the file and change the `name:` field freely — the `name` is a human identifier only.
 

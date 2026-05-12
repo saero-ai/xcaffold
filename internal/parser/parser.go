@@ -476,6 +476,8 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 				ctx.Body = trimmedBody
 				config.Contexts[lastName] = ctx
 			}
+		case "project":
+			return nil, fmt.Errorf("invalid project document: kind: project does not support a markdown body — use kind: context for workspace-level instructions")
 		}
 	}
 

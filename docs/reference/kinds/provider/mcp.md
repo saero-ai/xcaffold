@@ -71,19 +71,24 @@ The following arguments are supported:
 - `args` — (Optional) `[]string`. Arguments passed to `command`.
 - `url` — (Required for `type: sse`) The SSE server endpoint URL.
 - `env` — (Optional) `map[string]string`. Environment variables injected into the server process. Supports `${VAR_NAME}` references to host environment variables.
+- `cwd` — (Optional) `string`. Working directory for the server process. Defaults to the project root when absent.
+- `headers` — (Optional) `map[string]string`. HTTP headers sent with each SSE request. Only applicable when `type: sse`.
+- `disabled` — (Optional) `*bool`. When `true`, the MCP server is excluded from compiled output for all targets.
+- `disabled-tools` — (Optional) `[]string`. Names of tools provided by this server that are excluded from the compiled output.
+- `oauth` — (Optional) `map[string]string`. OAuth configuration key-value pairs passed through to the provider-native format.
+- `auth-provider-type` — (Optional) `string`. Authentication provider type used for OAuth flows (e.g., `"github"`, `"google"`).
 - `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides. Resources with a `targets:` field are compiled only for the listed providers. When absent, the resource is compiled for all providers that support MCP configuration.
 
 ## Compiled Output
 
 <ProviderTabs>
   <ProviderTab id="claude">
-    **Output path**: `.claude/.mcp.json`
+    **Output path**: `.claude/mcp.json`
 
     ```json
     {
       "mcpServers": {
         "browser-tools": {
-          "name": "browser-tools",
           "command": "npx",
           "args": ["@agentdeskai/browser-tools-mcp@latest"]
         }
@@ -91,7 +96,7 @@ The following arguments are supported:
     }
     ```
 
-    Multiple MCP declarations are merged into a single `.mcp.json`. The `name` field is explicitly included in the Claude output.
+    Multiple MCP declarations are merged into a single `.claude/mcp.json`.
   </ProviderTab>
 
   <ProviderTab id="cursor">
@@ -112,7 +117,20 @@ The following arguments are supported:
   </ProviderTab>
 
   <ProviderTab id="copilot">
-    > **Target Dropped**: Copilot has no native MCP server configuration format. `MCP_NO_NATIVE_TARGET` fidelity note emitted to stderr. No files are written for this target.
+    **Output path**: `.vscode/mcp.json`
+
+    ```json
+    {
+      "servers": {
+        "browser-tools": {
+          "command": "npx",
+          "args": ["@agentdeskai/browser-tools-mcp@latest"]
+        }
+      }
+    }
+    ```
+
+    > Copilot uses VS Code's MCP format with a `"servers"` top-level key (not `"mcpServers"`). Multiple MCP declarations are merged into `.vscode/mcp.json`. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted because Copilot does not support per-project MCP server activation — the file is written, but servers must be enabled globally in VS Code settings.
   </ProviderTab>
 
   <ProviderTab id="gemini">
@@ -133,22 +151,11 @@ The following arguments are supported:
   </ProviderTab>
 
   <ProviderTab id="antigravity">
-    **Output path**: `.agents/settings.json` (merged into `mcpServers` key)
-
-    ```json
-    {
-      "mcpServers": {
-        "browser-tools": {
-          "command": "npx",
-          "args": ["@agentdeskai/browser-tools-mcp@latest"]
-        }
-      }
-    }
-    ```
+    No project-local file is written. MCP servers must be configured globally at `~/.gemini/antigravity/mcp_config.json`. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted at compile time.
   </ProviderTab>
 </ProviderTabs>
 
 > [!WARNING]
-> **Copilot** does not support MCP server configuration. Declaring an `mcp:` kind with Copilot in `targets` will silently produce no output for that provider and emit a `MCP_NO_NATIVE_TARGET` fidelity note to stderr.
+> **Antigravity** does not support project-local MCP configuration. MCP servers must be registered globally at `~/.gemini/antigravity/mcp_config.json`. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted at compile time; no project file is written.
 >
 > **Settings merge**: If your `kind: settings` block also declares `mcp-servers`, those are merged with `kind: mcp` declarations at compile time. The `kind: settings` values win on conflict.

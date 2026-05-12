@@ -75,6 +75,15 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	// Tiered output: syntax and schema pass
 	fmt.Printf("  %s  syntax and schema\n", colorGreen(glyphOK()))
 
+	// Parse warnings: non-fatal issues during extraction
+	if len(cfg.ParseWarnings) > 0 {
+		fmt.Println()
+		fmt.Println("  parse warnings:")
+		for _, w := range cfg.ParseWarnings {
+			fmt.Printf("    %s  %s\n", colorYellow(glyphSrc()), w)
+		}
+	}
+
 	// Cross-references: show as warnings, not errors
 	if len(crossRefIssues) > 0 {
 		fmt.Println()

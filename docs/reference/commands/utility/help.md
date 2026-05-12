@@ -24,7 +24,7 @@ xcaffold --xcaf <kind> [--out [path]]
 | `--xcaf <kind>` | — | `string` | `""` | Display schema for a resource kind (e.g., `agent`, `skill`, `rule`). |
 | `--out [path]` | — | `string` | `"."` | Generate a template `.xcaf` file for the requested kind. Use with `--xcaf`. |
 | `--config <path>` | — | `string` | `""` | Path to project.xcaf (inherited from root). |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (inherited from root). |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (inherited from root). *(Hidden — not yet available)* |
 | `--no-color` | — | `bool` | `false` | Disable color output (inherited from root). |
 
 ## Behavior
@@ -129,7 +129,8 @@ Flags:
       --force              Overwrite customized local files and bypass drift safeguard
   -h, --help               help for apply
       --project string     Apply to an external project registered in the global registry
-      --target string      compilation target platform (claude, cursor, antigravity, copilot, gemini; default: claude) (default "claude")
+      --target string      compilation target platform (antigravity, claude, copilot, cursor, gemini)
+      --var-file string    Load variables from a custom file
 
 Global Flags:
       --config string      Path to project.xcaf (default: ./project.xcaf). Use for monorepo sub-directories.
@@ -151,11 +152,11 @@ kind: agent . version 1.0 . format: frontmatter+body
     name                      string          required  Unique identifier for this agent within the project.
                                                         Pattern: ^[a-z0-9-]+$
     description               string          optional  Human-readable purpose of this agent.
-                                                        Providers: Claude(required) Gemini(required) Copilot(required) Cursor Antigravity
+                                                        Providers: Antigravity Claude(required) Copilot(required) Cursor Gemini(required)
 
   Model & Execution
     model                     string          optional  LLM model identifier or alias resolved at compile time.
-                                                        Providers: Claude Gemini Copilot Cursor Antigravity
+                                                        Providers: Antigravity Claude Copilot Cursor Gemini
                                                         Examples: sonnet
     effort                    string          optional  Reasoning effort level hint for the model provider.
                                                         Providers: Claude Cursor
@@ -164,7 +165,7 @@ kind: agent . version 1.0 . format: frontmatter+body
 
   Tool Access
     tools                     []string        optional  Ordered list of tools this agent may invoke.
-                                                        Providers: Claude Gemini Copilot
+                                                        Providers: Claude Copilot Gemini
     disallowed-tools          []string        optional  Tools explicitly denied to this agent.
                                                         Providers: Claude
     readonly                  boolean         optional  When true, restricts the agent to read-only tool access.
@@ -200,7 +201,7 @@ kind: agent . version 1.0 . format: frontmatter+body
 
   Inline Composition
     mcp-servers               map             optional  Inline MCP server definitions keyed by server name.
-                                                        Providers: Claude Gemini Copilot
+                                                        Providers: Claude Copilot Gemini
     hooks                     HookConfig      optional  Inline lifecycle hook definitions for this agent.
                                                         Providers: Claude
 

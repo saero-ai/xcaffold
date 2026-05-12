@@ -9,6 +9,6 @@ Diagnostic commands never alter active workspaces or emit provider artifact conf
 
 | Command | Action |
 | --- | --- |
-| [`graph`](./graph) | Visualize dependency topologies and execution chains cross-referencing your agents. |
-| [`list`](./list) | Scan configurations and display discovered resources grouped natively by type. |
-| [`status`](./status) | Audit current synchronization state and calculate physical drift against the ledger. |
+| [`graph`](./graph) | Visualize the resource dependency graph |
+| [`list`](./list) | List discovered resources and blueprints |
+| [`status`](./status) | Show compilation state and check for drift across all providers |

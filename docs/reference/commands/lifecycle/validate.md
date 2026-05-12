@@ -1,6 +1,6 @@
 ---
 title: "xcaffold validate"
-description: "Check .xcaf syntax, cross-references, and structural invariants."
+description: "Check .xcaf syntax and schema, cross-references, and structural invariants."
 ---
 
 # `xcaffold validate`
@@ -29,11 +29,11 @@ xcaffold validate [flags]
 
 ### Validation Tiers
 
-1. **Syntax & Schema**: Checks that all `.xcaf` files are valid YAML and adhere to the latest schema version (e.g., `version: "1.0"`).
-2. **Cross-References**: Ensures that all resource links (e.g., an agent referencing a skill) resolve to valid resource IDs.
-3. **Directory Integrity**: Validates that all referenced supporting files (scripts, references, artifacts) exist on the filesystem.
-4. **Structural Checks**: Runs invariant checks, such as warning if an agent has the `Bash` tool enabled without a `PreToolUse` hook for command validation.
-5. **Policy Evaluation**: Evaluates all project and global policies against the resources. This includes a simulated compilation to check for output-level policy violations.
+1. **Syntax and Schema**: Checks that all `.xcaf` files are valid YAML and adhere to the latest schema version (e.g., `version: "1.0"`).
+2. **Cross-References**: Ensures that all resource links (e.g., an agent referencing a skill) resolve to valid resource IDs. Unresolved cross-references are reported as non-fatal warnings and do not cause a non-zero exit code.
+3. **Directory Integrity**: Validates that all referenced supporting files (scripts, references, artifacts) exist on the filesystem. Checked separately for skill directories and hook directories.
+4. **Structural Checks**: Runs invariant checks. The only structural check is: warning if an agent has the `Bash` tool enabled without a `PreToolUse` hook for command validation.
+5. **Policy Evaluation**: Evaluates all project and global policies against the resources. This includes a simulated compilation to check for output-level policy violations. Policies are aggregated and reported as a single count.
 6. **Field Validation**: If `--target` is specified, checks for missing required fields or unsupported field types for that provider.
 
 ## Examples
@@ -61,13 +61,12 @@ xcaffold validate --var-file ./custom.vars
 ```text
 xcaffold-project  ·  validating 14 resources
 
-  ✓  syntax checks (22 files)
-  ✓  resource cross-references
-  ✓  filesystem integrity (artifacts/scripts)
-  ✓  policy: require-description
-  ✓  policy: no-raw-keys
+  ✓  syntax and schema (22 files)
+  ✓  skill directories
+  ✓  hook directories
+  ✓  policies (2 checked)
 
-→ Validation successful. Ready for 'xcaffold apply'.
+✓  Validation passed.  14 .xcaf files checked.
 ```
 
 ## Exit Codes

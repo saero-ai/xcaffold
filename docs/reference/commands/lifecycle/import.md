@@ -30,8 +30,8 @@ xcaffold import [flags]
 | `--rule` | string | (all) | Import rules. Optionally filter by name. |
 | `--workflow` | string | (all) | Import workflows. Optionally filter by name. |
 | `--mcp` | string | (all) | Import MCP server definitions. Optionally filter by name. |
-| `--hooks` | bool | false | Import hook definitions. |
-| `--settings` | bool | false | Import settings configuration. |
+| `--hook` | bool | false | Import hook definitions. |
+| `--setting` | bool | false | Import settings configuration. |
 | `--memory` | bool | false | Import agent-written memory snapshots to `xcaf/agents/<id>/memory/` sidecars. |
 | `--plan` | bool | false | Dry-run: print import plan without writing files. |
 
@@ -71,7 +71,7 @@ When `--target` is not specified:
 Per-kind flags (`--agent`, `--skill`, etc.) control which resource types are imported. Without any flags, all types are imported.
 
 - `--agent` imports all agents
-- `--agent "dev*"` imports agents matching the pattern
+- `--agent developer` imports only the agent named `developer`
 - `--rule --skill` imports only rules and skills (omitting agents, workflows, etc.)
 
 ## Directory Layout
@@ -97,13 +97,15 @@ xcaf/
 │   └── ci-pipeline/
 │       └── workflow.xcaf
 ├── hooks/
-│   └── hooks.xcaf
+│   └── default/
+│       └── hooks.xcaf
 ├── mcp/
 │   └── github-mcp/
 │       ├── mcp.xcaf
 │       └── mcp.claude.xcaf
 └── settings/
-    └── settings.xcaf
+    └── default/
+        └── settings.xcaf
 ```
 
 ## Examples
@@ -138,8 +140,9 @@ xcaffold import --plan
 After a successful import, `xcaffold import` prints:
 - Resource summary (count by kind)
 - **Targets tagging** for single-provider imports: "Resources tagged with `targets: [claude]`. Remove the `targets` field to make universal."
-- **Conflict reporting** for multi-provider imports: "N conflicts detected. Run `xcaffold validate` to review."
-- Next steps: "Run `xcaffold apply` when ready to assume management."
+- **Conflict reporting** for multi-provider imports: "N conflicts detected — override files created. Run `xcaffold validate` to review."
+- Next steps (single-provider): "Run `xcaffold apply` when ready to assume management."
+- Next steps (multi-provider): "Run `xcaffold apply` when ready to compile to your target platforms."
 
 ## Merge Semantics
 

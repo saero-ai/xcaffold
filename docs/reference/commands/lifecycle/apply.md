@@ -26,7 +26,7 @@ xcaffold apply [flags]
 | `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/global.xcaf`). Not yet available. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
 | `--project <name>` | — | `string` | `""` | Apply to a project registered in the global registry. |
-| `--target <name>` | — | `string` | `"claude"` | Compilation target platform (`claude`, `cursor`, `antigravity`, `copilot`, `gemini`). |
+| `--target <name>` | — | `string` | `""` | Compilation target platform (`antigravity`, `claude`, `copilot`, `cursor`, `gemini`). When omitted, reads targets from `project.xcaf`. |
 | `--var-file <path>` | — | `string` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
 
 ## Behavior
@@ -57,14 +57,13 @@ When `--target` is not provided and the `project.xcaf` declares a `targets:` lis
 |------|---------|
 | `0` | Apply succeeded, or sources unchanged (skip). |
 | `1` | Error: parse failure, compilation error, policy violation, drift detected, or unknown target. |
-| `2` | Internal error. |
 
 ## Sample output
 
 ### Successful apply
 
 ```
-sandbox  ·  claude  ·  last applied just now
+sandbox  ·  claude  ·  applied just now
 
 ok  Apply complete. 90 files written to .claude/
   Run 'xcaffold import' to sync manual edits back to .xcaf sources.
@@ -73,7 +72,7 @@ ok  Apply complete. 90 files written to .claude/
 ### Sources unchanged
 
 ```
-sandbox  ·  claude  ·  last applied 2 hours ago
+sandbox  ·  claude  ·  applied 2 hours ago
 
   ok  Sources unchanged. Nothing to compile.
 
@@ -83,7 +82,7 @@ sandbox  ·  claude  ·  last applied 2 hours ago
 ### Drift detected
 
 ```
-sandbox  ·  claude  ·  last applied 2 hours ago
+sandbox  ·  claude  ·  applied 2 hours ago
 
   !!  Drift detected in 2 files:
 

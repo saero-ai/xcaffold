@@ -16,7 +16,7 @@ In xcaffold, workspace-level instructions — the root prompt read by all AI pro
 | GitHub Copilot | `copilot-instructions.md` | `.github/` |
 
 > [!NOTE]
-> Antigravity reads `GEMINI.md` from the project root for project context — it does not have its own separate context file. Both `gemini` and `antigravity` targets write to the same `GEMINI.md`.
+> Antigravity reads `GEMINI.md` from the project root for project context — it does not have its own separate context file. Both `gemini` and `antigravity` targets write to the same `GEMINI.md`. If targeting both, be aware that the latter target compiled will overwrite the file.
 
 Because these files are loaded on **every interaction** (check with the provider for any changes), their token cost is unconditional — paid regardless of which agent is active or what task is being performed. Keep them short and focused on absolute invariants.
 
@@ -56,11 +56,11 @@ targets:
 The `targets:` field scopes which providers receive this context. Omitting `targets:` causes the context to compile for all declared project targets. A project may have multiple `kind: context` documents — one per provider, or one shared across several.
 
 > [!IMPORTANT]
-> The `kind: project` document does **not** carry workspace instructions. Project metadata (`name`, `targets`, `extends`) goes in `kind: project`. Workspace prose goes in `kind: context`. Mixing the two will cause a parse error — the parser enforces strict field validation (`KnownFields(true)`).
+> The `kind: project` document does **not** support a markdown body. Project metadata (`name`, `targets`, `extends`) goes in `kind: project`. Workspace prose goes in `kind: context`. Adding a markdown body after the closing `---` in a project manifest will cause a parse error.
 
 ---
 
-## Rule 1 — Document Only Absolute Laws
+## Practice: Document Only Absolute Laws
 
 Reserve workspace context for immutable ground rules that span all disciplines and all agents. Ask yourself: "Is this true for every file in the repository, every agent, and every task?" If not, it belongs somewhere narrower.
 
@@ -78,7 +78,7 @@ Reserve workspace context for immutable ground rules that span all disciplines a
 
 ---
 
-## Rule 2 — Isolate Tactical Rules to Their Scope
+## Practice: Isolate Tactical Rules to Their Scope
 
 **Anti-pattern:** Embedding a CSS architecture guide in the root `kind: context`.
 
@@ -105,7 +105,7 @@ Similarly, move agent-specific guidance directly into that agent's body, not int
 
 ---
 
-## Rule 3 — Write Instructions, Not Documentation
+## Practice: Write Instructions, Not Documentation
 
 The most common mistake when authoring a context file is writing it like a README or a wiki page — describing what the project is, listing technologies, explaining architecture. That content may be accurate, but it does not change how an AI agent behaves.
 
@@ -149,7 +149,7 @@ A well-written context file is typically under 200 lines. If yours exceeds that,
 
 ---
 
-## Rule 4 — Use Multiple Context Documents for Multi-Provider Projects
+## Practice: Use Multiple Context Documents for Multi-Provider Projects
 
 If providers need different framing for the same information — for example, Claude has MCP tool access while Copilot operates only through the editor — use separate `kind: context` documents with scoped `targets:` rather than writing provider-specific conditionals in a single document:
 

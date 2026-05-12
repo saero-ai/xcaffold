@@ -7,7 +7,7 @@ description: "Render a dependency graph of agents and their linked resources."
 
 Parses `.xcaf` manifests and renders a visual dependency graph.
 
-The `graph` command builds a directed acyclic graph (DAG) of the current configuration scope, showing how agents relate to skills, rules, workflows, MCP servers, and policies. Output can be rendered as a terminal tree, Mermaid diagram, Graphviz DOT file, or JSON edge list.
+The `graph` command builds a directed acyclic graph (DAG) of the current configuration scope, showing how agents relate to skills, rules, and MCP servers. Output can be rendered as a terminal tree, Mermaid diagram, Graphviz DOT file, or JSON edge list.
 
 **Usage:**
 
@@ -21,7 +21,7 @@ xcaffold graph [file] [flags]
 |------|-------|------|---------|-------------|
 | `--agent <name>` | `-a` | `string` | `""` | Target a specific agent; shows only its topology. |
 | `--project <name>` | `-p` | `string` | `""` | Target a specific managed project by registered name or path. |
-| `--full` | `-f` | `bool` | `false` | Show the fully expanded topology tree. Always true when `--agent` targets a specific agent. |
+| `--full` | `-f` | `bool` | `false` | Show the fully expanded topology tree. Must be explicitly set. |
 | `--all` | — | `bool` | `false` | Show global topology and all registered projects. Mutually exclusive with `--project` and `--global`. |
 | `--scan-output` | — | `bool` | `false` | Scan compiled output directories for undeclared artifacts. |
 | `--format` | — | `string` | `"terminal"` | Output format: `terminal`, `mermaid`, `dot`, `json`. |
@@ -35,18 +35,15 @@ xcaffold graph [file] [flags]
 The default `terminal` format renders each agent as a tree node with its tools, linked skills, rules, and MCP servers nested beneath it. Branch glyphs use `│`, `├──`, and `└──` aligned at column 2:
 
 ```
-  ● agent-name [model-alias]
-      │
-      ├─▶ [Capabilities]
-      │    ├─(tool)─▶ Read
-      │    └─(tool)─▶ Bash
-      │
-      ├─▶ [Skills]
-      │    ├─▶ skill-a
-      │    └─▶ skill-b
-      │
-      └─▶ [Rules]
-           └─▶ rule-a
+  ● agent-name
+  │   tools    Read  Bash
+  │
+  ├── skills
+  │    ├── skill-a
+  │    └── skill-b
+  │
+  └── rules
+       └── rule-a
 ```
 
 The header breadcrumb uses `·` as a separator (falls back to `.` when `--no-color` is set or `NO_COLOR` is set). Kinds with zero resources are omitted from the header count.
@@ -71,23 +68,17 @@ When `--scan-output` is provided, the command scans the compiled output director
 ### Terminal — project graph
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│   sandbox  ·  2 agents  ·  3 skills  ·  4 rules                │
-└─────────────────────────────────────────────────────────────────┘
+sandbox  ·  2 agents  ·  3 skills  ·  4 rules
 
-  [ AGENTS ]
-  ● auth-specialist [...-sonnet]
-      │
-      ├─▶ [Capabilities]
-      │    ├─(tool)─▶ Read
-      │    └─(tool)─▶ Bash
-      │
-      ├─▶ [Skills]
-      │    ├─▶ feature-lifecycle
-      │    └─▶ commit-changes
-      │
-      └─▶ [Rules]
-           └─▶ secure-coding
+  ● auth-specialist
+  │   tools    Read  Bash
+  │
+  ├── skills
+  │    ├── feature-lifecycle
+  │    └── commit-changes
+  │
+  └── rules
+       └── secure-coding
 ```
 
 ### Mermaid output
@@ -96,7 +87,7 @@ When `--scan-output` is provided, the command scans the compiled output director
 xcaffold graph --format mermaid
 ```
 
-```
+```mermaid
 graph LR
   subgraph Agents
     agent_auth_specialist["auth-specialist / claude-sonnet-4-6"]

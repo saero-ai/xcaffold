@@ -7,7 +7,7 @@ description: "Bootstrap the agentic environment and set up the xcaffold compiler
 
 Scaffolds the environment to prepare it for Agent-as-Code compilation.
 
-The `init` command bootstraps a repository with a `project.xcaf` file and the `xcaf/` source directory. If it detects existing provider directories (e.g., `.claude/` or `.cursor/`), it prompts you to run `xcaffold import` instead, enabling a smooth migration path into the xcaffold ecosystem.
+The `init` command bootstraps a repository with a `project.xcaf` file and the `xcaf/` source directory. If it detects existing provider directories (e.g., `.claude/` or `.cursor/`), it asks whether you want to import them. If you confirm, `init` performs the import directly — it does not redirect you to run a separate command.
 
 ## Usage
 
@@ -20,13 +20,13 @@ xcaffold init [flags]
 | Flag | Default | Description |
 |---|---|---|
 | `-y, --yes` | `false` | Accept all defaults non-interactively. Useful for CI/CD. |
-| `--target <strings>` | `""` | One or more compilation target providers (e.g., `claude`, `cursor`). Repeat or comma-separate for multiple targets. |
+| `--target <strings>` | `[]` | One or more compilation target providers (e.g., `claude`, `cursor`). Repeat or comma-separate for multiple targets. |
 | `--json` | `false` | Output machine-readable JSON manifest instead of interactive logs. |
 
 ## Behavior
 
 ### The Bootstrap Phase
-1. **Detection:** Checks for existing provider directories (`.claude/`, `.cursor/`, `.agents/`) and an existing `project.xcaf`. Offers to run `xcaffold import` when provider directories are found.
+1. **Detection:** Checks for existing provider directories (`.claude/`, `.cursor/`, `.agents/`) and an existing `project.xcaf`. When provider directories are found, asks if you want to import them and performs the import directly if you confirm.
 2. **Target Selection:** Presents an interactive multi-select prompt to choose one or more target providers. Skipped when `--target` is set.
 3. **Synthesis:** Writes `project.xcaf` and the `xcaf/` source directory, including the Xaff authoring agent, the `xcaffold` skill, the `xcaf-conventions` rule, and provider override files for each selected target.
 4. **Registration:** Registers the project in the local xcaffold registry.
@@ -36,17 +36,16 @@ xcaffold init [flags]
 When existing provider directories are detected, `init` displays a compiled output table summarizing the resources found:
 
 ```
-  ┌─── COMPILED OUTPUT ─────────────┐
-  Kind               .claude/  .agents/   .gemini/
-  ──────────────────────────────────────────────────
-  Agents                   17        17          0
-  Skills                   21        21          3
-  Rules                    13        13          5
-  Workflows                 0         8          0
-  MCP                       1         0          1
+  Kind               .claude  .agents  .gemini
+  ─────────────────────────────────────────────
+  Agents                  17       17        -
+  Skills                  21       21        3
+  Rules                   13       13        5
+  Workflows                -        8        -
+  MCP                      1        -        1
 ```
 
-Kinds are listed as rows; detected providers as columns. Only kinds with at least one resource across any provider are shown. After displaying the table, `init` prompts to run `xcaffold import` to adopt the detected configurations.
+Kinds are listed as rows; detected providers as columns. Only kinds with at least one resource across any provider are shown. Unsupported kinds for a given provider are shown as `-`. After displaying the table, `init` asks if you want to import the detected configurations and performs the import directly if you confirm.
 
 ## Examples
 

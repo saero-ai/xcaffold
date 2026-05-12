@@ -9,15 +9,15 @@ Declares provider settings applied globally or scoped to a specific workspace. S
 
 Uses **pure YAML format** (no frontmatter `---` delimiters).
 
-> **Required:** `kind`, `version`, `name`
+> **Required:** `kind`, `version`
 
 ## Source Directory
 
 ```
-xcaf/settings/settings.xcaf
+xcaf/settings/<name>/settings.xcaf
 ```
 
-`kind: settings` is a singleton — there is no `<name>` directory. All provider settings for a project are defined in a single `xcaf/settings/settings.xcaf` file.
+`kind: settings` is a singleton per name. The `name` field is optional and defaults to `"default"`. Place each named settings file in its own subdirectory: `xcaf/settings/<name>/settings.xcaf`.
 
 ## Example Usage
 
@@ -62,7 +62,7 @@ mcp-servers:
 
 The following arguments are supported:
 
-- `name` — (Required) Unique settings identifier. Must match `[a-z0-9-]+`.
+- `name` — (Optional) Unique settings identifier. Defaults to `"default"`. Must match `[a-z0-9-]+`.
 - `model` — (Optional) `string`. Default model for all sessions. Overridden per-agent by `AgentConfig.model`.
 - `effort-level` — (Optional) `string`. Default effort: `"low"`, `"medium"`, `"high"`, `"max"`.
 - `include-git-instructions` — (Optional) `bool`. Inject git context into the system prompt.
@@ -75,7 +75,7 @@ The following arguments are supported:
 - `language` — (Optional) `string`. Response language override.
 - `always-thinking-enabled` — (Optional) `bool`. Force extended thinking in every session.
 - `available-models` — (Optional) `[]string`. Models available for selection in the provider UI.
-- `claude-md-excludes` — (Optional) `[]string`. Glob patterns for files excluded from `CLAUDE.md` auto-inclusion.
+- `md-excludes` — (Optional) `[]string`. Glob patterns for paths excluded from root context file scanning.
 - `mcp-servers` — (Optional) `map[string]MCPConfig`. Inline MCP server declarations. Merged with `kind: mcp` declarations; settings wins on conflict.
 - `permissions` — (Optional) `PermissionsConfig` (see [permissions block](#permissions-block)).
 - `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides. Settings rarely use `targets:` since most settings fields are provider-universal; the field is available for cases where a setting applies only to specific providers.
@@ -130,7 +130,7 @@ Each provider serializes the merged result into its native format:
     }
   }
 }`}
-  github={`{
+  copilot={`{
   "model": "claude-sonnet-4-5-20250514",
   "permissions": {
     "defaultMode": "acceptEdits",

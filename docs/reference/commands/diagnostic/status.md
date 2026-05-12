@@ -23,7 +23,7 @@ xcaffold status [flags]
 |------|-------|------|---------|-------------|
 | `--all` | — | `bool` | `false` | Show all tracked files grouped by subdirectory. Works with or without `--target` (default: drifted files only). |
 | `--blueprint <name>` | — | `string` | `""` | Read state from the named blueprint's state file. Mutually exclusive with `--global`. |
-| `--global` | — | `bool` | `false` | Read from the global config state (`~/.xcaffold/`). Mutually exclusive with `--blueprint`. |
+| `--global` | — | `bool` | `false` | Read from the global config state (`~/.xcaffold/`). Mutually exclusive with `--blueprint`. *(Not yet available — hidden flag)* |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 | `--target <name>` | — | `string` | `""` | Focus drift inspection on a single provider (e.g., `claude`, `cursor`, `gemini`). |
 
@@ -31,7 +31,7 @@ xcaffold status [flags]
 
 ### Overview mode (default)
 
-Running `xcaffold status` without `--target` prints a breadcrumb header, a `PROVIDER / FILES / STATUS` table for every compiled provider, a source-files summary line, and — if any drift is found — a grouped list of drifted files showing the absolute path and label.
+Running `xcaffold status` without `--target` prints a breadcrumb header, a `PROVIDER / FILES / STATUS` table for every compiled provider, a source-files summary line, and — if any drift is found — a grouped list of drifted files showing the relative artifact path and label.
 
 When no state file exists (i.e., `xcaffold apply` has never run), the command prints `No compilation state found.` and exits `0`.
 
@@ -51,7 +51,7 @@ When used without `--target` (overview mode), a per-provider `GROUP` table is ap
 
 ### Flag constraints
 
-`--blueprint` and `--global` cannot be combined. Doing so exits `2` with an error.
+`--blueprint` and `--global` cannot be combined. The `--global` flag is registered but not yet functional for this command. Using it prints `Global scope is not yet available.` and exits with code 1.
 
 ## Output labels
 
@@ -77,7 +77,6 @@ When used without `--target` (overview mode), a per-provider `GROUP` table is ap
 |------|---------|
 | `0` | No drift detected. Also returned when no state file exists. |
 | `1` | Drift detected (artifact modified, missing, or source changed), or `--target` names an unknown provider. |
-| `2` | Internal error — unreadable state file or incompatible flag combination (`--blueprint` + `--global`). |
 
 ## Sample output
 
@@ -115,10 +114,10 @@ sandbox  ·  last applied 3 days ago
 Drift detected in 2 providers:
 
   claude
-    ✗  missing   /path/to/project/.claude/CLAUDE.md
+    ✗  missing   CLAUDE.md  (root)
 
   gemini
-    ✗  missing   /path/to/project/.gemini/GEMINI.md
+    ✗  missing   GEMINI.md  (root)
 
 → Run 'xcaffold apply' to restore.
   Run 'xcaffold status --target <name>' for details.
@@ -143,7 +142,7 @@ sandbox  ·  claude  ·  applied 3 days ago
 
   89 synced  ·  1 modified  ·  52 sources unchanged
 
-  ✗  missing   /path/to/project/.claude/CLAUDE.md
+  ✗  missing   CLAUDE.md  (root)
 
   Sources  52 .xcaf files  ·  no changes since last apply
 
@@ -186,7 +185,7 @@ sandbox  ·  claude  ·  applied 3 days ago
 
   89 synced  ·  1 modified  ·  52 sources unchanged
 
-  ✗  missing   /path/to/project/.claude/CLAUDE.md
+  ✗  missing   CLAUDE.md  (root)
 
   Sources  52 .xcaf files  ·  no changes since last apply
 
@@ -249,11 +248,6 @@ xcaffold status --all
 xcaffold status --blueprint backend
 ```
 
-**Check global config state:**
-```bash
-xcaffold status --global
-```
-
 **Disable color output (useful in CI):**
 ```bash
 xcaffold status --no-color
@@ -263,5 +257,5 @@ NO_COLOR=1 xcaffold status
 
 ## Notes
 
-- State files are machine-local and gitignored. See [State Files and Drift Detection](../../concepts/execution/state-and-drift.md) for schema details.
+- State files are machine-local and gitignored. See [State Files and Drift Detection](../../../concepts/execution/state-and-drift.md) for schema details.
 - The breadcrumb header format is: `<project>  ·  [blueprint: <name>  ·  ][global scope  ·  ][<provider>  ·  ]<last-applied context>`.

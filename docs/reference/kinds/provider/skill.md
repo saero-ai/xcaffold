@@ -124,8 +124,14 @@ The following arguments are supported:
 
 - `name` — (Required) Unique skill identifier. Must match `[a-z0-9-]+`.
 - `description` — (Optional) `string`. What this skill does and when to invoke it.
+- `when-to-use` — (Optional) `string`. Guidance for the model on when to invoke this skill. Emitted only for Claude; ignored by other providers.
+- `license` — (Optional) `string`. SPDX license identifier (e.g. `"MIT"`, `"Apache-2.0"`). Emitted for Claude and Copilot; ignored by other providers.
+- `disable-model-invocation` — (Optional) `bool`. When `true`, prevents the skill from spawning a sub-agent. Claude-only; ignored by other providers.
+- `user-invocable` — (Optional) `bool`. When `true`, exposes the skill as a slash command the user can invoke directly. Claude-only; ignored by other providers.
+- `argument-hint` — (Optional) `string`. Hint text shown during slash-command invocation. Has effect only when `user-invocable: true`. Claude-only; ignored by other providers.
+- `artifacts` — (Optional) `[]string`. Relative paths to files that should be composed with the skill. Preferred over `references`, `scripts`, `assets`, and `examples` for new skills; those fields remain supported for backward compatibility.
 - `references` — (Optional) `[]string`. Relative paths to supporting files seeded alongside `SKILL.md` in a `references/` subdirectory.
-- `examples` — (Optional) `[]string`. Relative paths to example files seeded in an `examples/` subdirectory.
+- `examples` — (Optional) `[]string`. Relative paths to example files. Output placement varies by provider: Claude flattens examples to the skill root alongside `SKILL.md`; Cursor and Gemini collapse examples into `references/`; Copilot and Antigravity seed them in an `examples/` subdirectory.
 - `scripts` — (Optional) `[]string`. Relative paths to executable scripts seeded in a `scripts/` subdirectory.
 - `assets` — (Optional) `[]string`. Relative paths to binary or data assets seeded alongside `SKILL.md`.
 - `targets` — (Optional) `map[string]TargetOverride`. Per-provider overrides.
@@ -166,26 +172,43 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
   <ProviderTab id="cursor">
     **Output path**: `.cursor/skills/component-patterns/SKILL.md`
 
-    Content is identical to the Claude output. Reference files are seeded at `.cursor/skills/component-patterns/references/`.
+    Frontmatter is limited to `name` and `description`. Provider-specific fields (`when-to-use`, `license`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are omitted. Reference files are seeded at `.cursor/skills/component-patterns/references/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
   </ProviderTab>
 
   <ProviderTab id="copilot">
     **Output path**: `.github/skills/component-patterns/SKILL.md`
 
-    Content is identical to the Claude output. Reference files are seeded at `.github/skills/component-patterns/references/`.
+    Emits `name`, `description`, and `license` in the frontmatter. Reference files are seeded at `.github/skills/component-patterns/references/`. Example files are seeded in an `examples/` subdirectory.
   </ProviderTab>
 
   <ProviderTab id="gemini">
     **Output path**: `.gemini/skills/component-patterns/SKILL.md`
 
-    Content is identical to the Claude output. Reference files are seeded at `.gemini/skills/component-patterns/references/`.
+    Frontmatter is limited to `name` and `description`. Provider-specific fields are omitted. Reference files are seeded at `.gemini/skills/component-patterns/references/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
   </ProviderTab>
 
   <ProviderTab id="antigravity">
     **Output path**: `.agents/skills/component-patterns/SKILL.md`
 
-    Content is identical to the Claude output. Reference files are seeded at `.agents/skills/component-patterns/references/`.
+    Antigravity emits only `name` and `description` in the frontmatter. All other fields (`when-to-use`, `license`, `disable-model-invocation`, `user-invocable`, `argument-hint`, `artifacts`, `references`, `scripts`, `assets`) are stripped. The markdown body is preserved. Example files are seeded in an `examples/` subdirectory.
   </ProviderTab>
 </ProviderTabs>
 
-> Skills have full parity across all five providers. The `SKILL.md` content and directory structure are identical. Only the root output directory differs.
+## Provider Fidelity
+
+Skill output is not uniform across providers. The table below summarises what each provider preserves.
+
+| Field | Claude | Cursor | Copilot | Gemini | Antigravity |
+|-------|--------|--------|---------|--------|-------------|
+| `name` | yes | yes | yes | yes | yes |
+| `description` | yes | yes | yes | yes | yes |
+| `when-to-use` | yes | no | no | no | no |
+| `license` | yes | no | yes | no | no |
+| `disable-model-invocation` | yes | no | no | no | no |
+| `user-invocable` | yes | no | no | no | no |
+| `argument-hint` | yes | no | no | no | no |
+| Markdown body | yes | yes | yes | yes | yes |
+| `references/` subdirectory | yes | yes | yes | yes | yes |
+| `examples` placement | skill root | `references/` | `examples/` | `references/` | `examples/` |
+| `scripts/` subdirectory | yes | yes | yes | yes | yes |
+| `assets` | yes | yes | yes | yes | yes |

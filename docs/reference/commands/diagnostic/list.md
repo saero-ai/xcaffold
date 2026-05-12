@@ -25,10 +25,10 @@ xcaffold list [flags]
 | `--workflow [name]` | — | `string` | `""` | List workflows. Same filter behavior as `--agent`. |
 | `--mcp [name]` | — | `string` | `""` | List MCP servers. Same filter behavior as `--agent`. |
 | `--context [name]` | — | `string` | `""` | List contexts. Same filter behavior as `--agent`. |
-| `--hooks` | — | `bool` | `false` | List hooks. |
-| `--settings` | — | `bool` | `false` | List settings. |
+| `--hook` | — | `bool` | `false` | List hooks. |
+| `--setting` | — | `bool` | `false` | List settings. |
 | `--verbose` | `-v` | `bool` | `false` | Show individual memory entry names per agent instead of aggregate counts. |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). *(Not yet available — hidden flag)* |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 
 ## Behavior
@@ -47,7 +47,7 @@ String-valued kind flags accept an optional name argument for filtering:
 
 ### Scope
 
-By default, `xcaffold list` operates on the project-level manifest. Using `--global` switches to the user-wide global scope.
+By default, `xcaffold list` operates on the project-level manifest. The `--global` flag is registered but not yet functional for this command. Using it prints `Global scope is not yet available.` and exits with code 1.
 
 ## Sample output
 
@@ -149,9 +149,4 @@ xcaffold list --agent go-cli-developer
 **Show detailed memory entries:**
 ```bash
 xcaffold list -v
-```
-
-**List global-scope resources:**
-```bash
-xcaffold list --global
 ```

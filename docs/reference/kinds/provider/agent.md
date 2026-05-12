@@ -93,15 +93,15 @@ The following arguments are supported:
 
 - `name` — (Required) Unique agent identifier. Must match `[a-z0-9-]+`.
 - `description` — (Optional) `string`. Purpose and scope description. Used for delegation and auto-invocation.
-- `model` — (Optional) `string`. LLM model identifier. Supports aliases: `sonnet` → `claude-sonnet-4-5-20250514`, `opus` → `claude-opus-4-5-20250514`, `haiku` → `claude-haiku-4-5-20251001`. Resolved per-provider at compile time.
+- `model` — (Optional) `string`. LLM model identifier. Bare tier aliases (`sonnet`, `opus`, `haiku`) are passed through to Claude Code for runtime resolution — xcaffold does not expand them to date-stamped IDs. Versioned aliases are mapped at compile time: `sonnet-4` → `claude-sonnet-4-5`, `opus-4` → `claude-opus-4-7`, `haiku-3.5` → `claude-haiku-4-5`. Full `claude-*` IDs are passed through unchanged.
 - `effort` — (Optional) `string`. Resource utilization level: `"low"`, `"medium"`, `"high"`, `"max"`.
 - `max-turns` — (Optional) `int`. Maximum conversation turns before the agent stops.
 - `tools` — (Optional) `[]string`. Runtime tools granted to the agent: `Read`, `Edit`, `Write`, `Bash`, `Glob`, `Grep`, `WebSearch`, etc. Omit to inherit all available tools.
 - `disallowed-tools` — (Optional) `[]string`. Tools explicitly forbidden. Applied before `tools` resolution.
 - `readonly` — (Optional) `bool`. When `true` and `tools` is unset, Claude emits `tools: [Read, Grep, Glob]`; Cursor emits `readonly: true`. Mutually exclusive with `tools`.
 - `permission-mode` — (Optional) `string`. Default execution permission mode: `default`, `acceptEdits`, `auto`, `bypassPermissions`, `plan`.
-- `disable-model-invocation` — (Optional) `bool`. When `true`, the host model cannot auto-invoke this agent.
-- `user-invocable` — (Optional) `bool`. When `false`, the agent is only accessible programmatically.
+- `disable-model-invocation` — (Optional) `bool`. When `true`, the host model cannot auto-invoke this agent. Copilot-only for agents; Claude drops this field silently.
+- `user-invocable` — (Optional) `bool`. When `false`, the agent is only accessible programmatically. Copilot-only for agents; Claude drops this field silently.
 - `background` — (Optional) `bool`. Executes without blocking the UI. Claude emits `background`; Cursor emits `is_background`.
 - `isolation` — (Optional) `string`. Worktree or environment isolation preference.
 - `when` — (Optional) `string`. Compile-time conditional for inclusion.
@@ -118,8 +118,9 @@ The following arguments are supported:
 
 Agent-scoped lifecycle hooks. Same structure as [`kind: hooks`](hooks.md).
 
-- `pre-tool-call` — Scripts run before any tool invocation.
-- `post-tool-call` — Scripts run after any tool invocation.
+- `PreToolUse` — Runs before any tool invocation.
+- `PostToolUse` — Runs after any tool invocation.
+- `SessionStart`, `Stop`, `Notification` — Session lifecycle events.
 
 ### `mcp-servers` block
 
@@ -138,7 +139,6 @@ Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct.
 | `suppress-fidelity-warnings` | `*bool` | Parsed, not compiled |
 | `hooks` | `map[string]string` | Parsed, not compiled |
 | `skip-synthesis` | `*bool` | Parsed, not compiled |
-| `instructions-override` | `string` | Parsed, not compiled |
 
 ## Filesystem-as-Schema
 
@@ -219,7 +219,7 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
     …
     ```
 
-    > `memory`, `skills`, `rules`, `mcp` are dropped. `name`, `description`, `model`, `tools` are emitted.
+    > `memory`, `skills`, `rules`, `mcp` are dropped. `name`, `description`, `model`, `tools`, `disable-model-invocation`, `user-invocable`, and `mcp-servers` are emitted.
   </ProviderTab>
 
   <ProviderTab id="gemini">
@@ -240,7 +240,7 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
     …
     ```
 
-    > Only `name` and `description` are emitted. `model`, `tools`, `memory`, `skills`, `rules`, `mcp` are all dropped.
+    > `name`, `description`, `tools` (if present), `model` (if resolved), and `max_turns` (snake_case) are emitted. `memory`, `skills`, `rules`, `mcp`, `effort`, `permission-mode`, and other Claude/Cursor-specific fields are dropped.
   </ProviderTab>
 
   <ProviderTab id="antigravity">

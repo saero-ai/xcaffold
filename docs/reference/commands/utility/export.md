@@ -3,7 +3,7 @@ title: "xcaffold export"
 description: "Repackaging natively compiled artifacts into portable, standardized distributions."
 ---
 
-> **Note:** This command is in **Preview**. It is available natively in the binary but its execution schemas subject to changes.
+> **Preview command** — This command is hidden from `xcaffold --help` output. It may change without notice.
 
 # xcaffold export
 
@@ -23,7 +23,7 @@ xcaffold export [flags]
 |---|---|---|---|
 | `--output <string>` | Yes | | Output directory for the exported plugin. |
 | `--format <string>` | | `"plugin"` | Export format. Currently only `plugin` is supported. |
-| `--target <string>` | | `""` | Compilation target provider (e.g., `claude`, `cursor`, `gemini`). When omitted, exports without provider-specific optimizations. |
+| `--target <string>` | Yes | | Compilation target provider (e.g., `claude`, `cursor`, `gemini`). |
 | `--var-file <path>` | | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
 
 ## Behavior

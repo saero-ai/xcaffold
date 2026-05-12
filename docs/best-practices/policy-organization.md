@@ -61,15 +61,16 @@ For production deployments, you often want stricter rules on agents that have br
 ---
 kind: policy
 version: "1.0"
-name: prod-agents-require-permission-mode
-description: Agents intended for production use must declare an explicit permission-mode.
+name: prod-agents-require-instructions
+description: Production agents must have a system prompt body describing their role and constraints.
 severity: error
 target: agent
 match:
   name-matches: "*-prod"
 require:
-  - field: permission-mode
+  - field: instructions
     is-present: true
+    min-length: 50
 ---
 ```
 
@@ -90,6 +91,9 @@ require:
 ```
 
 Both policies target only agents whose names end in `-prod` (e.g., `api-prod`, `db-prod`). Development agents are unaffected.
+
+> [!NOTE]
+> The `instructions` field maps to the agent's markdown body — the system prompt below the frontmatter delimiters.
 
 ---
 
@@ -136,23 +140,25 @@ require:
 ---
 ```
 
-For skills that have shell execution capability, you may want to require explicit tool declarations:
+For skills that carry procedural instructions, you may want to require a body (the markdown content below the frontmatter):
 
 ```
 ---
 kind: policy
 version: "1.0"
-name: bash-skills-must-declare-tools
-description: Skills that use Bash must explicitly declare allowed-tools to limit execution scope.
-severity: error
+name: skills-must-have-instructions
+description: Skills must include a body with procedural instructions, not just metadata.
+severity: warning
 target: skill
-match:
-  has-tool: Bash
 require:
-  - field: allowed-tools
+  - field: instructions
     is-present: true
+    min-length: 20
 ---
 ```
+
+> [!NOTE]
+> The `instructions` field maps to the skill's markdown body, just as it does for agents and rules.
 
 ---
 
@@ -186,9 +192,9 @@ xcaf/
     │   └── require-skill-description.xcaf
     ├── security/
     │   ├── no-hardcoded-api-keys.xcaf
-    │   └── bash-skills-must-declare-tools.xcaf
+    │   └── skills-must-have-instructions.xcaf
     └── production/
-        ├── prod-agents-require-permission-mode.xcaf
+        ├── prod-agents-require-instructions.xcaf
         └── prod-agents-limit-tools.xcaf
 ```
 
@@ -205,3 +211,54 @@ Grouping by concern (quality, security, production) makes it easy to apply CODEO
 | Security-critical constraints (secrets, dangerous commands) | `error` |
 | Rules you want to exist but not block CI right now | `warning` |
 | Built-in checks that don't apply to your project | `off` |
+
+---
+
+## Supported Policy Fields
+
+The `require:` clause evaluates fields by name. Not every resource field is available for policy evaluation — only the fields listed below are handled by the policy engine. Using a field not in this table will always evaluate as empty, producing a false violation.
+
+### `target: agent` — require fields
+
+| Field name | What it checks | Supports |
+|---|---|---|
+| `name` | Agent's `name:` value | `is-present`, `min-length`, `one-of` |
+| `description` | Agent's `description:` value | `is-present`, `min-length`, `one-of` |
+| `model` | Agent's `model:` value | `is-present`, `min-length`, `one-of` |
+| `instructions` | Agent's markdown body (system prompt) | `is-present`, `min-length` |
+| `tools` | Agent's `tools:` list | `max-count` |
+| `skills` | Agent's `skills:` list | `max-count` |
+| `rules` | Agent's `rules:` list | `max-count` |
+
+### `target: skill` — require fields
+
+| Field name | What it checks | Supports |
+|---|---|---|
+| `name` | Skill's `name:` value | `is-present`, `min-length`, `one-of` |
+| `description` | Skill's `description:` value | `is-present`, `min-length`, `one-of` |
+| `instructions` | Skill's markdown body | `is-present`, `min-length` |
+
+### `target: rule` — require fields
+
+| Field name | What it checks | Supports |
+|---|---|---|
+| `name` | Rule's `name:` value | `is-present`, `min-length`, `one-of` |
+| `description` | Rule's `description:` value | `is-present`, `min-length`, `one-of` |
+| `instructions` | Rule's markdown body | `is-present`, `min-length` |
+
+### `target: output` — deny fields
+
+| Field name | What it checks |
+|---|---|
+| `content-matches` | Regex match against compiled file content |
+| `content-contains` | Substring match against compiled file content (case-insensitive) |
+| `path-contains` | Substring match against compiled file paths |
+
+### `match:` conditions
+
+| Condition | What it does |
+|---|---|
+| `name-matches` | Glob pattern against resource name (e.g., `*-prod`) |
+| `has-tool` | True when the resource's tool list includes the named tool |
+| `has-field` | True when the named field is present and non-empty |
+| `target-includes` | True when the resource's `targets:` map includes the named provider |

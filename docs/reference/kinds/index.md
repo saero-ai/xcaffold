@@ -61,7 +61,7 @@ The `---` delimiters demarcate the boundaries of the frontmatter config. All cha
 
 `policy`, `mcp`, `global`, and `memory` have no concept of open-ended instruction bodies. They use pure YAML format without `---` delimiters.
 
-`project` is the exception: it uses frontmatter+body format with `---` delimiters. The content after the closing `---` is compiled into project-level instructions for each provider's root context file (e.g., `CLAUDE.md`, `AGENTS.md`). The body is optional — a project manifest with no body is valid.
+`project` is the exception: it uses frontmatter format with `---` delimiters, but **does not support a markdown body**. Adding content after the closing `---` will cause a parse error. The delimiters are supported for consistency with other core manifests, but the instruction block must be empty.
 
 ```yaml
 ---
@@ -71,5 +71,4 @@ name: my-api
 targets:
   - claude
 ---
-Optional project-level instructions compiled to CLAUDE.md and other provider root files.
 ```

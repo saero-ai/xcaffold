@@ -12,8 +12,8 @@ Provider kinds are `.xcaf` resources that xcaffold compiles into files inside ea
 | [`agent`](./agent) | `agents/<id>.md` with YAML frontmatter | Claude, Cursor, Copilot, Gemini |
 | [`skill`](./skill) | `skills/<id>/SKILL.md` | All 5 providers |
 | [`rule`](./rule) | `rules/<id>.md` or appended inline | All 5 providers |
-| [`mcp`](./mcp) | Provider-specific JSON config file | Claude, Cursor, Gemini, Antigravity |
-| [`workflow`](./workflow) | `workflows/<id>/WORKFLOW.md` | Antigravity |
+| [`mcp`](./mcp) | Provider-specific JSON config file | Claude, Cursor, Copilot, Gemini, Antigravity |
+| [`workflow`](./workflow) | `workflows/<id>/WORKFLOW.md` | All 5 providers |
 | [`memory`](./memory) | Agent-scoped memory files | Claude (native), Gemini (partial) |
 | [`context`](./context) | `CLAUDE.md`, `.cursorrules`, etc. | All 5 providers |
 | [`settings`](./settings) | `claude.json`, `settings.json` | Claude, Gemini, Antigravity |

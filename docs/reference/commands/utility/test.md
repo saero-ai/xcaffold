@@ -3,6 +3,8 @@ title: "xcaffold test"
 description: "Run a sandboxed local simulation of an agent."
 ---
 
+> **Preview command** — This command is hidden from `xcaffold --help` output. It may change without notice.
+
 # `xcaffold test`
 
 Simulates your compiled agent by sending a task directly to the LLM and recording all declared tool calls. This allows for rapid iteration and validation of agent behavior without manually interacting with the CLI.
@@ -57,16 +59,16 @@ xcaffold test --agent developer --judge
 ## Sample Output
 
 ```text
-xcaffold-project  ·  simulating agent 'developer'
+Testing agent "developer" with task: Add a new endpoint to the API
+Using model: claude-sonnet-4-6 (auth: api-key)
 
-  → Task: "Add a new endpoint to the API"
-  i  Anthropic API: model=claude-3-5-sonnet-20240620
-  
-  [tool_use]  read_file { path: "api/routes.go" }
-  [tool_use]  write_file { path: "api/new_endpoint.go", content: "..." }
-  
-  ✓  Simulation complete. Trace written to trace.jsonl.
-  ✓  Judge: 4/4 assertions passed.
+── Simulation Trace Summary ──────────────────────────
+  Total intercepted tool calls: 3
+  Breakdown by tool:
+    Read                 2 call(s)
+    Edit                 1 call(s)
+──────────────────────────────────────────────────────
+  Trace written to: trace.jsonl
 ```
 
 ## Exit Codes
