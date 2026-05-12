@@ -1,6 +1,8 @@
 package compiler
 
-import "github.com/saero-ai/xcaffold/internal/ast"
+import (
+	"github.com/saero-ai/xcaffold/internal/ast"
+)
 
 // mergeClearableList implements tri-state merge for ClearableList fields:
 //   - Cleared=true:             clear the field (override wins)
@@ -127,16 +129,7 @@ func mergeAgentMaps(result *ast.AgentConfig, base, override ast.AgentConfig) {
 	}
 
 	// Targets map: deep merge — override target keys win.
-	if len(override.Targets) > 0 {
-		merged := make(map[string]ast.TargetOverride, len(base.Targets)+len(override.Targets))
-		for k, v := range base.Targets {
-			merged[k] = v
-		}
-		for k, v := range override.Targets {
-			merged[k] = v
-		}
-		result.Targets = merged
-	}
+	result.Targets = mergeTargetMap(base.Targets, override.Targets)
 }
 
 func mergeAgentBody(result *ast.AgentConfig, override ast.AgentConfig) {
@@ -181,16 +174,7 @@ func mergeSkillConfig(base, override ast.SkillConfig) ast.SkillConfig {
 	result.AllowedTools = mergeClearableList(result.AllowedTools, override.AllowedTools)
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
-	if len(override.Targets) > 0 {
-		merged := make(map[string]ast.TargetOverride, len(base.Targets)+len(override.Targets))
-		for k, v := range base.Targets {
-			merged[k] = v
-		}
-		for k, v := range override.Targets {
-			merged[k] = v
-		}
-		result.Targets = merged
-	}
+	result.Targets = mergeTargetMap(base.Targets, override.Targets)
 
 	// --- Body (replace when non-empty, inherit when absent) ---
 	if override.Body != "" {
@@ -228,16 +212,7 @@ func mergeRuleConfig(base, override ast.RuleConfig) ast.RuleConfig {
 	result.ExcludeAgents = mergeClearableList(result.ExcludeAgents, override.ExcludeAgents)
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
-	if len(override.Targets) > 0 {
-		merged := make(map[string]ast.TargetOverride, len(base.Targets)+len(override.Targets))
-		for k, v := range base.Targets {
-			merged[k] = v
-		}
-		for k, v := range override.Targets {
-			merged[k] = v
-		}
-		result.Targets = merged
-	}
+	result.Targets = mergeTargetMap(base.Targets, override.Targets)
 
 	// --- Body (replace when non-empty, inherit when absent) ---
 	if override.Body != "" {
@@ -271,16 +246,7 @@ func mergeWorkflowConfig(base, override ast.WorkflowConfig) ast.WorkflowConfig {
 	}
 
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
-	if len(override.Targets) > 0 {
-		merged := make(map[string]ast.TargetOverride, len(base.Targets)+len(override.Targets))
-		for k, v := range base.Targets {
-			merged[k] = v
-		}
-		for k, v := range override.Targets {
-			merged[k] = v
-		}
-		result.Targets = merged
-	}
+	result.Targets = mergeTargetMap(base.Targets, override.Targets)
 
 	// --- Body (replace when non-empty, inherit when absent) ---
 	if override.Body != "" {
@@ -635,6 +601,46 @@ func mergeSettingsMaps(result *ast.SettingsConfig, base, override ast.SettingsCo
 	}
 }
 
+// mergeTargetMap deep-merges two Targets maps. If a target exists in both,
+// their TargetOverride structs are deep-merged.
+func mergeTargetMap(base, override map[string]ast.TargetOverride) map[string]ast.TargetOverride {
+	if len(override) == 0 {
+		return base
+	}
+	merged := make(map[string]ast.TargetOverride, len(base)+len(override))
+	for k, v := range base {
+		merged[k] = v
+	}
+	for k, v := range override {
+		if baseV, exists := base[k]; exists {
+			merged[k] = mergeTargetOverride(baseV, v)
+		} else {
+			merged[k] = v
+		}
+	}
+	return merged
+}
+
+// mergeTargetOverride deep-merges two TargetOverride structs.
+func mergeTargetOverride(base, override ast.TargetOverride) ast.TargetOverride {
+	result := base
+	if override.SuppressFidelityWarnings != nil {
+		v := *override.SuppressFidelityWarnings
+		result.SuppressFidelityWarnings = &v
+	}
+	if override.SkipSynthesis != nil {
+		v := *override.SkipSynthesis
+		result.SkipSynthesis = &v
+	}
+	if len(override.Hooks) > 0 {
+		result.Hooks = mergeStringMap(base.Hooks, override.Hooks)
+	}
+	if len(override.Provider) > 0 {
+		result.Provider = mergeAnyMap(base.Provider, override.Provider)
+	}
+	return result
+}
+
 // mergeStringMap deep-merges two string maps: override keys win, base keys not
 // present in override are preserved. Returns base unchanged when override is empty.
 func mergeStringMap(base, override map[string]string) map[string]string {
@@ -642,6 +648,22 @@ func mergeStringMap(base, override map[string]string) map[string]string {
 		return base
 	}
 	merged := make(map[string]string, len(base)+len(override))
+	for k, v := range base {
+		merged[k] = v
+	}
+	for k, v := range override {
+		merged[k] = v
+	}
+	return merged
+}
+
+// mergeAnyMap deep-merges two any maps: override keys win, base keys not
+// present in override are preserved.
+func mergeAnyMap(base, override map[string]any) map[string]any {
+	if len(override) == 0 {
+		return base
+	}
+	merged := make(map[string]any, len(base)+len(override))
 	for k, v := range base {
 		merged[k] = v
 	}
