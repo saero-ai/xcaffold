@@ -140,151 +140,250 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars
 // detecting duplicate resource IDs and raising an error if found.
 // This is distinct from mergeConfigOverride which is used for extends resolution.
 //
+// mergeAgentsStrict merges agent maps from parsed into merged config with duplicate checking.
+//
 //nolint:gocyclo
+func mergeAgentsStrict(merged, parsed map[string]ast.AgentConfig, origins map[string]string, filePath string) (map[string]ast.AgentConfig, map[string]string, error) {
+	return mergeMapStrict(merged, parsed, "agent", origins, filePath)
+}
+
+// mergeSkillsStrict merges skill maps from parsed into merged config with duplicate checking.
+func mergeSkillsStrict(merged, parsed map[string]ast.SkillConfig, origins map[string]string, filePath string) (map[string]ast.SkillConfig, map[string]string, error) {
+	return mergeMapStrict(merged, parsed, "skill", origins, filePath)
+}
+
+// mergeRulesStrict merges rule maps from parsed into merged config with duplicate checking.
+func mergeRulesStrict(merged, parsed map[string]ast.RuleConfig, origins map[string]string, filePath string) (map[string]ast.RuleConfig, map[string]string, error) {
+	return mergeMapStrict(merged, parsed, "rule", origins, filePath)
+}
+
+// mergeMCPStrict merges MCP maps from parsed into merged config with duplicate checking.
+func mergeMCPStrict(merged, parsed map[string]ast.MCPConfig, origins map[string]string, filePath string) (map[string]ast.MCPConfig, map[string]string, error) {
+	return mergeMapStrict(merged, parsed, "mcp", origins, filePath)
+}
+
+// mergeWorkflowsStrict merges workflow maps from parsed into merged config with duplicate checking.
+func mergeWorkflowsStrict(merged, parsed map[string]ast.WorkflowConfig, origins map[string]string, filePath string) (map[string]ast.WorkflowConfig, map[string]string, error) {
+	return mergeMapStrict(merged, parsed, "workflow", origins, filePath)
+}
+
+// mergePoliciesStrict merges policy maps from parsed into merged config with duplicate checking.
+func mergePoliciesStrict(merged, parsed map[string]ast.PolicyConfig, origins map[string]string, filePath string) (map[string]ast.PolicyConfig, map[string]string, error) {
+	return mergeMapStrict(merged, parsed, "policy", origins, filePath)
+}
+
+// printBlueprintsStrict merges blueprint maps from parsed into merged config with duplicate checking.
+func mergeBlueprintsStrict(merged, parsed map[string]ast.BlueprintConfig, origins map[string]string, filePath string) (map[string]ast.BlueprintConfig, map[string]string, error) {
+	return mergeMapStrict(merged, parsed, "blueprint name", origins, filePath)
+}
+
+// mergeContextsStrict merges context maps from parsed into merged config with duplicate checking.
+func mergeContextsStrict(merged, parsed map[string]ast.ContextConfig, origins map[string]string, filePath string) (map[string]ast.ContextConfig, map[string]string, error) {
+	return mergeMapStrict(merged, parsed, "context", origins, filePath)
+}
+
+// mergeOriginTrackingMaps is a helper type for managing all origin tracking maps.
+type mergeOriginTrackingMaps struct {
+	Agents     map[string]string
+	Skills     map[string]string
+	Rules      map[string]string
+	MCP        map[string]string
+	Workflows  map[string]string
+	Policies   map[string]string
+	Blueprints map[string]string
+	Contexts   map[string]string
+	Settings   string // The file that first contributed settings
+}
+
+// copyProjectMetadata copies project metadata fields from src to dst if non-empty.
+func copyProjectMetadata(dst, src *ast.ProjectConfig) {
+	if src.Name != "" {
+		dst.Name = src.Name
+	}
+	if src.Description != "" {
+		dst.Description = src.Description
+	}
+	if src.Version != "" {
+		dst.Version = src.Version
+	}
+	if src.Author != "" {
+		dst.Author = src.Author
+	}
+	if src.Homepage != "" {
+		dst.Homepage = src.Homepage
+	}
+	if src.Repository != "" {
+		dst.Repository = src.Repository
+	}
+	if src.License != "" {
+		dst.License = src.License
+	}
+	if src.BackupDir != "" {
+		dst.BackupDir = src.BackupDir
+	}
+	// Propagate targets declared by kind: project documents.
+	// This field uses yaml:"-" so it is not decoded from YAML
+	// directly; only kind: project documents populate it.
+	if len(src.Targets) > 0 {
+		dst.Targets = src.Targets
+	}
+}
+
+// mergeVersionAndProject merges version and project metadata from parsed into merged config.
+func mergeVersionAndProject(merged *ast.XcaffoldConfig, p *ast.XcaffoldConfig) error {
+	// Version merging
+	if merged.Version != "" && p.Version != "" && merged.Version != p.Version {
+		return fmt.Errorf("conflicting versions declared: %q vs %q", merged.Version, p.Version)
+	}
+	if p.Version != "" {
+		merged.Version = p.Version
+	}
+
+	// Project metadata merging
+	if p.Project != nil && p.Project.Name != "" {
+		if merged.Project != nil && merged.Project.Name != "" && merged.Project.Name != p.Project.Name {
+			return fmt.Errorf("multiple files declare project.name: %q vs %q", merged.Project.Name, p.Project.Name)
+		}
+		if merged.Project == nil {
+			merged.Project = &ast.ProjectConfig{}
+		}
+		// Copy scalar metadata fields; ResourceScope is merged separately below.
+		copyProjectMetadata(merged.Project, p.Project)
+	}
+
+	return nil
+}
+
+// mergeAllResourceMaps merges all resource kind maps from parsed into merged config.
+func mergeAllResourceMaps(merged *ast.XcaffoldConfig, p *ast.XcaffoldConfig, f string, origins *mergeOriginTrackingMaps) error {
+	var err error
+
+	// Resource map merging
+	merged.Agents, origins.Agents, err = mergeAgentsStrict(merged.Agents, p.Agents, origins.Agents, f)
+	if err != nil {
+		return err
+	}
+
+	merged.Skills, origins.Skills, err = mergeSkillsStrict(merged.Skills, p.Skills, origins.Skills, f)
+	if err != nil {
+		return err
+	}
+
+	merged.Rules, origins.Rules, err = mergeRulesStrict(merged.Rules, p.Rules, origins.Rules, f)
+	if err != nil {
+		return err
+	}
+
+	merged.MCP, origins.MCP, err = mergeMCPStrict(merged.MCP, p.MCP, origins.MCP, f)
+	if err != nil {
+		return err
+	}
+
+	merged.Workflows, origins.Workflows, err = mergeWorkflowsStrict(merged.Workflows, p.Workflows, origins.Workflows, f)
+	if err != nil {
+		return err
+	}
+
+	merged.Policies, origins.Policies, err = mergePoliciesStrict(merged.Policies, p.Policies, origins.Policies, f)
+	if err != nil {
+		return err
+	}
+
+	merged.Blueprints, origins.Blueprints, err = mergeBlueprintsStrict(merged.Blueprints, p.Blueprints, origins.Blueprints, f)
+	if err != nil {
+		return err
+	}
+
+	merged.Contexts, origins.Contexts, err = mergeContextsStrict(merged.Contexts, p.Contexts, origins.Contexts, f)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// mergeTestAndWarnings merges test config and parse warnings from parsed into merged config.
+func mergeTestAndWarnings(merged *ast.XcaffoldConfig, p *ast.XcaffoldConfig) {
+	// Accumulate parse warnings from each individual file parse.
+	merged.ParseWarnings = append(merged.ParseWarnings, p.ParseWarnings...)
+
+	// Overwrite test blocks (assuming only one file declares test config).
+	// Test now lives in ProjectConfig.
+	if p.Project != nil {
+		pTest := p.Project.Test
+		if pTest.CliPath != "" || pTest.JudgeModel != "" || pTest.Task != "" || pTest.MaxTurns != nil {
+			if merged.Project == nil {
+				merged.Project = &ast.ProjectConfig{}
+			}
+			merged.Project.Test = pTest
+		}
+	}
+}
+
+// mergeFileIntoAll merges a single parsed file into the merged configuration.
+func mergeFileIntoAll(merged *ast.XcaffoldConfig, pf ParsedFile, origins *mergeOriginTrackingMaps) error {
+	p := pf.Config
+	f := pf.FilePath
+
+	if err := mergeVersionAndProject(merged, p); err != nil {
+		return err
+	}
+
+	// Extends field merging
+	if p.Extends != "" {
+		if merged.Extends != "" && merged.Extends != p.Extends {
+			return fmt.Errorf("multiple files declare extends: %q vs %q", merged.Extends, p.Extends)
+		}
+		merged.Extends = p.Extends
+	}
+
+	if err := mergeAllResourceMaps(merged, p, f, origins); err != nil {
+		return err
+	}
+
+	// Hooks are additive (merge named hook blocks).
+	merged.Hooks = mergeNamedHooksAdditive(merged.Hooks, p.Hooks)
+
+	mergeTestAndWarnings(merged, p)
+
+	// Track which file first contributed non-empty settings.
+	if origins.Settings == "" && len(p.Settings) > 0 {
+		origins.Settings = f
+	}
+
+	// Deep merge settings map (conflicting scalar keys within the same named entry -> error).
+	var err error
+	merged.Settings, err = mergeSettingsMapStrict(merged.Settings, p.Settings, origins.Settings, f)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	if len(parsedFiles) == 0 {
 		return &ast.XcaffoldConfig{}, nil
 	}
 	merged := &ast.XcaffoldConfig{}
 
-	agentOrigins := map[string]string{}
-	skillOrigins := map[string]string{}
-	ruleOrigins := map[string]string{}
-	mcpOrigins := map[string]string{}
-	workflowOrigins := map[string]string{}
-	policyOrigins := map[string]string{}
-	blueprintOrigins := map[string]string{}
-	contextOrigins := map[string]string{}
-	settingsOrigin := ""
+	origins := &mergeOriginTrackingMaps{
+		Agents:     make(map[string]string),
+		Skills:     make(map[string]string),
+		Rules:      make(map[string]string),
+		MCP:        make(map[string]string),
+		Workflows:  make(map[string]string),
+		Policies:   make(map[string]string),
+		Blueprints: make(map[string]string),
+		Contexts:   make(map[string]string),
+	}
 
 	for _, pf := range parsedFiles {
-		p := pf.Config
-		f := pf.FilePath
-		var err error
-
-		if merged.Version != "" && p.Version != "" && merged.Version != p.Version {
-			return nil, fmt.Errorf("conflicting versions declared: %q vs %q", merged.Version, p.Version)
-		}
-		if p.Version != "" {
-			merged.Version = p.Version
-		}
-
-		if p.Project != nil && p.Project.Name != "" {
-			if merged.Project != nil && merged.Project.Name != "" && merged.Project.Name != p.Project.Name {
-				return nil, fmt.Errorf("multiple files declare project.name: %q vs %q", merged.Project.Name, p.Project.Name)
-			}
-			if merged.Project == nil {
-				merged.Project = &ast.ProjectConfig{}
-			}
-			// Copy scalar metadata fields; ResourceScope is merged separately below.
-			if p.Project.Name != "" {
-				merged.Project.Name = p.Project.Name
-			}
-			if p.Project.Description != "" {
-				merged.Project.Description = p.Project.Description
-			}
-			if p.Project.Version != "" {
-				merged.Project.Version = p.Project.Version
-			}
-			if p.Project.Author != "" {
-				merged.Project.Author = p.Project.Author
-			}
-			if p.Project.Homepage != "" {
-				merged.Project.Homepage = p.Project.Homepage
-			}
-			if p.Project.Repository != "" {
-				merged.Project.Repository = p.Project.Repository
-			}
-			if p.Project.License != "" {
-				merged.Project.License = p.Project.License
-			}
-			if p.Project.BackupDir != "" {
-				merged.Project.BackupDir = p.Project.BackupDir
-			}
-			// Propagate targets declared by kind: project documents.
-			// This field uses yaml:"-" so it is not decoded from YAML
-			// directly; only kind: project documents populate it.
-			if len(p.Project.Targets) > 0 {
-				merged.Project.Targets = p.Project.Targets
-			}
-		}
-
-		if p.Extends != "" {
-			if merged.Extends != "" && merged.Extends != p.Extends {
-				return nil, fmt.Errorf("multiple files declare extends: %q vs %q", merged.Extends, p.Extends)
-			}
-			merged.Extends = p.Extends
-		}
-
-		merged.Agents, agentOrigins, err = mergeMapStrict(merged.Agents, p.Agents, "agent", agentOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		merged.Skills, skillOrigins, err = mergeMapStrict(merged.Skills, p.Skills, "skill", skillOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		merged.Rules, ruleOrigins, err = mergeMapStrict(merged.Rules, p.Rules, "rule", ruleOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		merged.MCP, mcpOrigins, err = mergeMapStrict(merged.MCP, p.MCP, "mcp", mcpOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		merged.Workflows, workflowOrigins, err = mergeMapStrict(merged.Workflows, p.Workflows, "workflow", workflowOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		merged.Policies, policyOrigins, err = mergeMapStrict(merged.Policies, p.Policies, "policy", policyOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		merged.Blueprints, blueprintOrigins, err = mergeMapStrict(merged.Blueprints, p.Blueprints, "blueprint name", blueprintOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		merged.Contexts, contextOrigins, err = mergeMapStrict(merged.Contexts, p.Contexts, "context", contextOrigins, f)
-		if err != nil {
-			return nil, err
-		}
-
-		// Hooks are additive (merge named hook blocks).
-		merged.Hooks = mergeNamedHooksAdditive(merged.Hooks, p.Hooks)
-
-		// Accumulate parse warnings from each individual file parse.
-		merged.ParseWarnings = append(merged.ParseWarnings, p.ParseWarnings...)
-
-		// Overwrite test blocks (assuming only one file declares test config).
-		// Test now lives in ProjectConfig.
-		if p.Project != nil {
-			pTest := p.Project.Test
-			if pTest.CliPath != "" || pTest.JudgeModel != "" || pTest.Task != "" || pTest.MaxTurns != nil {
-				if merged.Project == nil {
-					merged.Project = &ast.ProjectConfig{}
-				}
-				merged.Project.Test = pTest
-			}
-		}
-
-		// Track which file first contributed non-empty settings.
-		if settingsOrigin == "" && len(p.Settings) > 0 {
-			settingsOrigin = f
-		}
-
-		// Deep merge settings map (conflicting scalar keys within the same named entry -> error).
-		merged.Settings, err = mergeSettingsMapStrict(merged.Settings, p.Settings, settingsOrigin, f)
-		if err != nil {
+		if err := mergeFileIntoAll(merged, pf, origins); err != nil {
 			return nil, err
 		}
 	}
+
 	return merged, nil
 }
 
