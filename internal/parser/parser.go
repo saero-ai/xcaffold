@@ -415,7 +415,7 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 			if config.Version == "" {
 				config.Version = extractVersion(docNode)
 			}
-			if parseErr := parseBlueprintDocument(docNode, config); parseErr != nil {
+			if parseErr := parseBlueprintDocumentFromNode(docNode, config); parseErr != nil {
 				return nil, parseErr
 			}
 			lastKind = "blueprint"
