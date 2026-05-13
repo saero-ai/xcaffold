@@ -535,6 +535,26 @@ func printImportSuccess() {
 	fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
 }
 
+// applyTargetFlagOverride updates project.xcaf with targets from --target flag if set.
+func applyTargetFlagOverride(xcafFile string) error {
+	if len(targetsFlag) == 0 {
+		return nil
+	}
+	config, err := parser.ParseFile(xcafFile)
+	if err != nil {
+		return fmt.Errorf("applying target override: %w", err)
+	}
+	if config.Project == nil {
+		return nil
+	}
+	config.Project.Targets = targetsFlag
+	rootDir := filepath.Dir(xcafFile)
+	if rootDir == "" || rootDir == "." {
+		rootDir = "."
+	}
+	return WriteProjectFile(config, rootDir)
+}
+
 // handleProviderDetected orchestrates the flow when provider directories are detected
 // (Case C), offering import with toolkit update or fallback to new project wizard.
 func handleProviderDetected(cmd *cobra.Command, detected []importer.ProviderImporter,
@@ -557,6 +577,9 @@ func handleProviderDetected(cmd *cobra.Command, detected []importer.ProviderImpo
 			if err := handleToolkitUpdate(currentConfig); err != nil {
 				return false, err
 			}
+			if err := applyTargetFlagOverride(xcafFile); err != nil {
+				return false, err
+			}
 			tryAutoRegister(xcafFile)
 			return true, nil
 		}
@@ -566,6 +589,9 @@ func handleProviderDetected(cmd *cobra.Command, detected []importer.ProviderImpo
 	}
 
 	if err := handleProviderImport(cmd, detected, xcafFile); err != nil {
+		return false, err
+	}
+	if err := applyTargetFlagOverride(xcafFile); err != nil {
 		return false, err
 	}
 	return true, nil
