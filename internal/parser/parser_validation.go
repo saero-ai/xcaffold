@@ -326,34 +326,40 @@ func validateAgentToolPermissions(c *ast.XcaffoldConfig, allow map[string]bool, 
 }
 
 func validatePermissions(c *ast.XcaffoldConfig) error {
-	settings := c.Settings["default"]
-	if settings.Permissions == nil {
-		return nil
-	}
-	p := settings.Permissions
+	for settingsName, settings := range c.Settings {
+		if settings.Permissions == nil {
+			continue
+		}
+		p := settings.Permissions
 
-	allow, err := validatePermissionRuleSet(p.Allow, "allow")
-	if err != nil {
-		return err
-	}
+		allow, err := validatePermissionRuleSet(p.Allow, "allow")
+		if err != nil {
+			return fmt.Errorf("settings %q: %w", settingsName, err)
+		}
 
-	deny, err := validatePermissionRuleSet(p.Deny, "deny")
-	if err != nil {
-		return err
-	}
+		deny, err := validatePermissionRuleSet(p.Deny, "deny")
+		if err != nil {
+			return fmt.Errorf("settings %q: %w", settingsName, err)
+		}
 
-	ask, err := validatePermissionRuleSet(p.Ask, "ask")
-	if err != nil {
-		return err
-	}
+		ask, err := validatePermissionRuleSet(p.Ask, "ask")
+		if err != nil {
+			return fmt.Errorf("settings %q: %w", settingsName, err)
+		}
 
-	// Contradiction checks
-	if err := validatePermissionContradictions(allow, deny, ask); err != nil {
-		return err
-	}
+		// Contradiction checks
+		if err := validatePermissionContradictions(allow, deny, ask); err != nil {
+			return fmt.Errorf("settings %q: %w", settingsName, err)
+		}
 
-	// Agent cross-reference checks
-	return validateAgentToolPermissions(c, allow, deny)
+		// Agent cross-reference checks (only for "default" block to avoid redundant validation)
+		if settingsName == "default" {
+			if err := validateAgentToolPermissions(c, allow, deny); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // validateBase performs base-level validation of version and project fields.
