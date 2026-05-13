@@ -5,7 +5,7 @@ description: "Bootstrap the agentic environment and set up the xcaffold compiler
 
 # xcaffold init
 
-Scaffolds the environment to prepare it for Agent-as-Code compilation.
+Scaffolds the environment to prepare it for Harness-as-Code compilation.
 
 The `init` command bootstraps a repository with a `project.xcaf` file and the `xcaf/` source directory. If it detects existing provider directories (e.g., `.claude/` or `.cursor/`), it asks whether you want to import them. If you confirm, `init` performs the import directly — it does not redirect you to run a separate command.
 
