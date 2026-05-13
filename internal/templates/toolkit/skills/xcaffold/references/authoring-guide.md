@@ -163,7 +163,7 @@ name: project-context
 Memory content goes here.
 ```
 
-### kind: settings — `xcaf/settings.xcaf` (singleton, pure YAML)
+### kind: settings — singleton, declared in `project.xcaf` (pure YAML)
 
 ```yaml
 kind: settings

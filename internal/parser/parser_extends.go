@@ -50,7 +50,12 @@ func loadGlobalBase() (*ast.XcaffoldConfig, error) {
 		// If the global config itself extends something, resolve it!
 		if cfg.Extends != "" {
 			visited := map[string]bool{xcaffoldDir: true}
-			cfg, err = resolveExtendsRecursive(xcaffoldDir, cfg, nil, nil, visited)
+			cfg, err = resolveExtendsRecursive(extendsContext{
+				contextDir: xcaffoldDir,
+				vars:       nil,
+				envs:       nil,
+				visited:    visited,
+			}, cfg)
 			if err != nil {
 				// TODO: surface extends resolution errors once global scope ships.
 				return &ast.XcaffoldConfig{}, nil
@@ -65,8 +70,12 @@ func loadGlobalBase() (*ast.XcaffoldConfig, error) {
 // resolveExtends resolves the extends: field in a configuration by recursively
 // loading and merging base configurations. It detects circular dependencies.
 func resolveExtends(contextDir string, config *ast.XcaffoldConfig, vars map[string]interface{}, envs map[string]string) (*ast.XcaffoldConfig, error) {
-	visited := make(map[string]bool)
-	return resolveExtendsRecursive(contextDir, config, vars, envs, visited)
+	return resolveExtendsRecursive(extendsContext{
+		contextDir: contextDir,
+		vars:       vars,
+		envs:       envs,
+		visited:    make(map[string]bool),
+	}, config)
 }
 
 // resolveGlobalBase resolves the special "extends: global" directive by loading
@@ -90,7 +99,12 @@ func resolveGlobalBase(vars map[string]interface{}, envs map[string]string, visi
 			return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
 		}
 		if baseConfig.Extends != "" {
-			baseConfig, err = resolveExtendsRecursive(xcaffoldDir, baseConfig, vars, envs, visited)
+			baseConfig, err = resolveExtendsRecursive(extendsContext{
+				contextDir: xcaffoldDir,
+				vars:       vars,
+				envs:       envs,
+				visited:    visited,
+			}, baseConfig)
 			if err != nil {
 				return nil, err
 			}
@@ -101,10 +115,18 @@ func resolveGlobalBase(vars map[string]interface{}, envs map[string]string, visi
 	return nil, fmt.Errorf("could not resolve 'extends: global': no global config found")
 }
 
+// extendsContext holds parameters for extends resolution.
+type extendsContext struct {
+	contextDir string
+	vars       map[string]interface{}
+	envs       map[string]string
+	visited    map[string]bool
+}
+
 // resolveExtendsRecursive recursively resolves extends: directives, tracking visited
 // paths to detect circular dependencies. Base configurations are merged into the
 // child configuration using mergeConfigOverride.
-func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars map[string]interface{}, envs map[string]string, visited map[string]bool) (*ast.XcaffoldConfig, error) {
+func resolveExtendsRecursive(ctx extendsContext, config *ast.XcaffoldConfig) (*ast.XcaffoldConfig, error) {
 	if config.Extends == "" {
 		return config, nil
 	}
@@ -113,12 +135,12 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars
 	var err error
 
 	if config.Extends == "global" {
-		baseConfig, err = resolveGlobalBase(vars, envs, visited)
+		baseConfig, err = resolveGlobalBase(ctx.vars, ctx.envs, ctx.visited)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		baseConfig, err = resolveFileBase(contextDir, config.Extends, vars, envs, visited)
+		baseConfig, err = resolveFileBase(config.Extends, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -129,12 +151,12 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars
 
 // resolveFileBase resolves a file path extends directive, handling both absolute
 // and relative paths, and recursively resolving any extends within the loaded file.
-func resolveFileBase(contextDir, extendsPath string, vars map[string]interface{}, envs map[string]string, visited map[string]bool) (*ast.XcaffoldConfig, error) {
+func resolveFileBase(extendsPath string, ctx extendsContext) (*ast.XcaffoldConfig, error) {
 	var basePath string
 	if filepath.IsAbs(extendsPath) {
 		basePath = extendsPath
 	} else {
-		basePath = filepath.Join(contextDir, extendsPath)
+		basePath = filepath.Join(ctx.contextDir, extendsPath)
 	}
 
 	absPath, err := filepath.Abs(basePath)
@@ -142,17 +164,22 @@ func resolveFileBase(contextDir, extendsPath string, vars map[string]interface{}
 		return nil, fmt.Errorf("could not resolve extends path %q: %w", basePath, err)
 	}
 
-	if visited[absPath] {
+	if ctx.visited[absPath] {
 		return nil, fmt.Errorf("circular extends detected: %q", absPath)
 	}
-	visited[absPath] = true
+	ctx.visited[absPath] = true
 
-	parsed, err := ParseFileExact(absPath, withVars(vars), withEnvs(envs))
+	parsed, err := ParseFileExact(absPath, withVars(ctx.vars), withEnvs(ctx.envs))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load base config %q: %w", extendsPath, err)
 	}
 
-	baseConfig, err := resolveExtendsRecursive(filepath.Dir(absPath), parsed, vars, envs, visited)
+	baseConfig, err := resolveExtendsRecursive(extendsContext{
+		contextDir: filepath.Dir(absPath),
+		vars:       ctx.vars,
+		envs:       ctx.envs,
+		visited:    ctx.visited,
+	}, parsed)
 	if err != nil {
 		return nil, err
 	}
@@ -168,42 +195,42 @@ func resolveFileBase(contextDir, extendsPath string, vars map[string]interface{}
 //
 //nolint:gocyclo
 func mergeAgentsStrict(merged, parsed map[string]ast.AgentConfig, origins map[string]string, filePath string) (map[string]ast.AgentConfig, map[string]string, error) {
-	return mergeMapStrict(merged, parsed, "agent", origins, filePath)
+	return mergeMapStrict(merged, parsed, mergeMapOptions[string]{kind: "agent", baseOrigins: origins, childFile: filePath})
 }
 
 // mergeSkillsStrict merges skill maps from parsed into merged config with duplicate checking.
 func mergeSkillsStrict(merged, parsed map[string]ast.SkillConfig, origins map[string]string, filePath string) (map[string]ast.SkillConfig, map[string]string, error) {
-	return mergeMapStrict(merged, parsed, "skill", origins, filePath)
+	return mergeMapStrict(merged, parsed, mergeMapOptions[string]{kind: "skill", baseOrigins: origins, childFile: filePath})
 }
 
 // mergeRulesStrict merges rule maps from parsed into merged config with duplicate checking.
 func mergeRulesStrict(merged, parsed map[string]ast.RuleConfig, origins map[string]string, filePath string) (map[string]ast.RuleConfig, map[string]string, error) {
-	return mergeMapStrict(merged, parsed, "rule", origins, filePath)
+	return mergeMapStrict(merged, parsed, mergeMapOptions[string]{kind: "rule", baseOrigins: origins, childFile: filePath})
 }
 
 // mergeMCPStrict merges MCP maps from parsed into merged config with duplicate checking.
 func mergeMCPStrict(merged, parsed map[string]ast.MCPConfig, origins map[string]string, filePath string) (map[string]ast.MCPConfig, map[string]string, error) {
-	return mergeMapStrict(merged, parsed, "mcp", origins, filePath)
+	return mergeMapStrict(merged, parsed, mergeMapOptions[string]{kind: "mcp", baseOrigins: origins, childFile: filePath})
 }
 
 // mergeWorkflowsStrict merges workflow maps from parsed into merged config with duplicate checking.
 func mergeWorkflowsStrict(merged, parsed map[string]ast.WorkflowConfig, origins map[string]string, filePath string) (map[string]ast.WorkflowConfig, map[string]string, error) {
-	return mergeMapStrict(merged, parsed, "workflow", origins, filePath)
+	return mergeMapStrict(merged, parsed, mergeMapOptions[string]{kind: "workflow", baseOrigins: origins, childFile: filePath})
 }
 
 // mergePoliciesStrict merges policy maps from parsed into merged config with duplicate checking.
 func mergePoliciesStrict(merged, parsed map[string]ast.PolicyConfig, origins map[string]string, filePath string) (map[string]ast.PolicyConfig, map[string]string, error) {
-	return mergeMapStrict(merged, parsed, "policy", origins, filePath)
+	return mergeMapStrict(merged, parsed, mergeMapOptions[string]{kind: "policy", baseOrigins: origins, childFile: filePath})
 }
 
 // printBlueprintsStrict merges blueprint maps from parsed into merged config with duplicate checking.
 func mergeBlueprintsStrict(merged, parsed map[string]ast.BlueprintConfig, origins map[string]string, filePath string) (map[string]ast.BlueprintConfig, map[string]string, error) {
-	return mergeMapStrict(merged, parsed, "blueprint name", origins, filePath)
+	return mergeMapStrict(merged, parsed, mergeMapOptions[string]{kind: "blueprint name", baseOrigins: origins, childFile: filePath})
 }
 
 // mergeContextsStrict merges context maps from parsed into merged config with duplicate checking.
 func mergeContextsStrict(merged, parsed map[string]ast.ContextConfig, origins map[string]string, filePath string) (map[string]ast.ContextConfig, map[string]string, error) {
-	return mergeMapStrict(merged, parsed, "context", origins, filePath)
+	return mergeMapStrict(merged, parsed, mergeMapOptions[string]{kind: "context", baseOrigins: origins, childFile: filePath})
 }
 
 // mergeOriginTrackingMaps is a helper type for managing all origin tracking maps.
@@ -411,34 +438,41 @@ func mergeAllStrict(parsedFiles []ParsedFile) (*ast.XcaffoldConfig, error) {
 	return merged, nil
 }
 
+// mergeMapOptions groups parameters for mergeMapStrict.
+type mergeMapOptions[K comparable] struct {
+	kind        string
+	baseOrigins map[K]string
+	childFile   string
+}
+
 // mergeMapStrict merges two maps, raising an error if the same key appears in both.
 // Returns the merged map, origin tracking map, and any error.
-func mergeMapStrict[K comparable, V any](base, child map[K]V, kind string, baseOrigins map[K]string, childFile string) (map[K]V, map[K]string, error) {
+func mergeMapStrict[K comparable, V any](base, child map[K]V, opts mergeMapOptions[K]) (map[K]V, map[K]string, error) {
 	if base == nil && child == nil {
-		return nil, baseOrigins, nil
+		return nil, opts.baseOrigins, nil
 	}
 	if base == nil {
 		origins := make(map[K]string, len(child))
 		for k := range child {
-			origins[k] = childFile
+			origins[k] = opts.childFile
 		}
 		return child, origins, nil
 	}
 	if child == nil {
-		return base, baseOrigins, nil
+		return base, opts.baseOrigins, nil
 	}
 	merged := make(map[K]V, len(base)+len(child))
 	origins := make(map[K]string, len(base)+len(child))
 	for k, v := range base {
 		merged[k] = v
-		origins[k] = baseOrigins[k]
+		origins[k] = opts.baseOrigins[k]
 	}
 	for k, v := range child {
 		if _, exists := merged[k]; exists {
-			return nil, nil, fmt.Errorf("duplicate %s ID \"%v\" found in %s and %s", kind, k, filepath.Base(origins[k]), filepath.Base(childFile))
+			return nil, nil, fmt.Errorf("duplicate %s ID \"%v\" found in %s and %s", opts.kind, k, filepath.Base(origins[k]), filepath.Base(opts.childFile))
 		}
 		merged[k] = v
-		origins[k] = childFile
+		origins[k] = opts.childFile
 	}
 	return merged, origins, nil
 }

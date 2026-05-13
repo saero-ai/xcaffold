@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testNonexistent = "nonexistent"
+
 func TestGraphAll_MutualExclusion_WithGlobal(t *testing.T) {
 	graphAll = true
 	globalFlag = true
@@ -212,7 +214,7 @@ func captureGraphStdout(f func()) string {
 	w.Close()
 	os.Stdout = old
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	_, _ = io.Copy(&buf, r)
 	return buf.String()
 }
 
@@ -332,12 +334,12 @@ func TestFilterAgentIfRequested_ErrorOnNotFound(t *testing.T) {
 		},
 	}
 
-	graphAgent = "nonexistent"
+	graphAgent = testNonexistent
 	defer func() { graphAgent = "" }()
 
 	err := filterAgentIfRequested(cfg)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "nonexistent")
+	assert.Contains(t, err.Error(), testNonexistent)
 	assert.Contains(t, err.Error(), "agent-a")
 }
 

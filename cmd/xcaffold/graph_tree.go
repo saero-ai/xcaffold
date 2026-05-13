@@ -13,6 +13,8 @@ import (
 	"github.com/saero-ai/xcaffold/internal/registry"
 )
 
+const rootAnnotation = "(root)"
+
 func runGraphTerminalMode() error {
 	switch {
 	case graphAll:
@@ -418,7 +420,7 @@ func groupRulesByFolder(ruleIDs []string) []ruleGroup {
 	for _, id := range ruleIDs {
 		parts := strings.Split(id, "/")
 		if len(parts) == 1 {
-			gm["(root)"] = append(gm["(root)"], id)
+			gm[rootAnnotation] = append(gm[rootAnnotation], id)
 		} else {
 			prefix := parts[0] + "/"
 			leaf := parts[len(parts)-1]
@@ -430,10 +432,10 @@ func groupRulesByFolder(ruleIDs []string) []ruleGroup {
 		groups = append(groups, ruleGroup{prefix: p, names: names})
 	}
 	sort.Slice(groups, func(i, j int) bool {
-		if groups[i].prefix == "(root)" {
+		if groups[i].prefix == rootAnnotation {
 			return false
 		}
-		if groups[j].prefix == "(root)" {
+		if groups[j].prefix == rootAnnotation {
 			return true
 		}
 		return groups[i].prefix < groups[j].prefix

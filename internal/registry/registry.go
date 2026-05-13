@@ -225,12 +225,20 @@ func ScanSkillDirs(dir string, out map[string]GlobalSkillEntry) {
 	}
 }
 
+// MCPScanKeys holds the JSON field names used when scanning MCP server entries.
+// These names differ between providers (e.g. Claude uses "url", Antigravity
+// uses "serverUrl").
+type MCPScanKeys struct {
+	ServersKey string
+	CmdKey     string
+	URLKey     string
+}
+
 // ScanMCPFromJSONFile reads a JSON or YAML config file at path and extracts
-// MCP server entries from the top-level map key serversKey (typically
-// "mcpServers"). cmdKey and urlKey are the field names used for the command
-// and URL within each server object — these differ between providers
-// (Claude uses "url", Antigravity uses "serverUrl").
-func ScanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string]GlobalMCPEntry) {
+// MCP server entries from the top-level map key keys.ServersKey (typically
+// "mcpServers"). keys.CmdKey and keys.URLKey are the field names used for the
+// command and URL within each server object.
+func ScanMCPFromJSONFile(path string, keys MCPScanKeys, out map[string]GlobalMCPEntry) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return
@@ -241,17 +249,17 @@ func ScanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return
 	}
-	servers, _ := raw[serversKey].(map[string]interface{})
+	servers, _ := raw[keys.ServersKey].(map[string]interface{})
 	for name, srv := range servers {
 		if _, exists := out[name]; exists {
 			continue // first provider wins; skip duplicates
 		}
 		srvMap, _ := srv.(map[string]interface{})
 		entry := GlobalMCPEntry{}
-		if cmd, _ := srvMap[cmdKey].(string); cmd != "" {
+		if cmd, _ := srvMap[keys.CmdKey].(string); cmd != "" {
 			entry.Command = cmd
 		}
-		if u, _ := srvMap[urlKey].(string); u != "" {
+		if u, _ := srvMap[keys.URLKey].(string); u != "" {
 			entry.URL = u
 		}
 		if argsRaw, _ := srvMap["args"].([]interface{}); len(argsRaw) > 0 {

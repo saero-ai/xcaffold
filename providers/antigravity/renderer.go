@@ -100,12 +100,15 @@ func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir stri
 		safePath := filepath.Clean(fmt.Sprintf("agents/%s.md", id))
 		files[safePath] = md
 
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo, targetName, "agent", id, "",
-			renderer.CodeRendererKindDowngraded,
-			fmt.Sprintf("agent %q rendered as a specialist note; Antigravity does not support native agent definitions", id),
-			"Use a target that supports native agents (claude, cursor) for full agentic behavior",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelInfo,
+			Target:     targetName,
+			Kind:       "agent",
+			Resource:   id,
+			Code:       renderer.CodeRendererKindDowngraded,
+			Reason:     fmt.Sprintf("agent %q rendered as a specialist note; Antigravity does not support native agent definitions", id),
+			Mitigation: "Use a target that supports native agents (claude, cursor) for full agentic behavior",
+		})
 	}
 
 	return files, notes, nil
@@ -133,7 +136,7 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		out := &output.Output{Files: make(map[string]string)}
 
 		skillSourceDir := filepath.Join("xcaf", "skills", id)
-		if err := compileSkillArtifacts(id, skill, caps, baseDir, skillSourceDir, out); err != nil {
+		if err := compileSkillArtifacts(renderer.SkillArtifactContext{ID: id, Skill: skill, Caps: caps, BaseDir: baseDir, SkillSourceDir: skillSourceDir}, out); err != nil {
 			return nil, nil, fmt.Errorf("antigravity: skill %q: %w", id, err)
 		}
 
@@ -145,23 +148,30 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 	return files, nil, nil
 }
 
-// compileSkillArtifacts iterates skill.Artifacts and dispatches each artifact
+// compileSkillArtifacts iterates ctx.Skill.Artifacts and dispatches each artifact
 // to the correct output subdirectory using the renderer's SkillArtifactDirs map.
 // Files are discovered automatically from the artifact subdirectory on disk.
-func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.CapabilitySet, baseDir, skillSourceDir string, out *output.Output) error {
-	for _, artifactName := range skill.Artifacts {
-		outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
+func compileSkillArtifacts(ctx renderer.SkillArtifactContext, out *output.Output) error {
+	for _, artifactName := range ctx.Skill.Artifacts {
+		outputSubdir, ok := ctx.Caps.SkillArtifactDirs[artifactName]
 		if !ok {
 			outputSubdir = artifactName
 		}
-		paths, err := renderer.DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName)
+		paths, err := renderer.DiscoverArtifactFiles(ctx.BaseDir, ctx.SkillSourceDir, artifactName)
 		if err != nil {
-			return fmt.Errorf("skill %s artifact %s: discover files: %w", id, artifactName, err)
+			return fmt.Errorf("skill %s artifact %s: discover files: %w", ctx.ID, artifactName, err)
 		}
 		if len(paths) == 0 {
 			continue
 		}
-		if err := renderer.CompileSkillSubdir(id, artifactName, outputSubdir, paths, baseDir, skillSourceDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(renderer.SkillSubdirOpts{
+			ID:              ctx.ID,
+			CanonicalSubdir: artifactName,
+			OutputSubdir:    outputSubdir,
+			Paths:           paths,
+			BaseDir:         ctx.BaseDir,
+			SkillSourceDir:  ctx.SkillSourceDir,
+		}, out); err != nil {
 			return fmt.Errorf("artifact %s: %w", artifactName, err)
 		}
 	}
@@ -246,20 +256,28 @@ func (r *Renderer) CompileSettings(settings ast.SettingsConfig) (map[string]stri
 	var notes []renderer.FidelityNote
 
 	if settings.Permissions != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "global", "permissions",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.permissions dropped; Antigravity has no permission enforcement model",
-			"Remove the permissions block for this target or use a platform that enforces permissions",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "global",
+			Field:      "permissions",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.permissions dropped; Antigravity has no permission enforcement model",
+			Mitigation: "Remove the permissions block for this target or use a platform that enforces permissions",
+		})
 	}
 	if settings.Sandbox != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "global", "sandbox",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.sandbox dropped; Antigravity has no sandbox model",
-			"Remove the sandbox block for this target or use a platform that supports sandboxing",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "global",
+			Field:      "sandbox",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.sandbox dropped; Antigravity has no sandbox model",
+			Mitigation: "Remove the sandbox block for this target or use a platform that supports sandboxing",
+		})
 	}
 
 	return nil, notes, nil
@@ -274,12 +292,16 @@ func (r *Renderer) CompileMCP(servers map[string]ast.MCPConfig) (map[string]stri
 		return nil, nil, nil
 	}
 
-	note := renderer.NewNote(
-		renderer.LevelWarning, targetName, "settings", "global", "mcp",
-		renderer.CodeMCPGlobalConfigOnly,
-		fmt.Sprintf("%d MCP server(s) declared but not written; Antigravity reads MCP config from ~/.gemini/antigravity/mcp_config.json (global only, not project-local)", len(servers)),
-		"Configure MCP servers via the Antigravity MCP Store UI or edit ~/.gemini/antigravity/mcp_config.json directly",
-	)
+	note := renderer.FidelityNote{
+		Level:      renderer.LevelWarning,
+		Target:     targetName,
+		Kind:       "settings",
+		Resource:   "global",
+		Field:      "mcp",
+		Code:       renderer.CodeMCPGlobalConfigOnly,
+		Reason:     fmt.Sprintf("%d MCP server(s) declared but not written; Antigravity reads MCP config from ~/.gemini/antigravity/mcp_config.json (global only, not project-local)", len(servers)),
+		Mitigation: "Configure MCP servers via the Antigravity MCP Store UI or edit ~/.gemini/antigravity/mcp_config.json directly",
+	}
 
 	return nil, []renderer.FidelityNote{note}, nil
 }
@@ -398,16 +420,16 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, caps renderer.Capabi
 	// ManualMention and ExplicitInvoke have no frontmatter encoding in Antigravity.
 	// Emit a fidelity note directing the user to the Customizations panel.
 	if activation == ast.RuleActivationManualMention || activation == ast.RuleActivationExplicitInvoke {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning,
-			targetName,
-			"rule",
-			id,
-			"activation",
-			renderer.CodeRuleActivationUnsupported,
-			fmt.Sprintf("rule %q activation %q has no native frontmatter encoding for Antigravity; configure via the Customizations panel", id, activation),
-			"Set activation via the Customizations panel in Antigravity",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "rule",
+			Resource:   id,
+			Field:      "activation",
+			Code:       renderer.CodeRuleActivationUnsupported,
+			Reason:     fmt.Sprintf("rule %q activation %q has no native frontmatter encoding for Antigravity; configure via the Customizations panel", id, activation),
+			Mitigation: "Set activation via the Customizations panel in Antigravity",
+		})
 	}
 
 	if body != "" {
@@ -436,12 +458,15 @@ func buildAntigravityFrontmatter(sb *strings.Builder, id string, rule ast.RuleCo
 
 	if !renderer.ValidateRuleActivation(rule, caps) {
 		sb.WriteString("---\n\n")
-		return []renderer.FidelityNote{renderer.NewNote(
-			renderer.LevelWarning, targetName, "rule", id, "activation",
-			renderer.CodeActivationDegraded,
-			fmt.Sprintf("activation %q lowers to standard rule injection for antigravity", activation),
-			"",
-		)}
+		return []renderer.FidelityNote{{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "rule",
+			Resource: id,
+			Field:    "activation",
+			Code:     renderer.CodeActivationDegraded,
+			Reason:   fmt.Sprintf("activation %q lowers to standard rule injection for antigravity", activation),
+		}}
 	}
 
 	switch activation {
@@ -515,16 +540,4 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 	}
 
 	return sb.String(), nil
-}
-
-// resolveFile returns the effective body content for a rule or skill.
-//
-// Priority (highest to lowest):
-//  1. inline    — the "instructions:" YAML field
-//  2. filePath  — the "instructions_file:" YAML field (read from disk, frontmatter stripped)
-
-// stripFrontmatter removes YAML frontmatter delimited by "---" from the start
-// of a markdown file, returning only the body content with leading newlines trimmed.
-func stripFrontmatter(data []byte) string {
-	return resolver.StripFrontmatter(string(data))
 }

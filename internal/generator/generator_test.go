@@ -39,7 +39,14 @@ func mockAnthropicServer(responseBody string, statusCode int) *httptest.Server {
 }
 
 func TestNew_EmptyModel_ReturnsError(t *testing.T) {
-	g, err := New("test-key", "", "", "", "", nil)
+	g, err := New(GeneratorConfig{
+		AnthropicKey:  "test-key",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "",
+		CLIPath:       "",
+		HTTPClient:    nil,
+	})
 	require.Error(t, err)
 	assert.Nil(t, g)
 	assert.Contains(t, err.Error(), "model must be specified")
@@ -101,8 +108,15 @@ func TestGenerateViaAPI(t *testing.T) {
 	ts := mockAnthropicServer(string(respBytes), http.StatusOK)
 	defer ts.Close()
 
-	g, err := New("test-key", "", "", "claude-sonnet-4-6", "", &http.Client{
-		Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
+	g, err := New(GeneratorConfig{
+		AnthropicKey:  "test-key",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-sonnet-4-6",
+		CLIPath:       "",
+		HTTPClient: &http.Client{
+			Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
+		},
 	})
 	require.NoError(t, err)
 

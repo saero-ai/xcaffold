@@ -337,9 +337,25 @@ func extractKindAndInferredName(docNode *yaml.Node, resolved parseOption, config
 	return kind, inferredName
 }
 
+// routeDocumentContext holds parameters for document routing.
+type routeDocumentContext struct {
+	docNode      *yaml.Node
+	kind         string
+	inferredName string
+	config       *ast.XcaffoldConfig
+	resolved     parseOption
+	docIndex     int
+}
+
 // routeDocument routes a single document to the appropriate parser based on its kind.
 // It updates config and returns the lastKind and lastName for body assignment.
-func routeDocument(docNode *yaml.Node, kind string, inferredName string, config *ast.XcaffoldConfig, resolved parseOption, docIndex int) (string, string, error) {
+func routeDocument(ctx routeDocumentContext) (string, string, error) {
+	kind := ctx.kind
+	inferredName := ctx.inferredName
+	config := ctx.config
+	resolved := ctx.resolved
+	docNode := ctx.docNode
+	docIndex := ctx.docIndex
 	switch kind {
 	case "":
 		return "", "", fmt.Errorf(
@@ -362,7 +378,13 @@ func routeDocument(docNode *yaml.Node, kind string, inferredName string, config 
 		if config.Version == "" {
 			config.Version = extractVersion(docNode)
 		}
-		if parseErr := parseResourceDocument(docNode, kind, config, resolved.sourcePath, inferredName); parseErr != nil {
+		if parseErr := parseResourceDocument(parseResourceContext{
+			Node:         docNode,
+			Kind:         kind,
+			Config:       config,
+			SourceFile:   resolved.sourcePath,
+			InferredName: inferredName,
+		}); parseErr != nil {
 			return "", "", parseErr
 		}
 		return kind, extractScalarField(docNode, "name"), nil
@@ -452,7 +474,14 @@ func processYAMLDocuments(frontmatter []byte, config *ast.XcaffoldConfig, resolv
 
 		// Route the document to the appropriate parser.
 		var routeErr error
-		lastKind, lastName, routeErr = routeDocument(docNode, kind, inferredName, config, resolved, docIndex)
+		lastKind, lastName, routeErr = routeDocument(routeDocumentContext{
+			docNode:      docNode,
+			kind:         kind,
+			inferredName: inferredName,
+			config:       config,
+			resolved:     resolved,
+			docIndex:     docIndex,
+		})
 		if routeErr != nil {
 			return "", "", routeErr
 		}

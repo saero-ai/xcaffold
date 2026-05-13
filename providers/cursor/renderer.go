@@ -104,30 +104,37 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		out.Files[safePath] = md
 
 		skillSourceDir := filepath.Join("xcaf", "skills", id)
-		if err := compileSkillArtifacts(id, skill, caps, baseDir, skillSourceDir, out); err != nil {
+		if err := compileSkillArtifacts(renderer.SkillArtifactContext{ID: id, Skill: skill, Caps: caps, BaseDir: baseDir, SkillSourceDir: skillSourceDir}, out); err != nil {
 			return nil, nil, fmt.Errorf("cursor: skill %q: %w", id, err)
 		}
 	}
 	return out.Files, nil, nil
 }
 
-// compileSkillArtifacts iterates skill.Artifacts and dispatches each artifact
+// compileSkillArtifacts iterates ctx.Skill.Artifacts and dispatches each artifact
 // to the correct output subdirectory using the renderer's SkillArtifactDirs map.
 // Files are discovered automatically from the artifact subdirectory on disk.
-func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.CapabilitySet, baseDir, skillSourceDir string, out *output.Output) error {
-	for _, artifactName := range skill.Artifacts {
-		outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
+func compileSkillArtifacts(ctx renderer.SkillArtifactContext, out *output.Output) error {
+	for _, artifactName := range ctx.Skill.Artifacts {
+		outputSubdir, ok := ctx.Caps.SkillArtifactDirs[artifactName]
 		if !ok {
 			outputSubdir = artifactName
 		}
-		paths, err := renderer.DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName)
+		paths, err := renderer.DiscoverArtifactFiles(ctx.BaseDir, ctx.SkillSourceDir, artifactName)
 		if err != nil {
-			return fmt.Errorf("skill %s artifact %s: discover files: %w", id, artifactName, err)
+			return fmt.Errorf("skill %s artifact %s: discover files: %w", ctx.ID, artifactName, err)
 		}
 		if len(paths) == 0 {
 			continue
 		}
-		if err := renderer.CompileSkillSubdir(id, artifactName, outputSubdir, paths, baseDir, skillSourceDir, out); err != nil {
+		if err := renderer.CompileSkillSubdir(renderer.SkillSubdirOpts{
+			ID:              ctx.ID,
+			CanonicalSubdir: artifactName,
+			OutputSubdir:    outputSubdir,
+			Paths:           paths,
+			BaseDir:         ctx.BaseDir,
+			SkillSourceDir:  ctx.SkillSourceDir,
+		}, out); err != nil {
 			return fmt.Errorf("artifact %s: %w", artifactName, err)
 		}
 	}
@@ -196,20 +203,28 @@ func (r *Renderer) CompileHooks(hooks ast.HookConfig, baseDir string) (map[strin
 func (r *Renderer) CompileSettings(settings ast.SettingsConfig) (map[string]string, []renderer.FidelityNote, error) {
 	var notes []renderer.FidelityNote
 	if settings.Permissions != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "global", "permissions",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.permissions dropped; Cursor has no permission enforcement. Declared allow/deny/ask rules will NOT apply",
-			"Enforce permissions via repository tooling or remove the permissions block for this target",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "global",
+			Field:      "permissions",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.permissions dropped; Cursor has no permission enforcement. Declared allow/deny/ask rules will NOT apply",
+			Mitigation: "Enforce permissions via repository tooling or remove the permissions block for this target",
+		})
 	}
 	if settings.Sandbox != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "global", "sandbox",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.sandbox dropped; Cursor has no sandbox model. Filesystem and network restrictions will NOT apply",
-			"Remove the sandbox block for this target or use a platform that supports sandboxing",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "global",
+			Field:      "sandbox",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.sandbox dropped; Cursor has no sandbox model. Filesystem and network restrictions will NOT apply",
+			Mitigation: "Remove the sandbox block for this target or use a platform that supports sandboxing",
+		})
 	}
 	return nil, notes, nil
 }
@@ -337,12 +352,16 @@ func resolveCursorEventName(eventName string) (string, []renderer.FidelityNote) 
 		return cursorEvent, nil
 	}
 	cursorEvent := toCamelCase(eventName)
-	note := renderer.NewNote(
-		renderer.LevelWarning, targetName, "hooks", "hooks", eventName,
-		renderer.CodeFieldUnsupported,
-		fmt.Sprintf("hook event %q has no verified Cursor equivalent; emitted as %q (camelCase fallback)", eventName, cursorEvent),
-		"Verify this event name against Cursor hooks documentation",
-	)
+	note := renderer.FidelityNote{
+		Level:      renderer.LevelWarning,
+		Target:     targetName,
+		Kind:       "hooks",
+		Resource:   "hooks",
+		Field:      eventName,
+		Code:       renderer.CodeFieldUnsupported,
+		Reason:     fmt.Sprintf("hook event %q has no verified Cursor equivalent; emitted as %q (camelCase fallback)", eventName, cursorEvent),
+		Mitigation: "Verify this event name against Cursor hooks documentation",
+	}
 	return cursorEvent, []renderer.FidelityNote{note}
 }
 
@@ -368,12 +387,16 @@ func buildCursorEventHandlers(eventName string, groups []ast.HookMatcherGroup) (
 				flatHandler["matcher"] = group.Matcher
 			}
 			if strings.Contains(string(b), "${") {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "agent", eventName, "hooks",
-					renderer.CodeHookInterpolationRequiresEnvSyntax,
-					fmt.Sprintf("interpolation pattern ${...} in hook %q; Cursor requires ${env:NAME} syntax", eventName),
-					"Rewrite ${VAR} as ${env:VAR} in hook configuration",
-				))
+				notes = append(notes, renderer.FidelityNote{
+					Level:      renderer.LevelWarning,
+					Target:     targetName,
+					Kind:       "agent",
+					Resource:   eventName,
+					Field:      "hooks",
+					Code:       renderer.CodeHookInterpolationRequiresEnvSyntax,
+					Reason:     fmt.Sprintf("interpolation pattern ${...} in hook %q; Cursor requires ${env:NAME} syntax", eventName),
+					Mitigation: "Rewrite ${VAR} as ${env:VAR} in hook configuration",
+				})
 			}
 			handlers = append(handlers, flatHandler)
 		}
@@ -399,12 +422,16 @@ func compileCursorRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 	activation := renderer.ResolvedActivation(rule)
 	if !renderer.ValidateRuleActivation(rule, caps) {
 		sb.WriteString("always-apply: false\n")
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "rule", id, "activation",
-			renderer.CodeActivationDegraded,
-			fmt.Sprintf("rule %q activation %q has no Cursor equivalent; lowered to always-apply: false", id, activation),
-			"Use a supported activation (always, path-glob) or add a targets.cursor.provider override",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "rule",
+			Resource:   id,
+			Field:      "activation",
+			Code:       renderer.CodeActivationDegraded,
+			Reason:     fmt.Sprintf("rule %q activation %q has no Cursor equivalent; lowered to always-apply: false", id, activation),
+			Mitigation: "Use a supported activation (always, path-glob) or add a targets.cursor.provider override",
+		})
 	} else {
 		switch activation {
 		case ast.RuleActivationAlways:
@@ -460,12 +487,16 @@ func compileCursorAgent(id string, agent ast.AgentConfig, baseDir string, caps r
 	if resolvedModel != "" && renderer.IsMappedModel(agent.Model, targetName) {
 		fmt.Fprintf(&sb, "model: %s\n", renderer.YAMLScalar(resolvedModel))
 	} else if agent.Model != "" && !renderer.IsMappedModel(agent.Model, targetName) {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "agent", id, "model",
-			renderer.CodeAgentModelUnmapped,
-			fmt.Sprintf("literal model %q is unmapped for cursor \u2014 must be omitted", agent.Model),
-			"Use a mapped alias defined in xcaffold model aliases",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "agent",
+			Resource:   id,
+			Field:      "model",
+			Code:       renderer.CodeAgentModelUnmapped,
+			Reason:     fmt.Sprintf("literal model %q is unmapped for cursor \u2014 must be omitted", agent.Model),
+			Mitigation: "Use a mapped alias defined in xcaffold model aliases",
+		})
 	}
 	if agent.Background != nil && *agent.Background {
 		sb.WriteString("is_background: true\n")
@@ -539,32 +570,44 @@ func compileCursorMCP(servers map[string]ast.MCPConfig) (string, []renderer.Fide
 		}
 
 		if strings.Contains(srv.Command, "${") {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "settings", id, "mcp.command",
-				renderer.CodeHookInterpolationRequiresEnvSyntax,
-				fmt.Sprintf("interpolation pattern ${...} in MCP command for %q; Cursor requires ${env:NAME} syntax", id),
-				"Rewrite ${VAR} as ${env:VAR} in MCP server command",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "settings",
+				Resource:   id,
+				Field:      "mcp.command",
+				Code:       renderer.CodeHookInterpolationRequiresEnvSyntax,
+				Reason:     fmt.Sprintf("interpolation pattern ${...} in MCP command for %q; Cursor requires ${env:NAME} syntax", id),
+				Mitigation: "Rewrite ${VAR} as ${env:VAR} in MCP server command",
+			})
 		}
 		for _, arg := range srv.Args {
 			if strings.Contains(arg, "${") {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "settings", id, "mcp.args",
-					renderer.CodeHookInterpolationRequiresEnvSyntax,
-					fmt.Sprintf("interpolation pattern ${...} in MCP args for %q; Cursor requires ${env:NAME} syntax", id),
-					"Rewrite ${VAR} as ${env:VAR} in MCP server args",
-				))
+				notes = append(notes, renderer.FidelityNote{
+					Level:      renderer.LevelWarning,
+					Target:     targetName,
+					Kind:       "settings",
+					Resource:   id,
+					Field:      "mcp.args",
+					Code:       renderer.CodeHookInterpolationRequiresEnvSyntax,
+					Reason:     fmt.Sprintf("interpolation pattern ${...} in MCP args for %q; Cursor requires ${env:NAME} syntax", id),
+					Mitigation: "Rewrite ${VAR} as ${env:VAR} in MCP server args",
+				})
 				break
 			}
 		}
 		for k, v := range srv.Env {
 			if strings.Contains(v, "${") {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "settings", id, "mcp.env",
-					renderer.CodeHookInterpolationRequiresEnvSyntax,
-					fmt.Sprintf("interpolation pattern ${...} in MCP env %q for server %q; Cursor requires ${env:NAME} syntax", k, id),
-					"Rewrite ${VAR} as ${env:VAR} in MCP server env",
-				))
+				notes = append(notes, renderer.FidelityNote{
+					Level:      renderer.LevelWarning,
+					Target:     targetName,
+					Kind:       "settings",
+					Resource:   id,
+					Field:      "mcp.env",
+					Code:       renderer.CodeHookInterpolationRequiresEnvSyntax,
+					Reason:     fmt.Sprintf("interpolation pattern ${...} in MCP env %q for server %q; Cursor requires ${env:NAME} syntax", k, id),
+					Mitigation: "Rewrite ${VAR} as ${env:VAR} in MCP server env",
+				})
 			}
 		}
 	}

@@ -127,16 +127,15 @@ func lowerRulePlusSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 		})
 	}
 
-	note := renderer.NewNote(
-		renderer.LevelWarning,
-		target,
-		"workflow",
-		name,
-		"",
-		renderer.CodeWorkflowLoweredToRulePlusSkill,
-		fmt.Sprintf("workflow %q lowered to rule+skill; %s has no native workflow primitive", name, target),
-		"Accept the rule-plus-skill lowering or add a target with a native workflow primitive.",
-	)
+	note := renderer.FidelityNote{
+		Level:      renderer.LevelWarning,
+		Target:     target,
+		Kind:       "workflow",
+		Resource:   name,
+		Code:       renderer.CodeWorkflowLoweredToRulePlusSkill,
+		Reason:     fmt.Sprintf("workflow %q lowered to rule+skill; %s has no native workflow primitive", name, target),
+		Mitigation: "Accept the rule-plus-skill lowering or add a target with a native workflow primitive.",
+	}
 	return primitives, []renderer.FidelityNote{note}
 }
 
@@ -158,16 +157,14 @@ func lowerNativeWorkflow(wf *ast.WorkflowConfig, name, target string) ([]TargetP
 		Content: body.String(),
 	}
 
-	note := renderer.NewNote(
-		renderer.LevelInfo,
-		target,
-		"workflow",
-		name,
-		"",
-		renderer.CodeWorkflowLoweredToNative,
-		fmt.Sprintf("workflow %q emitted as native workflow for %s", name, target),
-		"",
-	)
+	note := renderer.FidelityNote{
+		Level:    renderer.LevelInfo,
+		Target:   target,
+		Kind:     "workflow",
+		Resource: name,
+		Code:     renderer.CodeWorkflowLoweredToNative,
+		Reason:   fmt.Sprintf("workflow %q emitted as native workflow for %s", name, target),
+	}
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }
 
@@ -200,16 +197,14 @@ func lowerPromptFile(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimi
 		Content: content.String(),
 	}
 
-	note := renderer.NewNote(
-		renderer.LevelInfo,
-		target,
-		"workflow",
-		name,
-		"",
-		renderer.CodeWorkflowLoweredToPromptFile,
-		fmt.Sprintf("workflow %q lowered to prompt file at %s", name, path),
-		"",
-	)
+	note := renderer.FidelityNote{
+		Level:    renderer.LevelInfo,
+		Target:   target,
+		Kind:     "workflow",
+		Resource: name,
+		Code:     renderer.CodeWorkflowLoweredToPromptFile,
+		Reason:   fmt.Sprintf("workflow %q lowered to prompt file at %s", name, path),
+	}
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }
 
@@ -232,15 +227,13 @@ func lowerCustomCommand(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 		Content: content.String(),
 	}
 
-	note := renderer.NewNote(
-		renderer.LevelInfo,
-		target,
-		"workflow",
-		name,
-		"",
-		renderer.CodeWorkflowLoweredToCustomCommand,
-		fmt.Sprintf("workflow %q lowered to custom command at %s", name, path),
-		"",
-	)
+	note := renderer.FidelityNote{
+		Level:    renderer.LevelInfo,
+		Target:   target,
+		Kind:     "workflow",
+		Resource: name,
+		Code:     renderer.CodeWorkflowLoweredToCustomCommand,
+		Reason:   fmt.Sprintf("workflow %q lowered to custom command at %s", name, path),
+	}
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }

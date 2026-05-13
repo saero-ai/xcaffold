@@ -74,8 +74,13 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("validation failed: one or more errors found")
 	}
 
-	printValidateSummary(parseRoot, structWarnings, policyWarnings, crossRefIssues,
-		fieldValidationRan, fieldValidationErrors)
+	printValidateSummary(parseRoot, validateSummaryOpts{
+		structWarnings:      structWarnings,
+		policyWarnings:      policyWarnings,
+		crossRefIssues:      crossRefIssues,
+		fieldValidationRan:  fieldValidationRan,
+		fieldValidationErrs: fieldValidationErrors,
+	})
 	return nil
 }
 
@@ -92,7 +97,13 @@ func deriveParseRoot(validatePath string) string {
 func printValidateHeader(parseRoot string) {
 	projectName := filepath.Base(parseRoot)
 	lastApplied := findLastApplied(parseRoot, validateBlueprintFlag)
-	fmt.Println(formatHeader(projectName, validateBlueprintFlag, false, targetFlag, lastApplied))
+	fmt.Println(formatHeader(headerInfo{
+		project:     projectName,
+		blueprint:   validateBlueprintFlag,
+		isGlobal:    false,
+		provider:    targetFlag,
+		lastApplied: lastApplied,
+	}))
 	fmt.Println()
 }
 
@@ -236,7 +247,11 @@ func validatePolicies(hasErrors bool, cfg *ast.XcaffoldConfig, parseRoot string)
 	}
 
 	configSnapshot := deepCopyConfig(cfg)
-	compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, targetFlag, validateBlueprintFlag, validateVarFileFlag)
+	compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, compiler.CompileOpts{
+		Target:    targetFlag,
+		Blueprint: validateBlueprintFlag,
+		VarFile:   validateVarFileFlag,
+	})
 	if compileErr != nil {
 		fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
 		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, nil
@@ -358,17 +373,25 @@ func printPolicySummary(errors, warnings []policy.Violation) {
 	fmt.Printf("  %s  %s\n", colorGreen(glyphOK()), policyLabel)
 }
 
+// validateSummaryOpts bundles parameters for printValidateSummary.
+type validateSummaryOpts struct {
+	structWarnings      []string
+	policyWarnings      []policy.Violation
+	crossRefIssues      []parser.CrossReferenceIssue
+	fieldValidationRan  bool
+	fieldValidationErrs int
+}
+
 // printValidateSummary outputs the footer summary.
-func printValidateSummary(parseRoot string, structWarnings []string, policyWarnings []policy.Violation,
-	crossRefIssues []parser.CrossReferenceIssue, fieldValidationRan bool, fieldValidationErrors int) {
+func printValidateSummary(parseRoot string, opts validateSummaryOpts) {
 	xcafFileCount := countXcafFiles(parseRoot)
-	totalWarnings := len(structWarnings) + len(policyWarnings) + len(crossRefIssues)
+	totalWarnings := len(opts.structWarnings) + len(opts.policyWarnings) + len(opts.crossRefIssues)
 	fmt.Println()
 	fieldSuffix := ""
-	if fieldValidationRan {
+	if opts.fieldValidationRan {
 		fieldSuffix = fmt.Sprintf("  Field validation: %s (%d %s).",
-			targetFlag, fieldValidationErrors,
-			plural(fieldValidationErrors, "error", "errors"))
+			targetFlag, opts.fieldValidationErrs,
+			plural(opts.fieldValidationErrs, "error", "errors"))
 	}
 	if totalWarnings > 0 {
 		fmt.Printf("%s  Validation passed with %d %s.  %d .xcaf files checked.%s\n",

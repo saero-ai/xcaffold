@@ -271,7 +271,14 @@ func runJudge(summary trace.Summary, assertions []string, configModel, cliPath s
 	}
 	fmt.Printf("  Assertions: %d\n\n", len(assertions))
 
-	j, err := judge.New(anthropicKey, genericAPIKey, genericAPIBase, model, cliPath, nil)
+	j, err := judge.New(judge.JudgeConfig{
+		AnthropicKey:  anthropicKey,
+		GenericAPIKey: genericAPIKey,
+		APIBaseURL:    genericAPIBase,
+		Model:         model,
+		CLIPath:       cliPath,
+		HTTPClient:    nil,
+	})
 	if err != nil {
 		return err
 	}

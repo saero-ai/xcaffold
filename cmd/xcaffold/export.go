@@ -53,7 +53,11 @@ func runExport(cmd *cobra.Command, args []string) error {
 	}
 
 	baseDir := projectParseRoot()
-	compiled, notes, err := compiler.Compile(config, baseDir, exportTarget, "", exportVarFile)
+	compiled, notes, err := compiler.Compile(config, baseDir, compiler.CompileOpts{
+		Target:    exportTarget,
+		Blueprint: "",
+		VarFile:   exportVarFile,
+	})
 	if err != nil {
 		return fmt.Errorf("compilation error: %w", err)
 	}

@@ -145,39 +145,59 @@ func (d ResourceDiff) TotalXcafOnly() int {
 func copyResource(dst, src *ast.XcaffoldConfig, kind, name string) {
 	switch kind {
 	case "agent":
-		if src.Agents != nil {
-			if dst.Agents == nil {
-				dst.Agents = make(map[string]ast.AgentConfig)
-			}
-			dst.Agents[name] = src.Agents[name]
-		}
+		copyAgentResource(dst, src, name)
 	case "skill":
-		if src.Skills != nil {
-			if dst.Skills == nil {
-				dst.Skills = make(map[string]ast.SkillConfig)
-			}
-			dst.Skills[name] = src.Skills[name]
-		}
+		copySkillResource(dst, src, name)
 	case "rule":
-		if src.Rules != nil {
-			if dst.Rules == nil {
-				dst.Rules = make(map[string]ast.RuleConfig)
-			}
-			dst.Rules[name] = src.Rules[name]
-		}
+		copyRuleResource(dst, src, name)
 	case "workflow":
-		if src.Workflows != nil {
-			if dst.Workflows == nil {
-				dst.Workflows = make(map[string]ast.WorkflowConfig)
-			}
-			dst.Workflows[name] = src.Workflows[name]
-		}
+		copyWorkflowResource(dst, src, name)
 	case "mcp":
-		if src.MCP != nil {
-			if dst.MCP == nil {
-				dst.MCP = make(map[string]ast.MCPConfig)
-			}
-			dst.MCP[name] = src.MCP[name]
+		copyMCPResource(dst, src, name)
+	}
+}
+
+func copyAgentResource(dst, src *ast.XcaffoldConfig, name string) {
+	if src.Agents != nil {
+		if dst.Agents == nil {
+			dst.Agents = make(map[string]ast.AgentConfig)
 		}
+		dst.Agents[name] = src.Agents[name]
+	}
+}
+
+func copySkillResource(dst, src *ast.XcaffoldConfig, name string) {
+	if src.Skills != nil {
+		if dst.Skills == nil {
+			dst.Skills = make(map[string]ast.SkillConfig)
+		}
+		dst.Skills[name] = src.Skills[name]
+	}
+}
+
+func copyRuleResource(dst, src *ast.XcaffoldConfig, name string) {
+	if src.Rules != nil {
+		if dst.Rules == nil {
+			dst.Rules = make(map[string]ast.RuleConfig)
+		}
+		dst.Rules[name] = src.Rules[name]
+	}
+}
+
+func copyWorkflowResource(dst, src *ast.XcaffoldConfig, name string) {
+	if src.Workflows != nil {
+		if dst.Workflows == nil {
+			dst.Workflows = make(map[string]ast.WorkflowConfig)
+		}
+		dst.Workflows[name] = src.Workflows[name]
+	}
+}
+
+func copyMCPResource(dst, src *ast.XcaffoldConfig, name string) {
+	if src.MCP != nil {
+		if dst.MCP == nil {
+			dst.MCP = make(map[string]ast.MCPConfig)
+		}
+		dst.MCP[name] = src.MCP[name]
 	}
 }

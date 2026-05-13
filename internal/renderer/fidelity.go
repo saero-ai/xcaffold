@@ -47,18 +47,3 @@ func FilterNotes(notes []FidelityNote, suppressed map[string]bool) []FidelityNot
 	}
 	return filtered
 }
-
-// NewNote constructs a FidelityNote from positional arguments to reduce
-// construction boilerplate inside renderer packages.
-func NewNote(level FidelityLevel, target, kind, resource, field, code, reason, mitigation string) FidelityNote {
-	return FidelityNote{
-		Level:      level,
-		Target:     target,
-		Kind:       kind,
-		Resource:   resource,
-		Field:      field,
-		Code:       code,
-		Reason:     reason,
-		Mitigation: mitigation,
-	}
-}

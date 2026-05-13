@@ -12,7 +12,6 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/translator"
-	"gopkg.in/yaml.v3"
 )
 
 // Renderer compiles an XcaffoldConfig AST into Claude Code output files.
@@ -76,7 +75,7 @@ func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir stri
 	caps := r.Capabilities()
 	var notes []renderer.FidelityNote
 	for id, agent := range agents {
-		md, agentNotes, err := compileAgentMarkdown(id, agent, baseDir, caps, r.memoryAgents)
+		md, agentNotes, err := compileAgentMarkdown(agentMarkdownInput{id: id, agent: agent, baseDir: baseDir, caps: caps, memoryAgents: r.memoryAgents})
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to compile agent %q: %w", id, err)
 		}
@@ -100,46 +99,11 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 		out.Files[safePath] = md
 
 		skillSourceDir := filepath.Join("xcaf", "skills", id)
-		if err := compileSkillArtifacts(id, skill, caps, baseDir, skillSourceDir, out); err != nil {
+		if err := compileSkillArtifacts(renderer.SkillArtifactContext{ID: id, Skill: skill, Caps: caps, BaseDir: baseDir, SkillSourceDir: skillSourceDir}, out); err != nil {
 			return nil, nil, err
 		}
 	}
 	return out.Files, nil, nil
-}
-
-// compileSkillArtifacts iterates skill.Artifacts and dispatches each artifact
-// to the correct output subdirectory using the renderer's SkillArtifactDirs map.
-// An empty outputSubdir means the files are flattened to the skill root.
-// Files are discovered automatically from the artifact subdirectory on disk.
-func compileSkillArtifacts(id string, skill ast.SkillConfig, caps renderer.CapabilitySet, baseDir, skillSourceDir string, out *output.Output) error {
-	for _, artifactName := range skill.Artifacts {
-		outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
-		if !ok {
-			outputSubdir = artifactName // default: use same name as canonical
-		}
-		paths, err := renderer.DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName)
-		if err != nil {
-			return fmt.Errorf("skill %s artifact %s: discover files: %w", id, artifactName, err)
-		}
-		if len(paths) == 0 {
-			continue
-		}
-		if outputSubdir == "" {
-			// FlattenToSkillRoot resolves paths from baseDir, so prefix with skillSourceDir.
-			prefixed := make([]string, len(paths))
-			for i, p := range paths {
-				prefixed[i] = filepath.Join(skillSourceDir, p)
-			}
-			if err := renderer.FlattenToSkillRoot(id, artifactName, prefixed, baseDir, out); err != nil {
-				return fmt.Errorf("skill %s artifact %s: %w", id, artifactName, err)
-			}
-		} else {
-			if err := renderer.CompileSkillSubdir(id, artifactName, outputSubdir, paths, baseDir, skillSourceDir, out); err != nil {
-				return fmt.Errorf("skill %s artifact %s: %w", id, artifactName, err)
-			}
-		}
-	}
-	return nil
 }
 
 // CompileRules compiles all rule configs to rules/<id>.md files.
@@ -465,8 +429,21 @@ func (r *Renderer) renderProjectInstructions(config *ast.XcaffoldConfig, baseDir
 	return nil // concat-nested: zero fidelity notes
 }
 
+// agentMarkdownInput holds parameters for compileAgentMarkdown.
+type agentMarkdownInput struct {
+	id           string
+	agent        ast.AgentConfig
+	baseDir      string
+	caps         renderer.CapabilitySet
+	memoryAgents map[string]bool
+}
+
 // compileAgentMarkdown renders a single AgentConfig to Claude Code markdown.
-func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps renderer.CapabilitySet, memoryAgents map[string]bool) (string, []renderer.FidelityNote, error) {
+func compileAgentMarkdown(input agentMarkdownInput) (string, []renderer.FidelityNote, error) {
+	id := input.id
+	agent := input.agent
+	caps := input.caps
+	memoryAgents := input.memoryAgents
 	if strings.TrimSpace(id) == "" {
 		return "", nil, fmt.Errorf("agent id must not be empty")
 	}
@@ -518,65 +495,6 @@ func compileAgentMarkdown(id string, agent ast.AgentConfig, baseDir string, caps
 	return sb.String(), notes, nil
 }
 
-func appendAgentCoreMeta(sb *strings.Builder, agent ast.AgentConfig) {
-	if agent.Name != "" {
-		fmt.Fprintf(sb, "name: %s\n", agent.Name)
-	}
-	if agent.Description != "" {
-		fmt.Fprintf(sb, "description: %s\n", agent.Description)
-	}
-	if agent.Effort != "" {
-		fmt.Fprintf(sb, "effort: %s\n", agent.Effort)
-	}
-	if agent.MaxTurns != nil && *agent.MaxTurns > 0 {
-		fmt.Fprintf(sb, "max-turns: %d\n", *agent.MaxTurns)
-	}
-}
-
-func appendAgentConfigMeta(sb *strings.Builder, agentID string, agent ast.AgentConfig, memoryAgents map[string]bool) {
-	if agent.PermissionMode != "" {
-		fmt.Fprintf(sb, "permission-mode: %s\n", agent.PermissionMode)
-	}
-	// disable-model-invocation and user-invocable are Copilot-only agent fields.
-	// Claude Code does not support them for agents (they are valid for skills).
-	// Drop silently — no fidelity note needed because these fields have no effect.
-	if agent.Background != nil {
-		fmt.Fprintf(sb, "background: %t\n", *agent.Background)
-	}
-	if agent.Isolation != "" {
-		fmt.Fprintf(sb, "isolation: %s\n", agent.Isolation)
-	}
-	if len(agent.Memory) > 0 {
-		fmt.Fprintf(sb, "memory: %s\n", strings.Join([]string(agent.Memory), ", "))
-	} else if memoryAgents[agentID] {
-		fmt.Fprintf(sb, "memory: user\n")
-	}
-	if agent.Color != "" {
-		fmt.Fprintf(sb, "color: %s\n", agent.Color)
-	}
-	if agent.InitialPrompt != "" {
-		fmt.Fprintf(sb, "initial-prompt: %s\n", agent.InitialPrompt)
-	}
-}
-
-func appendAgentYAMLMeta(sb *strings.Builder, agent ast.AgentConfig) error {
-	if len(agent.Hooks) > 0 {
-		hooksYAML, err := yaml.Marshal(map[string]ast.HookConfig{"hooks": agent.Hooks})
-		if err != nil {
-			return fmt.Errorf("failed to marshal agent hooks: %w", err)
-		}
-		sb.WriteString(string(hooksYAML))
-	}
-	if len(agent.MCPServers) > 0 {
-		mcpYAML, err := yaml.Marshal(map[string]map[string]ast.MCPConfig{"mcpServers": agent.MCPServers})
-		if err != nil {
-			return fmt.Errorf("failed to marshal agent mcpServers: %w", err)
-		}
-		sb.WriteString(string(mcpYAML))
-	}
-	return nil
-}
-
 // compileSkillMarkdown renders a single SkillConfig to its SKILL.md content.
 func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (string, error) {
 	if strings.TrimSpace(id) == "" {
@@ -600,69 +518,6 @@ func compileSkillMarkdown(id string, skill ast.SkillConfig, baseDir string) (str
 	return sb.String(), nil
 }
 
-func appendSkillMeta(sb *strings.Builder, skill ast.SkillConfig) {
-	// Group 1 — Identity
-	if skill.Name != "" {
-		fmt.Fprintf(sb, "name: %s\n", skill.Name)
-	}
-	if skill.Description != "" {
-		fmt.Fprintf(sb, "description: %s\n", skill.Description)
-	}
-	// when_to_use uses snake_case (not kebab-case) because Claude Code's native
-	// SKILL.md schema requires this exact field name.
-	if skill.WhenToUse != "" {
-		fmt.Fprintf(sb, "when_to_use: %s\n", skill.WhenToUse)
-	}
-	if skill.License != "" {
-		fmt.Fprintf(sb, "license: %s\n", skill.License)
-	}
-
-	// Group 3 — Tool Access (Claude convention: space-separated string)
-	if len(skill.AllowedTools.Values) > 0 {
-		fmt.Fprintf(sb, "allowed-tools: %s\n", strings.Join(skill.AllowedTools.Values, " "))
-	}
-
-	// Group 4 — Permissions & Invocation Control (hyphenated kebab-case for Claude)
-	if skill.DisableModelInvocation != nil {
-		fmt.Fprintf(sb, "disable-model-invocation: %t\n", *skill.DisableModelInvocation)
-	}
-	if skill.UserInvocable != nil {
-		fmt.Fprintf(sb, "user-invocable: %t\n", *skill.UserInvocable)
-	}
-	if skill.ArgumentHint != "" {
-		data, err := yaml.Marshal(map[string]any{"argument-hint": skill.ArgumentHint})
-		if err == nil {
-			sb.Write(data)
-		}
-	}
-
-	// Claude-specific provider pass-through
-	if claude, ok := skill.Targets["claude"]; ok {
-		emitClaudeProviderKeys(sb, claude.Provider)
-	}
-}
-
-// emitClaudeProviderKeys writes Claude-recognized provider keys in a stable order.
-// All values are routed through yaml.Marshal to ensure correct escaping and quoting.
-// Unknown keys are ignored (renderer-level warnings handled by caller).
-func emitClaudeProviderKeys(sb *strings.Builder, provider map[string]any) {
-	if len(provider) == 0 {
-		return
-	}
-	orderedKeys := []string{"context", "agent", "model", "effort", "shell", "paths", "hooks"}
-	for _, k := range orderedKeys {
-		v, ok := provider[k]
-		if !ok {
-			continue
-		}
-		data, err := yaml.Marshal(map[string]any{k: v})
-		if err != nil {
-			continue
-		}
-		sb.Write(data)
-	}
-}
-
 // compileClaudeRule compiles a single rule to markdown.
 func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilitySet, baseDir string) (string, []renderer.FidelityNote, error) {
 	if strings.TrimSpace(id) == "" {
@@ -678,30 +533,30 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 	// Claude natively supports always and path-glob. Everything else is
 	// emitted as always-loaded with a warning note.
 	if !renderer.ValidateRuleActivation(rule, caps) {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning,
-			"claude",
-			"rule",
-			id,
-			"activation",
-			renderer.CodeRuleActivationUnsupported,
-			fmt.Sprintf("rule %q: activation %q has no Claude native equivalent; rule emitted as always-loaded", id, activation),
-			"Use activation: always or activation: path-glob for Claude.",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     "claude",
+			Kind:       "rule",
+			Resource:   id,
+			Field:      "activation",
+			Code:       renderer.CodeRuleActivationUnsupported,
+			Reason:     fmt.Sprintf("rule %q: activation %q has no Claude native equivalent; rule emitted as always-loaded", id, activation),
+			Mitigation: "Use activation: always or activation: path-glob for Claude.",
+		})
 	}
 
 	// exclude-agents has no Claude equivalent; drop it and emit an info note.
 	if len(rule.ExcludeAgents.Values) > 0 {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo,
-			"claude",
-			"rule",
-			id,
-			"exclude-agents",
-			renderer.CodeRuleExcludeAgentsDropped,
-			fmt.Sprintf("rule %q: exclude-agents %v has no Claude native equivalent and was dropped", id, rule.ExcludeAgents.Values),
-			"Remove exclude-agents or target a provider that supports it (e.g. copilot).",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelInfo,
+			Target:     "claude",
+			Kind:       "rule",
+			Resource:   id,
+			Field:      "exclude-agents",
+			Code:       renderer.CodeRuleExcludeAgentsDropped,
+			Reason:     fmt.Sprintf("rule %q: exclude-agents %v has no Claude native equivalent and was dropped", id, rule.ExcludeAgents.Values),
+			Mitigation: "Remove exclude-agents or target a provider that supports it (e.g. copilot).",
+		})
 	}
 
 	var sb strings.Builder
@@ -721,167 +576,4 @@ func compileClaudeRule(id string, rule ast.RuleConfig, caps renderer.CapabilityS
 	}
 
 	return sb.String(), notes, nil
-}
-
-// compileSettingsJSON produces a fully-populated settings.json.
-// Note: mcpServers are now emitted to mcp.json.
-//
-// Merge rules:
-//   - Output is suppressed (empty string) when the resulting object has no
-//     meaningful content, to avoid writing a useless "{}".
-//   - The $schema key is always emitted first when there is content.
-func compileSettingsJSON(settings ast.SettingsConfig, hooks ast.HookConfig) (string, error) {
-	out := map[string]any{
-		"$schema": "https://json.schemastore.org/claude-code-settings.json",
-	}
-
-	populateSettingsCore(out, settings)
-	populateSettingsFeatures(out, settings)
-	populateSettingsDev(out, settings)
-	populateSettingsAgent(out, settings)
-	populateSettingsSystem(out, settings)
-
-	if len(hooks) > 0 {
-		out["hooks"] = hooks
-	}
-
-	// len(out) == 1 means only $schema is present
-	if len(out) <= 1 {
-		return "", nil
-	}
-
-	b, err := json.MarshalIndent(out, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-}
-
-// compileClaudeMCP renders MCP definitions into mcp.json
-// It merges the top-level mcp: shorthand block with settings.mcpServers.
-func compileClaudeMCP(mcpShorthand map[string]ast.MCPConfig, settingsMCPServers map[string]ast.MCPConfig) (string, error) {
-	mcpServers := make(map[string]ast.MCPConfig)
-	for k, v := range mcpShorthand {
-		mcpServers[k] = v
-	}
-	for k, v := range settingsMCPServers {
-		mcpServers[k] = v
-	}
-
-	if len(mcpServers) == 0 {
-		return "", nil
-	}
-
-	envelope := map[string]any{
-		"mcpServers": mcpServers,
-	}
-
-	b, err := json.MarshalIndent(envelope, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
-}
-
-func populateSettingsCore(out map[string]any, settings ast.SettingsConfig) {
-	if len(settings.Env) > 0 {
-		out["env"] = settings.Env
-	}
-	if settings.StatusLine != nil {
-		out["statusLine"] = settings.StatusLine
-	}
-	if len(settings.EnabledPlugins) > 0 {
-		out["enabledPlugins"] = settings.EnabledPlugins
-	}
-	if settings.Permissions != nil {
-		out["permissions"] = settings.Permissions
-	}
-}
-
-func populateSettingsFeatures(out map[string]any, settings ast.SettingsConfig) {
-	if settings.AlwaysThinkingEnabled != nil {
-		out["alwaysThinkingEnabled"] = *settings.AlwaysThinkingEnabled
-	}
-	if settings.EffortLevel != "" {
-		out["effortLevel"] = settings.EffortLevel
-	}
-	if settings.SkipDangerousModePermissionPrompt != nil {
-		out["skipDangerousModePermissionPrompt"] = *settings.SkipDangerousModePermissionPrompt
-	}
-	if settings.Sandbox != nil {
-		out["sandbox"] = settings.Sandbox
-	}
-	if len(settings.Hooks) > 0 {
-		out["hooks"] = settings.Hooks
-	}
-}
-
-func populateSettingsDev(out map[string]any, settings ast.SettingsConfig) {
-	if settings.OtelHeadersHelper != "" {
-		out["otelHeadersHelper"] = settings.OtelHeadersHelper
-	}
-	if settings.DisableAllHooks != nil {
-		out["disableAllHooks"] = *settings.DisableAllHooks
-	}
-	if settings.Attribution != nil {
-		out["attribution"] = *settings.Attribution
-	}
-	if settings.OutputStyle != "" {
-		out["outputStyle"] = settings.OutputStyle
-	}
-	if settings.Language != "" {
-		out["language"] = settings.Language
-	}
-}
-
-func populateSettingsAgent(out map[string]any, settings ast.SettingsConfig) {
-	if settings.Model != "" {
-		if resolved, ok := renderer.ResolveModel(settings.Model, "claude"); ok && resolved != "" {
-			out["model"] = resolved
-		} else {
-			out["model"] = settings.Model
-		}
-	}
-	if settings.Agent != nil {
-		out["agent"] = settings.Agent
-	}
-	if settings.AutoMode != nil {
-		out["autoMode"] = settings.AutoMode
-	}
-	if len(settings.AvailableModels) > 0 {
-		out["availableModels"] = settings.AvailableModels
-	}
-	if settings.AutoMemoryEnabled != nil {
-		out["autoMemoryEnabled"] = *settings.AutoMemoryEnabled
-	}
-	if settings.AutoMemoryDirectory != "" {
-		out["autoMemoryDirectory"] = settings.AutoMemoryDirectory
-	}
-}
-
-func populateSettingsSystem(out map[string]any, settings ast.SettingsConfig) {
-	if settings.IncludeGitInstructions != nil {
-		out["includeGitInstructions"] = *settings.IncludeGitInstructions
-	}
-	if settings.DisableSkillShellExecution != nil {
-		out["disableSkillShellExecution"] = *settings.DisableSkillShellExecution
-	}
-	if settings.DefaultShell != "" {
-		out["defaultShell"] = settings.DefaultShell
-	}
-	if settings.CleanupPeriodDays != nil {
-		out["cleanupPeriodDays"] = *settings.CleanupPeriodDays
-	}
-	if settings.RespectGitignore != nil {
-		out["respectGitignore"] = *settings.RespectGitignore
-	}
-	if settings.PlansDirectory != "" {
-		out["plansDirectory"] = settings.PlansDirectory
-	}
-	if settings.Worktree != nil {
-		out["worktree"] = settings.Worktree
-	}
-	if len(settings.MdExcludes) > 0 {
-		out["mdExcludes"] = settings.MdExcludes
-	}
 }

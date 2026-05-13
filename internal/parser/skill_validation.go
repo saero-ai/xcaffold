@@ -30,6 +30,16 @@ type SkillValidationResult struct {
 	Warnings []error
 }
 
+// skillDirContext holds parameters for processSkillDirectories to avoid
+// exceeding the function parameter limit.
+type skillDirContext struct {
+	entries               []os.DirEntry
+	skillDir              string
+	skillID               string
+	artifactsMap          map[string]bool
+	declaredArtifactsSeen map[string]bool
+}
+
 // ValidateSkillDirectory checks that a skill directory conforms to the
 // artifacts-based layout. The artifacts parameter lists declared subdirectories
 // that should exist and be validated. It returns a SkillValidationResult with
@@ -37,26 +47,26 @@ type SkillValidationResult struct {
 // advisory warnings (subdirs on disk not in artifacts list). Both slices are
 // nil when the directory is fully valid.
 // processSkillDirectories walks skill root and validates directories against declared artifacts.
-func processSkillDirectories(entries []os.DirEntry, skillDir, skillID string, artifactsMap map[string]bool, declaredArtifactsSeen map[string]bool) ([]error, []error) {
+func processSkillDirectories(ctx skillDirContext) ([]error, []error) {
 	var errs, warns []error
-	for _, entry := range entries {
+	for _, entry := range ctx.entries {
 		name := entry.Name()
 		if !entry.IsDir() {
 			continue
 		}
 		// Check if this directory is in the artifacts list
-		if artifactsMap[name] {
-			declaredArtifactsSeen[name] = true
+		if ctx.artifactsMap[name] {
+			ctx.declaredArtifactsSeen[name] = true
 			// It's declared — validate its contents
-			subdirPath := filepath.Join(skillDir, name)
-			subErrs, subWarns := validateSubdir(subdirPath, skillID, name)
+			subdirPath := filepath.Join(ctx.skillDir, name)
+			subErrs, subWarns := validateSubdir(subdirPath, ctx.skillID, name)
 			errs = append(errs, subErrs...)
 			warns = append(warns, subWarns...)
 		} else {
 			// Directory exists but is not declared — warn
 			warns = append(warns, fmt.Errorf(
 				"subdirectory %q in skill %q is not declared in artifacts and will not be compiled; add it to artifacts: [%s] in the skill config",
-				name, skillID, name))
+				name, ctx.skillID, name))
 		}
 	}
 	return errs, warns
@@ -125,7 +135,13 @@ func ValidateSkillDirectory(skillDir, skillID string, artifacts []string) *Skill
 	declaredArtifactsSeen := make(map[string]bool)
 
 	// Validate directories
-	errs, warns := processSkillDirectories(entries, skillDir, skillID, artifactsMap, declaredArtifactsSeen)
+	errs, warns := processSkillDirectories(skillDirContext{
+		entries:               entries,
+		skillDir:              skillDir,
+		skillID:               skillID,
+		artifactsMap:          artifactsMap,
+		declaredArtifactsSeen: declaredArtifactsSeen,
+	})
 	result.Errors = append(result.Errors, errs...)
 	result.Warnings = append(result.Warnings, warns...)
 

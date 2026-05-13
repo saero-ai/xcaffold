@@ -28,7 +28,7 @@ func BuildRuleProsePrefix(rule ast.RuleConfig, caps CapabilitySet) string {
 func ValidateRuleActivation(rule ast.RuleConfig, caps CapabilitySet) bool {
 	activation := ResolvedActivation(rule)
 	for _, supported := range caps.RuleActivations {
-		if string(activation) == supported {
+		if activation == supported {
 			return true
 		}
 	}

@@ -49,33 +49,42 @@ func pickGlyph(unicode, ascii string) string {
 	return ascii
 }
 
+// headerInfo bundles parameters for formatHeader to reduce function arity.
+type headerInfo struct {
+	project     string
+	blueprint   string
+	isGlobal    bool
+	provider    string
+	lastApplied string
+}
+
 // formatHeader builds the breadcrumb header line.
 // Format: <project>  ·  [blueprint: <name>  ·  ][global scope  ·  ][<provider>  ·  ]<context>
-func formatHeader(project, blueprint string, isGlobal bool, provider, lastApplied string) string {
+func formatHeader(info headerInfo) string {
 	sep := "  " + glyphDot() + "  "
 	var parts []string
 
-	if isGlobal {
+	if info.isGlobal {
 		parts = append(parts, "~")
 		parts = append(parts, "global scope")
 	} else {
-		parts = append(parts, project)
+		parts = append(parts, info.project)
 	}
 
-	if blueprint != "" {
-		parts = append(parts, "blueprint: "+blueprint)
+	if info.blueprint != "" {
+		parts = append(parts, "blueprint: "+info.blueprint)
 	}
 
-	if provider != "" {
-		parts = append(parts, provider)
+	if info.provider != "" {
+		parts = append(parts, info.provider)
 	}
 
 	var context string
-	if lastApplied == "" {
+	if info.lastApplied == "" {
 		context = "never applied"
 	} else {
-		elapsed := formatElapsed(lastApplied)
-		if provider != "" {
+		elapsed := formatElapsed(info.lastApplied)
+		if info.provider != "" {
 			context = "applied " + elapsed
 		} else {
 			context = "last applied " + elapsed

@@ -38,7 +38,7 @@ func TestCompile_SkillWithReferences_CopiesFiles(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, dir, "claude", "", "")
+	out, _, err := Compile(config, dir, CompileOpts{Target: "claude", Blueprint: "", VarFile: ""})
 	require.NoError(t, err)
 
 	_, hasSkill := out.Files["skills/flutter-integration/SKILL.md"]
@@ -74,7 +74,7 @@ func TestCompile_SkillReferences_DirectoryWalked(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, dir, "claude", "", "")
+	out, _, err := Compile(config, dir, CompileOpts{Target: "claude", Blueprint: "", VarFile: ""})
 	require.NoError(t, err)
 
 	refCount := 0
@@ -98,7 +98,7 @@ func TestCompile_SkillNoArtifacts_OnlySKILLMdEmitted(t *testing.T) {
 			},
 		},
 	}
-	out, _, err := Compile(config, t.TempDir(), "claude", "", "")
+	out, _, err := Compile(config, t.TempDir(), CompileOpts{Target: "claude", Blueprint: "", VarFile: ""})
 	require.NoError(t, err)
 	assert.Contains(t, out.Files, "skills/safe/SKILL.md", "SKILL.md should always be emitted")
 	for k := range out.Files {
@@ -124,7 +124,7 @@ func TestCompile_Settings_StatusLine_IsObject(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -153,7 +153,7 @@ func TestCompile_Settings_EnabledPlugins_IsMap(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -178,7 +178,7 @@ func TestCompile_Settings_Schema_IsFirstKey(t *testing.T) {
 			StatusLine: &ast.StatusLineConfig{Type: "command"},
 		}},
 	}
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -243,7 +243,7 @@ func TestCompile_Settings_SandboxConfig_EmitsCorrectly(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -293,7 +293,7 @@ func TestCompile_MCP_HTTPTransport_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["mcp.json"]
@@ -330,7 +330,7 @@ func TestCompile_Settings_TypedPermissions_EmitsCorrectly(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -387,7 +387,7 @@ func TestCompile_Hooks_ThreeLevelNested_StructureCorrect(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -444,7 +444,7 @@ func TestCompile_Agent_NewFields_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	content := out.Files["agents/secure.md"]
@@ -486,7 +486,7 @@ func TestCompile_Agent_ScopedHooksAndMCP_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	content := out.Files["agents/hooked.md"]
@@ -511,7 +511,7 @@ func TestCompile_Settings_NewFields_EmitCorrectly(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -562,7 +562,7 @@ func TestCompile_Hooks_HTTPHandler_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -604,7 +604,7 @@ func TestCompile_Hooks_PromptHandler_EmitsCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -649,7 +649,7 @@ func TestCompile_Hooks_AllHandlerFields_EmitCorrectly(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw := out.Files["settings.json"]
@@ -696,7 +696,7 @@ func TestCompile_Settings_AllNewFields_EmitCorrectly(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -738,7 +738,7 @@ func TestCompile_Permissions_DenyPropagatestoSettings(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -768,7 +768,7 @@ func TestCompile_Permissions_SandboxPropagatestoSettings(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	raw, ok := out.Files["settings.json"]
@@ -794,7 +794,7 @@ func TestCompile_Permissions_CursorDropsPermissions(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, t.TempDir(), "cursor", "", "")
+	out, _, err := Compile(config, t.TempDir(), CompileOpts{Target: "cursor", Blueprint: "", VarFile: ""})
 	require.NoError(t, err)
 
 	// Cursor emits no settings.json — permissions must not appear in any output file
@@ -816,7 +816,7 @@ func TestCompile_Permissions_CursorDropsSandbox(t *testing.T) {
 		}},
 	}
 
-	out, _, err := Compile(config, t.TempDir(), "cursor", "", "")
+	out, _, err := Compile(config, t.TempDir(), CompileOpts{Target: "cursor", Blueprint: "", VarFile: ""})
 	require.NoError(t, err)
 
 	_, hasSettings := out.Files["settings.json"]
@@ -839,7 +839,7 @@ func TestCompile_Permissions_DisallowedToolsInAgentFrontmatter(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, "", "claude", "", "")
+	out, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/dev.md"]
@@ -860,7 +860,7 @@ func TestCompile_Permissions_DisallowedToolsNotInCursorOutput(t *testing.T) {
 		},
 	}
 
-	out, _, err := Compile(config, t.TempDir(), "cursor", "", "")
+	out, _, err := Compile(config, t.TempDir(), CompileOpts{Target: "cursor", Blueprint: "", VarFile: ""})
 	require.NoError(t, err)
 
 	content, ok := out.Files["agents/dev.md"]
@@ -884,7 +884,7 @@ func TestCompile_ContextUniqueness_AmbiguousNoDefault_ReturnsError(t *testing.T)
 			},
 		},
 	}
-	_, _, err := Compile(config, "", "claude", "", "")
+	_, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "context validation failed")
 }
@@ -901,7 +901,7 @@ func TestCompile_ContextUniqueness_AmbiguousWithDefault_OK(t *testing.T) {
 			},
 		},
 	}
-	_, _, err := Compile(config, "", "claude", "", "")
+	_, _, err := Compile(config, "", CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 }
 
@@ -928,6 +928,6 @@ func TestCompile_ContextUniqueness_BlueprintActive_SkipsValidation(t *testing.T)
 		},
 	}
 	// Compile with an active blueprint — ambiguous contexts must not error.
-	_, _, err := Compile(config, "", "claude", "my-bp", "")
+	_, _, err := Compile(config, "", CompileOpts{Target: "claude", Blueprint: "my-bp", VarFile: ""})
 	require.NoError(t, err)
 }

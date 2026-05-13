@@ -77,6 +77,56 @@ func assembleAgents(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.
 	}
 }
 
+func assembleSkillsCase(name string, providerSkills map[string]ast.SkillConfig, result *ast.XcaffoldConfig) {
+	if len(providerSkills) == 1 {
+		for provider, skill := range providerSkills {
+			if skill.Targets == nil {
+				skill.Targets = make(map[string]ast.TargetOverride)
+			}
+			skill.Targets[provider] = ast.TargetOverride{}
+			result.Skills[name] = skill
+		}
+		return
+	}
+	if skillConfigsIdentical(providerSkills) {
+		for _, skill := range providerSkills {
+			skill.Targets = buildTargetsMap(providerSkills)
+			result.Skills[name] = skill
+			break
+		}
+		return
+	}
+	base, overrides := splitSkillOverrides(providerSkills)
+	base.Targets = buildTargetsMap(providerSkills)
+	unionSkillArtifacts(&base, providerSkills)
+
+	result.Skills[name] = base
+	if result.Overrides == nil {
+		result.Overrides = &ast.ResourceOverrides{}
+	}
+	for provider, override := range overrides {
+		if !isEmptySkillOverride(override) {
+			result.Overrides.AddSkill(name, provider, override)
+		}
+	}
+}
+
+func unionSkillArtifacts(base *ast.SkillConfig, providerSkills map[string]ast.SkillConfig) {
+	allArtifacts := make(map[string]bool)
+	for _, s := range providerSkills {
+		for _, a := range s.Artifacts {
+			allArtifacts[a] = true
+		}
+	}
+	if len(allArtifacts) > 0 {
+		base.Artifacts = make([]string, 0, len(allArtifacts))
+		for a := range allArtifacts {
+			base.Artifacts = append(base.Artifacts, a)
+		}
+		sort.Strings(base.Artifacts)
+	}
+}
+
 func assembleSkills(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.XcaffoldConfig) {
 	byName := make(map[string]map[string]ast.SkillConfig)
 	for provider, cfg := range providerConfigs {
@@ -88,52 +138,7 @@ func assembleSkills(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.
 		}
 	}
 	for name, providerSkills := range byName {
-		if len(providerSkills) == 1 {
-			for provider, skill := range providerSkills {
-				if skill.Targets == nil {
-					skill.Targets = make(map[string]ast.TargetOverride)
-				}
-				skill.Targets[provider] = ast.TargetOverride{}
-				result.Skills[name] = skill
-			}
-			continue
-		}
-		if skillConfigsIdentical(providerSkills) {
-			for _, skill := range providerSkills {
-				skill.Targets = buildTargetsMap(providerSkills)
-				result.Skills[name] = skill
-				break
-			}
-			continue
-		}
-		base, overrides := splitSkillOverrides(providerSkills)
-		base.Targets = buildTargetsMap(providerSkills)
-
-		// Union artifacts from all providers into the base skill to ensure
-		// they are declared even if some providers are missing them.
-		allArtifacts := make(map[string]bool)
-		for _, s := range providerSkills {
-			for _, a := range s.Artifacts {
-				allArtifacts[a] = true
-			}
-		}
-		if len(allArtifacts) > 0 {
-			base.Artifacts = make([]string, 0, len(allArtifacts))
-			for a := range allArtifacts {
-				base.Artifacts = append(base.Artifacts, a)
-			}
-			sort.Strings(base.Artifacts)
-		}
-
-		result.Skills[name] = base
-		if result.Overrides == nil {
-			result.Overrides = &ast.ResourceOverrides{}
-		}
-		for provider, override := range overrides {
-			if !isEmptySkillOverride(override) {
-				result.Overrides.AddSkill(name, provider, override)
-			}
-		}
+		assembleSkillsCase(name, providerSkills, result)
 	}
 }
 
@@ -331,7 +336,7 @@ func splitHookOverrides(configs map[string]ast.NamedHookConfig) (ast.NamedHookCo
 	scores := make(map[string]int, len(configs))
 	for provider, cfg := range configs {
 		s := 0
-		if cfg.Events != nil && len(cfg.Events) > 0 {
+		if len(cfg.Events) > 0 {
 			s += 5
 		}
 		s += len(cfg.Artifacts)
@@ -349,6 +354,48 @@ func splitHookOverrides(configs map[string]ast.NamedHookConfig) (ast.NamedHookCo
 	return base, overrides
 }
 
+func assembleHooksCase(name string, providerHooks map[string]ast.NamedHookConfig, result *ast.XcaffoldConfig) {
+	if len(providerHooks) == 1 {
+		for _, hook := range providerHooks {
+			result.Hooks[name] = hook
+		}
+		return
+	}
+	if hookConfigsIdentical(providerHooks) {
+		for _, hook := range providerHooks {
+			result.Hooks[name] = hook
+			break
+		}
+		return
+	}
+	base, overrides := splitHookOverrides(providerHooks)
+	unionHookArtifacts(&base, providerHooks)
+
+	result.Hooks[name] = base
+	if result.Overrides == nil {
+		result.Overrides = &ast.ResourceOverrides{}
+	}
+	for provider, override := range overrides {
+		result.Overrides.AddHooks(name, provider, override)
+	}
+}
+
+func unionHookArtifacts(base *ast.NamedHookConfig, providerHooks map[string]ast.NamedHookConfig) {
+	allArtifacts := make(map[string]bool)
+	for _, h := range providerHooks {
+		for _, a := range h.Artifacts {
+			allArtifacts[a] = true
+		}
+	}
+	if len(allArtifacts) > 0 {
+		base.Artifacts = make([]string, 0, len(allArtifacts))
+		for a := range allArtifacts {
+			base.Artifacts = append(base.Artifacts, a)
+		}
+		sort.Strings(base.Artifacts)
+	}
+}
+
 // assembleHooks performs 2-pass assembly of hooks like assembleAgents but no Targets field.
 func assembleHooks(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.XcaffoldConfig) {
 	byName := make(map[string]map[string]ast.NamedHookConfig)
@@ -364,43 +411,7 @@ func assembleHooks(providerConfigs map[string]*ast.XcaffoldConfig, result *ast.X
 		result.Hooks = make(map[string]ast.NamedHookConfig)
 	}
 	for name, providerHooks := range byName {
-		if len(providerHooks) == 1 {
-			for _, hook := range providerHooks {
-				result.Hooks[name] = hook
-			}
-			continue
-		}
-		if hookConfigsIdentical(providerHooks) {
-			for _, hook := range providerHooks {
-				result.Hooks[name] = hook
-				break
-			}
-			continue
-		}
-		base, overrides := splitHookOverrides(providerHooks)
-
-		// Union artifacts from all providers into the base hook
-		allArtifacts := make(map[string]bool)
-		for _, h := range providerHooks {
-			for _, a := range h.Artifacts {
-				allArtifacts[a] = true
-			}
-		}
-		if len(allArtifacts) > 0 {
-			base.Artifacts = make([]string, 0, len(allArtifacts))
-			for a := range allArtifacts {
-				base.Artifacts = append(base.Artifacts, a)
-			}
-			sort.Strings(base.Artifacts)
-		}
-
-		result.Hooks[name] = base
-		if result.Overrides == nil {
-			result.Overrides = &ast.ResourceOverrides{}
-		}
-		for provider, override := range overrides {
-			result.Overrides.AddHooks(name, provider, override)
-		}
+		assembleHooksCase(name, providerHooks, result)
 	}
 }
 
@@ -573,76 +584,56 @@ func scoreSettingsConfig(cfg ast.SettingsConfig) int {
 		scoreSettingsStringFields(cfg)
 }
 
+func countNilPointers(ptrs ...interface{}) int {
+	count := 0
+	for _, p := range ptrs {
+		if p != nil {
+			count++
+		}
+	}
+	return count
+}
+
 // scoreSettingsPointerFields counts non-nil boolean/struct pointer fields.
 func scoreSettingsPointerFields(cfg ast.SettingsConfig) int {
-	s := 0
-	if cfg.Agent != nil {
-		s++
-	}
-	if cfg.Worktree != nil {
-		s++
-	}
-	if cfg.AutoMode != nil {
-		s++
-	}
-	if cfg.CleanupPeriodDays != nil {
-		s++
-	}
-	if cfg.IncludeGitInstructions != nil {
-		s++
-	}
-	if cfg.SkipDangerousModePermissionPrompt != nil {
-		s++
-	}
-	if cfg.Permissions != nil {
-		s++
-	}
-	if cfg.Sandbox != nil {
-		s++
-	}
-	if cfg.AutoMemoryEnabled != nil {
-		s++
-	}
-	if cfg.DisableAllHooks != nil {
-		s++
-	}
-	if cfg.Attribution != nil {
-		s++
-	}
-	if cfg.StatusLine != nil {
-		s++
-	}
-	if cfg.RespectGitignore != nil {
-		s++
-	}
-	if cfg.DisableSkillShellExecution != nil {
-		s++
-	}
-	if cfg.AlwaysThinkingEnabled != nil {
-		s++
-	}
-	return s
+	return countNilPointers(
+		cfg.Agent,
+		cfg.Worktree,
+		cfg.AutoMode,
+		cfg.CleanupPeriodDays,
+		cfg.IncludeGitInstructions,
+		cfg.SkipDangerousModePermissionPrompt,
+		cfg.Permissions,
+		cfg.Sandbox,
+		cfg.AutoMemoryEnabled,
+		cfg.DisableAllHooks,
+		cfg.Attribution,
+		cfg.StatusLine,
+		cfg.RespectGitignore,
+		cfg.DisableSkillShellExecution,
+		cfg.AlwaysThinkingEnabled,
+	)
 }
 
 // scoreSettingsCollectionFields counts non-empty map and slice fields.
 func scoreSettingsCollectionFields(cfg ast.SettingsConfig) int {
 	s := 0
-	if cfg.MCPServers != nil && len(cfg.MCPServers) > 0 {
+	if len(cfg.MCPServers) > 0 {
 		s++
 	}
-	if cfg.Hooks != nil && len(cfg.Hooks) > 0 {
+	if len(cfg.Hooks) > 0 {
 		s++
 	}
-	if cfg.Env != nil && len(cfg.Env) > 0 {
+	if len(cfg.Env) > 0 {
 		s++
 	}
-	if cfg.EnabledPlugins != nil && len(cfg.EnabledPlugins) > 0 {
+	if len(cfg.EnabledPlugins) > 0 {
 		s++
 	}
-	if cfg.AvailableModels != nil && len(cfg.AvailableModels) > 0 {
+	if len(cfg.AvailableModels) > 0 {
 		s++
 	}
-	if cfg.MdExcludes != nil && len(cfg.MdExcludes) > 0 {
+	if len(cfg.MdExcludes) > 0 {
 		s++
 	}
 	return s

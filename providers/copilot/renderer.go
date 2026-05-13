@@ -85,12 +85,15 @@ func (r *Renderer) CompileAgents(agents map[string]ast.AgentConfig, baseDir stri
 	if claudeDirExists(baseDir) {
 		var notes []renderer.FidelityNote
 		for _, id := range renderer.SortedKeys(agents) {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelInfo, targetName, "agent", id, "",
-				renderer.CodeClaudeNativePassthrough,
-				fmt.Sprintf("agent %q skipped; .claude/agents/%s.md detected and natively loaded by GitHub Copilot", id, id),
-				"No action needed — GitHub Copilot reads .claude/agents/ automatically",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelInfo,
+				Target:     targetName,
+				Kind:       "agent",
+				Resource:   id,
+				Code:       renderer.CodeClaudeNativePassthrough,
+				Reason:     fmt.Sprintf("agent %q skipped; .claude/agents/%s.md detected and natively loaded by GitHub Copilot", id, id),
+				Mitigation: "No action needed — GitHub Copilot reads .claude/agents/ automatically",
+			})
 		}
 		return files, notes, nil
 	}
@@ -107,12 +110,15 @@ func (r *Renderer) CompileSkills(skills map[string]ast.SkillConfig, baseDir stri
 	if claudeDirExists(baseDir) {
 		var notes []renderer.FidelityNote
 		for _, id := range renderer.SortedKeys(skills) {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelInfo, targetName, "skill", id, "",
-				renderer.CodeClaudeNativePassthrough,
-				fmt.Sprintf("skill %q skipped; .claude/skills/%s/SKILL.md detected and natively loaded by GitHub Copilot", id, id),
-				"No action needed — GitHub Copilot reads .claude/skills/ automatically",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelInfo,
+				Target:     targetName,
+				Kind:       "skill",
+				Resource:   id,
+				Code:       renderer.CodeClaudeNativePassthrough,
+				Reason:     fmt.Sprintf("skill %q skipped; .claude/skills/%s/SKILL.md detected and natively loaded by GitHub Copilot", id, id),
+				Mitigation: "No action needed — GitHub Copilot reads .claude/skills/ automatically",
+			})
 		}
 		return files, notes, nil
 	}
@@ -129,12 +135,15 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	if claudeDirExists(baseDir) {
 		var notes []renderer.FidelityNote
 		for _, id := range renderer.SortedKeys(rules) {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelInfo, targetName, "rule", id, "",
-				renderer.CodeClaudeNativePassthrough,
-				fmt.Sprintf("rule %q skipped; .claude/rules/ detected and natively loaded by GitHub Copilot", id),
-				"No action needed — GitHub Copilot reads .claude/rules/ automatically",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelInfo,
+				Target:     targetName,
+				Kind:       "rule",
+				Resource:   id,
+				Code:       renderer.CodeClaudeNativePassthrough,
+				Reason:     fmt.Sprintf("rule %q skipped; .claude/rules/ detected and natively loaded by GitHub Copilot", id),
+				Mitigation: "No action needed — GitHub Copilot reads .claude/rules/ automatically",
+			})
 		}
 		return files, notes, nil
 	}
@@ -233,12 +242,15 @@ func (r *Renderer) CompileProjectInstructions(config *ast.XcaffoldConfig, baseDi
 	files := make(map[string]string)
 	if claudeDirExists(baseDir) {
 		var notes []renderer.FidelityNote
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo, targetName, "instructions", "root", "",
-			renderer.CodeClaudeNativePassthrough,
-			"root project instructions skipped; CLAUDE.md detected and natively loaded by GitHub Copilot",
-			"No action needed — GitHub Copilot reads root CLAUDE.md automatically",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelInfo,
+			Target:     targetName,
+			Kind:       "instructions",
+			Resource:   "root",
+			Code:       renderer.CodeClaudeNativePassthrough,
+			Reason:     "root project instructions skipped; CLAUDE.md detected and natively loaded by GitHub Copilot",
+			Mitigation: "No action needed — GitHub Copilot reads root CLAUDE.md automatically",
+		})
 		// Nested scope instruction files are no longer supported natively via scope objects;
 		// use targeted Rule configurations instead.
 		return files, nil, notes, nil
@@ -443,12 +455,16 @@ func copilotAgentFidelityNotes(agent ast.AgentConfig, id string) []renderer.Fide
 	var notes []renderer.FidelityNote
 	for _, f := range unsupported {
 		if f.present {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "agent", id, f.name,
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("agent %q field %q has no Copilot equivalent and was dropped", id, f.name),
-				"Remove the field or use targets.copilot.provider pass-through",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "agent",
+				Resource:   id,
+				Field:      f.name,
+				Code:       renderer.CodeFieldUnsupported,
+				Reason:     fmt.Sprintf("agent %q field %q has no Copilot equivalent and was dropped", id, f.name),
+				Mitigation: "Remove the field or use targets.copilot.provider pass-through",
+			})
 		}
 	}
 	return notes
@@ -513,36 +529,49 @@ func buildCopilotSkillContent(skill ast.SkillConfig) string {
 func copilotSkillFidelityNotes(id string, skill ast.SkillConfig) []renderer.FidelityNote {
 	var notes []renderer.FidelityNote
 	if skill.WhenToUse != "" {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "skill", id, "when-to-use",
-			renderer.CodeFieldUnsupported,
-			fmt.Sprintf("skill %q field \"when-to-use\" has no Copilot equivalent and was dropped", id),
-			"Move when-to-use content into description",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "skill",
+			Resource:   id,
+			Field:      "when-to-use",
+			Code:       renderer.CodeFieldUnsupported,
+			Reason:     fmt.Sprintf("skill %q field \"when-to-use\" has no Copilot equivalent and was dropped", id),
+			Mitigation: "Move when-to-use content into description",
+		})
 	}
 	if skill.DisableModelInvocation != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "skill", id, "disable-model-invocation",
-			renderer.CodeFieldUnsupported,
-			fmt.Sprintf("skill %q field \"disable-model-invocation\" has no Copilot skill equivalent and was dropped", id),
-			"",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "disable-model-invocation",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   fmt.Sprintf("skill %q field \"disable-model-invocation\" has no Copilot skill equivalent and was dropped", id),
+		})
 	}
 	if skill.UserInvocable != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "skill", id, "user-invocable",
-			renderer.CodeFieldUnsupported,
-			fmt.Sprintf("skill %q field \"user-invocable\" has no Copilot skill equivalent and was dropped", id),
-			"",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "user-invocable",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   fmt.Sprintf("skill %q field \"user-invocable\" has no Copilot skill equivalent and was dropped", id),
+		})
 	}
 	if skill.ArgumentHint != "" {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "skill", id, "argument-hint",
-			renderer.CodeFieldUnsupported,
-			fmt.Sprintf("skill %q field \"argument-hint\" has no Copilot skill equivalent and was dropped", id),
-			"",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "argument-hint",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   fmt.Sprintf("skill %q field \"argument-hint\" has no Copilot skill equivalent and was dropped", id),
+		})
 	}
 	return notes
 }
@@ -569,17 +598,39 @@ func compileCopilotSkillArtifacts(j skillArtifactJob, artifacts []string) []rend
 		}
 		paths, err := renderer.DiscoverArtifactFiles(j.baseDir, skillSourceDir, artifactName)
 		if err != nil {
-			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", j.id, artifactName,
-				renderer.CodeSkillReferencesDropped,
-				fmt.Sprintf("skill %s artifact %s: discover files: %s", j.id, artifactName, err), "Check file paths"))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "skill",
+				Resource:   j.id,
+				Field:      artifactName,
+				Code:       renderer.CodeSkillReferencesDropped,
+				Reason:     fmt.Sprintf("skill %s artifact %s: discover files: %s", j.id, artifactName, err),
+				Mitigation: "Check file paths",
+			})
 			continue
 		}
 		if len(paths) == 0 {
 			continue
 		}
-		if err := renderer.CompileSkillSubdir(j.id, artifactName, outputSubdir, paths, j.baseDir, skillSourceDir, subOut); err != nil {
-			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", j.id, artifactName,
-				renderer.CodeSkillReferencesDropped, err.Error(), "Check file paths"))
+		if err := renderer.CompileSkillSubdir(renderer.SkillSubdirOpts{
+			ID:              j.id,
+			CanonicalSubdir: artifactName,
+			OutputSubdir:    outputSubdir,
+			Paths:           paths,
+			BaseDir:         j.baseDir,
+			SkillSourceDir:  skillSourceDir,
+		}, subOut); err != nil {
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "skill",
+				Resource:   j.id,
+				Field:      artifactName,
+				Code:       renderer.CodeSkillReferencesDropped,
+				Reason:     err.Error(),
+				Mitigation: "Check file paths",
+			})
 		}
 	}
 	for k, v := range subOut.Files {
@@ -596,16 +647,16 @@ func compileCopilotRule(id string, rule ast.RuleConfig, caps renderer.Capability
 
 	var applyTo string
 	if !renderer.ValidateRuleActivation(rule, caps) {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning,
-			targetName,
-			"rule",
-			id,
-			"activation",
-			renderer.CodeRuleActivationUnsupported,
-			fmt.Sprintf("rule %q: activation %q has no Copilot-native equivalent; emitted as applyTo: \"**\"", id, activation),
-			"Use activation: always or activation: path-glob for full Copilot compatibility.",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "rule",
+			Resource:   id,
+			Field:      "activation",
+			Code:       renderer.CodeRuleActivationUnsupported,
+			Reason:     fmt.Sprintf("rule %q: activation %q has no Copilot-native equivalent; emitted as applyTo: \"**\"", id, activation),
+			Mitigation: "Use activation: always or activation: path-glob for full Copilot compatibility.",
+		})
 		applyTo = `"**"`
 	} else {
 		switch activation {

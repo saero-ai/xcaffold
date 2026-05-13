@@ -99,20 +99,32 @@ func AppendUnique(slice []string, s string) []string {
 // rel is the slash-separated path relative to the walk root. data is the file contents.
 type FileVisitor func(rel string, data []byte) error
 
+// walkOptions holds internal parameters for the recursive walk.
+type walkOptions struct {
+	root    string
+	current string
+	prefix  string
+	visited map[string]bool
+}
+
 // WalkProviderDir walks dir recursively, calling visitor for each regular file.
 // Symlinks to directories are followed with cycle detection. Directories are
 // skipped. rel paths use forward slashes.
 func WalkProviderDir(dir string, visitor FileVisitor) error {
-	visited := make(map[string]bool)
-	return walkProviderDir(dir, dir, "", visitor, visited)
+	return walkProviderDir(walkOptions{
+		root:    dir,
+		current: dir,
+		prefix:  "",
+		visited: make(map[string]bool),
+	}, visitor)
 }
 
 // walkProviderDir walks current, computing relative paths from root.
 // prefix is prepended when walking a symlinked directory that resolves
 // outside root — it maps files back to the symlink's position in the
 // original tree.
-func walkProviderDir(root, current, prefix string, visitor FileVisitor, visited map[string]bool) error {
-	return filepath.WalkDir(current, func(path string, d fs.DirEntry, err error) error {
+func walkProviderDir(opts walkOptions, visitor FileVisitor) error {
+	return filepath.WalkDir(opts.current, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -129,31 +141,36 @@ func walkProviderDir(root, current, prefix string, visitor FileVisitor, visited 
 				return nil
 			}
 			if info.IsDir() {
-				if visited[target] {
+				if opts.visited[target] {
 					return nil
 				}
-				visited[target] = true
-				symlinkRel, relErr := filepath.Rel(root, path)
+				opts.visited[target] = true
+				symlinkRel, relErr := filepath.Rel(opts.root, path)
 				if relErr != nil {
 					symlinkRel = filepath.Base(path)
 				}
-				if prefix != "" {
-					symlinkRel = filepath.Join(prefix, symlinkRel)
+				if opts.prefix != "" {
+					symlinkRel = filepath.Join(opts.prefix, symlinkRel)
 				}
-				return walkProviderDir(target, target, symlinkRel, visitor, visited)
+				return walkProviderDir(walkOptions{
+					root:    opts.root,
+					current: target,
+					prefix:  symlinkRel,
+					visited: opts.visited,
+				}, visitor)
 			}
 			path = target
 		}
 		var rel string
-		if prefix != "" {
-			fileRel, relErr := filepath.Rel(current, path)
+		if opts.prefix != "" {
+			fileRel, relErr := filepath.Rel(opts.current, path)
 			if relErr != nil {
 				return fmt.Errorf("rel path: %w", relErr)
 			}
-			rel = filepath.Join(prefix, fileRel)
+			rel = filepath.Join(opts.prefix, fileRel)
 		} else {
 			var relErr error
-			rel, relErr = filepath.Rel(root, path)
+			rel, relErr = filepath.Rel(opts.root, path)
 			if relErr != nil {
 				return fmt.Errorf("rel path: %w", relErr)
 			}

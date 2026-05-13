@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const requiredLabel = "required"
+
 func runHelpXcaf(cmd *cobra.Command, kind string, outPath string, outChanged bool) error {
 	ks, ok := schema.LookupKind(kind)
 	if !ok {
@@ -38,7 +40,7 @@ func displayKindSchema(cmd *cobra.Command, ks schema.KindSchema) {
 		for _, f := range g.fields {
 			req := "optional"
 			if !f.Optional {
-				req = "required"
+				req = requiredLabel
 			}
 			fmt.Fprintf(w, "    %-26s%-16s%-10s%s\n", f.YAMLKey, f.XCAFType, req, f.Description)
 			printFieldConstraints(w, f)
@@ -94,8 +96,8 @@ func formatProviderSupport(providers map[string]string) string {
 		// Capitalize first letter of provider name
 		capitalized := strings.ToUpper(name[:1]) + name[1:]
 
-		if support == "required" {
-			parts = append(parts, capitalized+"(required)")
+		if support == requiredLabel {
+			parts = append(parts, capitalized+"("+requiredLabel+")")
 		} else {
 			// "optional" is the default, so just show the name
 			parts = append(parts, capitalized)
@@ -210,7 +212,7 @@ func writeGroupFields(sb *strings.Builder, fields []schema.Field) {
 	for _, f := range fields {
 		req := "optional"
 		if !f.Optional {
-			req = "required"
+			req = requiredLabel
 		}
 		sb.WriteString(fmt.Sprintf("# %s (%s, %s): %s\n", f.YAMLKey, f.XCAFType, req, f.Description))
 		sb.WriteString(buildMarkerComment(f))

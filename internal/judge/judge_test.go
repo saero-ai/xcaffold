@@ -53,26 +53,54 @@ func (t *rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 // --- Mode selection tests ---
 
 func TestNew_APIKeyMode_WhenKeyProvided(t *testing.T) {
-	j, err := New("sk-test-key", "", "", "claude-haiku-4-5", "", nil)
+	j, err := New(JudgeConfig{
+		AnthropicKey:  "sk-test-key",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5",
+		CLIPath:       "",
+		HTTPClient:    nil,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, auth.AuthModeAPIKey, j.AuthMode())
 }
 
 func TestNew_SubscriptionMode_WhenNoKey(t *testing.T) {
-	j, err := New("", "", "", "claude-haiku-4-5", "", nil)
+	j, err := New(JudgeConfig{
+		AnthropicKey:  "",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5",
+		CLIPath:       "",
+		HTTPClient:    nil,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, auth.AuthModeSubscription, j.AuthMode())
 }
 
 func TestNew_EmptyModel_ReturnsError(t *testing.T) {
-	j, err := New("sk-test-key", "", "", "", "", nil)
+	j, err := New(JudgeConfig{
+		AnthropicKey:  "sk-test-key",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "",
+		CLIPath:       "",
+		HTTPClient:    nil,
+	})
 	require.Error(t, err)
 	assert.Nil(t, j)
 	assert.Contains(t, err.Error(), "model must be specified")
 }
 
 func TestNew_CustomClaudePath(t *testing.T) {
-	j, err := New("", "", "", "claude-haiku-4-5", "/usr/local/bin/claude", nil)
+	j, err := New(JudgeConfig{
+		AnthropicKey:  "",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5",
+		CLIPath:       "/usr/local/bin/claude",
+		HTTPClient:    nil,
+	})
 	require.NoError(t, err)
 	assert.NotNil(t, j)
 }
@@ -80,7 +108,14 @@ func TestNew_CustomClaudePath(t *testing.T) {
 // --- No-assertion fast path ---
 
 func TestEvaluate_NoAssertions_ReturnsEmptyReport(t *testing.T) {
-	j, err := New("test-key", "", "", "claude-haiku-4-5", "", nil)
+	j, err := New(JudgeConfig{
+		AnthropicKey:  "test-key",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5",
+		CLIPath:       "",
+		HTTPClient:    nil,
+	})
 	require.NoError(t, err)
 	report, err := j.Evaluate(context.Background(), makeSummary(), []string{})
 	require.NoError(t, err)
@@ -102,8 +137,15 @@ func TestEvaluate_APIKey_ParsesReport(t *testing.T) {
 	ts := mockLLMServer(string(respBytes), http.StatusOK)
 	defer ts.Close()
 
-	j, err := New("test-key", "", "", "claude-haiku-4-5", "", &http.Client{
-		Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
+	j, err := New(JudgeConfig{
+		AnthropicKey:  "test-key",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5",
+		CLIPath:       "",
+		HTTPClient: &http.Client{
+			Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
+		},
 	})
 	require.NoError(t, err)
 
@@ -118,8 +160,15 @@ func TestEvaluate_APIKey_ErrorOnNon200(t *testing.T) {
 	ts := mockLLMServer(`{"error":{"message":"unauthorized"}}`, http.StatusUnauthorized)
 	defer ts.Close()
 
-	j, err := New("bad-key", "", "", "claude-haiku-4-5", "", &http.Client{
-		Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
+	j, err := New(JudgeConfig{
+		AnthropicKey:  "bad-key",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5",
+		CLIPath:       "",
+		HTTPClient: &http.Client{
+			Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
+		},
 	})
 	require.NoError(t, err)
 
@@ -185,8 +234,15 @@ func TestEvaluate_GenericAPI_ParsesReport(t *testing.T) {
 	ts := mockLLMServer(string(respBytes), http.StatusOK)
 	defer ts.Close()
 
-	j, err := New("", "generic-test-key", ts.URL, "gpt-4o", "", &http.Client{
-		Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
+	j, err := New(JudgeConfig{
+		AnthropicKey:  "",
+		GenericAPIKey: "generic-test-key",
+		APIBaseURL:    ts.URL,
+		Model:         "gpt-4o",
+		CLIPath:       "",
+		HTTPClient: &http.Client{
+			Transport: &rewriteTransport{base: ts.Client().Transport, target: ts.URL},
+		},
 	})
 	require.NoError(t, err)
 
@@ -197,13 +253,27 @@ func TestEvaluate_GenericAPI_ParsesReport(t *testing.T) {
 }
 
 func TestNew_GenericAPIKeyTakesPrecedence(t *testing.T) {
-	j, err := New("target-key", "generic-key", "", "claude-haiku-4-5", "", nil)
+	j, err := New(JudgeConfig{
+		AnthropicKey:  "target-key",
+		GenericAPIKey: "generic-key",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5",
+		CLIPath:       "",
+		HTTPClient:    nil,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, auth.AuthModeGenericAPI, j.AuthMode())
 }
 
 func TestNew_RejectsInvalidBaseURL(t *testing.T) {
-	_, err := New("", "key", "http://169.254.169.254", "gpt-4o", "", nil)
+	_, err := New(JudgeConfig{
+		AnthropicKey:  "",
+		GenericAPIKey: "key",
+		APIBaseURL:    "http://169.254.169.254",
+		Model:         "gpt-4o",
+		CLIPath:       "",
+		HTTPClient:    nil,
+	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "prohibited")
 }

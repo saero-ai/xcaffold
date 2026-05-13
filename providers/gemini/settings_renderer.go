@@ -109,12 +109,16 @@ func compileGeminiHooks(hooks ast.HookConfig) (map[string][]geminiHookEvent, []r
 		groups := hooks[eventName]
 		geminiEvent, ok := mapEventName(eventName)
 		if !ok {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "hooks", "hooks", eventName,
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("hook event %q has no Gemini CLI equivalent and was dropped", eventName),
-				"Remove this hook or replace it with a Gemini-native event (BeforeTool, AfterTool, SessionStart, etc.)",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "hooks",
+				Resource:   "hooks",
+				Field:      eventName,
+				Code:       renderer.CodeFieldUnsupported,
+				Reason:     fmt.Sprintf("hook event %q has no Gemini CLI equivalent and was dropped", eventName),
+				Mitigation: "Remove this hook or replace it with a Gemini-native event (BeforeTool, AfterTool, SessionStart, etc.)",
+			})
 			continue
 		}
 
@@ -175,28 +179,40 @@ func detectUnsupportedSettingsFields(settings ast.SettingsConfig) []renderer.Fid
 	var notes []renderer.FidelityNote
 
 	if settings.Permissions != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "settings", "permissions",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.permissions has no Gemini CLI equivalent and was dropped",
-			"Remove permissions or enforce access control via hooks",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "settings",
+			Field:      "permissions",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.permissions has no Gemini CLI equivalent and was dropped",
+			Mitigation: "Remove permissions or enforce access control via hooks",
+		})
 	}
 	if settings.Sandbox != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "settings", "sandbox",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.sandbox has no Gemini CLI equivalent and was dropped",
-			"Remove sandbox configuration for Gemini targets",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "settings",
+			Field:      "sandbox",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.sandbox has no Gemini CLI equivalent and was dropped",
+			Mitigation: "Remove sandbox configuration for Gemini targets",
+		})
 	}
 	if settings.StatusLine != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "settings", "statusLine",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.statusLine has no Gemini CLI equivalent and was dropped",
-			"Remove statusLine or use targets.gemini.provider pass-through",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "settings",
+			Field:      "statusLine",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.statusLine has no Gemini CLI equivalent and was dropped",
+			Mitigation: "Remove statusLine or use targets.gemini.provider pass-through",
+		})
 	}
 
 	return notes

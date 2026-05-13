@@ -79,12 +79,16 @@ func SanitizeAgentTools(tools []string, caps CapabilitySet, targetName, agentID 
 	}
 
 	if len(dropped) > 0 {
-		notes = append(notes, NewNote(
-			LevelWarning, targetName, "agent", agentID, "tools",
-			CodeAgentToolsDropped,
-			fmt.Sprintf("agent %q drops native tools %v; only MCP/custom tools supported on %s", agentID, dropped, targetName),
-			fmt.Sprintf("Remove native tools from %s tools list or accept dropped capability", targetName),
-		))
+		notes = append(notes, FidelityNote{
+			Level:      LevelWarning,
+			Target:     targetName,
+			Kind:       "agent",
+			Resource:   agentID,
+			Field:      "tools",
+			Code:       CodeAgentToolsDropped,
+			Reason:     fmt.Sprintf("agent %q drops native tools %v; only MCP/custom tools supported on %s", agentID, dropped, targetName),
+			Mitigation: fmt.Sprintf("Remove native tools from %s tools list or accept dropped capability", targetName),
+		})
 	}
 
 	return sanitized, notes

@@ -133,16 +133,15 @@ func applyGeminiMemoryEntries(content string, names []string, memory map[string]
 		}
 		content += block
 
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo,
-			"gemini",
-			"memory",
-			name,
-			"",
-			renderer.CodeMemoryPartialFidelity,
-			"Gemini has no native multi-file memory store; entry appended to GEMINI.md, losing per-file granularity",
-			"Review GEMINI.md to confirm context ordering.",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelInfo,
+			Target:     "gemini",
+			Kind:       "memory",
+			Resource:   name,
+			Code:       renderer.CodeMemoryPartialFidelity,
+			Reason:     "Gemini has no native multi-file memory store; entry appended to GEMINI.md, losing per-file granularity",
+			Mitigation: "Review GEMINI.md to confirm context ordering.",
+		})
 	}
 
 	return content, notes, nil

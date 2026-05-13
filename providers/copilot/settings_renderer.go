@@ -85,12 +85,16 @@ func compileCopilotHooks(hookConfig ast.HookConfig) (string, []renderer.Fidelity
 		groups := hookConfig[eventName]
 		copilotEvent, ok := mapCopilotEvent(eventName)
 		if !ok {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "hooks", "hooks", eventName,
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("hook event %q has no Copilot equivalent and was dropped", eventName),
-				"Remove this hook or replace it with a supported event (PreToolUse, PostToolUse, SessionStart, etc.)",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "hooks",
+				Resource:   "hooks",
+				Field:      eventName,
+				Code:       renderer.CodeFieldUnsupported,
+				Reason:     fmt.Sprintf("hook event %q has no Copilot equivalent and was dropped", eventName),
+				Mitigation: "Remove this hook or replace it with a supported event (PreToolUse, PostToolUse, SessionStart, etc.)",
+			})
 			continue
 		}
 
@@ -148,12 +152,16 @@ func compileCopilotMCP(mcpServers map[string]ast.MCPConfig) (string, []renderer.
 	for _, id := range sortedStringKeys(mcpServers) {
 		srv := mcpServers[id]
 		if srv.Command == "" && srv.URL == "" {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "mcp", id, "command",
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("MCP server %q has neither command nor url and was omitted from .vscode/mcp.json", id),
-				"Set command or url on the MCP server config",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "mcp",
+				Resource:   id,
+				Field:      "command",
+				Code:       renderer.CodeFieldUnsupported,
+				Reason:     fmt.Sprintf("MCP server %q has neither command nor url and was omitted from .vscode/mcp.json", id),
+				Mitigation: "Set command or url on the MCP server config",
+			})
 			continue
 		}
 		servers[id] = vscodeEntry{
@@ -166,12 +174,16 @@ func compileCopilotMCP(mcpServers map[string]ast.MCPConfig) (string, []renderer.
 	}
 
 	if len(servers) > 0 {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "mcp", "mcp", "activation",
-			renderer.CodeMCPGlobalConfigOnly,
-			"Copilot requires MCP servers to be configured globally in VS Code settings.json",
-			"Manually add the MCP server command to github.copilot.chat.mcp in settings.json",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "mcp",
+			Resource:   "mcp",
+			Field:      "activation",
+			Code:       renderer.CodeMCPGlobalConfigOnly,
+			Reason:     "Copilot requires MCP servers to be configured globally in VS Code settings.json",
+			Mitigation: "Manually add the MCP server command to github.copilot.chat.mcp in settings.json",
+		})
 	}
 
 	out := map[string]any{
@@ -201,28 +213,40 @@ func detectUnsupportedCopilotSettings(settings *ast.SettingsConfig) []renderer.F
 	var notes []renderer.FidelityNote
 
 	if settings.Permissions != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "settings", "permissions",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.permissions has no Copilot equivalent and was dropped",
-			"Remove permissions or enforce access control via hooks",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "settings",
+			Field:      "permissions",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.permissions has no Copilot equivalent and was dropped",
+			Mitigation: "Remove permissions or enforce access control via hooks",
+		})
 	}
 	if settings.Sandbox != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "settings", "sandbox",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.sandbox has no Copilot equivalent and was dropped",
-			"Remove sandbox configuration for Copilot targets",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "settings",
+			Field:      "sandbox",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.sandbox has no Copilot equivalent and was dropped",
+			Mitigation: "Remove sandbox configuration for Copilot targets",
+		})
 	}
 	if settings.StatusLine != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "settings", "settings", "statusLine",
-			renderer.CodeSettingsFieldUnsupported,
-			"settings.statusLine has no Copilot equivalent and was dropped",
-			"Remove statusLine or use targets.copilot.provider pass-through",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "settings",
+			Resource:   "settings",
+			Field:      "statusLine",
+			Code:       renderer.CodeSettingsFieldUnsupported,
+			Reason:     "settings.statusLine has no Copilot equivalent and was dropped",
+			Mitigation: "Remove statusLine or use targets.copilot.provider pass-through",
+		})
 	}
 
 	return notes

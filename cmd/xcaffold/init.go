@@ -131,7 +131,7 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	}
 	projectName := filepath.Base(cwd)
 
-	fmt.Println(formatHeader(projectName, "", false, "", ""))
+	fmt.Println(formatHeader(headerInfo{project: projectName}))
 	fmt.Println()
 	fmt.Println("  Initializing xcaffold project.")
 
@@ -164,7 +164,12 @@ func initProject(cmd *cobra.Command) error {
 
 	// Case C: Provider dirs detected (offer import)
 	if len(detected) > 0 {
-		handled, err := handleProviderDetected(cmd, detected, hasExistingScaffold, currentConfig, xcafFile)
+		handled, err := handleProviderDetected(cmd, providerDetectedOpts{
+			detected:            detected,
+			hasExistingScaffold: hasExistingScaffold,
+			currentConfig:       currentConfig,
+			xcafFile:            xcafFile,
+		})
 		if err != nil || handled {
 			return err
 		}
@@ -336,7 +341,7 @@ func resolveTargetMeta(target string) (model, binary string) {
 func handleExistingScaffoldNoProviders(cmd *cobra.Command, xcafFile string) error {
 	cwd, _ := os.Getwd()
 	projectName := filepath.Base(cwd)
-	fmt.Println(formatHeader(projectName, "", false, "", "already initialized"))
+	fmt.Println(formatHeader(headerInfo{project: projectName, lastApplied: "already initialized"}))
 	fmt.Println()
 	fmt.Printf("  %s project.xcaf exists.\n", glyphNever())
 	fmt.Println()
@@ -555,32 +560,38 @@ func applyTargetFlagOverride(xcafFile string) error {
 	return WriteProjectFile(config, rootDir)
 }
 
+// providerDetectedOpts bundles parameters for handleProviderDetected.
+type providerDetectedOpts struct {
+	detected            []importer.ProviderImporter
+	hasExistingScaffold bool
+	currentConfig       *ast.XcaffoldConfig
+	xcafFile            string
+}
+
 // handleProviderDetected orchestrates the flow when provider directories are detected
 // (Case C), offering import with toolkit update or fallback to new project wizard.
-func handleProviderDetected(cmd *cobra.Command, detected []importer.ProviderImporter,
-	hasExistingScaffold bool, currentConfig *ast.XcaffoldConfig, xcafFile string) (bool, error) {
-
-	printProviderDetectionHeader(hasExistingScaffold)
-	if currentConfig != nil {
-		renderCurrentStateTable(cmd, currentConfig)
+func handleProviderDetected(cmd *cobra.Command, opts providerDetectedOpts) (bool, error) {
+	printProviderDetectionHeader(opts.hasExistingScaffold)
+	if opts.currentConfig != nil {
+		renderCurrentStateTable(cmd, opts.currentConfig)
 		fmt.Println()
 	}
-	renderCompiledOutputTable(cmd, detected)
+	renderCompiledOutputTable(cmd, opts.detected)
 
-	doImport, err := promptForImport(detected, hasExistingScaffold)
+	doImport, err := promptForImport(opts.detected, opts.hasExistingScaffold)
 	if err != nil {
 		return false, err
 	}
 
 	if !doImport {
-		if hasExistingScaffold {
-			if err := handleToolkitUpdate(currentConfig); err != nil {
+		if opts.hasExistingScaffold {
+			if err := handleToolkitUpdate(opts.currentConfig); err != nil {
 				return false, err
 			}
-			if err := applyTargetFlagOverride(xcafFile); err != nil {
+			if err := applyTargetFlagOverride(opts.xcafFile); err != nil {
 				return false, err
 			}
-			tryAutoRegister(xcafFile)
+			tryAutoRegister(opts.xcafFile)
 			return true, nil
 		}
 		fmt.Printf("\n  %s Skipping import. Continuing with fresh scaffold.\n", glyphNever())
@@ -588,10 +599,10 @@ func handleProviderDetected(cmd *cobra.Command, detected []importer.ProviderImpo
 		return false, nil
 	}
 
-	if err := handleProviderImport(cmd, detected, xcafFile); err != nil {
+	if err := handleProviderImport(cmd, opts.detected, opts.xcafFile); err != nil {
 		return false, err
 	}
-	if err := applyTargetFlagOverride(xcafFile); err != nil {
+	if err := applyTargetFlagOverride(opts.xcafFile); err != nil {
 		return false, err
 	}
 	return true, nil

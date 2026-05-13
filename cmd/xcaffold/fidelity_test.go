@@ -16,16 +16,15 @@ func TestPrintFidelityNotes_Suppressed(t *testing.T) {
 	var buf bytes.Buffer
 
 	notes := []renderer.FidelityNote{
-		renderer.NewNote(
-			renderer.LevelWarning,
-			"cursor",
-			"agent",
-			"reviewer",
-			"permission-mode",
-			renderer.CodeFieldUnsupported,
-			"permission-mode unsupported",
-			"",
-		),
+		{
+			Level:    renderer.LevelWarning,
+			Target:   "cursor",
+			Kind:     "agent",
+			Resource: "reviewer",
+			Field:    "permission-mode",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   "permission-mode unsupported",
+		},
 	}
 
 	suppressed := map[string]bool{"reviewer": true}
@@ -40,16 +39,15 @@ func TestPrintFidelityNotes_VerboseMode_PrintsWarnings(t *testing.T) {
 	var buf bytes.Buffer
 
 	notes := []renderer.FidelityNote{
-		renderer.NewNote(
-			renderer.LevelWarning,
-			"cursor",
-			"agent",
-			"analyst",
-			"isolation",
-			renderer.CodeFieldUnsupported,
-			"isolation unsupported",
-			"",
-		),
+		{
+			Level:    renderer.LevelWarning,
+			Target:   "cursor",
+			Kind:     "agent",
+			Resource: "analyst",
+			Field:    "isolation",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   "isolation unsupported",
+		},
 	}
 
 	// When verbose=true, warnings should be printed
@@ -62,13 +60,15 @@ func TestPrintFidelityNotes_VerboseFalse_FiltersWarnings(t *testing.T) {
 	var buf bytes.Buffer
 
 	notes := []renderer.FidelityNote{
-		renderer.NewNote(
-			renderer.LevelWarning,
-			"cursor", "settings", "global", "permissions",
-			renderer.CodeSettingsFieldUnsupported,
-			"permissions dropped",
-			"",
-		),
+		{
+			Level:    renderer.LevelWarning,
+			Target:   "cursor",
+			Kind:     "settings",
+			Resource: "global",
+			Field:    "permissions",
+			Code:     renderer.CodeSettingsFieldUnsupported,
+			Reason:   "permissions dropped",
+		},
 	}
 
 	// When verbose=false, warnings should be filtered out

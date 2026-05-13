@@ -35,16 +35,15 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, _ string) (*output.
 
 	notes := make([]renderer.FidelityNote, 0, len(names))
 	for _, name := range names {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo,
-			targetName,
-			"memory",
-			name,
-			"",
-			renderer.CodeMemoryNoNativeTarget,
-			"Cursor has no native memory primitive; add this context to `.cursorrules` or a rule with activation: always.",
-			fmt.Sprintf("Add the content of memory entry %q to .cursorrules, or declare a rule with `activation: always` in .xcaf.", name),
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelInfo,
+			Target:     targetName,
+			Kind:       "memory",
+			Resource:   name,
+			Code:       renderer.CodeMemoryNoNativeTarget,
+			Reason:     "Cursor has no native memory primitive; add this context to `.cursorrules` or a rule with activation: always.",
+			Mitigation: fmt.Sprintf("Add the content of memory entry %q to .cursorrules, or declare a rule with `activation: always` in .xcaf.", name),
+		})
 	}
 	return out, notes, nil
 }

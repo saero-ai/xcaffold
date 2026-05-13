@@ -16,16 +16,16 @@ import (
 )
 
 func TestFidelityNote_JSON_RoundTrip(t *testing.T) {
-	note := renderer.NewNote(
-		renderer.LevelWarning,
-		"cursor",
-		"agent",
-		"code-review",
-		"permissionMode",
-		"AGENT_SECURITY_FIELDS_DROPPED",
-		"permissionMode has no Cursor equivalent and was dropped",
-		"Remove permissionMode from the cursor target override",
-	)
+	note := renderer.FidelityNote{
+		Level:      renderer.LevelWarning,
+		Target:     "cursor",
+		Kind:       "agent",
+		Resource:   "code-review",
+		Field:      "permissionMode",
+		Code:       "AGENT_SECURITY_FIELDS_DROPPED",
+		Reason:     "permissionMode has no Cursor equivalent and was dropped",
+		Mitigation: "Remove permissionMode from the cursor target override",
+	}
 
 	data, err := json.Marshal(note)
 	require.NoError(t, err)
@@ -44,16 +44,14 @@ func TestFidelityNote_JSON_RoundTrip(t *testing.T) {
 }
 
 func TestFidelityNote_JSON_OmitsEmptyField(t *testing.T) {
-	note := renderer.NewNote(
-		renderer.LevelInfo,
-		"claude",
-		"settings",
-		"global",
-		"",
-		"FIELD_TRANSFORMED",
-		"mcpServers merged from settings block",
-		"",
-	)
+	note := renderer.FidelityNote{
+		Level:    renderer.LevelInfo,
+		Target:   "claude",
+		Kind:     "settings",
+		Resource: "global",
+		Code:     "FIELD_TRANSFORMED",
+		Reason:   "mcpServers merged from settings block",
+	}
 
 	data, err := json.Marshal(note)
 	require.NoError(t, err)
@@ -187,8 +185,8 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 
 func TestFilterNotes_EmptySuppressionMap_ReturnsAll(t *testing.T) {
 	notes := []renderer.FidelityNote{
-		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "reviewer", "", "CODE1", "reason", ""),
-		renderer.NewNote(renderer.LevelInfo, "cursor", "skill", "linter", "", "CODE2", "reason", ""),
+		{Level: renderer.LevelWarning, Target: "cursor", Kind: "agent", Resource: "reviewer", Code: "CODE1", Reason: "reason"},
+		{Level: renderer.LevelInfo, Target: "cursor", Kind: "skill", Resource: "linter", Code: "CODE2", Reason: "reason"},
 	}
 	got := renderer.FilterNotes(notes, nil)
 	assert.Equal(t, notes, got)
@@ -196,7 +194,7 @@ func TestFilterNotes_EmptySuppressionMap_ReturnsAll(t *testing.T) {
 
 func TestFilterNotes_EmptySuppressionMapExplicit_ReturnsAll(t *testing.T) {
 	notes := []renderer.FidelityNote{
-		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "reviewer", "", "CODE1", "reason", ""),
+		{Level: renderer.LevelWarning, Target: "cursor", Kind: "agent", Resource: "reviewer", Code: "CODE1", Reason: "reason"},
 	}
 	got := renderer.FilterNotes(notes, map[string]bool{})
 	assert.Equal(t, notes, got)
@@ -204,8 +202,8 @@ func TestFilterNotes_EmptySuppressionMapExplicit_ReturnsAll(t *testing.T) {
 
 func TestFilterNotes_SuppressedResource_Excluded(t *testing.T) {
 	notes := []renderer.FidelityNote{
-		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "quiet", "", "CODE1", "reason", ""),
-		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "loud", "", "CODE2", "reason", ""),
+		{Level: renderer.LevelWarning, Target: "cursor", Kind: "agent", Resource: "quiet", Code: "CODE1", Reason: "reason"},
+		{Level: renderer.LevelWarning, Target: "cursor", Kind: "agent", Resource: "loud", Code: "CODE2", Reason: "reason"},
 	}
 	suppressed := map[string]bool{"quiet": true}
 	got := renderer.FilterNotes(notes, suppressed)
@@ -215,8 +213,8 @@ func TestFilterNotes_SuppressedResource_Excluded(t *testing.T) {
 
 func TestFilterNotes_AllSuppressed_ReturnsEmpty(t *testing.T) {
 	notes := []renderer.FidelityNote{
-		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "a", "", "CODE1", "reason", ""),
-		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "b", "", "CODE2", "reason", ""),
+		{Level: renderer.LevelWarning, Target: "cursor", Kind: "agent", Resource: "a", Code: "CODE1", Reason: "reason"},
+		{Level: renderer.LevelWarning, Target: "cursor", Kind: "agent", Resource: "b", Code: "CODE2", Reason: "reason"},
 	}
 	suppressed := map[string]bool{"a": true, "b": true}
 	got := renderer.FilterNotes(notes, suppressed)
@@ -235,9 +233,9 @@ func TestFilterNotes_EmptyInputNotes_ReturnsEmpty(t *testing.T) {
 
 func TestFilterNotes_PreservesOrder(t *testing.T) {
 	notes := []renderer.FidelityNote{
-		renderer.NewNote(renderer.LevelInfo, "cursor", "agent", "first", "", "C1", "r1", ""),
-		renderer.NewNote(renderer.LevelWarning, "cursor", "agent", "second", "", "C2", "r2", ""),
-		renderer.NewNote(renderer.LevelError, "cursor", "agent", "third", "", "C3", "r3", ""),
+		{Level: renderer.LevelInfo, Target: "cursor", Kind: "agent", Resource: "first", Code: "C1", Reason: "r1"},
+		{Level: renderer.LevelWarning, Target: "cursor", Kind: "agent", Resource: "second", Code: "C2", Reason: "r2"},
+		{Level: renderer.LevelError, Target: "cursor", Kind: "agent", Resource: "third", Code: "C3", Reason: "r3"},
 	}
 	suppressed := map[string]bool{"second": true}
 	got := renderer.FilterNotes(notes, suppressed)

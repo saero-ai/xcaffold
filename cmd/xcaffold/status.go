@@ -61,7 +61,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			projectName := filepath.Base(dir)
-			fmt.Println(formatHeader(projectName, statusBlueprintFlag, globalFlag, "", ""))
+			fmt.Println(formatHeader(headerInfo{project: projectName, blueprint: statusBlueprintFlag, isGlobal: globalFlag}))
 			fmt.Println()
 			fmt.Printf("  %s  No compilation state found.\n", glyphNever())
 			fmt.Println()
@@ -81,7 +81,7 @@ func runStatusOverview(dir string, manifest *state.StateManifest, showAll bool) 
 	projectName := filepath.Base(dir)
 	lastApplied := findMostRecentApply(manifest.Targets)
 
-	fmt.Println(formatHeader(projectName, statusBlueprintFlag, globalFlag, "", lastApplied))
+	fmt.Println(formatHeader(headerInfo{project: projectName, blueprint: statusBlueprintFlag, isGlobal: globalFlag, lastApplied: lastApplied}))
 	fmt.Println()
 
 	rows, allDriftedFiles := buildProviderRows(dir, manifest)
@@ -249,7 +249,7 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 	synced := len(ts.Artifacts) - drifted
 	srcChanged := countChangedSources(dir, manifest.SourceFiles)
 
-	fmt.Println(formatHeader(projectName, statusBlueprintFlag, globalFlag, target, ts.LastApplied))
+	fmt.Println(formatHeader(headerInfo{project: projectName, blueprint: statusBlueprintFlag, isGlobal: globalFlag, provider: target, lastApplied: ts.LastApplied}))
 	fmt.Println()
 
 	printTargetSummary(synced, drifted, len(manifest.SourceFiles), srcChanged)

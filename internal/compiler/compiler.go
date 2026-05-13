@@ -17,18 +17,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// CompileOpts bundles compilation parameters to reduce function arity.
+type CompileOpts struct {
+	Target    string
+	Blueprint string
+	VarFile   string
+}
+
 // Compile translates an XcaffoldConfig AST into platform-native files.
-// target selects the output platform (see providers.PrimaryNames() for supported values).
+// opts.Target selects the output platform (see providers.PrimaryNames() for supported values).
 // An empty target returns an error.
-// blueprintName narrows compilation to the named blueprint's resource subset.
-// If blueprintName is empty, all resources are compiled.
+// opts.Blueprint narrows compilation to the named blueprint's resource subset.
+// If opts.Blueprint is empty, all resources are compiled.
 //
 // When a project config has both root-level resources (global scope, from extends
 // or implicit global loading) and project-level resources (inside the project: block),
 // the compiler merges them before rendering. Project resources override global
 // resources by ID. After merging, inherited resources are stripped so global
 // configurations are not physically duplicated into local project directories.
-func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprintName string, varFile string) (*output.Output, []renderer.FidelityNote, error) {
+func Compile(config *ast.XcaffoldConfig, baseDir string, opts CompileOpts) (*output.Output, []renderer.FidelityNote, error) {
+	target := opts.Target
+	blueprintName := opts.Blueprint
+	varFile := opts.VarFile
 	if target == "" {
 		return nil, nil, fmt.Errorf("target is required; supported: %s", strings.Join(providers.PrimaryNames(), ", "))
 	}

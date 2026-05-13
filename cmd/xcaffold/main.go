@@ -169,7 +169,7 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 	globalXcafHome = filepath.Join(home, ".xcaffold")
 
 	if cmd.Name() != "init" && cmd.Name() != "import" {
-		fmt.Println(formatHeader("~", "", true, "", ""))
+		fmt.Println(formatHeader(headerInfo{project: "~", isGlobal: true}))
 		fmt.Println()
 		fmt.Printf("  %s  Global scope is not yet available.\n", glyphErr())
 		fmt.Println()

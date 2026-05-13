@@ -13,10 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	testBlueprintName = "my-blueprint"
+	testBPName        = "test-bp"
+)
+
 // TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal verifies that
 // --blueprint and --global are mutually exclusive on apply.
 func TestRunApply_BlueprintFlag_MutualExclusion_WithGlobal(t *testing.T) {
-	applyBlueprintFlag = "my-blueprint"
+	applyBlueprintFlag = testBlueprintName
 	globalFlag = true
 	defer func() {
 		applyBlueprintFlag = ""
@@ -68,7 +73,7 @@ Use pnpm. PostgreSQL 16.
 
 	// Set up targetFlag for this test
 	oldTargetFlag := targetFlag
-	targetFlag = "claude"
+	targetFlag = testTarget
 	defer func() { targetFlag = oldTargetFlag }()
 
 	// Act
@@ -131,12 +136,12 @@ func TestApplyScope_MissingXCAF(t *testing.T) {
 
 func TestResolveTargets_FlagOverride(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "xcaf"), 0o755)
-	os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [gemini]\n"), 0o644)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [gemini]\n"), 0o644))
 
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&targetFlag, "target", "", "")
-	cmd.Flags().Set("target", "cursor")
+	require.NoError(t, cmd.Flags().Set("target", "cursor"))
 
 	result := resolveTargets(cmd, dir, "")
 	require.Equal(t, []string{"cursor"}, result)
@@ -144,9 +149,9 @@ func TestResolveTargets_FlagOverride(t *testing.T) {
 
 func TestResolveTargets_BlueprintTargets(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0o755)
-	os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0o644)
-	os.WriteFile(filepath.Join(dir, "xcaf", "blueprints", "my-bp.xcaf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: my-bp\ntargets: [gemini, antigravity]\nagents: [a]\n"), 0o644)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcaf", "blueprints", "my-bp.xcaf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: my-bp\ntargets: [gemini, antigravity]\nagents: [a]\n"), 0o644))
 
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&targetFlag, "target", "", "")
@@ -157,8 +162,8 @@ func TestResolveTargets_BlueprintTargets(t *testing.T) {
 
 func TestResolveTargets_ProjectTargets(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "xcaf"), 0o755)
-	os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [claude, cursor]\n"), 0o644)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [claude, cursor]\n"), 0o644))
 
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&targetFlag, "target", "", "")
@@ -169,8 +174,8 @@ func TestResolveTargets_ProjectTargets(t *testing.T) {
 
 func TestResolveTargets_NoTargets_ReturnsNil(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "xcaf"), 0o755)
-	os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0o644)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\n"), 0o644))
 
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&targetFlag, "target", "", "")
@@ -181,9 +186,9 @@ func TestResolveTargets_NoTargets_ReturnsNil(t *testing.T) {
 
 func TestResolveTargets_BlueprintNoTargets_ReturnsNil(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0o755)
-	os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [claude]\n"), 0o644)
-	os.WriteFile(filepath.Join(dir, "xcaf", "blueprints", "my-bp.xcaf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: my-bp\nagents: [a]\n"), 0o644)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test\ntargets: [claude]\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcaf", "blueprints", "my-bp.xcaf"), []byte("kind: blueprint\nversion: \"1.0\"\nname: my-bp\nagents: [a]\n"), 0o644))
 
 	cmd := &cobra.Command{}
 	cmd.Flags().StringVar(&targetFlag, "target", "", "")
@@ -239,7 +244,7 @@ func TestRunApply_GlobalFlagFalse_CompilesProject(t *testing.T) {
 	xcafPath = xcaf
 	projectRoot = dir
 	globalFlag = false
-	targetFlag = "claude"
+	targetFlag = testTarget
 
 	err := runApply(nil, nil)
 	require.NoError(t, err)
@@ -258,7 +263,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 
 	// First apply — should compile
 	applyForce = false
-	targetFlag = "claude"
+	targetFlag = testTarget
 	err := applyScope(xcaf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
@@ -269,7 +274,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	// Read first state to get timestamp
 	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.Targets["claude"].LastApplied
+	ts1 := m1.Targets[testTarget].LastApplied
 
 	// Second apply — should skip (same sources)
 	err = applyScope(xcaf, claudeDirPath, dir, "project")
@@ -278,7 +283,7 @@ func TestApplyScope_SkipsWhenSourceUnchanged(t *testing.T) {
 	// State timestamp should NOT change (compilation was skipped)
 	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.Equal(t, ts1, m2.Targets["claude"].LastApplied, "timestamp should not change when sources are unchanged")
+	assert.Equal(t, ts1, m2.Targets[testTarget].LastApplied, "timestamp should not change when sources are unchanged")
 }
 
 func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
@@ -289,7 +294,7 @@ func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
 	claudeDirPath := filepath.Join(dir, ".claude")
 
 	applyForce = false
-	targetFlag = "claude"
+	targetFlag = testTarget
 
 	// First apply
 	err := applyScope(xcaf, claudeDirPath, dir, "project")
@@ -298,7 +303,7 @@ func TestApplyScope_RecompilesWhenSourceChanged(t *testing.T) {
 	stateFile := state.StateFilePath(dir, "")
 	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.Targets["claude"].LastApplied
+	ts1 := m1.Targets[testTarget].LastApplied
 
 	// Modify source
 	modifiedXCAF := `kind: project
@@ -314,7 +319,7 @@ name: apply-test-modified
 
 	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.NotEqual(t, ts1, m2.Targets["claude"].LastApplied, "timestamp should change when sources are modified")
+	assert.NotEqual(t, ts1, m2.Targets[testTarget].LastApplied, "timestamp should change when sources are modified")
 }
 
 func TestApplyScope_ForceRecompiles(t *testing.T) {
@@ -324,7 +329,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	targetFlag = "claude"
+	targetFlag = testTarget
 
 	// First apply (non-force)
 	applyForce = false
@@ -334,7 +339,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 	stateFile := state.StateFilePath(dir, "")
 	m1, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	ts1 := m1.Targets["claude"].LastApplied
+	ts1 := m1.Targets[testTarget].LastApplied
 
 	// Second apply with --force — should recompile despite no changes
 	applyForce = true
@@ -344,7 +349,7 @@ func TestApplyScope_ForceRecompiles(t *testing.T) {
 
 	m2, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	assert.NotEqual(t, ts1, m2.Targets["claude"].LastApplied, "force should always recompile")
+	assert.NotEqual(t, ts1, m2.Targets[testTarget].LastApplied, "force should always recompile")
 
 	// Reset
 	applyForce = false
@@ -362,19 +367,19 @@ name: orphan-test
 `), 0600))
 
 	agentDir := filepath.Join(dir, "xcaf", "agents", "dev")
-	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
+	require.NoError(t, os.MkdirAll(agentDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
 kind: agent
 version: "1.0"
 name: dev
 description: A developer agent
 ---
 You are a developer.
-`), 0644)
+`), 0644))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	targetFlag = "claude"
+	targetFlag = testTarget
 	applyForce = true
 	err := applyScope(xcaf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
@@ -414,21 +419,21 @@ targets:
   - cursor
 `), 0600))
 	agentDir := filepath.Join(dir, "xcaf", "agents", "dev")
-	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
+	require.NoError(t, os.MkdirAll(agentDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
 kind: agent
 version: "1.0"
 name: dev
 description: A developer agent
 ---
 You are a developer.
-`), 0600)
+`), 0600))
 
 	xcafPath = xcaf
 	projectRoot = dir
 	globalFlag = false
 	applyForce = true
-	targetFlag = "claude"
+	targetFlag = testTarget
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	err := runApply(applyCmd, nil)
@@ -446,7 +451,7 @@ You are a developer.
 
 	manifest, err := state.ReadState(stateFile)
 	require.NoError(t, err)
-	_, hasClaude := manifest.Targets["claude"]
+	_, hasClaude := manifest.Targets[testTarget]
 	_, hasCursor := manifest.Targets["cursor"]
 	assert.True(t, hasClaude, "state should have claude target entry")
 	assert.True(t, hasCursor, "state should have cursor target entry")
@@ -470,14 +475,14 @@ targets:
 	require.NoError(t, os.WriteFile(xcaf, []byte(xcafContent), 0600))
 
 	agentDir := filepath.Join(dir, ".xcaffold", "agents")
-	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
+	require.NoError(t, os.MkdirAll(agentDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
 kind: agent
 version: "1.0"
 name: dev
 ---
 You are a developer.
-`), 0644)
+`), 0644))
 
 	xcafPath = xcaf
 	projectRoot = dir
@@ -485,7 +490,7 @@ You are a developer.
 	applyForce = true
 
 	// Simulate --target=claude being explicitly set by marking the flag Changed.
-	require.NoError(t, applyCmd.Flags().Set("target", "claude"))
+	require.NoError(t, applyCmd.Flags().Set("target", testTarget))
 
 	err := runApply(applyCmd, nil)
 	require.NoError(t, err)
@@ -515,11 +520,11 @@ name: no-targets-test
 	require.NoError(t, os.WriteFile(xcaf, []byte(xcafContent), 0600))
 
 	agentDir := filepath.Join(dir, ".xcaffold", "agents")
-	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`kind: agent
+	require.NoError(t, os.MkdirAll(agentDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`kind: agent
 version: "1.0"
 name: dev
-`), 0644)
+`), 0644))
 
 	xcafPath = xcaf
 	projectRoot = dir
@@ -545,19 +550,19 @@ version: "1.0"
 name: orphan-test
 `), 0600))
 	agentDir := filepath.Join(dir, "xcaf", "agents", "dev")
-	os.MkdirAll(agentDir, 0755)
-	os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
+	require.NoError(t, os.MkdirAll(agentDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
 kind: agent
 version: "1.0"
 name: dev
 description: A developer agent
 ---
 You are a developer.
-`), 0600)
+`), 0600))
 
 	claudeDirPath := filepath.Join(dir, ".claude")
 
-	targetFlag = "claude"
+	targetFlag = testTarget
 	applyForce = true
 	applyDryRun = false
 	err := applyScope(xcaf, claudeDirPath, dir, "project")
@@ -601,7 +606,7 @@ version: "1"
 	claudeDirPath := filepath.Join(dir, ".claude")
 
 	applyForce = true
-	targetFlag = "claude"
+	targetFlag = testTarget
 	err := applyScope(xcaf, claudeDirPath, dir, "project")
 	require.NoError(t, err)
 
@@ -650,7 +655,7 @@ You are a developer.
 	applyForce = true
 	applyBackup = false
 	applyDryRun = false
-	targetFlag = "claude"
+	targetFlag = testTarget
 	applyCmd.Flags().Lookup("target").Changed = false
 
 	// First apply: compile both targets and write state so the smart-skip path
@@ -724,7 +729,7 @@ Robert is the founder.
 `), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
-	targetFlag = "claude"
+	targetFlag = testTarget
 	applyForce = true
 	defer func() { applyForce = false }()
 
@@ -770,7 +775,7 @@ Use cobra for all commands.
 `), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
-	targetFlag = "claude"
+	targetFlag = testTarget
 	applyForce = true
 	defer func() { applyForce = false }()
 
@@ -796,7 +801,7 @@ func TestApplyScope_OrchestratorMemory_NoEntries_NoDir(t *testing.T) {
 	require.NoError(t, os.WriteFile(xcaf, []byte(minimalXCAF), 0600))
 
 	claudeDir := filepath.Join(dir, ".claude")
-	targetFlag = "claude"
+	targetFlag = testTarget
 	applyForce = true
 	defer func() { applyForce = false }()
 
@@ -891,7 +896,7 @@ description: Test agent
 	// Set up apply context: blueprint, force compile, no explicit --target flag
 	xcafPath = projectXcaf
 	projectRoot = dir
-	applyBlueprintFlag = "test-bp"
+	applyBlueprintFlag = testBPName
 	applyForce = true
 	targetFlag = ""
 	applyCmd.Flags().Lookup("target").Changed = false
@@ -954,7 +959,7 @@ description: Test agent
 	// Set up apply context: blueprint, no explicit --target flag
 	xcafPath = projectXcaf
 	projectRoot = dir
-	applyBlueprintFlag = "test-bp"
+	applyBlueprintFlag = testBPName
 	applyForce = true
 	targetFlag = ""
 	applyCmd.Flags().Lookup("target").Changed = false
@@ -1010,7 +1015,7 @@ description: Test agent
 	// (copilot supports agents, unlike antigravity)
 	xcafPath = projectXcaf
 	projectRoot = dir
-	applyBlueprintFlag = "test-bp"
+	applyBlueprintFlag = testBPName
 	applyForce = true
 	require.NoError(t, applyCmd.Flags().Set("target", "copilot"))
 	defer func() {
@@ -1058,7 +1063,7 @@ func TestApply_WithVarFile(t *testing.T) {
 	projectRoot = dir
 	globalFlag = false
 	applyForce = true
-	targetFlag = "claude"
+	targetFlag = testTarget
 	varFileFlag = varFile // Inject the flag
 
 	// Reset flags after test
@@ -1092,8 +1097,8 @@ func TestComputeApplyPreview_NewFile(t *testing.T) {
 // TestComputeApplyPreview_ChangedFile verifies that a file with different content is detected as "changed".
 func TestComputeApplyPreview_ChangedFile(t *testing.T) {
 	dir := t.TempDir()
-	os.MkdirAll(filepath.Join(dir, "agents"), 0755)
-	os.WriteFile(filepath.Join(dir, "agents", "reviewer.md"), []byte("old content"), 0644)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "agents"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents", "reviewer.md"), []byte("old content"), 0644))
 	outFiles := map[string]string{"agents/reviewer.md": "new content"}
 	entries := computeApplyPreview(outFiles, nil, dir, dir)
 	assert.Len(t, entries, 1)
@@ -1105,8 +1110,8 @@ func TestComputeApplyPreview_ChangedFile(t *testing.T) {
 func TestComputeApplyPreview_UnchangedFile(t *testing.T) {
 	dir := t.TempDir()
 	content := "same content"
-	os.MkdirAll(filepath.Join(dir, "agents"), 0755)
-	os.WriteFile(filepath.Join(dir, "agents", "reviewer.md"), []byte(content), 0644)
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "agents"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agents", "reviewer.md"), []byte(content), 0644))
 	outFiles := map[string]string{"agents/reviewer.md": content}
 	entries := computeApplyPreview(outFiles, nil, dir, dir)
 	assert.Len(t, entries, 1)

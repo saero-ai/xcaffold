@@ -8,6 +8,14 @@ import (
 	"github.com/saero-ai/xcaffold/internal/prompt"
 )
 
+// incrementalImportCtx groups parameters for incremental import operations.
+type incrementalImportCtx struct {
+	xcafDest  string
+	scopeName string
+	config    *ast.XcaffoldConfig
+	warnings  *[]string
+}
+
 // incrementalImport scans provider resources, diffs against existing xcaf/,
 // shows a preview, and imports only new/changed resources after confirmation.
 func incrementalImport(platformDir, xcafDest, scopeName, provider string) error {
@@ -31,7 +39,15 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 
 	renderImportPreview(diff)
 
-	if err := confirmAndExecuteImport(existingConfig, scannedConfig, diff, totalNew, totalChanged, scopeName); err != nil {
+	ctx := incrementalImportCtx{
+		xcafDest:  xcafDest,
+		scopeName: scopeName,
+		config:    existingConfig,
+		warnings:  nil, // not used in confirmAndExecuteImport
+	}
+	if err := confirmAndExecuteImport(ctx, diff, func() error {
+		return WriteSplitFiles(existingConfig, ".")
+	}); err != nil {
 		return err
 	}
 
@@ -53,9 +69,9 @@ func newEmptyConfig() *ast.XcaffoldConfig {
 }
 
 // confirmAndExecuteImport prompts for confirmation and merges resources if approved.
-func confirmAndExecuteImport(existingConfig, scannedConfig *ast.XcaffoldConfig, diff ResourceDiff, totalNew, totalChanged int, scopeName string) error {
+func confirmAndExecuteImport(ctx incrementalImportCtx, diff ResourceDiff, writeFunc func() error) error {
 	if !importDryRun && !importYes {
-		msg := fmt.Sprintf("Import %d new + %d changed resources?", totalNew, totalChanged)
+		msg := fmt.Sprintf("Import %d new + %d changed resources?", diff.TotalNew(), diff.TotalChanged())
 		ok, err := prompt.Confirm(msg, false)
 		if err != nil {
 			return fmt.Errorf("prompt error: %w", err)
@@ -70,10 +86,10 @@ func confirmAndExecuteImport(existingConfig, scannedConfig *ast.XcaffoldConfig, 
 		return nil
 	}
 
-	mergeResourceDiff(existingConfig, scannedConfig, diff)
-	applyKindFilters(existingConfig)
-	if err := WriteSplitFiles(existingConfig, "."); err != nil {
-		return fmt.Errorf("[%s] failed to write split xcaf files: %w", scopeName, err)
+	mergeResourceDiff(ctx.config, ctx.config, diff)
+	applyKindFilters(ctx.config)
+	if err := writeFunc(); err != nil {
+		return fmt.Errorf("[%s] failed to write split xcaf files: %w", ctx.scopeName, err)
 	}
 	return nil
 }

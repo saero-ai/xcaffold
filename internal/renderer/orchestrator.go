@@ -54,18 +54,17 @@ func Orchestrate(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string) (
 // not return notes; its error is propagated directly.
 func (ctx renderCtx) runAllResources() ([]FidelityNote, error) {
 	var notes []FidelityNote
-	r, config, baseDir, caps, out := ctx.r, ctx.config, ctx.baseDir, ctx.caps, ctx.out
 
 	steps := []func() ([]FidelityNote, error){
-		func() ([]FidelityNote, error) { return runAgents(r, config, baseDir, caps, out) },
-		func() ([]FidelityNote, error) { return runSkills(r, config, baseDir, caps, out) },
-		func() ([]FidelityNote, error) { return runRules(r, config, baseDir, caps, out) },
-		func() ([]FidelityNote, error) { return runWorkflows(r, config, baseDir, caps, out) },
-		func() ([]FidelityNote, error) { return runHooks(r, config, baseDir, caps, out) },
-		func() ([]FidelityNote, error) { return runSettings(r, config, caps, out) },
-		func() ([]FidelityNote, error) { return runMCP(r, config, caps, out) },
-		func() ([]FidelityNote, error) { return runProject(r, config, baseDir, caps, out) },
-		func() ([]FidelityNote, error) { return runMemory(r, config, baseDir, caps, out) },
+		ctx.runAgents,
+		ctx.runSkills,
+		ctx.runRules,
+		ctx.runWorkflows,
+		ctx.runHooks,
+		ctx.runSettings,
+		ctx.runMCP,
+		ctx.runProject,
+		ctx.runMemory,
 	}
 
 	for _, step := range steps {
@@ -76,7 +75,7 @@ func (ctx renderCtx) runAllResources() ([]FidelityNote, error) {
 		notes = append(notes, n...)
 	}
 
-	if err := runHookArtifacts(r, config, baseDir, caps, out); err != nil {
+	if err := ctx.runHookArtifacts(); err != nil {
 		return nil, err
 	}
 
@@ -101,237 +100,243 @@ func setMemoryRefs(r TargetRenderer, config *ast.XcaffoldConfig) {
 
 // runAgents filters agents for the target and compiles them, or emits
 // RENDERER_KIND_UNSUPPORTED notes when the renderer has no agent capability.
-func runAgents(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string, caps CapabilitySet, out *output.Output) ([]FidelityNote, error) {
-	if len(config.Agents) == 0 {
+func (ctx renderCtx) runAgents() ([]FidelityNote, error) {
+	if len(ctx.config.Agents) == 0 {
 		return nil, nil
 	}
-	filtered := filterMap(config.Agents, r.Target(), func(v ast.AgentConfig) map[string]ast.TargetOverride { return v.Targets })
+	filtered := filterMap(ctx.config.Agents, ctx.r.Target(), func(v ast.AgentConfig) map[string]ast.TargetOverride { return v.Targets })
 	if len(filtered) == 0 {
 		return nil, nil
 	}
-	if !caps.Agents {
-		return unsupportedNotes(r.Target(), "agent", SortedKeys(filtered), "agents are not supported by this renderer"), nil
+	if !ctx.caps.Agents {
+		return unsupportedNotes(ctx.r.Target(), "agent", SortedKeys(filtered), "agents are not supported by this renderer"), nil
 	}
-	files, notes, err := r.CompileAgents(filtered, baseDir)
+	files, notes, err := ctx.r.CompileAgents(filtered, ctx.baseDir)
 	if err != nil {
 		return nil, fmt.Errorf("CompileAgents: %w", err)
 	}
-	mergeFiles(out, files)
+	mergeFiles(ctx.out, files)
 	for id, agent := range filtered {
 		present := ExtractAgentPresentFields(agent)
-		suppressed := isSuppressed(agent.Targets, r.Target())
-		notes = append(notes, CheckFieldSupport(r.Target(), "agent", id, present, suppressed)...)
+		suppressed := isSuppressed(agent.Targets, ctx.r.Target())
+		notes = append(notes, CheckFieldSupport(FieldCheckInput{Target: ctx.r.Target(), Kind: "agent", ResourceName: id, PresentFields: present, Suppressed: suppressed})...)
 	}
 	return notes, nil
 }
 
 // runSkills filters skills for the target and compiles them, or emits
 // RENDERER_KIND_UNSUPPORTED notes when the renderer has no skill capability.
-func runSkills(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string, caps CapabilitySet, out *output.Output) ([]FidelityNote, error) {
-	if len(config.Skills) == 0 {
+func (ctx renderCtx) runSkills() ([]FidelityNote, error) {
+	if len(ctx.config.Skills) == 0 {
 		return nil, nil
 	}
-	filtered := filterMap(config.Skills, r.Target(), func(v ast.SkillConfig) map[string]ast.TargetOverride { return v.Targets })
+	filtered := filterMap(ctx.config.Skills, ctx.r.Target(), func(v ast.SkillConfig) map[string]ast.TargetOverride { return v.Targets })
 	if len(filtered) == 0 {
 		return nil, nil
 	}
-	if !caps.Skills {
-		return unsupportedNotes(r.Target(), "skill", SortedKeys(filtered), "skills are not supported by this renderer"), nil
+	if !ctx.caps.Skills {
+		return unsupportedNotes(ctx.r.Target(), "skill", SortedKeys(filtered), "skills are not supported by this renderer"), nil
 	}
-	files, notes, err := r.CompileSkills(filtered, baseDir)
+	files, notes, err := ctx.r.CompileSkills(filtered, ctx.baseDir)
 	if err != nil {
 		return nil, fmt.Errorf("CompileSkills: %w", err)
 	}
-	mergeFiles(out, files)
+	mergeFiles(ctx.out, files)
 	for id, skill := range filtered {
 		present := ExtractSkillPresentFields(skill)
-		suppressed := isSuppressed(skill.Targets, r.Target())
-		notes = append(notes, CheckFieldSupport(r.Target(), "skill", id, present, suppressed)...)
+		suppressed := isSuppressed(skill.Targets, ctx.r.Target())
+		notes = append(notes, CheckFieldSupport(FieldCheckInput{Target: ctx.r.Target(), Kind: "skill", ResourceName: id, PresentFields: present, Suppressed: suppressed})...)
 	}
 	return notes, nil
 }
 
 // runRules filters rules for the target and compiles them, or emits
 // RENDERER_KIND_UNSUPPORTED notes when the renderer has no rule capability.
-func runRules(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string, caps CapabilitySet, out *output.Output) ([]FidelityNote, error) {
-	if len(config.Rules) == 0 {
+func (ctx renderCtx) runRules() ([]FidelityNote, error) {
+	if len(ctx.config.Rules) == 0 {
 		return nil, nil
 	}
-	filtered := filterMap(config.Rules, r.Target(), func(v ast.RuleConfig) map[string]ast.TargetOverride { return v.Targets })
+	filtered := filterMap(ctx.config.Rules, ctx.r.Target(), func(v ast.RuleConfig) map[string]ast.TargetOverride { return v.Targets })
 	if len(filtered) == 0 {
 		return nil, nil
 	}
-	if !caps.Rules {
-		return unsupportedNotes(r.Target(), "rule", SortedKeys(filtered), "rules are not supported by this renderer"), nil
+	if !ctx.caps.Rules {
+		return unsupportedNotes(ctx.r.Target(), "rule", SortedKeys(filtered), "rules are not supported by this renderer"), nil
 	}
-	files, notes, err := r.CompileRules(filtered, baseDir)
+	files, notes, err := ctx.r.CompileRules(filtered, ctx.baseDir)
 	if err != nil {
 		return nil, fmt.Errorf("CompileRules: %w", err)
 	}
-	mergeFiles(out, files)
+	mergeFiles(ctx.out, files)
 	for id, rule := range filtered {
 		present := ExtractRulePresentFields(rule)
-		suppressed := isSuppressed(rule.Targets, r.Target())
-		notes = append(notes, CheckFieldSupport(r.Target(), "rule", id, present, suppressed)...)
+		suppressed := isSuppressed(rule.Targets, ctx.r.Target())
+		notes = append(notes, CheckFieldSupport(FieldCheckInput{Target: ctx.r.Target(), Kind: "rule", ResourceName: id, PresentFields: present, Suppressed: suppressed})...)
 	}
 	return notes, nil
 }
 
 // runWorkflows filters workflows for the target and compiles them, or emits
 // RENDERER_KIND_UNSUPPORTED notes when the renderer has no workflow capability.
-func runWorkflows(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string, caps CapabilitySet, out *output.Output) ([]FidelityNote, error) {
-	if len(config.Workflows) == 0 {
+func (ctx renderCtx) runWorkflows() ([]FidelityNote, error) {
+	if len(ctx.config.Workflows) == 0 {
 		return nil, nil
 	}
-	filtered := filterMap(config.Workflows, r.Target(), func(v ast.WorkflowConfig) map[string]ast.TargetOverride { return v.Targets })
+	filtered := filterMap(ctx.config.Workflows, ctx.r.Target(), func(v ast.WorkflowConfig) map[string]ast.TargetOverride { return v.Targets })
 	if len(filtered) == 0 {
 		return nil, nil
 	}
-	if !caps.Workflows {
-		return unsupportedNotes(r.Target(), "workflow", SortedKeys(filtered), "workflows are not supported by this renderer"), nil
+	if !ctx.caps.Workflows {
+		return unsupportedNotes(ctx.r.Target(), "workflow", SortedKeys(filtered), "workflows are not supported by this renderer"), nil
 	}
-	files, notes, err := r.CompileWorkflows(filtered, baseDir)
+	files, notes, err := ctx.r.CompileWorkflows(filtered, ctx.baseDir)
 	if err != nil {
 		return nil, fmt.Errorf("CompileWorkflows: %w", err)
 	}
-	mergeFiles(out, files)
+	mergeFiles(ctx.out, files)
 	return notes, nil
 }
 
 // runHooks extracts the default hook block and compiles it, or emits
 // RENDERER_KIND_UNSUPPORTED notes per event when the renderer has no hook capability.
-func runHooks(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string, caps CapabilitySet, out *output.Output) ([]FidelityNote, error) {
-	dh, ok := config.Hooks["default"]
-	if !ok || len(dh.Events) == 0 || isSkipSynthesis(dh.Targets, r.Target()) {
+func (ctx renderCtx) runHooks() ([]FidelityNote, error) {
+	dh, ok := ctx.config.Hooks["default"]
+	if !ok || len(dh.Events) == 0 || isSkipSynthesis(dh.Targets, ctx.r.Target()) {
 		return nil, nil
 	}
 	mergedHooks := dh.Events
-	if !caps.Hooks {
+	if !ctx.caps.Hooks {
 		var notes []FidelityNote
 		for _, event := range SortedKeys(mergedHooks) {
-			notes = append(notes, NewNote(
-				LevelWarning, r.Target(), "hook", string(event), "",
-				CodeRendererKindUnsupported,
-				"hooks are not supported by this renderer",
-				"",
-			))
+			notes = append(notes, FidelityNote{
+				Level:    LevelWarning,
+				Target:   ctx.r.Target(),
+				Kind:     "hook",
+				Resource: event,
+				Code:     CodeRendererKindUnsupported,
+				Reason:   "hooks are not supported by this renderer",
+			})
 		}
 		return notes, nil
 	}
-	files, notes, err := r.CompileHooks(mergedHooks, baseDir)
+	files, notes, err := ctx.r.CompileHooks(mergedHooks, ctx.baseDir)
 	if err != nil {
 		return nil, fmt.Errorf("CompileHooks: %w", err)
 	}
-	mergeFiles(out, files)
+	mergeFiles(ctx.out, files)
 	return notes, nil
 }
 
 // runHookArtifacts copies script files from xcaf/hooks/<name>/ to provider output
 // for renderers that support hooks.
-func runHookArtifacts(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string, caps CapabilitySet, out *output.Output) error {
-	if !caps.Hooks {
+func (ctx renderCtx) runHookArtifacts() error {
+	if !ctx.caps.Hooks {
 		return nil
 	}
-	for hookKey, hook := range config.Hooks {
-		if len(hook.Artifacts) == 0 || isSkipSynthesis(hook.Targets, r.Target()) {
+	for hookKey, hook := range ctx.config.Hooks {
+		if len(hook.Artifacts) == 0 || isSkipSynthesis(hook.Targets, ctx.r.Target()) {
 			continue
 		}
 		name := hook.Name
 		if name == "" {
 			name = hookKey
 		}
-		hookSrcDir := filepath.Join(baseDir, "xcaf", "hooks", name)
-		hookDstDir := filepath.Join(r.OutputDir(), "hooks")
+		hookSrcDir := filepath.Join(ctx.baseDir, "xcaf", "hooks", name)
+		hookDstDir := filepath.Join(ctx.r.OutputDir(), "hooks")
 		artifactFiles, err := CompileHookArtifacts(name, hook.Artifacts, hookSrcDir, hookDstDir)
 		if err != nil {
 			return fmt.Errorf("hook artifacts %s: %w", name, err)
 		}
-		mergeFiles(out, artifactFiles)
+		mergeFiles(ctx.out, artifactFiles)
 	}
 	return nil
 }
 
 // runSettings compiles the default settings block, or emits a
 // RENDERER_KIND_UNSUPPORTED note when the renderer has no settings capability.
-func runSettings(r TargetRenderer, config *ast.XcaffoldConfig, caps CapabilitySet, out *output.Output) ([]FidelityNote, error) {
-	settings, ok := config.Settings["default"]
-	if !ok || isSkipSynthesis(settings.Targets, r.Target()) {
+func (ctx renderCtx) runSettings() ([]FidelityNote, error) {
+	settings, ok := ctx.config.Settings["default"]
+	if !ok || isSkipSynthesis(settings.Targets, ctx.r.Target()) {
 		return nil, nil
 	}
-	if !caps.Settings {
-		return []FidelityNote{NewNote(
-			LevelWarning, r.Target(), "settings", "default", "",
-			CodeRendererKindUnsupported,
-			"settings are not supported by this renderer",
-			"",
-		)}, nil
+	if !ctx.caps.Settings {
+		return []FidelityNote{{
+			Level:    LevelWarning,
+			Target:   ctx.r.Target(),
+			Kind:     "settings",
+			Resource: "default",
+			Code:     CodeRendererKindUnsupported,
+			Reason:   "settings are not supported by this renderer",
+		}}, nil
 	}
-	files, notes, err := r.CompileSettings(settings)
+	files, notes, err := ctx.r.CompileSettings(settings)
 	if err != nil {
 		return nil, fmt.Errorf("CompileSettings: %w", err)
 	}
-	mergeFiles(out, files)
+	mergeFiles(ctx.out, files)
 	return notes, nil
 }
 
 // runMCP filters MCP servers for the target and compiles them, or emits
 // RENDERER_KIND_UNSUPPORTED notes when the renderer has no MCP capability.
-func runMCP(r TargetRenderer, config *ast.XcaffoldConfig, caps CapabilitySet, out *output.Output) ([]FidelityNote, error) {
-	if len(config.MCP) == 0 {
+func (ctx renderCtx) runMCP() ([]FidelityNote, error) {
+	if len(ctx.config.MCP) == 0 {
 		return nil, nil
 	}
-	filtered := filterMap(config.MCP, r.Target(), func(v ast.MCPConfig) map[string]ast.TargetOverride { return v.Targets })
+	filtered := filterMap(ctx.config.MCP, ctx.r.Target(), func(v ast.MCPConfig) map[string]ast.TargetOverride { return v.Targets })
 	if len(filtered) == 0 {
 		return nil, nil
 	}
-	if !caps.MCP {
-		return unsupportedNotes(r.Target(), "mcp", SortedKeys(filtered), "MCP servers are not supported by this renderer"), nil
+	if !ctx.caps.MCP {
+		return unsupportedNotes(ctx.r.Target(), "mcp", SortedKeys(filtered), "MCP servers are not supported by this renderer"), nil
 	}
-	files, notes, err := r.CompileMCP(filtered)
+	files, notes, err := ctx.r.CompileMCP(filtered)
 	if err != nil {
 		return nil, fmt.Errorf("CompileMCP: %w", err)
 	}
-	mergeFiles(out, files)
+	mergeFiles(ctx.out, files)
 	return notes, nil
 }
 
 // runProject compiles project instructions, or emits a RENDERER_KIND_UNSUPPORTED
 // note when the renderer has no project-instructions capability.
-func runProject(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string, caps CapabilitySet, out *output.Output) ([]FidelityNote, error) {
-	if config.Project == nil {
+func (ctx renderCtx) runProject() ([]FidelityNote, error) {
+	if ctx.config.Project == nil {
 		return nil, nil
 	}
-	if !caps.ProjectInstructions {
-		return []FidelityNote{NewNote(
-			LevelWarning, r.Target(), "project", config.Project.Name, "",
-			CodeRendererKindUnsupported,
-			"project instructions are not supported by this renderer",
-			"",
-		)}, nil
+	if !ctx.caps.ProjectInstructions {
+		return []FidelityNote{{
+			Level:    LevelWarning,
+			Target:   ctx.r.Target(),
+			Kind:     "project",
+			Resource: ctx.config.Project.Name,
+			Code:     CodeRendererKindUnsupported,
+			Reason:   "project instructions are not supported by this renderer",
+		}}, nil
 	}
-	files, rootFiles, notes, err := r.CompileProjectInstructions(config, baseDir)
+	files, rootFiles, notes, err := ctx.r.CompileProjectInstructions(ctx.config, ctx.baseDir)
 	if err != nil {
 		return nil, fmt.Errorf("CompileProjectInstructions: %w", err)
 	}
-	mergeFiles(out, files)
-	mergeRootFiles(out, rootFiles)
+	mergeFiles(ctx.out, files)
+	mergeRootFiles(ctx.out, rootFiles)
 	return notes, nil
 }
 
 // runMemory compiles memory entries, or emits RENDERER_KIND_UNSUPPORTED notes
 // when the renderer has no memory capability.
-func runMemory(r TargetRenderer, config *ast.XcaffoldConfig, baseDir string, caps CapabilitySet, out *output.Output) ([]FidelityNote, error) {
-	if len(config.Memory) == 0 {
+func (ctx renderCtx) runMemory() ([]FidelityNote, error) {
+	if len(ctx.config.Memory) == 0 {
 		return nil, nil
 	}
-	if !caps.Memory {
-		return unsupportedNotes(r.Target(), "memory", SortedKeys(config.Memory), "memory entries are not supported by this renderer"), nil
+	if !ctx.caps.Memory {
+		return unsupportedNotes(ctx.r.Target(), "memory", SortedKeys(ctx.config.Memory), "memory entries are not supported by this renderer"), nil
 	}
-	files, notes, err := r.CompileMemory(config, baseDir, MemoryOptions{})
+	files, notes, err := ctx.r.CompileMemory(ctx.config, ctx.baseDir, MemoryOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("CompileMemory: %w", err)
 	}
-	mergeFiles(out, files)
+	mergeFiles(ctx.out, files)
 	return notes, nil
 }
 
@@ -351,12 +356,14 @@ func filterMap[V any](src map[string]V, target string, getTargets func(V) map[st
 func unsupportedNotes(target, kind string, ids []string, msg string) []FidelityNote {
 	notes := make([]FidelityNote, 0, len(ids))
 	for _, id := range ids {
-		notes = append(notes, NewNote(
-			LevelWarning, target, kind, id, "",
-			CodeRendererKindUnsupported,
-			msg,
-			"",
-		))
+		notes = append(notes, FidelityNote{
+			Level:    LevelWarning,
+			Target:   target,
+			Kind:     kind,
+			Resource: id,
+			Code:     CodeRendererKindUnsupported,
+			Reason:   msg,
+		})
 	}
 	return notes
 }

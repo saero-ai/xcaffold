@@ -37,7 +37,7 @@ func scanGlobal(userHome string, r *registry.GlobalScanResult) {
 
 	registry.ScanMCPFromJSONFile(
 		filepath.Join(userHome, ".claude.json"),
-		"mcpServers", "command", "url",
+		registry.MCPScanKeys{ServersKey: "mcpServers", CmdKey: "command", URLKey: "url"},
 		r.MCP,
 	)
 }

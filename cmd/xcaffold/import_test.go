@@ -213,6 +213,22 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 		t.Fatalf("failed to chdir to tmp: %v", err)
 	}
 
+	setupTestClaudeDirWithResources(t, tmp)
+
+	// Run importScope
+	if err := importScope(".claude", "project.xcaf", "project", "claude"); err != nil {
+		t.Fatalf("importScope returned unexpected error: %v", err)
+	}
+
+	assertImportedProjectFile(t, tmp)
+	assertSplitXcafFilesExist(t, tmp)
+	assertSkillReferencesExist(t, tmp)
+	assertOriginalMdFilesNotCopied(t, tmp)
+	assertAgentXcafFormat(t, tmp)
+}
+
+func setupTestClaudeDirWithResources(t *testing.T, tmp string) {
+	t.Helper()
 	// Create .claude/agents/dev.md
 	agentsDir := filepath.Join(tmp, ".claude", "agents")
 	if err := os.MkdirAll(agentsDir, 0755); err != nil {
@@ -273,12 +289,10 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(tmp, ".claude", "settings.json"), []byte("{}"), 0600); err != nil {
 		t.Fatalf("failed to write settings.json: %v", err)
 	}
+}
 
-	// Run importScope
-	if err := importScope(".claude", "project.xcaf", "project", "claude"); err != nil {
-		t.Fatalf("importScope returned unexpected error: %v", err)
-	}
-
+func assertImportedProjectFile(t *testing.T, tmp string) {
+	t.Helper()
 	// project.xcaf must exist
 	if _, err := os.Stat(filepath.Join(tmp, "project.xcaf")); err != nil {
 		t.Fatalf("project.xcaf was not created: %v", err)
@@ -289,7 +303,10 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 	require.NoError(t, err)
 	scaffoldStr := string(scaffoldData)
 	assert.Contains(t, scaffoldStr, "kind: project", "project.xcaf must use kind: project (split-file format)")
+}
 
+func assertSplitXcafFilesExist(t *testing.T, tmp string) {
+	t.Helper()
 	// Split .xcaf files must exist for each resource
 	// Agents live in their own subdirectory: xcaf/agents/<name>/agent.xcaf
 	expectedXcafFiles := []string{
@@ -304,13 +321,19 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 			t.Errorf("expected split xcaf file %q to exist: %v", f, err)
 		}
 	}
+}
 
+func assertSkillReferencesExist(t *testing.T, tmp string) {
+	t.Helper()
 	// Skill reference file must still be copied
 	xcafRefPath := filepath.Join(tmp, "xcaf", "skills", "tdd", "references", "patterns.md")
 	if _, err := os.Stat(xcafRefPath); err != nil {
 		t.Errorf("expected skill reference file to be copied to %q: %v", xcafRefPath, err)
 	}
+}
 
+func assertOriginalMdFilesNotCopied(t *testing.T, tmp string) {
+	t.Helper()
 	// .md files must NOT be copied (inline mode — no instructions-file references)
 	unexpectedMdFiles := []string{
 		filepath.Join(tmp, "xcaf", "agents", "dev", "dev.md"),
@@ -323,7 +346,10 @@ func TestImport_RoundTrip_SplitFiles(t *testing.T) {
 			t.Errorf("file %q should NOT exist (instructions are inlined, not copied)", f)
 		}
 	}
+}
 
+func assertAgentXcafFormat(t *testing.T, tmp string) {
+	t.Helper()
 	// Agent .xcaf files must use frontmatter format for inline instructions, not instructions-file.
 	// Instructions content moves into the markdown body (after the closing ---), not as a YAML field.
 	devXcaf, err := os.ReadFile(filepath.Join(tmp, "xcaf", "agents", "dev", "agent.xcaf"))
@@ -383,7 +409,7 @@ func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	dir := t.TempDir()
 	origDir, err := os.Getwd()
 	require.NoError(t, err)
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 	require.NoError(t, os.Chdir(dir))
 
 	// Create .claude/ with an agent and a skill
@@ -493,7 +519,7 @@ func TestExtractSkillSubdirs_AntigravityResources(t *testing.T) {
 
 	antigravityManifest, _ := providerspkg.ManifestFor("antigravity")
 	discoveredDirs, err := extractSkillSubdirs(
-		filepath.Join(skillDir, "SKILL.md"), "my-skill", &antigravityManifest, outDir, &warnings,
+		skillExtractionCtx{filepath.Join(skillDir, "SKILL.md"), "my-skill", outDir}, &antigravityManifest, &warnings,
 	)
 	require.NoError(t, err)
 	_ = discoveredDirs
@@ -524,7 +550,7 @@ func TestExtractSkillSubdirs_ClaudeFlatMdFiles(t *testing.T) {
 
 	claudeManifest, _ := providerspkg.ManifestFor("claude")
 	discoveredDirs, err := extractSkillSubdirs(
-		filepath.Join(skillDir, "SKILL.md"), "my-skill", &claudeManifest, outDir, &warnings,
+		skillExtractionCtx{filepath.Join(skillDir, "SKILL.md"), "my-skill", outDir}, &claudeManifest, &warnings,
 	)
 	require.NoError(t, err)
 	_ = discoveredDirs
@@ -555,7 +581,7 @@ func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
 
 	// For unknown provider, pass nil manifest
 	discoveredDirs, err := extractSkillSubdirs(
-		filepath.Join(skillDir, "SKILL.md"), "my-skill", nil, outDir, &warnings,
+		skillExtractionCtx{filepath.Join(skillDir, "SKILL.md"), "my-skill", outDir}, nil, &warnings,
 	)
 	require.NoError(t, err)
 	_ = discoveredDirs
@@ -586,7 +612,7 @@ func TestWriteMemoryFiles_WritesMarkdownToDisk(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -623,7 +649,7 @@ func TestMergeImportDirs_SmartAssembly_DifferentAgents(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	claudeDir := filepath.Join(tmp, ".claude")
 	require.NoError(t, os.MkdirAll(filepath.Join(claudeDir, "agents"), 0o755))
@@ -662,7 +688,7 @@ func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Claude: agents + settings.json with MCP + hooks
 	claudeDir := filepath.Join(tmp, ".claude")
@@ -707,7 +733,7 @@ func TestMergeImportDirs_ImportsMemory(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create .claude/ with agent + memory
 	claudeDir := filepath.Join(tmp, ".claude")
@@ -788,8 +814,8 @@ func TestImport_TargetFlag_ValidatesProvider(t *testing.T) {
 
 	tmp := t.TempDir()
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(tmp)
+	defer func() { _ = os.Chdir(oldDir) }()
+	require.NoError(t, os.Chdir(tmp))
 
 	importTargetFlag = "invalid-provider"
 	err := runImport(importCmd, nil)
@@ -804,8 +830,8 @@ func TestImport_TargetFlag_ValidProvider_Accepted(t *testing.T) {
 
 	tmp := t.TempDir()
 	oldDir, _ := os.Getwd()
-	defer os.Chdir(oldDir)
-	os.Chdir(tmp)
+	defer func() { _ = os.Chdir(oldDir) }()
+	require.NoError(t, os.Chdir(tmp))
 
 	// Create a mock .claude directory to avoid "no providers found" error
 	require.NoError(t, os.MkdirAll(filepath.Join(tmp, ".claude", "agents"), 0755))
@@ -815,7 +841,7 @@ func TestImport_TargetFlag_ValidProvider_Accepted(t *testing.T) {
 		0600,
 	))
 
-	importTargetFlag = "claude"
+	importTargetFlag = testTarget
 	err := runImport(importCmd, nil)
 	if err != nil && strings.Contains(err.Error(), "unknown target") {
 		t.Fatalf("valid target 'claude' should not produce unknown target error, got: %v", err)
@@ -1172,7 +1198,7 @@ func TestImport_Output_ExplainsTargetsTagging(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"),
 		"---\nname: dev\ndescription: Dev\n---\n\nDev agent.")
@@ -1199,7 +1225,7 @@ func TestImportScope_PlanFlag_DryRun(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Set up test provider directories with agents and skills
 	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"),
@@ -1243,7 +1269,7 @@ func TestMergeImportDirs_PlanFlag_DryRun(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Set up two provider directories
 	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"),
@@ -1288,7 +1314,7 @@ func TestMergeImportDirs_MultiProvider_ConflictCount(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// Create two agents with the same name but different content
 	writeFile(t, filepath.Join(tmp, ".claude", "agents", "dev.md"),
@@ -1323,7 +1349,7 @@ func TestRunPostImportSteps_WritesMemoryAndPrunes(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
 	require.NoError(t, os.Chdir(tmp))
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -1641,7 +1667,7 @@ func TestImport_AssembleHooks_DifferentMultiProvider(t *testing.T) {
 	if !hasOverride {
 		t.Errorf("assembleHooks should add claude hook as override, got no override")
 	}
-	if override.Artifacts == nil || len(override.Artifacts) == 0 {
+	if len(override.Artifacts) == 0 {
 		t.Errorf("override should preserve artifacts")
 	}
 	if override.Events == nil {
@@ -2054,13 +2080,13 @@ func TestTagResourcesWithProvider_AllKinds(t *testing.T) {
 		kind string
 		has  bool
 	}{
-		{"agent", cfg.Agents["a1"].Targets != nil && len(cfg.Agents["a1"].Targets) > 0},
-		{"skill", cfg.Skills["s1"].Targets != nil && len(cfg.Skills["s1"].Targets) > 0},
-		{"rule", cfg.Rules["r1"].Targets != nil && len(cfg.Rules["r1"].Targets) > 0},
-		{"workflow", cfg.Workflows["w1"].Targets != nil && len(cfg.Workflows["w1"].Targets) > 0},
-		{"mcp", cfg.MCP["m1"].Targets != nil && len(cfg.MCP["m1"].Targets) > 0},
-		{"hooks", cfg.Hooks["h1"].Targets != nil && len(cfg.Hooks["h1"].Targets) > 0},
-		{"settings", cfg.Settings["st1"].Targets != nil && len(cfg.Settings["st1"].Targets) > 0},
+		{"agent", len(cfg.Agents["a1"].Targets) > 0},
+		{"skill", len(cfg.Skills["s1"].Targets) > 0},
+		{"rule", len(cfg.Rules["r1"].Targets) > 0},
+		{"workflow", len(cfg.Workflows["w1"].Targets) > 0},
+		{"mcp", len(cfg.MCP["m1"].Targets) > 0},
+		{"hooks", len(cfg.Hooks["h1"].Targets) > 0},
+		{"settings", len(cfg.Settings["st1"].Targets) > 0},
 	}
 	for _, c := range checks {
 		if !c.has {

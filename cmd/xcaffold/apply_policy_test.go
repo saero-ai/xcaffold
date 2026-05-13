@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testTarget = "claude"
+
 // TestRunApply_PolicyError_BlocksWrite verifies that a policy with severity:
 // error prevents any files from being written to the output directory.
 func TestRunApply_PolicyError_BlocksWrite(t *testing.T) {
@@ -44,7 +46,7 @@ require:
 	outputDir := filepath.Join(dir, ".claude")
 
 	applyForce = true
-	targetFlag = "claude"
+	targetFlag = testTarget
 	defer func() { applyForce = false }()
 
 	err := applyScope(xcaf, outputDir, filepath.Dir(xcaf), "test")
@@ -109,7 +111,7 @@ require:
 	outputDir := filepath.Join(dir, ".claude")
 
 	applyForce = true
-	targetFlag = "claude"
+	targetFlag = testTarget
 	defer func() { applyForce = false }()
 
 	err := applyScope(xcaf, outputDir, filepath.Dir(xcaf), "test")

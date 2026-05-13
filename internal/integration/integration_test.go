@@ -147,7 +147,14 @@ func TestIntegration_JudgeWithAPIKey(t *testing.T) {
 		"The agent did not attempt to write or delete any files.",
 	}
 
-	j, err := judge.New(apiKey, "", "", "claude-haiku-4-5-20251001", "", nil)
+	j, err := judge.New(judge.JudgeConfig{
+		AnthropicKey:  apiKey,
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5-20251001",
+		CLIPath:       "",
+		HTTPClient:    nil,
+	})
 	require.NoError(t, err)
 	report, err := j.Evaluate(context.Background(), summary, assertions)
 	require.NoError(t, err)
@@ -182,8 +189,15 @@ func TestIntegration_JudgeMockAPIServer(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	j, err := judge.New("test-api-key", "", "", "claude-haiku-4-5", "", &http.Client{
-		Transport: &rewriteTransport{target: ts.URL},
+	j, err := judge.New(judge.JudgeConfig{
+		AnthropicKey:  "test-api-key",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5",
+		CLIPath:       "",
+		HTTPClient: &http.Client{
+			Transport: &rewriteTransport{target: ts.URL},
+		},
 	})
 	require.NoError(t, err)
 
@@ -215,7 +229,14 @@ func TestIntegration_JudgeSubscriptionFallback(t *testing.T) {
 	t.Logf("Found claude at: %s", claudePath)
 
 	// Verify the judge selects subscription mode with no key.
-	j, err := judge.New("", "", "", "claude-haiku-4-5", claudePath, nil)
+	j, err := judge.New(judge.JudgeConfig{
+		AnthropicKey:  "",
+		GenericAPIKey: "",
+		APIBaseURL:    "",
+		Model:         "claude-haiku-4-5",
+		CLIPath:       claudePath,
+		HTTPClient:    nil,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, auth.AuthModeSubscription, j.AuthMode())
 	t.Log("✓ Auth mode correctly set to: subscription")

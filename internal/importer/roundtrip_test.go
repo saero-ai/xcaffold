@@ -57,7 +57,7 @@ func TestRoundTrip_ClaudeImportCompile(t *testing.T) {
 	require.Contains(t, config.Skills, "tdd", "skill 'tdd' must be imported")
 
 	// --- Green: compile phase ---
-	out, _, err := compiler.Compile(config, ".", "claude", "", "")
+	out, _, err := compiler.Compile(config, ".", compiler.CompileOpts{Target: "claude"})
 	require.NoError(t, err, "Compile must not fail on a valid AST")
 
 	// --- Verify: same resource keys are present in the output ---
@@ -99,7 +99,7 @@ func TestRoundTrip_ClaudeImportCompile_AgentFields(t *testing.T) {
 	assert.NotEmpty(t, agent.Tools, "tools must be imported")
 	assert.NotEmpty(t, agent.Body, "instructions body must be imported")
 
-	out, _, err := compiler.Compile(config, ".", "claude", "", "")
+	out, _, err := compiler.Compile(config, ".", compiler.CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	content := out.Files[filepath.Clean("agents/backend.md")]
@@ -122,7 +122,7 @@ func TestRoundTrip_ClaudeImportCompile_SkillFields(t *testing.T) {
 	assert.NotEmpty(t, skill.AllowedTools.Values, "allowed-tools must be imported")
 	assert.NotEmpty(t, skill.Body, "instructions body must be imported")
 
-	out, _, err := compiler.Compile(config, ".", "claude", "", "")
+	out, _, err := compiler.Compile(config, ".", compiler.CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	content := out.Files[filepath.Clean("skills/tdd/SKILL.md")]
@@ -146,7 +146,7 @@ func TestRoundTrip_CursorImportCompile(t *testing.T) {
 	require.Contains(t, config.Skills, "code-review", "skill 'code-review' must be imported")
 
 	// --- Green: compile phase ---
-	out, _, err := compiler.Compile(config, ".", "cursor", "", "")
+	out, _, err := compiler.Compile(config, ".", compiler.CompileOpts{Target: "cursor"})
 	require.NoError(t, err, "Compile must not fail on a valid AST")
 
 	// --- Verify: same resource keys are present in the output ---
@@ -194,7 +194,7 @@ func TestRoundTrip_CursorImportCompile_AgentFields(t *testing.T) {
 	assert.NotEmpty(t, agent.Tools, "tools must be imported into the AST")
 	assert.NotEmpty(t, agent.Body, "instructions body must be imported")
 
-	out, _, err := compiler.Compile(config, ".", "cursor", "", "")
+	out, _, err := compiler.Compile(config, ".", compiler.CompileOpts{Target: "cursor"})
 	require.NoError(t, err)
 
 	// Cursor emits name, description, and body — but not tools: or unmapped models.
@@ -212,7 +212,7 @@ func TestRoundTrip_CursorImportCompile_RuleExtension(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	require.NoError(t, imp.Import(testdataDir("cursor"), config))
 
-	out, _, err := compiler.Compile(config, ".", "cursor", "", "")
+	out, _, err := compiler.Compile(config, ".", compiler.CompileOpts{Target: "cursor"})
 	require.NoError(t, err)
 
 	// The rule must appear as .mdc, not .md.
@@ -238,7 +238,7 @@ func TestRoundTrip_CopilotImportCompile(t *testing.T) {
 	require.Contains(t, config.Skills, "review", "skill 'review' must be imported")
 
 	// --- Green: compile phase ---
-	out, _, err := compiler.Compile(config, ".", "copilot", "", "")
+	out, _, err := compiler.Compile(config, ".", compiler.CompileOpts{Target: "copilot"})
 	require.NoError(t, err, "Compile must not fail on a valid AST")
 
 	// --- Verify: same resource keys are present in the output ---
@@ -270,7 +270,7 @@ func TestRoundTrip_AntigravityImportCompile(t *testing.T) {
 	require.Contains(t, config.Skills, "search", "skill 'search' must be imported")
 
 	// --- Green: compile phase ---
-	out, _, err := compiler.Compile(config, ".", "antigravity", "", "")
+	out, _, err := compiler.Compile(config, ".", compiler.CompileOpts{Target: "antigravity"})
 	require.NoError(t, err, "Compile must not fail on a valid AST")
 
 	// --- Verify: same resource keys are present in the output ---
@@ -296,7 +296,7 @@ func TestRoundTrip_GeminiImportCompile(t *testing.T) {
 	require.Contains(t, config.Skills, "search", "skill 'search' must be imported")
 
 	// --- Green: compile phase ---
-	out, _, err := compiler.Compile(config, ".", "gemini", "", "")
+	out, _, err := compiler.Compile(config, ".", compiler.CompileOpts{Target: "gemini"})
 	require.NoError(t, err, "Compile must not fail on a valid AST")
 
 	// --- Verify: same resource keys are present in the output ---

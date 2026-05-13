@@ -142,12 +142,13 @@ func ApplyFlattenScopes(files map[string]string) (map[string]string, []renderer.
 		merged := strings.Join(parts, "\n\n---\n\n")
 		flatKey := parent + ".md"
 		out[flatKey] = merged
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo, "", "optimizer", flatKey, "",
-			"OPTIMIZER_FLATTEN_SCOPES",
-			fmt.Sprintf("merged %d nested files from %s/ into %s", len(children), parent, flatKey),
-			"",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelInfo,
+			Kind:     "optimizer",
+			Resource: flatKey,
+			Code:     "OPTIMIZER_FLATTEN_SCOPES",
+			Reason:   fmt.Sprintf("merged %d nested files from %s/ into %s", len(children), parent, flatKey),
+		})
 	}
 	return out, notes, nil
 }
@@ -173,19 +174,22 @@ func ApplyInlineImports(files map[string]string) (map[string]string, []renderer.
 			if content, ok := files[target]; ok {
 				lines[i] = content
 				changed = true
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelInfo, "", "optimizer", k, "",
-					"OPTIMIZER_INLINE_IMPORT",
-					fmt.Sprintf("inlined @import %s into %s", target, k),
-					"",
-				))
+				notes = append(notes, renderer.FidelityNote{
+					Level:    renderer.LevelInfo,
+					Kind:     "optimizer",
+					Resource: k,
+					Code:     "OPTIMIZER_INLINE_IMPORT",
+					Reason:   fmt.Sprintf("inlined @import %s into %s", target, k),
+				})
 			} else {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, "", "optimizer", k, "",
-					"OPTIMIZER_INLINE_IMPORT_MISSING",
-					fmt.Sprintf("@import target %q not found in file map", target),
-					"check the import path matches an existing file key",
-				))
+				notes = append(notes, renderer.FidelityNote{
+					Level:      renderer.LevelWarning,
+					Kind:       "optimizer",
+					Resource:   k,
+					Code:       "OPTIMIZER_INLINE_IMPORT_MISSING",
+					Reason:     fmt.Sprintf("@import target %q not found in file map", target),
+					Mitigation: "check the import path matches an existing file key",
+				})
 			}
 		}
 		if changed {
@@ -210,16 +214,14 @@ func ApplyDedupe(files map[string]string) (map[string]string, []renderer.Fidelit
 	for _, k := range keys {
 		body := files[k]
 		if canon, dup := seen[body]; dup {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelInfo,
-				"",
-				"optimizer",
-				k,
-				"",
-				"OPTIMIZER_DEDUPE",
-				fmt.Sprintf("file %q is identical to %q and was removed", k, canon),
-				"remove the duplicate source or use a shared import",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelInfo,
+				Kind:       "optimizer",
+				Resource:   k,
+				Code:       "OPTIMIZER_DEDUPE",
+				Reason:     fmt.Sprintf("file %q is identical to %q and was removed", k, canon),
+				Mitigation: "remove the duplicate source or use a shared import",
+			})
 			continue
 		}
 		seen[body] = k
@@ -257,16 +259,14 @@ func ApplySplitLargeRules(files map[string]string, budget Budget) (map[string]st
 		out[key1] = part1
 		out[key2] = part2
 
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelInfo,
-			"",
-			"optimizer",
-			k,
-			"",
-			"OPTIMIZER_SPLIT_LARGE_RULE",
-			fmt.Sprintf("file %q exceeded the %s budget of %d and was split into two parts", k, budget.Kind, budget.Value),
-			"reduce the rule body size or increase the budget",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelInfo,
+			Kind:       "optimizer",
+			Resource:   k,
+			Code:       "OPTIMIZER_SPLIT_LARGE_RULE",
+			Reason:     fmt.Sprintf("file %q exceeded the %s budget of %d and was split into two parts", k, budget.Kind, budget.Value),
+			Mitigation: "reduce the rule body size or increase the budget",
+		})
 	}
 
 	return out, notes, nil

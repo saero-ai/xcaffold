@@ -92,16 +92,14 @@ func (o *Optimizer) Run(files map[string]string) (map[string]string, []renderer.
 	var allNotes []renderer.FidelityNote
 
 	if swapped {
-		allNotes = append(allNotes, renderer.NewNote(
-			renderer.LevelInfo,
-			o.target,
-			"optimizer",
-			"",
-			"",
-			renderer.CodeOptimizerPassReordered,
-			"extract-common was reordered to precede inline-imports to satisfy dependency constraints",
-			"declare extract-common before inline-imports to suppress this note",
-		))
+		allNotes = append(allNotes, renderer.FidelityNote{
+			Level:      renderer.LevelInfo,
+			Target:     o.target,
+			Kind:       "optimizer",
+			Code:       renderer.CodeOptimizerPassReordered,
+			Reason:     "extract-common was reordered to precede inline-imports to satisfy dependency constraints",
+			Mitigation: "declare extract-common before inline-imports to suppress this note",
+		})
 	}
 
 	current := files

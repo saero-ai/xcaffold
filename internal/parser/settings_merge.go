@@ -129,26 +129,50 @@ func mergeStructPointerFields(out *ast.SettingsConfig, base, child ast.SettingsC
 	return nil
 }
 
+// mergeMapOpts groups parameters for merging map fields.
+type mergeMapOpts struct {
+	Field     string
+	BaseFile  string
+	ChildFile string
+}
+
+// mergeSettingsFieldsContext groups settings merge parameters.
+type mergeSettingsFieldsContext struct {
+	Out       *ast.SettingsConfig
+	Base      ast.SettingsConfig
+	Child     ast.SettingsConfig
+	BaseFile  string
+	ChildFile string
+}
+
 // mergeMapAndSliceFields merges map and slice fields from child into base settings.
-func mergeMapAndSliceFields(out *ast.SettingsConfig, base, child ast.SettingsConfig, bf, cf string) error {
+func mergeMapAndSliceFields(ctx mergeSettingsFieldsContext) error {
+	out, base, child, bf, cf := ctx.Out, ctx.Base, ctx.Child, ctx.BaseFile, ctx.ChildFile
+	opts := mergeMapOpts{
+		BaseFile:  bf,
+		ChildFile: cf,
+	}
 	var err error
 
 	// --- map[string]string (Env) ---
-	merged, err := mergeStringMapStrict(base.Env, child.Env, "env", bf, cf)
+	opts.Field = "env"
+	merged, err := mergeStringMapStrict(base.Env, child.Env, opts)
 	if err != nil {
 		return err
 	}
 	out.Env = merged
 
 	// --- map[string]bool (EnabledPlugins) ---
-	mergedPlugins, err := mergeBoolMapStrict(base.EnabledPlugins, child.EnabledPlugins, "enabledPlugins", bf, cf)
+	opts.Field = "enabledPlugins"
+	mergedPlugins, err := mergeBoolMapStrict(base.EnabledPlugins, child.EnabledPlugins, opts)
 	if err != nil {
 		return err
 	}
 	out.EnabledPlugins = mergedPlugins
 
 	// --- map[string]MCPConfig (MCPServers) ---
-	mergedMCP, err := mergeMCPMapStrict(base.MCPServers, child.MCPServers, "mcpServers", bf, cf)
+	opts.Field = "mcpServers"
+	mergedMCP, err := mergeMCPMapStrict(base.MCPServers, child.MCPServers, opts)
 	if err != nil {
 		return err
 	}
@@ -196,7 +220,13 @@ func mergeSettingsStrict(base, child ast.SettingsConfig, baseFile, childFile str
 		return ast.SettingsConfig{}, err
 	}
 
-	if err := mergeMapAndSliceFields(&out, base, child, bf, cf); err != nil {
+	if err := mergeMapAndSliceFields(mergeSettingsFieldsContext{
+		Out:       &out,
+		Base:      base,
+		Child:     child,
+		BaseFile:  bf,
+		ChildFile: cf,
+	}); err != nil {
 		return ast.SettingsConfig{}, err
 	}
 
@@ -311,7 +341,7 @@ func mergeSettingsOverride(base, child ast.SettingsConfig) ast.SettingsConfig {
 // Map merge helpers
 // ---------------------------------------------------------------------------
 
-func mergeStringMapStrict(base, child map[string]string, field, bf, cf string) (map[string]string, error) {
+func mergeStringMapStrict(base, child map[string]string, opts mergeMapOpts) (map[string]string, error) {
 	if len(child) == 0 {
 		return base, nil
 	}
@@ -324,14 +354,14 @@ func mergeStringMapStrict(base, child map[string]string, field, bf, cf string) (
 	}
 	for k, v := range child {
 		if existing, ok := merged[k]; ok && existing != v {
-			return nil, fmt.Errorf("settings conflict for %q key %q between %s and %s", field, k, bf, cf)
+			return nil, fmt.Errorf("settings conflict for %q key %q between %s and %s", opts.Field, k, opts.BaseFile, opts.ChildFile)
 		}
 		merged[k] = v
 	}
 	return merged, nil
 }
 
-func mergeBoolMapStrict(base, child map[string]bool, field, bf, cf string) (map[string]bool, error) {
+func mergeBoolMapStrict(base, child map[string]bool, opts mergeMapOpts) (map[string]bool, error) {
 	if len(child) == 0 {
 		return base, nil
 	}
@@ -344,14 +374,14 @@ func mergeBoolMapStrict(base, child map[string]bool, field, bf, cf string) (map[
 	}
 	for k, v := range child {
 		if existing, ok := merged[k]; ok && existing != v {
-			return nil, fmt.Errorf("settings conflict for %q key %q between %s and %s", field, k, bf, cf)
+			return nil, fmt.Errorf("settings conflict for %q key %q between %s and %s", opts.Field, k, opts.BaseFile, opts.ChildFile)
 		}
 		merged[k] = v
 	}
 	return merged, nil
 }
 
-func mergeMCPMapStrict(base, child map[string]ast.MCPConfig, field, bf, cf string) (map[string]ast.MCPConfig, error) {
+func mergeMCPMapStrict(base, child map[string]ast.MCPConfig, opts mergeMapOpts) (map[string]ast.MCPConfig, error) {
 	if len(child) == 0 {
 		return base, nil
 	}
@@ -364,7 +394,7 @@ func mergeMCPMapStrict(base, child map[string]ast.MCPConfig, field, bf, cf strin
 	}
 	for k, v := range child {
 		if _, ok := merged[k]; ok {
-			return nil, fmt.Errorf("settings conflict for %q key %q between %s and %s", field, k, bf, cf)
+			return nil, fmt.Errorf("settings conflict for %q key %q between %s and %s", opts.Field, k, opts.BaseFile, opts.ChildFile)
 		}
 		merged[k] = v
 	}

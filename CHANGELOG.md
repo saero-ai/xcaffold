@@ -84,8 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `provider_features_test.go` — ground truth assertions for all five providers' capability sets, target names, and output directories. (renderer)
 - Shared renderer helpers: `CompileSkillSubdir`, `SortedKeys`, `YAMLScalar`, `StripAllFrontmatter`. (renderer)
 - `LowerWorkflows` in `renderer/shared/` to avoid import cycles. (renderer)
-- `FidelityNote` struct with `FidelityLevel` (`info` / `warning` / `error`) and `NewNote()` constructor. (renderer)
-- Stable fidelity code catalog in `fidelity_codes.go` — 16 codes including `SKILL_SCRIPTS_DROPPED`, `SKILL_ASSETS_DROPPED`, `SETTINGS_FIELD_UNSUPPORTED`, `AGENT_MODEL_UNMAPPED`, `AGENT_SECURITY_FIELDS_DROPPED`, `HOOK_INTERPOLATION_REQUIRES_ENV_SYNTAX`. (renderer)
+- `FidelityNote` struct with FidelityLevel (`info` / `warning` / `error`) and `NewNote()` constructor. (renderer)
+- Stable fidelity code catalog in `fidelity_codes.go` — 16 codes including SKILL_SCRIPTS_DROPPED, SKILL_ASSETS_DROPPED, SETTINGS_FIELD_UNSUPPORTED, `AGENT_MODEL_UNMAPPED`, `AGENT_SECURITY_FIELDS_DROPPED`, HOOK_INTERPOLATION_REQUIRES_ENV_SYNTAX. (renderer)
 - `AllCodes()` enumeration for tooling introspection. (renderer)
 - `cmd/xcaffold/fidelity.go` with `printFidelityNotes()` and `buildSuppressedResourcesMap()` for command-layer suppression. (cmd)
 - Antigravity renderer — agents rendered as specialist notes. (renderer)
@@ -112,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Other**
 
-- `xcaffold init` generates a self-referential `/xcaffold` skill (`xcaf/skills/xcaffold.xcaf`) teaching AI assistants local schema constraints. (init)
+- `xcaffold init` generates a self-referential `/xcaffold` skill (`xcaf/skills/xcaffold/skill.xcaf`) teaching AI assistants local schema constraints. (init)
 - `xcaffold init` multi-file generator scaffolds a full `xcaf/` directory, replacing the legacy single-file builder. (init)
 - `instructions-file:` directive on agents, skills, and rules for sourcing prompts from external markdown files. (ast)
 - `references:` directive on skills for copying supplementary context files (glob patterns). (ast)
@@ -124,11 +124,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `xcaffold apply --project <name>` resolves project paths from the global registry. (cli)
 - `hooks` and `workflows` included in `xcaffold graph` topology output. (graph)
 - `review project.xcaf` displays skills, rules, hooks, MCP servers, and workflows in addition to agents. (review)
-- `knownTools` validation extended with `Task`, `Computer`, `AskUserQuestion`, `Agent`, `ExitPlanMode`, `EnterPlanMode`. (parser)
+- `knownTools` validation extended with Task, Computer, AskUserQuestion, Agent, ExitPlanMode, EnterPlanMode. (parser)
 - GoReleaser — pre-built binaries for Linux (amd64/arm64), macOS (amd64/arm64), Windows (amd64) with Homebrew tap. (release)
 - `AGENTS.md` following the [agents.txt](https://agentstext.com) convention. (docs)
 - `llms.txt` AI discovery index at repository root. (docs)
-- `docs/concepts/architecture/architecture.md` — system architecture documentation with Mermaid diagrams. (docs)
+- `docs/concepts/architecture/overview.md` — system architecture documentation with Mermaid diagrams. (docs)
 - Shared `internal/auth` package eliminating `AuthMode` type duplication. (internal)
 - `make install` target with `LDFLAGS` injection for version propagation. (build)
 

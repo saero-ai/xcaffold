@@ -31,29 +31,39 @@ type Judge struct {
 	model  string
 }
 
+// JudgeConfig holds initialization options for a Judge.
+type JudgeConfig struct {
+	AnthropicKey  string
+	GenericAPIKey string
+	APIBaseURL    string
+	Model         string
+	CLIPath       string
+	HTTPClient    *http.Client
+}
+
 // New returns a Judge or an error. It automatically selects the auth mode:
 //   - If genericAPIKey is present → AuthModeGenericAPI
 //   - If anthropicKey is present → AuthModeAPIKey
 //   - Otherwise → AuthModeSubscription (CLI fallback)
 //
 // The model parameter must not be empty.
-func New(anthropicKey, genericAPIKey, apiBaseURL, model, cliPath string, httpClient *http.Client) (*Judge, error) {
-	if model == "" {
+func New(cfg JudgeConfig) (*Judge, error) {
+	if cfg.Model == "" {
 		return nil, fmt.Errorf("judge: model must be specified (cannot be empty)")
 	}
 	client, err := llmclient.New(llmclient.Config{
-		AnthropicKey:   anthropicKey,
-		GenericAPIKey:  genericAPIKey,
-		GenericAPIBase: apiBaseURL,
-		Model:          model,
-		CLIPath:        cliPath,
+		AnthropicKey:   cfg.AnthropicKey,
+		GenericAPIKey:  cfg.GenericAPIKey,
+		GenericAPIBase: cfg.APIBaseURL,
+		Model:          cfg.Model,
+		CLIPath:        cfg.CLIPath,
 		MaxTokens:      2048,
-		HTTPClient:     httpClient,
+		HTTPClient:     cfg.HTTPClient,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("judge: %w", err)
 	}
-	return &Judge{client: client, model: model}, nil
+	return &Judge{client: client, model: cfg.Model}, nil
 }
 
 // AuthMode returns the authentication mode this judge will use.

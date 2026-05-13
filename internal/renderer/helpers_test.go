@@ -25,7 +25,7 @@ func TestFlattenToSkillRoot_WritesFlat(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample"), 0o644)
 
 	out := &output.Output{Files: make(map[string]string)}
-	err := FlattenToSkillRoot("my-skill", "examples", []string{"examples/sample.md"}, tmpDir, out)
+	err := FlattenToSkillRoot(FlattenOpts{ID: "my-skill", CanonicalName: "examples", Paths: []string{"examples/sample.md"}, BaseDir: tmpDir}, out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestFlattenToSkillRoot_WritesFlat(t *testing.T) {
 
 func TestFlattenToSkillRoot_RejectsTraversal(t *testing.T) {
 	out := &output.Output{Files: make(map[string]string)}
-	err := FlattenToSkillRoot("my-skill", "examples", []string{"../../etc/passwd"}, t.TempDir(), out)
+	err := FlattenToSkillRoot(FlattenOpts{ID: "my-skill", CanonicalName: "examples", Paths: []string{"../../etc/passwd"}, BaseDir: t.TempDir()}, out)
 	if err == nil {
 		t.Error("expected error for path traversal, got nil")
 	}
@@ -46,7 +46,7 @@ func TestFlattenToSkillRoot_RejectsTraversal(t *testing.T) {
 
 func TestFlattenToSkillRoot_EmptyPaths(t *testing.T) {
 	out := &output.Output{Files: make(map[string]string)}
-	err := FlattenToSkillRoot("my-skill", "examples", nil, t.TempDir(), out)
+	err := FlattenToSkillRoot(FlattenOpts{ID: "my-skill", CanonicalName: "examples", Paths: nil, BaseDir: t.TempDir()}, out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestCompileSkillSubdir_CopiesFiles(t *testing.T) {
 	os.WriteFile(filepath.Join(refDir, "doc.md"), []byte("# Reference"), 0o644)
 
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "references", "references", []string{"refs/doc.md"}, tmpDir, "", out)
+	err := CompileSkillSubdir(SkillSubdirOpts{ID: "my-skill", CanonicalSubdir: "references", OutputSubdir: "references", Paths: []string{"refs/doc.md"}, BaseDir: tmpDir, SkillSourceDir: ""}, out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestCompileSkillSubdir_CopiesFiles(t *testing.T) {
 
 func TestCompileSkillSubdir_RejectsPathTraversal(t *testing.T) {
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "references", "references", []string{"../../etc/passwd"}, t.TempDir(), "", out)
+	err := CompileSkillSubdir(SkillSubdirOpts{ID: "my-skill", CanonicalSubdir: "references", OutputSubdir: "references", Paths: []string{"../../etc/passwd"}, BaseDir: t.TempDir(), SkillSourceDir: ""}, out)
 	if err == nil {
 		t.Error("expected error for path traversal, got nil")
 	}
@@ -83,7 +83,7 @@ func TestCompileSkillSubdir_RejectsPathTraversal(t *testing.T) {
 
 func TestCompileSkillSubdir_EmptyPaths(t *testing.T) {
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "references", "references", nil, t.TempDir(), "", out)
+	err := CompileSkillSubdir(SkillSubdirOpts{ID: "my-skill", CanonicalSubdir: "references", OutputSubdir: "references", Paths: nil, BaseDir: t.TempDir(), SkillSourceDir: ""}, out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestCompileSkillSubdir_GlobExpansion(t *testing.T) {
 	os.WriteFile(filepath.Join(scriptDir, "b.sh"), []byte("#!/bin/sh\necho b"), 0o644)
 
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "scripts", "scripts", []string{"scripts/*.sh"}, tmpDir, "", out)
+	err := CompileSkillSubdir(SkillSubdirOpts{ID: "my-skill", CanonicalSubdir: "scripts", OutputSubdir: "scripts", Paths: []string{"scripts/*.sh"}, BaseDir: tmpDir, SkillSourceDir: ""}, out)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestCompileSkillSubdir_GlobExpansion(t *testing.T) {
 
 func TestCompileSkillSubdir_MissingLiteralFile(t *testing.T) {
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "assets", "assets", []string{"nonexistent.png"}, t.TempDir(), "", out)
+	err := CompileSkillSubdir(SkillSubdirOpts{ID: "my-skill", CanonicalSubdir: "assets", OutputSubdir: "assets", Paths: []string{"nonexistent.png"}, BaseDir: t.TempDir(), SkillSourceDir: ""}, out)
 	if err == nil {
 		t.Error("expected error for missing literal file, got nil")
 	}
@@ -127,7 +127,7 @@ func TestCompileSkillSubdir_OutputNameTranslation(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "examples", "sample.md"), []byte("# Sample"), 0o644)
 
 	out := &output.Output{Files: make(map[string]string)}
-	err := CompileSkillSubdir("my-skill", "examples", "resources", []string{"examples/sample.md"}, tmpDir, "", out)
+	err := CompileSkillSubdir(SkillSubdirOpts{ID: "my-skill", CanonicalSubdir: "examples", OutputSubdir: "resources", Paths: []string{"examples/sample.md"}, BaseDir: tmpDir, SkillSourceDir: ""}, out)
 	if err != nil {
 		t.Fatal(err)
 	}

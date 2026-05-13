@@ -66,145 +66,180 @@ func parseOverrideFile(entry overrideFileEntry, config *ast.XcaffoldConfig, vars
 		config.Overrides = &ast.ResourceOverrides{}
 	}
 
-	return decodeAndStoreOverride(entry, frontmatter, trimmedBody, resourceName, config.Overrides)
+	return decodeAndStoreOverride(decodeOverrideOpts{
+		Path:        entry.Path,
+		Kind:        entry.Kind,
+		Frontmatter: frontmatter,
+		Body:        trimmedBody,
+		Name:        resourceName,
+		Provider:    entry.Provider,
+		Overrides:   config.Overrides,
+	})
+}
+
+// decodeOverrideOpts groups parameters for decoding override resources.
+type decodeOverrideOpts struct {
+	Path        string // file path for error reporting
+	Kind        string
+	Frontmatter []byte
+	Body        string
+	Name        string
+	Provider    string
+	Overrides   *ast.ResourceOverrides
+}
+
+// decodeOverrideCtx groups parameters for decoding override resources.
+type decodeOverrideCtx struct {
+	fm        []byte
+	body      string
+	name      string
+	provider  string
+	overrides *ast.ResourceOverrides
 }
 
 // decodeAndStoreOverride decodes the frontmatter into the appropriate config type
 // and stores it in the ResourceOverrides map based on the resource kind.
 // decodeAgent decodes and stores an agent override.
-func decodeAgent(fm []byte, body, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodeAgent(ctx decodeOverrideCtx) error {
 	var cfg ast.AgentConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	cfg.Body = body
-	overrides.AddAgent(name, provider, cfg)
+	cfg.Body = ctx.body
+	ctx.overrides.AddAgent(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
 // decodeSkill decodes and stores a skill override.
-func decodeSkill(fm []byte, body, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodeSkill(ctx decodeOverrideCtx) error {
 	var cfg ast.SkillConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	cfg.Body = body
-	overrides.AddSkill(name, provider, cfg)
+	cfg.Body = ctx.body
+	ctx.overrides.AddSkill(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
 // decodeRule decodes and stores a rule override.
-func decodeRule(fm []byte, body, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodeRule(ctx decodeOverrideCtx) error {
 	var cfg ast.RuleConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	cfg.Body = body
-	overrides.AddRule(name, provider, cfg)
+	cfg.Body = ctx.body
+	ctx.overrides.AddRule(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
 // decodeWorkflow decodes and stores a workflow override.
-func decodeWorkflow(fm []byte, body, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodeWorkflow(ctx decodeOverrideCtx) error {
 	var cfg ast.WorkflowConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	cfg.Body = body
-	overrides.AddWorkflow(name, provider, cfg)
+	cfg.Body = ctx.body
+	ctx.overrides.AddWorkflow(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
 // decodeMCP decodes and stores an MCP override.
-func decodeMCP(fm []byte, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodeMCP(ctx decodeOverrideCtx) error {
 	var cfg ast.MCPConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	overrides.AddMCP(name, provider, cfg)
+	ctx.overrides.AddMCP(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
 // decodeHooks decodes and stores a hooks override.
-func decodeHooks(fm []byte, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodeHooks(ctx decodeOverrideCtx) error {
 	var cfg ast.NamedHookConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	overrides.AddHooks(name, provider, cfg)
+	ctx.overrides.AddHooks(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
 // decodeSettings decodes and stores a settings override.
-func decodeSettings(fm []byte, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodeSettings(ctx decodeOverrideCtx) error {
 	var cfg ast.SettingsConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	overrides.AddSettings(name, provider, cfg)
+	ctx.overrides.AddSettings(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
 // decodePolicy decodes and stores a policy override.
-func decodePolicy(fm []byte, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodePolicy(ctx decodeOverrideCtx) error {
 	var cfg ast.PolicyConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	overrides.AddPolicy(name, provider, cfg)
+	ctx.overrides.AddPolicy(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
 // decodeTemplate decodes and stores a template override.
-func decodeTemplate(fm []byte, body, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodeTemplate(ctx decodeOverrideCtx) error {
 	var cfg ast.TemplateConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	cfg.Body = body
-	overrides.AddTemplate(name, provider, cfg)
+	cfg.Body = ctx.body
+	ctx.overrides.AddTemplate(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
 // decodeContext decodes and stores a context override.
-func decodeContext(fm []byte, body, name, provider string, overrides *ast.ResourceOverrides) error {
+func decodeContext(ctx decodeOverrideCtx) error {
 	var cfg ast.ContextConfig
-	if err := yaml.Unmarshal(fm, &cfg); err != nil {
+	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	cfg.Body = body
-	overrides.AddContext(name, provider, cfg)
+	cfg.Body = ctx.body
+	ctx.overrides.AddContext(ctx.name, ctx.provider, cfg)
 	return nil
 }
 
-func decodeAndStoreOverride(entry overrideFileEntry, frontmatter []byte, body, name string, overrides *ast.ResourceOverrides) error {
+func decodeAndStoreOverride(opts decodeOverrideOpts) error {
+	ctx := decodeOverrideCtx{
+		fm:        opts.Frontmatter,
+		body:      opts.Body,
+		name:      opts.Name,
+		provider:  opts.Provider,
+		overrides: opts.Overrides,
+	}
 	var err error
-	switch entry.Kind {
+	switch opts.Kind {
 	case "agent":
-		err = decodeAgent(frontmatter, body, name, entry.Provider, overrides)
+		err = decodeAgent(ctx)
 	case "skill":
-		err = decodeSkill(frontmatter, body, name, entry.Provider, overrides)
+		err = decodeSkill(ctx)
 	case "rule":
-		err = decodeRule(frontmatter, body, name, entry.Provider, overrides)
+		err = decodeRule(ctx)
 	case "workflow":
-		err = decodeWorkflow(frontmatter, body, name, entry.Provider, overrides)
+		err = decodeWorkflow(ctx)
 	case "mcp":
-		err = decodeMCP(frontmatter, name, entry.Provider, overrides)
+		err = decodeMCP(ctx)
 	case "hooks":
-		err = decodeHooks(frontmatter, name, entry.Provider, overrides)
+		err = decodeHooks(ctx)
 	case "settings":
-		err = decodeSettings(frontmatter, name, entry.Provider, overrides)
+		err = decodeSettings(ctx)
 	case "policy":
-		err = decodePolicy(frontmatter, name, entry.Provider, overrides)
+		err = decodePolicy(ctx)
 	case "template":
-		err = decodeTemplate(frontmatter, body, name, entry.Provider, overrides)
+		err = decodeTemplate(ctx)
 	case "context":
-		err = decodeContext(frontmatter, body, name, entry.Provider, overrides)
+		err = decodeContext(ctx)
 	default:
-		return fmt.Errorf("override file %s: unsupported kind %q for overrides", entry.Path, entry.Kind)
+		return fmt.Errorf("override file %s: unsupported kind %q for overrides", opts.Path, opts.Kind)
 	}
 	if err != nil {
-		return fmt.Errorf("decode %s override %s: %w", entry.Kind, entry.Path, err)
+		return fmt.Errorf("decode %s override %s: %w", opts.Kind, opts.Path, err)
 	}
 	return nil
 }

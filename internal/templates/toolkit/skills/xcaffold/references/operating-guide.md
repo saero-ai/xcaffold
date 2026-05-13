@@ -48,7 +48,7 @@ my-project/
 
 ## CLI reference
 
-See `xcaf/skills/xcaffold/references/cli-cheatsheet.md` for the complete command and flag reference, including all flags for `init`, `apply`, `validate`, `status`, `import`, `graph`, `list`, `export`, and `test`.
+See the cli-cheatsheet reference (installed alongside this guide) for the complete command and flag reference, including all flags for `init`, `apply`, `validate`, `status`, `import`, `graph`, `list`, `export`, and `test`.
 
 ## Checking compilation state
 

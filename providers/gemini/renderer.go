@@ -294,16 +294,16 @@ func (r *Renderer) renderRulesToMap(config *ast.XcaffoldConfig, files map[string
 		activation := renderer.ResolvedActivation(rule)
 
 		if !renderer.ValidateRuleActivation(rule, r.Capabilities()) {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning,
-				targetName,
-				"rule",
-				id,
-				"activation",
-				renderer.CodeRuleActivationUnsupported,
-				fmt.Sprintf("rule %q activation %q has no native equivalent in Gemini; rule will be always-loaded via @-import", id, activation),
-				"Remove the activation field or use 'always' or 'path-glob' for Gemini targets",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "rule",
+				Resource:   id,
+				Field:      "activation",
+				Code:       renderer.CodeRuleActivationUnsupported,
+				Reason:     fmt.Sprintf("rule %q activation %q has no native equivalent in Gemini; rule will be always-loaded via @-import", id, activation),
+				Mitigation: "Remove the activation field or use 'always' or 'path-glob' for Gemini targets",
+			})
 		}
 
 		body := buildRuleBody(rule, r.Capabilities(), baseDir)
@@ -378,28 +378,39 @@ func buildGeminiSkillContent(skill ast.SkillConfig) string {
 func geminiSkillFidelityNotes(id string, skill ast.SkillConfig) []renderer.FidelityNote {
 	var notes []renderer.FidelityNote
 	if len(skill.AllowedTools.Values) > 0 {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "skill", id, "allowed-tools",
-			renderer.CodeFieldUnsupported,
-			"Gemini CLI skills do not support allowed-tools in SKILL.md frontmatter",
-			"Remove allowed-tools or use targets.gemini.provider pass-through",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "skill",
+			Resource:   id,
+			Field:      "allowed-tools",
+			Code:       renderer.CodeFieldUnsupported,
+			Reason:     "Gemini CLI skills do not support allowed-tools in SKILL.md frontmatter",
+			Mitigation: "Remove allowed-tools or use targets.gemini.provider pass-through",
+		})
 	}
 	if skill.WhenToUse != "" {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "skill", id, "when-to-use",
-			renderer.CodeFieldUnsupported,
-			"Gemini CLI skills do not support when-to-use; use description for trigger guidance",
-			"Move when-to-use content into description",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     targetName,
+			Kind:       "skill",
+			Resource:   id,
+			Field:      "when-to-use",
+			Code:       renderer.CodeFieldUnsupported,
+			Reason:     "Gemini CLI skills do not support when-to-use; use description for trigger guidance",
+			Mitigation: "Move when-to-use content into description",
+		})
 	}
 	if skill.DisableModelInvocation != nil {
-		notes = append(notes, renderer.NewNote(
-			renderer.LevelWarning, targetName, "skill", id, "disable-model-invocation",
-			renderer.CodeFieldUnsupported,
-			"Gemini CLI skills do not support disable-model-invocation",
-			"",
-		))
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelWarning,
+			Target:   targetName,
+			Kind:     "skill",
+			Resource: id,
+			Field:    "disable-model-invocation",
+			Code:     renderer.CodeFieldUnsupported,
+			Reason:   "Gemini CLI skills do not support disable-model-invocation",
+		})
 	}
 	return notes
 }
@@ -426,24 +437,39 @@ func compileGeminiSkillArtifacts(j geminiSkillArtifactJob, artifacts []string) [
 		}
 		paths, err := renderer.DiscoverArtifactFiles(j.baseDir, skillSourceDir, artifactName)
 		if err != nil {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", j.id, artifactName,
-				renderer.CodeSkillReferencesDropped,
-				fmt.Sprintf("skill %s artifact %s: discover files: %s", j.id, artifactName, err),
-				"Check file paths in "+artifactName,
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "skill",
+				Resource:   j.id,
+				Field:      artifactName,
+				Code:       renderer.CodeSkillReferencesDropped,
+				Reason:     fmt.Sprintf("skill %s artifact %s: discover files: %s", j.id, artifactName, err),
+				Mitigation: "Check file paths in " + artifactName,
+			})
 			continue
 		}
 		if len(paths) == 0 {
 			continue
 		}
-		if err := renderer.CompileSkillSubdir(j.id, artifactName, outputSubdir, paths, j.baseDir, skillSourceDir, subOut); err != nil {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", j.id, artifactName,
-				renderer.CodeSkillReferencesDropped,
-				err.Error(),
-				"Check file paths in "+artifactName,
-			))
+		if err := renderer.CompileSkillSubdir(renderer.SkillSubdirOpts{
+			ID:              j.id,
+			CanonicalSubdir: artifactName,
+			OutputSubdir:    outputSubdir,
+			Paths:           paths,
+			BaseDir:         j.baseDir,
+			SkillSourceDir:  skillSourceDir,
+		}, subOut); err != nil {
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "skill",
+				Resource:   j.id,
+				Field:      artifactName,
+				Code:       renderer.CodeSkillReferencesDropped,
+				Reason:     err.Error(),
+				Mitigation: "Check file paths in " + artifactName,
+			})
 		}
 	}
 	for k, v := range subOut.Files {
@@ -607,12 +633,16 @@ func geminiAgentFidelityNotes(agent ast.AgentConfig, id string) []renderer.Fidel
 	var notes []renderer.FidelityNote
 	for _, f := range unsupported {
 		if f.present {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "agent", id, f.name,
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("agent %q field %q has no Gemini CLI equivalent and was dropped", id, f.name),
-				"Remove the field or use targets.gemini.provider pass-through",
-			))
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     targetName,
+				Kind:       "agent",
+				Resource:   id,
+				Field:      f.name,
+				Code:       renderer.CodeFieldUnsupported,
+				Reason:     fmt.Sprintf("agent %q field %q has no Gemini CLI equivalent and was dropped", id, f.name),
+				Mitigation: "Remove the field or use targets.gemini.provider pass-through",
+			})
 		}
 	}
 	return notes

@@ -189,11 +189,11 @@ func printListHeader(cmd *cobra.Command, projectName string, config *ast.Xcaffol
 func printFilteredResources(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 	if listFilterAgent != "" {
 		filtered := filterMapByName(config.Agents, listFilterAgent)
-		printFilteredSection(cmd, "AGENTS", "agents", listFilterAgent, filtered)
+		printFilteredSection(cmd, filteredSectionOpts{title: "AGENTS", kindLabel: "agents", filter: listFilterAgent}, filtered)
 	}
 	if listFilterSkill != "" {
 		filtered := filterMapByName(config.Skills, listFilterSkill)
-		printFilteredSection(cmd, "SKILLS", "skills", listFilterSkill, filtered)
+		printFilteredSection(cmd, filteredSectionOpts{title: "SKILLS", kindLabel: "skills", filter: listFilterSkill}, filtered)
 	}
 	if listFilterRule != "" {
 		filtered := filterMapByName(config.Rules, listFilterRule)
@@ -214,15 +214,15 @@ func printFilteredResources(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 	}
 	if listFilterWorkflow != "" {
 		filtered := filterMapByName(config.Workflows, listFilterWorkflow)
-		printFilteredSection(cmd, "WORKFLOWS", "workflows", listFilterWorkflow, filtered)
+		printFilteredSection(cmd, filteredSectionOpts{title: "WORKFLOWS", kindLabel: "workflows", filter: listFilterWorkflow}, filtered)
 	}
 	if listFilterMCP != "" {
 		filtered := filterMapByName(config.MCP, listFilterMCP)
-		printFilteredSection(cmd, "MCP SERVERS", "mcp servers", listFilterMCP, filtered)
+		printFilteredSection(cmd, filteredSectionOpts{title: "MCP SERVERS", kindLabel: "mcp servers", filter: listFilterMCP}, filtered)
 	}
 	if listFilterContext != "" {
 		filtered := filterMapByName(config.Contexts, listFilterContext)
-		printFilteredSection(cmd, "CONTEXTS", "contexts", listFilterContext, filtered)
+		printFilteredSection(cmd, filteredSectionOpts{title: "CONTEXTS", kindLabel: "contexts", filter: listFilterContext}, filtered)
 	}
 	if listFilterHook {
 		printSection(cmd, "HOOKS", config.Hooks)
@@ -342,13 +342,20 @@ func printSection[T any](cmd *cobra.Command, title string, m map[string]T) {
 	cmd.Println()
 }
 
-func printFilteredSection[T any](cmd *cobra.Command, title, kindLabel, filter string, m map[string]T) {
+// filteredSectionOpts bundles parameters for printFilteredSection.
+type filteredSectionOpts struct {
+	title     string
+	kindLabel string
+	filter    string
+}
+
+func printFilteredSection[T any](cmd *cobra.Command, opts filteredSectionOpts, m map[string]T) {
 	if len(m) > 0 {
-		printSection(cmd, title, m)
+		printSection(cmd, opts.title, m)
 		return
 	}
-	if filter != "*" {
-		cmd.Printf("No %s matching %q\n\n", kindLabel, filter)
+	if opts.filter != "*" {
+		cmd.Printf("No %s matching %q\n\n", opts.kindLabel, opts.filter)
 	}
 }
 
@@ -396,7 +403,9 @@ func resolveBlueprintWithDeps(config *ast.XcaffoldConfig, bpName string) (ast.Bl
 		Memory:    config.Memory,
 	}
 	resolved := bpCopy[bpName]
-	blueprint.ResolveTransitiveDeps(&resolved, scope)
+	if err := blueprint.ResolveTransitiveDeps(&resolved, scope); err != nil {
+		return ast.BlueprintConfig{}, fmt.Errorf("transitive deps resolution: %w", err)
+	}
 	return resolved, nil
 }
 

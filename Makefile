@@ -55,4 +55,4 @@ verify-markers:
 clean:
 	@echo "=> Cleaning up build artifacts..."
 	@rm -f xcaffold
-	@rm -rf .claude/ .cursor/ .agents/ .gemini/ .github/
+	@rm -rf .claude/ .cursor/ .agents/ .gemini/

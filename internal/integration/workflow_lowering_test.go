@@ -37,7 +37,7 @@ func threeStepCodeReview() *ast.XcaffoldConfig {
 // correct fidelity note.
 func TestCompile_Workflow_RulePlusSkillLowering(t *testing.T) {
 	config := threeStepCodeReview()
-	out, notes, err := compiler.Compile(config, t.TempDir(), "claude", "", "")
+	out, notes, err := compiler.Compile(config, t.TempDir(), compiler.CompileOpts{Target: "claude"})
 	require.NoError(t, err)
 
 	// Rule file must exist at the canonical lowered path.
@@ -97,7 +97,7 @@ func TestCompile_Workflow_AntigravityNative(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := compiler.Compile(config, t.TempDir(), "antigravity", "", "")
+	out, notes, err := compiler.Compile(config, t.TempDir(), compiler.CompileOpts{Target: "antigravity"})
 	require.NoError(t, err)
 
 	// Native workflow file must exist.

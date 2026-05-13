@@ -167,7 +167,13 @@ tools: [Bash, Read]
 `
 	node := makeNodeFromYAML(t, yamlDoc)
 	config := makeEmptyConfig()
-	err := parseResourceDocument(node, "agent", config, "", "")
+	err := parseResourceDocument(parseResourceContext{
+		Node:         node,
+		Kind:         "agent",
+		Config:       config,
+		SourceFile:   "",
+		InferredName: "",
+	})
 	require.NoError(t, err)
 	agent, ok := config.Agents["developer"]
 	require.True(t, ok, "expected agent 'developer' in config.Agents")
@@ -182,7 +188,13 @@ description: "Dev"
 `
 	node := makeNodeFromYAML(t, yamlDoc)
 	config := makeEmptyConfig()
-	err := parseResourceDocument(node, "agent", config, "", "")
+	err := parseResourceDocument(parseResourceContext{
+		Node:         node,
+		Kind:         "agent",
+		Config:       config,
+		SourceFile:   "",
+		InferredName: "",
+	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "name is required")
 }
@@ -194,7 +206,13 @@ description: "Dev"
 `
 	node := makeNodeFromYAML(t, yamlDoc)
 	config := makeEmptyConfig()
-	err := parseResourceDocument(node, "agent", config, "", "")
+	err := parseResourceDocument(parseResourceContext{
+		Node:         node,
+		Kind:         "agent",
+		Config:       config,
+		SourceFile:   "",
+		InferredName: "",
+	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "version is required")
 }
@@ -207,7 +225,13 @@ description: "Dev"
 `
 	node := makeNodeFromYAML(t, yamlDoc)
 	config := makeEmptyConfig()
-	err := parseResourceDocument(node, "agent", config, "", "")
+	err := parseResourceDocument(parseResourceContext{
+		Node:         node,
+		Kind:         "agent",
+		Config:       config,
+		SourceFile:   "",
+		InferredName: "",
+	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "name")
 }
@@ -222,7 +246,13 @@ name: developer
 description: "Another dev"
 `
 	node := makeNodeFromYAML(t, yamlDoc)
-	err := parseResourceDocument(node, "agent", config, "", "")
+	err := parseResourceDocument(parseResourceContext{
+		Node:         node,
+		Kind:         "agent",
+		Config:       config,
+		SourceFile:   "",
+		InferredName: "",
+	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate")
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -38,6 +37,13 @@ var (
 	importFilterSetting  bool
 	importFilterMemory   bool
 )
+
+// importScopeContext groups the scope parameters for finalizeImportScope.
+type importScopeContext struct {
+	xcafDest  string
+	scopeName string
+	provider  string
+}
 
 var importCmd = &cobra.Command{
 	Use:   "import",
@@ -323,7 +329,7 @@ func importScope(platformDir, xcafDest, scopeName, provider string) error {
 	var warnings []string
 
 	extractAndPostProcess(platformDir, provider, config, &warnings)
-	if err := runProviderPostImport(provider, platformDir, projectDir, config, &warnings); err != nil {
+	if err := runProviderPostImport(provider, projectDir, config, &warnings); err != nil {
 		return err
 	}
 	if err := runPostImportSteps(config, projectDir, false); err != nil {
@@ -334,7 +340,7 @@ func importScope(platformDir, xcafDest, scopeName, provider string) error {
 		config.Project.Targets = detectTargets(platformDir)
 	}
 
-	return finalizeImportScope(xcafDest, scopeName, provider, config, &warnings)
+	return finalizeImportScope(importScopeContext{xcafDest, scopeName, provider}, config, &warnings)
 }
 
 // shouldPromptForceDelete checks if the force delete prompt should be shown.
@@ -469,120 +475,6 @@ func importStatusAndPlugins(raw map[string]interface{}, config *ast.XcaffoldConf
 	}
 }
 
-// extractSkillSubdirs scans the skill directory for known canonical and
-// provider-native subdirectories, copies their files to xcaf/skills/<id>/,
-// and returns slices of copied paths grouped by canonical category.
-//
-// manifest provides the provider's SubdirMap; if nil, all subdirectory files
-// are routed to passthrough.
-//
-// outDir is the base directory for output paths (xcaf/skills/<id>/...).  When
-// empty, the current working directory is used.
-//
-// For providers with SkillMDAsReference=true, any .md file alongside SKILL.md
-// (not in a subdirectory) is treated as a reference.
-//
-// Files from subdirectories that have no canonical mapping are copied to
-// xcaf/skills/<id>/<subdir>/ alongside canonical subdirectories.
-//
-// The discoveredDirs slice contains all discovered subdirectory names (both
-// canonical and custom) in the skill directory, suitable for populating
-// the Artifacts field of SkillConfig.
-func extractSkillSubdirs(skillFile, id string, manifest *providerspkg.ProviderManifest, outDir string, warnings *[]string) (discoveredDirs []string, err error) {
-	skillDir := filepath.Dir(skillFile)
-	subdirMap := buildSubdirMap(manifest, warnings)
-
-	entries, readErr := os.ReadDir(skillDir)
-	if readErr != nil {
-		return nil, nil
-	}
-
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() {
-			discoveredDirs = append(discoveredDirs, name)
-			processSkillSubdir(skillDir, id, name, subdirMap, outDir, manifest, warnings)
-			continue
-		}
-		processSkillRootFile(skillDir, id, name, outDir, manifest, warnings)
-	}
-
-	return discoveredDirs, nil
-}
-
-// buildSubdirMap extracts the subdir mapping from the provider manifest.
-func buildSubdirMap(manifest *providerspkg.ProviderManifest, warnings *[]string) map[string]string {
-	if manifest == nil {
-		*warnings = append(*warnings, "extractSkillSubdirs: unknown provider unknown-provider (nil manifest) — all subdirectory files routed to passthrough")
-		return make(map[string]string)
-	}
-	if len(manifest.SubdirMap) == 0 {
-		*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs: provider %q has no SubdirMap — all subdirectory files routed to passthrough", manifest.Name))
-	}
-	return manifest.SubdirMap
-}
-
-// processSkillSubdir processes files within a subdirectory of a skill.
-func processSkillSubdir(skillDir, id, subdir string, subdirMap map[string]string, outDir string, manifest *providerspkg.ProviderManifest, warnings *[]string) {
-	canonicalSubdir := subdirMap[subdir]
-	subEntries, _ := os.ReadDir(filepath.Join(skillDir, subdir))
-	for _, sub := range subEntries {
-		if sub.IsDir() {
-			continue
-		}
-		src := filepath.Join(skillDir, subdir, sub.Name())
-		if canonicalSubdir != "" {
-			copySkillFile(src, id, canonicalSubdir, sub.Name(), outDir, warnings)
-		} else {
-			copySkillFile(src, id, subdir, sub.Name(), outDir, warnings)
-		}
-	}
-}
-
-// processSkillRootFile handles files at the root of a skill directory.
-func processSkillRootFile(skillDir, id, name string, outDir string, manifest *providerspkg.ProviderManifest, warnings *[]string) {
-	if manifest != nil && manifest.SkillMDAsReference && strings.ToLower(name) != "skill.md" && strings.HasSuffix(strings.ToLower(name), ".md") {
-		copySkillFile(filepath.Join(skillDir, name), id, "references", name, outDir, warnings)
-	}
-}
-
-// copySkillFile copies a skill support file to its destination.
-func copySkillFile(src, id, subdir, filename, outDir string, warnings *[]string) {
-	var dest string
-	if outDir != "" {
-		dest = filepath.Join(outDir, "xcaf", "skills", id, subdir, filename)
-	} else {
-		dest = filepath.Join("xcaf", "skills", id, subdir, filename)
-	}
-	if copyErr := copyFile(src, dest); copyErr != nil {
-		*warnings = append(*warnings, fmt.Sprintf("failed to copy skill file %s: %v", src, copyErr))
-	}
-}
-
-// extractBodyAfterFrontmatter returns the markdown body that follows the YAML frontmatter block.
-// If the data has no frontmatter (does not start with "---\n"), the entire content is returned.
-// Leading and trailing whitespace is trimmed from the returned body.
-func extractBodyAfterFrontmatter(data []byte) string {
-	if !bytes.HasPrefix(data, []byte("---\n")) && !bytes.HasPrefix(data, []byte("---\r\n")) {
-		return strings.TrimSpace(string(data))
-	}
-	// Find the closing "---" marker after the opening one.
-	idx := bytes.Index(data[4:], []byte("\n---"))
-	if idx == -1 {
-		return strings.TrimSpace(string(data))
-	}
-	// Skip past the closing "---\n" line to get to the body.
-	bodyStart := 4 + idx + len("\n---")
-	if bodyStart >= len(data) {
-		return ""
-	}
-	// Consume a trailing newline after the closing marker.
-	if data[bodyStart] == '\n' {
-		bodyStart++
-	}
-	return strings.TrimSpace(string(data[bodyStart:]))
-}
-
 // detectTargets derives compilation target names from platform directory base names
 // by consulting the importer registry. It maps InputDir() names to Provider() names.
 // The result is sorted for deterministic output.
@@ -610,27 +502,27 @@ func detectTargets(baseDirs ...string) []string {
 }
 
 // finalizeImportScope handles memory file writing, resource tagging, filtering, and success messages.
-func finalizeImportScope(xcafDest, scopeName, provider string, config *ast.XcaffoldConfig, warnings *[]string) error {
-	tagResourcesWithProvider(config, provider)
+func finalizeImportScope(ctx importScopeContext, config *ast.XcaffoldConfig, warnings *[]string) error {
+	tagResourcesWithProvider(config, ctx.provider)
 	applyKindFilters(config)
 
 	if importDryRun {
 		fmt.Printf("Import plan (dry-run):\n")
 		fmt.Printf("  Would create %d agents, %d skills, %d rules, %d workflows, %d MCP servers\n",
 			len(config.Agents), len(config.Skills), len(config.Rules), len(config.Workflows), len(config.MCP))
-		fmt.Printf("  Target directory: %s\n", xcafDest)
+		fmt.Printf("  Target directory: %s\n", ctx.xcafDest)
 		return nil
 	}
 
 	if err := WriteSplitFiles(config, "."); err != nil {
-		return fmt.Errorf("[%s] failed to write split xcaf files: %w", scopeName, err)
+		return fmt.Errorf("[%s] failed to write split xcaf files: %w", ctx.scopeName, err)
 	}
 
 	importCount := len(config.Agents) + len(config.Skills) + len(config.Rules) +
 		len(config.Workflows) + len(config.MCP)
-	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", scopeName, xcafDest, importCount)
+	fmt.Printf("[%s] ✓ Import complete. Created %s with %d resources.\n", ctx.scopeName, ctx.xcafDest, importCount)
 	fmt.Printf("  Split xcaf/ files written to xcaf/ directory.\n")
-	fmt.Printf("  Resources tagged with targets: [%s]. Remove the targets field to make universal.\n", provider)
+	fmt.Printf("  Resources tagged with targets: [%s]. Remove the targets field to make universal.\n", ctx.provider)
 	fmt.Println("  Run 'xcaffold apply' when ready to assume management.")
 
 	cwd, _ := os.Getwd()
@@ -671,7 +563,7 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 		for id := range config.Skills {
 			skillFile := filepath.Join(platformDir, "skills", id, "SKILL.md")
 			if _, err := os.Stat(skillFile); err == nil {
-				discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
+				discoveredDirs, subdirsErr := extractSkillSubdirs(skillExtractionCtx{skillFile, id, ""}, &manifest, warnings)
 				if subdirsErr != nil {
 					*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs %s: %v", id, subdirsErr))
 				}
@@ -692,473 +584,4 @@ func extractAndPostProcess(platformDir, provider string, config *ast.XcaffoldCon
 	}
 
 	return importCount
-}
-
-// scanProviderConfigs scans each provider via ProviderImporter and populates a map of provider -> XcaffoldConfig.
-// It handles importer invocation, skill subdirectory extraction, extras reclassification, and post-import steps.
-func scanProviderConfigs(providers []importer.ProviderImporter, warnings *[]string) map[string]*ast.XcaffoldConfig {
-	providerConfigs := make(map[string]*ast.XcaffoldConfig)
-
-	for _, imp := range providers {
-		dir := imp.InputDir()
-		provider := imp.Provider()
-		fmt.Printf("  Scanning %s ...\n", dir)
-
-		tmpConfig := &ast.XcaffoldConfig{
-			ResourceScope: ast.ResourceScope{
-				Agents:    make(map[string]ast.AgentConfig),
-				Skills:    make(map[string]ast.SkillConfig),
-				Rules:     make(map[string]ast.RuleConfig),
-				Workflows: make(map[string]ast.WorkflowConfig),
-				MCP:       make(map[string]ast.MCPConfig),
-			},
-		}
-
-		if err := imp.Import(dir, tmpConfig); err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("%s import: %v", provider, err))
-		}
-
-		manifest, _ := providerspkg.ManifestFor(provider)
-		for id := range tmpConfig.Skills {
-			skillFile := filepath.Join(dir, "skills", id, "SKILL.md")
-			if _, err := os.Stat(skillFile); err == nil {
-				discoveredDirs, subdirsErr := extractSkillSubdirs(skillFile, id, &manifest, "", warnings)
-				if subdirsErr != nil {
-					*warnings = append(*warnings, fmt.Sprintf("extractSkillSubdirs %s: %v", id, subdirsErr))
-				}
-				sc := tmpConfig.Skills[id]
-				if len(discoveredDirs) > 0 {
-					sc.Artifacts = discoveredDirs
-				}
-				tmpConfig.Skills[id] = sc
-			}
-		}
-
-		if err := parser.ReclassifyExtras(tmpConfig, importer.DefaultImporters()); err != nil {
-			*warnings = append(*warnings, fmt.Sprintf("reclassify extras (%s): %v", provider, err))
-		}
-
-		dirAbs, _ := filepath.Abs(dir)
-		projectDir := filepath.Dir(dirAbs)
-		if err := runProviderPostImport(provider, dir, projectDir, tmpConfig, warnings); err != nil {
-			// Note: caller must handle this error
-			*warnings = append(*warnings, fmt.Sprintf("post-import error: %v", err))
-			continue
-		}
-
-		providerConfigs[provider] = tmpConfig
-	}
-
-	return providerConfigs
-}
-
-// mergeImportDirs consolidates multiple platform directories into a single project.xcaf.
-// Resources present in multiple providers are compared field-by-field: identical content
-// produces a universal base tagged with all providers; different content produces a base
-// with the first provider's values plus per-provider override files.
-func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) error {
-	xcafExists, xcafDirExists := checkExistingXcaf(xcafDest)
-
-	if importForce && (xcafExists || xcafDirExists) {
-		if err := performForceRemoveXcaf(xcafDest); err != nil {
-			return err
-		}
-		xcafExists = false
-		xcafDirExists = false
-	}
-
-	if xcafExists || xcafDirExists {
-		return fmt.Errorf("[project] incremental import with multiple providers is not yet supported; use 'xcaffold import --force' to reimport from scratch")
-	}
-
-	projectName := inferProjectName()
-	config := createMergeImportConfig(projectName)
-	var warnings []string
-
-	// Collect and assemble configs
-	providerConfigs := scanProviderConfigs(providers, &warnings)
-	assembleMultiProviderResources(providerConfigs, config)
-	detectAndSetTargets(providers, config)
-	applyKindFilters(config)
-
-	// Apply --dry-run guard before writing files
-	if importDryRun {
-		printMergeImportPlan(config, providers)
-		return nil
-	}
-
-	// Write files and summarize
-	if err := writeMergeImportFiles(config); err != nil {
-		return err
-	}
-
-	overrideCount := countImportOverrides(config)
-	printMergeImportSummary(xcafDest, config, providers, overrideCount)
-
-	cwd, _ := os.Getwd()
-	if config.Project != nil {
-		_ = registry.Register(cwd, config.Project.Name, nil, ".")
-	}
-
-	printImportWarnings(warnings)
-	return nil
-}
-
-// checkExistingXcaf checks if project.xcaf and xcaf/ directory exist.
-func checkExistingXcaf(xcafDest string) (bool, bool) {
-	xcafExists := false
-	if _, err := os.Stat(xcafDest); err == nil {
-		xcafExists = true
-	}
-	xcafDirExists := false
-	if _, err := os.Stat("xcaf"); err == nil {
-		xcafDirExists = true
-	}
-	return xcafExists, xcafDirExists
-}
-
-// performForceRemoveXcaf removes existing project.xcaf and xcaf/ if user confirms.
-func performForceRemoveXcaf(xcafDest string) error {
-	fmt.Fprintf(os.Stderr, "\n  %s  --force will DELETE project.xcaf and xcaf/ directory.\n", colorYellow(glyphSrc()))
-	fmt.Fprintf(os.Stderr, "     All manual edits to xcaf files will be lost.\n\n")
-	doForce := importYes
-	if !importYes {
-		var err error
-		doForce, err = prompt.Confirm("Proceed with destructive reimport?", false)
-		if err != nil {
-			return fmt.Errorf("prompt error: %w", err)
-		}
-	}
-	if !doForce {
-		return nil
-	}
-	_ = os.Remove(xcafDest)
-	_ = os.RemoveAll("xcaf")
-	return nil
-}
-
-// createMergeImportConfig creates an empty config for merge import.
-func createMergeImportConfig(projectName string) *ast.XcaffoldConfig {
-	return &ast.XcaffoldConfig{
-		Version: "1.0",
-		Project: &ast.ProjectConfig{Name: projectName},
-		ResourceScope: ast.ResourceScope{
-			Agents:    make(map[string]ast.AgentConfig),
-			Skills:    make(map[string]ast.SkillConfig),
-			Rules:     make(map[string]ast.RuleConfig),
-			Workflows: make(map[string]ast.WorkflowConfig),
-			MCP:       make(map[string]ast.MCPConfig),
-		},
-	}
-}
-
-// detectAndSetTargets detects compilation targets and sets them on the config.
-func detectAndSetTargets(providers []importer.ProviderImporter, config *ast.XcaffoldConfig) {
-	var dirNames []string
-	for _, imp := range providers {
-		dirNames = append(dirNames, imp.InputDir())
-	}
-	if config.Project != nil {
-		config.Project.Targets = detectTargets(dirNames...)
-	}
-}
-
-// printMergeImportPlan outputs the dry-run preview.
-func printMergeImportPlan(config *ast.XcaffoldConfig, providers []importer.ProviderImporter) {
-	fmt.Printf("Import plan (dry-run):\n")
-	fmt.Printf("  Would create %d agents, %d skills, %d rules, %d workflows, %d MCP servers\n",
-		len(config.Agents), len(config.Skills), len(config.Rules), len(config.Workflows), len(config.MCP))
-	fmt.Printf("  From %d provider directories\n", len(providers))
-}
-
-// writeMergeImportFiles writes all import-related files to disk.
-func writeMergeImportFiles(config *ast.XcaffoldConfig) error {
-	if memCount, err := writeMemoryFiles(config); err != nil {
-		return fmt.Errorf("write memory files: %w", err)
-	} else if memCount > 0 {
-		fmt.Printf("  Agent memory: %d entry(ies) → xcaf/agents/<id>/memory/\n", memCount)
-	}
-
-	discoverRootContextFiles(".", config)
-
-	if err := WriteSplitFiles(config, "."); err != nil {
-		return fmt.Errorf("[project] failed to write split xcaf files: %w", err)
-	}
-
-	if err := pruneOrphanMemory(config, "."); err != nil {
-		return fmt.Errorf("prune memory: %w", err)
-	}
-
-	return nil
-}
-
-// countImportOverrides counts total provider overrides in the config.
-func countImportOverrides(config *ast.XcaffoldConfig) int {
-	overrideCount := 0
-	if config.Overrides == nil {
-		return overrideCount
-	}
-	for name := range config.Agents {
-		overrideCount += len(config.Overrides.AgentProviders(name))
-	}
-	for name := range config.Skills {
-		overrideCount += len(config.Overrides.SkillProviders(name))
-	}
-	for name := range config.Rules {
-		overrideCount += len(config.Overrides.RuleProviders(name))
-	}
-	for name := range config.Workflows {
-		overrideCount += len(config.Overrides.WorkflowProviders(name))
-	}
-	return overrideCount
-}
-
-// printMergeImportSummary outputs the import completion summary.
-func printMergeImportSummary(xcafDest string, config *ast.XcaffoldConfig, providers []importer.ProviderImporter, overrideCount int) {
-	importCount := len(config.Agents) + len(config.Skills) + len(config.Rules) +
-		len(config.Workflows) + len(config.MCP)
-	fmt.Printf("\n[project] ✓ Import complete. Created %s with %d resources from %d directories.\n",
-		xcafDest, importCount, len(providers))
-	fmt.Printf("  Split xcaf/ files written to xcaf/ directory.\n")
-	fmt.Printf("  Resources tagged with targets: [%s].\n", strings.Join(sortedProviderNames(providers), ", "))
-	if overrideCount > 0 {
-		fmt.Printf("  %d conflicts detected — override files created. Run 'xcaffold validate' to review.\n", overrideCount)
-	}
-	fmt.Println("  Run 'xcaffold apply' when ready to compile to your target platforms.")
-}
-
-// printImportWarnings outputs any warnings collected during import.
-func printImportWarnings(warnings []string) {
-	if len(warnings) == 0 {
-		return
-	}
-	fmt.Println("\nWarnings:")
-	for _, w := range warnings {
-		fmt.Println(" ⚠", w)
-	}
-}
-
-// inferProjectName derives a project name from the current working directory.
-func inferProjectName() string {
-	wd, err := os.Getwd()
-	if err != nil {
-		return "imported-project"
-	}
-	base := filepath.Base(wd)
-	if base == "." || base == "/" || base == "" {
-		return "imported-project"
-	}
-	return base
-}
-
-// copyFile copies the file at src to dst, creating parent directories as needed.
-func copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return fmt.Errorf("read %s: %w", src, err)
-	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", filepath.Dir(dst), err)
-	}
-	return os.WriteFile(dst, data, 0600)
-}
-
-// findImporterByProvider returns the registered ProviderImporter for the given
-// provider name, or nil when no importer is registered for that provider.
-func findImporterByProvider(provider string) importer.ProviderImporter {
-	for _, imp := range importer.DefaultImporters() {
-		if imp.Provider() == provider {
-			return imp
-		}
-	}
-	return nil
-}
-
-// pruneOrphanMemory removes xcaf/agents/<id>/memory/ directories for agents
-// that are not present in the current import scope. Agents referenced only via
-// config.Memory (e.g. global agents whose project-scoped memory was imported)
-// are preserved even when they have no entry in config.Agents.
-// After pruning, any now-empty agent directory (no .xcaf file, no memory/) is
-// also removed.
-func pruneOrphanMemory(config *ast.XcaffoldConfig, rootDir string) error {
-	agentsDir := filepath.Join(rootDir, "xcaf", "agents")
-	if _, err := os.Stat(agentsDir); os.IsNotExist(err) {
-		return nil
-	}
-
-	validAgents := buildValidAgentSet(config)
-	memoryAgents := buildMemoryAgentSet(config)
-
-	entries, err := os.ReadDir(agentsDir)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		if err := pruneMemoryForAgent(agentsDir, entry.Name(), validAgents, memoryAgents); err != nil {
-			return err
-		}
-	}
-
-	return removeEmptyAgentDirs(agentsDir)
-}
-
-// buildValidAgentSet creates a set of all declared agents.
-func buildValidAgentSet(config *ast.XcaffoldConfig) map[string]bool {
-	validAgents := make(map[string]bool)
-	for id := range config.Agents {
-		validAgents[id] = true
-	}
-	return validAgents
-}
-
-// buildMemoryAgentSet creates a set of agents with explicitly imported memory entries.
-func buildMemoryAgentSet(config *ast.XcaffoldConfig) map[string]bool {
-	memoryAgents := make(map[string]bool)
-	for memPath := range config.Memory {
-		agentID := strings.SplitN(filepath.ToSlash(memPath), "/", 2)[0]
-		memoryAgents[agentID] = true
-	}
-	return memoryAgents
-}
-
-// pruneMemoryForAgent removes memory directory if agent is not valid or declared.
-func pruneMemoryForAgent(agentsDir, agentID string, validAgents, memoryAgents map[string]bool) error {
-	memDir := filepath.Join(agentsDir, agentID, "memory")
-	if _, err := os.Stat(memDir); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	if !validAgents[agentID] && !memoryAgents[agentID] {
-		return os.RemoveAll(memDir)
-	}
-	return nil
-}
-
-// removeEmptyAgentDirs deletes agent directories with no content.
-func removeEmptyAgentDirs(agentsDir string) error {
-	entries, err := os.ReadDir(agentsDir)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		agentDir := filepath.Join(agentsDir, entry.Name())
-		dirEntries, err := os.ReadDir(agentDir)
-		if err == nil && len(dirEntries) == 0 {
-			_ = os.Remove(agentDir)
-		}
-	}
-	return nil
-}
-
-// runPostImportSteps executes the shared post-import steps: memory writing,
-// root context discovery, and memory pruning. The injectToolkit parameter
-// controls whether toolkit reference templates and xaff toolkit are injected
-// (typically false for import, true for init).
-func runPostImportSteps(config *ast.XcaffoldConfig, projectDir string, injectToolkit bool) error {
-	if memCount, err := writeMemoryFiles(config); err != nil {
-		return fmt.Errorf("write memory: %w", err)
-	} else if memCount > 0 {
-		fmt.Printf("  Agent memory: %d entry(ies) → xcaf/agents/<id>/memory/\n", memCount)
-	}
-
-	discoverRootContextFiles(projectDir, config)
-
-	if err := pruneOrphanMemory(config, projectDir); err != nil {
-		return fmt.Errorf("prune memory: %w", err)
-	}
-
-	if injectToolkit {
-		if err := injectXaffToolkitAfterImport(projectDir); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// writeMemoryFiles writes each memory entry in config to a plain .md file under
-// xcaf/agents/<agentID>/memory/<name>.md, mirroring the convention the compiler
-// uses to discover memory at build time. Returns the number of files written.
-func writeMemoryFiles(config *ast.XcaffoldConfig) (int, error) {
-	if len(config.Memory) == 0 {
-		return 0, nil
-	}
-	count := 0
-	for _, k := range sortedMapKeys(config.Memory) {
-		mem := config.Memory[k]
-		parts := strings.SplitN(filepath.ToSlash(k), "/", 2)
-		var agentID, memName string
-		if len(parts) == 2 {
-			agentID = parts[0]
-			memName = parts[1]
-		} else {
-			agentID = mem.AgentRef
-			if agentID == "" {
-				agentID = k
-			}
-			memName = k
-		}
-		outPath := filepath.Join("xcaf", "agents", agentID, "memory", filepath.FromSlash(memName)+".md")
-		if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-			return count, fmt.Errorf("create memory dir: %w", err)
-		}
-		if err := os.WriteFile(filepath.Clean(outPath), []byte(mem.Content), 0644); err != nil {
-			return count, fmt.Errorf("write memory file: %w", err)
-		}
-		count++
-	}
-	return count, nil
-}
-
-// runProviderPostImport executes provider-specific post-import steps that fall
-// outside the scope of the ProviderImporter interface (cross-boundary files,
-// out-of-tree memory sources, unsupported-provider warnings).
-func runProviderPostImport(provider, _ /* platformDir */ string, projectDir string, config *ast.XcaffoldConfig, warnings *[]string) error {
-	m, ok := providerspkg.ManifestFor(provider)
-	if !ok {
-		return nil
-	}
-	for _, mcpPath := range m.RootMCPPaths {
-		fullPath := filepath.Join(projectDir, mcpPath)
-		if data, err := os.ReadFile(fullPath); err == nil {
-			count := 0
-			if err := importSettings(data, config, &count, warnings); err != nil {
-				*warnings = append(*warnings, fmt.Sprintf("%s partially imported: %v", mcpPath, err))
-			}
-		}
-	}
-	if m.PostImportWarning != "" {
-		*warnings = append(*warnings, m.PostImportWarning)
-	}
-	return nil
-}
-
-// discoverRootContextFiles scans the project root for known root context files
-// using the provider manifest registry and populates config.Contexts.
-func discoverRootContextFiles(projectDir string, config *ast.XcaffoldConfig) {
-	if config.Contexts == nil {
-		config.Contexts = make(map[string]ast.ContextConfig)
-	}
-
-	for _, m := range providerspkg.Manifests() {
-		if m.RootContextFile == "" {
-			continue
-		}
-		fullPath := filepath.Join(projectDir, filepath.FromSlash(m.RootContextFile))
-		if data, err := os.ReadFile(fullPath); err == nil {
-			config.Contexts[m.Name] = ast.ContextConfig{
-				Name:    m.Name,
-				Targets: []string{m.Name},
-				Body:    string(data),
-			}
-		}
-	}
 }

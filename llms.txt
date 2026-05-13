@@ -1,0 +1,41 @@
+# xcaffold
+
+> Deterministic agent configuration compiler. Compiles .xcaf YAML into native configurations for AI coding platforms.
+
+xcaffold is an open-source CLI tool that lets teams define agent configurations once in `.xcaf` files and compile them to native formats for any supported AI coding platform. It follows the Agent-as-Code (AaC) paradigm — agent configurations are version-controlled, reviewed, and deployed like infrastructure code.
+
+## Key Concepts
+
+- `.xcaf` files: YAML manifests defining agents, skills, rules, hooks, memory, MCP servers, and project settings
+- Compilation: deterministic transformation from `.xcaf` source to provider-native output
+- Providers: target platforms — each has a renderer that emits the platform's native format
+- Drift detection: compare compiled output against filesystem state
+- Blueprints: named configuration profiles for different environments or team roles
+- Fidelity notes: warnings when a provider cannot fully represent a source configuration
+
+## Commands
+
+- `xcaffold init` — scaffold a new project with project.xcaf
+- `xcaffold apply` — compile .xcaf source to provider-native output
+- `xcaffold diff` — show differences between compiled and on-disk state
+- `xcaffold import` — ingest existing provider configurations as .xcaf source
+- `xcaffold validate` — parse and validate .xcaf files without compiling
+- `xcaffold graph` — render the dependency graph for a project
+- `xcaffold list` — enumerate compiled resources by kind and provider
+- `xcaffold status` — show drift between source and output
+
+## Resource Kinds
+
+- `agent` — AI assistant persona with model, tools, and instructions
+- `skill` — reusable task workflow with steps and references
+- `rule` — behavioral constraint or coding standard
+- `hook` — shell command triggered by lifecycle events
+- `memory` — persistent knowledge attached to an agent
+- `mcp` — Model Context Protocol server configuration
+- `context` — shared instruction block composable across agents
+- `project` — project-level settings and variables
+
+## Links
+
+- Source: https://github.com/saero-ai/xcaffold
+- License: Apache-2.0

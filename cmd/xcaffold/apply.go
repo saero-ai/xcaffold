@@ -1,15 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
-	"github.com/pmezard/go-difflib/difflib"
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/compiler"
@@ -35,6 +32,22 @@ var applyProjectFlag string
 var applyBlueprintFlag string
 var targetFlag string
 var varFileFlag string
+
+const scopeGlobal = "global"
+
+// applyContext bundles parameters for the apply phase to reduce function arity.
+type applyContext struct {
+	config        *ast.XcaffoldConfig
+	oldManifest   *state.StateManifest
+	out           *output.Output
+	sourceFiles   []string
+	configPath    string
+	projectName   string
+	outputDir     string
+	baseDir       string
+	stateFilePath string
+	scopeName     string
+}
 
 var applyCmd = &cobra.Command{
 	Use:   "apply",
@@ -113,16 +126,27 @@ func checkSmartSkip(stateFilePath string, sourceFiles []string, baseDir string) 
 	return !changed
 }
 
+// compileOpts holds parameters for compilation to reduce function arity.
+type compileOpts struct {
+	target    string
+	blueprint string
+	varFile   string
+}
+
 // compileAndOptimize compiles the config and applies optimization.
 // Returns compiled output, fidelity notes, and any error.
-func compileAndOptimize(config *ast.XcaffoldConfig, baseDir, target, blueprint, varFile string) (*output.Output, []renderer.FidelityNote, error) {
-	out, notes, err := compiler.Compile(config, baseDir, target, blueprint, varFile)
+func compileAndOptimize(config *ast.XcaffoldConfig, baseDir string, opts compileOpts) (*output.Output, []renderer.FidelityNote, error) {
+	out, notes, err := compiler.Compile(config, baseDir, compiler.CompileOpts{
+		Target:    opts.target,
+		Blueprint: opts.blueprint,
+		VarFile:   opts.varFile,
+	})
 	if err != nil {
 		return nil, notes, err
 	}
 
 	// Renderers resolve @-imports natively; the optimizer handles targets that don't.
-	opt := optimizer.New(target)
+	opt := optimizer.New(opts.target)
 	optimized, optNotes, optErr := opt.Run(out.Files)
 	if optErr != nil {
 		return nil, notes, optErr
@@ -131,7 +155,7 @@ func compileAndOptimize(config *ast.XcaffoldConfig, baseDir, target, blueprint, 
 	notes = append(notes, optNotes...)
 
 	// Restore same-provider extras and emit fidelity notes for cross-provider ones.
-	notes = applyProviderExtras(config, out, target, notes)
+	notes = applyProviderExtras(config, out, opts.target, notes)
 
 	return out, notes, nil
 }
@@ -213,47 +237,47 @@ func showApplyPreview(oldManifest *state.StateManifest, out *output.Output, outp
 // writeApplyFiles writes all compiled files (both output and root) to disk.
 // Updates filesWritten counter and returns it.
 func writeApplyFiles(out *output.Output, outputDir, baseDir, scopeName string) (int, error) {
-	var hasChanges bool
-	filesWritten := 0
+	result := &applyFileResult{}
 
 	for relPath, content := range out.Files {
 		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
-		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
+		if err := applyFile(absPath, content, scopeName, result); err != nil {
 			return 0, err
 		}
 	}
 
 	for relPath, content := range out.RootFiles {
 		absPath := filepath.Clean(filepath.Join(baseDir, relPath))
-		if err := applyFile(absPath, content, scopeName, &hasChanges, &filesWritten); err != nil {
+		if err := applyFile(absPath, content, scopeName, result); err != nil {
 			return 0, err
 		}
 	}
 
-	return filesWritten, nil
+	return result.filesWritten, nil
 }
 
 // writeApplyState writes the state manifest to disk after a successful apply.
-func writeApplyState(config *ast.XcaffoldConfig, out *output.Output, baseDir, stateFilePath string, sourceFiles []string, oldManifest *state.StateManifest) error {
+// writeState generates and persists the new state manifest.
+func (ctx *applyContext) writeState() error {
 	// Compute blueprint hash before writing state.
 	var bpHash string
 	if applyBlueprintFlag != "" {
-		if p, ok := config.Blueprints[applyBlueprintFlag]; ok {
+		if p, ok := ctx.config.Blueprints[applyBlueprintFlag]; ok {
 			bpHash = blueprint.BlueprintHash(p)
 		}
 	}
 
-	newManifest, err := state.GenerateState(out, state.StateOpts{
+	newManifest, err := state.GenerateState(ctx.out, state.StateOpts{
 		Blueprint:     applyBlueprintFlag,
 		BlueprintHash: bpHash,
 		Target:        targetFlag,
-		BaseDir:       baseDir,
-		SourceFiles:   sourceFiles,
-	}, oldManifest)
+		BaseDir:       ctx.baseDir,
+		SourceFiles:   ctx.sourceFiles,
+	}, ctx.oldManifest)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "  Warning: failed to generate state: %v\n", err)
 	}
-	if err := state.WriteState(newManifest, stateFilePath); err != nil {
+	if err := state.WriteState(newManifest, ctx.stateFilePath); err != nil {
 		fmt.Fprintf(os.Stderr, "  Warning: failed to write state: %v\n", err)
 	}
 	return nil
@@ -284,90 +308,6 @@ type applyDiffEntry struct {
 // computeApplyPreview compares compiled output against files on disk.
 // Only handles NEW/CHANGED/UNCHANGED. Orphan detection is handled by
 // existing cleanOrphansFromState() to avoid duplicating logic.
-func computeApplyPreview(outFiles map[string]string, rootFiles map[string]string, outputDir, baseDir string) []applyDiffEntry {
-	var entries []applyDiffEntry
-	for relPath, content := range outFiles {
-		absPath := filepath.Clean(filepath.Join(outputDir, relPath))
-		existing, err := os.ReadFile(absPath)
-		if err != nil {
-			entries = append(entries, applyDiffEntry{Path: relPath, Status: "new"})
-		} else if string(existing) != content {
-			entries = append(entries, applyDiffEntry{Path: relPath, Status: "changed"})
-		} else {
-			entries = append(entries, applyDiffEntry{Path: relPath, Status: "unchanged"})
-		}
-	}
-	for relPath, content := range rootFiles {
-		absPath := filepath.Clean(filepath.Join(baseDir, relPath))
-		existing, err := os.ReadFile(absPath)
-		if err != nil {
-			entries = append(entries, applyDiffEntry{Path: relPath + "  (root)", Status: "new"})
-		} else if string(existing) != content {
-			entries = append(entries, applyDiffEntry{Path: relPath + "  (root)", Status: "changed"})
-		} else {
-			entries = append(entries, applyDiffEntry{Path: relPath + "  (root)", Status: "unchanged"})
-		}
-	}
-	return entries
-}
-
-// countOrphansFromState counts the number of files tracked in oldManifest
-// for the given target that are absent from the new compiled output.
-func countOrphansFromState(oldManifest *state.StateManifest, target string, outFiles map[string]string) int {
-	if oldManifest == nil {
-		return 0
-	}
-	count := 0
-	targetState, ok := oldManifest.Targets[target]
-	if !ok {
-		return 0
-	}
-	for _, artifact := range targetState.Artifacts {
-		if _, inOut := outFiles[artifact.Path]; !inOut {
-			count++
-		}
-	}
-	return count
-}
-
-// renderApplyPreview prints the preview table and returns counts of each status.
-// Note: deletedCount is not returned because the preview does not track deletions
-// (they are handled separately by cleanOrphansFromState).
-func renderApplyPreview(entries []applyDiffEntry) (newCount, changedCount, unchangedCount int) {
-	for _, e := range entries {
-		switch e.Status {
-		case "new":
-			newCount++
-		case "changed":
-			changedCount++
-		case "unchanged":
-			unchangedCount++
-		}
-	}
-	if changedCount > 0 {
-		fmt.Printf("\n  CHANGED (%d %s):\n", changedCount, plural(changedCount, "file", "files"))
-		for _, e := range entries {
-			if e.Status == "changed" {
-				display, _ := formatArtifactPath(e.Path)
-				fmt.Printf("    %s  %s\n", colorYellow(glyphSrc()), display)
-			}
-		}
-	}
-	if newCount > 0 {
-		fmt.Printf("\n  NEW (%d %s):\n", newCount, plural(newCount, "file", "files"))
-		for _, e := range entries {
-			if e.Status == "new" {
-				display, _ := formatArtifactPath(e.Path)
-				fmt.Printf("    %s  %s\n", colorGreen("+"), display)
-			}
-		}
-	}
-	if unchangedCount > 0 {
-		fmt.Printf("\n  UNCHANGED: %d %s\n", unchangedCount, plural(unchangedCount, "file", "files"))
-	}
-	return
-}
-
 func init() {
 	applyCmd.Flags().BoolVar(&applyDryRun, "dry-run", false, "Preview changes without writing to disk")
 	applyCmd.Flags().BoolVar(&applyForce, "force", false, "Overwrite customized local files and bypass drift safeguard")
@@ -403,7 +343,7 @@ func runApply(cmd *cobra.Command, args []string) error {
 		// globalXcafHome is ~/.xcaffold/ — the source directory.
 		// Global artifacts are written one level up (~/), into ~/.claude/ etc.
 		globalOutDir := filepath.Join(filepath.Dir(globalXcafHome), compiler.OutputDir(targetFlag))
-		return applyScope(globalXcafPath, globalOutDir, globalXcafHome, "global")
+		return applyScope(globalXcafPath, globalOutDir, globalXcafHome, scopeGlobal)
 	}
 
 	// projectRoot is the canonical CWD-level project directory, always set by
@@ -517,7 +457,19 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		return nil
 	}
 
-	return completeApply(config, configPath, projectName, outputDir, baseDir, stateFilePath, sourceFiles, oldManifest, out)
+	ctx := &applyContext{
+		config:        config,
+		configPath:    configPath,
+		projectName:   projectName,
+		outputDir:     outputDir,
+		baseDir:       baseDir,
+		stateFilePath: stateFilePath,
+		sourceFiles:   sourceFiles,
+		oldManifest:   oldManifest,
+		out:           out,
+		scopeName:     "project",
+	}
+	return ctx.completeApply()
 }
 
 // setupApplyPhase initializes the apply process by setting up state and source files.
@@ -537,7 +489,11 @@ func setupApplyPhase(baseDir string, config *ast.XcaffoldConfig, outputDir, scop
 
 // compileApplyPhase runs the compilation and optimization phase.
 func compileApplyPhase(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
-	out, notes, err := compileAndOptimize(config, baseDir, targetFlag, applyBlueprintFlag, varFileFlag)
+	out, notes, err := compileAndOptimize(config, baseDir, compileOpts{
+		target:    targetFlag,
+		blueprint: applyBlueprintFlag,
+		varFile:   varFileFlag,
+	})
 	if err != nil {
 		fmt.Printf("  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
 		return nil, &silentError{msg: err.Error()}
@@ -553,7 +509,13 @@ func compileApplyPhase(config *ast.XcaffoldConfig, baseDir string) (*output.Outp
 // prepareApplyPhase prepares for the confirmation phase by checking drift and cross-scope cleanup.
 func prepareApplyPhase(baseDir, outputDir, stateFilePath string) error {
 	if !applyDryRun {
-		if err := cleanCrossScope(baseDir, outputDir, stateFilePath, targetFlag, applyForce); err != nil {
+		if err := cleanCrossScope(crossScopeOpts{
+			baseDir:          baseDir,
+			outputDir:        outputDir,
+			currentStatePath: stateFilePath,
+			target:           targetFlag,
+			force:            applyForce,
+		}); err != nil {
 			return err
 		}
 	}
@@ -565,7 +527,13 @@ func prepareApplyPhase(baseDir, outputDir, stateFilePath string) error {
 func parseApplyConfig(baseDir, projectName, lastApplied, scopeName string) (*ast.XcaffoldConfig, error) {
 	config, err := parser.ParseDirectory(baseDir, parser.WithVarFile(varFileFlag))
 	if err != nil {
-		fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
+		fmt.Println(formatHeader(headerInfo{
+			project:     projectName,
+			blueprint:   applyBlueprintFlag,
+			isGlobal:    scopeName == scopeGlobal,
+			provider:    targetFlag,
+			lastApplied: lastApplied,
+		}))
 		fmt.Println()
 		fmt.Printf("  %s  %v\n", colorRed(glyphErr()), err)
 		fmt.Println()
@@ -573,7 +541,13 @@ func parseApplyConfig(baseDir, projectName, lastApplied, scopeName string) (*ast
 		return nil, &silentError{msg: err.Error()}
 	}
 
-	fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
+	fmt.Println(formatHeader(headerInfo{
+		project:     projectName,
+		blueprint:   applyBlueprintFlag,
+		isGlobal:    scopeName == scopeGlobal,
+		provider:    targetFlag,
+		lastApplied: lastApplied,
+	}))
 	fmt.Println()
 
 	if config.Version != "" && config.Version < currentSchemaVersion {
@@ -584,13 +558,14 @@ func parseApplyConfig(baseDir, projectName, lastApplied, scopeName string) (*ast
 }
 
 // completeApply finishes the apply operation after user confirmation.
-func completeApply(config *ast.XcaffoldConfig, configPath, projectName, outputDir, baseDir, stateFilePath string, sourceFiles []string, oldManifest *state.StateManifest, out *output.Output) error {
+// completeApply finalizes the apply phase: cleans orphans, writes files, updates state.
+func (ctx *applyContext) completeApply() error {
 	var hasChanges bool
 	if !applyDryRun {
-		cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, baseDir, "project", &hasChanges)
+		ctx.cleanOrphans(&hasChanges)
 	}
 
-	filesWritten, err := writeApplyFiles(out, outputDir, baseDir, "project")
+	filesWritten, err := writeApplyFiles(ctx.out, ctx.outputDir, ctx.baseDir, ctx.scopeName)
 	if err != nil {
 		return err
 	}
@@ -602,12 +577,12 @@ func completeApply(config *ast.XcaffoldConfig, configPath, projectName, outputDi
 		return nil
 	}
 
-	if err := writeApplyState(config, out, baseDir, stateFilePath, sourceFiles, oldManifest); err != nil {
+	if err := ctx.writeState(); err != nil {
 		return err
 	}
 
 	printApplySummary(filesWritten)
-	updateProjectRegistry(configPath, baseDir, projectName, config)
+	updateProjectRegistry(ctx.configPath, ctx.baseDir, ctx.projectName, ctx.config)
 
 	return nil
 }
@@ -758,241 +733,3 @@ func applyProviderExtras(config *ast.XcaffoldConfig, out *output.Output, target 
 }
 
 // colorDiff prints a unified diff with basic ANSI terminal colors.
-func colorDiff(diff string) {
-	lines := strings.Split(diff, "\n")
-	for _, l := range lines {
-		switch {
-		case strings.HasPrefix(l, "+"):
-			fmt.Println("\033[32m" + l + "\033[0m")
-		case strings.HasPrefix(l, "-"):
-			fmt.Println("\033[31m" + l + "\033[0m")
-		case strings.HasPrefix(l, "@"):
-			fmt.Println("\033[36m" + l + "\033[0m")
-		default:
-			fmt.Println(l)
-		}
-	}
-}
-
-func previewDiff(absPath, content string) bool {
-	existingData, err := os.ReadFile(absPath)
-	existing := ""
-	if err == nil {
-		existing = string(existingData)
-	}
-	diff, _ := difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
-		A:        difflib.SplitLines(existing),
-		B:        difflib.SplitLines(content),
-		FromFile: absPath + " (current)",
-		ToFile:   absPath + " (compiled)",
-		Context:  3,
-	})
-	if diff != "" {
-		colorDiff(diff)
-		return true
-	}
-	return false
-}
-
-func applyFile(absPath, content, scopeName string, hasChanges *bool, filesWritten *int) error {
-	if applyDryRun {
-		if previewDiff(absPath, content) {
-			*hasChanges = true
-		}
-		return nil
-	}
-
-	if err := os.MkdirAll(filepath.Dir(absPath), 0755); err != nil {
-		return fmt.Errorf("failed to create directory for %q: %w", absPath, err)
-	}
-	if err := os.WriteFile(absPath, []byte(content), 0600); err != nil {
-		return fmt.Errorf("failed to write %q: %w", absPath, err)
-	}
-	*filesWritten++
-	return nil
-}
-
-func performBackup(outputDir, target, backupDirConfig, scopeName string) error {
-	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		return nil // nothing to backup
-	}
-
-	timestamp := time.Now().Format("20060102_150405")
-	if target == "" {
-		target = "unknown"
-	}
-	bakName := fmt.Sprintf(".%s_bak_%s", target, timestamp)
-
-	var destDir string
-	if backupDirConfig != "" {
-		destDir = filepath.Join(backupDirConfig, bakName)
-	} else {
-		destDir = filepath.Join(filepath.Dir(outputDir), bakName)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(destDir), 0755); err != nil {
-		return err
-	}
-
-	fmt.Printf("  %s  Backed up %s\n", colorGreen(glyphOK()), filepath.Base(destDir))
-	return copyDir(outputDir, destDir)
-}
-
-func copyDir(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		destPath := filepath.Join(dst, rel)
-		if info.IsDir() {
-			return os.MkdirAll(destPath, info.Mode())
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		return os.WriteFile(destPath, data, info.Mode())
-	})
-}
-
-// cleanOrphansFromState removes files from outputDir that were recorded in old
-// for the given target but are absent from the new compiler output.
-func cleanOrphansFromState(oldManifest *state.StateManifest, target string, out *output.Output, outputDir, baseDir, scopeName string, hasChanges *bool) {
-	orphans := state.FindOrphansFromState(oldManifest, target, out.Files, out.RootFiles)
-	for _, orphanPath := range orphans {
-		var absPath string
-		if strings.HasPrefix(orphanPath, "root:") {
-			relPath := strings.TrimPrefix(orphanPath, "root:")
-			absPath = filepath.Clean(filepath.Join(baseDir, relPath))
-		} else {
-			absPath = filepath.Clean(filepath.Join(outputDir, orphanPath))
-		}
-		if applyDryRun {
-			fmt.Printf("    %s  would delete  %s\n", colorYellow(glyphSrc()), filepath.Base(absPath))
-			*hasChanges = true
-		} else {
-			if err := os.Remove(absPath); err == nil {
-				fmt.Printf("    %s  deleted  %s\n", colorRed(glyphErr()), filepath.Base(absPath))
-				*hasChanges = true
-				cleanEmptyDirsUpToTarget(filepath.Dir(absPath), outputDir)
-			} else if os.IsNotExist(err) {
-				*hasChanges = true
-			}
-		}
-	}
-}
-
-func hasDriftFromState(outputDir, stateFile, baseDir, target string) ([]state.DriftEntry, error) {
-	manifest, err := state.ReadState(stateFile)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	ts, ok := manifest.Targets[target]
-	if !ok {
-		return nil, nil
-	}
-
-	return state.CollectDriftedFiles(baseDir, outputDir, ts), nil
-}
-
-// ensureGitignoreEntry appends entry to dir/.gitignore if not already present.
-// Creates the file if it does not exist.
-func ensureGitignoreEntry(dir, entry string) {
-	gitignorePath := filepath.Join(dir, ".gitignore")
-	data, _ := os.ReadFile(gitignorePath)
-	if strings.Contains(string(data), entry) {
-		return
-	}
-	f, err := os.OpenFile(gitignorePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	if len(data) > 0 && data[len(data)-1] != '\n' {
-		f.WriteString("\n")
-	}
-	f.WriteString(entry + "\n")
-}
-
-// cleanCrossScope removes artifacts from other scopes when switching blueprints.
-// Searches all state files in baseDir/.xcaffold/ for artifacts of the current target.
-// If drift is found and !force, returns an error. If no drift or force, deletes orphans.
-func cleanCrossScope(baseDir, outputDir, currentStatePath, target string, force bool) error {
-	stateDir := state.StateDir(baseDir)
-	stateFiles, err := state.ListStateFiles(stateDir)
-	if err != nil {
-		return err
-	}
-
-	// Skip the current scope's state file
-	currentStatePath = filepath.Clean(currentStatePath)
-	for _, otherPath := range stateFiles {
-		otherPath = filepath.Clean(otherPath)
-		if otherPath == currentStatePath {
-			continue // Skip current scope
-		}
-
-		// Read the other scope's manifest
-		otherManifest, readErr := state.ReadState(otherPath)
-		if readErr != nil {
-			continue // Skip if can't read
-		}
-
-		// Check if this scope has artifacts for our target
-		targetState, ok := otherManifest.Targets[target]
-		if !ok {
-			continue // This scope doesn't have our target
-		}
-
-		// Detect drift in the other scope's artifacts
-		driftEntries := state.CollectDriftedFiles(baseDir, outputDir, targetState)
-		if len(driftEntries) > 0 && !force {
-			return fmt.Errorf("cannot switch scope: %d files were manually edited since last apply\n\nRun 'xcaffold import' to sync edits, or use --backup --force to overwrite", len(driftEntries))
-		}
-
-		// Delete the other scope's artifacts for this target
-		for _, artifact := range targetState.Artifacts {
-			var absPath string
-			if strings.HasPrefix(artifact.Path, "root:") {
-				relPath := strings.TrimPrefix(artifact.Path, "root:")
-				absPath = filepath.Clean(filepath.Join(baseDir, relPath))
-			} else {
-				absPath = filepath.Clean(filepath.Join(outputDir, artifact.Path))
-			}
-			_ = os.Remove(absPath)
-			cleanEmptyDirsUpToTarget(filepath.Dir(absPath), outputDir)
-		}
-
-		// Delete the other scope's state file
-		_ = os.Remove(otherPath)
-	}
-
-	return nil
-}
-
-// cleanEmptyDirsUpToTarget recursively deletes empty parent directories
-// up to but not including the targetDir itself.
-func cleanEmptyDirsUpToTarget(dir, targetDir string) {
-	dir = filepath.Clean(dir)
-	targetDir = filepath.Clean(targetDir)
-
-	for dir != targetDir && dir != "." && dir != "/" {
-		rel, err := filepath.Rel(targetDir, dir)
-		if err != nil || strings.HasPrefix(rel, "..") || rel == "." {
-			break
-		}
-
-		if err := os.Remove(dir); err != nil {
-			break // Dir not empty, or permission error
-		}
-		dir = filepath.Dir(dir)
-	}
-}

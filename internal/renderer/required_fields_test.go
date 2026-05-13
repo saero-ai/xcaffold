@@ -8,7 +8,7 @@ func TestCheckFieldSupport_MissingDescription(t *testing.T) {
 	fields := map[string]string{
 		"name": "test-agent",
 	}
-	notes := CheckFieldSupport("claude", "agent", "test-agent", fields, false)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "claude", Kind: "agent", ResourceName: "test-agent", PresentFields: fields, Suppressed: false})
 	if len(notes) == 0 {
 		t.Fatal("expected fidelity notes for missing required fields")
 	}
@@ -31,7 +31,7 @@ func TestCheckFieldSupport_AllPresent(t *testing.T) {
 		"name":        "test-agent",
 		"description": "A test agent",
 	}
-	notes := CheckFieldSupport("claude", "agent", "test-agent", fields, false)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "claude", Kind: "agent", ResourceName: "test-agent", PresentFields: fields, Suppressed: false})
 	for _, n := range notes {
 		if n.Code == CodeFieldRequiredForTarget {
 			t.Errorf("unexpected required-field note for field %q", n.Field)
@@ -44,7 +44,7 @@ func TestCheckFieldSupport_UnsupportedTarget(t *testing.T) {
 		"name": "test-agent",
 	}
 	// Antigravity does not require description on agents (it's unsupported)
-	notes := CheckFieldSupport("antigravity", "agent", "test-agent", fields, false)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "antigravity", Kind: "agent", ResourceName: "test-agent", PresentFields: fields, Suppressed: false})
 	for _, n := range notes {
 		if n.Code == CodeFieldRequiredForTarget && n.Field == "description" {
 			t.Error("antigravity should not require description on agents")
@@ -62,7 +62,7 @@ func TestCheckFieldSupport_Unsupported_WithRole_NoError(t *testing.T) {
 		"description": "A test agent",
 		"tools":       "set",
 	}
-	notes := CheckFieldSupport("cursor", "agent", "my-agent", fields, false)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "cursor", Kind: "agent", ResourceName: "my-agent", PresentFields: fields, Suppressed: false})
 	for _, n := range notes {
 		if n.Code == CodeFieldUnsupported && n.Field == "tools" {
 			t.Errorf("tools has an xcaf role; should be silently skipped for cursor, got: %s", n.Reason)
@@ -77,7 +77,7 @@ func TestCheckFieldSupport_Supported_NoNote(t *testing.T) {
 		"description": "A test agent",
 		"tools":       "set",
 	}
-	notes := CheckFieldSupport("claude", "agent", "my-agent", fields, false)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "claude", Kind: "agent", ResourceName: "my-agent", PresentFields: fields, Suppressed: false})
 	for _, n := range notes {
 		if n.Code == CodeFieldUnsupported && n.Field == "tools" {
 			t.Error("tools is supported by claude; should not emit FIELD_UNSUPPORTED")
@@ -92,7 +92,7 @@ func TestCheckFieldSupport_Suppressed_NoNote(t *testing.T) {
 		"description": "A test agent",
 		"tools":       "set",
 	}
-	notes := CheckFieldSupport("cursor", "agent", "my-agent", fields, true)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "cursor", Kind: "agent", ResourceName: "my-agent", PresentFields: fields, Suppressed: true})
 	for _, n := range notes {
 		if n.Code == CodeFieldUnsupported && n.Field == "tools" {
 			t.Error("suppressed=true should skip FIELD_UNSUPPORTED notes")
@@ -105,7 +105,7 @@ func TestCheckFieldSupport_Required_Missing_EmitsError(t *testing.T) {
 	fields := map[string]string{
 		"name": "my-agent",
 	}
-	notes := CheckFieldSupport("claude", "agent", "my-agent", fields, false)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "claude", Kind: "agent", ResourceName: "my-agent", PresentFields: fields, Suppressed: false})
 	found := false
 	for _, n := range notes {
 		if n.Code == CodeFieldRequiredForTarget && n.Field == "description" {
@@ -125,7 +125,7 @@ func TestCheckFieldSupport_Suppressed_StillEmitsRequired(t *testing.T) {
 	fields := map[string]string{
 		"name": "my-agent",
 	}
-	notes := CheckFieldSupport("claude", "agent", "my-agent", fields, true)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "claude", Kind: "agent", ResourceName: "my-agent", PresentFields: fields, Suppressed: true})
 	found := false
 	for _, n := range notes {
 		if n.Code == CodeFieldRequiredForTarget && n.Field == "description" {
@@ -146,7 +146,7 @@ func TestCheckFieldSupport_Unsupported_WithRole_Silent(t *testing.T) {
 		"description": "Agent with skills",
 		"skills":      "set",
 	}
-	notes := CheckFieldSupport("gemini", "agent", "my-agent", fields, false)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "gemini", Kind: "agent", ResourceName: "my-agent", PresentFields: fields, Suppressed: false})
 	for _, n := range notes {
 		if n.Field == "skills" && n.Code == CodeFieldUnsupported {
 			t.Errorf("skills field should be silently skipped for gemini (has xcaf role), got error: %s", n.Reason)
@@ -163,7 +163,7 @@ func TestCheckFieldSupport_TwoLayer_SkillsOnGemini(t *testing.T) {
 		"description": "Agent with skills",
 		"skills":      "set",
 	}
-	notes := CheckFieldSupport("gemini", "agent", "my-agent", fields, false)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "gemini", Kind: "agent", ResourceName: "my-agent", PresentFields: fields, Suppressed: false})
 	for _, n := range notes {
 		if n.Field == "skills" && n.Code == CodeFieldUnsupported {
 			t.Errorf("skills field should be silently skipped for gemini (has xcaf role), got error: %s", n.Reason)
@@ -178,7 +178,7 @@ func TestCheckFieldSupport_TwoLayer_CleanAgentZeroNotes(t *testing.T) {
 		"name":        "clean-agent",
 		"description": "Fully specified",
 	}
-	notes := CheckFieldSupport("gemini", "agent", "clean-agent", fields, false)
+	notes := CheckFieldSupport(FieldCheckInput{Target: "gemini", Kind: "agent", ResourceName: "clean-agent", PresentFields: fields, Suppressed: false})
 	if len(notes) != 0 {
 		t.Errorf("expected zero notes for clean agent on gemini, got %d: %v", len(notes), notes)
 	}

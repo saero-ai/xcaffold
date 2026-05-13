@@ -7,8 +7,37 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/output"
 )
+
+// FlattenOpts holds parameters for FlattenToSkillRoot.
+type FlattenOpts struct {
+	ID            string
+	CanonicalName string
+	Paths         []string
+	BaseDir       string
+}
+
+// SkillSubdirOpts holds parameters for CompileSkillSubdir.
+type SkillSubdirOpts struct {
+	ID              string
+	CanonicalSubdir string
+	OutputSubdir    string
+	Paths           []string
+	BaseDir         string
+	SkillSourceDir  string
+}
+
+// SkillArtifactContext holds the shared context passed to provider
+// compileSkillArtifacts functions.
+type SkillArtifactContext struct {
+	ID             string
+	Skill          ast.SkillConfig
+	Caps           CapabilitySet
+	BaseDir        string
+	SkillSourceDir string
+}
 
 // SortedKeys returns a sorted slice of keys from a map with string-convertible keys.
 // Using this function over ranging directly on a map ensures deterministic output.
@@ -50,20 +79,20 @@ func StripAllFrontmatter(content string) string {
 	}
 }
 
-// FlattenToSkillRoot reads files matching paths (globs or literals) relative to
-// baseDir and writes them directly to skills/<id>/<filename> in out.Files — no
-// subdirectory is created. This is used by providers that co-locate all skill
+// FlattenToSkillRoot reads files matching opts.Paths (globs or literals) relative
+// to opts.BaseDir and writes them directly to skills/<id>/<filename> in out.Files —
+// no subdirectory is created. This is used by providers that co-locate all skill
 // files alongside SKILL.md (e.g., Claude examples, Copilot all subdirs).
-func FlattenToSkillRoot(id, canonicalName string, paths []string, baseDir string, out *output.Output) error {
-	if len(paths) == 0 {
+func FlattenToSkillRoot(opts FlattenOpts, out *output.Output) error {
+	if len(opts.Paths) == 0 {
 		return nil
 	}
-	for _, pattern := range paths {
+	for _, pattern := range opts.Paths {
 		cleanedPattern := filepath.Clean(pattern)
 		if strings.HasPrefix(cleanedPattern, "..") {
-			return fmt.Errorf("%s path %q traverses above the project root", canonicalName, pattern)
+			return fmt.Errorf("%s path %q traverses above the project root", opts.CanonicalName, pattern)
 		}
-		absPattern := filepath.Join(baseDir, cleanedPattern)
+		absPattern := filepath.Join(opts.BaseDir, cleanedPattern)
 		matches, err := filepath.Glob(absPattern)
 		if err != nil {
 			return fmt.Errorf("invalid glob pattern %q: %w", pattern, err)
@@ -71,20 +100,20 @@ func FlattenToSkillRoot(id, canonicalName string, paths []string, baseDir string
 		if len(matches) == 0 {
 			data, readErr := os.ReadFile(absPattern)
 			if readErr != nil {
-				return fmt.Errorf("%s file %q: %w", canonicalName, pattern, readErr)
+				return fmt.Errorf("%s file %q: %w", opts.CanonicalName, pattern, readErr)
 			}
 			baseName := filepath.Base(absPattern)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s", id, baseName))
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s", opts.ID, baseName))
 			out.Files[outPath] = string(data)
 			continue
 		}
 		for _, match := range matches {
 			data, readErr := os.ReadFile(match)
 			if readErr != nil {
-				return fmt.Errorf("%s file %q: %w", canonicalName, match, readErr)
+				return fmt.Errorf("%s file %q: %w", opts.CanonicalName, match, readErr)
 			}
 			baseName := filepath.Base(match)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s", id, baseName))
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s", opts.ID, baseName))
 			out.Files[outPath] = string(data)
 		}
 	}
@@ -128,32 +157,35 @@ func DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName string) ([]stri
 // CompileSkillSubdir reads files from a skill subdirectory (references/, scripts/, assets/)
 // and adds them to the output map at skills/<id>/<outputSubdir>/<filename>.
 //
-// canonicalSubdir is used in error messages and represents the logical name (e.g. "references").
-// outputSubdir is the provider-native directory name written to the output path (e.g. "resources").
-// Passing the same value for both parameters produces identity translation.
+// opts.CanonicalSubdir is used in error messages and represents the logical name
+// (e.g. "references"). opts.OutputSubdir is the provider-native directory name
+// written to the output path (e.g. "resources"). Passing the same value for both
+// produces identity translation.
 //
-// Each pattern in paths is resolved relative to filepath.Join(baseDir, skillSourceDir).
-// skillSourceDir is the skill-source root within the project (e.g. "xcaf/skills/<id>").
-// Pass an empty string to resolve patterns directly from baseDir (legacy behavior).
-// Path traversal above baseDir is rejected. Glob patterns are expanded; literal paths are read directly.
-func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string, baseDir, skillSourceDir string, out *output.Output) error {
-	if len(paths) == 0 {
+// Each pattern in opts.Paths is resolved relative to
+// filepath.Join(opts.BaseDir, opts.SkillSourceDir). opts.SkillSourceDir is the
+// skill-source root within the project (e.g. "xcaf/skills/<id>"). Pass an empty
+// string to resolve patterns directly from opts.BaseDir (legacy behavior).
+// Path traversal above BaseDir is rejected. Glob patterns are expanded; literal
+// paths are read directly.
+func CompileSkillSubdir(opts SkillSubdirOpts, out *output.Output) error {
+	if len(opts.Paths) == 0 {
 		return nil
 	}
 
-	cleanedSourceDir := filepath.Clean(skillSourceDir)
+	cleanedSourceDir := filepath.Clean(opts.SkillSourceDir)
 	if cleanedSourceDir != "." && strings.HasPrefix(cleanedSourceDir, "..") {
-		return fmt.Errorf("skill source directory %q contains path traversal", skillSourceDir)
+		return fmt.Errorf("skill source directory %q contains path traversal", opts.SkillSourceDir)
 	}
 
-	for _, pattern := range paths {
-		// Security: pattern must not traverse above baseDir.
+	for _, pattern := range opts.Paths {
+		// Security: pattern must not traverse above BaseDir.
 		cleanedPattern := filepath.Clean(pattern)
 		if strings.HasPrefix(cleanedPattern, "..") {
-			return fmt.Errorf("%s path %q traverses above the project root", canonicalSubdir, pattern)
+			return fmt.Errorf("%s path %q traverses above the project root", opts.CanonicalSubdir, pattern)
 		}
 
-		absPattern := filepath.Join(baseDir, skillSourceDir, cleanedPattern)
+		absPattern := filepath.Join(opts.BaseDir, opts.SkillSourceDir, cleanedPattern)
 
 		// Expand glob patterns (e.g. "docs/schema/*.sql")
 		matches, err := filepath.Glob(absPattern)
@@ -164,10 +196,10 @@ func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string
 			// Treat as a literal path — if missing, it's an error.
 			data, readErr := os.ReadFile(absPattern)
 			if readErr != nil {
-				return fmt.Errorf("%s file %q: %w", canonicalSubdir, pattern, readErr)
+				return fmt.Errorf("%s file %q: %w", opts.CanonicalSubdir, pattern, readErr)
 			}
 			baseName := filepath.Base(absPattern)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, outputSubdir, baseName))
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", opts.ID, opts.OutputSubdir, baseName))
 			out.Files[outPath] = string(data)
 			continue
 		}
@@ -175,10 +207,10 @@ func CompileSkillSubdir(id, canonicalSubdir, outputSubdir string, paths []string
 		for _, match := range matches {
 			data, err := os.ReadFile(match)
 			if err != nil {
-				return fmt.Errorf("%s file %q: %w", canonicalSubdir, match, err)
+				return fmt.Errorf("%s file %q: %w", opts.CanonicalSubdir, match, err)
 			}
 			baseName := filepath.Base(match)
-			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", id, outputSubdir, baseName))
+			outPath := filepath.Clean(fmt.Sprintf("skills/%s/%s/%s", opts.ID, opts.OutputSubdir, baseName))
 			out.Files[outPath] = string(data)
 		}
 	}

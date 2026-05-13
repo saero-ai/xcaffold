@@ -68,12 +68,12 @@ All new components live under `src/components/<Category>/<ComponentName>/`.
 If the category does not exist, create it.
 
 ## Step 2 — Create the file structure
-```
-src/components/<Category>/<ComponentName>/
+```text
+src/components/Category/ComponentName/
   index.ts                  ← re-export barrel
-  <ComponentName>.tsx       ← implementation
-  <ComponentName>.test.tsx  ← co-located tests
-  <ComponentName>.stories.tsx
+  ComponentName.tsx         ← implementation
+  ComponentName.test.tsx    ← co-located tests
+  ComponentName.stories.tsx
 ```
 
 ## Step 3 — Implement the component
@@ -122,12 +122,11 @@ describe('Button', () => {
 ## Step 5 — Add to barrel
 Append to `src/components/index.ts`:
 ```ts
-export * from './<Category>/<ComponentName>';
+export * from './Category/ComponentName';
 ```
 
 ## Deliverables
-Report: "Created <ComponentName> with <N> props, <M> tests passing."
-```
+Report: "Created ComponentName with N props, M tests passing."
 
 ## Field Reference
 
