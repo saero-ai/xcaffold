@@ -884,3 +884,103 @@ func TestBuildToolkitFileMap_GeneratesCorrectMapping(t *testing.T) {
 	assert.Contains(t, diskPaths, "xcaf/agents/xaff/agent.xcaf")
 	assert.Contains(t, diskPaths, "xcaf/agents/xaff/agent.claude.xcaf")
 }
+
+// TestInit_ReInit_TargetFlagOverridesDetected verifies that --target flag
+// overrides the targets in an existing project.xcaf when providers are detected.
+func TestInit_ReInit_TargetFlagOverridesDetected(t *testing.T) {
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(orig) }()
+
+	// Write existing project.xcaf with targets: [claude]
+	projectContent := `kind: project
+version: "1.0"
+name: test-project
+targets:
+  - claude
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(projectContent), 0644))
+
+	// Create .claude/ directory so provider detection finds it
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude", "CLAUDE.md"), []byte("# CLAUDE"), 0644))
+
+	// Set targetsFlag and yesFlag for non-interactive test
+	targetsFlag = []string{"gemini"}
+	yesFlag = true
+	defer func() {
+		targetsFlag = nil
+		yesFlag = false
+	}()
+
+	// Run init
+	cmd := &cobra.Command{}
+	var buf strings.Builder
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	err = runInit(cmd, nil)
+	require.NoError(t, err, "runInit should succeed with target override")
+
+	// Parse project.xcaf and verify targets
+	config, err := parser.ParseFile(filepath.Join(dir, "project.xcaf"))
+	require.NoError(t, err, "project.xcaf should parse successfully")
+	require.NotNil(t, config.Project, "config.Project should not be nil")
+
+	// Verify targets were overridden to gemini
+	require.NotNil(t, config.Project.Targets, "targets should be set")
+	require.Len(t, config.Project.Targets, 1, "should have exactly one target")
+	assert.Equal(t, "gemini", config.Project.Targets[0], "target should be overridden to gemini")
+	assert.NotContains(t, config.Project.Targets, "claude", "claude should not be in targets")
+}
+
+// TestInit_ReInit_NoTargetFlag_PreservesDetected verifies that when --target
+// is not set, detected targets from existing provider directories are preserved.
+func TestInit_ReInit_NoTargetFlag_PreservesDetected(t *testing.T) {
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(orig) }()
+
+	// Write existing project.xcaf with targets: [claude]
+	projectContent := `kind: project
+version: "1.0"
+name: test-project
+targets:
+  - claude
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(projectContent), 0644))
+
+	// Create .claude/ directory so provider detection finds it
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".claude"), 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".claude", "CLAUDE.md"), []byte("# CLAUDE"), 0644))
+
+	// Set only yesFlag (no targetsFlag)
+	targetsFlag = nil
+	yesFlag = true
+	defer func() {
+		yesFlag = false
+	}()
+
+	// Run init
+	cmd := &cobra.Command{}
+	var buf strings.Builder
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	err = runInit(cmd, nil)
+	require.NoError(t, err, "runInit should succeed without target override")
+
+	// Parse project.xcaf and verify targets are preserved from the existing file
+	config, err := parser.ParseFile(filepath.Join(dir, "project.xcaf"))
+	require.NoError(t, err, "project.xcaf should parse successfully")
+	require.NotNil(t, config.Project, "config.Project should not be nil")
+
+	// Verify targets were preserved (claude from the original file)
+	require.NotNil(t, config.Project.Targets, "targets should be set")
+	require.Len(t, config.Project.Targets, 1, "should have exactly one target")
+	assert.Equal(t, "claude", config.Project.Targets[0], "target should remain as claude from original file")
+}
