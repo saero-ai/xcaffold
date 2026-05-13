@@ -114,6 +114,12 @@ func processSkillRootFile(ctx skillProcessCtx, skillDir, name string) {
 
 // copySkillFile copies a skill support file to its destination.
 func copySkillFile(ctx skillProcessCtx, src, subdir, filename string) {
+	// In dry-run mode, skip the file copy. The directory discovery still happens,
+	// which is needed to populate the Artifacts field, but no files are written to disk.
+	if importDryRun {
+		return
+	}
+
 	var dest string
 	if ctx.outDir != "" {
 		dest = filepath.Join(ctx.outDir, "xcaf", "skills", ctx.id, subdir, filename)

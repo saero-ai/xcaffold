@@ -608,6 +608,64 @@ func TestExtractSkillSubdirs_UnknownProviderPassthrough(t *testing.T) {
 	}
 }
 
+func TestExtractSkillSubdirs_DryRunDoesNotWriteFiles(t *testing.T) {
+	// Test that --dry-run prevents copying skill subdirectory files to disk.
+	// This is a regression test for the bug where extractSkillSubdirs copies files
+	// during the scan phase even when importDryRun is true.
+
+	// Create a fake Claude skill directory with a subdirectory containing files.
+	// Use Antigravity which has resources/ mapped to assets/ canonical dir.
+	tmpDir := t.TempDir()
+	skillDir := filepath.Join(tmpDir, "my-skill")
+	require.NoError(t, os.MkdirAll(filepath.Join(skillDir, "resources"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(skillDir, "SKILL.md"),
+		[]byte("---\nname: my-skill\n---\nInstructions"),
+		0o644,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(skillDir, "resources", "template.md"),
+		[]byte("# Template"),
+		0o644,
+	))
+
+	outDir := t.TempDir()
+	var warnings []string
+
+	// Save original importDryRun value and set to true
+	originalDryRun := importDryRun
+	importDryRun = true
+	defer func() { importDryRun = originalDryRun }()
+
+	antigravityManifest, _ := providerspkg.ManifestFor("antigravity")
+	discoveredDirs, err := extractSkillSubdirs(
+		skillExtractionCtx{filepath.Join(skillDir, "SKILL.md"), "my-skill", outDir},
+		&antigravityManifest,
+		&warnings,
+	)
+	require.NoError(t, err)
+
+	// Verify discoveredDirs is populated (scan discovery should still happen)
+	assert.NotEmpty(t, discoveredDirs, "discovered directories should still be populated in dry-run")
+	assert.Contains(t, discoveredDirs, "resources", "resources directory should be discovered")
+
+	// CRITICAL: verify NO files were copied to disk in dry-run mode
+	xcafSkillDir := filepath.Join(outDir, "xcaf", "skills", "my-skill")
+	if _, err := os.Stat(xcafSkillDir); !os.IsNotExist(err) {
+		// If the directory exists, check what's inside
+		entries, _ := os.ReadDir(xcafSkillDir)
+		for _, e := range entries {
+			t.Errorf("file/dir %s should not exist in dry-run mode at %s", e.Name(), xcafSkillDir)
+		}
+	}
+
+	// Specifically verify that resources/ was NOT copied to assets/ canonical location
+	assetsDir := filepath.Join(outDir, "xcaf", "skills", "my-skill", "assets")
+	if _, err := os.Stat(assetsDir); !os.IsNotExist(err) {
+		t.Errorf("assets directory should not exist in dry-run mode: %s", assetsDir)
+	}
+}
+
 func TestWriteMemoryFiles_WritesMarkdownToDisk(t *testing.T) {
 	tmp := t.TempDir()
 	origDir, _ := os.Getwd()
