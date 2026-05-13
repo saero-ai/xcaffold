@@ -143,8 +143,8 @@ func TestIncrementalImport_KindFilter_NamedAgent_DiffContainsOnlyNamed(t *testin
 	scannedConfig := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev":       {},
-				"reviewer":  {},
+				"dev":      {},
+				"reviewer": {},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {},
