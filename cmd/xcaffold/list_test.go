@@ -340,3 +340,73 @@ func TestList_Header_SingularCounts(t *testing.T) {
 	assert.Contains(t, out, "1 setting")
 	assert.NotContains(t, out, "1 settings")
 }
+
+func TestList_KindFilter_HeaderShowsOnlyFilteredCounts(t *testing.T) {
+	// Config with agents, skills, and rules
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-1": {},
+				"agent-2": {},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"skill-1": {},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"rule-1": {},
+			},
+		},
+	}
+
+	// Set filter to agents only
+	listFilterAgent = "*"
+	defer func() { listFilterAgent = "" }()
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	// Header should only show agent count
+	assert.Contains(t, out, "2 agents")
+	assert.NotContains(t, out, "skill")
+	assert.NotContains(t, out, "rule")
+}
+
+func TestList_KindFilter_HeaderShowsMultipleFilters(t *testing.T) {
+	// Config with agents, skills, and rules
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"agent-1": {},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"skill-1": {},
+				"skill-2": {},
+			},
+			Rules: map[string]ast.RuleConfig{
+				"rule-1": {},
+			},
+		},
+	}
+
+	// Set filter to agents and skills
+	listFilterAgent = "*"
+	listFilterSkill = "*"
+	defer func() {
+		listFilterAgent = ""
+		listFilterSkill = ""
+	}()
+
+	out, _ := captureListStdout(func() error {
+		listCmd.SetOut(os.Stdout)
+		printAllResources(listCmd, config, "/tmp/proj")
+		return nil
+	})
+
+	// Header should show agent and skill counts but not rules
+	assert.Contains(t, out, "1 agent")
+	assert.Contains(t, out, "2 skills")
+	assert.NotContains(t, out, "rule")
+}
