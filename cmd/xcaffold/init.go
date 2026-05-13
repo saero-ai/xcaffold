@@ -131,9 +131,11 @@ func runInit(cmd *cobra.Command, _ []string) error {
 	}
 	projectName := filepath.Base(cwd)
 
-	fmt.Println(formatHeader(headerInfo{project: projectName}))
-	fmt.Println()
-	fmt.Println("  Initializing xcaffold project.")
+	if !jsonManifestFlag {
+		fmt.Println(formatHeader(headerInfo{project: projectName}))
+		fmt.Println()
+		fmt.Println("  Initializing xcaffold project.")
+	}
 
 	if globalFlag {
 		return initGlobal()
@@ -293,17 +295,19 @@ func buildInitFiles(targets []string) []string {
 
 // printInitSuccess outputs the success message for init.
 func printInitSuccess(ans *wizardAnswers) {
-	fmt.Println()
-	fmt.Printf("  %s project.xcaf\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcaf/agents/xaff/                     %s\n",
-		colorGreen(glyphOK()), dim(fmt.Sprintf("base + %d %s", len(ans.targets), plural(len(ans.targets), "override", "overrides"))))
-	fmt.Printf("  %s xcaf/skills/xcaffold/\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcaf/rules/xcaf-conventions/\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcaf/skills/xcaffold/references/    %s\n",
-		colorGreen(glyphOK()), dim("12 references"))
-	fmt.Println()
-	fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
-	fmt.Printf("  Includes Xaff agent, xcaffold skill, and xcaf-conventions rule.\n")
+	if !jsonManifestFlag {
+		fmt.Println()
+		fmt.Printf("  %s project.xcaf\n", colorGreen(glyphOK()))
+		fmt.Printf("  %s xcaf/agents/xaff/                     %s\n",
+			colorGreen(glyphOK()), dim(fmt.Sprintf("base + %d %s", len(ans.targets), plural(len(ans.targets), "override", "overrides"))))
+		fmt.Printf("  %s xcaf/skills/xcaffold/\n", colorGreen(glyphOK()))
+		fmt.Printf("  %s xcaf/rules/xcaf-conventions/\n", colorGreen(glyphOK()))
+		fmt.Printf("  %s xcaf/skills/xcaffold/references/    %s\n",
+			colorGreen(glyphOK()), dim("12 references"))
+		fmt.Println()
+		fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
+		fmt.Printf("  Includes Xaff agent, xcaffold skill, and xcaf-conventions rule.\n")
+	}
 }
 
 // wizardAnswers holds answers collected during the interactive wizard.
@@ -339,14 +343,16 @@ func resolveTargetMeta(target string) (model, binary string) {
 // handleExistingScaffoldNoProviders handles the case where project.xcaf exists
 // but no provider directories are detected (Case B).
 func handleExistingScaffoldNoProviders(cmd *cobra.Command, xcafFile string) error {
-	cwd, _ := os.Getwd()
-	projectName := filepath.Base(cwd)
-	fmt.Println(formatHeader(headerInfo{project: projectName, lastApplied: "already initialized"}))
-	fmt.Println()
-	fmt.Printf("  %s project.xcaf exists.\n", glyphNever())
-	fmt.Println()
-	fmt.Printf("%s Run 'xcaffold apply' to compile your xcaf/ sources.\n", glyphArrow())
-	fmt.Printf("  Run 'xcaffold import' to sync provider changes back to xcaf/.\n")
+	if !jsonManifestFlag {
+		cwd, _ := os.Getwd()
+		projectName := filepath.Base(cwd)
+		fmt.Println(formatHeader(headerInfo{project: projectName, lastApplied: "already initialized"}))
+		fmt.Println()
+		fmt.Printf("  %s project.xcaf exists.\n", glyphNever())
+		fmt.Println()
+		fmt.Printf("%s Run 'xcaffold apply' to compile your xcaf/ sources.\n", glyphArrow())
+		fmt.Printf("  Run 'xcaffold import' to sync provider changes back to xcaf/.\n")
+	}
 	tryAutoRegister(xcafFile)
 	return nil
 }
@@ -391,23 +397,25 @@ func extractTargets(currentConfig *ast.XcaffoldConfig) []string {
 
 // printToolkitPreview displays the toolkit diff preview.
 func printToolkitPreview(diff toolkitDiff) {
-	fmt.Println()
-	fmt.Println("  Toolkit:")
-	for _, f := range diff.Unchanged {
-		if upgradeFlag {
-			fmt.Printf("    %s  force-update    %s\n", colorYellow(glyphSrc()), f)
-		} else {
-			fmt.Printf("    %s  unchanged      %s\n", colorGreen(glyphOK()), f)
+	if !jsonManifestFlag {
+		fmt.Println()
+		fmt.Println("  Toolkit:")
+		for _, f := range diff.Unchanged {
+			if upgradeFlag {
+				fmt.Printf("    %s  force-update    %s\n", colorYellow(glyphSrc()), f)
+			} else {
+				fmt.Printf("    %s  unchanged      %s\n", colorGreen(glyphOK()), f)
+			}
 		}
+		for _, f := range diff.Updated {
+			fmt.Printf("    %s  updated        %s\n", colorYellow(glyphSrc()), f)
+		}
+		for _, f := range diff.New {
+			fmt.Printf("    %s  new            %s\n", colorGreen("+"), f)
+		}
+		fmt.Printf("\n  %d updated, %d new, %d unchanged\n",
+			len(diff.Updated), len(diff.New), len(diff.Unchanged))
 	}
-	for _, f := range diff.Updated {
-		fmt.Printf("    %s  updated        %s\n", colorYellow(glyphSrc()), f)
-	}
-	for _, f := range diff.New {
-		fmt.Printf("    %s  new            %s\n", colorGreen("+"), f)
-	}
-	fmt.Printf("\n  %d updated, %d new, %d unchanged\n",
-		len(diff.Updated), len(diff.New), len(diff.Unchanged))
 }
 
 // applyToolkitUpdate copies toolkit files and prints success message.
@@ -430,13 +438,15 @@ func applyToolkitUpdate(basePath string, targets []string, diff toolkitDiff) err
 		return fmt.Errorf("toolkit update: %w", err)
 	}
 
-	fileCount := len(diff.Updated) + len(diff.New)
-	if upgradeFlag {
-		fileCount += len(diff.Unchanged)
-		fmt.Printf("\n  %s  Force-refreshed %d file(s).\n", colorGreen(glyphOK()), fileCount)
-	} else {
-		fmt.Printf("\n  %s  Updated %d file(s), added %d file(s).\n",
-			colorGreen(glyphOK()), len(diff.Updated), len(diff.New))
+	if !jsonManifestFlag {
+		fileCount := len(diff.Updated) + len(diff.New)
+		if upgradeFlag {
+			fileCount += len(diff.Unchanged)
+			fmt.Printf("\n  %s  Force-refreshed %d file(s).\n", colorGreen(glyphOK()), fileCount)
+		} else {
+			fmt.Printf("\n  %s  Updated %d file(s), added %d file(s).\n",
+				colorGreen(glyphOK()), len(diff.Updated), len(diff.New))
+		}
 	}
 	return nil
 }
@@ -530,14 +540,16 @@ func filterImportersByDirs(detected []importer.ProviderImporter, dirs []string) 
 
 // printImportSuccess prints the import success message.
 func printImportSuccess() {
-	fmt.Println()
-	fmt.Printf("  %s xcaf/agents/xaff/\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcaf/skills/xcaffold/\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcaf/rules/xcaf-conventions/\n", colorGreen(glyphOK()))
-	fmt.Printf("  %s xcaf/skills/xcaffold/references/    %s\n",
-		colorGreen(glyphOK()), dim("12 references"))
-	fmt.Println()
-	fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
+	if !jsonManifestFlag {
+		fmt.Println()
+		fmt.Printf("  %s xcaf/agents/xaff/\n", colorGreen(glyphOK()))
+		fmt.Printf("  %s xcaf/skills/xcaffold/\n", colorGreen(glyphOK()))
+		fmt.Printf("  %s xcaf/rules/xcaf-conventions/\n", colorGreen(glyphOK()))
+		fmt.Printf("  %s xcaf/skills/xcaffold/references/    %s\n",
+			colorGreen(glyphOK()), dim("12 references"))
+		fmt.Println()
+		fmt.Printf("%s Run 'xcaffold validate' then 'xcaffold apply'.\n", glyphArrow())
+	}
 }
 
 // applyTargetFlagOverride updates project.xcaf with targets from --target flag if set.
@@ -610,13 +622,15 @@ func handleProviderDetected(cmd *cobra.Command, opts providerDetectedOpts) (bool
 
 // printProviderDetectionHeader prints the initial detection message.
 func printProviderDetectionHeader(hasExistingScaffold bool) {
-	fmt.Println()
-	if hasExistingScaffold {
-		fmt.Println("  project.xcaf already exists, but existing compiled configurations were detected.")
-	} else {
-		fmt.Printf("  %s Detected existing agent configuration(s):\n", glyphOK())
+	if !jsonManifestFlag {
+		fmt.Println()
+		if hasExistingScaffold {
+			fmt.Println("  project.xcaf already exists, but existing compiled configurations were detected.")
+		} else {
+			fmt.Printf("  %s Detected existing agent configuration(s):\n", glyphOK())
+		}
+		fmt.Println()
 	}
-	fmt.Println()
 }
 
 // promptForImport asks the user whether to import detected providers.

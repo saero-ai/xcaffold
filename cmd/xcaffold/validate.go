@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/blueprint"
 	"github.com/saero-ai/xcaffold/internal/compiler"
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/parser"
@@ -63,6 +64,11 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	_ = validateSkillDirs(cfg, parseRoot, &hasErrors)
 	hasErrors = reportHookErrors(cfg, parseRoot, hasErrors)
 	structWarnings := reportStructuralWarnings(cfg)
+	blueprintErr := validateBlueprintExtends(cfg, hasErrors)
+	if blueprintErr != nil {
+		return blueprintErr
+	}
+	hasErrors = blueprintErr != nil || hasErrors
 	policyWarnings, _, fieldValidationRan, fieldValidationErrors, err := validatePolicies(hasErrors, cfg, parseRoot)
 	if err != nil {
 		return err
@@ -137,6 +143,27 @@ func reportStructuralWarnings(cfg *ast.XcaffoldConfig) []string {
 		fmt.Printf("  %s  structural checks\n", colorGreen(glyphOK()))
 	}
 	return structWarnings
+}
+
+// validateBlueprintExtends validates blueprint extends chains for cycles and missing parents.
+// Returns an error if validation fails, nil otherwise.
+func validateBlueprintExtends(cfg *ast.XcaffoldConfig, hasErrors bool) error {
+	if len(cfg.Blueprints) == 0 {
+		return nil
+	}
+
+	if err := blueprint.ResolveBlueprintExtends(cfg.Blueprints); err != nil {
+		fmt.Println()
+		fmt.Printf("  %s  blueprints\n", colorRed(glyphErr()))
+		fmt.Println()
+		fmt.Printf("!!  %s\n", err.Error())
+		fmt.Println()
+		fmt.Printf("%s  Validation failed: blueprint validation error.\n", colorRed(glyphErr()))
+		return fmt.Errorf("validation failed: %w", err)
+	}
+
+	fmt.Printf("  %s  blueprints\n", colorGreen(glyphOK()))
+	return nil
 }
 
 // validateSyntax checks YAML syntax, schema, and cross-references.

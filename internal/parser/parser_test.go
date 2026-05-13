@@ -315,6 +315,21 @@ permissions:
 	assert.Contains(t, err.Error(), "Bash")
 }
 
+func TestValidatePermissions_NonDefaultSettingsBlock_Contradiction(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "settings.xcaf"), []byte(`kind: settings
+version: "1.0"
+name: my-settings
+permissions:
+  allow: [Bash]
+  deny: [Bash]
+`), 0600))
+	_, err := ParseDirectory(dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "allow and deny")
+	assert.Contains(t, err.Error(), "my-settings")
+}
+
 func TestParse_MCP_PlatformSpecificFields(t *testing.T) {
 	input := `kind: global
 version: "1.0"

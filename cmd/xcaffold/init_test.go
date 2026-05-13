@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
@@ -983,4 +984,74 @@ targets:
 	require.NotNil(t, config.Project.Targets, "targets should be set")
 	require.Len(t, config.Project.Targets, 1, "should have exactly one target")
 	assert.Equal(t, "claude", config.Project.Targets[0], "target should remain as claude from original file")
+}
+
+// TestInit_JSONFlag_OutputIsOnlyJSON verifies that when --json flag is set,
+// all text output is suppressed and only JSON is printed to stdout.
+func TestInit_JSONFlag_OutputIsOnlyJSON(t *testing.T) {
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() { _ = os.Chdir(orig) }()
+
+	// Get the directory base name for later verification
+	dirBaseName := filepath.Base(dir)
+
+	// Set up test flags
+	yesFlag = true
+	targetsFlag = []string{"claude"}
+	jsonManifestFlag = true
+	defer func() {
+		yesFlag = false
+		targetsFlag = nil
+		jsonManifestFlag = false
+	}()
+
+	cmd := &cobra.Command{}
+	var stdout strings.Builder
+	var stderr strings.Builder
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+
+	// Run init with --json
+	err = runInit(cmd, nil)
+	require.NoError(t, err, "runInit should succeed with --json flag")
+
+	output := stdout.String()
+	require.NotEmpty(t, output, "should output JSON manifest")
+
+	// Verify output is valid JSON and contains expected fields
+	var result map[string]interface{}
+	err = json.Unmarshal([]byte(output), &result)
+	require.NoError(t, err, "stdout should be valid JSON: %s", output)
+
+	// Verify no text preamble (header, status messages) is present - check the raw output
+	// before JSON content, not within the JSON
+	lines := strings.Split(output, "\n")
+	firstLine := strings.TrimSpace(lines[0])
+	require.True(t, strings.HasPrefix(firstLine, "{"), "first line of output should be JSON, not text (got: %s)", firstLine)
+
+	// Verify no status text like "Initializing xcaffold project" appears
+	assert.NotContains(t, output, "Initializing xcaffold project", "should not print status text with --json")
+
+	// Verify expected JSON keys exist
+	assert.Contains(t, result, "project", "JSON should contain 'project' key")
+	assert.Contains(t, result, "targets", "JSON should contain 'targets' key")
+	assert.Contains(t, result, "files", "JSON should contain 'files' key")
+
+	// Verify the structure is correct
+	assert.Equal(t, dirBaseName, result["project"], "project name should be directory base name")
+	assert.Equal(t, []interface{}{"claude"}, result["targets"], "targets should be ['claude']")
+
+	// Verify files array contains expected entries
+	filesInterface := result["files"]
+	files, ok := filesInterface.([]interface{})
+	require.True(t, ok, "files should be an array")
+	require.NotEmpty(t, files, "files array should not be empty")
+
+	// Check that first entry is project.xcaf
+	firstFile, ok := files[0].(string)
+	require.True(t, ok, "files[0] should be a string")
+	assert.Equal(t, "project.xcaf", firstFile, "first file should be project.xcaf")
 }
