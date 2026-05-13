@@ -530,3 +530,43 @@ func TestValidate_NoOrphanChecks_AgentWithoutBody(t *testing.T) {
 		}
 	}
 }
+
+// TestValidate_CircularBlueprintExtends_Error verifies that validate detects
+// circular blueprint extends and exits with an error.
+func TestValidate_CircularBlueprintExtends_Error(t *testing.T) {
+	dir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
+version: "1.0"
+name: "circular-test"
+`), 0600))
+
+	// Create two blueprint files that circularly extend each other
+	bpDir := filepath.Join(dir, "xcaf", "blueprints")
+	require.NoError(t, os.MkdirAll(bpDir, 0755))
+
+	require.NoError(t, os.WriteFile(filepath.Join(bpDir, "bp-a.xcaf"), []byte(`kind: blueprint
+version: "1.0"
+name: bp-a
+extends: bp-b
+agents: []
+`), 0600))
+
+	require.NoError(t, os.WriteFile(filepath.Join(bpDir, "bp-b.xcaf"), []byte(`kind: blueprint
+version: "1.0"
+name: bp-b
+extends: bp-a
+agents: []
+`), 0600))
+
+	oldPath := xcafPath
+	xcafPath = filepath.Join(dir, "project.xcaf")
+	defer func() { xcafPath = oldPath }()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.Error(t, err, "validate must fail on circular blueprint extends")
+	assert.Contains(t, err.Error(), "circular", "error message must mention circular extends")
+	assert.Contains(t, out, "circular", "output must mention circular extends detection")
+}
