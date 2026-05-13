@@ -36,46 +36,41 @@ type SkillValidationResult struct {
 // hard errors (stray files, nested subdirs, missing declared artifacts) and
 // advisory warnings (subdirs on disk not in artifacts list). Both slices are
 // nil when the directory is fully valid.
-func ValidateSkillDirectory(skillDir, skillID string, artifacts []string) *SkillValidationResult {
-	result := &SkillValidationResult{}
-
-	entries, err := os.ReadDir(skillDir)
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Errorf("cannot read skill directory %q: %w", skillDir, err))
-		return result
-	}
-
-	legacyXcafFile := skillID + ".xcaf"
-
-	// Build a map of declared artifacts for fast lookup
-	artifactsMap := make(map[string]bool)
-	for _, a := range artifacts {
-		artifactsMap[a] = true
-	}
-
-	// Track which declared artifacts we've seen on disk
-	declaredArtifactsSeen := make(map[string]bool)
-
+// processSkillDirectories walks skill root and validates directories against declared artifacts.
+func processSkillDirectories(entries []os.DirEntry, skillDir, skillID string, artifactsMap map[string]bool, declaredArtifactsSeen map[string]bool) ([]error, []error) {
+	var errs, warns []error
 	for _, entry := range entries {
 		name := entry.Name()
-
-		if entry.IsDir() {
-			// Check if this directory is in the artifacts list
-			if artifactsMap[name] {
-				declaredArtifactsSeen[name] = true
-				// It's declared — validate its contents
-				subdirPath := filepath.Join(skillDir, name)
-				errs, warns := validateSubdir(subdirPath, skillID, name)
-				result.Errors = append(result.Errors, errs...)
-				result.Warnings = append(result.Warnings, warns...)
-			} else {
-				// Directory exists but is not declared — warn
-				result.Warnings = append(result.Warnings, fmt.Errorf(
-					"subdirectory %q in skill %q is not declared in artifacts and will not be compiled; add it to artifacts: [%s] in the skill config",
-					name, skillID, name))
-			}
+		if !entry.IsDir() {
 			continue
 		}
+		// Check if this directory is in the artifacts list
+		if artifactsMap[name] {
+			declaredArtifactsSeen[name] = true
+			// It's declared — validate its contents
+			subdirPath := filepath.Join(skillDir, name)
+			subErrs, subWarns := validateSubdir(subdirPath, skillID, name)
+			errs = append(errs, subErrs...)
+			warns = append(warns, subWarns...)
+		} else {
+			// Directory exists but is not declared — warn
+			warns = append(warns, fmt.Errorf(
+				"subdirectory %q in skill %q is not declared in artifacts and will not be compiled; add it to artifacts: [%s] in the skill config",
+				name, skillID, name))
+		}
+	}
+	return errs, warns
+}
+
+// processSkillFiles walks skill root files and validates against known patterns.
+func processSkillFiles(entries []os.DirEntry, skillID string) []error {
+	var errs []error
+	legacyXcafFile := skillID + ".xcaf"
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
 
 		// Skip hidden files (dotfiles like .DS_Store, .gitkeep, .gitignore).
 		// These are not user-authored xcaf content and must not be flagged.
@@ -91,19 +86,56 @@ func ValidateSkillDirectory(skillDir, skillID string, artifacts []string) *Skill
 		if isOverrideFilename(name) {
 			continue
 		}
-		result.Errors = append(result.Errors, fmt.Errorf(
+		errs = append(errs, fmt.Errorf(
 			"unrecognized file %q at skill root %q; move it to a declared artifact subdirectory",
 			name, skillID))
 	}
+	return errs
+}
 
-	// Check that all declared artifacts actually exist on disk
+// validateDeclaredArtifactsExist checks that all declared artifacts exist on disk.
+func validateDeclaredArtifactsExist(artifacts []string, declaredArtifactsSeen map[string]bool, skillID string) []error {
+	var errs []error
 	for _, declared := range artifacts {
 		if !declaredArtifactsSeen[declared] {
-			result.Errors = append(result.Errors, fmt.Errorf(
+			errs = append(errs, fmt.Errorf(
 				"declared artifact %q does not exist as subdirectory in skill %q",
 				declared, skillID))
 		}
 	}
+	return errs
+}
+
+func ValidateSkillDirectory(skillDir, skillID string, artifacts []string) *SkillValidationResult {
+	result := &SkillValidationResult{}
+
+	entries, err := os.ReadDir(skillDir)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Errorf("cannot read skill directory %q: %w", skillDir, err))
+		return result
+	}
+
+	// Build a map of declared artifacts for fast lookup
+	artifactsMap := make(map[string]bool)
+	for _, a := range artifacts {
+		artifactsMap[a] = true
+	}
+
+	// Track which declared artifacts we've seen on disk
+	declaredArtifactsSeen := make(map[string]bool)
+
+	// Validate directories
+	errs, warns := processSkillDirectories(entries, skillDir, skillID, artifactsMap, declaredArtifactsSeen)
+	result.Errors = append(result.Errors, errs...)
+	result.Warnings = append(result.Warnings, warns...)
+
+	// Validate files
+	fileErrs := processSkillFiles(entries, skillID)
+	result.Errors = append(result.Errors, fileErrs...)
+
+	// Check that all declared artifacts exist
+	artifactErrs := validateDeclaredArtifactsExist(artifacts, declaredArtifactsSeen, skillID)
+	result.Errors = append(result.Errors, artifactErrs...)
 
 	return result
 }

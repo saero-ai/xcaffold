@@ -55,25 +55,41 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 		return out, notes, nil
 	}
 
-	// Sort entry names for deterministic output.
 	names := make([]string, 0, len(config.Memory))
 	for name := range config.Memory {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 
-	// Compute seeded-at once for the entire compile pass.
-	seededAt := time.Now().UTC().Format(time.RFC3339)
-
-	// Read or initialize GEMINI.md.
 	geminiPath := filepath.Join(r.targetDir, geminiMemoryFile)
+	content, err := readGeminiMemoryFile(geminiPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	content, notes, err = applyGeminiMemoryEntries(content, names, config.Memory, baseDir)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := os.MkdirAll(r.targetDir, 0o700); err != nil {
+		return nil, nil, fmt.Errorf("gemini memory: create target dir: %w", err)
+	}
+	if err := os.WriteFile(geminiPath, []byte(content), 0o600); err != nil {
+		return nil, nil, fmt.Errorf("gemini memory: write %s: %w", geminiPath, err)
+	}
+
+	return out, notes, nil
+}
+
+// readGeminiMemoryFile reads GEMINI.md from disk and ensures the xcaffold
+// section header is present, creating it when the file does not yet exist.
+func readGeminiMemoryFile(geminiPath string) (string, error) {
 	existing, err := os.ReadFile(geminiPath)
 	if err != nil && !os.IsNotExist(err) {
-		return nil, nil, fmt.Errorf("gemini memory: read %s: %w", geminiPath, err)
+		return "", fmt.Errorf("gemini memory: read %s: %w", geminiPath, err)
 	}
 	content := string(existing)
-
-	// Ensure the section header exists exactly once.
 	if !strings.Contains(content, geminiMemorySection) {
 		if content != "" && !strings.HasSuffix(content, "\n") {
 			content += "\n"
@@ -83,40 +99,40 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 		}
 		content += geminiMemorySection + "\n"
 	}
+	return content, nil
+}
 
-	// Process each entry.
+// applyGeminiMemoryEntries iterates over sorted entry names, validates each,
+// removes any stale block, appends the new block, and accumulates fidelity notes.
+func applyGeminiMemoryEntries(content string, names []string, memory map[string]ast.MemoryConfig, baseDir string) (string, []renderer.FidelityNote, error) {
+	seededAt := time.Now().UTC().Format(time.RFC3339)
+	var notes []renderer.FidelityNote
+
 	for _, name := range names {
-		entry := config.Memory[name]
+		entry := memory[name]
 
-		// Path-safety: reject names that could escape the target directory.
 		if name == ".." || strings.Contains(name, "..") {
-			return nil, nil, fmt.Errorf("gemini memory %q: entry name must not contain traversal sequences", name)
+			return "", nil, fmt.Errorf("gemini memory %q: entry name must not contain traversal sequences", name)
 		}
 		if filepath.IsAbs(name) {
-			return nil, nil, fmt.Errorf("gemini memory %q: entry name must not be absolute", name)
+			return "", nil, fmt.Errorf("gemini memory %q: entry name must not be absolute", name)
 		}
 
 		body, err := resolveBody(name, entry, baseDir)
 		if err != nil {
-			return nil, nil, fmt.Errorf("gemini memory %q: %w", name, err)
+			return "", nil, fmt.Errorf("gemini memory %q: %w", name, err)
 		}
 		if strings.TrimSpace(body) == "" {
 			continue
 		}
 
-		// Remove any existing block for this entry (idempotency).
 		content = removeMemoryBlock(content, name)
-
-		// Build the new block.
 		block := buildBlock(name, entry, body, seededAt)
-
-		// Append block after the section header (at end of content).
 		if !strings.HasSuffix(content, "\n") {
 			content += "\n"
 		}
 		content += block
 
-		// Emit partial-fidelity note: Gemini flattens all entries into one file.
 		notes = append(notes, renderer.NewNote(
 			renderer.LevelInfo,
 			"gemini",
@@ -129,15 +145,7 @@ func (r *MemoryRenderer) Compile(config *ast.XcaffoldConfig, baseDir string) (*o
 		))
 	}
 
-	// Write GEMINI.md atomically.
-	if err := os.MkdirAll(r.targetDir, 0o700); err != nil {
-		return nil, nil, fmt.Errorf("gemini memory: create target dir: %w", err)
-	}
-	if err := os.WriteFile(geminiPath, []byte(content), 0o600); err != nil {
-		return nil, nil, fmt.Errorf("gemini memory: write %s: %w", geminiPath, err)
-	}
-
-	return out, notes, nil
+	return content, notes, nil
 }
 
 // Render wraps a files map in an output.Output. This is an identity operation —

@@ -40,10 +40,26 @@ func ExportPlugin(config *ast.XcaffoldConfig, compiled *output.Output, target st
 		return nil, err
 	}
 
-	out := &output.Output{
-		Files: make(map[string]string),
+	out := &output.Output{Files: make(map[string]string)}
+
+	manifestJSON, err := buildPluginManifest(config)
+	if err != nil {
+		return nil, err
+	}
+	out.Files[pluginDir+"/plugin.json"] = manifestJSON
+
+	copyCompiledFiles(compiled, out)
+
+	if err := appendPluginHooks(config, out); err != nil {
+		return nil, err
 	}
 
+	return out, nil
+}
+
+// buildPluginManifest serialises the project metadata fields into the plugin.json
+// manifest format. Only non-empty optional fields are included.
+func buildPluginManifest(config *ast.XcaffoldConfig) (string, error) {
 	manifest := map[string]string{
 		"name":        config.Project.Name,
 		"description": config.Project.Description,
@@ -63,35 +79,39 @@ func ExportPlugin(config *ast.XcaffoldConfig, compiled *output.Output, target st
 	if config.Project.License != "" {
 		manifest["license"] = config.Project.License
 	}
-
-	manifestJSON, err := json.MarshalIndent(manifest, "", "  ")
+	b, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal plugin manifest: %w", err)
+		return "", fmt.Errorf("failed to marshal plugin manifest: %w", err)
 	}
-	out.Files[pluginDir+"/plugin.json"] = string(manifestJSON)
+	return string(b), nil
+}
 
+// copyCompiledFiles copies content files from compiled into out, skipping hooks
+// and settings files that must not appear in a plugin distribution.
+func copyCompiledFiles(compiled *output.Output, out *output.Output) {
 	for path, content := range compiled.Files {
 		switch {
 		case path == "hooks.json", path == "hooks/hooks.json":
-			continue // Skip any lingering standalone hooks files
+			continue // skip any lingering standalone hooks files
 		case path == "settings.json", path == "settings.local.json":
-			// settings files are environment-specific; exclude from plugin exports
-			continue
+			continue // settings are environment-specific; exclude from plugin exports
 		default:
 			out.Files[path] = content
 		}
 	}
+}
 
-	if len(config.Hooks) > 0 {
-		wrapper := map[string]any{
-			"hooks": config.Hooks,
-		}
-		b, err := json.MarshalIndent(wrapper, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("failed to format plugin hooks: %w", err)
-		}
-		out.Files["hooks/hooks.json"] = string(b)
+// appendPluginHooks writes the config's hooks into the plugin's hooks/hooks.json
+// file. Does nothing when there are no hooks.
+func appendPluginHooks(config *ast.XcaffoldConfig, out *output.Output) error {
+	if len(config.Hooks) == 0 {
+		return nil
 	}
-
-	return out, nil
+	wrapper := map[string]any{"hooks": config.Hooks}
+	b, err := json.MarshalIndent(wrapper, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to format plugin hooks: %w", err)
+	}
+	out.Files["hooks/hooks.json"] = string(b)
+	return nil
 }

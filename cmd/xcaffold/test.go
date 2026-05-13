@@ -65,7 +65,6 @@ func init() {
 }
 
 func runTest(cmd *cobra.Command, args []string) error {
-	// 1. Load and validate the project config.
 	config, err := parser.ParseDirectory(projectParseRoot())
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
@@ -76,13 +75,7 @@ func runTest(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("agent %q not found in project.xcaf", testAgentFlag)
 	}
 
-	// 2. Resolve test config (CLI flag > xcaf > defaults).
-	var testCfg ast.TestConfig
-	if config.Project != nil {
-		testCfg = config.Project.Test
-	}
-
-	// 3. Set up trace file.
+	testCfg := resolveTestConfig(config)
 	traceFile, err := os.Create(filepath.Clean(testOutputFlag))
 	if err != nil {
 		return fmt.Errorf("failed to create trace file %q: %w", testOutputFlag, err)
@@ -90,76 +83,35 @@ func runTest(cmd *cobra.Command, args []string) error {
 	defer traceFile.Close()
 
 	recorder := trace.NewRecorder(traceFile)
-
-	// 4. Read compiled agent system prompt from disk.
-	agentMDPath := filepath.Join(projectRoot, ".claude", "agents", testAgentFlag+".md")
-	systemPromptBytes, err := os.ReadFile(agentMDPath) //nolint:gosec
+	systemPromptBytes, err := readCompiledAgent(testAgentFlag)
 	if err != nil {
-		return fmt.Errorf("agent %q not compiled — run 'xcaffold apply' first: %w", testAgentFlag, err)
+		return err
 	}
 
-	// 5. Resolve the test task.
-	task := testCfg.Task
-	if task == "" {
-		task = "Describe what tools you have available and what you would do first."
+	task := resolveTestTask(testCfg)
+	model, err := resolveTestModel(agentConfig, testCfg)
+	if err != nil {
+		return err
 	}
 
-	// 6. Build LLM client for the test run.
-	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
-	genericAPIKey := os.Getenv("XCAFFOLD_LLM_API_KEY")
-	genericAPIBase := os.Getenv("XCAFFOLD_LLM_BASE_URL")
-
-	model := agentConfig.Model
-	if model == "" {
-		// Resolve default model from the first available CLI
-		detected := detectDefaultTarget()
-		if detected != "" {
-			model, _ = resolveTargetMeta(detected)
-		}
-		if model == "" {
-			return fmt.Errorf("agent %q does not specify a model in .xcaf, and no CLI was detected on PATH", testAgentFlag)
-		}
-	}
-
-	client, err := llmclient.New(llmclient.Config{
-		AnthropicKey:   anthropicKey,
-		GenericAPIKey:  genericAPIKey,
-		GenericAPIBase: genericAPIBase,
-		Model:          model,
-		CLIPath:        resolveCliPath(testCfg.CliPath),
-		MaxTokens:      4096,
-	})
+	client, err := createTestLLMClient(agentConfig, testCfg, model)
 	if err != nil {
 		return fmt.Errorf("failed to create LLM client: %w", err)
 	}
 
-	// 7. Run single-turn simulation.
 	fmt.Printf("Testing agent %q with task: %s\n", testAgentFlag, task)
 	fmt.Printf("Using model: %s (auth: %s)\n\n", model, client.AuthMode())
 
-	prompt := buildTestPrompt(string(systemPromptBytes), task)
-	response, err := client.Call(cmd.Context(), prompt)
+	response, err := client.Call(cmd.Context(), buildTestPrompt(string(systemPromptBytes), task))
 	if err != nil {
 		return fmt.Errorf("LLM call failed: %w", err)
 	}
 
-	// 8. Extract tool calls from response and record trace.
-	toolCalls := extractToolCallsFromResponse(response)
-	for _, tc := range toolCalls {
-		_ = recorder.Record(trace.ToolCallEvent{
-			Timestamp:   time.Now(),
-			ToolName:    tc.name,
-			InputParams: tc.input,
-			AgentID:     testAgentFlag,
-		})
-	}
-
-	// 9. Print trace summary.
+	recordToolCalls(recorder, response, testAgentFlag)
 	summary := recorder.Summary()
 	summary.Print(os.Stdout)
 	fmt.Printf("  Trace written to: %s\n\n", testOutputFlag)
 
-	// 10. Optional: Run LLM-as-a-Judge.
 	if testJudgeFlag {
 		cliPath := resolveCliPath(testCfg.CliPath)
 		if err := runJudge(summary, agentConfig.Assertions.Values, testCfg.JudgeModel, cliPath); err != nil {
@@ -168,6 +120,76 @@ func runTest(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// resolveTestConfig extracts test config from project or provides defaults.
+func resolveTestConfig(config *ast.XcaffoldConfig) ast.TestConfig {
+	if config.Project != nil {
+		return config.Project.Test
+	}
+	return ast.TestConfig{}
+}
+
+// readCompiledAgent loads the compiled agent system prompt from disk.
+func readCompiledAgent(agentID string) ([]byte, error) {
+	agentMDPath := filepath.Join(projectRoot, ".claude", "agents", agentID+".md")
+	data, err := os.ReadFile(agentMDPath) //nolint:gosec
+	if err != nil {
+		return nil, fmt.Errorf("agent %q not compiled — run 'xcaffold apply' first: %w", agentID, err)
+	}
+	return data, nil
+}
+
+// resolveTestTask determines the task string from config or default.
+func resolveTestTask(testCfg ast.TestConfig) string {
+	if testCfg.Task != "" {
+		return testCfg.Task
+	}
+	return "Describe what tools you have available and what you would do first."
+}
+
+// resolveTestModel determines the model to use for the test run.
+func resolveTestModel(agentConfig ast.AgentConfig, testCfg ast.TestConfig) (string, error) {
+	model := agentConfig.Model
+	if model == "" {
+		detected := detectDefaultTarget()
+		if detected != "" {
+			model, _ = resolveTargetMeta(detected)
+		}
+		if model == "" {
+			return "", fmt.Errorf("agent does not specify a model in .xcaf, and no CLI was detected on PATH")
+		}
+	}
+	return model, nil
+}
+
+// createTestLLMClient builds the LLM client with appropriate auth.
+func createTestLLMClient(agentConfig ast.AgentConfig, testCfg ast.TestConfig, model string) (*llmclient.Client, error) {
+	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
+	genericAPIKey := os.Getenv("XCAFFOLD_LLM_API_KEY")
+	genericAPIBase := os.Getenv("XCAFFOLD_LLM_BASE_URL")
+
+	return llmclient.New(llmclient.Config{
+		AnthropicKey:   anthropicKey,
+		GenericAPIKey:  genericAPIKey,
+		GenericAPIBase: genericAPIBase,
+		Model:          model,
+		CLIPath:        resolveCliPath(testCfg.CliPath),
+		MaxTokens:      4096,
+	})
+}
+
+// recordToolCalls extracts tool calls from response and records them.
+func recordToolCalls(recorder *trace.Recorder, response string, agentID string) {
+	toolCalls := extractToolCallsFromResponse(response)
+	for _, tc := range toolCalls {
+		_ = recorder.Record(trace.ToolCallEvent{
+			Timestamp:   time.Now(),
+			ToolName:    tc.name,
+			InputParams: tc.input,
+			AgentID:     agentID,
+		})
+	}
 }
 
 // buildTestPrompt wraps the compiled system prompt and task into a single user message

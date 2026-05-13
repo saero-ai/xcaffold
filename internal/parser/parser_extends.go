@@ -69,48 +69,72 @@ func resolveExtends(contextDir string, config *ast.XcaffoldConfig, vars map[stri
 	return resolveExtendsRecursive(contextDir, config, vars, envs, visited)
 }
 
+// resolveGlobalBase resolves the special "extends: global" directive by loading
+// the global configuration from ~/.xcaffold/. It recursively resolves any extends
+// directives within the global config itself.
+func resolveGlobalBase(vars map[string]interface{}, envs map[string]string, visited map[string]bool) (*ast.XcaffoldConfig, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("could not resolve 'extends: global': %w", err)
+	}
+
+	xcaffoldDir := filepath.Join(home, ".xcaffold")
+	if stat, err := os.Stat(xcaffoldDir); err == nil && stat.IsDir() {
+		if visited[xcaffoldDir] {
+			return nil, fmt.Errorf("circular dependency detected: global setup extends itself")
+		}
+		visited[xcaffoldDir] = true
+
+		baseConfig, err := parseDirectoryRaw(xcaffoldDir, vars, envs, withGlobalScope())
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
+		}
+		if baseConfig.Extends != "" {
+			baseConfig, err = resolveExtendsRecursive(xcaffoldDir, baseConfig, vars, envs, visited)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return baseConfig, nil
+	}
+
+	return nil, fmt.Errorf("could not resolve 'extends: global': no global config found")
+}
+
 // resolveExtendsRecursive recursively resolves extends: directives, tracking visited
 // paths to detect circular dependencies. Base configurations are merged into the
 // child configuration using mergeConfigOverride.
-//
-//nolint:gocyclo
 func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars map[string]interface{}, envs map[string]string, visited map[string]bool) (*ast.XcaffoldConfig, error) {
 	if config.Extends == "" {
 		return config, nil
 	}
 
-	var basePath string
+	var baseConfig *ast.XcaffoldConfig
+	var err error
+
 	if config.Extends == "global" {
-		home, err := os.UserHomeDir()
+		baseConfig, err = resolveGlobalBase(vars, envs, visited)
 		if err != nil {
-			return nil, fmt.Errorf("could not resolve 'extends: global': %w", err)
+			return nil, err
 		}
-
-		xcaffoldDir := filepath.Join(home, ".xcaffold")
-		if stat, err := os.Stat(xcaffoldDir); err == nil && stat.IsDir() {
-			if visited[xcaffoldDir] {
-				return nil, fmt.Errorf("circular dependency detected: global setup extends itself")
-			}
-			visited[xcaffoldDir] = true
-
-			baseConfig, err := parseDirectoryRaw(xcaffoldDir, vars, envs, withGlobalScope())
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse global directory %q: %w", xcaffoldDir, err)
-			}
-			if baseConfig.Extends != "" {
-				baseConfig, err = resolveExtendsRecursive(xcaffoldDir, baseConfig, vars, envs, visited)
-				if err != nil {
-					return nil, err
-				}
-			}
-			return mergeConfigOverride(baseConfig, config), nil
-		}
-
-		return nil, fmt.Errorf("could not resolve 'extends: global': no global config found")
-	} else if filepath.IsAbs(config.Extends) {
-		basePath = config.Extends
 	} else {
-		basePath = filepath.Join(contextDir, config.Extends)
+		baseConfig, err = resolveFileBase(contextDir, config.Extends, vars, envs, visited)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return mergeConfigOverride(baseConfig, config), nil
+}
+
+// resolveFileBase resolves a file path extends directive, handling both absolute
+// and relative paths, and recursively resolving any extends within the loaded file.
+func resolveFileBase(contextDir, extendsPath string, vars map[string]interface{}, envs map[string]string, visited map[string]bool) (*ast.XcaffoldConfig, error) {
+	var basePath string
+	if filepath.IsAbs(extendsPath) {
+		basePath = extendsPath
+	} else {
+		basePath = filepath.Join(contextDir, extendsPath)
 	}
 
 	absPath, err := filepath.Abs(basePath)
@@ -125,7 +149,7 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars
 
 	parsed, err := ParseFileExact(absPath, withVars(vars), withEnvs(envs))
 	if err != nil {
-		return nil, fmt.Errorf("failed to load base config %q: %w", config.Extends, err)
+		return nil, fmt.Errorf("failed to load base config %q: %w", extendsPath, err)
 	}
 
 	baseConfig, err := resolveExtendsRecursive(filepath.Dir(absPath), parsed, vars, envs, visited)
@@ -133,7 +157,7 @@ func resolveExtendsRecursive(contextDir string, config *ast.XcaffoldConfig, vars
 		return nil, err
 	}
 
-	return mergeConfigOverride(baseConfig, config), nil
+	return baseConfig, nil
 }
 
 // mergeAllStrict merges multiple ParsedFile objects from the same directory,
@@ -508,56 +532,48 @@ func mergeSettingsMapOverride(base, child map[string]ast.SettingsConfig) map[str
 // mergeConfigOverride is used for extends resolution where the child overrides the base entirely.
 // Base resources (those not overridden by the child) are tagged Inherited=true so renderers
 // can skip them during project-scope compilation - they are already compiled at global scope.
-func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
-	merged := &ast.XcaffoldConfig{
-		Version: child.Version, // child overrides version
+// mergeProjectOverride overlays child project config on base, with child values winning.
+func mergeProjectOverride(base, child *ast.ProjectConfig) *ast.ProjectConfig {
+	merged := &ast.ProjectConfig{}
+	if base != nil {
+		*merged = *base
+	}
+	if child == nil {
+		return merged
 	}
 
-	if merged.Version == "" {
-		merged.Version = base.Version
+	if child.Name != "" {
+		merged.Name = child.Name
+	}
+	if child.Description != "" {
+		merged.Description = child.Description
+	}
+	if child.BackupDir != "" {
+		merged.BackupDir = child.BackupDir
+	}
+	// Propagate targets from kind: project documents.
+	if len(child.Targets) > 0 {
+		merged.Targets = child.Targets
+	}
+	// Test override
+	if child.Test.CliPath != "" {
+		merged.Test.CliPath = child.Test.CliPath
+	}
+	if child.Test.JudgeModel != "" {
+		merged.Test.JudgeModel = child.Test.JudgeModel
+	}
+	if child.Test.Task != "" {
+		merged.Test.Task = child.Test.Task
+	}
+	if child.Test.MaxTurns != nil {
+		merged.Test.MaxTurns = child.Test.MaxTurns
 	}
 
-	if base.Project != nil || child.Project != nil {
-		merged.Project = &ast.ProjectConfig{}
-		if base.Project != nil {
-			*merged.Project = *base.Project
-		}
-		if child.Project != nil {
-			if child.Project.Name != "" {
-				merged.Project.Name = child.Project.Name
-			}
-			if child.Project.Description != "" {
-				merged.Project.Description = child.Project.Description
-			}
-			if child.Project.BackupDir != "" {
-				merged.Project.BackupDir = child.Project.BackupDir
-			}
-			// Propagate targets from kind: project documents.
-			if len(child.Project.Targets) > 0 {
-				merged.Project.Targets = child.Project.Targets
-			}
-			// Test override
-			if child.Project.Test.CliPath != "" {
-				merged.Project.Test.CliPath = child.Project.Test.CliPath
-			}
-			if child.Project.Test.JudgeModel != "" {
-				merged.Project.Test.JudgeModel = child.Project.Test.JudgeModel
-			}
-			if child.Project.Test.Task != "" {
-				merged.Project.Test.Task = child.Project.Test.Task
-			}
-			if child.Project.Test.MaxTurns != nil {
-				merged.Project.Test.MaxTurns = child.Project.Test.MaxTurns
-			}
+	return merged
+}
 
-			// Project instructions fields. A set field on the child wins; an empty
-			// field on the child preserves the base value (matches the same
-			// convention applied to Name, Description, and other scalar fields above).
-		}
-	}
-
-	merged.Extends = "" // after resolving, extends is empty
-
+// mergeResourcesOverride overlays all resource maps with inherited flags on base resources.
+func mergeResourcesOverride(merged *ast.XcaffoldConfig, base, child *ast.XcaffoldConfig) {
 	// Tag all base resources as inherited so renderers skip them during project-scope
 	// compilation. Resources the child declares (same ID) are child-owned and NOT tagged.
 	merged.Agents = mergeAgentsOverrideInherited(base.Agents, child.Agents)
@@ -569,8 +585,27 @@ func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
 	merged.Blueprints = mergeMapOverride(base.Blueprints, child.Blueprints)
 	merged.Contexts = mergeContextsOverrideInherited(base.Contexts, child.Contexts)
 	merged.Hooks = mergeNamedHooksAdditive(base.Hooks, child.Hooks)
-
 	merged.Settings = mergeSettingsMapOverride(base.Settings, child.Settings)
+}
+
+func mergeConfigOverride(base, child *ast.XcaffoldConfig) *ast.XcaffoldConfig {
+	merged := &ast.XcaffoldConfig{
+		Version: child.Version, // child overrides version
+	}
+
+	if merged.Version == "" {
+		merged.Version = base.Version
+	}
+
+	// Merge project config if either side has it
+	if base.Project != nil || child.Project != nil {
+		merged.Project = mergeProjectOverride(base.Project, child.Project)
+	}
+
+	merged.Extends = "" // after resolving, extends is empty
+
+	// Merge all resource maps
+	mergeResourcesOverride(merged, base, child)
 
 	// Preserve parse warnings from the child (project-level); base (global) warnings are discarded.
 	merged.ParseWarnings = append(merged.ParseWarnings, child.ParseWarnings...)

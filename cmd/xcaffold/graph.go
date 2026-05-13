@@ -95,7 +95,28 @@ type graphData struct {
 }
 
 func runGraph(cmd *cobra.Command, args []string) error {
-	// Mutual exclusion checks
+	if err := validateGraphFlags(); err != nil {
+		return err
+	}
+
+	if strings.ToLower(graphFormat) == "terminal" || graphFormat == "" {
+		return runGraphTerminalMode()
+	}
+
+	scopes, err := resolveGraphScopes(args)
+	if err != nil {
+		return err
+	}
+
+	if len(scopes) == 0 {
+		return fmt.Errorf("no topology generated")
+	}
+
+	return printGraphOutput(scopes)
+}
+
+// validateGraphFlags checks for mutually exclusive graph flags.
+func validateGraphFlags() error {
 	if graphBlueprintFlag != "" && globalFlag {
 		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
 	}
@@ -105,76 +126,83 @@ func runGraph(cmd *cobra.Command, args []string) error {
 	if graphAll && graphProject != "" {
 		return fmt.Errorf("--all and --project are mutually exclusive")
 	}
+	return nil
+}
 
-	// Terminal mode handles its own parsing to avoid duplicate warnings.
-	if strings.ToLower(graphFormat) == "terminal" || graphFormat == "" {
-		return runGraphTerminalMode()
-	}
-
+// resolveGraphScopes determines which graph scopes to render based on flags and arguments.
+func resolveGraphScopes(args []string) ([]*graphData, error) {
 	var scopes []*graphData
 
 	if graphAll {
-		// Global topology
-		gGlobal, err := parseGraphData(globalXcafPath, "global")
-		if err != nil {
-			return err
-		}
-		scopes = append(scopes, gGlobal)
-
-		// All registered projects
-		projects, err := registry.List()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not list registered projects: %v\n", err)
-		} else {
-			for _, p := range projects {
-				projXcaf := filepath.Join(p.Path, "project.xcaf")
-				if p.ConfigDir != "" && p.ConfigDir != "." {
-					projXcaf = filepath.Join(p.Path, p.ConfigDir, "project.xcaf")
-				}
-				g, err := parseGraphData(projXcaf, fmt.Sprintf("project:%s", p.Name))
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "warning: skipping project %q: %v\n", p.Name, err)
-					continue
-				}
-				scopes = append(scopes, g)
-			}
-		}
+		return resolveAllScopes()
 	} else if graphProject != "" {
-		p, err := registry.Resolve(graphProject)
-		if err != nil {
-			return err
-		}
-		projXcaf := filepath.Join(p.Path, "project.xcaf")
-		g, err := parseGraphData(projXcaf, fmt.Sprintf("project:%s", p.Name))
-		if err != nil {
-			return err
-		}
-		scopes = append(scopes, g)
+		return resolveProjectScope(graphProject)
 	} else if len(args) > 0 {
 		g, err := parseGraphData(args[0], "")
 		if err != nil {
-			return err
+			return nil, err
 		}
-		scopes = append(scopes, g)
+		return append(scopes, g), nil
 	} else if globalFlag {
 		g, err := parseGraphData(globalXcafPath, "global")
 		if err != nil {
-			return err
+			return nil, err
 		}
-		scopes = append(scopes, g)
+		return append(scopes, g), nil
 	} else {
 		g, err := parseGraphData(xcafPath, "project")
 		if err != nil {
-			return err
+			return nil, err
 		}
-		scopes = append(scopes, g)
+		return append(scopes, g), nil
+	}
+}
+
+// resolveAllScopes loads the global topology and all registered projects.
+func resolveAllScopes() ([]*graphData, error) {
+	var scopes []*graphData
+
+	gGlobal, err := parseGraphData(globalXcafPath, "global")
+	if err != nil {
+		return nil, err
+	}
+	scopes = append(scopes, gGlobal)
+
+	projects, err := registry.List()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not list registered projects: %v\n", err)
+	} else {
+		for _, p := range projects {
+			projXcaf := filepath.Join(p.Path, "project.xcaf")
+			if p.ConfigDir != "" && p.ConfigDir != "." {
+				projXcaf = filepath.Join(p.Path, p.ConfigDir, "project.xcaf")
+			}
+			g, err := parseGraphData(projXcaf, fmt.Sprintf("project:%s", p.Name))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warning: skipping project %q: %v\n", p.Name, err)
+				continue
+			}
+			scopes = append(scopes, g)
+		}
 	}
 
-	if len(scopes) == 0 {
-		return fmt.Errorf("no topology generated")
+	return scopes, nil
+}
+
+// resolveProjectScope loads a specific project's graph.
+func resolveProjectScope(projectName string) ([]*graphData, error) {
+	p, err := registry.Resolve(projectName)
+	if err != nil {
+		return nil, err
 	}
 
-	return printGraphOutput(scopes)
+	projXcaf := filepath.Join(p.Path, "project.xcaf")
+	g, err := parseGraphData(projXcaf, fmt.Sprintf("project:%s", p.Name))
+	if err != nil {
+		return nil, err
+	}
+
+	return []*graphData{g}, nil
 }
 
 //nolint:gocyclo
@@ -200,7 +228,6 @@ func printGraphOutput(scopes []*graphData) error {
 	return nil
 }
 
-//nolint:gocyclo
 func parseGraphData(configPath, scopeName string) (*graphData, error) {
 	config, err := parser.ParseDirectory(projectParseRoot())
 	if err != nil {
@@ -211,60 +238,15 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 	}
 
 	if graphAgent != "" {
-		if _, ok := config.Agents[graphAgent]; !ok {
-			return nil, fmt.Errorf("agent %q not found in %s", graphAgent, configPath)
+		if err := filterGraphToAgent(config, graphAgent, configPath); err != nil {
+			return nil, err
 		}
-
-		targetAgent := config.Agents[graphAgent]
-		config.Agents = map[string]ast.AgentConfig{graphAgent: targetAgent}
-
-		filteredSkills := make(map[string]ast.SkillConfig)
-		for _, s := range targetAgent.Skills.Values {
-			if sk, ok := config.Skills[s]; ok {
-				filteredSkills[s] = sk
-			}
-		}
-		config.Skills = filteredSkills
-
-		filteredRules := make(map[string]ast.RuleConfig)
-		for _, r := range targetAgent.Rules.Values {
-			if ru, ok := config.Rules[r]; ok {
-				filteredRules[r] = ru
-			}
-		}
-		config.Rules = filteredRules
-
-		filteredMCP := make(map[string]ast.MCPConfig)
-		for _, m := range targetAgent.MCP.Values {
-			if mcp, ok := config.MCP[m]; ok {
-				filteredMCP[m] = mcp
-			}
-		}
-		config.MCP = filteredMCP
 	}
 
 	if graphBlueprintFlag != "" {
-		if err := blueprint.ResolveBlueprintExtends(config.Blueprints); err != nil {
-			return nil, fmt.Errorf("blueprint extends resolution failed: %w", err)
+		if err := applyGraphBlueprint(config, graphBlueprintFlag); err != nil {
+			return nil, err
 		}
-		if errs := blueprint.ValidateBlueprintRefs(config.Blueprints, &config.ResourceScope); len(errs) > 0 {
-			msgs := make([]string, len(errs))
-			for i, e := range errs {
-				msgs[i] = e.Error()
-			}
-			return nil, fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
-		}
-		if p, ok := config.Blueprints[graphBlueprintFlag]; ok {
-			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
-				return nil, fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
-			}
-			config.Blueprints[graphBlueprintFlag] = p
-		}
-		filtered, err := blueprint.ApplyBlueprint(config, graphBlueprintFlag)
-		if err != nil {
-			return nil, fmt.Errorf("blueprint %q: %w", graphBlueprintFlag, err)
-		}
-		config = filtered
 	}
 
 	if scopeName != "global" {
@@ -275,24 +257,94 @@ func parseGraphData(configPath, scopeName string) (*graphData, error) {
 	g.ConfigPath = configPath
 
 	if graphScanOutput {
-		a := analyzer.New()
-		declared := make(map[string]bool)
-		for _, n := range g.Nodes {
-			if n.Kind != "settings" {
-				declared[fmt.Sprintf("%s:%s", n.Kind, n.ID)] = true
-			}
-		}
-
-		baseDir := filepath.Dir(configPath)
-		targetDir := filepath.Join(baseDir, compiler.OutputDir(targetFlag))
-
-		entries, err := a.ScanOutputDir(targetDir, declared)
-		if err == nil {
-			g.DiskEntries = entries
-		}
+		scanGraphOutput(configPath, g)
 	}
 
 	return g, nil
+}
+
+// filterGraphToAgent restricts the config to a single agent and its dependencies.
+func filterGraphToAgent(config *ast.XcaffoldConfig, agentID string, configPath string) error {
+	if _, ok := config.Agents[agentID]; !ok {
+		return fmt.Errorf("agent %q not found in %s", agentID, configPath)
+	}
+
+	targetAgent := config.Agents[agentID]
+	config.Agents = map[string]ast.AgentConfig{agentID: targetAgent}
+
+	// Filter to only referenced skills.
+	filteredSkills := make(map[string]ast.SkillConfig)
+	for _, s := range targetAgent.Skills.Values {
+		if sk, ok := config.Skills[s]; ok {
+			filteredSkills[s] = sk
+		}
+	}
+	config.Skills = filteredSkills
+
+	// Filter to only referenced rules.
+	filteredRules := make(map[string]ast.RuleConfig)
+	for _, r := range targetAgent.Rules.Values {
+		if ru, ok := config.Rules[r]; ok {
+			filteredRules[r] = ru
+		}
+	}
+	config.Rules = filteredRules
+
+	// Filter to only referenced MCP servers.
+	filteredMCP := make(map[string]ast.MCPConfig)
+	for _, m := range targetAgent.MCP.Values {
+		if mcp, ok := config.MCP[m]; ok {
+			filteredMCP[m] = mcp
+		}
+	}
+	config.MCP = filteredMCP
+
+	return nil
+}
+
+// applyGraphBlueprint applies blueprint filtering to the config.
+func applyGraphBlueprint(config *ast.XcaffoldConfig, bpName string) error {
+	if err := blueprint.ResolveBlueprintExtends(config.Blueprints); err != nil {
+		return fmt.Errorf("blueprint extends resolution failed: %w", err)
+	}
+	if errs := blueprint.ValidateBlueprintRefs(config.Blueprints, &config.ResourceScope); len(errs) > 0 {
+		msgs := make([]string, len(errs))
+		for i, e := range errs {
+			msgs[i] = e.Error()
+		}
+		return fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
+	}
+	if p, ok := config.Blueprints[bpName]; ok {
+		if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
+			return fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
+		}
+		config.Blueprints[bpName] = p
+	}
+	filtered, err := blueprint.ApplyBlueprint(config, bpName)
+	if err != nil {
+		return fmt.Errorf("blueprint %q: %w", bpName, err)
+	}
+	*config = *filtered
+	return nil
+}
+
+// scanGraphOutput scans the compiled output directory for undeclared artifacts.
+func scanGraphOutput(configPath string, g *graphData) {
+	a := analyzer.New()
+	declared := make(map[string]bool)
+	for _, n := range g.Nodes {
+		if n.Kind != "settings" {
+			declared[fmt.Sprintf("%s:%s", n.Kind, n.ID)] = true
+		}
+	}
+
+	baseDir := filepath.Dir(configPath)
+	targetDir := filepath.Join(baseDir, compiler.OutputDir(targetFlag))
+
+	entries, err := a.ScanOutputDir(targetDir, declared)
+	if err == nil {
+		g.DiskEntries = entries
+	}
 }
 
 func buildGraph(config *ast.XcaffoldConfig) *graphData {
@@ -666,56 +718,85 @@ func sortedKeys[V any](m map[string]V) []string {
 	return keys
 }
 
-//nolint:gocyclo
 func renderScopeSummary(sb *strings.Builder, g *graphData) {
-	var agents, rules, mcp, policies int
+	counts := countGraphNodesByKind(g)
+	label := getScopeLabel(g)
+	sb.WriteString(fmt.Sprintf("  ● %s\n    (%s)\n", label, g.ConfigPath))
+
+	agentNodes := extractAgentNodes(g)
+	lines := buildSummaryLines(agentNodes, counts)
+
+	printSummaryLines(sb, lines, agentNodes)
+}
+
+// countGraphNodesByKind counts nodes by their kind.
+func countGraphNodesByKind(g *graphData) map[string]int {
+	counts := map[string]int{}
 	for _, n := range g.Nodes {
 		switch n.Kind {
 		case kindAgent:
-			agents++
+			counts["agents"]++
 		case kindRule:
-			rules++
+			counts["rules"]++
 		case kindMCP:
-			mcp++
+			counts["mcp"]++
 		case kindPolicy:
-			policies++
+			counts["policies"]++
 		}
 	}
+	return counts
+}
 
+// getScopeLabel determines the display label for a graph scope.
+func getScopeLabel(g *graphData) string {
 	label := g.Project
 	if label == "" && g.Scope == "global" {
-		label = "Global Context"
-	} else if label == "" {
-		label = "Unnamed Context"
+		return "Global Context"
 	}
-	sb.WriteString(fmt.Sprintf("  ● %s\n    (%s)\n", label, g.ConfigPath))
+	if label == "" {
+		return "Unnamed Context"
+	}
+	return label
+}
 
-	agentNodes := []graphNode{}
+// extractAgentNodes filters nodes to return only agents.
+func extractAgentNodes(g *graphData) []graphNode {
+	var agentNodes []graphNode
 	for _, n := range g.Nodes {
 		if n.Kind == kindAgent {
 			agentNodes = append(agentNodes, n)
 		}
 	}
+	return agentNodes
+}
 
-	type summaryLine struct {
-		Title string
-		Kind  string
-		Value int
-	}
+// summaryLine represents a line in the scope summary.
+type summaryLine struct {
+	Title string
+	Kind  string
+	Value int
+}
+
+// buildSummaryLines constructs summary lines from node counts.
+func buildSummaryLines(agentNodes []graphNode, counts map[string]int) []summaryLine {
 	var lines []summaryLine
 	if len(agentNodes) > 0 {
 		lines = append(lines, summaryLine{"Agents", kindAgent, len(agentNodes)})
 	}
-	if rules > 0 {
-		lines = append(lines, summaryLine{"Rules", kindRule, rules})
+	if counts["rules"] > 0 {
+		lines = append(lines, summaryLine{"Rules", kindRule, counts["rules"]})
 	}
-	if mcp > 0 {
-		lines = append(lines, summaryLine{"MCP Servers", kindMCP, mcp})
+	if counts["mcp"] > 0 {
+		lines = append(lines, summaryLine{"MCP Servers", kindMCP, counts["mcp"]})
 	}
-	if policies > 0 {
-		lines = append(lines, summaryLine{"Policies", kindPolicy, policies})
+	if counts["policies"] > 0 {
+		lines = append(lines, summaryLine{"Policies", kindPolicy, counts["policies"]})
 	}
+	return lines
+}
 
+// printSummaryLines outputs the formatted summary lines.
+func printSummaryLines(sb *strings.Builder, lines []summaryLine, agentNodes []graphNode) {
 	for idx, ln := range lines {
 		prefix := "      ├─▶ "
 		if idx == len(lines)-1 {
@@ -724,19 +805,24 @@ func renderScopeSummary(sb *strings.Builder, g *graphData) {
 		sb.WriteString(fmt.Sprintf("%s%s: (%d)\n", prefix, ln.Title, ln.Value))
 
 		if ln.Title == "Agents" {
-			for i, n := range agentNodes {
-				aprefix := treePrefixMid
-				if i == len(agentNodes)-1 {
-					aprefix = treePrefixLast
-				}
-				if idx == len(lines)-1 { // Agent line was the last one
-					aprefix = "           ├─▶ "
-					if i == len(agentNodes)-1 {
-						aprefix = "           └─▶ "
-					}
-				}
-				sb.WriteString(fmt.Sprintf("%s%s\n", aprefix, n.Label))
+			printAgentList(sb, agentNodes, idx, len(lines))
+		}
+	}
+}
+
+// printAgentList outputs the list of agents under the Agents summary line.
+func printAgentList(sb *strings.Builder, agentNodes []graphNode, lineIdx int, totalLines int) {
+	for i, n := range agentNodes {
+		aprefix := treePrefixMid
+		if i == len(agentNodes)-1 {
+			aprefix = treePrefixLast
+		}
+		if lineIdx == totalLines-1 { // Agent line was the last one
+			aprefix = "           ├─▶ "
+			if i == len(agentNodes)-1 {
+				aprefix = "           └─▶ "
 			}
 		}
+		sb.WriteString(fmt.Sprintf("%s%s\n", aprefix, n.Label))
 	}
 }

@@ -267,19 +267,47 @@ func ScanMCPFromJSONFile(path, serversKey, cmdKey, urlKey string, out map[string
 
 // ── YAML serializer ───────────────────────────────────────────────────────
 //
-// marshalGlobalXCAF emits all non-empty resource sections in stable order.
-//
-// HOW TO ADD A NEW SECTION: add an if-block for the new resource map here,
-// following the same pattern as existing sections.
-
-func marshalGlobalXCAF(r *GlobalScanResult) []byte {
-	var buf bytes.Buffer
-
+// writeXCAFHeader emits the boilerplate preamble of the global XCAF file.
+func writeXCAFHeader(buf *bytes.Buffer) {
 	buf.WriteString("kind: global\n")
 	buf.WriteString("version: \"1.0\"\n")
 	buf.WriteString("# User-wide agent configuration (auto-discovered).\n\n")
 	buf.WriteString("# All instructions-file paths are absolute so they resolve correctly\n")
 	buf.WriteString("# regardless of the current working directory.\n")
+}
+
+// writeMCPSection emits the MCP server section. The section is omitted when
+// servers is empty.
+func writeMCPSection(buf *bytes.Buffer, servers map[string]GlobalMCPEntry) {
+	if len(servers) == 0 {
+		return
+	}
+	buf.WriteString("\n# MCP servers auto-detected from platform config files.\n")
+	buf.WriteString("mcp:\n")
+	for name, m := range servers {
+		buf.WriteString("  " + name + ":\n")
+		if m.Command != "" {
+			buf.WriteString("    command: \"" + m.Command + "\"\n")
+		}
+		if m.URL != "" {
+			buf.WriteString("    url: \"" + m.URL + "\"\n")
+		}
+		if len(m.Args) > 0 {
+			buf.WriteString("    args:\n")
+			for _, a := range m.Args {
+				buf.WriteString("      - \"" + a + "\"\n")
+			}
+		}
+	}
+}
+
+// marshalGlobalXCAF emits all non-empty resource sections in stable order.
+//
+// HOW TO ADD A NEW SECTION: add an if-block for the new resource map here,
+// following the same pattern as existing sections.
+func marshalGlobalXCAF(r *GlobalScanResult) []byte {
+	var buf bytes.Buffer
+	writeXCAFHeader(&buf)
 
 	if len(r.Agents) > 0 {
 		buf.WriteString("\nagents:\n")
@@ -288,7 +316,6 @@ func marshalGlobalXCAF(r *GlobalScanResult) []byte {
 			buf.WriteString("    instructions-file: \"" + a.InstructionsFile + "\"\n")
 		}
 	}
-
 	if len(r.Skills) > 0 {
 		buf.WriteString("\nskills:\n")
 		for id, s := range r.Skills {
@@ -296,7 +323,6 @@ func marshalGlobalXCAF(r *GlobalScanResult) []byte {
 			buf.WriteString("    instructions-file: \"" + s.InstructionsFile + "\"\n")
 		}
 	}
-
 	if len(r.Rules) > 0 {
 		buf.WriteString("\nrules:\n")
 		for id, ru := range r.Rules {
@@ -304,7 +330,6 @@ func marshalGlobalXCAF(r *GlobalScanResult) []byte {
 			buf.WriteString("    instructions-file: \"" + ru.InstructionsFile + "\"\n")
 		}
 	}
-
 	if len(r.Workflows) > 0 {
 		buf.WriteString("\nworkflows:\n")
 		for id, w := range r.Workflows {
@@ -312,26 +337,7 @@ func marshalGlobalXCAF(r *GlobalScanResult) []byte {
 			buf.WriteString("    instructions-file: \"" + w.InstructionsFile + "\"\n")
 		}
 	}
-
-	if len(r.MCP) > 0 {
-		buf.WriteString("\n# MCP servers auto-detected from platform config files.\n")
-		buf.WriteString("mcp:\n")
-		for name, m := range r.MCP {
-			buf.WriteString("  " + name + ":\n")
-			if m.Command != "" {
-				buf.WriteString("    command: \"" + m.Command + "\"\n")
-			}
-			if m.URL != "" {
-				buf.WriteString("    url: \"" + m.URL + "\"\n")
-			}
-			if len(m.Args) > 0 {
-				buf.WriteString("    args:\n")
-				for _, a := range m.Args {
-					buf.WriteString("      - \"" + a + "\"\n")
-				}
-			}
-		}
-	}
+	writeMCPSection(&buf, r.MCP)
 
 	return buf.Bytes()
 }

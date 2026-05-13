@@ -340,93 +340,115 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 	}
 
 	var notes []renderer.FidelityNote
+	caps := r.Capabilities()
 
 	for _, id := range renderer.SortedKeys(config.Skills) {
 		skill := config.Skills[id]
+		files[filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))] = buildGeminiSkillContent(skill)
+		notes = append(notes, geminiSkillFidelityNotes(id, skill)...)
+		artifactNotes := compileGeminiSkillArtifacts(geminiSkillArtifactJob{id: id, baseDir: baseDir, caps: caps, files: files}, skill.Artifacts)
+		notes = append(notes, artifactNotes...)
+	}
 
-		body := resolver.StripFrontmatter(skill.Body)
+	return notes
+}
 
-		var sb strings.Builder
-		sb.WriteString("---\n")
-		if skill.Name != "" {
-			fmt.Fprintf(&sb, "name: %s\n", skill.Name)
+// buildGeminiSkillContent renders the SKILL.md content for a single Gemini skill.
+// Gemini supports only name and description in frontmatter; all other fields are dropped.
+func buildGeminiSkillContent(skill ast.SkillConfig) string {
+	body := resolver.StripFrontmatter(skill.Body)
+	var sb strings.Builder
+	sb.WriteString("---\n")
+	if skill.Name != "" {
+		fmt.Fprintf(&sb, "name: %s\n", skill.Name)
+	}
+	if skill.Description != "" {
+		fmt.Fprintf(&sb, "description: %s\n", skill.Description)
+	}
+	sb.WriteString("---\n")
+	if body != "" {
+		sb.WriteString("\n")
+		sb.WriteString(strings.TrimRight(body, "\n"))
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
+// geminiSkillFidelityNotes returns fidelity notes for Gemini-unsupported skill fields.
+func geminiSkillFidelityNotes(id string, skill ast.SkillConfig) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
+	if len(skill.AllowedTools.Values) > 0 {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "skill", id, "allowed-tools",
+			renderer.CodeFieldUnsupported,
+			"Gemini CLI skills do not support allowed-tools in SKILL.md frontmatter",
+			"Remove allowed-tools or use targets.gemini.provider pass-through",
+		))
+	}
+	if skill.WhenToUse != "" {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "skill", id, "when-to-use",
+			renderer.CodeFieldUnsupported,
+			"Gemini CLI skills do not support when-to-use; use description for trigger guidance",
+			"Move when-to-use content into description",
+		))
+	}
+	if skill.DisableModelInvocation != nil {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "skill", id, "disable-model-invocation",
+			renderer.CodeFieldUnsupported,
+			"Gemini CLI skills do not support disable-model-invocation",
+			"",
+		))
+	}
+	return notes
+}
+
+// geminiSkillArtifactJob bundles the inputs needed to compile a skill's artifact subdirs.
+type geminiSkillArtifactJob struct {
+	id      string
+	baseDir string
+	caps    renderer.CapabilitySet
+	files   map[string]string
+}
+
+// compileGeminiSkillArtifacts discovers and compiles artifact subdirs for a skill.
+// Errors are demoted to fidelity notes so the rest of the skill still compiles.
+func compileGeminiSkillArtifacts(j geminiSkillArtifactJob, artifacts []string) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
+	skillSourceDir := filepath.Join("xcaf", "skills", j.id)
+	subOut := &output.Output{Files: make(map[string]string)}
+
+	for _, artifactName := range artifacts {
+		outputSubdir, ok := j.caps.SkillArtifactDirs[artifactName]
+		if !ok {
+			outputSubdir = artifactName
 		}
-		if skill.Description != "" {
-			fmt.Fprintf(&sb, "description: %s\n", skill.Description)
-		}
-		sb.WriteString("---\n")
-
-		if body != "" {
-			sb.WriteString("\n")
-			sb.WriteString(strings.TrimRight(body, "\n"))
-			sb.WriteString("\n")
-		}
-
-		filePath := fmt.Sprintf("skills/%s/SKILL.md", id)
-		files[filepath.Clean(filePath)] = sb.String()
-
-		// Emit fidelity notes for unsupported fields.
-		if len(skill.AllowedTools.Values) > 0 {
+		paths, err := renderer.DiscoverArtifactFiles(j.baseDir, skillSourceDir, artifactName)
+		if err != nil {
 			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "allowed-tools",
-				renderer.CodeFieldUnsupported,
-				"Gemini CLI skills do not support allowed-tools in SKILL.md frontmatter",
-				"Remove allowed-tools or use targets.gemini.provider pass-through",
+				renderer.LevelWarning, targetName, "skill", j.id, artifactName,
+				renderer.CodeSkillReferencesDropped,
+				fmt.Sprintf("skill %s artifact %s: discover files: %s", j.id, artifactName, err),
+				"Check file paths in "+artifactName,
 			))
+			continue
 		}
-		if skill.WhenToUse != "" {
+		if len(paths) == 0 {
+			continue
+		}
+		if err := renderer.CompileSkillSubdir(j.id, artifactName, outputSubdir, paths, j.baseDir, skillSourceDir, subOut); err != nil {
 			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "when-to-use",
-				renderer.CodeFieldUnsupported,
-				"Gemini CLI skills do not support when-to-use; use description for trigger guidance",
-				"Move when-to-use content into description",
-			))
-		}
-		// Skill artifact subdirs are best-effort for Gemini: errors are demoted to
-		// fidelity notes so the rest of the skill still compiles.
-		skillSourceDir := filepath.Join("xcaf", "skills", id)
-		subOut := &output.Output{Files: make(map[string]string)}
-		caps := r.Capabilities()
-		for _, artifactName := range skill.Artifacts {
-			outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
-			if !ok {
-				outputSubdir = artifactName
-			}
-			paths, err := renderer.DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName)
-			if err != nil {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "skill", id, artifactName,
-					renderer.CodeSkillReferencesDropped,
-					fmt.Sprintf("skill %s artifact %s: discover files: %s", id, artifactName, err),
-					"Check file paths in "+artifactName,
-				))
-				continue
-			}
-			if len(paths) == 0 {
-				continue
-			}
-			if err := renderer.CompileSkillSubdir(id, artifactName, outputSubdir, paths, baseDir, skillSourceDir, subOut); err != nil {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "skill", id, artifactName,
-					renderer.CodeSkillReferencesDropped,
-					err.Error(),
-					"Check file paths in "+artifactName,
-				))
-			}
-		}
-		for k, v := range subOut.Files {
-			files[k] = v
-		}
-		if skill.DisableModelInvocation != nil {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "disable-model-invocation",
-				renderer.CodeFieldUnsupported,
-				"Gemini CLI skills do not support disable-model-invocation",
-				"",
+				renderer.LevelWarning, targetName, "skill", j.id, artifactName,
+				renderer.CodeSkillReferencesDropped,
+				err.Error(),
+				"Check file paths in "+artifactName,
 			))
 		}
 	}
-
+	for k, v := range subOut.Files {
+		j.files[k] = v
+	}
 	return notes
 }
 
@@ -435,7 +457,6 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 // a markdown body as the system prompt. Gemini-specific fields (timeout_mins,
 // temperature, kind) are sourced from targets.gemini.provider pass-through.
 // Unsupported fields emit fidelity notes.
-// unsupported fields emit fidelity notes.
 func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, files map[string]string, caps renderer.CapabilitySet) []renderer.FidelityNote {
 	agents := config.Agents
 	if len(agents) == 0 {
@@ -451,84 +472,10 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		}
 
 		var sb strings.Builder
-		sb.WriteString("---\n")
-
-		// Required fields.
-		if agent.Name != "" {
-			fmt.Fprintf(&sb, "name: %s\n", agent.Name)
-		}
-		if agent.Description != "" {
-			fmt.Fprintf(&sb, "description: %s\n", agent.Description)
-		}
-
-		// Optional supported fields.
-		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
+		toolNotes, modelNotes := renderGeminiAgentFrontmatter(&sb, agent, id, caps)
 		notes = append(notes, toolNotes...)
-		if len(sanitizedTools) > 0 {
-			sb.WriteString("tools:\n")
-			for _, tool := range sanitizedTools {
-				fmt.Fprintf(&sb, "  - %s\n", tool)
-			}
-		}
-
-		resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)
 		notes = append(notes, modelNotes...)
-		if resolvedModel != "" {
-			fmt.Fprintf(&sb, "model: %s\n", resolvedModel)
-		}
 
-		if agent.MaxTurns != nil && *agent.MaxTurns > 0 {
-			fmt.Fprintf(&sb, "max_turns: %d\n", *agent.MaxTurns)
-		}
-
-		// Inline MCP servers.
-		if len(agent.MCPServers) > 0 {
-			sb.WriteString("mcpServers:\n")
-			for _, mcpID := range renderer.SortedKeys(agent.MCPServers) {
-				mcp := agent.MCPServers[mcpID]
-				fmt.Fprintf(&sb, "  %s:\n", mcpID)
-				if mcp.Command != "" {
-					fmt.Fprintf(&sb, "    command: %s\n", mcp.Command)
-				}
-				if len(mcp.Args) > 0 {
-					sb.WriteString("    args:\n")
-					for _, arg := range mcp.Args {
-						fmt.Fprintf(&sb, "      - %s\n", arg)
-					}
-				}
-				if mcp.URL != "" {
-					fmt.Fprintf(&sb, "    url: %s\n", mcp.URL)
-				}
-				if mcp.Type != "" {
-					fmt.Fprintf(&sb, "    type: %s\n", mcp.Type)
-				}
-				if len(mcp.Env) > 0 {
-					sb.WriteString("    env:\n")
-					for _, envKey := range renderer.SortedKeys(mcp.Env) {
-						fmt.Fprintf(&sb, "      %s: %s\n", envKey, mcp.Env[envKey])
-					}
-				}
-			}
-		}
-
-		// Provider pass-through fields from targets.gemini.provider.
-		if geminiTarget, ok := agent.Targets[targetName]; ok {
-			provider := geminiTarget.Provider
-			// Emit known pass-through keys in stable order.
-			for _, key := range []string{"kind", "temperature", "timeout_mins"} {
-				if val, exists := provider[key]; exists {
-					encoded, err := yaml.Marshal(val)
-					if err == nil {
-						fmt.Fprintf(&sb, "%s: %s", key, strings.TrimRight(string(encoded), "\n"))
-						sb.WriteString("\n")
-					}
-				}
-			}
-		}
-
-		sb.WriteString("---\n")
-
-		// Markdown body — system prompt.
 		body := resolver.StripFrontmatter(agent.Body)
 		if body != "" {
 			sb.WriteString("\n")
@@ -539,35 +486,135 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		filePath := fmt.Sprintf("agents/%s.md", id)
 		files[filepath.Clean(filePath)] = sb.String()
 
-		// Fidelity notes for other unsupported fields.
-		type unsupportedField struct {
-			name    string
-			present bool
-		}
-		unsupported := []unsupportedField{
-			{"effort", agent.Effort != ""},
-			{"background", agent.Background != nil},
-			{"color", agent.Color != ""},
-			{"initial-prompt", agent.InitialPrompt != ""},
-			{"readonly", agent.Readonly != nil},
-			{"user-invocable", agent.UserInvocable != nil},
-			{"skills", len(agent.Skills.Values) > 0},
-			{"hooks", len(agent.Hooks) > 0},
-			{"memory", len(agent.Memory) > 0},
-			{"disable-model-invocation", agent.DisableModelInvocation != nil},
-		}
-		for _, f := range unsupported {
-			if f.present {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "agent", id, f.name,
-					renderer.CodeFieldUnsupported,
-					fmt.Sprintf("agent %q field %q has no Gemini CLI equivalent and was dropped", id, f.name),
-					"Remove the field or use targets.gemini.provider pass-through",
-				))
-			}
+		notes = append(notes, geminiAgentFidelityNotes(agent, id)...)
+	}
+
+	return notes
+}
+
+// renderGeminiAgentFrontmatter writes the complete YAML frontmatter block (including
+// the opening and closing "---\n" delimiters) to sb. It returns tool and model
+// fidelity notes collected during sanitization.
+func renderGeminiAgentFrontmatter(sb *strings.Builder, agent ast.AgentConfig, id string, caps renderer.CapabilitySet) (toolNotes, modelNotes []renderer.FidelityNote) {
+	sb.WriteString("---\n")
+
+	if agent.Name != "" {
+		fmt.Fprintf(sb, "name: %s\n", agent.Name)
+	}
+	if agent.Description != "" {
+		fmt.Fprintf(sb, "description: %s\n", agent.Description)
+	}
+
+	sanitizedTools, tn := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
+	toolNotes = tn
+	if len(sanitizedTools) > 0 {
+		sb.WriteString("tools:\n")
+		for _, tool := range sanitizedTools {
+			fmt.Fprintf(sb, "  - %s\n", tool)
 		}
 	}
 
+	resolvedModel, mn := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)
+	modelNotes = mn
+	if resolvedModel != "" {
+		fmt.Fprintf(sb, "model: %s\n", resolvedModel)
+	}
+
+	if agent.MaxTurns != nil && *agent.MaxTurns > 0 {
+		fmt.Fprintf(sb, "max_turns: %d\n", *agent.MaxTurns)
+	}
+
+	renderGeminiAgentMCPServers(sb, agent)
+	renderGeminiAgentProviderPassthrough(sb, agent)
+
+	sb.WriteString("---\n")
+	return toolNotes, modelNotes
+}
+
+// renderGeminiAgentMCPServers writes inline mcpServers YAML entries to sb.
+func renderGeminiAgentMCPServers(sb *strings.Builder, agent ast.AgentConfig) {
+	if len(agent.MCPServers) == 0 {
+		return
+	}
+	sb.WriteString("mcpServers:\n")
+	for _, mcpID := range renderer.SortedKeys(agent.MCPServers) {
+		mcp := agent.MCPServers[mcpID]
+		fmt.Fprintf(sb, "  %s:\n", mcpID)
+		if mcp.Command != "" {
+			fmt.Fprintf(sb, "    command: %s\n", mcp.Command)
+		}
+		if len(mcp.Args) > 0 {
+			sb.WriteString("    args:\n")
+			for _, arg := range mcp.Args {
+				fmt.Fprintf(sb, "      - %s\n", arg)
+			}
+		}
+		if mcp.URL != "" {
+			fmt.Fprintf(sb, "    url: %s\n", mcp.URL)
+		}
+		if mcp.Type != "" {
+			fmt.Fprintf(sb, "    type: %s\n", mcp.Type)
+		}
+		if len(mcp.Env) > 0 {
+			sb.WriteString("    env:\n")
+			for _, envKey := range renderer.SortedKeys(mcp.Env) {
+				fmt.Fprintf(sb, "      %s: %s\n", envKey, mcp.Env[envKey])
+			}
+		}
+	}
+}
+
+// renderGeminiAgentProviderPassthrough writes targets.gemini.provider pass-through
+// fields (kind, temperature, timeout_mins) in stable order to sb.
+func renderGeminiAgentProviderPassthrough(sb *strings.Builder, agent ast.AgentConfig) {
+	geminiTarget, ok := agent.Targets[targetName]
+	if !ok {
+		return
+	}
+	provider := geminiTarget.Provider
+	for _, key := range []string{"kind", "temperature", "timeout_mins"} {
+		val, exists := provider[key]
+		if !exists {
+			continue
+		}
+		encoded, err := yaml.Marshal(val)
+		if err == nil {
+			fmt.Fprintf(sb, "%s: %s", key, strings.TrimRight(string(encoded), "\n"))
+			sb.WriteString("\n")
+		}
+	}
+}
+
+// geminiAgentFidelityNotes returns FIELD_UNSUPPORTED fidelity notes for each
+// agent field that has no Gemini CLI equivalent.
+func geminiAgentFidelityNotes(agent ast.AgentConfig, id string) []renderer.FidelityNote {
+	type unsupportedField struct {
+		name    string
+		present bool
+	}
+	unsupported := []unsupportedField{
+		{"effort", agent.Effort != ""},
+		{"background", agent.Background != nil},
+		{"color", agent.Color != ""},
+		{"initial-prompt", agent.InitialPrompt != ""},
+		{"readonly", agent.Readonly != nil},
+		{"user-invocable", agent.UserInvocable != nil},
+		{"skills", len(agent.Skills.Values) > 0},
+		{"hooks", len(agent.Hooks) > 0},
+		{"memory", len(agent.Memory) > 0},
+		{"disable-model-invocation", agent.DisableModelInvocation != nil},
+	}
+	var notes []renderer.FidelityNote
+	for _, f := range unsupported {
+		if f.present {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "agent", id, f.name,
+				renderer.CodeFieldUnsupported,
+				fmt.Sprintf("agent %q field %q has no Gemini CLI equivalent and was dropped", id, f.name),
+				"Remove the field or use targets.gemini.provider pass-through",
+			))
+		}
+	}
 	return notes
 }
 

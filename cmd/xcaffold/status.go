@@ -79,53 +79,84 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 func runStatusOverview(dir string, manifest *state.StateManifest, showAll bool) error {
 	projectName := filepath.Base(dir)
+	lastApplied := findMostRecentApply(manifest.Targets)
 
-	// Find the most recent apply timestamp across all providers.
+	fmt.Println(formatHeader(projectName, statusBlueprintFlag, globalFlag, "", lastApplied))
+	fmt.Println()
+
+	rows, allDriftedFiles := buildProviderRows(dir, manifest)
+	printProviderTable(rows)
+
+	srcChanged := countChangedSources(dir, manifest.SourceFiles)
+	printSourcesLine(len(manifest.SourceFiles), srcChanged)
+
+	hasDrift := len(allDriftedFiles) > 0
+	if hasDrift {
+		printDriftBlock(manifest.Targets, allDriftedFiles)
+	}
+
+	if srcChanged > 0 {
+		fmt.Println("\nSource changes:")
+		printSourceChanges(dir, manifest.SourceFiles)
+	}
+
+	if showAll {
+		printAllFilesPerProvider(dir, manifest)
+	}
+
+	return handleStatusOverviewCTA(hasDrift, srcChanged)
+}
+
+// findMostRecentApply finds the most recent apply timestamp across all providers.
+func findMostRecentApply(targets map[string]state.TargetState) string {
 	var lastApplied string
 	var mostRecent time.Time
-	for _, ts := range manifest.Targets {
+	for _, ts := range targets {
 		t, err := time.Parse(time.RFC3339, ts.LastApplied)
 		if err == nil && t.After(mostRecent) {
 			mostRecent = t
 			lastApplied = ts.LastApplied
 		}
 	}
+	return lastApplied
+}
 
-	fmt.Println(formatHeader(projectName, statusBlueprintFlag, globalFlag, "", lastApplied))
-	fmt.Println()
+// statusRow is used internally for building the provider table.
+type statusRow struct {
+	name    string
+	count   int
+	drifted int
+	noState bool
+}
 
-	// Collect per-provider rows and drifted file entries.
-	type targetRow struct {
-		name    string
-		count   int
-		drifted int
-		noState bool
-	}
-	var rows []targetRow
+// buildProviderRows constructs the table data and drifted files map.
+func buildProviderRows(dir string, manifest *state.StateManifest) ([]statusRow, map[string][]state.DriftEntry) {
+	var rows []statusRow
 	allDriftedFiles := make(map[string][]state.DriftEntry)
-	outputDirByProvider := make(map[string]string)
-
-	nameWidth := len("PROVIDER")
-	for _, name := range sortedTargetKeys(manifest.Targets) {
-		if len(name) > nameWidth {
-			nameWidth = len(name)
-		}
-	}
-	nameWidth += 2
 
 	for _, name := range sortedTargetKeys(manifest.Targets) {
 		ts := manifest.Targets[name]
 		outputDir := filepath.Join(dir, compiler.OutputDir(name))
-		outputDirByProvider[name] = outputDir
 		entries := state.CollectDriftedFiles(dir, outputDir, ts)
 		drifted := len(entries)
-		rows = append(rows, targetRow{name: name, count: len(ts.Artifacts), drifted: drifted})
+		rows = append(rows, statusRow{name: name, count: len(ts.Artifacts), drifted: drifted})
 		if drifted > 0 {
 			allDriftedFiles[name] = entries
 		}
 	}
+	return rows, allDriftedFiles
+}
 
-	// Provider table.
+// printProviderTable renders the provider status table.
+func printProviderTable(rows []statusRow) {
+	nameWidth := len("PROVIDER")
+	for _, r := range rows {
+		if len(r.name) > nameWidth {
+			nameWidth = len(r.name)
+		}
+	}
+	nameWidth += 2
+
 	fmt.Printf("  %-*s  %5s   %s\n", nameWidth, "PROVIDER", "FILES", "STATUS")
 	for _, r := range rows {
 		var statusStr string
@@ -138,62 +169,58 @@ func runStatusOverview(dir string, manifest *state.StateManifest, showAll bool) 
 		}
 		fmt.Printf("  %-*s  %5d   %s\n", nameWidth, r.name, r.count, statusStr)
 	}
+}
 
-	// Sources line.
-	srcChanged := countChangedSources(dir, manifest.SourceFiles)
-	fmt.Printf("\n  Sources  %d .xcaf files  %s  ", len(manifest.SourceFiles), glyphDot())
+// printSourcesLine shows the sources status summary.
+func printSourcesLine(sourceCount int, srcChanged int) {
+	fmt.Printf("\n  Sources  %d .xcaf files  %s  ", sourceCount, glyphDot())
 	if srcChanged == 0 {
 		fmt.Println("no changes since last apply")
 	} else {
 		fmt.Printf("%d changed since last apply\n", srcChanged)
 	}
+}
 
-	// Drift block.
-	hasDrift := len(allDriftedFiles) > 0
-	if hasDrift {
-		driftProviders := len(allDriftedFiles)
-		fmt.Printf("\nDrift detected in %d %s:\n",
-			driftProviders, plural(driftProviders, "provider", "providers"))
-		for _, name := range sortedTargetKeys(manifest.Targets) {
-			entries, ok := allDriftedFiles[name]
-			if !ok {
-				continue
+// printDriftBlock shows all drifted artifacts grouped by provider.
+func printDriftBlock(targets map[string]state.TargetState, allDriftedFiles map[string][]state.DriftEntry) {
+	driftProviders := len(allDriftedFiles)
+	fmt.Printf("\nDrift detected in %d %s:\n",
+		driftProviders, plural(driftProviders, "provider", "providers"))
+	for _, name := range sortedTargetKeys(targets) {
+		entries, ok := allDriftedFiles[name]
+		if !ok {
+			continue
+		}
+		fmt.Printf("\n  %s\n", bold(name))
+		for _, e := range entries {
+			display, isRoot := formatArtifactPath(e.Path)
+			annotation := ""
+			if isRoot {
+				annotation = "  " + dim("(root)")
 			}
-			fmt.Printf("\n  %s\n", bold(name))
-			for _, e := range entries {
-				display, isRoot := formatArtifactPath(e.Path)
-				annotation := ""
-				if isRoot {
-					annotation = "  " + dim("(root)")
-				}
-				var label string
-				if e.Status == "missing" {
-					label = colorRed("missing")
-				} else {
-					label = colorYellow("modified")
-				}
-				fmt.Printf("    %s  %-8s  %s%s\n", colorRed(glyphErr()), label, display, annotation)
+			var label string
+			if e.Status == "missing" {
+				label = colorRed("missing")
+			} else {
+				label = colorYellow("modified")
 			}
+			fmt.Printf("    %s  %-8s  %s%s\n", colorRed(glyphErr()), label, display, annotation)
 		}
 	}
+}
 
-	// Source-change block — always shown when sources changed, even alongside artifact drift.
-	if srcChanged > 0 {
-		fmt.Println("\nSource changes:")
-		printSourceChanges(dir, manifest.SourceFiles)
+// printAllFilesPerProvider shows per-provider grouped file listing when --all is set.
+func printAllFilesPerProvider(dir string, manifest *state.StateManifest) {
+	for _, name := range sortedTargetKeys(manifest.Targets) {
+		ts := manifest.Targets[name]
+		outputDir := filepath.Join(dir, compiler.OutputDir(name))
+		fmt.Printf("\n  %s\n\n", bold(name))
+		printAllFilesGrouped(dir, outputDir, ts)
 	}
+}
 
-	// Per-provider grouped file listing when --all is set without --target.
-	if showAll {
-		for _, name := range sortedTargetKeys(manifest.Targets) {
-			ts := manifest.Targets[name]
-			outputDir := filepath.Join(dir, compiler.OutputDir(name))
-			fmt.Printf("\n  %s\n\n", bold(name))
-			printAllFilesGrouped(dir, outputDir, ts)
-		}
-	}
-
-	// CTA or success line.
+// handleStatusOverviewCTA returns the appropriate error or success status.
+func handleStatusOverviewCTA(hasDrift bool, srcChanged int) error {
 	if hasDrift || srcChanged > 0 {
 		applyArgs := buildApplyCmd("", statusBlueprintFlag, globalFlag)
 		fmt.Printf("\n%s Run '%s' to restore.\n", glyphArrow(), applyArgs)
@@ -212,12 +239,7 @@ func runStatusOverview(dir string, manifest *state.StateManifest, showAll bool) 
 func runStatusTarget(dir string, manifest *state.StateManifest, target string, showAll bool) error {
 	ts, ok := manifest.Targets[target]
 	if !ok {
-		known := sortedTargetKeys(manifest.Targets)
-		fmt.Fprintf(os.Stderr, "%s No state for provider %q.\n\n", colorRed(glyphErr()), target)
-		fmt.Fprintf(os.Stderr, "  Known providers:  %s\n\n", strings.Join(known, ", "))
-		fmt.Fprintf(os.Stderr, "%s Run 'xcaffold apply --target %s' to compile it first.\n",
-			glyphArrow(), target)
-		return &driftDetectedError{msg: "no state for provider " + target}
+		return reportTargetNotFound(target, manifest.Targets)
 	}
 
 	projectName := filepath.Base(dir)
@@ -230,10 +252,36 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 	fmt.Println(formatHeader(projectName, statusBlueprintFlag, globalFlag, target, ts.LastApplied))
 	fmt.Println()
 
-	// Summary line.
+	printTargetSummary(synced, drifted, len(manifest.SourceFiles), srcChanged)
+	if drifted > 0 {
+		printDriftedArtifacts(driftedEntries)
+	}
+
+	printSourcesLine(len(manifest.SourceFiles), srcChanged)
+
+	if showAll {
+		fmt.Println()
+		printAllFilesGrouped(dir, outputDir, ts)
+	}
+
+	return handleTargetCTA(target, drifted, srcChanged, showAll)
+}
+
+// reportTargetNotFound outputs an error message and suggestion for a missing provider.
+func reportTargetNotFound(target string, targets map[string]state.TargetState) error {
+	known := sortedTargetKeys(targets)
+	fmt.Fprintf(os.Stderr, "%s No state for provider %q.\n\n", colorRed(glyphErr()), target)
+	fmt.Fprintf(os.Stderr, "  Known providers:  %s\n\n", strings.Join(known, ", "))
+	fmt.Fprintf(os.Stderr, "%s Run 'xcaffold apply --target %s' to compile it first.\n",
+		glyphArrow(), target)
+	return &driftDetectedError{msg: "no state for provider " + target}
+}
+
+// printTargetSummary shows the artifact and source status for a target.
+func printTargetSummary(synced int, drifted int, sourceCount int, srcChanged int) {
 	srcLabel := fmt.Sprintf("%d %s unchanged",
-		len(manifest.SourceFiles),
-		plural(len(manifest.SourceFiles), "source", "sources"))
+		sourceCount,
+		plural(sourceCount, "source", "sources"))
 	if drifted == 0 {
 		fmt.Printf("  %s  %s  %s\n",
 			bold(fmt.Sprintf("%d synced", synced)),
@@ -248,38 +296,30 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 			glyphDot(),
 			srcLabel,
 		)
-		fmt.Println()
-		for _, e := range driftedEntries {
-			display, isRoot := formatArtifactPath(e.Path)
-			annotation := ""
-			if isRoot {
-				annotation = "  " + dim("(root)")
-			}
-			var label string
-			if e.Status == "missing" {
-				label = colorRed("missing")
-			} else {
-				label = colorYellow("modified")
-			}
-			fmt.Printf("  %s  %-8s  %s%s\n", colorRed(glyphErr()), label, display, annotation)
+	}
+}
+
+// printDriftedArtifacts outputs the list of drifted artifacts.
+func printDriftedArtifacts(driftedEntries []state.DriftEntry) {
+	fmt.Println()
+	for _, e := range driftedEntries {
+		display, isRoot := formatArtifactPath(e.Path)
+		annotation := ""
+		if isRoot {
+			annotation = "  " + dim("(root)")
 		}
+		var label string
+		if e.Status == "missing" {
+			label = colorRed("missing")
+		} else {
+			label = colorYellow("modified")
+		}
+		fmt.Printf("  %s  %-8s  %s%s\n", colorRed(glyphErr()), label, display, annotation)
 	}
+}
 
-	// Sources line.
-	fmt.Printf("\n  Sources  %d .xcaf files  %s  ", len(manifest.SourceFiles), glyphDot())
-	if srcChanged == 0 {
-		fmt.Println("no changes since last apply")
-	} else {
-		fmt.Printf("%d changed since last apply\n", srcChanged)
-	}
-
-	// --all grouped listing.
-	if showAll {
-		fmt.Println()
-		printAllFilesGrouped(dir, outputDir, ts)
-	}
-
-	// CTA or success line.
+// handleTargetCTA returns the appropriate error or success status for a target.
+func handleTargetCTA(target string, drifted int, srcChanged int, showAll bool) error {
 	if drifted > 0 || srcChanged > 0 {
 		applyArgs := buildApplyCmd(target, statusBlueprintFlag, globalFlag)
 		fmt.Printf("\n%s Run '%s' to restore.\n", glyphArrow(), applyArgs)
@@ -387,61 +427,18 @@ func findChangedSources(baseDir string, sourceFiles []state.SourceFile) ([]drift
 	return entries, currByPath, driftCount
 }
 
+// fileGroup represents a directory group for file listing.
+type fileGroup struct {
+	name    string
+	total   int
+	drifted int
+	entries []state.DriftEntry
+}
+
 func printAllFilesGrouped(baseDir, outputDir string, ts state.TargetState) {
-	type group struct {
-		name    string
-		total   int
-		drifted int
-		entries []state.DriftEntry
-	}
+	groupsMap := buildFileGroups(baseDir, outputDir, ts)
 
-	groupsMap := make(map[string]*group)
-	for _, artifact := range ts.Artifacts {
-		// Handle root: prefix
-		var absPath string
-		var displayPath string
-		if strings.HasPrefix(artifact.Path, "root:") {
-			displayPath = strings.TrimPrefix(artifact.Path, "root:")
-			absPath = filepath.Clean(filepath.Join(baseDir, displayPath))
-		} else {
-			displayPath = artifact.Path
-			absPath = filepath.Clean(filepath.Join(outputDir, displayPath))
-		}
-
-		display, isRoot := formatArtifactPath(displayPath)
-
-		var groupName string
-		if isRoot {
-			groupName = "(root)"
-		} else {
-			idx := strings.Index(display, string(filepath.Separator))
-			if idx != -1 {
-				groupName = display[:idx+1]
-			} else {
-				groupName = "(root)"
-			}
-		}
-
-		if groupsMap[groupName] == nil {
-			groupsMap[groupName] = &group{name: groupName}
-		}
-		g := groupsMap[groupName]
-		g.total++
-
-		data, err := os.ReadFile(absPath)
-		if err != nil {
-			g.drifted++
-			g.entries = append(g.entries, state.DriftEntry{Status: "missing", Path: displayPath})
-			continue
-		}
-		h := sha256.Sum256(data)
-		if fmt.Sprintf("sha256:%x", h) != artifact.Hash {
-			g.drifted++
-			g.entries = append(g.entries, state.DriftEntry{Status: "modified", Path: displayPath})
-		}
-	}
-
-	var ordered []*group
+	var ordered []*fileGroup
 	for _, g := range groupsMap {
 		ordered = append(ordered, g)
 	}
@@ -449,6 +446,71 @@ func printAllFilesGrouped(baseDir, outputDir string, ts state.TargetState) {
 		return ordered[i].name < ordered[j].name
 	})
 
+	printGroupTable(ordered)
+}
+
+// buildFileGroups scans artifacts and groups them by directory prefix.
+func buildFileGroups(baseDir, outputDir string, ts state.TargetState) map[string]*fileGroup {
+	groupsMap := make(map[string]*fileGroup)
+	for _, artifact := range ts.Artifacts {
+		absPath, displayPath := resolveArtifactPaths(baseDir, outputDir, artifact.Path)
+		display, isRoot := formatArtifactPath(displayPath)
+		groupName := getGroupName(display, isRoot)
+
+		if groupsMap[groupName] == nil {
+			groupsMap[groupName] = &fileGroup{name: groupName}
+		}
+		g := groupsMap[groupName]
+		g.total++
+
+		checkArtifactDrift(absPath, displayPath, artifact.Hash, g)
+	}
+	return groupsMap
+}
+
+// resolveArtifactPaths determines the absolute and display paths for an artifact.
+func resolveArtifactPaths(baseDir, outputDir string, artifactPath string) (string, string) {
+	var absPath string
+	var displayPath string
+	if strings.HasPrefix(artifactPath, "root:") {
+		displayPath = strings.TrimPrefix(artifactPath, "root:")
+		absPath = filepath.Clean(filepath.Join(baseDir, displayPath))
+	} else {
+		displayPath = artifactPath
+		absPath = filepath.Clean(filepath.Join(outputDir, displayPath))
+	}
+	return absPath, displayPath
+}
+
+// getGroupName determines the directory group for a file.
+func getGroupName(display string, isRoot bool) string {
+	if isRoot {
+		return "(root)"
+	}
+	idx := strings.Index(display, string(filepath.Separator))
+	if idx != -1 {
+		return display[:idx+1]
+	}
+	return "(root)"
+}
+
+// checkArtifactDrift checks if an artifact has drifted and records it.
+func checkArtifactDrift(absPath string, displayPath string, expectedHash string, g *fileGroup) {
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		g.drifted++
+		g.entries = append(g.entries, state.DriftEntry{Status: "missing", Path: displayPath})
+		return
+	}
+	h := sha256.Sum256(data)
+	if fmt.Sprintf("sha256:%x", h) != expectedHash {
+		g.drifted++
+		g.entries = append(g.entries, state.DriftEntry{Status: "modified", Path: displayPath})
+	}
+}
+
+// printGroupTable renders the grouped file listing table.
+func printGroupTable(ordered []*fileGroup) {
 	fmt.Printf("  %-16s  %5s   %s\n", "GROUP", "FILES", "STATUS")
 	for _, g := range ordered {
 		var statusStr string
@@ -458,20 +520,25 @@ func printAllFilesGrouped(baseDir, outputDir string, ts state.TargetState) {
 			statusStr = colorGreen(glyphOK() + " synced")
 		}
 		fmt.Printf("  %-16s  %5d   %s\n", g.name, g.total, statusStr)
-		for _, e := range g.entries {
-			display, isRoot := formatArtifactPath(e.Path)
-			annotation := ""
-			if isRoot {
-				annotation = "  " + dim("(root)")
-			}
-			var label string
-			if e.Status == "missing" {
-				label = colorRed("missing")
-			} else {
-				label = colorYellow("modified")
-			}
-			fmt.Printf("    %s  %-8s  %s%s\n", colorRed(glyphErr()), label, display, annotation)
+		printGroupEntries(g.entries)
+	}
+}
+
+// printGroupEntries outputs the drifted entries within a group.
+func printGroupEntries(entries []state.DriftEntry) {
+	for _, e := range entries {
+		display, isRoot := formatArtifactPath(e.Path)
+		annotation := ""
+		if isRoot {
+			annotation = "  " + dim("(root)")
 		}
+		var label string
+		if e.Status == "missing" {
+			label = colorRed("missing")
+		} else {
+			label = colorYellow("modified")
+		}
+		fmt.Printf("    %s  %-8s  %s%s\n", colorRed(glyphErr()), label, display, annotation)
 	}
 }
 

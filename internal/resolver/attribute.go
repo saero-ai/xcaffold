@@ -24,85 +24,93 @@ func ExpandVariables(data []byte, vars map[string]interface{}, envs map[string]s
 	if len(data) == 0 {
 		return data, nil
 	}
+	result, err := expandVarTokens(string(data), vars)
+	if err != nil {
+		return nil, err
+	}
+	result, err = expandEnvTokens(result, envs)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(result), nil
+}
 
-	result := string(data)
-	var err error
-
-	// Process varPattern matches
-	result = varPattern.ReplaceAllStringFunc(result, func(s string) string {
-		if err != nil {
-			return s
+// expandVarTokens replaces all ${var.*} tokens in s using the vars map.
+func expandVarTokens(s string, vars map[string]interface{}) (string, error) {
+	var lastErr error
+	result := varPattern.ReplaceAllStringFunc(s, func(match string) string {
+		if lastErr != nil {
+			return match
 		}
-		submatches := varPattern.FindStringSubmatch(s)
+		submatches := varPattern.FindStringSubmatch(match)
 		if len(submatches) < 2 {
-			return s
+			return match
 		}
 		varName := submatches[1]
-
 		val, ok := vars[varName]
 		if !ok {
-			err = fmt.Errorf("unresolved variable: ${var.%s}", varName)
-			return s
+			lastErr = fmt.Errorf("unresolved variable: ${var.%s}", varName)
+			return match
 		}
-
-		var replacement string
-		switch v := val.(type) {
-		case string:
-			replacement = v
-		case int:
-			replacement = strconv.Itoa(v)
-		case bool:
-			replacement = strconv.FormatBool(v)
-		case []interface{}:
-			// Format as inline YAML list [a, b]
-			var items []string
-			for _, item := range v {
-				items = append(items, fmt.Sprintf("%v", item))
-			}
-			replacement = "[" + strings.Join(items, ", ") + "]"
-		default:
-			b, marshalErr := json.Marshal(v)
-			if marshalErr != nil {
-				err = fmt.Errorf("failed to marshal variable: ${var.%s}: %w", varName, marshalErr)
-				return s
-			}
-			replacement = string(b)
+		replacement, err := varValueToString(varName, val)
+		if err != nil {
+			lastErr = err
+			return match
 		}
 		return replacement
 	})
+	return result, lastErr
+}
 
-	if err != nil {
-		return nil, err
-	}
-
-	// Process envPattern matches
-	result = envPattern.ReplaceAllStringFunc(result, func(s string) string {
-		if err != nil {
-			return s
+// varValueToString converts a variable value to its string representation.
+func varValueToString(varName string, val interface{}) (string, error) {
+	switch v := val.(type) {
+	case string:
+		return v, nil
+	case int:
+		return strconv.Itoa(v), nil
+	case bool:
+		return strconv.FormatBool(v), nil
+	case []interface{}:
+		// Format as inline YAML list [a, b]
+		items := make([]string, len(v))
+		for i, item := range v {
+			items[i] = fmt.Sprintf("%v", item)
 		}
-		submatches := envPattern.FindStringSubmatch(s)
+		return "[" + strings.Join(items, ", ") + "]", nil
+	default:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal variable: ${var.%s}: %w", varName, err)
+		}
+		return string(b), nil
+	}
+}
+
+// expandEnvTokens replaces all ${env.*} tokens in s using the envs map.
+// If envs is nil, tokens are left unchanged (pass-1 behaviour).
+func expandEnvTokens(s string, envs map[string]string) (string, error) {
+	var lastErr error
+	result := envPattern.ReplaceAllStringFunc(s, func(match string) string {
+		if lastErr != nil {
+			return match
+		}
+		submatches := envPattern.FindStringSubmatch(match)
 		if len(submatches) < 2 {
-			return s
+			return match
 		}
 		envName := submatches[1]
-
 		if envs == nil {
-			return s // Skip resolution if envs map not provided (pass 1)
+			return match // Skip resolution if envs map not provided (pass 1)
 		}
-
 		val, ok := envs[envName]
 		if !ok {
-			err = fmt.Errorf("unresolved environment variable: ${env.%s}", envName)
-			return s
+			lastErr = fmt.Errorf("unresolved environment variable: ${env.%s}", envName)
+			return match
 		}
 		return val
 	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return []byte(result), nil
+	return result, lastErr
 }
 
 // resourceKey identifies a specific resource in the config.
@@ -115,90 +123,59 @@ type resourceKey struct {
 // in the config, resolves ${resource_type.resource_name.field} tokens, detects
 // cycles, and mutates the config in place.
 func ResolveAttributes(config *ast.XcaffoldConfig) error {
-	// Collect all resource refs to build a dependency graph for cycle detection.
-	// visited and inStack track DFS state.
+	// visited and inStack track DFS state for cycle detection.
 	visited := map[resourceKey]bool{}
 	inStack := map[resourceKey]bool{}
 
-	// Resolve all agents.
-	for id := range config.Agents {
-		key := resourceKey{"agent", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
+	kindIDs := collectKindIDs(config)
+	for _, ki := range kindIDs {
+		if err := resolveResource(config, ki, visited, inStack); err != nil {
 			return err
 		}
 	}
-	// Resolve all skills.
-	for id := range config.Skills {
-		key := resourceKey{"skill", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-	// Resolve all rules.
-	for id := range config.Rules {
-		key := resourceKey{"rule", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-	// Resolve all workflows.
-	for id := range config.Workflows {
-		key := resourceKey{"workflow", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-	// Resolve all MCP configs.
-	for id := range config.MCP {
-		key := resourceKey{"mcp", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-	// Resolve all policies.
-	for id := range config.Policies {
-		key := resourceKey{"policy", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-	// Resolve all memory entries.
-	for id := range config.Memory {
-		key := resourceKey{"memory", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-	// Resolve all contexts.
-	for id := range config.Contexts {
-		key := resourceKey{"context", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-	// Resolve all templates.
-	for id := range config.Templates {
-		key := resourceKey{"template", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-	// Resolve all hook configs.
-	for id := range config.Hooks {
-		key := resourceKey{"hooks", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-	// Resolve all settings.
-	for id := range config.Settings {
-		key := resourceKey{"settings", id}
-		if err := resolveResource(config, key, visited, inStack); err != nil {
-			return err
-		}
-	}
-
 	return nil
+}
+
+// collectKindIDs returns a slice of resourceKeys for every resource in config,
+// grouped by kind. The order is deterministic within each kind (map iteration
+// order is intentionally not sorted — resolution order within a kind does not
+// matter because the DFS handles dependencies).
+func collectKindIDs(config *ast.XcaffoldConfig) []resourceKey {
+	var keys []resourceKey
+	for id := range config.Agents {
+		keys = append(keys, resourceKey{"agent", id})
+	}
+	for id := range config.Skills {
+		keys = append(keys, resourceKey{"skill", id})
+	}
+	for id := range config.Rules {
+		keys = append(keys, resourceKey{"rule", id})
+	}
+	for id := range config.Workflows {
+		keys = append(keys, resourceKey{"workflow", id})
+	}
+	for id := range config.MCP {
+		keys = append(keys, resourceKey{"mcp", id})
+	}
+	for id := range config.Policies {
+		keys = append(keys, resourceKey{"policy", id})
+	}
+	for id := range config.Memory {
+		keys = append(keys, resourceKey{"memory", id})
+	}
+	for id := range config.Contexts {
+		keys = append(keys, resourceKey{"context", id})
+	}
+	for id := range config.Templates {
+		keys = append(keys, resourceKey{"template", id})
+	}
+	for id := range config.Hooks {
+		keys = append(keys, resourceKey{"hooks", id})
+	}
+	for id := range config.Settings {
+		keys = append(keys, resourceKey{"settings", id})
+	}
+	return keys
 }
 
 // resolveResource resolves all attribute references in the resource identified by key,
@@ -306,126 +283,182 @@ func resolveFields(config *ast.XcaffoldConfig, key resourceKey) error {
 	// We need to operate on a copy then write back (maps store values, not pointers).
 	switch key.kind {
 	case "agent":
-		agent, ok := config.Agents[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&agent).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Agents[key.name] = agent
-
+		return resolveAgentFields(config, key.name)
 	case "skill":
-		skill, ok := config.Skills[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&skill).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Skills[key.name] = skill
-
+		return resolveSkillFields(config, key.name)
 	case "rule":
-		rule, ok := config.Rules[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&rule).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Rules[key.name] = rule
-
+		return resolveRuleFields(config, key.name)
 	case "workflow":
-		wf, ok := config.Workflows[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&wf).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Workflows[key.name] = wf
-
+		return resolveWorkflowFields(config, key.name)
 	case "mcp":
-		mcp, ok := config.MCP[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&mcp).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.MCP[key.name] = mcp
-
+		return resolveMCPFields(config, key.name)
 	case "policy":
-		p, ok := config.Policies[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&p).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Policies[key.name] = p
-
+		return resolvePolicyFields(config, key.name)
 	case "memory":
-		m, ok := config.Memory[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&m).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Memory[key.name] = m
-
+		return resolveMemoryFields(config, key.name)
 	case "context":
-		ctx, ok := config.Contexts[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&ctx).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Contexts[key.name] = ctx
-
+		return resolveContextFields(config, key.name)
 	case "template":
-		tmpl, ok := config.Templates[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&tmpl).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Templates[key.name] = tmpl
-
+		return resolveTemplateFields(config, key.name)
 	case "hooks":
-		h, ok := config.Hooks[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&h).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Hooks[key.name] = h
-
+		return resolveHookFields(config, key.name)
 	case "settings":
-		s, ok := config.Settings[key.name]
-		if !ok {
-			return nil
-		}
-		v := reflect.ValueOf(&s).Elem()
-		if err := resolveStructFields(config, v); err != nil {
-			return err
-		}
-		config.Settings[key.name] = s
+		return resolveSettingsFields(config, key.name)
 	}
+	return nil
+}
+
+// resolveAgentFields resolves attribute references in a single agent.
+func resolveAgentFields(config *ast.XcaffoldConfig, name string) error {
+	agent, ok := config.Agents[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&agent).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Agents[name] = agent
+	return nil
+}
+
+// resolveSkillFields resolves attribute references in a single skill.
+func resolveSkillFields(config *ast.XcaffoldConfig, name string) error {
+	skill, ok := config.Skills[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&skill).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Skills[name] = skill
+	return nil
+}
+
+// resolveRuleFields resolves attribute references in a single rule.
+func resolveRuleFields(config *ast.XcaffoldConfig, name string) error {
+	rule, ok := config.Rules[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&rule).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Rules[name] = rule
+	return nil
+}
+
+// resolveWorkflowFields resolves attribute references in a single workflow.
+func resolveWorkflowFields(config *ast.XcaffoldConfig, name string) error {
+	wf, ok := config.Workflows[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&wf).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Workflows[name] = wf
+	return nil
+}
+
+// resolveMCPFields resolves attribute references in a single MCP config.
+func resolveMCPFields(config *ast.XcaffoldConfig, name string) error {
+	mcp, ok := config.MCP[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&mcp).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.MCP[name] = mcp
+	return nil
+}
+
+// resolvePolicyFields resolves attribute references in a single policy.
+func resolvePolicyFields(config *ast.XcaffoldConfig, name string) error {
+	p, ok := config.Policies[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&p).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Policies[name] = p
+	return nil
+}
+
+// resolveMemoryFields resolves attribute references in a single memory entry.
+func resolveMemoryFields(config *ast.XcaffoldConfig, name string) error {
+	m, ok := config.Memory[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&m).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Memory[name] = m
+	return nil
+}
+
+// resolveContextFields resolves attribute references in a single context.
+func resolveContextFields(config *ast.XcaffoldConfig, name string) error {
+	ctx, ok := config.Contexts[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&ctx).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Contexts[name] = ctx
+	return nil
+}
+
+// resolveTemplateFields resolves attribute references in a single template.
+func resolveTemplateFields(config *ast.XcaffoldConfig, name string) error {
+	tmpl, ok := config.Templates[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&tmpl).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Templates[name] = tmpl
+	return nil
+}
+
+// resolveHookFields resolves attribute references in a single hook config.
+func resolveHookFields(config *ast.XcaffoldConfig, name string) error {
+	h, ok := config.Hooks[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&h).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Hooks[name] = h
+	return nil
+}
+
+// resolveSettingsFields resolves attribute references in a single settings config.
+func resolveSettingsFields(config *ast.XcaffoldConfig, name string) error {
+	s, ok := config.Settings[name]
+	if !ok {
+		return nil
+	}
+	v := reflect.ValueOf(&s).Elem()
+	if err := resolveStructFields(config, v); err != nil {
+		return err
+	}
+	config.Settings[name] = s
 	return nil
 }
 
@@ -543,6 +576,18 @@ func lookupValue(config *ast.XcaffoldConfig, resourceType, resourceName, fieldNa
 // getResourceValue returns a reflect.Value for the resource identified by key.
 func getResourceValue(config *ast.XcaffoldConfig, key resourceKey) (reflect.Value, error) {
 	switch key.kind {
+	case "agent", "skill", "rule", "workflow", "mcp", "policy":
+		return getCoreResourceValue(config, key)
+	case "memory", "context", "template", "hooks", "settings":
+		return getExtendedResourceValue(config, key)
+	default:
+		return reflect.Value{}, fmt.Errorf("attribute reference: unknown resource type %q", key.kind)
+	}
+}
+
+// getCoreResourceValue resolves agent, skill, rule, workflow, mcp, and policy kinds.
+func getCoreResourceValue(config *ast.XcaffoldConfig, key resourceKey) (reflect.Value, error) {
+	switch key.kind {
 	case "agent":
 		v, ok := config.Agents[key.name]
 		if !ok {
@@ -573,12 +618,18 @@ func getResourceValue(config *ast.XcaffoldConfig, key resourceKey) (reflect.Valu
 			return reflect.Value{}, fmt.Errorf("attribute reference: mcp %q not found", key.name)
 		}
 		return reflect.ValueOf(v), nil
-	case "policy":
+	default: // "policy"
 		v, ok := config.Policies[key.name]
 		if !ok {
 			return reflect.Value{}, fmt.Errorf("attribute reference: policy %q not found", key.name)
 		}
 		return reflect.ValueOf(v), nil
+	}
+}
+
+// getExtendedResourceValue resolves memory, context, template, hooks, and settings kinds.
+func getExtendedResourceValue(config *ast.XcaffoldConfig, key resourceKey) (reflect.Value, error) {
+	switch key.kind {
 	case "memory":
 		v, ok := config.Memory[key.name]
 		if !ok {
@@ -603,14 +654,12 @@ func getResourceValue(config *ast.XcaffoldConfig, key resourceKey) (reflect.Valu
 			return reflect.Value{}, fmt.Errorf("attribute reference: hooks %q not found", key.name)
 		}
 		return reflect.ValueOf(v), nil
-	case "settings":
+	default: // "settings"
 		v, ok := config.Settings[key.name]
 		if !ok {
 			return reflect.Value{}, fmt.Errorf("attribute reference: settings %q not found", key.name)
 		}
 		return reflect.ValueOf(v), nil
-	default:
-		return reflect.Value{}, fmt.Errorf("attribute reference: unknown resource type %q", key.kind)
 	}
 }
 

@@ -276,35 +276,31 @@ func sortedMapKeys[V any](m map[string]V) []string {
 // isZeroSettings reports whether s is the zero value of SettingsConfig,
 // indicating that no settings file should be written.
 func isZeroSettings(s ast.SettingsConfig) bool {
-	return s.Model == "" &&
-		s.EffortLevel == "" &&
-		s.DefaultShell == "" &&
-		s.Language == "" &&
-		s.OutputStyle == "" &&
-		s.PlansDirectory == "" &&
-		s.OtelHeadersHelper == "" &&
-		s.AutoMemoryDirectory == "" &&
-		s.Permissions == nil &&
-		s.Sandbox == nil &&
-		s.StatusLine == nil &&
-		s.MCPServers == nil &&
-		len(s.Hooks) == 0 &&
-		len(s.Env) == 0 &&
-		len(s.EnabledPlugins) == 0 &&
-		len(s.AvailableModels) == 0 &&
-		len(s.MdExcludes) == 0 &&
-		s.CleanupPeriodDays == nil &&
-		s.IncludeGitInstructions == nil &&
-		s.SkipDangerousModePermissionPrompt == nil &&
-		s.AutoMemoryEnabled == nil &&
-		s.DisableAllHooks == nil &&
-		s.Attribution == nil &&
-		s.RespectGitignore == nil &&
-		s.DisableSkillShellExecution == nil &&
-		s.AlwaysThinkingEnabled == nil &&
-		s.Agent == nil &&
-		s.Worktree == nil &&
-		s.AutoMode == nil
+	return isZeroSettingsFields(s) && isZeroSettingsPointers(s) && isZeroSettingsCollections(s)
+}
+
+// isZeroSettingsFields checks zero-value string fields.
+func isZeroSettingsFields(s ast.SettingsConfig) bool {
+	return s.Model == "" && s.EffortLevel == "" && s.DefaultShell == "" &&
+		s.Language == "" && s.OutputStyle == "" && s.PlansDirectory == "" &&
+		s.OtelHeadersHelper == "" && s.AutoMemoryDirectory == ""
+}
+
+// isZeroSettingsPointers checks nil pointer fields.
+func isZeroSettingsPointers(s ast.SettingsConfig) bool {
+	return s.Permissions == nil && s.Sandbox == nil && s.StatusLine == nil &&
+		s.MCPServers == nil && s.CleanupPeriodDays == nil &&
+		s.IncludeGitInstructions == nil && s.SkipDangerousModePermissionPrompt == nil &&
+		s.AutoMemoryEnabled == nil && s.DisableAllHooks == nil &&
+		s.Attribution == nil && s.RespectGitignore == nil &&
+		s.DisableSkillShellExecution == nil && s.AlwaysThinkingEnabled == nil &&
+		s.Agent == nil && s.Worktree == nil && s.AutoMode == nil
+}
+
+// isZeroSettingsCollections checks zero-length collection fields.
+func isZeroSettingsCollections(s ast.SettingsConfig) bool {
+	return len(s.Hooks) == 0 && len(s.Env) == 0 && len(s.EnabledPlugins) == 0 &&
+		len(s.AvailableModels) == 0 && len(s.MdExcludes) == 0
 }
 
 // writeAgentFiles writes all agents from config to xcaf/agents/ directory.

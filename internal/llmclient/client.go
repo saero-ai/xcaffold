@@ -223,14 +223,47 @@ type requestResult struct {
 	status     int
 }
 
+// readHTTPBody reads resp.Body up to maxResponseBytes, returns the body bytes,
+// the Retry-After header value, and any read error.
+func readHTTPBody(resp *http.Response) ([]byte, string, error) {
+	ra := resp.Header.Get("Retry-After")
+	limited := http.MaxBytesReader(nil, resp.Body, maxResponseBytes)
+	body, err := io.ReadAll(limited)
+	return body, ra, err
+}
+
+// errorSnippet truncates a response body to 512 bytes for error messages.
+func errorSnippet(body []byte) string {
+	s := string(body)
+	if len(s) > 512 {
+		return s[:512]
+	}
+	return s
+}
+
+// parseAnthropicResponse extracts the text from an Anthropic Messages API response body.
+func parseAnthropicResponse(body []byte, status int, ra string) requestResult {
+	var apiResp struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return requestResult{status: status, retryAfter: ra, err: fmt.Errorf("llmclient: failed to parse Anthropic response: %w", err)}
+	}
+	if len(apiResp.Content) == 0 {
+		return requestResult{status: status, retryAfter: ra, err: fmt.Errorf("llmclient: empty content in Anthropic response")}
+	}
+	return requestResult{text: apiResp.Content[0].Text, status: status}
+}
+
 // callAnthropic posts to the Anthropic Messages API with retry logic.
 func (c *Client) callAnthropic(ctx context.Context, prompt string) (string, error) {
 	reqBody, err := json.Marshal(map[string]any{
 		"model":      c.model,
 		"max_tokens": c.maxTokens,
-		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
-		},
+		"messages":   []map[string]any{{"role": "user", "content": prompt}},
 	})
 	if err != nil {
 		return "", fmt.Errorf("llmclient: failed to build Anthropic request: %w", err)
@@ -251,41 +284,39 @@ func (c *Client) callAnthropic(ctx context.Context, prompt string) (string, erro
 		}
 		defer resp.Body.Close()
 
-		ra := resp.Header.Get("Retry-After")
-		limited := http.MaxBytesReader(nil, resp.Body, maxResponseBytes)
-		respBody, err := io.ReadAll(limited)
+		body, ra, err := readHTTPBody(resp)
 		if err != nil {
 			return requestResult{status: resp.StatusCode, retryAfter: ra, err: fmt.Errorf("llmclient: failed to read Anthropic response: %w", err)}
 		}
-
 		if resp.StatusCode != http.StatusOK {
-			snippet := string(respBody)
-			if len(snippet) > 512 {
-				snippet = snippet[:512]
-			}
 			return requestResult{
 				status:     resp.StatusCode,
 				retryAfter: ra,
-				err:        fmt.Errorf("llmclient: Anthropic API returned status %d: %s", resp.StatusCode, snippet),
+				err:        fmt.Errorf("llmclient: Anthropic API returned status %d: %s", resp.StatusCode, errorSnippet(body)),
 			}
 		}
-
-		var apiResp struct {
-			Content []struct {
-				Type string `json:"type"`
-				Text string `json:"text"`
-			} `json:"content"`
-		}
-		if err := json.Unmarshal(respBody, &apiResp); err != nil {
-			return requestResult{status: resp.StatusCode, retryAfter: ra, err: fmt.Errorf("llmclient: failed to parse Anthropic response: %w", err)}
-		}
-		if len(apiResp.Content) == 0 {
-			return requestResult{status: resp.StatusCode, retryAfter: ra, err: fmt.Errorf("llmclient: empty content in Anthropic response")}
-		}
-		return requestResult{text: apiResp.Content[0].Text, status: resp.StatusCode}
+		return parseAnthropicResponse(body, resp.StatusCode, ra)
 	}
 
 	return withRetry(ctx, doRequest)
+}
+
+// parseGenericAPIResponse extracts the text from an OpenAI-compatible chat/completions response body.
+func parseGenericAPIResponse(body []byte, status int, ra string) requestResult {
+	var apiResp struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return requestResult{status: status, retryAfter: ra, err: fmt.Errorf("llmclient: failed to parse generic API response: %w", err)}
+	}
+	if len(apiResp.Choices) == 0 {
+		return requestResult{status: status, retryAfter: ra, err: fmt.Errorf("llmclient: empty choices in generic API response")}
+	}
+	return requestResult{text: apiResp.Choices[0].Message.Content, status: status}
 }
 
 // callGenericAPI posts to an OpenAI-compatible /chat/completions endpoint with retry logic.
@@ -293,9 +324,7 @@ func (c *Client) callGenericAPI(ctx context.Context, prompt string) (string, err
 	reqBody, err := json.Marshal(map[string]any{
 		"model":      c.model,
 		"max_tokens": c.maxTokens,
-		"messages": []map[string]any{
-			{"role": "user", "content": prompt},
-		},
+		"messages":   []map[string]any{{"role": "user", "content": prompt}},
 	})
 	if err != nil {
 		return "", fmt.Errorf("llmclient: failed to build generic API request: %w", err)
@@ -321,39 +350,18 @@ func (c *Client) callGenericAPI(ctx context.Context, prompt string) (string, err
 		}
 		defer resp.Body.Close()
 
-		ra := resp.Header.Get("Retry-After")
-		limited := http.MaxBytesReader(nil, resp.Body, maxResponseBytes)
-		respBody, err := io.ReadAll(limited)
+		body, ra, err := readHTTPBody(resp)
 		if err != nil {
 			return requestResult{status: resp.StatusCode, retryAfter: ra, err: fmt.Errorf("llmclient: failed to read generic API response: %w", err)}
 		}
-
 		if resp.StatusCode != http.StatusOK {
-			snippet := string(respBody)
-			if len(snippet) > 512 {
-				snippet = snippet[:512]
-			}
 			return requestResult{
 				status:     resp.StatusCode,
 				retryAfter: ra,
-				err:        fmt.Errorf("llmclient: generic API returned status %d: %s", resp.StatusCode, snippet),
+				err:        fmt.Errorf("llmclient: generic API returned status %d: %s", resp.StatusCode, errorSnippet(body)),
 			}
 		}
-
-		var apiResp struct {
-			Choices []struct {
-				Message struct {
-					Content string `json:"content"`
-				} `json:"message"`
-			} `json:"choices"`
-		}
-		if err := json.Unmarshal(respBody, &apiResp); err != nil {
-			return requestResult{status: resp.StatusCode, retryAfter: ra, err: fmt.Errorf("llmclient: failed to parse generic API response: %w", err)}
-		}
-		if len(apiResp.Choices) == 0 {
-			return requestResult{status: resp.StatusCode, retryAfter: ra, err: fmt.Errorf("llmclient: empty choices in generic API response")}
-		}
-		return requestResult{text: apiResp.Choices[0].Message.Content, status: resp.StatusCode}
+		return parseGenericAPIResponse(body, resp.StatusCode, ra)
 	}
 
 	return withRetry(ctx, doRequest)

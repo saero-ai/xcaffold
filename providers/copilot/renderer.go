@@ -313,79 +313,10 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		}
 
 		var sb strings.Builder
-		sb.WriteString("---\n")
-
-		if agent.Name != "" {
-			fmt.Fprintf(&sb, "name: %s\n", agent.Name)
-		}
-		if agent.Description != "" {
-			fmt.Fprintf(&sb, "description: %s\n", agent.Description)
-		}
-
-		sanitizedTools, toolNotes := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
+		toolNotes, modelNotes := renderCopilotAgentFrontmatter(&sb, agent, id, caps)
 		notes = append(notes, toolNotes...)
-		if len(sanitizedTools) > 0 {
-			sb.WriteString("tools:\n")
-			for _, tool := range sanitizedTools {
-				fmt.Fprintf(&sb, "  - %s\n", tool)
-			}
-		}
-
-		resolvedModel, modelNotes := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)
 		notes = append(notes, modelNotes...)
-		if resolvedModel != "" {
-			fmt.Fprintf(&sb, "model: %s\n", resolvedModel)
-		}
 
-		if agent.DisableModelInvocation != nil {
-			fmt.Fprintf(&sb, "disable-model-invocation: %v\n", *agent.DisableModelInvocation)
-		}
-		if agent.UserInvocable != nil {
-			fmt.Fprintf(&sb, "user-invocable: %v\n", *agent.UserInvocable)
-		}
-
-		// Inline MCP servers.
-		if len(agent.MCPServers) > 0 {
-			sb.WriteString("mcp-servers:\n")
-			for _, mcpID := range renderer.SortedKeys(agent.MCPServers) {
-				mcp := agent.MCPServers[mcpID]
-				fmt.Fprintf(&sb, "  %s:\n", mcpID)
-				if mcp.Command != "" {
-					fmt.Fprintf(&sb, "    command: %s\n", mcp.Command)
-				}
-				if len(mcp.Args) > 0 {
-					sb.WriteString("    args:\n")
-					for _, arg := range mcp.Args {
-						fmt.Fprintf(&sb, "      - %s\n", arg)
-					}
-				}
-				if mcp.URL != "" {
-					fmt.Fprintf(&sb, "    url: %s\n", mcp.URL)
-				}
-				if mcp.Type != "" {
-					fmt.Fprintf(&sb, "    type: %s\n", mcp.Type)
-				}
-				if len(mcp.Env) > 0 {
-					sb.WriteString("    env:\n")
-					for _, envKey := range renderer.SortedKeys(mcp.Env) {
-						fmt.Fprintf(&sb, "      %s: %s\n", envKey, mcp.Env[envKey])
-					}
-				}
-			}
-		}
-
-		// Provider pass-through from targets.copilot.provider.
-		if copilotTarget, ok := agent.Targets[targetName]; ok {
-			for _, key := range []string{"target", "metadata"} {
-				if val, exists := copilotTarget.Provider[key]; exists {
-					fmt.Fprintf(&sb, "%s: %v\n", key, val)
-				}
-			}
-		}
-
-		sb.WriteString("---\n")
-
-		// Markdown body — system prompt.
 		body := resolver.StripFrontmatter(agent.Body)
 		if body != "" {
 			sb.WriteString("\n")
@@ -396,34 +327,130 @@ func (r *Renderer) renderAgents(config *ast.XcaffoldConfig, baseDir string, file
 		filePath := fmt.Sprintf("agents/%s.agent.md", id)
 		files[filepath.Clean(filePath)] = sb.String()
 
-		// Fidelity notes for other unsupported fields.
-		type unsupportedField struct {
-			name    string
-			present bool
-		}
-		unsupported := []unsupportedField{
-			{"effort", agent.Effort != ""},
-			{"max-turns", agent.MaxTurns != nil && *agent.MaxTurns > 0},
-			{"background", agent.Background != nil},
-			{"color", agent.Color != ""},
-			{"initial-prompt", agent.InitialPrompt != ""},
-			{"readonly", agent.Readonly != nil},
-			{"memory", len(agent.Memory) > 0},
-			{"skills", len(agent.Skills.Values) > 0},
-			{"hooks", len(agent.Hooks) > 0},
-		}
-		for _, f := range unsupported {
-			if f.present {
-				notes = append(notes, renderer.NewNote(
-					renderer.LevelWarning, targetName, "agent", id, f.name,
-					renderer.CodeFieldUnsupported,
-					fmt.Sprintf("agent %q field %q has no Copilot equivalent and was dropped", id, f.name),
-					"Remove the field or use targets.copilot.provider pass-through",
-				))
-			}
+		notes = append(notes, copilotAgentFidelityNotes(agent, id)...)
+	}
+
+	return notes
+}
+
+// renderCopilotAgentFrontmatter writes the complete YAML frontmatter block
+// (including the opening and closing "---\n" delimiters) to sb. It returns
+// tool and model fidelity notes collected during sanitization.
+func renderCopilotAgentFrontmatter(sb *strings.Builder, agent ast.AgentConfig, id string, caps renderer.CapabilitySet) (toolNotes, modelNotes []renderer.FidelityNote) {
+	sb.WriteString("---\n")
+
+	if agent.Name != "" {
+		fmt.Fprintf(sb, "name: %s\n", agent.Name)
+	}
+	if agent.Description != "" {
+		fmt.Fprintf(sb, "description: %s\n", agent.Description)
+	}
+
+	sanitizedTools, tn := renderer.SanitizeAgentTools(agent.Tools.Values, caps, targetName, id)
+	toolNotes = tn
+	if len(sanitizedTools) > 0 {
+		sb.WriteString("tools:\n")
+		for _, tool := range sanitizedTools {
+			fmt.Fprintf(sb, "  - %s\n", tool)
 		}
 	}
 
+	resolvedModel, mn := renderer.SanitizeAgentModel(agent.Model, caps, targetName, id)
+	modelNotes = mn
+	if resolvedModel != "" {
+		fmt.Fprintf(sb, "model: %s\n", resolvedModel)
+	}
+
+	if agent.DisableModelInvocation != nil {
+		fmt.Fprintf(sb, "disable-model-invocation: %v\n", *agent.DisableModelInvocation)
+	}
+	if agent.UserInvocable != nil {
+		fmt.Fprintf(sb, "user-invocable: %v\n", *agent.UserInvocable)
+	}
+
+	renderCopilotAgentMCPServers(sb, agent)
+	renderCopilotAgentProviderPassthrough(sb, agent)
+
+	sb.WriteString("---\n")
+	return toolNotes, modelNotes
+}
+
+// renderCopilotAgentMCPServers writes inline mcp-servers YAML entries to sb.
+func renderCopilotAgentMCPServers(sb *strings.Builder, agent ast.AgentConfig) {
+	if len(agent.MCPServers) == 0 {
+		return
+	}
+	sb.WriteString("mcp-servers:\n")
+	for _, mcpID := range renderer.SortedKeys(agent.MCPServers) {
+		mcp := agent.MCPServers[mcpID]
+		fmt.Fprintf(sb, "  %s:\n", mcpID)
+		if mcp.Command != "" {
+			fmt.Fprintf(sb, "    command: %s\n", mcp.Command)
+		}
+		if len(mcp.Args) > 0 {
+			sb.WriteString("    args:\n")
+			for _, arg := range mcp.Args {
+				fmt.Fprintf(sb, "      - %s\n", arg)
+			}
+		}
+		if mcp.URL != "" {
+			fmt.Fprintf(sb, "    url: %s\n", mcp.URL)
+		}
+		if mcp.Type != "" {
+			fmt.Fprintf(sb, "    type: %s\n", mcp.Type)
+		}
+		if len(mcp.Env) > 0 {
+			sb.WriteString("    env:\n")
+			for _, envKey := range renderer.SortedKeys(mcp.Env) {
+				fmt.Fprintf(sb, "      %s: %s\n", envKey, mcp.Env[envKey])
+			}
+		}
+	}
+}
+
+// renderCopilotAgentProviderPassthrough writes targets.copilot.provider
+// pass-through fields (target, metadata) in stable order to sb.
+func renderCopilotAgentProviderPassthrough(sb *strings.Builder, agent ast.AgentConfig) {
+	copilotTarget, ok := agent.Targets[targetName]
+	if !ok {
+		return
+	}
+	for _, key := range []string{"target", "metadata"} {
+		if val, exists := copilotTarget.Provider[key]; exists {
+			fmt.Fprintf(sb, "%s: %v\n", key, val)
+		}
+	}
+}
+
+// copilotAgentFidelityNotes returns FIELD_UNSUPPORTED fidelity notes for each
+// agent field that has no GitHub Copilot equivalent.
+func copilotAgentFidelityNotes(agent ast.AgentConfig, id string) []renderer.FidelityNote {
+	type unsupportedField struct {
+		name    string
+		present bool
+	}
+	unsupported := []unsupportedField{
+		{"effort", agent.Effort != ""},
+		{"max-turns", agent.MaxTurns != nil && *agent.MaxTurns > 0},
+		{"background", agent.Background != nil},
+		{"color", agent.Color != ""},
+		{"initial-prompt", agent.InitialPrompt != ""},
+		{"readonly", agent.Readonly != nil},
+		{"memory", len(agent.Memory) > 0},
+		{"skills", len(agent.Skills.Values) > 0},
+		{"hooks", len(agent.Hooks) > 0},
+	}
+	var notes []renderer.FidelityNote
+	for _, f := range unsupported {
+		if f.present {
+			notes = append(notes, renderer.NewNote(
+				renderer.LevelWarning, targetName, "agent", id, f.name,
+				renderer.CodeFieldUnsupported,
+				fmt.Sprintf("agent %q field %q has no Copilot equivalent and was dropped", id, f.name),
+				"Remove the field or use targets.copilot.provider pass-through",
+			))
+		}
+	}
 	return notes
 }
 
@@ -436,101 +463,128 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 	}
 
 	var notes []renderer.FidelityNote
+	caps := r.Capabilities()
 
 	for _, id := range renderer.SortedKeys(config.Skills) {
 		skill := config.Skills[id]
 		if skill.Inherited {
 			continue
 		}
-
-		var sb strings.Builder
-		sb.WriteString("---\n")
-		if skill.Name != "" {
-			fmt.Fprintf(&sb, "name: %s\n", skill.Name)
-		}
-		if skill.Description != "" {
-			fmt.Fprintf(&sb, "description: %s\n", skill.Description)
-		}
-		if len(skill.AllowedTools.Values) > 0 {
-			sb.WriteString("allowed-tools:\n")
-			for _, tool := range skill.AllowedTools.Values {
-				fmt.Fprintf(&sb, "  - %s\n", tool)
-			}
-		}
-		if skill.License != "" {
-			fmt.Fprintf(&sb, "license: %s\n", skill.License)
-		}
-		sb.WriteString("---\n")
-
-		body := resolver.StripFrontmatter(skill.Body)
-		if body != "" {
-			sb.WriteString("\n")
-			sb.WriteString(strings.TrimRight(body, "\n"))
-			sb.WriteString("\n")
-		}
-
-		filePath := fmt.Sprintf("skills/%s/SKILL.md", id)
-		files[filepath.Clean(filePath)] = sb.String()
-
-		// Fidelity notes for unsupported fields.
-		if skill.WhenToUse != "" {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "when-to-use",
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("skill %q field \"when-to-use\" has no Copilot equivalent and was dropped", id),
-				"Move when-to-use content into description",
-			))
-		}
-		if skill.DisableModelInvocation != nil {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "disable-model-invocation",
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("skill %q field \"disable-model-invocation\" has no Copilot skill equivalent and was dropped", id),
-				"",
-			))
-		}
-		if skill.UserInvocable != nil {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "user-invocable",
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("skill %q field \"user-invocable\" has no Copilot skill equivalent and was dropped", id),
-				"",
-			))
-		}
-		if skill.ArgumentHint != "" {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "skill", id, "argument-hint",
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("skill %q field \"argument-hint\" has no Copilot skill equivalent and was dropped", id),
-				"",
-			))
-		}
-		skillSourceDir := filepath.Join("xcaf", "skills", id)
-		subOut := &output.Output{Files: make(map[string]string)}
-		caps := r.Capabilities()
-		for _, artifactName := range skill.Artifacts {
-			outputSubdir, ok := caps.SkillArtifactDirs[artifactName]
-			if !ok {
-				outputSubdir = artifactName
-			}
-			paths, err := renderer.DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName)
-			if err != nil {
-				notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, artifactName, renderer.CodeSkillReferencesDropped,
-					fmt.Sprintf("skill %s artifact %s: discover files: %s", id, artifactName, err), "Check file paths"))
-				continue
-			}
-			if len(paths) == 0 {
-				continue
-			}
-			if err := renderer.CompileSkillSubdir(id, artifactName, outputSubdir, paths, baseDir, skillSourceDir, subOut); err != nil {
-				notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", id, artifactName, renderer.CodeSkillReferencesDropped, err.Error(), "Check file paths"))
-			}
-		}
-		for k, v := range subOut.Files {
-			files[k] = v
-		}
+		files[filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))] = buildCopilotSkillContent(skill)
+		notes = append(notes, copilotSkillFidelityNotes(id, skill)...)
+		artifactNotes := compileCopilotSkillArtifacts(skillArtifactJob{id: id, baseDir: baseDir, caps: caps, files: files}, skill.Artifacts)
+		notes = append(notes, artifactNotes...)
 	}
 
+	return notes
+}
+
+// buildCopilotSkillContent renders the SKILL.md content for a single Copilot skill.
+// Copilot supports name, description, allowed-tools, and license in frontmatter.
+func buildCopilotSkillContent(skill ast.SkillConfig) string {
+	body := resolver.StripFrontmatter(skill.Body)
+	var sb strings.Builder
+	sb.WriteString("---\n")
+	if skill.Name != "" {
+		fmt.Fprintf(&sb, "name: %s\n", skill.Name)
+	}
+	if skill.Description != "" {
+		fmt.Fprintf(&sb, "description: %s\n", skill.Description)
+	}
+	if len(skill.AllowedTools.Values) > 0 {
+		sb.WriteString("allowed-tools:\n")
+		for _, tool := range skill.AllowedTools.Values {
+			fmt.Fprintf(&sb, "  - %s\n", tool)
+		}
+	}
+	if skill.License != "" {
+		fmt.Fprintf(&sb, "license: %s\n", skill.License)
+	}
+	sb.WriteString("---\n")
+	if body != "" {
+		sb.WriteString("\n")
+		sb.WriteString(strings.TrimRight(body, "\n"))
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
+// copilotSkillFidelityNotes returns fidelity notes for Copilot-unsupported skill fields.
+func copilotSkillFidelityNotes(id string, skill ast.SkillConfig) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
+	if skill.WhenToUse != "" {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "skill", id, "when-to-use",
+			renderer.CodeFieldUnsupported,
+			fmt.Sprintf("skill %q field \"when-to-use\" has no Copilot equivalent and was dropped", id),
+			"Move when-to-use content into description",
+		))
+	}
+	if skill.DisableModelInvocation != nil {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "skill", id, "disable-model-invocation",
+			renderer.CodeFieldUnsupported,
+			fmt.Sprintf("skill %q field \"disable-model-invocation\" has no Copilot skill equivalent and was dropped", id),
+			"",
+		))
+	}
+	if skill.UserInvocable != nil {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "skill", id, "user-invocable",
+			renderer.CodeFieldUnsupported,
+			fmt.Sprintf("skill %q field \"user-invocable\" has no Copilot skill equivalent and was dropped", id),
+			"",
+		))
+	}
+	if skill.ArgumentHint != "" {
+		notes = append(notes, renderer.NewNote(
+			renderer.LevelWarning, targetName, "skill", id, "argument-hint",
+			renderer.CodeFieldUnsupported,
+			fmt.Sprintf("skill %q field \"argument-hint\" has no Copilot skill equivalent and was dropped", id),
+			"",
+		))
+	}
+	return notes
+}
+
+// skillArtifactJob bundles the inputs needed to compile a skill's artifact subdirs.
+type skillArtifactJob struct {
+	id      string
+	baseDir string
+	caps    renderer.CapabilitySet
+	files   map[string]string
+}
+
+// compileCopilotSkillArtifacts discovers and compiles artifact subdirs for a skill.
+// Errors are demoted to fidelity notes so the rest of the skill still compiles.
+func compileCopilotSkillArtifacts(j skillArtifactJob, artifacts []string) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
+	skillSourceDir := filepath.Join("xcaf", "skills", j.id)
+	subOut := &output.Output{Files: make(map[string]string)}
+
+	for _, artifactName := range artifacts {
+		outputSubdir, ok := j.caps.SkillArtifactDirs[artifactName]
+		if !ok {
+			outputSubdir = artifactName
+		}
+		paths, err := renderer.DiscoverArtifactFiles(j.baseDir, skillSourceDir, artifactName)
+		if err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", j.id, artifactName,
+				renderer.CodeSkillReferencesDropped,
+				fmt.Sprintf("skill %s artifact %s: discover files: %s", j.id, artifactName, err), "Check file paths"))
+			continue
+		}
+		if len(paths) == 0 {
+			continue
+		}
+		if err := renderer.CompileSkillSubdir(j.id, artifactName, outputSubdir, paths, j.baseDir, skillSourceDir, subOut); err != nil {
+			notes = append(notes, renderer.NewNote(renderer.LevelWarning, targetName, "skill", j.id, artifactName,
+				renderer.CodeSkillReferencesDropped, err.Error(), "Check file paths"))
+		}
+	}
+	for k, v := range subOut.Files {
+		j.files[k] = v
+	}
 	return notes
 }
 

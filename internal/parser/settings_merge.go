@@ -203,69 +203,61 @@ func mergeSettingsStrict(base, child ast.SettingsConfig, baseFile, childFile str
 	return out, nil
 }
 
-// mergeSettingsOverride merges two SettingsConfig values for extends resolution
-// (global -> project).  The child always wins on conflict.
-func mergeSettingsOverride(base, child ast.SettingsConfig) ast.SettingsConfig {
-	out := base
+// overrideStringFields applies string field overrides from child to out.
+func overrideStringFields(out *ast.SettingsConfig, base, child ast.SettingsConfig) {
+	stringFields := []struct {
+		name     string
+		baseVal  string
+		childVal string
+		dst      *string
+	}{
+		{"effortLevel", base.EffortLevel, child.EffortLevel, &out.EffortLevel},
+		{"defaultShell", base.DefaultShell, child.DefaultShell, &out.DefaultShell},
+		{"language", base.Language, child.Language, &out.Language},
+		{"outputStyle", base.OutputStyle, child.OutputStyle, &out.OutputStyle},
+		{"plansDirectory", base.PlansDirectory, child.PlansDirectory, &out.PlansDirectory},
+		{"model", base.Model, child.Model, &out.Model},
+		{"otelHeadersHelper", base.OtelHeadersHelper, child.OtelHeadersHelper, &out.OtelHeadersHelper},
+		{"autoMemoryDirectory", base.AutoMemoryDirectory, child.AutoMemoryDirectory, &out.AutoMemoryDirectory},
+	}
+	for _, f := range stringFields {
+		if f.childVal != "" {
+			*f.dst = f.childVal
+		}
+	}
+}
 
-	// --- string scalars: child wins if non-empty ---
-	if child.EffortLevel != "" {
-		out.EffortLevel = child.EffortLevel
+// overrideBoolPointerFields applies boolean pointer field overrides from child to out.
+func overrideBoolPointerFields(out *ast.SettingsConfig, child ast.SettingsConfig) {
+	boolFields := []struct {
+		childVal *bool
+		dst      **bool
+	}{
+		{child.IncludeGitInstructions, &out.IncludeGitInstructions},
+		{child.SkipDangerousModePermissionPrompt, &out.SkipDangerousModePermissionPrompt},
+		{child.AutoMemoryEnabled, &out.AutoMemoryEnabled},
+		{child.DisableAllHooks, &out.DisableAllHooks},
+		{child.Attribution, &out.Attribution},
+		{child.RespectGitignore, &out.RespectGitignore},
+		{child.DisableSkillShellExecution, &out.DisableSkillShellExecution},
+		{child.AlwaysThinkingEnabled, &out.AlwaysThinkingEnabled},
 	}
-	if child.DefaultShell != "" {
-		out.DefaultShell = child.DefaultShell
+	for _, f := range boolFields {
+		if f.childVal != nil {
+			*f.dst = f.childVal
+		}
 	}
-	if child.Language != "" {
-		out.Language = child.Language
-	}
-	if child.OutputStyle != "" {
-		out.OutputStyle = child.OutputStyle
-	}
-	if child.PlansDirectory != "" {
-		out.PlansDirectory = child.PlansDirectory
-	}
-	if child.Model != "" {
-		out.Model = child.Model
-	}
-	if child.OtelHeadersHelper != "" {
-		out.OtelHeadersHelper = child.OtelHeadersHelper
-	}
-	if child.AutoMemoryDirectory != "" {
-		out.AutoMemoryDirectory = child.AutoMemoryDirectory
-	}
+}
 
-	// --- *bool: child wins if non-nil ---
-	if child.IncludeGitInstructions != nil {
-		out.IncludeGitInstructions = child.IncludeGitInstructions
-	}
-	if child.SkipDangerousModePermissionPrompt != nil {
-		out.SkipDangerousModePermissionPrompt = child.SkipDangerousModePermissionPrompt
-	}
-	if child.AutoMemoryEnabled != nil {
-		out.AutoMemoryEnabled = child.AutoMemoryEnabled
-	}
-	if child.DisableAllHooks != nil {
-		out.DisableAllHooks = child.DisableAllHooks
-	}
-	if child.Attribution != nil {
-		out.Attribution = child.Attribution
-	}
-	if child.RespectGitignore != nil {
-		out.RespectGitignore = child.RespectGitignore
-	}
-	if child.DisableSkillShellExecution != nil {
-		out.DisableSkillShellExecution = child.DisableSkillShellExecution
-	}
-	if child.AlwaysThinkingEnabled != nil {
-		out.AlwaysThinkingEnabled = child.AlwaysThinkingEnabled
-	}
-
-	// --- *int: child wins if non-nil ---
+// overrideIntPointerFields applies int pointer field overrides from child to out.
+func overrideIntPointerFields(out *ast.SettingsConfig, child ast.SettingsConfig) {
 	if child.CleanupPeriodDays != nil {
 		out.CleanupPeriodDays = child.CleanupPeriodDays
 	}
+}
 
-	// --- any: child wins if non-nil ---
+// overrideAnyFields applies untyped any field overrides from child to out.
+func overrideAnyFields(out *ast.SettingsConfig, child ast.SettingsConfig) {
 	if child.Agent != nil {
 		out.Agent = child.Agent
 	}
@@ -275,8 +267,10 @@ func mergeSettingsOverride(base, child ast.SettingsConfig) ast.SettingsConfig {
 	if child.AutoMode != nil {
 		out.AutoMode = child.AutoMode
 	}
+}
 
-	// --- struct pointers: child wins if non-nil ---
+// overrideStructPointerFields applies struct pointer field overrides from child to out.
+func overrideStructPointerFields(out *ast.SettingsConfig, child ast.SettingsConfig) {
 	if child.Permissions != nil {
 		out.Permissions = child.Permissions
 	}
@@ -286,18 +280,29 @@ func mergeSettingsOverride(base, child ast.SettingsConfig) ast.SettingsConfig {
 	if child.StatusLine != nil {
 		out.StatusLine = child.StatusLine
 	}
+}
 
-	// --- maps: child keys override base ---
+// overrideMapAndSliceFields applies map and slice field overrides from child to out.
+func overrideMapAndSliceFields(out *ast.SettingsConfig, base, child ast.SettingsConfig) {
 	out.Env = mergeStringMapOverride(base.Env, child.Env)
 	out.EnabledPlugins = mergeBoolMapOverride(base.EnabledPlugins, child.EnabledPlugins)
 	out.MCPServers = mergeMCPMapOverride(base.MCPServers, child.MCPServers)
-
-	// --- slices: additive (append unique) ---
 	out.AvailableModels = appendUnique(base.AvailableModels, child.AvailableModels)
 	out.MdExcludes = appendUnique(base.MdExcludes, child.MdExcludes)
-
-	// --- hooks: additive ---
 	out.Hooks = mergeHooksAdditive(base.Hooks, child.Hooks)
+}
+
+// mergeSettingsOverride merges two SettingsConfig values for extends resolution
+// (global -> project).  The child always wins on conflict.
+func mergeSettingsOverride(base, child ast.SettingsConfig) ast.SettingsConfig {
+	out := base
+
+	overrideStringFields(&out, base, child)
+	overrideBoolPointerFields(&out, child)
+	overrideIntPointerFields(&out, child)
+	overrideAnyFields(&out, child)
+	overrideStructPointerFields(&out, child)
+	overrideMapAndSliceFields(&out, base, child)
 
 	return out
 }

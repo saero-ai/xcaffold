@@ -93,12 +93,25 @@ func IsKnownClaudeAlias(alias string) bool {
 
 // SanitizeAgentModel maps a model alias to a provider-specific literal.
 // It returns the sanitized model string and a slice of FidelityNotes.
+// modelAliasState captures the alias classification of a model string relative
+// to a specific target. Building it once avoids re-computing the same lookups.
+type modelAliasState struct {
+	isClaudeAlias bool
+	supportsBare  bool
+}
+
+func newModelAliasState(model, targetName string) modelAliasState {
+	r := LookupModelResolver(targetName)
+	return modelAliasState{
+		isClaudeAlias: IsKnownClaudeAlias(model),
+		supportsBare:  r != nil && r.SupportsBareAliases(),
+	}
+}
+
 func SanitizeAgentModel(model string, caps CapabilitySet, targetName, agentID string) (string, []FidelityNote) {
 	if model == "" {
 		return "", nil // Nothing to do
 	}
-
-	var notes []FidelityNote
 
 	// If the provider does not support the model field, drop it.
 	modelSupport := schema.FieldSupportForTarget("agent", "model", targetName)
@@ -106,60 +119,70 @@ func SanitizeAgentModel(model string, caps CapabilitySet, targetName, agentID st
 		return "", nil
 	}
 
-	// Check if this is a known bare alias and whether the target supports them
-	isClaudeAlias := IsKnownClaudeAlias(model)
 	isMapped := IsMappedModel(model, targetName)
-	resolver := LookupModelResolver(targetName)
-	supportsBare := resolver != nil && resolver.SupportsBareAliases()
+	as := newModelAliasState(model, targetName)
 
 	resolved, ok := ResolveModel(model, targetName)
 	if !ok || resolved == "" {
-		// Resolution failed. If it's a bare alias on a target that doesn't support them, warn.
-		if isClaudeAlias && !supportsBare {
-			notes = append(notes, NewNote(
-				LevelWarning, targetName, "agent", agentID, "model",
-				CodeAgentModelUnmapped,
-				fmt.Sprintf("bare alias %q passed through for agent %q unmapped; this may fail on %s", model, agentID, targetName),
-				fmt.Sprintf("Use a mapped alias (e.g. sonnet-4) or a native literal for %s", targetName),
-			))
-		}
-		return "", notes
+		return "", as.notesForUnresolved(model, agentID, targetName)
 	}
 
-	// We kept the field. Check if the model was NOT from the xcaffold alias list.
 	if !isMapped {
-		// Is it a bare alias (e.g. "sonnet", "opus", "haiku")?
-		if isClaudeAlias {
-			if supportsBare {
-				// Claude Code resolves bare tier aliases at runtime to the current
-				// recommended version. Pass through as-is and emit an info note.
-				// Ground truth: models.json verified 2026-04-30 — "sonnet", "opus",
-				// and "haiku" are documented Claude Code aliases.
-				notes = append(notes, NewNote(
-					LevelInfo, targetName, "agent", agentID, "model",
-					CodeFieldTransformed,
-					fmt.Sprintf("bare alias %q passed through for agent %q on claude target; resolved at runtime", model, agentID),
-					"Use a versioned alias (e.g. sonnet-4) for deterministic resolution across targets",
-				))
-				return model, notes
-			}
-			// Bare Claude alias on a non-Claude target — meaningless outside Claude Code.
-			notes = append(notes, NewNote(
-				LevelWarning, targetName, "agent", agentID, "model",
-				CodeAgentModelUnmapped,
-				fmt.Sprintf("bare alias %q passed through for agent %q unmapped; this may fail on %s", model, agentID, targetName),
-				fmt.Sprintf("Use a mapped alias (e.g. sonnet-4) or a native literal for %s", targetName),
-			))
-			return "", notes
-		}
-		// It's not a known alias, meaning it's a native literal. Pass it through safely.
-		notes = append(notes, NewNote(
-			LevelInfo, targetName, "agent", agentID, "model",
-			CodeFieldTransformed,
-			fmt.Sprintf("native literal %q passed through for agent %q", model, agentID),
-			"",
-		))
+		return as.resolvedOrDropped(model, resolved, agentID, targetName)
 	}
 
-	return resolved, notes
+	return resolved, nil
+}
+
+// notesForUnresolved returns fidelity notes when model resolution fails.
+// A warning is emitted when the model is a bare Claude alias on a target that
+// does not support bare aliases; otherwise the slice is empty.
+func (as modelAliasState) notesForUnresolved(model, agentID, targetName string) []FidelityNote {
+	if as.isClaudeAlias && !as.supportsBare {
+		return []FidelityNote{NewNote(
+			LevelWarning, targetName, "agent", agentID, "model",
+			CodeAgentModelUnmapped,
+			fmt.Sprintf("bare alias %q passed through for agent %q unmapped; this may fail on %s", model, agentID, targetName),
+			fmt.Sprintf("Use a mapped alias (e.g. sonnet-4) or a native literal for %s", targetName),
+		)}
+	}
+	return nil
+}
+
+// resolvedOrDropped handles the case where resolution succeeded but the model was
+// not an xcaffold alias. Bare Claude aliases are passed through on supporting targets
+// or dropped with a warning on non-supporting targets. Native literals are passed
+// through with an info note.
+func (as modelAliasState) resolvedOrDropped(model, resolved, agentID, targetName string) (string, []FidelityNote) {
+	if as.isClaudeAlias {
+		if as.supportsBare {
+			// Claude Code resolves bare tier aliases at runtime to the current
+			// recommended version. Pass through as-is and emit an info note.
+			// Ground truth: models.json verified 2026-04-30 — "sonnet", "opus",
+			// and "haiku" are documented Claude Code aliases.
+			note := NewNote(
+				LevelInfo, targetName, "agent", agentID, "model",
+				CodeFieldTransformed,
+				fmt.Sprintf("bare alias %q passed through for agent %q on claude target; resolved at runtime", model, agentID),
+				"Use a versioned alias (e.g. sonnet-4) for deterministic resolution across targets",
+			)
+			return model, []FidelityNote{note}
+		}
+		// Bare Claude alias on a non-Claude target — meaningless outside Claude Code.
+		note := NewNote(
+			LevelWarning, targetName, "agent", agentID, "model",
+			CodeAgentModelUnmapped,
+			fmt.Sprintf("bare alias %q passed through for agent %q unmapped; this may fail on %s", model, agentID, targetName),
+			fmt.Sprintf("Use a mapped alias (e.g. sonnet-4) or a native literal for %s", targetName),
+		)
+		return "", []FidelityNote{note}
+	}
+	// Native literal — pass through safely with an info note.
+	note := NewNote(
+		LevelInfo, targetName, "agent", agentID, "model",
+		CodeFieldTransformed,
+		fmt.Sprintf("native literal %q passed through for agent %q", model, agentID),
+		"",
+	)
+	return resolved, []FidelityNote{note}
 }

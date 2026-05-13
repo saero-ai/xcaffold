@@ -56,47 +56,20 @@ func parseVarFile(path string) (map[string]interface{}, error) {
 	return vars, scanner.Err()
 }
 
-func LoadVariableStack(baseDir, target, customFile string) (map[string]interface{}, error) {
-	res, err := parseVarFile(filepath.Join(baseDir, "xcaf", "project.vars"))
+// mergeVarFile loads and merges variables from a file into the result map.
+func mergeVarFile(filePath string, res map[string]interface{}) error {
+	vars, err := parseVarFile(filePath)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	if customFile != "" {
-		cfPath := customFile
-		if !filepath.IsAbs(cfPath) {
-			cfPath = filepath.Join(baseDir, cfPath)
-		}
-		customVars, err := parseVarFile(cfPath)
-		if err != nil {
-			return nil, err
-		}
-		for k, v := range customVars {
-			res[k] = v
-		}
-	}
-
-	if target != "" {
-		targetPath := filepath.Join(baseDir, "xcaf", "project."+target+".vars")
-		targetVars, err := parseVarFile(targetPath)
-		if err != nil {
-			return nil, err
-		}
-		for k, v := range targetVars {
-			res[k] = v
-		}
-	}
-
-	localPath := filepath.Join(baseDir, "xcaf", "project.vars.local")
-	localVars, err := parseVarFile(localPath)
-	if err != nil {
-		return nil, err
-	}
-	for k, v := range localVars {
+	for k, v := range vars {
 		res[k] = v
 	}
+	return nil
+}
 
-	// Resolve variable composition (variables referencing other variables)
+// resolveVariableComposition iteratively expands variables that reference other variables.
+func resolveVariableComposition(res map[string]interface{}) error {
 	maxPasses := 10
 	for pass := 0; pass < maxPasses; pass++ {
 		madeChanges := false
@@ -104,7 +77,7 @@ func LoadVariableStack(baseDir, target, customFile string) (map[string]interface
 			if strVal, ok := v.(string); ok {
 				expanded, err := resolver.ExpandVariables([]byte(strVal), res, nil)
 				if err != nil {
-					return nil, fmt.Errorf("failed to resolve variable %q: %w", k, err)
+					return fmt.Errorf("failed to resolve variable %q: %w", k, err)
 				}
 				if string(expanded) != strVal {
 					res[k] = string(expanded)
@@ -116,8 +89,46 @@ func LoadVariableStack(baseDir, target, customFile string) (map[string]interface
 			break
 		}
 		if pass == maxPasses-1 {
-			return nil, fmt.Errorf("circular variable dependency detected")
+			return fmt.Errorf("circular variable dependency detected")
 		}
+	}
+	return nil
+}
+
+func LoadVariableStack(baseDir, target, customFile string) (map[string]interface{}, error) {
+	res, err := parseVarFile(filepath.Join(baseDir, "xcaf", "project.vars"))
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge custom variables if provided
+	if customFile != "" {
+		cfPath := customFile
+		if !filepath.IsAbs(cfPath) {
+			cfPath = filepath.Join(baseDir, cfPath)
+		}
+		if err := mergeVarFile(cfPath, res); err != nil {
+			return nil, err
+		}
+	}
+
+	// Merge target-specific variables
+	if target != "" {
+		targetPath := filepath.Join(baseDir, "xcaf", "project."+target+".vars")
+		if err := mergeVarFile(targetPath, res); err != nil {
+			return nil, err
+		}
+	}
+
+	// Merge local overrides
+	localPath := filepath.Join(baseDir, "xcaf", "project.vars.local")
+	if err := mergeVarFile(localPath, res); err != nil {
+		return nil, err
+	}
+
+	// Resolve variable composition (variables referencing other variables)
+	if err := resolveVariableComposition(res); err != nil {
+		return nil, err
 	}
 
 	return res, nil

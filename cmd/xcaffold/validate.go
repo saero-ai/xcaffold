@@ -9,6 +9,7 @@ import (
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/compiler"
+	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/saero-ai/xcaffold/internal/renderer"
@@ -51,25 +52,90 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("global scope is not yet available")
 	}
 
-	validatePath := xcafPath
+	parseRoot := deriveParseRoot(xcafPath)
+	printValidateHeader(parseRoot)
 
+	cfg, crossRefIssues, hasErrors, err := validateSyntax(parseRoot, xcafPath)
+	if err != nil {
+		return err
+	}
+
+	_ = validateSkillDirs(cfg, parseRoot, &hasErrors)
+	hasErrors = reportHookErrors(cfg, parseRoot, hasErrors)
+	structWarnings := reportStructuralWarnings(cfg)
+	policyWarnings, _, fieldValidationRan, fieldValidationErrors, err := validatePolicies(hasErrors, cfg, parseRoot)
+	if err != nil {
+		return err
+	}
+
+	if hasErrors {
+		fmt.Println()
+		fmt.Printf("%s  Validation failed: errors found.\n", colorRed(glyphErr()))
+		return fmt.Errorf("validation failed: one or more errors found")
+	}
+
+	printValidateSummary(parseRoot, structWarnings, policyWarnings, crossRefIssues,
+		fieldValidationRan, fieldValidationErrors)
+	return nil
+}
+
+// deriveParseRoot extracts the project root from the xcaf file path.
+func deriveParseRoot(validatePath string) string {
 	parseRoot := filepath.Dir(validatePath)
 	if filepath.Base(parseRoot) == ".xcaffold" {
 		parseRoot = filepath.Dir(parseRoot)
 	}
+	return parseRoot
+}
 
-	// Header breadcrumb.
+// printValidateHeader prints the validation header.
+func printValidateHeader(parseRoot string) {
 	projectName := filepath.Base(parseRoot)
 	lastApplied := findLastApplied(parseRoot, validateBlueprintFlag)
 	fmt.Println(formatHeader(projectName, validateBlueprintFlag, false, targetFlag, lastApplied))
 	fmt.Println()
+}
 
+// reportHookErrors validates and reports hook directory issues.
+func reportHookErrors(cfg *ast.XcaffoldConfig, parseRoot string, hasErrors bool) bool {
+	hookErrors := validateHooksDirectory(cfg, parseRoot)
+	if len(hookErrors) > 0 {
+		fmt.Println()
+		fmt.Println("  hook directory issues:")
+		for _, e := range hookErrors {
+			fmt.Printf("    %s  %s\n", colorRed(glyphErr()), e)
+		}
+		return true
+	}
+	if len(cfg.Hooks) > 0 {
+		fmt.Printf("  %s  hook directories\n", colorGreen(glyphOK()))
+	}
+	return hasErrors
+}
+
+// reportStructuralWarnings validates and reports structural warnings.
+func reportStructuralWarnings(cfg *ast.XcaffoldConfig) []string {
+	structWarnings := runStructuralChecks(cfg)
+	if len(structWarnings) > 0 {
+		fmt.Println()
+		fmt.Println("  structural warnings:")
+		for _, w := range structWarnings {
+			fmt.Printf("    %s  %s\n", colorYellow(glyphSrc()), w)
+		}
+	} else {
+		fmt.Printf("  %s  structural checks\n", colorGreen(glyphOK()))
+	}
+	return structWarnings
+}
+
+// validateSyntax checks YAML syntax, schema, and cross-references.
+func validateSyntax(parseRoot, validatePath string) (*ast.XcaffoldConfig, []parser.CrossReferenceIssue, bool, error) {
 	cfg, crossRefIssues, err := parser.ParseDirectoryWithCrossRefWarnings(parseRoot, parser.WithSkipGlobal(), parser.WithVarFile(validateVarFileFlag))
 	if err != nil {
 		fmt.Printf("  %s  syntax and schema\n", colorRed(glyphErr()))
 		fmt.Println()
 		fmt.Printf("%s  Validation failed: %v\n", colorRed(glyphErr()), err)
-		return err
+		return nil, nil, false, err
 	}
 
 	// Tiered output: syntax and schema pass
@@ -110,10 +176,14 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	if hasErrors {
 		fmt.Println()
 		fmt.Printf("%s  Validation failed: diagnostics contain errors.\n", colorRed(glyphErr()))
-		return fmt.Errorf("validation failed: one or more error diagnostics")
+		return nil, nil, true, fmt.Errorf("validation failed: one or more error diagnostics")
 	}
 
-	// Skill directory structures.
+	return cfg, crossRefIssues, false, nil
+}
+
+// validateSkillDirs checks skill directory structures and artifacts.
+func validateSkillDirs(cfg *ast.XcaffoldConfig, parseRoot string, hasErrors *bool) []string {
 	xcafSkillsDir := filepath.Join(parseRoot, "xcaf", "skills")
 	if entries, dirErr := os.ReadDir(xcafSkillsDir); dirErr == nil {
 		skillDirCount := 0
@@ -144,131 +214,153 @@ func runValidate(cmd *cobra.Command, args []string) error {
 				}
 			}
 			if len(result.Errors) > 0 {
-				hasErrors = true
+				*hasErrors = true
 			}
 		}
 		if skillDirCount > 0 && !skillDirHasIssues {
 			fmt.Printf("  %s  skill directories\n", colorGreen(glyphOK()))
 		}
 	}
+	return nil
+}
 
-	// Hook directory structure.
-	hookErrors := validateHooksDirectory(cfg, parseRoot)
-	if len(hookErrors) > 0 {
-		fmt.Println()
-		fmt.Println("  hook directory issues:")
-		for _, e := range hookErrors {
-			fmt.Printf("    %s  %s\n", colorRed(glyphErr()), e)
-		}
-		hasErrors = true
-	} else if len(cfg.Hooks) > 0 {
-		fmt.Printf("  %s  hook directories\n", colorGreen(glyphOK()))
-	}
-
-	// Structural checks.
-	structWarnings := runStructuralChecks(cfg)
-	if len(structWarnings) > 0 {
-		fmt.Println()
-		fmt.Println("  structural warnings:")
-		for _, w := range structWarnings {
-			fmt.Printf("    %s  %s\n", colorYellow(glyphSrc()), w)
-		}
-	} else {
-		fmt.Printf("  %s  structural checks\n", colorGreen(glyphOK()))
-	}
-
-	// Policy evaluation (requires compilation).
+// validatePolicies evaluates policies and compiles the config.
+func validatePolicies(hasErrors bool, cfg *ast.XcaffoldConfig, parseRoot string) (
+	[]policy.Violation, []policy.Violation, bool, int, error) {
 	var policyWarnings, policyErrors []policy.Violation
-	policiesChecked := 0
 	fieldValidationRan := false
 	fieldValidationErrors := 0
-	if !hasErrors {
-		configSnapshot := deepCopyConfig(cfg)
-		compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, targetFlag, validateBlueprintFlag, validateVarFileFlag)
-		if compileErr != nil {
-			fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
-		} else {
-			filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag))
-			printFidelityNotes(os.Stderr, filteredNotes, verboseFlag)
-			if targetFlag != "" {
-				if err := checkFidelityErrors(filteredNotes); err != nil {
-					fmt.Println()
-					fmt.Printf("%s  Validation failed: %v\n", colorRed(glyphErr()), err)
-					return fmt.Errorf("validation failed: %s", err)
-				}
-				fieldValidationRan = true
-				for _, n := range filteredNotes {
-					if n.Level == renderer.LevelError {
-						fieldValidationErrors++
-					}
-				}
-				fmt.Printf("  %s  field validation (%s)\n", colorGreen(glyphOK()), targetFlag)
-			}
-			if errs := policy.RunInvariants(configSnapshot, compiled); len(errs) > 0 {
-				fmt.Println()
-				fmt.Println("  security invariant errors:")
-				for _, e := range errs {
-					fmt.Printf("    %s  %s\n", colorRed(glyphErr()), e)
-				}
-				fmt.Println()
-				fmt.Printf("%s  Validation failed: %d security invariant(s) violated.\n",
-					colorRed(glyphErr()), len(errs))
-				return fmt.Errorf("validation failed: %d security invariant(s) violated", len(errs))
-			}
-			violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
-			policyErrors = policy.FilterBySeverity(violations, policy.SeverityError)
-			policyWarnings = policy.FilterBySeverity(violations, policy.SeverityWarning)
-			policiesChecked = len(policyErrors) + len(policyWarnings)
 
-			if len(policyWarnings) > 0 && verboseFlag {
-				fmt.Println()
-				fmt.Println("  policy warnings:")
-				for _, v := range policyWarnings {
-					label := v.ResourceName
-					if label == "" {
-						label = v.FilePath
-					}
-					fmt.Printf("    %s  [%s] %s: %s\n", colorYellow(glyphSrc()), v.PolicyName, label, v.Message)
-				}
-			}
+	if hasErrors {
+		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, nil
+	}
 
-			if len(policyErrors) > 0 {
-				fmt.Println()
-				fmt.Println("  policy errors:")
-				for _, v := range policyErrors {
-					label := v.ResourceName
-					if label == "" {
-						label = v.FilePath
-					}
-					fmt.Printf("    %s  [%s] %s: %s\n", colorRed(glyphErr()), v.PolicyName, label, v.Message)
-				}
-				fmt.Println()
-				fmt.Printf("%s  Validation failed: %d policy %s found.\n",
-					colorRed(glyphErr()), len(policyErrors), plural(len(policyErrors), "error", "errors"))
-				return fmt.Errorf("validation failed: %d policy error(s) found", len(policyErrors))
-			}
+	configSnapshot := deepCopyConfig(cfg)
+	compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, targetFlag, validateBlueprintFlag, validateVarFileFlag)
+	if compileErr != nil {
+		fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
+		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, nil
+	}
 
-			var policyLabel string
-			if policiesChecked == 0 {
-				policyLabel = "policies (none configured)"
-			} else {
-				policyLabel = fmt.Sprintf("policies (%d checked", policiesChecked)
-				if len(policyWarnings) > 0 {
-					policyLabel += fmt.Sprintf(", %d %s", len(policyWarnings), plural(len(policyWarnings), "warning", "warnings"))
-				}
-				policyLabel += ")"
+	filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag))
+	printFidelityNotes(os.Stderr, filteredNotes, verboseFlag)
+
+	var err error
+	fieldValidationRan, fieldValidationErrors, err = validateFieldSupport(filteredNotes)
+	if err != nil {
+		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, err
+	}
+
+	err = checkPolicyInvariants(configSnapshot, compiled)
+	if err != nil {
+		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, err
+	}
+
+	violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
+	policyErrors = policy.FilterBySeverity(violations, policy.SeverityError)
+	policyWarnings = policy.FilterBySeverity(violations, policy.SeverityWarning)
+
+	err = reportPolicyFindings(policyWarnings, policyErrors)
+	if err != nil {
+		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, err
+	}
+
+	printPolicySummary(policyErrors, policyWarnings)
+	return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, nil
+}
+
+// validateFieldSupport checks field support for the target provider.
+func validateFieldSupport(filteredNotes []renderer.FidelityNote) (bool, int, error) {
+	if targetFlag == "" {
+		return false, 0, nil
+	}
+
+	if err := checkFidelityErrors(filteredNotes); err != nil {
+		fmt.Println()
+		fmt.Printf("%s  Validation failed: %v\n", colorRed(glyphErr()), err)
+		return false, 0, fmt.Errorf("validation failed: %s", err)
+	}
+
+	fieldValidationErrors := 0
+	for _, n := range filteredNotes {
+		if n.Level == renderer.LevelError {
+			fieldValidationErrors++
+		}
+	}
+	fmt.Printf("  %s  field validation (%s)\n", colorGreen(glyphOK()), targetFlag)
+	return true, fieldValidationErrors, nil
+}
+
+// checkPolicyInvariants validates security invariants.
+func checkPolicyInvariants(cfg *ast.XcaffoldConfig, compiled *output.Output) error {
+	errs := policy.RunInvariants(cfg, compiled)
+	if len(errs) == 0 {
+		return nil
+	}
+
+	fmt.Println()
+	fmt.Println("  security invariant errors:")
+	for _, e := range errs {
+		fmt.Printf("    %s  %s\n", colorRed(glyphErr()), e)
+	}
+	fmt.Println()
+	fmt.Printf("%s  Validation failed: %d security invariant(s) violated.\n",
+		colorRed(glyphErr()), len(errs))
+	return fmt.Errorf("validation failed: %d security invariant(s) violated", len(errs))
+}
+
+// reportPolicyFindings prints policy warnings and errors.
+func reportPolicyFindings(warnings, errors []policy.Violation) error {
+	if len(warnings) > 0 && verboseFlag {
+		fmt.Println()
+		fmt.Println("  policy warnings:")
+		for _, v := range warnings {
+			label := v.ResourceName
+			if label == "" {
+				label = v.FilePath
 			}
-			fmt.Printf("  %s  %s\n", colorGreen(glyphOK()), policyLabel)
+			fmt.Printf("    %s  [%s] %s: %s\n", colorYellow(glyphSrc()), v.PolicyName, label, v.Message)
 		}
 	}
 
-	if hasErrors {
-		fmt.Println()
-		fmt.Printf("%s  Validation failed: errors found.\n", colorRed(glyphErr()))
-		return fmt.Errorf("validation failed: one or more errors found")
+	if len(errors) == 0 {
+		return nil
 	}
 
-	// Footer.
+	fmt.Println()
+	fmt.Println("  policy errors:")
+	for _, v := range errors {
+		label := v.ResourceName
+		if label == "" {
+			label = v.FilePath
+		}
+		fmt.Printf("    %s  [%s] %s: %s\n", colorRed(glyphErr()), v.PolicyName, label, v.Message)
+	}
+	fmt.Println()
+	fmt.Printf("%s  Validation failed: %d policy %s found.\n",
+		colorRed(glyphErr()), len(errors), plural(len(errors), "error", "errors"))
+	return fmt.Errorf("validation failed: %d policy error(s) found", len(errors))
+}
+
+// printPolicySummary prints the policy validation summary.
+func printPolicySummary(errors, warnings []policy.Violation) {
+	policiesChecked := len(errors) + len(warnings)
+	var policyLabel string
+	if policiesChecked == 0 {
+		policyLabel = "policies (none configured)"
+	} else {
+		policyLabel = fmt.Sprintf("policies (%d checked", policiesChecked)
+		if len(warnings) > 0 {
+			policyLabel += fmt.Sprintf(", %d %s", len(warnings), plural(len(warnings), "warning", "warnings"))
+		}
+		policyLabel += ")"
+	}
+	fmt.Printf("  %s  %s\n", colorGreen(glyphOK()), policyLabel)
+}
+
+// printValidateSummary outputs the footer summary.
+func printValidateSummary(parseRoot string, structWarnings []string, policyWarnings []policy.Violation,
+	crossRefIssues []parser.CrossReferenceIssue, fieldValidationRan bool, fieldValidationErrors int) {
 	xcafFileCount := countXcafFiles(parseRoot)
 	totalWarnings := len(structWarnings) + len(policyWarnings) + len(crossRefIssues)
 	fmt.Println()
@@ -285,7 +377,6 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		fmt.Printf("%s  Validation passed.  %d .xcaf files checked.%s\n",
 			colorGreen(glyphOK()), xcafFileCount, fieldSuffix)
 	}
-	return nil
 }
 
 func findLastApplied(baseDir, blueprint string) string {

@@ -381,51 +381,19 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, caps renderer.Capabi
 		return "", nil, fmt.Errorf("rule id must not be empty")
 	}
 
-	body := resolver.StripFrontmatter(rule.Body)
-
-	var sb strings.Builder
-	var notes []renderer.FidelityNote
-
-	body = renderer.StripAllFrontmatter(body)
-
-	// Resolve effective activation.
+	body := renderer.StripAllFrontmatter(resolver.StripFrontmatter(rule.Body))
 	activation := renderer.ResolvedActivation(rule)
 
-	// Emit YAML frontmatter only when there is something to encode.
-	// IMPORTANT: frontmatter must be written FIRST — before any body or warning comment.
-	// Empty description + AlwaysOn → skip frontmatter entirely (no ---\n---\n noise).
-	needsFrontmatter := rule.Description != "" ||
-		activation == ast.RuleActivationPathGlob ||
-		activation == ast.RuleActivationModelDecided
-
-	if needsFrontmatter {
-		sb.WriteString("---\n")
-		sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
-		if !renderer.ValidateRuleActivation(rule, caps) {
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "rule", id, "activation",
-				renderer.CodeActivationDegraded,
-				fmt.Sprintf("activation %q lowers to standard rule injection for antigravity", activation),
-				"",
-			))
-		} else {
-			switch activation {
-			case ast.RuleActivationModelDecided:
-				sb.WriteString("trigger: model_decision\n")
-			case ast.RuleActivationPathGlob:
-				sb.WriteString("trigger: glob\n")
-				if len(rule.Paths.Values) > 0 {
-					fmt.Fprintf(&sb, "globs: %s\n", strings.Join(rule.Paths.Values, ","))
-				}
-			}
-		}
-		sb.WriteString("---\n\n")
-	}
+	var sb strings.Builder
+	fmNotes := buildAntigravityFrontmatter(&sb, id, rule, caps)
 
 	// Emit 12K warning comment AFTER frontmatter (so frontmatter stays at byte 0).
 	if len(body) > ruleCharLimit {
 		fmt.Fprintf(&sb, "<!-- WARNING: rule body exceeds the %d-character limit recommended for Antigravity rules. Consider splitting this rule into smaller, focused rules. -->\n\n", ruleCharLimit)
 	}
+
+	var notes []renderer.FidelityNote
+	notes = append(notes, fmNotes...)
 
 	// ManualMention and ExplicitInvoke have no frontmatter encoding in Antigravity.
 	// Emit a fidelity note directing the user to the Customizations panel.
@@ -448,6 +416,45 @@ func compileAntigravityRule(id string, rule ast.RuleConfig, caps renderer.Capabi
 	}
 
 	return sb.String(), notes, nil
+}
+
+// buildAntigravityFrontmatter writes the YAML frontmatter block into sb when
+// the rule requires one, and returns any activation-related fidelity notes.
+// Frontmatter is omitted when description is empty and activation is AlwaysOn,
+// to avoid emitting noise (---\n---\n). Frontmatter MUST appear at byte 0.
+func buildAntigravityFrontmatter(sb *strings.Builder, id string, rule ast.RuleConfig, caps renderer.CapabilitySet) []renderer.FidelityNote {
+	activation := renderer.ResolvedActivation(rule)
+	needsFrontmatter := rule.Description != "" ||
+		activation == ast.RuleActivationPathGlob ||
+		activation == ast.RuleActivationModelDecided
+	if !needsFrontmatter {
+		return nil
+	}
+
+	sb.WriteString("---\n")
+	sb.WriteString(renderer.BuildRuleDescriptionFrontmatter(rule, caps))
+
+	if !renderer.ValidateRuleActivation(rule, caps) {
+		sb.WriteString("---\n\n")
+		return []renderer.FidelityNote{renderer.NewNote(
+			renderer.LevelWarning, targetName, "rule", id, "activation",
+			renderer.CodeActivationDegraded,
+			fmt.Sprintf("activation %q lowers to standard rule injection for antigravity", activation),
+			"",
+		)}
+	}
+
+	switch activation {
+	case ast.RuleActivationModelDecided:
+		sb.WriteString("trigger: model_decision\n")
+	case ast.RuleActivationPathGlob:
+		sb.WriteString("trigger: glob\n")
+		if len(rule.Paths.Values) > 0 {
+			fmt.Fprintf(sb, "globs: %s\n", strings.Join(rule.Paths.Values, ","))
+		}
+	}
+	sb.WriteString("---\n\n")
+	return nil
 }
 
 // compileAntigravitySkill renders a single SkillConfig to a skills/<id>/SKILL.md file.

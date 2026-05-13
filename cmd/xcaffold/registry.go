@@ -41,47 +41,62 @@ func runRegistry(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, p := range projects {
-		targets := "none"
-		if len(p.Targets) > 0 {
-			targets = strings.Join(p.Targets, ", ")
-		}
-
-		var resInfo string
-		var xcafProjectPath string
-		if _, err := os.Stat(filepath.Join(p.Path, "project.xcaf")); err == nil {
-			xcafProjectPath = filepath.Join(p.Path, "project.xcaf")
-		}
-
-		if xcafProjectPath != "" {
-			if cfg, err := parser.ParseDirectory(getParseRoot(xcafProjectPath)); err == nil {
-				resInfo = fmt.Sprintf("    resources: %d agents, %d skills, %d rules", len(cfg.Agents), len(cfg.Skills), len(cfg.Rules))
-			} else {
-				resInfo = "    resources: parse error"
-			}
-		} else {
-			resInfo = "    resources: not found (project.xcaf missing)"
-		}
-
-		lastApplied := "never"
-		if !p.LastApplied.IsZero() {
-			val := p.LastApplied.Local()
-			if time.Since(val).Hours() < 24 {
-				lastApplied = "today at " + val.Format("15:04")
-			} else if time.Since(val).Hours() < 48 {
-				lastApplied = "yesterday"
-			} else {
-				lastApplied = val.Format("2006-01-02 15:04")
-			}
-		}
-
-		cmd.Printf("  ● \033[1m%s\033[0m (%s)\n", p.Name, p.Path)
-		cmd.Printf("    targets: %s\n", targets)
-		cmd.Printf("%s\n", resInfo)
-		cmd.Printf("    last applied: %s\n", lastApplied)
-		cmd.Println()
+		printProjectRegistry(cmd, &p)
 	}
 
-	// Show global info
+	printGlobalRegistry(cmd)
+	cmd.Println()
+	cmd.Printf("  %d projects registered.\n", len(projects))
+
+	return nil
+}
+
+// printProjectRegistry outputs a single project entry.
+func printProjectRegistry(cmd *cobra.Command, p *registry.Project) {
+	targets := "none"
+	if len(p.Targets) > 0 {
+		targets = strings.Join(p.Targets, ", ")
+	}
+
+	resInfo := getProjectResourceInfo(p)
+	lastApplied := formatLastApplied(p.LastApplied)
+
+	cmd.Printf("  ● \033[1m%s\033[0m (%s)\n", p.Name, p.Path)
+	cmd.Printf("    targets: %s\n", targets)
+	cmd.Printf("%s\n", resInfo)
+	cmd.Printf("    last applied: %s\n", lastApplied)
+	cmd.Println()
+}
+
+// getProjectResourceInfo retrieves resource count for a project.
+func getProjectResourceInfo(p *registry.Project) string {
+	xcafPath := filepath.Join(p.Path, "project.xcaf")
+	if _, err := os.Stat(xcafPath); err != nil {
+		return "    resources: not found (project.xcaf missing)"
+	}
+	if cfg, err := parser.ParseDirectory(getParseRoot(xcafPath)); err == nil {
+		return fmt.Sprintf("    resources: %d agents, %d skills, %d rules", len(cfg.Agents), len(cfg.Skills), len(cfg.Rules))
+	}
+	return "    resources: parse error"
+}
+
+// formatLastApplied formats the last applied timestamp.
+func formatLastApplied(t time.Time) string {
+	if t.IsZero() {
+		return "never"
+	}
+	val := t.Local()
+	if time.Since(val).Hours() < 24 {
+		return "today at " + val.Format("15:04")
+	}
+	if time.Since(val).Hours() < 48 {
+		return "yesterday"
+	}
+	return val.Format("2006-01-02 15:04")
+}
+
+// printGlobalRegistry outputs the global registry info.
+func printGlobalRegistry(cmd *cobra.Command) {
 	cmd.Printf("  GLOBAL (%s)\n", globalXcafPath)
 	if _, err := os.Stat(globalXcafPath); err == nil {
 		if cfg, err := parser.ParseDirectory(getParseRoot(globalXcafPath)); err == nil {
@@ -89,14 +104,13 @@ func runRegistry(cmd *cobra.Command, args []string) error {
 		} else {
 			cmd.Printf("    resources: parse error\n")
 		}
-	} else if os.IsNotExist(err) {
-		cmd.Printf("    resources: none (not initialized)\n")
-	} else if _, isPathErr := err.(*fs.PathError); isPathErr {
+	} else if os.IsNotExist(err) || isFSPathError(err) {
 		cmd.Printf("    resources: none (not initialized)\n")
 	}
+}
 
-	cmd.Println()
-	cmd.Printf("  %d projects registered.\n", len(projects))
-
-	return nil
+// isFSPathError checks if an error is a filesystem path error.
+func isFSPathError(err error) bool {
+	_, isPathErr := err.(*fs.PathError)
+	return isPathErr
 }

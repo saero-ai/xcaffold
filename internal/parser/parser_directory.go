@@ -147,66 +147,23 @@ var canonicalKindFilenames = map[string]bool{
 }
 
 func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig, vars map[string]interface{}, envs map[string]string) (*ast.XcaffoldConfig, error) {
-	var files []string
-	var overrideFiles []overrideFileEntry
-	ignored := newParseFilter(dir)
-	providerDir := filepath.Join("xcaf", "provider")
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			name := d.Name()
-			if path != dir && (strings.HasPrefix(name, ".") || ignored[name]) {
-				return filepath.SkipDir
-			}
-			if rel, relErr := filepath.Rel(dir, path); relErr == nil && rel == providerDir {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if strings.HasSuffix(d.Name(), ".xcaf") {
-			if kind, provider, ok := classifyOverrideFile(d.Name()); ok {
-				if !providers.IsRegistered(provider) {
-					return fmt.Errorf("override file %s: unknown provider %q; valid providers: %s", d.Name(), provider, strings.Join(providers.RegisteredNames(), ", "))
-				}
-				overrideFiles = append(overrideFiles, overrideFileEntry{
-					Path:     path,
-					Kind:     kind,
-					Provider: provider,
-				})
-			} else if isParseableFile(path) {
-				files = append(files, path)
-			}
-		}
-		return nil
-	})
+	files, overrideFiles, err := scanDirectoryForXcafFiles(dir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan directory %q: %w", dir, err)
+		return nil, err
 	}
 
 	if len(files) == 0 {
 		return nil, fmt.Errorf("no *.xcaf files found in directory %q", dir)
 	}
 
-	var parsedFiles []ParsedFile
-	for _, f := range files {
-		cfg, err := ParseFileExact(f, withVars(vars), withEnvs(envs))
-		if err != nil {
-			return nil, err
-		}
-		parsedFiles = append(parsedFiles, ParsedFile{Config: cfg, FilePath: f})
+	parsedFiles, err := parseXcafFiles(files, vars, envs)
+	if err != nil {
+		return nil, err
 	}
 
-	var globalConfig *ast.XcaffoldConfig
-	if dirOpts.skipGlobal {
-		globalConfig = &ast.XcaffoldConfig{}
-	} else {
-		var loadErr error
-		globalConfig, loadErr = loadGlobalBase()
-		if loadErr != nil {
-			return nil, fmt.Errorf("failed to load implicit global configuration: %w", loadErr)
-		}
+	globalConfig, err := loadGlobalConfigBase(dirOpts)
+	if err != nil {
+		return nil, err
 	}
 
 	merged, err := mergeAllStrict(parsedFiles)
@@ -243,11 +200,13 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig, vars map[stri
 	return merged, nil
 }
 
-func parseDirectoryRaw(dir string, vars map[string]interface{}, envs map[string]string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
+// scanDirectoryForXcafFiles walks the directory and collects .xcaf files and override files.
+func scanDirectoryForXcafFiles(dir string) ([]string, []overrideFileEntry, error) {
 	var files []string
 	var overrideFiles []overrideFileEntry
 	ignored := newParseFilter(dir)
 	providerDir := filepath.Join("xcaf", "provider")
+
 	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -279,13 +238,14 @@ func parseDirectoryRaw(dir string, vars map[string]interface{}, envs map[string]
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to scan directory %q: %w", dir, err)
+		return nil, nil, fmt.Errorf("failed to scan directory %q: %w", dir, err)
 	}
 
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no *.xcaf files found in directory %q", dir)
-	}
+	return files, overrideFiles, nil
+}
 
+// parseXcafFiles parses a list of .xcaf file paths into ParsedFile structs.
+func parseXcafFiles(files []string, vars map[string]interface{}, envs map[string]string) ([]ParsedFile, error) {
 	var parsedFiles []ParsedFile
 	for _, f := range files {
 		cfg, err := ParseFileExact(f, withVars(vars), withEnvs(envs))
@@ -293,6 +253,35 @@ func parseDirectoryRaw(dir string, vars map[string]interface{}, envs map[string]
 			return nil, err
 		}
 		parsedFiles = append(parsedFiles, ParsedFile{Config: cfg, FilePath: f})
+	}
+	return parsedFiles, nil
+}
+
+// loadGlobalConfigBase loads the implicit global configuration or returns an empty config.
+func loadGlobalConfigBase(dirOpts parseDirConfig) (*ast.XcaffoldConfig, error) {
+	if dirOpts.skipGlobal {
+		return &ast.XcaffoldConfig{}, nil
+	}
+	globalConfig, err := loadGlobalBase()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load implicit global configuration: %w", err)
+	}
+	return globalConfig, nil
+}
+
+func parseDirectoryRaw(dir string, vars map[string]interface{}, envs map[string]string, opts ...parseOptionFunc) (*ast.XcaffoldConfig, error) {
+	files, overrideFiles, err := scanDirectoryForXcafFiles(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no *.xcaf files found in directory %q", dir)
+	}
+
+	parsedFiles, err := parseXcafFiles(files, vars, envs)
+	if err != nil {
+		return nil, err
 	}
 
 	merged, err := mergeAllStrict(parsedFiles)

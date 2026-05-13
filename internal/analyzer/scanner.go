@@ -38,6 +38,37 @@ var ignoreDirs = map[string]bool{
 	".vercel":      true,
 }
 
+// processScanDir handles a directory entry during the project walk.
+// It returns fs.SkipDir when the directory should not be descended into.
+func processScanDir(path string, d fs.DirEntry, depth int, sig *ProjectSignature) error {
+	base := d.Name()
+	if ignoreDirs[base] {
+		return fs.SkipDir
+	}
+	// Only walk exactly 1 directory deep to see top-level subfolders (src, cmd, pkg).
+	if depth >= 2 {
+		return fs.SkipDir
+	}
+	sig.Files = append(sig.Files, path+"/")
+	return nil
+}
+
+// processScanFile handles a file entry during the project walk.
+func processScanFile(fsys fs.FS, path string, d fs.DirEntry, sig *ProjectSignature) {
+	sig.Files = append(sig.Files, path)
+	base := d.Name()
+	if targetManifests[base] || strings.HasSuffix(path, ".yml") || strings.HasSuffix(path, ".yaml") {
+		content := readTruncated(fsys, path, 5000)
+		if content != "" {
+			sig.DependencyManifests[path] = content
+		}
+	}
+	if base == "CLAUDE.md" && sig.ProviderConfig == "" {
+		// Only capture the first (shallowest) CLAUDE.md encountered.
+		sig.ProviderConfig = readTruncated(fsys, path, 5000)
+	}
+}
+
 // ScanProject walks the provided filesystem (usually the repository root)
 // and extracts a dense, deterministic signature of the project architecture
 // without reading source code logic.
@@ -51,7 +82,6 @@ func ScanProject(fsys fs.FS) (*ProjectSignature, error) {
 		if err != nil {
 			return err
 		}
-
 		if path == "." {
 			return nil
 		}
@@ -60,54 +90,21 @@ func ScanProject(fsys fs.FS) (*ProjectSignature, error) {
 		depth := strings.Count(filepath.ToSlash(path), "/") + 1
 
 		if d.IsDir() {
-			base := d.Name()
-			// Fast prune ignored directories
-			if ignoreDirs[base] {
-				return fs.SkipDir
-			}
-			// Only walk exactly 1 directory deep to see top-level subfolders (src, cmd, pkg).
-			// We skip drilling into the subfolders themselves.
-			if depth >= 2 {
-				return fs.SkipDir
-			}
-			sig.Files = append(sig.Files, path+"/")
-			return nil
+			return processScanDir(path, d, depth, sig)
 		}
 
 		// Only record root files and files inside exactly 1 level of subdirectories
-		// (e.g. .github/workflows/main.yml would be depth 3 and skipped)
+		// (e.g. .github/workflows/main.yml would be depth 3 and skipped).
 		if depth > 2 {
 			return nil
 		}
-
-		// If it's a file, add to the structure array
-		sig.Files = append(sig.Files, path)
-
-		base := d.Name()
-		if targetManifests[base] || strings.HasSuffix(path, ".yml") || strings.HasSuffix(path, ".yaml") {
-			// Read constraints: grab manifest files or root-level YAMLs (CI config)
-			content := readTruncated(fsys, path, 5000)
-			if content != "" {
-				sig.DependencyManifests[path] = content
-			}
-		}
-
-		if base == "CLAUDE.md" {
-			// Only capture the first (shallowest) CLAUDE.md encountered.
-			// The walker visits root before subdirectories, so this preserves
-			// the project-root file and ignores any src/CLAUDE.md etc.
-			if sig.ProviderConfig == "" {
-				sig.ProviderConfig = readTruncated(fsys, path, 5000)
-			}
-		}
-
+		processScanFile(fsys, path, d, sig)
 		return nil
 	})
 
 	if err != nil {
 		return nil, err
 	}
-
 	return sig, nil
 }
 

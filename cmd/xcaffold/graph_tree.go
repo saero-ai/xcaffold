@@ -254,90 +254,94 @@ func renderAgentTree(cfg *ast.XcaffoldConfig, parseRoot string) {
 	for _, id := range agentIDs {
 		agent := cfg.Agents[id]
 		fmt.Printf("\n  ● %s\n", id)
-		hasAssociations := false
 
-		// Print capabilities if any
 		if len(agent.Tools.Values) > 0 || len(agent.DisallowedTools.Values) > 0 {
-			hasAssociations = true
-			fmt.Printf("  │   tools    ")
-			for _, t := range agent.Tools.Values {
-				fmt.Printf("%s  ", t)
-			}
-			fmt.Printf("\n")
+			printAgentTools(agent.Tools.Values)
 		}
 
 		memEntries := agentMemoryEntries(parseRoot, id)
+		blocks := buildAgentBlocks(agent, memEntries)
 
-		var blocks []string
-		if len(agent.Skills.Values) > 0 {
-			blocks = append(blocks, "skills")
-		}
-		if len(agent.Rules.Values) > 0 {
-			blocks = append(blocks, "rules")
-		}
-		if len(agent.MCP.Values) > 0 {
-			blocks = append(blocks, "mcp")
-		}
-		if len(memEntries) > 0 {
-			blocks = append(blocks, "memory")
-		}
-
-		for bIdx, block := range blocks {
-			hasAssociations = true
-			isLastBlock := bIdx == len(blocks)-1
-			blockConnector := "├──"
-			childPrefix := "│    "
-			if isLastBlock {
-				blockConnector = "└──"
-				childPrefix = "     "
-			}
-
-			fmt.Printf("  │\n  %s %s", blockConnector, block)
-			if block == "memory" {
-				fmt.Printf("  (%d %s)\n", len(memEntries), pluralize("entry", "entries", len(memEntries)))
-			} else {
-				fmt.Printf("\n")
-			}
-
-			switch block {
-			case "skills":
-				for i, s := range agent.Skills.Values {
-					connector := "├──"
-					if i == len(agent.Skills.Values)-1 {
-						connector = "└──"
-					}
-					fmt.Printf("  %s %s %s\n", childPrefix, connector, s)
-				}
-			case "rules":
-				for i, r := range agent.Rules.Values {
-					connector := "├──"
-					if i == len(agent.Rules.Values)-1 {
-						connector = "└──"
-					}
-					fmt.Printf("  %s %s %s\n", childPrefix, connector, r)
-				}
-			case "mcp":
-				for i, m := range agent.MCP.Values {
-					connector := "├──"
-					if i == len(agent.MCP.Values)-1 {
-						connector = "└──"
-					}
-					fmt.Printf("  %s %s %s\n", childPrefix, connector, m)
-				}
-			case "memory":
-				for i, e := range memEntries {
-					connector := "├──"
-					if i == len(memEntries)-1 {
-						connector = "└──"
-					}
-					fmt.Printf("  %s %s %s\n", childPrefix, connector, e)
-				}
-			}
-		}
-
-		if !hasAssociations {
+		hasAssociations := len(blocks) > 0
+		if hasAssociations {
+			renderAgentBlocks(blocks, agent, memEntries)
+		} else {
 			fmt.Printf("      (no skill, rule, mcp, or memory associations)\n")
 		}
+	}
+}
+
+// printAgentTools outputs the tools associated with an agent.
+func printAgentTools(tools []string) {
+	fmt.Printf("  │   tools    ")
+	for _, t := range tools {
+		fmt.Printf("%s  ", t)
+	}
+	fmt.Printf("\n")
+}
+
+// buildAgentBlocks constructs a list of block names for an agent's associations.
+func buildAgentBlocks(agent ast.AgentConfig, memEntries []string) []string {
+	var blocks []string
+	if len(agent.Skills.Values) > 0 {
+		blocks = append(blocks, "skills")
+	}
+	if len(agent.Rules.Values) > 0 {
+		blocks = append(blocks, "rules")
+	}
+	if len(agent.MCP.Values) > 0 {
+		blocks = append(blocks, "mcp")
+	}
+	if len(memEntries) > 0 {
+		blocks = append(blocks, "memory")
+	}
+	return blocks
+}
+
+// renderAgentBlocks renders all blocks for an agent's associations.
+func renderAgentBlocks(blocks []string, agent ast.AgentConfig, memEntries []string) {
+	for bIdx, block := range blocks {
+		isLastBlock := bIdx == len(blocks)-1
+		blockConnector := "├──"
+		childPrefix := "│    "
+		if isLastBlock {
+			blockConnector = "└──"
+			childPrefix = "     "
+		}
+
+		fmt.Printf("  │\n  %s %s", blockConnector, block)
+		if block == "memory" {
+			fmt.Printf("  (%d %s)\n", len(memEntries), pluralize("entry", "entries", len(memEntries)))
+		} else {
+			fmt.Printf("\n")
+		}
+
+		renderBlockEntries(block, childPrefix, agent, memEntries)
+	}
+}
+
+// renderBlockEntries renders the entries within a block (skills, rules, mcp, memory).
+func renderBlockEntries(blockType string, childPrefix string, agent ast.AgentConfig, memEntries []string) {
+	switch blockType {
+	case "skills":
+		renderItemList(childPrefix, agent.Skills.Values)
+	case "rules":
+		renderItemList(childPrefix, agent.Rules.Values)
+	case "mcp":
+		renderItemList(childPrefix, agent.MCP.Values)
+	case "memory":
+		renderItemList(childPrefix, memEntries)
+	}
+}
+
+// renderItemList renders a list of items with tree connectors.
+func renderItemList(prefix string, items []string) {
+	for i, item := range items {
+		connector := "├──"
+		if i == len(items)-1 {
+			connector = "└──"
+		}
+		fmt.Printf("  %s %s %s\n", prefix, connector, item)
 	}
 }
 

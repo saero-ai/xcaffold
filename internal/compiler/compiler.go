@@ -41,45 +41,14 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 		return nil, nil, fmt.Errorf("attribute resolution failed: %w", err)
 	}
 
-	// Load variables for DiscoverAgentMemory expansion
-	vars, err := parser.LoadVariableStack(baseDir, target, varFile)
+	vars, envs, err := loadVarsAndEnvs(baseDir, target, varFile, config)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load variables: %w", err)
-	}
-	var envs map[string]string
-	if config.Project != nil {
-		envs = parser.LoadEnv(config.Project.AllowedEnvVars)
+		return nil, nil, err
 	}
 
-	// Blueprint resolution: resolve extends chains and transitive deps before filtering.
-	if len(config.Blueprints) > 0 {
-		if err := blueprint.ResolveBlueprintExtends(config.Blueprints); err != nil {
-			return nil, nil, fmt.Errorf("blueprint extends resolution failed: %w", err)
-		}
-		if errs := blueprint.ValidateBlueprintRefs(config.Blueprints, &config.ResourceScope); len(errs) > 0 {
-			msgs := make([]string, len(errs))
-			for i, e := range errs {
-				msgs[i] = e.Error()
-			}
-			return nil, nil, fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
-		}
-	}
-	if blueprintName != "" {
-		if p, ok := config.Blueprints[blueprintName]; ok {
-			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
-				return nil, nil, fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
-			}
-			config.Blueprints[blueprintName] = p
-		}
-	}
-
-	// Blueprint filtering: narrow the resource scope to the named blueprint's subset.
-	if blueprintName != "" {
-		var err error
-		config, err = blueprint.ApplyBlueprint(config, blueprintName)
-		if err != nil {
-			return nil, nil, fmt.Errorf("blueprint filter failed: %w", err)
-		}
+	config, err = applyBlueprintPhase(config, blueprintName)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	r, err := ResolveRenderer(target)
@@ -97,9 +66,7 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 	}
 
 	overrideNotes := resolveTargetOverrides(config, target)
-
 	config.Memory = DiscoverAgentMemory(baseDir, vars, envs)
-
 	config.StripInherited()
 
 	out, fidelityNotes, err := renderer.Orchestrate(r, config, baseDir)
@@ -107,6 +74,53 @@ func Compile(config *ast.XcaffoldConfig, baseDir string, target string, blueprin
 		return nil, nil, err
 	}
 	return out, append(overrideNotes, fidelityNotes...), nil
+}
+
+// loadVarsAndEnvs loads the variable stack and environment variables for a
+// compilation run. vars feeds DiscoverAgentMemory expansion; envs is sourced
+// from the project's allowed-env-vars list when a project block is present.
+func loadVarsAndEnvs(baseDir, target, varFile string, config *ast.XcaffoldConfig) (map[string]interface{}, map[string]string, error) {
+	vars, err := parser.LoadVariableStack(baseDir, target, varFile)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load variables: %w", err)
+	}
+	var envs map[string]string
+	if config.Project != nil {
+		envs = parser.LoadEnv(config.Project.AllowedEnvVars)
+	}
+	return vars, envs, nil
+}
+
+// applyBlueprintPhase resolves blueprint extends chains, validates refs, resolves
+// transitive deps, and narrows the config to the named blueprint's resource subset.
+// When blueprintName is empty the config is returned unchanged.
+func applyBlueprintPhase(config *ast.XcaffoldConfig, blueprintName string) (*ast.XcaffoldConfig, error) {
+	if len(config.Blueprints) > 0 {
+		if err := blueprint.ResolveBlueprintExtends(config.Blueprints); err != nil {
+			return nil, fmt.Errorf("blueprint extends resolution failed: %w", err)
+		}
+		if errs := blueprint.ValidateBlueprintRefs(config.Blueprints, &config.ResourceScope); len(errs) > 0 {
+			msgs := make([]string, len(errs))
+			for i, e := range errs {
+				msgs[i] = e.Error()
+			}
+			return nil, fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
+		}
+	}
+	if blueprintName != "" {
+		if p, ok := config.Blueprints[blueprintName]; ok {
+			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
+				return nil, fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
+			}
+			config.Blueprints[blueprintName] = p
+		}
+		var err error
+		config, err = blueprint.ApplyBlueprint(config, blueprintName)
+		if err != nil {
+			return nil, fmt.Errorf("blueprint filter failed: %w", err)
+		}
+	}
+	return config, nil
 }
 
 // ResolveRenderer returns the TargetRenderer for the given target name.
@@ -153,6 +167,12 @@ func OutputDir(target string) string {
 	return r.OutputDir()
 }
 
+// memoryScanner holds the expansion context used when walking agent memory dirs.
+type memoryScanner struct {
+	vars map[string]interface{}
+	envs map[string]string
+}
+
 // DiscoverAgentMemory walks xcaf/agents/<id>/memory/ directories to discover
 // memory entries from .md files. Returns a mapping of "agentID/memName" -> MemoryConfig.
 // MEMORY.md index files and non-.md files are skipped. Optional YAML frontmatter
@@ -167,74 +187,78 @@ func DiscoverAgentMemory(baseDir string, vars map[string]interface{}, envs map[s
 		return result
 	}
 
+	ms := memoryScanner{vars: vars, envs: envs}
 	for _, agentEntry := range agentEntries {
 		if !agentEntry.IsDir() {
 			continue
 		}
 		agentID := agentEntry.Name()
 		memDir := filepath.Join(agentsDir, agentID, "memory")
+		ms.scanDir(agentID, memDir, result)
+	}
+	return result
+}
 
-		memFiles, err := os.ReadDir(memDir)
+// scanDir reads all eligible .md files from memDir and adds entries to result
+// keyed by "agentID/stem".
+func (ms memoryScanner) scanDir(agentID, memDir string, result map[string]ast.MemoryConfig) {
+	memFiles, err := os.ReadDir(memDir)
+	if err != nil {
+		return
+	}
+	for _, memFile := range memFiles {
+		if memFile.IsDir() {
+			continue
+		}
+		fname := memFile.Name()
+		if !strings.HasSuffix(fname, ".md") || fname == "MEMORY.md" {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(memDir, fname))
 		if err != nil {
 			continue
 		}
-
-		for _, memFile := range memFiles {
-			if memFile.IsDir() {
-				continue
+		if len(ms.vars) > 0 || len(ms.envs) > 0 {
+			if expanded, expErr := resolver.ExpandVariables(data, ms.vars, ms.envs); expErr == nil {
+				data = expanded
 			}
-			fname := memFile.Name()
-			if !strings.HasSuffix(fname, ".md") || fname == "MEMORY.md" {
-				continue
-			}
+		}
+		stem := strings.TrimSuffix(fname, ".md")
+		result[agentID+"/"+stem] = buildMemoryConfig(agentID, stem, data)
+	}
+}
 
-			data, err := os.ReadFile(filepath.Join(memDir, fname))
-			if err != nil {
-				continue
-			}
+// buildMemoryConfig constructs a MemoryConfig from raw file bytes. It parses
+// optional YAML frontmatter for name/description; absent fields fall back to
+// the stem and the first line of content (truncated to 120 runes).
+func buildMemoryConfig(agentID, stem string, data []byte) ast.MemoryConfig {
+	name := stem
+	desc := ""
+	content := string(data)
 
-			// Expand variables in memory content
-			if len(vars) > 0 || len(envs) > 0 {
-				expanded, err := resolver.ExpandVariables(data, vars, envs)
-				if err == nil {
-					data = expanded
-				}
-			}
-
-			stem := strings.TrimSuffix(fname, ".md")
-			name := stem
-			desc := ""
-			content := string(data)
-
-			var front struct {
-				Name        string `yaml:"name"`
-				Description string `yaml:"description"`
-			}
-			if body, fmErr := parseFrontmatter(data, &front); fmErr == nil && front.Name != "" {
-				name = front.Name
-				desc = front.Description
-				content = body
-			} else {
-				lines := strings.SplitN(strings.TrimSpace(content), "\n", 2)
-				if len(lines) > 0 {
-					desc = strings.TrimSpace(lines[0])
-					runes := []rune(desc)
-					if len(runes) > 120 {
-						desc = string(runes[:120])
-					}
-				}
-			}
-
-			key := agentID + "/" + stem
-			result[key] = ast.MemoryConfig{
-				Name:        name,
-				Description: desc,
-				Content:     content,
-				AgentRef:    agentID,
+	var front struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+	}
+	if body, fmErr := parseFrontmatter(data, &front); fmErr == nil && front.Name != "" {
+		name = front.Name
+		desc = front.Description
+		content = body
+	} else {
+		lines := strings.SplitN(strings.TrimSpace(content), "\n", 2)
+		if len(lines) > 0 {
+			desc = strings.TrimSpace(lines[0])
+			if runes := []rune(desc); len(runes) > 120 {
+				desc = string(runes[:120])
 			}
 		}
 	}
-	return result
+	return ast.MemoryConfig{
+		Name:        name,
+		Description: desc,
+		Content:     content,
+		AgentRef:    agentID,
+	}
 }
 
 // parseFrontmatter splits optional YAML frontmatter (delimited by "---\n") from

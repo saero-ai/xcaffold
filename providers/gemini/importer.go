@@ -111,43 +111,36 @@ func (g *GeminiImporter) Import(dir string, config *ast.XcaffoldConfig) error {
 
 // --- per-kind extractors ---
 
-func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
-	var front struct {
-		Name                   string                        `yaml:"name"`
-		Description            string                        `yaml:"description"`
-		Model                  string                        `yaml:"model"`
-		Effort                 string                        `yaml:"effort"`
-		MaxTurns               int                           `yaml:"max-turns"`
-		Mode                   string                        `yaml:"mode"`
-		Tools                  []string                      `yaml:"tools"`
-		DisallowedTools        []string                      `yaml:"disallowed-tools"`
-		PermissionMode         string                        `yaml:"permission-mode"`
-		Background             *bool                         `yaml:"background"`
-		Isolation              string                        `yaml:"isolation"`
-		When                   string                        `yaml:"when"`
-		Memory                 string                        `yaml:"memory"`
-		Color                  string                        `yaml:"color"`
-		InitialPrompt          string                        `yaml:"initial-prompt"`
-		Skills                 []string                      `yaml:"skills"`
-		Rules                  []string                      `yaml:"rules"`
-		MCP                    []string                      `yaml:"mcp"`
-		Assertions             []string                      `yaml:"assertions"`
-		Targets                map[string]ast.TargetOverride `yaml:"targets"`
-		DisableModelInvocation *bool                         `yaml:"disable-model-invocation"`
-		UserInvocable          *bool                         `yaml:"user-invocable"`
-		Readonly               *bool                         `yaml:"readonly"`
-	}
+// agentFrontmatter is the frontmatter schema for Gemini agent files.
+type agentFrontmatter struct {
+	Name                   string                        `yaml:"name"`
+	Description            string                        `yaml:"description"`
+	Model                  string                        `yaml:"model"`
+	Effort                 string                        `yaml:"effort"`
+	MaxTurns               int                           `yaml:"max-turns"`
+	Mode                   string                        `yaml:"mode"`
+	Tools                  []string                      `yaml:"tools"`
+	DisallowedTools        []string                      `yaml:"disallowed-tools"`
+	PermissionMode         string                        `yaml:"permission-mode"`
+	Background             *bool                         `yaml:"background"`
+	Isolation              string                        `yaml:"isolation"`
+	When                   string                        `yaml:"when"`
+	Memory                 string                        `yaml:"memory"`
+	Color                  string                        `yaml:"color"`
+	InitialPrompt          string                        `yaml:"initial-prompt"`
+	Skills                 []string                      `yaml:"skills"`
+	Rules                  []string                      `yaml:"rules"`
+	MCP                    []string                      `yaml:"mcp"`
+	Assertions             []string                      `yaml:"assertions"`
+	Targets                map[string]ast.TargetOverride `yaml:"targets"`
+	DisableModelInvocation *bool                         `yaml:"disable-model-invocation"`
+	UserInvocable          *bool                         `yaml:"user-invocable"`
+	Readonly               *bool                         `yaml:"readonly"`
+}
 
-	body, err := importer.ParseFrontmatter(data, &front)
-	if err != nil {
-		return fmt.Errorf("gemini: agent %q: %w", rel, err)
-	}
-
-	id := strings.TrimSuffix(filepath.Base(rel), ".md")
-	if config.Agents == nil {
-		config.Agents = make(map[string]ast.AgentConfig)
-	}
-	config.Agents[id] = ast.AgentConfig{
+// buildAgentConfig constructs an AST AgentConfig from frontmatter and body.
+func buildAgentConfig(front *agentFrontmatter, body string) ast.AgentConfig {
+	return ast.AgentConfig{
 		Name:                   front.Name,
 		Description:            front.Description,
 		Model:                  front.Model,
@@ -172,6 +165,20 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Body:                   body,
 		SourceProvider:         "gemini",
 	}
+}
+
+func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
+	var front agentFrontmatter
+	body, err := importer.ParseFrontmatter(data, &front)
+	if err != nil {
+		return fmt.Errorf("gemini: agent %q: %w", rel, err)
+	}
+
+	id := strings.TrimSuffix(filepath.Base(rel), ".md")
+	if config.Agents == nil {
+		config.Agents = make(map[string]ast.AgentConfig)
+	}
+	config.Agents[id] = buildAgentConfig(&front, body)
 	return nil
 }
 

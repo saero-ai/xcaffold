@@ -659,6 +659,109 @@ func parseSettingsDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inf
 }
 
 // parseGlobalDocument decodes and stores a global document.
+// mergeAgents adds agents from doc to config, checking for duplicates.
+func mergeAgents(config *ast.XcaffoldConfig, agents map[string]ast.AgentConfig) error {
+	if config.Agents == nil {
+		config.Agents = make(map[string]ast.AgentConfig)
+	}
+	for k, v := range agents {
+		if _, exists := config.Agents[k]; exists {
+			return fmt.Errorf("duplicate agent ID %q", k)
+		}
+		config.Agents[k] = v
+	}
+	return nil
+}
+
+// mergeSkills adds skills from doc to config, checking for duplicates.
+func mergeSkills(config *ast.XcaffoldConfig, skills map[string]ast.SkillConfig) error {
+	if config.Skills == nil {
+		config.Skills = make(map[string]ast.SkillConfig)
+	}
+	for k, v := range skills {
+		if _, exists := config.Skills[k]; exists {
+			return fmt.Errorf("duplicate skill ID %q", k)
+		}
+		config.Skills[k] = v
+	}
+	return nil
+}
+
+// mergeRules adds rules from doc to config, checking for duplicates.
+func mergeRules(config *ast.XcaffoldConfig, rules map[string]ast.RuleConfig) error {
+	if config.Rules == nil {
+		config.Rules = make(map[string]ast.RuleConfig)
+	}
+	for k, v := range rules {
+		if _, exists := config.Rules[k]; exists {
+			return fmt.Errorf("duplicate rule ID %q", k)
+		}
+		config.Rules[k] = v
+	}
+	return nil
+}
+
+// mergeWorkflows adds workflows from doc to config, checking for duplicates.
+func mergeWorkflows(config *ast.XcaffoldConfig, workflows map[string]ast.WorkflowConfig) error {
+	if config.Workflows == nil {
+		config.Workflows = make(map[string]ast.WorkflowConfig)
+	}
+	for k, v := range workflows {
+		if _, exists := config.Workflows[k]; exists {
+			return fmt.Errorf("duplicate workflow ID %q", k)
+		}
+		config.Workflows[k] = v
+	}
+	return nil
+}
+
+// mergeMCPs adds MCPs from doc to config, checking for duplicates.
+func mergeMCPs(config *ast.XcaffoldConfig, mcp map[string]ast.MCPConfig) error {
+	if config.MCP == nil {
+		config.MCP = make(map[string]ast.MCPConfig)
+	}
+	for k, v := range mcp {
+		if _, exists := config.MCP[k]; exists {
+			return fmt.Errorf("duplicate mcp ID %q", k)
+		}
+		config.MCP[k] = v
+	}
+	return nil
+}
+
+// mergeGlobalHooks merges hooks from a global document into the config.
+func mergeGlobalHooks(config *ast.XcaffoldConfig, hooks ast.HookConfig) {
+	if hooks == nil {
+		return
+	}
+	if config.Hooks == nil {
+		config.Hooks = make(map[string]ast.NamedHookConfig)
+	}
+	existing, ok := config.Hooks["default"]
+	if !ok {
+		existing = ast.NamedHookConfig{Name: "default"}
+	}
+	if existing.Events == nil {
+		existing.Events = make(ast.HookConfig)
+	}
+	for event, groups := range hooks {
+		existing.Events[event] = append(existing.Events[event], groups...)
+	}
+	config.Hooks["default"] = existing
+}
+
+// mergeGlobalSettings adds or overwrites settings in the config.
+func mergeGlobalSettings(config *ast.XcaffoldConfig, settings ast.SettingsConfig) {
+	if config.Settings == nil {
+		config.Settings = make(map[string]ast.SettingsConfig)
+	}
+	sName := settings.Name
+	if sName == "" {
+		sName = "default"
+	}
+	config.Settings[sName] = settings
+}
+
 func parseGlobalDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inferredName string) error {
 	var doc globalDocument
 	dec := yaml.NewDecoder(bytes.NewReader(b))
@@ -670,75 +773,26 @@ func parseGlobalDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, infer
 		return err
 	}
 	config.Extends = doc.Extends
-	if config.Settings == nil {
-		config.Settings = make(map[string]ast.SettingsConfig)
+
+	mergeGlobalSettings(config, doc.Settings)
+	mergeGlobalHooks(config, doc.Hooks)
+
+	if err := mergeAgents(config, doc.Agents); err != nil {
+		return err
 	}
-	sName := doc.Settings.Name
-	if sName == "" {
-		sName = "default"
+	if err := mergeSkills(config, doc.Skills); err != nil {
+		return err
 	}
-	config.Settings[sName] = doc.Settings
-	if doc.Hooks != nil {
-		if config.Hooks == nil {
-			config.Hooks = make(map[string]ast.NamedHookConfig)
-		}
-		existing, ok := config.Hooks["default"]
-		if !ok {
-			existing = ast.NamedHookConfig{Name: "default"}
-		}
-		if existing.Events == nil {
-			existing.Events = make(ast.HookConfig)
-		}
-		for event, groups := range doc.Hooks {
-			existing.Events[event] = append(existing.Events[event], groups...)
-		}
-		config.Hooks["default"] = existing
+	if err := mergeRules(config, doc.Rules); err != nil {
+		return err
 	}
-	for k, v := range doc.Agents {
-		if config.Agents == nil {
-			config.Agents = make(map[string]ast.AgentConfig)
-		}
-		if _, exists := config.Agents[k]; exists {
-			return fmt.Errorf("duplicate agent ID %q", k)
-		}
-		config.Agents[k] = v
+	if err := mergeWorkflows(config, doc.Workflows); err != nil {
+		return err
 	}
-	for k, v := range doc.Skills {
-		if config.Skills == nil {
-			config.Skills = make(map[string]ast.SkillConfig)
-		}
-		if _, exists := config.Skills[k]; exists {
-			return fmt.Errorf("duplicate skill ID %q", k)
-		}
-		config.Skills[k] = v
+	if err := mergeMCPs(config, doc.MCP); err != nil {
+		return err
 	}
-	for k, v := range doc.Rules {
-		if config.Rules == nil {
-			config.Rules = make(map[string]ast.RuleConfig)
-		}
-		if _, exists := config.Rules[k]; exists {
-			return fmt.Errorf("duplicate rule ID %q", k)
-		}
-		config.Rules[k] = v
-	}
-	for k, v := range doc.Workflows {
-		if config.Workflows == nil {
-			config.Workflows = make(map[string]ast.WorkflowConfig)
-		}
-		if _, exists := config.Workflows[k]; exists {
-			return fmt.Errorf("duplicate workflow ID %q", k)
-		}
-		config.Workflows[k] = v
-	}
-	for k, v := range doc.MCP {
-		if config.MCP == nil {
-			config.MCP = make(map[string]ast.MCPConfig)
-		}
-		if _, exists := config.MCP[k]; exists {
-			return fmt.Errorf("duplicate mcp ID %q", k)
-		}
-		config.MCP[k] = v
-	}
+
 	return nil
 }
 

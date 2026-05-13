@@ -273,64 +273,42 @@ func parsePermissionRule(rule string) (toolName, pattern string, err error) {
 // validatePermissions validates permission rule strings in settings.permissions
 // and checks for agent/settings contradictions.
 //
-//nolint:gocyclo
-func validatePermissions(c *ast.XcaffoldConfig) error {
-	settings := c.Settings["default"]
-	if settings.Permissions == nil {
-		return nil
-	}
-	p := settings.Permissions
-
-	allowSet := make(map[string]bool)
-	denySet := make(map[string]bool)
-	askSet := make(map[string]bool)
-
-	for _, rule := range p.Allow {
+// validatePermissionRuleSet validates a set of permission rules and returns a set of valid rules.
+// validatePermissionRuleSet validates a set of permission rules and returns a set of valid rules.
+func validatePermissionRuleSet(rules []string, category string) (map[string]bool, error) {
+	ruleSet := make(map[string]bool)
+	for _, rule := range rules {
 		name, _, err := parsePermissionRule(rule)
 		if err != nil {
-			return fmt.Errorf("invalid .xcaf configuration: %w", err)
+			return nil, fmt.Errorf("invalid .xcaf configuration: %w", err)
 		}
 		if !knownTools[name] {
-			return fmt.Errorf("permissions: unknown tool %q in allow rule %q", name, rule)
+			return nil, fmt.Errorf("permissions: unknown tool %q in %s rule %q", name, category, rule)
 		}
-		allowSet[rule] = true
+		ruleSet[rule] = true
 	}
-	for _, rule := range p.Deny {
-		name, _, err := parsePermissionRule(rule)
-		if err != nil {
-			return fmt.Errorf("invalid .xcaf configuration: %w", err)
-		}
-		if !knownTools[name] {
-			return fmt.Errorf("permissions: unknown tool %q in deny rule %q", name, rule)
-		}
-		denySet[rule] = true
-	}
-	for _, rule := range p.Ask {
-		name, _, err := parsePermissionRule(rule)
-		if err != nil {
-			return fmt.Errorf("invalid .xcaf configuration: %w", err)
-		}
-		if !knownTools[name] {
-			return fmt.Errorf("permissions: unknown tool %q in ask rule %q", name, rule)
-		}
-		askSet[rule] = true
-	}
+	return ruleSet, nil
+}
 
-	// Contradiction checks
-	for rule := range allowSet {
-		if denySet[rule] {
+// validatePermissionContradictions checks for conflicting permission rules.
+func validatePermissionContradictions(allow, deny, ask map[string]bool) error {
+	for rule := range allow {
+		if deny[rule] {
 			return fmt.Errorf("permissions: rule %q appears in both allow and deny", rule)
 		}
-		if askSet[rule] {
+		if ask[rule] {
 			return fmt.Errorf("permissions: rule %q appears in both allow and ask", rule)
 		}
 	}
+	return nil
+}
 
-	// Agent cross-reference checks
+// validateAgentToolPermissions checks that agent tools are consistent with global permissions.
+func validateAgentToolPermissions(c *ast.XcaffoldConfig, allow map[string]bool, deny map[string]bool) error {
 	for agentID, agent := range c.Agents {
 		// disallowed-tools vs settings.permissions.allow
 		for _, tool := range agent.DisallowedTools.Values {
-			for rule := range allowSet {
+			for rule := range allow {
 				ruleName, _, _ := parsePermissionRule(rule)
 				if ruleName == tool {
 					return fmt.Errorf("agent %q: tool %q is in disallowed-tools but also in settings.permissions.allow", agentID, tool)
@@ -339,13 +317,43 @@ func validatePermissions(c *ast.XcaffoldConfig) error {
 		}
 		// agent.tools vs settings.permissions.deny (bare deny only)
 		for _, tool := range agent.Tools.Values {
-			if denySet[tool] {
+			if deny[tool] {
 				return fmt.Errorf("agent %q: tool %q is required by agent but is unconditionally denied in settings.permissions.deny", agentID, tool)
 			}
 		}
 	}
-
 	return nil
+}
+
+func validatePermissions(c *ast.XcaffoldConfig) error {
+	settings := c.Settings["default"]
+	if settings.Permissions == nil {
+		return nil
+	}
+	p := settings.Permissions
+
+	allow, err := validatePermissionRuleSet(p.Allow, "allow")
+	if err != nil {
+		return err
+	}
+
+	deny, err := validatePermissionRuleSet(p.Deny, "deny")
+	if err != nil {
+		return err
+	}
+
+	ask, err := validatePermissionRuleSet(p.Ask, "ask")
+	if err != nil {
+		return err
+	}
+
+	// Contradiction checks
+	if err := validatePermissionContradictions(allow, deny, ask); err != nil {
+		return err
+	}
+
+	// Agent cross-reference checks
+	return validateAgentToolPermissions(c, allow, deny)
 }
 
 // validateBase performs base-level validation of version and project fields.

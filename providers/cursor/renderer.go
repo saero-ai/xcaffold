@@ -305,51 +305,17 @@ func compileCursorHooks(hooks ast.HookConfig) (string, []renderer.FidelityNote, 
 	var notes []renderer.FidelityNote
 
 	for eventName, groups := range hooks {
-		cursorEvent, mapped := xcaffoldToCursorEvent[eventName]
-		if !mapped {
-			cursorEvent = toCamelCase(eventName)
-			notes = append(notes, renderer.NewNote(
-				renderer.LevelWarning, targetName, "hooks", "hooks", eventName,
-				renderer.CodeFieldUnsupported,
-				fmt.Sprintf("hook event %q has no verified Cursor equivalent; emitted as %q (camelCase fallback)", eventName, cursorEvent),
-				"Verify this event name against Cursor hooks documentation",
-			))
+		cursorEvent, eventNotes := resolveCursorEventName(eventName)
+		notes = append(notes, eventNotes...)
+
+		handlers, handlerNotes, err := buildCursorEventHandlers(eventName, groups)
+		if err != nil {
+			return "", nil, err
 		}
+		notes = append(notes, handlerNotes...)
 
-		var eventHandlers []map[string]interface{}
-
-		for _, group := range groups {
-			for _, handler := range group.Hooks {
-				handler.Command = renderer.TranslateHookCommand(handler.Command, "$CURSOR_PROJECT_DIR", ".cursor/hooks/")
-
-				b, err := json.Marshal(handler)
-				if err != nil {
-					return "", nil, err
-				}
-				var flatHandler map[string]interface{}
-				if err := json.Unmarshal(b, &flatHandler); err != nil {
-					return "", nil, err
-				}
-
-				if group.Matcher != "" {
-					flatHandler["matcher"] = group.Matcher
-				}
-
-				if strings.Contains(string(b), "${") {
-					notes = append(notes, renderer.NewNote(
-						renderer.LevelWarning, targetName, "agent", eventName, "hooks",
-						renderer.CodeHookInterpolationRequiresEnvSyntax,
-						fmt.Sprintf("interpolation pattern ${...} in hook %q; Cursor requires ${env:NAME} syntax", eventName),
-						"Rewrite ${VAR} as ${env:VAR} in hook configuration",
-					))
-				}
-
-				eventHandlers = append(eventHandlers, flatHandler)
-			}
-		}
-
-		if len(eventHandlers) > 0 {
-			flatHooks[cursorEvent] = eventHandlers
+		if len(handlers) > 0 {
+			flatHooks[cursorEvent] = handlers
 		}
 	}
 
@@ -357,12 +323,62 @@ func compileCursorHooks(hooks ast.HookConfig) (string, []renderer.FidelityNote, 
 	for k, v := range flatHooks {
 		envelope[k] = v
 	}
-
 	data, err := json.MarshalIndent(envelope, "", "  ")
 	if err != nil {
 		return "", nil, fmt.Errorf("hook json marshal: %w", err)
 	}
 	return string(data), notes, nil
+}
+
+// resolveCursorEventName maps an xcaffold event name to its Cursor equivalent.
+// When no mapping exists it falls back to camelCase and returns a fidelity note.
+func resolveCursorEventName(eventName string) (string, []renderer.FidelityNote) {
+	if cursorEvent, mapped := xcaffoldToCursorEvent[eventName]; mapped {
+		return cursorEvent, nil
+	}
+	cursorEvent := toCamelCase(eventName)
+	note := renderer.NewNote(
+		renderer.LevelWarning, targetName, "hooks", "hooks", eventName,
+		renderer.CodeFieldUnsupported,
+		fmt.Sprintf("hook event %q has no verified Cursor equivalent; emitted as %q (camelCase fallback)", eventName, cursorEvent),
+		"Verify this event name against Cursor hooks documentation",
+	)
+	return cursorEvent, []renderer.FidelityNote{note}
+}
+
+// buildCursorEventHandlers flattens hook groups for a single event into the
+// flat handler maps expected by the Cursor hooks JSON schema.
+func buildCursorEventHandlers(eventName string, groups []ast.HookMatcherGroup) ([]map[string]interface{}, []renderer.FidelityNote, error) {
+	var handlers []map[string]interface{}
+	var notes []renderer.FidelityNote
+
+	for _, group := range groups {
+		for _, handler := range group.Hooks {
+			handler.Command = renderer.TranslateHookCommand(handler.Command, "$CURSOR_PROJECT_DIR", ".cursor/hooks/")
+
+			b, err := json.Marshal(handler)
+			if err != nil {
+				return nil, nil, err
+			}
+			var flatHandler map[string]interface{}
+			if err := json.Unmarshal(b, &flatHandler); err != nil {
+				return nil, nil, err
+			}
+			if group.Matcher != "" {
+				flatHandler["matcher"] = group.Matcher
+			}
+			if strings.Contains(string(b), "${") {
+				notes = append(notes, renderer.NewNote(
+					renderer.LevelWarning, targetName, "agent", eventName, "hooks",
+					renderer.CodeHookInterpolationRequiresEnvSyntax,
+					fmt.Sprintf("interpolation pattern ${...} in hook %q; Cursor requires ${env:NAME} syntax", eventName),
+					"Rewrite ${VAR} as ${env:VAR} in hook configuration",
+				))
+			}
+			handlers = append(handlers, flatHandler)
+		}
+	}
+	return handlers, notes, nil
 }
 
 // compileCursorRule renders a single RuleConfig to a Cursor .mdc file.

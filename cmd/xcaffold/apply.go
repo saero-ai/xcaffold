@@ -477,6 +477,92 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	projectName := filepath.Base(baseDir)
 	lastApplied := findLastApplied(baseDir, applyBlueprintFlag)
 
+	config, err := parseApplyConfig(baseDir, projectName, lastApplied, scopeName)
+	if err != nil {
+		return err
+	}
+
+	stateFilePath, sourceFiles := setupApplyPhase(baseDir, config, outputDir, scopeName)
+
+	// Check for smart skip before compilation
+	if checkSmartSkip(stateFilePath, sourceFiles, baseDir) {
+		printSmartSkipMessage()
+		return nil
+	}
+
+	out, err := compileApplyPhase(config, baseDir)
+	if err != nil {
+		return err
+	}
+
+	oldManifest, _ := state.ReadState(stateFilePath)
+	if err := prepareApplyPhase(baseDir, outputDir, stateFilePath); err != nil {
+		return err
+	}
+
+	printTargetsWarning(config)
+
+	if applyDryRun {
+		fmt.Println("  Dry-run preview:")
+		fmt.Println()
+	}
+
+	promptDenied, err := getUserApplyConfirmation(oldManifest, out, outputDir, baseDir)
+	if err != nil {
+		return err
+	}
+	fmt.Println()
+
+	if promptDenied {
+		return nil
+	}
+
+	return completeApply(config, configPath, projectName, outputDir, baseDir, stateFilePath, sourceFiles, oldManifest, out)
+}
+
+// setupApplyPhase initializes the apply process by setting up state and source files.
+func setupApplyPhase(baseDir string, config *ast.XcaffoldConfig, outputDir, scopeName string) (string, []string) {
+	stateFilePath := state.StateFilePath(baseDir, applyBlueprintFlag)
+	ensureGitignoreEntry(baseDir, ".xcaffold/")
+	sourceFiles, _ := prepareSourceFiles(baseDir, targetFlag, varFileFlag)
+
+	if applyBackup && !applyDryRun {
+		if err := performApplyBackup(config, outputDir, scopeName); err == nil {
+			return stateFilePath, sourceFiles
+		}
+	}
+
+	return stateFilePath, sourceFiles
+}
+
+// compileApplyPhase runs the compilation and optimization phase.
+func compileApplyPhase(config *ast.XcaffoldConfig, baseDir string) (*output.Output, error) {
+	out, notes, err := compileAndOptimize(config, baseDir, targetFlag, applyBlueprintFlag, varFileFlag)
+	if err != nil {
+		fmt.Printf("  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
+		return nil, &silentError{msg: err.Error()}
+	}
+
+	if err := checkCompilationErrors(config, out, notes); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// prepareApplyPhase prepares for the confirmation phase by checking drift and cross-scope cleanup.
+func prepareApplyPhase(baseDir, outputDir, stateFilePath string) error {
+	if !applyDryRun {
+		if err := cleanCrossScope(baseDir, outputDir, stateFilePath, targetFlag, applyForce); err != nil {
+			return err
+		}
+	}
+
+	return checkApplyDrift(outputDir, stateFilePath, baseDir)
+}
+
+// parseApplyConfig parses and validates the configuration for the apply scope.
+func parseApplyConfig(baseDir, projectName, lastApplied, scopeName string) (*ast.XcaffoldConfig, error) {
 	config, err := parser.ParseDirectory(baseDir, parser.WithVarFile(varFileFlag))
 	if err != nil {
 		fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
@@ -484,115 +570,27 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		fmt.Printf("  %s  %v\n", colorRed(glyphErr()), err)
 		fmt.Println()
 		fmt.Printf("%s Run 'xcaffold validate' for detailed diagnostics.\n", glyphArrow())
-		return &silentError{msg: err.Error()}
+		return nil, &silentError{msg: err.Error()}
 	}
 
 	fmt.Println(formatHeader(projectName, applyBlueprintFlag, scopeName == "global", targetFlag, lastApplied))
 	fmt.Println()
 
 	if config.Version != "" && config.Version < currentSchemaVersion {
-		return fmt.Errorf("project.xcaf uses schema version %s but xcaffold requires %s — please update the version field in your project.xcaf", config.Version, currentSchemaVersion)
+		return nil, fmt.Errorf("project.xcaf uses schema version %s but xcaffold requires %s — please update the version field in your project.xcaf", config.Version, currentSchemaVersion)
 	}
 
-	stateFilePath := state.StateFilePath(baseDir, applyBlueprintFlag)
-	ensureGitignoreEntry(baseDir, ".xcaffold/")
+	return config, nil
+}
 
-	sourceFiles, _ := prepareSourceFiles(baseDir, targetFlag, varFileFlag)
-
-	if applyBackup && !applyDryRun {
-		var backupDir string
-		if config.Project != nil {
-			backupDir = config.Project.BackupDir
-		}
-		if err := performBackup(outputDir, targetFlag, backupDir, scopeName); err != nil {
-			return fmt.Errorf("backup failed: %w", err)
-		}
-	}
-
-	if checkSmartSkip(stateFilePath, sourceFiles, baseDir) {
-		if applyDryRun {
-			fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
-		} else {
-			fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
-			fmt.Println()
-			fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
-		}
-		return nil
-	}
-
-	out, notes, err := compileAndOptimize(config, baseDir, targetFlag, applyBlueprintFlag, varFileFlag)
-	if err != nil {
-		fmt.Printf("  %s  Compilation failed: %v\n", colorRed(glyphErr()), err)
-		return &silentError{msg: err.Error()}
-	}
-
-	if err := checkCompilationErrors(config, out, notes); err != nil {
-		return err
-	}
-
-	oldManifest, _ := state.ReadState(stateFilePath)
-
-	// Clean up orphans from other scopes if switching blueprints/scopes
-	if !applyDryRun {
-		if err := cleanCrossScope(baseDir, outputDir, stateFilePath, targetFlag, applyForce); err != nil {
-			return err
-		}
-	}
-
-	if !applyDryRun && !applyForce {
-		driftEntries, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
-		if err == nil && len(driftEntries) > 0 {
-			fmt.Fprintf(os.Stderr, "\n  %s  Drift detected in %d %s:\n\n", colorRed(glyphErr()), len(driftEntries), plural(len(driftEntries), "file", "files"))
-			for _, d := range driftEntries {
-				display, isRoot := formatArtifactPath(d.Path)
-				label := d.Status
-				if isRoot {
-					display += "  (root)"
-				}
-				fmt.Fprintf(os.Stderr, "    %s  %-10s  %s\n", glyphErr(), label, display)
-			}
-			fmt.Fprintf(os.Stderr, "  To preserve manual edits, run 'xcaffold import' first.\n\n")
-			fmt.Fprintf(os.Stderr, "%s Run 'xcaffold apply --force' to overwrite.\n", glyphArrow())
-			return &silentError{msg: "drift detected"}
-		}
-	}
-
-	for _, agent := range config.Agents {
-		if len(agent.Targets) > 0 {
-			fmt.Fprintf(os.Stderr, "  %s  'targets' block on agents is experimental and currently uncompiled.\n", colorYellow(glyphSrc()))
-			break
-		}
-	}
-
-	if applyDryRun {
-		fmt.Println("  Dry-run preview:")
-		fmt.Println()
-	}
-
-	var promptDenied bool
-	if !applyDryRun && !applyForce {
-		ok, err := showApplyPreview(oldManifest, out, outputDir, baseDir)
-		if err != nil {
-			return err
-		}
-		promptDenied = !ok
-	}
-	fmt.Println()
-
-	// Skip file writes if user denied confirmation, but NOT if no changes were detected
-	// (state file should still be written even when nothing changed)
-	if promptDenied {
-		return nil
-	}
-
-	// Delete orphans AFTER user confirmation to prevent data loss if user declines
+// completeApply finishes the apply operation after user confirmation.
+func completeApply(config *ast.XcaffoldConfig, configPath, projectName, outputDir, baseDir, stateFilePath string, sourceFiles []string, oldManifest *state.StateManifest, out *output.Output) error {
 	var hasChanges bool
 	if !applyDryRun {
-		cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, baseDir, scopeName, &hasChanges)
+		cleanOrphansFromState(oldManifest, targetFlag, out, outputDir, baseDir, "project", &hasChanges)
 	}
-	_ = hasChanges // Variable is tracked by cleanOrphansFromState and applyFile, used implicitly
 
-	filesWritten, err := writeApplyFiles(out, outputDir, baseDir, scopeName)
+	filesWritten, err := writeApplyFiles(out, outputDir, baseDir, "project")
 	if err != nil {
 		return err
 	}
@@ -604,18 +602,91 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		return nil
 	}
 
-	// Write state file even if no files were written (important for drift detection on next run)
 	if err := writeApplyState(config, out, baseDir, stateFilePath, sourceFiles, oldManifest); err != nil {
 		return err
 	}
 
+	printApplySummary(filesWritten)
+	updateProjectRegistry(configPath, baseDir, projectName, config)
+
+	return nil
+}
+
+// performApplyBackup creates a backup of the output directory if configured.
+func performApplyBackup(config *ast.XcaffoldConfig, outputDir, scopeName string) error {
+	var backupDir string
+	if config.Project != nil {
+		backupDir = config.Project.BackupDir
+	}
+	return performBackup(outputDir, targetFlag, backupDir, scopeName)
+}
+
+// printSmartSkipMessage outputs the smart skip message.
+func printSmartSkipMessage() {
+	if applyDryRun {
+		fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+	} else {
+		fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+		fmt.Println()
+		fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
+	}
+}
+
+// checkApplyDrift checks for drift if not in dry-run or force mode.
+func checkApplyDrift(outputDir, stateFilePath, baseDir string) error {
+	if applyDryRun || applyForce {
+		return nil
+	}
+
+	driftEntries, err := hasDriftFromState(outputDir, stateFilePath, baseDir, targetFlag)
+	if err == nil && len(driftEntries) > 0 {
+		fmt.Fprintf(os.Stderr, "\n  %s  Drift detected in %d %s:\n\n", colorRed(glyphErr()), len(driftEntries), plural(len(driftEntries), "file", "files"))
+		for _, d := range driftEntries {
+			display, isRoot := formatArtifactPath(d.Path)
+			label := d.Status
+			if isRoot {
+				display += "  (root)"
+			}
+			fmt.Fprintf(os.Stderr, "    %s  %-10s  %s\n", glyphErr(), label, display)
+		}
+		fmt.Fprintf(os.Stderr, "  To preserve manual edits, run 'xcaffold import' first.\n\n")
+		fmt.Fprintf(os.Stderr, "%s Run 'xcaffold apply --force' to overwrite.\n", glyphArrow())
+		return &silentError{msg: "drift detected"}
+	}
+	return nil
+}
+
+// printTargetsWarning outputs a warning if agents have target blocks.
+func printTargetsWarning(config *ast.XcaffoldConfig) {
+	for _, agent := range config.Agents {
+		if len(agent.Targets) > 0 {
+			fmt.Fprintf(os.Stderr, "  %s  'targets' block on agents is experimental and currently uncompiled.\n", colorYellow(glyphSrc()))
+			break
+		}
+	}
+}
+
+// getUserApplyConfirmation prompts the user for confirmation (if needed) and returns promptDenied.
+func getUserApplyConfirmation(oldManifest *state.StateManifest, out *output.Output, outputDir, baseDir string) (bool, error) {
+	if applyDryRun || applyForce {
+		return false, nil
+	}
+
+	ok, err := showApplyPreview(oldManifest, out, outputDir, baseDir)
+	return !ok, err
+}
+
+// printApplySummary outputs the apply completion summary.
+func printApplySummary(filesWritten int) {
 	fmt.Println()
 	outDirName := compiler.OutputDir(targetFlag)
 	fmt.Printf("%s  Apply complete. %d %s written to %s/\n",
 		colorGreen(glyphOK()), filesWritten, plural(filesWritten, "file", "files"), outDirName)
 	fmt.Printf("  Run 'xcaffold import' to sync manual edits back to .xcaf sources.\n")
+}
 
-	// Ensure the project is registered and the timestamp is updated.
+// updateProjectRegistry registers or updates the project in the registry.
+func updateProjectRegistry(configPath, baseDir, projectName string, config *ast.XcaffoldConfig) {
 	cwd, _ := os.Getwd()
 	configRelDir, _ := filepath.Rel(cwd, filepath.Dir(configPath))
 	if configRelDir == "" {
@@ -627,8 +698,6 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 	}
 	_ = registry.Register(cwd, registryName, nil, configRelDir)
 	_ = registry.UpdateLastApplied(cwd)
-
-	return nil
 }
 
 // applyProviderExtras merges ProviderExtras from the config into the compiled

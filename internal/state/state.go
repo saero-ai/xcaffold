@@ -166,7 +166,28 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
+	manifest := initManifest(opts, existing)
 
+	sourceFiles := buildSourceFiles(opts)
+	targetState := TargetState{
+		LastApplied: now,
+		Artifacts:   buildArtifacts(out),
+		SourceFiles: sourceFiles,
+	}
+	manifest.Targets[opts.Target] = targetState
+
+	if len(sourceFiles) > 0 {
+		// Also store at top level for backward compat (old state files).
+		manifest.SourceFiles = sourceFiles
+	}
+
+	manifest.MemorySeeds = stampAndSortSeeds(opts.MemorySeeds, now)
+	return manifest, nil
+}
+
+// initManifest creates the base StateManifest, merging existing targets and
+// source files when present.
+func initManifest(opts StateOpts, existing *StateManifest) *StateManifest {
 	manifest := &StateManifest{
 		Version:         stateFileVersion,
 		XcaffoldVersion: XcaffoldVersion,
@@ -174,21 +195,20 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 		BlueprintHash:   opts.BlueprintHash,
 		Targets:         make(map[string]TargetState),
 	}
-
-	// Preserve existing targets
 	if existing != nil {
 		for k, v := range existing.Targets {
 			manifest.Targets[k] = v
 		}
-		// Preserve existing source files if opts doesn't provide new ones
 		if len(opts.SourceFiles) == 0 && len(existing.SourceFiles) > 0 {
 			manifest.SourceFiles = existing.SourceFiles
 		}
 	}
+	return manifest
+}
 
-	// Build artifacts for the current target
-	target := opts.Target
-
+// buildArtifacts converts compiler output files and root files into a sorted
+// Artifact slice with sha256 content hashes.
+func buildArtifacts(out *output.Output) []Artifact {
 	artifacts := make([]Artifact, 0, len(out.Files)+len(out.RootFiles))
 	for path, content := range out.Files {
 		hash := sha256.Sum256([]byte(content))
@@ -207,54 +227,52 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 	sort.Slice(artifacts, func(i, j int) bool {
 		return artifacts[i].Path < artifacts[j].Path
 	})
+	return artifacts
+}
 
-	// Build target state with source files
-	targetState := TargetState{
-		LastApplied: now,
-		Artifacts:   artifacts,
+// buildSourceFiles reads each source file from disk, computes its sha256 hash,
+// and returns a sorted SourceFile slice. Files that cannot be read are skipped.
+func buildSourceFiles(opts StateOpts) []SourceFile {
+	if len(opts.SourceFiles) == 0 {
+		return nil
 	}
-
-	// Hash source files if provided
-	if len(opts.SourceFiles) > 0 {
-		sourceFiles := make([]SourceFile, 0, len(opts.SourceFiles))
-		for _, absPath := range opts.SourceFiles {
-			data, err := os.ReadFile(filepath.Clean(absPath))
-			if err != nil {
-				continue
-			}
-			relPath, err := filepath.Rel(opts.BaseDir, absPath)
-			if err != nil {
-				relPath = filepath.Base(absPath)
-			}
-			hash := sha256.Sum256(data)
-			sourceFiles = append(sourceFiles, SourceFile{
-				Path: relPath,
-				Hash: fmt.Sprintf("sha256:%x", hash),
-			})
+	sourceFiles := make([]SourceFile, 0, len(opts.SourceFiles))
+	for _, absPath := range opts.SourceFiles {
+		data, err := os.ReadFile(filepath.Clean(absPath))
+		if err != nil {
+			continue
 		}
-		sort.Slice(sourceFiles, func(i, j int) bool {
-			return sourceFiles[i].Path < sourceFiles[j].Path
+		relPath, err := filepath.Rel(opts.BaseDir, absPath)
+		if err != nil {
+			relPath = filepath.Base(absPath)
+		}
+		hash := sha256.Sum256(data)
+		sourceFiles = append(sourceFiles, SourceFile{
+			Path: relPath,
+			Hash: fmt.Sprintf("sha256:%x", hash),
 		})
-		targetState.SourceFiles = sourceFiles
-		// Also store at top level for backward compat (old state files)
-		manifest.SourceFiles = sourceFiles
 	}
+	sort.Slice(sourceFiles, func(i, j int) bool {
+		return sourceFiles[i].Path < sourceFiles[j].Path
+	})
+	return sourceFiles
+}
 
-	manifest.Targets[target] = targetState
-
-	// Copy and sort memory seeds
-	if len(opts.MemorySeeds) > 0 {
-		manifest.MemorySeeds = make([]MemorySeed, len(opts.MemorySeeds))
-		copy(manifest.MemorySeeds, opts.MemorySeeds)
-		for i := range manifest.MemorySeeds {
-			if manifest.MemorySeeds[i].SeededAt == "" {
-				manifest.MemorySeeds[i].SeededAt = now
-			}
+// stampAndSortSeeds copies seeds, fills in SeededAt timestamps, and sorts them
+// by name. Returns nil when seeds is empty.
+func stampAndSortSeeds(seeds []MemorySeed, now string) []MemorySeed {
+	if len(seeds) == 0 {
+		return nil
+	}
+	out := make([]MemorySeed, len(seeds))
+	copy(out, seeds)
+	for i := range out {
+		if out[i].SeededAt == "" {
+			out[i].SeededAt = now
 		}
-		sortMemorySeeds(manifest.MemorySeeds)
 	}
-
-	return manifest, nil
+	sortMemorySeeds(out)
+	return out
 }
 
 // SourcesChanged compares the previous state's source file hashes against the

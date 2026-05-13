@@ -79,16 +79,9 @@ func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive
 	}
 }
 
-// lowerRulePlusSkill emits one rule with a provenance marker plus one skill per step.
-func lowerRulePlusSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
-	stepNames := make([]string, len(wf.Steps))
-	skillIDs := make([]string, len(wf.Steps))
-	for i, step := range wf.Steps {
-		stepNames[i] = step.Name
-		skillIDs[i] = stepSkillID(name, i, step.Name)
-	}
-
-	// Build provenance marker as inline YAML block.
+// buildRulePlusSkillRule constructs the rule primitive (provenance block +
+// invocation instruction) from the pre-computed step names and skill IDs.
+func buildRulePlusSkillRule(name string, stepNames, skillIDs []string) TargetPrimitive {
 	var marker strings.Builder
 	marker.WriteString("x-xcaffold:\n")
 	fmt.Fprintf(&marker, "  compiled-from: workflow\n")
@@ -102,22 +95,26 @@ func lowerRulePlusSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 		fmt.Fprintf(&marker, "    - %s\n", sid)
 	}
 
-	// Rule body: provenance block + invocation instruction.
 	var ruleBody strings.Builder
 	ruleBody.WriteString("```yaml\n")
 	ruleBody.WriteString(marker.String())
 	ruleBody.WriteString("```\n\n")
 	fmt.Fprintf(&ruleBody, "Run steps in order: %s.\n", strings.Join(skillIDs, " → "))
 
-	rulePrimitive := TargetPrimitive{
-		Kind:    "rule",
-		ID:      name + "-workflow",
-		Content: ruleBody.String(),
+	return TargetPrimitive{Kind: "rule", ID: name + "-workflow", Content: ruleBody.String()}
+}
+
+// lowerRulePlusSkill emits one rule with a provenance marker plus one skill per step.
+func lowerRulePlusSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
+	stepNames := make([]string, len(wf.Steps))
+	skillIDs := make([]string, len(wf.Steps))
+	for i, step := range wf.Steps {
+		stepNames[i] = step.Name
+		skillIDs[i] = stepSkillID(name, i, step.Name)
 	}
 
-	primitives := []TargetPrimitive{rulePrimitive}
+	primitives := []TargetPrimitive{buildRulePlusSkillRule(name, stepNames, skillIDs)}
 
-	// One skill per step.
 	for i, step := range wf.Steps {
 		body := step.Body
 		if body == "" {

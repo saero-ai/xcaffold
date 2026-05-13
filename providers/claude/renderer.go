@@ -369,66 +369,88 @@ func (r *Renderer) compileMemoryToMap(config *ast.XcaffoldConfig) (map[string]st
 // MCPServers (claudeMCPSettingsKey): staged by CompileSettings and merged into
 // mcp.json alongside any top-level config.MCP entries compiled by CompileMCP.
 func (r *Renderer) Finalize(files map[string]string, rootFiles map[string]string) (map[string]string, map[string]string, []renderer.FidelityNote, error) {
-	// Merge staged hooks into settings.json.
-	if hooksRaw, ok := files[claudeHooksKey]; ok {
-		delete(files, claudeHooksKey)
-		var hooks ast.HookConfig
-		if err := json.Unmarshal([]byte(hooksRaw), &hooks); err != nil {
-			return nil, nil, nil, fmt.Errorf("Finalize: failed to unmarshal staged hooks: %w", err)
-		}
-		if len(hooks) > 0 {
-			// Parse existing settings.json (if any) and inject hooks.
-			existing := make(map[string]any)
-			if s, has := files["settings.json"]; has {
-				if err := json.Unmarshal([]byte(s), &existing); err != nil {
-					return nil, nil, nil, fmt.Errorf("Finalize: failed to parse settings.json for hook merge: %w", err)
-				}
-			} else {
-				existing["$schema"] = "https://json.schemastore.org/claude-code-settings.json"
-			}
-			existing["hooks"] = hooks
-			b, err := json.MarshalIndent(existing, "", "  ")
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("Finalize: failed to re-serialize settings.json with hooks: %w", err)
-			}
-			files["settings.json"] = string(b)
-		}
+	if err := mergeHooksIntoSettings(files); err != nil {
+		return nil, nil, nil, err
 	}
-
-	// Merge staged settings.MCPServers into mcp.json.
-	if mcpRaw, ok := files[claudeMCPSettingsKey]; ok {
-		delete(files, claudeMCPSettingsKey)
-		var settingsMCPServers map[string]ast.MCPConfig
-		if err := json.Unmarshal([]byte(mcpRaw), &settingsMCPServers); err != nil {
-			return nil, nil, nil, fmt.Errorf("Finalize: failed to unmarshal staged MCPServers: %w", err)
-		}
-		if len(settingsMCPServers) > 0 {
-			// Parse existing mcp.json (if any) and merge.
-			mcpServers := make(map[string]ast.MCPConfig)
-			if m, has := files["mcp.json"]; has {
-				var envelope struct {
-					MCPServers map[string]ast.MCPConfig `json:"mcpServers"`
-				}
-				if err := json.Unmarshal([]byte(m), &envelope); err != nil {
-					return nil, nil, nil, fmt.Errorf("Finalize: failed to parse mcp.json for merge: %w", err)
-				}
-				for k, v := range envelope.MCPServers {
-					mcpServers[k] = v
-				}
-			}
-			// settings.MCPServers wins on conflict (original compile() semantics).
-			for k, v := range settingsMCPServers {
-				mcpServers[k] = v
-			}
-			b, err := json.MarshalIndent(map[string]any{"mcpServers": mcpServers}, "", "  ")
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("Finalize: failed to re-serialize mcp.json: %w", err)
-			}
-			files["mcp.json"] = string(b)
-		}
+	if err := mergeMCPSettings(files); err != nil {
+		return nil, nil, nil, err
 	}
-
 	return files, rootFiles, nil, nil
+}
+
+// mergeHooksIntoSettings moves the staged hook payload (claudeHooksKey) into
+// the "hooks" key of settings.json, creating a minimal settings.json if absent.
+func mergeHooksIntoSettings(files map[string]string) error {
+	hooksRaw, ok := files[claudeHooksKey]
+	if !ok {
+		return nil
+	}
+	delete(files, claudeHooksKey)
+
+	var hooks ast.HookConfig
+	if err := json.Unmarshal([]byte(hooksRaw), &hooks); err != nil {
+		return fmt.Errorf("Finalize: failed to unmarshal staged hooks: %w", err)
+	}
+	if len(hooks) == 0 {
+		return nil
+	}
+
+	existing := make(map[string]any)
+	if s, has := files["settings.json"]; has {
+		if err := json.Unmarshal([]byte(s), &existing); err != nil {
+			return fmt.Errorf("Finalize: failed to parse settings.json for hook merge: %w", err)
+		}
+	} else {
+		existing["$schema"] = "https://json.schemastore.org/claude-code-settings.json"
+	}
+	existing["hooks"] = hooks
+	b, err := json.MarshalIndent(existing, "", "  ")
+	if err != nil {
+		return fmt.Errorf("Finalize: failed to re-serialize settings.json with hooks: %w", err)
+	}
+	files["settings.json"] = string(b)
+	return nil
+}
+
+// mergeMCPSettings moves the staged MCPServers payload (claudeMCPSettingsKey)
+// into mcp.json, merging with any existing entries (settings payload wins on conflict).
+func mergeMCPSettings(files map[string]string) error {
+	mcpRaw, ok := files[claudeMCPSettingsKey]
+	if !ok {
+		return nil
+	}
+	delete(files, claudeMCPSettingsKey)
+
+	var settingsMCPServers map[string]ast.MCPConfig
+	if err := json.Unmarshal([]byte(mcpRaw), &settingsMCPServers); err != nil {
+		return fmt.Errorf("Finalize: failed to unmarshal staged MCPServers: %w", err)
+	}
+	if len(settingsMCPServers) == 0 {
+		return nil
+	}
+
+	mcpServers := make(map[string]ast.MCPConfig)
+	if m, has := files["mcp.json"]; has {
+		var envelope struct {
+			MCPServers map[string]ast.MCPConfig `json:"mcpServers"`
+		}
+		if err := json.Unmarshal([]byte(m), &envelope); err != nil {
+			return fmt.Errorf("Finalize: failed to parse mcp.json for merge: %w", err)
+		}
+		for k, v := range envelope.MCPServers {
+			mcpServers[k] = v
+		}
+	}
+	// settings.MCPServers wins on conflict (original compile() semantics).
+	for k, v := range settingsMCPServers {
+		mcpServers[k] = v
+	}
+	b, err := json.MarshalIndent(map[string]any{"mcpServers": mcpServers}, "", "  ")
+	if err != nil {
+		return fmt.Errorf("Finalize: failed to re-serialize mcp.json: %w", err)
+	}
+	files["mcp.json"] = string(b)
+	return nil
 }
 
 // renderProjectInstructions emits CLAUDE.md at root and one CLAUDE.md per scope.

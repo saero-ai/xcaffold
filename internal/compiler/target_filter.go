@@ -26,25 +26,40 @@ const CodeResourceTargetSkipped = "RESOURCE_TARGET_SKIPPED"
 // config.Overrides may be nil — all nil-checks are handled internally.
 func resolveTargetOverrides(config *ast.XcaffoldConfig, target string) []renderer.FidelityNote {
 	var notes []renderer.FidelityNote
+	notes = append(notes, resolveAgentOverrides(config, target)...)
+	notes = append(notes, resolveSkillOverrides(config, target)...)
+	notes = append(notes, resolveRuleOverrides(config, target)...)
+	notes = append(notes, resolveWorkflowOverrides(config, target)...)
+	notes = append(notes, resolveMCPOverrides(config, target)...)
+	notes = append(notes, resolveHookOverrides(config, target)...)
+	notes = append(notes, resolveSettingsOverrides(config, target)...)
+	resolvePolicyOverrides(config, target)
+	resolveTemplateOverrides(config, target)
+	resolveContextOverrides(config, target)
+	return notes
+}
 
-	// --- Agents ---
+// resolveAgentOverrides applies overrides and target filtering for agents.
+func resolveAgentOverrides(config *ast.XcaffoldConfig, target string) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	for name, agent := range config.Agents {
-		// Apply override if present.
 		if override, ok := config.Overrides.GetAgent(name, target); ok {
 			agent = mergeAgentConfig(agent, override)
 			config.Agents[name] = agent
 		}
-		// Filter: non-empty Targets map that does not include target → remove.
 		if len(agent.Targets) > 0 {
 			if _, listed := agent.Targets[target]; !listed {
 				delete(config.Agents, name)
 				notes = append(notes, newSkippedNote(target, "agent", name))
-				continue
 			}
 		}
 	}
+	return notes
+}
 
-	// --- Skills ---
+// resolveSkillOverrides applies overrides and target filtering for skills.
+func resolveSkillOverrides(config *ast.XcaffoldConfig, target string) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	for name, skill := range config.Skills {
 		if override, ok := config.Overrides.GetSkill(name, target); ok {
 			skill = mergeSkillConfig(skill, override)
@@ -54,12 +69,15 @@ func resolveTargetOverrides(config *ast.XcaffoldConfig, target string) []rendere
 			if _, listed := skill.Targets[target]; !listed {
 				delete(config.Skills, name)
 				notes = append(notes, newSkippedNote(target, "skill", name))
-				continue
 			}
 		}
 	}
+	return notes
+}
 
-	// --- Rules ---
+// resolveRuleOverrides applies overrides and target filtering for rules.
+func resolveRuleOverrides(config *ast.XcaffoldConfig, target string) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	for name, rule := range config.Rules {
 		if override, ok := config.Overrides.GetRule(name, target); ok {
 			rule = mergeRuleConfig(rule, override)
@@ -69,12 +87,15 @@ func resolveTargetOverrides(config *ast.XcaffoldConfig, target string) []rendere
 			if _, listed := rule.Targets[target]; !listed {
 				delete(config.Rules, name)
 				notes = append(notes, newSkippedNote(target, "rule", name))
-				continue
 			}
 		}
 	}
+	return notes
+}
 
-	// --- Workflows ---
+// resolveWorkflowOverrides applies overrides and target filtering for workflows.
+func resolveWorkflowOverrides(config *ast.XcaffoldConfig, target string) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	for name, workflow := range config.Workflows {
 		if override, ok := config.Overrides.GetWorkflow(name, target); ok {
 			workflow = mergeWorkflowConfig(workflow, override)
@@ -84,12 +105,15 @@ func resolveTargetOverrides(config *ast.XcaffoldConfig, target string) []rendere
 			if _, listed := workflow.Targets[target]; !listed {
 				delete(config.Workflows, name)
 				notes = append(notes, newSkippedNote(target, "workflow", name))
-				continue
 			}
 		}
 	}
+	return notes
+}
 
-	// --- MCP ---
+// resolveMCPOverrides applies overrides and target filtering for MCP configs.
+func resolveMCPOverrides(config *ast.XcaffoldConfig, target string) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	for name, mcp := range config.MCP {
 		if override, ok := config.Overrides.GetMCP(name, target); ok {
 			mcp = mergeMCPConfig(mcp, override)
@@ -99,12 +123,15 @@ func resolveTargetOverrides(config *ast.XcaffoldConfig, target string) []rendere
 			if _, listed := mcp.Targets[target]; !listed {
 				delete(config.MCP, name)
 				notes = append(notes, newSkippedNote(target, "mcp", name))
-				continue
 			}
 		}
 	}
+	return notes
+}
 
-	// --- Hooks ---
+// resolveHookOverrides applies overrides and target filtering for hooks.
+func resolveHookOverrides(config *ast.XcaffoldConfig, target string) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	for name, hook := range config.Hooks {
 		if override, ok := config.Overrides.GetHooks(name, target); ok {
 			hook = mergeNamedHookConfig(hook, override)
@@ -114,12 +141,15 @@ func resolveTargetOverrides(config *ast.XcaffoldConfig, target string) []rendere
 			if _, listed := hook.Targets[target]; !listed {
 				delete(config.Hooks, name)
 				notes = append(notes, newSkippedNote(target, "hooks", name))
-				continue
 			}
 		}
 	}
+	return notes
+}
 
-	// --- Settings ---
+// resolveSettingsOverrides applies overrides and target filtering for settings.
+func resolveSettingsOverrides(config *ast.XcaffoldConfig, target string) []renderer.FidelityNote {
+	var notes []renderer.FidelityNote
 	for name, settings := range config.Settings {
 		if override, ok := config.Overrides.GetSettings(name, target); ok {
 			settings = mergeSettingsConfig(settings, override)
@@ -129,36 +159,40 @@ func resolveTargetOverrides(config *ast.XcaffoldConfig, target string) []rendere
 			if _, listed := settings.Targets[target]; !listed {
 				delete(config.Settings, name)
 				notes = append(notes, newSkippedNote(target, "settings", name))
-				continue
 			}
 		}
 	}
+	return notes
+}
 
-	// --- Policies (override only — no Targets map) ---
+// resolvePolicyOverrides applies overrides for policies (no Targets map).
+func resolvePolicyOverrides(config *ast.XcaffoldConfig, target string) {
 	for name, policy := range config.Policies {
 		if override, ok := config.Overrides.GetPolicy(name, target); ok {
 			policy = mergePolicyConfig(policy, override)
 			config.Policies[name] = policy
 		}
 	}
+}
 
-	// --- Templates (override only — no Targets field) ---
+// resolveTemplateOverrides applies overrides for templates (no Targets field).
+func resolveTemplateOverrides(config *ast.XcaffoldConfig, target string) {
 	for name, tmpl := range config.Templates {
 		if override, ok := config.Overrides.GetTemplate(name, target); ok {
 			tmpl = mergeTemplateConfig(tmpl, override)
 			config.Templates[name] = tmpl
 		}
 	}
+}
 
-	// --- Contexts (override only — Targets is []string, not map) ---
+// resolveContextOverrides applies overrides for contexts (Targets is []string, not map).
+func resolveContextOverrides(config *ast.XcaffoldConfig, target string) {
 	for name, ctx := range config.Contexts {
 		if override, ok := config.Overrides.GetContext(name, target); ok {
 			ctx = mergeContextConfig(ctx, override)
 			config.Contexts[name] = ctx
 		}
 	}
-
-	return notes
 }
 
 // newSkippedNote constructs a warning FidelityNote for a resource that was
