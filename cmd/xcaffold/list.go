@@ -158,30 +158,57 @@ func printAllResources(cmd *cobra.Command, config *ast.XcaffoldConfig, baseDir s
 func printListHeader(cmd *cobra.Command, projectName string, config *ast.XcaffoldConfig) {
 	sep := "  " + glyphDot() + "  "
 	parts := []string{projectName}
-	if n := len(config.Agents); n > 0 {
+
+	hasFilter := listHasFilter()
+
+	// Agents
+	if (!hasFilter || listFilterAgent != "") && len(config.Agents) > 0 {
+		n := len(config.Agents)
 		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "agent", "agents")))
 	}
-	if n := len(config.Skills); n > 0 {
+
+	// Skills
+	if (!hasFilter || listFilterSkill != "") && len(config.Skills) > 0 {
+		n := len(config.Skills)
 		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "skill", "skills")))
 	}
-	if n := len(config.Rules); n > 0 {
+
+	// Rules
+	if (!hasFilter || listFilterRule != "") && len(config.Rules) > 0 {
+		n := len(config.Rules)
 		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "rule", "rules")))
 	}
-	if n := len(config.Workflows); n > 0 {
+
+	// Workflows
+	if (!hasFilter || listFilterWorkflow != "") && len(config.Workflows) > 0 {
+		n := len(config.Workflows)
 		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "workflow", "workflows")))
 	}
-	if n := len(config.MCP); n > 0 {
+
+	// MCP
+	if (!hasFilter || listFilterMCP != "") && len(config.MCP) > 0 {
+		n := len(config.MCP)
 		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "mcp server", "mcp servers")))
 	}
-	if n := len(config.Contexts); n > 0 {
+
+	// Contexts
+	if (!hasFilter || listFilterContext != "") && len(config.Contexts) > 0 {
+		n := len(config.Contexts)
 		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "context", "contexts")))
 	}
-	if n := len(config.Hooks); n > 0 {
+
+	// Hooks
+	if (!hasFilter || listFilterHook) && len(config.Hooks) > 0 {
+		n := len(config.Hooks)
 		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "hook", "hooks")))
 	}
-	if n := len(config.Settings); n > 0 {
+
+	// Settings
+	if (!hasFilter || listFilterSetting) && len(config.Settings) > 0 {
+		n := len(config.Settings)
 		parts = append(parts, fmt.Sprintf("%d %s", n, plural(n, "setting", "settings")))
 	}
+
 	cmd.Printf("%s\n\n", strings.Join(parts, sep))
 }
 

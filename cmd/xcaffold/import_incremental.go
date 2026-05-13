@@ -28,6 +28,9 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 		return fmt.Errorf("parsing existing xcaf/: %w", err)
 	}
 
+	// Apply kind filters to scanned config BEFORE diffing
+	applyKindFilters(scannedConfig)
+
 	diff := diffResources(scannedConfig, existingConfig)
 	totalNew := diff.TotalNew()
 	totalChanged := diff.TotalChanged()
@@ -51,7 +54,9 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 		return err
 	}
 
-	fmt.Printf("\n  %s  Imported %d resources.\n", colorGreen(glyphOK()), totalNew+totalChanged)
+	if !importDryRun {
+		fmt.Printf("\n  %s  Imported %d resources.\n", colorGreen(glyphOK()), totalNew+totalChanged)
+	}
 	return nil
 }
 
@@ -87,7 +92,6 @@ func confirmAndExecuteImport(ctx incrementalImportCtx, diff ResourceDiff, writeF
 	}
 
 	mergeResourceDiff(ctx.config, ctx.config, diff)
-	applyKindFilters(ctx.config)
 	if err := writeFunc(); err != nil {
 		return fmt.Errorf("[%s] failed to write split xcaf files: %w", ctx.scopeName, err)
 	}
