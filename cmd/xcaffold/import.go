@@ -332,8 +332,10 @@ func importScope(platformDir, xcafDest, scopeName, provider string) error {
 	if err := runProviderPostImport(provider, projectDir, config, &warnings); err != nil {
 		return err
 	}
-	if err := runPostImportSteps(config, projectDir, false); err != nil {
-		return err
+	if !importDryRun {
+		if err := runPostImportSteps(config, projectDir, false); err != nil {
+			return err
+		}
 	}
 
 	if config.Project != nil {
