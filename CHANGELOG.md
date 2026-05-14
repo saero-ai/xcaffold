@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+**Providers**
+
+- **Codex provider (Preview)** — compile `.xcaf` manifests to OpenAI Codex output (`.codex/`). Supports agents (TOML), skills (shared `.agents/skills/`), hooks (JSON), MCP (TOML), and project instructions (`AGENTS.md`). Rules and memory unsupported with fidelity notes. ([providers/codex/](providers/codex/))
+
 **Resource kinds**
 
 - `kind: global` — resource kind for `~/.xcaffold/global.xcaf`; holds shared resources and settings without project metadata. (ast, parser)

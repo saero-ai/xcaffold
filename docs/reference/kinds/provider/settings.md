@@ -234,3 +234,7 @@ Each provider serializes the merged result into its native format:
   }
 }
 ```
+
+### Codex (Preview)
+
+`kind: settings` is not supported for the Codex target. Xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note and produces no settings output for Codex. Codex session behaviour is configured via `.codex/config.toml` directly; xcaffold does not yet compile settings fields to that format.

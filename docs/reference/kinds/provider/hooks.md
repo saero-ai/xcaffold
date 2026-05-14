@@ -322,6 +322,34 @@ The `command` field is mapped to `bash`. Timeout is converted from milliseconds 
 
 Antigravity does not support hooks. Xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note and produces no hook output for that target.
 
+### Codex (Preview)
+
+**Output path**: `.codex/hooks.json`
+
+Codex hooks are compiled to a JSON file with camelCase event keys. The format supports 6 events: `preToolUse`, `postToolUse`, `sessionStart`, `stop`, and up to 2 additional camelCase-translated events. `$XCAF_PROJECT_DIR` is rewritten to `$CODEX_PROJECT_DIR`. The xcaffold three-level structure (event → matcher groups → handlers) is flattened to two levels, matching the Cursor output shape.
+
+```json
+{
+  "version": 1,
+  "preToolUse": [
+    {
+      "type": "command",
+      "command": "$CODEX_PROJECT_DIR/xcaf/hooks/project-hooks/scripts/validate-bash.sh",
+      "timeout": 10,
+      "statusMessage": "Validating bash command"
+    }
+  ],
+  "postToolUse": [
+    {
+      "type": "command",
+      "command": "$CODEX_PROJECT_DIR/xcaf/hooks/project-hooks/scripts/post-edit-lint.sh",
+      "async": true,
+      "timeout": 15
+    }
+  ]
+}
+```
+
 ## Provider Support
 
 | Provider | Supported | Output File | Event Name Style |
@@ -331,20 +359,21 @@ Antigravity does not support hooks. Xcaffold emits a `RENDERER_KIND_UNSUPPORTED`
 | Cursor | Yes | `.cursor/hooks.json` | camelCase (`preToolUse`) |
 | Copilot | Yes | `.github/hooks/xcaffold-hooks.json` | camelCase (`preToolUse`) |
 | Antigravity | No | — | — |
+| Codex (Preview) | Yes | `.codex/hooks.json` | camelCase (`preToolUse`) |
 
 ### Provider event name mappings
 
-| xcaffold event | Claude | Gemini | Cursor | Copilot |
-|----------------|--------|--------|--------|---------|
-| `PreToolUse` | `PreToolUse` | `BeforeTool` | `preToolUse` | `preToolUse` |
-| `PostToolUse` | `PostToolUse` | `AfterTool` | `postToolUse` | `postToolUse` |
-| `SessionStart` | `SessionStart` | `SessionStart` | `sessionStart` | `sessionStart` |
-| `Stop` | `Stop` | —¹ | `stop` | `agentStop` |
-| `SubagentStop` | `SubagentStop` | —¹ | `subagentStop` | `subagentStop` |
-| `InstructionsLoaded` | `InstructionsLoaded` | —¹ | camelCase fallback² | —¹ |
-| `PreCompact` | `PreCompact` | —¹ | camelCase fallback² | —¹ |
-| `ConfigChange` | `ConfigChange` | —¹ | camelCase fallback² | —¹ |
-| `Notification` | `Notification` | `Notification` | camelCase fallback² | —¹ |
+| xcaffold event | Claude | Gemini | Cursor | Copilot | Codex (Preview) |
+|----------------|--------|--------|--------|---------|-----------------|
+| `PreToolUse` | `PreToolUse` | `BeforeTool` | `preToolUse` | `preToolUse` | `preToolUse` |
+| `PostToolUse` | `PostToolUse` | `AfterTool` | `postToolUse` | `postToolUse` | `postToolUse` |
+| `SessionStart` | `SessionStart` | `SessionStart` | `sessionStart` | `sessionStart` | `sessionStart` |
+| `Stop` | `Stop` | —¹ | `stop` | `agentStop` | `stop` |
+| `SubagentStop` | `SubagentStop` | —¹ | `subagentStop` | `subagentStop` | —¹ |
+| `InstructionsLoaded` | `InstructionsLoaded` | —¹ | camelCase fallback² | —¹ | —¹ |
+| `PreCompact` | `PreCompact` | —¹ | camelCase fallback² | —¹ | —¹ |
+| `ConfigChange` | `ConfigChange` | —¹ | camelCase fallback² | —¹ | —¹ |
+| `Notification` | `Notification` | `Notification` | camelCase fallback² | —¹ | —¹ |
 
 ¹ Event is dropped and xcaffold emits a `CodeFieldUnsupported` fidelity warning. The event does not appear in the compiled output.
 

@@ -44,7 +44,7 @@ Never include `Co-Authored-By` trailers.
 Run `git diff --staged` before composing the message.
 ```
 
-### Full skill — component patterns with references
+### Simple skill — instructions and rules
 
 ```yaml
 ---
@@ -55,7 +55,6 @@ description: >-
   Step-by-step procedure for implementing a new React component following
   frontend-app conventions — file layout, prop types, Tailwind styling,
   accessibility attributes, and co-located test scaffolding.
-artifacts: [references]
 ---
 # Component Patterns
 
@@ -63,70 +62,135 @@ artifacts: [references]
 Invoke this skill whenever you are asked to create a new React component
 or refactor an existing one to meet project standards.
 
-## Step 1 — Confirm the component's location
+## Step 1 — Confirm the component location
 All new components live under `src/components/<Category>/<ComponentName>/`.
 If the category does not exist, create it.
 
 ## Step 2 — Create the file structure
-```text
-src/components/Category/ComponentName/
-  index.ts                  ← re-export barrel
-  ComponentName.tsx         ← implementation
-  ComponentName.test.tsx    ← co-located tests
-  ComponentName.stories.tsx
+Each component directory contains four files:
+- `index.ts` — re-export barrel
+- `ComponentName.tsx` — implementation
+- `ComponentName.test.tsx` — co-located tests
+- `ComponentName.stories.tsx` — Storybook stories (optional)
+
+## Step 3 — Implement with forwardRef
+Use `forwardRef` for all interactive components. Accept a `className`
+prop and merge it with `cn()` from `@/lib/utils`.
+
+## Step 4 — Write co-located tests
+Every component ships with at least two tests: renders correctly
+and responds to its primary interaction.
+
+## Step 5 — Export from the barrel
+Append the public export to `src/components/index.ts`.
+
+## Rules
+- One component per directory. No multi-component files.
+- All props must have TypeScript types. No `any`.
+- Accessibility: every interactive element needs an aria label or role.
 ```
 
-## Step 3 — Implement the component
-```tsx
-import { type ComponentProps, forwardRef } from 'react';
-import { cn } from '@/lib/utils';
-import { buttonVariants } from './variants';
+### Skill with artifacts — single folder
 
-type ButtonProps = ComponentProps<'button'> & {
-  variant?: 'primary' | 'secondary' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
-};
+The `artifacts` field declares subdirectories that are composed alongside the compiled `SKILL.md`. Files within each subdirectory are discovered automatically from the filesystem.
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', size = 'md', className, children, ...props }, ref) => (
-    <button
-      ref={ref}
-      className={cn(buttonVariants({ variant, size }), className)}
-      {...props}
-    >
-      {children}
-    </button>
-  )
-);
-Button.displayName = 'Button';
+**Source directory layout:**
+
+```
+xcaf/skills/component-patterns/
+  skill.xcaf
+  references/
+    design-tokens.md
+    shadcn-primitives.md
 ```
 
-## Step 4 — Write the test
-```tsx
-import { render, screen } from '@testing-library/react';
-import { Button } from '.';
+**Manifest:**
 
-describe('Button', () => {
-  it('renders children', () => {
-    render(<Button>Click me</Button>);
-    expect(screen.getByRole('button', { name: /click me/i })).toBeInTheDocument();
-  });
+```yaml
+---
+kind: skill
+version: "1.0"
+name: component-patterns
+description: >-
+  Step-by-step procedure for implementing a new React component following
+  frontend-app conventions.
+artifacts:
+  - references
+---
+# Component Patterns
 
-  it('applies variant classes', () => {
-    render(<Button variant="ghost">Ghost</Button>);
-    expect(screen.getByRole('button')).toHaveClass('bg-transparent');
-  });
-});
+## When to Use
+Invoke this skill when creating or refactoring React components.
+
+## Step 1 — Confirm the component location
+…
+
+## Reference Material
+Consult `references/design-tokens.md` for spacing and color values.
+Consult `references/shadcn-primitives.md` for base component APIs.
 ```
 
-## Step 5 — Add to barrel
-Append to `src/components/index.ts`:
-```ts
-export * from './Category/ComponentName';
+The `references/` directory and all its files are placed alongside `SKILL.md` in the compiled output (e.g., `.claude/skills/component-patterns/references/design-tokens.md`).
+
+### Skill with artifacts — multiple folders
+
+A skill can declare more than one artifact subdirectory. Each name maps to a sibling directory on disk.
+
+**Source directory layout:**
+
+```
+xcaf/skills/deploy-checklist/
+  skill.xcaf
+  references/
+    pre-deploy-gates.md
+    rollback-playbook.md
+  scripts/
+    smoke-test.sh
+    health-check.sh
+  examples/
+    staging.env.example
+    production.env.example
 ```
 
-## Deliverables
-Report: "Created ComponentName with N props, M tests passing."
+**Manifest:**
+
+```yaml
+---
+kind: skill
+version: "1.0"
+name: deploy-checklist
+description: >-
+  Production deployment checklist with automated smoke tests
+  and rollback procedures.
+artifacts:
+  - references
+  - scripts
+  - examples
+---
+# Deploy Checklist
+
+## Step 1 — Run pre-deploy gates
+Review the checklist in `references/pre-deploy-gates.md`.
+
+## Step 2 — Execute smoke tests
+Run `scripts/smoke-test.sh` against the staging environment.
+
+## Step 3 — Verify health
+Run `scripts/health-check.sh` and confirm all endpoints return 200.
+
+## Step 4 — Rollback plan
+If any check fails, follow `references/rollback-playbook.md`.
+```
+
+**Valid artifact names:**
+
+| Name | Typical contents |
+|------|-----------------|
+| `references` | Lookup tables, checklists, design tokens, specification excerpts |
+| `scripts` | Shell scripts, automation helpers |
+| `assets` | Static files, images, templates |
+| `examples` | Sample configurations, fixture files |
+| *(custom)* | Any kebab-case directory name is accepted |
 
 ## Field Reference
 
@@ -177,28 +241,28 @@ description: >-
 ## When to Use
 Invoke this skill whenever you are asked to create a new React component
 or refactor an existing one to meet project standards.
-…
+...
 ```
 
-Files discovered in the `references/` artifact subdirectory are placed at `.claude/skills/component-patterns/references/` (e.g., `design-tokens.md`, `shadcn-primitives.md`).
+When `artifacts` are declared, files discovered in each artifact subdirectory are placed alongside `SKILL.md`. For example, a skill declaring `artifacts: [references]` with `references/design-tokens.md` compiles to `.claude/skills/component-patterns/references/design-tokens.md`.
 
 ### Cursor
 
 **Output path**: `.cursor/skills/component-patterns/SKILL.md`
 
-Frontmatter is limited to `name` and `description`. Provider-specific fields (`when-to-use`, `license`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are omitted. Reference files are seeded at `.cursor/skills/component-patterns/references/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
+Frontmatter is limited to `name` and `description`. Provider-specific fields (`when-to-use`, `license`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are omitted. Artifact subdirectories are seeded at `.cursor/skills/component-patterns/<artifact>/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
 
 ### Copilot
 
 **Output path**: `.github/skills/component-patterns/SKILL.md`
 
-Emits `name`, `description`, and `license` in the frontmatter. Reference files are seeded at `.github/skills/component-patterns/references/`. Example files are seeded in an `examples/` subdirectory.
+Emits `name`, `description`, and `license` in the frontmatter. Artifact subdirectories are seeded at `.github/skills/component-patterns/<artifact>/`. Example files are seeded in an `examples/` subdirectory.
 
 ### Gemini
 
 **Output path**: `.gemini/skills/component-patterns/SKILL.md`
 
-Frontmatter is limited to `name` and `description`. Provider-specific fields are omitted. Reference files are seeded at `.gemini/skills/component-patterns/references/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
+Frontmatter is limited to `name` and `description`. Provider-specific fields are omitted. Artifact subdirectories are seeded at `.gemini/skills/component-patterns/<artifact>/`. Example files are collapsed into `references/` rather than a separate `examples/` subdirectory.
 
 ### Antigravity
 
@@ -206,31 +270,39 @@ Frontmatter is limited to `name` and `description`. Provider-specific fields are
 
 Antigravity emits only `name` and `description` in the frontmatter. All other frontmatter fields (`when-to-use`, `license`, `allowed-tools`, `disable-model-invocation`, `user-invocable`, `argument-hint`) are stripped. The markdown body is preserved.
 
-Artifact subdirectories are compiled with path remapping:
+### Codex (Preview)
 
-| Source directory | Antigravity output directory |
-|------------------|------------------------------|
-| `references/` | `examples/` |
-| `scripts/` | `scripts/` |
-| `assets/` | `resources/` |
-| `examples/` | `examples/` |
+**Output path**: `.agents/skills/component-patterns/SKILL.md`
+
+Codex shares the Antigravity skill output path (`.agents/skills/`). Xcaffold emits `name` and `description` in the frontmatter; all other frontmatter fields are stripped. The markdown body is preserved. Artifact subdirectories are placed as-is alongside `SKILL.md`.
+
+### Artifact path remapping
+
+Some providers remap artifact directory names during compilation:
+
+| Source directory | Claude | Cursor | Copilot | Gemini | Antigravity | Codex |
+|------------------|--------|--------|---------|--------|-------------|-------|
+| `references/` | `references/` | `references/` | `references/` | `references/` | `examples/` | `references/` |
+| `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` | `scripts/` |
+| `assets/` | `assets/` | `assets/` | `assets/` | `assets/` | `resources/` | `assets/` |
+| `examples/` | `examples/` | `references/` | `examples/` | `references/` | `examples/` | `examples/` |
 
 ## Provider Fidelity
 
 Skill output is not uniform across providers. The table below summarises what each provider preserves.
 
-| Field | Claude | Cursor | Copilot | Gemini | Antigravity |
-|-------|--------|--------|---------|--------|-------------|
-| `name` | yes | yes | yes | yes | yes |
-| `description` | yes | yes | yes | yes | yes |
-| `when-to-use` | yes (`when_to_use`) | no | no | no | no |
-| `license` | yes | no | yes | no | no |
-| `allowed-tools` | yes (space-separated) | no | yes (YAML list) | no (warning) | no |
-| `disable-model-invocation` | yes | no | no | no | no |
-| `user-invocable` | yes | no | no | no | no |
-| `argument-hint` | yes | no | no | no | no |
-| Markdown body | yes | yes | yes | yes | yes |
-| `references/` subdirectory | yes | yes | yes | yes | compiled to `examples/` |
-| `examples` placement | skill root | `references/` | `examples/` | `references/` | `examples/` |
-| `scripts/` subdirectory | yes | yes | yes | yes | yes |
-| `assets/` subdirectory | yes | yes | yes | yes | compiled to `resources/` |
+| Field | Claude | Cursor | Copilot | Gemini | Antigravity | Codex (Preview) |
+|-------|--------|--------|---------|--------|-------------|-----------------|
+| `name` | yes | yes | yes | yes | yes | yes |
+| `description` | yes | yes | yes | yes | yes | yes |
+| `when-to-use` | yes (`when_to_use`) | no | no | no | no | no |
+| `license` | yes | no | yes | no | no | no |
+| `allowed-tools` | yes (space-separated) | no | yes (YAML list) | no (warning) | no | no |
+| `disable-model-invocation` | yes | no | no | no | no | no |
+| `user-invocable` | yes | no | no | no | no | no |
+| `argument-hint` | yes | no | no | no | no | no |
+| Markdown body | yes | yes | yes | yes | yes | yes |
+| `references/` subdirectory | yes | yes | yes | yes | compiled to `examples/` | yes |
+| `examples/` placement | skill root | `references/` | `examples/` | `references/` | `examples/` | `examples/` |
+| `scripts/` subdirectory | yes | yes | yes | yes | yes | yes |
+| `assets/` subdirectory | yes | yes | yes | yes | compiled to `resources/` | yes |
