@@ -1120,3 +1120,87 @@ func TestMergeSettingsConfig_ProvenanceNotMerged(t *testing.T) {
 		t.Errorf("SourceProvider: want %q (base), got %q", "claude", got.SourceProvider)
 	}
 }
+
+// T-38: TestMergeWorkflowConfig_Activation_NilInherit verifies that a nil override
+// Activation inherits the base Activation unchanged.
+func TestMergeWorkflowConfig_Activation_NilInherit(t *testing.T) {
+	base := ast.WorkflowConfig{
+		Activation: &ast.Activation{Mode: "always"},
+	}
+	override := ast.WorkflowConfig{} // Activation is nil
+
+	result := mergeWorkflowConfig(base, override)
+
+	if result.Activation == nil {
+		t.Fatal("Activation: want non-nil (inherited from base), got nil")
+	}
+	if result.Activation.Mode != "always" {
+		t.Errorf("Activation.Mode: want %q, got %q", "always", result.Activation.Mode)
+	}
+}
+
+// T-39: TestMergeWorkflowConfig_Activation_Override verifies that a non-nil override
+// Activation replaces the base Activation.
+func TestMergeWorkflowConfig_Activation_Override(t *testing.T) {
+	base := ast.WorkflowConfig{
+		Activation: &ast.Activation{Mode: "always"},
+	}
+	override := ast.WorkflowConfig{
+		Activation: &ast.Activation{Mode: "paths", Paths: []string{"*.go"}},
+	}
+
+	result := mergeWorkflowConfig(base, override)
+
+	if result.Activation == nil {
+		t.Fatal("Activation: want non-nil, got nil")
+	}
+	if result.Activation.Mode != "paths" {
+		t.Errorf("Activation.Mode: want %q, got %q", "paths", result.Activation.Mode)
+	}
+	if len(result.Activation.Paths) != 1 || result.Activation.Paths[0] != "*.go" {
+		t.Errorf("Activation.Paths: want [*.go], got %v", result.Activation.Paths)
+	}
+}
+
+// T-40: TestMergeWorkflowConfig_StepInstructions_Replace verifies that override
+// step Instructions replaces base step Instructions via slice replacement semantics.
+func TestMergeWorkflowConfig_StepInstructions_Replace(t *testing.T) {
+	base := ast.WorkflowConfig{
+		Steps: []ast.WorkflowStep{
+			{Name: "s1", Instructions: "base instructions"},
+		},
+	}
+	override := ast.WorkflowConfig{
+		Steps: []ast.WorkflowStep{
+			{Name: "s1", Instructions: "override instructions"},
+		},
+	}
+
+	result := mergeWorkflowConfig(base, override)
+
+	if len(result.Steps) != 1 {
+		t.Fatalf("Steps: want 1 step, got %d", len(result.Steps))
+	}
+	if result.Steps[0].Instructions != "override instructions" {
+		t.Errorf("Steps[0].Instructions: want %q, got %q", "override instructions", result.Steps[0].Instructions)
+	}
+}
+
+// T-41: TestMergeWorkflowConfig_OldFieldsStillWork verifies that AlwaysApply and
+// Paths merge still functions correctly for backward compatibility during migration.
+func TestMergeWorkflowConfig_OldFieldsStillWork(t *testing.T) {
+	trueVal := true
+	base := ast.WorkflowConfig{}
+	override := ast.WorkflowConfig{
+		AlwaysApply: &trueVal,
+	}
+
+	result := mergeWorkflowConfig(base, override)
+
+	if result.AlwaysApply == nil {
+		t.Fatal("AlwaysApply: want non-nil, got nil")
+	}
+	if !*result.AlwaysApply {
+		t.Errorf("AlwaysApply: want true, got false")
+	}
+}

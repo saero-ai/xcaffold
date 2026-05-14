@@ -253,6 +253,11 @@ func mergeWorkflowConfig(base, override ast.WorkflowConfig) ast.WorkflowConfig {
 		result.AlwaysApply = override.AlwaysApply
 	}
 
+	// --- Pointer (nil=inherit, non-nil=replace) ---
+	if override.Activation != nil {
+		result.Activation = override.Activation
+	}
+
 	// --- ClearableList (nil=inherit, cleared=clear, values=replace) ---
 	result.Paths = mergeClearableList(base.Paths, override.Paths)
 
