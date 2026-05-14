@@ -91,7 +91,7 @@ func TestLowerBasicSkill(t *testing.T) {
 
 	hasSimpleNote := false
 	for _, n := range notes {
-		if n.Code == renderer.CodeWorkflowSimpleToSections {
+		if n.Code == renderer.CodeWorkflowBasicToSections {
 			hasSimpleNote = true
 		}
 	}

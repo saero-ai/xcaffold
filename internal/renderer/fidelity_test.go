@@ -117,11 +117,9 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeMCPGlobalConfigOnly:                 true,
 		renderer.CodeClaudeNativePassthrough:             true,
 		renderer.CodeFieldRequiredForTarget:              true,
-		renderer.CodeWorkflowRoutedToSingleSkill:         true,
 		renderer.CodeWorkflowChainedToOrchestrator:       true,
-		renderer.CodeWorkflowSimpleToSections:            true,
+		renderer.CodeWorkflowBasicToSections:             true,
 		renderer.CodeWorkflowDefaultChanged:              true,
-		renderer.CodeWorkflowBodyIgnored:                 true,
 		renderer.CodeWorkflowMixedSteps:                  true,
 	}
 
@@ -398,6 +396,28 @@ func buildFidelityFixture(t *testing.T, baseDir string) *ast.XcaffoldConfig {
 			},
 		},
 	}
+}
+
+// T-36: removed codes must not appear in AllCodes()
+func TestFidelityCodes_RemovedCodesAbsent(t *testing.T) {
+	codes := renderer.AllCodes()
+	for _, c := range codes {
+		assert.NotEqual(t, "WORKFLOW_ROUTED_TO_SINGLE_SKILL", c, "removed code should not be in AllCodes()")
+		assert.NotEqual(t, "WORKFLOW_BODY_IGNORED", c, "removed code should not be in AllCodes()")
+	}
+}
+
+// T-37: renamed code must exist in AllCodes()
+func TestFidelityCodes_BasicToSections_Exists(t *testing.T) {
+	codes := renderer.AllCodes()
+	found := false
+	for _, c := range codes {
+		if c == renderer.CodeWorkflowBasicToSections {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "CodeWorkflowBasicToSections should be in AllCodes()")
 }
 
 func intPtr(n int) *int { return &n }

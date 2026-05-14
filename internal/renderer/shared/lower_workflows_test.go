@@ -135,12 +135,12 @@ func TestLowerWorkflows_BasicMode(t *testing.T) {
 	}
 	var hasSimpleNote bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeWorkflowSimpleToSections {
+		if n.Code == renderer.CodeWorkflowBasicToSections {
 			hasSimpleNote = true
 		}
 	}
 	if !hasSimpleNote {
-		t.Errorf("expected CodeWorkflowSimpleToSections note; got: %v", notes)
+		t.Errorf("expected CodeWorkflowBasicToSections note; got: %v", notes)
 	}
 }
 

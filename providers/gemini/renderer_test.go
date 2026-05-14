@@ -429,14 +429,14 @@ func TestCompile_Gemini_Workflows_DefaultSimpleMode(t *testing.T) {
 	_, hasRule := out.Files["rules/code-review-workflow.md"]
 	require.False(t, hasRule, "simple mode without always-apply should NOT emit a rule; got keys: %v", mapKeysGemini(out.Files))
 
-	// Should have CodeWorkflowSimpleToSections note.
+	// Should have CodeWorkflowBasicToSections note.
 	var hasSimpleNote bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeWorkflowSimpleToSections {
+		if n.Code == renderer.CodeWorkflowBasicToSections {
 			hasSimpleNote = true
 		}
 	}
-	require.True(t, hasSimpleNote, "expected CodeWorkflowSimpleToSections note; got: %v", notes)
+	require.True(t, hasSimpleNote, "expected CodeWorkflowBasicToSections note; got: %v", notes)
 
 	// Should have CodeWorkflowDefaultChanged migration warning.
 	var hasMigrationNote bool

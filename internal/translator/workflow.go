@@ -357,8 +357,7 @@ func lowerBasicSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimi
 	notes := []renderer.FidelityNote{
 		newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
 			target: target, name: name,
-			// TODO(task5): rename to CodeWorkflowBasicToSections
-			code:   renderer.CodeWorkflowSimpleToSections,
+			code:   renderer.CodeWorkflowBasicToSections,
 			reason: fmt.Sprintf("workflow %q rendered as single skill with step sections for %s", name, target),
 		}),
 	}
