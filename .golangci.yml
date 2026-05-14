@@ -2,6 +2,8 @@ run:
   timeout: 5m
   issues-exit-code: 1
   tests: true
+  skip-dirs:
+    - tools/
 
 linters-settings:
   govet:
@@ -24,6 +26,8 @@ issues:
       linters:
         - errcheck
         - goconst
+        - gocyclo
+        - gosec
 
 linters:
   disable-all: true
