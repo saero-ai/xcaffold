@@ -123,7 +123,8 @@ func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive
 
 	switch mode {
 	case ModeRouted:
-		primitives, notes = lowerRoutedSkill(wf, name, target)
+		p, n := lowerRoutedSkill(wf, name, target)
+		primitives, notes = p, append(notes, n...)
 	case ModeChained:
 		p, n := lowerChainedSkill(wf, name, target)
 		primitives, notes = p, append(notes, n...)
