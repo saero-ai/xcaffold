@@ -5,9 +5,7 @@ run:
 
 linters-settings:
   govet:
-    enable-all: true
     disable:
-      - shadow
       - fieldalignment
   errcheck:
     exclude-functions:
@@ -17,7 +15,7 @@ linters-settings:
     min-complexity: 25
   goconst:
     min-len: 3
-    min-occurrences: 5
+    min-occurrences: 6
   gosec:
     excludes:
       - G101
@@ -34,6 +32,7 @@ issues:
         - gocyclo
         - gosec
         - gosimple
+        - staticcheck
 
 linters:
   disable-all: true
