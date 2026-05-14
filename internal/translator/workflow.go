@@ -36,24 +36,19 @@ func newWorkflowNote(level renderer.FidelityLevel, spec workflowNoteSpec) render
 type WorkflowMode string
 
 const (
-	ModeRouted  WorkflowMode = "routed"
-	ModeChained WorkflowMode = "chained"
-	ModeSimple  WorkflowMode = "simple"
+	ModeBasic        WorkflowMode = "basic"
+	ModeOrchestrator WorkflowMode = "orchestrator"
 )
 
 // InferWorkflowMode determines the rendering mode from a workflow's structure.
-// Body-only workflows are routed (single skill). Steps with skill refs are
-// chained (orchestrator). Steps with inline bodies are simple (sections).
+// Steps with any skill reference → Orchestrator. All-instructions steps → Basic.
 func InferWorkflowMode(wf *ast.WorkflowConfig) WorkflowMode {
-	if len(wf.Steps) == 0 && wf.Body != "" {
-		return ModeRouted
-	}
 	for _, step := range wf.Steps {
 		if step.Skill != "" {
-			return ModeChained
+			return ModeOrchestrator
 		}
 	}
-	return ModeSimple
+	return ModeBasic
 }
 
 // slugify lowercases s, replaces non-alphanumeric runs with a single dash, and
@@ -115,41 +110,27 @@ func resolveExplicitStrategy(wf *ast.WorkflowConfig, name, target string) ([]Tar
 
 // lowerByMode infers the workflow mode from its structure and dispatches to the
 // appropriate lowering function. Returns primitives and notes including any
-// body-conflict or migration warnings.
+// migration warnings.
 func lowerByMode(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
 	mode := InferWorkflowMode(wf)
-
 	var notes []renderer.FidelityNote
-
-	if wf.Body != "" && len(wf.Steps) > 0 {
-		n := newWorkflowNote(renderer.LevelWarning, workflowNoteSpec{
-			target: target, name: name,
-			code:   renderer.CodeWorkflowBodyIgnored,
-			reason: fmt.Sprintf("workflow %q has both body and steps; body is ignored in %s mode", name, mode),
-		})
-		n.Mitigation = "Move body content into a step, or remove steps to use routed mode."
-		notes = append(notes, n)
-	}
-
 	var primitives []TargetPrimitive
+
 	switch mode {
-	case ModeRouted:
-		p, n := lowerRoutedSkill(wf, name, target)
+	case ModeOrchestrator:
+		p, n := lowerOrchestratorSkill(wf, name, target)
 		primitives, notes = p, append(notes, n...)
-	case ModeChained:
-		p, n := lowerChainedSkill(wf, name, target)
-		primitives, notes = p, append(notes, n...)
-	case ModeSimple:
-		p, n := lowerSimpleSkill(wf, name, target)
+	case ModeBasic:
+		p, n := lowerBasicSkill(wf, name, target)
 		primitives, notes = p, append(notes, n...)
 
-		if wf.AlwaysApply == nil && wf.Paths.Len() == 0 && len(wf.Steps) > 0 {
+		if wf.Activation == nil {
 			n := newWorkflowNote(renderer.LevelWarning, workflowNoteSpec{
 				target: target, name: name,
 				code:   renderer.CodeWorkflowDefaultChanged,
 				reason: fmt.Sprintf("workflow %q rendered as single skill (new default); previously would have been rule+skill", name),
 			})
-			n.Mitigation = "Add always-apply: true to restore ambient rule injection."
+			n.Mitigation = "Add activation: always to restore ambient rule injection."
 			notes = append(notes, n)
 		}
 	}
@@ -221,7 +202,7 @@ func lowerRulePlusSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 	primitives := []TargetPrimitive{buildRulePlusSkillRule(name, stepNames, skillIDs)}
 
 	for i, step := range wf.Steps {
-		body := step.Body
+		body := step.Instructions
 		if body == "" {
 			body = step.Description
 		}
@@ -241,14 +222,14 @@ func lowerRulePlusSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 	return primitives, []renderer.FidelityNote{note}
 }
 
-// lowerNativeWorkflow emits a single workflow primitive with step bodies
+// lowerNativeWorkflow emits a single workflow primitive with step instructions
 // concatenated under ## <step-name> headers.
 func lowerNativeWorkflow(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
 	var body strings.Builder
 	for _, step := range wf.Steps {
 		fmt.Fprintf(&body, "## %s\n\n", step.Name)
-		if step.Body != "" {
-			body.WriteString(step.Body)
+		if step.Instructions != "" {
+			body.WriteString(step.Instructions)
 			body.WriteString("\n\n")
 		}
 	}
@@ -281,10 +262,10 @@ func lowerPromptFile(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimi
 	fmt.Fprintf(&content, "  api-version: workflow/v1\n")
 	content.WriteString("---\n\n")
 
-	// Step bodies concatenated.
+	// Step instructions concatenated.
 	for _, step := range wf.Steps {
-		if step.Body != "" {
-			content.WriteString(step.Body)
+		if step.Instructions != "" {
+			content.WriteString(step.Instructions)
 			content.WriteString("\n\n")
 		}
 	}
@@ -304,53 +285,43 @@ func lowerPromptFile(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimi
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }
 
-// lowerRoutedSkill emits a single skill primitive from a body-only workflow.
-// Used when the workflow has no steps — it is treated as a routing skill.
-func lowerRoutedSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
-	p := TargetPrimitive{
-		Kind:    "skill",
-		ID:      name,
-		Content: wf.Body,
-	}
-	note := newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
-		target: target, name: name,
-		code:   renderer.CodeWorkflowRoutedToSingleSkill,
-		reason: fmt.Sprintf("workflow %q rendered as single routing skill for %s", name, target),
-	})
-	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
-}
-
-// lowerChainedSkill emits a single orchestrator skill that references sub-skills
-// by name for each step. Mixed steps (both skill refs and inline bodies) emit an
-// additional CodeWorkflowMixedSteps note.
-func lowerChainedSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
-	var body strings.Builder
-	fmt.Fprintf(&body, "# %s\n\n", name)
+// lowerOrchestratorSkill emits a main orchestrator skill that references sub-skills
+// by name for each step. Steps with only instructions become separate skill
+// primitives. Mixed steps (both skill refs and inline instructions) emit a
+// CodeWorkflowMixedSteps note.
+func lowerOrchestratorSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
+	var mainBody strings.Builder
+	var subSkills []TargetPrimitive
+	fmt.Fprintf(&mainBody, "# %s\n\n", name)
 
 	hasMixed := false
 	for i, step := range wf.Steps {
-		fmt.Fprintf(&body, "## %d. %s\n\n", i+1, step.Name)
+		fmt.Fprintf(&mainBody, "## %d. %s\n\n", i+1, step.Name)
 		if step.Description != "" {
-			body.WriteString(step.Description)
-			body.WriteString("\n\n")
+			mainBody.WriteString(step.Description)
+			mainBody.WriteString("\n\n")
 		}
 		if step.Skill != "" {
-			fmt.Fprintf(&body, "Invoke the `/%s` skill.\n\n", step.Skill)
-			if step.Body != "" {
+			fmt.Fprintf(&mainBody, "Invoke the `/%s` skill.\n\n", step.Skill)
+			if step.Instructions != "" {
 				hasMixed = true
-				body.WriteString(step.Body)
-				body.WriteString("\n\n")
+				mainBody.WriteString(step.Instructions)
+				mainBody.WriteString("\n\n")
 			}
-		} else {
+		} else if step.Instructions != "" {
 			hasMixed = true
-			if step.Body != "" {
-				body.WriteString(step.Body)
-				body.WriteString("\n\n")
-			}
+			subID := stepSkillID(name, i, step.Name)
+			subSkills = append(subSkills, TargetPrimitive{
+				Kind:    "skill",
+				ID:      subID,
+				Content: step.Instructions,
+			})
+			fmt.Fprintf(&mainBody, "Invoke the `/%s` skill.\n\n", subID)
 		}
 	}
 
-	p := TargetPrimitive{Kind: "skill", ID: name, Content: body.String()}
+	primitives := []TargetPrimitive{{Kind: "skill", ID: name, Content: mainBody.String()}}
+	primitives = append(primitives, subSkills...)
 
 	notes := []renderer.FidelityNote{
 		newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
@@ -363,20 +334,20 @@ func lowerChainedSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPri
 		notes = append(notes, newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
 			target: target, name: name,
 			code:   renderer.CodeWorkflowMixedSteps,
-			reason: fmt.Sprintf("workflow %q has mixed skill-ref and inline-body steps", name),
+			reason: fmt.Sprintf("workflow %q has mixed skill-ref and inline-instructions steps", name),
 		}))
 	}
-	return []TargetPrimitive{p}, notes
+	return primitives, notes
 }
 
-// lowerSimpleSkill emits a single skill primitive whose body is the concatenation
-// of each step's body under a ## <step-name> heading.
-func lowerSimpleSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
+// lowerBasicSkill emits a single skill primitive whose body is the concatenation
+// of each step's instructions under a ## <step-name> heading.
+func lowerBasicSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
 	var body strings.Builder
 	for _, step := range wf.Steps {
 		fmt.Fprintf(&body, "## %s\n\n", step.Name)
-		if step.Body != "" {
-			body.WriteString(step.Body)
+		if step.Instructions != "" {
+			body.WriteString(step.Instructions)
 			body.WriteString("\n\n")
 		}
 	}
@@ -386,6 +357,7 @@ func lowerSimpleSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrim
 	notes := []renderer.FidelityNote{
 		newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
 			target: target, name: name,
+			// TODO(task5): rename to CodeWorkflowBasicToSections
 			code:   renderer.CodeWorkflowSimpleToSections,
 			reason: fmt.Sprintf("workflow %q rendered as single skill with step sections for %s", name, target),
 		}),
@@ -394,9 +366,9 @@ func lowerSimpleSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrim
 }
 
 // buildWorkflowRule constructs an optional rule primitive that activates the
-// workflow automatically. Returns nil when neither always-apply nor paths is set.
+// workflow automatically. Returns nil when activation is not set.
 func buildWorkflowRule(wf *ast.WorkflowConfig, name, target string) *TargetPrimitive {
-	if (wf.AlwaysApply == nil || !*wf.AlwaysApply) && wf.Paths.Len() == 0 {
+	if wf.Activation == nil {
 		return nil
 	}
 
@@ -407,11 +379,12 @@ func buildWorkflowRule(wf *ast.WorkflowConfig, name, target string) *TargetPrimi
 	fmt.Fprintf(&ruleBody, "  workflow-name: %s\n", name)
 	ruleBody.WriteString("```\n\n")
 
-	if wf.AlwaysApply != nil && *wf.AlwaysApply {
+	switch wf.Activation.Mode {
+	case "always":
 		fmt.Fprintf(&ruleBody, "This workflow (%s) is always active. Invoke `/%s` to begin.\n", name, name)
-	} else if wf.Paths.Len() > 0 {
+	case "paths":
 		fmt.Fprintf(&ruleBody, "This workflow (%s) activates for paths: %s. Invoke `/%s` to begin.\n",
-			name, strings.Join(wf.Paths.Values, ", "), name)
+			name, strings.Join(wf.Activation.Paths, ", "), name)
 	}
 
 	return &TargetPrimitive{
@@ -427,8 +400,8 @@ func lowerCustomCommand(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 
 	var content strings.Builder
 	for _, step := range wf.Steps {
-		if step.Body != "" {
-			content.WriteString(step.Body)
+		if step.Instructions != "" {
+			content.WriteString(step.Instructions)
 			content.WriteString("\n\n")
 		}
 	}

@@ -111,19 +111,21 @@ func TestLowerWorkflows_PromptFilePrimitive(t *testing.T) {
 	}
 }
 
-func TestLowerWorkflows_RoutedMode(t *testing.T) {
+func TestLowerWorkflows_BasicMode(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
 		"router": {
 			Name: "router",
-			Body: "# Router content\nDo analysis.",
+			Steps: []ast.WorkflowStep{
+				{Name: "step1", Instructions: "Do analysis."},
+			},
 		},
 	}
 	merged, directFiles, notes := LowerWorkflows(config, "claude")
 
-	// Routed mode produces a single skill, no direct files.
+	// Basic mode produces a single skill, no direct files.
 	if len(directFiles) != 0 {
-		t.Errorf("expected no direct files for routed mode, got %d", len(directFiles))
+		t.Errorf("expected no direct files for basic mode, got %d", len(directFiles))
 	}
 	if _, ok := merged.ResourceScope.Skills["router"]; !ok {
 		t.Error("expected skill 'router' in merged output")
@@ -131,14 +133,14 @@ func TestLowerWorkflows_RoutedMode(t *testing.T) {
 	if len(notes) == 0 {
 		t.Error("expected at least one fidelity note")
 	}
-	var hasRoutedNote bool
+	var hasSimpleNote bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeWorkflowRoutedToSingleSkill {
-			hasRoutedNote = true
+		if n.Code == renderer.CodeWorkflowSimpleToSections {
+			hasSimpleNote = true
 		}
 	}
-	if !hasRoutedNote {
-		t.Errorf("expected CodeWorkflowRoutedToSingleSkill note; got: %v", notes)
+	if !hasSimpleNote {
+		t.Errorf("expected CodeWorkflowSimpleToSections note; got: %v", notes)
 	}
 }
 
@@ -169,15 +171,14 @@ func TestLowerWorkflows_ChainedMode(t *testing.T) {
 	}
 }
 
-func TestLowerWorkflows_AlwaysApply_EmitsRule(t *testing.T) {
-	alwaysApply := true
+func TestLowerWorkflows_ActivationAlways_EmitsRule(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
 		"mandatory": {
-			Name:        "mandatory",
-			AlwaysApply: &alwaysApply,
+			Name:       "mandatory",
+			Activation: &ast.Activation{Mode: "always"},
 			Steps: []ast.WorkflowStep{
-				{Name: "lint", Body: "Run lint."},
+				{Name: "lint", Instructions: "Run lint."},
 			},
 		},
 	}
