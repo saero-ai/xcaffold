@@ -198,6 +198,8 @@ If any check fails, follow `references/rollback-playbook.md`.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `skill`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique skill identifier. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields

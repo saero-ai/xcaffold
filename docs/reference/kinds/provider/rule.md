@@ -84,6 +84,8 @@ components or hooks. This causes Next.js build failures on the client bundle.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `rule`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique rule identifier. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields

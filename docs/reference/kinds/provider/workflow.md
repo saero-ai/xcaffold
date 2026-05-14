@@ -66,13 +66,14 @@ steps:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `workflow`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique workflow identifier. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `api-version` | `string` | Schema shape discriminator for workflow versioning. Default: `"workflow/v1"`. |
 | `activation` | `string` | Controls rule generation. Set to `"always"` to emit an always-active rule, or provide a list of path globs. Omit for basic lowering (no rule). |
 | `description` | `string` | Human-readable description of what this workflow accomplishes. |
 | `steps` | `[]WorkflowStep` | Ordered procedural steps. |
@@ -88,6 +89,25 @@ Each entry in `steps` supports:
 | `description` | `string` | (Optional) One-line step summary placed beneath the step heading in the compiled output. |
 | `instructions` | `string` | (Optional) Inline step content. Provide either `instructions` or `skill`, not both. |
 | `skill` | `string` | (Optional) Reference to an existing skill by name. The skill's compiled content is used as the step body. Provide either `skill` or `instructions`, not both. |
+
+### `targets` entry
+
+Each entry in `targets` supports:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `skip-synthesis` | `bool` | When `true`, excludes this provider from compilation entirely. |
+| `suppress-fidelity-warnings` | `bool` | When `true`, silences fidelity notes for this provider. |
+| `provider` | `map[string]any` | Opaque pass-through map for provider-specific directives. |
+
+#### `provider` directives
+
+The `provider` map accepts provider-specific keys. xcaffold recognizes:
+
+| Key | Valid Values | Description |
+|-----|-------------|-------------|
+| `lowering-strategy` | `prompt-file`, `custom-command`, `rule-plus-skill` | Overrides the structure-inferred lowering strategy for this provider. |
+| `promote-rules-to-workflows` | `true` / `false` | Emits native workflow output instead of lowering to skill primitives. Used by Antigravity. |
 
 ## Lowering Strategies
 

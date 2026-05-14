@@ -61,6 +61,8 @@ env:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `mcp`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique MCP server identifier. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields

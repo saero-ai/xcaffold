@@ -41,6 +41,8 @@ You are working on xcaffold, a deterministic Harness-as-Code compiler...
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `context`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique identifier for this context block. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields

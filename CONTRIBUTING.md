@@ -282,8 +282,8 @@ Return fidelity notes from `Compile*` methods alongside the output files. Use re
 
 `.xcaf` files use two distinct formats depending on the resource kind:
 
-- **Frontmatter + optional markdown body** (`---` delimiters): `agent`, `skill`, `rule`, `context`, `memory`, `workflow`
-- **Pure YAML** (no delimiters): `hooks`, `settings`, `mcp`, `global`, `project`, `policy`, `blueprint`
+- **Frontmatter + optional markdown body** (`---` delimiters): `agent`, `skill`, `rule`, `context`, `memory`
+- **Pure YAML** (no delimiters): `hooks`, `settings`, `mcp`, `global`, `project`, `policy`, `blueprint`, `workflow`
 
 Using the wrong format produces a parse error. When writing test fixtures, check which format the kind expects before authoring the file.
 

@@ -101,6 +101,8 @@ You are the ONLY agent authorized to modify `src/components/`.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `agent`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique agent identifier. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields
