@@ -124,7 +124,7 @@ xcaffold apply --backup
 
 ## Notes
 
-- `--global` compiles the user-wide global config at `~/.xcaffold/global.xcaf`. The flag is hidden but functional.
+- `--global` compiles the user-wide global config at `~/.xcaffold/global.xcaf`.
 - `--blueprint` and `--global` cannot be combined. Blueprints are project-scoped.
 - The state file is written to `.xcaffold/project.xcaf.state` and is machine-local. It should be gitignored (apply adds the entry automatically). See [State Files and Drift Detection](../../../concepts/execution/state-and-drift.md) for schema details.
 - Policy rules are evaluated after successful compilation. If compilation fails, the policy phase is skipped.

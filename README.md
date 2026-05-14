@@ -73,7 +73,6 @@ xcaffold init                      # scaffold a new project.xcaf
 xcaffold apply                     # compile .xcaf → .claude/, .cursor/, etc.
 xcaffold status                    # detect drift in output directories
 xcaffold validate                  # validate manifests without compiling
-xcaffold test                      # behavioral assertions against a live provider
 xcaffold graph                     # visualize resource scope and dependencies
 xcaffold list                      # list all resources across providers
 ```

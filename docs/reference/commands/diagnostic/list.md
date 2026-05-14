@@ -28,10 +28,10 @@ xcaffold list [flags]
 | `--hook` | — | `bool` | `false` | List hooks. |
 | `--setting` | — | `bool` | `false` | List settings. |
 | `--verbose` | `-v` | `bool` | `false` | Show individual memory entry names per agent instead of aggregate counts. |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). *(Not yet available — hidden flag)* |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (`~/.xcaffold/global.xcaf`). Not yet available for this command. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
-| `--blueprint [name]` | — | `string` | `""` | Show resources belonging to a named blueprint. *(Hidden flag)* |
-| `--resolved` | — | `bool` | `false` | Include transitive dependencies when listing a blueprint. Use with `--blueprint`. *(Hidden flag)* |
+| `--blueprint [name]` | — | `string` | `""` | Show resources belonging to a named blueprint. |
+| `--resolved` | — | `bool` | `false` | Include transitive dependencies when listing a blueprint. Use with `--blueprint`. |
 
 ## Behavior
 

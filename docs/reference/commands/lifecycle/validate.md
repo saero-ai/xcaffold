@@ -21,8 +21,6 @@ xcaffold validate [flags]
 | `--var-file` | | `string` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
 | `--global` | `-g` | `bool` | `false` | Operate on the user-wide global configuration. Inherited from the root command. |
 
-> **Note:** The `--blueprint` flag is available but hidden. It restricts validation to the named blueprint only.
-
 > **Note:** Global scope (`--global`) is not yet fully implemented. Running `xcaffold validate --global` will return an error.
 
 ## Behavior

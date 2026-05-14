@@ -17,7 +17,7 @@ xcaffold is an open-source CLI tool that lets teams define agent configurations 
 
 - `xcaffold init` — scaffold a new project with project.xcaf
 - `xcaffold apply` — compile .xcaf source to provider-native output
-- `xcaffold diff` — show differences between compiled and on-disk state
+- `xcaffold status` — show drift between source and compiled output
 - `xcaffold import` — ingest existing provider configurations as .xcaf source
 - `xcaffold validate` — parse and validate .xcaf files without compiling
 - `xcaffold graph` — render the dependency graph for a project
