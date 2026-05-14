@@ -12,9 +12,9 @@ func NewModelResolver() *codexModelResolver {
 // Also passes through any string starting with "gpt-" as a native model ID.
 func (r *codexModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
 	aliasMap := map[string]string{
-		"sonnet-4":  "gpt-5.4",
-		"opus-4":    "gpt-5.5",
-		"haiku-3.5": "gpt-5.4-mini",
+		"balanced": "gpt-5.4",
+		"flagship": "gpt-5.5",
+		"fast":     "gpt-5.4-mini",
 	}
 
 	if id, found := aliasMap[alias]; found {
@@ -26,9 +26,4 @@ func (r *codexModelResolver) ResolveAlias(alias string) (modelID string, ok bool
 	}
 
 	return "", false
-}
-
-// SupportsBareAliases returns false because Codex requires explicit model IDs.
-func (r *codexModelResolver) SupportsBareAliases() bool {
-	return false
 }

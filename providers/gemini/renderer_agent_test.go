@@ -175,8 +175,8 @@ func TestRenderAgents_ModelAlias_Translated(t *testing.T) {
 	if !ok {
 		t.Fatal("expected agents/test-agent.md in output")
 	}
-	if strings.Contains(agentFile, "model: sonnet-4") {
-		t.Errorf("agent file contains raw alias 'sonnet-4'; expected translated model ID")
+	if strings.Contains(agentFile, "model: balanced") {
+		t.Errorf("agent file contains raw tier alias 'balanced'; expected translated model ID")
 	}
 }
 
