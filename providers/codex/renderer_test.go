@@ -45,16 +45,16 @@ func TestCompile_Agents_BasicTOML(t *testing.T) {
 }
 
 // TestCompile_Agents_ModelResolution verifies that xcaffold model aliases
-// are resolved to Codex model IDs (e.g., "sonnet-4" → "gpt-5.4").
+// are resolved to Codex model IDs (e.g., "balanced" → "gpt-5.4").
 func TestCompile_Agents_ModelResolution(t *testing.T) {
 	tests := []struct {
 		name          string
 		alias         string
 		expectedModel string
 	}{
-		{"sonnet-4 alias", "sonnet-4", "gpt-5.4"},
-		{"opus-4 alias", "opus-4", "gpt-5.5"},
-		{"haiku-3.5 alias", "haiku-3.5", "gpt-5.4-mini"},
+		{"balanced alias", "balanced", "gpt-5.4"},
+		{"flagship alias", "flagship", "gpt-5.5"},
+		{"fast alias", "fast", "gpt-5.4-mini"},
 		{"native gpt-5.4", "gpt-5.4", "gpt-5.4"},
 	}
 

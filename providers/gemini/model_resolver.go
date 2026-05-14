@@ -13,11 +13,11 @@ func NewModelResolver() *geminiModelResolver {
 // ResolveAlias maps short aliases to full Gemini model IDs.
 // Ground truth: models.json verified 2026-04-30.
 func (r *geminiModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
-	// Versioned aliases
+	// Tier aliases
 	aliasMap := map[string]string{
-		"sonnet-4":  "gemini-2.5-flash",
-		"opus-4":    "gemini-2.5-pro",
-		"haiku-3.5": "gemini-2.5-flash",
+		"balanced": "gemini-2.5-flash",
+		"flagship": "gemini-2.5-pro",
+		"fast":     "gemini-2.5-flash",
 	}
 
 	if id, found := aliasMap[alias]; found {
@@ -31,10 +31,4 @@ func (r *geminiModelResolver) ResolveAlias(alias string) (modelID string, ok boo
 	}
 
 	return "", false
-}
-
-// SupportsBareAliases reports that Gemini CLI does not accept bare aliases
-// like "sonnet" or "opus"; it requires full model IDs.
-func (r *geminiModelResolver) SupportsBareAliases() bool {
-	return false
 }

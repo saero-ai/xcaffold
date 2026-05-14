@@ -14,11 +14,11 @@ func NewModelResolver() *claudeModelResolver {
 // Also recognizes and passes through full model IDs that start with "claude-".
 // Ground truth: models.json verified 2026-04-30.
 func (r *claudeModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
-	// Versioned aliases
+	// Tier aliases
 	aliasMap := map[string]string{
-		"sonnet-4":  "claude-sonnet-4-5",
-		"opus-4":    "claude-opus-4-7",
-		"haiku-3.5": "claude-haiku-4-5",
+		"balanced": "claude-sonnet-4-5",
+		"flagship": "claude-opus-4-7",
+		"fast":     "claude-haiku-4-5",
 	}
 
 	if id, found := aliasMap[alias]; found {
@@ -40,10 +40,4 @@ func (r *claudeModelResolver) ResolveAlias(alias string) (modelID string, ok boo
 	}
 
 	return "", false
-}
-
-// SupportsBareAliases reports that Claude Code accepts bare tier names
-// like "sonnet", "opus", "haiku" and resolves them at runtime.
-func (r *claudeModelResolver) SupportsBareAliases() bool {
-	return true
 }

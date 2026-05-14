@@ -14,8 +14,3 @@ func NewModelResolver() *antigravityModelResolver {
 func (r *antigravityModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
 	return "", false
 }
-
-// SupportsBareAliases reports that Antigravity does not support bare aliases.
-func (r *antigravityModelResolver) SupportsBareAliases() bool {
-	return false
-}

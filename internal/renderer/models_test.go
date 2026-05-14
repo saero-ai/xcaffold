@@ -8,18 +8,18 @@ import (
 )
 
 func TestIsMappedModel_KnownAlias_Claude_ReturnsTrue(t *testing.T) {
-	assert.True(t, renderer.IsMappedModel("sonnet-4", "claude"),
-		"sonnet-4 is a known alias with a claude mapping")
+	assert.True(t, renderer.IsMappedModel("balanced", "claude"),
+		"balanced is a known alias with a claude mapping")
 }
 
 func TestIsMappedModel_KnownAlias_Cursor_ReturnsTrue(t *testing.T) {
-	assert.True(t, renderer.IsMappedModel("sonnet-4", "cursor"),
-		"sonnet-4 has a cursor mapping — translated to a canonical model string")
+	assert.True(t, renderer.IsMappedModel("balanced", "cursor"),
+		"balanced has a cursor mapping — translated to a canonical model string")
 }
 
 func TestIsMappedModel_LiteralModelID_Claude_ReturnsFalse(t *testing.T) {
 	assert.False(t, renderer.IsMappedModel("claude-sonnet-4-5", "claude"),
-		"literal model IDs are not xcaffold-mapped aliases — only sonnet-4, opus-4, haiku-3.5 are mapped")
+		"literal model IDs are not xcaffold-mapped aliases — only flagship, balanced, fast are mapped")
 }
 
 func TestIsMappedModel_LiteralModelID_Cursor_ReturnsFalse(t *testing.T) {
@@ -33,46 +33,46 @@ func TestIsMappedModel_EmptyAlias_ReturnsFalse(t *testing.T) {
 }
 
 func TestIsMappedModel_Antigravity_ReturnsFalse(t *testing.T) {
-	assert.False(t, renderer.IsMappedModel("sonnet-4", "antigravity"),
+	assert.False(t, renderer.IsMappedModel("balanced", "antigravity"),
 		"antigravity has no model support — always false")
 }
 
-func TestResolveModel_GeminiTarget_TranslatesSonnet(t *testing.T) {
-	model, ok := renderer.ResolveModel("sonnet-4", "gemini")
+func TestResolveModel_GeminiTarget_TranslatesBalanced(t *testing.T) {
+	model, ok := renderer.ResolveModel("balanced", "gemini")
 	if !ok {
-		t.Fatal("expected ok=true for gemini target with sonnet-4 alias")
+		t.Fatal("expected ok=true for gemini target with balanced alias")
 	}
-	if model == "sonnet-4" {
+	if model == "balanced" {
 		t.Errorf("expected translated model for gemini, got raw alias %q", model)
 	}
 }
 
-func TestResolveModel_CopilotTarget_TranslatesSonnet(t *testing.T) {
-	model, ok := renderer.ResolveModel("sonnet-4", "copilot")
+func TestResolveModel_CopilotTarget_TranslatesBalanced(t *testing.T) {
+	model, ok := renderer.ResolveModel("balanced", "copilot")
 	if !ok {
-		t.Fatal("expected ok=true for copilot target with sonnet-4 alias")
+		t.Fatal("expected ok=true for copilot target with balanced alias")
 	}
-	if model == "sonnet-4" {
+	if model == "balanced" {
 		t.Errorf("expected translated model for copilot, got raw alias %q", model)
 	}
 }
 
-func TestResolveModel_GeminiTarget_TranslatesOpus(t *testing.T) {
-	model, ok := renderer.ResolveModel("opus-4", "gemini")
+func TestResolveModel_GeminiTarget_TranslatesFlagship(t *testing.T) {
+	model, ok := renderer.ResolveModel("flagship", "gemini")
 	if !ok {
-		t.Fatal("expected ok=true for gemini target with opus-4 alias")
+		t.Fatal("expected ok=true for gemini target with flagship alias")
 	}
-	if model == "opus-4" {
+	if model == "flagship" {
 		t.Errorf("expected translated model for gemini, got raw alias %q", model)
 	}
 }
 
 func TestResolveModel_CursorTarget_ReturnsMapped(t *testing.T) {
-	model, ok := renderer.ResolveModel("sonnet-4", "cursor")
+	model, ok := renderer.ResolveModel("balanced", "cursor")
 	if !ok {
-		t.Fatal("expected ok=true for cursor target with sonnet-4 alias")
+		t.Fatal("expected ok=true for cursor target with balanced alias")
 	}
-	if model == "sonnet-4" {
+	if model == "balanced" {
 		t.Errorf("expected translated model for cursor, got raw alias %q", model)
 	}
 }
@@ -93,26 +93,6 @@ func TestResolveModel_GeminiLiteralModel_Accepted(t *testing.T) {
 	}
 	if model != "gemini-2.5-pro" {
 		t.Errorf("expected literal passthrough for gemini model, got %q", model)
-	}
-}
-
-func TestIsKnownClaudeAlias(t *testing.T) {
-	tests := []struct {
-		name     string
-		alias    string
-		expected bool
-	}{
-		{"Sonnet Exact", "sonnet", true},
-		{"Opus Cap", "Opus", true},
-		{"Haiku Mixed", "HaikU", true},
-		{"Mapped Alias Fails", "sonnet-4", false},
-		{"Unknown Model", "gpt-4", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expected, renderer.IsKnownClaudeAlias(tt.alias))
-		})
 	}
 }
 
@@ -140,7 +120,7 @@ func TestSanitizeAgentModel(t *testing.T) {
 		},
 		{
 			name:          "MappedAlias_TranslatesCleanly",
-			model:         "sonnet-4",
+			model:         "balanced",
 			caps:          renderer.CapabilitySet{},
 			targetName:    "gemini",
 			expectedModel: "gemini-2.5-flash",
@@ -185,11 +165,11 @@ func TestSanitizeAgentModel(t *testing.T) {
 			expectedNotes: 1,
 			expectedCode:  renderer.CodeFieldTransformed,
 		},
-		// A mapped xcaffold alias (e.g. "sonnet-4") must still resolve to the
+		// A mapped xcaffold alias (e.g. "balanced") must still resolve to the
 		// target-specific literal and emit no note.
 		{
 			name:          "MappedAlias_ClaudeTarget_TranslatesToLiteral",
-			model:         "sonnet-4",
+			model:         "balanced",
 			caps:          renderer.CapabilitySet{},
 			targetName:    "claude",
 			expectedModel: "claude-sonnet-4-5",
@@ -256,16 +236,46 @@ func TestSanitizeAgentModel_RegistryLookup(t *testing.T) {
 	caps := renderer.CapabilitySet{}
 
 	// claude has model: optional in the schema registry — mapped alias resolves cleanly.
-	gotModel, gotNotes := renderer.SanitizeAgentModel("sonnet-4", caps, "claude", "my-agent")
+	gotModel, gotNotes := renderer.SanitizeAgentModel("balanced", caps, "claude", "my-agent")
 	assert.Equal(t, "claude-sonnet-4-5", gotModel,
 		"registry lookup: claude target with mapped alias must resolve to provider literal")
 	assert.Empty(t, gotNotes,
 		"registry lookup: clean alias resolution must emit no fidelity notes")
 
 	// gemini has model: optional in the schema registry — mapped alias resolves cleanly.
-	gotModel, gotNotes = renderer.SanitizeAgentModel("sonnet-4", caps, "gemini", "my-agent")
+	gotModel, gotNotes = renderer.SanitizeAgentModel("balanced", caps, "gemini", "my-agent")
 	assert.Equal(t, "gemini-2.5-flash", gotModel,
 		"registry lookup: gemini target with mapped alias must resolve to provider literal")
 	assert.Empty(t, gotNotes,
 		"registry lookup: clean alias resolution must emit no fidelity notes")
+}
+
+func TestIsMappedModel_NewTierAlias_Flagship(t *testing.T) {
+	assert.True(t, renderer.IsMappedModel("flagship", "claude"),
+		"flagship must be a mapped xcaffold alias")
+}
+
+func TestIsMappedModel_NewTierAlias_Balanced(t *testing.T) {
+	assert.True(t, renderer.IsMappedModel("balanced", "claude"),
+		"balanced must be a mapped xcaffold alias")
+}
+
+func TestIsMappedModel_NewTierAlias_Fast(t *testing.T) {
+	assert.True(t, renderer.IsMappedModel("fast", "claude"),
+		"fast must be a mapped xcaffold alias")
+}
+
+func TestIsMappedModel_OldAlias_SonnetRejected(t *testing.T) {
+	assert.False(t, renderer.IsMappedModel("sonnet-4", "claude"),
+		"old alias sonnet-4 must NOT be a mapped alias after rename")
+}
+
+func TestIsMappedModel_OldAlias_OpusRejected(t *testing.T) {
+	assert.False(t, renderer.IsMappedModel("opus-4", "claude"),
+		"old alias opus-4 must NOT be a mapped alias after rename")
+}
+
+func TestIsMappedModel_OldAlias_HaikuRejected(t *testing.T) {
+	assert.False(t, renderer.IsMappedModel("haiku-3.5", "claude"),
+		"old alias haiku-3.5 must NOT be a mapped alias after rename")
 }

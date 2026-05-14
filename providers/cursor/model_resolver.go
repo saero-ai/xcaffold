@@ -13,11 +13,11 @@ func NewModelResolver() *cursorModelResolver {
 // so only explicitly mapped versioned aliases are accepted.
 // Ground truth: models.json verified 2026-04-30.
 func (r *cursorModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
-	// Versioned aliases that map to Cursor's typical default
+	// Tier aliases that map to Cursor's typical default
 	aliasMap := map[string]string{
-		"sonnet-4":  "claude-sonnet-4-5",
-		"opus-4":    "claude-sonnet-4-5",
-		"haiku-3.5": "claude-sonnet-4-5",
+		"balanced": "claude-sonnet-4-5",
+		"flagship": "claude-sonnet-4-5",
+		"fast":     "claude-sonnet-4-5",
 	}
 
 	if id, found := aliasMap[alias]; found {
@@ -27,10 +27,4 @@ func (r *cursorModelResolver) ResolveAlias(alias string) (modelID string, ok boo
 	// Cursor does not accept bare aliases or literal model IDs.
 	// Only the mapped versioned aliases above are recognized.
 	return "", false
-}
-
-// SupportsBareAliases reports that Cursor does not accept bare aliases
-// in its official schema.
-func (r *cursorModelResolver) SupportsBareAliases() bool {
-	return false
 }

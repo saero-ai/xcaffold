@@ -64,7 +64,7 @@ func crossProviderFixture(t *testing.T) (*ast.XcaffoldConfig, string) {
 				"test-agent": {
 					Name:        "test-agent",
 					Description: "A cross-provider test agent",
-					Model:       "sonnet-4",
+					Model:       "balanced",
 					Body:        "Agent instructions here.",
 				},
 			},
@@ -125,10 +125,10 @@ func TestCrossProvider_RenderOrNote(t *testing.T) {
 }
 
 // TestCrossProvider_NoRawModelAliases asserts that no provider emits a raw
-// xcaffold model alias (e.g. "sonnet-4") as a literal model: value in output.
+// xcaffold model alias (e.g. "balanced") as a literal model: value in output.
 // Aliases must be resolved to provider-specific identifiers before output.
 func TestCrossProvider_NoRawModelAliases(t *testing.T) {
-	rawAliases := []string{"sonnet-4", "opus-4", "haiku-3.5"}
+	rawAliases := []string{"balanced", "flagship", "fast"}
 
 	for _, r := range allRenderers() {
 		r := r

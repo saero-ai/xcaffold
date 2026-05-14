@@ -576,7 +576,7 @@ func TestBlueprintHash_OrderIndependent(t *testing.T) {
 func TestApplyBlueprint_NamedSettings_SelectsOnly(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		Settings: map[string]ast.SettingsConfig{
-			"default":    {Model: "sonnet-4"},
+			"default":    {Model: "balanced"},
 			"restricted": {Model: "haiku"},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
@@ -591,7 +591,7 @@ func TestApplyBlueprint_NamedSettings_SelectsOnly(t *testing.T) {
 
 func TestApplyBlueprint_NamedSettings_MissingKey_Error(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
-		Settings: map[string]ast.SettingsConfig{"default": {Model: "sonnet-4"}},
+		Settings: map[string]ast.SettingsConfig{"default": {Model: "balanced"}},
 		Blueprints: map[string]ast.BlueprintConfig{
 			"bad": {Name: "bad", Settings: "nonexistent"},
 		},
@@ -620,7 +620,7 @@ func TestApplyBlueprint_NamedHooks_SelectsOnly(t *testing.T) {
 func TestApplyBlueprint_OmittedSettings_IncludesAll(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		Settings: map[string]ast.SettingsConfig{
-			"default": {Model: "sonnet-4"},
+			"default": {Model: "balanced"},
 			"other":   {Model: "haiku"},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{

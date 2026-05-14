@@ -14,11 +14,11 @@ func NewModelResolver() *copilotModelResolver {
 // Copilot supports both Claude models and OpenAI models (gpt-4o, etc).
 // Ground truth: models.json verified 2026-04-30.
 func (r *copilotModelResolver) ResolveAlias(alias string) (modelID string, ok bool) {
-	// Versioned aliases map to Claude models (Copilot's primary integration)
+	// Tier aliases map to Claude models (Copilot's primary integration)
 	aliasMap := map[string]string{
-		"sonnet-4":  "claude-sonnet-4-6",
-		"opus-4":    "claude-opus-4-7",
-		"haiku-3.5": "claude-haiku-4-5",
+		"balanced": "claude-sonnet-4-6",
+		"flagship": "claude-opus-4-7",
+		"fast":     "claude-haiku-4-5",
 	}
 
 	if id, found := aliasMap[alias]; found {
@@ -33,10 +33,4 @@ func (r *copilotModelResolver) ResolveAlias(alias string) (modelID string, ok bo
 	}
 
 	return "", false
-}
-
-// SupportsBareAliases reports that GitHub Copilot does not accept bare aliases
-// in its schema; it requires full model IDs.
-func (r *copilotModelResolver) SupportsBareAliases() bool {
-	return false
 }

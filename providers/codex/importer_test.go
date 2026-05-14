@@ -313,13 +313,6 @@ developer_instructions = "`
 	assert.Equal(t, "at-limit", agent.Name)
 }
 
-// TestModelResolver_SupportsBareAliases verifies that the Codex model resolver
-// does not support bare aliases (returns false).
-func TestModelResolver_SupportsBareAliases(t *testing.T) {
-	resolver := NewModelResolver()
-	assert.False(t, resolver.SupportsBareAliases(), "Codex should not support bare aliases")
-}
-
 // TestModelResolver_UnknownAlias verifies that ResolveAlias returns ("", false)
 // for an unknown alias that does not start with "gpt-".
 func TestModelResolver_UnknownAlias(t *testing.T) {
