@@ -97,16 +97,16 @@ Each `.xcaf` manifest declares one resource in the agent harness. xcaffold compi
 
 ## Provider Support
 
-| Resource | Claude Code | Cursor | GitHub Copilot | Gemini CLI | Antigravity |
-|----------|:-----------:|:------:|:--------------:|:----------:|:-----------:|
-| Agents | ✓ | ✓ | ✓ | ✓ | — |
-| Skills | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Rules | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Workflows | ✓* | ✓* | ✓* | ✓* | ✓ |
-| Hooks | ✓ | ✓ | ✓ | ✓ | — |
-| MCP Servers | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Memory | ✓ | —** | —** | —** | —** |
-| Settings | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Resource | Claude Code | Cursor | GitHub Copilot | Gemini CLI | Antigravity | Codex (Preview) |
+|----------|:-----------:|:------:|:--------------:|:----------:|:-----------:|:---------------:|
+| Agents | ✓ | ✓ | ✓ | ✓ | — | ✓ |
+| Skills | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Rules | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| Workflows | ✓* | ✓* | ✓* | ✓* | ✓ | — |
+| Hooks | ✓ | ✓ | ✓ | ✓ | — | ✓ |
+| MCP Servers | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Memory | ✓ | —** | —** | —** | —** | — |
+| Settings | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 
 *Compiled as rules + skills for providers without a native workflow format.
 **Persistent context can be delivered through `context`, `rule`, or `hooks` kinds. See [memory reference](docs/reference/kinds/provider/memory.md#cross-provider-memory-patterns).

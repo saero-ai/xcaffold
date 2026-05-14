@@ -12,6 +12,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	antigravity "github.com/saero-ai/xcaffold/providers/antigravity"
 	"github.com/saero-ai/xcaffold/providers/claude"
+	codex "github.com/saero-ai/xcaffold/providers/codex"
 	copilot "github.com/saero-ai/xcaffold/providers/copilot"
 	"github.com/saero-ai/xcaffold/providers/cursor"
 	gemini "github.com/saero-ai/xcaffold/providers/gemini"
@@ -23,6 +24,7 @@ import (
 func allRenderers() []renderer.TargetRenderer {
 	return []renderer.TargetRenderer{
 		claude.New(),
+		codex.New(),
 		cursor.New(),
 		gemini.New(),
 		copilot.New(),

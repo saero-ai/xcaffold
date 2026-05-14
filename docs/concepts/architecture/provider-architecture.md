@@ -5,21 +5,21 @@ description: "Symmetric ProviderImporter and TargetRenderer interfaces, the Capa
 
 # Provider Architecture
 
-xcaffold uses a symmetric import/render architecture for each supported provider. Every provider — Claude Code, Cursor, Gemini CLI, GitHub Copilot, Antigravity — has two components that mirror each other:
+xcaffold uses a symmetric import/render architecture for each supported provider. Every provider — Claude Code, Cursor, Gemini CLI, GitHub Copilot, Antigravity, and Codex (Preview) — has two components that mirror each other:
 
 - **ProviderImporter** (`internal/importer/<provider>/`) reads the provider's native directory structure and populates the AST
 - **TargetRenderer** (`internal/renderer/<provider>/`) compiles the AST into the provider's native directory structure
 
 The AST (`ast.XcaffoldConfig`) sits between these two halves as a shared intermediate representation. An import from one provider and a render to another is a cross-provider translation; an import and render to the same provider is a round-trip that should preserve all classified data.
 
-All five current providers are **harness providers** — AI coding tools that read static configuration files at runtime. The provider architecture also supports declarative agent SDK frameworks as future expansion targets, where xcaffold would scaffold starting configurations rather than continuously compile managed state.
+All six current providers are **harness providers** — AI coding tools that read static configuration files at runtime. The provider architecture also supports declarative agent SDK frameworks as future expansion targets, where xcaffold would scaffold starting configurations rather than continuously compile managed state.
 
 ---
 
 ## Pipeline Overview
 
 ```
-Provider Directory (.claude/, .cursor/, .gemini/, .github/, .agents/)
+Provider Directory (.claude/, .cursor/, .gemini/, .github/, .agents/, .codex/)
     │
     ▼
 ProviderImporter.Import(dir, config)
@@ -189,20 +189,24 @@ The `CapabilitySet` serves two purposes. First, the orchestrator uses the boolea
 
 The current capability declarations:
 
-| Field | Claude | Cursor | Gemini | Copilot | Antigravity |
-|---|---|---|---|---|---|
-| Agents | yes | yes | yes | yes | yes |
-| Skills | yes | yes | yes | yes | yes |
-| Rules | yes | yes | yes | yes | yes |
-| Workflows | yes | yes | yes | yes | yes |
-| Hooks | yes | yes | yes | yes | no |
-| Settings | yes | yes | yes | yes | yes |
-| MCP | yes | yes | yes | yes | yes |
-| Memory | yes | no | no | no | no |
-| ProjectInstructions | yes | yes | yes | yes | yes |
-| AgentNativeToolsOnly | yes | no | no | no | no |
-| RuleEncoding.Description | frontmatter | frontmatter | prose | frontmatter | frontmatter |
-| RuleEncoding.Activation | frontmatter | frontmatter | omit | frontmatter | frontmatter |
+| Field | Claude | Cursor | Gemini | Copilot | Antigravity | Codex |
+|---|---|---|---|---|---|---|
+| Agents | yes | yes | yes | yes | yes | yes |
+| Skills | yes | yes | yes | yes | yes | yes |
+| Rules | yes | yes | yes | yes | yes | no |
+| Workflows | yes¹ | yes¹ | yes¹ | yes¹ | yes | no² |
+| Hooks | yes | yes | yes | yes | no | yes |
+| Settings | yes | yes | yes | yes | yes | no |
+| MCP | yes | yes | yes | yes | yes | yes |
+| Memory | yes | no | no | no | no | no |
+| ProjectInstructions | yes | yes | yes | yes | yes | yes |
+| AgentNativeToolsOnly | yes | no | no | no | no | no |
+| RuleEncoding.Description | frontmatter | frontmatter | prose | frontmatter | frontmatter | — |
+| RuleEncoding.Activation | frontmatter | frontmatter | omit | frontmatter | frontmatter | — |
+
+¹ **Lowered workflows.** Claude, Cursor, Gemini, and Copilot have no native workflow primitive. Their `CompileWorkflows()` implementations lower each workflow to a combination of rules and skills — the rule provides the activation trigger (when to invoke the workflow) and the skill carries the workflow body (the steps to execute). The fidelity note `WORKFLOW_LOWERED_TO_RULE_PLUS_SKILL` is emitted to signal the structural change. Antigravity is the only provider with a first-class `workflows/*.md` format that preserves the workflow structure directly.
+
+² **Codex workflow gap.** Codex supports skills but not rules. Since workflow lowering requires both primitives — a rule for activation and a skill for the body — Codex cannot receive the complete lowered form. The skill half could be compiled, but without the rule activation trigger the workflow would exist as a passive skill that is never automatically invoked. `Capabilities().Workflows` is set to `false`, and the orchestrator emits `RENDERER_KIND_UNSUPPORTED` for any workflow targeting Codex. If Codex adds rule support in the future, or if xcaffold introduces a skill-only lowering strategy that uses a different activation mechanism, this gap can be closed.
 
 These declarations are locked by `provider_features_test.go`, which asserts the exact capability set for every provider. Changing a capability without updating the test is a compile-time failure.
 
@@ -242,12 +246,12 @@ The `LowerWorkflows` helper lives in `internal/renderer/shared/` — a separate 
 
 Skills support four canonical subdirectories (`references/`, `scripts/`, `assets/`, `examples/`). Each renderer translates these canonical names to provider-native directory names at the renderer boundary. The translation is declared in each renderer's `CompileSkills` method and executed by the shared `CompileSkillSubdir` helper.
 
-| Canonical | Claude Code | Gemini CLI | Cursor | GitHub Copilot | Antigravity |
-|---|---|---|---|---|---|
-| `references/` | `references/` | `references/` | `references/` | co-located | `examples/` |
-| `scripts/` | `scripts/` | `scripts/` | `scripts/` | co-located | `scripts/` |
-| `assets/` | `assets/` | `assets/` | `assets/` | co-located | `resources/` |
-| `examples/` | flat alongside SKILL.md | collapse into `references/` | collapse into `references/` | co-located | `examples/` |
+| Canonical | Claude Code | Gemini CLI | Cursor | GitHub Copilot | Antigravity | Codex |
+|---|---|---|---|---|---|---|
+| `references/` | `references/` | `references/` | `references/` | co-located | `examples/` | `references/` |
+| `scripts/` | `scripts/` | `scripts/` | `scripts/` | co-located | `scripts/` | `scripts/` |
+| `assets/` | `assets/` | `assets/` | `assets/` | co-located | `resources/` | `assets/` |
+| `examples/` | flat alongside SKILL.md | collapse into `references/` | collapse into `references/` | co-located | `examples/` | flat alongside SKILL.md |
 
 **FidelityNote (unsupported).** When a canonical subdirectory has no equivalent in the target provider, the renderer emits a `FidelityNote` with code `FIELD_UNSUPPORTED` and drops the files. Claude Code does not support `assets/` — placing files there produces a fidelity warning, not an error. Compilation succeeds; the warning informs the user that those files were not emitted.
 
@@ -265,7 +269,7 @@ This is the file-level equivalent of `target-options:` (which provides field-lev
 
 ---
 
-## The Five Providers
+## The Six Providers
 
 | Provider | Import Dir | Output Dir | Notable Characteristics |
 |---|---|---|---|
@@ -274,6 +278,9 @@ This is the file-level equivalent of `target-options:` (which provides field-lev
 | **Gemini CLI** | `.gemini/` | `.gemini/` | Uses `@-import` syntax for project instructions; hooks and MCP in `settings.json` |
 | **GitHub Copilot** | `.github/` | `.github/` | Instructions in `.github/copilot-instructions.md`; prompts as `.prompt.md` files |
 | **Antigravity** | `.agents/` | `.agents/` | No hooks support; has memory (knowledge items); manual rule activation |
+| **Codex** (Preview) | `.codex/` | `.codex/` | TOML agent definitions; rules unsupported (Starlark paradigm); memory is API-managed; shares `.agents/skills/` with Antigravity; `AGENTS.md` root context file |
+
+Codex is the only provider that uses TOML for agent definitions — all others use Markdown with optional YAML frontmatter. Rules are not compiled for Codex because it uses Starlark `.rules` files, a fundamentally different paradigm from xcaffold's YAML-based rule model. Memory is managed via API rather than files on disk, so xcaffold emits no memory output for this target. Skills are written to `.agents/skills/` via the `rootFiles` mechanism — the same directory that Antigravity reads — meaning a single compile pass produces skill output readable by both providers. Codex's root context file is `AGENTS.md`, the same filename Cursor uses, which creates a collision risk when both providers are active targets; see [Multi-Target Compilation](../../best-practices/multi-target-compilation.md) for guidance. The "(Preview)" designation signals that Codex renderer behavior may change in minor releases.
 
 ### Native Provider Runtime Loading
 
@@ -294,7 +301,7 @@ Because providers already handle user-global loading natively, **xcaffold never 
 
 ## Adding a New Provider
 
-Adding a sixth provider requires no changes to the core compiler, parser, or AST. The steps:
+Adding a new provider requires no changes to the core compiler, parser, or AST. The steps:
 
 1. **Create the importer** — `internal/importer/<name>/<name>.go` implementing `ProviderImporter`. Define a `[]KindMapping` table mapping file patterns to AST kinds. Implement `Import()` to walk the directory.
 2. **Create the renderer** — `internal/renderer/<name>/<name>.go` implementing `TargetRenderer`. Implement per-resource `Compile*` methods for each supported kind. Return a `CapabilitySet` from `Capabilities()` declaring what the renderer supports.

@@ -81,6 +81,7 @@ Memory content is synthesized based on the target provider's capabilities.
 | **Antigravity** | No output | Emits a fidelity note; memory compilation is not activated for Antigravity (`capabilities.Memory = false`) |
 | **Cursor** | No output | Emits a fidelity note; memory is not supported by the Cursor agent format |
 | **Copilot** | No output | Emits a fidelity note; memory is not supported by the Copilot agent format |
+| **Codex (Preview)** | No output | Emits a fidelity note; memory is API-managed in Codex and cannot be seeded via static files |
 
 Memory is excluded from the override inheritance system. Memory files are not merged or inherited across agent scopes.
 

@@ -33,6 +33,6 @@ Security updates are provided for the latest released version only.
 
 **Out of scope:**
 
-- Vulnerabilities in the AI provider tools themselves (Claude Code, Gemini CLI, Cursor, GitHub Copilot, etc.) — report those directly to the respective vendor
+- Vulnerabilities in the AI provider tools themselves (Claude Code, Gemini CLI, Cursor, GitHub Copilot, OpenAI Codex, etc.) — report those directly to the respective vendor
 - Vulnerabilities in third-party Go dependencies — report those to the upstream maintainer or via [GitHub's advisory database](https://github.com/advisories)
 - Issues that require the attacker to already have write access to the user's `.xcaf` files or project directory
