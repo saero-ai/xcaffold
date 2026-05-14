@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
-	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	rendshared "github.com/saero-ai/xcaffold/internal/renderer/shared"
 	"github.com/saero-ai/xcaffold/internal/resolver"
@@ -145,12 +144,12 @@ func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, bas
 		if len(wf.Artifacts) == 0 {
 			continue
 		}
-		artifactNotes := compileGeminiSkillArtifacts(geminiSkillArtifactJob{
-			id:        id,
-			baseDir:   baseDir,
-			caps:      caps,
-			files:     files,
-			sourceDir: filepath.Join("xcaf", "workflows", id),
+		artifactNotes := renderer.CompileArtifactsDemoted(targetName, renderer.ArtifactJob{
+			ID:        id,
+			BaseDir:   baseDir,
+			Caps:      caps,
+			Files:     files,
+			SourceDir: filepath.Join("xcaf", "workflows", id),
 		}, wf.Artifacts)
 		notes = append(notes, artifactNotes...)
 	}
@@ -363,7 +362,7 @@ func (r *Renderer) renderSkills(config *ast.XcaffoldConfig, baseDir string, file
 		skill := config.Skills[id]
 		files[filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", id))] = buildGeminiSkillContent(skill)
 		notes = append(notes, geminiSkillFidelityNotes(id, skill)...)
-		artifactNotes := compileGeminiSkillArtifacts(geminiSkillArtifactJob{id: id, baseDir: baseDir, caps: caps, files: files}, skill.Artifacts)
+		artifactNotes := renderer.CompileArtifactsDemoted(targetName, renderer.ArtifactJob{ID: id, BaseDir: baseDir, Caps: caps, Files: files}, skill.Artifacts)
 		notes = append(notes, artifactNotes...)
 	}
 
@@ -428,74 +427,6 @@ func geminiSkillFidelityNotes(id string, skill ast.SkillConfig) []renderer.Fidel
 			Code:     renderer.CodeFieldUnsupported,
 			Reason:   "Gemini CLI skills do not support disable-model-invocation",
 		})
-	}
-	return notes
-}
-
-// geminiSkillArtifactJob bundles the inputs needed to compile a skill's artifact subdirs.
-// When sourceDir is non-empty it overrides the default xcaf/skills/<id> source path.
-type geminiSkillArtifactJob struct {
-	id        string
-	baseDir   string
-	caps      renderer.CapabilitySet
-	files     map[string]string
-	sourceDir string // optional override; defaults to xcaf/skills/<id>
-}
-
-// compileGeminiSkillArtifacts discovers and compiles artifact subdirs for a skill.
-// Errors are demoted to fidelity notes so the rest of the skill still compiles.
-func compileGeminiSkillArtifacts(j geminiSkillArtifactJob, artifacts []string) []renderer.FidelityNote {
-	var notes []renderer.FidelityNote
-	skillSourceDir := j.sourceDir
-	if skillSourceDir == "" {
-		skillSourceDir = filepath.Join("xcaf", "skills", j.id)
-	}
-	subOut := &output.Output{Files: make(map[string]string)}
-
-	for _, artifactName := range artifacts {
-		outputSubdir, ok := j.caps.SkillArtifactDirs[artifactName]
-		if !ok {
-			outputSubdir = artifactName
-		}
-		paths, err := renderer.DiscoverArtifactFiles(j.baseDir, skillSourceDir, artifactName)
-		if err != nil {
-			notes = append(notes, renderer.FidelityNote{
-				Level:      renderer.LevelWarning,
-				Target:     targetName,
-				Kind:       "skill",
-				Resource:   j.id,
-				Field:      artifactName,
-				Code:       renderer.CodeSkillReferencesDropped,
-				Reason:     fmt.Sprintf("skill %s artifact %s: discover files: %s", j.id, artifactName, err),
-				Mitigation: "Check file paths in " + artifactName,
-			})
-			continue
-		}
-		if len(paths) == 0 {
-			continue
-		}
-		if err := renderer.CompileSkillSubdir(renderer.SkillSubdirOpts{
-			ID:              j.id,
-			CanonicalSubdir: artifactName,
-			OutputSubdir:    outputSubdir,
-			Paths:           paths,
-			BaseDir:         j.baseDir,
-			SkillSourceDir:  skillSourceDir,
-		}, subOut); err != nil {
-			notes = append(notes, renderer.FidelityNote{
-				Level:      renderer.LevelWarning,
-				Target:     targetName,
-				Kind:       "skill",
-				Resource:   j.id,
-				Field:      artifactName,
-				Code:       renderer.CodeSkillReferencesDropped,
-				Reason:     err.Error(),
-				Mitigation: "Check file paths in " + artifactName,
-			})
-		}
-	}
-	for k, v := range subOut.Files {
-		j.files[k] = v
 	}
 	return notes
 }
