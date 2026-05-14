@@ -287,6 +287,26 @@ type WorkflowConfig struct {
 	// +xcaf:type=map
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
+	// When true, generates an always-apply rule alongside skill output.
+	// +xcaf:optional
+	// +xcaf:group=Activation
+	// +xcaf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
+	AlwaysApply *bool `yaml:"always-apply,omitempty"`
+
+	// Glob patterns for conditional activation. Generates a path-scoped rule.
+	// +xcaf:optional
+	// +xcaf:group=Activation
+	// +xcaf:type=ClearableList
+	// +xcaf:provider=claude:optional,cursor:optional,copilot:optional
+	Paths ClearableList `yaml:"paths,omitempty"`
+
+	// Named subdirectories to copy from xcaf/workflows/<id>/ to provider output.
+	// +xcaf:optional
+	// +xcaf:group=Composition
+	// +xcaf:type=[]string
+	// +xcaf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
+	Artifacts []string `yaml:"artifacts,omitempty"`
+
 	// Top-level body for single-step or legacy workflows.
 	Body string `yaml:"-"`
 
@@ -303,6 +323,7 @@ type WorkflowConfig struct {
 type WorkflowStep struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
+	Skill       string `yaml:"skill,omitempty"`
 	Body        string `yaml:"-"`
 }
 

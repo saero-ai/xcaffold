@@ -9,12 +9,25 @@ api-version: "workflow/v1"
 steps:
   - name: plan
     description: "Analyze the task and produce a plan."
+    skill: planning-skill
 
   - name: implement
     description: "Execute the plan."
+    skill: implementation-skill
 
   - name: verify
     description: "Verify correctness."
+    skill: verification-skill
+
+always-apply: true
+
+paths:
+  - "*.test.ts"
+  - "src/**"
+
+artifacts:
+  - docs
+  - examples
 
 targets:
   claude:
