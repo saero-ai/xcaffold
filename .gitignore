@@ -13,10 +13,20 @@ cover.out
 # Dependency directories
 vendor/
 
-# xcaffold CLI outputs
+# xcaffold CLI outputs (provider-native config directories)
 /xcaffold
 /.claude/
+/.cursor/
+/.gemini/
+/.agents/
 scaffold.lock
+
+# xcaffold state
+/.xcaffold/
+
+# Environment files
+.env
+.env.*
 
 # Code analysis cache
 .codesight/
