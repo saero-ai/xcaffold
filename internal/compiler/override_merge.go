@@ -229,9 +229,6 @@ func mergeWorkflowConfig(base, override ast.WorkflowConfig) ast.WorkflowConfig {
 	result := base
 
 	// --- Scalars (replace on non-zero) ---
-	if override.ApiVersion != "" {
-		result.ApiVersion = override.ApiVersion
-	}
 	if override.Name != "" {
 		result.Name = override.Name
 	}

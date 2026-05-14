@@ -19,6 +19,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "required",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -37,6 +38,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "optional",
 					"claude":      "required",
+					"codex":       "required",
 					"copilot":     "required",
 					"cursor":      "optional",
 					"gemini":      "required",
@@ -54,6 +56,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "optional",
 					"claude":      "optional",
+					"codex":       "optional",
 					"copilot":     "optional",
 					"cursor":      "optional",
 					"gemini":      "optional",
@@ -72,6 +75,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "optional",
 					"copilot":     "unsupported",
 					"cursor":      "optional",
 					"gemini":      "unsupported",
@@ -89,6 +93,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "optional",
@@ -106,6 +111,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "optional",
 					"cursor":      "unsupported",
 					"gemini":      "optional",
@@ -123,6 +129,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -140,6 +147,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "optional",
 					"gemini":      "unsupported",
@@ -157,6 +165,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -174,6 +183,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "optional",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -191,6 +201,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "optional",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -208,6 +219,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "optional",
 					"gemini":      "unsupported",
@@ -225,6 +237,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -242,6 +255,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -259,6 +273,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -276,6 +291,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -293,6 +309,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "optional",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -310,6 +327,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -327,6 +345,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -344,6 +363,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -361,6 +381,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "optional",
 					"copilot":     "optional",
 					"cursor":      "unsupported",
 					"gemini":      "optional",
@@ -378,6 +399,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -395,6 +417,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -936,6 +959,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "optional",
 					"gemini":      "unsupported",
@@ -953,6 +977,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "optional",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "optional",
 					"cursor":      "optional",
 					"gemini":      "unsupported",
@@ -971,6 +996,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "optional",
 					"gemini":      "unsupported",
@@ -988,6 +1014,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1006,6 +1033,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "optional",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "optional",
 					"cursor":      "optional",
 					"gemini":      "unsupported",
@@ -1024,6 +1052,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "optional",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1041,6 +1070,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1360,6 +1390,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "required",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1378,6 +1409,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "optional",
 					"claude":      "optional",
+					"codex":       "required",
 					"copilot":     "optional",
 					"cursor":      "optional",
 					"gemini":      "optional",
@@ -1395,6 +1427,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "optional",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1412,6 +1445,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "optional",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1429,6 +1463,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "optional",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1446,6 +1481,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1463,6 +1499,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1480,6 +1517,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "optional",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1497,6 +1535,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "optional",
 					"claude":      "optional",
+					"codex":       "optional",
 					"copilot":     "optional",
 					"cursor":      "optional",
 					"gemini":      "optional",
@@ -1514,6 +1553,7 @@ func init() {
 				Provider: map[string]string{
 					"antigravity": "unsupported",
 					"claude":      "unsupported",
+					"codex":       "unsupported",
 					"copilot":     "unsupported",
 					"cursor":      "unsupported",
 					"gemini":      "unsupported",
@@ -1562,20 +1602,6 @@ func init() {
 		Version: "1.0",
 		Format:  "frontmatter+body",
 		Fields: []Field{
-			{
-				Name:        "ApiVersion",
-				YAMLKey:     "api-version",
-				GoType:      "string",
-				XCAFType:    "string",
-				Optional:    true,
-				Description: "Schema shape discriminator for workflow versioning.",
-				Group:       "Identity",
-				Enum:        []string{"workflow/v1"},
-				Provider: map[string]string{
-					"antigravity": "optional",
-				},
-				Default: "workflow/v1",
-			},
 			{
 				Name:        "Name",
 				YAMLKey:     "name",

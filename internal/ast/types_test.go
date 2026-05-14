@@ -164,7 +164,7 @@ func TestResourceOverrides_AddRule_StoresAndRetrievesRuleConfigs(t *testing.T) {
 func TestResourceOverrides_AddWorkflow_StoresAndRetrievesWorkflowConfigs(t *testing.T) {
 	ro := &ResourceOverrides{}
 
-	wf1 := WorkflowConfig{Name: "ci", ApiVersion: "workflow/v1"}
+	wf1 := WorkflowConfig{Name: "ci"}
 	ro.AddWorkflow("ci", "gemini", wf1)
 
 	retrieved, ok := ro.GetWorkflow("ci", "gemini")
