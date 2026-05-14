@@ -69,17 +69,31 @@ func loweringStrategy(wf *ast.WorkflowConfig, target string) string {
 // TranslateWorkflow lowers a WorkflowConfig into one or more TargetPrimitives
 // for the named target platform. The strategy is determined in this order:
 //
-//  1. Target override promote-rules-to-workflows: true → native workflow primitive.
-//  2. Target provider lowering-strategy: prompt-file   → .github/prompts/*.prompt.md
-//  3. Target provider lowering-strategy: custom-command → .gemini/commands/*.md
-//  4. Default (no strategy set) → rule-plus-skill.
+//  1. Explicit lowering-strategy in targets takes precedence.
+//  2. Target override promote-rules-to-workflows: true → native workflow.
+//  3. Structure-based inference: body-only → routed, skill-ref steps → chained,
+//     inline-body steps → simple.
+//  4. Activation rule appended when always-apply or paths is set.
 func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
 	name := wf.Name
 	if name == "" {
 		name = "unnamed"
 	}
 
-	// Check for native workflow promotion via target override (any provider can opt in).
+	// 1. Explicit lowering-strategy in targets takes precedence.
+	strategy := loweringStrategy(wf, target)
+	if strategy != "" {
+		switch strategy {
+		case "prompt-file":
+			return lowerPromptFile(wf, name, target)
+		case "custom-command":
+			return lowerCustomCommand(wf, name, target)
+		case "rule-plus-skill":
+			return lowerRulePlusSkill(wf, name, target)
+		}
+	}
+
+	// 2. Native workflow promotion for providers that support it.
 	if override, ok := wf.Targets[target]; ok {
 		if v, ok := override.Provider["promote-rules-to-workflows"]; ok {
 			if promote, _ := v.(bool); promote {
@@ -88,19 +102,55 @@ func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive
 		}
 	}
 
-	strategy := loweringStrategy(wf, target)
+	// 3. Structure-based inference (new default path).
+	mode := InferWorkflowMode(wf)
 
-	switch {
-	case strategy == "prompt-file":
-		return lowerPromptFile(wf, name, target)
-	case strategy == "custom-command":
-		return lowerCustomCommand(wf, name, target)
-	case strategy == "rule-plus-skill":
-		return lowerRulePlusSkill(wf, name, target)
-	default:
-		// All registered providers without an explicit lowering strategy default to rule-plus-skill.
-		return lowerRulePlusSkill(wf, name, target)
+	var primitives []TargetPrimitive
+	var notes []renderer.FidelityNote
+
+	// Warn when body is present alongside steps (body will be ignored).
+	if wf.Body != "" && len(wf.Steps) > 0 {
+		notes = append(notes, renderer.FidelityNote{
+			Level:      renderer.LevelWarning,
+			Target:     target,
+			Kind:       "workflow",
+			Resource:   name,
+			Code:       renderer.CodeWorkflowBodyIgnored,
+			Reason:     fmt.Sprintf("workflow %q has both body and steps; body is ignored in %s mode", name, mode),
+			Mitigation: "Move body content into a step, or remove steps to use routed mode.",
+		})
 	}
+
+	switch mode {
+	case ModeRouted:
+		primitives, notes = lowerRoutedSkill(wf, name, target)
+	case ModeChained:
+		p, n := lowerChainedSkill(wf, name, target)
+		primitives, notes = p, append(notes, n...)
+	case ModeSimple:
+		p, n := lowerSimpleSkill(wf, name, target)
+		primitives, notes = p, append(notes, n...)
+
+		// Migration warning: this workflow would have been rule+skill before.
+		if wf.AlwaysApply == nil && wf.Paths.Len() == 0 && len(wf.Steps) > 0 {
+			notes = append(notes, renderer.FidelityNote{
+				Level:      renderer.LevelWarning,
+				Target:     target,
+				Kind:       "workflow",
+				Resource:   name,
+				Code:       renderer.CodeWorkflowDefaultChanged,
+				Reason:     fmt.Sprintf("workflow %q rendered as single skill (new default); previously would have been rule+skill", name),
+				Mitigation: "Add always-apply: true to restore ambient rule injection.",
+			})
+		}
+	}
+
+	// 4. Add activation rule if always-apply or paths is set.
+	if rule := buildWorkflowRule(wf, name, target); rule != nil {
+		primitives = append(primitives, *rule)
+	}
+
+	return primitives, notes
 }
 
 // buildRulePlusSkillRule constructs the rule primitive (provenance block +

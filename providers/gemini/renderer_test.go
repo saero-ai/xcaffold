@@ -361,6 +361,9 @@ func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 						{Name: "build", Body: "Run go build."},
 						{Name: "test", Body: "Run go test."},
 					},
+					Targets: map[string]ast.TargetOverride{
+						"gemini": {Provider: map[string]any{"lowering-strategy": "rule-plus-skill"}},
+					},
 				},
 			},
 		},

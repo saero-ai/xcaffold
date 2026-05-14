@@ -12,7 +12,8 @@ import (
 )
 
 // threeStepCodeReview returns a WorkflowConfig with inline step instructions
-// so tests run without relying on external file resolution.
+// and an explicit rule-plus-skill lowering strategy for Claude so tests run
+// without relying on external file resolution or default-behavior assumptions.
 func threeStepCodeReview() *ast.XcaffoldConfig {
 	return &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -25,6 +26,9 @@ func threeStepCodeReview() *ast.XcaffoldConfig {
 						{Name: "analyze", Body: "Read the diff and summarize changed modules."},
 						{Name: "lint", Body: "Check style violations in changed files."},
 						{Name: "summarize", Body: "Write the final review comment."},
+					},
+					Targets: map[string]ast.TargetOverride{
+						"claude": {Provider: map[string]any{"lowering-strategy": "rule-plus-skill"}},
 					},
 				},
 			},

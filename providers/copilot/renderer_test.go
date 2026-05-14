@@ -147,6 +147,9 @@ func TestCompile_Copilot_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 						{Name: "step-1", Body: "Run tests"},
 						{Name: "step-2", Body: "Deploy to staging"},
 					},
+					Targets: map[string]ast.TargetOverride{
+						"copilot": {Provider: map[string]any{"lowering-strategy": "rule-plus-skill"}},
+					},
 				},
 			},
 		},
