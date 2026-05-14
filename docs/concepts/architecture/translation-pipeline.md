@@ -37,10 +37,9 @@ type TargetPrimitive struct {
 
 It determines the lowering strategy for the named target in this priority order:
 
-1. If the target override contains `promote-rules-to-workflows: true` → **native workflow** lowering.
-2. If the target override sets `lowering-strategy: prompt-file` → **prompt-file** lowering.
-3. If the target override sets `lowering-strategy: custom-command` → **custom-command** lowering.
-4. Otherwise → **rule-plus-skill** lowering (the default for all targets).
+1. If the target override sets `lowering-strategy` → use that strategy.
+2. Otherwise → structure-based inference: any step with `skill:` → **orchestrator** mode, all steps with `instructions:` → **basic** mode.
+3. If `activation:` is set → append a rule primitive alongside the skill output.
 
 Strategy lookup uses the `loweringStrategy` helper, which reads `wf.Targets[target].Provider["lowering-strategy"]` and returns an empty string when the key is absent.
 
@@ -74,17 +73,15 @@ Followed by a plain-text invocation instruction listing skill IDs in order.
 **Skill primitives** (`Kind: "skill"`)  
 One per step. The `ID` is produced by `stepSkillID(workflowName, i, stepName)`, which generates `<workflow-name>-<NN zero-padded>-<step-name-slugified>`. For example, step 0 named `"analyze"` in workflow `"code-review"` produces `code-review-01-analyze`.
 
-The skill `Content` is the step's `Body` field, falling back to `Description` when `Body` is empty.
+The skill `Content` is the step's `Instructions` field, falling back to `Description` when `Instructions` is empty.
 
 This strategy emits a `renderer.FidelityNote` at `LevelWarning` with code `CodeWorkflowLoweredToRulePlusSkill`, informing the caller that the target has no native workflow primitive.
 
-### native workflow
+### native workflow (Antigravity)
 
-`lowerNativeWorkflow` is selected when `wf.Targets[target].Provider["promote-rules-to-workflows"]` is `true`. Any provider can opt in via a target override.
+Antigravity always renders a native workflow primitive (`Kind: "workflow"`, `ID: "<name>"`). Unlike other providers, Antigravity does not go through the `rule-plus-skill` or basic lowering paths. The primitive's `Content` concatenates each step's instructions under a `## <step-name>` heading.
 
-It emits a single primitive (`Kind: "workflow"`, `ID: "<name>"`) whose `Content` concatenates each step body under a `## <step-name>` heading.
-
-This strategy emits a `renderer.FidelityNote` at `LevelInfo` with code `CodeWorkflowLoweredToNative`.
+This path emits a `renderer.FidelityNote` at `LevelInfo` with code `CodeWorkflowLoweredToNative`.
 
 ### prompt-file
 
@@ -95,7 +92,7 @@ It emits a single primitive:
 - `Kind: "prompt-file"`
 - `ID: "<name>"`
 - `Path: ".github/prompts/<name>.prompt.md"`
-- `Content`: a frontmatter block with `mode: agent` and an `x-xcaffold:` provenance section, followed by all step bodies concatenated.
+- `Content`: a frontmatter block with `mode: agent` and an `x-xcaffold:` provenance section, followed by all step instructions concatenated.
 
 This strategy emits a `renderer.FidelityNote` at `LevelInfo` with code `CodeWorkflowLoweredToPromptFile`.
 
@@ -108,7 +105,7 @@ It emits a single primitive:
 - `Kind: "custom-command"`
 - `ID: "<name>"`
 - `Path: ".gemini/commands/<name>.md"`
-- `Content`: all step bodies concatenated.
+- `Content`: all step instructions concatenated.
 
 This strategy emits a `renderer.FidelityNote` at `LevelInfo` with code `CodeWorkflowLoweredToCustomCommand`.
 

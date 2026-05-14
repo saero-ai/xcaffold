@@ -59,7 +59,7 @@ Determinism is also what makes CI verification possible. A pipeline that runs `x
 
 Each `.xcaf` file contains exactly one resource document. The parser enforces this constraint: if a second `kind:` declaration is detected in the same file, parsing fails immediately with an error directing the author to split the file.
 
-The `---` delimiters in a `.xcaf` file separate YAML frontmatter from the Markdown body — they do not separate multiple YAML documents. Frontmatter contains the resource's typed fields (name, description, tools, model, etc.). The body, if present, carries free-form instructions that become the resource's `Body` field.
+The `---` delimiters in a `.xcaf` file separate YAML frontmatter from the Markdown body — they do not separate multiple YAML documents. Frontmatter contains the resource's typed fields (name, description, tools, model, etc.). The body, if present, carries free-form instructions that become the resource's `Body` field. Workflows are the exception: they use pure YAML format, with step instructions defined inline in the `steps:` array and no body section.
 
 When `ParseDirectory` scans a project tree, it discovers all `.xcaf` files recursively and merges all parsed resources into a single configuration. Strict deduplication is enforced: if the same resource ID (e.g., agent `deployer`) appears in two different files, parsing fails with a duplicate ID error. This prevents ambiguous precedence and ensures every resource has exactly one authoritative definition.
 
@@ -114,7 +114,7 @@ Bidirectional sync would collapse this boundary. If edits to generated files wer
 
 ### The Frontmatter Body as Instructions
 
-Every resource type that carries agent instructions — agents, skills, rules, workflows — uses the frontmatter body to provide that content. The `.xcaf` file format uses `---` delimiters: YAML configuration sits between the delimiters, and Markdown content follows:
+Every resource type that carries agent instructions — agents, skills, rules — uses the frontmatter body to provide that content. The `.xcaf` file format uses `---` delimiters: YAML configuration sits between the delimiters, and Markdown content follows:
 
 ```yaml
 ---
@@ -132,3 +132,5 @@ Never approve code that introduces panics in library packages.
 The parser's `extractFrontmatterAndBody()` splits the file at compile time. The frontmatter is decoded into the resource's typed struct fields. The body is stored as the `Body` string field (tagged `yaml:"-"` — it is never decoded from YAML). Renderers embed this body verbatim into the compiled output as the resource's instructions.
 
 This design means long agent system prompts benefit from Markdown authoring tools, syntax highlighting, and review comments. The `.xcaf` file remains the single configuration entry point — there is no separate instructions file to keep in sync.
+
+> **Workflows** are the exception: they use pure YAML format with step instructions defined inline in the `steps:` array. There is no body section.
