@@ -232,6 +232,131 @@ func lowerPromptFile(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimi
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }
 
+// lowerRoutedSkill emits a single skill primitive from a body-only workflow.
+// Used when the workflow has no steps — it is treated as a routing skill.
+func lowerRoutedSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
+	p := TargetPrimitive{
+		Kind:    "skill",
+		ID:      name,
+		Content: wf.Body,
+	}
+	note := renderer.FidelityNote{
+		Level:    renderer.LevelInfo,
+		Target:   target,
+		Kind:     "workflow",
+		Resource: name,
+		Code:     renderer.CodeWorkflowRoutedToSingleSkill,
+		Reason:   fmt.Sprintf("workflow %q rendered as single routing skill for %s", name, target),
+	}
+	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
+}
+
+// lowerChainedSkill emits a single orchestrator skill that references sub-skills
+// by name for each step. Mixed steps (both skill refs and inline bodies) emit an
+// additional CodeWorkflowMixedSteps note.
+func lowerChainedSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
+	var body strings.Builder
+	fmt.Fprintf(&body, "# %s\n\n", name)
+
+	hasMixed := false
+	for i, step := range wf.Steps {
+		fmt.Fprintf(&body, "## %d. %s\n\n", i+1, step.Name)
+		if step.Description != "" {
+			body.WriteString(step.Description)
+			body.WriteString("\n\n")
+		}
+		if step.Skill != "" {
+			fmt.Fprintf(&body, "Invoke the `/%s` skill.\n\n", step.Skill)
+			if step.Body != "" {
+				hasMixed = true
+				body.WriteString(step.Body)
+				body.WriteString("\n\n")
+			}
+		} else {
+			hasMixed = true
+			if step.Body != "" {
+				body.WriteString(step.Body)
+				body.WriteString("\n\n")
+			}
+		}
+	}
+
+	p := TargetPrimitive{Kind: "skill", ID: name, Content: body.String()}
+
+	notes := []renderer.FidelityNote{{
+		Level:    renderer.LevelInfo,
+		Target:   target,
+		Kind:     "workflow",
+		Resource: name,
+		Code:     renderer.CodeWorkflowChainedToOrchestrator,
+		Reason:   fmt.Sprintf("workflow %q rendered as orchestrator skill chaining sub-skills for %s", name, target),
+	}}
+	if hasMixed {
+		notes = append(notes, renderer.FidelityNote{
+			Level:    renderer.LevelInfo,
+			Target:   target,
+			Kind:     "workflow",
+			Resource: name,
+			Code:     renderer.CodeWorkflowMixedSteps,
+			Reason:   fmt.Sprintf("workflow %q has mixed skill-ref and inline-body steps", name),
+		})
+	}
+	return []TargetPrimitive{p}, notes
+}
+
+// lowerSimpleSkill emits a single skill primitive whose body is the concatenation
+// of each step's body under a ## <step-name> heading.
+func lowerSimpleSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
+	var body strings.Builder
+	for _, step := range wf.Steps {
+		fmt.Fprintf(&body, "## %s\n\n", step.Name)
+		if step.Body != "" {
+			body.WriteString(step.Body)
+			body.WriteString("\n\n")
+		}
+	}
+
+	p := TargetPrimitive{Kind: "skill", ID: name, Content: body.String()}
+
+	notes := []renderer.FidelityNote{{
+		Level:    renderer.LevelInfo,
+		Target:   target,
+		Kind:     "workflow",
+		Resource: name,
+		Code:     renderer.CodeWorkflowSimpleToSections,
+		Reason:   fmt.Sprintf("workflow %q rendered as single skill with step sections for %s", name, target),
+	}}
+	return []TargetPrimitive{p}, notes
+}
+
+// buildWorkflowRule constructs an optional rule primitive that activates the
+// workflow automatically. Returns nil when neither always-apply nor paths is set.
+func buildWorkflowRule(wf *ast.WorkflowConfig, name, target string) *TargetPrimitive {
+	if (wf.AlwaysApply == nil || !*wf.AlwaysApply) && wf.Paths.Len() == 0 {
+		return nil
+	}
+
+	var ruleBody strings.Builder
+	ruleBody.WriteString("```yaml\n")
+	ruleBody.WriteString("x-xcaffold:\n")
+	fmt.Fprintf(&ruleBody, "  compiled-from: workflow\n")
+	fmt.Fprintf(&ruleBody, "  workflow-name: %s\n", name)
+	ruleBody.WriteString("```\n\n")
+
+	if wf.AlwaysApply != nil && *wf.AlwaysApply {
+		fmt.Fprintf(&ruleBody, "This workflow (%s) is always active. Invoke `/%s` to begin.\n", name, name)
+	} else if wf.Paths.Len() > 0 {
+		fmt.Fprintf(&ruleBody, "This workflow (%s) activates for paths: %s. Invoke `/%s` to begin.\n",
+			name, strings.Join(wf.Paths.Values, ", "), name)
+	}
+
+	return &TargetPrimitive{
+		Kind:    "rule",
+		ID:      name + "-workflow",
+		Content: ruleBody.String(),
+	}
+}
+
 // lowerCustomCommand emits a single custom-command primitive for gemini.
 func lowerCustomCommand(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
 	path := fmt.Sprintf(".gemini/commands/%s.md", name)
