@@ -155,6 +155,31 @@ The `CapabilitySet` returned by the renderer's `Capabilities()` method must matc
 
 Add the provider to `docs/reference/supported-providers.md`. Follow the Diátaxis pillar structure for any conceptual pages. Ensure the `ProviderManifest.KindSupport` map and the renderer's `CapabilitySet` are both accurately declared — they serve different layers of the compilation pipeline. Update `CHANGELOG.md` under `[Unreleased]`.
 
+## Updating an Existing Provider
+
+When a provider CLI changes its configuration format or adds new features, xcaffold's output may need updating. This is one of the most valuable community contributions — you're often the first to notice when a provider changes.
+
+### When to File an Issue
+
+If you notice that `xcaffold apply --target <provider>` produces output that your provider CLI ignores, misinterprets, or rejects, open an issue using the **Provider Incompatibility** template. Include your provider CLI version — this helps maintainers reproduce the issue.
+
+### How Provider Updates Work
+
+Provider changes are typically localized to three files:
+
+1. **Renderer** (`providers/<name>/renderer.go`) — update `Compile*` methods to produce the new output format
+2. **Ground truth** (`docs/agentic/data/ground_truth/db/`) — update the relevant JSON database entry with the new verified facts
+3. **Golden tests** (`providers/<name>/testdata/`) — update expected output fixtures to match the new format
+
+### Workflow
+
+1. **Identify the change.** Compare the provider's current documentation or changelog against the ground truth entry in `docs/agentic/data/ground_truth/db/`. Note what changed.
+2. **Update ground truth first.** Edit the relevant JSON file. Set `verified_at` to today's date. This is the source of truth that the renderer reads.
+3. **Update the renderer.** Modify `providers/<name>/renderer.go` to produce output matching the new format.
+4. **Update golden tests.** Run `make test-update-golden` to regenerate expected output, then review the diff to confirm the changes are correct.
+5. **Run the full test suite.** `make test` and `make test-e2e` must both pass. The cross-provider invariant test ensures your changes don't break other providers.
+6. **Update CHANGELOG.md.** Add an entry under `[Unreleased]` describing what changed and which provider is affected.
+
 ## Architectural Constraints
 
 ### Compilation Direction and Import
