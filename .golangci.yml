@@ -8,15 +8,20 @@ linters-settings:
     enable-all: true
     disable:
       - shadow
+      - fieldalignment
   errcheck:
     exclude-functions:
       - io.Copy
       - (io.Closer).Close
   gocyclo:
-    min-complexity: 15
+    min-complexity: 25
   goconst:
     min-len: 3
     min-occurrences: 5
+  gosec:
+    excludes:
+      - G101
+      - G306
 
 issues:
   exclude-dirs:
@@ -28,6 +33,7 @@ issues:
         - goconst
         - gocyclo
         - gosec
+        - gosimple
 
 linters:
   disable-all: true

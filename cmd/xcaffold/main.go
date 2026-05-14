@@ -11,11 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	version = "0.2.0-dev"
-	commit  = "none"
-	date    = "unknown"
-)
+var version = "0.2.0-dev"
 
 // configFlag holds the value of the global --config flag.
 // It is resolved before any subcommand runs.
