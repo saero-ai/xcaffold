@@ -19,11 +19,20 @@ steps:
     description: "Verify correctness."
     skill: verification-skill
 
+  - name: review
+    description: "Final review before completion."
+    instructions: |
+      Review all changes for quality and completeness.
+      Ensure tests pass and documentation is updated.
+      Sign off on the implementation.
+
 always-apply: true
 
 paths:
   - "*.test.ts"
   - "src/**"
+
+activation: always
 
 artifacts:
   - docs
@@ -48,3 +57,6 @@ Apply the planned changes. Write tests before writing implementation code.
 
 ## verify
 Run the test suite. Fix any failures. Confirm all assertions pass.
+
+## review
+Final review checkpoint. Review all changes, ensure tests pass, documentation is updated.

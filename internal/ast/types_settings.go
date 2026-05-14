@@ -347,6 +347,14 @@ type WorkflowConfig struct {
 	// +xcaf:provider=claude:optional,cursor:optional,copilot:optional
 	Paths ClearableList `yaml:"paths,omitempty"`
 
+	// Activation mode: "always" (all contexts) or a list of path globs for conditional triggering.
+	// Replaces always-apply + paths for simplified activation control.
+	// +xcaf:optional
+	// +xcaf:group=Activation
+	// +xcaf:type=Activation
+	// +xcaf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
+	Activation *Activation `yaml:"activation,omitempty"`
+
 	// Named subdirectories to copy from xcaf/workflows/<id>/ to provider output.
 	// +xcaf:optional
 	// +xcaf:group=Composition
@@ -371,7 +379,13 @@ type WorkflowStep struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
 	Skill       string `yaml:"skill,omitempty"`
-	Body        string `yaml:"-"`
+	// Inline procedural content for this step.
+	// Used when the step defines its own instructions rather than referencing an external skill.
+	// +xcaf:optional
+	// +xcaf:group=Steps
+	// +xcaf:provider=antigravity:optional
+	Instructions string `yaml:"instructions,omitempty"`
+	Body         string `yaml:"-"`
 }
 
 // PolicyConfig defines a declarative constraint evaluated against the AST

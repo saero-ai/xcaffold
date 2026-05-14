@@ -1650,6 +1650,22 @@ func init() {
 				},
 			},
 			{
+				Name:        "Activation",
+				YAMLKey:     "activation",
+				GoType:      "*Activation",
+				XCAFType:    "Activation",
+				Optional:    true,
+				Description: "Activation mode: \"always\" (all contexts) or a list of path globs for conditional triggering. Replaces always-apply + paths for simplified activation control.",
+				Group:       "Activation",
+				Provider: map[string]string{
+					"antigravity": "optional",
+					"claude":      "optional",
+					"copilot":     "optional",
+					"cursor":      "optional",
+					"gemini":      "optional",
+				},
+			},
+			{
 				Name:        "Artifacts",
 				YAMLKey:     "artifacts",
 				GoType:      "[]string",

@@ -138,3 +138,47 @@ func TestActivation_Unmarshal_SinglePath(t *testing.T) {
 		t.Errorf("expected [*.go], got %v", a.Paths)
 	}
 }
+
+// TestWorkflowStep_Instructions_YAML tests unmarshaling Instructions field.
+func TestWorkflowStep_Instructions_YAML(t *testing.T) {
+	var step WorkflowStep
+	err := yaml.Unmarshal([]byte("name: lint\ninstructions: \"Run lint\"\n"), &step)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if step.Name != "lint" {
+		t.Errorf("expected Name=lint, got %q", step.Name)
+	}
+	if step.Instructions != "Run lint" {
+		t.Errorf("expected Instructions='Run lint', got %q", step.Instructions)
+	}
+}
+
+// TestWorkflowStep_Instructions_Multiline tests unmarshaling multiline Instructions.
+func TestWorkflowStep_Instructions_Multiline(t *testing.T) {
+	input := "name: deploy\ninstructions: |\n  Step 1: Build\n  Step 2: Deploy\n"
+	var step WorkflowStep
+	err := yaml.Unmarshal([]byte(input), &step)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if step.Name != "deploy" {
+		t.Errorf("expected Name=deploy, got %q", step.Name)
+	}
+	if !contains(step.Instructions, "Step 1: Build") {
+		t.Errorf("expected Instructions to contain 'Step 1: Build', got %q", step.Instructions)
+	}
+	if !contains(step.Instructions, "Step 2: Deploy") {
+		t.Errorf("expected Instructions to contain 'Step 2: Deploy', got %q", step.Instructions)
+	}
+}
+
+// contains is a helper for checking string containment.
+func contains(haystack, needle string) bool {
+	for i := 0; i <= len(haystack)-len(needle); i++ {
+		if haystack[i:i+len(needle)] == needle {
+			return true
+		}
+	}
+	return false
+}
