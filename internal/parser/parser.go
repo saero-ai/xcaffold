@@ -428,14 +428,7 @@ func assignBodyToResource(config *ast.XcaffoldConfig, lastKind, lastName string,
 			config.Rules[lastName] = r
 		}
 	case "workflow":
-		if w, ok := config.Workflows[lastName]; ok {
-			if len(w.Steps) > 0 {
-				assignWorkflowStepBodies(&w, trimmedBody)
-			} else {
-				w.Body = trimmedBody
-			}
-			config.Workflows[lastName] = w
-		}
+		// Pure YAML kind — step instructions come from YAML fields, not markdown body.
 	case "context":
 		if ctx, ok := config.Contexts[lastName]; ok {
 			ctx.Body = trimmedBody

@@ -171,13 +171,19 @@ func TestParse_Frontmatter_KnownFieldsOnFrontmatterOnly(t *testing.T) {
 func TestParse_Frontmatter_WorkflowWithBody(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "deploy.xcaf")
-	content := "---\nkind: workflow\nname: deploy\nversion: \"1.0\"\ndescription: Deployment workflow\n---\n1. Build the project.\n2. Run tests.\n3. Deploy.\n"
+	// Workflows are now pure YAML — step instructions come from YAML fields
+	content := "---\nkind: workflow\nname: deploy\nversion: \"1.0\"\ndescription: Deployment workflow\nsteps:\n  - name: build\n    instructions: \"Build the project\"\n  - name: test\n    instructions: \"Run tests\"\n  - name: deploy\n    instructions: \"Deploy to production\"\n---\nThis markdown body area is ignored for workflows (pure YAML kind).\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
 	wf, ok := cfg.Workflows["deploy"]
 	require.True(t, ok)
-	assert.Equal(t, "1. Build the project.\n2. Run tests.\n3. Deploy.", wf.Body)
+	require.Len(t, wf.Steps, 3)
+	assert.Equal(t, "Build the project", wf.Steps[0].Instructions)
+	assert.Equal(t, "Run tests", wf.Steps[1].Instructions)
+	assert.Equal(t, "Deploy to production", wf.Steps[2].Instructions)
+	// Body should not be assigned for pure YAML workflows
+	assert.Empty(t, wf.Body)
 }
 
 func TestParse_Frontmatter_MultiDocumentDeprecationWarning(t *testing.T) {

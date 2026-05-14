@@ -130,20 +130,26 @@ workflows:
 }
 
 // TestValidate_Workflow_ValidInlineInstructions_Accepted verifies that a workflow
-// with only inline instructions parses successfully.
+// with inline YAML instructions parses successfully. (Workflows are pure YAML now.)
 func TestValidate_Workflow_ValidInlineInstructions_Accepted(t *testing.T) {
 	input := `---
 kind: workflow
 version: "1.0"
 name: build
+steps:
+  - name: compile
+    instructions: "Run go build ./..."
 ---
-Run go build ./...
+This markdown body area is ignored (workflows are pure YAML).
 `
 	cfg, err := Parse(strings.NewReader(input))
-	require.NoError(t, err, "workflow with inline instructions should be accepted")
+	require.NoError(t, err, "workflow with inline YAML instructions should be accepted")
 	wf, ok := cfg.Workflows["build"]
 	require.True(t, ok)
-	assert.Equal(t, "Run go build ./...", wf.Body)
+	require.Len(t, wf.Steps, 1)
+	assert.Equal(t, "Run go build ./...", wf.Steps[0].Instructions)
+	// Body should not be assigned for pure YAML workflows
+	assert.Empty(t, wf.Body)
 }
 
 // TestMerge_Workflows_ChildAddsNew verifies that a child config's workflows are
@@ -158,7 +164,9 @@ version: "1.0"
 extends: %q
 workflows:
   deploy:
-
+    steps:
+      - name: verify
+        instructions: "Verify the deployment"
 `, base))
 
 	cfg, err := ParseFile(child)
@@ -173,14 +181,18 @@ func TestMerge_Workflows_BasePreserved(t *testing.T) {
 version: "1.0"
 workflows:
   build:
-
+    steps:
+      - name: compile
+        instructions: "Compile the code"
 `)
 	child := writeTemp(t, "child.xcaf", fmt.Sprintf(`kind: global
 version: "1.0"
 extends: %q
 workflows:
   deploy:
-
+    steps:
+      - name: verify
+        instructions: "Verify the deployment"
 `, base))
 
 	cfg, err := ParseFile(child)
@@ -202,15 +214,19 @@ func TestMerge_Workflows_ChildOverridesBase(t *testing.T) {
 kind: workflow
 version: "1.0"
 name: deploy
+steps:
+  - name: deploy-base
+    instructions: "Base deploy instructions"
 ---
-Base deploy instructions.
 `
 	childWf := `---
 kind: workflow
 version: "1.0"
 name: deploy
+steps:
+  - name: deploy-child
+    instructions: "Child deploy instructions"
 ---
-Child deploy instructions.
 `
 	require.NoError(t, os.WriteFile(filepath.Join(baseDir, "xcaf", "workflows", "deploy.xcaf"), []byte(baseWf), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(childDir, "xcaf", "workflows", "deploy.xcaf"), []byte(childWf), 0600))
@@ -230,7 +246,8 @@ extends: %s
 	require.NoError(t, err)
 	wf, ok := cfg.Workflows["deploy"]
 	require.True(t, ok)
-	assert.Equal(t, "Child deploy instructions.", wf.Body, "child definition must override base")
+	require.Len(t, wf.Steps, 1)
+	assert.Equal(t, "deploy-child", wf.Steps[0].Name, "child definition must override base")
 }
 
 // writeTemp creates a temporary file with the given name and content inside a
@@ -245,7 +262,7 @@ func writeTemp(t *testing.T, name, content string) string {
 
 // TestParse_Workflow_FullSchema verifies that a workflow with all supported
 // fields (api-version, steps, targets with lowering-strategy) round-trips
-// through the parser without error.
+// through the parser without error. Pure YAML format.
 func TestParse_Workflow_FullSchema(t *testing.T) {
 	input := `---
 kind: workflow
@@ -255,12 +272,13 @@ api-version: workflow/v1
 description: Multi-step PR review procedure.
 steps:
   - name: analyze
-    description: Read the diff and summarize changed modules.
+    instructions: "Read the diff and summarize changed modules"
 
   - name: lint
-    description: Check style and flag violations.
+    instructions: "Run golangci-lint to check style and flag violations"
 
   - name: summarize
+    instructions: "Write a summary of the changes"
 
 targets:
   claude:
@@ -270,14 +288,7 @@ targets:
     provider:
       lowering-strategy: prompt-file
 ---
-## analyze
-Read the diff.
-
-## lint
-Run golangci-lint.
-
-## summarize
-Write the summary.
+This markdown body area is ignored (workflows are pure YAML).
 `
 	path := writeTemp(t, "code-review.xcaf", input)
 
@@ -289,9 +300,9 @@ Write the summary.
 	require.Equal(t, "workflow/v1", wf.ApiVersion)
 	require.Len(t, wf.Steps, 3)
 	require.Equal(t, "analyze", wf.Steps[0].Name)
-	assert.Equal(t, "Read the diff.", wf.Steps[0].Body)
+	assert.Equal(t, "Read the diff and summarize changed modules", wf.Steps[0].Instructions)
 	require.Equal(t, "lint", wf.Steps[1].Name)
-	assert.Equal(t, "Run golangci-lint.", wf.Steps[1].Body)
+	assert.Equal(t, "Run golangci-lint to check style and flag violations", wf.Steps[1].Instructions)
 	require.Equal(t, "rule-plus-skill", wf.Targets["claude"].Provider["lowering-strategy"])
 	require.Equal(t, "prompt-file", wf.Targets["copilot"].Provider["lowering-strategy"])
 }
@@ -355,14 +366,13 @@ version: "1.0"
 name: bad-strategy
 steps:
   - name: step-one
+    instructions: "Do something"
 
 targets:
   claude:
     provider:
       lowering-strategy: invalid-value
 ---
-## step-one
-Step one body.
 `
 	path := writeTemp(t, "bad-strategy.xcaf", input)
 
@@ -482,4 +492,150 @@ workflows:
 	_, err := ParseFile(path)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "api-version")
+}
+
+// T-11: TestValidation_Workflow_NoSteps — Workflow with zero steps should error
+func TestValidation_Workflow_NoSteps(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+workflows:
+  empty-wf:
+    name: empty-wf
+    description: "has no steps"
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must define at least one step")
+}
+
+// T-12: TestValidation_Step_NoSkillNoInstructions — Step with neither skill nor instructions
+func TestValidation_Step_NoSkillNoInstructions(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+workflows:
+  bad-wf:
+    name: bad-wf
+    steps:
+      - name: empty-step
+`
+	_, err := Parse(strings.NewReader(input))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must define skill reference or instructions")
+}
+
+// T-13: TestValidation_Step_SkillOnly — Step with skill but no instructions is valid
+func TestValidation_Step_SkillOnly(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+workflows:
+  ok-wf:
+    name: ok-wf
+    steps:
+      - name: step-one
+        skill: tdd
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.Equal(t, "tdd", cfg.Workflows["ok-wf"].Steps[0].Skill)
+}
+
+// T-14: TestValidation_Step_InstructionsOnly — Step with instructions but no skill is valid
+func TestValidation_Step_InstructionsOnly(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+workflows:
+  ok-wf:
+    name: ok-wf
+    steps:
+      - name: step-one
+        instructions: "Do the thing"
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.Equal(t, "Do the thing", cfg.Workflows["ok-wf"].Steps[0].Instructions)
+}
+
+// T-15: TestValidation_Step_BothSkillAndInstructions — Step with both fields is valid
+func TestValidation_Step_BothSkillAndInstructions(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+workflows:
+  ok-wf:
+    name: ok-wf
+    steps:
+      - name: step-one
+        skill: tdd
+        instructions: "Extra context for the skill"
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	step := cfg.Workflows["ok-wf"].Steps[0]
+	require.Equal(t, "tdd", step.Skill)
+	require.Equal(t, "Extra context for the skill", step.Instructions)
+}
+
+// T-16: TestValidation_WorkflowBodySteps_NoLongerMutex — Verify the old body+steps mutex error is gone.
+// A workflow with steps does not trigger the old "mutually exclusive" error.
+func TestValidation_WorkflowBodySteps_NoLongerMutex(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+workflows:
+  my-wf:
+    name: my-wf
+    steps:
+      - name: step-one
+        instructions: "First step"
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	require.Len(t, cfg.Workflows["my-wf"].Steps, 1)
+}
+
+// T-17: TestParser_Workflow_PureYAML_NoBodyAssignment — Workflow with YAML instructions parses correctly
+func TestParser_Workflow_PureYAML_NoBodyAssignment(t *testing.T) {
+	input := `kind: global
+version: "1.0"
+workflows:
+  my-wf:
+    name: my-wf
+    steps:
+      - name: step-one
+        instructions: "First step instructions"
+      - name: step-two
+        skill: review
+`
+	cfg, err := Parse(strings.NewReader(input))
+	require.NoError(t, err)
+	wf := cfg.Workflows["my-wf"]
+	require.Len(t, wf.Steps, 2)
+	require.Equal(t, "First step instructions", wf.Steps[0].Instructions)
+	require.Equal(t, "review", wf.Steps[1].Skill)
+}
+
+// T-18: TestParser_Workflow_MarkdownBodyIgnored — Markdown body area is not parsed into step bodies for workflows.
+// Step instructions come from YAML only.
+func TestParser_Workflow_MarkdownBodyIgnored(t *testing.T) {
+	input := `---
+kind: workflow
+version: "1.0"
+name: my-wf
+steps:
+  - name: step-one
+    instructions: "YAML instruction"
+---
+## step-one
+This markdown heading should be ignored (not assigned to step body).
+
+## unused-heading
+This section does nothing.
+`
+	path := writeTemp(t, "workflow.xcaf", input)
+	cfg, err := ParseFile(path)
+	require.NoError(t, err)
+	wf, ok := cfg.Workflows["my-wf"]
+	require.True(t, ok)
+	require.Len(t, wf.Steps, 1)
+	require.Equal(t, "YAML instruction", wf.Steps[0].Instructions)
+	// The markdown body area should not be assigned to wf.Body or step bodies
+	require.Empty(t, wf.Body, "workflow body should not be assigned from markdown for pure YAML workflows")
 }

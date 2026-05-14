@@ -124,12 +124,18 @@ version: "1.0"
 workflows:
   launch:
     description: "Launch flow"
+    steps:
+      - name: deploy
+        instructions: "Deploy the app"
 `)
 	writeTestXCAF(t, dir, "flows2.xcaf", `kind: global
 version: "1.0"
 workflows:
   launch:
     description: "Another launch flow"
+    steps:
+      - name: verify
+        instructions: "Verify deployment"
 `)
 
 	_, err := ParseDirectory(dir)
