@@ -1,6 +1,7 @@
 package codex
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -77,15 +78,15 @@ max_turns = 10
 func TestExtract_Agent_NameValidation(t *testing.T) {
 	tests := []struct {
 		name      string
-		shouldErr bool
 		desc      string
+		shouldErr bool
 	}{
-		{"my-agent", false, "valid kebab-case name"},
-		{"agent123", false, "valid name with digits"},
-		{"../evil", true, "invalid: path traversal"},
-		{"My Agent", true, "invalid: uppercase and space"},
-		{"agent_1", true, "invalid: underscore"},
-		{"agent@home", true, "invalid: special character"},
+		{"my-agent", "valid kebab-case name", false},
+		{"agent123", "valid name with digits", false},
+		{"../evil", "invalid: path traversal", true},
+		{"My Agent", "invalid: uppercase and space", true},
+		{"agent_1", "invalid: underscore", true},
+		{"agent@home", "invalid: special character", true},
 	}
 
 	for _, tc := range tests {
@@ -245,13 +246,13 @@ effort = "extreme"
 func TestExtract_Agent_MaxTurnsAsPtr(t *testing.T) {
 	tests := []struct {
 		toml      string
-		expectNil bool
-		value     int
 		desc      string
+		value     int
+		expectNil bool
 	}{
-		{`max_turns = 0`, true, 0, "zero max_turns should result in nil pointer"},
-		{`max_turns = 10`, false, 10, "non-zero max_turns should be pointer to value"},
-		{``, true, 0, "missing max_turns should result in nil pointer"},
+		{`max_turns = 0`, "zero max_turns should result in nil pointer", 0, true},
+		{`max_turns = 10`, "non-zero max_turns should be pointer to value", 10, false},
+		{``, "missing max_turns should result in nil pointer", 0, true},
 	}
 
 	for _, tc := range tests {
@@ -274,4 +275,56 @@ model = "gpt-4"
 			}
 		})
 	}
+}
+
+// TestExtract_Agent_ExactlyAtLimit verifies that agent files of exactly 1 MiB (1<<20 bytes)
+// are accepted and correctly parsed. Data exceeding this limit is rejected in TestExtract_Agent_SizeGate.
+func TestExtract_Agent_ExactlyAtLimit(t *testing.T) {
+	// Create valid TOML that is exactly 1 MiB in size
+	// Use a long developer_instructions field to pad the data
+	baseToml := `
+name = "at-limit"
+description = "Agent at exactly 1 MiB limit"
+model = "gpt-4"
+developer_instructions = "`
+
+	// Calculate padding needed: 1<<20 bytes total
+	// account for base TOML overhead
+	baseTOMLLen := len(baseToml)
+	endTOML := `"`
+	endTomlLen := len(endTOML)
+	totalOverhead := baseTOMLLen + endTomlLen
+	maxSize := 1 << 20
+	paddingLen := maxSize - totalOverhead
+
+	// Create padding with a repeating character
+	padding := strings.Repeat("x", paddingLen)
+	exactData := []byte(baseToml + padding + endTOML)
+
+	// Verify size is exactly at limit
+	require.Equal(t, maxSize, len(exactData), "test data should be exactly 1 MiB")
+
+	config := &ast.XcaffoldConfig{}
+	err := extractAgent("agents/at-limit.toml", exactData, config)
+	require.NoError(t, err, "should accept agent at exactly 1 MiB limit")
+
+	agent, ok := config.Agents["at-limit"]
+	require.True(t, ok, "agent should be parsed")
+	assert.Equal(t, "at-limit", agent.Name)
+}
+
+// TestModelResolver_SupportsBareAliases verifies that the Codex model resolver
+// does not support bare aliases (returns false).
+func TestModelResolver_SupportsBareAliases(t *testing.T) {
+	resolver := NewModelResolver()
+	assert.False(t, resolver.SupportsBareAliases(), "Codex should not support bare aliases")
+}
+
+// TestModelResolver_UnknownAlias verifies that ResolveAlias returns ("", false)
+// for an unknown alias that does not start with "gpt-".
+func TestModelResolver_UnknownAlias(t *testing.T) {
+	resolver := NewModelResolver()
+	modelID, ok := resolver.ResolveAlias("unknown-model-xyz")
+	assert.False(t, ok, "unknown alias should return false")
+	assert.Equal(t, "", modelID, "unknown alias should return empty string")
 }

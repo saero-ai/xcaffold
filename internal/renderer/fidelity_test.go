@@ -10,6 +10,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	antigravity "github.com/saero-ai/xcaffold/providers/antigravity"
 	"github.com/saero-ai/xcaffold/providers/claude"
+	codex "github.com/saero-ai/xcaffold/providers/codex"
 	"github.com/saero-ai/xcaffold/providers/cursor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -121,6 +122,7 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeWorkflowBasicToSections:             true,
 		renderer.CodeWorkflowDefaultChanged:              true,
 		renderer.CodeWorkflowMixedSteps:                  true,
+		renderer.CodeRootFileCollision:                   true,
 	}
 
 	got := make(map[string]bool)
@@ -152,6 +154,7 @@ func TestFidelityNote_EmittedCodes_AreInCatalog(t *testing.T) {
 
 	renderers := []renderer.TargetRenderer{
 		claude.New(),
+		codex.New(),
 		cursor.New(),
 		antigravity.New(),
 	}

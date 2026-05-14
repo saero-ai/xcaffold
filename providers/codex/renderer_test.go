@@ -242,7 +242,9 @@ func TestCompile_Hooks_JSON(t *testing.T) {
 	content, ok := files["hooks.json"]
 	require.True(t, ok, "expected hooks.json in output")
 
-	// Verify it contains expected JSON structure
+	// Verify the top-level "hooks" wrapper is present (Codex native round-trip format).
+	assert.Contains(t, content, "\"hooks\"")
+	// Verify the event type and command are present inside the wrapper.
 	assert.Contains(t, content, "\"PreToolUse\"")
 	assert.Contains(t, content, "echo test")
 }
@@ -494,12 +496,145 @@ func TestCompile_Skills_WithWhenToUse(t *testing.T) {
 	assert.Contains(t, content, "when-to-use: When you need to ship code.")
 }
 
-// ─── Helper functions ────────────────────────────────────────────────────────
+// TestCompile_Agents_EmptyBody verifies that an agent with Body="" produces
+// valid TOML with an empty developer_instructions field.
+func TestCompile_Agents_EmptyBody(t *testing.T) {
+	r := New()
+	agents := map[string]ast.AgentConfig{
+		"silent": {
+			Name:        "Silent Agent",
+			Description: "Agent with no instructions.",
+			Body:        "",
+		},
+	}
 
-// stringPtr returns a pointer to the provided string.
-func stringPtr(s string) *string {
-	return &s
+	files, notes, err := r.CompileAgents(agents, "")
+	require.NoError(t, err)
+	require.Empty(t, notes)
+
+	content := files["agents/silent.toml"]
+	require.NotEmpty(t, content)
+
+	// Verify TOML parses and developer_instructions is empty string
+	var cfg codexAgent
+	err = toml.Unmarshal([]byte(content), &cfg)
+	require.NoError(t, err)
+	assert.Equal(t, "", cfg.DeveloperInstructions)
 }
+
+// TestCompile_Agents_MultilineBody verifies that an agent with multiline Body
+// produces valid TOML with multi-line string handling.
+func TestCompile_Agents_MultilineBody(t *testing.T) {
+	r := New()
+	agents := map[string]ast.AgentConfig{
+		"detailed": {
+			Name:        "Detailed Agent",
+			Description: "Agent with multiline instructions.",
+			Body:        "Step 1: Analyze the request.\nStep 2: Check for edge cases.\nStep 3: Provide answer.\n",
+		},
+	}
+
+	files, notes, err := r.CompileAgents(agents, "")
+	require.NoError(t, err)
+	require.Empty(t, notes)
+
+	content := files["agents/detailed.toml"]
+	require.NotEmpty(t, content)
+
+	// Verify it parses as valid TOML
+	var cfg codexAgent
+	err = toml.Unmarshal([]byte(content), &cfg)
+	require.NoError(t, err)
+
+	// Verify multiline content is preserved (trailing newline stripped by StripFrontmatter/TrimRight)
+	assert.Contains(t, cfg.DeveloperInstructions, "Step 1: Analyze the request.")
+	assert.Contains(t, cfg.DeveloperInstructions, "Step 2: Check for edge cases.")
+	assert.Contains(t, cfg.DeveloperInstructions, "Step 3: Provide answer.")
+}
+
+// TestCompile_Skills_EmptyMap verifies that an empty skills map produces
+// empty output with no error.
+func TestCompile_Skills_EmptyMap(t *testing.T) {
+	r := New()
+	skills := map[string]ast.SkillConfig{}
+
+	files, notes, err := r.CompileSkills(skills, "")
+	require.NoError(t, err)
+	assert.Empty(t, files)
+	assert.Empty(t, notes)
+}
+
+// TestFinalize_EmptyMaps verifies that Finalize with empty files and rootFiles
+// produces empty output with no error.
+func TestFinalize_EmptyMaps(t *testing.T) {
+	r := New()
+	files := map[string]string{}
+	rootFiles := map[string]string{}
+
+	filesOut, rootFilesOut, notes, err := r.Finalize(files, rootFiles)
+	require.NoError(t, err)
+	assert.Empty(t, filesOut)
+	assert.Empty(t, rootFilesOut)
+	assert.Empty(t, notes)
+}
+
+// TestCompile_Workflows_Unsupported verifies that CompileWorkflows returns
+// empty output without error (unsupported in Codex).
+func TestCompile_Workflows_Unsupported(t *testing.T) {
+	r := New()
+	workflows := map[string]ast.WorkflowConfig{
+		"deploy": {
+			Description: "Deploy workflow.",
+		},
+	}
+
+	files, notes, err := r.CompileWorkflows(workflows, "")
+	require.NoError(t, err)
+	assert.Empty(t, files)
+	assert.Empty(t, notes)
+}
+
+// TestCompile_Settings_Unsupported verifies that CompileSettings returns
+// empty output without error (unsupported in Codex).
+func TestCompile_Settings_Unsupported(t *testing.T) {
+	r := New()
+	settings := ast.SettingsConfig{
+		Name:        "debug-settings",
+		Description: "Debug configuration",
+	}
+
+	files, notes, err := r.CompileSettings(settings)
+	require.NoError(t, err)
+	assert.Empty(t, files)
+	assert.Empty(t, notes)
+}
+
+// TestCapabilities_SupportedKinds verifies that Capabilities returns true
+// for supported kinds: Agents, Skills, Hooks, MCP, ProjectInstructions.
+func TestCapabilities_SupportedKinds(t *testing.T) {
+	r := New()
+	caps := r.Capabilities()
+
+	assert.True(t, caps.Agents, "Agents should be supported")
+	assert.True(t, caps.Skills, "Skills should be supported")
+	assert.True(t, caps.Hooks, "Hooks should be supported")
+	assert.True(t, caps.MCP, "MCP should be supported")
+	assert.True(t, caps.ProjectInstructions, "ProjectInstructions should be supported")
+}
+
+// TestCapabilities_UnsupportedKinds verifies that Capabilities returns false
+// for unsupported kinds: Rules, Workflows, Settings, Memory.
+func TestCapabilities_UnsupportedKinds(t *testing.T) {
+	r := New()
+	caps := r.Capabilities()
+
+	assert.False(t, caps.Rules, "Rules should not be supported")
+	assert.False(t, caps.Workflows, "Workflows should not be supported")
+	assert.False(t, caps.Settings, "Settings should not be supported")
+	assert.False(t, caps.Memory, "Memory should not be supported")
+}
+
+// ─── Helper functions ────────────────────────────────────────────────────────
 
 // mapKeys returns the keys of a map as a slice for debugging.
 func mapKeys(m map[string]string) []string {
