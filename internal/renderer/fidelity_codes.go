@@ -160,6 +160,31 @@ const (
 	// a field that is absent from the source resource. The compiled output will
 	// be incomplete or rejected by the target provider.
 	CodeFieldRequiredForTarget = "FIELD_REQUIRED_FOR_TARGET"
+
+	// CodeWorkflowRoutedToSingleSkill is emitted when a body-only workflow
+	// is rendered as a single routing skill.
+	CodeWorkflowRoutedToSingleSkill = "WORKFLOW_ROUTED_TO_SINGLE_SKILL"
+
+	// CodeWorkflowChainedToOrchestrator is emitted when a workflow with
+	// skill-ref steps is rendered as an orchestrator skill.
+	CodeWorkflowChainedToOrchestrator = "WORKFLOW_CHAINED_TO_ORCHESTRATOR"
+
+	// CodeWorkflowSimpleToSections is emitted when a workflow with inline
+	// body steps is rendered as a single skill with step sections.
+	CodeWorkflowSimpleToSections = "WORKFLOW_SIMPLE_TO_SECTIONS"
+
+	// CodeWorkflowDefaultChanged is emitted as a migration warning when a
+	// workflow that would have produced rule+skill under the old default now
+	// produces a single skill under the new structure-based inference.
+	CodeWorkflowDefaultChanged = "WORKFLOW_DEFAULT_CHANGED"
+
+	// CodeWorkflowBodyIgnored is emitted when a workflow has both a top-level
+	// body and steps; the body is dropped in chained and simple modes.
+	CodeWorkflowBodyIgnored = "WORKFLOW_BODY_IGNORED"
+
+	// CodeWorkflowMixedSteps is emitted when a workflow has a mix of
+	// skill-ref steps and inline-body steps.
+	CodeWorkflowMixedSteps = "WORKFLOW_MIXED_STEPS"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -201,5 +226,11 @@ func AllCodes() []string {
 		CodeMCPGlobalConfigOnly,
 		CodeClaudeNativePassthrough,
 		CodeFieldRequiredForTarget,
+		CodeWorkflowRoutedToSingleSkill,
+		CodeWorkflowChainedToOrchestrator,
+		CodeWorkflowSimpleToSections,
+		CodeWorkflowDefaultChanged,
+		CodeWorkflowBodyIgnored,
+		CodeWorkflowMixedSteps,
 	}
 }
