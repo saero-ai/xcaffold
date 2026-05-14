@@ -1,4 +1,3 @@
----
 kind: workflow
 version: "1.0"
 name: golden-workflow
@@ -39,16 +38,3 @@ targets:
   antigravity:
     suppress-fidelity-warnings: true
     skip-synthesis: true
----
-
-## plan
-Read the codebase. Identify the files that need to change. Write a step-by-step plan.
-
-## implement
-Apply the planned changes. Write tests before writing implementation code.
-
-## verify
-Run the test suite. Fix any failures. Confirm all assertions pass.
-
-## review
-Final review checkpoint. Review all changes, ensure tests pass, documentation is updated.

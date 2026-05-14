@@ -1,4 +1,3 @@
----
 kind: project
 version: "1.0"
 extends: "base"
