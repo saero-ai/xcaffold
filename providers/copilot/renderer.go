@@ -201,21 +201,10 @@ func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, bas
 
 	// Copy workflow artifact directories. Lowered skills don't carry the original
 	// workflow's Artifacts field, so handle them from the original workflow configs.
-	caps := r.Capabilities()
-	for id, wf := range workflows {
-		if len(wf.Artifacts) == 0 {
-			continue
-		}
-		artifactNotes := renderer.CompileArtifactsDemoted(targetName, renderer.ArtifactJob{
-			ID:        id,
-			BaseDir:   baseDir,
-			Caps:      caps,
-			Files:     files,
-			SourceDir: filepath.Join("xcaf", "workflows", id),
-		}, wf.Artifacts)
-		notes = append(notes, artifactNotes...)
-	}
-
+	artifactNotes := renderer.AppendWorkflowArtifacts(renderer.WorkflowArtifactArgs{
+		Target: targetName, Workflows: workflows, BaseDir: baseDir, Caps: r.Capabilities(), Files: files,
+	})
+	notes = append(notes, artifactNotes...)
 	return files, notes, nil
 }
 

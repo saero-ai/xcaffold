@@ -285,44 +285,50 @@ func lowerPromptFile(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimi
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }
 
+// orchestratorBody holds the output of buildOrchestratorBody.
+type orchestratorBody struct {
+	mainBody  string
+	subSkills []TargetPrimitive
+	hasMixed  bool
+}
+
+// buildOrchestratorBody iterates over workflow steps and produces the main skill
+// body text along with any inline sub-skill primitives.
+func buildOrchestratorBody(wf *ast.WorkflowConfig, name string) orchestratorBody {
+	var sb strings.Builder
+	var subSkills []TargetPrimitive
+	fmt.Fprintf(&sb, "# %s\n\n", name)
+	hasMixed := false
+	for i, step := range wf.Steps {
+		fmt.Fprintf(&sb, "## %d. %s\n\n", i+1, step.Name)
+		if step.Description != "" {
+			sb.WriteString(step.Description)
+			sb.WriteString("\n\n")
+		}
+		if step.Skill != "" {
+			fmt.Fprintf(&sb, "Invoke the `/%s` skill.\n\n", step.Skill)
+			if step.Instructions != "" {
+				hasMixed = true
+				sb.WriteString(step.Instructions)
+				sb.WriteString("\n\n")
+			}
+		} else if step.Instructions != "" {
+			hasMixed = true
+			subID := stepSkillID(name, i, step.Name)
+			subSkills = append(subSkills, TargetPrimitive{Kind: "skill", ID: subID, Content: step.Instructions})
+			fmt.Fprintf(&sb, "Invoke the `/%s` skill.\n\n", subID)
+		}
+	}
+	return orchestratorBody{mainBody: sb.String(), subSkills: subSkills, hasMixed: hasMixed}
+}
+
 // lowerOrchestratorSkill emits a main orchestrator skill that references sub-skills
 // by name for each step. Steps with only instructions become separate skill
 // primitives. Mixed steps (both skill refs and inline instructions) emit a
 // CodeWorkflowMixedSteps note.
 func lowerOrchestratorSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
-	var mainBody strings.Builder
-	var subSkills []TargetPrimitive
-	fmt.Fprintf(&mainBody, "# %s\n\n", name)
-
-	hasMixed := false
-	for i, step := range wf.Steps {
-		fmt.Fprintf(&mainBody, "## %d. %s\n\n", i+1, step.Name)
-		if step.Description != "" {
-			mainBody.WriteString(step.Description)
-			mainBody.WriteString("\n\n")
-		}
-		if step.Skill != "" {
-			fmt.Fprintf(&mainBody, "Invoke the `/%s` skill.\n\n", step.Skill)
-			if step.Instructions != "" {
-				hasMixed = true
-				mainBody.WriteString(step.Instructions)
-				mainBody.WriteString("\n\n")
-			}
-		} else if step.Instructions != "" {
-			hasMixed = true
-			subID := stepSkillID(name, i, step.Name)
-			subSkills = append(subSkills, TargetPrimitive{
-				Kind:    "skill",
-				ID:      subID,
-				Content: step.Instructions,
-			})
-			fmt.Fprintf(&mainBody, "Invoke the `/%s` skill.\n\n", subID)
-		}
-	}
-
-	primitives := []TargetPrimitive{{Kind: "skill", ID: name, Content: mainBody.String()}}
-	primitives = append(primitives, subSkills...)
-
+	body := buildOrchestratorBody(wf, name)
+	primitives := append([]TargetPrimitive{{Kind: "skill", ID: name, Content: body.mainBody}}, body.subSkills...)
 	notes := []renderer.FidelityNote{
 		newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
 			target: target, name: name,
@@ -330,7 +336,7 @@ func lowerOrchestratorSkill(wf *ast.WorkflowConfig, name, target string) ([]Targ
 			reason: fmt.Sprintf("workflow %q rendered as orchestrator skill chaining sub-skills for %s", name, target),
 		}),
 	}
-	if hasMixed {
+	if body.hasMixed {
 		notes = append(notes, newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
 			target: target, name: name,
 			code:   renderer.CodeWorkflowMixedSteps,

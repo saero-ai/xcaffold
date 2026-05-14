@@ -187,21 +187,10 @@ func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, bas
 
 	// Copy workflow artifact directories. Missing optional directories are
 	// demoted to fidelity notes so the rest of the workflow still compiles.
-	caps := r.Capabilities()
-	for id, wf := range workflows {
-		if len(wf.Artifacts) == 0 {
-			continue
-		}
-		workflowSourceDir := filepath.Join("xcaf", "workflows", id)
-		artifactNotes := renderer.CompileArtifactsDemoted(targetName, renderer.ArtifactJob{
-			ID:        id,
-			BaseDir:   baseDir,
-			Caps:      caps,
-			Files:     files,
-			SourceDir: workflowSourceDir,
-		}, wf.Artifacts)
-		notes = append(notes, artifactNotes...)
-	}
+	artifactNotes := renderer.AppendWorkflowArtifacts(renderer.WorkflowArtifactArgs{
+		Target: targetName, Workflows: workflows, BaseDir: baseDir, Caps: r.Capabilities(), Files: files,
+	})
+	notes = append(notes, artifactNotes...)
 	return files, notes, nil
 }
 

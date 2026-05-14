@@ -122,6 +122,27 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	return files, notes, nil
 }
 
+// writeWorkflowPrimitive writes a single translated primitive into files using
+// Claude's standard paths. Primitives with a provider-native path (custom-command,
+// prompt-file) are written directly after stripping the ".claude/" prefix so that
+// apply.go does not double-prepend it.
+func (r *Renderer) writeWorkflowPrimitive(p translator.TargetPrimitive, files map[string]string) {
+	content := p.Content
+	if content == "" {
+		content = p.Body
+	}
+	switch p.Kind {
+	case "rule":
+		files[filepath.Clean(fmt.Sprintf("rules/%s.md", p.ID))] = content
+	case "skill":
+		files[filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))] = content
+	case "custom-command", "prompt-file":
+		if p.Path != "" {
+			files[strings.TrimPrefix(p.Path, r.OutputDir()+"/")] = content
+		}
+	}
+}
+
 // CompileWorkflows lowers workflow configs to provider-native primitives. Rule and
 // skill primitives are written to their standard paths. Primitives with provider-
 // native paths ("custom-command", "prompt-file") are written directly using the
@@ -137,47 +158,13 @@ func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, bas
 		primitives, wfNotes := translator.TranslateWorkflow(&wfCopy, "claude")
 		notes = append(notes, wfNotes...)
 		for _, p := range primitives {
-			content := p.Content
-			if content == "" {
-				content = p.Body
-			}
-			switch p.Kind {
-			case "rule":
-				safePath := filepath.Clean(fmt.Sprintf("rules/%s.md", p.ID))
-				files[safePath] = content
-			case "skill":
-				safePath := filepath.Clean(fmt.Sprintf("skills/%s/SKILL.md", p.ID))
-				files[safePath] = content
-			case "custom-command", "prompt-file":
-				// Primitives with a provider-native path set by the translator
-				// are written directly. Strip the OutputDir prefix if present:
-				// apply.go already prepends OutputDir when writing to disk, so
-				// any ".claude/"-prefixed path would produce ".claude/.claude/...".
-				if p.Path != "" {
-					relPath := strings.TrimPrefix(p.Path, r.OutputDir()+"/")
-					files[relPath] = content
-				}
-			}
+			r.writeWorkflowPrimitive(p, files)
 		}
 	}
-
-	// Copy workflow artifact directories. Missing optional directories are
-	// demoted to fidelity notes so the rest of the workflow still compiles.
-	caps := r.Capabilities()
-	for id, wf := range workflows {
-		if len(wf.Artifacts) == 0 {
-			continue
-		}
-		workflowSourceDir := filepath.Join("xcaf", "workflows", id)
-		artifactNotes := renderer.CompileArtifactsDemoted("claude", renderer.ArtifactJob{
-			ID:        id,
-			BaseDir:   baseDir,
-			Caps:      caps,
-			Files:     files,
-			SourceDir: workflowSourceDir,
-		}, wf.Artifacts)
-		notes = append(notes, artifactNotes...)
-	}
+	artifactNotes := renderer.AppendWorkflowArtifacts(renderer.WorkflowArtifactArgs{
+		Target: "claude", Workflows: workflows, BaseDir: baseDir, Caps: r.Capabilities(), Files: files,
+	})
+	notes = append(notes, artifactNotes...)
 	return files, notes, nil
 }
 
