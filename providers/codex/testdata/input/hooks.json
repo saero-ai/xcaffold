@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "type": "command",
+        "command": "echo pre-tool",
+        "timeout": 60
+      }
+    ]
+  }
+}

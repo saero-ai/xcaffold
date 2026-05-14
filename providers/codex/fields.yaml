@@ -1,0 +1,46 @@
+provider: codex
+version: "1.0"
+kinds:
+  agent:
+    name: { support: required }
+    description: { support: required }
+    model: { support: optional }
+    effort: { support: optional }
+    max-turns: { support: unsupported }
+    tools: { support: unsupported }
+    disallowed-tools: { support: unsupported }
+    readonly: { support: unsupported }
+    permission-mode: { support: unsupported }
+    disable-model-invocation: { support: unsupported }
+    user-invocable: { support: unsupported }
+    background: { support: unsupported }
+    isolation: { support: unsupported }
+    memory: { support: unsupported }
+    color: { support: unsupported }
+    initial-prompt: { support: unsupported }
+    skills: { support: optional }
+    rules: { support: unsupported }
+    mcp: { support: unsupported }
+    assertions: { support: unsupported }
+    mcp-servers: { support: optional }
+    hooks: { support: unsupported }
+    targets: { support: unsupported }
+  skill:
+    name: { support: required }
+    description: { support: required }
+    when-to-use: { support: optional }
+    license: { support: unsupported }
+    allowed-tools: { support: unsupported }
+    disable-model-invocation: { support: unsupported }
+    user-invocable: { support: unsupported }
+    argument-hint: { support: unsupported }
+    artifacts: { support: optional }
+    targets: { support: unsupported }
+  rule:
+    always-apply: { support: unsupported }
+    description: { support: unsupported }
+    activation: { support: unsupported }
+    name: { support: unsupported }
+    paths: { support: unsupported }
+    exclude-agents: { support: unsupported }
+    targets: { support: unsupported }
