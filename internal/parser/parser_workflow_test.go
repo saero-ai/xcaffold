@@ -148,8 +148,6 @@ This markdown body area is ignored (workflows are pure YAML).
 	require.True(t, ok)
 	require.Len(t, wf.Steps, 1)
 	assert.Equal(t, "Run go build ./...", wf.Steps[0].Instructions)
-	// Body should not be assigned for pure YAML workflows
-	assert.Empty(t, wf.Body)
 }
 
 // TestMerge_Workflows_ChildAddsNew verifies that a child config's workflows are
@@ -636,6 +634,4 @@ This section does nothing.
 	require.True(t, ok)
 	require.Len(t, wf.Steps, 1)
 	require.Equal(t, "YAML instruction", wf.Steps[0].Instructions)
-	// The markdown body area should not be assigned to wf.Body or step bodies
-	require.Empty(t, wf.Body, "workflow body should not be assigned from markdown for pure YAML workflows")
 }

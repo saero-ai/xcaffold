@@ -26,12 +26,6 @@ steps:
       Ensure tests pass and documentation is updated.
       Sign off on the implementation.
 
-always-apply: true
-
-paths:
-  - "*.test.ts"
-  - "src/**"
-
 activation: always
 
 artifacts:

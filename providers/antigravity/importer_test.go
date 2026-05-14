@@ -156,8 +156,60 @@ func TestAntigravityExtract_Workflow(t *testing.T) {
 	require.True(t, ok, "expected workflow 'weekly-audit'")
 	assert.Equal(t, "weekly-audit", wf.Name)
 	assert.Equal(t, "Weekly audit workflow", wf.Description)
-	assert.Contains(t, wf.Body, "Run analysis and produce a report.")
 	assert.Equal(t, "antigravity", wf.SourceProvider)
+}
+
+// TestAntigravityExtract_Workflow_BodyBecomesMainStep verifies that when a workflow
+// has no steps in frontmatter but has body content, the importer creates a single
+// "main" step with the body as the Instructions field.
+func TestAntigravityExtract_Workflow_BodyBecomesMainStep(t *testing.T) {
+	data := []byte("---\nname: analyze-code\ndescription: Code analysis workflow\n---\n\nRun linters and formatters on the codebase.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := antimp.NewImporter()
+	err := imp.Extract("workflows/analyze-code.md", data, config)
+	require.NoError(t, err)
+
+	wf, ok := config.Workflows["analyze-code"]
+	require.True(t, ok, "expected workflow 'analyze-code'")
+
+	// Native Antigravity workflows store content in the markdown body, not YAML steps.
+	// When steps are absent, the body must be imported as a single "main" step.
+	require.Len(t, wf.Steps, 1, "expected exactly one step created from body")
+	assert.Equal(t, "main", wf.Steps[0].Name, "step name must be 'main'")
+	assert.Equal(t, "Run linters and formatters on the codebase.", wf.Steps[0].Instructions)
+}
+
+// TestAntigravityExtract_Workflow_FrontmatterStepsPreserved verifies that if a workflow
+// already has steps defined in YAML frontmatter, those steps are preserved and no
+// "main" step is created from the body.
+func TestAntigravityExtract_Workflow_FrontmatterStepsPreserved(t *testing.T) {
+	data := []byte(`---
+name: multi-step-audit
+description: Multi-step workflow
+steps:
+  - name: scan-deps
+    description: Scan dependencies
+    instructions: Run dependency checker
+  - name: lint-code
+    description: Lint code
+    instructions: Run linter
+---
+
+This is body content that should be ignored when steps are in frontmatter.
+`)
+	config := &ast.XcaffoldConfig{}
+	imp := antimp.NewImporter()
+	err := imp.Extract("workflows/multi-step-audit.md", data, config)
+	require.NoError(t, err)
+
+	wf, ok := config.Workflows["multi-step-audit"]
+	require.True(t, ok, "expected workflow 'multi-step-audit'")
+
+	// When steps are defined in frontmatter, they should be preserved as-is.
+	// No "main" step should be created from the body.
+	require.Len(t, wf.Steps, 2, "expected two steps from frontmatter")
+	assert.Equal(t, "scan-deps", wf.Steps[0].Name)
+	assert.Equal(t, "lint-code", wf.Steps[1].Name)
 }
 
 func TestAntigravityExtract_MCPConfig(t *testing.T) {

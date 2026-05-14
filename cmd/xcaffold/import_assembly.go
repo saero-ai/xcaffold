@@ -551,10 +551,6 @@ func splitWorkflowOverrides(configs map[string]ast.WorkflowConfig) (ast.Workflow
 		if provider == baseProv {
 			continue
 		}
-		// Strip body if identical to base
-		if strings.TrimSpace(cfg.Body) == strings.TrimSpace(base.Body) {
-			cfg.Body = ""
-		}
 		overrides[provider] = cfg
 	}
 	return base, overrides
@@ -752,7 +748,10 @@ func isEmptyRuleOverride(override ast.RuleConfig) bool {
 }
 
 // isEmptyWorkflowOverride returns true if the workflow override contains no meaningful content.
-// Workflows have no provider-specific fields, so an override is empty if its body is empty.
+// An override is empty if it has no steps, no activation, and no targets/artifacts.
 func isEmptyWorkflowOverride(override ast.WorkflowConfig) bool {
-	return strings.TrimSpace(override.Body) == ""
+	return len(override.Steps) == 0 &&
+		override.Activation == nil &&
+		len(override.Artifacts) == 0 &&
+		len(override.Targets) == 0
 }

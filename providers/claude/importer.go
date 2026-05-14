@@ -266,7 +266,7 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		Description string `yaml:"description"`
 	}
 
-	body, err := importer.ParseFrontmatterLenient(data, &front)
+	_, err := importer.ParseFrontmatterLenient(data, &front)
 	if err != nil {
 		return fmt.Errorf("claude: workflow %q: %w", rel, err)
 	}
@@ -278,7 +278,6 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 	config.Workflows[id] = ast.WorkflowConfig{
 		Name:           front.Name,
 		Description:    front.Description,
-		Body:           body,
 		SourceProvider: "claude",
 	}
 	return nil

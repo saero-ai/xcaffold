@@ -1187,20 +1187,3 @@ func TestMergeWorkflowConfig_StepInstructions_Replace(t *testing.T) {
 }
 
 // T-41: TestMergeWorkflowConfig_OldFieldsStillWork verifies that AlwaysApply and
-// Paths merge still functions correctly for backward compatibility during migration.
-func TestMergeWorkflowConfig_OldFieldsStillWork(t *testing.T) {
-	trueVal := true
-	base := ast.WorkflowConfig{}
-	override := ast.WorkflowConfig{
-		AlwaysApply: &trueVal,
-	}
-
-	result := mergeWorkflowConfig(base, override)
-
-	if result.AlwaysApply == nil {
-		t.Fatal("AlwaysApply: want non-nil, got nil")
-	}
-	if !*result.AlwaysApply {
-		t.Errorf("AlwaysApply: want true, got false")
-	}
-}

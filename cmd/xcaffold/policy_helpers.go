@@ -43,12 +43,6 @@ func restoreBodyFields(src, dst *ast.XcaffoldConfig) {
 			dst.Rules[k] = d
 		}
 	}
-	for k, s := range src.Workflows {
-		if d, ok := dst.Workflows[k]; ok {
-			d.Body = s.Body
-			dst.Workflows[k] = d
-		}
-	}
 	for k, s := range src.Contexts {
 		if d, ok := dst.Contexts[k]; ok {
 			d.Body = s.Body

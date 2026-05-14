@@ -90,7 +90,6 @@ func applyPrimitive(p translator.TargetPrimitive, wf ast.WorkflowConfig, rs *ast
 		directFiles[p.Path] = body
 	case "workflow":
 		wfCopy := wf
-		wfCopy.Body = body
 		rs.Workflows[p.ID] = wfCopy
 	}
 	return directFiles

@@ -334,21 +334,7 @@ type WorkflowConfig struct {
 	// +xcaf:type=map
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
-	// When true, generates an always-apply rule alongside skill output.
-	// +xcaf:optional
-	// +xcaf:group=Activation
-	// +xcaf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
-	AlwaysApply *bool `yaml:"always-apply,omitempty"`
-
-	// Glob patterns for conditional activation. Generates a path-scoped rule.
-	// +xcaf:optional
-	// +xcaf:group=Activation
-	// +xcaf:type=ClearableList
-	// +xcaf:provider=claude:optional,cursor:optional,copilot:optional
-	Paths ClearableList `yaml:"paths,omitempty"`
-
 	// Activation mode: "always" (all contexts) or a list of path globs for conditional triggering.
-	// Replaces always-apply + paths for simplified activation control.
 	// +xcaf:optional
 	// +xcaf:group=Activation
 	// +xcaf:type=Activation
@@ -361,9 +347,6 @@ type WorkflowConfig struct {
 	// +xcaf:type=[]string
 	// +xcaf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
 	Artifacts []string `yaml:"artifacts,omitempty"`
-
-	// Top-level body for single-step or legacy workflows.
-	Body string `yaml:"-"`
 
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. Never serialized.
@@ -385,7 +368,6 @@ type WorkflowStep struct {
 	// +xcaf:group=Steps
 	// +xcaf:provider=antigravity:optional
 	Instructions string `yaml:"instructions,omitempty"`
-	Body         string `yaml:"-"`
 }
 
 // PolicyConfig defines a declarative constraint evaluated against the AST

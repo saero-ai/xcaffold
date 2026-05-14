@@ -1464,3 +1464,39 @@ func TestCompile_SkillWithExamples_Cursor(t *testing.T) {
 		t.Errorf("expected examples collapsed into references/, got keys: %v", renderer.SortedKeys(files))
 	}
 }
+
+// T-49: TestCursor_BasicMode — Basic workflow renders 1 skill for Cursor
+func TestCursor_BasicMode(t *testing.T) {
+	r := cursor.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"test-wf": {
+					Name:        "test-wf",
+					Description: "Basic test workflow for Cursor",
+					Steps: []ast.WorkflowStep{
+						{
+							Name:         "step1",
+							Description:  "First step",
+							Instructions: "Execute step one in Cursor.",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	// Verify a skill file was created for the workflow
+	found := false
+	for path := range out.Files {
+		if strings.Contains(path, "skills") && strings.Contains(path, "test-wf") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected skill file for workflow in Cursor; got keys: %v", renderer.SortedKeys(out.Files))
+}

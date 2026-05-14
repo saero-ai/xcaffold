@@ -144,8 +144,8 @@ func TestCompile_Copilot_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 					Name:        "deploy-flow",
 					Description: "Deployment workflow",
 					Steps: []ast.WorkflowStep{
-						{Name: "step-1", Body: "Run tests"},
-						{Name: "step-2", Body: "Deploy to staging"},
+						{Name: "step-1", Instructions: "Run tests"},
+						{Name: "step-2", Instructions: "Deploy to staging"},
 					},
 					Targets: map[string]ast.TargetOverride{
 						"copilot": {Provider: map[string]any{"lowering-strategy": "rule-plus-skill"}},
@@ -188,9 +188,9 @@ func TestCompile_Copilot_Workflows_DefaultSimpleMode(t *testing.T) {
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{
-						{Name: "analyze", Body: "Read the diff."},
-						{Name: "lint", Body: "Check style."},
-						{Name: "summarize", Body: "Write the review."},
+						{Name: "analyze", Instructions: "Read the diff."},
+						{Name: "lint", Instructions: "Check style."},
+						{Name: "summarize", Instructions: "Write the review."},
 					},
 					// No Targets, no lowering-strategy — new default applies.
 				},

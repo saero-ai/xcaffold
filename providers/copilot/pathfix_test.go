@@ -131,7 +131,7 @@ func TestCopilotRenderer_Workflow_PromptFile_NoPathDoubling(t *testing.T) {
 				"my-prompt": {
 					Name: "my-prompt",
 					Steps: []ast.WorkflowStep{
-						{Name: "step-one", Body: "Some prompt body."},
+						{Name: "step-one", Instructions: "Some prompt body."},
 					},
 					Targets: map[string]ast.TargetOverride{
 						"copilot": {

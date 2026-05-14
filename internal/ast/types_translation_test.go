@@ -14,7 +14,6 @@ func TestWorkflowConfig_StructExists(t *testing.T) {
 	wf := WorkflowConfig{
 		Name:        "my-workflow",
 		Description: "A test workflow",
-		Body:        "Do something useful",
 	}
 
 	if wf.Name != "my-workflow" {
@@ -23,15 +22,12 @@ func TestWorkflowConfig_StructExists(t *testing.T) {
 	if wf.Description != "A test workflow" {
 		t.Errorf("Description: got %q, want %q", wf.Description, "A test workflow")
 	}
-	if wf.Body != "Do something useful" {
-		t.Errorf("Body: got %q, want %q", wf.Body, "Do something useful")
-	}
 }
 
 // TestWorkflowConfig_ZeroValue verifies that the zero value is usable (all omitempty fields).
 func TestWorkflowConfig_ZeroValue(t *testing.T) {
 	var wf WorkflowConfig
-	if wf.Name != "" || wf.Description != "" || wf.Body != "" {
+	if wf.Name != "" || wf.Description != "" {
 		t.Error("zero WorkflowConfig should have empty string fields")
 	}
 }

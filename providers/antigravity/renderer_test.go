@@ -763,7 +763,6 @@ func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
 				"commit-changes": {
 					Name:        "Commit Changes",
 					Description: "How to commit changes",
-					Body:        "1. Stage files\n2. Commit",
 				},
 			},
 		},
@@ -783,7 +782,6 @@ func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
 			Workflows: map[string]ast.WorkflowConfig{
 				"deploy": {
 					Description: "Deploy to production",
-					Body:        "Run deploy script.",
 				},
 			},
 		},
@@ -806,7 +804,6 @@ func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
 			Workflows: map[string]ast.WorkflowConfig{
 				"build": {
 					Name: "Build Project",
-					Body: "Run make build.",
 				},
 			},
 		},
@@ -866,9 +863,7 @@ func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
-				"   ": {
-					Body: "Bad workflow.",
-				},
+				"   ": {},
 			},
 		},
 	}

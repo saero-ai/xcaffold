@@ -182,8 +182,6 @@ func TestParse_Frontmatter_WorkflowWithBody(t *testing.T) {
 	assert.Equal(t, "Build the project", wf.Steps[0].Instructions)
 	assert.Equal(t, "Run tests", wf.Steps[1].Instructions)
 	assert.Equal(t, "Deploy to production", wf.Steps[2].Instructions)
-	// Body should not be assigned for pure YAML workflows
-	assert.Empty(t, wf.Body)
 }
 
 func TestParse_Frontmatter_MultiDocumentDeprecationWarning(t *testing.T) {

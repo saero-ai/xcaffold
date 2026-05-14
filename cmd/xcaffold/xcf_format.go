@@ -461,7 +461,6 @@ func writeWorkflowFiles(config *ast.XcaffoldConfig, xcafDir, version string, wor
 		if wf.Name == "" {
 			wf.Name = k
 		}
-		body := strings.TrimSpace(wf.Body)
 		doc := workflowDoc{Kind: "workflow", Version: version, WorkflowConfig: wf}
 
 		// Directory layout: xcaf/workflows/<name>/workflow.xcaf
@@ -471,7 +470,8 @@ func writeWorkflowFiles(config *ast.XcaffoldConfig, xcafDir, version string, wor
 		}
 		outPath := filepath.Join(workflowSubDir, "workflow.xcaf")
 
-		if err := writeFrontmatterFile(outPath, doc, body); err != nil {
+		// Workflows are pure YAML with no markdown body
+		if err := writeFrontmatterFile(outPath, doc, ""); err != nil {
 			return err
 		}
 
@@ -480,11 +480,9 @@ func writeWorkflowFiles(config *ast.XcaffoldConfig, xcafDir, version string, wor
 			if providers := config.Overrides.WorkflowProviders(k); len(providers) > 0 {
 				for _, provider := range providers {
 					overrideCfg, _ := config.Overrides.GetWorkflow(k, provider)
-					overrideBody := strings.TrimSpace(overrideCfg.Body)
-					overrideCfg.Body = ""
 					overrideCfg.Name = ""
 					overridePath := filepath.Join(workflowSubDir, fmt.Sprintf("workflow.%s.xcaf", provider))
-					if err := writeFrontmatterFile(overridePath, overrideCfg, overrideBody); err != nil {
+					if err := writeFrontmatterFile(overridePath, overrideCfg, ""); err != nil {
 						return err
 					}
 				}

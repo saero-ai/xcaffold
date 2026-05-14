@@ -23,9 +23,9 @@ func threeStepCodeReview() *ast.XcaffoldConfig {
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{
-						{Name: "analyze", Body: "Read the diff and summarize changed modules."},
-						{Name: "lint", Body: "Check style violations in changed files."},
-						{Name: "summarize", Body: "Write the final review comment."},
+						{Name: "analyze", Instructions: "Read the diff and summarize changed modules."},
+						{Name: "lint", Instructions: "Check style violations in changed files."},
+						{Name: "summarize", Instructions: "Write the final review comment."},
 					},
 					Targets: map[string]ast.TargetOverride{
 						"claude": {Provider: map[string]any{"lowering-strategy": "rule-plus-skill"}},
@@ -156,9 +156,9 @@ func TestCompile_Workflow_DefaultSimpleMode(t *testing.T) {
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{
-						{Name: "analyze", Body: "Read the diff."},
-						{Name: "lint", Body: "Check style."},
-						{Name: "summarize", Body: "Write the review."},
+						{Name: "analyze", Instructions: "Read the diff."},
+						{Name: "lint", Instructions: "Check style."},
+						{Name: "summarize", Instructions: "Write the review."},
 					},
 					// No Targets, no lowering-strategy — new default applies.
 				},

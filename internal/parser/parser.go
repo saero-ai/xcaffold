@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -536,39 +535,4 @@ func parsePartial(r io.Reader, opts ...parseOptionFunc) (*ast.XcaffoldConfig, er
 		return nil, fmt.Errorf("invalid .xcaf configuration part: %w", err)
 	}
 	return config, nil
-}
-
-var workflowStepHeading = regexp.MustCompile(`(?m)^##\s+([a-zA-Z0-9_-]+)\s*$`)
-
-// assignWorkflowStepBodies processes the raw markdown workflow body, slicing it into step-specific
-// blocks based on ## <step-name> headings and assigning those blocks to their respective WorkflowStep.
-func assignWorkflowStepBodies(w *ast.WorkflowConfig, body string) {
-	if body == "" {
-		return
-	}
-
-	matches := workflowStepHeading.FindAllStringSubmatchIndex(body, -1)
-	if len(matches) == 0 {
-		return
-	}
-
-	stepMap := make(map[string]string)
-	for i, match := range matches {
-		nameStart := match[2]
-		nameEnd := match[3]
-		name := body[nameStart:nameEnd]
-
-		bodyStart := match[1]
-		bodyEnd := len(body)
-		if i+1 < len(matches) {
-			bodyEnd = matches[i+1][0]
-		}
-		stepMap[name] = strings.TrimSpace(body[bodyStart:bodyEnd])
-	}
-
-	for i, step := range w.Steps {
-		if content, ok := stepMap[step.Name]; ok {
-			w.Steps[i].Body = content
-		}
-	}
 }
