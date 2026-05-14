@@ -124,7 +124,7 @@ version: "1.0"
 name: main
 default: true
 ---
-This project uses Go 1.24 with Cobra for CLI commands.
+This project uses Go 1.26 with Cobra for CLI commands.
 Run tests with `go test ./...`.
 
 # xcaf/context/backend-context.xcaf — backend-specific
