@@ -337,7 +337,7 @@ func TestCompileAgents_Gemini_MappedAlias_Translated(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"tester": {
-					Name: "tester", Model: "sonnet-4",
+					Name: "tester", Model: "balanced",
 				},
 			},
 		},

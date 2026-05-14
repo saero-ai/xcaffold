@@ -84,6 +84,8 @@ components or hooks. This causes Next.js build failures on the client bundle.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `rule`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique rule identifier. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields
@@ -274,3 +276,7 @@ Antigravity is the only provider that natively supports `model-decided` activati
 
 > [!NOTE]
 > **model-decided** and **explicit-invoke**: These activation modes are not natively supported by Claude Code, Cursor, Copilot, or Gemini. Rules compiled with these modes include a fidelity note explaining the limitation. Antigravity natively supports `model-decided`.
+
+### Codex (Preview)
+
+Codex does not support `kind: rule`. Codex uses Starlark `.rules` files — a fundamentally different paradigm that cannot be compiled yet from `.xcaf` rule declarations. Xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note and produces no rule output for the Codex target.

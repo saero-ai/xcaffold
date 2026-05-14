@@ -2,16 +2,17 @@ kind: agent . version 1.0 . format: frontmatter+body
 
   Identity
     name                      string          required  Unique identifier for this agent within the project.
+                                                        Providers: Codex(required)
                                                         Pattern: ^[a-z0-9-]+$
     description               string          optional  Human-readable purpose of this agent.
-                                                        Providers: Antigravity Claude(required) Copilot(required) Cursor Gemini(required)
+                                                        Providers: Antigravity Claude(required) Codex(required) Copilot(required) Cursor Gemini(required)
 
   Model & Execution
     model                     string          optional  LLM model identifier or alias resolved at compile time.
-                                                        Providers: Antigravity Claude Copilot Cursor Gemini
+                                                        Providers: Antigravity Claude Codex Copilot Cursor Gemini
                                                         Examples: sonnet
     effort                    string          optional  Reasoning effort level hint for the model provider.
-                                                        Providers: Claude Cursor
+                                                        Providers: Claude Codex Cursor
     max-turns                 integer         optional  Maximum conversation turns before the agent exits.
                                                         Providers: Claude Gemini
 
@@ -47,14 +48,14 @@ kind: agent . version 1.0 . format: frontmatter+body
 
   Composition
     skills                    []string        optional  Skill resource IDs attached to this agent.
-                                                        Providers: Claude
+                                                        Providers: Claude Codex
     rules                     []string        optional  Rule resource IDs governing this agent.
     mcp                       []string        optional  MCP server resource IDs available to this agent.
     assertions                []string        optional  Policy assertion IDs evaluated post-compilation.
 
   Inline Composition
     mcp-servers               map             optional  Inline MCP server definitions keyed by server name.
-                                                        Providers: Claude Copilot Gemini
+                                                        Providers: Claude Codex Copilot Gemini
     hooks                     HookConfig      optional  Inline lifecycle hook definitions for this agent.
                                                         Providers: Claude
 

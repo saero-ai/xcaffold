@@ -290,8 +290,8 @@ func TestResolveModel_ReferenceDataBinding(t *testing.T) {
 
 	// knownAliases are the xcaffold cross-provider model aliases understood by
 	// ResolveModel. They are defined in internal/renderer/models.go.
-	knownAliases := []string{"sonnet-4", "opus-4", "haiku-3.5"}
-	targets := []string{"claude", "gemini", "copilot", "cursor"}
+	knownAliases := []string{"balanced", "flagship", "fast"}
+	targets := []string{"claude", "gemini", "copilot", "cursor", "codex"}
 
 	for _, alias := range knownAliases {
 		for _, target := range targets {

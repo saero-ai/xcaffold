@@ -7,7 +7,7 @@ description: "Defines a named subagent/specialist delegated to by the main AI se
 
 Defines a named subagent that the main AI session delegates to. Each agent carries its own system prompt, tool access, and optional skill, rule, and MCP bindings. xcaffold compiles it to `agents/<id>.md` with YAML frontmatter for each supported target provider.
 
-In every provider, the compiled output lands in that provider's agents directory — `.claude/agents/`, `.cursor/agents/`, `.github/agents/`, `.gemini/agents/` — where the main session picks it up and dispatches to it by name.
+In every provider, the compiled output lands in that provider's agents directory — `.claude/agents/`, `.cursor/agents/`, `.github/agents/`, `.gemini/agents/`, `.codex/agents/` — where the main session picks it up and dispatches to it by name.
 
 > **Required:** `kind`, `version`, `name`
 
@@ -101,6 +101,8 @@ You are the ONLY agent authorized to modify `src/components/`.
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `agent`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique agent identifier. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields
@@ -145,7 +147,7 @@ Agent-scoped MCP server definitions. Not merged with project-level `mcp:`. Same 
 
 Per-provider overrides keyed by provider name. When present, the resource compiles only for listed providers. See [Targets](../../../concepts/configuration/targets.md) for the full concept, including filtering semantics and the dual-purpose map syntax.
 
-Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct. Valid target keys are: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`.
+Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct. Valid target keys are: `claude`, `cursor`, `antigravity`, `copilot`, `gemini`, `codex`.
 
 | Field | Type | Status |
 |---|---|---|
@@ -157,27 +159,27 @@ Each key under `agents.<id>.targets.<target>` maps to a `TargetOverride` struct.
 
 Not all fields survive compilation to every provider. The table below shows which xcaffold fields are emitted for each target. Fields marked `—` are dropped silently unless noted.
 
-| Field | Claude | Cursor | Copilot | Gemini | Antigravity |
-|-------|--------|--------|---------|--------|-------------|
-| `name` | yes | yes | yes | yes | body only |
-| `description` | yes | yes | yes | yes | body only |
-| `model` | yes (resolved) | mapped only ¹ | yes (resolved) | yes (resolved) | body only |
-| `effort` | yes | — | — | — | — |
-| `max-turns` | yes | — | — | `max_turns` ² | — |
-| `tools` | yes (inline) | — | yes (YAML list) | yes (YAML list) | — |
-| `disallowed-tools` | yes | — | — | — | — |
-| `readonly` | transforms ³ | yes | — | — | — |
-| `permission-mode` | yes | — | — | — | — |
-| `disable-model-invocation` | — | — | yes | — | — |
-| `user-invocable` | — | — | yes | — | — |
-| `background` | yes | `is_background` ² | — | — | — |
-| `isolation` | yes | — | — | — | — |
-| `memory` | yes | — | — | — | — |
-| `color` | yes | — | — | — | — |
-| `initial-prompt` | yes | — | — | — | — |
-| `skills` | yes (inline) | — | — | — | — |
-| `hooks` | yes (YAML) | — | — | — | — |
-| `mcp-servers` | yes (YAML) | — | yes (YAML) | `mcpServers` ² | — |
+| Field | Claude | Cursor | Copilot | Gemini | Antigravity | Codex (Preview) |
+|-------|--------|--------|---------|--------|-------------|-----------------|
+| `name` | yes | yes | yes | yes | body only | yes (TOML key) |
+| `description` | yes | yes | yes | yes | body only | yes |
+| `model` | yes (resolved) | mapped only ¹ | yes (resolved) | yes (resolved) | body only | yes (resolved) |
+| `effort` | yes | — | — | — | — | — |
+| `max-turns` | yes | — | — | `max_turns` ² | — | — |
+| `tools` | yes (inline) | — | yes (YAML list) | yes (YAML list) | — | yes (TOML array) |
+| `disallowed-tools` | yes | — | — | — | — | — |
+| `readonly` | transforms ³ | yes | — | — | — | — |
+| `permission-mode` | yes | — | — | — | — | — |
+| `disable-model-invocation` | — | — | yes | — | — | — |
+| `user-invocable` | — | — | yes | — | — | — |
+| `background` | yes | `is_background` ² | — | — | — | — |
+| `isolation` | yes | — | — | — | — | — |
+| `memory` | yes | — | — | — | — | — |
+| `color` | yes | — | — | — | — | — |
+| `initial-prompt` | yes | — | — | — | — | yes (`system_prompt`) |
+| `skills` | yes (inline) | — | — | — | — | — |
+| `hooks` | yes (YAML) | — | — | — | — | — |
+| `mcp-servers` | yes (YAML) | — | yes (YAML) | `mcpServers` ² | — | — |
 
 **Footnotes**
 
@@ -313,3 +315,23 @@ mcpServers:
 **Output path**: `.agents/agents/react-developer.md`
 
 Agent compiled as a specialist note (persona profile). Fidelity note `RENDERER_KIND_DOWNGRADED` emitted to stderr indicating that Antigravity does not support native agent definitions. `name`, `description`, `model`, and body content are folded into the note body; no frontmatter fields are emitted.
+
+### Codex (Preview)
+
+**Output path**: `.codex/agents/react-developer.toml`
+
+Codex is the first provider to use a non-Markdown agent format. Agents are compiled to TOML files. `name` becomes the TOML table key. `description`, `model` (resolved), `tools` (TOML array), and `initial-prompt` (as `system_prompt`) are emitted. Fields without a Codex equivalent — `memory`, `skills`, `rules`, `mcp`, `effort`, `permission-mode`, `readonly`, `background`, `isolation`, `color`, `hooks`, `mcp-servers` — are dropped.
+
+```toml
+[react-developer]
+description = "Implements React components, hooks, and UI features for frontend-app."
+model = "codex-mini-latest"
+tools = ["Read", "Edit", "Write", "Bash", "Glob", "Grep"]
+system_prompt = """
+# React Developer
+
+## Role
+Implements and maintains React UI components for `frontend-app`.
+…
+"""
+```

@@ -2,7 +2,6 @@ package renderer
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/saero-ai/xcaffold/pkg/schema"
@@ -50,19 +49,13 @@ func ResolveModel(alias, target string) (string, bool) {
 }
 
 // IsMappedModel returns true if the input alias is one of xcaffold's canonical
-// versioned aliases (sonnet-4, opus-4, haiku-3.5) that is explicitly mapped for
-// the given target. This is used to distinguish xcaffold-normalized aliases from
-// native provider literals or bare aliases.
-//
-// Note: This is different from whether the provider's resolver accepts the model.
-// A model might be accepted by the provider (e.g., bare "sonnet" on Claude) but
-// still not be a xcaffold-mapped alias.
+// tier aliases (flagship, balanced, fast) that is explicitly mapped for the
+// given target.
 func IsMappedModel(alias, target string) bool {
-	// The xcaffold-canonical aliases that have explicit mappings per target
 	xcaffoldAliases := map[string]bool{
-		"sonnet-4":  true,
-		"opus-4":    true,
-		"haiku-3.5": true,
+		"flagship": true,
+		"balanced": true,
+		"fast":     true,
 	}
 
 	// Only the canonical xcaffold aliases are "mapped"
@@ -79,125 +72,43 @@ func IsMappedModel(alias, target string) bool {
 	return ok
 }
 
-// IsKnownClaudeAlias returns true if the literal string is a naked tier name
-// typical of raw Claude Code usage (sonnet, opus, haiku).
-func IsKnownClaudeAlias(alias string) bool {
-	bare := strings.ToLower(alias)
-	switch bare {
-	case "sonnet", "opus", "haiku":
-		return true
-	default:
-		return false
-	}
-}
-
-// SanitizeAgentModel maps a model alias to a provider-specific literal.
-// It returns the sanitized model string and a slice of FidelityNotes.
-// modelAliasState captures the alias classification of a model string relative
-// to a specific target. Building it once avoids re-computing the same lookups.
-type modelAliasState struct {
-	isClaudeAlias bool
-	supportsBare  bool
-}
-
-func newModelAliasState(model, targetName string) modelAliasState {
-	r := LookupModelResolver(targetName)
-	return modelAliasState{
-		isClaudeAlias: IsKnownClaudeAlias(model),
-		supportsBare:  r != nil && r.SupportsBareAliases(),
-	}
-}
-
 func SanitizeAgentModel(model string, caps CapabilitySet, targetName, agentID string) (string, []FidelityNote) {
 	if model == "" {
-		return "", nil // Nothing to do
+		return "", nil
 	}
 
-	// If the provider does not support the model field, drop it.
 	modelSupport := schema.FieldSupportForTarget("agent", "model", targetName)
 	if modelSupport == "unsupported" || modelSupport == "" {
 		return "", nil
 	}
 
 	isMapped := IsMappedModel(model, targetName)
-	as := newModelAliasState(model, targetName)
 
 	resolved, ok := ResolveModel(model, targetName)
 	if !ok || resolved == "" {
-		return "", as.notesForUnresolved(model, agentID, targetName)
-	}
-
-	if !isMapped {
-		return as.resolvedOrDropped(model, resolved, agentID, targetName)
-	}
-
-	return resolved, nil
-}
-
-// notesForUnresolved returns fidelity notes when model resolution fails.
-// A warning is emitted when the model is a bare Claude alias on a target that
-// does not support bare aliases; otherwise the slice is empty.
-func (as modelAliasState) notesForUnresolved(model, agentID, targetName string) []FidelityNote {
-	if as.isClaudeAlias && !as.supportsBare {
-		return []FidelityNote{{
+		return "", []FidelityNote{{
 			Level:      LevelWarning,
 			Target:     targetName,
 			Kind:       "agent",
 			Resource:   agentID,
 			Field:      "model",
 			Code:       CodeAgentModelUnmapped,
-			Reason:     fmt.Sprintf("bare alias %q passed through for agent %q unmapped; this may fail on %s", model, agentID, targetName),
-			Mitigation: fmt.Sprintf("Use a mapped alias (e.g. sonnet-4) or a native literal for %s", targetName),
+			Reason:     fmt.Sprintf("model %q could not be resolved for agent %q on %s", model, agentID, targetName),
+			Mitigation: fmt.Sprintf("Use a tier alias (e.g. balanced) or a native literal for %s", targetName),
 		}}
 	}
-	return nil
-}
 
-// resolvedOrDropped handles the case where resolution succeeded but the model was
-// not an xcaffold alias. Bare Claude aliases are passed through on supporting targets
-// or dropped with a warning on non-supporting targets. Native literals are passed
-// through with an info note.
-func (as modelAliasState) resolvedOrDropped(model, resolved, agentID, targetName string) (string, []FidelityNote) {
-	if as.isClaudeAlias {
-		if as.supportsBare {
-			// Claude Code resolves bare tier aliases at runtime to the current
-			// recommended version. Pass through as-is and emit an info note.
-			// Ground truth: models.json verified 2026-04-30 — "sonnet", "opus",
-			// and "haiku" are documented Claude Code aliases.
-			note := FidelityNote{
-				Level:      LevelInfo,
-				Target:     targetName,
-				Kind:       "agent",
-				Resource:   agentID,
-				Field:      "model",
-				Code:       CodeFieldTransformed,
-				Reason:     fmt.Sprintf("bare alias %q passed through for agent %q on claude target; resolved at runtime", model, agentID),
-				Mitigation: "Use a versioned alias (e.g. sonnet-4) for deterministic resolution across targets",
-			}
-			return model, []FidelityNote{note}
-		}
-		// Bare Claude alias on a non-Claude target — meaningless outside Claude Code.
-		note := FidelityNote{
-			Level:      LevelWarning,
-			Target:     targetName,
-			Kind:       "agent",
-			Resource:   agentID,
-			Field:      "model",
-			Code:       CodeAgentModelUnmapped,
-			Reason:     fmt.Sprintf("bare alias %q passed through for agent %q unmapped; this may fail on %s", model, agentID, targetName),
-			Mitigation: fmt.Sprintf("Use a mapped alias (e.g. sonnet-4) or a native literal for %s", targetName),
-		}
-		return "", []FidelityNote{note}
+	if isMapped {
+		return resolved, nil
 	}
-	// Native literal — pass through safely with an info note.
-	note := FidelityNote{
+
+	return resolved, []FidelityNote{{
 		Level:    LevelInfo,
 		Target:   targetName,
 		Kind:     "agent",
 		Resource: agentID,
 		Field:    "model",
 		Code:     CodeFieldTransformed,
-		Reason:   fmt.Sprintf("native literal %q passed through for agent %q", model, agentID),
-	}
-	return resolved, []FidelityNote{note}
+		Reason:   fmt.Sprintf("model %q passed through for agent %q as %q", model, agentID, resolved),
+	}}
 }

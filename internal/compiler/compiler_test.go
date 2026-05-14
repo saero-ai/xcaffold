@@ -590,28 +590,28 @@ func TestDiscoverAgentMemory_IgnoresXcafFiles(t *testing.T) {
 }
 
 func TestCompile_OverrideMerge_AppliesForTarget(t *testing.T) {
-	// Base agent uses the sonnet-4 alias. The claude-target override swaps it to
-	// opus-4, which maps to "claude-opus-4-7" in the Claude renderer's model table.
+	// Base agent uses the balanced alias. The claude-target override swaps it to
+	// flagship, which maps to "claude-opus-4-7" in the Claude renderer's model table.
 	config := &ast.XcaffoldConfig{
 		Version: "1.0",
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"developer": {
 					Description: "A developer.",
-					Model:       "sonnet-4",
+					Model:       "balanced",
 					Body:        "You write code.",
 				},
 			},
 		},
 		Overrides: &ast.ResourceOverrides{},
 	}
-	config.Overrides.AddAgent("developer", "claude", ast.AgentConfig{Model: "opus-4"})
+	config.Overrides.AddAgent("developer", "claude", ast.AgentConfig{Model: "flagship"})
 
 	out, notes, err := Compile(config, t.TempDir(), CompileOpts{Target: "claude", Blueprint: "", VarFile: ""})
 	require.NoError(t, err)
 	require.NotNil(t, out)
 
-	// The override model (opus-4 → claude-opus-4-7) must appear in the compiled output.
+	// The override model (flagship → claude-opus-4-7) must appear in the compiled output.
 	agentContent, ok := out.Files["agents/developer.md"]
 	require.True(t, ok, "expected agents/developer.md to be compiled")
 	assert.Contains(t, agentContent, "claude-opus-4-7", "override model must appear in compiled agent")

@@ -14,7 +14,7 @@ const kindRule = "rule"
 
 func threeStepWorkflow() *ast.WorkflowConfig {
 	return &ast.WorkflowConfig{
-		ApiVersion:  "workflow/v1",
+
 		Name:        "code-review",
 		Description: "Multi-step PR review procedure.",
 		Steps: []ast.WorkflowStep{

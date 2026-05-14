@@ -61,6 +61,8 @@ env:
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `mcp`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique MCP server identifier. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields
@@ -154,6 +156,20 @@ MCP declarations are merged alongside any other Gemini settings in `.gemini/sett
 ### Antigravity
 
 No project-local file is written. MCP servers must be configured globally at `~/.gemini/antigravity/mcp_config.json`. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted at compile time.
+
+### Codex (Preview)
+
+**Output path**: `.codex/config.toml` (`[mcp_servers.*]` sections)
+
+MCP server declarations are compiled into the Codex TOML configuration file under `[mcp_servers.<name>]` sections. Each server becomes a named TOML table. Multiple MCP declarations are merged into a single `.codex/config.toml`.
+
+```toml
+[mcp_servers.browser-tools]
+command = "npx"
+args = ["@agentdeskai/browser-tools-mcp@latest"]
+```
+
+Import of existing `.codex/config.toml` MCP sections is not yet supported. Existing Codex MCP configuration must be migrated manually to `kind: mcp` declarations.
 
 > [!WARNING]
 > **Antigravity** does not support project-local MCP configuration. MCP servers must be registered globally at `~/.gemini/antigravity/mcp_config.json`. A `MCP_GLOBAL_CONFIG_ONLY` fidelity note is emitted at compile time; no project file is written.

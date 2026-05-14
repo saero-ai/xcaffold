@@ -158,15 +158,9 @@ func validateRuleActivations(c *ast.XcaffoldConfig) error {
 //   - steps and top-level instructions/instructions-file are mutually exclusive
 //   - every step must have a non-empty name
 //   - targets.<provider>.provider["lowering-strategy"] must be a known value
-//   - api-version, if set, must be "workflow/v1"
 //   - step instructions-file paths may not target reserved output directories
 func validateWorkflows(c *ast.XcaffoldConfig) error {
 	for id, wf := range c.Workflows {
-		// api-version validation
-		if wf.ApiVersion != "" && wf.ApiVersion != "workflow/v1" {
-			return fmt.Errorf("workflow %q: api-version %q is not supported; only \"workflow/v1\" is accepted", id, wf.ApiVersion)
-		}
-
 		// steps are required for workflows
 		if len(wf.Steps) == 0 {
 			return fmt.Errorf("workflow %q: must define at least one step", id)

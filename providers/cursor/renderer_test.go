@@ -348,7 +348,7 @@ func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
 			Agents: map[string]ast.AgentConfig{
 				"aliased-agent": {
 					Name:  "Aliased Agent",
-					Model: "sonnet-4",
+					Model: "balanced",
 					Body:  "Uses an alias.",
 				},
 			},
@@ -359,7 +359,7 @@ func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["agents/aliased-agent.md"]
-	assert.Contains(t, content, "model: claude-sonnet-4-5", "sonnet-4 maps to claude-sonnet-4-5 for cursor — must be emitted")
+	assert.Contains(t, content, "model: claude-sonnet-4-5", "balanced maps to claude-sonnet-4-5 for cursor — must be emitted")
 
 	_, ok := findNote(notes, renderer.CodeAgentModelUnmapped)
 	assert.False(t, ok, "mapped alias must not emit AGENT_MODEL_UNMAPPED")

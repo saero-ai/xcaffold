@@ -1,0 +1,6 @@
+name = "test-agent"
+description = "A test agent for import verification"
+developer_instructions = "Follow the testing protocol."
+model = "gpt-5.4"
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"

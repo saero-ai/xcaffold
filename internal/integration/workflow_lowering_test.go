@@ -19,7 +19,7 @@ func threeStepCodeReview() *ast.XcaffoldConfig {
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"code-review": {
-					ApiVersion:  "workflow/v1",
+
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{
@@ -82,7 +82,7 @@ func TestCompile_Workflow_AntigravityNative(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"code-review": {
-					ApiVersion:  "workflow/v1",
+
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{
@@ -152,7 +152,7 @@ func TestCompile_Workflow_DefaultSimpleMode(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"code-review": {
-					ApiVersion:  "workflow/v1",
+
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{

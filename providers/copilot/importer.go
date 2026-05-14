@@ -293,7 +293,6 @@ func extractMCP(rel string, data []byte, config *ast.XcaffoldConfig) error {
 
 func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	var front struct {
-		ApiVersion  string             `yaml:"api-version"`
 		Name        string             `yaml:"name"`
 		Description string             `yaml:"description"`
 		Steps       []ast.WorkflowStep `yaml:"steps"`
@@ -310,7 +309,6 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		config.Workflows = make(map[string]ast.WorkflowConfig)
 	}
 	config.Workflows[id] = ast.WorkflowConfig{
-		ApiVersion:     front.ApiVersion,
 		Name:           front.Name,
 		Description:    front.Description,
 		Steps:          front.Steps,

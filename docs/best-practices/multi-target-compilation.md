@@ -24,6 +24,7 @@ targets:
   - gemini
   - copilot
   - antigravity
+  - codex
 ```
 
 `xcaffold apply` processes each target in sequence and writes provider-native output to the corresponding output directory (`.claude/`, `.cursor/`, `.gemini/`, `.github/`, `.agents/`). All targets must be listed here — there is no separate per-target project file.
@@ -61,7 +62,7 @@ allowed-tools: [Bash, Read, Write, Edit]
 Follow the Red-Green-Refactor cycle. Write a failing test before writing implementation code.
 ```
 
-These resources compile for all five providers without any additional configuration. Fields that a provider cannot represent are dropped; xcaffold tells you exactly which ones and why.
+These resources compile for all six providers without any additional configuration. Fields that a provider cannot represent are dropped; xcaffold tells you exactly which ones and why.
 
 ### Fidelity Notes as Feedback
 
@@ -273,6 +274,52 @@ targets:
 ```
 
 `skip-synthesis: true` instructs the renderer to include the resource in the target's manifest but skip any synthesis transformations. Use this when a resource should be present in the output directory but should not be post-processed by xcaffold's synthesis pipeline.
+
+## Codex-Specific Considerations
+
+Codex (Preview) introduces two multi-target situations that require explicit handling.
+
+**`AGENTS.md` collision.** Both Codex and Cursor produce an `AGENTS.md` file at the project root. When both providers are active targets, xcaffold emits a `ROOT_FILE_COLLISION` fidelity note and writes only one of the two files. To avoid this, use `kind: context` resources with a `targets:` map to route project-level instructions explicitly:
+
+```yaml
+# xcaf/context/project-instructions.xcaf — Claude, Gemini, Copilot, Antigravity
+kind: context
+version: "1.0"
+name: project-instructions
+targets:
+  claude: {}
+  gemini: {}
+  copilot: {}
+  antigravity: {}
+---
+Your project-level instructions here.
+```
+
+```yaml
+# xcaf/context/project-instructions-cursor.xcaf — Cursor only
+kind: context
+version: "1.0"
+name: project-instructions-cursor
+targets:
+  cursor: {}
+---
+Your project-level instructions here.
+```
+
+```yaml
+# xcaf/context/project-instructions-codex.xcaf — Codex only
+kind: context
+version: "1.0"
+name: project-instructions-codex
+targets:
+  codex: {}
+---
+Your project-level instructions here.
+```
+
+**Shared `.agents/skills/` directory.** Codex and Antigravity both read skills from `.agents/skills/*/SKILL.md`. This is not a conflict — the output format is identical. A single compile pass that targets both providers writes skills once to `.agents/skills/` and both providers consume them. No additional configuration is needed.
+
+**Rules gap.** Codex does not support rule compilation. xcaffold emits a `RENDERER_KIND_UNSUPPORTED` fidelity note for each rule when Codex is a target. Rules defined in your `.xcaf` manifests are compiled for all other declared targets and skipped for Codex. If a rule is required behavior for your workflow, scope it explicitly to the providers that support it using `targets:` so the note is suppressed.
 
 ## Capability Differences
 

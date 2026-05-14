@@ -259,14 +259,13 @@ func writeTemp(t *testing.T, name, content string) string {
 }
 
 // TestParse_Workflow_FullSchema verifies that a workflow with all supported
-// fields (api-version, steps, targets with lowering-strategy) round-trips
-// through the parser without error. Pure YAML format.
+// fields (steps, targets with lowering-strategy) round-trips through the
+// parser without error. Pure YAML format.
 func TestParse_Workflow_FullSchema(t *testing.T) {
 	input := `---
 kind: workflow
 version: "1.0"
 name: code-review
-api-version: workflow/v1
 description: Multi-step PR review procedure.
 steps:
   - name: analyze
@@ -295,7 +294,6 @@ This markdown body area is ignored (workflows are pure YAML).
 
 	wf, ok := config.Workflows["code-review"]
 	require.True(t, ok)
-	require.Equal(t, "workflow/v1", wf.ApiVersion)
 	require.Len(t, wf.Steps, 3)
 	require.Equal(t, "analyze", wf.Steps[0].Name)
 	assert.Equal(t, "Read the diff and summarize changed modules", wf.Steps[0].Instructions)
@@ -469,27 +467,6 @@ workflows:
 	_, err := ParseFile(path)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "reserved")
-}
-
-// TestParse_Workflow_UnknownApiVersion_IsRejected verifies that an api-version
-// other than "workflow/v1" is rejected.
-func TestParse_Workflow_UnknownApiVersion_IsRejected(t *testing.T) {
-	input := `
-kind: global
-version: "1.0"
-workflows:
-  future:
-    api-version: workflow/v2
-    name: future
-    steps:
-      - name: step-one
-
-`
-	path := writeTemp(t, "project.xcaf", input)
-
-	_, err := ParseFile(path)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "api-version")
 }
 
 // T-11: TestValidation_Workflow_NoSteps — Workflow with zero steps should error

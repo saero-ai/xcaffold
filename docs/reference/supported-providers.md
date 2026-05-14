@@ -13,17 +13,17 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 ## Capability Matrix
 
-| Feature / Primitive | Claude Code <br>`(.claude/)` | Cursor <br>`(.cursor/)` | Gemini CLI <br>`(.gemini/)` | GitHub Copilot <br>`(.github/)` | Antigravity <br>`(.agents/)` |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Agents** | `agents/*.md` | `agents/*.md` | `agents/*.md` | `agents/*.md` or `agents/*.agent.md` | `agents/*.md` ⁴ |
-| **Skills** | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` |
-| **Rules** | `rules/*.md` | `rules/*.md` or `rules/*.mdc` | `rules/*.md` | `instructions/*.instructions.md` | `rules/*.md` |
-| **Workflows** | *via Rules & Skills* | *via Rules* | *via Rules & Skills* | *via Rules & Skills* | `workflows/*.md` |
-| **Shell Hooks** | `settings.json` ¹ | `hooks.json` | `settings.json` | `hooks/xcaffold-hooks.json` | *N/A* |
-| **MCP Servers** | `.mcp.json` ² | `.cursor/mcp.json` | `settings.json` | `.vscode/mcp.json` | `~/.gemini/antigravity/mcp_config.json` ³ |
-| **Settings & Sandbox** | `settings.json` | Cursor Settings UI | `settings.json` | IDE settings | *N/A* |
-| **Project Instructions** | `CLAUDE.md` (nested) | `AGENTS.md` (nested) | `GEMINI.md` | `.github/copilot-instructions.md` | `GEMINI.md` |
-| **Memory Context** | Auto Memory (persistent) | Not supported | Not supported | Not supported | Not supported |
+| Feature / Primitive | Claude Code <br>`(.claude/)` | Cursor <br>`(.cursor/)` | Gemini CLI <br>`(.gemini/)` | GitHub Copilot <br>`(.github/)` | Antigravity <br>`(.agents/)` | Codex (Preview) <br>`(.codex/)` |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Agents** | `agents/*.md` | `agents/*.md` | `agents/*.md` | `agents/*.md` or `agents/*.agent.md` | `agents/*.md` ⁴ | `agents/*.toml` |
+| **Skills** | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `skills/*/SKILL.md` | `.agents/skills/*/SKILL.md` |
+| **Rules** | `rules/*.md` | `rules/*.md` or `rules/*.mdc` | `rules/*.md` | `instructions/*.instructions.md` | `rules/*.md` | *Not supported* ⁵ |
+| **Workflows** | *via Rules & Skills* | *via Rules* | *via Rules & Skills* | *via Rules & Skills* | `workflows/*.md` | *Not supported* |
+| **Shell Hooks** | `settings.json` ¹ | `hooks.json` | `settings.json` | `hooks/xcaffold-hooks.json` | *N/A* | `hooks.json` |
+| **MCP Servers** | `.mcp.json` ² | `.cursor/mcp.json` | `settings.json` | `.vscode/mcp.json` | `~/.gemini/antigravity/mcp_config.json` ³ | `config.toml` |
+| **Settings & Sandbox** | `settings.json` | Cursor Settings UI | `settings.json` | IDE settings | *N/A* | *Not supported* |
+| **Project Instructions** | `CLAUDE.md` (nested) | `AGENTS.md` (nested) | `GEMINI.md` | `.github/copilot-instructions.md` | `GEMINI.md` | `AGENTS.md` (nested) |
+| **Memory Context** | Auto Memory (persistent) | Not supported | Not supported | Not supported | Not supported | *Not supported* |
 
 ---
 
@@ -37,6 +37,8 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 ⁴ **Antigravity agents** are compiled as specialist profiles with a `RENDERER_KIND_DOWNGRADED` fidelity note. The resulting Markdown is a condensed specialist description rather than a full agent instruction set.
 
+⁵ **Codex rules** — Codex uses Starlark `.rules` files, a fundamentally different paradigm that cannot be compiled from `.xcaf` rule declarations. A `RENDERER_KIND_UNSUPPORTED` fidelity note is emitted.
+
 > [!NOTE]
 > Target capabilities are continuously expanding. For a granular block-by-block breakdown of per-field fidelity mappings per target, consult the [Kind Reference](./kinds/index.md).
 
@@ -48,15 +50,15 @@ Below is the definitive capability matrix for the AI runtimes currently supporte
 
 ### Kind Matrix
 
-| Kind | Claude | Cursor | Gemini | Copilot | Antigravity |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **agent** | `.claude/agents/*.md` | `.cursor/agents/*.md` | `.gemini/agents/*.md` | `.github/agents/*.{md,agent.md}` | `.agents/prompts/*.md` |
-| **skill** | `.claude/skills/*/SKILL.md` | `.cursor/skills/*/SKILL.md` | `.gemini/skills/*/SKILL.md` | `.github/skills/*.md` | `.agents/skills/*/SKILL.md` |
-| **rule** | `.claude/rules/*.md` | `.cursor/rules/*.mdc` | `.gemini/rules/*.md` | `.github/instructions/*.instructions.md` | `.agents/rules/*.md` |
-| **hook** | `.claude/settings.json` (`hooks` key) | `.cursor/hooks.json` | `.gemini/settings.json` | — | — |
-| **mcp** | `.claude/mcp.json` | `.cursor/mcp.json` | `.gemini/settings.json` | `.github/copilot/mcp-config.json` | `.agents/mcp_config.json` |
-| **settings** | `.claude/settings.json` | Cursor Settings UI | `.gemini/settings.json` | — | — |
-| **provider-extras** | unrecognised `.claude/` files | unrecognised `.cursor/` files | unrecognised `.gemini/` files | unrecognised `.github/` files | unrecognised `.agents/` files |
+| Kind | Claude | Cursor | Gemini | Copilot | Antigravity | Codex (Preview) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **agent** | `.claude/agents/*.md` | `.cursor/agents/*.md` | `.gemini/agents/*.md` | `.github/agents/*.{md,agent.md}` | `.agents/prompts/*.md` | `.codex/agents/*.toml` |
+| **skill** | `.claude/skills/*/SKILL.md` | `.cursor/skills/*/SKILL.md` | `.gemini/skills/*/SKILL.md` | `.github/skills/*.md` | `.agents/skills/*/SKILL.md` | — (imported from `.agents/skills/`) |
+| **rule** | `.claude/rules/*.md` | `.cursor/rules/*.mdc` | `.gemini/rules/*.md` | `.github/instructions/*.instructions.md` | `.agents/rules/*.md` | — (Starlark, not supported) |
+| **hook** | `.claude/settings.json` (`hooks` key) | `.cursor/hooks.json` | `.gemini/settings.json` | — | — | `.codex/hooks.json` |
+| **mcp** | `.claude/mcp.json` | `.cursor/mcp.json` | `.gemini/settings.json` | `.github/copilot/mcp-config.json` | `.agents/mcp_config.json` | — (config.toml not yet supported for import) |
+| **settings** | `.claude/settings.json` | Cursor Settings UI | `.gemini/settings.json` | — | — | — |
+| **provider-extras** | unrecognised `.claude/` files | unrecognised `.cursor/` files | unrecognised `.gemini/` files | unrecognised `.github/` files | unrecognised `.agents/` files | unrecognised `.codex/` files |
 
 `SourceProvider` is recorded on every imported resource so `xcaffold apply` can emit targeted fidelity notes when a resource cannot be faithfully translated to a different provider.
 
@@ -90,3 +92,4 @@ For developers contributing to `xcaffold`, the internal routing logic explicitly
 | gemini | `.gemini` | `.gemini` | `providers/gemini/` | `providers/gemini/` |
 | copilot | `.github` | `.github` | `providers/copilot/` | `providers/copilot/` |
 | antigravity | `.agents` | `.agents` | `providers/antigravity/` | `providers/antigravity/` |
+| codex | `.codex` | `.codex` | `providers/codex/` | `providers/codex/` |

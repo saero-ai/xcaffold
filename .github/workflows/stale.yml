@@ -33,5 +33,5 @@ jobs:
           days-before-close: 7
           stale-issue-label: 'stale'
           stale-pr-label: 'stale'
-          exempt-issue-labels: 'keep-open,P0-critical,P1-high'
+          exempt-issue-labels: 'keep-open,good first issue,P0-critical,P1-high'
           exempt-pr-labels: 'keep-open'

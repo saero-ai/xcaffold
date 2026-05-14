@@ -303,17 +303,7 @@ func (a Activation) MarshalYAML() (interface{}, error) {
 
 // WorkflowConfig defines a named, reusable, multi-step procedure.
 // Each workflow maps to an entry under the `workflows:` key in project.xcaf.
-// api-version: workflow/v1 is the current stable shape; workflow/v2 will add
-// parameterized steps and DAG ordering without breaking v1 schemas.
 type WorkflowConfig struct {
-	// Schema shape discriminator for workflow versioning.
-	// +xcaf:optional
-	// +xcaf:group=Identity
-	// +xcaf:enum=workflow/v1
-	// +xcaf:default=workflow/v1
-	// +xcaf:provider=antigravity:optional
-	ApiVersion string `yaml:"api-version,omitempty"`
-
 	// Unique identifier for this workflow within the project.
 	// +xcaf:required
 	// +xcaf:group=Identity

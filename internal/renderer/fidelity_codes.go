@@ -177,6 +177,10 @@ const (
 	// CodeWorkflowMixedSteps is emitted when a workflow has a mix of
 	// skill-ref steps and inline-body steps.
 	CodeWorkflowMixedSteps = "WORKFLOW_MIXED_STEPS"
+
+	// CodeRootFileCollision is emitted when two providers target the same
+	// root-level file (e.g., both Codex and Cursor produce AGENTS.md).
+	CodeRootFileCollision = "ROOT_FILE_COLLISION"
 )
 
 // AllCodes returns every code defined in this catalog. Used by tests to verify
@@ -222,5 +226,6 @@ func AllCodes() []string {
 		CodeWorkflowBasicToSections,
 		CodeWorkflowDefaultChanged,
 		CodeWorkflowMixedSteps,
+		CodeRootFileCollision,
 	}
 }

@@ -43,7 +43,7 @@ xcaffold leverages two distinct file formats depending on whether a structural r
 
 ### Body-Bearing Kinds (Frontmatter Format)
 
-`agent`, `skill`, `rule`, and `workflow` embed their instruction body organically as Markdown appended *after* a standard YAML frontmatter block.
+`agent`, `skill`, `rule`, and `context` embed their instruction body organically as Markdown appended *after* a standard YAML frontmatter block.
 
 ```markdown
 ---
@@ -57,18 +57,16 @@ You are a senior backend developer. Focus heavily on code-quality.
 
 The `---` delimiters demarcate the boundaries of the frontmatter config. All characters after the closing `---` comprise the instruction body (equivalent to the UI prompting box).
 
-### Structural Config Kinds (Pure YAML)
+### Data-Only Kinds (Pure YAML)
 
-`policy`, `mcp`, `global`, `memory`, and `registry` have no concept of open-ended instruction bodies. They use pure YAML format without `---` delimiters.
+`workflow`, `hooks`, `mcp`, `settings`, `policy`, `global`, `memory`, and `blueprint` have no concept of open-ended instruction bodies. They use pure YAML format without `---` delimiters.
 
-`project` is the exception: it uses frontmatter format with `---` delimiters, but **does not support a markdown body**. Adding content after the closing `---` will cause a parse error. The delimiters are supported for consistency with other core manifests, but the instruction block must be empty.
+`project` is also pure YAML. No `---` delimiters are required or recommended.
 
 ```yaml
----
 kind: project
 version: "1.0"
 name: my-api
 targets:
   - claude
----
 ```

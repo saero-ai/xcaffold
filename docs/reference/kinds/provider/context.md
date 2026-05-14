@@ -41,6 +41,8 @@ You are working on xcaffold, a deterministic Harness-as-Code compiler...
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `kind` | `string` | Resource type. Must be `context`. |
+| `version` | `string` | File format version. Must be `"1.0"`. |
 | `name` | `string` | Unique identifier for this context block. Must match `[a-z0-9-]+`. |
 
 ### Optional Fields
@@ -74,6 +76,7 @@ When `kind:` or `name:` are present in the YAML, they must match the inferred va
 | `cursor` | `AGENTS.md` (project root) |
 | `copilot` | `.github/copilot-instructions.md` |
 | `antigravity` | `GEMINI.md` (project root) |
+| `codex` | `AGENTS.md` (project root) |
 
 ## Default Import Naming
 
@@ -81,11 +84,12 @@ When running `xcaffold import`, xcaffold creates context files using these defau
 
 | Source file | Generated context | Frontmatter |
 |---|---|---|
-| `CLAUDE.md` | `xcaf/context/claude/context.xcaf` | `name: claude` / `targets: [claude]` |
-| `GEMINI.md` | `xcaf/context/gemini/context.xcaf` | `name: gemini` / `targets: [gemini]` |
+| `CLAUDE.md` (Claude)| `xcaf/context/claude/context.xcaf` | `name: claude` / `targets: [claude]` |
 | `AGENTS.md` (Cursor) | `xcaf/context/cursor/context.xcaf` | `name: cursor` / `targets: [cursor]` |
-| `AGENTS.md` (Antigravity) | `xcaf/context/antigravity/context.xcaf` | `name: antigravity` / `targets: [antigravity]` |
-| `.github/copilot-instructions.md` | `xcaf/context/copilot/context.xcaf` | `name: copilot` / `targets: [copilot]` |
+| `AGENTS.md` (Codex) | `xcaf/context/codex/context.xcaf` | `name: codex` / `targets: [codex]` |
+| `GEMINI.md` (Gemini CLI) | `xcaf/context/gemini/context.xcaf` | `name: gemini` / `targets: [gemini]` |
+| `GEMINI.md` (Antigravity) | `xcaf/context/antigravity/context.xcaf` | `name: antigravity` / `targets: [antigravity]` |
+| `.github/copilot-instructions.md` (Github Copilot) | `xcaf/context/copilot/context.xcaf` | `name: copilot` / `targets: [copilot]` |
 
 You can rename the file and change the `name:` field freely — the `name` is a human identifier only.
 
