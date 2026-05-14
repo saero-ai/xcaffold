@@ -116,6 +116,69 @@ func TestTranslateWorkflow_Gemini_CustomCommand(t *testing.T) {
 	require.Equal(t, renderer.CodeWorkflowLoweredToCustomCommand, notes[0].Code)
 }
 
+func TestInferWorkflowMode_BodyOnly(t *testing.T) {
+	wf := &ast.WorkflowConfig{
+		Name: "routing-wf",
+		Body: "# Router\n## Step 1\nDo something...",
+	}
+	mode := translator.InferWorkflowMode(wf)
+	require.Equal(t, translator.ModeRouted, mode)
+}
+
+func TestInferWorkflowMode_StepsWithSkillRefs(t *testing.T) {
+	wf := &ast.WorkflowConfig{
+		Name: "chain-wf",
+		Steps: []ast.WorkflowStep{
+			{Name: "design", Skill: "brainstorming"},
+			{Name: "review", Skill: "claude-cli-review"},
+		},
+	}
+	mode := translator.InferWorkflowMode(wf)
+	require.Equal(t, translator.ModeChained, mode)
+}
+
+func TestInferWorkflowMode_StepsWithBodies(t *testing.T) {
+	wf := &ast.WorkflowConfig{
+		Name: "simple-wf",
+		Steps: []ast.WorkflowStep{
+			{Name: "lint", Body: "Run linter."},
+			{Name: "test", Body: "Run tests."},
+		},
+	}
+	mode := translator.InferWorkflowMode(wf)
+	require.Equal(t, translator.ModeSimple, mode)
+}
+
+func TestInferWorkflowMode_MixedSteps(t *testing.T) {
+	wf := &ast.WorkflowConfig{
+		Name: "mixed-wf",
+		Steps: []ast.WorkflowStep{
+			{Name: "design", Skill: "brainstorming"},
+			{Name: "custom", Body: "Do something custom."},
+		},
+	}
+	mode := translator.InferWorkflowMode(wf)
+	require.Equal(t, translator.ModeChained, mode)
+}
+
+func TestInferWorkflowMode_BodyAndSteps(t *testing.T) {
+	wf := &ast.WorkflowConfig{
+		Name: "ambiguous-wf",
+		Body: "Some body content.",
+		Steps: []ast.WorkflowStep{
+			{Name: "step1", Body: "Step 1 content."},
+		},
+	}
+	mode := translator.InferWorkflowMode(wf)
+	require.Equal(t, translator.ModeSimple, mode)
+}
+
+func TestInferWorkflowMode_EmptyWorkflow(t *testing.T) {
+	wf := &ast.WorkflowConfig{Name: "empty"}
+	mode := translator.InferWorkflowMode(wf)
+	require.Equal(t, translator.ModeSimple, mode)
+}
+
 func TestTranslateWorkflow_NoNativeTarget_DefaultsToRulePlusSkill(t *testing.T) {
 	wf := threeStepWorkflow()
 	// No targets configured — no strategy specified.

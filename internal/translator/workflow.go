@@ -12,6 +12,30 @@ import (
 // slugRe matches any run of non-alphanumeric characters to collapse into a dash.
 var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
 
+// WorkflowMode describes the composition pattern inferred from a workflow's structure.
+type WorkflowMode string
+
+const (
+	ModeRouted  WorkflowMode = "routed"
+	ModeChained WorkflowMode = "chained"
+	ModeSimple  WorkflowMode = "simple"
+)
+
+// InferWorkflowMode determines the rendering mode from a workflow's structure.
+// Body-only workflows are routed (single skill). Steps with skill refs are
+// chained (orchestrator). Steps with inline bodies are simple (sections).
+func InferWorkflowMode(wf *ast.WorkflowConfig) WorkflowMode {
+	if len(wf.Steps) == 0 && wf.Body != "" {
+		return ModeRouted
+	}
+	for _, step := range wf.Steps {
+		if step.Skill != "" {
+			return ModeChained
+		}
+	}
+	return ModeSimple
+}
+
 // slugify lowercases s, replaces non-alphanumeric runs with a single dash, and
 // trims leading/trailing dashes.
 func slugify(s string) string {
