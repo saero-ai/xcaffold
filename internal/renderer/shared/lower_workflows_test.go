@@ -207,3 +207,34 @@ func mapKeys(m map[string]string) []string {
 	}
 	return keys
 }
+
+func TestLowerWorkflows_WithArtifacts_PreservesArtifacts(t *testing.T) {
+	// Verify that workflows with Artifacts []string preserve those artifact
+	// declarations so the provider renderer can discover and copy them later.
+	config := &ast.XcaffoldConfig{}
+	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
+		"my-workflow": {
+			Name:        "my-workflow",
+			Description: "Workflow with artifacts",
+			Body:        "Do the thing.",
+			Artifacts:   []string{"references", "examples"},
+		},
+	}
+
+	out, _, _ := LowerWorkflows(config, "claude")
+
+	// After lowering, the workflow should still appear in the output config
+	// with its Artifacts field intact (for the renderer to process later).
+	outWf, ok := out.ResourceScope.Workflows["my-workflow"]
+	if !ok {
+		t.Error("expected workflow 'my-workflow' to be preserved after lowering")
+		return
+	}
+
+	if len(outWf.Artifacts) != 2 {
+		t.Errorf("expected 2 artifacts preserved, got %d: %v", len(outWf.Artifacts), outWf.Artifacts)
+	}
+	if outWf.Artifacts[0] != "references" || outWf.Artifacts[1] != "examples" {
+		t.Errorf("expected artifacts [references examples], got %v", outWf.Artifacts)
+	}
+}
