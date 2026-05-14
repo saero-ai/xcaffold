@@ -2,6 +2,11 @@ package ast
 
 import "gopkg.in/yaml.v3"
 
+const (
+	ActivationModeAlways = "always"
+	ActivationModePaths  = "paths"
+)
+
 // StatusLineConfig defines the statusLine setting for the platform.
 // The original format is {"type": "command", "command": "<shell cmd>"}.
 type StatusLineConfig struct {
@@ -265,8 +270,8 @@ type Activation struct {
 func (a *Activation) UnmarshalYAML(value *yaml.Node) error {
 	switch value.Kind {
 	case yaml.ScalarNode:
-		if value.Value == "always" {
-			a.Mode = "always"
+		if value.Value == ActivationModeAlways {
+			a.Mode = ActivationModeAlways
 			a.Paths = nil
 			return nil
 		}
@@ -276,7 +281,7 @@ func (a *Activation) UnmarshalYAML(value *yaml.Node) error {
 			},
 		}
 	case yaml.SequenceNode:
-		a.Mode = "paths"
+		a.Mode = ActivationModePaths
 		return value.Decode(&a.Paths)
 	default:
 		return &yaml.TypeError{
@@ -290,8 +295,8 @@ func (a *Activation) UnmarshalYAML(value *yaml.Node) error {
 // MarshalYAML implements yaml.Marshaler for Activation.
 // Round-trip: Mode="always" → scalar "always", Mode="paths" → sequence of paths.
 func (a Activation) MarshalYAML() (interface{}, error) {
-	if a.Mode == "always" {
-		return "always", nil
+	if a.Mode == ActivationModeAlways {
+		return ActivationModeAlways, nil
 	}
 	return a.Paths, nil
 }

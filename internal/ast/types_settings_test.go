@@ -13,7 +13,7 @@ func TestActivation_Unmarshal_Always(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if a.Mode != "always" {
+	if a.Mode != ActivationModeAlways {
 		t.Errorf("expected Mode=always, got %q", a.Mode)
 	}
 	if a.Paths != nil {
@@ -28,7 +28,7 @@ func TestActivation_Unmarshal_Paths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if a.Mode != "paths" {
+	if a.Mode != ActivationModePaths {
 		t.Errorf("expected Mode=paths, got %q", a.Mode)
 	}
 	if len(a.Paths) != 2 {
@@ -62,7 +62,7 @@ func TestActivation_Unmarshal_MapReject(t *testing.T) {
 
 // TestActivation_Marshal_RoundTrip_Always tests round-trip marshaling "always".
 func TestActivation_Marshal_RoundTrip_Always(t *testing.T) {
-	a := Activation{Mode: "always"}
+	a := Activation{Mode: ActivationModeAlways}
 	data, err := yaml.Marshal(a)
 	if err != nil {
 		t.Fatalf("unexpected marshal error: %v", err)
@@ -79,14 +79,14 @@ func TestActivation_Marshal_RoundTrip_Always(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected unmarshal error: %v", err)
 	}
-	if a2.Mode != "always" || a2.Paths != nil {
+	if a2.Mode != ActivationModeAlways || a2.Paths != nil {
 		t.Errorf("round-trip failed: expected always mode, got Mode=%q Paths=%v", a2.Mode, a2.Paths)
 	}
 }
 
 // TestActivation_Marshal_RoundTrip_Paths tests round-trip marshaling paths.
 func TestActivation_Marshal_RoundTrip_Paths(t *testing.T) {
-	a := Activation{Mode: "paths", Paths: []string{"*.go", "internal/**"}}
+	a := Activation{Mode: ActivationModePaths, Paths: []string{"*.go", "internal/**"}}
 	data, err := yaml.Marshal(a)
 	if err != nil {
 		t.Fatalf("unexpected marshal error: %v", err)
@@ -98,7 +98,7 @@ func TestActivation_Marshal_RoundTrip_Paths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected unmarshal error: %v", err)
 	}
-	if a2.Mode != "paths" {
+	if a2.Mode != ActivationModePaths {
 		t.Errorf("expected Mode=paths, got %q", a2.Mode)
 	}
 	if len(a2.Paths) != 2 || a2.Paths[0] != "*.go" || a2.Paths[1] != "internal/**" {
@@ -113,7 +113,7 @@ func TestActivation_Unmarshal_EmptyList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if a.Mode != "paths" {
+	if a.Mode != ActivationModePaths {
 		t.Errorf("expected Mode=paths for empty list, got %q", a.Mode)
 	}
 	if a.Paths == nil {
@@ -131,7 +131,7 @@ func TestActivation_Unmarshal_SinglePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if a.Mode != "paths" {
+	if a.Mode != ActivationModePaths {
 		t.Errorf("expected Mode=paths, got %q", a.Mode)
 	}
 	if len(a.Paths) != 1 || a.Paths[0] != "*.go" {

@@ -379,9 +379,9 @@ func buildWorkflowRule(wf *ast.WorkflowConfig, name, target string) *TargetPrimi
 	ruleBody.WriteString("```\n\n")
 
 	switch wf.Activation.Mode {
-	case "always":
+	case ast.ActivationModeAlways:
 		fmt.Fprintf(&ruleBody, "This workflow (%s) is always active. Invoke `/%s` to begin.\n", name, name)
-	case "paths":
+	case ast.ActivationModePaths:
 		fmt.Fprintf(&ruleBody, "This workflow (%s) activates for paths: %s. Invoke `/%s` to begin.\n",
 			name, strings.Join(wf.Activation.Paths, ", "), name)
 	}
