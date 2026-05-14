@@ -358,8 +358,8 @@ func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 					Name:        "deploy",
 					Description: "Deploy to production.",
 					Steps: []ast.WorkflowStep{
-						{Name: "build", Body: "Run go build."},
-						{Name: "test", Body: "Run go test."},
+						{Name: "build", Instructions: "Run go build."},
+						{Name: "test", Instructions: "Run go test."},
 					},
 					Targets: map[string]ast.TargetOverride{
 						"gemini": {Provider: map[string]any{"lowering-strategy": "rule-plus-skill"}},
@@ -409,9 +409,9 @@ func TestCompile_Gemini_Workflows_DefaultSimpleMode(t *testing.T) {
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{
-						{Name: "analyze", Body: "Read the diff."},
-						{Name: "lint", Body: "Check style."},
-						{Name: "summarize", Body: "Write the review."},
+						{Name: "analyze", Instructions: "Read the diff."},
+						{Name: "lint", Instructions: "Check style."},
+						{Name: "summarize", Instructions: "Write the review."},
 					},
 					// No Targets, no lowering-strategy — new default applies.
 				},
@@ -429,14 +429,14 @@ func TestCompile_Gemini_Workflows_DefaultSimpleMode(t *testing.T) {
 	_, hasRule := out.Files["rules/code-review-workflow.md"]
 	require.False(t, hasRule, "simple mode without always-apply should NOT emit a rule; got keys: %v", mapKeysGemini(out.Files))
 
-	// Should have CodeWorkflowSimpleToSections note.
+	// Should have CodeWorkflowBasicToSections note.
 	var hasSimpleNote bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeWorkflowSimpleToSections {
+		if n.Code == renderer.CodeWorkflowBasicToSections {
 			hasSimpleNote = true
 		}
 	}
-	require.True(t, hasSimpleNote, "expected CodeWorkflowSimpleToSections note; got: %v", notes)
+	require.True(t, hasSimpleNote, "expected CodeWorkflowBasicToSections note; got: %v", notes)
 
 	// Should have CodeWorkflowDefaultChanged migration warning.
 	var hasMigrationNote bool
@@ -461,7 +461,7 @@ func TestCompile_Gemini_Workflow_CustomCommand_NoPathDoubling(t *testing.T) {
 				"tdd": {
 					Name: "tdd",
 					Steps: []ast.WorkflowStep{
-						{Name: "red", Body: "Write a failing test."},
+						{Name: "red", Instructions: "Write a failing test."},
 					},
 					Targets: map[string]ast.TargetOverride{
 						"gemini": {
@@ -485,6 +485,37 @@ func TestCompile_Gemini_Workflow_CustomCommand_NoPathDoubling(t *testing.T) {
 	// Absolute path with provider prefix (the doubled path — must not appear).
 	_, doubled := out.Files[".gemini/commands/tdd.md"]
 	assert.False(t, doubled, "workflow custom-command path must NOT include \".gemini/\" prefix")
+}
+
+// T-50: TestGemini_BasicMode — Basic workflow renders via LowerWorkflows for Gemini
+func TestGemini_BasicMode(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"test-wf": {
+					Name:        "test-wf",
+					Description: "Basic test workflow for Gemini",
+					Steps: []ast.WorkflowStep{
+						{
+							Name:         "step1",
+							Description:  "First step",
+							Instructions: "Execute step one in Gemini.",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	// Verify workflow was lowered into appropriate Gemini output format
+	// For Gemini, workflows are converted to custom-command or similar structure
+	// At minimum, verify no panic and output is generated
+	assert.NotNil(t, out)
 }
 
 // mapKeysGemini returns the sorted list of file keys for error output.

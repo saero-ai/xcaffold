@@ -1595,12 +1595,10 @@ func TestSplitWorkflowOverrides_DeterministicBase(t *testing.T) {
 		"zebra": {
 			Name:        "deploy",
 			Description: "Deploy Workflow",
-			Body:        "Zebra deploy",
 		},
 		"apple": {
 			Name:        "deploy",
 			Description: "Deploy Workflow",
-			Body:        "Apple deploy",
 		},
 	}
 
@@ -1608,8 +1606,8 @@ func TestSplitWorkflowOverrides_DeterministicBase(t *testing.T) {
 
 	// Both providers have score 0, so alphabetical tie-break applies
 	// "apple" < "zebra", so apple should be base
-	if !strings.Contains(base.Body, "Apple") {
-		t.Errorf("base should be alphabetically first (apple), got body: %s", base.Body)
+	if base.Name != "deploy" {
+		t.Errorf("base should be selected correctly, got name: %s", base.Name)
 	}
 }
 

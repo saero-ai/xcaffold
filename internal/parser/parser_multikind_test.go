@@ -312,6 +312,9 @@ func TestParseFile_MultiKind_WorkflowDocument(t *testing.T) {
 version: "1.0"
 name: deploy
 description: "Deploy workflow"
+steps:
+  - name: build
+    instructions: "Build the project"
 `
 	config, err := Parse(strings.NewReader(input))
 	require.NoError(t, err)

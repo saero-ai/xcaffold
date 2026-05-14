@@ -138,7 +138,6 @@ func decodeWorkflow(ctx decodeOverrideCtx) error {
 	if err := yaml.Unmarshal(ctx.fm, &cfg); err != nil {
 		return err
 	}
-	cfg.Body = ctx.body
 	ctx.overrides.AddWorkflow(ctx.name, ctx.provider, cfg)
 	return nil
 }

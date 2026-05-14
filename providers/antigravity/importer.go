@@ -261,6 +261,18 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		return fmt.Errorf("antigravity: workflow %q: %w", rel, err)
 	}
 
+	steps := front.Steps
+	// Native Antigravity workflows store content in the markdown body,
+	// not in YAML steps. Import the body as a single "main" step if no
+	// steps are defined in frontmatter.
+	trimmedBody := strings.TrimSpace(body)
+	if len(steps) == 0 && trimmedBody != "" {
+		steps = []ast.WorkflowStep{{
+			Name:         "main",
+			Instructions: trimmedBody,
+		}}
+	}
+
 	id := strings.TrimSuffix(filepath.Base(rel), ".md")
 	if config.Workflows == nil {
 		config.Workflows = make(map[string]ast.WorkflowConfig)
@@ -269,9 +281,8 @@ func extractWorkflow(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		ApiVersion:     front.ApiVersion,
 		Name:           front.Name,
 		Description:    front.Description,
-		Steps:          front.Steps,
+		Steps:          steps,
 		Targets:        front.Targets,
-		Body:           body,
 		SourceProvider: "antigravity",
 	}
 	return nil

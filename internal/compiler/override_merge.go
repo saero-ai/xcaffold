@@ -248,22 +248,14 @@ func mergeWorkflowConfig(base, override ast.WorkflowConfig) ast.WorkflowConfig {
 	// --- Maps (deep merge — override keys win, base keys preserved) ---
 	result.Targets = mergeTargetMap(base.Targets, override.Targets)
 
-	// --- Bool pointer (nil=inherit, non-nil=replace) ---
-	if override.AlwaysApply != nil {
-		result.AlwaysApply = override.AlwaysApply
+	// --- Pointer (nil=inherit, non-nil=replace) ---
+	if override.Activation != nil {
+		result.Activation = override.Activation
 	}
-
-	// --- ClearableList (nil=inherit, cleared=clear, values=replace) ---
-	result.Paths = mergeClearableList(base.Paths, override.Paths)
 
 	// --- Lists (replace entire list on non-empty) ---
 	if len(override.Artifacts) > 0 {
 		result.Artifacts = append([]string(nil), override.Artifacts...)
-	}
-
-	// --- Body (replace when non-empty, inherit when absent) ---
-	if override.Body != "" {
-		result.Body = override.Body
 	}
 
 	// Internal provenance fields are intentionally NOT merged.

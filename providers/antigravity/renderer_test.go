@@ -763,7 +763,6 @@ func TestCompile_Workflow_OutputAtCorrectPath(t *testing.T) {
 				"commit-changes": {
 					Name:        "Commit Changes",
 					Description: "How to commit changes",
-					Body:        "1. Stage files\n2. Commit",
 				},
 			},
 		},
@@ -783,7 +782,6 @@ func TestCompile_Workflow_FrontmatterContainsDescription(t *testing.T) {
 			Workflows: map[string]ast.WorkflowConfig{
 				"deploy": {
 					Description: "Deploy to production",
-					Body:        "Run deploy script.",
 				},
 			},
 		},
@@ -806,7 +804,6 @@ func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
 			Workflows: map[string]ast.WorkflowConfig{
 				"build": {
 					Name: "Build Project",
-					Body: "Run make build.",
 				},
 			},
 		},
@@ -819,14 +816,18 @@ func TestCompile_Workflow_NameFallbackToDescription(t *testing.T) {
 	assert.Contains(t, content, "description: Build Project", "name should fall back to description")
 }
 
-func TestCompile_Workflow_BodyPreserved(t *testing.T) {
+func TestCompile_Workflow_StepsPreserved(t *testing.T) {
 	r := antigravity.New()
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
 				"test": {
 					Description: "Run tests",
-					Body:        "1. Run unit tests\n2. Run integration tests\n3. Check coverage",
+					Steps: []ast.WorkflowStep{
+						{Name: "Unit", Instructions: "Run unit tests."},
+						{Name: "Integration", Instructions: "Run integration tests."},
+						{Name: "Coverage", Instructions: "Check coverage."},
+					},
 				},
 			},
 		},
@@ -836,9 +837,9 @@ func TestCompile_Workflow_BodyPreserved(t *testing.T) {
 	require.NoError(t, err)
 
 	content := out.Files["workflows/test.md"]
-	assert.Contains(t, content, "1. Run unit tests")
-	assert.Contains(t, content, "2. Run integration tests")
-	assert.Contains(t, content, "3. Check coverage")
+	assert.Contains(t, content, "Run unit tests.")
+	assert.Contains(t, content, "Run integration tests.")
+	assert.Contains(t, content, "Check coverage.")
 }
 
 func TestCompile_Workflow_EmptyWorkflowsNoOutput(t *testing.T) {
@@ -862,15 +863,132 @@ func TestCompile_Workflow_EmptyID_ReturnsError(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{
-				"   ": {
-					Body: "Bad workflow.",
-				},
+				"   ": {},
 			},
 		},
 	}
 
 	_, _, err := renderer.Orchestrate(r, config, "")
 	assert.Error(t, err)
+}
+
+// T-42: Instructions-only steps render as native ## sections.
+func TestAntigravity_BasicMode_NativeWorkflow(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"release": {
+					Description: "Release process",
+					Steps: []ast.WorkflowStep{
+						{Name: "Prepare", Instructions: "Update CHANGELOG.md and bump the version."},
+						{Name: "Tag", Instructions: "Run git tag -a v1.0.0 -m 'release v1.0.0'."},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["workflows/release.md"]
+	require.NotEmpty(t, content, "expected workflows/release.md to be produced")
+
+	assert.Contains(t, content, "## Prepare")
+	assert.Contains(t, content, "Update CHANGELOG.md and bump the version.")
+	assert.Contains(t, content, "## Tag")
+	assert.Contains(t, content, "Run git tag")
+}
+
+// T-43: Skill-ref steps render as native "Invoke /skill-name" lines.
+func TestAntigravity_OrchestratorMode_NativeWorkflow(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"deploy": {
+					Description: "Deploy pipeline",
+					Steps: []ast.WorkflowStep{
+						{Name: "Build", Skill: "build-docker"},
+						{Name: "Push", Skill: "push-image"},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["workflows/deploy.md"]
+	require.NotEmpty(t, content, "expected workflows/deploy.md to be produced")
+
+	assert.Contains(t, content, "## Build")
+	assert.Contains(t, content, "Invoke `/build-docker`.")
+	assert.Contains(t, content, "## Push")
+	assert.Contains(t, content, "Invoke `/push-image`.")
+}
+
+// T-44: Workflows without promote-rules-to-workflows still produce native output.
+func TestAntigravity_NoPromoteRequired(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"onboard": {
+					Description: "Onboarding workflow",
+					// No Targets override at all.
+					Steps: []ast.WorkflowStep{
+						{Name: "Setup", Instructions: "Clone the repo."},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["workflows/onboard.md"]
+	require.NotEmpty(t, content, "expected workflows/onboard.md even without promote flag")
+
+	assert.True(t, strings.HasPrefix(content, "---\n"), "output must start with YAML frontmatter")
+	assert.Contains(t, content, "## Setup")
+}
+
+// T-45: Exact output format — YAML frontmatter with description + ## step sections.
+func TestAntigravity_NativeOutput_Format(t *testing.T) {
+	r := antigravity.New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"review": {
+					Description: "Code review workflow",
+					Steps: []ast.WorkflowStep{
+						{Name: "Checkout", Instructions: "Fetch the branch."},
+						{Name: "Inspect", Skill: "static-analysis"},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+
+	content := out.Files["workflows/review.md"]
+	require.NotEmpty(t, content)
+
+	// Must start with YAML frontmatter containing description.
+	assert.True(t, strings.HasPrefix(content, "---\n"), "must open with ---")
+	assert.Contains(t, content, "description: Code review workflow")
+
+	// Each step must be a ## heading followed by its body.
+	assert.Contains(t, content, "## Checkout\n")
+	assert.Contains(t, content, "Fetch the branch.")
+	assert.Contains(t, content, "## Inspect\n")
+	assert.Contains(t, content, "Invoke `/static-analysis`.")
 }
 
 func TestCompile_Skill_WithDoubleQuotes_ProperlyEscapes(t *testing.T) {

@@ -157,7 +157,12 @@ func TestParse_FilesystemInference_AllResourceKinds(t *testing.T) {
 			filePath := filepath.Join(dir, tc.relPath)
 			require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0755))
 
-			content := "---\nkind: " + tc.kind + "\nversion: \"1.0\"\n---\n"
+			// Workflows require steps, so we add a minimal step for the workflow case
+			content := "---\nkind: " + tc.kind + "\nversion: \"1.0\"\n"
+			if tc.kind == "workflow" {
+				content += "steps:\n  - name: step-one\n    instructions: \"Do something\"\n"
+			}
+			content += "---\n"
 			require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
 			cfg, err := ParseDirectory(dir)

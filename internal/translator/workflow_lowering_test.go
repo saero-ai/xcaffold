@@ -1,7 +1,6 @@
 package translator
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
@@ -9,29 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- lowerRoutedSkill ---
+// --- lowerOrchestratorSkill ---
 
-func TestLowerRoutedSkill(t *testing.T) {
-	wf := &ast.WorkflowConfig{
-		Name:        "my-router",
-		Description: "Routes to different behaviors.",
-		Body:        "# Router\n## Step 1\nDo analysis.\n## Step 2\nDo review.",
-	}
-	primitives, notes := lowerRoutedSkill(wf, "my-router", "claude")
-
-	require.Len(t, primitives, 1)
-	require.Equal(t, "skill", primitives[0].Kind)
-	require.Equal(t, "my-router", primitives[0].ID)
-	require.Contains(t, primitives[0].Content, "# Router")
-	require.Contains(t, primitives[0].Content, "Do analysis.")
-
-	require.Len(t, notes, 1)
-	require.Equal(t, renderer.CodeWorkflowRoutedToSingleSkill, notes[0].Code)
-}
-
-// --- lowerChainedSkill ---
-
-func TestLowerChainedSkill(t *testing.T) {
+func TestLowerOrchestratorSkill(t *testing.T) {
 	wf := &ast.WorkflowConfig{
 		Name: "feature-lifecycle",
 		Steps: []ast.WorkflowStep{
@@ -40,7 +19,7 @@ func TestLowerChainedSkill(t *testing.T) {
 			{Name: "plan", Skill: "writing-plans", Description: "Write the plan."},
 		},
 	}
-	primitives, notes := lowerChainedSkill(wf, "feature-lifecycle", "claude")
+	primitives, notes := lowerOrchestratorSkill(wf, "feature-lifecycle", "claude")
 
 	require.Len(t, primitives, 1)
 	require.Equal(t, "skill", primitives[0].Kind)
@@ -53,20 +32,33 @@ func TestLowerChainedSkill(t *testing.T) {
 	require.Equal(t, renderer.CodeWorkflowChainedToOrchestrator, notes[0].Code)
 }
 
-func TestLowerChainedSkill_MixedSteps_EmitsNote(t *testing.T) {
+func TestLowerOrchestratorSkill_MixedSteps_EmitsNote(t *testing.T) {
 	wf := &ast.WorkflowConfig{
 		Name: "mixed-wf",
 		Steps: []ast.WorkflowStep{
 			{Name: "design", Skill: "brainstorming"},
-			{Name: "custom", Body: "Do something inline."},
+			{Name: "custom", Instructions: "Do something inline."},
 		},
 	}
-	primitives, notes := lowerChainedSkill(wf, "mixed-wf", "claude")
+	primitives, notes := lowerOrchestratorSkill(wf, "mixed-wf", "claude")
 
-	require.Len(t, primitives, 1)
-	require.Equal(t, "skill", primitives[0].Kind)
-	require.Contains(t, primitives[0].Content, "brainstorming")
-	require.Contains(t, primitives[0].Content, "Do something inline.")
+	// main skill + sub-skill for instructions-only step
+	require.GreaterOrEqual(t, len(primitives), 2)
+
+	main := primitives[0]
+	require.Equal(t, "skill", main.Kind)
+	require.Contains(t, main.Content, "brainstorming")
+
+	// Sub-skill carries the inline instructions
+	var subSkill *TargetPrimitive
+	for i := range primitives {
+		if primitives[i].ID != "mixed-wf" {
+			subSkill = &primitives[i]
+			break
+		}
+	}
+	require.NotNil(t, subSkill)
+	require.Contains(t, subSkill.Content, "Do something inline.")
 
 	hasMixedNote := false
 	for _, n := range notes {
@@ -77,17 +69,17 @@ func TestLowerChainedSkill_MixedSteps_EmitsNote(t *testing.T) {
 	require.True(t, hasMixedNote, "expected CodeWorkflowMixedSteps note for mixed steps")
 }
 
-// --- lowerSimpleSkill ---
+// --- lowerBasicSkill ---
 
-func TestLowerSimpleSkill(t *testing.T) {
+func TestLowerBasicSkill(t *testing.T) {
 	wf := &ast.WorkflowConfig{
 		Name: "coding-standards",
 		Steps: []ast.WorkflowStep{
-			{Name: "lint", Body: "Run linting before commit."},
-			{Name: "test", Body: "Run tests before push."},
+			{Name: "lint", Instructions: "Run linting before commit."},
+			{Name: "test", Instructions: "Run tests before push."},
 		},
 	}
-	primitives, notes := lowerSimpleSkill(wf, "coding-standards", "claude")
+	primitives, notes := lowerBasicSkill(wf, "coding-standards", "claude")
 
 	require.Len(t, primitives, 1)
 	require.Equal(t, "skill", primitives[0].Kind)
@@ -99,7 +91,7 @@ func TestLowerSimpleSkill(t *testing.T) {
 
 	hasSimpleNote := false
 	for _, n := range notes {
-		if n.Code == renderer.CodeWorkflowSimpleToSections {
+		if n.Code == renderer.CodeWorkflowBasicToSections {
 			hasSimpleNote = true
 		}
 	}
@@ -108,12 +100,11 @@ func TestLowerSimpleSkill(t *testing.T) {
 
 // --- buildWorkflowRule ---
 
-func TestBuildWorkflowRule_AlwaysApply(t *testing.T) {
-	alwaysApply := true
+func TestBuildWorkflowRule_ActivationAlways(t *testing.T) {
 	wf := &ast.WorkflowConfig{
 		Name:        "mandatory-wf",
 		Description: "Always active.",
-		AlwaysApply: &alwaysApply,
+		Activation:  &ast.Activation{Mode: "always"},
 	}
 	rule := buildWorkflowRule(wf, "mandatory-wf", "claude")
 
@@ -121,13 +112,13 @@ func TestBuildWorkflowRule_AlwaysApply(t *testing.T) {
 	require.Equal(t, "rule", rule.Kind)
 	require.Equal(t, "mandatory-wf-workflow", rule.ID)
 	require.Contains(t, rule.Content, "mandatory-wf")
-	require.Contains(t, strings.ToLower(rule.Content), "always active")
+	require.Contains(t, rule.Content, "always active")
 }
 
-func TestBuildWorkflowRule_Paths(t *testing.T) {
+func TestBuildWorkflowRule_ActivationPaths(t *testing.T) {
 	wf := &ast.WorkflowConfig{
-		Name:  "go-workflow",
-		Paths: ast.ClearableList{Values: []string{"*.go", "*.mod"}},
+		Name:       "go-workflow",
+		Activation: &ast.Activation{Mode: "paths", Paths: []string{"*.go", "*.mod"}},
 	}
 	rule := buildWorkflowRule(wf, "go-workflow", "claude")
 
@@ -136,10 +127,10 @@ func TestBuildWorkflowRule_Paths(t *testing.T) {
 	require.Contains(t, rule.Content, "*.go")
 }
 
-func TestBuildWorkflowRule_NoModifier_NoRule(t *testing.T) {
+func TestBuildWorkflowRule_NoActivation_NoRule(t *testing.T) {
 	wf := &ast.WorkflowConfig{
-		Name: "manual-wf",
-		Body: "Do things manually.",
+		Name:  "manual-wf",
+		Steps: []ast.WorkflowStep{{Name: "step1", Instructions: "Do things manually."}},
 	}
 	rule := buildWorkflowRule(wf, "manual-wf", "claude")
 	require.Nil(t, rule)

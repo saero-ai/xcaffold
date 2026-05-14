@@ -19,7 +19,7 @@ func TestDeepCopyConfig_PreservesBody(t *testing.T) {
 		"sec": {Name: "sec", Body: "No secrets."},
 	}
 	config.Workflows = map[string]ast.WorkflowConfig{
-		"deploy": {Name: "deploy", Body: "Deploy steps."},
+		"deploy": {Name: "deploy"},
 	}
 	config.Contexts = map[string]ast.ContextConfig{
 		"main": {Name: "main", Body: "Project context."},
@@ -30,7 +30,7 @@ func TestDeepCopyConfig_PreservesBody(t *testing.T) {
 	assert.Equal(t, "You are a developer.", cp.Agents["dev"].Body)
 	assert.Equal(t, "Follow TDD.", cp.Skills["tdd"].Body)
 	assert.Equal(t, "No secrets.", cp.Rules["sec"].Body)
-	assert.Equal(t, "Deploy steps.", cp.Workflows["deploy"].Body)
+	assert.Equal(t, "deploy", cp.Workflows["deploy"].Name)
 	assert.Equal(t, "Project context.", cp.Contexts["main"].Body)
 }
 

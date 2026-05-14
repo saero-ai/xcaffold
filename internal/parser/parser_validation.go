@@ -167,9 +167,9 @@ func validateWorkflows(c *ast.XcaffoldConfig) error {
 			return fmt.Errorf("workflow %q: api-version %q is not supported; only \"workflow/v1\" is accepted", id, wf.ApiVersion)
 		}
 
-		// steps vs frontmatter+body mutex
-		if len(wf.Steps) > 0 && wf.Body != "" {
-			return fmt.Errorf("workflow %q: steps and inline body are mutually exclusive; use steps for multi-step workflows or the markdown body for single-body workflows", id)
+		// steps are required for workflows
+		if len(wf.Steps) == 0 {
+			return fmt.Errorf("workflow %q: must define at least one step", id)
 		}
 
 		// per-step validations
@@ -177,9 +177,8 @@ func validateWorkflows(c *ast.XcaffoldConfig) error {
 			if step.Name == "" {
 				return fmt.Errorf("workflow %q: step[%d] is missing a required name field", id, i)
 			}
-			// step body is required
-			if step.Body == "" {
-				return fmt.Errorf("workflow %q step %q: must define step instructions in markdown body under ## %s", id, step.Name, step.Name)
+			if step.Skill == "" && step.Instructions == "" {
+				return fmt.Errorf("workflow %q step %q: must define skill reference or instructions", id, step.Name)
 			}
 		}
 

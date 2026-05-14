@@ -1,5 +1,12 @@
 package ast
 
+import "gopkg.in/yaml.v3"
+
+const (
+	ActivationModeAlways = "always"
+	ActivationModePaths  = "paths"
+)
+
 // StatusLineConfig defines the statusLine setting for the platform.
 // The original format is {"type": "command", "command": "<shell cmd>"}.
 type StatusLineConfig struct {
@@ -249,6 +256,51 @@ type TestConfig struct {
 	MaxTurns *int `yaml:"max-turns,omitempty"`
 }
 
+// Activation controls when a workflow is applied: always (all contexts) or paths (file-scoped).
+// It accepts either a scalar "always" or a sequence of path globs ["*.go", "*.ts"].
+type Activation struct {
+	Mode  string   // "always" or "paths"
+	Paths []string // populated when Mode == "paths"
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler for Activation.
+// Accepts scalar "always" → Mode="always", Paths=nil
+// Accepts sequence ["*.go", ...] → Mode="paths", Paths=[...]
+// Rejects all other values with clear error messages.
+func (a *Activation) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		if value.Value == ActivationModeAlways {
+			a.Mode = ActivationModeAlways
+			a.Paths = nil
+			return nil
+		}
+		return &yaml.TypeError{
+			Errors: []string{
+				"invalid activation \"" + value.Value + "\": expected \"always\" or a list of path globs",
+			},
+		}
+	case yaml.SequenceNode:
+		a.Mode = ActivationModePaths
+		return value.Decode(&a.Paths)
+	default:
+		return &yaml.TypeError{
+			Errors: []string{
+				"invalid activation: expected string or list, got " + value.Tag,
+			},
+		}
+	}
+}
+
+// MarshalYAML implements yaml.Marshaler for Activation.
+// Round-trip: Mode="always" → scalar "always", Mode="paths" → sequence of paths.
+func (a Activation) MarshalYAML() (interface{}, error) {
+	if a.Mode == ActivationModeAlways {
+		return ActivationModeAlways, nil
+	}
+	return a.Paths, nil
+}
+
 // WorkflowConfig defines a named, reusable, multi-step procedure.
 // Each workflow maps to an entry under the `workflows:` key in project.xcaf.
 // api-version: workflow/v1 is the current stable shape; workflow/v2 will add
@@ -287,18 +339,12 @@ type WorkflowConfig struct {
 	// +xcaf:type=map
 	Targets map[string]TargetOverride `yaml:"targets,omitempty"`
 
-	// When true, generates an always-apply rule alongside skill output.
+	// Activation mode: "always" (all contexts) or a list of path globs for conditional triggering.
 	// +xcaf:optional
 	// +xcaf:group=Activation
+	// +xcaf:type=Activation
 	// +xcaf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
-	AlwaysApply *bool `yaml:"always-apply,omitempty"`
-
-	// Glob patterns for conditional activation. Generates a path-scoped rule.
-	// +xcaf:optional
-	// +xcaf:group=Activation
-	// +xcaf:type=ClearableList
-	// +xcaf:provider=claude:optional,cursor:optional,copilot:optional
-	Paths ClearableList `yaml:"paths,omitempty"`
+	Activation *Activation `yaml:"activation,omitempty"`
 
 	// Named subdirectories to copy from xcaf/workflows/<id>/ to provider output.
 	// +xcaf:optional
@@ -306,9 +352,6 @@ type WorkflowConfig struct {
 	// +xcaf:type=[]string
 	// +xcaf:provider=claude:optional,cursor:optional,gemini:optional,copilot:optional,antigravity:optional
 	Artifacts []string `yaml:"artifacts,omitempty"`
-
-	// Top-level body for single-step or legacy workflows.
-	Body string `yaml:"-"`
 
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. Never serialized.
@@ -324,7 +367,12 @@ type WorkflowStep struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description,omitempty"`
 	Skill       string `yaml:"skill,omitempty"`
-	Body        string `yaml:"-"`
+	// Inline procedural content for this step.
+	// Used when the step defines its own instructions rather than referencing an external skill.
+	// +xcaf:optional
+	// +xcaf:group=Steps
+	// +xcaf:provider=antigravity:optional
+	Instructions string `yaml:"instructions,omitempty"`
 }
 
 // PolicyConfig defines a declarative constraint evaluated against the AST

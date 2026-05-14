@@ -55,7 +55,6 @@ func stripRuntimeFields(config *ast.XcaffoldConfig) {
 	for name, w := range config.Workflows {
 		w.SourceProvider = ""
 		w.Inherited = false
-		w.Body = ""
 		config.Workflows[name] = w
 	}
 	for name, m := range config.MCP {

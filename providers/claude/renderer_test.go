@@ -626,7 +626,7 @@ func TestClaudeRenderer_Workflow_NoOutputDirPrefix(t *testing.T) {
 				"my-wf": {
 					Name: "my-wf",
 					Steps: []ast.WorkflowStep{
-						{Name: "step-one", Body: "Do the thing."},
+						{Name: "step-one", Instructions: "Do the thing."},
 					},
 				},
 			},
@@ -666,7 +666,6 @@ func TestClaudeRenderer_Workflow_ArtifactsCopied(t *testing.T) {
 				"my-wf": {
 					Name:        "my-wf",
 					Description: "Workflow with artifacts",
-					Body:        "Execute the workflow.",
 					Artifacts:   []string{"references"},
 				},
 			},
@@ -695,6 +694,146 @@ func mapKeys(m map[string]string) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// T-46: TestClaude_BasicMode_SingleSkill — Basic workflow renders 1 skill for Claude
+func TestClaude_BasicMode_SingleSkill(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"test-wf": {
+					Name:        "test-wf",
+					Description: "Basic test workflow",
+					Steps: []ast.WorkflowStep{
+						{
+							Name:         "step1",
+							Description:  "First step",
+							Instructions: "Execute step one.",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	// Verify a skill file was created for the workflow
+	found := false
+	for path := range out.Files {
+		if strings.Contains(path, "skills") && strings.Contains(path, "test-wf") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected skill file for workflow; got keys: %v", mapKeys(out.Files))
+}
+
+// T-47: TestClaude_OrchestratorMode_MainPlusSubSkills — Orchestrator renders N skills for Claude
+func TestClaude_OrchestratorMode_MainPlusSubSkills(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"orchestrator-wf": {
+					Name:        "orchestrator-wf",
+					Description: "Orchestrator workflow with multiple steps",
+					Steps: []ast.WorkflowStep{
+						{
+							Name:        "step1",
+							Description: "First step",
+							Skill:       "sub-skill-1",
+						},
+						{
+							Name:        "step2",
+							Description: "Second step",
+							Skill:       "sub-skill-2",
+						},
+					},
+				},
+			},
+			Skills: map[string]ast.SkillConfig{
+				"sub-skill-1": {
+					Name:        "sub-skill-1",
+					Description: "Sub-skill one",
+					Body:        "Execute first part.",
+				},
+				"sub-skill-2": {
+					Name:        "sub-skill-2",
+					Description: "Sub-skill two",
+					Body:        "Execute second part.",
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	// Verify workflow and sub-skill files are created
+	hasWorkflow := false
+	hasSubSkill1 := false
+	hasSubSkill2 := false
+	for path := range out.Files {
+		if strings.Contains(path, "skills/orchestrator-wf") {
+			hasWorkflow = true
+		}
+		if strings.Contains(path, "skills/sub-skill-1") {
+			hasSubSkill1 = true
+		}
+		if strings.Contains(path, "skills/sub-skill-2") {
+			hasSubSkill2 = true
+		}
+	}
+	assert.True(t, hasWorkflow, "expected orchestrator workflow skill")
+	assert.True(t, hasSubSkill1, "expected sub-skill-1")
+	assert.True(t, hasSubSkill2, "expected sub-skill-2")
+}
+
+// T-48: TestClaude_ActivationAlways_RulePlusSkill — activation: always produces rule + skill for Claude
+func TestClaude_ActivationAlways_RulePlusSkill(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"always-wf": {
+					Name:        "always-wf",
+					Description: "Always-activated workflow",
+					Steps: []ast.WorkflowStep{
+						{
+							Name:         "step1",
+							Instructions: "Always execute this.",
+						},
+					},
+					Activation: &ast.Activation{
+						Mode: "always",
+					},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, "")
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	// Verify both skill and rule files are created
+	hasSkill := false
+	hasRule := false
+	for path := range out.Files {
+		if strings.Contains(path, "skills/always-wf") {
+			hasSkill = true
+		}
+		if strings.Contains(path, "rules/always-wf") {
+			hasRule = true
+		}
+	}
+	assert.True(t, hasSkill, "expected skill for always-activated workflow")
+	assert.True(t, hasRule, "expected always-apply rule")
 }
 
 func intPtr(n int) *int { return &n }

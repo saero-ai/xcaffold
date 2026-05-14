@@ -10,15 +10,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const kindRule = "rule"
+
 func threeStepWorkflow() *ast.WorkflowConfig {
 	return &ast.WorkflowConfig{
 		ApiVersion:  "workflow/v1",
 		Name:        "code-review",
 		Description: "Multi-step PR review procedure.",
 		Steps: []ast.WorkflowStep{
-			{Name: "analyze", Body: "Read the diff."},
-			{Name: "lint", Body: "Check style."},
-			{Name: "summarize", Body: "Write the review comment."},
+			{Name: "analyze", Instructions: "Read the diff."},
+			{Name: "lint", Instructions: "Check style."},
+			{Name: "summarize", Instructions: "Write the review comment."},
 		},
 	}
 }
@@ -32,7 +34,7 @@ func TestTranslateWorkflow_Claude_RulePlusSkill_EmitsRule(t *testing.T) {
 
 	var rulePrimitive *translator.TargetPrimitive
 	for i := range primitives {
-		if primitives[i].Kind == "rule" {
+		if primitives[i].Kind == kindRule {
 			rulePrimitive = &primitives[i]
 			break
 		}
@@ -124,15 +126,6 @@ func TestTranslateWorkflow_Gemini_CustomCommand(t *testing.T) {
 	require.Equal(t, renderer.CodeWorkflowLoweredToCustomCommand, notes[0].Code)
 }
 
-func TestInferWorkflowMode_BodyOnly(t *testing.T) {
-	wf := &ast.WorkflowConfig{
-		Name: "routing-wf",
-		Body: "# Router\n## Step 1\nDo something...",
-	}
-	mode := translator.InferWorkflowMode(wf)
-	require.Equal(t, translator.ModeRouted, mode)
-}
-
 func TestInferWorkflowMode_StepsWithSkillRefs(t *testing.T) {
 	wf := &ast.WorkflowConfig{
 		Name: "chain-wf",
@@ -142,19 +135,19 @@ func TestInferWorkflowMode_StepsWithSkillRefs(t *testing.T) {
 		},
 	}
 	mode := translator.InferWorkflowMode(wf)
-	require.Equal(t, translator.ModeChained, mode)
+	require.Equal(t, translator.ModeOrchestrator, mode)
 }
 
-func TestInferWorkflowMode_StepsWithBodies(t *testing.T) {
+func TestInferWorkflowMode_StepsWithInstructions(t *testing.T) {
 	wf := &ast.WorkflowConfig{
-		Name: "simple-wf",
+		Name: "basic-wf",
 		Steps: []ast.WorkflowStep{
-			{Name: "lint", Body: "Run linter."},
-			{Name: "test", Body: "Run tests."},
+			{Name: "lint", Instructions: "Run linter."},
+			{Name: "test", Instructions: "Run tests."},
 		},
 	}
 	mode := translator.InferWorkflowMode(wf)
-	require.Equal(t, translator.ModeSimple, mode)
+	require.Equal(t, translator.ModeBasic, mode)
 }
 
 func TestInferWorkflowMode_MixedSteps(t *testing.T) {
@@ -162,32 +155,20 @@ func TestInferWorkflowMode_MixedSteps(t *testing.T) {
 		Name: "mixed-wf",
 		Steps: []ast.WorkflowStep{
 			{Name: "design", Skill: "brainstorming"},
-			{Name: "custom", Body: "Do something custom."},
+			{Name: "custom", Instructions: "Do something custom."},
 		},
 	}
 	mode := translator.InferWorkflowMode(wf)
-	require.Equal(t, translator.ModeChained, mode)
-}
-
-func TestInferWorkflowMode_BodyAndSteps(t *testing.T) {
-	wf := &ast.WorkflowConfig{
-		Name: "ambiguous-wf",
-		Body: "Some body content.",
-		Steps: []ast.WorkflowStep{
-			{Name: "step1", Body: "Step 1 content."},
-		},
-	}
-	mode := translator.InferWorkflowMode(wf)
-	require.Equal(t, translator.ModeSimple, mode)
+	require.Equal(t, translator.ModeOrchestrator, mode)
 }
 
 func TestInferWorkflowMode_EmptyWorkflow(t *testing.T) {
 	wf := &ast.WorkflowConfig{Name: "empty"}
 	mode := translator.InferWorkflowMode(wf)
-	require.Equal(t, translator.ModeSimple, mode)
+	require.Equal(t, translator.ModeBasic, mode)
 }
 
-func TestTranslateWorkflow_NoStrategy_DefaultsToSimple(t *testing.T) {
+func TestTranslateWorkflow_NoStrategy_DefaultsToBasic(t *testing.T) {
 	wf := threeStepWorkflow()
 	primitives, notes := translator.TranslateWorkflow(wf, "cursor")
 
@@ -212,7 +193,7 @@ func TestTranslateWorkflow_ProvenanceMarker_StepSkillsList(t *testing.T) {
 
 	var ruleContent string
 	for _, p := range primitives {
-		if p.Kind == "rule" {
+		if p.Kind == kindRule {
 			ruleContent = p.Content
 			break
 		}
@@ -224,76 +205,58 @@ func TestTranslateWorkflow_ProvenanceMarker_StepSkillsList(t *testing.T) {
 	require.Contains(t, ruleContent, "code-review-03-summarize")
 }
 
-func TestTranslateWorkflow_AlwaysApply_EmitsRule(t *testing.T) {
-	alwaysApply := true
+func TestTranslateWorkflow_ActivationAlways_EmitsRule(t *testing.T) {
 	wf := &ast.WorkflowConfig{
 		Name:        "mandatory-wf",
 		Description: "Always active.",
-		AlwaysApply: &alwaysApply,
-		Body:        "Do things.",
+		Activation:  &ast.Activation{Mode: "always"},
+		Steps: []ast.WorkflowStep{
+			{Name: "step1", Instructions: "Do things."},
+		},
 	}
 	primitives, notes := translator.TranslateWorkflow(wf, "claude")
 
 	var hasRule bool
 	for _, p := range primitives {
-		if p.Kind == "rule" {
+		if p.Kind == kindRule {
 			hasRule = true
 			require.Equal(t, "mandatory-wf-workflow", p.ID)
 			require.Contains(t, p.Content, "mandatory-wf")
 		}
 	}
-	require.True(t, hasRule, "expected a rule primitive for always-apply workflow")
+	require.True(t, hasRule, "expected a rule primitive for activation: always workflow")
 	require.NotEmpty(t, notes)
 }
 
-func TestTranslateWorkflow_Paths_EmitsRule(t *testing.T) {
+func TestTranslateWorkflow_ActivationPaths_EmitsRule(t *testing.T) {
 	wf := &ast.WorkflowConfig{
-		Name:  "go-workflow",
-		Paths: ast.ClearableList{Values: []string{"*.go", "*.mod"}},
+		Name:       "go-workflow",
+		Activation: &ast.Activation{Mode: "paths", Paths: []string{"*.go", "*.mod"}},
 		Steps: []ast.WorkflowStep{
-			{Name: "vet", Body: "Run go vet."},
+			{Name: "vet", Instructions: "Run go vet."},
 		},
 	}
 	primitives, notes := translator.TranslateWorkflow(wf, "claude")
 
 	var hasRule bool
 	for _, p := range primitives {
-		if p.Kind == "rule" {
+		if p.Kind == kindRule {
 			hasRule = true
 			require.Contains(t, p.Content, "*.go")
 		}
 	}
-	require.True(t, hasRule, "expected a rule primitive for paths-scoped workflow")
+	require.True(t, hasRule, "expected a rule primitive for activation: paths workflow")
 	require.NotEmpty(t, notes)
 }
 
 func TestTranslateWorkflow_NoModifier_NoRule(t *testing.T) {
 	wf := &ast.WorkflowConfig{
-		Name: "manual-wf",
-		Body: "Do things manually.",
+		Name:  "manual-wf",
+		Steps: []ast.WorkflowStep{{Name: "step1", Instructions: "Do things manually."}},
 	}
 	primitives, _ := translator.TranslateWorkflow(wf, "claude")
 
 	for _, p := range primitives {
-		require.NotEqual(t, "rule", p.Kind, "no rule should be emitted without always-apply or paths")
+		require.NotEqual(t, kindRule, p.Kind, "no rule should be emitted without activation")
 	}
-}
-
-func TestTranslateWorkflow_BodyAndSteps_BodyIgnoredWarning(t *testing.T) {
-	wf := &ast.WorkflowConfig{
-		Name: "ambiguous",
-		Body: "I should be ignored.",
-		Steps: []ast.WorkflowStep{
-			{Name: "step1", Body: "Step body."},
-		},
-	}
-	_, notes := translator.TranslateWorkflow(wf, "claude")
-
-	hasBodyIgnored := false
-	for _, n := range notes {
-		if n.Code == renderer.CodeWorkflowBodyIgnored {
-			hasBodyIgnored = true
-		}
-	}
-	require.True(t, hasBodyIgnored, "expected CodeWorkflowBodyIgnored warning")
 }

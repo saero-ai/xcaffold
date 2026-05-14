@@ -1620,12 +1620,12 @@ func init() {
 				Group:       "Multi-Target",
 			},
 			{
-				Name:        "AlwaysApply",
-				YAMLKey:     "always-apply",
-				GoType:      "*bool",
-				XCAFType:    "boolean",
+				Name:        "Activation",
+				YAMLKey:     "activation",
+				GoType:      "*Activation",
+				XCAFType:    "Activation",
 				Optional:    true,
-				Description: "When true, generates an always-apply rule alongside skill output.",
+				Description: "Activation mode: \"always\" (all contexts) or a list of path globs for conditional triggering.",
 				Group:       "Activation",
 				Provider: map[string]string{
 					"antigravity": "optional",
@@ -1633,20 +1633,6 @@ func init() {
 					"copilot":     "optional",
 					"cursor":      "optional",
 					"gemini":      "optional",
-				},
-			},
-			{
-				Name:        "Paths",
-				YAMLKey:     "paths",
-				GoType:      "ClearableList",
-				XCAFType:    "ClearableList",
-				Optional:    true,
-				Description: "Glob patterns for conditional activation. Generates a path-scoped rule.",
-				Group:       "Activation",
-				Provider: map[string]string{
-					"claude":  "optional",
-					"copilot": "optional",
-					"cursor":  "optional",
 				},
 			},
 			{

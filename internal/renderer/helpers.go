@@ -284,3 +284,34 @@ func CompileSkillSubdir(opts SkillSubdirOpts, out *output.Output) error {
 	}
 	return nil
 }
+
+// WorkflowArtifactArgs bundles parameters for AppendWorkflowArtifacts.
+type WorkflowArtifactArgs struct {
+	Target    string
+	Workflows map[string]ast.WorkflowConfig
+	BaseDir   string
+	Caps      CapabilitySet
+	Files     map[string]string
+}
+
+// AppendWorkflowArtifacts copies artifact directories for each workflow that
+// declares them. Missing optional directories are demoted to fidelity notes so
+// the rest of the workflow still compiles. Results are appended to files in place
+// and any notes are returned to the caller for aggregation.
+func AppendWorkflowArtifacts(args WorkflowArtifactArgs) []FidelityNote {
+	var notes []FidelityNote
+	for id, wf := range args.Workflows {
+		if len(wf.Artifacts) == 0 {
+			continue
+		}
+		artifactNotes := CompileArtifactsDemoted(args.Target, ArtifactJob{
+			ID:        id,
+			BaseDir:   args.BaseDir,
+			Caps:      args.Caps,
+			Files:     args.Files,
+			SourceDir: filepath.Join("xcaf", "workflows", id),
+		}, wf.Artifacts)
+		notes = append(notes, artifactNotes...)
+	}
+	return notes
+}

@@ -25,7 +25,6 @@ func TestLowerWorkflows_DoesNotMutateInput(t *testing.T) {
 	wf := ast.WorkflowConfig{
 		Name:        "my-workflow",
 		Description: "A workflow",
-		Body:        "Do the thing.",
 	}
 	config := &ast.XcaffoldConfig{}
 	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
@@ -44,7 +43,7 @@ func TestLowerWorkflows_PreservesExistingRules(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.ResourceScope.Rules = map[string]ast.RuleConfig{"keep-me": existing}
 	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
-		"wf1": {Name: "wf1", Body: "workflow body"},
+		"wf1": {Name: "wf1"},
 	}
 
 	out, _, _ := LowerWorkflows(config, "gemini")
@@ -57,7 +56,7 @@ func TestLowerWorkflows_CustomCommandPrimitive(t *testing.T) {
 	wf := ast.WorkflowConfig{
 		Name: "my-cmd",
 		Steps: []ast.WorkflowStep{
-			{Name: "step-one", Body: "do the thing"},
+			{Name: "step-one", Instructions: "do the thing"},
 		},
 		Targets: map[string]ast.TargetOverride{
 			"gemini": {
@@ -86,7 +85,7 @@ func TestLowerWorkflows_PromptFilePrimitive(t *testing.T) {
 	wf := ast.WorkflowConfig{
 		Name: "my-prompt",
 		Steps: []ast.WorkflowStep{
-			{Name: "step-one", Body: "some prompt body"},
+			{Name: "step-one", Instructions: "some prompt body"},
 		},
 		Targets: map[string]ast.TargetOverride{
 			"copilot": {
@@ -111,19 +110,21 @@ func TestLowerWorkflows_PromptFilePrimitive(t *testing.T) {
 	}
 }
 
-func TestLowerWorkflows_RoutedMode(t *testing.T) {
+func TestLowerWorkflows_BasicMode(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
 		"router": {
 			Name: "router",
-			Body: "# Router content\nDo analysis.",
+			Steps: []ast.WorkflowStep{
+				{Name: "step1", Instructions: "Do analysis."},
+			},
 		},
 	}
 	merged, directFiles, notes := LowerWorkflows(config, "claude")
 
-	// Routed mode produces a single skill, no direct files.
+	// Basic mode produces a single skill, no direct files.
 	if len(directFiles) != 0 {
-		t.Errorf("expected no direct files for routed mode, got %d", len(directFiles))
+		t.Errorf("expected no direct files for basic mode, got %d", len(directFiles))
 	}
 	if _, ok := merged.ResourceScope.Skills["router"]; !ok {
 		t.Error("expected skill 'router' in merged output")
@@ -131,14 +132,14 @@ func TestLowerWorkflows_RoutedMode(t *testing.T) {
 	if len(notes) == 0 {
 		t.Error("expected at least one fidelity note")
 	}
-	var hasRoutedNote bool
+	var hasSimpleNote bool
 	for _, n := range notes {
-		if n.Code == renderer.CodeWorkflowRoutedToSingleSkill {
-			hasRoutedNote = true
+		if n.Code == renderer.CodeWorkflowBasicToSections {
+			hasSimpleNote = true
 		}
 	}
-	if !hasRoutedNote {
-		t.Errorf("expected CodeWorkflowRoutedToSingleSkill note; got: %v", notes)
+	if !hasSimpleNote {
+		t.Errorf("expected CodeWorkflowBasicToSections note; got: %v", notes)
 	}
 }
 
@@ -169,15 +170,14 @@ func TestLowerWorkflows_ChainedMode(t *testing.T) {
 	}
 }
 
-func TestLowerWorkflows_AlwaysApply_EmitsRule(t *testing.T) {
-	alwaysApply := true
+func TestLowerWorkflows_ActivationAlways_EmitsRule(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
 		"mandatory": {
-			Name:        "mandatory",
-			AlwaysApply: &alwaysApply,
+			Name:       "mandatory",
+			Activation: &ast.Activation{Mode: "always"},
 			Steps: []ast.WorkflowStep{
-				{Name: "lint", Body: "Run lint."},
+				{Name: "lint", Instructions: "Run lint."},
 			},
 		},
 	}
@@ -216,7 +216,6 @@ func TestLowerWorkflows_WithArtifacts_PreservesArtifacts(t *testing.T) {
 		"my-workflow": {
 			Name:        "my-workflow",
 			Description: "Workflow with artifacts",
-			Body:        "Do the thing.",
 			Artifacts:   []string{"references", "examples"},
 		},
 	}
