@@ -1,8 +1,9 @@
 module github.com/saero-ai/xcaffold
 
-go 1.25.0
+go 1.26.0
 
 require (
+	github.com/BurntSushi/toml v1.6.0
 	github.com/charmbracelet/huh v1.0.0
 	github.com/fzipp/gocyclo v0.6.0
 	github.com/pmezard/go-difflib v1.0.0
@@ -13,7 +14,6 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect

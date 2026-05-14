@@ -9,7 +9,7 @@
 
 ## Setting Up
 
-Prerequisites: Go 1.24 or later.
+Prerequisites: Go 1.26 or later.
 
 ```
 make setup
