@@ -70,7 +70,7 @@ Compiles .xcaf YAML into provider-native agent files (.claude/, .cursor/, .agent
 
 func init() {
 	state.XcaffoldVersion = version
-	rootCmd.Version = fmt.Sprintf("%s (commit: %s, date: %s)", version, commit, date)
+	rootCmd.Version = version
 
 	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 
