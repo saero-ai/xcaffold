@@ -8,7 +8,7 @@ description: "Machine-wide project index. Source: ~/.xcaffold/registry.xcaf. Man
 The `registry` kind defines the machine-wide index of all `xcaffold` projects initialized on the system. It is stored at `~/.xcaffold/registry.xcaf` and is managed automatically by the CLI.
 
 > [!IMPORTANT]
-> This is a system-level resource. While it can be edited manually, it is primarily managed via `xcaffold init`, `xcaffold apply`, and the `xcaffold registry` command (hidden — not shown in `--help` output).
+> This is a system-level resource. While it can be edited manually, it is primarily managed via `xcaffold init` and `xcaffold apply`.
 
 > **Required:** `kind`, `projects`
 

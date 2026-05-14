@@ -203,6 +203,14 @@ CI enforces that generated files are fresh. A PR with stale generated files will
 
 xcaffold is pre-v1.0. Breaking changes to `.xcaf` schema, CLI flags, or compiler output are expected and do not require a deprecation cycle. Document breaking changes in the CHANGELOG under `Breaking Changes`.
 
+## Response Times
+
+Maintainers aim to respond to pull requests within 72 hours and to issues within one week. Review turnaround may be longer for large architectural changes.
+
+## Governance
+
+Project governance is documented in [GOVERNANCE.md](docs/governance/GOVERNANCE.md). It covers the decision-making process, maintainer responsibilities, and the contribution ladder.
+
 ## Good First Issues
 
 Look for issues labeled `good first issue`. Good starting points: documentation fixes, adding test cases for existing providers, fixing bugs that have a clear repro. Before starting, comment on the issue to signal that you are working on it.

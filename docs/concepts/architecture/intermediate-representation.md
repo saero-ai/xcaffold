@@ -15,7 +15,7 @@ The IR is the bridge between every import, translation, and compilation phase:
 | `xcaffold translate` — phase 1 | Reads provider source files → builds IR (in-memory only, never written unless `--save-xcaf` is set) |
 | `xcaffold translate` — phase 2 | Passes IR to the compiler + optimizer → emits target output files |
 | `xcaffold apply` | Reads `project.xcaf` from disk (the persisted IR) → compiles to target |
-| `xcaffold diff` | Reads persisted IR from `.xcaffold/project.xcaf.state` hashes → detects drift |
+| `xcaffold status` | Reads persisted IR from `.xcaffold/project.xcaf.state` hashes → detects drift |
 
 The IR is intentionally format-neutral: the same struct that represents a Claude Code `.claude/agents/developer.md` agent also represents a Cursor `agents/developer.md` agent or an Antigravity skill. Renderers receive this struct and decide how to map it to the target format.
 
