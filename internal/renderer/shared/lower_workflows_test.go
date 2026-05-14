@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/renderer"
 )
 
 func TestLowerWorkflows_EmptyWorkflows(t *testing.T) {
@@ -110,6 +111,94 @@ func TestLowerWorkflows_PromptFilePrimitive(t *testing.T) {
 	}
 }
 
+func TestLowerWorkflows_RoutedMode(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
+		"router": {
+			Name: "router",
+			Body: "# Router content\nDo analysis.",
+		},
+	}
+	merged, directFiles, notes := LowerWorkflows(config, "claude")
+
+	// Routed mode produces a single skill, no direct files.
+	if len(directFiles) != 0 {
+		t.Errorf("expected no direct files for routed mode, got %d", len(directFiles))
+	}
+	if _, ok := merged.ResourceScope.Skills["router"]; !ok {
+		t.Error("expected skill 'router' in merged output")
+	}
+	if len(notes) == 0 {
+		t.Error("expected at least one fidelity note")
+	}
+	var hasRoutedNote bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeWorkflowRoutedToSingleSkill {
+			hasRoutedNote = true
+		}
+	}
+	if !hasRoutedNote {
+		t.Errorf("expected CodeWorkflowRoutedToSingleSkill note; got: %v", notes)
+	}
+}
+
+func TestLowerWorkflows_ChainedMode(t *testing.T) {
+	config := &ast.XcaffoldConfig{}
+	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
+		"lifecycle": {
+			Name: "lifecycle",
+			Steps: []ast.WorkflowStep{
+				{Name: "design", Skill: "brainstorming"},
+				{Name: "plan", Skill: "writing-plans"},
+			},
+		},
+	}
+	merged, _, notes := LowerWorkflows(config, "claude")
+
+	if _, ok := merged.ResourceScope.Skills["lifecycle"]; !ok {
+		t.Error("expected skill 'lifecycle' in merged output for chained mode")
+	}
+	var hasChainedNote bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeWorkflowChainedToOrchestrator {
+			hasChainedNote = true
+		}
+	}
+	if !hasChainedNote {
+		t.Errorf("expected CodeWorkflowChainedToOrchestrator note; got: %v", notes)
+	}
+}
+
+func TestLowerWorkflows_AlwaysApply_EmitsRule(t *testing.T) {
+	alwaysApply := true
+	config := &ast.XcaffoldConfig{}
+	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
+		"mandatory": {
+			Name:        "mandatory",
+			AlwaysApply: &alwaysApply,
+			Steps: []ast.WorkflowStep{
+				{Name: "lint", Body: "Run lint."},
+			},
+		},
+	}
+	merged, _, _ := LowerWorkflows(config, "claude")
+
+	if _, ok := merged.ResourceScope.Rules["mandatory-workflow"]; !ok {
+		ruleKeys := make([]string, 0)
+		for k := range merged.ResourceScope.Rules {
+			ruleKeys = append(ruleKeys, k)
+		}
+		t.Errorf("expected rule 'mandatory-workflow' for always-apply workflow; got rules: %v", ruleKeys)
+	}
+	if _, ok := merged.ResourceScope.Skills["mandatory"]; !ok {
+		skillKeys := make([]string, 0)
+		for k := range merged.ResourceScope.Skills {
+			skillKeys = append(skillKeys, k)
+		}
+		t.Errorf("expected skill 'mandatory' for always-apply workflow; got skills: %v", skillKeys)
+	}
+}
+
 // mapKeys returns the keys of m as a slice for test error reporting.
 func mapKeys(m map[string]string) []string {
 	keys := make([]string, 0, len(m))
@@ -117,4 +206,35 @@ func mapKeys(m map[string]string) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func TestLowerWorkflows_WithArtifacts_PreservesArtifacts(t *testing.T) {
+	// Verify that workflows with Artifacts []string preserve those artifact
+	// declarations so the provider renderer can discover and copy them later.
+	config := &ast.XcaffoldConfig{}
+	config.ResourceScope.Workflows = map[string]ast.WorkflowConfig{
+		"my-workflow": {
+			Name:        "my-workflow",
+			Description: "Workflow with artifacts",
+			Body:        "Do the thing.",
+			Artifacts:   []string{"references", "examples"},
+		},
+	}
+
+	out, _, _ := LowerWorkflows(config, "claude")
+
+	// After lowering, the workflow should still appear in the output config
+	// with its Artifacts field intact (for the renderer to process later).
+	outWf, ok := out.ResourceScope.Workflows["my-workflow"]
+	if !ok {
+		t.Error("expected workflow 'my-workflow' to be preserved after lowering")
+		return
+	}
+
+	if len(outWf.Artifacts) != 2 {
+		t.Errorf("expected 2 artifacts preserved, got %d: %v", len(outWf.Artifacts), outWf.Artifacts)
+	}
+	if outWf.Artifacts[0] != "references" || outWf.Artifacts[1] != "examples" {
+		t.Errorf("expected artifacts [references examples], got %v", outWf.Artifacts)
+	}
 }

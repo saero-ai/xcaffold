@@ -147,6 +147,9 @@ func TestCompile_Copilot_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 						{Name: "step-1", Body: "Run tests"},
 						{Name: "step-2", Body: "Deploy to staging"},
 					},
+					Targets: map[string]ast.TargetOverride{
+						"copilot": {Provider: map[string]any{"lowering-strategy": "rule-plus-skill"}},
+					},
 				},
 			},
 		},
@@ -169,6 +172,71 @@ func TestCompile_Copilot_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 
 	workflowNotes := filterNotes(notes, renderer.CodeWorkflowLoweredToRulePlusSkill)
 	assert.NotEmpty(t, workflowNotes, "workflow lowering should emit fidelity note")
+}
+
+// TestCompile_Copilot_Workflows_DefaultSimpleMode verifies that a workflow
+// without an explicit lowering-strategy uses the new default behavior: structure-based
+// inference produces a single skill file (simple mode) rather than per-step skills
+// or a rule. The test exercises the new default-behavior path and verifies the
+// migration fidelity notes are emitted.
+func TestCompile_Copilot_Workflows_DefaultSimpleMode(t *testing.T) {
+	r := copilot.New()
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"code-review": {
+					Name:        "code-review",
+					Description: "Multi-step pull request review procedure.",
+					Steps: []ast.WorkflowStep{
+						{Name: "analyze", Body: "Read the diff."},
+						{Name: "lint", Body: "Check style."},
+						{Name: "summarize", Body: "Write the review."},
+					},
+					// No Targets, no lowering-strategy — new default applies.
+				},
+			},
+		},
+	}
+	out, notes, err := renderer.Orchestrate(r, cfg, "")
+	require.NoError(t, err)
+
+	// New default: single skill file (NOT per-step micro-skills).
+	hasSkill := false
+	for path := range out.Files {
+		if strings.HasPrefix(path, "skills/code-review") && strings.HasSuffix(path, "SKILL.md") {
+			hasSkill = true
+			break
+		}
+	}
+	require.True(t, hasSkill, "expected skills/code-review/SKILL.md for simple mode; got keys: %v", mapKeys(out.Files))
+
+	// No instruction file should exist (no always-apply or paths set).
+	hasInstructions := false
+	for path := range out.Files {
+		if strings.HasPrefix(path, "instructions/") && strings.Contains(path, "code-review") {
+			hasInstructions = true
+			break
+		}
+	}
+	require.False(t, hasInstructions, "simple mode without always-apply should NOT emit an instructions file; got keys: %v", mapKeys(out.Files))
+
+	// Should have CodeWorkflowSimpleToSections note.
+	var hasSimpleNote bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeWorkflowSimpleToSections {
+			hasSimpleNote = true
+		}
+	}
+	require.True(t, hasSimpleNote, "expected CodeWorkflowSimpleToSections note; got: %v", notes)
+
+	// Should have CodeWorkflowDefaultChanged migration warning.
+	var hasMigrationNote bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeWorkflowDefaultChanged {
+			hasMigrationNote = true
+		}
+	}
+	require.True(t, hasMigrationNote, "expected CodeWorkflowDefaultChanged migration note; got: %v", notes)
 }
 
 func TestCompile_Copilot_FullConfig_AllKinds(t *testing.T) {
@@ -370,4 +438,13 @@ func TestCompileRules_Copilot_NoClaude_FullTranslation(t *testing.T) {
 		assert.NotEqual(t, renderer.CodeClaudeNativePassthrough, n.Code,
 			"no CLAUDE_NATIVE_PASSTHROUGH notes expected when .claude/ is absent")
 	}
+}
+
+// mapKeys returns the sorted list of file keys for error output.
+func mapKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

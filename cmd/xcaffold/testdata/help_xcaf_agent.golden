@@ -12,7 +12,7 @@ kind: agent . version 1.0 . format: frontmatter+body
                                                         Examples: sonnet
     effort                    string          optional  Reasoning effort level hint for the model provider.
                                                         Providers: Claude Cursor
-    max-turns                 int             optional  Maximum conversation turns before the agent exits.
+    max-turns                 integer         optional  Maximum conversation turns before the agent exits.
                                                         Providers: Claude Gemini
 
   Tool Access
@@ -27,9 +27,9 @@ kind: agent . version 1.0 . format: frontmatter+body
     permission-mode           string          optional  Security mode controlling tool authorization behavior.
                                                         Providers: Claude
     disable-model-invocation  boolean         optional  Prevents the agent from spawning sub-agents.
-                                                        Providers: Claude
+                                                        Providers: Copilot
     user-invocable            boolean         optional  Whether users can invoke this agent directly via slash command.
-                                                        Providers: Claude
+                                                        Providers: Copilot
 
   Lifecycle
     background                boolean         optional  Runs the agent in background mode without interactive prompts.
@@ -41,6 +41,7 @@ kind: agent . version 1.0 . format: frontmatter+body
     memory                    []string        optional  Named memory banks attached to this agent.
                                                         Providers: Claude
     color                     string          optional  Display color for terminal output differentiation.
+                                                        Providers: Claude
     initial-prompt            string          optional  System prompt prepended to every conversation.
                                                         Providers: Claude
 

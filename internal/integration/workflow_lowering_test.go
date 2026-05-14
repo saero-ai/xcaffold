@@ -12,7 +12,8 @@ import (
 )
 
 // threeStepCodeReview returns a WorkflowConfig with inline step instructions
-// so tests run without relying on external file resolution.
+// and an explicit rule-plus-skill lowering strategy for Claude so tests run
+// without relying on external file resolution or default-behavior assumptions.
 func threeStepCodeReview() *ast.XcaffoldConfig {
 	return &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -25,6 +26,9 @@ func threeStepCodeReview() *ast.XcaffoldConfig {
 						{Name: "analyze", Body: "Read the diff and summarize changed modules."},
 						{Name: "lint", Body: "Check style violations in changed files."},
 						{Name: "summarize", Body: "Write the final review comment."},
+					},
+					Targets: map[string]ast.TargetOverride{
+						"claude": {Provider: map[string]any{"lowering-strategy": "rule-plus-skill"}},
 					},
 				},
 			},
@@ -140,6 +144,59 @@ func TestRealData_Workflow_Fixtures(t *testing.T) {
 		require.NoError(t, err, "fixture file must exist: %s", path)
 		require.NotEmpty(t, data, "fixture file must be non-empty: %s", path)
 	}
+}
+
+// TestCompile_Workflow_DefaultSimpleMode verifies that a workflow without
+// an explicit lowering-strategy uses the new default behavior: structure-based
+// inference produces a single skill file (simple mode) rather than a rule.
+// This test exercises the new default-behavior path and verifies the migration
+// fidelity notes are emitted.
+func TestCompile_Workflow_DefaultSimpleMode(t *testing.T) {
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"code-review": {
+					ApiVersion:  "workflow/v1",
+					Name:        "code-review",
+					Description: "Multi-step pull request review procedure.",
+					Steps: []ast.WorkflowStep{
+						{Name: "analyze", Body: "Read the diff."},
+						{Name: "lint", Body: "Check style."},
+						{Name: "summarize", Body: "Write the review."},
+					},
+					// No Targets, no lowering-strategy — new default applies.
+				},
+			},
+		},
+	}
+	out, notes, err := compiler.Compile(config, t.TempDir(), compiler.CompileOpts{Target: "claude"})
+	require.NoError(t, err)
+
+	// New default: single skill file (NOT per-step micro-skills).
+	_, hasSkill := out.Files["skills/code-review/SKILL.md"]
+	require.True(t, hasSkill, "expected skills/code-review/SKILL.md for simple mode; got keys: %v", fileKeys(out.Files))
+
+	// No rule file should exist (no always-apply or paths set).
+	_, hasRule := out.Files["rules/code-review-workflow.md"]
+	require.False(t, hasRule, "simple mode without always-apply should NOT emit a rule; got keys: %v", fileKeys(out.Files))
+
+	// Should have CodeWorkflowSimpleToSections note.
+	var hasSimpleNote bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeWorkflowSimpleToSections {
+			hasSimpleNote = true
+		}
+	}
+	require.True(t, hasSimpleNote, "expected CodeWorkflowSimpleToSections note; got: %v", notes)
+
+	// Should have CodeWorkflowDefaultChanged migration warning.
+	var hasMigrationNote bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeWorkflowDefaultChanged {
+			hasMigrationNote = true
+		}
+	}
+	require.True(t, hasMigrationNote, "expected CodeWorkflowDefaultChanged migration note; got: %v", notes)
 }
 
 // fileKeys returns the sorted list of file keys for error output.

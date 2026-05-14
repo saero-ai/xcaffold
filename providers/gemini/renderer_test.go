@@ -361,6 +361,9 @@ func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 						{Name: "build", Body: "Run go build."},
 						{Name: "test", Body: "Run go test."},
 					},
+					Targets: map[string]ast.TargetOverride{
+						"gemini": {Provider: map[string]any{"lowering-strategy": "rule-plus-skill"}},
+					},
 				},
 			},
 		},
@@ -390,6 +393,59 @@ func TestCompile_Gemini_Workflows_LoweredToRulePlusSkill(t *testing.T) {
 		}
 	}
 	assert.True(t, hasLoweringNote, "expected CodeWorkflowLoweredToRulePlusSkill fidelity note")
+}
+
+// TestCompile_Gemini_Workflows_DefaultSimpleMode verifies that a workflow
+// without an explicit lowering-strategy uses the new default behavior: structure-based
+// inference produces a single skill file (simple mode) rather than per-step skills
+// or a rule. The test exercises the new default-behavior path and verifies the
+// migration fidelity notes are emitted.
+func TestCompile_Gemini_Workflows_DefaultSimpleMode(t *testing.T) {
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"code-review": {
+					Name:        "code-review",
+					Description: "Multi-step pull request review procedure.",
+					Steps: []ast.WorkflowStep{
+						{Name: "analyze", Body: "Read the diff."},
+						{Name: "lint", Body: "Check style."},
+						{Name: "summarize", Body: "Write the review."},
+					},
+					// No Targets, no lowering-strategy — new default applies.
+				},
+			},
+		},
+	}
+	out, notes, err := renderer.Orchestrate(r, config, "/tmp/test")
+	require.NoError(t, err)
+
+	// New default: single skill file (NOT per-step micro-skills).
+	_, hasSkill := out.Files["skills/code-review/SKILL.md"]
+	require.True(t, hasSkill, "expected skills/code-review/SKILL.md for simple mode; got keys: %v", mapKeysGemini(out.Files))
+
+	// No rule file should exist (no always-apply or paths set).
+	_, hasRule := out.Files["rules/code-review-workflow.md"]
+	require.False(t, hasRule, "simple mode without always-apply should NOT emit a rule; got keys: %v", mapKeysGemini(out.Files))
+
+	// Should have CodeWorkflowSimpleToSections note.
+	var hasSimpleNote bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeWorkflowSimpleToSections {
+			hasSimpleNote = true
+		}
+	}
+	require.True(t, hasSimpleNote, "expected CodeWorkflowSimpleToSections note; got: %v", notes)
+
+	// Should have CodeWorkflowDefaultChanged migration warning.
+	var hasMigrationNote bool
+	for _, n := range notes {
+		if n.Code == renderer.CodeWorkflowDefaultChanged {
+			hasMigrationNote = true
+		}
+	}
+	require.True(t, hasMigrationNote, "expected CodeWorkflowDefaultChanged migration note; got: %v", notes)
 }
 
 // TestCompile_Gemini_Workflow_CustomCommand_NoPathDoubling verifies that a workflow
@@ -429,4 +485,13 @@ func TestCompile_Gemini_Workflow_CustomCommand_NoPathDoubling(t *testing.T) {
 	// Absolute path with provider prefix (the doubled path — must not appear).
 	_, doubled := out.Files[".gemini/commands/tdd.md"]
 	assert.False(t, doubled, "workflow custom-command path must NOT include \".gemini/\" prefix")
+}
+
+// mapKeysGemini returns the sorted list of file keys for error output.
+func mapKeysGemini(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }

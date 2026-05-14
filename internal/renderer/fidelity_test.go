@@ -117,6 +117,12 @@ func TestFidelityNote_AllCodes_ReferencedByConstant(t *testing.T) {
 		renderer.CodeMCPGlobalConfigOnly:                 true,
 		renderer.CodeClaudeNativePassthrough:             true,
 		renderer.CodeFieldRequiredForTarget:              true,
+		renderer.CodeWorkflowRoutedToSingleSkill:         true,
+		renderer.CodeWorkflowChainedToOrchestrator:       true,
+		renderer.CodeWorkflowSimpleToSections:            true,
+		renderer.CodeWorkflowDefaultChanged:              true,
+		renderer.CodeWorkflowBodyIgnored:                 true,
+		renderer.CodeWorkflowMixedSteps:                  true,
 	}
 
 	got := make(map[string]bool)

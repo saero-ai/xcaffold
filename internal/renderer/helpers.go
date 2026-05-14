@@ -154,6 +154,74 @@ func DiscoverArtifactFiles(baseDir, skillSourceDir, artifactName string) ([]stri
 	return paths, nil
 }
 
+// ArtifactJob bundles the inputs for non-fatal artifact compilation.
+// Used by providers that demote artifact errors to fidelity notes.
+type ArtifactJob struct {
+	ID        string
+	BaseDir   string
+	Caps      CapabilitySet
+	Files     map[string]string
+	SourceDir string // optional; defaults to xcaf/skills/<id>
+}
+
+// CompileArtifactsDemoted discovers and compiles artifact subdirs. Errors are
+// demoted to fidelity notes so the rest of the resource still compiles.
+func CompileArtifactsDemoted(target string, j ArtifactJob, artifacts []string) []FidelityNote {
+	var notes []FidelityNote
+	sourceDir := j.SourceDir
+	if sourceDir == "" {
+		sourceDir = filepath.Join("xcaf", "skills", j.ID)
+	}
+	subOut := &output.Output{Files: make(map[string]string)}
+
+	for _, artifactName := range artifacts {
+		outputSubdir, ok := j.Caps.SkillArtifactDirs[artifactName]
+		if !ok {
+			outputSubdir = artifactName
+		}
+		paths, err := DiscoverArtifactFiles(j.BaseDir, sourceDir, artifactName)
+		if err != nil {
+			notes = append(notes, FidelityNote{
+				Level:      LevelWarning,
+				Target:     target,
+				Kind:       "skill",
+				Resource:   j.ID,
+				Field:      artifactName,
+				Code:       CodeSkillReferencesDropped,
+				Reason:     fmt.Sprintf("skill %s artifact %s: discover files: %s", j.ID, artifactName, err),
+				Mitigation: "Check file paths in " + artifactName,
+			})
+			continue
+		}
+		if len(paths) == 0 {
+			continue
+		}
+		if err := CompileSkillSubdir(SkillSubdirOpts{
+			ID:              j.ID,
+			CanonicalSubdir: artifactName,
+			OutputSubdir:    outputSubdir,
+			Paths:           paths,
+			BaseDir:         j.BaseDir,
+			SkillSourceDir:  sourceDir,
+		}, subOut); err != nil {
+			notes = append(notes, FidelityNote{
+				Level:      LevelWarning,
+				Target:     target,
+				Kind:       "skill",
+				Resource:   j.ID,
+				Field:      artifactName,
+				Code:       CodeSkillReferencesDropped,
+				Reason:     err.Error(),
+				Mitigation: "Check file paths in " + artifactName,
+			})
+		}
+	}
+	for k, v := range subOut.Files {
+		j.Files[k] = v
+	}
+	return notes
+}
+
 // CompileSkillSubdir reads files from a skill subdirectory (references/, scripts/, assets/)
 // and adds them to the output map at skills/<id>/<outputSubdir>/<filename>.
 //

@@ -644,4 +644,57 @@ func TestClaudeRenderer_Workflow_NoOutputDirPrefix(t *testing.T) {
 	}
 }
 
+// TestClaudeRenderer_Workflow_ArtifactsCopied verifies that when a workflow
+// declares artifacts via the Artifacts field, those artifact files are copied
+// from xcaf/workflows/<id>/<artifact-name>/ to the output at the correct path.
+func TestClaudeRenderer_Workflow_ArtifactsCopied(t *testing.T) {
+	baseDir := t.TempDir()
+
+	// Create artifact directory structure: xcaf/workflows/my-wf/references/guide.md
+	artifactDir := filepath.Join(baseDir, "xcaf", "workflows", "my-wf", "references")
+	require.NoError(t, os.MkdirAll(artifactDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(artifactDir, "guide.md"),
+		[]byte("# Reference Guide\nSome content."),
+		0o644,
+	))
+
+	r := New()
+	config := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Workflows: map[string]ast.WorkflowConfig{
+				"my-wf": {
+					Name:        "my-wf",
+					Description: "Workflow with artifacts",
+					Body:        "Execute the workflow.",
+					Artifacts:   []string{"references"},
+				},
+			},
+		},
+	}
+
+	out, _, err := renderer.Orchestrate(r, config, baseDir)
+	require.NoError(t, err)
+
+	// Verify artifact file appears in output at skills/my-wf/references/guide.md
+	// (workflow becomes a skill during lowering in routed mode)
+	found := false
+	for path := range out.Files {
+		if strings.Contains(path, "references") && strings.Contains(path, "guide.md") {
+			found = true
+			break
+		}
+	}
+	require.True(t, found, "expected artifact file in output; got keys: %v", mapKeys(out.Files))
+}
+
+// mapKeys returns the keys of out.Files as a slice for test error reporting.
+func mapKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 func intPtr(n int) *int { return &n }
