@@ -1,5 +1,7 @@
 package ast
 
+import "gopkg.in/yaml.v3"
+
 // StatusLineConfig defines the statusLine setting for the platform.
 // The original format is {"type": "command", "command": "<shell cmd>"}.
 type StatusLineConfig struct {
@@ -247,6 +249,51 @@ type TestConfig struct {
 	// MaxTurns caps the number of simulated conversation turns.
 	// Reserved for future multi-turn support; currently unused beyond recording.
 	MaxTurns *int `yaml:"max-turns,omitempty"`
+}
+
+// Activation controls when a workflow is applied: always (all contexts) or paths (file-scoped).
+// It accepts either a scalar "always" or a sequence of path globs ["*.go", "*.ts"].
+type Activation struct {
+	Mode  string   // "always" or "paths"
+	Paths []string // populated when Mode == "paths"
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler for Activation.
+// Accepts scalar "always" → Mode="always", Paths=nil
+// Accepts sequence ["*.go", ...] → Mode="paths", Paths=[...]
+// Rejects all other values with clear error messages.
+func (a *Activation) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		if value.Value == "always" {
+			a.Mode = "always"
+			a.Paths = nil
+			return nil
+		}
+		return &yaml.TypeError{
+			Errors: []string{
+				"invalid activation \"" + value.Value + "\": expected \"always\" or a list of path globs",
+			},
+		}
+	case yaml.SequenceNode:
+		a.Mode = "paths"
+		return value.Decode(&a.Paths)
+	default:
+		return &yaml.TypeError{
+			Errors: []string{
+				"invalid activation: expected string or list, got " + value.Tag,
+			},
+		}
+	}
+}
+
+// MarshalYAML implements yaml.Marshaler for Activation.
+// Round-trip: Mode="always" → scalar "always", Mode="paths" → sequence of paths.
+func (a Activation) MarshalYAML() (interface{}, error) {
+	if a.Mode == "always" {
+		return "always", nil
+	}
+	return a.Paths, nil
 }
 
 // WorkflowConfig defines a named, reusable, multi-step procedure.
