@@ -12,6 +12,26 @@ import (
 // slugRe matches any run of non-alphanumeric characters to collapse into a dash.
 var slugRe = regexp.MustCompile(`[^a-z0-9]+`)
 
+// workflowNoteSpec holds the identifying fields for a workflow fidelity note.
+type workflowNoteSpec struct {
+	target string
+	name   string
+	code   string
+	reason string
+}
+
+// newWorkflowNote constructs a FidelityNote with Kind pre-set to "workflow".
+func newWorkflowNote(level renderer.FidelityLevel, spec workflowNoteSpec) renderer.FidelityNote {
+	return renderer.FidelityNote{
+		Level:    level,
+		Target:   spec.target,
+		Kind:     "workflow",
+		Resource: spec.name,
+		Code:     spec.code,
+		Reason:   spec.reason,
+	}
+}
+
 // WorkflowMode describes the composition pattern inferred from a workflow's structure.
 type WorkflowMode string
 
@@ -66,6 +86,77 @@ func loweringStrategy(wf *ast.WorkflowConfig, target string) string {
 	return s
 }
 
+// resolveExplicitStrategy checks for an explicit lowering-strategy or native
+// workflow promotion in the target overrides. Returns the primitives and notes
+// if a match is found, or nil if structure-based inference should be used.
+func resolveExplicitStrategy(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
+	strategy := loweringStrategy(wf, target)
+	if strategy != "" {
+		switch strategy {
+		case "prompt-file":
+			return lowerPromptFile(wf, name, target)
+		case "custom-command":
+			return lowerCustomCommand(wf, name, target)
+		case "rule-plus-skill":
+			return lowerRulePlusSkill(wf, name, target)
+		}
+	}
+
+	if override, ok := wf.Targets[target]; ok {
+		if v, ok := override.Provider["promote-rules-to-workflows"]; ok {
+			if promote, _ := v.(bool); promote {
+				return lowerNativeWorkflow(wf, name, target)
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+// lowerByMode infers the workflow mode from its structure and dispatches to the
+// appropriate lowering function. Returns primitives and notes including any
+// body-conflict or migration warnings.
+func lowerByMode(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimitive, []renderer.FidelityNote) {
+	mode := InferWorkflowMode(wf)
+
+	var notes []renderer.FidelityNote
+
+	if wf.Body != "" && len(wf.Steps) > 0 {
+		n := newWorkflowNote(renderer.LevelWarning, workflowNoteSpec{
+			target: target, name: name,
+			code:   renderer.CodeWorkflowBodyIgnored,
+			reason: fmt.Sprintf("workflow %q has both body and steps; body is ignored in %s mode", name, mode),
+		})
+		n.Mitigation = "Move body content into a step, or remove steps to use routed mode."
+		notes = append(notes, n)
+	}
+
+	var primitives []TargetPrimitive
+	switch mode {
+	case ModeRouted:
+		p, n := lowerRoutedSkill(wf, name, target)
+		primitives, notes = p, append(notes, n...)
+	case ModeChained:
+		p, n := lowerChainedSkill(wf, name, target)
+		primitives, notes = p, append(notes, n...)
+	case ModeSimple:
+		p, n := lowerSimpleSkill(wf, name, target)
+		primitives, notes = p, append(notes, n...)
+
+		if wf.AlwaysApply == nil && wf.Paths.Len() == 0 && len(wf.Steps) > 0 {
+			n := newWorkflowNote(renderer.LevelWarning, workflowNoteSpec{
+				target: target, name: name,
+				code:   renderer.CodeWorkflowDefaultChanged,
+				reason: fmt.Sprintf("workflow %q rendered as single skill (new default); previously would have been rule+skill", name),
+			})
+			n.Mitigation = "Add always-apply: true to restore ambient rule injection."
+			notes = append(notes, n)
+		}
+	}
+
+	return primitives, notes
+}
+
 // TranslateWorkflow lowers a WorkflowConfig into one or more TargetPrimitives
 // for the named target platform. The strategy is determined in this order:
 //
@@ -80,73 +171,12 @@ func TranslateWorkflow(wf *ast.WorkflowConfig, target string) ([]TargetPrimitive
 		name = "unnamed"
 	}
 
-	// 1. Explicit lowering-strategy in targets takes precedence.
-	strategy := loweringStrategy(wf, target)
-	if strategy != "" {
-		switch strategy {
-		case "prompt-file":
-			return lowerPromptFile(wf, name, target)
-		case "custom-command":
-			return lowerCustomCommand(wf, name, target)
-		case "rule-plus-skill":
-			return lowerRulePlusSkill(wf, name, target)
-		}
+	if primitives, notes := resolveExplicitStrategy(wf, name, target); primitives != nil {
+		return primitives, notes
 	}
 
-	// 2. Native workflow promotion for providers that support it.
-	if override, ok := wf.Targets[target]; ok {
-		if v, ok := override.Provider["promote-rules-to-workflows"]; ok {
-			if promote, _ := v.(bool); promote {
-				return lowerNativeWorkflow(wf, name, target)
-			}
-		}
-	}
+	primitives, notes := lowerByMode(wf, name, target)
 
-	// 3. Structure-based inference (new default path).
-	mode := InferWorkflowMode(wf)
-
-	var primitives []TargetPrimitive
-	var notes []renderer.FidelityNote
-
-	// Warn when body is present alongside steps (body will be ignored).
-	if wf.Body != "" && len(wf.Steps) > 0 {
-		notes = append(notes, renderer.FidelityNote{
-			Level:      renderer.LevelWarning,
-			Target:     target,
-			Kind:       "workflow",
-			Resource:   name,
-			Code:       renderer.CodeWorkflowBodyIgnored,
-			Reason:     fmt.Sprintf("workflow %q has both body and steps; body is ignored in %s mode", name, mode),
-			Mitigation: "Move body content into a step, or remove steps to use routed mode.",
-		})
-	}
-
-	switch mode {
-	case ModeRouted:
-		p, n := lowerRoutedSkill(wf, name, target)
-		primitives, notes = p, append(notes, n...)
-	case ModeChained:
-		p, n := lowerChainedSkill(wf, name, target)
-		primitives, notes = p, append(notes, n...)
-	case ModeSimple:
-		p, n := lowerSimpleSkill(wf, name, target)
-		primitives, notes = p, append(notes, n...)
-
-		// Migration warning: this workflow would have been rule+skill before.
-		if wf.AlwaysApply == nil && wf.Paths.Len() == 0 && len(wf.Steps) > 0 {
-			notes = append(notes, renderer.FidelityNote{
-				Level:      renderer.LevelWarning,
-				Target:     target,
-				Kind:       "workflow",
-				Resource:   name,
-				Code:       renderer.CodeWorkflowDefaultChanged,
-				Reason:     fmt.Sprintf("workflow %q rendered as single skill (new default); previously would have been rule+skill", name),
-				Mitigation: "Add always-apply: true to restore ambient rule injection.",
-			})
-		}
-	}
-
-	// 4. Add activation rule if always-apply or paths is set.
 	if rule := buildWorkflowRule(wf, name, target); rule != nil {
 		primitives = append(primitives, *rule)
 	}
@@ -202,15 +232,12 @@ func lowerRulePlusSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 		})
 	}
 
-	note := renderer.FidelityNote{
-		Level:      renderer.LevelWarning,
-		Target:     target,
-		Kind:       "workflow",
-		Resource:   name,
-		Code:       renderer.CodeWorkflowLoweredToRulePlusSkill,
-		Reason:     fmt.Sprintf("workflow %q lowered to rule+skill; %s has no native workflow primitive", name, target),
-		Mitigation: "Accept the rule-plus-skill lowering or add a target with a native workflow primitive.",
-	}
+	note := newWorkflowNote(renderer.LevelWarning, workflowNoteSpec{
+		target: target, name: name,
+		code:   renderer.CodeWorkflowLoweredToRulePlusSkill,
+		reason: fmt.Sprintf("workflow %q lowered to rule+skill; %s has no native workflow primitive", name, target),
+	})
+	note.Mitigation = "Accept the rule-plus-skill lowering or add a target with a native workflow primitive."
 	return primitives, []renderer.FidelityNote{note}
 }
 
@@ -232,14 +259,11 @@ func lowerNativeWorkflow(wf *ast.WorkflowConfig, name, target string) ([]TargetP
 		Content: body.String(),
 	}
 
-	note := renderer.FidelityNote{
-		Level:    renderer.LevelInfo,
-		Target:   target,
-		Kind:     "workflow",
-		Resource: name,
-		Code:     renderer.CodeWorkflowLoweredToNative,
-		Reason:   fmt.Sprintf("workflow %q emitted as native workflow for %s", name, target),
-	}
+	note := newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
+		target: target, name: name,
+		code:   renderer.CodeWorkflowLoweredToNative,
+		reason: fmt.Sprintf("workflow %q emitted as native workflow for %s", name, target),
+	})
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }
 
@@ -272,14 +296,11 @@ func lowerPromptFile(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimi
 		Content: content.String(),
 	}
 
-	note := renderer.FidelityNote{
-		Level:    renderer.LevelInfo,
-		Target:   target,
-		Kind:     "workflow",
-		Resource: name,
-		Code:     renderer.CodeWorkflowLoweredToPromptFile,
-		Reason:   fmt.Sprintf("workflow %q lowered to prompt file at %s", name, path),
-	}
+	note := newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
+		target: target, name: name,
+		code:   renderer.CodeWorkflowLoweredToPromptFile,
+		reason: fmt.Sprintf("workflow %q lowered to prompt file at %s", name, path),
+	})
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }
 
@@ -291,14 +312,11 @@ func lowerRoutedSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrim
 		ID:      name,
 		Content: wf.Body,
 	}
-	note := renderer.FidelityNote{
-		Level:    renderer.LevelInfo,
-		Target:   target,
-		Kind:     "workflow",
-		Resource: name,
-		Code:     renderer.CodeWorkflowRoutedToSingleSkill,
-		Reason:   fmt.Sprintf("workflow %q rendered as single routing skill for %s", name, target),
-	}
+	note := newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
+		target: target, name: name,
+		code:   renderer.CodeWorkflowRoutedToSingleSkill,
+		reason: fmt.Sprintf("workflow %q rendered as single routing skill for %s", name, target),
+	})
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }
 
@@ -334,23 +352,19 @@ func lowerChainedSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPri
 
 	p := TargetPrimitive{Kind: "skill", ID: name, Content: body.String()}
 
-	notes := []renderer.FidelityNote{{
-		Level:    renderer.LevelInfo,
-		Target:   target,
-		Kind:     "workflow",
-		Resource: name,
-		Code:     renderer.CodeWorkflowChainedToOrchestrator,
-		Reason:   fmt.Sprintf("workflow %q rendered as orchestrator skill chaining sub-skills for %s", name, target),
-	}}
+	notes := []renderer.FidelityNote{
+		newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
+			target: target, name: name,
+			code:   renderer.CodeWorkflowChainedToOrchestrator,
+			reason: fmt.Sprintf("workflow %q rendered as orchestrator skill chaining sub-skills for %s", name, target),
+		}),
+	}
 	if hasMixed {
-		notes = append(notes, renderer.FidelityNote{
-			Level:    renderer.LevelInfo,
-			Target:   target,
-			Kind:     "workflow",
-			Resource: name,
-			Code:     renderer.CodeWorkflowMixedSteps,
-			Reason:   fmt.Sprintf("workflow %q has mixed skill-ref and inline-body steps", name),
-		})
+		notes = append(notes, newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
+			target: target, name: name,
+			code:   renderer.CodeWorkflowMixedSteps,
+			reason: fmt.Sprintf("workflow %q has mixed skill-ref and inline-body steps", name),
+		}))
 	}
 	return []TargetPrimitive{p}, notes
 }
@@ -369,14 +383,13 @@ func lowerSimpleSkill(wf *ast.WorkflowConfig, name, target string) ([]TargetPrim
 
 	p := TargetPrimitive{Kind: "skill", ID: name, Content: body.String()}
 
-	notes := []renderer.FidelityNote{{
-		Level:    renderer.LevelInfo,
-		Target:   target,
-		Kind:     "workflow",
-		Resource: name,
-		Code:     renderer.CodeWorkflowSimpleToSections,
-		Reason:   fmt.Sprintf("workflow %q rendered as single skill with step sections for %s", name, target),
-	}}
+	notes := []renderer.FidelityNote{
+		newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
+			target: target, name: name,
+			code:   renderer.CodeWorkflowSimpleToSections,
+			reason: fmt.Sprintf("workflow %q rendered as single skill with step sections for %s", name, target),
+		}),
+	}
 	return []TargetPrimitive{p}, notes
 }
 
@@ -427,13 +440,10 @@ func lowerCustomCommand(wf *ast.WorkflowConfig, name, target string) ([]TargetPr
 		Content: content.String(),
 	}
 
-	note := renderer.FidelityNote{
-		Level:    renderer.LevelInfo,
-		Target:   target,
-		Kind:     "workflow",
-		Resource: name,
-		Code:     renderer.CodeWorkflowLoweredToCustomCommand,
-		Reason:   fmt.Sprintf("workflow %q lowered to custom command at %s", name, path),
-	}
+	note := newWorkflowNote(renderer.LevelInfo, workflowNoteSpec{
+		target: target, name: name,
+		code:   renderer.CodeWorkflowLoweredToCustomCommand,
+		reason: fmt.Sprintf("workflow %q lowered to custom command at %s", name, path),
+	})
 	return []TargetPrimitive{p}, []renderer.FidelityNote{note}
 }
