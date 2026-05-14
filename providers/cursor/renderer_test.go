@@ -348,7 +348,7 @@ func TestCompile_Agent_MappedAlias_EmittedWhenMapped(t *testing.T) {
 			Agents: map[string]ast.AgentConfig{
 				"aliased-agent": {
 					Name:  "Aliased Agent",
-					Model: "sonnet-4",
+					Model: "balanced",
 					Body:  "Uses an alias.",
 				},
 			},

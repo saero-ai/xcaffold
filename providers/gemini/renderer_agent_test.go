@@ -158,7 +158,7 @@ func TestRenderAgents_ModelAlias_Translated(t *testing.T) {
 				"test-agent": {
 					Name:        "test-agent",
 					Description: "A test agent",
-					Model:       "sonnet-4",
+					Model:       "balanced",
 					Body:        "Do things.",
 				},
 			},

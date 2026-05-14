@@ -307,7 +307,7 @@ name: "settings-merge-test"
 `)
 	writeTestXCAF(t, dir, "project-settings.xcaf", `kind: settings
 version: "1.0"
-model: "sonnet-4"
+model: "balanced"
 `)
 	writeTestXCAF(t, dir, "settings.xcaf", `kind: settings
 version: "1.0"
@@ -318,7 +318,7 @@ env:
 
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
-	assert.Equal(t, "sonnet-4", cfg.Settings["default"].Model)
+	assert.Equal(t, "balanced", cfg.Settings["default"].Model)
 	assert.Equal(t, "high", cfg.Settings["default"].EffortLevel)
 	assert.Equal(t, "test", cfg.Settings["default"].Env["API_KEY"])
 }
@@ -332,11 +332,11 @@ name: "conflict-test"
 `)
 	writeTestXCAF(t, dir, "a-settings.xcaf", `kind: settings
 version: "1.0"
-model: "sonnet-4"
+model: "balanced"
 `)
 	writeTestXCAF(t, dir, "b.xcaf", `kind: settings
 version: "1.0"
-model: "opus-4"
+model: "flagship"
 `)
 
 	_, err := ParseDirectory(dir)
@@ -364,7 +364,7 @@ func TestParseDirectory_ExtendsGlobal_InheritsSettings(t *testing.T) {
 	writeTestXCAF(t, globalDir, "global.xcaf", `kind: global
 version: "1.0"
 settings:
-  model: "sonnet-4"
+  model: "balanced"
   effort-level: "high"
   env:
     GLOBAL_KEY: "from-global"
@@ -383,7 +383,7 @@ settings:
 
 	cfg, err := ParseDirectory(projectDir)
 	require.NoError(t, err)
-	assert.Equal(t, "sonnet-4", cfg.Settings["default"].Model)
+	assert.Equal(t, "balanced", cfg.Settings["default"].Model)
 	assert.Equal(t, "low", cfg.Settings["default"].EffortLevel)
 	assert.Equal(t, "from-global", cfg.Settings["default"].Env["GLOBAL_KEY"])
 	assert.Equal(t, "from-project", cfg.Settings["default"].Env["PROJECT_KEY"])

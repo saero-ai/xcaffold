@@ -151,11 +151,11 @@ func TestParse_Frontmatter_BodyDoesNotOverrideYAMLInstructions(t *testing.T) {
 func TestParse_Frontmatter_SettingsKindWithBodyIgnored(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "settings.xcaf")
-	content := "---\nkind: settings\nversion: \"1.0\"\nmodel: sonnet-4\n---\nThis body should be ignored.\n"
+	content := "---\nkind: settings\nversion: \"1.0\"\nmodel: balanced\n---\nThis body should be ignored.\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
-	assert.Equal(t, "sonnet-4", cfg.Settings["default"].Model)
+	assert.Equal(t, "balanced", cfg.Settings["default"].Model)
 }
 
 func TestParse_Frontmatter_KnownFieldsOnFrontmatterOnly(t *testing.T) {

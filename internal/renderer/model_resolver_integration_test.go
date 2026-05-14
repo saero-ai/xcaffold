@@ -8,7 +8,7 @@ import (
 )
 
 func TestAllProvidersHaveModelResolversRegistered(t *testing.T) {
-	providers := []string{"claude", "cursor", "gemini", "copilot", "antigravity"}
+	providers := []string{"claude", "cursor", "gemini", "copilot", "antigravity", "codex"}
 
 	for _, p := range providers {
 		resolver := renderer.LookupModelResolver(p)
