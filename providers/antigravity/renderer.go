@@ -240,25 +240,22 @@ func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, bas
 		files[safePath] = md
 	}
 
-	// Copy workflow artifact directories. Reuse skill artifact infrastructure by
-	// constructing a synthetic SkillConfig that only carries the Artifacts list.
-	out := &output.Output{Files: files}
+	// Copy workflow artifact directories. Missing optional directories are
+	// demoted to fidelity notes so the rest of the workflow still compiles.
 	caps := r.Capabilities()
 	for id, wf := range workflows {
 		if len(wf.Artifacts) == 0 {
 			continue
 		}
-		syntheticSkill := ast.SkillConfig{Artifacts: wf.Artifacts}
 		workflowSourceDir := filepath.Join("xcaf", "workflows", id)
-		if err := compileSkillArtifacts(renderer.SkillArtifactContext{
-			ID:             id,
-			Skill:          syntheticSkill,
-			Caps:           caps,
-			BaseDir:        baseDir,
-			SkillSourceDir: workflowSourceDir,
-		}, out); err != nil {
-			return nil, nil, err
-		}
+		artifactNotes := renderer.CompileArtifactsDemoted(targetName, renderer.ArtifactJob{
+			ID:        id,
+			BaseDir:   baseDir,
+			Caps:      caps,
+			Files:     files,
+			SourceDir: workflowSourceDir,
+		}, wf.Artifacts)
+		notes = append(notes, artifactNotes...)
 	}
 	return files, notes, nil
 }
