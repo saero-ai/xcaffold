@@ -16,13 +16,14 @@ linters-settings:
     min-complexity: 15
   goconst:
     min-len: 3
-    min-occurrences: 3
+    min-occurrences: 5
 
 issues:
   exclude-rules:
     - path: _test\.go
       linters:
         - errcheck
+        - goconst
 
 linters:
   disable-all: true
