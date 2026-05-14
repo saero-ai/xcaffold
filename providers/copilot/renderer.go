@@ -200,6 +200,23 @@ func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, bas
 		notes = append(notes, skillNotes...)
 	}
 
+	// Copy workflow artifact directories. Lowered skills don't carry the original
+	// workflow's Artifacts field, so handle them from the original workflow configs.
+	caps := r.Capabilities()
+	for id, wf := range workflows {
+		if len(wf.Artifacts) == 0 {
+			continue
+		}
+		artifactNotes := compileCopilotSkillArtifacts(skillArtifactJob{
+			id:        id,
+			baseDir:   baseDir,
+			caps:      caps,
+			files:     files,
+			sourceDir: filepath.Join("xcaf", "workflows", id),
+		}, wf.Artifacts)
+		notes = append(notes, artifactNotes...)
+	}
+
 	return files, notes, nil
 }
 
@@ -577,18 +594,23 @@ func copilotSkillFidelityNotes(id string, skill ast.SkillConfig) []renderer.Fide
 }
 
 // skillArtifactJob bundles the inputs needed to compile a skill's artifact subdirs.
+// When sourceDir is non-empty it overrides the default xcaf/skills/<id> source path.
 type skillArtifactJob struct {
-	id      string
-	baseDir string
-	caps    renderer.CapabilitySet
-	files   map[string]string
+	id        string
+	baseDir   string
+	caps      renderer.CapabilitySet
+	files     map[string]string
+	sourceDir string // optional override; defaults to xcaf/skills/<id>
 }
 
 // compileCopilotSkillArtifacts discovers and compiles artifact subdirs for a skill.
 // Errors are demoted to fidelity notes so the rest of the skill still compiles.
 func compileCopilotSkillArtifacts(j skillArtifactJob, artifacts []string) []renderer.FidelityNote {
 	var notes []renderer.FidelityNote
-	skillSourceDir := filepath.Join("xcaf", "skills", j.id)
+	skillSourceDir := j.sourceDir
+	if skillSourceDir == "" {
+		skillSourceDir = filepath.Join("xcaf", "skills", j.id)
+	}
 	subOut := &output.Output{Files: make(map[string]string)}
 
 	for _, artifactName := range artifacts {
