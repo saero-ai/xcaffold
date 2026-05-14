@@ -26,7 +26,6 @@ xcaffold apply [flags]
 | `--global` | `-g` | `bool` | `false` | Compile the global config (`~/.xcaffold/global.xcaf`). |
 | `--yes` | `-y` | `bool` | `false` | Skip the confirmation prompt. Useful for CI/CD pipelines. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
-| `--project <name>` | — | `string` | `""` | Apply to a project registered in the global registry. |
 | `--target <name>` | — | `string` | `""` | Compilation target platform (`antigravity`, `claude`, `copilot`, `cursor`, `gemini`). When omitted, reads targets from `project.xcaf`. |
 | `--var-file <path>` | — | `string` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
 

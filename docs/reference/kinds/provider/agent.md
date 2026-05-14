@@ -125,7 +125,6 @@ You are the ONLY agent authorized to modify `src/components/`.
 | `skills` | `[]string` | Skill resource IDs attached to this agent. Must match top-level `skills:` map keys. |
 | `rules` | `[]string` | Rule resource IDs governing this agent. Must match top-level `rules:` map keys. |
 | `mcp` | `[]string` | MCP server resource IDs available to this agent. Must match top-level `mcp:` map keys. |
-| `assertions` | `[]string` | Policy assertion IDs evaluated by `xcaffold test --judge`. |
 | `mcp-servers` | `map[string]MCPConfig` | Inline MCP server definitions keyed by server name. Same field schema as [`kind: mcp`](./mcp). |
 | `hooks` | `HookConfig` | Agent-scoped lifecycle hooks. Same structure as [`kind: hooks`](./hooks). |
 | `targets` | `map[string]TargetOverride` | Per-provider overrides keyed by provider name (`claude`, `cursor`, `copilot`, `gemini`, `antigravity`). |

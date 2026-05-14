@@ -67,7 +67,7 @@ Variable names are not restricted to kebab-case. Authors are free to use `snake_
 
 - **Managing Environments**: When deploying agent configurations across multiple environments (development, staging, production), teams can use the `--var-file` CLI flag to inject environment-specific constants without altering the core `.xcaf` manifests.
 - **Provider-Specific Tuning**: When a workflow must run on both Claude and Gemini, but requires different timeout thresholds or model aliases for each, authors can declare those differences in `project.claude.vars` and `project.gemini.vars` while maintaining a single `workflow.xcaf` file.
-- **Local Development Secrets**: Developers can use the gitignored `project.vars.local` file to inject personal API keys or test values during local `xcaffold test` runs without risking a commit leak.
+- **Local Development Secrets**: Developers can use the gitignored `project.vars.local` file to inject personal API keys or test values during local development without risking a commit leak.
 
 ## Related
 

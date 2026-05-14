@@ -86,5 +86,3 @@ xcaffold status                       # verify drift
 - `xcaffold status` — show compilation state and drift across providers
 - `xcaffold list` — enumerate declared resources
 - `xcaffold graph` — visualize agent/skill/rule dependency topology
-- `xcaffold export` — export compiled output as an installable provider plugin
-- `xcaffold test` — simulate agent execution with optional LLM-as-a-Judge evaluation

@@ -16,7 +16,6 @@ graph LR
   FAIL["stderr violations"]
 
   subgraph Global Home ["~/.xcaffold/"]
-    R[registry.xcaf]
     GC[global.xcaf]
   end
 
@@ -40,7 +39,6 @@ graph LR
     F[".xcaffold/project.xcaf.state"]
   end
 
-  R -..->|registry lookup| A
   GC -->|"--global / -g"| B
   A --> B
   XCAF --> B
@@ -58,16 +56,15 @@ Each target declared in `project.xcaf` dispatches to a registered `TargetRendere
 
 ## Global Home (`~/.xcaffold/`)
 
-Created automatically on first run by `registry.EnsureGlobalHome()`. Contains two seed files:
+Created automatically on first run by `registry.EnsureGlobalHome()`. Contains one seed file:
 
 | File | Purpose |
 |---|---|
 | `global.xcaf` | User-wide agent config (uses `kind: global` for global-scope resources and settings) — populated by provider-registered scan functions |
-| `registry.xcaf` | YAML list of all registered projects (`name`, `path`, `targets`, `registered`, `last_applied`) |
 
-Each provider registers a `ProviderManifest` (including a `GlobalScanner` function) via `providers.Register()` in its `init()`. The `GlobalScanIterator` callback in `internal/registry/` iterates all registered manifests and calls each scanner to discover platform-specific configuration artifacts.
+Each provider registers a `ProviderManifest` (including a `GlobalScanner` function) via `providers.Register()` in its `init()`. Each scanner discovers platform-specific configuration artifacts and writes them into `global.xcaf`.
 
-> New providers are added by implementing a `GlobalScanner` function, including it in a `ProviderManifest`, and calling `providers.Register()`. No changes to the core registry package are required.
+> New providers are added by implementing a `GlobalScanner` function, including it in a `ProviderManifest`, and calling `providers.Register()`. No changes to the core package are required.
 
 ---
 
@@ -90,7 +87,6 @@ Every `.xcaf` file carries a `kind:` field as its first key. The parser reads th
 | `memory` | Resource | `MemoryConfig` | Agent memory content |
 | `blueprint` | Composition | `BlueprintConfig` | Merges resource ref-lists via `extends:` |
 | `policy` | Constraint | `PolicyConfig` | Declarative constraint (Preview) |
-| `registry` | Internal | — | Project registry — skipped by directory scanner |
 
 Project kinds are parsed by `parser.ParseDirectory()`. Resource and constraint kinds are parsed by `parseResourceDocument()`. Blueprints are parsed by `parseBlueprintDocument()`. Every `.xcaf` file must declare an explicit `kind:` field.
 
@@ -109,7 +105,6 @@ Project kinds are parsed by `parser.ParseDirectory()`. Resource and constraint k
 | `importer` | `internal/importer/` | `ProviderImporter` interface — symmetric to `TargetRenderer`; detects and dispatches to per-provider implementations in `providers/` |
 | `output` | `internal/output/` | `Output` struct — `map[relPath]content` file map |
 | `state` | `internal/state/` | SHA-256 `.xcaffold/project.xcaf.state` generation, read, and write |
-| `registry` | `internal/registry/` | Global home bootstrap, project registry CRUD, platform provider scans |
 | `templates` | `internal/templates/` | Embedded scaffolding templates (`agents/`, `rules/`, `skills/`) for `xcaffold init` project bootstrap |
 | `analyzer` | `internal/analyzer/` | `ScanOutputDir` (undeclared artifact detection) and `ScanProject` (project signature extraction for `generator`) |
 | `blueprint` | `internal/blueprint/` | Resolves `extends:` chains for blueprints via set-union merge across all resource ref-lists; errors on circular references or chains exceeding depth limit |
@@ -117,11 +112,8 @@ Project kinds are parsed by `parser.ParseDirectory()`. Resource and constraint k
 | `optimizer` | `internal/optimizer/` | Post-compile transformation pipeline for `xcaffold apply` — 7 named passes (`flatten-scopes`, `inline-imports`, `dedupe`, `extract-common`, `prune-unused`, `normalize-paths`, `split-large-rules`); required passes prepended per-target |
 | `resolver` | `internal/resolver/` | Resolves `instructions-file:` and `references:` relative paths |
 | `generator` | `internal/generator/` | LLM-powered scaffold generation via `llmclient`; analyzes project signature and outputs xcaffold configuration |
-| `judge` | `internal/judge/` | LLM-as-a-Judge evaluation via `llmclient`; scores execution traces against user-defined assertions |
-| `proxy` | `internal/proxy/` | HTTP intercept proxy for tool-call recording; used by integration tests |
-| `trace` | `internal/trace/` | Concurrent-safe JSONL execution trace recording |
 | `auth` | `internal/auth/` | `AuthMode` type and constants — `api_key`, `generic_api`, `subscription` — shared across LLM-consuming packages |
-| `llmclient` | `internal/llmclient/` | Provider-agnostic LLM HTTP client — Anthropic API, OpenAI-compatible API, or local CLI subprocess; shared by `generator` and `judge` |
+| `llmclient` | `internal/llmclient/` | Provider-agnostic LLM HTTP client — Anthropic API, OpenAI-compatible API, or local CLI subprocess; shared by `generator` |
 | `prompt` | `internal/prompt/` | Interactive terminal prompts — `Ask()`, `Confirm()`, `MultiSelect()` — built on `charmbracelet/huh` |
 | `integration` | `internal/integration/` | Cross-package integration tests (real-data schema validation, API simulation, memory lifecycle) |
 
@@ -160,15 +152,7 @@ Topology     → xcaffold graph      (ASCII / Mermaid / DOT / JSON output)
 Compilation  → xcaffold apply      (xcaf → policy evaluation → target output files)
 Drift Check  → xcaffold status     (compare state against live output files)
 Validation   → xcaffold validate   (syntax/structural check)
-Listing      → xcaffold list       (view registered projects)
-```
-
-> **Planned.** The following commands are planned for future development:
-
-```
-Registry     → xcaffold registry   (manage project registry)
-Simulation   → xcaffold test       (API simulation: compiled prompt → LLM → tool call recording)
-Export       → xcaffold export     (package compiled output as distributable plugin)
+Listing      → xcaffold list       (list resources and blueprints)
 ```
 
 ---

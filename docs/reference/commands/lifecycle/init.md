@@ -30,7 +30,7 @@ xcaffold init [flags]
 1. **Detection:** Checks for existing provider directories (`.claude/`, `.cursor/`, `.agents/`) and an existing `project.xcaf`. When provider directories are found, asks if you want to import them and performs the import directly if you confirm.
 2. **Target Selection:** Presents an interactive multi-select prompt to choose one or more target providers. Skipped when `--target` is set.
 3. **Synthesis:** Writes `project.xcaf` and the `xcaf/` source directory, including the Xaff authoring agent, the `xcaffold` skill, the `xcaf-conventions` rule, and provider override files for each selected target.
-4. **Registration:** Registers the project in the local xcaffold registry.
+4. **Registration:** Records the project path for global config inheritance.
 
 ## Output
 

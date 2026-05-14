@@ -88,22 +88,6 @@
 #   xcaffold list
 #   xcaffold list --verbose               # show memory entry names per agent
 
-# ── export ───────────────────────────────────────────────────
-# Export compiled output as an installable provider plugin.
-# Scope: project
-#
-#   xcaffold export --target claude --output ./dist
-#   xcaffold export --format plugin --target gemini
-
-# ── test ─────────────────────────────────────────────────────
-# Simulate agent execution and optionally evaluate with LLM-as-a-Judge.
-# Scope: project
-#
-#   xcaffold test --agent reviewer
-#   xcaffold test --agent reviewer --judge
-#   xcaffold test --agent reviewer --output trace.jsonl
-#   xcaffold test --agent reviewer --judge-model claude-opus-4-7
-
 # ── Workflow ─────────────────────────────────────────────────
 # Typical development loop:
 #

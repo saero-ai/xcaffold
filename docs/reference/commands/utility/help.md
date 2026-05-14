@@ -129,7 +129,6 @@ Flags:
       --dry-run            Preview changes without writing to disk
       --force              Overwrite customized local files and bypass drift safeguard
   -h, --help               help for apply
-      --project string     Apply to an external project registered in the global registry
       --target string      compilation target platform (antigravity, claude, copilot, cursor, gemini)
       --var-file string    Load variables from a custom file
 

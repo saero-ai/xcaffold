@@ -13,4 +13,3 @@ Xcaffold kinds configure the compiler itself. They are evaluated at compile time
 | [`policy`](./policy) | Compile-time constraint; blocks or warns when a resource violates the rule |
 | [`blueprint`](./blueprint) | Named resource subset used for conditional or partial compilation |
 | [`global`](./global) | Shared resource definitions inherited by projects via `extends:` |
-| [`registry`](./registry) | Machine-wide project index — tracks initialized repos and apply timestamps (auto-managed) |

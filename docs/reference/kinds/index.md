@@ -32,7 +32,6 @@ These kinds govern the compiler itself — they configure compilation targets, e
 | [`policy`](./xcaffold/policy) | Compile-time constraint evaluated during `apply` and `validate` |
 | [`blueprint`](./xcaffold/blueprint) | Named resource subset for conditional compilation |
 | [`global`](./xcaffold/global) | Shared resource definitions inherited across projects |
-| [`registry`](./xcaffold/registry) | Machine-wide project index at `~/.xcaffold/registry.xcaf` (managed by CLI) |
 
 ---
 

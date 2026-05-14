@@ -53,11 +53,6 @@ targets:
   - gemini
   - copilot
   - antigravity
-test:
-  cli-path: /usr/local/bin/claude
-  judge-model: claude-opus-4-5
-  task: "Demonstrate all capabilities and confirm every feature works end-to-end."
-  max-turns: 10
 target-options:
   copilot:
     hooks:
@@ -88,7 +83,6 @@ target-options:
 | `backup-dir` | `string` | Directory where provider output is backed up before each overwrite. |
 | `allowed-env-vars` | `[]string` | Environment variable names that may be injected via `${env.NAME}` inside `.xcaf` files. Variables not listed here are rejected at compile time. |
 | `targets` | `[]string` | Provider targets to compile: `claude`, `cursor`, `gemini`, `copilot`, `antigravity`. When empty, the `--target` flag must be provided at compile time. |
-| `test` | `TestConfig` | Configuration for `xcaffold test`. See [test block](#test-block). |
 | `target-options` | `map[string]TargetOverride` | Per-provider compile-time overrides. See [target-options block](#target-options-block). |
 
 > **Note:** Resources (agents, skills, rules, MCP servers, policies, workflows, memory, and contexts) are not declared inline in `project.xcaf`. They are discovered automatically from `xcaf/` subdirectories (e.g., `xcaf/agents/<name>/agent.xcaf`). See [Resource File Format](#resource-file-format-one-kind-per-file) in the kinds index for directory layout details.
@@ -103,17 +97,6 @@ Resources are not declared inline in the project manifest. Instead, xcaffold dis
 - `xcaf/policies/<name>/policy.xcaf` — Policy constraints
 
 All discovered resources are merged into the project's compilation scope automatically. No explicit entry in `project.xcaf` is required.
-
-### `test` block
-
-Configures the `xcaffold test` command. All fields are optional.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `cli-path` | `string` | Path to the CLI binary used for simulation. |
-| `judge-model` | `string` | Generative model used for LLM-as-a-Judge evaluation. |
-| `task` | `string` | User prompt sent to the agent during test simulation. Defaults to a generic capability discovery prompt. |
-| `max-turns` | `int` | Maximum simulated conversation turns. Reserved for future multi-turn support. |
 
 ### `target-options` block
 

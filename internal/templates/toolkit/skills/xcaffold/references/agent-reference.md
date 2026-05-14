@@ -44,7 +44,6 @@ initial-prompt: ""           # Auto-submitted first turn (Claude).
 skills: []                  # Skills loaded into agent context.
 rules: []                   # Rules applied to this agent.
 mcp: []                     # MCP server references (by name).
-assertions: []              # Test assertions (evaluated by xcaffold test --judge).
 
 # ── Inline Composition ───────────────────────────────────────
 # mcp-servers:                 # Inline MCP server definitions.

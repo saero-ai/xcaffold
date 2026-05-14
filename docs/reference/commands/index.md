@@ -49,9 +49,6 @@ All top-level commands accept the following persistent flags:
 | Command | Description |
 |---|---|
 | [`help`](./utility/help.md) | Display help for any command or resource kind schema. |
-| [`export`](./utility/export.md) _(Planned)_ | Package compiled output as a distributable plugin. |
-| [`test`](./utility/test.md) _(Planned)_ | Run sandboxed agent simulation with optional LLM judge. |
-| [`registry`](./utility/registry.md) _(Planned)_ | List projects registered in the global registry. |
 
 ## Quick Reference
 
@@ -126,15 +123,14 @@ xcaffold --xcaf rule --out ./templates/
 
 Flags that narrow the scope of a command to a specific target, blueprint, project, or agent.
 
-| Flag | `init` | `apply` | `import` | `validate` | `status` | `list` | `graph` | `export` | `test` |
-|---|---|---|---|---|---|---|---|---|---|
-| `--target` | Yes | Yes | Yes | Yes | Yes | — | — | Yes | — |
-| `--blueprint` | — | Yes | — | Yes | Yes | Yes | Yes | — | — |
-| `--project` | — | Yes | — | — | — | — | Yes | — | — |
-| `--agent` | — | — | — | — | — | — | Yes | — | Yes |
+| Flag | `init` | `apply` | `import` | `validate` | `status` | `list` | `graph` |
+|---|---|---|---|---|---|---|---|
+| `--target` | Yes | Yes | Yes | Yes | Yes | — | — |
+| `--blueprint` | — | Yes | — | Yes | Yes | Yes | Yes |
+| `--agent` | — | — | — | — | — | — | Yes |
 
 `init --target` accepts multiple values (`--target claude,cursor`). All other `--target` flags accept a single provider.  
-`test --agent` is required. `graph --agent` is optional.
+`graph --agent` is optional.
 
 #### Per-Kind Resource Filters
 
