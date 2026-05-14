@@ -23,7 +23,6 @@ import (
 	"github.com/saero-ai/xcaffold/internal/output"
 	"github.com/saero-ai/xcaffold/internal/renderer"
 	"github.com/saero-ai/xcaffold/internal/resolver"
-	"github.com/saero-ai/xcaffold/internal/translator"
 )
 
 const (
@@ -198,44 +197,22 @@ func (r *Renderer) CompileRules(rules map[string]ast.RuleConfig, baseDir string)
 	return files, notes, nil
 }
 
-// CompileWorkflows renders all workflows to workflows/<id>.md files. When
-// promote-rules-to-workflows is set on the antigravity target override,
-// TranslateWorkflow is used for the native lowering path.
+// CompileWorkflows renders all workflows to workflows/<id>.md files.
+// Antigravity always renders native workflow output — step data is used
+// directly and no promote-rules-to-workflows check is required.
 func (r *Renderer) CompileWorkflows(workflows map[string]ast.WorkflowConfig, baseDir string) (map[string]string, []renderer.FidelityNote, error) {
 	files := make(map[string]string)
 	var notes []renderer.FidelityNote
 
 	for id, wf := range workflows {
+		if strings.TrimSpace(id) == "" {
+			return nil, nil, fmt.Errorf("antigravity: workflow id must not be empty")
+		}
 		wfCopy := wf
 		if wfCopy.Name == "" {
 			wfCopy.Name = id
 		}
-		// When promote-rules-to-workflows is set, use TranslateWorkflow for
-		// the native path (emits a fidelity note). Otherwise fall back to the
-		// existing step-body compiler which handles single-body workflows too.
-		if override, ok := wfCopy.Targets["antigravity"]; ok {
-			if v, ok2 := override.Provider["promote-rules-to-workflows"]; ok2 {
-				if promote, _ := v.(bool); promote {
-					primitives, wfNotes := translator.TranslateWorkflow(&wfCopy, targetName)
-					notes = append(notes, wfNotes...)
-					for _, p := range primitives {
-						content := p.Content
-						if content == "" {
-							content = p.Body
-						}
-						if p.Kind == "workflow" {
-							safePath := filepath.Clean(fmt.Sprintf("workflows/%s.md", p.ID))
-							files[safePath] = content
-						}
-					}
-					continue
-				}
-			}
-		}
-		md, err := compileAntigravityWorkflow(id, wfCopy, baseDir)
-		if err != nil {
-			return nil, nil, fmt.Errorf("antigravity: failed to compile workflow %q: %w", id, err)
-		}
+		md := compileNativeWorkflow(id, wfCopy)
 		safePath := filepath.Clean(fmt.Sprintf("workflows/%s.md", id))
 		files[safePath] = md
 	}
@@ -531,14 +508,11 @@ func compileAntigravitySkill(id string, skill ast.SkillConfig, baseDir string) (
 	return sb.String(), nil
 }
 
-// compileAntigravityWorkflow renders a single WorkflowConfig to a workflows/<id>.md file.
-func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string) (string, error) {
-	if strings.TrimSpace(id) == "" {
-		return "", fmt.Errorf("workflow id must not be empty")
-	}
-
-	body := resolver.StripFrontmatter(wf.Body)
-
+// compileNativeWorkflow renders a WorkflowConfig to the Antigravity-native
+// workflows/<id>.md format: YAML frontmatter with description, followed by
+// ## <step-name> sections. Each step emits its instructions inline or an
+// "Invoke /skill-name." line when the step references a skill.
+func compileNativeWorkflow(id string, wf ast.WorkflowConfig) string {
 	var sb strings.Builder
 
 	sb.WriteString("---\n")
@@ -547,14 +521,18 @@ func compileAntigravityWorkflow(id string, wf ast.WorkflowConfig, baseDir string
 	} else if wf.Name != "" {
 		fmt.Fprintf(&sb, "description: %s\n", renderer.YAMLScalar(wf.Name))
 	}
-	sb.WriteString("---\n")
+	sb.WriteString("---\n\n")
 
-	if body != "" {
-		sb.WriteString("\n")
-		// Strip any inner frontmatter
-		sb.WriteString(strings.TrimRight(renderer.StripAllFrontmatter(body), "\n"))
-		sb.WriteString("\n")
+	for _, step := range wf.Steps {
+		fmt.Fprintf(&sb, "## %s\n\n", step.Name)
+		if step.Skill != "" {
+			fmt.Fprintf(&sb, "Invoke `/%s`.\n\n", step.Skill)
+		}
+		if step.Instructions != "" {
+			sb.WriteString(step.Instructions)
+			sb.WriteString("\n\n")
+		}
 	}
 
-	return sb.String(), nil
+	return sb.String()
 }

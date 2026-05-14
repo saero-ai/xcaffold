@@ -74,9 +74,9 @@ func TestCompile_Workflow_RulePlusSkillLowering(t *testing.T) {
 }
 
 // TestCompile_Workflow_AntigravityNative verifies that the Antigravity renderer
-// emits a native workflow file and does not create a rules/ lowering artifact.
-// The promote-rules-to-workflows target override triggers the native path and
-// causes the CodeWorkflowLoweredToNative fidelity note to be emitted.
+// always emits a native workflow file regardless of target overrides, and does
+// not create a rules/ lowering artifact. promote-rules-to-workflows is a no-op
+// because Antigravity renders natively on every path.
 func TestCompile_Workflow_AntigravityNative(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
@@ -86,10 +86,12 @@ func TestCompile_Workflow_AntigravityNative(t *testing.T) {
 					Name:        "code-review",
 					Description: "Multi-step pull request review procedure.",
 					Steps: []ast.WorkflowStep{
-						{Name: "analyze", Body: "Read the diff and summarize changed modules."},
-						{Name: "lint", Body: "Check style violations in changed files."},
-						{Name: "summarize", Body: "Write the final review comment."},
+						{Name: "analyze", Instructions: "Read the diff and summarize changed modules."},
+						{Name: "lint", Instructions: "Check style violations in changed files."},
+						{Name: "summarize", Instructions: "Write the final review comment."},
 					},
+					// promote-rules-to-workflows is a no-op; kept here for
+					// backward-compat verification that old configs still compile.
 					Targets: map[string]ast.TargetOverride{
 						"antigravity": {
 							Provider: map[string]any{
@@ -101,7 +103,7 @@ func TestCompile_Workflow_AntigravityNative(t *testing.T) {
 			},
 		},
 	}
-	out, notes, err := compiler.Compile(config, t.TempDir(), compiler.CompileOpts{Target: "antigravity"})
+	out, _, err := compiler.Compile(config, t.TempDir(), compiler.CompileOpts{Target: "antigravity"})
 	require.NoError(t, err)
 
 	// Native workflow file must exist.
@@ -109,20 +111,14 @@ func TestCompile_Workflow_AntigravityNative(t *testing.T) {
 	require.True(t, ok, "expected workflows/code-review.md in output; got keys: %v", fileKeys(out.Files))
 	require.NotEmpty(t, wfContent)
 
+	// Workflow must use step-based rendering (## headings for each step).
+	require.Contains(t, wfContent, "## analyze")
+	require.Contains(t, wfContent, "## lint")
+	require.Contains(t, wfContent, "## summarize")
+
 	// No rules lowering artifact should exist.
 	_, hasRule := out.Files["rules/code-review.md"]
 	require.False(t, hasRule, "antigravity target must not emit a rules/ lowering artifact")
-
-	// At least one fidelity note with LevelInfo and CodeWorkflowLoweredToNative.
-	var found bool
-	for _, n := range notes {
-		if n.Code == renderer.CodeWorkflowLoweredToNative && n.Level == renderer.LevelInfo {
-			found = true
-			break
-		}
-	}
-	require.True(t, found,
-		"expected a LevelInfo note with CodeWorkflowLoweredToNative; got notes: %v", notes)
 }
 
 // TestRealData_Workflow_Fixtures verifies the sidecar markdown files used as
