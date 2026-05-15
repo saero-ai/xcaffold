@@ -483,6 +483,10 @@ func splitAgentOverrides(configs map[string]ast.AgentConfig) (ast.AgentConfig, m
 		if provider == baseProv {
 			continue
 		}
+		// Normalize whitespace-only bodies to empty string
+		if strings.TrimSpace(cfg.Body) == "" {
+			cfg.Body = ""
+		}
 		// Strip body if identical to base
 		if strings.TrimSpace(cfg.Body) == strings.TrimSpace(base.Body) {
 			cfg.Body = ""
@@ -530,6 +534,10 @@ func splitSkillOverrides(configs map[string]ast.SkillConfig) (ast.SkillConfig, m
 		if provider == baseProv {
 			continue
 		}
+		// Normalize whitespace-only bodies to empty string
+		if strings.TrimSpace(cfg.Body) == "" {
+			cfg.Body = ""
+		}
 		// Strip body if identical to base
 		if strings.TrimSpace(cfg.Body) == strings.TrimSpace(base.Body) {
 			cfg.Body = ""
@@ -559,6 +567,10 @@ func splitRuleOverrides(configs map[string]ast.RuleConfig) (ast.RuleConfig, map[
 	for provider, cfg := range configs {
 		if provider == baseProv {
 			continue
+		}
+		// Normalize whitespace-only bodies to empty string
+		if strings.TrimSpace(cfg.Body) == "" {
+			cfg.Body = ""
 		}
 		// Strip body if identical to base
 		if strings.TrimSpace(cfg.Body) == strings.TrimSpace(base.Body) {

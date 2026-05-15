@@ -1776,6 +1776,53 @@ func TestAssembleSkills_BodyPriorityBaseSelection(t *testing.T) {
 	assert.Equal(t, "Follow TDD: Red-Green-Refactor.", skill.Body, "base skill must have body from body-bearing provider")
 }
 
+func TestAssembleAgents_BodyPriority_IdenticalBodyDedup(t *testing.T) {
+	sharedBody := "You are an auth specialist. Focus on security."
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"auth-specialist": {
+						Name:        "auth-specialist",
+						Description: "Auth specialist",
+						Model:       "sonnet",
+						Tools:       ast.ClearableList{Values: []string{"Read"}},
+						Body:        sharedBody,
+					},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"auth-specialist": {
+						Name:        "auth-specialist",
+						Description: "Auth specialist",
+						Body:        sharedBody, // identical body
+					},
+				},
+			},
+		},
+	}
+
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: make(map[string]ast.AgentConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+
+	agent := result.Agents["auth-specialist"]
+	assert.Equal(t, sharedBody, agent.Body, "base must retain body")
+
+	if result.Overrides != nil {
+		override, exists := result.Overrides.GetAgent("auth-specialist", "gemini")
+		if exists {
+			assert.Empty(t, override.Body, "override body must be stripped when identical to base")
+		}
+	}
+}
+
 func TestImport_HookConfigsIdentical_ReturnsTrueForMatchingConfigs(t *testing.T) {
 	configs := map[string]ast.NamedHookConfig{
 		"claude": {
