@@ -1055,3 +1055,57 @@ func TestInit_JSONFlag_OutputIsOnlyJSON(t *testing.T) {
 	require.True(t, ok, "files[0] should be a string")
 	assert.Equal(t, "project.xcaf", firstFile, "first file should be project.xcaf")
 }
+
+// TestInit_MemoryFilesPreserved verifies that injectXaffToolkitAfterImport
+// does not delete memory files that were written by the import process.
+// This is a regression test for the bug where pruneOrphanMemory was called
+// with an empty config (parsed from project.xcaf with no agents), deleting
+// all agent memory files that mergeImportDirs had just written.
+func TestInit_MemoryFilesPreserved(t *testing.T) {
+	dir := t.TempDir()
+
+	// Set up a project.xcaf with no agents (simulating the state after import
+	// that writes the agent configs, before injectXaffToolkitAfterImport is called)
+	projXcaf := filepath.Join(dir, "project.xcaf")
+	projContent := `kind: project
+version: "1.0"
+name: test-project
+targets: [claude]
+`
+	require.NoError(t, os.WriteFile(projXcaf, []byte(projContent), 0644))
+
+	// Simulate memory files that were just written by mergeImportDirs
+	memoryDir := filepath.Join(dir, "xcaf", "agents", "test-agent", "memory")
+	require.NoError(t, os.MkdirAll(memoryDir, 0755))
+
+	memoryFile1 := filepath.Join(memoryDir, "memory1.md")
+	memoryContent1 := `---
+name: test_memory_1
+description: Test memory
+metadata:
+  type: user
+---
+Test memory 1.`
+	require.NoError(t, os.WriteFile(memoryFile1, []byte(memoryContent1), 0644))
+
+	// Change to test directory
+	orig, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(dir))
+	defer func() {
+		_ = os.Chdir(orig)
+	}()
+
+	// Call injectXaffToolkitAfterImport - this should NOT delete the memory files
+	// (the bug was that it would call pruneOrphanMemory with empty config)
+	err = injectXaffToolkitAfterImport(".")
+	require.NoError(t, err, "injectXaffToolkitAfterImport should succeed")
+
+	// Verify memory files still exist
+	content1, err1 := os.ReadFile(memoryFile1)
+	assert.NoError(t, err1, "memory file should still exist after injectXaffToolkitAfterImport")
+
+	if err1 == nil {
+		assert.Contains(t, string(content1), "test_memory_1", "memory content should be intact")
+	}
+}
