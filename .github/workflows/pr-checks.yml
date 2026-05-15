@@ -41,6 +41,22 @@ jobs:
           xl_label: 'size/XL'
           fail_if_xl: false
 
+  branch-gate:
+    name: PR branch policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce develop-only PRs to main
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          if [ "$HEAD_BRANCH" = "develop" ] || [[ "$HEAD_BRANCH" == release-please--* ]]; then
+            echo "Allowed source branch: $HEAD_BRANCH"
+            exit 0
+          fi
+          echo "::error::PRs to main must come from the develop branch. Please target develop instead, or merge your changes into develop first."
+          exit 1
+
   govulncheck:
     name: Vulnerability scan
     runs-on: ubuntu-latest
