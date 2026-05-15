@@ -145,7 +145,7 @@ func TestValidateSkillDirectory_XcafInExamples_Allowed(t *testing.T) {
 
 	exDir := filepath.Join(dir, "examples")
 	os.MkdirAll(exDir, 0o755)
-	os.WriteFile(filepath.Join(exDir, "sample-agent.xcaf"), []byte("---\nkind: agent\n---\n"), 0o644)
+	os.WriteFile(filepath.Join(exDir, "sample-agent.xcaf"), []byte("---\nkind: agent\nversion: \"1.0\"\nname: sample\ndescription: \"sample agent\"\n---\n"), 0o644)
 	os.WriteFile(filepath.Join(exDir, "readme.md"), []byte("# Examples\n"), 0o644)
 
 	artifacts := []string{"examples"}

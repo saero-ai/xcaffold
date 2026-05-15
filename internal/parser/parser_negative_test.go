@@ -51,7 +51,7 @@ func TestParseDirectory_MultiFileProject(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"),
 		[]byte("kind: project\nname: multifile\nversion: \"1.0\"\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcaf"),
-		[]byte("kind: agent\nname: developer\nversion: \"1.0\"\n"), 0600))
+		[]byte("kind: agent\nname: developer\nversion: \"1.0\"\ndescription: \"test agent\"\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "tdd.xcaf"),
 		[]byte("kind: skill\nname: tdd\nversion: \"1.0\"\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "testing.xcaf"),
@@ -70,7 +70,7 @@ func TestParseDirectory_FilterExcludesOutputDirs(t *testing.T) {
 	claudeDir := filepath.Join(dir, ".claude")
 	require.NoError(t, os.MkdirAll(claudeDir, 0755))
 	require.NoError(t, os.WriteFile(filepath.Join(claudeDir, "should-skip.xcaf"),
-		[]byte("kind: agent\nname: phantom\nversion: \"1.0\"\n"), 0600))
+		[]byte("kind: agent\nname: phantom\nversion: \"1.0\"\ndescription: \"test agent\"\n"), 0600))
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	_, found := cfg.Agents["phantom"]
@@ -86,7 +86,7 @@ func TestParseDirectory_FrontmatterMultiFileWithBodies(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "context.xcaf"),
 		[]byte("---\nkind: context\nname: root\nversion: \"1.0\"\n---\nProject instructions.\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "dev.xcaf"),
-		[]byte("---\nkind: agent\nname: developer\nversion: \"1.0\"\n---\nYou are a developer.\n"), 0600))
+		[]byte("---\nkind: agent\nname: developer\nversion: \"1.0\"\ndescription: \"test agent\"\n---\nYou are a developer.\n"), 0600))
 	cfg, err := ParseDirectory(dir)
 	require.NoError(t, err)
 	assert.Equal(t, "Project instructions.", cfg.ResourceScope.Contexts["root"].Body)

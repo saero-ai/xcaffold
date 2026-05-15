@@ -62,7 +62,7 @@ always-apply: true
 }
 
 func TestExtractKind_Agent(t *testing.T) {
-	yamlStr := "kind: agent\nname: dev\nversion: \"1.0\"\n"
+	yamlStr := "kind: agent\nname: dev\nversion: \"1.0\"\ndescription: \"test agent\"\n"
 	var node yaml.Node
 	err := yaml.Unmarshal([]byte(yamlStr), &node)
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestExtractKind_Config(t *testing.T) {
 }
 
 func TestNodeToBytes_RoundTrip(t *testing.T) {
-	yamlStr := "kind: agent\nname: dev\n"
+	yamlStr := "kind: agent\nname: dev\nversion: \"1.0\"\ndescription: \"test agent\"\n"
 	var node yaml.Node
 	err := yaml.Unmarshal([]byte(yamlStr), &node)
 	require.NoError(t, err)

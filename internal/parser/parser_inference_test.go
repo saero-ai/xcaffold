@@ -65,7 +65,7 @@ func TestParse_FilesystemInference_InfersNameWhenKindProvided(t *testing.T) {
 	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
 	// Agent file with kind: but NO name: — name should be inferred from path
-	content := "---\nkind: agent\nversion: \"1.0\"\nmodel: sonnet\n---\nYou are a developer.\n"
+	content := "---\nkind: agent\nversion: \"1.0\"\ndescription: \"test agent\"\nmodel: sonnet\n---\nYou are a developer.\n"
 	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
@@ -85,7 +85,7 @@ func TestParse_FilesystemInference_ValidatesInferredName(t *testing.T) {
 	xcafDir := filepath.Join(dir, "xcaf", "agents", "..")
 	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
-	content := "---\nkind: agent\nversion: \"1.0\"\nmodel: sonnet\n---\n"
+	content := "---\nkind: agent\nversion: \"1.0\"\ndescription: \"test agent\"\nmodel: sonnet\n---\n"
 	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
@@ -123,7 +123,7 @@ func TestParse_FilesystemInference_SkipsWhenExplicitName(t *testing.T) {
 	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
 	// Agent file with explicit name — should NOT infer
-	content := "---\nkind: agent\nversion: \"1.0\"\nname: explicit-name\nmodel: sonnet\n---\nYou are a developer.\n"
+	content := "---\nkind: agent\nversion: \"1.0\"\nname: explicit-name\ndescription: \"test agent\"\nmodel: sonnet\n---\nYou are a developer.\n"
 	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
@@ -255,7 +255,7 @@ func TestParse_NameMismatch_WarningCollected(t *testing.T) {
 	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
 	// Agent at xcaf/agents/developer/ but declares name: reviewer (mismatch)
-	content := "---\nkind: agent\nversion: \"1.0\"\nname: reviewer\nmodel: sonnet\n---\nYou are a reviewer.\n"
+	content := "---\nkind: agent\nversion: \"1.0\"\nname: reviewer\ndescription: \"test agent\"\nmodel: sonnet\n---\nYou are a reviewer.\n"
 	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
@@ -275,7 +275,7 @@ func TestParse_FlatAgentFile_WarningEmitted(t *testing.T) {
 	require.NoError(t, os.MkdirAll(agentsDir, 0755))
 
 	// Flat agent file: directly under xcaf/agents/, not in a subdirectory
-	content := "---\nkind: agent\nversion: \"1.0\"\nname: developer\nmodel: sonnet\n---\nYou are a developer.\n"
+	content := "---\nkind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"test agent\"\nmodel: sonnet\n---\nYou are a developer.\n"
 	filePath := filepath.Join(agentsDir, "developer.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
