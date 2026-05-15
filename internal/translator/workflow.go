@@ -172,7 +172,6 @@ func buildRulePlusSkillRule(name string, stepNames, skillIDs []string) TargetPri
 	marker.WriteString("x-xcaffold:\n")
 	fmt.Fprintf(&marker, "  compiled-from: workflow\n")
 	fmt.Fprintf(&marker, "  workflow-name: %s\n", name)
-	fmt.Fprintf(&marker, "  api-version: workflow/v1\n")
 	marker.WriteString("  step-order: [")
 	marker.WriteString(strings.Join(stepNames, ", "))
 	marker.WriteString("]\n")
@@ -259,7 +258,6 @@ func lowerPromptFile(wf *ast.WorkflowConfig, name, target string) ([]TargetPrimi
 	content.WriteString("x-xcaffold:\n")
 	fmt.Fprintf(&content, "  compiled-from: workflow\n")
 	fmt.Fprintf(&content, "  workflow-name: %s\n", name)
-	fmt.Fprintf(&content, "  api-version: workflow/v1\n")
 	content.WriteString("---\n\n")
 
 	// Step instructions concatenated.
