@@ -32,6 +32,12 @@ For significant changes — new providers, AST changes, pipeline modifications �
 
 ## Pull Requests
 
+### Target Branch
+
+All pull requests must target the **`develop`** branch. The `main` branch is the release branch — changes reach `main` only through a release PR from `develop`.
+
+If GitHub defaults your PR to `main`, change the base branch to `develop` before submitting.
+
 ### Commit Messages
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) format:
