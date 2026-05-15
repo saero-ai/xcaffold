@@ -158,9 +158,13 @@ func TestParse_FilesystemInference_AllResourceKinds(t *testing.T) {
 			require.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0755))
 
 			// Workflows require steps, so we add a minimal step for the workflow case
+			// Agents require description
 			content := "---\nkind: " + tc.kind + "\nversion: \"1.0\"\n"
 			if tc.kind == "workflow" {
 				content += "steps:\n  - name: step-one\n    instructions: \"Do something\"\n"
+			}
+			if tc.kind == "agent" {
+				content += "description: \"Test agent\"\n"
 			}
 			content += "---\n"
 			require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
@@ -202,7 +206,7 @@ func TestParse_FilesystemInference_WarnsOnMismatch(t *testing.T) {
 	require.NoError(t, os.MkdirAll(xcafDir, 0755))
 
 	// Agent file with explicit name that does NOT match directory
-	content := "---\nkind: agent\nversion: \"1.0\"\nname: reviewer\nmodel: sonnet\n---\nYou are a reviewer.\n"
+	content := "---\nkind: agent\nversion: \"1.0\"\nname: reviewer\ndescription: \"Test reviewer\"\nmodel: sonnet\n---\nYou are a reviewer.\n"
 	filePath := filepath.Join(xcafDir, "agent.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 

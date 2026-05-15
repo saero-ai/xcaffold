@@ -802,11 +802,15 @@ func TestParseFile_GlobalKind_DuplicateAgent_Error(t *testing.T) {
 version: "1.0"
 agents:
   dev:
+    description: "Developer"
+    model: sonnet
+    tools: [Read]
 
 ---
 kind: agent
 version: "1.0"
 name: dev
+description: "Developer agent"
 
 `
 	_, err := Parse(strings.NewReader(input))
@@ -879,6 +883,7 @@ name: my-api
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`kind: agent
 version: "1.0"
 name: developer
+description: "Developer agent"
 
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcaf"), []byte(`kind: policy

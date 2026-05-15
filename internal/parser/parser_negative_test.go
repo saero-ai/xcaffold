@@ -92,3 +92,19 @@ func TestParseDirectory_FrontmatterMultiFileWithBodies(t *testing.T) {
 	assert.Equal(t, "Project instructions.", cfg.ResourceScope.Contexts["root"].Body)
 	assert.Equal(t, "You are a developer.", cfg.Agents["developer"].Body)
 }
+
+func TestParseAgent_MissingDescription_Error(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "test-agent.xcaf")
+	content := `---
+kind: agent
+version: "1.0"
+name: test-agent
+---
+Some instructions.
+`
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0600))
+	_, err := ParseFileExact(filePath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "description is required")
+}

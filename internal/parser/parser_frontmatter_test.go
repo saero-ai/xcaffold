@@ -187,7 +187,7 @@ func TestParse_Frontmatter_WorkflowWithBody(t *testing.T) {
 func TestParse_Frontmatter_MultiDocumentDeprecationWarning(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "multi.xcaf")
-	content := "kind: agent\nname: agent-a\nversion: \"1.0\"\n---\nkind: skill\nname: skill-b\nversion: \"1.0\"\n"
+	content := "kind: agent\nname: agent-a\nversion: \"1.0\"\ndescription: \"Test agent\"\n---\nkind: skill\nname: skill-b\nversion: \"1.0\"\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 
 	_, err := ParseFileExact(f)

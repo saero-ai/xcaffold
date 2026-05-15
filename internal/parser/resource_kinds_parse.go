@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"gopkg.in/yaml.v3"
@@ -45,6 +46,9 @@ func parseAgentDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inferr
 	}
 	if err := validateEnvelope(doc.Version, doc.Name, "agent"); err != nil {
 		return err
+	}
+	if strings.TrimSpace(doc.AgentConfig.Description) == "" {
+		return fmt.Errorf("agent %q: description is required", doc.Name)
 	}
 	if config.Agents == nil {
 		config.Agents = make(map[string]ast.AgentConfig)
