@@ -14,6 +14,16 @@ import (
 
 const requiredLabel = "required"
 
+// hasProviderRequired returns true if any provider in the map has "required" as its value.
+func hasProviderRequired(providers map[string]string) bool {
+	for _, v := range providers {
+		if v == requiredLabel {
+			return true
+		}
+	}
+	return false
+}
+
 func runHelpXcaf(cmd *cobra.Command, kind string, outPath string, outChanged bool) error {
 	ks, ok := schema.LookupKind(kind)
 	if !ok {
@@ -41,6 +51,8 @@ func displayKindSchema(cmd *cobra.Command, ks schema.KindSchema) {
 			req := "optional"
 			if !f.Optional {
 				req = requiredLabel
+			} else if hasProviderRequired(f.Provider) {
+				req = "optional*"
 			}
 			fmt.Fprintf(w, "    %-26s%-16s%-10s%s\n", f.YAMLKey, f.XCAFType, req, f.Description)
 			printFieldConstraints(w, f)
@@ -60,6 +72,11 @@ func printFieldConstraints(w io.Writer, f schema.Field) {
 		if providers != "" {
 			fmt.Fprintf(w, "%sProviders: %s\n", indent, providers)
 		}
+	}
+
+	// Print note for optional* fields (optional at xcaffold level but required by some providers)
+	if f.Optional && hasProviderRequired(f.Provider) {
+		fmt.Fprintf(w, "%sNote: required by some providers — omitting may cause compile errors for those targets.\n", indent)
 	}
 
 	if f.Pattern != "" {
@@ -213,6 +230,8 @@ func writeGroupFields(sb *strings.Builder, fields []schema.Field) {
 		req := "optional"
 		if !f.Optional {
 			req = requiredLabel
+		} else if hasProviderRequired(f.Provider) {
+			req = "optional*"
 		}
 		sb.WriteString(fmt.Sprintf("# %s (%s, %s): %s\n", f.YAMLKey, f.XCAFType, req, f.Description))
 		sb.WriteString(buildMarkerComment(f))

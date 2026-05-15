@@ -32,7 +32,7 @@ func init() {
 				YAMLKey:     "description",
 				GoType:      "string",
 				XCAFType:    "string",
-				Optional:    true,
+				Optional:    false,
 				Description: "Human-readable purpose of this agent.",
 				Group:       "Identity",
 				Provider: map[string]string{

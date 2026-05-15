@@ -81,7 +81,7 @@ func TestImportScope_XcafDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to create xcaf/ dir: %v", err)
 	}
 	projXcafPath := filepath.Join(tmp, "xcaf", "agents", "empty.xcaf")
-	if err := os.WriteFile(projXcafPath, []byte("kind: agent\nversion: \"1.0\"\nname: empty\n"), 0600); err != nil {
+	if err := os.WriteFile(projXcafPath, []byte("kind: agent\nversion: \"1.0\"\nname: empty\ndescription: An empty agent\n"), 0600); err != nil {
 		t.Fatalf("failed to write empty agent: %v", err)
 	}
 
@@ -767,7 +767,7 @@ func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(cursorDir, "agents"), 0o755))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(cursorDir, "agents", "reviewer.md"),
-		[]byte("---\nname: reviewer\n---\n\nReview."),
+		[]byte("---\nname: reviewer\ndescription: Code reviewer\n---\n\nReview."),
 		0o644,
 	))
 

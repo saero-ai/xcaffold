@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -220,4 +221,130 @@ func TestHelpXCAF_ShowsProviderSupport(t *testing.T) {
 	// Verify the output contains field entries (basic structure check)
 	lines := strings.Split(output, "\n")
 	assert.True(t, len(lines) > 5, "output should contain multiple lines of field documentation")
+}
+
+func TestHasProviderRequired_WithRequiredProvider(t *testing.T) {
+	providers := map[string]string{
+		"claude": "required",
+		"cursor": "optional",
+	}
+	result := hasProviderRequired(providers)
+	assert.True(t, result, "should return true when any provider requires the field")
+}
+
+func TestHasProviderRequired_WithoutRequiredProvider(t *testing.T) {
+	providers := map[string]string{
+		"claude": "optional",
+		"cursor": "optional",
+	}
+	result := hasProviderRequired(providers)
+	assert.False(t, result, "should return false when no provider requires the field")
+}
+
+func TestHasProviderRequired_EmptyProviders(t *testing.T) {
+	providers := map[string]string{}
+	result := hasProviderRequired(providers)
+	assert.False(t, result, "should return false for empty providers map")
+}
+
+func TestHelpXcaf_OptionalFieldWithProviderRequired_ShowsAsterisk(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	noColorFlag = true
+	defer func() { noColorFlag = false }()
+
+	// Create a mock field that is optional at xcaffold level but required by at least one provider
+	testField := schema.Field{
+		YAMLKey:     "test-field",
+		XCAFType:    "string",
+		Optional:    true, // Optional at xcaffold level
+		Description: "A test field",
+		Provider: map[string]string{
+			"claude": "required", // But required by Claude
+			"cursor": "optional", // Optional for Cursor
+		},
+	}
+
+	var buf bytes.Buffer
+	displayFieldWithMockOutput(&buf, testField)
+	output := buf.String()
+
+	// Should show "optional*" for optional field with provider requirements
+	assert.Contains(t, output, "optional*", "should show optional* for xcaffold-optional field required by provider")
+	assert.Contains(t, output, "Note: required by some providers", "should show warning note for optional* fields")
+}
+
+func TestHelpXcaf_PureOptionalField_NoAsterisk(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	noColorFlag = true
+	defer func() { noColorFlag = false }()
+
+	// Create a mock field that is optional with no provider requirements
+	testField := schema.Field{
+		YAMLKey:     "test-field",
+		XCAFType:    "string",
+		Optional:    true,
+		Description: "A test field",
+		Provider: map[string]string{
+			"claude": "optional",
+			"cursor": "optional",
+		},
+	}
+
+	var buf bytes.Buffer
+	displayFieldWithMockOutput(&buf, testField)
+	output := buf.String()
+
+	// Should show plain "optional" (no asterisk) since no provider requires it
+	assert.NotContains(t, output, "optional*", "pure optional field should not have asterisk")
+	assert.NotContains(t, output, "Note: required by some providers", "pure optional field should not have warning note")
+}
+
+func TestHelpXcaf_RequiredField_NoAsterisk(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	noColorFlag = true
+	defer func() { noColorFlag = false }()
+
+	// Create a mock field that is required at xcaffold level
+	testField := schema.Field{
+		YAMLKey:     "test-field",
+		XCAFType:    "string",
+		Optional:    false, // Required at xcaffold level
+		Description: "A test field",
+		Provider: map[string]string{
+			"claude": "required",
+			"cursor": "optional",
+		},
+	}
+
+	var buf bytes.Buffer
+	displayFieldWithMockOutput(&buf, testField)
+	output := buf.String()
+
+	// Should show "required" (not optional*)
+	assert.Contains(t, output, "required", "required field should show required label")
+	assert.NotContains(t, output, "optional*", "required field should not have asterisk")
+	assert.NotContains(t, output, "Note: required by some providers", "required field should not have warning note")
+}
+
+// Helper function to display a single field for testing
+func displayFieldWithMockOutput(buf *bytes.Buffer, f schema.Field) {
+	req := "optional"
+	if !f.Optional {
+		req = requiredLabel
+	} else if hasProviderRequired(f.Provider) {
+		req = "optional*"
+	}
+	fmt.Fprintf(buf, "    %-26s%-16s%-10s%s\n", f.YAMLKey, f.XCAFType, req, f.Description)
+
+	indent := "                                                        "
+	if len(f.Provider) > 0 {
+		providers := formatProviderSupport(f.Provider)
+		if providers != "" {
+			fmt.Fprintf(buf, "%sProviders: %s\n", indent, providers)
+		}
+	}
+
+	if f.Optional && hasProviderRequired(f.Provider) {
+		fmt.Fprintf(buf, "%sNote: required by some providers — omitting may cause compile errors for those targets.\n", indent)
+	}
 }
