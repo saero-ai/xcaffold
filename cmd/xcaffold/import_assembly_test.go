@@ -79,3 +79,55 @@ func TestScoreSkillSpecificity(t *testing.T) {
 func boolPtr(b bool) *bool {
 	return &b
 }
+
+func TestSelectBodyAwareBase(t *testing.T) {
+	tests := []struct {
+		name    string
+		scores  map[string]int
+		hasBody map[string]bool
+		want    string
+	}{
+		{
+			name:    "prefers body provider over bodyless stub",
+			scores:  map[string]int{"claude": 12, "gemini": 0},
+			hasBody: map[string]bool{"claude": true, "gemini": false},
+			want:    "claude",
+		},
+		{
+			name:    "both have body falls back to lowest score",
+			scores:  map[string]int{"claude": 12, "gemini": 0},
+			hasBody: map[string]bool{"claude": true, "gemini": true},
+			want:    "gemini",
+		},
+		{
+			name:    "neither has body falls back to lowest score",
+			scores:  map[string]int{"claude": 12, "gemini": 0},
+			hasBody: map[string]bool{"claude": false, "gemini": false},
+			want:    "gemini",
+		},
+		{
+			name:    "body wins over alphabetical order",
+			scores:  map[string]int{"alpha": 0, "beta": 0},
+			hasBody: map[string]bool{"alpha": false, "beta": true},
+			want:    "beta",
+		},
+		{
+			name:    "multiple body providers uses scoring tiebreak",
+			scores:  map[string]int{"claude": 12, "cursor": 1, "gemini": 0},
+			hasBody: map[string]bool{"claude": true, "cursor": true, "gemini": false},
+			want:    "cursor",
+		},
+		{
+			name:    "single provider with body",
+			scores:  map[string]int{"claude": 5},
+			hasBody: map[string]bool{"claude": true},
+			want:    "claude",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := selectBodyAwareBase(tt.scores, tt.hasBody)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
