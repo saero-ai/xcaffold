@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0](https://github.com/saero-ai/xcaffold/compare/v0.3.0...v0.4.0) (2026-05-15)
+
+
+### Features
+
+* **cli:** show conditional status for provider-required optional fields ([e002eaf](https://github.com/saero-ai/xcaffold/commit/e002eaf36eaf81c33709c56ccedcfe179c6b3d49))
+* Codex provider, schema enforcement, and blueprint improvements ([0d4e9e5](https://github.com/saero-ai/xcaffold/commit/0d4e9e5d5ac769c5af0fbbf4daf205abf612ff20))
+* **parser:** reject agents without description field ([6336c10](https://github.com/saero-ai/xcaffold/commit/6336c10aa98c082b062aaed967f21ae9b1d0736f))
+* **schema:** make agent description required and improve help display ([cb8998e](https://github.com/saero-ai/xcaffold/commit/cb8998e22505d21b617a73d3816dc5729c33c5db))
+* **schema:** make agent description required at xcaffold level ([57194ca](https://github.com/saero-ai/xcaffold/commit/57194cab9b8c9539fa91fca2686c01711fc0e771))
+
+
+### Bug Fixes
+
+* **blueprint:** increase max extends depth to 10 ([a284dd0](https://github.com/saero-ai/xcaffold/commit/a284dd07a150eba5a726079f26f54dff0bd4b917))
+* **blueprint:** resolve 5 implementation gaps ([dd9dc85](https://github.com/saero-ai/xcaffold/commit/dd9dc850d09a69754ae6ca9a2e29177c16a11d76))
+* **blueprint:** use ClearableList for resource selectors ([12576fa](https://github.com/saero-ai/xcaffold/commit/12576fa76082e58bbb1d673961624a478d2cf39a))
+* **cli:** unhide blueprint discovery flags ([7261f59](https://github.com/saero-ai/xcaffold/commit/7261f59062089f3336f98d06aacc7bdb55c74a91))
+* **renderer:** resolve settings and hooks dynamically ([eac3280](https://github.com/saero-ai/xcaffold/commit/eac3280f61de38ff636b5f99f1aaa0c1bc5bea7a))
+* **schema:** address code review findings for agent description ([f1462e8](https://github.com/saero-ai/xcaffold/commit/f1462e83fa4f042d9a50e1b0a01f8c877dc70486))
+
 ## [Unreleased]
 
 ### Breaking Changes
