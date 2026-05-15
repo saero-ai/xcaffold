@@ -111,9 +111,13 @@ func TestResolveBlueprintExtends_SelfCycle(t *testing.T) {
 }
 
 func TestResolveBlueprintExtends_MaxDepthExceeded(t *testing.T) {
-	// Chain of 6: a→b→c→d→e→f  (depth 5 when resolving a)
 	blueprints := map[string]ast.BlueprintConfig{
-		"f": {Name: "f"},
+		"k": {Name: "k"},
+		"j": {Name: "j", Extends: "k"},
+		"i": {Name: "i", Extends: "j"},
+		"h": {Name: "h", Extends: "i"},
+		"g": {Name: "g", Extends: "h"},
+		"f": {Name: "f", Extends: "g"},
 		"e": {Name: "e", Extends: "f"},
 		"d": {Name: "d", Extends: "e"},
 		"c": {Name: "c", Extends: "d"},
@@ -123,13 +127,17 @@ func TestResolveBlueprintExtends_MaxDepthExceeded(t *testing.T) {
 
 	err := ResolveBlueprintExtends(blueprints)
 	require.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "maximum depth"), "expected 'maximum depth' in error: %s", err)
+	assert.Contains(t, err.Error(), "maximum depth")
 }
 
 func TestResolveBlueprintExtends_MaxDepthExact_Succeeds(t *testing.T) {
-	// Chain of 5: a→b→c→d→e  (depth 4 when resolving a, within limit)
 	blueprints := map[string]ast.BlueprintConfig{
-		"e": {Name: "e", Agents: ast.ClearableList{Values: []string{"agent-e"}}},
+		"j": {Name: "j", Agents: ast.ClearableList{Values: []string{"agent-j"}}},
+		"i": {Name: "i", Extends: "j"},
+		"h": {Name: "h", Extends: "i"},
+		"g": {Name: "g", Extends: "h"},
+		"f": {Name: "f", Extends: "g"},
+		"e": {Name: "e", Extends: "f"},
 		"d": {Name: "d", Extends: "e"},
 		"c": {Name: "c", Extends: "d"},
 		"b": {Name: "b", Extends: "c"},
@@ -138,7 +146,7 @@ func TestResolveBlueprintExtends_MaxDepthExact_Succeeds(t *testing.T) {
 
 	err := ResolveBlueprintExtends(blueprints)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"agent-e"}, blueprints["a"].Agents.Values)
+	assert.Equal(t, []string{"agent-j"}, blueprints["a"].Agents.Values)
 }
 
 func TestResolveBlueprintExtends_NonExistentParent(t *testing.T) {
@@ -802,6 +810,63 @@ func TestResolveBlueprintExtends_ChildClearsAllFields(t *testing.T) {
 	assert.Empty(t, child.Policies.Values)
 	assert.Empty(t, child.Memory.Values)
 	assert.Empty(t, child.Contexts.Values)
+}
+
+func TestApplyBlueprint_OmittedPolicies_PreservesAll(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Policies: map[string]ast.PolicyConfig{
+				"security": {Name: "security"},
+				"naming":   {Name: "naming"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"backend": {Name: "backend", Agents: ast.ClearableList{Values: []string{"dev"}}},
+		},
+	}
+	filtered, err := ApplyBlueprint(cfg, "backend")
+	require.NoError(t, err)
+	require.Len(t, filtered.Policies, 2, "omitted policies should preserve all")
+}
+
+func TestApplyBlueprint_ExplicitEmptyPolicies_DisablesAll(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Policies: map[string]ast.PolicyConfig{
+				"security": {Name: "security"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"nopolicy": {
+				Name:     "nopolicy",
+				Policies: ast.ClearableList{Cleared: true},
+			},
+		},
+	}
+	filtered, err := ApplyBlueprint(cfg, "nopolicy")
+	require.NoError(t, err)
+	require.Nil(t, filtered.Policies, "explicit empty policies should disable all")
+}
+
+func TestApplyBlueprint_NamedPolicies_FiltersToNamed(t *testing.T) {
+	cfg := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Policies: map[string]ast.PolicyConfig{
+				"security": {Name: "security"},
+				"naming":   {Name: "naming"},
+			},
+		},
+		Blueprints: map[string]ast.BlueprintConfig{
+			"strict": {
+				Name:     "strict",
+				Policies: ast.ClearableList{Values: []string{"security"}},
+			},
+		},
+	}
+	filtered, err := ApplyBlueprint(cfg, "strict")
+	require.NoError(t, err)
+	require.Len(t, filtered.Policies, 1)
+	require.Contains(t, filtered.Policies, "security")
 }
 
 func TestResolveBlueprintExtends_ChildAddsAfterParentCleared(t *testing.T) {

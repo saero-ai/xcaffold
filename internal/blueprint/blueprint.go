@@ -8,7 +8,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 )
 
-const maxExtendsDepth = 5
+const maxExtendsDepth = 10
 
 // mergeClearableList merges parent and child ref-lists during blueprint inheritance.
 // If the child has Cleared=true, the parent's values are discarded (child overrides).
@@ -31,7 +31,7 @@ func mergeClearableList(parent, child ast.ClearableList) ast.ClearableList {
 // ref-list fields (agents, skills, rules, workflows, mcp, policies, memory, contexts).
 //
 // Modifies the blueprints map in place. Errors on circular extends,
-// a missing parent, or a chain length exceeding maxExtendsDepth (5).
+// a missing parent, or a chain length exceeding maxExtendsDepth (10).
 func ResolveBlueprintExtends(blueprints map[string]ast.BlueprintConfig) error {
 	// Pass 1: validate every chain for cycles, missing parents, and max depth.
 	// This is done independently of resolution order so that chains of any
@@ -263,7 +263,7 @@ func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.Xcaf
 		Rules:     filterMap(config.Rules, p.Rules.Values),
 		Workflows: filterMap(config.Workflows, p.Workflows.Values),
 		MCP:       filterMap(config.MCP, p.MCP.Values),
-		Policies:  filterMap(config.Policies, p.Policies.Values),
+		Policies:  filterMapClearable(config.Policies, p.Policies),
 		Memory:    filterMap(config.Memory, p.Memory.Values),
 		Contexts:  filterMap(config.Contexts, p.Contexts.Values),
 	}
@@ -289,6 +289,19 @@ func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.Xcaf
 	}
 
 	return &filtered, nil
+}
+
+// filterMapClearable is like filterMap but treats an omitted ClearableList
+// (Cleared=false, Values=nil) as "keep all" rather than "keep none".
+// This is used for policies where omission means "apply all policies".
+func filterMapClearable[V any](source map[string]V, selector ast.ClearableList) map[string]V {
+	if selector.Cleared {
+		return nil
+	}
+	if len(selector.Values) == 0 {
+		return source
+	}
+	return filterMap(source, selector.Values)
 }
 
 // filterMap returns a new map containing only entries whose key appears in allowed.
