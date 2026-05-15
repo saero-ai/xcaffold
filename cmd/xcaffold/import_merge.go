@@ -26,7 +26,7 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) err
 		xcafDirExists = false
 	}
 
-	if xcafExists || xcafDirExists {
+	if (xcafExists || xcafDirExists) && !importDryRun {
 		return fmt.Errorf("[project] incremental import with multiple providers is not yet supported; use 'xcaffold import --force' to reimport from scratch")
 	}
 
