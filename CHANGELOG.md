@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/saero-ai/xcaffold/compare/v0.2.0...v0.3.0) (2026-05-14)
+
+
+### Features
+
+* add Codex provider, schema cleanup, and doc improvements ([4e7c11a](https://github.com/saero-ai/xcaffold/commit/4e7c11ae905af4d893ce39db51f09272f0fb300b))
+* **codex:** add Codex provider ([0256987](https://github.com/saero-ai/xcaffold/commit/0256987c3a37619e014f603712ff8ea78012a1ba))
+* **codex:** add Codex provider core ([1137631](https://github.com/saero-ai/xcaffold/commit/1137631bb81ba92c4c3742fc087bdbb39678eb25))
+* **codex:** add renderer unit tests ([21250cc](https://github.com/saero-ai/xcaffold/commit/21250cc5f7d2a4cde591a3807691c37ac6011593))
+
+
+### Bug Fixes
+
+* **ci:** stabilize lint config and clean up unused version vars ([6dcb5d8](https://github.com/saero-ai/xcaffold/commit/6dcb5d8279f38eead00e19d4aed529df1513d935))
+* **ci:** use default govet analyzers and tune lint thresholds ([46876cd](https://github.com/saero-ai/xcaffold/commit/46876cdf0f55463c5726816593f1d22b8dd00c14))
+* **cli:** simplify version output to match industry standard ([d2a6c5e](https://github.com/saero-ai/xcaffold/commit/d2a6c5ee0e91fb138ad8c0c8be11afcc3f29c08c))
+* **schema:** remove unnecessary --- delimiters from pure YAML kinds ([fd0f384](https://github.com/saero-ai/xcaffold/commit/fd0f3843a30c948492fd870b60918c5e8355d764))
+
 ## [0.2.0](https://github.com/saero-ai/xcaffold/releases/tag/v0.2.0) (2026-05-14)
 
 ### Breaking Changes
