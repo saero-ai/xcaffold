@@ -410,3 +410,14 @@ func TestList_KindFilter_HeaderShowsMultipleFilters(t *testing.T) {
 	assert.Contains(t, out, "2 skills")
 	assert.NotContains(t, out, "rule")
 }
+
+func TestListCmd_BlueprintFlagsVisible(t *testing.T) {
+	f := listCmd.Flags()
+	bp := f.Lookup("blueprint")
+	require.NotNil(t, bp, "--blueprint flag must exist")
+	assert.False(t, bp.Hidden, "--blueprint should not be hidden")
+
+	res := f.Lookup("resolved")
+	require.NotNil(t, res, "--resolved flag must exist")
+	assert.False(t, res.Hidden, "--resolved should not be hidden")
+}

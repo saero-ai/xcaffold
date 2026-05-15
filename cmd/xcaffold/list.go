@@ -59,8 +59,6 @@ func init() {
 	f.BoolVar(&listFilterSetting, "setting", false, "List settings")
 	f.StringVar(&listFilterContext, "context", "", "List contexts (optionally filter by name)")
 	f.Lookup("context").NoOptDefVal = "*"
-	_ = listCmd.Flags().MarkHidden("blueprint")
-	_ = listCmd.Flags().MarkHidden("resolved")
 	rootCmd.AddCommand(listCmd)
 }
 
