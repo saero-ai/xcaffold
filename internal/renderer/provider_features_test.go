@@ -272,6 +272,7 @@ func TestResolveModel_ReferenceDataBinding(t *testing.T) {
 		"Gemini CLI":     "gemini",
 		"GitHub Copilot": "copilot",
 		"Cursor":         "cursor",
+		"Codex":          "codex",
 	}
 	// Antigravity has no model field; its records are not in models.json.
 
