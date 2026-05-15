@@ -704,3 +704,128 @@ func TestResolveBlueprintExtends_ChildClearsParentField(t *testing.T) {
 	assert.True(t, child.Agents.Cleared, "Cleared flag should be preserved")
 	assert.Equal(t, []string{"skill-x"}, child.Skills.Values, "skills inherited from parent")
 }
+
+func TestResolveBlueprintExtends_ChildClearsOneFieldInheritsOthers(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"parent": {
+			Name:      "parent",
+			Agents:    ast.ClearableList{Values: []string{"agent-a"}},
+			Skills:    ast.ClearableList{Values: []string{"skill-x"}},
+			Rules:     ast.ClearableList{Values: []string{"rule-1"}},
+			Workflows: ast.ClearableList{Values: []string{"wf-1"}},
+		},
+		"child": {
+			Name:    "child",
+			Extends: "parent",
+			Agents:  ast.ClearableList{Cleared: true},
+		},
+	}
+
+	err := ResolveBlueprintExtends(blueprints)
+	require.NoError(t, err)
+
+	child := blueprints["child"]
+	assert.Empty(t, child.Agents.Values, "agents cleared")
+	assert.True(t, child.Agents.Cleared)
+	assert.Equal(t, []string{"skill-x"}, child.Skills.Values, "skills inherited")
+	assert.Equal(t, []string{"rule-1"}, child.Rules.Values, "rules inherited")
+	assert.Equal(t, []string{"wf-1"}, child.Workflows.Values, "workflows inherited")
+}
+
+func TestResolveBlueprintExtends_ClearedFieldNotMergedWithGrandparent(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"grandparent": {
+			Name:   "grandparent",
+			Agents: ast.ClearableList{Values: []string{"agent-gp"}},
+		},
+		"parent": {
+			Name:    "parent",
+			Extends: "grandparent",
+			Agents:  ast.ClearableList{Cleared: true},
+		},
+		"child": {
+			Name:    "child",
+			Extends: "parent",
+		},
+	}
+
+	err := ResolveBlueprintExtends(blueprints)
+	require.NoError(t, err)
+
+	parent := blueprints["parent"]
+	assert.Empty(t, parent.Agents.Values, "parent cleared agents")
+	assert.True(t, parent.Agents.Cleared)
+
+	child := blueprints["child"]
+	assert.Empty(t, child.Agents.Values, "child inherits parent's cleared state")
+	assert.True(t, child.Agents.Cleared)
+}
+
+func TestResolveBlueprintExtends_ChildClearsAllFields(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"parent": {
+			Name:      "parent",
+			Agents:    ast.ClearableList{Values: []string{"a"}},
+			Skills:    ast.ClearableList{Values: []string{"s"}},
+			Rules:     ast.ClearableList{Values: []string{"r"}},
+			Workflows: ast.ClearableList{Values: []string{"w"}},
+			MCP:       ast.ClearableList{Values: []string{"m"}},
+			Policies:  ast.ClearableList{Values: []string{"p"}},
+			Memory:    ast.ClearableList{Values: []string{"mem"}},
+			Contexts:  ast.ClearableList{Values: []string{"ctx"}},
+		},
+		"child": {
+			Name:      "child",
+			Extends:   "parent",
+			Agents:    ast.ClearableList{Cleared: true},
+			Skills:    ast.ClearableList{Cleared: true},
+			Rules:     ast.ClearableList{Cleared: true},
+			Workflows: ast.ClearableList{Cleared: true},
+			MCP:       ast.ClearableList{Cleared: true},
+			Policies:  ast.ClearableList{Cleared: true},
+			Memory:    ast.ClearableList{Cleared: true},
+			Contexts:  ast.ClearableList{Cleared: true},
+		},
+	}
+
+	err := ResolveBlueprintExtends(blueprints)
+	require.NoError(t, err)
+
+	child := blueprints["child"]
+	assert.Empty(t, child.Agents.Values)
+	assert.True(t, child.Agents.Cleared)
+	assert.Empty(t, child.Skills.Values)
+	assert.True(t, child.Skills.Cleared)
+	assert.Empty(t, child.Rules.Values)
+	assert.Empty(t, child.Workflows.Values)
+	assert.Empty(t, child.MCP.Values)
+	assert.Empty(t, child.Policies.Values)
+	assert.Empty(t, child.Memory.Values)
+	assert.Empty(t, child.Contexts.Values)
+}
+
+func TestResolveBlueprintExtends_ChildAddsAfterParentCleared(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"grandparent": {
+			Name:   "grandparent",
+			Agents: ast.ClearableList{Values: []string{"agent-gp"}},
+		},
+		"parent": {
+			Name:    "parent",
+			Extends: "grandparent",
+			Agents:  ast.ClearableList{Cleared: true},
+		},
+		"child": {
+			Name:    "child",
+			Extends: "parent",
+			Agents:  ast.ClearableList{Values: []string{"agent-new"}},
+		},
+	}
+
+	err := ResolveBlueprintExtends(blueprints)
+	require.NoError(t, err)
+
+	child := blueprints["child"]
+	assert.Equal(t, []string{"agent-new"}, child.Agents.Values, "child adds new, no grandparent leak")
+	assert.False(t, child.Agents.Cleared, "child has values, not cleared")
+}
