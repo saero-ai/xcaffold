@@ -8,7 +8,21 @@ import (
 	"github.com/saero-ai/xcaffold/internal/ast"
 )
 
-const maxExtendsDepth = 5
+const maxExtendsDepth = 10
+
+// mergeClearableList merges parent and child ref-lists during blueprint inheritance.
+// If the child has Cleared=true, the parent's values are discarded (child overrides).
+// If the child has no values and is not cleared, the parent's values are inherited.
+// Otherwise, the union of parent and child values is returned.
+func mergeClearableList(parent, child ast.ClearableList) ast.ClearableList {
+	if child.Cleared {
+		return child
+	}
+	if len(child.Values) == 0 {
+		return parent
+	}
+	return ast.ClearableList{Values: unionStrings(parent.Values, child.Values)}
+}
 
 // ResolveBlueprintExtends resolves the extends chain for all blueprints.
 // Each blueprint's ref-lists are merged with its parent's resolved ref-lists
@@ -17,7 +31,7 @@ const maxExtendsDepth = 5
 // ref-list fields (agents, skills, rules, workflows, mcp, policies, memory, contexts).
 //
 // Modifies the blueprints map in place. Errors on circular extends,
-// a missing parent, or a chain length exceeding maxExtendsDepth (5).
+// a missing parent, or a chain length exceeding maxExtendsDepth (10).
 func ResolveBlueprintExtends(blueprints map[string]ast.BlueprintConfig) error {
 	// Pass 1: validate every chain for cycles, missing parents, and max depth.
 	// This is done independently of resolution order so that chains of any
@@ -44,14 +58,14 @@ func ResolveBlueprintExtends(blueprints map[string]ast.BlueprintConfig) error {
 				return err
 			}
 			parent := blueprints[p.Extends]
-			p.Agents = unionStrings(parent.Agents, p.Agents)
-			p.Skills = unionStrings(parent.Skills, p.Skills)
-			p.Rules = unionStrings(parent.Rules, p.Rules)
-			p.Workflows = unionStrings(parent.Workflows, p.Workflows)
-			p.MCP = unionStrings(parent.MCP, p.MCP)
-			p.Policies = unionStrings(parent.Policies, p.Policies)
-			p.Memory = unionStrings(parent.Memory, p.Memory)
-			p.Contexts = unionStrings(parent.Contexts, p.Contexts)
+			p.Agents = mergeClearableList(parent.Agents, p.Agents)
+			p.Skills = mergeClearableList(parent.Skills, p.Skills)
+			p.Rules = mergeClearableList(parent.Rules, p.Rules)
+			p.Workflows = mergeClearableList(parent.Workflows, p.Workflows)
+			p.MCP = mergeClearableList(parent.MCP, p.MCP)
+			p.Policies = mergeClearableList(parent.Policies, p.Policies)
+			p.Memory = mergeClearableList(parent.Memory, p.Memory)
+			p.Contexts = mergeClearableList(parent.Contexts, p.Contexts)
 			blueprints[name] = p
 		}
 
@@ -120,21 +134,21 @@ func validateChain(blueprints map[string]ast.BlueprintConfig, start string) erro
 // Agents with no entry in scope are silently skipped. Duplicate entries
 // across multiple agents are deduplicated (first occurrence wins).
 func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) error {
-	if len(p.Agents) == 0 || scope == nil {
+	if len(p.Agents.Values) == 0 || scope == nil {
 		return nil
 	}
 
 	// Build sets of the blueprint's explicit entries for overlap detection.
-	explicitSkills := make(map[string]bool, len(p.Skills))
-	for _, s := range p.Skills {
+	explicitSkills := make(map[string]bool, len(p.Skills.Values))
+	for _, s := range p.Skills.Values {
 		explicitSkills[s] = true
 	}
-	explicitRules := make(map[string]bool, len(p.Rules))
-	for _, r := range p.Rules {
+	explicitRules := make(map[string]bool, len(p.Rules.Values))
+	for _, r := range p.Rules.Values {
 		explicitRules[r] = true
 	}
-	explicitMCP := make(map[string]bool, len(p.MCP))
-	for _, m := range p.MCP {
+	explicitMCP := make(map[string]bool, len(p.MCP.Values))
+	for _, m := range p.MCP.Values {
 		explicitMCP[m] = true
 	}
 
@@ -143,7 +157,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 	seenRule := make(map[string]bool)
 	seenMCP := make(map[string]bool)
 
-	for _, agentName := range p.Agents {
+	for _, agentName := range p.Agents.Values {
 		agent, ok := scope.Agents[agentName]
 		if !ok {
 			continue
@@ -154,7 +168,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 			}
 			if !seenSkill[s] {
 				seenSkill[s] = true
-				p.Skills = append(p.Skills, s)
+				p.Skills.Values = append(p.Skills.Values, s)
 			}
 		}
 		for _, r := range agent.Rules.Values {
@@ -163,7 +177,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 			}
 			if !seenRule[r] {
 				seenRule[r] = true
-				p.Rules = append(p.Rules, r)
+				p.Rules.Values = append(p.Rules.Values, r)
 			}
 		}
 		for _, m := range agent.MCP.Values {
@@ -172,7 +186,7 @@ func ResolveTransitiveDeps(p *ast.BlueprintConfig, scope *ast.ResourceScope) err
 			}
 			if !seenMCP[m] {
 				seenMCP[m] = true
-				p.MCP = append(p.MCP, m)
+				p.MCP.Values = append(p.MCP.Values, m)
 			}
 		}
 	}
@@ -203,14 +217,14 @@ func ValidateBlueprintRefs(blueprints map[string]ast.BlueprintConfig, scope *ast
 			scopeMemory = keysSet(scope.Memory)
 			scopeContexts = keysSet(scope.Contexts)
 		}
-		checkRefs("agent", p.Agents, scopeAgents)
-		checkRefs("skill", p.Skills, scopeSkills)
-		checkRefs("rule", p.Rules, scopeRules)
-		checkRefs("workflow", p.Workflows, scopeWorkflows)
-		checkRefs("mcp", p.MCP, scopeMCP)
-		checkRefs("policy", p.Policies, scopePolicies)
-		checkRefs("memory", p.Memory, scopeMemory)
-		checkRefs("context", p.Contexts, scopeContexts)
+		checkRefs("agent", p.Agents.Values, scopeAgents)
+		checkRefs("skill", p.Skills.Values, scopeSkills)
+		checkRefs("rule", p.Rules.Values, scopeRules)
+		checkRefs("workflow", p.Workflows.Values, scopeWorkflows)
+		checkRefs("mcp", p.MCP.Values, scopeMCP)
+		checkRefs("policy", p.Policies.Values, scopePolicies)
+		checkRefs("memory", p.Memory.Values, scopeMemory)
+		checkRefs("context", p.Contexts.Values, scopeContexts)
 	}
 	return errs
 }
@@ -244,14 +258,14 @@ func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.Xcaf
 
 	filtered := *config // shallow copy preserves Hooks, Settings, Blueprints, etc.
 	filtered.ResourceScope = ast.ResourceScope{
-		Agents:    filterMap(config.Agents, p.Agents),
-		Skills:    filterMap(config.Skills, p.Skills),
-		Rules:     filterMap(config.Rules, p.Rules),
-		Workflows: filterMap(config.Workflows, p.Workflows),
-		MCP:       filterMap(config.MCP, p.MCP),
-		Policies:  filterMap(config.Policies, p.Policies),
-		Memory:    filterMap(config.Memory, p.Memory),
-		Contexts:  filterMap(config.Contexts, p.Contexts),
+		Agents:    filterMap(config.Agents, p.Agents.Values),
+		Skills:    filterMap(config.Skills, p.Skills.Values),
+		Rules:     filterMap(config.Rules, p.Rules.Values),
+		Workflows: filterMap(config.Workflows, p.Workflows.Values),
+		MCP:       filterMap(config.MCP, p.MCP.Values),
+		Policies:  filterMapClearable(config.Policies, p.Policies),
+		Memory:    filterMap(config.Memory, p.Memory.Values),
+		Contexts:  filterMap(config.Contexts, p.Contexts.Values),
 	}
 
 	// Named settings selection: if the blueprint specifies a settings key,
@@ -275,6 +289,19 @@ func ApplyBlueprint(config *ast.XcaffoldConfig, blueprintName string) (*ast.Xcaf
 	}
 
 	return &filtered, nil
+}
+
+// filterMapClearable is like filterMap but treats an omitted ClearableList
+// (Cleared=false, Values=nil) as "keep all" rather than "keep none".
+// This is used for policies where omission means "apply all policies".
+func filterMapClearable[V any](source map[string]V, selector ast.ClearableList) map[string]V {
+	if selector.Cleared {
+		return nil
+	}
+	if len(selector.Values) == 0 {
+		return source
+	}
+	return filterMap(source, selector.Values)
 }
 
 // filterMap returns a new map containing only entries whose key appears in allowed.
@@ -311,14 +338,14 @@ func BlueprintHash(p ast.BlueprintConfig) string {
 		label string
 		refs  []string
 	}{
-		{"agents", p.Agents},
-		{"skills", p.Skills},
-		{"rules", p.Rules},
-		{"workflows", p.Workflows},
-		{"mcp", p.MCP},
-		{"policies", p.Policies},
-		{"memory", p.Memory},
-		{"contexts", p.Contexts},
+		{"agents", p.Agents.Values},
+		{"skills", p.Skills.Values},
+		{"rules", p.Rules.Values},
+		{"workflows", p.Workflows.Values},
+		{"mcp", p.MCP.Values},
+		{"policies", p.Policies.Values},
+		{"memory", p.Memory.Values},
+		{"contexts", p.Contexts.Values},
 	} {
 		fmt.Fprintf(h, "%s:", entry.label)
 		sorted := make([]string, len(entry.refs))

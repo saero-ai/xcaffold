@@ -92,9 +92,9 @@ rules:
 	require.NoError(t, err)
 	require.Contains(t, cfg.Blueprints, "backend")
 	assert.Equal(t, "Backend engineering", cfg.Blueprints["backend"].Description)
-	assert.Equal(t, []string{"developer"}, cfg.Blueprints["backend"].Agents)
-	assert.Equal(t, []string{"tdd"}, cfg.Blueprints["backend"].Skills)
-	assert.Equal(t, []string{"testing"}, cfg.Blueprints["backend"].Rules)
+	assert.Equal(t, []string{"developer"}, cfg.Blueprints["backend"].Agents.Values)
+	assert.Equal(t, []string{"tdd"}, cfg.Blueprints["backend"].Skills.Values)
+	assert.Equal(t, []string{"testing"}, cfg.Blueprints["backend"].Rules.Values)
 }
 
 func TestBlueprint_UnknownField_ReturnsError(t *testing.T) {
@@ -157,8 +157,8 @@ mcp:
 	require.Contains(t, cfg.Blueprints, "backend")
 	bp := cfg.Blueprints["backend"]
 	assert.Equal(t, "The backend blueprint", bp.Description)
-	assert.Equal(t, []string{"deploy"}, bp.Workflows)
-	assert.Equal(t, []string{"github"}, bp.MCP)
+	assert.Equal(t, []string{"deploy"}, bp.Workflows.Values)
+	assert.Equal(t, []string{"github"}, bp.MCP.Values)
 }
 
 func TestBlueprint_FixturesParse(t *testing.T) {

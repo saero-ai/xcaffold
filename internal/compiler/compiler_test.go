@@ -380,7 +380,7 @@ func TestCompile_Blueprint_FiltersResources(t *testing.T) {
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
-			"backend": {Name: "backend", Agents: []string{"developer"}},
+			"backend": {Name: "backend", Agents: ast.ClearableList{Values: []string{"developer"}}},
 		},
 	}
 	out, _, err := Compile(cfg, t.TempDir(), CompileOpts{Target: "claude", Blueprint: "backend"})
@@ -442,8 +442,8 @@ func TestCompile_BlueprintExtends_InheritedResources(t *testing.T) {
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
-			"base":  {Name: "base", Agents: []string{"base-agent"}},
-			"child": {Name: "child", Extends: "base", Agents: []string{"child-agent"}},
+			"base":  {Name: "base", Agents: ast.ClearableList{Values: []string{"base-agent"}}},
+			"child": {Name: "child", Extends: "base", Agents: ast.ClearableList{Values: []string{"child-agent"}}},
 		},
 	}
 
@@ -483,7 +483,7 @@ func TestCompile_BlueprintTransitiveDeps_AutoExpandsSkills(t *testing.T) {
 		Blueprints: map[string]ast.BlueprintConfig{
 			// Only agents listed; skills intentionally empty so transitive dep
 			// resolution should populate them automatically.
-			"backend": {Name: "backend", Agents: []string{"dev"}},
+			"backend": {Name: "backend", Agents: ast.ClearableList{Values: []string{"dev"}}},
 		},
 	}
 
@@ -516,7 +516,7 @@ func TestCompile_BlueprintValidation_RunsAfterExtends(t *testing.T) {
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
-			"base":  {Name: "base", Agents: []string{"base-agent"}},
+			"base":  {Name: "base", Agents: ast.ClearableList{Values: []string{"base-agent"}}},
 			"child": {Name: "child", Extends: "base"},
 		},
 	}
