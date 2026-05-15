@@ -22,11 +22,11 @@ type AgentConfig struct {
 	Name string `yaml:"name,omitempty"`
 
 	// Human-readable purpose of this agent.
-	// +xcaf:optional
+	// +xcaf:required
 	// +xcaf:group=Identity
-	// +xcaf:provider=claude:required,gemini:required,copilot:required,cursor:optional,antigravity:optional
+	// +xcaf:provider=claude:required,codex:required,gemini:required,copilot:required,cursor:optional,antigravity:optional
 	// +xcaf:role=rendering
-	Description string `yaml:"description,omitempty"`
+	Description string `yaml:"description"`
 
 	// LLM model identifier or alias resolved at compile time.
 	// +xcaf:optional
@@ -667,49 +667,49 @@ type BlueprintConfig struct {
 	// +xcaf:optional
 	// +xcaf:group=Resource Selectors
 	// +xcaf:type=[]string
-	Agents []string `yaml:"agents,omitempty"`
+	Agents ClearableList `yaml:"agents,omitempty"`
 
 	// Skill resource IDs to include in this blueprint.
 	// +xcaf:optional
 	// +xcaf:group=Resource Selectors
 	// +xcaf:type=[]string
-	Skills []string `yaml:"skills,omitempty"`
+	Skills ClearableList `yaml:"skills,omitempty"`
 
 	// Rule resource IDs to include in this blueprint.
 	// +xcaf:optional
 	// +xcaf:group=Resource Selectors
 	// +xcaf:type=[]string
-	Rules []string `yaml:"rules,omitempty"`
+	Rules ClearableList `yaml:"rules,omitempty"`
 
 	// Workflow resource IDs to include in this blueprint.
 	// +xcaf:optional
 	// +xcaf:group=Resource Selectors
 	// +xcaf:type=[]string
-	Workflows []string `yaml:"workflows,omitempty"`
+	Workflows ClearableList `yaml:"workflows,omitempty"`
 
 	// MCP server resource IDs to include in this blueprint.
 	// +xcaf:optional
 	// +xcaf:group=Resource Selectors
 	// +xcaf:type=[]string
-	MCP []string `yaml:"mcp,omitempty"`
+	MCP ClearableList `yaml:"mcp,omitempty"`
 
 	// Policy resource IDs to include in this blueprint.
 	// +xcaf:optional
 	// +xcaf:group=Resource Selectors
 	// +xcaf:type=[]string
-	Policies []string `yaml:"policies,omitempty"`
+	Policies ClearableList `yaml:"policies,omitempty"`
 
 	// Memory resource IDs to include in this blueprint.
 	// +xcaf:optional
 	// +xcaf:group=Resource Selectors
 	// +xcaf:type=[]string
-	Memory []string `yaml:"memory,omitempty"`
+	Memory ClearableList `yaml:"memory,omitempty"`
 
 	// Context resource IDs to include in this blueprint.
 	// +xcaf:optional
 	// +xcaf:group=Resource Selectors
 	// +xcaf:type=[]string
-	Contexts []string `yaml:"contexts,omitempty"`
+	Contexts ClearableList `yaml:"contexts,omitempty"`
 
 	// Name of the settings block to use.
 	// +xcaf:optional

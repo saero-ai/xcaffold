@@ -10,7 +10,7 @@ func TestDiffResources_NewResource(t *testing.T) {
 	scanned := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"new-agent": {Name: "new-agent"},
+				"new-agent": {Name: "new-agent", Description: "test agent"},
 			},
 			Skills: make(map[string]ast.SkillConfig),
 			Rules:  make(map[string]ast.RuleConfig),
@@ -50,7 +50,7 @@ func TestDiffResources_NewResource(t *testing.T) {
 }
 
 func TestDiffResources_UnchangedResource(t *testing.T) {
-	agent := ast.AgentConfig{Name: "same-agent"}
+	agent := ast.AgentConfig{Name: "same-agent", Description: "test agent"}
 	scanned := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{

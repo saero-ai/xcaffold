@@ -81,7 +81,7 @@ func TestImportScope_XcafDirAlreadyExists(t *testing.T) {
 		t.Fatalf("failed to create xcaf/ dir: %v", err)
 	}
 	projXcafPath := filepath.Join(tmp, "xcaf", "agents", "empty.xcaf")
-	if err := os.WriteFile(projXcafPath, []byte("kind: agent\nversion: \"1.0\"\nname: empty\n"), 0600); err != nil {
+	if err := os.WriteFile(projXcafPath, []byte("kind: agent\nversion: \"1.0\"\nname: empty\ndescription: An empty agent\n"), 0600); err != nil {
 		t.Fatalf("failed to write empty agent: %v", err)
 	}
 
@@ -767,7 +767,7 @@ func TestMergeImportDirs_ImportsHooksMCPSettings(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(cursorDir, "agents"), 0o755))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(cursorDir, "agents", "reviewer.md"),
-		[]byte("---\nname: reviewer\n---\n\nReview."),
+		[]byte("---\nname: reviewer\ndescription: Code reviewer\n---\n\nReview."),
 		0o644,
 	))
 
@@ -918,7 +918,7 @@ func TestImport_KindFilterFlags_Registered(t *testing.T) {
 func TestApplyKindFilters_NoFilters_KeepsEverything(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{"dev": {}},
+			Agents: map[string]ast.AgentConfig{"dev": {Description: "test agent"}},
 			Skills: map[string]ast.SkillConfig{"tdd": {}},
 			Rules:  map[string]ast.RuleConfig{"security": {}},
 		},
@@ -947,7 +947,7 @@ func TestApplyKindFilters_AgentOnly_NilOtherKinds(t *testing.T) {
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{"dev": {}},
+			Agents: map[string]ast.AgentConfig{"dev": {Description: "test agent"}},
 			Skills: map[string]ast.SkillConfig{"tdd": {}},
 			Rules:  map[string]ast.RuleConfig{"security": {}},
 		},
@@ -975,8 +975,8 @@ func TestApplyKindFilters_NameFilter_NarrowsResource(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev":      {},
-				"reviewer": {},
+				"dev":      {Description: "test agent"},
+				"reviewer": {Description: "test agent"},
 			},
 		},
 	}
@@ -1003,7 +1003,7 @@ func TestApplyKindFilters_NameFilter_Nonexistent_Nils(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {},
+				"dev": {Description: "test agent"},
 			},
 		},
 	}
@@ -1022,7 +1022,7 @@ func TestApplyKindFilters_HooksOnly(t *testing.T) {
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{"dev": {}},
+			Agents: map[string]ast.AgentConfig{"dev": {Description: "test agent"}},
 		},
 		Hooks: map[string]ast.NamedHookConfig{"default": {}},
 	}
@@ -1055,7 +1055,7 @@ func TestApplyKindFilters_MultipleKinds(t *testing.T) {
 
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{"dev": {}},
+			Agents: map[string]ast.AgentConfig{"dev": {Description: "test agent"}},
 			Skills: map[string]ast.SkillConfig{"tdd": {}},
 			Rules:  map[string]ast.RuleConfig{"security": {}},
 		},
@@ -2121,7 +2121,7 @@ func TestDiscoverRootContextFiles_MissingFiles(t *testing.T) {
 func TestTagResourcesWithProvider_AllKinds(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
-			Agents:    map[string]ast.AgentConfig{"a1": {Name: "a1"}},
+			Agents:    map[string]ast.AgentConfig{"a1": {Name: "a1", Description: "test agent"}},
 			Skills:    map[string]ast.SkillConfig{"s1": {Name: "s1"}},
 			Rules:     map[string]ast.RuleConfig{"r1": {Name: "r1"}},
 			Workflows: map[string]ast.WorkflowConfig{"w1": {Name: "w1"}},

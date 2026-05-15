@@ -29,17 +29,18 @@ targets:
 kind: agent
 version: "1.0"
 name: dev
+description: A developer agent
 ---
 You are a developer
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcaf"), []byte(`---
 kind: policy
 version: "1.0"
-name: needs-desc
+name: needs-model
 severity: error
 target: agent
 require:
-  - field: description
+  - field: model
     is-present: true
 `), 0600))
 

@@ -152,7 +152,7 @@ kind: agent . version 1.0 . format: frontmatter+body
   Identity
     name                      string          required  Unique identifier for this agent within the project.
                                                         Pattern: ^[a-z0-9-]+$
-    description               string          optional  Human-readable purpose of this agent.
+    description               string          required  Human-readable purpose of this agent.
                                                         Providers: Antigravity Claude(required) Copilot(required) Cursor Gemini(required)
 
   Model & Execution

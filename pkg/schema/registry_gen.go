@@ -32,7 +32,7 @@ func init() {
 				YAMLKey:     "description",
 				GoType:      "string",
 				XCAFType:    "string",
-				Optional:    true,
+				Optional:    false,
 				Description: "Human-readable purpose of this agent.",
 				Group:       "Identity",
 				Provider: map[string]string{
@@ -462,7 +462,7 @@ func init() {
 			{
 				Name:        "Agents",
 				YAMLKey:     "agents",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCAFType:    "[]string",
 				Optional:    true,
 				Description: "Agent resource IDs to include in this blueprint.",
@@ -471,7 +471,7 @@ func init() {
 			{
 				Name:        "Skills",
 				YAMLKey:     "skills",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCAFType:    "[]string",
 				Optional:    true,
 				Description: "Skill resource IDs to include in this blueprint.",
@@ -480,7 +480,7 @@ func init() {
 			{
 				Name:        "Rules",
 				YAMLKey:     "rules",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCAFType:    "[]string",
 				Optional:    true,
 				Description: "Rule resource IDs to include in this blueprint.",
@@ -489,7 +489,7 @@ func init() {
 			{
 				Name:        "Workflows",
 				YAMLKey:     "workflows",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCAFType:    "[]string",
 				Optional:    true,
 				Description: "Workflow resource IDs to include in this blueprint.",
@@ -498,7 +498,7 @@ func init() {
 			{
 				Name:        "MCP",
 				YAMLKey:     "mcp",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCAFType:    "[]string",
 				Optional:    true,
 				Description: "MCP server resource IDs to include in this blueprint.",
@@ -507,7 +507,7 @@ func init() {
 			{
 				Name:        "Policies",
 				YAMLKey:     "policies",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCAFType:    "[]string",
 				Optional:    true,
 				Description: "Policy resource IDs to include in this blueprint.",
@@ -516,7 +516,7 @@ func init() {
 			{
 				Name:        "Memory",
 				YAMLKey:     "memory",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCAFType:    "[]string",
 				Optional:    true,
 				Description: "Memory resource IDs to include in this blueprint.",
@@ -525,7 +525,7 @@ func init() {
 			{
 				Name:        "Contexts",
 				YAMLKey:     "contexts",
-				GoType:      "[]string",
+				GoType:      "ClearableList",
 				XCAFType:    "[]string",
 				Optional:    true,
 				Description: "Context resource IDs to include in this blueprint.",

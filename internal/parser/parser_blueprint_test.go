@@ -73,7 +73,7 @@ agents:
 func TestBlueprint_ParsesBasicDocument(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test-project\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte("kind: agent\nversion: \"1.0\"\nname: developer\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte("kind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"test agent\"\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcaf"), []byte("kind: skill\nversion: \"1.0\"\nname: tdd\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcaf"), []byte("kind: rule\nversion: \"1.0\"\nname: testing\n"), 0600))
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0755))
@@ -92,9 +92,9 @@ rules:
 	require.NoError(t, err)
 	require.Contains(t, cfg.Blueprints, "backend")
 	assert.Equal(t, "Backend engineering", cfg.Blueprints["backend"].Description)
-	assert.Equal(t, []string{"developer"}, cfg.Blueprints["backend"].Agents)
-	assert.Equal(t, []string{"tdd"}, cfg.Blueprints["backend"].Skills)
-	assert.Equal(t, []string{"testing"}, cfg.Blueprints["backend"].Rules)
+	assert.Equal(t, []string{"developer"}, cfg.Blueprints["backend"].Agents.Values)
+	assert.Equal(t, []string{"tdd"}, cfg.Blueprints["backend"].Skills.Values)
+	assert.Equal(t, []string{"testing"}, cfg.Blueprints["backend"].Rules.Values)
 }
 
 func TestBlueprint_UnknownField_ReturnsError(t *testing.T) {
@@ -157,8 +157,8 @@ mcp:
 	require.Contains(t, cfg.Blueprints, "backend")
 	bp := cfg.Blueprints["backend"]
 	assert.Equal(t, "The backend blueprint", bp.Description)
-	assert.Equal(t, []string{"deploy"}, bp.Workflows)
-	assert.Equal(t, []string{"github"}, bp.MCP)
+	assert.Equal(t, []string{"deploy"}, bp.Workflows.Values)
+	assert.Equal(t, []string{"github"}, bp.MCP.Values)
 }
 
 func TestBlueprint_FixturesParse(t *testing.T) {

@@ -119,7 +119,7 @@ func TestOrchestrate_PerResourceDispatch(t *testing.T) {
 		Version: "1",
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"tester": {Name: "Tester"},
+				"tester": {Name: "Tester", Description: "test agent"},
 			},
 		},
 	}
@@ -188,4 +188,175 @@ func TestOrchestrate_UnsupportedCapability_EmitsNote(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "expected a RENDERER_KIND_UNSUPPORTED note with Kind=skill and Resource=my-skill")
+}
+
+// settingsTrackingRenderer wraps mockRenderer and records CompileSettings calls.
+type settingsTrackingRenderer struct {
+	mockRenderer
+	settingsCallCount int
+	lastSettings      ast.SettingsConfig
+}
+
+func (s *settingsTrackingRenderer) CompileSettings(cfg ast.SettingsConfig) (map[string]string, []renderer.FidelityNote, error) {
+	s.settingsCallCount++
+	s.lastSettings = cfg
+	return map[string]string{"settings.json": "{}"}, nil, nil
+}
+
+func (s *settingsTrackingRenderer) Capabilities() renderer.CapabilitySet {
+	return renderer.CapabilitySet{Settings: true}
+}
+
+// hooksTrackingRenderer wraps mockRenderer and records CompileHooks calls.
+type hooksTrackingRenderer struct {
+	mockRenderer
+	hooksCallCount int
+}
+
+func (h *hooksTrackingRenderer) CompileHooks(cfg ast.HookConfig, _ string) (map[string]string, []renderer.FidelityNote, error) {
+	h.hooksCallCount++
+	return map[string]string{"hooks.sh": "#!/bin/sh"}, nil, nil
+}
+
+func (h *hooksTrackingRenderer) Capabilities() renderer.CapabilitySet {
+	return renderer.CapabilitySet{Hooks: true}
+}
+
+// TestResolveSettingsEntry_NonDefaultKey_IsCompiled verifies that when the settings
+// map has a single non-"default" key (as happens after blueprint filtering), that
+// entry is resolved and CompileSettings is called.
+func TestResolveSettingsEntry_NonDefaultKey_IsCompiled(t *testing.T) {
+	m := &settingsTrackingRenderer{}
+	config := &ast.XcaffoldConfig{
+		Version: "1",
+		Settings: map[string]ast.SettingsConfig{
+			"blueprint-settings": {Name: "blueprint-settings"},
+		},
+	}
+
+	_, _, err := renderer.Orchestrate(m, config, t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, 1, m.settingsCallCount, "CompileSettings should be called once for a single non-default entry")
+}
+
+// TestResolveSettingsEntry_DefaultKey_IsPreferred verifies that when both "default"
+// and another key exist, the "default" entry is used.
+func TestResolveSettingsEntry_DefaultKey_IsPreferred(t *testing.T) {
+	m := &settingsTrackingRenderer{}
+	wantName := "main-settings"
+	config := &ast.XcaffoldConfig{
+		Version: "1",
+		Settings: map[string]ast.SettingsConfig{
+			"default":     {Name: wantName},
+			"other-entry": {Name: "should-not-be-used"},
+		},
+	}
+
+	_, _, err := renderer.Orchestrate(m, config, t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, 1, m.settingsCallCount, "CompileSettings should be called exactly once")
+	assert.Equal(t, wantName, m.lastSettings.Name, "should compile the 'default' entry's settings")
+}
+
+// TestResolveSettingsEntry_EmptyMap_IsSkipped verifies that an empty settings map
+// results in no CompileSettings call.
+func TestResolveSettingsEntry_EmptyMap_IsSkipped(t *testing.T) {
+	m := &settingsTrackingRenderer{}
+	config := &ast.XcaffoldConfig{
+		Version: "1",
+	}
+
+	_, _, err := renderer.Orchestrate(m, config, t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, 0, m.settingsCallCount, "CompileSettings should not be called when settings map is empty")
+}
+
+// TestResolveSettingsEntry_MultipleNonDefaultEntries_IsSkipped verifies that when
+// the settings map has more than one non-"default" entry, the resolver cannot
+// determine which one to use and skips compilation (ambiguous case).
+func TestResolveSettingsEntry_MultipleNonDefaultEntries_IsSkipped(t *testing.T) {
+	m := &settingsTrackingRenderer{}
+	config := &ast.XcaffoldConfig{
+		Version: "1",
+		Settings: map[string]ast.SettingsConfig{
+			"entry-a": {Name: "entry-a"},
+			"entry-b": {Name: "entry-b"},
+		},
+	}
+
+	_, _, err := renderer.Orchestrate(m, config, t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, 0, m.settingsCallCount, "CompileSettings should not be called when multiple non-default entries are ambiguous")
+}
+
+// TestResolveHooksEntry_NonDefaultKey_IsCompiled verifies that when the hooks map
+// has a single non-"default" key, that entry is resolved and CompileHooks is called.
+func TestResolveHooksEntry_NonDefaultKey_IsCompiled(t *testing.T) {
+	m := &hooksTrackingRenderer{}
+	config := &ast.XcaffoldConfig{
+		Version: "1",
+		Hooks: map[string]ast.NamedHookConfig{
+			"blueprint-hooks": {
+				Name:   "blueprint-hooks",
+				Events: ast.HookConfig{"PreToolUse": nil},
+			},
+		},
+	}
+
+	_, _, err := renderer.Orchestrate(m, config, t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, 1, m.hooksCallCount, "CompileHooks should be called once for a single non-default entry")
+}
+
+// TestResolveHooksEntry_DefaultKey_IsPreferred verifies that when both "default"
+// and another key exist, the "default" hook entry is used.
+func TestResolveHooksEntry_DefaultKey_IsPreferred(t *testing.T) {
+	m := &hooksTrackingRenderer{}
+	config := &ast.XcaffoldConfig{
+		Version: "1",
+		Hooks: map[string]ast.NamedHookConfig{
+			"default": {
+				Name:   "default",
+				Events: ast.HookConfig{"PreToolUse": nil},
+			},
+			"other-hooks": {
+				Name:   "other-hooks",
+				Events: ast.HookConfig{"PostToolUse": nil},
+			},
+		},
+	}
+
+	_, _, err := renderer.Orchestrate(m, config, t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, 1, m.hooksCallCount, "CompileHooks should be called exactly once for the default entry")
+}
+
+// TestResolveHooksEntry_EmptyMap_IsSkipped verifies that an empty hooks map
+// results in no CompileHooks call.
+func TestResolveHooksEntry_EmptyMap_IsSkipped(t *testing.T) {
+	m := &hooksTrackingRenderer{}
+	config := &ast.XcaffoldConfig{
+		Version: "1",
+	}
+
+	_, _, err := renderer.Orchestrate(m, config, t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, 0, m.hooksCallCount, "CompileHooks should not be called when hooks map is empty")
+}
+
+// TestResolveHooksEntry_MultipleNonDefaultEntries_IsSkipped verifies that when
+// the hooks map has multiple non-"default" entries, the resolver skips compilation.
+func TestResolveHooksEntry_MultipleNonDefaultEntries_IsSkipped(t *testing.T) {
+	m := &hooksTrackingRenderer{}
+	config := &ast.XcaffoldConfig{
+		Version: "1",
+		Hooks: map[string]ast.NamedHookConfig{
+			"hooks-a": {Name: "hooks-a", Events: ast.HookConfig{"PreToolUse": nil}},
+			"hooks-b": {Name: "hooks-b", Events: ast.HookConfig{"PostToolUse": nil}},
+		},
+	}
+
+	_, _, err := renderer.Orchestrate(m, config, t.TempDir())
+	require.NoError(t, err)
+	assert.Equal(t, 0, m.hooksCallCount, "CompileHooks should not be called when multiple non-default entries are ambiguous")
 }

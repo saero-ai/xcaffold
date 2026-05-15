@@ -197,11 +197,41 @@ func (ctx renderCtx) runWorkflows() ([]FidelityNote, error) {
 	return notes, nil
 }
 
-// runHooks extracts the default hook block and compiles it, or emits
+// resolveSettingsEntry returns the active settings entry and its key.
+// It prefers the "default" key. If "default" is absent but exactly one
+// entry exists (e.g., after blueprint filtering), that entry is used.
+// Returns zero-value and "" if no entry is available.
+func resolveSettingsEntry(m map[string]ast.SettingsConfig) (ast.SettingsConfig, string) {
+	if s, ok := m["default"]; ok {
+		return s, "default"
+	}
+	if len(m) == 1 {
+		for k, v := range m {
+			return v, k
+		}
+	}
+	return ast.SettingsConfig{}, ""
+}
+
+// resolveHooksEntry returns the active hooks entry and its key.
+// Prefers "default"; falls back to the sole entry if exactly one exists.
+func resolveHooksEntry(m map[string]ast.NamedHookConfig) (ast.NamedHookConfig, string) {
+	if h, ok := m["default"]; ok {
+		return h, "default"
+	}
+	if len(m) == 1 {
+		for k, v := range m {
+			return v, k
+		}
+	}
+	return ast.NamedHookConfig{}, ""
+}
+
+// runHooks extracts the active hook block and compiles it, or emits
 // RENDERER_KIND_UNSUPPORTED notes per event when the renderer has no hook capability.
 func (ctx renderCtx) runHooks() ([]FidelityNote, error) {
-	dh, ok := ctx.config.Hooks["default"]
-	if !ok || len(dh.Events) == 0 || isSkipSynthesis(dh.Targets, ctx.r.Target()) {
+	dh, key := resolveHooksEntry(ctx.config.Hooks)
+	if key == "" || len(dh.Events) == 0 || isSkipSynthesis(dh.Targets, ctx.r.Target()) {
 		return nil, nil
 	}
 	mergedHooks := dh.Events
@@ -252,11 +282,11 @@ func (ctx renderCtx) runHookArtifacts() error {
 	return nil
 }
 
-// runSettings compiles the default settings block, or emits a
+// runSettings compiles the active settings block, or emits a
 // RENDERER_KIND_UNSUPPORTED note when the renderer has no settings capability.
 func (ctx renderCtx) runSettings() ([]FidelityNote, error) {
-	settings, ok := ctx.config.Settings["default"]
-	if !ok || isSkipSynthesis(settings.Targets, ctx.r.Target()) {
+	settings, key := resolveSettingsEntry(ctx.config.Settings)
+	if key == "" || isSkipSynthesis(settings.Targets, ctx.r.Target()) {
 		return nil, nil
 	}
 	if !ctx.caps.Settings {
@@ -264,7 +294,7 @@ func (ctx renderCtx) runSettings() ([]FidelityNote, error) {
 			Level:    LevelWarning,
 			Target:   ctx.r.Target(),
 			Kind:     "settings",
-			Resource: "default",
+			Resource: key,
 			Code:     CodeRendererKindUnsupported,
 			Reason:   "settings are not supported by this renderer",
 		}}, nil

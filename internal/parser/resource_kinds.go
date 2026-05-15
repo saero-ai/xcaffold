@@ -268,6 +268,9 @@ func mergeAgents(config *ast.XcaffoldConfig, agents map[string]ast.AgentConfig) 
 		config.Agents = make(map[string]ast.AgentConfig)
 	}
 	for k, v := range agents {
+		if strings.TrimSpace(v.Description) == "" {
+			return fmt.Errorf("agent %q: description is required", k)
+		}
 		if _, exists := config.Agents[k]; exists {
 			return fmt.Errorf("duplicate agent ID %q", k)
 		}

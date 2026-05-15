@@ -39,7 +39,7 @@ func TestParse_OverrideSuffix_RejectsUnknownProvider(t *testing.T) {
 	os.MkdirAll(xcafDir, 0755)
 
 	// Write valid base file
-	os.WriteFile(filepath.Join(xcafDir, "agent.xcaf"), []byte("kind: agent\nversion: \"1.0\"\nname: developer\n"), 0644)
+	os.WriteFile(filepath.Join(xcafDir, "agent.xcaf"), []byte("kind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"test agent\"\n"), 0644)
 	// Write override with unknown provider
 	os.WriteFile(filepath.Join(xcafDir, "agent.foobar.xcaf"), []byte("model: opus\n"), 0644)
 
@@ -55,7 +55,7 @@ func TestParse_OverrideFile_StoresInOverrides(t *testing.T) {
 	os.MkdirAll(xcafDir, 0755)
 
 	// Base agent
-	base := "---\nkind: agent\nversion: \"1.0\"\nname: developer\nmodel: sonnet\n---\nUniversal instructions.\n"
+	base := "---\nkind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"test agent\"\nmodel: sonnet\n---\nUniversal instructions.\n"
 	os.WriteFile(filepath.Join(xcafDir, "agent.xcaf"), []byte(base), 0644)
 
 	// Claude override (partial — no kind/version/name)
