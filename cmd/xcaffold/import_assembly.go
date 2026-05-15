@@ -430,6 +430,29 @@ func selectBaseProvider(scores map[string]int) string {
 	return selected
 }
 
+// selectBodyAwareBase returns the provider key that should be the base,
+// preferring providers with non-empty Body over stubs, then falling back
+// to the existing minimum-score selection within the preferred group.
+func selectBodyAwareBase(scores map[string]int, hasBody map[string]bool) string {
+	var anyHasBody bool
+	for _, has := range hasBody {
+		if has {
+			anyHasBody = true
+			break
+		}
+	}
+	if !anyHasBody {
+		return selectBaseProvider(scores)
+	}
+	candidates := make(map[string]int, len(scores))
+	for provider, score := range scores {
+		if hasBody[provider] {
+			candidates[provider] = score
+		}
+	}
+	return selectBaseProvider(candidates)
+}
+
 func splitAgentOverrides(configs map[string]ast.AgentConfig) (ast.AgentConfig, map[string]ast.AgentConfig) {
 	// Score each provider by provider-specificity: Hooks (+10), Model (+1), Tools (+1)
 	scores := make(map[string]int, len(configs))
