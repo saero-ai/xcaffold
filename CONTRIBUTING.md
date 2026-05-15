@@ -49,6 +49,21 @@ docs(contributing): update provider workflow
 test(importer): add roundtrip test for gemini
 ```
 
+### Commit Type Guide
+
+Use the correct type to prevent empty releases. Only `feat` and `fix` trigger version bumps and release creation.
+
+| Change | Type | Example |
+|--------|------|---------|
+| New user-facing feature | `feat` | `feat(parser): add workflow kind` |
+| Bug fix affecting CLI behavior or compiled output | `fix` | `fix(renderer): correct skill path in output` |
+| CI/CD workflow changes | `chore` | `chore(ci): update Go version in CI` |
+| Documentation updates | `docs` | `docs: update provider guide` |
+| Test additions or fixes | `test` | `test(importer): add roundtrip test` |
+| Code restructuring (no behavior change) | `refactor` | `refactor(compiler): extract merge helper` |
+| Dependency updates | `chore` | `chore(deps): bump golang.org/x/text` |
+
+**Important:** `fix(ci)` and `fix(docs)` will trigger an unnecessary patch release. Use `chore(ci)` and `docs` instead — these do not create releases.
 
 ### Changelog
 
