@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Breaking Changes
+
+* **schema:** `description` is now required on `kind: agent` resources — existing `.xcaf` files that omit `description` will fail validation. (parser, schema)
+
+### Features
+
+* **cli:** `xcaffold help --xcaf` now shows `optional*` for fields that are optional at xcaffold level but required by specific providers, with a note explaining which providers require them. (cli)
+
 ## [0.3.0](https://github.com/saero-ai/xcaffold/compare/v0.2.0...v0.3.0) (2026-05-14)
 
 
