@@ -13,8 +13,9 @@ func boolPtr(b bool) *bool { return &b }
 // preserved.
 func TestMergeAgentConfig_ScalarReplace(t *testing.T) {
 	base := ast.AgentConfig{
-		Name:  "my-agent",
-		Model: "sonnet",
+		Name:        "my-agent",
+		Description: "test agent",
+		Model:       "sonnet",
 	}
 	override := ast.AgentConfig{
 		Model: "opus",
@@ -34,7 +35,8 @@ func TestMergeAgentConfig_ScalarReplace(t *testing.T) {
 // replaces the base list entirely.
 func TestMergeAgentConfig_ListReplace(t *testing.T) {
 	base := ast.AgentConfig{
-		Tools: ast.ClearableList{Values: []string{"Read", "Write", "Bash"}},
+		Description: "test agent",
+		Tools:       ast.ClearableList{Values: []string{"Read", "Write", "Bash"}},
 	}
 	override := ast.AgentConfig{
 		Tools: ast.ClearableList{Values: []string{"Read"}},
@@ -52,6 +54,7 @@ func TestMergeAgentConfig_ListReplace(t *testing.T) {
 // override-only keys are present in the result, and override wins on conflicts.
 func TestMergeAgentConfig_MapDeepMerge(t *testing.T) {
 	base := ast.AgentConfig{
+		Description: "test agent",
 		MCPServers: map[string]ast.MCPConfig{
 			"base-server": {Command: "base-cmd"},
 		},
@@ -79,7 +82,8 @@ func TestMergeAgentConfig_MapDeepMerge(t *testing.T) {
 // override Body replaces the base Body.
 func TestMergeAgentConfig_BodyReplaceWhenPresent(t *testing.T) {
 	base := ast.AgentConfig{
-		Body: "base instructions",
+		Description: "test agent",
+		Body:        "base instructions",
 	}
 	override := ast.AgentConfig{
 		Body: "override instructions",
@@ -96,7 +100,8 @@ func TestMergeAgentConfig_BodyReplaceWhenPresent(t *testing.T) {
 // Body inherits the base Body unchanged.
 func TestMergeAgentConfig_BodyInheritWhenAbsent(t *testing.T) {
 	base := ast.AgentConfig{
-		Body: "base instructions",
+		Description: "test agent",
+		Body:        "base instructions",
 	}
 	override := ast.AgentConfig{
 		Body: "",
@@ -113,7 +118,8 @@ func TestMergeAgentConfig_BodyInheritWhenAbsent(t *testing.T) {
 // bool pointer replaces the base value.
 func TestMergeAgentConfig_BoolPointerReplace(t *testing.T) {
 	base := ast.AgentConfig{
-		Readonly: boolPtr(false),
+		Description: "test agent",
+		Readonly:    boolPtr(false),
 	}
 	override := ast.AgentConfig{
 		Readonly: boolPtr(true),
@@ -133,11 +139,12 @@ func TestMergeAgentConfig_BoolPointerReplace(t *testing.T) {
 // base fields unchanged.
 func TestMergeAgentConfig_EmptyOverride(t *testing.T) {
 	base := ast.AgentConfig{
-		Model:    "sonnet",
-		Name:     "dev",
-		Tools:    ast.ClearableList{Values: []string{"Read", "Write"}},
-		Body:     "instructions",
-		Readonly: boolPtr(true),
+		Model:       "sonnet",
+		Name:        "dev",
+		Description: "test agent",
+		Tools:       ast.ClearableList{Values: []string{"Read", "Write"}},
+		Body:        "instructions",
+		Readonly:    boolPtr(true),
 	}
 	override := ast.AgentConfig{}
 
@@ -195,6 +202,7 @@ func TestMergeAgentConfig_BoolPointerNilBase(t *testing.T) {
 // override both contain the same MCPServers key, the override's value wins.
 func TestMergeAgentConfig_MapConflictOverrideWins(t *testing.T) {
 	base := ast.AgentConfig{
+		Description: "test agent",
 		MCPServers: map[string]ast.MCPConfig{
 			"shared-key": {Command: "base-cmd"},
 		},
@@ -229,7 +237,8 @@ func TestMergeAgentConfig_HooksDeepMerge(t *testing.T) {
 
 	// Disjoint keys: both should be present after merge.
 	base := ast.AgentConfig{
-		Hooks: ast.HookConfig{"event-a": baseGroup},
+		Description: "test agent",
+		Hooks:       ast.HookConfig{"event-a": baseGroup},
 	}
 	override := ast.AgentConfig{
 		Hooks: ast.HookConfig{"event-b": overrideGroup},
@@ -249,7 +258,8 @@ func TestMergeAgentConfig_HooksDeepMerge(t *testing.T) {
 		{Matcher: "conflict-matcher", Hooks: []ast.HookHandler{{Type: "command", Command: "conflict-cmd"}}},
 	}
 	base2 := ast.AgentConfig{
-		Hooks: ast.HookConfig{"event-a": baseGroup},
+		Description: "test agent",
+		Hooks:       ast.HookConfig{"event-a": baseGroup},
 	}
 	override2 := ast.AgentConfig{
 		Hooks: ast.HookConfig{"event-a": conflictGroup},
@@ -270,6 +280,7 @@ func TestMergeAgentConfig_HooksDeepMerge(t *testing.T) {
 // disjoint provider keys from base and override are both present after merge.
 func TestMergeAgentConfig_TargetsDeepMerge(t *testing.T) {
 	base := ast.AgentConfig{
+		Description: "test agent",
 		Targets: map[string]ast.TargetOverride{
 			"claude": {Provider: map[string]any{"key": "claude-val"}},
 		},
@@ -298,10 +309,11 @@ func TestMergeAgentConfig_TargetsDeepMerge(t *testing.T) {
 // base fields — Model, Tools, etc. — are preserved unchanged.
 func TestMergeAgentConfig_BodyOnlyOverride(t *testing.T) {
 	base := ast.AgentConfig{
-		Name:  "developer",
-		Model: "sonnet",
-		Tools: ast.ClearableList{Values: []string{"Bash", "Read", "Write"}},
-		Body:  "Universal instructions.",
+		Name:        "developer",
+		Description: "test agent",
+		Model:       "sonnet",
+		Tools:       ast.ClearableList{Values: []string{"Bash", "Read", "Write"}},
+		Body:        "Universal instructions.",
 	}
 	override := ast.AgentConfig{
 		Body: "Provider-specific instructions.",
@@ -325,9 +337,10 @@ func TestMergeAgentConfig_BodyOnlyOverride(t *testing.T) {
 // replaced while the base Body is inherited unchanged.
 func TestMergeAgentConfig_FrontmatterOnlyOverride(t *testing.T) {
 	base := ast.AgentConfig{
-		Name:  "developer",
-		Model: "sonnet",
-		Body:  "Universal instructions.",
+		Name:        "developer",
+		Description: "test agent",
+		Model:       "sonnet",
+		Body:        "Universal instructions.",
 	}
 	override := ast.AgentConfig{
 		Model: "opus",
@@ -1079,7 +1092,7 @@ func TestMergeSettingsConfig_MCPServersDeepMerge(t *testing.T) {
 }
 
 func TestMergeAgentConfig_MaxTurnsPointer_ZeroOverride(t *testing.T) {
-	base := ast.AgentConfig{MaxTurns: intPtr(10)}
+	base := ast.AgentConfig{Description: "test agent", MaxTurns: intPtr(10)}
 	override := ast.AgentConfig{MaxTurns: intPtr(0)}
 
 	got := mergeAgentConfig(base, override)
@@ -1090,7 +1103,7 @@ func TestMergeAgentConfig_MaxTurnsPointer_ZeroOverride(t *testing.T) {
 }
 
 func TestMergeAgentConfig_MaxTurnsPointer_NilPreservesBase(t *testing.T) {
-	base := ast.AgentConfig{MaxTurns: intPtr(10)}
+	base := ast.AgentConfig{Description: "test agent", MaxTurns: intPtr(10)}
 	override := ast.AgentConfig{}
 
 	got := mergeAgentConfig(base, override)

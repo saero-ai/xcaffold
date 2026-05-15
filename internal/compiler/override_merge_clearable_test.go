@@ -10,7 +10,8 @@ import (
 
 func TestMerge_ClearableList_Clear(t *testing.T) {
 	base := ast.AgentConfig{
-		Tools: ast.ClearableList{Values: []string{"Read", "Write"}},
+		Description: "test agent",
+		Tools:       ast.ClearableList{Values: []string{"Read", "Write"}},
 	}
 	override := ast.AgentConfig{
 		Tools: ast.ClearableList{Cleared: true},
@@ -22,7 +23,8 @@ func TestMerge_ClearableList_Clear(t *testing.T) {
 
 func TestMerge_ClearableList_Replace(t *testing.T) {
 	base := ast.AgentConfig{
-		Tools: ast.ClearableList{Values: []string{"Read", "Write"}},
+		Description: "test agent",
+		Tools:       ast.ClearableList{Values: []string{"Read", "Write"}},
 	}
 	override := ast.AgentConfig{
 		Tools: ast.ClearableList{Values: []string{"Bash", "Grep"}},
@@ -34,7 +36,8 @@ func TestMerge_ClearableList_Replace(t *testing.T) {
 
 func TestMerge_ClearableList_Inherit(t *testing.T) {
 	base := ast.AgentConfig{
-		Tools: ast.ClearableList{Values: []string{"Read", "Write"}},
+		Description: "test agent",
+		Tools:       ast.ClearableList{Values: []string{"Read", "Write"}},
 	}
 	override := ast.AgentConfig{
 		Tools: ast.ClearableList{},
@@ -46,6 +49,7 @@ func TestMerge_ClearableList_Inherit(t *testing.T) {
 
 func TestMerge_ClearableList_Clear_AllAgentFields(t *testing.T) {
 	base := ast.AgentConfig{
+		Description:     "test agent",
 		Tools:           ast.ClearableList{Values: []string{"Read"}},
 		DisallowedTools: ast.ClearableList{Values: []string{"Write"}},
 		Skills:          ast.ClearableList{Values: []string{"tdd"}},
@@ -98,7 +102,7 @@ func TestMerge_ClearableList_Clear_RuleFields(t *testing.T) {
 }
 
 func TestMerge_ClearableList_Replace_DoesNotShareSlice(t *testing.T) {
-	base := ast.AgentConfig{}
+	base := ast.AgentConfig{Description: "test agent"}
 	override := ast.AgentConfig{
 		Tools: ast.ClearableList{Values: []string{"Read", "Write"}},
 	}

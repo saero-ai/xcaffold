@@ -219,7 +219,7 @@ func TestCompile_AntigravityTarget_AgentsIncluded(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"reviewer": {Name: "Reviewer", Body: "Review."},
+				"reviewer": {Name: "Reviewer", Description: "test agent", Body: "Review."},
 			},
 			Rules: map[string]ast.RuleConfig{
 				"test": {Body: "Test."},

@@ -33,7 +33,8 @@ func TestCompile_AgentInstructionsTrailingNewlines(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"trimtest": {
-					Body: "Do the thing.\n\n\n",
+					Description: "test agent",
+					Body:        "Do the thing.\n\n\n",
 				},
 			},
 		},
@@ -260,7 +261,8 @@ func TestCompile_UnicodeInstructions(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"unicode-agent": {
-					Body: unicodeInstructions,
+					Description: "test agent",
+					Body:        unicodeInstructions,
 				},
 			},
 		},
