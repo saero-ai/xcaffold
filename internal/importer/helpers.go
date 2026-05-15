@@ -222,11 +222,16 @@ func DefaultExtractRule(rel string, data []byte, provider string, config *ast.Xc
 	relFromRules := strings.TrimPrefix(filepath.ToSlash(rel), rulesPrefix)
 	id := strings.TrimSuffix(relFromRules, ".md")
 
+	name := front.Name
+	if name == "" {
+		name = id
+	}
+
 	if config.Rules == nil {
 		config.Rules = make(map[string]ast.RuleConfig)
 	}
 	config.Rules[id] = ast.RuleConfig{
-		Name:           front.Name,
+		Name:           name,
 		Description:    front.Description,
 		AlwaysApply:    front.AlwaysApply,
 		Activation:     front.Activation,
