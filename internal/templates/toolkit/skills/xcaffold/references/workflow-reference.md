@@ -11,7 +11,6 @@ kind: workflow
 version: "1.0"
 
 # ── Identity ─────────────────────────────────────────────────
-api-version: workflow/v1    # Optional. Schema shape discriminator. Default: workflow/v1.
 name: my-workflow           # REQUIRED. Lowercase + hyphens. Pattern: ^[a-z0-9-]+$
 description: "..."          # Optional. What this workflow does.
 
