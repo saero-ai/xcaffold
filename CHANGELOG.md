@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Features
 
 * add Codex provider, schema cleanup, and doc improvements ([4e7c11a](https://github.com/saero-ai/xcaffold/commit/4e7c11ae905af4d893ce39db51f09272f0fb300b))
-* add Codex provider, schema cleanup, and doc improvements ([4e7c11a](https://github.com/saero-ai/xcaffold/commit/4e7c11ae905af4d893ce39db51f09272f0fb300b))
 * **codex:** add Codex provider ([0256987](https://github.com/saero-ai/xcaffold/commit/0256987c3a37619e014f603712ff8ea78012a1ba))
 * **codex:** add Codex provider core ([1137631](https://github.com/saero-ai/xcaffold/commit/1137631bb81ba92c4c3742fc087bdbb39678eb25))
 * **codex:** add renderer unit tests ([21250cc](https://github.com/saero-ai/xcaffold/commit/21250cc5f7d2a4cde591a3807691c37ac6011593))
