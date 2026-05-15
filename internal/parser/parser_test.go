@@ -647,6 +647,7 @@ func TestParse_TargetOverride_ProviderPassthrough(t *testing.T) {
 kind: agent
 version: "1.0"
 name: researcher
+description: "test agent"
 model: sonnet
 targets:
   gemini:
@@ -1000,6 +1001,7 @@ func TestParse_AgentMemory_AcceptsList(t *testing.T) {
 kind: agent
 version: "1.0"
 name: developer
+description: "test agent"
 memory:
   - user-prefs
   - project-context
@@ -1017,6 +1019,7 @@ func TestParse_AgentMemory_AcceptsScalarBackwardCompat(t *testing.T) {
 kind: agent
 version: "1.0"
 name: developer
+description: "test agent"
 memory: user-prefs
 `
 	cfg, err := Parse(strings.NewReader(input))

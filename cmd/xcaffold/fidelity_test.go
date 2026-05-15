@@ -83,11 +83,13 @@ func TestBuildSuppressedResourcesMap_PicksUpAgentOverride(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"quiet": {
+					Description: "test agent",
 					Targets: map[string]ast.TargetOverride{
 						"cursor": {SuppressFidelityWarnings: &suppress},
 					},
 				},
 				"loud": {
+					Description: "test agent",
 					Targets: map[string]ast.TargetOverride{
 						"cursor": {SuppressFidelityWarnings: nil},
 					},
@@ -167,6 +169,7 @@ func TestBuildSuppressedResourcesMap_MixedResourceKinds(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"agent-a": {
+					Description: "test agent",
 					Targets: map[string]ast.TargetOverride{
 						"cursor": {SuppressFidelityWarnings: &suppress},
 					},

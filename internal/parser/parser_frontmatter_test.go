@@ -14,7 +14,7 @@ func TestParse_Frontmatter_ExtractsBodyAsInstructions(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "coder.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte(
-		"---\nkind: agent\nname: coder\nversion: \"1.0\"\n---\nThis is the body.\n"), 0600))
+		"---\nkind: agent\nname: coder\nversion: \"1.0\"\ndescription: \"test agent\"\n---\nThis is the body.\n"), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
 	assert.Equal(t, "This is the body.", cfg.Agents["coder"].Body)
@@ -23,7 +23,7 @@ func TestParse_Frontmatter_ExtractsBodyAsInstructions(t *testing.T) {
 func TestParse_Frontmatter_NoDelimiter(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "coder.xcaf")
-	require.NoError(t, os.WriteFile(f, []byte("kind: agent\nname: coder\nversion: \"1.0\"\n"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte("kind: agent\nname: coder\nversion: \"1.0\"\ndescription: \"test agent\"\n"), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
 	_, ok := cfg.Agents["coder"]
@@ -33,7 +33,7 @@ func TestParse_Frontmatter_NoDelimiter(t *testing.T) {
 func TestParse_Frontmatter_EmptyBody(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "coder.xcaf")
-	require.NoError(t, os.WriteFile(f, []byte("---\nkind: agent\nname: coder\nversion: \"1.0\"\n---\n"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte("---\nkind: agent\nname: coder\nversion: \"1.0\"\ndescription: \"test agent\"\n---\n"), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
 	assert.Equal(t, "", cfg.Agents["coder"].Body)
@@ -42,7 +42,7 @@ func TestParse_Frontmatter_EmptyBody(t *testing.T) {
 func TestParse_Frontmatter_WhitespaceBody(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "coder.xcaf")
-	require.NoError(t, os.WriteFile(f, []byte("---\nkind: agent\nname: coder\nversion: \"1.0\"\n---\n   \n   \n"), 0600))
+	require.NoError(t, os.WriteFile(f, []byte("---\nkind: agent\nname: coder\nversion: \"1.0\"\ndescription: \"test agent\"\n---\n   \n   \n"), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
 	assert.Equal(t, "", cfg.Agents["coder"].Body)
@@ -69,7 +69,7 @@ func TestParse_Frontmatter_InstructionsFieldWins(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "coder.xcaf")
 	require.NoError(t, os.WriteFile(f, []byte(
-		"---\nkind: agent\nname: coder\nversion: \"1.0\"\ninstructions: \"from yaml\"\n---\nThis body is ignored.\n"), 0600))
+		"---\nkind: agent\nname: coder\nversion: \"1.0\"\ndescription: \"test agent\"\ninstructions: \"from yaml\"\n---\nThis body is ignored.\n"), 0600))
 	cfg, err := ParseFileExact(f)
 	require.NoError(t, err)
 	assert.Equal(t, "from yaml", cfg.Agents["coder"].Body)
@@ -187,7 +187,7 @@ func TestParse_Frontmatter_WorkflowWithBody(t *testing.T) {
 func TestParse_Frontmatter_MultiDocumentDeprecationWarning(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "multi.xcaf")
-	content := "kind: agent\nname: agent-a\nversion: \"1.0\"\n---\nkind: skill\nname: skill-b\nversion: \"1.0\"\n"
+	content := "kind: agent\nname: agent-a\nversion: \"1.0\"\ndescription: \"Test agent\"\n---\nkind: skill\nname: skill-b\nversion: \"1.0\"\n"
 	require.NoError(t, os.WriteFile(f, []byte(content), 0600))
 
 	_, err := ParseFileExact(f)

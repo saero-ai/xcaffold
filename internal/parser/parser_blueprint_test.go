@@ -73,7 +73,7 @@ agents:
 func TestBlueprint_ParsesBasicDocument(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte("kind: project\nversion: \"1.0\"\nname: test-project\n"), 0600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte("kind: agent\nversion: \"1.0\"\nname: developer\n"), 0600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte("kind: agent\nversion: \"1.0\"\nname: developer\ndescription: \"test agent\"\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "skill.xcaf"), []byte("kind: skill\nversion: \"1.0\"\nname: tdd\n"), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "rule.xcaf"), []byte("kind: rule\nversion: \"1.0\"\nname: testing\n"), 0600))
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "blueprints"), 0755))

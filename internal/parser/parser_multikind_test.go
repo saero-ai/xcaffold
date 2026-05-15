@@ -62,7 +62,7 @@ always-apply: true
 }
 
 func TestExtractKind_Agent(t *testing.T) {
-	yamlStr := "kind: agent\nname: dev\nversion: \"1.0\"\n"
+	yamlStr := "kind: agent\nname: dev\nversion: \"1.0\"\ndescription: \"test agent\"\n"
 	var node yaml.Node
 	err := yaml.Unmarshal([]byte(yamlStr), &node)
 	require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestExtractKind_Config(t *testing.T) {
 }
 
 func TestNodeToBytes_RoundTrip(t *testing.T) {
-	yamlStr := "kind: agent\nname: dev\n"
+	yamlStr := "kind: agent\nname: dev\nversion: \"1.0\"\ndescription: \"test agent\"\n"
 	var node yaml.Node
 	err := yaml.Unmarshal([]byte(yamlStr), &node)
 	require.NoError(t, err)
@@ -802,11 +802,15 @@ func TestParseFile_GlobalKind_DuplicateAgent_Error(t *testing.T) {
 version: "1.0"
 agents:
   dev:
+    description: "Developer"
+    model: sonnet
+    tools: [Read]
 
 ---
 kind: agent
 version: "1.0"
 name: dev
+description: "Developer agent"
 
 `
 	_, err := Parse(strings.NewReader(input))
@@ -879,6 +883,7 @@ name: my-api
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.xcaf"), []byte(`kind: agent
 version: "1.0"
 name: developer
+description: "Developer agent"
 
 `), 0600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "policy.xcaf"), []byte(`kind: policy

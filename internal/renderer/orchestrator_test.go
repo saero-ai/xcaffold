@@ -119,7 +119,7 @@ func TestOrchestrate_PerResourceDispatch(t *testing.T) {
 		Version: "1",
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"tester": {Name: "Tester"},
+				"tester": {Name: "Tester", Description: "test agent"},
 			},
 		},
 	}

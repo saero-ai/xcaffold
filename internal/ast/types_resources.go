@@ -22,11 +22,11 @@ type AgentConfig struct {
 	Name string `yaml:"name,omitempty"`
 
 	// Human-readable purpose of this agent.
-	// +xcaf:optional
+	// +xcaf:required
 	// +xcaf:group=Identity
-	// +xcaf:provider=claude:required,gemini:required,copilot:required,cursor:optional,antigravity:optional
+	// +xcaf:provider=claude:required,codex:required,gemini:required,copilot:required,cursor:optional,antigravity:optional
 	// +xcaf:role=rendering
-	Description string `yaml:"description,omitempty"`
+	Description string `yaml:"description"`
 
 	// LLM model identifier or alias resolved at compile time.
 	// +xcaf:optional

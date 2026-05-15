@@ -13,8 +13,9 @@ func TestResolveTargetOverrides_UniversalResource_Included(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.Agents = map[string]ast.AgentConfig{
 		"developer": {
-			Name:  "developer",
-			Model: "sonnet",
+			Name:        "developer",
+			Description: "test agent",
+			Model:       "sonnet",
 		},
 	}
 
@@ -34,8 +35,9 @@ func TestResolveTargetOverrides_TargetedResource_IncludedWhenMatch(t *testing.T)
 	config := &ast.XcaffoldConfig{}
 	config.Agents = map[string]ast.AgentConfig{
 		"developer": {
-			Name:  "developer",
-			Model: "sonnet",
+			Name:        "developer",
+			Description: "test agent",
+			Model:       "sonnet",
 			Targets: map[string]ast.TargetOverride{
 				"claude": {},
 				"gemini": {},
@@ -60,8 +62,9 @@ func TestResolveTargetOverrides_TargetedResource_SkippedWhenNoMatch(t *testing.T
 	config := &ast.XcaffoldConfig{}
 	config.Agents = map[string]ast.AgentConfig{
 		"developer": {
-			Name:  "developer",
-			Model: "sonnet",
+			Name:        "developer",
+			Description: "test agent",
+			Model:       "sonnet",
 			Targets: map[string]ast.TargetOverride{
 				"gemini": {},
 			},
@@ -100,8 +103,9 @@ func TestResolveTargetOverrides_OverrideMerged(t *testing.T) {
 	config := &ast.XcaffoldConfig{}
 	config.Agents = map[string]ast.AgentConfig{
 		"developer": {
-			Name:  "developer",
-			Model: "sonnet",
+			Name:        "developer",
+			Description: "test agent",
+			Model:       "sonnet",
 		},
 	}
 	config.Overrides = &ast.ResourceOverrides{}
@@ -133,8 +137,9 @@ func TestResolveTargetOverrides_AfterBlueprintFilter_OnlyFilteredResources(t *te
 	config := &ast.XcaffoldConfig{}
 	config.Agents = map[string]ast.AgentConfig{
 		"developer": {
-			Name:  "developer",
-			Model: "sonnet",
+			Name:        "developer",
+			Description: "test agent",
+			Model:       "sonnet",
 			Targets: map[string]ast.TargetOverride{
 				"claude": {},
 			},
@@ -287,8 +292,9 @@ func TestResolveTargetOverrides_NilOverrides(t *testing.T) {
 	config.Overrides = nil // explicit nil
 	config.Agents = map[string]ast.AgentConfig{
 		"developer": {
-			Name:  "developer",
-			Model: "sonnet",
+			Name:        "developer",
+			Description: "test agent",
+			Model:       "sonnet",
 		},
 	}
 

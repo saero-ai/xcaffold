@@ -50,7 +50,7 @@ func TestList_StripInherited_GlobalNotShown(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"local-agent": {},
+				"local-agent": {Description: "test agent"},
 			},
 		},
 	}
@@ -116,7 +116,7 @@ func TestList_SingleColumn_EachNameOnOwnLine(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-1": {}, "agent-2": {}, "agent-3": {},
+				"agent-1": {Description: "test agent"}, "agent-2": {Description: "test agent"}, "agent-3": {Description: "test agent"},
 			},
 		},
 	}
@@ -139,7 +139,7 @@ func TestList_Header_OmitsZeroCounts(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-1": {},
+				"agent-1": {Description: "test agent"},
 			},
 		},
 	}
@@ -162,7 +162,7 @@ func TestList_KindFilter_Agent(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-1": {},
+				"agent-1": {Description: "test agent"},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"skill-1": {},
@@ -195,7 +195,7 @@ func TestList_AddedSections_Contexts_Hooks_Settings(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-1": {},
+				"agent-1": {Description: "test agent"},
 			},
 			Contexts: map[string]ast.ContextConfig{
 				"context-1": {},
@@ -233,7 +233,7 @@ func TestList_VerboseMemory_ShowsEntries(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent1": {},
+				"agent1": {Description: "test agent"},
 			},
 		},
 	}
@@ -297,7 +297,7 @@ func TestList_ZeroMatchFilter_ShowsMessage(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-1": {},
+				"agent-1": {Description: "test agent"},
 			},
 		},
 	}
@@ -318,7 +318,7 @@ func TestList_ZeroMatchFilter_ShowsMessage(t *testing.T) {
 func TestList_Header_SingularCounts(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
-			Agents:   map[string]ast.AgentConfig{"a": {}},
+			Agents:   map[string]ast.AgentConfig{"a": {Description: "test agent"}},
 			Contexts: map[string]ast.ContextConfig{"c": {}},
 		},
 		Hooks:    map[string]ast.NamedHookConfig{"h": {}},
@@ -346,8 +346,8 @@ func TestList_KindFilter_HeaderShowsOnlyFilteredCounts(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-1": {},
-				"agent-2": {},
+				"agent-1": {Description: "test agent"},
+				"agent-2": {Description: "test agent"},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"skill-1": {},
@@ -379,7 +379,7 @@ func TestList_KindFilter_HeaderShowsMultipleFilters(t *testing.T) {
 	config := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-1": {},
+				"agent-1": {Description: "test agent"},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"skill-1": {},

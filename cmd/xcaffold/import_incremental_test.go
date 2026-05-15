@@ -27,7 +27,7 @@ func TestIncrementalImport_KindFilter_AgentOnly_DiffContainsOnlyAgents(t *testin
 	scannedConfig := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {},
+				"dev": {Description: "test agent"},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {},
@@ -86,7 +86,7 @@ func TestIncrementalImport_KindFilter_MultiKind_DiffContainsOnlyRequested(t *tes
 	scannedConfig := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev": {},
+				"dev": {Description: "test agent"},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {},
@@ -143,8 +143,8 @@ func TestIncrementalImport_KindFilter_NamedAgent_DiffContainsOnlyNamed(t *testin
 	scannedConfig := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"dev":      {},
-				"reviewer": {},
+				"dev":      {Description: "test agent"},
+				"reviewer": {Description: "test agent"},
 			},
 			Skills: map[string]ast.SkillConfig{
 				"tdd": {},
