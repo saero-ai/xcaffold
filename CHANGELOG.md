@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2](https://github.com/saero-ai/xcaffold/compare/v0.4.1...v0.4.2) (2026-05-15)
+
+
+### Bug Fixes
+
+* **ci:** use PAT for release-please and add manual release trigger ([b5b1bf3](https://github.com/saero-ai/xcaffold/commit/b5b1bf3d6e1a91e0a1feefc77b0d267a99a8c8e6))
+* **ci:** use PAT for release-please and add manual release trigger ([002a36f](https://github.com/saero-ai/xcaffold/commit/002a36ffda7f033cd3b69e57148f30ad57ec7552))
+* **ci:** use RELEASE_PAT for release-please workflow ([2c38d07](https://github.com/saero-ai/xcaffold/commit/2c38d07b178f2ced15f33199be055389144b37ee))
+* **ci:** use RELEASE_PAT for release-please workflow ([dbec6b6](https://github.com/saero-ai/xcaffold/commit/dbec6b6de0a559a631eed5a372208b8b71765bd9))
+
 ## [0.4.1](https://github.com/saero-ai/xcaffold/compare/v0.4.0...v0.4.1) (2026-05-15)
 
 
