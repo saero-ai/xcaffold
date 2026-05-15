@@ -228,7 +228,8 @@ func TestGraph_TreeAlignment_NonLastBlock(t *testing.T) {
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
 				"test-agent": {
-					Skills: ast.ClearableList{Values: []string{"skill-a"}},
+					Description: "test agent",
+					Skills:      ast.ClearableList{Values: []string{"skill-a"}},
 				},
 			},
 			Skills: map[string]ast.SkillConfig{
@@ -257,7 +258,7 @@ func TestGraph_TreeAlignment_LastBlock(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"solo": {Skills: ast.ClearableList{Values: []string{"s1"}}},
+				"solo": {Description: "test agent", Skills: ast.ClearableList{Values: []string{"s1"}}},
 			},
 			Skills: map[string]ast.SkillConfig{"s1": {}},
 		},
@@ -274,7 +275,7 @@ func TestGraph_Header_OmitsZeroMCP(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		Project: &ast.ProjectConfig{Name: "myproj"},
 		ResourceScope: ast.ResourceScope{
-			Agents: map[string]ast.AgentConfig{"a": {}},
+			Agents: map[string]ast.AgentConfig{"a": {Description: "test agent"}},
 		},
 	}
 
@@ -310,8 +311,8 @@ func TestFilterAgentIfRequested_FiltersToSingleAgent(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-a": {Skills: ast.ClearableList{Values: []string{"s1"}}},
-				"agent-b": {},
+				"agent-a": {Description: "test agent", Skills: ast.ClearableList{Values: []string{"s1"}}},
+				"agent-b": {Description: "test agent"},
 			},
 		},
 	}
@@ -329,7 +330,7 @@ func TestFilterAgentIfRequested_ErrorOnNotFound(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-a": {},
+				"agent-a": {Description: "test agent"},
 			},
 		},
 	}
@@ -347,8 +348,8 @@ func TestFilterAgentIfRequested_NoopWhenEmpty(t *testing.T) {
 	cfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"agent-a": {},
-				"agent-b": {},
+				"agent-a": {Description: "test agent"},
+				"agent-b": {Description: "test agent"},
 			},
 		},
 	}
@@ -457,7 +458,7 @@ func TestRunGraphBlueprint_ValidatesBlueprintRefs(t *testing.T) {
 		},
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{
-				"existing": {Name: "existing"},
+				"existing": {Name: "existing", Description: "test agent"},
 			},
 		},
 	}
