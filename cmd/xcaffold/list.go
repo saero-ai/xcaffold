@@ -343,14 +343,14 @@ func printBlueprintsList(cmd *cobra.Command, config *ast.XcaffoldConfig) {
 	for _, name := range names {
 		p := config.Blueprints[name]
 		var parts []string
-		if len(p.Agents) > 0 {
-			parts = append(parts, fmt.Sprintf("%d agent(s)", len(p.Agents)))
+		if len(p.Agents.Values) > 0 {
+			parts = append(parts, fmt.Sprintf("%d agent(s)", len(p.Agents.Values)))
 		}
-		if len(p.Skills) > 0 {
-			parts = append(parts, fmt.Sprintf("%d skill(s)", len(p.Skills)))
+		if len(p.Skills.Values) > 0 {
+			parts = append(parts, fmt.Sprintf("%d skill(s)", len(p.Skills.Values)))
 		}
-		if len(p.Rules) > 0 {
-			parts = append(parts, fmt.Sprintf("%d rule(s)", len(p.Rules)))
+		if len(p.Rules.Values) > 0 {
+			parts = append(parts, fmt.Sprintf("%d rule(s)", len(p.Rules.Values)))
 		}
 		summary := strings.Join(parts, ", ")
 
@@ -448,9 +448,9 @@ func printBlueprintMetadata(cmd *cobra.Command, p ast.BlueprintConfig) {
 
 // printBlueprintAgents prints the agents section.
 func printBlueprintAgents(cmd *cobra.Command, p ast.BlueprintConfig) {
-	if len(p.Agents) > 0 {
-		cmd.Printf("  AGENTS  (%d)\n", len(p.Agents))
-		for _, name := range p.Agents {
+	if len(p.Agents.Values) > 0 {
+		cmd.Printf("  AGENTS  (%d)\n", len(p.Agents.Values))
+		for _, name := range p.Agents.Values {
 			cmd.Printf("    %s\n", name)
 		}
 		cmd.Println()
@@ -459,9 +459,9 @@ func printBlueprintAgents(cmd *cobra.Command, p ast.BlueprintConfig) {
 
 // printBlueprintSkills prints the skills section.
 func printBlueprintSkills(cmd *cobra.Command, p ast.BlueprintConfig) {
-	if len(p.Skills) > 0 {
-		cmd.Printf("  SKILLS  (%d)\n", len(p.Skills))
-		for _, name := range p.Skills {
+	if len(p.Skills.Values) > 0 {
+		cmd.Printf("  SKILLS  (%d)\n", len(p.Skills.Values))
+		for _, name := range p.Skills.Values {
 			cmd.Printf("    %s\n", name)
 		}
 		cmd.Println()
@@ -470,9 +470,9 @@ func printBlueprintSkills(cmd *cobra.Command, p ast.BlueprintConfig) {
 
 // printBlueprintRules prints the rules section with grouping.
 func printBlueprintRules(cmd *cobra.Command, p ast.BlueprintConfig) {
-	if len(p.Rules) > 0 {
-		cmd.Printf("  RULES  (%d)\n\n", len(p.Rules))
-		groups := groupRulesByFolder(p.Rules)
+	if len(p.Rules.Values) > 0 {
+		cmd.Printf("  RULES  (%d)\n\n", len(p.Rules.Values))
+		groups := groupRulesByFolder(p.Rules.Values)
 		for _, g := range groups {
 			cmd.Printf("    %s  (%d)\n", g.prefix, len(g.names))
 			for _, name := range g.names {
@@ -485,9 +485,9 @@ func printBlueprintRules(cmd *cobra.Command, p ast.BlueprintConfig) {
 
 // printBlueprintMCP prints the MCP section.
 func printBlueprintMCP(cmd *cobra.Command, p ast.BlueprintConfig) {
-	if len(p.MCP) > 0 {
-		cmd.Printf("  MCP  (%d)\n", len(p.MCP))
-		for _, name := range p.MCP {
+	if len(p.MCP.Values) > 0 {
+		cmd.Printf("  MCP  (%d)\n", len(p.MCP.Values))
+		for _, name := range p.MCP.Values {
 			cmd.Printf("    %s\n", name)
 		}
 		cmd.Println()

@@ -922,8 +922,8 @@ func TestCompile_ContextUniqueness_BlueprintActive_SkipsValidation(t *testing.T)
 		Blueprints: map[string]ast.BlueprintConfig{
 			"my-bp": {
 				Name:     "my-bp",
-				Agents:   []string{"dev"},
-				Contexts: []string{"ctx-a"},
+				Agents:   ast.ClearableList{Values: []string{"dev"}},
+				Contexts: ast.ClearableList{Values: []string{"ctx-a"}},
 			},
 		},
 	}

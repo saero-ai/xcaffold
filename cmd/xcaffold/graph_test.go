@@ -452,7 +452,7 @@ func TestRunGraphBlueprint_ValidatesBlueprintRefs(t *testing.T) {
 		Blueprints: map[string]ast.BlueprintConfig{
 			"invalid": {
 				Name:   "invalid",
-				Agents: []string{"nonexistent"},
+				Agents: ast.ClearableList{Values: []string{"nonexistent"}},
 			},
 		},
 		ResourceScope: ast.ResourceScope{
@@ -469,5 +469,5 @@ func TestRunGraphBlueprint_ValidatesBlueprintRefs(t *testing.T) {
 
 	// For now, we verify the blueprint config structure is correct.
 	// The actual test of the validation fix will come from integration testing.
-	assert.Equal(t, "nonexistent", cfg.Blueprints["invalid"].Agents[0])
+	assert.Equal(t, "nonexistent", cfg.Blueprints["invalid"].Agents.Values[0])
 }

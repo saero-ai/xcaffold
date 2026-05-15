@@ -265,7 +265,7 @@ func TestList_Blueprint_FilteredOutput(t *testing.T) {
 		ResourceScope: ast.ResourceScope{},
 		Blueprints: map[string]ast.BlueprintConfig{
 			"backend": {
-				Agents: []string{"nestjs"},
+				Agents: ast.ClearableList{Values: []string{"nestjs"}},
 			},
 		},
 	}

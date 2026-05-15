@@ -15,14 +15,14 @@ func TestResolveBlueprintExtends_SimpleInheritance(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
 		"parent": {
 			Name:   "parent",
-			Agents: []string{"agent-a"},
-			Skills: []string{"skill-x"},
-			Rules:  []string{"rule-1"},
+			Agents: ast.ClearableList{Values: []string{"agent-a"}},
+			Skills: ast.ClearableList{Values: []string{"skill-x"}},
+			Rules:  ast.ClearableList{Values: []string{"rule-1"}},
 		},
 		"child": {
 			Name:    "child",
 			Extends: "parent",
-			Agents:  []string{"agent-b"},
+			Agents:  ast.ClearableList{Values: []string{"agent-b"}},
 		},
 	}
 
@@ -30,9 +30,9 @@ func TestResolveBlueprintExtends_SimpleInheritance(t *testing.T) {
 	require.NoError(t, err)
 
 	child := blueprints["child"]
-	assert.Equal(t, []string{"agent-a", "agent-b"}, child.Agents)
-	assert.Equal(t, []string{"skill-x"}, child.Skills)
-	assert.Equal(t, []string{"rule-1"}, child.Rules)
+	assert.Equal(t, []string{"agent-a", "agent-b"}, child.Agents.Values)
+	assert.Equal(t, []string{"skill-x"}, child.Skills.Values)
+	assert.Equal(t, []string{"rule-1"}, child.Rules.Values)
 }
 
 func TestResolveBlueprintExtends_ThreeLevelChain(t *testing.T) {
@@ -40,18 +40,18 @@ func TestResolveBlueprintExtends_ThreeLevelChain(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
 		"c": {
 			Name:   "c",
-			Agents: []string{"agent-c"},
-			Skills: []string{"skill-c"},
+			Agents: ast.ClearableList{Values: []string{"agent-c"}},
+			Skills: ast.ClearableList{Values: []string{"skill-c"}},
 		},
 		"b": {
 			Name:    "b",
 			Extends: "c",
-			Rules:   []string{"rule-b"},
+			Rules:   ast.ClearableList{Values: []string{"rule-b"}},
 		},
 		"a": {
 			Name:    "a",
 			Extends: "b",
-			MCP:     []string{"mcp-a"},
+			MCP:     ast.ClearableList{Values: []string{"mcp-a"}},
 		},
 	}
 
@@ -59,24 +59,24 @@ func TestResolveBlueprintExtends_ThreeLevelChain(t *testing.T) {
 	require.NoError(t, err)
 
 	a := blueprints["a"]
-	assert.Equal(t, []string{"agent-c"}, a.Agents)
-	assert.Equal(t, []string{"skill-c"}, a.Skills)
-	assert.Equal(t, []string{"rule-b"}, a.Rules)
-	assert.Equal(t, []string{"mcp-a"}, a.MCP)
+	assert.Equal(t, []string{"agent-c"}, a.Agents.Values)
+	assert.Equal(t, []string{"skill-c"}, a.Skills.Values)
+	assert.Equal(t, []string{"rule-b"}, a.Rules.Values)
+	assert.Equal(t, []string{"mcp-a"}, a.MCP.Values)
 }
 
 func TestResolveBlueprintExtends_SetUnionDeduplication(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
 		"base": {
 			Name:   "base",
-			Agents: []string{"agent-shared", "agent-base"},
-			Skills: []string{"skill-shared"},
+			Agents: ast.ClearableList{Values: []string{"agent-shared", "agent-base"}},
+			Skills: ast.ClearableList{Values: []string{"skill-shared"}},
 		},
 		"derived": {
 			Name:    "derived",
 			Extends: "base",
-			Agents:  []string{"agent-shared", "agent-derived"},
-			Skills:  []string{"skill-shared", "skill-extra"},
+			Agents:  ast.ClearableList{Values: []string{"agent-shared", "agent-derived"}},
+			Skills:  ast.ClearableList{Values: []string{"skill-shared", "skill-extra"}},
 		},
 	}
 
@@ -85,8 +85,8 @@ func TestResolveBlueprintExtends_SetUnionDeduplication(t *testing.T) {
 
 	derived := blueprints["derived"]
 	// agent-shared appears in both; must appear once, parent order first
-	assert.Equal(t, []string{"agent-shared", "agent-base", "agent-derived"}, derived.Agents)
-	assert.Equal(t, []string{"skill-shared", "skill-extra"}, derived.Skills)
+	assert.Equal(t, []string{"agent-shared", "agent-base", "agent-derived"}, derived.Agents.Values)
+	assert.Equal(t, []string{"skill-shared", "skill-extra"}, derived.Skills.Values)
 }
 
 func TestResolveBlueprintExtends_CycleDetection(t *testing.T) {
@@ -129,7 +129,7 @@ func TestResolveBlueprintExtends_MaxDepthExceeded(t *testing.T) {
 func TestResolveBlueprintExtends_MaxDepthExact_Succeeds(t *testing.T) {
 	// Chain of 5: a→b→c→d→e  (depth 4 when resolving a, within limit)
 	blueprints := map[string]ast.BlueprintConfig{
-		"e": {Name: "e", Agents: []string{"agent-e"}},
+		"e": {Name: "e", Agents: ast.ClearableList{Values: []string{"agent-e"}}},
 		"d": {Name: "d", Extends: "e"},
 		"c": {Name: "c", Extends: "d"},
 		"b": {Name: "b", Extends: "c"},
@@ -138,7 +138,7 @@ func TestResolveBlueprintExtends_MaxDepthExact_Succeeds(t *testing.T) {
 
 	err := ResolveBlueprintExtends(blueprints)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"agent-e"}, blueprints["a"].Agents)
+	assert.Equal(t, []string{"agent-e"}, blueprints["a"].Agents.Values)
 }
 
 func TestResolveBlueprintExtends_NonExistentParent(t *testing.T) {
@@ -155,13 +155,13 @@ func TestResolveBlueprintExtends_NoExtends_NoOp(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
 		"standalone": {
 			Name:   "standalone",
-			Agents: []string{"agent-x"},
+			Agents: ast.ClearableList{Values: []string{"agent-x"}},
 		},
 	}
 
 	err := ResolveBlueprintExtends(blueprints)
 	require.NoError(t, err)
-	assert.Equal(t, []string{"agent-x"}, blueprints["standalone"].Agents)
+	assert.Equal(t, []string{"agent-x"}, blueprints["standalone"].Agents.Values)
 }
 
 // ── ResolveTransitiveDeps ───────────────────────────────────────────────────
@@ -179,15 +179,15 @@ func TestResolveTransitiveDeps_AgentPullsSkillsRulesMCP(t *testing.T) {
 
 	p := &ast.BlueprintConfig{
 		Name:   "test",
-		Agents: []string{"backend"},
+		Agents: ast.ClearableList{Values: []string{"backend"}},
 	}
 
 	err := ResolveTransitiveDeps(p, scope)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"skill-db", "skill-http"}, p.Skills)
-	assert.Equal(t, []string{"rule-security"}, p.Rules)
-	assert.Equal(t, []string{"mcp-postgres"}, p.MCP)
+	assert.Equal(t, []string{"skill-db", "skill-http"}, p.Skills.Values)
+	assert.Equal(t, []string{"rule-security"}, p.Rules.Values)
+	assert.Equal(t, []string{"mcp-postgres"}, p.MCP.Values)
 }
 
 func TestResolveTransitiveDeps_ExplicitSkillsMergedWithAgentDeps(t *testing.T) {
@@ -204,18 +204,18 @@ func TestResolveTransitiveDeps_ExplicitSkillsMergedWithAgentDeps(t *testing.T) {
 	// Blueprint has explicit skills with NO overlap — should merge with agent deps
 	p := &ast.BlueprintConfig{
 		Name:   "test",
-		Agents: []string{"backend"},
-		Skills: []string{"my-explicit-skill"},
+		Agents: ast.ClearableList{Values: []string{"backend"}},
+		Skills: ast.ClearableList{Values: []string{"my-explicit-skill"}},
 	}
 
 	err := ResolveTransitiveDeps(p, scope)
 	require.NoError(t, err)
 
 	// Explicit skill + agent skill merged
-	assert.Equal(t, []string{"my-explicit-skill", "skill-db"}, p.Skills)
+	assert.Equal(t, []string{"my-explicit-skill", "skill-db"}, p.Skills.Values)
 	// Rules and MCP auto-resolved
-	assert.Equal(t, []string{"rule-a"}, p.Rules)
-	assert.Equal(t, []string{"mcp-x"}, p.MCP)
+	assert.Equal(t, []string{"rule-a"}, p.Rules.Values)
+	assert.Equal(t, []string{"mcp-x"}, p.MCP.Values)
 }
 
 func TestResolveTransitiveDeps_NoAgents_NoOp(t *testing.T) {
@@ -226,8 +226,8 @@ func TestResolveTransitiveDeps_NoAgents_NoOp(t *testing.T) {
 	}
 
 	p := &ast.BlueprintConfig{
-		Name:   "test",
-		Agents: nil, // no agents selected
+		Name: "test",
+		// Agents zero-value (no agents selected)
 	}
 
 	err := ResolveTransitiveDeps(p, scope)
@@ -241,7 +241,7 @@ func TestResolveTransitiveDeps_NoAgents_NoOp(t *testing.T) {
 func TestResolveTransitiveDeps_NilScope_NoOp(t *testing.T) {
 	p := &ast.BlueprintConfig{
 		Name:   "test",
-		Agents: []string{"backend"},
+		Agents: ast.ClearableList{Values: []string{"backend"}},
 	}
 
 	// Must not panic
@@ -258,7 +258,7 @@ func TestResolveTransitiveDeps_AgentNotInScope_Skipped(t *testing.T) {
 
 	p := &ast.BlueprintConfig{
 		Name:   "test",
-		Agents: []string{"ghost-agent"},
+		Agents: ast.ClearableList{Values: []string{"ghost-agent"}},
 	}
 
 	// Must not panic
@@ -287,19 +287,19 @@ func TestResolveTransitiveDeps_MultipleAgents_Union(t *testing.T) {
 
 	p := &ast.BlueprintConfig{
 		Name:   "test",
-		Agents: []string{"frontend", "backend"},
+		Agents: ast.ClearableList{Values: []string{"frontend", "backend"}},
 	}
 
 	err := ResolveTransitiveDeps(p, scope)
 	require.NoError(t, err)
 
 	// skill-shared appears in both agents, must appear once
-	assert.Equal(t, 3, len(p.Skills), "expected 3 unique skills, got: %v", p.Skills)
+	assert.Equal(t, 3, len(p.Skills.Values), "expected 3 unique skills, got: %v", p.Skills.Values)
 	for _, s := range []string{"skill-react", "skill-shared", "skill-db"} {
-		assert.Contains(t, p.Skills, s)
+		assert.Contains(t, p.Skills.Values, s)
 	}
-	assert.Equal(t, 2, len(p.Rules))
-	assert.Equal(t, []string{"mcp-postgres"}, p.MCP)
+	assert.Equal(t, 2, len(p.Rules.Values))
+	assert.Equal(t, []string{"mcp-postgres"}, p.MCP.Values)
 }
 
 func TestResolveTransitiveDeps_AllExplicitMergedWithAgentDeps(t *testing.T) {
@@ -316,18 +316,18 @@ func TestResolveTransitiveDeps_AllExplicitMergedWithAgentDeps(t *testing.T) {
 	// All three lists are explicitly set with NO overlaps — should merge with agent deps
 	p := &ast.BlueprintConfig{
 		Name:   "test",
-		Agents: []string{"backend"},
-		Skills: []string{"my-skill"},
-		Rules:  []string{"my-rule"},
-		MCP:    []string{"my-mcp"},
+		Agents: ast.ClearableList{Values: []string{"backend"}},
+		Skills: ast.ClearableList{Values: []string{"my-skill"}},
+		Rules:  ast.ClearableList{Values: []string{"my-rule"}},
+		MCP:    ast.ClearableList{Values: []string{"my-mcp"}},
 	}
 
 	err := ResolveTransitiveDeps(p, scope)
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"my-skill", "skill-db"}, p.Skills)
-	assert.Equal(t, []string{"my-rule", "rule-a"}, p.Rules)
-	assert.Equal(t, []string{"my-mcp", "mcp-x"}, p.MCP)
+	assert.Equal(t, []string{"my-skill", "skill-db"}, p.Skills.Values)
+	assert.Equal(t, []string{"my-rule", "rule-a"}, p.Rules.Values)
+	assert.Equal(t, []string{"my-mcp", "mcp-x"}, p.MCP.Values)
 }
 
 func TestResolveTransitiveDeps_DuplicateSkill_ReturnsError(t *testing.T) {
@@ -341,8 +341,8 @@ func TestResolveTransitiveDeps_DuplicateSkill_ReturnsError(t *testing.T) {
 
 	p := &ast.BlueprintConfig{
 		Name:   "test",
-		Agents: []string{"developer"},
-		Skills: []string{"tdd", "security-audit"},
+		Agents: ast.ClearableList{Values: []string{"developer"}},
+		Skills: ast.ClearableList{Values: []string{"tdd", "security-audit"}},
 	}
 
 	err := ResolveTransitiveDeps(p, scope)
@@ -362,8 +362,8 @@ func TestResolveTransitiveDeps_DuplicateRule_ReturnsError(t *testing.T) {
 
 	p := &ast.BlueprintConfig{
 		Name:   "test",
-		Agents: []string{"developer"},
-		Rules:  []string{"secure-code", "extra-rule"},
+		Agents: ast.ClearableList{Values: []string{"developer"}},
+		Rules:  ast.ClearableList{Values: []string{"secure-code", "extra-rule"}},
 	}
 
 	err := ResolveTransitiveDeps(p, scope)
@@ -383,8 +383,8 @@ func TestResolveTransitiveDeps_DuplicateMCP_ReturnsError(t *testing.T) {
 
 	p := &ast.BlueprintConfig{
 		Name:   "test",
-		Agents: []string{"developer"},
-		MCP:    []string{"database-tools"},
+		Agents: ast.ClearableList{Values: []string{"developer"}},
+		MCP:    ast.ClearableList{Values: []string{"database-tools"}},
 	}
 
 	err := ResolveTransitiveDeps(p, scope)
@@ -397,7 +397,7 @@ func TestResolveTransitiveDeps_DuplicateMCP_ReturnsError(t *testing.T) {
 
 func TestValidateBlueprintRefs_AllExist_NoErrors(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
-		"backend": {Name: "backend", Agents: []string{"developer"}, Skills: []string{"tdd"}},
+		"backend": {Name: "backend", Agents: ast.ClearableList{Values: []string{"developer"}}, Skills: ast.ClearableList{Values: []string{"tdd"}}},
 	}
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{"developer": {}},
@@ -409,7 +409,7 @@ func TestValidateBlueprintRefs_AllExist_NoErrors(t *testing.T) {
 
 func TestValidateBlueprintRefs_MissingAgent(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
-		"backend": {Name: "backend", Agents: []string{"missing-agent"}},
+		"backend": {Name: "backend", Agents: ast.ClearableList{Values: []string{"missing-agent"}}},
 	}
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{"developer": {}},
@@ -422,7 +422,7 @@ func TestValidateBlueprintRefs_MissingAgent(t *testing.T) {
 
 func TestValidateBlueprintRefs_MultipleErrors(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
-		"bad": {Name: "bad", Agents: []string{"ghost"}, Skills: []string{"ghost"}, Rules: []string{"ghost"}},
+		"bad": {Name: "bad", Agents: ast.ClearableList{Values: []string{"ghost"}}, Skills: ast.ClearableList{Values: []string{"ghost"}}, Rules: ast.ClearableList{Values: []string{"ghost"}}},
 	}
 	scope := &ast.ResourceScope{
 		Agents: map[string]ast.AgentConfig{},
@@ -454,7 +454,7 @@ func TestValidateBlueprintRefs_NilMapsInScope_NoErrors(t *testing.T) {
 
 func TestValidateBlueprintRefs_NilScope_NoErrors(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
-		"bp": {Name: "bp", Agents: []string{"someone"}},
+		"bp": {Name: "bp", Agents: ast.ClearableList{Values: []string{"someone"}}},
 	}
 	// nil scope — all refs missing but must not panic; returns errors for missing refs
 	errs := ValidateBlueprintRefs(blueprints, nil)
@@ -471,13 +471,13 @@ func TestValidateBlueprintRefs_AllResourceTypes(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
 		"full": {
 			Name:      "full",
-			Agents:    []string{"missing-agent"},
-			Skills:    []string{"missing-skill"},
-			Rules:     []string{"missing-rule"},
-			Workflows: []string{"missing-workflow"},
-			MCP:       []string{"missing-mcp"},
-			Policies:  []string{"missing-policy"},
-			Memory:    []string{"missing-memory"},
+			Agents:    ast.ClearableList{Values: []string{"missing-agent"}},
+			Skills:    ast.ClearableList{Values: []string{"missing-skill"}},
+			Rules:     ast.ClearableList{Values: []string{"missing-rule"}},
+			Workflows: ast.ClearableList{Values: []string{"missing-workflow"}},
+			MCP:       ast.ClearableList{Values: []string{"missing-mcp"}},
+			Policies:  ast.ClearableList{Values: []string{"missing-policy"}},
+			Memory:    ast.ClearableList{Values: []string{"missing-memory"}},
 		},
 	}
 	scope := &ast.ResourceScope{}
@@ -500,7 +500,7 @@ func TestApplyBlueprint_FiltersAgents(t *testing.T) {
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
-			"backend": {Name: "backend", Agents: []string{"developer"}, Skills: []string{"tdd"}},
+			"backend": {Name: "backend", Agents: ast.ClearableList{Values: []string{"developer"}}, Skills: ast.ClearableList{Values: []string{"tdd"}}},
 		},
 	}
 	filtered, err := ApplyBlueprint(cfg, "backend")
@@ -543,7 +543,7 @@ func TestApplyBlueprint_DoesNotModifyInput(t *testing.T) {
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
-			"backend": {Name: "backend", Agents: []string{"developer"}},
+			"backend": {Name: "backend", Agents: ast.ClearableList{Values: []string{"developer"}}},
 		},
 	}
 	_, err := ApplyBlueprint(cfg, "backend")
@@ -554,7 +554,7 @@ func TestApplyBlueprint_DoesNotModifyInput(t *testing.T) {
 // ── BlueprintHash ───────────────────────────────────────────────────────────
 
 func TestBlueprintHash_StableForSameRefs(t *testing.T) {
-	p := ast.BlueprintConfig{Name: "backend", Agents: []string{"dev", "dba"}, Skills: []string{"tdd"}}
+	p := ast.BlueprintConfig{Name: "backend", Agents: ast.ClearableList{Values: []string{"dev", "dba"}}, Skills: ast.ClearableList{Values: []string{"tdd"}}}
 	h1 := BlueprintHash(p)
 	h2 := BlueprintHash(p)
 	require.Equal(t, h1, h2)
@@ -562,14 +562,14 @@ func TestBlueprintHash_StableForSameRefs(t *testing.T) {
 }
 
 func TestBlueprintHash_ChangesWhenRefsChange(t *testing.T) {
-	p1 := ast.BlueprintConfig{Agents: []string{"dev"}}
-	p2 := ast.BlueprintConfig{Agents: []string{"dev", "dba"}}
+	p1 := ast.BlueprintConfig{Agents: ast.ClearableList{Values: []string{"dev"}}}
+	p2 := ast.BlueprintConfig{Agents: ast.ClearableList{Values: []string{"dev", "dba"}}}
 	require.NotEqual(t, BlueprintHash(p1), BlueprintHash(p2))
 }
 
 func TestBlueprintHash_OrderIndependent(t *testing.T) {
-	p1 := ast.BlueprintConfig{Agents: []string{"a", "b"}}
-	p2 := ast.BlueprintConfig{Agents: []string{"b", "a"}}
+	p1 := ast.BlueprintConfig{Agents: ast.ClearableList{Values: []string{"a", "b"}}}
+	p2 := ast.BlueprintConfig{Agents: ast.ClearableList{Values: []string{"b", "a"}}}
 	require.Equal(t, BlueprintHash(p1), BlueprintHash(p2))
 }
 
@@ -639,7 +639,7 @@ func TestApplyBlueprint_EmptyRefList_ReturnsNilMap(t *testing.T) {
 			Skills: map[string]ast.SkillConfig{"tdd": {}},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
-			"minimal": {Name: "minimal", Agents: []string{"developer"}},
+			"minimal": {Name: "minimal", Agents: ast.ClearableList{Values: []string{"developer"}}},
 		},
 	}
 	filtered, err := ApplyBlueprint(cfg, "minimal")
@@ -658,7 +658,7 @@ func TestApplyBlueprint_FiltersContexts(t *testing.T) {
 			},
 		},
 		Blueprints: map[string]ast.BlueprintConfig{
-			"backend": {Name: "backend", Contexts: []string{"main", "claude-dev"}},
+			"backend": {Name: "backend", Contexts: ast.ClearableList{Values: []string{"main", "claude-dev"}}},
 		},
 	}
 	filtered, err := ApplyBlueprint(config, "backend")
@@ -671,7 +671,7 @@ func TestApplyBlueprint_FiltersContexts(t *testing.T) {
 
 func TestValidateBlueprintRefs_MissingContext(t *testing.T) {
 	blueprints := map[string]ast.BlueprintConfig{
-		"test": {Name: "test", Contexts: []string{"nonexistent"}},
+		"test": {Name: "test", Contexts: ast.ClearableList{Values: []string{"nonexistent"}}},
 	}
 	scope := &ast.ResourceScope{
 		Contexts: map[string]ast.ContextConfig{"main": {}},
@@ -679,4 +679,28 @@ func TestValidateBlueprintRefs_MissingContext(t *testing.T) {
 	errs := ValidateBlueprintRefs(blueprints, scope)
 	require.Len(t, errs, 1)
 	assert.Contains(t, errs[0].Error(), "nonexistent")
+}
+
+func TestResolveBlueprintExtends_ChildClearsParentField(t *testing.T) {
+	blueprints := map[string]ast.BlueprintConfig{
+		"parent": {
+			Name:   "parent",
+			Agents: ast.ClearableList{Values: []string{"agent-a", "agent-b"}},
+			Skills: ast.ClearableList{Values: []string{"skill-x"}},
+		},
+		"child": {
+			Name:    "child",
+			Extends: "parent",
+			Agents:  ast.ClearableList{Cleared: true},
+			Skills:  ast.ClearableList{},
+		},
+	}
+
+	err := ResolveBlueprintExtends(blueprints)
+	require.NoError(t, err)
+
+	child := blueprints["child"]
+	assert.Empty(t, child.Agents.Values, "child cleared agents, should be empty")
+	assert.True(t, child.Agents.Cleared, "Cleared flag should be preserved")
+	assert.Equal(t, []string{"skill-x"}, child.Skills.Values, "skills inherited from parent")
 }
