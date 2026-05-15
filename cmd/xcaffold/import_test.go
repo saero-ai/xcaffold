@@ -404,6 +404,45 @@ func TestMergeImportDirs_XcafDirAlreadyExists(t *testing.T) {
 	}
 }
 
+func TestMergeImportDirs_DryRunBypassesIncrementalGuard(t *testing.T) {
+	tmp := t.TempDir()
+
+	if err := os.MkdirAll(filepath.Join(tmp, "xcaf", "agents"), 0755); err != nil {
+		t.Fatalf("failed to create xcaf/ dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "xcaf", "agents", "empty.xcaf"),
+		[]byte("kind: agent\nversion: \"1.0\"\nname: empty\n"), 0600); err != nil {
+		t.Fatalf("failed to write empty agent: %v", err)
+	}
+
+	agentsDir := filepath.Join(tmp, ".claude", "agents")
+	if err := os.MkdirAll(agentsDir, 0755); err != nil {
+		t.Fatalf("failed to create .claude/agents/: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "test-agent.md"),
+		[]byte("# Test Agent\n"), 0600); err != nil {
+		t.Fatalf("failed to write dummy agent: %v", err)
+	}
+
+	origCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(origCwd) }()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("failed to chdir to tmp: %v", err)
+	}
+
+	oldDryRun := importDryRun
+	importDryRun = true
+	defer func() { importDryRun = oldDryRun }()
+
+	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcaf")
+	if err != nil {
+		t.Fatalf("expected no error with --dry-run when xcaf/ exists, got: %v", err)
+	}
+}
+
 func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	t.Setenv("XCAFFOLD_HOME", t.TempDir())
 	dir := t.TempDir()
@@ -1608,6 +1647,179 @@ func TestSplitWorkflowOverrides_DeterministicBase(t *testing.T) {
 	// "apple" < "zebra", so apple should be base
 	if base.Name != "deploy" {
 		t.Errorf("base should be selected correctly, got name: %s", base.Name)
+	}
+}
+
+// TestAssembleAgents_BodyPriorityBaseSelection verifies that agents use body-bearing provider as base.
+func TestAssembleAgents_BodyPriorityBaseSelection(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"auth-specialist": {
+						Name:        "auth-specialist",
+						Description: "Auth specialist",
+						Model:       "sonnet",
+						Tools:       ast.ClearableList{Values: []string{"Read", "Write"}},
+						Hooks:       ast.HookConfig{"PreToolUse": []ast.HookMatcherGroup{}},
+						Body:        "You are an auth specialist. Focus on security.",
+					},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"auth-specialist": {
+						Name:        "auth-specialist",
+						Description: "Auth specialist",
+						Body:        "", // Gemini stub — no body
+					},
+				},
+			},
+		},
+	}
+
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: make(map[string]ast.AgentConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+
+	agent := result.Agents["auth-specialist"]
+	assert.Contains(t, agent.Body, "auth specialist", "base agent must have body from body-bearing provider")
+
+	// Gemini should be an override (if configs differ)
+	if result.Overrides != nil {
+		geminiOverride, hasGemini := result.Overrides.GetAgent("auth-specialist", "gemini")
+		if hasGemini {
+			assert.Empty(t, geminiOverride.Body, "gemini override body should be empty (inherits from base)")
+		}
+	}
+}
+
+// TestAssembleRules_BodyPriority_OverridesAlpha verifies body-priority wins over alphabetical order.
+func TestAssembleRules_BodyPriority_OverridesAlpha(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"alpha-provider": {
+			ResourceScope: ast.ResourceScope{
+				Rules: map[string]ast.RuleConfig{
+					"security": {
+						Name:        "security",
+						Description: "Security Rule",
+						Body:        "", // alpha-first has no body
+					},
+				},
+			},
+		},
+		"beta-provider": {
+			ResourceScope: ast.ResourceScope{
+				Rules: map[string]ast.RuleConfig{
+					"security": {
+						Name:        "security",
+						Description: "Security Rule",
+						Body:        "Never store secrets in plaintext.", // beta has body
+					},
+				},
+			},
+		},
+	}
+
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: make(map[string]ast.RuleConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+
+	rule := result.Rules["security"]
+	assert.Equal(t, "Never store secrets in plaintext.", rule.Body, "base rule must have body from body-bearing provider, not alphabetically-first stub")
+}
+
+// TestAssembleSkills_BodyPriorityBaseSelection verifies skills use body-bearing provider as base.
+func TestAssembleSkills_BodyPriorityBaseSelection(t *testing.T) {
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Skills: map[string]ast.SkillConfig{
+					"tdd": {
+						Name:         "tdd",
+						Description:  "TDD Skill",
+						AllowedTools: ast.ClearableList{Values: []string{"Read", "Write"}},
+						Body:         "Follow TDD: Red-Green-Refactor.",
+					},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Skills: map[string]ast.SkillConfig{
+					"tdd": {
+						Name:        "tdd",
+						Description: "TDD Skill",
+						Body:        "", // Gemini stub
+					},
+				},
+			},
+		},
+	}
+
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Skills: make(map[string]ast.SkillConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+
+	skill := result.Skills["tdd"]
+	assert.Equal(t, "Follow TDD: Red-Green-Refactor.", skill.Body, "base skill must have body from body-bearing provider")
+}
+
+func TestAssembleAgents_BodyPriority_IdenticalBodyDedup(t *testing.T) {
+	sharedBody := "You are an auth specialist. Focus on security."
+	providerConfigs := map[string]*ast.XcaffoldConfig{
+		"claude": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"auth-specialist": {
+						Name:        "auth-specialist",
+						Description: "Auth specialist",
+						Model:       "sonnet",
+						Tools:       ast.ClearableList{Values: []string{"Read"}},
+						Body:        sharedBody,
+					},
+				},
+			},
+		},
+		"gemini": {
+			ResourceScope: ast.ResourceScope{
+				Agents: map[string]ast.AgentConfig{
+					"auth-specialist": {
+						Name:        "auth-specialist",
+						Description: "Auth specialist",
+						Body:        sharedBody, // identical body
+					},
+				},
+			},
+		},
+	}
+
+	result := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: make(map[string]ast.AgentConfig),
+		},
+	}
+	assembleMultiProviderResources(providerConfigs, result)
+
+	agent := result.Agents["auth-specialist"]
+	assert.Equal(t, sharedBody, agent.Body, "base must retain body")
+
+	if result.Overrides != nil {
+		override, exists := result.Overrides.GetAgent("auth-specialist", "gemini")
+		if exists {
+			assert.Empty(t, override.Body, "override body must be stripped when identical to base")
+		}
 	}
 }
 

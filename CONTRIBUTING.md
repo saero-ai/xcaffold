@@ -32,6 +32,12 @@ For significant changes — new providers, AST changes, pipeline modifications �
 
 ## Pull Requests
 
+### Target Branch
+
+All pull requests must target the **`develop`** branch. The `main` branch is the release branch — changes reach `main` only through a release PR from `develop`.
+
+If GitHub defaults your PR to `main`, change the base branch to `develop` before submitting.
+
 ### Commit Messages
 
 Use [Conventional Commits](https://www.conventionalcommits.org/) format:
@@ -46,14 +52,15 @@ test(importer): add roundtrip test for gemini
 
 ### Changelog
 
-Update `CHANGELOG.md` for every user-facing change. Add entries under `[Unreleased]`. For breaking changes, add a `Breaking Changes` entry.
+Changelogs are generated automatically by [release-please](https://github.com/googleapis/release-please) from Conventional Commit messages. Do not edit `CHANGELOG.md` manually — your commit messages become the changelog entries. Write clear, user-facing commit descriptions.
+
+For breaking changes, include a `BREAKING CHANGE:` footer in the commit message body.
 
 ### PR Checklist
 
 - [ ] `make lint` passes
 - [ ] `make test` passes
 - [ ] Documentation updated if behavior changed
-- [ ] `CHANGELOG.md` updated
 
 ## Testing
 
@@ -223,7 +230,7 @@ To pass these tests, your renderer must:
 
 ### 8. Documentation Updates
 
-Add the provider to `docs/reference/supported-providers.md`. Follow the Diátaxis pillar structure for any conceptual pages. Ensure the `ProviderManifest.KindSupport` map and the renderer's `CapabilitySet` are both accurately declared — they serve different layers of the compilation pipeline. Update `CHANGELOG.md` under `[Unreleased]`.
+Add the provider to `docs/reference/supported-providers.md`. Follow the Diátaxis pillar structure for any conceptual pages. Ensure the `ProviderManifest.KindSupport` map and the renderer's `CapabilitySet` are both accurately declared — they serve different layers of the compilation pipeline. Changelog entries are generated automatically from your commit messages.
 
 ## Updating an Existing Provider
 
@@ -246,7 +253,7 @@ Provider changes are typically localized to two files:
 2. **Update the renderer.** Modify `providers/<name>/renderer.go` to produce output matching the new format.
 3. **Update golden tests.** Run `make test-update-golden` to regenerate expected output, then review the diff to confirm the changes are correct.
 4. **Run the full test suite.** `make test` and `make test-e2e` must both pass. The cross-provider invariant test ensures your changes don't break other providers.
-5. **Update CHANGELOG.md.** Add an entry under `[Unreleased]` describing what changed and which provider is affected.
+5. **Write a clear commit message.** Use `feat(<provider>):` or `fix(<provider>):` — release-please generates the changelog from commit messages.
 
 ## Architectural Constraints
 

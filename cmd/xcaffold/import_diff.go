@@ -38,27 +38,32 @@ func stripRuntimeFields(config *ast.XcaffoldConfig) {
 		a.SourceProvider = ""
 		a.Inherited = false
 		a.Body = ""
+		a.Targets = nil
 		config.Agents[name] = a
 	}
 	for name, s := range config.Skills {
 		s.SourceProvider = ""
 		s.Inherited = false
 		s.Body = ""
+		s.Targets = nil
 		config.Skills[name] = s
 	}
 	for name, r := range config.Rules {
 		r.SourceProvider = ""
 		r.Inherited = false
 		r.Body = ""
+		r.Targets = nil
 		config.Rules[name] = r
 	}
 	for name, w := range config.Workflows {
 		w.SourceProvider = ""
 		w.Inherited = false
+		w.Targets = nil
 		config.Workflows[name] = w
 	}
 	for name, m := range config.MCP {
 		m.SourceProvider = ""
+		m.Targets = nil
 		config.MCP[name] = m
 	}
 }

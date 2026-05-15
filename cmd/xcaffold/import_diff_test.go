@@ -221,3 +221,48 @@ func TestDiffResources_IgnoresSourceProvider(t *testing.T) {
 		t.Fatalf("expected TotalUnchanged() = 1, got %d", diff.TotalUnchanged())
 	}
 }
+
+func TestDiffResources_IgnoresTargets(t *testing.T) {
+	scannedAgent := ast.AgentConfig{
+		Name:        "test-agent",
+		Description: "test description",
+		Targets:     nil,
+	}
+
+	existingAgent := ast.AgentConfig{
+		Name:        "test-agent",
+		Description: "test description",
+		Targets:     map[string]ast.TargetOverride{"claude": {}},
+	}
+
+	scanned := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"test-agent": scannedAgent,
+			},
+			Skills: make(map[string]ast.SkillConfig),
+			Rules:  make(map[string]ast.RuleConfig),
+			MCP:    make(map[string]ast.MCPConfig),
+		},
+	}
+
+	existing := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Agents: map[string]ast.AgentConfig{
+				"test-agent": existingAgent,
+			},
+			Skills: make(map[string]ast.SkillConfig),
+			Rules:  make(map[string]ast.RuleConfig),
+			MCP:    make(map[string]ast.MCPConfig),
+		},
+	}
+
+	diff := diffResources(scanned, existing)
+
+	if len(diff.Changed["agent"]) != 0 {
+		t.Fatalf("expected 0 changed agents (Targets should be ignored), got %d", len(diff.Changed["agent"]))
+	}
+	if len(diff.Unchanged["agent"]) != 1 {
+		t.Fatalf("expected 1 unchanged agent, got %d", len(diff.Unchanged["agent"]))
+	}
+}
