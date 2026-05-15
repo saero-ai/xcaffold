@@ -345,6 +345,6 @@ func displayFieldWithMockOutput(buf *bytes.Buffer, f schema.Field) {
 	}
 
 	if f.Optional && hasProviderRequired(f.Provider) {
-		fmt.Fprintf(buf, "%sNote: required by some providers — omitting may cause compile errors for those targets.\n", indent)
+		fmt.Fprintf(buf, "%sNote: required by some providers — omitting may produce fidelity warnings for those targets.\n", indent)
 	}
 }

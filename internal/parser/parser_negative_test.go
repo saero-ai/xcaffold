@@ -108,3 +108,35 @@ Some instructions.
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "description is required")
 }
+
+func TestParseAgent_WhitespaceOnlyDescription_Error(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "test-agent.xcaf")
+	content := `---
+kind: agent
+version: "1.0"
+name: test-agent
+description: "   "
+---
+Some instructions.
+`
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0600))
+	_, err := ParseFileExact(filePath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "description is required")
+}
+
+func TestParseGlobal_InlineAgentMissingDescription_Error(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "global.xcaf")
+	content := `kind: global
+version: "1.0"
+agents:
+  my-agent:
+    model: sonnet
+`
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0600))
+	_, err := ParseFileExact(filePath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "description is required")
+}

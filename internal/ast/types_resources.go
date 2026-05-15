@@ -24,7 +24,7 @@ type AgentConfig struct {
 	// Human-readable purpose of this agent.
 	// +xcaf:required
 	// +xcaf:group=Identity
-	// +xcaf:provider=claude:required,gemini:required,copilot:required,cursor:optional,antigravity:optional
+	// +xcaf:provider=claude:required,codex:required,gemini:required,copilot:required,cursor:optional,antigravity:optional
 	// +xcaf:role=rendering
 	Description string `yaml:"description"`
 
