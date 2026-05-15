@@ -299,6 +299,9 @@ func extractMCPStandalone(rel string, data []byte, config *ast.XcaffoldConfig) e
 	}
 	for k, v := range wrapper.MCPServers {
 		v.SourceProvider = "claude"
+		if v.Name == "" {
+			v.Name = k
+		}
 		config.MCP[k] = v
 	}
 	return nil
@@ -322,6 +325,9 @@ func extractSettings(rel string, data []byte, config *ast.XcaffoldConfig) error 
 		}
 		for k, v := range servers {
 			v.SourceProvider = "claude"
+			if v.Name == "" {
+				v.Name = k
+			}
 			config.MCP[k] = v
 		}
 	}
