@@ -404,6 +404,45 @@ func TestMergeImportDirs_XcafDirAlreadyExists(t *testing.T) {
 	}
 }
 
+func TestMergeImportDirs_DryRunBypassesIncrementalGuard(t *testing.T) {
+	tmp := t.TempDir()
+
+	if err := os.MkdirAll(filepath.Join(tmp, "xcaf", "agents"), 0755); err != nil {
+		t.Fatalf("failed to create xcaf/ dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "xcaf", "agents", "empty.xcaf"),
+		[]byte("kind: agent\nversion: \"1.0\"\nname: empty\n"), 0600); err != nil {
+		t.Fatalf("failed to write empty agent: %v", err)
+	}
+
+	agentsDir := filepath.Join(tmp, ".claude", "agents")
+	if err := os.MkdirAll(agentsDir, 0755); err != nil {
+		t.Fatalf("failed to create .claude/agents/: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "test-agent.md"),
+		[]byte("# Test Agent\n"), 0600); err != nil {
+		t.Fatalf("failed to write dummy agent: %v", err)
+	}
+
+	origCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(origCwd) }()
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("failed to chdir to tmp: %v", err)
+	}
+
+	oldDryRun := importDryRun
+	importDryRun = true
+	defer func() { importDryRun = oldDryRun }()
+
+	err = mergeImportDirs(makeTestImporters(struct{ dir, platform string }{".claude", "claude"}), "project.xcaf")
+	if err != nil {
+		t.Fatalf("expected no error with --dry-run when xcaf/ exists, got: %v", err)
+	}
+}
+
 func TestImportScope_EmitsSplitFileFormat(t *testing.T) {
 	t.Setenv("XCAFFOLD_HOME", t.TempDir())
 	dir := t.TempDir()
