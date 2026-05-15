@@ -470,8 +470,12 @@ func splitAgentOverrides(configs map[string]ast.AgentConfig) (ast.AgentConfig, m
 		scores[provider] = s
 	}
 
-	// Select base provider (lowest score, alphabetical tie-break)
-	baseProv := selectBaseProvider(scores)
+	// Select base provider prioritizing body-bearing providers
+	hasBody := make(map[string]bool, len(configs))
+	for provider, cfg := range configs {
+		hasBody[provider] = strings.TrimSpace(cfg.Body) != ""
+	}
+	baseProv := selectBodyAwareBase(scores, hasBody)
 
 	base := configs[baseProv]
 	overrides := make(map[string]ast.AgentConfig, len(configs)-1)
@@ -513,8 +517,12 @@ func splitSkillOverrides(configs map[string]ast.SkillConfig) (ast.SkillConfig, m
 		scores[provider] = scoreSkillSpecificity(cfg)
 	}
 
-	// Select base provider (lowest score, alphabetical tie-break)
-	baseProv := selectBaseProvider(scores)
+	// Select base provider prioritizing body-bearing providers
+	hasBody := make(map[string]bool, len(configs))
+	for provider, cfg := range configs {
+		hasBody[provider] = strings.TrimSpace(cfg.Body) != ""
+	}
+	baseProv := selectBodyAwareBase(scores, hasBody)
 
 	base := configs[baseProv]
 	overrides := make(map[string]ast.SkillConfig, len(configs)-1)
@@ -539,8 +547,12 @@ func splitRuleOverrides(configs map[string]ast.RuleConfig) (ast.RuleConfig, map[
 		scores[provider] = 0
 	}
 
-	// Select base provider (alphabetical)
-	baseProv := selectBaseProvider(scores)
+	// Select base provider prioritizing body-bearing providers
+	hasBody := make(map[string]bool, len(configs))
+	for provider, cfg := range configs {
+		hasBody[provider] = strings.TrimSpace(cfg.Body) != ""
+	}
+	baseProv := selectBodyAwareBase(scores, hasBody)
 
 	base := configs[baseProv]
 	overrides := make(map[string]ast.RuleConfig, len(configs)-1)
