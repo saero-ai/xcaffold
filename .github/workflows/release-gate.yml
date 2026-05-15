@@ -1,0 +1,51 @@
+name: Release Quality Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  release-gate:
+    name: Release content check
+    if: startsWith(github.head_ref, 'release-please--')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for user-facing changes
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'force-release') }}
+        shell: bash
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            echo "No previous tag found — first release, allowing."
+            exit 0
+          fi
+
+          PRODUCT_SCOPES="parser|compiler|renderer|importer|cli|schema|ast|optimizer|policy|blueprint|translator|resolver|registry"
+
+          FEAT_COUNT=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges --grep="^feat" | wc -l | tr -d ' ')
+          PRODUCT_FIX_COUNT=$(git log "${LAST_TAG}..HEAD" --oneline --no-merges --grep="^fix" | grep -cE "^[a-f0-9]+ fix\(($PRODUCT_SCOPES)\)" || true)
+
+          echo "Commits since $LAST_TAG:"
+          echo "  feat: $FEAT_COUNT"
+          echo "  fix (product scope): $PRODUCT_FIX_COUNT"
+
+          TOTAL=$((FEAT_COUNT + PRODUCT_FIX_COUNT))
+          if [ "$TOTAL" -eq 0 ]; then
+            echo ""
+            echo "::error::This release contains no user-facing changes. All commits are CI, docs, or chore changes that do not affect the CLI or compiled output. Close this PR instead of merging."
+            echo ""
+            echo "If this release IS needed (e.g., a security fix), add the 'force-release' label to bypass this check."
+            exit 1
+          fi
+
+          echo ""
+          echo "Found $TOTAL user-facing change(s). Release is valid."
+
+      - name: Force-release bypass
+        if: ${{ contains(github.event.pull_request.labels.*.name, 'force-release') }}
+        run: echo "force-release label detected — bypassing quality gate."
