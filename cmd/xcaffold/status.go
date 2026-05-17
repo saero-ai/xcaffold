@@ -243,7 +243,7 @@ func printAllFilesPerProvider(dir string, manifest *state.StateManifest) {
 func handleStatusOverviewCTA(hasDrift bool, srcChanged int) error {
 	if hasDrift || srcChanged > 0 {
 		applyArgs := buildApplyCmd("", statusBlueprintFlag, globalFlag)
-		fmt.Printf("\n%s Run '%s' to restore.\n", glyphArrow(), applyArgs)
+		fmt.Printf("\n%s Run 'xcaffold import' to absorb edits into source, or '%s --force' to discard edits.\n", glyphArrow(), applyArgs)
 		fmt.Printf("  Run 'xcaffold status --target <name>' for details.\n")
 		return &driftDetectedError{msg: "drift detected"}
 	}
@@ -343,7 +343,7 @@ func printDriftedArtifacts(driftedEntries []state.DriftEntry) {
 func handleTargetCTA(target string, drifted int, srcChanged int, showAll bool) error {
 	if drifted > 0 || srcChanged > 0 {
 		applyArgs := buildApplyCmd(target, statusBlueprintFlag, globalFlag)
-		fmt.Printf("\n%s Run '%s' to restore.\n", glyphArrow(), applyArgs)
+		fmt.Printf("\n%s Run 'xcaffold import' to absorb edits into source, or '%s --force' to discard edits.\n", glyphArrow(), applyArgs)
 		if !showAll {
 			fmt.Printf("  Run 'xcaffold status --target %s --all' to see all files.\n", target)
 		}

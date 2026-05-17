@@ -593,9 +593,9 @@ func performApplyBackup(config *ast.XcaffoldConfig, outputDir, scopeName string)
 // printSmartSkipMessage outputs the smart skip message.
 func printSmartSkipMessage() {
 	if applyDryRun {
-		fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+		fmt.Printf("  %s  All providers in sync. Nothing to compile.\n", colorGreen(glyphOK()))
 	} else {
-		fmt.Printf("  %s  Sources unchanged. Nothing to compile.\n", colorGreen(glyphOK()))
+		fmt.Printf("  %s  All providers in sync. Nothing to compile.\n", colorGreen(glyphOK()))
 		fmt.Println()
 		fmt.Printf("%s Run 'xcaffold apply --force' to recompile.\n", glyphArrow())
 	}
