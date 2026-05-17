@@ -117,6 +117,7 @@ The provider architecture is open. Adding a new target requires implementing two
 
 ## Documentation
 
+- [Guides](docs/guides/index.md) — Tooling how-tos (shell completion, etc.)
 - [Tutorials](docs/tutorials/index.md) — End-to-end setup guides
 - [Best Practices](docs/best-practices/index.md) — Task-oriented recipes
 - [Concepts](docs/concepts/index.md) — Architecture, compilation, field model
