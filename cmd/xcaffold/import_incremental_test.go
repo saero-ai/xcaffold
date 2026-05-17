@@ -1,9 +1,13 @@
 package main
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/parser"
+	"github.com/stretchr/testify/require"
 )
 
 // TestIncrementalImport_KindFilter_AgentOnly_DiffContainsOnlyAgents verifies that
@@ -335,6 +339,112 @@ func TestImport_Incremental_MergePreservesSourceFile(t *testing.T) {
 	if unchangedRule.SourceFile != "xcaf/rules/formatting.xcaf" {
 		t.Errorf("formatting rule SourceFile changed; expected xcaf/rules/formatting.xcaf, got %q", unchangedRule.SourceFile)
 	}
+}
+
+// TestImport_Incremental_AbsorbsRenderedEditsToDisk verifies that the
+// rewriteChangedResourcesInPlace function correctly writes resources back
+// to their FLAT layout xcaf files (bug fixes B and C).
+func TestImport_Incremental_AbsorbsRenderedEditsToDisk(t *testing.T) {
+	// Create a temp directory for the test project
+	tmpDir := t.TempDir()
+	oldCwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir to temp dir: %v", err)
+	}
+	defer os.Chdir(oldCwd)
+
+	// Build FLAT-layout project directory
+	if err := os.MkdirAll("xcaf/rules", 0755); err != nil {
+		t.Fatalf("failed to create xcaf/rules: %v", err)
+	}
+
+	// Create an existing xcaf/rules/no-secrets.xcaf (simulates pre-existing source)
+	originalNoSecretsXcaf := `---
+kind: rule
+version: "1.0"
+name: no-secrets
+description: "Security rule for SQL injection"
+activation: always
+always-apply: true
+---
+Never use string concatenation for SQL queries.
+`
+	if err := os.WriteFile("xcaf/rules/no-secrets.xcaf", []byte(originalNoSecretsXcaf), 0644); err != nil {
+		t.Fatalf("failed to write xcaf/rules/no-secrets.xcaf: %v", err)
+	}
+
+	// Parse the existing config
+	existingConfig, err := parser.ParseDirectory(".")
+	if err != nil {
+		t.Fatalf("failed to parse xcaf/: %v", err)
+	}
+
+	// Manually set SourceFile (in real usage, this would be set by the parser;
+	// we're testing the rewrite logic, not the parser)
+	noSecretsRule, ok := existingConfig.Rules["no-secrets"]
+	require.True(t, ok, "no-secrets rule not found in parsed config")
+	noSecretsRule.SourceFile = "xcaf/rules/no-secrets.xcaf"
+	existingConfig.Rules["no-secrets"] = noSecretsRule
+
+	// Now simulate incremental import: create a modified version of the rule
+	// (as would be extracted from rendered .claude/rules/no-secrets.md after user edit)
+	alwaysApplyTrue := true
+	scannedConfig := &ast.XcaffoldConfig{
+		ResourceScope: ast.ResourceScope{
+			Rules: map[string]ast.RuleConfig{
+				"no-secrets": {
+					Name:        "no-secrets",
+					Description: "Security rule for SQL injection (updated)",
+					Body:        "Never use string concatenation for SQL queries.\nAlways use parameterized queries for SQL to prevent injection.\n",
+					Activation:  "always",
+					AlwaysApply: &alwaysApplyTrue,
+				},
+			},
+		},
+	}
+
+	// Create a diff showing this rule as changed
+	diff := ResourceDiff{
+		Changed: map[string][]DiffEntry{
+			"rule": {{Kind: "rule", Name: "no-secrets"}},
+		},
+	}
+
+	// Copy SourceFile from existing to scanned (as incremental import does)
+	scannedRule := scannedConfig.Rules["no-secrets"]
+	scannedRule.SourceFile = noSecretsRule.SourceFile
+	scannedConfig.Rules["no-secrets"] = scannedRule
+
+	// Now test rewriteChangedResourcesInPlace - the key function being tested
+	if err := rewriteChangedResourcesInPlace(scannedConfig, diff); err != nil {
+		t.Fatalf("rewriteChangedResourcesInPlace failed: %v", err)
+	}
+
+	// ASSERTIONS: Check the rewrite worked correctly
+	// a. xcaf/rules/no-secrets.xcaf should contain "parameterized queries" (the new edit)
+	rewrittenBytes, err := os.ReadFile("xcaf/rules/no-secrets.xcaf")
+	require.NoError(t, err, "failed to read rewritten xcaf/rules/no-secrets.xcaf")
+
+	rewrittenStr := string(rewrittenBytes)
+	require.True(t, strings.Contains(rewrittenStr, "parameterized queries"),
+		"FAIL a: edit not written to xcaf/rules/no-secrets.xcaf; got: %s", rewrittenStr)
+
+	// b. xcaf/rules/no-secrets/rule.xcaf should NOT exist (we use flat layout, not nested)
+	_, err = os.Stat("xcaf/rules/no-secrets/rule.xcaf")
+	require.True(t, os.IsNotExist(err),
+		"FAIL b: nested layout created when flat layout should be used")
+
+	// c. Verify the rewritten file has the correct frontmatter (kind, version, name)
+	require.True(t, strings.Contains(rewrittenStr, "kind: rule"),
+		"FAIL c: kind not in rewritten file")
+	require.True(t, strings.Contains(rewrittenStr, `name: no-secrets`),
+		"FAIL c: name not in rewritten file")
+	// The description should match what was in scanned config (updated version)
+	require.True(t, strings.Contains(rewrittenStr, "Security rule for SQL injection (updated)"),
+		"FAIL c: updated description not in rewritten file; got: %s", rewrittenStr)
 }
 
 // contains checks if haystack contains needle substring
