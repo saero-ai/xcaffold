@@ -10,10 +10,11 @@ import (
 
 // incrementalImportCtx groups parameters for incremental import operations.
 type incrementalImportCtx struct {
-	xcafDest  string
-	scopeName string
-	config    *ast.XcaffoldConfig
-	warnings  *[]string
+	xcafDest      string
+	scopeName     string
+	config        *ast.XcaffoldConfig
+	scannedConfig *ast.XcaffoldConfig
+	warnings      *[]string
 }
 
 // incrementalImport scans provider resources, diffs against existing xcaf/,
@@ -31,6 +32,9 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 	// Apply kind filters to scanned config BEFORE diffing
 	applyKindFilters(scannedConfig)
 
+	// Make a copy of scannedConfig for use after diffing, since diffResources modifies in-place
+	scannedConfigCopy := deepCopyConfig(scannedConfig)
+
 	diff := diffResources(scannedConfig, existingConfig)
 	totalNew := diff.TotalNew()
 	totalChanged := diff.TotalChanged()
@@ -43,10 +47,11 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 	renderImportPreview(diff)
 
 	ctx := incrementalImportCtx{
-		xcafDest:  xcafDest,
-		scopeName: scopeName,
-		config:    existingConfig,
-		warnings:  nil, // not used in confirmAndExecuteImport
+		xcafDest:      xcafDest,
+		scopeName:     scopeName,
+		config:        existingConfig,
+		scannedConfig: scannedConfigCopy,
+		warnings:      nil, // not used in confirmAndExecuteImport
 	}
 	if err := confirmAndExecuteImport(ctx, diff, func() error {
 		return WriteSplitFiles(existingConfig, ".")
@@ -91,7 +96,7 @@ func confirmAndExecuteImport(ctx incrementalImportCtx, diff ResourceDiff, writeF
 		return nil
 	}
 
-	mergeResourceDiff(ctx.config, ctx.config, diff)
+	mergeResourceDiff(ctx.config, ctx.scannedConfig, diff)
 	if err := writeFunc(); err != nil {
 		return fmt.Errorf("[%s] failed to write split xcaf files: %w", ctx.scopeName, err)
 	}

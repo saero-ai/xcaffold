@@ -188,6 +188,11 @@ type AgentConfig struct {
 	// to skip the resource during project-scope compilation.
 	Inherited bool `yaml:"-"`
 
+	// SourceFile records the original path where this agent was loaded from.
+	// Set by the parser; used by incremental import to rewrite resources at original paths.
+	// Never serialized.
+	SourceFile string `yaml:"-"`
+
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
 	SourceProvider string `yaml:"-" json:"-"`
@@ -293,6 +298,11 @@ type SkillConfig struct {
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
 
+	// SourceFile records the original path where this skill was loaded from.
+	// Set by the parser; used by incremental import to rewrite resources at original paths.
+	// Never serialized.
+	SourceFile string `yaml:"-"`
+
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
 	SourceProvider string `yaml:"-" json:"-"`
@@ -369,6 +379,11 @@ type RuleConfig struct {
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
+
+	// SourceFile records the original path where this rule was loaded from.
+	// Set by the parser; used by incremental import to rewrite resources at original paths.
+	// Never serialized.
+	SourceFile string `yaml:"-"`
 
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
@@ -541,6 +556,11 @@ type MCPConfig struct {
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-" json:"-"`
 
+	// SourceFile records the original path where this MCP config was loaded from.
+	// Set by the parser; used by incremental import to rewrite resources at original paths.
+	// Never serialized.
+	SourceFile string `yaml:"-"`
+
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
 	SourceProvider string `yaml:"-" json:"-"`
@@ -610,6 +630,11 @@ type ContextConfig struct {
 	// Inherited is set by the parser when this resource originates from an
 	// extends: global base config. It is never serialized.
 	Inherited bool `yaml:"-"`
+
+	// SourceFile records the original path where this context was loaded from.
+	// Set by the parser; used by incremental import to rewrite resources at original paths.
+	// Never serialized.
+	SourceFile string `yaml:"-"`
 
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
