@@ -446,13 +446,3 @@ Never use string concatenation for SQL queries.
 	require.True(t, strings.Contains(rewrittenStr, "Security rule for SQL injection (updated)"),
 		"FAIL c: updated description not in rewritten file; got: %s", rewrittenStr)
 }
-
-// contains checks if haystack contains needle substring
-func contains(haystack, needle string) bool {
-	for i := 0; i <= len(haystack)-len(needle); i++ {
-		if haystack[i:i+len(needle)] == needle {
-			return true
-		}
-	}
-	return false
-}

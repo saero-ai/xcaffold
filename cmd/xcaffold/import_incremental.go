@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/prompt"
 	"github.com/saero-ai/xcaffold/internal/state"
+	providerspkg "github.com/saero-ai/xcaffold/providers"
 )
 
 // incrementalImportCtx groups parameters for incremental import operations.
@@ -67,8 +69,8 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 		if err := rewriteChangedResourcesInPlace(scannedConfigCopy, diff); err != nil {
 			return err
 		}
-		// Refresh state after rewriting resources
-		if err := refreshStateAfterImport(existingConfig, diff, provider); err != nil {
+		// Refresh state after rewriting resources (use scannedConfigCopy — has SourceFile fields applied)
+		if err := refreshStateAfterImport(scannedConfigCopy, diff, provider); err != nil {
 			return err
 		}
 		return nil
@@ -272,52 +274,79 @@ func refreshStateAfterImport(cfg *ast.XcaffoldConfig, diff ResourceDiff, target 
 
 // updateResourceHashes updates the source file and artifact hashes for a resource.
 func updateResourceHashes(manifest *state.StateManifest, sourceFile, name, target string) {
-	// Update source file hash
 	sourceBytes, err := os.ReadFile(sourceFile)
-	if err == nil {
-		sourceHash := sha256.Sum256(sourceBytes)
-		sourceHashStr := "sha256:" + hex.EncodeToString(sourceHash[:])
+	if err != nil {
+		return
+	}
+	sum := sha256.Sum256(sourceBytes)
+	sourceHashStr := "sha256:" + hex.EncodeToString(sum[:])
 
-		// Find or create source file entry
-		found := false
-		for i := range manifest.SourceFiles {
-			if manifest.SourceFiles[i].Path == sourceFile {
-				manifest.SourceFiles[i].Hash = sourceHashStr
-				found = true
-				break
-			}
-		}
-		if !found {
-			manifest.SourceFiles = append(manifest.SourceFiles, state.SourceFile{
-				Path: sourceFile,
-				Hash: sourceHashStr,
-			})
-		}
+	setSourceHash(manifest.SourceFiles, sourceFile, sourceHashStr, &manifest.SourceFiles)
+
+	// Source .xcaf files are shared across targets — refresh the hash everywhere.
+	for tn, ts := range manifest.Targets {
+		setSourceHash(ts.SourceFiles, sourceFile, sourceHashStr, &ts.SourceFiles)
+		manifest.Targets[tn] = ts
 	}
 
-	// Update artifact hash in target state (if target exists)
-	if targetState, ok := manifest.Targets[target]; ok {
-		// Try to find artifact matching this resource
-		// Artifact paths vary by target, so we use a heuristic match
-		for i := range targetState.Artifacts {
-			artifact := &targetState.Artifacts[i]
-			// Match artifact if it contains the resource name (e.g., "rules/no-secrets")
-			if containsResourceName(artifact.Path, name) {
-				artifactBytes, err := os.ReadFile(artifact.Path)
-				if err == nil {
-					artifactHash := sha256.Sum256(artifactBytes)
-					artifact.Hash = "sha256:" + hex.EncodeToString(artifactHash[:])
-				}
-				break
-			}
-		}
-		manifest.Targets[target] = targetState
+	targetState, ok := manifest.Targets[target]
+	if !ok {
+		return
 	}
+
+	outputDir := outputDirForTarget(target)
+	for i := range targetState.Artifacts {
+		artifact := &targetState.Artifacts[i]
+		if !artifactMatchesResource(artifact.Path, name) {
+			continue
+		}
+		diskPath := artifact.Path
+		if outputDir != "" && !strings.HasPrefix(diskPath, "root:") {
+			diskPath = filepath.Join(outputDir, artifact.Path)
+		} else if strings.HasPrefix(diskPath, "root:") {
+			diskPath = strings.TrimPrefix(diskPath, "root:")
+		}
+		artifactBytes, err := os.ReadFile(diskPath)
+		if err != nil {
+			continue
+		}
+		hash := sha256.Sum256(artifactBytes)
+		artifact.Hash = "sha256:" + hex.EncodeToString(hash[:])
+	}
+	manifest.Targets[target] = targetState
 }
 
-// containsResourceName checks if a path contains the resource name (simple heuristic).
-func containsResourceName(path, name string) bool {
-	return filepath.Base(path) == name || filepath.Base(filepath.Dir(path)) == name
+// outputDirForTarget returns the on-disk output directory for a target (e.g. ".claude").
+func outputDirForTarget(target string) string {
+	m, ok := providerspkg.ManifestFor(target)
+	if !ok {
+		return ""
+	}
+	return m.OutputDir
+}
+
+// setSourceHash updates the entry matching path; appends if not found.
+func setSourceHash(entries []state.SourceFile, path, hash string, store *[]state.SourceFile) {
+	for i := range entries {
+		if entries[i].Path == path {
+			entries[i].Hash = hash
+			*store = entries
+			return
+		}
+	}
+	*store = append(entries, state.SourceFile{Path: path, Hash: hash})
+}
+
+// artifactMatchesResource matches paths like "rules/no-secrets.md" against name "no-secrets".
+func artifactMatchesResource(path, name string) bool {
+	base := filepath.Base(path)
+	if base == name {
+		return true
+	}
+	if ext := filepath.Ext(base); ext != "" && strings.TrimSuffix(base, ext) == name {
+		return true
+	}
+	return filepath.Base(filepath.Dir(path)) == name
 }
 
 // renderImportPreview displays a diff preview of new, changed, unchanged, and xcaf-only resources.
