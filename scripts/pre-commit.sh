@@ -18,6 +18,16 @@ go vet ./... || {
     exit 1
 }
 
+echo "=> Running golangci-lint..."
+if command -v golangci-lint &> /dev/null; then
+    golangci-lint run --new-from-rev=HEAD ./... || {
+        echo "ERROR: 'golangci-lint' found issues. Please fix before committing."
+        exit 1
+    }
+else
+    echo "   SKIP: golangci-lint not installed (run 'make setup' to install)"
+fi
+
 echo "=> Running go test..."
 go test ./... || {
     echo "ERROR: 'go test' failed. All unit tests must pass before committing."

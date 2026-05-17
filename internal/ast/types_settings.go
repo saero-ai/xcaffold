@@ -347,6 +347,11 @@ type WorkflowConfig struct {
 	// extends: global base config. Never serialized.
 	Inherited bool `yaml:"-"`
 
+	// SourceFile records the original path where this workflow was loaded from.
+	// Set by the parser; used by incremental import to rewrite resources at original paths.
+	// Never serialized.
+	SourceFile string `yaml:"-"`
+
 	// SourceProvider identifies the provider this resource was imported from.
 	// Set by the import pipeline; never serialized.
 	SourceProvider string `yaml:"-" json:"-"`

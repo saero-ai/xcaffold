@@ -160,6 +160,20 @@ func TestCursorExtract_SkillFrontmatter(t *testing.T) {
 	assert.Equal(t, "cursor", skill.SourceProvider)
 }
 
+func TestCursorExtract_AgentIsBackgroundField(t *testing.T) {
+	// Cursor renderer outputs 'is_background: true' (snake_case with 'is_' prefix)
+	data := []byte("---\nname: background-agent\nis_background: true\n---\nBackground agent body.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := cursorimp.NewImporter()
+	err := imp.Extract("agents/bg-agent.md", data, config)
+	require.NoError(t, err)
+	agent, ok := config.Agents["bg-agent"]
+	require.True(t, ok, "expected agent 'bg-agent' in config")
+	require.NotNil(t, agent.Background, "expected Background field to be set")
+	assert.True(t, *agent.Background, "expected Background to be true")
+	assert.Equal(t, "cursor", agent.SourceProvider)
+}
+
 func TestCursorExtract_McpStandaloneJSON(t *testing.T) {
 	data := []byte(`{"mcpServers":{"github":{"type":"stdio","command":"gh-mcp","args":["serve"]}}}`)
 	config := &ast.XcaffoldConfig{}
