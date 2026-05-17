@@ -1,11 +1,16 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/prompt"
+	"github.com/saero-ai/xcaffold/internal/state"
 )
 
 // incrementalImportCtx groups parameters for incremental import operations.
@@ -59,7 +64,14 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 	if err := confirmAndExecuteImport(ctx, diff, func() error {
 		// Apply saved SourceFiles to scannedConfig so rewrite can find them
 		applySourceFilesForChangedResources(scannedConfigCopy, diff, savedSourceFiles)
-		return rewriteChangedResourcesInPlace(scannedConfigCopy, diff)
+		if err := rewriteChangedResourcesInPlace(scannedConfigCopy, diff); err != nil {
+			return err
+		}
+		// Refresh state after rewriting resources
+		if err := refreshStateAfterImport(existingConfig, diff, provider); err != nil {
+			return err
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
@@ -203,6 +215,111 @@ func applySourceFilesForChangedResources(scannedConfig *ast.XcaffoldConfig, diff
 	}
 }
 
+// refreshStateAfterImport updates the state file with new hashes for rewritten resources.
+func refreshStateAfterImport(cfg *ast.XcaffoldConfig, diff ResourceDiff, target string) error {
+	// Read existing state if it exists
+	stateFilePath := filepath.Join(".xcaffold", "project.xcaf.state")
+	var manifest *state.StateManifest
+	if _, err := os.Stat(stateFilePath); err == nil {
+		manifest, err = state.ReadState(stateFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to read state: %w", err)
+		}
+	} else {
+		// Create minimal state if it doesn't exist
+		manifest = &state.StateManifest{
+			Version:         1,
+			XcaffoldVersion: state.XcaffoldVersion,
+			Targets:         make(map[string]state.TargetState),
+		}
+	}
+
+	// Update hashes for changed resources in source files and artifacts
+	for kind, entries := range diff.Changed {
+		for _, entry := range entries {
+			switch kind {
+			case "rule":
+				if r, ok := cfg.Rules[entry.Name]; ok && r.SourceFile != "" {
+					updateResourceHashes(manifest, r.SourceFile, entry.Name, target)
+				}
+			case "agent":
+				if a, ok := cfg.Agents[entry.Name]; ok && a.SourceFile != "" {
+					updateResourceHashes(manifest, a.SourceFile, entry.Name, target)
+				}
+			case "skill":
+				if s, ok := cfg.Skills[entry.Name]; ok && s.SourceFile != "" {
+					updateResourceHashes(manifest, s.SourceFile, entry.Name, target)
+				}
+			case "workflow":
+				if w, ok := cfg.Workflows[entry.Name]; ok && w.SourceFile != "" {
+					updateResourceHashes(manifest, w.SourceFile, entry.Name, target)
+				}
+			case "mcp":
+				if m, ok := cfg.MCP[entry.Name]; ok && m.SourceFile != "" {
+					updateResourceHashes(manifest, m.SourceFile, entry.Name, target)
+				}
+			case "context":
+				if c, ok := cfg.Contexts[entry.Name]; ok && c.SourceFile != "" {
+					updateResourceHashes(manifest, c.SourceFile, entry.Name, target)
+				}
+			}
+		}
+	}
+
+	// Write updated state
+	return state.WriteState(manifest, stateFilePath)
+}
+
+// updateResourceHashes updates the source file and artifact hashes for a resource.
+func updateResourceHashes(manifest *state.StateManifest, sourceFile, name, target string) {
+	// Update source file hash
+	sourceBytes, err := os.ReadFile(sourceFile)
+	if err == nil {
+		sourceHash := sha256.Sum256(sourceBytes)
+		sourceHashStr := "sha256:" + hex.EncodeToString(sourceHash[:])
+
+		// Find or create source file entry
+		found := false
+		for i := range manifest.SourceFiles {
+			if manifest.SourceFiles[i].Path == sourceFile {
+				manifest.SourceFiles[i].Hash = sourceHashStr
+				found = true
+				break
+			}
+		}
+		if !found {
+			manifest.SourceFiles = append(manifest.SourceFiles, state.SourceFile{
+				Path: sourceFile,
+				Hash: sourceHashStr,
+			})
+		}
+	}
+
+	// Update artifact hash in target state (if target exists)
+	if targetState, ok := manifest.Targets[target]; ok {
+		// Try to find artifact matching this resource
+		// Artifact paths vary by target, so we use a heuristic match
+		for i := range targetState.Artifacts {
+			artifact := &targetState.Artifacts[i]
+			// Match artifact if it contains the resource name (e.g., "rules/no-secrets")
+			if containsResourceName(artifact.Path, name) {
+				artifactBytes, err := os.ReadFile(artifact.Path)
+				if err == nil {
+					artifactHash := sha256.Sum256(artifactBytes)
+					artifact.Hash = "sha256:" + hex.EncodeToString(artifactHash[:])
+				}
+				break
+			}
+		}
+		manifest.Targets[target] = targetState
+	}
+}
+
+// containsResourceName checks if a path contains the resource name (simple heuristic).
+func containsResourceName(path, name string) bool {
+	return filepath.Base(path) == name || filepath.Base(filepath.Dir(path)) == name
+}
+
 // renderImportPreview displays a diff preview of new, changed, unchanged, and xcaf-only resources.
 func renderImportPreview(diff ResourceDiff) {
 	fmt.Println()
@@ -245,7 +362,11 @@ func rewriteChangedResourcesInPlace(cfg *ast.XcaffoldConfig, diff ResourceDiff) 
 	}
 
 	// Write each resource back to its source file (if available) or use nested layout
+	// Skip project resources - they should not be rewritten during incremental import
 	for kind, names := range allChanges {
+		if kind == "project" {
+			continue
+		}
 		for _, name := range names {
 			if err := rewriteResourceInPlace(cfg, kind, name); err != nil {
 				return err
