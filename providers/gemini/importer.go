@@ -117,7 +117,7 @@ type agentFrontmatter struct {
 	Description            string                        `yaml:"description"`
 	Model                  string                        `yaml:"model"`
 	Effort                 string                        `yaml:"effort"`
-	MaxTurns               int                           `yaml:"max-turns"`
+	MaxTurns               int                           `yaml:"max_turns"`
 	Mode                   string                        `yaml:"mode"`
 	Tools                  []string                      `yaml:"tools"`
 	DisallowedTools        []string                      `yaml:"disallowed-tools"`

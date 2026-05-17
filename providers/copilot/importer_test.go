@@ -139,6 +139,33 @@ func TestCopilotExtract_Rule_DoubleExtensionStripped(t *testing.T) {
 	assert.Equal(t, "copilot", rule.SourceProvider)
 }
 
+func TestCopilotExtract_RuleWithApplyToField(t *testing.T) {
+	// Copilot renderer outputs 'applyTo' as a comma-separated string of paths
+	data := []byte("---\ndescription: Formatting rules\napplyTo: \"**/*.go, **/*.ts\"\n---\n\nFormat code.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := copilotimp.NewImporter()
+	err := imp.Extract("instructions/formatting.instructions.md", data, config)
+	require.NoError(t, err)
+	rule, ok := config.Rules["formatting"]
+	require.True(t, ok, "expected rule 'formatting' in config")
+	// applyTo should be parsed into paths
+	assert.Equal(t, ast.ClearableList{Values: []string{"**/*.go", "**/*.ts"}}, rule.Paths)
+	assert.Equal(t, "copilot", rule.SourceProvider)
+}
+
+func TestCopilotExtract_RuleWithExcludeAgentField(t *testing.T) {
+	// Copilot renderer outputs 'excludeAgent' as a YAML list
+	data := []byte("---\ndescription: Rules with exclusions\nexcludeAgent:\n  - reviewer\n  - auditor\n---\n\nRule body.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := copilotimp.NewImporter()
+	err := imp.Extract("instructions/exclude-test.instructions.md", data, config)
+	require.NoError(t, err)
+	rule, ok := config.Rules["exclude-test"]
+	require.True(t, ok, "expected rule 'exclude-test' in config")
+	assert.Equal(t, ast.ClearableList{Values: []string{"reviewer", "auditor"}}, rule.ExcludeAgents)
+	assert.Equal(t, "copilot", rule.SourceProvider)
+}
+
 func TestCopilotExtract_MCP(t *testing.T) {
 	data := []byte(`{"mcpServers":{"github":{"type":"stdio","command":"gh-mcp","args":["serve"]}}}`)
 	config := &ast.XcaffoldConfig{}

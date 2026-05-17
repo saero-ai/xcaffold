@@ -134,6 +134,48 @@ func TestGeminiExtract_RuleFrontmatter(t *testing.T) {
 	assert.Equal(t, "gemini", rule.SourceProvider)
 }
 
+func TestExtractAgent_MaxTurnsSnakeCase(t *testing.T) {
+	// Test that max_turns (snake_case) in YAML is correctly parsed into MaxTurns.
+	// The Gemini renderer writes max_turns, so the importer must read it back.
+	data := []byte("---\nname: Test Agent\nmodel: gemini-2.5-pro\nmax_turns: 5\n---\n\nAgent body.\n")
+	config := &ast.XcaffoldConfig{}
+	imp := geminimp.NewImporter()
+	err := imp.Extract("agents/test.md", data, config)
+	require.NoError(t, err)
+	agent, ok := config.Agents["test"]
+	require.True(t, ok, "expected agent 'test' in config")
+	require.NotNil(t, agent.MaxTurns, "expected MaxTurns to be non-nil")
+	assert.Equal(t, 5, *agent.MaxTurns)
+}
+
+func TestExtractSettings_MCPServersFromCamelCase(t *testing.T) {
+	// Test that mcpServers (camelCase) in settings.json JSON is correctly parsed.
+	// settings.json is in JSON format (camelCase keys) and should populate config.MCP.
+	data := []byte(`{
+		"model": "gemini-2.5-pro",
+		"mcpServers": {
+			"search-tool": {"type": "stdio", "command": "search-mcp"},
+			"code-runner": {"type": "stdio", "command": "runner-mcp"}
+		}
+	}`)
+	config := &ast.XcaffoldConfig{}
+	imp := geminimp.NewImporter()
+	err := imp.Extract("settings.json", data, config)
+	require.NoError(t, err)
+	// Verify both MCP servers are extracted with correct names
+	searchMCP, ok := config.MCP["search-tool"]
+	require.True(t, ok, "expected mcp 'search-tool' from settings.json")
+	assert.Equal(t, "stdio", searchMCP.Type)
+	assert.Equal(t, "search-mcp", searchMCP.Command)
+	assert.Equal(t, "gemini", searchMCP.SourceProvider)
+
+	runnerMCP, ok := config.MCP["code-runner"]
+	require.True(t, ok, "expected mcp 'code-runner' from settings.json")
+	assert.Equal(t, "stdio", runnerMCP.Type)
+	assert.Equal(t, "runner-mcp", runnerMCP.Command)
+	assert.Equal(t, "gemini", runnerMCP.SourceProvider)
+}
+
 func TestGeminiExtract_SettingsDecomposition(t *testing.T) {
 	data := []byte(`{
 		"model": "gemini-2.5-pro",
