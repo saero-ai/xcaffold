@@ -110,17 +110,11 @@ func checkSmartSkip(stateFilePath string, sourceFiles []string, baseDir string) 
 		return false
 	}
 
-	// Read source files from target-specific state (new behavior)
-	// with fallback to top-level for backward compat (old state files)
-	prevSourceFiles := prevManifest.Targets[targetFlag].SourceFiles
-	if len(prevSourceFiles) == 0 && len(prevManifest.SourceFiles) > 0 {
-		// Backward compat: old state files stored sources at top level
-		prevSourceFiles = prevManifest.SourceFiles
-	}
-
-	if len(prevSourceFiles) == 0 {
+	ts, exists := prevManifest.Targets[targetFlag]
+	if !exists || len(ts.SourceFiles) == 0 {
 		return false
 	}
+	prevSourceFiles := ts.SourceFiles
 
 	changed, _ := state.SourcesChanged(prevSourceFiles, sourceFiles, baseDir)
 	return !changed
