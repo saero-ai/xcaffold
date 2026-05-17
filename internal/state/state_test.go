@@ -271,9 +271,10 @@ func TestGenerateState_SourceFilesHashed(t *testing.T) {
 	m, err := GenerateState(out, opts, nil)
 	require.NoError(t, err)
 
-	require.Len(t, m.SourceFiles, 1)
-	assert.Equal(t, "project.xcaf", m.SourceFiles[0].Path)
-	assert.True(t, strings.HasPrefix(m.SourceFiles[0].Hash, "sha256:"))
+	claudeTarget := m.Targets["claude"]
+	require.Len(t, claudeTarget.SourceFiles, 1)
+	assert.Equal(t, "project.xcaf", claudeTarget.SourceFiles[0].Path)
+	assert.True(t, strings.HasPrefix(claudeTarget.SourceFiles[0].Hash, "sha256:"))
 }
 
 func TestGenerateState_TargetKeyedSources(t *testing.T) {

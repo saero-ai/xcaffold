@@ -96,10 +96,11 @@ Agent body.
 }
 
 func TestClaudeExtract_AgentMCPServers_Preserved(t *testing.T) {
+	// Claude renderer outputs mcpServers (camelCase), not mcp-servers (kebab-case)
 	data := []byte(`---
 name: my-agent
 description: Agent with MCP servers
-mcp-servers:
+mcpServers:
   my-server:
     type: stdio
     command: /usr/local/bin/my-mcp
@@ -115,9 +116,39 @@ Agent body.
 	agent, ok := config.Agents["my-agent"]
 	require.True(t, ok, "agent 'my-agent' should be present")
 
-	require.NotNil(t, agent.MCPServers, "mcp-servers should not be nil")
+	require.NotNil(t, agent.MCPServers, "mcpServers should not be nil")
 	srv, ok := agent.MCPServers["my-server"]
-	require.True(t, ok, "mcp-servers should contain 'my-server'")
+	require.True(t, ok, "mcpServers should contain 'my-server'")
+	assert.Equal(t, "stdio", srv.Type)
+	assert.Equal(t, "/usr/local/bin/my-mcp", srv.Command)
+	require.Len(t, srv.Args, 1)
+	assert.Equal(t, "--flag", srv.Args[0])
+}
+
+// Task 2 Test: Claude Agent Importer mcpServers camelCase
+func TestExtractAgent_MCPServersFromCamelCase(t *testing.T) {
+	data := []byte(`---
+name: my-agent
+description: Agent with MCP servers
+mcpServers:
+  my-server:
+    type: stdio
+    command: /usr/local/bin/my-mcp
+    args:
+      - --flag
+---
+Agent body.
+`)
+	config := &ast.XcaffoldConfig{}
+	err := extractAgent("agents/my-agent.md", data, config)
+	require.NoError(t, err)
+
+	agent, ok := config.Agents["my-agent"]
+	require.True(t, ok, "agent 'my-agent' should be present")
+
+	require.NotNil(t, agent.MCPServers, "mcpServers should not be nil")
+	srv, ok := agent.MCPServers["my-server"]
+	require.True(t, ok, "mcpServers should contain 'my-server'")
 	assert.Equal(t, "stdio", srv.Type)
 	assert.Equal(t, "/usr/local/bin/my-mcp", srv.Command)
 	require.Len(t, srv.Args, 1)
@@ -159,4 +190,46 @@ func TestImport_Memory_OnlyProjectAgents(t *testing.T) {
 		}
 	}
 	assert.True(t, foundWarning, "expected a warning about missing agent definition for agent b")
+}
+
+// Task 1 Tests: Claude Skill Importer fixes
+func TestExtractSkill_AllowedToolsSpaceSeparated(t *testing.T) {
+	data := []byte(`---
+name: my-skill
+description: A test skill
+when-to-use: Use this for testing
+allowed-tools: Bash Read Write
+---
+Skill body.
+`)
+	config := &ast.XcaffoldConfig{}
+	err := extractSkill("skills/my-skill/SKILL.md", data, config)
+	require.NoError(t, err)
+
+	skill, ok := config.Skills["my-skill"]
+	require.True(t, ok, "skill 'my-skill' should be present")
+
+	// allowed-tools "Bash Read Write" should be split into ["Bash", "Read", "Write"]
+	expected := []string{"Bash", "Read", "Write"}
+	assert.Equal(t, expected, skill.AllowedTools.Values, "allowed-tools should be split from space-separated string")
+}
+
+func TestExtractSkill_WhenToUseSnakeCase(t *testing.T) {
+	data := []byte(`---
+name: my-skill
+description: A test skill
+when_to_use: Use for quality code
+allowed-tools: Read
+---
+Skill body.
+`)
+	config := &ast.XcaffoldConfig{}
+	err := extractSkill("skills/my-skill/SKILL.md", data, config)
+	require.NoError(t, err)
+
+	skill, ok := config.Skills["my-skill"]
+	require.True(t, ok, "skill 'my-skill' should be present")
+
+	// when_to_use (snake_case) should be read correctly
+	assert.Equal(t, "Use for quality code", skill.WhenToUse, "when_to_use should be read with correct snake_case tag")
 }

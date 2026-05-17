@@ -169,7 +169,7 @@ type agentFrontmatter struct {
 	Assertions             []string                      `yaml:"assertions"`
 	Targets                map[string]ast.TargetOverride `yaml:"targets"`
 	Hooks                  ast.HookConfig                `yaml:"hooks"`
-	MCPServers             map[string]ast.MCPConfig      `yaml:"mcp-servers"`
+	MCPServers             map[string]ast.MCPConfig      `yaml:"mcpServers"`
 	DisableModelInvocation *bool                         `yaml:"disable-model-invocation"`
 	UserInvocable          *bool                         `yaml:"user-invocable"`
 	Readonly               *bool                         `yaml:"readonly"`
@@ -221,13 +221,36 @@ func extractAgent(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	return nil
 }
 
+func normalizeSpaceSeparatedList(raw interface{}) []string {
+	switch v := raw.(type) {
+	case nil:
+		return nil
+	case []string:
+		return v
+	case []interface{}:
+		result := make([]string, len(v))
+		for i, item := range v {
+			result[i] = fmt.Sprint(item)
+		}
+		return result
+	case string:
+		// Handle space-separated string: "Bash Read Write" → ["Bash", "Read", "Write"]
+		if v == "" {
+			return nil
+		}
+		return strings.Fields(v)
+	default:
+		return nil
+	}
+}
+
 func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 	var front struct {
 		Name                   string                        `yaml:"name"`
 		Description            string                        `yaml:"description"`
-		WhenToUse              string                        `yaml:"when-to-use"`
+		WhenToUse              string                        `yaml:"when_to_use"`
 		License                string                        `yaml:"license"`
-		AllowedTools           []string                      `yaml:"allowed-tools"`
+		AllowedTools           interface{}                   `yaml:"allowed-tools"` // Accept string or []string
 		DisableModelInvocation *bool                         `yaml:"disable-model-invocation"`
 		UserInvocable          *bool                         `yaml:"user-invocable"`
 		ArgumentHint           string                        `yaml:"argument-hint"`
@@ -239,6 +262,9 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		return fmt.Errorf("claude: skill %q: %w", rel, err)
 	}
 
+	// Normalize allowed-tools: handles string ("Bash Read Write") or []string or []interface{}
+	normalizedTools := normalizeSpaceSeparatedList(front.AllowedTools)
+
 	// For DirectoryPerEntry layout: id is the directory name
 	id := filepath.Base(filepath.Dir(rel))
 	if config.Skills == nil {
@@ -249,7 +275,7 @@ func extractSkill(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Description:            front.Description,
 		WhenToUse:              front.WhenToUse,
 		License:                front.License,
-		AllowedTools:           ast.ClearableList{Values: front.AllowedTools},
+		AllowedTools:           ast.ClearableList{Values: normalizedTools},
 		DisableModelInvocation: front.DisableModelInvocation,
 		UserInvocable:          front.UserInvocable,
 		ArgumentHint:           front.ArgumentHint,

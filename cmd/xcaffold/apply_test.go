@@ -459,6 +459,102 @@ You are a developer.
 	applyForce = false
 }
 
+// TestRunApply_MultiTarget_SmartSkip verifies that multi-target smart-skip works correctly:
+// when applying multiple targets without --force, both targets compile on first run,
+// skip on subsequent runs (no changes), and recompile when sources change.
+// This test reproduces the bug where subsequent targets incorrectly use the first target's
+// source data for smart-skip detection.
+func TestRunApply_MultiTarget_SmartSkip(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create project.xcaf with multiple targets
+	xcaf := filepath.Join(dir, "project.xcaf")
+	require.NoError(t, os.WriteFile(xcaf, []byte(`---
+kind: project
+version: "1.0"
+name: multi-target-smart-skip-test
+targets:
+  - claude
+  - cursor
+`), 0600))
+
+	// Create a simple agent resource
+	agentDir := filepath.Join(dir, "xcaf", "agents", "dev")
+	require.NoError(t, os.MkdirAll(agentDir, 0755))
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: A developer agent
+---
+You are a developer.
+`), 0600))
+
+	xcafPath = xcaf
+	projectRoot = dir
+	globalFlag = false
+	applyForce = false // Critical: smart-skip only works without --force
+	targetFlag = testTarget
+	applyCmd.Flags().Lookup("target").Changed = false
+
+	// FIRST RUN: Both targets should compile
+	err := runApply(applyCmd, nil)
+	require.NoError(t, err)
+
+	// Verify both target outputs exist
+	claudePath := filepath.Join(dir, ".claude", "agents", "dev.md")
+	cursorPath := filepath.Join(dir, ".cursor", "agents", "dev.md")
+	_, err = os.Stat(claudePath)
+	assert.NoError(t, err, ".claude/agents/dev.md should exist after first apply")
+	_, err = os.Stat(cursorPath)
+	assert.NoError(t, err, ".cursor/agents/dev.md should exist after first apply")
+
+	// Verify state file has both targets
+	stateFile := state.StateFilePath(dir, "")
+	manifest1, err := state.ReadState(stateFile)
+	require.NoError(t, err)
+	_, hasClaude := manifest1.Targets[testTarget]
+	_, hasCursor := manifest1.Targets["cursor"]
+	assert.True(t, hasClaude, "state should have claude target after first apply")
+	assert.True(t, hasCursor, "state should have cursor target after first apply")
+
+	// Get original timestamps for comparison
+	info1, _ := os.Stat(claudePath)
+	orig1Time := info1.ModTime()
+	info2, _ := os.Stat(cursorPath)
+	orig2Time := info2.ModTime()
+
+	// SECOND RUN: Neither target should compile (no changes)
+	// The bug would cause cursor to incorrectly re-compile because it reads claude's source data
+	err = runApply(applyCmd, nil)
+	require.NoError(t, err)
+
+	// Verify both files still exist and weren't modified (smart-skip worked)
+	info1After, _ := os.Stat(claudePath)
+	assert.Equal(t, orig1Time, info1After.ModTime(), "claude should be skipped (not recompiled)")
+	info2After, _ := os.Stat(cursorPath)
+	assert.Equal(t, orig2Time, info2After.ModTime(), "cursor should be skipped (not recompiled) — this would fail with the bug")
+
+	// THIRD RUN: Modify the agent, both should recompile
+	require.NoError(t, os.WriteFile(filepath.Join(agentDir, "dev.xcaf"), []byte(`---
+kind: agent
+version: "1.0"
+name: dev
+description: A developer agent (updated)
+---
+You are a developer. Updated.
+`), 0600))
+
+	err = runApply(applyCmd, nil)
+	require.NoError(t, err)
+
+	// Verify both files were updated
+	info1Final, _ := os.Stat(claudePath)
+	assert.True(t, info1Final.ModTime().After(orig1Time), "claude should recompile after source change")
+	info2Final, _ := os.Stat(cursorPath)
+	assert.True(t, info2Final.ModTime().After(orig2Time), "cursor should recompile after source change")
+}
+
 // TestRunApply_ExplicitTargetFlag verifies that when --target is explicitly set,
 // only that target is compiled even if the project config declares more targets.
 func TestRunApply_ExplicitTargetFlag(t *testing.T) {

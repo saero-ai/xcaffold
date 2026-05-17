@@ -243,13 +243,39 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		AlwaysApply   *bool                         `yaml:"always-apply"`
 		Activation    string                        `yaml:"activation"`
 		Paths         []string                      `yaml:"paths"`
+		ApplyTo       string                        `yaml:"applyTo"`
 		ExcludeAgents []string                      `yaml:"exclude-agents"`
+		ExcludeAgent  []string                      `yaml:"excludeAgent"`
 		Targets       map[string]ast.TargetOverride `yaml:"targets"`
 	}
 
 	body, err := importer.ParseFrontmatter(data, &front)
 	if err != nil {
 		return fmt.Errorf("copilot: rule %q: %w", rel, err)
+	}
+
+	// Normalize: Copilot uses 'applyTo' (comma-separated paths) and 'excludeAgent' (list).
+	// Map these to canonical 'Paths' and 'ExcludeAgents'.
+	paths := front.Paths
+	if front.ApplyTo != "" && len(paths) == 0 {
+		// Parse applyTo: "**" → no specific paths
+		// Parse applyTo: "path1, path2" → split into paths
+		if front.ApplyTo != `"**"` && front.ApplyTo != "**" {
+			// Remove quotes if present
+			applyToStr := strings.Trim(front.ApplyTo, `"`)
+			// Split by comma and trim whitespace
+			parts := strings.Split(applyToStr, ",")
+			for _, part := range parts {
+				if trimmed := strings.TrimSpace(part); trimmed != "" {
+					paths = append(paths, trimmed)
+				}
+			}
+		}
+	}
+
+	excludeAgents := front.ExcludeAgents
+	if len(excludeAgents) == 0 && len(front.ExcludeAgent) > 0 {
+		excludeAgents = front.ExcludeAgent
 	}
 
 	// Strip the double extension: "security.instructions.md" → "security"
@@ -262,8 +288,8 @@ func extractRule(rel string, data []byte, config *ast.XcaffoldConfig) error {
 		Description:    front.Description,
 		AlwaysApply:    front.AlwaysApply,
 		Activation:     front.Activation,
-		Paths:          ast.ClearableList{Values: front.Paths},
-		ExcludeAgents:  ast.ClearableList{Values: front.ExcludeAgents},
+		Paths:          ast.ClearableList{Values: paths},
+		ExcludeAgents:  ast.ClearableList{Values: excludeAgents},
 		Targets:        front.Targets,
 		Body:           body,
 		SourceProvider: "copilot",

@@ -39,7 +39,7 @@ func TestXcaffoldConfig_BlueprintsMap_Exists(t *testing.T) {
 }
 
 func TestSkillConfig_FieldCount_OverrideScoringGuard(t *testing.T) {
-	const expected = 13
+	const expected = 14
 	rt := reflect.TypeOf(SkillConfig{})
 	if rt.NumField() != expected {
 		t.Fatalf("SkillConfig has %d fields, expected %d — update override scoring if fields changed", rt.NumField(), expected)
