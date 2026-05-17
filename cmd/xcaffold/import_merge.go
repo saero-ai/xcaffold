@@ -36,6 +36,14 @@ func mergeImportDirs(providers []importer.ProviderImporter, xcafDest string) err
 
 	// Collect and assemble configs
 	providerConfigs := scanProviderConfigs(providers, &warnings)
+
+	// Detect conflicts before assembly
+	existing := createMergeImportConfig(projectName)
+	conflicts := detectConflicts(providerConfigs, existing)
+	if len(conflicts) > 0 {
+		fmt.Print(formatConflictSummary(conflicts))
+	}
+
 	assembleMultiProviderResources(providerConfigs, config)
 	detectAndSetTargets(providers, config)
 	applyKindFilters(config)

@@ -119,7 +119,7 @@ type agentFrontmatter struct {
 	Tools                  []string                      `yaml:"tools"`
 	DisallowedTools        []string                      `yaml:"disallowed-tools"`
 	PermissionMode         string                        `yaml:"permission-mode"`
-	Background             *bool                         `yaml:"background"`
+	Background             *bool                         `yaml:"is_background"`
 	Isolation              string                        `yaml:"isolation"`
 	When                   string                        `yaml:"when"`
 	Memory                 string                        `yaml:"memory"`

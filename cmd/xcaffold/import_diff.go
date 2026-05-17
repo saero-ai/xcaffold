@@ -31,11 +31,12 @@ func newResourceDiff() ResourceDiff {
 }
 
 // stripRuntimeFields removes fields that are set at runtime but not persisted to YAML.
-// These fields (SourceProvider, Inherited, Body) should not cause a resource to be
+// These fields (SourceProvider, Inherited, Body, SourceFile, Targets) should not cause a resource to be
 // categorized as "Changed" during diff comparison.
 func stripRuntimeFields(config *ast.XcaffoldConfig) {
 	for name, a := range config.Agents {
 		a.SourceProvider = ""
+		a.SourceFile = ""
 		a.Inherited = false
 		a.Body = ""
 		a.Targets = nil
@@ -43,6 +44,7 @@ func stripRuntimeFields(config *ast.XcaffoldConfig) {
 	}
 	for name, s := range config.Skills {
 		s.SourceProvider = ""
+		s.SourceFile = ""
 		s.Inherited = false
 		s.Body = ""
 		s.Targets = nil
@@ -50,6 +52,7 @@ func stripRuntimeFields(config *ast.XcaffoldConfig) {
 	}
 	for name, r := range config.Rules {
 		r.SourceProvider = ""
+		r.SourceFile = ""
 		r.Inherited = false
 		r.Body = ""
 		r.Targets = nil
@@ -57,12 +60,14 @@ func stripRuntimeFields(config *ast.XcaffoldConfig) {
 	}
 	for name, w := range config.Workflows {
 		w.SourceProvider = ""
+		w.SourceFile = ""
 		w.Inherited = false
 		w.Targets = nil
 		config.Workflows[name] = w
 	}
 	for name, m := range config.MCP {
 		m.SourceProvider = ""
+		m.SourceFile = ""
 		m.Targets = nil
 		config.MCP[name] = m
 	}
@@ -70,6 +75,9 @@ func stripRuntimeFields(config *ast.XcaffoldConfig) {
 
 // diffResources compares scanned provider resources against existing xcaf/ resources
 // and returns a ResourceDiff categorizing each resource.
+// NOTE: This function modifies scanned and existing IN-PLACE by stripping runtime fields.
+// Callers must preserve these objects before calling diffResources if they need the
+// original values after the diff.
 func diffResources(scanned, existing *ast.XcaffoldConfig) ResourceDiff {
 	// Strip runtime-only fields before comparison to prevent false "Changed" categorization.
 	// Both scanned and existing are working copies, so mutation is acceptable.

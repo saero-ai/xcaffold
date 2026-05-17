@@ -176,11 +176,6 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 	}
 	manifest.Targets[opts.Target] = targetState
 
-	if len(sourceFiles) > 0 {
-		// Also store at top level for backward compat (old state files).
-		manifest.SourceFiles = sourceFiles
-	}
-
 	manifest.MemorySeeds = stampAndSortSeeds(opts.MemorySeeds, now)
 	return manifest, nil
 }
@@ -198,9 +193,6 @@ func initManifest(opts StateOpts, existing *StateManifest) *StateManifest {
 	if existing != nil {
 		for k, v := range existing.Targets {
 			manifest.Targets[k] = v
-		}
-		if len(opts.SourceFiles) == 0 && len(existing.SourceFiles) > 0 {
-			manifest.SourceFiles = existing.SourceFiles
 		}
 	}
 	return manifest

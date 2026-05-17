@@ -56,6 +56,7 @@ func parseAgentDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inferr
 	if _, exists := config.Agents[doc.Name]; exists {
 		return fmt.Errorf("duplicate agent ID %q", doc.Name)
 	}
+	doc.AgentConfig.SourceFile = sourceFile
 	config.Agents[doc.Name] = doc.AgentConfig
 	return nil
 }
@@ -94,6 +95,7 @@ func parseSkillDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inferr
 	if _, exists := config.Skills[doc.Name]; exists {
 		return fmt.Errorf("duplicate skill ID %q", doc.Name)
 	}
+	doc.SkillConfig.SourceFile = sourceFile
 	config.Skills[doc.Name] = doc.SkillConfig
 	return nil
 }
@@ -132,6 +134,7 @@ func parseRuleDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inferre
 	if _, exists := config.Rules[doc.Name]; exists {
 		return fmt.Errorf("duplicate rule ID %q", doc.Name)
 	}
+	doc.RuleConfig.SourceFile = sourceFile
 	config.Rules[doc.Name] = doc.RuleConfig
 	return nil
 }
@@ -170,6 +173,7 @@ func parseWorkflowDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inf
 	if _, exists := config.Workflows[doc.Name]; exists {
 		return fmt.Errorf("duplicate workflow ID %q", doc.Name)
 	}
+	doc.WorkflowConfig.SourceFile = sourceFile
 	config.Workflows[doc.Name] = doc.WorkflowConfig
 	return nil
 }
@@ -208,6 +212,7 @@ func parseMCPDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, inferred
 	if _, exists := config.MCP[doc.Name]; exists {
 		return fmt.Errorf("duplicate mcp ID %q", doc.Name)
 	}
+	doc.MCPConfig.SourceFile = sourceFile
 	config.MCP[doc.Name] = doc.MCPConfig
 	return nil
 }
@@ -246,6 +251,7 @@ func parseContextDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, infe
 	if _, exists := config.Contexts[doc.Name]; exists {
 		return fmt.Errorf("duplicate context ID %q", doc.Name)
 	}
+	doc.ContextConfig.SourceFile = sourceFile
 	config.Contexts[doc.Name] = doc.ContextConfig
 	return nil
 }
