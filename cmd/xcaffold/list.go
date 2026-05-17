@@ -79,7 +79,14 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	if listBlueprintFlag != "" {
+		if listJSONFlag {
+			return fmt.Errorf("--json cannot be used with --blueprint")
+		}
 		return printBlueprintResources(cmd, config, listBlueprintFlag, listResolvedFlag)
+	}
+
+	if listJSONFlag {
+		return printListJSON(cmd, config, configDir)
 	}
 
 	printAllResources(cmd, config, configDir)

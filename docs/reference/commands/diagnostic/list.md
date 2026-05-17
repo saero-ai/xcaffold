@@ -32,6 +32,7 @@ xcaffold list [flags]
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
 | `--blueprint [name]` | — | `string` | `""` | Show resources belonging to a named blueprint. |
 | `--resolved` | — | `bool` | `false` | Include transitive dependencies when listing a blueprint. Use with `--blueprint`. |
+| `--json` | — | `bool` | `false` | Emit a JSON array of resources (`kind`, `name`, `target`, `source`) for scripting and CI. |
 
 ## Behavior
 
@@ -48,6 +49,23 @@ String-valued kind flags accept an optional name argument for filtering:
 - `--agent dev` — lists agents whose name contains `dev`
 
 Positional arguments are not accepted. To filter by name, use `--<kind>=<name>` syntax.
+
+### JSON output
+
+`xcaffold list --json` prints a JSON array to stdout. Each element includes:
+
+| Field | Description |
+|-------|-------------|
+| `kind` | Resource kind (`agent`, `skill`, `rule`, …) |
+| `name` | Resource identifier |
+| `target` | Provider target (`--target` flag, or the first project target when unset) |
+| `source` | Project-relative path to the `.xcaf` file when present on disk |
+
+Kind-filter flags (`--agent`, `--skill`, etc.) apply to JSON output the same way they restrict the table view. `--json` cannot be combined with `--blueprint`.
+
+```bash
+xcaffold list --json | jq '.[] | select(.kind=="agent")'
+```
 
 ### Scope
 
