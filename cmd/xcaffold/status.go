@@ -46,6 +46,25 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 }
 
+// aggregateSourceFiles collects source files from all targets in the manifest.
+// Deduplicates by path and returns them in sorted order.
+func aggregateSourceFiles(manifest *state.StateManifest) []state.SourceFile {
+	seen := make(map[string]state.SourceFile)
+	for _, ts := range manifest.Targets {
+		for _, sf := range ts.SourceFiles {
+			seen[sf.Path] = sf
+		}
+	}
+	result := make([]state.SourceFile, 0, len(seen))
+	for _, sf := range seen {
+		result = append(result, sf)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Path < result[j].Path
+	})
+	return result
+}
+
 func runStatus(cmd *cobra.Command, args []string) error {
 	if statusBlueprintFlag != "" && globalFlag {
 		return fmt.Errorf("--blueprint cannot be used with --global")
@@ -87,8 +106,9 @@ func runStatusOverview(dir string, manifest *state.StateManifest, showAll bool) 
 	rows, allDriftedFiles := buildProviderRows(dir, manifest)
 	printProviderTable(rows)
 
-	srcChanged := countChangedSources(dir, manifest.SourceFiles)
-	printSourcesLine(len(manifest.SourceFiles), srcChanged)
+	sourceFiles := aggregateSourceFiles(manifest)
+	srcChanged := countChangedSources(dir, sourceFiles)
+	printSourcesLine(len(sourceFiles), srcChanged)
 
 	hasDrift := len(allDriftedFiles) > 0
 	if hasDrift {
@@ -97,7 +117,7 @@ func runStatusOverview(dir string, manifest *state.StateManifest, showAll bool) 
 
 	if srcChanged > 0 {
 		fmt.Println("\nSource changes:")
-		printSourceChanges(dir, manifest.SourceFiles)
+		printSourceChanges(dir, sourceFiles)
 	}
 
 	if showAll {
@@ -247,17 +267,18 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 	driftedEntries := state.CollectDriftedFiles(dir, outputDir, ts)
 	drifted := len(driftedEntries)
 	synced := len(ts.Artifacts) - drifted
-	srcChanged := countChangedSources(dir, manifest.SourceFiles)
+	sourceFiles := aggregateSourceFiles(manifest)
+	srcChanged := countChangedSources(dir, sourceFiles)
 
 	fmt.Println(formatHeader(headerInfo{project: projectName, blueprint: statusBlueprintFlag, isGlobal: globalFlag, provider: target, lastApplied: ts.LastApplied}))
 	fmt.Println()
 
-	printTargetSummary(synced, drifted, len(manifest.SourceFiles), srcChanged)
+	printTargetSummary(synced, drifted, len(sourceFiles), srcChanged)
 	if drifted > 0 {
 		printDriftedArtifacts(driftedEntries)
 	}
 
-	printSourcesLine(len(manifest.SourceFiles), srcChanged)
+	printSourcesLine(len(sourceFiles), srcChanged)
 
 	if showAll {
 		fmt.Println()
