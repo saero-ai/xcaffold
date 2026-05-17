@@ -66,7 +66,7 @@ func incrementalImport(platformDir, xcafDest, scopeName, provider string) error 
 	if err := confirmAndExecuteImport(ctx, diff, func() error {
 		// Apply saved SourceFiles to scannedConfig so rewrite can find them
 		applySourceFilesForChangedResources(scannedConfigCopy, diff, savedSourceFiles)
-		if err := rewriteChangedResourcesInPlace(scannedConfigCopy, diff); err != nil {
+		if err := rewriteChangedResourcesInPlace(scannedConfigCopy, diff, provider); err != nil {
 			return err
 		}
 		// Refresh state after rewriting resources (use scannedConfigCopy — has SourceFile fields applied)
@@ -373,10 +373,11 @@ func renderImportPreview(diff ResourceDiff) {
 }
 
 // rewriteChangedResourcesInPlace writes changed/new resources back to their source
-// .xcaf files in FLAT layout (xcaf/rules/name.xcaf, xcaf/agents/name.xcaf, etc.)
-// instead of using nested layout. New resources without SourceFile are written
-// via the default nested layout writers as fallback.
-func rewriteChangedResourcesInPlace(cfg *ast.XcaffoldConfig, diff ResourceDiff) error {
+// .xcaf files, respecting the detected layout (flat or nested) for new resources.
+// Resources with SourceFile set are written back to their original paths.
+// New resources without SourceFile are written using the detected layout.
+// target is the optional provider name for override routing (e.g., "claude", "gemini").
+func rewriteChangedResourcesInPlace(cfg *ast.XcaffoldConfig, diff ResourceDiff, target string) error {
 	// Process both changed and new resources
 	allChanges := make(map[string][]string)
 	for kind, entries := range diff.Changed {
@@ -390,14 +391,18 @@ func rewriteChangedResourcesInPlace(cfg *ast.XcaffoldConfig, diff ResourceDiff) 
 		}
 	}
 
-	// Write each resource back to its source file (if available) or use nested layout
+	// Write each resource back to its source file (if available) or use detected layout
 	// Skip project resources - they should not be rewritten during incremental import
 	for kind, names := range allChanges {
 		if kind == "project" {
 			continue
 		}
+		opts := rewriteOpts{
+			layout: detectLayout("xcaf", kind),
+			target: target,
+		}
 		for _, name := range names {
-			if err := rewriteResourceInPlace(cfg, kind, name); err != nil {
+			if err := rewriteResourceInPlace(cfg, kind, name, opts); err != nil {
 				return err
 			}
 		}
@@ -405,28 +410,71 @@ func rewriteChangedResourcesInPlace(cfg *ast.XcaffoldConfig, diff ResourceDiff) 
 	return nil
 }
 
-// rewriteResourceInPlace writes a single resource back to its SourceFile if set,
-// otherwise falls back to writing via the standard nested writer for that kind.
-func rewriteResourceInPlace(cfg *ast.XcaffoldConfig, kind, name string) error {
+type rewriteOpts struct {
+	layout layoutMode
+	target string
+}
+
+func rewriteResourceInPlace(cfg *ast.XcaffoldConfig, kind, name string, opts rewriteOpts) error {
 	switch kind {
 	case "rule":
-		return rewriteRuleInPlace(cfg, name)
+		return rewriteRuleInPlace(cfg, name, opts.layout, opts.target)
 	case "agent":
-		return rewriteAgentInPlace(cfg, name)
+		return rewriteAgentInPlace(cfg, name, opts.layout, opts.target)
 	case "skill":
-		return rewriteSkillInPlace(cfg, name)
+		return rewriteSkillInPlace(cfg, name, opts.layout, opts.target)
 	case "workflow":
-		return rewriteWorkflowInPlace(cfg, name)
+		return rewriteWorkflowInPlace(cfg, name, opts.layout, opts.target)
 	case "mcp":
-		return rewriteMCPInPlace(cfg, name)
+		return rewriteMCPInPlace(cfg, name, opts.layout, opts.target)
 	case "context":
-		return rewriteContextInPlace(cfg, name)
+		return rewriteContextInPlace(cfg, name, opts.layout, opts.target)
 	}
 	return nil
 }
 
-// rewriteRuleInPlace writes a rule back to its source file or nested layout
-func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string) error {
+// isRuleContentUnchanged checks if a rule's content is identical by comparing
+// the body text only. This checks if the actual content is the same, regardless
+// of metadata or formatting changes.
+// Returns true if the rule body has not changed.
+func isRuleContentUnchanged(rule ast.RuleConfig) bool {
+	if rule.SourceFile == "" {
+		// Can't deduplicate new resources without a SourceFile
+		return false
+	}
+
+	// Read the existing file content
+	existingBytes, err := os.ReadFile(rule.SourceFile)
+	if err != nil {
+		// If we can't read it, assume it's not unchanged (write it)
+		return false
+	}
+
+	// Extract the body from the existing file by parsing it
+	// The file is in frontmatter format, so we need to extract the part after ---
+	existingStr := string(existingBytes)
+	parts := strings.Split(existingStr, "---")
+
+	var existingBody string
+	if len(parts) >= 3 {
+		// Format: ---\nmetadata\n---\nbody
+		existingBody = strings.TrimSpace(parts[2])
+	} else if len(parts) == 2 {
+		// Format: ---\nYAML body (no frontmatter)
+		existingBody = strings.TrimSpace(parts[1])
+	} else {
+		// No frontmatter, entire file is body
+		existingBody = strings.TrimSpace(existingStr)
+	}
+
+	// Compare trimmed bodies
+	newBody := strings.TrimSpace(rule.Body)
+	return existingBody == newBody
+}
+
+// rewriteRuleInPlace writes a rule back to its source file or using the detected layout.
+// target is the optional provider name for override routing (e.g., "claude", "gemini").
+func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
 	rule, ok := cfg.Rules[name]
 	if !ok {
 		return nil
@@ -434,6 +482,11 @@ func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string) error {
 
 	// If SourceFile is set (from incremental), write to that path
 	if rule.SourceFile != "" {
+		// Deduplication: skip write if body content is identical to existing file
+		if isRuleContentUnchanged(rule) {
+			return nil
+		}
+
 		body := rule.Body
 		doc := ruleDoc{
 			Kind:       "rule",
@@ -444,7 +497,27 @@ func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string) error {
 		return writeFrontmatterFile(rule.SourceFile, doc, body)
 	}
 
-	// Otherwise, write using nested layout (fallback for new resources)
+	// For new resources without SourceFile, use the detected layout
+	// TODO: Apply override routing based on target parameter
+	body := rule.Body
+	doc := ruleDoc{
+		Kind:       "rule",
+		Version:    "1.0",
+		RuleConfig: rule,
+	}
+	doc.SourceFile = ""
+
+	if layout == layoutFlat {
+		// Write to flat location: xcaf/rules/<name>.xcaf
+		filePath := filepath.Join("xcaf", kindToPlural("rule"), name+".xcaf")
+		dir := filepath.Dir(filePath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		return writeFrontmatterFile(filePath, doc, body)
+	}
+
+	// Otherwise, write using nested layout (fallback)
 	tmpCfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Rules: map[string]ast.RuleConfig{name: rule},
@@ -453,8 +526,9 @@ func rewriteRuleInPlace(cfg *ast.XcaffoldConfig, name string) error {
 	return writeRuleFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
 }
 
-// rewriteAgentInPlace writes an agent back to its source file or nested layout
-func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string) error {
+// rewriteAgentInPlace writes an agent back to its source file or using the detected layout.
+// target is the optional provider name for override routing (e.g., "claude", "gemini").
+func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
 	agent, ok := cfg.Agents[name]
 	if !ok {
 		return nil
@@ -471,6 +545,26 @@ func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string) error {
 		return writeFrontmatterFile(agent.SourceFile, doc, body)
 	}
 
+	// For new resources without SourceFile, use the detected layout
+	// TODO: Apply override routing based on target parameter
+	body := agent.Body
+	doc := agentDoc{
+		Kind:        "agent",
+		Version:     "1.0",
+		AgentConfig: agent,
+	}
+	doc.SourceFile = ""
+
+	if layout == layoutFlat {
+		// Write to flat location: xcaf/agents/<name>.xcaf
+		filePath := filepath.Join("xcaf", kindToPlural("agent"), name+".xcaf")
+		dir := filepath.Dir(filePath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		return writeFrontmatterFile(filePath, doc, body)
+	}
+
 	tmpCfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Agents: map[string]ast.AgentConfig{name: agent},
@@ -479,8 +573,9 @@ func rewriteAgentInPlace(cfg *ast.XcaffoldConfig, name string) error {
 	return writeAgentFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
 }
 
-// rewriteSkillInPlace writes a skill back to its source file or nested layout
-func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string) error {
+// rewriteSkillInPlace writes a skill back to its source file or using the detected layout.
+// target is the optional provider name for override routing (e.g., "claude", "gemini").
+func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
 	skill, ok := cfg.Skills[name]
 	if !ok {
 		return nil
@@ -497,6 +592,26 @@ func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string) error {
 		return writeFrontmatterFile(skill.SourceFile, doc, body)
 	}
 
+	// For new resources without SourceFile, use the detected layout
+	// TODO: Apply override routing based on target parameter
+	body := skill.Body
+	doc := skillDoc{
+		Kind:        "skill",
+		Version:     "1.0",
+		SkillConfig: skill,
+	}
+	doc.SourceFile = ""
+
+	if layout == layoutFlat {
+		// Write to flat location: xcaf/skills/<name>.xcaf
+		filePath := filepath.Join("xcaf", kindToPlural("skill"), name+".xcaf")
+		dir := filepath.Dir(filePath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		return writeFrontmatterFile(filePath, doc, body)
+	}
+
 	tmpCfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Skills: map[string]ast.SkillConfig{name: skill},
@@ -505,8 +620,9 @@ func rewriteSkillInPlace(cfg *ast.XcaffoldConfig, name string) error {
 	return writeSkillFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
 }
 
-// rewriteWorkflowInPlace writes a workflow back to its source file or nested layout
-func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string) error {
+// rewriteWorkflowInPlace writes a workflow back to its source file or using the detected layout.
+// target is the optional provider name for override routing (e.g., "claude", "gemini").
+func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
 	workflow, ok := cfg.Workflows[name]
 	if !ok {
 		return nil
@@ -523,6 +639,25 @@ func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string) error {
 		return writeFrontmatterFile(workflow.SourceFile, doc, "")
 	}
 
+	// For new resources without SourceFile, use the detected layout
+	// TODO: Apply override routing based on target parameter
+	doc := workflowDoc{
+		Kind:           "workflow",
+		Version:        "1.0",
+		WorkflowConfig: workflow,
+	}
+	doc.SourceFile = ""
+
+	if layout == layoutFlat {
+		// Write to flat location: xcaf/workflows/<name>.xcaf
+		filePath := filepath.Join("xcaf", kindToPlural("workflow"), name+".xcaf")
+		dir := filepath.Dir(filePath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		return writeFrontmatterFile(filePath, doc, "")
+	}
+
 	tmpCfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			Workflows: map[string]ast.WorkflowConfig{name: workflow},
@@ -531,8 +666,9 @@ func rewriteWorkflowInPlace(cfg *ast.XcaffoldConfig, name string) error {
 	return writeWorkflowFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
 }
 
-// rewriteMCPInPlace writes an MCP config back to its source file or nested layout
-func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string) error {
+// rewriteMCPInPlace writes an MCP config back to its source file or using the detected layout.
+// target is the optional provider name for override routing (e.g., "claude", "gemini").
+func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
 	mcp, ok := cfg.MCP[name]
 	if !ok {
 		return nil
@@ -549,6 +685,25 @@ func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string) error {
 		return writeFrontmatterFile(mcp.SourceFile, doc, "")
 	}
 
+	// For new resources without SourceFile, use the detected layout
+	// TODO: Apply override routing based on target parameter
+	doc := mcpDoc{
+		Kind:      "mcp",
+		Version:   "1.0",
+		MCPConfig: mcp,
+	}
+	doc.SourceFile = ""
+
+	if layout == layoutFlat {
+		// Write to flat location: xcaf/mcp/<name>.xcaf
+		filePath := filepath.Join("xcaf", kindToPlural("mcp"), name+".xcaf")
+		dir := filepath.Dir(filePath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		return writeFrontmatterFile(filePath, doc, "")
+	}
+
 	tmpCfg := &ast.XcaffoldConfig{
 		ResourceScope: ast.ResourceScope{
 			MCP: map[string]ast.MCPConfig{name: mcp},
@@ -557,8 +712,9 @@ func rewriteMCPInPlace(cfg *ast.XcaffoldConfig, name string) error {
 	return writeMCPFiles(tmpCfg, "xcaf", "1.0", map[string]bool{name: true})
 }
 
-// rewriteContextInPlace writes a context back to its source file or nested layout
-func rewriteContextInPlace(cfg *ast.XcaffoldConfig, name string) error {
+// rewriteContextInPlace writes a context back to its source file or using the detected layout.
+// target is the optional provider name for override routing (e.g., "claude", "gemini").
+func rewriteContextInPlace(cfg *ast.XcaffoldConfig, name string, layout layoutMode, target string) error {
 	ctx, ok := cfg.Contexts[name]
 	if !ok {
 		return nil
@@ -573,6 +729,26 @@ func rewriteContextInPlace(cfg *ast.XcaffoldConfig, name string) error {
 		}
 		doc.SourceFile = ""
 		return writeFrontmatterFile(ctx.SourceFile, doc, body)
+	}
+
+	// For new resources without SourceFile, use the detected layout
+	// TODO: Apply override routing based on target parameter
+	body := ctx.Body
+	doc := contextDoc{
+		Kind:          "context",
+		Version:       "1.0",
+		ContextConfig: ctx,
+	}
+	doc.SourceFile = ""
+
+	if layout == layoutFlat {
+		// Write to flat location: xcaf/contexts/<name>.xcaf
+		filePath := filepath.Join("xcaf", kindToPlural("context"), name+".xcaf")
+		dir := filepath.Dir(filePath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+		return writeFrontmatterFile(filePath, doc, body)
 	}
 
 	tmpCfg := &ast.XcaffoldConfig{
