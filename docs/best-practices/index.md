@@ -7,6 +7,8 @@ description: "Recommended configuration patterns and operational conventions for
 
 Targeted recommendations for when to use specific patterns within xcaffold. Each guide is grounded in the actual compiler, parser, and schema — not generalized advice. All patterns follow the Harness-as-Code principle: the `.xcaf` manifest is the source of truth, and compiled output is never edited directly.
 
+For short, copy-pasteable recipes (multi-provider setup, shared rules, monorepo `--config`), see the [common patterns guide](../guides/common-patterns.md).
+
 - [Project Structure](project-structure) — From quickstart flat files to domain-driven structures for large teams.
 - [Workspace Context](workspace-context) — Using `kind: context` to anchor agent awareness without polluting every interaction.
 - [Skill Organization](skill-organization) — The required subdirectory layout, when to use `references/`, `scripts/`, `assets/`, and `examples/`.
