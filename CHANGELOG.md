@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/saero-ai/xcaffold/compare/v0.4.2...v0.5.0) (2026-05-17)
+
+
+### Features
+
+* **import:** add layout detection and override routing ([faa46d0](https://github.com/saero-ai/xcaffold/commit/faa46d007b4e315b0253012567fe5b5508cd21cc))
+* **import:** add multi-provider conflict detection ([3472441](https://github.com/saero-ai/xcaffold/commit/3472441bc6afe2be381ecd704a1891d1269c6834))
+
+
+### Bug Fixes
+
+* **cli:** multi-target smart-skip and remove backward-compat code ([b022baa](https://github.com/saero-ai/xcaffold/commit/b022baa6de213689237bc53e51c4a5fcab210b6b))
+* **cli:** refresh state after incremental import and clarify messages ([b432664](https://github.com/saero-ai/xcaffold/commit/b4326642f2e3bbab1a6beb6de9a9481052214dbe))
+* **cli:** replace "mcp" literals with kindMCP constant ([97e4996](https://github.com/saero-ai/xcaffold/commit/97e4996767b5732d18266dddb305584e031acebb))
+* **cli:** resolve multi-target smart-skip false positive ([897eb2e](https://github.com/saero-ai/xcaffold/commit/897eb2eac114f2def1e38223abb4d88221e68141))
+* **cli:** rewrite changed resources in place during incremental import ([9372dc6](https://github.com/saero-ai/xcaffold/commit/9372dc68bc4e439dc79b9bfc7dabc83e8d97415b))
+* **cli:** thread scanned config through incremental import merge ([d92e22f](https://github.com/saero-ai/xcaffold/commit/d92e22f93437b41cad9dbc0f2dc30e3e32a41f73))
+* **importer:** normalize provider field formats for round-trip fidelity ([6d24607](https://github.com/saero-ai/xcaffold/commit/6d246077330ee40b28d2bb929e626e8d57026e03))
+* **parser:** populate SourceFile on parsed resources ([bda5dd8](https://github.com/saero-ai/xcaffold/commit/bda5dd83b20b66a03daf90d9799c91319e085ace))
+
+## [0.4.2](https://github.com/saero-ai/xcaffold/compare/v0.4.1...v0.4.2) (2026-05-15)
+
+
+### Bug Fixes
+
+* **ci:** use PAT for release-please and add manual release trigger ([002a36f](https://github.com/saero-ai/xcaffold/commit/002a36ffda7f033cd3b69e57148f30ad57ec7552))
+* **ci:** use RELEASE_PAT for release-please workflow ([dbec6b6](https://github.com/saero-ai/xcaffold/commit/dbec6b6de0a559a631eed5a372208b8b71765bd9))
+* **schema:** remove leftover api-version from translator output ([ecb2203](https://github.com/saero-ai/xcaffold/commit/ecb2203c1ea1564ad2d0d7b33e8e936195fd65ef))
+
 ## [0.4.1](https://github.com/saero-ai/xcaffold/compare/v0.4.0...v0.4.1) (2026-05-15)
 
 
