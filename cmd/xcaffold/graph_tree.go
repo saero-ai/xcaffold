@@ -292,7 +292,7 @@ func buildAgentBlocks(agent ast.AgentConfig, memEntries []string) []string {
 		blocks = append(blocks, "rules")
 	}
 	if len(agent.MCP.Values) > 0 {
-		blocks = append(blocks, "mcp")
+		blocks = append(blocks, kindMCP)
 	}
 	if len(memEntries) > 0 {
 		blocks = append(blocks, "memory")
@@ -329,7 +329,7 @@ func renderBlockEntries(blockType string, childPrefix string, agent ast.AgentCon
 		renderItemList(childPrefix, agent.Skills.Values)
 	case "rules":
 		renderItemList(childPrefix, agent.Rules.Values)
-	case "mcp":
+	case kindMCP:
 		renderItemList(childPrefix, agent.MCP.Values)
 	case "memory":
 		renderItemList(childPrefix, memEntries)

@@ -164,7 +164,7 @@ func copyResource(dst, src *ast.XcaffoldConfig, kind, name string) {
 		copyRuleResource(dst, src, name)
 	case "workflow":
 		copyWorkflowResource(dst, src, name)
-	case "mcp":
+	case kindMCP:
 		copyMCPResource(dst, src, name)
 	}
 }
