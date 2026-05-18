@@ -3,7 +3,7 @@ name: PR Checks
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [main]
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -43,6 +43,7 @@ jobs:
 
   branch-gate:
     name: PR branch policy
+    if: github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - name: Enforce develop-only PRs to main

@@ -119,7 +119,7 @@ func applyBlueprintPhase(config *ast.XcaffoldConfig, blueprintName string) (*ast
 	}
 	if blueprintName != "" {
 		if p, ok := config.Blueprints[blueprintName]; ok {
-			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
+			if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope, false); err != nil {
 				return nil, fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
 			}
 			config.Blueprints[blueprintName] = p

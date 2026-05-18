@@ -428,7 +428,7 @@ func resolveBlueprintWithDeps(config *ast.XcaffoldConfig, bpName string) (ast.Bl
 		Memory:    config.Memory,
 	}
 	resolved := bpCopy[bpName]
-	if err := blueprint.ResolveTransitiveDeps(&resolved, scope); err != nil {
+	if err := blueprint.ResolveTransitiveDeps(&resolved, scope, false); err != nil {
 		return ast.BlueprintConfig{}, fmt.Errorf("transitive deps resolution: %w", err)
 	}
 	return resolved, nil
