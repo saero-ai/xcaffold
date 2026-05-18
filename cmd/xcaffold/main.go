@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/saero-ai/xcaffold/internal/registry"
 	"github.com/saero-ai/xcaffold/internal/resolver"
@@ -11,7 +12,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "0.2.0-dev"
+var buildVersion string
+
+var version = resolveVersion()
+
+func resolveVersion() string {
+	if buildVersion != "" {
+		return buildVersion
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
 
 // configFlag holds the value of the global --config flag.
 // It is resolved before any subcommand runs.
