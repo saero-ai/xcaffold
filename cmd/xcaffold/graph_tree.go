@@ -172,7 +172,7 @@ func runGraphBlueprint(bpName string) error {
 		return fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
 	}
 	if p, ok := cfg.Blueprints[bpName]; ok {
-		if err := blueprint.ResolveTransitiveDeps(&p, &cfg.ResourceScope); err != nil {
+		if err := blueprint.ResolveTransitiveDeps(&p, &cfg.ResourceScope, false); err != nil {
 			return fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
 		}
 		cfg.Blueprints[bpName] = p
