@@ -60,7 +60,7 @@ skills:
   - security-audit
 ```
 
-The resolved skill set is `tdd` + `schema-design` (from `api-developer`) + `security-audit` (from the blueprint). If a skill appears in both the agent's dependencies and the blueprint's explicit list, the compiler returns an error — remove the duplicate from the blueprint since it is already included via the agent.
+The resolved skill set is `tdd` + `schema-design` (from `api-developer`) + `security-audit` (from the blueprint). If a skill appears in both the agent's dependencies and the blueprint's explicit list, the compiler silently deduplicates them — the explicit entry is kept and the transitive copy is not appended. This means you can safely list resources in both the blueprint and an agent's definition without conflict.
 
 ## Extending Blueprints
 
