@@ -315,7 +315,7 @@ func applyGraphBlueprint(config *ast.XcaffoldConfig, bpName string) error {
 		return fmt.Errorf("blueprint validation errors:\n%s", strings.Join(msgs, "\n"))
 	}
 	if p, ok := config.Blueprints[bpName]; ok {
-		if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope); err != nil {
+		if err := blueprint.ResolveTransitiveDeps(&p, &config.ResourceScope, false); err != nil {
 			return fmt.Errorf("blueprint transitive dependency resolution failed: %w", err)
 		}
 		config.Blueprints[bpName] = p
