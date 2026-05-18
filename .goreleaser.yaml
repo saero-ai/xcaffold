@@ -28,7 +28,7 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X main.version={{.Version}}
+      - -X main.buildVersion={{.Version}}
 
 archives:
   - id: xcaffold
