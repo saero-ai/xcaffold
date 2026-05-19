@@ -75,19 +75,45 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		dir = globalXcafHome
 	}
 
-	statePath := state.StateFilePath(dir, statusBlueprintFlag)
-	manifest, err := state.ReadState(statePath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+	var manifest *state.StateManifest
+	var detectedBlueprint string
+	var err error
+
+	if statusBlueprintFlag != "" {
+		statePath := state.StateFilePath(dir, statusBlueprintFlag)
+		manifest, err = state.ReadState(statePath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				projectName := filepath.Base(dir)
+				fmt.Println(formatHeader(headerInfo{project: projectName, blueprint: statusBlueprintFlag, isGlobal: globalFlag}))
+				fmt.Println()
+				fmt.Printf("  %s  No compilation state found.\n", glyphNever())
+				fmt.Println()
+				fmt.Printf("%s Run 'xcaffold apply' to compile all providers.\n", glyphArrow())
+				return nil
+			}
+			return fmt.Errorf("could not read state: %w", err)
+		}
+		detectedBlueprint = statusBlueprintFlag
+	} else {
+		manifest, detectedBlueprint, err = state.FindMostRecentState(state.StateDir(dir))
+		if err != nil {
+			return fmt.Errorf("could not read state: %w", err)
+		}
+		if manifest == nil {
 			projectName := filepath.Base(dir)
-			fmt.Println(formatHeader(headerInfo{project: projectName, blueprint: statusBlueprintFlag, isGlobal: globalFlag}))
+			fmt.Println(formatHeader(headerInfo{project: projectName, isGlobal: globalFlag}))
 			fmt.Println()
 			fmt.Printf("  %s  No compilation state found.\n", glyphNever())
 			fmt.Println()
 			fmt.Printf("%s Run 'xcaffold apply' to compile all providers.\n", glyphArrow())
 			return nil
 		}
-		return fmt.Errorf("could not read state: %w", err)
+	}
+
+	// Update the flag so downstream functions use the detected blueprint
+	if detectedBlueprint != "" {
+		statusBlueprintFlag = detectedBlueprint
 	}
 
 	if statusTargetFlag != "" {
