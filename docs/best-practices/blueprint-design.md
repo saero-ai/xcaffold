@@ -196,7 +196,14 @@ Blueprints can select which `kind: settings` and `kind: hooks` configuration to 
 
 ## Checking Blueprint State
 
-State is tracked independently per blueprint. Use `xcaffold status` to inspect drift:
+State is tracked independently per blueprint. After a blueprint-scoped apply, `xcaffold status` auto-detects the active blueprint — no `--blueprint` flag needed:
+
+```bash
+xcaffold apply --blueprint backend --target claude -y
+xcaffold status    # auto-detects backend blueprint state
+```
+
+To explicitly check a specific blueprint's state:
 
 ```bash
 xcaffold status --blueprint backend
