@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1](https://github.com/saero-ai/xcaffold/compare/v0.7.0...v0.7.1) (2026-05-19)
+
+
+### Bug Fixes
+
+* **cli:** include file path in xcaffold validate error messages ([53378c2](https://github.com/saero-ai/xcaffold/commit/53378c23accd5cd920687f7163caafddfcc22ac8))
+* **parser:** use strings.TrimPrefix to satisfy gosimple lint ([b394362](https://github.com/saero-ai/xcaffold/commit/b394362fae418bfbc6dbf59ed88b10c8faef8235))
+* **validate:** loop configured targets and omit empty policy line ([3a35677](https://github.com/saero-ai/xcaffold/commit/3a35677d403ea6387f1f6e69edf3160095112833))
+* **validate:** loop configured targets and omit empty policy line ([1873288](https://github.com/saero-ai/xcaffold/commit/1873288bf44353f6777921bfb5962518fd640cc6)), closes [#56](https://github.com/saero-ai/xcaffold/issues/56)
+
 ## [0.7.0](https://github.com/saero-ai/xcaffold/compare/v0.6.1...v0.7.0) (2026-05-19)
 
 
