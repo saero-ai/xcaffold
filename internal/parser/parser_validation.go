@@ -24,6 +24,7 @@ type CrossReferenceIssue struct {
 type Diagnostic struct {
 	Severity string // "error" or "warning"
 	Message  string
+	FilePath string // project-relative .xcaf path when known
 }
 
 // validateID checks that an ID contains no invalid characters.
@@ -471,14 +472,43 @@ func validateCrossReferences(c *ast.XcaffoldConfig) error {
 // plugin validation, and returns all diagnostics. ParseFile already runs
 // validateCrossReferences internally, so this function does not duplicate it.
 func ValidateFile(path string) []Diagnostic {
-	config, err := ParseFile(path)
+	rel := filepath.Base(path)
+	return validateFileAt(path, rel)
+}
+
+func validateFileAt(path, relPath string) []Diagnostic {
+	config, err := ParseFileExact(path)
 	if err != nil {
-		return []Diagnostic{{Severity: "error", Message: err.Error()}}
+		return []Diagnostic{{
+			Severity: "error",
+			Message:  UnwrapParseFileError(err),
+			FilePath: relPath,
+		}}
 	}
 	var diags []Diagnostic
-	diags = append(diags, validateFileRefs(config, filepath.Dir(path))...)
-	diags = append(diags, validatePlugins(config)...)
+	for _, d := range validateFileRefs(config, filepath.Dir(path)) {
+		d.FilePath = relPath
+		diags = append(diags, d)
+	}
+	for _, d := range validatePlugins(config) {
+		d.FilePath = relPath
+		diags = append(diags, d)
+	}
 	return diags
+}
+
+// ValidateProjectXcafFiles runs per-file checks on every parseable .xcaf under projectRoot.
+func ValidateProjectXcafFiles(projectRoot string) ([]Diagnostic, error) {
+	files, _, err := scanDirectoryForXcafFiles(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+	var all []Diagnostic
+	for _, f := range files {
+		rel := RelPathFrom(projectRoot, f)
+		all = append(all, validateFileAt(f, rel)...)
+	}
+	return all, nil
 }
 
 // validateFileRefs checks that instructions-file paths and skill references
