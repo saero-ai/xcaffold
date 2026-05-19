@@ -55,9 +55,7 @@ func FormatValidationError(projectRoot string, err error) string {
 		"validation failed for project configuration: ",
 		"failed to load variables: ",
 	} {
-		if strings.HasPrefix(msg, prefix) {
-			msg = msg[len(prefix):]
-		}
+		msg = strings.TrimPrefix(msg, prefix)
 	}
 	if strings.HasPrefix(msg, "failed to merge config files") {
 		if idx := strings.Index(msg, ": "); idx >= 0 {
