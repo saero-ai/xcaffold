@@ -271,7 +271,10 @@ func validateSkillDirs(cfg *ast.XcaffoldConfig, parseRoot string, hasErrors *boo
 	return nil
 }
 
-// validatePolicies evaluates policies and compiles the config.
+// validatePolicies evaluates policies and compiles the config for the target(s).
+// When targetFlag is specified, it validates that single target.
+// When targetFlag is empty, it validates all targets from cfg.Project.Targets.
+// If no targets are configured and targetFlag is empty, it returns an error.
 func validatePolicies(hasErrors bool, cfg *ast.XcaffoldConfig, parseRoot string) (
 	[]policy.Violation, []policy.Violation, bool, int, error) {
 	var policyWarnings, policyErrors []policy.Violation
@@ -282,42 +285,64 @@ func validatePolicies(hasErrors bool, cfg *ast.XcaffoldConfig, parseRoot string)
 		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, nil
 	}
 
-	configSnapshot := deepCopyConfig(cfg)
-	compiled, notes, compileErr := compiler.Compile(cfg, parseRoot, compiler.CompileOpts{
-		Target:    targetFlag,
-		Blueprint: validateBlueprintFlag,
-		VarFile:   validateVarFileFlag,
-	})
-	if compileErr != nil {
-		fmt.Printf("  %s  policies (skipped: compilation error)\n", colorYellow(glyphSrc()))
-		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, nil
+	// Resolve targets: --target flag takes priority, else use project targets.
+	targets := resolveValidateTargets(cfg)
+	if targets == nil {
+		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors,
+			fmt.Errorf("no targets configured; specify --target or add targets: in project.xcaf")
 	}
 
-	filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, targetFlag))
-	printFidelityNotes(os.Stderr, filteredNotes, verboseFlag)
+	// Compile and validate each target.
+	for _, t := range targets {
+		configSnapshot := deepCopyConfig(cfg)
+		compiled, notes, compileErr := compiler.Compile(configSnapshot, parseRoot, compiler.CompileOpts{
+			Target:    t,
+			Blueprint: validateBlueprintFlag,
+			VarFile:   validateVarFileFlag,
+		})
+		if compileErr != nil {
+			fmt.Printf("  %s  [%s] %s\n", colorRed(glyphErr()), t, compileErr.Error())
+			return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, compileErr
+		}
 
-	var err error
-	fieldValidationRan, fieldValidationErrors, err = validateFieldSupport(filteredNotes)
-	if err != nil {
-		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, err
+		filteredNotes := renderer.FilterNotes(notes, buildSuppressedResourcesMap(cfg, t))
+		printFidelityNotes(os.Stderr, filteredNotes, verboseFlag)
+
+		var err error
+		fieldValidationRan, fieldValidationErrors, err = validateFieldSupport(filteredNotes)
+		if err != nil {
+			return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, err
+		}
+
+		err = checkPolicyInvariants(configSnapshot, compiled)
+		if err != nil {
+			return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, err
+		}
+
+		violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
+		policyErrors = append(policyErrors, policy.FilterBySeverity(violations, policy.SeverityError)...)
+		policyWarnings = append(policyWarnings, policy.FilterBySeverity(violations, policy.SeverityWarning)...)
 	}
 
-	err = checkPolicyInvariants(configSnapshot, compiled)
-	if err != nil {
-		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, err
-	}
-
-	violations := policy.Evaluate(configSnapshot.Policies, configSnapshot, compiled)
-	policyErrors = policy.FilterBySeverity(violations, policy.SeverityError)
-	policyWarnings = policy.FilterBySeverity(violations, policy.SeverityWarning)
-
-	err = reportPolicyFindings(policyWarnings, policyErrors)
+	err := reportPolicyFindings(policyWarnings, policyErrors)
 	if err != nil {
 		return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, err
 	}
 
 	printPolicySummary(policyErrors, policyWarnings)
 	return policyWarnings, policyErrors, fieldValidationRan, fieldValidationErrors, nil
+}
+
+// resolveValidateTargets returns the list of validation targets.
+// Priority: --target flag (if set) > project targets > nil.
+func resolveValidateTargets(cfg *ast.XcaffoldConfig) []string {
+	if targetFlag != "" {
+		return []string{targetFlag}
+	}
+	if cfg.Project != nil && len(cfg.Project.Targets) > 0 {
+		return cfg.Project.Targets
+	}
+	return nil
 }
 
 // validateFieldSupport checks field support for the target provider.
@@ -394,18 +419,17 @@ func reportPolicyFindings(warnings, errors []policy.Violation) error {
 }
 
 // printPolicySummary prints the policy validation summary.
+// It only prints if there are actual violations or policies configured.
 func printPolicySummary(errors, warnings []policy.Violation) {
 	policiesChecked := len(errors) + len(warnings)
-	var policyLabel string
 	if policiesChecked == 0 {
-		policyLabel = "policies (none configured)"
-	} else {
-		policyLabel = fmt.Sprintf("policies (%d checked", policiesChecked)
-		if len(warnings) > 0 {
-			policyLabel += fmt.Sprintf(", %d %s", len(warnings), plural(len(warnings), "warning", "warnings"))
-		}
-		policyLabel += ")"
+		return // omit policy line when no policies or violations
 	}
+	policyLabel := fmt.Sprintf("policies (%d checked", policiesChecked)
+	if len(warnings) > 0 {
+		policyLabel += fmt.Sprintf(", %d %s", len(warnings), plural(len(warnings), "warning", "warnings"))
+	}
+	policyLabel += ")"
 	fmt.Printf("  %s  %s\n", colorGreen(glyphOK()), policyLabel)
 }
 
