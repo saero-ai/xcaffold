@@ -458,3 +458,132 @@ description: "Legacy"
 	assert.Error(t, err, "directory with only .xcf files should produce an error (no parseable files)")
 	assert.Contains(t, strings.ToLower(err.Error()), "no *.xcaf files found")
 }
+
+func TestParseDirectory_NestedProjectBoundary_SkipsSubtree(t *testing.T) {
+	dir := t.TempDir()
+	// Root project
+	writeTestXCAF(t, dir, "project.xcaf", "kind: project\nversion: \"1.0\"\nname: root-project")
+	writeTestXCAF(t, filepath.Join(dir, "xcaf", "agents", "my-agent"), "my-agent.xcaf", "---\nkind: agent\nversion: \"1.0\"\nname: my-agent\ndescription: \"Root agent\"\n---\nYou are an agent.")
+
+	// Nested project — should be skipped entirely
+	nestedDir := filepath.Join(dir, "app-cli")
+	writeTestXCAF(t, nestedDir, "project.xcaf", "kind: project\nversion: \"1.0\"\nname: nested-project")
+	writeTestXCAF(t, filepath.Join(nestedDir, "xcaf", "agents", "nested-agent"), "nested-agent.xcaf", "---\nkind: agent\nversion: \"1.0\"\nname: nested-agent\ndescription: \"Nested agent\"\n---\nYou are nested.")
+
+	cfg, err := ParseDirectory(dir, WithSkipGlobal())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := cfg.Agents["my-agent"]; !ok {
+		t.Error("expected root agent 'my-agent' to be found")
+	}
+	if _, ok := cfg.Agents["nested-agent"]; ok {
+		t.Error("nested-agent should NOT be found — nested project boundary should be respected")
+	}
+}
+
+func TestParseDirectory_NestedProjectBoundary_RootNotSkipped(t *testing.T) {
+	dir := t.TempDir()
+	writeTestXCAF(t, dir, "project.xcaf", "kind: project\nversion: \"1.0\"\nname: root-project")
+
+	cfg, err := ParseDirectory(dir, WithSkipGlobal())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Project == nil || cfg.Project.Name != "root-project" {
+		t.Error("root project.xcaf should be parsed, not skipped")
+	}
+}
+
+func TestParseDirectory_MultipleNestedProjects_AllSkipped(t *testing.T) {
+	dir := t.TempDir()
+	writeTestXCAF(t, dir, "project.xcaf", "kind: project\nversion: \"1.0\"\nname: root-project")
+	writeTestXCAF(t, filepath.Join(dir, "xcaf", "agents", "root-agent"), "root-agent.xcaf", "---\nkind: agent\nversion: \"1.0\"\nname: root-agent\ndescription: \"Root\"\n---\nRoot agent.")
+
+	// Two nested projects
+	for _, sub := range []string{"app-cli", "app-web"} {
+		subDir := filepath.Join(dir, sub)
+		writeTestXCAF(t, subDir, "project.xcaf", "kind: project\nversion: \"1.0\"\nname: "+sub+"-project")
+		writeTestXCAF(t, filepath.Join(subDir, "xcaf", "agents", sub+"-agent"), sub+"-agent.xcaf", "---\nkind: agent\nversion: \"1.0\"\nname: "+sub+"-agent\ndescription: \"Nested\"\n---\nNested.")
+	}
+
+	cfg, err := ParseDirectory(dir, WithSkipGlobal())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := cfg.Agents["root-agent"]; !ok {
+		t.Error("expected root-agent")
+	}
+	if _, ok := cfg.Agents["app-cli-agent"]; ok {
+		t.Error("app-cli-agent should be excluded by boundary")
+	}
+	if _, ok := cfg.Agents["app-web-agent"]; ok {
+		t.Error("app-web-agent should be excluded by boundary")
+	}
+}
+
+func TestParseDirectory_EmptyProjectXcafNotABoundary(t *testing.T) {
+	dir := t.TempDir()
+	writeTestXCAF(t, dir, "project.xcaf", "kind: project\nversion: \"1.0\"\nname: root-project")
+
+	// Nested dir with empty project.xcaf (no kind: field, so not a valid boundary)
+	nestedDir := filepath.Join(dir, "sub")
+	os.MkdirAll(nestedDir, 0755)
+	os.WriteFile(filepath.Join(nestedDir, "project.xcaf"), []byte{}, 0644)
+	writeTestXCAF(t, filepath.Join(nestedDir, "xcaf", "agents", "sub-agent"), "sub-agent.xcaf", "---\nkind: agent\nversion: \"1.0\"\nname: sub-agent\ndescription: \"Sub\"\n---\nSub.")
+
+	cfg, err := ParseDirectory(dir, WithSkipGlobal())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := cfg.Agents["sub-agent"]; !ok {
+		t.Error("sub-agent should be found — empty project.xcaf has no kind:project so is NOT a boundary")
+	}
+}
+
+func TestParseDirectory_NestedProjectNonStandardName_SkipsSubtree(t *testing.T) {
+	dir := t.TempDir()
+	// Root project with standard name
+	writeTestXCAF(t, dir, "project.xcaf", "kind: project\nversion: \"1.0\"\nname: root-project")
+	writeTestXCAF(t, filepath.Join(dir, "xcaf", "agents", "root-agent"), "root-agent.xcaf", "---\nkind: agent\nversion: \"1.0\"\nname: root-agent\ndescription: \"Root\"\n---\nRoot.")
+
+	// Nested project uses non-standard filename (main.xcaf with kind: project)
+	nestedDir := filepath.Join(dir, "app-cli")
+	writeTestXCAF(t, nestedDir, "main.xcaf", "kind: project\nversion: \"1.0\"\nname: nested")
+	writeTestXCAF(t, filepath.Join(nestedDir, "xcaf", "agents", "nested-agent"), "nested-agent.xcaf", "---\nkind: agent\nversion: \"1.0\"\nname: nested-agent\ndescription: \"Nested\"\n---\nNested.")
+
+	cfg, err := ParseDirectory(dir, WithSkipGlobal())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, ok := cfg.Agents["root-agent"]; !ok {
+		t.Error("expected root-agent to be found")
+	}
+	if _, ok := cfg.Agents["nested-agent"]; ok {
+		t.Error("nested-agent should NOT be found — nested project with non-standard name should still be a boundary")
+	}
+}
+
+func TestParseDirectory_ProjectXcafWrongKind_NotABoundary(t *testing.T) {
+	dir := t.TempDir()
+	writeTestXCAF(t, dir, "project.xcaf", "kind: project\nversion: \"1.0\"\nname: root-project")
+	writeTestXCAF(t, filepath.Join(dir, "xcaf", "agents", "root-agent"), "root-agent.xcaf", "---\nkind: agent\nversion: \"1.0\"\nname: root-agent\ndescription: \"Root\"\n---\nRoot.")
+
+	// Subdir has project.xcaf but with kind: agent — should NOT be treated as boundary
+	subDir := filepath.Join(dir, "subdir")
+	writeTestXCAF(t, subDir, "project.xcaf", "kind: agent\nversion: \"1.0\"\nname: fake-project\ndescription: \"Not a project\"")
+
+	cfg, err := ParseDirectory(dir, WithSkipGlobal())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// subdir should NOT be skipped because project.xcaf has kind: agent
+	if _, ok := cfg.Agents["fake-project"]; !ok {
+		t.Error("fake-project agent should be found — project.xcaf with kind:agent is NOT a boundary")
+	}
+}

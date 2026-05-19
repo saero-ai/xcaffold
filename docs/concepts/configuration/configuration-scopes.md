@@ -5,7 +5,7 @@ description: "Understanding configuration contexts, scopes, implicit global inhe
 
 # Configuration Scopes
 
-xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **project scope** (the directory containing `project.xcaf`), and **blueprint scope** (a named subset of project resources). Each scope compiles independently and produces its own state file. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
+xcaffold defines three compilation scopes: **global scope** (`~/.xcaffold/`), **project scope** (the directory containing a `kind: project` manifest), and **blueprint scope** (a named subset of project resources). Each scope compiles independently and produces its own state file. During project compilation, xcaffold loads global resources as a base layer and merges project-scope resources over them by ID before rendering output.
 
 ## Three Compilation Scopes
 

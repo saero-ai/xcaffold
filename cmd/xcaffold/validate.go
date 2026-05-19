@@ -14,6 +14,7 @@ import (
 	"github.com/saero-ai/xcaffold/internal/parser"
 	"github.com/saero-ai/xcaffold/internal/policy"
 	"github.com/saero-ai/xcaffold/internal/renderer"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/internal/state"
 	"github.com/spf13/cobra"
 )
@@ -450,9 +451,14 @@ func findLastApplied(baseDir, blueprint string) string {
 func countXcafFiles(root string) int {
 	count := 0
 	xcafDir := filepath.Join(root, "xcaf")
-	_ = filepath.WalkDir(xcafDir, func(_ string, d fs.DirEntry, err error) error {
+	_ = filepath.WalkDir(xcafDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
+		}
+		if d.IsDir() && path != xcafDir {
+			if resolver.DirHasProjectManifest(path) {
+				return filepath.SkipDir
+			}
 		}
 		if !d.IsDir() && filepath.Ext(d.Name()) == ".xcaf" {
 			count++

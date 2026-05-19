@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/saero-ai/xcaffold/internal/ast"
+	"github.com/saero-ai/xcaffold/internal/resolver"
 	"github.com/saero-ai/xcaffold/providers"
 	"gopkg.in/yaml.v3"
 )
@@ -217,6 +218,10 @@ func scanDirectoryForXcafFiles(dir string) ([]string, []overrideFileEntry, error
 				return filepath.SkipDir
 			}
 			if rel, relErr := filepath.Rel(dir, path); relErr == nil && rel == providerDir {
+				return filepath.SkipDir
+			}
+			// Boundary detection: skip directories that contain kind:project (except root and xcaf/)
+			if path != dir && name != "xcaf" && resolver.DirHasProjectManifest(path) {
 				return filepath.SkipDir
 			}
 			return nil
