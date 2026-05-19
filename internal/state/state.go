@@ -110,6 +110,56 @@ func ListStateFiles(stateDir string) ([]string, error) {
 	return files, nil
 }
 
+// FindMostRecentState finds the most recent state file in the given directory
+// by comparing LastApplied timestamps across all targets in all manifests.
+// Returns the manifest, its Blueprint name, and nil error.
+// If no state directory or no valid state files exist, returns (nil, "", nil).
+// Unreadable or unparseable files are skipped; targets with invalid timestamps are skipped.
+// For tied timestamps, the lexicographically first file path is returned.
+func FindMostRecentState(stateDir string) (*StateManifest, string, error) {
+	files, err := ListStateFiles(stateDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, "", nil
+		}
+		return nil, "", err
+	}
+
+	if len(files) == 0 {
+		return nil, "", nil
+	}
+
+	var bestManifest *StateManifest
+	var bestTime time.Time
+	var bestPath string
+
+	for _, path := range files {
+		manifest, err := ReadState(path)
+		if err != nil {
+			continue
+		}
+
+		for _, ts := range manifest.Targets {
+			parsedTime, err := time.Parse(time.RFC3339, ts.LastApplied)
+			if err != nil {
+				continue
+			}
+
+			if bestManifest == nil || parsedTime.After(bestTime) || (parsedTime.Equal(bestTime) && path < bestPath) {
+				bestManifest = manifest
+				bestTime = parsedTime
+				bestPath = path
+			}
+		}
+	}
+
+	if bestManifest == nil {
+		return nil, "", nil
+	}
+
+	return bestManifest, bestManifest.Blueprint, nil
+}
+
 // sortMemorySeeds sorts a slice of MemorySeed in ascending order by Name.
 func sortMemorySeeds(seeds []MemorySeed) {
 	sort.Slice(seeds, func(i, j int) bool {
