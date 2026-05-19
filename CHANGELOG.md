@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/saero-ai/xcaffold/compare/v0.6.1...v0.7.0) (2026-05-19)
+
+
+### Features
+
+* **cli:** auto-detect blueprint state in xcaffold status ([f6b60c1](https://github.com/saero-ai/xcaffold/commit/f6b60c14c0b3d52535af6726db933eb61aae17e5))
+* **cli:** auto-detect blueprint state in xcaffold status ([caa3d68](https://github.com/saero-ai/xcaffold/commit/caa3d68f32e188f9d2533ae3c651ab3c04f04ed9)), closes [#45](https://github.com/saero-ai/xcaffold/issues/45)
+* **parser:** add content-based monorepo boundary detection ([fcc2933](https://github.com/saero-ai/xcaffold/commit/fcc2933fc7852b4e6213cf9511c08e7bfd6d6af7))
+* **parser:** add content-based monorepo boundary detection ([b354aff](https://github.com/saero-ai/xcaffold/commit/b354aff8f7520474aac0b18b0ef2b9a839f266c0))
+
 ## [0.6.1](https://github.com/saero-ai/xcaffold/compare/v0.6.0...v0.6.1) (2026-05-18)
 
 
