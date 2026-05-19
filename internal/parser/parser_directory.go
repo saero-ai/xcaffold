@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -81,7 +82,7 @@ func ParseDirectoryWithCrossRefWarnings(dir string, opts ...ParseDirOption) (*as
 
 	// Validate structural rules (base + permissions), but not cross-references
 	if err := validateMergedStructural(merged); err != nil {
-		return nil, nil, fmt.Errorf("validation failed for project configuration: %w", err)
+		return nil, nil, errors.New(FormatValidationError(dir, err))
 	}
 
 	// Collect cross-reference issues separately
@@ -157,7 +158,7 @@ func parseDirectoryUnvalidated(dir string, dirOpts parseDirConfig, vars map[stri
 		return nil, fmt.Errorf("no *.xcaf files found in directory %q", dir)
 	}
 
-	parsedFiles, err := parseXcafFiles(files, vars, envs)
+	parsedFiles, err := parseXcafFiles(dir, files, vars, envs)
 	if err != nil {
 		return nil, err
 	}
@@ -250,12 +251,12 @@ func scanDirectoryForXcafFiles(dir string) ([]string, []overrideFileEntry, error
 }
 
 // parseXcafFiles parses a list of .xcaf file paths into ParsedFile structs.
-func parseXcafFiles(files []string, vars map[string]interface{}, envs map[string]string) ([]ParsedFile, error) {
+func parseXcafFiles(projectRoot string, files []string, vars map[string]interface{}, envs map[string]string) ([]ParsedFile, error) {
 	var parsedFiles []ParsedFile
 	for _, f := range files {
 		cfg, err := ParseFileExact(f, withVars(vars), withEnvs(envs))
 		if err != nil {
-			return nil, err
+			return nil, FormatParseFileError(projectRoot, f, err)
 		}
 		parsedFiles = append(parsedFiles, ParsedFile{Config: cfg, FilePath: f})
 	}
@@ -284,14 +285,14 @@ func parseDirectoryRaw(dir string, vars map[string]interface{}, envs map[string]
 		return nil, fmt.Errorf("no *.xcaf files found in directory %q", dir)
 	}
 
-	parsedFiles, err := parseXcafFiles(files, vars, envs)
+	parsedFiles, err := parseXcafFiles(dir, files, vars, envs)
 	if err != nil {
 		return nil, err
 	}
 
 	merged, err := mergeAllStrict(parsedFiles)
 	if err != nil {
-		return nil, fmt.Errorf("failed to merge config files in %q: %w", dir, err)
+		return nil, fmt.Errorf("failed to merge config files in %q: %s", dir, FormatValidationError(dir, err))
 	}
 
 	// Parse override files

@@ -173,8 +173,9 @@ func validateSyntax(parseRoot, validatePath string) (*ast.XcaffoldConfig, []pars
 	if err != nil {
 		fmt.Printf("  %s  syntax and schema\n", colorRed(glyphErr()))
 		fmt.Println()
-		fmt.Printf("%s  Validation failed: %v\n", colorRed(glyphErr()), err)
-		return nil, nil, false, err
+		formatted := parser.FormatValidationError(parseRoot, err)
+		fmt.Printf("%s  Validation failed: %s\n", colorRed(glyphErr()), formatted)
+		return nil, nil, false, fmt.Errorf("validation failed: %s", formatted)
 	}
 
 	// Tiered output: syntax and schema pass
@@ -198,7 +199,14 @@ func validateSyntax(parseRoot, validatePath string) (*ast.XcaffoldConfig, []pars
 		}
 	}
 
-	diags := parser.ValidateFile(validatePath)
+	diags, diagErr := parser.ValidateProjectXcafFiles(parseRoot)
+	if diagErr != nil {
+		fmt.Printf("  %s  syntax and schema\n", colorRed(glyphErr()))
+		fmt.Println()
+		formatted := parser.FormatValidationError(parseRoot, diagErr)
+		fmt.Printf("%s  Validation failed: %s\n", colorRed(glyphErr()), formatted)
+		return nil, nil, false, fmt.Errorf("validation failed: %s", formatted)
+	}
 	hasErrors := false
 	if len(diags) > 0 {
 		fmt.Println()
@@ -209,7 +217,7 @@ func validateSyntax(parseRoot, validatePath string) (*ast.XcaffoldConfig, []pars
 				g = colorRed(glyphErr())
 				hasErrors = true
 			}
-			fmt.Printf("    %s  %s\n", g, d.Message)
+			fmt.Printf("    %s  %s\n", g, parser.FormatDiagnosticLine(d))
 		}
 	}
 	if hasErrors {

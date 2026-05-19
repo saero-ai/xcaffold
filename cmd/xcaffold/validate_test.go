@@ -572,3 +572,27 @@ agents: []
 	assert.Contains(t, err.Error(), "circular", "error message must mention circular extends")
 	assert.Contains(t, out, "circular", "output must mention circular extends detection")
 }
+
+func TestValidateCmd_ErrorsIncludeSourceFilePath(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "xcaf", "rules", "bad"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(`kind: project
+version: "1.0"
+name: "test"
+`), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "xcaf", "rules", "bad", "rule.xcaf"), []byte(`kind: rule
+name: bad
+tools: [Read]
+`), 0o600))
+
+	oldPath := xcafPath
+	xcafPath = filepath.Join(dir, "project.xcaf")
+	defer func() { xcafPath = oldPath }()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.Error(t, err)
+	assert.Contains(t, out, "xcaf/rules/bad/rule.xcaf:")
+	assert.Contains(t, err.Error(), "xcaf/rules/bad/rule.xcaf:")
+}
