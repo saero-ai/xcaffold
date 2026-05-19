@@ -231,9 +231,9 @@ func resolveProjectConfig(cmd *cobra.Command) error {
 		configDir = dir
 	}
 
-	// Look for project.xcaf at the root of configDir
-	xcafPath = filepath.Join(configDir, "project.xcaf")
-	if _, err := os.Stat(xcafPath); err != nil {
+	// Find the project manifest (any .xcaf with kind:project)
+	xcafPath = resolver.FindProjectManifestPath(configDir)
+	if xcafPath == "" {
 		xcafPath = configDir
 	}
 

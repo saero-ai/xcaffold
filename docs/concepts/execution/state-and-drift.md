@@ -90,6 +90,8 @@ xcaffold distinguishes two types of divergence:
 
 Detailed per-file hash comparison between the state file and current disk contents. Reports drift labels per file, grouped by provider.
 
+When `--blueprint` is not passed, `xcaffold status` auto-detects the most recently applied state file by scanning all `.xcaf.state` files and comparing `LastApplied` timestamps. After a blueprint-scoped apply, this means status reflects the active blueprint without requiring an explicit `--blueprint` flag.
+
 See [xcaffold status](../../reference/commands/diagnostic/status.md) for flags, sample output, and exit codes.
 
 ## Design Decisions

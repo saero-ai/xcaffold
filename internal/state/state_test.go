@@ -414,3 +414,154 @@ func TestListStateFiles_IgnoresNonStateFiles(t *testing.T) {
 	require.Len(t, files, 1)
 	assert.True(t, strings.HasSuffix(files[0], "project.xcaf.state"))
 }
+
+func TestFindMostRecentState_NoStateDir(t *testing.T) {
+	nonExistent := filepath.Join(t.TempDir(), "nonexistent")
+	manifest, blueprint, err := FindMostRecentState(nonExistent)
+	assert.Nil(t, manifest)
+	assert.Equal(t, "", blueprint)
+	assert.NoError(t, err)
+}
+
+func TestFindMostRecentState_EmptyDir(t *testing.T) {
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, ".xcaffold")
+	require.NoError(t, os.MkdirAll(stateDir, 0755))
+
+	manifest, blueprint, err := FindMostRecentState(stateDir)
+	assert.Nil(t, manifest)
+	assert.Equal(t, "", blueprint)
+	assert.NoError(t, err)
+}
+
+func TestFindMostRecentState_SingleProjectState(t *testing.T) {
+	dir := t.TempDir()
+	manifest := &StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Blueprint:       "",
+		Targets: map[string]TargetState{
+			"claude": {
+				LastApplied: "2026-05-19T10:00:00Z",
+				Artifacts:   []Artifact{{Path: "test.md", Hash: "sha256:abc"}},
+			},
+		},
+	}
+	require.NoError(t, WriteState(manifest, filepath.Join(dir, ".xcaffold", "project.xcaf.state")))
+
+	result, blueprint, err := FindMostRecentState(filepath.Join(dir, ".xcaffold"))
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "", blueprint)
+	assert.Equal(t, 1, result.Version)
+}
+
+func TestFindMostRecentState_SingleBlueprintState(t *testing.T) {
+	dir := t.TempDir()
+	manifest := &StateManifest{
+		Version:         1,
+		XcaffoldVersion: "1.0.0",
+		Blueprint:       "backend",
+		Targets: map[string]TargetState{
+			"claude": {
+				LastApplied: "2026-05-19T10:00:00Z",
+				Artifacts:   []Artifact{{Path: "test.md", Hash: "sha256:abc"}},
+			},
+		},
+	}
+	require.NoError(t, WriteState(manifest, filepath.Join(dir, ".xcaffold", "backend.xcaf.state")))
+
+	result, blueprint, err := FindMostRecentState(filepath.Join(dir, ".xcaffold"))
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "backend", blueprint)
+	assert.Equal(t, 1, result.Version)
+}
+
+func TestFindMostRecentState_MultipleStates_MostRecentWins(t *testing.T) {
+	dir := t.TempDir()
+
+	// project at 10:00
+	project := &StateManifest{
+		Version: 1, XcaffoldVersion: "1.0.0",
+		Targets: map[string]TargetState{
+			"claude": {LastApplied: "2026-05-19T10:00:00Z", Artifacts: []Artifact{{Path: "p.md", Hash: "sha256:p"}}},
+		},
+	}
+	require.NoError(t, WriteState(project, filepath.Join(dir, ".xcaffold", "project.xcaf.state")))
+
+	// backend at 12:00 (most recent)
+	backend := &StateManifest{
+		Version: 1, XcaffoldVersion: "1.0.0", Blueprint: "backend",
+		Targets: map[string]TargetState{
+			"claude": {LastApplied: "2026-05-19T12:00:00Z", Artifacts: []Artifact{{Path: "b.md", Hash: "sha256:b"}}},
+		},
+	}
+	require.NoError(t, WriteState(backend, filepath.Join(dir, ".xcaffold", "backend.xcaf.state")))
+
+	// frontend at 11:00
+	frontend := &StateManifest{
+		Version: 1, XcaffoldVersion: "1.0.0", Blueprint: "frontend",
+		Targets: map[string]TargetState{
+			"claude": {LastApplied: "2026-05-19T11:00:00Z", Artifacts: []Artifact{{Path: "f.md", Hash: "sha256:f"}}},
+		},
+	}
+	require.NoError(t, WriteState(frontend, filepath.Join(dir, ".xcaffold", "frontend.xcaf.state")))
+
+	result, blueprint, err := FindMostRecentState(filepath.Join(dir, ".xcaffold"))
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "backend", blueprint)
+	assert.Equal(t, "backend", result.Blueprint)
+}
+
+func TestFindMostRecentState_IdenticalTimestamps_LexTiebreak(t *testing.T) {
+	dir := t.TempDir()
+	ts := "2026-05-19T10:00:00Z"
+
+	// backend (should win on lexicographic order)
+	backend := &StateManifest{
+		Version: 1, XcaffoldVersion: "1.0.0", Blueprint: "backend",
+		Targets: map[string]TargetState{
+			"claude": {LastApplied: ts, Artifacts: []Artifact{{Path: "b.md", Hash: "sha256:b"}}},
+		},
+	}
+	require.NoError(t, WriteState(backend, filepath.Join(dir, ".xcaffold", "backend.xcaf.state")))
+
+	// frontend (same timestamp)
+	frontend := &StateManifest{
+		Version: 1, XcaffoldVersion: "1.0.0", Blueprint: "frontend",
+		Targets: map[string]TargetState{
+			"claude": {LastApplied: ts, Artifacts: []Artifact{{Path: "f.md", Hash: "sha256:f"}}},
+		},
+	}
+	require.NoError(t, WriteState(frontend, filepath.Join(dir, ".xcaffold", "frontend.xcaf.state")))
+
+	result, blueprint, err := FindMostRecentState(filepath.Join(dir, ".xcaffold"))
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "backend", blueprint)
+}
+
+func TestFindMostRecentState_UnreadableFile_Skipped(t *testing.T) {
+	dir := t.TempDir()
+	stateDir := filepath.Join(dir, ".xcaffold")
+	require.NoError(t, os.MkdirAll(stateDir, 0755))
+
+	// Write one valid state file
+	valid := &StateManifest{
+		Version: 1, XcaffoldVersion: "1.0.0", Blueprint: "backend",
+		Targets: map[string]TargetState{
+			"claude": {LastApplied: "2026-05-19T10:00:00Z", Artifacts: []Artifact{{Path: "b.md", Hash: "sha256:b"}}},
+		},
+	}
+	require.NoError(t, WriteState(valid, filepath.Join(stateDir, "backend.xcaf.state")))
+
+	// Write one corrupt file
+	require.NoError(t, os.WriteFile(filepath.Join(stateDir, "corrupt.xcaf.state"), []byte("{{invalid yaml"), 0600))
+
+	result, blueprint, err := FindMostRecentState(stateDir)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "backend", blueprint)
+}
