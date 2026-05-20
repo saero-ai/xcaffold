@@ -25,6 +25,7 @@ xcaffold status [flags]
 | `--blueprint <name>` | — | `string` | `""` | Read state from the named blueprint's state file. Mutually exclusive with `--global`. |
 | `--global` | `-g` | `bool` | `false` | Read from the global config state (`~/.xcaffold/`). Mutually exclusive with `--blueprint`. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via the `NO_COLOR` environment variable. |
+| `--output-dir <path>` | — | `string` | `""` | Override output directory for drift detection. When omitted, reads the stored output directory from the state manifest. |
 | `--target <name>` | — | `string` | `""` | Focus drift inspection on a single provider (e.g., `claude`, `cursor`, `gemini`). |
 
 ## Behavior
@@ -48,6 +49,12 @@ If `--target` names a provider with no recorded state, the command prints the li
 When used with `--target`, the table appears below that provider's drift summary.
 
 When used without `--target` (overview mode), a per-provider `GROUP` table is appended for every compiled provider after the overview table and drift block, giving a single-command view of all files across all providers.
+
+### Output directory resolution
+
+When `xcaffold apply` was run with `--output-dir`, the state manifest records the output directory per target. `xcaffold status` reads this stored path automatically — no `--output-dir` flag is needed for status checks.
+
+Use `--output-dir` on status to override the stored path (e.g., to check drift at a different location).
 
 ### Flag constraints
 

@@ -56,6 +56,7 @@ type StateManifest struct {
 // for a single compilation target within a StateManifest.
 type TargetState struct {
 	LastApplied string       `yaml:"last-applied"`
+	OutputDir   string       `yaml:"output-dir,omitempty"`
 	Artifacts   []Artifact   `yaml:"artifacts"`
 	SourceFiles []SourceFile `yaml:"source-files,omitempty"`
 }
@@ -67,6 +68,7 @@ type StateOpts struct {
 	BlueprintHash string
 	Target        string
 	BaseDir       string
+	OutputDir     string
 	SourceFiles   []string
 	MemorySeeds   []MemorySeed
 }
@@ -221,6 +223,7 @@ func GenerateState(out *output.Output, opts StateOpts, existing *StateManifest) 
 	sourceFiles := buildSourceFiles(opts)
 	targetState := TargetState{
 		LastApplied: now,
+		OutputDir:   opts.OutputDir,
 		Artifacts:   buildArtifacts(out),
 		SourceFiles: sourceFiles,
 	}
