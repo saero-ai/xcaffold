@@ -32,21 +32,25 @@ var applyProjectFlag string
 var applyBlueprintFlag string
 var targetFlag string
 var varFileFlag string
+var applyOutputDirFlag string
+var applyResolvedOutputDir string // Resolved --output-dir (absolute path)
+var applyStoredOutputDir string   // --output-dir value to persist in state
 
 const scopeGlobal = "global"
 
 // applyContext bundles parameters for the apply phase to reduce function arity.
 type applyContext struct {
-	config        *ast.XcaffoldConfig
-	oldManifest   *state.StateManifest
-	out           *output.Output
-	sourceFiles   []string
-	configPath    string
-	projectName   string
-	outputDir     string
-	baseDir       string
-	stateFilePath string
-	scopeName     string
+	config          *ast.XcaffoldConfig
+	oldManifest     *state.StateManifest
+	out             *output.Output
+	sourceFiles     []string
+	configPath      string
+	projectName     string
+	outputDir       string
+	baseDir         string
+	stateFilePath   string
+	scopeName       string
+	storedOutputDir string // output-dir value to persist in state ("" = default)
 }
 
 var applyCmd = &cobra.Command{
@@ -266,6 +270,7 @@ func (ctx *applyContext) writeState() error {
 		BlueprintHash: bpHash,
 		Target:        targetFlag,
 		BaseDir:       ctx.baseDir,
+		OutputDir:     ctx.storedOutputDir,
 		SourceFiles:   ctx.sourceFiles,
 	}, ctx.oldManifest)
 	if err != nil {
@@ -311,6 +316,7 @@ func init() {
 	applyCmd.Flags().StringVar(&applyBlueprintFlag, "blueprint", "", "Compile a specific blueprint (default: all resources)")
 	applyCmd.Flags().StringVar(&targetFlag, "target", "", fmt.Sprintf("compilation target platform (%s)", strings.Join(providers.PrimaryNames(), ", ")))
 	applyCmd.Flags().StringVar(&varFileFlag, "var-file", "", "Load variables from a custom file")
+	applyCmd.Flags().StringVar(&applyOutputDirFlag, "output-dir", "", "Redirect compiled output to a directory (relative to CWD or absolute)")
 	rootCmd.AddCommand(applyCmd)
 }
 
@@ -318,7 +324,45 @@ func init() {
 // Configs with older versions produce an error requiring the user to update the version field.
 const currentSchemaVersion = "1.0"
 
+// validateOutputDirFlag checks that --output-dir and --global are not both set.
+func validateOutputDirFlag() error {
+	if applyOutputDirFlag != "" && globalFlag {
+		return fmt.Errorf("--output-dir and --global cannot be used together")
+	}
+	return nil
+}
+
+// resolveOutputDir resolves the --output-dir flag value into an absolute path
+// and a storage path for the state manifest. Returns empty strings when the flag
+// is not set (default behavior). The storedPath is relative to projectRoot when
+// inside, absolute when outside.
+func resolveOutputDir(flag, projectRoot string) (resolved, storedPath string, err error) {
+	if flag == "" {
+		return "", "", nil
+	}
+	if filepath.IsAbs(flag) {
+		resolved = filepath.Clean(flag)
+	} else {
+		resolved, err = filepath.Abs(flag)
+		if err != nil {
+			return "", "", fmt.Errorf("--output-dir: could not resolve %q: %w", flag, err)
+		}
+	}
+
+	rel, relErr := filepath.Rel(projectRoot, resolved)
+	if relErr == nil && !strings.HasPrefix(rel, "..") {
+		storedPath = rel + "/"
+	} else {
+		storedPath = resolved + "/"
+	}
+	return resolved, storedPath, nil
+}
+
 func runApply(cmd *cobra.Command, args []string) error {
+	if err := validateOutputDirFlag(); err != nil {
+		return err
+	}
+
 	if applyBlueprintFlag != "" && globalFlag {
 		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
 	}
@@ -349,6 +393,13 @@ func runApply(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("internal error: project root not resolved; run from a directory containing project.xcaf")
 	}
 
+	resolvedOutDir, storedOutputDir, err := resolveOutputDir(applyOutputDirFlag, projectRoot)
+	if err != nil {
+		return err
+	}
+	applyResolvedOutputDir = resolvedOutDir
+	applyStoredOutputDir = storedOutputDir
+
 	// Determine which targets to compile.
 	// Priority: --target flag > blueprint targets > project targets > error
 	targets := resolveTargets(cmd, projectRoot, applyBlueprintFlag)
@@ -358,7 +409,12 @@ func runApply(cmd *cobra.Command, args []string) error {
 
 	for _, t := range targets {
 		targetFlag = t
-		outDir := filepath.Join(projectRoot, compiler.OutputDir(t))
+		var outDir string
+		if resolvedOutDir != "" {
+			outDir = filepath.Join(resolvedOutDir, compiler.OutputDir(t))
+		} else {
+			outDir = filepath.Join(projectRoot, compiler.OutputDir(t))
+		}
 		if err := applyScope(xcafPath, outDir, projectRoot, "project"); err != nil {
 			return err
 		}
@@ -441,7 +497,11 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		fmt.Println()
 	}
 
-	promptDenied, err := getUserApplyConfirmation(oldManifest, out, outputDir, baseDir)
+	previewBaseDir := baseDir
+	if applyResolvedOutputDir != "" {
+		previewBaseDir = applyResolvedOutputDir
+	}
+	promptDenied, err := getUserApplyConfirmation(oldManifest, out, outputDir, previewBaseDir)
 	if err != nil {
 		return err
 	}
@@ -451,17 +511,25 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		return nil
 	}
 
+	// Override baseDir for writing root files when --output-dir is set.
+	// stateFilePath is already computed from baseDir (projectRoot) above.
+	ctxBaseDir := baseDir
+	if applyResolvedOutputDir != "" {
+		ctxBaseDir = applyResolvedOutputDir
+	}
+
 	ctx := &applyContext{
-		config:        config,
-		configPath:    configPath,
-		projectName:   projectName,
-		outputDir:     outputDir,
-		baseDir:       baseDir,
-		stateFilePath: stateFilePath,
-		sourceFiles:   sourceFiles,
-		oldManifest:   oldManifest,
-		out:           out,
-		scopeName:     "project",
+		config:          config,
+		configPath:      configPath,
+		projectName:     projectName,
+		outputDir:       outputDir,
+		baseDir:         ctxBaseDir,
+		stateFilePath:   stateFilePath,
+		sourceFiles:     sourceFiles,
+		oldManifest:     oldManifest,
+		out:             out,
+		scopeName:       "project",
+		storedOutputDir: applyStoredOutputDir,
 	}
 	return ctx.completeApply()
 }
@@ -575,7 +643,7 @@ func (ctx *applyContext) completeApply() error {
 		return err
 	}
 
-	printApplySummary(filesWritten)
+	printApplySummary(filesWritten, ctx.outputDir)
 	updateProjectRegistry(ctx.configPath, ctx.baseDir, ctx.projectName, ctx.config)
 
 	return nil
@@ -645,12 +713,17 @@ func getUserApplyConfirmation(oldManifest *state.StateManifest, out *output.Outp
 	return !ok, err
 }
 
-// printApplySummary outputs the apply completion summary.
-func printApplySummary(filesWritten int) {
+// printApplySummary outputs the apply completion summary showing the resolved output directory.
+func printApplySummary(filesWritten int, outputDir string) {
 	fmt.Println()
-	outDirName := compiler.OutputDir(targetFlag)
+	// Compute relative path from cwd for display
+	cwd, _ := os.Getwd()
+	displayPath := outputDir
+	if rel, err := filepath.Rel(cwd, outputDir); err == nil && !filepath.IsAbs(rel) && rel != "." {
+		displayPath = rel
+	}
 	fmt.Printf("%s  Apply complete. %d %s written to %s/\n",
-		colorGreen(glyphOK()), filesWritten, plural(filesWritten, "file", "files"), outDirName)
+		colorGreen(glyphOK()), filesWritten, plural(filesWritten, "file", "files"), displayPath)
 	fmt.Printf("  Run 'xcaffold import' to sync manual edits back to .xcaf sources.\n")
 }
 

@@ -19,6 +19,7 @@ import (
 var statusTargetFlag string
 var statusBlueprintFlag string
 var statusAllFlag bool
+var statusOutputDirFlag string
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
@@ -42,6 +43,7 @@ Use --all to see every tracked file.`,
 func init() {
 	statusCmd.Flags().StringVar(&statusTargetFlag, "target", "", "focus on a single provider")
 	statusCmd.Flags().StringVar(&statusBlueprintFlag, "blueprint", "", "filter by blueprint")
+	statusCmd.Flags().StringVar(&statusOutputDirFlag, "output-dir", "", "override output directory for drift detection")
 	statusCmd.Flags().BoolVar(&statusAllFlag, "all", false, "show all files (default: drifted only)")
 	rootCmd.AddCommand(statusCmd)
 }
@@ -175,6 +177,32 @@ type statusRow struct {
 	noState bool
 }
 
+// resolveStatusOutputDir determines the base and output directories for drift
+// detection. Priority: --output-dir flag > stored output-dir in state > default.
+func resolveStatusOutputDir(dir, target string, ts state.TargetState) (baseDir, outputDir string) {
+	override := statusOutputDirFlag
+	stored := ts.OutputDir
+
+	switch {
+	case override != "":
+		abs, err := filepath.Abs(override)
+		if err != nil {
+			abs = override
+		}
+		return abs, filepath.Join(abs, compiler.OutputDir(target))
+	case stored != "":
+		var base string
+		if filepath.IsAbs(stored) {
+			base = filepath.Clean(stored)
+		} else {
+			base = filepath.Clean(filepath.Join(dir, stored))
+		}
+		return base, filepath.Join(base, compiler.OutputDir(target))
+	default:
+		return dir, filepath.Join(dir, compiler.OutputDir(target))
+	}
+}
+
 // buildProviderRows constructs the table data and drifted files map.
 func buildProviderRows(dir string, manifest *state.StateManifest) ([]statusRow, map[string][]state.DriftEntry) {
 	var rows []statusRow
@@ -182,8 +210,8 @@ func buildProviderRows(dir string, manifest *state.StateManifest) ([]statusRow, 
 
 	for _, name := range sortedTargetKeys(manifest.Targets) {
 		ts := manifest.Targets[name]
-		outputDir := filepath.Join(dir, compiler.OutputDir(name))
-		entries := state.CollectDriftedFiles(dir, outputDir, ts)
+		baseDir, outputDir := resolveStatusOutputDir(dir, name, ts)
+		entries := state.CollectDriftedFiles(baseDir, outputDir, ts)
 		drifted := len(entries)
 		rows = append(rows, statusRow{name: name, count: len(ts.Artifacts), drifted: drifted})
 		if drifted > 0 {
@@ -259,9 +287,9 @@ func printDriftBlock(targets map[string]state.TargetState, allDriftedFiles map[s
 func printAllFilesPerProvider(dir string, manifest *state.StateManifest) {
 	for _, name := range sortedTargetKeys(manifest.Targets) {
 		ts := manifest.Targets[name]
-		outputDir := filepath.Join(dir, compiler.OutputDir(name))
+		baseDir, outputDir := resolveStatusOutputDir(dir, name, ts)
 		fmt.Printf("\n  %s\n\n", bold(name))
-		printAllFilesGrouped(dir, outputDir, ts)
+		printAllFilesGrouped(baseDir, outputDir, ts)
 	}
 }
 
@@ -289,8 +317,8 @@ func runStatusTarget(dir string, manifest *state.StateManifest, target string, s
 	}
 
 	projectName := filepath.Base(dir)
-	outputDir := filepath.Join(dir, compiler.OutputDir(target))
-	driftedEntries := state.CollectDriftedFiles(dir, outputDir, ts)
+	baseDir, outputDir := resolveStatusOutputDir(dir, target, ts)
+	driftedEntries := state.CollectDriftedFiles(baseDir, outputDir, ts)
 	drifted := len(driftedEntries)
 	synced := len(ts.Artifacts) - drifted
 	sourceFiles := aggregateSourceFiles(manifest)

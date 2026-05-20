@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -473,4 +474,49 @@ func TestStatus_ProjectState_NoBlueprintInHeader(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotContains(t, out, "blueprint:")
+}
+
+// TestOutputDir_StatusReadsStoredPath verifies that resolveStatusOutputDir
+// correctly reads a stored output-dir from state.
+func TestOutputDir_StatusReadsStoredPath(t *testing.T) {
+	projDir := t.TempDir()
+	ts := state.TargetState{
+		OutputDir: "custom-output/",
+	}
+
+	origFlag := statusOutputDirFlag
+	statusOutputDirFlag = ""
+	defer func() { statusOutputDirFlag = origFlag }()
+
+	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts)
+	expectedBase := filepath.Clean(filepath.Join(projDir, "custom-output"))
+	if baseDir != expectedBase {
+		t.Errorf("baseDir = %q, want %q", baseDir, expectedBase)
+	}
+	if !strings.Contains(outputDir, ".claude") {
+		t.Errorf("outputDir should contain .claude, got %q", outputDir)
+	}
+}
+
+// TestOutputDir_StatusFlagOverride verifies that the --output-dir flag on status
+// overrides the stored value.
+func TestOutputDir_StatusFlagOverride(t *testing.T) {
+	projDir := t.TempDir()
+	overrideDir := t.TempDir()
+
+	ts := state.TargetState{
+		OutputDir: "stored-path/",
+	}
+
+	origFlag := statusOutputDirFlag
+	statusOutputDirFlag = overrideDir
+	defer func() { statusOutputDirFlag = origFlag }()
+
+	baseDir, outputDir := resolveStatusOutputDir(projDir, "claude", ts)
+	if baseDir != overrideDir {
+		t.Errorf("baseDir = %q, want override %q", baseDir, overrideDir)
+	}
+	if !strings.Contains(outputDir, ".claude") {
+		t.Errorf("outputDir should contain .claude, got %q", outputDir)
+	}
 }

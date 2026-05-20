@@ -27,6 +27,7 @@ xcaffold apply [flags]
 | `--yes` | `-y` | `bool` | `false` | Skip the confirmation prompt. Useful for CI/CD pipelines. |
 | `--no-color` | — | `bool` | `false` | Disable ANSI color and UTF-8 glyphs. Also honoured via `NO_COLOR`. |
 | `--target <name>` | — | `string` | `""` | Compilation target platform (`antigravity`, `claude`, `copilot`, `cursor`, `gemini`). When omitted, reads targets from `project.xcaf`. |
+| `--output-dir <path>` | — | `string` | `""` | Redirect compiled output to a directory (relative to CWD or absolute). Provider files write to `<path>/.claude/`, root files to `<path>/CLAUDE.md`. State remains at project root. |
 | `--var-file <path>` | — | `string` | `""` | Load variables from a custom file instead of the default `xcaf/project.vars`. |
 
 ## Behavior
@@ -50,6 +51,20 @@ When drift is detected, apply lists each affected file with its status (`missing
 ### Multi-target projects
 
 When `--target` is not provided and the `project.xcaf` declares a `targets:` list, apply compiles for each declared target in sequence. Passing `--target` explicitly limits compilation to that single platform.
+
+### Output directory redirection
+
+By default, `apply` writes to the project root. The `--output-dir` flag redirects all output:
+
+```
+xcaffold apply --output-dir=.worktrees/backend/ --blueprint=backend
+```
+
+Provider files write to `<output-dir>/.claude/`, root files to `<output-dir>/CLAUDE.md`. The state manifest remains at `<project-root>/.xcaffold/` with the output directory recorded per target. Subsequent `xcaffold status` reads the stored path automatically.
+
+Relative paths resolve from the current working directory. Absolute paths are used as-is. The directory is created if it doesn't exist.
+
+`--output-dir` cannot be used with `--global`.
 
 ## Exit codes
 

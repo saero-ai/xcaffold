@@ -565,3 +565,41 @@ func TestFindMostRecentState_UnreadableFile_Skipped(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, "backend", blueprint)
 }
+
+func TestOutputDir_Serialization(t *testing.T) {
+	ts := TargetState{
+		LastApplied: "2026-05-20T00:00:00Z",
+		OutputDir:   ".worktrees/backend/",
+		Artifacts:   []Artifact{{Path: "agents/foo.md", Hash: "sha256:abc"}},
+	}
+	data, err := yaml.Marshal(ts)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !strings.Contains(string(data), "output-dir: .worktrees/backend/") {
+		t.Errorf("expected output-dir in YAML, got:\n%s", data)
+	}
+
+	var roundTrip TargetState
+	if err := yaml.Unmarshal(data, &roundTrip); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if roundTrip.OutputDir != ".worktrees/backend/" {
+		t.Errorf("round-trip OutputDir = %q, want %q", roundTrip.OutputDir, ".worktrees/backend/")
+	}
+}
+
+func TestOutputDir_BackwardCompat(t *testing.T) {
+	oldYAML := `last-applied: "2026-01-01T00:00:00Z"
+artifacts:
+  - path: agents/foo.md
+    hash: "sha256:abc"
+`
+	var ts TargetState
+	if err := yaml.Unmarshal([]byte(oldYAML), &ts); err != nil {
+		t.Fatalf("unmarshal old state: %v", err)
+	}
+	if ts.OutputDir != "" {
+		t.Errorf("OutputDir should be empty for old state files, got %q", ts.OutputDir)
+	}
+}
