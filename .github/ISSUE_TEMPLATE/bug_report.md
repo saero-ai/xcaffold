@@ -1,24 +1,26 @@
 ---
 name: Bug report
 about: Create a report to help us improve xcaffold
-title: ''
-labels: 'bug'
-assignees: ''
+labels: bug
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+## Description
+<!-- A clear, concise description of the bug. -->
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Run `xcaffold apply ...`
-2. Look at `.claude/`
-3. See error
+## Environment
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+- **OS**: <!-- e.g. macOS 15.3, Ubuntu 24.04, Windows 11 -->
+- **xcaffold version**: <!-- output of `xcaffold --version` -->
+- **Go version** (if building from source): <!-- output of `go version` -->
 
-**Environment:**
- - OS: [e.g. macOS, Linux, Windows]
- - xcaffold Version: [e.g. `xcaffold -v`]
- - Go Version (if building from source): [e.g. `go version`]
+## Steps to Reproduce
+
+1. <!-- Create a minimal `.xcaf` file -->
+2. <!-- Run `xcaffold apply ...` -->
+3. <!-- Observe error -->
+
+## Expected Behavior
+<!-- What you expected to happen. -->
+
+## Actual Behavior
+<!-- What actually happened. Include full error output if applicable. -->
