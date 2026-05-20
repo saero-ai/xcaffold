@@ -38,6 +38,15 @@ func TestInferKindAndName(t *testing.T) {
 		{"project-root/xcaf/agents/dev/agent.xcaf", "agent", "dev"},
 		{"home/user/xcaf/rules/cli/style/rule.xcaf", "rule", "cli/style"},
 
+		// Nested flat files in category subdirectories — name cannot be inferred
+		{"xcaf/blueprints/composed/full-stack.xcaf", "blueprint", ""},
+		{"xcaf/blueprints/domains/backend.xcaf", "blueprint", ""},
+		{"xcaf/skills/testing/unit-test.xcaf", "skill", ""},
+		{"xcaf/agents/platform/api-gateway.xcaf", "agent", ""},
+
+		// Canonical at depth 3+ still works (baseFilename == kind)
+		{"xcaf/rules/security/auth-check/rule.xcaf", "rule", "security/auth-check"},
+
 		// Invalid cases: no match
 		{"some/other/path/file.xcaf", "", ""},
 		{"xcaf/unknown-dir/test/test.xcaf", "", ""},

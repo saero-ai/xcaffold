@@ -319,3 +319,103 @@ func stringContains(s, substr string) bool {
 	}
 	return false
 }
+
+// TestParse_NestedFlatFile_RequiresExplicitName verifies that a flat .xcaf file inside a
+// category subdirectory requires an explicit name: field — inference returns empty.
+func TestParse_NestedFlatFile_RequiresExplicitName(t *testing.T) {
+	// Blueprint with explicit name in nested flat file — should work
+	dir := t.TempDir()
+	blueprintDir := filepath.Join(dir, "xcaf", "blueprints", "composed")
+	require.NoError(t, os.MkdirAll(blueprintDir, 0755))
+
+	content := "kind: blueprint\nversion: \"1.0\"\nname: full-stack\ncontexts:\n  - main\n"
+	filePath := filepath.Join(blueprintDir, "full-stack.xcaf")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	// Need a project.xcaf to satisfy parser requirements
+	projectContent := "kind: project\nversion: \"1.0\"\nname: test-project\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(projectContent), 0644))
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err, "blueprint with explicit name in nested subdirectory should parse")
+	_, ok := cfg.Blueprints["full-stack"]
+	require.True(t, ok, "blueprint with explicit name should be parsed")
+}
+
+// TestParse_NestedFlatFile_FailsWithoutName verifies that a nested flat file without
+// an explicit name fails validation (for kinds that use inferredName fallback).
+func TestParse_NestedFlatFile_FailsWithoutName(t *testing.T) {
+	// Skill in nested flat file without explicit name — should fail
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "xcaf", "skills", "testing")
+	require.NoError(t, os.MkdirAll(skillDir, 0755))
+
+	content := "kind: skill\nversion: \"1.0\"\ndescription: \"test skill\"\nallowed-tools:\n  - Read\n"
+	filePath := filepath.Join(skillDir, "unit-test.xcaf")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	// Need a project.xcaf to satisfy parser requirements
+	projectContent := "kind: project\nversion: \"1.0\"\nname: test-project\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(projectContent), 0644))
+
+	_, err := ParseDirectory(dir)
+	require.Error(t, err, "nested flat file without explicit name should fail validation")
+}
+
+// TestParse_NestedBlueprint_InferenceNotApplied verifies that blueprints in nested
+// flat file structure (where directory name != filename) cannot use filesystem inference.
+func TestParse_NestedBlueprint_InferenceNotApplied(t *testing.T) {
+	// Blueprint in nested flat file without explicit name — should fail
+	dir := t.TempDir()
+	blueprintDir := filepath.Join(dir, "xcaf", "blueprints", "domains")
+	require.NoError(t, os.MkdirAll(blueprintDir, 0755))
+
+	// Note: No name: field — inference is not applied for nested flat files
+	content := "kind: blueprint\nversion: \"1.0\"\ndescription: \"Backend domain\"\n"
+	filePath := filepath.Join(blueprintDir, "backend.xcaf")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	// Need a project.xcaf to satisfy parser requirements
+	projectContent := "kind: project\nversion: \"1.0\"\nname: test-project\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(projectContent), 0644))
+
+	_, err := ParseDirectory(dir)
+	require.Error(t, err, "blueprint without explicit name in nested subdirectory should fail")
+}
+
+// TestParse_Blueprint_NameMismatchWarning verifies that when a blueprint's
+// declared name differs from the filesystem-inferred name, a warning is emitted.
+// This uses the legacy flat file format where directory name matches the file.
+func TestParse_Blueprint_NameMismatchWarning(t *testing.T) {
+	dir := t.TempDir()
+	// Legacy flat file: xcaf/blueprints/<name>/<name>.xcaf
+	blueprintDir := filepath.Join(dir, "xcaf", "blueprints", "backend")
+	require.NoError(t, os.MkdirAll(blueprintDir, 0755))
+
+	// Blueprint file is 'backend.xcaf' but declares name: frontend
+	content := "kind: blueprint\nversion: \"1.0\"\nname: frontend\n"
+	filePath := filepath.Join(blueprintDir, "backend.xcaf")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
+	// Need a project.xcaf to satisfy parser requirements
+	projectContent := "kind: project\nversion: \"1.0\"\nname: test-project\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "project.xcaf"), []byte(projectContent), 0644))
+
+	cfg, err := ParseDirectory(dir)
+	require.NoError(t, err, "name mismatch must not cause a parse error")
+
+	// Should use the explicit name from YAML, not the inferred one
+	_, ok := cfg.Blueprints["frontend"]
+	require.True(t, ok, "blueprint should use declared name")
+
+	// Should have a warning about the mismatch
+	require.NotEmpty(t, cfg.ParseWarnings, "expected a warning for name mismatch")
+	found := false
+	for _, w := range cfg.ParseWarnings {
+		if contains(w, "frontend") && contains(w, "backend") {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "expected warning mentioning both declared and inferred names, got: %v", cfg.ParseWarnings)
+}
