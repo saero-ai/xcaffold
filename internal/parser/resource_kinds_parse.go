@@ -469,6 +469,22 @@ func parseBlueprintDocument(b []byte, config *ast.XcaffoldConfig, sourceFile, in
 	if err := dec.Decode(&doc); err != nil {
 		return wrapDecodeError("blueprint", err)
 	}
+	// Warn if YAML name differs from inferred name (when both are present)
+	if doc.Name != "" && inferredName != "" && doc.Name != inferredName {
+		config.ParseWarnings = append(config.ParseWarnings, fmt.Sprintf("%s declares name: %q but path implies name: %q", sourceFile, doc.Name, inferredName))
+	}
+	// Filesystem-as-schema inference: use inferred name if YAML name is empty
+	wasInferred := false
+	if doc.Name == "" && inferredName != "" {
+		doc.Name = inferredName
+		doc.BlueprintConfig.Name = inferredName
+		wasInferred = true
+	}
+	if wasInferred {
+		if err := validateID("blueprint", inferredName); err != nil {
+			return fmt.Errorf("filesystem-inferred name %q: %w", inferredName, err)
+		}
+	}
 	if err := validateEnvelope(doc.Version, doc.Name, "blueprint"); err != nil {
 		return err
 	}

@@ -135,7 +135,17 @@ func inferKindAndName(filePath string) (kind, name string) {
 		return kind, name
 	}
 
-	// Legacy: name is parts[xcafIdx+2] with .xcaf stripped
+	// Depth 3+: file is inside a subdirectory of the kind directory.
+	// Legacy flat file: xcaf/<kind>/<name>/<name>.xcaf (directory matches filename) — infer name.
+	// Nested flat file: xcaf/<kind>/<subdir>/<file>.xcaf (directory != filename) — cannot infer.
+	if len(parts) >= xcafIdx+4 {
+		if parts[xcafIdx+2] == baseFilename {
+			return kind, baseFilename
+		}
+		return kind, ""
+	}
+
+	// Legacy flat file at kind level: name is the filename
 	name = parts[xcafIdx+2]
 	name = strings.TrimSuffix(name, ".xcaf")
 	return kind, name
@@ -392,7 +402,7 @@ func routeDocument(ctx routeDocumentContext) (string, string, error) {
 		if config.Version == "" {
 			config.Version = extractVersion(docNode)
 		}
-		if parseErr := parseBlueprintDocumentFromNode(docNode, config); parseErr != nil {
+		if parseErr := parseBlueprintDocumentFromNode(docNode, config, resolved.sourcePath, inferredName); parseErr != nil {
 			return "", "", parseErr
 		}
 		return "blueprint", extractScalarField(docNode, "name"), nil
