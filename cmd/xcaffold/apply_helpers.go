@@ -76,6 +76,16 @@ func hasDriftFromState(outputDir, stateFile, baseDir, target string) ([]state.Dr
 		return nil, nil
 	}
 
+	// If the previous apply used --output-dir, root files are stored relative to that dir.
+	// Override baseDir to match where those files actually live.
+	if ts.OutputDir != "" {
+		if filepath.IsAbs(ts.OutputDir) {
+			baseDir = filepath.Clean(ts.OutputDir)
+		} else {
+			baseDir = filepath.Clean(filepath.Join(baseDir, ts.OutputDir))
+		}
+	}
+
 	return state.CollectDriftedFiles(baseDir, outputDir, ts), nil
 }
 
