@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2](https://github.com/saero-ai/xcaffold/compare/v0.7.1...v0.7.2) (2026-05-20)
+
+
+### Bug Fixes
+
+* **parser:** add blueprint name inference and mismatch warnings ([0039915](https://github.com/saero-ai/xcaffold/commit/003991587e0c9dff8c9f1752e5a4f981aedbfa59))
+* **parser:** handle nested flat-file resource name inference ([63b4f73](https://github.com/saero-ai/xcaffold/commit/63b4f73b15c2af4b1ff33dd6b7783e82d854418b))
+* **parser:** handle nested flat-file resource name inference ([1733ba2](https://github.com/saero-ai/xcaffold/commit/1733ba25ac1001926ab45b4740b11babbe42f14a))
+* **parser:** handle nested flat-file resource name inference correctly ([bff12d9](https://github.com/saero-ai/xcaffold/commit/bff12d9fc4e9b226a4175b347421c23a33f5ad77))
+* **parser:** remove rule carve-out and fix skill directory validator ([101bbe4](https://github.com/saero-ai/xcaffold/commit/101bbe4ccaa36978358cd87238bd6dbc0bc71106))
+
 ## [0.7.1](https://github.com/saero-ai/xcaffold/compare/v0.7.0...v0.7.1) (2026-05-19)
 
 
