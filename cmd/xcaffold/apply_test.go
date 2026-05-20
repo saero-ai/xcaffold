@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -1254,4 +1255,74 @@ func TestRenderApplyPreview_CountsCorrectly(t *testing.T) {
 	assert.Equal(t, 2, newC, "should count 2 new files")
 	assert.Equal(t, 1, changedC, "should count 1 changed file")
 	assert.Equal(t, 2, unchangedC, "should count 2 unchanged files")
+}
+
+// TestOutputDir_GlobalMutualExclusion verifies that --output-dir and --global
+// are mutually exclusive on apply.
+func TestOutputDir_GlobalMutualExclusion(t *testing.T) {
+	origOutputDir := applyOutputDirFlag
+	origGlobal := globalFlag
+	defer func() {
+		applyOutputDirFlag = origOutputDir
+		globalFlag = origGlobal
+	}()
+
+	applyOutputDirFlag = "/tmp/test"
+	globalFlag = true
+
+	err := validateOutputDirFlag()
+	require.Error(t, err, "expected error when --output-dir and --global both set")
+	assert.Contains(t, err.Error(), "cannot be used together")
+}
+
+// TestResolveOutputDir verifies path resolution logic for --output-dir flag.
+func TestResolveOutputDir(t *testing.T) {
+	projRoot := t.TempDir()
+	parentDir := filepath.Dir(projRoot)
+
+	tests := []struct {
+		name        string
+		flag        string
+		projectRoot string
+		wantRel     bool
+		wantEmpty   bool
+	}{
+		{
+			name:        "relative path inside project resolves to relative stored",
+			flag:        filepath.Join(projRoot, "output"),
+			projectRoot: projRoot,
+			wantRel:     true,
+		},
+		{
+			name:        "absolute path outside project resolves to absolute stored",
+			flag:        filepath.Join(parentDir, "outside-output"),
+			projectRoot: projRoot,
+			wantRel:     false,
+		},
+		{
+			name:        "empty means default",
+			flag:        "",
+			projectRoot: projRoot,
+			wantEmpty:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resolved, storedPath, err := resolveOutputDir(tt.flag, tt.projectRoot)
+			require.NoError(t, err, "unexpected error: %v", err)
+			if tt.wantEmpty {
+				require.Equal(t, "", resolved, "empty flag should return empty resolved")
+				require.Equal(t, "", storedPath, "empty flag should return empty storedPath")
+				return
+			}
+			require.NotEmpty(t, resolved, "resolved path should not be empty for non-empty flag")
+			require.True(t, strings.HasSuffix(storedPath, "/"), "stored path should end with /")
+			if tt.wantRel {
+				require.False(t, filepath.IsAbs(storedPath), "expected relative stored path, got absolute: %q", storedPath)
+			} else {
+				require.True(t, filepath.IsAbs(storedPath), "expected absolute stored path, got relative: %q", storedPath)
+			}
+		})
+	}
 }

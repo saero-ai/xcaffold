@@ -32,6 +32,7 @@ var applyProjectFlag string
 var applyBlueprintFlag string
 var targetFlag string
 var varFileFlag string
+var applyOutputDirFlag string
 
 const scopeGlobal = "global"
 
@@ -311,6 +312,7 @@ func init() {
 	applyCmd.Flags().StringVar(&applyBlueprintFlag, "blueprint", "", "Compile a specific blueprint (default: all resources)")
 	applyCmd.Flags().StringVar(&targetFlag, "target", "", fmt.Sprintf("compilation target platform (%s)", strings.Join(providers.PrimaryNames(), ", ")))
 	applyCmd.Flags().StringVar(&varFileFlag, "var-file", "", "Load variables from a custom file")
+	applyCmd.Flags().StringVar(&applyOutputDirFlag, "output-dir", "", "Redirect compiled output to a directory (relative to CWD or absolute)")
 	rootCmd.AddCommand(applyCmd)
 }
 
@@ -318,7 +320,45 @@ func init() {
 // Configs with older versions produce an error requiring the user to update the version field.
 const currentSchemaVersion = "1.0"
 
+// validateOutputDirFlag checks that --output-dir and --global are not both set.
+func validateOutputDirFlag() error {
+	if applyOutputDirFlag != "" && globalFlag {
+		return fmt.Errorf("--output-dir and --global cannot be used together")
+	}
+	return nil
+}
+
+// resolveOutputDir resolves the --output-dir flag value into an absolute path
+// and a storage path for the state manifest. Returns empty strings when the flag
+// is not set (default behavior). The storedPath is relative to projectRoot when
+// inside, absolute when outside.
+func resolveOutputDir(flag, projectRoot string) (resolved, storedPath string, err error) {
+	if flag == "" {
+		return "", "", nil
+	}
+	if filepath.IsAbs(flag) {
+		resolved = filepath.Clean(flag)
+	} else {
+		resolved, err = filepath.Abs(flag)
+		if err != nil {
+			return "", "", fmt.Errorf("--output-dir: could not resolve %q: %w", flag, err)
+		}
+	}
+
+	rel, relErr := filepath.Rel(projectRoot, resolved)
+	if relErr == nil && !strings.HasPrefix(rel, "..") {
+		storedPath = rel + "/"
+	} else {
+		storedPath = resolved + "/"
+	}
+	return resolved, storedPath, nil
+}
+
 func runApply(cmd *cobra.Command, args []string) error {
+	if err := validateOutputDirFlag(); err != nil {
+		return err
+	}
+
 	if applyBlueprintFlag != "" && globalFlag {
 		return fmt.Errorf("--blueprint cannot be used with --global (blueprints are project-scoped)")
 	}
