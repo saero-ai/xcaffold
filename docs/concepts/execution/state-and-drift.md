@@ -67,6 +67,22 @@ Skill subdirectory files (`references/`, `scripts/`, `assets/`, `examples/`) are
 
 When a supporting file is added, removed, or modified, `xcaffold status` reports it as artifact drift for the affected provider. The same orphan cleanup logic applies: if a supporting file is removed from the source `xcaf/skills/<id>/` directory, the corresponding output file is deleted on the next `xcaffold apply` and its entry is removed from the state file.
 
+### Custom output directories
+
+When `xcaffold apply --output-dir=<path>` is used, the state manifest records the output directory per target:
+
+```yaml
+targets:
+  claude:
+    last-applied: "2026-05-20T10:00:00Z"
+    output-dir: ".worktrees/backend/"
+    artifacts:
+      - path: agents/my-agent/agent.md
+        hash: "sha256:abc123"
+```
+
+`xcaffold status` reads the stored `output-dir` to check drift at the correct location. Paths inside the project root are stored as relative paths; paths outside are stored as absolute paths. An empty (absent) `output-dir` means the default location (project root).
+
 ## Source Drift vs. Artifact Drift
 
 xcaffold distinguishes two types of divergence:
