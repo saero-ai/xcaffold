@@ -97,22 +97,39 @@ func TestParse_FilesystemInference_ValidatesInferredName(t *testing.T) {
 	require.Error(t, err, "expected error for problematic path")
 }
 
-// TestParse_FilesystemInference_SlashExceptionScopedToRule tests that / is allowed
-// only in rule IDs (and is interpreted as a path component).
-func TestParse_FilesystemInference_SlashExceptionScopedToRule(t *testing.T) {
+// TestParse_FilesystemInference_NestedFlatRule_RequiresExplicitName tests that a
+// non-canonical rule file in a subdirectory requires an explicit name: field.
+// Scoped canonical rules (xcaf/rules/cli/go-code-quality/rule.xcaf) still infer
+// correctly via the canonical branch.
+func TestParse_FilesystemInference_NestedFlatRule_RequiresExplicitName(t *testing.T) {
 	dir := t.TempDir()
 	ruleDir := filepath.Join(dir, "xcaf", "rules", "cli")
 	require.NoError(t, os.MkdirAll(ruleDir, 0755))
 
-	// Rule with NO explicit name — should infer "cli" from directory
+	// Non-canonical rule at depth 3 without name: — inference returns empty, parse fails
 	content := "---\nkind: rule\nversion: \"1.0\"\ndescription: Build the Go CLI\n---\nBuild instructions.\n"
 	filePath := filepath.Join(ruleDir, "build-go-cli.xcaf")
 	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 
+	_, err := ParseDirectory(dir)
+	require.Error(t, err, "nested flat rule without explicit name should fail")
+}
+
+// TestParse_FilesystemInference_NestedFlatRule_WithExplicitName tests that a
+// non-canonical rule file in a subdirectory works when name: is provided.
+func TestParse_FilesystemInference_NestedFlatRule_WithExplicitName(t *testing.T) {
+	dir := t.TempDir()
+	ruleDir := filepath.Join(dir, "xcaf", "rules", "cli")
+	require.NoError(t, os.MkdirAll(ruleDir, 0755))
+
+	content := "---\nkind: rule\nversion: \"1.0\"\nname: build-go-cli\ndescription: Build the Go CLI\n---\nBuild instructions.\n"
+	filePath := filepath.Join(ruleDir, "build-go-cli.xcaf")
+	require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+
 	cfg, err := ParseDirectory(dir)
-	require.NoError(t, err, "expected successful parse for rule with / in path")
-	_, ok := cfg.Rules["cli"]
-	require.True(t, ok, "expected rule 'cli' inferred from path xcaf/rules/cli/")
+	require.NoError(t, err, "nested flat rule with explicit name should parse")
+	_, ok := cfg.Rules["build-go-cli"]
+	require.True(t, ok, "expected rule keyed by explicit YAML name")
 }
 
 // TestParse_FilesystemInference_SkipsWhenExplicitName tests that explicit name in YAML

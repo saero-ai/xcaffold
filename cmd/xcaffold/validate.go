@@ -239,11 +239,17 @@ func validateSkillDirs(cfg *ast.XcaffoldConfig, parseRoot string, hasErrors *boo
 			if !entry.IsDir() {
 				continue
 			}
-			skillDirCount++
 			skillDir := filepath.Join(xcafSkillsDir, entry.Name())
-			// Look up the skill's artifacts from the config
+			// Only validate directories that correspond to a parsed skill.
+			// Subdirectories not matching any skill ID are category directories
+			// containing nested flat .xcaf files — skip them.
+			skill, ok := cfg.Skills[entry.Name()]
+			if !ok {
+				continue
+			}
+			skillDirCount++
 			var artifacts []string
-			if skill, ok := cfg.Skills[entry.Name()]; ok {
+			if len(skill.Artifacts) > 0 {
 				artifacts = skill.Artifacts
 			}
 			result := parser.ValidateSkillDirectory(skillDir, entry.Name(), artifacts)

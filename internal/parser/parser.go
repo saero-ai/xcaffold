@@ -135,24 +135,13 @@ func inferKindAndName(filePath string) (kind, name string) {
 		return kind, name
 	}
 
-	// For files at depth 3+: check if the intermediate directory matches the filename.
-	// Rules are special: they support namespacing where directory names become part of the rule ID.
-	// Legacy flat file: xcaf/<kind>/<name>/<name>.xcaf (directory name matches filename)
-	// Nested flat file: xcaf/<kind>/<subdir>/<file>.xcaf (directory name does NOT match filename)
-	const ruleKind = "rule"
+	// Depth 3+: file is inside a subdirectory of the kind directory.
+	// Legacy flat file: xcaf/<kind>/<name>/<name>.xcaf (directory matches filename) — infer name.
+	// Nested flat file: xcaf/<kind>/<subdir>/<file>.xcaf (directory != filename) — cannot infer.
 	if len(parts) >= xcafIdx+4 {
-		directoryName := parts[xcafIdx+2]
-		if directoryName == baseFilename {
-			// Legacy flat file: use the directory/filename as the name
+		if parts[xcafIdx+2] == baseFilename {
 			return kind, baseFilename
 		}
-		// Rules support namespacing: infer from directory path even if filename differs
-		if kind == ruleKind {
-			nameSegments := parts[xcafIdx+2 : len(parts)-1]
-			name = strings.Join(nameSegments, "/")
-			return kind, name
-		}
-		// For other kinds: can't infer name from subdirectory structure
 		return kind, ""
 	}
 
