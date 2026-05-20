@@ -643,7 +643,7 @@ func (ctx *applyContext) completeApply() error {
 		return err
 	}
 
-	printApplySummary(filesWritten)
+	printApplySummary(filesWritten, ctx.outputDir)
 	updateProjectRegistry(ctx.configPath, ctx.baseDir, ctx.projectName, ctx.config)
 
 	return nil
@@ -713,12 +713,17 @@ func getUserApplyConfirmation(oldManifest *state.StateManifest, out *output.Outp
 	return !ok, err
 }
 
-// printApplySummary outputs the apply completion summary.
-func printApplySummary(filesWritten int) {
+// printApplySummary outputs the apply completion summary showing the resolved output directory.
+func printApplySummary(filesWritten int, outputDir string) {
 	fmt.Println()
-	outDirName := compiler.OutputDir(targetFlag)
+	// Compute relative path from cwd for display
+	cwd, _ := os.Getwd()
+	displayPath := outputDir
+	if rel, err := filepath.Rel(cwd, outputDir); err == nil && !filepath.IsAbs(rel) && rel != "." {
+		displayPath = rel
+	}
 	fmt.Printf("%s  Apply complete. %d %s written to %s/\n",
-		colorGreen(glyphOK()), filesWritten, plural(filesWritten, "file", "files"), outDirName)
+		colorGreen(glyphOK()), filesWritten, plural(filesWritten, "file", "files"), displayPath)
 	fmt.Printf("  Run 'xcaffold import' to sync manual edits back to .xcaf sources.\n")
 }
 

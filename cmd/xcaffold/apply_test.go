@@ -1326,3 +1326,40 @@ func TestResolveOutputDir(t *testing.T) {
 		})
 	}
 }
+
+// TestOutputDir_CrossScope_StoredPathReadable verifies that cross-scope cleanup reads stored
+// OutputDir from state files. Create a temp dir with a state file containing a non-default
+// OutputDir, then verify the state can be read and the OutputDir field is populated.
+func TestOutputDir_CrossScope_StoredPathReadable(t *testing.T) {
+	projDir := t.TempDir()
+	stateDir := filepath.Join(projDir, ".xcaffold")
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	oldManifest := &state.StateManifest{
+		Version: 1,
+		Targets: map[string]state.TargetState{
+			"claude": {
+				LastApplied: "2026-01-01T00:00:00Z",
+				OutputDir:   "custom-out/",
+				Artifacts: []state.Artifact{
+					{Path: "agents/old.md", Hash: "sha256:abc"},
+				},
+			},
+		},
+	}
+	oldPath := filepath.Join(stateDir, "old-blueprint.xcaf.state")
+	if err := state.WriteState(oldManifest, oldPath); err != nil {
+		t.Fatal(err)
+	}
+
+	read, err := state.ReadState(oldPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := read.Targets["claude"]
+	if ts.OutputDir != "custom-out/" {
+		t.Errorf("OutputDir = %q, want %q", ts.OutputDir, "custom-out/")
+	}
+}
