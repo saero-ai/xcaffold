@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/saero-ai/xcaffold/compare/v0.7.2...v0.8.0) (2026-05-20)
+
+
+### Features
+
+* **cli:** add --output-dir flag and path resolution for apply command ([5d45594](https://github.com/saero-ai/xcaffold/commit/5d45594d5b7a512e3615964ddd902c004b56bb4d))
+* **cli:** add --output-dir flag for alternate output directory ([8ed3c26](https://github.com/saero-ai/xcaffold/commit/8ed3c26e836bf1a2f102831ada75c56c0caad42f))
+* **cli:** add --output-dir flag to status command ([c209d06](https://github.com/saero-ai/xcaffold/commit/c209d06e3725dc7edaa5b95c3d8510bd8aad9ec9))
+* **cli:** wire --output-dir flag through apply flow ([d7403b3](https://github.com/saero-ai/xcaffold/commit/d7403b3f0d3bb7fcd61eff362bc4cf7aef84410d))
+* **state:** add OutputDir field to TargetState ([782646f](https://github.com/saero-ai/xcaffold/commit/782646fec6e93e4075886580fed8f0f35450691c))
+
+
+### Bug Fixes
+
+* **cli:** use stored output-dir for drift detection in apply safeguard ([9e0d3d3](https://github.com/saero-ai/xcaffold/commit/9e0d3d36b05b52451a8efeec8f15bf372a367238))
+
 ## [0.7.2](https://github.com/saero-ai/xcaffold/compare/v0.7.1...v0.7.2) (2026-05-20)
 
 
