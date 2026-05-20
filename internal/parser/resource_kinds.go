@@ -149,12 +149,12 @@ func isValidResourceName(name string) bool {
 // parseBlueprintDocumentFromNode is a wrapper that converts a yaml.Node to bytes
 // and calls parseBlueprintDocument. This is used for the special parsing case in parser.go
 // where blueprint documents are parsed directly from nodes.
-func parseBlueprintDocumentFromNode(node *yaml.Node, config *ast.XcaffoldConfig) error {
+func parseBlueprintDocumentFromNode(node *yaml.Node, config *ast.XcaffoldConfig, sourceFile, inferredName string) error {
 	b, err := nodeToBytes(node)
 	if err != nil {
 		return fmt.Errorf("failed to marshal blueprint document: %w", err)
 	}
-	return parseBlueprintDocument(b, config, "", "")
+	return parseBlueprintDocument(b, config, sourceFile, inferredName)
 }
 
 // extractKind reads the "kind" value from a yaml.Node MappingNode
