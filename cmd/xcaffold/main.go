@@ -199,7 +199,11 @@ func resolveGlobalConfig(cmd *cobra.Command) error {
 }
 
 func resolveProjectConfig(cmd *cobra.Command) error {
-	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "registry" || cmd.Name() == "help" {
+	if cmd.Name() == "init" || cmd.Name() == "import" || cmd.Name() == "help" {
+		return nil
+	}
+	// Check if parent command is "registry" (for subcommands like "registry list")
+	if cmd.HasParent() && cmd.Parent().Name() == "registry" {
 		return nil
 	}
 	var configDir string
