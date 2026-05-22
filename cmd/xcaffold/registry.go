@@ -31,7 +31,7 @@ var registryListCmd = &cobra.Command{
 var registryAddCmd = &cobra.Command{
 	Use:   "add PATH",
 	Short: "Register a new project",
-	Long:  "Register a project from its filesystem path. The project must contain a project.xcf file.",
+	Long:  "Register a project from its filesystem path. The project must contain a project.xcaf file.",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runRegistryAdd,
 }
@@ -153,11 +153,11 @@ func runRegistryAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("path does not exist: %s", absPath)
 	}
 
-	// Try to infer name and targets from project.xcf
+	// Try to infer name and targets from project.xcaf
 	var name string
 	var targets []string
 
-	projectXcf := filepath.Join(absPath, "project.xcf")
+	projectXcf := filepath.Join(absPath, "project.xcaf")
 	if cfg, err := parser.ParseFile(projectXcf); err == nil && cfg.Project != nil {
 		name = cfg.Project.Name
 		targets = cfg.Project.Targets
@@ -250,7 +250,7 @@ func runRegistryInfo(cmd *cobra.Command, args []string) error {
 	}
 	cmd.Printf("  Exists:      %v\n", info.Exists)
 	cmd.Printf("  Has xcaf/:   %v\n", info.HasXcafDir)
-	cmd.Printf("  Has project.xcf: %v\n", info.HasProjectXcf)
+	cmd.Printf("  Has project.xcaf: %v\n", info.HasProjectXcf)
 	cmd.Println()
 
 	return nil
@@ -262,7 +262,7 @@ func projectStatus(p registry.Project) string {
 		return "stale"
 	}
 	xcafPath := filepath.Join(p.Path, "xcaf")
-	projPath := filepath.Join(p.Path, "project.xcf")
+	projPath := filepath.Join(p.Path, "project.xcaf")
 	if _, err := os.Stat(xcafPath); err != nil {
 		if _, err := os.Stat(projPath); err != nil {
 			return "orphan"

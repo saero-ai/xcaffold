@@ -88,7 +88,8 @@ xcaffold init --global
     skills/              Skill definitions
     rules/               Rule definitions
   state/                 Compilation state for global scope
-  registry.xcaf          Project registry (if not already present)
 ```
 
 Running `init --global` is idempotent. If `~/.xcaffold/xcaf/global.xcaf` already exists, it is not overwritten.
+
+> **Note:** `registry.xcaf` is not created by `init --global`. It is created by `EnsureGlobalHome()`, which runs automatically on the first invocation of any xcaffold command.

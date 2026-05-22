@@ -1,47 +1,67 @@
 ---
 title: "kind: global"
-description: "Declares shared resource definitions inherited by all projects that extend this base config. Produces no output files."
+description: "Root manifest for user-wide global scope. Declares settings and hooks that apply to all projects."
 ---
 
 # `kind: global`
 
-Declares shared resource definitions inherited by all projects via the `extends:` field in `project.xcaf`. Global configs serve as a base layer — any resource (agent, skill, rule, MCP server, workflow, policy, context, memory, template, settings, hooks) declared in a global config is available to inheriting projects without re-declaring it.
+The root manifest for user-wide global scope. Lives at `~/.xcaffold/xcaf/global.xcaf` and declares settings, hooks, and inline resources that apply to all projects on the machine.
 
-Global configs produce **no output files** on their own. Output is produced only when a project config compiles with `extends:` pointing to this global.
+Resources defined in global scope are **implicitly inherited** by every project. There is no need to add `extends: global` to a project's `project.xcaf` — the compiler calls `loadGlobalBase()` automatically during parsing and merges global resources into the project config with `Inherited = true`.
+
+`xcaffold apply --global` compiles global scope resources and writes output to user-wide provider directories (`~/.claude/`, `~/.gemini/`, etc.), independent of any project. `xcaffold validate --global` validates the global config independently — no project root is required.
 
 Uses **pure YAML format** (no frontmatter `---` delimiters).
 
 > **Required:** `kind`, `version`
 
-## Source Directory
+## Source Location
 
 ```
-xcaf/global/<name>.xcaf
+~/.xcaffold/xcaf/global.xcaf
+```
+
+The global config is a single file. Agents, skills, rules, and other resources in global scope live as separate files under `~/.xcaffold/xcaf/` using the standard directory-per-resource layout:
+
+```
+~/.xcaffold/
+  xcaf/
+    global.xcaf                Root global manifest
+    agents/
+      my-agent/
+        my-agent.xcaf          Global agent definition
+    skills/
+      my-skill/
+        my-skill.xcaf          Global skill definition
+    rules/
+      my-rule/
+        my-rule.xcaf           Global rule definition
+  state/                       Compilation state for global scope
 ```
 
 ## Example Usage
 
-### Shared organization baseline
+### Minimal global config
 
-`xcaf/global/org-baseline.xcaf`:
+`~/.xcaffold/xcaf/global.xcaf`:
+```yaml
+kind: global
+version: "1.0"
+```
+
+This is what `xcaffold init --global` creates. All projects on the machine inherit any resources placed under `~/.xcaffold/xcaf/` as separate files.
+
+### Global config with settings and hooks
+
 ```yaml
 kind: global
 version: "1.0"
 
-extends: ""
-
 settings:
   model: claude-sonnet-4-5
-  effort-level: high
-  language: en
-  output-style: concise
-  default-shell: /bin/zsh
-  include-git-instructions: true
   permissions:
     allow:
       - "Bash(go test ./...)"
-    deny:
-      - "Bash(rm -rf /)"
     default-mode: default
 
 hooks:
@@ -50,90 +70,60 @@ hooks:
       hooks:
         - type: command
           command: echo "global pre-tool-use"
-          async: false
           timeout: 10
-
-agents:
-  code-reviewer:
-    name: code-reviewer
-    description: "Reviews code for correctness and style."
-    model: claude-sonnet-4-5
-    tools: [Read, Glob, Grep]
-
-skills:
-  conventional-commits:
-    name: conventional-commits
-    description: "Enforces conventional commit message format."
-    allowed-tools: [Bash]
-
-rules:
-  no-secrets-in-code:
-    name: no-secrets-in-code
-    description: "Prevents secrets from appearing in source code."
-    always-apply: true
-
-mcp:
-  global-ref-mcp:
-    name: global-ref-mcp
-    type: stdio
-    command: node
-    args: [./global-server.js]
 ```
 
-Project `project.xcaf` inheriting the global:
-```yaml
----
-kind: project
-version: "1.0"
-name: frontend-app
-extends: xcaf/global/org-baseline.xcaf
-targets:
-  - claude
-  - cursor
-  - gemini
----
-```
-
-Project-local resources are defined in `xcaf/` subdirectories (e.g., `xcaf/agents/react-developer/agent.xcaf`), not inline in `project.xcaf`. The compiled output for `frontend-app` includes both project-local resources and the inherited global resources (`code-reviewer`, `conventional-commits`, `no-secrets-in-code`).
+Settings and hooks declared here apply to all projects. Project-level settings and hooks take precedence when both are defined.
 
 ## Field Reference
 
 ### Required Fields
 
-None. Global configs have no required config fields beyond `kind` and `version`.
+None beyond the envelope fields `kind` and `version`.
 
 ### Optional Fields
 
 | Field | Type | Description |
-| :--- | :--- | :--- |
-| `extends` | `string` | Path to a parent global config to inherit from. |
-| `settings` | `map[string]SettingsConfig` | Named settings blocks. Keys are settings IDs. See [`kind: settings`](../provider/settings). |
-| `hooks` | `map[string]NamedHookConfig` | Named hook blocks. Keys are hook block IDs. See [`kind: hooks`](../provider/hooks). |
+|:------|:-----|:------------|
+| `extends` | `string` | Path to a parent config to inherit from. Used for explicit config chaining (separate from the implicit global inheritance). |
+| `settings` | `SettingsConfig` | Settings block (model, permissions, shell, etc.). See [`kind: settings`](../provider/settings). |
+| `hooks` | `HookConfig` | Hook definitions keyed by event name (`PreToolUse`, `PostToolUse`, etc.). See [`kind: hooks`](../provider/hooks). |
 | `agents` | `map[string]AgentConfig` | Inline agent definitions. Keys are agent IDs. |
 | `skills` | `map[string]SkillConfig` | Inline skill definitions. Keys are skill IDs. |
 | `rules` | `map[string]RuleConfig` | Inline rule definitions. Keys are rule IDs. |
 | `mcp` | `map[string]MCPConfig` | Inline MCP server definitions. Keys are server IDs. |
 | `workflows` | `map[string]WorkflowConfig` | Inline workflow definitions. Keys are workflow IDs. |
 | `policies` | `map[string]PolicyConfig` | Inline policy definitions. Keys are policy IDs. |
-| `memory` | `map[string]MemoryConfig` | Inline memory definitions. Keys are memory IDs. |
 | `contexts` | `map[string]ContextConfig` | Inline context definitions. Keys are context IDs. |
-| `blueprints` | `map[string]BlueprintConfig` | Inline blueprint definitions. Keys are blueprint IDs. |
+| `memory` | `map[string]MemoryConfig` | Inline memory definitions. Keys are memory IDs. |
 | `templates` | `map[string]TemplateConfig` | Inline template definitions. Schema-only — parsed but produces no compilation output. |
 
-Resource fields use **inline map format** — each key in the map is the resource ID, and its value is the full resource config object. This differs from `kind: blueprint`, which uses string ID arrays for selection.
-
-**Note:** The `settings` and `hooks` fields shown in the example above use a flat format (keys are event names or setting names directly). The AST type is `map[string]SettingsConfig` and `map[string]NamedHookConfig` respectively — the outer key is the block ID. The parser may accept a flat block as a convenience shorthand for global configs; when using the named map format explicitly, each key is the block ID.
+Resources can be defined inline in `global.xcaf` using map format, but the recommended pattern is to use separate files under `~/.xcaffold/xcaf/` with the standard directory-per-resource layout.
 
 ## Behavior
 
-When a project declares `extends:`, the compiler:
+### Implicit Inheritance
 
-1. Parses the global config at the referenced path.
+Every project automatically inherits global scope resources. During parsing, the compiler:
+
+1. Calls `loadGlobalBase()` to discover and parse `~/.xcaffold/xcaf/`.
 2. Marks all global resources with `Inherited = true`.
 3. Merges global resources into the project's compiled resource set.
-4. Strips inherited resources from local project file output (they are not re-emitted as new `.xcaf` files).
+4. Project-local resources with the same ID override the inherited global resource.
 
-Inherited resources can be overridden by re-declaring the same ID in the project config. The local declaration wins.
+This happens without any `extends:` declaration in `project.xcaf`. The `extends:` field on `globalDocument` is a separate mechanism for chaining one global config to another parent config.
 
-> [!WARNING]
-> Global configs are not validated in isolation — `xcaffold validate` always requires a project root. Run `xcaffold validate` from a project directory that uses `extends:` to reference this global config.
+### Global Apply
+
+`xcaffold apply --global` compiles the global scope and writes output to user-wide provider directories. The output directory is derived from `~/.xcaffold/` — for example, global Claude output goes to `~/.claude/`. Global output is independent of any project's output.
+
+If `--target` is specified with `--global`, the renderer must support global scope (`SupportsGlobalScope()`). Renderers that do not support global scope produce an error.
+
+### Global Validate
+
+`xcaffold validate --global` validates the global config at `~/.xcaffold/xcaf/` independently. No project root is required — the parse root is set to `~/.xcaffold/xcaf/` directly.
+
+## Notes
+
+- `xcaffold init --global` bootstraps the `~/.xcaffold/xcaf/` directory with a starter `global.xcaf` and subdirectories for agents, skills, and rules. It is idempotent.
+- The `~/.xcaffold/` directory itself (and `registry.xcaf`) is created by `EnsureGlobalHome()` on the first run of any xcaffold command, not specifically by `init --global`.

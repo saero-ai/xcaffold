@@ -43,7 +43,7 @@ var globalFlag bool
 // globalXcafPath is the resolved path to global.xcaf.
 var globalXcafPath string
 
-// globalXcafHome is where global.xcaf lives ~/.xcaffold/ by convention.
+// globalXcafHome is where global.xcaf lives, in ~/.xcaffold/xcaf/ by convention.
 var globalXcafHome string
 
 // noColorFlag disables colored output in TTY.
@@ -94,7 +94,7 @@ func init() {
 		"global",
 		"g",
 		false,
-		"Operate on user-wide global config (~/.xcaffold/global.xcaf)",
+		"Operate on user-wide global config (~/.xcaffold/xcaf/)",
 	)
 	rootCmd.PersistentFlags().BoolVar(
 		&noColorFlag,
