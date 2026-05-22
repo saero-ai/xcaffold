@@ -24,7 +24,7 @@ xcaffold --xcaf <kind> [--out [path]]
 | `--xcaf <kind>` | — | `string` | `""` | Display schema for a resource kind (e.g., `agent`, `skill`, `rule`). |
 | `--out [path]` | — | `string` | `""` | Generate a template `.xcaf` file for the requested kind. Without a value, defaults to current directory. Use with `--xcaf`. |
 | `--config <path>` | — | `string` | `""` | Path to project.xcaf (inherited from root). |
-| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (inherited from root). *(Hidden — not yet available)* |
+| `--global` | `-g` | `bool` | `false` | Operate on user-wide global config (inherited from root). |
 | `--no-color` | — | `bool` | `false` | Disable color output (inherited from root). |
 | `--verbose` | — | `bool` | `false` | Show fidelity notes and policy warnings (inherited from root). |
 

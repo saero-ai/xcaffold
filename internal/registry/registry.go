@@ -371,14 +371,16 @@ func readProjects() ([]Project, error) {
 		Kind     string    `yaml:"kind"`
 		Projects []Project `yaml:"projects"`
 	}
-	if err := yaml.Unmarshal(data, &wrapper); err == nil && wrapper.Kind == "registry" {
-		if wrapper.Projects == nil {
-			return []Project{}, nil
-		}
-		return wrapper.Projects, nil
+	if err := yaml.Unmarshal(data, &wrapper); err != nil {
+		return nil, fmt.Errorf("registry file is corrupt: %w. Run 'xcaffold registry prune' or manually fix %s", err, projectsPath)
 	}
-
-	return nil, fmt.Errorf("registry file must declare kind: registry")
+	if wrapper.Kind != "registry" {
+		return nil, fmt.Errorf("registry file must declare kind: registry")
+	}
+	if wrapper.Projects == nil {
+		return []Project{}, nil
+	}
+	return wrapper.Projects, nil
 }
 
 func writeProjects(projects []Project) error {
@@ -395,7 +397,55 @@ func writeProjects(projects []Project) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(projectsPath, data, 0600)
+
+	// Write to temp file first for atomic replacement
+	tmpPath := filepath.Join(home, ".registry.xcaf.tmp")
+	if err := os.WriteFile(tmpPath, data, 0600); err != nil {
+		return err
+	}
+
+	// Atomic rename
+	if err := os.Rename(tmpPath, projectsPath); err != nil {
+		_ = os.Remove(tmpPath) // best effort cleanup
+		return err
+	}
+
+	return nil
+}
+
+// PathExists checks whether a project's path exists on the filesystem.
+func PathExists(p Project) bool {
+	_, err := os.Stat(p.Path)
+	return err == nil
+}
+
+// Prune removes projects with nonexistent paths from the registry.
+// If dryRun is true, only returns the projects that would be pruned without writing.
+// Returns the list of pruned entries.
+func Prune(dryRun bool) ([]Project, error) {
+	projects, err := readProjects()
+	if err != nil {
+		return nil, err
+	}
+
+	var pruned []Project
+	var remaining []Project
+
+	for _, p := range projects {
+		if PathExists(p) {
+			remaining = append(remaining, p)
+		} else {
+			pruned = append(pruned, p)
+		}
+	}
+
+	if !dryRun && len(pruned) > 0 {
+		if err := writeProjects(remaining); err != nil {
+			return nil, err
+		}
+	}
+
+	return pruned, nil
 }
 
 // Register adds a new project or updates an existing one by path.
@@ -442,22 +492,37 @@ func Register(projectPath, name string, targets []string, configDir string) erro
 	return writeProjects(projects)
 }
 
-// Unregister removes a project by name or path.
-func Unregister(nameOrPath string) error {
+// Unregister removes a project by name or path. Returns the removed project
+// and an error if no matching project is found.
+func Unregister(nameOrPath string) (Project, error) {
 	projects, err := readProjects()
 	if err != nil {
-		return err
+		return Project{}, err
 	}
 
 	abs, _ := filepath.Abs(nameOrPath)
+	var removed Project
 	var filtered []Project
+	found := false
+
 	for _, p := range projects {
-		if p.Name != nameOrPath && p.Path != abs {
+		if p.Name == nameOrPath || p.Path == abs {
+			removed = p
+			found = true
+		} else {
 			filtered = append(filtered, p)
 		}
 	}
 
-	return writeProjects(filtered)
+	if !found {
+		return Project{}, fmt.Errorf("no project found matching %q", nameOrPath)
+	}
+
+	if err := writeProjects(filtered); err != nil {
+		return Project{}, err
+	}
+
+	return removed, nil
 }
 
 // List returns all registered projects.
@@ -502,4 +567,40 @@ func UpdateLastApplied(projectPath string) error {
 		}
 	}
 	return nil
+}
+
+// ProjectInfo extends Project with status checks about the project's filesystem state.
+type ProjectInfo struct {
+	Project
+	Exists        bool
+	HasXcafDir    bool
+	HasProjectXcf bool
+}
+
+// Info looks up a project by name or path and returns extended status information.
+// Returns an error if the project is not found in the registry.
+func Info(nameOrPath string) (ProjectInfo, error) {
+	p, err := Resolve(nameOrPath)
+	if err != nil {
+		return ProjectInfo{}, fmt.Errorf("no project found matching %q", nameOrPath)
+	}
+
+	info := ProjectInfo{Project: p}
+	info.Exists = PathExists(p)
+
+	if info.Exists {
+		// Check for xcaf/ subdirectory
+		xcafPath := filepath.Join(p.Path, "xcaf")
+		if fi, err := os.Stat(xcafPath); err == nil && fi.IsDir() {
+			info.HasXcafDir = true
+		}
+
+		// Check for project.xcf file
+		projectXcfPath := filepath.Join(p.Path, "project.xcf")
+		if _, err := os.Stat(projectXcfPath); err == nil {
+			info.HasProjectXcf = true
+		}
+	}
+
+	return info, nil
 }

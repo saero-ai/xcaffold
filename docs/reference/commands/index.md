@@ -49,6 +49,7 @@ All top-level commands accept the following persistent flags:
 | Command | Description |
 |---|---|
 | [`help`](./utility/help.md) | Display help for any command or resource kind schema. |
+| [`registry`](./utility/registry.md) | Manage the global project registry — list, add, remove, prune, inspect. |
 
 ## Quick Reference
 
@@ -115,6 +116,16 @@ xcaffold graph --full
 xcaffold --xcaf agent
 xcaffold --xcaf skill --out .
 xcaffold --xcaf rule --out ./templates/
+
+# Registry
+xcaffold registry list
+xcaffold registry list --json
+xcaffold registry add ~/projects/my-app
+xcaffold registry remove old-project
+xcaffold registry prune
+xcaffold registry prune --dry-run
+xcaffold registry info my-app
+xcaffold registry info my-app --json
 ```
 
 ### Selection & Filter Flags
