@@ -634,6 +634,13 @@ func TestCapabilities_UnsupportedKinds(t *testing.T) {
 	assert.False(t, caps.Memory, "Memory should not be supported")
 }
 
+func TestSupportsGlobalScope_Codex_Blocked(t *testing.T) {
+	r := New()
+	if r.SupportsGlobalScope() {
+		t.Fatal("Codex should NOT support global scope (unverified)")
+	}
+}
+
 // ─── Helper functions ────────────────────────────────────────────────────────
 
 // mapKeys returns the keys of a map as a slice for debugging.

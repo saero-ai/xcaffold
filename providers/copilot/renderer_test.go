@@ -440,6 +440,13 @@ func TestCompileRules_Copilot_NoClaude_FullTranslation(t *testing.T) {
 	}
 }
 
+func TestSupportsGlobalScope_Copilot(t *testing.T) {
+	r := copilot.New()
+	if !r.SupportsGlobalScope() {
+		t.Fatal("Copilot should support global scope")
+	}
+}
+
 // mapKeys returns the sorted list of file keys for error output.
 func mapKeys(m map[string]string) []string {
 	keys := make([]string, 0, len(m))

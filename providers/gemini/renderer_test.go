@@ -526,3 +526,10 @@ func mapKeysGemini(m map[string]string) []string {
 	}
 	return keys
 }
+
+func TestSupportsGlobalScope_Gemini(t *testing.T) {
+	r := &Renderer{}
+	if !r.SupportsGlobalScope() {
+		t.Error("expected Gemini renderer to support global scope")
+	}
+}

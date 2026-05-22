@@ -42,6 +42,12 @@ func (r *Renderer) OutputDir() string {
 	return ".claude"
 }
 
+// SupportsGlobalScope returns true; Claude Code supports user-level global scope
+// compilation for context, agents, rules, skills, MCP, settings, and hooks.
+func (r *Renderer) SupportsGlobalScope() bool {
+	return true
+}
+
 // Capabilities declares the full set of resource kinds this renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{

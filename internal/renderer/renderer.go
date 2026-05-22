@@ -40,6 +40,11 @@ type TargetRenderer interface {
 	// (e.g. ".claude", ".cursor/rules").
 	OutputDir() string
 
+	// SupportsGlobalScope returns whether this renderer supports user-level
+	// (global) scope compilation. Providers that return false will cause
+	// a compilation error when targeted with --global.
+	SupportsGlobalScope() bool
+
 	// Capabilities declares which resource kinds this renderer supports.
 	// The orchestrator uses this to decide whether to call a Compile* method
 	// or emit a RENDERER_KIND_UNSUPPORTED fidelity note.

@@ -45,6 +45,10 @@ func (r *Renderer) Target() string { return targetName }
 // OutputDir returns the base output directory for Gemini CLI.
 func (r *Renderer) OutputDir() string { return ".gemini" }
 
+// SupportsGlobalScope returns true; Gemini CLI supports user-level global scope
+// compilation for context and agents.
+func (r *Renderer) SupportsGlobalScope() bool { return true }
+
 // Capabilities declares the resource kinds the Gemini renderer supports.
 func (r *Renderer) Capabilities() renderer.CapabilitySet {
 	return renderer.CapabilitySet{
