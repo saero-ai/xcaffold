@@ -114,16 +114,24 @@ agents:
 	assert.NoError(t, err, "cross-reference warnings should not fail validation")
 }
 
-func TestValidate_GlobalFlag_ReturnsGuardError(t *testing.T) {
+// TestValidate_GlobalFlag_NoLongerBlocked verifies that the old
+// "global scope is not yet available" guard has been removed.
+// validate may still error (e.g., missing global.xcaf), but not
+// with the old gate message.
+func TestValidate_GlobalFlag_NoLongerBlocked(t *testing.T) {
 	globalFlag = true
 	defer func() { globalFlag = false }()
 
 	err := runValidate(validateCmd, []string{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "global scope is not yet available")
+	if err != nil {
+		assert.NotContains(t, err.Error(), "global scope is not yet available",
+			"validate must not return the old global-scope guard error")
+	}
 }
 
-func TestValidate_GlobalFlag_WithBlueprint_ReturnsGuardError(t *testing.T) {
+// TestValidate_GlobalFlag_WithBlueprint_NoLongerBlocked verifies
+// the same for the blueprint+global combination.
+func TestValidate_GlobalFlag_WithBlueprint_NoLongerBlocked(t *testing.T) {
 	validateBlueprintFlag = "my-blueprint"
 	globalFlag = true
 	defer func() {
@@ -132,8 +140,10 @@ func TestValidate_GlobalFlag_WithBlueprint_ReturnsGuardError(t *testing.T) {
 	}()
 
 	err := runValidate(validateCmd, []string{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "global scope is not yet available")
+	if err != nil {
+		assert.NotContains(t, err.Error(), "global scope is not yet available",
+			"validate must not return the old global-scope guard error")
+	}
 }
 
 // TestCheckBashWithoutHook_ProjectHook_NoWarn verifies that a project-level
@@ -814,4 +824,51 @@ agents: [worker]
 	// because cfg was mutated by Compile and the corrupted cfg was used in the next iteration.
 	assert.NotContains(t, out, "blueprint \"test-blueprint\" references", "output must not contain blueprint reference errors on multi-target loop",
 		"hint: blueprint errors indicate the cfg mutation bug (configSnapshot not passed to Compile)")
+}
+
+// TestValidate_Global_ParsesCorrectPath verifies that validate --global parses
+// the global xcaf directory (~/.xcaffold/xcaf) instead of the CWD.
+func TestValidate_Global_ParsesCorrectPath(t *testing.T) {
+	homeDir := t.TempDir()
+	globalHome := filepath.Join(homeDir, ".xcaffold")
+	globalXcafDir := filepath.Join(globalHome, "xcaf")
+	require.NoError(t, os.MkdirAll(globalXcafDir, 0755))
+
+	// Create a valid global config
+	globalXcaf := filepath.Join(globalXcafDir, "global.xcaf")
+	require.NoError(t, os.WriteFile(globalXcaf, []byte(`kind: project
+version: "1.0"
+name: global
+targets: [claude]
+`), 0600))
+
+	// Also create a project.xcaf in CWD to ensure we don't accidentally parse it
+	cwdXcaf := filepath.Join(t.TempDir(), "project.xcaf")
+	require.NoError(t, os.WriteFile(cwdXcaf, []byte(`kind: project
+version: "1.0"
+name: cwd-project
+targets: [cursor]
+`), 0600))
+
+	// Set up global scope flags
+	oldGlobal := globalFlag
+	oldHome := globalXcafHome
+	oldPath := xcafPath
+	globalFlag = true
+	globalXcafHome = globalHome
+	xcafPath = cwdXcaf // This should be ignored when globalFlag=true
+	defer func() {
+		globalFlag = oldGlobal
+		globalXcafHome = oldHome
+		xcafPath = oldPath
+	}()
+
+	out, err := captureValidateOutput(func() error {
+		return runValidate(validateCmd, []string{})
+	})
+	require.NoError(t, err, "validate --global should succeed:\n%s", out)
+
+	// Verify it parsed the global config, not the CWD one
+	// The global project name is "global", so output should contain it
+	assert.Contains(t, out, "global", "output should contain global project name")
 }

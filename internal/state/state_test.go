@@ -603,3 +603,48 @@ artifacts:
 		t.Errorf("OutputDir should be empty for old state files, got %q", ts.OutputDir)
 	}
 }
+
+func TestGlobalStateDir_ReturnsCorrectPath(t *testing.T) {
+	t.Setenv("XCAFFOLD_HOME", "")
+	// This will use the real home directory, so just verify the suffix
+	globalStateDir, err := GlobalStateDir()
+	require.NoError(t, err)
+	assert.True(t, strings.HasSuffix(globalStateDir, "/.xcaffold/state"),
+		"GlobalStateDir should end with /.xcaffold/state, got %s", globalStateDir)
+}
+
+func TestGlobalStateDir_RespectsXCAFFOLD_HOME(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("XCAFFOLD_HOME", tmpHome)
+
+	globalStateDir, err := GlobalStateDir()
+	require.NoError(t, err)
+
+	expectedPath := filepath.Join(tmpHome, "state")
+	assert.Equal(t, expectedPath, globalStateDir)
+}
+
+func TestGlobalStateDir_CreatesDirectoryIfNeeded(t *testing.T) {
+	tmpHome := t.TempDir()
+	t.Setenv("XCAFFOLD_HOME", tmpHome)
+
+	globalStateDir, err := GlobalStateDir()
+	require.NoError(t, err)
+
+	// Directory shouldn't exist yet
+	_, err = os.Stat(globalStateDir)
+	assert.True(t, os.IsNotExist(err), "GlobalStateDir should not create the directory itself")
+
+	// But WriteState should be able to create it
+	manifest := &StateManifest{
+		Version: 1,
+		Targets: map[string]TargetState{},
+	}
+	statePath := filepath.Join(globalStateDir, "test.xcaf.state")
+	err = WriteState(manifest, statePath)
+	require.NoError(t, err)
+
+	// Now it should exist
+	_, err = os.Stat(globalStateDir)
+	assert.NoError(t, err, "globalStateDir should exist after WriteState")
+}

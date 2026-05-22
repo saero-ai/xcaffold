@@ -756,10 +756,43 @@ func writeXCAFDirectory(baseDir string, ans wizardAnswers) error {
 	return WriteProjectFile(config, baseDir)
 }
 
-// initGlobal reports that global scope is not yet available.
+// initGlobal bootstraps the global .xcaffold/ configuration directory structure.
+// It creates ~/.xcaffold/xcaf/ with global.xcaf template and subdirectories,
+// plus ~/.xcaffold/state/. Idempotent: does not overwrite existing global.xcaf.
 func initGlobal() error {
-	fmt.Printf("\n  %s Global scope is not available yet.\n", glyphErr())
-	fmt.Printf("\n%s Run 'xcaffold init' to initialize a project-level scaffold.\n", glyphArrow())
+	xcafDir := filepath.Join(globalXcafHome, "xcaf")
+	stateDir := filepath.Join(globalXcafHome, "state")
+
+	// Create xcaf/ and state/ directories
+	if err := os.MkdirAll(xcafDir, 0755); err != nil {
+		return fmt.Errorf("could not create xcaf directory: %w", err)
+	}
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return fmt.Errorf("could not create state directory: %w", err)
+	}
+
+	// Create subdirectories silently (skip if already exist)
+	for _, subdir := range []string{"agents", "skills", "rules"} {
+		_ = os.MkdirAll(filepath.Join(xcafDir, subdir), 0755)
+	}
+
+	// Create global.xcaf if it doesn't exist
+	globalXcafFile := filepath.Join(xcafDir, "global.xcaf")
+	if _, err := os.Stat(globalXcafFile); err == nil {
+		// File exists, don't overwrite
+		fmt.Printf("\n  %s Global configuration already exists at %s/xcaf/global.xcaf\n",
+			glyphNever(), globalXcafHome)
+		return nil
+	}
+
+	// Write starter global.xcaf template
+	template := "kind: global\nversion: \"1.0\"\n"
+	if err := os.WriteFile(globalXcafFile, []byte(template), 0644); err != nil {
+		return fmt.Errorf("could not write global.xcaf: %w", err)
+	}
+
+	fmt.Printf("\n  %s Global configuration initialized at %s/xcaf/\n",
+		colorGreen(glyphOK()), globalXcafHome)
 	return nil
 }
 

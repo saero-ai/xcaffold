@@ -378,6 +378,16 @@ func runApply(cmd *cobra.Command, args []string) error {
 	}
 
 	if globalFlag {
+		// Enforce SupportsGlobalScope for explicit target flag
+		if targetFlag != "" {
+			r, err := compiler.ResolveRenderer(targetFlag)
+			if err != nil {
+				return fmt.Errorf("target %q: %w", targetFlag, err)
+			}
+			if !r.SupportsGlobalScope() {
+				return fmt.Errorf("target %q does not support global (user-level) scope compilation", targetFlag)
+			}
+		}
 		// globalXcafHome is ~/.xcaffold/ — the source directory.
 		// Global artifacts are written one level up (~/), into ~/.claude/ etc.
 		globalOutDir := filepath.Join(filepath.Dir(globalXcafHome), compiler.OutputDir(targetFlag))
@@ -528,7 +538,7 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 		sourceFiles:     sourceFiles,
 		oldManifest:     oldManifest,
 		out:             out,
-		scopeName:       "project",
+		scopeName:       scopeName,
 		storedOutputDir: applyStoredOutputDir,
 	}
 	return ctx.completeApply()
@@ -536,8 +546,23 @@ func applyScope(configPath, outputDir, baseDir, scopeName string) error {
 
 // setupApplyPhase initializes the apply process by setting up state and source files.
 func setupApplyPhase(baseDir string, config *ast.XcaffoldConfig, outputDir, scopeName string) (string, []string) {
-	stateFilePath := state.StateFilePath(baseDir, applyBlueprintFlag)
-	ensureGitignoreEntry(baseDir, ".xcaffold/")
+	var stateFilePath string
+	if scopeName == scopeGlobal {
+		globalStateDir, err := state.GlobalStateDir()
+		if err != nil {
+			fmt.Printf("  %s  Warning: could not determine global state directory: %v\n", colorYellow(glyphSrc()), err)
+			globalStateDir = filepath.Join(baseDir, "state")
+		}
+		// For global scope, use the blueprint name if provided, otherwise "project"
+		blueprintName := "project"
+		if applyBlueprintFlag != "" {
+			blueprintName = filepath.Base(applyBlueprintFlag)
+		}
+		stateFilePath = filepath.Join(globalStateDir, blueprintName+".xcaf.state")
+	} else {
+		stateFilePath = state.StateFilePath(baseDir, applyBlueprintFlag)
+		ensureGitignoreEntry(baseDir, ".xcaffold/")
+	}
 	sourceFiles, _ := prepareSourceFiles(baseDir, targetFlag, varFileFlag)
 
 	if applyBackup && !applyDryRun {
